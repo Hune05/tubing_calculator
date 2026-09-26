@@ -1,5 +1,7 @@
 // 계기 교정 성적서(PDF). 계기·표준기·작업자·교정일·차기 교정일·주위 조건·시험점·센서, 조정 전·조정 후 시험점 표
 // (하강 점이 있으면 히스테리시스 칸)와 판정, 메모, 서명 칸.
+// 스위치 시험 기록은 스위치 설정(동작 방향·동작점·복귀점·허용오차·데드밴드 허용 범위·접점)과
+// 조정 전·후 반복 표(반복·동작점·오차·복귀점·데드밴드·판정)를 적는다.
 // 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
 
@@ -16,6 +18,7 @@ import '../../core/utils/pdf_fonts.dart';
 import '../steel_cutting/screens/steel_pdf_preview_page.dart';
 import 'cal_record.dart';
 import 'signal_calc.dart';
+import 'switch_check.dart';
 
 const PdfColor _ink = PdfColor.fromInt(0xFF1F2933);
 const PdfColor _grey = PdfColor.fromInt(0xFF6B7280);
@@ -218,6 +221,92 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
     );
   }
 
+  // ─── 스위치 시험 ───
+  final sp = r.sw;
+  final swRange = r.switchRange;
+  String sgn(double v) => u.isEmpty ? _signed(v) : '${_signed(v)} $u';
+
+  pw.Widget switchTable(String title, List<SwitchRepeat> reps) {
+    final s = r.switchSummaryOf(reps);
+    final withPct = swRange != null;
+    final hasReset = sp!.resetSet != null || sp.dbSet != null;
+    final headers = [
+      '반복',
+      '동작점$uu',
+      '오차$uu',
+      if (withPct) '오차 %',
+      '복귀점$uu',
+      '데드밴드$uu',
+      if (hasReset) sp.resetSet != null ? '복귀점 오차$uu' : '데드밴드 오차$uu',
+      '판정',
+    ];
+    final rows = <pw.TableRow>[
+      pw.TableRow(
+        decoration: const pw.BoxDecoration(color: _head),
+        children: [for (final h in headers) cell(h, bold: true)],
+      ),
+    ];
+    for (final (i, row) in s.measured) {
+      final v = row.pass;
+      final bad = v == false;
+      final c = bad ? _red : _ink;
+      rows.add(
+        pw.TableRow(
+          decoration: bad ? const pw.BoxDecoration(color: _redBg) : null,
+          children: [
+            cell('반복 ${i + 1}', bold: true),
+            cell(_fmt(row.trip)),
+            cell(_signed(row.err), color: row.tripPass == false ? _red : _ink),
+            if (withPct)
+              cell(row.errPct == null ? '—' : _signed(row.errPct!, 2)),
+            cell(row.reset == null ? '—' : _fmt(row.reset!)),
+            cell(
+              row.deadband == null ? '—' : _fmt(row.deadband!),
+              color: row.dbRangePass == false ? _red : _ink,
+            ),
+            if (hasReset)
+              cell(
+                row.resetErr == null ? '—' : _signed(row.resetErr!),
+                color: row.resetPass == false ? _red : _ink,
+              ),
+            cell(v == null ? '—' : calVerdictText(v), color: c, bold: bad),
+          ],
+        ),
+      );
+    }
+    final w = s.worst;
+    final rp = s.repeatability;
+    final avgDb = s.avgDeadband;
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Text(
+          title,
+          style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+        ),
+        pw.SizedBox(height: 4),
+        pw.Table(
+          border: pw.TableBorder.all(color: _line, width: 0.6),
+          children: rows,
+        ),
+        pw.SizedBox(height: 4),
+        pw.Text(
+          w == null
+              ? '측정값이 없습니다.'
+              : '평균 동작점 ${pv(s.avgTrip!)} · 최대 오차 ${sgn(w.$2.err)} (반복 ${w.$1 + 1})'
+                    '${avgDb == null ? '' : ' · 평균 데드밴드 ${pv(avgDb)}'}'
+                    '${rp == null ? '' : ' · 반복성 ${pv(rp)}'}'
+                    ' · ${calVerdictText(s.pass)}'
+                    '${s.failed.isEmpty ? '' : ' · 불합격: ${s.failed.map((i) => '반복 ${i + 1}').join(', ')}'}',
+          style: pw.TextStyle(
+            fontSize: 9,
+            color: s.pass == false ? _red : _ink,
+          ),
+        ),
+      ],
+    );
+  }
+
   final fin = r.finalPass;
   final doc = pw.Document(theme: fonts.theme);
   doc.addPage(
@@ -246,47 +335,109 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
         pw.SizedBox(height: 4),
         pw.Container(height: 1.2, color: _ink),
         pw.SizedBox(height: 10),
-        pw.Row(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  info('태그 번호', r.tag),
-                  info('계기', r.instrument),
-                  info('제조사·모델', r.model),
-                  info('표준기', r.refStd),
-                  info('주위 조건', r.ambient),
-                  info('시험점', calPointsText(defs)),
-                  if (r.sensor != null)
-                    info('센서', calSensorText(r.sensor, r.cjC)),
-                ],
+        if (sp != null)
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    info('태그 번호', r.tag),
+                    info('계기', r.instrument),
+                    info('제조사·모델', r.model),
+                    info('표준기', r.refStd),
+                    info('주위 조건', r.ambient),
+                    info(
+                      '접점',
+                      sp.contact == null ? '' : switchContactLabel(sp.contact!),
+                    ),
+                    if (r.sensor != null) ...[
+                      info('센서', calSensorText(r.sensor, r.cjC)),
+                      info(
+                        '센서 값',
+                        '동작점 ${switchSensorText(r.sensor!, sp.setpoint, cjC: r.cjC ?? 0)}'
+                            '${sp.resetTarget == null ? '' : ', 복귀점 ${switchSensorText(r.sensor!, sp.resetTarget!, cjC: r.cjC ?? 0)}'}',
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            pw.SizedBox(width: 16),
-            pw.Expanded(
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  info('측정 범위', range),
-                  info('측정 방법', kindLabel(r.kind)),
-                  info('허용오차', tol),
-                  if (r.hystTolPct != null)
-                    info('히스테리시스', '허용값 ${_fmt(r.hystTolPct!)} % (스팬)'),
-                  info('교정일', calDay(r.date)),
-                  info('차기 교정일', r.nextDue == null ? '' : calDay(r.nextDue!)),
-                  info('작업자', r.worker),
-                ],
+              pw.SizedBox(width: 16),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    info('시험 종류', '스위치 시험 (${switchDirLabel(sp.dir)})'),
+                    info('동작점', '설정값 ${pv(sp.setpoint)}'),
+                    if (sp.resetSet != null)
+                      info('복귀점', '설정값 ${pv(sp.resetSet!)}'),
+                    if (sp.dbSet != null) info('데드밴드', '설정값 ${pv(sp.dbSet!)}'),
+                    info(
+                      '허용오차',
+                      switchTolText(sp, u) +
+                          (sp.tolMode == SwitchTolMode.pct &&
+                                  sp.tolUnit(swRange) != null
+                              ? ' (±${pv(sp.tolUnit(swRange)!)})'
+                              : ''),
+                    ),
+                    if (sp.hasDbRange)
+                      info('데드밴드 허용', switchDbRangeText(sp, u)),
+                    if (swRange != null)
+                      info('측정 범위', '${pv(r.lrv)} ~ ${pv(r.urv)}'),
+                    info('교정일', calDay(r.date)),
+                    info('차기 교정일', r.nextDue == null ? '' : calDay(r.nextDue!)),
+                    info('작업자', r.worker),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          )
+        else
+          pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    info('태그 번호', r.tag),
+                    info('계기', r.instrument),
+                    info('제조사·모델', r.model),
+                    info('표준기', r.refStd),
+                    info('주위 조건', r.ambient),
+                    info('시험점', calPointsText(defs)),
+                    if (r.sensor != null)
+                      info('센서', calSensorText(r.sensor, r.cjC)),
+                  ],
+                ),
+              ),
+              pw.SizedBox(width: 16),
+              pw.Expanded(
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    info('측정 범위', range),
+                    info('측정 방법', kindLabel(r.kind)),
+                    info('허용오차', tol),
+                    if (r.hystTolPct != null)
+                      info('히스테리시스', '허용값 ${_fmt(r.hystTolPct!)} % (스팬)'),
+                    info('교정일', calDay(r.date)),
+                    info('차기 교정일', r.nextDue == null ? '' : calDay(r.nextDue!)),
+                    info('작업자', r.worker),
+                  ],
+                ),
+              ),
+            ],
+          ),
         pw.SizedBox(height: 10),
-        table('조정 전', r.found),
+        if (sp != null)
+          switchTable('조정 전', r.swFound)
+        else
+          table('조정 전', r.found),
         pw.SizedBox(height: 14),
         if (r.adjusted)
-          table('조정 후', r.left)
+          sp != null ? switchTable('조정 후', r.swLeft) : table('조정 후', r.left)
         else
           pw.Text(
             '조정 후: 조정 없음',
@@ -347,12 +498,22 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
           ],
         ),
         pw.SizedBox(height: 14),
-        pw.Text(
-          '${r.kind == ReadKind.ma ? '오차 % = (측정값 − 이론값) ÷ 16 mA × 100. 이론값은 입력값으로 계산.' : '오차 % = (지시값 − 이론값) ÷ 스팬 × 100.'
-                    '${r.kind == ReadKind.pv ? ' 환산 mA는 지시값에서 역산.' : ''}'}'
-          '${down ? ' 히스테리시스 = |상승 오차 % − 하강 오차 %| (같은 측정점).' : ''}',
-          style: const pw.TextStyle(fontSize: 8, color: _grey),
-        ),
+        if (sp != null)
+          pw.Text(
+            '오차 = 측정한 동작점 − 동작점 설정값. 데드밴드 = |동작점 − 복귀점|. '
+            '반복성 = 동작점의 최대 − 최소.'
+            '${sp.resetSet != null ? ' 복귀점 오차 = 복귀점 − 복귀점 설정값.' : ''}'
+            '${sp.dbSet != null ? ' 데드밴드 오차 = 데드밴드 − 데드밴드 설정값.' : ''}'
+            '${swRange != null ? ' 오차 % = 오차 ÷ 스팬 × 100.' : ''}',
+            style: const pw.TextStyle(fontSize: 8, color: _grey),
+          )
+        else
+          pw.Text(
+            '${r.kind == ReadKind.ma ? '오차 % = (측정값 − 이론값) ÷ 16 mA × 100. 이론값은 입력값으로 계산.' : '오차 % = (지시값 − 이론값) ÷ 스팬 × 100.'
+                      '${r.kind == ReadKind.pv ? ' 환산 mA는 지시값에서 역산.' : ''}'}'
+            '${down ? ' 히스테리시스 = |상승 오차 % − 하강 오차 %| (같은 측정점).' : ''}',
+            style: const pw.TextStyle(fontSize: 8, color: _grey),
+          ),
       ],
     ),
   );

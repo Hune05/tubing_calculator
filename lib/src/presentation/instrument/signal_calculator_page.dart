@@ -1,8 +1,9 @@
 // 4-20mA 계산기(홈 "현장 작업" → 4-20mA 계산기). 탭: 환산(mA·%·측정값, NE43 신호 상태, 5점 환산표) →
 // 교정 점검(입력값 대비 측정값·지시값의 스팬 % 오차, 허용오차 판정, 시험점 3·5·11점과 상승·하강 히스테리시스,
-// 온도 센서 값, 조정 전·후, 기록·성적서) → 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류) →
+// 온도 센서 값, 조정 전·후, 기록·성적서. "스위치"를 고르면 스위치 시험: 동작점·복귀점·데드밴드, 반복 3회) →
+// 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류) →
 // 온도 센서(Pt100·Pt1000·열전대 환산, 냉접점 보상, 5점 표). 칸마다 "?" 안내.
-// 계산은 signal_calc.dart·temp_sensor.dart, 기록은 cal_record.dart, 근거는 docs/4-20mA계산기_근거.md.
+// 계산은 signal_calc.dart·temp_sensor.dart·switch_check.dart, 기록은 cal_record.dart, 근거는 docs/4-20mA계산기_근거.md.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import 'cal_record.dart';
 import 'cal_record_pdf.dart';
 import 'cal_records_page.dart';
 import 'signal_calc.dart';
+import 'switch_check.dart';
 import 'temp_sensor.dart';
 
 String _fmt(double v, [int d = 3]) {
@@ -31,6 +33,9 @@ String _fmt(double v, [int d = 3]) {
 String _signed(double v, [int d = 3]) => '${v > 0 ? '+' : ''}${_fmt(v, d)}';
 
 enum _Input { ma, pct, pv }
+
+/// 스위치 복귀 설정: 없음·복귀점 설정값·데드밴드 설정값.
+enum _ResetRef { none, reset, deadband }
 
 const List<double> _points = kCalPoints;
 
@@ -85,6 +90,35 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   ];
   final _readFocus = [for (var i = 0; i < kMaxCalRows; i++) FocusNode()];
   CalRecord? _editing; // 불러오거나 저장한 기록(고쳐 저장할 때 같은 id)
+
+  // ② 교정 점검: 스위치 시험. 값은 전송기와 따로 보관한다(측정 범위·단위·센서는 같이 씀).
+  bool _switchMode = false;
+  SwitchDir _swDir = SwitchDir.rising;
+  final _swSet = TextEditingController();
+  _ResetRef _swRref = _ResetRef.none;
+  final _swRval = TextEditingController();
+  SwitchTolMode _swTolMode = SwitchTolMode.unit;
+  final _swTol = TextEditingController();
+  final _swDbMin = TextEditingController();
+  final _swDbMax = TextEditingController();
+  SwitchContact? _swContact;
+  final _swFoundTrip = [
+    for (var i = 0; i < kSwitchRepeats; i++) TextEditingController(),
+  ];
+  final _swFoundReset = [
+    for (var i = 0; i < kSwitchRepeats; i++) TextEditingController(),
+  ];
+  final _swLeftTrip = [
+    for (var i = 0; i < kSwitchRepeats; i++) TextEditingController(),
+  ];
+  final _swLeftReset = [
+    for (var i = 0; i < kSwitchRepeats; i++) TextEditingController(),
+  ];
+
+  List<TextEditingController> get _swTrip =>
+      _phaseLeft ? _swLeftTrip : _swFoundTrip;
+  List<TextEditingController> get _swReset =>
+      _phaseLeft ? _swLeftReset : _swFoundReset;
 
   /// 지금 시험점 목록.
   List<CalPointDef> get _defs => calPointList(_pointSet, withDown: _withDown);
@@ -153,6 +187,15 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       _calCj,
       _tValue,
       _tCj,
+      _swSet,
+      _swRval,
+      _swTol,
+      _swDbMin,
+      _swDbMax,
+      ..._swFoundTrip,
+      ..._swFoundReset,
+      ..._swLeftTrip,
+      ..._swLeftReset,
     ]) {
       c.dispose();
     }
@@ -195,6 +238,20 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     'tFromTemp': _tFromTemp,
     'tValue': _tValue.text,
     'tCj': _tCj.text,
+    'swMode': _switchMode,
+    'swDir': _swDir.name,
+    'swSet': _swSet.text,
+    'swRref': _swRref.name,
+    'swRval': _swRval.text,
+    'swTolMode': _swTolMode.name,
+    'swTol': _swTol.text,
+    'swDbMin': _swDbMin.text,
+    'swDbMax': _swDbMax.text,
+    'swContact': _swContact?.name,
+    'swFt': [for (final c in _swFoundTrip) c.text],
+    'swFr': [for (final c in _swFoundReset) c.text],
+    'swLt': [for (final c in _swLeftTrip) c.text],
+    'swLr': [for (final c in _swLeftReset) c.text],
   };
 
   static Future<void> _writeDraft(Map<String, dynamic> j) async {
@@ -279,6 +336,31 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         _tFromTemp = j['tFromTemp'] != false;
         set(_tValue, j['tValue']);
         set(_tCj, j['tCj']);
+        _switchMode = j['swMode'] == true;
+        _swDir = SwitchDir.values.firstWhere(
+          (d) => d.name == j['swDir'],
+          orElse: () => _swDir,
+        );
+        set(_swSet, j['swSet']);
+        _swRref = _ResetRef.values.firstWhere(
+          (r) => r.name == j['swRref'],
+          orElse: () => _swRref,
+        );
+        set(_swRval, j['swRval']);
+        _swTolMode = SwitchTolMode.values.firstWhere(
+          (m) => m.name == j['swTolMode'],
+          orElse: () => _swTolMode,
+        );
+        set(_swTol, j['swTol']);
+        set(_swDbMin, j['swDbMin']);
+        set(_swDbMax, j['swDbMax']);
+        _swContact = SwitchContact.values
+            .where((c) => c.name == j['swContact'])
+            .firstOrNull;
+        setList(_swFoundTrip, j['swFt']);
+        setList(_swFoundReset, j['swFr']);
+        setList(_swLeftTrip, j['swLt']);
+        setList(_swLeftReset, j['swLr']);
       });
     } catch (_) {
       // 보관한 값이 망가졌으면 처음 상태로
@@ -387,35 +469,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       '계기가 20mA를 내는 측정값(URV)입니다.',
       signed: true,
     ),
-    calcBox(
-      child: Row(
-        children: [
-          Expanded(
-            flex: 5,
-            child: calcLabel('단위', '결과에 표시할 단위입니다. 계산에는 영향이 없습니다.'),
-          ),
-          Expanded(
-            flex: 4,
-            child: TextField(
-              key: Key('${tab}_unit'),
-              controller: _unit,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: fc.text,
-              ),
-              decoration: const InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-    ),
+    _unitField(tab),
     _chips(
       '출력 특성',
       '선형: mA가 측정값에 비례합니다.\n'
@@ -433,6 +487,37 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       ],
     ),
   ];
+
+  /// 단위 칸(환산·교정 점검·스위치가 같은 값).
+  Widget _unitField(String tab) => calcBox(
+    child: Row(
+      children: [
+        Expanded(
+          flex: 5,
+          child: calcLabel('단위', '결과에 표시할 단위입니다. 계산에는 영향이 없습니다.'),
+        ),
+        Expanded(
+          flex: 4,
+          child: TextField(
+            key: Key('${tab}_unit'),
+            controller: _unit,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: fc.text,
+            ),
+            decoration: const InputDecoration(
+              isDense: true,
+              border: InputBorder.none,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+        const SizedBox(width: 8),
+      ],
+    ),
+  );
 
   // ─────────────── ① 환산 ───────────────
 
@@ -618,6 +703,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   ].any((c) => c.text.trim().isNotEmpty);
 
   String _settingsLine() {
+    if (_switchMode) return _swSettingsLine();
     final r = _range;
     final tol = _num(_tol);
     return [
@@ -646,6 +732,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   double get _calCjC => _num(_calCj) ?? 0;
 
   Widget _calTab() {
+    if (_switchMode) return _switchTab();
     final range = _range;
     final tol = _num(_tol);
     final s = range == null ? null : _summary(_phaseLeft, range);
@@ -704,44 +791,12 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         ],
       );
     }
-    final ed = _editing;
     return _page([
-      if (ed != null)
-        Container(
-          key: const Key('sc_editing'),
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-          decoration: BoxDecoration(
-            color: fc.brandSoft,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            '불러온 기록: ${ed.tag.isEmpty ? '(태그 없음)' : ed.tag} · ${calDay(ed.date)}',
-            style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
-          ),
-        ),
+      ..._editingBanner(),
+      _modeChips(),
       _settingsHeader(),
       if (_settingsOpen) ..._calSettings(),
-      _chips(
-        '구분',
-        '조정 전(As Found): 조정하기 전 측정값입니다.\n'
-            '조정 후(As Left): 영점·스팬을 조정한 뒤 다시 측정한 값입니다.\n'
-            '조정하지 않았으면 조정 전만 넣으십시오. 성적서에 둘 다 적힙니다.',
-        [
-          calcChip(
-            'sc_phase_found',
-            '조정 전',
-            !_phaseLeft,
-            () => setState(() => _phaseLeft = false),
-          ),
-          calcChip(
-            'sc_phase_left',
-            '조정 후',
-            _phaseLeft,
-            () => setState(() => _phaseLeft = true),
-          ),
-        ],
-      ),
+      _phaseChips('영점·스팬을 조정한 뒤'),
       if (s != null && !s.isEmpty) _miniSummary(s),
       if (range != null && s != null)
         for (var i = 0; i < s.defs.length; i++)
@@ -756,53 +811,127 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       const SizedBox(height: 4),
       summary,
       const SizedBox(height: 12),
-      Row(
-        children: [
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: ElevatedButton(
-                key: const Key('sc_save'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: fc.brand,
-                  foregroundColor: fc.onBrand,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _saveSheet,
-                child: const Text(
-                  '기록 저장',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: SizedBox(
-              height: 48,
-              child: OutlinedButton(
-                key: const Key('sc_records'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: fc.brand,
-                  side: BorderSide(color: fc.brand),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onPressed: _openRecords,
-                child: const Text(
-                  '저장한 기록',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      _saveButtons(),
     ]);
   }
+
+  /// 불러온 기록 표시(지금 고른 교정 대상과 같은 종류일 때만).
+  List<Widget> _editingBanner() {
+    final ed = _editingForMode;
+    if (ed == null) return const [];
+    return [
+      Container(
+        key: const Key('sc_editing'),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        decoration: BoxDecoration(
+          color: fc.brandSoft,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          '불러온 기록: ${ed.tag.isEmpty ? '(태그 없음)' : ed.tag} · ${calDay(ed.date)}',
+          style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
+        ),
+      ),
+    ];
+  }
+
+  /// 불러온 기록이 지금 교정 대상(전송기·스위치)과 같은 종류면 그 기록.
+  CalRecord? get _editingForMode {
+    final ed = _editing;
+    return ed != null && ed.isSwitch == _switchMode ? ed : null;
+  }
+
+  /// 교정 대상: 전송기(기본)·스위치.
+  Widget _modeChips() => _chips(
+    '교정 대상',
+    '전송기: 4-20mA 전송기·루프를 시험점마다 점검합니다.\n'
+        '스위치: 압력·온도·레벨 스위치의 동작점·복귀점·데드밴드를 시험합니다.\n'
+        '입력한 값은 따로 보관되어 바꿔도 지워지지 않습니다.',
+    [
+      calcChip(
+        'sc_mode_tx',
+        '전송기',
+        !_switchMode,
+        () => setState(() => _switchMode = false),
+      ),
+      calcChip(
+        'sc_mode_sw',
+        '스위치',
+        _switchMode,
+        () => setState(() => _switchMode = true),
+      ),
+    ],
+  );
+
+  /// 조정 전·조정 후 고르기. [adjust]: 조정 후 설명의 조정 내용.
+  Widget _phaseChips(String adjust) => _chips(
+    '구분',
+    '조정 전(As Found): 조정하기 전 측정값입니다.\n'
+        '조정 후(As Left): $adjust 다시 측정한 값입니다.\n'
+        '조정하지 않았으면 조정 전만 넣으십시오. 성적서에 둘 다 적힙니다.',
+    [
+      calcChip(
+        'sc_phase_found',
+        '조정 전',
+        !_phaseLeft,
+        () => setState(() => _phaseLeft = false),
+      ),
+      calcChip(
+        'sc_phase_left',
+        '조정 후',
+        _phaseLeft,
+        () => setState(() => _phaseLeft = true),
+      ),
+    ],
+  );
+
+  /// 기록 저장·저장한 기록 단추.
+  Widget _saveButtons() => Row(
+    children: [
+      Expanded(
+        child: SizedBox(
+          height: 48,
+          child: ElevatedButton(
+            key: const Key('sc_save'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: fc.brand,
+              foregroundColor: fc.onBrand,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: _saveSheet,
+            child: const Text(
+              '기록 저장',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: SizedBox(
+          height: 48,
+          child: OutlinedButton(
+            key: const Key('sc_records'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: fc.brand,
+              side: BorderSide(color: fc.brand),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: _openRecords,
+            child: const Text(
+              '저장한 기록',
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
 
   /// 설정(범위·출력 특성·측정 방법·허용오차)을 한 줄로 보이고 접고 펴기.
   Widget _settingsHeader() => Container(
@@ -1090,6 +1219,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   }
 
   Future<void> _confirmNewCheck() async {
+    if (_switchMode) return _confirmNewSwitch();
     if (!_anyInput && _editing == null) return;
     if (!await _confirm(
       '새로 시작',
@@ -1106,6 +1236,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   }
 
   Future<void> _confirmClearPhase() async {
+    if (_switchMode) return _confirmClearSwitchPhase();
     if (![..._applied, ..._reading].any((c) => c.text.trim().isNotEmpty)) {
       return;
     }
@@ -1126,15 +1257,27 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
 
   Future<void> _saveSheet() async {
     final range = _range;
-    if (range == null) {
-      _snack('0% 값과 100% 값을 다르게 넣으십시오.');
-      return;
+    if (_switchMode) {
+      final a = _swSummary(false), b = _swSummary(true);
+      if (a == null || b == null) {
+        _snack('동작점 설정값을 넣으십시오.');
+        return;
+      }
+      if (a.isEmpty && b.isEmpty) {
+        _snack('동작점을 한 번 이상 넣으십시오.');
+        return;
+      }
+    } else {
+      if (range == null) {
+        _snack('0% 값과 100% 값을 다르게 넣으십시오.');
+        return;
+      }
+      if (_summary(false, range).isEmpty && _summary(true, range).isEmpty) {
+        _snack('측정값을 한 점 이상 넣으십시오.');
+        return;
+      }
     }
-    if (_summary(false, range).isEmpty && _summary(true, range).isEmpty) {
-      _snack('측정값을 한 점 이상 넣으십시오.');
-      return;
-    }
-    final ed = _editing;
+    final ed = _editingForMode;
     final (lastWorker, lastRef) = await CalRecordStore.lastWorkerAndRef();
     if (!mounted) return;
     final res = await showModalBottomSheet<_SaveResult>(
@@ -1149,18 +1292,69 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     );
     if (res == null || !mounted) return;
     final now = DateTime.now();
-    final (l, u) = range;
     final keep = !res.asNew && ed != null;
-    final tol = _num(_tol);
-    final rec = CalRecord(
-      id: keep ? ed.id : now.microsecondsSinceEpoch.toString(),
-      date: DateTime(
-        res.calDate.year,
-        res.calDate.month,
-        res.calDate.day,
-        now.hour,
-        now.minute,
+    final id = keep ? ed.id : now.microsecondsSinceEpoch.toString();
+    final date = DateTime(
+      res.calDate.year,
+      res.calDate.month,
+      res.calDate.day,
+      now.hour,
+      now.minute,
+    );
+    final rec = _switchMode
+        ? _switchRecord(id, date, res)
+        : _transmitterRecord(id, date, res, range!);
+    await CalRecordStore.put(rec);
+    if (!mounted) return;
+    setState(() => _editing = rec);
+    _snack(
+      '${rec.tag} 기록을 저장했습니다.',
+      action: SnackBarAction(
+        label: '성적서 보기',
+        onPressed: () => openCalRecordPdf(context, rec),
       ),
+    );
+  }
+
+  /// 스위치 시험 기록. 측정 범위가 없으면 0% 값 = 100% 값으로 적는다(범위 없음).
+  CalRecord _switchRecord(String id, DateTime date, _SaveResult res) {
+    final range = _range;
+    final l0 = _num(_lrv) ?? 0;
+    final sensor = _swSensor;
+    return CalRecord(
+      id: id,
+      date: date,
+      nextDue: res.nextDue,
+      tag: res.tag,
+      instrument: res.instrument,
+      model: res.model,
+      refStd: res.refStd,
+      worker: res.worker,
+      ambient: res.ambient,
+      memo: res.memo,
+      lrv: range?.$1 ?? l0,
+      urv: range?.$2 ?? l0,
+      unit: _u,
+      found: const [],
+      sensor: sensor,
+      cjC: sensor == null || sensor.isRtd ? null : _calCjC,
+      sw: _swSpec,
+      swFound: _swRepeats(false),
+      swLeft: _swSummary(true)!.isEmpty ? const [] : _swRepeats(true),
+    );
+  }
+
+  CalRecord _transmitterRecord(
+    String id,
+    DateTime date,
+    _SaveResult res,
+    (double, double) range,
+  ) {
+    final (l, u) = range;
+    final tol = _num(_tol);
+    return CalRecord(
+      id: id,
+      date: date,
       nextDue: res.nextDue,
       tag: res.tag,
       instrument: res.instrument,
@@ -1182,16 +1376,6 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       sensor: _sensorActive,
       cjC: _sensorActive == null || _sensorActive!.isRtd ? null : _calCjC,
     );
-    await CalRecordStore.put(rec);
-    if (!mounted) return;
-    setState(() => _editing = rec);
-    _snack(
-      '${rec.tag} 기록을 저장했습니다.',
-      action: SnackBarAction(
-        label: '성적서 보기',
-        onPressed: () => openCalRecordPdf(context, rec),
-      ),
-    );
   }
 
   Future<void> _openRecords() async {
@@ -1200,7 +1384,13 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     );
     if (r == null || !mounted) return;
     String t(double? v) => v == null ? '' : _fmt(v, 6);
+    if (r.isSwitch) {
+      _loadSwitch(r);
+      _snack('${r.tag} 기록을 불러왔습니다.');
+      return;
+    }
     setState(() {
+      _switchMode = false;
       _lrv.text = _fmt(r.lrv, 6);
       _urv.text = _fmt(r.urv, 6);
       _unit.text = r.unit;
@@ -1424,6 +1614,574 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     ),
     onChanged: (_) => setState(() {}),
   );
+
+  // ─────────────── ② 교정 점검: 스위치 시험 ───────────────
+
+  /// 스위치 설정. 동작점 설정값이 없으면 null.
+  SwitchSpec? get _swSpec {
+    final sp = _num(_swSet);
+    return sp == null ? null : _swSpecAt(sp);
+  }
+
+  SwitchSpec _swSpecAt(double setpoint) {
+    final rv = _num(_swRval);
+    final tol = _num(_swTol);
+    return SwitchSpec(
+      dir: _swDir,
+      setpoint: setpoint,
+      resetSet: _swRref == _ResetRef.reset ? rv : null,
+      dbSet: _swRref == _ResetRef.deadband && rv != null ? rv.abs() : null,
+      tolMode: _swTolMode,
+      tol: tol != null && tol > 0 ? tol : null,
+      dbMin: _num(_swDbMin),
+      dbMax: _num(_swDbMax),
+      contact: _swContact,
+    );
+  }
+
+  List<SwitchRepeat> _swRepeats(bool left) {
+    final t = left ? _swLeftTrip : _swFoundTrip;
+    final r = left ? _swLeftReset : _swFoundReset;
+    return [
+      for (var i = 0; i < kSwitchRepeats; i++)
+        SwitchRepeat(trip: _num(t[i]), reset: _num(r[i])),
+    ];
+  }
+
+  /// 한 벌의 결과. 동작점 설정값이 없으면 null.
+  SwitchSummary? _swSummary(bool left) {
+    final sp = _swSpec;
+    if (sp == null) return null;
+    return evaluateSwitch(spec: sp, repeats: _swRepeats(left), range: _range);
+  }
+
+  /// 스위치 시험에 쓰는 센서: 단위가 °C일 때만.
+  TempSensor? get _swSensor => isCelsiusUnit(_u) ? _calSensor : null;
+
+  bool get _swAnyInput => [
+    ..._swFoundTrip,
+    ..._swFoundReset,
+    ..._swLeftTrip,
+    ..._swLeftReset,
+  ].any((c) => c.text.trim().isNotEmpty);
+
+  /// 부호를 붙인 값과 단위: "+0.05 bar".
+  String _spv(double v) => _u.isEmpty ? _signed(v) : '${_signed(v)} $_u';
+
+  String get _uu => _u.isEmpty ? '' : ' ($_u)';
+
+  String _swSettingsLine() {
+    final sp = _swSpecAt(_num(_swSet) ?? 0);
+    final hasSet = _num(_swSet) != null;
+    final tol = switchTolText(sp, _u);
+    final db = switchDbRangeText(sp, _u);
+    return [
+      '스위치',
+      switchDirLabel(_swDir),
+      hasSet ? '동작점 ${_pv(sp.setpoint)}' : '동작점 없음',
+      if (sp.resetSet != null) '복귀점 ${_pv(sp.resetSet!)}',
+      if (sp.dbSet != null) '데드밴드 ${_pv(sp.dbSet!)}',
+      tol.isEmpty ? '허용오차 없음' : tol,
+      if (db.isNotEmpty) '데드밴드 $db',
+      if (_swContact != null) switchContactLabel(_swContact!),
+      if (_swSensor != null) _swSensor!.label,
+    ].join(' · ');
+  }
+
+  Widget _switchTab() {
+    final sp = _swSpec;
+    final s = _swSummary(_phaseLeft);
+    final other = _swSummary(!_phaseLeft);
+    return _page([
+      ..._editingBanner(),
+      _modeChips(),
+      _settingsHeader(),
+      if (_settingsOpen) ..._swSettings(),
+      _phaseChips('동작점·데드밴드를 조정한 뒤'),
+      if (sp != null && _swSensor != null) _swSensorCard(sp, _swSensor!),
+      if (s != null && !s.isEmpty) _swMini(s),
+      for (var i = 0; i < kSwitchRepeats; i++) _swRow(i, s),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          calcToggle('sc_new', '새로 시작', _confirmNewCheck),
+          calcToggle('sc_clear', '이 표 지우기', _confirmClearPhase),
+        ],
+      ),
+      const SizedBox(height: 4),
+      _swResult(sp, s, other),
+      const SizedBox(height: 12),
+      _saveButtons(),
+    ]);
+  }
+
+  List<Widget> _swSettings() {
+    final pct = _swTolMode == SwitchTolMode.pct;
+    return [
+      _chips(
+        '동작 방향',
+        '상승 동작: 값이 올라갈 때 동작하는 스위치입니다(고압·고온·고레벨 경보, H·HH). '
+            '동작점 아래에서 천천히 올려 동작점을 찾고, 다시 천천히 내려 복귀점을 찾습니다.\n'
+            '하강 동작: 값이 내려갈 때 동작하는 스위치입니다(저압·저유량·저레벨 경보, L·LL). '
+            '동작점 위에서 천천히 내려 동작점을 찾고, 다시 천천히 올려 복귀점을 찾습니다.\n'
+            '동작점 가까이에서는 아주 천천히 바꾸십시오. 빨리 바꾸면 동작점이 늦게 측정됩니다.',
+        [
+          for (final d in SwitchDir.values)
+            calcChip(
+              'sw_dir_${d.name}',
+              switchDirLabel(d),
+              _swDir == d,
+              () => setState(() => _swDir = d),
+            ),
+        ],
+      ),
+      _unitField('sw'),
+      calcField(
+        'sw_set',
+        '동작점 설정값$_uu',
+        _swSet,
+        '스위치가 동작해야 하는 값입니다. 계기 명판·설정표·인터록 목록에 있습니다.',
+        signed: true,
+      ),
+      _chips(
+        '복귀 설정',
+        '복귀점: 스위치가 원래 상태로 돌아와야 하는 값을 알면 고르십시오.\n'
+            '데드밴드: 동작점과 복귀점의 차이(차압) 설정값을 알면 고르십시오.\n'
+            '고르면 복귀점 또는 데드밴드도 같은 허용오차로 판정합니다. 모르면 없음.',
+        [
+          for (final (r, label) in const [
+            (_ResetRef.none, '없음'),
+            (_ResetRef.reset, '복귀점'),
+            (_ResetRef.deadband, '데드밴드'),
+          ])
+            calcChip(
+              'sw_rref_${r.name}',
+              label,
+              _swRref == r,
+              () => setState(() => _swRref = r),
+            ),
+        ],
+      ),
+      if (_swRref != _ResetRef.none)
+        calcField(
+          'sw_rval',
+          _swRref == _ResetRef.reset ? '복귀점 설정값$_uu' : '데드밴드 설정값$_uu',
+          _swRval,
+          _swRref == _ResetRef.reset
+              ? '스위치가 원래 상태로 돌아와야 하는 값입니다.'
+              : '동작점과 복귀점의 차이 설정값입니다. 상승 동작이면 복귀점 = 동작점 − 데드밴드, '
+                    '하강 동작이면 복귀점 = 동작점 + 데드밴드입니다.',
+          signed: _swRref == _ResetRef.reset,
+        ),
+      _chips(
+        '허용오차 방식',
+        '단위: 허용오차를 단위 값으로 넣습니다(예: ±0.1 bar).\n'
+            '% 범위: 측정 범위 스팬의 %로 넣습니다(예: 0~10 bar의 ±1% = ±0.1 bar). '
+            '0% 값과 100% 값이 필요합니다.',
+        [
+          calcChip(
+            'sw_tolm_unit',
+            '단위',
+            !pct,
+            () => setState(() => _swTolMode = SwitchTolMode.unit),
+          ),
+          calcChip(
+            'sw_tolm_pct',
+            '% 범위',
+            pct,
+            () => setState(() => _swTolMode = SwitchTolMode.pct),
+          ),
+        ],
+      ),
+      calcField(
+        'sw_tol',
+        pct ? '허용오차 (±%, 범위)' : '허용오차 (±$_u)',
+        _swTol,
+        '계기 데이터시트나 교정 절차서의 동작점 허용오차입니다. '
+            '비우면 판정하지 않습니다. 반복마다 |동작점 − 동작점 설정값| ≤ 허용오차면 합격입니다.',
+      ),
+      calcField(
+        'sw_lrv',
+        pct ? '범위 0% 값' : '범위 0% 값 (선택)',
+        _lrv,
+        '계기 측정 범위의 아래 값입니다. % 범위 허용오차와 오차 %에만 씁니다. '
+            '전송기 교정 점검과 같은 칸입니다.',
+        signed: true,
+      ),
+      calcField(
+        'sw_urv',
+        pct ? '범위 100% 값' : '범위 100% 값 (선택)',
+        _urv,
+        '계기 측정 범위의 위 값입니다. % 범위 허용오차와 오차 %에만 씁니다.',
+        signed: true,
+      ),
+      calcField(
+        'sw_dbmin',
+        '데드밴드 최소 (선택)$_uu',
+        _swDbMin,
+        '데드밴드(|동작점 − 복귀점|)가 이 값 미만이면 불합격입니다. 명판·데이터시트의 데드밴드 범위를 넣으십시오.',
+      ),
+      calcField(
+        'sw_dbmax',
+        '데드밴드 최대 (선택)$_uu',
+        _swDbMax,
+        '데드밴드가 이 값을 초과하면 불합격입니다.',
+      ),
+      _chips(
+        '접점',
+        '시험한 접점을 기록합니다. 판정에는 쓰지 않습니다.\n'
+            'NO (a접점): 평소 열려 있다가 동작하면 닫힙니다.\n'
+            'NC (b접점): 평소 닫혀 있다가 동작하면 열립니다.',
+        [
+          calcChip(
+            'sw_ct_none',
+            '기록 안 함',
+            _swContact == null,
+            () => setState(() => _swContact = null),
+          ),
+          for (final c in SwitchContact.values)
+            calcChip(
+              'sw_ct_${c.name}',
+              switchContactLabel(c),
+              _swContact == c,
+              () => setState(() => _swContact = c),
+            ),
+        ],
+      ),
+      if (isCelsiusUnit(_u)) ..._sensorSettings(),
+    ];
+  }
+
+  /// 온도 스위치: 동작점·복귀점 설정값에 해당하는 센서 값.
+  Widget _swSensorCard(SwitchSpec sp, TempSensor t) {
+    final target = sp.resetTarget;
+    return Container(
+      key: const Key('sw_sensor'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: fc.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '동작점 ${_pv(sp.setpoint)}: ${_sensorText(t, sp.setpoint)}',
+            key: const Key('sw_sensor_set'),
+            style: TextStyle(fontWeight: FontWeight.w700, color: fc.text),
+          ),
+          if (target != null)
+            Text(
+              '복귀점 ${_pv(target)}: ${_sensorText(t, target)}',
+              key: const Key('sw_sensor_reset'),
+              style: TextStyle(fontWeight: FontWeight.w700, color: fc.text),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _swMini(SwitchSummary s) {
+    final w = s.worst!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        '$_phase · 최대 오차 ${_spv(w.$2.err)}'
+        '${s.pass == null ? '' : ' · ${calVerdictText(s.pass)}'}',
+        key: const Key('sw_mini'),
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w800,
+          color: s.pass == false ? fc.danger : fc.brand,
+        ),
+      ),
+    );
+  }
+
+  /// 데드밴드 허용 범위를 벗어난 쪽.
+  String _dbSide(SwitchSpec sp, double db) =>
+      sp.dbMax != null && db > sp.dbMax! ? '초과' : '미만';
+
+  Widget _swRow(int i, SwitchSummary? s) {
+    final row = s?.rows[i];
+    final sp = s?.spec;
+    final v = row?.pass;
+    final bad = v == false;
+    TextStyle st(bool red) => TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w800,
+      color: red ? fc.danger : fc.brand,
+    );
+    final target = sp?.resetTarget;
+    return Container(
+      key: Key('sw_row_$i'),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(14, 8, 10, 10),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: bad ? fc.danger : fc.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '반복 ${i + 1}',
+            key: Key('sw_label_$i'),
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: fc.text,
+            ),
+          ),
+          Row(
+            children: [
+              Expanded(
+                child: _smallField(
+                  'sw_trip_$i',
+                  '동작점$_uu',
+                  _swTrip[i],
+                  sp == null ? '' : _fmt(sp.setpoint),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _smallField(
+                  'sw_reset_$i',
+                  '복귀점$_uu',
+                  _swReset[i],
+                  target == null ? '' : _fmt(target),
+                ),
+              ),
+            ],
+          ),
+          if (row != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                // 판정을 앞에: 줄 끝에서 판정 글자가 두 줄로 끊기지 않게.
+                '${v == null ? '' : '${calVerdictText(v)} · '}'
+                '오차 ${_spv(row.err)}'
+                '${row.errPct == null ? '' : ' (${_signed(row.errPct!, 2)}%)'}',
+                key: Key('sw_err_$i'),
+                style: st(row.tripPass == false || bad),
+              ),
+            ),
+          if (row?.deadband != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '데드밴드 ${_pv(row!.deadband!)}'
+                '${row.dbRangePass == null ? '' : (row.dbRangePass! ? ' · 허용 범위 이내' : ' · 허용 범위 ${_dbSide(sp!, row.deadband!)}')}',
+                key: Key('sw_db_$i'),
+                style: st(row.dbRangePass == false),
+              ),
+            ),
+          if (row?.resetErr != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '${sp!.resetSet != null ? '복귀점 오차' : '데드밴드 오차'} ${_spv(row!.resetErr!)}'
+                '${row.resetPass == null ? '' : (row.resetPass! ? ' · 허용오차 이내' : ' · 허용오차 초과')}',
+                key: Key('sw_rerr_$i'),
+                style: st(row.resetPass == false),
+              ),
+            ),
+          if (row != null && row.wrongSide)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                _swDir == SwitchDir.rising
+                    ? '복귀점이 동작점보다 높습니다. 동작 방향을 확인하십시오.'
+                    : '복귀점이 동작점보다 낮습니다. 동작 방향을 확인하십시오.',
+                key: Key('sw_side_$i'),
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: fc.danger,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// 불합격 사유(반복마다).
+  List<String> _swFailReasons(SwitchSummary s) {
+    final tolU = s.tolUnit;
+    final sp = s.spec;
+    final out = <String>[];
+    for (final (i, r) in s.measured) {
+      final n = '반복 ${i + 1}';
+      if (r.tripPass == false && tolU != null) {
+        out.add('$n: 동작점 오차 ${_spv(r.err)}, 허용오차 ±${_pv(tolU)} 초과.');
+      }
+      if (r.resetPass == false && tolU != null) {
+        out.add(
+          '$n: ${sp.resetSet != null ? '복귀점 오차' : '데드밴드 오차'} '
+          '${_spv(r.resetErr!)}, 허용오차 ±${_pv(tolU)} 초과.',
+        );
+      }
+      if (r.dbRangePass == false) {
+        out.add(
+          '$n: 데드밴드 ${_pv(r.deadband!)}, '
+          '허용 범위(${switchDbRangeText(sp, _u)}) ${_dbSide(sp, r.deadband!)}.',
+        );
+      }
+    }
+    return out;
+  }
+
+  String _swOtherLine(SwitchSummary o) {
+    final w = o.worst!;
+    return '${_phaseLeft ? '조정 전' : '조정 후'}: 최대 오차 ${_spv(w.$2.err)}'
+        '${o.pass == null ? '' : ' · ${calVerdictText(o.pass)}'}';
+  }
+
+  Widget _swResult(SwitchSpec? sp, SwitchSummary? s, SwitchSummary? other) {
+    if (sp == null || s == null) {
+      return calcResult(
+        key: const Key('sw_result'),
+        big: '—',
+        caption: '동작점 설정값을 넣으십시오',
+        lines: const [],
+      );
+    }
+    if (s.isEmpty) {
+      return calcResult(
+        key: const Key('sw_result'),
+        big: '—',
+        caption: '$_phase: 동작점을 한 번 이상 넣으십시오',
+        lines: [
+          if (other != null && !other.isEmpty) _swOtherLine(other),
+          '보통 3회 반복합니다. 반복마다 동작점과 복귀점을 넣으십시오.',
+        ],
+      );
+    }
+    final w = s.worst!;
+    final n = s.measured.length;
+    final fails = s.failed;
+    final missing = s.resetMissing;
+    final rp = s.repeatability;
+    final avgR = s.avgReset, avgDb = s.avgDeadband;
+    final tolU = s.tolUnit;
+    return calcResult(
+      key: const Key('sw_result'),
+      big: _spv(w.$2.err),
+      caption: s.pass == null
+          ? '$_phase 동작점 최대 오차'
+          : fails.isEmpty
+          ? '$_phase 합격: $n회 모두 합격'
+          : '$_phase 불합격: $n회 중 ${fails.length}회 불합격',
+      warn: fails.isNotEmpty,
+      lines: [
+        if (s.pass == null)
+          s.tolNeedsRange
+              ? '% 범위 허용오차는 0% 값과 100% 값을 다르게 넣어야 판정합니다.'
+              : '허용오차나 데드밴드 허용 범위를 넣으면 합격·불합격을 판정합니다.',
+        ..._swFailReasons(s),
+        '최대 오차: 반복 ${w.$1 + 1}'
+            '${w.$2.errPct == null ? '' : ' (범위의 ${_signed(w.$2.errPct!, 2)}%)'}'
+            '${tolU == null ? '' : ', 허용오차 ±${_pv(tolU)}'}',
+        '평균 동작점 ${_pv(s.avgTrip!)}'
+            '${avgR == null ? '' : ' · 평균 복귀점 ${_pv(avgR)}'}',
+        if (avgDb != null) '평균 데드밴드 ${_pv(avgDb)}',
+        if (rp != null) '반복성(동작점 최대 − 최소): ${_pv(rp)}',
+        if (missing.isNotEmpty)
+          '복귀점을 넣지 않은 반복(${missing.map((i) => '반복 ${i + 1}').join(', ')})은 '
+              '복귀점·데드밴드를 판정하지 않았습니다.',
+        if (s.measured.any((e) => e.$2.wrongSide))
+          '동작 방향과 반대쪽에 복귀점이 있는 반복이 있습니다. 동작 방향(${switchDirLabel(_swDir)})을 확인하십시오.',
+        if (other != null && !other.isEmpty) _swOtherLine(other),
+        '오차 = 측정한 동작점 − 동작점 설정값',
+        '데드밴드 = |동작점 − 복귀점|',
+      ],
+    );
+  }
+
+  Future<void> _confirmNewSwitch() async {
+    if (!_swAnyInput && _editingForMode == null) return;
+    if (!await _confirm(
+      '새로 시작',
+      '스위치 시험의 조정 전·후에 입력한 값을 모두 지우고 새로 시작하겠습니까? 저장한 기록은 지워지지 않습니다.',
+      '새로 시작',
+    )) {
+      return;
+    }
+    setState(() {
+      _clearSwitchInputs();
+      _phaseLeft = false;
+      _editing = null;
+    });
+  }
+
+  Future<void> _confirmClearSwitchPhase() async {
+    if (![..._swTrip, ..._swReset].any((c) => c.text.trim().isNotEmpty)) {
+      return;
+    }
+    if (!await _confirm('이 표 지우기', '$_phase 표에 입력한 값을 지우겠습니까?', '지우기')) {
+      return;
+    }
+    setState(() {
+      for (final c in [..._swTrip, ..._swReset]) {
+        c.clear();
+      }
+    });
+  }
+
+  void _clearSwitchInputs() {
+    for (final c in [
+      ..._swFoundTrip,
+      ..._swFoundReset,
+      ..._swLeftTrip,
+      ..._swLeftReset,
+    ]) {
+      c.clear();
+    }
+  }
+
+  /// 스위치 기록 불러오기: 설정·반복 값·센서를 되살린다.
+  void _loadSwitch(CalRecord r) {
+    final sp = r.sw!;
+    String t(double? v) => v == null ? '' : _fmt(v, 6);
+    setState(() {
+      _switchMode = true;
+      final range = r.switchRange;
+      if (range != null) {
+        _lrv.text = t(range.$1);
+        _urv.text = t(range.$2);
+      }
+      _unit.text = r.unit;
+      _swDir = sp.dir;
+      _swSet.text = t(sp.setpoint);
+      _swRref = sp.resetSet != null
+          ? _ResetRef.reset
+          : (sp.dbSet != null ? _ResetRef.deadband : _ResetRef.none);
+      _swRval.text = t(sp.resetSet ?? sp.dbSet);
+      _swTolMode = sp.tolMode;
+      _swTol.text = t(sp.tol);
+      _swDbMin.text = t(sp.dbMin);
+      _swDbMax.text = t(sp.dbMax);
+      _swContact = sp.contact;
+      _clearSwitchInputs();
+      for (var i = 0; i < kSwitchRepeats; i++) {
+        final f = i < r.swFound.length ? r.swFound[i] : const SwitchRepeat();
+        final g = i < r.swLeft.length ? r.swLeft[i] : const SwitchRepeat();
+        _swFoundTrip[i].text = t(f.trip);
+        _swFoundReset[i].text = t(f.reset);
+        _swLeftTrip[i].text = t(g.trip);
+        _swLeftReset[i].text = t(g.reset);
+      }
+      _calSensor = r.sensor;
+      if (r.cjC != null) _calCj.text = _fmt(r.cjC!, 6);
+      _phaseLeft = false;
+      _settingsOpen = false;
+      _editing = r;
+    });
+  }
 
   // ─────────────── ③ 루프 전압 ───────────────
 

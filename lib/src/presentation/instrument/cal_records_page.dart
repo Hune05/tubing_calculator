@@ -10,10 +10,21 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/theme/field_view.dart';
 import 'cal_record.dart';
 import 'cal_record_pdf.dart';
+import 'switch_check.dart';
 
 String _date(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+/// 값과 단위: "5 bar".
+String _pv(double v, String unit) {
+  var s = (v + (v >= 0 ? 1e-9 : -1e-9)).toStringAsFixed(3);
+  if (s.contains('.')) {
+    s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+  }
+  if (s == '-0') s = '0';
+  return unit.trim().isEmpty ? s : '$s ${unit.trim()}';
+}
 
 class CalRecordsPage extends StatefulWidget {
   const CalRecordsPage({super.key});
@@ -155,9 +166,19 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
                       '${_date(r.date)}${r.worker.isEmpty ? '' : ' · ${r.worker}'}',
                       style: TextStyle(fontSize: 13, color: fc.textSub),
                     ),
+                    if (r.isSwitch)
+                      Text(
+                        '스위치 · ${switchDirLabel(r.sw!.dir)} · 동작점 ${_pv(r.sw!.setpoint, r.unit)}',
+                        key: Key('cr_type_${r.id}'),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: fc.brand,
+                        ),
+                      ),
                     Text(
                       r.adjusted
-                          ? '조정 전 ${calVerdictText(r.foundSummary.pass)} → 조정 후 ${calVerdictText(r.leftSummary.pass)}'
+                          ? '조정 전 ${calVerdictText(r.foundPass)} → 조정 후 ${calVerdictText(r.leftPass)}'
                           : '조정 없음',
                       key: Key('cr_phase_${r.id}'),
                       style: TextStyle(fontSize: 13, color: fc.textSub),

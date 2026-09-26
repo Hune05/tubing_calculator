@@ -165,14 +165,19 @@ void main() {
     final head = lines[0].split(',');
     final row = lines[1].split(',');
     expect(head.length, row.length);
-    expect(head.sublist(head.length - 5), [
+    // 시험점 칸부터 다섯 칸은 예전 그대로, 그 뒤에 스위치 시험 칸(시험 종류 = 전송기, 나머지 빈 칸)
+    final i0 = head.indexOf('시험점');
+    expect(head.sublist(i0, i0 + 5), [
       '시험점',
       '히스테리시스 허용값(%)',
       '조정 전 최대 히스테리시스(%)',
       '조정 후 최대 히스테리시스(%)',
       '센서',
     ]);
-    expect(row.sublist(row.length - 5), ['5점 상승·하강', '0.15', '0.1875', '', '']);
+    expect(row.sublist(i0, i0 + 5), ['5점 상승·하강', '0.15', '0.1875', '', '']);
+    expect(head[i0 + 5], '시험 종류');
+    expect(row[i0 + 5], '전송기');
+    expect(row.sublist(i0 + 6).every((c) => c.isEmpty), isTrue);
     // 고정 칸의 50% 점은 상승 50%(12.03, 오차 0.1875)
     final i50 = head.indexOf('조정 전 50% 측정값');
     expect(row[i50], '12.03');
@@ -216,7 +221,7 @@ void main() {
     expect(lines.length, 1 + 9 + 1); // 머리줄 + 조정 전 9점 + 조정 후 1점
     expect(
       lines[6],
-      'PT-7,2026-09-26,조정 전,하강,75,7.5,bar,16,16.05,mA,0.3125,0.1875,불합격,전송기 출력(mA)',
+      'PT-7,2026-09-26,조정 전,하강,75,7.5,bar,16,16.05,mA,0.3125,0.1875,불합격,전송기 출력(mA),전송기,,,,,',
     );
     expect(
       lines[1],

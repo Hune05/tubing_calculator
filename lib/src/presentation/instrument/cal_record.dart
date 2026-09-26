@@ -1,4 +1,5 @@
 // 4-20mA 교정 기록(폰에만 저장). 한 계기의 조정 전·조정 후 시험점(상승·하강)과 계기·표준기·작업자 정보.
+// 스위치 시험 기록('type': 'switch')은 스위치 설정과 반복 측정값(switch_check.dart)을 담는다.
 // 성적서 PDF는 cal_record_pdf.dart. 계산은 signal_calc.dart의 checkPoint를 그대로 쓴다.
 library;
 
@@ -7,6 +8,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'signal_calc.dart';
+import 'switch_check.dart';
 import 'temp_sensor.dart';
 
 /// 교정 측정점: 0·25·50·75·100%.
@@ -303,6 +305,11 @@ class CalRecord {
   final double? hystTolPct; // 히스테리시스 허용값(스팬 %)
   final TempSensor? sensor; // 온도 센서(측정 범위가 °C일 때만)
   final double? cjC; // 열전대 냉접점 온도(°C)
+  // 스위치 시험 기록이면 설정과 반복 측정값(조정 전·후). 전송기 기록(예전 기록 포함)은 null·빈 목록.
+  // 스위치 기록의 lrv·urv는 측정 범위(같으면 범위 없음), found·left·points는 쓰지 않는다.
+  final SwitchSpec? sw;
+  final List<SwitchRepeat> swFound;
+  final List<SwitchRepeat> swLeft;
 
   const CalRecord({
     required this.id,
@@ -327,7 +334,27 @@ class CalRecord {
     this.hystTolPct,
     this.sensor,
     this.cjC,
+    this.sw,
+    this.swFound = const [],
+    this.swLeft = const [],
   });
+
+  /// 스위치 시험 기록인지.
+  bool get isSwitch => sw != null;
+
+  /// 스위치 기록의 측정 범위(0%·100% 값이 같으면 없음).
+  (double, double)? get switchRange => lrv == urv ? null : (lrv, urv);
+
+  SwitchSummary switchSummaryOf(List<SwitchRepeat> e) =>
+      evaluateSwitch(spec: sw!, repeats: e, range: switchRange);
+  SwitchSummary get swFoundSummary => switchSummaryOf(swFound);
+  SwitchSummary get swLeftSummary => switchSummaryOf(swLeft);
+
+  /// 조정 전 판정(전송기·스위치 공통).
+  bool? get foundPass => isSwitch ? swFoundSummary.pass : foundSummary.pass;
+
+  /// 조정 후 판정(전송기·스위치 공통).
+  bool? get leftPass => isSwitch ? swLeftSummary.pass : leftSummary.pass;
 
   CalSummary summaryOf(List<CalEntry> e) => evaluateCal(
     entries: e,
@@ -343,10 +370,10 @@ class CalRecord {
   CalSummary get leftSummary => summaryOf(left);
 
   /// 조정 후를 측정했는지.
-  bool get adjusted => !leftSummary.isEmpty;
+  bool get adjusted => isSwitch ? !swLeftSummary.isEmpty : !leftSummary.isEmpty;
 
   /// 최종 판정: 조정 후가 있으면 조정 후, 없으면 조정 전.
-  bool? get finalPass => adjusted ? leftSummary.pass : foundSummary.pass;
+  bool? get finalPass => adjusted ? leftPass : foundPass;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -371,6 +398,12 @@ class CalRecord {
     'hystTol': hystTolPct,
     'sensor': sensor?.name,
     'cj': cjC,
+    if (sw != null) ...{
+      'type': 'switch',
+      'sw': sw!.toJson(),
+      'swFound': [for (final e in swFound) e.toJson()],
+      'swLeft': [for (final e in swLeft) e.toJson()],
+    },
   };
 
   factory CalRecord.fromJson(Map<String, dynamic> j) => CalRecord(
@@ -408,8 +441,20 @@ class CalRecord {
     hystTolPct: (j['hystTol'] as num?)?.toDouble(),
     sensor: TempSensor.values.where((s) => s.name == j['sensor']).firstOrNull,
     cjC: (j['cj'] as num?)?.toDouble(),
+    // 'type' 칸이 없으면(예전 기록) 전송기 기록.
+    sw: j['type'] == 'switch' && j['sw'] is Map
+        ? SwitchSpec.fromJson(Map<String, dynamic>.from(j['sw'] as Map))
+        : null,
+    swFound: _repeatsFromJson(j['swFound']),
+    swLeft: _repeatsFromJson(j['swLeft']),
   );
 }
+
+List<SwitchRepeat> _repeatsFromJson(Object? v) => [
+  if (v is List)
+    for (final e in v)
+      SwitchRepeat.fromJson(Map<String, dynamic>.from(e as Map)),
+];
 
 /// 시험점 칸이 없거나 비었으면(예전 기록) 5점 상승.
 List<CalPointDef> _pointsFromJson(Object? v) {
@@ -478,9 +523,26 @@ String calRecordsCsv(List<CalRecord> records) {
     '조정 전 최대 히스테리시스(%)',
     '조정 후 최대 히스테리시스(%)',
     '센서',
+    // 스위치 시험 칸(2026-09-26 추가). 전송기 기록은 시험 종류만 채운다.
+    '시험 종류',
+    '동작 방향',
+    '동작점 설정값',
+    '복귀점 설정값',
+    '데드밴드 설정값',
+    '스위치 허용오차(±단위)',
+    '데드밴드 허용 범위',
+    '접점',
+    '조정 전 최대 동작점 오차',
+    '조정 전 반복성',
+    '조정 후 최대 동작점 오차',
+    '조정 후 반복성',
   ];
   final rows = <List<String>>[head];
   for (final r in records) {
+    if (r.isSwitch) {
+      rows.add(_switchSummaryRow(r));
+      continue;
+    }
     final f = r.foundSummary, l = r.leftSummary;
     List<String> phase(List<CalEntry> e, CalSummary s) {
       final out = <String>[];
@@ -533,13 +595,63 @@ String calRecordsCsv(List<CalRecord> records) {
       _num(f.maxHyst?.$2),
       _num(l.maxHyst?.$2),
       calSensorText(r.sensor, r.cjC),
+      '전송기',
+      for (var i = 0; i < 11; i++) '',
     ]);
   }
   return _csv(rows);
 }
 
+/// 요약 CSV의 스위치 기록 한 줄. 전송기 칸 중 뜻이 같은 칸(범위·단위·허용오차 %·최대 오차 %·판정·정보)만 채운다.
+List<String> _switchSummaryRow(CalRecord r) {
+  final sp = r.sw!;
+  final range = r.switchRange;
+  final f = r.swFoundSummary, l = r.swLeftSummary;
+  return [
+    r.tag,
+    r.instrument,
+    r.model,
+    calDay(r.date),
+    r.nextDue == null ? '' : calDay(r.nextDue!),
+    range == null ? '' : _num(r.lrv),
+    range == null ? '' : _num(r.urv),
+    r.unit,
+    '',
+    '스위치 시험',
+    sp.tolMode == SwitchTolMode.pct ? _num(sp.tol) : '',
+    _num(f.worst?.$2.errPct),
+    f.isEmpty ? '' : calVerdictText(f.pass),
+    _num(l.worst?.$2.errPct),
+    l.isEmpty ? '' : calVerdictText(l.pass),
+    calVerdictText(r.finalPass),
+    r.refStd,
+    r.worker,
+    r.ambient,
+    r.memo,
+    for (var i = 0; i < 2 * kCalPoints.length * 3; i++) '',
+    '반복 ${(f.isEmpty ? l : f).measured.length}회',
+    '',
+    '',
+    '',
+    calSensorText(r.sensor, r.cjC),
+    '스위치',
+    switchDirLabel(sp.dir),
+    _num(sp.setpoint),
+    _num(sp.resetSet),
+    _num(sp.dbSet),
+    _num(f.tolUnit ?? l.tolUnit),
+    switchDbRangeText(sp),
+    sp.contact == null ? '' : switchContactLabel(sp.contact!),
+    _num(f.worst?.$2.err),
+    _num(f.repeatability),
+    _num(l.worst?.$2.err),
+    _num(l.repeatability),
+  ];
+}
+
 /// 측정점 CSV(UTF-8 BOM). 측정한 점마다 한 줄: 기록·구분(조정 전·후)·방향(상승·하강)·측정점.
 /// 시험점 수가 기록마다 달라도 칸이 같아 엑셀에서 거르고 모으기 쉽다.
+/// 스위치 기록은 반복마다 한 줄(시험 종류 "스위치", 뒤쪽 칸에 반복·복귀점·데드밴드·오차).
 String calPointsCsv(List<CalRecord> records) {
   final rows = <List<String>>[
     [
@@ -557,9 +669,20 @@ String calPointsCsv(List<CalRecord> records) {
       '히스테리시스(%)',
       '판정',
       '측정 방법',
+      // 스위치 시험 칸(2026-09-26 추가)
+      '시험 종류',
+      '반복',
+      '복귀점',
+      '데드밴드',
+      '동작점 오차',
+      '복귀 오차',
     ],
   ];
   for (final r in records) {
+    if (r.isSwitch) {
+      rows.addAll(_switchPointRows(r));
+      continue;
+    }
     final inUnit = r.kind == ReadKind.maIn ? 'mA' : r.unit;
     final outUnit = r.kind == ReadKind.ma ? 'mA' : r.unit;
     for (final (ph, e) in [('조정 전', r.found), ('조정 후', r.left)]) {
@@ -581,11 +704,54 @@ String calPointsCsv(List<CalRecord> records) {
           _num(s.hystAt(i)),
           v == null ? '' : calVerdictText(v),
           kindLabel(r.kind),
+          '전송기',
+          '',
+          '',
+          '',
+          '',
+          '',
         ]);
       }
     }
   }
   return _csv(rows);
+}
+
+/// 측정점 CSV의 스위치 기록 줄: 반복마다 한 줄. 이론값 = 동작점 설정값, 측정값 = 측정한 동작점,
+/// 측정점(%) = 동작점 설정값의 범위 %(범위가 없으면 빈 칸), 방향 = 상승 동작·하강 동작.
+List<List<String>> _switchPointRows(CalRecord r) {
+  final sp = r.sw!;
+  final range = r.switchRange;
+  final out = <List<String>>[];
+  for (final (ph, e) in [('조정 전', r.swFound), ('조정 후', r.swLeft)]) {
+    final s = r.switchSummaryOf(e);
+    for (final (i, row) in s.measured) {
+      final v = row.pass;
+      out.add([
+        r.tag,
+        calDay(r.date),
+        ph,
+        switchDirLabel(sp.dir),
+        range == null ? '' : _num(pvToPct(sp.setpoint, range.$1, range.$2)),
+        '',
+        r.unit,
+        _num(sp.setpoint),
+        _num(row.trip),
+        r.unit,
+        _num(row.errPct),
+        '',
+        v == null ? '' : calVerdictText(v),
+        '스위치 시험',
+        '스위치',
+        '${i + 1}',
+        _num(row.reset),
+        _num(row.deadband),
+        _num(row.err),
+        _num(row.resetErr),
+      ]);
+    }
+  }
+  return out;
 }
 
 /// 폰에 저장(SharedPreferences, JSON 목록). 최근 것이 앞.
