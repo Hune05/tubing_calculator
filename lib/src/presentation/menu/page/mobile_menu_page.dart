@@ -771,7 +771,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "4-20mA 계산기",
-                  subtitle: "mA·%·측정값 환산·교정 오차 %·루프 전압",
+                  subtitle: "mA 환산·역산·교정 점검·성적서·루프 전압",
                   icon: AppGlyph.currentLoop,
                   onTap: () {
                     HapticFeedback.lightImpact();

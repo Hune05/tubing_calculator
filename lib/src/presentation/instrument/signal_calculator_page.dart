@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../electrical/elec_tables.dart' show cuResistance;
+import 'cal_record.dart';
+import 'cal_records_page.dart';
 import 'signal_calc.dart';
 
 String _fmt(double v, [int d = 3]) {
@@ -23,7 +25,7 @@ String _signed(double v, [int d = 3]) => '${v > 0 ? '+' : ''}${_fmt(v, d)}';
 
 enum _Input { ma, pct, pv }
 
-const List<double> _points = [0, 25, 50, 75, 100];
+const List<double> _points = kCalPoints;
 
 /// 계장 전선 굵기(IEC 60228 2종) — 전기 계산기 저항 표에 있는 것.
 const List<double> _wireSizes = [0.75, 1.0, 1.5, 2.5];
@@ -49,11 +51,20 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   _Input _input = _Input.ma;
   final _value = TextEditingController();
 
-  // ② 교정 점검
+  // ② 교정 점검 — 조정 전(found)·조정 후(left) 두 벌
   ReadKind _kind = ReadKind.ma;
   final _tol = TextEditingController();
-  final _applied = [for (final _ in _points) TextEditingController()];
-  final _reading = [for (final _ in _points) TextEditingController()];
+  bool _phaseLeft = false;
+  final _foundApplied = [for (final _ in _points) TextEditingController()];
+  final _foundReading = [for (final _ in _points) TextEditingController()];
+  final _leftApplied = [for (final _ in _points) TextEditingController()];
+  final _leftReading = [for (final _ in _points) TextEditingController()];
+  CalRecord? _editing; // 불러오거나 저장한 기록(고쳐 저장할 때 같은 id)
+
+  List<TextEditingController> get _applied =>
+      _phaseLeft ? _leftApplied : _foundApplied;
+  List<TextEditingController> get _reading =>
+      _phaseLeft ? _leftReading : _foundReading;
 
   // ③ 루프 전압
   final _supply = TextEditingController(text: '24');
@@ -73,8 +84,10 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       _unit,
       _value,
       _tol,
-      ..._applied,
-      ..._reading,
+      ..._foundApplied,
+      ..._foundReading,
+      ..._leftApplied,
+      ..._leftReading,
       _supply,
       _minV,
       _hartR,
@@ -267,7 +280,11 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       result = calcResult(
         key: const Key('sg_conv_result'),
         big: _input == _Input.ma ? _pv(pv) : '${_fmt(ma)} mA',
-        caption: _input == _Input.ma ? '측정값' : '출력 전류',
+        caption: switch (_input) {
+          _Input.ma => '측정값',
+          _Input.pct => '출력 전류',
+          _Input.pv => '흐르는 전류(역산)',
+        },
         warn: warn,
         lines: [
           if (_input != _Input.ma) '측정값 ${_pv(pv)}',
@@ -281,26 +298,31 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     }
     return _page([
       ..._rangeFields('sg'),
-      _chips('넣을 값', '아는 값을 고르고 아래 칸에 넣으십시오. 나머지를 셉니다.', [
-        calcChip(
-          'sg_in_ma',
-          'mA',
-          _input == _Input.ma,
-          () => setState(() => _input = _Input.ma),
-        ),
-        calcChip(
-          'sg_in_pct',
-          '%',
-          _input == _Input.pct,
-          () => setState(() => _input = _Input.pct),
-        ),
-        calcChip(
-          'sg_in_pv',
-          '측정값',
-          _input == _Input.pv,
-          () => setState(() => _input = _Input.pv),
-        ),
-      ]),
+      _chips(
+        '넣을 값',
+        '아는 값을 고르고 아래 칸에 넣으십시오. 나머지를 셉니다. '
+            'DCS·지시계에 보이는 값을 "측정값"으로 넣으면 지금 흐르는 mA를 역산합니다.',
+        [
+          calcChip(
+            'sg_in_ma',
+            'mA',
+            _input == _Input.ma,
+            () => setState(() => _input = _Input.ma),
+          ),
+          calcChip(
+            'sg_in_pct',
+            '%',
+            _input == _Input.pct,
+            () => setState(() => _input = _Input.pct),
+          ),
+          calcChip(
+            'sg_in_pv',
+            '측정값',
+            _input == _Input.pv,
+            () => setState(() => _input = _Input.pv),
+          ),
+        ],
+      ),
       calcField(
         'sg_value',
         switch (_input) {
@@ -312,7 +334,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         switch (_input) {
           _Input.ma => '멀티미터·교정기로 잰 루프 전류입니다.',
           _Input.pct => '측정 범위의 몇 %인지입니다(0% = 4mA, 100% = 20mA).',
-          _Input.pv => '압력·온도 등 측정값입니다. 이 값일 때 계기가 내야 할 전류를 셉니다.',
+          _Input.pv => '압력·온도 등 측정값(DCS·지시계 값)입니다. 이 값일 때 루프에 흐르는 전류를 역산합니다.',
         },
       ),
       const SizedBox(height: 12),
@@ -389,79 +411,67 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   Widget _calTab() {
     final range = _range;
     final tol = _num(_tol);
-    final rows = <(int, CalPoint?)>[];
-    if (range != null) {
-      final (l, u) = range;
-      for (var i = 0; i < _points.length; i++) {
-        final applied = _num(_applied[i]) ?? pctToPv(_points[i], l, u);
-        final reading = _num(_reading[i]);
-        rows.add((
-          i,
-          reading == null
-              ? null
-              : checkPoint(
-                  applied: applied,
-                  reading: reading,
-                  kind: _kind,
-                  lrv: l,
-                  urv: u,
-                  transfer: _transfer,
-                  tolPct: tol != null && tol > 0 ? tol : null,
-                ),
-        ));
-      }
-    }
-    final done = [
-      for (final r in rows)
-        if (r.$2 != null) (r.$1, r.$2!),
-    ];
+    final s = range == null ? null : _summary(_phaseLeft, range);
+    final other = range == null ? null : _summary(!_phaseLeft, range);
+    final phase = _phaseLeft ? '조정 후' : '조정 전';
     Widget summary;
-    if (range == null) {
+    if (s == null) {
       summary = calcResult(
         big: '—',
         caption: '0% 값과 100% 값을 다르게 넣으십시오',
         lines: const [],
       );
-    } else if (done.isEmpty) {
+    } else if (s.isEmpty) {
       summary = calcResult(
         big: '—',
-        caption: '읽은 값을 한 점 이상 넣으십시오',
-        lines: const [],
+        caption: '$phase: 읽은 값을 한 점 이상 넣으십시오',
+        lines: [if (other != null && !other.isEmpty) _otherLine(other)],
       );
     } else {
-      final worst = done.reduce(
-        (a, b) => b.$2.errPct.abs() > a.$2.errPct.abs() ? b : a,
-      );
-      final fails = [
-        for (final d in done)
-          if (d.$2.pass == false) d,
-      ];
-      final judged = done.first.$2.pass != null;
+      final worst = s.worst!;
+      final fails = s.failed;
       summary = calcResult(
         key: const Key('sg_cal_result'),
         big: '${_signed(worst.$2.errPct, 2)}%',
-        caption: !judged
-            ? '가장 큰 오차(스팬 대비) — 허용 오차를 넣으면 판정합니다'
+        caption: s.pass == null
+            ? '$phase 가장 큰 오차(스팬 대비) — 허용 오차를 넣으면 판정합니다'
             : fails.isEmpty
-            ? '정상 — ${done.length}점 모두 ±${_fmt(tol!)}% 안'
-            : '허용 오차 넘음 — ${fails.length}점이 ±${_fmt(tol!)}% 밖',
+            ? '$phase 정상 — ${s.measured.length}점 모두 ±${_fmt(tol!)}% 안'
+            : '$phase 허용 오차 넘음 — ${fails.length}점이 ±${_fmt(tol!)}% 밖',
         warn: fails.isNotEmpty,
         lines: [
           '가장 큰 오차: ${_fmt(_points[worst.$1])}% 점',
           if (fails.isNotEmpty)
-            '넘은 점: ${fails.map((f) => '${_fmt(_points[f.$1])}%').join(', ')}',
+            '넘은 점: ${fails.map((i) => '${_fmt(_points[i])}%').join(', ')}',
+          if (other != null && !other.isEmpty) _otherLine(other),
           _kind == ReadKind.ma
               ? '오차 % = (읽은 mA − 이론 mA) ÷ 16mA × 100'
               : '오차 % = (지시값 − 넣은 값) ÷ 측정 범위 × 100',
         ],
       );
     }
+    final ed = _editing;
     return _page([
+      if (ed != null)
+        Container(
+          key: const Key('sc_editing'),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+          decoration: BoxDecoration(
+            color: fc.brandSoft,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            '불러온 기록: ${ed.tag.isEmpty ? '(태그 없음)' : ed.tag} · ${_day(ed.date)}',
+            style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
+          ),
+        ),
       ..._rangeFields('sc'),
       _chips(
         '읽은 값',
         'mA: 계기 출력 전류를 교정기·멀티미터로 잽니다(전송기 점검). '
-            '지시값: DCS·지시계·현장 게이지에 보이는 값입니다(루프 전체 점검).',
+            '지시값: DCS·지시계·현장 게이지에 보이는 값입니다(루프 전체 점검). '
+            '지시값으로 넣으면 그 값에서 지금 흐르는 mA를 역산해 보여 줍니다.',
         [
           calcChip(
             'sc_kind_ma',
@@ -497,25 +507,214 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           ],
         ),
       ),
-      if (range != null)
+      _chips(
+        '점검',
+        '조정 전(As Found): 손대기 전에 잰 값. 조정 후(As Left): 제로·스팬을 맞춘 뒤 다시 잰 값. '
+            '조정하지 않았으면 조정 전만 넣으십시오. 성적서에 둘 다 적힙니다.',
+        [
+          calcChip(
+            'sc_phase_found',
+            '조정 전',
+            !_phaseLeft,
+            () => setState(() => _phaseLeft = false),
+          ),
+          calcChip(
+            'sc_phase_left',
+            '조정 후',
+            _phaseLeft,
+            () => setState(() => _phaseLeft = true),
+          ),
+        ],
+      ),
+      if (range != null && s != null)
         for (var i = 0; i < _points.length; i++)
-          _calRow(i, range.$1, range.$2, rows[i].$2),
-      Align(
-        alignment: Alignment.centerRight,
-        child: calcToggle('sc_clear', '읽은 값 지우기', () {
-          setState(() {
-            for (final c in _reading) {
-              c.clear();
-            }
-            for (final c in _applied) {
-              c.clear();
-            }
-          });
-        }),
+          _calRow(i, range.$1, range.$2, s.points[i]),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          calcToggle('sc_new', '새 점검', _newCheck),
+          calcToggle('sc_clear', '읽은 값 지우기', () {
+            setState(() {
+              for (final c in [..._reading, ..._applied]) {
+                c.clear();
+              }
+            });
+          }),
+        ],
       ),
       const SizedBox(height: 4),
       summary,
+      const SizedBox(height: 12),
+      Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: ElevatedButton(
+                key: const Key('sc_save'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: fc.brand,
+                  foregroundColor: fc.onBrand,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: _saveSheet,
+                child: const Text(
+                  '기록 저장',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: OutlinedButton(
+                key: const Key('sc_records'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: fc.brand,
+                  side: BorderSide(color: fc.brand),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: _openRecords,
+                child: const Text(
+                  '저장한 기록',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     ]);
+  }
+
+  String _otherLine(CalSummary o) {
+    final w = o.worst!;
+    return '${_phaseLeft ? '조정 전' : '조정 후'}: 가장 큰 오차 ${_signed(w.$2.errPct, 2)}%'
+        '${o.pass == null ? '' : ' · ${o.pass! ? '정상' : '넘음'}'}';
+  }
+
+  List<CalEntry> _entries(bool left) {
+    final a = left ? _leftApplied : _foundApplied;
+    final r = left ? _leftReading : _foundReading;
+    return [
+      for (var i = 0; i < _points.length; i++)
+        CalEntry(applied: _num(a[i]), reading: _num(r[i])),
+    ];
+  }
+
+  CalSummary _summary(bool left, (double, double) range) => evaluateCal(
+    entries: _entries(left),
+    lrv: range.$1,
+    urv: range.$2,
+    transfer: _transfer,
+    kind: _kind,
+    tolPct: _num(_tol),
+  );
+
+  String _day(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  void _newCheck() {
+    setState(() {
+      for (final c in [
+        ..._foundApplied,
+        ..._foundReading,
+        ..._leftApplied,
+        ..._leftReading,
+      ]) {
+        c.clear();
+      }
+      _phaseLeft = false;
+      _editing = null;
+    });
+  }
+
+  void _snack(String t) => ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(t)));
+
+  Future<void> _saveSheet() async {
+    final range = _range;
+    if (range == null) {
+      _snack('0% 값과 100% 값을 다르게 넣으십시오.');
+      return;
+    }
+    if (_summary(false, range).isEmpty && _summary(true, range).isEmpty) {
+      _snack('읽은 값을 한 점 이상 넣으십시오.');
+      return;
+    }
+    final ed = _editing;
+    final (lastWorker, lastRef) = await CalRecordStore.lastWorkerAndRef();
+    if (!mounted) return;
+    final res = await showModalBottomSheet<_SaveResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: fc.surface,
+      builder: (_) => _CalSaveSheet(
+        editing: ed,
+        worker: ed?.worker ?? lastWorker,
+        refStd: ed?.refStd ?? lastRef,
+      ),
+    );
+    if (res == null || !mounted) return;
+    final now = DateTime.now();
+    final (l, u) = range;
+    final keep = !res.asNew && ed != null;
+    final rec = CalRecord(
+      id: keep ? ed.id : now.microsecondsSinceEpoch.toString(),
+      date: keep ? ed.date : now,
+      tag: res.tag,
+      instrument: res.instrument,
+      model: res.model,
+      refStd: res.refStd,
+      worker: res.worker,
+      memo: res.memo,
+      lrv: l,
+      urv: u,
+      unit: _u,
+      transfer: _transfer,
+      kind: _kind,
+      tolPct: _num(_tol),
+      found: _entries(false),
+      left: _summary(true, range).isEmpty ? const [] : _entries(true),
+    );
+    await CalRecordStore.put(rec);
+    if (!mounted) return;
+    setState(() => _editing = rec);
+    _snack('${rec.tag} 기록을 저장했습니다.');
+  }
+
+  Future<void> _openRecords() async {
+    final r = await Navigator.of(context).push<CalRecord>(
+      MaterialPageRoute(builder: (_) => const CalRecordsPage()),
+    );
+    if (r == null || !mounted) return;
+    String t(double? v) => v == null ? '' : _fmt(v, 6);
+    setState(() {
+      _lrv.text = _fmt(r.lrv, 6);
+      _urv.text = _fmt(r.urv, 6);
+      _unit.text = r.unit;
+      _transfer = r.transfer;
+      _kind = r.kind;
+      _tol.text = r.tolPct == null ? '' : _fmt(r.tolPct!, 6);
+      for (var i = 0; i < _points.length; i++) {
+        final f = i < r.found.length ? r.found[i] : const CalEntry();
+        final g = i < r.left.length ? r.left[i] : const CalEntry();
+        _foundApplied[i].text = t(f.applied);
+        _foundReading[i].text = t(f.reading);
+        _leftApplied[i].text = t(g.applied);
+        _leftReading[i].text = t(g.reading);
+      }
+      _phaseLeft = false;
+      _editing = r;
+    });
+    _snack('${r.tag} 기록을 불러왔습니다.');
   }
 
   Widget _calRow(int i, double l, double u, CalPoint? r) {
@@ -576,14 +775,28 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               ),
             ],
           ),
+          if (r != null && _kind == ReadKind.pv)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '흐르는 전류(역산) ${_fmt(idealMa(r.reading, l, u, _transfer))} mA',
+                key: Key('sc_flow_$i'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: fc.text,
+                ),
+              ),
+            ),
           if (r != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
+                // 판정을 앞에 — 줄 끝에서 "정상"이 두 줄로 끊기지 않게.
+                '${r.pass == null ? '' : (r.pass! ? '정상 · ' : '넘음 · ')}'
                 '오차 ${_signed(r.errPct, 2)}%'
                 '${r.errMa.isNaN ? '' : ' · ${_signed(r.errMa)} mA'}'
-                ' · ${_signed(r.errPv)}${_u.isEmpty ? '' : ' $_u'}'
-                '${r.pass == null ? '' : (r.pass! ? ' · 정상' : ' · 넘음')}',
+                ' · ${_signed(r.errPv)}${_u.isEmpty ? '' : ' $_u'}',
                 key: Key('sc_err_$i'),
                 style: TextStyle(
                   fontSize: 14,
@@ -707,5 +920,171 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           ],
         ),
     ]);
+  }
+}
+
+/// 저장 창에서 돌려주는 값. [asNew]: 새 기록으로(아니면 불러온 기록을 고침).
+class _SaveResult {
+  final bool asNew;
+  final String tag, instrument, model, refStd, worker, memo;
+  const _SaveResult({
+    required this.asNew,
+    required this.tag,
+    required this.instrument,
+    required this.model,
+    required this.refStd,
+    required this.worker,
+    required this.memo,
+  });
+}
+
+/// 교정 기록 저장 창(태그·계기·모델·기준기·작업자·메모). 입력 칸은 이 창이 만들고 치운다.
+class _CalSaveSheet extends StatefulWidget {
+  final CalRecord? editing;
+  final String worker;
+  final String refStd;
+  const _CalSaveSheet({
+    required this.editing,
+    required this.worker,
+    required this.refStd,
+  });
+
+  @override
+  State<_CalSaveSheet> createState() => _CalSaveSheetState();
+}
+
+class _CalSaveSheetState extends State<_CalSaveSheet> {
+  late final _tag = TextEditingController(text: widget.editing?.tag ?? '');
+  late final _inst = TextEditingController(
+    text: widget.editing?.instrument ?? '',
+  );
+  late final _model = TextEditingController(text: widget.editing?.model ?? '');
+  late final _ref = TextEditingController(text: widget.refStd);
+  late final _worker = TextEditingController(text: widget.worker);
+  late final _memo = TextEditingController(text: widget.editing?.memo ?? '');
+  bool _tagError = false;
+
+  @override
+  void dispose() {
+    for (final c in [_tag, _inst, _model, _ref, _worker, _memo]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  void _done(bool asNew) {
+    if (_tag.text.trim().isEmpty) {
+      setState(() => _tagError = true);
+      return;
+    }
+    Navigator.pop(
+      context,
+      _SaveResult(
+        asNew: asNew,
+        tag: _tag.text.trim(),
+        instrument: _inst.text.trim(),
+        model: _model.text.trim(),
+        refStd: _ref.text.trim(),
+        worker: _worker.text.trim(),
+        memo: _memo.text.trim(),
+      ),
+    );
+  }
+
+  Widget _field(
+    String key,
+    String label,
+    TextEditingController c, {
+    String? hint,
+    bool error = false,
+    int maxLines = 1,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: TextField(
+      key: Key(key),
+      controller: c,
+      maxLines: maxLines,
+      style: TextStyle(fontSize: 16, color: fc.text),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        errorText: error ? '태그 번호를 넣으십시오' : null,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final ed = widget.editing;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        16 + MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              ed == null ? '교정 기록 저장' : '교정 기록 고치기',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: fc.text,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '폰에만 저장됩니다. 성적서(PDF)는 "저장한 기록"에서 봅니다.',
+              style: TextStyle(fontSize: 13, color: fc.textSub),
+            ),
+            const SizedBox(height: 12),
+            _field(
+              'cs_tag',
+              '태그 번호',
+              _tag,
+              hint: '예: PT-101',
+              error: _tagError,
+            ),
+            _field('cs_inst', '계기', _inst, hint: '예: 급수 펌프 토출 압력 전송기'),
+            _field('cs_model', '제조사·모델', _model, hint: '예: Rosemount 3051'),
+            _field('cs_ref', '기준기', _ref, hint: '교정기 모델·교정 번호'),
+            _field('cs_worker', '작업자', _worker),
+            _field('cs_memo', '메모', _memo, maxLines: 2),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                if (ed != null) ...[
+                  Expanded(
+                    child: OutlinedButton(
+                      key: const Key('cs_save_new'),
+                      onPressed: () => _done(true),
+                      child: const Text('새로 저장'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
+                Expanded(
+                  child: ElevatedButton(
+                    key: const Key('cs_save'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: fc.brand,
+                      foregroundColor: fc.onBrand,
+                    ),
+                    onPressed: () => _done(ed == null),
+                    child: Text(ed == null ? '저장' : '고쳐 저장'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
