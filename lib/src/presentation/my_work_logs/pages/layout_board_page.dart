@@ -3395,6 +3395,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         isSelected: true,
         shape: preset.shape,
         depth: preset.depthOrGuess,
+        // 🚀 [버그 수정] 새로 놓는 부품은 각도 칸을 0으로 못박는다. 비워 두면(null)
+        // 처음 돌릴 때 "칸 비율로 이미 돌아가 있는지" 추측하는 예전 부품용 로직을 타는데,
+        // 단자대·DIN 레일처럼 가로가 긴 전기 부품은 그 추측표(isLandscape)에 없어 "이미
+        // 90° 돌아간 것"으로 잘못 보고, 실제로는 90°만 돌렸는데 각도 칸은 180으로 뛰면서
+        // 가로세로가 안 맞아 찌그러져 보였다. 새로 놓을 땐 안 돌린 게 확실하므로 0으로 박는다.
+        rotation: 0,
       );
       _snapToRail(newItem);
 
@@ -6689,6 +6695,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   width: details.data.width,
                   height: details.data.height,
                   shape: details.data.shape,
+                  rotation: 0,
                 );
               });
             },
@@ -9379,6 +9386,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       height: preset.height,
       shape: preset.shape,
       depth: preset.depthOrGuess,
+      rotation: 0,
     );
     final double v = skidVerticalSize(tmp);
     final bool front = _plateId == kSkidViewFront;
@@ -10336,6 +10344,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       depth: item.depth,
       elevation: item.elevation,
       flipped: item.flipped,
+      tag: item.tag,
+      // 🚀 [버그 수정] 각도 칸을 안 옮겨서, 90°로 돌려 둔 부품을 복제하면 복제본이
+      // 각도 칸 없는 부품처럼 취급되어(추측 로직을 타서) 다음에 돌릴 때 찌그러질 수 있었다.
+      rotation: item.rotation,
     );
     setState(() {
       _placedItems.add(newItem);

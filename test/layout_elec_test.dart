@@ -1,4 +1,5 @@
 // 배치도 전기 부품: 단자대 묶음 폭, 깊이, 카탈로그 값(용성 FT·건흥·하니웰 GCP·문짝 부품), 그려지는지, 폰 "전기" 단추로 놓기.
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -165,5 +166,122 @@ void main() {
     );
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  group('90° 회전(2026-09-26 버그 수정)', () {
+    test('단자대·고정식 단자대·DIN 레일은 가로가 긴 모양, 차단기·전원·릴레이는 아니다', () {
+      expect(InstrumentShape.isLandscape('${ElecShape.tb}:10'), isTrue);
+      expect(InstrumentShape.isLandscape('${ElecShape.ft}:6'), isTrue);
+      expect(InstrumentShape.isLandscape(ElecShape.rail), isTrue);
+      expect(InstrumentShape.isLandscape('${ElecShape.mcb}:1'), isFalse);
+      expect(InstrumentShape.isLandscape('${ElecShape.mcb}:3'), isFalse);
+      expect(InstrumentShape.isLandscape(ElecShape.mccb), isFalse);
+      expect(InstrumentShape.isLandscape(ElecShape.psu), isFalse);
+      expect(InstrumentShape.isLandscape(ElecShape.relay), isFalse);
+      expect(InstrumentShape.isLandscape(ElecShape.spd), isFalse);
+    });
+
+    test('가로가 긴 단자대는 "이미 90° 돌아간 것"으로 잘못 짐작하지 않는다', () {
+      // UK 2.5N 단자대 10P 크기(53.8×42.5, 가로가 긴 실제 모습) 그대로.
+      expect(
+        InstrumentShape.inferredQuarterTurns(
+          '${ElecShape.tb}:10',
+          const Size(53.8, 42.5),
+        ),
+        0,
+      );
+      // 실제로 한 번 돌려 세로로 선 상태(42.5×53.8)는 1로 본다.
+      expect(
+        InstrumentShape.inferredQuarterTurns(
+          '${ElecShape.tb}:10',
+          const Size(42.5, 53.8),
+        ),
+        1,
+      );
+    });
+
+    testWidgets('폰: 전기 단추로 새로 놓은 단자대는 각도 칸이 곧바로 0으로 박힌다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'layout_board_onboarding_shown_v1': true,
+      });
+      tester.view.physicalSize = const Size(390, 844) * 2;
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(const MaterialApp(home: LayoutBoardPage()));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byKey(const ValueKey('elec_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('elec_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('UK 2.5N 단자대 10P'));
+      await tester.pumpAndSettle();
+
+      final state = tester.state(find.byType(LayoutBoardPage)) as dynamic;
+      final items = (state.debugPlates()['main']!['items'] as List).cast<Map>();
+      expect(items.single['rot'], 0);
+      expect(items.single['w'], 53.8);
+      expect(items.single['h'], 42.5);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('옛 저장 자료(각도 칸 없음)의 단자대를 처음 돌려도 90°만 돌고 찌그러지지 않는다', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        'layout_board_onboarding_shown_v1': true,
+        'layout_board_draft_v1': jsonEncode({
+          'kind': kLayoutKindCabinet,
+          'projectName': 'TEST',
+          'panelWidth': 600.0,
+          'panelHeight': 400.0,
+          'items': [
+            {
+              'type': 'item',
+              'id': 'tb1',
+              'name': 'UK 2.5N 단자대 10P',
+              'x': 100,
+              'y': 50,
+              'w': 53.8,
+              'h': 42.5,
+              'shape': '${ElecShape.tb}:10',
+              // 'rot' 칸이 아예 없다 — 각도 칸이 생기기 전에 놓았던 부품.
+            },
+          ],
+          'dimensions': <Map<String, dynamic>>[],
+        }),
+      });
+      tester.view.physicalSize = const Size(390, 844) * 2;
+      tester.view.devicePixelRatio = 2;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: LayoutBoardPage(
+            initialKind: kLayoutKindCabinet,
+            resumeDraft: true,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('tb1')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('90° 회전'));
+      await tester.pumpAndSettle();
+
+      final state = tester.state(find.byType(LayoutBoardPage)) as dynamic;
+      final items = (state.debugPlates()['main']!['items'] as List).cast<Map>();
+      // 고치기 전에는 180으로 뛰어 42.5×53.8 자리에 53.8×42.5 그림이 눌려 그려졌다.
+      expect(items.single['rot'], 90);
+      expect(items.single['w'], 42.5);
+      expect(items.single['h'], 53.8);
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+    });
   });
 }

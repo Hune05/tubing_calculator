@@ -157,6 +157,16 @@ class InstrumentShape {
     final String base = baseOf(shape);
     // 스키드 형강·전선관은 길이 방향이 가로, 정션박스는 네모라 돌리지 않는다.
     if (SkidShape.isSkid(base)) return base != SkidShape.jb;
+    // 🚀 [버그 수정] 전기 부품은 'el_tb:4'처럼 뒤에 극 수가 붙어 있어 아래 _landscape
+    // 목록(고정 이름만 있음)에 걸리는 일이 없었다. 그래서 단자대·DIN 레일처럼 실제로는
+    // 가로가 긴 부품도 "가로가 긴 모양이 아니다"로 보여, 각도 칸 없이 저장된(예전) 부품을
+    // 처음 돌릴 때 "이미 90° 돌아가 있다"로 잘못 짐작해 다음 돌리기부터 찌그러졌다.
+    if (ElecShape.isElec(base)) {
+      final String kind = base.split(':').first;
+      return kind == ElecShape.tb ||
+          kind == ElecShape.ft ||
+          kind == ElecShape.rail;
+    }
     final Size? mm = fittingSpecSize(base);
     if (mm != null) return mm.width > mm.height;
     return _landscape.contains(base);
