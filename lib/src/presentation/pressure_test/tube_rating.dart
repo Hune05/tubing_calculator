@@ -11,9 +11,17 @@
 // 제조사 표 값: Swagelok "Tubing Data" MS-01-107 Rev W(2023-10) 표 1(3쪽, 탄소강 인치),
 // 표 3(5쪽, 스테인리스 인치), 표 4(6쪽, 스테인리스 mm). −28~37°C 값. 같은 방법으로 다시 계산해
 // 100psi(인치)·10bar(mm) 아래로 버린 값과 모두 같음을 확인했다(3/8" × 0.083" 등 피팅 시험 값은 목록에 넣지 않음).
+//
+// B31.1(동력 배관)이면 B31.1-2022 104.1.2(a) 식 (9) P = 2SEW(tm − A) / (Do − 2y(tm − A))로 계산한다.
+// E = W = 1(이음매 없는 관, 102.4.7: 크리프 영역 아래·탄소강 제외), A = 0(압축 이음 튜브는 나사·홈을 내지 않음),
+// y = 0.4(표 104.1.2-1, 482°C 이하 페라이트·오스테나이트강). Do/tm < 6이면 y = d/(d + Do)(같은 표 일반 주 (b)).
+// S: SS316은 표 A-3 A213 TP316(A269는 B31.1 부록 A 표에 없다), 주 (9)의 높은 값이 아닌 줄.
+// 탄소강은 표 A-1 A179. 원문 사본(B31.1-2022 PDF, 126·127·152·153쪽)에서 확인. 치수는 B31.3과 같게 최대 외경·최소 두께.
 library;
 
 import 'dart:math' as math;
+
+import 'pressure_calc.dart' show PipingCode;
 
 /// 튜브 재질.
 enum TubeMaterial { ss316, cs }
@@ -205,6 +213,64 @@ const Map<TubeMaterial, List<(double, double)>> _sTable = {
   ],
 };
 
+// ─────────────── 허용 응력(B31.1-2022 표 A-3·A-1) ───────────────
+
+/// (°F, ksi). 표 머리 "100 200 … 800"(°F 이하). 800°F(427°C)까지만 넣었다(B31.3과 같은 범위).
+const Map<TubeMaterial, List<(double, double)>> _sTable311 = {
+  // 표 A-3 이음매 없는 관·튜브 오스테나이트 A213 TP316(S31600), 주 (10) 줄(152·153쪽), 최소 항복 30ksi.
+  // 같은 규격의 주 (9) 줄(20.0 20.0 20.0 19.3 18.0 17.0 16.6 16.3 16.1 15.9)은 "조금만 변형돼도 새거나
+  // 오동작하는 곳에는 쓰지 않는다"는 값이라 압축 이음 튜브에는 쓰지 않는다.
+  TubeMaterial.ss316: [
+    (100, 20.0),
+    (200, 17.3),
+    (300, 15.6),
+    (400, 14.3),
+    (500, 13.3),
+    (600, 12.6),
+    (650, 12.3),
+    (700, 12.1),
+    (750, 11.9),
+    (800, 11.8),
+  ],
+  // 표 A-1 이음매 없는 관·튜브 A179, 주 (1)(2)(5)(126·127쪽), 인장 (47)·항복 26ksi.
+  TubeMaterial.cs: [
+    (100, 13.4),
+    (200, 13.4),
+    (300, 13.4),
+    (400, 13.4),
+    (500, 13.4),
+    (600, 13.3),
+    (650, 12.8),
+    (700, 12.4),
+    (750, 10.7),
+    (800, 9.2),
+  ],
+};
+
+/// B31.1 최저 온도(°C). 표 A-1·A-3에는 최저 온도 칸이 없고 저온은 124.1.2(B31T)로 따로 정한다.
+/// 부록 VIII 표 VIII-1(B31T 발췌)의 스테인리스 무리 저온 사용 한계가 −20°F(−29°C)라,
+/// 앱은 두 재질 모두 −29°C 아래를 계산하지 않는다(그 아래는 B31T 요건 검토 대상).
+const double kTube311MinC = -29;
+
+List<(double, double)> _table(TubeMaterial m, PipingCode code) =>
+    code == PipingCode.b311 ? _sTable311[m]! : _sTable[m]!;
+
+/// 표 최저 온도(°C).
+double tubeMinTempC(TubeMaterial m, PipingCode code) =>
+    code == PipingCode.b311 ? kTube311MinC : m.minTempC;
+
+/// 허용 응력 표 이름: "B31.1 표 A-3, A213 TP316".
+String tubeStressTableText(TubeMaterial m, PipingCode code) {
+  if (code == PipingCode.b311) {
+    return m == TubeMaterial.ss316
+        ? 'B31.1 표 A-3, A213 TP316'
+        : 'B31.1 표 A-1, A179';
+  }
+  return m == TubeMaterial.ss316
+      ? 'B31.3 표 A-1, A269·A213 TP316'
+      : 'B31.3 표 A-1, A179';
+}
+
 /// 표에 넣은 최고 온도(°F). 입력은 °C로 427°C(= 800.6°F)까지 받고 800°F 값을 쓴다(SI 표 427°C).
 const double kTubeMaxF = 800;
 const double kTubeMaxC = 427;
@@ -217,10 +283,15 @@ double cToF(double c) => c * 9 / 5 + 32;
 double fToC(double f) => (f - 32) * 5 / 9;
 
 /// 설계 온도(°C)에서 허용 응력(ksi). 표 범위 밖이면 null. 표 사이는 직선 보간.
-double? tubeAllowableKsi(TubeMaterial m, double tC) {
-  if (tC < m.minTempC - 1e-9 || tC > kTubeMaxC + 1e-9) return null;
+/// [code]가 B31.1이면 B31.1 표 A-3·A-1 값.
+double? tubeAllowableKsi(
+  TubeMaterial m,
+  double tC, {
+  PipingCode code = PipingCode.b313,
+}) {
+  if (tC < tubeMinTempC(m, code) - 1e-9 || tC > kTubeMaxC + 1e-9) return null;
   final f = math.min(cToF(tC), kTubeMaxF);
-  final t = _sTable[m]!;
+  final t = _table(m, code);
   if (f <= t.first.$1) return t.first.$2;
   for (var i = 0; i < t.length - 1; i++) {
     final a = t[i], b = t[i + 1];
@@ -231,9 +302,9 @@ double? tubeAllowableKsi(TubeMaterial m, double tC) {
   return t.last.$2;
 }
 
-/// 표 A-1 온도 범위 글(°C): "−254~427°C".
-String tubeTempRangeText(TubeMaterial m) =>
-    '${m.minTempC.round()}~${kTubeMaxC.round()}°C';
+/// 표 온도 범위 글(°C): "−254~427°C".
+String tubeTempRangeText(TubeMaterial m, {PipingCode code = PipingCode.b313}) =>
+    '${tubeMinTempC(m, code).round()}~${kTubeMaxC.round()}°C';
 
 /// B31.3 304.1.2 식으로 압력(kPa). [odMm] 외경, [tMm] 두께, [sKsi] 응력.
 /// t ≥ D/6이면 Y = d/(D + d), 아니면 0.4.
@@ -248,6 +319,26 @@ double b313TubeKpa({
 }
 
 bool isThickWall(double odMm, double tMm) => tMm >= odMm / 6 - 1e-12;
+
+/// B31.1 104.1.2(a) 식 (9)로 압력(kPa). E = W = 1, A = 0.
+/// y = 0.4(표 104.1.2-1, 482°C 이하), Do/tm < 6이면 y = d/(d + Do)(같은 표 일반 주 (b)).
+double b311TubeKpa({
+  required double odMm,
+  required double tMm,
+  required double sKsi,
+}) {
+  final d = odMm - 2 * tMm;
+  final y = isThickWall311(odMm, tMm) ? d / (d + odMm) : 0.4;
+  return 2 * sKsi * kKsiKpa * tMm / (odMm - 2 * y * tMm);
+}
+
+/// B31.1: Do/tm < 6.
+bool isThickWall311(double odMm, double tMm) => odMm / tMm < 6 - 1e-12;
+
+double _codeKpa(PipingCode code, double odMm, double tMm, double sKsi) =>
+    code == PipingCode.b311
+    ? b311TubeKpa(odMm: odMm, tMm: tMm, sKsi: sKsi)
+    : b313TubeKpa(odMm: odMm, tMm: tMm, sKsi: sKsi);
 
 /// 최대 외경(mm): 공칭 + 0.13mm(0.005").
 double tubeMaxOdMm(TubeSize t) => t.odMm + (t.inch ? 0.005 * 25.4 : 0.13);
@@ -268,6 +359,7 @@ String tubeWallTolText(TubeSize t, TubeMaterial m) => m == TubeMaterial.cs
 class TubeRating {
   final TubeSize size;
   final TubeMaterial material;
+  final PipingCode code; // 계산 식·허용 응력 표(B31.3 또는 B31.1)
   final double designC;
   final double sKsi; // 설계 온도 S
   final double sTestKsi; // 시험 온도(38°C 이하) S
@@ -278,11 +370,12 @@ class TubeRating {
   final double? makerKpa; // 제조사 표 값(비교에 쓰는 것: 설계 온도가 −28~37°C일 때만)
   final double? makerTableKpa; // 제조사 표 값(온도와 관계없이, 없으면 null)
   final double yieldKpa; // 시험 온도에서 관 응력이 최소 항복강도가 되는 압력(최소 두께 기준)
-  final bool thick; // 최소 두께 ≥ 최대 외경/6
+  final bool thick; // B31.3: 최소 두께 ≥ 최대 외경/6, B31.1: Do/tm < 6
 
   const TubeRating({
     required this.size,
     required this.material,
+    this.code = PipingCode.b313,
     required this.designC,
     required this.sKsi,
     required this.sTestKsi,
@@ -307,19 +400,23 @@ class TubeRating {
 
   /// B31.3 공압 최대(345.5.4 (b)): 345.2.1(a) 압력(여기서는 튜브 항복)의 90%.
   double get yield90Kpa => 0.9 * yieldKpa;
+
+  /// 허용 응력 표 이름("B31.1 표 A-3, A213 TP316").
+  String get stressTableText => tubeStressTableText(material, code);
 }
 
 /// 튜브 허용 사용압력. [designC] 설계 온도(°C, 없으면 38°C 이하로 본다).
-/// 표 A-1 온도 범위 밖이면 null.
+/// [code]가 B31.1이면 B31.1 104.1.2 식과 표 A-3·A-1 S. 표 온도 범위 밖이면 null.
 TubeRating? tubeRating({
   required TubeSize size,
   required TubeMaterial material,
   double? designC,
+  PipingCode code = PipingCode.b313,
 }) {
   final tC = designC ?? fToC(kMakerMaxF);
-  final s = tubeAllowableKsi(material, tC);
+  final s = tubeAllowableKsi(material, tC, code: code);
   if (s == null) return null;
-  final sTest = _sTable[material]!.first.$2;
+  final sTest = _table(material, code).first.$2;
   final dMax = tubeMaxOdMm(size);
   final tMin = tubeMinWallMm(size, material);
   final f = cToF(tC);
@@ -329,17 +426,20 @@ TubeRating? tubeRating({
   return TubeRating(
     size: size,
     material: material,
+    code: code,
     designC: tC,
     sKsi: s,
     sTestKsi: sTest,
     maxOdMm: dMax,
     minWallMm: tMin,
-    calcKpa: b313TubeKpa(odMm: dMax, tMm: tMin, sKsi: s),
-    nominalKpa: b313TubeKpa(odMm: size.odMm, tMm: size.wallMm, sKsi: s),
+    calcKpa: _codeKpa(code, dMax, tMin, s),
+    nominalKpa: _codeKpa(code, size.odMm, size.wallMm, s),
     makerKpa: inMakerRange ? table : null,
     makerTableKpa: table,
-    yieldKpa: b313TubeKpa(odMm: dMax, tMm: tMin, sKsi: material.syKsi),
-    thick: isThickWall(dMax, tMin),
+    yieldKpa: _codeKpa(code, dMax, tMin, material.syKsi),
+    thick: code == PipingCode.b311
+        ? isThickWall311(dMax, tMin)
+        : isThickWall(dMax, tMin),
   );
 }
 

@@ -1,4 +1,4 @@
-// 4-20mA 교정 기록(폰에만 저장). 한 계기의 조정 전·조정 후 시험점(상승·하강)과 계기·표준기·작업자 정보.
+// 4-20mA 교정 기록(폰에 저장하고 서버에도 올림, record_sync.dart). 한 계기의 조정 전·조정 후 시험점(상승·하강)과 계기·표준기·작업자 정보.
 // 스위치 시험 기록('type': 'switch')은 스위치 설정과 반복 측정값(switch_check.dart)을 담는다.
 // 성적서 PDF는 cal_record_pdf.dart. 계산은 signal_calc.dart의 checkPoint를 그대로 쓴다.
 library;
@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/record_sync.dart';
 import 'signal_calc.dart';
 import 'switch_check.dart';
 import 'temp_sensor.dart';
@@ -755,6 +756,7 @@ List<List<String>> _switchPointRows(CalRecord r) {
 }
 
 /// 폰에 저장(SharedPreferences, JSON 목록). 최근 것이 앞.
+/// 저장·지우기는 서버(Firestore)에도 올린다(기다리지 않음). 목록 화면을 열면 서버 것과 합친다.
 class CalRecordStore {
   static const String key = 'signal_cal_records_v1';
   static const String lastWorkerKey = 'signal_cal_last_worker';
@@ -796,6 +798,7 @@ class CalRecordStore {
       list.add(r);
     }
     await _write(list);
+    await sync.saved(r.id);
     final p = await SharedPreferences.getInstance();
     await p.setString(lastWorkerKey, r.worker);
     await p.setString(lastRefKey, r.refStd);
@@ -805,7 +808,25 @@ class CalRecordStore {
     final list = await load();
     list.removeWhere((e) => e.id == id);
     await _write(list);
+    await sync.removed(id);
   }
+
+  /// 서버에서 받은 JSON을 읽을 수 있는지.
+  static bool _readable(Map<String, dynamic> j) {
+    try {
+      CalRecord.fromJson(j);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 서버 올리기·받기(모음 calibration_records, 주인 = 앱 사용자 이름). record_sync.dart.
+  static final RecordSync sync = RecordSync(
+    key: key,
+    collection: 'calibration_records',
+    isValid: _readable,
+  );
 
   /// 저장 창에 미리 채울 작업자·표준기(마지막에 쓴 것, 작업자는 없으면 앱 사용자 이름).
   static Future<(String, String)> lastWorkerAndRef() async {

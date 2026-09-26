@@ -284,7 +284,7 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
             ),
             const SizedBox(height: 4),
             Text(
-              '폰에만 저장됩니다. 기록서(PDF)는 "저장한 기록"에서 봅니다.',
+              '폰에 저장하고 통신되면 서버에도 올립니다. 기록서(PDF)는 "저장한 기록"에서 봅니다.',
               style: TextStyle(fontSize: 13, color: fc.textSub),
             ),
             const SizedBox(height: 12),

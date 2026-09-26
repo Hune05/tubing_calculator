@@ -58,18 +58,28 @@ import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
     show ensureSignedIn;
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart'
     show TubeReferencePage, kRefKecTabIndex;
+import 'package:tubing_calculator/src/presentation/pressure_test/pressure_test_page.dart'
+    show PressureTestPage, kPtRecordTabIndex;
+import 'package:tubing_calculator/src/presentation/pressure_test/hold_alarm.dart'
+    show kPtHoldPayload;
 
 // 알림을 눌렀을 때 화면을 열기 위한 전역 내비게이터.
 final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
 
 /// 알림에서 열 화면. 개인 일정이면 내 일정의 그 날짜, 서버 알림(일정·이슈·일지)이면 작업 일지,
-/// 전기 기준 새 개정 공고면 현장 자료의 전기 기준 탭.
+/// 전기 기준 새 개정 공고면 현장 자료의 전기 기준 탭, 압력 시험 유지시간 완료면 압력 시험의 시험 기록 탭.
 /// 없으면 null(주간·일일 보고는 아래에서 따로).
 Route<void>? routeForNotification(String? payload, Map<String, dynamic> data) {
   final sched = parsePersonalReminderPayload(payload);
   if (sched != null) {
     return MaterialPageRoute<void>(
       builder: (_) => MobileMyScheduleScreen(initialDate: sched.date),
+    );
+  }
+  // 압력 시험 유지시간 완료(폰 예약 알림 918400, hold_alarm.dart).
+  if (payload == kPtHoldPayload) {
+    return MaterialPageRoute<void>(
+      builder: (_) => const PressureTestPage(initialTab: kPtRecordTabIndex),
     );
   }
   if (data['open'] == 'work_logs') {
@@ -97,6 +107,11 @@ void _openRouteWhenReady(Route<void> route, [int left = 10]) {
 }
 
 void _handleNotificationPayload(String? payload) {
+  // 압력 시험 화면이 이미 열려 있으면(앱 실행 중) 하나 더 열지 않고 그 화면의 시험 기록 탭으로 간다.
+  if (payload == kPtHoldPayload &&
+      PressureTestPage.revealOpen(kPtRecordTabIndex)) {
+    return;
+  }
   final route = routeForNotification(payload, const {});
   if (route != null) {
     _openRouteWhenReady(route);

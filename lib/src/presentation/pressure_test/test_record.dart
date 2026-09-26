@@ -1,4 +1,4 @@
-// 배관 압력시험 기록(폰에만 저장). 시험 정보(튜브면 튜브 규격)·유지시간(시작·종료 시각)·측정 기록·압력계·안전밸브·입회자와 판정.
+// 배관 압력시험 기록(폰에 저장하고 서버에도 올림, record_sync.dart). 시험 정보(튜브면 튜브 규격)·유지시간(시작·종료 시각)·측정 기록·압력계·안전밸브·입회자와 판정.
 // 기록서 PDF는 test_record_pdf.dart, 목록은 test_records_page.dart.
 // 판정은 judgePressureTest 하나로 화면·기록서·CSV가 같이 쓴다. 근거는 docs/압력시험계산기_근거.md.
 library;
@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/record_sync.dart';
 import 'pressure_calc.dart';
 import 'pressure_units.dart';
 
@@ -601,6 +602,7 @@ String ptRecordsCsv(List<PtRecord> records) {
 }
 
 /// 폰에 저장(SharedPreferences, JSON 목록). 최근 것이 앞.
+/// 저장·지우기는 서버(Firestore)에도 올린다(기다리지 않음). 목록 화면을 열면 서버 것과 합친다.
 class PtRecordStore {
   static const String key = 'pressure_test_records_v1';
   static const String lastTesterKey = 'pressure_test_last_tester';
@@ -642,6 +644,7 @@ class PtRecordStore {
       list.add(r);
     }
     await _write(list);
+    await sync.saved(r.id);
     final p = await SharedPreferences.getInstance();
     await p.setString(lastTesterKey, r.tester);
     await p.setString(
@@ -658,7 +661,25 @@ class PtRecordStore {
     final list = await load();
     list.removeWhere((e) => e.id == id);
     await _write(list);
+    await sync.removed(id);
   }
+
+  /// 서버에서 받은 JSON을 읽을 수 있는지.
+  static bool _readable(Map<String, dynamic> j) {
+    try {
+      PtRecord.fromJson(j);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 서버 올리기·받기(모음 pressure_test_records, 주인 = 앱 사용자 이름). record_sync.dart.
+  static final RecordSync sync = RecordSync(
+    key: key,
+    collection: 'pressure_test_records',
+    isValid: _readable,
+  );
 
   /// 저장 창에 미리 채울 시험자(마지막에 쓴 것, 없으면 앱 사용자 이름).
   static Future<String> lastTester() async {

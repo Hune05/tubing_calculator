@@ -218,7 +218,13 @@ void main() {
     r = await tubeText(tester);
     expect(r, contains('튜브 응력 한도(항복강도의 90%)'));
     expect(r, contains('(137.1.4·102.3.3(b))'));
-    expect(r, contains('B31.1 배관이면 B31.1 허용 응력으로 다시 확인하십시오.'));
+    // B31.1이면 104.1.2 식과 표 A-1 A179 S(13.4ksi), 두꺼운 벽은 y = d/(d + Do)
+    expect(r, contains('B31.1 104.1.2, S 13.4 ksi'));
+    expect(r, contains('허용 응력 S: B31.1 표 A-1, A179, 설계 온도로 보간'));
+    expect(r, contains('y = d/(d + Do)로 계산했습니다(표 104.1.2-1 일반 주 (b)).'));
+    expect(r, isNot(contains('Y = d/(D + d)')));
+    expect(r, contains('A179는 보일러 외부 배관(BEP)의 압력 부분에 쓸 수 없습니다(표 A-1 주 (1)).'));
+    expect(r, isNot(contains('다시 확인하십시오')));
     // B31.1 공압 안전밸브 줄(1.5P 이하)
     expect(
       textIn(tester, const Key('pt_plan_result')),
@@ -264,6 +270,54 @@ void main() {
     await tapKey(tester, 'pt_tm_cs');
     await type(tester, 'pt_tube_temp', '-40');
     expect(await tubeText(tester), contains('(-29~427°C) 밖이라'));
+    await finish(tester);
+  });
+
+  testWidgets('B31.1 튜브: 표 A-3 A213 TP316 S로 계산, 제조사 값 비교는 B31.3과 같다', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+    var r = await tubeText(tester);
+    expect(r, contains('허용 응력 S: B31.3 표 A-1, A269·A213 TP316, 설계 온도로 보간'));
+    await tapKey(tester, 'pt_b311');
+    r = await tubeText(tester);
+    // 38°C 이하: S 20ksi, 계산 5147psi > 제조사 5100psig → 351.63bar(제조사 값)
+    expect(r, startsWith('튜브 허용 사용압력 (설계 온도 38°C 이하)\n351.63 bar'));
+    expect(
+      r,
+      contains('B31.1 104.1.2, S 20 ksi, 최대 외경 6.48 mm, 최소 두께 0.756 mm'),
+    );
+    expect(r, contains('허용 응력 S: B31.1 표 A-3, A213 TP316, 설계 온도로 보간'));
+    expect(r, contains('B31.1 표 A-3에는 A269가 없어 같은 TP316인 A213 값을 씁니다.'));
+    expect(r, contains('(제조사 값)'));
+    // 100°C(212°F): S = 17.3 − 1.7 × 0.12 = 17.096ksi
+    // P = 2 × 17096 × 0.02975 / (0.255 − 0.8 × 0.02975) = 4399.70psi = 303.35bar
+    await type(tester, 'pt_tube_temp', '100');
+    r = await tubeText(tester);
+    expect(r, startsWith('튜브 허용 사용압력 (설계 온도 100°C)\n303.35 bar'));
+    expect(r, contains('S 17.1 ksi'));
+    expect(r, contains('(계산값)'));
+    // ST/S는 B31.3 수압에만
+    expect(r, isNot(contains('ST/S')));
+    // 탄소강 38°C 이하: S 13.4ksi, 938 / 0.227 = 4132.16psi = 284.9bar < 제조사 4800psig
+    await type(tester, 'pt_tube_temp', '');
+    await tapKey(tester, 'pt_tm_cs');
+    r = await tubeText(tester);
+    expect(r, startsWith('튜브 허용 사용압력 (설계 온도 38°C 이하)\n284.9 bar'));
+    expect(r, contains('B31.1 104.1.2, S 13.4 ksi'));
+    expect(r, contains('(계산값)'));
+    // 범위: B31.1은 −29°C 아래를 계산하지 않는다(B31.3 SS316은 −254°C까지)
+    await tapKey(tester, 'pt_tm_ss316');
+    await type(tester, 'pt_tube_temp', '-40');
+    r = await tubeText(tester);
+    expect(
+      r,
+      contains('B31.1 표 A-3, A213 TP316에 넣은 범위(-29~427°C) 밖이라 계산하지 않습니다.'),
+    );
+    expect(r, contains('B31.1은 −29°C 아래 저온을 124.1.2(B31T 요건)로 따로 확인합니다.'));
+    await tapKey(tester, 'pt_b313');
+    r = await tubeText(tester);
+    expect(r, isNot(contains('밖이라')));
     await finish(tester);
   });
 

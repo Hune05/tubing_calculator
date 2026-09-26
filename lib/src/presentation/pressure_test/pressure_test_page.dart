@@ -50,6 +50,9 @@ String _fmtSig(double v) {
   return _fmt(v, (4 - mag).clamp(2, 6));
 }
 
+/// 시험 기록 탭 번호(시험 압력 0, 압력 강하 1, 공압 안전거리 2, 에어 누설 3, 시험 기록 4).
+const int kPtRecordTabIndex = 4;
+
 class PressureTestPage extends StatefulWidget {
   /// 유지시간 완료 알림(시험에서 가짜로 바꿔 넣는다). 없으면 앱 알림 플러그인.
   final HoldAlarm? holdAlarm;
@@ -57,7 +60,28 @@ class PressureTestPage extends StatefulWidget {
   /// 지금 시각(시험에서 바꿔 넣는다). 없으면 DateTime.now.
   final DateTime Function()? now;
 
-  const PressureTestPage({super.key, this.holdAlarm, this.now});
+  /// 처음 보일 탭(유지시간 완료 알림을 누르면 시험 기록 탭 [kPtRecordTabIndex]).
+  final int initialTab;
+
+  const PressureTestPage({
+    super.key,
+    this.holdAlarm,
+    this.now,
+    this.initialTab = 0,
+  });
+
+  /// 이 화면이 이미 열려 있으면 그 화면 위의 창을 닫고 [tab] 탭으로 옮긴 뒤 true.
+  /// 열려 있지 않으면 false(알림을 누를 때 같은 화면을 하나 더 열지 않으려고 쓴다).
+  static bool revealOpen(int tab) {
+    final s = _PressureTestPageState._open;
+    if (s == null || !s.mounted) return false;
+    final route = ModalRoute.of(s.context);
+    if (route != null && !route.isCurrent) {
+      Navigator.of(s.context).popUntil((r) => r == route);
+    }
+    s._tabs.animateTo(tab.clamp(0, s._tabs.length - 1));
+    return true;
+  }
 
   @override
   State<PressureTestPage> createState() => _PressureTestPageState();
@@ -71,7 +95,14 @@ class _PressureTestPageState extends State<PressureTestPage>
         _PtRecordTab {
   static const _draftKey = 'pressure_test_draft_v1';
 
-  late final TabController _tabs = TabController(length: 5, vsync: this);
+  late final TabController _tabs = TabController(
+    length: 5,
+    vsync: this,
+    initialIndex: widget.initialTab.clamp(0, 4),
+  );
+
+  /// 지금 열려 있는 화면(알림을 누를 때 PressureTestPage.revealOpen이 쓴다).
+  static _PressureTestPageState? _open;
 
   PUnit _unit = PUnit.bar;
 
@@ -103,8 +134,13 @@ class _PressureTestPageState extends State<PressureTestPage>
       : PipeMaterial.carbon;
 
   /// 시험 압력 탭의 튜브 허용 사용압력(표 범위 밖이면 null).
-  TubeRating? get _tubeRating =>
-      tubeRating(size: _tubeSize, material: _tubeMat, designC: _num(_tubeTemp));
+  /// B31.1이면 B31.1 104.1.2 식과 표 A-3·A-1 허용 응력.
+  TubeRating? get _tubeRating => tubeRating(
+    size: _tubeSize,
+    material: _tubeMat,
+    designC: _num(_tubeTemp),
+    code: _code,
+  );
 
   // ① 시험 압력
   PipingCode _code = PipingCode.b313;
@@ -195,6 +231,7 @@ class _PressureTestPageState extends State<PressureTestPage>
   @override
   void initState() {
     super.initState();
+    _open = this;
     WidgetsBinding.instance.addObserver(this);
     _recordInit();
     _loadDraft();
@@ -326,6 +363,7 @@ class _PressureTestPageState extends State<PressureTestPage>
 
   @override
   void dispose() {
+    if (_open == this) _open = null;
     WidgetsBinding.instance.removeObserver(this);
     _saveNow(); // 칸을 버리기 전에 글을 읽어 둔다
     _recordDispose();
@@ -714,17 +752,20 @@ class _PressureTestPageState extends State<PressureTestPage>
         [for (final t in sizes) t.id],
         (id) => tubeById(id)!.label,
         (v) => setState(() => _tubeId = v),
-        '허용 사용압력은 B31.3 304.1.2 식으로 계산한 값과 제조사 값(Swagelok MS-01-107) 중 작은 것입니다. '
+        '허용 사용압력은 규격 식으로 계산한 값과 제조사 값(Swagelok MS-01-107) 중 작은 것입니다. '
+            'B31.3은 304.1.2 식과 부록 A 표 A-1의 S를 씁니다. '
+            'B31.1은 104.1.2 식과 표 A-3(SS316)·표 A-1(탄소강)의 S를 씁니다. '
             '계산은 최대 외경(공칭 + 0.13mm)과 최소 두께로 합니다. '
             'SS316은 A269 허용차(외경 12.7mm 미만 −15%, 이상 −10%)를 빼고, 탄소강 A179는 적힌 두께가 최소 두께입니다. '
-            'S는 B31.3 부록 A 표 A-1 값을 설계 온도로 보간합니다. 제조사 값은 −28~37°C 값이라 그 온도에서만 비교합니다.',
+            'S는 설계 온도로 보간합니다. 제조사 값은 −28~37°C 값이라 그 온도에서만 비교합니다.',
       ),
       calcField(
         'pt_tube_temp',
         '설계 온도 (°C, 선택)',
         _tubeTemp,
         '설계 도서·배관 등급표의 설계 온도입니다. 비우면 38°C 이하로 계산합니다. '
-            '허용 응력 S를 이 온도로 정합니다. 표 A-1에 넣은 범위(SS316 −254~427°C, 탄소강 −29~427°C) 밖이면 계산하지 않습니다.',
+            '허용 응력 S를 이 온도로 정합니다. 표에 넣은 범위 밖이면 계산하지 않습니다. '
+            'B31.3은 SS316 −254~427°C, 탄소강 −29~427°C입니다. B31.1은 두 재질 모두 −29~427°C입니다.',
         signed: true,
       ),
     ];
@@ -761,7 +802,12 @@ class _PressureTestPageState extends State<PressureTestPage>
           warn: true,
           lines: [
             _tubeDims(t),
-            '설계 온도 $tempText: 표 A-1에 넣은 범위(${tubeTempRangeText(_tubeMat)}) 밖이라 계산하지 않습니다.',
+            _code == PipingCode.b311
+                ? '설계 온도 $tempText: ${tubeStressTableText(_tubeMat, _code)}에 넣은 범위'
+                      '(${tubeTempRangeText(_tubeMat, code: _code)}) 밖이라 계산하지 않습니다.'
+                : '설계 온도 $tempText: 표 A-1에 넣은 범위(${tubeTempRangeText(_tubeMat)}) 밖이라 계산하지 않습니다.',
+            if (_code == PipingCode.b311 && tIn != null && tIn < kTube311MinC)
+              'B31.1은 −29°C 아래 저온을 124.1.2(B31T 요건)로 따로 확인합니다.',
           ],
         ),
       ];
@@ -790,8 +836,9 @@ class _PressureTestPageState extends State<PressureTestPage>
             designOver
                 ? '설계압력 ${_p(designKpa)}: 허용 사용압력 초과'
                 : '설계압력 ${_p(designKpa)}: 허용 사용압력 이내',
-          '계산값 ${_p(r.calcKpa)}: B31.3 304.1.2, S ${_fmt(r.sKsi, 2)} ksi, '
+          '계산값 ${_p(r.calcKpa)}: ${b313 ? 'B31.3 304.1.2' : 'B31.1 104.1.2'}, S ${_fmt(r.sKsi, 2)} ksi, '
               '최대 외경 ${_fmt(r.maxOdMm)} mm, 최소 두께 ${_fmt(r.minWallMm, 3)} mm',
+          '허용 응력 S: ${r.stressTableText}, 설계 온도로 보간',
           '최소 두께: ${tubeWallTolText(t, _tubeMat)}',
           '공칭 두께로 계산하면 ${_p(r.nominalKpa)} (참고)',
           if (maker != null)
@@ -801,8 +848,10 @@ class _PressureTestPageState extends State<PressureTestPage>
           else
             '제조사 값 없음: Swagelok mm 탄소강 표는 EN 10305-1 관 기준이라 넣지 않았습니다.',
           '허용 사용압력은 계산값과 제조사 값 중 작은 것입니다(${r.makerGoverns ? '제조사 값' : '계산값'}).',
-          if (r.thick)
+          if (r.thick && b313)
             '두께가 외경의 1/6 이상이라 Y = d/(D + d)로 계산했습니다(표 304.1.1 주, 304.1.2(b) 검토 대상).',
+          if (r.thick && !b313)
+            '외경 ÷ 두께가 6 미만이라 y = d/(d + Do)로 계산했습니다(표 104.1.2-1 일반 주 (b)).',
           if (plan != null) ...[
             if (b313 && hydro)
               testOver
@@ -825,9 +874,11 @@ class _PressureTestPageState extends State<PressureTestPage>
           if (showRatio)
             'ST/S = ${_fmt(r.sTestKsi, 2)} ÷ ${_fmt(r.sKsi, 2)} = ${_fmt(ratio, 3)} '
                 '(시험 온도 38°C 이하 기준). B31.3 수압 시험압력에 곱합니다(345.4.2).',
-          if (!b313)
-            'B31.1 배관이면 B31.1 허용 응력으로 다시 확인하십시오. '
-                '탄소강 A179는 B31.3 값의 0.85배입니다(Swagelok MS-01-107 표 1 주).',
+          if (!b313 && _tubeMat == TubeMaterial.ss316)
+            'B31.1 표 A-3에는 A269가 없어 같은 TP316인 A213 값을 씁니다. '
+                '주 (9)의 높은 값은 조금만 변형돼도 새는 이음에 쓰지 않는 값이라 쓰지 않았습니다.',
+          if (!b313 && _tubeMat == TubeMaterial.cs)
+            'A179는 보일러 외부 배관(BEP)의 압력 부분에 쓸 수 없습니다(표 A-1 주 (1)).',
         ],
       ),
       if (showRatio && (_num(_ratio) ?? 1) != double.parse(_fmt(ratio, 3)))

@@ -1,5 +1,6 @@
-// 저장한 압력시험 기록 목록(폰에만). 누르면 기록서 보기·계산기로 불러오기·지우기. CSV 내보내기(엑셀용).
+// 저장한 압력시험 기록 목록(폰 저장 + 서버, 열 때 서버 것과 합침). 누르면 기록서 보기·계산기로 불러오기·지우기. CSV 내보내기(엑셀용).
 // 불러오기를 고르면 그 기록을 돌려주며 닫는다(Navigator.pop(record)).
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -8,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/theme/field_view.dart';
+import '../../data/record_sync.dart';
 import 'test_record.dart';
 import 'test_record_pdf.dart';
 
@@ -22,16 +24,70 @@ class PtRecordsPage extends StatefulWidget {
 
 class _PtRecordsPageState extends State<PtRecordsPage> {
   List<PtRecord>? _list;
+  RecordSyncStatus? _sync;
 
   @override
   void initState() {
     super.initState();
     _reload();
+    _syncWithServer();
   }
 
   Future<void> _reload() async {
     final l = await PtRecordStore.load();
     if (mounted) setState(() => _list = l);
+  }
+
+  /// 서버의 내 기록을 받아 합치고, 폰에만 있는 것을 올린다. 통신이 없으면 폰 것만 보인다.
+  Future<void> _syncWithServer() async {
+    final s0 = await PtRecordStore.sync.status();
+    if (mounted) setState(() => _sync = s0);
+    final s = await PtRecordStore.sync.syncNow();
+    final l = await PtRecordStore.load();
+    if (mounted) {
+      setState(() {
+        _sync = s;
+        _list = l;
+      });
+    }
+  }
+
+  /// 지운 것이 서버에 올라간 뒤 상태 줄을 고친다.
+  Future<void> _refreshSyncAfterPush() async {
+    await RecordSync.idle();
+    final s = await PtRecordStore.sync.status();
+    if (mounted) setState(() => _sync = s);
+  }
+
+  /// 목록 위 한 줄: 서버에 저장됨 / 폰에만 저장된 것 N건.
+  Widget _syncLine() {
+    final s = _sync;
+    if (s == null) return const SizedBox.shrink();
+    final waiting = !s.enabled || s.pending > 0;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+      child: Row(
+        children: [
+          Icon(
+            waiting ? Icons.cloud_upload_outlined : Icons.cloud_done_outlined,
+            size: 16,
+            color: waiting ? fc.caution : fc.textSub,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              recordSyncText(s),
+              key: const Key('pr_sync'),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: waiting ? FontWeight.w700 : FontWeight.w500,
+                color: waiting ? fc.caution : fc.textSub,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   String _name(PtRecord r) => r.line.isEmpty ? '(라인 번호 없음)' : r.line;
@@ -105,9 +161,9 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      itemCount: l.length,
+      itemCount: l.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (_, i) => _tile(l[i]),
+      itemBuilder: (_, i) => i == 0 ? _syncLine() : _tile(l[i - 1]),
     );
   }
 
@@ -243,6 +299,7 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
         if (ok == true) {
           await PtRecordStore.delete(r.id);
           await _reload();
+          unawaited(_refreshSyncAfterPush());
         }
     }
   }

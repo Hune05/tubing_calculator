@@ -401,4 +401,149 @@ void main() {
       expect(lines[1], contains(',탄소강 (ASTM A179) 12 × 1.5 mm,B31.3,'));
     });
   });
+
+  group('B31.1 튜브 허용 사용압력(104.1.2 식 (9), 표 A-3·A-1)', () {
+    const b311 = PipingCode.b311;
+    test('S: SS316은 표 A-3 A213 TP316 주 (10) 줄, 탄소강은 표 A-1 A179', () {
+      const ss = TubeMaterial.ss316, cs = TubeMaterial.cs;
+      expect(tubeAllowableKsi(ss, 20, code: b311), 20.0);
+      expect(tubeAllowableKsi(ss, fToC(200), code: b311), closeTo(17.3, 1e-9));
+      expect(tubeAllowableKsi(ss, fToC(400), code: b311), closeTo(14.3, 1e-9));
+      expect(tubeAllowableKsi(ss, fToC(650), code: b311), closeTo(12.3, 1e-9));
+      expect(tubeAllowableKsi(ss, fToC(800), code: b311), closeTo(11.8, 1e-9));
+      // 450°F: (14.3 + 13.3)/2
+      expect(tubeAllowableKsi(ss, fToC(450), code: b311), closeTo(13.8, 1e-9));
+      // 350°C = 662°F: 650°F 12.3과 700°F 12.1 사이
+      expect(
+        tubeAllowableKsi(ss, 350, code: b311),
+        closeTo(12.3 - 0.2 * (662 - 650) / 50, 1e-9),
+      );
+      expect(tubeAllowableKsi(cs, 20, code: b311), 13.4);
+      expect(tubeAllowableKsi(cs, fToC(500), code: b311), closeTo(13.4, 1e-9));
+      expect(tubeAllowableKsi(cs, fToC(600), code: b311), closeTo(13.3, 1e-9));
+      expect(tubeAllowableKsi(cs, fToC(750), code: b311), closeTo(10.7, 1e-9));
+      expect(tubeAllowableKsi(cs, fToC(800), code: b311), closeTo(9.2, 1e-9));
+      // B31.3 값은 그대로
+      expect(tubeAllowableKsi(ss, fToC(200)), closeTo(20.0, 1e-9));
+      expect(tubeAllowableKsi(cs, 20), 15.7);
+    });
+    test('온도 범위: 두 재질 모두 −29~427°C', () {
+      for (final m in TubeMaterial.values) {
+        expect(tubeAllowableKsi(m, -29, code: b311), isNotNull);
+        expect(tubeAllowableKsi(m, -30, code: b311), isNull);
+        expect(tubeAllowableKsi(m, 427, code: b311), isNotNull);
+        expect(tubeAllowableKsi(m, 428, code: b311), isNull);
+        expect(tubeTempRangeText(m, code: b311), '-29~427°C');
+        expect(
+          tubeRating(
+            size: tube('i1/4x035'),
+            material: m,
+            designC: -40,
+            code: b311,
+          ),
+          isNull,
+        );
+      }
+      // B31.3 SS316은 −254°C까지 그대로
+      expect(tubeAllowableKsi(TubeMaterial.ss316, -100), 20.0);
+    });
+    test('손 계산: 1/4" × 0.035" SS316 38°C 이하 5147psi(제조사 5100), 200°F 4452psi', () {
+      // D = 0.255", t = 0.035 × 0.85 = 0.02975", y = 0.4
+      // P = 2 × 20000 × 0.02975 / (0.255 − 0.8 × 0.02975) = 1190 / 0.2312 = 5147.06
+      final r = tubeRating(
+        size: tube('i1/4x035'),
+        material: TubeMaterial.ss316,
+        code: b311,
+      )!;
+      expect(r.code, b311);
+      expect(r.calcKpa / kPsiKpa, closeTo(5147.06, 0.01));
+      expect(r.thick, isFalse);
+      expect(r.makerGoverns, isTrue);
+      expect(r.allowKpa / kPsiKpa, closeTo(5100, 1e-9));
+      expect(r.stressTableText, 'B31.1 표 A-3, A213 TP316');
+      // 200°F: S 17.3 → 2 × 17300 × 0.02975 / 0.2312 = 4452.21, 제조사 값은 비교하지 않음
+      final h = tubeRating(
+        size: tube('i1/4x035'),
+        material: TubeMaterial.ss316,
+        designC: fToC(200),
+        code: b311,
+      )!;
+      expect(h.calcKpa / kPsiKpa, closeTo(4452.21, 0.01));
+      expect(h.makerKpa, isNull);
+      expect(h.allowKpa, h.calcKpa);
+    });
+    test('손 계산: 1/4" × 0.035" 탄소강 4132psi, 제조사 4800보다 낮아 계산값', () {
+      // D = 0.255", t = 0.035"(A179 그대로): 2 × 13400 × 0.035 / (0.255 − 0.028) = 938 / 0.227 = 4132.16
+      final r = tubeRating(
+        size: tube('i1/4x035'),
+        material: TubeMaterial.cs,
+        code: b311,
+      )!;
+      expect(r.calcKpa / kPsiKpa, closeTo(4132.16, 0.01));
+      expect(r.makerGoverns, isFalse);
+      expect(r.allowKpa, r.calcKpa);
+      expect(r.stressTableText, 'B31.1 표 A-1, A179');
+      // 같은 튜브 B31.3은 15.7ksi 4841psi라 제조사 4800이 정한다
+      final b313 = tubeRating(
+        size: tube('i1/4x035'),
+        material: TubeMaterial.cs,
+      )!;
+      expect(b313.calcKpa / kPsiKpa, closeTo(1099 / 0.227, 0.01));
+      expect(b313.allowKpa / kPsiKpa, closeTo(4800, 1e-9));
+    });
+    test('손 계산: Do/tm < 6이면 y = d/(d + Do). 1/8" × 0.035" SS316 10909psi', () {
+      // D = 0.130", t = 0.02975", d = 0.0705", y = 0.0705 / 0.2005 = 0.35162
+      // P = 1190 / (0.130 − 2 × 0.35162 × 0.02975) = 1190 / 0.109079 = 10909.5
+      final r = tubeRating(
+        size: tube('i1/8x035'),
+        material: TubeMaterial.ss316,
+        code: b311,
+      )!;
+      expect(r.thick, isTrue);
+      expect(r.calcKpa / kPsiKpa, closeTo(10909.5, 0.1));
+      // 두꺼운 벽에서 y = d/(d + Do)는 B31.3 Lamé 값과 같다
+      expect(
+        r.calcKpa,
+        closeTo(
+          tubeRating(
+            size: tube('i1/8x035'),
+            material: TubeMaterial.ss316,
+          )!.calcKpa,
+          1e-6,
+        ),
+      );
+      // 경계: Do/tm가 정확히 6이면 B31.1은 y = 0.4(6 미만만), B31.3은 두꺼운 벽
+      expect(isThickWall311(6, 1), isFalse);
+      expect(isThickWall(6, 1), isTrue);
+      expect(
+        b311TubeKpa(odMm: 6, tMm: 1, sKsi: 20),
+        closeTo(2 * 20 * kKsiKpa / (6 - 0.8), 1e-6),
+      );
+    });
+    test('mm 튜브: 12 × 1.5 SS316 B31.1 = B31.3과 같은 38°C 값(S 20ksi 같음)', () {
+      final a = tubeRating(
+        size: tube('m12x1.5'),
+        material: TubeMaterial.ss316,
+        code: b311,
+      )!;
+      final b = tubeRating(
+        size: tube('m12x1.5'),
+        material: TubeMaterial.ss316,
+      )!;
+      expect(a.calcKpa, closeTo(b.calcKpa, 1e-9));
+      // 100°C(212°F): B31.1 S = 17.3 − 1.7 × 12/100 = 17.096 → B31.3(20.0)보다 낮다
+      final c = tubeRating(
+        size: tube('m12x1.5'),
+        material: TubeMaterial.ss316,
+        designC: 100,
+        code: b311,
+      )!;
+      expect(c.sKsi, closeTo(17.3 - 1.7 * 12 / 100, 1e-9));
+      // D = 12.13, t = 1.275: P = 2 × S × t / (D − 0.8t)
+      expect(
+        c.calcKpa,
+        closeTo(2 * c.sKsi * kKsiKpa * 1.275 / (12.13 - 0.8 * 1.275), 1e-6),
+      );
+    });
+  });
 }
