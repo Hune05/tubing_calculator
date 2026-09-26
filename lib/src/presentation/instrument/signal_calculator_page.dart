@@ -1,7 +1,8 @@
 // 4-20mA 계산기(홈 "현장 작업" → 4-20mA 계산기). 탭: 환산(mA·%·측정값, NE43 신호 상태, 5점 환산표) →
-// 교정 점검(입력값 대비 측정값·지시값의 스팬 % 오차, 허용오차 판정, 조정 전·후, 기록·성적서) →
-// 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류). 칸마다 "?" 안내.
-// 계산은 signal_calc.dart, 기록은 cal_record.dart, 근거는 docs/4-20mA계산기_근거.md.
+// 교정 점검(입력값 대비 측정값·지시값의 스팬 % 오차, 허용오차 판정, 시험점 3·5·11점과 상승·하강 히스테리시스,
+// 온도 센서 값, 조정 전·후, 기록·성적서) → 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류) →
+// 온도 센서(Pt100·Pt1000·열전대 환산, 냉접점 보상, 5점 표). 칸마다 "?" 안내.
+// 계산은 signal_calc.dart·temp_sensor.dart, 기록은 cal_record.dart, 근거는 docs/4-20mA계산기_근거.md.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ import 'cal_record.dart';
 import 'cal_record_pdf.dart';
 import 'cal_records_page.dart';
 import 'signal_calc.dart';
+import 'temp_sensor.dart';
 
 String _fmt(double v, [int d = 3]) {
   // 0.125가 0.12로 내려가지 않게(이진 소수 오차) 반올림 전에 아주 작게 밀어 준다.
@@ -47,7 +49,7 @@ class SignalCalculatorPage extends StatefulWidget {
 
 class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver, CalcFormParts {
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 4, vsync: this);
 
   // 측정 범위(환산·교정 점검이 같이 씀)
   final _lrv = TextEditingController(text: '0');
@@ -59,17 +61,33 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   _Input _input = _Input.ma;
   final _value = TextEditingController();
 
-  // ② 교정 점검: 조정 전(found)·조정 후(left) 두 벌
+  // ② 교정 점검: 조정 전(found)·조정 후(left) 두 벌. 칸은 시험점이 가장 많을 때(21줄)만큼 만들어 앞에서부터 쓴다.
   ReadKind _kind = ReadKind.ma;
   final _tol = TextEditingController();
   bool _phaseLeft = false;
   bool _settingsOpen = true;
-  final _foundApplied = [for (final _ in _points) TextEditingController()];
-  final _foundReading = [for (final _ in _points) TextEditingController()];
-  final _leftApplied = [for (final _ in _points) TextEditingController()];
-  final _leftReading = [for (final _ in _points) TextEditingController()];
-  final _readFocus = [for (final _ in _points) FocusNode()];
+  CalPointSet _pointSet = CalPointSet.p5;
+  bool _withDown = false;
+  final _hystTol = TextEditingController();
+  TempSensor? _calSensor; // 입력값이 °C일 때 교정기에 넣을 센서 값을 보인다
+  final _calCj = TextEditingController(text: '20');
+  final _foundApplied = [
+    for (var i = 0; i < kMaxCalRows; i++) TextEditingController(),
+  ];
+  final _foundReading = [
+    for (var i = 0; i < kMaxCalRows; i++) TextEditingController(),
+  ];
+  final _leftApplied = [
+    for (var i = 0; i < kMaxCalRows; i++) TextEditingController(),
+  ];
+  final _leftReading = [
+    for (var i = 0; i < kMaxCalRows; i++) TextEditingController(),
+  ];
+  final _readFocus = [for (var i = 0; i < kMaxCalRows; i++) FocusNode()];
   CalRecord? _editing; // 불러오거나 저장한 기록(고쳐 저장할 때 같은 id)
+
+  /// 지금 시험점 목록.
+  List<CalPointDef> get _defs => calPointList(_pointSet, withDown: _withDown);
 
   List<TextEditingController> get _applied =>
       _phaseLeft ? _leftApplied : _foundApplied;
@@ -86,6 +104,12 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   double _wireSize = 1.5;
   final _wireR = TextEditingController();
   double _checkMa = 23;
+
+  // ④ 온도 센서
+  TempSensor _tSensor = TempSensor.pt100;
+  bool _tFromTemp = true; // °C → Ω·mV(아니면 Ω·mV → °C)
+  final _tValue = TextEditingController();
+  final _tCj = TextEditingController(text: '20');
 
   @override
   void initState() {
@@ -125,6 +149,10 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       _extraV,
       _wireLen,
       _wireR,
+      _hystTol,
+      _calCj,
+      _tValue,
+      _tCj,
     ]) {
       c.dispose();
     }
@@ -158,6 +186,15 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     'wireSize': _wireSize,
     'wireR': _wireR.text,
     'checkMa': _checkMa,
+    'pset': _pointSet.name,
+    'down': _withDown,
+    'hystTol': _hystTol.text,
+    'calSensor': _calSensor?.name,
+    'calCj': _calCj.text,
+    'tSensor': _tSensor.name,
+    'tFromTemp': _tFromTemp,
+    'tValue': _tValue.text,
+    'tCj': _tCj.text,
   };
 
   static Future<void> _writeDraft(Map<String, dynamic> j) async {
@@ -225,6 +262,23 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         set(_wireR, j['wireR']);
         final cm = (j['checkMa'] as num?)?.toDouble();
         if (cm != null && kLoopCheckMa.contains(cm)) _checkMa = cm;
+        _pointSet = CalPointSet.values.firstWhere(
+          (s) => s.name == j['pset'],
+          orElse: () => _pointSet,
+        );
+        _withDown = j['down'] == true;
+        set(_hystTol, j['hystTol']);
+        _calSensor = TempSensor.values
+            .where((s) => s.name == j['calSensor'])
+            .firstOrNull;
+        set(_calCj, j['calCj']);
+        _tSensor = TempSensor.values.firstWhere(
+          (s) => s.name == j['tSensor'],
+          orElse: () => _tSensor,
+        );
+        _tFromTemp = j['tFromTemp'] != false;
+        set(_tValue, j['tValue']);
+        set(_tCj, j['tCj']);
       });
     } catch (_) {
       // 보관한 값이 망가졌으면 처음 상태로
@@ -260,6 +314,9 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           ),
           bottom: TabBar(
             controller: _tabs,
+            // 탭 넷이 좁은 폰·큰 글씨에서도 잘리지 않게 옆으로 밀린다.
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             labelColor: fc.brand,
             unselectedLabelColor: fc.textSub,
             indicatorColor: fc.brand,
@@ -271,13 +328,14 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               Tab(key: Key('sg_tab_conv'), text: '환산'),
               Tab(key: Key('sg_tab_cal'), text: '교정 점검'),
               Tab(key: Key('sg_tab_loop'), text: '루프 전압'),
+              Tab(key: Key('sg_tab_temp'), text: '온도 센서'),
             ],
           ),
         ),
         body: SafeArea(
           child: TabBarView(
             controller: _tabs,
-            children: [_convTab(), _calTab(), _loopTab()],
+            children: [_convTab(), _calTab(), _loopTab(), _tempTab()],
           ),
         ),
       ),
@@ -567,8 +625,25 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       transferLabel(_transfer),
       kindLabel(_kind),
       tol == null || tol <= 0 ? '허용오차 없음' : '±${_fmt(tol)}%',
+      // 기본(5점 상승)이 아니면 시험점, 넣었으면 히스테리시스 허용값과 센서.
+      if (_pointSet != CalPointSet.p5 || _withDown) calPointsText(_defs),
+      if (_hystTolActive != null) '히스테리시스 ${_fmt(_hystTolActive!)}%',
+      if (_sensorActive != null) _sensorActive!.label,
     ].join(' · ');
   }
+
+  /// 히스테리시스 허용값(하강 포함이고 0보다 클 때만).
+  double? get _hystTolActive {
+    final h = _num(_hystTol);
+    return _withDown && h != null && h > 0 ? h : null;
+  }
+
+  /// 교정 점검에 쓰는 센서: 범위 단위가 °C이고 입력값이 공정값(mA 입력이 아님)일 때만.
+  TempSensor? get _sensorActive =>
+      _kind != ReadKind.maIn && isCelsiusUnit(_u) ? _calSensor : null;
+
+  /// 냉접점 온도: 비우면 0 °C.
+  double get _calCjC => _num(_calCj) ?? 0;
 
   Widget _calTab() {
     final range = _range;
@@ -589,29 +664,43 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         lines: [if (other != null && !other.isEmpty) _otherLine(other)],
       );
     } else {
+      final defs = _defs;
+      String label(int i) => calPointLabel(defs, i);
+      String labels(List<int> l) => l.map(label).join(', ');
       final worst = s.worst!;
       final fails = s.failed;
+      final hystFails = s.hystFailed;
       final advise = s.adjustAdvised;
+      final mh = s.maxHyst;
+      final tolOk = tol != null && tol > 0;
       summary = calcResult(
         key: const Key('sg_cal_result'),
         big: '${_signed(worst.$2.errPct, 2)}%',
         caption: s.pass == null
             ? '$_phase 최대 오차 (스팬 %)'
             : fails.isEmpty
-            ? '$_phase 합격: ${s.measured.length}점 모두 ±${_fmt(tol!)}% 이내'
-            : '$_phase 불합격: ${fails.length}점 허용오차 초과',
+            ? (tolOk
+                  ? '$_phase 합격: ${s.measured.length}점 모두 ±${_fmt(tol)}% 이내'
+                  : '$_phase 합격: 히스테리시스 허용값 이내')
+            : hystFails.isEmpty
+            ? '$_phase 불합격: ${fails.length}점 허용오차 초과'
+            : s.errFailed.isEmpty
+            ? '$_phase 불합격: ${fails.length}점 히스테리시스 허용값 초과'
+            : '$_phase 불합격: ${fails.length}점 허용오차·히스테리시스 허용값 초과',
         warn: fails.isNotEmpty,
         lines: [
           if (s.pass == null) '허용오차를 넣으면 합격·불합격을 판정합니다.',
-          '최대 오차: ${_fmt(_points[worst.$1])}% 점',
-          if (fails.isNotEmpty)
-            '불합격 점: ${fails.map((i) => '${_fmt(_points[i])}%').join(', ')}',
+          '최대 오차: ${label(worst.$1)} 점',
+          if (mh != null) '최대 히스테리시스: ${_fmt(mh.$2, 2)}% (${label(mh.$1)} 점)',
+          if (fails.isNotEmpty) '불합격 점: ${labels(fails)}',
+          if (hystFails.isNotEmpty) '히스테리시스 초과: ${labels(hystFails)}',
           if (advise.isNotEmpty)
-            '조정 권장: ${advise.map((i) => '${_fmt(_points[i])}%').join(', ')} 점이 허용오차의 50%(조정 한계)를 넘습니다.',
+            '조정 권장: ${labels(advise)} 점이 허용오차의 50%(조정 한계)를 넘습니다.',
           if (other != null && !other.isEmpty) _otherLine(other),
           _kind == ReadKind.ma
               ? '오차 % = (측정값 − 이론값) ÷ 16mA × 100'
               : '오차 % = (지시값 − 이론값) ÷ 스팬 × 100',
+          if (_withDown) '히스테리시스 = |상승 오차 % − 하강 오차 %| (같은 측정점)',
         ],
       );
     }
@@ -655,8 +744,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       ),
       if (s != null && !s.isEmpty) _miniSummary(s),
       if (range != null && s != null)
-        for (var i = 0; i < _points.length; i++)
-          _calRow(i, range.$1, range.$2, s.points[i]),
+        for (var i = 0; i < s.defs.length; i++)
+          _calRow(i, range.$1, range.$2, s),
       Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -785,7 +874,111 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         ],
       ),
     ),
+    _chips(
+      '시험점',
+      '교정 절차서에 정한 시험점을 고르십시오.\n'
+          '3점: 0·50·100%.\n5점: 0·25·50·75·100%(기본).\n11점: 0%부터 100%까지 10%씩.\n'
+          '값을 넣은 뒤 바꾸면 새 시험점에도 있는 점의 값은 그대로 둡니다.',
+      [
+        for (final p in CalPointSet.values)
+          calcChip(
+            'sc_pts_${p.name}',
+            calSetLabel(p),
+            _pointSet == p,
+            () => _changePoints(p, _withDown),
+          ),
+      ],
+    ),
+    calcSwitch(
+      '하강 포함',
+      _withDown,
+      (v) => _changePoints(_pointSet, v),
+      '상승(0% → 100%)으로 측정한 뒤 같은 점을 하강(100% → 0%)으로 다시 측정합니다. '
+          '하강할 때는 목표점을 넘지 않게 위에서 맞추십시오.\n'
+          '같은 점의 상승·하강 오차 차이가 히스테리시스입니다.',
+      key: 'sc_down',
+    ),
+    if (_withDown)
+      calcField(
+        'sc_hyst_tol',
+        '히스테리시스 허용값 (%, 선택)',
+        _hystTol,
+        '계기 데이터시트나 교정 절차서의 히스테리시스 허용값입니다(스팬 %). '
+            '비우면 히스테리시스는 판정하지 않고 값만 보입니다. '
+            '넣으면 하강 점의 히스테리시스가 이 값을 넘을 때 그 점을 불합격으로 판정합니다.',
+      ),
+    if (_kind != ReadKind.maIn && isCelsiusUnit(_u)) ..._sensorSettings(),
   ];
+
+  /// 교정 점검의 센서 고르기(범위 단위가 °C일 때만 보인다).
+  List<Widget> _sensorSettings() => [
+    _chips(
+      '센서',
+      '온도 전송기를 교정할 때 교정기로 넣을 센서 값(저항 Ω, 열기전력 mV)을 점마다 보입니다. '
+          '입력값은 그대로 °C로 넣습니다.\n'
+          'Pt100·Pt1000: IEC 60751(α 0.00385).\n'
+          '열전대: IEC 60584-1(NIST ITS-90 식).',
+      [
+        calcChip(
+          'sc_sensor_none',
+          '없음',
+          _calSensor == null,
+          () => setState(() => _calSensor = null),
+        ),
+        for (final t in TempSensor.values)
+          calcChip(
+            'sc_sensor_${t.name}',
+            t.label,
+            _calSensor == t,
+            () => setState(() => _calSensor = t),
+          ),
+      ],
+    ),
+    if (_calSensor != null && !_calSensor!.isRtd)
+      calcField('sc_cj', '냉접점 온도 (°C)', _calCj, _cjGuide, signed: true),
+  ];
+
+  static const String _cjGuide =
+      '열전대 선이 전송기 단자에 물리는 곳의 온도입니다. '
+      '교정기의 냉접점 보상을 끄고 mV로 넣을 때는 E(온도) − E(냉접점)을 넣어야 합니다. '
+      '비우면 0 °C(기준접점 0 °C 표 값)로 계산합니다.';
+
+  /// 시험점 바꾸기. 새 시험점에도 있는 점(같은 %·방향)의 값은 옮기고,
+  /// 없어지는 점에 값이 있으면 먼저 묻는다.
+  Future<void> _changePoints(CalPointSet set, bool withDown) async {
+    if (set == _pointSet && withDown == _withDown) return;
+    final oldDefs = _defs;
+    final newDefs = calPointList(set, withDown: withDown);
+    final lists = [_foundApplied, _foundReading, _leftApplied, _leftReading];
+    final lost = [
+      for (var i = 0; i < oldDefs.length; i++)
+        if (!newDefs.contains(oldDefs[i]) &&
+            lists.any((l) => l[i].text.trim().isNotEmpty))
+          i,
+    ];
+    if (lost.isNotEmpty &&
+        !await _confirm(
+          '시험점 바꾸기',
+          '새 시험점에 없는 점(${lost.map((i) => calPointLabel(oldDefs, i)).join(', ')})에 입력한 값은 지워집니다. 바꾸겠습니까?',
+          '바꾸기',
+        )) {
+      return;
+    }
+    setState(() {
+      for (final l in lists) {
+        final old = [for (final c in l) c.text];
+        for (final c in l) {
+          c.clear();
+        }
+        for (var j = 0; j < newDefs.length; j++) {
+          final i = oldDefs.indexOf(newDefs[j]);
+          if (i >= 0) l[j].text = old[i];
+        }
+      }
+      _pointSet = set;
+      _withDown = withDown;
+    });
+  }
 
   /// 측정 방법을 바꾸면 입력한 값의 뜻이 달라지므로 먼저 묻는다.
   Future<void> _changeKind(ReadKind k) async {
@@ -847,7 +1040,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     final a = left ? _leftApplied : _foundApplied;
     final r = left ? _leftReading : _foundReading;
     return [
-      for (var i = 0; i < _points.length; i++)
+      for (var i = 0; i < _defs.length; i++)
         CalEntry(applied: _num(a[i]), reading: _num(r[i])),
     ];
   }
@@ -859,6 +1052,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     transfer: _transfer,
     kind: _kind,
     tolPct: _num(_tol),
+    points: _defs,
+    hystTolPct: _hystTolActive,
   );
 
   void _clearAllInputs() {
@@ -982,6 +1177,10 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       tolPct: tol != null && tol > 0 ? tol : null,
       found: _entries(false),
       left: _summary(true, range).isEmpty ? const [] : _entries(true),
+      points: _defs,
+      hystTolPct: _hystTolActive,
+      sensor: _sensorActive,
+      cjC: _sensorActive == null || _sensorActive!.isRtd ? null : _calCjC,
     );
     await CalRecordStore.put(rec);
     if (!mounted) return;
@@ -1008,14 +1207,25 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       _transfer = r.transfer;
       _kind = r.kind;
       _tol.text = r.tolPct == null ? '' : _fmt(r.tolPct!, 6);
-      for (var i = 0; i < _points.length; i++) {
-        final f = i < r.found.length ? r.found[i] : const CalEntry();
-        final g = i < r.left.length ? r.left[i] : const CalEntry();
+      // 기록의 시험점을 그대로 쓴다(묶음과 다르면 5점, 같은 점의 값만 옮긴다).
+      final (ps, dn) = calSetOf(r.points) ?? (CalPointSet.p5, false);
+      _pointSet = ps;
+      _withDown = dn;
+      final defs = _defs;
+      _clearAllInputs();
+      for (var k = 0; k < r.points.length; k++) {
+        final i = defs.indexOf(r.points[k]);
+        if (i < 0) continue;
+        final f = k < r.found.length ? r.found[k] : const CalEntry();
+        final g = k < r.left.length ? r.left[k] : const CalEntry();
         _foundApplied[i].text = t(f.applied);
         _foundReading[i].text = t(f.reading);
         _leftApplied[i].text = t(g.applied);
         _leftReading[i].text = t(g.reading);
       }
+      _hystTol.text = r.hystTolPct == null ? '' : _fmt(r.hystTolPct!, 6);
+      _calSensor = r.sensor;
+      if (r.cjC != null) _calCj.text = _fmt(r.cjC!, 6);
       _phaseLeft = false;
       _settingsOpen = false;
       _editing = r;
@@ -1023,8 +1233,27 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     _snack('${r.tag} 기록을 불러왔습니다.');
   }
 
-  Widget _calRow(int i, double l, double u, CalPoint? r) {
-    final nominal = nominalInput(_points[i], _kind, l, u);
+  /// 교정기에 넣을 센서 값 글: "Pt100 138.506 Ω", "K형 4.096 mV, 냉접점 20 °C면 3.298 mV".
+  String _sensorText(TempSensor t, double tC) {
+    final v0 = sensorValue(t, tC);
+    if (v0 == null) return '${t.label} ${_rangeWord(t.tempRange, tC)}';
+    final base = '${t.label} ${_fmt(v0)} ${t.unit}';
+    final cj = _calCjC;
+    if (t.isRtd || cj == 0) return base;
+    final v = calibratorValue(t, tC, cjC: cj);
+    return v == null
+        ? '$base, 냉접점 ${_fmt(cj)} °C는 ${_rangeWord(t.tempRange, cj)}'
+        : '$base, 냉접점 ${_fmt(cj)} °C면 ${_fmt(v)} mV';
+  }
+
+  /// 적용 범위를 벗어난 쪽: 범위 초과·범위 미만.
+  String _rangeWord((double, double) r, double v) =>
+      v > r.$2 ? '범위 초과' : '범위 미만';
+
+  Widget _calRow(int i, double l, double u, CalSummary s) {
+    final defs = s.defs;
+    final r = s.points[i];
+    final nominal = nominalInput(defs[i].pct, _kind, l, u);
     final applied = _num(_applied[i]) ?? nominal;
     final maIn = _kind == ReadKind.maIn;
     final expectedText = switch (_kind) {
@@ -1033,7 +1262,10 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         '이론값 ${_pv(applied)} · ${_fmt(idealMa(applied, l, u, _transfer))} mA',
       ReadKind.maIn => '이론값 ${_pv(pvFromMa(applied, l, u, _transfer))}',
     };
-    final bad = r?.pass == false;
+    final verdict = s.rowPass(i);
+    final bad = verdict == false;
+    final h = s.hystAt(i);
+    final sensor = _sensorActive;
     return Container(
       key: Key('sc_row_$i'),
       margin: const EdgeInsets.only(bottom: 8),
@@ -1051,11 +1283,12 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(
-                '${_fmt(_points[i])}%',
+                calPointLabel(defs, i),
+                key: Key('sc_label_$i'),
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w900,
-                  color: fc.text,
+                  color: defs[i].down ? fc.textSub : fc.text,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1072,6 +1305,19 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               ),
             ],
           ),
+          if (sensor != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                _sensorText(sensor, applied),
+                key: Key('sc_sensor_val_$i'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: fc.text,
+                ),
+              ),
+            ),
           Row(
             children: [
               Expanded(
@@ -1092,8 +1338,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
                   _reading[i],
                   '',
                   focus: _readFocus[i],
-                  last: i == _points.length - 1,
-                  onNext: i < _points.length - 1
+                  last: i == defs.length - 1,
+                  onNext: i < defs.length - 1
                       ? () => _readFocus[i + 1].requestFocus()
                       : null,
                 ),
@@ -1118,7 +1364,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 // 판정을 앞에: 줄 끝에서 판정 글자가 두 줄로 끊기지 않게.
-                '${r.pass == null ? '' : '${calVerdictText(r.pass)} · '}'
+                '${verdict == null ? '' : '${calVerdictText(verdict)} · '}'
                 '오차 ${_signed(r.errPct, 2)}%'
                 '${r.errMa.isNaN ? '' : ' · ${_signed(r.errMa)} mA'}'
                 '${r.errPv.isNaN ? '' : ' · ${_signed(r.errPv)}${_u.isEmpty ? '' : ' $_u'}'}',
@@ -1127,6 +1373,20 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: bad ? fc.danger : fc.brand,
+                ),
+              ),
+            ),
+          if (h != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '히스테리시스 ${_fmt(h, 2)}%'
+                '${s.hystPass(i) == null ? '' : (s.hystPass(i)! ? ' · 허용값 이내' : ' · 허용값 초과')}',
+                key: Key('sc_hyst_$i'),
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: s.hystPass(i) == false ? fc.danger : fc.text,
                 ),
               ),
             ),
@@ -1289,6 +1549,249 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           ],
         ),
     ]);
+  }
+
+  // ─────────────── ④ 온도 센서 ───────────────
+
+  String _tRange((double, double) r, String unit) =>
+      '${_fmt(r.$1)} ~ ${_fmt(r.$2)} $unit';
+
+  Widget _tempTab() {
+    final s = _tSensor;
+    final v = _num(_tValue);
+    final cjText = _tCj.text.trim();
+    final cj = _num(_tCj) ?? 0;
+    final cjE = s.isRtd ? 0.0 : tcEmf(s, cj);
+    final std = s.isRtd
+        ? '기준: IEC 60751 (α 0.00385, Callendar–Van Dusen 식)'
+        : '기준: IEC 60584-1 (NIST ITS-90 기준 함수)';
+    Widget result;
+    if (v == null) {
+      result = calcResult(big: '—', caption: '값을 넣으십시오', lines: const []);
+    } else if (cjE == null) {
+      result = calcResult(
+        key: const Key('st_result'),
+        big: '—',
+        caption: '냉접점 온도를 ${_tRange(s.tempRange, '°C')} 이내로 넣으십시오',
+        warn: true,
+        lines: const [],
+      );
+    } else if (_tFromTemp) {
+      final e0 = sensorValue(s, v);
+      if (e0 == null) {
+        result = calcResult(
+          key: const Key('st_result'),
+          big: _rangeWord(s.tempRange, v),
+          caption: '${s.label} 적용 범위: ${_tRange(s.tempRange, '°C')}',
+          warn: true,
+          lines: [std],
+        );
+      } else if (s.isRtd) {
+        result = calcResult(
+          key: const Key('st_result'),
+          big: '${_fmt(e0)} Ω',
+          caption: '${s.label} 저항',
+          lines: [
+            std,
+            'R0 = ${_fmt(s.r0)} Ω, 적용 범위 ${_tRange(s.tempRange, '°C')}',
+          ],
+        );
+      } else {
+        final withCj = cj != 0;
+        result = calcResult(
+          key: const Key('st_result'),
+          big: '${_fmt(e0 - cjE)} mV',
+          caption: withCj
+              ? '교정기에 넣을 mV (냉접점 ${_fmt(cj)} °C)'
+              : '${s.label} 열기전력 (기준접점 0 °C)',
+          lines: [
+            '기준접점 0 °C mV: ${_fmt(e0)} mV',
+            if (withCj)
+              '교정기에 넣을 mV = E(온도) − E(냉접점) = ${_fmt(e0)} − ${_fmt(cjE)} = ${_fmt(e0 - cjE)} mV',
+            std,
+            '적용 범위: ${_tRange(s.tempRange, '°C')}',
+          ],
+        );
+      }
+    } else {
+      final total = v + cjE;
+      final t = sensorTemp(s, total);
+      final vr = s.valueRange;
+      if (t == null) {
+        result = calcResult(
+          key: const Key('st_result'),
+          big: _rangeWord(vr, total),
+          caption:
+              '${s.label} 적용 범위: ${_tRange(vr, s.unit)} (${_tRange(s.inverseTempRange, '°C')})',
+          warn: true,
+          lines: [std],
+        );
+      } else {
+        result = calcResult(
+          key: const Key('st_result'),
+          big: '${_fmt(t, 2)} °C',
+          caption: s.isRtd
+              ? '${s.label} 온도'
+              : (cj != 0
+                    ? '${s.label} 온도 (냉접점 ${_fmt(cj)} °C 보상)'
+                    : '${s.label} 온도 (기준접점 0 °C)'),
+          lines: [
+            if (!s.isRtd && cj != 0)
+              '측정 mV + E(냉접점) = ${_fmt(v)} + ${_fmt(cjE)} = ${_fmt(total)} mV',
+            std,
+            '적용 범위: ${_tRange(vr, s.unit)} (${_tRange(s.inverseTempRange, '°C')})',
+          ],
+        );
+      }
+    }
+    return _page([
+      _chips(
+        '센서',
+        'Pt100·Pt1000: 백금 측온저항체, IEC 60751(α 0.00385). 0 °C에서 100 Ω·1000 Ω입니다.\n'
+            'K·J·T·E·N·R·S·B형: 열전대, IEC 60584-1. NIST ITS-90 기준 함수로 계산합니다.\n'
+            '센서 명판이나 전송기 설정(센서 종류)을 보고 고르십시오.',
+        [
+          for (final t in TempSensor.values)
+            calcChip(
+              'st_s_${t.name}',
+              t.label,
+              _tSensor == t,
+              () => setState(() => _tSensor = t),
+            ),
+        ],
+      ),
+      _chips(
+        '계산 방향',
+        '°C → ${s.unit}: 온도에 해당하는 센서 값을 계산합니다(교정기로 넣을 값).\n'
+            '${s.unit} → °C: 단자에서 측정한 센서 값을 온도로 역산합니다.',
+        [
+          calcChip(
+            'st_dir_t',
+            '°C → ${s.unit}',
+            _tFromTemp,
+            () => setState(() => _tFromTemp = true),
+          ),
+          calcChip(
+            'st_dir_v',
+            '${s.unit} → °C',
+            !_tFromTemp,
+            () => setState(() => _tFromTemp = false),
+          ),
+        ],
+      ),
+      calcField(
+        'st_value',
+        _tFromTemp ? '온도 (°C)' : (s.isRtd ? '저항 (Ω)' : '열기전력 (mV)'),
+        _tValue,
+        _tFromTemp
+            ? '센서 값을 알고 싶은 온도입니다.'
+            : (s.isRtd
+                  ? '측온저항체 단자에서 측정한 저항입니다. 2선식이면 도선 저항이 더해져 있으니 빼고 넣으십시오.'
+                  : '열전대 단자(냉접점)에서 측정한 mV입니다.'),
+        signed: true,
+      ),
+      if (!s.isRtd)
+        calcField('st_cj', '냉접점 온도 (°C)', _tCj, _cjGuide, signed: true),
+      if (!s.isRtd && cjText.isEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            '냉접점 온도가 비어 있어 0 °C로 계산합니다.',
+            style: TextStyle(fontSize: 13, color: fc.textSub),
+          ),
+        ),
+      const SizedBox(height: 4),
+      result,
+      const SizedBox(height: 12),
+      _tempTable(cjE),
+    ]);
+  }
+
+  /// 측정 범위(환산 탭)가 °C이면 그 범위의 5점 표: % · °C · Ω/mV · mA.
+  Widget _tempTable(double? cjE) {
+    final s = _tSensor;
+    final range = _range;
+    if (range == null || !isCelsiusUnit(_u)) {
+      return Text(
+        '환산 탭의 측정 범위 단위를 °C로 넣으면 그 범위의 5점 표가 여기에 나옵니다.',
+        key: const Key('st_table_hint'),
+        style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.4),
+      );
+    }
+    final (l, u) = range;
+    final cj = _num(_tCj) ?? 0;
+    String val(double t) {
+      final v0 = sensorValue(s, t);
+      if (v0 == null) return _rangeWord(s.tempRange, t);
+      if (s.isRtd) return _fmt(v0);
+      return cjE == null ? '—' : _fmt(v0 - cjE);
+    }
+
+    return Container(
+      key: const Key('st_table'),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '5점 표 (${s.label}, ${_fmt(l)} ~ ${_fmt(u)} °C)',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: fc.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          _tempRow('%', '°C', s.unit, 'mA', head: true),
+          for (final p in _points)
+            _tempRow(
+              _fmt(p),
+              _fmt(pctToPv(p, l, u), 2),
+              val(pctToPv(p, l, u)),
+              _fmt(maFromPct(outPctFromPvPct(p, _transfer))),
+            ),
+          if (!s.isRtd)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                cj == 0
+                    ? 'mV는 기준접점 0 °C 값입니다.'
+                    : 'mV는 냉접점 ${_fmt(cj)} °C를 뺀 값(교정기에 넣을 값)입니다.',
+                style: TextStyle(fontSize: 13, color: fc.textSub),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _tempRow(String a, String b, String c, String d, {bool head = false}) {
+    final st = TextStyle(
+      fontSize: 15,
+      fontWeight: head ? FontWeight.w800 : FontWeight.w600,
+      color: head ? fc.textSub : fc.text,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(flex: 2, child: Text(a, style: st)),
+          Expanded(flex: 3, child: Text(b, style: st)),
+          Expanded(
+            flex: 4,
+            child: Text(c, style: st, textAlign: TextAlign.right),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(d, style: st, textAlign: TextAlign.right),
+          ),
+        ],
+      ),
+    );
   }
 }
 

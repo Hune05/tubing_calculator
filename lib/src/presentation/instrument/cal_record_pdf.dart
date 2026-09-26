@@ -1,5 +1,6 @@
-// 계기 교정 성적서(PDF 한 장). 계기·표준기·작업자·교정일·차기 교정일·주위 조건, 조정 전·조정 후 다섯 점 표와
-// 판정, 메모, 서명 칸. 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
+// 계기 교정 성적서(PDF). 계기·표준기·작업자·교정일·차기 교정일·주위 조건·시험점·센서, 조정 전·조정 후 시험점 표
+// (하강 점이 있으면 히스테리시스 칸)와 판정, 메모, 서명 칸.
+// 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
 
 import 'dart:io';
@@ -90,50 +91,59 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
       '${r.transfer == Transfer.linear ? '' : ' · ${transferLabel(r.transfer)}'}';
   final tol = r.tolPct == null ? '' : '± ${_fmt(r.tolPct!)} % (스팬)';
 
+  final defs = r.points;
+  final down = calHasDown(defs);
+  String label(int i) => calPointLabel(defs, i);
+
   pw.Widget table(String title, List<CalEntry> entries) {
     final s = r.summaryOf(entries);
-    final headers = switch (r.kind) {
-      ReadKind.ma => [
-        '측정점',
-        '입력값$uu',
-        '이론값 (mA)',
-        '측정값 (mA)',
-        '오차 %',
-        '오차$uu',
-        '판정',
-      ],
-      ReadKind.pv => [
-        '측정점',
-        '입력값$uu',
-        '이론값 (mA)',
-        '지시값$uu',
-        '환산 mA',
-        '오차 %',
-        '오차$uu',
-        '판정',
-      ],
-      ReadKind.maIn => [
-        '측정점',
-        '입력 (mA)',
-        '이론값$uu',
-        '지시값$uu',
-        '오차 %',
-        '오차$uu',
-        '판정',
-      ],
-    };
+    final headers = [
+      ...switch (r.kind) {
+        ReadKind.ma => [
+          '측정점',
+          '입력값$uu',
+          '이론값 (mA)',
+          '측정값 (mA)',
+          '오차 %',
+          '오차$uu',
+          '판정',
+        ],
+        ReadKind.pv => [
+          '측정점',
+          '입력값$uu',
+          '이론값 (mA)',
+          '지시값$uu',
+          '환산 mA',
+          '오차 %',
+          '오차$uu',
+          '판정',
+        ],
+        ReadKind.maIn => [
+          '측정점',
+          '입력 (mA)',
+          '이론값$uu',
+          '지시값$uu',
+          '오차 %',
+          '오차$uu',
+          '판정',
+        ],
+      },
+    ];
+    // 하강 점이 있으면 판정 앞에 히스테리시스 칸.
+    if (down) headers.insert(headers.length - 1, '히스테리시스 %');
     final rows = <pw.TableRow>[
       pw.TableRow(
         decoration: const pw.BoxDecoration(color: _head),
         children: [for (final h in headers) cell(h, bold: true)],
       ),
     ];
-    for (var i = 0; i < kCalPoints.length; i++) {
+    for (var i = 0; i < defs.length; i++) {
       final p = s.points[i];
       final applied = i < entries.length && entries[i].applied != null
           ? entries[i].applied!
-          : nominalInput(kCalPoints[i], r.kind, r.lrv, r.urv);
-      final bad = p?.pass == false;
+          : nominalInput(defs[i].pct, r.kind, r.lrv, r.urv);
+      final verdict = s.rowPass(i);
+      final bad = verdict == false;
       final c = bad ? _red : _ink;
       String dash(double? v, [String Function(double)? f]) =>
           v == null || v.isNaN ? '—' : (f ?? _fmt)(v);
@@ -141,7 +151,7 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
         pw.TableRow(
           decoration: bad ? const pw.BoxDecoration(color: _redBg) : null,
           children: [
-            cell('${_fmt(kCalPoints[i])}%', bold: true),
+            cell(label(i), bold: true),
             cell(_fmt(applied)),
             cell(
               r.kind == ReadKind.maIn
@@ -159,8 +169,14 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
               ),
             cell(dash(p?.errPct, (v) => _signed(v, 2)), color: c, bold: bad),
             cell(dash(p?.errPv, _signed), color: c),
+            if (down)
+              cell(
+                dash(s.hystAt(i), (v) => _fmt(v, 2)),
+                color: s.hystPass(i) == false ? _red : _ink,
+                bold: s.hystPass(i) == false,
+              ),
             cell(
-              p == null || p.pass == null ? '—' : calVerdictText(p.pass),
+              verdict == null ? '—' : calVerdictText(verdict),
               color: c,
               bold: bad,
             ),
@@ -170,6 +186,8 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
     }
     final w = s.worst;
     final advise = s.adjustAdvised;
+    final mh = s.maxHyst;
+    String labels(List<int> l) => l.map(label).join(', ');
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -186,9 +204,11 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
         pw.Text(
           w == null
               ? '측정값이 없습니다.'
-              : '최대 오차 ${_signed(w.$2.errPct, 2)} % (${_fmt(kCalPoints[w.$1])}% 점) · ${calVerdictText(s.pass)}'
-                    '${s.failed.isEmpty ? '' : ' · 불합격 점: ${s.failed.map((i) => '${_fmt(kCalPoints[i])}%').join(', ')}'}'
-                    '${advise.isEmpty ? '' : ' · 조정 권장: ${advise.map((i) => '${_fmt(kCalPoints[i])}%').join(', ')}'}',
+              : '최대 오차 ${_signed(w.$2.errPct, 2)} % (${label(w.$1)} 점)'
+                    '${mh == null ? '' : ' · 최대 히스테리시스 ${_fmt(mh.$2, 2)} % (${label(mh.$1)} 점)'}'
+                    ' · ${calVerdictText(s.pass)}'
+                    '${s.failed.isEmpty ? '' : ' · 불합격 점: ${labels(s.failed)}'}'
+                    '${advise.isEmpty ? '' : ' · 조정 권장: ${labels(advise)}'}',
           style: pw.TextStyle(
             fontSize: 9,
             color: s.pass == false ? _red : _ink,
@@ -238,6 +258,9 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
                   info('제조사·모델', r.model),
                   info('표준기', r.refStd),
                   info('주위 조건', r.ambient),
+                  info('시험점', calPointsText(defs)),
+                  if (r.sensor != null)
+                    info('센서', calSensorText(r.sensor, r.cjC)),
                 ],
               ),
             ),
@@ -249,6 +272,8 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
                   info('측정 범위', range),
                   info('측정 방법', kindLabel(r.kind)),
                   info('허용오차', tol),
+                  if (r.hystTolPct != null)
+                    info('히스테리시스', '허용값 ${_fmt(r.hystTolPct!)} % (스팬)'),
                   info('교정일', calDay(r.date)),
                   info('차기 교정일', r.nextDue == null ? '' : calDay(r.nextDue!)),
                   info('작업자', r.worker),
@@ -323,10 +348,9 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
         ),
         pw.SizedBox(height: 14),
         pw.Text(
-          r.kind == ReadKind.ma
-              ? '오차 % = (측정값 − 이론값) ÷ 16 mA × 100. 이론값은 입력값으로 계산.'
-              : '오차 % = (지시값 − 이론값) ÷ 스팬 × 100.'
-                    '${r.kind == ReadKind.pv ? ' 환산 mA는 지시값에서 역산.' : ''}',
+          '${r.kind == ReadKind.ma ? '오차 % = (측정값 − 이론값) ÷ 16 mA × 100. 이론값은 입력값으로 계산.' : '오차 % = (지시값 − 이론값) ÷ 스팬 × 100.'
+                    '${r.kind == ReadKind.pv ? ' 환산 mA는 지시값에서 역산.' : ''}'}'
+          '${down ? ' 히스테리시스 = |상승 오차 % − 하강 오차 %| (같은 측정점).' : ''}',
           style: const pw.TextStyle(fontSize: 8, color: _grey),
         ),
       ],

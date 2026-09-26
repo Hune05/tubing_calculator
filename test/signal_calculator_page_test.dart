@@ -124,7 +124,7 @@ void main() {
     expect(textIn(tester, const Key('sl_result')), contains('20mA도 낼 수 없습니다'));
   });
 
-  testWidgets('좁은 폰(344)·큰 글씨에서 세 탭이 넘치지 않는다', (tester) async {
+  testWidgets('좁은 폰(344)·큰 글씨에서 네 탭이 넘치지 않는다', (tester) async {
     tester.view.physicalSize = const Size(344, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -143,11 +143,21 @@ void main() {
     await tester.enterText(find.byKey(const Key('sg_value')), '12');
     await tester.pump();
     expect(tester.takeException(), isNull);
-    for (final t in ['sg_tab_cal', 'sg_tab_loop', 'sg_tab_conv']) {
+    // 탭 넷은 옆으로 밀리는 탭 줄이라 보이게 한 뒤 누른다.
+    for (final t in [
+      'sg_tab_cal',
+      'sg_tab_loop',
+      'sg_tab_temp',
+      'sg_tab_conv',
+    ]) {
+      await tester.ensureVisible(find.byKey(Key(t)));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key(t)));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: t);
     }
+    await tester.ensureVisible(find.byKey(const Key('sg_tab_cal')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('sg_tab_cal')));
     await tester.pumpAndSettle();
     await tester.dragUntilVisible(

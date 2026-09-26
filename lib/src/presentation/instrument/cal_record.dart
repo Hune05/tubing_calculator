@@ -1,4 +1,4 @@
-// 4-20mA 교정 기록(폰에만 저장). 한 계기의 조정 전·조정 후 다섯 점과 계기·표준기·작업자 정보.
+// 4-20mA 교정 기록(폰에만 저장). 한 계기의 조정 전·조정 후 시험점(상승·하강)과 계기·표준기·작업자 정보.
 // 성적서 PDF는 cal_record_pdf.dart. 계산은 signal_calc.dart의 checkPoint를 그대로 쓴다.
 library;
 
@@ -7,9 +7,110 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'signal_calc.dart';
+import 'temp_sensor.dart';
 
 /// 교정 측정점: 0·25·50·75·100%.
 const List<double> kCalPoints = [0, 25, 50, 75, 100];
+
+/// 시험점 하나: 측정 범위 %와 방향(상승·하강).
+class CalPointDef {
+  final double pct;
+  final bool down;
+  const CalPointDef(this.pct, {this.down = false});
+
+  Map<String, dynamic> toJson() => {'p': pct, if (down) 'dn': true};
+  factory CalPointDef.fromJson(Map<String, dynamic> j) =>
+      CalPointDef((j['p'] as num).toDouble(), down: j['dn'] == true);
+
+  @override
+  bool operator ==(Object other) =>
+      other is CalPointDef && other.pct == pct && other.down == down;
+
+  @override
+  int get hashCode => Object.hash(pct, down);
+}
+
+/// 시험점 묶음: 3점·5점·11점.
+enum CalPointSet { p3, p5, p11 }
+
+List<double> calSetPcts(CalPointSet s) => switch (s) {
+  CalPointSet.p3 => const [0, 50, 100],
+  CalPointSet.p5 => kCalPoints,
+  CalPointSet.p11 => const [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+};
+
+/// 시험점 묶음 이름(화면).
+String calSetLabel(CalPointSet s) => switch (s) {
+  CalPointSet.p3 => '3점(0·50·100)',
+  CalPointSet.p5 => '5점(0·25·50·75·100)',
+  CalPointSet.p11 => '11점(0·10·…·100)',
+};
+
+/// 시험점 목록. [withDown]이면 맨 위 점에서 되돌아 내려오는 하강 점을 붙인다.
+/// 예: 5점 + 하강 = 0·25·50·75·100·75·50·25·0(아홉 점).
+List<CalPointDef> calPointList(CalPointSet s, {bool withDown = false}) {
+  final up = [for (final p in calSetPcts(s)) CalPointDef(p)];
+  if (!withDown) return up;
+  return [
+    ...up,
+    for (var i = up.length - 2; i >= 0; i--) CalPointDef(up[i].pct, down: true),
+  ];
+}
+
+/// 시험점이 가장 많을 때의 줄 수(11점 + 하강 10점).
+const int kMaxCalRows = 21;
+
+/// 기본값이자 예전 기록(시험점 칸 없음)의 시험점: 5점 상승만.
+const List<CalPointDef> kDefaultCalPoints = [
+  CalPointDef(0),
+  CalPointDef(25),
+  CalPointDef(50),
+  CalPointDef(75),
+  CalPointDef(100),
+];
+
+/// 목록에 하강 점이 있는지.
+bool calHasDown(List<CalPointDef> defs) => defs.any((d) => d.down);
+
+/// 목록이 어느 묶음인지. 묶음과 다르면 null.
+(CalPointSet, bool)? calSetOf(List<CalPointDef> defs) {
+  bool same(List<CalPointDef> a) {
+    if (a.length != defs.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != defs[i]) return false;
+    }
+    return true;
+  }
+
+  for (final s in CalPointSet.values) {
+    for (final d in const [false, true]) {
+      if (same(calPointList(s, withDown: d))) return (s, d);
+    }
+  }
+  return null;
+}
+
+/// 점 이름: 하강이 없으면 "50%", 있으면 "상승 50%"·"하강 50%".
+String calPointLabel(List<CalPointDef> defs, int i) {
+  final d = defs[i];
+  final p = '${_num(d.pct)}%';
+  if (!calHasDown(defs)) return p;
+  return '${d.down ? '하강' : '상승'} $p';
+}
+
+/// 시험점 요약: "5점", "5점 상승·하강".
+String calPointsText(List<CalPointDef> defs) {
+  final up = defs.where((d) => !d.down).length;
+  return '$up점${calHasDown(defs) ? ' 상승·하강' : ''}';
+}
+
+/// 성적서·CSV의 센서 글: "Pt100 (IEC 60751)", "K형 (IEC 60584-1), 냉접점 20 °C".
+String calSensorText(TempSensor? s, double? cjC) {
+  if (s == null) return '';
+  final base = '${s.label} (${s.standard})';
+  if (s.isRtd) return base;
+  return '$base, 냉접점 ${_num(cjC ?? 0)} °C';
+}
 
 /// 출력 특성 이름(화면·성적서·CSV 공통).
 String transferLabel(Transfer t) => switch (t) {
@@ -42,7 +143,56 @@ class CalEntry {
 class CalSummary {
   final List<CalPoint?> points; // 측정점마다(측정값이 없으면 null)
   final double? tolPct; // 허용오차(0 이하·없음은 null)
-  const CalSummary(this.points, [this.tolPct]);
+  final List<CalPointDef> defs; // 시험점(points와 같은 순서)
+  final List<double?> hyst; // 하강 점의 히스테리시스(스팬 %). 상승 점·짝이 없으면 null
+  final double? hystTolPct; // 히스테리시스 허용값(0 이하·없음은 null)
+  const CalSummary(
+    this.points, {
+    this.tolPct,
+    this.defs = kDefaultCalPoints,
+    this.hyst = const [],
+    this.hystTolPct,
+  });
+
+  double? hystAt(int i) => i < hyst.length ? hyst[i] : null;
+
+  /// 히스테리시스 판정: 허용값을 넣었고 상승·하강 짝이 있을 때만.
+  bool? hystPass(int i) {
+    final h = hystAt(i), t = hystTolPct;
+    if (h == null || t == null) return null;
+    return h <= t + 1e-9;
+  }
+
+  /// 한 점의 판정: 오차(허용오차)와 히스테리시스(허용값). 둘 다 판정하지 않으면 null.
+  bool? rowPass(int i) {
+    final p = points[i];
+    if (p == null) return null;
+    final a = p.pass, b = hystPass(i);
+    if (a == null && b == null) return null;
+    return (a ?? true) && (b ?? true);
+  }
+
+  /// 히스테리시스가 가장 큰 하강 점(없으면 null).
+  (int, double)? get maxHyst {
+    (int, double)? m;
+    for (var i = 0; i < hyst.length; i++) {
+      final h = hyst[i];
+      if (h != null && (m == null || h > m.$2)) m = (i, h);
+    }
+    return m;
+  }
+
+  /// 히스테리시스 허용값을 넘은 점.
+  List<int> get hystFailed => [
+    for (final m in measured)
+      if (hystPass(m.$1) == false) m.$1,
+  ];
+
+  /// 허용오차를 넘은 점.
+  List<int> get errFailed => [
+    for (final m in measured)
+      if (m.$2.pass == false) m.$1,
+  ];
 
   List<(int, CalPoint)> get measured => [
     for (var i = 0; i < points.length; i++)
@@ -57,10 +207,10 @@ class CalSummary {
     return m.reduce((a, b) => b.$2.errPct.abs() > a.$2.errPct.abs() ? b : a);
   }
 
-  /// 허용오차를 초과한 점.
+  /// 불합격 점: 허용오차 초과 또는 히스테리시스 허용값 초과.
   List<int> get failed => [
     for (final m in measured)
-      if (m.$2.pass == false) m.$1,
+      if (rowPass(m.$1) == false) m.$1,
   ];
 
   /// 합격이지만 조정 한계(허용오차의 50%)를 넘은 점. Beamex 권장값.
@@ -69,19 +219,23 @@ class CalSummary {
     if (t == null) return const [];
     return [
       for (final m in measured)
-        if (m.$2.pass == true && m.$2.errPct.abs() > t / 2 + 1e-9) m.$1,
+        if (m.$2.pass == true &&
+            rowPass(m.$1) != false &&
+            m.$2.errPct.abs() > t / 2 + 1e-9)
+          m.$1,
     ];
   }
 
-  /// 판정: 측정값이 없거나 허용오차가 없으면 null.
+  /// 판정: 측정값이 없거나 판정한 점이 없으면(허용오차·히스테리시스 허용값 없음) null.
   bool? get pass {
     final m = measured;
-    if (m.isEmpty || m.first.$2.pass == null) return null;
+    if (m.isEmpty || !m.any((e) => rowPass(e.$1) != null)) return null;
     return failed.isEmpty;
   }
 }
 
-/// 다섯 점을 계산한다. 입력값이 비었으면 측정점 값.
+/// 시험점마다 계산한다. 입력값이 비었으면 측정점 값.
+/// 히스테리시스 = |같은 %의 상승 오차 % − 하강 오차 %|(스팬 %). 하강 점에 적는다.
 CalSummary evaluateCal({
   required List<CalEntry> entries,
   required double lrv,
@@ -89,16 +243,18 @@ CalSummary evaluateCal({
   required Transfer transfer,
   required ReadKind kind,
   double? tolPct,
+  List<CalPointDef> points = kDefaultCalPoints,
+  double? hystTolPct,
 }) {
   final tol = tolPct != null && tolPct > 0 ? tolPct : null;
-  return CalSummary([
-    for (var i = 0; i < kCalPoints.length; i++)
+  final pts = <CalPoint?>[
+    for (var i = 0; i < points.length; i++)
       if (i >= entries.length || entries[i].reading == null)
         null
       else
         checkPoint(
           applied:
-              entries[i].applied ?? nominalInput(kCalPoints[i], kind, lrv, urv),
+              entries[i].applied ?? nominalInput(points[i].pct, kind, lrv, urv),
           reading: entries[i].reading!,
           kind: kind,
           lrv: lrv,
@@ -106,7 +262,22 @@ CalSummary evaluateCal({
           transfer: transfer,
           tolPct: tol,
         ),
-  ], tol);
+  ];
+  double? hystOf(int i) {
+    final d = points[i], p = pts[i];
+    if (!d.down || p == null) return null;
+    final j = points.indexOf(CalPointDef(d.pct));
+    if (j < 0 || pts[j] == null) return null;
+    return (pts[j]!.errPct - p.errPct).abs();
+  }
+
+  return CalSummary(
+    pts,
+    tolPct: tol,
+    defs: points,
+    hyst: [for (var i = 0; i < points.length; i++) hystOf(i)],
+    hystTolPct: hystTolPct != null && hystTolPct > 0 ? hystTolPct : null,
+  );
 }
 
 class CalRecord {
@@ -128,6 +299,10 @@ class CalRecord {
   final double? tolPct;
   final List<CalEntry> found; // 조정 전
   final List<CalEntry> left; // 조정 후(조정하지 않았으면 비어 있음)
+  final List<CalPointDef> points; // 시험점(found·left와 같은 순서). 예전 기록은 5점 상승
+  final double? hystTolPct; // 히스테리시스 허용값(스팬 %)
+  final TempSensor? sensor; // 온도 센서(측정 범위가 °C일 때만)
+  final double? cjC; // 열전대 냉접점 온도(°C)
 
   const CalRecord({
     required this.id,
@@ -148,6 +323,10 @@ class CalRecord {
     this.tolPct,
     required this.found,
     this.left = const [],
+    this.points = kDefaultCalPoints,
+    this.hystTolPct,
+    this.sensor,
+    this.cjC,
   });
 
   CalSummary summaryOf(List<CalEntry> e) => evaluateCal(
@@ -157,6 +336,8 @@ class CalRecord {
     transfer: transfer,
     kind: kind,
     tolPct: tolPct,
+    points: points,
+    hystTolPct: hystTolPct,
   );
   CalSummary get foundSummary => summaryOf(found);
   CalSummary get leftSummary => summaryOf(left);
@@ -186,6 +367,10 @@ class CalRecord {
     'tol': tolPct,
     'found': [for (final e in found) e.toJson()],
     'left': [for (final e in left) e.toJson()],
+    'pts': [for (final p in points) p.toJson()],
+    'hystTol': hystTolPct,
+    'sensor': sensor?.name,
+    'cj': cjC,
   };
 
   factory CalRecord.fromJson(Map<String, dynamic> j) => CalRecord(
@@ -219,7 +404,20 @@ class CalRecord {
       for (final e in (j['left'] as List? ?? const []))
         CalEntry.fromJson(Map<String, dynamic>.from(e as Map)),
     ],
+    points: _pointsFromJson(j['pts']),
+    hystTolPct: (j['hystTol'] as num?)?.toDouble(),
+    sensor: TempSensor.values.where((s) => s.name == j['sensor']).firstOrNull,
+    cjC: (j['cj'] as num?)?.toDouble(),
   );
+}
+
+/// 시험점 칸이 없거나 비었으면(예전 기록) 5점 상승.
+List<CalPointDef> _pointsFromJson(Object? v) {
+  if (v is! List || v.isEmpty) return kDefaultCalPoints;
+  return [
+    for (final e in v)
+      CalPointDef.fromJson(Map<String, dynamic>.from(e as Map)),
+  ];
 }
 
 /// 판정 글: 합격 / 불합격 / 판정 없음.
@@ -241,7 +439,12 @@ String _num(double? v) {
 String _csvCell(String s) =>
     s.contains(RegExp(r'[",\n\r]')) ? '"${s.replaceAll('"', '""')}"' : s;
 
-/// 엑셀에서 바로 여는 CSV(UTF-8 BOM). 한 기록이 한 줄, 측정점마다 입력값·측정값·오차 % 칸.
+String _csv(List<List<String>> rows) =>
+    '﻿${rows.map((c) => c.map(_csvCell).join(',')).join('\r\n')}\r\n';
+
+/// 엑셀에서 바로 여는 요약 CSV(UTF-8 BOM). 한 기록이 한 줄.
+/// 앞쪽 칸은 예전 모양 그대로(0·25·50·75·100% 상승 점의 입력값·측정값·오차 %, 그 점이 시험점에 없으면 빈 칸)이고,
+/// 뒤에 시험점·히스테리시스·센서 칸을 붙였다. 모든 점(하강 포함)은 [calPointsCsv]에 있다.
 String calRecordsCsv(List<CalRecord> records) {
   final head = <String>[
     '태그 번호',
@@ -270,23 +473,38 @@ String calRecordsCsv(List<CalRecord> records) {
         '$ph ${_num(p)}% 측정값',
         '$ph ${_num(p)}% 오차(%)',
       ],
+    '시험점',
+    '히스테리시스 허용값(%)',
+    '조정 전 최대 히스테리시스(%)',
+    '조정 후 최대 히스테리시스(%)',
+    '센서',
   ];
   final rows = <List<String>>[head];
   for (final r in records) {
     final f = r.foundSummary, l = r.leftSummary;
-    List<String> phase(List<CalEntry> e, CalSummary s) => [
-      for (var i = 0; i < kCalPoints.length; i++) ...[
-        _num(
-          i < e.length && e[i].applied != null
-              ? e[i].applied
-              : (s.points[i] == null
-                    ? null
-                    : nominalInput(kCalPoints[i], r.kind, r.lrv, r.urv)),
-        ),
-        _num(i < e.length ? e[i].reading : null),
-        _num(s.points[i]?.errPct),
-      ],
-    ];
+    List<String> phase(List<CalEntry> e, CalSummary s) {
+      final out = <String>[];
+      for (final p in kCalPoints) {
+        final i = r.points.indexOf(CalPointDef(p));
+        if (i < 0) {
+          out.addAll(const ['', '', '']);
+          continue;
+        }
+        out.addAll([
+          _num(
+            i < e.length && e[i].applied != null
+                ? e[i].applied
+                : (s.points[i] == null
+                      ? null
+                      : nominalInput(p, r.kind, r.lrv, r.urv)),
+          ),
+          _num(i < e.length ? e[i].reading : null),
+          _num(s.points[i]?.errPct),
+        ]);
+      }
+      return out;
+    }
+
     rows.add([
       r.tag,
       r.instrument,
@@ -310,9 +528,64 @@ String calRecordsCsv(List<CalRecord> records) {
       r.memo,
       ...phase(r.found, f),
       ...phase(r.left, l),
+      calPointsText(r.points),
+      _num(r.hystTolPct),
+      _num(f.maxHyst?.$2),
+      _num(l.maxHyst?.$2),
+      calSensorText(r.sensor, r.cjC),
     ]);
   }
-  return '﻿${rows.map((c) => c.map(_csvCell).join(',')).join('\r\n')}\r\n';
+  return _csv(rows);
+}
+
+/// 측정점 CSV(UTF-8 BOM). 측정한 점마다 한 줄: 기록·구분(조정 전·후)·방향(상승·하강)·측정점.
+/// 시험점 수가 기록마다 달라도 칸이 같아 엑셀에서 거르고 모으기 쉽다.
+String calPointsCsv(List<CalRecord> records) {
+  final rows = <List<String>>[
+    [
+      '태그 번호',
+      '교정일',
+      '구분',
+      '방향',
+      '측정점(%)',
+      '입력값',
+      '입력 단위',
+      '이론값',
+      '측정값·지시값',
+      '측정 단위',
+      '오차(%)',
+      '히스테리시스(%)',
+      '판정',
+      '측정 방법',
+    ],
+  ];
+  for (final r in records) {
+    final inUnit = r.kind == ReadKind.maIn ? 'mA' : r.unit;
+    final outUnit = r.kind == ReadKind.ma ? 'mA' : r.unit;
+    for (final (ph, e) in [('조정 전', r.found), ('조정 후', r.left)]) {
+      final s = r.summaryOf(e);
+      for (final (i, p) in s.measured) {
+        final v = s.rowPass(i);
+        rows.add([
+          r.tag,
+          calDay(r.date),
+          ph,
+          r.points[i].down ? '하강' : '상승',
+          _num(r.points[i].pct),
+          _num(p.applied),
+          inUnit,
+          _num(p.expected),
+          _num(p.reading),
+          outUnit,
+          _num(p.errPct),
+          _num(s.hystAt(i)),
+          v == null ? '' : calVerdictText(v),
+          kindLabel(r.kind),
+        ]);
+      }
+    }
+  }
+  return _csv(rows);
 }
 
 /// 폰에 저장(SharedPreferences, JSON 목록). 최근 것이 앞.

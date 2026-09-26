@@ -67,19 +67,26 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
     ),
   );
 
-  /// 엑셀에서 여는 CSV 파일을 만들어 공유 창을 연다(보내기는 사용자가 고른다).
+  /// 엑셀에서 여는 CSV 파일 두 개(기록 요약, 측정점)를 만들어 공유 창을 연다(보내기는 사용자가 고른다).
   Future<void> _exportCsv() async {
     final l = _list;
     if (l == null || l.isEmpty) return;
     final d = DateTime.now();
-    final name =
-        'cal_records_${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.csv';
+    final day =
+        '${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}';
     try {
       final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/$name');
-      await file.writeAsBytes(utf8.encode(calRecordsCsv(l)));
+      final files = <XFile>[];
+      for (final (name, text) in [
+        ('cal_records_$day.csv', calRecordsCsv(l)),
+        ('cal_points_$day.csv', calPointsCsv(l)),
+      ]) {
+        final file = File('${dir.path}/$name');
+        await file.writeAsBytes(utf8.encode(text));
+        files.add(XFile(file.path));
+      }
       // ignore: deprecated_member_use
-      await Share.shareXFiles([XFile(file.path)], text: '교정 기록 ${l.length}건');
+      await Share.shareXFiles(files, text: '교정 기록 ${l.length}건');
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(
