@@ -107,6 +107,18 @@ const Map<int, double> kThickConduitOd = {
   54: 59.6,
 };
 
+/// 박강 전선관 호칭과 바깥지름(mm). KS C 8422. 앱은 박강도 후강 호칭(16~54)으로 고르므로
+/// 참고용(현장 자료 전선관 탭·단위 환산 배관 호칭표).
+const Map<int, double> kThinConduitOd = {
+  19: 19.1,
+  25: 25.4,
+  31: 31.8,
+  39: 38.1,
+  51: 50.8,
+  63: 63.5,
+  75: 76.2,
+};
+
 final Map<String, List<ModulePreset>> kSkidConduitPresets = {
   "후강 전선관 (바깥지름)": [
     for (final e in kThickConduitOd.entries)

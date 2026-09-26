@@ -6,19 +6,13 @@ import '../../../core/engine/bend_geometry.dart';
 import '../../../data/conduit_spec_sets.dart';
 import '../../../data/models/bender_spec_data.dart';
 import '../../my_work_logs/models/skid_presets.dart'
-    show kThickConduitOd, kConduletSize, kCouplingSize, kUnionSize;
+    show
+        kThickConduitOd,
+        kThinConduitOd,
+        kConduletSize,
+        kCouplingSize,
+        kUnionSize;
 import 'reference_widgets.dart';
-
-/// 박강 전선관(KS C 8422) 호칭과 바깥지름(mm). 앱은 박강도 후강 호칭(16~54)으로 고르므로 참고용.
-const Map<int, double> _thinConduitOd = {
-  19: 19.1,
-  25: 25.4,
-  31: 31.8,
-  39: 38.1,
-  51: 50.8,
-  63: 63.5,
-  75: 76.2,
-};
 
 const List<double> _angles = [30, 45, 60, 90];
 
@@ -95,7 +89,7 @@ class RefConduitTab extends StatelessWidget {
             refTable(
               headers: ["호칭", "바깥지름 (mm)"],
               rows: [
-                for (final e in _thinConduitOd.entries)
+                for (final e in kThinConduitOd.entries)
                   ["${e.key}", refNum(e.value)],
               ],
               footer:

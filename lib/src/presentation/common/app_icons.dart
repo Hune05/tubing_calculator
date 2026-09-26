@@ -151,6 +151,9 @@ enum AppGlyph {
 
   /// 각도기: 반원 눈금 + 팔.
   protractor,
+
+  /// 단위 환산: 서로 반대로 가는 화살표 두 개 + 자.
+  unitConvert,
 }
 
 /// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
@@ -968,6 +971,21 @@ class _AppIconPainter extends CustomPainter {
         l(9, 6, 9, 18);
         l(15, 6, 15, 18);
         canvas.drawCircle(const Offset(12, 12), 2.2, fill);
+
+      case AppGlyph.unitConvert:
+        // 위: 오른쪽 화살표, 가운데: 왼쪽 화살표, 아래: 자.
+        l(4, 5, 18, 5);
+        l(18, 5, 15.2, 2.6);
+        l(18, 5, 15.2, 7.4);
+        l(20, 10, 6, 10);
+        l(6, 10, 8.8, 7.6);
+        l(6, 10, 8.8, 12.4);
+        final ruler = RRect.fromLTRBR(3, 14, 21, 20.5, const Radius.circular(1.6));
+        canvas.drawRRect(ruler, soft);
+        canvas.drawRRect(ruler, line);
+        for (final x in [6.5, 10.0, 13.5, 17.0]) {
+          l(x, 14, x, x == 10.0 || x == 17.0 ? 17.5 : 16.4);
+        }
 
       case AppGlyph.protractor:
         final arc = Path()
