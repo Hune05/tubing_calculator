@@ -9,6 +9,7 @@ const _dirs = [
   'lib/src/presentation/electrical',
   'lib/src/presentation/pressure_test',
   'lib/src/presentation/instrument',
+  'lib/src/presentation/flow',
 ];
 
 /// 쓰지 않을 말 → 쓸 말.

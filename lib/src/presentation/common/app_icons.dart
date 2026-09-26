@@ -163,6 +163,9 @@ enum AppGlyph {
 
   /// 4-20mA 계산기: 전송기(왼쪽 상자)와 저항(오른쪽 톱니)을 잇는 루프 + 전류 화살표.
   currentLoop,
+
+  /// 유량 계산: 관(두 줄) 속을 흐르는 화살표 두 개.
+  flow,
 }
 
 /// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
@@ -998,6 +1001,18 @@ class _AppIconPainter extends CustomPainter {
         canvas.drawCircle(gc, 1.2, fill);
         l(12, 18.5, 12, 22);
         l(9.5, 22, 14.5, 22);
+
+      case AppGlyph.flow:
+        final pipeBox = RRect.fromLTRBR(2.5, 6.5, 21.5, 17.5, const Radius.circular(2));
+        canvas.drawRRect(pipeBox, soft);
+        l(2.5, 6.5, 21.5, 6.5);
+        l(2.5, 17.5, 21.5, 17.5);
+        l(5, 10, 13, 10);
+        l(13, 10, 10.8, 8.2);
+        l(13, 10, 10.8, 11.8);
+        l(11, 14, 19, 14);
+        l(19, 14, 16.8, 12.2);
+        l(19, 14, 16.8, 15.8);
 
       case AppGlyph.currentLoop:
         final tx = RRect.fromLTRBR(2.5, 8, 9.5, 16, const Radius.circular(1.6));
