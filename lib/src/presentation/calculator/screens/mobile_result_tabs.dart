@@ -660,7 +660,7 @@ class _MobileResultTabState extends State<MobileResultTab>
     final int uBend = (item['uBend'] as num?)?.toInt() ?? 0;
 
     // 22.5° 같은 반 각도는 현장 탭·PDF와 같이 소수로(전엔 23°로 보였다).
-    String _fmtAngle(double a) =>
+    String fmtAngle(double a) =>
         a == a.roundToDouble() ? "${a.round()}" : a.toStringAsFixed(1);
     return StepMarkCard(
       isStraight: isStraight,
@@ -669,8 +669,8 @@ class _MobileResultTabState extends State<MobileResultTab>
       title: isStraight
           ? "직관 연장 마킹"
           : hasSpringback
-          ? "${_fmtAngle(angle)}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
-          : "${_fmtAngle(angle)}° 벤딩",
+          ? "${fmtAngle(angle)}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
+          : "${fmtAngle(angle)}° 벤딩",
       dirIcon: _getDirectionIcon(rotation),
       dirText: _getDirectionText(rotation),
       notes: [

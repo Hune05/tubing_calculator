@@ -9,6 +9,13 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  # tubing_calculator/는 09-26에 안쪽에 새로 받았던 낡은 클론 사본이다(작업은 이 바깥 폴더에서
+  # 한다). git에도 안 잡히는 폴더인데 이 폴더 트리 안에 들어 있어서, VS Code가 열어 두면 그 안의
+  # 깨진 파일(병합 충돌 표시가 그대로 남은 것)까지 분석해 엉뚱한 오류를 179개 보여 줬다.
+  exclude:
+    - tubing_calculator/**
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
