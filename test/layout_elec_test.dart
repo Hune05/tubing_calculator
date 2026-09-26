@@ -151,6 +151,14 @@ void main() {
     expect(names.any((n) => n.contains('CY') && n.contains('히터')), isFalse);
   });
 
+  test('조양 CYMAX CYIT-BT-120 온도 조절기 (모델 번호 확인 뒤 추가)', () {
+    final t = preset('CYIT-BT-120 온도 조절기 (조양)');
+    expect(t.width, 65);
+    expect(t.height, 100);
+    expect(t.depth, 55);
+    expect(t.shape, ElecShape.psu);
+  });
+
   test('용성 문짝 부품: 정면은 베젤 지름, 깊이는 패널 뒤', () {
     expect(
       [preset('APL22 표시등 Ø22').width, preset('APL22 표시등 Ø22').depth],
