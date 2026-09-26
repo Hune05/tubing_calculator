@@ -138,11 +138,11 @@ const List<RefSearchEntry> refSearchIndex = [
   RefSearchEntry(5, '단위 환산 — 길이·인치 분수·피트', ['mm', 'inch', '인치', '분수', 'ft', '피트']),
   RefSearchEntry(5, '단위 환산 — 압력', ['bar', 'psi', 'mpa', 'kgf/cm2', '수주', 'mmhg']),
   RefSearchEntry(5, '단위 환산 — 토크', ['nm', 'lb-ft', 'kgf·m', 'kgm', '토크']),
-  RefSearchEntry(5, '단위 환산 — 무게·힘', ['kg', 'lb', 'kgf', '톤', 'lbf']),
-  RefSearchEntry(5, '단위 환산 — 온도·유량·면적·부피', ['°c', '°f', 'gpm', 'l/min', '갤런']),
-  RefSearchEntry(5, '단위 환산 — 각도·구배·전력', ['구배', '%', 'mm/m', 'kw', '마력']),
+  RefSearchEntry(5, '단위 환산 — 중량·힘', ['kg', 'lb', 'kgf', '톤', 'lbf', '무게']),
+  RefSearchEntry(5, '단위 환산 — 온도·온도차·유량·면적·부피', ['°c', '°f', 'gpm', 'l/min', '갤런', '온도차']),
+  RefSearchEntry(5, '단위 환산 — 각도·구배·동력·에너지', ['구배', '%', 'mm/m', 'kw', '마력', 'kwh', 'kcal', '냉동톤']),
   RefSearchEntry(5, '단위 환산 — 전선 굵기 (SQ ↔ AWG)', ['awg', 'sq', '스퀘어', '전선']),
-  RefSearchEntry(5, '단위 환산 — 배관 호칭 (A·B·DN·바깥지름)', ['15a', 'dn', 'nps', '호칭', '바깥지름']),
+  RefSearchEntry(5, '단위 환산 — 배관 호칭 (A·B·DN·외경)', ['15a', 'dn', 'nps', '호칭', '외경', '바깥지름']),
 
   // 발전 설비(6)
   RefSearchEntry(6, '왜 대형 발전기는 수소(H₂)로 냉각하나', ['h2', '수소냉각', '풍손']),

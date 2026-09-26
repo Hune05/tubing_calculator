@@ -2,8 +2,11 @@
 //
 // 평 좋은 환산 앱들처럼: 분류를 고르면 그 분류의 모든 단위가 한 목록으로 나오고, 아무 칸에나
 // 숫자를 넣으면 나머지가 바로 바뀐다(칸에 "1"을 미리 넣지 않는다). 마지막 분류·값을 기억하고,
-// 단위마다 ⋮ 메뉴로 값 복사·맨 위에 두기·숨기기, 위쪽에서 모든 단위를 찾는다. 길이는 인치 분수
+// 단위마다 ⋮ 메뉴로 값 복사·맨 위 고정·숨기기, 위쪽에서 모든 단위를 찾는다. 길이는 인치 분수
 // (1/16·1/32·1/64)와 오차, 피트·인치를 같이 보이고, 전선 굵기(SQ↔AWG)·배관 호칭은 표로 둔다.
+//
+// 2026-09-26 점검 반영: 칸을 누르면 글 전체 선택(새로 치면 바뀜), 줄을 길게 누르면 값 복사,
+// 못 읽는 글·절대영도 아래 온도 알림, 압력 게이지압·절대압 안내, 측정한 외경으로 호칭 찾기.
 import 'dart:async';
 import 'dart:convert';
 
@@ -20,9 +23,11 @@ import 'unit_defs.dart';
 
 const String kUnitConvCatKey = 'unit_conv_cat_v1';
 const String kUnitConvLastKey = 'unit_conv_last_v1'; // {분류: [단위, 글]}
-const String kUnitConvFavKey = 'unit_conv_fav_v1'; // ["분류/단위", …] 맨 위에 둔 차례
+const String kUnitConvFavKey = 'unit_conv_fav_v1'; // ["분류/단위", …] 맨 위 고정 차례
 const String kUnitConvHiddenKey = 'unit_conv_hidden_v1';
 const String kUnitConvDenKey = 'unit_conv_frac_den_v1';
+
+const String _kBadNumber = "숫자를 읽을 수 없습니다";
 
 class UnitConverterPage extends StatelessWidget {
   /// 처음 열 분류(예: 'pressure'). 없으면 마지막에 본 분류.
@@ -83,6 +88,13 @@ class _UnitConverterViewState extends State<UnitConverterView> {
 
   final _awg = TextEditingController();
   final _sq = TextEditingController();
+  final _od = TextEditingController();
+  final _awgFocus = FocusNode();
+  final _sqFocus = FocusNode();
+  final _odFocus = FocusNode();
+
+  /// 칸을 누르기 시작할 때 이미 커서가 있었는지(없었으면 누른 뒤 글 전체를 고른다).
+  bool _downHadFocus = false;
 
   Timer? _saveTimer;
 
@@ -100,7 +112,9 @@ class _UnitConverterViewState extends State<UnitConverterView> {
   @override
   void initState() {
     super.initState();
-    if (widget.initialCategory != null) _cat = widget.initialCategory!;
+    if (widget.initialCategory != null) {
+      _cat = unitCategory(widget.initialCategory!).id;
+    }
     _load();
   }
 
@@ -118,6 +132,10 @@ class _UnitConverterViewState extends State<UnitConverterView> {
     _searchFocus.dispose();
     _awg.dispose();
     _sq.dispose();
+    _od.dispose();
+    _awgFocus.dispose();
+    _sqFocus.dispose();
+    _odFocus.dispose();
     super.dispose();
   }
 
@@ -147,14 +165,15 @@ class _UnitConverterViewState extends State<UnitConverterView> {
         if (den == 16 || den == 32 || den == 64) _den = den!;
       });
     } catch (_) {}
+    if (!mounted) return;
     for (final c in kUnitCategories) {
       _refill(c);
     }
-    final w = _last['wire'];
-    if (w != null) {
-      (w.unit == 'awg' ? _awg : _sq).text = w.text;
-      if (mounted) setState(() {});
-    }
+    final w = _last[kWire.id];
+    if (w != null) _wireChanged(w.unit, w.text, save: false);
+    final od = _last[kPipe.id];
+    if (od != null) _od.text = od.text;
+    setState(() {});
   }
 
   void _saveSoon() {
@@ -204,11 +223,19 @@ class _UnitConverterViewState extends State<UnitConverterView> {
     return u == null ? null : _parse(u, l!.text);
   }
 
-  /// 마지막으로 넣은 칸을 뺀 나머지 칸을 다시 채운다.
+  /// 넣은 글을 못 읽으면 true(치는 중인 "-"·"."·분수 중간은 빼고).
+  bool _unreadable(UnitDef u, String text) {
+    final t = text.trim();
+    if (t.isEmpty || _parse(u, t) != null) return false;
+    return u.textInput ? !isPartialInches(t) : !isPartialNumber(t);
+  }
+
+  /// 마지막으로 넣은 칸을 뺀 나머지 칸을 다시 채운다. 있을 수 없는 값(절대영도 아래)이면 비운다.
   void _refill(UnitCategory c) {
     if (c.isTable) return;
     final l = _last[c.id];
-    final base = _baseOf(c);
+    var base = _baseOf(c);
+    if (base != null && c.belowMin(base)) base = null;
     for (final u in c.units) {
       final ctrl = _ctrlOf(c, u);
       if (l != null && u.id == l.unit) {
@@ -235,6 +262,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
         _awg.clear();
         _sq.clear();
       }
+      if (_cat == kPipe.id) _od.clear();
       _refill(_c);
     });
     _saveSoon();
@@ -257,26 +285,39 @@ class _UnitConverterViewState extends State<UnitConverterView> {
     _saveSoon();
   }
 
-  // ─────────────── 메뉴 ───────────────
+  /// 처음 누른 칸은 글 전체를 골라 새로 치면 바뀌게 한다(뒤에 붙지 않게).
+  void _selectAllOnFirstTap(TextEditingController ctrl) {
+    if (_downHadFocus || ctrl.text.isEmpty) return;
+    ctrl.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: ctrl.text.length,
+    );
+  }
+
+  // ─────────────── 복사·메뉴 ───────────────
+
+  Future<void> _copy(UnitCategory c, UnitDef u) async {
+    final t = _ctrlOf(c, u).text.trim();
+    if (t.isEmpty) return;
+    HapticFeedback.selectionClick();
+    final withUnit = u.textInput ? t : '$t ${u.symbol}';
+    await Clipboard.setData(ClipboardData(text: withUnit));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text("$withUnit 복사했습니다."),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
 
   Future<void> _menu(UnitCategory c, UnitDef u, String v) async {
     final key = _k(c, u);
     switch (v) {
       case 'copy':
-        final t = _ctrlOf(c, u).text.trim();
-        if (t.isEmpty) return;
-        final withUnit = u.textInput ? t : '$t ${u.symbol}';
-        await Clipboard.setData(ClipboardData(text: withUnit));
-        if (mounted) {
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              SnackBar(
-                content: Text("$withUnit 복사했습니다."),
-                duration: const Duration(seconds: 2),
-              ),
-            );
-        }
+        await _copy(c, u);
       case 'fav':
         setState(() {
           if (_fav.contains(key)) {
@@ -348,7 +389,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
       onChanged: (v) => setState(() => _q = v.trim()),
       style: TextStyle(color: fc.text),
       decoration: InputDecoration(
-        hintText: "단위 찾기 (예: psi, 토크, 1/16, AWG, 15A)",
+        hintText: "단위 찾기 (예: psi, 토크, 1/16, AWG, 20A)",
         hintStyle: TextStyle(color: fc.textSub, fontSize: 13),
         prefixIcon: Icon(Icons.search_rounded, color: fc.textSub),
         suffixIcon: _q.isEmpty
@@ -415,7 +456,11 @@ class _UnitConverterViewState extends State<UnitConverterView> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          u == null ? '표' : h.category.label,
+                          u != null
+                              ? h.category.label
+                              : h.category.isTable
+                              ? '표로 보기'
+                              : '모든 단위 보기',
                           style: TextStyle(fontSize: 12, color: fc.textSub),
                         ),
                       ],
@@ -431,6 +476,8 @@ class _UnitConverterViewState extends State<UnitConverterView> {
     );
   }
 
+  // 많이 쓰는 분류(길이·압력·온도·토크·유량·전선·배관)가 앞에 온다. 분류가 15개라 좁은 폰·큰
+  // 글씨에서 두 줄로는 다 안 들어가 옆으로 미는 한 줄로 둔다.
   Widget _categoryChips() => SizedBox(
     height: 52,
     child: ListView(
@@ -460,6 +507,47 @@ class _UnitConverterViewState extends State<UnitConverterView> {
     ),
   );
 
+  /// 분류마다 붙는 안내 한 줄.
+  String? _categoryNote(UnitCategory c) => switch (c.id) {
+    'pressure' =>
+      "(a)가 붙은 단위와 psia는 절대압입니다. 나머지는 게이지압입니다. 대기압은 101.325 kPa로 계산합니다.",
+    'tempdiff' => "온도가 아니라 온도차(ΔT)입니다. 1 °C 차는 1.8 °F 차입니다.",
+    'power' => "냉동톤: USRT는 12,000 BTU/h, RT는 3,320 kcal/h입니다.",
+    _ => null,
+  };
+
+  Widget _hint(String text, {Key? key, Color? color}) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      text,
+      key: key,
+      style: TextStyle(
+        fontSize: 12,
+        color: color ?? fc.textSub,
+        fontWeight: color == null ? FontWeight.w400 : FontWeight.w700,
+        height: 1.4,
+      ),
+    ),
+  );
+
+  Widget _header(bool hasValue, String idle) => Row(
+    children: [
+      Expanded(
+        child: Text(
+          hasValue ? "나머지 칸은 자동으로 바뀝니다" : idle,
+          style: TextStyle(fontSize: 12, color: fc.textSub),
+        ),
+      ),
+      if (hasValue)
+        TextButton.icon(
+          key: const Key('uc_clear'),
+          onPressed: _clear,
+          icon: const Icon(Icons.backspace_outlined, size: 18),
+          label: const Text("지우기"),
+        ),
+    ],
+  );
+
   Widget _body() {
     final c = _c;
     if (c.id == kWire.id) return _wireBody();
@@ -472,26 +560,19 @@ class _UnitConverterViewState extends State<UnitConverterView> {
     ];
     final hiddenCount = c.units.where((u) => _hidden.contains(_k(c, u))).length;
     final hasValue = (_last[c.id]?.text ?? '').trim().isNotEmpty;
+    final base = _baseOf(c);
+    final note = _categoryNote(c);
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                hasValue ? "다른 칸은 바로 바뀝니다" : "아무 칸에나 숫자를 넣으십시오",
-                style: TextStyle(fontSize: 12, color: fc.textSub),
-              ),
-            ),
-            if (hasValue)
-              TextButton.icon(
-                key: const Key('uc_clear'),
-                onPressed: _clear,
-                icon: const Icon(Icons.backspace_outlined, size: 18),
-                label: const Text("지우기"),
-              ),
-          ],
-        ),
+        _header(hasValue, "아무 칸에나 숫자를 입력하십시오"),
+        if (note != null) _hint(note, key: const Key('uc_note')),
+        if (base != null && c.belowMin(base))
+          _hint(
+            "절대영도(-273.15 °C)보다 낮습니다. 값을 확인하십시오.",
+            key: const Key('uc_warn'),
+            color: fc.danger,
+          ),
         if (c.id == kLength.id) _denChips(),
         for (final u in shown) _row(c, u),
         if (hiddenCount > 0)
@@ -546,127 +627,165 @@ class _UnitConverterViewState extends State<UnitConverterView> {
     ),
   );
 
+  /// 값 칸. 처음 누르면 글 전체를 고른다(새로 치면 바뀐다).
+  Widget _valueField({
+    required Key key,
+    required TextEditingController controller,
+    FocusNode? focusNode,
+    required TextInputType keyboardType,
+    required ValueChanged<String> onChanged,
+    String? hint,
+    String? suffix,
+  }) => Listener(
+    onPointerDown: (_) => _downHadFocus = focusNode?.hasFocus ?? false,
+    child: TextField(
+      key: key,
+      controller: controller,
+      focusNode: focusNode,
+      textAlign: TextAlign.right,
+      keyboardType: keyboardType,
+      style: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w700,
+        color: fc.text,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        border: InputBorder.none,
+        hintText: hint,
+        hintStyle: TextStyle(color: fc.textFaint, fontSize: 15),
+        suffixText: suffix,
+        suffixStyle: TextStyle(color: fc.textSub, fontSize: 14),
+      ),
+      onTap: () => _selectAllOnFirstTap(controller),
+      onChanged: onChanged,
+    ),
+  );
+
   Widget _row(UnitCategory c, UnitDef u) {
     final key = _k(c, u);
     final fav = _fav.contains(key);
     final focus = _focusOf(c, u);
     final l = _last[c.id];
     String? note;
-    if (u.id == 'in_frac' && l != null && l.unit != 'in_frac') {
+    Color? noteColor;
+    if (l != null && l.unit == u.id && _unreadable(u, l.text)) {
+      note = _kBadNumber;
+      noteColor = fc.danger;
+    } else if (u.id == 'in_frac' && l != null && l.unit != 'in_frac') {
       final base = _baseOf(c);
-      if (base != null) {
-        note = fractionErrorText(
-          inchFraction(u.fromBase(base), denom: _den).errMm,
-        );
+      if (base != null && !c.belowMin(base)) {
+        final f = inchFraction(u.fromBase(base), denom: _den);
+        note = fractionErrorText(f.errMm, f.text);
       }
     }
-    return Container(
+    // 줄을 길게 누르면 값 복사(값 칸 위에서는 폰 글 메뉴가 먼저 뜬다: 거기서도 복사).
+    return GestureDetector(
       key: _rowKey.putIfAbsent(key, GlobalKey.new),
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.fromLTRB(14, 4, 0, 4),
-      decoration: BoxDecoration(
-        color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: l?.unit == u.id ? fc.brand : fc.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              SizedBox(
-                width: 104,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        if (fav) ...[
-                          Icon(
-                            Icons.push_pin_rounded,
-                            size: 14,
-                            color: fc.brand,
-                          ),
-                          const SizedBox(width: 2),
-                        ],
-                        Flexible(
-                          child: Text(
-                            u.symbol,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: fc.text,
+      onLongPress: () => _copy(c, u),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.fromLTRB(14, 4, 0, 4),
+        decoration: BoxDecoration(
+          color: fc.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: l?.unit == u.id ? fc.brand : fc.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                SizedBox(
+                  width: 104,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (fav) ...[
+                            Icon(
+                              Icons.push_pin_rounded,
+                              size: 14,
+                              color: fc.brand,
+                            ),
+                            const SizedBox(width: 2),
+                          ],
+                          Flexible(
+                            child: Text(
+                              u.symbol,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: fc.text,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      u.name,
-                      style: TextStyle(fontSize: 11, color: fc.textSub),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: TextField(
-                  key: Key('uc_field_${u.id}'),
-                  controller: _ctrlOf(c, u),
-                  focusNode: focus,
-                  textAlign: TextAlign.right,
-                  // 분수·피트는 "/"·"-"·띄어쓰기가 있는 날짜 숫자판(피트 표시는 아래 단추).
-                  keyboardType: u.textInput
-                      ? TextInputType.datetime
-                      : TextInputType.numberWithOptions(
-                          decimal: true,
-                          signed: u.signed,
-                        ),
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: fc.text,
-                    fontFeatures: const [FontFeature.tabularFigures()],
+                        ],
+                      ),
+                      Text(
+                        u.name,
+                        style: TextStyle(fontSize: 13, color: fc.textSub),
+                      ),
+                    ],
                   ),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: u.id == 'in_frac'
+                ),
+                Expanded(
+                  child: _valueField(
+                    key: Key('uc_field_${u.id}'),
+                    controller: _ctrlOf(c, u),
+                    focusNode: focus,
+                    // 분수·피트는 "/"·"-"·띄어쓰기가 있는 날짜 숫자판(피트 표시는 아래 단추).
+                    // 음수가 되는 단위(온도·게이지 압력 진공)는 "-"가 있는 숫자판.
+                    keyboardType: u.textInput
+                        ? TextInputType.datetime
+                        : TextInputType.numberWithOptions(
+                            decimal: true,
+                            signed: u.signed,
+                          ),
+                    hint: u.id == 'in_frac'
                         ? '예: 1-3/8'
                         : u.id == 'ft_in'
                         ? "예: 4' 1-3/8"
                         : null,
-                    hintStyle: TextStyle(color: fc.textFaint, fontSize: 15),
+                    onChanged: (t) => _onChanged(c, u, t),
                   ),
-                  onChanged: (t) => _onChanged(c, u, t),
+                ),
+                PopupMenuButton<String>(
+                  key: Key('uc_menu_${u.id}'),
+                  icon: Icon(Icons.more_vert_rounded, color: fc.textSub),
+                  tooltip: "${u.symbol} 메뉴",
+                  onSelected: (v) => _menu(c, u, v),
+                  itemBuilder: (_) => [
+                    const PopupMenuItem(value: 'copy', child: Text("값 복사")),
+                    PopupMenuItem(
+                      value: 'fav',
+                      child: Text(fav ? "고정 풀기" : "맨 위 고정"),
+                    ),
+                    const PopupMenuItem(value: 'hide', child: Text("숨기기")),
+                  ],
+                ),
+              ],
+            ),
+            if (note != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 14, bottom: 4),
+                child: Text(
+                  note,
+                  key: Key(noteColor == null ? 'uc_frac_err' : 'uc_bad_input'),
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: noteColor ?? fc.textSub,
+                    fontWeight: noteColor == null
+                        ? FontWeight.w400
+                        : FontWeight.w700,
+                  ),
                 ),
               ),
-              PopupMenuButton<String>(
-                key: Key('uc_menu_${u.id}'),
-                icon: Icon(Icons.more_vert_rounded, color: fc.textSub),
-                tooltip: "${u.symbol} 메뉴",
-                onSelected: (v) => _menu(c, u, v),
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'copy', child: Text("값 복사")),
-                  PopupMenuItem(
-                    value: 'fav',
-                    child: Text(fav ? "맨 위에서 빼기" : "맨 위에 두기"),
-                  ),
-                  const PopupMenuItem(value: 'hide', child: Text("숨기기")),
-                ],
-              ),
-            ],
-          ),
-          if (note != null)
-            Padding(
-              padding: const EdgeInsets.only(right: 14, bottom: 4),
-              child: Text(
-                note,
-                key: const Key('uc_frac_err'),
-                textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 12, color: fc.textSub),
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -755,51 +874,75 @@ class _UnitConverterViewState extends State<UnitConverterView> {
 
   // ─────────────── 전선 굵기 ───────────────
 
-  void _wireChanged(String which, String text) {
+  /// 한쪽을 넣으면 다른 칸에 같거나 굵은 규격을 넣는다(바꿔 쓸 때 가는 쪽을 고르지 않게).
+  void _wireChanged(String which, String text, {bool save = true}) {
     setState(() {
       _last[kWire.id] = (unit: which, text: text);
       if (which == 'awg') {
         final n = parseAwg(text);
-        _sq.text = n == null
-            ? ''
-            : formatNumber(double.parse(awgAreaMm2(n).toStringAsFixed(2)));
+        final s = n == null ? null : sqFor(awgAreaMm2(n)).atLeast;
+        _sq.text = s == null ? '' : formatNumber(s);
+        if (_awg.text != text) _awg.text = text;
       } else {
         final v = parseNumber(text);
-        final a = v == null || v <= 0 ? null : awgFor(v);
-        _awg.text = a == null ? '' : awgLabel(a.nearest);
+        final a = v == null || v <= 0 ? null : awgFor(v).atLeast;
+        _awg.text = a == null ? '' : awgLabel(a);
+        if (_sq.text != text) _sq.text = text;
       }
     });
-    _saveSoon();
+    if (save) _saveSoon();
+  }
+
+  /// 결과 글: 같거나 굵은 규격을 먼저, 가장 가까운 규격이 더 가늘면 그렇다고 적는다.
+  String? _wireResult(({String unit, String text})? l) {
+    if (l == null || l.text.trim().isEmpty) return null;
+    if (l.unit == 'awg') {
+      final n = parseAwg(l.text);
+      if (n == null) return null;
+      final a = awgAreaMm2(n);
+      final s = sqFor(a);
+      return [
+        "AWG ${awgLabel(n)} = ${a.toStringAsFixed(2)}mm²",
+        if (s.atLeast == null)
+          "${sqLabel(kSqSizes.last)}보다 굵습니다."
+        else
+          "같거나 굵은 SQ: ${sqLabel(s.atLeast!)}",
+        if (s.atLeast != null && s.nearest != s.atLeast)
+          "가장 가까운 ${sqLabel(s.nearest)}는 더 가늡니다.",
+      ].join('\n');
+    }
+    final v = parseNumber(l.text);
+    if (v == null || v <= 0) return null;
+    final a = awgFor(v);
+    String awg(int n) =>
+        "AWG ${awgLabel(n)} (${awgAreaMm2(n).toStringAsFixed(2)}mm²)";
+    return [
+      "${formatNumber(v)}mm²",
+      if (a.atLeast == null)
+        "${awg(kAwgList.last)}보다 굵습니다."
+      else
+        "같거나 굵은 ${awg(a.atLeast!)}",
+      if (a.atLeast != null && a.nearest != a.atLeast)
+        "가장 가까운 ${awg(a.nearest)}는 더 가늡니다.",
+    ].join('\n');
   }
 
   Widget _wireBody() {
     final l = _last[kWire.id];
-    String? result;
-    if (l != null && l.unit == 'awg') {
-      final n = parseAwg(l.text);
-      if (n != null) {
-        final a = awgAreaMm2(n);
-        final s = sqFor(a);
-        result =
-            "AWG ${awgLabel(n)} = ${a.toStringAsFixed(2)}mm²\n"
-            "가장 가까운 규격 ${sqLabel(s.nearest)}"
-            "${s.atLeast == null ? '' : ' · 같거나 굵은 규격 ${sqLabel(s.atLeast!)}'}";
-      }
-    } else if (l != null) {
-      final v = parseNumber(l.text);
-      if (v != null && v > 0) {
-        final a = awgFor(v);
-        result =
-            "${formatNumber(v)}mm²\n"
-            "가장 가까운 AWG ${awgLabel(a.nearest)} (${awgAreaMm2(a.nearest).toStringAsFixed(2)}mm²)"
-            "${a.atLeast == null ? ' · 4/0보다 굵습니다' : ' · 같거나 굵은 AWG ${awgLabel(a.atLeast!)} (${awgAreaMm2(a.atLeast!).toStringAsFixed(2)}mm²)'}";
-      }
-    }
+    final result = _wireResult(l);
+    // 못 읽는 글만 알린다("1/0"을 치는 중인 "1/"·"-"·"."은 빼고, 0은 못 읽는 글이 아니다).
+    final t = l?.text.trim() ?? '';
+    final bad =
+        t.isNotEmpty &&
+        (l!.unit == 'awg'
+            ? parseAwg(t) == null && !RegExp(r'^\d/$').hasMatch(t)
+            : parseNumber(t) == null && !isPartialNumber(t));
     Widget field(
       String which,
       String label,
       String hint,
       TextEditingController c,
+      FocusNode focus,
     ) => Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
@@ -822,24 +965,14 @@ class _UnitConverterViewState extends State<UnitConverterView> {
             ),
           ),
           Expanded(
-            child: TextField(
+            child: _valueField(
               key: Key('uc_$which'),
               controller: c,
-              textAlign: TextAlign.right,
+              focusNode: focus,
               keyboardType: which == 'awg'
                   ? TextInputType.datetime
                   : const TextInputType.numberWithOptions(decimal: true),
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
-                color: fc.text,
-              ),
-              decoration: InputDecoration(
-                isDense: true,
-                border: InputBorder.none,
-                hintText: hint,
-                hintStyle: TextStyle(color: fc.textFaint, fontSize: 15),
-              ),
+              hint: hint,
               onChanged: (t) => _wireChanged(which, t),
             ),
           ),
@@ -853,7 +986,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
           children: [
             Expanded(
               child: Text(
-                "한쪽에 넣으면 가까운 규격을 찾습니다",
+                "AWG나 SQ 중 하나를 입력하십시오",
                 style: TextStyle(fontSize: 12, color: fc.textSub),
               ),
             ),
@@ -866,8 +999,10 @@ class _UnitConverterViewState extends State<UnitConverterView> {
               ),
           ],
         ),
-        field('awg', 'AWG', '예: 10, 1/0', _awg),
-        field('sq', 'SQ (mm²)', '예: 2.5', _sq),
+        field('awg', 'AWG', '예: 10, 1/0', _awg, _awgFocus),
+        field('sq', 'SQ (mm²)', '예: 2.5', _sq, _sqFocus),
+        if (bad)
+          _hint(_kBadNumber, key: const Key('uc_bad_input'), color: fc.danger),
         if (result != null)
           Container(
             key: const Key('uc_wire_result'),
@@ -902,7 +1037,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
                 ],
             ],
           ),
-          "AWG와 SQ는 딱 맞지 않습니다. 바꿔 쓸 때는 같거나 굵은 규격을 고르고, 허용전류는 전선 제조사 표로 확인하십시오.",
+          "AWG와 SQ는 1:1로 대응하지 않습니다. 바꿔 쓸 때는 같거나 굵은 규격으로 선정하십시오. 허용전류는 전선 제조사 표로 확인하십시오.",
         ),
       ],
     );
@@ -910,11 +1045,132 @@ class _UnitConverterViewState extends State<UnitConverterView> {
 
   // ─────────────── 배관 호칭 ───────────────
 
+  void _odChanged(String t) {
+    setState(() => _last[kPipe.id] = (unit: 'od', text: t));
+    _saveSoon();
+  }
+
+  /// 측정한 외경에 가장 가까운 호칭(KS 강관·ASME·후강·박강 전선관·튜브).
+  List<List<String>> _odMatches(double mm) {
+    final out = <List<String>>[];
+    void add(String family, List<OdRow> table) {
+      final m = nearestOd(mm, table);
+      if (m != null) out.add([family, m.label, formatNumber(m.od)]);
+    }
+
+    add("KS 강관", [
+      for (final p in kPipeSizes) (label: '${p.a} (${p.b}B)', od: p.ksOd),
+    ]);
+    add("ASME", [
+      for (final p in kPipeSizes) (label: 'NPS ${p.b} (${p.a})', od: p.asmeOd),
+    ]);
+    add("후강 전선관", [
+      for (final e in kThickConduitOd.entries) (label: '${e.key}', od: e.value),
+    ]);
+    add("박강 전선관", [
+      for (final e in kThinConduitOd.entries) (label: '${e.key}', od: e.value),
+    ]);
+    add("튜브", [
+      for (final s in kTubeInchSizes)
+        (label: '$s"', od: parseInches(s)! * kMmPerInch),
+    ]);
+    return out;
+  }
+
+  Widget _odLookup() {
+    final t = _od.text.trim();
+    final v = parseNumber(t);
+    final rows = v == null || v <= 0 ? const <List<String>>[] : _odMatches(v);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            "측정한 외경으로 호칭 찾기",
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: fc.text,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
+            decoration: BoxDecoration(
+              color: fc.background,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: t.isEmpty ? fc.line : fc.brand),
+            ),
+            child: Row(
+              children: [
+                Text(
+                  "외경",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: fc.text,
+                  ),
+                ),
+                Expanded(
+                  child: _valueField(
+                    key: const Key('uc_od'),
+                    controller: _od,
+                    focusNode: _odFocus,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
+                    hint: '예: 48.6',
+                    suffix: 'mm',
+                    onChanged: _odChanged,
+                  ),
+                ),
+                if (t.isNotEmpty)
+                  IconButton(
+                    key: const Key('uc_clear'),
+                    tooltip: "지우기",
+                    onPressed: _clear,
+                    icon: Icon(Icons.close_rounded, color: fc.textSub),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (t.isNotEmpty && v == null && !isPartialNumber(t))
+            _hint(_kBadNumber, key: const Key('uc_bad_input'), color: fc.danger)
+          else if (v != null && v > 0 && rows.isEmpty)
+            _hint("가까운 호칭이 없습니다.", key: const Key('uc_od_none'))
+          else if (rows.isNotEmpty) ...[
+            KeyedSubtree(
+              key: const Key('uc_od_result'),
+              child: refTable(
+                headers: const ["구분", "호칭", "표 외경\n(mm)"],
+                flex: const [5, 7, 4],
+                rows: rows,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Text(
+            "표 외경과 5% 이내로 가장 가까운 호칭입니다. 두께와 재질은 따로 확인하십시오.",
+            style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _pipeBody() => ListView(
     padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
     children: [
+      _odLookup(),
+      const SizedBox(height: 12),
       _tableCard(
-        "강관 호칭 (A · B · DN · 바깥지름 mm)",
+        "강관 호칭 (A · B · DN · 외경 mm)",
         refTable(
           headers: const ["A", "B(인치)", "DN", "KS", "ASME"],
           flex: const [5, 6, 5, 5, 5],
@@ -929,25 +1185,25 @@ class _UnitConverterViewState extends State<UnitConverterView> {
               ],
           ],
         ),
-        "표 값: KS D 3507(= JIS G 3452) · ASME B36.10M 바깥지름. 같은 15A라도 KS 21.7, ASME 21.3으로 다릅니다. 두께(스케줄)는 규격마다 다릅니다.",
+        "표 값: KS D 3507(= JIS G 3452) · ASME B36.10M 외경. 같은 15A라도 KS 21.7, ASME 21.3으로 다릅니다. 두께(스케줄)는 규격마다 다릅니다.",
       ),
       const SizedBox(height: 12),
       _tableCard(
-        "튜브 (인치 → 바깥지름 mm)",
+        "튜브 (인치 → 외경 mm)",
         refTable(
-          headers: const ["호칭", "바깥지름 (mm)"],
+          headers: const ["호칭", "외경 (mm)"],
           rows: [
             for (final s in kTubeInchSizes)
               ['$s"', (parseInches(s)! * kMmPerInch).toStringAsFixed(2)],
           ],
         ),
-        "계산 값: 인치 × 25.4.",
+        "계산값: 인치 × 25.4.",
       ),
       const SizedBox(height: 12),
       _tableCard(
-        "전선관 바깥지름 (mm)",
+        "전선관 외경 (mm)",
         refTable(
-          headers: const ["후강", "바깥지름", "박강", "바깥지름"],
+          headers: const ["후강", "외경", "박강", "외경"],
           rows: [
             for (
               var i = 0;
@@ -974,7 +1230,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
               ],
           ],
         ),
-        "앱 전선관 자료: 후강 KS C 8401, 박강 KS C 8422.",
+        "앱 전선관 자료: 후강·박강 모두 KS C 8401(강제 전선관)입니다. JIS C 8305와 같은 값입니다.",
       ),
     ],
   );

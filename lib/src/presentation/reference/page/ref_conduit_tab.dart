@@ -85,7 +85,7 @@ class RefConduitTab extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            refSectionTitle("박강 전선관 (KS C 8422, 참고)"),
+            refSectionTitle("박강 전선관 (KS C 8401, 참고)"),
             refTable(
               headers: ["호칭", "바깥지름 (mm)"],
               rows: [

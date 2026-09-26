@@ -107,7 +107,7 @@ const Map<int, double> kThickConduitOd = {
   54: 59.6,
 };
 
-/// 박강 전선관 호칭과 바깥지름(mm). KS C 8422. 앱은 박강도 후강 호칭(16~54)으로 고르므로
+/// 박강 전선관 호칭과 바깥지름(mm). KS C 8401(강제 전선관, JIS C 8305 C관과 같다). 앱은 박강도 후강 호칭(16~54)으로 고르므로
 /// 참고용(현장 자료 전선관 탭·단위 환산 배관 호칭표).
 const Map<int, double> kThinConduitOd = {
   19: 19.1,

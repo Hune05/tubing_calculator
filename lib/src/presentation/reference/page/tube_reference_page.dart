@@ -10,6 +10,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_icon_set.dart';
 import '../../../core/theme/field_view.dart';
+import '../../unit_converter/unit_converter_page.dart';
+import '../../unit_converter/unit_defs.dart' show searchUnits;
 import 'ref_app_tab.dart';
 import 'ref_conduit_tab.dart';
 import 'ref_kec_tab.dart';
@@ -23,6 +25,9 @@ import 'reference_widgets.dart';
 
 /// 전기 기준(KEC) 탭 번호(알림에서 바로 연다).
 const int kRefKecTabIndex = 7;
+
+/// 단위 환산 탭 번호.
+const int _kRefUnitTabIndex = 5;
 
 class TubeReferencePage extends StatefulWidget {
   /// 처음 열 탭(0=튜브 … 7=전기 기준).
@@ -43,17 +48,37 @@ class _TubeReferencePageState extends State<TubeReferencePage>
   final _searchCtrl = TextEditingController();
   String _query = '';
 
+  /// 찾기로 단위 환산 탭을 열 때 보여 줄 분류("psi" → 압력). 다른 탭으로 가면 지운다.
+  String? _unitCat;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController.addListener(_onTabChanged);
+  }
+
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _searchCtrl.dispose();
     super.dispose();
   }
 
+  void _onTabChanged() {
+    if (_unitCat != null && _tabController.index != _kRefUnitTabIndex) {
+      setState(() => _unitCat = null);
+    }
+  }
+
   void _jumpTo(int tab) {
     // 자판을 닫는다 — 그대로 두면 넘어간 탭의 아래 절반을 가린다.
     FocusManager.instance.primaryFocus?.unfocus();
+    final cat = tab == _kRefUnitTabIndex
+        ? searchUnits(_query).firstOrNull?.category.id
+        : null;
     setState(() {
+      _unitCat = cat;
       _searchCtrl.clear();
       _query = '';
     });
@@ -145,15 +170,22 @@ class _TubeReferencePageState extends State<TubeReferencePage>
             child: _query.isEmpty
                 ? TabBarView(
                     controller: _tabController,
-                    children: const [
-                      RefTubeTab(),
-                      RefConduitTab(),
-                      RefSteelTab(),
-                      RefMachineTab(),
-                      RefAppTab(),
-                      RefUnitTab(),
-                      RefPlantTab(),
-                      RefKecTab(),
+                    children: [
+                      const RefTubeTab(),
+                      const RefConduitTab(),
+                      const RefSteelTab(),
+                      const RefMachineTab(),
+                      const RefAppTab(),
+                      if (_unitCat == null)
+                        const RefUnitTab()
+                      else
+                        UnitConverterView(
+                          key: ValueKey('ref_unit_$_unitCat'),
+                          embedded: true,
+                          initialCategory: _unitCat,
+                        ),
+                      const RefPlantTab(),
+                      const RefKecTab(),
                     ],
                   )
                 : _buildSearchResults(),
