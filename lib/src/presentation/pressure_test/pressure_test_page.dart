@@ -1,8 +1,14 @@
 // 압력 시험 계산기(홈 "현장 작업" → 압력 시험 계산기). ASME B31.3(공정 배관)·B31.1(동력 배관),
-// 수압·공압. 탭: 시험 압력(절차까지) → 압력 강하(온도 보정·누설률, 수압은 물 온도 영향) →
-// 공압 시험 저장 에너지·안전거리(ASME PCC-2) → 압축공기 구멍 누설.
+// 수압·공압. 탭: 시험 압력(절차·압력계·최고점 높이까지) → 압력 강하(온도 보정·누설률·허용값 판정,
+// 수압은 물 온도 영향) → 공압 안전거리(ASME PCC-2 저장 에너지·출입 통제 거리·질소 용기) → 에어 누설.
 // 칸마다 "?" 안내, 결과에 조항 번호. 계산은 pressure_calc.dart. 최종은 해당 규격 원문·절차서로 확인.
+// 넣은 값은 'pressure_test_draft_v1'에 저장해 다음에 열 때 되살린다.
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
@@ -33,7 +39,15 @@ String _fmt(double v, [int d = 2]) {
   if (s.contains('.')) {
     s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
   }
+  if (s == '-0') s = '0';
   return s;
+}
+
+/// 단위를 바꿀 때 칸에 다시 쓰는 값: 유효 숫자 5자리쯤(소수 2~6자리).
+String _fmtSig(double v) {
+  if (v == 0 || !v.isFinite) return _fmt(v);
+  final mag = (math.log(v.abs()) / math.ln10).floor();
+  return _fmt(v, (4 - mag).clamp(2, 6));
 }
 
 class PressureTestPage extends StatefulWidget {
@@ -44,7 +58,9 @@ class PressureTestPage extends StatefulWidget {
 }
 
 class _PressureTestPageState extends State<PressureTestPage>
-    with SingleTickerProviderStateMixin, CalcFormParts {
+    with SingleTickerProviderStateMixin, CalcFormParts, WidgetsBindingObserver {
+  static const _draftKey = 'pressure_test_draft_v1';
+
   late final TabController _tabs = TabController(length: 4, vsync: this);
 
   PUnit _unit = PUnit.bar;
@@ -55,11 +71,13 @@ class _PressureTestPageState extends State<PressureTestPage>
   final _design = TextEditingController();
   final _ratio = TextEditingController(text: '1');
   final _actual = TextEditingController();
+  final _head = TextEditingController();
 
   // ② 압력 강하
   TestMedium _decayMedium = TestMedium.pneumatic;
   final _p1 = TextEditingController();
   final _p2 = TextEditingController();
+  final _allow = TextEditingController();
   final _t1 = TextEditingController(text: '20');
   final _t2 = TextEditingController(text: '20');
   final _minutes = TextEditingController(text: '60');
@@ -70,45 +88,159 @@ class _PressureTestPageState extends State<PressureTestPage>
   final _wall = TextEditingController(text: '3.9');
   PipeMaterial _mat = PipeMaterial.carbon;
 
-  // ③ 저장 에너지
+  // ③ 공압 안전거리
+  TestGas _gas = TestGas.airN2;
   final _sePt = TextEditingController();
   final _seId = TextEditingController();
   final _seLen = TextEditingController();
   final _seVol = TextEditingController();
 
-  // ④ 구멍 누설
+  // ④ 에어 누설
   final _hole = TextEditingController(text: '3');
   final _supply = TextEditingController(text: '7');
   bool _sharp = false;
   final _hours = TextEditingController(text: '8760');
   final _price = TextEditingController();
 
+  /// 단위를 바꿔 다시 쓴 칸: (쓴 글, 정확한 kPa). 글이 그대로면 kPa를 그대로 쓴다(반올림 누적 방지).
+  final Map<TextEditingController, (String, double)> _exact = {};
+
+  /// 단위가 바뀌면 같이 환산하는 압력 칸(모든 탭).
+  List<TextEditingController> get _pressureFields => [
+    _design,
+    _actual,
+    _p1,
+    _p2,
+    _allow,
+    _sePt,
+    _supply,
+  ];
+
+  Map<String, TextEditingController> get _fields => {
+    'design': _design,
+    'ratio': _ratio,
+    'actual': _actual,
+    'head': _head,
+    'p1': _p1,
+    'p2': _p2,
+    'allow': _allow,
+    't1': _t1,
+    't2': _t2,
+    'minutes': _minutes,
+    'volume': _volume,
+    'waterT': _waterT,
+    'dT': _dT,
+    'od': _od,
+    'wall': _wall,
+    'sePt': _sePt,
+    'seId': _seId,
+    'seLen': _seLen,
+    'seVol': _seVol,
+    'hole': _hole,
+    'supply': _supply,
+    'hours': _hours,
+    'price': _price,
+  };
+
+  // ─── 임시 저장 ───
+  bool _loaded = false; // 저장된 값을 읽기 전에는 저장하지 않는다
+  bool _touched = false; // 읽기 전에 사용자가 이미 고쳤으면 되살리지 않는다
+  Timer? _saveTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _loadDraft();
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_draftKey);
+      if (raw != null && mounted && !_touched) {
+        super.setState(() => _applyDraft(raw));
+      }
+    } catch (_) {
+      // 읽지 못하면 기본값으로 시작한다.
+    } finally {
+      _loaded = true;
+    }
+  }
+
+  void _applyDraft(String raw) {
+    final m = jsonDecode(raw);
+    if (m is! Map) return;
+    T pick<T extends Enum>(List<T> values, Object? name, T now) =>
+        values.firstWhere((v) => v.name == name, orElse: () => now);
+    _unit = pick(PUnit.values, m['unit'], _unit);
+    _code = pick(PipingCode.values, m['code'], _code);
+    _medium = pick(TestMedium.values, m['medium'], _medium);
+    _decayMedium = pick(TestMedium.values, m['decayMedium'], _decayMedium);
+    _mat = pick(PipeMaterial.values, m['mat'], _mat);
+    _gas = pick(TestGas.values, m['gas'], _gas);
+    if (m['sharp'] is bool) _sharp = m['sharp'] as bool;
+    final f = m['fields'];
+    if (f is Map) {
+      for (final e in _fields.entries) {
+        final v = f[e.key];
+        if (v is String) e.value.text = v;
+      }
+    }
+  }
+
+  String _draftJson() => jsonEncode({
+    'unit': _unit.name,
+    'code': _code.name,
+    'medium': _medium.name,
+    'decayMedium': _decayMedium.name,
+    'mat': _mat.name,
+    'gas': _gas.name,
+    'sharp': _sharp,
+    'fields': {for (final e in _fields.entries) e.key: e.value.text},
+  });
+
+  static Future<void> _write(String json) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_draftKey, json);
+    } catch (_) {
+      // 저장하지 못해도 계산은 그대로 된다.
+    }
+  }
+
+  void _saveNow() {
+    _saveTimer?.cancel();
+    _saveTimer = null;
+    if (_loaded) _write(_draftJson());
+  }
+
+  @override
+  void setState(VoidCallback fn) {
+    super.setState(fn);
+    if (!_loaded) {
+      _touched = true;
+      return;
+    }
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 600), _saveNow);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden) {
+      _saveNow();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _saveNow(); // 칸을 버리기 전에 글을 읽어 둔다
     _tabs.dispose();
-    for (final c in [
-      _design,
-      _ratio,
-      _actual,
-      _p1,
-      _p2,
-      _t1,
-      _t2,
-      _minutes,
-      _volume,
-      _waterT,
-      _dT,
-      _od,
-      _wall,
-      _sePt,
-      _seId,
-      _seLen,
-      _seVol,
-      _hole,
-      _supply,
-      _hours,
-      _price,
-    ]) {
+    for (final c in _fields.values) {
       c.dispose();
     }
     super.dispose();
@@ -117,10 +249,33 @@ class _PressureTestPageState extends State<PressureTestPage>
   double? _num(TextEditingController c) =>
       double.tryParse(c.text.trim().replaceAll(',', ''));
 
-  /// 화면 단위 → kPa.
-  double? _kpa(TextEditingController c) {
+  double? _kpaIn(TextEditingController c, PUnit unit) {
+    final e = _exact[c];
+    if (e != null && e.$1 == c.text) return e.$2;
     final v = _num(c);
-    return v == null ? null : v * _unit.kpa;
+    return v == null ? null : v * unit.kpa;
+  }
+
+  /// 화면 단위 → kPa.
+  double? _kpa(TextEditingController c) => _kpaIn(c, _unit);
+
+  /// 칸에 kPa 값을 화면 단위로 쓴다.
+  void _putKpa(TextEditingController c, double kpa) {
+    final t = _fmtSig(kpa / _unit.kpa);
+    c.text = t;
+    _exact[c] = (t, kpa);
+  }
+
+  /// 단위를 바꾸면 모든 탭에 넣어 둔 압력을 새 단위로 환산해 뜻이 바뀌지 않게 한다.
+  void _setUnit(PUnit u) {
+    if (u == _unit) return;
+    setState(() {
+      final values = {for (final c in _pressureFields) c: _kpaIn(c, _unit)};
+      _unit = u;
+      for (final e in values.entries) {
+        if (e.value != null) _putKpa(e.key, e.value!);
+      }
+    });
   }
 
   String _p(double kpa) => '${_fmt(kpa / _unit.kpa)} ${_unit.label}';
@@ -128,6 +283,14 @@ class _PressureTestPageState extends State<PressureTestPage>
     for (final u in PUnit.values)
       if (u != _unit) '${_fmt(kpa / u.kpa)} ${u.label}',
   ].join(' · ');
+
+  /// 압력 변화: 내려가면 "X bar", 올라가면 "X bar 상승".
+  String _drop(double kpa) {
+    final shown = _fmt(kpa.abs() / _unit.kpa);
+    return kpa < 0 && shown != '0'
+        ? '$shown ${_unit.label} 상승'
+        : '$shown ${_unit.label}';
+  }
 
   @override
   Widget build(BuildContext context) => FieldViewTheme(
@@ -157,8 +320,8 @@ class _PressureTestPageState extends State<PressureTestPage>
             tabs: const [
               Tab(key: Key('pt_tab_plan'), text: '시험 압력'),
               Tab(key: Key('pt_tab_decay'), text: '압력 강하'),
-              Tab(key: Key('pt_tab_energy'), text: '저장 에너지'),
-              Tab(key: Key('pt_tab_leak'), text: '구멍 누설'),
+              Tab(key: Key('pt_tab_energy'), text: '공압 안전거리'),
+              Tab(key: Key('pt_tab_leak'), text: '에어 누설'),
             ],
           ),
         ),
@@ -200,19 +363,22 @@ class _PressureTestPageState extends State<PressureTestPage>
     ],
   );
 
-  Widget _unitChips() =>
-      _chips('압력 단위', '압력계에 적힌 단위를 고르십시오. 모든 압력은 게이지 압력(대기압 = 0)으로 넣습니다.', [
-        for (final u in PUnit.values)
-          calcChip('pt_u_${u.name}', u.label, _unit == u, () {
-            setState(() => _unit = u);
-          }),
-      ]);
+  Widget _unitChips() => _chips(
+    '압력 단위',
+    '압력계에 적힌 단위를 고르십시오. 모든 압력은 게이지 압력(대기압 = 0)으로 넣습니다. '
+        '단위를 바꾸면 모든 탭에 넣어 둔 압력도 새 단위로 환산됩니다.',
+    [
+      for (final u in PUnit.values)
+        calcChip('pt_u_${u.name}', u.label, _unit == u, () => _setUnit(u)),
+    ],
+  );
 
   // ① 시험 압력
   Widget _planTab() {
     final d = _kpa(_design);
     final ratio = _num(_ratio) ?? 1;
     final actual = _kpa(_actual);
+    final actualGiven = actual != null && actual > 0;
     final plan = d == null || d <= 0
         ? null
         : testPlan(
@@ -222,13 +388,17 @@ class _PressureTestPageState extends State<PressureTestPage>
             stressRatio: ratio,
             actualKpa: actual,
           );
-    final inRange = plan?.actualInRange(
-      actual != null && actual > 0 ? actual : null,
-    );
+    final inRange = plan?.actualInRange(actualGiven ? actual : null);
+    final hydro = _medium == TestMedium.hydro;
+    final h = hydro ? _num(_head) : null;
+    final headKpa = h != null && h > 0 ? waterHeadKpa(h) : null;
+    final highOk = plan == null || headKpa == null
+        ? null
+        : plan.usedKpa - headKpa >= plan.minKpa - 1e-9;
     return _page([
       _chips(
         '규격',
-        'B31.3: 공정(플랜트) 배관. B31.1: 동력(발전소) 배관 — 보일러·증기·급수 계통 등. '
+        'B31.3: 공정(플랜트) 배관. B31.1: 동력(발전소) 배관으로 보일러·증기·급수 계통 등입니다. '
             '어느 것을 따르는지는 설계 도서·배관 등급표(Line class)에 적혀 있습니다.',
         [
           calcChip('pt_b313', 'B31.3 공정 배관', _code == PipingCode.b313, () {
@@ -240,13 +410,13 @@ class _PressureTestPageState extends State<PressureTestPage>
         ],
       ),
       _chips(
-        '시험 매체',
+        '시험 종류',
         '두 규격 모두 수압이 기본입니다. 공압은 수압이 어려울 때 발주처가 정하거나 허락할 때만 합니다.',
         [
-          calcChip('pt_hydro', '수압', _medium == TestMedium.hydro, () {
+          calcChip('pt_hydro', '수압', hydro, () {
             setState(() => _medium = TestMedium.hydro);
           }),
-          calcChip('pt_pneu', '공압', _medium == TestMedium.pneumatic, () {
+          calcChip('pt_pneu', '공압', !hydro, () {
             setState(() => _medium = TestMedium.pneumatic);
           }),
         ],
@@ -254,28 +424,37 @@ class _PressureTestPageState extends State<PressureTestPage>
       _unitChips(),
       calcField(
         'pt_design',
-        '설계 압력 (${_unit.label})',
+        '설계압력 (${_unit.label})',
         _design,
-        '배관 등급표·P&ID·아이소 도면에 적힌 설계 압력(Design Pressure, 게이지)입니다. 운전 압력이 아닙니다.',
+        '배관 등급표·P&ID·아이소 도면에 적힌 설계압력(Design Pressure, 게이지)입니다. 운전 압력이 아닙니다.',
       ),
-      if (_code == PipingCode.b313 && _medium == TestMedium.hydro)
+      if (_code == PipingCode.b313 && hydro)
         calcField(
           'pt_ratio',
           'ST/S (모르면 1)',
           _ratio,
           '설계 온도가 시험 온도보다 높을 때: 시험 온도에서의 허용 응력(ST) ÷ 설계 온도에서의 허용 응력(S). '
-              'B31.3 부록 A 표 A-1에서 봅니다. 재질이 여럿이면 가장 작은 값. 1보다 작으면 1로 셉니다.',
+              'B31.3 부록 A 표 A-1에서 봅니다. 재질이 여럿이면 가장 작은 값을 씁니다. 1보다 작으면 1로 계산합니다.',
         ),
       calcField(
         'pt_actual',
-        '실제 시험 압력 (${_unit.label}, 선택)',
+        '실제 시험압력 (${_unit.label}, 선택)',
         _actual,
-        '실제로 올릴 시험 압력입니다. 넣으면 안전밸브 설정과 사전 점검 압력을 이 압력으로 셉니다. '
-            '비우면 최소 시험 압력으로 셉니다.',
+        '실제로 올릴 시험압력입니다. 입력하면 안전밸브 설정압력과 예비 점검 압력을 이 압력으로 계산합니다. '
+            '비우면 최소 시험압력으로 계산합니다.',
       ),
+      if (hydro)
+        calcField(
+          'pt_head',
+          '압력계 위 최고점 높이 (m, 선택)',
+          _head,
+          '압력계보다 가장 높은 곳이 몇 m 위에 있는지 넣습니다. 압력계는 보통 낮은 곳에 둡니다. '
+              '물은 1m 높아질 때마다 압력이 9.81kPa씩 낮아집니다. '
+              '최고점에서도 최소 시험압력 이상이어야 하므로, 압력계에서 올려야 할 압력을 계산합니다.',
+        ),
       const SizedBox(height: 12),
       if (plan == null)
-        calcResult(big: '—', caption: '설계 압력을 넣으십시오', lines: const [])
+        calcResult(big: '—', caption: '설계압력을 넣으십시오', lines: const [])
       else ...[
         calcResult(
           key: const Key('pt_plan_result'),
@@ -283,29 +462,56 @@ class _PressureTestPageState extends State<PressureTestPage>
               ? '${_p(plan.minKpa)} 이상'
               : '${_fmt(plan.minKpa / _unit.kpa)} ~ ${_p(plan.maxKpa!)}',
           caption:
-              '${_code == PipingCode.b313 ? 'B31.3' : 'B31.1'} ${_medium == TestMedium.hydro ? '수압' : '공압'} 시험 압력',
-          warn: inRange == false,
+              '${_code == PipingCode.b313 ? 'B31.3' : 'B31.1'} ${hydro ? '수압' : '공압'} 시험압력',
+          warn: inRange == false || (actualGiven && highOk == false),
           lines: [
-            if (inRange == true) '실제 시험 압력 ${_p(plan.usedKpa)} — 범위 안입니다.',
+            if (inRange == true) '실제 시험압력 ${_p(plan.usedKpa)}: 범위 이내',
             if (inRange == false)
               plan.usedKpa < plan.minKpa
-                  ? '실제 시험 압력 ${_p(plan.usedKpa)} — 최소 시험 압력보다 낮습니다.'
-                  : '실제 시험 압력 ${_p(plan.usedKpa)} — 최대 시험 압력을 넘습니다.',
+                  ? '실제 시험압력 ${_p(plan.usedKpa)}: 최소 시험압력 미만'
+                  : '실제 시험압력 ${_p(plan.usedKpa)}: 최대 시험압력 초과',
             '다른 단위: ${_pAll(plan.minKpa)}',
-            '유지: ${_fmt(plan.holdMin, 0)}분 이상',
-            if (plan.prelimKpa != null) '사전 점검: ${_p(plan.prelimKpa!)}',
-            if (plan.examKpa != null) '누설 점검 압력: ${_p(plan.examKpa!)}',
+            '유지시간: ${_fmt(plan.holdMin, 0)}분 이상',
+            if (plan.prelimKpa != null)
+              plan.prelimOptional
+                  ? '예비 점검(선택): ${_p(plan.prelimKpa!)} 이하'
+                  : '예비 점검: ${_p(plan.prelimKpa!)}',
+            if (plan.stepKpa.isNotEmpty)
+              '단계 압력(½PT 뒤 PT/10씩): ${plan.stepKpa.map((k) => _fmt(k / _unit.kpa)).join(' → ')} ${_unit.label}',
+            if (plan.examKpa != null) '누설 확인 압력: ${_p(plan.examKpa!)}',
             if (plan.reliefMaxKpa != null)
-              '안전밸브 설정: ${_p(plan.reliefMaxKpa!)} 이하 (시험 압력 ${_p(plan.usedKpa)} 기준)',
+              '안전밸브 설정압력: ${_p(plan.reliefMaxKpa!)} 이하 (시험압력 ${_p(plan.usedKpa)} 기준)',
             if (plan.reliefRecKpa != null)
-              '안전밸브 권장 설정: ${_p(plan.reliefRecKpa!)} (시험 압력 ${_p(plan.usedKpa)} 기준)',
+              '안전밸브 권장 설정압력: ${_p(plan.reliefRecKpa!)} (시험압력 ${_p(plan.usedKpa)} 기준)',
+            if (headKpa != null) ...[
+              '최고점 압력: ${_p(plan.usedKpa - headKpa)} (물 높이 ${_fmt(h!, 1)}m = ${_p(headKpa)})',
+              if (!actualGiven)
+                '최고점까지 최소 시험압력이 되려면 압력계에서 ${_p(plan.minKpa + headKpa)} 이상이어야 합니다.'
+              else if (highOk == true)
+                '최고점 압력이 최소 시험압력 이상입니다.'
+              else
+                '최고점 압력이 최소 시험압력 미만입니다. 압력계에서 ${_p(plan.minKpa + headKpa)} 이상으로 올리십시오.',
+            ],
           ],
         ),
         const SizedBox(height: 12),
+        _gaugeCard(plan.usedKpa),
+        const SizedBox(height: 12),
         _listCard('pt_steps', '절차', plan.steps, numbered: true),
         const SizedBox(height: 12),
-        _listCard('pt_notes', '주의·조건', plan.notes),
+        _listCard('pt_notes', '주의 사항', plan.notes),
       ],
+    ]);
+  }
+
+  Widget _gaugeCard(double testKpa) {
+    final g = gaugeRange(testKpa);
+    return _listCard('pt_gauge', '압력계', [
+      '눈금 범위: 약 ${_p(g.recKpa)} (시험압력 ${_p(testKpa)}의 1.5~4배: ${_fmt(g.lowKpa / _unit.kpa)} ~ ${_p(g.highKpa)})',
+      if (g.fitBar.isNotEmpty)
+        '맞는 표준 눈금(EN 837): ${g.fitBar.map((b) => '0~${_fmt(b)}').join(' · ')} bar',
+      if (g.bestBar != null) '2배에 가장 가까운 눈금: 0~${_fmt(g.bestBar!)} bar',
+      '검교정 12개월 이내인 압력계를 씁니다.',
     ]);
   }
 
@@ -348,8 +554,8 @@ class _PressureTestPageState extends State<PressureTestPage>
   Widget _decayTab() {
     return _page([
       _chips(
-        '시험 매체',
-        '공압: 기체라 온도와 절대 압력으로 보정합니다. 수압: 물은 거의 안 줄어들어 온도 1°C에도 압력이 크게 바뀝니다.',
+        '시험 종류',
+        '공압: 기체라 온도와 절대압력으로 보정합니다. 수압: 물은 거의 압축되지 않아 온도 1°C에도 압력이 크게 바뀝니다.',
         [
           calcChip('pt_d_pneu', '공압', _decayMedium == TestMedium.pneumatic, () {
             setState(() => _decayMedium = TestMedium.pneumatic);
@@ -359,6 +565,7 @@ class _PressureTestPageState extends State<PressureTestPage>
           }),
         ],
       ),
+      _unitChips(),
       if (_decayMedium == TestMedium.pneumatic)
         ..._pneuDecay()
       else
@@ -371,7 +578,14 @@ class _PressureTestPageState extends State<PressureTestPage>
     final p2 = _kpa(_p2);
     final t1 = _num(_t1);
     final t2 = _num(_t2);
-    final r = p1 == null || p2 == null || t1 == null || t2 == null
+    final allow = _kpa(_allow);
+    final r =
+        p1 == null ||
+            p2 == null ||
+            t1 == null ||
+            t2 == null ||
+            t1 <= -273.15 ||
+            t2 <= -273.15
         ? null
         : pressureDecay(
             p1Kpa: p1,
@@ -381,38 +595,47 @@ class _PressureTestPageState extends State<PressureTestPage>
             volumeL: _num(_volume),
             minutes: _num(_minutes),
           );
+    final pass = r?.passes(allow != null && allow >= 0 ? allow : null);
     return [
-      _unitChips(),
       calcField(
         'pt_p1',
         '시작 압력 (${_unit.label})',
         _p1,
-        '유지를 시작할 때 읽은 게이지 압력입니다.',
+        '유지시간을 시작할 때 읽은 게이지 압력입니다.',
       ),
       calcField(
         'pt_p2',
-        '끝 압력 (${_unit.label})',
+        '종료 압력 (${_unit.label})',
         _p2,
-        '유지를 마칠 때 읽은 게이지 압력입니다.',
+        '유지시간을 마칠 때 읽은 게이지 압력입니다.',
+      ),
+      calcField(
+        'pt_allow',
+        '허용 압력강하 (${_unit.label}, 선택)',
+        _allow,
+        '절차서나 발주처가 정한 허용 압력강하입니다. 규격에는 수치 기준이 없습니다. '
+            '입력하면 온도를 보정한 압력강하로 합격·불합격을 판정합니다.',
       ),
       calcField(
         'pt_t1',
         '시작 온도 (°C)',
         _t1,
-        '시작할 때 배관 안 기체 온도입니다. 알 수 없으면 배관 표면 온도나 주위 온도를 재서 넣으십시오.',
+        '시작할 때 배관 안 기체 온도입니다. 알 수 없으면 배관 표면 온도나 주위 온도를 측정해 넣으십시오.',
+        signed: true,
       ),
       calcField(
         'pt_t2',
-        '끝 온도 (°C)',
+        '종료 온도 (°C)',
         _t2,
-        '끝날 때 같은 자리에서 잰 온도입니다. 해가 들거나 밤이 되면 크게 바뀝니다.',
+        '종료할 때 같은 자리에서 측정한 온도입니다. 해가 들거나 밤이 되면 크게 바뀝니다.',
+        signed: true,
       ),
-      calcField('pt_min', '유지 시간 (분)', _minutes, '누설률을 셀 때만 씁니다.'),
+      calcField('pt_min', '유지시간 (분)', _minutes, '누설률 계산에만 씁니다.'),
       calcField(
         'pt_vol',
-        '계통 체적 (L, 선택)',
+        '시험 구간 체적 (L, 선택)',
         _volume,
-        '누설률(mbar·L/s)을 보려면 넣습니다. "저장 에너지" 탭에서 관 안지름·길이로 셀 수 있습니다.',
+        '누설률(mbar·L/s)을 보려면 넣습니다. "공압 안전거리" 탭에서 관 내경·길이로 계산할 수 있습니다.',
       ),
       const SizedBox(height: 12),
       if (r == null)
@@ -420,15 +643,17 @@ class _PressureTestPageState extends State<PressureTestPage>
       else
         calcResult(
           key: const Key('pt_decay_result'),
-          big: _p(r.correctedDropKpa),
-          caption: '온도를 보정한 실제 압력 강하',
-          warn: r.correctedDropKpa > 0.005 * (p1! + kAtmKpa),
+          big: _drop(r.correctedDropKpa),
+          caption: '온도를 보정한 실제 압력강하',
+          warn: pass == false,
           lines: [
-            '읽은 강하 ${_p(r.rawDropKpa)} 중 온도 때문에 바뀐 몫 ${_p(r.tempEffectKpa)}',
-            if (r.leakMbarLs != null)
-              '누설률 ${_fmt(r.leakMbarLs!, 4)} mbar·L/s (${_fmt(r.leakSccm!, 2)} mL/min, 0°C·1기압 기준)',
-            '식: 끝 절대압을 시작 온도로 되돌려 비교 (P₂·T₁/T₂). 온도는 절대 온도(K).',
-            '판정 기준은 규격·절차서가 정합니다 — B31.1 137.4.6(d): 대기 변화로 설명 안 되는 강하가 있으면 찾아 고치고 다시 시험.',
+            if (pass == true) '허용 압력강하 ${_p(allow!)} 이내: 합격',
+            if (pass == false) '허용 압력강하 ${_p(allow!)} 초과: 불합격',
+            '측정값 차이 ${_drop(r.rawDropKpa)}, 온도 영향 ${_drop(r.tempEffectKpa)}',
+            if (r.leakMbarLs != null && r.leakMbarLs! > 0)
+              '누설률 ${_fmt(r.leakMbarLs!, 4)} mbar·L/s (${_fmt(r.leakSccm!, 2)} mL/min, 20°C·1기압 기준)',
+            '식: 종료 절대압을 시작 온도 기준으로 환산해 비교 (P₂·T₁/T₂). 온도는 절대 온도(K).',
+            '판정 기준은 규격·절차서가 정합니다. B31.1 137.4.6(d): 대기 변화로 설명되지 않는 강하가 있으면 찾아 고치고 다시 시험합니다.',
           ],
         ),
     ];
@@ -436,26 +661,30 @@ class _PressureTestPageState extends State<PressureTestPage>
 
   List<Widget> _hydroDecay() {
     final wt = _num(_waterT);
-    final dt = _num(_dT);
+    final dt = _num(_dT) ?? 1;
     final od = _num(_od);
     final w = _num(_wall);
     final per = wt == null || od == null || w == null || w <= 0 || od <= w
         ? null
         : hydroBarPerDegC(waterC: wt, odMm: od, wallMm: w, material: _mat);
+    final low = wt != null && wt < kWaterMinC;
+    final high = wt != null && wt > kWaterMaxC;
     return [
       calcField(
         'pt_wt',
         '물 온도 (°C)',
         _waterT,
-        '배관 안 물 온도입니다. 5~50°C 사이에서 셉니다.',
+        '배관 안 물 온도입니다. 5~50°C 이내에서 계산합니다.',
+        signed: true,
       ),
       calcField(
         'pt_dt',
         '온도 변화 (°C)',
         _dT,
-        '시험 중 물 온도가 얼마나 바뀌었는지입니다(오르면 +, 내리면 −).',
+        '시험 중 물 온도가 얼마나 바뀌었는지입니다. 오르면 +, 내리면 −로 넣습니다.',
+        signed: true,
       ),
-      calcField('pt_od', '관 바깥지름 (mm)', _od, '관 바깥지름입니다. 예: 50A = 60.5mm.'),
+      calcField('pt_od', '관 외경 (mm)', _od, '관 외경입니다. 예: 50A = 60.5mm.'),
       calcField(
         'pt_wall',
         '관 두께 (mm)',
@@ -481,19 +710,41 @@ class _PressureTestPageState extends State<PressureTestPage>
       else
         calcResult(
           key: const Key('pt_hydro_result'),
-          big: '${_fmt(per * (dt ?? 1), 2)} bar',
-          caption: '물 온도 ${_fmt(dt ?? 1, 1)}°C 변화에 따른 압력 변화(추정)',
+          big: _p(per * 100 * dt),
+          caption: '물 온도 ${_fmt(dt, 1)}°C 변화에 따른 압력 변화(추정)',
+          warn: low || high,
           lines: [
-            '1°C당 ${_fmt(per, 2)} bar (${_fmt(per * 100 / _unit.kpa, 3)} ${_unit.label})',
-            '공기 없이 물로 가득 찬 막힌 관, 축 방향으로 자유로운 지상 배관 가정. 공기가 남아 있으면 훨씬 작아집니다.',
-            '물 온도 약 6°C 아래에서는 방향이 뒤집힙니다(물이 거의 안 늘어남).',
+            if (low)
+              '물 온도 ${_fmt(wt, 1)}°C: ${_fmt(kWaterMinC, 0)}°C 미만이라 ${_fmt(kWaterMinC, 0)}°C 값으로 계산했습니다.',
+            if (high)
+              '물 온도 ${_fmt(wt, 1)}°C: ${_fmt(kWaterMaxC, 0)}°C 초과라 ${_fmt(kWaterMaxC, 0)}°C 값으로 계산했습니다.',
+            '1°C당 ${_p(per * 100)}',
+            '공기 없이 물로 가득 찬 막힌 관, 축 방향으로 자유로운 지상 배관으로 가정했습니다. 공기가 남아 있으면 훨씬 작아집니다.',
+            '물 온도 약 6°C 미만에서는 온도가 올라도 압력이 오르지 않거나 내려갑니다.',
             '식: dP/dT = (β − 3α) / (κ + D/(t·E)·(5/4 − ν)), 물 성질 Kell(1975).',
           ],
         ),
     ];
   }
 
-  // ③ 저장 에너지
+  /// "시험 압력" 탭에서 가져올 공압 시험압력: 공압이고 실제 시험압력을 넣었으면 그 값,
+  /// 아니면 같은 규격 공압 최대 시험압력(안전 쪽).
+  double? _planPressureForEnergy() {
+    final a = _kpa(_actual);
+    if (_medium == TestMedium.pneumatic && a != null && a > 0) return a;
+    final d = _kpa(_design);
+    if (d == null || d <= 0) return null;
+    return testPlan(
+      code: _code,
+      medium: TestMedium.pneumatic,
+      designKpa: d,
+    ).maxKpa;
+  }
+
+  String _waterMass(double litres) =>
+      litres >= 1000 ? '${_fmt(litres / 1000, 2)} t' : '${_fmt(litres, 0)} kg';
+
+  // ③ 공압 안전거리
   Widget _energyTab() {
     final pt = _kpa(_sePt);
     final id = _num(_seId);
@@ -506,55 +757,118 @@ class _PressureTestPageState extends State<PressureTestPage>
             : null);
     final e = pt == null || vol == null || pt <= 0 || vol <= 0
         ? null
-        : storedEnergy(testKpa: pt, volumeL: vol);
+        : storedEnergy(testKpa: pt, volumeL: vol, gas: _gas);
+    final src = _planPressureForEnergy();
+    final n2 = e != null && _gas == TestGas.airN2
+        ? nitrogenNeed(testKpa: pt!, volumeL: vol!)
+        : null;
     return _page([
       _unitChips(),
-      calcField(
-        'pt_se_pt',
-        '공압 시험 압력 (${_unit.label})',
-        _sePt,
-        '공압 시험 압력(게이지)입니다. "시험 압력" 탭의 결과를 넣으십시오.',
+      _chips(
+        '시험 가스',
+        '공기·질소는 k = 1.4(PCC-2 식 II-2), 헬륨·아르곤은 k = 1.67(단원자 기체, 식 II-1)로 계산합니다.',
+        [
+          calcChip(
+            'pt_gas_air',
+            '공기·질소',
+            _gas == TestGas.airN2,
+            () => setState(() => _gas = TestGas.airN2),
+          ),
+          calcChip(
+            'pt_gas_mono',
+            '헬륨·아르곤',
+            _gas == TestGas.monatomic,
+            () => setState(() => _gas = TestGas.monatomic),
+          ),
+        ],
       ),
       calcField(
+        'pt_se_pt',
+        '공압 시험압력 (${_unit.label})',
+        _sePt,
+        '공압 시험압력(게이지)입니다. 아래 단추로 "시험 압력" 탭 값을 가져올 수 있습니다. '
+            '실제 시험압력이 없으면 공압 최대 시험압력을 가져옵니다.',
+      ),
+      if (src != null)
+        Align(
+          alignment: Alignment.centerRight,
+          child: calcToggle(
+            'pt_se_import',
+            '시험 압력 탭 값 가져오기 (${_p(src)})',
+            () => setState(() => _putKpa(_sePt, src)),
+          ),
+        ),
+      calcField(
         'pt_se_id',
-        '관 안지름 (mm)',
+        '관 내경 (mm)',
         _seId,
-        '관 안지름 = 바깥지름 − 2 × 두께입니다. 예: 50A SCH40 = 60.5 − 7.8 = 52.7mm.',
+        '관 내경 = 외경 − 2 × 두께입니다. 예: 50A SCH40 = 60.5 − 7.8 = 52.7mm.',
       ),
       calcField('pt_se_len', '관 길이 (m)', _seLen, '시험 구간 전체 길이입니다.'),
       calcField(
         'pt_se_vol',
-        '또는 체적 직접 (L)',
+        '체적 직접 입력 (L)',
         _seVol,
-        '용기·여러 관경이 섞였으면 합친 체적을 직접 넣으십시오. 넣으면 위 관 값보다 먼저 씁니다.',
+        '용기·여러 관경이 섞였으면 합친 체적을 직접 넣으십시오. 입력하면 위 관 치수 대신 이 값으로 계산합니다.',
       ),
+      if (vol != null && vol > 0)
+        Padding(
+          key: const Key('pt_se_volume'),
+          padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
+          child: Text(
+            '시험 구간 체적 ${_fmt(vol, 1)} L · 수압 시험이면 물 약 ${_fmt(vol, 0)} L(약 ${_waterMass(vol)})',
+            style: TextStyle(fontSize: 14, color: fc.textSub, height: 1.4),
+          ),
+        ),
       const SizedBox(height: 12),
       if (e == null)
-        calcResult(big: '—', caption: '시험 압력과 체적을 넣으십시오', lines: const [])
-      else
+        calcResult(big: '—', caption: '시험압력과 체적을 넣으십시오', lines: const [])
+      else ...[
         calcResult(
           key: const Key('pt_energy_result'),
           big: '${_fmt(e.distanceM, 0)} m',
-          caption: '안전거리(사람 접근 금지)',
+          caption: '출입 통제 거리',
           warn: e.beyondFixed,
           lines: [
-            '저장 에너지 ${e.joules >= 1e6 ? '${_fmt(e.joules / 1e6, 2)} MJ' : '${_fmt(e.joules / 1000, 1)} kJ'} (체적 ${_fmt(vol!, 1)} L)',
+            '저장 에너지 ${e.joules >= 1e6 ? '${_fmt(e.joules / 1e6, 2)} MJ' : '${_fmt(e.joules / 1000, 1)} kJ'} (체적 ${_fmt(vol!, 1)} L, k = ${_fmt(_gas.k, 2)})',
             'TNT 환산 ${_fmt(e.tntKg, 3)} kg',
-            '거리: 고정 거리(135.5MJ까지 30m, 271MJ까지 60m)와 R = 20·TNT^(1/3) = ${_fmt(e.scaledM, 1)}m 중 큰 것',
-            if (e.beyondFixed) '271MJ를 넘습니다 — 규격대로 따로 계산하고 공압 시험을 다시 검토하십시오.',
-            '근거: ASME PCC-2(2008) 부록 II 식 II-2(공기·질소), 부록 III. 최신판은 식이 바뀌었을 수 있으니(2·TNT) 원문을 확인하십시오.',
+            '거리: 최소 거리(135.5MJ까지 30m, 271MJ까지 60m)와 R = 20·(2·TNT)^(1/3) = ${_fmt(e.scaledM, 1)}m 중 큰 것',
+            if (e.beyondFixed)
+              '271MJ 초과: 식으로 계산한 거리를 씁니다. 방호벽이나 시험 구간 분할을 검토하십시오.',
+            if (n2 != null) ...[
+              '질소로 채우면 약 ${_fmt(n2.nm3, 1)} Nm³ (체적 × 절대 시험압력 ÷ 대기압)',
+              n2.cylinders == null
+                  ? '시험압력이 용기 압력(150bar) 이상이라 용기만으로는 채울 수 없습니다.'
+                  : '47L·150bar 용기 약 ${n2.cylinders}병. 1병은 약 7Nm³이고, 시험압력까지만 비울 수 있어 1병 ${_fmt(n2.perCylNm3, 1)}Nm³로 계산했습니다.',
+            ],
+            '근거: ASME PCC-2-2022 Article 501, 부록 501-II 식 II-1·II-2, 501-III 식 III-1.',
           ],
         ),
+        Padding(
+          key: const Key('pt_energy_fragment'),
+          padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+          child: Text(
+            '파편 거리는 계산하지 않았습니다. 실제 출입 통제 거리는 더 길 수 있습니다.',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: fc.danger,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
     ]);
   }
 
-  // ④ 구멍 누설
+  // ④ 에어 누설
   Widget _leakTab() {
     final d = _num(_hole);
     final p = _kpa(_supply);
     final lps = d == null || p == null || d <= 0 || p <= 0
         ? null
         : holeLeakLps(holeMm: d, supplyKpa: p, cd: _sharp ? 0.61 : 0.97);
+    final lowP = p != null && p < kLeakMinKpa - 1e-9;
     final kw = lps == null ? null : leakCompressorKw(lps);
     final hours = _num(_hours) ?? 8760;
     final price = _num(_price);
@@ -565,13 +879,13 @@ class _PressureTestPageState extends State<PressureTestPage>
         'pt_hole',
         '구멍 지름 (mm)',
         _hole,
-        '새는 구멍(틈)의 지름입니다. 크기를 모르면 1~3mm로 어림하십시오.',
+        '새는 구멍(틈)의 지름입니다. 크기를 모르면 1~3mm로 대략 넣으십시오.',
       ),
       calcField(
         'pt_supply',
         '공급 압력 (${_unit.label})',
         _supply,
-        '압축공기 배관 압력(게이지)입니다. 0.9bar 아래는 식이 맞지 않습니다.',
+        '압축공기 배관 압력(게이지)입니다. 0.9bar 미만에서는 이 식이 맞지 않습니다.',
       ),
       _chips('구멍 모양', '둥근 구멍은 0.97, 날카로운 틈은 0.61을 곱합니다(DOE).', [
         calcChip(
@@ -589,9 +903,9 @@ class _PressureTestPageState extends State<PressureTestPage>
       ]),
       calcField(
         'pt_hours',
-        '1년 운전 시간 (h)',
+        '연간 가동 시간 (h)',
         _hours,
-        '압축기가 도는 시간입니다. 연중 계속이면 8760.',
+        '압축기 가동 시간입니다. 연중 계속이면 8760입니다.',
       ),
       calcField(
         'pt_price',
@@ -606,12 +920,14 @@ class _PressureTestPageState extends State<PressureTestPage>
         calcResult(
           key: const Key('pt_leak_result'),
           big: '${_fmt(lps * 60, 1)} L/min',
-          caption: '새는 공기량(대기 상태)',
+          caption: '누설 공기량(대기압 기준)',
+          warn: lowP,
           lines: [
+            if (lowP) '공급 압력이 0.9bar 미만이라 이 식이 맞지 않습니다. 참고로만 보십시오.',
             '${_fmt(lps * 60 / 1000, 3)} m³/min · ${_fmt(lps * 2.11888, 2)} cfm',
             '압축기 전력 ${_fmt(kw!, 2)} kW (100cfm당 18kW, DOE)',
-            '1년 ${_fmt(kwh!, 0)} kWh${price == null ? '' : ' · ${_fmt(kwh * price / 10000, 1)}만 원'}',
-            '식: Q ≈ 0.154 × Cd × d² × P₀(절대 bar) L/s — 초크 흐름, DOE 표와 3% 안.',
+            '연간 ${_fmt(kwh!, 0)} kWh${price == null ? '' : ' · ${_fmt(kwh * price / 10000, 1)}만 원'}',
+            '식: Q ≈ 0.154 × Cd × d² × P₀(절대 bar) L/s. 초크 흐름 기준이며 DOE 표와 3% 이내입니다.',
           ],
         ),
     ]);
