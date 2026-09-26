@@ -33,6 +33,10 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   Timer? _rAlarmTimer; // 유지시간·라인 번호를 고칠 때 알림 다시 예약(잠시 뒤)
   String? _rScheduledKey; // 이 화면이 예약한 알림(시각|본문)
 
+  /// 정확한 알람을 쓸 수 있는지(null: 아직 모름). setState 대신 이것으로 다시 그려
+  /// 임시 저장을 읽기 전에 "사용자가 고침"으로 잡히지 않게 한다.
+  final ValueNotifier<bool?> _rExact = ValueNotifier(null);
+
   HoldAlarm get _alarm => widget.holdAlarm ?? const PluginHoldAlarm();
   DateTime _now() => (widget.now ?? DateTime.now)();
 
@@ -48,11 +52,36 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   void _recordInit() {
     _rHold.addListener(_onAlarmInputChanged);
     _rLine.addListener(_onAlarmInputChanged);
+    _checkExact();
   }
 
   void _recordDispose() {
     _rAlarmTimer?.cancel();
     _rAlarmTimer = null;
+    _rExact.dispose();
+  }
+
+  // ── 정확한 알람 ──
+  // 꺼져 있으면 안드로이드가 알림을 묶어 보내 몇 분 늦는다(폰 시험 09-26: 5분 30초 늦음).
+  // 타이머 아래에 알리고 "설정 열기"로 허용 화면을 연다. 돌아와서 켜졌으면 알림을 다시 예약한다.
+
+  Future<void> _checkExact() async => _applyExact(await _alarm.canExact());
+
+  /// 폰 설정에서 돌아왔을 때(페이지가 부른다).
+  void _recordResumed() => _checkExact();
+
+  Future<void> _openExactSettings() async =>
+      _applyExact(await _alarm.requestExact());
+
+  /// 꺼져 있던 것이 켜졌고 진행 중이면 정확한 방식으로 다시 예약한다(같은 번호라 앞 예약이 바뀐다).
+  Future<void> _applyExact(bool exact) async {
+    if (!mounted) return;
+    final was = _rExact.value;
+    _rExact.value = exact;
+    if (exact && was == false && _rRunning) {
+      _rScheduledKey = null;
+      await _syncAlarm();
+    }
   }
 
   Map<String, dynamic> _recordDraftJson() => {
@@ -129,10 +158,15 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     holdMin: _requiredHold,
     allowKpa: _pg._kpa(_rAllow),
     leakOk: _rLeakOk,
-    odMm: _pg._num(_rOd),
-    wallMm: _pg._num(_rWall),
-    material: _rMat,
+    odMm: _rOdMm,
+    wallMm: _rWallMm,
+    material: _rMaterial,
   );
+
+  // 수압 물 온도 영향 계산 치수: 튜브면 시험 압력 탭 튜브 규격(공칭), 배관이면 이 탭의 칸.
+  double? get _rOdMm => _pg._tube ? _pg._tubeSize.odMm : _pg._num(_rOd);
+  double? get _rWallMm => _pg._tube ? _pg._tubeSize.wallMm : _pg._num(_rWall);
+  PipeMaterial get _rMaterial => _pg._tube ? _pg._tubePipeMat : _rMat;
 
   void _onAlarmInputChanged() {
     _rAlarmTimer?.cancel();
@@ -417,9 +451,12 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       witnessSupervisor: res.witnessSupervisor,
       witnessOwner: res.witnessOwner,
       memo: res.memo,
-      odMm: _pg._num(_rOd),
-      wallMm: _pg._num(_rWall),
-      material: _rMat,
+      odMm: _rOdMm,
+      wallMm: _rWallMm,
+      material: _rMaterial,
+      tubeId: _pg._tube ? _pg._tubeSize.id : '',
+      tubeSpec: _pg._tube ? _pg._tubeSpec : '',
+      tubeMat: _pg._tube ? _pg._tubeMat.name : '',
     );
     await PtRecordStore.put(rec);
     if (!mounted) return;
@@ -655,7 +692,13 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
             '입력하면 공압은 온도를 보정한 압력강하, 수압은 측정 압력강하로 합격·불합격을 판정합니다. '
             '비우면 압력강하는 판정하지 않습니다.',
       ),
-      if (hydro) ...[
+      if (hydro && _pg._tube)
+        _pg._tubeLine(
+          'pt_r_tube',
+          '튜브: ${_pg._tubeMat.label} ${_pg._tubeSize.label} (${_pg._tubeDims(_pg._tubeSize)}). '
+              '물 온도 영향 계산에 씁니다.',
+        )
+      else if (hydro) ...[
         calcField(
           'pt_r_od',
           '관 외경 (mm, 선택)',
@@ -760,6 +803,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
         ),
         _line('규격: ${ptCodeLabel(_pg._code)}'),
         _line('시험 종류: ${ptMediumLabel(_pg._medium)}'),
+        if (_pg._tube)
+          _line('튜브: ${_pg._tubeSpec}', key: const Key('pt_r_info_tube')),
         _line(
           design == null || design <= 0
               ? '설계압력: 없음 (시험 압력 탭에서 넣으십시오)'
@@ -815,6 +860,31 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
           ),
         ] else
           _line('종료했습니다. 다음 시험은 "새로 시작"을 누르십시오.', color: fc.textSub),
+        if (e == null)
+          ValueListenableBuilder<bool?>(
+            valueListenable: _rExact,
+            builder: (_, exact, _) => exact != false
+                ? const SizedBox.shrink()
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _line(
+                        kPtExactOffText,
+                        key: const Key('pt_r_exact_off'),
+                        bold: true,
+                        color: fc.danger,
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: calcToggle(
+                          'pt_r_exact_open',
+                          '설정 열기',
+                          _openExactSettings,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
       ],
     );
   }

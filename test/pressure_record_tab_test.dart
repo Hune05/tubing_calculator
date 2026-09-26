@@ -399,8 +399,10 @@ void main() {
     expect(fieldText(tester, 'pt_r_allow'), '0.1');
   });
 
-  testWidgets('수압: 외경·두께를 넣으면 물 온도 영향을 참고로 보이고 측정 강하로 판정', (tester) async {
+  testWidgets('수압(배관): 외경·두께를 넣으면 물 온도 영향을 참고로 보이고 측정 강하로 판정', (tester) async {
     await pumpPage(tester);
+    await tester.tap(find.byKey(const Key('pt_kind_pipe')));
+    await tester.pump();
     await tester.enterText(find.byKey(const Key('pt_design')), '10');
     await tester.pump();
     await openTab(tester, 'pt_tab_record');

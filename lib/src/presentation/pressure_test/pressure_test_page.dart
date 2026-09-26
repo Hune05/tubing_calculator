@@ -3,6 +3,8 @@
 // 수압은 물 온도 영향) → 공압 안전거리(ASME PCC-2 저장 에너지·출입 통제 거리·질소 용기) → 에어 누설
 // → 시험 기록(유지시간 타이머·알림, 측정 기록, 판정, 기록 저장·기록서 PDF: pressure_record_tab.dart).
 // 칸마다 "?" 안내, 결과에 조항 번호. 계산은 pressure_calc.dart. 최종은 해당 규격 원문·절차서로 확인.
+// 시험 대상은 튜브(기본, 계기용 정밀 튜브: tube_rating.dart 허용 사용압력)와 배관. 튜브 규격은 공압 안전거리 체적·
+// 수압 온도 영향·시험 기록(기록서)에도 쓴다.
 // 넣은 값은 'pressure_test_draft_v1'에 저장해 다음에 열 때 되살린다.
 import 'dart:async';
 import 'dart:convert';
@@ -20,8 +22,17 @@ import 'test_record.dart';
 import 'test_record_pdf.dart';
 import 'test_record_sheet.dart';
 import 'test_records_page.dart';
+import 'tube_rating.dart';
 
 part 'pressure_record_tab.dart';
+
+/// 공압 안전거리 탭에서 더한 튜브 구간(규격·길이).
+class _TubeSeg {
+  String id;
+  final TextEditingController len;
+  _TubeSeg(this.id, [String text = ''])
+    : len = TextEditingController(text: text);
+}
 
 String _fmt(double v, [int d = 2]) {
   var s = v.toStringAsFixed(d);
@@ -63,6 +74,37 @@ class _PressureTestPageState extends State<PressureTestPage>
   late final TabController _tabs = TabController(length: 5, vsync: this);
 
   PUnit _unit = PUnit.bar;
+
+  // 시험 대상: 튜브(기본, 계기용 정밀 튜브) / 배관(파이프). 튜브 규격은 다른 탭(체적·수압 온도 영향·기록)도 쓴다.
+  bool _tube = true;
+  TubeMaterial _tubeMat = TubeMaterial.ss316;
+  TubeSystem _tubeSys = TubeSystem.inch;
+  String _tubeId = kTubeDefaultInch;
+  final _tubeTemp = TextEditingController(); // 설계 온도(°C). 비우면 38°C 이하
+  final _tubeLen = TextEditingController(); // 공압 안전거리: 구간 1(시험 압력 탭 규격) 길이(m)
+  List<_TubeSeg> _segs = []; // 공압 안전거리: 더한 구간
+  bool _restrained = false; // 압력 강하(수압): 매설·축 구속
+
+  TubeSize get _tubeSize =>
+      tubeById(_tubeId) ??
+      tubeById(
+        _tubeSys == TubeSystem.inch ? kTubeDefaultInch : kTubeDefaultMetric,
+      )!;
+
+  String get _tubeDefault =>
+      _tubeSys == TubeSystem.inch ? kTubeDefaultInch : kTubeDefaultMetric;
+
+  /// 기록·기록서에 적는 튜브 규격 글.
+  String get _tubeSpec => tubeSpecText(_tubeSize, _tubeMat);
+
+  /// 튜브 재질 → 수압 온도 영향 계산 재질.
+  PipeMaterial get _tubePipeMat => _tubeMat == TubeMaterial.ss316
+      ? PipeMaterial.stainless
+      : PipeMaterial.carbon;
+
+  /// 시험 압력 탭의 튜브 허용 사용압력(표 범위 밖이면 null).
+  TubeRating? get _tubeRating =>
+      tubeRating(size: _tubeSize, material: _tubeMat, designC: _num(_tubeTemp));
 
   // ① 시험 압력
   PipingCode _code = PipingCode.b313;
@@ -140,6 +182,8 @@ class _PressureTestPageState extends State<PressureTestPage>
     'supply': _supply,
     'hours': _hours,
     'price': _price,
+    'tubeTemp': _tubeTemp,
+    'tubeLen': _tubeLen,
     ..._recordFields,
   };
 
@@ -190,6 +234,29 @@ class _PressureTestPageState extends State<PressureTestPage>
     _mat = pick(PipeMaterial.values, m['mat'], _mat);
     _gas = pick(TestGas.values, m['gas'], _gas);
     if (m['sharp'] is bool) _sharp = m['sharp'] as bool;
+    // 튜브·배관을 적지 않은 이전 임시 저장은 배관 기준으로 넣은 값이라 배관으로 되살린다.
+    _tube = m['tube'] is bool ? m['tube'] as bool : false;
+    _tubeMat = pick(TubeMaterial.values, m['tubeMat'], _tubeMat);
+    _tubeSys = pick(TubeSystem.values, m['tubeSys'], _tubeSys);
+    final t = tubeById(m['tubeId']?.toString());
+    _tubeId = t != null && t.system == _tubeSys ? t.id : _tubeDefault;
+    if (m['restrained'] is bool) _restrained = m['restrained'] as bool;
+    final segs = m['segs'];
+    if (segs is List) {
+      for (final s in _segs) {
+        s.len.dispose();
+      }
+      _segs = [
+        for (final s in segs)
+          if (s is Map)
+            _TubeSeg(
+              tubeById(s['id']?.toString())?.system == _tubeSys
+                  ? s['id'].toString()
+                  : _tubeDefault,
+              s['len'] is String ? s['len'] as String : '',
+            ),
+      ];
+    }
     final f = m['fields'];
     if (f is Map) {
       for (final e in _fields.entries) {
@@ -208,6 +275,14 @@ class _PressureTestPageState extends State<PressureTestPage>
     'mat': _mat.name,
     'gas': _gas.name,
     'sharp': _sharp,
+    'tube': _tube,
+    'tubeMat': _tubeMat.name,
+    'tubeSys': _tubeSys.name,
+    'tubeId': _tubeId,
+    'restrained': _restrained,
+    'segs': [
+      for (final s in _segs) {'id': s.id, 'len': s.len.text},
+    ],
     'fields': {for (final e in _fields.entries) e.key: e.value.text},
     'record': _recordDraftJson(),
   });
@@ -245,6 +320,8 @@ class _PressureTestPageState extends State<PressureTestPage>
         state == AppLifecycleState.hidden) {
       _saveNow();
     }
+    // 폰 설정(정확한 알람 허용)에서 돌아오면 다시 확인하고, 켜졌으면 알림을 다시 예약한다.
+    if (state == AppLifecycleState.resumed) _recordResumed();
   }
 
   @override
@@ -255,6 +332,9 @@ class _PressureTestPageState extends State<PressureTestPage>
     _tabs.dispose();
     for (final c in _fields.values) {
       c.dispose();
+    }
+    for (final s in _segs) {
+      s.len.dispose();
     }
     super.dispose();
   }
@@ -378,6 +458,20 @@ class _PressureTestPageState extends State<PressureTestPage>
     }
     _code = r.code;
     _medium = r.medium;
+    // 튜브로 저장한 기록이면 튜브 재질·규격까지, 아니면(이전 기록·배관) 배관으로.
+    final t = tubeById(r.tubeId);
+    _tube = t != null;
+    if (t != null) {
+      _tubeSys = t.system;
+      _tubeId = t.id;
+      _tubeMat = TubeMaterial.values.firstWhere(
+        (m) => m.name == r.tubeMat,
+        orElse: () => _tubeMat,
+      );
+      for (final s in _segs) {
+        if (tubeById(s.id)?.system != _tubeSys) s.id = _tubeDefault;
+      }
+    }
     if (r.designKpa == null) {
       _design.clear();
     } else {
@@ -452,6 +546,20 @@ class _PressureTestPageState extends State<PressureTestPage>
         : plan.usedKpa - headKpa >= plan.minKpa - 1e-9;
     return _page([
       _chips(
+        '시험 대상',
+        '튜브: 외경으로 부르는 계기용 정밀 튜브(인치 1/8"~1", mm 6~25mm)입니다. '
+            '규격을 고르면 허용 사용압력과 시험압력 한도를 같이 확인합니다. '
+            '배관: 호칭 지름·스케줄로 부르는 파이프입니다. 시험압력 계산은 둘이 같습니다.',
+        [
+          calcChip('pt_kind_tube', '튜브', _tube, () {
+            setState(() => _tube = true);
+          }),
+          calcChip('pt_kind_pipe', '배관', !_tube, () {
+            setState(() => _tube = false);
+          }),
+        ],
+      ),
+      _chips(
         '규격',
         'B31.3: 공정(플랜트) 배관. B31.1: 동력(발전소) 배관으로 보일러·증기·급수 계통 등입니다. '
             '어느 것을 따르는지는 설계 도서·배관 등급표(Line class)에 적혀 있습니다.',
@@ -476,6 +584,7 @@ class _PressureTestPageState extends State<PressureTestPage>
           }),
         ],
       ),
+      if (_tube) ..._tubeInputs(),
       _unitChips(),
       calcField(
         'pt_design',
@@ -537,7 +646,10 @@ class _PressureTestPageState extends State<PressureTestPage>
             if (plan.reliefMaxKpa != null)
               '안전밸브 설정압력: ${_p(plan.reliefMaxKpa!)} 이하 (시험압력 ${_p(plan.usedKpa)} 기준)',
             if (plan.reliefRecKpa != null)
-              '안전밸브 권장 설정압력: ${_p(plan.reliefRecKpa!)} (시험압력 ${_p(plan.usedKpa)} 기준)',
+              '안전밸브 권장 설정압력: ${_p(plan.reliefRecKpa!)} (시험압력 ${_p(plan.usedKpa)}의 1⅓배, '
+                  '137.1.4·137.4.5 한도를 넘지 않는 범위에서)',
+            if (plan.reliefCapKpa != null)
+              '안전밸브 설정압력: ${_p(plan.reliefCapKpa!)}(최대 시험압력 1.5P) 이하, 격리하지 않은 기기 한도 이내 (137.2.6)',
             if (headKpa != null) ...[
               '최고점 압력: ${_p(plan.usedKpa - headKpa)} (물 높이 ${_fmt(h!, 1)}m = ${_p(headKpa)})',
               if (!actualGiven)
@@ -549,6 +661,7 @@ class _PressureTestPageState extends State<PressureTestPage>
             ],
           ],
         ),
+        if (_tube) ...[const SizedBox(height: 12), ..._tubeResult(plan, d)],
         const SizedBox(height: 12),
         _gaugeCard(plan.usedKpa),
         const SizedBox(height: 12),
@@ -556,8 +669,185 @@ class _PressureTestPageState extends State<PressureTestPage>
         const SizedBox(height: 12),
         _listCard('pt_notes', '주의 사항', plan.notes),
       ],
+      if (_tube && plan == null) ...[
+        const SizedBox(height: 12),
+        ..._tubeResult(null, null),
+      ],
+      if (_tube) ...[const SizedBox(height: 12), _tubeNotes()],
     ]);
   }
+
+  // ── 튜브 ──
+
+  List<Widget> _tubeInputs() {
+    final sizes = tubeSizes(_tubeSys);
+    return [
+      _chips(
+        '튜브 재질',
+        'SS316: ASTM A269·A213 이음매 없는 스테인리스 튜브입니다. '
+            '탄소강: ASTM A179 이음매 없는 냉간 인발 튜브로, 최소 두께로 주문하는 관입니다.',
+        [
+          for (final m in TubeMaterial.values)
+            calcChip('pt_tm_${m.name}', m.label, _tubeMat == m, () {
+              setState(() => _tubeMat = m);
+            }),
+        ],
+      ),
+      _chips('치수 단위', '인치 튜브(1/8"~1")와 mm 튜브(6~25mm) 목록을 바꿉니다.', [
+        calcChip(
+          'pt_ts_inch',
+          '인치',
+          _tubeSys == TubeSystem.inch,
+          () => _setTubeSys(TubeSystem.inch),
+        ),
+        calcChip(
+          'pt_ts_mm',
+          'mm',
+          _tubeSys == TubeSystem.metric,
+          () => _setTubeSys(TubeSystem.metric),
+        ),
+      ]),
+      calcDropdown<String>(
+        'pt_tube_size',
+        '튜브 규격 (외경 × 두께)',
+        sizes.any((t) => t.id == _tubeId) ? _tubeId : _tubeDefault,
+        [for (final t in sizes) t.id],
+        (id) => tubeById(id)!.label,
+        (v) => setState(() => _tubeId = v),
+        '허용 사용압력은 B31.3 304.1.2 식으로 계산한 값과 제조사 값(Swagelok MS-01-107) 중 작은 것입니다. '
+            '계산은 최대 외경(공칭 + 0.13mm)과 최소 두께로 합니다. '
+            'SS316은 A269 허용차(외경 12.7mm 미만 −15%, 이상 −10%)를 빼고, 탄소강 A179는 적힌 두께가 최소 두께입니다. '
+            'S는 B31.3 부록 A 표 A-1 값을 설계 온도로 보간합니다. 제조사 값은 −28~37°C 값이라 그 온도에서만 비교합니다.',
+      ),
+      calcField(
+        'pt_tube_temp',
+        '설계 온도 (°C, 선택)',
+        _tubeTemp,
+        '설계 도서·배관 등급표의 설계 온도입니다. 비우면 38°C 이하로 계산합니다. '
+            '허용 응력 S를 이 온도로 정합니다. 표 A-1에 넣은 범위(SS316 −254~427°C, 탄소강 −29~427°C) 밖이면 계산하지 않습니다.',
+        signed: true,
+      ),
+    ];
+  }
+
+  void _setTubeSys(TubeSystem s) {
+    if (s == _tubeSys) return;
+    setState(() {
+      _tubeSys = s;
+      _tubeId = _tubeDefault;
+      for (final g in _segs) {
+        g.id = _tubeDefault;
+      }
+    });
+  }
+
+  /// 튜브 치수 글: 외경·두께·내경.
+  String _tubeDims(TubeSize t) => t.inch
+      ? '외경 ${t.odText}" (${_fmt(t.odMm)} mm) · 두께 ${t.wall.toStringAsFixed(3)}" (${_fmt(t.wallMm)} mm) · '
+            '내경 ${(t.od - 2 * t.wall).toStringAsFixed(3)}" (${_fmt(t.idMm)} mm)'
+      : '외경 ${_fmt(t.odMm)} mm · 두께 ${_fmt(t.wallMm)} mm · 내경 ${_fmt(t.idMm)} mm';
+
+  List<Widget> _tubeResult(TestPlan? plan, double? designKpa) {
+    final t = _tubeSize;
+    final r = _tubeRating;
+    final tIn = _num(_tubeTemp);
+    final tempText = tIn == null ? '38°C 이하' : '${_fmt(tIn, 1)}°C';
+    if (r == null) {
+      return [
+        calcResult(
+          key: const Key('pt_tube_result'),
+          big: '—',
+          caption: '튜브 허용 사용압력 (설계 온도 $tempText)',
+          warn: true,
+          lines: [
+            _tubeDims(t),
+            '설계 온도 $tempText: 표 A-1에 넣은 범위(${tubeTempRangeText(_tubeMat)}) 밖이라 계산하지 않습니다.',
+          ],
+        ),
+      ];
+    }
+    final designOver =
+        designKpa != null && designKpa > 0 && designKpa > r.allowKpa + 1e-9;
+    final b313 = _code == PipingCode.b313;
+    final hydro = _medium == TestMedium.hydro;
+    // 튜브 한도: B31.3 수압은 항복(345.2.1(a)), B31.3 공압은 항복의 90%(345.5.4),
+    // B31.1은 항복의 90%(137.1.4 → 102.3.3(b)).
+    final limit = b313 && hydro ? r.yieldKpa : r.yield90Kpa;
+    final testOver = plan != null && plan.usedKpa > limit + 1e-9;
+    final maker = r.makerKpa;
+    final table = r.makerTableKpa;
+    final ratio = r.stRatio;
+    final showRatio = b313 && hydro && ratio > 1 + 1e-9;
+    return [
+      calcResult(
+        key: const Key('pt_tube_result'),
+        big: _p(r.allowKpa),
+        caption: '튜브 허용 사용압력 (설계 온도 $tempText)',
+        warn: designOver || testOver,
+        lines: [
+          '${_tubeMat.label} ${t.label}: ${_tubeDims(t)}',
+          if (designKpa != null && designKpa > 0)
+            designOver
+                ? '설계압력 ${_p(designKpa)}: 허용 사용압력 초과'
+                : '설계압력 ${_p(designKpa)}: 허용 사용압력 이내',
+          '계산값 ${_p(r.calcKpa)}: B31.3 304.1.2, S ${_fmt(r.sKsi, 2)} ksi, '
+              '최대 외경 ${_fmt(r.maxOdMm)} mm, 최소 두께 ${_fmt(r.minWallMm, 3)} mm',
+          '최소 두께: ${tubeWallTolText(t, _tubeMat)}',
+          '공칭 두께로 계산하면 ${_p(r.nominalKpa)} (참고)',
+          if (maker != null)
+            '제조사 값 ${_p(maker)}: ${t.makerText(_tubeMat)}, ${t.makerSource(_tubeMat)}, −28~37°C'
+          else if (table != null)
+            '제조사 값 ${t.makerText(_tubeMat)}은 −28~37°C 값이라 이 설계 온도에서는 계산값만 씁니다.'
+          else
+            '제조사 값 없음: Swagelok mm 탄소강 표는 EN 10305-1 관 기준이라 넣지 않았습니다.',
+          '허용 사용압력은 계산값과 제조사 값 중 작은 것입니다(${r.makerGoverns ? '제조사 값' : '계산값'}).',
+          if (r.thick)
+            '두께가 외경의 1/6 이상이라 Y = d/(D + d)로 계산했습니다(표 304.1.1 주, 304.1.2(b) 검토 대상).',
+          if (plan != null) ...[
+            if (b313 && hydro)
+              testOver
+                  ? '시험압력 ${_p(plan.usedKpa)}: 튜브 항복 압력 ${_p(r.yieldKpa)} 초과. '
+                        '항복 압력 이하로 낮출 수 있습니다(345.2.1(a)).'
+                  : '시험압력 ${_p(plan.usedKpa)}: 튜브 항복 압력 ${_p(r.yieldKpa)} 이내 '
+                        '(345.2.1(a), 최소 항복강도 ${_fmt(_tubeMat.syKsi, 0)} ksi)',
+            if (b313 && !hydro) ...[
+              '공압 최대 시험압력: ${_p(math.min(plan.maxKpa ?? r.yield90Kpa, r.yield90Kpa))} '
+                  '(1.33P와 튜브 항복 압력의 90% ${_p(r.yield90Kpa)} 중 작은 것, 345.5.4)',
+              testOver
+                  ? '시험압력 ${_p(plan.usedKpa)}: 튜브 항복 압력의 90% 초과'
+                  : '시험압력 ${_p(plan.usedKpa)}: 튜브 항복 압력의 90% 이내',
+            ],
+            if (!b313)
+              testOver
+                  ? '시험압력 ${_p(plan.usedKpa)}: 튜브 응력 한도(항복강도의 90%) ${_p(r.yield90Kpa)} 초과 (137.1.4·102.3.3(b))'
+                  : '시험압력 ${_p(plan.usedKpa)}: 튜브 응력 한도(항복강도의 90%) ${_p(r.yield90Kpa)} 이내 (137.1.4·102.3.3(b))',
+          ],
+          if (showRatio)
+            'ST/S = ${_fmt(r.sTestKsi, 2)} ÷ ${_fmt(r.sKsi, 2)} = ${_fmt(ratio, 3)} '
+                '(시험 온도 38°C 이하 기준). B31.3 수압 시험압력에 곱합니다(345.4.2).',
+          if (!b313)
+            'B31.1 배관이면 B31.1 허용 응력으로 다시 확인하십시오. '
+                '탄소강 A179는 B31.3 값의 0.85배입니다(Swagelok MS-01-107 표 1 주).',
+        ],
+      ),
+      if (showRatio && (_num(_ratio) ?? 1) != double.parse(_fmt(ratio, 3)))
+        Align(
+          alignment: Alignment.centerRight,
+          child: calcToggle(
+            'pt_tube_ratio',
+            'ST/S 칸에 넣기 (${_fmt(ratio, 3)})',
+            () => setState(() => _ratio.text = _fmt(ratio, 3)),
+          ),
+        ),
+    ];
+  }
+
+  Widget _tubeNotes() => _listCard('pt_tube_notes', '튜브 확인 사항', [
+    '계통 허용 압력은 튜브·피팅·밸브 중 가장 낮은 것입니다. 피팅·밸브 제조사의 압력 등급을 확인하십시오.',
+    '시험압력이 부품 등급의 1.5배를 초과하면 낮출 수 있습니다(345.2.1(a)). 공압은 1.35배까지입니다(345.5.4).',
+    '누설 시험을 마친 배관에 계기를 잇는 나사 이음·튜브 이음은 다시 누설 시험하지 않아도 됩니다(345.2.3(d)).',
+    '제조사 값은 참고값입니다(Swagelok 표 머리말). 최종은 설계 도서와 규격 식으로 확인하십시오.',
+  ]);
 
   Widget _gaugeCard(double testKpa) {
     final g = gaugeRange(testKpa);
@@ -566,7 +856,8 @@ class _PressureTestPageState extends State<PressureTestPage>
       if (g.fitBar.isNotEmpty)
         '맞는 표준 눈금(EN 837): ${g.fitBar.map((b) => '0~${_fmt(b)}').join(' · ')} bar',
       if (g.bestBar != null) '2배에 가장 가까운 눈금: 0~${_fmt(g.bestBar!)} bar',
-      '검교정 12개월 이내인 압력계를 씁니다.',
+      kGaugeDialNote,
+      kGaugeCalNote,
     ]);
   }
 
@@ -708,7 +999,9 @@ class _PressureTestPageState extends State<PressureTestPage>
             if (r.leakMbarLs != null && r.leakMbarLs! > 0)
               '누설률 ${_fmt(r.leakMbarLs!, 4)} mbar·L/s (${_fmt(r.leakSccm!, 2)} mL/min, 20°C·1기압 기준)',
             '식: 종료 절대압을 시작 온도 기준으로 환산해 비교 (P₂·T₁/T₂). 온도는 절대 온도(K).',
-            '판정 기준은 규격·절차서가 정합니다. B31.1 137.4.6(d): 대기 변화로 설명되지 않는 강하가 있으면 찾아 고치고 다시 시험합니다.',
+            '판정 기준은 절차서가 정합니다. 규격에는 공압 압력강하의 수치 기준이 없습니다.',
+            '참고: B31.1 137.4.6(d)의 "대기 변화로 설명되지 않는 강하는 찾아 고친다"는 수압 시험 조항입니다. '
+                '매설 이음부를 육안 점검에서 뺄 때 발주처 승인과 용접부 100% 체적 검사가 함께 필요합니다.',
           ],
         ),
     ];
@@ -717,11 +1010,19 @@ class _PressureTestPageState extends State<PressureTestPage>
   List<Widget> _hydroDecay() {
     final wt = _num(_waterT);
     final dt = _num(_dT) ?? 1;
-    final od = _num(_od);
-    final w = _num(_wall);
+    final t = _tubeSize;
+    final od = _tube ? t.odMm : _num(_od);
+    final w = _tube ? t.wallMm : _num(_wall);
+    final mat = _tube ? _tubePipeMat : _mat;
     final per = wt == null || od == null || w == null || w <= 0 || od <= w
         ? null
-        : hydroBarPerDegC(waterC: wt, odMm: od, wallMm: w, material: _mat);
+        : hydroBarPerDegC(
+            waterC: wt,
+            odMm: od,
+            wallMm: w,
+            material: mat,
+            restrained: _restrained,
+          );
     final low = wt != null && wt < kWaterMinC;
     final high = wt != null && wt > kWaterMaxC;
     return [
@@ -729,7 +1030,7 @@ class _PressureTestPageState extends State<PressureTestPage>
         'pt_wt',
         '물 온도 (°C)',
         _waterT,
-        '배관 안 물 온도입니다. 5~50°C 이내에서 계산합니다.',
+        '배관 안 물 온도입니다. 0~100°C 이내에서 계산합니다(Kell 1975 식).',
         signed: true,
       ),
       calcField(
@@ -739,27 +1040,43 @@ class _PressureTestPageState extends State<PressureTestPage>
         '시험 중 물 온도가 얼마나 바뀌었는지입니다. 오르면 +, 내리면 −로 넣습니다.',
         signed: true,
       ),
-      calcField('pt_od', '관 외경 (mm)', _od, '관 외경입니다. 예: 50A = 60.5mm.'),
-      calcField(
-        'pt_wall',
-        '관 두께 (mm)',
-        _wall,
-        '관 두께(스케줄)입니다. 예: 50A SCH40 = 3.9mm.',
+      if (_tube)
+        _tubeLine(
+          'pt_d_tube',
+          '튜브: ${_tubeMat.label} ${t.label} (${_tubeDims(t)})',
+        )
+      else ...[
+        calcField('pt_od', '관 외경 (mm)', _od, '관 외경입니다. 예: 50A = 60.5mm.'),
+        calcField(
+          'pt_wall',
+          '관 두께 (mm)',
+          _wall,
+          '관 두께(스케줄)입니다. 예: 50A SCH40 = 3.9mm.',
+        ),
+        _chips('재질', '탄소강·스테인리스에 따라 팽창이 달라 결과가 조금 바뀝니다.', [
+          calcChip(
+            'pt_cs',
+            '탄소강',
+            _mat == PipeMaterial.carbon,
+            () => setState(() => _mat = PipeMaterial.carbon),
+          ),
+          calcChip(
+            'pt_ss',
+            '스테인리스',
+            _mat == PipeMaterial.stainless,
+            () => setState(() => _mat = PipeMaterial.stainless),
+          ),
+        ]),
+      ],
+      calcSwitch(
+        '매설(축 구속)',
+        _restrained,
+        (v) => setState(() => _restrained = v),
+        '땅에 묻혔거나 양 끝이 고정돼 축 방향으로 늘어나지 못하는 관입니다. '
+            '이때는 dP/dT = (β − 2α) / (κ + D(1 − ν²)/(E·t))로 계산합니다. '
+            '강관(D/t 20)은 약 7%, 두꺼운 튜브는 약 10% 커집니다.',
+        key: 'pt_restrained',
       ),
-      _chips('재질', '탄소강·스테인리스에 따라 팽창이 달라 결과가 조금 바뀝니다.', [
-        calcChip(
-          'pt_cs',
-          '탄소강',
-          _mat == PipeMaterial.carbon,
-          () => setState(() => _mat = PipeMaterial.carbon),
-        ),
-        calcChip(
-          'pt_ss',
-          '스테인리스',
-          _mat == PipeMaterial.stainless,
-          () => setState(() => _mat = PipeMaterial.stainless),
-        ),
-      ]),
       if (per == null)
         calcResult(big: '—', caption: '물 온도와 관 치수를 넣으십시오', lines: const [])
       else
@@ -774,9 +1091,13 @@ class _PressureTestPageState extends State<PressureTestPage>
             if (high)
               '물 온도 ${_fmt(wt, 1)}°C: ${_fmt(kWaterMaxC, 0)}°C 초과라 ${_fmt(kWaterMaxC, 0)}°C 값으로 계산했습니다.',
             '1°C당 ${_p(per * 100)}',
-            '공기 없이 물로 가득 찬 막힌 관, 축 방향으로 자유로운 지상 배관으로 가정했습니다. 공기가 남아 있으면 훨씬 작아집니다.',
+            _restrained
+                ? '공기 없이 물로 가득 찬 막힌 관, 매설되거나 축 방향으로 구속된 관으로 가정했습니다. 공기가 남아 있으면 훨씬 작아집니다.'
+                : '공기 없이 물로 가득 찬 막힌 관, 축 방향으로 자유로운 지상 배관으로 가정했습니다. 공기가 남아 있으면 훨씬 작아집니다.',
             '물 온도 약 6°C 미만에서는 온도가 올라도 압력이 오르지 않거나 내려갑니다.',
-            '식: dP/dT = (β − 3α) / (κ + D/(t·E)·(5/4 − ν)), 물 성질 Kell(1975).',
+            _restrained
+                ? '식: dP/dT = (β − 2α) / (κ + D(1 − ν²)/(E·t)), D = 외경, 물 성질 Kell(1975) 식.'
+                : '식: dP/dT = (β − 3α) / (κ + D/(t·E)·(5/4 − ν)), D = 평균 지름, 물 성질 Kell(1975) 식.',
           ],
         ),
     ];
@@ -797,7 +1118,94 @@ class _PressureTestPageState extends State<PressureTestPage>
   }
 
   String _waterMass(double litres) =>
-      litres >= 1000 ? '${_fmt(litres / 1000, 2)} t' : '${_fmt(litres, 0)} kg';
+      litres >= 1000 ? '${_fmt(litres / 1000, 2)} t' : '${_vol(litres)} kg';
+
+  /// 다른 탭에 보이는 튜브 규격 줄(시험 압력 탭에서 고른 것)과 "시험 압력 탭에서 바꾸기".
+  Widget _tubeLine(String key, String text) => calcBox(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(0, 10, 8, 0),
+          child: Text(
+            text,
+            key: Key(key),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: fc.text,
+              height: 1.4,
+            ),
+          ),
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: calcToggle(
+            '${key}_goto',
+            '시험 압력 탭에서 바꾸기',
+            () => _tabs.animateTo(0),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  /// 튜브 구간(구간 1 = 시험 압력 탭 규격, 더한 구간)의 체적(L). 길이를 하나도 넣지 않았으면 null.
+  double? get _tubeVolume {
+    final parts = <(TubeSize, double)>[];
+    final l0 = _num(_tubeLen);
+    if (l0 != null && l0 > 0) parts.add((_tubeSize, l0));
+    for (final s in _segs) {
+      final l = _num(s.len);
+      final t = tubeById(s.id);
+      if (l != null && l > 0 && t != null) parts.add((t, l));
+    }
+    return parts.isEmpty ? null : tubeVolumeL(parts);
+  }
+
+  /// 체적 글: 작은 튜브 체적도 보이게 자릿수를 늘린다.
+  String _vol(double l) => _fmt(l, l < 1 ? 3 : (l < 10 ? 2 : 1));
+
+  List<Widget> _tubeSegFields() {
+    final t = _tubeSize;
+    final sizes = tubeSizes(_tubeSys);
+    return [
+      _tubeLine(
+        'pt_se_tube',
+        '구간 1: ${_tubeMat.label} ${t.label}, 내경 ${_fmt(t.idMm)} mm (시험 압력 탭 규격)',
+      ),
+      calcField('pt_se_tlen', '구간 1 길이 (m)', _tubeLen, '구간 1 튜브의 전체 길이입니다.'),
+      for (var i = 0; i < _segs.length; i++) ...[
+        calcDropdown<String>(
+          'pt_seg_size_$i',
+          '구간 ${i + 2} 규격',
+          sizes.any((x) => x.id == _segs[i].id) ? _segs[i].id : _tubeDefault,
+          [for (final x in sizes) x.id],
+          (id) => tubeById(id)!.label,
+          (v) => setState(() => _segs[i].id = v),
+          '규격이 다른 튜브가 섞였으면 구간을 더해 각각 넣습니다. 체적은 공칭 내경으로 계산합니다.',
+        ),
+        calcField(
+          'pt_seg_len_$i',
+          '구간 ${i + 2} 길이 (m)',
+          _segs[i].len,
+          '이 구간 튜브의 전체 길이입니다.',
+        ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: calcToggle('pt_seg_del_$i', '구간 ${i + 2} 지우기', () {
+            setState(() => _segs.removeAt(i).len.dispose());
+          }),
+        ),
+      ],
+      Align(
+        alignment: Alignment.centerRight,
+        child: calcToggle('pt_seg_add', '구간 추가', () {
+          setState(() => _segs = [..._segs, _TubeSeg(_tubeId)]);
+        }),
+      ),
+    ];
+  }
 
   // ③ 공압 안전거리
   Widget _energyTab() {
@@ -807,9 +1215,11 @@ class _PressureTestPageState extends State<PressureTestPage>
     final direct = _num(_seVol);
     final vol =
         direct ??
-        (id != null && len != null
-            ? pipeVolumeL(idMm: id, lengthM: len)
-            : null);
+        (_tube
+            ? _tubeVolume
+            : (id != null && len != null
+                  ? pipeVolumeL(idMm: id, lengthM: len)
+                  : null));
     final e = pt == null || vol == null || pt <= 0 || vol <= 0
         ? null
         : storedEnergy(testKpa: pt, volumeL: vol, gas: _gas);
@@ -853,13 +1263,17 @@ class _PressureTestPageState extends State<PressureTestPage>
             () => setState(() => _putKpa(_sePt, src)),
           ),
         ),
-      calcField(
-        'pt_se_id',
-        '관 내경 (mm)',
-        _seId,
-        '관 내경 = 외경 − 2 × 두께입니다. 예: 50A SCH40 = 60.5 − 7.8 = 52.7mm.',
-      ),
-      calcField('pt_se_len', '관 길이 (m)', _seLen, '시험 구간 전체 길이입니다.'),
+      if (_tube)
+        ..._tubeSegFields()
+      else ...[
+        calcField(
+          'pt_se_id',
+          '관 내경 (mm)',
+          _seId,
+          '관 내경 = 외경 − 2 × 두께입니다. 예: 50A SCH40 = 60.5 − 7.8 = 52.7mm.',
+        ),
+        calcField('pt_se_len', '관 길이 (m)', _seLen, '시험 구간 전체 길이입니다.'),
+      ],
       calcField(
         'pt_se_vol',
         '체적 직접 입력 (L)',
@@ -871,7 +1285,7 @@ class _PressureTestPageState extends State<PressureTestPage>
           key: const Key('pt_se_volume'),
           padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
           child: Text(
-            '시험 구간 체적 ${_fmt(vol, 1)} L · 수압 시험이면 물 약 ${_fmt(vol, 0)} L(약 ${_waterMass(vol)})',
+            '시험 구간 체적 ${_vol(vol)} L · 수압 시험이면 물 약 ${_vol(vol)} L(약 ${_waterMass(vol)})',
             style: TextStyle(fontSize: 14, color: fc.textSub, height: 1.4),
           ),
         ),
@@ -885,7 +1299,7 @@ class _PressureTestPageState extends State<PressureTestPage>
           caption: '출입 통제 거리',
           warn: e.beyondFixed,
           lines: [
-            '저장 에너지 ${e.joules >= 1e6 ? '${_fmt(e.joules / 1e6, 2)} MJ' : '${_fmt(e.joules / 1000, 1)} kJ'} (체적 ${_fmt(vol!, 1)} L, k = ${_fmt(_gas.k, 2)})',
+            '저장 에너지 ${e.joules >= 1e6 ? '${_fmt(e.joules / 1e6, 2)} MJ' : '${_fmt(e.joules / 1000, 1)} kJ'} (체적 ${_vol(vol!)} L, k = ${_fmt(_gas.k, 2)})',
             'TNT 환산 ${_fmt(e.tntKg, 3)} kg',
             '거리: 최소 거리(135.5MJ까지 30m, 271MJ까지 60m)와 R = 20·(2·TNT)^(1/3) = ${_fmt(e.scaledM, 1)}m 중 큰 것',
             if (e.beyondFixed)

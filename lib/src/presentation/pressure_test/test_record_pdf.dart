@@ -1,4 +1,4 @@
-// 배관 압력시험 기록서(PDF, A4). 시험 번호·시험일, 시험 정보, 압력계·안전밸브, 측정 기록 표, 판정 상자,
+// 배관 압력시험 기록서(PDF, A4). 시험 번호·시험일, 시험 정보(튜브면 튜브 규격), 압력계·안전밸브, 측정 기록 표, 판정 상자,
 // 메모, 서명 칸(시험자·시공사·감리·발주처 입회). 압력은 기록의 단위로 적는다.
 // 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
@@ -217,6 +217,7 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
                   info('라인 번호', r.line),
                   info('P&ID·아이소', r.pid),
                   info('시험 구간', r.section),
+                  if (r.tubeSpec.trim().isNotEmpty) info('튜브', r.tubeSpec),
                 ],
               ),
             ),

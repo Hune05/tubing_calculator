@@ -308,11 +308,11 @@ void main() {
         closeTo(3.7, 0.1),
       );
     });
-    test('5~50°C 밖은 끝 값으로 계산한다(화면에서 알림)', () {
-      expect(kWaterMinC, 5);
-      expect(kWaterMaxC, 50);
-      expect(waterProps(-3), waterProps(5));
-      expect(waterProps(70), waterProps(50));
+    test('0~100°C 밖은 끝 값으로 계산한다(화면에서 알림)', () {
+      expect(kWaterMinC, 0);
+      expect(kWaterMaxC, 100);
+      expect(waterProps(-3), waterProps(0));
+      expect(waterProps(120), waterProps(100));
     });
   });
 

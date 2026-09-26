@@ -10,7 +10,8 @@ import 'package:tubing_calculator/src/presentation/pressure_test/pressure_test_p
 const _draftKey = 'pressure_test_draft_v1';
 
 Future<void> pumpPage(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(390, 2400);
+  // 튜브 칸·튜브 결과가 더해져 시험 압력 탭이 길어졌다: 주의 사항까지 한 화면에 만들어지게 높게.
+  tester.view.physicalSize = const Size(390, 4000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home: PressureTestPage()));
@@ -233,7 +234,7 @@ void main() {
     }
   });
 
-  testWidgets('수압 물 온도: 결과를 고른 단위로, 5~50°C 밖이면 알림', (tester) async {
+  testWidgets('수압 물 온도: 결과를 고른 단위로, 0~100°C 밖이면 알림', (tester) async {
     await pumpPage(tester);
     await openTab(tester, 'pt_tab_decay');
     await tester.tap(find.byKey(const Key('pt_d_hydro')));
@@ -250,11 +251,15 @@ void main() {
     await tester.enterText(find.byKey(const Key('pt_wt')), '-2');
     await tester.pump();
     r = textIn(tester, const Key('pt_hydro_result'));
-    expect(r, contains('물 온도 -2°C: 5°C 미만이라 5°C 값으로 계산했습니다.'));
+    expect(r, contains('물 온도 -2°C: 0°C 미만이라 0°C 값으로 계산했습니다.'));
     await tester.enterText(find.byKey(const Key('pt_wt')), '60');
     await tester.pump();
     r = textIn(tester, const Key('pt_hydro_result'));
-    expect(r, contains('50°C 초과라 50°C 값으로 계산했습니다.'));
+    expect(r, isNot(contains('초과라')));
+    await tester.enterText(find.byKey(const Key('pt_wt')), '105');
+    await tester.pump();
+    r = textIn(tester, const Key('pt_hydro_result'));
+    expect(r, contains('100°C 초과라 100°C 값으로 계산했습니다.'));
   });
 
   testWidgets('공압 안전거리: 21.72bar, 500L → 30m, 1.68MJ, 2·TNT, 파편 안내, 질소·물', (

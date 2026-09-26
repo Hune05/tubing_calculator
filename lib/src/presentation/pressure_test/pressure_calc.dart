@@ -25,6 +25,7 @@ class TestPlan {
   final double? examKpa; // 누설 확인 압력(이 압력까지 낮춰 본다)
   final double? reliefMaxKpa; // 안전밸브 설정압력 최대(B31.3 공압)
   final double? reliefRecKpa; // 안전밸브 권장 설정압력(B31.1 수압 1⅓×PT)
+  final double? reliefCapKpa; // 안전밸브 설정압력 한도(B31.1 공압: 1⅓×PT가 늘 넘는 1.5P)
   final double usedKpa; // 안전밸브·예비 점검을 계산한 시험압력(실제 값을 넣었으면 그 값, 아니면 최소)
   final List<double> stepKpa; // 단계 압력(B31.1 공압: ½PT 뒤 PT/10씩)
   final List<String> steps; // 절차
@@ -45,6 +46,7 @@ class TestPlan {
     this.examKpa,
     this.reliefMaxKpa,
     this.reliefRecKpa,
+    this.reliefCapKpa,
     required this.usedKpa,
     this.stepKpa = const [],
     required this.steps,
@@ -58,6 +60,16 @@ class TestPlan {
 const String _note3452 =
     '2024판 345.2.3: 누설 시험을 마친 기계적 이음부는 분해 후 다시 조립해도 재시험하지 않아도 됩니다. '
     '이전 판은 플랜지와 계기 연결 나사·튜브 이음만 해당했습니다.';
+
+// B31.3-2022 345.2.2(d): 눈금 범위 1.5~4배(약 2배)는 다이얼 압력계 기준. 디지털 압력계는 더 넓어도 된다.
+// 검교정 12개월 이내, 발주처가 승인하면 더 길게 둘 수 있다(독립 검증 09-26 반영).
+const String kGaugeDialNote =
+    '눈금 범위 1.5~4배는 다이얼 압력계 기준입니다. 디지털 압력계는 이보다 넓은 범위도 쓸 수 있습니다.';
+const String kGaugeCalNote =
+    '검교정 12개월 이내인 압력계를 씁니다. 발주처가 승인하면 더 길게 둘 수 있습니다(B31.3 2022판 345.2.2(d)).';
+const String _noteGauge =
+    '압력계 눈금 범위는 시험압력의 약 2배(1.5~4배, 다이얼 압력계 기준), 검교정 12개월 이내'
+    '(발주처 승인 시 더 길게)입니다(2022판 345.2.2(d)).';
 
 /// 시험압력 정하기. [designKpa] 설계압력(게이지), [stressRatio] ST/S(설계 온도 > 시험 온도일 때,
 /// 모르면 1). B31.3 수압만 쓴다. [actualKpa] 실제로 올릴 시험압력. 넣으면 안전밸브·예비 점검을
@@ -92,8 +104,9 @@ TestPlan testPlan({
         '시험압력은 배관의 모든 지점에서 이 값 이상이어야 합니다(345.4.2).',
         '시험압력에서 관 응력이 항복강도를 초과하거나 부품 등급의 1.5배를 초과하면, 초과하지 않는 압력까지 낮출 수 있습니다(345.2.1(a)).',
         '갇힌 물이 데워지면 압력이 오릅니다. 과압되지 않게 압력을 빼 줄 수단을 둡니다(345.2.1(b)).',
+        '예비 점검(선택): 수압 시험 전에 170kPa(25psi) 이하 공기로 큰 누설을 찾을 수 있습니다(345.2.1(c)).',
         '용기와 함께 시험하려면 발주처 승인과 용기 시험압력이 배관 PT의 77% 이상이어야 합니다(345.4.3).',
-        '압력계 눈금 범위는 시험압력의 약 2배(1.5~4배), 검교정 12개월 이내(2022판 345.2.2(d)).',
+        _noteGauge,
         _note3452,
       ],
     );
@@ -119,9 +132,12 @@ TestPlan testPlan({
         '설계압력까지 낮춘 뒤 모든 이음·연결부를 점검합니다.',
       ],
       notes: [
-        '시험압력: 1.1 × P 이상, 1.33 × P와 항복 기준 압력의 90% 중 작은 것 이하(345.5.4).',
+        '시험압력: 1.1 × P 이상, 1.33 × P와 345.2.1(a) 압력의 90% 중 작은 것 이하(345.5.4). '
+            '345.2.1(a) 압력은 관 응력이 항복강도가 되는 압력과 부품 등급의 1.5배 중 작은 것이므로, '
+            '부품 등급으로는 1.35배까지입니다.',
         '안전밸브 설정압력: PT + (345kPa와 PT의 10% 중 작은 것) 이하(345.5.2).',
-        '공압 시험은 수압이 어려울 때 발주처가 정합니다. 압축 기체의 저장 에너지와 취성 파괴 위험에 주의합니다(345.5.1). '
+        '공압 시험은 발주처가 수압 시험을 할 수 없다고 판단할 때 대신합니다(345.1(b)).',
+        '압축 기체의 저장 에너지와 취성 파괴 위험에 특히 주의합니다(345.5.1). '
             '"공압 안전거리" 탭에서 출입 통제 거리를 확인하십시오.',
         '시험 가스는 공기가 아니면 불연성·무독성이어야 합니다(345.5.3).',
         _note3452,
@@ -146,9 +162,11 @@ TestPlan testPlan({
       ],
       notes: [
         '시험 중 원주 응력과 축 응력은 항복강도의 90% 이하(102.3.3(b)). 격리하지 않은 기기(용기·펌프·밸브)의 허용 시험압력도 초과하지 않습니다.',
-        '유지 중 과압에 대비해 안전밸브 설정압력을 시험압력의 1⅓배로 두기를 권합니다(137.2.6).',
+        '유지 중 과압에 대비해 안전밸브 설정압력을 시험압력의 1⅓배로 두기를 권합니다. '
+            '단 137.1.4·137.4.5 한도를 넘지 않는 범위에서입니다(137.2.6).',
         '보일러 외부 배관은 BPVC Section I PG-99에 따르고 검사원이 입회합니다(137.3.1).',
-        '매설되거나 가려진 이음부: 1시간 이상 유지하며 압력·대기 온도를 계속 기록합니다(137.4.6(d)).',
+        '매설되거나 가려진 이음부를 육안 점검에서 빼려면 발주처 승인, 용접부 100% 체적 검사(RT·UT), '
+            '1시간 이상 유지, 압력·대기 온도 연속 기록이 모두 필요합니다(137.4.6(d)).',
       ],
     );
   }
@@ -166,6 +184,8 @@ TestPlan testPlan({
     prelimKpa: prelim,
     prelimOptional: true,
     examKpa: exam,
+    // 137.2.6: 1⅓×PT 권장이지만 137.5.5 한도(1.5P)를 넘으면 안 된다. PT ≥ 1.2P라 1⅓×PT ≥ 1.6P로 늘 넘는다.
+    reliefCapKpa: max,
     usedKpa: pt,
     // 137.5.5: ½PT 이하까지 올린 뒤 약 PT/10씩 단계로 PT까지.
     stepKpa: [for (var i = 5; i <= 10; i++) pt * i / 10],
@@ -177,6 +197,8 @@ TestPlan testPlan({
     ],
     notes: [
       '시험압력: 설계압력의 1.2배 이상 1.5배 이하, 격리하지 않은 기기 한도 이내(137.5.5).',
+      '안전밸브는 시험압력의 1⅓배가 권장이지만 137.5.5 한도를 넘지 않아야 합니다. '
+          '공압은 1⅓배가 늘 1.5P를 초과하므로 1.5P(최대 시험압력) 이하로 둡니다(137.2.6).',
       '공압 시험은 발주처가 정하거나 허락할 때만 합니다(137.5.1). 시험 가스는 불연성·무독성(137.5.2).',
       '압축 기체의 저장 에너지가 큽니다. "공압 안전거리" 탭에서 출입 통제 거리를 확인하십시오.',
     ],
@@ -317,52 +339,84 @@ DecayResult pressureDecay({
 
 // ─────────────── 수압: 물 온도 1°C당 압력 ───────────────
 
-// Kell(1975) 표 III: 온도(°C) → 체적 팽창계수 β(1e-6/K), 등온 압축률 κ(1e-6/bar).
-const List<(double, double, double)> _kell = [
-  (5, 16.0, 49.17),
-  (10, 87.97, 47.81),
-  (15, 150.87, 46.73),
-  (20, 206.78, 45.89),
-  (25, 257.21, 45.25),
-  (30, 303.24, 44.77),
-  (40, 385.30, 44.24),
-  (50, 457.59, 44.17),
-];
+// Kell(1975, J. Chem. Eng. Data 20(1)) 1기압 물의 닫힌 식. 전에는 표 III(5~50°C)를 직선 보간했다
+// (β가 최대 2.9% 어긋남, 09-26 독립 검증). 밀도 식은 0~150°C, 압축률 식은 0~100°C에서 맞는다.
+//   ρ(t) = N(t) / (1 + b·t), N = 999.83952 + 16.945176t − 7.9870401e-3t² − 46.170461e-6t³
+//          + 105.56302e-9t⁴ − 280.54253e-12t⁵, b = 16.879850e-3  [kg/m³]
+//   β = −(1/ρ)·dρ/dt = b/(1 + b·t) − N'/N
+//   κ(t) = (50.88496 + 0.6163813t + 1.459187e-3t² + 20.08438e-6t³ − 58.47727e-9t⁴ + 410.4110e-12t⁵)
+//          / (1 + 19.67348e-3·t) × 1e-6  [1/bar]
 
-/// 물 성질 표가 있는 범위(5~50°C). 밖이면 끝 값으로 계산한다.
-const double kWaterMinC = 5;
-const double kWaterMaxC = 50;
+/// 물 성질 식이 맞는 범위(0~100°C). 밖이면 끝 값으로 계산한다.
+const double kWaterMinC = 0;
+const double kWaterMaxC = 100;
 
+const double _kellB = 16.879850e-3;
+
+double _kellN(double t) =>
+    999.83952 +
+    t *
+        (16.945176 +
+            t *
+                (-7.9870401e-3 +
+                    t *
+                        (-46.170461e-6 +
+                            t * (105.56302e-9 + t * -280.54253e-12))));
+
+/// 물 밀도(kg/m³, 1기압, Kell 1975).
+double waterDensity(double t) => _kellN(t) / (1 + _kellB * t);
+
+/// 체적 팽창계수 β(1/K)와 등온 압축률 κ(1/bar). [tC]가 0~100°C 밖이면 끝 값.
 (double beta, double kappa) waterProps(double tC) {
-  final t = tC.clamp(kWaterMinC, kWaterMaxC);
-  for (var i = 0; i < _kell.length - 1; i++) {
-    final a = _kell[i], b = _kell[i + 1];
-    if (t <= b.$1) {
-      final f = (t - a.$1) / (b.$1 - a.$1);
-      return (
-        (a.$2 + (b.$2 - a.$2) * f) * 1e-6,
-        (a.$3 + (b.$3 - a.$3) * f) * 1e-6,
-      );
-    }
-  }
-  return (_kell.last.$2 * 1e-6, _kell.last.$3 * 1e-6);
+  final t = tC.clamp(kWaterMinC, kWaterMaxC).toDouble();
+  const b = _kellB;
+  final n = _kellN(t);
+  final dn =
+      16.945176 +
+      t *
+          (2 * -7.9870401e-3 +
+              t *
+                  (3 * -46.170461e-6 +
+                      t * (4 * 105.56302e-9 + t * 5 * -280.54253e-12)));
+  final beta = b / (1 + b * t) - dn / n;
+  final kappa =
+      (50.88496 +
+          t *
+              (0.6163813 +
+                  t *
+                      (1.459187e-3 +
+                          t *
+                              (20.08438e-6 +
+                                  t * (-58.47727e-9 + t * 410.4110e-12))))) /
+      (1 + 19.67348e-3 * t) *
+      1e-6;
+  return (beta, kappa);
 }
 
 /// 배관 재질: 선팽창계수(1/K)·탄성계수(bar).
+/// 스테인리스 16.5e-6/K(20~100°C: UPMET 316/316L 자료 16.5, Sandmeyer 16.6), 193GPa.
+/// 탄소강 11.7e-6/K, 200GPa.
 enum PipeMaterial { carbon, stainless }
 
-/// 공기 없이 물로 가득 찬 막힌 배관에서 물 온도 1°C당 압력 변화(bar/°C). 축 방향 자유(지상).
-/// dP/dT = (β − 3α) / (κ + D/(t·E)·(5/4 − ν)).
+/// 공기 없이 물로 가득 찬 막힌 배관에서 물 온도 1°C당 압력 변화(bar/°C).
+/// 축 방향 자유(지상): dP/dT = (β − 3α) / (κ + D/(t·E)·(5/4 − ν)), D = 평균 지름.
+/// [restrained] 매설·축 구속: dP/dT = (β − 2α) / (κ + D(1 − ν²)/(E·t)), D = 외경
+/// (API RP 1110·Technical Toolbox 식). 강관 D/t 20에서 약 7%, 두꺼운 튜브는 약 10% 크다.
 double hydroBarPerDegC({
   required double waterC,
   required double odMm,
   required double wallMm,
   PipeMaterial material = PipeMaterial.carbon,
+  bool restrained = false,
 }) {
   final (beta, kappa) = waterProps(waterC);
   final alpha = material == PipeMaterial.carbon ? 11.7e-6 : 16.5e-6;
   final eBar = material == PipeMaterial.carbon ? 2.0e6 : 1.93e6; // 200·193 GPa
   const nu = 0.3;
+  if (restrained) {
+    final flex = wallMm > 0 ? odMm * (1 - nu * nu) / (eBar * wallMm) : 0;
+    return (beta - 2 * alpha) / (kappa + flex);
+  }
   final d = odMm - wallMm; // 평균 지름
   final flex = wallMm > 0 ? d / (wallMm * eBar) * (1.25 - nu) : 0;
   return (beta - 3 * alpha) / (kappa + flex);
@@ -409,6 +463,7 @@ StoredEnergy storedEnergy({
   TestGas gas = TestGas.airN2,
 }) {
   const pa = 101.0; // kPa abs(식 II-2 정의)
+  // Pat = 게이지 + 101.325kPa. PCC-2는 101kPa로 더한다. 에너지가 조금(최대 약 3%) 커서 안전 쪽이라 그대로 둔다.
   final pat = testKpa + kAtmKpa; // kPa abs
   final v = volumeL / 1000; // m³
   final k = gas.k;

@@ -44,7 +44,16 @@ abstract class HoldAlarm {
 
   /// 예약을 취소한다(이미 떠 있는 알림도 지운다).
   Future<void> cancel();
+
+  /// 정확한 알람을 쓸 수 있는지. 안드로이드가 아니거나 알 수 없으면 true(안내 줄을 띄우지 않는다).
+  Future<bool> canExact() async => true;
+
+  /// 폰 설정의 "알람 및 리마인더" 허용 화면을 연다. 돌아와서 허용돼 있으면 true.
+  Future<bool> requestExact() async => true;
 }
+
+/// 정확한 알람이 꺼져 있을 때 타이머 아래에 띄우는 글.
+const String kPtExactOffText = '정확한 알람이 꺼져 있어 알림이 몇 분 늦을 수 있습니다.';
 
 /// 앱의 알림 플러그인으로 예약한다. 모든 호출을 try/catch로 감싼다.
 class PluginHoldAlarm extends HoldAlarm {
@@ -144,6 +153,35 @@ class PluginHoldAlarm extends HoldAlarm {
       await _plugin.cancel(id: kPtHoldNotifId);
     } catch (e) {
       debugPrint('압력 시험 알림 취소 실패: $e');
+    }
+  }
+
+  // 정확한 알람(SCHEDULE_EXACT_ALARM)이 없으면 안드로이드가 inexact로 묶어 보낸다.
+  // 폰 시험(09-26): 14:50:42 예약이 14:56:11에 왔다(약 +7.5분 창). reminder_tools.dart의
+  // canScheduleExactAlarms·requestExactAlarmPermission과 같은 호출(플러그인 21.x)을 여기 둔다.
+  @override
+  Future<bool> canExact() async {
+    if (kIsWeb) return true;
+    try {
+      final a = _android;
+      if (a == null) return true;
+      return await a.canScheduleExactNotifications() ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  @override
+  Future<bool> requestExact() async {
+    if (kIsWeb) return true;
+    try {
+      final a = _android;
+      if (a == null) return true;
+      await a.requestExactAlarmsPermission();
+      return await a.canScheduleExactNotifications() ?? false;
+    } catch (e) {
+      debugPrint('정확한 알람 허용 화면 열기 실패: $e');
+      return false;
     }
   }
 }

@@ -1,4 +1,4 @@
-// 배관 압력시험 기록(폰에만 저장). 시험 정보·유지시간(시작·종료 시각)·측정 기록·압력계·안전밸브·입회자와 판정.
+// 배관 압력시험 기록(폰에만 저장). 시험 정보(튜브면 튜브 규격)·유지시간(시작·종료 시각)·측정 기록·압력계·안전밸브·입회자와 판정.
 // 기록서 PDF는 test_record_pdf.dart, 목록은 test_records_page.dart.
 // 판정은 judgePressureTest 하나로 화면·기록서·CSV가 같이 쓴다. 근거는 docs/압력시험계산기_근거.md.
 library;
@@ -330,6 +330,9 @@ class PtRecord {
   final double? odMm; // 수압 물 온도 영향 계산용(선택)
   final double? wallMm;
   final PipeMaterial material;
+  final String tubeId; // 튜브 규격 번호(tube_rating.dart). 배관·이전 기록은 ''
+  final String tubeSpec; // 튜브 규격 글(기록서·CSV에 그대로)
+  final String tubeMat; // 튜브 재질(TubeMaterial 이름)
 
   const PtRecord({
     required this.id,
@@ -363,6 +366,9 @@ class PtRecord {
     this.odMm,
     this.wallMm,
     this.material = PipeMaterial.carbon,
+    this.tubeId = '',
+    this.tubeSpec = '',
+    this.tubeMat = '',
   });
 
   PtVerdict get verdict => judgePressureTest(
@@ -432,6 +438,9 @@ class PtRecord {
     'od': odMm,
     'wall': wallMm,
     'mat': material.name,
+    'tubeId': tubeId,
+    'tube': tubeSpec,
+    'tubeMat': tubeMat,
   };
 
   /// 칸이 빠지거나 형식이 달라도 읽는다(없는 칸은 기본값).
@@ -480,6 +489,9 @@ class PtRecord {
       odMm: _d(j['od']),
       wallMm: _d(j['wall']),
       material: pick(PipeMaterial.values, j['mat'], PipeMaterial.carbon),
+      tubeId: _s(j['tubeId']),
+      tubeSpec: _s(j['tube']),
+      tubeMat: _s(j['tubeMat']),
     );
   }
 }
@@ -498,6 +510,7 @@ String ptRecordsCsv(List<PtRecord> records) {
     '라인 번호',
     'P&ID·아이소 번호',
     '시험 구간',
+    '튜브 규격',
     '규격',
     '시험 종류',
     '시험유체',
@@ -546,6 +559,7 @@ String ptRecordsCsv(List<PtRecord> records) {
       r.line,
       r.pid,
       r.section,
+      r.tubeSpec,
       ptCodeShort(r.code),
       ptMediumLabel(r.medium),
       ptFluidLabel(r.fluid),
