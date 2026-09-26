@@ -726,7 +726,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "단위 환산",
-                  subtitle: "길이·압력·토크·분수 인치·배관 호칭",
+                  subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
                   icon: AppGlyph.unitConvert,
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -741,7 +741,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "전기 계산기",
-                  subtitle: "전동기 전류·전선 굵기·전압강하·차단기",
+                  subtitle: "부하 전류·전선 굵기·차단기·전압강하·역률 개선",
                   icon: AppGlyph.electric,
                   onTap: () {
                     HapticFeedback.lightImpact();
@@ -756,7 +756,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "압력 시험 계산기",
-                  subtitle: "ASME 시험 압력·압력 강하·공압 안전거리·누설",
+                  subtitle: "ASME 시험압력·압력강하·공압 안전거리·에어 누설",
                   icon: AppGlyph.pressureGauge,
                   onTap: () {
                     HapticFeedback.lightImpact();

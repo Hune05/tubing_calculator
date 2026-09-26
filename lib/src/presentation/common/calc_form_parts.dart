@@ -61,8 +61,9 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
         ),
       ),
     ),
+    // 누르는 칸 36px(아이콘 20px + 둘레 8px): 맨손으로 누르기 쉽게. 장갑 크기(48px)까지는 키우지 않는다.
     child: Padding(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(8),
       child: Icon(Icons.help_outline_rounded, size: 20, color: fc.brand),
     ),
   );
