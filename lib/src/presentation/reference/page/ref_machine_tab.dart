@@ -56,68 +56,82 @@ class RefMachineTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // 2026-09-26 바로잡음: 매뉴얼(MS-13-145)·제조사 자료와 맞지 않던 조작 설명과 TB20D 금형 표를 뺐다.
         refCard(
           title: "2. Swagelok 전동 벤더 (MS-BTB)",
-          subtitle: "벤치탑 전동. 숫자 바퀴로 각도, 토글 스위치로 굽힘 (1/4\"~1-1/4\", 6~30mm)",
+          subtitle: "펜던트로 각도를 넣는 단일 벤딩용",
           icon: Icons.precision_manufacturing,
           iconColor: Colors.orange.shade800,
           children: [
             refButtonGuide(
-              btnName: "벤드 슈 기준선",
-              purpose: "마킹 맞추기",
-              action:
-                  "관이 휘기 시작하는 자리(계산기 마킹)를 벤드 슈의 기준선(reference mark)에 맞춘다. 관 끝이 클램프 암 오른쪽 끝을 지나야 한다.",
+              btnName: "[ANGLE] / [SPRINGBACK]",
+              purpose: "벤딩 각도와 스프링백 보상",
+              action: "목표 각도(예 90)와 스프링백(예 2.5)을 넣는다. 설정에 넣어 둔 스프링백 값과 같게.",
             ),
             refGap(),
             refButtonGuide(
-              btnName: "숫자 바퀴 (thumb wheel)",
-              purpose: "각도 넣기",
-              action:
-                  "넣을 각도(설계각 + 스프링백)를 맞춘다. 스프링백은 한 번 꺾어 재서 차이를 더한다(예: 90을 넣어 86이 나오면 94).",
+              btnName: "토글 클램프",
+              purpose: "튜브 고정",
+              action: "마킹선을 0점에 맞추고 클램프 레버를 끝까지 민다. 덜 물리면 튜브가 밀려 마킹이 어긋난다.",
             ),
             refGap(),
             refButtonGuide(
-              btnName: "토글 스위치",
-              purpose: "꺾기·풀기",
-              action: "스위치로 꺾고, 끝나면 반대로 돌려 관을 뺀다. 풋 페달은 옵션이다.",
-            ),
-            const SizedBox(height: 12),
-            refWarnBox(
-              "슈 반경: 1/4\"·3/8\" R36, 1/2\" R36 또는 R56, 5/8\" R46, 3/4\" R56, 7/8\" R67, 1\" R82, 1-1/4\" R112 (MS-13-145 3쪽). 마킹·넣을 각도는 '전동 벤딩 계산기'에서 장비를 골라 구하십시오.",
+              btnName: "[BEND] 스위치",
+              purpose: "벤딩 실행",
+              action:
+                  "끝날 때까지 꾹 누른다. 손을 떼면 비상 정지. 끝나면 [RETURN]으로 암을 되돌린 뒤 클램프를 푼다.",
             ),
           ],
         ),
         const SizedBox(height: 16),
 
         refCard(
-          title: "3. TRACTO-TECHNIK TUBOBEND TB20D",
-          subtitle: "굽힘 각도만 자동, 이송·회전은 손으로 (강관 Ø20×2mm, 최대 R50)",
+          title: "3. TRACTO-TECHNIK TB20D (NC 벤더)",
+          subtitle: "제어반에 순서를 넣고 풋 페달로 연속 작업",
           icon: LucideIcons.monitorSmartphone,
           iconColor: Colors.indigo,
           children: [
             refButtonGuide(
-              btnName: "각도 미리 넣기",
-              purpose: "벤딩 순서",
+              btnName: "1. 원점 복귀 [HOME]/[REF]",
+              purpose: "영점 잡기 (제일 중요)",
               action:
-                  "각도 8개까지 미리 넣고 차례로 꺾을 수 있다(제조사 자료). '전동 벤딩 계산기'의 넣을 각도를 벤드 순서대로 넣는다.",
+                  "전원을 켜면 먼저 [HOME] 또는 [REF]를 눌러 암을 0°로. 건너뛰면 엉뚱한 각으로 꺾여 충돌한다.",
             ),
             refGap(),
             refButtonGuide(
-              btnName: "이송·회전 (손)",
-              purpose: "관 자리 잡기",
+              btnName: "2. 프로그램 [PROG]",
+              purpose: "벤딩 순서 저장",
               action:
-                  "계산기의 '손 이송' 줄대로 관을 밀어 넣고(밀기) 돌린 뒤(돌리기) 클램프를 물린다. 길이·회전 스토퍼는 옵션이다.",
+                  "새 번호를 열고 Step 1부터 각도와 스프링백(Korr)을 순서대로 ENTER. 계산기 '마킹 가이드'의 벤드 순서와 같게 넣는다.",
             ),
             refGap(),
             refButtonGuide(
-              btnName: "클램프·풋 스위치",
-              purpose: "물리고 꺾기",
-              action: "유압 클램프로 물리고 꺾는다. 굽힘·클램프 풋 스위치는 옵션이다.",
+              btnName: "3. 스토퍼·클램프",
+              purpose: "튜브 자리 잡기",
+              action: "튜브를 넣고 뒤쪽 수동 스토퍼(길이·회전)에 밀착. [CLAMP] 또는 페달 1단으로 물린다.",
+            ),
+            refGap(),
+            refButtonGuide(
+              btnName: "4. [AUTO] + 풋 페달",
+              purpose: "저장한 순서대로 실행",
+              action:
+                  "페달을 끝까지 밟으면 Step 1 각도까지 꺾고 멈춘다. 풀고 다음 마킹까지 밀어 넣고 다시 밟으면 Step 2.",
             ),
             const SizedBox(height: 12),
             refWarnBox(
-              "화면의 지금 순서 번호를 늘 확인하십시오. 순서가 꼬이면 90° 자리에 45°가 들어가 관을 버립니다. 금형별 반경·게인은 공개 자료에 없어, 금형 각인 R과 시험 굽힘 값으로 계산기에 넣으십시오.",
+              "화면의 현재 Step 번호를 늘 확인. 순서가 꼬이면 90° 자리에 45°가 들어가 튜브를 버린다.",
+            ),
+            const SizedBox(height: 12),
+            refSectionTitle("TB20D 권장 금형·연신율 (SUS)"),
+            refTable(
+              headers: const ["규격", "표준 금형 CLR", "권장 연신율"],
+              rows: const [
+                ['1/4" (6.35)', "R15.0", "7.0~8.0"],
+                ['3/8" (9.52)', "R22.5", "11.0~12.5"],
+                ['1/2" (12.7)', "R35.0", "18.0~20.0"],
+                ['3/4" (19.05)', "R50.0", "26.0~28.0"],
+              ],
+              footer:
+                  "※ 금형 CLR이 수동 벤더(R14.3/23.8/38.1)와 다릅니다. 설정의 반경을 이 장비 값으로 바꾸고 마킹하십시오.",
             ),
           ],
         ),

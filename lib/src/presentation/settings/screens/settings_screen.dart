@@ -1,4 +1,3 @@
-import 'package:tubing_calculator/src/presentation/electric_bender/electric_machine_guide.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
@@ -718,9 +717,535 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // 🚀 [전동기 일체형 가이드]
-  // 2026-09-26 바로잡음: 매뉴얼·제조사 자료와 맞지 않던 전동 장비 표를 공용 안내로 바꿈.
-  Widget _buildElectricUnifiedGuide() =>
-      ElectricMachineGuide(swagelok: _benderBrand == "Swagelok");
+  Widget _buildElectricUnifiedGuide() {
+    bool isSwagelok = _benderBrand == "Swagelok";
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade300, width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.precision_manufacturing,
+                color: Colors.orange.shade800,
+                size: 28,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                isSwagelok
+                    ? "Swagelok 전동기 가이드 (MS-BTB)"
+                    : "TRACTO-TECHNIK 전동기 가이드 (TB20D)",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: Colors.orange.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          if (isSwagelok) ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _machineSpecText("모델명 (Type)", "Swagelok MS-BTB Series"),
+                  _machineSpecText("적용 규격", "1/2\" ~ 1-1/4\" (주력: 3/4\", 1\")"),
+                  _machineSpecText("구동 방식", "전자식 제어 펜던트 & 모터 구동"),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "🔧 제어반(Pendant) 조작 매뉴얼",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _guideText(
+              "1. 툴링 세팅",
+              "관경(3/4\" 또는 1\")에 맞는 벤드 슈(Bend Shoe)와 롤러 서포트(Roller Support)를 장착합니다.",
+            ),
+            _guideText(
+              "2. 기기 초기화",
+              "전원 스위치를 켜고 펜던트의 [RETURN] 버튼을 눌러 벤드 슈를 0° 원점 위치로 복귀시킵니다.",
+            ),
+            _guideText(
+              "3. 각도/스프링백",
+              "펜던트의 [ANGLE] 버튼을 눌러 목표 각도를, [SPRINGBACK] 버튼을 눌러 탄성 보정값(SUS 통상 1.5°~3.0°)을 입력합니다.",
+            ),
+            _guideText(
+              "4. 파이프 고정",
+              "파이프를 삽입하고 토글 클램프(Toggle Clamp) 레버를 끝까지 밀어 고정시킵니다.",
+            ),
+            _guideText(
+              "5. 벤딩 실행",
+              "펜던트의 [BEND] 버튼을 누르고 있으면 벤딩이 진행됩니다. 벤딩 후 [RETURN]을 눌러 원위치시킵니다.",
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    color: Colors.red.shade700,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "알루미늄 가이드 롤러에 'Swagelok 전용 윤활유'를 반드시 도포하십시오. 미도포 시 대구경 튜브 찌그러짐(Ovality)이 발생합니다.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.red.shade900,
+                        fontWeight: FontWeight.bold,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "📊 대구경 집중 권장 제원표 (SUS 기준)",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1.2),
+                  1: FlexColumnWidth(1.2),
+                  2: FlexColumnWidth(1),
+                  3: FlexColumnWidth(1),
+                },
+                border: TableBorder.symmetric(
+                  inside: BorderSide(color: Colors.grey.shade200),
+                ),
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: Colors.grey.shade100),
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Text(
+                          "규격 (OD)",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Text(
+                          "표준 R (CLR)",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          "연신율",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade900,
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Text(
+                          "최소물림",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  _buildGuideRow4Col(
+                    "1/2\" (12.7)",
+                    "R 38.1 (1.5\")",
+                    "약 16.5",
+                    "65 mm",
+                  ),
+                  _buildGuideRow4Col(
+                    "3/4\" (19.05)",
+                    "R 76.2 (3.0\")",
+                    "약 32.5",
+                    "85 mm",
+                    isHighlight: true,
+                  ),
+                  _buildGuideRow4Col(
+                    "1\" (25.4)",
+                    "R 101.6 (4.0\")",
+                    "약 43.5",
+                    "110 mm",
+                    isHighlight: true,
+                  ),
+                  _buildGuideRow4Col(
+                    "1-1/4\" (31.75)",
+                    "R 127.0 (5.0\")",
+                    "약 55.0",
+                    "130 mm",
+                  ),
+                ],
+              ),
+            ),
+          ] else ...[
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _machineSpecText("모델명 (Type)", "TUBOBEND TB20D"),
+                  _machineSpecText("일련번호 (Serial)", "286"),
+                  _machineSpecText("제작 연도 (Year)", "2020년"),
+                  _machineSpecText(
+                    "제조사 (Maker)",
+                    "TRACTO-TECHNIK GmbH & Co.KG (독일)",
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "🔧 제어반(HMI) 조작 매뉴얼",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _guideText(
+              "1. 기기 초기화",
+              "전원(Main Switch) 인가 후, 터치패널에서 [HOME] 또는 [RESET] 버튼을 눌러 C축(벤딩 암)을 0° 원점으로 복귀시킵니다.",
+            ),
+            _guideText(
+              "2. 프로그램 입력",
+              "화면의 [PROG] 버튼을 눌러 빈 슬롯을 선택합니다.\n• [ANGLE] 칸에 앱에서 계산된 각도를 입력합니다.\n• [SPRINGBACK] 칸에 재질별 탄성 보정값을 입력하고 [ENTER]로 저장합니다.",
+            ),
+            _guideText(
+              "3. 클램핑 조작",
+              "다이(Die)에 파이프를 삽입하여 최소 물림 길이 이상 확보한 뒤, 제어반의 [CLAMP] 버튼을 눌러 파이프를 고정합니다.",
+            ),
+            _guideText(
+              "4. 벤딩 실행",
+              "[MANUAL] 또는 [AUTO] 모드 선택 후, 풋스위치를 끝까지 밟아 벤딩을 실행합니다. 종료 후 [OPEN]을 눌러 파이프를 분리합니다.",
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "📊 규격별 권장 연신율 표 (SUS 기준)",
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Table(
+                columnWidths: const {
+                  0: FlexColumnWidth(1),
+                  1: FlexColumnWidth(1),
+                  2: FlexColumnWidth(1),
+                },
+                border: TableBorder.symmetric(
+                  inside: BorderSide(color: Colors.grey.shade200),
+                ),
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: Colors.grey.shade100),
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Text(
+                          "규격(OD)",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.all(8),
+                        child: Text(
+                          "표준 금형(CLR)",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: Text(
+                          "권장 연신율",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade900,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  _buildGuideRow3Col(
+                    "1/4\" (6.35)",
+                    "R15.0",
+                    "7.0 ~ 8.0",
+                    Colors.orange.shade900,
+                  ),
+                  _buildGuideRow3Col(
+                    "3/8\" (9.52)",
+                    "R22.5",
+                    "11.0 ~ 12.5",
+                    Colors.orange.shade900,
+                  ),
+                  _buildGuideRow3Col(
+                    "1/2\" (12.7)",
+                    "R35.0",
+                    "18.0 ~ 20.0",
+                    Colors.orange.shade900,
+                  ),
+                  _buildGuideRow3Col(
+                    "25mm",
+                    "R75.0",
+                    "38.0 ~ 42.0",
+                    Colors.orange.shade900,
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          const Divider(height: 40, color: Colors.black12, thickness: 1),
+
+          Row(
+            children: [
+              Icon(Icons.calculate, color: Colors.blueGrey.shade800, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                "📐 연신율(Gain) 산출 공식 및 실무 적용",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  color: Colors.blueGrey.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              children: [
+                const Text(
+                  "이론상 90° 연신율 공식 (Centerline 기준)",
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black54,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Gain = (2 × R) - (1.57 × R) = 0.43 × R",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.blueGrey.shade800,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "⚠️ 위 공식은 '관의 중심선'을 기준으로 한 제조사 이론값입니다. 실제 벤딩 시에는 파이프의 외경(OD)과 두께(WT)에 의해 중립축이 안쪽으로 이동하므로, 파이프가 더 길게 늘어납니다. 반드시 시편을 꺾어 실제 기장을 측정한 뒤 [MAN(수동)] 모드에 실측값을 입력하십시오.",
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.5,
+              color: Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+
+          const Divider(height: 40, color: Colors.black12, thickness: 1),
+
+          Row(
+            children: [
+              Icon(Icons.call_split, color: Colors.orange.shade800, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                "공통 오프셋 (Offset) 벤딩 배수표",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                  color: Colors.orange.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Table(
+              columnWidths: const {
+                0: FlexColumnWidth(1),
+                1: FlexColumnWidth(1.2),
+                2: FlexColumnWidth(1.2),
+              },
+              border: TableBorder.symmetric(
+                inside: BorderSide(color: Colors.grey.shade200),
+              ),
+              children: [
+                TableRow(
+                  decoration: BoxDecoration(color: Colors.grey.shade100),
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text(
+                        "벤딩 각도",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        "마킹 배수 (×)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Text(
+                        "축소량 (×)",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                // 🚀 핵심 5종 오프셋 각도로 축소 (전동기 뷰)
+                _buildOffsetRow("15°", "3.86", "0.13", Colors.orange.shade900),
+                _buildOffsetRow(
+                  "22.5°",
+                  "2.61",
+                  "0.20",
+                  Colors.orange.shade900,
+                ),
+                _buildOffsetRow("30°", "2.00", "0.27", Colors.orange.shade900),
+                _buildOffsetRow("45°", "1.41", "0.41", Colors.orange.shade900),
+                _buildOffsetRow("60°", "1.15", "0.58", Colors.orange.shade900),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "※ 마킹 간격(빗변) = 오프셋 높이 × 마킹 배수\n※ 기장 추가분 = 오프셋 높이 × 축소량",
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.black54,
+              fontWeight: FontWeight.bold,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // 🚀 [수동기 일체형 가이드]
   Widget _buildManualUnifiedGuide() {
@@ -1414,6 +1939,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // --- 공통 박스 디자인 헬퍼 ---
+  Widget _machineSpecText(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black54,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.black87,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _guideText(String title, String desc, {Color color = Colors.black87}) {
     return Padding(
@@ -1430,6 +1986,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  TableRow _buildGuideRow4Col(
+    String col1,
+    String col2,
+    String col3,
+    String col4, {
+    bool isHighlight = false,
+  }) {
+    Color bgColor = isHighlight
+        ? Colors.orange.withValues(alpha: 0.1)
+        : Colors.transparent;
+    return TableRow(
+      decoration: BoxDecoration(color: bgColor),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Text(
+            col1,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.black87,
+              fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Text(
+            col2,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.black87,
+              fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Text(
+            col3,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange.shade900,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          child: Text(
+            col4,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.black87,
+              fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
