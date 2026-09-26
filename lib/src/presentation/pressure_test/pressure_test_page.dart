@@ -1,6 +1,7 @@
 // 압력 시험 계산기(홈 "현장 작업" → 압력 시험 계산기). ASME B31.3(공정 배관)·B31.1(동력 배관),
 // 수압·공압. 탭: 시험 압력(절차·압력계·최고점 높이까지) → 압력 강하(온도 보정·누설률·허용값 판정,
-// 수압은 물 온도 영향) → 공압 안전거리(ASME PCC-2 저장 에너지·출입 통제 거리·질소 용기) → 에어 누설.
+// 수압은 물 온도 영향) → 공압 안전거리(ASME PCC-2 저장 에너지·출입 통제 거리·질소 용기) → 에어 누설
+// → 시험 기록(유지시간 타이머·알림, 측정 기록, 판정, 기록 저장·기록서 PDF: pressure_record_tab.dart).
 // 칸마다 "?" 안내, 결과에 조항 번호. 계산은 pressure_calc.dart. 최종은 해당 규격 원문·절차서로 확인.
 // 넣은 값은 'pressure_test_draft_v1'에 저장해 다음에 열 때 되살린다.
 import 'dart:async';
@@ -12,27 +13,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import 'hold_alarm.dart';
 import 'pressure_calc.dart';
+import 'pressure_units.dart';
+import 'test_record.dart';
+import 'test_record_pdf.dart';
+import 'test_record_sheet.dart';
+import 'test_records_page.dart';
 
-/// 압력 단위와 kPa 환산.
-enum PUnit { bar, mpa, kgfcm2, psi, kpa }
-
-extension on PUnit {
-  String get label => switch (this) {
-    PUnit.bar => 'bar',
-    PUnit.mpa => 'MPa',
-    PUnit.kgfcm2 => 'kgf/cm²',
-    PUnit.psi => 'psi',
-    PUnit.kpa => 'kPa',
-  };
-  double get kpa => switch (this) {
-    PUnit.bar => 100,
-    PUnit.mpa => 1000,
-    PUnit.kgfcm2 => 98.0665,
-    PUnit.psi => 6.894757293168361,
-    PUnit.kpa => 1,
-  };
-}
+part 'pressure_record_tab.dart';
 
 String _fmt(double v, [int d = 2]) {
   var s = v.toStringAsFixed(d);
@@ -51,17 +40,27 @@ String _fmtSig(double v) {
 }
 
 class PressureTestPage extends StatefulWidget {
-  const PressureTestPage({super.key});
+  /// 유지시간 완료 알림(시험에서 가짜로 바꿔 넣는다). 없으면 앱 알림 플러그인.
+  final HoldAlarm? holdAlarm;
+
+  /// 지금 시각(시험에서 바꿔 넣는다). 없으면 DateTime.now.
+  final DateTime Function()? now;
+
+  const PressureTestPage({super.key, this.holdAlarm, this.now});
 
   @override
   State<PressureTestPage> createState() => _PressureTestPageState();
 }
 
 class _PressureTestPageState extends State<PressureTestPage>
-    with SingleTickerProviderStateMixin, CalcFormParts, WidgetsBindingObserver {
+    with
+        SingleTickerProviderStateMixin,
+        CalcFormParts<PressureTestPage>,
+        WidgetsBindingObserver,
+        _PtRecordTab {
   static const _draftKey = 'pressure_test_draft_v1';
 
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this);
 
   PUnit _unit = PUnit.bar;
 
@@ -114,6 +113,7 @@ class _PressureTestPageState extends State<PressureTestPage>
     _allow,
     _sePt,
     _supply,
+    _rAllow,
   ];
 
   Map<String, TextEditingController> get _fields => {
@@ -140,6 +140,7 @@ class _PressureTestPageState extends State<PressureTestPage>
     'supply': _supply,
     'hours': _hours,
     'price': _price,
+    ..._recordFields,
   };
 
   // ─── 임시 저장 ───
@@ -151,21 +152,30 @@ class _PressureTestPageState extends State<PressureTestPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _recordInit();
     _loadDraft();
   }
 
   Future<void> _loadDraft() async {
+    var restored = false;
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(_draftKey);
+      final editing = raw == null ? null : await _draftEditing(raw);
       if (raw != null && mounted && !_touched) {
-        super.setState(() => _applyDraft(raw));
+        super.setState(() {
+          _applyDraft(raw);
+          _rEditing = editing;
+        });
+        restored = true;
       }
     } catch (_) {
       // 읽지 못하면 기본값으로 시작한다.
     } finally {
       _loaded = true;
     }
+    // 진행 중인 시험이면 완료 알림을 다시 예약한다(같은 번호라 한 번만 울린다).
+    if (restored && mounted && _rRunning) await _syncAlarm();
   }
 
   void _applyDraft(String raw) {
@@ -187,6 +197,7 @@ class _PressureTestPageState extends State<PressureTestPage>
         if (v is String) e.value.text = v;
       }
     }
+    _applyRecordDraft(m['record']);
   }
 
   String _draftJson() => jsonEncode({
@@ -198,6 +209,7 @@ class _PressureTestPageState extends State<PressureTestPage>
     'gas': _gas.name,
     'sharp': _sharp,
     'fields': {for (final e in _fields.entries) e.key: e.value.text},
+    'record': _recordDraftJson(),
   });
 
   static Future<void> _write(String json) async {
@@ -239,6 +251,7 @@ class _PressureTestPageState extends State<PressureTestPage>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _saveNow(); // 칸을 버리기 전에 글을 읽어 둔다
+    _recordDispose();
     _tabs.dispose();
     for (final c in _fields.values) {
       c.dispose();
@@ -322,18 +335,60 @@ class _PressureTestPageState extends State<PressureTestPage>
               Tab(key: Key('pt_tab_decay'), text: '압력 강하'),
               Tab(key: Key('pt_tab_energy'), text: '공압 안전거리'),
               Tab(key: Key('pt_tab_leak'), text: '에어 누설'),
+              Tab(key: Key('pt_tab_record'), text: '시험 기록'),
             ],
           ),
         ),
         body: SafeArea(
           child: TabBarView(
             controller: _tabs,
-            children: [_planTab(), _decayTab(), _energyTab(), _leakTab()],
+            children: [
+              _planTab(),
+              _decayTab(),
+              _energyTab(),
+              _leakTab(),
+              _recordTab(),
+            ],
           ),
         ),
       ),
     ),
   );
+
+  /// "시험 압력" 탭 값으로 정한 시험압력·절차(설계압력이 없으면 null). 시험 기록 탭이 쓴다.
+  TestPlan? get _currentPlan {
+    final d = _kpa(_design);
+    if (d == null || d <= 0) return null;
+    return testPlan(
+      code: _code,
+      medium: _medium,
+      designKpa: d,
+      stressRatio: _num(_ratio) ?? 1,
+      actualKpa: _kpa(_actual),
+    );
+  }
+
+  /// 저장한 압력시험 기록을 불러올 때 "시험 압력" 탭 값(규격·시험 종류·단위·설계압력·시험압력)을 되살린다.
+  /// 단위가 바뀌면 다른 탭에 넣어 둔 압력도 새 단위로 환산해 뜻이 바뀌지 않게 한다.
+  void _loadPlanFrom(PtRecord r) {
+    final values = {for (final c in _pressureFields) c: _kpaIn(c, _unit)};
+    _unit = r.unit;
+    for (final e in values.entries) {
+      if (e.value != null) _putKpa(e.key, e.value!);
+    }
+    _code = r.code;
+    _medium = r.medium;
+    if (r.designKpa == null) {
+      _design.clear();
+    } else {
+      _putKpa(_design, r.designKpa!);
+    }
+    if (r.testKpa == null) {
+      _actual.clear();
+    } else {
+      _putKpa(_actual, r.testKpa!);
+    }
+  }
 
   Widget _page(List<Widget> children) => GestureDetector(
     onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
