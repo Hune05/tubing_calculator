@@ -12,16 +12,24 @@ void main() {
       expect(manDaysOf({}), 1.0); // 인원 안 적으면 1명
     });
 
-    test('연차·월차: 0(일을 안 한 날)', () {
+    test('연차·월차: 내 몫(1)만 뺀다. 혼자면 0', () {
       AttendanceCache.byDate = {'2026-09-01': '연차', '2026-09-02': '월차'};
-      expect(manDaysOf({'worker_count': 3, 'dateISO': '2026-09-01'}), 0);
-      expect(manDaysOf({'worker_count': 5, 'dateISO': '2026-09-02'}), 0);
+      expect(manDaysOf({'worker_count': 3, 'dateISO': '2026-09-01'}), 2);
+      expect(manDaysOf({'worker_count': 5, 'dateISO': '2026-09-02'}), 4);
+      expect(manDaysOf({'worker_count': 1, 'dateISO': '2026-09-01'}), 0);
+      expect(manDaysOf({'dateISO': '2026-09-01'}), 0); // 인원 안 적으면 1명(나)
     });
 
-    test('반차: 절반', () {
+    test('반차: 내 몫 0.5만 뺀다', () {
       AttendanceCache.byDate = {'2026-09-01': '반차'};
-      expect(manDaysOf({'worker_count': 2, 'dateISO': '2026-09-01'}), 1.0);
+      expect(manDaysOf({'worker_count': 3, 'dateISO': '2026-09-01'}), 2.5);
       expect(manDaysOf({'worker_count': 1, 'dateISO': '2026-09-01'}), 0.5);
+    });
+
+    test('반반차 0.25, 결근 1을 뺀다', () {
+      AttendanceCache.byDate = {'2026-09-01': '반반차', '2026-09-02': '결근'};
+      expect(manDaysOf({'worker_count': 3, 'dateISO': '2026-09-01'}), 2.75);
+      expect(manDaysOf({'worker_count': 3, 'dateISO': '2026-09-02'}), 2);
     });
 
     test('조퇴·특근: 인원 그대로(그대로 근무일로 친다)', () {
@@ -48,7 +56,7 @@ void main() {
       {'worker_count': 2, 'dateISO': '2026-09-02'},
       {'worker_count': 2, 'dateISO': '2026-09-03'},
     ];
-    expect(totalManDays(reports), 3.0); // 2 + 0 + 1
+    expect(totalManDays(reports), 4.5); // 2 + (2 − 1) + (2 − 0.5): 내 몫만 뺀다
   });
 
   group('formatManDays', () {
@@ -75,10 +83,10 @@ void main() {
   });
 
   group('반반차·결근(2026-09-26 추가)', () {
-    test('공수: 결근 0, 반반차 3/4', () {
+    test('공수: 결근은 내 몫 1, 반반차는 0.25만 뺀다', () {
       AttendanceCache.byDate = {'2026-09-01': '결근', '2026-09-02': '반반차'};
-      expect(manDaysOf({'worker_count': 2, 'dateISO': '2026-09-01'}), 0);
-      expect(manDaysOf({'worker_count': 2, 'dateISO': '2026-09-02'}), 1.5);
+      expect(manDaysOf({'worker_count': 2, 'dateISO': '2026-09-01'}), 1);
+      expect(manDaysOf({'worker_count': 2, 'dateISO': '2026-09-02'}), 1.75);
     });
     test('연차에서 빠지는 일수', () {
       expect(leaveDaysOf('연차'), 1);

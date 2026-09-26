@@ -227,16 +227,23 @@ String attendanceTypeOf(Map<String, dynamic> report) {
   return AttendanceCache.byDate[iso] ?? kAttendanceNormal;
 }
 
-/// 이 보고서 하루의 공수(인·일). 그 날짜에 연차·월차·결근이 잡혀 있으면 0(일을 안 한
-/// 날), 반차면 절반, 반반차면 3/4, 나머지(정상근무·조퇴·특근 또는 근태 기록이 없음)는
-/// 투입 인원 그대로.
+/// 근태 기록은 로그인한 "나"의 것이다. 그래서 보고서 인원(나를 포함한 투입 인원)에서 내 몫만 뺀다.
+/// 연차·월차·결근이면 1, 반차 0.5, 반반차 0.25, 나머지(정상근무·조퇴·특근·기록 없음)는 0.
+double myAbsenceShare(String type) {
+  if (hasNoWorkTime(type)) return 1;
+  if (type == '반차') return 0.5;
+  if (type == '반반차') return 0.25;
+  return 0;
+}
+
+/// 이 보고서 하루의 공수(인·일) = 투입 인원 − 내 근태 몫(0 아래로는 안 내려감).
+/// 2026-09-26 사용자 지적으로 고침: 예전에는 내가 연차면 그날 작업조 전체가 0, 반차면 전체가
+/// 절반이 되어 일한 사람들의 공수가 사라졌다. 이제 3명 중 내가 연차면 2, 반차면 2.5, 반반차면 2.75.
 double manDaysOf(Map<String, dynamic> report) {
   final workers = (report['worker_count'] as num?)?.toInt() ?? 1;
-  final type = attendanceTypeOf(report);
-  if (hasNoWorkTime(type)) return 0;
-  if (type == '반차') return workers * 0.5;
-  if (type == '반반차') return workers * 0.75;
-  return workers.toDouble();
+  final off = myAbsenceShare(attendanceTypeOf(report));
+  final v = workers - off;
+  return v < 0 ? 0 : v;
 }
 
 /// 여러 보고서의 공수 합.

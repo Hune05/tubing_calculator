@@ -451,8 +451,8 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
   return changed;
 }
 
-// 단계별 실제 투입: 작업 일지 일수 / 투입 인원-일(명 x 일). 연차·월차인 날은
-// 공수에서 빼고, 반차는 반만 센다(attendance.dart의 manDaysOf).
+// 단계별 실제 투입: 작업 일지 일수 / 투입 인원-일(명 x 일). 내가 연차·월차인 날은
+// 인원에서 내 몫(1)만 빼고, 반차는 0.5만 뺀다(attendance.dart의 manDaysOf).
 ({int days, double manDays}) phaseWorkStats(
   Map<String, dynamic> log,
   String phaseId,
