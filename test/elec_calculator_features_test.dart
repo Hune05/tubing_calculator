@@ -16,6 +16,8 @@ Future<void> pumpPage(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home: ElectricCalculatorPage()));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('ec_tab_load')));
+  await tester.pumpAndSettle();
 }
 
 String textIn(WidgetTester tester, Key key) {
@@ -339,6 +341,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pumpWidget(const MaterialApp(home: ElectricCalculatorPage()));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ec_tab_load')));
+    await tester.pumpAndSettle();
     expect(fieldText(tester, 'ec_kw'), '11');
     expect(chipOn(tester, 'ec_v_440'), isTrue);
     await openTab(tester, 'ec_tab_cable');
@@ -371,6 +375,8 @@ void main() {
         home: const ElectricCalculatorPage(),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ec_tab_load')));
     await tester.pumpAndSettle();
     await type(tester, 'ec_kw', '37');
     await type(tester, 'ec_conv_val', '120');

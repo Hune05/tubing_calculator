@@ -1,4 +1,4 @@
-// 4-20mA 계산기(홈 "현장 작업" → 4-20mA 계산기). 탭: 환산(mA·%·측정값, NE43 신호 상태, 5점 환산표) →
+// 4-20mA 계산기(홈 "현장 작업" → 4-20mA 계산기). 탭: 4-20mA(mA·%·측정값, NE43 신호 상태, 5점 환산표) →
 // 교정 점검(입력값 대비 측정값·지시값의 스팬 % 오차, 허용오차 판정, 시험점 3·5·11점과 상승·하강 히스테리시스,
 // 온도 센서 값, 조정 전·후, 기록·성적서. "스위치"를 고르면 스위치 시험: 동작점·복귀점·데드밴드, 반복 3회) →
 // 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류) →
@@ -407,17 +407,18 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               fontSize: 15,
             ),
             tabs: const [
-              Tab(key: Key('sg_tab_conv'), text: '환산'),
+              // 2026-09-26 사용자 선택: 열면 바로 교정 점검.
               Tab(key: Key('sg_tab_cal'), text: '교정 점검'),
-              Tab(key: Key('sg_tab_loop'), text: '루프 전압'),
+              Tab(key: Key('sg_tab_conv'), text: '4-20mA'),
               Tab(key: Key('sg_tab_temp'), text: '온도 센서'),
+              Tab(key: Key('sg_tab_loop'), text: '루프 전압'),
             ],
           ),
         ),
         body: SafeArea(
           child: TabBarView(
             controller: _tabs,
-            children: [_convTab(), _calTab(), _loopTab(), _tempTab()],
+            children: [_calTab(), _convTab(), _tempTab(), _loopTab()],
           ),
         ),
       ),
@@ -2465,13 +2466,13 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     ]);
   }
 
-  /// 측정 범위(환산 탭)가 °C이면 그 범위의 5점 표: % · °C · Ω/mV · mA.
+  /// 측정 범위(4-20mA 탭)가 °C이면 그 범위의 5점 표: % · °C · Ω/mV · mA.
   Widget _tempTable(double? cjE) {
     final s = _tSensor;
     final range = _range;
     if (range == null || !isCelsiusUnit(_u)) {
       return Text(
-        '환산 탭의 측정 범위 단위를 °C로 넣으면 그 범위의 5점 표가 여기에 나옵니다.',
+        '4-20mA 탭의 측정 범위 단위를 °C로 넣으면 그 범위의 5점 표가 여기에 나옵니다.',
         key: const Key('st_table_hint'),
         style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.4),
       );

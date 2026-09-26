@@ -13,6 +13,8 @@ Future<void> pumpPage(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home: ElectricCalculatorPage()));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('ec_tab_load')));
+  await tester.pumpAndSettle();
 }
 
 String textIn(WidgetTester tester, Key key) {
@@ -171,6 +173,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('ec_tab_load')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('ec_kw')), '75');
     await tester.pump();
     expect(tester.takeException(), isNull);
@@ -180,10 +184,12 @@ void main() {
       expect(
         tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
         [
+          'ec_tab_basic',
           'ec_tab_load',
           'ec_tab_cable',
           'ec_tab_vd',
           'ec_tab_conduit',
+          'ec_tab_bus',
           'ec_tab_pf',
         ].indexOf(t),
       );

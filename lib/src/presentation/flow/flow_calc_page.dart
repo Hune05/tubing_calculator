@@ -1,4 +1,5 @@
-// 유량 계산(배관·튜브 유속, 압력손실, 차압 유량계). 탭: 유속·관 굵기 → 압력손실 → 차압 유량계.
+// 유량 계산(배관·튜브 유속, 압력손실, 차압 유량계, 유량계 점검). 탭: 유속·관 굵기 → 압력손실 → 차압 유량계
+// → 유량계 점검(명판 측정 범위·출력 방식으로 루프 mA와 지시값 대조, flow_meter_check.dart).
 // 계산은 flow_calc.dart, 숫자 자료(물 성질·거칠기·피팅 3-K 값·권장 유속)와 출처는 flow_data.dart,
 // 근거는 docs/유량계산_근거.md. 튜브 규격은 pressure_test/tube_rating.dart, 배관 외경은
 // unit_converter/unit_defs.dart 표를 그대로 쓴다. 칸마다 "?" 안내.
@@ -13,12 +14,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../instrument/signal_calc.dart';
 import '../pressure_test/tube_rating.dart';
 import '../unit_converter/unit_defs.dart' show kPipeSizes, PipeSize;
 import 'flow_calc.dart';
 import 'flow_data.dart';
+import 'flow_meter_check.dart';
 
 part 'flow_dp_tab.dart';
+part 'flow_meter_check_tab.dart';
 
 /// 유체 종류.
 enum FluidKind { water, air, n2, oil }
@@ -80,10 +84,11 @@ class _FlowCalcPageState extends State<FlowCalcPage>
         SingleTickerProviderStateMixin,
         CalcFormParts<FlowCalcPage>,
         WidgetsBindingObserver,
-        _FlowDpTab {
+        _FlowDpTab,
+        _FlowMeterCheckTab {
   static const _draftKey = 'flow_calc_draft_v1';
 
-  late final TabController _tabs = TabController(length: 3, vsync: this);
+  late final TabController _tabs = TabController(length: 4, vsync: this);
 
   // ─── 유량·유체 ───
   FlowUnit _flowUnit = FlowUnit.lpm;
@@ -128,6 +133,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
     'extraK': _extraK,
     'dz': _dz,
     ..._dpFields,
+    ..._mcFields,
   };
 
   // ─── 임시 저장 ───
@@ -190,6 +196,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
       }
     }
     _applyDpDraft(m['dp']);
+    _applyMcDraft(m['mc']);
     _fixService(_fluid);
   }
 
@@ -207,6 +214,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
     'fits': _fitCount,
     'fields': {for (final e in _fields.entries) e.key: e.value.text},
     'dp': _dpDraftJson(),
+    'mc': _mcDraftJson(),
   });
 
   static Future<void> _write(String json) async {
@@ -401,13 +409,14 @@ class _FlowCalcPageState extends State<FlowCalcPage>
               Tab(key: Key('fl_tab_vel'), text: '유속·관 굵기'),
               Tab(key: Key('fl_tab_dp'), text: '압력손실'),
               Tab(key: Key('fl_tab_meter'), text: '차압 유량계'),
+              Tab(key: Key('fl_tab_check'), text: '유량계 점검'),
             ],
           ),
         ),
         body: SafeArea(
           child: TabBarView(
             controller: _tabs,
-            children: [_velTab(), _lossTab(), _meterTab()],
+            children: [_velTab(), _lossTab(), _meterTab(), _meterCheckTab()],
           ),
         ),
       ),

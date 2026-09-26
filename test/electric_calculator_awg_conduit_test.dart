@@ -15,6 +15,8 @@ Future<void> pumpPage(
   addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home: ElectricCalculatorPage()));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('ec_tab_load')));
+  await tester.pumpAndSettle();
 }
 
 /// 좁은 폰(344×760)·글씨 1.3배.
@@ -33,6 +35,8 @@ Future<void> pumpNarrow(WidgetTester tester) async {
       home: const ElectricCalculatorPage(),
     ),
   );
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('ec_tab_load')));
   await tester.pumpAndSettle();
 }
 
@@ -338,13 +342,13 @@ void main() {
     testWidgets('탭 7개가 모두 열리고 넘치지 않는다', (tester) async {
       await pumpNarrow(tester);
       const tabs = [
+        'ec_tab_basic',
         'ec_tab_load',
         'ec_tab_cable',
         'ec_tab_vd',
         'ec_tab_conduit',
-        'ec_tab_pf',
-        'ec_tab_basic',
         'ec_tab_bus',
+        'ec_tab_pf',
       ];
       for (final t in [...tabs.reversed, ...tabs]) {
         await openTab(tester, t);

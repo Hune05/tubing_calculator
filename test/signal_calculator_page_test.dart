@@ -13,6 +13,8 @@ Future<void> pumpPage(WidgetTester tester) async {
   addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home: SignalCalculatorPage()));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('sg_tab_conv')));
+  await tester.pumpAndSettle();
 }
 
 String textIn(WidgetTester tester, Key key) => tester
@@ -23,6 +25,8 @@ String textIn(WidgetTester tester, Key key) => tester
     .join('\n');
 
 Future<void> openTab(WidgetTester tester, String key) async {
+  await tester.ensureVisible(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
   await tester.tap(find.byKey(Key(key)));
   await tester.pumpAndSettle();
 }
@@ -139,6 +143,8 @@ void main() {
         home: const SignalCalculatorPage(),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sg_tab_conv')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('sg_value')), '12');
     await tester.pump();
@@ -521,6 +527,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: SizedBox()));
     await tester.pumpAndSettle();
     await tester.pumpWidget(const MaterialApp(home: SignalCalculatorPage()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sg_tab_conv')));
     await tester.pumpAndSettle();
     await openTab(tester, 'sg_tab_cal');
     expect(

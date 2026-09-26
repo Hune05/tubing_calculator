@@ -606,8 +606,11 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _pf2.text = _pf.text;
       _checkMode = false;
     });
-    _tabs.animateTo(1);
+    _tabs.animateTo(_kCableTab);
   }
+
+  /// 전선 굵기 탭 위치(탭 순서를 바꾸면 같이 고친다).
+  static const _kCableTab = 2;
 
   // ─────────────── 그리기 ───────────────
 
@@ -639,13 +642,14 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 fontSize: 15,
               ),
               tabs: const [
+                // 2026-09-26 사용자 선택 "자주 쓰는 것 먼저": 기초 계산을 맨 앞, 부스바를 역률 개선 앞으로.
+                Tab(key: Key('ec_tab_basic'), text: '기초 계산'),
                 Tab(key: Key('ec_tab_load'), text: '부하 전류'),
                 Tab(key: Key('ec_tab_cable'), text: '전선 굵기'),
                 Tab(key: Key('ec_tab_vd'), text: '전압강하'),
                 Tab(key: Key('ec_tab_conduit'), text: '전선관'),
-                Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
-                Tab(key: Key('ec_tab_basic'), text: '기초 계산'),
                 Tab(key: Key('ec_tab_bus'), text: '부스바'),
+                Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
               ],
             ),
           ),
@@ -653,13 +657,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             child: TabBarView(
               controller: _tabs,
               children: [
+                _basicTab(),
                 _loadTab(),
                 _cableTab(),
                 _vdTab(),
                 _conduitTab(),
-                _pfTab(),
-                _basicTab(),
                 _busTab(),
+                _pfTab(),
               ],
             ),
           ),

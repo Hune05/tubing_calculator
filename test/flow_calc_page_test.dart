@@ -217,7 +217,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('좁은 폰(344)·글씨 1.3배: 세 탭이 넘치지 않는다', (tester) async {
+  testWidgets('유량계 점검: 차압식 LINEAR 0~100, 12mA, 지시 50 → 불합격·제곱근 안 함', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+    await openTab(tester, 'fl_tab_check');
+    await tapKey(tester, 'mc_out_lin');
+    await type(tester, 'mc_urv', '100');
+    await type(tester, 'mc_dpmax', '25');
+    await type(tester, 'mc_tol', '1');
+    await type(tester, 'mc_ma', '12');
+    var r = textIn(tester, const Key('mc_result'));
+    expect(r, contains('70.71 m³/h'));
+    await type(tester, 'mc_ind', '50');
+    r = textIn(tester, const Key('mc_result'));
+    expect(r, contains('불합격'));
+    expect(r, contains('제곱근을 안 한 값'));
+    expect(r, contains('나와야 할 전류: 8 mA'));
+    final t = textIn(tester, const Key('mc_table'));
+    expect(t, contains('6.25 kPa')); // 유량 50% → 차압 25%
+    expect(t, contains('\n8\n'));
+  });
+
+  testWidgets('유량계 점검: 질량식으로 바꾸면 kg/h, 범위 0~2000에서 16mA → 1500', (
+    tester,
+  ) async {
+    await pumpPage(tester);
+    await openTab(tester, 'fl_tab_check');
+    await tapKey(tester, 'mc_type_coriolis');
+    expect(find.byKey(const Key('mc_dpmax')), findsNothing);
+    await type(tester, 'mc_urv', '2000');
+    await type(tester, 'mc_ma', '16');
+    expect(textIn(tester, const Key('mc_result')), contains('1500 kg/h'));
+    await type(tester, 'mc_ma', '22');
+    expect(textIn(tester, const Key('mc_result')), contains('고장 신호'));
+  });
+
+  testWidgets('좁은 폰(344)·글씨 1.3배: 네 탭이 넘치지 않는다', (tester) async {
     await pumpNarrow(tester);
     await type(tester, 'fv_flow', '50');
     await reveal(tester, find.byKey(const Key('fl_vel_note')));
@@ -251,6 +287,16 @@ void main() {
     await type(tester, 'fm_o_dp', '50');
     await reveal(tester, find.byKey(const Key('fm_orifice_result')));
     expect(textIn(tester, const Key('fm_orifice_result')), contains('적용 범위 밖'));
+    expect(tester.takeException(), isNull);
+
+    await openTab(tester, 'fl_tab_check');
+    await tapKey(tester, 'mc_out_lin');
+    await type(tester, 'mc_urv', '12345.6');
+    await type(tester, 'mc_dpmax', '2500');
+    await type(tester, 'mc_tol', '0.5');
+    await type(tester, 'mc_ma', '12.345');
+    await type(tester, 'mc_ind', '8888.8');
+    await reveal(tester, find.byKey(const Key('mc_table')));
     expect(tester.takeException(), isNull);
   });
 }

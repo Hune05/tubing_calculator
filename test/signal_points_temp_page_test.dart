@@ -12,6 +12,8 @@ Future<void> pumpPage(WidgetTester tester) async {
   addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home: SignalCalculatorPage()));
   await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const Key('sg_tab_conv')));
+  await tester.pumpAndSettle();
 }
 
 String textIn(WidgetTester tester, Key key) => tester
@@ -243,6 +245,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pumpWidget(const MaterialApp(home: SignalCalculatorPage()));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sg_tab_conv')));
+    await tester.pumpAndSettle();
     await openTab(tester, 'sg_tab_cal');
     expect(text(tester, 'sc_label_3'), '하강 50%');
     expect(find.byKey(const Key('sc_label_5')), findsNothing);
@@ -360,6 +364,8 @@ void main() {
         home: const SignalCalculatorPage(),
       ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('sg_tab_conv')));
     await tester.pumpAndSettle();
     await setRange(tester, '1000', '°C');
     await openTab(tester, 'sg_tab_temp');
