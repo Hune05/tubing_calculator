@@ -86,9 +86,14 @@ extension _ConduitTab on _ElectricCalculatorPageState {
     orElse: () => conduitSizes(_cdKind).first,
   );
 
-  Widget _cdRowBox(int i) {
+  /// [total]은 전선 단면적 합(mm²). 줄마다 이 줄이 차지하는 단면적과 합에서의 비율을 보인다.
+  Widget _cdRowBox(int i, double? total) {
     final r = _cdRows[i];
     final sizes = cableSizes(r.kind);
+    final n = _num(r.count);
+    final area = n == null || n <= 0
+        ? null
+        : wireArea(ConduitWire(r.kind, r.size, n.round()));
     return calcBox(
       child: Padding(
         padding: const EdgeInsets.only(bottom: 4),
@@ -196,6 +201,16 @@ extension _ConduitTab on _ElectricCalculatorPageState {
                 const SizedBox(width: 8),
               ],
             ),
+            if (area != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2, bottom: 4),
+                child: Text(
+                  '단면적 ${fmt(area, 1)} mm²'
+                  '${total != null && total > 0 ? ' (합의 ${fmt(area / total * 100, 0)}%)' : ''}',
+                  key: Key('ec_cd_area_$i'),
+                  style: TextStyle(fontSize: 13, color: fc.textSub),
+                ),
+              ),
           ],
         ),
       ),
@@ -207,6 +222,7 @@ extension _ConduitTab on _ElectricCalculatorPageState {
     final negative = wires == null;
     final spec = _cdSpec;
     Widget result;
+    Widget? minBox;
     String? summary;
     var warn = false;
     var basis = <String>[];
@@ -241,14 +257,54 @@ extension _ConduitTab on _ElectricCalculatorPageState {
               ? '한도 ${fmt(limit.pct)}% 초과. ${mine == null ? '표 안에 맞는 규격이 없습니다.' : '${conduitKindLabel(_cdKind)} ${mine.size} 이상으로 선정하십시오.'}'
               : '한도 ${fmt(limit.pct)}% 이내입니다.',
           limit.reason,
-          for (final k in ConduitKind.values)
-            mins[k] == null
-                ? '최소 ${conduitKindLabel(k)}: 표 안에 맞는 규격이 없습니다'
-                : '최소 ${conduitKindLabel(k)}: ${mins[k]!.size} '
-                      '(${fmt(fillPercent(wires, mins[k]!.id), 1)}%)',
           '전선 단면적 합 ${fmt(area, 1)} mm² (외경 기준), 관 내 단면적 ${fmt(conduitArea(spec.id), 1)} mm²',
           ...limit.notes,
         ],
+      );
+      final none = [
+        for (final k in ConduitKind.values)
+          if (mins[k] == null) conduitKindLabel(k),
+      ];
+      minBox = Padding(
+        key: const Key('ec_cd_min'),
+        padding: const EdgeInsets.only(top: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            calcLabel(
+              '종류별 최소 전선관',
+              '점유율 한도 이내인 가장 가는 규격과 그 점유율입니다. '
+                  '누르면 그 전선관 종류·굵기로 바꿔 점유율을 봅니다.',
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final k in ConduitKind.values)
+                  if (mins[k] != null)
+                    calcChip(
+                      'ec_cd_min_${k.name}',
+                      '${conduitKindLabel(k)} ${mins[k]!.size} · '
+                          '${fmt(fillPercent(wires, mins[k]!.id), 1)}%',
+                      _cdKind == k && _cdSize == mins[k]!.size,
+                      () => _set(() {
+                        _cdKind = k;
+                        _cdSize = mins[k]!.size;
+                      }),
+                    ),
+              ],
+            ),
+            if (none.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  '표 안에 맞는 규격이 없습니다: ${none.join(', ')}',
+                  style: TextStyle(fontSize: 13, color: fc.textSub),
+                ),
+              ),
+          ],
+        ),
       );
       summary = [
         '${conduitKindLabel(_cdKind)} ${spec.size} ${fmt(pct, 1)}%',
@@ -258,7 +314,8 @@ extension _ConduitTab on _ElectricCalculatorPageState {
       basis = [
         '점유율 = 전선 단면적 합(π/4 × 외경² × 가닥 수) ÷ 관 내 단면적(π/4 × 내경²)',
         for (final w in wires)
-          '${cableKindLabel(w.kind)} ${sqText(w.size)} 외경 ${fmt(cableOd(w.kind, w.size)!)}mm × ${w.count}가닥',
+          '${cableKindLabel(w.kind)} ${sqText(w.size)} 외경 ${fmt(cableOd(w.kind, w.size)!)}mm × ${w.count}가닥'
+              ' = ${fmt(wireArea(w), 1)} mm²',
         ...fillRuleBasis(_cdRule),
         conduitSource(_cdKind),
         cableOdSource,
@@ -297,12 +354,14 @@ extension _ConduitTab on _ElectricCalculatorPageState {
         child: calcLabel(
           '관에 넣는 전선',
           '관 하나에 넣는 전선을 종류·굵기·가닥 수로 넣습니다. 케이블은 1가닥이 케이블 1본입니다.\n'
-              '괄호 안 외경(mm)은 제조사 카탈로그 값입니다. F-CV는 제조사 중 큰 값, HFIX·IV는 규격 외경 상한입니다.\n'
+              '괄호 안 외경(mm)은 제조사 카탈로그 값입니다. F-CV는 제조사 중 큰 값, HFIX·IV·HIV는 규격 외경 상한입니다.\n'
+              'HIV는 300/500V 기기 배선용(1.5·2.5sq)입니다. F-GV는 0.6/1kV 녹색 접지선입니다.\n'
               'F-CVV-S는 제어용 차폐 케이블(1.5~10sq)입니다.\n'
-              '접지선도 같은 관에 넣으면 한 줄로 더하십시오.',
+              '접지선도 같은 관에 넣으면 한 줄로 더하십시오. 줄 아래에 그 줄의 단면적과 합에서의 비율이 보입니다.',
         ),
       ),
-      for (var i = 0; i < _cdRows.length; i++) _cdRowBox(i),
+      for (var i = 0; i < _cdRows.length; i++)
+        _cdRowBox(i, negative ? null : wiresArea(wires)),
       if (_cdRows.length < _maxRows)
         Align(
           alignment: Alignment.centerLeft,
@@ -337,6 +396,7 @@ extension _ConduitTab on _ElectricCalculatorPageState {
       ),
       const SizedBox(height: 12),
       result,
+      ?minBox,
       if (basis.isNotEmpty) _basis('ec_cd_basis', basis),
     ]);
   }

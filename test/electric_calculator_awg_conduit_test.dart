@@ -232,9 +232,10 @@ void main() {
       expect(r, contains('10.5 %'));
       expect(r, contains('후강 22 (내경 21.9mm)'));
       expect(r, contains('한도 32% 이내입니다.'));
-      expect(r, contains('최소 후강: 16'));
-      expect(r, contains('최소 박강: 19'));
-      expect(r, contains('최소 2종 가요관: 15'));
+      final m = await resultOf(tester, 'ec_cd_min');
+      expect(m, contains('후강 16 · 1'));
+      expect(m, contains('박강 19'));
+      expect(m, contains('2종 가요관 15'));
       expect(textIn(tester, const Key('ec_sum_cd')), contains('후강 22 10.5%'));
       final b = await basisOf(tester, 'ec_cd_basis');
       expect(b, contains('HFIX 450/750V 2.5sq 외경 4.1mm × 3가닥'));
@@ -253,7 +254,7 @@ void main() {
       await tapKey(tester, 'ec_cd_easy');
       r = await resultOf(tester, 'ec_cd_result');
       expect(r, contains('한도 48% 이내입니다.'));
-      expect(r, contains('최소 후강: 22'));
+      expect(await resultOf(tester, 'ec_cd_min'), contains('후강 22 · '));
     });
 
     testWidgets('전선 추가·종류 바꾸기: 굵기가 다르면 48% 스위치가 없다, 케이블 1본은 1.5배', (
@@ -274,7 +275,7 @@ void main() {
       await pickDropdown(tester, 'ec_cd_size_0', '16sq (외경 22)');
       final r = await resultOf(tester, 'ec_cd_result');
       expect(r, contains('1.5배'));
-      expect(r, contains('최소 후강: 36'));
+      expect(await resultOf(tester, 'ec_cd_min'), contains('후강 36 · '));
       await tapKey(tester, 'ec_cd_rule_nec');
       expect(await resultOf(tester, 'ec_cd_result'), contains('53%'));
     });

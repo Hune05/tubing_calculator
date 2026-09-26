@@ -262,10 +262,16 @@ void main() {
     // 내선규정 표 "내 단면적의 32% 및 48%"(eom.co.kr 표7·표8, 설계 자료 표1.10~1.16). 표는 소수점 아래를 버린 값.
     // 후강 104는 표가 내 단면적 8886mm²(宮地電機 표 값)로 계산해 2mm² 작다. 허용 차이: 1mm² 또는 0.1%.
     double tol(int t) => t * 0.001 > 1 ? t * 0.001 : 1;
-    void matchTable(ConduitKind k, List<int> t32, List<int?> t48) {
+    // [extra]: 표에 없고 다른 출처로 넣은 뒤쪽 규격 수(경질 비닐 100).
+    void matchTable(
+      ConduitKind k,
+      List<int> t32,
+      List<int?> t48, {
+      int extra = 0,
+    }) {
       final cs = conduitSizes(k);
-      expect(cs.length, t32.length, reason: '$k 규격 수');
-      for (var i = 0; i < cs.length; i++) {
+      expect(cs.length, t32.length + extra, reason: '$k 규격 수');
+      for (var i = 0; i < t32.length; i++) {
         final a = conduitArea(cs[i].id);
         expect(
           (a * 0.32).floor(),
@@ -305,7 +311,12 @@ void main() {
         ConduitKind.pvc,
         [49, 81, 121, 196, 307, 401, 653, 1127, 1497],
         [73, 122, 182, 295, 461, 602, 980, 1691, 2245],
+        extra: 1,
       );
+      // 100: KS C 8431 외경 114·두께 6.5 → 내경 101(유한 HI-VE 표·대성산업 표).
+      final ve100 = conduitSizes(ConduitKind.pvc).last;
+      expect([ve100.size, ve100.od, ve100.id], [100, 114, 101.0]);
+      expect(ve100.od - 2 * 6.5, ve100.id);
       matchTable(ConduitKind.flex2, [
         21,
         32,
@@ -422,11 +433,14 @@ void main() {
       },
     );
 
-    test('케이블 여러 본은 32%와 알림', () {
+    test('케이블 2본 이상은 관 내 단면적의 1/3, 2본이면 외경 합 × 1.5 참고', () {
       const w = [ConduitWire(CableKind.fcv3, 4, 2)];
       final l = fillLimit(FillRule.naesun, w);
-      expect(l.pct, 32);
-      expect(l.notes.join(), contains('케이블 여러 본'));
+      expect(l.pct, closeTo(33.33, 0.01));
+      expect(l.reason, contains('1/3'));
+      // F-CV 3심 4sq 외경 14.0 → 1.5 × 28 = 42.0mm
+      expect(cablePairSumId(w), closeTo(42.0, 1e-9));
+      expect(l.notes.join(), contains('42.0mm'));
     });
 
     test('NEC 9장 표 1: 1본 53%, 2본 31%, 3본 이상 40%', () {

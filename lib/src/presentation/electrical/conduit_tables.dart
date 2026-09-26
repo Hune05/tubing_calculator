@@ -9,12 +9,15 @@
 //    "후강전선관의 내 단면적의 32% 및 48%"(eom.co.kr 표7·경기남도회·전선관 굵기선정 설계 자료 표1.10)와도 맞다.
 //  · 박강(KS C 8401 = JIS C 8305 C): Panasonic·준우스틸·宮地電機, 32%·48% 표(eom 표8)와 맞다.
 //  · 경질 비닐(KS C 8431 = JIS C 8430 VE): 유한 HI-VE(KS C 8431 표)·宮地電機·kcn·未来工業.
-//    82는 KS 표(89 − 2 × 5.9 = 77.2)와 설계 자료 32% 값(1497mm²)이 맞는 77.2. 100은 내경 출처가 101(KS 표)과
-//    100(kcn)으로 달라 넣지 않았다.
+//    82는 KS 표(89 − 2 × 5.9 = 77.2)와 설계 자료 32% 값(1497mm²)이 맞는 77.2.
+//    100은 JIS C 8430에 없는 KS 호칭이라 KS C 8431 표 두 곳(유한 HI-VE, 대성산업 pvc.or.kr "일반용(VE)·내충격용(Hi-VE)")이
+//    같은 외경 114·두께 6.5·근사 내경 101을 쓴다(2026-09-26 확인). kcn의 100은 외경 111짜리 비KS(통신공사) 관 값이다.
 //  · 2종 금속제 가요(KS C 8422 표3 최소 내경): eom KS C 8422 표·宮地電機(12~76)·설계 자료 표1.12(32% 값).
 //  · 합성수지제 가요(PF·CD, JIS C 8411): hayamihyou 내경, 설계 자료 표1.16(32%·48% 값).
 // 케이블 외경: LS전선 배전 케이블 카탈로그(2017), 대한전선 MV/LV 카탈로그(2025-12), 넥상스(극동) TFR-CV 자료,
 //  KBI 코스모링크 HFIX, 상진전선 CVV-SB, 금화전선·Ganghong 60227 IEC 01 표. 출처끼리 다르면 큰 값(안전 쪽).
+//  HIV(300/500V 60227 KS IEC 07): KC 60227-3 표 9(국가기술표준원 원문)와 LS 카탈로그 64쪽 상한이 같다.
+//  F-GV(0.6/1kV 접지선): LS 카탈로그 62쪽과 넥상스(극동) TFR-GV 0.6/1kV 제품 표(www.nexans.co.kr)가 모든 칸 같다.
 library;
 
 import 'dart:math' as math;
@@ -80,6 +83,7 @@ const Map<ConduitKind, List<ConduitSpec>> _conduits = {
     ConduitSpec(54, 60, 51),
     ConduitSpec(70, 76, 67),
     ConduitSpec(82, 89, 77.2),
+    ConduitSpec(100, 114, 101.0),
   ],
   ConduitKind.flex2: [
     ConduitSpec(10, 13.3, 9.2),
@@ -116,8 +120,8 @@ String conduitSource(ConduitKind k) => switch (k) {
     '박강 내경: KS C 8401(= JIS C 8305 C) 외경 − 2 × 두께. Panasonic·준우스틸·宮地電機 표가 같고, '
         '내선규정 표 "박강전선관의 내 단면적의 32% 및 48%"와 맞습니다.',
   ConduitKind.pvc =>
-    '경질 비닐 내경: KS C 8431(유한 HI-VE 표)·JIS C 8430 VE(宮地電機·未来工業·kcn). 호칭 100은 출처끼리 '
-        '내경이 달라 넣지 않았습니다.',
+    '경질 비닐 내경: KS C 8431(유한 HI-VE 표)·JIS C 8430 VE(宮地電機·未来工業·kcn). 호칭 100은 JIS에 없어 '
+        'KS C 8431 표 두 곳(유한·대성산업)의 외경 114mm, 내경 101mm를 씁니다. 외경 111mm 통신용 관과 다릅니다.',
   ConduitKind.flex2 =>
     '2종 가요관 내경: KS C 8422 표3 최소 내경(eom.co.kr KS 표). 宮地電機 표·설계 자료 32% 값과 맞습니다.',
   ConduitKind.pf =>
@@ -132,6 +136,8 @@ double conduitArea(double id) => math.pi / 4 * id * id;
 enum CableKind {
   hfix,
   iv,
+  hiv,
+  fgv,
   fcv1,
   fcv2,
   fcv3,
@@ -170,6 +176,8 @@ int? cvvsCores(CableKind k) => switch (k) {
 String cableKindLabel(CableKind k) => switch (k) {
   CableKind.hfix => 'HFIX 450/750V',
   CableKind.iv => 'IV 450/750V',
+  CableKind.hiv => 'HIV 300/500V',
+  CableKind.fgv => 'F-GV 접지선',
   CableKind.fcv1 => 'F-CV 단심',
   CableKind.fcv2 => 'F-CV 2심',
   CableKind.fcv3 => 'F-CV 3심',
@@ -177,8 +185,12 @@ String cableKindLabel(CableKind k) => switch (k) {
   _ => 'F-CVV-S ${cvvsCores(k)}심',
 };
 
-/// 절연전선(케이블이 아닌 전선)인지.
-bool isInsulatedWire(CableKind k) => k == CableKind.hfix || k == CableKind.iv;
+/// 절연전선(시스가 없는 전선. 케이블이 아닌 것)인지. F-GV는 0.6/1kV지만 시스 없는 단심 절연전선이다.
+bool isInsulatedWire(CableKind k) =>
+    k == CableKind.hfix ||
+    k == CableKind.iv ||
+    k == CableKind.hiv ||
+    k == CableKind.fgv;
 
 // dart format off
 // F-CVV-S 외경 [1.5, 2.5, 4, 6, 10mm²] (LS 카탈로그 42쪽 = 상진전선 CVV-SB 33쪽, 모든 칸 같음).
@@ -213,6 +225,17 @@ const Map<CableKind, List<double?>> _od = {
   CableKind.iv: [
     3.3, 4.0, 4.6, 5.2, 6.7, 7.8, 9.7, 10.9, 12.8, 14.6, 17.1, 18.8, 20.9,
     23.3, 26.6, null,
+  ],
+  // 300/500V 60227 KS IEC 07(HIV, 90°C, 단선) 외경 상한: KC 60227-3 표 9 = LS 카탈로그 64쪽(1.5 3.2, 2.5 3.9).
+  // 규격에 4sq 이상이 없다. 450/750V HIV(KS C 3328)는 폐지되어 외경표를 한 곳에서만 봐 넣지 않았다.
+  CableKind.hiv: [
+    3.2, 3.9, null, null, null, null, null, null, null, null, null, null, null,
+    null, null, null,
+  ],
+  // 0.6/1kV F-GV(트레이용 접지선, 녹색) 완성품 외경(약): LS 62쪽 = 넥상스 TFR-GV 표.
+  CableKind.fgv: [
+    6.5, 7.0, 8.0, 8.5, 9.5, 10.0, 12.0, 13.0, 14.5, 16.0, 18.5, 20.0, 22.0,
+    25.0, 28.0, 30.0,
   ],
   // 0.6/1kV F-CV 완성품 외경(약): LS·대한전선·넥상스 중 큰 값.
   CableKind.fcv1: [
@@ -261,7 +284,8 @@ double? cableOd(CableKind k, double size) {
 
 const String cableOdSource =
     '외경: F-CV는 LS전선·대한전선·넥상스 카탈로그 중 큰 값, HFIX는 KS C 3341 상한(LS·대한전선·KBI), '
-    'IV는 60227 IEC 01 상한(금화전선·Ganghong), F-CVV-S는 LS전선·상진전선 카탈로그.';
+    'IV는 60227 IEC 01 상한(금화전선·Ganghong), HIV는 60227 KS IEC 07 상한(KC 60227-3·LS전선), '
+    'F-GV는 LS전선·넥상스 카탈로그, F-CVV-S는 LS전선·상진전선 카탈로그.';
 
 // ─────────────── 점유율 ───────────────
 
@@ -272,15 +296,15 @@ class ConduitWire {
   const ConduitWire(this.kind, this.size, this.count);
 }
 
-/// 전선 단면적 합(mm², 외경 기준).
-double wiresArea(List<ConduitWire> wires) {
-  var a = 0.0;
-  for (final w in wires) {
-    final d = cableOd(w.kind, w.size) ?? 0;
-    a += math.pi / 4 * d * d * w.count;
-  }
-  return a;
+/// 한 줄(같은 종류·굵기 n가닥)의 단면적(mm², 외경 기준) = π/4 × 외경² × 가닥 수.
+double wireArea(ConduitWire w) {
+  final d = cableOd(w.kind, w.size) ?? 0;
+  return math.pi / 4 * d * d * w.count;
 }
+
+/// 전선 단면적 합(mm², 외경 기준).
+double wiresArea(List<ConduitWire> wires) =>
+    wires.fold(0.0, (a, w) => a + wireArea(w));
 
 /// 점유율(%).
 double fillPercent(List<ConduitWire> wires, double id) =>
@@ -296,7 +320,8 @@ String fillRuleLabel(FillRule r) => switch (r) {
 const String fillRuleGuide =
     '내선규정: 굵기가 다른 전선을 넣거나 일반 배관이면 32% 이하입니다. 같은 굵기 절연전선만 넣고 굴곡이 적어 '
     '쉽게 인출할 수 있으면 48%까지 됩니다(구 내선규정 2225-5). 케이블 1본은 관 내경이 케이블 외경의 1.5배 이상입니다'
-    '(내선규정 2275-1). 현행 내선규정은 1/3(33%) 이하를 권장합니다. 32%는 이보다 조금 엄격합니다.\n'
+    '(내선규정 2275-1). 케이블 2본 이상은 관 내 단면적의 1/3(33.3%) 이하입니다(현행 내선규정). '
+    '케이블과 절연전선을 같이 넣으면 32%로 계산합니다.\n'
     'NEC: 미국 NEC 9장 표 1. 전선·케이블 1본 53%, 2본 31%, 3본 이상 40%. 다심 케이블 1본은 전선 1본으로 봅니다.';
 
 /// 점유율 한도. [easyPull]은 내선규정 48% 조건(굴곡이 적어 쉽게 인출)을 켰는지.
@@ -341,18 +366,52 @@ FillLimit fillLimit(
       '같은 굵기 절연전선, 굴곡이 적어 쉽게 인출: 48% 이하(구 내선규정 2225-5)',
     );
   }
+  final noWire = wires.every((w) => !isInsulatedWire(w.kind));
+  if (noWire) {
+    // 케이블만 2본 이상: 현행 내선규정 "전선 및 케이블의 피복절연물을 포함한 단면적 합이 관 내 단면적의 1/3을
+    // 넘지 않도록"(KS C IEC/TS 61200-52 521.6 인용). IEC TR 61200-52:2013 521.6 d) 원문(iteh 미리보기)과
+    // 다산에듀(2022-03-28)·한솔(2024-12-17) 답변이 같다.
+    final sumId = cablePairSumId(wires);
+    return FillLimit(
+      kCableGroupPct,
+      '케이블 $total본: 관 내 단면적의 1/3 이하(현행 내선규정, IEC TR 61200-52 521.6)',
+      [
+        if (sumId != null)
+          '참고: 설계 자료 방식(케이블 2본 외경 합 × 1.5)으로는 관 내경 '
+              '${sumId.toStringAsFixed(1)}mm 이상입니다. 관이 길거나 굴곡이 많으면 이 값도 보십시오.',
+      ],
+    );
+  }
   final notes = <String>[
-    if (!allWire) '케이블 여러 본을 한 관에 넣는 규칙은 두 출처로 확인하지 못해 절연전선 기준 32%로 계산했습니다.',
     if (allWire && sameSize && !easyPull)
       '같은 굵기 절연전선이고 굴곡이 적어 쉽게 인출할 수 있으면 48%까지 됩니다(아래 스위치).',
   ];
   return FillLimit(
     32,
-    sameSize && allWire
+    !allWire
+        ? '케이블과 절연전선을 같이 넣음: 32% 이하(구 내선규정 32%와 현행 1/3 중 작은 값)'
+        : sameSize
         ? '절연전선 32% 이하(구 내선규정 2225-5)'
         : '굵기가 다른 전선: 32% 이하(구 내선규정 2225-5)',
     notes,
   );
+}
+
+/// 케이블 2본 이상(절연전선 없이): 관 내 단면적의 1/3.
+const double kCableGroupPct = 100 / 3;
+
+/// 케이블만 딱 2본이면 설계 자료 방식 필요 내경 1.5 × (d1 + d2)(mm), 아니면 null.
+/// 출처: 전선관 굵기선정 설계 자료(m.cafe.daum.net/hyungu2003/EkOG/137, "2개 넣는 경우의 외경은 1개의 2배"),
+/// 電気工事ノウハウ大全集(denkou-nouhau.com, CV-3C 2본 "外径 × 2 × 1.5"). 3본 이상(외접원 2.15·2.54배)은 한 출처뿐이라 쓰지 않는다.
+double? cablePairSumId(List<ConduitWire> wires) {
+  if (wires.any((w) => isInsulatedWire(w.kind))) return null;
+  if (wires.fold<int>(0, (s, w) => s + w.count) != 2) return null;
+  final ds = <double>[
+    for (final w in wires)
+      for (var i = 0; i < w.count; i++) cableOd(w.kind, w.size) ?? 0,
+  ];
+  if (ds.length != 2) return null;
+  return kCableIdFactor * (ds[0] + ds[1]);
 }
 
 /// 48% 스위치를 쓸 수 있는지(같은 종류·같은 굵기 절연전선만).
@@ -370,7 +429,11 @@ List<String> fillRuleBasis(FillRule r) => switch (r) {
     '구 내선규정 2225-5(2016): 굵기가 다른 절연전선은 피복을 포함한 단면적 합이 관 내 단면적의 32% 이하, '
         '관의 굴곡이 적어 쉽게 인출할 수 있으면 같은 굵기 절연전선은 48% 이하(eom.co.kr 금속관공사, 대한전기협회 질의회신).',
     '케이블: 내선규정 2275-1 전선관 내경이 케이블 외경의 1.5배 이상(대한전기협회 질의회신, 전선관 굵기선정 설계 자료).',
-    '현행 내선규정은 1/3 이하를 권장합니다(KS C IEC/TS 61200-52 521.6 인용, 다산에듀·한솔 답변). KEC에는 전선관 점유율 규정이 없습니다.',
+    '현행 내선규정: 전선 및 케이블의 피복을 포함한 단면적 합이 관 내 단면적의 1/3을 넘지 않는 것이 바람직합니다'
+        '(KS C IEC/TS 61200-52 521.6 인용, 다산에듀·한솔 답변, IEC TR 61200-52 521.6 d). 케이블 2본 이상에 씁니다. '
+        '절연전선은 이보다 조금 엄격한 구 내선규정 32%를 씁니다. KEC에는 전선관 점유율 규정이 없습니다.',
+    '케이블 2본은 설계 자료에서 관 내경을 두 케이블 외경 합의 1.5배 이상으로 보기도 합니다(전선관 굵기선정 설계 자료, '
+        '일본 전기공사 해설). 결과에 참고로 보입니다.',
     '구 내선규정은 가는 전선(단선 1.6·2.0mm 등)에 보정계수를 곱했습니다. IEC 굵기로 맞춘 값을 두 출처로 확인하지 못해 넣지 않았습니다.',
     '직각 굴곡은 3개소를 넘지 않게 하고, 관 길이가 30m를 넘으면 풀박스를 두는 것이 바람직합니다(내선규정 금속관공사).',
   ],
