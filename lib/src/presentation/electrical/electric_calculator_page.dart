@@ -624,7 +624,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             title: Text(
-              '전기 계산기',
+              '전기 설계 계산',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             bottom: TabBar(

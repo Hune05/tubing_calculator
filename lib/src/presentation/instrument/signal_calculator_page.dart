@@ -391,7 +391,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            '4-20mA 계산기',
+            '계기 교정',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           bottom: TabBar(

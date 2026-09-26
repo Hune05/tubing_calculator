@@ -479,49 +479,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   },
                 ),
 
-                const SizedBox(height: 32),
-                const Divider(height: 1, color: slate100, thickness: 8),
-                const SizedBox(height: 24),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 8.0,
-                  ),
-                  child: Text(
-                    "현장 작업",
-                    style: TextStyle(
-                      color: slate600,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-
-                // 🚀 [재배치] 사용자 요청으로 "계산기류"를 전부 위쪽에
-                // 모으고, 참고자료(벤딩 실무 가이드)는 맨 아래로 내렸다.
-                // 예전엔 계산기와 QR스캔/리모컨/참고자료가 뒤섞여 있어서
-                // 어디까지가 계산기고 어디부터가 도구/자료인지 한눈에
-                // 안 들어왔다.
-
-                // --- 계산기 3종 ---
-                _buildMenuButton(
-                  context: context,
-                  title: "전선관 벤딩 마킹 계산기",
-                  subtitle: "장비 프로필 설정 · 마킹 뷰어",
-                  icon: AppGlyph.conduitBend,
-                  iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ConduitMainNavigation(),
-                      ),
-                    );
-                  },
-                ),
-
+                // 🚀 [정리] 2026-09-26 사용자 요청: "현장 작업" 한 묶음(13개)을 공종별로 나눔.
+                // 배관·튜브 → 전기 → 계장 → 가공·배치 → 현장 도구 → 자재 관리 → 참고 자료 순.
+                _sectionHeader("배관·튜브"),
                 _buildMenuButton(
                   context: context,
                   title: "벤딩 마킹 계산기",
@@ -538,7 +498,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     );
                   },
                 ),
-
                 _buildMenuButton(
                   context: context,
                   title: "튜브 컷팅 계산기",
@@ -556,7 +515,70 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     );
                   },
                 ),
-
+                _buildMenuButton(
+                  context: context,
+                  title: "압력 시험",
+                  subtitle: "튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서",
+                  icon: AppGlyph.pressureGauge,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PressureTestPage(),
+                      ),
+                    );
+                  },
+                ),
+                _sectionHeader("전기"),
+                _buildMenuButton(
+                  context: context,
+                  title: "전선관 벤딩 마킹 계산기",
+                  subtitle: "장비 프로필 설정 · 마킹 뷰어",
+                  icon: AppGlyph.conduitBend,
+                  iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ConduitMainNavigation(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "전기 설계 계산",
+                  subtitle: "교류·직류 부하 전류·전선 굵기·전선관·부스바",
+                  icon: AppGlyph.electric,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ElectricCalculatorPage(),
+                      ),
+                    );
+                  },
+                ),
+                _sectionHeader("계장"),
+                _buildMenuButton(
+                  context: context,
+                  title: "계기 교정",
+                  subtitle: "4-20mA 환산 · 교정 점검 · 스위치 시험 · 성적서",
+                  icon: AppGlyph.currentLoop,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const SignalCalculatorPage(),
+                      ),
+                    );
+                  },
+                ),
+                _sectionHeader("가공·배치"),
                 _buildMenuButton(
                   context: context,
                   title: "형강 컷팅 (찬넬/앵글)",
@@ -574,12 +596,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     );
                   },
                 ),
-
-                const SizedBox(height: 12),
-                const Divider(height: 1, color: slate100, thickness: 4),
-                const SizedBox(height: 12),
-
-                // --- 작업 도구 (계산기 보조) ---
                 _buildMenuButton(
                   context: context,
                   title: "작업 배치도",
@@ -601,7 +617,67 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     );
                   },
                 ),
-
+                _sectionHeader("현장 도구"),
+                _buildMenuButton(
+                  context: context,
+                  title: "단위 환산",
+                  subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
+                  icon: AppGlyph.unitConvert,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const UnitConverterPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "수평계",
+                  subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
+                  icon: AppGlyph.level,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LevelPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "각도기",
+                  subtitle: "벤딩 각도 재기 · 화면 각도기",
+                  icon: AppGlyph.protractor,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const ProtractorPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "벤딩 리모컨",
+                  subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
+                  icon: AppGlyph.remote,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MobileRemotePage(),
+                      ),
+                    );
+                  },
+                ),
                 _buildMenuButton(
                   context: context,
                   title: "현장 도면 스캔 (QR)",
@@ -678,155 +754,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     }
                   },
                 ),
-                _buildMenuButton(
-                  context: context,
-                  title: "벤딩 리모컨",
-                  subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
-                  icon: AppGlyph.remote,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MobileRemotePage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "수평계",
-                  subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
-                  icon: AppGlyph.level,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LevelPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "각도기",
-                  subtitle: "벤딩 각도 재기 · 화면 각도기",
-                  icon: AppGlyph.protractor,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProtractorPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "단위 환산",
-                  subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
-                  icon: AppGlyph.unitConvert,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const UnitConverterPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "전기 계산기",
-                  subtitle: "교류·직류 부하 전류·전선 굵기·전압강하·부스바·기초 계산",
-                  icon: AppGlyph.electric,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ElectricCalculatorPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "압력 시험 계산기",
-                  subtitle: "ASME 시험압력·압력강하·유지시간 기록·기록서",
-                  icon: AppGlyph.pressureGauge,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const PressureTestPage(),
-                      ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "4-20mA 계산기",
-                  subtitle: "mA 환산·역산·교정 점검·성적서·루프 전압",
-                  icon: AppGlyph.currentLoop,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SignalCalculatorPage(),
-                      ),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 12),
-                const Divider(height: 1, color: slate100, thickness: 4),
-                const SizedBox(height: 12),
-
-                // --- 참고 자료 (맨 아래) ---
-                _buildMenuButton(
-                  context: context,
-                  title: "현장 자료·장비 사용법",
-                  subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
-                  icon: AppGlyph.tubeSpec,
-                  iconColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TubeReferencePage(),
-                      ),
-                    );
-                  },
-                ),
-
-                // 🚀 [되살림] "자재 관리"는 다시 쓰기로 해서 메뉴에 꺼냈다(2026-09-20).
-                // "현장 소통(메시지/일정)"과 "공용 차량 및 장비"는 계속 숨겨 둔다 —
-                // 페이지와 import는 남아 있으니 필요해지면 같은 방식으로 붙이면 된다.
-                const SizedBox(height: 32),
-                const Divider(height: 1, color: slate100, thickness: 8),
-                const SizedBox(height: 24),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 8.0,
-                  ),
-                  child: Text(
-                    "자재 관리",
-                    style: TextStyle(
-                      color: slate600,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
+                _sectionHeader("자재 관리"),
                 _buildMenuButton(
                   context: context,
                   title: "자재 현황",
@@ -863,6 +791,23 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             const MobileInventoryLoginScreen(),
                       ),
                     ).then((_) => _loadLowStock());
+                  },
+                ),
+                _sectionHeader("참고 자료"),
+                _buildMenuButton(
+                  context: context,
+                  title: "현장 자료·장비 사용법",
+                  subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
+                  icon: AppGlyph.tubeSpec,
+                  iconColor: slate900,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TubeReferencePage(),
+                      ),
+                    );
                   },
                 ),
                 // 🚀 [정리] "자재 발주 및 현황"과 "발주 의뢰 내역"은 메뉴에서 뺐다
@@ -1314,6 +1259,28 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       ),
     );
   }
+
+  /// 홈 메뉴 묶음 제목(위에 두꺼운 구분선).
+  Widget _sectionHeader(String title) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const SizedBox(height: 32),
+      const Divider(height: 1, color: slate100, thickness: 8),
+      const SizedBox(height: 24),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+        child: Text(
+          title,
+          key: Key('menu_section_$title'),
+          style: const TextStyle(
+            color: slate600,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    ],
+  );
 
   Widget _buildMenuButton({
     required BuildContext context,

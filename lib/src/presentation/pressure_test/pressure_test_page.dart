@@ -396,7 +396,7 @@ class _PressureTestPageState extends State<PressureTestPage>
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            '압력 시험 계산기',
+            '압력 시험',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           bottom: TabBar(
