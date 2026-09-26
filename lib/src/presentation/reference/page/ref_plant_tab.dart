@@ -18,9 +18,8 @@ class RefPlantTab extends StatelessWidget {
       children: [
         refIntroBadge(
           "화력·원자력 어느 쪽이든 대형 터빈-발전기 옆에 붙는 보조계통은 원리가 "
-          "같습니다. 아래 내용은 일반 교육용 설명이라 특정 발전소의 실제 도면·"
-          "절차서를 확인한 게 아닙니다 — 참고만 하시고, 조작·점검은 반드시 "
-          "해당 발전소 절차서(SOP)를 따라야 합니다.",
+          "같습니다. 아래는 일반적인 원리 설명입니다. 발전소마다 계통이 다르니 "
+          "조작·점검은 반드시 그 발전소 절차서(SOP)를 따르십시오.",
           icon: LucideIcons.factory,
         ),
         const SizedBox(height: 16),
@@ -270,7 +269,7 @@ class RefPlantTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         refExpandCard(
-          title: "말씀하신 것 외에 같이 딸려 다니는 보조계통",
+          title: "같이 딸려 다니는 다른 보조계통",
           subtitle: "여자 계통 · 조속기 · 복수기 진공",
           icon: LucideIcons.plusCircle,
           iconColor: Colors.grey,

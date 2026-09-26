@@ -1,6 +1,5 @@
-// 현장 자료 화면: 전기 기준(KEC) 탭. 이 환경 네트워크 정책이 law.go.kr·
-// kec.kea.kr 접속을 막아 최신 원문을 확인할 수 없어(2026-09-25), 조문
-// 번호·수치 없이 "해마다 다시 확인해야 하는 항목"만 담았다는 걸 확인한다.
+// 현장 자료 화면: 전기 기준(KEC) 탭. KEC는 개정이 들쭉날쭉해(한 해 0~5번)
+// 조문 번호·수치 없이 "개정 때 다시 확인할 항목"만 담았다는 걸 확인한다.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
@@ -30,7 +29,7 @@ void main() {
 
   testWidgets('조문 번호·수치를 지어내지 않았다는 경고가 있다', (tester) async {
     await _openKecTab(tester);
-    expect(find.textContaining('조문 번호나 수치를 넣지 않았습니다'), findsOneWidget);
+    expect(find.textContaining('조문 번호·수치가 없습니다'), findsOneWidget);
   });
 
   testWidgets('검색으로 "접지"를 찾으면 전기 기준(KEC) 탭으로 간다', (tester) async {

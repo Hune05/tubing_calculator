@@ -19,16 +19,24 @@ const Color _white = Color(0xFFFFFFFF);
 const Color _brand = AppColors.brand;
 
 class AttendancePage extends StatefulWidget {
-  const AttendancePage({super.key});
+  /// 오늘 날짜(시험용). 없으면 지금 날짜.
+  final DateTime? today;
+  const AttendancePage({super.key, this.today});
 
   @override
   State<AttendancePage> createState() => _AttendancePageState();
 }
 
 class _AttendancePageState extends State<AttendancePage> {
-  DateTime _viewedMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  late final DateTime _today = dayOnly(widget.today ?? DateTime.now());
+  late DateTime _viewedMonth = DateTime(_today.year, _today.month);
   Map<String, AttendanceRecord> _records = {};
   bool _loading = true;
+
+  // 이번 달을 열면 오늘 줄로 옮긴다(1일부터 보이면 월말엔 한참 내려야 한다).
+  // 근태를 고친 뒤 다시 읽을 때는 옮기지 않는다.
+  final _todayKey = GlobalKey();
+  bool _scrollToToday = true;
 
   @override
   void initState() {
@@ -44,12 +52,20 @@ class _AttendancePageState extends State<AttendancePage> {
       _records = m;
       _loading = false;
     });
+    if (_scrollToToday) {
+      _scrollToToday = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final ctx = _todayKey.currentContext;
+        if (ctx != null) Scrollable.ensureVisible(ctx, alignment: 0.3);
+      });
+    }
   }
 
   void _changeMonth(int delta) {
     setState(
       () => _viewedMonth = DateTime(_viewedMonth.year, _viewedMonth.month + delta),
     );
+    _scrollToToday = true;
     _load();
   }
 
@@ -78,7 +94,7 @@ class _AttendancePageState extends State<AttendancePage> {
       _viewedMonth.month + 1,
       0,
     ).day;
-    final today = dayOnly(DateTime.now());
+    final today = _today;
     final counts = <String, int>{};
     for (final r in _records.values) {
       if (r.type == kAttendanceNormal) continue;
@@ -158,102 +174,106 @@ class _AttendancePageState extends State<AttendancePage> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : ListView.builder(
+                // 한 달이 많아야 31줄이라 한꺼번에 그린다 — 그래야 오늘 줄로
+                // 옮길 수 있다(ListView.builder는 안 보이는 줄을 만들지 않는다).
+                : SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: daysInMonth,
-                    itemBuilder: (context, i) {
-                      final day = DateTime(
-                        _viewedMonth.year,
-                        _viewedMonth.month,
-                        i + 1,
-                      );
-                      final r = _records[dateKey(day)];
-                      final type = r?.type ?? kAttendanceNormal;
-                      final isToday = dayOnly(day) == today;
-                      final weekday = const [
-                        '월',
-                        '화',
-                        '수',
-                        '목',
-                        '금',
-                        '토',
-                        '일',
-                      ][day.weekday - 1];
-                      return InkWell(
-                        onTap: () {
-                          HapticFeedback.selectionClick();
-                          _openDay(day);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 4,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: isToday
-                                ? Border.all(color: _brand, width: 1.4)
-                                : null,
-                          ),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 56,
-                                child: Text(
-                                  "${day.day}일 ($weekday)",
-                                  style: const TextStyle(
-                                    color: _text,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              if (type != kAttendanceNormal)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _brand,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
+                    child: Column(
+                      children: List.generate(daysInMonth, (i) {
+                        final day = DateTime(
+                          _viewedMonth.year,
+                          _viewedMonth.month,
+                          i + 1,
+                        );
+                        final r = _records[dateKey(day)];
+                        final type = r?.type ?? kAttendanceNormal;
+                        final isToday = dayOnly(day) == today;
+                        final weekday = const [
+                          '월',
+                          '화',
+                          '수',
+                          '목',
+                          '금',
+                          '토',
+                          '일',
+                        ][day.weekday - 1];
+                        return InkWell(
+                          key: isToday ? _todayKey : null,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _openDay(day);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 4,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: isToday
+                                  ? Border.all(color: _brand, width: 1.4)
+                                  : null,
+                            ),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 56,
                                   child: Text(
-                                    type,
+                                    "${day.day}일 ($weekday)",
                                     style: const TextStyle(
-                                      color: _white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w800,
+                                      color: _text,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ),
-                              const Spacer(),
-                              if (r?.checkIn != null || r?.checkOut != null)
-                                Text(
-                                  "${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}",
-                                  style: const TextStyle(
-                                    color: _sub,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                const SizedBox(width: 8),
+                                if (type != kAttendanceNormal)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: _brand,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      type,
+                                      style: const TextStyle(
+                                        color: _white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
                                   ),
+                                const Spacer(),
+                                if (r?.checkIn != null || r?.checkOut != null)
+                                  Text(
+                                    "${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}",
+                                    style: const TextStyle(
+                                      color: _sub,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  AppIcons.forward,
+                                  size: 18,
+                                  color: _sub,
                                 ),
-                              const SizedBox(width: 6),
-                              const Icon(
-                                AppIcons.forward,
-                                size: 18,
-                                color: _sub,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      );
-                    },
+                        );
+                      }),
+                    ),
                   ),
           ),
         ],

@@ -45,6 +45,8 @@ class _TubeReferencePageState extends State<TubeReferencePage>
   }
 
   void _jumpTo(int tab) {
+    // 자판을 닫는다 — 그대로 두면 넘어간 탭의 아래 절반을 가린다.
+    FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _searchCtrl.clear();
       _query = '';
@@ -81,7 +83,10 @@ class _TubeReferencePageState extends State<TubeReferencePage>
           indicatorWeight: 3.0,
           labelColor: refTextMain,
           unselectedLabelColor: refTextSub,
-          labelStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          labelStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
           unselectedLabelStyle: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w600,

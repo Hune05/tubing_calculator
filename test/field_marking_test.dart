@@ -265,6 +265,40 @@ void main() {
       expect(errors, isEmpty);
     });
 
+    testWidgets('가로로 돌기 전 세로 폭(344)에서도 넘치지 않는다 — 전체·한 단계 모두', (tester) async {
+      // 현장 탭을 열면 가로로 돌기 전에 세로 폭으로 한 번 그려진다(폰 오류 기록
+      // "123 pixels on the right", 2026-09-26). 경고 칩까지 있는 가장 넓은 경우로 본다.
+      final data = FieldMarkingData(
+        totalCut: 61600,
+        marks: sample().marks,
+        warnings: const ['3번 구간: 곧은 부분이 -10mm입니다.'],
+      );
+      const portrait = Size(344, 882);
+      final errors = await pumpScreen(tester, data, size: portrait);
+      expect(errors, isEmpty);
+
+      final old = FlutterError.onError;
+      FlutterError.onError = (d) => errors.add(d.exceptionAsString());
+      await tester.ensureVisible(find.byKey(const Key('field_mode_toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('field_mode_toggle')));
+      await tester.pumpAndSettle();
+      FlutterError.onError = old;
+      expect(errors, isEmpty);
+      expect(find.text('1 / 3'), findsOneWidget); // 한 단계 화면으로 넘어갔다
+
+      // 닫기 단추는 밀어서라도 닿는다.
+      await tester.dragUntilVisible(
+        find.byKey(const Key('field_close')),
+        find.byKey(const Key('field_top_bar_scroll')),
+        const Offset(-200, 0),
+      );
+      expect(
+        find.byKey(const Key('field_close')).hitTestable(),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('볼륨 단추: 한 단계씩 화면에서만 가로채고, 본체가 넘긴 올림에 다음으로', (tester) async {
       const channel = MethodChannel('field/volume_keys');
       final captures = <bool>[];

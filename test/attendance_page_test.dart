@@ -14,7 +14,10 @@ Future<void> _mount(WidgetTester tester) async {
   tester.view.physicalSize = const Size(412, 1600);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(const MaterialApp(home: AttendancePage()));
+  // 오늘을 1일로 고정한다(오늘 줄로 옮겨도 1일이 화면에 남고, 날짜에 따라 결과가 바뀌지 않게).
+  await tester.pumpWidget(
+    MaterialApp(home: AttendancePage(today: DateTime(2026, 9, 1))),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -28,8 +31,7 @@ void main() {
   testWidgets('달 머리와 날짜 줄이 보인다', (tester) async {
     await _mount(tester);
     expect(findText("근태 관리"), findsOneWidget);
-    final now = DateTime.now();
-    expect(findTextContaining("${now.year}년 ${now.month}월"), findsOneWidget);
+    expect(findTextContaining("2026년 9월"), findsOneWidget);
     expect(find.textContaining("일 ("), findsWidgets);
   });
 
@@ -63,5 +65,24 @@ void main() {
 
     // 시트가 닫혀 근태 칩(6종)이 더는 안 보인다.
     expect(find.text('월차'), findsNothing);
+  });
+
+  testWidgets('이번 달을 열면 1일이 아니라 오늘 줄이 보인다', (tester) async {
+    // 폰 크기(세로 800): 1일부터 그리면 26일은 화면 밖이다.
+    tester.view.physicalSize = const Size(412, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(home: AttendancePage(today: DateTime(2026, 9, 26))),
+    );
+    await tester.pumpAndSettle();
+
+    bool onScreen(String label) {
+      final r = tester.getRect(find.text(label));
+      return r.top >= 0 && r.bottom <= 800;
+    }
+
+    expect(onScreen('26일 (토)'), isTrue);
+    expect(onScreen('1일 (화)'), isFalse);
   });
 }

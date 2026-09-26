@@ -313,7 +313,7 @@ class RefConduitTab extends StatelessWidget {
 
         refCard(
           title: "10. 유볼트(U밴드) 고르는 법",
-          subtitle: "정확한 로드 지름·규격 표는 카탈로그마다 달라 넣지 않았습니다",
+          subtitle: "로드 지름·나사 규격은 제조사 카탈로그를 보십시오",
           icon: LucideIcons.anchor,
           iconColor: Colors.deepOrange,
           children: [
@@ -327,8 +327,7 @@ class RefConduitTab extends StatelessWidget {
             ),
             refStep(
               3,
-              "로드(볼트) 지름·나사 규격까지는 제조사마다 달라 이 화면에 표로 넣지 않았습니다 — 쓰시는 유볼트 "
-              "카탈로그를 알려주시면 그 규격으로 표를 만들겠습니다.",
+              "로드(볼트) 지름·나사 규격은 제조사마다 다릅니다 — 쓰시는 유볼트 카탈로그를 보십시오.",
             ),
           ],
         ),

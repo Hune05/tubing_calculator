@@ -77,9 +77,12 @@ void main() {
     // 형강 탭에만 있는 "H형강 이론 중량표"로 찾는다.
     await tester.enterText(find.byType(TextField), 'H형강');
     await tester.pumpAndSettle();
+    expect(tester.testTextInput.isVisible, isTrue);
     await tester.tap(find.textContaining('H형강 이론 중량표'));
     await tester.pumpAndSettle();
 
+    // 자판이 닫힌다(남아 있으면 넘어간 탭 아래 절반을 가린다).
+    expect(tester.testTextInput.isVisible, isFalse);
     // 검색창이 비어 다시 탭 화면(TabBarView)으로 돌아온다.
     expect(find.byType(TabBarView), findsOneWidget);
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));

@@ -168,7 +168,7 @@ const List<RefSearchEntry> refSearchIndex = [
   ]),
   RefSearchEntry(6, '밸브 스테이션 — 밸브를 왜 한 곳에 모아두나', ['valve station']),
   RefSearchEntry(6, '전체 흐름 한눈에 보기', ['원자로', '보일러', '터빈', '복수기']),
-  RefSearchEntry(6, '말씀하신 것 외에 같이 딸려 다니는 보조계통', [
+  RefSearchEntry(6, '같이 딸려 다니는 다른 보조계통', [
     '여자계통',
     'excitation',
     '조속기',
@@ -194,6 +194,5 @@ const List<RefSearchEntry> refSearchIndex = [
     'ev충전',
     '신재생',
     'ess',
-    '분전반',
   ]),
 ];

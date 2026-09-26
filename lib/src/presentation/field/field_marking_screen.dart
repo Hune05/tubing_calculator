@@ -386,7 +386,24 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     );
   }
 
+  /// 위쪽 막대. 폭이 넉넉하면 화면 폭에 맞추고(예전과 같음), 모자라면 막대 길이만큼
+  /// 그대로 두고 옆으로 밀어 본다. 현장 탭을 열면 가로로 돌기 전에 세로 폭(폰 344)으로
+  /// 한 번 그려지는데, 그때 넘쳐 오류 기록이 남았다(2026-09-26 폰). 좁은 창에서도
+  /// 닫기 단추까지 닿는다.
   Widget _buildTopBar(FieldMarkingData data, List<FieldStep> steps) {
+    return LayoutBuilder(
+      builder: (context, c) => SingleChildScrollView(
+        key: const Key('field_top_bar_scroll'),
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: c.maxWidth),
+          child: IntrinsicWidth(child: _topBarContent(data, steps)),
+        ),
+      ),
+    );
+  }
+
+  Widget _topBarContent(FieldMarkingData data, List<FieldStep> steps) {
     final int doneCount = _done.length;
     return Container(
       height: 56,
@@ -458,13 +475,17 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: steps.isEmpty ? 0 : doneCount / steps.length,
-                        minHeight: 4,
-                        backgroundColor: _line,
-                        color: _teal,
+                    // 넓으면 남는 폭을 다 쓰고, 좁은 폭(밀어 보기)에서도 60쯤은 보이게.
+                    child: SizedBox(
+                      width: 60,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: steps.isEmpty ? 0 : doneCount / steps.length,
+                          minHeight: 4,
+                          backgroundColor: _line,
+                          color: _teal,
+                        ),
                       ),
                     ),
                   ),
@@ -472,7 +493,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ),
             )
           else
-            const Spacer(),
+            // Spacer와 같지만 좁은 폭(밀어 보기)에서 여유 16을 둔다 — 경고 칩이
+            // 스스로 셈한 폭이 실제보다 2px 작아, 딱 맞추면 넘친다.
+            const Expanded(child: SizedBox(width: 16)),
           const SizedBox(width: 12),
           // 🚀 [바꿈] 앱 아래 탭과 같은 모양: 아이콘 + 짧은 이름, 테두리 없음.
           // 켜진 것만 청록 바탕을 옅게 깐다. 보기(누적·간격·햇빛)와

@@ -45,7 +45,7 @@ void main() {
     final title = find.textContaining('유볼트(U밴드) 고르는 법');
     await _scrollTo(tester, title);
     expect(title, findsOneWidget);
-    expect(find.textContaining('카탈로그마다 달라'), findsOneWidget);
+    expect(find.textContaining('제조사 카탈로그를 보십시오'), findsOneWidget);
   });
 
   testWidgets('탭 드릴 표에 M8·M10 지름이 있다', (tester) async {
