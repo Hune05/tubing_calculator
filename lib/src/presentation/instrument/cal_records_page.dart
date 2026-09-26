@@ -114,7 +114,7 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            '저장한 교정 기록',
+            '교정 기록',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           actions: [

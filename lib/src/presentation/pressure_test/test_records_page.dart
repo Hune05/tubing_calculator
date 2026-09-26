@@ -103,7 +103,7 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            '저장한 압력시험 기록',
+            '압력 시험 기록',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           actions: [
