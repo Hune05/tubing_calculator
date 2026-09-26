@@ -157,6 +157,9 @@ enum AppGlyph {
 
   /// 전기 계산기: 번개.
   electric,
+
+  /// 압력 시험 계산기: 압력계(둥근 눈금 + 바늘 + 아래 연결구).
+  pressureGauge,
 }
 
 /// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
@@ -974,6 +977,24 @@ class _AppIconPainter extends CustomPainter {
         l(9, 6, 9, 18);
         l(15, 6, 15, 18);
         canvas.drawCircle(const Offset(12, 12), 2.2, fill);
+
+      case AppGlyph.pressureGauge:
+        const gc = Offset(12, 10.5);
+        canvas.drawCircle(gc, 8, soft);
+        canvas.drawCircle(gc, 8, line);
+        for (final deg in [210.0, 150.0, 90.0, 30.0, -30.0]) {
+          final t = deg * math.pi / 180;
+          l(
+            12 + math.cos(t) * 8,
+            10.5 - math.sin(t) * 8,
+            12 + math.cos(t) * 6.3,
+            10.5 - math.sin(t) * 6.3,
+          );
+        }
+        l(12, 10.5, 16.2, 6.6);
+        canvas.drawCircle(gc, 1.2, fill);
+        l(12, 18.5, 12, 22);
+        l(9.5, 22, 14.5, 22);
 
       case AppGlyph.electric:
         final bolt = Path()

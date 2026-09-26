@@ -2,8 +2,7 @@
 //
 // NEC Table 430.250(삼상 유도전동기): NECA·1999 NEC·NEC 2014 세 사본이 모든 칸 같음.
 //   NEC 430.6(A)(1): 전선·차단기는 명판이 아니라 이 표 값으로 고른다(저속·다속 전동기 예외).
-// IE3 4극 60Hz 380V: WEG W22 중남미 카탈로그(Cod 50024297 Rev14) 표 — 한 제조사 예시일 뿐,
-//   실제 전동기는 명판 값을 쓴다.
+// IE3 4극 60Hz 380V·440V: HD현대일렉트릭 카탈로그(2022-03) — 제조사 예시일 뿐, 실제 전동기는 명판 값.
 library;
 
 typedef NecMotorRow = ({String hp, double hpValue, double a230, double a460});
@@ -41,35 +40,35 @@ NecMotorRow? necRow(double hp) {
   return null;
 }
 
-typedef Ie3Row = ({double kw, double eff, double pf, double amps});
+typedef Ie3Row = ({double kw, double eff, double pf, double a380, double a440});
 
-/// WEG W22 IE3 4극 60Hz 380V(효율·역률은 100% 부하).
-const List<Ie3Row> kIe3At380V60Hz = [
-  (kw: 0.75, eff: 85.5, pf: 0.79, amps: 1.69),
-  (kw: 1.5, eff: 86.5, pf: 0.80, amps: 3.29),
-  (kw: 2.2, eff: 89.5, pf: 0.79, amps: 4.72),
-  (kw: 3.7, eff: 89.5, pf: 0.80, amps: 7.85),
-  (kw: 5.5, eff: 91.7, pf: 0.82, amps: 11.1),
-  (kw: 7.5, eff: 92.0, pf: 0.84, amps: 14.7),
-  (kw: 11, eff: 92.7, pf: 0.81, amps: 22.2),
-  (kw: 15, eff: 93.4, pf: 0.82, amps: 29.8),
-  (kw: 18.5, eff: 93.8, pf: 0.81, amps: 36.9),
-  (kw: 22, eff: 94.0, pf: 0.81, amps: 43.9),
-  (kw: 30, eff: 94.4, pf: 0.84, amps: 57.4),
-  (kw: 37, eff: 94.6, pf: 0.84, amps: 70.7),
-  (kw: 45, eff: 95.1, pf: 0.85, amps: 84.5),
-  (kw: 55, eff: 95.4, pf: 0.87, amps: 101),
-  (kw: 75, eff: 95.5, pf: 0.85, amps: 140),
-  (kw: 90, eff: 95.6, pf: 0.86, amps: 167),
-  (kw: 110, eff: 95.8, pf: 0.86, amps: 203),
-  (kw: 132, eff: 96.2, pf: 0.86, amps: 243),
-  (kw: 150, eff: 96.2, pf: 0.86, amps: 276),
-  (kw: 185, eff: 96.3, pf: 0.87, amps: 336),
-  (kw: 200, eff: 96.3, pf: 0.86, amps: 367),
+/// HD현대일렉트릭 저압 유도전동기 카탈로그(2022-03, TEFC SSEN, KS C 4202 프리미엄·IE3) 4극 60Hz.
+/// 효율은 100% 부하, 역률은 정격. 0.75~132kW는 WEG W22 60Hz와 1~4% 안에서 맞고, 160·200kW는 이 카탈로그뿐.
+const List<Ie3Row> kIe3Hd60Hz = [
+  (kw: 0.75, eff: 83.5, pf: 0.780, a380: 1.75, a440: 1.51),
+  (kw: 1.5, eff: 86.5, pf: 0.810, a380: 3.25, a440: 2.81),
+  (kw: 2.2, eff: 89.5, pf: 0.790, a380: 4.73, a440: 4.08),
+  (kw: 3.7, eff: 89.5, pf: 0.800, a380: 7.85, a440: 6.78),
+  (kw: 5.5, eff: 91.7, pf: 0.770, a380: 11.83, a440: 10.22),
+  (kw: 7.5, eff: 91.7, pf: 0.790, a380: 15.73, a440: 13.58),
+  (kw: 11, eff: 92.4, pf: 0.814, a380: 22.2, a440: 19.2),
+  (kw: 15, eff: 93.0, pf: 0.815, a380: 30.1, a440: 26.0),
+  (kw: 18.5, eff: 93.6, pf: 0.820, a380: 36.6, a440: 31.6),
+  (kw: 22, eff: 93.6, pf: 0.820, a380: 43.6, a440: 37.6),
+  (kw: 30, eff: 94.1, pf: 0.820, a380: 59.1, a440: 51.0),
+  (kw: 37, eff: 94.5, pf: 0.850, a380: 70.0, a440: 60.4),
+  (kw: 45, eff: 95.0, pf: 0.850, a380: 84.7, a440: 73.1),
+  (kw: 55, eff: 95.4, pf: 0.850, a380: 103.1, a440: 89.0),
+  (kw: 75, eff: 95.4, pf: 0.865, a380: 138.1, a440: 119.3),
+  (kw: 90, eff: 95.4, pf: 0.865, a380: 165.7, a440: 143.1),
+  (kw: 110, eff: 95.8, pf: 0.880, a380: 198.2, a440: 171.2),
+  (kw: 132, eff: 95.8, pf: 0.880, a380: 237.9, a440: 205.5),
+  (kw: 160, eff: 96.2, pf: 0.880, a380: 287.2, a440: 248.0),
+  (kw: 200, eff: 96.2, pf: 0.885, a380: 356.9, a440: 308.2),
 ];
 
 Ie3Row? ie3Row(double kw) {
-  for (final r in kIe3At380V60Hz) {
+  for (final r in kIe3Hd60Hz) {
     if ((r.kw - kw).abs() < 1e-6) return r;
   }
   return null;

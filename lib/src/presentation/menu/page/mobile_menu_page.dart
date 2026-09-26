@@ -54,6 +54,7 @@ import 'package:tubing_calculator/src/presentation/field_tools/level_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/protractor_page.dart';
 import 'package:tubing_calculator/src/presentation/unit_converter/unit_converter_page.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
+import 'package:tubing_calculator/src/presentation/pressure_test/pressure_test_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
 const Color tossBlue = AppColors.brand;
@@ -747,6 +748,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ElectricCalculatorPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "압력 시험 계산기",
+                  subtitle: "ASME 시험 압력·압력 강하·공압 안전거리·누설",
+                  icon: AppGlyph.pressureGauge,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PressureTestPage(),
                       ),
                     );
                   },

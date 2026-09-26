@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/field_view.dart';
+import '../common/calc_form_parts.dart';
 import 'elec_calc.dart';
 import 'elec_tables.dart';
 import 'motor_tables.dart';
@@ -90,7 +91,7 @@ class ElectricCalculatorPage extends StatefulWidget {
 }
 
 class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, CalcFormParts {
   late final TabController _tabs = TabController(length: 4, vsync: this);
 
   // 공통
@@ -161,7 +162,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     );
   }
 
-  /// 표 값 참고 줄: 440·480V·230V HP면 NEC 430.250, 380V 삼상 kW면 IE3 전동기 예시.
+  /// 표 값 참고 줄: 440·480V·230V HP면 NEC 430.250, 380·440V 삼상 kW면 IE3 전동기 예시.
   String? _tableHint() {
     final p = _num(_kw);
     if (p == null || _phase != Phase.three) return null;
@@ -176,10 +177,11 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       }
       return null;
     }
-    if (_volts == 380) {
+    if (_volts == 380 || _volts == 440) {
       final r = ie3Row(p);
       if (r == null) return null;
-      return 'IE3 4극 60Hz 380V 전동기 예 ${fmt(r.amps)} A (효율 ${fmt(r.eff)}%, 역률 ${fmt(r.pf * 100)}% — WEG W22 카탈로그)';
+      final a = _volts == 380 ? r.a380 : r.a440;
+      return 'IE3 4극 60Hz ${_volts.toInt()}V 전동기 예 ${fmt(a, 2)} A (효율 ${fmt(r.eff)}%, 역률 ${fmt(r.pf * 100)}% — HD현대일렉트릭 카탈로그)';
     }
     return null;
   }
@@ -256,39 +258,40 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final i = _loadCurrent;
     return _page([
       _voltsPhase(),
-      _field(
+      calcField(
         'ec_kw',
         _hp ? '출력 (HP)' : '출력 (kW)',
         _kw,
         '전동기 명판의 정격 출력(축 출력)입니다. 히터·일반 부하는 소비 전력을 넣으십시오.\n'
             '미국식 명판(HP)이면 오른쪽 단추로 HP를 고르십시오.',
-        trailing: _toggle(
+        trailing: calcToggle(
           'ec_hp',
           _hp ? 'HP' : 'kW',
           () => setState(() => _hp = !_hp),
         ),
       ),
-      _field(
+      calcField(
         'ec_eff',
         '효율 (%)',
         _eff,
         '명판의 효율(EFF, η)입니다. 모르면 90으로 두십시오. 히터처럼 전부 열로 쓰는 부하는 100입니다.',
       ),
-      _field(
+      calcField(
         'ec_pf',
         '역률 (%)',
         _pf,
         '명판의 역률(P.F., cosφ)입니다. 모르면 85로 두십시오. 히터는 100입니다.',
       ),
-      _switchRow(
+      calcSwitch(
         '전동기 (전선 고를 때 1.25배)',
         _motor,
         (v) => setState(() => _motor = v),
         '연속 운전 전동기는 정격전류의 1.25배로 전선을 고르는 것이 관례입니다(NEC 430.22, 예전 내선규정). '
             'KEC에는 이 배수가 없으니 설계 기준을 따르십시오.',
+        key: 'ec_motor',
       ),
       const SizedBox(height: 12),
-      _result(
+      calcResult(
         key: const Key('ec_load_result'),
         big: i == null ? '— A' : '${fmt(i, 1)} A',
         caption: '정격 전류(계산 값)',
@@ -339,14 +342,14 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final ground = isGround(_method);
     return _page([
       _voltsPhase(),
-      _field(
+      calcField(
         'ec_ib',
         '부하 전류 (A)',
         _ib,
         '이 회로에 실제로 흐르는 전류입니다. 명판 전류나 "부하 전류" 탭의 결과를 넣으십시오. '
             '전동기 여유는 아래 스위치로 넣습니다.',
       ),
-      _switchRow(
+      calcSwitch(
         '전동기 (차단기·허용전류 ×1.25)',
         _cableMotor,
         (v) => setState(() => _cableMotor = v),
@@ -354,7 +357,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             '전압강하는 실제 전류로 셉니다.',
         key: 'ec_cable_motor',
       ),
-      _dropdown<WireKind>(
+      calcDropdown<WireKind>(
         'ec_kind',
         '전선 종류',
         _kind,
@@ -373,7 +376,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             'IV·PVC 전선: 도체 70°C. 전선 표시를 모르면 이것으로 셈하면 안전합니다.\n'
             '제어반 내부 배선: 반 안 배선 덕트·배선에 IEC 60204-1 표 6(PVC, 반 안 40°C)으로 셉니다. 0.75sq부터.',
       ),
-      _dropdown<InstallMethod>(
+      calcDropdown<InstallMethod>(
         'ec_method',
         '공사 방법',
         _method,
@@ -384,7 +387,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             '· 구멍 트레이·사다리(E): 케이블 트레이 위\n· 벽에 직접(C): 새들로 벽·구조물에 고정\n'
             '· 전선관·덕트 속(B1·B2)\n· 땅속 관로(D1)·직매(D2)',
       ),
-      _field(
+      calcField(
         'ec_ambient',
         ground ? '땅 온도 (°C)' : '주위 온도 (°C)',
         _ambient,
@@ -392,25 +395,25 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             ? '케이블이 묻힌 땅의 온도입니다. 모르면 20으로 두십시오(표 기준).'
             : '케이블 둘레 공기 온도입니다. 표 기준은 30°C입니다. 보일러·터빈 건물처럼 더운 곳은 40~50을 넣으십시오.',
       ),
-      _field(
+      calcField(
         'ec_circuits',
         ground ? '같은 관로·도랑의 회로 수' : '같이 놓인 회로 수',
         _circuits,
         '같은 트레이 한 줄·같은 관·같은 묶음에 나란히 있는 회로(케이블) 수입니다. 많을수록 열이 빠지지 않아 허용전류가 줄어듭니다.',
       ),
-      _field(
+      calcField(
         'ec_length',
         '편도 길이 (m)',
         _length,
         '전원(분전반·MCC)에서 부하까지 케이블 한 가닥 길이입니다. 왕복이 아닙니다.',
       ),
-      _field(
+      calcField(
         'ec_pf2',
         '역률 (%)',
         _pf2,
         '전압강하 계산에 씁니다. 전동기 85, 히터·저항 부하 100을 넣으십시오.',
       ),
-      _dropdown<SupplyType>(
+      calcDropdown<SupplyType>(
         'ec_supply',
         '전압강하 한도',
         _supply,
@@ -427,7 +430,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       ),
       const SizedBox(height: 12),
       if (c == null)
-        _result(
+        calcResult(
           big: '—',
           caption: '부하 전류를 넣으면 굵기를 고릅니다',
           lines: const [],
@@ -439,7 +442,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
 
   Widget _cableResult(CableChoice c, double amb, int n) {
     final size = c.size;
-    return _result(
+    return calcResult(
       key: const Key('ec_cable_result'),
       big: size == null ? '검토 필요' : sqText(size),
       caption: size == null
@@ -500,7 +503,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final pct = dv == null ? null : dv / _volts * 100;
     return _page([
       _voltsPhase(),
-      _dropdown<double>(
+      calcDropdown<double>(
         'ec_vd_size',
         '전선 굵기',
         _vdSize,
@@ -509,7 +512,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         (s) => setState(() => _vdSize = s),
         '지금 깔려 있거나 깔 전선의 굵기(sq = mm²)입니다.',
       ),
-      _dropdown<WireKind>(
+      calcDropdown<WireKind>(
         'ec_vd_kind',
         '전선 종류',
         _vdKind,
@@ -518,10 +521,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         (k) => setState(() => _vdKind = k),
         '도체 온도(70°C·90°C)에서의 저항으로 셉니다 — 운전 중 가장 불리한 값입니다.',
       ),
-      _field('ec_vd_i', '전류 (A)', _vdI, '회로에 흐르는 전류입니다.'),
-      _field('ec_vd_len', '편도 길이 (m)', _vdLen, '케이블 한 가닥 길이입니다(왕복 아님).'),
-      _field('ec_vd_pf', '역률 (%)', _vdPf, '전동기 85, 히터 100.'),
-      _dropdown<SupplyType>(
+      calcField('ec_vd_i', '전류 (A)', _vdI, '회로에 흐르는 전류입니다.'),
+      calcField('ec_vd_len', '편도 길이 (m)', _vdLen, '케이블 한 가닥 길이입니다(왕복 아님).'),
+      calcField('ec_vd_pf', '역률 (%)', _vdPf, '전동기 85, 히터 100.'),
+      calcDropdown<SupplyType>(
         'ec_vd_supply',
         '전압강하 한도',
         _supply,
@@ -536,7 +539,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         'KEC 232.3.9 표 232.3-1.',
       ),
       const SizedBox(height: 12),
-      _result(
+      calcResult(
         key: const Key('ec_vd_result'),
         big: pct == null ? '— %' : '${fmt(pct, 2)} %',
         caption: dv == null ? '전류와 길이를 넣으십시오' : '전압강하 ${fmt(dv, 2)} V',
@@ -562,11 +565,11 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final target = _pct(_pcTarget, 0.95);
     final q = p == null ? null : capacitorKvar(p, now, target);
     return _page([
-      _field('ec_pc_kw', '유효 전력 (kW)', _pcKw, '역률을 올릴 부하의 전력(kW)입니다. 전력량계나 부하 목록에서 보십시오.'),
-      _field('ec_pc_now', '지금 역률 (%)', _pcNow, '지금 측정한 역률입니다.'),
-      _field('ec_pc_target', '목표 역률 (%)', _pcTarget, '보통 90~95%를 목표로 합니다. 100%에 가깝게 올리면 가벼운 부하 때 과보상이 됩니다.'),
+      calcField('ec_pc_kw', '유효 전력 (kW)', _pcKw, '역률을 올릴 부하의 전력(kW)입니다. 전력량계나 부하 목록에서 보십시오.'),
+      calcField('ec_pc_now', '지금 역률 (%)', _pcNow, '지금 측정한 역률입니다.'),
+      calcField('ec_pc_target', '목표 역률 (%)', _pcTarget, '보통 90~95%를 목표로 합니다. 100%에 가깝게 올리면 가벼운 부하 때 과보상이 됩니다.'),
       const SizedBox(height: 12),
-      _result(
+      calcResult(
         key: const Key('ec_pf_result'),
         big: q == null ? '— kvar' : '${fmt(q, 1)} kvar',
         caption: '필요한 콘덴서 용량',
@@ -587,7 +590,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           const SizedBox(width: 6),
-          _help('전압', '회로의 선간 전압입니다. 단상 220V, 삼상 380·440·480V 중 고르십시오.'),
+          calcHelp('전압', '회로의 선간 전압입니다. 단상 220V, 삼상 380·440·480V 중 고르십시오.'),
         ],
       ),
       const SizedBox(height: 6),
@@ -596,245 +599,19 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         runSpacing: 6,
         children: [
           for (final v in const [220.0, 380.0, 440.0, 480.0])
-            _chip('ec_v_${v.toInt()}', '${v.toInt()}V', _volts == v, () {
+            calcChip('ec_v_${v.toInt()}', '${v.toInt()}V', _volts == v, () {
               setState(() {
                 _volts = v;
                 if (v == 220) _phase = Phase.single;
               });
             }),
           const SizedBox(width: 8),
-          _chip('ec_ph_1', '단상', _phase == Phase.single, () => setState(() => _phase = Phase.single)),
-          _chip('ec_ph_3', '삼상', _phase == Phase.three, () => setState(() => _phase = Phase.three)),
+          calcChip('ec_ph_1', '단상', _phase == Phase.single, () => setState(() => _phase = Phase.single)),
+          calcChip('ec_ph_3', '삼상', _phase == Phase.three, () => setState(() => _phase = Phase.three)),
         ],
       ),
       const SizedBox(height: 12),
     ],
   );
 
-  Widget _chip(String key, String label, bool sel, VoidCallback onTap) =>
-      ChoiceChip(
-        key: Key(key),
-        label: Text(label),
-        selected: sel,
-        onSelected: (_) {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
-        showCheckmark: false,
-        labelStyle: TextStyle(
-          fontWeight: FontWeight.w800,
-          color: sel ? fc.onBrand : fc.text,
-        ),
-        selectedColor: fc.brand,
-        backgroundColor: fc.surface,
-        side: BorderSide(color: sel ? fc.brand : fc.line),
-      );
-
-  Widget _toggle(String key, String label, VoidCallback onTap) => TextButton(
-    key: Key(key),
-    onPressed: onTap,
-    child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
-  );
-
-  Widget _help(String title, String text) => InkWell(
-    borderRadius: BorderRadius.circular(20),
-    onTap: () => showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: fc.surface,
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: fc.text,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                text,
-                style: TextStyle(fontSize: 15, color: fc.text, height: 1.5),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-    child: Padding(
-      padding: const EdgeInsets.all(4),
-      child: Icon(Icons.help_outline_rounded, size: 20, color: fc.brand),
-    ),
-  );
-
-  Widget _box({required Widget child}) => Container(
-    margin: const EdgeInsets.only(bottom: 8),
-    padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
-    decoration: BoxDecoration(
-      color: fc.surface,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: fc.line),
-    ),
-    child: child,
-  );
-
-  Widget _label(String label, String guide) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Flexible(
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: fc.text,
-          ),
-        ),
-      ),
-      _help(label, guide),
-    ],
-  );
-
-  Widget _field(
-    String key,
-    String label,
-    TextEditingController c,
-    String guide, {
-    Widget? trailing,
-  }) => _box(
-    child: Row(
-      children: [
-        Expanded(flex: 5, child: _label(label, guide)),
-        Expanded(
-          flex: 4,
-          child: TextField(
-            key: Key(key),
-            controller: c,
-            textAlign: TextAlign.right,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: fc.text,
-            ),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
-        ?trailing,
-        if (trailing == null) const SizedBox(width: 8),
-      ],
-    ),
-  );
-
-  Widget _switchRow(
-    String label,
-    bool v,
-    ValueChanged<bool> onChanged,
-    String guide, {
-    String key = 'ec_motor',
-  }) => _box(
-    child: Row(
-      children: [
-        Expanded(child: _label(label, guide)),
-        Switch(
-          key: Key(key),
-          value: v,
-          onChanged: onChanged,
-        ),
-      ],
-    ),
-  );
-
-  Widget _dropdown<T>(
-    String key,
-    String label,
-    T value,
-    List<T> items,
-    String Function(T) text,
-    ValueChanged<T> onChanged,
-    String guide,
-  ) => _box(
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(top: 6),
-          child: _label(label, guide),
-        ),
-        DropdownButton<T>(
-          key: Key(key),
-          value: value,
-          isExpanded: true,
-          underline: const SizedBox.shrink(),
-          dropdownColor: fc.surface,
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: fc.text,
-          ),
-          items: [
-            for (final i in items)
-              DropdownMenuItem<T>(value: i, child: Text(text(i))),
-          ],
-          onChanged: (v) {
-            if (v != null) onChanged(v);
-          },
-        ),
-      ],
-    ),
-  );
-
-  Widget _result({
-    Key? key,
-    required String big,
-    required String caption,
-    required List<String> lines,
-    bool warn = false,
-  }) => Container(
-    key: key,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: warn ? fieldSoft(Colors.red.shade50, (p) => p.danger) : fc.brandSoft,
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          caption,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w700,
-            color: fc.textSub,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          big,
-          style: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.w900,
-            color: warn ? fc.danger : fc.brand,
-          ),
-        ),
-        for (final l in lines)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(
-              '· $l',
-              style: TextStyle(fontSize: 13, color: fc.text, height: 1.4),
-            ),
-          ),
-      ],
-    ),
-  );
 }

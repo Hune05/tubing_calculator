@@ -151,9 +151,10 @@ void main() {
     });
     test('IE3 380V 예: 11kW 22.2A, 식으로 다시 셈해도 1% 안', () {
       final r = ie3Row(11)!;
-      expect(r.amps, 22.2);
+      expect(r.a380, 22.2);
+      expect(r.a440, 19.2);
       final i = loadCurrent(kw: 11, volts: 380, phase: Phase.three, pf: r.pf, eff: r.eff / 100);
-      expect((i - r.amps).abs() / r.amps, lessThan(0.01));
+      expect((i - r.a380).abs() / r.a380, lessThan(0.01));
     });
   });
 }

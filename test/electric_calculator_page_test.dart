@@ -82,6 +82,8 @@ void main() {
 
   testWidgets('역률 탭: 100kW 80→95% → 42.1 kvar', (tester) async {
     await pumpPage(tester);
+    await tester.ensureVisible(find.byKey(const Key('ec_tab_pf')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('ec_tab_pf')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('ec_pc_kw')), '100');
@@ -109,9 +111,15 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     for (final t in ['ec_tab_cable', 'ec_tab_vd', 'ec_tab_pf', 'ec_tab_load']) {
+      await tester.ensureVisible(find.byKey(Key(t)));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(Key(t)));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: t);
+      expect(
+        tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
+        ['ec_tab_load', 'ec_tab_cable', 'ec_tab_vd', 'ec_tab_pf'].indexOf(t),
+      );
     }
   });
 }
