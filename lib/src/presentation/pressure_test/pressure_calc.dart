@@ -23,8 +23,15 @@ class TestPlan {
   final double? examKpa; // 누설 점검 압력(이 압력까지 낮춰 본다)
   final double? reliefMaxKpa; // 안전밸브 설정 최대(B31.3 공압)
   final double? reliefRecKpa; // 안전밸브 권장 설정(B31.1 수압 1⅓×PT)
+  final double usedKpa; // 안전밸브·사전 점검을 셈한 시험 압력(실제 값을 넣었으면 그 값, 아니면 최소)
   final List<String> steps; // 절차
   final List<String> notes; // 주의·조건
+  /// 실제 시험 압력이 허용 범위 안인지. 넣지 않았으면 null.
+  bool? actualInRange(double? actualKpa) => actualKpa == null
+      ? null
+      : actualKpa >= minKpa - 1e-9 &&
+            (maxKpa == null || actualKpa <= maxKpa! + 1e-9);
+
   const TestPlan({
     required this.minKpa,
     this.maxKpa,
@@ -33,20 +40,24 @@ class TestPlan {
     this.examKpa,
     this.reliefMaxKpa,
     this.reliefRecKpa,
+    required this.usedKpa,
     required this.steps,
     required this.notes,
   });
 }
 
 /// 시험 압력 정하기. [designKpa] 설계 압력(게이지), [stressRatio] ST/S(설계 온도 > 시험 온도일 때,
-/// 모르면 1). B31.3 수압만 쓴다.
+/// 모르면 1). B31.3 수압만 쓴다. [actualKpa] 실제로 올릴 시험 압력 — 넣으면 안전밸브·사전 점검을
+/// 이 압력으로 셈한다(범위 밖이어도 그대로 셈하고 화면에서 알린다). 없으면 최소 시험 압력으로.
 TestPlan testPlan({
   required PipingCode code,
   required TestMedium medium,
   required double designKpa,
   double stressRatio = 1,
+  double? actualKpa,
 }) {
   final p = designKpa;
+  final a = actualKpa != null && actualKpa > 0 ? actualKpa : null;
   if (code == PipingCode.b313 && medium == TestMedium.hydro) {
     final ratio = math.max(1.0, stressRatio);
     final pt = 1.5 * p * ratio;
@@ -54,6 +65,7 @@ TestPlan testPlan({
       minKpa: pt,
       holdMin: 10,
       examKpa: p,
+      usedKpa: a ?? pt,
       steps: [
         '물을 채우고 공기를 뺍니다(높은 곳 벤트).',
         '시험 압력까지 올려 10분 이상 유지합니다(345.2.2(a)).',
@@ -70,16 +82,18 @@ TestPlan testPlan({
   }
   if (code == PipingCode.b313) {
     // 공압
-    final pt = 1.1 * p;
+    final min = 1.1 * p;
     final max = 1.33 * p;
+    final pt = a ?? min;
     final prelim = math.min(pt / 2, 170.0);
     return TestPlan(
-      minKpa: pt,
+      minKpa: min,
       maxKpa: max,
       holdMin: 10,
       prelimKpa: prelim,
       examKpa: p,
       reliefMaxKpa: pt + math.min(345.0, 0.1 * pt),
+      usedKpa: pt,
       steps: [
         '사전 점검: ${_f(prelim)}kPa(½PT와 170kPa 중 작은 것)까지 천천히 올려 모든 이음을 점검합니다(345.5.5, 2022판).',
         '단계적으로 시험 압력까지 올리고, 단계마다 배관 변형이 고르게 될 때까지 기다립니다.',
@@ -96,12 +110,14 @@ TestPlan testPlan({
   }
   if (medium == TestMedium.hydro) {
     // B31.1 수압
-    final pt = 1.5 * p;
+    final min = 1.5 * p;
+    final pt = a ?? min;
     return TestPlan(
-      minKpa: pt,
+      minKpa: min,
       holdMin: 10,
       examKpa: p,
       reliefRecKpa: pt * 4 / 3,
+      usedKpa: pt,
       steps: [
         '물을 채우고 공기를 뺍니다.',
         '시험 압력(설계 압력의 1.5배 이상)에서 10분 이상 계속 유지합니다(137.4.5).',
@@ -116,16 +132,18 @@ TestPlan testPlan({
     );
   }
   // B31.1 공압
-  final pt = 1.2 * p;
+  final min = 1.2 * p;
   final max = 1.5 * p;
+  final pt = a ?? min;
   final prelim = math.min(175.0, pt / 2);
   final exam = math.min(p, 700.0);
   return TestPlan(
-    minKpa: pt,
+    minKpa: min,
     maxKpa: max,
     holdMin: 10,
     prelimKpa: prelim,
     examKpa: exam,
+    usedKpa: pt,
     steps: [
       '사전 점검: 175kPa(25psig) 이하로 누설을 봅니다(137.5.4).',
       '시험 압력의 ½까지 올린 뒤, 약 1/10씩 단계로 시험 압력까지 올립니다(137.5.5).',

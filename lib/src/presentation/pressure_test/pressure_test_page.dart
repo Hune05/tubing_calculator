@@ -54,6 +54,7 @@ class _PressureTestPageState extends State<PressureTestPage>
   TestMedium _medium = TestMedium.hydro;
   final _design = TextEditingController();
   final _ratio = TextEditingController(text: '1');
+  final _actual = TextEditingController();
 
   // ② 압력 강하
   TestMedium _decayMedium = TestMedium.pneumatic;
@@ -88,6 +89,7 @@ class _PressureTestPageState extends State<PressureTestPage>
     for (final c in [
       _design,
       _ratio,
+      _actual,
       _p1,
       _p2,
       _t1,
@@ -210,6 +212,7 @@ class _PressureTestPageState extends State<PressureTestPage>
   Widget _planTab() {
     final d = _kpa(_design);
     final ratio = _num(_ratio) ?? 1;
+    final actual = _kpa(_actual);
     final plan = d == null || d <= 0
         ? null
         : testPlan(
@@ -217,7 +220,11 @@ class _PressureTestPageState extends State<PressureTestPage>
             medium: _medium,
             designKpa: d,
             stressRatio: ratio,
+            actualKpa: actual,
           );
+    final inRange = plan?.actualInRange(
+      actual != null && actual > 0 ? actual : null,
+    );
     return _page([
       _chips(
         '규격',
@@ -259,6 +266,13 @@ class _PressureTestPageState extends State<PressureTestPage>
           '설계 온도가 시험 온도보다 높을 때: 시험 온도에서의 허용 응력(ST) ÷ 설계 온도에서의 허용 응력(S). '
               'B31.3 부록 A 표 A-1에서 봅니다. 재질이 여럿이면 가장 작은 값. 1보다 작으면 1로 셉니다.',
         ),
+      calcField(
+        'pt_actual',
+        '실제 시험 압력 (${_unit.label}, 선택)',
+        _actual,
+        '실제로 올릴 시험 압력입니다. 넣으면 안전밸브 설정과 사전 점검 압력을 이 압력으로 셉니다. '
+            '비우면 최소 시험 압력으로 셉니다.',
+      ),
       const SizedBox(height: 12),
       if (plan == null)
         calcResult(big: '—', caption: '설계 압력을 넣으십시오', lines: const [])
@@ -270,15 +284,21 @@ class _PressureTestPageState extends State<PressureTestPage>
               : '${_fmt(plan.minKpa / _unit.kpa)} ~ ${_p(plan.maxKpa!)}',
           caption:
               '${_code == PipingCode.b313 ? 'B31.3' : 'B31.1'} ${_medium == TestMedium.hydro ? '수압' : '공압'} 시험 압력',
+          warn: inRange == false,
           lines: [
+            if (inRange == true) '실제 시험 압력 ${_p(plan.usedKpa)} — 범위 안입니다.',
+            if (inRange == false)
+              plan.usedKpa < plan.minKpa
+                  ? '실제 시험 압력 ${_p(plan.usedKpa)} — 최소 시험 압력보다 낮습니다.'
+                  : '실제 시험 압력 ${_p(plan.usedKpa)} — 최대 시험 압력을 넘습니다.',
             '다른 단위: ${_pAll(plan.minKpa)}',
             '유지: ${_fmt(plan.holdMin, 0)}분 이상',
             if (plan.prelimKpa != null) '사전 점검: ${_p(plan.prelimKpa!)}',
             if (plan.examKpa != null) '누설 점검 압력: ${_p(plan.examKpa!)}',
             if (plan.reliefMaxKpa != null)
-              '안전밸브 설정: ${_p(plan.reliefMaxKpa!)} 이하',
+              '안전밸브 설정: ${_p(plan.reliefMaxKpa!)} 이하 (시험 압력 ${_p(plan.usedKpa)} 기준)',
             if (plan.reliefRecKpa != null)
-              '안전밸브 권장 설정: ${_p(plan.reliefRecKpa!)}',
+              '안전밸브 권장 설정: ${_p(plan.reliefRecKpa!)} (시험 압력 ${_p(plan.usedKpa)} 기준)',
           ],
         ),
         const SizedBox(height: 12),

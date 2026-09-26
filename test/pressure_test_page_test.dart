@@ -40,6 +40,21 @@ void main() {
     expect(r, contains('누설 점검 압력: 7 bar'));
   });
 
+  testWidgets('실제 시험 압력 13.3bar → 안전밸브 14.63bar, 범위 밖이면 알림', (tester) async {
+    await pumpPage(tester);
+    await tester.tap(find.byKey(const Key('pt_pneu')));
+    await tester.enterText(find.byKey(const Key('pt_design')), '10');
+    await tester.enterText(find.byKey(const Key('pt_actual')), '13.3');
+    await tester.pump();
+    var r = textIn(tester, const Key('pt_plan_result'));
+    expect(r, contains('범위 안입니다'));
+    expect(r, contains('안전밸브 설정: 14.63 bar 이하 (시험 압력 13.3 bar 기준)'));
+    await tester.enterText(find.byKey(const Key('pt_actual')), '14');
+    await tester.pump();
+    r = textIn(tester, const Key('pt_plan_result'));
+    expect(r, contains('최대 시험 압력을 넘습니다'));
+  });
+
   testWidgets('단위를 psi로 바꾸면 psi로 넣고 보인다: 150psi B31.3 공압 → 165~199.5psi', (
     tester,
   ) async {

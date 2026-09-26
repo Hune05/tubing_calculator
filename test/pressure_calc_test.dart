@@ -44,6 +44,43 @@ void main() {
       expect(a.examKpa, 700);
       expect(a.prelimKpa, 175);
     });
+    test('실제 시험 압력을 넣으면 안전밸브를 그 압력으로 셈하고, 범위 밖이면 알린다', () {
+      // B31.3 공압 설계 10bar: 11~13.3bar. 13.3bar로 올리면 안전밸브 13.3 + 1.33 = 14.63bar.
+      final a = testPlan(
+        code: PipingCode.b313,
+        medium: TestMedium.pneumatic,
+        designKpa: 1000,
+        actualKpa: 1330,
+      );
+      expect(a.minKpa, closeTo(1100, 1e-9));
+      expect(a.usedKpa, 1330);
+      expect(a.reliefMaxKpa, closeTo(1463, 1e-9));
+      expect(a.actualInRange(1330), isTrue);
+      expect(a.actualInRange(1400), isFalse);
+      expect(a.actualInRange(1000), isFalse);
+      expect(a.actualInRange(null), isNull);
+      // 넣지 않으면 예전처럼 최소 시험 압력으로
+      final b = testPlan(code: PipingCode.b313, medium: TestMedium.pneumatic, designKpa: 1000);
+      expect(b.usedKpa, closeTo(1100, 1e-9));
+      // B31.1 수압: 권장 1⅓ × 실제 시험 압력, 최대가 없어 최소 이상이면 범위 안
+      final c = testPlan(
+        code: PipingCode.b311,
+        medium: TestMedium.hydro,
+        designKpa: 2000,
+        actualKpa: 3300,
+      );
+      expect(c.reliefRecKpa, closeTo(4400, 1e-9));
+      expect(c.actualInRange(3300), isTrue);
+      expect(c.actualInRange(2900), isFalse);
+      // B31.1 공압: ½PT가 175kPa보다 작을 때 사전 점검은 실제 PT의 ½
+      final d = testPlan(
+        code: PipingCode.b311,
+        medium: TestMedium.pneumatic,
+        designKpa: 200,
+        actualKpa: 280,
+      );
+      expect(d.prelimKpa, closeTo(140, 1e-9));
+    });
   });
 
   group('압력 강하', () {
