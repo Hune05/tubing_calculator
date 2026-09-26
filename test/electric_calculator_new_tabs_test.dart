@@ -545,12 +545,13 @@ void main() {
   });
 
   group('좁은 폰(344)·큰 글씨', () {
-    testWidgets('탭 6개가 모두 열리고 넘치지 않는다', (tester) async {
+    testWidgets('탭 7개가 모두 열리고 넘치지 않는다', (tester) async {
       await pumpNarrow(tester);
       const tabs = [
         'ec_tab_load',
         'ec_tab_cable',
         'ec_tab_vd',
+        'ec_tab_conduit',
         'ec_tab_pf',
         'ec_tab_basic',
         'ec_tab_bus',

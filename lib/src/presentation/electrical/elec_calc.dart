@@ -79,8 +79,23 @@ double voltageDrop({
   required Phase phase,
   double pf = 0.85,
   double conductorTempC = 70,
+}) => voltageDropR(
+  current: current,
+  lengthM: lengthM,
+  rOhmPerKm: cuResistance(size, conductorTempC),
+  phase: phase,
+  pf: pf,
+);
+
+/// 저항(Ω/km)을 직접 받는 전압강하(V). AWG 전선(NEC Chapter 9 Table 8 저항)도 이 식을 쓴다.
+double voltageDropR({
+  required double current,
+  required double lengthM,
+  required double rOhmPerKm,
+  required Phase phase,
+  double pf = 0.85,
 }) {
-  final r = cuResistance(size, conductorTempC); // Ω/km
+  final r = rOhmPerKm;
   if (phase == Phase.dc) return 2 * current * (lengthM / 1000) * r;
   final sin = math.sqrt(math.max(0, 1 - pf * pf));
   final k = phase == Phase.three ? math.sqrt(3) : 2;
@@ -106,18 +121,27 @@ double? maxLengthForDrop({
   double pf = 0.85,
   double conductorTempC = 70,
   SupplyType supply = SupplyType.lvOther,
+  double? rOhmPerKm,
 }) {
   if (current <= 0 || volts <= 0) return null;
-  // 1m당 전압강하(%).
+  // 1m당 전압강하(%). [rOhmPerKm]가 있으면(AWG) 그 저항을 쓴다.
   final a =
-      voltageDrop(
-        current: current,
-        lengthM: 1,
-        size: size,
-        phase: phase,
-        pf: pf,
-        conductorTempC: conductorTempC,
-      ) /
+      (rOhmPerKm == null
+          ? voltageDrop(
+              current: current,
+              lengthM: 1,
+              size: size,
+              phase: phase,
+              pf: pf,
+              conductorTempC: conductorTempC,
+            )
+          : voltageDropR(
+              current: current,
+              lengthM: 1,
+              rOhmPerKm: rOhmPerKm,
+              phase: phase,
+              pf: pf,
+            )) /
       volts *
       100;
   if (a <= 0) return null;

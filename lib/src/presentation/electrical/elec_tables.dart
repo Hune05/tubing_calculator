@@ -288,12 +288,6 @@ double peSeparateSize(double phaseSize, {required bool mechProtected}) {
   return table > min ? table : min;
 }
 
-/// 후강 전선관(KS C 8401) 호칭 → 안지름(mm, 바깥지름 − 2×두께, 제조사 표).
-const Map<int, double> kThickConduitId = {
-  16: 16.4, 22: 21.9, 28: 28.3, 36: 36.9, 42: 42.8, 54: 54.0,
-  70: 69.6, 82: 82.3, 92: 93.7, 104: 106.4,
-};
-
 // ─────────────── 제어반 내부 배선 — IEC 60204-1:2016(+AMD1:2021 그대로) ───────────────
 // 표 6: PVC 구리, 반 내부 주위 40°C, 3상 회로. JIS B 9960-1:2019(IEC 60204-1 IDT) 표 이미지와
 // ABB 자료(0.75~50mm²)가 같은 값. 표 D.1 온도, D.2 회로 수(9 넘으면 60364 B.52.17).

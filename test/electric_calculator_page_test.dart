@@ -179,7 +179,13 @@ void main() {
       expect(tester.takeException(), isNull, reason: t);
       expect(
         tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-        ['ec_tab_load', 'ec_tab_cable', 'ec_tab_vd', 'ec_tab_pf'].indexOf(t),
+        [
+          'ec_tab_load',
+          'ec_tab_cable',
+          'ec_tab_vd',
+          'ec_tab_conduit',
+          'ec_tab_pf',
+        ].indexOf(t),
       );
     }
   });

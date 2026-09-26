@@ -1,9 +1,11 @@
 // 전기 계산기(홈 "현장 작업" → 전기 계산기). 480V까지, 발전소·플랜트·시험 설비·제어반.
 //
 // 탭: 부하 전류(전동기 포함, 전류↔전력 환산) → 전선 굵기(굵기 선정·기존 회로 점검, 차단기·보호도체) →
-// 전압강하(교류·직류, 기동 시, 최대 길이) → 역률 개선(kvar·μF·전류) → 기초 계산(옴의 법칙·교류 전력·
+// 전압강하(교류·직류, 기동 시, 최대 길이) → 전선관(점유율·최소 전선관, elec_conduit_tab.dart) →
+// 역률 개선(kvar·μF·전류) → 기초 계산(옴의 법칙·교류 전력·
 // Y·Δ·전력량·도체 저항·주파수, elec_basic_tab.dart) → 부스바(DIN 43671 허용전류·굵기 선정,
 // elec_busbar_tab.dart). 교류/직류 선택은 부하 전류·전선 굵기·전압강하·부스바 탭이 같이 쓴다.
+// 전선 굵기·전압강하 탭은 SQ(mm²)/AWG·kcmil을 고른다(AWG는 NEC 방식, elec_awg_tab.dart).
 // 칸마다 "?"로 무슨 값을 어디서 보는지 알려 준다. 숫자는 elec_tables.dart·motor_tables.dart·
 // busbar_tables.dart의 출처 있는 표만 쓰고, 결과 아래 "근거 보기"에 어느 표·조건으로 계산했는지 적는다.
 // 최종 선정은 설계 도서·제조사 표로 확인한다.
@@ -18,14 +20,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import 'awg_tables.dart';
 import 'basic_calc.dart';
 import 'busbar_tables.dart';
+import 'conduit_tables.dart';
 import 'elec_calc.dart';
 import 'elec_tables.dart';
 import 'motor_tables.dart';
 
+part 'elec_awg_tab.dart';
 part 'elec_basic_tab.dart';
 part 'elec_busbar_tab.dart';
+part 'elec_conduit_tab.dart';
 
 /// 전선 종류(현장 이름) → 절연체와 쓸 수 있는 공사 방법.
 /// HFIX는 제조사(LS·대한전선) 카탈로그가 도체 90°C, 허용전류도 IEC XLPE 90°C 표 값이다.
@@ -135,7 +141,7 @@ class ElectricCalculatorPage extends StatefulWidget {
 
 class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     with SingleTickerProviderStateMixin, CalcFormParts {
-  late final TabController _tabs = TabController(length: 6, vsync: this);
+  late final TabController _tabs = TabController(length: 7, vsync: this);
 
   // 공통
   double _volts = 380;
@@ -144,6 +150,14 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   // 교류/직류: 부하 전류·전선 굵기·전압강하·부스바 탭이 같이 쓴다.
   bool _dc = false;
   double _dcVolts = kDcVoltsDefault;
+  // 굵기 단위 SQ/AWG: 전선 굵기·전압강하 탭이 같이 쓴다(AWG는 elec_awg_tab.dart).
+  bool _awg = false;
+  NecColumn _awgCol = NecColumn.c90;
+  NecTerminal _awgTerm = NecTerminal.auto;
+  final _awgAmb = TextEditingController(text: '30');
+  final _awgCcc = TextEditingController(text: '3');
+  String _awgChk = '12 AWG';
+  String _vdAwg = '12 AWG';
 
   // ① 부하 전류
   LoadType _loadType = LoadType.motor;
@@ -179,6 +193,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   final _vdPf = TextEditingController(text: '85');
   bool _vdStart = false;
   final _vdMult = TextEditingController(text: fmt(kMotorStartMultipleDefault));
+
+  // 전선관(elec_conduit_tab.dart)
+  ConduitKind _cdKind = ConduitKind.thick;
+  FillRule _cdRule = FillRule.naesun;
+  int _cdSize = 22;
+  bool _cdEasy = false; // 내선규정 48%(같은 굵기 절연전선, 굴곡이 적어 쉽게 인출)
+  final List<_CdRow> _cdRows = [_CdRow(CableKind.hfix, 2.5, '3')];
 
   // ④ 역률
   final _pcKw = TextEditingController();
@@ -278,6 +299,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     (_hzC, 'hzC'),
     (_busI, 'busI'),
     (_busMargin, 'busM'),
+    (_awgAmb, 'awgAmb'),
+    (_awgCcc, 'awgCcc'),
   ];
 
   List<TextEditingController> get _controllers => [
@@ -301,6 +324,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     for (final c in _controllers) {
       c.dispose();
     }
+    _disposeConduitRows();
     super.dispose();
   }
 
@@ -352,6 +376,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     'busPainted': _busPainted,
     'busBars': _busBars,
     'busSize': _busRow.label,
+    'awg': _awg,
+    'awgCol': _awgCol.name,
+    'awgTerm': _awgTerm.name,
+    'awgChk': _awgChk,
+    'vdAwg': _vdAwg,
+    ..._conduitDraft(),
     for (final (c, k) in _texts) k: c.text,
   };
 
@@ -404,6 +434,16 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       (r) => r.label == m['busSize'],
       orElse: () => _busRow,
     );
+    _awg = b('awg', _awg);
+    _awgCol = en(NecColumn.values, 'awgCol', _awgCol);
+    _awgTerm = en(NecTerminal.values, 'awgTerm', _awgTerm);
+    if (awgByLabel(m['awgChk'] as String?)?.a60 != null) {
+      _awgChk = m['awgChk'] as String;
+    }
+    if (awgByLabel(m['vdAwg'] as String?) != null) {
+      _vdAwg = m['vdAwg'] as String;
+    }
+    _applyConduitDraft(m);
     for (final (c, k) in _texts) {
       t(c, k);
     }
@@ -602,6 +642,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 Tab(key: Key('ec_tab_load'), text: '부하 전류'),
                 Tab(key: Key('ec_tab_cable'), text: '전선 굵기'),
                 Tab(key: Key('ec_tab_vd'), text: '전압강하'),
+                Tab(key: Key('ec_tab_conduit'), text: '전선관'),
                 Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
                 Tab(key: Key('ec_tab_basic'), text: '기초 계산'),
                 Tab(key: Key('ec_tab_bus'), text: '부스바'),
@@ -615,6 +656,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 _loadTab(),
                 _cableTab(),
                 _vdTab(),
+                _conduitTab(),
                 _pfTab(),
                 _basicTab(),
                 _busTab(),
@@ -975,6 +1017,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
 
   // ② 전선 굵기: 굵기 선정 / 기존 회로 점검
   Widget _cableTab() {
+    if (_awg) return _awgCableTab();
     final negative = _anyNegative([
       _ib,
       _ambient,
@@ -1069,6 +1112,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final ground = isGround(_method);
     return _page(sumKey: 'ec_sum_cable', summary: summary, warn: warn, [
       _systemPicker('ec_cable'),
+      _unitPicker('ec_cable'),
       _chipGroup(
         '할 일',
         '굵기 선정: 부하 전류로 전선 굵기·차단기를 선정합니다. 직류는 차단기 정격을 선정하지 않고 '
@@ -1510,6 +1554,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
 
   // ③ 전압강하
   Widget _vdTab() {
+    if (_awg) return _awgVdTab();
     final negative = _anyNegative([_vdI, _vdLen, _vdPf, _vdMult]);
     final ph = _dc ? Phase.dc : _phase;
     final volts = _dc ? _dcVolts : _volts;
@@ -1576,6 +1621,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     }
     return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over, [
       _systemPicker('ec_vd'),
+      _unitPicker('ec_vd'),
       calcDropdown<double>(
         'ec_vd_size',
         '전선 굵기',
