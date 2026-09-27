@@ -348,7 +348,45 @@ class RefMachineTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "10. 안전",
+          title: "10. 멀티미터·HART 통신기로 4-20mA 루프 확인",
+          subtitle: "전송기는 표시창에 압력, 루프 전류는 멀티미터로",
+          icon: Icons.electrical_services,
+          iconColor: Colors.deepOrange.shade600,
+          children: [
+            refStep(
+              1,
+              "멀티미터를 DC mA 모드로 두고, 루프 +선 한 군데를 끊어 그 사이에 직렬로 문다. 두 선에 나란히(병렬) 대면 전압을 재게 되어 의미가 없다.",
+            ),
+            refStep(
+              2,
+              "판넬에 시험 단자대(test terminal block)가 있으면 선을 끊지 않고 클립만 꽂는다.",
+            ),
+            refStep(
+              3,
+              "HART 통신기가 있으면 루프를 끊지 않고도 통신기가 지금 mA·압력을 바로 읽어 온다. 선을 끊어야 하는 멀티미터는 그게 없을 때 쓴다.",
+            ),
+            refStep(
+              4,
+              "전송기 표시창은 그대로 공정값(압력)을 보여준다. 시험 압력을 올리면서 멀티미터 mA가 그 압력에 맞는 값(예: 0~10bar → 4~20mA)으로 따라오는지 본다.",
+            ),
+            refStep(
+              5,
+              "확인이 끝나면 끊었던 선을 원래대로 물리고, DCS·지시계에 통신·경보가 정상으로 돌아왔는지 본다.",
+            ),
+            refGap(),
+            refWarnBox(
+              "살아있는 제어 루프는 끊는 순간 신호가 튀거나 경보가 뜰 수 있다. 필요하면 제어실에 미리 알리거나 그 루프를 bypass 해 두고 한다.",
+            ),
+            refGap(),
+            refTipBox(
+              "전원·전선·HART 저항이 충분한지는 '계기 교정 → 루프 전압' 탭에서 미리 계산해 볼 수 있다. mA·오차를 점별로 기록하려면 '계기 교정 → 교정 점검' 탭을 쓴다.",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "11. 안전",
           subtitle: "매일 지키는 것",
           icon: LucideIcons.hardHat,
           iconColor: Colors.amber.shade800,
