@@ -1,4 +1,5 @@
 import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
+import 'package:tubing_calculator/src/core/theme/app_logo.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -613,14 +614,10 @@ class _LoadingScreenState extends State<LoadingScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(
-                      Icons.precision_manufacturing,
-                      size: 90,
-                      color: AppColors.brand,
-                    ),
+                    const AppLogoMark(size: 100),
                     const SizedBox(height: 24),
                     const Text(
-                      "TUBING CALCULATOR",
+                      "FIELD HELPER",
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,

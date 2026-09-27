@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_logo.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -164,18 +165,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: AppColors.brand.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.engineering,
-                size: 80,
-                color: AppColors.brand,
-              ),
-            ),
+            const AppLogoMark(size: 96),
             const SizedBox(height: 32),
             const Text(
               "FIELD HELPER",
