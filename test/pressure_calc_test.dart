@@ -401,6 +401,15 @@ void main() {
       // 가득 찬 용기(0bar까지)는 약 7Nm³
       expect(0.047 * 15000 / 101.325, closeTo(7, 0.1));
     });
+    test('네 규격·매체 모두 설치 계기(트랜스미터·DPT) 보호 안내가 있다', () {
+      for (final code in PipingCode.values) {
+        for (final medium in TestMedium.values) {
+          final p = testPlan(code: code, medium: medium, designKpa: 1000);
+          expect(p.notes, contains(kInstalledInstrumentNote));
+        }
+      }
+    });
+
     test('압력계 눈금 범위 글을 읽는다', () {
       expect(gaugeMaxKpa('0~25 bar', PUnit.bar), closeTo(2500, 1e-9));
       expect(gaugeMaxKpa('0-2.5MPa', PUnit.bar), closeTo(2500, 1e-9));
