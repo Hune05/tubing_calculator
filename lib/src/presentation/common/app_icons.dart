@@ -166,6 +166,9 @@ enum AppGlyph {
 
   /// 유량 계산: 관(두 줄) 속을 흐르는 화살표 두 개.
   flow,
+
+  /// 공학용 계산기: 몸통 + 화면(분수 a/b) + 버튼 2×2.
+  engCalc,
 }
 
 /// 기본 아이콘(IconData)과 직접 그린 아이콘(AppGlyph)을 같은 자리에 쓸 때.
@@ -1003,7 +1006,13 @@ class _AppIconPainter extends CustomPainter {
         l(9.5, 22, 14.5, 22);
 
       case AppGlyph.flow:
-        final pipeBox = RRect.fromLTRBR(2.5, 6.5, 21.5, 17.5, const Radius.circular(2));
+        final pipeBox = RRect.fromLTRBR(
+          2.5,
+          6.5,
+          21.5,
+          17.5,
+          const Radius.circular(2),
+        );
         canvas.drawRRect(pipeBox, soft);
         l(2.5, 6.5, 21.5, 6.5);
         l(2.5, 17.5, 21.5, 17.5);
@@ -1059,7 +1068,13 @@ class _AppIconPainter extends CustomPainter {
         l(20, 10, 6, 10);
         l(6, 10, 8.8, 7.6);
         l(6, 10, 8.8, 12.4);
-        final ruler = RRect.fromLTRBR(3, 14, 21, 20.5, const Radius.circular(1.6));
+        final ruler = RRect.fromLTRBR(
+          3,
+          14,
+          21,
+          20.5,
+          const Radius.circular(1.6),
+        );
         canvas.drawRRect(ruler, soft);
         canvas.drawRRect(ruler, line);
         for (final x in [6.5, 10.0, 13.5, 17.0]) {
@@ -1102,6 +1117,34 @@ class _AppIconPainter extends CustomPainter {
         line.strokeWidth = 1.8;
         l(10, 14, 21, 3, thick);
         canvas.drawCircle(cc, 1.6, fill);
+
+      case AppGlyph.engCalc:
+        final body = RRect.fromLTRBR(4, 2, 20, 22, const Radius.circular(2.4));
+        canvas.drawRRect(body, soft);
+        canvas.drawRRect(body, line);
+        final screen = RRect.fromLTRBR(
+          6.2,
+          4.2,
+          17.8,
+          9,
+          const Radius.circular(1),
+        );
+        canvas.drawRRect(screen, soft);
+        canvas.drawRRect(screen, line..strokeWidth = 1.4);
+        line.strokeWidth = 1.8;
+        // 화면 속 분수(a/b).
+        l(9.4, 8.2, 12.6, 5, line..strokeWidth = 1.4);
+        line.strokeWidth = 1.8;
+        canvas.drawCircle(const Offset(9.9, 7.1), 0.55, fill);
+        canvas.drawCircle(const Offset(12.1, 6.1), 0.55, fill);
+        // 버튼(2행 3열).
+        line.strokeWidth = 1.3;
+        for (final row in [11.6, 15.4]) {
+          for (final col in [7.2, 11.0, 14.8]) {
+            rr(col, row, 2.6, 2.2, 0.6, line);
+          }
+        }
+        line.strokeWidth = 1.8;
     }
     canvas.restore();
   }

@@ -1,0 +1,204 @@
+// 공학용 계산기 화면: 누름판으로 계산, FT 단추, 분수 표시, 설정, 오류, 좁은 폰.
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/field_tools/eng_calculator_page.dart';
+
+Future<void> pump(WidgetTester tester) async {
+  SharedPreferences.setMockInitialValues({});
+  await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+  await tester.pump();
+}
+
+Future<void> tap(WidgetTester tester, String key) async {
+  await tester.tap(find.byKey(Key(key)));
+  await tester.pump();
+}
+
+String result(WidgetTester tester) =>
+    tester.widget<Text>(find.byKey(const Key('calc_display_result'))).data!;
+
+String? fraction(WidgetTester tester) {
+  final f = find.byKey(const Key('calc_display_fraction'));
+  if (f.evaluate().isEmpty) return null;
+  return tester.widget<Text>(f).data;
+}
+
+void main() {
+  testWidgets('숫자·연산자를 누르면 바로 결과가 뜬다(=  없이도)', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    expect(result(tester), '5');
+  });
+
+  testWidgets('곱셈·나눗셈이 먼저 계산된다', (tester) async {
+    await pump(tester);
+    for (final k in ['calc_2', 'calc_add', 'calc_3', 'calc_mul', 'calc_4']) {
+      await tap(tester, k);
+    }
+    expect(result(tester), '14');
+  });
+
+  testWidgets('괄호', (tester) async {
+    await pump(tester);
+    for (final k in [
+      'calc_lparen',
+      'calc_2',
+      'calc_add',
+      'calc_3',
+      'calc_rparen',
+      'calc_mul',
+      'calc_4',
+    ]) {
+      await tap(tester, k);
+    }
+    expect(result(tester), '20');
+  });
+
+  testWidgets('sin(30) = 0.5, 함수 단추는 괄호를 자동으로 연다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_sin');
+    expect(find.text('sin('), findsOneWidget);
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_0');
+    await tap(tester, 'calc_rparen');
+    expect(result(tester), '0.5');
+  });
+
+  testWidgets('π 상수와 거듭제곱·계승', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_pow');
+    await tap(tester, 'calc_3');
+    expect(result(tester), '8');
+    await tap(tester, 'calc_ac');
+    await tap(tester, 'calc_5');
+    await tap(tester, 'calc_fact');
+    expect(result(tester), '120');
+  });
+
+  testWidgets('AC로 지우고 ⌫로 한 글자 지운다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_1');
+    await tap(tester, 'calc_2');
+    expect(result(tester), '12');
+    await tap(tester, 'calc_back');
+    expect(result(tester), '1');
+    await tap(tester, 'calc_ac');
+    expect(result(tester), '0');
+  });
+
+  testWidgets('=를 누르면 결과가 식 자리로 오고, 이어서 계산할 수 있다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_5');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_eq');
+    expect(result(tester), '8');
+    await tap(tester, 'calc_mul');
+    await tap(tester, 'calc_2');
+    expect(result(tester), '16');
+  });
+
+  testWidgets('= 뒤에 숫자를 누르면 새로 시작한다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_5');
+    await tap(tester, 'calc_eq');
+    await tap(tester, 'calc_9');
+    expect(result(tester), '9');
+  });
+
+  testWidgets('FT 단추: 3 FT 3 + 3 ÷ 8 = 3피트 3-3/8인치(39.375)', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_ft');
+    expect(find.textContaining('12'), findsOneWidget);
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_div');
+    await tap(tester, 'calc_8');
+    expect(result(tester), '39.375');
+    expect(fraction(tester), "≈ 3' 3-3/8\"");
+  });
+
+  testWidgets('분수 표시는 기본으로 켜져 있고, 설정에서 끌 수 있다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_div');
+    await tap(tester, 'calc_8');
+    expect(fraction(tester), '≈ 3/8"');
+    await tap(tester, 'calc_settings');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('calc_show_fraction')));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10)); // 바깥을 눌러 시트를 닫는다.
+    await tester.pumpAndSettle();
+    expect(fraction(tester), isNull);
+  });
+
+  testWidgets('설정에서 라디안으로 바꾸면 sin(π/2)=1', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_settings');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('calc_angle_rad')));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    await tap(tester, 'calc_sin');
+    await tap(tester, 'calc_pi');
+    await tap(tester, 'calc_div');
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_rparen');
+    expect(result(tester), '1');
+  });
+
+  testWidgets('0으로 나누면 빨간 오류 글이 뜬다(분수 줄은 안 뜬다)', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_1');
+    await tap(tester, 'calc_div');
+    await tap(tester, 'calc_0');
+    expect(result(tester), '0으로 나눌 수 없습니다');
+    expect(fraction(tester), isNull);
+  });
+
+  testWidgets('식이 연산자로 끝나도(=  누르기 전) 오류로 막지 않고 그 앞까지 계산', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_5');
+    await tap(tester, 'calc_add');
+    expect(result(tester), '5');
+  });
+
+  testWidgets('좁은 폰(320)·큰 글씨에서 누름판이 넘치지 않는다', (tester) async {
+    final errors = <String>[];
+    final old = FlutterError.onError;
+    FlutterError.onError = (d) =>
+        errors.add(d.exceptionAsString().split('\n').first);
+    try {
+      tester.view.physicalSize = const Size(320, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      SharedPreferences.setMockInitialValues({});
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.3)),
+            child: child!,
+          ),
+          home: const EngCalculatorPage(),
+        ),
+      );
+      await tester.pump();
+      for (final k in ['calc_1', 'calc_add', 'calc_2', 'calc_eq']) {
+        await tap(tester, k);
+      }
+    } finally {
+      FlutterError.onError = old;
+    }
+    expect(errors, isEmpty);
+  });
+}

@@ -54,6 +54,7 @@ import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminder
 // 🚀 7. 신규 알림 내역 페이지 임포트
 import 'package:tubing_calculator/src/presentation/notification/pages/mobile_notification_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/level_page.dart';
+import 'package:tubing_calculator/src/presentation/field_tools/eng_calculator_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/protractor_page.dart';
 import 'package:tubing_calculator/src/presentation/unit_converter/unit_converter_page.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
@@ -728,6 +729,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       context,
                       MaterialPageRoute(
                         builder: (context) => const ProtractorPage(),
+                      ),
+                    );
+                  },
+                ),
+                _buildMenuButton(
+                  context: context,
+                  title: "공학용 계산기",
+                  subtitle: "사칙연산·삼각함수·거듭제곱 · 인치 분수·피트",
+                  icon: AppGlyph.engCalc,
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EngCalculatorPage(),
                       ),
                     );
                   },
