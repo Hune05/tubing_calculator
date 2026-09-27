@@ -118,18 +118,23 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
   int _frontIndex = 0;
   bool _fanOpen = false;
 
+  /// 모서리 편집 단추로 켜고 끈다 — 켜져 있으면 카드마다 빼기(×) 단추가 뜬다.
+  bool _editMode = false;
+
   @override
   void dispose() {
     _pageCtrl.dispose();
     super.dispose();
   }
 
-  void _tapInFan(int i) {
+  /// 겹침(지갑) 보기에서 카드를 고르면, 그 기능으로 바로 들어가지 않고 일단
+  /// 그 카드를 앞(한 장 보기)으로 가져오기만 한다 — 한 번 더 눌러야 실행된다.
+  void _bringToFront(int i) {
+    HapticFeedback.selectionClick();
     setState(() {
       _frontIndex = i;
       _fanOpen = false;
     });
-    widget.entries[i].onTap();
   }
 
   @override
@@ -142,31 +147,64 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
         final cardWidth = (box.maxWidth - 48).clamp(220.0, 380.0);
         final cardHeight = cardWidth / 1.586;
         return GestureDetector(
+          // 아래로 밀면 전체(지갑) 보기, 위로 밀면 맨 앞 카드로 돌아온다.
           onVerticalDragEnd: n < 2
               ? null
               : (d) {
                   final v = d.primaryVelocity ?? 0;
-                  if (!_fanOpen && v < -200) {
+                  if (!_fanOpen && v > 200) {
                     HapticFeedback.selectionClick();
                     setState(() => _fanOpen = true);
-                  } else if (_fanOpen && v > 200) {
+                  } else if (_fanOpen && v < -200) {
                     HapticFeedback.selectionClick();
                     setState(() => _fanOpen = false);
                   }
                 },
-          child: _fanOpen
-              ? _buildFan(cardWidth, cardHeight)
-              : _buildSingle(cardWidth, cardHeight, n),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              _fanOpen
+                  ? _buildFan(cardWidth, cardHeight)
+                  : _buildSingle(cardWidth, cardHeight, n),
+              Positioned(right: 0, top: 0, child: _buildEditButton()),
+            ],
+          ),
         );
       },
     );
   }
 
+  /// 모서리 편집 단추(연필 ⇄ 완료). 누르면 카드마다 빼기(×) 단추가 뜨고 끈다.
+  Widget _buildEditButton() => GestureDetector(
+    key: const Key('home_quick_edit'),
+    onTap: () {
+      HapticFeedback.selectionClick();
+      setState(() => _editMode = !_editMode);
+    },
+    child: Container(
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: slate100,
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4),
+        ],
+      ),
+      child: Icon(
+        _editMode ? Icons.check : Icons.edit_outlined,
+        size: 16,
+        color: tossBlue,
+      ),
+    ),
+  );
+
   Widget _buildSingle(double cardWidth, double cardHeight, int n) => Column(
     children: [
       const SizedBox(height: 8),
       Text(
-        n > 1 ? '${_frontIndex + 1} / $n · 좌우로 밀어 넘기기 · 위로 밀면 전체 보기' : '눌러서 열기',
+        n > 1
+            ? '${_frontIndex + 1} / $n · 좌우로 밀어 넘기기 · 아래로 밀면 전체 보기'
+            : '눌러서 열기',
         style: TextStyle(
           fontSize: 11,
           color: slate600,
@@ -185,8 +223,11 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
               entry: widget.entries[i],
               width: cardWidth,
               height: cardHeight,
-              onTap: widget.entries[i].onTap,
+              editing: _editMode,
+              onTap: _editMode ? null : widget.entries[i].onTap,
               onLongPress: () =>
+                  widget.onLongPressFavorite(widget.entries[i].title),
+              onRemove: () =>
                   widget.onLongPressFavorite(widget.entries[i].title),
             ),
           ),
@@ -234,7 +275,7 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
           height: headerH,
           child: Center(
             child: Text(
-              '즐겨찾기 $n개 · 카드를 눌러 바로 열기 · 아래로 밀면 닫기',
+              '즐겨찾기 $n개 · 카드를 눌러 그 카드로 돌아가기 · 위로 밀면 닫기',
               style: TextStyle(
                 fontSize: 11,
                 color: slate600,
@@ -256,8 +297,11 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
                     entry: widget.entries[i],
                     width: cardWidth,
                     height: cardHeight,
-                    onTap: () => _tapInFan(i),
+                    editing: _editMode,
+                    onTap: () => _bringToFront(i),
                     onLongPress: () =>
+                        widget.onLongPressFavorite(widget.entries[i].title),
+                    onRemove: () =>
                         widget.onLongPressFavorite(widget.entries[i].title),
                   ),
                 ),
@@ -270,12 +314,18 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
 }
 
 /// 즐겨찾기 카드 한 장(실물 카드 느낌 — 그라데이션·그림자, 아이콘·이름·부가 기능 표시).
-class _QuickLaunchCard extends StatelessWidget {
+/// "부가 기능" 배지를 누르면 부제 자리가 살짝 아래로 슬라이드되며 부가 기능
+/// 이름들(칩)로 바뀐다 — 새 자리를 안 만들고 부제 자리 하나만 그대로 쓴다.
+class _QuickLaunchCard extends StatefulWidget {
   final _MenuEntry entry;
   final double width;
   final double height;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final VoidCallback onLongPress;
+
+  /// 편집 모드일 때 카드 모서리에 빼기(×) 단추를 보여준다.
+  final bool editing;
+  final VoidCallback onRemove;
 
   const _QuickLaunchCard({
     required this.entry,
@@ -283,104 +333,225 @@ class _QuickLaunchCard extends StatelessWidget {
     required this.height,
     required this.onTap,
     required this.onLongPress,
+    this.editing = false,
+    required this.onRemove,
   });
 
   @override
+  State<_QuickLaunchCard> createState() => _QuickLaunchCardState();
+}
+
+class _QuickLaunchCardState extends State<_QuickLaunchCard> {
+  bool _showExtras = false;
+
+  /// 부제에 "·"로 나열된 낱말들을 부가 기능 칩으로 쓴다(따로 자료를 안 두고
+  /// 이미 있는 부제 글을 그대로 재활용 — 일부(예: "규격·길이"처럼 붙어 쓴
+  /// 합성어)는 과하게 쪼개질 수 있으나, 참고용 칩이라 크게 문제되지 않는다).
+  List<String> get _extraChips => widget.entry.subtitle
+      .split('·')
+      .map((s) => s.trim())
+      .where((s) => s.isNotEmpty)
+      .toList();
+
+  @override
   Widget build(BuildContext context) {
+    final entry = widget.entry;
     final base = entry.iconColor;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        key: Key('home_quick_${entry.title}'),
-        borderRadius: BorderRadius.circular(20),
-        onTap: onTap,
-        onLongPress: onLongPress,
-        child: Container(
-          width: width,
-          height: height,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [base, Color.lerp(base, Colors.black, 0.35)!],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
-                blurRadius: 16,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 40,
-                height: 40,
+    return SizedBox(
+      width: widget.width,
+      height: widget.height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: Key('home_quick_${entry.title}'),
+              borderRadius: BorderRadius.circular(20),
+              onTap: widget.onTap,
+              onLongPress: widget.onLongPress,
+              child: Container(
+                width: widget.width,
+                height: widget.height,
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: AppIcon(entry.icon, size: 20, color: Colors.white),
-              ),
-              const Spacer(),
-              Text(
-                entry.title,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  height: 1.15,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                entry.subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.75),
-                  fontSize: 11,
-                ),
-              ),
-              // 부가 기능(탭·하위 메뉴)이 있으면 자리를 최소한만 써서 알려준다.
-              if (entry.hasExtra) ...[
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [base, Color.lerp(base, Colors.black, 0.35)!],
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.apps, size: 11, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        '부가 기능',
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.18),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: AppIcon(entry.icon, size: 20, color: Colors.white),
+                    ),
+                    const Spacer(),
+                    Text(
+                      entry.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    // 부제 ⇄ 부가 기능 칩. 자리(높이)는 늘 한 줄만큼만 쓴다.
+                    SizedBox(
+                      height: 16,
+                      child: ClipRect(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 220),
+                          transitionBuilder: (child, anim) => SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, -0.6),
+                              end: Offset.zero,
+                            ).animate(anim),
+                            child: FadeTransition(opacity: anim, child: child),
+                          ),
+                          child: _showExtras
+                              ? SingleChildScrollView(
+                                  key: const ValueKey('extras'),
+                                  scrollDirection: Axis.horizontal,
+                                  child: Row(
+                                    children: [
+                                      for (final c in _extraChips)
+                                        Container(
+                                          margin: const EdgeInsets.only(
+                                            right: 6,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.16,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            c,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                )
+                              : Text(
+                                  entry.subtitle,
+                                  key: const ValueKey('subtitle'),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.75),
+                                    fontSize: 11,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                    // 부가 기능(탭·하위 메뉴)이 있으면 눌러서 살짝 밀어 보이게(칩 목록).
+                    if (entry.hasExtra) ...[
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        key: Key('home_quick_extra_${entry.title}'),
+                        onTap: () => setState(() => _showExtras = !_showExtras),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.apps,
+                                size: 11,
+                                color: Colors.white,
+                              ),
+                              const SizedBox(width: 4),
+                              const Text(
+                                '부가 기능',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              const SizedBox(width: 3),
+                              Icon(
+                                _showExtras
+                                    ? Icons.expand_less
+                                    : Icons.expand_more,
+                                size: 12,
+                                color: Colors.white,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // 편집 모드에서만 보이는 빼기(×) 단추 — 카드 오른쪽 위 모서리.
+          if (widget.editing)
+            Positioned(
+              right: -6,
+              top: -6,
+              child: GestureDetector(
+                key: Key('home_quick_remove_${entry.title}'),
+                onTap: widget.onRemove,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.black26, blurRadius: 4),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.close,
+                    size: 14,
+                    color: Colors.redAccent,
                   ),
                 ),
-              ],
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
