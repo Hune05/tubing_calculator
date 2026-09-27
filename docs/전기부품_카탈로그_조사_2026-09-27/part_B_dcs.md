@@ -1,0 +1,90 @@
+# Part B - DCS hardware front dimensions (mm)
+
+Rule: confirmed = two independent documents agree. single source = one document. Axis order is stated per row (front view W x H, depth D from mounting plane). Numbers were read from the manufacturer PDFs (text layer or rendered drawing), not from memory. Local PDFs are in C:\Users\gnsl5\AppData\Local\Temp\elec_parts2\dcs, \abb, \hw.
+
+Note: WebSearch budget ran out (200/200) during the session, so Korea evidence for ABB and Honeywell could not be searched further.
+
+## 1. Yokogawa CENTUM VP / ProSafe-RS
+
+| item | W x H x D (mm) | status | front features | source | Korea evidence |
+|---|---|---|---|---|---|
+| ANB10D/ANB10S ESB bus node unit (FIO), 19-inch rack, | 482.6 x 221.5 x 205 (hole pitch 465.1, body 440; depth 150.6 body + 18.4 ear = 205 incl.) | confirmed (GS 33K50F20-50E p3 + GS 33J60F30-01EN p2 same drawing for ANB11D; GS 32Q06K10-31E SNB10D same numbers) | 8 I/O module slots on left (Slot 1-8, each 32.8 wide), 2 power supply modules (PW48x) on right, front-view drawing shows label/cover area; rack-ear holes 4 x M5 (mount hole pitch 465.1 wide) | https://web-material3.yokogawa.com/GS33K50F20-50E.pdf ; https://web-material3.yokogawa.com/GS33J60F30-01EN.pdf ; https://web-material3.yokogawa.com/GS32Q06K10-31E.pdf | Yokogawa ProSafe-RS IM 32Q06C10-31E lists "Korea Electromagnetic Conformity Standard (KC marking)" for its power supplies; yokogawa.com/kr Korean site exists (fetched) |
+| ANB11D/ANB11S optical ESB node unit | 482.6 x 221.5 x 205 (body depth 160 in this drawing, 18.4 ear) | confirmed (GS 33J60F30-01EN + GS 33K50F20-50E outline identical) | same as ANB10D plus optical repeater slot (ANT4xx) in place of a module | https://web-material3.yokogawa.com/GS33J60F30-01EN.pdf p2 | same as above |
+| AAI141, AAV141, AAV144, AAI841, AAI143, AAI543, AAI135, AAI835, AAP135, AAB141 etc. (FIO analog I/O module) | 32.8 x 130 x 107.5 (body 94; W is the front face) | confirmed (GS 33J60F60-01EN p13 + GS 33K50F60-50E p16, identical figure F10E) | front face: status LED block at top, warning label, KS-style 40-pin-type connector window in the middle (drawing shows one vertical connector), lock screw at bottom | http://web-material3.yokogawa.com/GS33J60F60-01EN.pdf ; https://web-material3.yokogawa.com/GS33K50F60-50E.pdf | same |
+| AAT145, AAR145, AAP849, AAP149 (temperature/pulse modules, deeper) | 32.8 x 130 x 125.5 (127.2 incl. 1.7 lip; 112 body) | confirmed (same two GS) | same front layout | same two GS, F11E/F12E/F13E | same |
+| ADV151, ADV551 (32-ch digital I/O module) | 32.8 x 130 x 107.5 | confirmed (GS 33J60F70-01EN + GS 33K50F70-50E) | same module family front | https://web-material3.yokogawa.com/GS33J60F70-01EN.pdf ; https://web-material3.yokogawa.com/GS33K50F70-50E.pdf | same |
+| PW481/PW482/PW484 power supply module (plugs into node/FCU) | 49.7 x 190 x 146.5 (199.5 overall height incl. tab, 149 depth incl. rear) | single source; axis mapping inferred from label positions in the drawing (text extracted, figure labels not rendered) - treat as approximate | front: 3 status LEDs (power/fault) at top, vent slits, AC inlet connector on bottom via cable | GS 33J60E70-01EN, https://library.yokogawa.com/document/download/AxkHnJ89/0000035735//EN/ | same |
+| AFV10D/AFV10S FCU (duplexed field control unit, 19-inch) and AFV30D/AFV30S | 482.6 x 265.9 x 207 (main 221.3 high + 44.5 lower tray incl.; body depth 150.6 + 20.4 ear) | confirmed (AFV10 GS 33K50E10-50E copy + GS 33J60E10-01EN drawing identical) | left part with ID/label window area and 8 slot area as node-unit style, CPU modules and 2 power modules on the right, tray below (optional /HKU HK-bus unit); drawing only, module names not labelled | https://web-material3.yokogawa.com/GS33J60E10-01EN.pdf ; AFV10D GS (quicktimeonline copy of GS 33K50E10-50E) | ProSafe/CENTUM search summary mentioned Korea South-East Power (KOEN) 800 MW plant simulator - NOT verified by document |
+| AFV40S/AFV40D FCU in cabinet | 600 W x 2105 H x 800 D (cabinet) | single source; W/D from label position in drawing | cabinet type, front/rear node installation (5 front, 6 rear) | https://web-material3.yokogawa.com/GS33J60E20-01EN_004.pdf p3 | - |
+| SSC60D/SSC60S ProSafe-RS safety control unit (duplexed), rack | 482.6 x 399.2 total (node/CPU part 266 high + 88.1 power-supply tray below) x 207 (node) / 264.4 (bottom tray) | single source | node part: 8-slot area, CPU modules SCP461/S2CP471, power modules; bottom 2U tray with terminal blocks and cable | https://web-material3.yokogawa.com/GS32Q06D10-31E.pdf p3 | KC EMC note in IM 32Q06C10-31E |
+| SNB10D safety node unit | 482.6 x 221.5 x 205 | single source (but numbers identical to ANB10D) | as ANB10D | https://web-material3.yokogawa.com/GS32Q06K10-31E.pdf | same |
+| Terminal block ATA4S/ATD5S/ATI3S/ATB5S/ATT4S/ATR8S (FIO pressure-clamp) | 32.6 x 114 x 60.5 | confirmed (GS 33J60H20-01EN p3 + GS 33K50H20-50E p4) | two rows of pressure-clamp terminals on front, lock screw at bottom, keyed connector | https://web-material3.yokogawa.com/GS33J60H20-01EN.pdf ; http://www.yokogawa.com/pdf/provide/E/GW/GS/0000025449/0/GS33K50H20-50E.pdf | - |
+| Terminal block ATA4D/ATD5D/ATT4D/ATR8D/ATB5D/ATI3D (dual-redundant) | 65.6 x 114 x 72 (52.3 body) | confirmed (same two GS) | two side-by-side terminal columns | same | - |
+| ATK4A, ATM4A, ATV4A, ATI3A, ATB3A (KS cable interface adapter) | 32.6 x 114 x 36.2 (38.8 with 2.6 tab) | confirmed (same two GS) | KS-cable connector on front | same | - |
+| ATF9S | 32.6 x 112 x 35.2 | confirmed (same two GS) | 4-channel terminal | same | - |
+| DIN-rail terminal boards A1BA4D (analog) | 110 W x 85.5 H x 54 D (58 incl. latch) | confirmed (GS 33J60H51-01EN p11 + GS 33K50H51-50E) | top edge: 2 cable connectors (CN1/CN2), terminal row bottom; 2 x M4 wall-mount holes | https://web-material3.yokogawa.com/GS33J60H51-01EN.pdf ; https://www.yokogawa.com/pdf/provide/E/GW/GS/0000028106/0/GS33K50H51-50E.pdf | - |
+| A1BT4D | 110 x 85.5 x 44.5 (48.5) | confirmed (same two GS) | as above | same | - |
+| A1BR4D | 110 x 85.5 x 68 (72) | confirmed (same two GS) | as above | same | - |
+| A1BD5D (digital 32 pt) | 210 x 85.5 x 68 (72) (terminal width 200) | confirmed (same two GS) | two terminal rows | same | - |
+
+## 2. Emerson DeltaV
+
+Axis note: Emerson gives profile drawings. For DIN-rail devices the 4.18 cm is the front width, the long horizontal side of the profile is the depth from the rail, the vertical side is the height.
+
+| item | W x H x D (mm) | status | front features | source | Korea evidence |
+|---|---|---|---|---|---|
+| DeltaV SQ controller (S-series) | 41.8 x 199.3 x 162 | confirmed (SQ PDS 57724 Jan 2026 + SX PDS 57728 Jan 2026 show the same housing 4.18 / 19.93 / 16.2 cm; S-series I/O card PDS uses the same profile style) | rounded case, square "information circle" window, LED column (Power, Error, Active, Standby, Pri CN, Sec CN), 2 RJ-45 (primary/secondary control network) at the bottom | https://www.emerson.com/documents/automation/product-data-sheet-deltav-sq-controller-deltav-en-57724.pdf ; https://www.emerson.com/documents/automation/product-data-sheet-deltav-sx-controller-deltav-en-57728.pdf | Emerson Korea page https://www.emerson.kr/ko/automation-systems/distributed-control-systems-dcs/deltav-distributed-control-system exists (title "DeltaV 분산 제어 시스템") |
+| DeltaV SX controller (S-series) | 41.8 x 199.3 x 162 | confirmed (same as above) | same | 57728 | same |
+| DeltaV MQ controller (M-series) | 41.8 x 160.6 x 139.1 | single source (MX PDS 57428/57726 not downloadable: HTML block) | 4 LEDs at top, V-shaped label, 1 lock screw, label window | https://www.emerson.com/documents/automation/product-data-sheet-deltav-mq-controller-deltav-en-57688.pdf p3 | same |
+| S-series power/controller carrier, 2-wide | 90 x 229 x 40 (carrier only, no modules) | single source | left slot 12 VDC/5 VDC system power supply, right slot controller; DC input terminals on top, alarm relay terminal | https://www.emerson.com/documents/automation/product-data-sheet-s-series-horizontal-carriers-deltav-en-56322.pdf p2 | same |
+| S-series horizontal I/O carrier, 8-wide | 348 x 229 x 40 (carrier only; slots labelled Pri 1 / Sec 2 ... Sec 8, terminal block strip at bottom) | single source | Pri/Sec slot numbers in the frame, top terminals for power, latches | same as above | same |
+| S-series traditional I/O interface (AI/AO/DI/DO card), plugs into carrier slot | 41.8 x 131 x 130.8 | single source | 8 status LEDs in vertical column (front strip), V mark, square window; detachable terminal block below | https://emerson.com/documents/automation/product-data-sheet-s-series-traditional-i-o-deltav-en-56834.pdf p4 | same |
+| CHARM baseplate, 12-wide (non-IS), with CHARMs and label plates | 125 x 194.1 x 104.3 (depth 147.5 with DI 120V AC Isolated CHARMs) | single source | 12 CHARM slots, numbered 1-12 on right, "1" identifier top, 2 screw terminal positions, label plate column | https://www.emerson.com/documents/automation/product-data-sheet-deltav-electronic-marshalling-deltav-en-56832.pdf p8 | same |
+| IS CHARM baseplate 12-wide (intrinsically safe) | 124.8 (140.5 with label plate) x 187.3 x 148.2 | single source | as above, "INTRINSICALLY SAFE" marking | https://www.emerson.com/is/content/emerson/en/systems-and-software/deltav-distributed-control-system-dcs/product-data-sheets/documents/deltav-is-electronic-marshalling.pdf p7 | same |
+| CIOC (CHARM I/O card) carrier, redundant pair | 125 x 186 x 158.3 | confirmed (Electronic Marshalling PDS Aug 2026 p7 + IS Electronic Marshalling PDS Feb 2026 p6, same 12.5 / 18.6 / 15.83 cm) | 2 CIOC cards side by side (LED column: power/error/etc, "CIOC" and Delta V logo), on top 2 RJ-45 IOP slots each side, 2 power terminals (24 V) | same two PDS | same |
+| CHARM (single) | not stated as a table; drawing shows about 47 W x 74 H x 11 D | not readable (low-resolution drawing) | narrow card with latch | 56832 p8 | - |
+| CHARM baseplate terminator / extender | 125 W x 28 (top) or 34 (bottom) H x 47.3 D | single source | D-sub connectors on extender | 56832 p8 | - |
+| Bulk power supplies (DIN, not system power module) 24 V 5A / 10A / 20A / 12 V 16A | 50 x 123 x 110 (5A); 60 x 123 x 110 (10A and 12 V 16A); 87 x 123 x 127 (20A) | single source | DC OK LED, adjust pot, terminals | https://www.emerson.com/documents/automation/product-data-sheet-deltav-bulk-power-supplies-deltav-en-57618.pdf | same |
+| DeltaV CHARM I/O migration panel (19-inch, 6U) | 483 x 267 x 174 | single source | 19-inch EIA rails | https://www.emerson.com/documents/automation/product-data-sheet-deltav-electronic-marshalling-for-migrations-deltav-en-56634.pdf p4 | - |
+| DeltaV CHARM baseplate migration panel (19-inch, 3U) / IS version | 483 x 133 x 122 / IS 483 x 136 (146 with channel labels) x 164 | single source | 19-inch EIA rails | same PDS p6, p8 | - |
+
+## 3. ABB AC 800M / S800
+
+| item | W x H x D (mm) | status | front features | source | Korea evidence |
+|---|---|---|---|---|---|
+| PM851/PM856/PM860/PM861/PM864/PM865/PM866 on TP830 baseplate (with CEX bus terminators) | 119 x 186 x 135 (width along DIN rail; 4 mm CEX contact protrudes when unmounted) | confirmed (AC 800M Hardware 5.1 3BSE036351-510 p241-265 + AC 800M 6.0 3BSE036352-600 p127 + ABB hardware selector PM866AK02) | LED row at top of CPU, 2 RJ45 Ethernet (CN1/CN2), COM3/COM4 RJ45 on TP830, INIT push button, battery cover (PM866 has internal battery), power L+/L- and status SA/SB terminals on baseplate, DIN-rail latch | https://library.e.abb.com/public/1cb4fadd66365e57c1257b740027013b/3BSE036351-510_A_en_AC_800M_5.1_Controller_Hardware.pdf ; https://library.e.abb.com/public/5e14a3e6c58a451a9e37c61af9875e71/3BSE036352-600_A_en_AC_800M_6.0_Controller_Hardware_Product_Guide.pdf ; https://800xahardwareselector.automation.abb.com/product/pm866ak02 | not verified (search budget gone; no Korean-specific document read) |
+| PM891 on TP830 (PM891K01) | 200 x 186 x 102 | confirmed (5.1 and 6.0 both) | as above | same | - |
+| CI854/CI854A/CI854B + TP854 (PROFIBUS DP), also CI851, CI852, CI853, CI855-CI858, CI860 (FF HSE on TP860) | 59 x 185 x 127.5 | confirmed (5.1 hardware guide tables 80-93 + 6.0 guide) | LEDs (Run/Fault/Primary/Dual...), 2 DB9 female on TP854, CEX bus plug | same two guides | - |
+| CI862 + TP862 (TRIO) | 58 x 165 x 122 | single source (5.1) | - | 5.1 guide p327 | - |
+| S800 I/O module (AI810, DI810, AI815 ... standard S800) | 45 x 119 x 97 (106 with connector) per module datasheet; 102 (111 with connector) per S800 manual for whole family | confirmed for W 45 and H 119 (S800 I/O data sheet 3BSE039123 + S800 I/O modules manual 3BSE020924-510 B); depth differs between the two documents (97 vs 102) | LED row (F/R/W/module status + channel LEDs) on the module front, module locks onto MTU | https://library.e.abb.com/public/7d500386d89b0f44c1257b4400527ad4/3BSE039123_C_en_S800_I_O_Analog_Inputs_.pdf ; https://5.imimg.com/data5/SELLER/Doc/2021/7/DT/RK/NN/48123041/abb-s800-i-o-plc.pdf (3BSE020924-510) | - |
+| TU810/TU810V1 compact MTU | 64 (58.5 edge to edge) x 170 x 64 | confirmed (S800 manual 3BSE020924-510 + hardware selector tu810v1; Product Guide 3BSE015969R5001 fig 19 shows 58 wide, 169 high) | 3 rows of screw terminals (A,B,C), 2 mechanical keys, module lock | https://800xahardwareselector.automation.abb.com/product/tu810v1 | - |
+| TU830/TU830V1 extended MTU | 126 (120.5 edge to edge) x 110 x 64 | single source (S800 manual) plus Product Guide fig 18 shows 120 W x ~114-117 H (approx, older drawing) - roughly consistent | 3 rows of terminals, fuse area | 3BSE020924-510 table 119 | - |
+| TU833/TU834/TU835/TU838 etc. extended MTUs | 126 x 105-110 x 64 (TU833: 105) | single source | - | 3BSE020924-510 | - |
+| TU842/TU843/TU844 etc. redundant MTU | 131 x 186.5 x 64 | single source | - | 3BSE020924-510 | - |
+| TB820V2 ModuleBus cluster modem | 58 x 170 (incl. latch) x 122 | single source (hardware selector) | 2 fiber optic ports, ModuleBus (electrical) to I/O, rotary cluster switch (1-7) | https://800xahardwareselector.automation.abb.com/product/tb820v2 | - |
+| SD821 / SD822 / SD823 power supply | 50 / 65 / 120 W x 125 H x 110 D | single source (5.1 hardware guide table 112) | - | 3BSE036351-510 p364 | - |
+| SD834 power supply | 140 x 125 x 110 | single source (6.0 guide p157; widths of SD831-833 not readable in the text layer) | - | 3BSE036352-600 | - |
+| SS822/SS823 voting unit | 50 x 125 x 110 | single source (5.1) | - | 3BSE036351-510 | - |
+| SS832 voting unit | 32 W x 124 H x 117 D | confirmed (5.1 + 6.0 both) | - | both guides | - |
+| SB822 external battery | 85.6 W x 136 H x 51 D | confirmed (5.1 + 6.0) | - | both guides | - |
+
+## 4. Honeywell Experion C300 / Series 8 / Series C
+
+| item | W x H x D (mm) | status | front features | source | Korea evidence |
+|---|---|---|---|---|---|
+| C300 controller IOTA (Series 8, 8C-TCNT01/-TCNTA1) | 120 W x 220 H (IOTA); depth not stated | confirmed for W and H (four Honeywell specs: S803-150-520, -110, -530, -500, all "IOTA Dimension 220 mm (9 ") height, 120 mm (4.75 ") width") ; depth not readable in any Honeywell document | electronics module plugs into IOTA, "information circle", tilted design, 2 x FTE RJ45 and redundancy cable connector, 24 V power cable connectors | https://prod-edam.honeywell.com/content/dam/honeywell-edam/pmt/hps/products/pmc/modular-systems/experion-lx/pmt-hps-series-8-controller-and-io-specifications-s803-150-520.pdf (+ -110, -530, dgfg.nl S803-150-500 copy) | S803-150-110 lists "Honeywell Korea Co Ltd" as regional contact (in the document) |
+| CC-TCNT01 (Series C C300 IOTA), reseller listing | 120 x 220 x 50 (as "22*12*5 cm") | single source, reseller page only (not manufacturer) - do not trust depth | - | https://www.autonexcontrol.com/products/cc-tcnt01-honeywell-c300-controller-iota-experion-pks-series-c | - |
+| Series C / Series 8 I/O IOTA lengths (nominal) | IOTA nominal length 152 (6 in) analog non-redundant; 228 (9 in) discrete and 9 in AI; 304 (12 in) redundant; 457 (18 in); width and depth not stated | confirmed for the nominal lengths (EP03-490-520 Series C I/O spec + S803-150-520 Series 8); width and depth not readable | vertical mounting, module plugs in, two-level detachable field connectors (12 AWG max) | https://prod-edam.honeywell.com/content/dam/honeywell-edam/pmt/hps/products/pas/experion-pks/i-o-modules/series-c-i-o-modules/EP03-490-520_V10_SCIO_1_5.pdf | same |
+| Temperature multiplexer FTA (PMIO FTA, Series C) | 124.46 W x 307.34 L x 63.5 D (4.9 x 12.1 x 2.5 in) | single source | - | EP03-490-520 p17 | - |
+
+## Not found / not readable
+
+- Yokogawa: AKB331 / AKB cable, marshalling cabinets (only cable names seen), ANT/EC401/EC402 modules, YCB, ANB10D-side "front label" shape beyond the outline drawing.
+- Yokogawa PW481: axis mapping of 190 / 199.5 / 146.5 / 149 is inferred (labels not rendered in the PDF drawing).
+- Emerson DeltaV SIS: SZ controller, SZ carriers (dual vertical safety carrier), CSLS logic solver, LSN, CHARM Logic Solver: PDS 57822 and MX PDS returned HTML block pages, no readable dimensions.
+- Emerson S-series 12 VDC/24 VDC system power supply module (SE5009 etc.): the PDS has no dimensions, only the 2-wide carrier (90 x 229 x 40).
+- Emerson M-series MX and vertical carriers: not downloadable.
+- CHARM (individual): dimension text too low resolution to state as confirmed.
+- ABB: TU830 second document only roughly consistent; SD831-SD833 widths; TB820 second document; TP860 own dimension (only CI860+TP860 module set 59 x 185 x 127.5).
+- Honeywell: C300 controller module depth, IOTA depth and width of Series C IOTAs, C300 power system (PSM) header board, Series C 6-inch/9-inch IOTA widths, UIO, FIM4/FIM8 dimensions. The Honeywell spec sheets give only nominal IOTA lengths and the C300 IOTA 120 x 220.
+- Korea evidence: ABB (no document read), Honeywell (only regional contact line; honeywell.com/kr/ko page does not mention Experion); Yokogawa power-plant reference in Korea only seen in a search summary (not verified by document).

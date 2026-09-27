@@ -484,6 +484,8 @@ class InstrumentShapePainter extends CustomPainter {
   static const Color _uePlate = Color(0xFFA3ADBB); // UE 120 뚜껑의 검은 명판(옅게)
   static const Color _ftBody = Color(0xFFB4BCC8); // 고정식 단자대 검은 몸통(옅게)
   static const Color _estopRed = Color(0xFFF5C6C6); // 비상 누름버튼 붉은 머리(옅게)
+  static const Color _okGreen = Color(0xFFC9E8CF); // 차단기 ON 표시·초록 단추(옅게)
+  static const Color _pushBlue = Color(0xFFC6D8F5); // PUSH TO TRIP 파란 단추(옅게)
 
   // 제조사별 몸통 색(옅게, 흑백 인쇄해도 선이 보이게). 피팅·밸브·전기 부품은 그대로.
   static const Color _rmBlue = Color(0xFFD9E8F7); // 로즈마운트 파랑
@@ -2113,6 +2115,12 @@ class InstrumentShapePainter extends CustomPainter {
             radius: 1,
           );
         }
+      case ElecShape.acb:
+        _acb(b, ElecShape.style(shape) ?? 'ls', n?.round() ?? 3);
+      case ElecShape.mpcb:
+        _mpcb(b, ElecShape.style(shape) ?? 'rotary');
+      case ElecShape.mccb when ElecShape.style(shape) != null:
+        _mccbPro(b, ElecShape.style(shape)!, n?.round() ?? 3);
       case ElecShape.mccb:
         _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
         _part(
@@ -2201,6 +2209,166 @@ class InstrumentShapePainter extends CustomPainter {
         _pswitch(b);
       default:
         _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    }
+  }
+
+  /// 배선용·누전 차단기 정면(제조사 카탈로그 사진·도면): 위·아래 단자 띠와 나사, 가운데 손잡이 창,
+  /// 제품마다 다른 것(정격 표시·트립 유닛 띠·다이얼·시험/트립 단추·PUSH TO TRIP·ON/OFF 색띠)을 살렸다.
+  /// [style]: ls(Susol TS)·lsm(Metasol)·hd(HGM·HGE)·hdp(HGP)·abb(Tmax XT)·sch(NSX)·eat(NZM)·sie(3VA).
+  void _mccbPro(_Box b, String style, int poles) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    final int n = math.max(1, poles);
+    final double pw = w / n;
+    final bool dark = const {'abb', 'sch', 'eat', 'sie'}.contains(style);
+    final bool strip = const {'ls', 'hdp', 'abb', 'eat', 'sie'}.contains(style);
+    final int dials = switch (style) {
+      'ls' || 'hdp' || 'eat' => 2,
+      'lsm' || 'hd' || 'abb' || 'sie' => 1,
+      _ => 0,
+    };
+    final bool testBtn = const {'ls', 'lsm', 'abb'}.contains(style);
+    final bool pushBtn = const {'hd', 'hdp'}.contains(style);
+    final bool colorBars = style == 'abb';
+    final bool blueBand = style == 'sch';
+    _part(c, Rect.fromLTWH(0, 0, w, h), dark ? _ftBody : _body, radius: 2);
+    // 위·아래 단자 띠와 극마다 나사
+    final double tb = h * 0.13;
+    final Color tbFill = dark ? _bodyPlain : _ftBody;
+    _part(c, Rect.fromLTWH(w * 0.02, 0, w * 0.96, tb), tbFill, radius: 1);
+    _part(c, Rect.fromLTWH(w * 0.02, h - tb, w * 0.96, tb), tbFill, radius: 1);
+    final double sr = math.min(pw * 0.16, tb * 0.3);
+    for (int i = 0; i < n; i++) {
+      final double x = pw * (i + 0.5);
+      _circle(c, Offset(x, tb * 0.5), sr, _metal);
+      _circle(c, Offset(x, h - tb * 0.5), sr, _metal);
+    }
+    for (int i = 1; i < n; i++) {
+      final double x = pw * i;
+      c.drawLine(Offset(x, 0), Offset(x, tb), _thin);
+      c.drawLine(Offset(x, h - tb), Offset(x, h), _thin);
+    }
+    // 위쪽 명판(모델·정격 글줄)
+    for (final y in [0.17, 0.205]) {
+      c.drawLine(Offset(w * 0.12, h * y), Offset(w * 0.5, h * y), _thin);
+    }
+    // 손잡이 창
+    final Rect win = Rect.fromLTWH(w * 0.28, h * 0.25, w * 0.44, h * 0.17);
+    _part(c, win, dark ? _bodyPlain : _ftBody, radius: 2);
+    if (colorBars) {
+      _part(c, Rect.fromLTWH(win.left, win.top, win.width * 0.32, win.height), _okGreen, radius: 1);
+      _part(c, Rect.fromLTWH(win.right - win.width * 0.32, win.top, win.width * 0.32, win.height), _estopRed, radius: 1);
+    }
+    _part(
+      c,
+      Rect.fromCenter(center: win.center, width: win.width * 0.34, height: win.height * 0.7),
+      dark ? _ftBody : _bodyPlain,
+      radius: 1,
+    );
+    // 정격 전류 조각(손잡이 창 아래)
+    c.drawLine(Offset(w * 0.4, h * 0.455), Offset(w * 0.6, h * 0.455), _thin);
+    if (pushBtn) {
+      _part(c, Rect.fromLTWH(w * 0.76, h * 0.27, w * 0.16, h * 0.12), _pushBlue, radius: 1);
+    }
+    if (strip) {
+      // 트립 유닛 띠(다이얼·표시)
+      _part(c, Rect.fromLTWH(w * 0.08, h * 0.52, w * 0.84, h * 0.2), dark ? _bodyPlain : _glass, radius: 2);
+      for (int i = 0; i < dials; i++) {
+        final double x = w * (dials == 1 ? 0.5 : 0.3 + 0.4 * i);
+        _circle(c, Offset(x, h * 0.62), math.min(w * 0.08, h * 0.05), _metal);
+      }
+    } else {
+      // 정격 조절 다이얼(HGM 아래 가운데)
+      if (dials > 0) {
+        _circle(c, Offset(w * 0.5, h * 0.6), math.min(w * 0.09, h * 0.06), _bodyPlain);
+        c.drawLine(Offset(w * 0.5, h * 0.6), Offset(w * 0.5 + w * 0.06, h * 0.57), _thin);
+      }
+      if (blueBand) {
+        _part(c, Rect.fromLTWH(w * 0.02, h * 0.66, w * 0.96, h * 0.09), _pushBlue, radius: 1);
+      }
+    }
+    if (testBtn) {
+      _circle(c, Offset(w * 0.82, h * 0.78), math.min(w * 0.05, h * 0.03), _pushBlue);
+    }
+  }
+
+  /// 기중차단기(ACB) 정면: 어두운 몸통에 조작부(제조사마다 배치가 다르다)와 인출형이면 아래 크래들 띠.
+  /// [style]: ls·hd(왼쪽 트립 표시창, 가운데 ON/OFF 단추, 오른쪽 충전 손잡이)·abb·sie·eat(위 표시 화면 + 단추).
+  /// 끝이 "_d"이면 인출형. 폭이 넓은 큰 프레임은 조작부를 높이 기준 크기로 가운데에 둔다.
+  void _acb(_Box b, String style, int poles) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    final bool draw = style.endsWith('_d');
+    final String kind = draw ? style.substring(0, style.length - 2) : style;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _ftBody, radius: 2);
+    final double cradleH = draw ? h * 0.14 : 0;
+    if (draw) {
+      _part(c, Rect.fromLTWH(0, h - cradleH, w, cradleH), _metal.withValues(alpha: 0.35), radius: 1);
+      c.drawLine(Offset(w * 0.4, h - cradleH * 0.5), Offset(w * 0.6, h - cradleH * 0.5), _thin);
+    }
+    final double ch = h - cradleH;
+    // 조작부 영역: 높이 기준 정사각에 가깝게, 가운데
+    final double cw = math.min(w * 0.92, ch * 1.0);
+    final double x0 = (w - cw) / 2;
+    Rect r(double l, double t, double rr, double bb) =>
+        Rect.fromLTRB(x0 + cw * l, ch * t, x0 + cw * rr, ch * bb);
+    // 맨 위 명판 띠
+    _part(c, r(0.04, 0.03, 0.96, 0.1), _bodyPlain, radius: 1);
+    if (kind == 'abb' || kind == 'sie' || kind == 'eat') {
+      // 위 표시 화면
+      _part(c, r(0.1, 0.16, 0.9, 0.42), _glass, radius: 2);
+      c.drawLine(Offset(x0 + cw * 0.18, ch * 0.29), Offset(x0 + cw * 0.5, ch * 0.29), _thin);
+      // 단추(초록 ON·빨강 OFF)와 표시 창
+      _circle(c, Offset(x0 + cw * 0.3, ch * 0.56), cw * 0.07, _okGreen);
+      _circle(c, Offset(x0 + cw * 0.5, ch * 0.56), cw * 0.07, _estopRed);
+      _part(c, r(0.62, 0.5, 0.9, 0.62), _bodyPlain, radius: 1);
+      // 충전 손잡이
+      _part(c, r(0.72, 0.68, 0.9, 0.84), _metal.withValues(alpha: 0.5), radius: 2);
+    } else {
+      // 왼쪽 트립 표시창 + 다이얼 + 작은 창 둘
+      _part(c, r(0.08, 0.16, 0.34, 0.5), _glass, radius: 2);
+      _circle(c, Offset(x0 + cw * 0.15, ch * 0.6), cw * 0.04, _bodyPlain);
+      _circle(c, Offset(x0 + cw * 0.27, ch * 0.6), cw * 0.04, _bodyPlain);
+      // 가운데 ON/OFF 단추와 표시 창
+      _circle(c, Offset(x0 + cw * 0.5, ch * 0.3), cw * 0.06, _okGreen);
+      _circle(c, Offset(x0 + cw * 0.5, ch * 0.45), cw * 0.06, _estopRed);
+      _part(c, r(0.42, 0.55, 0.58, 0.62), _bodyPlain, radius: 1);
+      _part(c, r(0.42, 0.64, 0.58, 0.71), _bodyPlain, radius: 1);
+      // 오른쪽 충전 손잡이(검정 세로)
+      _part(c, r(0.74, 0.16, 0.88, 0.58), _metal.withValues(alpha: 0.5), radius: 2);
+    }
+    // 명판과 로고 자리
+    for (final y in [0.86, 0.91]) {
+      c.drawLine(Offset(x0 + cw * 0.12, ch * y), Offset(x0 + cw * 0.5, ch * y), _thin);
+    }
+  }
+
+  /// 전동기 보호용 차단기 정면: [style] rocker(LS MMS-32S 가로 미끄럼 손잡이), rotary(둥근 회전 손잡이).
+  /// 위·아래에 나사 단자 셋씩.
+  void _mpcb(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    final double tb = h * 0.16;
+    _part(c, Rect.fromLTWH(w * 0.03, 0, w * 0.94, tb), _ftBody, radius: 1);
+    _part(c, Rect.fromLTWH(w * 0.03, h - tb, w * 0.94, tb), _ftBody, radius: 1);
+    final double sr = math.min(w * 0.08, tb * 0.28);
+    for (int i = 0; i < 3; i++) {
+      final double x = w * (i + 0.5) / 3;
+      _circle(c, Offset(x, tb * 0.5), sr, _metal);
+      _circle(c, Offset(x, h - tb * 0.5), sr, _metal);
+    }
+    if (style == 'rocker') {
+      _part(c, Rect.fromLTWH(w * 0.14, h * 0.32, w * 0.72, h * 0.16), _ftBody, radius: 2);
+      _part(c, Rect.fromLTWH(w * 0.5, h * 0.34, w * 0.3, h * 0.12), _bodyPlain, radius: 1);
+      c.drawLine(Offset(w * 0.14, h * 0.6), Offset(w * 0.86, h * 0.6), _thin);
+    } else {
+      final Offset cc = Offset(w * 0.5, h * 0.5);
+      final double r = math.min(w * 0.34, h * 0.2);
+      _circle(c, cc, r, _ftBody);
+      _circle(c, cc, r * 0.7, _bodyPlain);
+      c.drawLine(cc, Offset(cc.dx, cc.dy - r * 0.9), _thin);
+      c.drawLine(Offset(w * 0.14, h * 0.72), Offset(w * 0.86, h * 0.72), _thin);
     }
   }
 

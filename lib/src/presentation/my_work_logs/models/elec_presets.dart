@@ -1,3 +1,4 @@
+import 'elec_presets_breakers.dart';
 import 'layout_board_models.dart';
 
 // 🚀 캐비닛 측판·중판에 다는 전기 부품(DIN 레일). 정면 가로×세로(mm), 깊이는 판 면에서(레일 포함).
@@ -55,6 +56,20 @@ class ElecShape {
 
   /// 하니웰 GCP 서킷 프로텍터(차단기). 'el_gcp:극 수'.
   static const String gcp = 'el_gcp';
+
+  /// 기중차단기(ACB). 'el_acb:모양:극 수'. 모양 끝의 "_d"는 인출형(아래 크래들 띠).
+  static const String acb = 'el_acb';
+
+  /// 전동기 보호용 차단기(MPCB). 'el_mpcb:모양'(rocker·rotary).
+  static const String mpcb = 'el_mpcb';
+
+  /// 'el_mccb:모양:극 수'의 모양 이름(제품 정면 특징 묶음, 그림에서 갈린다).
+  /// 그냥 'el_mccb'(모양 없음)는 예전 단순 그림이다.
+  static String? style(String s) {
+    final parts = s.split(':');
+    if (parts.length < 2) return null;
+    return double.tryParse(parts[1]) == null ? parts[1] : null;
+  }
   static const String mc = 'el_mc';
   static const String spd = 'el_spd';
   static const String iso = 'el_iso';
@@ -75,9 +90,9 @@ class ElecShape {
 
   static bool isElec(String? s) => s != null && s.startsWith('el_');
 
-  /// 'el_tb:10' → 10(극 수)
+  /// 'el_tb:10' → 10(극 수), 'el_mccb:ls:3' → 3(마지막 칸이 숫자일 때)
   static double? pitch(String s) {
-    final i = s.indexOf(':');
+    final i = s.lastIndexOf(':');
     return i < 0 ? null : double.tryParse(s.substring(i + 1));
   }
 }
@@ -286,6 +301,8 @@ final Map<String, List<ModulePreset>> kElecPresets = {
       depth: 76,
     ),
   ],
+  // 2026-09-27 차단기 확장(MCCB·MPCB·ACB, 카탈로그 확정 값): elec_presets_breakers.dart
+  ...kBreakerPresets,
   "전원·릴레이·MC": [
     const ModulePreset(
       "DR-60-24 전원 (민웰)",
