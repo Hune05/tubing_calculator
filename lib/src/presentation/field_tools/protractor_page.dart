@@ -42,8 +42,10 @@ class ProtractorPage extends StatefulWidget {
   State<ProtractorPage> createState() => _ProtractorPageState();
 }
 
-class _ProtractorPageState extends State<ProtractorPage> {
+class _ProtractorPageState extends State<ProtractorPage>
+    with SingleTickerProviderStateMixin {
   final _session = FieldToolSession();
+  late final TabController _tab;
   final _smooth = TiltSmoother(alpha: 0.2);
   StreamSubscription<TiltSample>? _sub;
   Timer? _noSensorTimer;
@@ -66,8 +68,16 @@ class _ProtractorPageState extends State<ProtractorPage> {
   @override
   void initState() {
     super.initState();
+    _tab = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTab,
+    )..addListener(_onTabChanged);
     _loadDecimals();
     _session.begin();
+    // 화면 각도기 탭은 센서를 안 쓰고 손으로 끄는 방식이라 가로도 맞게 계산된다.
+    // 벤딩 각도 재기 탭은 센서 축이 세로 화면 기준이라 세로로만 둔다(tilt_math.dart).
+    _applyOrientationForTab(widget.initialTab);
     _noSensorTimer = Timer(widget.noSensorAfter, () {
       if (mounted && _last == null) setState(() => _noSensor = true);
     });
@@ -87,6 +97,26 @@ class _ProtractorPageState extends State<ProtractorPage> {
       },
       cancelOnError: true,
     );
+  }
+
+  int _tabIndex = 0;
+
+  void _onTabChanged() {
+    if (_tab.indexIsChanging || _tab.index == _tabIndex) return;
+    _tabIndex = _tab.index;
+    _applyOrientationForTab(_tabIndex);
+  }
+
+  void _applyOrientationForTab(int index) {
+    _tabIndex = index;
+    final orientations = index == 1
+        ? const [
+            DeviceOrientation.portraitUp,
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]
+        : const [DeviceOrientation.portraitUp];
+    SystemChrome.setPreferredOrientations(orientations).catchError((_) {});
   }
 
   Future<void> _loadDecimals() async {
@@ -111,6 +141,8 @@ class _ProtractorPageState extends State<ProtractorPage> {
   void dispose() {
     _sub?.cancel();
     _noSensorTimer?.cancel();
+    _tab.removeListener(_onTabChanged);
+    _tab.dispose();
     _session.end();
     super.dispose();
   }
@@ -127,46 +159,44 @@ class _ProtractorPageState extends State<ProtractorPage> {
       FieldViewTheme(child: Builder(builder: _buildPage));
 
   Widget _buildPage(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      initialIndex: widget.initialTab,
-      child: Scaffold(
+    return Scaffold(
+      backgroundColor: fc.surface,
+      appBar: AppBar(
         backgroundColor: fc.surface,
-        appBar: AppBar(
-          backgroundColor: fc.surface,
-          surfaceTintColor: Colors.transparent,
-          elevation: 0,
-          foregroundColor: _ink,
-          title: Text(
-            "각도기",
-            style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
-          ),
-          actions: [
-            TextButton(
-              key: const Key('protractor_decimals'),
-              onPressed: _toggleDecimals,
-              child: Text(
-                _decimals ? "소수점 끄기" : "소수점 보기",
-                style: TextStyle(color: _teal, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
-          bottom: TabBar(
-            labelColor: _teal,
-            unselectedLabelColor: _grey,
-            indicatorColor: _teal,
-            labelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-            tabs: [
-              Tab(key: Key('tab_bend'), text: "벤딩 각도 재기"),
-              Tab(key: Key('tab_screen'), text: "화면 각도기"),
-            ],
-          ),
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: _ink,
+        title: Text(
+          "각도기",
+          style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
         ),
-        body: SafeArea(
-          child: TabBarView(
-            physics: const NeverScrollableScrollPhysics(), // 팔 끌기와 겹치지 않게
-            children: [_bendTab(), _screenTab()],
+        actions: [
+          TextButton(
+            key: const Key('protractor_decimals'),
+            onPressed: _toggleDecimals,
+            child: Text(
+              _decimals ? "소수점 끄기" : "소수점 보기",
+              style: TextStyle(color: _teal, fontWeight: FontWeight.w800),
+            ),
           ),
+        ],
+        bottom: TabBar(
+          controller: _tab,
+          labelColor: _teal,
+          unselectedLabelColor: _grey,
+          indicatorColor: _teal,
+          labelStyle: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+          tabs: [
+            Tab(key: Key('tab_bend'), text: "벤딩 각도 재기"),
+            Tab(key: Key('tab_screen'), text: "화면 각도기"),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        child: TabBarView(
+          controller: _tab,
+          physics: const NeverScrollableScrollPhysics(), // 팔 끌기와 겹치지 않게
+          children: [_bendTab(), _screenTab()],
         ),
       ),
     );
