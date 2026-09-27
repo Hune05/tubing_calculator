@@ -23,16 +23,20 @@ Future<void> pump(WidgetTester tester, Widget page) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('전기 설계 계산: 기초 계산부터, 역률 개선이 끝', (tester) async {
+  testWidgets('전기 설계 계산: 기초 계산부터, 축전지 용량이 끝', (tester) async {
     await pump(tester, const ElectricCalculatorPage());
     expect(tabLabels(tester), [
       '기초 계산',
       '부하 전류',
+      '부하 합산',
       '전선 굵기',
       '전압강하',
+      '단락 전류',
       '전선관',
       '부스바',
       '역률 개선',
+      '발전기 용량',
+      '축전지 용량',
     ]);
   });
 

@@ -1,4 +1,7 @@
-// 전기 계산기(홈 "현장 작업" → 전기 계산기). 480V까지, 발전소·플랜트·시험 설비·제어반.
+// 전기 설계 계산(홈 "전기"). 480V까지, 발전소·플랜트·시험 설비·제어반.
+//
+// 파일로 나눈 독립 탭(각자 저장 칸): 부하 합산(elec_load_sum_tab.dart), 단락 전류(elec_short_circuit_tab.dart),
+// 발전기 용량(elec_generator_tab.dart), 축전지 용량(elec_battery_tab.dart). 탭 순서는 TabBar와 TabBarView를 같이 고친다.
 //
 // 탭: 부하 전류(전동기 포함, 전류↔전력 환산) → 전선 굵기(굵기 선정·기존 회로 점검, 차단기·보호도체) →
 // 전압강하(교류·직류, 기동 시, 최대 길이) → 전선관(점유율·최소 전선관, elec_conduit_tab.dart) →
@@ -25,6 +28,11 @@ import 'basic_calc.dart';
 import 'busbar_tables.dart';
 import 'conduit_tables.dart';
 import 'elec_calc.dart';
+import 'elec_battery_tab.dart';
+import 'elec_form_parts.dart';
+import 'elec_generator_tab.dart';
+import 'elec_load_sum_tab.dart';
+import 'elec_short_circuit_tab.dart';
 import 'elec_tables.dart';
 import 'motor_tables.dart';
 
@@ -77,6 +85,9 @@ enum LoadType { motor, heater, general }
 /// 전류 ↔ 전력 환산 방향.
 enum ConvMode { ampToPower, kvaToAmp }
 
+/// 전동기 기동 방식: 직입(입력한 배수 그대로), Y-Δ(직입 기동 전류의 1/3), 직접 지정(소프트스타터·인버터 등).
+enum StartMode { direct, starDelta, custom }
+
 String methodLabel(InstallMethod m) => switch (m) {
   InstallMethod.a1 => '단열벽 속 전선관 (A1)',
   InstallMethod.a2 => '단열벽 속 전선관, 다심 (A2)',
@@ -107,14 +118,6 @@ String supplyLabel(SupplyType t) => switch (t) {
   SupplyType.hvLighting => '고압 이상 수전 · 조명 (전체 6%)',
 };
 
-String fmt(double v, [int d = 1]) {
-  var s = v.toStringAsFixed(d);
-  if (s.contains('.')) {
-    s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
-  }
-  return s;
-}
-
 /// 전압강하 탭에서 고를 수 있는 굵기(저항 표에 있는 굵기, 0.75sq부터).
 final List<double> kVdSizes = kCuR20.keys.toList()..sort();
 
@@ -141,7 +144,7 @@ class ElectricCalculatorPage extends StatefulWidget {
 
 class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     with SingleTickerProviderStateMixin, CalcFormParts {
-  late final TabController _tabs = TabController(length: 7, vsync: this);
+  late final TabController _tabs = TabController(length: 11, vsync: this);
 
   // 공통
   double _volts = 380;
@@ -193,6 +196,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   final _vdPf = TextEditingController(text: '85');
   bool _vdStart = false;
   final _vdMult = TextEditingController(text: fmt(kMotorStartMultipleDefault));
+  StartMode _vdStartMode = StartMode.direct;
+  final _vdStartPf = TextEditingController(text: fmt(kMotorStartPf * 100, 0));
+  final _vdStartLimit = TextEditingController(); // 허용 기동 전압강하(%): 설계 기준이 정하므로 기본값 없음
+  final _vdUp = TextEditingController(); // 전원 쪽(수전점부터 이 회로 앞까지) 전압강하 %
 
   // 전선관(elec_conduit_tab.dart)
   ConduitKind _cdKind = ConduitKind.thick;
@@ -269,6 +276,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     (_vdLen, 'vdLen'),
     (_vdPf, 'vdPf'),
     (_vdMult, 'vdMult'),
+    (_vdStartPf, 'vdStartPf'),
+    (_vdStartLimit, 'vdStartLim'),
+    (_vdUp, 'vdUp'),
     (_pcKw, 'pcKw'),
     (_pcNow, 'pcNow'),
     (_pcTarget, 'pcTarget'),
@@ -366,6 +376,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     'vdSize': _vdSize,
     'vdKind': _vdKind.name,
     'vdStart': _vdStart,
+    'vdStartMode': _vdStartMode.name,
     'bsSec': _bsSec.name,
     'acThree': _acThree,
     'acFromKw': _acFromKw,
@@ -421,6 +432,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (kVdSizes.contains(vds)) _vdSize = vds;
     _vdKind = en(WireKind.values, 'vdKind', _vdKind);
     _vdStart = b('vdStart', _vdStart);
+    _vdStartMode = en(StartMode.values, 'vdStartMode', _vdStartMode);
     _bsSec = en(BasicSection.values, 'bsSec', _bsSec);
     _acThree = b('acThree', _acThree);
     _acFromKw = b('acFromKw', _acFromKw);
@@ -496,15 +508,44 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     return (v > 1 ? v / 100 : v).clamp(0.01, 1.0);
   }
 
-  bool _anyNegative(List<TextEditingController> cs) =>
-      cs.any((c) => (_num(c) ?? 0) < 0);
+  /// 100%를 넘게 넣을 수 없는 칸(역률·효율·수용률 같은 %). 넘으면 조용히 100%로 자르지 않고 "입력 확인"을 보인다.
+  late final Set<TextEditingController> _pctFields = {
+    _eff,
+    _pf,
+    _pf2,
+    _vdPf,
+    _vdStartPf,
+    _pcNow,
+    _pcTarget,
+    _acPf,
+  };
+
+  /// 마지막으로 찾은 입력 문제(결과 상자에 그대로 보인다).
+  String _badMsg = '음수는 넣을 수 없습니다';
+
+  /// 음수이거나, % 칸이 100을 넘으면 true. 무엇이 문제인지는 [_badMsg]에 남긴다.
+  bool _anyNegative(List<TextEditingController> cs) {
+    if (cs.any((c) => (_num(c) ?? 0) < 0)) {
+      _badMsg = '음수는 넣을 수 없습니다';
+      return true;
+    }
+    if (cs.any((c) => _pctFields.contains(c) && (_num(c) ?? 0) > 100)) {
+      _badMsg = '역률·효율은 100%를 넘을 수 없습니다';
+      return true;
+    }
+    return false;
+  }
 
   Widget _negativeResult(String key) => calcResult(
     key: Key(key),
     big: '입력 확인',
-    caption: '음수는 넣을 수 없습니다',
+    caption: _badMsg,
     warn: true,
-    lines: const ['0보다 큰 값을 넣으십시오.'],
+    lines: [
+      _badMsg.startsWith('음수')
+          ? '0보다 큰 값을 넣으십시오.'
+          : '100 이하의 값을 넣으십시오. 소수(0.85)로 넣으면 85%로 읽습니다.',
+    ],
   );
 
   double get _defaultAmbient => _kind == WireKind.panel
@@ -610,7 +651,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   }
 
   /// 전선 굵기 탭 위치(탭 순서를 바꾸면 같이 고친다).
-  static const _kCableTab = 2;
+  static const _kCableTab = 3;
 
   // ─────────────── 그리기 ───────────────
 
@@ -645,11 +686,15 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 // 2026-09-26 사용자 선택 "자주 쓰는 것 먼저": 기초 계산을 맨 앞, 부스바를 역률 개선 앞으로.
                 Tab(key: Key('ec_tab_basic'), text: '기초 계산'),
                 Tab(key: Key('ec_tab_load'), text: '부하 전류'),
+                Tab(key: Key('ec_tab_loadsum'), text: '부하 합산'),
                 Tab(key: Key('ec_tab_cable'), text: '전선 굵기'),
                 Tab(key: Key('ec_tab_vd'), text: '전압강하'),
+                Tab(key: Key('ec_tab_short'), text: '단락 전류'),
                 Tab(key: Key('ec_tab_conduit'), text: '전선관'),
                 Tab(key: Key('ec_tab_bus'), text: '부스바'),
                 Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
+                Tab(key: Key('ec_tab_gen'), text: '발전기 용량'),
+                Tab(key: Key('ec_tab_batt'), text: '축전지 용량'),
               ],
             ),
           ),
@@ -659,11 +704,15 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               children: [
                 _basicTab(),
                 _loadTab(),
+                const ElecLoadSumTab(),
                 _cableTab(),
                 _vdTab(),
+                const ElecShortCircuitTab(),
                 _conduitTab(),
                 _busTab(),
                 _pfTab(),
+                const ElecGeneratorTab(),
+                const ElecBatteryTab(),
               ],
             ),
           ),
@@ -1040,6 +1089,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     }
     final nIn = _num(_circuits);
     final n = nIn == null || nIn < 1 ? 1 : nIn.round();
+    if (nIn != null && (nIn < 1 || nIn != nIn.roundToDouble())) {
+      notes.add('회로 수는 정수로 계산해 $n개로 봤습니다(입력값 ${fmt(nIn, 2)}).');
+    }
+    if (_kind != WireKind.panel && amb < 10) {
+      notes.add('주위 온도 표가 10°C부터라 10°C 값으로 계산했습니다. 실제 온도가 더 낮으면 허용전류에 여유가 있습니다.');
+    }
     final lenIn = _num(_length);
     final len = lenIn == null || lenIn <= 0 ? null : lenIn;
     final pfNotes = <String>[];
@@ -1057,6 +1112,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       basis = const [];
     } else if (_checkMode) {
       final brIn = _num(_chkBreaker);
+      if (brIn != null && brIn > 0 && brIn != brIn.roundToDouble()) {
+        notes.add('차단기 정격은 정수로 계산해 ${brIn.round()} A로 봤습니다(입력값 ${fmt(brIn, 2)}).');
+      }
       final k = checkCircuit(
         size: _chkSize,
         load: load,
@@ -1559,9 +1617,18 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   // ③ 전압강하
   Widget _vdTab() {
     if (_awg) return _awgVdTab();
-    final negative = _anyNegative([_vdI, _vdLen, _vdPf, _vdMult]);
+    final negative = _anyNegative([
+      _vdI,
+      _vdLen,
+      _vdPf,
+      _vdMult,
+      _vdStartPf,
+      _vdStartLimit,
+      _vdUp,
+    ]);
     final ph = _dc ? Phase.dc : _phase;
     final volts = _dc ? _dcVolts : _volts;
+    final up = math.max(0.0, _num(_vdUp) ?? 0);
     final i = _num(_vdI);
     final lenIn = _num(_vdLen);
     final len = lenIn == null || lenIn <= 0 ? null : lenIn;
@@ -1599,6 +1666,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             pf: pf,
             conductorTempC: conductorTemp(ins),
             supply: _supply,
+            reservedPct: up,
           );
     final multIn = _num(_vdMult);
     final mult = multIn == null || multIn <= 0
@@ -1607,23 +1675,43 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (_vdStart && !_dc && ok && (multIn == null || multIn <= 0)) {
       notes.add('기동 전류 배수 값이 없어 ${fmt(kMotorStartMultipleDefault)}배로 계산했습니다.');
     }
+    // Y-Δ는 직입 기동 전류의 1/3(선전류). 직입·직접 지정은 입력한 배수 그대로.
+    final startMult = _vdStartMode == StartMode.starDelta ? mult / 3 : mult;
+    final startPf = _pctOf(
+      _vdStartPf,
+      kMotorStartPf,
+      '기동 역률',
+      ok && _vdStart && !_dc ? notes : [],
+    );
     final startDv = !_vdStart || _dc || dv == null
         ? null
         : voltageDrop(
-            current: i! * mult,
+            current: i! * startMult,
             lengthM: len!,
             size: _vdSize,
             phase: ph,
-            pf: kMotorStartPf,
+            pf: startPf,
             conductorTempC: conductorTemp(ins),
           );
-    final over = pct != null && pct > limit + 1e-9;
+    final startPct = startDv == null ? null : startDv / volts * 100;
+    final startTotal = startPct == null ? null : startPct + up;
+    final startLimitIn = _num(_vdStartLimit);
+    final startLimit = startLimitIn == null || startLimitIn <= 0
+        ? null
+        : startLimitIn;
+    final startOver =
+        startTotal != null &&
+        startLimit != null &&
+        startTotal > startLimit + 1e-9;
+    final total = pct == null ? null : pct + up;
+    final over = total != null && total > limit + 1e-9;
     String? summary;
     if (pct != null) {
       summary =
           '${fmt(pct, 2)}% · ${over ? '한도 ${fmt(limit, 2)}% 초과' : '한도 ${fmt(limit, 2)}% 이내'}';
+      if (startOver) summary = '$summary · 기동 시 허용 초과';
     }
-    return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over, [
+    return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over || startOver, [
       _systemPicker('ec_vd'),
       _unitPicker('ec_vd'),
       calcDropdown<double>(
@@ -1648,6 +1736,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _field('ec_vd_len', '편도 길이 (m)', _vdLen, '케이블 한 가닥 길이입니다(왕복 아님).'),
       if (!_dc)
         _field('ec_vd_pf', '역률 (%)', _vdPf, '전동기 85, 히터 100. 비우면 85로 계산합니다.'),
+      _field(
+        'ec_vd_up',
+        '전원 쪽 전압강하 (%, 선택)',
+        _vdUp,
+        '한도는 수전점부터 기기까지 합계입니다. 이 회로 앞의 간선·분전반 구간 전압강하가 있으면 %로 넣으십시오. '
+            '넣으면 합계로 한도를 판정하고 최대 길이도 그만큼 줄입니다. 비우면 0으로 봅니다.',
+      ),
       if (!_dc)
         calcSwitch(
           '전동기 기동 시 전압강하',
@@ -1658,12 +1753,58 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           key: 'ec_vd_start',
         ),
       if (!_dc && _vdStart)
+        _chipGroup(
+          '기동 방식',
+          '직입: 입력한 배수 그대로 계산합니다.\n'
+              'Y-Δ: 직입 기동 전류의 1/3로 계산합니다(선전류 기준).\n'
+              '직접 지정: 소프트스타터·인버터처럼 기동 전류 배수를 명판·제조사 자료로 아는 경우입니다.',
+          [
+            calcChip(
+              'ec_vd_sm_direct',
+              '직입',
+              _vdStartMode == StartMode.direct,
+              () => setState(() => _vdStartMode = StartMode.direct),
+            ),
+            calcChip(
+              'ec_vd_sm_yd',
+              'Y-Δ',
+              _vdStartMode == StartMode.starDelta,
+              () => setState(() => _vdStartMode = StartMode.starDelta),
+            ),
+            calcChip(
+              'ec_vd_sm_custom',
+              '직접 지정',
+              _vdStartMode == StartMode.custom,
+              () => setState(() => _vdStartMode = StartMode.custom),
+            ),
+          ],
+        ),
+      if (!_dc && _vdStart)
         _field(
           'ec_vd_mult',
-          '기동 전류 배수 (정격의 배)',
+          _vdStartMode == StartMode.starDelta
+              ? '직입 기동 전류 배수 (정격의 배)'
+              : '기동 전류 배수 (정격의 배)',
           _vdMult,
           '기동 전류가 정격전류의 몇 배인지 넣습니다. 모르면 6으로 두십시오(LS ELECTRIC 자료의 전부하전류 600% 조건). '
-              '명판·시험 성적서에 기동 전류(IA/IN)가 있으면 그 값을 넣으십시오.',
+              '명판·시험 성적서에 기동 전류(IA/IN)가 있으면 그 값을 넣으십시오. '
+              'Y-Δ는 여기에 직입 배수를 넣으면 1/3로 계산합니다.',
+        ),
+      if (!_dc && _vdStart)
+        _field(
+          'ec_vd_startpf',
+          '기동 역률 (%)',
+          _vdStartPf,
+          '기동 중 역률입니다. 직입 기동은 35 안팎입니다(Schneider EIG). 소프트스타터·인버터는 이보다 높을 수 있으니 '
+              '제조사 자료가 있으면 그 값을 넣으십시오.',
+        ),
+      if (!_dc && _vdStart)
+        _field(
+          'ec_vd_startlim',
+          '허용 기동 전압강하 (%, 선택)',
+          _vdStartLimit,
+          '설계 기준이나 전동기 제조사가 정하는 값입니다. 넣으면 기동 시 전압강하가 이 값 이내인지 합격/불합격으로 봅니다. '
+              '비우면 판정하지 않습니다. KEC에는 기동 중 한도가 없습니다.',
         ),
       _supplyDropdown('ec_vd_supply'),
       const SizedBox(height: 12),
@@ -1676,31 +1817,73 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           caption: dv == null
               ? (ok ? '길이를 넣으면 전압강하를 계산합니다' : '전류와 길이를 넣으십시오')
               : '전압강하 ${fmt(dv, 2)} V',
-          warn: over,
+          warn: over || startOver,
           lines: [
+            if (pct != null && up > 0)
+              '이 회로 ${fmt(pct, 2)}% + 전원 쪽 ${fmt(up, 2)}% = 합계 ${fmt(total!, 2)}%',
             if (pct != null)
               over
                   ? '한도 ${fmt(limit, 2)}% 초과. 굵기를 올리거나 길이를 줄이십시오.'
                   : '한도 ${fmt(limit, 2)}% 이내입니다.',
             if (maxLen != null) '한도 이내 최대 편도 길이 약 ${fmt(maxLen, 0)} m',
             if (startDv != null)
-              '기동 시(정격 ×${fmt(mult)}, 역률 0.35) ${fmt(startDv, 2)} V (${fmt(startDv / volts * 100, 1)}%)',
+              '기동 시(정격 ×${fmt(startMult)}, 역률 ${fmt(startPf, 2)}) ${fmt(startDv, 2)} V (${fmt(startPct!, 1)}%)',
+            if (startTotal != null)
+              '전원 쪽 포함 기동 시 합계 ${fmt(startTotal, 1)}%: 단자 전압은 정격의 약 ${fmt(100 - startTotal, 0)}%이고, '
+                  '기동 토크는 전압의 제곱에 비례해 약 ${fmt(math.max(0, 100 - startTotal) * math.max(0, 100 - startTotal) / 100, 0)}%로 줄어듭니다.',
+            if (startTotal != null && startLimit != null)
+              startOver
+                  ? '허용 기동 전압강하 ${fmt(startLimit, 1)}%를 초과합니다(불합격).'
+                  : '허용 기동 전압강하 ${fmt(startLimit, 1)}% 이내입니다(합격).',
             if (startDv != null)
               '기동 중 전압강하는 표 232.3-1 한도 대상이 아닙니다. 전동기 단자 전압이 기동에 충분한지 확인하십시오.',
+            if (startDv != null)
+              '변압기·발전기 자체의 기동 전압강하는 포함하지 않았습니다. 알고 있으면 전원 쪽 전압강하 칸에 넣으십시오.',
             if (_dc) '직류 제어·계장 회로는 기기 최소 동작 전압으로도 확인하십시오.',
             if (simple != null)
               '참고: 현장 간이식(${_phase == Phase.three ? '30.8' : '35.6'}·L·I/1000A, 역률 1·20°C) ${fmt(simple, 2)}V',
+            if (pct != null)
+              '이 계산은 전압강하만 봅니다. 허용전류는 아래 단추나 전선 굵기 탭에서 확인하십시오.',
             ...notes,
           ],
+        ),
+      if (!negative && ok)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: calcToggle(
+            'ec_vd_to_check',
+            '이 굵기로 허용전류 점검',
+            _sendVdToCheck,
+          ),
         ),
       _basis('ec_vd_basis', [
         _vdFormula(ph, ins),
         if (_vdStart && !_dc)
-          '기동: 정격전류 × ${fmt(mult)}배, 역률 0.35(Schneider EIG 2009 그림 G27·G28)',
-        '최대 길이: 한도(100m를 넘으면 1m당 0.005%, 최대 0.5% 더함)와 전압강하가 같아지는 길이',
+          '기동: 정격전류 × ${fmt(startMult)}배(${_vdStartMode == StartMode.starDelta ? 'Y-Δ는 직입 배수 ${fmt(mult)}의 1/3' : '입력한 배수'}), '
+              '역률 ${fmt(startPf, 2)}(직입 기본 0.35는 Schneider EIG 2009 그림 G27·G28)',
+        if (_vdStart && !_dc)
+          '기동 토크는 전압의 제곱에 비례합니다(유도전동기 일반 이론). 단자 전압 잔존은 전원 쪽 합계를 정격 전압에서 뺀 근사값입니다.',
+        '최대 길이: 한도(100m를 넘으면 1m당 0.005%, 최대 0.5% 더함)에서 전원 쪽 강하를 뺀 값과 이 회로 전압강하가 같아지는 길이',
         _supplyTotalLine,
       ]),
     ]);
+  }
+
+  /// 전압강하 탭의 굵기·전류·길이를 넘겨 전선 굵기 탭의 "기존 회로 점검"으로 간다.
+  void _sendVdToCheck() {
+    HapticFeedback.selectionClick();
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _kind = _vdKind;
+      _method = _kind.methods.contains(_method) ? _method : _kind.methods.first;
+      _chkSize = _kind.sizes.contains(_vdSize) ? _vdSize : _chkSize;
+      _ib.text = _vdI.text;
+      _length.text = _vdLen.text;
+      _pf2.text = _vdPf.text;
+      _syncAmbient();
+      _checkMode = true;
+    });
+    _tabs.animateTo(_kCableTab);
   }
 
   // ④ 역률
@@ -1756,6 +1939,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             if (i1 != null && i2 != null && q != null && q > 0)
               '부하 전류 개선 전 ${fmt(i1, 1)} A → 개선 후 ${fmt(i2, 1)} A',
             if (q != null && q == 0) '목표 역률이 개선 전 역률보다 높아야 합니다.',
+            if (q != null && q > 0 && target > 0.95)
+              '목표 역률이 95%를 넘습니다. 콘덴서를 고정으로 달면 경부하 때 진상(과보상)이 될 수 있습니다. 자동 역률 조정 장치나 단계 투입을 검토하십시오.',
             if (uf != null && q! > 0)
               'μF는 국내 저압 진상 콘덴서 표기(선간전압 기준)로 환산했습니다. 제조사 표로 확인하십시오.',
             ...notes,
@@ -1815,9 +2000,33 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           ),
         ],
       ),
+      if (_oddSystem != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Text(
+            _oddSystem!,
+            key: const Key('ec_odd_system'),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: fc.danger,
+            ),
+          ),
+        ),
       const SizedBox(height: 12),
     ],
   );
+
+  /// 보통 쓰지 않는 전압·상 조합이면 확인하라는 글(계산은 막지 않는다).
+  String? get _oddSystem {
+    if (_volts == 110 && _phase == Phase.three) {
+      return '110V 삼상은 보통 없는 조합입니다. 단상·삼상 선택을 확인하십시오.';
+    }
+    if (_volts >= 440 && _phase == Phase.single) {
+      return '${_volts.toInt()}V 단상은 보통 없는 조합입니다. 단상·삼상 선택을 확인하십시오.';
+    }
+    return null;
+  }
 
   /// 교류/직류 선택과 전압. 부하 전류·전선 굵기·전압강하 탭이 같은 값(_dc·_dcVolts)을 쓴다.
   /// 키: '$prefix_ac'·'$prefix_dc'·'$prefix_dcv_125' 등.

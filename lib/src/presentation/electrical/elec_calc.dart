@@ -122,6 +122,7 @@ double? maxLengthForDrop({
   double conductorTempC = 70,
   SupplyType supply = SupplyType.lvOther,
   double? rOhmPerKm,
+  double reservedPct = 0,
 }) {
   if (current <= 0 || volts <= 0) return null;
   // 1m당 전압강하(%). [rOhmPerKm]가 있으면(AWG) 그 저항을 쓴다.
@@ -145,7 +146,9 @@ double? maxLengthForDrop({
       volts *
       100;
   if (a <= 0) return null;
-  final base = voltageDropLimit(supply, 0);
+  // 한도는 수전점부터 기기까지 합계이므로, 전원 쪽에서 이미 쓴 강하([reservedPct])만큼 뺀다.
+  final base = voltageDropLimit(supply, 0) - reservedPct;
+  if (base <= 0) return null;
   final l1 = base / a;
   if (l1 <= 100) return l1;
   // 100~200m: 한도 = base + 0.005(L − 100). 200m에서 더하는 0.5%가 다 찬다.
