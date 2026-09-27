@@ -94,19 +94,52 @@ void main() {
     });
   });
 
-  group('quickLaunchSubFeatures', () {
-    test('"·"로 나눠 앞뒤 공백을 지운다', () {
-      expect(quickLaunchSubFeatures('교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서'), [
-        '교정 점검',
-        '4-20mA',
-        '온도 센서',
-        '교정 가스',
-        '성적서',
-      ]);
+  group('quickLaunchAppendHistory', () {
+    final t1 = DateTime(2026, 9, 28, 9);
+    final t2 = DateTime(2026, 9, 28, 10);
+
+    test('빈 목록에 하나 넣으면 그것만', () {
+      expect(quickLaunchAppendHistory([], t1), [t1]);
     });
 
-    test('구분자가 없으면 통째로 하나', () {
-      expect(quickLaunchSubFeatures('수치 전송용 리모컨'), ['수치 전송용 리모컨']);
+    test('새 기록이 맨 앞에 붙는다', () {
+      expect(quickLaunchAppendHistory([t1], t2), [t2, t1]);
+    });
+
+    test('원래 목록은 안 바뀐다(새 목록을 돌려준다)', () {
+      final original = [t1];
+      final r = quickLaunchAppendHistory(original, t2);
+      expect(original, [t1]);
+      expect(r, [t2, t1]);
+    });
+
+    test('max를 넘으면 오래된 것부터 잘린다', () {
+      final history = List.generate(5, (i) => t1.add(Duration(hours: i)));
+      final r = quickLaunchAppendHistory(history, t2, max: 3);
+      expect(r.length, 3);
+      expect(r.first, t2);
+    });
+  });
+
+  group('quickLaunchDecodeHistory/quickLaunchEncodeHistory', () {
+    test('null이나 빈 글이면 빈 목록', () {
+      expect(quickLaunchDecodeHistory(null), isEmpty);
+      expect(quickLaunchDecodeHistory(''), isEmpty);
+    });
+
+    test('예전 형식(ISO8601 글 하나)도 읽는다', () {
+      final t = DateTime(2026, 9, 20, 8, 30);
+      expect(quickLaunchDecodeHistory(t.toIso8601String()), [t]);
+    });
+
+    test('인코드했다가 디코드하면 그대로', () {
+      final history = [DateTime(2026, 9, 28, 10), DateTime(2026, 9, 27, 9)];
+      final encoded = quickLaunchEncodeHistory(history);
+      expect(quickLaunchDecodeHistory(encoded), history);
+    });
+
+    test('알아볼 수 없는 글이면 빈 목록', () {
+      expect(quickLaunchDecodeHistory('이상한 글'), isEmpty);
     });
   });
 }

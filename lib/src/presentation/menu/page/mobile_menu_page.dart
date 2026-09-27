@@ -241,16 +241,6 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
     );
   }
 
-  void _openSubFeatures(BuildContext context, int i) {
-    HapticFeedback.selectionClick();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _SubFeatureInfoPage(entry: widget.entries[i]),
-      ),
-    );
-  }
-
   Widget _buildSingle(double cardWidth, double cardHeight, int n) => Column(
     children: [
       const SizedBox(height: 8),
@@ -288,71 +278,8 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
           ),
         ),
       ),
-      // 부가 기능은 카드 밖(아래)에 자동으로 슬라이딩되며 나타난다(누를 필요
-      // 없음). 앞 카드가 바뀔 때마다 그 카드 것으로 다시 슬라이딩된다. 그
-      // 자리를 누르면 부가 기능을 자세히 설명하는 풀 화면으로 간다.
-      if (!_editMode && widget.entries[_frontIndex].hasExtra)
-        ClipRect(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 320),
-            transitionBuilder: (child, anim) => SlideTransition(
-              position: Tween<Offset>(
-                begin: const Offset(0, -0.5),
-                end: Offset.zero,
-              ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
-              child: FadeTransition(opacity: anim, child: child),
-            ),
-            child: GestureDetector(
-              key: ValueKey(
-                'home_quick_extra_${widget.entries[_frontIndex].title}',
-              ),
-              onTap: () => _openSubFeatures(context, _frontIndex),
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final c in quickLaunchSubFeatures(
-                            widget.entries[_frontIndex].subtitle,
-                          ))
-                            Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 3),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 9,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: widget.entries[_frontIndex].iconColor
-                                    .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                c,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                  color: widget.entries[_frontIndex].iconColor,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '눌러서 부가 기능 자세히 보기',
-                      style: TextStyle(fontSize: 9, color: slate600),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
+      // 부가 기능(탭 안내) 표시는 기본 카드 화면에서는 없앴다 — 카드를 누르면
+      // 가는 상세 화면에 "부가 기능 보기" 줄로만 남아 있다.
       if (n > 1) ...[
         const SizedBox(height: 10),
         Row(
@@ -575,22 +502,22 @@ class _QuickLaunchDetailPage extends StatefulWidget {
 }
 
 class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
-  DateTime? _lastUsed;
+  List<DateTime> _history = [];
   bool _loaded = false;
 
   @override
   void initState() {
     super.initState();
-    _loadLastUsed();
+    _loadHistory();
   }
 
-  Future<void> _loadLastUsed() async {
+  Future<void> _loadHistory() async {
     try {
       final p = await SharedPreferences.getInstance();
-      final s = p.getString(_quickLaunchLastUsedKey(widget.entry.title));
+      final raw = p.getString(_quickLaunchLastUsedKey(widget.entry.title));
       if (!mounted) return;
       setState(() {
-        _lastUsed = s == null ? null : DateTime.tryParse(s);
+        _history = quickLaunchDecodeHistory(raw);
         _loaded = true;
       });
     } catch (_) {
@@ -602,17 +529,18 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
     HapticFeedback.lightImpact();
     try {
       final p = await SharedPreferences.getInstance();
+      final next = quickLaunchAppendHistory(_history, DateTime.now());
       await p.setString(
         _quickLaunchLastUsedKey(widget.entry.title),
-        DateTime.now().toIso8601String(),
+        quickLaunchEncodeHistory(next),
       );
     } catch (_) {}
     widget.entry.onTap();
   }
 
   /// [onTap]이 없으면(null) 그냥 보여주기만 하는 줄이 된다(화살표도 안 보임) —
-  /// "알림"·"마지막 작업"은 이제 정보만 보여주고, 실제 기능은 카드를 눌러야만
-  /// 들어간다(2026-09-27 사용자 지시).
+  /// "마지막 작업 시간"·"작업 히스토리"는 정보만 보여주고, 실제 기능은
+  /// 카드를 눌러야만 들어간다(2026-09-27 사용자 지시).
   Widget _sectionRow({
     required IconData icon,
     required String text,
@@ -655,6 +583,62 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
     );
   }
 
+  /// "마지막 작업 시간"(맨 앞 기록)보다 앞서 쌓인 사용 기록들 — 진짜로
+  /// 여러 번 쓴 기록이 있어야 뜬다(단순 반복 표시가 아니라 실제 기록).
+  Widget _historySection() {
+    if (!_loaded) {
+      return _sectionRow(
+        key: const Key('quick_detail_history'),
+        icon: Icons.history_toggle_off,
+        text: '불러오는 중…',
+        color: slate600,
+      );
+    }
+    final previous = _history.length > 1 ? _history.sublist(1) : <DateTime>[];
+    if (previous.isEmpty) {
+      return _sectionRow(
+        key: const Key('quick_detail_history'),
+        icon: Icons.history_toggle_off,
+        text: '아직 반복해서 쓴 기록이 없습니다',
+        color: slate600,
+      );
+    }
+    final now = DateTime.now();
+    return Container(
+      key: const Key('quick_detail_history'),
+      decoration: BoxDecoration(
+        color: pureWhite,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < previous.length; i++)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: i == previous.length - 1
+                  ? null
+                  : BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: Colors.grey.shade200),
+                      ),
+                    ),
+              child: Row(
+                children: [
+                  Icon(Icons.circle, size: 6, color: slate600),
+                  const SizedBox(width: 12),
+                  Text(
+                    quickLaunchRelativeTime(previous[i], now),
+                    style: TextStyle(color: slate900, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final entry = widget.entry;
@@ -687,25 +671,7 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
             ),
             const SizedBox(height: 28),
             Text(
-              '알림',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: slate600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _sectionRow(
-              key: const Key('quick_detail_notice'),
-              icon: Icons.notifications_none,
-              text: entry.badgeText ?? '지금은 알림이 없습니다',
-              color: entry.badgeText != null
-                  ? (entry.badgeColor ?? tossBlue)
-                  : slate600,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '마지막 작업',
+              '마지막 작업 시간',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
@@ -717,10 +683,24 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
               key: const Key('quick_detail_last_used'),
               icon: Icons.history,
               text: _loaded
-                  ? quickLaunchRelativeTime(_lastUsed, DateTime.now())
+                  ? quickLaunchRelativeTime(
+                      _history.isEmpty ? null : _history.first,
+                      DateTime.now(),
+                    )
                   : '불러오는 중…',
               color: slate900,
             ),
+            const SizedBox(height: 20),
+            Text(
+              '작업 히스토리',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: slate600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _historySection(),
             if (entry.hasExtra) ...[
               const SizedBox(height: 20),
               Text(
@@ -752,10 +732,10 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
   }
 }
 
-/// 부가 기능이 있는 카드 아래 슬라이딩 자리를 누르면 오는 풀 화면. 부제에
-/// 있는 "·" 구분 이름마다(맞는 게 있으면) [kSubFeatureDescriptions]에서
-/// 한 줄 설명을 찾아 보여준다 — 없으면 이름만 보여준다(억지로 안 지어냄).
-/// 맨 아래에 바로 그 기능으로 들어가는 단추도 둔다.
+/// 상세 화면 "부가 기능 보기"를 누르면 오는 풀 화면. [kQuickLaunchTabInfo]에
+/// 등록된, 그 화면 안의 진짜 탭 이름과 각 탭이 하는 일을 보여준다(코드를
+/// 읽어 확인한 내용 — 억지로 지어내지 않는다). 맨 아래에 바로 그 기능으로
+/// 들어가는 단추도 둔다.
 class _SubFeatureInfoPage extends StatelessWidget {
   final _MenuEntry entry;
   const _SubFeatureInfoPage({required this.entry});
@@ -764,9 +744,13 @@ class _SubFeatureInfoPage extends StatelessWidget {
     HapticFeedback.lightImpact();
     try {
       final p = await SharedPreferences.getInstance();
+      final key = _quickLaunchLastUsedKey(entry.title);
+      final history = quickLaunchDecodeHistory(p.getString(key));
       await p.setString(
-        _quickLaunchLastUsedKey(entry.title),
-        DateTime.now().toIso8601String(),
+        key,
+        quickLaunchEncodeHistory(
+          quickLaunchAppendHistory(history, DateTime.now()),
+        ),
       );
     } catch (_) {}
     entry.onTap();
@@ -774,7 +758,7 @@ class _SubFeatureInfoPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = quickLaunchSubFeatures(entry.subtitle);
+    final items = kQuickLaunchTabInfo[entry.title] ?? const <String, String>{};
     return Scaffold(
       key: const Key('quick_subfeature_page'),
       backgroundColor: slate100,
@@ -807,7 +791,7 @@ class _SubFeatureInfoPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    '이 화면 안에는 이런 기능들이 있습니다.',
+                    '이 화면 안에는 이런 탭이 있습니다.',
                     style: TextStyle(
                       fontSize: 13,
                       color: slate600,
@@ -815,7 +799,7 @@ class _SubFeatureInfoPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  for (final name in items)
+                  for (final tab in items.entries)
                     Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       padding: const EdgeInsets.all(16),
@@ -844,23 +828,21 @@ class _SubFeatureInfoPage extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  name,
+                                  tab.key,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w700,
                                     color: slate900,
                                   ),
                                 ),
-                                if (kSubFeatureDescriptions[name] != null) ...[
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    kSubFeatureDescriptions[name]!,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: slate600,
-                                      height: 1.35,
-                                    ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  tab.value,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: slate600,
+                                    height: 1.35,
                                   ),
-                                ],
+                                ),
                               ],
                             ),
                           ),
@@ -944,15 +926,43 @@ String quickLaunchRelativeTime(DateTime? at, DateTime now) {
   return '${(d.inDays / 365).floor()}년 전';
 }
 
-/// 부제의 "·" 구분을 부가 기능 이름 목록으로(따로 자료 없이 있는 글을 재활용 —
-/// "규격·길이"처럼 붙어 쓴 합성어는 과하게 쪼개질 수 있다).
-List<String> quickLaunchSubFeatures(String subtitle) => subtitle
-    .split('·')
-    .map((s) => s.trim())
-    .where((s) => s.isNotEmpty)
-    .toList();
-
 String _quickLaunchLastUsedKey(String title) => 'home_quick_last_used_$title';
+
+/// 빠른 실행 상세 화면 "작업 히스토리"에 쓸 사용 시각 목록에 새 기록 하나를
+/// 맨 앞에 붙인다 — 위젯 없이 시험 가능한 순수 함수(원래 목록은 안 바꾸고
+/// 새 목록을 돌려준다). 오래된 것은 [max]개까지만 남긴다.
+List<DateTime> quickLaunchAppendHistory(
+  List<DateTime> history,
+  DateTime now, {
+  int max = 8,
+}) {
+  final next = [now, ...history];
+  return next.length > max ? next.sublist(0, max) : next;
+}
+
+/// SharedPreferences에 저장해 둔 글을 사용 시각 목록으로 되돌린다. 2026-09-27
+/// 이전 버전은 ISO8601 글 하나만 저장했어서, 그 예전 형식도 그대로 읽는다.
+List<DateTime> quickLaunchDecodeHistory(String? raw) {
+  if (raw == null || raw.isEmpty) return [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      return decoded
+          .whereType<String>()
+          .map(DateTime.tryParse)
+          .whereType<DateTime>()
+          .toList();
+    }
+  } catch (_) {
+    // JSON이 아니면 예전 형식(글 하나)일 수 있으니 아래에서 마저 시도한다.
+  }
+  final single = DateTime.tryParse(raw);
+  return single == null ? [] : [single];
+}
+
+/// [quickLaunchDecodeHistory]의 반대 — 저장할 글로 바꾼다.
+String quickLaunchEncodeHistory(List<DateTime> history) =>
+    jsonEncode(history.map((d) => d.toIso8601String()).toList());
 
 /// 즐겨찾기를 빼서 목록이 짧아졌을 때 맨 앞 카드 자리가 범위를 벗어나지
 /// 않게 당긴다 — 위젯 없이 시험 가능한 순수 함수. **실제 버그**(2026-09-27):
@@ -963,42 +973,59 @@ int quickLaunchClampFrontIndex(int frontIndex, int entryCount) {
   return frontIndex.clamp(0, entryCount - 1);
 }
 
-/// 부가 기능 이름 → 한 줄 설명(부가 기능 풀 화면에 쓴다). 자동으로 나눈
-/// 이름과 잘 안 맞는 항목(쉼표로 나뉜 것 등)은 여기 없어도 괜찮다 — 그럴
-/// 땐 화면에 이름만 보여준다(억지로 지어내지 않는다).
-const Map<String, String> kSubFeatureDescriptions = {
-  // 계기 교정
-  '교정 점검': '입력값 대비 측정값·지시값을 넣어 오차·히스테리시스를 계산합니다.',
-  '4-20mA': '전류 신호와 실제 물리량(압력·온도 등) 사이를 서로 바꿔 계산합니다.',
-  '온도 센서': 'Pt100·Pt1000 저항이나 K·J·T형 등 열전대 기전력을 온도로 바꿔 계산합니다.',
-  '교정 가스': '가스 검지기 교정에 쓰는 교정 가스 관련 값을 계산합니다.',
-  '성적서': '교정한 내용을 PDF 성적서 문서로 만들어 줍니다.',
-  // 공학용 계산기
-  '사칙연산': '더하기·빼기·곱하기·나누기를 정확한 분수로 계산합니다.',
-  '삼각함수': 'sin·cos·tan 같은 각도 계산을 합니다.',
-  '거듭제곱': '숫자의 제곱·세제곱 같은 거듭제곱을 계산합니다.',
-  '인치 분수': '3/8인치처럼 분수를 탭해서 넣고 고칠 수 있습니다.',
-  '피트': "피트-인치(예: 3' 6\") 단위를 계산에 그대로 반영합니다.",
-  // 유량 계산
-  '유속': '관 단면적과 유량으로 유체가 흐르는 속도를 구합니다.',
-  '관 굵기': '유량·유속에 맞는 관 안지름(굵기)을 구합니다.',
-  '압력손실': '관을 흐르며 마찰로 잃는 압력(수두)을 구합니다.',
-  '차압 유량계': '오리피스 같은 차압식 유량계의 차압-유량 관계를 계산합니다.',
-  '유량계 점검': '유량계가 실제로 잘 재고 있는지 점검값을 계산합니다.',
-  // 전기 설계 계산
-  '부하 합산': '여러 전기 부하(모터·조명 등)의 전력을 더해 총부하를 구합니다.',
-  '전선 굵기': '부하 전류·거리에 맞는 전선 굵기(단면적)를 정합니다.',
-  '전압강하': '전선을 따라 전압이 얼마나 떨어지는지 계산합니다.',
-  '단락 전류': '회로가 단락됐을 때 흐를 수 있는 최대 전류를 어림합니다.',
-  '발전기': '비상 발전기 용량을 부하에 맞게 산정합니다.',
-  '축전지': '정전 대비 축전지(배터리) 용량을 산정합니다.',
-  // 단위 환산
-  '길이': 'mm·인치·피트 등 길이 단위를 서로 바꿉니다.',
-  '압력': 'Pa·kPa·psi·kg/cm² 등 압력 단위를 서로 바꿉니다(게이지압·절대압 포함).',
-  '온도': '섭씨·화씨·켈빈 사이를 서로 바꿉니다.',
-  '토크': 'N·m·kgf·m 등 조임 토크 단위를 서로 바꿉니다.',
-  '분수 인치': '1/16인치 같은 분수 인치를 소수로, 소수를 분수로 바꿉니다.',
-  '배관 호칭': '20A·DN50·3/4B 같은 배관 호칭 규격을 서로 찾아 바꿉니다.',
+/// 진짜로 안에 탭(TabBar)이 여러 개 있는 화면만 골라, 탭 이름 → 그 탭이
+/// 하는 일 한 줄을 적어 둔 것 — 각 화면의 실제 코드를 읽어 확인했다
+/// (2026-09-28). 부제를 "·"로 쪼개 억지로 부가 기능처럼 보이게 하던 예전
+/// 방식은 하단 네비게이션(탭처럼 보이지만 진짜 탭이 아닌 화면)까지 부가
+/// 기능으로 잘못 표시하고 있었다 — 이 맵에 없는 화면은 "부가 기능" 자체가
+/// 안 뜬다(빠른 실행 카드·상세 화면 모두).
+const Map<String, Map<String, String>> kQuickLaunchTabInfo = {
+  '압력 시험': {
+    '시험 압력': '배관·장비 사양에 맞는 목표 시험 압력을 계산합니다.',
+    '시험 기록': '실제 압력 시험 중의 측정값을 그때그때 기록합니다.',
+    '압력 강하': '시간이 지나며 압력이 얼마나 떨어졌는지(감압) 판정합니다.',
+    '공압 안전거리': '공압 시험의 위험 에너지에 맞는 안전거리를 계산합니다.',
+  },
+  '유량 계산': {
+    '유속·관 굵기': '유량으로 유속을 구하거나, 유량에 맞는 관 굵기를 정합니다.',
+    '압력손실': '관을 흐르며 마찰로 잃는 압력(차압)을 계산합니다.',
+    '차압 유량계': '오리피스 같은 차압식 유량계의 차압-유량 관계를 계산합니다.',
+    '유량계 점검': '설치된 유량계가 실제로 잘 재고 있는지 점검값을 계산합니다.',
+  },
+  '전기 설계 계산': {
+    '기초 계산': '전압·전류·저항 같은 전기 기초값을 계산합니다.',
+    '부하 전류': '모터·히터 같은 부하 종류에 맞는 전류를 계산합니다.',
+    '부하 합산': '여러 부하 전류를 더해 총부하를 구합니다.',
+    '전선 굵기': '부하·거리에 맞는 전선 굵기를 정하거나 기존 회로를 점검합니다.',
+    '전압강하': '전선 길이·굵기에 따른 전압강하를 계산합니다.',
+    '단락 전류': '회로가 단락됐을 때 흐를 수 있는 전류를 계산합니다.',
+    '전선관': '전선관(콘듀이트) 관련 계산을 합니다.',
+    '부스바': '부스바 용량·규격을 계산합니다.',
+    '역률 개선': '역률 개선용 콘덴서 용량을 계산합니다.',
+    '발전기 용량': '비상 발전기 용량을 부하에 맞게 산정합니다.',
+    '축전지 용량': '정전 대비 축전지(배터리) 용량을 산정합니다.',
+  },
+  '계기 교정': {
+    '교정 점검': '입력값 대비 측정값·지시값을 넣어 오차·히스테리시스를 계산합니다.',
+    '4-20mA': '전류 신호와 실제 물리량(압력·온도 등) 사이를 서로 바꿔 계산합니다.',
+    '온도 센서': 'Pt100·Pt1000 저항이나 K·J·T형 등 열전대 기전력을 온도로 바꿉니다.',
+    '교정 가스': '가스 검지기 교정에 쓰는 교정 가스 관련 값을 계산합니다.',
+    '루프 전압': '4-20mA 루프의 전압강하·부담저항 등을 계산합니다.',
+  },
+  '각도기': {
+    '벤딩 각도 재기': '화면을 흰색·파란색으로 나누는 기준선으로 실제 벤딩 각도를 잽니다.',
+    '화면 각도기': '화면 자체를 각도기처럼 써서 임의의 각도를 잽니다.',
+  },
+  '현장 자료·장비 사용법': {
+    '튜브': '튜브 규격·자료를 찾아봅니다.',
+    '전선관': '전선관(콘듀이트) 규격·자료를 찾아봅니다.',
+    '형강': '형강(H형강 등) 규격·자료를 찾아봅니다.',
+    '장비 사용법': '현장 장비 사용법을 안내합니다.',
+    '앱 사용법': '이 앱 자체의 사용법을 안내합니다.',
+    '단위 환산': '단위 환산 자료를 보여줍니다.',
+    '발전 설비': '발전 설비 관련 참고 자료를 보여줍니다.',
+    '전기 기준(KEC)': '한국전기설비규정(KEC) 참고 자료를 보여줍니다.',
+  },
 };
 
 class _MobileMenuPageState extends State<MobileMenuPage>
@@ -1523,7 +1550,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "내 프로젝트",
-                        hasExtra: true,
                         subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
                         icon: AppGlyph.project,
                         iconColor: slate900,
@@ -1543,7 +1569,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "내 일정 관리",
-                        hasExtra: true,
                         subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
                         icon: AppGlyph.schedule,
                         iconColor: makitaTeal,
@@ -1572,7 +1597,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "근태 관리",
-                        hasExtra: true,
                         subtitle: "연차·월차·반차·조퇴·특근과 출퇴근 시간 기록",
                         icon: AppGlyph.schedule,
                         iconColor: slate900,
@@ -1590,7 +1614,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "벤딩 마킹 계산기",
-                        hasExtra: true,
                         subtitle: "스마트폰용 · 단계별 치수 입력",
                         icon: AppGlyph.tubeBend,
                         iconColor: makitaTeal,
@@ -1609,7 +1632,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "튜브 컷팅 계산기",
-                        hasExtra: true,
                         subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
                         icon: AppGlyph.tubeCut,
                         iconColor: makitaTeal,
@@ -1627,7 +1649,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "압력 시험",
-                        hasExtra: true,
                         subtitle: "튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서",
                         icon: AppGlyph.pressureGauge,
                         onTap: () {
@@ -1643,7 +1664,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "유량 계산",
-                        hasExtra: true,
                         subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검",
                         icon: AppGlyph.flow,
                         onTap: () {
@@ -1660,7 +1680,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "전선관 벤딩 마킹 계산기",
-                        hasExtra: true,
                         subtitle: "장비 프로필 설정 · 마킹 뷰어",
                         icon: AppGlyph.conduitBend,
                         iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
@@ -1678,7 +1697,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "전기 설계 계산",
-                        hasExtra: true,
                         subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
                         icon: AppGlyph.electric,
                         onTap: () {
@@ -1696,7 +1714,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "계기 교정",
-                        hasExtra: true,
                         subtitle: "교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서",
                         icon: AppGlyph.currentLoop,
                         onTap: () {
@@ -1714,7 +1731,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "형강 컷팅 (찬넬/앵글)",
-                        hasExtra: true,
                         subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
                         icon: AppGlyph.steel,
                         iconColor: makitaTeal,
@@ -1732,7 +1748,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "작업 배치도",
-                        hasExtra: true,
                         subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
                         icon: AppGlyph.layout,
                         iconColor: slate900,
@@ -1755,7 +1770,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "단위 환산",
-                        hasExtra: true,
                         subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
                         icon: AppGlyph.unitConvert,
                         onTap: () {
@@ -1771,7 +1785,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "수평계",
-                        hasExtra: true,
                         subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
                         icon: AppGlyph.level,
                         onTap: () {
@@ -1787,7 +1800,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "각도기",
-                        hasExtra: true,
                         subtitle: "벤딩 각도 재기 · 화면 각도기",
                         icon: AppGlyph.protractor,
                         onTap: () {
@@ -1803,7 +1815,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "공학용 계산기",
-                        hasExtra: true,
                         subtitle: "사칙연산·삼각함수·거듭제곱 · 인치 분수·피트",
                         icon: AppGlyph.engCalc,
                         onTap: () {
@@ -1917,7 +1928,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "자재 현황",
-                        hasExtra: true,
                         subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
                         icon: AppGlyph.stock,
                         iconColor: slate900,
@@ -1941,7 +1951,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "자재 통합 관리",
-                        hasExtra: true,
                         subtitle: "재고조사 · 새 자재 등록 및 삭제",
                         icon: AppGlyph.stockAdmin,
                         iconColor: slate900,
@@ -1960,7 +1969,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "현장 자료·장비 사용법",
-                        hasExtra: true,
                         subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
                         icon: AppGlyph.tubeSpec,
                         iconColor: slate900,
@@ -2463,9 +2471,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     Color? iconColor,
     String? badgeText,
     Color? badgeColor,
-    bool hasExtra = false,
   }) {
     // 빠른 실행 화면이 쓸 수 있게 이번 build에서 만든 버튼 정보를 쌓아 둔다.
+    // hasExtra는 더 이상 여기서 손으로 표시하지 않고, 실제로 안에 탭이 여러
+    // 개 있다고 코드로 확인한 화면(kQuickLaunchTabInfo)인지로 정한다
+    // (2026-09-28, 손으로 단 표시가 실제와 어긋나 있었다).
     _menuEntries.add(
       _MenuEntry(
         title: title,
@@ -2473,7 +2483,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         icon: icon,
         iconColor: iconColor ?? slate900,
         onTap: onTap,
-        hasExtra: hasExtra,
+        hasExtra: kQuickLaunchTabInfo.containsKey(title),
         badgeText: badgeText,
         badgeColor: badgeColor,
       ),
