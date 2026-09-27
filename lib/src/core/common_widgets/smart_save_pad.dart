@@ -7,6 +7,10 @@ import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/data/tube_drawing_specs.dart';
 
 const Color makitaTeal = AppColors.brand;
+const Color _slate900 = AppColors.text;
+const Color _slate600 = AppColors.textSub;
+const Color _slate100 = AppColors.background;
+const Color _pureWhite = Color(0xFFFFFFFF);
 
 class SmartSavePad extends StatefulWidget {
   final double totalCut;
@@ -84,6 +88,9 @@ class _SmartSavePadState extends State<SmartSavePad> {
     super.dispose();
   }
 
+  // 흰 배경·회색 채움·청록 강조 — 앱 나머지 화면(app_dialog.dart의
+  // appFieldDecoration)과 같은 톤으로(2026-09-28, 예전엔 이 창만 어두운
+  // 바탕에 노란 강조라 폰 색감과 안 맞았다).
   Widget _buildFieldInput(
     String label,
     TextEditingController controller, {
@@ -96,19 +103,19 @@ class _SmartSavePadState extends State<SmartSavePad> {
       textInputAction: action,
       maxLines: maxLines,
       style: const TextStyle(
-        color: Colors.white,
+        color: _slate900,
         fontSize: 16,
-        fontWeight: FontWeight.bold,
+        fontWeight: FontWeight.w600,
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+        labelStyle: const TextStyle(color: _slate600, fontSize: 13),
         alignLabelWithHint: maxLines > 1,
         prefixIcon: icon != null
-            ? Icon(icon, color: Colors.white38, size: 18)
+            ? Icon(icon, color: _slate600.withValues(alpha: 0.6), size: 18)
             : null,
         filled: true,
-        fillColor: Colors.black45,
+        fillColor: _slate100,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 12,
@@ -119,7 +126,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: makitaTeal),
+          borderSide: const BorderSide(color: makitaTeal, width: 1.5),
         ),
       ),
     );
@@ -131,11 +138,12 @@ class _SmartSavePadState extends State<SmartSavePad> {
       label: Text(size),
       selected: isSel,
       selectedColor: makitaTeal,
-      backgroundColor: Colors.black45,
+      backgroundColor: _slate100,
       showCheckmark: false,
+      side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       labelStyle: TextStyle(
-        color: isSel ? Colors.white : Colors.white54,
+        color: isSel ? _pureWhite : _slate600,
         fontWeight: FontWeight.bold,
         fontSize: 14,
       ),
@@ -152,10 +160,9 @@ class _SmartSavePadState extends State<SmartSavePad> {
         right: 20,
         top: 24,
       ),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border.all(color: Colors.white24),
+      decoration: const BoxDecoration(
+        color: _pureWhite,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -165,7 +172,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
             const Text(
               "작업 도면 저장",
               style: TextStyle(
-                color: Colors.white,
+                color: _slate900,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -188,7 +195,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                 ),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(Icons.arrow_forward_rounded, color: Colors.amber),
+                  child: Icon(Icons.arrow_forward_rounded, color: _slate600),
                 ),
                 Expanded(
                   child: _buildFieldInput(
@@ -212,7 +219,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
             const Text(
               "파이프 규격 (Inch)",
               style: TextStyle(
-                color: Colors.amber,
+                color: _slate600,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
@@ -227,7 +234,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
             const Text(
               "파이프 규격 (mm)",
               style: TextStyle(
-                color: Colors.amber,
+                color: _slate600,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
               ),
@@ -323,7 +330,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: _pureWhite,
                   ),
                 ),
               ),
