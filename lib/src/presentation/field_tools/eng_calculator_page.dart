@@ -595,10 +595,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
               child: LayoutBuilder(
                 builder: (context, box) => Align(
                   alignment: Alignment.centerRight,
-                  // 남는 세로 자리만큼 키우되, 72를 넘지는 않는다(삼성 갤럭시
-                  // 계산기 수준의 굵기·크기 — 예전 120·w900은 너무 굵고 컸다).
+                  // 남는 세로 자리만큼 키우되, 84를 넘지는 않는다. 아이폰 계산기처럼
+                  // 크지만 가는(thin) 굵기라 커도 두껍고 답답해 보이지 않는다.
                   child: SizedBox(
-                    height: box.maxHeight.clamp(0, 72),
+                    height: box.maxHeight.clamp(0, 84),
                     child: FittedBox(
                       fit: BoxFit.contain,
                       alignment: Alignment.centerRight,
@@ -606,8 +606,8 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                         big,
                         key: const Key('calc_display_result'),
                         style: TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 56,
+                          fontWeight: FontWeight.w300,
                           color: _error != null ? _danger : _ink,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
@@ -784,13 +784,21 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     );
   }
 
+  /// 칸 안에서 정원(perfect circle) 모양이 되게 감싼다(아이폰 계산기 단추처럼) —
+  /// 칸의 가로·세로 중 짧은 쪽에 맞춰 정사각형(=원)으로 줄고, 가운데로 온다.
+  Widget _circleCell(Widget button) =>
+      Center(child: AspectRatio(aspectRatio: 1, child: button));
+
   Widget _keypad() {
     Widget row(List<Widget> keys) => Expanded(
       child: Row(
         children: [
           for (final k in keys)
             Expanded(
-              child: Padding(padding: const EdgeInsets.all(5), child: k),
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: _circleCell(k),
+              ),
             ),
         ],
       ),
@@ -857,26 +865,26 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(5),
-                    child: _fracKey(key: 'calc_frac_key'),
+                    padding: const EdgeInsets.all(6),
+                    child: _circleCell(_fracKey(key: 'calc_frac_key')),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(5),
-                    child: _feet(key: 'calc_ft'),
+                    padding: const EdgeInsets.all(6),
+                    child: _circleCell(_feet(key: 'calc_ft')),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(5),
-                    child: _postfix('%', key: 'calc_pct'),
+                    padding: const EdgeInsets.all(6),
+                    child: _circleCell(_postfix('%', key: 'calc_pct')),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(5),
-                    child: _equals(key: 'calc_eq'),
+                    padding: const EdgeInsets.all(6),
+                    child: _circleCell(_equals(key: 'calc_eq')),
                   ),
                 ),
               ],
@@ -929,8 +937,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     foregroundColor: fg,
     elevation: 0,
     padding: EdgeInsets.zero,
-    // 갤럭시 계산기처럼 단추를 더 둥글게(거의 알약 모양).
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+    // 아이폰 계산기처럼 완전한 원(단추가 정사각형이 되도록 [_circleCell]로 감싸고,
+    // 반지름을 아주 크게 줘 항상 짧은 변의 반이 되어 원이 된다).
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(999)),
+    ),
   );
 
   Widget _digit(String d, {required String key}) => ElevatedButton(
@@ -939,7 +950,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     onPressed: () => _tapDigit(d),
     child: Text(
       d,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
     ),
   );
 
@@ -949,7 +960,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     onPressed: () => _tapOp(d),
     child: Text(
       d,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
     ),
   );
 
@@ -960,7 +971,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         onPressed: () => _tapFn(fnName ?? label),
         child: Text(
           label,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       );
 
@@ -970,7 +981,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     onPressed: () => _tapConst(c),
     child: Text(
       c,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
     ),
   );
 
@@ -980,7 +991,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     onPressed: () => _tapPostfix(s),
     child: Text(
       s,
-      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
     ),
   );
 
@@ -1027,7 +1038,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     onPressed: _tapEquals,
     child: const Text(
       '=',
-      style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+      style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
     ),
   );
 }
