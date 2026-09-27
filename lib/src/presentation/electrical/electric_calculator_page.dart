@@ -331,6 +331,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     _saveTimer?.cancel();
     _flushDraft();
     _tabs.dispose();
+    _shortSeed.dispose();
     for (final c in _controllers) {
       c.dispose();
     }
@@ -650,8 +651,19 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     _tabs.animateTo(_kCableTab);
   }
 
-  /// 전선 굵기 탭 위치(탭 순서를 바꾸면 같이 고친다).
+  /// 부하 합산 탭이 단락 전류 탭으로 넘기는 변압기 값.
+  final _shortSeed = ValueNotifier<ElecTransformerSeed?>(null);
+
+  void _sendToShort(double kva, double volts) {
+    HapticFeedback.selectionClick();
+    FocusManager.instance.primaryFocus?.unfocus();
+    _shortSeed.value = ElecTransformerSeed(kva, volts);
+    _tabs.animateTo(_kShortTab);
+  }
+
+  /// 전선 굵기·단락 전류 탭 위치(탭 순서를 바꾸면 같이 고친다).
   static const _kCableTab = 3;
+  static const _kShortTab = 5;
 
   // ─────────────── 그리기 ───────────────
 
@@ -704,10 +716,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               children: [
                 _basicTab(),
                 _loadTab(),
-                const ElecLoadSumTab(),
+                ElecLoadSumTab(onSendToShortCircuit: _sendToShort),
                 _cableTab(),
                 _vdTab(),
-                const ElecShortCircuitTab(),
+                ElecShortCircuitTab(seed: _shortSeed),
                 _conduitTab(),
                 _busTab(),
                 _pfTab(),

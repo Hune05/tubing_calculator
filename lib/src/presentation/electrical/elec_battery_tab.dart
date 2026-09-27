@@ -32,7 +32,14 @@ class _StepRow {
 }
 
 class _ElecBatteryTabState extends State<ElecBatteryTab>
-    with CalcFormParts<ElecBatteryTab>, ElecTabParts<ElecBatteryTab> {
+    with
+        CalcFormParts<ElecBatteryTab>,
+        ElecTabParts<ElecBatteryTab>,
+        AutomaticKeepAliveClientMixin<ElecBatteryTab> {
+  // 탭을 옮겨도 입력이 사라지지 않게 살려 둔다.
+  @override
+  bool get wantKeepAlive => true;
+
   static const _maxSteps = 8;
 
   BatteryMethod _method = BatteryMethod.sba;
@@ -321,6 +328,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     _scheduleSave();
     final bad = <String>[];
 

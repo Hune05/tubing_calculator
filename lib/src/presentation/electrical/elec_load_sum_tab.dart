@@ -40,14 +40,24 @@ class _RowCtl {
 }
 
 class ElecLoadSumTab extends StatefulWidget {
-  const ElecLoadSumTab({super.key});
+  const ElecLoadSumTab({super.key, this.onSendToShortCircuit});
+
+  /// 변압기 용량(kVA)과 2차 전압(V)을 단락 전류 탭으로 넘긴다. 없으면 단추를 보이지 않는다.
+  final void Function(double kva, double volts)? onSendToShortCircuit;
 
   @override
   State<ElecLoadSumTab> createState() => _ElecLoadSumTabState();
 }
 
 class _ElecLoadSumTabState extends State<ElecLoadSumTab>
-    with CalcFormParts<ElecLoadSumTab>, ElecTabParts<ElecLoadSumTab> {
+    with
+        CalcFormParts<ElecLoadSumTab>,
+        ElecTabParts<ElecLoadSumTab>,
+        AutomaticKeepAliveClientMixin<ElecLoadSumTab> {
+  // 탭을 옮겨도 입력이 사라지지 않게 살려 둔다.
+  @override
+  bool get wantKeepAlive => true;
+
   final List<_RowCtl> _rows = [];
   int _nextId = 0;
   final _defPf = TextEditingController();
@@ -465,6 +475,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final input = _input();
     final r = computeLoadSum(input);
     _scheduleSave();
@@ -582,6 +593,34 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
       ),
       const SizedBox(height: 4),
       result,
+      if (r.ok && !r.noLines && widget.onSendToShortCircuit != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('els_to_short'),
+              onPressed: () => widget.onSendToShortCircuit!(
+                r.selectedKva ?? r.requiredKva,
+                r.volts,
+              ),
+              icon: const Icon(Icons.bolt_rounded),
+              label: Text(
+                '단락 전류로 보내기 (${fmt(r.selectedKva ?? r.requiredKva, 1)} kVA, ${fmt(r.volts, 0)} V)',
+              ),
+            ),
+          ),
+        ),
+      if (r.ok && !r.noLines && widget.onSendToShortCircuit != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            r.selectedKva == null
+                ? '선정 변압기 용량을 넣지 않아 필요 용량을 넘깁니다. 실제 변압기 명판 값으로 고치십시오. %Z는 넘기지 않습니다.'
+                : '선정 변압기 용량을 넘깁니다. %Z는 명판 값을 단락 전류 탭에서 넣으십시오.',
+            style: TextStyle(fontSize: 12, color: fc.textSub),
+          ),
+        ),
       elecBasis('els_basis', [
         '최대수요전력 = 설비용량 × 수용률. 줄마다 유효전력 P = kW × 수용률, 무효전력 Q = P × tanφ(φ = acos 역률).',
         '최대수요 kVA = √((ΣP)² + (ΣQ)²). 종합 역률 = ΣP ÷ 최대수요 kVA.',

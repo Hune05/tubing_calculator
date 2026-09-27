@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -13,7 +14,10 @@ import 'elec_short_circuit.dart';
 import 'elec_tables.dart';
 
 class ElecShortCircuitTab extends StatefulWidget {
-  const ElecShortCircuitTab({super.key});
+  const ElecShortCircuitTab({super.key, this.seed});
+
+  /// 부하 합산 탭이 넘긴 변압기 값(용량·2차 전압). 값이 오면 두 칸을 채운다.
+  final ValueListenable<ElecTransformerSeed?>? seed;
 
   /// 입력값을 남기는 저장 칸 이름.
   static const String draftKey = 'elec_short_draft_v1';
@@ -32,7 +36,16 @@ class _SegRow {
 }
 
 class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
-    with CalcFormParts<ElecShortCircuitTab>, ElecTabParts<ElecShortCircuitTab> {
+    with
+        CalcFormParts<ElecShortCircuitTab>,
+        ElecTabParts<ElecShortCircuitTab>,
+        AutomaticKeepAliveClientMixin<ElecShortCircuitTab> {
+  // 탭을 옮겨도 입력이 사라지지 않게 살려 둔다.
+  @override
+  bool get wantKeepAlive => true;
+
+  ElecTransformerSeed? _lastSeed;
+
   final _kva = TextEditingController();
   final _volts = TextEditingController();
   final _z = TextEditingController();
@@ -80,11 +93,25 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
   @override
   void initState() {
     super.initState();
-    _loadDraft();
+    widget.seed?.addListener(_takeSeed);
+    // 저장해 둔 입력을 먼저 채운 다음, 이미 넘어온 값이 있으면 그 값으로 덮는다.
+    _loadDraft().then((_) => _takeSeed());
+  }
+
+  /// 부하 합산 탭이 넘긴 변압기 용량·2차 전압을 칸에 넣는다(같은 꾸러미는 한 번만).
+  void _takeSeed() {
+    final s = widget.seed?.value;
+    if (s == null || !mounted || identical(s, _lastSeed)) return;
+    _lastSeed = s;
+    setState(() {
+      _kva.text = fmt(s.kva, 1);
+      _volts.text = fmt(s.volts, 0);
+    });
   }
 
   @override
   void dispose() {
+    widget.seed?.removeListener(_takeSeed);
     _saveTimer?.cancel();
     _flushDraft();
     for (final (_, c) in _texts) {
@@ -207,6 +234,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     _scheduleSave();
     final errs = <String>[];
     final kva = _val(_kva, '변압기 용량', errs);
@@ -478,7 +506,9 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       if (bkSummary != null) sumParts.add(bkSummary);
       if (cabSummary != null) sumParts.add(cabSummary);
       summary = sumParts.join(' · ');
-      warn = bkWarn || cabWarn || rr.minUsesMaxUpstream;
+      // 빈 선택 칸 때문에 나오는 안내(최소 단락이 안전 쪽이 아님)는 아래 카드에서만 붉게 보이고,
+      // 요약 줄은 차단용량·케이블 열 견딤이 불합격일 때만 붉게 한다.
+      warn = bkWarn || cabWarn;
     } else {
       summary = '변압기 명판 값을 넣으십시오';
     }

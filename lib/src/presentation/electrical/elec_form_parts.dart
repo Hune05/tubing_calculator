@@ -15,6 +15,14 @@ String fmt(double v, [int d = 1]) {
   return s;
 }
 
+/// 부하 합산 탭이 단락 전류 탭으로 변압기 값(용량·2차 전압)을 넘길 때 쓰는 꾸러미.
+/// 넘길 때마다 새로 만들어 같은 값도 다시 적용된다.
+class ElecTransformerSeed {
+  const ElecTransformerSeed(this.kva, this.volts);
+  final double kva;
+  final double volts;
+}
+
 /// 칸의 글을 숫자로 읽는다. 비었거나 숫자가 아니면 null.
 double? readNum(TextEditingController c) =>
     double.tryParse(c.text.trim().replaceAll(',', ''));

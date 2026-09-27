@@ -20,11 +20,18 @@ class ElecGeneratorTab extends StatefulWidget {
 }
 
 class _ElecGeneratorTabState extends State<ElecGeneratorTab>
-    with CalcFormParts<ElecGeneratorTab>, ElecTabParts<ElecGeneratorTab> {
+    with
+        CalcFormParts<ElecGeneratorTab>,
+        ElecTabParts<ElecGeneratorTab>,
+        AutomaticKeepAliveClientMixin<ElecGeneratorTab> {
+  // 탭을 옮겨도 입력이 사라지지 않게 살려 둔다.
+  @override
+  bool get wantKeepAlive => true;
+
   final _load = TextEditingController();
-  final _demand = TextEditingController(text: '1');
-  final _eff = TextEditingController(text: '0.85');
-  final _pf = TextEditingController(text: '0.8');
+  final _demand = TextEditingController(text: '100');
+  final _eff = TextEditingController(text: '85');
+  final _pf = TextEditingController(text: '80');
   final _motor = TextEditingController();
   final _beta = TextEditingController();
   final _c = TextEditingController();
@@ -124,11 +131,21 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
   }
 
   /// 칸을 숫자로 읽는다. 비면 null, 숫자가 아니면 bad에 이름을 적는다.
-  double? _read(TextEditingController c, String label, List<String> bad) {
+  /// [pct]인 칸(수용률·효율·역률)은 %로 넣는다: 1을 넘으면 100으로 나눠 비율로 바꾼다(0.85도 그대로 받는다).
+  double? _read(
+    TextEditingController c,
+    String label,
+    List<String> bad, {
+    bool pct = false,
+  }) {
     final t = c.text.trim();
     if (t.isEmpty) return null;
-    final v = readNum(c);
-    if (v == null) bad.add('$label: 숫자가 아닙니다.');
+    var v = readNum(c);
+    if (v == null) {
+      bad.add('$label: 숫자가 아닙니다.');
+    } else if (pct && v > 1) {
+      v = v / 100;
+    }
     return v;
   }
 
@@ -142,20 +159,21 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     _scheduleSave();
     final bad = <String>[];
     final input = GenInput(
       loadKw: _read(_load, '부하 합계', bad),
-      demand: _read(_demand, '수용률', bad),
-      eff: _read(_eff, '효율', bad),
-      pf: _read(_pf, '역률', bad),
+      demand: _read(_demand, '수용률', bad, pct: true),
+      eff: _read(_eff, '효율', bad, pct: true),
+      pf: _read(_pf, '역률', bad, pct: true),
       motorKw: _read(_motor, '가장 큰 전동기', bad),
       beta: _read(_beta, 'β', bad),
       startC: _read(_c, '시동방식 계수', bad),
       xdPct: _read(_xd, 'X″d', bad),
       dvPct: _read(_dv, '허용 전압강하', bad),
-      startPf: _read(_startPf, '기동 역률', bad),
-      genPf: _read(_genPf, '발전기 역률', bad),
+      startPf: _read(_startPf, '기동 역률', bad, pct: true),
+      genPf: _read(_genPf, '발전기 역률', bad, pct: true),
       harmonicKva: _read(_harm, '고조파 부하', bad),
       harmonicFactor: _read(_harmF, '고조파 가산 계수', bad),
       volts: _read(_volts, '발전기 전압', bad),
@@ -233,21 +251,21 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       ),
       elecField(
         'eg_demand',
-        '수용률 (α)',
+        '수용률 (α, %)',
         _demand,
-        '부하가 한꺼번에 다 걸리지 않을 때 줄이는 비율입니다. 근거가 없으면 1로 두십시오. 1보다 크게 넣을 수 없습니다.',
+        '부하가 한꺼번에 다 걸리지 않을 때 줄이는 비율입니다. 근거가 없으면 100으로 두십시오. 100을 넘게 넣을 수 없습니다.',
       ),
       elecField(
         'eg_eff',
-        '부하 종합 효율',
+        '부하 종합 효율 (%)',
         _eff,
-        '0.85로 쓰는 자료가 있습니다(2차 자료). 부하 자료가 있으면 그 값을 넣으십시오.',
+        '85%로 쓰는 자료가 있습니다(2차 자료). 부하 자료가 있으면 그 값을 넣으십시오.',
       ),
       elecField(
         'eg_pf',
-        '부하 종합 역률',
+        '부하 종합 역률 (%)',
         _pf,
-        '0.8로 쓰는 자료가 있습니다(2차 자료). 부하 자료가 있으면 그 값을 넣으십시오.',
+        '80%로 쓰는 자료가 있습니다(2차 자료). 부하 자료가 있으면 그 값을 넣으십시오.',
       ),
       elecSectionTitle('가장 큰 전동기'),
       elecField(
@@ -299,15 +317,15 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       ),
       elecField(
         'eg_startpf',
-        '기동 역률 (PG3, 선택)',
+        '기동 역률 (%, PG3, 선택)',
         _startPf,
-        '전동기 기동 때의 역률입니다. 제조사 자료 값을 넣으십시오. 논문 표에는 전동기 용량별로 0.15~0.62가 있습니다. 비우면 PG3를 계산하지 않습니다.',
+        '전동기 기동 때의 역률입니다. 제조사 자료 값을 넣으십시오. 논문 표에는 전동기 용량별로 15~62%가 있습니다. 비우면 PG3를 계산하지 않습니다.',
       ),
       elecField(
         'eg_genpf',
-        '발전기 역률 (PG3, 선택)',
+        '발전기 역률 (%, PG3, 선택)',
         _genPf,
-        '발전기 명판 역률입니다. 보통 0.8입니다. 비우면 PG3를 계산하지 않습니다.',
+        '발전기 명판 역률입니다. 보통 80%입니다. 비우면 PG3를 계산하지 않습니다.',
       ),
       elecSectionTitle('고조파 부하와 결과'),
       elecField(
