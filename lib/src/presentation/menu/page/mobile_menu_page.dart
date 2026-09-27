@@ -74,6 +74,29 @@ const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = AppColors.danger;
 const Color makitaTeal = AppColors.brand;
 
+// 빠른 실행 카드 전용 색(2026-09-28) — 예전엔 대부분 검정 기본값을 그대로
+// 써서 카드를 겹쳐 보면(지갑 보기) 서로 구별이 잘 안 됐다. 공종별로 색
+// 계열은 가깝게, 그 안에서는 서로 다르게 정해서 한눈에 구별되게 했다.
+const Color kCardMyProject = Color(0xFF0F9B8E); // 내 프로젝트(청록 계열)
+const Color kCardAttendance = Color(0xFF6C5CE7); // 근태 관리(보라)
+const Color kCardTubeCutting = Color(0xFF1AB0A6); // 튜브 컷팅 계산기(청록-시안)
+const Color kCardPressureTest = Color(0xFFE0526B); // 압력 시험(로즈)
+const Color kCardFlowCalc = Color(0xFF3B82C4); // 유량 계산(파랑)
+const Color kCardElectricCalc = Color(0xFFE09A2C); // 전기 설계 계산(주황·전기색)
+const Color kCardSignalCal = Color(0xFF8A2BE2); // 계기 교정(보라)
+const Color kCardLayoutBoard = Color(0xFF4A5578); // 작업 배치도(남색-슬레이트)
+const Color kCardUnitConvert = Color(0xFF16A085); // 단위 환산(초록-청록)
+const Color kCardLevel = Color(0xFF27AE60); // 수평계(초록)
+const Color kCardProtractor = Color(0xFFE08E1A); // 각도기(주황)
+const Color kCardEngCalc = Color(0xFF34495E); // 공학용 계산기(짙은 슬레이트)
+const Color kCardRemote = Color(0xFF9B59B6); // 벤딩 리모컨(보라-핑크)
+const Color kCardScan = Color(0xFF17A2B8); // 현장 도면 스캔(시안)
+const Color kCardStock = Color(0xFFC0392B); // 자재 현황(벽돌색)
+const Color kCardStockAdmin = Color(0xFF7F8C8D); // 자재 통합 관리(회갈)
+const Color kCardSteelCutting = Color(0xFF5C7080); // 형강 컷팅(강재-청회색)
+const Color kCardMySchedule = Color(0xFF2D9CDB); // 내 일정 관리(달력-파랑)
+const Color kCardReference = Color(0xFF8D6E63); // 현장 자료·장비 사용법(갈색)
+
 /// 빠른 실행(즐겨찾기) 목록에 쓰려고 메뉴 버튼 하나의 정보를 담아 둔 것.
 /// [_buildMenuButton]이 그릴 때마다(매 build) 자기 것을 쌓아 둔다.
 class _MenuEntry {
@@ -394,6 +417,7 @@ class _QuickLaunchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = entry.iconColor;
+    final dark = Color.lerp(base, Colors.black, 0.45)!;
     return SizedBox(
       width: width,
       height: height,
@@ -407,61 +431,114 @@ class _QuickLaunchCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(20),
               onTap: onTap,
               onLongPress: onLongPress,
-              child: Container(
+              child: Ink(
                 width: width,
                 height: height,
-                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [base, Color.lerp(base, Colors.black, 0.35)!],
+                    colors: [base, dark],
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.22),
+                      color: base.withValues(alpha: 0.35),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
                     ),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.18),
-                        shape: BoxShape.circle,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    children: [
+                      // 카드마다 다른 색·아이콘이라는 걸 넘어, 큰 워터마크
+                      // 그림으로 "이게 무슨 카드인지" 한눈에 개성 있게 알려준다
+                      // (2026-09-28 사용자 요청 — 아이콘은 그대로, 꾸밈만 더함).
+                      Positioned(
+                        right: -width * 0.14,
+                        bottom: -height * 0.18,
+                        child: Opacity(
+                          opacity: 0.16,
+                          child: Transform.rotate(
+                            angle: -0.2,
+                            child: AppIcon(
+                              entry.icon,
+                              size: height * 0.95,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
-                      alignment: Alignment.center,
-                      child: AppIcon(entry.icon, size: 20, color: Colors.white),
-                    ),
-                    const Spacer(),
-                    Text(
-                      entry.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        height: 1.15,
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // 아이콘+이름을 맨 위 한 줄에 둬서, 카드 지갑에서
+                            // 위쪽 일부만 보여도(겹쳐 있을 때) 무슨 카드인지
+                            // 바로 알아볼 수 있게 했다 — 예전엔 아이콘이 위,
+                            // 이름이 맨 아래라 겹치면 이름이 다 가려졌다.
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 38,
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: AppIcon(
+                                    entry.icon,
+                                    size: 20,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    entry.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.15,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Spacer(),
+                            // 얇은 강조 줄 — 색이 카드 정체성이라는 걸 한 번 더
+                            // 짚어 준다(실물 카드의 밑줄 장식 같은 느낌).
+                            Container(
+                              width: 28,
+                              height: 3,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              entry.subtitle,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.78),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      entry.subtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1563,7 +1640,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "내 프로젝트",
                         subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
                         icon: AppGlyph.project,
-                        iconColor: slate900,
+                        iconColor: kCardMyProject,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1582,7 +1659,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "내 일정 관리",
                         subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
                         icon: AppGlyph.schedule,
-                        iconColor: makitaTeal,
+                        iconColor: kCardMySchedule,
                         badgeText:
                             (_todayScheduleCount != null &&
                                 _todayScheduleCount! > 0)
@@ -1610,7 +1687,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "근태 관리",
                         subtitle: "연차·월차·반차·조퇴·특근과 출퇴근 시간 기록",
                         icon: AppGlyph.schedule,
-                        iconColor: slate900,
+                        iconColor: kCardAttendance,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1645,7 +1722,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "튜브 컷팅 계산기",
                         subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
                         icon: AppGlyph.tubeCut,
-                        iconColor: makitaTeal,
+                        iconColor: kCardTubeCutting,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1662,6 +1739,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "압력 시험",
                         subtitle: "튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서",
                         icon: AppGlyph.pressureGauge,
+                        iconColor: kCardPressureTest,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1677,6 +1755,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "유량 계산",
                         subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검",
                         icon: AppGlyph.flow,
+                        iconColor: kCardFlowCalc,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1710,6 +1789,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "전기 설계 계산",
                         subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
                         icon: AppGlyph.electric,
+                        iconColor: kCardElectricCalc,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1727,6 +1807,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "계기 교정",
                         subtitle: "교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서",
                         icon: AppGlyph.currentLoop,
+                        iconColor: kCardSignalCal,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1744,7 +1825,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "형강 컷팅 (찬넬/앵글)",
                         subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
                         icon: AppGlyph.steel,
-                        iconColor: makitaTeal,
+                        iconColor: kCardSteelCutting,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1761,7 +1842,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "작업 배치도",
                         subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
                         icon: AppGlyph.layout,
-                        iconColor: slate900,
+                        iconColor: kCardLayoutBoard,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           // 🚀 [수정] 예전엔 여기서 바로 빈 도면을 열어서, 저장해둔
@@ -1783,6 +1864,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "단위 환산",
                         subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
                         icon: AppGlyph.unitConvert,
+                        iconColor: kCardUnitConvert,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1798,6 +1880,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "수평계",
                         subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
                         icon: AppGlyph.level,
+                        iconColor: kCardLevel,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1813,6 +1896,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "각도기",
                         subtitle: "벤딩 각도 재기 · 화면 각도기",
                         icon: AppGlyph.protractor,
+                        iconColor: kCardProtractor,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1828,6 +1912,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "공학용 계산기",
                         subtitle: "사칙연산·삼각함수·거듭제곱 · 인치 분수·피트",
                         icon: AppGlyph.engCalc,
+                        iconColor: kCardEngCalc,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1843,6 +1928,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "벤딩 리모컨",
                         subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
                         icon: AppGlyph.remote,
+                        iconColor: kCardRemote,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1858,6 +1944,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "현장 도면 스캔 (QR)",
                         subtitle: "오프라인 지시서 스캔 후 3D 뷰어 실행",
                         icon: AppGlyph.scan,
+                        iconColor: kCardScan,
                         onTap: () async {
                           HapticFeedback.lightImpact();
                           final String? scannedData = await Navigator.push(
@@ -1941,7 +2028,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "자재 현황",
                         subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
                         icon: AppGlyph.stock,
-                        iconColor: slate900,
+                        iconColor: kCardStock,
                         // 필드 헬퍼 2번: 현장 나가기 전에 홈만 보고 부족한 자재를 알 수 있게.
                         badgeText: (_lowStock ?? 0) > 0
                             ? "$_lowStock건 부족"
@@ -1964,7 +2051,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "자재 통합 관리",
                         subtitle: "재고조사 · 새 자재 등록 및 삭제",
                         icon: AppGlyph.stockAdmin,
-                        iconColor: slate900,
+                        iconColor: kCardStockAdmin,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1982,7 +2069,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "현장 자료·장비 사용법",
                         subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
                         icon: AppGlyph.tubeSpec,
-                        iconColor: slate900,
+                        iconColor: kCardReference,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
