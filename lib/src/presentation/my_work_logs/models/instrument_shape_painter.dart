@@ -2160,6 +2160,16 @@ class InstrumentShapePainter extends CustomPainter {
         _relaySocket(b, withRelay: false);
       case ElecShape.gcp:
         _gcp(b, n?.round() ?? 1);
+      case ElecShape.ol:
+        _overload(b, ElecShape.style(shape) ?? 'ls');
+      case ElecShape.pr:
+        _protRelay(b, ElecShape.style(shape) ?? 'gmp');
+      case ElecShape.timer:
+        _timer48(b, ElecShape.style(shape) ?? 'omron');
+      case ElecShape.mon:
+        _monRelay(b);
+      case ElecShape.mc when ElecShape.style(shape) != null:
+        _contactor(b, ElecShape.style(shape)!);
       case ElecShape.mc:
         _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
         _part(
@@ -2340,6 +2350,178 @@ class InstrumentShapePainter extends CustomPainter {
     // 명판과 로고 자리
     for (final y in [0.86, 0.91]) {
       c.drawLine(Offset(x0 + cw * 0.12, ch * y), Offset(x0 + cw * 0.5, ch * y), _thin);
+    }
+  }
+
+  /// 전자 접촉기 정면(슈나이더 TeSys D 등): 위·아래 전원 단자 셋씩(나사), 가운데 라벨 창과 어두운 몸통,
+  /// 위쪽 오른쪽 보조 접점 자리, 코일 단자 표시(위 왼쪽 작은 나사 둘).
+  void _contactor(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    final double tb = h * 0.15;
+    _part(c, Rect.fromLTWH(w * 0.02, 0, w * 0.96, tb), _ftBody, radius: 1);
+    _part(c, Rect.fromLTWH(w * 0.02, h - tb, w * 0.96, tb), _ftBody, radius: 1);
+    final double sr = math.min(w * 0.07, tb * 0.28);
+    for (int i = 0; i < 3; i++) {
+      final double x = w * (i + 0.5) / 3;
+      _circle(c, Offset(x, tb * 0.5), sr, _metal);
+      _circle(c, Offset(x, h - tb * 0.5), sr, _metal);
+    }
+    // 라벨 창(회사·형번 글줄)
+    _part(c, Rect.fromLTWH(w * 0.1, h * 0.2, w * 0.8, h * 0.16), _bodyPlain, radius: 1);
+    for (final y in [0.25, 0.3]) {
+      c.drawLine(Offset(w * 0.16, h * y), Offset(w * 0.6, h * y), _thin);
+    }
+    // 가운데 어두운 몸통과 작동 표시 창
+    _part(c, Rect.fromLTWH(w * 0.1, h * 0.42, w * 0.8, h * 0.28), _ftBody, radius: 2);
+    _part(c, Rect.fromLTWH(w * 0.38, h * 0.5, w * 0.24, h * 0.12), _bodyPlain, radius: 1);
+    // 코일 단자 표시(A1·A2)
+    for (final x in [0.16, 0.3]) {
+      _circle(c, Offset(w * x, h * 0.77), sr * 0.8, _bodyPlain);
+    }
+  }
+
+  /// 열동 계전기(접촉기 아래 직결): 위 보조 단자, 가운데 전류 조절 다이얼 창, 정지(빨강)·리셋(파랑) 단추,
+  /// 트립 표시, 아래 전원 단자 셋. [style] ls(트립 표시 돌출, 시험 단추)·sch(빨강 정지·파랑 리셋).
+  void _overload(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    final double tb = h * 0.15;
+    _part(c, Rect.fromLTWH(w * 0.02, 0, w * 0.96, tb), _ftBody, radius: 1);
+    _part(c, Rect.fromLTWH(w * 0.02, h - tb, w * 0.96, tb), _ftBody, radius: 1);
+    final double sr = math.min(w * 0.06, tb * 0.27);
+    for (int i = 0; i < 2; i++) {
+      _circle(c, Offset(w * (0.3 + 0.4 * i), tb * 0.5), sr, _metal);
+    }
+    for (int i = 0; i < 3; i++) {
+      _circle(c, Offset(w * (i + 0.5) / 3, h - tb * 0.5), sr, _metal);
+    }
+    // 전류 조절 다이얼 창
+    final Offset dial = Offset(w * 0.5, h * 0.36);
+    _circle(c, dial, math.min(w * 0.3, h * 0.16), _glass);
+    c.drawLine(dial, Offset(dial.dx + w * 0.16, dial.dy - h * 0.08), _thin);
+    // 정지·리셋(또는 시험) 단추와 트립 표시
+    _part(c, Rect.fromLTWH(w * 0.14, h * 0.6, w * 0.3, h * 0.11), _estopRed, radius: 1);
+    _part(
+      c,
+      Rect.fromLTWH(w * 0.56, h * 0.6, w * 0.3, h * 0.11),
+      style == 'sch' ? _pushBlue : _bodyPlain,
+      radius: 1,
+    );
+    if (style == 'ls') {
+      _part(c, Rect.fromLTWH(w * 0.4, h * 0.76, w * 0.2, h * 0.05), _okGreen, radius: 1);
+    }
+  }
+
+  /// 전동기 보호 계전기: [style] gmp(LS 직결형: LED 둘, 조절 다이얼 둘, 리셋)·eocr(삼화 EOCR: 숫자 표시,
+  /// 막대 표시, 리셋). 위·아래 나사 단자.
+  void _protRelay(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), style == 'gmp' ? _bodyPlain : _body, radius: 2);
+    final double tb = h * 0.14;
+    _part(c, Rect.fromLTWH(w * 0.02, 0, w * 0.96, tb), _ftBody, radius: 1);
+    _part(c, Rect.fromLTWH(w * 0.02, h - tb, w * 0.96, tb), _ftBody, radius: 1);
+    final double sr = math.min(w * 0.05, tb * 0.28);
+    for (int i = 0; i < 3; i++) {
+      final double x = w * (i + 0.5) / 3;
+      _circle(c, Offset(x, tb * 0.5), sr, _metal);
+      _circle(c, Offset(x, h - tb * 0.5), sr, _metal);
+    }
+    if (style == 'eocr') {
+      // 숫자 표시(3자리)와 막대 표시 줄
+      _part(c, Rect.fromLTWH(w * 0.14, h * 0.22, w * 0.72, h * 0.22), _ftBody, radius: 1);
+      for (int i = 0; i < 3; i++) {
+        _part(
+          c,
+          Rect.fromLTWH(w * (0.2 + 0.2 * i), h * 0.26, w * 0.14, h * 0.14),
+          _estopRed,
+          radius: 0,
+        );
+      }
+      for (int i = 0; i < 8; i++) {
+        _part(
+          c,
+          Rect.fromLTWH(w * (0.14 + 0.09 * i), h * 0.5, w * 0.07, h * 0.06),
+          i < 5 ? _okGreen : _bodyPlain,
+          radius: 0,
+        );
+      }
+      _circle(c, Offset(w * 0.5, h * 0.72), math.min(w * 0.09, h * 0.06), _bodyPlain);
+    } else {
+      // LED 둘, 조절 다이얼 둘, 리셋 단추
+      _circle(c, Offset(w * 0.3, h * 0.25), math.min(w * 0.05, h * 0.04), _okGreen);
+      _circle(c, Offset(w * 0.7, h * 0.25), math.min(w * 0.05, h * 0.04), _estopRed);
+      for (final x in [0.3, 0.7]) {
+        final Offset d = Offset(w * x, h * 0.48);
+        _circle(c, d, math.min(w * 0.13, h * 0.09), _ftBody);
+        c.drawLine(d, Offset(d.dx + w * 0.06, d.dy - h * 0.04), _thin);
+      }
+      _part(c, Rect.fromLTWH(w * 0.35, h * 0.68, w * 0.3, h * 0.08), _bodyPlain, radius: 1);
+    }
+  }
+
+  /// 판 매입형 48×48 타이머(오므론 H3CR-A, 오토닉스 AT8N): 검은 앞판 테두리, 가운데 큰 원형 설정 눈금판,
+  /// 왼쪽 위 POWER·OUT 표시등, 네 모서리 선택 나사(정격 시간·시간 단위·동작 모드).
+  void _timer48(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _ftBody, radius: 3);
+    _part(c, Rect.fromLTWH(w * 0.06, h * 0.06, w * 0.88, h * 0.88), _bodyPlain, radius: 2);
+    final Offset cc = Offset(w * 0.5, h * 0.54);
+    final double r = math.min(w, h) * 0.3;
+    _circle(c, cc, r, _body);
+    _circle(c, cc, r * 0.62, _bodyPlain);
+    c.drawLine(cc, Offset(cc.dx + r * 0.5, cc.dy - r * 0.55), _thin);
+    // 눈금 열 개
+    for (int i = 0; i < 10; i++) {
+      final double a = -math.pi * 0.85 + math.pi * 1.7 * i / 9;
+      c.drawLine(
+        Offset(cc.dx + math.cos(a) * r * 0.86, cc.dy + math.sin(a) * r * 0.86),
+        Offset(cc.dx + math.cos(a) * r, cc.dy + math.sin(a) * r),
+        _thin,
+      );
+    }
+    // 표시등 둘(POWER 초록, OUT 주황), 모서리 선택 나사 넷
+    final double lr = math.min(w, h) * 0.035;
+    _circle(c, Offset(w * 0.2, h * 0.17), lr, _okGreen);
+    _circle(c, Offset(w * 0.32, h * 0.17), lr, style == 'omron' ? _estopRed : _pushBlue);
+    for (final p in [const Offset(0.86, 0.17), const Offset(0.14, 0.9), const Offset(0.86, 0.9)]) {
+      _circle(c, Offset(w * p.dx, h * p.dy), lr * 0.9, _metal);
+    }
+  }
+
+  /// 레일형 감시·보호 계전기(오므론 K8AK 등, 폭 22.5): 위에 나사 단자, 가운데 설정 다이얼, 아래쪽 LED 셋
+  /// (전원·릴레이·경보), 아래 나사 단자.
+  void _monRelay(_Box b) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    final double tb = h * 0.12;
+    _part(c, Rect.fromLTWH(w * 0.04, 0, w * 0.92, tb), _ftBody, radius: 1);
+    _part(c, Rect.fromLTWH(w * 0.04, h - tb, w * 0.92, tb), _ftBody, radius: 1);
+    final double sr = math.min(w * 0.14, tb * 0.3);
+    for (int i = 0; i < 2; i++) {
+      final double x = w * (0.3 + 0.4 * i);
+      _circle(c, Offset(x, tb * 0.5), sr, _metal);
+      _circle(c, Offset(x, h - tb * 0.5), sr, _metal);
+    }
+    for (final y in [0.18, 0.22]) {
+      c.drawLine(Offset(w * 0.2, h * y), Offset(w * 0.8, h * y), _thin);
+    }
+    final Offset d = Offset(w * 0.5, h * 0.42);
+    _circle(c, d, math.min(w * 0.36, h * 0.11), _bodyPlain);
+    c.drawLine(d, Offset(d.dx + w * 0.16, d.dy - h * 0.05), _thin);
+    final double lr = math.min(w * 0.1, h * 0.025);
+    for (int i = 0; i < 3; i++) {
+      _circle(
+        c,
+        Offset(w * 0.5, h * (0.62 + 0.07 * i)),
+        lr,
+        i == 0 ? _okGreen : (i == 1 ? _pushBlue : _estopRed),
+      );
     }
   }
 

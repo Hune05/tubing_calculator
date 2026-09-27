@@ -1,4 +1,5 @@
 import 'elec_presets_breakers.dart';
+import 'elec_presets_contactors.dart';
 import 'layout_board_models.dart';
 
 // 🚀 캐비닛 측판·중판에 다는 전기 부품(DIN 레일). 정면 가로×세로(mm), 깊이는 판 면에서(레일 포함).
@@ -62,6 +63,18 @@ class ElecShape {
 
   /// 전동기 보호용 차단기(MPCB). 'el_mpcb:모양'(rocker·rotary).
   static const String mpcb = 'el_mpcb';
+
+  /// 열동 계전기(접촉기 아래에 직결). 'el_ol:모양'(ls·sch).
+  static const String ol = 'el_ol';
+
+  /// 접촉기에 직결하거나 판에 다는 전동기 보호 계전기. 'el_pr:모양'(gmp·eocr).
+  static const String pr = 'el_pr';
+
+  /// 48×48 판 매입형 타이머. 'el_timer:모양'(omron·autonics).
+  static const String timer = 'el_timer';
+
+  /// 레일형 감시·보호 계전기(폭 22.5). 'el_mon:모양'.
+  static const String mon = 'el_mon';
 
   /// 'el_mccb:모양:극 수'의 모양 이름(제품 정면 특징 묶음, 그림에서 갈린다).
   /// 그냥 'el_mccb'(모양 없음)는 예전 단순 그림이다.
@@ -303,6 +316,8 @@ final Map<String, List<ModulePreset>> kElecPresets = {
   ],
   // 2026-09-27 차단기 확장(MCCB·MPCB·ACB, 카탈로그 확정 값): elec_presets_breakers.dart
   ...kBreakerPresets,
+  // 접촉기·열동·보호 계전기·타이머(카탈로그 확정 값): elec_presets_contactors.dart
+  ...kContactorPresets,
   "전원·릴레이·MC": [
     const ModulePreset(
       "DR-60-24 전원 (민웰)",
