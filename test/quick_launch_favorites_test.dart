@@ -25,4 +25,70 @@ void main() {
     expect(original, {'내 프로젝트'}); // 그대로.
     expect(r, {'내 프로젝트', '내 일정 관리'});
   });
+
+  group('quickLaunchRelativeTime', () {
+    final now = DateTime(2026, 9, 27, 12, 0);
+
+    test('한 번도 안 썼으면 안내 글', () {
+      expect(quickLaunchRelativeTime(null, now), '아직 사용한 기록이 없습니다');
+    });
+
+    test('30초 전은 방금 전', () {
+      expect(
+        quickLaunchRelativeTime(now.subtract(const Duration(seconds: 30)), now),
+        '방금 전',
+      );
+    });
+
+    test('45분 전', () {
+      expect(
+        quickLaunchRelativeTime(now.subtract(const Duration(minutes: 45)), now),
+        '45분 전',
+      );
+    });
+
+    test('5시간 전', () {
+      expect(
+        quickLaunchRelativeTime(now.subtract(const Duration(hours: 5)), now),
+        '5시간 전',
+      );
+    });
+
+    test('3일 전', () {
+      expect(
+        quickLaunchRelativeTime(now.subtract(const Duration(days: 3)), now),
+        '3일 전',
+      );
+    });
+
+    test('2개월 전', () {
+      expect(
+        quickLaunchRelativeTime(now.subtract(const Duration(days: 61)), now),
+        '2개월 전',
+      );
+    });
+
+    test('1년 전', () {
+      expect(
+        quickLaunchRelativeTime(now.subtract(const Duration(days: 400)), now),
+        '1년 전',
+      );
+    });
+  });
+
+  group('quickLaunchSubFeatures', () {
+    test('"·"로 나눠 앞뒤 공백을 지운다', () {
+      expect(quickLaunchSubFeatures('교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서'), [
+        '교정 점검',
+        '4-20mA',
+        '온도 센서',
+        '교정 가스',
+        '성적서',
+      ]);
+    });
+
+    test('구분자가 없으면 통째로 하나', () {
+      expect(quickLaunchSubFeatures('수치 전송용 리모컨'), ['수치 전송용 리모컨']);
+    });
+  });
 }
