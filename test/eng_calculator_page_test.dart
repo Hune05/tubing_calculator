@@ -275,6 +275,41 @@ void main() {
     expect(errors, isEmpty);
   });
 
+  testWidgets('=를 누르기 전에는 계산 기록 자리가 없다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    expect(find.byKey(const Key('calc_history')), findsNothing);
+  });
+
+  testWidgets('=를 누르면 그 식이 기록으로 쌓이고, 다음 계산이 이어서 쌓인다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_eq');
+    expect(find.byKey(const Key('calc_history')), findsOneWidget);
+    expect(find.text('2+3 = 5'), findsOneWidget);
+    expect(result(tester), '5');
+    // 이어서 계산해도(5×2) 기록에 새 줄이 늘어난다.
+    await tap(tester, 'calc_mul');
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_eq');
+    expect(find.text('2+3 = 5'), findsOneWidget);
+    expect(find.text('5×2 = 10'), findsOneWidget);
+    expect(result(tester), '10');
+  });
+
+  testWidgets('결과가 그대로인데 =를 또 누르면 기록에 똑같은 줄이 더 안 생긴다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_5');
+    await tap(tester, 'calc_eq');
+    expect(find.text('5 = 5'), findsNothing); // 식과 결과가 같으면 안 쌓는다.
+    await tap(tester, 'calc_eq');
+    expect(find.byKey(const Key('calc_history')), findsNothing);
+  });
+
   testWidgets('계산 값 창이 커져서 결과 숫자가 크게 보인다(태블릿 화면 포함)', (tester) async {
     Future<double> resultHeight(Size size) async {
       SharedPreferences.setMockInitialValues({});

@@ -59,6 +59,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   bool _justEvaluated = false;
   _FracEntry? _frac;
 
+  /// "="를 누를 때마다 그 식과 결과를 한 줄로 쌓아 둔다("2+3 = 5"). 새 줄이 늘 때마다
+  /// 지난 줄들이 위로 밀려 올라가 보이게(스크롤을 맨 아래로 붙인다).
+  final List<String> _history = [];
+  final ScrollController _historyScroll = ScrollController();
+
   /// 결과를 소수 대신 정확한 분수로 보일지(S⇔D). 분수가 없으면(무리수 등) 소수로 보인다.
   bool _showExact = false;
 
@@ -71,6 +76,12 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void initState() {
     super.initState();
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    _historyScroll.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSettings() async {
@@ -355,13 +366,28 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     HapticFeedback.mediumImpact();
     setState(() {
       _commitFraction();
+      final exprBefore = _expr;
       _recalc();
       if (_live != null) {
-        _expr = _showExact && _live!.exact != null
+        final resultText = _showExact && _live!.exact != null
             ? _live!.exact!.toDisplayString()
             : _fmtDecimal(_live!.decimal);
+        // "="를 다시 눌러도 식이 그대로면(예: 이미 계산된 값에 또 =) 기록에 안 쌓는다.
+        if (exprBefore != resultText) {
+          _history.add('$exprBefore = $resultText');
+          if (_history.length > 50) _history.removeAt(0);
+        }
+        _expr = resultText;
         _justEvaluated = true;
       }
+    });
+    _scrollHistoryToEnd();
+  }
+
+  void _scrollHistoryToEnd() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_historyScroll.hasClients) return;
+      _historyScroll.jumpTo(_historyScroll.position.maxScrollExtent);
     });
   }
 
@@ -446,114 +472,153 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     );
   }
 
-  Widget _display(String big, ({String decimal, String? fraction})? result) =>
-      Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
+  Widget _display(String big, ({String decimal, String? fraction})? result) {
+    final showHistory = _history.isNotEmpty;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 지난 계산 기록: "="를 누를 때마다 한 줄씩 쌓이고, 새 줄이 생기면 위쪽
+          // 줄들이 위로 밀려 올라간다(맨 아래에 최근 줄이 남게 스크롤한다). 기록이
+          // 없으면(아직 한 번도 "="를 안 눌렀으면) 이 자리를 안 만들어, 지금 계산
+          // 중인 식·결과가 전처럼 자리를 다 쓴다.
+          if (showHistory) Expanded(flex: 3, child: _historyList()),
+          Expanded(
+            flex: showHistory ? 6 : 9,
+            child: _currentEntry(big, result),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _historyList() => ListView.builder(
+    key: const Key('calc_history'),
+    controller: _historyScroll,
+    padding: EdgeInsets.zero,
+    itemCount: _history.length,
+    itemBuilder: (context, i) => Padding(
+      padding: const EdgeInsets.only(bottom: 2),
+      child: Text(
+        _history[i],
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.right,
+        style: TextStyle(
+          fontSize: 15,
+          color: _sub,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+
+  Widget _currentEntry(
+    String big,
+    ({String decimal, String? fraction})? result,
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.end,
+    children: [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Flexible(
+            child: Text(
+              _expr.isEmpty && _frac == null ? '0' : _expr,
+              key: const Key('calc_expr'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 20,
+                color: _sub,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (_frac != null) _fracTile(_frac!),
+        ],
+      ),
+      const SizedBox(height: 6),
+      // 결과 줄이 남는 세로 공간을 다 차지하게 한다 — 태블릿처럼 위아래로 긴
+      // 화면일수록 숫자가 그만큼 커 보인다(스마트폰은 자리가 적어 그만큼 작게).
+      Expanded(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Flexible(
-                  child: Text(
-                    _expr.isEmpty && _frac == null ? '0' : _expr,
-                    key: const Key('calc_expr'),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.right,
-                    style: TextStyle(
-                      fontSize: 20,
-                      color: _sub,
-                      fontWeight: FontWeight.w600,
+            if (_live?.exact != null)
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: GestureDetector(
+                  key: const Key('calc_sd'),
+                  onTap: _tapSD,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: fc.brandSoft,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'S⇔D',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _teal,
+                      ),
                     ),
                   ),
                 ),
-                if (_frac != null) _fracTile(_frac!),
-              ],
-            ),
-            const SizedBox(height: 6),
-            // 결과 줄이 남는 세로 공간을 다 차지하게 한다 — 태블릿처럼 위아래로 긴
-            // 화면일수록 숫자가 그만큼 커 보인다(스마트폰은 자리가 적어 그만큼 작게).
+              ),
             Expanded(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (_live?.exact != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: GestureDetector(
-                        key: const Key('calc_sd'),
-                        onTap: _tapSD,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: fc.brandSoft,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            'S⇔D',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: _teal,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, box) => Align(
-                        alignment: Alignment.centerRight,
-                        // 남는 세로 자리만큼 키우되, 120을 넘지는 않는다(태블릿에서도
-                        // 숫자가 과하게 커지지 않게).
-                        child: SizedBox(
-                          height: box.maxHeight.clamp(0, 120),
-                          child: FittedBox(
-                            fit: BoxFit.contain,
-                            alignment: Alignment.centerRight,
-                            child: Text(
-                              big,
-                              key: const Key('calc_display_result'),
-                              style: TextStyle(
-                                fontSize: 68,
-                                fontWeight: FontWeight.w900,
-                                color: _error != null ? _danger : _ink,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
-                            ),
-                          ),
+              child: LayoutBuilder(
+                builder: (context, box) => Align(
+                  alignment: Alignment.centerRight,
+                  // 남는 세로 자리만큼 키우되, 120을 넘지는 않는다(태블릿에서도
+                  // 숫자가 과하게 커지지 않게).
+                  child: SizedBox(
+                    height: box.maxHeight.clamp(0, 120),
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        big,
+                        key: const Key('calc_display_result'),
+                        style: TextStyle(
+                          fontSize: 68,
+                          fontWeight: FontWeight.w900,
+                          color: _error != null ? _danger : _ink,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-            if (_error == null && !_showExact && result?.fraction != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                '≈ ${result!.fraction}',
-                key: const Key('calc_display_fraction'),
-                style: TextStyle(
-                  fontSize: 22,
-                  color: _teal,
-                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ],
+            ),
           ],
         ),
-      );
+      ),
+      if (_error == null && !_showExact && result?.fraction != null) ...[
+        const SizedBox(height: 4),
+        Text(
+          '≈ ${result!.fraction}',
+          key: const Key('calc_display_fraction'),
+          style: TextStyle(
+            fontSize: 22,
+            color: _teal,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    ],
+  );
 
   /// 지금 치는 중인 분수 모양(자연수 [whole 있으면] + 분자/분모). 각 칸을 누르면 그 칸이
   /// 활성이 되어 이어서 치는 숫자가 그 칸에 들어간다(활성 칸은 테두리로 표시).
