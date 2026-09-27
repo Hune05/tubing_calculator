@@ -313,6 +313,8 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     decoration: InputDecoration(
       isDense: true,
       labelText: label,
+      // 칸이 좁아서 비었을 때 이름이 잘리지 않게 이름표를 늘 위에 둔다(폰에서 "설비용량 (k…"로 잘렸음).
+      floatingLabelBehavior: FloatingLabelBehavior.always,
       hintText: hint,
       labelStyle: TextStyle(fontSize: 13, color: fc.textSub),
       hintStyle: TextStyle(fontSize: 17, color: fc.textSub),
