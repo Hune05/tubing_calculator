@@ -112,7 +112,8 @@ List<List<double>> sheetSaddle3Rows(
   final travel = h / math.sin(radSide);
   final run = h / math.tan(radSide);
   final shrink = r1(travel * 2 - run * 2);
-  final firstLen = r1(specs.firstLength(start, side, shrink));
+  // 2026-09-27: 전선관은 [start]가 장애물 중심까지(가운데를 중심 위에), 튜브는 1번 마킹 자리.
+  final firstLen = r1(specs.saddle3FirstLength(start, h, a3, shrink));
   return [
     [firstLen, side, 0],
     [r1(travel), a3, 180],
@@ -132,7 +133,10 @@ List<List<double>> sheetSaddle4Rows(
   final travel = h / math.sin(rad);
   final run = h / math.tan(rad);
   final shrink = r1((travel * 2 + w) - (run * 2 + w));
-  final firstLen = r1(specs.firstLength(start, a4, shrink));
+  // 2026-09-27: 1번 마킹 앞에는 첫 오프셋 몫(총 수축의 절반)만 있다.
+  final firstLen = r1(
+    specs.firstLength(start, a4, r1(specs.saddle4ShrinkBeforeFirst(shrink))),
+  );
   return [
     [firstLen, a4, 0],
     [r1(travel), a4, 180],
@@ -962,13 +966,10 @@ void main() {
         final specs = BendSheetSpecs.conduit(s);
         for (final h in [50.0, 100.0, 200.0]) {
           for (final a3 in [45.0, 60.0]) {
-            // 시트의 "장애물 앞 시작 거리"는 첫 옆 벤드가 시작하는 자리(1번 마킹).
-            // 앱 모델(마킹 = 꺾이는 점 − 테이크업)에서 새들 가운데가 장애물 중심
-            // 600에 오려면 시작 거리 = 600 − 옆 전진 − 테이크업(옆 각)이다.
+            // 2026-09-27부터 전선관 시트 칸은 "관 끝에서 장애물 중심까지"다. 600을 그대로 넣는다.
             final side = refSaddle3(h, a3);
             final markOff = conduitMarkOffset(side.sideAngle, s);
-            final start = 600 - side.run - markOff;
-            final rows = sheetSaddle3Rows(specs, start, h, a3);
+            final rows = sheetSaddle3Rows(specs, 600, h, a3);
             final list = conduitRows([
               ...rows,
               [300, 0, 0],
@@ -985,9 +986,9 @@ void main() {
               ref: 600,
               verdict: Verdict.appWrong,
               why:
-                  '1번 마킹은 앞에서 줄어드는 것이 없는데 총 수축 ${f1(side.totalShrink)}'
-                  '(양쪽 몫)을 더해서 가운데가 그만큼 지나간다. 관행은 가운데 마킹 눈금에 '
-                  '${f1(trade.shrink)}(한쪽 몫 ${f1(exact.shrink / 2)})을 더한다',
+                  '가운데 꺾이는 점 = 1번 마킹 + 테이크업 + 옆 전진. 2026-09-27 전에는 1번 마킹에 '
+                  '총 수축 ${f1(side.totalShrink)}(양쪽 몫)을 더해 그만큼 지나갔다. 관행은 가운데 '
+                  '마킹 눈금에 ${f1(trade.shrink)}(한쪽 몫 ${f1(exact.shrink / 2)})을 더한다',
             );
             t.add(
               calc: '전선관 3점새들 1번 마킹(관행)',
@@ -997,7 +998,7 @@ void main() {
               verdict: Verdict.convention,
               why:
                   '관행 1번 = 중심 + ${f1(trade.shrink)} − H×${a3 == 45 ? 2.5 : 2.0}, '
-                  '앱 = 시작 거리 + 총 수축 ${f1(side.totalShrink)}',
+                  '앱 = 중심 − 옆 전진 − 테이크업(가운데가 중심 위)',
             );
             t.add(
               calc: '전선관 3점새들 옆↔가운데 간격(관행)',
@@ -1049,7 +1050,7 @@ void main() {
       );
     });
 
-    test('전선관 극단 입력: 90° 넘는 각의 게인 환산', () {
+    test('전선관 극단 입력: 90° 넘는 각의 게인 환산(2026-09-27부터 입력은 90°까지)', () {
       final s = conduitSettings(size: '22mm');
       final clr = s['clr'] as double;
       final gain90 = s['gain'] as double;
@@ -1059,8 +1060,8 @@ void main() {
           input: '22mm EMT 게인90=$gain90 $a°',
           app: conduitGainForAngle(a, gain90),
           ref: refGain(clr, a),
-          verdict: Verdict.appWrong,
-          why: '표 게인 비율 환산이 각이 커질수록 CLR 기하 게인보다 급히 커진다',
+          verdict: Verdict.definition,
+          why: '표 게인 비율 환산이 각이 커질수록 CLR 기하 게인보다 급히 커진다. 입력·새들 시트가 90°에서 막는다',
         );
         final list = conduitRows([
           [300, a, 0],
@@ -1071,15 +1072,15 @@ void main() {
           input: '22mm EMT [300,$a°][300]',
           app: conduitTotalCut(list, s),
           ref: refTubeMarks([RefBend(300, a)], radius: clr, tail: 300).cutLength,
-          verdict: Verdict.appWrong,
-          why: '170°(입력 상한)에서는 절단이 음수가 된다',
+          verdict: Verdict.definition,
+          why: '예전 입력 상한 170°에서는 절단이 음수였다. 지금은 90°에서 막고, 예전 목록은 마킹 메모로 알린다',
         );
       }
       final takeUp170 = conduitMarkOffset(170, s);
       t.note(
         '22mm EMT 170°: 테이크업 환산 ${f1(takeUp170)}mm(90° 152.4), 게인 환산 '
-        '${f1(conduitGainForAngle(170, gain90))}mm — 입력 탭이 170°까지 받는다'
-        '(conduit_input_tab.dart:32).',
+        '${f1(conduitGainForAngle(170, gain90))}mm. 2026-09-27부터 입력 탭은 90°까지 받는다'
+        '(conduit_input_tab.dart kConduitMaxAngle).',
       );
       t.note(
         '전선관 설정의 referenceMark("화살표 (일반)")·bendRadiusWarning 값은 저장만 되고 '

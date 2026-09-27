@@ -124,6 +124,14 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   // 1번 마킹이 관 끝 20mm 자리에 찍혔고(벤더에 물리지도 않는다), 장애물 위에
   // 꼭대기를 맞추려면 사람이 손으로 계산해야 했다.
   final TextEditingController _startDistanceCtrl = TextEditingController();
+  // 4점 새들 시작 거리. 예전에는 3점 탭의 칸을 같이 써서 4점 탭에서는 보이지 않았다.
+  final TextEditingController _startDistance4Ctrl = TextEditingController();
+
+  /// 전선관이면 3점 새들 칸이 "장애물 중심까지"다(가운데를 장애물 위에 맞춘다).
+  bool get _conduitCenter => _specs?.isConduit ?? false;
+
+  /// 이 벤더로 넣을 수 있는 가장 큰 각(전선관 90°).
+  double get _maxAngle => _specs?.maxAngle ?? 180.0;
   final TextEditingController _heightCtrl = TextEditingController();
   final TextEditingController _widthCtrl = TextEditingController();
   final TextEditingController _angle3PtCtrl = TextEditingController();
@@ -154,6 +162,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     _angle4PtCtrl.text = _formatNum(dm.saddleAngle4Pt);
 
     _startDistanceCtrl.addListener(() => setState(() {}));
+    _startDistance4Ctrl.addListener(() => setState(() {}));
     _heightCtrl.addListener(() {
       dm.saddleHeight = double.tryParse(_heightCtrl.text) ?? 0.0;
       setState(() {});
@@ -193,6 +202,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   void dispose() {
     _tabController.dispose();
     _startDistanceCtrl.dispose();
+    _startDistance4Ctrl.dispose();
     _heightCtrl.dispose();
     _widthCtrl.dispose();
     _angle3PtCtrl.dispose();
@@ -220,14 +230,18 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     double sideAngle = a3 / 2;
     double oppRot = _getOppositeRotation(_selectedRotation!);
 
-    // 🚀 [고침] 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록 한다.
+    // 🚀 [고침] 튜브는 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록,
+    // 전선관은 가운데 벤드가 장애물 중심 위에 오도록 첫 구간을 잡는다([BendSheetSpecs.saddle3FirstLength]).
     final double startDistance =
         double.tryParse(_startDistanceCtrl.text) ?? 0.0;
-    final double firstLen = _firstLength(
-      startDistance,
-      sideAngle,
-      roundedShrink,
-    );
+    final double h3 = double.tryParse(_heightCtrl.text) ?? 0.0;
+    final double firstLen = _specs == null
+        ? _firstLength(startDistance, sideAngle, roundedShrink)
+        : double.parse(
+            _specs!
+                .saddle3FirstLength(startDistance, h3, a3, roundedShrink)
+                .toStringAsFixed(1),
+          );
 
     _addAll([
       (firstLen, sideAngle, _selectedRotation!),
@@ -237,11 +251,25 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(_addedMessage(startDistance, roundedShrink)),
+        content: Text(
+          _conduitCenter
+              ? _centerMessage(startDistance, firstLen, sideAngle)
+              : _addedMessage(startDistance, roundedShrink),
+        ),
         backgroundColor: makitaTeal,
       ),
     );
     Navigator.pop(context);
+  }
+
+  /// 전선관 3점 새들을 넣고 알려 줄 말: 1번 마킹 자리와 가운데가 오는 자리.
+  String _centerMessage(double center, double firstLen, double sideAngle) {
+    final double mark = firstLen - (_specs?.markOffset(sideAngle) ?? 0.0);
+    if (center <= 0) {
+      return "넣었습니다. 장애물 중심 거리를 넣지 않아 1번 마킹을 관 끝(0)에 두었습니다.";
+    }
+    return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍히고, 가운데 벤드가 장애물 중심 "
+        "${center.toStringAsFixed(0)}mm 위에 옵니다.";
   }
 
   // 🚀 3-Point 새들 계산 적용 및 경고
@@ -300,6 +328,24 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       // 🚀 [고침] 값이 모자라면 말없이 아무 일도 안 했다.
       _snackMissing("넣을 수 없습니다. 높이와 센터 각도를 넣으십시오.");
       return;
+    }
+    if (a3 > _maxAngle) {
+      _snackMissing(
+        "넣을 수 없습니다. 전선관 벤더는 ${_maxAngle.toInt()}°까지 꺾습니다. 센터 각도를 줄이십시오.",
+      );
+      return;
+    }
+    if (_conduitCenter) {
+      final double c = double.tryParse(_startDistanceCtrl.text) ?? 0.0;
+      final double h3 = double.tryParse(_heightCtrl.text) ?? 0.0;
+      final double len = _specs!.saddle3FirstLength(c, h3, a3, shrink);
+      if (c > 0 && len - _specs!.markOffset(a3 / 2) < 0) {
+        _snackMissing(
+          "넣을 수 없습니다. 장애물 중심이 관 끝에서 너무 가까워 1번 마킹이 관 밖에 찍힙니다. "
+          "장애물 중심 거리를 ${(c - (len - _specs!.markOffset(a3 / 2))).toStringAsFixed(0)}mm 이상으로 넣으십시오.",
+        );
+        return;
+      }
     }
 
     double roundedTravel = double.parse(travel3Pt.toStringAsFixed(1));
@@ -365,10 +411,15 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   // 🚀 [추가] 4포인트 강제 집어넣기용 분리된 로직
   void _execute4Point(double travel4Pt, double w, double a4, double shrink) {
     final double startDistance4 =
-        double.tryParse(_startDistanceCtrl.text) ?? 0.0;
+        double.tryParse(_startDistance4Ctrl.text) ?? 0.0;
     double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
     double roundedW = double.parse(w.toStringAsFixed(1));
-    double roundedShrink = double.parse(shrink.toStringAsFixed(1));
+    // 1번 마킹 앞에 오는 것은 첫 오프셋 몫(총 수축의 절반)뿐이다.
+    double roundedShrink = double.parse(
+      (_specs?.saddle4ShrinkBeforeFirst(shrink) ?? shrink / 2).toStringAsFixed(
+        1,
+      ),
+    );
     double oppRot = _getOppositeRotation(_selectedRotation!);
 
     // 🚀 [고침] 1번 마킹이 "시작 거리 + 더할 축소값" 자리에 오도록 한다.
@@ -432,6 +483,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     }
     if (travel4Pt <= 0 || w <= 0 || a4 <= 0) {
       _snackMissing("넣을 수 없습니다. 높이·넓이·각도를 넣으십시오.");
+      return;
+    }
+    if (a4 >= 90) {
+      _snackMissing("넣을 수 없습니다. 각도는 90°보다 작아야 합니다.");
       return;
     }
 
@@ -776,9 +831,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         const SizedBox(height: 8),
         Row(children: [Expanded(child: _buildInputRow(_heightCtrl, "높이 mm"))]),
         const SizedBox(height: 20),
-        const Text(
-          "장애물 앞 시작 거리 (옵션)",
-          style: TextStyle(
+        Text(
+          _conduitCenter ? "관 끝에서 장애물 중심까지 (옵션)" : "장애물 앞 시작 거리 (옵션)",
+          style: const TextStyle(
             color: slate600,
             fontSize: 13,
             fontWeight: FontWeight.bold,
@@ -790,6 +845,14 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             Expanded(child: _buildInputRow(_startDistanceCtrl, "거리 mm")),
           ],
         ),
+        if (_conduitCenter)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              "가운데 벤드가 장애물 중심 위에 오도록 1번 마킹 자리를 계산합니다.",
+              style: TextStyle(color: slate600, fontSize: 12),
+            ),
+          ),
         const SizedBox(height: 20),
         const Text(
           "센터 각도 (∠)",
@@ -825,6 +888,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           travel: travel,
           pipeUsed: pipeUsed,
           shrink: shrink,
+          addNote: _conduitCenter
+              ? "가운데가 장애물 중심 위에 옵니다(축소값 ${shrink.toStringAsFixed(1)} mm는 양쪽 몫 합계)"
+              : null,
           gainDetails: gainDetails,
           totalConsumed: totalConsumed,
           onPressed: () => _apply3Point(travel, a3, shrink),
@@ -887,6 +953,21 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         ),
         const SizedBox(height: 20),
         const Text(
+          "장애물 앞 시작 거리 (옵션)",
+          style: TextStyle(
+            color: slate600,
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(child: _buildInputRow(_startDistance4Ctrl, "거리 mm")),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const Text(
           "각도 (∠)",
           style: TextStyle(
             color: slate600,
@@ -920,6 +1001,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           travel: travel,
           pipeUsed: pipeUsed,
           shrink: shrink,
+          addShrink: shrink / 2,
           gainDetails: gainDetails,
           totalConsumed: totalConsumed,
           onPressed: () => _apply4Point(travel, w, a4, shrink),
@@ -1055,7 +1137,11 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     required String gainDetails,
     required double totalConsumed,
     required VoidCallback onPressed,
+    String? addNote,
+    double? addShrink,
   }) {
+    // 1번 마킹에 실제로 더하는 축소값(4점은 첫 오프셋 몫만).
+    final double added = _shrinkToAdd(addShrink ?? shrink);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1279,9 +1365,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _shrinkToAdd(shrink) > 0
-                          ? "1번 마킹에 축소값 +${_shrinkToAdd(shrink).toStringAsFixed(1)} mm를 더합니다"
-                          : "축소값 ${shrink.toStringAsFixed(1)} mm는 직진 거리가 줄어드는 몫입니다",
+                      addNote ??
+                          (added > 0
+                              ? "1번 마킹에 축소값 +${added.toStringAsFixed(1)} mm를 더합니다"
+                              : "축소값 ${shrink.toStringAsFixed(1)} mm는 직진 거리가 줄어드는 몫입니다"),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,

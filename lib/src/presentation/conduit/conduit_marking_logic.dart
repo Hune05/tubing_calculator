@@ -120,6 +120,11 @@ List<Map<String, dynamic>> calculateConduitMarkings(
       if (prevGain > 0) note += ' (앞 벤드 게인 -${prevGain.round()}mm)';
     }
 
+    // 90°를 넘는 벤드(예전 판에서 저장한 목록)는 게인 셈이 맞지 않는다.
+    if (angle > 90.0 + 1e-9) {
+      note = '$note 90°를 넘는 벤드는 게인·마킹 값이 맞지 않습니다. 90° 이하로 나누십시오.'.trim();
+    }
+
     final item = <String, dynamic>{
       ...bend,
       'mark': mark,

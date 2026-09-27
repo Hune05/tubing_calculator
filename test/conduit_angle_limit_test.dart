@@ -44,14 +44,14 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('200을 넣으면 칸도 170으로 바뀌고 알려 준다', (tester) async {
+  testWidgets('200을 넣으면 칸도 90으로 바뀌고 알려 준다', (tester) async {
     await pump(tester);
     await typeAngle(tester, '200');
-    expect(angleField(tester).controller!.text, '170');
-    expect(find.textContaining('170°까지'), findsOneWidget);
+    expect(angleField(tester).controller!.text, '90');
+    expect(find.textContaining('90°까지'), findsOneWidget);
   });
 
-  testWidgets('형태를 바꿨다 돌아와도 170을 넘지 않고, 추가된 벤드도 170°', (tester) async {
+  testWidgets('형태를 바꿨다 돌아와도 90을 넘지 않고, 추가된 벤드도 90°', (tester) async {
     await pump(tester);
     await typeAngle(tester, '200');
     // 칸 글자를 몰래 200으로 되돌려 놓아도(예전 경로) 전환 때 다시 묶는다.
@@ -60,7 +60,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('직관+각도'));
     await tester.pump();
-    expect(angleField(tester).controller!.text, '170');
+    expect(angleField(tester).controller!.text, '90');
 
     final len = find.byWidgetPredicate(
       (w) => w is TextField && w.decoration?.hintText == '0',
@@ -78,6 +78,6 @@ void main() {
     await tester.pump();
     final list = ConduitDataManager().bendList;
     expect(list, hasLength(1));
-    expect(list.first['angle'], 170.0);
+    expect(list.first['angle'], 90.0);
   });
 }

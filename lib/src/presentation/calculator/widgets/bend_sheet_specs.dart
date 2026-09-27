@@ -6,6 +6,8 @@
 /// 어느 계산기에서 열었는지에 따라 한 벌을 골라 넘긴다.
 library;
 
+import 'dart:math' as math;
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
@@ -65,6 +67,38 @@ class BendSheetSpecs {
     double angle,
     double geometricShrink,
   ) => firstMark(startDistance, geometricShrink) + markOffset(angle);
+
+  /// 이 벤더로 넣을 수 있는 가장 큰 각. 전선관 벤더(수동·시카고·유압)는 90°까지다.
+  /// 🚀 [고침 2026-09-27] 전선관 게인은 90° 표 값을 각도 비율로 늘리는 식이라 90°를
+  /// 넘으면 값이 폭주했다(22mm EMT 150°에 절단 −331mm).
+  double get maxAngle => isConduit ? 90.0 : 180.0;
+
+  /// 3점 새들 첫 구간 길이(관 끝에서 첫 꺾이는 점까지).
+  ///
+  /// - 튜브: [start]는 1번 마킹 자리다([firstLength] 그대로).
+  /// - 전선관: [start]는 관 끝에서 장애물 중심까지다. 가운데 꺾이는 점이 장애물 중심
+  ///   위에 오도록 첫 꺾이는 점 = 중심 − 옆 전진(H ÷ tan(가운데 각/2)). 가운데 마킹 눈금은
+  ///   중심 + 한쪽 수축이 되어 관행(Greenlee·Klein: 가운데 = 중심 + 수축)과 같다.
+  ///   🚀 [고침 2026-09-27] 예전에는 1번 마킹에 양쪽 수축을 다 더해서 가운데가
+  ///   장애물 중심을 지나쳤다(22mm H100 45°에 39.8mm, H200 60°에 107mm).
+  ///   [start]가 0이면(비움) 1번 마킹을 관 끝에 둔다.
+  double saddle3FirstLength(
+    double start,
+    double height,
+    double centerAngle,
+    double totalShrink,
+  ) {
+    final side = centerAngle / 2;
+    if (!isConduit) return firstLength(start, side, totalShrink);
+    if (start <= 0 || height <= 0 || side <= 0) return markOffset(side);
+    final run = height / math.tan(side * math.pi / 180.0);
+    return start - run;
+  }
+
+  /// 4점 새들 1번 마킹에 더할 축소값. 4점 새들은 오프셋 둘을 마주 놓은 것이라,
+  /// 1번 마킹 앞에 오는 것은 첫 오프셋 몫(총 수축의 절반)뿐이다.
+  /// 🚀 [고침 2026-09-27] 예전에는 두 오프셋 몫을 다 더했다.
+  double saddle4ShrinkBeforeFirst(double totalShrink) => totalShrink / 2;
 
   /// 튜브 계산기용. 마킹 화면과 같은 제원 한 벌([MachineSpecs])을 본다.
   static Future<BendSheetSpecs> tube() async {

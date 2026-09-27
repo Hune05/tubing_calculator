@@ -33,7 +33,10 @@ Color get pureWhite => fc.surface;
 /// 🚀 [고침] 예전에는 180°까지 받아서 테이크업·게인 셈의 tan(θ/2)가 끝없이
 /// 커졌다(180°에 1번 마킹 −1.9×10^18mm). 170°를 넘는 벤드는 전선관 현장에서
 /// 쓰지 않으므로 여기서 막는다.
-const double kConduitMaxAngle = 170.0;
+/// 🚀 [고침 2026-09-27] 170°도 너무 컸다. 전선관 게인은 90° 표 값을 각도 비율로
+/// 늘리는 식이라 90°를 넘으면 값이 폭주한다(22mm EMT 120°에 게인 263mm, 150°에 절단
+/// −331mm). 전선관 벤더(수동·시카고·유압)는 90°까지 꺾으므로 90°에서 막는다.
+const double kConduitMaxAngle = 90.0;
 
 class ConduitInputTab extends StatefulWidget {
   /// 목록 관리자. 없으면 계산기 목록(폰에 저장되는 것). 배치도 스키드 경로는 따로 준다.
