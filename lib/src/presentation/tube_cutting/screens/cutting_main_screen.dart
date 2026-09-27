@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
@@ -245,7 +246,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   }
 
   // 배치도가 입력과 나란히 늘 보이는 넓은 화면인지(탭 대신 여러 칸으로 보여 줄 때).
-  bool get _isWideLayout => MediaQuery.of(context).size.shortestSide >= 600;
+  bool get _isWideLayout => ScreenLayout.isTablet(context);
 
   Future<void> _loadBladeKerf() async {
     final prefs = await SharedPreferences.getInstance();
@@ -2609,8 +2610,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           children: [
             Builder(
               builder: (context) {
-                final bool isWide =
-                    MediaQuery.of(context).size.shortestSide >= 600;
+                final bool isWide = ScreenLayout.isTablet(context);
                 return _buildMakerHeader(isWide);
               },
             ),
@@ -2622,8 +2622,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             // 레이아웃을 그대로 쓰고 좁을 땐 탭으로 나눠 1칼럼으로 보여준다.
             Builder(
               builder: (context) {
-                final bool isWide =
-                    MediaQuery.of(context).size.shortestSide >= 600;
+                final bool isWide = ScreenLayout.isTablet(context);
                 return isWide ? _buildWideBody() : _buildNarrowBody();
               },
             ),

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
@@ -1195,7 +1196,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         ),
         body: Builder(
           builder: (context) {
-            final bool isWide = MediaQuery.of(context).size.shortestSide >= 600;
+            final bool isWide = ScreenLayout.isTablet(context);
             return isWide ? _buildWideBody() : _buildNarrowBody();
           },
         ),

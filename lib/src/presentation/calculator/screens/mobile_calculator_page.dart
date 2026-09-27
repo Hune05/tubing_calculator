@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -72,7 +73,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     // 구분한다. MobileInputTab/MobileResultTab 둘 다 데이터를
     // MobileBendDataManager 싱글톤에서 직접 읽으므로, 넓을 때 두 탭을
     // 나란히 붙여 보여줘도 데이터가 어긋나거나 사라지지 않는다.
-    final bool isWide = MediaQuery.of(context).size.shortestSide >= 600;
+    final bool isWide = ScreenLayout.isTablet(context);
     // 🚀 [버그 수정] "현장" 탭(가로 모드 전체화면 마킹 뷰)에 들어가도 이
     // 화면 자체의 AppBar/BottomNavigationBar가 계속 떠 있어서, 그만큼
     // 세로 공간이 줄어들며 내용이 잘려 보였다. 전선관 계산기와 동일하게

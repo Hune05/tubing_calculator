@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/field_view_picker.dart';
+import 'package:tubing_calculator/src/core/common_widgets/screen_layout_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -586,6 +587,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
                 const Padding(
                   padding: EdgeInsets.all(16),
                   child: FieldViewModePicker(),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: ScreenLayoutPicker(),
                 ),
               ]),
             ],

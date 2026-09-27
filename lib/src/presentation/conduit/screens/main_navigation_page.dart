@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -80,8 +81,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
   final GlobalKey _viewerKey = GlobalKey(debugLabel: 'conduit_viewer');
   final GlobalKey _settingsKey = GlobalKey(debugLabel: 'conduit_settings');
 
-  bool _isWide(BuildContext context) =>
-      MediaQuery.of(context).size.shortestSide >= 600;
+  bool _isWide(BuildContext context) => ScreenLayout.isTablet(context);
 
   // 넓은 화면: 0=입력+마킹 합침, 1=보관함, 2=현장, 3=아이소, 4=설정 (5개)
   int _wideIndexFor(int narrowIndex) {

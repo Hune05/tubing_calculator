@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -242,6 +243,7 @@ void main() async {
   SystemChrome.setEnabledSystemUIMode(kAppSystemUiMode);
   await initializeDateFormatting('ko_KR', null); // 달력 등 한글 요일/월 이름
   await FieldColors.load(); // 현장 보기(보통·햇빛·야간)
+  await ScreenLayout.load(); // 화면 구성(자동·폰 화면·태블릿 화면)
   // "이름만 넣고 시작"한 사람도 uid가 있게 익명 로그인을 뒤에서 시도한다(이미 로그인했으면
   // 그대로). 통신이 없거나 콘솔에서 익명 로그인이 꺼져 있으면 조용히 넘어간다.
   unawaited(ensureSignedIn());
@@ -376,7 +378,9 @@ class _MyAppState extends State<MyApp> {
       // 현장 보기(햇빛·야간)를 바꾸면 FieldViewHost가 화면을 모두 다시 그린다.
       builder: (context, child) => FieldViewHost(
         child: AppFrame(
-          child: DeepLinkHandler(child: child ?? const SizedBox()),
+          child: ScreenLayoutHost(
+            child: DeepLinkHandler(child: child ?? const SizedBox()),
+          ),
         ),
       ),
       home: const DeviceRouter(),
@@ -557,7 +561,7 @@ class DeviceRouter extends StatelessWidget {
     // 로딩 화면으로 가서 자동 로그인 없이 "로그인 필요"로 홈에 들어갔다.
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.biggest.shortestSide < 600) {
+        if (!ScreenLayout.isTabletSize(constraints.biggest)) {
           return const MobileLoadingScreen();
         } else {
           return const LoadingScreen();
