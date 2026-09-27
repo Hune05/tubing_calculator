@@ -81,13 +81,309 @@ class _MenuEntry {
   final AppGlyph icon;
   final Color iconColor;
   final VoidCallback onTap;
+
+  /// 안에 들어가면 탭·하위 메뉴가 여러 개 있는 화면인지(빠른 실행 카드에
+  /// "부가 기능 있음" 표시를 준다).
+  final bool hasExtra;
   const _MenuEntry({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.iconColor,
     required this.onTap,
+    this.hasExtra = false,
   });
+}
+
+/// 즐겨찾기한 메뉴를 카드로 보여주는 빠른 실행 화면.
+/// - 좌우로 밀면 카드를 한 장씩 넘겨 본다(카드 지갑에서 카드를 넘기듯).
+/// - 위로 밀면 모든 카드가 지갑처럼 겹쳐서 한 화면에 다 보인다 — 아무 카드나
+///   누르면 바로 그 기능으로 들어간다.
+/// - 그 상태에서 아래로 밀면 다시 한 장 보기로 돌아온다.
+class _QuickLaunchCards extends StatefulWidget {
+  final List<_MenuEntry> entries;
+  final void Function(String title) onLongPressFavorite;
+  const _QuickLaunchCards({
+    super.key,
+    required this.entries,
+    required this.onLongPressFavorite,
+  });
+
+  @override
+  State<_QuickLaunchCards> createState() => _QuickLaunchCardsState();
+}
+
+class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
+  late final PageController _pageCtrl = PageController(viewportFraction: 0.88);
+  int _frontIndex = 0;
+  bool _fanOpen = false;
+
+  @override
+  void dispose() {
+    _pageCtrl.dispose();
+    super.dispose();
+  }
+
+  void _tapInFan(int i) {
+    setState(() {
+      _frontIndex = i;
+      _fanOpen = false;
+    });
+    widget.entries[i].onTap();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final n = widget.entries.length;
+    return LayoutBuilder(
+      builder: (context, box) {
+        // 실물 카드(운전면허증 등) 비율(가로:세로 ≈ 1.586:1)에 가깝게, 화면
+        // 폭 가득 크게 — 다만 태블릿처럼 넓은 화면에서 지나치게 커지지 않게 최대값을 둔다.
+        final cardWidth = (box.maxWidth - 48).clamp(220.0, 380.0);
+        final cardHeight = cardWidth / 1.586;
+        return GestureDetector(
+          onVerticalDragEnd: n < 2
+              ? null
+              : (d) {
+                  final v = d.primaryVelocity ?? 0;
+                  if (!_fanOpen && v < -200) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _fanOpen = true);
+                  } else if (_fanOpen && v > 200) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _fanOpen = false);
+                  }
+                },
+          child: _fanOpen
+              ? _buildFan(cardWidth, cardHeight)
+              : _buildSingle(cardWidth, cardHeight, n),
+        );
+      },
+    );
+  }
+
+  Widget _buildSingle(double cardWidth, double cardHeight, int n) => Column(
+    children: [
+      const SizedBox(height: 8),
+      Text(
+        n > 1 ? '${_frontIndex + 1} / $n · 좌우로 밀어 넘기기 · 위로 밀면 전체 보기' : '눌러서 열기',
+        style: TextStyle(
+          fontSize: 11,
+          color: slate600,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: cardHeight,
+        child: PageView.builder(
+          controller: _pageCtrl,
+          itemCount: n,
+          onPageChanged: (i) => setState(() => _frontIndex = i),
+          itemBuilder: (context, i) => Center(
+            child: _QuickLaunchCard(
+              entry: widget.entries[i],
+              width: cardWidth,
+              height: cardHeight,
+              onTap: widget.entries[i].onTap,
+              onLongPress: () =>
+                  widget.onLongPressFavorite(widget.entries[i].title),
+            ),
+          ),
+        ),
+      ),
+      if (n > 1) ...[
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < n; i++)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 150),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i == _frontIndex
+                      ? tossBlue
+                      : slate600.withValues(alpha: 0.3),
+                ),
+              ),
+          ],
+        ),
+      ],
+      const SizedBox(height: 8),
+    ],
+  );
+
+  Widget _buildFan(double cardWidth, double cardHeight) {
+    final n = widget.entries.length;
+    const headerH = 32.0;
+    // 남는 세로 자리를 (n-1) 등분해 카드가 그만큼씩 밀려 내려오게(맨 앞 카드가
+    // 맨 아래·맨 위에 옴). 자리가 모자라면 최소 22px까지만 줄인다.
+    final available = cardHeight * 1.8;
+    final peek = n > 1
+        ? ((available - cardHeight) / (n - 1)).clamp(22.0, 64.0)
+        : 0.0;
+    final stackHeight = cardHeight + peek * (n - 1);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: headerH,
+          child: Center(
+            child: Text(
+              '즐겨찾기 $n개 · 카드를 눌러 바로 열기 · 아래로 밀면 닫기',
+              style: TextStyle(
+                fontSize: 11,
+                color: slate600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(
+          height: stackHeight,
+          width: cardWidth,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (var i = 0; i < n; i++)
+                Positioned(
+                  top: i * peek,
+                  child: _QuickLaunchCard(
+                    entry: widget.entries[i],
+                    width: cardWidth,
+                    height: cardHeight,
+                    onTap: () => _tapInFan(i),
+                    onLongPress: () =>
+                        widget.onLongPressFavorite(widget.entries[i].title),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 즐겨찾기 카드 한 장(실물 카드 느낌 — 그라데이션·그림자, 아이콘·이름·부가 기능 표시).
+class _QuickLaunchCard extends StatelessWidget {
+  final _MenuEntry entry;
+  final double width;
+  final double height;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _QuickLaunchCard({
+    required this.entry,
+    required this.width,
+    required this.height,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final base = entry.iconColor;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: Key('home_quick_${entry.title}'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Container(
+          width: width,
+          height: height,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [base, Color.lerp(base, Colors.black, 0.35)!],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.22),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: AppIcon(entry.icon, size: 20, color: Colors.white),
+              ),
+              const Spacer(),
+              Text(
+                entry.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  height: 1.15,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                entry.subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.75),
+                  fontSize: 11,
+                ),
+              ),
+              // 부가 기능(탭·하위 메뉴)이 있으면 자리를 최소한만 써서 알려준다.
+              if (entry.hasExtra) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.16),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.apps, size: 11, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        '부가 기능',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MobileMenuPage extends StatefulWidget {
@@ -140,14 +436,14 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   /// 즐겨찾기한 메뉴 제목들(제목이 곧 아이디 — 다 서로 다른 글이라 겹치지 않는다).
   Set<String> _favorites = {};
 
-  /// 전체 메뉴 대신 빠른 실행(즐겨찾기 슬라이드)만 보이는 중인지.
-  bool _quickMode = false;
+  /// 전체 메뉴 대신 빠른 실행(즐겨찾기 카드)만 보이는 중인지. 시작 화면은
+  /// 항상 빠른 실행이다(사용자 요청 2026-09-27) — 폰에 저장해 두지 않는다.
+  bool _quickMode = true;
 
   /// 이번 build에서 만든 메뉴 버튼들(빠른 실행 화면이 여기서 골라 쓴다).
   final List<_MenuEntry> _menuEntries = [];
 
   static const String _kFavoritesKey = 'home_quick_launch_favorites_v1';
-  static const String _kQuickModeKey = 'home_quick_launch_mode_v1';
 
   // 🚀 날씨 상세 데이터 상태 관리
   String _weatherDesc = "확인 중";
@@ -244,20 +540,17 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     try {
       final p = await SharedPreferences.getInstance();
       final favs = p.getStringList(_kFavoritesKey);
-      final quick = p.getBool(_kQuickModeKey);
       if (!mounted) return;
       setState(() {
         if (favs != null) _favorites = favs.toSet();
-        if (quick != null) _quickMode = quick;
       });
     } catch (_) {}
   }
 
-  Future<void> _saveQuickLaunchSettings() async {
+  Future<void> _saveFavorites() async {
     try {
       final p = await SharedPreferences.getInstance();
       await p.setStringList(_kFavoritesKey, _favorites.toList());
-      await p.setBool(_kQuickModeKey, _quickMode);
     } catch (_) {}
   }
 
@@ -265,7 +558,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   void _toggleFavorite(String title) {
     HapticFeedback.mediumImpact();
     setState(() => _favorites = toggleQuickLaunchFavorite(_favorites, title));
-    _saveQuickLaunchSettings();
+    _saveFavorites();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -283,7 +576,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   void _toggleQuickMode() {
     HapticFeedback.selectionClick();
     setState(() => _quickMode = !_quickMode);
-    _saveQuickLaunchSettings();
   }
 
   /// "전체 메뉴 ⇄ 빠른 실행" 전환 알약 단추(공학용 계산기의 기본/공학 모드
@@ -324,13 +616,14 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     );
   }
 
-  /// 즐겨찾기한 메뉴를 옆으로 밀어 넘겨 보는 빠른 실행 화면.
+  /// 즐겨찾기한 메뉴를 카드로 보여주는 빠른 실행 화면(카드 자체는 [_QuickLaunchCards]).
   Widget _buildQuickLaunch() {
     final favEntries = _menuEntries
         .where((e) => _favorites.contains(e.title))
         .toList();
     if (favEntries.isEmpty) {
       return Padding(
+        key: const Key('home_quick_launch_empty'),
         padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
         child: Column(
           children: [
@@ -350,60 +643,10 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         ),
       );
     }
-    return SizedBox(
+    return _QuickLaunchCards(
       key: const Key('home_quick_launch'),
-      height: 168,
-      child: PageView.builder(
-        controller: PageController(viewportFraction: 0.42),
-        padEnds: false,
-        itemCount: favEntries.length,
-        itemBuilder: (context, i) {
-          final e = favEntries[i];
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-            child: InkWell(
-              key: Key('home_quick_${e.title}'),
-              borderRadius: BorderRadius.circular(16),
-              onTap: e.onTap,
-              onLongPress: () => _toggleFavorite(e.title),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: e.iconColor.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: e.iconColor.withValues(alpha: 0.2)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: e.iconColor.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: AppIcon(e.icon, size: 22, color: e.iconColor),
-                    ),
-                    Text(
-                      e.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: e.iconColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+      entries: favEntries,
+      onLongPressFavorite: _toggleFavorite,
     );
   }
 
@@ -643,11 +886,13 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 if (widget.currentWorker == kGuestName) _buildGuestBanner(),
                 const SizedBox(height: 16),
                 _buildModeToggle(),
-                if (_quickMode) _buildQuickLaunch(),
                 Offstage(
                   // 빠른 실행 모드에서도 전체 메뉴는 그대로 만들어 둔다(즐겨찾기 목록을
                   // 모으는 부수효과 때문 — _buildMenuButton이 _menuEntries에 쌓는다).
-                  // 화면에만 안 보이고 자리도 안 차지한다.
+                  // 화면에만 안 보이고 자리도 안 차지한다. **순서 중요**: 아래 quickLaunch가
+                  // _menuEntries를 읽으므로, 이 Offstage(=버튼들을 실제로 만드는 곳)가
+                  // 먼저 와야 한다(전에는 순서가 반대라 빠른 실행이 항상 빈 목록을 봤다 —
+                  // 2026-09-27 사용자가 "즐겨찾기 추가해도 없다고 나온다"고 알려줘서 찾음).
                   offstage: _quickMode,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,6 +941,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "내 프로젝트",
+                        hasExtra: true,
                         subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
                         icon: AppGlyph.project,
                         iconColor: slate900,
@@ -715,6 +961,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "내 일정 관리",
+                        hasExtra: true,
                         subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
                         icon: AppGlyph.schedule,
                         iconColor: makitaTeal,
@@ -743,6 +990,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "근태 관리",
+                        hasExtra: true,
                         subtitle: "연차·월차·반차·조퇴·특근과 출퇴근 시간 기록",
                         icon: AppGlyph.schedule,
                         iconColor: slate900,
@@ -760,6 +1008,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "벤딩 마킹 계산기",
+                        hasExtra: true,
                         subtitle: "스마트폰용 · 단계별 치수 입력",
                         icon: AppGlyph.tubeBend,
                         iconColor: makitaTeal,
@@ -778,6 +1027,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "튜브 컷팅 계산기",
+                        hasExtra: true,
                         subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
                         icon: AppGlyph.tubeCut,
                         iconColor: makitaTeal,
@@ -795,6 +1045,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "압력 시험",
+                        hasExtra: true,
                         subtitle: "튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서",
                         icon: AppGlyph.pressureGauge,
                         onTap: () {
@@ -810,6 +1061,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "유량 계산",
+                        hasExtra: true,
                         subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검",
                         icon: AppGlyph.flow,
                         onTap: () {
@@ -826,6 +1078,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "전선관 벤딩 마킹 계산기",
+                        hasExtra: true,
                         subtitle: "장비 프로필 설정 · 마킹 뷰어",
                         icon: AppGlyph.conduitBend,
                         iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
@@ -843,6 +1096,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "전기 설계 계산",
+                        hasExtra: true,
                         subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
                         icon: AppGlyph.electric,
                         onTap: () {
@@ -860,6 +1114,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "계기 교정",
+                        hasExtra: true,
                         subtitle: "교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서",
                         icon: AppGlyph.currentLoop,
                         onTap: () {
@@ -877,6 +1132,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "형강 컷팅 (찬넬/앵글)",
+                        hasExtra: true,
                         subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
                         icon: AppGlyph.steel,
                         iconColor: makitaTeal,
@@ -894,6 +1150,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "작업 배치도",
+                        hasExtra: true,
                         subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
                         icon: AppGlyph.layout,
                         iconColor: slate900,
@@ -916,6 +1173,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "단위 환산",
+                        hasExtra: true,
                         subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
                         icon: AppGlyph.unitConvert,
                         onTap: () {
@@ -931,6 +1189,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "수평계",
+                        hasExtra: true,
                         subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
                         icon: AppGlyph.level,
                         onTap: () {
@@ -946,6 +1205,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "각도기",
+                        hasExtra: true,
                         subtitle: "벤딩 각도 재기 · 화면 각도기",
                         icon: AppGlyph.protractor,
                         onTap: () {
@@ -961,6 +1221,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "공학용 계산기",
+                        hasExtra: true,
                         subtitle: "사칙연산·삼각함수·거듭제곱 · 인치 분수·피트",
                         icon: AppGlyph.engCalc,
                         onTap: () {
@@ -1074,6 +1335,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "자재 현황",
+                        hasExtra: true,
                         subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
                         icon: AppGlyph.stock,
                         iconColor: slate900,
@@ -1097,6 +1359,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "자재 통합 관리",
+                        hasExtra: true,
                         subtitle: "재고조사 · 새 자재 등록 및 삭제",
                         icon: AppGlyph.stockAdmin,
                         iconColor: slate900,
@@ -1115,6 +1378,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "현장 자료·장비 사용법",
+                        hasExtra: true,
                         subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
                         icon: AppGlyph.tubeSpec,
                         iconColor: slate900,
@@ -1137,6 +1401,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     ],
                   ),
                 ),
+                if (_quickMode) _buildQuickLaunch(),
               ],
             ),
           ),
@@ -1616,6 +1881,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     Color? iconColor,
     String? badgeText,
     Color? badgeColor,
+    bool hasExtra = false,
   }) {
     // 빠른 실행 화면이 쓸 수 있게 이번 build에서 만든 버튼 정보를 쌓아 둔다.
     _menuEntries.add(
@@ -1625,6 +1891,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         icon: icon,
         iconColor: iconColor ?? slate900,
         onTap: onTap,
+        hasExtra: hasExtra,
       ),
     );
     final isFav = _favorites.contains(title);
