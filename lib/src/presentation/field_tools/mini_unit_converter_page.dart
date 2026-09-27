@@ -1,9 +1,12 @@
-// 공학용 계산기 안의 "간단 단위 변환" — 갤럭시 계산기가 계산기 안에 내장한 단위
+// 공학용 계산기 안의 "단위 계산기" — 갤럭시 계산기가 계산기 안에 내장한 단위
 // 변환기 같은 빠른 도구. 자세한 표(배관 호칭·전선 굵기·인치 분수 입력 등)는 이미
 // 현장 자료 안 "단위 환산"(unit_converter_page.dart)에 따로 있으니 여기서는 그
 // 자료(unit_defs.dart)를 그대로 가져다 써서, 자주 쓰는 몇 분류만 숫자 두 칸(보내는
 // 값 → 바뀐 값)으로 빠르게 바꾼다. 분수 입력 같은 특수 칸(textInput)은 빼고 숫자만
 // 있는 단위만 고른다.
+//
+// 분류 고르기는 칩을 여러 줄로 늘어놓지 않고 슬라이더 한 줄로(자리를 덜 차지하게).
+// 색은 강한 브랜드 색 대신 회색 계열(무채색)만 쓴다.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -87,7 +90,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage> {
         elevation: 0,
         foregroundColor: fc.text,
         title: Text(
-          "간단 단위 변환",
+          "단위 계산기",
           style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
         ),
       ),
@@ -95,20 +98,8 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final c in kMiniConvertCategories)
-                  ChoiceChip(
-                    key: Key('unit_cat_${c.id}'),
-                    label: Text(c.label),
-                    selected: identical(_cat, c),
-                    onSelected: (_) => _pickCategory(c),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 20),
+            _categorySlider(),
+            const SizedBox(height: 12),
             _unitCard(
               label: '보내는 값',
               unit: _from,
@@ -160,6 +151,45 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage> {
       ),
     ),
   );
+
+  /// 분류 고르기: 칩을 여러 줄로 늘어놓는 대신 슬라이더 한 줄로(자리를 덜 차지함).
+  /// 회색 배경 없이 트랙·손잡이만 있고, 색은 무채색(회색 계열)만 쓴다.
+  Widget _categorySlider() {
+    final idx = kMiniConvertCategories.indexOf(_cat).toDouble();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          _cat.label,
+          key: const Key('unit_cat_label'),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: fc.text,
+          ),
+        ),
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: 2,
+            activeTrackColor: fc.textFaint,
+            inactiveTrackColor: fc.line,
+            thumbColor: fc.textSub,
+            overlayColor: fc.textSub.withValues(alpha: 0.12),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+          ),
+          child: Slider(
+            key: const Key('unit_cat_slider'),
+            min: 0,
+            max: (kMiniConvertCategories.length - 1).toDouble(),
+            divisions: kMiniConvertCategories.length - 1,
+            value: idx,
+            onChanged: (v) => _pickCategory(kMiniConvertCategories[v.round()]),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _unitCard({
     required String label,

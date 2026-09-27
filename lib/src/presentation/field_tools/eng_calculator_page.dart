@@ -469,7 +469,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           IconButton(
             key: const Key('calc_unit_convert'),
             icon: const Icon(Icons.swap_horiz),
-            tooltip: '간단 단위 변환',
+            tooltip: '단위 계산기',
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const MiniUnitConverterPage()),

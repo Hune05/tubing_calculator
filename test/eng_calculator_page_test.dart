@@ -344,13 +344,13 @@ void main() {
     expect(find.byKey(const Key('calc_history')), findsNothing);
   });
 
-  testWidgets('AppBar "간단 단위 변환" 단추로 단위 변환 화면을 연다', (tester) async {
+  testWidgets('AppBar "단위 계산기" 단추로 단위 변환 화면을 연다', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_unit_convert');
     await tester.pumpAndSettle();
-    expect(find.text('간단 단위 변환'), findsOneWidget);
+    expect(find.text('단위 계산기'), findsOneWidget);
     // 길이 분류가 기본으로 골라져 있고, mm 1을 넣으면 cm 값이 바로 바뀐다.
-    expect(find.byKey(const Key('unit_cat_length')), findsOneWidget);
+    expect(find.text('길이'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('unit_from_value')), '1000');
     await tester.pump();
     expect(
