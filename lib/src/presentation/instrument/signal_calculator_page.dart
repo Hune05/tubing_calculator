@@ -16,6 +16,7 @@ import 'cal_gas_tab.dart';
 import 'cal_record.dart';
 import 'cal_record_pdf.dart';
 import 'cal_records_page.dart';
+import 'loop_voltage_guide.dart';
 import 'signal_calc.dart';
 import 'switch_check.dart';
 import 'temp_sensor.dart';
@@ -2218,6 +2219,18 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           );
     final cm = _fmt(_checkMa, 2);
     return _page([
+      if (lc != null)
+        LoopVoltageGuide(
+          supplyV: vs!,
+          minV: vmin!,
+          wireV: wire * lc.checkMa / 1000,
+          hartV: hart * lc.checkMa / 1000,
+          barrierV: barrier * lc.checkMa / 1000,
+          extraV: extra,
+          terminalV: lc.voltsCheck,
+          ok: lc.okAtCheck(vmin),
+        ),
+      if (lc != null) const SizedBox(height: 16),
       calcField(
         'sl_supply',
         '전원 전압 (V)',

@@ -116,6 +116,8 @@ void main() {
   testWidgets('루프 전압: 24V·250Ω·1.5sq 500m → 23mA에서 17.97V 충분', (tester) async {
     await pumpPage(tester);
     await openTab(tester, 'sg_tab_loop');
+    // 값을 넣으면 바로 그림 설명(루프가 직렬 한 바퀴 + 전압을 나눠 먹는 막대)이 있다.
+    expect(find.byKey(const Key('loop_guide')), findsOneWidget);
     await tester.enterText(find.byKey(const Key('sl_len')), '500');
     await tester.pump();
     final r = textIn(tester, const Key('sl_result'));
