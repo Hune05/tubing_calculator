@@ -274,4 +274,29 @@ void main() {
     }
     expect(errors, isEmpty);
   });
+
+  testWidgets('계산 값 창이 커져서 결과 숫자가 크게 보인다(태블릿 화면 포함)', (tester) async {
+    Future<double> resultHeight(Size size) async {
+      SharedPreferences.setMockInitialValues({});
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+      await tester.pump();
+      await tap(tester, 'calc_1');
+      await tap(tester, 'calc_2');
+      return tester
+          .getSize(find.byKey(const Key('calc_display_result')))
+          .height;
+    }
+
+    // 예전(고정 40pt)에는 이 글자가 50px 안팎이었다. 지금은 남는 세로 자리만큼
+    // 커지되 120을 넘지는 않는다 — 스마트폰도 태블릿도 자리가 넉넉해 그 한도에
+    // 닿는다(태블릿에서만 특별히 더 커지는 건 아니다. 대신 키패드보다 계산 값 창
+    // 몫을 키워서 태블릿에서 숫자가 작아 보이지 않게 했다).
+    final phone = await resultHeight(const Size(390, 844));
+    final tablet = await resultHeight(const Size(800, 1280));
+    addTearDown(tester.view.reset);
+    expect(phone, greaterThan(60));
+    expect(tablet, greaterThan(60));
+  });
 }

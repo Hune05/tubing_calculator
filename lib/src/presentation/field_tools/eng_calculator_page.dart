@@ -435,9 +435,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       body: SafeArea(
         child: Column(
           children: [
-            _display(big, result),
+            // 계산 값 창을 화면 높이에 맞춰 키운다(태블릿처럼 위아래로 긴 화면일수록
+            // 결과가 커 보이게). 키패드는 상대적으로 덜 키운다.
+            Expanded(flex: 4, child: _display(big, result)),
             const Divider(height: 1),
-            Expanded(child: _keypad()),
+            Expanded(flex: 5, child: _keypad()),
           ],
         ),
       ),
@@ -463,7 +465,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.right,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 20,
                       color: _sub,
                       fontWeight: FontWeight.w600,
                     ),
@@ -473,52 +475,69 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
               ],
             ),
             const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (_live?.exact != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: GestureDetector(
-                      key: const Key('calc_sd'),
-                      onTap: _tapSD,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+            // 결과 줄이 남는 세로 공간을 다 차지하게 한다 — 태블릿처럼 위아래로 긴
+            // 화면일수록 숫자가 그만큼 커 보인다(스마트폰은 자리가 적어 그만큼 작게).
+            Expanded(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  if (_live?.exact != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: GestureDetector(
+                        key: const Key('calc_sd'),
+                        onTap: _tapSD,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: fc.brandSoft,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            'S⇔D',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: _teal,
+                            ),
+                          ),
                         ),
-                        decoration: BoxDecoration(
-                          color: fc.brandSoft,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          'S⇔D',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: _teal,
+                      ),
+                    ),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, box) => Align(
+                        alignment: Alignment.centerRight,
+                        // 남는 세로 자리만큼 키우되, 120을 넘지는 않는다(태블릿에서도
+                        // 숫자가 과하게 커지지 않게).
+                        child: SizedBox(
+                          height: box.maxHeight.clamp(0, 120),
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              big,
+                              key: const Key('calc_display_result'),
+                              style: TextStyle(
+                                fontSize: 68,
+                                fontWeight: FontWeight.w900,
+                                color: _error != null ? _danger : _ink,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                Flexible(
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      big,
-                      key: const Key('calc_display_result'),
-                      style: TextStyle(
-                        fontSize: 40,
-                        fontWeight: FontWeight.w900,
-                        color: _error != null ? _danger : _ink,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
             if (_error == null && !_showExact && result?.fraction != null) ...[
               const SizedBox(height: 4),
@@ -526,7 +545,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                 '≈ ${result!.fraction}',
                 key: const Key('calc_display_fraction'),
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 22,
                   color: _teal,
                   fontWeight: FontWeight.w700,
                 ),
@@ -559,7 +578,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
             text.isEmpty ? ' ' : text,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 20,
               color: _ink,
               fontWeight: FontWeight.w700,
             ),
