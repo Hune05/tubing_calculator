@@ -2137,6 +2137,8 @@ class InstrumentShapePainter extends CustomPainter {
         );
         c.drawLine(Offset(0, h * 0.12), Offset(w, h * 0.12), _thin);
         c.drawLine(Offset(0, h * 0.88), Offset(w, h * 0.88), _thin);
+      case ElecShape.psu when ElecShape.style(shape) != null:
+        _psuPro(b, ElecShape.style(shape)!);
       case ElecShape.psu:
         _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
         for (double x = w * 0.15; x < w * 0.86; x += w * 0.1) {
@@ -2168,6 +2170,18 @@ class InstrumentShapePainter extends CustomPainter {
         _timer48(b, ElecShape.style(shape) ?? 'omron');
       case ElecShape.mon:
         _monRelay(b);
+      case ElecShape.io:
+        _ioModule(b, ElecShape.style(shape) ?? 's7');
+      case ElecShape.rack:
+        _rackUnit(b, ElecShape.style(shape) ?? 'anb');
+      case ElecShape.chassis:
+        _chassis(b, n?.round() ?? 7);
+      case ElecShape.bar:
+        _barrier(b, ElecShape.style(shape) ?? 'pf');
+      case ElecShape.ifr:
+        _ifRelay(b, ElecShape.style(shape) ?? 'phoenix');
+      case ElecShape.sw:
+        _ethSwitch(b, n?.round() ?? 5);
       case ElecShape.mc when ElecShape.style(shape) != null:
         _contactor(b, ElecShape.style(shape)!);
       case ElecShape.mc:
@@ -2490,6 +2504,271 @@ class InstrumentShapePainter extends CustomPainter {
     _circle(c, Offset(w * 0.32, h * 0.17), lr, style == 'omron' ? _estopRed : _pushBlue);
     for (final p in [const Offset(0.86, 0.17), const Offset(0.14, 0.9), const Offset(0.86, 0.9)]) {
       _circle(c, Offset(w * p.dx, h * p.dy), lr * 0.9, _metal);
+    }
+  }
+
+  /// 작은 LED 여러 개(세로 줄 또는 가로 줄).
+  void _leds(Canvas c, Offset start, Offset step, List<Color> colors, double r) {
+    for (int i = 0; i < colors.length; i++) {
+      _circle(c, start + step * i.toDouble(), r, colors[i]);
+    }
+  }
+
+  /// 나사·푸시인 단자 격자(열 × 줄).
+  void _termGrid(Canvas c, Rect area, int cols, int rows, double r) {
+    for (int i = 0; i < cols; i++) {
+      for (int j = 0; j < rows; j++) {
+        final Offset p = Offset(
+          area.left + area.width * (i + 0.5) / cols,
+          area.top + area.height * (j + 0.5) / rows,
+        );
+        _circle(c, p, r, _metal);
+      }
+    }
+  }
+
+  /// PLC·DCS 모듈 정면(제조사 카탈로그 그림·사진): [style]
+  /// s7(지멘스 S7-1500 35·25mm: 왼쪽 위 RUN·ERROR·MAINT LED, 라벨 창, 앞 커넥터 문)·s7ps(전원)·
+  /// et(ET 200SP 15mm: 색 라벨 띠, LED, 푸시인 단자)·etbu(베이스 유닛)·etim(IM 155-6 PN)·
+  /// pa(로크웰 1756 전원)·fio(요꼬가와 32.8mm 모듈: 위 LED, 가운데 커넥터 창, 아래 잠금 나사)·
+  /// dv(에머슨 DeltaV 제어기: 둥근 정보 창, LED 세로줄, RJ-45 둘)·carrier(CIOC 이중화 카리어)·
+  /// cpu(ABB AC 800M + TP830: LED 줄, 이더넷 둘, INIT)·ci(CI854)·tu(ABB TU810 단자 유닛)·
+  /// tba·tba2(요꼬가와 단자대 32.6·65.6mm)·din(요꼬가와 DIN 단자판).
+  void _ioModule(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    final double m = math.min(w, h);
+    _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    switch (style) {
+      case 's7':
+        _leds(c, Offset(w * 0.22, h * 0.06), Offset(0, h * 0.035), [_okGreen, _estopRed, _pushBlue], m * 0.035);
+        _part(c, Rect.fromLTWH(w * 0.12, h * 0.19, w * 0.76, h * 0.12), _bodyPlain, radius: 1);
+        _part(c, Rect.fromLTWH(w * 0.1, h * 0.4, w * 0.8, h * 0.52), _ftBody, radius: 2);
+        c.drawLine(Offset(w * 0.1, h * 0.66), Offset(w * 0.9, h * 0.66), _thin);
+        _circle(c, Offset(w * 0.5, h * 0.87), m * 0.05, _bodyPlain);
+      case 's7ps':
+        _leds(c, Offset(w * 0.12, h * 0.07), Offset(0, h * 0.035), [_okGreen], m * 0.03);
+        _part(c, Rect.fromLTWH(w * 0.1, h * 0.2, w * 0.8, h * 0.16), _bodyPlain, radius: 1);
+        _part(c, Rect.fromLTWH(w * 0.1, h * 0.55, w * 0.8, h * 0.36), _ftBody, radius: 2);
+        _termGrid(c, Rect.fromLTWH(w * 0.14, h * 0.6, w * 0.72, h * 0.26), 4, 2, m * 0.03);
+      case 'et':
+        _part(c, Rect.fromLTWH(0, 0, w, h * 0.12), _pushBlue, radius: 1);
+        _leds(c, Offset(w * 0.3, h * 0.2), Offset(0, h * 0.06), [_okGreen, _okGreen, _okGreen, _okGreen], w * 0.08);
+        _part(c, Rect.fromLTWH(w * 0.12, h * 0.5, w * 0.76, h * 0.12), _bodyPlain, radius: 0);
+        _termGrid(c, Rect.fromLTWH(w * 0.1, h * 0.68, w * 0.8, h * 0.27), 2, 4, w * 0.07);
+      case 'etbu':
+        _termGrid(c, Rect.fromLTWH(w * 0.1, h * 0.06, w * 0.8, h * 0.78), 2, 8, w * 0.08);
+        _part(c, Rect.fromLTWH(w * 0.1, h * 0.88, w * 0.8, h * 0.08), _ftBody, radius: 0);
+      case 'etim':
+        _leds(c, Offset(w * 0.15, h * 0.07), Offset(w * 0.1, 0), [_okGreen, _estopRed, _pushBlue], m * 0.03);
+        _part(c, Rect.fromLTWH(w * 0.1, h * 0.2, w * 0.8, h * 0.14), _bodyPlain, radius: 1);
+        for (final y in [0.45, 0.62]) {
+          _part(c, Rect.fromLTWH(w * 0.2, h * y, w * 0.6, h * 0.12), _ftBody, radius: 1);
+        }
+      case 'pa':
+        _leds(c, Offset(w * 0.16, h * 0.08), Offset(0, h * 0.05), [_okGreen], m * 0.03);
+        _part(c, Rect.fromLTWH(w * 0.1, h * 0.2, w * 0.8, h * 0.3), _bodyPlain, radius: 2);
+        for (final y in [0.27, 0.34, 0.41]) {
+          c.drawLine(Offset(w * 0.18, h * y), Offset(w * 0.7, h * y), _thin);
+        }
+        _part(c, Rect.fromLTWH(w * 0.08, h * 0.7, w * 0.84, h * 0.24), _ftBody, radius: 1);
+        _termGrid(c, Rect.fromLTWH(w * 0.12, h * 0.73, w * 0.76, h * 0.18), 5, 2, m * 0.03);
+      case 'fio':
+        _leds(c, Offset(w * 0.28, h * 0.05), Offset(w * 0.22, 0), [_okGreen, _estopRed, _pushBlue], m * 0.045);
+        _part(c, Rect.fromLTWH(w * 0.12, h * 0.16, w * 0.76, h * 0.12), _bodyPlain, radius: 1);
+        _part(c, Rect.fromLTWH(w * 0.14, h * 0.36, w * 0.72, h * 0.46), _ftBody, radius: 2);
+        for (int i = 0; i < 8; i++) {
+          c.drawLine(
+            Offset(w * 0.2, h * (0.4 + 0.05 * i)),
+            Offset(w * 0.8, h * (0.4 + 0.05 * i)),
+            _thin,
+          );
+        }
+        _circle(c, Offset(w * 0.5, h * 0.9), m * 0.09, _metal);
+      case 'dv':
+        _circle(c, Offset(w * 0.5, h * 0.22), m * 0.32, _glass);
+        _circle(c, Offset(w * 0.5, h * 0.22), m * 0.2, _bodyPlain);
+        _leds(c, Offset(w * 0.85, h * 0.1), Offset(0, h * 0.045), [_okGreen, _estopRed, _pushBlue, _okGreen], m * 0.03);
+        _part(c, Rect.fromLTWH(w * 0.1, h * 0.5, w * 0.8, h * 0.1), _bodyPlain, radius: 1);
+        for (final x in [0.12, 0.55]) {
+          _part(c, Rect.fromLTWH(w * x, h * 0.78, w * 0.33, h * 0.1), _ftBody, radius: 1);
+        }
+      case 'carrier':
+        for (final x in [0.05, 0.53]) {
+          _part(c, Rect.fromLTWH(w * x, h * 0.06, w * 0.42, h * 0.88), _bodyPlain, radius: 2);
+          _circle(c, Offset(w * (x + 0.21), h * 0.28), m * 0.12, _glass);
+          _leds(c, Offset(w * (x + 0.08), h * 0.56), Offset(w * 0.1, 0), [_okGreen, _estopRed, _pushBlue], m * 0.02);
+        }
+      case 'cpu':
+        _part(c, Rect.fromLTWH(w * 0.05, h * 0.04, w * 0.9, h * 0.56), _bodyPlain, radius: 2);
+        for (int i = 0; i < 8; i++) {
+          _circle(c, Offset(w * (0.12 + 0.08 * i), h * 0.1), m * 0.018, i < 3 ? _okGreen : _pushBlue);
+        }
+        _circle(c, Offset(w * 0.84, h * 0.1), m * 0.03, _estopRed);
+        for (final x in [0.12, 0.52]) {
+          _part(c, Rect.fromLTWH(w * x, h * 0.3, w * 0.32, h * 0.12), _ftBody, radius: 1);
+        }
+        _part(c, Rect.fromLTWH(w * 0.05, h * 0.64, w * 0.9, h * 0.3), _ftBody, radius: 2);
+        _termGrid(c, Rect.fromLTWH(w * 0.1, h * 0.68, w * 0.8, h * 0.22), 8, 2, m * 0.018);
+      case 'ci':
+        _part(c, Rect.fromLTWH(w * 0.06, h * 0.04, w * 0.88, h * 0.5), _bodyPlain, radius: 2);
+        for (int i = 0; i < 4; i++) {
+          _circle(c, Offset(w * (0.2 + 0.2 * i), h * 0.09), m * 0.04, i < 2 ? _okGreen : _pushBlue);
+        }
+        for (final y in [0.22, 0.36]) {
+          _part(c, Rect.fromLTWH(w * 0.2, h * y, w * 0.6, h * 0.09), _ftBody, radius: 1);
+        }
+        _part(c, Rect.fromLTWH(w * 0.06, h * 0.6, w * 0.88, h * 0.34), _ftBody, radius: 2);
+        _termGrid(c, Rect.fromLTWH(w * 0.12, h * 0.65, w * 0.76, h * 0.24), 4, 2, m * 0.04);
+      case 'tu':
+        _part(c, Rect.fromLTWH(w * 0.08, h * 0.06, w * 0.84, h * 0.88), _ftBody, radius: 2);
+        _termGrid(c, Rect.fromLTWH(w * 0.14, h * 0.1, w * 0.72, h * 0.8), 3, 5, m * 0.07);
+      case 'tba':
+        _part(c, Rect.fromLTWH(w * 0.08, h * 0.05, w * 0.84, h * 0.9), _ftBody, radius: 2);
+        _termGrid(c, Rect.fromLTWH(w * 0.14, h * 0.1, w * 0.72, h * 0.8), 2, 6, m * 0.09);
+      case 'tba2':
+        _part(c, Rect.fromLTWH(w * 0.05, h * 0.05, w * 0.9, h * 0.9), _ftBody, radius: 2);
+        _termGrid(c, Rect.fromLTWH(w * 0.1, h * 0.1, w * 0.8, h * 0.8), 4, 6, m * 0.09);
+      case 'din':
+        _part(c, Rect.fromLTWH(w * 0.02, h * 0.1, w * 0.96, h * 0.8), _ftBody, radius: 2);
+        _termGrid(c, Rect.fromLTWH(w * 0.04, h * 0.18, w * 0.92, h * 0.64), math.max(4, (w / 9).floor()), 2, h * 0.07);
+      default:
+        break;
+    }
+  }
+
+  /// 19인치 랙 노드 유닛(요꼬가와 ANB10D 노드 유닛: 왼쪽 I/O 8칸, 오른쪽 전원 2칸 / AFV10D 제어 유닛: 큰 칸 셋).
+  void _rackUnit(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _ftBody, radius: 2);
+    _part(c, Rect.fromLTWH(w * 0.03, h * 0.12, w * 0.94, h * 0.76), _bodyPlain, radius: 1);
+    // 랙 귀 구멍
+    for (final p in [const Offset(0.015, 0.2), const Offset(0.985, 0.2), const Offset(0.015, 0.8), const Offset(0.985, 0.8)]) {
+      _circle(c, Offset(w * p.dx, h * p.dy), math.min(w, h) * 0.02, _body);
+    }
+    final int slots = style == 'anb' ? 10 : 3;
+    final double pw = w * 0.92 / slots;
+    for (int i = 0; i < slots; i++) {
+      final double x = w * 0.04 + pw * i;
+      final bool power = style == 'anb' && i >= 8;
+      _part(c, Rect.fromLTWH(x + pw * 0.06, h * 0.16, pw * 0.88, h * 0.68), power ? _estopRed : _body, radius: 1);
+      _circle(c, Offset(x + pw * 0.5, h * 0.24), math.min(pw * 0.14, h * 0.03), power ? _okGreen : _pushBlue);
+      _part(c, Rect.fromLTWH(x + pw * 0.2, h * 0.36, pw * 0.6, h * 0.28), _ftBody, radius: 1);
+    }
+  }
+
+  /// PLC 섀시(로크웰 1756-A7·A13): 슬롯 수만큼 세로 칸과 뒷 커넥터 줄.
+  void _chassis(_Box b, int slots) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _ftBody, radius: 2);
+    final int n = math.max(1, slots);
+    final double pw = w * 0.94 / n;
+    for (int i = 0; i < n; i++) {
+      final double x = w * 0.03 + pw * i;
+      _part(c, Rect.fromLTWH(x + pw * 0.08, h * 0.1, pw * 0.84, h * 0.8), _bodyPlain, radius: 1);
+      c.drawLine(Offset(x + pw * 0.5, h * 0.16), Offset(x + pw * 0.5, h * 0.84), _thin);
+    }
+  }
+
+  /// 본질안전 배리어·신호 분리기(P+F KFD2·KCD2, 튜르크 IM): 얇은 세로 막대, 위·아래 3핀 단자대,
+  /// 초록 전원 LED, 채널 노랑·빨강 LED, 라벨 창. 폭이 넓으면(40mm 두 채널) LED 줄이 늘어난다.
+  void _barrier(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    final double tb = h * 0.14;
+    _part(c, Rect.fromLTWH(w * 0.08, 0, w * 0.84, tb), _pushBlue, radius: 1);
+    _part(c, Rect.fromLTWH(w * 0.08, h - tb, w * 0.84, tb), _okGreen, radius: 1);
+    final double sr = math.min(w * 0.14, tb * 0.28);
+    for (int i = 0; i < 3; i++) {
+      final double x = w * (0.2 + 0.3 * i);
+      _circle(c, Offset(x, tb * 0.5), sr, _metal);
+      _circle(c, Offset(x, h - tb * 0.5), sr, _metal);
+    }
+    _circle(c, Offset(w * 0.3, h * 0.24), math.min(w * 0.12, h * 0.03), _okGreen);
+    _circle(c, Offset(w * 0.7, h * 0.24), math.min(w * 0.12, h * 0.03), style == 'turck' ? _pushBlue : _estopRed);
+    _circle(c, Offset(w * 0.5, h * 0.32), math.min(w * 0.12, h * 0.03), _bodyPlain);
+    _part(c, Rect.fromLTWH(w * 0.14, h * 0.42, w * 0.72, h * 0.36), _bodyPlain, radius: 1);
+    for (final y in [0.5, 0.56, 0.62]) {
+      c.drawLine(Offset(w * 0.22, h * y), Offset(w * 0.78, h * y), _thin);
+    }
+  }
+
+  /// 인터페이스 릴레이·SSR(피닉스 PLC-INTERFACE, 웨이드뮬러 TRS): 폭 6mm대 초슬림 막대.
+  /// 위·아래 나사 단자, 위쪽 LED 하나, 옆 라벨 줄.
+  void _ifRelay(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), style == 'weid' ? _pushBlue : _bodyPlain, radius: 1);
+    final double tb = h * 0.2;
+    _part(c, Rect.fromLTWH(0, 0, w, tb), _ftBody, radius: 1);
+    _part(c, Rect.fromLTWH(0, h - tb, w, tb), _ftBody, radius: 1);
+    final double sr = w * 0.3;
+    _circle(c, Offset(w * 0.5, tb * 0.5), sr, _metal);
+    _circle(c, Offset(w * 0.5, h - tb * 0.5), sr, _metal);
+    _circle(c, Offset(w * 0.5, h * 0.32), w * 0.2, _okGreen);
+    c.drawLine(Offset(w * 0.5, h * 0.42), Offset(w * 0.5, h * 0.7), _thin);
+  }
+
+  /// 24VDC 전원 모듈(피닉스 QUINT, 웨이드뮬러 PRO, 지멘스 SITOP): 위·아래 나사 단자, 가운데 라벨 창,
+  /// DC OK 초록 LED, 출력 전압 조정 볼륨. diode(이중화 모듈)는 LED 둘.
+  void _psuPro(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    final double m = math.min(w, h);
+    _part(c, Rect.fromLTWH(0, 0, w, h), style == 'sitop' ? _body : _bodyPlain, radius: 2);
+    final double tb = h * 0.16;
+    _part(c, Rect.fromLTWH(w * 0.04, 0, w * 0.92, tb), _ftBody, radius: 1);
+    _part(c, Rect.fromLTWH(w * 0.04, h - tb, w * 0.92, tb), _ftBody, radius: 1);
+    final int screws = w > 50 ? 4 : 3;
+    for (int i = 0; i < screws; i++) {
+      final double x = w * (i + 0.5) / screws;
+      _circle(c, Offset(x, tb * 0.5), math.min(w * 0.06, tb * 0.28), _metal);
+      _circle(c, Offset(x, h - tb * 0.5), math.min(w * 0.06, tb * 0.28), _metal);
+    }
+    _part(c, Rect.fromLTWH(w * 0.12, h * 0.24, w * 0.76, h * 0.18), _body, radius: 1);
+    for (final y in [0.29, 0.35]) {
+      c.drawLine(Offset(w * 0.2, h * y), Offset(w * 0.8, h * y), _thin);
+    }
+    if (style == 'diode') {
+      _circle(c, Offset(w * 0.3, h * 0.58), m * 0.05, _okGreen);
+      _circle(c, Offset(w * 0.7, h * 0.58), m * 0.05, _okGreen);
+    } else {
+      _circle(c, Offset(w * 0.28, h * 0.58), m * 0.05, _okGreen);
+      _circle(c, Offset(w * 0.68, h * 0.62), m * 0.09, _ftBody);
+      c.drawLine(Offset(w * 0.68, h * 0.62), Offset(w * 0.68 + m * 0.05, h * 0.62 - m * 0.05), _thin);
+    }
+  }
+
+  /// DIN 레일 이더넷 스위치(Moxa EDS, 지멘스 SCALANCE XB): 위쪽 LED 줄, 라벨 창, 아래 RJ45 포트 [ports]개.
+  void _ethSwitch(_Box b, int ports) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _ftBody, radius: 2);
+    final int n = math.max(2, ports);
+    for (int i = 0; i < 3; i++) {
+      _circle(c, Offset(w * (0.2 + 0.15 * i), h * 0.1), math.min(w, h) * 0.04, i == 0 ? _okGreen : _pushBlue);
+    }
+    _part(c, Rect.fromLTWH(w * 0.1, h * 0.22, w * 0.8, h * 0.26), _bodyPlain, radius: 1);
+    for (final y in [0.3, 0.37]) {
+      c.drawLine(Offset(w * 0.2, h * y), Offset(w * 0.6, h * y), _thin);
+    }
+    // 포트: 폭에 맞춰 한 줄 또는 두 줄
+    final int perRow = n <= 5 ? n : (n / 2).ceil();
+    final int rows = n <= 5 ? 1 : 2;
+    for (int r = 0; r < rows; r++) {
+      final int inRow = r == 0 ? perRow : n - perRow;
+      for (int i = 0; i < inRow; i++) {
+        final double pw = w * 0.9 / perRow;
+        _part(
+          c,
+          Rect.fromLTWH(w * 0.05 + pw * i + pw * 0.08, h * (rows == 1 ? 0.6 : 0.56 + 0.2 * r), pw * 0.84, h * (rows == 1 ? 0.28 : 0.16)),
+          _bodyPlain,
+          radius: 1,
+        );
+      }
     }
   }
 

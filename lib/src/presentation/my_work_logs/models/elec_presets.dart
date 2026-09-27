@@ -1,5 +1,6 @@
 import 'elec_presets_breakers.dart';
 import 'elec_presets_contactors.dart';
+import 'elec_presets_dcs.dart';
 import 'layout_board_models.dart';
 
 // 🚀 캐비닛 측판·중판에 다는 전기 부품(DIN 레일). 정면 가로×세로(mm), 깊이는 판 면에서(레일 포함).
@@ -75,6 +76,24 @@ class ElecShape {
 
   /// 레일형 감시·보호 계전기(폭 22.5). 'el_mon:모양'.
   static const String mon = 'el_mon';
+
+  /// PLC·DCS 모듈(세로로 긴 I/O·CPU·통신·단자대). 'el_io:모양'.
+  static const String io = 'el_io';
+
+  /// 19인치 랙 노드 유닛(요꼬가와 ANB·AFV). 'el_rack:모양'.
+  static const String rack = 'el_rack';
+
+  /// PLC 섀시(로크웰 1756-A7·A13). 'el_chassis:슬롯 수'.
+  static const String chassis = 'el_chassis';
+
+  /// 본질안전 배리어·신호 분리기(얇은 세로 막대). 'el_bar:모양'.
+  static const String bar = 'el_bar';
+
+  /// 인터페이스 릴레이·SSR(6mm대 초슬림). 'el_ifr:모양'.
+  static const String ifr = 'el_ifr';
+
+  /// DIN 레일 이더넷 스위치. 'el_sw:모양:포트 수'.
+  static const String sw = 'el_sw';
 
   /// 'el_mccb:모양:극 수'의 모양 이름(제품 정면 특징 묶음, 그림에서 갈린다).
   /// 그냥 'el_mccb'(모양 없음)는 예전 단순 그림이다.
@@ -318,6 +337,8 @@ final Map<String, List<ModulePreset>> kElecPresets = {
   ...kBreakerPresets,
   // 접촉기·열동·보호 계전기·타이머(카탈로그 확정 값): elec_presets_contactors.dart
   ...kContactorPresets,
+  // PLC·DCS·본질안전 배리어·인터페이스 릴레이·24V 전원·이더넷 스위치(카탈로그 확정 값): elec_presets_dcs.dart
+  ...kDcsPresets,
   "전원·릴레이·MC": [
     const ModulePreset(
       "DR-60-24 전원 (민웰)",
