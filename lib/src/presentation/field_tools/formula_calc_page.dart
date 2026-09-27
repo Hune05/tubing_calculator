@@ -37,13 +37,29 @@ class FormulaCalcPage extends StatelessWidget {
               for (final cat in byCategory.keys) ...[
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-                  child: Text(
-                    cat,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: fc.textSub,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        cat,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: fc.textSub,
+                        ),
+                      ),
+                      if (kFormulaCategoryIntro[cat] != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          kFormulaCategoryIntro[cat]!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: fc.textSub,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
                 for (final f in byCategory[cat]!)

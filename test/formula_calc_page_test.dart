@@ -50,6 +50,69 @@ void main() {
     );
     // 수두압: P=ρgh=1000×9.80665×10≈98066.5Pa.
     expect(v('head_pressure', {'rho': 1000, 'h': 10}), closeTo(98066.5, 1));
+    // 속도수두: hv=V²/2g=10²/19.6133≈5.099m.
+    expect(v('flow_velocity_head', {'vel': 10}), closeTo(5.099, 0.001));
+    // 마찰손실(달시-바이스바흐): f=0.02,L/D=100/0.1=1000,V=2 →
+    // 0.02×1000×4/19.6133≈4.079m.
+    expect(
+      v('flow_friction_loss', {'f': 0.02, 'l': 100, 'd': 0.1, 'vel': 2}),
+      closeTo(4.079, 0.001),
+    );
+    // 오리피스: Q=Cd×A×√(2gh)=0.6×0.01×√(2×9.80665×2)≈0.03758㎥/s.
+    expect(
+      v('flow_orifice', {'cd': 0.6, 'a': 0.01, 'h': 2}),
+      closeTo(0.03758, 0.0001),
+    );
+    // 펌프 축동력: P=ρgQH/η=1000×9.80665×0.05×20/0.7=14009.5W.
+    expect(
+      v('pump_shaft_power', {'rho': 1000, 'q': 0.05, 'h': 20, 'eta': 0.7}),
+      closeTo(14009.5, 0.1),
+    );
+    // 피상전력(3-4-5 직각삼각형 ×1000): S=√(3000²+4000²)=5000VA.
+    expect(v('apparent_power', {'p': 3000, 'q': 4000}), 5000);
+    // 유효전력: P=S×cosθ=1000×0.8=800W.
+    expect(v('real_power_from_s', {'s': 1000, 'pf': 0.8}), 800);
+    // 역률: cosθ=P/S=800/1000=0.8.
+    expect(v('power_factor', {'p': 800, 's': 1000}), 0.8);
+    // 역률개선 콘덴서: tan(cos⁻¹0.8)=0.75, tan(cos⁻¹0.95)≈0.32868,
+    // Qc=100×(0.75-0.32868)≈42.13var.
+    expect(
+      v('pf_correction_capacitor', {'p': 100, 'pf1': 0.8, 'pf2': 0.95}),
+      closeTo(42.13, 0.01),
+    );
+    // 임피던스(3-4-5): Z=√(3²+4²)=5Ω.
+    expect(v('impedance_z', {'r': 3, 'x': 4}), 5);
+    // 전선 저항: R=ρL/A=0.0172×100/2.5=0.688Ω.
+    expect(
+      v('conductor_resistance', {'rho': 0.0172, 'l': 100, 'a': 2.5}),
+      0.688,
+    );
+    // 변압기 2차 전압: V2=220×(10/100)=22V.
+    expect(v('transformer_v2', {'v1': 220, 'n1': 100, 'n2': 10}), 22);
+    // 변압기 단락전류: Isc=100×100/5=2000A.
+    expect(v('transformer_short_circuit', {'in_': 100, 'z': 5}), 2000);
+    // 동기속도: Ns=120×60/4=1800rpm.
+    expect(v('motor_sync_speed', {'f': 60, 'p': 4}), 1800);
+    // 슬립: s=(1800-1750)/1800≈0.02778.
+    expect(v('motor_slip', {'ns': 1800, 'n': 1750}), closeTo(0.02778, 0.0001));
+    // 토크: T=9549×10/1750≈54.566N·m.
+    expect(v('motor_torque', {'p': 10, 'n': 1750}), closeTo(54.566, 0.001));
+    // 줄열: H=I²Rt=10²×2×5=1000J.
+    expect(v('joule_heat', {'i': 10, 'r': 2, 't': 5}), 1000);
+    // 파스칼: P=F/A=1000/0.01=100000Pa.
+    expect(v('pascal_pressure', {'f': 1000, 'a': 0.01}), 100000);
+    // 실린더 힘: F=P×A=1000000×0.005=5000N.
+    expect(v('cylinder_force', {'p': 1000000, 'a': 0.005}), 5000);
+    // 실린더 속도: v=Q/A=0.001/0.005=0.2m/s.
+    expect(v('cylinder_speed', {'q': 0.001, 'a': 0.005}), 0.2);
+    // 유압 동력: Power=P×Q=1000000×0.001=1000W.
+    expect(v('hydraulic_power', {'p': 1000000, 'q': 0.001}), 1000);
+    // 보일의 법칙(압력): P2=100000×0.02/0.01=200000Pa.
+    expect(v('boyle_pressure', {'p1': 100000, 'v1': 0.02, 'v2': 0.01}), 200000);
+    // 보일의 법칙(부피): V2=100000×0.02/200000=0.01㎥.
+    expect(v('boyle_volume', {'p1': 100000, 'v1': 0.02, 'p2': 200000}), 0.01);
+    // 게이지압→절대압: 500000+101325=601325Pa.
+    expect(v('gauge_to_absolute', {'pg': 500000, 'patm': 101325}), 601325);
   });
 
   Future<void> pump(WidgetTester tester) async {
@@ -115,7 +178,7 @@ void main() {
         errors.add(d.exceptionAsString().split('\n').first);
     try {
       // 너비만 좁히고 높이는 넉넉히 둬(스크롤 없이) 너비 넘침만 본다.
-      tester.view.physicalSize = const Size(320, 2600);
+      tester.view.physicalSize = const Size(320, 8000);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(
