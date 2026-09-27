@@ -63,14 +63,14 @@ void main() {
   test('하니웰 GCP 서킷 프로텍터는 데이터시트 크기, 사진 어림 항목은 목록에서 빠졌다', () {
     expect(
       [
-        preset('GCP-32AN 서킷 프로텍터 2P').width,
-        preset('GCP-32AN 서킷 프로텍터 2P').height,
+        preset('GCP-32AN 차단기 2P (서킷 프로텍터)').width,
+        preset('GCP-32AN 차단기 2P (서킷 프로텍터)').height,
       ],
       [35, 73],
     );
-    expect(preset('GCP-31AN 서킷 프로텍터 1P').width, 17.5);
-    expect(preset('GCP-32AN 서킷 프로텍터 2P').depth, 72.5); // 65 + 레일 7.5
-    expect(preset('GCP-32AN 서킷 프로텍터 2P').shape, '${ElecShape.mcb}:2');
+    expect(preset('GCP-31AN 차단기 1P (서킷 프로텍터)').width, 17.5);
+    expect(preset('GCP-32AN 차단기 2P (서킷 프로텍터)').depth, 72.5); // 65 + 레일 7.5
+    expect(preset('GCP-32AN 차단기 2P (서킷 프로텍터)').shape, '${ElecShape.gcp}:2');
     final names = kElecPresets.values.expand((l) => l).map((p) => p.name);
     // "GCP-33AN … (단종 표기, 어림값)" 하나만 이름에 그 사실을 밝히고 남긴 예외다.
     expect(names.where((n) => n.contains('대략값') || n.contains('추정')), isEmpty);
@@ -111,10 +111,10 @@ void main() {
     expect(preset('PYF14A 소켓 단품 (옴론, 14핀)').width, 29.5);
 
     // GCP-33AN은 이름에 단종·어림값임을 밝혀 뒀다.
-    final gcp3 = preset('GCP-33AN 서킷 프로텍터 3P (단종 표기, 어림값)');
+    final gcp3 = preset('GCP-33AN 차단기 3P (단종 표기, 어림값)');
     expect(gcp3.width, 52.5);
     expect(gcp3.height, 73);
-    expect(gcp3.shape, '${ElecShape.mcb}:3');
+    expect(gcp3.shape, '${ElecShape.gcp}:3');
   });
 
   test('슈나이더 Acti9·지멘스 5SY 차단기 (2026-09-26 저녁 추가)', () {
@@ -360,5 +360,52 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
     });
+  });
+
+  test('하니웰 GCP 차단기 1P·2P는 "차단기 (하니웰 GCP)"에 있고 전용 그림(el_gcp)으로 그려진다', () {
+    final names = kElecPresets['차단기 (하니웰 GCP)']!.map((p) => p.name);
+    expect(
+      names,
+      containsAll(['GCP-31AN 차단기 1P (서킷 프로텍터)', 'GCP-32AN 차단기 2P (서킷 프로텍터)']),
+    );
+    expect(kElecPresets.keys.any((k) => k.contains('서킷 프로텍터')), isFalse);
+    for (final n in [
+      'GCP-31AN 차단기 1P (서킷 프로텍터)',
+      'GCP-32AN 차단기 2P (서킷 프로텍터)',
+    ]) {
+      final pr = preset(n);
+      expect(ElecShape.isElec(pr.shape), isTrue);
+      expect(pr.shape!.startsWith('${ElecShape.gcp}:'), isTrue);
+    }
+  });
+
+  test('릴레이+소켓은 el_relay, 소켓 단품은 el_sock으로 그려진다(8핀·14핀)', () {
+    expect(preset('MY2N 릴레이+PYF08A 소켓 (옴론)').shape, ElecShape.relay);
+    expect(preset('MY4N 릴레이+PYF14A 소켓 (옴론)').shape, ElecShape.relay);
+    expect(preset('PYF08A 소켓 단품 (옴론, 8핀)').shape, ElecShape.sock);
+    expect(preset('PYF14A 소켓 단품 (옴론, 14핀)').shape, ElecShape.sock);
+  });
+
+  test('새 전기 그림 여섯 가지가 크기를 바꿔도 그려지고, 원래 세로가 긴 모양으로 본다', () {
+    for (final shape in [
+      '${ElecShape.gcp}:1',
+      '${ElecShape.gcp}:2',
+      '${ElecShape.gcp}:3',
+      ElecShape.relay,
+      ElecShape.sock,
+    ]) {
+      for (final size in [
+        const Size(17.5, 73),
+        const Size(35, 73),
+        const Size(23, 72),
+        const Size(29.5, 72),
+        const Size(60, 240),
+      ]) {
+        final rec = ui.PictureRecorder();
+        InstrumentShapePainter(shape: shape).paint(Canvas(rec), size);
+        rec.endRecording();
+      }
+      expect(InstrumentShape.isLandscape(shape), isFalse, reason: shape);
+    }
   });
 }

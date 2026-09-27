@@ -49,6 +49,12 @@ class ElecShape {
   static const String mccb = 'el_mccb';
   static const String psu = 'el_psu';
   static const String relay = 'el_relay';
+
+  /// 릴레이 소켓 단품(릴레이를 안 꽂은 소켓). 'el_sock'.
+  static const String sock = 'el_sock';
+
+  /// 하니웰 GCP 서킷 프로텍터(차단기). 'el_gcp:극 수'.
+  static const String gcp = 'el_gcp';
   static const String mc = 'el_mc';
   static const String spd = 'el_spd';
   static const String iso = 'el_iso';
@@ -336,14 +342,14 @@ final Map<String, List<ModulePreset>> kElecPresets = {
       "PYF08A 소켓 단품 (옴론, 8핀)",
       23,
       72,
-      shape: ElecShape.relay,
+      shape: ElecShape.sock,
       depth: 31,
     ),
     const ModulePreset(
       "PYF14A 소켓 단품 (옴론, 14핀)",
       29.5,
       72,
-      shape: ElecShape.relay,
+      shape: ElecShape.sock,
       depth: 31,
     ),
     const ModulePreset(
@@ -424,26 +430,28 @@ final Map<String, List<ModulePreset>> kElecPresets = {
   // 하니웰 GCP 데이터시트 p.5: 1P 17.5·2P 35 × 73(단자 포함), 몸통 깊이 65 + DIN 레일 7.5.
   // GCP-33AN(3P): 대리점이 재배포한 도면에서 폭 52.5(=17.5×3)만 실측 확인, 높이·깊이는 1P/2P
   // 값을 그대로 늘려 잡은 값(2026-09-26, 단일 출처). 여러 판매처가 "제조 단종"이라 적어 두었다.
-  "서킷 프로텍터 (하니웰)": [
+  // 2026-09-27: 그림을 실제 제품 모양(위·아래 투명 단자 덮개와 나사, 가운데 검은 손잡이 틀의
+  // 붉은 ON 표시, 아래쪽 명판)으로 다시 그렸다(el_gcp). 데이터시트 p.2 사진·p.5 치수도 기준.
+  "차단기 (하니웰 GCP)": [
     const ModulePreset(
-      "GCP-31AN 서킷 프로텍터 1P",
+      "GCP-31AN 차단기 1P (서킷 프로텍터)",
       17.5,
       73,
-      shape: '${ElecShape.mcb}:1',
+      shape: '${ElecShape.gcp}:1',
       depth: 72.5,
     ),
     const ModulePreset(
-      "GCP-32AN 서킷 프로텍터 2P",
+      "GCP-32AN 차단기 2P (서킷 프로텍터)",
       35,
       73,
-      shape: '${ElecShape.mcb}:2',
+      shape: '${ElecShape.gcp}:2',
       depth: 72.5,
     ),
     const ModulePreset(
-      "GCP-33AN 서킷 프로텍터 3P (단종 표기, 어림값)",
+      "GCP-33AN 차단기 3P (단종 표기, 어림값)",
       52.5,
       73,
-      shape: '${ElecShape.mcb}:3',
+      shape: '${ElecShape.gcp}:3',
       depth: 72.5,
     ),
   ],

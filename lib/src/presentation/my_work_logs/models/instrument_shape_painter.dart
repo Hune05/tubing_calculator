@@ -2147,13 +2147,11 @@ class InstrumentShapePainter extends CustomPainter {
           radius: 1,
         );
       case ElecShape.relay:
-        _part(c, Rect.fromLTWH(0, 0, w, h), _metal, radius: 2);
-        _part(
-          c,
-          Rect.fromLTWH(w * 0.04, h * 0.3, w * 0.92, h * 0.4),
-          _glass,
-          radius: 2,
-        );
+        _relaySocket(b, withRelay: true);
+      case ElecShape.sock:
+        _relaySocket(b, withRelay: false);
+      case ElecShape.gcp:
+        _gcp(b, n?.round() ?? 1);
       case ElecShape.mc:
         _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
         _part(
@@ -2203,6 +2201,144 @@ class InstrumentShapePainter extends CustomPainter {
         _pswitch(b);
       default:
         _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    }
+  }
+
+  /// 하니웰 GCP 서킷 프로텍터 정면(데이터시트 p.2 사진·p.5 치수도): 극마다 폭 17.5.
+  /// 위·아래에 투명 단자 덮개와 나사(극마다 하나씩), 가운데 검은 손잡이 틀에 붉은 ON 표시가
+  /// 극 수만큼 이어지고, 아래쪽에 명판 글줄. 왼쪽 위·오른쪽 아래에 설치 구멍(Ø4.5).
+  void _gcp(_Box b, int poles) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    final int n = math.max(1, poles);
+    final double pw = w / n;
+    // 몸통
+    _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 2);
+    // 위·아래 투명 단자 덮개(칸 높이의 약 24%)와 나사
+    final double capH = h * 0.24;
+    _part(c, Rect.fromLTWH(w * 0.02, 0, w * 0.96, capH), _glass, radius: 1);
+    _part(
+      c,
+      Rect.fromLTWH(w * 0.02, h - capH, w * 0.96, capH),
+      _glass,
+      radius: 1,
+    );
+    final double sr = math.min(pw * 0.2, h * 0.05);
+    for (int i = 0; i < n; i++) {
+      final double x = pw * (i + 0.5);
+      _circle(c, Offset(x, capH * 0.5), sr, _metal);
+      _circle(c, Offset(x, h - capH * 0.5), sr, _metal);
+      c.drawLine(Offset(x - sr, capH * 0.5), Offset(x + sr, capH * 0.5), _thin);
+      c.drawLine(
+        Offset(x - sr, h - capH * 0.5),
+        Offset(x + sr, h - capH * 0.5),
+        _thin,
+      );
+    }
+    // 극 사이 격벽(단자 덮개 쪽만 뚜렷하게)
+    for (int i = 1; i < n; i++) {
+      final double x = pw * i;
+      c.drawLine(Offset(x, 0), Offset(x, capH), _thin);
+      c.drawLine(Offset(x, h - capH), Offset(x, h), _thin);
+    }
+    // 검은 손잡이 틀 + 붉은 ON 표시(전 극에 걸쳐 한 줄)
+    final Rect frame = Rect.fromLTWH(w * 0.06, h * 0.3, w * 0.88, h * 0.26);
+    _part(c, frame, _ftBody, radius: 2);
+    _part(
+      c,
+      Rect.fromLTWH(w * 0.1, h * 0.34, w * 0.8, h * 0.11),
+      _estopRed,
+      radius: 1,
+    );
+    // ON 글자 대신 짧은 줄(작아서 글자로는 안 읽힌다)
+    c.drawLine(
+      Offset(w * 0.5 - w * 0.06, h * 0.395),
+      Offset(w * 0.5 + w * 0.06, h * 0.395),
+      _thin,
+    );
+    // 명판 글줄: 회사 이름·모델·정격
+    for (final y in [0.61, 0.67, 0.73]) {
+      final double half = w * (y == 0.67 ? 0.22 : 0.3);
+      c.drawLine(Offset(w * 0.5 - half, h * y), Offset(w * 0.5 + half, h * y), _thin);
+    }
+    // 설치 구멍(왼쪽 위·오른쪽 아래)
+    final double hr = math.min(w * 0.09, h * 0.03);
+    _circle(c, Offset(w * 0.08, capH * 0.98), hr, _bodyPlain);
+    _circle(c, Offset(w * 0.92, h - capH * 0.98), hr, _bodyPlain);
+  }
+
+  /// 릴레이 소켓(옴론 PYF08A-E·PYF14A-E 카탈로그 그림): 위·아래에 나사 단자 두 줄, 가운데에
+  /// 릴레이를 꽂는 자리, 맨 아래에 DIN 레일 걸쇠. [withRelay]이면 그 자리에 투명 덮개 릴레이
+  /// (MY2N·MY4N: 코일, 접점, 표시등)를 얹는다. 핀 수가 많은 소켓(14핀)은 열이 셋이다.
+  void _relaySocket(_Box b, {required bool withRelay}) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    final int cols = w / h > 0.36 ? 3 : 2;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _ftBody, radius: 2);
+    // 나사 단자: 위 두 줄·아래 두 줄
+    final double sr = math.min(w / cols * 0.2, h * 0.03);
+    for (int i = 0; i < cols; i++) {
+      final double x = w * (i + 0.5) / cols;
+      for (final y in [0.06, 0.15, 0.85, 0.94]) {
+        _circle(c, Offset(x, h * y), sr, _metal);
+        c.drawLine(Offset(x - sr, h * y), Offset(x + sr, h * y), _thin);
+      }
+    }
+    // 위·아래 단자 띠 경계
+    c.drawLine(Offset(0, h * 0.21), Offset(w, h * 0.21), _thin);
+    c.drawLine(Offset(0, h * 0.79), Offset(w, h * 0.79), _thin);
+    // 위 왼쪽 설치 구멍(4.2×5)과 아래 걸쇠(레일에 거는 부분)
+    _part(
+      c,
+      Rect.fromLTWH(w * 0.05, 0, w * 0.14, h * 0.05),
+      _bodyPlain,
+      radius: 1,
+    );
+    _part(
+      c,
+      Rect.fromLTWH(w * 0.36, h * 0.965, w * 0.28, h * 0.035),
+      _bodyPlain,
+      radius: 1,
+    );
+    final Rect mid = Rect.fromLTWH(w * 0.04, h * 0.23, w * 0.92, h * 0.54);
+    if (withRelay) {
+      // 릴레이: 투명 덮개, 안쪽 코일과 접점, 붉은 표시등, 위쪽 명판
+      _part(c, mid, _glass, radius: 2);
+      final Rect coil = Rect.fromLTWH(w * 0.2, h * 0.36, w * 0.6, h * 0.2);
+      _part(c, coil, _body, radius: 1);
+      for (final y in [0.42, 0.46, 0.5]) {
+        c.drawLine(
+          Offset(coil.left + 1, h * y),
+          Offset(coil.right - 1, h * y),
+          _thin,
+        );
+      }
+      for (final y in [0.6, 0.68]) {
+        c.drawLine(Offset(w * 0.18, h * y), Offset(w * 0.82, h * y), _thin);
+      }
+      _circle(c, Offset(w * 0.82, h * 0.29), math.min(w * 0.05, h * 0.02), _estopRed);
+      c.drawLine(
+        Offset(w * 0.14, h * 0.28),
+        Offset(w * 0.6, h * 0.28),
+        _thin,
+      );
+    } else {
+      // 소켓 단품: 핀을 꽂는 구멍(8핀은 4×2, 14핀은 4×3에 가까운 배열)과 가운데 안내 구멍
+      _part(c, mid, _bodyPlain, radius: 2);
+      const int rows = 4;
+      for (int r = 0; r < rows; r++) {
+        for (int i = 0; i < cols; i++) {
+          final double x = w * (i + 0.5) / cols;
+          final double y = h * (0.29 + 0.41 * (r + 0.5) / rows);
+          _part(
+            c,
+            Rect.fromCenter(center: Offset(x, y), width: w * 0.14, height: h * 0.03),
+            _metal,
+            radius: 0,
+          );
+        }
+      }
+      _circle(c, Offset(w * 0.5, h * 0.5), math.min(w * 0.05, h * 0.02), _bodyPlain);
     }
   }
 
