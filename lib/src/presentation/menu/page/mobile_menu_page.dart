@@ -36,6 +36,8 @@ import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_p
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
+import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart'
+    show pullNewerCalculatorSettings;
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
     show kGuestName;
 
@@ -131,7 +133,12 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchDetailedWeather();
-    _weatherTimer = Timer.periodic(kWeatherRefreshEvery, (_) => _refreshWeatherIfShown());
+    // 다른 기기(폰↔태블릿)에서 고친 계산기 설정이 더 새로우면 받는다(기다리지 않음, 통신이 없으면 그대로).
+    pullNewerCalculatorSettings();
+    _weatherTimer = Timer.periodic(
+      kWeatherRefreshEvery,
+      (_) => _refreshWeatherIfShown(),
+    );
     _loadTodayScheduleCount();
     _loadMissingReports();
     _loadLowStock();
@@ -159,6 +166,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   // - 앱을 다시 볼 때 못 불러왔었거나 받은 지 [kWeatherRefreshEvery]가 지났으면 바로 다시 받는다.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 홈이 맨 앞일 때만 받는다(계산 화면을 쓰는 중에 설정이 바뀌지 않게).
+    if (state == AppLifecycleState.resumed &&
+        (ModalRoute.of(context)?.isCurrent ?? false)) {
+      pullNewerCalculatorSettings();
+    }
     if (state == AppLifecycleState.resumed &&
         (_weatherFailed || _weatherIsOld)) {
       _fetchDetailedWeather(quiet: !_weatherFailed);

@@ -6,6 +6,8 @@ import 'dart:math' as math;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/record_sync.dart';
+
 /// 부하 줄 수 상한.
 const int kLoadSumMaxRows = 30;
 
@@ -395,16 +397,30 @@ const String kLoadSheetsKey = 'elec_load_sheets_v1';
 
 /// 저장한 계산서 하나.
 class LoadSheet {
+  /// 서버와 맞추는 이름표(2026-09-27). 같은 이름으로 다시 저장해도 그대로 둔다.
+  /// 예전에 저장한 계산서에는 없어서 저장 시각과 이름으로 만든다.
+  final String id;
   final String name;
   final DateTime savedAt;
   final LoadSumInput input;
-  const LoadSheet({
+  LoadSheet({
+    String? id,
     required this.name,
     required this.savedAt,
     required this.input,
-  });
+  }) : id = id ?? loadSheetId(savedAt, name);
+
+  /// 저장 시각(ms)과 이름 글자 합으로 만든 이름표. 다른 폰에서 만든 것과 겹치지 않을 만큼이면 된다.
+  static String loadSheetId(DateTime at, String name) {
+    var h = 0;
+    for (final c in name.codeUnits) {
+      h = (h * 31 + c) & 0xfffff;
+    }
+    return 'ls_${at.millisecondsSinceEpoch}_${h.toRadixString(36)}';
+  }
 
   Map<String, Object?> toJson() => {
+    'id': id,
     'name': name,
     'at': savedAt.toIso8601String(),
     'input': input.toJson(),
@@ -414,6 +430,9 @@ class LoadSheet {
     if (j is! Map || j['name'] is! String) return null;
     final at = DateTime.tryParse(j['at'] is String ? j['at'] as String : '');
     return LoadSheet(
+      id: j['id'] is String && (j['id'] as String).isNotEmpty
+          ? j['id'] as String
+          : null,
       name: j['name'] as String,
       savedAt: at ?? DateTime.fromMillisecondsSinceEpoch(0),
       input: LoadSumInput.fromJson(j['input']),
@@ -439,14 +458,45 @@ List<LoadSheet> decodeLoadSheets(String? raw) {
 
 /// 저장 칸 읽기·쓰기(SharedPreferences). 실패하면 빈 목록·false.
 class LoadSheetStore {
+  /// 저장한 계산서(새 것이 위). 이름표가 없던 예전 계산서에는 이름표를 붙여 다시 저장한다
+  /// (서버와 맞추려면 이름표가 폰 저장에 있어야 한다).
   static Future<List<LoadSheet>> load() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return decodeLoadSheets(prefs.getString(kLoadSheetsKey));
+      final raw = prefs.getString(kLoadSheetsKey);
+      final list = decodeLoadSheets(raw);
+      if (list.isEmpty) return list;
+      if (!_allHaveId(raw)) {
+        await prefs.setString(kLoadSheetsKey, encodeLoadSheets(list));
+      }
+      list.sort((a, b) => b.savedAt.compareTo(a.savedAt));
+      return list;
     } catch (_) {
       return [];
     }
   }
+
+  static bool _allHaveId(String? raw) {
+    try {
+      final j = jsonDecode(raw ?? '[]');
+      if (j is! List) return true;
+      for (final e in j) {
+        if (e is Map && (e['id'] is! String || (e['id'] as String).isEmpty)) {
+          return false;
+        }
+      }
+      return true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// 서버 올리기·받기(모음 elec_load_sheets, 주인 = 앱 사용자 이름). record_sync.dart.
+  static final RecordSync sync = RecordSync(
+    key: kLoadSheetsKey,
+    collection: 'elec_load_sheets',
+    isValid: (j) => LoadSheet.fromJson(j) != null,
+  );
 
   static Future<bool> save(List<LoadSheet> sheets) async {
     try {

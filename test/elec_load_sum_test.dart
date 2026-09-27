@@ -2,14 +2,36 @@
 // 손계산은 각 시험 위에 식을 적었다.
 import 'dart:convert';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
+import 'package:tubing_calculator/src/data/record_sync.dart';
 import 'package:tubing_calculator/src/presentation/electrical/elec_load_sum.dart';
 import 'package:tubing_calculator/src/presentation/electrical/elec_load_sum_pdf.dart';
 import 'package:tubing_calculator/src/presentation/electrical/elec_load_sum_tab.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
+
+/// 서버 대신 쓰는 가짜(모음 → 문서 이름 → 칸).
+class _FakeRemote implements RecordRemote {
+  final Map<String, Map<String, Map<String, dynamic>>> colls = {};
+  int clock = 1000000;
+
+  @override
+  Future<void> write(String c, String id, Map<String, dynamic> fields) async {
+    colls.putIfAbsent(c, () => {})[id] = {
+      ...fields,
+      'updatedAt': Timestamp.fromMillisecondsSinceEpoch(clock++),
+    };
+  }
+
+  @override
+  Future<RemoteFetch> fetch(String c, String owner) async => RemoteFetch([
+    for (final e in (colls[c] ?? const {}).entries)
+      if (e.value['owner'] == owner) recordFromServerDoc(e.key, e.value),
+  ]);
+}
 
 LoadRowInput row(
   String kw, {
@@ -341,6 +363,79 @@ void main() {
     });
   });
 
+  group('폰↔태블릿 계산서 맞추기', () {
+    test('예전에 저장한 계산서(이름표 없음)는 읽을 때 이름표가 붙어 저장된다', () async {
+      SharedPreferences.setMockInitialValues({
+        'elec_load_sheets_v1':
+            '[{"name":"1호기","at":"2026-09-20T09:00:00.000","input":{}}]',
+      });
+      final a = await LoadSheetStore.load();
+      expect(a.single.id, startsWith('ls_'));
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('elec_load_sheets_v1'), contains(a.single.id));
+      // 다시 읽어도 같은 이름표.
+      expect((await LoadSheetStore.load()).single.id, a.single.id);
+    });
+
+    test('새 것이 위로 온다', () async {
+      SharedPreferences.setMockInitialValues({});
+      final a = LoadSheet(
+        name: '가',
+        savedAt: DateTime(2026, 9, 1),
+        input: LoadSumInput(rows: []),
+      );
+      final b = LoadSheet(
+        name: '나',
+        savedAt: DateTime(2026, 9, 5),
+        input: LoadSumInput(rows: []),
+      );
+      await LoadSheetStore.save([a, b]);
+      expect((await LoadSheetStore.load()).map((s) => s.name), ['나', '가']);
+    });
+
+    test('폰에서 저장한 계산서가 서버를 거쳐 태블릿에서 보이고, 지우면 사라진다', () async {
+      final server = _FakeRemote();
+      recordRemote = () => server;
+      recordOwner = () async => const RecordOwner('작업자', 'uid-A');
+      addTearDown(() {
+        recordRemote = () => null;
+      });
+
+      // 폰에서 저장
+      SharedPreferences.setMockInitialValues({});
+      final s = LoadSheet(
+        name: '1호기',
+        savedAt: DateTime(2026, 9, 27),
+        input: LoadSumInput(
+          rows: [row('10', pf: '90', df: '50')],
+        ),
+      );
+      await LoadSheetStore.save([s]);
+      await LoadSheetStore.sync.saved(s.id);
+      await RecordSync.idle();
+      expect(server.colls['elec_load_sheets']![s.id]!['owner'], '작업자');
+      final phone = <String, Object>{
+        for (final k in (await SharedPreferences.getInstance()).getKeys())
+          k: (await SharedPreferences.getInstance()).get(k)!,
+      };
+
+      // 태블릿(빈 저장)에서 열면 받는다
+      SharedPreferences.setMockInitialValues({});
+      await LoadSheetStore.sync.syncNow();
+      final got = await LoadSheetStore.load();
+      expect(got.single.name, '1호기');
+      expect(got.single.input.rows.single.kw, '10');
+
+      // 태블릿에서 지우면 폰에서도 사라진다
+      await LoadSheetStore.save([]);
+      await LoadSheetStore.sync.removed(s.id);
+      await RecordSync.idle();
+      SharedPreferences.setMockInitialValues(phone);
+      await LoadSheetStore.sync.syncNow();
+      expect(await LoadSheetStore.load(), isEmpty);
+    });
+  });
+
   group('화면', () {
     Future<void> pumpTab(WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 2000);
@@ -545,6 +640,9 @@ void main() {
       await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('els_open_0')), findsOneWidget);
+      // 서버에 못 올리는 폰(로그인 없음)이면 그 사실을 계산서 목록 위에 적는다.
+      expect(find.byKey(const Key('els_sync')), findsOneWidget);
+      expect(find.textContaining('폰에만 저장됩니다'), findsOneWidget);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('elec_load_sheets_v1'), contains('1호기 배전반'));
 

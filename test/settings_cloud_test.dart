@@ -213,6 +213,120 @@ void main() {
     await tester.binding.setSurfaceSize(null);
   });
 
+  group('폰↔태블릿 자동 반영', () {
+    var t = 1000;
+    setUp(() {
+      t = 1000;
+      sync.clock = () => t++;
+    });
+    tearDown(() {
+      sync.clock = () => DateTime.now().millisecondsSinceEpoch;
+    });
+
+    /// 기기 하나의 저장 내용을 새 기기 것으로 바꿔 끼운다.
+    void usePhone(Map<String, Object> v) =>
+        SharedPreferences.setMockInitialValues(v);
+
+    Future<Map<String, Object>> snap() async {
+      final p = await SharedPreferences.getInstance();
+      return {for (final k in p.getKeys()) k: p.get(k)!};
+    }
+
+    test('폰에서 고친 설정을 태블릿이 앱을 켤 때 받는다', () async {
+      usePhone({'bendRadius': 38.1, 'isInch': false});
+      expect(await sync.backup(), isTrue);
+      expect(store.docs['uid-A']!['settings']['_writer'], isA<String>());
+
+      usePhone({'bendRadius': 20.0, 'isInch': true});
+      expect(await sync.pullIfNewer(), greaterThan(0));
+      final p = await SharedPreferences.getInstance();
+      expect(p.getDouble('bendRadius'), 38.1);
+      expect(p.getBool('isInch'), isFalse);
+      // 같은 것을 또 받지 않는다.
+      expect(await sync.pullIfNewer(), 0);
+    });
+
+    test('내가 올린 것은 다시 받지 않는다', () async {
+      usePhone({'bendRadius': 38.1});
+      await sync.backup();
+      expect(await sync.pullIfNewer(), 0);
+    });
+
+    test('태블릿에서 나중에 고치면 폰이 그것을 받는다', () async {
+      usePhone({'bendRadius': 38.1});
+      await sync.backup();
+      final phone = await snap();
+
+      usePhone({'bendRadius': 20.0});
+      await sync.pullIfNewer(); // 태블릿: 폰 것을 받는다
+      SharedPreferences.setMockInitialValues({
+        ...await snap(),
+        'bendRadius': 45.0,
+      });
+      await sync.backup(); // 태블릿에서 고쳐 올린다
+      final tablet = await snap();
+
+      usePhone(phone);
+      expect(await sync.pullIfNewer(), greaterThan(0));
+      expect(
+        (await SharedPreferences.getInstance()).getDouble('bendRadius'),
+        45.0,
+      );
+      expect(
+        tablet['settings_cloud_device'],
+        isNot(phone['settings_cloud_device']),
+      );
+    });
+
+    test('이 기기에서 고친 것이 아직 못 올라갔으면 서버 것으로 덮지 않고 올린다', () async {
+      usePhone({'bendRadius': 38.1});
+      await sync.backup();
+
+      usePhone({'bendRadius': 50.0, 'settings_cloud_dirty': true});
+      expect(await sync.pullIfNewer(), 0);
+      expect(
+        (await SharedPreferences.getInstance()).getDouble('bendRadius'),
+        50.0,
+      );
+      expect(store.docs['uid-A']!['settings']['bendRadius'], 50.0);
+      expect(
+        (await SharedPreferences.getInstance()).getBool('settings_cloud_dirty'),
+        isFalse,
+      );
+    });
+
+    test('올린 기기·시각 표시가 없는 예전 서버 문서는 켤 때 받지 않는다', () async {
+      store.docs['uid-A'] = {
+        'settings': {'bendRadius': 38.1},
+      };
+      usePhone({'bendRadius': 20.0});
+      expect(await sync.pullIfNewer(), 0);
+      expect(
+        (await SharedPreferences.getInstance()).getDouble('bendRadius'),
+        20.0,
+      );
+    });
+
+    test('구글 계정이 없거나 통신이 없으면 아무것도 바꾸지 않는다', () async {
+      usePhone({'bendRadius': 20.0});
+      sync.uidProvider = () => null;
+      expect(await sync.pullIfNewer(), 0);
+      sync.uidProvider = () => 'uid-A';
+      store.hang = true;
+      // 서버가 답이 없으면 5초 뒤 포기한다.
+      expect(await sync.pullIfNewer().timeout(const Duration(seconds: 12)), 0);
+      expect(
+        (await SharedPreferences.getInstance()).getDouble('bendRadius'),
+        20.0,
+      );
+    });
+
+    test('화면 구성(폰·태블릿)은 기기마다 다르게 둔다: 올리는 칸에 없다', () {
+      expect(kCloudSettingKeys.any((k) => k.contains('screen')), isFalse);
+      expect(kCloudSettingKeys.any((k) => k.contains('layout')), isFalse);
+    });
+  });
+
   testWidgets('구글 계정이 안 이어져 있으면 연결 단추만 보인다', (tester) async {
     sync.uidProvider = () => null;
     SharedPreferences.setMockInitialValues({});

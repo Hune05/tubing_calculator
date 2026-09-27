@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
+import '../../data/record_sync.dart';
 import '../common/calc_form_parts.dart';
 import 'elec_form_parts.dart';
 import 'elec_load_sum.dart';
@@ -191,9 +192,33 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
 
   // ─────────────── 저장한 계산서 ───────────────
 
+  RecordSyncStatus? _sync;
+
   Future<void> _loadSheets() async {
     final s = await LoadSheetStore.load();
     if (mounted) setState(() => _sheets = s);
+    _syncSheets();
+  }
+
+  /// 서버에 있는 내 계산서를 폰에 합치고, 폰에만 있는 것을 올린다(다른 폰·태블릿에서 저장한 것도 보이게).
+  /// 통신이 없거나 로그인하지 않았으면 폰 저장 그대로다.
+  Future<void> _syncSheets() async {
+    final before = await LoadSheetStore.sync.status();
+    if (mounted) setState(() => _sync = before);
+    final s = await LoadSheetStore.sync.syncNow();
+    final l = await LoadSheetStore.load();
+    if (mounted) {
+      setState(() {
+        _sync = s;
+        _sheets = l;
+      });
+    }
+  }
+
+  Future<void> _refreshSyncAfterPush() async {
+    await RecordSync.idle();
+    final s = await LoadSheetStore.sync.status();
+    if (mounted) setState(() => _sync = s);
   }
 
   void _toast(String t) => ScaffoldMessenger.maybeOf(
@@ -236,20 +261,32 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     if (same >= 0 && !await _confirm('"$name" 이름이 이미 있습니다. 덮어쓰겠습니까?', '덮어쓰기')) {
       return;
     }
+    // 같은 이름이면 첫 것의 이름표를 이어 쓴다(다른 기기에서 그 계산서가 새 것으로 바뀌게).
+    // 같은 이름이 더 있으면(두 기기에서 따로 저장한 경우) 나머지는 지운다.
     final sheet = LoadSheet(
+      id: same >= 0 ? _sheets[same].id : null,
       name: name,
       savedAt: DateTime.now(),
       input: _input(),
     );
+    final dropped = [
+      for (final x in _sheets)
+        if (x.name == name && x.id != sheet.id) x.id,
+    ];
     final next = [
-      for (var i = 0; i < _sheets.length; i++)
-        if (i != same) _sheets[i],
+      for (final x in _sheets)
+        if (x.name != name) x,
     ];
     next.insert(0, sheet);
     final ok = await LoadSheetStore.save(next);
     if (!mounted) return;
     if (ok) {
       setState(() => _sheets = next);
+      await LoadSheetStore.sync.saved(sheet.id);
+      for (final id in dropped) {
+        await LoadSheetStore.sync.removed(id);
+      }
+      _refreshSyncAfterPush();
       _toast('"$name" 저장했습니다.');
     } else {
       _toast('저장하지 못했습니다.');
@@ -271,12 +308,14 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     if (!await _confirm('"${s.name}" 계산서를 지우겠습니까?', '지우기')) return;
     final next = [
       for (final x in _sheets)
-        if (x.name != s.name) x,
+        if (x.id != s.id) x,
     ];
     final ok = await LoadSheetStore.save(next);
     if (!mounted) return;
     if (ok) {
       setState(() => _sheets = next);
+      await LoadSheetStore.sync.removed(s.id);
+      _refreshSyncAfterPush();
     } else {
       _toast('지우지 못했습니다.');
     }
@@ -418,12 +457,19 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     ),
   );
 
+  String _syncText() {
+    final s = _sync;
+    if (s == null) return '';
+    return recordSyncText(s);
+  }
+
   Widget _savedList() {
     if (_sheets.isEmpty) {
       return Padding(
         padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
         child: Text(
-          '저장한 계산서가 없습니다. 이 폰에만 저장되고 서버에는 올라가지 않습니다.',
+          '저장한 계산서가 없습니다. ${_syncText()}',
+          key: const Key('els_sync'),
           style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.4),
         ),
       );
@@ -432,6 +478,17 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              _syncText(),
+              key: const Key('els_sync'),
+              style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.4),
+            ),
+          ),
+        ),
         for (var i = 0; i < _sheets.length; i++)
           calcBox(
             child: Row(

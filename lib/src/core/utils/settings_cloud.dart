@@ -4,11 +4,17 @@
 // 폰을 바꿨을 때 되살리는 용도다. 통신이 없는 현장에서도 멈추지 않게, 올리기는
 // 기다리지 않고(서버가 통신될 때 알아서 보낸다) 불러오기는 짧게만 기다린다.
 import 'dart:async';
+import 'dart:math' show Random;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// 서버 설정 문서(settings 칸)에 같이 적는 "누가 언제 올렸나" 표시. 설정 칸이 아니라 받을 때 폰 설정에 쓰지 않는다.
+/// 2026-09-27: 폰에서 고친 설정이 태블릿에 자동으로 반영되게(같은 구글 계정을 쓰는 다른 기기가 올린 것이 더 새로우면 받는다).
+const String kCloudWriterKey = '_writer';
+const String kCloudEditedAtKey = '_editedAt';
 
 /// 서버에 올리는 폰 설정 칸(SharedPreferences 키).
 /// 튜브 벤딩 · 전선관 · 튜브 컷팅 설정만. 작업 목록·기록은 넣지 않는다.
@@ -118,6 +124,27 @@ class SettingsCloudSync {
 
   static const String _lastSyncedKey = 'settings_cloud_synced_at';
 
+  /// 이 기기를 가리는 이름표(처음 한 번 만든다). 서버 문서에 "마지막으로 올린 기기"로 적는다.
+  static const String _deviceKey = 'settings_cloud_device';
+
+  /// 폰에서 고쳤는데 아직 서버에 못 올린 설정이 있다(통신 없음). 있으면 서버 것으로 덮지 않는다.
+  static const String _dirtyKey = 'settings_cloud_dirty';
+
+  /// 마지막으로 올리거나 받은 서버 설정의 "올린 시각(ms)". 이보다 새로운 것이 서버에 있으면 받는다.
+  static const String _seenKey = 'settings_cloud_seen_at';
+
+  /// 시각을 바꿔 끼운다(테스트).
+  int Function() clock = () => DateTime.now().millisecondsSinceEpoch;
+
+  Future<String> _deviceId(SharedPreferences prefs) async {
+    var id = prefs.getString(_deviceKey);
+    if (id == null || id.isEmpty) {
+      id = 'd${clock().toRadixString(36)}${Random().nextInt(1 << 30).toRadixString(36)}';
+      await prefs.setString(_deviceKey, id);
+    }
+    return id;
+  }
+
   bool get signedIn => uidProvider() != null;
 
   Future<void> loadLastSynced() async {
@@ -143,14 +170,27 @@ class SettingsCloudSync {
       final prefs = await SharedPreferences.getInstance();
       final data = collectLocalSettings(prefs);
       if (data.isEmpty) return false;
+      // 누가 언제 올렸는지 같이 적는다(다른 기기가 새것인지 가리는 데 쓴다).
+      final editedAt = clock();
+      final device = await _deviceId(prefs);
+      await prefs.setBool(_dirtyKey, true);
+      await prefs.setInt(_seenKey, editedAt);
+      final withMeta = <String, Object>{
+        ...data,
+        kCloudWriterKey: device,
+        kCloudEditedAtKey: editedAt,
+      };
       // 통신이 없으면 응답이 늦게 온다. 폰 쪽 대기열에는 이미 들어갔으므로
       // 오래 기다리지 않는다. 서버가 받았다고 답했을 때만 "보관함"으로 적는다.
       bool done = false;
       await store
-          .write(uid, data)
+          .write(uid, withMeta)
           .then((_) => done = true)
           .timeout(const Duration(seconds: 5), onTimeout: () => false);
-      if (done) await _markSynced(prefs);
+      if (done) {
+        await prefs.setBool(_dirtyKey, false);
+        await _markSynced(prefs);
+      }
       return done;
     } catch (e) {
       debugPrint('설정 서버 저장 실패: $e');
@@ -179,10 +219,54 @@ class SettingsCloudSync {
         Map<String, dynamic>.from(settings),
         onlyMissing: !overwrite,
       );
+      // 서버 문서의 올린 시각까지 봤다고 적는다(뒤이은 자동 받기가 방금 받은 것을 또 받지 않게).
+      final at = settings[kCloudEditedAtKey];
+      if (at is num) await prefs.setInt(_seenKey, at.toInt());
       if (n > 0) await _markSynced(prefs);
       return n;
     } catch (e) {
       debugPrint('설정 서버 불러오기 실패: $e');
+      return 0;
+    }
+  }
+
+  /// 앱을 켜거나 다시 볼 때 부른다. **다른 기기가 올린 설정이 더 새로우면** 서버 값으로 바꿔 받는다
+  /// (폰에서 고친 벤딩 제원이 태블릿에도 반영된다). 받은 칸 수를 돌려준다(못 받았으면 0).
+  ///
+  /// - 이 기기에서 고쳤는데 아직 못 올린 설정이 있으면(통신 없음) 서버 것으로 덮지 않고 그 설정을 올린다.
+  /// - 서버에 "올린 기기·시각" 표시가 없는 예전 문서는 받지 않는다(예전처럼 새로 깔았을 때만 채운다).
+  /// - 이 기기가 마지막으로 올린 것이면 받지 않는다.
+  Future<int> pullIfNewer() async {
+    final uid = uidProvider();
+    if (uid == null) return 0;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (prefs.getBool(_dirtyKey) ?? false) {
+        await backup();
+        return 0;
+      }
+      final doc = await store
+          .read(uid)
+          .timeout(const Duration(seconds: 5), onTimeout: () => null);
+      final settings = doc?['settings'];
+      if (settings is! Map) return 0;
+      final writer = settings[kCloudWriterKey];
+      final at = settings[kCloudEditedAtKey];
+      if (writer is! String || at is! num) return 0;
+      final me = await _deviceId(prefs);
+      if (writer == me) return 0;
+      final seen = prefs.getInt(_seenKey) ?? 0;
+      if (at.toInt() <= seen) return 0;
+      final n = await applyCloudSettings(
+        prefs,
+        Map<String, dynamic>.from(settings),
+      );
+      // 받을 칸이 하나도 없어도 "이 시각까지 봤다"고 적는다(같은 문서를 되풀이해 읽지 않게).
+      await prefs.setInt(_seenKey, at.toInt());
+      if (n > 0) await _markSynced(prefs);
+      return n;
+    } catch (e) {
+      debugPrint('설정 서버 새 값 받기 실패: $e');
       return 0;
     }
   }

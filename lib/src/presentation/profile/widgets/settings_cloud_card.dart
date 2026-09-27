@@ -17,6 +17,18 @@ Future<int> restoreCalculatorSettings({bool overwrite = false}) async {
   return n;
 }
 
+/// 다른 기기(폰↔태블릿)에서 더 나중에 고친 설정이 서버에 있으면 받아서 다시 읽는다. 받은 칸 수를 돌려준다.
+/// 이 기기에서 고친 것이 아직 서버에 못 올라갔으면 받지 않고 올린다. 화면 구성(폰·태블릿)은 기기마다 다르게 두므로 올리지 않는다.
+Future<int> pullNewerCalculatorSettings() async {
+  final n = await SettingsCloudSync.instance.pullIfNewer();
+  if (n > 0) {
+    await AppSettingsController().load();
+    await MobileBendDataManager().loadSavedSettings();
+    await loadGlobalBenderSettings();
+  }
+  return n;
+}
+
 const Color _slate900 = AppColors.text;
 const Color _slate600 = AppColors.textSub;
 const Color _slate200 = AppColors.line;
