@@ -262,38 +262,71 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
           ),
         ),
       ),
-      // 부가 기능은 카드 밖(아래)에 작게 — 누르면 부가 기능 설명 화면으로.
-      if (!_editMode && widget.entries[_frontIndex].hasExtra) ...[
-        const SizedBox(height: 8),
-        GestureDetector(
-          key: Key('home_quick_extra_${widget.entries[_frontIndex].title}'),
-          onTap: () => _openSubFeatures(context, _frontIndex),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: slate100,
-              borderRadius: BorderRadius.circular(999),
+      // 부가 기능은 카드 밖(아래)에 자동으로 슬라이딩되며 나타난다(누를 필요
+      // 없음). 앞 카드가 바뀔 때마다 그 카드 것으로 다시 슬라이딩된다. 그
+      // 자리를 누르면 부가 기능을 자세히 설명하는 풀 화면으로 간다.
+      if (!_editMode && widget.entries[_frontIndex].hasExtra)
+        ClipRect(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 320),
+            transitionBuilder: (child, anim) => SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.5),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOut)),
+              child: FadeTransition(opacity: anim, child: child),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.apps, size: 11, color: slate600),
-                const SizedBox(width: 4),
-                Text(
-                  '부가 기능 보기',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: slate600,
-                  ),
+            child: GestureDetector(
+              key: ValueKey(
+                'home_quick_extra_${widget.entries[_frontIndex].title}',
+              ),
+              onTap: () => _openSubFeatures(context, _frontIndex),
+              child: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final c in quickLaunchSubFeatures(
+                            widget.entries[_frontIndex].subtitle,
+                          ))
+                            Container(
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 9,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: widget.entries[_frontIndex].iconColor
+                                    .withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                c,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: widget.entries[_frontIndex].iconColor,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '눌러서 부가 기능 자세히 보기',
+                      style: TextStyle(fontSize: 9, color: slate600),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 2),
-                Icon(AppIcons.forward, size: 11, color: slate600),
-              ],
+              ),
             ),
           ),
         ),
-      ],
       if (n > 1) ...[
         const SizedBox(height: 10),
         Row(
@@ -551,17 +584,17 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
     widget.entry.onTap();
   }
 
+  /// [onTap]이 없으면(null) 그냥 보여주기만 하는 줄이 된다(화살표도 안 보임) —
+  /// "알림"·"마지막 작업"은 이제 정보만 보여주고, 실제 기능은 카드를 눌러야만
+  /// 들어간다(2026-09-27 사용자 지시).
   Widget _sectionRow({
     required IconData icon,
     required String text,
     required Color color,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
     Key? key,
-  }) => InkWell(
-    key: key,
-    borderRadius: BorderRadius.circular(14),
-    onTap: onTap,
-    child: Container(
+  }) {
+    final row = Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: pureWhite,
@@ -578,15 +611,23 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
               style: TextStyle(fontWeight: FontWeight.w700, color: color),
             ),
           ),
-          Icon(
-            AppIcons.forward,
-            size: 18,
-            color: slate600.withValues(alpha: 0.5),
-          ),
+          if (onTap != null)
+            Icon(
+              AppIcons.forward,
+              size: 18,
+              color: slate600.withValues(alpha: 0.5),
+            ),
         ],
       ),
-    ),
-  );
+    );
+    if (onTap == null) return KeyedSubtree(key: key, child: row);
+    return InkWell(
+      key: key,
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: row,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -635,7 +676,6 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
               color: entry.badgeText != null
                   ? (entry.badgeColor ?? tossBlue)
                   : slate600,
-              onTap: _enter,
             ),
             const SizedBox(height: 20),
             Text(
@@ -654,7 +694,6 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
                   ? quickLaunchRelativeTime(_lastUsed, DateTime.now())
                   : '불러오는 중…',
               color: slate900,
-              onTap: _enter,
             ),
             if (entry.hasExtra) ...[
               const SizedBox(height: 20),
@@ -687,12 +726,25 @@ class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
   }
 }
 
-/// 부가 기능이 있는 카드에서 "부가 기능 보기"를 누르면 오는 풀 화면. 지금은
-/// 부제에 이미 있는 "·" 구분 목록을 그대로 보여준다(각 항목의 자세한 설명
-/// 글은 아직 안 넣었다 — 필요하면 나중에 항목별로 채워 넣을 수 있다).
+/// 부가 기능이 있는 카드 아래 슬라이딩 자리를 누르면 오는 풀 화면. 부제에
+/// 있는 "·" 구분 이름마다(맞는 게 있으면) [kSubFeatureDescriptions]에서
+/// 한 줄 설명을 찾아 보여준다 — 없으면 이름만 보여준다(억지로 안 지어냄).
+/// 맨 아래에 바로 그 기능으로 들어가는 단추도 둔다.
 class _SubFeatureInfoPage extends StatelessWidget {
   final _MenuEntry entry;
   const _SubFeatureInfoPage({required this.entry});
+
+  Future<void> _enter(BuildContext context) async {
+    HapticFeedback.lightImpact();
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(
+        _quickLaunchLastUsedKey(entry.title),
+        DateTime.now().toIso8601String(),
+      );
+    } catch (_) {}
+    entry.onTap();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -711,46 +763,109 @@ class _SubFeatureInfoPage extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+        child: Column(
           children: [
-            Text(
-              '이 화면 안에는 이런 기능들이 있습니다.',
-              style: TextStyle(fontSize: 13, color: slate600, height: 1.4),
-            ),
-            const SizedBox(height: 16),
-            for (final name in items)
-              Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: pureWhite,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Row(
-                  children: [
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Center(
+                    child: _QuickLaunchCard(
+                      entry: entry,
+                      width: 280,
+                      height: 280 / 1.586,
+                      onTap: () => _enter(context),
+                      onLongPress: () {},
+                      onRemove: () {},
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    '이 화면 안에는 이런 기능들이 있습니다.',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: slate600,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  for (final name in items)
                     Container(
-                      width: 8,
-                      height: 8,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: entry.iconColor,
-                        shape: BoxShape.circle,
+                        color: pureWhite,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.grey.shade200),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: entry.iconColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: slate900,
+                                  ),
+                                ),
+                                if (kSubFeatureDescriptions[name] != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    kSubFeatureDescriptions[name]!,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: slate600,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: slate900,
-                        ),
-                      ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+              child: SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  key: const Key('quick_subfeature_enter'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: entry.iconColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  ],
+                  ),
+                  onPressed: () => _enter(context),
+                  child: Text(
+                    '지금 ${entry.title} 열기',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
                 ),
               ),
+            ),
           ],
         ),
       ),
@@ -812,6 +927,44 @@ List<String> quickLaunchSubFeatures(String subtitle) => subtitle
     .toList();
 
 String _quickLaunchLastUsedKey(String title) => 'home_quick_last_used_$title';
+
+/// 부가 기능 이름 → 한 줄 설명(부가 기능 풀 화면에 쓴다). 자동으로 나눈
+/// 이름과 잘 안 맞는 항목(쉼표로 나뉜 것 등)은 여기 없어도 괜찮다 — 그럴
+/// 땐 화면에 이름만 보여준다(억지로 지어내지 않는다).
+const Map<String, String> kSubFeatureDescriptions = {
+  // 계기 교정
+  '교정 점검': '입력값 대비 측정값·지시값을 넣어 오차·히스테리시스를 계산합니다.',
+  '4-20mA': '전류 신호와 실제 물리량(압력·온도 등) 사이를 서로 바꿔 계산합니다.',
+  '온도 센서': 'Pt100·Pt1000 저항이나 K·J·T형 등 열전대 기전력을 온도로 바꿔 계산합니다.',
+  '교정 가스': '가스 검지기 교정에 쓰는 교정 가스 관련 값을 계산합니다.',
+  '성적서': '교정한 내용을 PDF 성적서 문서로 만들어 줍니다.',
+  // 공학용 계산기
+  '사칙연산': '더하기·빼기·곱하기·나누기를 정확한 분수로 계산합니다.',
+  '삼각함수': 'sin·cos·tan 같은 각도 계산을 합니다.',
+  '거듭제곱': '숫자의 제곱·세제곱 같은 거듭제곱을 계산합니다.',
+  '인치 분수': '3/8인치처럼 분수를 탭해서 넣고 고칠 수 있습니다.',
+  '피트': "피트-인치(예: 3' 6\") 단위를 계산에 그대로 반영합니다.",
+  // 유량 계산
+  '유속': '관 단면적과 유량으로 유체가 흐르는 속도를 구합니다.',
+  '관 굵기': '유량·유속에 맞는 관 안지름(굵기)을 구합니다.',
+  '압력손실': '관을 흐르며 마찰로 잃는 압력(수두)을 구합니다.',
+  '차압 유량계': '오리피스 같은 차압식 유량계의 차압-유량 관계를 계산합니다.',
+  '유량계 점검': '유량계가 실제로 잘 재고 있는지 점검값을 계산합니다.',
+  // 전기 설계 계산
+  '부하 합산': '여러 전기 부하(모터·조명 등)의 전력을 더해 총부하를 구합니다.',
+  '전선 굵기': '부하 전류·거리에 맞는 전선 굵기(단면적)를 정합니다.',
+  '전압강하': '전선을 따라 전압이 얼마나 떨어지는지 계산합니다.',
+  '단락 전류': '회로가 단락됐을 때 흐를 수 있는 최대 전류를 어림합니다.',
+  '발전기': '비상 발전기 용량을 부하에 맞게 산정합니다.',
+  '축전지': '정전 대비 축전지(배터리) 용량을 산정합니다.',
+  // 단위 환산
+  '길이': 'mm·인치·피트 등 길이 단위를 서로 바꿉니다.',
+  '압력': 'Pa·kPa·psi·kg/cm² 등 압력 단위를 서로 바꿉니다(게이지압·절대압 포함).',
+  '온도': '섭씨·화씨·켈빈 사이를 서로 바꿉니다.',
+  '토크': 'N·m·kgf·m 등 조임 토크 단위를 서로 바꿉니다.',
+  '분수 인치': '1/16인치 같은 분수 인치를 소수로, 소수를 분수로 바꿉니다.',
+  '배관 호칭': '20A·DN50·3/4B 같은 배관 호칭 규격을 서로 찾아 바꿉니다.',
+};
 
 class _MobileMenuPageState extends State<MobileMenuPage>
     with WidgetsBindingObserver {
