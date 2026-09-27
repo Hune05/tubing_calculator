@@ -607,7 +607,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 _buildMenuButton(
                   context: context,
                   title: "전기 설계 계산",
-                  subtitle: "교류·직류 부하 전류·전선 굵기·전선관·부스바",
+                  subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
                   icon: AppGlyph.electric,
                   onTap: () {
                     HapticFeedback.lightImpact();
