@@ -131,6 +131,55 @@ Set<String> toggleQuickLaunchFavorite(Set<String> current, String title) {
   return next;
 }
 
+/// 빠른 실행 줄을 길게 눌렀을 때 보여주는 "작업 히스토리"에 쓸 상대 시각
+/// 글자 — 위젯 없이 시험 가능한 순수 함수.
+String quickLaunchRelativeTime(DateTime at, DateTime now) {
+  final d = now.difference(at);
+  if (d.inMinutes < 1) return '방금 전';
+  if (d.inMinutes < 60) return '${d.inMinutes}분 전';
+  if (d.inHours < 24) return '${d.inHours}시간 전';
+  if (d.inDays < 30) return '${d.inDays}일 전';
+  if (d.inDays < 365) return '${(d.inDays / 30).floor()}개월 전';
+  return '${(d.inDays / 365).floor()}년 전';
+}
+
+String _quickLaunchLastUsedKey(String title) => 'home_quick_last_used_$title';
+
+/// 빠른 실행에서 실제로 눌러 들어간 시각 목록에 새 기록 하나를 맨 앞에
+/// 붙인다 — 위젯 없이 시험 가능한 순수 함수(원래 목록은 안 바꾸고 새
+/// 목록을 돌려준다). 오래된 것은 [max]개까지만 남긴다.
+List<DateTime> quickLaunchAppendHistory(
+  List<DateTime> history,
+  DateTime now, {
+  int max = 8,
+}) {
+  final next = [now, ...history];
+  return next.length > max ? next.sublist(0, max) : next;
+}
+
+/// SharedPreferences에 저장해 둔 글을 사용 시각 목록으로 되돌린다.
+List<DateTime> quickLaunchDecodeHistory(String? raw) {
+  if (raw == null || raw.isEmpty) return [];
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      return decoded
+          .whereType<String>()
+          .map(DateTime.tryParse)
+          .whereType<DateTime>()
+          .toList();
+    }
+  } catch (_) {
+    // JSON이 아니면 예전 형식(글 하나)일 수 있으니 아래에서 마저 시도한다.
+  }
+  final single = DateTime.tryParse(raw);
+  return single == null ? [] : [single];
+}
+
+/// [quickLaunchDecodeHistory]의 반대 — 저장할 글로 바꾼다.
+String quickLaunchEncodeHistory(List<DateTime> history) =>
+    jsonEncode(history.map((d) => d.toIso8601String()).toList());
+
 class _MobileMenuPageState extends State<MobileMenuPage>
     with WidgetsBindingObserver {
   // 🚀 [통신 없는 현장] 날씨를 못 불러왔는지. 못 불러오면 "동기화 중..."에 머물지 않고
@@ -151,6 +200,12 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   /// 전체 메뉴 대신 빠른 실행(즐겨찾기 카드)만 보이는 중인지. 시작 화면은
   /// 항상 빠른 실행이다(사용자 요청 2026-09-27) — 폰에 저장해 두지 않는다.
   bool _quickMode = true;
+
+  /// 빠른 실행 목록을 편집(빼기) 중인지 — 헤더 점 세개 메뉴 "빠른 실행
+  /// 편집"으로 켠다. 켜져 있으면 줄을 눌러도 실행 안 되고 빼기만 된다
+  /// (2026-09-28, 길게 누르기가 "작업 히스토리 보기"로 바뀌면서 빼기는
+  /// 따로 편집 모드를 둠).
+  bool _editMode = false;
 
   /// 이번 build에서 만든 메뉴 버튼들(빠른 실행 화면이 여기서 골라 쓴다).
   final List<_MenuEntry> _menuEntries = [];
@@ -328,7 +383,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     );
   }
 
-  /// 즐겨찾기한 메뉴를 카드로 보여주는 빠른 실행 화면(카드 자체는 [_QuickLaunchCards]).
+  /// 즐겨찾기한 메뉴를, 전체 메뉴 목록과 같은 줄 모양으로 걸러 보여주는
+  /// 빠른 실행 화면.
   Widget _buildQuickLaunch() {
     final favEntries = _menuEntries
         .where((e) => _favorites.contains(e.title))
@@ -358,20 +414,49 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     return Column(
       key: const Key('home_quick_launch'),
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [for (final e in favEntries) _buildQuickLaunchRow(e)],
+      children: [
+        // 편집 모드일 때만 보이는 안내 줄 — 헤더 점 세개의 "빠른 실행
+        // 편집"으로 켜진다. 여기서 "완료"를 누르면 끈다.
+        if (_editMode)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  "빠른 실행 편집 중 — 눌러서 빼기",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: slate600,
+                  ),
+                ),
+                TextButton(
+                  key: const Key('home_quick_edit_done'),
+                  onPressed: () => setState(() => _editMode = false),
+                  child: const Text(
+                    "완료",
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        for (final e in favEntries) _buildQuickLaunchRow(e),
+      ],
     );
   }
 
   /// 즐겨찾기 한 줄 — 전체 메뉴 목록의 줄과 똑같은 모양(아이콘 원·제목·부제·
-  /// 화살표)으로 그린다("빠른 실행"이 별도 화면 세트가 아니라 전체 메뉴에서
-  /// 걸러낸 목록일 뿐이라는 걸 그대로 보여주자는 2026-09-28 결정 — 카드·
-  /// 지갑 넘기기 같은 실물 카드 흉내는 접었다). 누르면 바로 그 기능으로,
-  /// 길게 누르면 전체 메뉴에서와 똑같이 즐겨찾기에서 뺀다.
+  /// 화살표)으로 그린다. 누르면 바로 그 기능으로 들어가면서 사용 기록을
+  /// 남기고, 길게 누르면 그 기록("작업 히스토리")을 보여준다. 즐겨찾기에서
+  /// 빼는 건 길게 누르기가 아니라 헤더 "빠른 실행 편집"으로 들어가야 한다
+  /// (2026-09-28 — 길게 누르기 자리를 히스토리 보기로 내줌).
   Widget _buildQuickLaunchRow(_MenuEntry entry) {
     return InkWell(
       key: Key('home_quick_${entry.title}'),
-      onTap: entry.onTap,
-      onLongPress: () => _toggleFavorite(entry.title),
+      onTap: _editMode ? null : () => _enterFromQuickLaunch(entry),
+      onLongPress: _editMode ? null : () => _showQuickLaunchHistory(entry),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Row(
@@ -440,11 +525,132 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 ],
               ),
             ),
-            Icon(
-              AppIcons.forward,
-              color: slate600.withValues(alpha: 0.5),
-              size: 28,
+            if (_editMode)
+              GestureDetector(
+                key: Key('home_quick_remove_${entry.title}'),
+                onTap: () => _toggleFavorite(entry.title),
+                child: const Icon(
+                  Icons.remove_circle,
+                  color: warningRed,
+                  size: 26,
+                ),
+              )
+            else
+              Icon(
+                AppIcons.forward,
+                color: slate600.withValues(alpha: 0.5),
+                size: 28,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 빠른 실행 줄을 눌러 진짜 그 기능으로 들어갈 때 — 사용 시각을
+  /// "작업 히스토리"에 남기고 연다.
+  Future<void> _enterFromQuickLaunch(_MenuEntry entry) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final key = _quickLaunchLastUsedKey(entry.title);
+      final history = quickLaunchDecodeHistory(p.getString(key));
+      await p.setString(
+        key,
+        quickLaunchEncodeHistory(
+          quickLaunchAppendHistory(history, DateTime.now()),
+        ),
+      );
+    } catch (_) {}
+    entry.onTap();
+  }
+
+  /// 빠른 실행 줄을 길게 누르면 뜨는 "작업 히스토리" — 몇 분 전 한 번
+  /// 썼다는 게 아니라, 실제로 눌러 들어간 시각들을 그대로 목록으로
+  /// 보여준다(2026-09-28 사용자 요청 — "말 그대로 히스토리").
+  Future<void> _showQuickLaunchHistory(_MenuEntry entry) async {
+    HapticFeedback.selectionClick();
+    List<DateTime> history = [];
+    try {
+      final p = await SharedPreferences.getInstance();
+      history = quickLaunchDecodeHistory(
+        p.getString(_quickLaunchLastUsedKey(entry.title)),
+      );
+    } catch (_) {}
+    if (!mounted) return;
+    final now = DateTime.now();
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        key: const Key('quick_launch_history_sheet'),
+        decoration: const BoxDecoration(
+          color: pureWhite,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: entry.iconColor.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: AppIcon(entry.icon, size: 22, color: entry.iconColor),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    '${entry.title} · 작업 히스토리',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: slate900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: slate600),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
             ),
+            const SizedBox(height: 16),
+            if (history.isEmpty)
+              const Text(
+                "아직 이 화면을 빠른 실행으로 연 기록이 없습니다.",
+                style: TextStyle(color: slate600, height: 1.4),
+              )
+            else
+              for (final t in history)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.history,
+                        size: 16,
+                        color: slate600.withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        quickLaunchRelativeTime(t, now),
+                        style: const TextStyle(
+                          color: slate900,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
           ],
         ),
       ),
@@ -1257,10 +1463,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             ),
                           ),
                         );
+                      } else if (v == 'quick_edit') {
+                        // 전체 메뉴를 보고 있었어도 빠른 실행으로 바꾸고
+                        // 바로 편집 모드까지 켠다(2026-09-28).
+                        HapticFeedback.selectionClick();
+                        setState(() {
+                          _quickMode = true;
+                          _editMode = true;
+                        });
                       }
                     },
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'profile', child: Text("내 프로필")),
+                      PopupMenuItem(
+                        value: 'quick_edit',
+                        child: Text("빠른 실행 편집"),
+                      ),
                     ],
                   ),
                 ],
