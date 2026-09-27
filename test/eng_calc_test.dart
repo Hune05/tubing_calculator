@@ -136,6 +136,74 @@ void main() {
     });
   });
 
+  group('정확한 분수(Fraction)로 그대로 간다', () {
+    Fraction ex(String expr) => evaluateExprValue(expr).exact!;
+
+    test('사칙연산은 오차 없이 분수로 남는다', () {
+      expect(ex('1/3').toDisplayString(), '1/3');
+      expect(ex('1/3+1/6').toDisplayString(), '1/2'); // 약분까지
+      expect(ex('2/3*3/4').toDisplayString(), '1/2');
+      expect(ex('(1/3)/(2/9)').toDisplayString(), '3/2');
+      expect(ex('7/2-3').toDisplayString(), '1/2');
+    });
+
+    test('소수 입력도 오차 없이 분수로 더해진다("0.1+0.2"가 진짜 0.3)', () {
+      final v = evaluateExprValue('0.1+0.2');
+      expect(v.exact!.toDisplayString(), '3/10');
+      // 분수(3/10)를 거쳐 나온 소수라 보통 부동소수 덧셈(0.1+0.2=0.30000000000000004)과
+      // 달리 딱 0.3이다 — 분수로 계산한 덕에 그 오차가 없다.
+      expect(v.decimal, 0.3);
+      expect(0.1 + 0.2, isNot(0.3));
+    });
+
+    test('정수 거듭제곱·계승·퍼센트도 분수로', () {
+      expect(ex('(1/2)^3').toDisplayString(), '1/8');
+      expect(ex('2^-2').toDisplayString(), '1/4');
+      expect(ex('5!').toDisplayString(), '120');
+      expect(ex('50%').toDisplayString(), '1/2');
+    });
+
+    test('제곱수의 제곱근은 분수로 남는다', () {
+      expect(ex('sqrt(4/9)').toDisplayString(), '2/3');
+      expect(ex('sqrt(9)').toDisplayString(), '3');
+    });
+
+    test('abs·단항 부호도 분수를 지킨다', () {
+      expect(ex('abs(-3/4)').toDisplayString(), '3/4');
+      expect(ex('-(1/4)').toDisplayString(), '-1/4');
+    });
+
+    test('대분수 글', () {
+      expect(
+        evaluateExprValue('11/8').exact!.toDisplayString(mixed: true),
+        '1 3/8',
+      );
+      expect(
+        evaluateExprValue('3/8').exact!.toDisplayString(mixed: true),
+        '3/8',
+      );
+    });
+
+    test('무리수를 거치면 그 뒤로는 분수가 없다(null)', () {
+      expect(
+        evaluateExprValue('sin(30)').exact,
+        isNull,
+      ); // 0.5인데도 sin을 거쳤으니 소수만
+      expect(evaluateExprValue('sqrt(2)').exact, isNull);
+      expect(evaluateExprValue('ln(2)').exact, isNull);
+      expect(evaluateExprValue('π').exact, isNull);
+      expect(
+        evaluateExprValue('1+sqrt(2)').exact,
+        isNull,
+      ); // 한 번이라도 섞이면 전체가 null
+    });
+
+    test('0으로 나누기·0의 음수 제곱은 분수 쪽에서도 막는다', () {
+      expect(() => evaluateExprValue('1/0'), throwsA(isA<CalcError>()));
+      expect(() => evaluateExprValue('0^-1'), throwsA(isA<CalcError>()));
+    });
+  });
+
   group('결과 글(소수·분수)', () {
     test('showFraction이 아니면 분수 글이 없다', () {
       final r = formatCalcResult(0.375);

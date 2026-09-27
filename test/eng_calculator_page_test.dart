@@ -67,16 +67,12 @@ void main() {
     expect(result(tester), '0.5');
   });
 
-  testWidgets('π 상수와 거듭제곱·계승', (tester) async {
+  testWidgets('거듭제곱', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_2');
     await tap(tester, 'calc_pow');
     await tap(tester, 'calc_3');
     expect(result(tester), '8');
-    await tap(tester, 'calc_ac');
-    await tap(tester, 'calc_5');
-    await tap(tester, 'calc_fact');
-    expect(result(tester), '120');
   });
 
   testWidgets('AC로 지우고 ⌫로 한 글자 지운다', (tester) async {
@@ -169,6 +165,83 @@ void main() {
     await tap(tester, 'calc_5');
     await tap(tester, 'calc_add');
     expect(result(tester), '5');
+  });
+
+  testWidgets('AppBar "공식으로 계산" 단추로 공식 계산 화면을 연다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_formulas');
+    await tester.pumpAndSettle();
+    expect(find.text('공식 계산'), findsOneWidget);
+    expect(find.text('전기'), findsOneWidget);
+  });
+
+  testWidgets('a/b로 분수를 만들면 분자·분모가 따로 보이고 바로 계산된다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_frac_key');
+    await tap(tester, 'calc_3');
+    expect(find.byKey(const Key('calc_frac_num')), findsOneWidget);
+    await tap(tester, 'calc_frac_den');
+    await tap(tester, 'calc_8');
+    expect(result(tester), '0.375');
+  });
+
+  testWidgets('분자·분모 칸을 각각 눌러서 고칠 수 있다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_frac_key');
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_frac_den');
+    await tap(tester, 'calc_8');
+    expect(result(tester), '0.375');
+    // 분자 칸으로 돌아가 숫자를 더 친다(끝에 이어 붙는다: 3 → 31).
+    await tap(tester, 'calc_frac_num');
+    await tap(tester, 'calc_1');
+    expect(result(tester), '3.875'); // "31/8" = 3.875
+  });
+
+  testWidgets('분수를 만들고 연산자를 누르면 식에 끼워 넣고 이어서 계산한다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_1');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_frac_key');
+    await tap(tester, 'calc_1');
+    await tap(tester, 'calc_frac_den');
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_eq');
+    expect(result(tester), '1.5');
+    expect(find.byKey(const Key('calc_frac_num')), findsNothing);
+  });
+
+  testWidgets('자연수 부분: 3 다음 a/b를 누르면 3과 분수가 붙는다(대분수)', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_frac_key');
+    expect(find.byKey(const Key('calc_frac_whole')), findsOneWidget);
+    await tap(tester, 'calc_1');
+    await tap(tester, 'calc_frac_den');
+    await tap(tester, 'calc_2');
+    expect(result(tester), '3.5'); // 3 + 1/2
+  });
+
+  testWidgets('S⇔D: 사칙연산 결과는 정확한 분수로 바꿔 볼 수 있다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_1');
+    await tap(tester, 'calc_div');
+    await tap(tester, 'calc_3');
+    expect(find.byKey(const Key('calc_sd')), findsOneWidget);
+    await tap(tester, 'calc_sd');
+    expect(result(tester), '1/3');
+    await tap(tester, 'calc_sd');
+    expect(result(tester), '0.3333333'); // 다시 소수로.
+  });
+
+  testWidgets('S⇔D: 무리수(sin 등)를 거치면 분수 단추 자체가 없다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_sin');
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_0');
+    await tap(tester, 'calc_rparen');
+    expect(result(tester), '0.5');
+    expect(find.byKey(const Key('calc_sd')), findsNothing);
   });
 
   testWidgets('좁은 폰(320)·큰 글씨에서 누름판이 넘치지 않는다', (tester) async {
