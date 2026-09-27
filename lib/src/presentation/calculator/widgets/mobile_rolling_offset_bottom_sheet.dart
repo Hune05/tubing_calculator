@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/opposite_rotation.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_offset_guide.dart';
 
 /// 굴림 오프셋이 목록에 넣을 두 구간(길이, 각도, 방향).
 ///
@@ -376,6 +377,14 @@ class _MobileRollingOffsetBottomSheetState
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              RollingOffsetGuide(
+                rise: rise,
+                roll: roll,
+                trueOffset: trueOffset,
+                rollAngle: rollAngle,
+                bendAngle: finalBendAngle,
               ),
               const SizedBox(height: 16),
               Container(
