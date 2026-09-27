@@ -83,10 +83,6 @@ class _MenuEntry {
   final Color iconColor;
   final VoidCallback onTap;
 
-  /// 안에 들어가면 탭·하위 메뉴가 여러 개 있는 화면인지(빠른 실행 상세 화면에서
-  /// "부가 기능 보기"로 들어간다).
-  final bool hasExtra;
-
   /// 전체 메뉴 카드에 뜨는 것과 같은 알림 글(예: "3곳 안 씀"). 없으면 null.
   final String? badgeText;
   final Color? badgeColor;
@@ -97,855 +93,9 @@ class _MenuEntry {
     required this.icon,
     required this.iconColor,
     required this.onTap,
-    this.hasExtra = false,
     this.badgeText,
     this.badgeColor,
   });
-}
-
-/// 즐겨찾기한 메뉴를 카드로 보여주는 빠른 실행 화면.
-/// - 좌우로 밀면 카드를 한 장씩 넘겨 본다(카드 지갑에서 카드를 넘기듯).
-/// - 카드를 누르면 바로 그 기능으로 들어간다. 길게 누르면 상세 화면(마지막
-///   작업 시간·작업 히스토리·부가 기능)으로 간다.
-/// - 아래로 밀면 모든 카드가 지갑처럼 겹쳐서 한 화면에 다 보인다 — 거기서
-///   카드를 누르면 그 카드가 앞으로 올 뿐(실행은 안 됨), 위로 밀면 한 장
-///   보기로 되돌아온다.
-class _QuickLaunchCards extends StatefulWidget {
-  final List<_MenuEntry> entries;
-  final void Function(String title) onLongPressFavorite;
-  const _QuickLaunchCards({
-    super.key,
-    required this.entries,
-    required this.onLongPressFavorite,
-  });
-
-  @override
-  State<_QuickLaunchCards> createState() => _QuickLaunchCardsState();
-}
-
-class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
-  late final PageController _pageCtrl = PageController(viewportFraction: 0.88);
-  int _frontIndex = 0;
-  bool _fanOpen = false;
-
-  /// 모서리 편집 단추로 켜고 끈다 — 켜져 있으면 카드마다 빼기(×) 단추가 뜬다.
-  bool _editMode = false;
-
-  /// 홈 머리의 "빠른 실행 편집" 메뉴가 [GlobalKey]로 바로 부르는 통로 —
-  /// 모서리 연필 단추를 다시 찾아 누를 필요 없이 편집 모드로 들어간다.
-  void enableEditMode() {
-    if (mounted) setState(() => _editMode = true);
-  }
-
-  @override
-  void dispose() {
-    _pageCtrl.dispose();
-    super.dispose();
-  }
-
-  /// 편집 모드에서 즐겨찾기를 빼면 목록이 짧아지는데, 그때 [_frontIndex]가
-  /// 이제 없는 자리를 가리키고 있으면(예: 3장 중 3번째를 보다가 1장을 빼서
-  /// 2장이 됨) 범위 밖 인덱스 접근으로 앱이 빨간 화면과 함께 죽었다
-  /// (2026-09-27 실제로 겪은 버그 — RangeError). 목록이 바뀔 때마다 맨 앞
-  /// 자리를 안전한 범위로 당겨 둔다.
-  @override
-  void didUpdateWidget(covariant _QuickLaunchCards oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final clamped = quickLaunchClampFrontIndex(
-      _frontIndex,
-      widget.entries.length,
-    );
-    if (clamped != _frontIndex) {
-      _frontIndex = clamped;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_pageCtrl.hasClients) _pageCtrl.jumpToPage(_frontIndex);
-      });
-    }
-  }
-
-  /// 겹침(지갑) 보기에서 카드를 고르면, 그 기능으로 바로 들어가지 않고 일단
-  /// 그 카드를 앞(한 장 보기)으로 가져오기만 한다 — 한 번 더 눌러야 실행된다.
-  /// **실제 버그**(2026-09-28): `_frontIndex`만 바꾸고 `PageController`는 안
-  /// 옮겨서, "N/개" 글자·점은 고른 카드로 바뀌는데 실제 한 장 보기 화면은
-  /// `_pageCtrl`가 멈춰 있던 예전 페이지(대개 맨 앞 카드) 그대로 보였다 —
-  /// 중간 카드를 눌러도 늘 "기본"(맨 앞)으로 돌아가는 것처럼 보인 원인.
-  void _bringToFront(int i) {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _frontIndex = i;
-      _fanOpen = false;
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_pageCtrl.hasClients) _pageCtrl.jumpToPage(i);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // 방어적으로 한 번 더 — didUpdateWidget이 못 잡는 경우에도 절대 범위를
-    // 벗어난 자리를 읽지 않게 한다.
-    _frontIndex = quickLaunchClampFrontIndex(
-      _frontIndex,
-      widget.entries.length,
-    );
-    final n = widget.entries.length;
-    return LayoutBuilder(
-      builder: (context, box) {
-        // 실물 카드(운전면허증 등) 비율(가로:세로 ≈ 1.586:1)에 가깝게, 화면
-        // 폭 가득 크게 — 다만 태블릿처럼 넓은 화면에서 지나치게 커지지 않게 최대값을 둔다.
-        final cardWidth = (box.maxWidth - 48).clamp(220.0, 380.0);
-        final cardHeight = cardWidth / 1.586;
-        return GestureDetector(
-          // 아래로 밀면 전체(지갑) 보기, 위로 밀면 맨 앞 카드로 돌아온다.
-          onVerticalDragEnd: n < 2
-              ? null
-              : (d) {
-                  final v = d.primaryVelocity ?? 0;
-                  if (!_fanOpen && v > 200) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _fanOpen = true);
-                  } else if (_fanOpen && v < -200) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _fanOpen = false);
-                  }
-                },
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              _fanOpen
-                  ? _buildFan(cardWidth, cardHeight)
-                  : _buildSingle(cardWidth, cardHeight, n),
-              Positioned(right: 0, top: 0, child: _buildEditButton()),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  /// 모서리 편집 단추(연필 ⇄ 완료). 누르면 카드마다 빼기(×) 단추가 뜨고 끈다.
-  Widget _buildEditButton() => GestureDetector(
-    key: const Key('home_quick_edit'),
-    onTap: () {
-      HapticFeedback.selectionClick();
-      setState(() => _editMode = !_editMode);
-    },
-    child: Container(
-      padding: const EdgeInsets.all(7),
-      decoration: BoxDecoration(
-        color: slate100,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 4),
-        ],
-      ),
-      child: Icon(
-        _editMode ? Icons.check : Icons.edit_outlined,
-        size: 16,
-        color: tossBlue,
-      ),
-    ),
-  );
-
-  void _openDetail(BuildContext context, int i) {
-    HapticFeedback.lightImpact();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _QuickLaunchDetailPage(entry: widget.entries[i]),
-      ),
-    );
-  }
-
-  Widget _buildSingle(double cardWidth, double cardHeight, int n) => Column(
-    children: [
-      const SizedBox(height: 8),
-      Text(
-        n > 1
-            ? '${_frontIndex + 1} / $n · 눌러서 열기 · 길게 눌러 자세히 보기 · 아래로 전체 보기'
-            : '눌러서 열기 · 길게 눌러 자세히 보기',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: 11,
-          color: slate600,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      const SizedBox(height: 10),
-      SizedBox(
-        height: cardHeight,
-        child: PageView.builder(
-          controller: _pageCtrl,
-          itemCount: n,
-          onPageChanged: (i) => setState(() => _frontIndex = i),
-          itemBuilder: (context, i) => Center(
-            child: _QuickLaunchCard(
-              entry: widget.entries[i],
-              width: cardWidth,
-              height: cardHeight,
-              editing: _editMode,
-              // 카드를 누르면 바로 그 기능으로 들어간다("빠른 실행"이라는
-              // 이름과 맞게) — 마지막 작업 시간·작업 히스토리·부가 기능
-              // 같은 정보는 길게 눌러야 나오는 상세 화면으로 옮김
-              // (2026-09-28 사용자 지적: 상세 화면을 거치는 게 오히려
-              // "빠른" 실행과 안 맞았다).
-              onTap: _editMode
-                  ? null
-                  : () {
-                      HapticFeedback.lightImpact();
-                      _quickLaunchEnter(widget.entries[i]);
-                    },
-              onLongPress: () => _openDetail(context, i),
-              onRemove: () =>
-                  widget.onLongPressFavorite(widget.entries[i].title),
-            ),
-          ),
-        ),
-      ),
-      // 부가 기능(탭 안내) 표시는 기본 카드 화면에서는 없앴다 — 카드를 누르면
-      // 가는 상세 화면에 "부가 기능 보기" 줄로만 남아 있다.
-      if (n > 1) ...[
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < n; i++)
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 150),
-                margin: const EdgeInsets.symmetric(horizontal: 3),
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: i == _frontIndex
-                      ? tossBlue
-                      : slate600.withValues(alpha: 0.3),
-                ),
-              ),
-          ],
-        ),
-      ],
-      const SizedBox(height: 8),
-    ],
-  );
-
-  Widget _buildFan(double cardWidth, double cardHeight) {
-    final n = widget.entries.length;
-    const headerH = 32.0;
-    // 남는 세로 자리를 (n-1) 등분해 카드가 그만큼씩 밀려 내려오게(맨 앞 카드가
-    // 맨 아래·맨 위에 옴). 자리가 모자라면 최소 22px까지만 줄인다.
-    final available = cardHeight * 1.8;
-    final peek = n > 1
-        ? ((available - cardHeight) / (n - 1)).clamp(22.0, 64.0)
-        : 0.0;
-    final stackHeight = cardHeight + peek * (n - 1);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
-          height: headerH,
-          child: Center(
-            child: Text(
-              '즐겨찾기 $n개 · 카드를 눌러 그 카드로 돌아가기 · 위로 밀면 닫기',
-              style: TextStyle(
-                fontSize: 11,
-                color: slate600,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ),
-        SizedBox(
-          height: stackHeight,
-          width: cardWidth,
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              for (var i = 0; i < n; i++)
-                Positioned(
-                  top: i * peek,
-                  child: _QuickLaunchCard(
-                    entry: widget.entries[i],
-                    width: cardWidth,
-                    height: cardHeight,
-                    editing: _editMode,
-                    onTap: () => _bringToFront(i),
-                    onLongPress: () =>
-                        widget.onLongPressFavorite(widget.entries[i].title),
-                    onRemove: () =>
-                        widget.onLongPressFavorite(widget.entries[i].title),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// 즐겨찾기 카드 한 장(실물 카드 느낌 — 그라데이션·그림자, 아이콘·이름·부가 기능 표시).
-/// "부가 기능" 배지를 누르면 부제 자리가 살짝 아래로 슬라이드되며 부가 기능
-/// 이름들(칩)로 바뀐다 — 새 자리를 안 만들고 부제 자리 하나만 그대로 쓴다.
-class _QuickLaunchCard extends StatelessWidget {
-  final _MenuEntry entry;
-  final double width;
-  final double height;
-  final VoidCallback? onTap;
-  final VoidCallback onLongPress;
-
-  /// 편집 모드일 때 카드 모서리에 빼기(×) 단추를 보여준다.
-  final bool editing;
-  final VoidCallback onRemove;
-
-  const _QuickLaunchCard({
-    required this.entry,
-    required this.width,
-    required this.height,
-    required this.onTap,
-    required this.onLongPress,
-    this.editing = false,
-    required this.onRemove,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final base = entry.iconColor;
-    return SizedBox(
-      width: width,
-      height: height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              key: Key('home_quick_${entry.title}'),
-              borderRadius: BorderRadius.circular(20),
-              onTap: onTap,
-              onLongPress: onLongPress,
-              child: Ink(
-                width: width,
-                height: height,
-                decoration: BoxDecoration(
-                  color: pureWhite,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.grey.shade200),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(19),
-                  child: Column(
-                    children: [
-                      // 색 띠 — 앱 나머지 화면(흰 배경·얇은 테두리)과 톤을
-                      // 맞추면서도, 지갑에서 맨 위 얇은 조각만 보여도 이
-                      // 색만으로 카드를 구별할 수 있게 남겨 둔 자리
-                      // (2026-09-28 "카드 유지 + 밝게" 요청).
-                      Container(height: 6, color: base),
-                      Expanded(
-                        child: Stack(
-                          children: [
-                            // 큰 워터마크 그림 — 흰 배경이라 아주 옅은 회색으로.
-                            Positioned(
-                              right: -width * 0.14,
-                              bottom: -height * 0.18,
-                              child: Opacity(
-                                opacity: 0.05,
-                                child: Transform.rotate(
-                                  angle: -0.2,
-                                  child: AppIcon(
-                                    entry.icon,
-                                    size: height * 0.9,
-                                    color: slate900,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                18,
-                                14,
-                                18,
-                                14,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // 아이콘+이름을 맨 위 한 줄에 둬서, 카드
-                                  // 지갑에서 위쪽 일부만 보여도(겹쳐 있을
-                                  // 때) 무슨 카드인지 바로 알아볼 수 있게
-                                  // 했다.
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        width: 38,
-                                        height: 38,
-                                        decoration: BoxDecoration(
-                                          color: base.withValues(alpha: 0.1),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        alignment: Alignment.center,
-                                        child: AppIcon(
-                                          entry.icon,
-                                          size: 20,
-                                          color: base,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          entry.title,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: slate900,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w800,
-                                            height: 1.15,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const Spacer(),
-                                  Text(
-                                    entry.subtitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: slate600,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          // 편집 모드에서만 보이는 빼기(×) 단추 — 카드 오른쪽 위 모서리.
-          if (editing)
-            Positioned(
-              right: -6,
-              top: -6,
-              child: GestureDetector(
-                key: Key('home_quick_remove_${entry.title}'),
-                onTap: onRemove,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(color: Colors.black26, blurRadius: 4),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    size: 14,
-                    color: Colors.redAccent,
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 빠른 실행 카드를 누르면 오는 상세 화면. 카드는 위에 그대로 두고, 아래는
-/// "알림"·"마지막 작업"으로 나눠 보여준다. 실제 기능으로는 여기서 카드나
-/// 알림·마지막 작업 줄을 눌러야 들어간다(그때 마지막 사용 시각을 남긴다).
-class _QuickLaunchDetailPage extends StatefulWidget {
-  final _MenuEntry entry;
-  const _QuickLaunchDetailPage({required this.entry});
-
-  @override
-  State<_QuickLaunchDetailPage> createState() => _QuickLaunchDetailPageState();
-}
-
-class _QuickLaunchDetailPageState extends State<_QuickLaunchDetailPage> {
-  List<DateTime> _history = [];
-  bool _loaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-  }
-
-  Future<void> _loadHistory() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final raw = p.getString(_quickLaunchLastUsedKey(widget.entry.title));
-      if (!mounted) return;
-      setState(() {
-        _history = quickLaunchDecodeHistory(raw);
-        _loaded = true;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loaded = true);
-    }
-  }
-
-  Future<void> _enter() async {
-    HapticFeedback.lightImpact();
-    try {
-      final p = await SharedPreferences.getInstance();
-      final next = quickLaunchAppendHistory(_history, DateTime.now());
-      await p.setString(
-        _quickLaunchLastUsedKey(widget.entry.title),
-        quickLaunchEncodeHistory(next),
-      );
-    } catch (_) {}
-    widget.entry.onTap();
-  }
-
-  /// [onTap]이 없으면(null) 그냥 보여주기만 하는 줄이 된다(화살표도 안 보임) —
-  /// "마지막 작업 시간"·"작업 히스토리"는 정보만 보여주고, 실제 기능은
-  /// 카드를 눌러야만 들어간다(2026-09-27 사용자 지시).
-  Widget _sectionRow({
-    required IconData icon,
-    required String text,
-    required Color color,
-    VoidCallback? onTap,
-    Key? key,
-  }) {
-    final row = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(fontWeight: FontWeight.w700, color: color),
-            ),
-          ),
-          if (onTap != null)
-            Icon(
-              AppIcons.forward,
-              size: 18,
-              color: slate600.withValues(alpha: 0.5),
-            ),
-        ],
-      ),
-    );
-    if (onTap == null) return KeyedSubtree(key: key, child: row);
-    return InkWell(
-      key: key,
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: row,
-    );
-  }
-
-  /// "마지막 작업 시간"(맨 앞 기록)보다 앞서 쌓인 사용 기록들 — 진짜로
-  /// 여러 번 쓴 기록이 있어야 뜬다(단순 반복 표시가 아니라 실제 기록).
-  Widget _historySection() {
-    if (!_loaded) {
-      return _sectionRow(
-        key: const Key('quick_detail_history'),
-        icon: Icons.history_toggle_off,
-        text: '불러오는 중…',
-        color: slate600,
-      );
-    }
-    final previous = _history.length > 1 ? _history.sublist(1) : <DateTime>[];
-    if (previous.isEmpty) {
-      return _sectionRow(
-        key: const Key('quick_detail_history'),
-        icon: Icons.history_toggle_off,
-        text: '아직 반복해서 쓴 기록이 없습니다',
-        color: slate600,
-      );
-    }
-    final now = DateTime.now();
-    return Container(
-      key: const Key('quick_detail_history'),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < previous.length; i++)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: i == previous.length - 1
-                  ? null
-                  : BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: Colors.grey.shade200),
-                      ),
-                    ),
-              child: Row(
-                children: [
-                  Icon(Icons.circle, size: 6, color: slate600),
-                  const SizedBox(width: 12),
-                  Text(
-                    quickLaunchRelativeTime(previous[i], now),
-                    style: TextStyle(color: slate900, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final entry = widget.entry;
-    return Scaffold(
-      key: const Key('quick_detail_page'),
-      backgroundColor: slate100,
-      appBar: AppBar(
-        backgroundColor: pureWhite,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: slate900,
-        title: Text(
-          entry.title,
-          style: const TextStyle(fontWeight: FontWeight.w800, color: slate900),
-        ),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            Center(
-              child: _QuickLaunchCard(
-                entry: entry,
-                width: 320,
-                height: 320 / 1.586,
-                onTap: _enter,
-                onLongPress: () {},
-                onRemove: () {},
-              ),
-            ),
-            const SizedBox(height: 28),
-            Text(
-              '마지막 작업 시간',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: slate600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _sectionRow(
-              key: const Key('quick_detail_last_used'),
-              icon: Icons.history,
-              text: _loaded
-                  ? quickLaunchRelativeTime(
-                      _history.isEmpty ? null : _history.first,
-                      DateTime.now(),
-                    )
-                  : '불러오는 중…',
-              color: slate900,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              '작업 히스토리',
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: slate600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            _historySection(),
-            if (entry.hasExtra) ...[
-              const SizedBox(height: 20),
-              Text(
-                '부가 기능',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: slate600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              _sectionRow(
-                key: const Key('quick_detail_extra'),
-                icon: Icons.apps,
-                text: '부가 기능 보기',
-                color: slate900,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => _SubFeatureInfoPage(entry: entry),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 상세 화면 "부가 기능 보기"를 누르면 오는 풀 화면. [kQuickLaunchTabInfo]에
-/// 등록된, 그 화면 안의 진짜 탭 이름과 각 탭이 하는 일을 보여준다(코드를
-/// 읽어 확인한 내용 — 억지로 지어내지 않는다). 맨 아래에 바로 그 기능으로
-/// 들어가는 단추도 둔다.
-class _SubFeatureInfoPage extends StatelessWidget {
-  final _MenuEntry entry;
-  const _SubFeatureInfoPage({required this.entry});
-
-  Future<void> _enter(BuildContext context) async {
-    HapticFeedback.lightImpact();
-    await _quickLaunchEnter(entry);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final items = kQuickLaunchTabInfo[entry.title] ?? const <String, String>{};
-    return Scaffold(
-      key: const Key('quick_subfeature_page'),
-      backgroundColor: slate100,
-      appBar: AppBar(
-        backgroundColor: pureWhite,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: slate900,
-        title: Text(
-          '${entry.title} · 부가 기능',
-          style: const TextStyle(fontWeight: FontWeight.w800, color: slate900),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            Expanded(
-              child: ListView(
-                padding: const EdgeInsets.all(20),
-                children: [
-                  Center(
-                    child: _QuickLaunchCard(
-                      entry: entry,
-                      width: 280,
-                      height: 280 / 1.586,
-                      onTap: () => _enter(context),
-                      onLongPress: () {},
-                      onRemove: () {},
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    '이 화면 안에는 이런 탭이 있습니다.',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: slate600,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  for (final tab in items.entries)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: pureWhite,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: Colors.grey.shade200),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: entry.iconColor,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  tab.key,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: slate900,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  tab.value,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: slate600,
-                                    height: 1.35,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton(
-                  key: const Key('quick_subfeature_enter'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: entry.iconColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () => _enter(context),
-                  child: Text(
-                    '지금 ${entry.title} 열기',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class MobileMenuPage extends StatefulWidget {
@@ -981,138 +131,6 @@ Set<String> toggleQuickLaunchFavorite(Set<String> current, String title) {
   return next;
 }
 
-/// 빠른 실행 상세 화면 "마지막 작업"에 쓸 상대 시각 글자 — 위젯 없이 시험 가능.
-String quickLaunchRelativeTime(DateTime? at, DateTime now) {
-  if (at == null) return '아직 사용한 기록이 없습니다';
-  final d = now.difference(at);
-  if (d.inMinutes < 1) return '방금 전';
-  if (d.inMinutes < 60) return '${d.inMinutes}분 전';
-  if (d.inHours < 24) return '${d.inHours}시간 전';
-  if (d.inDays < 30) return '${d.inDays}일 전';
-  if (d.inDays < 365) return '${(d.inDays / 30).floor()}개월 전';
-  return '${(d.inDays / 365).floor()}년 전';
-}
-
-String _quickLaunchLastUsedKey(String title) => 'home_quick_last_used_$title';
-
-/// 카드를 눌러 바로 기능으로 들어갈 때 — 사용 기록을 남기고 진짜 기능을
-/// 연다(2026-09-28, 기본 카드 화면도 "누르면 바로 실행"으로 바뀌면서 상세·
-/// 부가 기능 화면에 있던 것과 같은 코드를 하나로 합침).
-Future<void> _quickLaunchEnter(_MenuEntry entry) async {
-  try {
-    final p = await SharedPreferences.getInstance();
-    final key = _quickLaunchLastUsedKey(entry.title);
-    final history = quickLaunchDecodeHistory(p.getString(key));
-    await p.setString(
-      key,
-      quickLaunchEncodeHistory(
-        quickLaunchAppendHistory(history, DateTime.now()),
-      ),
-    );
-  } catch (_) {}
-  entry.onTap();
-}
-
-/// 빠른 실행 상세 화면 "작업 히스토리"에 쓸 사용 시각 목록에 새 기록 하나를
-/// 맨 앞에 붙인다 — 위젯 없이 시험 가능한 순수 함수(원래 목록은 안 바꾸고
-/// 새 목록을 돌려준다). 오래된 것은 [max]개까지만 남긴다.
-List<DateTime> quickLaunchAppendHistory(
-  List<DateTime> history,
-  DateTime now, {
-  int max = 8,
-}) {
-  final next = [now, ...history];
-  return next.length > max ? next.sublist(0, max) : next;
-}
-
-/// SharedPreferences에 저장해 둔 글을 사용 시각 목록으로 되돌린다. 2026-09-27
-/// 이전 버전은 ISO8601 글 하나만 저장했어서, 그 예전 형식도 그대로 읽는다.
-List<DateTime> quickLaunchDecodeHistory(String? raw) {
-  if (raw == null || raw.isEmpty) return [];
-  try {
-    final decoded = jsonDecode(raw);
-    if (decoded is List) {
-      return decoded
-          .whereType<String>()
-          .map(DateTime.tryParse)
-          .whereType<DateTime>()
-          .toList();
-    }
-  } catch (_) {
-    // JSON이 아니면 예전 형식(글 하나)일 수 있으니 아래에서 마저 시도한다.
-  }
-  final single = DateTime.tryParse(raw);
-  return single == null ? [] : [single];
-}
-
-/// [quickLaunchDecodeHistory]의 반대 — 저장할 글로 바꾼다.
-String quickLaunchEncodeHistory(List<DateTime> history) =>
-    jsonEncode(history.map((d) => d.toIso8601String()).toList());
-
-/// 즐겨찾기를 빼서 목록이 짧아졌을 때 맨 앞 카드 자리가 범위를 벗어나지
-/// 않게 당긴다 — 위젯 없이 시험 가능한 순수 함수. **실제 버그**(2026-09-27):
-/// 3장 중 3번째를 보던 중 1장을 빼서 2장이 됐는데 자리를 안 당겨서
-/// `widget.entries[2]`가 RangeError로 앱이 빨간 화면과 함께 죽었다.
-int quickLaunchClampFrontIndex(int frontIndex, int entryCount) {
-  if (entryCount <= 0) return 0;
-  return frontIndex.clamp(0, entryCount - 1);
-}
-
-/// 진짜로 안에 탭(TabBar)이 여러 개 있는 화면만 골라, 탭 이름 → 그 탭이
-/// 하는 일 한 줄을 적어 둔 것 — 각 화면의 실제 코드를 읽어 확인했다
-/// (2026-09-28). 부제를 "·"로 쪼개 억지로 부가 기능처럼 보이게 하던 예전
-/// 방식은 하단 네비게이션(탭처럼 보이지만 진짜 탭이 아닌 화면)까지 부가
-/// 기능으로 잘못 표시하고 있었다 — 이 맵에 없는 화면은 "부가 기능" 자체가
-/// 안 뜬다(빠른 실행 카드·상세 화면 모두).
-const Map<String, Map<String, String>> kQuickLaunchTabInfo = {
-  '압력 시험': {
-    '시험 압력': '배관·장비 사양에 맞는 목표 시험 압력을 계산합니다.',
-    '시험 기록': '실제 압력 시험 중의 측정값을 그때그때 기록합니다.',
-    '압력 강하': '시간이 지나며 압력이 얼마나 떨어졌는지(감압) 판정합니다.',
-    '공압 안전거리': '공압 시험의 위험 에너지에 맞는 안전거리를 계산합니다.',
-  },
-  '유량 계산': {
-    '유속·관 굵기': '유량으로 유속을 구하거나, 유량에 맞는 관 굵기를 정합니다.',
-    '압력손실': '관을 흐르며 마찰로 잃는 압력(차압)을 계산합니다.',
-    '차압 유량계': '오리피스 같은 차압식 유량계의 차압-유량 관계를 계산합니다.',
-    '유량계 점검': '설치된 유량계가 실제로 잘 재고 있는지 점검값을 계산합니다.',
-  },
-  '전기 설계 계산': {
-    '기초 계산': '전압·전류·저항 같은 전기 기초값을 계산합니다.',
-    '부하 전류': '모터·히터 같은 부하 종류에 맞는 전류를 계산합니다.',
-    '부하 합산': '여러 부하 전류를 더해 총부하를 구합니다.',
-    '전선 굵기': '부하·거리에 맞는 전선 굵기를 정하거나 기존 회로를 점검합니다.',
-    '전압강하': '전선 길이·굵기에 따른 전압강하를 계산합니다.',
-    '단락 전류': '회로가 단락됐을 때 흐를 수 있는 전류를 계산합니다.',
-    '전선관': '전선관(콘듀이트) 관련 계산을 합니다.',
-    '부스바': '부스바 용량·규격을 계산합니다.',
-    '역률 개선': '역률 개선용 콘덴서 용량을 계산합니다.',
-    '발전기 용량': '비상 발전기 용량을 부하에 맞게 산정합니다.',
-    '축전지 용량': '정전 대비 축전지(배터리) 용량을 산정합니다.',
-  },
-  '계기 교정': {
-    '교정 점검': '입력값 대비 측정값·지시값을 넣어 오차·히스테리시스를 계산합니다.',
-    '4-20mA': '전류 신호와 실제 물리량(압력·온도 등) 사이를 서로 바꿔 계산합니다.',
-    '온도 센서': 'Pt100·Pt1000 저항이나 K·J·T형 등 열전대 기전력을 온도로 바꿉니다.',
-    '교정 가스': '가스 검지기 교정에 쓰는 교정 가스 관련 값을 계산합니다.',
-    '루프 전압': '4-20mA 루프의 전압강하·부담저항 등을 계산합니다.',
-  },
-  '각도기': {
-    '벤딩 각도 재기': '화면을 흰색·파란색으로 나누는 기준선으로 실제 벤딩 각도를 잽니다.',
-    '화면 각도기': '화면 자체를 각도기처럼 써서 임의의 각도를 잽니다.',
-  },
-  '현장 자료·장비 사용법': {
-    '튜브': '튜브 규격·자료를 찾아봅니다.',
-    '전선관': '전선관(콘듀이트) 규격·자료를 찾아봅니다.',
-    '형강': '형강(H형강 등) 규격·자료를 찾아봅니다.',
-    '장비 사용법': '현장 장비 사용법을 안내합니다.',
-    '앱 사용법': '이 앱 자체의 사용법을 안내합니다.',
-    '단위 환산': '단위 환산 자료를 보여줍니다.',
-    '발전 설비': '발전 설비 관련 참고 자료를 보여줍니다.',
-    '전기 기준(KEC)': '한국전기설비규정(KEC) 참고 자료를 보여줍니다.',
-  },
-};
-
 class _MobileMenuPageState extends State<MobileMenuPage>
     with WidgetsBindingObserver {
   // 🚀 [통신 없는 현장] 날씨를 못 불러왔는지. 못 불러오면 "동기화 중..."에 머물지 않고
@@ -1136,10 +154,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
 
   /// 이번 build에서 만든 메뉴 버튼들(빠른 실행 화면이 여기서 골라 쓴다).
   final List<_MenuEntry> _menuEntries = [];
-
-  /// 헤더의 "빠른 실행 편집" 메뉴가 빠른 실행 화면의 편집 모드를 바로 켤 때
-  /// 쓴다(전체 메뉴를 보고 있어도 한 번에 편집 모드로 들어가게).
-  final GlobalKey<_QuickLaunchCardsState> _quickLaunchKey = GlobalKey();
 
   static const String _kFavoritesKey = 'home_quick_launch_favorites_v1';
 
@@ -1341,10 +355,99 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         ),
       );
     }
-    return _QuickLaunchCards(
-      key: _quickLaunchKey,
-      entries: favEntries,
-      onLongPressFavorite: _toggleFavorite,
+    return Column(
+      key: const Key('home_quick_launch'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [for (final e in favEntries) _buildQuickLaunchRow(e)],
+    );
+  }
+
+  /// 즐겨찾기 한 줄 — 전체 메뉴 목록의 줄과 똑같은 모양(아이콘 원·제목·부제·
+  /// 화살표)으로 그린다("빠른 실행"이 별도 화면 세트가 아니라 전체 메뉴에서
+  /// 걸러낸 목록일 뿐이라는 걸 그대로 보여주자는 2026-09-28 결정 — 카드·
+  /// 지갑 넘기기 같은 실물 카드 흉내는 접었다). 누르면 바로 그 기능으로,
+  /// 길게 누르면 전체 메뉴에서와 똑같이 즐겨찾기에서 뺀다.
+  Widget _buildQuickLaunchRow(_MenuEntry entry) {
+    return InkWell(
+      key: Key('home_quick_${entry.title}'),
+      onTap: entry.onTap,
+      onLongPress: () => _toggleFavorite(entry.title),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: entry.iconColor.withValues(alpha: 0.05),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: AppIcon(entry.icon, size: 28, color: entry.iconColor),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          entry.title,
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: entry.iconColor,
+                            letterSpacing: -0.5,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (entry.badgeText != null) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: entry.badgeColor ?? warningRed,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            entry.badgeText!,
+                            style: const TextStyle(
+                              color: pureWhite,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    entry.subtitle,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: slate600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              AppIcons.forward,
+              color: slate600.withValues(alpha: 0.5),
+              size: 28,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -2144,9 +1247,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     tooltip: "더보기",
                     icon: const Icon(Icons.more_vert, color: slate600),
                     onSelected: (v) {
-                      if (v == 'quick_edit') {
-                        _openQuickLaunchEditFromHeader();
-                      } else if (v == 'profile') {
+                      if (v == 'profile') {
                         HapticFeedback.lightImpact();
                         Navigator.push(
                           context,
@@ -2160,10 +1261,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     },
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'profile', child: Text("내 프로필")),
-                      PopupMenuItem(
-                        value: 'quick_edit',
-                        child: Text("빠른 실행 편집"),
-                      ),
                     ],
                   ),
                 ],
@@ -2183,18 +1280,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         ],
       ),
     );
-  }
-
-  /// 헤더의 점 세개 메뉴에서 "빠른 실행 편집"을 고르면: 전체 메뉴를 보고
-  /// 있었더라도 빠른 실행으로 바꾸고, 그 화면이 만들어지자마자(다음 프레임)
-  /// 편집 모드까지 바로 켠다 — 빠른 실행 카드 모서리 연필 단추를 굳이 다시
-  /// 찾아 누를 필요 없이 한 번에 들어가게(2026-09-28).
-  void _openQuickLaunchEditFromHeader() {
-    HapticFeedback.selectionClick();
-    setState(() => _quickMode = true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _quickLaunchKey.currentState?.enableEditMode();
-    });
   }
 
   // 공지 듣기는 한 번만 만든다. 예전엔 build 안에서 만들어 날씨·일정 수가 바뀔 때마다
@@ -2618,9 +1703,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     Color? badgeColor,
   }) {
     // 빠른 실행 화면이 쓸 수 있게 이번 build에서 만든 버튼 정보를 쌓아 둔다.
-    // hasExtra는 더 이상 여기서 손으로 표시하지 않고, 실제로 안에 탭이 여러
-    // 개 있다고 코드로 확인한 화면(kQuickLaunchTabInfo)인지로 정한다
-    // (2026-09-28, 손으로 단 표시가 실제와 어긋나 있었다).
     _menuEntries.add(
       _MenuEntry(
         title: title,
@@ -2628,7 +1710,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         icon: icon,
         iconColor: iconColor ?? slate900,
         onTap: onTap,
-        hasExtra: kQuickLaunchTabInfo.containsKey(title),
         badgeText: badgeText,
         badgeColor: badgeColor,
       ),
