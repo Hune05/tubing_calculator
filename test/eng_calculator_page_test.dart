@@ -344,6 +344,40 @@ void main() {
     expect(find.byKey(const Key('calc_history')), findsNothing);
   });
 
+  testWidgets('AppBar "간단 단위 변환" 단추로 단위 변환 화면을 연다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_unit_convert');
+    await tester.pumpAndSettle();
+    expect(find.text('간단 단위 변환'), findsOneWidget);
+    // 길이 분류가 기본으로 골라져 있고, mm 1을 넣으면 cm 값이 바로 바뀐다.
+    expect(find.byKey(const Key('unit_cat_length')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('unit_from_value')), '1000');
+    await tester.pump();
+    expect(
+      tester.widget<Text>(find.byKey(const Key('unit_to_value'))).data,
+      '100', // 기본 단위가 mm→cm이라 1000mm = 100cm.
+    );
+  });
+
+  testWidgets('가로 화면(844×390)에서도 넘치지 않는다', (tester) async {
+    final errors = <String>[];
+    final old = FlutterError.onError;
+    FlutterError.onError = (d) =>
+        errors.add(d.exceptionAsString().split('\n').first);
+    try {
+      tester.view.physicalSize = const Size(844, 390);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester);
+      for (final k in ['calc_1', 'calc_add', 'calc_2', 'calc_eq']) {
+        await tap(tester, k);
+      }
+    } finally {
+      FlutterError.onError = old;
+    }
+    expect(errors, isEmpty);
+  });
+
   testWidgets('작은 폰(320×568)에서도 공학 모드·기본 모드 둘 다 넘치지 않는다', (tester) async {
     final errors = <String>[];
     final old = FlutterError.onError;

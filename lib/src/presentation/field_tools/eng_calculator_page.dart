@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/field_view.dart';
 import 'eng_calc.dart';
 import 'formula_calc_page.dart';
+import 'mini_unit_converter_page.dart';
 
 Color get _ink => fc.text;
 Color get _sub => fc.textSub;
@@ -81,11 +82,20 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void initState() {
     super.initState();
     _loadSettings();
+    // 앱 전체는 세로로 잠겨 있지만(AndroidManifest), 이 화면은 가로도 허용한다
+    // (강제로 돌리지는 않는다 — 협대 화면이 돼도 원형 단추·Expanded 배치가
+    // 알아서 줄어들게 되어 있다).
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]).catchError((_) {});
   }
 
   @override
   void dispose() {
     _historyScroll.dispose();
+    SystemChrome.setPreferredOrientations(const []).catchError((_) {});
     super.dispose();
   }
 
@@ -457,6 +467,15 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         ),
         actions: [
           IconButton(
+            key: const Key('calc_unit_convert'),
+            icon: const Icon(Icons.swap_horiz),
+            tooltip: '간단 단위 변환',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const MiniUnitConverterPage()),
+            ),
+          ),
+          IconButton(
             key: const Key('calc_formulas'),
             icon: const Icon(Icons.menu_book_outlined),
             tooltip: '공식으로 계산',
@@ -533,7 +552,20 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   Widget _currentEntry(
     String big,
     ({String decimal, String? fraction})? result,
-  ) => Column(
+  ) => LayoutBuilder(
+    builder: (context, box) {
+      // 가로 화면처럼 세로 자리가 아주 좁아지면(계산 기록까지 쌓인 랜드스케이프
+      // 등) "≈ 분수" 보조 줄을 생략해 넘치지 않게 한다(핵심 식·숫자는 그대로 남는다).
+      final tight = box.maxHeight < 130;
+      return _currentEntryBody(big, result, tight: tight);
+    },
+  );
+
+  Widget _currentEntryBody(
+    String big,
+    ({String decimal, String? fraction})? result, {
+    required bool tight,
+  }) => Column(
     crossAxisAlignment: CrossAxisAlignment.end,
     children: [
       Row(
@@ -557,7 +589,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           if (_frac != null) _fracTile(_frac!),
         ],
       ),
-      const SizedBox(height: 6),
+      SizedBox(height: tight ? 2 : 6),
       // 결과 줄이 남는 세로 공간을 다 차지하게 한다 — 태블릿처럼 위아래로 긴
       // 화면일수록 숫자가 그만큼 커 보인다(스마트폰은 자리가 적어 그만큼 작게).
       Expanded(
@@ -620,7 +652,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           ],
         ),
       ),
-      if (_error == null && !_showExact && result?.fraction != null) ...[
+      if (!tight &&
+          _error == null &&
+          !_showExact &&
+          result?.fraction != null) ...[
         const SizedBox(height: 4),
         Text(
           '≈ ${result!.fraction}',

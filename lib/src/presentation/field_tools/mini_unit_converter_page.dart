@@ -1,0 +1,210 @@
+// 공학용 계산기 안의 "간단 단위 변환" — 갤럭시 계산기가 계산기 안에 내장한 단위
+// 변환기 같은 빠른 도구. 자세한 표(배관 호칭·전선 굵기·인치 분수 입력 등)는 이미
+// 현장 자료 안 "단위 환산"(unit_converter_page.dart)에 따로 있으니 여기서는 그
+// 자료(unit_defs.dart)를 그대로 가져다 써서, 자주 쓰는 몇 분류만 숫자 두 칸(보내는
+// 값 → 바뀐 값)으로 빠르게 바꾼다. 분수 입력 같은 특수 칸(textInput)은 빼고 숫자만
+// 있는 단위만 고른다.
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/theme/field_view.dart';
+import '../unit_converter/unit_defs.dart';
+
+/// 이 화면에서 고를 수 있는 분류(현장에서 자주 쓰는 것 위주).
+final List<UnitCategory> kMiniConvertCategories = [
+  kLength,
+  kMass,
+  kPressure,
+  kTemperature,
+  kArea,
+  kVolume,
+  kAngle,
+  kForce,
+  kTorque,
+  kPower,
+  kEnergy,
+];
+
+class MiniUnitConverterPage extends StatefulWidget {
+  const MiniUnitConverterPage({super.key});
+
+  @override
+  State<MiniUnitConverterPage> createState() => _MiniUnitConverterPageState();
+}
+
+class _MiniUnitConverterPageState extends State<MiniUnitConverterPage> {
+  late UnitCategory _cat = kMiniConvertCategories.first;
+  late List<UnitDef> _units = _numericUnits(_cat);
+  late UnitDef _from = _units[0];
+  late UnitDef _to = _units.length > 1 ? _units[1] : _units[0];
+  final _ctrl = TextEditingController(text: '1');
+
+  List<UnitDef> _numericUnits(UnitCategory c) =>
+      c.units.where((u) => !u.textInput).toList();
+
+  double? get _fromValue => double.tryParse(_ctrl.text.trim());
+
+  String get _resultText {
+    final v = _fromValue;
+    if (v == null) return '—';
+    final base = _from.toBase(v);
+    final r = _to.fromBase(base);
+    if (r.isNaN || r.isInfinite) return '—';
+    return formatNumber(r);
+  }
+
+  void _pickCategory(UnitCategory c) {
+    setState(() {
+      _cat = c;
+      _units = _numericUnits(c);
+      _from = _units[0];
+      _to = _units.length > 1 ? _units[1] : _units[0];
+    });
+  }
+
+  void _swap() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      final t = _from;
+      _from = _to;
+      _to = t;
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => FieldViewTheme(
+    child: Scaffold(
+      backgroundColor: fc.surface,
+      appBar: AppBar(
+        backgroundColor: fc.surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: fc.text,
+        title: Text(
+          "간단 단위 변환",
+          style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final c in kMiniConvertCategories)
+                  ChoiceChip(
+                    key: Key('unit_cat_${c.id}'),
+                    label: Text(c.label),
+                    selected: identical(_cat, c),
+                    onSelected: (_) => _pickCategory(c),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            _unitCard(
+              label: '보내는 값',
+              unit: _from,
+              onUnitChanged: (u) => setState(() => _from = u),
+              child: TextField(
+                key: const Key('unit_from_value'),
+                controller: _ctrl,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: true,
+                  decimal: true,
+                ),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: fc.text,
+                ),
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  isDense: true,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            Center(
+              child: IconButton(
+                key: const Key('unit_swap'),
+                onPressed: _swap,
+                icon: Icon(Icons.swap_vert, color: fc.brand),
+                tooltip: '단위 맞바꾸기',
+              ),
+            ),
+            _unitCard(
+              label: '바뀐 값',
+              unit: _to,
+              onUnitChanged: (u) => setState(() => _to = u),
+              child: Text(
+                _resultText,
+                key: const Key('unit_to_value'),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: fc.brand,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  Widget _unitCard({
+    required String label,
+    required UnitDef unit,
+    required ValueChanged<UnitDef> onUnitChanged,
+    required Widget child,
+  }) => Container(
+    padding: const EdgeInsets.all(14),
+    margin: const EdgeInsets.only(bottom: 4),
+    decoration: BoxDecoration(
+      color: fc.fill,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(color: fc.line),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: fc.textSub)),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            Expanded(child: child),
+            DropdownButton<UnitDef>(
+              value: unit,
+              underline: const SizedBox.shrink(),
+              items: [
+                for (final u in _units)
+                  DropdownMenuItem(
+                    value: u,
+                    child: Text(
+                      u.symbol,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: fc.text,
+                      ),
+                    ),
+                  ),
+              ],
+              onChanged: (u) {
+                if (u != null) onUnitChanged(u);
+              },
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
