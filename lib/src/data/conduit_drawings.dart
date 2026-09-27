@@ -20,6 +20,9 @@ class ConduitDrawing {
   final double totalCut;
   final List<Map<String, dynamic>> bends;
 
+  /// 무엇을 했는지 짧은 메모(선택) — 빠른 실행 "작업 히스토리"에도 그대로 보여준다.
+  final String notes;
+
   /// 저장할 때 쓴 장비(벤더 종류·제조사·규격·테이크업·게인…). 기록용.
   final Map<String, dynamic> settings;
 
@@ -30,6 +33,7 @@ class ConduitDrawing {
     required this.date,
     required this.totalCut,
     required this.bends,
+    this.notes = '',
     this.settings = const {},
   });
 
@@ -42,6 +46,7 @@ class ConduitDrawing {
     'date': date,
     'totalCut': totalCut,
     'bends': bends,
+    'notes': notes,
     'settings': settings,
   };
 
@@ -55,6 +60,7 @@ class ConduitDrawing {
       title: j['title']?.toString() ?? '이름 없는 도면',
       date: j['date']?.toString() ?? '',
       totalCut: (j['totalCut'] as num?)?.toDouble() ?? 0.0,
+      notes: j['notes']?.toString() ?? '',
       bends: [
         for (final b in rawBends)
           if (b is Map)
@@ -108,6 +114,7 @@ Future<ConduitDrawing> saveConduitDrawing({
   required String title,
   required double totalCut,
   required List<Map<String, dynamic>> bends,
+  String notes = '',
   Map<String, dynamic> settings = const {},
 }) async {
   final all = await loadConduitDrawings();
@@ -118,6 +125,7 @@ Future<ConduitDrawing> saveConduitDrawing({
     title: title.trim().isEmpty ? '이름 없는 도면' : title.trim(),
     date: _now(),
     totalCut: totalCut,
+    notes: notes.trim(),
     bends: [
       for (final b in bends)
         {

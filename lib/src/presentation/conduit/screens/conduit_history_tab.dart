@@ -62,6 +62,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
             'date': d.date,
             'totalCut': d.totalCut.round(),
             'segmentCount': d.segmentCount,
+            'notes': d.notes,
           },
       ];
     });
@@ -413,6 +414,20 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if ((item['notes'] as String? ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        item['notes'],
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: slate600,
+                          fontStyle: FontStyle.italic,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

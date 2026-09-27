@@ -1148,9 +1148,11 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
   /// 도면 카드(전선관 보관함 카드와 같은 모양).
   Widget _buildDrawingCard(Map<String, dynamic> item) {
     String fromTo = "경로 미상";
+    String note = "";
     try {
       final pData = jsonDecode(item['p_to_p'] ?? '{}');
       fromTo = "${pData['from']} ➔ ${pData['to']}";
+      note = (pData['note'] ?? '').toString();
     } catch (_) {}
     final int cut = (double.tryParse(item['total_length'].toString()) ?? 0.0)
         .round();
@@ -1217,6 +1219,20 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+                      if (note.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          note,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: slate600,
+                            fontStyle: FontStyle.italic,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

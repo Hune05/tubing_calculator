@@ -26,7 +26,7 @@ Future<bool> showConduitSaveDialog(
   if (!context.mounted) return false;
 
   final bendCount = bends.where((b) => ((b['angle'] as num?) ?? 0) > 0).length;
-  final result = await showDialog<(String, String)>(
+  final result = await showDialog<(String, String, String)>(
     context: context,
     builder: (_) => _SaveDialog(
       folder: lastFolder,
@@ -34,13 +34,14 @@ Future<bool> showConduitSaveDialog(
     ),
   );
   if (result == null) return false;
-  final (folder, title) = result;
+  final (folder, title, notes) = result;
 
   await saveConduitDrawing(
     folderName: folder,
     title: title,
     totalCut: totalCut,
     bends: bends,
+    notes: notes,
     settings: settings,
   );
   try {
@@ -81,11 +82,13 @@ class _SaveDialogState extends State<_SaveDialog> {
   late final TextEditingController _title = TextEditingController(
     text: widget.title,
   );
+  final TextEditingController _notes = TextEditingController();
 
   @override
   void dispose() {
     _folder.dispose();
     _title.dispose();
+    _notes.dispose();
     super.dispose();
   }
 
@@ -96,7 +99,8 @@ class _SaveDialogState extends State<_SaveDialog> {
       okText: '저장',
       okKey: const Key('conduit_save_ok'),
       onCancel: () => Navigator.pop(context),
-      onOk: () => Navigator.pop(context, (_folder.text, _title.text)),
+      onOk: () =>
+          Navigator.pop(context, (_folder.text, _title.text, _notes.text)),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -112,6 +116,14 @@ class _SaveDialogState extends State<_SaveDialog> {
             controller: _title,
             style: appFieldTextStyle,
             decoration: appFieldDecoration('도면 이름'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('conduit_save_notes'),
+            controller: _notes,
+            style: appFieldTextStyle,
+            maxLines: 2,
+            decoration: appFieldDecoration('무엇을 했는지 (메모, 선택)'),
           ),
         ],
       ),

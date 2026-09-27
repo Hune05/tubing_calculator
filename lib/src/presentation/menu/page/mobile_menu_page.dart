@@ -14,6 +14,8 @@ import 'package:geolocator/geolocator.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:tubing_calculator/src/core/database/database_helper.dart';
+import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 
 // 🚀 [수정됨] 단일 설정 페이지 대신 통합 네비게이션 페이지 임포트
 // (실제 파일 경로에 맞게 수정해 주세요)
@@ -564,26 +566,31 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     entry.onTap();
   }
 
-  /// 빠른 실행 줄을 길게 누르면 뜨는 "작업 히스토리" — 몇 분 전 한 번
-  /// 썼다는 게 아니라, 실제로 눌러 들어간 시각들을 그대로 목록으로
-  /// 보여준다(2026-09-28 사용자 요청 — "말 그대로 히스토리").
+  /// 빠른 실행 줄을 길게 누르면 뜨는 "작업 히스토리". 벤딩·전선관 벤딩
+  /// 마킹 계산기는 이미 저장한 도면(보관함) 기록이 있어서 "몇 분 전 한 번
+  /// 썼다"는 의미 없는 시각 대신 **무슨 프로젝트로 뭘 했는지**를 그대로
+  /// 보여준다 — 나머지 화면은 그런 기록이 없어서 실행한 시각 목록으로
+  /// 대신한다(2026-09-28 사용자 요청).
   Future<void> _showQuickLaunchHistory(_MenuEntry entry) async {
     HapticFeedback.selectionClick();
-    List<DateTime> history = [];
-    try {
-      final p = await SharedPreferences.getInstance();
-      history = quickLaunchDecodeHistory(
-        p.getString(_quickLaunchLastUsedKey(entry.title)),
-      );
-    } catch (_) {}
+    List<Widget> rows;
+    if (entry.title == '벤딩 마킹 계산기') {
+      rows = await _tubeWorkHistoryRows();
+    } else if (entry.title == '전선관 벤딩 마킹 계산기') {
+      rows = await _conduitWorkHistoryRows();
+    } else {
+      rows = await _genericQuickLaunchHistoryRows(entry.title);
+    }
     if (!mounted) return;
-    final now = DateTime.now();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
         key: const Key('quick_launch_history_sheet'),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.7,
+        ),
         decoration: const BoxDecoration(
           color: pureWhite,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -622,37 +629,153 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            if (history.isEmpty)
-              const Text(
-                "아직 이 화면을 빠른 실행으로 연 기록이 없습니다.",
-                style: TextStyle(color: slate600, height: 1.4),
-              )
-            else
-              for (final t in history)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.history,
-                        size: 16,
-                        color: slate600.withValues(alpha: 0.7),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        quickLaunchRelativeTime(t, now),
-                        style: const TextStyle(
-                          color: slate900,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
+            const SizedBox(height: 12),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: rows,
                 ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 저장한 도면이 없는 화면들 — "실행한 시각" 목록으로 대신한다(예전 방식).
+  Future<List<Widget>> _genericQuickLaunchHistoryRows(String title) async {
+    List<DateTime> history = [];
+    try {
+      final p = await SharedPreferences.getInstance();
+      history = quickLaunchDecodeHistory(
+        p.getString(_quickLaunchLastUsedKey(title)),
+      );
+    } catch (_) {}
+    if (history.isEmpty) {
+      return const [
+        Text(
+          "아직 이 화면을 빠른 실행으로 연 기록이 없습니다.",
+          style: TextStyle(color: slate600, height: 1.4),
+        ),
+      ];
+    }
+    final now = DateTime.now();
+    return [
+      for (final t in history)
+        _workHistoryRow(title: quickLaunchRelativeTime(t, now), subtitle: ''),
+    ];
+  }
+
+  /// 튜브 벤딩 마킹 계산기가 실제로 저장해 둔 도면 기록(보관함, SQLite
+  /// `history` 테이블)에서 "무슨 프로젝트로 뭘 했는지"를 그대로 읽어 온다.
+  Future<List<Widget>> _tubeWorkHistoryRows() async {
+    List<Map<String, dynamic>> rows = [];
+    try {
+      rows = await DatabaseHelper.instance.getHistory();
+    } catch (_) {}
+    if (rows.isEmpty) {
+      return const [
+        Text(
+          "아직 저장한 도면이 없습니다.",
+          style: TextStyle(color: slate600, height: 1.4),
+        ),
+      ];
+    }
+    return [
+      for (final item in rows.take(6))
+        _workHistoryRow(
+          title: _tubeHistoryTitle(item),
+          subtitle: _tubeHistorySubtitle(item),
+        ),
+    ];
+  }
+
+  String _tubeHistoryTitle(Map<String, dynamic> item) {
+    try {
+      final p = jsonDecode(item['p_to_p'] ?? '{}');
+      final project = (p['project'] ?? '프로젝트 미지정').toString();
+      final from = (p['from'] ?? '미상').toString();
+      final to = (p['to'] ?? '미상').toString();
+      return '$project · $from ➔ $to';
+    } catch (_) {
+      return '경로 미상';
+    }
+  }
+
+  String _tubeHistorySubtitle(Map<String, dynamic> item) {
+    String note = '';
+    try {
+      final p = jsonDecode(item['p_to_p'] ?? '{}');
+      note = (p['note'] ?? '').toString();
+    } catch (_) {}
+    final cut = (double.tryParse(item['total_length']?.toString() ?? '') ?? 0.0)
+        .round();
+    final date = (item['date'] ?? '').toString();
+    return [if (note.isNotEmpty) note, '총 ${cut}mm', date].join(' · ');
+  }
+
+  /// 전선관 벤딩 마킹 계산기의 보관함(SharedPreferences에 저장한 도면
+  /// 목록)에서 "무슨 작업(묶음)으로 뭘 했는지"를 그대로 읽어 온다.
+  Future<List<Widget>> _conduitWorkHistoryRows() async {
+    List<ConduitDrawing> drawings = [];
+    try {
+      drawings = await loadConduitDrawings();
+    } catch (_) {}
+    if (drawings.isEmpty) {
+      return const [
+        Text(
+          "아직 저장한 도면이 없습니다.",
+          style: TextStyle(color: slate600, height: 1.4),
+        ),
+      ];
+    }
+    return [
+      for (final d in drawings.take(6))
+        _workHistoryRow(
+          title: '${d.folderName} · ${d.title}',
+          subtitle: [
+            if (d.notes.isNotEmpty) d.notes,
+            '총 ${d.totalCut.round()}mm',
+            d.date,
+          ].join(' · '),
+        ),
+    ];
+  }
+
+  /// "작업 히스토리" 목록 한 줄 — 제목(굵게)과, 있으면 부제(메모·길이·날짜)를 함께.
+  Widget _workHistoryRow({required String title, required String subtitle}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.history, size: 16, color: slate600.withValues(alpha: 0.7)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: slate900,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: slate600, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

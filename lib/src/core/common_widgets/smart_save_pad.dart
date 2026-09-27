@@ -41,6 +41,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
   final TextEditingController _projectController = TextEditingController();
   final TextEditingController _fromController = TextEditingController();
   final TextEditingController _toController = TextEditingController();
+  final TextEditingController _noteController = TextEditingController();
 
   final List<String> _inchSizes = [
     '1/4"',
@@ -79,6 +80,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
     _projectController.dispose();
     _fromController.dispose();
     _toController.dispose();
+    _noteController.dispose();
     super.dispose();
   }
 
@@ -87,10 +89,12 @@ class _SmartSavePadState extends State<SmartSavePad> {
     TextEditingController controller, {
     IconData? icon,
     TextInputAction action = TextInputAction.next,
+    int maxLines = 1,
   }) {
     return TextField(
       controller: controller,
       textInputAction: action,
+      maxLines: maxLines,
       style: const TextStyle(
         color: Colors.white,
         fontSize: 16,
@@ -99,6 +103,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white54, fontSize: 13),
+        alignLabelWithHint: maxLines > 1,
         prefixIcon: icon != null
             ? Icon(icon, color: Colors.white38, size: 18)
             : null,
@@ -195,6 +200,14 @@ class _SmartSavePadState extends State<SmartSavePad> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            _buildFieldInput(
+              "무엇을 했는지 (메모, 선택)",
+              _noteController,
+              icon: Icons.edit_note,
+              action: TextInputAction.done,
+              maxLines: 2,
+            ),
             const SizedBox(height: 24),
             const Text(
               "파이프 규격 (Inch)",
@@ -251,6 +264,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
                     "end_fit": widget.includeEnd,
                     "tail": widget.tailLength,
                     "start_dir": widget.startDir,
+                    // 무엇을 했는지 짧은 메모 — 빠른 실행 "작업 히스토리"에도 그대로 보여준다.
+                    "note": _noteController.text,
                     // 다시 열 때 같은 값으로 마킹을 셈하도록 장비 값을 남긴다.
                     kTubeDrawingSpecsKey: tubeSpecsSnapshot(MachineSpecs()),
                   };
