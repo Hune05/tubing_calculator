@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
@@ -72,6 +73,23 @@ const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = AppColors.danger;
 const Color makitaTeal = AppColors.brand;
 
+/// 빠른 실행(즐겨찾기) 목록에 쓰려고 메뉴 버튼 하나의 정보를 담아 둔 것.
+/// [_buildMenuButton]이 그릴 때마다(매 build) 자기 것을 쌓아 둔다.
+class _MenuEntry {
+  final String title;
+  final String subtitle;
+  final AppGlyph icon;
+  final Color iconColor;
+  final VoidCallback onTap;
+  const _MenuEntry({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.iconColor,
+    required this.onTap,
+  });
+}
+
 class MobileMenuPage extends StatefulWidget {
   final String currentWorker;
   final bool isAdmin;
@@ -97,6 +115,14 @@ bool weatherIsOld(DateTime? at, DateTime now) =>
 bool weatherIsStale(DateTime? at, DateTime now) =>
     at != null && now.difference(at) >= const Duration(hours: 1);
 
+/// 즐겨찾기(빠른 실행) 켜고 끄기 — 위젯 없이 시험 가능한 순수 함수.
+/// 이미 있으면 빼고, 없으면 넣는다.
+Set<String> toggleQuickLaunchFavorite(Set<String> current, String title) {
+  final next = Set<String>.from(current);
+  if (!next.remove(title)) next.add(title);
+  return next;
+}
+
 class _MobileMenuPageState extends State<MobileMenuPage>
     with WidgetsBindingObserver {
   // 🚀 [통신 없는 현장] 날씨를 못 불러왔는지. 못 불러오면 "동기화 중..."에 머물지 않고
@@ -109,6 +135,19 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   int? _missingReports;
   // 필드 헬퍼 2번: 최소 수량 아래로 내려간 자재 수(자재 현황과 같은 기준).
   int? _lowStock;
+
+  // ── 빠른 실행(즐겨찾기) ──
+  /// 즐겨찾기한 메뉴 제목들(제목이 곧 아이디 — 다 서로 다른 글이라 겹치지 않는다).
+  Set<String> _favorites = {};
+
+  /// 전체 메뉴 대신 빠른 실행(즐겨찾기 슬라이드)만 보이는 중인지.
+  bool _quickMode = false;
+
+  /// 이번 build에서 만든 메뉴 버튼들(빠른 실행 화면이 여기서 골라 쓴다).
+  final List<_MenuEntry> _menuEntries = [];
+
+  static const String _kFavoritesKey = 'home_quick_launch_favorites_v1';
+  static const String _kQuickModeKey = 'home_quick_launch_mode_v1';
 
   // 🚀 날씨 상세 데이터 상태 관리
   String _weatherDesc = "확인 중";
@@ -143,6 +182,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     _loadTodayScheduleCount();
     _loadMissingReports();
     _loadLowStock();
+    _loadQuickLaunchSettings();
     // 격주·평일·반복 끝이 있는 일정 알림은 한 번씩만 잡혀 있어서 다음 회차를 다시 잡아야
     // 한다. 예전엔 "내 일정" 화면을 열 때만 잡아서, 며칠 안 열면 알림이 끊겼다.
     // 앱을 켤 때 한 번(기다리지 않음, 통신이 없으면 폰 캐시로).
@@ -198,6 +238,173 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   Future<void> _loadLowStock() async {
     final n = await fetchLowStockCount();
     if (mounted) setState(() => _lowStock = n);
+  }
+
+  Future<void> _loadQuickLaunchSettings() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final favs = p.getStringList(_kFavoritesKey);
+      final quick = p.getBool(_kQuickModeKey);
+      if (!mounted) return;
+      setState(() {
+        if (favs != null) _favorites = favs.toSet();
+        if (quick != null) _quickMode = quick;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveQuickLaunchSettings() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(_kFavoritesKey, _favorites.toList());
+      await p.setBool(_kQuickModeKey, _quickMode);
+    } catch (_) {}
+  }
+
+  /// 메뉴 카드를 길게 누르면 즐겨찾기(빠른 실행)에 넣거나 뺀다.
+  void _toggleFavorite(String title) {
+    HapticFeedback.mediumImpact();
+    setState(() => _favorites = toggleQuickLaunchFavorite(_favorites, title));
+    _saveQuickLaunchSettings();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 1),
+          content: Text(
+            _favorites.contains(title)
+                ? '"$title"을(를) 빠른 실행에 넣었습니다'
+                : '"$title"을(를) 빠른 실행에서 뺐습니다',
+          ),
+        ),
+      );
+  }
+
+  void _toggleQuickMode() {
+    HapticFeedback.selectionClick();
+    setState(() => _quickMode = !_quickMode);
+    _saveQuickLaunchSettings();
+  }
+
+  /// "전체 메뉴 ⇄ 빠른 실행" 전환 알약 단추(공학용 계산기의 기본/공학 모드
+  /// 전환과 같은 생김새).
+  Widget _buildModeToggle() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+      child: GestureDetector(
+        key: const Key('home_quick_toggle'),
+        onTap: _toggleQuickMode,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: slate100,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _quickMode ? Icons.apps : Icons.bolt,
+                size: 18,
+                color: tossBlue,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                _quickMode ? '전체 메뉴 보기' : '빠른 실행 보기',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: slate900,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 즐겨찾기한 메뉴를 옆으로 밀어 넘겨 보는 빠른 실행 화면.
+  Widget _buildQuickLaunch() {
+    final favEntries = _menuEntries
+        .where((e) => _favorites.contains(e.title))
+        .toList();
+    if (favEntries.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+        child: Column(
+          children: [
+            Icon(Icons.star_border, size: 40, color: slate600),
+            const SizedBox(height: 12),
+            const Text(
+              "즐겨찾기한 기능이 없습니다",
+              style: TextStyle(fontWeight: FontWeight.w700, color: slate900),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              "전체 메뉴에서 카드를 길게 누르면 여기 추가됩니다.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: slate600),
+            ),
+          ],
+        ),
+      );
+    }
+    return SizedBox(
+      key: const Key('home_quick_launch'),
+      height: 168,
+      child: PageView.builder(
+        controller: PageController(viewportFraction: 0.42),
+        padEnds: false,
+        itemCount: favEntries.length,
+        itemBuilder: (context, i) {
+          final e = favEntries[i];
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: InkWell(
+              key: Key('home_quick_${e.title}'),
+              borderRadius: BorderRadius.circular(16),
+              onTap: e.onTap,
+              onLongPress: () => _toggleFavorite(e.title),
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: e.iconColor.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: e.iconColor.withValues(alpha: 0.2)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: e.iconColor.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: AppIcon(e.icon, size: 22, color: e.iconColor),
+                    ),
+                    Text(
+                      e.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: e.iconColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _loadTodayScheduleCount() async {
@@ -411,6 +618,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
 
   @override
   Widget build(BuildContext context) {
+    // 빠른 실행 화면이 고를 수 있게 이번 build에서 새로 쌓는다(오래된 콜백이
+    // 안 남게 매번 비운다).
+    _menuEntries.clear();
     return Scaffold(
       backgroundColor: pureWhite,
       body: SafeArea(
@@ -432,475 +642,501 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 // 곳으로 가는 길이 오른쪽 위 작은 사람 아이콘뿐이었다.
                 if (widget.currentWorker == kGuestName) _buildGuestBanner(),
                 const SizedBox(height: 16),
-
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 24.0,
-                    vertical: 8.0,
-                  ),
-                  child: Text(
-                    "프로젝트 관리",
-                    style: TextStyle(
-                      color: slate600,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-                // 🚀 [고침] 가장 자주 하는 "오늘 작업 일지 쓰기"가 홈에 없어 홈 → 내
-                // 프로젝트 → 카드 → 일지 탭 → 작성으로 들어가야 했고, 안 쓴 수도 안 보였다.
-                _buildMenuButton(
-                  context: context,
-                  title: "오늘 작업 일지 쓰기",
-                  subtitle: "안 쓴 프로젝트를 바로 엽니다",
-                  icon: AppGlyph.project,
-                  iconColor: makitaTeal,
-                  badgeText: (_missingReports ?? 0) > 0
-                      ? "$_missingReports곳 안 씀"
-                      : null,
-                  badgeColor: AppColors.caution,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      WorkRoute(
-                        builder: (context) =>
-                            const WorkLogMainScreen(autoWriteReport: true),
-                      ),
-                    ).then((_) {
-                      _loadTodayScheduleCount();
-                      _loadMissingReports();
-                    });
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "내 프로젝트",
-                  subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
-                  icon: AppGlyph.project,
-                  iconColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      WorkRoute(
-                        builder: (context) => const WorkLogMainScreen(),
-                      ),
-                    ).then((_) {
-                      _loadTodayScheduleCount();
-                      _loadMissingReports();
-                    });
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "내 일정 관리",
-                  subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
-                  icon: AppGlyph.schedule,
-                  iconColor: makitaTeal,
-                  badgeText:
-                      (_todayScheduleCount != null && _todayScheduleCount! > 0)
-                      ? "오늘 $_todayScheduleCount건"
-                      : null,
-                  badgeColor: makitaTeal,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MobileMyScheduleScreen(
-                          currentWorker: widget.currentWorker,
+                _buildModeToggle(),
+                if (_quickMode) _buildQuickLaunch(),
+                Offstage(
+                  // 빠른 실행 모드에서도 전체 메뉴는 그대로 만들어 둔다(즐겨찾기 목록을
+                  // 모으는 부수효과 때문 — _buildMenuButton이 _menuEntries에 쌓는다).
+                  // 화면에만 안 보이고 자리도 안 차지한다.
+                  offstage: _quickMode,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 24.0,
+                          vertical: 8.0,
+                        ),
+                        child: Text(
+                          "프로젝트 관리",
+                          style: TextStyle(
+                            color: slate600,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
-                    ).then((_) => _loadTodayScheduleCount());
-                  },
-                ),
+                      // 🚀 [고침] 가장 자주 하는 "오늘 작업 일지 쓰기"가 홈에 없어 홈 → 내
+                      // 프로젝트 → 카드 → 일지 탭 → 작성으로 들어가야 했고, 안 쓴 수도 안 보였다.
+                      _buildMenuButton(
+                        context: context,
+                        title: "오늘 작업 일지 쓰기",
+                        subtitle: "안 쓴 프로젝트를 바로 엽니다",
+                        icon: AppGlyph.project,
+                        iconColor: makitaTeal,
+                        badgeText: (_missingReports ?? 0) > 0
+                            ? "$_missingReports곳 안 씀"
+                            : null,
+                        badgeColor: AppColors.caution,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            WorkRoute(
+                              builder: (context) => const WorkLogMainScreen(
+                                autoWriteReport: true,
+                              ),
+                            ),
+                          ).then((_) {
+                            _loadTodayScheduleCount();
+                            _loadMissingReports();
+                          });
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "내 프로젝트",
+                        subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
+                        icon: AppGlyph.project,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            WorkRoute(
+                              builder: (context) => const WorkLogMainScreen(),
+                            ),
+                          ).then((_) {
+                            _loadTodayScheduleCount();
+                            _loadMissingReports();
+                          });
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "내 일정 관리",
+                        subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
+                        icon: AppGlyph.schedule,
+                        iconColor: makitaTeal,
+                        badgeText:
+                            (_todayScheduleCount != null &&
+                                _todayScheduleCount! > 0)
+                            ? "오늘 $_todayScheduleCount건"
+                            : null,
+                        badgeColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MobileMyScheduleScreen(
+                                currentWorker: widget.currentWorker,
+                              ),
+                            ),
+                          ).then((_) => _loadTodayScheduleCount());
+                        },
+                      ),
 
-                // 🚀 [정리] 2026-09-26 사용자 요청: "현장 작업" 한 묶음(13개)을 공종별로 나눔.
-                // 배관·튜브 → 전기 → 계장 → 가공·배치 → 현장 도구 → 자재 관리 → 참고 자료 순.
-                _sectionHeader("근무"),
-                _buildMenuButton(
-                  context: context,
-                  title: "근태 관리",
-                  subtitle: "연차·월차·반차·조퇴·특근과 출퇴근 시간 기록",
-                  icon: AppGlyph.schedule,
-                  iconColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AttendancePage(),
+                      // 🚀 [정리] 2026-09-26 사용자 요청: "현장 작업" 한 묶음(13개)을 공종별로 나눔.
+                      // 배관·튜브 → 전기 → 계장 → 가공·배치 → 현장 도구 → 자재 관리 → 참고 자료 순.
+                      _sectionHeader("근무"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "근태 관리",
+                        subtitle: "연차·월차·반차·조퇴·특근과 출퇴근 시간 기록",
+                        icon: AppGlyph.schedule,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AttendancePage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _sectionHeader("배관·튜브"),
-                _buildMenuButton(
-                  context: context,
-                  title: "벤딩 마킹 계산기",
-                  subtitle: "스마트폰용 · 단계별 치수 입력",
-                  icon: AppGlyph.tubeBend,
-                  iconColor: makitaTeal,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MobileCalculatorPage(),
+                      _sectionHeader("배관·튜브"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "벤딩 마킹 계산기",
+                        subtitle: "스마트폰용 · 단계별 치수 입력",
+                        icon: AppGlyph.tubeBend,
+                        iconColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const MobileCalculatorPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
 
-                _buildMenuButton(
-                  context: context,
-                  title: "튜브 컷팅 계산기",
-                  subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
-                  icon: AppGlyph.tubeCut,
-                  iconColor: makitaTeal,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const MobileCuttingProjectListPage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "튜브 컷팅 계산기",
+                        subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
+                        icon: AppGlyph.tubeCut,
+                        iconColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const MobileCuttingProjectListPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "압력 시험",
-                  subtitle: "튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서",
-                  icon: AppGlyph.pressureGauge,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const PressureTestPage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "압력 시험",
+                        subtitle: "튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서",
+                        icon: AppGlyph.pressureGauge,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PressureTestPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "유량 계산",
-                  subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검",
-                  icon: AppGlyph.flow,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const FlowCalcPage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "유량 계산",
+                        subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검",
+                        icon: AppGlyph.flow,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const FlowCalcPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _sectionHeader("전기"),
-                _buildMenuButton(
-                  context: context,
-                  title: "전선관 벤딩 마킹 계산기",
-                  subtitle: "장비 프로필 설정 · 마킹 뷰어",
-                  icon: AppGlyph.conduitBend,
-                  iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ConduitMainNavigation(),
+                      _sectionHeader("전기"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "전선관 벤딩 마킹 계산기",
+                        subtitle: "장비 프로필 설정 · 마킹 뷰어",
+                        icon: AppGlyph.conduitBend,
+                        iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ConduitMainNavigation(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "전기 설계 계산",
-                  subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
-                  icon: AppGlyph.electric,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ElectricCalculatorPage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "전기 설계 계산",
+                        subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
+                        icon: AppGlyph.electric,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const ElectricCalculatorPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _sectionHeader("계장"),
-                _buildMenuButton(
-                  context: context,
-                  title: "계기 교정",
-                  subtitle: "교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서",
-                  icon: AppGlyph.currentLoop,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const SignalCalculatorPage(),
+                      _sectionHeader("계장"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "계기 교정",
+                        subtitle: "교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서",
+                        icon: AppGlyph.currentLoop,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const SignalCalculatorPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _sectionHeader("가공·배치"),
-                _buildMenuButton(
-                  context: context,
-                  title: "형강 컷팅 (찬넬/앵글)",
-                  subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
-                  icon: AppGlyph.steel,
-                  iconColor: makitaTeal,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const MobileSteelProjectListPage(),
+                      _sectionHeader("가공·배치"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "형강 컷팅 (찬넬/앵글)",
+                        subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
+                        icon: AppGlyph.steel,
+                        iconColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const MobileSteelProjectListPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "작업 배치도",
-                  subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
-                  icon: AppGlyph.layout,
-                  iconColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    // 🚀 [수정] 예전엔 여기서 바로 빈 도면을 열어서, 저장해둔
-                    // 배치도를 다시 불러볼 방법이 없었다(저장은 Firestore에
-                    // 되는데 불러오는 화면 자체가 없었음). 이제 목록을 먼저
-                    // 보여주고, 거기서 기존 도면을 열거나 새로 시작한다.
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const LayoutBoardProjectListPage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "작업 배치도",
+                        subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
+                        icon: AppGlyph.layout,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          // 🚀 [수정] 예전엔 여기서 바로 빈 도면을 열어서, 저장해둔
+                          // 배치도를 다시 불러볼 방법이 없었다(저장은 Firestore에
+                          // 되는데 불러오는 화면 자체가 없었음). 이제 목록을 먼저
+                          // 보여주고, 거기서 기존 도면을 열거나 새로 시작한다.
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const LayoutBoardProjectListPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _sectionHeader("현장 도구"),
-                _buildMenuButton(
-                  context: context,
-                  title: "단위 환산",
-                  subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
-                  icon: AppGlyph.unitConvert,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const UnitConverterPage(),
+                      _sectionHeader("현장 도구"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "단위 환산",
+                        subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
+                        icon: AppGlyph.unitConvert,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UnitConverterPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "수평계",
-                  subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
-                  icon: AppGlyph.level,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const LevelPage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "수평계",
+                        subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
+                        icon: AppGlyph.level,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const LevelPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "각도기",
-                  subtitle: "벤딩 각도 재기 · 화면 각도기",
-                  icon: AppGlyph.protractor,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const ProtractorPage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "각도기",
+                        subtitle: "벤딩 각도 재기 · 화면 각도기",
+                        icon: AppGlyph.protractor,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ProtractorPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "공학용 계산기",
-                  subtitle: "사칙연산·삼각함수·거듭제곱 · 인치 분수·피트",
-                  icon: AppGlyph.engCalc,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const EngCalculatorPage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "공학용 계산기",
+                        subtitle: "사칙연산·삼각함수·거듭제곱 · 인치 분수·피트",
+                        icon: AppGlyph.engCalc,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EngCalculatorPage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "벤딩 리모컨",
-                  subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
-                  icon: AppGlyph.remote,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MobileRemotePage(),
+                      _buildMenuButton(
+                        context: context,
+                        title: "벤딩 리모컨",
+                        subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
+                        icon: AppGlyph.remote,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MobileRemotePage(),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "현장 도면 스캔 (QR)",
-                  subtitle: "오프라인 지시서 스캔 후 3D 뷰어 실행",
-                  icon: AppGlyph.scan,
-                  onTap: () async {
-                    HapticFeedback.lightImpact();
-                    final String? scannedData = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const QRScannerPage(),
-                      ),
-                    );
+                      _buildMenuButton(
+                        context: context,
+                        title: "현장 도면 스캔 (QR)",
+                        subtitle: "오프라인 지시서 스캔 후 3D 뷰어 실행",
+                        icon: AppGlyph.scan,
+                        onTap: () async {
+                          HapticFeedback.lightImpact();
+                          final String? scannedData = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const QRScannerPage(),
+                            ),
+                          );
 
-                    if (scannedData != null && context.mounted) {
-                      try {
-                        Uri uri = Uri.parse(scannedData);
-                        String project =
-                            uri.queryParameters['p'] ?? "Scanned Project";
-                        String pipeSize = uri.queryParameters['s'] ?? "1/4\"";
-                        String bendsStr = uri.queryParameters['b'] ?? "";
-                        bool startFit = uri.queryParameters['sf'] == 'true';
-                        bool endFit = uri.queryParameters['ef'] == 'true';
-                        double tail =
-                            double.tryParse(
-                              uri.queryParameters['t'] ?? '0.0',
-                            ) ??
-                            0.0;
-                        String startDir = uri.queryParameters['d'] ?? 'RIGHT';
-                        List<Map<String, double>> parsedBends = [];
+                          if (scannedData != null && context.mounted) {
+                            try {
+                              Uri uri = Uri.parse(scannedData);
+                              String project =
+                                  uri.queryParameters['p'] ?? "Scanned Project";
+                              String pipeSize =
+                                  uri.queryParameters['s'] ?? "1/4\"";
+                              String bendsStr = uri.queryParameters['b'] ?? "";
+                              bool startFit =
+                                  uri.queryParameters['sf'] == 'true';
+                              bool endFit = uri.queryParameters['ef'] == 'true';
+                              double tail =
+                                  double.tryParse(
+                                    uri.queryParameters['t'] ?? '0.0',
+                                  ) ??
+                                  0.0;
+                              String startDir =
+                                  uri.queryParameters['d'] ?? 'RIGHT';
+                              List<Map<String, double>> parsedBends = [];
 
-                        if (bendsStr.isNotEmpty) {
-                          final parts = bendsStr.split('-');
-                          for (var part in parts) {
-                            final vals = part.split('_');
-                            if (vals.length >= 3) {
-                              parsedBends.add({
-                                'length': double.tryParse(vals[0]) ?? 0.0,
-                                'angle': double.tryParse(vals[1]) ?? 0.0,
-                                'rotation': double.tryParse(vals[2]) ?? 0.0,
-                                'mark': vals.length >= 4
-                                    ? (double.tryParse(vals[3]) ?? 0.0)
-                                    : 0.0,
-                              });
+                              if (bendsStr.isNotEmpty) {
+                                final parts = bendsStr.split('-');
+                                for (var part in parts) {
+                                  final vals = part.split('_');
+                                  if (vals.length >= 3) {
+                                    parsedBends.add({
+                                      'length': double.tryParse(vals[0]) ?? 0.0,
+                                      'angle': double.tryParse(vals[1]) ?? 0.0,
+                                      'rotation':
+                                          double.tryParse(vals[2]) ?? 0.0,
+                                      'mark': vals.length >= 4
+                                          ? (double.tryParse(vals[3]) ?? 0.0)
+                                          : 0.0,
+                                    });
+                                  }
+                                }
+                              }
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ViewerOnlyScreen(
+                                    project: project,
+                                    pipeSize: pipeSize,
+                                    bendList: parsedBends,
+                                    startFit: startFit,
+                                    endFit: endFit,
+                                    tailLength: tail,
+                                    startDir: startDir,
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    "QR 코드를 읽을 수 없습니다.",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  backgroundColor: Colors.redAccent.shade400,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
                             }
                           }
-                        }
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ViewerOnlyScreen(
-                              project: project,
-                              pipeSize: pipeSize,
-                              bendList: parsedBends,
-                              startFit: startFit,
-                              endFit: endFit,
-                              tailLength: tail,
-                              startDir: startDir,
+                        },
+                      ),
+                      _sectionHeader("자재 관리"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "자재 현황",
+                        subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
+                        icon: AppGlyph.stock,
+                        iconColor: slate900,
+                        // 필드 헬퍼 2번: 현장 나가기 전에 홈만 보고 부족한 자재를 알 수 있게.
+                        badgeText: (_lowStock ?? 0) > 0
+                            ? "$_lowStock건 부족"
+                            : null,
+                        badgeColor: AppColors.caution,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => MobileInventoryStatusPage(
+                                workerName: widget.currentWorker,
+                              ),
                             ),
-                          ),
-                        );
-                      } catch (e) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text(
-                              "QR 코드를 읽을 수 없습니다.",
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                          ).then((_) => _loadLowStock());
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "자재 통합 관리",
+                        subtitle: "재고조사 · 새 자재 등록 및 삭제",
+                        icon: AppGlyph.stockAdmin,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  const MobileInventoryLoginScreen(),
                             ),
-                            backgroundColor: Colors.redAccent.shade400,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
-                      }
-                    }
-                  },
-                ),
-                _sectionHeader("자재 관리"),
-                _buildMenuButton(
-                  context: context,
-                  title: "자재 현황",
-                  subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
-                  icon: AppGlyph.stock,
-                  iconColor: slate900,
-                  // 필드 헬퍼 2번: 현장 나가기 전에 홈만 보고 부족한 자재를 알 수 있게.
-                  badgeText: (_lowStock ?? 0) > 0 ? "$_lowStock건 부족" : null,
-                  badgeColor: AppColors.caution,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MobileInventoryStatusPage(
-                          workerName: widget.currentWorker,
-                        ),
+                          ).then((_) => _loadLowStock());
+                        },
                       ),
-                    ).then((_) => _loadLowStock());
-                  },
-                ),
-                _buildMenuButton(
-                  context: context,
-                  title: "자재 통합 관리",
-                  subtitle: "재고조사 · 새 자재 등록 및 삭제",
-                  icon: AppGlyph.stockAdmin,
-                  iconColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            const MobileInventoryLoginScreen(),
+                      _sectionHeader("참고 자료"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "현장 자료·장비 사용법",
+                        subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
+                        icon: AppGlyph.tubeSpec,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const TubeReferencePage(),
+                            ),
+                          );
+                        },
                       ),
-                    ).then((_) => _loadLowStock());
-                  },
+                      // 🚀 [정리] "자재 발주 및 현황"과 "발주 의뢰 내역"은 메뉴에서 뺐다
+                      // (2026-09-20). 발주 기록이 한 건도 없고, 발주를 넣으면 지금
+                      // 숨겨 둔 현장 소통(채팅)으로 글이 가는 반쪽 구조였다. 화면
+                      // 파일(발주·발주 기록·채팅·차량 관리자)은 2026-09-23에 지웠다.
+                      // 필요해지면 git 기록(3bef015 이전)에서 꺼내 여기에 붙이면 된다.
+                      const SizedBox(height: 60),
+                    ],
+                  ),
                 ),
-                _sectionHeader("참고 자료"),
-                _buildMenuButton(
-                  context: context,
-                  title: "현장 자료·장비 사용법",
-                  subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
-                  icon: AppGlyph.tubeSpec,
-                  iconColor: slate900,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TubeReferencePage(),
-                      ),
-                    );
-                  },
-                ),
-                // 🚀 [정리] "자재 발주 및 현황"과 "발주 의뢰 내역"은 메뉴에서 뺐다
-                // (2026-09-20). 발주 기록이 한 건도 없고, 발주를 넣으면 지금
-                // 숨겨 둔 현장 소통(채팅)으로 글이 가는 반쪽 구조였다. 화면
-                // 파일(발주·발주 기록·채팅·차량 관리자)은 2026-09-23에 지웠다.
-                // 필요해지면 git 기록(3bef015 이전)에서 꺼내 여기에 붙이면 된다.
-                const SizedBox(height: 60),
               ],
             ),
           ),
@@ -1381,21 +1617,56 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     String? badgeText,
     Color? badgeColor,
   }) {
+    // 빠른 실행 화면이 쓸 수 있게 이번 build에서 만든 버튼 정보를 쌓아 둔다.
+    _menuEntries.add(
+      _MenuEntry(
+        title: title,
+        subtitle: subtitle,
+        icon: icon,
+        iconColor: iconColor ?? slate900,
+        onTap: onTap,
+      ),
+    );
+    final isFav = _favorites.contains(title);
     return InkWell(
       onTap: onTap,
+      onLongPress: () => _toggleFavorite(title),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         child: Row(
           children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: (iconColor ?? slate900).withValues(alpha: 0.05),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: AppIcon(icon, size: 28, color: iconColor ?? slate900),
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: (iconColor ?? slate900).withValues(alpha: 0.05),
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: AppIcon(icon, size: 28, color: iconColor ?? slate900),
+                ),
+                // 길게 눌러 즐겨찾기(빠른 실행)에 넣은 메뉴에는 작은 별 표시.
+                if (isFav)
+                  Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: const BoxDecoration(
+                        color: pureWhite,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.star,
+                        size: 16,
+                        color: Color(0xFFF5A623),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(width: 20),
             Expanded(
