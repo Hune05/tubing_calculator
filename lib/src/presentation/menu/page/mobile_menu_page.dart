@@ -74,29 +74,6 @@ const Color pureWhite = Color(0xFFFFFFFF);
 const Color warningRed = AppColors.danger;
 const Color makitaTeal = AppColors.brand;
 
-// 빠른 실행 카드 전용 색(2026-09-28) — 예전엔 대부분 검정 기본값을 그대로
-// 써서 카드를 겹쳐 보면(지갑 보기) 서로 구별이 잘 안 됐다. 공종별로 색
-// 계열은 가깝게, 그 안에서는 서로 다르게 정해서 한눈에 구별되게 했다.
-const Color kCardMyProject = Color(0xFF0F9B8E); // 내 프로젝트(청록 계열)
-const Color kCardAttendance = Color(0xFF6C5CE7); // 근태 관리(보라)
-const Color kCardTubeCutting = Color(0xFF1AB0A6); // 튜브 컷팅 계산기(청록-시안)
-const Color kCardPressureTest = Color(0xFFE0526B); // 압력 시험(로즈)
-const Color kCardFlowCalc = Color(0xFF3B82C4); // 유량 계산(파랑)
-const Color kCardElectricCalc = Color(0xFFE09A2C); // 전기 설계 계산(주황·전기색)
-const Color kCardSignalCal = Color(0xFF8A2BE2); // 계기 교정(보라)
-const Color kCardLayoutBoard = Color(0xFF4A5578); // 작업 배치도(남색-슬레이트)
-const Color kCardUnitConvert = Color(0xFF16A085); // 단위 환산(초록-청록)
-const Color kCardLevel = Color(0xFF27AE60); // 수평계(초록)
-const Color kCardProtractor = Color(0xFFE08E1A); // 각도기(주황)
-const Color kCardEngCalc = Color(0xFF34495E); // 공학용 계산기(짙은 슬레이트)
-const Color kCardRemote = Color(0xFF9B59B6); // 벤딩 리모컨(보라-핑크)
-const Color kCardScan = Color(0xFF17A2B8); // 현장 도면 스캔(시안)
-const Color kCardStock = Color(0xFFC0392B); // 자재 현황(벽돌색)
-const Color kCardStockAdmin = Color(0xFF7F8C8D); // 자재 통합 관리(회갈)
-const Color kCardSteelCutting = Color(0xFF5C7080); // 형강 컷팅(강재-청회색)
-const Color kCardMySchedule = Color(0xFF2D9CDB); // 내 일정 관리(달력-파랑)
-const Color kCardReference = Color(0xFF8D6E63); // 현장 자료·장비 사용법(갈색)
-
 /// 빠른 실행(즐겨찾기) 목록에 쓰려고 메뉴 버튼 하나의 정보를 담아 둔 것.
 /// [_buildMenuButton]이 그릴 때마다(매 build) 자기 것을 쌓아 둔다.
 class _MenuEntry {
@@ -128,9 +105,11 @@ class _MenuEntry {
 
 /// 즐겨찾기한 메뉴를 카드로 보여주는 빠른 실행 화면.
 /// - 좌우로 밀면 카드를 한 장씩 넘겨 본다(카드 지갑에서 카드를 넘기듯).
-/// - 위로 밀면 모든 카드가 지갑처럼 겹쳐서 한 화면에 다 보인다 — 아무 카드나
-///   누르면 바로 그 기능으로 들어간다.
-/// - 그 상태에서 아래로 밀면 다시 한 장 보기로 돌아온다.
+/// - 카드를 누르면 바로 그 기능으로 들어간다. 길게 누르면 상세 화면(마지막
+///   작업 시간·작업 히스토리·부가 기능)으로 간다.
+/// - 아래로 밀면 모든 카드가 지갑처럼 겹쳐서 한 화면에 다 보인다 — 거기서
+///   카드를 누르면 그 카드가 앞으로 올 뿐(실행은 안 됨), 위로 밀면 한 장
+///   보기로 되돌아온다.
 class _QuickLaunchCards extends StatefulWidget {
   final List<_MenuEntry> entries;
   final void Function(String title) onLongPressFavorite;
@@ -283,8 +262,9 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
       const SizedBox(height: 8),
       Text(
         n > 1
-            ? '${_frontIndex + 1} / $n · 좌우로 밀어 넘기기 · 아래로 밀면 전체 보기'
-            : '눌러서 열기',
+            ? '${_frontIndex + 1} / $n · 눌러서 열기 · 길게 눌러 자세히 보기 · 아래로 전체 보기'
+            : '눌러서 열기 · 길게 눌러 자세히 보기',
+        textAlign: TextAlign.center,
         style: TextStyle(
           fontSize: 11,
           color: slate600,
@@ -304,11 +284,18 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
               width: cardWidth,
               height: cardHeight,
               editing: _editMode,
-              // 카드를 누르면 바로 기능으로 들어가지 않고, 먼저 상세 화면(알림·
-              // 마지막 작업 등)으로 간다 — 실행은 상세 화면에서 한다.
-              onTap: _editMode ? null : () => _openDetail(context, i),
-              onLongPress: () =>
-                  widget.onLongPressFavorite(widget.entries[i].title),
+              // 카드를 누르면 바로 그 기능으로 들어간다("빠른 실행"이라는
+              // 이름과 맞게) — 마지막 작업 시간·작업 히스토리·부가 기능
+              // 같은 정보는 길게 눌러야 나오는 상세 화면으로 옮김
+              // (2026-09-28 사용자 지적: 상세 화면을 거치는 게 오히려
+              // "빠른" 실행과 안 맞았다).
+              onTap: _editMode
+                  ? null
+                  : () {
+                      HapticFeedback.lightImpact();
+                      _quickLaunchEnter(widget.entries[i]);
+                    },
+              onLongPress: () => _openDetail(context, i),
               onRemove: () =>
                   widget.onLongPressFavorite(widget.entries[i].title),
             ),
@@ -833,18 +820,7 @@ class _SubFeatureInfoPage extends StatelessWidget {
 
   Future<void> _enter(BuildContext context) async {
     HapticFeedback.lightImpact();
-    try {
-      final p = await SharedPreferences.getInstance();
-      final key = _quickLaunchLastUsedKey(entry.title);
-      final history = quickLaunchDecodeHistory(p.getString(key));
-      await p.setString(
-        key,
-        quickLaunchEncodeHistory(
-          quickLaunchAppendHistory(history, DateTime.now()),
-        ),
-      );
-    } catch (_) {}
-    entry.onTap();
+    await _quickLaunchEnter(entry);
   }
 
   @override
@@ -1018,6 +994,24 @@ String quickLaunchRelativeTime(DateTime? at, DateTime now) {
 }
 
 String _quickLaunchLastUsedKey(String title) => 'home_quick_last_used_$title';
+
+/// 카드를 눌러 바로 기능으로 들어갈 때 — 사용 기록을 남기고 진짜 기능을
+/// 연다(2026-09-28, 기본 카드 화면도 "누르면 바로 실행"으로 바뀌면서 상세·
+/// 부가 기능 화면에 있던 것과 같은 코드를 하나로 합침).
+Future<void> _quickLaunchEnter(_MenuEntry entry) async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    final key = _quickLaunchLastUsedKey(entry.title);
+    final history = quickLaunchDecodeHistory(p.getString(key));
+    await p.setString(
+      key,
+      quickLaunchEncodeHistory(
+        quickLaunchAppendHistory(history, DateTime.now()),
+      ),
+    );
+  } catch (_) {}
+  entry.onTap();
+}
 
 /// 빠른 실행 상세 화면 "작업 히스토리"에 쓸 사용 시각 목록에 새 기록 하나를
 /// 맨 앞에 붙인다 — 위젯 없이 시험 가능한 순수 함수(원래 목록은 안 바꾸고
@@ -1647,7 +1641,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "내 프로젝트",
                         subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
                         icon: AppGlyph.project,
-                        iconColor: kCardMyProject,
+                        iconColor: slate900,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1666,7 +1660,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "내 일정 관리",
                         subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
                         icon: AppGlyph.schedule,
-                        iconColor: kCardMySchedule,
+                        iconColor: makitaTeal,
                         badgeText:
                             (_todayScheduleCount != null &&
                                 _todayScheduleCount! > 0)
@@ -1694,7 +1688,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "근태 관리",
                         subtitle: "연차·월차·반차·조퇴·특근과 출퇴근 시간 기록",
                         icon: AppGlyph.schedule,
-                        iconColor: kCardAttendance,
+                        iconColor: slate900,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1729,7 +1723,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "튜브 컷팅 계산기",
                         subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
                         icon: AppGlyph.tubeCut,
-                        iconColor: kCardTubeCutting,
+                        iconColor: makitaTeal,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1746,7 +1740,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "압력 시험",
                         subtitle: "튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서",
                         icon: AppGlyph.pressureGauge,
-                        iconColor: kCardPressureTest,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1762,7 +1755,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "유량 계산",
                         subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검",
                         icon: AppGlyph.flow,
-                        iconColor: kCardFlowCalc,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1796,7 +1788,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "전기 설계 계산",
                         subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
                         icon: AppGlyph.electric,
-                        iconColor: kCardElectricCalc,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1814,7 +1805,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "계기 교정",
                         subtitle: "교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서",
                         icon: AppGlyph.currentLoop,
-                        iconColor: kCardSignalCal,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1832,7 +1822,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "형강 컷팅 (찬넬/앵글)",
                         subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
                         icon: AppGlyph.steel,
-                        iconColor: kCardSteelCutting,
+                        iconColor: makitaTeal,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1849,7 +1839,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "작업 배치도",
                         subtitle: "캐비닛 중판 레이아웃 및 튜빙/결선 스케치",
                         icon: AppGlyph.layout,
-                        iconColor: kCardLayoutBoard,
+                        iconColor: slate900,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           // 🚀 [수정] 예전엔 여기서 바로 빈 도면을 열어서, 저장해둔
@@ -1871,7 +1861,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "단위 환산",
                         subtitle: "길이·압력·온도·토크·분수 인치·배관 호칭",
                         icon: AppGlyph.unitConvert,
-                        iconColor: kCardUnitConvert,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1887,7 +1876,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "수평계",
                         subtitle: "기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기",
                         icon: AppGlyph.level,
-                        iconColor: kCardLevel,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1903,7 +1891,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "각도기",
                         subtitle: "벤딩 각도 재기 · 화면 각도기",
                         icon: AppGlyph.protractor,
-                        iconColor: kCardProtractor,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1919,7 +1906,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "공학용 계산기",
                         subtitle: "사칙연산·삼각함수·거듭제곱 · 인치 분수·피트",
                         icon: AppGlyph.engCalc,
-                        iconColor: kCardEngCalc,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1935,7 +1921,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "벤딩 리모컨",
                         subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
                         icon: AppGlyph.remote,
-                        iconColor: kCardRemote,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -1951,7 +1936,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "현장 도면 스캔 (QR)",
                         subtitle: "오프라인 지시서 스캔 후 3D 뷰어 실행",
                         icon: AppGlyph.scan,
-                        iconColor: kCardScan,
                         onTap: () async {
                           HapticFeedback.lightImpact();
                           final String? scannedData = await Navigator.push(
@@ -2035,7 +2019,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "자재 현황",
                         subtitle: "지금 재고 확인 및 현장 자재 입출고 처리",
                         icon: AppGlyph.stock,
-                        iconColor: kCardStock,
+                        iconColor: slate900,
                         // 필드 헬퍼 2번: 현장 나가기 전에 홈만 보고 부족한 자재를 알 수 있게.
                         badgeText: (_lowStock ?? 0) > 0
                             ? "$_lowStock건 부족"
@@ -2058,7 +2042,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "자재 통합 관리",
                         subtitle: "재고조사 · 새 자재 등록 및 삭제",
                         icon: AppGlyph.stockAdmin,
-                        iconColor: kCardStockAdmin,
+                        iconColor: slate900,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
@@ -2076,7 +2060,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         title: "현장 자료·장비 사용법",
                         subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
                         icon: AppGlyph.tubeSpec,
-                        iconColor: kCardReference,
+                        iconColor: slate900,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
