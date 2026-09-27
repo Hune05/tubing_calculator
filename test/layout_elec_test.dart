@@ -172,7 +172,10 @@ void main() {
     final names = <String>{};
     for (final p in kElecPresets.values.expand((l) => l)) {
       expect(names.add(p.name), isTrue, reason: p.name);
-      expect(p.depth, isNotNull, reason: p.name);
+      // 판넬 미터(el_meter)는 카탈로그에 깊이가 없거나 문서마다 달라 비운 것이 있다(elec_presets_meters.dart).
+      if (!p.shape!.startsWith('el_meter')) {
+        expect(p.depth, isNotNull, reason: p.name);
+      }
       for (final s in [Size(p.width, p.height), const Size(40, 40)]) {
         final rec = ui.PictureRecorder();
         InstrumentShapePainter(shape: p.shape!).paint(Canvas(rec), s);

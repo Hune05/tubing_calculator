@@ -1,6 +1,7 @@
 import 'elec_presets_breakers.dart';
 import 'elec_presets_contactors.dart';
 import 'elec_presets_dcs.dart';
+import 'elec_presets_meters.dart';
 import 'layout_board_models.dart';
 
 // 🚀 캐비닛 측판·중판에 다는 전기 부품(DIN 레일). 정면 가로×세로(mm), 깊이는 판 면에서(레일 포함).
@@ -94,6 +95,15 @@ class ElecShape {
 
   /// DIN 레일 이더넷 스위치. 'el_sw:모양:포트 수'.
   static const String sw = 'el_sw';
+
+  /// 판넬 미터(문짝에 다는 디지털·아날로그). 'el_meter:모양'(dig1·dig3·ana).
+  static const String meter = 'el_meter';
+
+  /// 변류기(CT). 'el_ct:모양'(ring·bar).
+  static const String ct = 'el_ct';
+
+  /// 퓨즈·PE 좁은 단자(피닉스 ST 4-HESI·PT·UT PE). 'el_term:모양'(fuse·pe).
+  static const String term = 'el_term';
 
   /// 'el_mccb:모양:극 수'의 모양 이름(제품 정면 특징 묶음, 그림에서 갈린다).
   /// 그냥 'el_mccb'(모양 없음)는 예전 단순 그림이다.
@@ -339,6 +349,8 @@ final Map<String, List<ModulePreset>> kElecPresets = {
   ...kContactorPresets,
   // PLC·DCS·본질안전 배리어·인터페이스 릴레이·24V 전원·이더넷 스위치(카탈로그 확정 값): elec_presets_dcs.dart
   ...kDcsPresets,
+  // 판넬 미터·변류기·퓨즈/PE 단자(카탈로그 확정 값): elec_presets_meters.dart
+  ...kMeterPresets,
   "전원·릴레이·MC": [
     const ModulePreset(
       "DR-60-24 전원 (민웰)",

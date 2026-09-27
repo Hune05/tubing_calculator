@@ -2182,6 +2182,12 @@ class InstrumentShapePainter extends CustomPainter {
         _ifRelay(b, ElecShape.style(shape) ?? 'phoenix');
       case ElecShape.sw:
         _ethSwitch(b, n?.round() ?? 5);
+      case ElecShape.meter:
+        _panelMeter(b, ElecShape.style(shape) ?? 'dig3');
+      case ElecShape.ct:
+        _currentTransformer(b, ElecShape.style(shape) ?? 'ring');
+      case ElecShape.term:
+        _slimTerminal(b, ElecShape.style(shape) ?? 'fuse');
       case ElecShape.mc when ElecShape.style(shape) != null:
         _contactor(b, ElecShape.style(shape)!);
       case ElecShape.mc:
@@ -2505,6 +2511,90 @@ class InstrumentShapePainter extends CustomPainter {
     for (final p in [const Offset(0.86, 0.17), const Offset(0.14, 0.9), const Offset(0.86, 0.9)]) {
       _circle(c, Offset(w * p.dx, h * p.dy), lr * 0.9, _metal);
     }
+  }
+
+  /// 판넬 미터 정면(운영·경보 카탈로그): dig1(96×48 디지털: 빨간 4자리 표시, 아래 단추 넷), dig3(96×96 디지털:
+  /// 표시 세 줄), ana(광각 아날로그: 반원 눈금판, 바늘, 영점 나사). 검정 앞 테두리.
+  void _panelMeter(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _ftBody, radius: 3);
+    _part(c, Rect.fromLTWH(w * 0.05, h * 0.06, w * 0.9, h * 0.88), _bodyPlain, radius: 2);
+    if (style == 'ana') {
+      final Offset pivot = Offset(w * 0.5, h * 0.72);
+      final double r = math.min(w, h) * 0.42;
+      c.drawArc(Rect.fromCircle(center: pivot, radius: r), math.pi * 1.1, math.pi * 0.8, false, _thin);
+      for (int i = 0; i <= 10; i++) {
+        final double a = math.pi * (1.1 + 0.8 * i / 10);
+        c.drawLine(
+          Offset(pivot.dx + math.cos(a) * r * 0.88, pivot.dy + math.sin(a) * r * 0.88),
+          Offset(pivot.dx + math.cos(a) * r, pivot.dy + math.sin(a) * r),
+          _thin,
+        );
+      }
+      c.drawLine(pivot, Offset(pivot.dx + r * 0.35, pivot.dy - r * 0.8), _thin);
+      _circle(c, pivot, math.min(w, h) * 0.03, _metal);
+      _circle(c, Offset(w * 0.86, h * 0.88), math.min(w, h) * 0.025, _metal);
+      return;
+    }
+    final int rows = style == 'dig3' ? 3 : 1;
+    final double top = style == 'dig3' ? 0.12 : 0.14;
+    final double rowH = style == 'dig3' ? 0.2 : 0.44;
+    _part(c, Rect.fromLTWH(w * 0.08, h * 0.1, w * 0.72, h * (style == 'dig3' ? 0.66 : 0.52)), _ftBody, radius: 1);
+    for (int r = 0; r < rows; r++) {
+      for (int i = 0; i < 4; i++) {
+        _part(
+          c,
+          Rect.fromLTWH(w * (0.13 + 0.16 * i), h * (top + 0.02 + (rowH + 0.02) * r), w * 0.12, h * (rowH - 0.04)),
+          _estopRed,
+          radius: 0,
+        );
+      }
+    }
+    // 오른쪽 상태 LED, 아래 단추 넷
+    for (int i = 0; i < 3; i++) {
+      _circle(c, Offset(w * 0.9, h * (0.2 + 0.12 * i)), math.min(w, h) * 0.02, i == 0 ? _okGreen : _pushBlue);
+    }
+    for (int i = 0; i < 4; i++) {
+      _part(
+        c,
+        Rect.fromLTWH(w * (0.1 + 0.2 * i), h * (style == 'dig3' ? 0.82 : 0.72), w * 0.15, h * (style == 'dig3' ? 0.08 : 0.16)),
+        _body,
+        radius: 1,
+      );
+    }
+  }
+
+  /// 변류기(CT): [style] ring(관통 구멍이 있는 사각 몰드, 옆에 S1·S2 단자)·bar(부스바 창이 큰 몰드).
+  void _currentTransformer(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), _body, radius: 3);
+    if (style == 'bar') {
+      _part(c, Rect.fromLTWH(w * 0.14, h * 0.14, w * 0.72, h * 0.44), _bodyPlain, radius: 2);
+    } else {
+      _circle(c, Offset(w * 0.5, h * 0.42), math.min(w, h) * 0.24, _bodyPlain);
+    }
+    _part(c, Rect.fromLTWH(w * 0.18, h * 0.76, w * 0.64, h * 0.16), _ftBody, radius: 1);
+    for (final x in [0.32, 0.68]) {
+      _circle(c, Offset(w * x, h * 0.84), math.min(w, h) * 0.05, _metal);
+    }
+  }
+
+  /// 퓨즈·PE 좁은 단자(피닉스): [style] fuse(위에 퓨즈 지렛대 홀더)·pe(녹황색 접지 띠). 폭 6mm대 세로 블록.
+  void _slimTerminal(_Box b, String style) {
+    final Canvas c = b.c;
+    final double w = b.w, h = b.h;
+    _part(c, Rect.fromLTWH(0, 0, w, h), style == 'pe' ? _okGreen : _body, radius: 1);
+    if (style == 'pe') {
+      _part(c, Rect.fromLTWH(0, h * 0.4, w, h * 0.2), const Color(0xFFF3EBA6), radius: 0);
+    } else {
+      _part(c, Rect.fromLTWH(0, 0, w, h * 0.34), _ftBody, radius: 1);
+      c.drawLine(Offset(w * 0.15, h * 0.17), Offset(w * 0.85, h * 0.17), _thin);
+    }
+    _circle(c, Offset(w * 0.5, h * 0.52), w * 0.26, _metal);
+    _circle(c, Offset(w * 0.5, h * 0.84), w * 0.24, _metal);
+    c.drawLine(Offset(w * 0.5, h * 0.62), Offset(w * 0.5, h * 0.74), _thin);
   }
 
   /// 작은 LED 여러 개(세로 줄 또는 가로 줄).
