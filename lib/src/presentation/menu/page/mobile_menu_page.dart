@@ -186,11 +186,18 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
 
   /// 겹침(지갑) 보기에서 카드를 고르면, 그 기능으로 바로 들어가지 않고 일단
   /// 그 카드를 앞(한 장 보기)으로 가져오기만 한다 — 한 번 더 눌러야 실행된다.
+  /// **실제 버그**(2026-09-28): `_frontIndex`만 바꾸고 `PageController`는 안
+  /// 옮겨서, "N/개" 글자·점은 고른 카드로 바뀌는데 실제 한 장 보기 화면은
+  /// `_pageCtrl`가 멈춰 있던 예전 페이지(대개 맨 앞 카드) 그대로 보였다 —
+  /// 중간 카드를 눌러도 늘 "기본"(맨 앞)으로 돌아가는 것처럼 보인 원인.
   void _bringToFront(int i) {
     HapticFeedback.selectionClick();
     setState(() {
       _frontIndex = i;
       _fanOpen = false;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_pageCtrl.hasClients) _pageCtrl.jumpToPage(i);
     });
   }
 
