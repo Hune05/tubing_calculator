@@ -128,6 +128,12 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
   /// 모서리 편집 단추로 켜고 끈다 — 켜져 있으면 카드마다 빼기(×) 단추가 뜬다.
   bool _editMode = false;
 
+  /// 홈 머리의 "빠른 실행 편집" 메뉴가 [GlobalKey]로 바로 부르는 통로 —
+  /// 모서리 연필 단추를 다시 찾아 누를 필요 없이 편집 모드로 들어간다.
+  void enableEditMode() {
+    if (mounted) setState(() => _editMode = true);
+  }
+
   @override
   void dispose() {
     _pageCtrl.dispose();
@@ -1052,6 +1058,10 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   /// 이번 build에서 만든 메뉴 버튼들(빠른 실행 화면이 여기서 골라 쓴다).
   final List<_MenuEntry> _menuEntries = [];
 
+  /// 헤더의 "빠른 실행 편집" 메뉴가 빠른 실행 화면의 편집 모드를 바로 켤 때
+  /// 쓴다(전체 메뉴를 보고 있어도 한 번에 편집 모드로 들어가게).
+  final GlobalKey<_QuickLaunchCardsState> _quickLaunchKey = GlobalKey();
+
   static const String _kFavoritesKey = 'home_quick_launch_favorites_v1';
 
   // 🚀 날씨 상세 데이터 상태 관리
@@ -1253,7 +1263,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       );
     }
     return _QuickLaunchCards(
-      key: const Key('home_quick_launch'),
+      key: _quickLaunchKey,
       entries: favEntries,
       onLongPressFavorite: _toggleFavorite,
     );
@@ -2013,25 +2023,43 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         "${now.month}월 ${now.day}일 (${weekdaysKo[now.weekday - 1]})";
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // 이름 줄(영문 필기체) — 빠른 실행·전체 메뉴 화면 머리에만 둔다
+          // (2026-09-28 사용자 요청). 날짜·프로필과 붙어 있으면 답답해
+          // 보인다고 해서 따로 한 줄로 떼고, 끝에 점 세개(더보기)를 뒀다.
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // 앱 이름(영문 필기체) — 빠른 실행·전체 메뉴 화면 머리에만 둔다
-              // (2026-09-28 사용자 요청, 로딩 화면과 달리 여기는 이름만 이렇게).
               const Text(
                 'Field Helper',
                 style: TextStyle(
                   fontFamily: 'Pacifico',
-                  fontSize: 22,
+                  fontSize: 26,
                   color: makitaTeal,
-                  height: 1.2,
+                  height: 1.1,
                 ),
               ),
-              const SizedBox(height: 2),
+              PopupMenuButton<String>(
+                key: const Key('home_header_menu'),
+                tooltip: "더보기",
+                icon: const Icon(Icons.more_vert, color: slate600),
+                onSelected: (v) {
+                  if (v == 'quick_edit') _openQuickLaunchEditFromHeader();
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'quick_edit', child: Text("빠른 실행 편집")),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
               Text(
                 dateStr,
                 style: const TextStyle(
@@ -2041,33 +2069,50 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                   letterSpacing: -0.5,
                 ),
               ),
-            ],
-          ),
-          InkWell(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      MobileProfilePage(currentWorker: widget.currentWorker),
+              InkWell(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MobileProfilePage(
+                        currentWorker: widget.currentWorker,
+                      ),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: const BoxDecoration(
+                    color: slate100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    LucideIcons.user,
+                    size: 24,
+                    color: slate900,
+                  ),
                 ),
-              );
-            },
-            borderRadius: BorderRadius.circular(24),
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: const BoxDecoration(
-                color: slate100,
-                shape: BoxShape.circle,
               ),
-              child: const Icon(LucideIcons.user, size: 24, color: slate900),
-            ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  /// 헤더의 점 세개 메뉴에서 "빠른 실행 편집"을 고르면: 전체 메뉴를 보고
+  /// 있었더라도 빠른 실행으로 바꾸고, 그 화면이 만들어지자마자(다음 프레임)
+  /// 편집 모드까지 바로 켠다 — 빠른 실행 카드 모서리 연필 단추를 굳이 다시
+  /// 찾아 누를 필요 없이 한 번에 들어가게(2026-09-28).
+  void _openQuickLaunchEditFromHeader() {
+    HapticFeedback.selectionClick();
+    setState(() => _quickMode = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _quickLaunchKey.currentState?.enableEditMode();
+    });
   }
 
   // 공지 듣기는 한 번만 만든다. 예전엔 build 안에서 만들어 날씨·일정 수가 바뀔 때마다
