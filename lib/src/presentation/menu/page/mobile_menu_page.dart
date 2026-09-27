@@ -54,6 +54,7 @@ import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminder
 
 // 🚀 7. 신규 알림 내역 페이지 임포트
 import 'package:tubing_calculator/src/presentation/notification/pages/mobile_notification_page.dart';
+import 'package:tubing_calculator/src/presentation/notification/pages/news_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/level_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/eng_calculator_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/protractor_page.dart';
@@ -2038,65 +2039,68 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 style: TextStyle(
                   fontFamily: 'Pacifico',
                   fontSize: 26,
-                  color: makitaTeal,
+                  color: slate900, // 청록보다 검은색이 낫다는 의견(2026-09-28)
                   height: 1.1,
                 ),
               ),
-              PopupMenuButton<String>(
-                key: const Key('home_header_menu'),
-                tooltip: "더보기",
-                icon: const Icon(Icons.more_vert, color: slate600),
-                onSelected: (v) {
-                  if (v == 'quick_edit') _openQuickLaunchEditFromHeader();
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(value: 'quick_edit', child: Text("빠른 실행 편집")),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    key: const Key('home_news_button'),
+                    tooltip: "새소식",
+                    icon: const Icon(Icons.campaign_outlined, color: slate600),
+                    onPressed: () {
+                      HapticFeedback.lightImpact();
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              NewsPage(currentWorker: widget.currentWorker),
+                        ),
+                      );
+                    },
+                  ),
+                  PopupMenuButton<String>(
+                    key: const Key('home_header_menu'),
+                    tooltip: "더보기",
+                    icon: const Icon(Icons.more_vert, color: slate600),
+                    onSelected: (v) {
+                      if (v == 'quick_edit') {
+                        _openQuickLaunchEditFromHeader();
+                      } else if (v == 'profile') {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MobileProfilePage(
+                              currentWorker: widget.currentWorker,
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'profile', child: Text("내 프로필")),
+                      PopupMenuItem(
+                        value: 'quick_edit',
+                        child: Text("빠른 실행 편집"),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ],
           ),
           const SizedBox(height: 18),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                dateStr,
-                style: const TextStyle(
-                  color: slate900,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              InkWell(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MobileProfilePage(
-                        currentWorker: widget.currentWorker,
-                      ),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(24),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: const BoxDecoration(
-                    color: slate100,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    LucideIcons.user,
-                    size: 24,
-                    color: slate900,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            dateStr,
+            style: const TextStyle(
+              color: slate900,
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
+            ),
           ),
         ],
       ),

@@ -24,7 +24,15 @@ const Color red500 = Color(0xFFF04452);
 class MobileNotificationPage extends StatefulWidget {
   final String currentWorker;
 
-  const MobileNotificationPage({super.key, required this.currentWorker});
+  /// true면 자기 Scaffold·AppBar 없이 본문(목록)만 돌려준다 — "새소식" 페이지의
+  /// "알림" 탭처럼 다른 화면 안에 끼워 넣을 때 쓴다(2026-09-28).
+  final bool embedded;
+
+  const MobileNotificationPage({
+    super.key,
+    required this.currentWorker,
+    this.embedded = false,
+  });
 
   @override
   State<MobileNotificationPage> createState() => _MobileNotificationPageState();
@@ -160,6 +168,8 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
 
   @override
   Widget build(BuildContext context) {
+    final body = _buildBody(context);
+    if (widget.embedded) return Container(color: pureWhite, child: body);
     return Scaffold(
       backgroundColor: pureWhite,
       appBar: AppBar(
@@ -180,106 +190,110 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
         ),
         centerTitle: true,
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        // 🔥 최근 알림 내역을 불러옵니다.
-        stream: FirebaseFirestore.instance
-            .collection('announcements')
-            .orderBy('createdAt', descending: true)
-            .limit(50)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: tossBlue),
-            );
-          }
+      body: body,
+    );
+  }
 
-          // 🔥 스트림 에러(권한/색인 문제 등)를 "알림 없음"으로 숨기지 않고 표시
-          if (snapshot.hasError) {
-            debugPrint("알림 스트림 에러: ${snapshot.error}");
-            return _buildErrorState();
-          }
+  Widget _buildBody(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      // 🔥 최근 알림 내역을 불러옵니다.
+      stream: FirebaseFirestore.instance
+          .collection('announcements')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(color: tossBlue),
+          );
+        }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return _buildEmptyState();
-          }
+        // 🔥 스트림 에러(권한/색인 문제 등)를 "알림 없음"으로 숨기지 않고 표시
+        if (snapshot.hasError) {
+          debugPrint("알림 스트림 에러: ${snapshot.error}");
+          return _buildErrorState();
+        }
 
-          final docs = snapshot.data!.docs;
-          final unreadCount = docs
-              .where((d) => !_isRead(d.data() as Map<String, dynamic>))
-              .length;
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _buildEmptyState();
+        }
 
-          final Map<DateTime, List<QueryDocumentSnapshot>> grouped = {};
-          for (final d in docs) {
-            final ts =
-                (d.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
-            final dt = ts?.toDate() ?? DateTime.now();
-            final day = DateTime(dt.year, dt.month, dt.day);
-            grouped.putIfAbsent(day, () => []).add(d);
-          }
-          final days = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+        final docs = snapshot.data!.docs;
+        final unreadCount = docs
+            .where((d) => !_isRead(d.data() as Map<String, dynamic>))
+            .length;
 
-          return Column(
-            children: [
-              if (unreadCount > 0)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        "안읽음 $unreadCount건",
-                        style: const TextStyle(
-                          fontSize: 13,
+        final Map<DateTime, List<QueryDocumentSnapshot>> grouped = {};
+        for (final d in docs) {
+          final ts =
+              (d.data() as Map<String, dynamic>)['createdAt'] as Timestamp?;
+          final dt = ts?.toDate() ?? DateTime.now();
+          final day = DateTime(dt.year, dt.month, dt.day);
+          grouped.putIfAbsent(day, () => []).add(d);
+        }
+        final days = grouped.keys.toList()..sort((a, b) => b.compareTo(a));
+
+        return Column(
+          children: [
+            if (unreadCount > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "안읽음 $unreadCount건",
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: tossBlue,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => _markAllRead(docs),
+                      child: const Text(
+                        "모두 읽음",
+                        style: TextStyle(
+                          color: slate600,
                           fontWeight: FontWeight.bold,
-                          color: tossBlue,
+                          fontSize: 13,
                         ),
                       ),
-                      TextButton(
-                        onPressed: () => _markAllRead(docs),
-                        child: const Text(
-                          "모두 읽음",
-                          style: TextStyle(
-                            color: slate600,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: days.length,
-                  itemBuilder: (context, dayIndex) {
-                    final day = days[dayIndex];
-                    final dayDocs = grouped[day]!;
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
-                          child: Text(
-                            _dayLabel(day),
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: slate600,
-                            ),
-                          ),
-                        ),
-                        ...dayDocs.map((doc) => _buildNotificationTile(doc)),
-                      ],
-                    );
-                  },
+                    ),
+                  ],
                 ),
               ),
-            ],
-          );
-        },
-      ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: days.length,
+                itemBuilder: (context, dayIndex) {
+                  final day = days[dayIndex];
+                  final dayDocs = grouped[day]!;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
+                        child: Text(
+                          _dayLabel(day),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: slate600,
+                          ),
+                        ),
+                      ),
+                      ...dayDocs.map((doc) => _buildNotificationTile(doc)),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
