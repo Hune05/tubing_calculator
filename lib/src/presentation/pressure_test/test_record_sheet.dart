@@ -52,6 +52,9 @@ class PtSaveSheet extends StatefulWidget {
   final double? reliefKpa;
   final String reliefNo;
 
+  /// 이 시험의 시험압력(kPa). 있으면 압력계 눈금 범위가 맞는지 칸 아래에 알린다.
+  final double? testKpa;
+
   const PtSaveSheet({
     super.key,
     required this.editing,
@@ -63,6 +66,7 @@ class PtSaveSheet extends StatefulWidget {
     this.gauges = const [],
     this.reliefKpa,
     this.reliefNo = '',
+    this.testKpa,
   });
 
   @override
@@ -240,6 +244,46 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
     ),
   );
 
+  /// 눈금 최대가 시험압력보다 낮거나 1.5배 미만이면 알린다(저장은 막지 않는다).
+  Widget _rangeWarning(int n, String text) {
+    final test = widget.testKpa;
+    final max = gaugeMaxKpa(text, widget.unit);
+    final fit = max == null ? null : gaugeFit(max, test);
+    if (fit == null || fit == GaugeFit.ok || test == null || max == null) {
+      return const SizedBox.shrink();
+    }
+    final low = fit == GaugeFit.low;
+    final msg = low
+        ? '눈금 최대(${ptPressure(max, widget.unit)})가 시험압력(${ptPressure(test, widget.unit)})보다 낮습니다. 이 압력계로는 시험압력을 읽을 수 없고, 그 압력까지 올리면 압력계가 상합니다. 눈금이 더 큰 압력계로 바꾸십시오.'
+        : '눈금 최대(${ptPressure(max, widget.unit)})가 시험압력(${ptPressure(test, widget.unit)})의 1.5배보다 작습니다. 압력계 눈금 범위는 시험압력의 1.5~4배(약 2배)로 잡습니다(B31.3 345.2.2(d)).';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 18,
+            color: low ? fc.danger : fc.caution,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              msg,
+              key: Key('ps_g${n}_range_warn'),
+              style: TextStyle(
+                fontSize: 13,
+                height: 1.4,
+                fontWeight: FontWeight.w700,
+                color: low ? fc.danger : fc.caution,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _gauge(
     int n,
     TextEditingController no,
@@ -251,8 +295,15 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
       _head(n == 1 ? '압력계 1' : '압력계 2 (선택)'),
       _pair(
         _field('ps_g${n}_no', '번호', no),
-        _field('ps_g${n}_range', '눈금 범위', range, hint: '예: 0~25 bar'),
+        _field(
+          'ps_g${n}_range',
+          '눈금 범위',
+          range,
+          hint: '예: 0~25 bar',
+          onChanged: (_) => setState(() {}),
+        ),
       ),
+      _rangeWarning(n, range.text),
       _field('ps_g${n}_due', '검교정 유효일', due, hint: '예: 2027-03-31'),
     ],
   );

@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/pressure_test/pressure_calc.dart';
+import 'package:tubing_calculator/src/presentation/pressure_test/pressure_units.dart';
 
 void main() {
   group('시험압력', () {
@@ -399,6 +400,35 @@ void main() {
       expect(n.cylinders, 2);
       // 가득 찬 용기(0bar까지)는 약 7Nm³
       expect(0.047 * 15000 / 101.325, closeTo(7, 0.1));
+    });
+    test('압력계 눈금 범위 글을 읽는다', () {
+      expect(gaugeMaxKpa('0~25 bar', PUnit.bar), closeTo(2500, 1e-9));
+      expect(gaugeMaxKpa('0-2.5MPa', PUnit.bar), closeTo(2500, 1e-9));
+      expect(gaugeMaxKpa('-1~9 bar', PUnit.bar), closeTo(900, 1e-9));
+      expect(
+        gaugeMaxKpa('0~250 psi', PUnit.bar),
+        closeTo(250 * 6.894757293168361, 1e-6),
+      );
+      expect(gaugeMaxKpa('0~10 kgf/cm2', PUnit.bar), closeTo(980.665, 1e-9));
+      expect(gaugeMaxKpa('0~1600 kPa', PUnit.bar), closeTo(1600, 1e-9));
+      // 단위 글자 뒤에 다른 숫자가 있어도 단위 앞의 숫자를 쓴다.
+      expect(gaugeMaxKpa('0~25 bar 2등급', PUnit.bar), closeTo(2500, 1e-9));
+      // 단위가 없으면 화면 단위로 본다.
+      expect(gaugeMaxKpa('0~25', PUnit.mpa), closeTo(25000, 1e-9));
+      expect(gaugeMaxKpa('25', PUnit.bar), closeTo(2500, 1e-9));
+      expect(gaugeMaxKpa('', PUnit.bar), isNull);
+      expect(gaugeMaxKpa('미정', PUnit.bar), isNull);
+    });
+    test('눈금 최대가 시험압력보다 낮으면 low, 1.5배 미만이면 tight', () {
+      expect(gaugeFit(1000, 1200), GaugeFit.low);
+      expect(gaugeFit(1200, 1200), GaugeFit.tight);
+      expect(gaugeFit(1799, 1200), GaugeFit.tight);
+      expect(gaugeFit(1800, 1200), GaugeFit.ok);
+      expect(gaugeFit(2500, 1200), GaugeFit.ok);
+      // 4배보다 넓은 눈금(디지털 등)은 알리지 않는다.
+      expect(gaugeFit(100000, 1200), GaugeFit.ok);
+      expect(gaugeFit(1000, null), isNull);
+      expect(gaugeFit(1000, 0), isNull);
     });
     test('시험압력이 150bar 이상이면 용기만으로 못 채운다', () {
       final n = nitrogenNeed(testKpa: 15000, volumeL: 100);

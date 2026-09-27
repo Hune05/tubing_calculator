@@ -9,6 +9,8 @@ library;
 
 import 'dart:math' as math;
 
+import 'pressure_units.dart';
+
 const double kAtmKpa = 101.325;
 
 enum PipingCode { b313, b311 }
@@ -271,6 +273,52 @@ GaugeRange gaugeRange(double testKpa) {
     fitBar: fit,
     bestBar: best,
   );
+}
+
+/// 압력계 눈금 범위가 시험압력에 맞는지.
+enum GaugeFit {
+  /// 시험압력의 1.5배 이상(맞음).
+  ok,
+
+  /// 시험압력보다는 크지만 1.5배 미만(권장 범위 밖).
+  tight,
+
+  /// 눈금 최대가 시험압력보다 낮다(시험압력을 읽을 수 없고 압력계가 상한다).
+  low,
+}
+
+/// 범위 글("0~25 bar", "0-2.5 MPa", "25")에서 눈금 최대를 kPa로 읽는다. 읽을 수 없으면 null.
+/// 단위 글자(bar·MPa·kPa·psi·kgf)가 있으면 그 앞의 숫자를, 없으면 마지막 숫자를 쓰고 [defaultUnit]으로 본다.
+double? gaugeMaxKpa(String text, PUnit defaultUnit) {
+  final t = text.toLowerCase();
+  final withUnit = RegExp(
+    r'(\d+(?:\.\d+)?)\s*(mpa|kpa|bar|psi|kgf)',
+  ).allMatches(t).toList();
+  if (withUnit.isNotEmpty) {
+    final m = withUnit.last;
+    final v = double.tryParse(m.group(1)!);
+    if (v == null) return null;
+    final unit = switch (m.group(2)!) {
+      'mpa' => PUnit.mpa,
+      'kpa' => PUnit.kpa,
+      'bar' => PUnit.bar,
+      'psi' => PUnit.psi,
+      _ => PUnit.kgfcm2,
+    };
+    return v * unit.kpa;
+  }
+  final nums = RegExp(r'\d+(?:\.\d+)?').allMatches(t).toList();
+  if (nums.isEmpty) return null;
+  final v = double.tryParse(nums.last.group(0)!);
+  return v == null ? null : v * defaultUnit.kpa;
+}
+
+/// 눈금 최대([maxKpa])가 시험압력([testKpa])에 맞는지. 시험압력이 없거나 0 이하면 null(판단하지 않음).
+GaugeFit? gaugeFit(double maxKpa, double? testKpa) {
+  if (testKpa == null || testKpa <= 0) return null;
+  if (maxKpa < testKpa - 1e-9) return GaugeFit.low;
+  if (maxKpa < 1.5 * testKpa - 1e-9) return GaugeFit.tight;
+  return GaugeFit.ok;
 }
 
 // ─────────────── 압력강하(공압) ───────────────

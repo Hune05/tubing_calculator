@@ -380,6 +380,13 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     await _cancelAlarm();
   }
 
+  /// 기록에 적을 시험압력(kPa): 계획의 시험압력, 없으면 실제 시험압력. 없으면 null.
+  double? _recordTestKpa() {
+    final actual = _pg._kpa(_pg._actual);
+    return _pg._currentPlan?.usedKpa ??
+        (actual != null && actual > 0 ? actual : null);
+  }
+
   Future<void> _saveRecord() async {
     final start = _rStart;
     if (start == null || _rReads.isEmpty) {
@@ -407,12 +414,12 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
         gauges: gauges,
         reliefKpa: relief,
         reliefNo: reliefNo,
+        testKpa: _recordTestKpa(),
       ),
     );
     if (res == null || !mounted) return;
     final keep = !res.asNew && ed != null;
     final design = _pg._kpa(_pg._design);
-    final actual = _pg._kpa(_pg._actual);
     final allow = _pg._kpa(_rAllow);
     final rec = PtRecord(
       id: keep ? ed.id : _now().microsecondsSinceEpoch.toString(),
@@ -433,9 +440,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       medium: _pg._medium,
       fluid: res.fluid,
       designKpa: design != null && design > 0 ? design : null,
-      testKpa:
-          _pg._currentPlan?.usedKpa ??
-          (actual != null && actual > 0 ? actual : null),
+      testKpa: _recordTestKpa(),
       unit: _pg._unit,
       holdMin: _requiredHold,
       startAt: start,

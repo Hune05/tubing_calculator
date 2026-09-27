@@ -447,7 +447,14 @@ void main() {
     await type(tester, 'ps_line', 'P-1001');
     await type(tester, 'ps_testno', 'PT-001');
     await type(tester, 'ps_g1_no', 'PG-01');
+    // 시험압력 12 bar: 눈금 최대가 그보다 낮으면 못 쓴다고, 1.5배(18 bar) 미만이면 범위 밖이라고 알린다.
+    await type(tester, 'ps_g1_range', '0~10 bar');
+    expect(find.byKey(const Key('ps_g1_range_warn')), findsOneWidget);
+    expect(find.textContaining('보다 낮습니다'), findsOneWidget);
+    await type(tester, 'ps_g1_range', '0~16 bar');
+    expect(find.textContaining('1.5배보다 작습니다'), findsOneWidget);
     await type(tester, 'ps_g1_range', '0~25 bar');
+    expect(find.byKey(const Key('ps_g1_range_warn')), findsNothing);
     await type(tester, 'ps_g1_due', '2027-03-31');
     await type(tester, 'ps_relief', '13.2');
     await type(tester, 'ps_relief_no', 'PSV-1');
