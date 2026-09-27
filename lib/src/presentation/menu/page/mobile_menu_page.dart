@@ -134,6 +134,26 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
     super.dispose();
   }
 
+  /// 편집 모드에서 즐겨찾기를 빼면 목록이 짧아지는데, 그때 [_frontIndex]가
+  /// 이제 없는 자리를 가리키고 있으면(예: 3장 중 3번째를 보다가 1장을 빼서
+  /// 2장이 됨) 범위 밖 인덱스 접근으로 앱이 빨간 화면과 함께 죽었다
+  /// (2026-09-27 실제로 겪은 버그 — RangeError). 목록이 바뀔 때마다 맨 앞
+  /// 자리를 안전한 범위로 당겨 둔다.
+  @override
+  void didUpdateWidget(covariant _QuickLaunchCards oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final clamped = quickLaunchClampFrontIndex(
+      _frontIndex,
+      widget.entries.length,
+    );
+    if (clamped != _frontIndex) {
+      _frontIndex = clamped;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_pageCtrl.hasClients) _pageCtrl.jumpToPage(_frontIndex);
+      });
+    }
+  }
+
   /// 겹침(지갑) 보기에서 카드를 고르면, 그 기능으로 바로 들어가지 않고 일단
   /// 그 카드를 앞(한 장 보기)으로 가져오기만 한다 — 한 번 더 눌러야 실행된다.
   void _bringToFront(int i) {
@@ -146,6 +166,12 @@ class _QuickLaunchCardsState extends State<_QuickLaunchCards> {
 
   @override
   Widget build(BuildContext context) {
+    // 방어적으로 한 번 더 — didUpdateWidget이 못 잡는 경우에도 절대 범위를
+    // 벗어난 자리를 읽지 않게 한다.
+    _frontIndex = quickLaunchClampFrontIndex(
+      _frontIndex,
+      widget.entries.length,
+    );
     final n = widget.entries.length;
     return LayoutBuilder(
       builder: (context, box) {
@@ -927,6 +953,15 @@ List<String> quickLaunchSubFeatures(String subtitle) => subtitle
     .toList();
 
 String _quickLaunchLastUsedKey(String title) => 'home_quick_last_used_$title';
+
+/// 즐겨찾기를 빼서 목록이 짧아졌을 때 맨 앞 카드 자리가 범위를 벗어나지
+/// 않게 당긴다 — 위젯 없이 시험 가능한 순수 함수. **실제 버그**(2026-09-27):
+/// 3장 중 3번째를 보던 중 1장을 빼서 2장이 됐는데 자리를 안 당겨서
+/// `widget.entries[2]`가 RangeError로 앱이 빨간 화면과 함께 죽었다.
+int quickLaunchClampFrontIndex(int frontIndex, int entryCount) {
+  if (entryCount <= 0) return 0;
+  return frontIndex.clamp(0, entryCount - 1);
+}
 
 /// 부가 기능 이름 → 한 줄 설명(부가 기능 풀 화면에 쓴다). 자동으로 나눈
 /// 이름과 잘 안 맞는 항목(쉼표로 나뉜 것 등)은 여기 없어도 괜찮다 — 그럴

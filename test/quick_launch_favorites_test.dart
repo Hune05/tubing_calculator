@@ -76,6 +76,24 @@ void main() {
     });
   });
 
+  group('quickLaunchClampFrontIndex', () {
+    test('범위 안이면 그대로', () {
+      expect(quickLaunchClampFrontIndex(1, 3), 1);
+    });
+
+    test('실제 버그: 3장 중 3번째(2)를 보다가 1장을 빼서 2장이 되면 마지막(1)으로', () {
+      expect(quickLaunchClampFrontIndex(2, 2), 1);
+    });
+
+    test('전부 빠지면(0장) 0', () {
+      expect(quickLaunchClampFrontIndex(2, 0), 0);
+    });
+
+    test('한 장만 남으면 0', () {
+      expect(quickLaunchClampFrontIndex(2, 1), 0);
+    });
+  });
+
   group('quickLaunchSubFeatures', () {
     test('"·"로 나눠 앞뒤 공백을 지운다', () {
       expect(quickLaunchSubFeatures('교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서'), [
