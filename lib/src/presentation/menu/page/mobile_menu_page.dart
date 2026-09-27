@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../../my_work_logs/widgets/work_theme.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -82,6 +83,17 @@ class MobileMenuPage extends StatefulWidget {
   State<MobileMenuPage> createState() => _MobileMenuPageState();
 }
 
+/// 앱을 켜 둔 채 날씨를 자동으로 다시 받는 간격.
+const Duration kWeatherRefreshEvery = Duration(minutes: 30);
+
+/// 받은 지 [kWeatherRefreshEvery] 이상 지났으면 true(앱을 다시 볼 때 바로 다시 받는다).
+bool weatherIsOld(DateTime? at, DateTime now) =>
+    at != null && now.difference(at) >= kWeatherRefreshEvery;
+
+/// 받은 지 한 시간 이상이면 true(자동 갱신이 계속 실패했다는 뜻이라 화면에 기준 시각을 적는다).
+bool weatherIsStale(DateTime? at, DateTime now) =>
+    at != null && now.difference(at) >= const Duration(hours: 1);
+
 class _MobileMenuPageState extends State<MobileMenuPage>
     with WidgetsBindingObserver {
   // 🚀 [통신 없는 현장] 날씨를 못 불러왔는지. 못 불러오면 "동기화 중..."에 머물지 않고
@@ -108,6 +120,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   String _rainEnd = "";
   double _totalRain = 0.0;
   bool _isWeatherLoaded = false;
+  // 마지막으로 날씨를 성공적으로 받은 시각. 앱을 켜 둔 채 자동으로 다시 받을 때 쓴다.
+  DateTime? _weatherAt;
+  Timer? _weatherTimer;
   // 위치를 몰라 부산 날씨를 보인다(화면에 알린다).
   bool _locationUnknown = false;
 
@@ -116,6 +131,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchDetailedWeather();
+    _weatherTimer = Timer.periodic(kWeatherRefreshEvery, (_) => _refreshWeatherIfShown());
     _loadTodayScheduleCount();
     _loadMissingReports();
     _loadLowStock();
@@ -132,17 +148,33 @@ class _MobileMenuPageState extends State<MobileMenuPage>
 
   @override
   void dispose() {
+    _weatherTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  // 앱을 다시 볼 때 날씨를 못 불러왔으면 한 번 더 시도한다(현장을 나와 통신이 잡히면
-  // 대개 이때 갱신된다). 주기적으로 계속 부르지는 않는다 — 배터리와 데이터만 먹는다.
+  // 앱을 켜 둔 채로도 날씨가 낡지 않게 한다(사용자 요청 2026-09-27).
+  // - 앱이 앞에 있는 동안 [kWeatherRefreshEvery]마다 조용히 다시 받는다. 통신이 안 되면 받아 둔 값을 그대로 두고
+  //   화면에 "기준 시각"만 보인다(하루 48번, 한 번에 3건이라 무료 한도 안).
+  // - 앱을 다시 볼 때 못 불러왔었거나 받은 지 [kWeatherRefreshEvery]가 지났으면 바로 다시 받는다.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _weatherFailed) {
-      _fetchDetailedWeather();
+    if (state == AppLifecycleState.resumed &&
+        (_weatherFailed || _weatherIsOld)) {
+      _fetchDetailedWeather(quiet: !_weatherFailed);
     }
+  }
+
+  bool get _weatherIsOld => weatherIsOld(_weatherAt, DateTime.now());
+
+  /// 받은 지 한 시간이 넘었으면(자동 갱신이 계속 실패했다는 뜻) 화면에 기준 시각을 적는다.
+  bool get _weatherIsStale => weatherIsStale(_weatherAt, DateTime.now());
+
+  void _refreshWeatherIfShown() {
+    if (!mounted) return;
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state != null && state != AppLifecycleState.resumed) return;
+    _fetchDetailedWeather(quiet: !_weatherFailed);
   }
 
   Future<void> _loadMissingReports() async {
@@ -253,7 +285,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   }
 
   // 🚀 API 3개(현재날씨, 대기질, 일기예보)를 동시에 불러와 분석
-  Future<void> _fetchDetailedWeather() async {
+  // [quiet]이면 자동 갱신이다: 실패해도 받아 둔 값을 지우지 않는다.
+  Future<void> _fetchDetailedWeather({bool quiet = false}) async {
     try {
       const String apiKey = 'ce796b79713bbdf70ec6a7cfb98f2b11';
       // 🚀 [날씨 고도화] 원래 부산 좌표로 고정돼 있던 걸, GPS로 가져온
@@ -338,23 +371,29 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               _rainExpected = false;
             }
             _isWeatherLoaded = true;
+            _weatherFailed = false;
+            _weatherAt = DateTime.now();
           });
         }
       } else {
-        _setFallback();
+        _setFallback(quiet: quiet);
       }
     } catch (e) {
-      _setFallback();
+      _setFallback(quiet: quiet);
     }
   }
 
-  void _setFallback() {
-    if (mounted) {
-      setState(() {
-        _isWeatherLoaded = true;
-        _weatherFailed = true;
-      });
+  void _setFallback({bool quiet = false}) {
+    if (!mounted) return;
+    if (quiet && _weatherAt != null) {
+      // 자동 갱신이 실패했다: 받아 둔 값은 두고 기준 시각 표시만 다시 그린다.
+      setState(() {});
+      return;
     }
+    setState(() {
+      _isWeatherLoaded = true;
+      _weatherFailed = true;
+    });
   }
 
   @override
@@ -1101,6 +1140,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     }
   }
 
+  static String _hhmm(DateTime t) =>
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
   Widget _buildWeatherWidget() {
     if (!_isWeatherLoaded) {
       return const Row(
@@ -1157,7 +1199,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 // 🚀 [고침] 위치를 모르면 말없이 부산 날씨였다. 그렇다고 적고,
                 // 누르면 위치를 묻는다.
                 "${_locationUnknown ? '$_cityName(위치 모름)' : _cityName} "
-                "$_currentTemp°C  /  $_weatherDesc",
+                "$_currentTemp°C  /  $_weatherDesc"
+                "${_weatherIsStale ? ' (${_hhmm(_weatherAt!)} 기준)' : ''}",
                 style: const TextStyle(color: slate600, fontSize: 12),
                 overflow: TextOverflow.ellipsis,
               ),
