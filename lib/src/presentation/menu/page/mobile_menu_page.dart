@@ -411,7 +411,6 @@ class _QuickLaunchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = entry.iconColor;
-    final dark = Color.lerp(base, Colors.black, 0.45)!;
     return SizedBox(
       width: width,
       height: height,
@@ -429,103 +428,104 @@ class _QuickLaunchCard extends StatelessWidget {
                 width: width,
                 height: height,
                 decoration: BoxDecoration(
+                  color: pureWhite,
                   borderRadius: BorderRadius.circular(20),
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [base, dark],
-                  ),
+                  border: Border.all(color: Colors.grey.shade200),
                   boxShadow: [
                     BoxShadow(
-                      color: base.withValues(alpha: 0.35),
-                      blurRadius: 16,
-                      offset: const Offset(0, 8),
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Stack(
+                  borderRadius: BorderRadius.circular(19),
+                  child: Column(
                     children: [
-                      // 카드마다 다른 색·아이콘이라는 걸 넘어, 큰 워터마크
-                      // 그림으로 "이게 무슨 카드인지" 한눈에 개성 있게 알려준다
-                      // (2026-09-28 사용자 요청 — 아이콘은 그대로, 꾸밈만 더함).
-                      Positioned(
-                        right: -width * 0.14,
-                        bottom: -height * 0.18,
-                        child: Opacity(
-                          opacity: 0.16,
-                          child: Transform.rotate(
-                            angle: -0.2,
-                            child: AppIcon(
-                              entry.icon,
-                              size: height * 0.95,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      // 색 띠 — 앱 나머지 화면(흰 배경·얇은 테두리)과 톤을
+                      // 맞추면서도, 지갑에서 맨 위 얇은 조각만 보여도 이
+                      // 색만으로 카드를 구별할 수 있게 남겨 둔 자리
+                      // (2026-09-28 "카드 유지 + 밝게" 요청).
+                      Container(height: 6, color: base),
+                      Expanded(
+                        child: Stack(
                           children: [
-                            // 아이콘+이름을 맨 위 한 줄에 둬서, 카드 지갑에서
-                            // 위쪽 일부만 보여도(겹쳐 있을 때) 무슨 카드인지
-                            // 바로 알아볼 수 있게 했다 — 예전엔 아이콘이 위,
-                            // 이름이 맨 아래라 겹치면 이름이 다 가려졌다.
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Container(
-                                  width: 38,
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.22),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  alignment: Alignment.center,
+                            // 큰 워터마크 그림 — 흰 배경이라 아주 옅은 회색으로.
+                            Positioned(
+                              right: -width * 0.14,
+                              bottom: -height * 0.18,
+                              child: Opacity(
+                                opacity: 0.05,
+                                child: Transform.rotate(
+                                  angle: -0.2,
                                   child: AppIcon(
                                     entry.icon,
-                                    size: 20,
-                                    color: Colors.white,
+                                    size: height * 0.9,
+                                    color: slate900,
                                   ),
                                 ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    entry.title,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.15,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Spacer(),
-                            // 얇은 강조 줄 — 색이 카드 정체성이라는 걸 한 번 더
-                            // 짚어 준다(실물 카드의 밑줄 장식 같은 느낌).
-                            Container(
-                              width: 28,
-                              height: 3,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(999),
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              entry.subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.78),
-                                fontSize: 11,
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                18,
+                                14,
+                                18,
+                                14,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // 아이콘+이름을 맨 위 한 줄에 둬서, 카드
+                                  // 지갑에서 위쪽 일부만 보여도(겹쳐 있을
+                                  // 때) 무슨 카드인지 바로 알아볼 수 있게
+                                  // 했다.
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          color: base.withValues(alpha: 0.1),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        alignment: Alignment.center,
+                                        child: AppIcon(
+                                          entry.icon,
+                                          size: 20,
+                                          color: base,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          entry.title,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: slate900,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w800,
+                                            height: 1.15,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    entry.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: slate600,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
