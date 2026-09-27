@@ -10,6 +10,7 @@ import 'dart:math' as math;
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_guide.dart';
 
 const Color makitaTeal = AppColors.brand;
 const Color slate900 = AppColors.text;
@@ -779,26 +780,41 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               AnimatedBuilder(
                 animation: _tabController,
                 builder: (context, _) {
-                  return _tabController.index == 0
-                      ? _build3PointTab(
-                          h,
-                          a3,
-                          travel3Pt,
-                          pipeUsed3Pt,
-                          shrink3Pt,
-                          gainDetails3Pt,
-                          totalConsumed3Pt,
-                        )
-                      : _build4PointTab(
-                          h,
-                          w,
-                          a4,
-                          travel4Pt,
-                          pipeUsed4Pt,
-                          shrink4Pt,
-                          gainDetails4Pt,
-                          totalConsumed4Pt,
-                        );
+                  final is3Pt = _tabController.index == 0;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SaddleGuide(
+                        heightMm: h,
+                        travelMm: is3Pt ? travel3Pt : travel4Pt,
+                        shrinkMm: is3Pt ? shrink3Pt : shrink4Pt,
+                        cornerAngleDeg: is3Pt ? a3 / 2 : a4,
+                        peakAngleDeg: is3Pt ? a3 : null,
+                        flatWidthMm: is3Pt ? 0 : w,
+                      ),
+                      const SizedBox(height: 16),
+                      is3Pt
+                          ? _build3PointTab(
+                              h,
+                              a3,
+                              travel3Pt,
+                              pipeUsed3Pt,
+                              shrink3Pt,
+                              gainDetails3Pt,
+                              totalConsumed3Pt,
+                            )
+                          : _build4PointTab(
+                              h,
+                              w,
+                              a4,
+                              travel4Pt,
+                              pipeUsed4Pt,
+                              shrink4Pt,
+                              gainDetails4Pt,
+                              totalConsumed4Pt,
+                            ),
+                    ],
+                  );
                 },
               ),
             ],

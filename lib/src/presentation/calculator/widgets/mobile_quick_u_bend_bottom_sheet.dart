@@ -8,6 +8,7 @@ import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/u_bend_plan.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/quick_u_bend_guide.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 
 const Color makitaTeal = AppColors.brand;
@@ -247,7 +248,14 @@ class _MobileQuickUBendBottomSheetState
                 "호(Arc) 길이를 제외한 '앞뒤 순수 직관 길이'를 입력하여 절단 기장과 조립 후 최고점(Apex)을 산출합니다.",
                 style: TextStyle(color: slate600, fontSize: 12),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              QuickUBendGuide(
+                startMm: startStraight,
+                returnMm: returnStraight,
+                cToCWidthMm: cToCWidth,
+                apexMm: apex,
+              ),
+              const SizedBox(height: 16),
 
               Container(
                 width: double.infinity,

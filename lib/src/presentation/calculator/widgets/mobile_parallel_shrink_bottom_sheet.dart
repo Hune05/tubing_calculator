@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/parallel_shrink_guide.dart';
 
 const Color makitaTeal = AppColors.brand;
 const Color slate900 = AppColors.text;
@@ -153,6 +154,18 @@ class _MobileParallelShrinkBottomSheetState
                   ),
                 ],
               ),
+              const SizedBox(height: 16),
+              _isParallelMode
+                  ? ParallelShrinkGuide.parallel(
+                      angleDeg: angle,
+                      spacingMm: spacing,
+                      staggerMm: finalResult,
+                    )
+                  : ParallelShrinkGuide.shrink(
+                      angleDeg: angle,
+                      riseMm: trueRise,
+                      shrinkMm: finalResult,
+                    ),
               const SizedBox(height: 16),
               _buildToggleBox(
                 "평행 계산기",

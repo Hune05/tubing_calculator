@@ -10,6 +10,7 @@ import 'dart:math' as math;
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/offset_guide.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/opposite_rotation.dart';
 
 const Color makitaTeal = AppColors.brand;
@@ -537,6 +538,14 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                     onPressed: () => Navigator.pop(context),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              OffsetGuide(
+                heightMm: h,
+                runMm: calcRun,
+                travelMm: targetTravel,
+                shrinkMm: geometricShrink,
+                angleDeg: targetAngle,
               ),
               const SizedBox(height: 12),
 

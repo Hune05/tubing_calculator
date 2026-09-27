@@ -7,7 +7,9 @@ import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_kick_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_u_bend_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 
@@ -19,6 +21,8 @@ final specs = BendSheetSpecs(
 
 final sheets = <String, Widget Function()>{
   '퀵 킥': () => const MobileQuickKickBottomSheet(),
+  '퀵 U-Bend': () => const MobileQuickUBendBottomSheet(),
+  '평행 및 축소값': () => const MobileParallelShrinkBottomSheet(),
   '굴림 오프셋': () => MobileRollingOffsetBottomSheet(
     currentRotation: 0,
     onAddBend: (_, _, _) {},

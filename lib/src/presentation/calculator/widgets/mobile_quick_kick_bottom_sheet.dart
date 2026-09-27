@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/utils/settings_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/quick_kick_guide.dart';
 
 const Color makitaTeal = AppColors.brand;
 const Color slate900 = AppColors.text;
@@ -165,7 +166,14 @@ class _MobileQuickKickBottomSheetState
                 "장애물을 넘거나 목표 포트에 닿기 위한 빗변 길이를 셈해 봅니다. (도면 목록에는 넣지 않습니다)",
                 style: TextStyle(color: slate600, fontSize: 12),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              QuickKickGuide(
+                heightMm: h,
+                runMm: run,
+                travelMm: travel,
+                angleDeg: a,
+              ),
+              const SizedBox(height: 16),
 
               // 입력부 (높이, 각도)
               Row(
