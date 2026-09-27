@@ -28,6 +28,7 @@ const String kEngCalcAngleKey = 'field_eng_calc_angle_v1'; // 'deg' | 'rad'
 const String kEngCalcFractionKey = 'field_eng_calc_fraction_v1';
 const String kEngCalcFeetKey = 'field_eng_calc_feet_v1';
 const String kEngCalcDenomKey = 'field_eng_calc_denom_v1';
+const String kEngCalcAdvancedKey = 'field_eng_calc_advanced_v1';
 
 const List<int> kEngCalcDenoms = [8, 16, 32, 64];
 
@@ -72,6 +73,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   bool _asFeetInch = true;
   int _denom = 16;
 
+  /// 갤럭시 계산기처럼: 켜면(공학 모드) 삼각함수·로그·거듭제곱 줄이 보이고,
+  /// 끄면(기본 모드) 그 줄들이 없어지는 대신 남은 단추가 커진다.
+  bool _advanced = true;
+
   @override
   void initState() {
     super.initState();
@@ -91,12 +96,14 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       final frac = p.getBool(kEngCalcFractionKey);
       final feet = p.getBool(kEngCalcFeetKey);
       final denom = p.getInt(kEngCalcDenomKey);
+      final advanced = p.getBool(kEngCalcAdvancedKey);
       if (!mounted) return;
       setState(() {
         if (angle == 'rad') _angle = AngleUnit.radian;
         if (frac != null) _showFraction = frac;
         if (feet != null) _asFeetInch = feet;
         if (denom != null && kEngCalcDenoms.contains(denom)) _denom = denom;
+        if (advanced != null) _advanced = advanced;
       });
     } catch (_) {}
   }
@@ -111,7 +118,14 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       await p.setBool(kEngCalcFractionKey, _showFraction);
       await p.setBool(kEngCalcFeetKey, _asFeetInch);
       await p.setInt(kEngCalcDenomKey, _denom);
+      await p.setBool(kEngCalcAdvancedKey, _advanced);
     } catch (_) {}
+  }
+
+  void _toggleAdvanced() {
+    HapticFeedback.selectionClick();
+    setState(() => _advanced = !_advanced);
+    _saveSettings();
   }
 
   // ── 입력 ──
@@ -462,10 +476,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         child: Column(
           children: [
             // 계산 값 창을 화면 높이에 맞춰 키운다(태블릿처럼 위아래로 긴 화면일수록
-            // 결과가 커 보이게). 키패드는 상대적으로 덜 키운다.
-            Expanded(flex: 4, child: _display(big, result)),
+            // 결과가 커 보이게). 키패드 쪽에 자리를 더 줘서 단추가 갤럭시 계산기처럼
+            // 여유 있게 보이게 한다.
+            Expanded(flex: 3, child: _display(big, result)),
             const Divider(height: 1),
-            Expanded(flex: 5, child: _keypad()),
+            Expanded(flex: 6, child: _keypad()),
           ],
         ),
       ),
@@ -580,10 +595,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
               child: LayoutBuilder(
                 builder: (context, box) => Align(
                   alignment: Alignment.centerRight,
-                  // 남는 세로 자리만큼 키우되, 120을 넘지는 않는다(태블릿에서도
-                  // 숫자가 과하게 커지지 않게).
+                  // 남는 세로 자리만큼 키우되, 72를 넘지는 않는다(삼성 갤럭시
+                  // 계산기 수준의 굵기·크기 — 예전 120·w900은 너무 굵고 컸다).
                   child: SizedBox(
-                    height: box.maxHeight.clamp(0, 120),
+                    height: box.maxHeight.clamp(0, 72),
                     child: FittedBox(
                       fit: BoxFit.contain,
                       alignment: Alignment.centerRight,
@@ -591,8 +606,8 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                         big,
                         key: const Key('calc_display_result'),
                         style: TextStyle(
-                          fontSize: 68,
-                          fontWeight: FontWeight.w900,
+                          fontSize: 48,
+                          fontWeight: FontWeight.w500,
                           color: _error != null ? _danger : _ink,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
@@ -775,16 +790,17 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         children: [
           for (final k in keys)
             Expanded(
-              child: Padding(padding: const EdgeInsets.all(3), child: k),
+              child: Padding(padding: const EdgeInsets.all(5), child: k),
             ),
         ],
       ),
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 4, 6, 8),
+      padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
       child: Column(
         children: [
+          _modeToggle(),
           row([
             _util('AC', _tapAC, key: 'calc_ac'),
             _util('(', () => _tapParen('('), key: 'calc_lparen'),
@@ -796,18 +812,22 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
               icon: Icons.backspace_outlined,
             ),
           ]),
-          row([
-            _fn('sin', key: 'calc_sin'),
-            _fn('cos', key: 'calc_cos'),
-            _fn('tan', key: 'calc_tan'),
-            _fn('√', fnName: 'sqrt', key: 'calc_sqrt'),
-          ]),
-          row([
-            _fn('ln', key: 'calc_ln'),
-            _fn('log', key: 'calc_log'),
-            _op('^', key: 'calc_pow'),
-            _util('S⇔D', _tapSD, key: 'calc_sd_key'),
-          ]),
+          // 공학(고급) 모드에서만 삼각함수·로그·거듭제곱 줄을 보여 준다(갤럭시
+          // 계산기처럼: 기본 모드는 이 두 줄이 없는 대신 나머지 단추가 커진다).
+          if (_advanced) ...[
+            row([
+              _fn('sin', key: 'calc_sin'),
+              _fn('cos', key: 'calc_cos'),
+              _fn('tan', key: 'calc_tan'),
+              _fn('√', fnName: 'sqrt', key: 'calc_sqrt'),
+            ]),
+            row([
+              _fn('ln', key: 'calc_ln'),
+              _fn('log', key: 'calc_log'),
+              _op('^', key: 'calc_pow'),
+              _util('S⇔D', _tapSD, key: 'calc_sd_key'),
+            ]),
+          ],
           row([
             _digit('7', key: 'calc_7'),
             _digit('8', key: 'calc_8'),
@@ -837,25 +857,25 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
               children: [
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(3),
+                    padding: const EdgeInsets.all(5),
                     child: _fracKey(key: 'calc_frac_key'),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(3),
+                    padding: const EdgeInsets.all(5),
                     child: _feet(key: 'calc_ft'),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(3),
+                    padding: const EdgeInsets.all(5),
                     child: _postfix('%', key: 'calc_pct'),
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(3),
+                    padding: const EdgeInsets.all(5),
                     child: _equals(key: 'calc_eq'),
                   ),
                 ),
@@ -867,12 +887,50 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     );
   }
 
+  /// 기본↔공학 모드 전환 단추(갤럭시 계산기의 펼치기/접기 화살표와 같은 역할).
+  Widget _modeToggle() => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Center(
+      child: GestureDetector(
+        key: const Key('calc_mode_toggle'),
+        onTap: _toggleAdvanced,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          decoration: BoxDecoration(
+            color: fc.background,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _advanced ? '기본 계산기' : '공학 계산기',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: _sub,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Icon(
+                _advanced ? Icons.expand_less : Icons.expand_more,
+                size: 16,
+                color: _sub,
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
   ButtonStyle _style(Color bg, Color fg) => ElevatedButton.styleFrom(
     backgroundColor: bg,
     foregroundColor: fg,
     elevation: 0,
     padding: EdgeInsets.zero,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    // 갤럭시 계산기처럼 단추를 더 둥글게(거의 알약 모양).
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
   );
 
   Widget _digit(String d, {required String key}) => ElevatedButton(

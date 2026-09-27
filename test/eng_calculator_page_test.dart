@@ -275,6 +275,40 @@ void main() {
     expect(errors, isEmpty);
   });
 
+  testWidgets('기본으로는 공학(고급) 모드라 삼각함수 줄이 보인다', (tester) async {
+    await pump(tester);
+    expect(find.byKey(const Key('calc_sin')), findsOneWidget);
+    expect(find.byKey(const Key('calc_pow')), findsOneWidget);
+  });
+
+  testWidgets('갤럭시 계산기처럼: 단추를 누르면 기본 모드로 바뀌어 삼각함수 줄이 없어진다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_mode_toggle');
+    expect(find.byKey(const Key('calc_sin')), findsNothing);
+    expect(find.byKey(const Key('calc_pow')), findsNothing);
+    // 기본 모드에서도 사칙연산·소수점·a/b·FT는 그대로 있다.
+    expect(find.byKey(const Key('calc_7')), findsOneWidget);
+    expect(find.byKey(const Key('calc_frac_key')), findsOneWidget);
+    expect(find.byKey(const Key('calc_ft')), findsOneWidget);
+    // 계산 자체는 기본 모드에서도 잘 된다.
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    expect(result(tester), '5');
+    // 다시 누르면 공학 모드로 돌아온다.
+    await tap(tester, 'calc_mode_toggle');
+    expect(find.byKey(const Key('calc_sin')), findsOneWidget);
+  });
+
+  testWidgets('기본 모드로 골라 두면 다음에 열 때도 기본 모드로 열린다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'field_eng_calc_advanced_v1': false,
+    });
+    await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+    await tester.pump();
+    expect(find.byKey(const Key('calc_sin')), findsNothing);
+  });
+
   testWidgets('=를 누르기 전에는 계산 기록 자리가 없다', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_2');
@@ -308,6 +342,24 @@ void main() {
     expect(find.text('5 = 5'), findsNothing); // 식과 결과가 같으면 안 쌓는다.
     await tap(tester, 'calc_eq');
     expect(find.byKey(const Key('calc_history')), findsNothing);
+  });
+
+  testWidgets('작은 폰(320×568)에서도 공학 모드·기본 모드 둘 다 넘치지 않는다', (tester) async {
+    final errors = <String>[];
+    final old = FlutterError.onError;
+    FlutterError.onError = (d) =>
+        errors.add(d.exceptionAsString().split('\n').first);
+    try {
+      tester.view.physicalSize = const Size(320, 568);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await pump(tester); // 공학(고급) 모드로 시작.
+      await tap(tester, 'calc_mode_toggle'); // 기본 모드도 확인.
+      await tap(tester, 'calc_mode_toggle'); // 다시 공학 모드로.
+    } finally {
+      FlutterError.onError = old;
+    }
+    expect(errors, isEmpty);
   });
 
   testWidgets('계산 값 창이 커져서 결과 숫자가 크게 보인다(태블릿 화면 포함)', (tester) async {
