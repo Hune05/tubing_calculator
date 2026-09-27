@@ -78,11 +78,17 @@ flutter:
     - family: NotoSansKR
       fonts:
         - asset: assets/fonts/NotoSansKR-VariableFont_wght.ttf
+    # 홈 화면 "FIELD HELPER" 영문 로고 글씨체(필기체) 전용 — 본문 글자에는 안 씀.
+    - family: Pacifico
+      fonts:
+        - asset: assets/fonts/Pacifico-Regular.ttf
 
   # PDF에 쓰는 한글 글꼴(보통·굵게). 굵기별로 따로 만든 파일이라 PDF에서 글씨가 제 굵기로 나온다.
   assets:
     - assets/fonts/NotoSansKR-Regular.ttf
     - assets/fonts/NotoSansKR-Bold.ttf
     - assets/fonts/OFL-NotoSansKR.txt
+    - assets/fonts/Pacifico-Regular.ttf
+    - assets/fonts/OFL-Pacifico.txt
     # 전기 기준(KEC) 요약 — functions/kec_content.json과 같은 파일(시험이 본다)
     - assets/reference/kec_content.json

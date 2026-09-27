@@ -2015,15 +2015,33 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            dateStr,
-            style: const TextStyle(
-              color: slate900,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 앱 이름(영문 필기체) — 빠른 실행·전체 메뉴 화면 머리에만 둔다
+              // (2026-09-28 사용자 요청, 로딩 화면과 달리 여기는 이름만 이렇게).
+              const Text(
+                'Field Helper',
+                style: TextStyle(
+                  fontFamily: 'Pacifico',
+                  fontSize: 22,
+                  color: makitaTeal,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                dateStr,
+                style: const TextStyle(
+                  color: slate900,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ],
           ),
           InkWell(
             onTap: () {
