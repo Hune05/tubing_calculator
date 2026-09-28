@@ -1,5 +1,5 @@
 // 장비 사용법 탭: 튜브 벤더(수동·전동·NC), 전선관 벤더(수동·유압·시카고),
-// 실측 캘리브레이션, 톱·절단기, 안전.
+// 실측 캘리브레이션, 톱·절단기, GD402 가스 밀도계 보정, 안전.
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -386,7 +386,54 @@ class RefMachineTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "11. 안전",
+          title: "11. GD402 가스 밀도계(요꼬가와) 보정",
+          subtitle: "H2/CO2 순도·가스 밀도 보정. 제원·경보표 원문은 '계기 교정 → 교정 가스' 도움말 참고",
+          icon: Icons.speed,
+          iconColor: Colors.indigo,
+          children: [
+            refDataRow("조작 키", "YES·NO·MODE·◀▶(자리 이동)·▲▼(값 변경)·ENT 7개뿐이다."),
+            refDataRow(
+              "보정 방식",
+              "반자동(원터치, 밸브가 자동 전환)·수동(밸브 직접 전환 후 ENT로 확정)·자동(주기마다 스스로, 반자동·수동으로 언제든 끼어들 수 있음) 셋 중 고른다.",
+            ),
+            const SizedBox(height: 12),
+            refSectionTitle("반자동 보정"),
+            refStep(1, "측정 모드에서 MODE(필요하면 비밀번호) → SEM.CAL에서 YES."),
+            refStep(2, "START에서 YES → 제로가스로 자동 전환, ZERO 값이 뜬다."),
+            refStep(3, "이어서 스팬가스로 자동 전환, SPAN 값이 뜬다."),
+            refStep(4, "WAIT(안정화 시간) 후 측정 모드로 자동 복귀."),
+            const SizedBox(height: 12),
+            refSectionTitle("수동 보정"),
+            refStep(1, "측정 모드에서 MODE → MAN.CAL에서 YES."),
+            refStep(2, "ZERO에서 YES → 제로가스로 밸브 전환 → 값이 안정되면 ENT로 확정."),
+            refStep(3, "SPAN도 같은 방식으로 스팬가스 연결 → 안정 확인 → ENT."),
+            refStep(4, "제로 보정을 건너뛰려면 ZERO 단계에서 NO."),
+            const SizedBox(height: 12),
+            refWarnBox(
+              "보정값이 범위를 벗어나면 ALM.10(보정 오류)이 뜬다 — 재보정한다. 제로가스·스팬가스 압력이 이상하면 ALM.07, 시료가스 온도가 -25~80℃를 벗어나면 ALM.08이 뜬다.",
+            ),
+            refGap(),
+            refTable(
+              headers: ["번호", "뜻", "조치"],
+              flex: const [2, 4, 4],
+              rows: const [
+                ["ALM.07", "압력 입력 이상", "시료가스 압력·범위 확인"],
+                ["ALM.08", "시료가스 온도 이상", "허용 온도(-25~80℃) 내로"],
+                ["ALM.09", "배터리 이상(접점 없음)", "제조사 서비스 문의"],
+                ["ALM.10", "보정값(제로·스팬) 오류", "재보정"],
+              ],
+              footer: "※ Err.01~05(FAIL 램프, 접점 열림)는 대부분 전원 재투입 후 안 되면 서비스 문의.",
+            ),
+            refGap(),
+            refTipBox(
+              "시료가스는 600mL/min ±10%로 흘려야 한다. 표준가스는 2~3개월마다 점검 권장. 실린더 남은 양·보정 가능 횟수는 '계기 교정 → 교정 가스' 탭에서 바로 계산한다.",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "12. 안전",
           subtitle: "매일 지키는 것",
           icon: LucideIcons.hardHat,
           iconColor: Colors.amber.shade800,

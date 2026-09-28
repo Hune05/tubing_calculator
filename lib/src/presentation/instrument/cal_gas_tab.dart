@@ -300,6 +300,10 @@ class _CalGasTabState extends State<CalGasTab>
             '요꼬가와는 표준 가스로 2~3개월마다 확인하고, 틀어졌으면 교정하라고 합니다(IM 11T03E01-01E 11장).',
             key: const Key('cg_note'),
           ),
+          _note(
+            '컨버터 키 조작(반자동·수동 보정 순서), 경보(ALM) 번호별 조치는 '
+            '홈 → 참고 자료 → "장비 사용법" 11번 카드에 정리해 두었습니다.',
+          ),
         ],
       ),
     );
