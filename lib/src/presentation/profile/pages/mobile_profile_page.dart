@@ -1,4 +1,5 @@
-// 내 프로필: 이름·사진·팀·직급·연락처, 계산기 설정 서버 보관, 빠른 이동, 로그아웃.
+// 내 프로필: 이름·사진·팀·직급·연락처(신원만). 앱 설정(백업·알림 점검·로그아웃·계산기 설정
+// 서버 보관)은 [MobileSettingsPage]로 옮겼다(2026-09-28, 헤더 점 3개 구획 나누기).
 //
 // 사용자 문서는 users/{이름}이라 이름 바꾸기는 [ProfileStore.renameUser] 한 갈래로만 한다.
 // 바꾼 뒤에는 홈을 새 이름으로 다시 연다(예전엔 앱을 껐다 켜기 전까지 홈이 옛 이름이었다).
@@ -10,19 +11,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
-import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/notification_check_page.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/pages/storage_management_page.dart';
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
+import 'package:tubing_calculator/src/presentation/profile/widgets/profile_menu_widgets.dart';
 import 'package:tubing_calculator/src/presentation/profile/widgets/profile_photo.dart';
-import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart';
-import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
+import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart'
+    show restoreCalculatorSettings;
 
 import 'mobile_profile_edit_page.dart';
 
@@ -52,7 +50,6 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
   final ProfileStore _store = ProfileStore.instance;
   bool _isLoggingIn = false;
   bool _photoBusy = false;
-  String _version = '';
 
   late String _displayName;
 
@@ -60,39 +57,11 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
   void initState() {
     super.initState();
     _displayName = widget.currentWorker;
-    PackageInfo.fromPlatform()
-        .then((p) {
-          if (mounted) setState(() => _version = p.version);
-        })
-        .catchError((_) {});
   }
 
   bool get _isGuest => ProfileStore.isGuest(_displayName);
 
   // ───────────────── 로그인 ─────────────────
-
-  /// 이름만 넣고 쓰던 사람이 이름은 그대로 두고 구글 계정만 잇는다(계산기 설정을 계정에 보관하려고).
-  Future<bool> _linkGoogleAccount() async {
-    try {
-      await _googleSignIn.initialize(serverClientId: _kGoogleServerClientId);
-      final GoogleSignInAccount account = await _googleSignIn.authenticate();
-      final credential = GoogleAuthProvider.credential(
-        idToken: account.authentication.idToken,
-      );
-      // 익명 계정이면 그 계정에 구글을 이어 uid를 그대로 둔다("내 것"을 잃지 않게).
-      await signInOrLinkGoogle(credential);
-      final got = await restoreCalculatorSettings();
-      if (got == 0) await SettingsCloudSync.instance.backup();
-      if (mounted) setState(() {});
-      return true;
-    } catch (e) {
-      debugPrint("구글 계정 연결 실패: $e");
-      if (mounted) {
-        _showSnackBar("구글 계정을 연결하지 못했습니다. 통신을 확인하십시오.", isError: true);
-      }
-      return false;
-    }
-  }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoggingIn = true);
@@ -394,24 +363,6 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
 
   // ───────────────── 빠른 이동 ─────────────────
 
-  Future<void> _openStorage() async {
-    final logs = await WorkProjectRepository().fetchAllProjects();
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => StorageManagementPage(logs: logs)),
-    );
-  }
-
-  Future<void> _openNotifications() async {
-    final logs = await WorkProjectRepository().fetchAllProjects();
-    if (!mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => NotificationCheckPage(logs: logs)),
-    );
-  }
-
   void _openEdit() {
     Navigator.push(
       context,
@@ -529,83 +480,18 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
               ),
               const SizedBox(height: 8),
 
-              if (!isGuest) SettingsCloudCard(onLinkGoogle: _linkGoogleAccount),
-
-              if (!isGuest) ...[
-                _buildMenuCard([
-                  _menuItem(
+              if (!isGuest)
+                buildProfileMenuCard([
+                  profileMenuItem(
                     title: "상세 프로필 (팀·직급·연락처)",
                     icon: LucideIcons.settings,
                     onTap: _openEdit,
                   ),
-                  _menuItem(
-                    title: "알림 점검",
-                    subtitle: "일지·주간 보고 알림이 잡혀 있는지",
-                    icon: LucideIcons.bell,
-                    onTap: _openNotifications,
-                  ),
-                  _menuItem(
-                    title: "백업 · 저장 공간",
-                    subtitle: "일지 백업 파일, 클라우드 백업, 임시 파일 정리",
-                    icon: LucideIcons.hardDrive,
-                    onTap: _openStorage,
-                  ),
-                  _menuItem(
-                    title: "현장 자료 · 장비 사용법",
-                    icon: LucideIcons.bookOpen,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const TubeReferencePage(),
-                      ),
-                    ),
-                  ),
                 ]),
-                const SizedBox(height: 8),
-                _buildMenuCard([
-                  _menuItem(
-                    title: "로그아웃",
-                    icon: LucideIcons.logOut,
-                    titleColor: red500,
-                    iconColor: red500,
-                    onTap: () => _showLogoutDialog(context),
-                  ),
-                ]),
-              ],
-              const SizedBox(height: 16),
-              Text(
-                _version.isEmpty ? "현장 도우미" : "현장 도우미 v$_version",
-                key: const Key('profile_version'),
-                style: const TextStyle(color: slate600, fontSize: 12),
-              ),
               const SizedBox(height: 24),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildMenuCard(List<Widget> items) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            if (i > 0)
-              const Divider(
-                height: 1,
-                color: slate100,
-                indent: 24,
-                endIndent: 24,
-              ),
-            items[i],
-          ],
-        ],
       ),
     );
   }
@@ -860,225 +746,6 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _menuItem({
-    required String title,
-    String? subtitle,
-    required IconData icon,
-    required VoidCallback onTap,
-    Color titleColor = slate800,
-    Color iconColor = slate600,
-  }) {
-    return InkWell(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      borderRadius: BorderRadius.circular(24),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
-        child: Row(
-          children: [
-            Icon(icon, size: 24, color: iconColor),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: titleColor,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(color: slate600, fontSize: 13),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Icon(
-              AppIcons.forward,
-              color: slate600.withValues(alpha: 0.5),
-              size: 24,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 로그아웃. 이 폰에서 알림 토큰·구글 연결·이름을 지우고 처음 화면으로 간다.
-  Future<void> _logout(BuildContext context) async {
-    HapticFeedback.mediumImpact();
-    // 같이 쓰는 폰에서 남의 알림이 오지 않게 토큰부터 지운다.
-    await _store.clearToken(_displayName);
-    try {
-      // 통신이 없으면 끝나지 않을 수 있어 오래 기다리지 않는다.
-      await _googleSignIn.signOut().timeout(const Duration(seconds: 3));
-      await _googleSignIn.disconnect().timeout(const Duration(seconds: 3));
-    } catch (e) {
-      debugPrint("구글 연결 해제 건너뜀: $e");
-    }
-    await FirebaseAuth.instance.signOut();
-    await _store.clearName();
-    if (context.mounted) {
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const MobileMenuPage(currentWorker: kGuestName),
-        ),
-        (route) => false,
-      );
-    }
-  }
-
-  // 🚀 [고침] 구글 계정을 잇지 않은 사람에게 "되찾을 수 없다"고 경고하면서도 빨간
-  // "로그아웃"이 가장 눈에 띄었고, 창 안에서 바로 이을 수도 없었다. 그때는 "구글 계정
-  // 잇기"를 큰 단추로, 로그아웃은 글자 단추로 둔다. 통신이 없을 때 몇 초 반응이
-  // 없던 것은 누른 뒤 도는 표시로 알린다.
-  void _showLogoutDialog(BuildContext context) {
-    final anonymous = isAnonymousUser();
-    bool busy = false;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) => StatefulBuilder(
-        builder: (dialogCtx, setD) {
-          final logoutBtn = TextButton(
-            key: const Key('logout_confirm'),
-            onPressed: busy
-                ? null
-                : () async {
-                    setD(() => busy = true);
-                    await _logout(context);
-                  },
-            style: TextButton.styleFrom(
-              backgroundColor: anonymous ? Colors.transparent : red500,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: busy
-                ? SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: anonymous ? red500 : pureWhite,
-                    ),
-                  )
-                : Text(
-                    anonymous ? "그래도 로그아웃" : "로그아웃",
-                    style: TextStyle(
-                      color: anonymous ? red500 : pureWhite,
-                      fontSize: anonymous ? 15 : 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-          );
-          final cancelBtn = TextButton(
-            onPressed: busy ? null : () => Navigator.pop(dialogCtx),
-            style: TextButton.styleFrom(
-              backgroundColor: slate100,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: const Text(
-              "취소",
-              style: TextStyle(
-                color: slate600,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          );
-          return AlertDialog(
-            backgroundColor: pureWhite,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: const Text(
-              "로그아웃하시겠습니까?",
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: slate900,
-                letterSpacing: -0.5,
-              ),
-            ),
-            content: Text(
-              anonymous
-                  ? "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.\n\n"
-                        "구글 계정을 잇지 않았으므로, 로그아웃하면 '내 것'으로 넣은 재고·배치도를 "
-                        "다시 찾을 수 없습니다. 먼저 구글 계정을 이으십시오."
-                  : "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.",
-              style: const TextStyle(
-                fontSize: 15,
-                color: slate600,
-                height: 1.4,
-              ),
-            ),
-            actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            actions: [
-              if (anonymous) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    key: const Key('logout_link_google'),
-                    onPressed: busy
-                        ? null
-                        : () async {
-                            final ok = await _linkGoogleAccount();
-                            if (ok && dialogCtx.mounted) {
-                              Navigator.pop(dialogCtx);
-                              _showSnackBar("구글 계정을 이었습니다.");
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.brand,
-                      foregroundColor: pureWhite,
-                      elevation: 0,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text(
-                      "구글 계정 잇기",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ],
-              Row(
-                children: [
-                  Expanded(child: cancelBtn),
-                  const SizedBox(width: 8),
-                  Expanded(child: logoutBtn),
-                ],
-              ),
-            ],
-          );
-        },
       ),
     );
   }

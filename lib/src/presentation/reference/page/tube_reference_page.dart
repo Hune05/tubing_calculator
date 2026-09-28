@@ -1,21 +1,21 @@
-// 현장 자료·장비 사용법. 탭: 튜브 · 전선관 · 형강 · 장비 사용법 · 앱 사용법 · 단위 환산 ·
-// 발전 설비 · 전기 기준(KEC).
+// 현장 자료. 탭: 튜브 · 전선관 · 형강 · 단위 환산 · 발전 설비 · 전기 기준(KEC).
 // 숫자는 계산기가 쓰는 자료(FittingData·benderSpecData·SteelShapeDB 등)에서 바로 읽어
 // 설정 기본값과 늘 같다. 예전 화면(벤딩 실무 가이드)은 손으로 적은 표라 설정과 달랐다.
 //
 // 현장자료_보충제안_2026-09-25.md: 이 화면도 벤더 옆·야외에서 펴 보는 화면이라 현장 보기
 // (보통/햇빛/야간) 테마를 걸었고(1번), 카드가 40장 넘어 찾기 힘들어 통합 검색을 붙였고(2번),
 // 표에 병기만 있던 단위 환산을 계산기로 만들었다(3번).
+//
+// 2026-09-28: "장비 사용법"은 [EquipmentUsagePage]로, "앱 사용법"은 [AppUsagePage]로
+// 따로 뺐다 — 자재 규격 자료와 물리 장비 조작·이 앱 사용설명서는 성격이 다른 셋이라서다.
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_icon_set.dart';
 import '../../../core/theme/field_view.dart';
 import '../../unit_converter/unit_converter_page.dart';
 import '../../unit_converter/unit_defs.dart' show searchUnits;
-import 'ref_app_tab.dart';
 import 'ref_conduit_tab.dart';
 import 'ref_kec_tab.dart';
-import 'ref_machine_tab.dart';
 import 'ref_plant_tab.dart';
 import 'ref_steel_tab.dart';
 import 'ref_tube_tab.dart';
@@ -24,13 +24,13 @@ import 'reference_search_index.dart';
 import 'reference_widgets.dart';
 
 /// 전기 기준(KEC) 탭 번호(알림에서 바로 연다).
-const int kRefKecTabIndex = 7;
+const int kRefKecTabIndex = 5;
 
 /// 단위 환산 탭 번호.
-const int _kRefUnitTabIndex = 5;
+const int _kRefUnitTabIndex = 3;
 
 class TubeReferencePage extends StatefulWidget {
-  /// 처음 열 탭(0=튜브 … 7=전기 기준).
+  /// 처음 열 탭(0=튜브 … 5=전기 기준).
   final int initialTab;
   const TubeReferencePage({super.key, this.initialTab = 0});
 
@@ -41,9 +41,9 @@ class TubeReferencePage extends StatefulWidget {
 class _TubeReferencePageState extends State<TubeReferencePage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController = TabController(
-    length: 8,
+    length: 6,
     vsync: this,
-    initialIndex: widget.initialTab.clamp(0, 7),
+    initialIndex: widget.initialTab.clamp(0, 5),
   );
   final _searchCtrl = TextEditingController();
   String _query = '';
@@ -95,7 +95,7 @@ class _TubeReferencePageState extends State<TubeReferencePage>
       backgroundColor: refBg,
       appBar: AppBar(
         title: Text(
-          "현장 자료·장비 사용법",
+          "현장 자료",
           style: TextStyle(
             color: refTextMain,
             fontSize: 20,
@@ -127,8 +127,6 @@ class _TubeReferencePageState extends State<TubeReferencePage>
             Tab(text: "튜브"),
             Tab(text: "전선관"),
             Tab(text: "형강"),
-            Tab(text: "장비 사용법"),
-            Tab(text: "앱 사용법"),
             Tab(text: "단위 환산"),
             Tab(text: "발전 설비"),
             Tab(text: "전기 기준(KEC)"),
@@ -174,8 +172,6 @@ class _TubeReferencePageState extends State<TubeReferencePage>
                       const RefTubeTab(),
                       const RefConduitTab(),
                       const RefSteelTab(),
-                      const RefMachineTab(),
-                      const RefAppTab(),
                       if (_unitCat == null)
                         const RefUnitTab()
                       else

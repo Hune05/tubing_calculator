@@ -1,4 +1,4 @@
-// 현장 자료·장비 사용법 화면: 탭 5개가 좁은 폰·글자 크게에서 넘치지 않고,
+// 현장 자료 화면: 탭들이 좁은 폰·글자 크게에서 넘치지 않고,
 // 표 숫자가 계산기 자료(FittingData)와 같다.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,7 +30,7 @@ void main() {
   for (final (size, scale) in kCases) {
     final String tag = '${size.width.toInt()}x${size.height.toInt()} ×$scale';
 
-    testWidgets('$tag: 다섯 탭이 넘치지 않고 표가 자료값을 보여 준다', (tester) async {
+    testWidgets('$tag: 탭이 넘치지 않고 표가 자료값을 보여 준다', (tester) async {
       tester.view.physicalSize = size * 2;
       tester.view.devicePixelRatio = 2;
       addTearDown(tester.view.reset);
@@ -42,7 +42,7 @@ void main() {
       final sp = FittingData.getBenderSpec('Swagelok', '0.375')!;
       expect(find.text(refNum(sp.bendRadius)), findsWidgets);
 
-      for (final name in const ['전선관', '형강', '장비 사용법', '앱 사용법']) {
+      for (final name in const ['전선관', '형강']) {
         await tester.tap(find.text(name));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: name);

@@ -55,6 +55,6 @@ void main() {
     await tester.pumpAndSettle();
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
-    expect(tabBar.controller!.index, 6);
+    expect(tabBar.controller!.index, 4);
   });
 }

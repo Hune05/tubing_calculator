@@ -26,6 +26,8 @@ import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_rem
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
+import 'package:tubing_calculator/src/presentation/reference/page/app_usage_page.dart';
+import 'package:tubing_calculator/src/presentation/reference/page/equipment_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/mobile_cutting_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/mobile_steel_project_list_page.dart';
@@ -39,6 +41,7 @@ import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_p
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
+import 'package:tubing_calculator/src/presentation/profile/pages/mobile_settings_page.dart';
 import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart'
     show pullNewerCalculatorSettings;
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
@@ -1490,8 +1493,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _sectionHeader("참고 자료"),
                       _buildMenuButton(
                         context: context,
-                        title: "현장 자료·장비 사용법",
-                        subtitle: "튜브·전선관·형강 규격표, 벤더·톱 사용법, 앱 사용법",
+                        title: "현장 자료",
+                        subtitle: "튜브·전선관·형강 규격표, 발전 설비, 전기 기준(KEC)",
                         icon: AppGlyph.tubeSpec,
                         iconColor: slate900,
                         onTap: () {
@@ -1500,6 +1503,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const TubeReferencePage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "장비 사용법",
+                        subtitle: "벤더·톱 조작 순서, 실측 캘리브레이션, 안전",
+                        icon: AppGlyph.benderHand,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EquipmentUsagePage(),
                             ),
                           );
                         },
@@ -1582,6 +1601,24 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             ),
                           ),
                         );
+                      } else if (v == 'settings') {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => MobileSettingsPage(
+                              currentWorker: widget.currentWorker,
+                            ),
+                          ),
+                        );
+                      } else if (v == 'app_usage') {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const AppUsagePage(),
+                          ),
+                        );
                       } else if (v == 'quick_edit') {
                         // 전체 메뉴를 보고 있었어도 빠른 실행으로 바꾸고
                         // 바로 편집 모드까지 켠다(2026-09-28).
@@ -1594,6 +1631,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     },
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'profile', child: Text("내 프로필")),
+                      PopupMenuItem(value: 'settings', child: Text("설정")),
+                      PopupMenuItem(
+                        value: 'app_usage',
+                        child: Text("앱 사용법"),
+                      ),
                       PopupMenuItem(
                         value: 'quick_edit',
                         child: Text("빠른 실행 편집"),

@@ -21,8 +21,6 @@ const List<String> refTabNames = [
   '튜브',
   '전선관',
   '형강',
-  '장비 사용법',
-  '앱 사용법',
   '단위 환산',
   '발전 설비',
   '전기 기준(KEC)',
@@ -105,74 +103,45 @@ const List<RefSearchEntry> refSearchIndex = [
   RefSearchEntry(2, 'H형강 이론 중량표', ['kg/m']),
   RefSearchEntry(2, '절단 현장에서 지키는 것', ['고속절단기', '밴드쏘']),
 
-  // 장비 사용법(3)
-  RefSearchEntry(3, '튜브 수동 벤더 (Swagelok·Ridgid형)'),
-  RefSearchEntry(3, 'Swagelok 전동 벤더 (MS-BTB)'),
-  RefSearchEntry(3, 'TRACTO-TECHNIK TB20D (NC 벤더)'),
-  RefSearchEntry(3, '전선관 수동 벤더 (Greenlee·Ideal형)'),
-  RefSearchEntry(3, '유압식 벤더 (Greenlee·Current Tools형)'),
-  RefSearchEntry(3, '시카고식 벤더 (기어·크랭크)'),
-  RefSearchEntry(3, '내 장비 실측 캘리브레이션 (한 번만)', [
-    '테이크업',
-    '게인',
-    '램이동',
-    '노치각도',
-    '스프링백',
-  ]),
-  RefSearchEntry(3, '튜브 커터 · 디버링'),
-  RefSearchEntry(3, '고속절단기 · 밴드쏘 · 전선관 나사'),
-  RefSearchEntry(3, '안전(장비 사용)', ['보호구', '안전수칙']),
+  // 단위 환산(3)
+  RefSearchEntry(3, '단위 환산 — 길이·인치 분수·피트', ['mm', 'inch', '인치', '분수', 'ft', '피트']),
+  RefSearchEntry(3, '단위 환산 — 압력', ['bar', 'psi', 'mpa', 'kgf/cm2', '수주', 'mmhg']),
+  RefSearchEntry(3, '단위 환산 — 토크', ['nm', 'lb-ft', 'kgf·m', 'kgm', '토크']),
+  RefSearchEntry(3, '단위 환산 — 중량·힘', ['kg', 'lb', 'kgf', '톤', 'lbf', '무게']),
+  RefSearchEntry(3, '단위 환산 — 온도·온도차·유량·면적·부피', ['°c', '°f', 'gpm', 'l/min', '갤런', '온도차']),
+  RefSearchEntry(3, '단위 환산 — 각도·구배·동력·에너지', ['구배', '%', 'mm/m', 'kw', '마력', 'kwh', 'kcal', '냉동톤']),
+  RefSearchEntry(3, '단위 환산 — 전선 굵기 (SQ ↔ AWG)', ['awg', 'sq', '스퀘어', '전선']),
+  RefSearchEntry(3, '단위 환산 — 배관 호칭 (A·B·DN·외경)', ['15a', 'dn', 'nps', '호칭', '외경', '바깥지름']),
 
-  // 앱 사용법(4)
-  RefSearchEntry(4, '벤딩 마킹 계산기 (튜브)'),
-  RefSearchEntry(4, '전선관 벤딩 마킹 계산기'),
-  RefSearchEntry(4, '튜브 컷팅 계산기'),
-  RefSearchEntry(4, '형강 컷팅 (찬넬/앵글)'),
-  RefSearchEntry(4, '작업 배치도'),
-  RefSearchEntry(4, '내 프로젝트 · 작업 일지 · 주간 보고'),
-  RefSearchEntry(4, '내 일정 관리'),
-  RefSearchEntry(4, '자재 현황 · 자재 통합 관리'),
-  RefSearchEntry(4, '현장 도면 스캔 (QR) · 통신 없는 곳'),
-
-  // 단위 환산(5)
-  RefSearchEntry(5, '단위 환산 — 길이·인치 분수·피트', ['mm', 'inch', '인치', '분수', 'ft', '피트']),
-  RefSearchEntry(5, '단위 환산 — 압력', ['bar', 'psi', 'mpa', 'kgf/cm2', '수주', 'mmhg']),
-  RefSearchEntry(5, '단위 환산 — 토크', ['nm', 'lb-ft', 'kgf·m', 'kgm', '토크']),
-  RefSearchEntry(5, '단위 환산 — 중량·힘', ['kg', 'lb', 'kgf', '톤', 'lbf', '무게']),
-  RefSearchEntry(5, '단위 환산 — 온도·온도차·유량·면적·부피', ['°c', '°f', 'gpm', 'l/min', '갤런', '온도차']),
-  RefSearchEntry(5, '단위 환산 — 각도·구배·동력·에너지', ['구배', '%', 'mm/m', 'kw', '마력', 'kwh', 'kcal', '냉동톤']),
-  RefSearchEntry(5, '단위 환산 — 전선 굵기 (SQ ↔ AWG)', ['awg', 'sq', '스퀘어', '전선']),
-  RefSearchEntry(5, '단위 환산 — 배관 호칭 (A·B·DN·외경)', ['15a', 'dn', 'nps', '호칭', '외경', '바깥지름']),
-
-  // 발전 설비(6)
-  RefSearchEntry(6, '왜 대형 발전기는 수소(H₂)로 냉각하나', ['h2', '수소냉각', '풍손']),
-  RefSearchEntry(6, '수소 가스 계통 — 판넬·드라이어·퍼지', [
+  // 발전 설비(4)
+  RefSearchEntry(4, '왜 대형 발전기는 수소(H₂)로 냉각하나', ['h2', '수소냉각', '풍손']),
+  RefSearchEntry(4, '수소 가스 계통 — 판넬·드라이어·퍼지', [
     '가스 판넬',
     '가스 드라이어',
     'co2 퍼지',
     '순도',
   ]),
-  RefSearchEntry(6, '씰 오일 계통 — 수소가 축을 따라 안 새는 이유', [
+  RefSearchEntry(4, '씰 오일 계통 — 수소가 축을 따라 안 새는 이유', [
     'seal oil',
     '씰오일탱크',
     '차압',
     '진공탱크',
   ]),
-  RefSearchEntry(6, '윤활유 계통(LOT)과 베어링 보호', [
+  RefSearchEntry(4, '윤활유 계통(LOT)과 베어링 보호', [
     'lot',
     'lube oil tank',
     '오일쿨러',
     '비상오일펌프',
   ]),
-  RefSearchEntry(6, '냉각수 계통(워터 쿨링) — 열을 밖으로 빼내는 3단', [
+  RefSearchEntry(4, '냉각수 계통(워터 쿨링) — 열을 밖으로 빼내는 3단', [
     '워터쿨링',
     '고정자냉각수',
     '밀폐냉각수',
     'ccw',
   ]),
-  RefSearchEntry(6, '밸브 스테이션 — 밸브를 왜 한 곳에 모아두나', ['valve station']),
-  RefSearchEntry(6, '전체 흐름 한눈에 보기', ['원자로', '보일러', '터빈', '복수기']),
-  RefSearchEntry(6, '같이 딸려 다니는 다른 보조계통', [
+  RefSearchEntry(4, '밸브 스테이션 — 밸브를 왜 한 곳에 모아두나', ['valve station']),
+  RefSearchEntry(4, '전체 흐름 한눈에 보기', ['원자로', '보일러', '터빈', '복수기']),
+  RefSearchEntry(4, '같이 딸려 다니는 다른 보조계통', [
     '여자계통',
     'excitation',
     '조속기',
@@ -180,21 +149,21 @@ const List<RefSearchEntry> refSearchIndex = [
     '진공계통',
   ]),
 
-  // 전기 기준(KEC)(7)
-  RefSearchEntry(7, '최신 원문을 확인하는 방법', [
+  // 전기 기준(KEC)(5)
+  RefSearchEntry(5, '최신 원문을 확인하는 방법', [
     'kec',
     '한국전기설비규정',
     '전기설비기술기준',
     'law.go.kr',
   ]),
-  RefSearchEntry(7, '접지·과전류 보호 — 감전·화재와 직결', [
+  RefSearchEntry(5, '접지·과전류 보호 — 감전·화재와 직결', [
     '접지',
     '계통접지',
     '과전류보호',
     '차단기',
   ]),
-  RefSearchEntry(7, '절연저항·이격거리 — 측정값 기준', ['절연저항', '이격거리', '메거']),
-  RefSearchEntry(7, '최근 몇 년 사이 개정이 잦았던 분야', [
+  RefSearchEntry(5, '절연저항·이격거리 — 측정값 기준', ['절연저항', '이격거리', '메거']),
+  RefSearchEntry(5, '최근 몇 년 사이 개정이 잦았던 분야', [
     'ev충전',
     '신재생',
     'ess',
