@@ -691,6 +691,58 @@ void main() {
     expect(got!.witnessContractor, isEmpty);
   });
 
+  testWidgets('저장 창: 첨부 사진을 누르면 풀 화면 뷰어가 뜨고, 썸네일을 누르면 넘어간다', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final ed = PtRecord(
+      id: 'p',
+      date: DateTime(2026, 9, 26),
+      line: 'P-1',
+      photos: const ['a.jpg', 'b.jpg'],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => showModalBottomSheet<PtSaveResult>(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => PtSaveSheet(
+                  editing: ed,
+                  unit: PUnit.bar,
+                  medium: TestMedium.hydro,
+                  line: 'P-1',
+                  date: DateTime(2026, 9, 26),
+                  tester: '홍',
+                ),
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('ps_photo_view_0')));
+    await tester.tap(find.byKey(const Key('ps_photo_view_0')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('fpv_close')), findsOneWidget);
+    expect(find.text('1 / 2'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('fpv_thumb_1')));
+    await tester.pumpAndSettle();
+    expect(find.text('2 / 2'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('fpv_close')));
+    await tester.pumpAndSettle();
+    // 뷰어가 닫히고 저장 창으로 되돌아온다.
+    expect(find.byKey(const Key('fpv_close')), findsNothing);
+    expect(find.byKey(const Key('ps_photo_view_0')), findsOneWidget);
+  });
+
   testWidgets('저장한 기록 지우기는 확인을 받는다, CSV 내보내기 단추가 있다', (tester) async {
     await PtRecordStore.put(
       PtRecord(

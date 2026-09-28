@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/utils/image_picker_helper.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_store.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/fullscreen_photo_viewer.dart';
 
 import '../../core/theme/field_view.dart';
 import 'pressure_calc.dart';
@@ -379,9 +380,18 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
               child: Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  ClipRRect(
+                  InkWell(
+                    key: Key('ps_photo_view_$i'),
                     borderRadius: BorderRadius.circular(8),
-                    child: PhotoImage(_photos[i], width: 80, height: 80),
+                    onTap: () => FullscreenPhotoViewer.show(
+                      context: context,
+                      photos: _photos,
+                      initialIndex: i,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: PhotoImage(_photos[i], width: 80, height: 80),
+                    ),
                   ),
                   Positioned(
                     top: -6,
