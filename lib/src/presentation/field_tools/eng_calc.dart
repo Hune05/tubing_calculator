@@ -216,7 +216,9 @@ class _Parser {
     var v = _parseTerm();
     while (true) {
       _skipWs();
-      if (_pos < _src.length && (_src[_pos] == '+' || _src[_pos] == '-')) {
+      // '-'(자판 하이픈)·'−'(U+2212, 화면용 마이너스) 둘 다 뺄셈으로 받는다.
+      if (_pos < _src.length &&
+          (_src[_pos] == '+' || _src[_pos] == '-' || _src[_pos] == '−')) {
         final op = _src[_pos];
         _pos++;
         final rhs = _parseTerm();
@@ -268,7 +270,7 @@ class _Parser {
   // unary := ('-'|'+') unary | power
   CalcValue _parseUnary() {
     _skipWs();
-    if (_pos < _src.length && _src[_pos] == '-') {
+    if (_pos < _src.length && (_src[_pos] == '-' || _src[_pos] == '−')) {
       _pos++;
       final v = _parseUnary();
       return v.exact != null

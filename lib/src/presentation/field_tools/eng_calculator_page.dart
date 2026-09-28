@@ -150,7 +150,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   }
 
   void _recalc() {
-    final t = _stripTrailingOps(_expr).trim();
+    // 🐛 [고침] 빼기 단추는 보기 좋으라고 유니코드 마이너스(−, U+2212)를 쓰는데,
+    // 식 계산기(eng_calc.dart)는 자판 하이픈(-)만 뺄셈으로 알아봐서 "5−3"을
+    // 끝까지 못 읽고 막혔다(더하기는 둘 다 '+'라 안 걸렸다). 계산기에 넘기기
+    // 전에 자판 하이픈으로 바꿔 준다.
+    final t = _stripTrailingOps(_expr).trim().replaceAll('−', '-');
     if (t.isEmpty) {
       _live = null;
       _error = null;

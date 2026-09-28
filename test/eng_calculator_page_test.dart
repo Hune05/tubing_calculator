@@ -33,6 +33,17 @@ void main() {
     expect(result(tester), '5');
   });
 
+  testWidgets('빼기 단추(calc_sub)로 뺄셈이 된다', (tester) async {
+    // 실제 버그(2026-09-28): 빼기 단추는 화면용 유니코드 마이너스(−,
+    // U+2212)를 식에 넣는데 계산기는 자판 하이픈(-)만 뺄셈으로 알아봐서,
+    // 더하기는 되는데 빼기만 "식을 끝까지 읽지 못했습니다" 오류가 났다.
+    await pump(tester);
+    await tap(tester, 'calc_5');
+    await tap(tester, 'calc_sub');
+    await tap(tester, 'calc_3');
+    expect(result(tester), '2');
+  });
+
   testWidgets('곱셈·나눗셈이 먼저 계산된다', (tester) async {
     await pump(tester);
     for (final k in ['calc_2', 'calc_add', 'calc_3', 'calc_mul', 'calc_4']) {

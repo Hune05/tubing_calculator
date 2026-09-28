@@ -14,6 +14,13 @@ void main() {
       expect(evaluateExpr('10÷4'), 2.5);
     });
 
+    test('빼기 단추가 쓰는 화면용 마이너스(−, U+2212)도 뺄셈으로 읽는다', () {
+      // 실제 버그(2026-09-28): ×·÷는 화면용 글자도 받아 주는데 −만 빠져
+      // 있어서, 빼기 단추를 누르면 "식을 끝까지 읽지 못했습니다" 오류가 났다.
+      expect(evaluateExpr('10−4'), 6);
+      expect(evaluateExpr('−5'), -5);
+    });
+
     test('곱셈·나눗셈이 덧셈·뺄셈보다 먼저', () {
       expect(evaluateExpr('2+3*4'), 14);
       expect(evaluateExpr('2*3+4'), 10);
