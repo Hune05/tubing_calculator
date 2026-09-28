@@ -480,6 +480,8 @@ class _BenderDiagramPainter extends CustomPainter {
   }
 
   /// 실제 장비 몸체 — 항상 보이는 고정 부분 + [tt]에 따라 움직이는 부분.
+  /// 그림자+그라데이션+하이라이트로 다른 그림 설명(롤링 오프셋 등)과 같은
+  /// 입체감을 준다.
   void _drawMachineBody(
     Canvas canvas,
     _BenderKind kind,
@@ -491,32 +493,22 @@ class _BenderDiagramPainter extends CustomPainter {
   ) {
     switch (kind) {
       case _BenderKind.hand:
-        // 굽힘틀(슈) — 관이 감기는 두꺼운 아치.
-        canvas.drawArc(
-          Rect.fromCircle(center: cornerCenter, radius: curveR + 6),
+        // 굽힘틀(슈) — 관이 감기는 두꺼운 금속 아치.
+        _metalArc(
+          canvas,
+          cornerCenter,
+          curveR + 6,
           -math.pi / 2,
           math.pi / 2,
-          false,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 13
-            ..strokeCap = StrokeCap.round
-            ..color = _metal,
+          14,
         );
-        // 손잡이 — 슈에서 반대쪽(위-왼쪽)으로 뻗어 나가는 긴 봉.
+        // 손잡이 — 슈에서 반대쪽(위-왼쪽)으로 뻗어 나가는 긴 봉 + 손잡이 그립.
         const handleAngle = -2.35; // 라디안, 위-왼쪽 방향.
         final dir = Offset(math.cos(handleAngle), math.sin(handleAngle));
-        final base = cornerCenter + dir * (curveR + 6);
-        final tip = cornerCenter + dir * (curveR + 44);
-        canvas.drawLine(
-          base,
-          tip,
-          Paint()
-            ..color = _metalDark
-            ..strokeWidth = 8
-            ..strokeCap = StrokeCap.round,
-        );
-        canvas.drawCircle(tip, 7, Paint()..color = _metalDark);
+        final base = cornerCenter + dir * (curveR + 4);
+        final tip = cornerCenter + dir * (curveR + 46);
+        paintPipeSegment(canvas, base, tip, 1.0, _metalDark, width: 9);
+        _metalKnob(canvas, tip, 7.5);
       case _BenderKind.ram:
         // 양쪽 롤러 받침 — 관을 받쳐 주는 받침대.
         _drawRollerSupport(canvas, Offset(startX + 18, entryY + 3));
@@ -530,80 +522,210 @@ class _BenderDiagramPainter extends CustomPainter {
         final bodyRect = Rect.fromCenter(
           center: Offset(ramX, bodyTopY),
           width: 22,
-          height: 24,
+          height: 26,
+        );
+        final bodyRRect = RRect.fromRectAndRadius(
+          bodyRect,
+          const Radius.circular(5),
         );
         canvas.drawRRect(
-          RRect.fromRectAndRadius(bodyRect, const Radius.circular(4)),
-          Paint()..color = _metal,
+          bodyRRect.shift(const Offset(0, 1.8)),
+          Paint()
+            ..color = Colors.black.withValues(alpha: 0.14)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.8),
+        );
+        canvas.drawRRect(
+          bodyRRect,
+          Paint()
+            ..shader = LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [_metal, _metalDark],
+            ).createShader(bodyRect),
+        );
+        canvas.drawLine(
+          Offset(bodyRect.left + 4, bodyRect.top + 9),
+          Offset(bodyRect.right - 4, bodyRect.top + 9),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.28)
+            ..strokeWidth = 1,
+        );
+        canvas.drawLine(
+          Offset(bodyRect.left + 4, bodyRect.top + 17),
+          Offset(bodyRect.right - 4, bodyRect.top + 17),
+          Paint()
+            ..color = Colors.black.withValues(alpha: 0.18)
+            ..strokeWidth = 1,
         );
         // 램(피스톤) — tt만큼 아래로 내려온다(0=올라감, 1=관에 닿음).
-        final rodTop = Offset(ramX, bodyTopY + 12);
-        final rodMaxLen = entryY - rodTop.dy - 2;
-        final rodLen = rodMaxLen * tt;
-        canvas.drawLine(
-          rodTop,
-          rodTop + Offset(0, rodLen),
-          Paint()
-            ..color = _metalDark
-            ..strokeWidth = 6
-            ..strokeCap = StrokeCap.round,
-        );
-        canvas.drawCircle(
-          rodTop + Offset(0, rodLen),
-          5,
-          Paint()..color = AppColors.brand,
-        );
+        final rodTop = Offset(ramX, bodyTopY + 13);
+        final rodBottom = Offset(ramX, entryY - 1);
+        paintPipeSegment(canvas, rodTop, rodBottom, tt, _metalDark, width: 6);
+        if (tt > 0.02) {
+          _brandKnob(canvas, Offset.lerp(rodTop, rodBottom, tt)!, 5.5);
+        }
       case _BenderKind.chicago:
-        // 톱니바퀴(노치 휠) — 관이 감기는 큰 바퀴, 둘레에 노치 눈금.
-        final wheelR = curveR + 11;
-        canvas.drawCircle(
-          cornerCenter,
-          wheelR,
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3
-            ..color = _metal,
-        );
+        // 톱니바퀴(노치 휠) — 관이 감기는 두꺼운 금속 링, 둘레에 노치 눈금.
+        final wheelR = curveR + 6;
+        _metalArc(canvas, cornerCenter, wheelR, 0, 2 * math.pi, 13);
         for (var i = 0; i < 12; i++) {
           final ang = i * (2 * math.pi / 12);
           final p1 =
-              cornerCenter + Offset(math.cos(ang), math.sin(ang)) * wheelR;
+              cornerCenter +
+              Offset(math.cos(ang), math.sin(ang)) * (wheelR + 8);
           final p2 =
               cornerCenter +
-              Offset(math.cos(ang), math.sin(ang)) * (wheelR + 6);
+              Offset(math.cos(ang), math.sin(ang)) * (wheelR + 13);
           canvas.drawLine(
             p1,
             p2,
             Paint()
               ..color = _metal
-              ..strokeWidth = 1.6,
+              ..strokeWidth = 1.8,
           );
         }
         // 크랭크 — tt만큼 돌아간다(노치를 한 칸씩 넘기는 손잡이).
         final crankAngle = degToRad(200) + degToRad(150) * tt;
         final crankDir = Offset(math.cos(crankAngle), math.sin(crankAngle));
-        final crankTip = cornerCenter + crankDir * (wheelR + 14);
-        canvas.drawLine(
+        final crankTip = cornerCenter + crankDir * (wheelR + 17);
+        paintPipeSegment(
+          canvas,
           cornerCenter,
           crankTip,
-          Paint()
-            ..color = _metalDark
-            ..strokeWidth = 5
-            ..strokeCap = StrokeCap.round,
+          1.0,
+          _metalDark,
+          width: 6,
         );
-        canvas.drawCircle(crankTip, 6, Paint()..color = _metalDark);
-        canvas.drawCircle(cornerCenter, 4, Paint()..color = _metalDark);
+        _metalKnob(canvas, crankTip, 6.5);
+        _metalKnob(canvas, cornerCenter, 4.5);
     }
   }
 
   void _drawRollerSupport(Canvas canvas, Offset topCenter) {
     final path = Path()
-      ..moveTo(topCenter.dx, topCenter.dy)
-      ..lineTo(topCenter.dx - 10, topCenter.dy + 16)
-      ..lineTo(topCenter.dx + 10, topCenter.dy + 16)
+      ..moveTo(topCenter.dx, topCenter.dy + 2)
+      ..lineTo(topCenter.dx - 11, topCenter.dy + 19)
+      ..lineTo(topCenter.dx + 11, topCenter.dy + 19)
       ..close();
-    canvas.drawPath(path, Paint()..color = _metal);
-    canvas.drawCircle(topCenter, 4, Paint()..color = _metalDark);
+    final rect = Rect.fromLTWH(topCenter.dx - 11, topCenter.dy, 22, 19);
+    canvas.drawPath(
+      path.shift(const Offset(0, 1.6)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.14)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_metal, _metalDark],
+        ).createShader(rect),
+    );
+    _metalKnob(canvas, topCenter, 4.5);
+  }
+
+  /// 금속 아치/링(그림자+그라데이션 몸체+얇은 하이라이트) — 슈·톱니바퀴 공용.
+  void _metalArc(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double startAngle,
+    double sweepAngle,
+    double strokeWidth,
+  ) {
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    canvas.drawArc(
+      rect.shift(const Offset(0, 1.6)),
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.black.withValues(alpha: 0.13)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6),
+    );
+    canvas.drawArc(
+      rect,
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_metal, _metalDark],
+        ).createShader(rect),
+    );
+    final hlRect = Rect.fromCircle(
+      center: center,
+      radius: radius - strokeWidth * 0.3,
+    );
+    canvas.drawArc(
+      hlRect,
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: 0.32),
+    );
+  }
+
+  /// 반짝이는 금속 손잡이/볼트(그림자+원형 그라데이션+하이라이트 점).
+  void _metalKnob(Canvas canvas, Offset center, double r) {
+    canvas.drawCircle(
+      center + const Offset(0, 1.3),
+      r,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.16)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.3),
+    );
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [_metal, _metalDark],
+        ).createShader(Rect.fromCircle(center: center, radius: r)),
+    );
+    canvas.drawCircle(
+      center - Offset(r * 0.32, r * 0.32),
+      r * 0.32,
+      Paint()..color = Colors.white.withValues(alpha: 0.55),
+    );
+  }
+
+  /// 유압 램 끝(관에 닿는 부분) — 브랜드 색 반짝이는 점.
+  void _brandKnob(Canvas canvas, Offset center, double r) {
+    canvas.drawCircle(
+      center + const Offset(0, 1.2),
+      r,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.16)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2),
+    );
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [AppColors.brand.withValues(alpha: 0.85), AppColors.brand],
+        ).createShader(Rect.fromCircle(center: center, radius: r)),
+    );
+    canvas.drawCircle(
+      center - Offset(r * 0.3, r * 0.3),
+      r * 0.3,
+      Paint()..color = Colors.white.withValues(alpha: 0.6),
+    );
   }
 
   void _arrowHead(Canvas canvas, Offset from, Offset to, Color color) {
