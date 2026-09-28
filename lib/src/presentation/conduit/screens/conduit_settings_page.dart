@@ -14,6 +14,7 @@ import 'package:tubing_calculator/src/data/conduit_spec_sets.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_calibration_sheet.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/bender_setup_guide_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/korean_text.dart';
 
 const Color makitaTeal = AppColors.brand;
@@ -569,6 +570,17 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           shadowColor: slate200,
           centerTitle: false,
           iconTheme: const IconThemeData(color: slate900),
+          actions: [
+            IconButton(
+              key: const Key('conduit_bender_guide_button'),
+              tooltip: '설정 가이드(그림)',
+              icon: const Icon(Icons.help_outline, color: slate900),
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const BenderSetupGuidePage()),
+              ),
+            ),
+          ],
         ),
         // 🚀 [고침] 방식 고르기가 위에 고정돼 작은 폰에서는 설정 칸이 화면 절반에만
         // 보였다. 같이 넘어가게 스크롤 안에 넣는다.
