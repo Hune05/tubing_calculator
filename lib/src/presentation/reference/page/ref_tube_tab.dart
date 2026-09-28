@@ -235,9 +235,9 @@ class _RefTubeTabState extends State<RefTubeTab> {
                 for (final a in _angles.where((a) => a < 90))
                   [
                     "${refNum(a)}°",
-                    "× ${(1 / math.sin(a * math.pi / 180)).toStringAsFixed(3)}",
-                    "× ${math.tan(a * math.pi / 360).toStringAsFixed(3)}",
-                    "× ${(1 / math.tan(a * math.pi / 180)).toStringAsFixed(3)}",
+                    "× ${refOffsetHypot(a).toStringAsFixed(3)}",
+                    "× ${refOffsetShrink(a).toStringAsFixed(3)}",
+                    "× ${refOffsetRun(a).toStringAsFixed(3)}",
                   ],
               ],
             ),
@@ -249,8 +249,8 @@ class _RefTubeTabState extends State<RefTubeTab> {
                 for (final h in const [50.0, 100.0, 150.0, 200.0, 300.0])
                   [
                     "${refNum(h)} mm",
-                    "${refNum(h / math.sin(math.pi / 4))} mm",
-                    "${refNum(h * math.tan(math.pi / 8))} mm",
+                    "${refNum(h * refOffsetHypot(45))} mm",
+                    "${refNum(h * refOffsetShrink(45))} mm",
                   ],
               ],
               footer:

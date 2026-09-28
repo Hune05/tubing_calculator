@@ -2,6 +2,8 @@
 //
 // 색은 고정 상수가 아니라 현장 보기(보통/햇빛/야간, field_view.dart)를 따르는
 // getter다 - 이 화면도 벤더 옆에서, 야외에서 펴 보는 화면이라 D-D 팀에 넣었다.
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -29,6 +31,28 @@ String refNum(double v, [int digits = 1]) {
     s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
   }
   return s;
+}
+
+// 단차(오프셋) H에 곱하는 배수 — 튜브·전선관 탭의 오프셋 계수 표가 같이 쓴다.
+// 🚀 [정리] 전선관 탭은 이 셋을 손으로 적은 고정 표였다(각도도 튜브 탭과 달랐다).
+// 실제 퀵 킥·오프셋·새들 계산기도 같은 식을 쓰므로 여기 한 곳에 모아 둔다.
+
+/// 빗변 배수 = 1 ÷ sin(각) — H × 이 값 = 두 마킹 사이 거리.
+double refOffsetHypot(double angleDeg) {
+  if (angleDeg <= 0 || angleDeg >= 180) return 0.0;
+  return 1 / math.sin(angleDeg * math.pi / 180.0);
+}
+
+/// 수축 배수 = tan(각/2) — H × 이 값 = 단차 때문에 줄어드는 직진 길이(자를 때 더한다).
+double refOffsetShrink(double angleDeg) {
+  if (angleDeg <= 0) return 0.0;
+  return math.tan(angleDeg * math.pi / 360.0);
+}
+
+/// 직진 배수 = 1 ÷ tan(각) — H × 이 값 = 단차가 차지하는 수평 길이.
+double refOffsetRun(double angleDeg) {
+  if (angleDeg <= 0 || angleDeg >= 180) return 0.0;
+  return 1 / math.tan(angleDeg * math.pi / 180.0);
 }
 
 /// 맨 위 안내 글 상자.

@@ -218,19 +218,27 @@ class RefConduitTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "7. 오프셋·새들 계수 (전선관도 같음)",
-          subtitle: "단차 H에 곱한다. 빗변 = H ÷ sin, 수축 = H × tan(각/2).",
+          title: "7. 오프셋·새들 계수 (전선관도 같음, 튜브 탭 4번과 같은 식)",
+          subtitle: "단차 H에 곱한다. 빗변 = H ÷ sin(각), 수축 = H × tan(각/2).",
           icon: Icons.call_made,
           iconColor: Colors.orange,
           children: [
             refTable(
               headers: ["각도", "빗변 × H", "수축 × H", "쓰는 곳"],
-              rows: const [
-                ["10°", "× 5.76", "× 0.087", "긴 완만한 단차"],
-                ["22.5°", "× 2.61", "× 0.199", "낮은 단차, 좁은 곳"],
-                ["30°", "× 2.00", "× 0.268", "제일 흔한 오프셋"],
-                ["45°", "× 1.41", "× 0.414", "새들·짧은 단차"],
-                ["60°", "× 1.15", "× 0.577", "급한 단차"],
+              rows: [
+                for (final (a, use) in const [
+                  (15.0, "완만한 단차"),
+                  (22.5, "낮은 단차, 좁은 곳"),
+                  (30.0, "제일 흔한 오프셋"),
+                  (45.0, "새들·짧은 단차"),
+                  (60.0, "급한 단차"),
+                ])
+                  [
+                    "${refNum(a)}°",
+                    "× ${refOffsetHypot(a).toStringAsFixed(3)}",
+                    "× ${refOffsetShrink(a).toStringAsFixed(3)}",
+                    use,
+                  ],
               ],
               footer:
                   "※ 3벤드 새들: 가운데 45°, 양옆 22.5°. 4벤드 새들: 양쪽 오프셋 둘. 계산기 특수 벤딩 툴이 마킹까지 찍어 줍니다.",

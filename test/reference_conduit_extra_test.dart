@@ -40,6 +40,18 @@ void main() {
     expect(find.text('62.6'), findsWidgets);
   });
 
+  testWidgets('오프셋·새들 계수 표는 튜브 탭과 같은 각도·값(45°는 1.414)을 쓴다', (
+    tester,
+  ) async {
+    await _openConduitTab(tester);
+    final title = find.textContaining('오프셋·새들 계수');
+    await _scrollTo(tester, title);
+    expect(title, findsOneWidget);
+    expect(find.text('15°'), findsOneWidget);
+    expect(find.text('× 1.414'), findsOneWidget);
+    expect(find.text('× 0.414'), findsOneWidget);
+  });
+
   testWidgets('유볼트 카드는 정확한 로드 규격 없이 고르는 법만 안내한다', (tester) async {
     await _openConduitTab(tester);
     final title = find.textContaining('유볼트(U밴드) 고르는 법');

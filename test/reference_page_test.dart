@@ -27,6 +27,15 @@ void main() {
     expect(refNum(23.8), '23.8');
   });
 
+  test('오프셋 계수: 튜브·전선관 탭이 같은 식을 쓴다(45°는 √2)', () {
+    expect(refOffsetHypot(45), closeTo(1.41421, 0.0001));
+    expect(refOffsetShrink(45), closeTo(0.41421, 0.0001));
+    expect(refOffsetRun(45), closeTo(1.0, 0.0001));
+    // 30°: 빗변 2배, 수축은 tan(15°).
+    expect(refOffsetHypot(30), closeTo(2.0, 0.0001));
+    expect(refOffsetShrink(30), closeTo(0.26795, 0.0001));
+  });
+
   for (final (size, scale) in kCases) {
     final String tag = '${size.width.toInt()}x${size.height.toInt()} ×$scale';
 
