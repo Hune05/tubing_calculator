@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../../data/record_sync.dart';
 import '../common/calc_form_parts.dart';
@@ -41,10 +42,13 @@ class _RowCtl {
 }
 
 class ElecLoadSumTab extends StatefulWidget {
-  const ElecLoadSumTab({super.key, this.onSendToShortCircuit});
+  const ElecLoadSumTab({super.key, this.onSendToShortCircuit, this.history});
 
   /// 변압기 용량(kVA)과 2차 전압(V)을 단락 전류 탭으로 넘긴다. 없으면 단추를 보이지 않는다.
   final void Function(double kva, double volts)? onSendToShortCircuit;
+
+  /// "최근 계산 기록"을 다른 탭과 함께 쓸 때 밖에서 만든 기록을 넣는다. 비우면 이 탭만의 기록을 쓴다.
+  final RecentCalcLog? history;
 
   @override
   State<ElecLoadSumTab> createState() => _ElecLoadSumTabState();
@@ -53,11 +57,15 @@ class ElecLoadSumTab extends StatefulWidget {
 class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     with
         CalcFormParts<ElecLoadSumTab>,
+        RecentCalcHistoryMixin<ElecLoadSumTab>,
         ElecTabParts<ElecLoadSumTab>,
         AutomaticKeepAliveClientMixin<ElecLoadSumTab> {
   // 탭을 옮겨도 입력이 사라지지 않게 살려 둔다.
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  RecentCalcLog get calcLog => widget.history ?? super.calcLog;
 
   final List<_RowCtl> _rows = [];
   int _nextId = 0;

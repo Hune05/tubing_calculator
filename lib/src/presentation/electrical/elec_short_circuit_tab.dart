@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import 'elec_form_parts.dart';
@@ -14,10 +15,13 @@ import 'elec_short_circuit.dart';
 import 'elec_tables.dart';
 
 class ElecShortCircuitTab extends StatefulWidget {
-  const ElecShortCircuitTab({super.key, this.seed});
+  const ElecShortCircuitTab({super.key, this.seed, this.history});
 
   /// 부하 합산 탭이 넘긴 변압기 값(용량·2차 전압). 값이 오면 두 칸을 채운다.
   final ValueListenable<ElecTransformerSeed?>? seed;
+
+  /// "최근 계산 기록"을 다른 탭과 함께 쓸 때 밖에서 만든 기록을 넣는다. 비우면 이 탭만의 기록을 쓴다.
+  final RecentCalcLog? history;
 
   /// 입력값을 남기는 저장 칸 이름.
   static const String draftKey = 'elec_short_draft_v1';
@@ -38,11 +42,15 @@ class _SegRow {
 class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     with
         CalcFormParts<ElecShortCircuitTab>,
+        RecentCalcHistoryMixin<ElecShortCircuitTab>,
         ElecTabParts<ElecShortCircuitTab>,
         AutomaticKeepAliveClientMixin<ElecShortCircuitTab> {
   // 탭을 옮겨도 입력이 사라지지 않게 살려 둔다.
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  RecentCalcLog get calcLog => widget.history ?? super.calcLog;
 
   ElecTransformerSeed? _lastSeed;
 

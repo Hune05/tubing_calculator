@@ -3,8 +3,24 @@
 // 파일로 나눈 새 탭(부하 합산·단락 전류·발전기·축전지)은 이 mixin을 쓴다.
 import 'package:flutter/material.dart';
 
+import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+
+/// elecPage·_page의 sumKey → "최근 계산 기록"에 보일 한글 탭 이름(2026-09-29).
+const Map<String, String> kElecTabLabels = {
+  'els_sum': '부하 합산',
+  'ec_sc_sum': '단락 전류',
+  'eg_sum': '발전기 용량',
+  'eb_sum': '축전지 용량',
+  'ec_sum_load': '부하 전류',
+  'ec_sum_cable': '전선 굵기',
+  'ec_sum_vd': '전압강하',
+  'ec_sum_pf': '역률 개선',
+  'ec_sum_basic': '기초 계산',
+  'ec_sum_cd': '전선관',
+  'ec_sum_bus': '부스바',
+};
 
 /// 소수 [d]자리까지 쓰고 뒤의 0은 뗀다(12.50 → 12.5).
 String fmt(double v, [int d = 1]) {
@@ -27,14 +43,20 @@ class ElecTransformerSeed {
 double? readNum(TextEditingController c) =>
     double.tryParse(c.text.trim().replaceAll(',', ''));
 
-mixin ElecTabParts<W extends StatefulWidget> on CalcFormParts<W> {
+mixin ElecTabParts<W extends StatefulWidget>
+    on CalcFormParts<W>, RecentCalcHistoryMixin<W> {
   /// 탭 몸통: 위에 결과 요약 줄(고정), 아래 입력·결과 목록.
+  /// 요약 줄이 있으면(=계산이 됨) "최근 계산 기록"에도 쌓는다.
   Widget elecPage(
     List<Widget> children, {
     required String sumKey,
     String? summary,
     bool warn = false,
-  }) => GestureDetector(
+  }) {
+    if (summary != null) {
+      logCalc(kElecTabLabels[sumKey] ?? sumKey, summary);
+    }
+    return GestureDetector(
     onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
     behavior: HitTestBehavior.translucent,
     child: Column(
@@ -68,6 +90,7 @@ mixin ElecTabParts<W extends StatefulWidget> on CalcFormParts<W> {
       ],
     ),
   );
+  }
 
   /// 숫자 칸(calcField와 같은 모양, 키보드 "다음"으로 다음 칸).
   Widget elecField(

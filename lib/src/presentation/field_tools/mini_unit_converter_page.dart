@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../unit_converter/unit_defs.dart';
 
@@ -35,7 +36,8 @@ class MiniUnitConverterPage extends StatefulWidget {
   State<MiniUnitConverterPage> createState() => _MiniUnitConverterPageState();
 }
 
-class _MiniUnitConverterPageState extends State<MiniUnitConverterPage> {
+class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
+    with RecentCalcHistoryMixin<MiniUnitConverterPage> {
   late UnitCategory _cat = kMiniConvertCategories.first;
   late List<UnitDef> _units = _numericUnits(_cat);
   late UnitDef _from = _units[0];
@@ -81,7 +83,15 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage> {
   }
 
   @override
-  Widget build(BuildContext context) => FieldViewTheme(
+  Widget build(BuildContext context) {
+    final resultText = _resultText;
+    if (resultText != '—') {
+      logCalc(
+        '${_from.symbol} → ${_to.symbol} (${_cat.label})',
+        '${_ctrl.text.trim()} ${_from.symbol} → $resultText ${_to.symbol}',
+      );
+    }
+    return FieldViewTheme(
     child: Scaffold(
       backgroundColor: fc.surface,
       appBar: AppBar(
@@ -93,6 +103,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage> {
           "단위 계산기",
           style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
         ),
+        actions: [calcHistoryButton()],
       ),
       body: SafeArea(
         child: ListView(
@@ -151,6 +162,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage> {
       ),
     ),
   );
+  }
 
   /// 분류 고르기: 칩을 여러 줄로 늘어놓는 대신 슬라이더 한 줄로(자리를 덜 차지함).
   /// 회색 배경 없이 트랙·손잡이만 있고, 색은 무채색(회색 계열)만 쓴다.

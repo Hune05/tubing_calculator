@@ -42,6 +42,19 @@ Future<void> openTab(WidgetTester tester, String key) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('"최근 계산 기록"이 본체 탭과 별도 파일 탭(발전기 용량)을 함께 쌓는다', (tester) async {
+    await pumpPage(tester);
+    await tester.enterText(find.byKey(const Key('ec_kw')), '11');
+    await tester.pump(const Duration(milliseconds: 800));
+    await openTab(tester, 'ec_tab_gen');
+    await tester.enterText(find.byKey(const Key('eg_load')), '100');
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.byKey(const Key('calc_history_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('부하 전류'), findsOneWidget);
+    expect(find.text('발전기 용량'), findsOneWidget);
+  });
+
   testWidgets('380V 삼상 11kW 효율 90 역률 85 → 21.8A, 1.25배 27.3A를 전선 탭으로', (
     tester,
   ) async {

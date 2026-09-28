@@ -58,4 +58,15 @@ void main() {
     await tester.pump();
     expect(toValue(tester), '—');
   });
+
+  testWidgets('변환하면 "최근 계산 기록"에 쌓인다', (tester) async {
+    await pump(tester);
+    await tester.enterText(find.byKey(const Key('unit_from_value')), '1000');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800)); // 디바운스 지나가기
+    await tester.tap(find.byKey(const Key('calc_history_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('최근 계산 기록'), findsOneWidget);
+    expect(find.textContaining('1000 mm'), findsWidgets);
+  });
 }

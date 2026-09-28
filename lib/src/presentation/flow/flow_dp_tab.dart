@@ -121,6 +121,12 @@ mixin _FlowDpTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
       final dp = _mFromDp ? v : flowToDp(v, dpMax, qMax);
       final qPct = q / qMax * 100;
       final dpPct = dp / dpMax * 100;
+      _pg.logCalc(
+        '차압 유량계 환산',
+        _mFromDp
+            ? '차압 ${_sig(v)} $du → 유량 ${_sig(q)} $_qu'
+            : '유량 ${_sig(v)} $_qu → 차압 ${_sig(dp)} $du',
+      );
       result = calcResult(
         key: const Key('fm_range_result'),
         big: _mFromDp ? '${_sig(q)} $_qu' : '${_sig(dp)} $du',
@@ -324,6 +330,10 @@ mixin _FlowDpTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
       );
     } else {
       final out = r.outOfRange.isNotEmpty;
+      _pg.logCalc(
+        '오리피스 유량 계산',
+        'D ${_fmt(dPipe!)}mm, d ${_fmt(bore!)}mm → ${_sig(r.qM3s * 3600)} m³/h',
+      );
       result = calcResult(
         key: const Key('fm_orifice_result'),
         big: '${_sig(r.qM3s * 3600)} m³/h',

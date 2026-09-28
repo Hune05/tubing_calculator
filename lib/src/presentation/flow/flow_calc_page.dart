@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../instrument/signal_calc.dart';
@@ -83,6 +84,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
     with
         SingleTickerProviderStateMixin,
         CalcFormParts<FlowCalcPage>,
+        RecentCalcHistoryMixin<FlowCalcPage>,
         WidgetsBindingObserver,
         _FlowDpTab,
         _FlowMeterCheckTab {
@@ -394,6 +396,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
             '유량 계산',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
+          actions: [calcHistoryButton()],
           bottom: TabBar(
             controller: _tabs,
             isScrollable: true,
@@ -675,6 +678,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
       final regime = regimeOf(re);
       final over = g != null && v > g.max + 1e-12;
       final under = g != null && g.min != null && v < g.min! - 1e-12;
+      logCalc('유속·관 굵기', '$_conduitText → ${_fmt(v)} m/s (Re ${_int(re)})');
       result = calcResult(
         key: const Key('fl_vel_result'),
         big: '${_fmt(v)} m/s',
@@ -838,6 +842,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
       );
       final check = s.gas ? gasDropCheck(r.totalKpa, s.pAbsKpa!) : null;
       final pct = s.gas ? r.totalKpa / s.pAbsKpa! * 100 : 0.0;
+      logCalc('압력손실', '$_conduitText, ${_fmt(len, 1)}m → ${_sig(r.totalKpa)} kPa');
       result = calcResult(
         key: const Key('fl_dp_result'),
         big: '${_sig(r.totalKpa)} kPa',

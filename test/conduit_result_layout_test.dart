@@ -65,6 +65,18 @@ void main() {
     expect(find.textContaining('22° 벤딩'), findsNothing);
   });
 
+  testWidgets('"최근 마킹값 보기"를 누르면 방금 계산한 마킹값이 뜬다', (tester) async {
+    ConduitDataManager().bendList
+      ..clear()
+      ..addAll(rows);
+    await pumpResult(tester, 600);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.tap(find.byKey(const Key('conduit_recent_marks')));
+    await tester.pumpAndSettle();
+    expect(find.text('최근 마킹 기록'), findsOneWidget);
+    expect(find.textContaining('총 절단'), findsWidgets);
+  });
+
   testWidgets('아주 큰 길이도 320 폭 카드 안에 들어간다', (tester) async {
     ConduitDataManager().bendList
       ..clear()

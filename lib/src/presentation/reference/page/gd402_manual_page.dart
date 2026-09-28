@@ -52,6 +52,12 @@ class Gd402ManualPage extends StatelessWidget {
             "종류 × 4단계, 수백 항목)는 글로 옮기지 않았다. 초기 시운전 때 "
             "CODE 번호로 세부 설정을 하나하나 맞춰야 하면 원문 PDF를 같이 보십시오.",
           ),
+          const SizedBox(height: 8),
+          refWarnBox(
+            "이 페이지는 조작판 버튼 순서·경보표 중심의 대략적인 사용법이다. 실제 밸브 위치, "
+            "가스 새는지 확인, 안전 조치는 현장·담당자 확인이 필요하다 — 처음 보정하는 사람은 "
+            "혼자 판단하지 말고 경험자와 같이 한다.",
+          ),
           const SizedBox(height: 16),
 
           refExpandCard(
@@ -447,6 +453,13 @@ class Gd402ManualPage extends StatelessWidget {
               refDataRow("제로가스", "수소(H2) 100%"),
               refGap(),
               refDataRow("스팬가스", "이산화탄소(CO2) 100%"),
+              const SizedBox(height: 10),
+              refWarnBox(
+                "수소는 공기 중 4~75%에서 폭발성이다. 제로가스 밸브를 열고 닫는 작업 중 배관·연결부에서 "
+                "새는 곳이 없는지 먼저 확인하고, 환기가 되는 곳에서 작업한다. 이 페이지는 조작판 버튼 순서만 "
+                "정리한 것이라, 실제 제로·시료·스팬 밸브가 현장에 어느 것인지는 배관도(그림 2.10, 이 페이지엔 "
+                "없음)나 담당자 확인이 필요하다 — 처음 하는 사람은 혼자 밸브를 짐작해서 돌리지 말 것.",
+              ),
               const SizedBox(height: 12),
               refSectionTitle("준비"),
               refDataRow(

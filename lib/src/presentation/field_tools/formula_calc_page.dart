@@ -2,6 +2,7 @@
 // 칸이 뜨고, 다 넣으면 바로 결과가 나온다(formula_defs.dart의 공식들).
 import 'package:flutter/material.dart';
 
+import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
@@ -111,7 +112,7 @@ class FormulaDetailPage extends StatefulWidget {
 }
 
 class _FormulaDetailPageState extends State<FormulaDetailPage>
-    with CalcFormParts<FormulaDetailPage> {
+    with CalcFormParts<FormulaDetailPage>, RecentCalcHistoryMixin<FormulaDetailPage> {
   late final Map<String, TextEditingController> _ctrl = {
     for (final v in widget.def.inputs) v.key: TextEditingController(),
   };
@@ -152,6 +153,19 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
         error = '계산할 수 없습니다.';
       }
     }
+    if (result != null) {
+      final inputsText = def.inputs
+          .map(
+            (v) =>
+                '${v.label} ${formatNumber(values[v.key]!)}${v.unit}',
+          )
+          .join(', ');
+      logCalc(
+        def.name,
+        '$inputsText → ${formatNumber(result)}'
+        '${def.resultUnit.isEmpty ? '' : ' ${def.resultUnit}'}',
+      );
+    }
     return FieldViewTheme(
       child: Scaffold(
         backgroundColor: fc.surface,
@@ -164,6 +178,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
             def.name,
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
+          actions: [calcHistoryButton()],
         ),
         body: SafeArea(
           child: ListView(

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 
+import 'package:tubing_calculator/src/core/common_widgets/recent_calc_history.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
@@ -171,7 +172,7 @@ class MobileResultTab extends StatefulWidget {
 }
 
 class _MobileResultTabState extends State<MobileResultTab>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, RecentCalcHistoryMixin<MobileResultTab> {
   @override
   bool get wantKeepAlive => true;
 
@@ -432,6 +433,30 @@ class _MobileResultTabState extends State<MobileResultTab>
         // 먼저 알려 준다. 예전에는 조용히 이상한 마킹이 나왔다.
         final List<String> warnings = check.warnings;
 
+        // "최근 마킹값 보기" — 저장하지 않아도 방금 계산한 마킹값을 다시 볼 수 있게
+        // 자동으로 쌓는다(2026-09-29, 리모컨 "최근 전송 기록"과 같은 방식).
+        if (hasRealTubeRow(bendList) && warnings.isEmpty) {
+          final marks = displayMarks.where((m) => m['is_hidden'] != true);
+          final markText = marks
+              .map((m) {
+                final n = m['is_straight'] == true
+                    ? '직관'
+                    : '${(m['mark_num'] as int?) ?? 0}번';
+                final angle = (m['angle'] as num?)?.toDouble() ?? 0.0;
+                final point = (m['marking_point'] as num?)?.toDouble() ?? 0.0;
+                return angle == 0.0
+                    ? '$n ${point.toStringAsFixed(0)}mm'
+                    : '$n ${angle.toStringAsFixed(0)}° ${point.toStringAsFixed(0)}mm';
+              })
+              .join(', ');
+          logCalc(
+            '마킹 계산',
+            '총 절단 ${totalCut.toStringAsFixed(0)}mm · $markText',
+            dedupeKey:
+                '${totalCut.toStringAsFixed(1)}|${displayMarks.map((m) => '${m['marking_point']}_${m['angle']}').join(',')}',
+          );
+        }
+
         // 🚀 전선관 마킹 탭과 같은 짜임: 머리(고정) → 총 절단 길이 카드 →
         // STEP 카드 목록. 모양만 맞추고, 튜브에만 있는 피팅·꼬리 길이·
         // 스프링백·굴림은 그대로 보여 준다.
@@ -457,6 +482,17 @@ class _MobileResultTabState extends State<MobileResultTab>
                 ),
                 centerTitle: false,
                 actions: [
+                  if (hasRealTubeRow(bendList))
+                    IconButton(
+                      key: const Key('tube_recent_marks'),
+                      icon: Icon(Icons.history_rounded, color: slate900),
+                      tooltip: "최근 마킹값 보기",
+                      onPressed: () => showCalcHistorySheet(
+                        context,
+                        calcHistory,
+                        title: '최근 마킹 기록',
+                      ),
+                    ),
                   if (hasRealTubeRow(bendList))
                     IconButton(
                       key: const Key('tube_save_drawing'),

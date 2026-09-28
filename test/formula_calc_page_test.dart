@@ -171,6 +171,20 @@ void main() {
     expect(find.text('오류'), findsOneWidget);
   });
 
+  testWidgets('계산이 끝나면 "최근 계산 기록"에 쌓인다', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('formula_ohm_v')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('formula_in_i')), '10');
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('formula_in_r')), '5');
+    await tester.pump(const Duration(milliseconds: 800)); // 디바운스 지나가기
+    await tester.tap(find.byKey(const Key('calc_history_button')));
+    await tester.pumpAndSettle();
+    expect(find.text('최근 계산 기록'), findsOneWidget);
+    expect(find.textContaining('50 V'), findsWidgets);
+  });
+
   testWidgets('좁은 폰(320)·큰 글씨에서 넘치지 않는다', (tester) async {
     final errors = <String>[];
     final old = FlutterError.onError;

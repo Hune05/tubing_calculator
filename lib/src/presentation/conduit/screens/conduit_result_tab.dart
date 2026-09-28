@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/recent_calc_history.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -41,7 +42,7 @@ class ConduitResultTab extends StatefulWidget {
 }
 
 class _ConduitResultTabState extends State<ConduitResultTab>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, RecentCalcHistoryMixin<ConduitResultTab> {
   @override
   bool get wantKeepAlive => true;
 
@@ -127,6 +128,26 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           };
         });
 
+        // "최근 마킹값 보기" — 저장하지 않아도 방금 계산한 마킹값을 다시 볼 수 있게
+        // 자동으로 쌓는다(2026-09-29, 리모컨 "최근 전송 기록"과 같은 방식).
+        if (markings.isNotEmpty && check.warnings.isEmpty) {
+          final markText = markings
+              .map((m) {
+                final angle = (m['angle'] as num).toDouble();
+                final mark = (m['mark'] as num).toDouble();
+                return angle == 0.0
+                    ? '직관 ${mark.toStringAsFixed(0)}mm'
+                    : '${angle.toStringAsFixed(0)}° ${mark.toStringAsFixed(0)}mm';
+              })
+              .join(', ');
+          logCalc(
+            '마킹 계산',
+            '총 절단 ${totalCut.toStringAsFixed(0)}mm · $markText',
+            dedupeKey:
+                '${totalCut.toStringAsFixed(1)}|${markings.map((m) => '${m['mark']}_${m['angle']}').join(',')}',
+          );
+        }
+
         // 🚀 [수정] 폴더블 대응으로 넓은 화면에서 입력 탭과 나란히 붙여
         // 보여줄 수 있도록, 자체 Scaffold 대신 배경색만 칠하는 ColoredBox로
         // 바꿨다. SliverAppBar는 Scaffold 없이 CustomScrollView 안에서도
@@ -153,6 +174,17 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                   ),
                   centerTitle: false,
                   actions: [
+                    if (markings.isNotEmpty)
+                      IconButton(
+                        key: const Key('conduit_recent_marks'),
+                        icon: Icon(Icons.history_rounded, color: slate900),
+                        tooltip: "최근 마킹값 보기",
+                        onPressed: () => showCalcHistorySheet(
+                          context,
+                          calcHistory,
+                          title: '최근 마킹 기록',
+                        ),
+                      ),
                     if (markings.isNotEmpty)
                       IconButton(
                         key: const Key('conduit_save_drawing'),

@@ -82,6 +82,14 @@ void main() {
     expect(find.byKey(const Key('tube_marking_sheet')), findsOneWidget);
   });
 
+  testWidgets('"최근 마킹값 보기"를 누르면 방금 계산한 마킹값이 뜬다', (tester) async {
+    await pumpTab(tester, const Size(400, 2000));
+    await tester.tap(find.byKey(const Key('tube_recent_marks')));
+    await tester.pumpAndSettle();
+    expect(find.text('최근 마킹 기록'), findsOneWidget);
+    expect(find.textContaining('총 절단'), findsWidgets);
+  });
+
   testWidgets('피팅 시작·종료 단추를 누르면 켜지고 총 길이가 늘어난다', (tester) async {
     await pumpTab(tester, const Size(400, 2000));
     final before = computeTubeFieldData(startDir: 'RIGHT').totalCut;

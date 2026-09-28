@@ -185,6 +185,20 @@ void main() {
     expect(r, isNot(contains('적용 범위 밖')));
   });
 
+  testWidgets('"최근 계산 기록"이 유속 탭과 차압 유량계 탭(part 파일)을 함께 쌓는다', (tester) async {
+    await pumpPage(tester);
+    await type(tester, 'fv_flow', '50');
+    await tester.pump(const Duration(milliseconds: 800));
+    await openTab(tester, 'fl_tab_meter');
+    await type(tester, 'fm_qmax', '100');
+    await type(tester, 'fm_dpmax', '25');
+    await type(tester, 'fm_value', '6.25');
+    await tester.pump(const Duration(milliseconds: 800));
+    await tapKey(tester, 'calc_history_button');
+    expect(find.text('유속·관 굵기'), findsOneWidget);
+    expect(find.text('차압 유량계 환산'), findsOneWidget);
+  });
+
   testWidgets('임시 저장: 넣은 값·고른 것이 다시 열면 되살아난다', (tester) async {
     await pumpPage(tester);
     await tapKey(tester, 'fv_fluid_oil');

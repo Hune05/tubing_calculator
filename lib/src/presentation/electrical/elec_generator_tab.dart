@@ -5,12 +5,16 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/recent_calc_history.dart';
 import '../common/calc_form_parts.dart';
 import 'elec_form_parts.dart';
 import 'elec_generator.dart';
 
 class ElecGeneratorTab extends StatefulWidget {
-  const ElecGeneratorTab({super.key});
+  const ElecGeneratorTab({super.key, this.history});
+
+  /// "최근 계산 기록"을 다른 탭과 함께 쓸 때 밖에서 만든 기록을 넣는다. 비우면 이 탭만의 기록을 쓴다.
+  final RecentCalcLog? history;
 
   /// 입력값을 남기는 저장 칸.
   static const draftKey = 'elec_generator_draft_v1';
@@ -22,11 +26,15 @@ class ElecGeneratorTab extends StatefulWidget {
 class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     with
         CalcFormParts<ElecGeneratorTab>,
+        RecentCalcHistoryMixin<ElecGeneratorTab>,
         ElecTabParts<ElecGeneratorTab>,
         AutomaticKeepAliveClientMixin<ElecGeneratorTab> {
   // 탭을 옮겨도 입력이 사라지지 않게 살려 둔다.
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  RecentCalcLog get calcLog => widget.history ?? super.calcLog;
 
   final _load = TextEditingController();
   final _demand = TextEditingController(text: '100');

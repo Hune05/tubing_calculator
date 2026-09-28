@@ -231,6 +231,10 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         );
       }
       final pct = pvToPct(ind, lo, hi);
+      _pgc.logCalc(
+        '유량계 점검',
+        '지시값 ${_sig(ind)}$u → ${_fmt(meterMa(pct, _mcType, _mcDpOut), 3)} mA',
+      );
       return calcResult(
         key: const Key('mc_result'),
         big: '${_fmt(meterMa(pct, _mcType, _mcDpOut), 3)} mA',
@@ -283,6 +287,10 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
     ];
 
     if (ind != null && r.pass != null) {
+      _pgc.logCalc(
+        '유량계 점검',
+        '측정 ${_fmt(ma)}mA, 지시 ${_sig(ind)}$u → ${r.pass! ? '합격' : '불합격'}',
+      );
       return calcResult(
         key: const Key('mc_result'),
         big: r.pass! ? '합격' : '불합격',
@@ -291,6 +299,10 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         lines: lines,
       );
     }
+    _pgc.logCalc(
+      '유량계 점검',
+      '측정 ${_fmt(ma)}mA → 지시값 ${_sig(r.expected)}$u',
+    );
     return calcResult(
       key: const Key('mc_result'),
       big: '${_sig(r.expected)}$u',

@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import 'awg_tables.dart';
@@ -143,7 +144,10 @@ class ElectricCalculatorPage extends StatefulWidget {
 }
 
 class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
-    with SingleTickerProviderStateMixin, CalcFormParts {
+    with
+        SingleTickerProviderStateMixin,
+        CalcFormParts,
+        RecentCalcHistoryMixin<ElectricCalculatorPage> {
   late final TabController _tabs = TabController(length: 11, vsync: this);
 
   // 공통
@@ -683,6 +687,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               '전기 설계 계산',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
+            actions: [calcHistoryButton()],
             bottom: TabBar(
               controller: _tabs,
               isScrollable: true,
@@ -716,15 +721,15 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               children: [
                 _basicTab(),
                 _loadTab(),
-                ElecLoadSumTab(onSendToShortCircuit: _sendToShort),
+                ElecLoadSumTab(onSendToShortCircuit: _sendToShort, history: calcLog),
                 _cableTab(),
                 _vdTab(),
-                ElecShortCircuitTab(seed: _shortSeed),
+                ElecShortCircuitTab(seed: _shortSeed, history: calcLog),
                 _conduitTab(),
                 _busTab(),
                 _pfTab(),
-                const ElecGeneratorTab(),
-                const ElecBatteryTab(),
+                ElecGeneratorTab(history: calcLog),
+                ElecBatteryTab(history: calcLog),
               ],
             ),
           ),
@@ -734,12 +739,17 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   }
 
   /// 탭 몸통: 위에 결과 요약 줄(고정), 아래 입력·결과 목록.
+  /// 요약 줄이 있으면(=계산이 됨) "최근 계산 기록"에도 쌓는다.
   Widget _page(
     List<Widget> children, {
     required String sumKey,
     String? summary,
     bool warn = false,
-  }) => GestureDetector(
+  }) {
+    if (summary != null) {
+      logCalc(kElecTabLabels[sumKey] ?? sumKey, summary);
+    }
+    return GestureDetector(
     onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
     behavior: HitTestBehavior.translucent,
     child: Column(
@@ -773,6 +783,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       ],
     ),
   );
+  }
 
   /// 숫자 칸(calcField와 같은 모양, 키보드 "다음"으로 다음 칸).
   Widget _field(
