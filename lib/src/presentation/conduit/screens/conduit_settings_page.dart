@@ -573,7 +573,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           actions: [
             IconButton(
               key: const Key('conduit_bender_guide_button'),
-              tooltip: '설정 가이드(그림)',
+              tooltip: '장비 사용법(그림)',
               icon: const Icon(Icons.help_outline, color: slate900),
               onPressed: () => Navigator.push(
                 context,

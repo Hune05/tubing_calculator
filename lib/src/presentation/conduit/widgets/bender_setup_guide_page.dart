@@ -1,7 +1,8 @@
-/// 전선관 설정 화면 헤더의 "설정 가이드" — 수동·유압식·시카고식 벤더 각각
-/// 제원 칸이 실제 장비의 어느 부위 값인지 움직이는 그림으로 짚어 준다.
-/// (실측하는 방법 자체는 이미 현장 자료 → 장비 사용법에 글로 자세히 있어서
-/// 여기서 다시 안 적고, "이 칸 = 그림의 이 부분"만 그림으로 보여 준다.)
+/// 전선관 설정 화면 헤더의 "장비 사용법" — 수동·유압식·시카고식 벤더를
+/// 처음 만지는 사람도 순서대로 따라 할 수 있게, 실제 조작 절차(현장 자료 →
+/// 장비 사용법 탭 4·5·6번과 같은 내용)를 그림으로 보여 준다.
+/// (제원 칸을 내 장비에서 실제로 재는 방법은 그 탭의 "실측 캘리브레이션"에
+/// 이미 있어서 여기서 다시 안 적는다 — 이 화면은 "어떻게 조작하는지"만.)
 library;
 
 import 'dart:math' as math;
@@ -14,6 +15,8 @@ const Color _slate900 = AppColors.text;
 const Color _slate600 = AppColors.textSub;
 const Color _pureWhite = Color(0xFFFFFFFF);
 const Color _slate100 = AppColors.background;
+const Color _metal = Color(0xFF90A4AE); // blueGrey300 — 장비 몸체.
+const Color _metalDark = Color(0xFF546E7A); // blueGrey600 — 움직이는 부분.
 
 enum _BenderKind { hand, ram, chicago }
 
@@ -29,7 +32,7 @@ class BenderSetupGuidePage extends StatelessWidget {
         backgroundColor: _slate100,
         appBar: AppBar(
           title: const Text(
-            '벤더 설정 가이드',
+            '벤더 사용법',
             style: TextStyle(
               color: _slate900,
               fontWeight: FontWeight.w800,
@@ -64,6 +67,92 @@ class BenderSetupGuidePage extends StatelessWidget {
   }
 }
 
+class _UsageStep {
+  final IconData icon;
+  final String title;
+  final String detail;
+  const _UsageStep(this.icon, this.title, this.detail);
+}
+
+List<_UsageStep> _stepsFor(_BenderKind kind) {
+  switch (kind) {
+    case _BenderKind.hand:
+      return const [
+        _UsageStep(
+          Icons.center_focus_strong,
+          '마킹을 화살표에 맞춘다',
+          '관에 그은 마킹선을 슈의 화살표(Arrow)에 맞춰 끼운다. 두 번째를 '
+              '뒤로 꺾을 때는 별(Star) 표시에 맞춘다.',
+        ),
+        _UsageStep(
+          Icons.pan_tool_alt,
+          '발판을 밟으며 핸들을 당긴다',
+          '발판을 밟은 채 핸들을 한 번에 지그시 당겨 꺾는다. 멈췄다 다시 '
+              '당기면 관에 자국이 남는다.',
+        ),
+        _UsageStep(
+          Icons.rule,
+          '각도 + 스프링백 확인',
+          '슈 눈금이 목표 각도보다 스프링백만큼(후강 3~5°) 더 간 곳에서 '
+              '멈춘다. 바닥에 관이 뜨면 각이 모자란 것이다.',
+        ),
+      ];
+    case _BenderKind.ram:
+      return const [
+        _UsageStep(
+          Icons.build_circle_outlined,
+          '슈·받침 고르기',
+          '관 규격과 같은 슈를 램에 끼우고, 받침 롤러를 프레임의 그 규격 '
+              '구멍에 핀으로 끝까지 꽂는다. 핀이 덜 들어가면 절대 밀지 않는다.',
+        ),
+        _UsageStep(
+          Icons.center_focus_strong,
+          '셋백 마크 맞추기',
+          '마킹선(셋백을 뺀 자리)을 슈 가운데 표시에 맞춘다. 관은 받침 '
+              '롤러 양쪽에 고르게 걸친다.',
+        ),
+        _UsageStep(
+          Icons.compress,
+          '펌프질로 밀기',
+          '펌프 밸브를 잠그고 펌프질한다(전동은 스위치). 램 눈금이 설정한 '
+              "'램 이동 거리'까지 오면 멈추고 각도기로 확인한다.",
+        ),
+        _UsageStep(
+          Icons.replay,
+          '천천히 되돌리기',
+          '릴리스 밸브를 천천히 열어 램을 넣는다. 갑자기 열면 슈가 튄다. '
+              '관을 빼고 다음 마킹으로.',
+        ),
+      ];
+    case _BenderKind.chicago:
+      return const [
+        _UsageStep(
+          Icons.build_circle_outlined,
+          '롤러·슈에 넣기',
+          '관 규격에 맞는 롤러 규격과 슈 홈에 관을 넣는다. 훅(고리)이 관을 '
+              '꽉 눌러야 한다.',
+        ),
+        _UsageStep(
+          Icons.center_focus_strong,
+          '0점·마킹 맞추기',
+          '노치 휠을 0점에 두고 마킹선(테이크업을 뺀 자리)을 슈 표시에 '
+              '맞춘다.',
+        ),
+        _UsageStep(
+          Icons.settings,
+          '크랭크로 노치 세기',
+          '크랭크를 돌리며 넘어가는 노치 칸을 센다. 칸 수 = 목표 각도 ÷ '
+              '노치당 각도(설정값). 스프링백만큼 한두 칸 더.',
+        ),
+        _UsageStep(
+          Icons.replay,
+          '래칫 풀고 되돌리기',
+          '래칫을 풀고 크랭크를 되돌린다. 관을 빼기 전에 훅을 먼저 푼다.',
+        ),
+      ];
+  }
+}
+
 class _BenderGuideTab extends StatefulWidget {
   final _BenderKind kind;
   const _BenderGuideTab({required this.kind});
@@ -76,7 +165,7 @@ class _BenderGuideTabState extends State<_BenderGuideTab>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 3200),
+    duration: const Duration(milliseconds: 4200),
   )..forward();
 
   @override
@@ -87,7 +176,7 @@ class _BenderGuideTabState extends State<_BenderGuideTab>
 
   @override
   Widget build(BuildContext context) {
-    final fields = _fieldsFor(widget.kind);
+    final steps = _stepsFor(widget.kind);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -100,12 +189,61 @@ class _BenderGuideTabState extends State<_BenderGuideTab>
             replayKey: Key('bender_guide_replay_${widget.kind.name}'),
             painterBuilder: (context, anim) => CustomPaint(
               size: Size.infinite,
-              painter: _BenderDiagramPainter(kind: widget.kind, t: _c.value),
+              painter: _BenderUsagePainter(
+                kind: widget.kind,
+                t: _c.value,
+                stepCount: steps.length,
+              ),
             ),
+          ),
+          const SizedBox(height: 8),
+          AnimatedBuilder(
+            animation: _c,
+            builder: (context, _) {
+              final idx = (_c.value * steps.length).floor().clamp(
+                0,
+                steps.length - 1,
+              );
+              final s = steps[idx];
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    margin: const EdgeInsets.only(top: 1),
+                    decoration: const BoxDecoration(
+                      color: AppColors.brand,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '${idx + 1}',
+                      style: const TextStyle(
+                        color: _pureWhite,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      s.title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: _slate900,
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 16),
           Text(
-            '이 칸이 그림의 어느 부분인지',
+            '전체 순서',
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -113,7 +251,8 @@ class _BenderGuideTabState extends State<_BenderGuideTab>
             ),
           ),
           const SizedBox(height: 8),
-          for (final f in fields) _FieldRow(field: f),
+          for (var i = 0; i < steps.length; i++)
+            _StepRow(index: i + 1, step: steps[i]),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(14),
@@ -128,9 +267,9 @@ class _BenderGuideTabState extends State<_BenderGuideTab>
                 SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '내 장비에서 이 값을 실제로 재는 방법(줄자 대는 법·계산식)은 '
-                    '현장 자료 → 장비 사용법 탭의 "내 장비 실측 캘리브레이션"에 '
-                    '자세히 있습니다.',
+                    '테이크업·게인 같은 제원 값을 내 장비에서 실제로 재는 '
+                    '방법(줄자 대는 법·계산식)은 현장 자료 → 장비 사용법 탭의 '
+                    '"내 장비 실측 캘리브레이션"에 자세히 있습니다.',
                     style: TextStyle(
                       fontSize: 12.5,
                       color: _slate900,
@@ -147,75 +286,10 @@ class _BenderGuideTabState extends State<_BenderGuideTab>
   }
 }
 
-class _GuideField {
-  final IconData icon;
-  final String label;
-  final String desc;
-  const _GuideField(this.icon, this.label, this.desc);
-}
-
-List<_GuideField> _fieldsFor(_BenderKind kind) {
-  const takeup = _GuideField(
-    Icons.straighten,
-    '테이크업 (Take-up)',
-    '꺾이는 점(그림의 점선 코너)에서 이만큼 앞으로 당겨서 마킹을 찍습니다.',
-  );
-  const setback = _GuideField(
-    Icons.straighten,
-    '셋백 (Setback)',
-    '꺾이는 점(그림의 점선 코너)에서 이만큼 앞으로 당겨서 마킹을 찍습니다.',
-  );
-  const gain = _GuideField(
-    Icons.compress,
-    '벤딩 게인 (Gain)',
-    '직각으로 꺾었을 때보다 관이 덜 필요해지는 길이 — 총 절단 길이에서 뺍니다.',
-  );
-  const clr = _GuideField(
-    Icons.data_usage,
-    '슈 중심선 반경 (CLR)',
-    '벤더 슈(굽힘틀)가 관을 굽히는 곡선의 반지름입니다.',
-  );
-  switch (kind) {
-    case _BenderKind.hand:
-      return const [takeup, gain, clr];
-    case _BenderKind.ram:
-      return const [
-        _GuideField(
-          Icons.height,
-          '램 이동 거리',
-          '90°로 꺾을 때 유압 램(피스톤)이 밀고 나가는 거리입니다.',
-        ),
-        setback,
-        gain,
-        clr,
-      ];
-    case _BenderKind.chicago:
-      return const [
-        _GuideField(
-          Icons.settings,
-          '노치당 각도',
-          '크랭크를 돌려 기어(노치) 한 칸을 넘길 때마다 꺾이는 각도입니다.',
-        ),
-        takeup,
-        gain,
-        _GuideField(
-          Icons.straighten,
-          '노치 간격',
-          '슈에 새겨진 노치와 노치 사이 거리(아직 마킹 계산에는 안 씁니다).',
-        ),
-        _GuideField(
-          Icons.circle_outlined,
-          '롤러 규격',
-          '관을 위에서 눌러 주는 롤러(바퀴)의 지름(아직 마킹 계산에는 안 씁니다).',
-        ),
-        clr,
-      ];
-  }
-}
-
-class _FieldRow extends StatelessWidget {
-  final _GuideField field;
-  const _FieldRow({required this.field});
+class _StepRow extends StatelessWidget {
+  final int index;
+  final _UsageStep step;
+  const _StepRow({required this.index, required this.step});
 
   @override
   Widget build(BuildContext context) {
@@ -238,7 +312,7 @@ class _FieldRow extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
-            child: Icon(field.icon, size: 18, color: AppColors.brand),
+            child: Icon(step.icon, size: 18, color: AppColors.brand),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -246,7 +320,7 @@ class _FieldRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  field.label,
+                  '$index. ${step.title}',
                   style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     color: _slate900,
@@ -254,7 +328,7 @@ class _FieldRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  field.desc,
+                  step.detail,
                   style: const TextStyle(
                     fontSize: 12.5,
                     color: _slate600,
@@ -270,254 +344,588 @@ class _FieldRow extends StatelessWidget {
   }
 }
 
-/// 벤더 옆모습 그림 — 관이 들어와 굽혀 나가는 L자 곡선에 테이크업(셋백)·
-/// 게인·CLR을 공통으로 짚고, 종류별로 하나씩 더 짚는다(유압=램 이동 거리,
-/// 시카고=노치당 각도). 실측 방법이 아니라 "칸 이름 = 이 부분"만 보여준다.
-class _BenderDiagramPainter extends CustomPainter {
+/// 벤더 옆모습 그림 — 장비 몸체(수동=굽힘틀+손잡이, 유압=롤러 받침+유압
+/// 램, 시카고=톱니바퀴+크랭크)를 고정으로 그린 뒤, [t](0~1, 자동 재생)를
+/// stepCount 등분해 각 구간마다 "지금 이 동작을 한다"를 움직임으로 보여
+/// 준다. 실측 방법이 아니라 조작 순서만 보여 준다.
+class _BenderUsagePainter extends CustomPainter {
   final _BenderKind kind;
   final double t;
-  _BenderDiagramPainter({required this.kind, required this.t});
+  final int stepCount;
+  _BenderUsagePainter({
+    required this.kind,
+    required this.t,
+    required this.stepCount,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
     paintDotGrid(canvas, size);
 
-    final entryY = h * 0.28;
-    final turnX = w * 0.52;
+    final entryY = h * 0.38;
+    final turnX = w * 0.54;
     final exitY = h * 0.90;
     const curveR = 27.0;
-    final startX = 14.0;
-    final markX = turnX - curveR - 30; // 테이크업만큼 코너에서 당겨진 마킹 자리.
+    final startX = 16.0;
+    final markX = turnX - curveR - 34;
+    final cornerCenter = Offset(turnX - curveR, entryY + curveR);
 
-    // 1) 들어오는 직선 관(마킹 자리까지).
-    final leadT = stageT(t, 0.0, 0.16);
+    switch (kind) {
+      case _BenderKind.hand:
+        _paintHand(canvas, cornerCenter, curveR, startX, entryY, exitY);
+      case _BenderKind.ram:
+        _paintRam(
+          canvas,
+          cornerCenter,
+          curveR,
+          startX,
+          entryY,
+          exitY,
+          turnX,
+          markX,
+        );
+      case _BenderKind.chicago:
+        _paintChicago(
+          canvas,
+          cornerCenter,
+          curveR,
+          startX,
+          entryY,
+          exitY,
+          turnX,
+          markX,
+        );
+    }
+  }
+
+  // 스텝을 stepCount 등분한 구간 도우미 — [i]번째 스텝은 [t] ∈ [i/n, (i+1)/n).
+  // curStep(i)는 "지금 이 스텝을 보여줄 차례"만 참(다음 스텝이 되면 꺼진다),
+  // localT(i)는 그 스텝 안에서의 0~1 진행도다. 손잡이·램·크랭크처럼 "다음
+  // 스텝에서도 그 자리를 유지해야 하는" 움직임은 이 도우미로 직접 계산한다.
+  double _stepStart(int i) => i / stepCount;
+  double _stepEnd(int i) => (i + 1) / stepCount;
+  int _curStep() => (t * stepCount).floor().clamp(0, stepCount - 1);
+  double _localT(int i) =>
+      ((t - _stepStart(i)) / (_stepEnd(i) - _stepStart(i))).clamp(0.0, 1.0);
+
+  // ── 수동 벤더: ①화살표에 맞추기 ②발판+핸들로 꺾기 ③각도 확인 ──
+  void _paintHand(
+    Canvas canvas,
+    Offset cornerCenter,
+    double curveR,
+    double startX,
+    double entryY,
+    double exitY,
+  ) {
+    final turnX = cornerCenter.dx + curveR;
+    final markX = turnX - curveR - 34;
+    final curStep = _curStep();
+
+    // 슈(굽힘틀) + 화살표·별 표시 — 항상 보이는 고정 장비.
+    _metalArc(canvas, cornerCenter, curveR + 8, -math.pi / 2, math.pi / 2, 15);
+    final arrowAt =
+        cornerCenter + const Offset(0, -1) * (curveR + 8); // 슈 위쪽 끝(화살표 자리).
+    paintGuideIcon(canvas, Icons.arrow_downward, arrowAt, 13, _metalDark);
+    final starAt = cornerCenter + Offset(curveR + 8, 0); // 슈 옆(별 자리).
+    paintGuideIcon(canvas, Icons.star, starAt, 11, _metalDark);
+
+    // 관이 들어오는 정도 — 0단계에서 들어와 그 뒤로는 계속 그 자리에 있다.
+    final leadP = t < _stepEnd(0) ? _localT(0) : 1.0;
     paintPipeSegment(
       canvas,
       Offset(startX, entryY),
       Offset(markX, entryY),
-      leadT,
+      leadP,
       _slate600,
       width: 8,
     );
 
-    // 2) 테이크업/셋백 안내 화살표 + 이름표.
-    final takeT = stageT(t, 0.16, 0.30);
-    if (takeT > 0) {
-      final a = Offset(markX, entryY);
-      final b = Offset(turnX, entryY);
-      final tip = Offset.lerp(a, b, takeT)!;
-      final arrow = Paint()
-        ..color = kGuideOrange
-        ..strokeWidth = 1.6;
-      canvas.drawLine(a, tip, arrow);
-      _arrowHead(canvas, a, tip, kGuideOrange);
-      if (takeT > 0.7) {
+    // 0단계: 화살표에 맞추는 중일 때만 강조.
+    if (curStep == 0) {
+      final l = _localT(0);
+      if (l > 0.6) {
+        canvas.drawCircle(
+          arrowAt,
+          9,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = kGuideOrange.withValues(alpha: 0.7),
+        );
+      }
+      if (l > 0.8) {
         paintPill(
           canvas,
-          kind == _BenderKind.ram ? '셋백' : '테이크업',
-          Offset((a.dx + b.dx) / 2, entryY - 14),
+          '화살표에 맞춤',
+          Offset(markX - 4, entryY - 16),
           color: kGuideOrange,
           size: 9.5,
         );
       }
     }
 
-    // 3) 마킹 자리부터 코너를 지나 굽어서 내려가는 관.
-    final bendT = stageT(t, 0.30, 0.58);
-    if (bendT > 0) {
+    // 핸들 각도 + 벤드 진행도 — 1단계에서 움직이고, 그 뒤로는 유지된다.
+    double swingP;
+    if (t < _stepStart(1)) {
+      swingP = 0;
+    } else if (t < _stepEnd(1)) {
+      swingP = _localT(1);
+    } else {
+      swingP = 1.0;
+    }
+    final handleAngle = degToRad(-135) + degToRad(35) * swingP;
+    final hDir = Offset(math.cos(handleAngle), math.sin(handleAngle));
+    final hBase = cornerCenter + hDir * (curveR + 8);
+    final hTip = cornerCenter + hDir * (curveR * 2.3);
+    paintPipeSegment(canvas, hBase, hTip, 1.0, _metalDark, width: 9);
+    _metalKnob(canvas, hTip, 7);
+    if (swingP > 0) {
       final path = Path()
         ..moveTo(markX, entryY)
         ..lineTo(turnX - curveR, entryY)
         ..quadraticBezierTo(turnX, entryY, turnX, entryY + curveR)
         ..lineTo(turnX, exitY);
       final metrics = path.computeMetrics().first;
-      final partial = metrics.extractPath(0, metrics.length * bendT);
-      canvas.drawPath(
-        partial,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 9
-          ..strokeCap = StrokeCap.round
-          ..color = AppColors.brand,
-      );
-      canvas.drawPath(
-        partial,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..strokeCap = StrokeCap.round
-          ..color = Colors.white.withValues(alpha: 0.55),
+      final partial = metrics.extractPath(0, metrics.length * swingP);
+      _drawBentPipe(canvas, partial);
+    }
+    if (curStep == 1 && _localT(1) > 0.6) {
+      paintPill(
+        canvas,
+        '발판+핸들로 꺾기',
+        Offset(cornerCenter.dx - curveR * 0.4, entryY - curveR * 1.5),
+        color: kGuideOrange,
+        size: 9.5,
       );
     }
 
-    // 4) 점선 코너(직각으로 꺾었다면의 자리) — 게인의 기준.
-    final cornerT = stageT(t, 0.58, 0.68);
-    if (cornerT > 0) {
-      _dashLine(
-        canvas,
-        Offset(turnX - curveR, entryY),
-        Offset(turnX, entryY),
-        cornerT,
-        _slate600.withValues(alpha: 0.5),
-      );
-      _dashLine(
-        canvas,
-        Offset(turnX, entryY),
-        Offset(turnX, entryY + curveR),
-        cornerT,
-        _slate600.withValues(alpha: 0.5),
-      );
+    // 2단계: 각도 확인(체크 표시 + 각도 이름표).
+    if (curStep == 2) {
+      final l = _localT(2);
+      if (l > 0.3) {
+        final chip = cornerCenter + Offset(curveR * 1.6, curveR * 0.4);
+        paintGuideIcon(canvas, Icons.check_circle, chip, 16, AppColors.brand);
+        if (l > 0.55) {
+          paintPill(
+            canvas,
+            '각도 + 스프링백 확인',
+            chip + const Offset(0, 16),
+            color: AppColors.brand,
+            size: 9.5,
+          );
+        }
+      }
     }
+  }
 
-    // 5) CLR(반지름) 표시.
-    final clrT = stageT(t, 0.68, 0.82);
-    if (clrT > 0) {
-      final center = Offset(turnX - curveR, entryY + curveR);
-      final rim = Offset.lerp(center, Offset(turnX, entryY + curveR), clrT)!;
-      canvas.drawLine(
-        center,
-        rim,
-        Paint()
-          ..color = AppColors.brand.withValues(alpha: 0.6)
-          ..strokeWidth = 1.4,
-      );
-      if (clrT > 0.7) {
+  // ── 유압식: ①슈·받침 고르기 ②셋백 마크 맞추기 ③펌프질 ④되돌리기 ──
+  void _paintRam(
+    Canvas canvas,
+    Offset cornerCenter,
+    double curveR,
+    double startX,
+    double entryY,
+    double exitY,
+    double turnX,
+    double markX,
+  ) {
+    final curStep = _curStep();
+    // 고정 장비 — 롤러 받침 두 개 + 유압 실린더.
+    _drawRollerSupport(canvas, Offset(startX + 20, entryY + 4));
+    final support2 = Offset(
+      cornerCenter.dx + curveR * 1.7,
+      cornerCenter.dy + curveR,
+    );
+    _drawRollerSupport(canvas, support2);
+    final ramX = cornerCenter.dx;
+    final bodyTopY = entryY - curveR * 1.5;
+    final bodyRect = Rect.fromCenter(
+      center: Offset(ramX, bodyTopY),
+      width: curveR * 0.9,
+      height: curveR,
+    );
+    final bodyRRect = RRect.fromRectAndRadius(
+      bodyRect,
+      Radius.circular(curveR * 0.2),
+    );
+    canvas.drawRRect(
+      bodyRRect.shift(const Offset(0, 1.8)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.14)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.8),
+    );
+    canvas.drawRRect(
+      bodyRRect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_metal, _metalDark],
+        ).createShader(bodyRect),
+    );
+
+    // 0단계: 핀 강조(슈·받침 고르기) — 이 단계일 때만 보인다.
+    if (curStep == 0) {
+      final l = _localT(0);
+      if (l > 0.3) {
+        final pinAt = support2 + Offset(-curveR * 0.28, curveR * 0.05);
+        canvas.drawCircle(
+          pinAt,
+          7,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = kGuideOrange.withValues(alpha: 0.8),
+        );
+      }
+      if (l > 0.6) {
         paintPill(
           canvas,
-          'CLR',
-          Offset(turnX - curveR / 2, entryY + curveR + 12),
-          color: AppColors.brand,
+          '핀 끝까지 꽂기',
+          support2 + const Offset(0, 18),
+          color: kGuideOrange,
           size: 9,
         );
       }
     }
 
-    // 6) 게인 이름표(직선 코너와 굽은 선의 차이).
-    final gainT = stageT(t, 0.80, 0.92);
-    if (gainT > 0.5) {
+    // 관이 셋백 마크로 들어오는 정도 — 1단계에서 들어와 그 뒤로는 유지.
+    final leadP = t < _stepEnd(1)
+        ? (t < _stepStart(1) ? 0.0 : _localT(1))
+        : 1.0;
+    paintPipeSegment(
+      canvas,
+      Offset(startX, entryY),
+      Offset(markX, entryY),
+      leadP,
+      _slate600,
+      width: 8,
+    );
+    if (curStep == 1 && _localT(1) > 0.6) {
       paintPill(
         canvas,
-        '게인',
-        Offset(turnX - curveR - 6, entryY + curveR + 30),
+        '셋백 마크 맞춤',
+        Offset(markX - 6, entryY - 16),
         color: kGuideOrange,
-        size: 9,
+        size: 9.5,
       );
     }
 
-    // 7) 종류별로 하나 더.
-    final extraT = stageT(t, 0.86, 1.0);
-    if (extraT > 0) {
-      switch (kind) {
-        case _BenderKind.hand:
-          break;
-        case _BenderKind.ram:
-          final pistonY = entryY + 22;
-          final a = Offset(startX + 6, pistonY);
-          final b = Offset(markX - 8, pistonY);
-          if (extraT > 0.3) {
-            paintGuideIcon(
-              canvas,
-              Icons.arrow_forward_rounded,
-              Offset.lerp(a, b, 0.5)!,
-              14,
-              kGuideOrange,
-            );
-            canvas.drawLine(
-              a,
-              b,
-              Paint()
-                ..color = kGuideOrange.withValues(alpha: 0.7)
-                ..strokeWidth = 1.4,
-            );
-          }
-          if (extraT > 0.7) {
-            paintPill(
-              canvas,
-              '램 이동 거리',
-              Offset.lerp(a, b, 0.5)! + const Offset(0, 14),
-              color: kGuideOrange,
-              size: 9,
-            );
-          }
-          break;
-        case _BenderKind.chicago:
-          final gearCenter = Offset(turnX + 26, entryY + curveR + 6);
-          if (extraT > 0.2) {
-            canvas.drawCircle(
-              gearCenter,
-              10,
-              Paint()
-                ..style = PaintingStyle.stroke
-                ..strokeWidth = 1.6
-                ..color = kGuideOrange,
-            );
-            for (var i = 0; i < 8; i++) {
-              final ang = i * (2 * math.pi / 8);
-              final p1 =
-                  gearCenter + Offset(10 * math.cos(ang), 10 * math.sin(ang));
-              final p2 =
-                  gearCenter + Offset(13 * math.cos(ang), 13 * math.sin(ang));
-              canvas.drawLine(
-                p1,
-                p2,
-                Paint()
-                  ..color = kGuideOrange
-                  ..strokeWidth = 1.6,
-              );
-            }
-          }
-          if (extraT > 0.7) {
-            paintPill(
-              canvas,
-              '노치당 각도',
-              gearCenter + const Offset(0, 20),
-              color: kGuideOrange,
-              size: 9,
-            );
-          }
-      }
+    // 램 신장(2단계에서 밀고 나가고, 3단계에서 되돌아간다) + 그에 맞춘 벤드.
+    final rodTop = Offset(ramX, bodyRect.bottom - 2);
+    final rodBottom = Offset(ramX, entryY - 1);
+    double rodExt;
+    if (t < _stepStart(2)) {
+      rodExt = 0;
+    } else if (t < _stepEnd(2)) {
+      rodExt = _localT(2);
+    } else {
+      rodExt = 1 - _localT(3);
+    }
+    paintPipeSegment(canvas, rodTop, rodBottom, rodExt, _metalDark, width: 7);
+    if (rodExt > 0.02) {
+      _brandKnob(canvas, Offset.lerp(rodTop, rodBottom, rodExt)!, 6);
+    }
+    final bendP = t < _stepEnd(2) ? rodExt : 1.0;
+    if (bendP > 0) {
+      final path = Path()
+        ..moveTo(markX, entryY)
+        ..lineTo(turnX - curveR, entryY)
+        ..quadraticBezierTo(turnX, entryY, turnX, entryY + curveR)
+        ..lineTo(turnX, exitY);
+      final metrics = path.computeMetrics().first;
+      final partial = metrics.extractPath(0, metrics.length * bendP);
+      _drawBentPipe(canvas, partial);
+    }
+    final rodMid = Offset(ramX + curveR * 1.6, (bodyRect.bottom + entryY) / 2);
+    if (curStep == 2 && _localT(2) > 0.6) {
+      paintPill(canvas, '펌프질로 밀기', rodMid, color: kGuideOrange, size: 9.5);
+    }
+    if (curStep == 3 && _localT(3) > 0.3) {
+      paintPill(canvas, '천천히 되돌리기', rodMid, color: AppColors.brand, size: 9.5);
     }
   }
 
-  void _arrowHead(Canvas canvas, Offset from, Offset to, Color color) {
-    final dir = (to - from);
-    if (dir.distance < 1) return;
-    final n = dir / dir.distance;
-    final left = Offset(-n.dy, n.dx);
-    final p1 = to - n * 6 + left * 3;
-    final p2 = to - n * 6 - left * 3;
-    final path = Path()
-      ..moveTo(to.dx, to.dy)
-      ..lineTo(p1.dx, p1.dy)
-      ..moveTo(to.dx, to.dy)
-      ..lineTo(p2.dx, p2.dy);
+  // ── 시카고식: ①롤러·슈에 넣기 ②0점·마킹 ③크랭크로 노치 세기 ④되돌리기 ──
+  void _paintChicago(
+    Canvas canvas,
+    Offset cornerCenter,
+    double curveR,
+    double startX,
+    double entryY,
+    double exitY,
+    double turnX,
+    double markX,
+  ) {
+    final curStep = _curStep();
+    final wheelR = curveR + 9;
+    _metalArc(canvas, cornerCenter, wheelR, 0, 2 * math.pi, 12);
+    for (var i = 0; i < 10; i++) {
+      final ang = i * (2 * math.pi / 10);
+      final p1 = cornerCenter + Offset(math.cos(ang), math.sin(ang)) * wheelR;
+      final p2 =
+          cornerCenter +
+          Offset(math.cos(ang), math.sin(ang)) * (wheelR + curveR * 0.22);
+      canvas.drawLine(
+        p1,
+        p2,
+        Paint()
+          ..color = _metal
+          ..strokeWidth = 1.8,
+      );
+    }
+    _metalKnob(canvas, cornerCenter, curveR * 0.22);
+
+    // 0단계: 훅(관 넣는 자리) 강조 — 이 단계일 때만 보인다.
+    final hookAt = cornerCenter + Offset(-wheelR * 0.75, -wheelR * 0.5);
+    if (curStep == 0) {
+      final l = _localT(0);
+      if (l > 0.3) {
+        canvas.drawCircle(
+          hookAt,
+          8,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2
+            ..color = kGuideOrange.withValues(alpha: 0.8),
+        );
+      }
+      if (l > 0.6) {
+        paintPill(
+          canvas,
+          '롤러·슈에 넣기',
+          hookAt + const Offset(0, -16),
+          color: kGuideOrange,
+          size: 9,
+        );
+      }
+    }
+
+    // 관이 0점으로 들어오는 정도 — 1단계에서 들어와 그 뒤로는 유지.
+    final leadP = t < _stepEnd(1)
+        ? (t < _stepStart(1) ? 0.0 : _localT(1))
+        : 1.0;
+    paintPipeSegment(
+      canvas,
+      Offset(startX, entryY),
+      Offset(markX, entryY),
+      leadP,
+      _slate600,
+      width: 8,
+    );
+    if (curStep == 1 && _localT(1) > 0.6) {
+      paintPill(
+        canvas,
+        '0점·마킹 맞춤',
+        Offset(markX - 4, entryY - 16),
+        color: kGuideOrange,
+        size: 9.5,
+      );
+    }
+
+    // 크랭크 회전(2단계에서 돌리고, 3단계에서 되돌린다) + 그에 맞춘 벤드.
+    double crankP;
+    if (t < _stepStart(2)) {
+      crankP = 0;
+    } else if (t < _stepEnd(2)) {
+      crankP = _localT(2);
+    } else {
+      crankP = 1 - _localT(3);
+    }
+    final crankAngle = degToRad(200) + degToRad(150) * crankP;
+    _drawCrank(canvas, cornerCenter, wheelR, crankAngle, curveR);
+    final bendP = t < _stepEnd(2) ? crankP : 1.0;
+    if (bendP > 0) {
+      final path = Path()
+        ..moveTo(markX, entryY)
+        ..lineTo(turnX - curveR, entryY)
+        ..quadraticBezierTo(turnX, entryY, turnX, entryY + curveR)
+        ..lineTo(turnX, exitY);
+      final metrics = path.computeMetrics().first;
+      final partial = metrics.extractPath(0, metrics.length * bendP);
+      _drawBentPipe(canvas, partial);
+    }
+    if (curStep == 2 && _localT(2) > 0.6) {
+      paintPill(
+        canvas,
+        '크랭크로 노치 세기',
+        cornerCenter + Offset(wheelR + curveR * 0.7, -4),
+        color: kGuideOrange,
+        size: 9.5,
+      );
+    }
+    if (curStep == 3 && _localT(3) > 0.3) {
+      paintPill(
+        canvas,
+        '래칫 풀고 되돌리기',
+        cornerCenter + Offset(wheelR + curveR * 0.7, -4),
+        color: AppColors.brand,
+        size: 9.5,
+      );
+    }
+  }
+
+  void _drawCrank(
+    Canvas canvas,
+    Offset center,
+    double wheelR,
+    double angle,
+    double curveR,
+  ) {
+    final dir = Offset(math.cos(angle), math.sin(angle));
+    final tip = center + dir * (wheelR + curveR * 0.6);
+    paintPipeSegment(canvas, center, tip, 1.0, _metalDark, width: 6);
+    _metalKnob(canvas, tip, 6);
+  }
+
+  void _drawBentPipe(Canvas canvas, Path partial) {
     canvas.drawPath(
-      path,
+      partial,
       Paint()
-        ..color = color
-        ..strokeWidth = 1.6,
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 9
+        ..strokeCap = StrokeCap.round
+        ..color = AppColors.brand,
+    );
+    canvas.drawPath(
+      partial,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: 0.55),
     );
   }
 
-  void _dashLine(Canvas canvas, Offset a, Offset b, double s, Color color) {
-    final end = Offset.lerp(a, b, s)!;
-    final d = (end - a).distance;
-    if (d < 1) return;
-    final dir = (end - a) / d;
-    const step = 4.0, gap = 3.0;
-    var covered = 0.0;
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.2;
-    while (covered < d) {
-      final segEnd = covered + step > d ? d : covered + step;
-      canvas.drawLine(a + dir * covered, a + dir * segEnd, paint);
-      covered += step + gap;
-    }
+  void _drawRollerSupport(Canvas canvas, Offset topCenter) {
+    final path = Path()
+      ..moveTo(topCenter.dx, topCenter.dy + 2)
+      ..lineTo(topCenter.dx - 11, topCenter.dy + 19)
+      ..lineTo(topCenter.dx + 11, topCenter.dy + 19)
+      ..close();
+    final rect = Rect.fromLTWH(topCenter.dx - 11, topCenter.dy, 22, 19);
+    canvas.drawPath(
+      path.shift(const Offset(0, 1.6)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.14)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_metal, _metalDark],
+        ).createShader(rect),
+    );
+    _metalKnob(canvas, topCenter, 4.5);
+  }
+
+  /// 금속 아치/링(그림자+그라데이션 몸체+얇은 하이라이트) — 슈·톱니바퀴 공용.
+  void _metalArc(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    double startAngle,
+    double sweepAngle,
+    double strokeWidth,
+  ) {
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    canvas.drawArc(
+      rect.shift(const Offset(0, 1.6)),
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.black.withValues(alpha: 0.13)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6),
+    );
+    canvas.drawArc(
+      rect,
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_metal, _metalDark],
+        ).createShader(rect),
+    );
+    final hlRect = Rect.fromCircle(
+      center: center,
+      radius: radius - strokeWidth * 0.3,
+    );
+    canvas.drawArc(
+      hlRect,
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..strokeCap = StrokeCap.round
+        ..color = Colors.white.withValues(alpha: 0.32),
+    );
+  }
+
+  /// 반짝이는 금속 손잡이/볼트(그림자+원형 그라데이션+하이라이트 점).
+  void _metalKnob(Canvas canvas, Offset center, double r) {
+    canvas.drawCircle(
+      center + const Offset(0, 1.3),
+      r,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.16)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.3),
+    );
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [_metal, _metalDark],
+        ).createShader(Rect.fromCircle(center: center, radius: r)),
+    );
+    canvas.drawCircle(
+      center - Offset(r * 0.32, r * 0.32),
+      r * 0.32,
+      Paint()..color = Colors.white.withValues(alpha: 0.55),
+    );
+  }
+
+  /// 유압 램 끝(관에 닿는 부분) — 브랜드 색 반짝이는 점.
+  void _brandKnob(Canvas canvas, Offset center, double r) {
+    canvas.drawCircle(
+      center + const Offset(0, 1.2),
+      r,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.16)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2),
+    );
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..shader = RadialGradient(
+          colors: [AppColors.brand.withValues(alpha: 0.85), AppColors.brand],
+        ).createShader(Rect.fromCircle(center: center, radius: r)),
+    );
+    canvas.drawCircle(
+      center - Offset(r * 0.3, r * 0.3),
+      r * 0.3,
+      Paint()..color = Colors.white.withValues(alpha: 0.6),
+    );
   }
 
   @override
-  bool shouldRepaint(_BenderDiagramPainter old) =>
-      old.t != t || old.kind != kind;
+  bool shouldRepaint(_BenderUsagePainter old) =>
+      old.t != t || old.kind != kind || old.stepCount != stepCount;
 }
