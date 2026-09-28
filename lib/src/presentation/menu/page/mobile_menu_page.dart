@@ -56,6 +56,7 @@ import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminder
 
 // 🚀 7. 신규 알림 내역 페이지 임포트
 import 'package:tubing_calculator/src/presentation/notification/pages/mobile_notification_page.dart';
+import 'package:tubing_calculator/src/presentation/notification/pages/my_notifications_tab.dart';
 import 'package:tubing_calculator/src/presentation/notification/pages/news_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/level_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/eng_calculator_page.dart';
@@ -1556,20 +1557,15 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    key: const Key('home_news_button'),
-                    tooltip: "새소식",
-                    icon: const Icon(Icons.campaign_outlined, color: slate600),
-                    onPressed: () {
-                      HapticFeedback.lightImpact();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              NewsPage(currentWorker: widget.currentWorker),
-                        ),
-                      );
-                    },
+                  NewsHeaderBadgeIcon(
+                    currentWorker: widget.currentWorker,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            NewsPage(currentWorker: widget.currentWorker),
+                      ),
+                    ),
                   ),
                   PopupMenuButton<String>(
                     key: const Key('home_header_menu'),

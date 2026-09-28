@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'mobile_notification_page.dart';
+import 'my_notifications_tab.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록).
 const Color _tossBlue = AppColors.brand;
@@ -9,10 +10,11 @@ const Color _slate900 = AppColors.text;
 const Color _slate600 = AppColors.textSub;
 const Color _pureWhite = Color(0xFFFFFFFF);
 
-/// 홈 머리의 스피커(공지) 아이콘을 누르면 오는 "새소식" 화면 — 탭 3개.
-/// "알림"은 기존 [MobileNotificationPage]를 그대로 끼워 넣고(embedded: true),
-/// 나머지 둘은 아직 정해지지 않아 자리만 남겨 뒀다(2026-09-28, 자리부터
-/// 만들고 내용은 나중에 채우기로 함).
+/// 홈 머리의 스피커 아이콘을 누르면 오는 "새소식" 화면 — 탭 3개.
+/// "공지"는 관리자가 올리는 기존 [MobileNotificationPage](embedded: true),
+/// "내 알림"은 앱이 스스로 아는 사실(오늘 일정·작업 일지 미작성·오프라인
+/// 저장 대기)을 알림처럼 보여주고, "지난 알림"은 지운 것들을 다시 본다
+/// (2026-09-28 — 확성기가 실제 역할이 없다는 지적을 받아 채워 넣었다).
 class NewsPage extends StatelessWidget {
   final String currentWorker;
   const NewsPage({super.key, required this.currentWorker});
@@ -46,9 +48,9 @@ class NewsPage extends StatelessWidget {
             unselectedLabelColor: _slate600,
             indicatorColor: _tossBlue,
             tabs: [
-              Tab(text: "알림"),
-              Tab(text: "준비 중 1"),
-              Tab(text: "준비 중 2"),
+              Tab(text: "공지"),
+              Tab(text: "내 알림"),
+              Tab(text: "지난 알림"),
             ],
           ),
         ),
@@ -58,38 +60,10 @@ class NewsPage extends StatelessWidget {
               currentWorker: currentWorker,
               embedded: true,
             ),
-            const _SpareTab(),
-            const _SpareTab(),
+            MyNotificationsTab(currentWorker: currentWorker),
+            const PastNotificationsTab(),
           ],
         ),
-      ),
-    );
-  }
-}
-
-/// 아직 내용을 안 정한 탭 — 억지로 아무거나 채우지 않고, 정직하게
-/// "준비 중"이라고만 보여준다(2026-09-28 사용자가 자리만 만들어 두자고 함).
-class _SpareTab extends StatelessWidget {
-  const _SpareTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.hourglass_empty_rounded, size: 40, color: _slate600),
-          const SizedBox(height: 12),
-          const Text(
-            "아직 준비 중입니다",
-            style: TextStyle(fontWeight: FontWeight.w700, color: _slate900),
-          ),
-          const SizedBox(height: 6),
-          const Text(
-            "나중에 채울 자리입니다.",
-            style: TextStyle(fontSize: 13, color: _slate600),
-          ),
-        ],
       ),
     );
   }
