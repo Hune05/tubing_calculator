@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_stamp.dart';
@@ -156,5 +157,33 @@ class ImagePickerHelper {
     }
     final images = await _picker.pickMultiImage(imageQuality: 70);
     return [for (final e in images.take(maxCount)) await keepPhoto(e.path)];
+  }
+
+  /// 제출용 사진(압력계 눈금처럼 특정 부분을 확대해 붙여야 할 때)을 자르는 화면을
+  /// 띄운다. 사각형을 안 건드리고 확인하면 전체 사진 그대로, 드래그해서 확대하면
+  /// 그 부분만 새 파일로 저장한다. 취소하면 null(원본을 그대로 쓰면 된다).
+  static Future<String?> cropImage(
+    String sourcePath, {
+    String title = '사진 자르기(확대할 부분을 선택)',
+  }) async {
+    try {
+      final cropped = await ImageCropper().cropImage(
+        sourcePath: sourcePath,
+        uiSettings: [
+          AndroidUiSettings(
+            toolbarTitle: title,
+            toolbarColor: makitaTeal,
+            toolbarWidgetColor: pureWhite,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: false,
+          ),
+          IOSUiSettings(title: title),
+        ],
+      );
+      return cropped?.path;
+    } catch (e) {
+      debugPrint('사진 자르기 실패: $e');
+      return null;
+    }
   }
 }

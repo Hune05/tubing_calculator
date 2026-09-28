@@ -324,9 +324,12 @@ class PtRecord {
   final double? reliefKpa; // 안전밸브 설정압력
   final String reliefNo;
   final String tester;
+  final bool selfInspection; // 자체 검사(입회자 없이 우리 회사 부서가 확인)
+  final String selfInspectionDept; // 자체 검사일 때의 부서명
   final String witnessContractor; // 시공사
   final String witnessSupervisor; // 감리
   final String witnessOwner; // 발주처
+  final List<String> photos; // 제출용 사진(로컬 경로 또는 올린 뒤 URL)
   final String memo;
   final double? odMm; // 수압 물 온도 영향 계산용(선택)
   final double? wallMm;
@@ -360,9 +363,12 @@ class PtRecord {
     this.reliefKpa,
     this.reliefNo = '',
     this.tester = '',
+    this.selfInspection = false,
+    this.selfInspectionDept = '',
     this.witnessContractor = '',
     this.witnessSupervisor = '',
     this.witnessOwner = '',
+    this.photos = const [],
     this.memo = '',
     this.odMm,
     this.wallMm,
@@ -400,12 +406,17 @@ class PtRecord {
     return e;
   }
 
-  /// 입회자 이름들(비지 않은 것만): "시공사 김 · 감리 이".
-  String get witnessLine => [
-    if (witnessContractor.trim().isNotEmpty) '시공사 ${witnessContractor.trim()}',
-    if (witnessSupervisor.trim().isNotEmpty) '감리 ${witnessSupervisor.trim()}',
-    if (witnessOwner.trim().isNotEmpty) '발주처 ${witnessOwner.trim()}',
-  ].join(' · ');
+  /// 자체 검사면 "자체 검사(부서)", 입회 검사면 입회자 이름들(비지 않은 것만):
+  /// "시공사 김 · 감리 이".
+  String get witnessLine => selfInspection
+      ? '자체 검사${selfInspectionDept.trim().isEmpty ? '' : '(${selfInspectionDept.trim()})'}'
+      : [
+          if (witnessContractor.trim().isNotEmpty)
+            '시공사 ${witnessContractor.trim()}',
+          if (witnessSupervisor.trim().isNotEmpty)
+            '감리 ${witnessSupervisor.trim()}',
+          if (witnessOwner.trim().isNotEmpty) '발주처 ${witnessOwner.trim()}',
+        ].join(' · ');
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -432,9 +443,12 @@ class PtRecord {
     'relief': reliefKpa,
     'reliefNo': reliefNo,
     'tester': tester,
+    'selfInsp': selfInspection,
+    'selfInspDept': selfInspectionDept,
     'wC': witnessContractor,
     'wS': witnessSupervisor,
     'wO': witnessOwner,
+    'photos': photos,
     'memo': memo,
     'od': odMm,
     'wall': wallMm,
@@ -483,9 +497,16 @@ class PtRecord {
       reliefKpa: _d(j['relief']),
       reliefNo: _s(j['reliefNo']),
       tester: _s(j['tester']),
+      selfInspection: j['selfInsp'] == true,
+      selfInspectionDept: _s(j['selfInspDept']),
       witnessContractor: _s(j['wC']),
       witnessSupervisor: _s(j['wS']),
       witnessOwner: _s(j['wO']),
+      photos: [
+        if (j['photos'] is List)
+          for (final p in j['photos'] as List)
+            if (p.toString().isNotEmpty) p.toString(),
+      ],
       memo: _s(j['memo']),
       odMm: _d(j['od']),
       wallMm: _d(j['wall']),
@@ -538,9 +559,12 @@ String ptRecordsCsv(List<PtRecord> records) {
     '안전밸브 설정압력',
     '안전밸브 번호',
     '시험자',
+    '검사 종류(입회·자체)',
+    '자체검사 부서',
     '입회자(시공사)',
     '입회자(감리)',
     '입회자(발주처)',
+    '첨부 사진 수',
     '메모',
     '측정 기록',
   ];
@@ -587,9 +611,12 @@ String ptRecordsCsv(List<PtRecord> records) {
       p(r.reliefKpa),
       r.reliefNo,
       r.tester,
+      r.selfInspection ? '자체' : '입회',
+      r.selfInspectionDept,
       r.witnessContractor,
       r.witnessSupervisor,
       r.witnessOwner,
+      r.photos.length.toString(),
       r.memo,
       [
         for (final x in r.readings)

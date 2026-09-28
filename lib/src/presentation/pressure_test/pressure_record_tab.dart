@@ -421,8 +421,19 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final keep = !res.asNew && ed != null;
     final design = _pg._kpa(_pg._design);
     final allow = _pg._kpa(_rAllow);
+    final recId = keep ? ed.id : _now().microsecondsSinceEpoch.toString();
+    // 새로 찍은 사진(로컬 경로)만 올리고, 실패하면(통신 없음 등) 로컬 경로를
+    // 그대로 둔다 — 다음에 이 기록을 고쳐 저장할 때 다시 시도한다.
+    final photos = [
+      for (final p in res.photos)
+        if (isRemotePhoto(p))
+          p
+        else
+          await uploadPhoto(recId, p, folder: 'pressure_test_photos') ?? p,
+    ];
+    if (!mounted) return;
     final rec = PtRecord(
-      id: keep ? ed.id : _now().microsecondsSinceEpoch.toString(),
+      id: recId,
       date: DateTime(
         res.date.year,
         res.date.month,
@@ -452,9 +463,12 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       reliefKpa: res.reliefKpa,
       reliefNo: res.reliefNo,
       tester: res.tester,
+      selfInspection: res.selfInspection,
+      selfInspectionDept: res.selfInspectionDept,
       witnessContractor: res.witnessContractor,
       witnessSupervisor: res.witnessSupervisor,
       witnessOwner: res.witnessOwner,
+      photos: photos,
       memo: res.memo,
       odMm: _rOdMm,
       wallMm: _rWallMm,

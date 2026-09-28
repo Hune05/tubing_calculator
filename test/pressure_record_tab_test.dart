@@ -640,6 +640,57 @@ void main() {
     expect(got!.fluid, PtFluid.water);
   });
 
+  testWidgets('저장 창: "자체 검사"를 고르면 입회자 3칸이 부서 1칸으로 바뀐다', (tester) async {
+    tester.view.physicalSize = const Size(390, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    PtSaveResult? got;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                got = await showModalBottomSheet<PtSaveResult>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => PtSaveSheet(
+                    editing: null,
+                    unit: PUnit.bar,
+                    medium: TestMedium.hydro,
+                    line: 'P-1',
+                    date: DateTime(2026, 9, 26),
+                    tester: '홍',
+                  ),
+                );
+              },
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    // 처음엔 입회 검사가 기본 — 시공사·감리·발주처 3칸이 보인다.
+    expect(find.byKey(const Key('ps_w_c')), findsOneWidget);
+    expect(find.byKey(const Key('ps_dept')), findsNothing);
+    await tester.ensureVisible(find.byKey(const Key('ps_kind_self')));
+    await tester.tap(find.byKey(const Key('ps_kind_self')));
+    await tester.pumpAndSettle();
+    // 자체 검사를 고르면 3칸이 사라지고 부서 1칸만 남는다.
+    expect(find.byKey(const Key('ps_w_c')), findsNothing);
+    expect(find.byKey(const Key('ps_dept')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('ps_dept')), '배관 1팀');
+    await tester.enterText(find.byKey(const Key('ps_line')), 'P-1');
+    await tester.ensureVisible(find.byKey(const Key('ps_save')));
+    await tester.tap(find.byKey(const Key('ps_save')));
+    await tester.pumpAndSettle();
+    expect(got!.selfInspection, isTrue);
+    expect(got!.selfInspectionDept, '배관 1팀');
+    expect(got!.witnessContractor, isEmpty);
+  });
+
   testWidgets('저장한 기록 지우기는 확인을 받는다, CSV 내보내기 단추가 있다', (tester) async {
     await PtRecordStore.put(
       PtRecord(

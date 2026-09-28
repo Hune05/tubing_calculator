@@ -360,9 +360,13 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
           children: [
             for (final (t, name) in [
               ('시험자', r.tester),
-              ('시공사 입회', r.witnessContractor),
-              ('감리 입회', r.witnessSupervisor),
-              ('발주처 입회', r.witnessOwner),
+              if (r.selfInspection)
+                ('자체 검사(부서)', r.selfInspectionDept)
+              else ...[
+                ('시공사 입회', r.witnessContractor),
+                ('감리 입회', r.witnessSupervisor),
+                ('발주처 입회', r.witnessOwner),
+              ],
             ])
               pw.Expanded(
                 child: pw.Padding(

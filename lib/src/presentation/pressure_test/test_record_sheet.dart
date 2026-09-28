@@ -3,6 +3,8 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/utils/image_picker_helper.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_store.dart';
 
 import '../../core/theme/field_view.dart';
 import 'pressure_calc.dart';
@@ -18,7 +20,11 @@ class PtSaveResult {
   final List<PtGauge> gauges;
   final double? reliefKpa;
   final String reliefNo;
-  final String tester, witnessContractor, witnessSupervisor, witnessOwner;
+  final String tester;
+  final bool selfInspection;
+  final String selfInspectionDept;
+  final String witnessContractor, witnessSupervisor, witnessOwner;
+  final List<String> photos;
   final String memo;
   const PtSaveResult({
     required this.asNew,
@@ -34,9 +40,12 @@ class PtSaveResult {
     required this.reliefKpa,
     required this.reliefNo,
     required this.tester,
+    required this.selfInspection,
+    required this.selfInspectionDept,
     required this.witnessContractor,
     required this.witnessSupervisor,
     required this.witnessOwner,
+    required this.photos,
     required this.memo,
   });
 }
@@ -99,9 +108,12 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
   late final _wC = TextEditingController(text: _ed?.witnessContractor ?? '');
   late final _wS = TextEditingController(text: _ed?.witnessSupervisor ?? '');
   late final _wO = TextEditingController(text: _ed?.witnessOwner ?? '');
+  late final _dept = TextEditingController(text: _ed?.selfInspectionDept ?? '');
   late final _memo = TextEditingController(text: _ed?.memo ?? '');
   late DateTime _date = widget.date;
   late PtFluid _fluid = _ed?.fluid ?? ptDefaultFluid(widget.medium);
+  late bool _selfInspection = _ed?.selfInspection ?? false;
+  final List<String> _photos = [];
   bool _lineError = false;
 
   List<TextEditingController> get _all => [
@@ -123,11 +135,18 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
     _wC,
     _wS,
     _wO,
+    _dept,
     _memo,
   ];
 
   /// 불러온 기록의 라인 번호를 바꾸면 다른 시험으로 보고 "새로 저장"을 기본으로.
   bool get _lineChanged => _ed != null && _line.text.trim() != _ed!.line;
+
+  @override
+  void initState() {
+    super.initState();
+    _photos.addAll(_ed?.photos ?? const []);
+  }
 
   @override
   void dispose() {
@@ -179,12 +198,51 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
         reliefKpa: _reliefKpa,
         reliefNo: _reliefNo.text.trim(),
         tester: _tester.text.trim(),
+        selfInspection: _selfInspection,
+        selfInspectionDept: _dept.text.trim(),
         witnessContractor: _wC.text.trim(),
         witnessSupervisor: _wS.text.trim(),
         witnessOwner: _wO.text.trim(),
+        photos: _photos,
         memo: _memo.text.trim(),
       ),
     );
+  }
+
+  Future<void> _addPhotos() async {
+    final picked = await ImagePickerHelper.pickImages(
+      context,
+      maxCount: (10 - _photos.length).clamp(0, 10),
+    );
+    if (picked.isEmpty) return;
+    final done = <String>[];
+    for (final path in picked) {
+      if (!mounted) break;
+      final cropped = await ImagePickerHelper.cropImage(path);
+      done.add(cropped ?? path);
+    }
+    if (mounted) setState(() => _photos.addAll(done));
+  }
+
+  Future<void> _removePhoto(int i) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('사진 지우기'),
+        content: const Text('이 사진을 지우겠습니까?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text('지우기', style: TextStyle(color: fc.danger)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true && mounted) setState(() => _photos.removeAt(i));
   }
 
   Future<void> _pickDate() async {
@@ -308,6 +366,77 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
     ],
   );
 
+  Widget _photoRow() {
+    return SizedBox(
+      height: 84,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          for (var i = 0; i < _photos.length; i++)
+            Padding(
+              key: Key('ps_photo_$i'),
+              padding: const EdgeInsets.only(right: 8),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: PhotoImage(_photos[i], width: 80, height: 80),
+                  ),
+                  Positioned(
+                    top: -6,
+                    right: -6,
+                    child: InkWell(
+                      key: Key('ps_photo_del_$i'),
+                      onTap: () => _removePhoto(i),
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          if (_photos.length < 10)
+            InkWell(
+              key: const Key('ps_photo_add'),
+              onTap: _addPhotos,
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  border: Border.all(color: fc.textSub.withValues(alpha: 0.4)),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_a_photo_rounded, color: fc.textSub),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${_photos.length}/10',
+                      style: TextStyle(fontSize: 11, color: fc.textSub),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final ed = _ed;
@@ -405,11 +534,37 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
               _field('ps_relief_no', '번호', _reliefNo),
             ),
             _field('ps_tester', '시험자', _tester),
-            _head('입회자 (선택)'),
-            _field('ps_w_c', '시공사', _wC),
-            _field('ps_w_s', '감리', _wS),
-            _field('ps_w_o', '발주처', _wO),
+            _head('검사 종류'),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                ChoiceChip(
+                  key: const Key('ps_kind_witness'),
+                  label: const Text('입회 검사'),
+                  selected: !_selfInspection,
+                  onSelected: (_) => setState(() => _selfInspection = false),
+                ),
+                ChoiceChip(
+                  key: const Key('ps_kind_self'),
+                  label: const Text('자체 검사'),
+                  selected: _selfInspection,
+                  onSelected: (_) => setState(() => _selfInspection = true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_selfInspection)
+              _field('ps_dept', '부서', _dept, hint: '예: 배관 1팀')
+            else ...[
+              _head('입회자 (선택)'),
+              _field('ps_w_c', '시공사', _wC),
+              _field('ps_w_s', '감리', _wS),
+              _field('ps_w_o', '발주처', _wO),
+            ],
             _field('ps_memo', '메모', _memo, maxLines: 2),
+            _head('현장 사진 (선택, 최대 10장)'),
+            _photoRow(),
             const SizedBox(height: 4),
             Row(
               children: [

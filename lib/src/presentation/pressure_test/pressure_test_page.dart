@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../my_work_logs/models/photo_store.dart';
 import 'hold_alarm.dart';
 import 'pressure_calc.dart';
 import 'pressure_units.dart';

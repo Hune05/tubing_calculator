@@ -256,6 +256,29 @@ void main() {
       expect(back.witnessLine, '시공사 김시공 · 감리 이감리 · 발주처 박발주');
     });
 
+    test('자체 검사: witnessLine이 부서 이름으로 바뀌고, 사진 목록도 JSON을 오간다', () {
+      final r = PtRecord(
+        id: 'si',
+        date: t0,
+        line: 'P-9',
+        selfInspection: true,
+        selfInspectionDept: '배관 1팀',
+        witnessContractor: '이건 안 쓴다',
+        photos: const ['/local/a.jpg', 'https://x/b.jpg'],
+      );
+      expect(r.witnessLine, '자체 검사(배관 1팀)');
+      final back = PtRecord.fromJson(jsonDecode(jsonEncode(r.toJson())));
+      expect(back.selfInspection, isTrue);
+      expect(back.selfInspectionDept, '배관 1팀');
+      expect(back.witnessLine, '자체 검사(배관 1팀)');
+      expect(back.photos, ['/local/a.jpg', 'https://x/b.jpg']);
+    });
+
+    test('자체 검사인데 부서를 안 적으면 witnessLine은 "자체 검사"만', () {
+      final r = PtRecord(id: 's', date: t0, line: 'L', selfInspection: true);
+      expect(r.witnessLine, '자체 검사');
+    });
+
     test('칸이 빠지거나 망가져도 읽는다(기본값), 망가진 측정 줄은 건너뛴다', () {
       final r = PtRecord.fromJson({
         'line': 'L-1',
@@ -346,6 +369,44 @@ void main() {
       }
 
       expect(cells(lines[1]), cells(lines[0]));
+    });
+
+    test('검사 종류·부서·첨부 사진 수 칸이 있다(자체 검사)', () {
+      final r = PtRecord(
+        id: 'si',
+        date: t0,
+        line: 'L',
+        selfInspection: true,
+        selfInspectionDept: '배관 1팀',
+        photos: const ['/a.jpg', '/b.jpg'],
+      );
+      List<String> splitCells(String s) {
+        final out = <String>[];
+        final buf = StringBuffer();
+        var q = false;
+        for (var i = 0; i < s.length; i++) {
+          final ch = s[i];
+          if (ch == '"') {
+            q = !q;
+          } else if (ch == ',' && !q) {
+            out.add(buf.toString());
+            buf.clear();
+          } else {
+            buf.write(ch);
+          }
+        }
+        out.add(buf.toString());
+        return out;
+      }
+
+      final lines = ptRecordsCsv([r]).substring(1).trimRight().split('\r\n');
+      final head = splitCells(lines[0]);
+      final row = splitCells(lines[1]);
+      String cell(String name) => row[head.indexOf(name)];
+      expect(cell('검사 종류(입회·자체)'), '자체');
+      expect(cell('자체검사 부서'), '배관 1팀');
+      expect(cell('입회자(시공사)'), '');
+      expect(cell('첨부 사진 수'), '2');
     });
 
     test('압력은 기록의 단위로 적는다(psi)', () {

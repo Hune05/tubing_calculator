@@ -148,7 +148,11 @@ Future<String?> downloadLayoutBackground(String url) async {
   }
 }
 
-Future<String?> uploadPhoto(String projectId, String localPath) async {
+Future<String?> uploadPhoto(
+  String projectId,
+  String localPath, {
+  String folder = 'project_photos',
+}) async {
   try {
     final file = File(localPath);
     if (!await file.exists()) return null;
@@ -156,7 +160,7 @@ Future<String?> uploadPhoto(String projectId, String localPath) async {
         '${DateTime.now().microsecondsSinceEpoch}_${localPath.split(RegExp(r'[\\/]')).last}';
     final ref = FirebaseStorage.instance
         .ref()
-        .child('project_photos')
+        .child(folder)
         .child(projectId)
         .child(name);
     // 통신이 없으면 끝나지 않아 그 프로젝트가 다시 시도에서 빠졌다(배경 사진과 같게 제한).

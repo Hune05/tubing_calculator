@@ -210,6 +210,41 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
                       key: Key('pr_kind_${r.id}'),
                       style: TextStyle(fontSize: 13, color: fc.textSub),
                     ),
+                    if (r.witnessLine.isNotEmpty || r.photos.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (r.witnessLine.isNotEmpty)
+                              Flexible(
+                                child: Text(
+                                  r.witnessLine,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: fc.textSub,
+                                  ),
+                                ),
+                              ),
+                            if (r.photos.isNotEmpty) ...[
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.photo_camera_outlined,
+                                size: 13,
+                                color: fc.textSub,
+                              ),
+                              Text(
+                                '${r.photos.length}',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: fc.textSub,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
