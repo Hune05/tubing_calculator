@@ -1,4 +1,3 @@
-import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
@@ -1194,29 +1193,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             ),
           ],
         ),
-        body: Builder(
-          builder: (context) {
-            final bool isWide = ScreenLayout.isTablet(context);
-            return isWide ? _buildWideBody() : _buildNarrowBody();
-          },
-        ),
+        body: _buildNarrowBody(),
       ),
     );
   }
 
-  // 🚀 넓은 화면(태블릿/폴더블 펼침) - 입력과 결과를 좌우 2단으로 동시에
-  // 보여준다. 튜브 컷팅 계산기의 좌우 2단(flex 4/5)과 같은 비율.
-  Widget _buildWideBody() {
-    return Row(
-      children: [
-        Expanded(flex: 4, child: _buildInputPane()),
-        Container(width: 1, color: Colors.black12),
-        Expanded(flex: 5, child: _buildResultPane()),
-      ],
-    );
-  }
-
-  // 🚀 좁은 화면(폰) - 좌우로 욱여넣는 대신 "입력"/"결과" 탭으로 나눠서
+  // 🚀 "입력"/"결과" 탭으로 나눠서
   // 한 화면에 한 섹션씩 전체 폭을 다 쓴다.
   Widget _buildNarrowBody() {
     return Column(

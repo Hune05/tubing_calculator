@@ -1,6 +1,4 @@
 import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
-import 'package:tubing_calculator/src/core/theme/app_logo.dart';
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/material.dart';
@@ -244,7 +242,6 @@ void main() async {
   SystemChrome.setEnabledSystemUIMode(kAppSystemUiMode);
   await initializeDateFormatting('ko_KR', null); // 달력 등 한글 요일/월 이름
   await FieldColors.load(); // 현장 보기(보통·햇빛·야간)
-  await ScreenLayout.load(); // 화면 구성(자동·폰 화면·태블릿 화면)
   // "이름만 넣고 시작"한 사람도 uid가 있게 익명 로그인을 뒤에서 시도한다(이미 로그인했으면
   // 그대로). 통신이 없거나 콘솔에서 익명 로그인이 꺼져 있으면 조용히 넘어간다.
   unawaited(ensureSignedIn());
@@ -384,7 +381,7 @@ class _MyAppState extends State<MyApp> {
           ),
         ),
       ),
-      home: const DeviceRouter(),
+      home: const MobileLoadingScreen(),
       routes: {
         // 🚀 [수정] 폴더블 대응: MenuScreen을 바로 고정하지 않고
         // HomeMenuRouter를 거쳐서, 그 순간의 화면 크기(펼침/접힘)에 맞는
@@ -553,101 +550,5 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
   }
 }
 
-class DeviceRouter extends StatelessWidget {
-  const DeviceRouter({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    // 홈 화면(HomeMenuRouter)과 같은 기준(짧은 변 600). 예전엔 가로로 든 폰이 태블릿
-    // 로딩 화면으로 가서 자동 로그인 없이 "로그인 필요"로 홈에 들어갔다.
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (!ScreenLayout.isTabletSize(constraints.biggest)) {
-          return const MobileLoadingScreen();
-        } else {
-          return const LoadingScreen();
-        }
-      },
-    );
-  }
-}
-
-class LoadingScreen extends StatefulWidget {
-  const LoadingScreen({super.key});
-
-  @override
-  State<LoadingScreen> createState() => _LoadingScreenState();
-}
-
-class _LoadingScreenState extends State<LoadingScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _animationController;
-
-  @override
-  void initState() {
-    super.initState();
-    _animationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 1),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _animationController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      body: Stack(
-        children: [
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () {
-              Navigator.pushReplacementNamed(context, '/menu');
-            },
-            child: SafeArea(
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const AppLogoMark(size: 100),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "FIELD HELPER",
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                        letterSpacing: 2.0,
-                      ),
-                    ),
-                    const SizedBox(height: 80),
-                    FadeTransition(
-                      opacity: _animationController,
-                      child: const Text(
-                        "- TAP TO START -",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.brand,
-                          letterSpacing: 2.0,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          // "DB 초기화" 단추는 뺐다: 한 번 누르면 묻지 않고 서버 부속 목록을 지우고 다시 올렸고,
-          // 통신이 없으면 닫을 수 없는 스피너에 갇혔다. 필요하면 튜브 컷팅 목록의
-          // "부속 DB 새로고침"(확인 창·통신 확인 있음)을 쓴다.
-        ],
-      ),
-    );
-  }
-}
+// (2026-09-29) DeviceRouter·LoadingScreen(태블릿용 "TAP TO START" 화면)은 화면 구성을
+// 폰 화면 하나로 통일하면서 없앴다. 이제 어떤 화면 크기든 MobileLoadingScreen(자동 로그인)을 쓴다.

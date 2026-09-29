@@ -426,7 +426,10 @@ void main() {
       expect(find.textContaining('읽을 수 없는 값 1곳'), findsOneWidget);
     });
 
-    testWidgets('아주 넓은 화면에서는 입력·배치도·결과가 세 칸으로 나란히 보인다', (tester) async {
+    // 2026-09-29: 화면 크기와 상관없이 폰 화면(탭) 하나로 통일하면서
+    // 넓은 화면 전용 좌우 2~3단 레이아웃을 없앴다. 큰 화면에서도 똑같이
+    // 탭(입력/배치도/결과) 방식으로 잘 뜨는지만 확인한다.
+    testWidgets('큰 화면(1280×800)에서도 탭 방식 그대로 동작한다', (tester) async {
       tester.view.physicalSize = const Size(1280, 800);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -445,14 +448,14 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('배관 라인 구축'), findsOneWidget);
-      expect(find.text('배치도'), findsOneWidget);
-      expect(find.text('컷팅 지시서'), findsOneWidget);
-      expect(find.byType(TabBar), findsNothing);
+      expect(find.byType(TabBar), findsOneWidget);
       expect(tester.takeException(), isNull);
 
-      // 배치도에서 지점을 누르면 옆의 입력 칸에 커서가 간다.
+      // 배치도에서 지점을 누르면 입력 탭으로 돌아가 옆의 입력 칸에 커서가 간다.
       await tester.enterText(lengthField(0), '1500');
       await tester.pump();
+      await tester.tap(find.text('배치도'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('diagram_point_0')));
       await tester.pumpAndSettle(const Duration(milliseconds: 100));
       expect(
@@ -461,7 +464,7 @@ void main() {
       );
     });
 
-    testWidgets('중간 너비(세로 태블릿)는 배치도와 결과를 오른쪽에 쌓는다', (tester) async {
+    testWidgets('세로로 긴 화면(800×1280)에서도 탭 방식 그대로 동작한다', (tester) async {
       tester.view.physicalSize = const Size(800, 1280);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);
@@ -480,8 +483,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('배관 라인 구축'), findsOneWidget);
-      expect(find.text('배치도'), findsOneWidget);
-      expect(find.text('컷팅 지시서'), findsOneWidget);
+      expect(find.byType(TabBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

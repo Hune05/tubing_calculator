@@ -1,7 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/field_view_picker.dart';
-import 'package:tubing_calculator/src/core/common_widgets/screen_layout_picker.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_gain_calibration_sheet.dart';
 import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
 
@@ -1494,10 +1493,6 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         const Padding(
           padding: EdgeInsets.all(16),
           child: FieldViewModePicker(),
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: ScreenLayoutPicker(),
         ),
         _row(
           _buildLabelWithHelp(

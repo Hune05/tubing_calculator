@@ -1,4 +1,3 @@
-import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
@@ -238,15 +237,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   void _setFocusedPoint(int index) {
     if (_focusedPointIndex == index) return;
     setState(() => _focusedPointIndex = index);
-    if (_tabController.index == 1 || _isWideLayout) {
+    if (_tabController.index == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scrollDiagramToFocused();
       });
     }
   }
-
-  // 배치도가 입력과 나란히 늘 보이는 넓은 화면인지(탭 대신 여러 칸으로 보여 줄 때).
-  bool get _isWideLayout => ScreenLayout.isTablet(context);
 
   Future<void> _loadBladeKerf() async {
     final prefs = await SharedPreferences.getInstance();
@@ -2608,33 +2604,17 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         ),
         body: Column(
           children: [
-            Builder(
-              builder: (context) {
-                final bool isWide = ScreenLayout.isTablet(context);
-                return _buildMakerHeader(isWide);
-              },
-            ),
-
-            // 🚀 [수정] 이 화면은 원래 데스크톱 프로젝트 관리 화면 안에서만
-            // 쓰던 고정 좌우 2단(Row flex:4/5) 레이아웃이라, 좁은 폰 화면에서는
-            // 각 칸이 짓눌려 못 쓸 정도였다. 폴더블 대응을 하면서 화면
-            // 크기(shortestSide)를 실시간으로 봐서, 넓을 땐 기존 좌우 2단
-            // 레이아웃을 그대로 쓰고 좁을 땐 탭으로 나눠 1칼럼으로 보여준다.
-            Builder(
-              builder: (context) {
-                final bool isWide = ScreenLayout.isTablet(context);
-                return isWide ? _buildWideBody() : _buildNarrowBody();
-              },
-            ),
+            _buildMakerHeader(),
+            _buildNarrowBody(),
           ],
         ),
       ),
     );
   }
 
-  // 🚀 [추가] 좁은 화면에서는 "메이커 고정" 라벨과 버튼 3개를 한 줄에
-  // 욱여넣으면 넘칠 수 있어서, 좁을 땐 라벨을 위에, 버튼을 아래 줄로 뺀다.
-  Widget _buildMakerHeader(bool isWide) {
+  // 🚀 [추가] "메이커 고정" 라벨과 버튼 3개를 한 줄에 욱여넣으면 넘칠 수 있어서
+  // 라벨을 위에, 버튼을 아래 줄로 뺀다.
+  Widget _buildMakerHeader() {
     // 🚀 [피팅 고도화] 국내 현장에서 많이 쓰는 DK-Lok을 추가했다(피팅
     // 데이터도 db_seeder.dart에 DK-Lok 항목을 함께 시드해뒀다). 버튼이
     // 3개에서 4개로 늘어난 만큼 글자가 넘치지 않게 폰트를 살짝 줄이고
@@ -2693,68 +2673,19 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
 
     return Container(
-      padding: EdgeInsets.symmetric(
-        vertical: isWide ? 12 : 10,
-        horizontal: isWide ? 24 : 16,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       decoration: BoxDecoration(
         color: whiteCard,
         border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
       ),
-      child: isWide
-          ? Row(
-              children: [
-                label,
-                const SizedBox(width: 24),
-                Expanded(child: makerButtons),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [label, const SizedBox(height: 8), makerButtons],
-            ),
-    );
-  }
-
-  // 🚀 [추가] 넓은 화면(태블릿/폴더블 펼침) - 예전부터 있던 좌우 2단
-  // 레이아웃 그대로. 왼쪽엔 포인트 리스트, 오른쪽엔 배치도+컷팅 지시서.
-  Widget _buildWideBody() {
-    // 아주 넓은 화면(가로로 놓은 태블릿·펼친 폴더블)은 입력 | 배치도 | 결과를 세 칸으로 나란히 둔다.
-    // 그보다 좁으면 배치도와 결과를 위아래로 쌓아 오른쪽 한 칸에 둔다.
-    if (MediaQuery.of(context).size.width >= 1000) {
-      return Expanded(
-        child: Row(
-          children: [
-            Expanded(flex: 4, child: _buildPointListPane()),
-            Container(width: 1, color: Colors.black12),
-            Expanded(flex: 4, child: _buildDiagramPane()),
-            Container(width: 1, color: Colors.black12),
-            Expanded(flex: 4, child: _buildInstructionsPane()),
-          ],
-        ),
-      );
-    }
-    return Expanded(
-      child: Row(
-        children: [
-          Expanded(flex: 4, child: _buildPointListPane()),
-          Container(width: 1, color: Colors.black12),
-          Expanded(
-            flex: 5,
-            child: Column(
-              children: [
-                Expanded(flex: 1, child: _buildDiagramPane()),
-                const Divider(height: 1, color: Colors.black12, thickness: 2),
-                Expanded(flex: 1, child: _buildInstructionsPane()),
-              ],
-            ),
-          ),
-        ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [label, const SizedBox(height: 8), makerButtons],
       ),
     );
   }
 
-  // 🚀 [추가] 좁은 화면(폰/폴더블 접힘) - 좌우로 욱여넣는 대신 탭으로
+  // 🚀 [추가] 좌우로 욱여넣는 대신 탭으로
   // 나눠서 한 화면에 한 섹션씩 전체 폭을 다 쓰게 한다.
   // 세트 수(× N SET) 조절. 입력 탭 아래 요약 줄과 결과 탭이 같은 값을 함께 쓴다.
   Widget _buildSetStepper() {

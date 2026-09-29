@@ -1,4 +1,3 @@
-import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -81,19 +80,6 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
   final GlobalKey _viewerKey = GlobalKey(debugLabel: 'conduit_viewer');
   final GlobalKey _settingsKey = GlobalKey(debugLabel: 'conduit_settings');
 
-  bool _isWide(BuildContext context) => ScreenLayout.isTablet(context);
-
-  // 넓은 화면: 0=입력+마킹 합침, 1=보관함, 2=현장, 3=아이소, 4=설정 (5개)
-  int _wideIndexFor(int narrowIndex) {
-    if (narrowIndex <= 1) return 0;
-    return narrowIndex - 1;
-  }
-
-  int _narrowIndexFor(int wideIndex, {required bool wasOnMarking}) {
-    if (wideIndex == 0) return wasOnMarking ? 1 : 0;
-    return wideIndex + 1;
-  }
-
   void _goToInputTab() {
     setState(() => _selectedIndex = 0);
   }
@@ -108,14 +94,13 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
       FieldViewTheme(child: Builder(builder: _buildPage));
 
   Widget _buildPage(BuildContext context) {
-    final bool isWide = _isWide(context);
     final bool isFieldTab = _selectedIndex == 3; // '현장'(가로) 탭
 
     return Scaffold(
       backgroundColor: slate100,
       body: !_settingsLoaded
           ? Center(child: CircularProgressIndicator(color: makitaTeal))
-          : (isWide ? _buildWideBody() : _buildNarrowBody()),
+          : _buildNarrowBody(),
       bottomNavigationBar: isFieldTab
           ? const SizedBox.shrink() // 현장(가로) 탭일 때만 네비바 숨김
           : Container(
@@ -142,9 +127,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                     backgroundColor: Colors.transparent,
                     elevation: 0,
                     type: BottomNavigationBarType.fixed,
-                    currentIndex: isWide
-                        ? _wideIndexFor(_selectedIndex)
-                        : _selectedIndex,
+                    currentIndex: _selectedIndex,
                     selectedItemColor: makitaTeal,
                     unselectedItemColor: slate600,
                     selectedLabelStyle: const TextStyle(
@@ -158,87 +141,22 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                     onTap: (tappedIndex) {
                       HapticFeedback.selectionClick();
                       setState(() {
-                        _selectedIndex = isWide
-                            ? _narrowIndexFor(
-                                tappedIndex,
-                                wasOnMarking: _selectedIndex == 1,
-                              )
-                            : tappedIndex;
+                        _selectedIndex = tappedIndex;
                       });
                     },
-                    items: isWide
-                        ? [
-                            _buildGlyphNavItem(
-                              AppGlyph.navInput,
-                              '입력/마킹',
-                              0,
-                              isWide: true,
-                            ),
-                            _buildGlyphNavItem(
-                              AppGlyph.navStorage,
-                              '보관함',
-                              1,
-                              isWide: true,
-                            ),
-                            _buildGlyphNavItem(
-                              AppGlyph.navField,
-                              '현장',
-                              2,
-                              isWide: true,
-                            ),
-                            _buildGlyphNavItem(
-                              AppGlyph.navIso,
-                              '아이소',
-                              3,
-                              isWide: true,
-                            ),
-                            _buildNavItem(
-                              AppIcons.settings,
-                              AppIcons.settings,
-                              '설정',
-                              4,
-                              isWide: true,
-                            ),
-                          ]
-                        : [
-                            _buildGlyphNavItem(
-                              AppGlyph.navInput,
-                              '입력',
-                              0,
-                              isWide: false,
-                            ),
-                            _buildGlyphNavItem(
-                              AppGlyph.navMarking,
-                              '마킹',
-                              1,
-                              isWide: false,
-                            ),
-                            _buildGlyphNavItem(
-                              AppGlyph.navStorage,
-                              '보관함',
-                              2,
-                              isWide: false,
-                            ),
-                            _buildGlyphNavItem(
-                              AppGlyph.navField,
-                              '현장',
-                              3,
-                              isWide: false,
-                            ),
-                            _buildGlyphNavItem(
-                              AppGlyph.navIso,
-                              '아이소',
-                              4,
-                              isWide: false,
-                            ),
-                            _buildNavItem(
-                              AppIcons.settings,
-                              AppIcons.settings,
-                              '설정',
-                              5,
-                              isWide: false,
-                            ),
-                          ],
+                    items: [
+                      _buildGlyphNavItem(AppGlyph.navInput, '입력', 0),
+                      _buildGlyphNavItem(AppGlyph.navMarking, '마킹', 1),
+                      _buildGlyphNavItem(AppGlyph.navStorage, '보관함', 2),
+                      _buildGlyphNavItem(AppGlyph.navField, '현장', 3),
+                      _buildGlyphNavItem(AppGlyph.navIso, '아이소', 4),
+                      _buildNavItem(
+                        AppIcons.settings,
+                        AppIcons.settings,
+                        '설정',
+                        5,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -271,45 +189,16 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     );
   }
 
-  Widget _buildWideBody() {
-    return IndexedStack(
-      index: _wideIndexFor(_selectedIndex),
-      children: [
-        // 🚀 넓은 화면에서는 입력과 마킹을 좌우로 나란히 - 둘 다
-        // ConduitDataManager를 직접 구독하므로 왼쪽에서 입력하면
-        // 오른쪽 마킹 결과가 즉시 갱신된다.
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(flex: 5, child: ConduitInputTab(key: _inputKey)),
-            VerticalDivider(width: 1, color: slate100),
-            Expanded(flex: 6, child: ConduitResultTab(key: _resultKey)),
-          ],
-        ),
-        NormalViewTheme(
-          child: ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab),
-        ),
-        _buildFieldTab(),
-        ConduitViewerTab(key: _viewerKey),
-        NormalViewTheme(child: ConduitSettingsPage(key: _settingsKey)),
-      ],
-    );
-  }
-
   /// 직접 그린 아이콘 탭(고르면 속이 옅게 채워진다).
   BottomNavigationBarItem _buildGlyphNavItem(
     AppGlyph glyph,
     String label,
-    int index, {
-    required bool isWide,
-  }) {
-    final int currentDisplayIndex = isWide
-        ? _wideIndexFor(_selectedIndex)
-        : _selectedIndex;
+    int index,
+  ) {
     return BottomNavigationBarItem(
       icon: Padding(
         padding: const EdgeInsets.only(bottom: 4),
-        child: AppIcon(glyph, size: 24, filled: currentDisplayIndex == index),
+        child: AppIcon(glyph, size: 24, filled: _selectedIndex == index),
       ),
       label: label,
     );
@@ -319,17 +208,13 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     IconData activeIcon,
     IconData inactiveIcon,
     String label,
-    int index, {
-    required bool isWide,
-  }) {
-    final int currentDisplayIndex = isWide
-        ? _wideIndexFor(_selectedIndex)
-        : _selectedIndex;
+    int index,
+  ) {
     return BottomNavigationBarItem(
       icon: Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Icon(
-          currentDisplayIndex == index ? activeIcon : inactiveIcon,
+          _selectedIndex == index ? activeIcon : inactiveIcon,
           size: 24,
         ),
       ),

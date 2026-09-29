@@ -1,4 +1,3 @@
-import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -69,11 +68,6 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
       FieldViewTheme(child: Builder(builder: _buildPage));
 
   Widget _buildPage(BuildContext context) {
-    // 🚀 [추가] 폴더블 대응 - 접힌 좁은 화면과 펼친 넓은 화면을 실시간으로
-    // 구분한다. MobileInputTab/MobileResultTab 둘 다 데이터를
-    // MobileBendDataManager 싱글톤에서 직접 읽으므로, 넓을 때 두 탭을
-    // 나란히 붙여 보여줘도 데이터가 어긋나거나 사라지지 않는다.
-    final bool isWide = ScreenLayout.isTablet(context);
     // 🚀 [버그 수정] "현장" 탭(가로 모드 전체화면 마킹 뷰)에 들어가도 이
     // 화면 자체의 AppBar/BottomNavigationBar가 계속 떠 있어서, 그만큼
     // 세로 공간이 줄어들며 내용이 잘려 보였다. 전선관 계산기와 동일하게
@@ -91,7 +85,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
         body: SafeArea(
           top: !isFieldTab,
           bottom: false,
-          child: isWide ? _buildWideBody() : _buildNarrowBody(),
+          child: _buildNarrowBody(),
         ),
         bottomNavigationBar: isFieldTab
             ? const SizedBox.shrink()
@@ -117,12 +111,8 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                     ),
                     child: BottomNavigationBar(
                       elevation: 0,
-                      currentIndex: isWide
-                          ? _wideIndexFor(_currentIndex)
-                          : _currentIndex,
-                      onTap: (tappedIndex) => _onTabTapped(
-                        isWide ? _narrowIndexFor(tappedIndex) : tappedIndex,
-                      ),
+                      currentIndex: _currentIndex,
+                      onTap: _onTabTapped,
                       backgroundColor: Colors.transparent,
                       selectedItemColor: makitaTeal,
                       unselectedItemColor: slate600,
@@ -135,79 +125,19 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                         fontWeight: FontWeight.w600,
                         fontSize: 10,
                       ),
-                      items: isWide
-                          ? [
-                              _buildGlyphNavItem(
-                                AppGlyph.navInput,
-                                "입력 / 마킹",
-                                0,
-                                isWide: true,
-                              ),
-                              _buildGlyphNavItem(
-                                AppGlyph.navStorage,
-                                "보관함",
-                                1,
-                                isWide: true,
-                              ),
-                              _buildGlyphNavItem(
-                                AppGlyph.navField,
-                                "현장",
-                                2,
-                                isWide: true,
-                              ),
-                              _buildGlyphNavItem(
-                                AppGlyph.navIso,
-                                "아이소",
-                                3,
-                                isWide: true,
-                              ),
-                              _buildNavItem(
-                                AppIcons.settings,
-                                AppIcons.settings,
-                                "설정",
-                                4,
-                                isWide: true,
-                              ),
-                            ]
-                          : [
-                              _buildGlyphNavItem(
-                                AppGlyph.navInput,
-                                "입력",
-                                0,
-                                isWide: false,
-                              ),
-                              _buildGlyphNavItem(
-                                AppGlyph.navMarking,
-                                "마킹",
-                                1,
-                                isWide: false,
-                              ),
-                              _buildGlyphNavItem(
-                                AppGlyph.navStorage,
-                                "보관함",
-                                2,
-                                isWide: false,
-                              ),
-                              _buildGlyphNavItem(
-                                AppGlyph.navField,
-                                "현장",
-                                3,
-                                isWide: false,
-                              ),
-                              _buildGlyphNavItem(
-                                AppGlyph.navIso,
-                                "아이소",
-                                4,
-                                isWide: false,
-                              ),
-                              _buildNavItem(
-                                AppIcons.settings,
-                                AppIcons.settings,
-                                "설정",
-                                5,
-                                isWide: false,
-                              ),
-                            ],
+                      items: [
+                        _buildGlyphNavItem(AppGlyph.navInput, "입력", 0),
+                        _buildGlyphNavItem(AppGlyph.navMarking, "마킹", 1),
+                        _buildGlyphNavItem(AppGlyph.navStorage, "보관함", 2),
+                        _buildGlyphNavItem(AppGlyph.navField, "현장", 3),
+                        _buildGlyphNavItem(AppGlyph.navIso, "아이소", 4),
+                        _buildNavItem(
+                          AppIcons.settings,
+                          AppIcons.settings,
+                          "설정",
+                          5,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -223,16 +153,12 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
   BottomNavigationBarItem _buildGlyphNavItem(
     AppGlyph glyph,
     String label,
-    int index, {
-    required bool isWide,
-  }) {
-    final int currentDisplayIndex = isWide
-        ? _wideIndexFor(_currentIndex)
-        : _currentIndex;
+    int index,
+  ) {
     return BottomNavigationBarItem(
       icon: Padding(
         padding: const EdgeInsets.only(bottom: 4),
-        child: AppIcon(glyph, size: 24, filled: currentDisplayIndex == index),
+        child: AppIcon(glyph, size: 24, filled: _currentIndex == index),
       ),
       label: label,
     );
@@ -242,37 +168,18 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     IconData activeIcon,
     IconData inactiveIcon,
     String label,
-    int index, {
-    required bool isWide,
-  }) {
-    final int currentDisplayIndex = isWide
-        ? _wideIndexFor(_currentIndex)
-        : _currentIndex;
+    int index,
+  ) {
     return BottomNavigationBarItem(
       icon: Padding(
         padding: const EdgeInsets.only(bottom: 4),
         child: Icon(
-          currentDisplayIndex == index ? activeIcon : inactiveIcon,
+          _currentIndex == index ? activeIcon : inactiveIcon,
           size: 24,
         ),
       ),
       label: label,
     );
-  }
-
-  // 🚀 좁은 화면 인덱스(0입력/1마킹/2보관함/3현장/4아이소/5설정, 6개) <->
-  // 넓은 화면 인덱스(0입력+마킹/1보관함/2현장/3아이소/4설정, 5개) 매핑.
-  // 탭 순서는 전선관 계산기와 같다.
-  // 넓은 화면에선 입력과 마킹을 한 탭에서 나란히 보여주므로 탭 개수가
-  // 하나 줄어든다.
-  int _wideIndexFor(int narrowIndex) {
-    if (narrowIndex <= 1) return 0;
-    return narrowIndex - 1;
-  }
-
-  int _narrowIndexFor(int wideIndex) {
-    if (wideIndex == 0) return 0;
-    return wideIndex + 1;
   }
 
   /// 현장 탭(가로 줄자 화면). 전선관과 같은 화면을 쓴다.
@@ -313,30 +220,4 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     });
   }
 
-  Widget _buildWideBody() {
-    final int wideIndex = _wideIndexFor(_currentIndex);
-    return IndexedStack(
-      index: wideIndex,
-      children: [
-        // 🚀 넓은 화면에서는 입력과 결과를 좌우로 나란히 - 둘 다
-        // MobileBendDataManager를 직접 구독하므로 왼쪽에서 입력하면
-        // 오른쪽 결과가 즉시 갱신된다.
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Expanded(flex: 5, child: MobileInputTab(startDir: _startDir)),
-            Container(width: 1, color: slate100),
-            Expanded(flex: 6, child: MobileResultTab(startDir: _startDir)),
-          ],
-        ),
-        MobileHistoryTab(onLoaded: _onDrawingLoaded),
-        _buildFieldTab(),
-        MobileViewerTab(
-          startDir: _startDir,
-          onStartDirChanged: (val) => setState(() => _startDir = val),
-        ),
-        const NormalViewTheme(child: MobileSettingsTab()),
-      ],
-    );
-  }
 }
