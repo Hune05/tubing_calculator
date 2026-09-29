@@ -182,6 +182,26 @@ class _AttendancePageState extends State<AttendancePage> {
     );
   }
 
+  Future<void> _openRules() async {
+    var openSettings = false;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => AttendanceRulesSheet(
+        settings: _settings,
+        onOpenSettings: () {
+          openSettings = true;
+          Navigator.pop(ctx);
+        },
+      ),
+    );
+    if (openSettings && mounted) await _openSettings();
+  }
+
   Future<void> _openSettings() async {
     final s = await showModalBottomSheet<AttendanceSettings>(
       context: context,
@@ -347,6 +367,12 @@ class _AttendancePageState extends State<AttendancePage> {
             tooltip: "내보내기",
             onPressed: _loading ? null : _openExport,
             icon: const Icon(AppIcons.share),
+          ),
+          IconButton(
+            key: const Key('att_rules'),
+            tooltip: "사규 보기",
+            onPressed: _openRules,
+            icon: const Icon(Icons.menu_book_outlined),
           ),
           IconButton(
             key: const Key('att_settings'),

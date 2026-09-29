@@ -97,8 +97,13 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
     final e = widget.existing;
     _type = e?.type ?? kAttendanceNormal;
     if (!kAttendanceTypes.contains(_type)) _type = kAttendanceNormal;
-    _checkIn = _parse(e?.checkIn);
-    _checkOut = _parse(e?.checkOut);
+    // 새 기록이면 사규의 소정 출근·퇴근 시각으로 미리 채운다(고칠 수 있다).
+    _checkIn = _parse(
+      e?.checkIn ?? (e == null ? widget.options.workStart : null),
+    );
+    _checkOut = _parse(
+      e?.checkOut ?? (e == null ? widget.options.workEnd : null),
+    );
     _breakMin = e?.breakMin;
     _memo = TextEditingController(text: e?.memo ?? '');
   }
@@ -182,6 +187,32 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
     ),
   );
 
+  /// 사규 소정 시각과 비교한 한 줄: "사규 소정 08:00~17:00 · 출근 12분 늦음". 소정 시각이 없으면 null.
+  String? _scheduleHint() {
+    final ws = widget.options.workStart;
+    final we = widget.options.workEnd;
+    final sm = minutesOfDay(ws);
+    final em = minutesOfDay(we);
+    if (sm == null && em == null) return null;
+    final parts = <String>["사규 소정 ${ws ?? '--:--'}~${we ?? '--:--'}"];
+    final ci = _checkIn == null ? null : _checkIn!.hour * 60 + _checkIn!.minute;
+    final co = _checkOut == null
+        ? null
+        : _checkOut!.hour * 60 + _checkOut!.minute;
+    if (sm != null && ci != null && ci > sm) {
+      parts.add("출근 ${formatMinutes(ci - sm)} 늦음");
+    }
+    if (em != null &&
+        co != null &&
+        sm != null &&
+        em > sm &&
+        co >= sm &&
+        co < em) {
+      parts.add("퇴근 ${formatMinutes(em - co)} 일찍");
+    }
+    return parts.join(" · ");
+  }
+
   String _breakChoiceLabel(int? v) {
     if (v == null) {
       return "기본(${defaultBreakLabel(widget.options.defaultBreak)})";
@@ -229,6 +260,15 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
                     fontSize: 16,
                   ),
                 ),
+                if (hn.isEmpty && isBridgeDay(d))
+                  const Text(
+                    "퐁당일",
+                    style: TextStyle(
+                      color: _sub,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
                 if (hn.isNotEmpty)
                   Text(
                     hn,
@@ -254,6 +294,14 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
                   ),
               ],
             ),
+            if (isBridgeDay(d) && holidayName(d).isEmpty) ...[
+              const SizedBox(height: 8),
+              const Text(
+                "퐁당일입니다(앞뒤가 쉬는 날). 회사에서 연차로 쉬게 하는 날이면 '연차'를 고르십시오.",
+                key: Key('att_bridge_hint'),
+                style: TextStyle(color: _sub, fontSize: 12, height: 1.4),
+              ),
+            ],
             if (!noTime) ...[
               const SizedBox(height: 16),
               Row(
@@ -266,6 +314,18 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
                   _timeBox("퇴근 시간", _checkOut, false),
                 ],
               ),
+              if (_scheduleHint() != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  _scheduleHint()!,
+                  key: const Key('att_schedule_hint'),
+                  style: const TextStyle(
+                    color: _sub,
+                    fontSize: 12,
+                    height: 1.4,
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               _sectionLabel("휴게시간"),
               Wrap(
@@ -372,6 +432,7 @@ class AttendanceSettingsSheet extends StatefulWidget {
 class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
   late AttendanceSettings _s = widget.settings;
   late final TextEditingController _grant;
+  late final TextEditingController _ruleNote;
 
   String? get _periodKey {
     final b = widget.balance;
@@ -385,11 +446,13 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
     final k = _periodKey;
     final v = k == null ? null : widget.settings.leaveOverrides[k];
     _grant = TextEditingController(text: v == null ? '' : formatLeaveDays(v));
+    _ruleNote = TextEditingController(text: widget.settings.ruleNote);
   }
 
   @override
   void dispose() {
     _grant.dispose();
+    _ruleNote.dispose();
     super.dispose();
   }
 
@@ -404,6 +467,42 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
     if (d != null && mounted) setState(() => _s = _s.copyWith(hireDate: d));
   }
 
+  Future<void> _pickRuleTime({required bool isStart}) async {
+    final cur = minutesOfDay(isStart ? _s.workStart : _s.workEnd);
+    final picked = await showMakitaTimePicker(
+      context: context,
+      title: isStart ? "소정 출근 시각" : "소정 퇴근 시각",
+      initialTime: cur == null
+          ? TimeOfDay(hour: isStart ? 8 : 17, minute: 0)
+          : TimeOfDay(hour: cur ~/ 60, minute: cur % 60),
+    );
+    if (picked == null || !mounted) return;
+    final v =
+        "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+    setState(
+      () => _s = isStart ? _s.copyWith(workStart: v) : _s.copyWith(workEnd: v),
+    );
+  }
+
+  Widget _ruleTimeBox({
+    required String key,
+    required String label,
+    required String? value,
+    required bool isStart,
+  }) => Expanded(
+    child: OutlinedButton(
+      key: Key(key),
+      onPressed: () => _pickRuleTime(isStart: isStart),
+      child: Text(
+        value == null ? "$label 정하지 않음" : "$label $value",
+        style: TextStyle(
+          color: value == null ? _sub : _text,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    ),
+  );
+
   void _done() {
     var s = _s;
     final k = _periodKey;
@@ -417,7 +516,7 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
       }
       s = s.copyWith(leaveOverrides: m);
     }
-    Navigator.pop(context, s);
+    Navigator.pop(context, s.copyWith(ruleNote: _ruleNote.text.trim()));
   }
 
   Widget _help(String t) => Padding(
@@ -538,6 +637,63 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
                 style: TextStyle(fontSize: 12),
               ),
             ),
+            const SizedBox(height: 18),
+            _sectionLabel("사규"),
+            Row(
+              children: [
+                _ruleTimeBox(
+                  key: 'att_rule_start',
+                  label: "출근",
+                  value: _s.workStart,
+                  isStart: true,
+                ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8),
+                  child: Text("~", style: TextStyle(color: _sub)),
+                ),
+                _ruleTimeBox(
+                  key: 'att_rule_end',
+                  label: "퇴근",
+                  value: _s.workEnd,
+                  isStart: false,
+                ),
+              ],
+            ),
+            if (_s.workStart != null || _s.workEnd != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  key: const Key('att_rule_time_clear'),
+                  onPressed: () => setState(
+                    () => _s = _s.copyWith(
+                      clearWorkStart: true,
+                      clearWorkEnd: true,
+                    ),
+                  ),
+                  child: const Text("소정 시각 지우기"),
+                ),
+              ),
+            _help(
+              "회사가 정한 출근·퇴근 시각입니다. 새 기록을 열 때 이 시각으로 미리 채우고, 늦은 출근·이른 퇴근을 알려 줍니다. "
+              "연장·야간·휴일 계산에는 쓰지 않습니다.",
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('att_rule_note'),
+              controller: _ruleNote,
+              maxLines: 5,
+              minLines: 3,
+              maxLength: AttendanceSettings.ruleNoteMax,
+              decoration: const InputDecoration(
+                labelText: "사규 메모",
+                hintText: "예: 퐁당일은 연차 소진 / 지각 기준 / 조퇴 처리 …",
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+            _help(
+              "조항이나 내용을 적어 두면 근태 화면의 사규 보기(책 아이콘)에서 다시 볼 수 있습니다. 계산에는 쓰지 않습니다.",
+            ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -546,6 +702,87 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
                 onPressed: _done,
                 style: FilledButton.styleFrom(backgroundColor: _brand),
                 child: const Text("저장"),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ───────────── 사규 보기 ─────────────
+
+/// 설정에 넣은 사규(소정 출근·퇴근 시각, 사규 메모)를 읽기만 하는 창.
+class AttendanceRulesSheet extends StatelessWidget {
+  final AttendanceSettings settings;
+  final VoidCallback onOpenSettings;
+  const AttendanceRulesSheet({
+    super.key,
+    required this.settings,
+    required this.onOpenSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final s = settings;
+    final hasTime = s.workStart != null || s.workEnd != null;
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          key: const Key('att_rules_sheet'),
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "사규",
+              style: TextStyle(
+                color: _text,
+                fontWeight: FontWeight.w800,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (!s.hasRules)
+              const Text(
+                "넣어 둔 사규가 없습니다. 설정에서 소정 출근·퇴근 시각과 사규 메모를 넣을 수 있습니다.",
+                style: TextStyle(color: _sub, fontSize: 13, height: 1.4),
+              ),
+            if (hasTime) ...[
+              _sectionLabel("소정 근무시간"),
+              Text(
+                "${s.workStart ?? '--:--'} ~ ${s.workEnd ?? '--:--'}",
+                key: const Key('att_rules_time'),
+                style: const TextStyle(
+                  color: _text,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (s.ruleNote.trim().isNotEmpty) ...[
+              _sectionLabel("사규 메모"),
+              SelectableText(
+                s.ruleNote,
+                key: const Key('att_rules_note'),
+                style: const TextStyle(color: _text, fontSize: 14, height: 1.5),
+              ),
+              const SizedBox(height: 16),
+            ],
+            const Text(
+              "연차는 입사일 기준으로 계산합니다. 회사가 퐁당일을 연차로 쉬게 하면 그날 근태를 '연차'로 기록하십시오.",
+              style: TextStyle(color: _sub, fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                key: const Key('att_rules_edit'),
+                onPressed: onOpenSettings,
+                child: const Text("설정에서 고치기"),
               ),
             ),
           ],

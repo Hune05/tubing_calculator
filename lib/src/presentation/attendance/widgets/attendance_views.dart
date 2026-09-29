@@ -353,7 +353,11 @@ class AttendanceDayRow extends StatelessWidget {
     final r = record;
     final type = r?.type ?? kAttendanceNormal;
     final hn = holidayName(day);
-    final note = [if (hn.isNotEmpty) hn, if (r?.memo != null) r!.memo!];
+    final note = [
+      if (hn.isNotEmpty) hn,
+      if (hn.isEmpty && isBridgeDay(day)) '퐁당일',
+      if (r?.memo != null) r!.memo!,
+    ];
     final hasTime = r?.checkIn != null || r?.checkOut != null;
     final w = work;
     return InkWell(

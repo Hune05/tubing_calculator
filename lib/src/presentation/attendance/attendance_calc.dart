@@ -36,9 +36,16 @@ class AttendanceCalcOptions {
   /// 토요일 근무를 휴일근로로 계산할지(회사가 토요일을 휴일로 정한 경우).
   final bool saturdayIsHoliday;
 
+  /// 사규의 소정 출근·퇴근 시각("HH:mm"). 새 기록을 열 때 자동으로 채우고 지각·조퇴를 알린다.
+  /// 계산(연장·야간·휴일)에는 쓰지 않는다.
+  final String? workStart;
+  final String? workEnd;
+
   const AttendanceCalcOptions({
     this.defaultBreak = kBreakLegalAuto,
     this.saturdayIsHoliday = false,
+    this.workStart,
+    this.workEnd,
   });
 }
 
@@ -47,6 +54,15 @@ bool isRestDay(DateTime d, AttendanceCalcOptions o) =>
     d.weekday == DateTime.sunday ||
     isKoreanHoliday(d) ||
     (o.saturdayIsHoliday && d.weekday == DateTime.saturday);
+
+/// 퐁당일(징검다리 날): 평일인데 앞날과 뒷날이 모두 쉬는 날(주말·공휴일)인 날.
+/// 회사가 이런 날을 연차로 쉬게 하는 경우가 많아 화면에서 알려 준다.
+bool isBridgeDay(DateTime d) {
+  bool off(DateTime x) => x.weekday >= DateTime.saturday || isKoreanHoliday(x);
+  if (off(d)) return false;
+  return off(DateTime(d.year, d.month, d.day - 1)) &&
+      off(DateTime(d.year, d.month, d.day + 1));
+}
 
 /// 그 날 기록에 적용할 휴게(분).
 int breakMinutesFor(AttendanceRecord r, int stayMin, AttendanceCalcOptions o) {
