@@ -180,12 +180,13 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
   Widget _folderCard(double boxW, double boxH) {
     final folder = _folder!;
     final kids = folder.children ?? const <FeatureItem>[];
-    const cols = 3;
+    // 카드 폭은 창의 80%. 한 줄에 4~5개(안쪽 폭이 넓으면 5개)를 보인다.
+    final w = boxW * 0.80;
+    final cols = (w - 16) >= 420 ? 5 : 4;
     final rows = (kids.length / cols).ceil();
     // 내용이 딱 맞는 높이(머리글 + 줄 수 × 칸 높이)까지만, 두 줄 반(셋째 줄이 살짝 보여 넘길 수 있다는 걸 알린다)을 넘으면 스크롤.
     final natural = 56.0 + rows * 104.0;
     final h = natural.clamp(0.0, (56.0 + 2.4 * 104.0).clamp(0.0, boxH * 0.9));
-    final w = boxW * 0.88;
     return Positioned.fill(
       child: GestureDetector(
         key: const Key('feature_folder_scrim'),

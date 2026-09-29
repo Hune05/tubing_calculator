@@ -255,7 +255,7 @@ void main() {
       expect(card.width, lessThan(sheet.width));
       expect(card.left, greaterThan(sheet.left));
       expect(card.right, lessThan(sheet.right));
-      expect(card.width, closeTo(sheet.width * 0.88, 1));
+      expect(card.width, closeTo(sheet.width * 0.80, 1));
       expect(card.height, closeTo(56 + 104, 1)); // 한 줄이라 내용 높이 그대로
       await tester.tap(find.byKey(const Key('feature_시험 기록')));
       await tester.pumpAndSettle();
@@ -354,4 +354,59 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getRect(last).bottom, lessThanOrEqualTo(card.bottom + 1));
   });
+
+  for (final (width, perRow) in [(400.0, 4), (1200.0, 5)]) {
+    testWidgets('폴더 한 줄에 $perRow개(화면 폭 ${width.toInt()})', (tester) async {
+      tester.view.physicalSize = Size(width, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final many = FeatureItem(
+        title: '큰 폴더',
+        subtitle: '',
+        glyph: AppGlyph.engCalc,
+        onTap: () {},
+        children: [
+          for (var i = 0; i < 12; i++)
+            FeatureItem(
+              title: '기능$i',
+              subtitle: '',
+              icon: Icons.build,
+              onTap: () {},
+            ),
+        ],
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (ctx) => Scaffold(
+              body: ElevatedButton(
+                key: const Key('open'),
+                onPressed: () => showFeatureSearchSheet(
+                  ctx,
+                  title: '전체',
+                  grid: true,
+                  items: [many],
+                ),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('open')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('feature_folder_큰 폴더')));
+      await tester.pumpAndSettle();
+      final firstTop = tester
+          .getTopLeft(find.byKey(const Key('feature_기능0')))
+          .dy;
+      var inFirstRow = 0;
+      for (var i = 0; i < 12; i++) {
+        final finder = find.byKey(Key('feature_기능$i'));
+        if (finder.evaluate().isEmpty) continue;
+        if ((tester.getTopLeft(finder).dy - firstTop).abs() < 1) inFirstRow++;
+      }
+      expect(inFirstRow, perRow);
+    });
+  }
 }
