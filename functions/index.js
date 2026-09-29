@@ -475,3 +475,60 @@ exports.checkKecNotice = onSchedule(
         await ref.set(update, { merge: true });
     },
 );
+
+// ============================================================================
+// 작업 일지 "AI로 다듬기" (2026-09-30 시범)
+// ============================================================================
+// 앱에는 키가 없다. 로그인한 사용자만 이 함수를 부를 수 있고, 하루 횟수 상한이 있다.
+// 키(ANTHROPIC_API_KEY)는 `firebase functions:secrets:set ANTHROPIC_API_KEY`로 넣는다.
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const aiPolish = require("./ai_polish");
+const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
+
+exports.polishDailyNote = onCall(
+    { secrets: [ANTHROPIC_API_KEY], region: "asia-northeast3", timeoutSeconds: 30, maxInstances: 5 },
+    async (request) => {
+        const uid = request.auth && request.auth.uid;
+        if (!uid) throw new HttpsError("unauthenticated", "로그인이 필요합니다");
+
+        const checked = aiPolish.validateInput(request.data && request.data.text);
+        if (checked.error) throw new HttpsError("invalid-argument", checked.error);
+
+        // 하루 횟수 확인 + 증가를 한 번에(동시에 눌러도 상한을 못 넘게 트랜잭션)
+        const ref = admin.firestore().collection("ai_usage").doc(uid);
+        const usage = await admin.firestore().runTransaction(async (tx) => {
+            const snap = await tx.get(ref);
+            const u = aiPolish.nextUsage(snap.exists ? snap.data() : null, new Date());
+            if (u.allowed) tx.set(ref, { day: u.day, count: u.count });
+            return u;
+        });
+        if (!usage.allowed) {
+            throw new HttpsError("resource-exhausted", `오늘 AI 다듬기는 ${usage.limit}번까지입니다`);
+        }
+
+        let body;
+        try {
+            const res = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: {
+                    "content-type": "application/json",
+                    "x-api-key": ANTHROPIC_API_KEY.value(),
+                    "anthropic-version": "2023-06-01",
+                },
+                body: JSON.stringify(aiPolish.buildRequest(checked.text)),
+            });
+            if (!res.ok) {
+                console.error("❌ (AI) 응답 오류:", res.status, (await res.text()).slice(0, 300));
+                throw new Error(`status ${res.status}`);
+            }
+            body = await res.json();
+        } catch (e) {
+            console.error("❌ (AI) 호출 실패:", e);
+            throw new HttpsError("unavailable", "AI가 지금 응답하지 않습니다");
+        }
+
+        const text = aiPolish.extractText(body);
+        if (!text) throw new HttpsError("internal", "AI가 빈 답을 보냈습니다");
+        return { text, remaining: usage.limit - usage.count };
+    },
+);
