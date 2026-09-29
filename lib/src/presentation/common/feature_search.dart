@@ -170,55 +170,92 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
     it.onTap();
   }
 
-  /// 폴더를 열어 안의 기능을 격자로 보인다. 하나를 누르면 폴더 창과 검색 창을 닫고 그 기능을 연다.
-  void _openFolder(FeatureItem folder) {
+  /// 안이 열려 있는 폴더(없으면 null). 검색 창 안에 작은 카드로 뜬다.
+  FeatureItem? _folder;
+
+  /// 폴더를 연다: 검색 창 안쪽에 창보다 좁은 카드가 뜨고, 안의 기능이 격자로 보인다.
+  /// 하나를 누르면 폴더와 검색 창을 닫고 그 기능을 연다.
+  void _openFolder(FeatureItem folder) => setState(() => _folder = folder);
+
+  Widget _folderCard(double boxW, double boxH) {
+    final folder = _folder!;
     final kids = folder.children ?? const <FeatureItem>[];
-    showDialog<void>(
-      context: context,
-      builder: (dctx) => Dialog(
-        key: const Key('feature_folder_dialog'),
-        backgroundColor: fc.surface,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 16, 8, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                folder.title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: fc.text,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Flexible(
-                child: SingleChildScrollView(
-                  child: LayoutBuilder(
-                    builder: (context, c) {
-                      final w = (c.maxWidth - 16) / 3;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        child: Wrap(
-                          children: [
-                            for (final k in kids)
-                              _tile(
-                                k,
-                                w,
-                                onPick: () {
-                                  Navigator.of(dctx).pop();
-                                  _pick(k);
-                                },
+    const cols = 3;
+    final rows = (kids.length / cols).ceil();
+    // 내용이 딱 맞는 높이(머리글 + 줄 수 × 칸 높이)의 두 배. 창 높이의 90%는 넘지 않는다.
+    final natural = 56.0 + rows * 104.0;
+    final h = (natural * 2).clamp(0.0, boxH * 0.9);
+    final w = boxW * 0.88;
+    return Positioned.fill(
+      child: GestureDetector(
+        key: const Key('feature_folder_scrim'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _folder = null),
+        child: Container(
+          color: Colors.black38,
+          alignment: Alignment.center,
+          child: GestureDetector(
+            onTap: () {}, // 카드 안을 눌러도 닫히지 않게
+            child: Material(
+              key: const Key('feature_folder_dialog'),
+              color: fc.surface,
+              elevation: 8,
+              borderRadius: BorderRadius.circular(20),
+              child: SizedBox(
+                width: w,
+                height: h,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 8, 0),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              folder.title,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: fc.text,
                               ),
-                          ],
+                            ),
+                          ),
+                          IconButton(
+                            key: const Key('feature_folder_close'),
+                            tooltip: '닫기',
+                            icon: Icon(AppIcons.close, color: fc.textSub),
+                            onPressed: () => setState(() => _folder = null),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                        child: LayoutBuilder(
+                          builder: (context, c) {
+                            final tw = c.maxWidth / cols;
+                            return Wrap(
+                              children: [
+                                for (final k in kids)
+                                  _tile(
+                                    k,
+                                    tw,
+                                    onPick: () {
+                                      setState(() => _folder = null);
+                                      _pick(k);
+                                    },
+                                  ),
+                              ],
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -416,7 +453,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
     } else {
       children.addAll(found.map(_row));
     }
-    return Column(
+    final column = Column(
       key: const Key('feature_search_sheet'),
       children: [
         Padding(
@@ -485,6 +522,15 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
                 ),
         ),
       ],
+    );
+    // 폴더가 열리면 검색 창 안쪽에 창보다 작은 카드로 덮는다.
+    return LayoutBuilder(
+      builder: (context, box) => Stack(
+        children: [
+          column,
+          if (_folder != null) _folderCard(box.maxWidth, box.maxHeight),
+        ],
+      ),
     );
   }
 }

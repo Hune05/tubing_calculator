@@ -531,22 +531,25 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
                       key: const Key('quick_tool_all'),
                       onTap: _showAll,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 4,
+                        ),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               LucideIcons.layoutGrid,
-                              size: 24,
-                              color: fc.brand,
+                              size: 26,
+                              color: fc.text,
                             ),
                             const SizedBox(height: 3),
                             Text(
                               '전체',
                               style: TextStyle(
                                 fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
-                                color: fc.brand,
+                                fontWeight: FontWeight.w700,
+                                color: fc.textSub,
                               ),
                             ),
                           ],

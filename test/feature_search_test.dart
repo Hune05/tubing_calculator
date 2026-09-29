@@ -244,7 +244,19 @@ void main() {
       expect(find.byKey(const Key('feature_시험 기록')), findsNothing);
       await tester.tap(find.byKey(const Key('feature_folder_압력 시험')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('feature_folder_dialog')), findsOneWidget);
+      expect(find.byKey(const Key("feature_folder_dialog")), findsOneWidget);
+      // 폴더 카드는 검색 창 안쪽에 쏙 들어오고(창보다 좁고), 높이는 내용 높이(머리글 56 + 한 줄 104)의 두 배.
+      final sheet = tester.getRect(
+        find.byKey(const Key("feature_search_sheet")),
+      );
+      final card = tester.getRect(
+        find.byKey(const Key("feature_folder_dialog")),
+      );
+      expect(card.width, lessThan(sheet.width));
+      expect(card.left, greaterThan(sheet.left));
+      expect(card.right, lessThan(sheet.right));
+      expect(card.width, closeTo(sheet.width * 0.88, 1));
+      expect(card.height, closeTo((56 + 104) * 2, 1));
       await tester.tap(find.byKey(const Key('feature_시험 기록')));
       await tester.pumpAndSettle();
       expect(hit, 1);
