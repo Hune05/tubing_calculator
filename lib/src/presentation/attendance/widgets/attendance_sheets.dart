@@ -187,6 +187,19 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
     ),
   );
 
+  /// 사규 인정 조출·연장 한 줄(1시간 단위로 내림, 버린 끝수도 알려 준다). 없으면 null.
+  String? _companyLine() {
+    if (hasNoWorkTime(_type)) return null;
+    final c = companyOvertime(_draft(), widget.options);
+    if (c == null) return null;
+    String part(String label, int v, int drop) {
+      final base = "$label ${formatMinutes(v)}";
+      return drop > 0 ? "$base (${formatMinutes(drop)} 버림)" : base;
+    }
+
+    return "사규 인정: ${part('조출', c.early, c.earlyDrop)} · ${part('연장', c.late, c.lateDrop)}";
+  }
+
   /// 사규 소정 시각과 비교한 한 줄: "사규 소정 08:00~17:00 · 출근 12분 늦음". 소정 시각이 없으면 null.
   String? _scheduleHint() {
     final ws = widget.options.workStart;
@@ -358,6 +371,19 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
                       color: _brand,
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              if (_companyLine() != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    _companyLine()!,
+                    key: const Key('att_company_ot'),
+                    style: const TextStyle(
+                      color: _sub,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -675,7 +701,8 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
               ),
             _help(
               "회사가 정한 출근·퇴근 시각입니다. 새 기록을 열 때 이 시각으로 미리 채우고, 늦은 출근·이른 퇴근을 알려 줍니다. "
-              "연장·야간·휴일 계산에는 쓰지 않습니다.",
+              "두 시각을 다 넣으면 소정 출근 전(조출)과 소정 퇴근 후(연장)를 1시간 단위로 내려서(나머지는 버림) "
+              "'사규 인정' 시간으로 따로 보여 줍니다. 평일만 세고, 법정 연장·야간·휴일 계산과는 별개입니다.",
             ),
             const SizedBox(height: 12),
             TextField(

@@ -8,6 +8,7 @@ import 'package:firebase_core_platform_interface/test.dart'
 import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/attendance/attendance_calc.dart';
+import 'package:tubing_calculator/src/presentation/attendance/attendance_export.dart';
 import 'package:tubing_calculator/src/presentation/attendance/attendance_settings.dart';
 import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_page.dart';
 import 'package:tubing_calculator/src/presentation/attendance/widgets/attendance_sheets.dart';
@@ -187,6 +188,109 @@ void main() {
       await tester.pumpAndSettle();
       final r = await AttendanceSettings.load();
       expect(r.ruleNote, '퐁당일 연차');
+    });
+  });
+
+  group('사규 조출·연장 인정(소정 08:00~17:00, 1시간 단위 내림)', () {
+    const o = AttendanceCalcOptions(workStart: '08:00', workEnd: '17:00');
+    AttendanceRecord rec(
+      String? inn,
+      String? out, {
+      DateTime? day,
+      String? type,
+    }) => AttendanceRecord(
+      date: day ?? DateTime(2026, 9, 29), // 화요일
+      type: type ?? kAttendanceNormal,
+      checkIn: inn,
+      checkOut: out,
+    );
+
+    test('17:00 이후만 연장이고, 1시간 단위로 내려 나머지는 버린다', () {
+      var c = companyOvertime(rec('08:00', '18:40'), o)!;
+      expect((c.late, c.lateDrop), (60, 40)); // 18:40 → 1시간, 40분 버림
+      c = companyOvertime(rec('08:00', '18:59'), o)!;
+      expect(c.late, 60);
+      c = companyOvertime(rec('08:00', '19:00'), o)!;
+      expect(c.late, 120);
+      c = companyOvertime(rec('08:00', '17:30'), o)!;
+      expect((c.late, c.lateDrop), (0, 30)); // 30분은 인정 안 함
+    });
+
+    test('소정 출근 전(조출)도 같은 방식이다', () {
+      var c = companyOvertime(rec('06:50', '17:00'), o)!;
+      expect((c.early, c.earlyDrop), (60, 10)); // 70분 → 1시간, 10분 버림
+      c = companyOvertime(rec('07:30', '17:00'), o)!;
+      expect((c.early, c.earlyDrop), (0, 30));
+      c = companyOvertime(rec('08:20', '17:00'), o)!;
+      expect(c.isZero, isTrue); // 늦은 출근은 조출이 아니다
+    });
+
+    test('일찍 출근해도 17:00 전은 연장이 아니다(조출만)', () {
+      final c = companyOvertime(rec('07:00', '17:00'), o)!;
+      expect((c.early, c.late), (60, 0));
+    });
+
+    test('계산하지 않는 경우: 소정 시각 없음·주말·공휴일·연차·시간 없음', () {
+      expect(
+        companyOvertime(rec('08:00', '19:00'), const AttendanceCalcOptions()),
+        isNull,
+      );
+      expect(
+        companyOvertime(rec('08:00', '19:00', day: DateTime(2026, 9, 26)), o),
+        isNull,
+      ); // 토요일
+      expect(
+        companyOvertime(rec('08:00', '19:00', day: DateTime(2026, 9, 27)), o),
+        isNull,
+      ); // 일요일
+      expect(
+        companyOvertime(rec('08:00', '19:00', day: DateTime(2026, 9, 25)), o),
+        isNull,
+      ); // 추석
+      expect(companyOvertime(rec(null, null, type: '연차'), o), isNull);
+      expect(companyOvertime(rec('08:00', null), o), isNull);
+    });
+
+    test('월 합계와 CSV에 더해진다(소정 시각이 있을 때만 열이 생긴다)', () {
+      final records = {
+        '2026-09-29': rec('06:50', '18:40'),
+        '2026-09-30': rec('08:00', '19:10', day: DateTime(2026, 9, 30)),
+      };
+      final s = summarizeMonth(records, DateTime(2026, 9, 1), o);
+      expect(s.companyEarly, 60);
+      expect(s.companyLate, 60 + 120);
+      final csv = attendanceMonthCsv(
+        month: DateTime(2026, 9, 1),
+        records: records,
+        options: o,
+      );
+      expect(csv, contains('사규 조출(시간)'));
+      expect(csv, contains('사규 연장(시간)'));
+      final plain = attendanceMonthCsv(
+        month: DateTime(2026, 9, 1),
+        records: records,
+        options: const AttendanceCalcOptions(),
+      );
+      expect(plain, isNot(contains('사규')));
+    });
+
+    testWidgets('날짜 창에 사규 인정 시간과 버린 끝수가 뜬다', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AttendanceEditSheet(
+              day: DateTime(2026, 9, 29),
+              existing: rec('08:00', '18:40'),
+              options: o,
+            ),
+          ),
+        ),
+      );
+      final t = tester
+          .widget<Text>(find.byKey(const Key('att_company_ot')))
+          .data!;
+      expect(t, contains('연장 1시간 (40분 버림)'));
+      expect(t, contains('조출 0시간'));
     });
   });
 }

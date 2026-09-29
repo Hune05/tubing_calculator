@@ -41,6 +41,13 @@ class AttendanceCalcOptions {
   final String? workStart;
   final String? workEnd;
 
+  /// 소정 출근·퇴근 시각을 둘 다 넣었는지(사규 조출·연장 인정 계산을 켠다).
+  bool get hasCompanyOvertime {
+    final s = minutesOfDay(workStart);
+    final e = minutesOfDay(workEnd);
+    return s != null && e != null && e > s;
+  }
+
   const AttendanceCalcOptions({
     this.defaultBreak = kBreakLegalAuto,
     this.saturdayIsHoliday = false,
@@ -62,6 +69,45 @@ bool isBridgeDay(DateTime d) {
   if (off(d)) return false;
   return off(DateTime(d.year, d.month, d.day - 1)) &&
       off(DateTime(d.year, d.month, d.day + 1));
+}
+
+/// 사규 조출·연장 인정 단위(분): 1시간 단위로 내리고 나머지는 버린다.
+const int kCompanyOvertimeUnitMin = 60;
+
+/// 사규로 인정하는 조출(소정 출근 전)·연장(소정 퇴근 후). 모두 분.
+/// [early]·[late]는 인정 단위로 내린 값이고, [earlyDrop]·[lateDrop]은 버려진 끝수다.
+class CompanyOvertime {
+  final int early;
+  final int earlyDrop;
+  final int late;
+  final int lateDrop;
+  const CompanyOvertime(this.early, this.earlyDrop, this.late, this.lateDrop);
+
+  bool get isZero => early == 0 && late == 0;
+}
+
+/// 하루 기록의 사규 조출·연장. 소정 시각을 둘 다 넣었고, 휴일·주말이 아닌 평일에
+/// 출퇴근 시간을 적은 날만 계산한다(아니면 null). 법정 연장(하루 8시간·주 40시간 초과)과는 별개다.
+CompanyOvertime? companyOvertime(AttendanceRecord r, AttendanceCalcOptions o) {
+  if (!o.hasCompanyOvertime) return null;
+  if (hasNoWorkTime(r.type)) return null;
+  final day = DateTime(r.date.year, r.date.month, r.date.day);
+  if (day.weekday >= DateTime.saturday || isRestDay(day, o)) return null;
+  final start = minutesOfDay(r.checkIn);
+  final stay = stayMinutesOf(r.checkIn, r.checkOut);
+  if (start == null || stay == null) return null;
+  final sm = minutesOfDay(o.workStart)!;
+  final em = minutesOfDay(o.workEnd)!;
+  final earlyRaw = math.max(0, sm - start);
+  final lateRaw = math.max(0, start + stay - em);
+  int floorUnit(int v) =>
+      (v ~/ kCompanyOvertimeUnitMin) * kCompanyOvertimeUnitMin;
+  return CompanyOvertime(
+    floorUnit(earlyRaw),
+    earlyRaw - floorUnit(earlyRaw),
+    floorUnit(lateRaw),
+    lateRaw - floorUnit(lateRaw),
+  );
 }
 
 /// 그 날 기록에 적용할 휴게(분).
@@ -226,6 +272,8 @@ class MonthSummary {
   final int holiday;
   final int holidayOver8;
   final double leaveUsed; // 연차에서 빠지는 일수
+  final int companyEarly; // 사규 인정 조출(분, 1시간 단위)
+  final int companyLate; // 사규 인정 연장(분, 1시간 단위)
   final Map<String, int> typeCounts; // 정상근무 빼고 종류별 횟수
   final List<WeekResult> weeks; // 이 달과 겹치는 주
   const MonthSummary({
@@ -236,6 +284,8 @@ class MonthSummary {
     required this.holiday,
     required this.holidayOver8,
     required this.leaveUsed,
+    this.companyEarly = 0,
+    this.companyLate = 0,
     required this.typeCounts,
     required this.weeks,
   });
@@ -259,6 +309,7 @@ MonthSummary summarizeMonth(
   final r = computeRange(records, first, lastDay, o);
   var timed = 0, work = 0, over = 0, night = 0, hol = 0, hol8 = 0;
   var leave = 0.0;
+  var cEarly = 0, cLate = 0;
   final counts = <String, int>{};
   for (final d in r.days) {
     if (d.date.month != month.month || d.date.year != month.year) continue;
@@ -267,6 +318,11 @@ MonthSummary summarizeMonth(
       leave += leaveDaysOf(rec.type);
       if (rec.type != kAttendanceNormal) {
         counts[rec.type] = (counts[rec.type] ?? 0) + 1;
+      }
+      final co = companyOvertime(rec, o);
+      if (co != null) {
+        cEarly += co.early;
+        cLate += co.late;
       }
     }
     final w = d.work;
@@ -286,6 +342,8 @@ MonthSummary summarizeMonth(
     holiday: hol,
     holidayOver8: hol8,
     leaveUsed: leave,
+    companyEarly: cEarly,
+    companyLate: cLate,
     typeCounts: counts,
     weeks: r.weeks,
   );

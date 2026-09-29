@@ -101,6 +101,20 @@ class AttendanceSummaryCard extends StatelessWidget {
         color: _brand,
         key: const Key('att_sum_premium'),
       ),
+      if (settings.calcOptions.hasCompanyOvertime) ...[
+        _stat(
+          "사규 조출",
+          formatMinutes(s.companyEarly),
+          color: _brand,
+          key: const Key('att_sum_company_early'),
+        ),
+        _stat(
+          "사규 연장",
+          formatMinutes(s.companyLate),
+          color: _brand,
+          key: const Key('att_sum_company_late'),
+        ),
+      ],
       _stat(
         "연차 사용",
         "${formatLeaveDays(s.leaveUsed)}일",

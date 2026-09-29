@@ -50,6 +50,7 @@ String attendanceMonthCsv({
       '야간(시간)',
       '휴일(시간)',
       '휴일 8시간 초과(시간)',
+      if (options.hasCompanyOvertime) ...['사규 조출(시간)', '사규 연장(시간)'],
       '메모',
     ],
   ];
@@ -70,6 +71,16 @@ String attendanceMonthCsv({
       w == null ? '' : decimalHours(w.night),
       w == null ? '' : decimalHours(w.holiday),
       w == null ? '' : decimalHours(w.holidayOver8),
+      if (options.hasCompanyOvertime) ...[
+        () {
+          final c = rec == null ? null : companyOvertime(rec, options);
+          return c == null ? '' : decimalHours(c.early);
+        }(),
+        () {
+          final c = rec == null ? null : companyOvertime(rec, options);
+          return c == null ? '' : decimalHours(c.late);
+        }(),
+      ],
       rec?.memo ?? '',
     ]);
   }
@@ -86,6 +97,10 @@ String attendanceMonthCsv({
     decimalHours(s.night),
     decimalHours(s.holiday),
     decimalHours(s.holidayOver8),
+    if (options.hasCompanyOvertime) ...[
+      decimalHours(s.companyEarly),
+      decimalHours(s.companyLate),
+    ],
     '가산 시간 ${decimalHours(s.premiumMinutes)}',
   ]);
   final body = rows.map((row) => row.map(_csvCell).join(',')).join('\r\n');
@@ -259,6 +274,10 @@ Future<Uint8List> buildAttendanceMonthPdf({
               stat('휴일', formatMinutes(s.holiday)),
               stat('휴일 8시간 초과', formatMinutes(s.holidayOver8)),
               stat('가산 시간', formatMinutes(s.premiumMinutes)),
+              if (options.hasCompanyOvertime) ...[
+                stat('사규 조출', formatMinutes(s.companyEarly)),
+                stat('사규 연장', formatMinutes(s.companyLate)),
+              ],
             ],
           ),
           pw.SizedBox(height: 5),
