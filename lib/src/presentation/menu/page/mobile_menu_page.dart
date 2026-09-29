@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/press_feedback.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../../my_work_logs/widgets/work_theme.dart';
@@ -459,95 +460,102 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   /// 빼는 건 길게 누르기가 아니라 헤더 "빠른 실행 편집"으로 들어가야 한다
   /// (2026-09-28 — 길게 누르기 자리를 히스토리 보기로 내줌).
   Widget _buildQuickLaunchRow(_MenuEntry entry) {
-    return InkWell(
-      key: Key('home_quick_${entry.title}'),
-      onTap: _editMode ? null : () => _enterFromQuickLaunch(entry),
-      onLongPress: _editMode ? null : () => _showQuickLaunchHistory(entry),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: entry.iconColor.withValues(alpha: 0.05),
-                shape: BoxShape.circle,
+    return PressFeedback(
+      child: InkWell(
+        key: Key('home_quick_${entry.title}'),
+        onTap: _editMode
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                _enterFromQuickLaunch(entry);
+              },
+        onLongPress: _editMode ? null : () => _showQuickLaunchHistory(entry),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: entry.iconColor.withValues(alpha: 0.05),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: AppIcon(entry.icon, size: 28, color: entry.iconColor),
               ),
-              alignment: Alignment.center,
-              child: AppIcon(entry.icon, size: 28, color: entry.iconColor),
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          entry.title,
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: entry.iconColor,
-                            letterSpacing: -0.5,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (entry.badgeText != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: entry.badgeColor ?? warningRed,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
                           child: Text(
-                            entry.badgeText!,
-                            style: const TextStyle(
-                              color: pureWhite,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
+                            entry.title,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: entry.iconColor,
+                              letterSpacing: -0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (entry.badgeText != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: entry.badgeColor ?? warningRed,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              entry.badgeText!,
+                              style: const TextStyle(
+                                color: pureWhite,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    entry.subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: slate600,
                     ),
-                  ),
-                ],
-              ),
-            ),
-            if (_editMode)
-              GestureDetector(
-                key: Key('home_quick_remove_${entry.title}'),
-                onTap: () => _toggleFavorite(entry.title),
-                child: const Icon(
-                  Icons.remove_circle,
-                  color: warningRed,
-                  size: 26,
+                    const SizedBox(height: 4),
+                    Text(
+                      entry.subtitle,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: slate600,
+                      ),
+                    ),
+                  ],
                 ),
-              )
-            else
-              Icon(
-                AppIcons.forward,
-                color: slate600.withValues(alpha: 0.5),
-                size: 28,
               ),
-          ],
+              if (_editMode)
+                GestureDetector(
+                  key: Key('home_quick_remove_${entry.title}'),
+                  onTap: () => _toggleFavorite(entry.title),
+                  child: const Icon(
+                    Icons.remove_circle,
+                    color: warningRed,
+                    size: 26,
+                  ),
+                )
+              else
+                Icon(
+                  AppIcons.forward,
+                  color: slate600.withValues(alpha: 0.5),
+                  size: 28,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1632,10 +1640,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'profile', child: Text("내 프로필")),
                       PopupMenuItem(value: 'settings', child: Text("설정")),
-                      PopupMenuItem(
-                        value: 'app_usage',
-                        child: Text("앱 사용법"),
-                      ),
+                      PopupMenuItem(value: 'app_usage', child: Text("앱 사용법")),
                       PopupMenuItem(
                         value: 'quick_edit',
                         child: Text("빠른 실행 편집"),
@@ -2094,106 +2099,115 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       ),
     );
     final isFav = _favorites.contains(title);
-    return InkWell(
-      onTap: onTap,
-      onLongPress: () => _toggleFavorite(title),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-        child: Row(
-          children: [
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: (iconColor ?? slate900).withValues(alpha: 0.05),
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: AppIcon(icon, size: 28, color: iconColor ?? slate900),
-                ),
-                // 길게 눌러 즐겨찾기(빠른 실행)에 넣은 메뉴에는 작은 별 표시.
-                if (isFav)
-                  Positioned(
-                    right: -2,
-                    top: -2,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                        color: pureWhite,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.star,
-                        size: 16,
-                        color: Color(0xFFF5A623),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    return PressFeedback(
+      child: InkWell(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        onLongPress: () => _toggleFavorite(title),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w800,
-                            color: iconColor ?? slate900,
-                            letterSpacing: -0.5,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (badgeText != null) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: badgeColor ?? warningRed,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            badgeText,
-                            style: const TextStyle(
-                              color: pureWhite,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: slate600,
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: (iconColor ?? slate900).withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: AppIcon(
+                      icon,
+                      size: 28,
+                      color: iconColor ?? slate900,
                     ),
                   ),
+                  // 길게 눌러 즐겨찾기(빠른 실행)에 넣은 메뉴에는 작은 별 표시.
+                  if (isFav)
+                    Positioned(
+                      right: -2,
+                      top: -2,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: pureWhite,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.star,
+                          size: 16,
+                          color: Color(0xFFF5A623),
+                        ),
+                      ),
+                    ),
                 ],
               ),
-            ),
-            Icon(
-              AppIcons.forward,
-              color: slate600.withValues(alpha: 0.5),
-              size: 28,
-            ),
-          ],
+              const SizedBox(width: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: iconColor ?? slate900,
+                              letterSpacing: -0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (badgeText != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: badgeColor ?? warningRed,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              badgeText,
+                              style: const TextStyle(
+                                color: pureWhite,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: slate600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                AppIcons.forward,
+                color: slate600.withValues(alpha: 0.5),
+                size: 28,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -46,6 +46,15 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
 
   return base.copyWith(
     extensions: [p],
+    // 화면 이동: 새 화면이 아래에서 살짝 떠오르며 서서히 나타나고, 이전 화면은
+    // 뒤로 물러난다(뚝 열리던 기본 전환 대신). 앱의 모든 화면 이동에 한꺼번에 적용.
+    // 오른쪽에서 밀려 들어오는 방식은 안드로이드 가장자리 뒤로 제스처와 겹쳐 뺐다.
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
+    ),
     // 기본 뒤로·닫기 단추도 앱 아이콘 한 벌(D-E).
     actionIconTheme: ActionIconThemeData(
       backButtonIconBuilder: (_) => const Icon(AppIcons.back),
