@@ -131,7 +131,7 @@ void main() {
     await pumpPage(tester);
     await openTab(tester, 'pt_tab_record');
     var info = textIn(tester, const Key('pt_r_info'));
-    expect(info, contains('규격: B31.3 공정 배관'));
+    expect(info, contains('적용 코드: ASME B31.3'));
     expect(info, contains('시험 종류: 수압'));
     expect(info, contains('설계압력: 없음 (시험 압력 탭에서 넣으십시오)'));
     expect(info, contains('시험압력: 없음'));
@@ -582,7 +582,7 @@ void main() {
       isTrue,
     );
     final info = textIn(tester, const Key('pt_r_info'));
-    expect(info, contains('규격: B31.1 동력 배관'));
+    expect(info, contains('적용 코드: ASME B31.1'));
     expect(info, contains('시험 종류: 공압'));
     expect(info, contains('설계압력: 150 psi'));
     expect(info, contains('시험압력: 180 psi (실제 시험압력)'));

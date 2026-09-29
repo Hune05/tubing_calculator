@@ -226,7 +226,7 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  info('규격', ptCodeLabel(r.code)),
+                  info('적용 코드', ptCodeLabel(r.code)),
                   info('시험 종류', ptMediumLabel(r.medium)),
                   info('시험유체', ptFluidLabel(r.fluid)),
                   info('설계압력', p(r.designKpa)),

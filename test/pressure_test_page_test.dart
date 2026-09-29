@@ -61,6 +61,22 @@ void main() {
     expect(n, contains('갇힌 물이 데워지면'));
   });
 
+  testWidgets('적용 코드 칩 이름은 ASME B31.x, 꾹 누르면 수압·공압 기준이 뜬다', (tester) async {
+    await pumpPage(tester);
+    expect(find.text('ASME B31.3'), findsOneWidget);
+    expect(find.text('ASME B31.1'), findsOneWidget);
+    expect(find.text('적용 코드'), findsOneWidget);
+    await tester.longPress(find.byKey(const Key('pt_b311')));
+    await tester.pumpAndSettle();
+    final s = textIn(tester, const Key('pt_code_rules'));
+    expect(s, contains('ASME B31.1 시험압력 기준'));
+    expect(s, contains('수압'));
+    expect(s, contains('137.4.5'));
+    expect(s, contains('공압'));
+    expect(s, contains('137.5.5'));
+    expect(s, contains('지금 고른 시험 종류')); // 기본은 수압
+  });
+
   testWidgets('B31.1 공압 10bar → 12~15bar, 누설 확인 7bar, 예비 점검 선택, 단계 압력', (
     tester,
   ) async {

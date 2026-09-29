@@ -12,6 +12,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
@@ -579,21 +580,26 @@ class _PressureTestPageState extends State<PressureTestPage>
         ],
       ),
       _chips(
-        '규격',
-        'B31.3: 공정(플랜트) 배관. B31.1: 동력(발전소) 배관으로 보일러·증기·급수 계통 등입니다. '
-            '어느 것을 따르는지는 설계 도서·배관 등급표(Line class)에 적혀 있습니다.',
+        '적용 코드',
+        'ASME B31.3: 공정(플랜트) 배관. ASME B31.1: 동력(발전소) 배관으로 보일러·증기·급수 계통 등입니다. '
+            '어느 것을 따르는지는 설계 도서·배관 등급표(Line class)에 적혀 있습니다. '
+            '칩을 꾹 누르면 그 코드의 수압·공압 시험압력 기준을 볼 수 있습니다.',
         [
-          calcChip('pt_b313', 'B31.3 공정 배관', _code == PipingCode.b313, () {
-            setState(() => _code = PipingCode.b313);
-          }),
-          calcChip('pt_b311', 'B31.1 동력 배관', _code == PipingCode.b311, () {
-            setState(() => _code = PipingCode.b311);
-          }),
+          for (final c in PipingCode.values)
+            GestureDetector(
+              onLongPress: () => _showCodeRules(c),
+              child: calcChip(
+                c == PipingCode.b313 ? 'pt_b313' : 'pt_b311',
+                ptCodeLabel(c),
+                _code == c,
+                () => setState(() => _code = c),
+              ),
+            ),
         ],
       ),
       _chips(
         '시험 종류',
-        '두 규격 모두 수압이 기본입니다. 공압은 수압이 어려울 때 발주처가 정하거나 허락할 때만 합니다.',
+        '두 코드 모두 수압이 기본입니다. 공압은 수압이 어려울 때 발주처가 정하거나 허락할 때만 합니다.',
         [
           calcChip('pt_hydro', '수압', hydro, () {
             setState(() => _medium = TestMedium.hydro);
@@ -697,6 +703,75 @@ class _PressureTestPageState extends State<PressureTestPage>
   }
 
   // ── 튜브 ──
+
+  /// 적용 코드 칩을 꾹 눌렀을 때: 그 코드의 수압·공압 시험압력 기준과 조항. 지금 고른 시험 종류에 표시.
+  void _showCodeRules(PipingCode c) {
+    HapticFeedback.mediumImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: fc.surface,
+      isScrollControlled: true,
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            key: const Key('pt_code_rules'),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${ptCodeLabel(c)} 시험압력 기준',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: fc.text,
+                ),
+              ),
+              for (final r in ptCodeRules(c)) ...[
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Text(
+                      r.title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: fc.brand,
+                      ),
+                    ),
+                    if (r.medium == _medium) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '지금 고른 시험 종류',
+                        style: TextStyle(fontSize: 12, color: fc.textSub),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 6),
+                for (final l in r.lines)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text(
+                      '· $l',
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.4,
+                        color: fc.text,
+                      ),
+                    ),
+                  ),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                '최종은 해당 코드 원문과 절차서로 확인하십시오.',
+                style: TextStyle(fontSize: 12, color: fc.textSub),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   List<Widget> _tubeInputs() {
     final sizes = tubeSizes(_tubeSys);

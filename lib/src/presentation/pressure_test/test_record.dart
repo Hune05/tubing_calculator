@@ -12,7 +12,7 @@ import 'pressure_calc.dart';
 import 'pressure_units.dart';
 
 String ptCodeLabel(PipingCode c) =>
-    c == PipingCode.b313 ? 'B31.3 공정 배관' : 'B31.1 동력 배관';
+    c == PipingCode.b313 ? 'ASME B31.3' : 'ASME B31.1';
 String ptCodeShort(PipingCode c) => c == PipingCode.b313 ? 'B31.3' : 'B31.1';
 String ptMediumLabel(TestMedium m) => m == TestMedium.hydro ? '수압' : '공압';
 
@@ -737,3 +737,49 @@ class PtRecordStore {
     }
   }
 }
+
+/// 적용 코드 칩을 꾹 눌렀을 때 보여 주는 요약: 그 코드의 수압·공압 시험압력 기준과 조항.
+/// 값과 조항은 pressure_calc.dart의 계산과 같다(위젯 없이 시험 가능한 순수 함수).
+List<({String title, TestMedium medium, List<String> lines})> ptCodeRules(
+  PipingCode c,
+) => c == PipingCode.b313
+    ? [
+        (
+          title: '수압',
+          medium: TestMedium.hydro,
+          lines: [
+            '시험압력 = 설계압력의 1.5배 이상 (345.4.2)',
+            '설계 온도가 시험 온도보다 높으면 ST/S를 곱합니다.',
+            '시험압력에서 10분 이상 유지 (345.2.2(a))',
+          ],
+        ),
+        (
+          title: '공압',
+          medium: TestMedium.pneumatic,
+          lines: [
+            '시험압력 = 설계압력의 1.1배 이상, 1.33배 이하 (345.5.4)',
+            '관 응력이 항복강도가 되는 압력의 90%도 넘지 않습니다.',
+            '수압이 어렵다고 발주처가 판단할 때만 (345.1(b))',
+          ],
+        ),
+      ]
+    : [
+        (
+          title: '수압',
+          medium: TestMedium.hydro,
+          lines: [
+            '시험압력 = 설계압력의 1.5배 이상 (137.4.5)',
+            '시험압력에서 10분 이상 유지 (137.4.5)',
+            '원주·축 응력은 항복강도의 90% 이하 (102.3.3(b))',
+          ],
+        ),
+        (
+          title: '공압',
+          medium: TestMedium.pneumatic,
+          lines: [
+            '시험압력 = 설계압력의 1.2배 이상, 1.5배 이하 (137.5.5)',
+            '발주처가 정하거나 허락할 때만 (137.5.1)',
+            '시험 가스는 불연성·무독성 (137.5.2)',
+          ],
+        ),
+      ];

@@ -820,7 +820,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
             () => _pg._tabs.animateTo(0),
           ),
         ),
-        _line('규격: ${ptCodeLabel(_pg._code)}'),
+        _line('적용 코드: ${ptCodeLabel(_pg._code)}'),
         _line('시험 종류: ${ptMediumLabel(_pg._medium)}'),
         if (_pg._tube)
           _line('튜브: ${_pg._tubeSpec}', key: const Key('pt_r_info_tube')),
