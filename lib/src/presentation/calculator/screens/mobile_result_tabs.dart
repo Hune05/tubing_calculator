@@ -863,57 +863,31 @@ class _MobileViewerTabState extends State<MobileViewerTab>
         final dataManager = MobileBendDataManager();
         final bendList = dataManager.bendList;
 
-        return Container(
-          color: pureWhite,
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                color: pureWhite,
-                child: Row(
-                  children: [
-                    Icon(Icons.threed_rotation, color: makitaTeal, size: 20),
-                    SizedBox(width: 10),
-                    // 좁은 폰·글씨 크게에서 넘쳤다.
-                    Expanded(
-                      child: Text(
-                        "ISO 3D 도면 뷰어 (드래그하여 회전)",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+        // 전선관 아이소 화면과 같은 모양(어두운 전체 화면, 흰 머리 없음)으로
+        // 맞췄다(2026-09-21 메모에 남아 있던 것 — 2026-09-29 처리).
+        return Scaffold(
+          backgroundColor: const Color(0xFF151B22),
+          body: SafeArea(
+            child: bendList.isEmpty
+                ? Center(
+                    child: Text(
+                      "입력된 치수가 없습니다.",
+                      style: TextStyle(color: Colors.white70, fontSize: 14),
                     ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: bendList.isEmpty
-                    ? Center(
-                        child: Text(
-                          "입력된 치수가 없습니다.",
-                          style: TextStyle(color: slate600, fontSize: 14),
-                        ),
-                      )
-                    : MobilePipeVisualizer(
-                        bendList: bendList,
-                        tailLength: dataManager.tail,
-                        initialStartDir: widget.startDir,
-                        onStartDirChanged: widget.onStartDirChanged,
-                        startFit: dataManager.startFit,
-                        endFit: dataManager.endFit,
-                        isLightMode: false,
-                        // 실제 비율로 그릴 때 쓸 제원.
-                        bendRadius: dataManager.radius,
-                        outerDiameter: _odMm(),
-                        fittingDepth: dataManager.fittingDepth,
-                      ),
-              ),
-            ],
+                  )
+                : MobilePipeVisualizer(
+                    bendList: bendList,
+                    tailLength: dataManager.tail,
+                    initialStartDir: widget.startDir,
+                    onStartDirChanged: widget.onStartDirChanged,
+                    startFit: dataManager.startFit,
+                    endFit: dataManager.endFit,
+                    isLightMode: false,
+                    // 실제 비율로 그릴 때 쓸 제원.
+                    bendRadius: dataManager.radius,
+                    outerDiameter: _odMm(),
+                    fittingDepth: dataManager.fittingDepth,
+                  ),
           ),
         );
       },
