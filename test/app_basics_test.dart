@@ -135,6 +135,12 @@ void main() {
         expect(colorForCategory(k), kScheduleColors[k]);
         expect(iconForCategory(k), isA<IconData>());
       }
+      // 새 일정 태그: 미팅·시운전(색·아이콘이 기타로 떨어지지 않는다).
+      for (final k in ['미팅', '시운전']) {
+        expect(kPersonalCategories, contains(k));
+        expect(colorForCategory(k), isNot(kScheduleColors['기타']));
+        expect(iconForCategory(k), isNot(Icons.event_note_outlined));
+      }
       expect(colorForCategory('없는종류'), kScheduleColors['기타']);
       expect(iconForCategory('없는종류'), Icons.event_note_outlined);
       expect(iconForCategory('개인'), Icons.person_outline_rounded);

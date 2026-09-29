@@ -54,6 +54,8 @@ const List<String> kPersonalCategories = [
   "개인",
   "영업",
   "출장",
+  "미팅",
+  "시운전",
   "자재 요청",
   "납기일",
   "검사일정",
@@ -64,6 +66,8 @@ const Map<String, Color> kScheduleColors = {
   '개인': scheduleTeal,
   '영업': AppColors.caution,
   '출장': Color(0xFF0E9AA7),
+  '미팅': Color(0xFFD6478F),
+  '시운전': Color(0xFFC2410C),
   '자재 요청': Color(0xFF8E63CE),
   '입고일': Color(0xFF2F80ED),
   '납기일': Color(0xFFE0432B),
@@ -84,6 +88,10 @@ IconData iconForCategory(String cat) {
       return Icons.handshake_outlined;
     case '출장':
       return Icons.flight_takeoff_rounded;
+    case '미팅':
+      return Icons.groups_outlined;
+    case '시운전':
+      return Icons.play_circle_outline_rounded;
     case '자재 요청':
       return Icons.local_shipping_outlined;
     case '입고일':
