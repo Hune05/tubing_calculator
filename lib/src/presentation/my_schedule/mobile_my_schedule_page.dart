@@ -3442,6 +3442,20 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           });
         },
         rowHeight: 76,
+        // 요일 줄 높이 기본값(16)이 한글 글자에 모자라 위아래가 잘렸다.
+        daysOfWeekHeight: 32,
+        daysOfWeekStyle: const DaysOfWeekStyle(
+          weekdayStyle: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: scheduleText,
+          ),
+          weekendStyle: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: scheduleDanger,
+          ),
+        ),
         startingDayOfWeek: StartingDayOfWeek.sunday,
         selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
         eventLoader: (day) => byDay[_normalize(day)] ?? [],
