@@ -138,6 +138,33 @@ Set<String> toggleQuickLaunchFavorite(Set<String> current, String title) {
   return next;
 }
 
+/// 빠른 실행 줄 순서 — 저장된 [order]에 있는 제목은 그 순서대로 앞에, 순서에 없는
+/// 즐겨찾기(예전에 담아 둔 것 등)는 [titles]에 온 원래 순서대로 뒤에 붙인다.
+/// [titles]에 없는 제목은 버린다. 위젯 없이 시험 가능한 순수 함수.
+List<String> orderQuickLaunch(List<String> titles, List<String> order) {
+  final known = <String>[
+    for (final t in order)
+      if (titles.contains(t)) t,
+  ];
+  final seen = known.toSet();
+  return [
+    ...known,
+    for (final t in titles)
+      if (!seen.contains(t)) t,
+  ];
+}
+
+/// [list]의 [oldIndex]번 항목을 [newIndex] 자리로 옮긴다(ReorderableListView가
+/// 주는 newIndex는 뽑기 전 기준이라 아래로 옮길 때 1을 빼야 한다).
+List<String> moveQuickLaunch(List<String> list, int oldIndex, int newIndex) {
+  final next = List<String>.from(list);
+  if (oldIndex < 0 || oldIndex >= next.length) return next;
+  if (newIndex > oldIndex) newIndex -= 1;
+  final item = next.removeAt(oldIndex);
+  next.insert(newIndex.clamp(0, next.length), item);
+  return next;
+}
+
 /// 빠른 실행 줄을 길게 눌렀을 때 보여주는 "작업 히스토리"에 쓸 상대 시각
 /// 글자 — 위젯 없이 시험 가능한 순수 함수.
 String quickLaunchRelativeTime(DateTime at, DateTime now) {
@@ -204,6 +231,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   /// 즐겨찾기한 메뉴 제목들(제목이 곧 아이디 — 다 서로 다른 글이라 겹치지 않는다).
   Set<String> _favorites = {};
 
+  /// 빠른 실행 줄 순서(편집 모드에서 꾹 눌러 끌어 바꾼다). 즐겨찾기 제목들만 담는다.
+  List<String> _quickOrder = [];
+
   /// 전체 메뉴 대신 빠른 실행(즐겨찾기 카드)만 보이는 중인지. 시작 화면은
   /// 항상 빠른 실행이다(사용자 요청 2026-09-27) — 폰에 저장해 두지 않는다.
   bool _quickMode = true;
@@ -218,6 +248,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   final List<_MenuEntry> _menuEntries = [];
 
   static const String _kFavoritesKey = 'home_quick_launch_favorites_v1';
+  static const String _kQuickOrderKey = 'home_quick_launch_order_v1';
 
   // 🚀 날씨 상세 데이터 상태 관리
   String _weatherDesc = "확인 중";
@@ -314,9 +345,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     try {
       final p = await SharedPreferences.getInstance();
       final favs = p.getStringList(_kFavoritesKey);
+      final order = p.getStringList(_kQuickOrderKey);
       if (!mounted) return;
       setState(() {
         if (favs != null) _favorites = favs.toSet();
+        if (order != null) _quickOrder = order;
       });
     } catch (_) {}
   }
@@ -325,13 +358,31 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     try {
       final p = await SharedPreferences.getInstance();
       await p.setStringList(_kFavoritesKey, _favorites.toList());
+      await p.setStringList(_kQuickOrderKey, _quickOrder);
     } catch (_) {}
   }
+
+  /// 지금 화면에 보이는 빠른 실행 제목들(저장된 순서 → 나머지는 메뉴 순서).
+  List<String> _quickTitles() => orderQuickLaunch([
+    for (final e in _menuEntries)
+      if (_favorites.contains(e.title)) e.title,
+  ], _quickOrder);
 
   /// 메뉴 카드를 길게 누르면 즐겨찾기(빠른 실행)에 넣거나 뺀다.
   void _toggleFavorite(String title) {
     HapticFeedback.mediumImpact();
-    setState(() => _favorites = toggleQuickLaunchFavorite(_favorites, title));
+    final wasFav = _favorites.contains(title);
+    // 새로 넣은 건 맨 아래에 붙이고, 뺀 건 순서에서도 지운다(지금 보이는 순서를 먼저 굳힌 뒤에).
+    final current = _quickTitles();
+    setState(() {
+      _favorites = toggleQuickLaunchFavorite(_favorites, title);
+      _quickOrder = wasFav
+          ? [
+              for (final t in current)
+                if (t != title) t,
+            ]
+          : [...current, title];
+    });
     _saveFavorites();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -393,9 +444,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   /// 즐겨찾기한 메뉴를, 전체 메뉴 목록과 같은 줄 모양으로 걸러 보여주는
   /// 빠른 실행 화면.
   Widget _buildQuickLaunch() {
-    final favEntries = _menuEntries
-        .where((e) => _favorites.contains(e.title))
-        .toList();
+    final byTitle = {for (final e in _menuEntries) e.title: e};
+    final favEntries = [
+      for (final t in _quickTitles())
+        if (byTitle[t] != null) byTitle[t]!,
+    ];
     if (favEntries.isEmpty) {
       return Padding(
         key: const Key('home_quick_launch_empty'),
@@ -430,12 +483,14 @@ class _MobileMenuPageState extends State<MobileMenuPage>
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  "빠른 실행 편집 중 — 눌러서 빼기",
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: slate600,
+                const Flexible(
+                  child: Text(
+                    "빠른 실행 편집 중 — 꾹 눌러 끌어서 순서 바꾸기, ⊖로 빼기",
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: slate600,
+                    ),
                   ),
                 ),
                 TextButton(
@@ -449,7 +504,42 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               ],
             ),
           ),
-        for (final e in favEntries) _buildQuickLaunchRow(e),
+        if (_editMode)
+          // 편집 중에는 줄을 꾹 눌러(0.5초) 끌어서 순서를 바꾼다. 집어 올릴 때·놓을 때
+          // 손끝에 진동을 줘서 "잡혔다/놓았다"가 느껴지게 한다.
+          ReorderableListView(
+            key: const Key('home_quick_reorder'),
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            onReorderStart: (_) => HapticFeedback.heavyImpact(),
+            onReorderEnd: (_) => HapticFeedback.lightImpact(),
+            proxyDecorator: (child, index, animation) => Material(
+              elevation: 8,
+              color: pureWhite,
+              borderRadius: BorderRadius.circular(14),
+              shadowColor: Colors.black38,
+              child: child,
+            ),
+            onReorder: (oldIndex, newIndex) {
+              final titles = [for (final e in favEntries) e.title];
+              setState(
+                () => _quickOrder = moveQuickLaunch(titles, oldIndex, newIndex),
+              );
+              HapticFeedback.selectionClick();
+              _saveFavorites();
+            },
+            children: [
+              for (var i = 0; i < favEntries.length; i++)
+                ReorderableDelayedDragStartListener(
+                  key: ValueKey('quick_reorder_${favEntries[i].title}'),
+                  index: i,
+                  child: _buildQuickLaunchRow(favEntries[i]),
+                ),
+            ],
+          )
+        else
+          for (final e in favEntries) _buildQuickLaunchRow(e),
       ],
     );
   }
@@ -539,14 +629,26 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 ),
               ),
               if (_editMode)
-                GestureDetector(
-                  key: Key('home_quick_remove_${entry.title}'),
-                  onTap: () => _toggleFavorite(entry.title),
-                  child: const Icon(
-                    Icons.remove_circle,
-                    color: warningRed,
-                    size: 26,
-                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      key: Key('home_quick_remove_${entry.title}'),
+                      onTap: () => _toggleFavorite(entry.title),
+                      child: const Icon(
+                        Icons.remove_circle,
+                        color: warningRed,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.drag_handle,
+                      key: Key('home_quick_handle_${entry.title}'),
+                      color: slate600.withValues(alpha: 0.6),
+                      size: 26,
+                    ),
+                  ],
                 )
               else
                 Icon(

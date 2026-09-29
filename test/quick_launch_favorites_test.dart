@@ -31,6 +31,42 @@ void main() {
     expect(r, {'내 프로젝트', '내 일정 관리'});
   });
 
+  group('빠른 실행 순서(끌어서 바꾸기)', () {
+    test('저장된 순서가 있으면 그 순서대로, 없는 건 원래 순서로 뒤에', () {
+      expect(orderQuickLaunch(['가', '나', '다', '라'], ['다', '가']), [
+        '다',
+        '가',
+        '나',
+        '라',
+      ]);
+    });
+
+    test('순서에 있어도 즐겨찾기에서 빠진 제목은 버린다', () {
+      expect(orderQuickLaunch(['가', '나'], ['라', '나', '가']), ['나', '가']);
+    });
+
+    test('순서가 비어 있으면 메뉴 순서 그대로', () {
+      expect(orderQuickLaunch(['가', '나', '다'], []), ['가', '나', '다']);
+    });
+
+    test('아래로 옮기기: ReorderableListView의 newIndex는 뽑기 전 기준', () {
+      // 0번(가)을 3번 자리(다 다음, 즉 index 3)로 → 나, 다, 가
+      expect(moveQuickLaunch(['가', '나', '다'], 0, 3), ['나', '다', '가']);
+      expect(moveQuickLaunch(['가', '나', '다'], 0, 2), ['나', '가', '다']);
+    });
+
+    test('위로 옮기기', () {
+      expect(moveQuickLaunch(['가', '나', '다'], 2, 0), ['다', '가', '나']);
+    });
+
+    test('원본 목록은 안 바뀌고, 범위 밖 번호는 그대로 돌려준다', () {
+      final src = ['가', '나'];
+      moveQuickLaunch(src, 0, 2);
+      expect(src, ['가', '나']);
+      expect(moveQuickLaunch(src, 5, 0), ['가', '나']);
+    });
+  });
+
   group('quickLaunchRelativeTime', () {
     final now = DateTime(2026, 9, 28, 12, 0);
 
