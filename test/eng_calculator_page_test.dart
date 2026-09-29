@@ -8,18 +8,6 @@ Future<void> pump(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
   await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
   await tester.pump();
-}
-
-/// 폰처럼 좁은 화면으로 못박고 켠다. 기본↔공학 토글은 이 폭에서만 있다
-/// (넓은 화면은 토글 없이 일체형 자판을 쓴다 — pump()의 기본 시험 화면
-/// 폭(800)은 그 경계와 같아서, 토글 자체를 확인하는 시험은 이 폭을 써야
-/// 한다).
-Future<void> pumpNarrow(WidgetTester tester, {Map<String, Object>? prefs}) async {
-  tester.view.physicalSize = const Size(390, 844);
-  tester.view.devicePixelRatio = 1;
-  addTearDown(tester.view.reset);
-  SharedPreferences.setMockInitialValues(prefs ?? {});
-  await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
   await tester.pump();
 }
 
@@ -306,8 +294,9 @@ void main() {
   });
 
   testWidgets('갤럭시 계산기처럼: 단추를 누르면 기본 모드로 바뀌어 삼각함수 줄이 없어진다', (tester) async {
-    await pumpNarrow(tester);
+    await pump(tester);
     await tap(tester, 'calc_mode_toggle');
+    await tester.pumpAndSettle(); // 전환 애니메이션이 끝나길 기다린다.
     expect(find.byKey(const Key('calc_sin')), findsNothing);
     expect(find.byKey(const Key('calc_pow')), findsNothing);
     // 기본 모드에서도 사칙연산·소수점·a/b·FT는 그대로 있다.
@@ -321,12 +310,33 @@ void main() {
     expect(result(tester), '5');
     // 다시 누르면 공학 모드로 돌아온다.
     await tap(tester, 'calc_mode_toggle');
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('calc_sin')), findsOneWidget);
   });
 
   testWidgets('기본 모드로 골라 두면 다음에 열 때도 기본 모드로 열린다', (tester) async {
-    await pumpNarrow(tester, prefs: {'field_eng_calc_advanced_v1': false});
+    SharedPreferences.setMockInitialValues({
+      'field_eng_calc_advanced_v1': false,
+    });
+    await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('calc_sin')), findsNothing);
+  });
+
+  testWidgets('기본↔공학 전환은 뚝 바뀌지 않고 중간 단계를 거친다(애니메이션)', (tester) async {
+    await pump(tester);
+    await tester.pumpAndSettle(); // 설정을 읽은 뒤부터 애니메이션이 켜진다.
+    final before = tester.getSize(find.byKey(const Key('calc_7'))).height;
+    await tap(tester, 'calc_mode_toggle');
+    await tester.pump(const Duration(milliseconds: 130)); // 절반쯤.
+    // 중간에는 삼각함수 줄이 아직 남아 있고(반쯤 접힌 상태), 다른 단추 크기도 그새 변했다.
+    expect(find.byKey(const Key('calc_sin')), findsOneWidget);
+    final mid = tester.getSize(find.byKey(const Key('calc_7'))).height;
+    await tester.pumpAndSettle();
+    final after = tester.getSize(find.byKey(const Key('calc_7'))).height;
+    expect(find.byKey(const Key('calc_sin')), findsNothing);
+    expect(mid, greaterThan(before));
+    expect(mid, lessThan(after));
   });
 
   testWidgets('=를 누르기 전에는 계산 기록 자리가 없다', (tester) async {
@@ -439,59 +449,5 @@ void main() {
     addTearDown(tester.view.reset);
     expect(phone, greaterThan(60));
     expect(tablet, greaterThan(60));
-  });
-
-  group('넓은 화면(태블릿) 일체형 자판', () {
-    // 2026-09-29: 태블릿(갤럭시 탭 A9+ 11인치 = 논리 폭 800dp)처럼 넓은
-    // 화면에서는 기본↔공학 토글 없이 삼각함수·로그 단추가 늘 digit 단추
-    // 옆에 함께 보인다(전환 애니메이션 자체가 필요 없어짐).
-    Future<void> pumpWide(WidgetTester tester) async {
-      tester.view.physicalSize = const Size(1200, 1920);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      SharedPreferences.setMockInitialValues({});
-      await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
-      await tester.pump();
-    }
-
-    testWidgets('기본↔공학 토글 단추 자체가 없고, 삼각함수 단추가 늘 보인다', (
-      tester,
-    ) async {
-      await pumpWide(tester);
-      expect(find.byKey(const Key('calc_mode_toggle')), findsNothing);
-      expect(find.byKey(const Key('calc_sin')), findsOneWidget);
-      expect(find.byKey(const Key('calc_log')), findsOneWidget);
-      expect(find.byKey(const Key('calc_7')), findsOneWidget);
-      expect(find.byKey(const Key('calc_eq')), findsOneWidget);
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('넓은 화면에서도 계산이 정상 동작한다', (tester) async {
-      await pumpWide(tester);
-      await tap(tester, 'calc_2');
-      await tap(tester, 'calc_add');
-      await tap(tester, 'calc_3');
-      expect(result(tester), '5');
-    });
-
-    testWidgets('800dp보다 좁으면(예: 799) 그대로 토글 방식을 쓴다', (tester) async {
-      tester.view.physicalSize = const Size(799, 1280);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      SharedPreferences.setMockInitialValues({});
-      await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
-      await tester.pump();
-      expect(find.byKey(const Key('calc_mode_toggle')), findsOneWidget);
-    });
-
-    testWidgets('꼭 800dp면 일체형 자판이 켜진다', (tester) async {
-      tester.view.physicalSize = const Size(800, 1280);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      SharedPreferences.setMockInitialValues({});
-      await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
-      await tester.pump();
-      expect(find.byKey(const Key('calc_mode_toggle')), findsNothing);
-    });
   });
 }

@@ -38,15 +38,8 @@ const List<int> kEngCalcDenoms = [8, 16, 32, 64];
 const double _kKeypadMaxHeight = 560;
 
 /// 계산기 화면 전체(표시 칸+자판)의 최대 폭(dp). 큰 화면에서 단추 사이
-/// 간격이 휑하게 벌어지지 않도록 폰 계산기 정도 폭으로 못박는다(아래
-/// [_kWideBreakpoint]보다 좁을 때만 적용).
+/// 간격이 휑하게 벌어지지 않도록 폰 계산기 정도 폭으로 못박는다.
 const double _kCalcMaxWidth = 480;
-
-/// 이 값(dp) 이상 넓으면 기본↔공학 토글 대신 삼각함수·로그 단추를 자판
-/// 옆에 나란히 두는 일체형 자판([_keypadWide])을 쓴다. 갤럭시 탭 A9+
-/// 11인치가 짧은 변 기준 논리 폭 800dp라, 그 크기부터 켜지게 잡는다
-/// (짧은 변 800dp면 태블릿이라고 보던 예전 ScreenLayout 기준과 같다).
-const double _kWideBreakpoint = 800;
 
 /// 화면에 보일 연산자 글자(뒤에 또 연산자가 오면 안 되는 자리를 가린다).
 const _opChars = '+-−×÷^*/';
@@ -93,6 +86,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   /// 끄면(기본 모드) 그 줄들이 없어지는 대신 남은 단추가 커진다.
   bool _advanced = true;
 
+  /// 설정을 읽은 뒤부터만 기본↔공학 전환에 애니메이션을 준다(처음 열 때 저장된
+  /// 모드로 바뀌는 것까지 움직이면 어색하다).
+  bool _animateMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -131,6 +128,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         if (advanced != null) _advanced = advanced;
       });
     } catch (_) {}
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _animateMode = true);
+    });
   }
 
   Future<void> _saveSettings() async {
@@ -511,17 +512,14 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         ],
       ),
       body: SafeArea(
-        // 2026-09-29: 태블릿처럼 옆으로 아주 넓은 화면은 폭을 폰 계산기
-        // 크기로 못박는 대신(그러면 넓은 자리를 그냥 못 쓴다), 기본↔공학
-        // 모드를 토글(뚝뚝 끊기는 전환 애니메이션)하는 대신 삼각함수·로그
-        // 단추들을 아예 디지털 자판 옆에 나란히 둔 일체형 자판을 쓴다 —
-        // 넓어서 한 화면에 다 들어가므로 더 이상 모드를 접었다 폈다 할
-        // 필요가 없다. 좁은 화면(폰)은 자리가 없어 예전처럼 토글 방식을
-        // 그대로 쓴다.
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final bool isWide = constraints.maxWidth >= _kWideBreakpoint;
-            final Widget content = Column(
+        // 2026-09-29: 큰 화면이라고 자판을 옆으로 넓혀 나란히 놓으면 오히려
+        // 답답해서(사용자 의견) 그 일체형 자판은 없앴다. 대신 어느 화면이든
+        // 폰 계산기 폭(480dp)·자판 높이(560dp)로 못박아 가운데·아래에 두고,
+        // 기본↔공학 전환은 부드러운 애니메이션으로만 보완한다.
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: _kCalcMaxWidth),
+            child: Column(
               children: [
                 // 계산 값 창을 화면 높이에 맞춰 키운다(태블릿처럼 위아래로 긴 화면일수록
                 // 결과가 커 보이게). 키패드 쪽에 자리를 더 줘서 단추가 갤럭시 계산기처럼
@@ -545,27 +543,15 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                       child: Column(
                         children: [
                           const Divider(height: 1),
-                          Expanded(
-                            child: isWide ? _keypadWide() : _keypad(),
-                          ),
+                          Expanded(child: _keypad()),
                         ],
                       ),
                     ),
                   ),
                 ),
               ],
-            );
-            // 넓은 화면은 일체형 자판이 넓은 자리를 그대로 쓰게 폭을 안 좁힌다.
-            // 좁은 화면(폰에 억지로 늘어난 경우 포함)은 폰 계산기 폭으로
-            // 못박아 가운데 둔다(전과 같음).
-            if (isWide) return content;
-            return Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _kCalcMaxWidth),
-                child: content,
-              ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
@@ -889,180 +875,124 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   Widget _circleCell(Widget button) =>
       Center(child: AspectRatio(aspectRatio: 1, child: button));
 
+  /// 자판. 공학(고급) 모드의 삼각함수·로그 두 줄은 전환할 때 뚝 나타났다 사라지는
+  /// 대신, 높이·투명도가 0↔1로 부드럽게 변한다(나머지 줄 높이도 같이 서서히
+  /// 바뀌어 전체가 끊김 없이 늘었다 줄어든다).
   Widget _keypad() {
-    Widget row(List<Widget> keys) => Expanded(
-      child: Row(
-        children: [
-          for (final k in keys)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: _circleCell(k),
-              ),
+    Widget cells(List<Widget> keys) => Row(
+      children: [
+        for (final k in keys)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(6),
+              child: _circleCell(k),
             ),
-        ],
-      ),
+          ),
+      ],
     );
+
+    final basicRows = <List<Widget>>[
+      [
+        _util('AC', _tapAC, key: 'calc_ac'),
+        _util('(', () => _tapParen('('), key: 'calc_lparen'),
+        _util(')', () => _tapParen(')'), key: 'calc_rparen'),
+        _util('', _tapBack, key: 'calc_back', icon: Icons.backspace_outlined),
+      ],
+    ];
+    final advancedRows = <List<Widget>>[
+      [
+        _fn('sin', key: 'calc_sin'),
+        _fn('cos', key: 'calc_cos'),
+        _fn('tan', key: 'calc_tan'),
+        _fn('√', fnName: 'sqrt', key: 'calc_sqrt'),
+      ],
+      [
+        _fn('ln', key: 'calc_ln'),
+        _fn('log', key: 'calc_log'),
+        _op('^', key: 'calc_pow'),
+        _util('S⇔D', _tapSD, key: 'calc_sd_key'),
+      ],
+    ];
+    final lowerRows = <List<Widget>>[
+      [
+        _digit('7', key: 'calc_7'),
+        _digit('8', key: 'calc_8'),
+        _digit('9', key: 'calc_9'),
+        _op('÷', key: 'calc_div'),
+      ],
+      [
+        _digit('4', key: 'calc_4'),
+        _digit('5', key: 'calc_5'),
+        _digit('6', key: 'calc_6'),
+        _op('×', key: 'calc_mul'),
+      ],
+      [
+        _digit('1', key: 'calc_1'),
+        _digit('2', key: 'calc_2'),
+        _digit('3', key: 'calc_3'),
+        _op('−', key: 'calc_sub'),
+      ],
+      [
+        _const('π', key: 'calc_pi'),
+        _digit('0', key: 'calc_0'),
+        _digit('.', key: 'calc_dot'),
+        _op('+', key: 'calc_add'),
+      ],
+      [
+        _fracKey(key: 'calc_frac_key'),
+        _feet(key: 'calc_ft'),
+        _postfix('%', key: 'calc_pct'),
+        _equals(key: 'calc_eq'),
+      ],
+    ];
+    const basicCount = 6; // AC 줄 + 아래 다섯 줄.
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
       child: Column(
         children: [
           _modeToggle(),
-          row([
-            _util('AC', _tapAC, key: 'calc_ac'),
-            _util('(', () => _tapParen('('), key: 'calc_lparen'),
-            _util(')', () => _tapParen(')'), key: 'calc_rparen'),
-            _util(
-              '',
-              _tapBack,
-              key: 'calc_back',
-              icon: Icons.backspace_outlined,
-            ),
-          ]),
-          // 공학(고급) 모드에서만 삼각함수·로그·거듭제곱 줄을 보여 준다(갤럭시
-          // 계산기처럼: 기본 모드는 이 두 줄이 없는 대신 나머지 단추가 커진다).
-          if (_advanced) ...[
-            row([
-              _fn('sin', key: 'calc_sin'),
-              _fn('cos', key: 'calc_cos'),
-              _fn('tan', key: 'calc_tan'),
-              _fn('√', fnName: 'sqrt', key: 'calc_sqrt'),
-            ]),
-            row([
-              _fn('ln', key: 'calc_ln'),
-              _fn('log', key: 'calc_log'),
-              _op('^', key: 'calc_pow'),
-              _util('S⇔D', _tapSD, key: 'calc_sd_key'),
-            ]),
-          ],
-          row([
-            _digit('7', key: 'calc_7'),
-            _digit('8', key: 'calc_8'),
-            _digit('9', key: 'calc_9'),
-            _op('÷', key: 'calc_div'),
-          ]),
-          row([
-            _digit('4', key: 'calc_4'),
-            _digit('5', key: 'calc_5'),
-            _digit('6', key: 'calc_6'),
-            _op('×', key: 'calc_mul'),
-          ]),
-          row([
-            _digit('1', key: 'calc_1'),
-            _digit('2', key: 'calc_2'),
-            _digit('3', key: 'calc_3'),
-            _op('−', key: 'calc_sub'),
-          ]),
-          row([
-            _const('π', key: 'calc_pi'),
-            _digit('0', key: 'calc_0'),
-            _digit('.', key: 'calc_dot'),
-            _op('+', key: 'calc_add'),
-          ]),
           Expanded(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: _circleCell(_fracKey(key: 'calc_frac_key')),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: _circleCell(_feet(key: 'calc_ft')),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: _circleCell(_postfix('%', key: 'calc_pct')),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: _circleCell(_equals(key: 'calc_eq')),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 넓은 화면(태블릿 등)에서 쓰는 일체형 자판. 기본↔공학 토글 없이 삼각함수·
-  /// 로그·거듭제곱 단추를 각 줄 digit 단추 옆에 나란히 둬서, 늘었다 줄었다
-  /// 하는 전환 자체가 없다(줄 수는 [_keypad]의 "기본 모드"와 같은 4줄이라
-  /// 폭만 두 배로 넓다 — 한 줄에 8칸).
-  Widget _keypadWide() {
-    Widget row(List<Widget> keys) => Expanded(
-      child: Row(
-        children: [
-          for (final k in keys)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(6),
-                child: _circleCell(k),
+            child: LayoutBuilder(
+              builder: (context, box) => TweenAnimationBuilder<double>(
+                tween: Tween<double>(end: _advanced ? 1.0 : 0.0),
+                duration: _animateMode
+                    ? const Duration(milliseconds: 260)
+                    : Duration.zero,
+                curve: Curves.easeInOut,
+                builder: (context, t, _) {
+                  final rowH = box.maxHeight / (basicCount + 2 * t);
+                  Widget sized(List<Widget> keys, {double factor = 1}) =>
+                      SizedBox(
+                        height: rowH * factor,
+                        child: factor == 1
+                            ? cells(keys)
+                            : ClipRect(
+                                child: Opacity(
+                                  opacity: t,
+                                  child: OverflowBox(
+                                    maxHeight: rowH,
+                                    alignment: Alignment.topCenter,
+                                    child: SizedBox(
+                                      height: rowH,
+                                      child: cells(keys),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      );
+                  return Column(
+                    children: [
+                      for (final r in basicRows) sized(r),
+                      if (t > 0)
+                        for (final r in advancedRows) sized(r, factor: t),
+                      for (final r in lowerRows) sized(r),
+                    ],
+                  );
+                },
               ),
             ),
-        ],
-      ),
-    );
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
-      child: Column(
-        children: [
-          row([
-            _util('AC', _tapAC, key: 'calc_ac'),
-            _util('(', () => _tapParen('('), key: 'calc_lparen'),
-            _util(')', () => _tapParen(')'), key: 'calc_rparen'),
-            _util(
-              '',
-              _tapBack,
-              key: 'calc_back',
-              icon: Icons.backspace_outlined,
-            ),
-            _fn('sin', key: 'calc_sin'),
-            _fn('cos', key: 'calc_cos'),
-            _fn('tan', key: 'calc_tan'),
-            _fn('√', fnName: 'sqrt', key: 'calc_sqrt'),
-          ]),
-          row([
-            _fn('ln', key: 'calc_ln'),
-            _fn('log', key: 'calc_log'),
-            _op('^', key: 'calc_pow'),
-            _util('S⇔D', _tapSD, key: 'calc_sd_key'),
-            _digit('7', key: 'calc_7'),
-            _digit('8', key: 'calc_8'),
-            _digit('9', key: 'calc_9'),
-            _op('÷', key: 'calc_div'),
-          ]),
-          row([
-            _digit('4', key: 'calc_4'),
-            _digit('5', key: 'calc_5'),
-            _digit('6', key: 'calc_6'),
-            _op('×', key: 'calc_mul'),
-            _digit('1', key: 'calc_1'),
-            _digit('2', key: 'calc_2'),
-            _digit('3', key: 'calc_3'),
-            _op('−', key: 'calc_sub'),
-          ]),
-          row([
-            _const('π', key: 'calc_pi'),
-            _digit('0', key: 'calc_0'),
-            _digit('.', key: 'calc_dot'),
-            _op('+', key: 'calc_add'),
-            _fracKey(key: 'calc_frac_key'),
-            _feet(key: 'calc_ft'),
-            _postfix('%', key: 'calc_pct'),
-            _equals(key: 'calc_eq'),
-          ]),
+          ),
         ],
       ),
     );
