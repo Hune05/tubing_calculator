@@ -1204,9 +1204,13 @@ class ConduitIsoPainter extends CustomPainter {
     }
 
     vmath.Vector3 center3D = _calculateCenter(pts3D);
-    double maxRadius = _calculateMaxRadius(pts3D, center3D);
+    // 🚀 [고침] 예전엔 이 그림 자신의 maxRadius에 맞춰 화면을 꽉 채워서, 튜브
+    // 배관과 실제 크기를 비교할 수 없었다. 튜브·전선관이 같은 기준
+    // (kIsoReferenceRadiusMm)을 쓰게 해서 실제 크기 차이가 그대로 보이게 한다.
     double scale =
-        (math.min(size.width, size.height) * 0.4) / maxRadius * zoomLevel;
+        (math.min(size.width, size.height) * 0.4) /
+        kIsoReferenceRadiusMm *
+        zoomLevel;
 
     vmath.Matrix4 cameraMatrix = vmath.Matrix4.identity()
       ..rotateX(rotationX)
@@ -1444,15 +1448,6 @@ class ConduitIsoPainter extends CustomPainter {
       (minY + maxY) / 2,
       (minZ + maxZ) / 2,
     );
-  }
-
-  double _calculateMaxRadius(List<vmath.Vector3> pts, vmath.Vector3 center) {
-    double maxRadius = 10.0;
-    for (var p in pts) {
-      double dist = p.distanceTo(center);
-      if (dist > maxRadius) maxRadius = dist;
-    }
-    return maxRadius;
   }
 
   void _drawAxisGuide(
