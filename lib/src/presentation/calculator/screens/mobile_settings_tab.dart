@@ -732,9 +732,11 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ),
           ),
           SizedBox(
-            width: 30,
+            width: 40,
             child: Text(
               unit.isEmpty ? "" : " $unit",
+              softWrap: false,
+              overflow: TextOverflow.visible,
               style: const TextStyle(
                 color: slate600,
                 fontWeight: FontWeight.w500,
