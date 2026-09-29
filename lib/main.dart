@@ -1,4 +1,5 @@
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
+import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -269,6 +270,11 @@ class _MyAppState extends State<MyApp> {
     // 홈 메뉴가 뜨면(로딩 화면이 홈으로 바뀌면서 먼저 띄운 창을 덮지 않게) 가져간다.
     SharedDrawingInbox.listen(_checkSharedDrawing);
     SharedDrawingInbox.homeReady.addListener(_checkSharedDrawing);
+    // 홈 화면 위젯을 눌러 열렸을 때: 열려 있던 화면을 닫고 홈으로 돌아가면, 홈 메뉴가 그 동작(빠른 실행 열기)을 한다.
+    HomeWidgetSync.init(
+      onReceived: () =>
+          appNavigatorKey.currentState?.popUntil((r) => r.isFirst),
+    );
   }
 
   bool _sharedDrawingBusy = false;

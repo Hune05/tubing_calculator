@@ -1,3 +1,6 @@
+import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/attendance.dart'
+    show AttendanceCache, dateKey;
 import 'package:tubing_calculator/src/core/common_widgets/press_feedback.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -284,6 +287,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     _loadMissingReports();
     _loadLowStock();
     _loadQuickLaunchSettings();
+    _loadTodayAttendanceForWidget();
+    HomeWidgetSync.pendingAction.addListener(_onWidgetAction);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onWidgetAction());
     // 격주·평일·반복 끝이 있는 일정 알림은 한 번씩만 잡혀 있어서 다음 회차를 다시 잡아야
     // 한다. 예전엔 "내 일정" 화면을 열 때만 잡아서, 며칠 안 열면 알림이 끊겼다.
     // 앱을 켤 때 한 번(기다리지 않음, 통신이 없으면 폰 캐시로).
@@ -295,9 +301,63 @@ class _MobileMenuPageState extends State<MobileMenuPage>
 
   static bool _remindersRescheduledThisRun = false;
 
+  // ── 홈 화면 위젯 ──
+  /// 오늘 근태 종류(위젯 "오늘 요약"에 보인다). 아직 못 읽었으면 null.
+  String? _todayAttendance;
+
+  Future<void> _loadTodayAttendanceForWidget() async {
+    try {
+      await AttendanceCache.refresh();
+      if (!mounted) return;
+      _todayAttendance = AttendanceCache.byDate[dateKey(DateTime.now())];
+      _syncSummaryWidget();
+    } catch (_) {}
+  }
+
+  /// 빠른 실행 위젯에 지금 즐겨찾기 순서를 넘긴다(같은 값이면 안 보낸다).
+  void _syncQuickWidget() {
+    HomeWidgetSync.push(quickJson: encodeQuickWidgetPayload(_quickTitles()));
+  }
+
+  /// 오늘 요약 위젯에 지금 알고 있는 값을 넘긴다. 아직 못 읽은 값은 위젯에 "—"로 보인다.
+  void _syncSummaryWidget() {
+    final now = DateTime.now();
+    const wd = ['월', '화', '수', '목', '금', '토', '일'];
+    String two(int v) => v.toString().padLeft(2, '0');
+    HomeWidgetSync.push(
+      summaryJson: encodeSummaryWidgetPayload(
+        date: '${now.month}월 ${now.day}일 (${wd[now.weekday - 1]})',
+        schedule: _todayScheduleCount,
+        reports: _missingReports,
+        stock: _lowStock,
+        attendance: _todayAttendance,
+        updatedAt: '${two(now.hour)}:${two(now.minute)}',
+      ),
+    );
+  }
+
+  /// 위젯을 눌러 들어온 동작을 한다. "quick:제목"이면 그 빠른 실행 기능을 연다.
+  void _onWidgetAction() {
+    final a = HomeWidgetSync.pendingAction.value;
+    if (a == null || !mounted) return;
+    final title = a.quickTitle;
+    if (title == null) {
+      HomeWidgetSync.pendingAction.value = null; // "open"·"summary": 앱만 열면 된다.
+      return;
+    }
+    // 메뉴 줄은 첫 build 뒤에 만들어지므로 한 프레임 기다린 뒤 찾는다.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || HomeWidgetSync.pendingAction.value != a) return;
+      final entry = _menuEntries.where((e) => e.title == title).firstOrNull;
+      HomeWidgetSync.pendingAction.value = null;
+      if (entry != null) _enterFromQuickLaunch(entry);
+    });
+  }
+
   @override
   void dispose() {
     _weatherTimer?.cancel();
+    HomeWidgetSync.pendingAction.removeListener(_onWidgetAction);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -334,11 +394,13 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   Future<void> _loadMissingReports() async {
     final n = await fetchMissingReportCount();
     if (mounted) setState(() => _missingReports = n);
+    _syncSummaryWidget();
   }
 
   Future<void> _loadLowStock() async {
     final n = await fetchLowStockCount();
     if (mounted) setState(() => _lowStock = n);
+    _syncSummaryWidget();
   }
 
   Future<void> _loadQuickLaunchSettings() async {
@@ -351,6 +413,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         if (favs != null) _favorites = favs.toSet();
         if (order != null) _quickOrder = order;
       });
+      // 메뉴 줄은 첫 build 뒤에 생기므로 한 프레임 뒤에 빠른 실행 위젯에 넘긴다.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _syncQuickWidget());
     } catch (_) {}
   }
 
@@ -359,6 +423,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       final p = await SharedPreferences.getInstance();
       await p.setStringList(_kFavoritesKey, _favorites.toList());
       await p.setStringList(_kQuickOrderKey, _quickOrder);
+      _syncQuickWidget();
     } catch (_) {}
   }
 
@@ -901,6 +966,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   Future<void> _loadTodayScheduleCount() async {
     final count = await fetchTodayScheduleCount(widget.currentWorker);
     if (mounted) setState(() => _todayScheduleCount = count);
+    _syncSummaryWidget();
   }
 
   // 🚀 날씨 상태 단순화 (맑음, 흐림, 비, 눈)

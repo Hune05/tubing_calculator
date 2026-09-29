@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_label">빠른 실행</string>
+    <string name="widget_quick_desc">즐겨찾기한 기능을 바로 엽니다</string>
+    <string name="widget_quick_empty">즐겨찾기한 기능이 없습니다.\n앱 전체 메뉴에서 카드를 길게 누르면 여기 나옵니다.</string>
+    <string name="widget_summary_label">오늘 요약</string>
+    <string name="widget_summary_desc">오늘 일정·일지·자재·근태를 한눈에 봅니다</string>
+</resources>

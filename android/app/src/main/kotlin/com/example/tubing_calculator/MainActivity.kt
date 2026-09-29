@@ -19,6 +19,14 @@ class MainActivity : FlutterActivity() {
     private var drawingChannel: MethodChannel? = null
     private var pendingDrawing: Map<String, String>? = null
 
+    // 홈 화면 위젯을 눌러 열렸을 때의 동작("quick:제목" 등). 앱이 "takeAction"으로 가져간다.
+    private var widgetChannel: MethodChannel? = null
+    private var pendingWidgetAction: String? = null
+
+    companion object {
+        const val EXTRA_WIDGET_ACTION = "widget_action"
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         volumeChannel = MethodChannel(
@@ -49,6 +57,30 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+        widgetChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "field/widget"
+        ).also { ch ->
+            ch.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "update" -> {
+                        FieldWidgetStore.save(
+                            applicationContext,
+                            call.argument<String>("quick"),
+                            call.argument<String>("summary")
+                        )
+                        FieldWidgetStore.refreshAll(applicationContext)
+                        result.success(null)
+                    }
+                    "takeAction" -> {
+                        result.success(pendingWidgetAction)
+                        pendingWidgetAction = null
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+        }
+        readWidgetAction(intent)?.let { pendingWidgetAction = it }
         // 앱이 꺼져 있을 때 공유로 열린 경우.
         readSharedDrawing(intent)?.let { pendingDrawing = it }
     }
@@ -56,9 +88,21 @@ class MainActivity : FlutterActivity() {
     // 앱이 떠 있을 때 공유로 다시 들어온 경우.
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        readWidgetAction(intent)?.let {
+            pendingWidgetAction = it
+            widgetChannel?.invokeMethod("received", null)
+            return
+        }
         val d = readSharedDrawing(intent) ?: return
         pendingDrawing = d
         drawingChannel?.invokeMethod("received", null)
+    }
+
+    private fun readWidgetAction(intent: Intent?): String? {
+        val a = intent?.getStringExtra(EXTRA_WIDGET_ACTION) ?: return null
+        // 화면을 다시 만들 때 같은 위젯 동작을 두 번 하지 않게 한 번 읽으면 지운다.
+        intent.removeExtra(EXTRA_WIDGET_ACTION)
+        return a
     }
 
     private fun readSharedDrawing(intent: Intent?): Map<String, String>? {
