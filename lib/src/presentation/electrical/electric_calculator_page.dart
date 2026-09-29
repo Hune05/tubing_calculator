@@ -134,7 +134,9 @@ const String _motorSwitchGuide =
     'KEC에는 이 배수가 없으니 설계 기준을 따르십시오. 전압강하는 실제 전류로 계산합니다.';
 
 class ElectricCalculatorPage extends StatefulWidget {
-  const ElectricCalculatorPage({super.key});
+  /// 열 때 먼저 보일 탭(0 = 기초 계산).
+  final int initialTab;
+  const ElectricCalculatorPage({super.key, this.initialTab = 0});
 
   /// 넣은 값을 저장하는 폰 저장 칸.
   static const draftKey = 'electric_calc_draft_v1';
@@ -148,7 +150,11 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         SingleTickerProviderStateMixin,
         CalcFormParts,
         RecentCalcHistoryMixin<ElectricCalculatorPage> {
-  late final TabController _tabs = TabController(length: 11, vsync: this);
+  late final TabController _tabs = TabController(
+    length: 11,
+    vsync: this,
+    initialIndex: widget.initialTab.clamp(0, 10),
+  );
 
   // 공통
   double _volts = 380;

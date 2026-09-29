@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/common/feature_search.dart';
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/attendance.dart'
     show AttendanceCache, dateKey;
@@ -1721,6 +1722,25 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     );
   }
 
+  /// 메뉴 기능을 이름·설명으로 찾는 창(초성도 된다). 누르면 그 메뉴를 그대로 연다.
+  void _openMenuSearch() {
+    HapticFeedback.selectionClick();
+    showFeatureSearchSheet(
+      context,
+      title: '메뉴 검색',
+      items: [
+        for (final e in _menuEntries)
+          FeatureItem(
+            title: e.title,
+            subtitle: e.subtitle,
+            glyph: e.icon,
+            color: e.iconColor,
+            onTap: e.onTap,
+          ),
+      ],
+    );
+  }
+
   // 🚀 [홈 화면 레이아웃 고도화] 예전엔 날씨/공지 카드와 알림 종·프로필
   // 아이콘이 한 Row 안에 같이 있어서, 아이콘들이 마치 날씨 카드에 딸린
   // 부속물처럼 어색하게 붙어 있었다(날씨가 화면에서 제일 위 - 가장
@@ -1756,6 +1776,12 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  IconButton(
+                    key: const Key('home_menu_search'),
+                    tooltip: "메뉴 검색",
+                    icon: const Icon(AppIcons.search, color: slate600),
+                    onPressed: _openMenuSearch,
+                  ),
                   NewsHeaderBadgeIcon(
                     currentWorker: widget.currentWorker,
                     onPressed: () => Navigator.push(

@@ -74,7 +74,9 @@ String _int(double v) {
 }
 
 class FlowCalcPage extends StatefulWidget {
-  const FlowCalcPage({super.key});
+  /// 열 때 먼저 보일 탭(0 = 유속·관 굵기).
+  final int initialTab;
+  const FlowCalcPage({super.key, this.initialTab = 0});
 
   @override
   State<FlowCalcPage> createState() => _FlowCalcPageState();
@@ -90,7 +92,11 @@ class _FlowCalcPageState extends State<FlowCalcPage>
         _FlowMeterCheckTab {
   static const _draftKey = 'flow_calc_draft_v1';
 
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(
+    length: 4,
+    vsync: this,
+    initialIndex: widget.initialTab.clamp(0, 3),
+  );
 
   // ─── 유량·유체 ───
   FlowUnit _flowUnit = FlowUnit.lpm;

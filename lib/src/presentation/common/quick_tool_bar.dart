@@ -9,6 +9,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
@@ -21,62 +22,176 @@ import '../instrument/signal_calculator_page.dart';
 import '../pressure_test/pressure_test_page.dart';
 import '../reference/page/tube_reference_page.dart';
 import '../unit_converter/unit_converter_page.dart';
+import '../calculator/screens/mobile_calculator_page.dart';
+import '../calculator/screens/mobile_remote_page.dart';
+import '../conduit/screens/main_navigation_page.dart';
+import '../my_work_logs/pages/layout_board_project_list_page.dart';
+import '../reference/page/equipment_usage_page.dart';
+import '../steel_cutting/screens/mobile_steel_project_list_page.dart';
+import '../tube_cutting/screens/mobile_cutting_project_list_page.dart';
+import 'feature_search.dart';
+import 'quick_sub_tools.dart';
 import 'app_icons.dart';
 
-/// 막대에 넣을 수 있는 도구 하나.
+/// 막대에 넣을 수 있는(그리고 전체 검색에 나오는) 기능 하나.
+/// 큰 기능은 [glyph](직접 그린 아이콘), 세부 기능(탭·분류)은 [icon](Lucide 선 아이콘)을 쓴다.
 class QuickToolDef {
   final String id;
   final String label;
-  final AppGlyph glyph;
+  final AppGlyph? glyph;
   final WidgetBuilder builder;
-  const QuickToolDef(this.id, this.label, this.glyph, this.builder);
+
+  /// 전체 검색 창에 보이는 설명과 묶음 이름.
+  final String subtitle;
+  final String? group;
+  final IconData? icon;
+  const QuickToolDef(
+    this.id,
+    this.label,
+    this.glyph,
+    this.builder, {
+    this.subtitle = '',
+    this.group,
+    this.icon,
+  });
+
+  /// 아이콘 위젯(직접 그린 것이 있으면 그것, 없으면 선 아이콘).
+  Widget iconWidget({double size = 26, Color? color}) => glyph != null
+      ? AppIcon(glyph!, size: size, color: color)
+      : Icon(icon ?? LucideIcons.circle, size: size, color: color);
 }
 
-/// 고를 수 있는 도구 전부(막대에는 이 순서대로 나온다). 메뉴의 같은 이름 항목과 같은 화면을 연다.
+/// 고를 수 있는 기능 전부(막대에는 고른 것이 이 순서대로 나오고, "전체" 검색에는 다 나온다).
+/// 메뉴의 같은 이름 항목과 같은 화면을 연다. 로그인·프로젝트 이름이 있어야 열리는 기능
+/// (내 프로젝트·일정·근태·자재)은 작업 화면 위에 덮어 열기 어려워 뺐다.
 final List<QuickToolDef> kQuickTools = [
   QuickToolDef(
     'eng',
     '공학용 계산기',
     AppGlyph.engCalc,
     (_) => const EngCalculatorPage(),
+    subtitle: '사칙연산·삼각함수·거듭제곱 · 인치 분수·피트',
+    group: '현장 도구',
   ),
   QuickToolDef(
     'unit',
     '단위 환산',
     AppGlyph.unitConvert,
     (_) => const UnitConverterPage(),
+    subtitle: '길이·압력·온도·토크·분수 인치·배관 호칭',
+    group: '현장 도구',
   ),
   QuickToolDef(
     'protractor',
     '각도기',
     AppGlyph.protractor,
     (_) => const ProtractorPage(),
+    subtitle: '벤딩 각도 재기 · 화면 각도기',
+    group: '현장 도구',
   ),
-  QuickToolDef('level', '수평계', AppGlyph.level, (_) => const LevelPage()),
+  QuickToolDef(
+    'level',
+    '수평계',
+    AppGlyph.level,
+    (_) => const LevelPage(),
+    subtitle: '기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기',
+    group: '현장 도구',
+  ),
+  QuickToolDef(
+    'remote',
+    '벤딩 리모컨',
+    AppGlyph.remote,
+    (_) => const MobileRemotePage(),
+    subtitle: '수치 전송용 리모컨 (스마트폰 권장)',
+    group: '현장 도구',
+  ),
   QuickToolDef(
     'ref',
     '현장 자료',
     AppGlyph.tubeSpec,
     (_) => const TubeReferencePage(),
+    subtitle: '튜브·전선관·형강 규격표, 발전 설비, 전기 기준(KEC)',
+    group: '참고 자료',
+  ),
+  QuickToolDef(
+    'equip',
+    '장비 사용법',
+    AppGlyph.benderHand,
+    (_) => const EquipmentUsagePage(),
+    subtitle: '벤더·톱 조작 순서, 실측 캘리브레이션, 안전',
+    group: '참고 자료',
+  ),
+  QuickToolDef(
+    'bend',
+    '벤딩 마킹 계산기',
+    AppGlyph.tubeBend,
+    (_) => const MobileCalculatorPage(),
+    subtitle: '스마트폰용 · 단계별 치수 입력',
+    group: '배관·튜브',
+  ),
+  QuickToolDef(
+    'cut',
+    '튜브 컷팅 계산기',
+    AppGlyph.tubeCut,
+    (_) => const MobileCuttingProjectListPage(),
+    subtitle: '피팅 삽입깊이 차감 · 절단 자재 기록',
+    group: '배관·튜브',
   ),
   QuickToolDef(
     'pressure',
     '압력 시험',
     AppGlyph.pressureGauge,
     (_) => const PressureTestPage(),
+    subtitle: '튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서',
+    group: '배관·튜브',
   ),
-  QuickToolDef('flow', '유량 계산', AppGlyph.flow, (_) => const FlowCalcPage()),
+  QuickToolDef(
+    'flow',
+    '유량 계산',
+    AppGlyph.flow,
+    (_) => const FlowCalcPage(),
+    subtitle: '유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검',
+    group: '배관·튜브',
+  ),
+  QuickToolDef(
+    'conduit',
+    '전선관 벤딩 마킹 계산기',
+    AppGlyph.conduitBend,
+    (_) => const ConduitMainNavigation(),
+    subtitle: '장비 프로필 설정 · 마킹 뷰어',
+    group: '전기',
+  ),
   QuickToolDef(
     'electric',
-    '전기 설계',
+    '전기 설계 계산',
     AppGlyph.electric,
     (_) => const ElectricCalculatorPage(),
+    subtitle: '부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지',
+    group: '전기',
   ),
   QuickToolDef(
     'signal',
     '계기 교정',
     AppGlyph.currentLoop,
     (_) => const SignalCalculatorPage(),
+    subtitle: '교정 점검 · 4-20mA · 온도 센서 · 교정 가스 · 성적서',
+    group: '계장',
+  ),
+  QuickToolDef(
+    'steel',
+    '형강 컷팅 (찬넬/앵글)',
+    AppGlyph.steel,
+    (_) => const MobileSteelProjectListPage(),
+    subtitle: '라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력',
+    group: '가공·배치',
+  ),
+  QuickToolDef(
+    'layout',
+    '작업 배치도',
+    AppGlyph.layout,
+    (_) => const LayoutBoardProjectListPage(),
+    subtitle: '캐비닛 중판 레이아웃 및 튜빙/결선 스케치',
+    group: '가공·배치',
   ),
 ];
 
@@ -193,6 +308,50 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: t.builder));
   }
 
+  /// 전체 기능을 아이콘 격자로 띄우고 검색으로도 찾는다. 세부 기능이 있는 큰 기능은 폴더 하나로 묶여
+  /// 누르면 안의 기능이 열린다. 누르면 작업 화면 위에 열린다.
+  void _showAll() {
+    HapticFeedback.selectionClick();
+    final nav = Navigator.of(context);
+    _closeBar();
+    final mains = widget.tools ?? kQuickTools;
+    final subs = widget.tools == null ? kQuickSubTools : const <QuickToolDef>[];
+    FeatureItem leaf(QuickToolDef t, {String? title}) => FeatureItem(
+      title: title ?? t.label,
+      subtitle: t.subtitle,
+      glyph: t.glyph,
+      icon: t.icon,
+      group: t.group,
+      onTap: () => nav.push(MaterialPageRoute<void>(builder: t.builder)),
+    );
+    final items = <FeatureItem>[];
+    for (final m in mains) {
+      final kids = [
+        for (final s in subs)
+          if (s.group == m.label) s,
+      ];
+      if (kids.isEmpty) {
+        items.add(leaf(m));
+        continue;
+      }
+      items.add(
+        FeatureItem(
+          title: m.label,
+          subtitle: m.subtitle,
+          glyph: m.glyph,
+          icon: m.icon,
+          group: m.group,
+          onTap: () => nav.push(MaterialPageRoute<void>(builder: m.builder)),
+          children: [
+            leaf(m, title: '전체 화면'),
+            for (final s in kids) leaf(s),
+          ],
+        ),
+      );
+    }
+    showFeatureSearchSheet(context, title: '전체 기능', grid: true, items: items);
+  }
+
   Future<void> _edit() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -248,7 +407,7 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
                       key: Key('quick_tool_pick_${t.id}'),
                       contentPadding: EdgeInsets.zero,
                       dense: true,
-                      secondary: AppIcon(t.glyph, size: 24, color: fc.text),
+                      secondary: t.iconWidget(size: 24, color: fc.text),
                       title: Text(
                         t.label,
                         style: TextStyle(
@@ -350,7 +509,7 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              AppIcon(t.glyph, size: 26, color: fc.text),
+                              t.iconWidget(size: 26, color: fc.text),
                               const SizedBox(height: 3),
                               Text(
                                 t.label,
@@ -368,6 +527,32 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
                         ),
                       ),
                     Divider(height: 8, color: fc.line),
+                    InkWell(
+                      key: const Key('quick_tool_all'),
+                      onTap: _showAll,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              LucideIcons.layoutGrid,
+                              size: 24,
+                              color: fc.brand,
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '전체',
+                              style: TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800,
+                                color: fc.brand,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     IconButton(
                       key: const Key('quick_tool_edit'),
                       tooltip: '막대 편집',

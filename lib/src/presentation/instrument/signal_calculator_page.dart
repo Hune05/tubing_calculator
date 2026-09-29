@@ -48,7 +48,9 @@ const List<double> _wireSizes = [0.75, 1.0, 1.5, 2.5];
 const String kSignalDraftKey = 'signal_calc_draft_v1';
 
 class SignalCalculatorPage extends StatefulWidget {
-  const SignalCalculatorPage({super.key});
+  /// 열 때 먼저 보일 탭(0 = 교정 점검).
+  final int initialTab;
+  const SignalCalculatorPage({super.key, this.initialTab = 0});
 
   @override
   State<SignalCalculatorPage> createState() => _SignalCalculatorPageState();
@@ -56,7 +58,11 @@ class SignalCalculatorPage extends StatefulWidget {
 
 class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver, CalcFormParts {
-  late final TabController _tabs = TabController(length: 5, vsync: this);
+  late final TabController _tabs = TabController(
+    length: 5,
+    vsync: this,
+    initialIndex: widget.initialTab.clamp(0, 4),
+  );
 
   // 측정 범위(환산·교정 점검이 같이 씀)
   final _lrv = TextEditingController(text: '0');
