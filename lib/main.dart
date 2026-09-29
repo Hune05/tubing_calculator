@@ -1,4 +1,3 @@
-import 'package:tubing_calculator/src/core/utils/screen_layout.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/material.dart';
@@ -376,9 +375,7 @@ class _MyAppState extends State<MyApp> {
       // 현장 보기(햇빛·야간)를 바꾸면 FieldViewHost가 화면을 모두 다시 그린다.
       builder: (context, child) => FieldViewHost(
         child: AppFrame(
-          child: ScreenLayoutHost(
-            child: DeepLinkHandler(child: child ?? const SizedBox()),
-          ),
+          child: DeepLinkHandler(child: child ?? const SizedBox()),
         ),
       ),
       home: const MobileLoadingScreen(),
