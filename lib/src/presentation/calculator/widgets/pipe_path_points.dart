@@ -10,13 +10,6 @@ import 'package:vector_math/vector_math_64.dart' as vm;
 
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 
-/// 아이소(3D) 그림의 기준 반경(mm) — 화면 확대(줌)와 별개로, 이 반경의 배관이면
-/// 화면 짧은 변의 40%를 채우도록 잡는다. 튜브·전선관 둘 다 같은 값을 써야
-/// 굵은 전선관이 가는 튜브보다 실제로 더 크게 보인다(2026-09-29, 사용자 요청 —
-/// 전엔 각 그림이 자기 자신의 maxRadius에 맞춰 화면을 꽉 채워서, 실제로는 작은
-/// 튜브 배관도 큰 전선관과 똑같은 크기로 보였다).
-const double kIsoReferenceRadiusMm = 500.0;
-
 /// 배관 목록을 걸어 꼭짓점을 낸다(시작점 포함).
 ///
 /// 그림은 길이를 줄여 그리므로 [visualLength]로 눈에 보일 길이를 받는다.
