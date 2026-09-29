@@ -182,9 +182,9 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
     final kids = folder.children ?? const <FeatureItem>[];
     const cols = 3;
     final rows = (kids.length / cols).ceil();
-    // 내용이 딱 맞는 높이(머리글 + 줄 수 × 칸 높이)의 두 배. 창 높이의 90%는 넘지 않는다.
+    // 내용이 딱 맞는 높이(머리글 + 줄 수 × 칸 높이)까지만, 두 줄 반(셋째 줄이 살짝 보여 넘길 수 있다는 걸 알린다)을 넘으면 스크롤.
     final natural = 56.0 + rows * 104.0;
-    final h = (natural * 2).clamp(0.0, boxH * 0.9);
+    final h = natural.clamp(0.0, (56.0 + 2.4 * 104.0).clamp(0.0, boxH * 0.9));
     final w = boxW * 0.88;
     return Positioned.fill(
       child: GestureDetector(
@@ -287,12 +287,12 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
                     height: 52,
                     decoration: BoxDecoration(
                       color: isFolder
-                          ? fc.brand.withValues(alpha: 0.10)
+                          ? fc.textSub.withValues(alpha: 0.12)
                           : color.withValues(alpha: 0.07),
                       borderRadius: BorderRadius.circular(16),
                       border: isFolder
                           ? Border.all(
-                              color: fc.brand.withValues(alpha: 0.35),
+                              color: fc.textSub.withValues(alpha: 0.35),
                               width: 1.4,
                             )
                           : null,
@@ -310,7 +310,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
                           vertical: 1,
                         ),
                         decoration: BoxDecoration(
-                          color: fc.brand,
+                          color: fc.textSub,
                           borderRadius: BorderRadius.circular(9),
                         ),
                         child: Text(
@@ -318,7 +318,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w800,
-                            color: fc.onBrand,
+                            color: fc.surface,
                           ),
                         ),
                       ),

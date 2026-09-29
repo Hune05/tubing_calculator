@@ -245,7 +245,7 @@ void main() {
       await tester.tap(find.byKey(const Key('feature_folder_압력 시험')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key("feature_folder_dialog")), findsOneWidget);
-      // 폴더 카드는 검색 창 안쪽에 쏙 들어오고(창보다 좁고), 높이는 내용 높이(머리글 56 + 한 줄 104)의 두 배.
+      // 폴더 카드는 검색 창 안쪽에 쏙 들어오고(창보다 좁고), 높이는 내용 높이(머리글 56 + 한 줄 104)에 딱 맞고, 두 줄 반을 넘으면 스크롤.
       final sheet = tester.getRect(
         find.byKey(const Key("feature_search_sheet")),
       );
@@ -256,7 +256,7 @@ void main() {
       expect(card.left, greaterThan(sheet.left));
       expect(card.right, lessThan(sheet.right));
       expect(card.width, closeTo(sheet.width * 0.88, 1));
-      expect(card.height, closeTo((56 + 104) * 2, 1));
+      expect(card.height, closeTo(56 + 104, 1)); // 한 줄이라 내용 높이 그대로
       await tester.tap(find.byKey(const Key('feature_시험 기록')));
       await tester.pumpAndSettle();
       expect(hit, 1);
@@ -297,5 +297,61 @@ void main() {
       expect(find.byKey(const Key('feature_압력 강하')), findsOneWidget);
       expect(find.byKey(const Key('feature_folder_압력 시험')), findsNothing);
     });
+  });
+
+  testWidgets('항목이 많은 폴더는 높이를 두 줄 반으로 줄이고 안에서 스크롤한다', (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final many = FeatureItem(
+      title: '큰 폴더',
+      subtitle: '',
+      glyph: AppGlyph.engCalc,
+      onTap: () {},
+      children: [
+        for (var i = 0; i < 12; i++)
+          FeatureItem(
+            title: '기능$i',
+            subtitle: '',
+            icon: Icons.build,
+            onTap: () {},
+          ),
+      ],
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (ctx) => Scaffold(
+            body: ElevatedButton(
+              key: const Key('open'),
+              onPressed: () => showFeatureSearchSheet(
+                ctx,
+                title: '전체',
+                grid: true,
+                items: [many],
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(const Key('open')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('feature_folder_큰 폴더')));
+    await tester.pumpAndSettle();
+    final card = tester.getRect(find.byKey(const Key('feature_folder_dialog')));
+    expect(card.height, closeTo(56 + 2.4 * 104, 1));
+    // 아래쪽 항목은 처음엔 안 보이지만 스크롤하면 보인다.
+    final last = find.byKey(const Key('feature_기능11'));
+    await tester.drag(
+      find.descendant(
+        of: find.byKey(const Key('feature_folder_dialog')),
+        matching: find.byType(SingleChildScrollView),
+      ),
+      const Offset(0, -400),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.getRect(last).bottom, lessThanOrEqualTo(card.bottom + 1));
   });
 }
