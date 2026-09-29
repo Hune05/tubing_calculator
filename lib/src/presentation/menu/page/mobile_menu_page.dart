@@ -453,21 +453,25 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       return Padding(
         key: const Key('home_quick_launch_empty'),
         padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
-        child: Column(
-          children: [
-            Icon(Icons.star_border, size: 40, color: slate600),
-            const SizedBox(height: 12),
-            const Text(
-              "즐겨찾기한 기능이 없습니다",
-              style: TextStyle(fontWeight: FontWeight.w700, color: slate900),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              "전체 메뉴에서 카드를 길게 누르면 여기 추가됩니다.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: slate600),
-            ),
-          ],
+        // 글씨 폭만큼만 차지하면 왼쪽에 쏠려 보여서, 가로 전체를 채워 가운데에 둔다.
+        child: SizedBox(
+          width: double.infinity,
+          child: Column(
+            children: [
+              Icon(Icons.star_border, size: 40, color: slate600),
+              const SizedBox(height: 12),
+              const Text(
+                "즐겨찾기한 기능이 없습니다",
+                style: TextStyle(fontWeight: FontWeight.w700, color: slate900),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                "전체 메뉴에서 카드를 길게 누르면 여기 추가됩니다.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: slate600),
+              ),
+            ],
+          ),
         ),
       );
     }
