@@ -12,9 +12,9 @@ void main() {
   });
   tearDown(() => ScreenLayout.mode.value = ScreenLayoutMode.auto);
 
-  test('자동: 짧은 변 600dp 이상이면 태블릿(폴더블 안쪽 화면이 쓰던 기준 그대로)', () {
-    expect(ScreenLayout.isTabletSize(const Size(599, 1200)), isFalse);
-    expect(ScreenLayout.isTabletSize(const Size(600, 960)), isTrue);
+  test('자동: 짧은 변 800dp 이상이면 태블릿(8.7~9인치는 폰 화면, 10인치대부터 태블릿)', () {
+    expect(ScreenLayout.isTabletSize(const Size(799, 1200)), isFalse);
+    expect(ScreenLayout.isTabletSize(const Size(800, 1280)), isTrue);
     expect(ScreenLayout.isTabletSize(const Size(360, 800)), isFalse);
     // 가로로 든 폰(짧은 변 360)은 태블릿이 아니다.
     expect(ScreenLayout.isTabletSize(const Size(800, 360)), isFalse);
