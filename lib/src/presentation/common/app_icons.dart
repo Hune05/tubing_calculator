@@ -47,6 +47,9 @@ enum AppGlyph {
   /// 자재 통합 관리: 상자 + 연필(등록·고치기).
   stockAdmin,
 
+  /// 자재 요청 정리: 손으로 쓴 목록 종이 + 보내기 화살표.
+  materialRequest,
+
   // ── 계산기 아래 탭 ──
   /// 입력: 구간 목록 + 연필.
   navInput,
@@ -563,6 +566,17 @@ class _AppIconPainter extends CustomPainter {
         canvas.drawPath(pencil, Paint()..color = Colors.white);
         canvas.drawPath(pencil, line);
         l(16.6, 5.0, 19.0, 7.4);
+      case AppGlyph.materialRequest:
+        rr(3.5, 3.0, 12.6, 17.6, 1.6, soft);
+        rr(3.5, 3.0, 12.6, 17.6, 1.6);
+        for (final y in [8.0, 11.6, 15.2]) {
+          canvas.drawCircle(Offset(6.6, y), 0.9, fill);
+          l(9.0, y, 13.4, y);
+        }
+        // 보내기 화살표.
+        l(14.0, 19.6, 20.6, 13.0);
+        l(15.6, 13.0, 20.6, 13.0);
+        l(20.6, 13.0, 20.6, 18.0);
       case AppGlyph.navInput:
         l(3.5, 6.0, 10.5, 6.0);
         l(3.5, 11.0, 9.0, 11.0);

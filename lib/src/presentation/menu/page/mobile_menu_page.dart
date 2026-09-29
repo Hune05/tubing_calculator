@@ -42,6 +42,7 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_boa
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/low_stock_count.dart';
+import 'package:tubing_calculator/src/presentation/material_request/material_request_page.dart';
 import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_page.dart';
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
@@ -1669,6 +1670,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                                   const MobileInventoryLoginScreen(),
                             ),
                           ).then((_) => _loadLowStock());
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "자재 요청 정리",
+                        subtitle: "손으로 쓴 요청 메모를 찍으면 목록으로 정리해 카톡으로 보내기",
+                        icon: AppGlyph.materialRequest,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const MaterialRequestPage(),
+                            ),
+                          );
                         },
                       ),
                       _sectionHeader("참고 자료"),
