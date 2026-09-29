@@ -33,6 +33,21 @@ const String kEngCalcAdvancedKey = 'field_eng_calc_advanced_v1';
 
 const List<int> kEngCalcDenoms = [8, 16, 32, 64];
 
+/// 자판(숫자판) 칸의 최대 높이(dp). 폰에서는 원래도 이 값 아래라 그대로고,
+/// 태블릿처럼 세로로 긴 화면에서만 이 값에서 잘려 단추가 풍선처럼 안 커진다.
+const double _kKeypadMaxHeight = 560;
+
+/// 계산기 화면 전체(표시 칸+자판)의 최대 폭(dp). 큰 화면에서 단추 사이
+/// 간격이 휑하게 벌어지지 않도록 폰 계산기 정도 폭으로 못박는다(아래
+/// [_kWideBreakpoint]보다 좁을 때만 적용).
+const double _kCalcMaxWidth = 480;
+
+/// 이 값(dp) 이상 넓으면 기본↔공학 토글 대신 삼각함수·로그 단추를 자판
+/// 옆에 나란히 두는 일체형 자판([_keypadWide])을 쓴다. 갤럭시 탭 A9+
+/// 11인치가 짧은 변 기준 논리 폭 800dp라, 그 크기부터 켜지게 잡는다
+/// (짧은 변 800dp면 태블릿이라고 보던 예전 ScreenLayout 기준과 같다).
+const double _kWideBreakpoint = 800;
+
 /// 화면에 보일 연산자 글자(뒤에 또 연산자가 오면 안 되는 자리를 가린다).
 const _opChars = '+-−×÷^*/';
 
@@ -496,15 +511,61 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         ],
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // 계산 값 창을 화면 높이에 맞춰 키운다(태블릿처럼 위아래로 긴 화면일수록
-            // 결과가 커 보이게). 키패드 쪽에 자리를 더 줘서 단추가 갤럭시 계산기처럼
-            // 여유 있게 보이게 한다.
-            Expanded(flex: 3, child: _display(big, result)),
-            const Divider(height: 1),
-            Expanded(flex: 6, child: _keypad()),
-          ],
+        // 2026-09-29: 태블릿처럼 옆으로 아주 넓은 화면은 폭을 폰 계산기
+        // 크기로 못박는 대신(그러면 넓은 자리를 그냥 못 쓴다), 기본↔공학
+        // 모드를 토글(뚝뚝 끊기는 전환 애니메이션)하는 대신 삼각함수·로그
+        // 단추들을 아예 디지털 자판 옆에 나란히 둔 일체형 자판을 쓴다 —
+        // 넓어서 한 화면에 다 들어가므로 더 이상 모드를 접었다 폈다 할
+        // 필요가 없다. 좁은 화면(폰)은 자리가 없어 예전처럼 토글 방식을
+        // 그대로 쓴다.
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final bool isWide = constraints.maxWidth >= _kWideBreakpoint;
+            final Widget content = Column(
+              children: [
+                // 계산 값 창을 화면 높이에 맞춰 키운다(태블릿처럼 위아래로 긴 화면일수록
+                // 결과가 커 보이게). 키패드 쪽에 자리를 더 줘서 단추가 갤럭시 계산기처럼
+                // 여유 있게 보이게 한다.
+                Expanded(flex: 3, child: _display(big, result)),
+                // 태블릿처럼 세로로 아주 긴 화면에서 이 칸을 그대로 Expanded로
+                // 두면 단추가 풍선처럼 커져 어색해 보였다(삼성 기본 계산기
+                // 참고: 자판은 늘 화면 아래에 편한 크기로 붙고, 남는 자리는
+                // 위쪽 표시 칸 쪽 빈 공간이 된다). 자판 높이를 폰 화면과
+                // 비슷한 값으로 못박고, 남는 자리는 위 표시 칸 쪽으로 가게
+                // 아래에 붙인다(폰처럼 자판이 이 칸을 넘치지 않을 땐 전과
+                // 똑같다).
+                Expanded(
+                  flex: 6,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxHeight: _kKeypadMaxHeight,
+                      ),
+                      child: Column(
+                        children: [
+                          const Divider(height: 1),
+                          Expanded(
+                            child: isWide ? _keypadWide() : _keypad(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+            // 넓은 화면은 일체형 자판이 넓은 자리를 그대로 쓰게 폭을 안 좁힌다.
+            // 좁은 화면(폰에 억지로 늘어난 경우 포함)은 폰 계산기 폭으로
+            // 못박아 가운데 둔다(전과 같음).
+            if (isWide) return content;
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _kCalcMaxWidth),
+                child: content,
+              ),
+            );
+          },
         ),
       ),
     );
@@ -929,6 +990,79 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// 넓은 화면(태블릿 등)에서 쓰는 일체형 자판. 기본↔공학 토글 없이 삼각함수·
+  /// 로그·거듭제곱 단추를 각 줄 digit 단추 옆에 나란히 둬서, 늘었다 줄었다
+  /// 하는 전환 자체가 없다(줄 수는 [_keypad]의 "기본 모드"와 같은 4줄이라
+  /// 폭만 두 배로 넓다 — 한 줄에 8칸).
+  Widget _keypadWide() {
+    Widget row(List<Widget> keys) => Expanded(
+      child: Row(
+        children: [
+          for (final k in keys)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(6),
+                child: _circleCell(k),
+              ),
+            ),
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+      child: Column(
+        children: [
+          row([
+            _util('AC', _tapAC, key: 'calc_ac'),
+            _util('(', () => _tapParen('('), key: 'calc_lparen'),
+            _util(')', () => _tapParen(')'), key: 'calc_rparen'),
+            _util(
+              '',
+              _tapBack,
+              key: 'calc_back',
+              icon: Icons.backspace_outlined,
+            ),
+            _fn('sin', key: 'calc_sin'),
+            _fn('cos', key: 'calc_cos'),
+            _fn('tan', key: 'calc_tan'),
+            _fn('√', fnName: 'sqrt', key: 'calc_sqrt'),
+          ]),
+          row([
+            _fn('ln', key: 'calc_ln'),
+            _fn('log', key: 'calc_log'),
+            _op('^', key: 'calc_pow'),
+            _util('S⇔D', _tapSD, key: 'calc_sd_key'),
+            _digit('7', key: 'calc_7'),
+            _digit('8', key: 'calc_8'),
+            _digit('9', key: 'calc_9'),
+            _op('÷', key: 'calc_div'),
+          ]),
+          row([
+            _digit('4', key: 'calc_4'),
+            _digit('5', key: 'calc_5'),
+            _digit('6', key: 'calc_6'),
+            _op('×', key: 'calc_mul'),
+            _digit('1', key: 'calc_1'),
+            _digit('2', key: 'calc_2'),
+            _digit('3', key: 'calc_3'),
+            _op('−', key: 'calc_sub'),
+          ]),
+          row([
+            _const('π', key: 'calc_pi'),
+            _digit('0', key: 'calc_0'),
+            _digit('.', key: 'calc_dot'),
+            _op('+', key: 'calc_add'),
+            _fracKey(key: 'calc_frac_key'),
+            _feet(key: 'calc_ft'),
+            _postfix('%', key: 'calc_pct'),
+            _equals(key: 'calc_eq'),
+          ]),
         ],
       ),
     );
