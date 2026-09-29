@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -85,7 +86,10 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
         body: SafeArea(
           top: !isFieldTab,
           bottom: false,
-          child: _buildNarrowBody(),
+          child: QuickToolBarHost(
+            enabled: !isFieldTab,
+            child: _buildNarrowBody(),
+          ),
         ),
         bottomNavigationBar: isFieldTab
             ? const SizedBox.shrink()
@@ -219,5 +223,4 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
       _currentIndex = 0;
     });
   }
-
 }

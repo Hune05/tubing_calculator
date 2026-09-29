@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -100,7 +101,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
       backgroundColor: slate100,
       body: !_settingsLoaded
           ? Center(child: CircularProgressIndicator(color: makitaTeal))
-          : _buildNarrowBody(),
+          : QuickToolBarHost(enabled: !isFieldTab, child: _buildNarrowBody()),
       bottomNavigationBar: isFieldTab
           ? const SizedBox.shrink() // 현장(가로) 탭일 때만 네비바 숨김
           : Container(
