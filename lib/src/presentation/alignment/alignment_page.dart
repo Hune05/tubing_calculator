@@ -10,7 +10,7 @@ import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
 import 'alignment_painter.dart';
-import 'alignment_scene_painter.dart';
+import 'alignment_render.dart';
 import 'alignment_record.dart';
 
 Future<void> _defaultShare(String text) async {
@@ -515,17 +515,21 @@ class _AlignmentPageState extends State<AlignmentPage> {
           padding: const EdgeInsets.all(8),
           child: Column(
             children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(8, 4, 8, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('비스듬히 본 모양 (좌우로 끌면 돕니다)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+                ),
+              ),
               SizedBox(
-                height: 300,
-                child: CustomPaint(
+                height: 360,
+                child: AlignRenderView(
                   key: const Key('align_iso'),
-                  size: Size.infinite,
-                  painter: AlignIsoPainter(
-                    shimFront: r.shimFront,
-                    shimRear: r.shimRear,
-                    moveFront: r.moveFront,
-                    moveRear: r.moveRear,
-                  ),
+                  shimFront: r.shimFront,
+                  shimRear: r.shimRear,
+                  moveFront: r.moveFront,
+                  moveRear: r.moveRear,
                 ),
               ),
               const Divider(height: 1),
@@ -537,19 +541,16 @@ class _AlignmentPageState extends State<AlignmentPage> {
                 ),
               ),
               SizedBox(
-                height: 300,
-                child: CustomPaint(
+                height: 340,
+                child: AlignRenderView(
                   key: const Key('align_plan'),
-                  size: Size.infinite,
-                  painter: AlignPlanPainter(
-                    horizontal: r.horizontal,
-                    xFront: _frontX,
-                    xRear: _rearX,
-                    shimFront: r.shimFront,
-                    shimRear: r.shimRear,
-                    moveFront: r.moveFront,
-                    moveRear: r.moveRear,
-                  ),
+                  top: true,
+                  horizontal: r.horizontal,
+                  xRear: _rearX,
+                  shimFront: r.shimFront,
+                  shimRear: r.shimRear,
+                  moveFront: r.moveFront,
+                  moveRear: r.moveRear,
                 ),
               ),
               const Divider(height: 1),
@@ -572,7 +573,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
               const Padding(
                 padding: EdgeInsets.fromLTRB(8, 4, 8, 4),
                 child: Text(
-                  '그림은 어긋남을 크게 부풀린 것입니다. 실제 값은 위 표를 보십시오.',
+                  '그림의 심 판 두께와 옆 어긋남은 크게 부풀린 것입니다. 실제 값은 위 표를 보십시오. 왼쪽 발과 오른쪽 발은 같은 값입니다.',
                   style: TextStyle(fontSize: 11, color: AppColors.textFaint),
                 ),
               ),
