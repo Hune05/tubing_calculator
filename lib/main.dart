@@ -56,6 +56,7 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_to
         recordSeenReminders;
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart'
     show WorkLogMainScreen;
+import 'package:tubing_calculator/src/presentation/drawing_viewer/drawing_library_page.dart' show importAndOpenDrawing;
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/work_theme.dart'
     show WorkRoute;
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
@@ -298,6 +299,12 @@ class _MyAppState extends State<MyApp> {
       if (appNavigatorKey.currentContext == null) return;
       final d = await SharedDrawingInbox.take();
       if (d == null) return;
+      // DXF·DWG는 배치도에 못 까니 도면 보기로 바로 연다.
+      if (d.isCad) {
+        final ctx0 = appNavigatorKey.currentContext;
+        if (ctx0 != null && ctx0.mounted) unawaited(importAndOpenDrawing(ctx0, d.path, name: d.name.isEmpty ? null : d.name));
+        return;
+      }
       final String? path = await SharedDrawingInbox.toImagePath(d);
       final ctx = appNavigatorKey.currentContext;
       if (ctx == null || !ctx.mounted) return;
@@ -307,7 +314,7 @@ class _MyAppState extends State<MyApp> {
         )?.showSnackBar(const SnackBar(content: Text("받은 PDF를 열 수 없습니다.")));
         return;
       }
-      unawaited(openSharedDrawing(ctx, path));
+      unawaited(openSharedDrawing(ctx, path, originalPath: d.path, originalName: d.name.isEmpty ? null : d.name));
     } finally {
       _sharedDrawingBusy = false;
     }

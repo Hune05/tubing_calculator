@@ -3,6 +3,7 @@ import 'package:tubing_calculator/src/presentation/common/record_search.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
 import 'package:tubing_calculator/src/presentation/alignment/alignment_page.dart';
 import 'package:tubing_calculator/src/presentation/alignment/alignment_guide_page.dart';
+import 'package:tubing_calculator/src/presentation/drawing_viewer/drawing_library_page.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart' show summarize;
 import 'package:tubing_calculator/src/presentation/equipment/equipment_pages.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_reminders.dart' show rescheduleEquipmentReminders;
@@ -1531,6 +1532,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         },
                       ),
                       _sectionHeader("현장 도구"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "도면 보기",
+                        subtitle: "PDF·DXF·사진 도면 확인 · 틀림·질문 체크 · 문제 목록 · 표시한 PDF",
+                        icon: AppGlyph.layout,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const DrawingLibraryPage(),
+                            ),
+                          );
+                        },
+                      ),
                       _buildMenuButton(
                         context: context,
                         title: "축 정렬 계산",

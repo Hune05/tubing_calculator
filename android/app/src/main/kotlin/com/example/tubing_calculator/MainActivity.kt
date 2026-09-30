@@ -3,6 +3,7 @@ package com.example.tubing_calculator
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.provider.OpenableColumns
 import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -105,9 +106,23 @@ class MainActivity : FlutterActivity() {
         return a
     }
 
+    private fun displayName(uri: Uri): String? = try {
+        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    } catch (e: Exception) {
+        null
+    } ?: uri.lastPathSegment
+
     private fun readSharedDrawing(intent: Intent?): Map<String, String>? {
-        if (intent?.action != Intent.ACTION_SEND) return null
-        val uri: Uri = (if (Build.VERSION.SDK_INT >= 33) {
+        val action = intent?.action
+        if (action != Intent.ACTION_SEND && action != Intent.ACTION_VIEW) return null
+        val uri: Uri = (if (action == Intent.ACTION_VIEW) {
+            val d = intent.data
+            // 딥링크(tubingapp:// 등)는 여기서 다루지 않는다
+            if (d == null || (d.scheme != "content" && d.scheme != "file")) return null
+            d
+        } else if (Build.VERSION.SDK_INT >= 33) {
             intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
         } else {
             @Suppress("DEPRECATION")
@@ -116,17 +131,24 @@ class MainActivity : FlutterActivity() {
         // 화면을 다시 만들 때 같은 공유를 두 번 받지 않게 한 번 읽으면 지운다.
         intent.action = null
         val mime = intent.type ?: contentResolver.getType(uri) ?: ""
+        // 파일 이름의 확장자를 먼저 본다(DXF·DWG는 mime이 제각각이다).
+        val shownName = displayName(uri) ?: ""
+        val nameExt = shownName.takeIf { it.isNotEmpty() }?.substringAfterLast('.', "")?.lowercase() ?: ""
         val ext = when {
+            nameExt in listOf("pdf", "dxf", "dwg", "png", "jpg", "jpeg", "webp") -> nameExt
             mime == "application/pdf" -> "pdf"
+            mime.contains("dxf") -> "dxf"
+            mime.contains("dwg") || mime.contains("autocad") || mime.contains("acad") -> "dwg"
             mime.contains("png") -> "png"
-            else -> "jpg"
+            mime.startsWith("image/") -> "jpg"
+            else -> return null
         }
         return try {
             val dir = File(filesDir, "shared_drawings").apply { mkdirs() }
             val out = File(dir, "drawing_${System.currentTimeMillis()}.$ext")
             val input = contentResolver.openInputStream(uri) ?: return null
             input.use { src -> out.outputStream().use { src.copyTo(it) } }
-            mapOf("path" to out.absolutePath, "mime" to mime)
+            mapOf("path" to out.absolutePath, "mime" to mime, "name" to shownName)
         } catch (e: Exception) {
             null
         }

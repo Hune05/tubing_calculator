@@ -4,14 +4,16 @@ import 'package:flutter/material.dart';
 import '../models/skid_presets.dart' show kLayoutKindCabinet, kLayoutKindSkid;
 import '../pages/layout_board_page.dart'
     show LayoutBoardPage, layoutBoardHasDraft;
+import '../../drawing_viewer/drawing_library_page.dart' show importAndOpenDrawing;
 import 'korean_text.dart';
 import 'layout_board_ui.dart';
 
-// 카톡 등에서 공유로 받은 도면을 어느 배치도에 깔지 묻고 그 배치도를 연다.
-// 열리면 배경에 깔리고 바로 축척 맞추기가 뜬다.
+// 카톡 등에서 공유로 받은 도면을 도면 보기로 열지, 어느 배치도에 깔지 묻는다.
+// 배치도를 고르면 배경에 깔리고 바로 축척 맞추기가 뜬다.
 
 /// 고른 곳: 'cabinet'·'skid'(새 배치도), 'draft'(이어서 하던 배치도).
-Future<void> openSharedDrawing(BuildContext context, String imagePath) async {
+/// [originalPath]는 받은 원래 파일(PDF 등). 도면 보기는 원본으로 연다.
+Future<void> openSharedDrawing(BuildContext context, String imagePath, {String? originalPath, String? originalName}) async {
   final bool hasDraft = await layoutBoardHasDraft();
   if (!context.mounted) return;
   final String? pick = await showModalBottomSheet<String>(
@@ -43,6 +45,14 @@ Future<void> openSharedDrawing(BuildContext context, String imagePath) async {
               style: const TextStyle(fontSize: 14, color: tossSubText),
             ),
             const SizedBox(height: 12),
+            _row(
+              ctx,
+              key: 'shared_to_viewer',
+              icon: Icons.visibility_outlined,
+              label: "도면 보기로 열기 (확인·체크)",
+              value: 'viewer',
+            ),
+            const Divider(height: 8),
             _row(
               ctx,
               key: 'shared_to_cabinet',
@@ -79,6 +89,10 @@ Future<void> openSharedDrawing(BuildContext context, String imagePath) async {
     ),
   );
   if (pick == null || !context.mounted) return;
+  if (pick == 'viewer') {
+    await importAndOpenDrawing(context, originalPath ?? imagePath, name: originalName);
+    return;
+  }
   await Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => LayoutBoardPage(

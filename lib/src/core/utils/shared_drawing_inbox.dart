@@ -11,10 +11,17 @@ import 'package:printing/printing.dart';
 class SharedDrawing {
   final String path;
   final String mime;
-  const SharedDrawing(this.path, this.mime);
+  final String name; // 보낸 쪽의 파일 이름(없으면 빈 글)
+  const SharedDrawing(this.path, this.mime, [this.name = '']);
 
   bool get isPdf =>
       mime == 'application/pdf' || path.toLowerCase().endsWith('.pdf');
+
+  /// CAD 도면(DXF·DWG). 배치도 배경에는 못 깔고 도면 보기로 연다.
+  bool get isCad {
+    final p = path.toLowerCase();
+    return p.endsWith('.dxf') || p.endsWith('.dwg');
+  }
 }
 
 class SharedDrawingInbox {
@@ -32,7 +39,7 @@ class SharedDrawingInbox {
       final m = await _ch.invokeMethod<Map<Object?, Object?>>('take');
       final path = m?['path'];
       if (path is! String || path.isEmpty) return null;
-      return SharedDrawing(path, (m?['mime'] as String?) ?? '');
+      return SharedDrawing(path, (m?['mime'] as String?) ?? '', (m?['name'] as String?) ?? '');
     } on MissingPluginException {
       return null; // 안드로이드가 아닌 곳(테스트·아이폰)
     } catch (e) {

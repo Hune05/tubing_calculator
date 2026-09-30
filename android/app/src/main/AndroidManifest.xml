@@ -62,6 +62,33 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/pdf" />
             </intent-filter>
+            <!-- CAD 도면(DXF·DWG): 보내는 앱마다 mime이 달라 흔한 것을 다 받는다. 확장자로 다시 가린다. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/dxf" />
+                <data android:mimeType="application/x-dxf" />
+                <data android:mimeType="image/vnd.dxf" />
+                <data android:mimeType="image/x-dxf" />
+                <data android:mimeType="image/vnd.dwg" />
+                <data android:mimeType="image/x-dwg" />
+                <data android:mimeType="application/acad" />
+                <data android:mimeType="application/x-acad" />
+                <data android:mimeType="application/x-autocad" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <!-- 파일 앱에서 "다른 앱으로 열기" -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/pdf" />
+                <data android:mimeType="application/dxf" />
+                <data android:mimeType="image/vnd.dxf" />
+                <data android:mimeType="image/vnd.dwg" />
+                <data android:mimeType="application/acad" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
 
         </activity>
         
