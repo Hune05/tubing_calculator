@@ -305,7 +305,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
             Text('다이얼 게이지 보는 법', style: AppText.title),
             const SizedBox(height: 6),
             SizedBox(
-              height: 250,
+              height: 300,
               child: CustomPaint(key: const Key('align_dial_guide'), size: Size.infinite, painter: AlignDialGuidePainter(value: -0.12)),
             ),
             const SizedBox(height: 4),

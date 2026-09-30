@@ -419,7 +419,7 @@ Offset Function(_V) _render(Canvas canvas, _Scene scene, _Cam cam, Rect box, {Li
       toScreen(_V(scene.hi.x + 0.2, 0, scene.hi.z + 0.2)),
       toScreen(_V(scene.lo.x - 0.2, 0, scene.hi.z + 0.2)),
     ], true);
-  canvas.drawPath(sh.shift(const Offset(0, 5)), Paint()..color = Colors.black.withValues(alpha: 0.14)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10));
+  if (cam.d.y > -0.99) canvas.drawPath(sh.shift(const Offset(0, 5)), Paint()..color = Colors.black.withValues(alpha: 0.14)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10));
 
   final light = (cam.right * -0.45 + cam.up * 0.85 + cam.d * -0.6).unit;
   final half = (light - cam.d).unit;
@@ -495,7 +495,7 @@ class AlignSetupRenderPainter extends CustomPainter {
     final u = (toS(const _V(0, ya, 0)) - toS(const _V(1, ya, 0))).distance; // 모델 1단위의 화면 길이
 
     // ── 다이얼(실물 모양)
-    final dialR = (u * 0.34).clamp(11.0, 34.0);
+    final dialR = (u * 0.46).clamp(12.0, 46.0);
     if (reverse) {
       final bC = toS(const _V(AlignGeo.xB, ya + 2.1, -0.28)) + Offset(0, -dialR * 0.6);
       paintDialGauge(canvas, bC, dialR, value: 0, stemTo: toS(const _V(AlignGeo.xB, top - 0.02, -0.28)), tag: _dialB, numbers: false);

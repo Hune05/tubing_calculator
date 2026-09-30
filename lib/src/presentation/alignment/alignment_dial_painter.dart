@@ -178,8 +178,8 @@ class AlignDialGuidePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
-    final r = math.min(h * 0.30, w * 0.20);
-    final c = Offset(math.max(r * 1.25, w * 0.26), h * 0.40);
+    final r = math.min(h * 0.235, w * 0.20);
+    final c = Offset(math.max(r * 1.3, w * 0.26), h * 0.33);
     final tip = c + Offset(0, r * 2.35);
     paintDialGauge(canvas, c, r, value: value, stemTo: tip, bezelArrow: true);
 
@@ -204,7 +204,7 @@ class AlignDialGuidePainter extends CustomPainter {
     final na = 2 * math.pi * value;
     final needleTip = c + Offset(math.sin(na), -math.cos(na)) * (r * 0.62);
     final small = c.translate(0, r * 0.85 * 0.36);
-    final gap = (h - 16) / 5;
+    final gap = (h - 44) / 5;
     callout(c + Offset(r * 0.7, -r * 0.72), 8 + gap * 0.35, '베젤 (바깥 테)', '돌려서 큰 바늘을 0에 맞춥니다');
     callout(needleTip, 8 + gap * 1.35, '큰 바늘', '한 칸 0.01 mm, 한 바퀴 1 mm');
     callout(small, 8 + gap * 2.35, '작은 바늘', '큰 바늘이 몇 바퀴 돌았는지(1 mm씩)');
@@ -220,7 +220,7 @@ class AlignDialGuidePainter extends CustomPainter {
       ]),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(math.max(4, c.dx - tp.width / 2), h - tp.height - 2));
+    tp.paint(canvas, Offset(lx, h - tp.height - 2));
   }
 
   @override
