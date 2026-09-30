@@ -350,6 +350,12 @@ void main() {
 
   testWidgets('태블릿 폭: 왼쪽 칸의 덕트를 옆으로 끌어 도면에 놓는다', (tester) async {
     await openWithDraft(tester, kTablet);
+    // 덕트 묶음은 접혀 있으니 먼저 편다.
+    final duct = find.byKey(const Key('layout_palette_group_duct'));
+    await tester.ensureVisible(duct);
+    await tester.pumpAndSettle();
+    await tester.tap(duct);
+    await tester.pumpAndSettle();
     expect(onBoard('ABS덕트 80×80'), findsNothing);
     final Offset from = tester.getCenter(find.text('80×80'));
     final g = await tester.startGesture(from);

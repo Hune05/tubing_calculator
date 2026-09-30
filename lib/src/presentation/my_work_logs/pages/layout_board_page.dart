@@ -1,3 +1,4 @@
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:async';
@@ -80,6 +81,10 @@ const double _kTouchHitPad = 0.0;
 const double kLayoutBoardWideWidth = 900;
 const double _kWideSidebarWidth = 260;
 const double _kWideInspectorWidth = 320;
+// 오른쪽 "모듈 편집" 칸을 접었을 때 남는 얇은 띠 폭.
+const double _kInspectorStripWidth = 48;
+// 오른쪽 칸을 펴 두면 도면이 이보다 좁아지는 화면에서는 처음부터 접어서 시작한다.
+const double _kMinBoardWidthForInspector = 440;
 
 /// 화면 폭으로 넓은 모양을 쓸지 정한다(테스트에서도 같은 기준을 쓴다).
 bool layoutBoardUsesWideLayout(Size size) =>
@@ -385,10 +390,70 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   final TextEditingController _inspectorNameCtrl = TextEditingController();
   String? _inspectorNameFor;
 
+  // 넓은 화면 옆 칸 접기/펴기. 오른쪽 "모듈 편집"을 접으면 도면이 그만큼 넓어진다.
+  // null이면 자동(도면 폭이 좁아지는 화면에서는 접힌 채로 시작).
+  bool? _inspectorOpenPref;
+  // 왼쪽 라이브러리에서 펴 둔 묶음(덕트·계기 제조사). 기본은 모두 접힘.
+  final Set<String> _openPaletteGroups = {};
+  static const String _inspectorOpenKey = 'layout_inspector_open_v1';
+  static const String _paletteOpenKey = 'layout_palette_open_v1';
+
+  Future<void> _loadPanelPrefs() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final open = p.getBool(_inspectorOpenKey);
+      final groups = p.getStringList(_paletteOpenKey);
+      if (!mounted) return;
+      setState(() {
+        _inspectorOpenPref = open;
+        if (groups != null) _openPaletteGroups.addAll(groups);
+      });
+    } catch (_) {}
+  }
+
+  bool _inspectorOpen(double screenWidth) =>
+      _inspectorOpenPref ??
+      (screenWidth - _kWideSidebarWidth - _kWideInspectorWidth >=
+          _kMinBoardWidthForInspector);
+
+  double get _inspectorWidth => _inspectorOpen(MediaQuery.sizeOf(context).width)
+      ? _kWideInspectorWidth
+      : _kInspectorStripWidth;
+
+  void _setInspectorOpen(bool open) {
+    setState(() => _inspectorOpenPref = open);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_inspectorOpenKey, open))
+        .catchError((_) => false);
+  }
+
+  bool _paletteOpen(String id) => _openPaletteGroups.contains(id);
+
+  void _setPaletteGroups(Iterable<String> open) {
+    setState(() {
+      final next = open.toSet();
+      _openPaletteGroups
+        ..clear()
+        ..addAll(next);
+    });
+    SharedPreferences.getInstance()
+        .then(
+          (p) => p.setStringList(_paletteOpenKey, _openPaletteGroups.toList()),
+        )
+        .catchError((_) => false);
+  }
+
+  void _togglePaletteGroup(String id) {
+    final next = {..._openPaletteGroups};
+    if (!next.remove(id)) next.add(id);
+    _setPaletteGroups(next);
+  }
+
   @override
   void initState() {
     super.initState();
     _loadGridPref();
+    _loadPanelPrefs();
     SharedPreferences.getInstance()
         .then((p) {
           _pdfPaper = p.getString(_pdfPaperPrefsKey) ?? 'A4';
@@ -2239,7 +2304,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   keepWords(
                     "그림은 1:5·1:10·1:20 같은 표준 축척 중 용지에 들어가는 가장 큰 것으로 찍고, 표제란에 축척과 자 눈금을 넣습니다.",
                   ),
-                  style: const TextStyle(fontSize: 13, color: tossSubText),
+                  style: const TextStyle(fontSize: 14, color: tossSubText),
                 ),
               ],
             ),
@@ -6229,7 +6294,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           if (_placedItems.isNotEmpty && _viewportSize != null)
             Positioned(
               top: (wide ? 96 : 12) + (_showTabs ? 48 : 0),
-              right: wide ? _kWideInspectorWidth + 12 : 12,
+              right: wide ? _inspectorWidth + 12 : 12,
               // 확대·이동은 미니맵과 배율 글자만 다시 그린다(예전엔 화면 전체를 다시 그렸다).
               child: ValueListenableBuilder<Matrix4>(
                 valueListenable: _viewerController,
@@ -7360,7 +7425,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       left: wide ? _kWideSidebarWidth : 0,
-      right: wide ? _kWideInspectorWidth : 0,
+      right: wide ? _inspectorWidth : 0,
       bottom: _multiSelectedIds.isNotEmpty ? 0 : -200,
       child: IgnorePointer(
         ignoring: _multiSelectedIds.isEmpty,
@@ -7533,7 +7598,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             if (!_isSkid) ...[
               Row(
                 children: [
-                  Expanded(child: _panelLabel("ABS 덕트 (폭×높이)")),
+                  Expanded(
+                    child: _paletteGroupHeader(
+                      'duct',
+                      "ABS 덕트 (폭×높이)",
+                      kDuctPresets.length,
+                    ),
+                  ),
                   TextButton(
                     onPressed: () => _showPresetSheet(
                       title: "덕트 놓기",
@@ -7555,18 +7626,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               // 🚀 ABS 배선덕트 - 폭이 정해진 자재라 배치 후 크기를 손으로 고칠
               // 필요 없이 원하는 폭을 바로 끌어다 놓는다(참고용 명목 폭,
               // kDuctPresets 주석 참고).
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final preset in kDuctPresets)
-                    _dragTile(
-                      preset,
-                      (_) => _buildDuctChip(preset, width: 104),
-                      affinity: Axis.horizontal,
-                    ),
-                ],
-              ),
+              if (_paletteOpen('duct'))
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final preset in kDuctPresets)
+                      _dragTile(
+                        preset,
+                        (_) => _buildDuctChip(preset, width: 104),
+                        affinity: Axis.horizontal,
+                      ),
+                  ],
+                ),
             ],
             const SizedBox(height: 20),
             if (_isSkid) ...[
@@ -7660,30 +7732,58 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 ],
               ),
               const SizedBox(height: 20),
-              _panelLabel("계기 (정면 크기, 브래킷 빼고)"),
-              for (final brand in kInstrumentPresets.entries) ...[
-                const SizedBox(height: 10),
-                Text(
-                  brand.key,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: tossText,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final preset in brand.value)
-                      _dragTile(
-                        preset,
-                        (_) => _buildInstrumentChip(preset, width: 228),
-                        affinity: Axis.horizontal,
+              Row(
+                children: [
+                  Expanded(child: _panelLabel("계기 (정면 크기, 브래킷 빼고)")),
+                  TextButton(
+                    key: const Key('layout_palette_toggle_all'),
+                    onPressed: () {
+                      final all = [
+                        for (final b in kInstrumentPresets.keys) 'inst:$b',
+                      ];
+                      final allOpen = all.every(_paletteOpen);
+                      _setPaletteGroups(
+                        allOpen
+                            ? _openPaletteGroups.where((g) => !all.contains(g))
+                            : {..._openPaletteGroups, ...all},
+                      );
+                    },
+                    child: Text(
+                      kInstrumentPresets.keys.every(
+                            (b) => _paletteOpen('inst:$b'),
+                          )
+                          ? "모두 접기"
+                          : "모두 펴기",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                       ),
-                  ],
+                    ),
+                  ),
+                ],
+              ),
+              for (final brand in kInstrumentPresets.entries) ...[
+                const SizedBox(height: 4),
+                _paletteGroupHeader(
+                  'inst:${brand.key}',
+                  brand.key,
+                  brand.value.length,
                 ),
+                if (_paletteOpen('inst:${brand.key}')) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final preset in brand.value)
+                        _dragTile(
+                          preset,
+                          (_) => _buildInstrumentChip(preset, width: 228),
+                          affinity: Axis.horizontal,
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ],
             if (_customPresets.isNotEmpty) ...[
@@ -7720,7 +7820,48 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
+  // 접은 모양: 얇은 띠에 펴는 단추만. 모듈을 골라 둔 상태면 단추 색을 바꿔 알린다.
   Widget _buildRightInspector() {
+    if (_inspectorOpen(MediaQuery.sizeOf(context).width)) {
+      return _buildRightInspectorFull();
+    }
+    final hasItem = _activeItem != null;
+    return Container(
+      width: _kInspectorStripWidth,
+      decoration: const BoxDecoration(
+        color: pureWhite,
+        border: Border(left: BorderSide(color: layoutLine)),
+      ),
+      child: Column(
+        children: [
+          const SizedBox(height: 8),
+          IconButton(
+            key: const Key('layout_inspector_expand'),
+            tooltip: '모듈 편집 펴기',
+            icon: Icon(
+              AppIcons.back,
+              color: hasItem ? tossBlue : tossSubText,
+            ),
+            onPressed: () => _setInspectorOpen(true),
+          ),
+          const SizedBox(height: 8),
+          RotatedBox(
+            quarterTurns: 1,
+            child: Text(
+              _mode == BoardMode.measureDimension ? '치수 재기' : '모듈 편집',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 14,
+                color: hasItem ? tossBlue : tossSubText,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRightInspectorFull() {
     final PlacedItem? item = _activeItem;
     // 이름 칸은 모듈이 바뀔 때만 새로 만든다(그릴 때마다 만들면 고치던 글자 자리가 튄다).
     if (item != null && _inspectorNameFor != item.id) {
@@ -7739,13 +7880,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              measuring ? "치수 재기" : "모듈 편집",
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 17,
-                color: tossText,
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    measuring ? "치수 재기" : "모듈 편집",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 17,
+                      color: tossText,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  key: const Key('layout_inspector_collapse'),
+                  tooltip: '접기',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(
+                    AppIcons.forward,
+                    color: tossSubText,
+                  ),
+                  onPressed: () => _setInspectorOpen(false),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             if (measuring)
@@ -10062,6 +10219,48 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   // 칸 안의 작은 제목(14, 굵게).
+  // 누르면 접고 펴는 묶음 머리줄(덕트·계기 제조사). 펴 둔 것은 폰에 기억한다.
+  Widget _paletteGroupHeader(String id, String title, int count) {
+    final open = _paletteOpen(id);
+    return InkWell(
+      key: Key('layout_palette_group_$id'),
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => _togglePaletteGroup(id),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(
+              open
+                  ? LucideIcons.chevronDown
+                  : AppIcons.forward,
+              size: 22,
+              color: tossSubText,
+            ),
+            const SizedBox(width: 2),
+            Flexible(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: tossText,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '$count',
+              style: const TextStyle(fontSize: 14, color: tossSubText),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _panelLabel(String text) => Text(
     text,
     style: const TextStyle(
