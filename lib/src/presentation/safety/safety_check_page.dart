@@ -103,7 +103,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('확인하지 않은 항목이 있습니다'),
-        content: Text('${r.unanswered}개 항목이 아직 "확인"이나 "해당 없음"이 아닙니다. 그대로 진행할까요?'),
+        content: Text('${r.unanswered}개 항목이 아직 "확인"이나 "해당 없음"이 아닙니다. 그대로 진행하시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
