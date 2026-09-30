@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../models/attendance.dart';
 import '../models/project_phase.dart';
+import '../models/report_csv.dart';
 import '../models/report_tools.dart';
 
 const Color _teal = AppColors.brand;
@@ -88,42 +89,12 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
 
   // ───────────── 내보내기 ─────────────
   Future<void> _exportCsv() async {
-    final b = StringBuffer('﻿');
-    b.writeln('프로젝트,날짜,근태,작업유형,인원,연장시간,벤딩pt,결선개소,작업단계,특이사항');
-    String q(String s) => '"${s.replaceAll('"', '""').replaceAll('\n', ' ')}"';
-    for (final (l, r) in _reports) {
-      final names = {
-        for (final p in phasesOf(l)) p['id'].toString(): p['name'].toString(),
-      };
-      final types = r['work_type'] is List
-          ? (r['work_type'] as List).join('/')
-          : (r['work_type']?.toString() ?? '');
-      final d = reportDateOf(r);
-      b.writeln(
-        [
-          q(l['name']?.toString() ?? ''),
-          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}',
-          q(attendanceTypeOf(Map<String, dynamic>.from(r))),
-          q(types),
-          r['worker_count'] ?? 1,
-          r['overtime_hours'] ?? 0,
-          r['points'] ?? 0,
-          r['wiring_points'] ?? 0,
-          q(
-            reportIds(
-              r,
-              'workedPhaseIds',
-            ).map((id) => names[id] ?? '').where((e) => e.isNotEmpty).join('/'),
-          ),
-          q(r['note']?.toString() ?? ''),
-        ].join(','),
-      );
-    }
+    final csv = buildReportsCsv(_reports);
     final dir = await getTemporaryDirectory();
     final file = File(
       '${dir.path}/stats_${DateTime.now().millisecondsSinceEpoch}.csv',
     );
-    await file.writeAsString(b.toString());
+    await file.writeAsString(csv);
     // ignore: deprecated_member_use
     await Share.shareXFiles([XFile(file.path)], text: '${widget.title} (CSV)');
   }

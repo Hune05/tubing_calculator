@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
@@ -9,6 +11,7 @@ import 'package:flutter/services.dart';
 import '../models/attendance.dart';
 import '../models/project_phase.dart';
 import '../widgets/work_log_card.dart';
+import '../models/report_csv.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -769,7 +772,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
 
   // ───────────────────────── 기간 보고서 ─────────────────────────
   void _showReportExport() {
-    int mode = 0; // 0=최근 7일 1=최근 14일 2=이번 달 3=전체
+    int mode = 0; // 0=최근 7일 1=최근 14일 2=이번 달 3=지난 달 4=전체
     bool withPhotos = ReportStyle.current.defaultPhotos;
     showModalBottomSheet(
       context: context,
@@ -779,18 +782,27 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) {
-          ReportDoc build() {
+          // 고른 기간의 처음과 끝(지난 달만 끝이 오늘이 아니다).
+          (DateTime, DateTime) range() {
             final now = dayOnly(DateTime.now());
-            final from = switch (mode) {
-              0 => now.subtract(const Duration(days: 6)),
-              1 => now.subtract(const Duration(days: 13)),
-              2 => DateTime(now.year, now.month, 1),
-              _ => DateTime(2000),
+            return switch (mode) {
+              0 => (now.subtract(const Duration(days: 6)), now),
+              1 => (now.subtract(const Duration(days: 13)), now),
+              2 => (DateTime(now.year, now.month, 1), now),
+              3 => (
+                DateTime(now.year, now.month - 1, 1),
+                DateTime(now.year, now.month, 0),
+              ),
+              _ => (DateTime(2000), now),
             };
-            return buildReportDoc(log, from, now);
           }
 
-          const labels = ['최근 7일', '최근 14일', '이번 달', '전체'];
+          ReportDoc build() {
+            final r = range();
+            return buildReportDoc(log, r.$1, r.$2);
+          }
+
+          const labels = ['최근 7일', '최근 14일', '이번 달', '지난 달', '전체'];
           return SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(20),
@@ -839,6 +851,19 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                       ),
                       const SizedBox(width: 10),
                       Expanded(
+                        child: OutlinedButton.icon(
+                          key: const Key('report_export_csv'),
+                          onPressed: () async {
+                            final r = range();
+                            Navigator.pop(ctx);
+                            await _shareReportsCsv(r.$1, r.$2);
+                          },
+                          icon: const Icon(Icons.table_chart_outlined, size: 18),
+                          label: const Text("엑셀"),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
                         child: ElevatedButton.icon(
                           onPressed: () async {
                             Navigator.pop(ctx);
@@ -873,6 +898,34 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         },
       ),
     );
+  }
+
+  /// 고른 기간의 일지를 엑셀에서 열 수 있는 CSV 파일로 만들어 공유한다.
+  Future<void> _shareReportsCsv(DateTime from, DateTime to) async {
+    final rows = reportsInRange(log, from, to);
+    if (rows.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(keepWords("이 기간에는 작성한 작업 일지가 없습니다."))),
+        );
+      }
+      return;
+    }
+    try {
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        '${dir.path}/일지_${DateTime.now().millisecondsSinceEpoch}.csv',
+      );
+      await file.writeAsString(buildReportsCsv(rows));
+      // ignore: deprecated_member_use
+      await Share.shareXFiles([XFile(file.path)], text: '${log['name']} 작업 일지 (엑셀)');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(keepWords("엑셀 파일을 만들지 못했습니다: $e"))),
+        );
+      }
+    }
   }
 
   // ───────────────────────── 자재 현황 ─────────────────────────
