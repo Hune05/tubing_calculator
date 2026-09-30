@@ -1492,6 +1492,39 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           );
                         },
                       ),
+                      _sectionHeader("축 정렬"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "축 정렬 계산",
+                        subtitle: "모터·펌프 커플링 센터링 · 발 심 두께와 좌우 이동량",
+                        icon: AppGlyph.alignment,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AlignmentPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "축 정렬 현장 지침",
+                        subtitle: "배관 당김·용접 변형·소프트 풋 등 잘 안 맞을 때 대책",
+                        icon: AppGlyph.alignment,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AlignmentGuidePage(),
+                            ),
+                          );
+                        },
+                      ),
                       _sectionHeader("가공·배치"),
                       _buildMenuButton(
                         context: context,
@@ -1544,38 +1577,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const DrawingLibraryPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildMenuButton(
-                        context: context,
-                        title: "축 정렬 계산",
-                        subtitle: "모터·펌프 커플링 센터링 · 발 심 두께와 좌우 이동량",
-                        icon: AppGlyph.alignment,
-                        iconColor: slate900,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AlignmentPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildMenuButton(
-                        context: context,
-                        title: "축 정렬 현장 지침",
-                        subtitle: "배관 당김·용접 변형·소프트 풋 등 잘 안 맞을 때 대책",
-                        icon: AppGlyph.alignment,
-                        iconColor: slate900,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AlignmentGuidePage(),
                             ),
                           );
                         },
