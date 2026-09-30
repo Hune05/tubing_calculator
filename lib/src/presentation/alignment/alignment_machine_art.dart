@@ -124,9 +124,13 @@ SideLayout paintMachineSide(Canvas canvas, double w, {required double topRoom, d
   }
   _cylH(canvas, Rect.fromLTRB(w * 0.055, ay - u * 0.115, w * 0.105, ay + u * 0.115), _silver, rad: 2);
   // 케이싱(볼류트)
-  final cas = Rect.fromLTRB(w * 0.10, ay - u * 0.20, w * 0.235, ay + u * 0.20);
-  final casR = RRect.fromRectAndRadius(cas, Radius.circular(u * 0.17));
-  _shadow(canvas, cas, dy: 4, blur: 5, alpha: 0.2, rad: u * 0.17);
+  // 볼류트 케이싱: 둥근 몸통(가로가 세로보다 조금 넓은 정도)
+  final casH = math.min(u * 0.40, w * 0.15);
+  final casW = math.min(w * 0.15, casH * 1.2);
+  final cas = Rect.fromCenter(center: Offset(w * 0.17, ay), width: casW, height: casH);
+  final casRad = math.min(casW, casH) / 2;
+  final casR = RRect.fromRectAndRadius(cas, Radius.circular(casRad));
+  _shadow(canvas, cas, dy: 4, blur: 5, alpha: 0.2, rad: casRad);
   canvas.drawRRect(
     casR,
     Paint()
@@ -316,9 +320,13 @@ TopLayout paintMachineTop(Canvas canvas, Size size, {double? shimFront, double? 
     _bolt(canvas, Offset(w * 0.0425, my + y * u), math.max(2.2, u * 0.016));
   }
   _cylH(canvas, Rect.fromLTRB(w * 0.055, my - u * 0.115, w * 0.105, my + u * 0.115), _silver, rad: 2);
-  final cas = Rect.fromLTRB(w * 0.10, my - u * 0.20, w * 0.235, my + u * 0.20);
-  final casR = RRect.fromRectAndRadius(cas, Radius.circular(u * 0.17));
-  _shadow(canvas, cas, dy: 4, blur: 5, alpha: 0.2, rad: u * 0.17);
+  // 볼류트 케이싱: 둥근 몸통(가로가 세로보다 조금 넓은 정도)
+  final casH = math.min(u * 0.40, w * 0.15);
+  final casW = math.min(w * 0.15, casH * 1.2);
+  final cas = Rect.fromCenter(center: Offset(w * 0.17, my), width: casW, height: casH);
+  final casRad = math.min(casW, casH) / 2;
+  final casR = RRect.fromRectAndRadius(cas, Radius.circular(casRad));
+  _shadow(canvas, cas, dy: 4, blur: 5, alpha: 0.2, rad: casRad);
   canvas.drawRRect(
     casR,
     Paint()

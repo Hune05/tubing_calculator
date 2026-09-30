@@ -75,7 +75,7 @@ class AlignSetupPainter extends CustomPainter {
   static const double _topRoom = 46; // 다이얼 위 글씨 자리
 
   /// 그림에 필요한 높이: 위 여백 + 기계 + 거리선 네 줄.
-  static double heightFor(double w) => _topRoom + alignMachineScale(w) * 0.60 + 140;
+  static double heightFor(double w) => _topRoom + alignMachineScale(w) * 0.60 + 160;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -127,7 +127,7 @@ class AlignSetupPainter extends CustomPainter {
       _dial(canvas, Offset(xBplane, topA - 44), _dialB, 'B', tip: Offset(xBplane, topA));
 
       // 거리선은 번호마다 한 줄씩(위에서 아래로 ① ② ③ ④).
-      final y1 = ground + 30, y2 = ground + 58, y3 = ground + 86, y4 = ground + 114;
+      final y1 = ground + 46, y2 = ground + 74, y3 = ground + 102, y4 = ground + 130;
       _dim(canvas, xBplane, xAplane, y1, kAlignNumbers[0], _dialB, extFrom: axisY + hubR);
       _dim(canvas, xBplane, xC, y2, kAlignNumbers[1], AppColors.text, extFrom: axisY + hubR);
       _dim(canvas, xAplane, frontX, y3, kAlignNumbers[2], _dialA, extFrom: ground);
@@ -161,14 +161,14 @@ class AlignSetupPainter extends CustomPainter {
       canvas.drawLine(Offset(xHubR, faceY), Offset(rx + 4, faceY), p..strokeWidth = 1);
       _badge(canvas, kAlignNumbers[3], Offset(rx + 14, (axisY + faceY) / 2), AppColors.text);
 
-      final y1 = ground + 30, y2 = ground + 60, y3 = ground + 90;
+      final y1 = ground + 46, y2 = ground + 76, y3 = ground + 106;
       _dim(canvas, xC, xRim, y1, kAlignNumbers[0], AppColors.text, extFrom: axisY + hubR);
       _dim(canvas, xRim, frontX, y2, kAlignNumbers[1], _dialA, extFrom: ground);
       _dim(canvas, xRim, rearX, y3, kAlignNumbers[2], _dialA, extFrom: ground);
       _text(canvas, '림면 → 커플링 중심', Offset(xRim + 100, y1), size: 11, color: AppColors.text, w: FontWeight.w700, maxW: 150);
       _text(canvas, '림면 → 앞발', Offset(frontX + 56, y2), size: 11, color: _dialA, w: FontWeight.w700, maxW: 120);
       _text(canvas, '림면 → 뒷발', Offset(rearX - 62, y3 - 14), size: 11, color: _dialA, w: FontWeight.w700, maxW: 120);
-      _text(canvas, '④ 페이스가 닿는 반지름', Offset(96, y1 - 6), size: 11, color: AppColors.text, w: FontWeight.w700, maxW: 150);
+      _text(canvas, '④ 페이스가 닿는 반지름', Offset(96, y1), size: 11, color: AppColors.text, w: FontWeight.w700, maxW: 150);
     }
   }
 
