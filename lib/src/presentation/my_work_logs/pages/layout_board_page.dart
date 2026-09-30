@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:async';
 import '../widgets/korean_text.dart';
@@ -6190,7 +6191,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               ? _skidRouteClashProblemIds()
               : const {});
 
-    return Scaffold(
+    return QuickBarSuppress(
+      child: Scaffold(
       backgroundColor: tossBg,
       appBar: _buildAppBar(),
       body: Stack(
@@ -6260,7 +6262,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             ),
         ],
       ),
-    );
+    ));
   }
 
   // 위 막대: 자주 쓰는 것(되돌리기·다시 실행·저장)만 둔다. 나머지는 "더보기"

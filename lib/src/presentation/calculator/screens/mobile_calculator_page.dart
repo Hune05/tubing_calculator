@@ -86,8 +86,9 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
         body: SafeArea(
           top: !isFieldTab,
           bottom: false,
-          child: QuickToolBarHost(
-            enabled: !isFieldTab,
+          // 막대는 앱 전체에 있다(GlobalQuickToolBar). 가로로 쓰는 현장 탭에서만 뺀다.
+          child: QuickBarSuppress(
+            enabled: isFieldTab,
             child: _buildNarrowBody(),
           ),
         ),

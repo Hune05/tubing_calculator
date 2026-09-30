@@ -101,7 +101,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
       backgroundColor: slate100,
       body: !_settingsLoaded
           ? Center(child: CircularProgressIndicator(color: makitaTeal))
-          : QuickToolBarHost(enabled: !isFieldTab, child: _buildNarrowBody()),
+          : QuickBarSuppress(enabled: isFieldTab, child: _buildNarrowBody()),
       bottomNavigationBar: isFieldTab
           ? const SizedBox.shrink() // 현장(가로) 탭일 때만 네비바 숨김
           : Container(

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_logo.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -159,44 +160,46 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF1E2124),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const AppLogoMark(size: 96),
-            const SizedBox(height: 32),
-            const Text(
-              "FIELD HELPER",
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: 4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _version.isEmpty ? "모바일 현장 지원 시스템" : "모바일 현장 지원 시스템 v$_version",
-              style: const TextStyle(color: Colors.grey, fontSize: 16),
-            ),
-            const SizedBox(height: 100),
-
-            // 깜빡거리는 로딩 텍스트
-            FadeTransition(
-              opacity: _animController,
-              child: const Text(
-                "불러오는 중…",
+    return QuickBarSuppress(
+      child: Scaffold(
+        backgroundColor: const Color(0xFF1E2124),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const AppLogoMark(size: 96),
+              const SizedBox(height: 32),
+              const Text(
+                "FIELD HELPER",
                 style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.brand,
-                  letterSpacing: 1,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  letterSpacing: 4,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                _version.isEmpty ? "모바일 현장 지원 시스템" : "모바일 현장 지원 시스템 v$_version",
+                style: const TextStyle(color: Colors.grey, fontSize: 16),
+              ),
+              const SizedBox(height: 100),
+
+              // 깜빡거리는 로딩 텍스트
+              FadeTransition(
+                opacity: _animController,
+                child: const Text(
+                  "불러오는 중…",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.brand,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

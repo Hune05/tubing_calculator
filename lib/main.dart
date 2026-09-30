@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -366,6 +367,8 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: appNavigatorKey,
+      // 빠른 도구 막대가 지금 화면이 창·시트가 아닌지 알 수 있게 경로 변화를 지켜본다.
+      navigatorObservers: [QuickBarGate.tracker],
       debugShowCheckedModeBanner: false,
       // 날짜 선택기·달력 등 기본 위젯 문구를 한국어로(예전엔 Select date/Cancel/OK 영어).
       locale: const Locale('ko', 'KR'),
@@ -381,7 +384,13 @@ class _MyAppState extends State<MyApp> {
       // 현장 보기(햇빛·야간)를 바꾸면 FieldViewHost가 화면을 모두 다시 그린다.
       builder: (context, child) => FieldViewHost(
         child: AppFrame(
-          child: DeepLinkHandler(child: child ?? const SizedBox()),
+          child: DeepLinkHandler(
+            // 빠른 도구 막대: 모든 화면에서 옆 손잡이로 계산기 같은 도구를 바로 연다.
+            child: GlobalQuickToolBar(
+              navigatorKey: appNavigatorKey,
+              child: child ?? const SizedBox(),
+            ),
+          ),
         ),
       ),
       home: const MobileLoadingScreen(),

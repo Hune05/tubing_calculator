@@ -3,6 +3,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 
 import '../../../core/theme/field_view.dart';
 import '../models/photo_store.dart';
@@ -82,86 +83,89 @@ class _FullscreenPhotoViewerState extends State<FullscreenPhotoViewer> {
   Widget build(BuildContext context) {
     final photos = widget.photos;
     final n = photos.length;
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Column(
-          children: [
-            Row(
-              children: [
-                IconButton(
-                  key: const Key('fpv_close'),
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
-                ),
-                Expanded(
-                  child: Text(
-                    n > 1 ? '${_index + 1} / $n' : '',
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
+    return QuickBarSuppress(
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  IconButton(
+                    key: const Key('fpv_close'),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  Expanded(
+                    child: Text(
+                      n > 1 ? '${_index + 1} / $n' : '',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 48),
+                ],
+              ),
+              Expanded(
+                child: PageView.builder(
+                  controller: _page,
+                  itemCount: n,
+                  onPageChanged: _onPageChanged,
+                  itemBuilder: (_, i) => InteractiveViewer(
+                    minScale: 1.0,
+                    maxScale: 5.0,
+                    child: Center(
+                      child: PhotoImage(photos[i], fit: BoxFit.contain),
                     ),
                   ),
                 ),
-                const SizedBox(width: 48),
-              ],
-            ),
-            Expanded(
-              child: PageView.builder(
-                controller: _page,
-                itemCount: n,
-                onPageChanged: _onPageChanged,
-                itemBuilder: (_, i) => InteractiveViewer(
-                  minScale: 1.0,
-                  maxScale: 5.0,
-                  child: Center(
-                    child: PhotoImage(photos[i], fit: BoxFit.contain),
+              ),
+              if (n > 1)
+                SizedBox(
+                  height: _thumbSize + 16,
+                  child: ListView.separated(
+                    key: const Key('fpv_thumbs'),
+                    controller: _thumbs,
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    itemCount: n,
+                    separatorBuilder: (_, _) =>
+                        const SizedBox(width: _thumbGap),
+                    itemBuilder: (_, i) {
+                      final selected = i == _index;
+                      return GestureDetector(
+                        key: Key('fpv_thumb_$i'),
+                        onTap: () => _goTo(i),
+                        child: Container(
+                          width: _thumbSize,
+                          height: _thumbSize,
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: selected ? fc.brand : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(5),
+                            child: PhotoImage(
+                              photos[i],
+                              width: _thumbSize,
+                              height: _thumbSize,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
-              ),
-            ),
-            if (n > 1)
-              SizedBox(
-                height: _thumbSize + 16,
-                child: ListView.separated(
-                  key: const Key('fpv_thumbs'),
-                  controller: _thumbs,
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: n,
-                  separatorBuilder: (_, _) => const SizedBox(width: _thumbGap),
-                  itemBuilder: (_, i) {
-                    final selected = i == _index;
-                    return GestureDetector(
-                      key: Key('fpv_thumb_$i'),
-                      onTap: () => _goTo(i),
-                      child: Container(
-                        width: _thumbSize,
-                        height: _thumbSize,
-                        padding: const EdgeInsets.all(2),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: selected ? fc.brand : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(5),
-                          child: PhotoImage(
-                            photos[i],
-                            width: _thumbSize,
-                            height: _thumbSize,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

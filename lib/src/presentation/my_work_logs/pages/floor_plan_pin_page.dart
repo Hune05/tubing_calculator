@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:flutter/material.dart';
 import '../models/photo_store.dart';
 
@@ -34,61 +35,66 @@ class _FloorPlanPinPageState extends State<FloorPlanPinPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
+    return QuickBarSuppress(
+      child: Scaffold(
         backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: const Text("도면을 탭해서 위치를 찍으십시오"),
-        actions: [
-          TextButton(
-            onPressed: _fraction == null
-                ? null
-                : () => Navigator.pop(context, _fraction),
-            child: const Text(
-              "확인",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+        appBar: AppBar(
+          backgroundColor: Colors.black,
+          foregroundColor: Colors.white,
+          title: const Text("도면을 탭해서 위치를 찍으십시오"),
+          actions: [
+            TextButton(
+              onPressed: _fraction == null
+                  ? null
+                  : () => Navigator.pop(context, _fraction),
+              child: const Text(
+                "확인",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          return SizedBox(
-            width: constraints.maxWidth,
-            height: constraints.maxHeight,
-            child: GestureDetector(
-              onTapUp: (details) {
-                final RenderBox box = context.findRenderObject() as RenderBox;
-                final local = box.globalToLocal(details.globalPosition);
-                final double dx = (local.dx / box.size.width).clamp(0.0, 1.0);
-                final double dy = (local.dy / box.size.height).clamp(0.0, 1.0);
-                setState(() => _fraction = Offset(dx, dy));
-              },
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  PhotoImage(widget.imagePath, fit: BoxFit.contain),
-                  if (_fraction != null)
-                    Align(
-                      alignment: Alignment(
-                        _fraction!.dx * 2 - 1,
-                        _fraction!.dy * 2 - 1,
+          ],
+        ),
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            return SizedBox(
+              width: constraints.maxWidth,
+              height: constraints.maxHeight,
+              child: GestureDetector(
+                onTapUp: (details) {
+                  final RenderBox box = context.findRenderObject() as RenderBox;
+                  final local = box.globalToLocal(details.globalPosition);
+                  final double dx = (local.dx / box.size.width).clamp(0.0, 1.0);
+                  final double dy = (local.dy / box.size.height).clamp(
+                    0.0,
+                    1.0,
+                  );
+                  setState(() => _fraction = Offset(dx, dy));
+                },
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PhotoImage(widget.imagePath, fit: BoxFit.contain),
+                    if (_fraction != null)
+                      Align(
+                        alignment: Alignment(
+                          _fraction!.dx * 2 - 1,
+                          _fraction!.dy * 2 - 1,
+                        ),
+                        child: const Icon(
+                          Icons.location_on,
+                          color: Colors.redAccent,
+                          size: 40,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.location_on,
-                        color: Colors.redAccent,
-                        size: 40,
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }

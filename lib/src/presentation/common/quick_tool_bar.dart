@@ -8,6 +8,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -228,11 +229,16 @@ class QuickToolBarHost extends StatefulWidget {
   /// 시험용: 실제 화면 대신 쓸 도구 목록.
   final List<QuickToolDef>? tools;
 
+  /// 앱 전체(화면들을 담은 Navigator 바깥)에 얹을 때 앱의 Navigator 열쇠. 주면 도구 화면·창을 그
+  /// Navigator에 연다. 없으면 이 위젯 위쪽의 Navigator를 쓴다.
+  final GlobalKey<NavigatorState>? navigatorKey;
+
   const QuickToolBarHost({
     super.key,
     required this.child,
     this.enabled = true,
     this.tools,
+    this.navigatorKey,
   });
 
   @override
@@ -248,6 +254,21 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
   double _dragSum = 0;
 
   List<QuickToolDef> get _all => widget.tools ?? kQuickTools;
+
+  NavigatorState get _nav =>
+      widget.navigatorKey?.currentState ?? Navigator.of(context);
+  BuildContext get _navContext => widget.navigatorKey?.currentContext ?? context;
+
+  @override
+  void didUpdateWidget(QuickToolBarHost old) {
+    super.didUpdateWidget(old);
+    // 이 화면에서 빼기로 했으면 열려 있던 막대도 바로 접는다.
+    if (old.enabled && !widget.enabled && (_open || _mounted)) {
+      _closeTimer?.cancel();
+      _open = false;
+      _mounted = false;
+    }
+  }
 
   @override
   void initState() {
@@ -305,14 +326,15 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
   void _launch(QuickToolDef t) {
     HapticFeedback.selectionClick();
     _closeBar();
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: t.builder));
+    _nav.push(MaterialPageRoute<void>(builder: t.builder));
   }
 
   /// 전체 기능을 아이콘 격자로 띄우고 검색으로도 찾는다. 세부 기능이 있는 큰 기능은 폴더 하나로 묶여
   /// 누르면 안의 기능이 열린다. 누르면 작업 화면 위에 열린다.
   void _showAll() {
     HapticFeedback.selectionClick();
-    final nav = Navigator.of(context);
+    final nav = _nav;
+    final sheetContext = _navContext;
     _closeBar();
     final mains = widget.tools ?? kQuickTools;
     final subs = widget.tools == null ? kQuickSubTools : const <QuickToolDef>[];
@@ -349,12 +371,17 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
         ),
       );
     }
-    showFeatureSearchSheet(context, title: '전체 기능', grid: true, items: items);
+    showFeatureSearchSheet(
+      sheetContext,
+      title: '전체 기능',
+      grid: true,
+      items: items,
+    );
   }
 
   Future<void> _edit() async {
     await showModalBottomSheet<void>(
-      context: context,
+      context: _navContext,
       backgroundColor: fc.surface,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) {
@@ -556,11 +583,15 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
                         ),
                       ),
                     ),
-                    IconButton(
-                      key: const Key('quick_tool_edit'),
-                      tooltip: '막대 편집',
-                      icon: Icon(Icons.tune, size: 22, color: fc.textSub),
-                      onPressed: _edit,
+                    // 툴팁은 쓰지 않는다: 이 막대는 앱의 Navigator 바깥에 얹혀 Overlay가 없어 툴팁이 오류를 낸다.
+                    Semantics(
+                      label: '막대 편집',
+                      button: true,
+                      child: IconButton(
+                        key: const Key('quick_tool_edit'),
+                        icon: Icon(Icons.tune, size: 22, color: fc.textSub),
+                        onPressed: _edit,
+                      ),
                     ),
                   ],
                 ),
@@ -600,6 +631,158 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
             ),
         ],
       ],
+    );
+  }
+}
+
+// ── 앱 전체에 막대 얹기 ──
+// 막대를 모든 화면에서 쓰되, 손가락으로 화면 가장자리를 쓰는 화면(배치도·사진 확대·QR 스캔 등)이나
+// 가로로 눕힌 화면, 창·아래 시트가 떠 있을 때는 손잡이를 숨긴다.
+
+/// 화면 변화가 그리는 도중에 일어나도 안전하게 값을 바꾼다(그리는 중이면 한 프레임 뒤에).
+void _setLater<T>(ValueNotifier<T> n, T v) {
+  if (n.value == v) return;
+  final phase = SchedulerBinding.instance.schedulerPhase;
+  if (phase == SchedulerPhase.persistentCallbacks) {
+    SchedulerBinding.instance.addPostFrameCallback((_) => n.value = v);
+  } else {
+    n.value = v;
+  }
+}
+
+/// 지금 가장 위 경로가 "화면"(창·시트가 아닌 것)인지 지켜본다.
+class QuickBarRouteTracker extends NavigatorObserver {
+  final ValueNotifier<bool> topIsPage = ValueNotifier(false);
+  final List<Route<dynamic>> _stack = [];
+
+  void _update() =>
+      _setLater(topIsPage, _stack.isNotEmpty && _stack.last is PageRoute);
+
+  /// 시험용: 지켜보던 경로를 잊는다(앞 시험의 Navigator가 남기고 간 것 지우기).
+  @visibleForTesting
+  void reset() {
+    _stack.clear();
+    topIsPage.value = false;
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _stack.add(route);
+    _update();
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _stack.remove(route);
+    _update();
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    _stack.remove(route);
+    _update();
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    final i = oldRoute == null ? -1 : _stack.indexOf(oldRoute);
+    if (i >= 0) {
+      if (newRoute != null) {
+        _stack[i] = newRoute;
+      } else {
+        _stack.removeAt(i);
+      }
+    } else if (newRoute != null) {
+      _stack.add(newRoute);
+    }
+    _update();
+  }
+}
+
+abstract final class QuickBarGate {
+  /// 막대를 빼 달라고 한 화면 수(0이면 모두 허용).
+  static final ValueNotifier<int> suppressed = ValueNotifier(0);
+  static final QuickBarRouteTracker tracker = QuickBarRouteTracker();
+}
+
+/// 이 위젯이 화면에 있는 동안(그리고 [enabled]인 동안) 앱 전체 막대의 손잡이를 숨긴다.
+class QuickBarSuppress extends StatefulWidget {
+  final Widget child;
+  final bool enabled;
+  const QuickBarSuppress({super.key, required this.child, this.enabled = true});
+
+  @override
+  State<QuickBarSuppress> createState() => _QuickBarSuppressState();
+}
+
+class _QuickBarSuppressState extends State<QuickBarSuppress> {
+  bool _counted = false;
+
+  void _apply(bool want) {
+    if (want == _counted) return;
+    _counted = want;
+    _setLater(
+      QuickBarGate.suppressed,
+      QuickBarGate.suppressed.value + (want ? 1 : -1),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _apply(widget.enabled);
+  }
+
+  @override
+  void didUpdateWidget(QuickBarSuppress old) {
+    super.didUpdateWidget(old);
+    _apply(widget.enabled);
+  }
+
+  @override
+  void dispose() {
+    if (_counted) {
+      _counted = false;
+      final v = QuickBarGate.suppressed;
+      // 사라지는 도중이라 한 프레임 뒤에 뺀다.
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (v.value > 0) v.value = v.value - 1;
+      });
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
+
+/// 앱의 Navigator 바깥에 얹어 모든 화면에서 막대를 쓰게 한다.
+class GlobalQuickToolBar extends StatelessWidget {
+  final Widget child;
+  final GlobalKey<NavigatorState> navigatorKey;
+  final List<QuickToolDef>? tools;
+  const GlobalQuickToolBar({
+    super.key,
+    required this.child,
+    required this.navigatorKey,
+    this.tools,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final landscape =
+        MediaQuery.orientationOf(context) == Orientation.landscape;
+    return ValueListenableBuilder<int>(
+      valueListenable: QuickBarGate.suppressed,
+      builder: (context, hidden, _) => ValueListenableBuilder<bool>(
+        valueListenable: QuickBarGate.tracker.topIsPage,
+        builder: (context, onPage, _) => QuickToolBarHost(
+          navigatorKey: navigatorKey,
+          tools: tools,
+          enabled: hidden == 0 && onPage && !landscape,
+          child: child,
+        ),
+      ),
     );
   }
 }
