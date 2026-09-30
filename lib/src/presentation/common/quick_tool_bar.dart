@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../bend_check/bend_check_page.dart';
+import '../equipment/equipment_pages.dart';
 import '../electrical/electric_calculator_page.dart';
 import '../field_tools/eng_calculator_page.dart';
 import '../field_tools/level_page.dart';
@@ -106,6 +107,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.tubeSpec,
     (_) => const BendCheckPage(),
     subtitle: '계산값과 잰 값의 차이를 남겨 다음 마킹에 참고',
+    group: '현장 도구',
+  ),
+  QuickToolDef(
+    'equipledger',
+    '장비 대장',
+    AppGlyph.equipment,
+    (_) => const EquipmentLedgerPage(),
+    subtitle: '장비 교정 기한 · 반출·반납 · QR 찾기',
     group: '현장 도구',
   ),
   QuickToolDef(

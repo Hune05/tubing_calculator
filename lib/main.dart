@@ -1,4 +1,7 @@
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
+import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart' show LedgerView;
+import 'package:tubing_calculator/src/presentation/equipment/equipment_pages.dart' show EquipmentLedgerPage;
+import 'package:tubing_calculator/src/presentation/equipment/equipment_reminders.dart' show kEquipPayloadPrefix;
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -75,6 +78,12 @@ Route<void>? routeForNotification(String? payload, Map<String, dynamic> data) {
   if (sched != null) {
     return MaterialPageRoute<void>(
       builder: (_) => MobileMyScheduleScreen(initialDate: sched.date),
+    );
+  }
+  // 장비 교정·검사 기한 알림: 기한 지남·임박 장비 목록을 연다.
+  if (payload != null && payload.startsWith(kEquipPayloadPrefix)) {
+    return MaterialPageRoute<void>(
+      builder: (_) => const EquipmentLedgerPage(initialView: LedgerView.due),
     );
   }
   // 압력 시험 유지시간 완료(폰 예약 알림 918400, hold_alarm.dart).

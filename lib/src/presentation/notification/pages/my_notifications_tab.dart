@@ -18,6 +18,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/pending_write_log.dart';
+import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart';
+import 'package:tubing_calculator/src/presentation/equipment/equipment_pages.dart';
+import 'package:tubing_calculator/src/presentation/equipment/equipment_store.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_model.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
@@ -162,7 +165,34 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         safetyUsedRecently(records, now) && safetyCheckToday(records, now) == null;
   } catch (_) {}
 
+  // 교정·검사 기한이 지났거나 30일 안에 오는 장비.
+  LedgerSummary? equipSummary;
+  try {
+    equipSummary = summarize(await EquipmentStore.load(), DateTime.now());
+  } catch (_) {}
+
   final list = <_AutoItem>[];
+  if (equipSummary != null && (equipSummary.overdue + equipSummary.soon) > 0) {
+    final s = equipSummary;
+    list.add(
+      _AutoItem(
+        id: 'equip_due',
+        icon: Icons.build_circle_outlined,
+        color: s.overdue > 0 ? AppColors.danger : AppColors.caution,
+        title: s.overdue > 0
+            ? '장비 교정 기한 지남 ${s.overdue}대'
+            : '장비 교정 기한 임박 ${s.soon}대',
+        detail: s.overdue > 0 && s.soon > 0
+            ? '기한이 지난 장비 ${s.overdue}대, 30일 안에 오는 장비 ${s.soon}대가 있습니다. 눌러서 확인하십시오.'
+            : (s.overdue > 0
+                  ? '교정·검사 기한이 지난 장비가 있습니다. 눌러서 확인하십시오.'
+                  : '30일 안에 교정·검사 기한이 오는 장비가 있습니다. 눌러서 확인하십시오.'),
+        route: () => MaterialPageRoute<void>(
+          builder: (_) => const EquipmentLedgerPage(initialView: LedgerView.due),
+        ),
+      ),
+    );
+  }
   if (safetyMissing) {
     list.add(
       _AutoItem(

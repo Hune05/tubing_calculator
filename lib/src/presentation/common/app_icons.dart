@@ -53,6 +53,9 @@ enum AppGlyph {
   /// 작업 전 안전 점검: 방패 + 체크.
   safety,
 
+  /// 장비 관리 대장: 눈금판(게이지) + 받침.
+  equipment,
+
   // ── 계산기 아래 탭 ──
   /// 입력: 구간 목록 + 연필.
   navInput,
@@ -580,6 +583,19 @@ class _AppIconPainter extends CustomPainter {
         l(14.0, 19.6, 20.6, 13.0);
         l(15.6, 13.0, 20.6, 13.0);
         l(20.6, 13.0, 20.6, 18.0);
+      case AppGlyph.equipment:
+        canvas.drawCircle(const Offset(12.0, 11.0), 8.2, soft);
+        canvas.drawCircle(const Offset(12.0, 11.0), 8.2, line);
+        l(12.0, 11.0, 16.0, 6.8);
+        canvas.drawCircle(const Offset(12.0, 11.0), 1.2, fill);
+        for (final t in [
+          [5.4, 11.0, 6.8, 11.0],
+          [17.2, 11.0, 18.6, 11.0],
+          [7.2, 6.2, 8.2, 7.2],
+        ]) {
+          l(t[0], t[1], t[2], t[3]);
+        }
+        l(7.0, 21.0, 17.0, 21.0);
       case AppGlyph.safety:
         final shield = poly([
           12.0, 2.8, 19.4, 5.6, 19.4, 11.6, 12.0, 21.2, 4.6, 11.6, 4.6, 5.6, //

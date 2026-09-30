@@ -1,6 +1,10 @@
 import 'package:tubing_calculator/src/presentation/common/feature_search.dart';
 import 'package:tubing_calculator/src/presentation/common/record_search.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
+import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart' show summarize;
+import 'package:tubing_calculator/src/presentation/equipment/equipment_pages.dart';
+import 'package:tubing_calculator/src/presentation/equipment/equipment_reminders.dart' show rescheduleEquipmentReminders;
+import 'package:tubing_calculator/src/presentation/equipment/equipment_store.dart';
 import 'package:tubing_calculator/src/presentation/bend_check/bend_check_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart' show allMaterialCatalog;
@@ -257,6 +261,17 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   /// 이번 build에서 만든 메뉴 버튼들(빠른 실행 화면이 여기서 골라 쓴다).
   final List<_MenuEntry> _menuEntries = [];
 
+  // 교정·검사 기한이 지났거나 30일 안에 오는 장비 수(홈 배지). 폰에 저장된 것만 읽어 빠르다.
+  int _equipDue = 0;
+
+  Future<void> _loadEquipmentDue() async {
+    try {
+      final list = await EquipmentStore.load();
+      final s = summarize(list, DateTime.now());
+      if (mounted) setState(() => _equipDue = s.overdue + s.soon);
+    } catch (_) {}
+  }
+
   static const String _kFavoritesKey = 'home_quick_launch_favorites_v1';
   static const String _kQuickOrderKey = 'home_quick_launch_order_v1';
 
@@ -283,6 +298,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadEquipmentDue();
+    // 장비 교정·검사 기한 알림을 다시 잡는다(폰을 껐다 켜거나 다른 폰에서 고쳐도 맞게).
+    EquipmentStore.load().then(rescheduleEquipmentReminders).catchError((_) => 0);
     _fetchDetailedWeather();
     // 다른 기기(폰↔태블릿)에서 고친 계산기 설정이 더 새로우면 받는다(기다리지 않음, 통신이 없으면 그대로).
     pullNewerCalculatorSettings();
@@ -1690,6 +1708,24 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                               ),
                             ),
                           ).then((_) => _loadLowStock());
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "장비 관리 대장",
+                        subtitle: "계기·공구 교정 기한, 반출·반납, QR 찾기",
+                        icon: AppGlyph.equipment,
+                        iconColor: slate900,
+                        badgeText: _equipDue > 0 ? "기한 $_equipDue건" : null,
+                        badgeColor: AppColors.caution,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const EquipmentLedgerPage(),
+                            ),
+                          ).then((_) => _loadEquipmentDue());
                         },
                       ),
                       _buildMenuButton(
