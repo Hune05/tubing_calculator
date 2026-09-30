@@ -1,4 +1,7 @@
 import 'package:tubing_calculator/src/presentation/common/feature_search.dart';
+import 'package:tubing_calculator/src/presentation/common/record_search.dart';
+import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
+import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart' show allMaterialCatalog;
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/attendance.dart'
     show AttendanceCache, dateKey;
@@ -1740,11 +1743,64 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   }
 
   /// 메뉴 기능을 이름·설명으로 찾는 창(초성도 된다). 누르면 그 메뉴를 그대로 연다.
+  // 검색 창 하나를 여는 동안 프로젝트 목록은 폰에 있는 것을 한 번만 읽어 쓴다.
+  Future<List<Map<String, dynamic>>> _readLogsForSearch() async {
+    try {
+      return await WorkProjectRepository().fetchCachedProjects();
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<FeatureItem>> _recordResults(
+    String q,
+    Future<List<Map<String, dynamic>>> logs,
+  ) async {
+    final hits = searchRecords(q, await logs, allMaterialCatalog());
+    return [
+      for (final r in hits)
+        FeatureItem(
+          title: r.title,
+          subtitle: r.subtitle,
+          icon: switch (r.kind) {
+            '이슈' => AppIcons.warning,
+            '작업 일지' => AppIcons.editNote,
+            '자재' => AppIcons.list,
+            _ => AppIcons.openFile,
+          },
+          onTap: () {
+            if (r.projectId == null) {
+              // 자재는 자재 현황에서 찾는다.
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      MobileInventoryStatusPage(workerName: widget.currentWorker),
+                ),
+              );
+              return;
+            }
+            Navigator.push(
+              context,
+              WorkRoute(
+                builder: (_) => WorkLogMainScreen(
+                  initialProjectId: r.projectId,
+                  initialTab: r.tab,
+                ),
+              ),
+            );
+          },
+        ),
+    ];
+  }
+
   void _openMenuSearch() {
     HapticFeedback.selectionClick();
+    final logs = _readLogsForSearch();
     showFeatureSearchSheet(
       context,
       title: '메뉴 검색',
+      moreResults: (q) => _recordResults(q, logs),
       items: [
         for (final e in _menuEntries)
           FeatureItem(

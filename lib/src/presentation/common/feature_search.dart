@@ -1,5 +1,7 @@
 // 기능 검색 창: 메뉴 기능을 이름·설명으로 찾는다(초성 검색도 된다: "ㄱㅅㄱ" → "공학용 계산기").
 // 홈 메뉴 머리의 검색 단추와 빠른 도구 막대의 "전체"가 같은 창을 쓴다.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_icon_set.dart';
@@ -123,6 +125,8 @@ Future<void> showFeatureSearchSheet(
   required String title,
   required List<FeatureItem> items,
   bool grid = false,
+  Future<List<FeatureItem>> Function(String query)? moreResults,
+  String moreTitle = '기록에서 찾기',
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -134,7 +138,13 @@ Future<void> showFeatureSearchSheet(
     ),
     builder: (ctx) => FractionallySizedBox(
       heightFactor: 0.92,
-      child: FeatureSearchSheet(title: title, items: items, grid: grid),
+      child: FeatureSearchSheet(
+        title: title,
+        items: items,
+        grid: grid,
+        moreResults: moreResults,
+        moreTitle: moreTitle,
+      ),
     ),
   );
 }
@@ -145,11 +155,18 @@ class FeatureSearchSheet extends StatefulWidget {
 
   /// true면 목록 대신 아이콘 격자로 보인다(빠른 도구 막대의 "전체").
   final bool grid;
+
+  /// 있으면 검색어를 두 글자 이상 넣었을 때 잠시 뒤 이것을 불러, 기능 아래에 "기록에서 찾기" 결과를
+  /// 덧붙인다(일지·이슈·프로젝트·자재 같은 자료 찾기). 실패하면 조용히 없는 것으로 친다.
+  final Future<List<FeatureItem>> Function(String query)? moreResults;
+  final String moreTitle;
   const FeatureSearchSheet({
     this.grid = false,
     super.key,
     required this.title,
     required this.items,
+    this.moreResults,
+    this.moreTitle = '기록에서 찾기',
   });
 
   @override
@@ -158,11 +175,35 @@ class FeatureSearchSheet extends StatefulWidget {
 
 class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
   final _c = TextEditingController();
+  Timer? _debounce;
+  List<FeatureItem> _more = const [];
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _c.dispose();
     super.dispose();
+  }
+
+  void _scheduleMore() {
+    _debounce?.cancel();
+    final q = _c.text.trim();
+    final load = widget.moreResults;
+    if (load == null || q.runes.length < 2) {
+      if (_more.isNotEmpty) setState(() => _more = const []);
+      return;
+    }
+    _debounce = Timer(const Duration(milliseconds: 250), () async {
+      List<FeatureItem> r;
+      try {
+        r = await load(q);
+      } catch (_) {
+        r = const [];
+      }
+      // 그 사이 검색어가 바뀌었으면 버린다.
+      if (!mounted || _c.text.trim() != q) return;
+      setState(() => _more = r);
+    });
   }
 
   void _pick(FeatureItem it) {
@@ -454,6 +495,10 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
     } else {
       children.addAll(found.map(_row));
     }
+    if (searching && _more.isNotEmpty) {
+      children.add(header(widget.moreTitle));
+      children.addAll(_more.map(_row));
+    }
     final column = Column(
       key: const Key('feature_search_sheet'),
       children: [
@@ -486,7 +531,10 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
             controller: _c,
             autofocus: !widget.grid, // 격자(전체)는 아이콘을 먼저 보게 키보드를 자동으로 안 띄운다
             textInputAction: TextInputAction.search,
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) {
+              setState(() {});
+              _scheduleMore();
+            },
             decoration: InputDecoration(
               hintText: '기능 이름이나 설명으로 찾기 (초성도 됩니다)',
               prefixIcon: Icon(AppIcons.search, color: fc.textSub),
@@ -495,7 +543,12 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
                   : IconButton(
                       key: const Key('feature_search_clear'),
                       icon: Icon(AppIcons.close, color: fc.textSub),
-                      onPressed: () => setState(_c.clear),
+                      onPressed: () {
+                        setState(() {
+                          _c.clear();
+                          _more = const [];
+                        });
+                      },
                     ),
               filled: true,
               fillColor: fc.background,
