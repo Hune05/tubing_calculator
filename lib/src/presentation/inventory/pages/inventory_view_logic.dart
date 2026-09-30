@@ -41,3 +41,11 @@ int compareLeftoverRow(
   if (c != 0) return c;
   return lengthB.compareTo(lengthA);
 }
+
+/// 바코드를 읽어 자재를 찾았을 때 어떻게 할지: 하나면 그 자재 화면을 바로 연다, 없으면 알린다,
+/// 여럿이면 목록에서 고르게 둔다.
+enum ScanFindOutcome { open, none, many }
+
+ScanFindOutcome scanFindOutcome(int matchCount) => matchCount == 1
+    ? ScanFindOutcome.open
+    : (matchCount == 0 ? ScanFindOutcome.none : ScanFindOutcome.many);

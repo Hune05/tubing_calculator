@@ -9,6 +9,7 @@ import '../../tube_cutting/cutting_theme.dart'
     show showCuttingConfirmDialog, showCuttingSnack;
 import '../../tube_cutting/widgets/leftover_log_page.dart';
 import '../material_catalog.dart';
+import 'barcode_scan.dart';
 import 'inventory_item_page.dart';
 import 'inventory_owner.dart';
 import 'inventory_view_logic.dart';
@@ -54,6 +55,8 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   List<Leftover>? _leftovers;
   bool _leftoversLoading = false;
   final TextEditingController _searchController = TextEditingController();
+  // 바코드를 읽고 온 직후 한 번, 찾은 자재가 하나면 그 화면을 바로 연다.
+  bool _openAfterScan = false;
 
   @override
   void initState() {
@@ -180,15 +183,29 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                 color: slate600,
                 size: 20,
               ),
-              suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_searchQuery.isNotEmpty)
+                    IconButton(
                       icon: const Icon(Icons.cancel, color: slate600, size: 20),
                       onPressed: () {
                         _searchController.clear();
                         setState(() => _searchQuery = "");
                       },
-                    )
-                  : null,
+                    ),
+                  IconButton(
+                    key: const Key('inventory_scan_find'),
+                    tooltip: '바코드로 찾기',
+                    icon: const Icon(
+                      LucideIcons.scanLine,
+                      color: makitaTeal,
+                      size: 22,
+                    ),
+                    onPressed: _scanToFind,
+                  ),
+                ],
+              ),
               filled: true,
               fillColor: slate100,
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
@@ -505,10 +522,52 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     );
   }
 
+  /// 바코드·QR을 읽어 그 글로 자재를 찾는다. 자재 이름에 바코드 글이 들어 있는 것을 찾는다
+  /// (새 자재를 등록할 때 바코드 글을 이름에 넣기 때문이다).
+  Future<void> _scanToFind() async {
+    final code = await scanBarcode(context);
+    if (code == null || !mounted) return;
+    _searchController.text = code;
+    setState(() {
+      _searchQuery = code.toLowerCase();
+      _openAfterScan = true;
+    });
+  }
+
   Widget _inventoryList(
     List<DocumentSnapshot> filteredDocs, [
     List<MapEntry<String, LeftoverSummary>> leftoverOnly = const [],
   ]) {
+    if (_openAfterScan) {
+      _openAfterScan = false;
+      final matches = filteredDocs.length;
+      final firstId = matches > 0 ? filteredDocs.first.id : null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        switch (scanFindOutcome(matches)) {
+          case ScanFindOutcome.open:
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => InventoryItemPage(
+                  docId: firstId!,
+                  workerName: widget.workerName,
+                ),
+              ),
+            );
+          case ScanFindOutcome.none:
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  '이 바코드와 맞는 자재를 찾지 못했습니다. 새 자재는 자재 통합 관리에서 등록하십시오.',
+                ),
+              ),
+            );
+          case ScanFindOutcome.many:
+            break;
+        }
+      });
+    }
     return ListView.separated(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 80),

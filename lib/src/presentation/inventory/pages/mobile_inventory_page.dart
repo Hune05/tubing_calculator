@@ -5,7 +5,7 @@ import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'barcode_scan.dart';
 import 'dart:async';
 import 'package:tubing_calculator/src/presentation/inventory/pages/usage_since_count.dart';
 

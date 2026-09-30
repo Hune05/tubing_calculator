@@ -222,33 +222,8 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                               ),
                               onPressed: () async {
                                 HapticFeedback.lightImpact();
-                                final scannedCode = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => Scaffold(
-                                      appBar: AppBar(
-                                        title: const Text("바코드 스캔"),
-                                        backgroundColor: slate900,
-                                        foregroundColor: Colors.white,
-                                      ),
-                                      body: MobileScanner(
-                                        onDetect: (capture) {
-                                          final barcodes = capture.barcodes;
-                                          if (barcodes.isNotEmpty &&
-                                              barcodes.first.rawValue != null) {
-                                            if (!context.mounted) return;
-                                            Navigator.pop(
-                                              context,
-                                              barcodes.first.rawValue,
-                                            );
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                  ),
-                                );
-                                if (scannedCode != null &&
-                                    scannedCode is String) {
+                                final scannedCode = await scanBarcode(context);
+                                if (scannedCode != null) {
                                   setDialogState(() {
                                     nameController.text = scannedCode;
                                   });
