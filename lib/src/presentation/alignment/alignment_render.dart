@@ -25,21 +25,33 @@ const Color _dialB = Color(0xFF2F6FE0);
 
 Color _mix(Color c, double t) => t >= 0 ? Color.lerp(c, Colors.white, t)! : Color.lerp(c, Colors.black, -t)!;
 
-/// 그림 치수(모델 단위). 커플링 중심 x = 0, 펌프는 −, 모터는 +. y = 위, z = 오른쪽(고정 쪽에서 볼 때).
+/// 그림 치수. 1 = 100 mm. 커플링 중심 x = 0, 펌프는 −, 모터는 +. y = 위(받침판 밑이 0), z = 오른쪽(고정 쪽에서 볼 때).
+/// 비율은 규격 치수표를 따른다.
+///  - 모터: IEC 60072 프레임 160M(2극) — 축 높이 H 160, 발 구멍 앞뒤 간격 B 210, 축 어깨~앞발 구멍 C 108,
+///    발 구멍 좌우 간격 A 254, 축 지름 D 42, 축 길이 E 110. 몸통 지름·전체 길이는 흔한 값(몸통 약 314, 길이 약 600).
+///  - 펌프: ISO 2858 65-40-250 — 흡입 DN65, 토출 DN40, a 100(흡입면~토출 중심), f 500(토출 중심~축 끝),
+///    h1 180(발 밑~축 중심), h2 225(축 중심~토출 플랜지 면). 플랜지는 PN16(DN65 바깥지름 185, DN40 150).
+///  - 펌프 축 높이 180과 모터 축 높이 160의 차이 20 mm는 모터 받침(패드)과 심으로 맞춘다.
 class AlignGeo {
-  static const double ya = 2.3; // 축 높이
-  static const double plateTop = 0.6;
-  static const double shimTop = 0.76;
-  static const double footTop = 1.0;
-  static const double hubR = 0.62;
-  static const double xB = -0.55; // 다이얼 B가 읽는 펌프 쪽 허브 림
-  static const double xA = 0.55; // 다이얼 A(림 다이얼)가 읽는 모터 쪽 허브 림
-  static const double front = 2.65; // 모터 앞발 가운데
-  static const double rear = 5.25; // 모터 뒷발 가운데
-  static const double footLen = 1.0;
-  static const double footZ0 = 1.05, footZ1 = 2.0; // 발 z 범위(오른쪽), 왼쪽은 부호 반대
-  static const double motorX0 = 2.05, motorX1 = 6.1, motorR = 1.42;
-  static const double x0 = -7.0, x1 = 7.6; // 그림 가로 범위
+  static const double plateTop = 0.8; // 받침판 윗면(두께 80)
+  static const double ya = plateTop + 1.8; // 축 높이(펌프 h1 180)
+  static const double padTop = 0.9; // 모터 받침 패드 윗면(심 두께는 보이게 키워 그린다)
+  static const double shimTop = ya - 1.6; // 모터 발 밑(모터 H 160)
+  static const double footTop = shimTop + 0.25; // 발 판 두께 25
+  static const double hubR = 0.64; // 커플링 허브 바깥지름 128
+  static const double xB = -0.4; // 다이얼 B가 읽는 펌프 쪽 허브 림
+  static const double xA = 0.4; // 다이얼 A(림 다이얼)가 읽는 모터 쪽 허브 림
+  static const double shoulder = 1.2; // 모터 축 어깨(허브 끝 0.1 + E 110)
+  static const double front = shoulder + 1.08; // 앞발 구멍(C 108)
+  static const double rear = front + 2.1; // 뒷발 구멍(B 210)
+  static const double footLen = 0.6; // 발 앞뒤 길이
+  static const double footZ0 = 1.0, footZ1 = 1.52; // 발 좌우 범위(AB 304의 반), 구멍은 A/2 = 1.27
+  static const double motorX0 = 1.55, motorX1 = 5.6, motorR = 1.57; // 몸통(AC 314)
+  static const double fanEnd = 7.2; // 팬 덮개 끝(어깨에서 약 600)
+  static const double xDischarge = -5.1; // 토출 중심(축 끝 −0.1에서 f 500)
+  static const double xSuction = xDischarge - 1.0; // 흡입 플랜지 면(a 100)
+  static const double casingR = 1.65; // 볼류트 바깥 반지름(지름 약 330)
+  static const double x0 = -6.5, x1 = 7.6; // 그림 가로 범위(받침판)
 }
 
 /// 모델 좌표 → 화면. 옆 그림은 (x, y), 위 그림은 (x, z)이며 z가 크면 화면 아래.
@@ -118,113 +130,115 @@ void _nutSide(Canvas c, _Map m, double x, double y, double r) => _flat(c, m.r(x 
 
 void _paintSide(Canvas c, _Map m, {double? shimFront, double? shimRear}) {
   const ya = AlignGeo.ya, pt = AlignGeo.plateTop, mr = AlignGeo.motorR;
+  const xs = AlignGeo.xSuction, xd = AlignGeo.xDischarge, cr = AlignGeo.casingR;
   final a = m.p(AlignGeo.x0 + 0.1, 0), b = m.p(AlignGeo.x1 - 0.1, 0);
   c.drawRRect(
     RRect.fromRectAndRadius(Rect.fromLTRB(a.dx, a.dy - 2, b.dx, a.dy + 8), const Radius.circular(6)),
     Paint()..color = Colors.black.withValues(alpha: 0.18)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
   );
 
-  // 받침판: 아래 치마 + 윗판, 가운데(좁은 곳)는 조금 안쪽이라 어둡게
-  _flat(c, m.r(AlignGeo.x0 + 0.02, 0, AlignGeo.x1 - 0.02, pt - 0.14), _mix(_plateCol, -0.12));
-  _flat(c, m.r(-6.9, pt - 0.14, -1.35, pt), _plateCol);
-  _flat(c, m.r(-1.35, pt - 0.14, 1.6, pt), _mix(_plateCol, -0.1));
-  _flat(c, m.r(1.6, pt - 0.14, 7.5, pt), _plateCol);
-  for (final x in [-6.55, -1.7, 1.95, 7.15]) {
-    _nutSide(c, m, x, pt, 0.13);
+  // 받침판(두께 80): 옆면 + 윗판 테두리, 가운데(좁은 곳)는 안쪽이라 어둡게
+  _flat(c, m.r(AlignGeo.x0, 0, AlignGeo.x1, pt - 0.12), _mix(_plateCol, -0.1));
+  _flat(c, m.r(AlignGeo.x0, pt - 0.12, -1.3, pt), _plateCol);
+  _flat(c, m.r(-1.3, pt - 0.12, 1.0, pt), _mix(_plateCol, -0.1));
+  _flat(c, m.r(1.0, pt - 0.12, AlignGeo.x1, pt), _plateCol);
+  for (final x in [-6.2, -1.6, 1.3, 7.3]) {
+    _nutSide(c, m, x, pt, 0.12);
   }
 
-  // ── 펌프
-  // 베어링 받침 다리(파란 브래킷 밑)
-  final leg = Path()..addPolygon([m.p(-2.95, ya - 0.7), m.p(-2.25, ya - 0.7), m.p(-2.05, pt + 0.12), m.p(-3.15, pt + 0.12)], true);
+  // ── 펌프(ISO 2858 65-40-250)
+  // 베어링 받침 다리
+  final leg = Path()..addPolygon([m.p(-2.35, ya - 0.72), m.p(-1.85, ya - 0.72), m.p(-1.7, pt + 0.12), m.p(-2.5, pt + 0.12)], true);
   c.drawPath(leg, Paint()..shader = LinearGradient(colors: [_mix(_cast, -0.3), _mix(_cast, 0.35), _mix(_cast, -0.25)]).createShader(leg.getBounds()));
   c.drawPath(leg, _line);
-  _flat(c, m.r(-3.25, pt, -1.95, pt + 0.12), _mix(_cast, -0.05));
-  for (final x in [-3.05, -2.15]) {
-    _nutSide(c, m, x, pt + 0.12, 0.1);
+  _flat(c, m.r(-2.6, pt, -1.6, pt + 0.12), _mix(_cast, -0.05));
+  for (final x in [-2.45, -1.75]) {
+    _nutSide(c, m, x, pt + 0.12, 0.09);
   }
-  // 케이싱 발
-  _flat(c, m.r(-5.55, pt + 0.12, -4.7, 0.95), _mix(_cast, -0.08));
-  _flat(c, m.r(-5.7, pt, -4.55, pt + 0.12), _mix(_cast, -0.05));
-  for (final x in [-5.55, -4.7]) {
-    _nutSide(c, m, x, pt + 0.12, 0.1);
+  // 케이싱 발(발 밑 = 받침판 윗면, 축까지 h1 180)
+  _flat(c, m.r(-5.5, pt + 0.12, -4.7, ya - cr + 0.3), _mix(_cast, -0.08));
+  _flat(c, m.r(-5.65, pt, -4.55, pt + 0.12), _mix(_cast, -0.05));
+  for (final x in [-5.5, -4.7]) {
+    _nutSide(c, m, x, pt + 0.12, 0.09);
   }
-  // 흡입관과 흡입 플랜지(왼쪽 끝)
-  _cyl(c, m, -6.36, -5.7, 0.72, 0.9, _silver, at: ya);
-  _cyl(c, m, -6.62, -6.36, 1.18, 1.18, _mix(_silver, 0.04), at: ya);
-  for (final y in [ya + 0.94, ya - 0.94]) {
-    _bolt(c, m.p(-6.49, y), math.max(2.0, m.s * 0.08));
+  // 흡입 플랜지(DN65, 바깥지름 185, 두께 20)와 흡입구
+  _cyl(c, m, xs + 0.2, -5.55, 0.42, 0.62, _silver, at: ya);
+  _cyl(c, m, xs, xs + 0.2, 0.925, 0.925, _mix(_silver, 0.04), at: ya);
+  for (final y in [ya + 0.725, ya - 0.725]) {
+    _bolt(c, m.p(xs + 0.1, y), math.max(1.8, m.s * 0.07));
   }
-  // 토출 노즐(위)과 플랜지
-  _flat(c, m.r(-5.83, ya + 1.1, -4.67, ya + 2.25), _cast, horizontal: true);
-  _flat(c, m.r(-6.25, ya + 2.25, -4.25, ya + 2.47), _mix(_silver, 0.05));
-  for (final x in [-6.0, -5.52, -4.98, -4.5]) {
-    _nutSide(c, m, x, ya + 2.47, 0.08);
+  // 토출 노즐과 플랜지(DN40, 바깥지름 150, 면 높이 h2 225)
+  _flat(c, m.r(xd - 0.33, ya + cr - 0.3, xd + 0.33, ya + 2.25 - 0.18), _cast, horizontal: true);
+  _flat(c, m.r(xd - 0.75, ya + 2.25 - 0.18, xd + 0.75, ya + 2.25), _mix(_silver, 0.05));
+  for (final x in [xd - 0.55, xd + 0.55]) {
+    _nutSide(c, m, x, ya + 2.25, 0.07);
   }
   // 볼류트 케이싱(둥근 몸통)
-  _cyl(c, m, -5.8, -4.55, 1.62, 1.62, _cast, at: ya, round: true);
-  final vol = m.r(-5.62, ya - 1.35, -4.72, ya + 1.35);
+  _cyl(c, m, -5.6, -4.5, cr, cr, _cast, at: ya, round: true);
+  final vol = m.r(-5.45, ya - cr + 0.25, -4.65, ya + cr - 0.25);
   c.drawRRect(RRect.fromRectAndRadius(vol, Radius.circular(vol.width * 0.45)), Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = Colors.white.withValues(alpha: 0.45));
-  // 커버 플랜지
-  _cyl(c, m, -4.55, -4.3, 1.7, 1.7, _mix(_cast, -0.03), at: ya);
-  for (final y in [ya + 1.52, ya - 1.52, ya + 0.8, ya - 0.8]) {
-    _bolt(c, m.p(-4.42, y), math.max(1.8, m.s * 0.065));
+  // 케이싱 커버
+  _cyl(c, m, -4.5, -4.25, 1.55, 1.55, _mix(_cast, -0.03), at: ya);
+  for (final y in [ya + 1.38, ya - 1.38, ya + 0.7, ya - 0.7]) {
+    _bolt(c, m.p(-4.375, y), math.max(1.6, m.s * 0.06));
   }
-  // 파란 브래킷(원뿔)과 베어링 하우징
-  _cyl(c, m, -4.3, -3.1, 1.4, 0.86, _blue, at: ya);
-  _cyl(c, m, -3.1, -1.95, 0.86, 0.8, _blue, at: ya);
-  _cyl(c, m, -1.95, -1.75, 0.9, 0.9, _mix(_blue, -0.1), at: ya);
-  _flat(c, m.r(-2.72, ya + 0.8, -2.48, ya + 1.05), const Color(0xFFD8A63A), horizontal: true); // 급유구
-  // 펌프 축
-  _cyl(c, m, -1.75, -0.9, 0.27, 0.27, _mix(_silver, 0.2), at: ya);
+  // 파란 브래킷(원뿔)과 베어링 하우징(지름 150)
+  _cyl(c, m, -4.25, -3.0, 1.3, 0.75, _blue, at: ya);
+  _cyl(c, m, -3.0, -1.5, 0.75, 0.72, _blue, at: ya);
+  _cyl(c, m, -1.62, -1.4, 0.8, 0.8, _mix(_blue, -0.1), at: ya);
+  _flat(c, m.r(-2.3, ya + 0.72, -2.1, ya + 0.95), const Color(0xFFD8A63A), horizontal: true); // 급유구
+  // 펌프 축(지름 32)
+  _cyl(c, m, -1.4, -0.7, 0.16, 0.16, _mix(_silver, 0.2), at: ya);
 
-  // ── 커플링
-  _cyl(c, m, -0.9, -0.12, AlignGeo.hubR, AlignGeo.hubR, _mix(_silver, 0.1), at: ya);
-  _cyl(c, m, -0.12, 0.12, 0.46, 0.46, _rubber, at: ya);
-  _cyl(c, m, 0.12, 0.9, AlignGeo.hubR, AlignGeo.hubR, _mix(_silver, 0.1), at: ya);
-  _cyl(c, m, 0.9, 1.62, 0.27, 0.27, _mix(_silver, 0.2), at: ya);
+  // ── 커플링(허브 바깥지름 128, 가운데 고무)
+  _cyl(c, m, -0.7, -0.1, AlignGeo.hubR, AlignGeo.hubR, _mix(_silver, 0.1), at: ya);
+  _cyl(c, m, -0.1, 0.1, 0.5, 0.5, _rubber, at: ya);
+  _cyl(c, m, 0.1, 0.7, AlignGeo.hubR, AlignGeo.hubR, _mix(_silver, 0.1), at: ya);
+  _cyl(c, m, 0.7, AlignGeo.shoulder, 0.21, 0.21, _mix(_silver, 0.2), at: ya); // 모터 축(D 42)
 
-  // ── 모터
-  _cyl(c, m, 1.62, 1.8, 0.45, 0.45, _mix(_silver, -0.05), at: ya);
-  _cyl(c, m, 1.8, AlignGeo.motorX0, 1.05, mr + 0.1, _mix(_silver, -0.02), at: ya);
+  // ── 모터(IEC 160M)
+  _flat(c, m.r(AlignGeo.front - 0.45, pt, AlignGeo.rear + 0.45, AlignGeo.padTop), _mix(_cast, -0.1)); // 받침 패드
+  _cyl(c, m, AlignGeo.shoulder, 1.35, 0.6, 0.6, _mix(_silver, -0.05), at: ya);
+  _cyl(c, m, 1.35, AlignGeo.motorX0, 1.0, mr, _mix(_silver, -0.02), at: ya);
   _motorBody(c, m, ya);
-  _cyl(c, m, AlignGeo.motorX1, AlignGeo.motorX1 + 0.3, mr + 0.1, mr + 0.1, _mix(_silver, -0.02), at: ya);
-  _cyl(c, m, AlignGeo.motorX1 + 0.3, 7.25, mr + 0.02, mr - 0.12, _mix(_silver, 0.06), at: ya);
-  _cyl(c, m, 7.25, 7.4, mr - 0.12, 0.9, _mix(_silver, 0.06), at: ya);
-  for (var x = 6.55; x < 7.15; x += 0.12) {
-    c.drawLine(m.p(x, ya + mr - 0.2), m.p(x, ya - mr + 0.2), Paint()..color = _edge.withValues(alpha: 0.22)..strokeWidth = 1);
+  _cyl(c, m, AlignGeo.motorX1, AlignGeo.motorX1 + 0.2, mr, mr, _mix(_silver, -0.02), at: ya);
+  _cyl(c, m, AlignGeo.motorX1 + 0.2, AlignGeo.fanEnd - 0.12, mr - 0.07, mr - 0.2, _mix(_silver, 0.06), at: ya);
+  _cyl(c, m, AlignGeo.fanEnd - 0.12, AlignGeo.fanEnd, mr - 0.2, 1.0, _mix(_silver, 0.06), at: ya);
+  for (var x = AlignGeo.motorX1 + 0.35; x < AlignGeo.fanEnd - 0.2; x += 0.1) {
+    c.drawLine(m.p(x, ya + mr - 0.3), m.p(x, ya - mr + 0.3), Paint()..color = _edge.withValues(alpha: 0.22)..strokeWidth = 1);
   }
   // 고리
-  _flat(c, m.r(3.43, ya + mr + 0.1, 3.67, ya + mr + 0.27), const Color(0xFF9AA2AA), horizontal: true);
-  final eye = m.p(3.55, ya + mr + 0.5);
-  c.drawCircle(eye, 0.24 * m.s, Paint()..style = PaintingStyle.stroke..strokeWidth = math.max(3, 0.12 * m.s)..color = _edge.withValues(alpha: 0.85));
-  c.drawCircle(eye, 0.24 * m.s, Paint()..style = PaintingStyle.stroke..strokeWidth = math.max(1.8, 0.07 * m.s)..color = _mix(_silver, 0.25));
-  // 단자함(앞으로 튀어나온 상자, 뚜껑 나사 넷, 전선 구멍)
-  final tb = m.r(3.7, ya - 0.45, 5.0, ya + 0.75);
+  _flat(c, m.r(3.2, ya + mr - 0.02, 3.4, ya + mr + 0.14), const Color(0xFF9AA2AA), horizontal: true);
+  final eye = m.p(3.3, ya + mr + 0.36);
+  c.drawCircle(eye, 0.2 * m.s, Paint()..style = PaintingStyle.stroke..strokeWidth = math.max(3, 0.1 * m.s)..color = _edge.withValues(alpha: 0.85));
+  c.drawCircle(eye, 0.2 * m.s, Paint()..style = PaintingStyle.stroke..strokeWidth = math.max(1.8, 0.06 * m.s)..color = _mix(_silver, 0.25));
+  // 단자함(옆으로 튀어나온 상자, 뚜껑 나사 넷, 전선 구멍)
+  final tb = m.r(2.95, ya - 0.3, 4.0, ya + 0.7);
   c.drawRRect(RRect.fromRectAndRadius(tb.shift(const Offset(2, 3)), const Radius.circular(3)), Paint()..color = Colors.black.withValues(alpha: 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
   _flat(c, tb, _mix(_silver, 0.05), rad: 3);
-  final lid = m.r(3.8, ya - 0.35, 4.9, ya + 0.65);
+  final lid = m.r(3.03, ya - 0.22, 3.92, ya + 0.62);
   c.drawRRect(RRect.fromRectAndRadius(lid, const Radius.circular(2)), Paint()..style = PaintingStyle.stroke..strokeWidth = 1..color = _edge.withValues(alpha: 0.4));
-  for (final (x, y) in [(3.88, ya + 0.57), (4.82, ya + 0.57), (3.88, ya - 0.27), (4.82, ya - 0.27)]) {
-    _bolt(c, m.p(x, y), math.max(1.8, m.s * 0.05));
+  for (final (x, y) in [(3.1, ya + 0.55), (3.85, ya + 0.55), (3.1, ya - 0.15), (3.85, ya - 0.15)]) {
+    _bolt(c, m.p(x, y), math.max(1.6, m.s * 0.045));
   }
-  _flat(c, m.r(4.2, ya - 0.62, 4.5, ya - 0.45), _dark, rad: 1);
+  _flat(c, m.r(3.35, ya - 0.45, 3.6, ya - 0.3), _dark, rad: 1);
 
-  // ── 모터 발과 심 판(몸통보다 앞에 있다)
+  // ── 모터 발(몸통 옆으로 튀어나와 앞에 보인다)과 심 판
   for (final (x, sh) in [(AlignGeo.front, shimFront), (AlignGeo.rear, shimRear)]) {
     const fl = AlignGeo.footLen;
-    _flat(c, m.r(x - fl / 2 + 0.08, AlignGeo.footTop, x + fl / 2 - 0.08, ya - 0.95), _cast, horizontal: true);
+    _flat(c, m.r(x - fl / 2 + 0.06, AlignGeo.footTop, x + fl / 2 - 0.06, AlignGeo.footTop + 0.28), _cast, horizontal: true);
     _flat(c, m.r(x - fl / 2, AlignGeo.shimTop, x + fl / 2, AlignGeo.footTop), _mix(_cast, -0.04));
-    _nutSide(c, m, x, AlignGeo.footTop, 0.14);
+    _nutSide(c, m, x, AlignGeo.footTop, 0.12);
     _shimSide(c, m, x, sh);
   }
 }
 
 void _motorBody(Canvas c, _Map m, double at) {
   const mr = AlignGeo.motorR;
-  _cyl(c, m, AlignGeo.motorX0, AlignGeo.motorX1, mr + 0.12, mr + 0.12, _mix(_silver, -0.02), at: at);
+  _cyl(c, m, AlignGeo.motorX0, AlignGeo.motorX1, mr, mr, _mix(_silver, -0.02), at: at);
   // 축 방향 방열핀: 옆(위)에서 보면 가로줄(가장자리로 갈수록 촘촘)
   for (var k = 1; k < 18; k++) {
-    final v = at + (mr + 0.1) * math.cos(math.pi * k / 18);
+    final v = at + (mr - 0.02) * math.cos(math.pi * k / 18);
     final a = m.p(AlignGeo.motorX0 + 0.1, v), b = m.p(AlignGeo.motorX1 - 0.1, v);
     c.drawLine(a, b, Paint()..color = _edge.withValues(alpha: 0.32)..strokeWidth = 1.2);
     c.drawLine(a.translate(0, 1.3), b.translate(0, 1.3), Paint()..color = Colors.white.withValues(alpha: 0.4)..strokeWidth = 1);
@@ -233,7 +247,7 @@ void _motorBody(Canvas c, _Map m, double at) {
 
 void _shimSide(Canvas c, _Map m, double x, double? sh) {
   const fl = AlignGeo.footLen;
-  final r = m.r(x - fl / 2 - 0.12, AlignGeo.plateTop, x + fl / 2 + 0.12, AlignGeo.shimTop);
+  final r = m.r(x - fl / 2 - 0.08, AlignGeo.padTop, x + fl / 2 + 0.08, AlignGeo.shimTop);
   if (sh == null) {
     _flat(c, r, const Color(0xFF8A939B), rad: 1);
   } else if (sh < -0.005) {
@@ -248,94 +262,96 @@ void _shimSide(Canvas c, _Map m, double x, double? sh) {
 
 void _paintTop(Canvas c, _Map m, {required double shimFront, required double shimRear}) {
   const mr = AlignGeo.motorR;
-  // 받침판(펌프 쪽 좁고, 가운데 더 좁고, 모터 쪽 넓다)
+  const xs = AlignGeo.xSuction, xd = AlignGeo.xDischarge, cr = AlignGeo.casingR;
+  // 받침판(펌프 쪽, 가운데 좁은 곳, 모터 쪽)
   final plate = Path()
     ..addPolygon([
-      m.p(-6.9, -1.7), m.p(-1.35, -1.7), m.p(-1.35, -1.25), m.p(1.6, -1.25), m.p(1.6, -2.3), m.p(7.5, -2.3),
-      m.p(7.5, 2.3), m.p(1.6, 2.3), m.p(1.6, 1.25), m.p(-1.35, 1.25), m.p(-1.35, 1.7), m.p(-6.9, 1.7),
+      m.p(AlignGeo.x0, -1.9), m.p(-1.3, -1.9), m.p(-1.3, -1.3), m.p(1.0, -1.3), m.p(1.0, -2.05), m.p(AlignGeo.x1, -2.05),
+      m.p(AlignGeo.x1, 2.05), m.p(1.0, 2.05), m.p(1.0, 1.3), m.p(-1.3, 1.3), m.p(-1.3, 1.9), m.p(AlignGeo.x0, 1.9),
     ], true);
   c.drawPath(plate.shift(const Offset(2, 4)), Paint()..color = Colors.black.withValues(alpha: 0.18)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
   c.drawPath(plate, Paint()..shader = LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [_mix(_plateCol, 0.45), _plateCol, _mix(_plateCol, -0.15)]).createShader(plate.getBounds()));
   c.drawPath(plate, _line..strokeWidth = 1.3);
-  for (final (x, z) in [(-6.55, 1.4), (-6.55, -1.4), (-1.7, 1.4), (-1.7, -1.4), (1.95, 2.0), (1.95, -2.0), (7.15, 2.0), (7.15, -2.0)]) {
-    _bolt(c, m.p(x, z), math.max(2.2, m.s * 0.1));
+  for (final (x, z) in [(-6.2, 1.6), (-6.2, -1.6), (-1.6, 1.6), (-1.6, -1.6), (1.3, 1.78), (1.3, -1.78), (7.3, 1.78), (7.3, -1.78)]) {
+    _bolt(c, m.p(x, z), math.max(2.2, m.s * 0.09));
   }
 
-  // 펌프 발판(케이싱 발, 베어링 받침 발)
-  _flat(c, m.r(-5.7, -1.25, -4.55, 1.25), _mix(_cast, -0.04));
-  _flat(c, m.r(-3.25, -0.85, -1.95, 0.85), _mix(_cast, -0.04));
-  for (final (x, z) in [(-5.12, 1.02), (-5.12, -1.02), (-2.6, 0.62), (-2.6, -0.62)]) {
-    _bolt(c, m.p(x, z), math.max(2.0, m.s * 0.075));
+  // 펌프 발판(케이싱 발 좌우 320, 구멍 250 / 베어링 받침 발)
+  _flat(c, m.r(-5.65, -1.6, -4.55, 1.6), _mix(_cast, -0.04));
+  _flat(c, m.r(-2.6, -1.1, -1.6, 1.1), _mix(_cast, -0.04));
+  for (final (x, z) in [(-5.1, 1.25), (-5.1, -1.25), (-2.1, 0.85), (-2.1, -0.85)]) {
+    _bolt(c, m.p(x, z), math.max(2.0, m.s * 0.07));
   }
 
-  // 모터 발과 심 판(몸통 밑이라 먼저)
-  for (final (x, sh) in [(AlignGeo.front, shimFront), (AlignGeo.rear, shimRear)]) {
-    const fl = AlignGeo.footLen;
-    for (final sgn in [-1.0, 1.0]) {
-      final z0 = sgn > 0 ? AlignGeo.footZ0 : -AlignGeo.footZ1, z1 = sgn > 0 ? AlignGeo.footZ1 : -AlignGeo.footZ0;
-      final sr = m.r(x - fl / 2 - 0.14, z0 - 0.14, x + fl / 2 + 0.14, z1 + 0.14);
-      if (sh < -0.005) {
-        c.drawRect(sr, Paint()..color = alignShimColor(sh).withValues(alpha: 0.28));
-        alignDashPath(c, Path()..addRect(sr), Paint()..color = alignShimColor(sh)..style = PaintingStyle.stroke..strokeWidth = 2.2);
-      } else {
-        _flat(c, sr, alignShimColor(sh), rad: 1);
-      }
-      _flat(c, m.r(x - fl / 2, z0, x + fl / 2, z1), _cast);
-      _bolt(c, m.p(x, sgn * 1.65), math.max(2.6, m.s * 0.12));
-    }
-  }
+  // 모터 받침 패드와 네 발, 심 판(몸통 밑이라 먼저)
+  _flat(c, m.r(AlignGeo.front - 0.45, -1.75, AlignGeo.rear + 0.45, -0.85), _mix(_cast, -0.1), rad: 1);
+  _flat(c, m.r(AlignGeo.front - 0.45, 0.85, AlignGeo.rear + 0.45, 1.75), _mix(_cast, -0.1), rad: 1);
 
-  // 펌프: 흡입 플랜지, 흡입관, 볼류트, 커버, 파란 브래킷
-  _cyl(c, m, -6.36, -5.7, 0.72, 0.9, _silver);
-  _cyl(c, m, -6.62, -6.36, 1.18, 1.18, _mix(_silver, 0.04));
-  for (final z in [0.94, -0.94, 0.36, -0.36]) {
-    _bolt(c, m.p(-6.49, z), math.max(1.8, m.s * 0.07));
+  // 펌프: 흡입 플랜지, 흡입구, 볼류트, 커버, 파란 브래킷
+  _cyl(c, m, xs + 0.2, -5.55, 0.42, 0.62, _silver);
+  _cyl(c, m, xs, xs + 0.2, 0.925, 0.925, _mix(_silver, 0.04));
+  for (final z in [0.725, -0.725, 0.28, -0.28]) {
+    _bolt(c, m.p(xs + 0.1, z), math.max(1.6, m.s * 0.06));
   }
-  _cyl(c, m, -5.8, -4.55, 1.62, 1.62, _cast, round: true);
-  _cyl(c, m, -4.55, -4.3, 1.7, 1.7, _mix(_cast, -0.03));
-  _cyl(c, m, -4.3, -3.1, 1.4, 0.86, _blue);
-  _cyl(c, m, -3.1, -1.95, 0.86, 0.8, _blue);
-  _cyl(c, m, -1.95, -1.75, 0.9, 0.9, _mix(_blue, -0.1));
-  // 토출 플랜지(위에서 보면 볼트 구멍 있는 둥근 판)
-  final dc = m.p(-5.25, 0.2);
-  final fr = 1.0 * m.s;
+  _cyl(c, m, -5.6, -4.5, cr, cr, _cast, round: true);
+  _cyl(c, m, -4.5, -4.25, 1.55, 1.55, _mix(_cast, -0.03));
+  _cyl(c, m, -4.25, -3.0, 1.3, 0.75, _blue);
+  _cyl(c, m, -3.0, -1.5, 0.75, 0.72, _blue);
+  _cyl(c, m, -1.62, -1.4, 0.8, 0.8, _mix(_blue, -0.1));
+  // 토출 플랜지(DN40, 위에서 보면 볼트 구멍 있는 둥근 판)
+  final dc = m.p(xd, 0);
+  final fr = 0.75 * m.s;
   c.drawCircle(dc.translate(1.5, 3), fr, Paint()..color = Colors.black.withValues(alpha: 0.25)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
   c.drawCircle(dc, fr, Paint()..shader = RadialGradient(center: const Alignment(-0.4, -0.4), colors: [_mix(_silver, 0.5), _mix(_silver, -0.25)]).createShader(Rect.fromCircle(center: dc, radius: fr)));
   c.drawCircle(dc, fr, _line);
-  c.drawCircle(dc, 0.52 * m.s, Paint()..shader = const RadialGradient(center: Alignment(-0.3, -0.3), colors: [Color(0xFF59636E), Color(0xFF1B2127)]).createShader(Rect.fromCircle(center: dc, radius: 0.52 * m.s)));
-  for (var k = 0; k < 8; k++) {
-    final a = 2 * math.pi * (k + 0.5) / 8;
-    _bolt(c, dc + Offset(math.cos(a), math.sin(a)) * (0.78 * m.s), math.max(1.8, m.s * 0.065));
+  c.drawCircle(dc, 0.22 * m.s, Paint()..shader = const RadialGradient(center: Alignment(-0.3, -0.3), colors: [Color(0xFF59636E), Color(0xFF1B2127)]).createShader(Rect.fromCircle(center: dc, radius: 0.22 * m.s)));
+  for (var k = 0; k < 4; k++) {
+    final a = 2 * math.pi * (k + 0.5) / 4;
+    _bolt(c, dc + Offset(math.cos(a), math.sin(a)) * (0.55 * m.s), math.max(1.8, m.s * 0.07)); // 볼트 원 110, 4개
   }
-  final cup = m.p(-2.6, 0);
-  final cupR = math.max(3.5, m.s * 0.14);
+  final cup = m.p(-2.2, 0);
+  final cupR = math.max(3.0, m.s * 0.11);
   c.drawCircle(cup, cupR, Paint()..shader = RadialGradient(center: const Alignment(-0.4, -0.4), colors: [_mix(const Color(0xFFD8A63A), 0.5), _mix(const Color(0xFFD8A63A), -0.25)]).createShader(Rect.fromCircle(center: cup, radius: cupR)));
-  _cyl(c, m, -1.75, -0.9, 0.27, 0.27, _mix(_silver, 0.2));
+  _cyl(c, m, -1.4, -0.7, 0.16, 0.16, _mix(_silver, 0.2));
 
   // 커플링
-  _cyl(c, m, -0.9, -0.12, AlignGeo.hubR, AlignGeo.hubR, _mix(_silver, 0.1));
-  _cyl(c, m, -0.12, 0.12, 0.46, 0.46, _rubber);
-  _cyl(c, m, 0.12, 0.9, AlignGeo.hubR, AlignGeo.hubR, _mix(_silver, 0.1));
-  _cyl(c, m, 0.9, 1.62, 0.27, 0.27, _mix(_silver, 0.2));
+  _cyl(c, m, -0.7, -0.1, AlignGeo.hubR, AlignGeo.hubR, _mix(_silver, 0.1));
+  _cyl(c, m, -0.1, 0.1, 0.5, 0.5, _rubber);
+  _cyl(c, m, 0.1, 0.7, AlignGeo.hubR, AlignGeo.hubR, _mix(_silver, 0.1));
+  _cyl(c, m, 0.7, AlignGeo.shoulder, 0.21, 0.21, _mix(_silver, 0.2));
 
   // 모터
-  _cyl(c, m, 1.62, 1.8, 0.45, 0.45, _mix(_silver, -0.05));
-  _cyl(c, m, 1.8, AlignGeo.motorX0, 1.05, mr + 0.1, _mix(_silver, -0.02));
-  // 단자함(오른쪽 = 화면 아래로 튀어나옴): 몸통보다 먼저 그려 몸통 옆으로 보이게
-  _flat(c, m.r(3.7, mr - 0.2, 5.0, mr + 0.62), _mix(_silver, 0.05), rad: 3);
-  for (final (x, z) in [(3.85, mr + 0.5), (4.85, mr + 0.5)]) {
-    _bolt(c, m.p(x, z), math.max(1.8, m.s * 0.05));
+  _cyl(c, m, AlignGeo.shoulder, 1.35, 0.6, 0.6, _mix(_silver, -0.05));
+  _cyl(c, m, 1.35, AlignGeo.motorX0, 1.0, mr, _mix(_silver, -0.02));
+  // 단자함(오른쪽 = 화면 아래로 튀어나옴): 몸통보다 먼저 그려 옆으로 보이게
+  _flat(c, m.r(2.95, mr - 0.25, 4.0, mr + 0.4), _mix(_silver, 0.05), rad: 3);
+  for (final (x, z) in [(3.1, mr + 0.28), (3.85, mr + 0.28)]) {
+    _bolt(c, m.p(x, z), math.max(1.6, m.s * 0.045));
   }
   _motorBody(c, m, 0);
-  _cyl(c, m, AlignGeo.motorX1, AlignGeo.motorX1 + 0.3, mr + 0.1, mr + 0.1, _mix(_silver, -0.02));
-  _cyl(c, m, AlignGeo.motorX1 + 0.3, 7.25, mr + 0.02, mr - 0.12, _mix(_silver, 0.06));
-  _cyl(c, m, 7.25, 7.4, mr - 0.12, 0.9, _mix(_silver, 0.06));
+  _cyl(c, m, AlignGeo.motorX1, AlignGeo.motorX1 + 0.2, mr, mr, _mix(_silver, -0.02));
+  _cyl(c, m, AlignGeo.motorX1 + 0.2, AlignGeo.fanEnd - 0.12, mr - 0.07, mr - 0.2, _mix(_silver, 0.06));
+  _cyl(c, m, AlignGeo.fanEnd - 0.12, AlignGeo.fanEnd, mr - 0.2, 1.0, _mix(_silver, 0.06));
+  // 모터 네 발과 심 판: 위에서 보면 몸통 밑에 가려지므로 비치게(발은 점선 윤곽) 그린다
+  for (final (x, sh) in [(AlignGeo.front, shimFront), (AlignGeo.rear, shimRear)]) {
+    const fl = AlignGeo.footLen;
+    for (final sgn in [-1.0, 1.0]) {
+      final z0 = sgn > 0 ? AlignGeo.footZ0 - 0.2 : -AlignGeo.footZ1, z1 = sgn > 0 ? AlignGeo.footZ1 : -AlignGeo.footZ0 + 0.2;
+      final sr = m.r(x - fl / 2 - 0.1, z0 - 0.1, x + fl / 2 + 0.1, z1 + 0.1);
+      final col = alignShimColor(sh);
+      c.drawRect(sr, Paint()..color = col.withValues(alpha: sh < -0.005 ? 0.28 : 0.55));
+      alignDashPath(c, Path()..addRect(sr), Paint()..color = col..style = PaintingStyle.stroke..strokeWidth = 2);
+      final fr = m.r(x - fl / 2, z0, x + fl / 2, z1);
+      alignDashPath(c, Path()..addRect(fr), Paint()..color = _edge.withValues(alpha: 0.8)..style = PaintingStyle.stroke..strokeWidth = 1.3);
+      _bolt(c, m.p(x, sgn * 1.27), math.max(2.4, m.s * 0.1)); // 발 구멍 좌우 간격 A 254
+    }
+  }
   // 명판과 고리(위에서 본 모양)
-  _flat(c, m.r(2.6, -0.3, 3.3, 0.3), _mix(_silver, 0.3), rad: 2);
-  final eye = m.p(3.55, 0);
-  final eyeR = Rect.fromCenter(center: eye, width: 0.55 * m.s, height: 0.2 * m.s);
-  c.drawOval(eyeR, Paint()..style = PaintingStyle.stroke..strokeWidth = math.max(3, 0.1 * m.s)..color = _edge.withValues(alpha: 0.85));
-  c.drawOval(eyeR, Paint()..style = PaintingStyle.stroke..strokeWidth = math.max(1.8, 0.06 * m.s)..color = _mix(_silver, 0.25));
+  _flat(c, m.r(2.1, -0.28, 2.8, 0.28), _mix(_silver, 0.3), rad: 2);
+  final eye = m.p(3.3, 0);
+  final eyeR = Rect.fromCenter(center: eye, width: 0.46 * m.s, height: 0.16 * m.s);
+  c.drawOval(eyeR, Paint()..style = PaintingStyle.stroke..strokeWidth = math.max(3, 0.09 * m.s)..color = _edge.withValues(alpha: 0.85));
+  c.drawOval(eyeR, Paint()..style = PaintingStyle.stroke..strokeWidth = math.max(1.8, 0.05 * m.s)..color = _mix(_silver, 0.25));
 }
 
 // ─────────────────────────── 글씨·표시 도구 ───────────────────────────
@@ -412,14 +428,14 @@ class AlignSetupRenderPainter extends CustomPainter {
 
     if (!reverse) {
       // 페이스 다이얼: 같은 클램프에서 내려온 팔 끝, 스핀들이 축과 나란히 모터 쪽 허브 옆면을 누른다
-      final contact = m.p(0.12, ya + 0.54);
+      final contact = m.p(0.1, ya + 0.56);
       final fC = m.p(-1.35, ya + 1.0);
       _rod(canvas, m.p(AlignGeo.xB - 0.12, aTop), m.p(-1.35, aTop), _dialA, rodW);
       _rod(canvas, m.p(-1.35, aTop), fC, _dialA, rodW);
       paintDialGauge(canvas, fC, dialR * 0.9, value: 0, stemTo: contact, tag: _dialA, numbers: false);
       _chip(canvas, '페이스', fC + Offset(-dialR * 1.7, dialR * 0.2), _dialA);
       // ④ 페이스가 닿는 반지름
-      final r0 = m.p(0.3, ya), r1 = m.p(0.3, ya + 0.54);
+      final r0 = m.p(0.25, ya), r1 = m.p(0.25, ya + 0.56);
       final p = Paint()..color = AppColors.text..strokeWidth = 1.6;
       canvas.drawLine(r0, r1, p);
       canvas.drawLine(r0 - const Offset(4, 0), r0 + const Offset(4, 0), p);
@@ -475,8 +491,8 @@ class AlignSetupRenderPainter extends CustomPainter {
       tp.paint(canvas, Offset(tx.clamp(2.0, size.width - tp.width - 2), ly - tp.height / 2));
     }
 
-    _txt(canvas, '펌프 (고정)', m.p(-2.9, ya + 1.75), AppColors.textSub, size: 12);
-    _txt(canvas, '모터 (이동)', m.p(5.6, ya + AlignGeo.motorR + 0.12) + const Offset(0, -12), AppColors.textSub, size: 12);
+    _txt(canvas, '펌프 (고정)', m.p(-2.6, ya + 1.55), AppColors.textSub, size: 12);
+    _txt(canvas, '모터 (이동)', m.p(5.2, ya + AlignGeo.motorR) + const Offset(0, -12), AppColors.textSub, size: 12);
   }
 
   @override
@@ -520,7 +536,7 @@ class AlignSideRenderPainter extends CustomPainter {
     final narrow = size.width < 600;
     void chip(double x, double mm, String tag, double dx) {
       final c = alignShimColor(mm);
-      final a = m.p(x, (AlignGeo.plateTop + AlignGeo.shimTop) / 2);
+      final a = m.p(x, (AlignGeo.padTop + AlignGeo.shimTop) / 2);
       final at = Offset((a.dx + dx).clamp(52.0, size.width - 52), size.height - 30);
       canvas.drawLine(a, at - const Offset(0, 20), Paint()..color = c..strokeWidth = 1.4);
       canvas.drawCircle(a, 3, Paint()..color = c);
@@ -559,7 +575,7 @@ class AlignTopRenderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final narrow = size.width < 600;
-    final m = _Map.fit(Rect.fromLTWH(8, 66, size.width - 16, size.height - 132), top: true, v0: -2.45, v1: 2.45);
+    final m = _Map.fit(Rect.fromLTWH(8, 66, size.width - 16, size.height - 132), top: true, v0: -2.15, v1: 2.15);
     _paintTop(canvas, m, shimFront: shimFront, shimRear: shimRear);
 
     _dashLine(canvas, m.p(AlignGeo.x0, 0), m.p(AlignGeo.x1, 0), Paint()..color = AppColors.text.withValues(alpha: 0.6)..strokeWidth = 1.5..style = PaintingStyle.stroke);
@@ -581,7 +597,7 @@ class AlignTopRenderPainter extends CustomPainter {
     // 네 발 표찰
     void chip(double x, double side, double mm, String tag) {
       final c = alignShimColor(mm);
-      final a = m.p(x, side * (AlignGeo.footZ1 + 0.14));
+      final a = m.p(x, side * (AlignGeo.footZ1 + 0.1));
       final at = Offset((a.dx + (x == AlignGeo.front ? (narrow ? -22 : -8) : (narrow ? 22 : 8))).clamp(40.0, size.width - 40), side < 0 ? 30 : size.height - 30);
       canvas.drawLine(a, at + Offset(0, side < 0 ? 18 : -18), Paint()..color = c..strokeWidth = 1.4);
       canvas.drawCircle(a, 3, Paint()..color = c);
@@ -596,7 +612,8 @@ class AlignTopRenderPainter extends CustomPainter {
     // 옆으로 미는 방향
     void arrow(double x, double mm) {
       final o = m.p(x, 0);
-      final at = Offset((o.dx + (x == AlignGeo.front ? -8 : 8)).clamp(48.0, size.width - 48), o.dy + 34);
+      final side = x == AlignGeo.front ? -1.0 : 1.0; // 앞발은 왼쪽, 뒷발은 오른쪽 옆에 글
+      final at = Offset(o.dx + side * (narrow ? 38 : 48), o.dy);
       if (mm.abs() < 0.005) {
         alignLabel(canvas, '옆 그대로', o, alignOk, size: 11);
         return;
@@ -607,7 +624,7 @@ class AlignTopRenderPainter extends CustomPainter {
       canvas.drawLine(a, b, p);
       canvas.drawLine(b, b + Offset(-7, -dir * 10), p);
       canvas.drawLine(b, b + Offset(7, -dir * 10), p);
-      alignLabel(canvas, '옆으로 ${mm > 0 ? '오른쪽' : '왼쪽'}\n${mm.abs().toStringAsFixed(2)} mm', dir > 0 ? at : Offset(at.dx, o.dy - 34), AppColors.brand, size: narrow ? 10 : 11, minWidth: narrow ? 56 : 74);
+      alignLabel(canvas, '옆으로 ${mm > 0 ? '오른쪽' : '왼쪽'}\n${mm.abs().toStringAsFixed(2)} mm', at, AppColors.brand, size: narrow ? 10 : 11, minWidth: narrow ? 56 : 74);
     }
 
     if (moveFront.abs() < 0.005 && moveRear.abs() < 0.005) {
@@ -619,7 +636,7 @@ class AlignTopRenderPainter extends CustomPainter {
 
     _txt(canvas, '왼쪽 ▲', const Offset(6, 4), AppColors.textSub, center: false);
     _txt(canvas, '오른쪽 ▼', Offset(6, size.height - 18), AppColors.textSub, center: false);
-    _txt(canvas, '펌프 (고정)', m.p(-4.5, 1.7) + const Offset(0, 14), AppColors.textSub, size: 12);
+    _txt(canvas, '펌프 (고정)', m.p(-4.0, 1.9) + const Offset(0, 14), AppColors.textSub, size: 12);
   }
 
   @override

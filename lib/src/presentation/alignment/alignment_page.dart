@@ -545,7 +545,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
           const Padding(
             padding: EdgeInsets.fromLTRB(6, 2, 6, 2),
             child: Text(
-              '그림의 번호(①②③④)는 아래 입력칸 이름의 번호와 같습니다. 거리는 모두 mm로 잽니다.',
+              '그림의 번호(①②③④)는 아래 입력칸 이름의 번호와 같습니다. 거리는 모두 mm로 잽니다. 그림 비율은 모터 IEC 160M, 펌프 ISO 2858 65-40-250 치수표를 따랐습니다(심 두께만 크게 그림).',
               style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.textSub),
             ),
           ),
