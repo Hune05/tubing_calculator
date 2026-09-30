@@ -82,8 +82,11 @@ const double _kWideSidebarWidth = 260;
 const double _kWideInspectorWidth = 320;
 
 /// 화면 폭으로 넓은 모양을 쓸지 정한다(테스트에서도 같은 기준을 쓴다).
-bool layoutBoardUsesWideLayout(Size size) =>
-    size.width >= kLayoutBoardWideWidth;
+///
+/// 2026-09-30 사용자 결정: 태블릿·큰 화면도 폰과 같은 방식(아래 팔레트, 모듈을 누르면 아래 시트)으로
+/// 통일한다. 세로로 든 14.6인치에서 양옆 칸이 도면을 344dp로 눌러 가렸다. 그래서 늘 false.
+/// 양옆 칸 코드는 남겨 두었으니(다시 켤 때를 위해) 이 함수만 바꾸면 다시 나타난다.
+bool layoutBoardUsesWideLayout(Size size) => false;
 
 /// 이어서 할 임시 저장(저장 안 하고 나간 배치도)이 있는지. 카톡으로 받은 도면을 어디에 깔지 물을 때 쓴다.
 Future<bool> layoutBoardHasDraft() async {

@@ -290,37 +290,6 @@ void main() {
     await disposeBoard(tester);
   });
 
-  testWidgets('태블릿 폭: 양옆 칸의 글씨는 14 이상이고, 오른쪽 칸에서 복제·회전을 한다', (tester) async {
-    await openWithDraft(tester, kTablet, presets: true);
-    expectNoSmallText(tester);
-    await tester.tap(find.text('단자대'));
-    await tester.pumpAndSettle();
-    expect(find.text('모듈 이름'), findsOneWidget);
-    expectNoSmallText(tester);
-
-    // 회전: 160×60 → 60×160
-    await tester.tap(find.text('90° 회전'));
-    await tester.pumpAndSettle();
-    expect(find.widgetWithText(TextField, '60'), findsWidgets);
-
-    // 복제: 같은 이름 모듈이 하나 더 생긴다.
-    await tester.tap(find.text('복제'));
-    await tester.pumpAndSettle();
-    expect(onBoard('단자대'), findsNWidgets(2));
-
-    // 되돌리면 복제 전으로.
-    await tester.tap(find.byTooltip('되돌리기'));
-    await tester.pumpAndSettle();
-    expect(onBoard('단자대'), findsOneWidget);
-
-    // 치수 모드 오른쪽 칸
-    await tester.tap(find.text('고정 치수 측정'));
-    await tester.pumpAndSettle();
-    expect(find.text('치수 재기'), findsOneWidget);
-    expectNoSmallText(tester);
-    await disposeBoard(tester);
-  });
-
   testWidgets('알약 모양 칩(FilterChip·ChoiceChip)을 쓰지 않는다', (tester) async {
     await openWithDraft(tester, kTablet);
     expect(find.byType(FilterChip), findsNothing);
@@ -348,23 +317,14 @@ void main() {
     await disposeBoard(tester);
   });
 
-  testWidgets('태블릿 폭: 왼쪽 칸의 덕트를 옆으로 끌어 도면에 놓는다', (tester) async {
-    await openWithDraft(tester, kTablet);
-    expect(onBoard('ABS덕트 80×80'), findsNothing);
-    final Offset from = tester.getCenter(find.text('80×80'));
-    final g = await tester.startGesture(from);
-    for (int i = 0; i < 12; i++) {
-      await g.moveBy(const Offset(40, -10));
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    await g.up();
-    await tester.pumpAndSettle();
-    expect(onBoard('ABS덕트 80×80'), findsOneWidget);
-    await disposeBoard(tester);
-  });
-
   // 폰 가로, 작은 폰, 폴드 편 화면에서도 아래 칸이 넘치지 않는다.
-  for (final size in const [Size(844, 390), Size(360, 640), Size(673, 841)]) {
+  for (final size in const [
+    Size(844, 390),
+    Size(360, 640),
+    Size(673, 841),
+    Size(1024, 768), // 태블릿 가로
+    Size(924, 1480), // 14.6인치 세로
+  ]) {
     testWidgets('화면 ${size.width.toInt()}x${size.height.toInt()}에서도 넘치지 않는다', (
       tester,
     ) async {
