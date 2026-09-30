@@ -56,6 +56,9 @@ enum AppGlyph {
   /// 장비 관리 대장: 눈금판(게이지) + 받침.
   equipment,
 
+  /// 축 정렬 계산: 어긋난 두 축과 커플링.
+  alignment,
+
   // ── 계산기 아래 탭 ──
   /// 입력: 구간 목록 + 연필.
   navInput,
@@ -583,6 +586,13 @@ class _AppIconPainter extends CustomPainter {
         l(14.0, 19.6, 20.6, 13.0);
         l(15.6, 13.0, 20.6, 13.0);
         l(20.6, 13.0, 20.6, 18.0);
+      case AppGlyph.alignment:
+        rr(2.5, 5.0, 9.0, 5.2, 1.4, soft);
+        rr(2.5, 5.0, 9.0, 5.2, 1.4);
+        rr(12.5, 11.8, 9.0, 5.2, 1.4, soft);
+        rr(12.5, 11.8, 9.0, 5.2, 1.4);
+        l(11.5, 7.6, 12.5, 14.4);
+        l(2.5, 20.6, 21.5, 20.6);
       case AppGlyph.equipment:
         canvas.drawCircle(const Offset(12.0, 11.0), 8.2, soft);
         canvas.drawCircle(const Offset(12.0, 11.0), 8.2, line);

@@ -14,6 +14,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
+import '../alignment/alignment_page.dart';
 import '../bend_check/bend_check_page.dart';
 import '../equipment/equipment_pages.dart';
 import '../electrical/electric_calculator_page.dart';
@@ -115,6 +116,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.equipment,
     (_) => const EquipmentLedgerPage(),
     subtitle: '장비 교정 기한 · 반출·반납 · QR 찾기',
+    group: '현장 도구',
+  ),
+  QuickToolDef(
+    'align',
+    '축 정렬',
+    AppGlyph.alignment,
+    (_) => const AlignmentPage(),
+    subtitle: '모터·펌프 커플링 센터링 · 발 심 두께',
     group: '현장 도구',
   ),
   QuickToolDef(

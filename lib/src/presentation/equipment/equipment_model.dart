@@ -38,6 +38,7 @@ enum EventType {
   repair('repair', '수리'),
   out('out', '반출'),
   back('in', '반납'),
+  align('align', '축 정렬'),
   note('note', '메모');
 
   final String id;
@@ -331,6 +332,19 @@ Equipment recordInspection(
     events: _prepend(e, ev),
   );
 }
+
+/// 축 정렬을 했다는 기록. 교정·검사 기한과 상태는 바꾸지 않는다.
+Equipment recordAlignment(Equipment e, {required DateTime at, String note = ''}) => e.copyWith(
+  events: _prepend(
+    e,
+    EquipEvent(
+      id: _eventId(at, e.events.length),
+      at: dayOnly(at),
+      type: EventType.align,
+      note: note.trim(),
+    ),
+  ),
+);
 
 /// 수리했다는 기록(상태는 "수리·점검 중"으로).
 Equipment recordRepair(Equipment e, {required DateTime at, String by = '', String note = ''}) {

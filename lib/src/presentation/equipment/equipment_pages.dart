@@ -995,6 +995,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     EventType.repair => AppIcons.settings,
     EventType.out => AppIcons.send,
     EventType.back => AppIcons.undo,
+    EventType.align => AppIcons.filter,
     EventType.note => AppIcons.info,
   };
 }
