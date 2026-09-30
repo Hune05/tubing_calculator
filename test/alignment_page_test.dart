@@ -6,6 +6,7 @@ import 'package:tubing_calculator/src/data/record_sync.dart';
 import 'package:tubing_calculator/src/presentation/alignment/alignment_math.dart';
 import 'package:tubing_calculator/src/presentation/alignment/alignment_page.dart';
 import 'package:tubing_calculator/src/presentation/alignment/alignment_record.dart';
+import 'package:tubing_calculator/src/presentation/alignment/alignment_session.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_store.dart';
 
@@ -236,5 +237,89 @@ void main() {
     expect(text, contains('0.300 → 0.040'));
     expect(compareText(before, [before, after]), isNull); // 정렬 전에는 비교 없음
     expect(compareText(after, [after]), isNull); // 전 기록이 없으면 null
+  });
+
+  testWidgets('방식 설명이 나오고 방식을 바꾸면 설명도 바뀐다', (tester) async {
+    await _open(tester);
+    expect(find.byKey(const Key('align_method_help')), findsOneWidget);
+    expect(find.text('리버스 다이얼 방식'), findsOneWidget);
+    await tester.tap(find.text('림·페이스'));
+    await tester.pumpAndSettle();
+    expect(find.text('림·페이스 방식'), findsOneWidget);
+    expect(find.byKey(const Key('align_dial_guide')), findsOneWidget);
+  });
+
+  testWidgets('정렬 작업 회차: 한 일을 적으면 네 발 심 누계가 쌓이고, 기록에 같이 저장된다', (tester) async {
+    await _open(tester);
+    await _type(tester, 'rpm', '1800');
+    await _fillReverse(tester); // 앞발 빼기 0.14, 뒷발 빼기 0.21
+    // 1회차: 계산 값이 미리 들어 있다 → 뒷발 오른쪽만 실제 값으로 고친다
+    await tester.tap(find.byKey(const Key('align_round_add')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(find.byKey(const Key('align_done_frontLeft'))).controller!.text, '-0.14');
+    expect(tester.widget<TextField>(find.byKey(const Key('align_done_rearRight'))).controller!.text, '-0.21');
+    await tester.enterText(find.byKey(const Key('align_done_rearRight')), '-0.20');
+    await tester.enterText(find.byKey(const Key('align_done_note')), '0.2 심 한 장 뺌');
+    await tester.tap(find.byKey(const Key('align_done_ok')));
+    await tester.pumpAndSettle();
+    expect(_text(tester, 'align_total_frontLeft'), '−0.14 mm');
+    expect(_text(tester, 'align_total_rearRight'), '−0.20 mm');
+    expect(_text(tester, 'align_round_line_0'), contains('뒷발 심 왼 −0.21 / 오른 −0.20'));
+
+    // 화면을 나갔다 와도 회차가 남아 있다
+    final kept = await AlignSessionStore.load();
+    expect(kept.single.done![AlignFoot.rearRight], closeTo(-0.20, 1e-9));
+
+    // 다시 재서 2회차: 조금 남아서 앞발에 0.02 더 뺌
+    await _type(tester, 'a180', '-0.04');
+    await _type(tester, 'a90', '-0.02');
+    await _type(tester, 'a270', '-0.02');
+    await _type(tester, 'b180', '0.02');
+    await _type(tester, 'b90', '0.01');
+    await _type(tester, 'b270', '0.01');
+    await tester.tap(find.byKey(const Key('align_round_add')));
+    await tester.pumpAndSettle();
+    for (final k in ['frontLeft', 'frontRight']) {
+      await tester.enterText(find.byKey(Key('align_done_$k')), '-0.02');
+    }
+    for (final k in ['rearLeft', 'rearRight']) {
+      await tester.enterText(find.byKey(Key('align_done_$k')), '0');
+    }
+    await tester.tap(find.byKey(const Key('align_done_ok')));
+    await tester.pumpAndSettle();
+    expect(_text(tester, 'align_total_frontLeft'), '−0.16 mm');
+    expect(_text(tester, 'align_total_rearLeft'), '−0.21 mm');
+
+    // 기록 남기기: 회차가 같이 저장되고(정렬 후로), 작업 중 회차는 비워진다
+    await tester.tap(find.byKey(const Key('align_save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('align_save_ok')));
+    await tester.pumpAndSettle();
+    final saved = (await AlignStore.load()).single;
+    expect(saved.stage, AlignStage.after);
+    expect(saved.rounds.length, 2);
+    expect(shimTotals(saved.rounds)[AlignFoot.frontRight], closeTo(-0.16, 1e-9));
+    expect(buildAlignText(saved), contains('심 누계'));
+    expect(await AlignSessionStore.load(), isEmpty);
+    expect(find.byKey(const Key('align_round_line_0')), findsNothing);
+  });
+
+  test('회차 글: 한 일과 누계', () {
+    AlignRound r(double f, double rr, {Map<AlignFoot, double>? done, double mf = 0}) => AlignRound(
+      at: DateTime(2026, 10, 1, 9, 5), offset: 0.3, angle100: 0.1, verdict: AlignVerdict.offsetOut,
+      shimFront: f, shimRear: rr, moveFront: 0, moveRear: 0, done: done, doneMoveFront: mf,
+    );
+    final a = r(0.2, 0.4, done: {for (final f in AlignFoot.values) f: f.name.startsWith('front') ? 0.2 : 0.4}, mf: 0.05);
+    final b = r(0, 0);
+    expect(doneLine(a), '앞발 심 +0.20, 뒷발 심 +0.40, 앞 옆으로 오른쪽 0.05 mm');
+    expect(doneLine(b), '한 일 안 적음');
+    final text = buildRoundsText([a, b]);
+    expect(text, contains('1회차 09:05'));
+    expect(text, contains('뒷발 오른쪽 +0.40'));
+    // 저장했다 읽어도 같다
+    final back = roundsFromJson([a.toJson(), b.toJson()]);
+    expect(back[0].done![AlignFoot.rearLeft], 0.4);
+    expect(back[1].done, isNull);
+    expect(moveTotals(back).$1, closeTo(0.05, 1e-9));
   });
 }

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/record_sync.dart';
 import 'alignment_math.dart';
+import 'alignment_session.dart';
 
 /// 정렬 전인지 후인지.
 enum AlignStage {
@@ -40,6 +41,9 @@ class AlignRecord {
   final double moveFront;
   final double moveRear;
   final AlignVerdict verdict;
+
+  /// 정렬 작업 회차(재고 → 심·옆 이동 → 다시 재기). 없으면 빈 목록.
+  final List<AlignRound> rounds;
   const AlignRecord({
     required this.id,
     required this.at,
@@ -57,6 +61,7 @@ class AlignRecord {
     required this.moveFront,
     required this.moveRear,
     required this.verdict,
+    this.rounds = const [],
   });
 
   Map<String, dynamic> toJson() => {
@@ -76,6 +81,7 @@ class AlignRecord {
     'moveFront': moveFront,
     'moveRear': moveRear,
     'verdict': verdict.name,
+    if (rounds.isNotEmpty) 'rounds': [for (final r in rounds) r.toJson()],
   };
 
   static AlignRecord fromJson(Map<String, dynamic> j) {
@@ -110,6 +116,7 @@ class AlignRecord {
         (v) => v.name == j['verdict'],
         orElse: () => AlignVerdict.ok,
       ),
+      rounds: roundsFromJson(j['rounds']),
     );
   }
 }
@@ -137,6 +144,7 @@ String buildAlignText(AlignRecord r) {
   b.write('\n앞발 심 ${shimText(r.shimFront)} · 옆 ${moveText(r.moveFront)}');
   b.write('\n뒷발 심 ${shimText(r.shimRear)} · 옆 ${moveText(r.moveRear)}');
   if (r.note.isNotEmpty) b.write('\n메모: ${r.note}');
+  if (r.rounds.isNotEmpty) b.write('\n${buildRoundsText(r.rounds)}');
   return b.toString();
 }
 

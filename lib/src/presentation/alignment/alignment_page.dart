@@ -12,6 +12,7 @@ import 'alignment_math.dart';
 import 'alignment_dial_painter.dart';
 import 'alignment_render.dart';
 import 'alignment_record.dart';
+import 'alignment_session.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -34,10 +35,19 @@ class _AlignmentPageState extends State<AlignmentPage> {
   bool _showTarget = false;
   String? _tolOffsetText; // 사용자가 고친 허용값(없으면 회전수별 참고값)
   String? _tolAngleText;
+  List<AlignRound> _rounds = []; // 이번 정렬 작업의 회차(폰에 남아 있다)
 
   DateTime get _now => (widget.now ?? DateTime.now)();
 
   TextEditingController _f(String key) => _c.putIfAbsent(key, () => TextEditingController());
+
+  @override
+  void initState() {
+    super.initState();
+    AlignSessionStore.load().then((v) {
+      if (mounted && v.isNotEmpty) setState(() => _rounds = v);
+    });
+  }
 
   @override
   void dispose() {
@@ -148,10 +158,12 @@ class _AlignmentPageState extends State<AlignmentPage> {
         now: _now,
         machineDefault: machineDefault,
         equipment: [for (final e in equipment) if (!e.isRetired) e],
+        rounds: _rounds,
       ),
     );
     if (out == null) return;
     await AlignStore.put(out);
+    if (_rounds.isNotEmpty) await _setRounds([]); // 회차는 기록에 같이 저장됐다
     // 장비 대장의 장비를 골랐으면 그 장비 이력에 "축 정렬"을 남긴다(교정 기한은 그대로).
     if (out.equipmentId.isNotEmpty) {
       final list = await EquipmentStore.load();
@@ -208,6 +220,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
             onSelectionChanged: (s) => setState(() => _method = s.first),
           ),
           const SizedBox(height: 12),
+          _methodCard(),
           _dialGuide(),
           _setupCard(),
           const SizedBox(height: 4),
@@ -251,6 +264,184 @@ class _AlignmentPageState extends State<AlignmentPage> {
         ],
       ),
     );
+  }
+
+  // ── 방식 설명 ──
+
+  Widget _methodCard() {
+    final reverse = _method == AlignMethod.reverse;
+    Widget line(String head, String body, Color c) => Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+            child: Text(head, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w900, color: c)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(child: Text(body, style: const TextStyle(fontSize: 13, height: 1.5, color: AppColors.text))),
+        ],
+      ),
+    );
+    return Container(
+      key: const Key('align_method_help'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(AppRadius.medium)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: reverse
+            ? [
+                const Text('리버스 다이얼 방식', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text)),
+                line('재는 것', '다이얼 두 개를 서로 반대로 걸어, 각각 상대 축의 림(바깥 둘레)을 읽습니다. A는 펌프 쪽에 걸어 모터 림을, B는 모터 쪽에 걸어 펌프 림을 읽습니다.', AppColors.brand),
+                line('좋은 점', '옆면(페이스)을 재지 않아 축이 앞뒤로 밀려도 값이 덜 틀어집니다. 커플링 사이가 먼 경우(스페이서)에도 맞습니다.', AppColors.ok),
+                line('주의', '두 접촉면 사이(①)가 짧으면 기울기 오차가 커집니다. 브래킷이 길면 처짐 보정을 넣습니다.', AppColors.caution),
+              ]
+            : [
+                const Text('림·페이스 방식', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text)),
+                line('재는 것', '브래킷 하나에 다이얼 두 개를 달아, 하나는 모터 쪽 커플링의 림(바깥 둘레)을, 하나는 페이스(옆면)를 읽습니다. 림은 어긋남, 페이스는 기울기를 봅니다.', AppColors.brand),
+                line('좋은 점', '한쪽 축에서만 걸면 되어 자리가 좁을 때 쉽습니다. 커플링 지름이 크고 사이가 가까울 때 잘 맞습니다.', AppColors.ok),
+                line('주의', '돌리는 동안 축이 앞뒤로 밀리면 페이스 값이 틀어집니다. 축을 한쪽으로 밀어 붙인 채 읽습니다. 페이스가 닿는 반지름(④)을 정확히 잽니다.', AppColors.caution),
+              ],
+      ),
+    );
+  }
+
+  // ── 정렬 작업 회차 ──
+
+  Future<void> _setRounds(List<AlignRound> next) async {
+    setState(() => _rounds = next);
+    await AlignSessionStore.save(next);
+  }
+
+  Future<void> _addRound(AlignResult r) async {
+    final round = AlignRound(
+      at: _now,
+      offset: r.offset,
+      angle100: r.angle100,
+      verdict: judge(r, _tol),
+      shimFront: r.shimFront,
+      shimRear: r.shimRear,
+      moveFront: r.moveFront,
+      moveRear: r.moveRear,
+    );
+    await _setRounds([..._rounds, round]);
+    await _editDone(_rounds.length - 1);
+  }
+
+  Future<void> _editDone(int i) async {
+    final out = await showModalBottomSheet<AlignRound>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _DoneSheet(round: _rounds[i], index: i),
+    );
+    if (out == null) return;
+    await _setRounds([for (var k = 0; k < _rounds.length; k++) k == i ? out : _rounds[k]]);
+  }
+
+  Widget _roundsCard(AlignResult r) {
+    final totals = shimTotals(_rounds);
+    final moves = moveTotals(_rounds);
+    final anyDone = _rounds.any((x) => x.done != null);
+    Widget total(AlignFoot f) => Expanded(
+      child: Container(
+        margin: const EdgeInsets.all(3),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(8)),
+        child: Column(
+          children: [
+            Text(f.label, style: const TextStyle(fontSize: 11.5, color: AppColors.textSub, fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text('${signedMm(totals[f]!)} mm', key: Key('align_total_${f.name}'), style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.text)),
+          ],
+        ),
+      ),
+    );
+    return _card('정렬 작업 기록 (회차)', [
+      if (_rounds.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(bottom: 8),
+          child: Text(
+            '재기 → 심 넣고 빼기·옆으로 밀기 → 다시 재기를 회차로 남깁니다. 발마다 넣고 뺀 심이 누계로 쌓여, 지금 발 밑에 얼마가 더 들어가 있는지 알 수 있습니다.',
+            style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
+          ),
+        ),
+      for (var i = 0; i < _rounds.length; i++)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 46,
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(8)),
+                child: Text('${i + 1}회차', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.brand)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '평행 ${_rounds[i].offset.toStringAsFixed(3)} mm · 각도 ${_rounds[i].angle100.toStringAsFixed(3)} · ${verdictLabel(_rounds[i].verdict)}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.text),
+                    ),
+                    const SizedBox(height: 2),
+                    Text('한 일: ${doneLine(_rounds[i])}', key: Key('align_round_line_$i'), style: const TextStyle(fontSize: 12.5, height: 1.45, color: AppColors.textSub)),
+                  ],
+                ),
+              ),
+              TextButton(
+                key: Key('align_round_done_$i'),
+                onPressed: () => _editDone(i),
+                child: Text(_rounds[i].done == null ? '한 일 적기' : '고치기'),
+              ),
+            ],
+          ),
+        ),
+      if (anyDone) ...[
+        const Divider(height: 16),
+        const Text('발 밑 심 누계 (시작할 때보다)', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+        const SizedBox(height: 4),
+        Row(children: [total(AlignFoot.frontLeft), total(AlignFoot.rearLeft)]),
+        Row(children: [total(AlignFoot.frontRight), total(AlignFoot.rearRight)]),
+        if (moves.$1.abs() >= 0.005 || moves.$2.abs() >= 0.005)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4),
+            child: Text('옆으로 민 누계: 앞 ${moveText(moves.$1)}, 뒤 ${moveText(moves.$2)}', style: const TextStyle(fontSize: 12.5, color: AppColors.textSub)),
+          ),
+      ],
+      const SizedBox(height: 8),
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              key: const Key('align_round_add'),
+              onPressed: () => _addRound(r),
+              child: Text('지금 결과를 ${_rounds.length + 1}회차로 적기'),
+            ),
+          ),
+          if (_rounds.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              key: const Key('align_round_undo'),
+              onPressed: () => _setRounds(_rounds.sublist(0, _rounds.length - 1)),
+              child: const Text('마지막 회차 지우기'),
+            ),
+          ],
+        ],
+      ),
+      if (_rounds.isNotEmpty)
+        const Padding(
+          padding: EdgeInsets.only(top: 6),
+          child: Text('다 끝나면 아래 "기록 남기기"로 저장합니다. 회차와 심 누계가 같이 저장됩니다.', style: TextStyle(fontSize: 11.5, color: AppColors.textFaint)),
+        ),
+    ]);
   }
 
   // ── 입력 ──
@@ -300,38 +491,20 @@ class _AlignmentPageState extends State<AlignmentPage> {
               ],
             ),
             const SizedBox(height: 14),
-            Text('보는 자리와 방향', style: AppText.subtitle),
+            Text('보는 자리와 읽는 순서', style: AppText.subtitle),
             const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(width: 140, height: 140, child: CustomPaint(key: const Key('align_clock'), painter: AlignClockPainter())),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    '고정 쪽(펌프)에 서서 이동 쪽(모터)을 바라봅니다. 이 자리에서 3시가 오른쪽, 9시가 왼쪽입니다.\n'
-                    '결과의 "넣기"는 발 밑에 심을 넣어 모터를 올리는 것, "오른쪽"은 이 자리에서 본 오른쪽입니다.',
-                    style: TextStyle(fontSize: 12.5, height: 1.55, color: AppColors.text),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Text('읽은 예 (한 바퀴 돌리며)', style: AppText.subtitle),
-            const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                tile(0, '12시\n0.00'),
-                tile(-0.10, '3시 (오른쪽)\n−0.10'),
-                tile(-0.20, '6시 (아래)\n−0.20'),
-                tile(-0.10, '9시 (왼쪽)\n−0.10'),
-              ],
+            SizedBox(
+              height: 300,
+              child: CustomPaint(key: const Key('align_clock'), size: Size.infinite, painter: AlignClockPainter()),
             ),
             const SizedBox(height: 6),
             const Text(
-              '3시 + 9시 = 6시가 되면 제대로 읽은 것입니다(위 예: −0.10 + −0.10 = −0.20). 크게 다르면 브래킷이 흔들리거나 스핀들이 덜 눌린 것이니 다시 겁니다.',
-              style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
+              '고정 쪽(펌프)에 서서 이동 쪽(모터)을 바라봅니다. 이 자리에서 3시가 오른쪽, 9시가 왼쪽입니다. '
+              '12시에서 0을 맞추고 축을 같이 돌려 3시 → 6시 → 9시 순서로 읽습니다.\n'
+              '그림의 바늘은 읽은 예입니다(12시 0.00, 3시 −0.10, 6시 −0.20, 9시 −0.10). '
+              '3시 + 9시 = 6시가 되면 제대로 읽은 것입니다. 크게 다르면 브래킷이 흔들리거나 스핀들이 덜 눌린 것이니 다시 겁니다.\n'
+              '결과의 "넣기"는 발 밑에 심을 넣어 모터를 올리는 것, "오른쪽"은 이 자리에서 본 오른쪽입니다.',
+              style: TextStyle(fontSize: 12.5, height: 1.55, color: AppColors.textSub),
             ),
           ],
         ),
@@ -560,6 +733,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
       _card('발 이동량 (모터)', [
         _shimTable(r),
       ]),
+      _roundsCard(r),
       Card(
         margin: const EdgeInsets.only(top: 12),
         elevation: 0,
@@ -723,6 +897,7 @@ class _SaveSheet extends StatefulWidget {
   final DateTime now;
   final String machineDefault;
   final List<Equipment> equipment;
+  final List<AlignRound> rounds;
   const _SaveSheet({
     required this.result,
     required this.method,
@@ -732,6 +907,7 @@ class _SaveSheet extends StatefulWidget {
     required this.now,
     required this.machineDefault,
     required this.equipment,
+    this.rounds = const [],
   });
 
   @override
@@ -741,7 +917,7 @@ class _SaveSheet extends StatefulWidget {
 class _SaveSheetState extends State<_SaveSheet> {
   late final _machine = TextEditingController(text: widget.machineDefault);
   final _note = TextEditingController();
-  AlignStage _stage = AlignStage.before;
+  late AlignStage _stage = widget.rounds.isEmpty ? AlignStage.before : AlignStage.after;
   String _equipmentId = '';
 
   @override
@@ -827,6 +1003,110 @@ class _SaveSheetState extends State<_SaveSheet> {
                   moveFront: r.moveFront,
                   moveRear: r.moveRear,
                   verdict: widget.verdict,
+                  rounds: widget.rounds,
+                ),
+              ),
+              child: const Text('저장'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 회차에 실제로 한 일 적기 ──
+
+class _DoneSheet extends StatefulWidget {
+  final AlignRound round;
+  final int index;
+  const _DoneSheet({required this.round, required this.index});
+
+  @override
+  State<_DoneSheet> createState() => _DoneSheetState();
+}
+
+class _DoneSheetState extends State<_DoneSheet> {
+  late final Map<AlignFoot, TextEditingController> _foot;
+  late final TextEditingController _mf, _mr, _note;
+
+  static String _fmt(double v) => v.abs() < 0.005 ? '0' : v.toStringAsFixed(2);
+
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.round;
+    final d = r.done;
+    // 처음에는 계산이 말한 값으로 채운다(그대로 했으면 바로 저장).
+    double init(AlignFoot f) => d?[f] ?? (f == AlignFoot.frontLeft || f == AlignFoot.frontRight ? r.shimFront : r.shimRear);
+    _foot = {for (final f in AlignFoot.values) f: TextEditingController(text: _fmt(init(f)))};
+    _mf = TextEditingController(text: _fmt(d == null ? r.moveFront : r.doneMoveFront));
+    _mr = TextEditingController(text: _fmt(d == null ? r.moveRear : r.doneMoveRear));
+    _note = TextEditingController(text: r.note);
+  }
+
+  @override
+  void dispose() {
+    for (final c in _foot.values) {
+      c.dispose();
+    }
+    _mf.dispose();
+    _mr.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  double _v(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.').replaceAll('−', '-')) ?? 0;
+
+  Widget _num(String key, String label, TextEditingController c) => Expanded(
+    child: Padding(
+      padding: const EdgeInsets.all(4),
+      child: TextField(
+        key: Key(key),
+        controller: c,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+        decoration: InputDecoration(labelText: label, suffixText: 'mm'),
+      ),
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('${widget.index + 1}회차에 실제로 한 일', style: AppText.title),
+            const SizedBox(height: 4),
+            const Text(
+              '계산이 말한 값이 미리 들어 있습니다. 실제로 넣고 뺀 만큼으로 고치십시오. 넣은 심은 +, 뺀 심은 −입니다.',
+              style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
+            ),
+            const SizedBox(height: 8),
+            const Text('왼쪽 발 (펌프 쪽에서 모터를 볼 때)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+            Row(children: [_num('align_done_frontLeft', '앞발 왼쪽 심', _foot[AlignFoot.frontLeft]!), _num('align_done_rearLeft', '뒷발 왼쪽 심', _foot[AlignFoot.rearLeft]!)]),
+            const Text('오른쪽 발', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+            Row(children: [_num('align_done_frontRight', '앞발 오른쪽 심', _foot[AlignFoot.frontRight]!), _num('align_done_rearRight', '뒷발 오른쪽 심', _foot[AlignFoot.rearRight]!)]),
+            const SizedBox(height: 4),
+            const Text('옆으로 민 양 (오른쪽 +, 왼쪽 −)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+            Row(children: [_num('align_done_moveFront', '앞발 옆으로', _mf), _num('align_done_moveRear', '뒷발 옆으로', _mr)]),
+            Padding(
+              padding: const EdgeInsets.all(4),
+              child: TextField(key: const Key('align_done_note'), controller: _note, decoration: const InputDecoration(labelText: '메모 (선택, 예: 0.2 심 두 장)')),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              key: const Key('align_done_ok'),
+              onPressed: () => Navigator.pop(
+                context,
+                widget.round.withDone(
+                  {for (final f in AlignFoot.values) f: _v(_foot[f]!)},
+                  moveFront: _v(_mf),
+                  moveRear: _v(_mr),
+                  note: _note.text.trim(),
                 ),
               ),
               child: const Text('저장'),
