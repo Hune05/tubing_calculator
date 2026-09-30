@@ -14,6 +14,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
+import '../bend_check/bend_check_page.dart';
 import '../electrical/electric_calculator_page.dart';
 import '../field_tools/eng_calculator_page.dart';
 import '../field_tools/level_page.dart';
@@ -22,6 +23,7 @@ import '../flow/flow_calc_page.dart';
 import '../instrument/signal_calculator_page.dart';
 import '../pressure_test/pressure_test_page.dart';
 import '../reference/page/tube_reference_page.dart';
+import '../safety/safety_check_page.dart';
 import '../unit_converter/unit_converter_page.dart';
 import '../calculator/screens/mobile_calculator_page.dart';
 import '../calculator/screens/mobile_remote_page.dart';
@@ -96,6 +98,22 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.level,
     (_) => const LevelPage(),
     subtitle: '기포 수평계 · 배관 구배(%·mm/m) · 영점 맞추기',
+    group: '현장 도구',
+  ),
+  QuickToolDef(
+    'bendcheck',
+    '벤딩 실측 기록',
+    AppGlyph.tubeSpec,
+    (_) => const BendCheckPage(),
+    subtitle: '계산값과 잰 값의 차이를 남겨 다음 마킹에 참고',
+    group: '현장 도구',
+  ),
+  QuickToolDef(
+    'safety',
+    '안전 점검',
+    AppGlyph.safety,
+    (_) => const SafetyCheckPage(),
+    subtitle: '작업 전 안전 점검표 · 기록 · 카톡 보내기',
     group: '현장 도구',
   ),
   QuickToolDef(

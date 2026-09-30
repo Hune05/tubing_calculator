@@ -23,6 +23,8 @@ import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../widgets/voice_input_button.dart';
 import 'photo_annotate_page.dart';
+import 'package:tubing_calculator/src/presentation/safety/safety_check_model.dart';
+import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
 import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 
@@ -88,6 +90,66 @@ class _DailyReportPageState extends State<DailyReportPage> {
   late TextEditingController _asBuiltCtrl;
   late TextEditingController _nextDayPlanCtrl;
   late TextEditingController _materialsUsedCtrl;
+
+  // 오늘 한 안전 점검(없으면 null). 일지 머리에 "점검 완료/아직"을 보여 주려고 읽어 둔다.
+  SafetyRecord? _safetyToday;
+  bool _safetyShow = false; // 최근에 점검을 써 본 적이 있을 때만 줄을 보여 준다
+
+  Future<void> _loadSafetyToday() async {
+    try {
+      final all = await loadSafetyRecords();
+      if (!mounted) return;
+      setState(() {
+        _safetyToday = safetyCheckToday(all, DateTime.now());
+        _safetyShow = _safetyToday != null || safetyUsedRecently(all, DateTime.now());
+      });
+    } catch (_) {}
+  }
+
+  Widget _safetyLine() {
+    final r = _safetyToday;
+    final done = r != null;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        key: const Key('report_safety_line'),
+        borderRadius: BorderRadius.circular(12),
+        onTap: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const SafetyCheckPage()),
+          );
+          _loadSafetyToday();
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: done ? tossInputBg : const Color(0xFFFFF3DF),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                done ? Icons.verified_user_outlined : Icons.health_and_safety_outlined,
+                size: 20,
+                color: done ? makitaTeal : const Color(0xFF9A5B00),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  done
+                      ? '오늘 안전 점검 완료 (${safetyTimeLabel(r.at).split(' ').last})'
+                      : '오늘 안전 점검을 아직 안 했습니다. 눌러서 점검하십시오.',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const Icon(AppIcons.forward, size: 18, color: tossSubText),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   // 🚀 [변경] 하루에 여러 작업을 같이 하는 경우가 많아 복수 선택으로 변경.
   final Set<String> _selectedWorkTypes = {'신규 설치'};
@@ -170,6 +232,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
   void initState() {
     super.initState();
     _isEdit = widget.existingData != null;
+    _loadSafetyToday();
 
     _pointCtrl = TextEditingController(
       text: _isEdit ? widget.existingData!['points'].toString() : "",
@@ -1186,6 +1249,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   ],
                 ),
               ),
+
+            // 안전 점검을 써 본 적이 있는 사람에게만 오늘 점검 여부를 보여 준다.
+            if (_safetyShow) _safetyLine(),
 
             // ── 오늘 작업 (핵심) ──
             _card(

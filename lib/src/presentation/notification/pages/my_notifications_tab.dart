@@ -18,6 +18,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/pending_write_log.dart';
+import 'package:tubing_calculator/src/presentation/safety/safety_check_model.dart';
+import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/notification/pages/pending_writes_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
@@ -151,7 +153,28 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
     missing = await fetchMissingReportCount();
   } catch (_) {}
 
+  // 최근에 안전 점검을 써 온 사람이 오늘은 아직 안 했으면 알린다(안 쓰는 사람에게는 알리지 않는다).
+  bool safetyMissing = false;
+  try {
+    final records = await loadSafetyRecords();
+    final now = DateTime.now();
+    safetyMissing =
+        safetyUsedRecently(records, now) && safetyCheckToday(records, now) == null;
+  } catch (_) {}
+
   final list = <_AutoItem>[];
+  if (safetyMissing) {
+    list.add(
+      _AutoItem(
+        id: 'safety_today',
+        icon: Icons.health_and_safety_outlined,
+        color: AppColors.caution,
+        title: '오늘 안전 점검 아직',
+        detail: '작업 전 안전 점검을 아직 안 했습니다. 눌러서 바로 점검하십시오.',
+        route: () => MaterialPageRoute<void>(builder: (_) => const SafetyCheckPage()),
+      ),
+    );
+  }
   if (pending > 0) {
     list.add(
       _AutoItem(

@@ -122,6 +122,22 @@ String buildSafetyCheckText(SafetyRecord r) {
   return b.toString();
 }
 
+/// 오늘 한 점검 중 가장 늦은 것(없으면 null).
+SafetyRecord? safetyCheckToday(List<SafetyRecord> all, DateTime now) {
+  SafetyRecord? best;
+  for (final r in all) {
+    final same = r.at.year == now.year && r.at.month == now.month && r.at.day == now.day;
+    if (same && (best == null || r.at.isAfter(best.at))) best = r;
+  }
+  return best;
+}
+
+/// 최근 [days]일 안에 점검을 한 적이 있는지(습관이 있는 사람에게만 "오늘 안 했다"를 알리려고).
+bool safetyUsedRecently(List<SafetyRecord> all, DateTime now, {int days = 14}) {
+  final from = DateTime(now.year, now.month, now.day).subtract(Duration(days: days));
+  return all.any((r) => !r.at.isBefore(from));
+}
+
 /// "8:05" 같은 시각 글.
 String safetyTimeLabel(DateTime t) =>
     '${t.month}/${t.day} ${_two(t.hour)}:${_two(t.minute)}';
