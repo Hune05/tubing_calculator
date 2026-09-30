@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/presentation/common/feature_search.dart';
 import 'package:tubing_calculator/src/presentation/common/record_search.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
+import 'package:tubing_calculator/src/presentation/bend_check/bend_check_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart' show allMaterialCatalog;
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
@@ -1356,6 +1357,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         },
                       ),
 
+                      _buildMenuButton(
+                        context: context,
+                        title: "벤딩 실측 기록",
+                        subtitle: "계산값과 잰 값의 차이를 남겨 다음 마킹에 참고",
+                        icon: AppGlyph.tubeSpec,
+                        iconColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const BendCheckPage(),
+                            ),
+                          );
+                        },
+                      ),
                       _buildMenuButton(
                         context: context,
                         title: "튜브 컷팅 계산기",
