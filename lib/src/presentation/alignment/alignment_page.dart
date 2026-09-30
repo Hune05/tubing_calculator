@@ -10,7 +10,7 @@ import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
 import 'alignment_painter.dart';
-import 'alignment_render.dart';
+import 'alignment_top_painter.dart';
 import 'alignment_record.dart';
 
 Future<void> _defaultShare(String text) async {
@@ -308,12 +308,14 @@ class _AlignmentPageState extends State<AlignmentPage> {
             ),
           ),
           const SizedBox(height: 6),
-          SizedBox(
-            height: 310,
-            child: CustomPaint(
-              key: const Key('align_setup_diagram'),
-              size: Size.infinite,
-              painter: AlignSetupPainter(_method),
+          LayoutBuilder(
+            builder: (context, c) => SizedBox(
+              height: AlignSetupPainter.heightFor(c.maxWidth),
+              child: CustomPaint(
+                key: const Key('align_setup_diagram'),
+                size: Size.infinite,
+                painter: AlignSetupPainter(_method),
+              ),
             ),
           ),
           const Padding(
@@ -519,38 +521,22 @@ class _AlignmentPageState extends State<AlignmentPage> {
                 padding: EdgeInsets.fromLTRB(8, 4, 8, 0),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('비스듬히 본 모양 (좌우로 끌면 돕니다)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
-                ),
-              ),
-              SizedBox(
-                height: 360,
-                child: AlignRenderView(
-                  key: const Key('align_iso'),
-                  shimFront: r.shimFront,
-                  shimRear: r.shimRear,
-                  moveFront: r.moveFront,
-                  moveRear: r.moveRear,
-                ),
-              ),
-              const Divider(height: 1),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
-                child: Align(
-                  alignment: Alignment.centerLeft,
                   child: Text('위에서 본 모양 (네 발 심)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
                 ),
               ),
               SizedBox(
-                height: 340,
-                child: AlignRenderView(
+                height: 300,
+                child: CustomPaint(
                   key: const Key('align_plan'),
-                  top: true,
-                  horizontal: r.horizontal,
-                  xRear: _rearX,
-                  shimFront: r.shimFront,
-                  shimRear: r.shimRear,
-                  moveFront: r.moveFront,
-                  moveRear: r.moveRear,
+                  size: Size.infinite,
+                  painter: AlignTopPainter(
+                    horizontal: r.horizontal,
+                    xRear: _rearX,
+                    shimFront: r.shimFront,
+                    shimRear: r.shimRear,
+                    moveFront: r.moveFront,
+                    moveRear: r.moveRear,
+                  ),
                 ),
               ),
               const Divider(height: 1),

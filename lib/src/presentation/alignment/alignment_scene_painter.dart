@@ -45,3 +45,28 @@ void alignDashPath(Canvas canvas, Path path, Paint paint) {
     }
   }
 }
+
+// ── 단면도 느낌 그림(색은 평평하게, 테두리는 진하게)에 함께 쓰는 색과 도구 ──
+const Color alignOutline = Color(0xFF26323C);
+const Color alignPumpGreen = Color(0xFF8ACB7A);
+const Color alignMotorBlue = Color(0xFF3E9BD6);
+const Color alignSteel = Color(0xFFA6ADB5);
+const Color alignBasePlate = Color(0xFFB9BEC4);
+
+Color alignShade(Color c, double t) => t >= 0 ? Color.lerp(c, Colors.white, t)! : Color.lerp(c, Colors.black, -t)!;
+
+/// 색칠한 몸통 하나: 살짝 위가 밝은 색 + 진한 테두리.
+void alignBody(Canvas canvas, Rect r, Color fill, {double radius = 4, double stroke = 1.3}) {
+  final rr = RRect.fromRectAndRadius(r, Radius.circular(radius));
+  canvas.drawRRect(
+    rr,
+    Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [alignShade(fill, 0.16), fill, alignShade(fill, -0.10)],
+        stops: const [0, 0.4, 1],
+      ).createShader(r),
+  );
+  canvas.drawRRect(rr, Paint()..style = PaintingStyle.stroke..strokeWidth = stroke..color = alignOutline);
+}

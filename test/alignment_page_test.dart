@@ -68,7 +68,6 @@ void main() {
     expect(_text(tester, 'align_move_front'), '옆 그대로');
     expect(_text(tester, 'align_offsets'), contains('0.075 mm'));
     expect(find.byKey(const Key('align_diagram_v')), findsOneWidget);
-    expect(find.byKey(const Key('align_iso')), findsOneWidget);
     expect(find.byKey(const Key('align_plan')), findsOneWidget);
   });
 
