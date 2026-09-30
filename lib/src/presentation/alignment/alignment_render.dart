@@ -475,8 +475,8 @@ class AlignSetupRenderPainter extends CustomPainter {
       tp.paint(canvas, Offset(tx.clamp(2.0, size.width - tp.width - 2), ly - tp.height / 2));
     }
 
-    _txt(canvas, '펌프 (고정)', m.p(-4.2, ya + 2.75), AppColors.textSub, size: 12);
-    _txt(canvas, '모터 (이동, 발에 심)', m.p(4.4, ya + 2.35), AppColors.textSub, size: 12);
+    _txt(canvas, '펌프 (고정)', m.p(-2.9, ya + 1.75), AppColors.textSub, size: 12);
+    _txt(canvas, '모터 (이동)', m.p(5.6, ya + AlignGeo.motorR + 0.12) + const Offset(0, -12), AppColors.textSub, size: 12);
   }
 
   @override
@@ -610,8 +610,12 @@ class AlignTopRenderPainter extends CustomPainter {
       alignLabel(canvas, '옆으로 ${mm > 0 ? '오른쪽' : '왼쪽'}\n${mm.abs().toStringAsFixed(2)} mm', dir > 0 ? at : Offset(at.dx, o.dy - 34), AppColors.brand, size: narrow ? 10 : 11, minWidth: narrow ? 56 : 74);
     }
 
-    arrow(AlignGeo.front, moveFront);
-    arrow(AlignGeo.rear, moveRear);
+    if (moveFront.abs() < 0.005 && moveRear.abs() < 0.005) {
+      alignLabel(canvas, '옆으로는 그대로', m.p((AlignGeo.front + AlignGeo.rear) / 2, 0), alignOk, size: 11);
+    } else {
+      arrow(AlignGeo.front, moveFront);
+      arrow(AlignGeo.rear, moveRear);
+    }
 
     _txt(canvas, '왼쪽 ▲', const Offset(6, 4), AppColors.textSub, center: false);
     _txt(canvas, '오른쪽 ▼', Offset(6, size.height - 18), AppColors.textSub, center: false);
