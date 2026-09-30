@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/presentation/common/feature_search.dart';
 import 'package:tubing_calculator/src/presentation/common/record_search.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
 import 'package:tubing_calculator/src/presentation/alignment/alignment_page.dart';
+import 'package:tubing_calculator/src/presentation/alignment/alignment_guide_page.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart' show summarize;
 import 'package:tubing_calculator/src/presentation/equipment/equipment_pages.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_reminders.dart' show rescheduleEquipmentReminders;
@@ -1542,6 +1543,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const AlignmentPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "축 정렬 현장 지침",
+                        subtitle: "배관 당김·용접 변형·소프트 풋 등 잘 안 맞을 때 대책",
+                        icon: AppGlyph.alignment,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AlignmentGuidePage(),
                             ),
                           );
                         },

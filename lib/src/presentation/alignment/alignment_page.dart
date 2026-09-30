@@ -8,6 +8,7 @@ import '../../core/theme/app_tokens.dart';
 import '../equipment/equipment_model.dart';
 import '../equipment/equipment_store.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
+import 'alignment_guide_page.dart';
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
 import 'alignment_dial_painter.dart';
@@ -205,6 +206,13 @@ class _AlignmentPageState extends State<AlignmentPage> {
     _toast(cmp == null ? '기록했습니다' : '기록했습니다. $cmp');
   }
 
+  Future<void> _openGuide([String? id]) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(builder: (_) => AlignmentGuidePage(openId: id, share: widget.share)),
+    );
+  }
+
   Future<void> _openHistory() async {
     await Navigator.push(
       context,
@@ -221,6 +229,12 @@ class _AlignmentPageState extends State<AlignmentPage> {
       appBar: AppBar(
         title: const Text('축 정렬 계산'),
         actions: [
+          IconButton(
+            key: const Key('align_guide'),
+            tooltip: '현장 지침',
+            icon: const Icon(AppIcons.help),
+            onPressed: () => _openGuide(),
+          ),
           IconButton(
             key: const Key('align_history'),
             tooltip: '지난 기록',
@@ -243,6 +257,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
           ),
           const SizedBox(height: 12),
           _methodCard(),
+          _guideEntry(),
           _dialGuide(),
           _setupCard(),
           const SizedBox(height: 4),
@@ -287,6 +302,39 @@ class _AlignmentPageState extends State<AlignmentPage> {
       ),
     );
   }
+
+  // ── 현장 지침 들어가기 ──
+
+  Widget _guideEntry() => Card(
+    margin: const EdgeInsets.only(top: 12),
+    elevation: 0,
+    color: AppColors.surface,
+    child: InkWell(
+      key: const Key('align_guide_entry'),
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _openGuide(),
+      child: const Padding(
+        padding: EdgeInsets.fromLTRB(14, 12, 10, 12),
+        child: Row(
+          children: [
+            Icon(AppIcons.help, size: 22, color: AppColors.brand),
+            SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('현장 지침 (잘 안 맞을 때)', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: AppColors.text)),
+                  SizedBox(height: 2),
+                  Text('배관이 당김·용접 변형·소프트 풋·못 돌림·볼트 바운드 등 경우별 대책', style: TextStyle(fontSize: 12.5, color: AppColors.textSub)),
+                ],
+              ),
+            ),
+            Icon(AppIcons.forward, size: 18, color: AppColors.textFaint),
+          ],
+        ),
+      ),
+    ),
+  );
 
   // ── 방식 설명 ──
 
@@ -703,12 +751,22 @@ class _AlignmentPageState extends State<AlignmentPage> {
     ),
   );
 
-  Widget _notice(String text, Color color, {required String key}) => Container(
+  Widget _notice(String text, Color color, {required String key, String? guideId}) => Container(
     key: Key(key),
     margin: const EdgeInsets.only(top: 12),
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-    child: Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+        if (guideId != null)
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(key: Key('${key}_guide'), onPressed: () => _openGuide(guideId), child: const Text('현장 지침에서 대책 보기')),
+          ),
+      ],
+    ),
   );
 
   // ── 결과 ──
@@ -751,6 +809,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
           '다이얼이 흔들렸거나 부호를 잘못 넣었을 수 있습니다. 다시 읽어 보십시오.',
           AppColors.caution,
           key: 'align_closure',
+          guideId: 'closure',
         ),
       _card('발 이동량 (모터)', [
         _shimTable(r),
