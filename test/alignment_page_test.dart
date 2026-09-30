@@ -68,7 +68,22 @@ void main() {
     expect(_text(tester, 'align_move_front'), '옆 그대로');
     expect(_text(tester, 'align_offsets'), contains('0.075 mm'));
     expect(find.byKey(const Key('align_diagram_v')), findsOneWidget);
-    expect(find.byKey(const Key('align_diagram_h')), findsOneWidget);
+    expect(find.byKey(const Key('align_iso')), findsOneWidget);
+    expect(find.byKey(const Key('align_plan')), findsOneWidget);
+  });
+
+  testWidgets('시계 그림과 측정 그림이 나오고, 입력칸에 그림과 같은 번호가 붙는다', (tester) async {
+    await _open(tester);
+    expect(find.byKey(const Key('align_clock')), findsOneWidget);
+    expect(find.byKey(const Key('align_setup_diagram')), findsOneWidget);
+    expect(find.text('① A·B 두 접촉면 사이'), findsOneWidget);
+    expect(find.text('④ A면에서 모터 뒷발까지'), findsOneWidget);
+    await tester.tap(find.text('림·페이스'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('align_setup_diagram')), findsOneWidget);
+    expect(find.text('① 림면에서 커플링 중심까지'), findsOneWidget);
+    expect(find.text('④ 페이스가 닿는 반지름'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('허용 범위 밖이면 초과, 허용값을 고치면 판정이 바뀐다', (tester) async {

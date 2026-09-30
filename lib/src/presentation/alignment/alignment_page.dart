@@ -7,8 +7,10 @@ import '../../core/theme/app_tokens.dart';
 import '../equipment/equipment_model.dart';
 import '../equipment/equipment_store.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
+import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
 import 'alignment_painter.dart';
+import 'alignment_scene_painter.dart';
 import 'alignment_record.dart';
 
 Future<void> _defaultShare(String text) async {
@@ -214,7 +216,8 @@ class _AlignmentPageState extends State<AlignmentPage> {
           ),
           const SizedBox(height: 12),
           _howTo(),
-          const SizedBox(height: 12),
+          _setupCard(),
+          const SizedBox(height: 4),
           _card('회전수', [
             _row([_field('rpm', '회전수 (rpm)', hint: '예: 1800')]),
           ]),
@@ -262,11 +265,66 @@ class _AlignmentPageState extends State<AlignmentPage> {
   Widget _howTo() => Container(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(AppRadius.medium)),
-    child: const Text(
-      '읽는 방법: 고정 쪽(펌프)에서 이동 쪽(모터)을 바라보고 섭니다. 다이얼을 12시에서 0으로 맞추고, 축을 같이 돌려 '
-      '3시(오른쪽) → 6시(아래) → 9시(왼쪽) 순서로 읽습니다. 다이얼이 눌리는 쪽이 + 입니다. '
-      '결과의 "넣기"는 발 밑에 심을 넣는 것(올림), "오른쪽"은 이 자리에서 본 오른쪽입니다.',
-      style: TextStyle(fontSize: 13, height: 1.55, color: AppColors.text),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 170,
+          height: 170,
+          child: CustomPaint(key: const Key('align_clock'), painter: AlignClockPainter()),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text(
+            '읽는 방법\n'
+            '① 고정 쪽(펌프)에서 이동 쪽(모터)을 바라보고 섭니다.\n'
+            '② 다이얼을 12시에서 0으로 맞춥니다.\n'
+            '③ 축을 같이 돌려 3시(오른쪽) → 6시(아래) → 9시(왼쪽) 순서로 읽습니다.\n'
+            '다이얼이 눌리는 쪽이 + 입니다. 결과의 "넣기"는 발 밑에 심을 넣는 것(올림), "오른쪽"은 이 자리에서 본 오른쪽입니다.',
+            style: TextStyle(fontSize: 13, height: 1.55, color: AppColors.text),
+          ),
+        ),
+      ],
+    ),
+  );
+
+  /// 측정 그림: 다이얼을 거는 자리와 재는 거리(번호는 아래 입력칸 이름과 같다).
+  Widget _setupCard() => Card(
+    margin: const EdgeInsets.only(top: 12),
+    elevation: 0,
+    color: AppColors.surface,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(8, 12, 8, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 6),
+            child: Text(
+              _method == AlignMethod.reverse
+                  ? '측정 그림 (리버스 다이얼: 두 다이얼이 서로 상대 림을 읽습니다)'
+                  : '측정 그림 (림·페이스: 한 다이얼이 림과 옆면을 읽습니다)',
+              style: AppText.title,
+            ),
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 310,
+            child: CustomPaint(
+              key: const Key('align_setup_diagram'),
+              size: Size.infinite,
+              painter: AlignSetupPainter(_method),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(6, 2, 6, 2),
+            child: Text(
+              '그림의 번호(①②③④)는 아래 입력칸 이름의 번호와 같습니다. 거리는 모두 mm로 잽니다.',
+              style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.textSub),
+            ),
+          ),
+        ],
+      ),
     ),
   );
 
@@ -276,8 +334,8 @@ class _AlignmentPageState extends State<AlignmentPage> {
       _readingRow('b', '다이얼 B (모터 쪽에 걸고 펌프 림을 읽음)'),
     ]),
     _card('거리 (mm)', [
-      _row([_field('between', 'A·B 두 접촉면 사이'), _field('coupB', 'B면에서 커플링 중심까지')]),
-      _row([_field('front', 'A면에서 모터 앞발까지'), _field('rear', 'A면에서 모터 뒷발까지')]),
+      _row([_field('between', '① A·B 두 접촉면 사이'), _field('coupB', '② B면에서 커플링 중심까지')]),
+      _row([_field('front', '③ A면에서 모터 앞발까지'), _field('rear', '④ A면에서 모터 뒷발까지')]),
     ]),
   ];
 
@@ -287,8 +345,8 @@ class _AlignmentPageState extends State<AlignmentPage> {
       _readingRow('f', '페이스 (옆면)'),
     ]),
     _card('거리 (mm)', [
-      _row([_field('faceR', '페이스 다이얼이 닿는 반지름'), _field('coupR', '림면에서 커플링 중심까지')]),
-      _row([_field('front', '림면에서 모터 앞발까지'), _field('rear', '림면에서 모터 뒷발까지')]),
+      _row([_field('coupR', '① 림면에서 커플링 중심까지'), _field('front', '② 림면에서 모터 앞발까지')]),
+      _row([_field('rear', '③ 림면에서 모터 뒷발까지'), _field('faceR', '④ 페이스가 닿는 반지름')]),
     ]),
   ];
 
@@ -458,6 +516,44 @@ class _AlignmentPageState extends State<AlignmentPage> {
           child: Column(
             children: [
               SizedBox(
+                height: 300,
+                child: CustomPaint(
+                  key: const Key('align_iso'),
+                  size: Size.infinite,
+                  painter: AlignIsoPainter(
+                    shimFront: r.shimFront,
+                    shimRear: r.shimRear,
+                    moveFront: r.moveFront,
+                    moveRear: r.moveRear,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('위에서 본 모양 (네 발 심)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+                ),
+              ),
+              SizedBox(
+                height: 300,
+                child: CustomPaint(
+                  key: const Key('align_plan'),
+                  size: Size.infinite,
+                  painter: AlignPlanPainter(
+                    horizontal: r.horizontal,
+                    xFront: _frontX,
+                    xRear: _rearX,
+                    shimFront: r.shimFront,
+                    shimRear: r.shimRear,
+                    moveFront: r.moveFront,
+                    moveRear: r.moveRear,
+                  ),
+                ),
+              ),
+              const Divider(height: 1),
+              SizedBox(
                 height: 170,
                 child: CustomPaint(
                   key: const Key('align_diagram_v'),
@@ -470,23 +566,6 @@ class _AlignmentPageState extends State<AlignmentPage> {
                     shimRear: r.shimRear,
                     title: '옆에서 본 모양 (위아래)',
                     vertical: true,
-                  ),
-                ),
-              ),
-              const Divider(height: 1),
-              SizedBox(
-                height: 170,
-                child: CustomPaint(
-                  key: const Key('align_diagram_h'),
-                  size: Size.infinite,
-                  painter: AlignAxisPainter(
-                    line: r.horizontal,
-                    xFront: _frontX,
-                    xRear: _rearX,
-                    shimFront: r.moveFront,
-                    shimRear: r.moveRear,
-                    title: '위에서 본 모양 (좌우, 고정 쪽에서 볼 때)',
-                    vertical: false,
                   ),
                 ),
               ),
