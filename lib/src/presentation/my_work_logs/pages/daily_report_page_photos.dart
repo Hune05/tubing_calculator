@@ -92,28 +92,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
     );
     if (action == null) return;
     if (action == 'annotate') {
-      if (_attachedImages.length >= 10) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(keepWords("사진은 최대 10장까지 첨부할 수 있습니다."))),
-          );
-        }
-        return;
-      }
-      if (!mounted) return;
-      final np = await Navigator.push<String>(
-        context,
-        WorkRoute(builder: (_) => PhotoAnnotatePage(path: path)),
-      );
-      if (np != null && mounted) {
-        setState(() {
-          _attachedImages.insert(index + 1, np);
-          final t = _imageTags[path];
-          if (t != null) _imageTags[np] = t;
-          final cap = ctrl.text.trim();
-          _imageCaptions[np] = cap.isEmpty ? '표시 사본' : '$cap (표시)';
-        });
-      }
+      await _annotatePhoto(index, caption: ctrl.text.trim());
       return;
     }
     setState(() {
@@ -131,6 +110,33 @@ extension _DailyReportPhotos on _DailyReportPageState {
         _attachedImages.insert(index + 1, t);
       }
     });
+  }
+
+  /// 사진 위에 화살표·글자 등을 넣은 사본을 원래 사진 바로 뒤에 붙인다(원본은 그대로).
+  Future<void> _annotatePhoto(int index, {String? caption}) async {
+    final path = _attachedImages[index];
+    if (_attachedImages.length >= 10) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(keepWords("사진은 최대 10장까지 첨부할 수 있습니다."))),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    final np = await Navigator.push<String>(
+      context,
+      WorkRoute(builder: (_) => PhotoAnnotatePage(path: path)),
+    );
+    if (np != null && mounted) {
+      setState(() {
+        _attachedImages.insert(index + 1, np);
+        final t = _imageTags[path];
+        if (t != null) _imageTags[np] = t;
+        final cap = (caption ?? _imageCaptions[path] ?? '').trim();
+        _imageCaptions[np] = cap.isEmpty ? '표시 사본' : '$cap (표시)';
+      });
+    }
   }
 
   Widget _photoThumb(int index, String path) {
@@ -184,6 +190,26 @@ extension _DailyReportPhotos on _DailyReportPageState {
               top: 4,
               child: Icon(Icons.notes_rounded, color: Colors.white, size: 16),
             ),
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: GestureDetector(
+              key: Key('photo_annotate_$index'),
+              onTap: () => _annotatePhoto(index),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(
+                  Icons.draw_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
+              ),
+            ),
+          ),
           Positioned(
             left: 4,
             bottom: 4,
