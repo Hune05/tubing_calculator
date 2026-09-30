@@ -208,7 +208,6 @@ class _AlignmentPageState extends State<AlignmentPage> {
             onSelectionChanged: (s) => setState(() => _method = s.first),
           ),
           const SizedBox(height: 12),
-          _howTo(),
           _dialGuide(),
           _setupCard(),
           const SizedBox(height: 4),
@@ -256,32 +255,6 @@ class _AlignmentPageState extends State<AlignmentPage> {
 
   // ── 입력 ──
 
-  Widget _howTo() => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(AppRadius.medium)),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 170,
-          height: 170,
-          child: CustomPaint(key: const Key('align_clock'), painter: AlignClockPainter()),
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Text(
-            '읽는 방법\n'
-            '① 고정 쪽(펌프)에서 이동 쪽(모터)을 바라보고 섭니다.\n'
-            '② 다이얼을 12시에서 0으로 맞춥니다.\n'
-            '③ 축을 같이 돌려 3시(오른쪽) → 6시(아래) → 9시(왼쪽) 순서로 읽습니다.\n'
-            '다이얼이 눌리는 쪽이 + 입니다. 결과의 "넣기"는 발 밑에 심을 넣는 것(올림), "오른쪽"은 이 자리에서 본 오른쪽입니다.',
-            style: TextStyle(fontSize: 13, height: 1.55, color: AppColors.text),
-          ),
-        ),
-      ],
-    ),
-  );
-
   /// 다이얼 게이지 쓰는 법과 읽는 법: 실물 모양 다이얼 그림으로.
   Widget _dialGuide() {
     Widget tile(double v, String caption, {bool bezel = false}) => Expanded(
@@ -324,6 +297,23 @@ class _AlignmentPageState extends State<AlignmentPage> {
                 tile(0, '② 12시에서 베젤을\n돌려 0에 맞춥니다', bezel: true),
                 tile(-0.10, '③ 두 축을 같이 돌려\n3·6·9시에서 읽습니다'),
                 tile(0, '④ 12시로 오면\n다시 0인지 봅니다'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text('보는 자리와 방향', style: AppText.subtitle),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(width: 140, height: 140, child: CustomPaint(key: const Key('align_clock'), painter: AlignClockPainter())),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    '고정 쪽(펌프)에 서서 이동 쪽(모터)을 바라봅니다. 이 자리에서 3시가 오른쪽, 9시가 왼쪽입니다.\n'
+                    '결과의 "넣기"는 발 밑에 심을 넣어 모터를 올리는 것, "오른쪽"은 이 자리에서 본 오른쪽입니다.',
+                    style: TextStyle(fontSize: 12.5, height: 1.55, color: AppColors.text),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 14),
