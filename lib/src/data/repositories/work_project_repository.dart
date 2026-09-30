@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/data/pending_write_log.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -49,6 +50,9 @@ class WorkProjectRepository {
   // 쓰고 연결되면 자동으로 올리는데, 서버 확인이 올 때까지 이 값이 1 이상이라
   // 화면에서 "동기화 대기 중"을 보여줄 수 있다.
   static final ValueNotifier<int> pendingWrites = ValueNotifier<int>(0);
+
+  // 위 숫자가 "어느 프로젝트의 무엇"인지(저장 대기 화면이 읽는다). 앱이 켜져 있는 동안만 기억한다.
+  static final PendingWriteLog pendingLog = PendingWriteLog();
 
   CollectionReference<Map<String, dynamic>> get _col =>
       _db.collection(kWorkProjectsCollection);
@@ -117,10 +121,16 @@ class WorkProjectRepository {
     // 🚀 [고침] "아직 서버에 안 닿은 저장" 수를 서버 읽기(최대 5초) 전에 올린다.
     // 예전에는 읽은 뒤에야 올려서, 사진 정리가 그 사이 0을 보고 옛 사진을 먼저 지웠다.
     pendingWrites.value++;
+    final token = pendingLog.begin(
+      projectId: id,
+      projectName: project['name']?.toString() ?? '',
+      kind: kPendingKindSave,
+    );
     try {
       await _mergeAndSet(project, data, id, merge: merge);
     } finally {
       pendingWrites.value--;
+      pendingLog.end(token);
     }
   }
 
@@ -175,10 +185,16 @@ class WorkProjectRepository {
     );
     if (updated == null) return;
     pendingWrites.value++;
+    final token = pendingLog.begin(
+      projectId: projectId,
+      projectName: snap.data()?['name']?.toString() ?? '',
+      kind: kPendingKindSchedule,
+    );
     try {
       await ref.update({'schedules': updated});
     } finally {
       pendingWrites.value--;
+      pendingLog.end(token);
     }
   }
 

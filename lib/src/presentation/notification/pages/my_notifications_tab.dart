@@ -15,11 +15,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'package:tubing_calculator/src/data/pending_write_log.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
+import 'package:tubing_calculator/src/presentation/notification/pages/pending_writes_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/work_theme.dart'
+    show WorkRoute;
 import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart'
-    show fetchTodayScheduleCount;
+    show fetchTodayScheduleCount, MobileMyScheduleScreen;
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/reminder_tools.dart'
     show fetchMissingReportCount;
 
@@ -119,12 +125,16 @@ class _AutoItem {
   final Color color;
   final String title;
   final String detail;
+
+  /// 눌렀을 때 열 화면(없으면 눌러지지 않는다).
+  final Route<void> Function()? route;
   const _AutoItem({
     required this.id,
     required this.icon,
     required this.color,
     required this.title,
     required this.detail,
+    this.route,
   });
 }
 
@@ -149,7 +159,15 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         icon: Icons.cloud_upload_outlined,
         color: Colors.deepOrange,
         title: '오프라인 저장 대기 $pending건',
-        detail: '통신이 없어 폰에만 저장된 작업이 있습니다. 연결되면 서버로 자동으로 올라갑니다.',
+        detail: () {
+          final names = PendingWriteLog.namesLabel(
+            WorkProjectRepository.pendingLog.entries.value,
+          );
+          final head = names.isEmpty ? '' : '$names — ';
+          return '$head통신이 없어 폰에만 저장된 작업이 있습니다. 연결되면 서버로 자동으로 올라갑니다.';
+        }(),
+        route: () =>
+            MaterialPageRoute<void>(builder: (_) => const PendingWritesPage()),
       ),
     );
   }
@@ -160,7 +178,10 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         icon: Icons.event_outlined,
         color: AppColors.brand,
         title: '오늘 일정 $todayCount건',
-        detail: '오늘 처리할 일정이 있습니다. "내 일정 관리"에서 확인하십시오.',
+        detail: '오늘 처리할 일정이 있습니다. 눌러서 "내 일정 관리"에서 확인하십시오.',
+        route: () => MaterialPageRoute<void>(
+          builder: (_) => MobileMyScheduleScreen(currentWorker: currentWorker),
+        ),
       ),
     );
   }
@@ -171,7 +192,10 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         icon: Icons.edit_note_outlined,
         color: _warn,
         title: '작업 일지 미작성 $missing건',
-        detail: '오늘 작업 일지를 아직 안 쓴 진행중 프로젝트가 있습니다.',
+        detail: '오늘 작업 일지를 아직 안 쓴 진행중 프로젝트가 있습니다. 눌러서 바로 쓰십시오.',
+        route: () => WorkRoute<void>(
+          builder: (_) => const WorkLogMainScreen(autoWriteReport: true),
+        ),
       ),
     );
   }
@@ -392,45 +416,65 @@ class _MyNotificationsTabState extends State<MyNotificationsTab> {
             direction: DismissDirection.endToStart,
             background: swipeDeleteBackground(radius: 0, bottomMargin: 0),
             onDismissed: (_) => _dismiss(item),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+            child: InkWell(
+              onTap: item.route == null
+                  ? null
+                  : () async {
+                      HapticFeedback.lightImpact();
+                      await Navigator.push(context, item.route!());
+                      if (mounted) _load();
+                    },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: item.color.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(item.icon, color: item.color, size: 22),
                     ),
-                    child: Icon(item.icon, color: item.color, size: 22),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: _slate900,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: _slate900,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          item.detail,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: _slate600,
+                          const SizedBox(height: 6),
+                          Text(
+                            item.detail,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: _slate600,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    if (item.route != null)
+                      const Padding(
+                        padding: EdgeInsets.only(left: 8, top: 10),
+                        child: Icon(
+                          AppIcons.forward,
+                          color: AppColors.textFaint,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           );
