@@ -22,6 +22,55 @@ Future<void> _defaultShare(String text) async {
   await textSharer(text);
 }
 
+/// 고르는 칩: 선택하면 청록 바탕에 흰 글씨(앱의 다른 화면과 같은 모양).
+class _Choice extends StatelessWidget {
+  final Key? chipKey;
+  final Widget label;
+  final bool selected;
+  final ValueChanged<bool>? onSelected;
+  const _Choice({
+    Key? key,
+    required this.label,
+    required this.selected,
+    this.onSelected,
+    bool showCheckmark = false,
+  }) : chipKey = key;
+
+  @override
+  Widget build(BuildContext context) => ChoiceChip(
+    key: chipKey,
+    label: label,
+    selected: selected,
+    showCheckmark: false,
+    selectedColor: AppColors.brand,
+    backgroundColor: AppColors.surface,
+    side: BorderSide(color: selected ? AppColors.brand : AppColors.line),
+    labelStyle: TextStyle(
+      fontWeight: FontWeight.w700,
+      color: selected ? Colors.white : AppColors.text,
+    ),
+    onSelected: onSelected,
+  );
+}
+
+/// 누르면 바로 실행하는 칩(예시 고르기): 테두리가 있어 눌러지는 것으로 보인다.
+class _Action extends StatelessWidget {
+  final Key? chipKey;
+  final Widget label;
+  final VoidCallback? onPressed;
+  const _Action({Key? key, required this.label, this.onPressed}) : chipKey = key;
+
+  @override
+  Widget build(BuildContext context) => ActionChip(
+    key: chipKey,
+    label: label,
+    backgroundColor: AppColors.surface,
+    side: const BorderSide(color: AppColors.line),
+    labelStyle: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.text),
+    onPressed: onPressed,
+  );
+}
+
 Color dueColor(DueState s) => switch (s) {
   DueState.overdue => AppColors.danger,
   DueState.soon => AppColors.caution,
@@ -253,7 +302,7 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
 
   Widget _chip(String label, bool sel, VoidCallback onTap) => Padding(
     padding: const EdgeInsets.only(right: 8, top: 4, bottom: 4),
-    child: ChoiceChip(
+    child: _Choice(
       label: Text(label),
       selected: sel,
       showCheckmark: false,
@@ -328,7 +377,7 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
             alignment: WrapAlignment.center,
             children: [
               for (final p in kEquipPresets)
-                ActionChip(
+                _Action(
                   key: Key('equip_preset_${p.name}'),
                   label: Text(p.name),
                   onPressed: () => _add(presetName: p.name),
@@ -551,7 +600,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                 runSpacing: 4,
                 children: [
                   for (final p in kEquipPresets.take(6))
-                    ActionChip(
+                    _Action(
                       label: Text(p.name, style: const TextStyle(fontSize: 12)),
                       onPressed: () => setState(() {
                         _name.text = p.name;
@@ -567,7 +616,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
             spacing: 8,
             children: [
               for (final c in EquipCategory.values)
-                ChoiceChip(
+                _Choice(
                   key: Key('equip_cat_${c.id}'),
                   label: Text(c.label),
                   selected: _category == c,
@@ -588,7 +637,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
             spacing: 8,
             children: [
               for (final m in const [0, 3, 6, 12, 24, 36])
-                ChoiceChip(
+                _Choice(
                   key: Key('equip_interval_$m'),
                   label: Text(m == 0 ? '없음' : (m % 12 == 0 ? '${m ~/ 12}년' : '$m개월')),
                   selected: _interval == m,
@@ -1005,7 +1054,7 @@ class _InspectSheetState extends State<_InspectSheet> {
               spacing: 8,
               children: [
                 for (final t in [EventType.cal, EventType.check])
-                  ChoiceChip(
+                  _Choice(
                     key: Key('inspect_type_${t.id}'),
                     label: Text(t.label),
                     selected: _type == t,
@@ -1019,7 +1068,7 @@ class _InspectSheetState extends State<_InspectSheet> {
               spacing: 8,
               children: [
                 for (final r in [kResultPass, kResultConditional, kResultFail])
-                  ChoiceChip(
+                  _Choice(
                     key: Key('inspect_result_$r'),
                     label: Text(r),
                     selected: _result == r,
