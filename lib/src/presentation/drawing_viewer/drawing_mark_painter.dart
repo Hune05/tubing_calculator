@@ -12,9 +12,16 @@ class MarkScale {
   final double font; // 글자 크기
   const MarkScale(this.stamp, this.stroke, this.font);
 
-  factory MarkScale.forPage(Size page) {
+  /// [viewScale]가 있으면(화면 보기) 화면에서 너무 작아지지 않게 최소 크기를 둔다.
+  factory MarkScale.forPage(Size page, {double? viewScale}) {
     final l = math.max(page.width, page.height);
-    return MarkScale(l / 55, math.max(2.0, l / 650), l / 80);
+    var stamp = l / 45, stroke = math.max(2.0, l / 650), font = l / 80;
+    if (viewScale != null && viewScale > 0) {
+      stamp = math.min(math.max(stamp, 30 / viewScale), l / 10);
+      stroke = math.max(stroke, 2.4 / viewScale);
+      font = math.min(math.max(font, 13 / viewScale), l / 25);
+    }
+    return MarkScale(stamp, stroke, font);
   }
 }
 
@@ -71,9 +78,9 @@ void _label(Canvas c, String text, Offset at, Color col, double font, {bool belo
 }
 
 /// 표시 하나를 그린다.
-void paintMark(Canvas c, DrawingMark m, Size page, {bool selected = false}) {
+void paintMark(Canvas c, DrawingMark m, Size page, {bool selected = false, double? viewScale}) {
   if (m.points.isEmpty) return;
-  final s = MarkScale.forPage(page);
+  final s = MarkScale.forPage(page, viewScale: viewScale);
   final col = Color(m.color.argb).withValues(alpha: m.done ? 0.45 : 1);
   final p0 = markPoint(m, 0, page);
   final line = Paint()
@@ -84,7 +91,7 @@ void paintMark(Canvas c, DrawingMark m, Size page, {bool selected = false}) {
     ..color = col;
 
   if (selected) {
-    final b = markBounds(m, page).inflate(s.stamp * 0.35);
+    final b = markBounds(m, page, viewScale: viewScale).inflate(s.stamp * 0.35);
     c.drawRRect(RRect.fromRectAndRadius(b, Radius.circular(s.stamp * 0.2)), Paint()..color = const Color(0x3300A0FF));
     c.drawRRect(RRect.fromRectAndRadius(b, Radius.circular(s.stamp * 0.2)), Paint()..style = PaintingStyle.stroke..strokeWidth = s.stroke * 0.8..color = const Color(0xFF0088FF));
   }
@@ -171,8 +178,8 @@ void paintMark(Canvas c, DrawingMark m, Size page, {bool selected = false}) {
 }
 
 /// 표시가 차지하는 자리(누르기·선택 표시용).
-Rect markBounds(DrawingMark m, Size page) {
-  final s = MarkScale.forPage(page);
+Rect markBounds(DrawingMark m, Size page, {double? viewScale}) {
+  final s = MarkScale.forPage(page, viewScale: viewScale);
   final p0 = markPoint(m, 0, page);
   switch (m.kind) {
     case MarkKind.ok:
@@ -193,10 +200,10 @@ Rect markBounds(DrawingMark m, Size page) {
 }
 
 /// 누른 자리에 있는 표시(위에 그린 것부터). 없으면 null.
-DrawingMark? hitMark(List<DrawingMark> marks, int page, Offset at, Size pageSize, {double slop = 0}) {
+DrawingMark? hitMark(List<DrawingMark> marks, int page, Offset at, Size pageSize, {double slop = 0, double? viewScale}) {
   for (final m in marks.reversed) {
     if (m.page != page) continue;
-    if (markBounds(m, pageSize).inflate(slop).contains(at)) return m;
+    if (markBounds(m, pageSize, viewScale: viewScale).inflate(slop).contains(at)) return m;
   }
   return null;
 }
@@ -206,14 +213,15 @@ class DrawingMarksPainter extends CustomPainter {
   final int page;
   final String? selectedId;
   final DrawingMark? draft;
-  DrawingMarksPainter({required this.marks, required this.page, this.selectedId, this.draft});
+  final double? viewScale;
+  DrawingMarksPainter({required this.marks, required this.page, this.selectedId, this.draft, this.viewScale});
 
   @override
   void paint(Canvas canvas, Size size) {
     for (final m in marks) {
-      if (m.page == page) paintMark(canvas, m, size, selected: m.id == selectedId);
+      if (m.page == page) paintMark(canvas, m, size, selected: m.id == selectedId, viewScale: viewScale);
     }
-    if (draft != null) paintMark(canvas, draft!, size);
+    if (draft != null) paintMark(canvas, draft!, size, viewScale: viewScale);
   }
 
   @override

@@ -146,6 +146,15 @@ void main() {
         expect((await DrawingStore.loadMarks(doc.id)).single.no, 1);
         expect((await DrawingStore.load()).single.openIssues, 1);
 
+        // 사진(현장 사진·찍은 도면)도 같은 보기로
+        final png = await renderDxfPng(readDxf(_sample), longSide: 800);
+        final photo = File('${tmp.path}/site.png')..writeAsBytesSync(png.$1);
+        final pdoc = await DrawingStore.importFile(photo.path, now: DateTime(2026, 10, 1, 10, 5));
+        expect(pdoc.kind, DrawingKind.image);
+        expect(pdoc.pageSizes.single, (png.$2, png.$3));
+        expect(File(await DrawingStore.thumbPath(pdoc.id)).existsSync(), isTrue);
+        await DrawingStore.delete(pdoc.id);
+
         final dwg = File('${tmp.path}/a.dwg')..writeAsStringSync('AC1032');
         await expectLater(DrawingStore.importFile(dwg.path), throwsA(isA<DxfError>()));
 
@@ -212,7 +221,7 @@ void main() {
       expect(saved.single.no, 1);
       expect(saved.single.author, '홍길동');
       expect(saved.single.points.single.$1, closeTo(0.5, 0.02));
-      expect(saved.single.points.single.$2, closeTo(0.5, 0.02));
+      expect(saved.single.points.single.$2, closeTo(0.5, 0.05)); // 도구 줄이 생겨 캔버스가 조금 줄어도 다시 맞추지 않는다
 
       // 질문도 하나 → 2번
       await tester.tap(find.byKey(const Key('dv_tool_question')));

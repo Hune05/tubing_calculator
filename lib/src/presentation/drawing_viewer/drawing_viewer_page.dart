@@ -287,7 +287,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
         _fit();
         return;
       }
-      final hit = hitMark(_marks, _page, pagePt, _pageSize, slop: 14 / _scale);
+      final hit = hitMark(_marks, _page, pagePt, _pageSize, slop: 14 / _scale, viewScale: _scale);
       setState(() => _selected = hit?.id);
       if (hit != null) _openMark(hit);
       return;
@@ -473,6 +473,8 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
     final open = openIssueCount(_marks);
     return Scaffold(
       backgroundColor: const Color(0xFF3A3F46),
+      // 글 넣을 때 자판이 올라와도 도면 크기·확대를 그대로 둔다
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -505,8 +507,9 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
               builder: (context, c) {
                 final v = Size(c.maxWidth, c.maxHeight);
                 if (v != _view) {
+                  // 처음이거나 가로 폭이 바뀔 때(돌림)만 다시 맞춘다
+                  if ((v.width - _view.width).abs() > 1) _fitted = false;
                   _view = v;
-                  _fitted = false;
                 }
                 if (!_fitted && !_view.isEmpty) {
                   _fitted = true;
@@ -562,7 +565,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
                         Positioned.fill(
                           child: CustomPaint(
                             key: const Key('dv_marks'),
-                            painter: DrawingMarksPainter(marks: _marks, page: _page, selectedId: _selected, draft: _draft),
+                            painter: DrawingMarksPainter(marks: _marks, page: _page, selectedId: _selected, draft: _draft, viewScale: _scale),
                           ),
                         ),
                       ],
