@@ -222,7 +222,7 @@ class AlignSetupPainter extends CustomPainter {
       _text(canvas, '림면 → 커플링 중심', Offset(xRim + 100, y1), size: 11, color: AppColors.text, w: FontWeight.w700, maxW: 150);
       _text(canvas, '림면 → 앞발', Offset(frontX + 56, y2), size: 11, color: _dialA, w: FontWeight.w700, maxW: 120);
       _text(canvas, '림면 → 뒷발', Offset(rearX - 62, y3 - 14), size: 11, color: _dialA, w: FontWeight.w700, maxW: 120);
-      _text(canvas, '④ 페이스가 닿는 반지름', Offset(rx + 8, faceY - 30), size: 11, color: AppColors.text, w: FontWeight.w700, maxW: 150);
+      _text(canvas, '④ 페이스가 닿는 반지름', Offset(16, y1 - 6), size: 11, color: AppColors.text, w: FontWeight.w700, maxW: 150);
     }
   }
 
