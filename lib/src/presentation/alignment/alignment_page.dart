@@ -9,7 +9,6 @@ import '../equipment/equipment_store.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
-import 'alignment_painter.dart';
 import 'alignment_top_painter.dart';
 import 'alignment_record.dart';
 
@@ -116,13 +115,6 @@ class _AlignmentPageState extends State<AlignmentPage> {
       if (e.value.text.trim().isNotEmpty) e.key: e.value.text.trim(),
     'method': _method.name,
   };
-
-  double get _frontX {
-    if (_method == AlignMethod.reverse) {
-      return (_n('between') ?? 0) - (_n('coupB') ?? 0) + (_n('front') ?? 0);
-    }
-    return (_n('coupR') ?? 0) + (_n('front') ?? 0);
-  }
 
   double get _rearX {
     if (_method == AlignMethod.reverse) {
@@ -521,38 +513,46 @@ class _AlignmentPageState extends State<AlignmentPage> {
                 padding: EdgeInsets.fromLTRB(8, 4, 8, 0),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('위에서 본 모양 (네 발 심)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+                  child: Text('위에서 본 모양 (네 발 심, 옆 이동)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
                 ),
               ),
-              SizedBox(
-                height: 300,
-                child: CustomPaint(
-                  key: const Key('align_plan'),
-                  size: Size.infinite,
-                  painter: AlignTopPainter(
-                    horizontal: r.horizontal,
-                    xRear: _rearX,
-                    shimFront: r.shimFront,
-                    shimRear: r.shimRear,
-                    moveFront: r.moveFront,
-                    moveRear: r.moveRear,
+              LayoutBuilder(
+                builder: (context, c) => SizedBox(
+                  height: AlignTopPainter.heightFor(c.maxWidth),
+                  child: CustomPaint(
+                    key: const Key('align_plan'),
+                    size: Size.infinite,
+                    painter: AlignTopPainter(
+                      horizontal: r.horizontal,
+                      xRear: _rearX,
+                      shimFront: r.shimFront,
+                      shimRear: r.shimRear,
+                      moveFront: r.moveFront,
+                      moveRear: r.moveRear,
+                    ),
                   ),
                 ),
               ),
               const Divider(height: 1),
-              SizedBox(
-                height: 170,
-                child: CustomPaint(
-                  key: const Key('align_diagram_v'),
-                  size: Size.infinite,
-                  painter: AlignAxisPainter(
-                    line: r.vertical,
-                    xFront: _frontX,
-                    xRear: _rearX,
-                    shimFront: r.shimFront,
-                    shimRear: r.shimRear,
-                    title: '옆에서 본 모양 (위아래)',
-                    vertical: true,
+              const Padding(
+                padding: EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('옆에서 본 모양 (네 발 심, 위아래)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+                ),
+              ),
+              LayoutBuilder(
+                builder: (context, c) => SizedBox(
+                  height: AlignSidePainter.heightFor(c.maxWidth),
+                  child: CustomPaint(
+                    key: const Key('align_diagram_v'),
+                    size: Size.infinite,
+                    painter: AlignSidePainter(
+                      vertical: r.vertical,
+                      xRear: _rearX,
+                      shimFront: r.shimFront,
+                      shimRear: r.shimRear,
+                    ),
                   ),
                 ),
               ),

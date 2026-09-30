@@ -5,8 +5,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_tokens.dart';
+import 'alignment_machine_art.dart';
 import 'alignment_math.dart';
-import 'alignment_scene_painter.dart';
 
 const Color _dialA = Color(0xFFE08A00);
 const Color _dialB = Color(0xFF2F6FE0);
@@ -73,87 +73,38 @@ class AlignSetupPainter extends CustomPainter {
   AlignSetupPainter(this.method);
 
   static const double _topRoom = 46; // 다이얼 위 글씨 자리
-  static double _machineScale(double w) => math.min(240.0, w * 0.42);
 
   /// 그림에 필요한 높이: 위 여백 + 기계 + 거리선 네 줄.
-  static double heightFor(double w) => _topRoom + _machineScale(w) * 0.60 + 140;
+  static double heightFor(double w) => _topRoom + alignMachineScale(w) * 0.60 + 140;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
-    final h = _machineScale(w); // 기계 그림의 세로 크기(가로에 비례, 폰에서 찌그러지지 않게)
-    final axisY = _topRoom + h * 0.38;
-    final ground = _topRoom + h * 0.60;
+    final lay = paintMachineSide(canvas, w, topRoom: _topRoom);
+    final axisY = lay.axisY, ground = lay.ground;
+    final xHubL = lay.xHubL, xC = lay.xC, xHubR = lay.xHubR, hubR = lay.hubR;
+    final frontX = lay.frontX, rearX = lay.rearX;
 
     // 바닥 선(빗금)
     final gp = Paint()
       ..color = AppColors.textFaint
       ..strokeWidth = 1.6;
-    canvas.drawLine(Offset(w * 0.02, ground), Offset(w * 0.98, ground), gp);
+    canvas.drawLine(Offset(w * 0.02, ground + 4), Offset(w * 0.98, ground + 4), gp);
     for (var x = w * 0.03; x < w * 0.97; x += 9) {
-      canvas.drawLine(Offset(x, ground), Offset(x - 5, ground + 6), gp..strokeWidth = 1);
+      canvas.drawLine(Offset(x, ground + 4), Offset(x - 5, ground + 10), gp..strokeWidth = 1);
     }
-
-    final xHubL = w * 0.34, xC = w * 0.44, xHubR = w * 0.54;
-    final xMotL = w * 0.58, xMotR = w * 0.97;
-    final hubR = h * 0.11;
-    final baseTop = ground - 10;
-    final frontX = w * 0.68, rearX = w * 0.91;
-
-    // 받침판(I빔 모양의 회색 판)
-    alignBody(canvas, Rect.fromLTRB(w * 0.02, baseTop, w * 0.98, ground), alignBasePlate, radius: 2);
-    for (final x in [0.16, 0.30, 0.50, 0.66, 0.82]) {
-      canvas.drawLine(Offset(w * x, baseTop), Offset(w * x, ground), Paint()..color = alignOutline.withValues(alpha: 0.35)..strokeWidth = 1);
-    }
-
-    // ── 펌프(초록): 흡입 플랜지, 흡입관, 케이싱, 토출관과 플랜지, 커버 플랜지, 베어링 하우징
-    final pumpLeft = w * 0.03;
-    alignBody(canvas, Rect.fromLTRB(pumpLeft, axisY - h * 0.17, pumpLeft + 8, axisY + h * 0.17), alignShade(alignPumpGreen, -0.12), radius: 2);
-    alignBody(canvas, Rect.fromLTRB(pumpLeft + 8, axisY - h * 0.11, w * 0.11, axisY + h * 0.11), alignPumpGreen, radius: 2);
-    alignBody(canvas, Rect.fromLTRB(w * 0.115, axisY + h * 0.17, w * 0.215, baseTop), alignShade(alignPumpGreen, -0.10), radius: 2);
-    alignBody(canvas, Rect.fromLTRB(w * 0.10, axisY - h * 0.20, w * 0.23, axisY + h * 0.18), alignPumpGreen, radius: 18);
-    final dTop = axisY - h * 0.30;
-    alignBody(canvas, Rect.fromLTRB(w * 0.135, dTop, w * 0.195, axisY - h * 0.19), alignPumpGreen, radius: 2);
-    alignBody(canvas, Rect.fromLTRB(w * 0.122, dTop - 7, w * 0.208, dTop), alignShade(alignPumpGreen, -0.12), radius: 2);
-    alignBody(canvas, Rect.fromLTRB(w * 0.23, axisY - h * 0.21, w * 0.247, axisY + h * 0.21), alignShade(alignPumpGreen, -0.12), radius: 2);
-    alignBody(canvas, Rect.fromLTRB(w * 0.262, axisY + h * 0.11, w * 0.30, baseTop), alignShade(alignPumpGreen, -0.10), radius: 2);
-    alignBody(canvas, Rect.fromLTRB(w * 0.247, axisY - h * 0.11, w * 0.32, axisY + h * 0.11), alignPumpGreen, radius: 6);
-    for (final x in [0.27, 0.285, 0.30]) {
-      canvas.drawLine(Offset(w * x, axisY - h * 0.11 + 4), Offset(w * x, axisY + h * 0.11 - 4), Paint()..color = alignOutline.withValues(alpha: 0.5)..strokeWidth = 1);
-    }
-    _text(canvas, '펌프 (고정)', Offset(w * 0.165, axisY + h * 0.03), size: 12, color: alignOutline);
-
-    // ── 축과 커플링 반쪽
-    alignBody(canvas, Rect.fromLTRB(w * 0.32, axisY - 5, xHubL + 4, axisY + 5), alignSteel, radius: 2);
-    alignBody(canvas, Rect.fromLTRB(xHubR - 4, axisY - 5, xMotL + 2, axisY + 5), alignSteel, radius: 2);
-    alignBody(canvas, Rect.fromLTRB(xHubL, axisY - hubR, xC - 2, axisY + hubR), alignShade(alignSteel, -0.08), radius: 3);
-    alignBody(canvas, Rect.fromLTRB(xC + 2, axisY - hubR, xHubR, axisY + hubR), alignSteel, radius: 3);
-
-    // ── 모터(파랑): 구동 쪽 앞판, 방열핀 몸통, 팬 덮개, 단자함, 발
-    final motBody = Rect.fromLTRB(xMotL + w * 0.03, axisY - h * 0.135, xMotR - w * 0.05, axisY + h * 0.135);
-    for (final fx in [frontX, rearX]) {
-      alignBody(canvas, Rect.fromLTRB(fx - 24, axisY + h * 0.10, fx + 24, baseTop - 7), alignShade(alignMotorBlue, -0.12), radius: 2);
-      alignBody(canvas, Rect.fromLTRB(fx - 32, baseTop - 7, fx + 32, baseTop), alignShade(alignMotorBlue, -0.18), radius: 2);
-    }
-    alignBody(canvas, motBody, alignMotorBlue, radius: 8);
-    for (var x = motBody.left + 8; x < motBody.right - 4; x += 7) {
-      canvas.drawLine(Offset(x, motBody.top + 4), Offset(x, motBody.bottom - 4), Paint()..color = alignOutline.withValues(alpha: 0.28)..strokeWidth = 1.3);
-    }
-    alignBody(canvas, Rect.fromLTRB(xMotL, axisY - h * 0.16, xMotL + w * 0.035, axisY + h * 0.16), alignShade(alignMotorBlue, -0.10), radius: 5);
-    alignBody(canvas, Rect.fromLTRB(xMotR - w * 0.055, axisY - h * 0.105, xMotR, axisY + h * 0.105), alignShade(alignMotorBlue, -0.14), radius: 10);
-    alignBody(canvas, Rect.fromLTRB((frontX + rearX) / 2 - 24, motBody.top - h * 0.07, (frontX + rearX) / 2 + 24, motBody.top), alignShade(alignMotorBlue, -0.10), radius: 3);
-    _text(canvas, '모터 (이동)', Offset((xMotL + xMotR) / 2, axisY + h * 0.02), size: 12, color: Colors.white);
-    _text(canvas, '앞발', Offset(frontX, ground + 16), size: 11, color: AppColors.textSub);
-    _text(canvas, '뒷발', Offset(rearX, ground + 16), size: 11, color: AppColors.textSub);
 
     // 커플링 중심선
     final cp = Paint()
-      ..color = AppColors.text.withValues(alpha: 0.5)
+      ..color = AppColors.text.withValues(alpha: 0.6)
       ..strokeWidth = 1.4;
-    for (var y = axisY - hubR - 14; y < axisY + hubR + 26; y += 8) {
+    for (var y = axisY - hubR - 14; y < ground; y += 8) {
       canvas.drawLine(Offset(xC, y), Offset(xC, y + 4), cp);
     }
-    _text(canvas, '커플링\n중심', Offset(xC, axisY + hubR + 22), size: 11, color: AppColors.textSub);
+    _text(canvas, '펌프 (고정)', Offset(w * 0.17, ground + 19), size: 11, color: AppColors.textSub);
+    _text(canvas, '커플링 중심', Offset(xC, ground + 19), size: 11, color: AppColors.textSub);
+    _text(canvas, '앞발', Offset(frontX, ground + 19), size: 11, color: AppColors.textSub);
+    _text(canvas, '뒷발', Offset(rearX, ground + 19), size: 11, color: AppColors.textSub);
 
     if (method == AlignMethod.reverse) {
       final xAplane = (xC + 2 + xHubR) / 2 + 2; // A가 읽는 모터 림(모터 쪽 커플링)
