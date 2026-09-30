@@ -86,16 +86,21 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('허용 범위 밖이면 초과, 허용값을 고치면 판정이 바뀐다', (tester) async {
+  testWidgets('허용 기준은 처음 0.05 mm, 고치면 판정이 바뀌고 다음에 열어도 남는다', (tester) async {
     await _open(tester);
-    await _type(tester, 'rpm', '1800'); // 참고 허용 0.08
+    await _type(tester, 'rpm', '1800');
     await _fillReverse(tester);
-    // 평행 0.075는 허용(0.08) 안이지만 각도 0.025도 안 → 허용 안
-    expect(find.text('허용 범위 안입니다'), findsOneWidget);
-    await _type(tester, 'rpm', '3600'); // 허용 0.05 → 평행 초과
+    // 평행 0.075 > 0.05 → 초과
     expect(find.text('평행 어긋남 초과'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('align_tol_offset')), '0.10');
     await tester.pump();
+    expect(find.text('허용 범위 안입니다'), findsOneWidget);
+    // 화면을 다시 열면 고친 기준 0.10이 그대로
+    await tester.pumpWidget(const SizedBox());
+    await _open(tester);
+    await _type(tester, 'rpm', '1800');
+    await _fillReverse(tester);
+    expect(tester.widget<TextField>(find.byKey(const Key('align_tol_offset'))).controller!.text, '0.10');
     expect(find.text('허용 범위 안입니다'), findsOneWidget);
   });
 

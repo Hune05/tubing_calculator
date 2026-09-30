@@ -1,6 +1,7 @@
 // 축 정렬 계산기: 모터·펌프 커플링 센터링. 다이얼 게이지 읽음값으로 앞발·뒷발에 넣고 뺄 심 두께와 좌우 이동량을 구한다.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
@@ -33,8 +34,13 @@ class _AlignmentPageState extends State<AlignmentPage> {
   final Map<String, TextEditingController> _c = {};
   bool _showSag = false;
   bool _showTarget = false;
-  String? _tolOffsetText; // 사용자가 고친 허용값(없으면 회전수별 참고값)
-  String? _tolAngleText;
+  // 허용 기준(현장 기준). 처음에는 0.05 mm로 두고, 고치면 폰에 남아 다음에도 그 값으로 판정한다.
+  static const String _tolKey = 'align_tolerance_v1';
+  static const AlignTolerance _tolStart = AlignTolerance(0.05, 0.05);
+  final TextEditingController _tolO = TextEditingController(text: _fmtTol(_tolStart.offset));
+  final TextEditingController _tolA = TextEditingController(text: _fmtTol(_tolStart.angle100));
+
+  static String _fmtTol(double v) => v.toStringAsFixed(v * 100 == (v * 100).roundToDouble() ? 2 : 3);
   List<AlignRound> _rounds = []; // 이번 정렬 작업의 회차(폰에 남아 있다)
 
   DateTime get _now => (widget.now ?? DateTime.now)();
@@ -44,6 +50,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
   @override
   void initState() {
     super.initState();
+    _loadTol();
     AlignSessionStore.load().then((v) {
       if (mounted && v.isNotEmpty) setState(() => _rounds = v);
     });
@@ -54,6 +61,8 @@ class _AlignmentPageState extends State<AlignmentPage> {
     for (final c in _c.values) {
       c.dispose();
     }
+    _tolO.dispose();
+    _tolA.dispose();
     super.dispose();
   }
 
@@ -69,10 +78,23 @@ class _AlignmentPageState extends State<AlignmentPage> {
   int get _rpm => int.tryParse(_f('rpm').text.trim()) ?? 1800;
 
   AlignTolerance get _tol {
-    final d = defaultTolerance(_rpm);
-    final o = double.tryParse((_tolOffsetText ?? '').replaceAll(',', '.'));
-    final a = double.tryParse((_tolAngleText ?? '').replaceAll(',', '.'));
-    return AlignTolerance(o ?? d.offset, a ?? d.angle100);
+    final o = double.tryParse(_tolO.text.trim().replaceAll(',', '.'));
+    final g = double.tryParse(_tolA.text.trim().replaceAll(',', '.'));
+    return AlignTolerance(o != null && o > 0 ? o : _tolStart.offset, g != null && g > 0 ? g : _tolStart.angle100);
+  }
+
+  Future<void> _loadTol() async {
+    final v = (await SharedPreferences.getInstance()).getStringList(_tolKey);
+    if (!mounted || v == null || v.length != 2) return;
+    setState(() {
+      _tolO.text = v[0];
+      _tolA.text = v[1];
+    });
+  }
+
+  Future<void> _saveTol() async {
+    setState(() {});
+    await (await SharedPreferences.getInstance()).setStringList(_tolKey, [_tolO.text.trim(), _tolA.text.trim()]);
   }
 
   /// 값이 다 들어오면 계산한다. 덜 들어왔으면 null, 잘못된 값이면 오류 글.
@@ -855,7 +877,8 @@ class _AlignmentPageState extends State<AlignmentPage> {
           const Text('허용 오차', style: AppText.title),
           const SizedBox(height: 4),
           Text(
-            '$_rpm rpm 기준 참고값입니다(경험값). 제조사·사내 기준이 있으면 아래에 그 값을 넣으십시오.',
+            '판정에 쓰는 현장 기준입니다. 처음에는 0.05 mm(100분의 5)로 두었고, 고치면 폰에 남아 다음에도 그 값으로 판정합니다. '
+            '참고로 흔히 쓰는 경험값은 $_rpm rpm에서 평행 ${defaultTolerance(_rpm).offset.toStringAsFixed(2)} mm입니다.',
             style: const TextStyle(fontSize: 12, height: 1.5, color: AppColors.textSub),
           ),
           const SizedBox(height: 8),
@@ -864,18 +887,20 @@ class _AlignmentPageState extends State<AlignmentPage> {
               Expanded(
                 child: TextField(
                   key: const Key('align_tol_offset'),
-                  onChanged: (v) => setState(() => _tolOffsetText = v),
+                  controller: _tolO,
+                  onChanged: (_) => _saveTol(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: '평행 (mm)', hintText: tol.offset.toStringAsFixed(2), isDense: true),
+                  decoration: const InputDecoration(labelText: '평행 어긋남 허용 (mm)', isDense: true),
                 ),
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
                   key: const Key('align_tol_angle'),
-                  onChanged: (v) => setState(() => _tolAngleText = v),
+                  controller: _tolA,
+                  onChanged: (_) => _saveTol(),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: '각도 (mm/100mm)', hintText: tol.angle100.toStringAsFixed(2), isDense: true),
+                  decoration: const InputDecoration(labelText: '각도 허용 (mm/100mm)', isDense: true),
                 ),
               ),
             ],
