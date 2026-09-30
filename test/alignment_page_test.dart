@@ -14,7 +14,7 @@ String? _shared;
 int _tick = 0;
 
 Future<void> _open(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(700, 3600);
+  tester.view.physicalSize = const Size(700, 6000);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(

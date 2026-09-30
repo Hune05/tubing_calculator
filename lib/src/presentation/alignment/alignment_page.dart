@@ -9,7 +9,8 @@ import '../equipment/equipment_store.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
-import 'alignment_top_painter.dart';
+import 'alignment_dial_painter.dart';
+import 'alignment_render.dart';
 import 'alignment_record.dart';
 
 Future<void> _defaultShare(String text) async {
@@ -208,6 +209,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
           ),
           const SizedBox(height: 12),
           _howTo(),
+          _dialGuide(),
           _setupCard(),
           const SizedBox(height: 4),
           _card('회전수', [
@@ -280,6 +282,73 @@ class _AlignmentPageState extends State<AlignmentPage> {
     ),
   );
 
+  /// 다이얼 게이지 쓰는 법과 읽는 법: 실물 모양 다이얼 그림으로.
+  Widget _dialGuide() {
+    Widget tile(double v, String caption, {bool bezel = false}) => Expanded(
+      child: Column(
+        children: [
+          SizedBox(height: 104, child: CustomPaint(size: Size.infinite, painter: AlignSmallDialPainter(v, bezelArrow: bezel))),
+          const SizedBox(height: 4),
+          Text(caption, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11.5, height: 1.35, color: AppColors.text, fontWeight: FontWeight.w600)),
+        ],
+      ),
+    );
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      elevation: 0,
+      color: AppColors.surface,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('다이얼 게이지 보는 법', style: AppText.title),
+            const SizedBox(height: 6),
+            SizedBox(
+              height: 250,
+              child: CustomPaint(key: const Key('align_dial_guide'), size: Size.infinite, painter: AlignDialGuidePainter(value: -0.12)),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              '큰 바늘이 0에서 시계 방향으로 가면 +(스핀들이 눌림), 반대로 가면 −(스핀들이 나옴)입니다. '
+              '위 그림은 0에서 반시계 방향으로 12칸 → −0.12 mm입니다.',
+              style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
+            ),
+            const SizedBox(height: 14),
+            Text('거는 순서', style: AppText.subtitle),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                tile(0.5, '① 스핀들을 0.5 mm쯤\n눌러서 겁니다'),
+                tile(0, '② 12시에서 베젤을\n돌려 0에 맞춥니다', bezel: true),
+                tile(-0.10, '③ 두 축을 같이 돌려\n3·6·9시에서 읽습니다'),
+                tile(0, '④ 12시로 오면\n다시 0인지 봅니다'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text('읽은 예 (한 바퀴 돌리며)', style: AppText.subtitle),
+            const SizedBox(height: 6),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                tile(0, '12시\n0.00'),
+                tile(-0.10, '3시 (오른쪽)\n−0.10'),
+                tile(-0.20, '6시 (아래)\n−0.20'),
+                tile(-0.10, '9시 (왼쪽)\n−0.10'),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '3시 + 9시 = 6시가 되면 제대로 읽은 것입니다(위 예: −0.10 + −0.10 = −0.20). 크게 다르면 브래킷이 흔들리거나 스핀들이 덜 눌린 것이니 다시 겁니다.',
+              style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// 측정 그림: 다이얼을 거는 자리와 재는 거리(번호는 아래 입력칸 이름과 같다).
   Widget _setupCard() => Card(
     margin: const EdgeInsets.only(top: 12),
@@ -302,11 +371,11 @@ class _AlignmentPageState extends State<AlignmentPage> {
           const SizedBox(height: 6),
           LayoutBuilder(
             builder: (context, c) => SizedBox(
-              height: AlignSetupPainter.heightFor(c.maxWidth),
+              height: AlignSetupRenderPainter.heightFor(c.maxWidth),
               child: CustomPaint(
                 key: const Key('align_setup_diagram'),
                 size: Size.infinite,
-                painter: AlignSetupPainter(_method),
+                painter: AlignSetupRenderPainter(_method),
               ),
             ),
           ),
@@ -518,11 +587,11 @@ class _AlignmentPageState extends State<AlignmentPage> {
               ),
               LayoutBuilder(
                 builder: (context, c) => SizedBox(
-                  height: AlignTopPainter.heightFor(c.maxWidth),
+                  height: AlignTopRenderPainter.heightFor(c.maxWidth),
                   child: CustomPaint(
                     key: const Key('align_plan'),
                     size: Size.infinite,
-                    painter: AlignTopPainter(
+                    painter: AlignTopRenderPainter(
                       horizontal: r.horizontal,
                       xRear: _rearX,
                       shimFront: r.shimFront,
@@ -543,11 +612,11 @@ class _AlignmentPageState extends State<AlignmentPage> {
               ),
               LayoutBuilder(
                 builder: (context, c) => SizedBox(
-                  height: AlignSidePainter.heightFor(c.maxWidth),
+                  height: AlignSideRenderPainter.heightFor(c.maxWidth),
                   child: CustomPaint(
                     key: const Key('align_diagram_v'),
                     size: Size.infinite,
-                    painter: AlignSidePainter(
+                    painter: AlignSideRenderPainter(
                       vertical: r.vertical,
                       xRear: _rearX,
                       shimFront: r.shimFront,
