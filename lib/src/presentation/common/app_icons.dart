@@ -50,6 +50,9 @@ enum AppGlyph {
   /// 자재 요청 정리: 손으로 쓴 목록 종이 + 보내기 화살표.
   materialRequest,
 
+  /// 작업 전 안전 점검: 방패 + 체크.
+  safety,
+
   // ── 계산기 아래 탭 ──
   /// 입력: 구간 목록 + 연필.
   navInput,
@@ -577,6 +580,14 @@ class _AppIconPainter extends CustomPainter {
         l(14.0, 19.6, 20.6, 13.0);
         l(15.6, 13.0, 20.6, 13.0);
         l(20.6, 13.0, 20.6, 18.0);
+      case AppGlyph.safety:
+        final shield = poly([
+          12.0, 2.8, 19.4, 5.6, 19.4, 11.6, 12.0, 21.2, 4.6, 11.6, 4.6, 5.6, //
+        ]);
+        canvas.drawPath(shield, soft);
+        canvas.drawPath(shield, line);
+        l(8.4, 11.6, 11.0, 14.2);
+        l(11.0, 14.2, 15.8, 8.6);
       case AppGlyph.navInput:
         l(3.5, 6.0, 10.5, 6.0);
         l(3.5, 11.0, 9.0, 11.0);

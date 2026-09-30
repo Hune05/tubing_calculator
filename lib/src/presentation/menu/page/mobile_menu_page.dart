@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/presentation/common/feature_search.dart';
 import 'package:tubing_calculator/src/presentation/common/record_search.dart';
+import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart' show allMaterialCatalog;
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
@@ -1274,6 +1275,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             _loadTodayScheduleCount();
                             _loadMissingReports();
                           });
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "작업 전 안전 점검",
+                        subtitle: "항목을 확인해 기록으로 남기고 카톡으로 보내기",
+                        icon: AppGlyph.safety,
+                        iconColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const SafetyCheckPage(),
+                            ),
+                          );
                         },
                       ),
                       _buildMenuButton(
