@@ -47,7 +47,8 @@ class _MeterLoopGuidePageState extends State<MeterLoopGuidePage> with SingleTick
   String get _unit => _pct ? '%' : 'mA';
   String get _mode => _pct ? '4-20mA' : 'DC';
 
-  Widget _figure(Key key, double aspect, CustomPainter painter) => Container(
+  // 태블릿에서 그림이 너무 커지지 않게 폭을 560까지로.
+  Widget _figure(Key key, double aspect, CustomPainter painter) => Center(child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 560), child: Container(
     decoration: BoxDecoration(
       gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7F9FA), Color(0xFFE9EDF0)]),
       borderRadius: BorderRadius.circular(16),
@@ -55,7 +56,7 @@ class _MeterLoopGuidePageState extends State<MeterLoopGuidePage> with SingleTick
     ),
     padding: const EdgeInsets.all(8),
     child: AspectRatio(aspectRatio: aspect, child: CustomPaint(key: key, painter: painter)),
-  );
+  )));
 
   Widget _title(String t) => Padding(
     padding: const EdgeInsets.only(top: 18, bottom: 8),
@@ -314,7 +315,7 @@ void paintMeterFace(Canvas c, {required String reading, required String unit, re
     (204, 'ACV'),
     (228, 'DCV'),
     (252, 'AC+DC'),
-    (276, '▶|'),
+    (276, '→|'),
     (298, 'Ω'),
     (320, 'nS'),
     (340, 'μA'),
@@ -507,24 +508,24 @@ class _LoopScenePainter extends CustomPainter {
       ..lineTo(tMinus.dx, tMinus.dy);
     _wire(c, minusWire, const Color(0xFF26292D));
 
-    // + 선: 분배기 + → 풀어낸 끝(전송기 + 단자 앞)
-    const freeEnd = Offset(250, 128);
+    // + 선: 분배기 + → 풀어낸 끝(전송기 + 단자에서 뺀 선)
+    const freeEnd = Offset(214, 140);
     final plusWire = Path()
       ..moveTo(sPlus.dx, sPlus.dy)
       ..lineTo(124, sPlus.dy)
       ..quadraticBezierTo(134, sPlus.dy, 134, 110)
-      ..lineTo(134, 122)
-      ..quadraticBezierTo(134, 132, 144, 132)
-      ..lineTo(232, 132)
-      ..quadraticBezierTo(244, 132, freeEnd.dx, freeEnd.dy);
+      ..lineTo(134, 130)
+      ..quadraticBezierTo(134, 140, 144, 140)
+      ..lineTo(freeEnd.dx, freeEnd.dy);
     _wire(c, plusWire, const Color(0xFFD62828));
     // 벗긴 구리선
-    c.drawLine(freeEnd, freeEnd + const Offset(7, -4), Paint()
+    const copper = Offset(222, 140);
+    c.drawLine(freeEnd, copper, Paint()
       ..color = const Color(0xFFD08A45)
       ..strokeWidth = 3
       ..strokeCap = StrokeCap.round);
     // 풀어낸 자리 표시
-    c.drawCircle(freeEnd + const Offset(4, -2), 15, Paint()
+    c.drawCircle(const Offset(218, 140), 15, Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.4
       ..color = const Color(0xFFEA580C));
@@ -538,27 +539,36 @@ class _LoopScenePainter extends CustomPainter {
     const redJack = Offset(144 + 146 * .19, 2 + 458 * .19);
     const comJack = Offset(144 + 210 * .19, 2 + 458 * .19);
 
-    // 리드
+    // 집게: 끝(물리는 곳)과 꼬리(리드가 들어오는 곳). 꼬리 = 끝 − 30 × (cos, sin)
+    const redAngle = 1.0;
+    final redTail = copper - Offset(math.cos(redAngle), math.sin(redAngle)) * 30;
+    const blackAngle = 1.2;
+    final blackTail = tPlus - Offset(math.cos(blackAngle), math.sin(blackAngle)) * 30;
+
+    // 리드(미터에서 곧게 내려와 집게로)
     final redLead = Path()
       ..moveTo(redJack.dx, redJack.dy)
-      ..cubicTo(redJack.dx - 6, 150, 236, 160, freeEnd.dx + 2, freeEnd.dy + 18);
+      ..cubicTo(redJack.dx, 104, redTail.dx - 10, 104, redTail.dx, redTail.dy);
     _wire(c, redLead, const Color(0xFFD62828), w: 3.6);
     final blackLead = Path()
       ..moveTo(comJack.dx, comJack.dy)
-      ..cubicTo(comJack.dx + 20, 120, tPlus.dx - 16, 104, tPlus.dx - 2, tPlus.dy - 10);
+      ..cubicTo(comJack.dx + 30, 90, blackTail.dx - 6, 95, blackTail.dx, blackTail.dy);
     _wire(c, blackLead, const Color(0xFF26292D), w: 3.6);
-    _clip(c, freeEnd + const Offset(5, -2), math.pi / 2 + .5, const Color(0xFFD62828));
-    _clip(c, tPlus, -math.pi / 2 - .3, const Color(0xFF26292D));
+    _clip(c, copper, redAngle, const Color(0xFFD62828));
+    _clip(c, tPlus, blackAngle, const Color(0xFF26292D));
     c.drawCircle(redJack, 3, Paint()..color = const Color(0xFFD62828));
     c.drawCircle(comJack, 3, Paint()..color = const Color(0xFF26292D));
 
-    // 전류 흐름(분배기 + → 미터 → 전송기 → − → 분배기)
+    // 전류 흐름(분배기 + → 빨강 집게 → 미터 → 검정 집게 → 전송기 → − → 분배기)
     final flow = Path()
       ..addPath(plusWire, Offset.zero)
-      ..moveTo(freeEnd.dx + 2, freeEnd.dy + 18)
-      ..cubicTo(236, 160, redJack.dx - 6, 150, redJack.dx, redJack.dy)
+      ..moveTo(freeEnd.dx, freeEnd.dy)
+      ..lineTo(copper.dx, copper.dy)
+      ..lineTo(redTail.dx, redTail.dy)
+      ..cubicTo(redTail.dx - 10, 104, redJack.dx, 104, redJack.dx, redJack.dy)
       ..moveTo(comJack.dx, comJack.dy)
-      ..cubicTo(comJack.dx + 20, 120, tPlus.dx - 16, 104, tPlus.dx - 2, tPlus.dy - 10)
+      ..cubicTo(comJack.dx + 30, 90, blackTail.dx - 6, 95, blackTail.dx, blackTail.dy)
+      ..lineTo(tPlus.dx, tPlus.dy)
       ..moveTo(tMinus.dx, tMinus.dy)
       ..lineTo(tMinus.dx + 10, tMinus.dy)
       ..quadraticBezierTo(348, 150, 348, 162)
@@ -585,7 +595,10 @@ class _LoopScenePainter extends CustomPainter {
 
     _pill(c, '빨강 = 풀어낸 선 (전원 쪽)', const Offset(96, 252), const Color(0xFFD62828));
     _pill(c, '검정 = 전송기 + 단자', const Offset(268, 252), const Color(0xFF26292D));
-    _pill(c, '여기 한 곳만 풀기', const Offset(226, 104), const Color(0xFFEA580C), size: 8.5);
+    c.drawLine(const Offset(226, 182), const Offset(220, 156), Paint()
+      ..color = const Color(0xFFEA580C)
+      ..strokeWidth = 1.4);
+    _pill(c, '여기 한 곳만 풀기', const Offset(228, 192), const Color(0xFFEA580C), size: 8.5);
     _text(c, '전류 →', const Offset(110, 120), size: 8.5, color: const Color(0xFFB45309), w: FontWeight.w900);
     c.restore();
   }
