@@ -75,6 +75,10 @@ void main() {
     await tester.pumpAndSettle();
     await tester.dragUntilVisible(find.byKey(const Key('vendor_manual_REMS|Tiger SR')), find.byType(ListView).last, const Offset(0, -400));
     expect(find.text('1400 W (230 V 6.4 A / 110 V 12.8 A)'), findsOneWidget);
+    // 두 카드 모두 주의 사항·정비·고장 대처·정리가 기본으로 들어 있다
+    for (final t in ['주의 사항', '정비 (점검)', '고장 났을 때', '쓴 뒤 정리']) {
+      expect(find.text(t, skipOffstage: false), findsNWidgets(2), reason: t);
+    }
   });
 
   test('설명서 열쇠: 같은 제조사·모델이면 같은 설명서', () {
