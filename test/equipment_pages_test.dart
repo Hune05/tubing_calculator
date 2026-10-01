@@ -88,7 +88,7 @@ void main() {
       final saved = (await EquipmentStore.load()).single;
       expect(saved.specs.first, ('전동기', '1700 W'));
       expect(saved.specs.length, 7);
-      expect(Equipment.fromJson(saved.toJson()).specs.last, ('고정', '받침대(서포트 브래킷), 바이스 없이'));
+      expect(Equipment.fromJson(saved.toJson()).specs.last, ('중량', '본체 6.5 kg, 지지대 2.9 kg'));
     });
 
     testWidgets('요약 숫자와 걸러 보기·검색', (tester) async {

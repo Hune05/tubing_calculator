@@ -563,6 +563,7 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
   (name: '토크 렌치', category: EquipCategory.tool, months: 12),
   (name: '튜브 벤더', category: EquipCategory.tool, months: 0),
   (name: '튜브 커터', category: EquipCategory.tool, months: 0),
+  (name: 'REMS 아미고 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
   (name: 'REMS 아미고 2 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
   (name: 'REMS 타이거 SR (컷쏘)', category: EquipCategory.tool, months: 12),
   (name: '안전대', category: EquipCategory.safety, months: 6),
@@ -572,17 +573,32 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
 
 /// 예시를 고르면 함께 채우는 제조사·모델·제원. 제원은 제조사가 공개한 값.
 const Map<String, ({String maker, String model, List<(String, String)> specs})> kEquipPresetDetails = {
+  // 아미고·아미고 2 값은 REMS 설명서(아미고·아미고 E·아미고 2·컴팩트 묶음) 1장 제원표.
+  'REMS 아미고 (전동 나사 절삭기)': (
+    maker: 'REMS',
+    model: 'Amigo',
+    specs: [
+      ('전동기', '1200 W'),
+      ('전원', '230 V 6 A / 110 V 12 A'),
+      ('사용률', 'S3 20% (10분 중 2분 가동)'),
+      ('회전수', '35~27 rpm'),
+      ('관용 나사', '1/8~1 1/4" (16~40 mm)'),
+      ('볼트 나사', '6~30 mm (1/4~1")'),
+      ('중량', '본체 3.5 kg, 지지대 1.3 kg'),
+      ('과부하 보호', '있음 (버튼 복귀)'),
+    ],
+  ),
   'REMS 아미고 2 (전동 나사 절삭기)': (
     maker: 'REMS',
     model: 'Amigo 2',
     specs: [
       ('전동기', '1700 W'),
-      ('회전수', '30~18 rpm (나사 낼 때)'),
-      ('무게', '6.5 kg (다이 헤드 빼고)'),
+      ('전원', '230 V 8.3 A / 110 V 16.6 A'),
+      ('사용률', 'S3 20% (10분 중 2분 가동)'),
+      ('회전수', '30~18 rpm'),
       ('관용 나사', '1/8~2" (16~50 mm)'),
       ('볼트 나사', '6~30 mm (1/4~1")'),
-      ('큰 관', '4" 자동 다이 헤드로 2 1/2~4"'),
-      ('고정', '받침대(서포트 브래킷), 바이스 없이'),
+      ('중량', '본체 6.5 kg, 지지대 2.9 kg'),
     ],
   ),
   'REMS 타이거 SR (컷쏘)': (

@@ -123,21 +123,22 @@ void main() {
     expect(find.textContaining('10. 수소순도계 보정 절차'), findsOneWidget);
   });
 
-  testWidgets('장비 사용법: REMS 아미고 2·타이거 SR에 제원·주의·정비·고장·정리 칸이 있고, 설명서 단추가 받는 곳을 알려 준다', (tester) async {
+  testWidgets('장비 사용법: REMS 아미고(설명서 기준)·타이거 SR에 제원·안전 수칙·점검·고장 조치·정리정돈 칸이 있고, 설명서 단추가 받는 곳을 알려 준다', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await _openUsage(tester);
     await _openGuide(tester, '절단·나사 가공', 'rems_amigo');
-    expect(find.text('1700 W'), findsOneWidget); // 처음 칸 = 제원
-    for (final t in ['제원', '작업 순서', '안전 수칙', '점검·정비', '고장 조치', '정리정돈']) {
+    expect(find.text('1200 W'), findsOneWidget); // 처음 칸 = 제원(아미고 1)
+    expect(find.text('S3 20% (10분 중 2분 가동)'), findsOneWidget);
+    for (final t in ['제원', '작업 순서', '안전 수칙', '점검·정비', '날 교체', '절삭유', '고장 조치', '정리정돈']) {
       expect(find.descendant(of: find.byKey(const Key('guide_rems_amigo')), matching: find.text(t)), findsOneWidget, reason: t);
     }
-    final amigo = find.byKey(const Key('vendor_manual_REMS|Amigo 2'));
+    final amigo = find.byKey(const Key('vendor_manual_REMS|Amigo'));
     await tester.ensureVisible(amigo);
     await tester.pumpAndSettle();
     await tester.tap(amigo);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('manual_pick')), findsOneWidget);
-    expect(find.text(kOfficialManualUrls['REMS|Amigo 2']!), findsOneWidget);
+    expect(find.byKey(const Key('manual_url')), findsNothing); // 받은 PDF를 고르는 방식(주소 없음)
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
     final tiger = find.byKey(const Key('guide_head_rems_tiger'));
@@ -148,7 +149,12 @@ void main() {
     expect(find.text('230 V 6.4 A / 110 V 12.8 A'), findsOneWidget);
     await _pickPart(tester, 'rems_tiger', '안전 수칙');
     expect(find.textContaining('격리·배수·퍼지'), findsOneWidget);
-    expect(find.byKey(const Key('vendor_manual_REMS|Tiger SR')), findsOneWidget);
+    final tigerManual = find.byKey(const Key('vendor_manual_REMS|Tiger SR'));
+    await tester.ensureVisible(tigerManual);
+    await tester.pumpAndSettle();
+    await tester.tap(tigerManual);
+    await tester.pumpAndSettle();
+    expect(find.text(kOfficialManualUrls['REMS|Tiger SR']!), findsOneWidget);
   });
 
   test('설명서 열쇠: 같은 제조사·모델이면 같은 설명서', () {
