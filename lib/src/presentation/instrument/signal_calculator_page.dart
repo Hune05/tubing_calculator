@@ -2245,6 +2245,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
           extraV: extra,
           terminalV: lc.voltsCheck,
           ok: lc.okAtCheck(vmin),
+          checkMa: lc.checkMa,
         ),
       if (lc != null) const SizedBox(height: 16),
       calcField(
