@@ -50,7 +50,7 @@ void main() {
     expect(find.text('장비 사용법'), findsWidgets);
     expect(find.text('튜브 수동 벤더'), findsOneWidget);
     // 접혀 있으면 안 내용은 없다
-    expect(find.textContaining('롤러 핀을 끝까지'), findsNothing);
+    expect(find.textContaining('롤러를 튜브에 밀착'), findsNothing);
     await _scrollThrough(tester);
   });
 
@@ -58,22 +58,22 @@ void main() {
     await _openUsage(tester);
     await _openGuide(tester, '튜브', 'tube_hand');
     expect(find.text('유압식 벤더'), findsNothing); // 전선관은 걸러졌다
-    expect(find.textContaining('롤러를 내리고 핀을 끝까지'), findsOneWidget); // 처음 칸 = 쓰는 법
-    await _pickPart(tester, 'tube_hand', '고장');
-    expect(find.text('관이 납작하다·주름'), findsOneWidget);
-    expect(find.textContaining('롤러를 내리고 핀을 끝까지'), findsNothing);
-    await _pickPart(tester, 'tube_hand', '정리');
-    expect(find.textContaining('규격별로 케이스에'), findsOneWidget);
+    expect(find.textContaining('롤러를 튜브에 밀착'), findsOneWidget); // 처음 칸 = 작업 순서
+    await _pickPart(tester, 'tube_hand', '고장 조치');
+    expect(find.text('튜브 찌그러짐·주름'), findsOneWidget);
+    expect(find.textContaining('롤러를 튜브에 밀착'), findsNothing);
+    await _pickPart(tester, 'tube_hand', '정리정돈');
+    expect(find.textContaining('규격별 전용 케이스'), findsOneWidget);
     // 다시 누르면 접힌다
     await tester.tap(find.byKey(const Key('guide_head_tube_hand')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('규격별로 케이스에'), findsNothing);
+    expect(find.textContaining('규격별 전용 케이스'), findsNothing);
   });
 
   testWidgets('장비 사용법: 모든 장비 줄을 펴서 모든 칸을 눌러도 예외가 없다', (tester) async {
     await _openUsage(tester);
     final seen = <String>{};
-    for (final g in ['튜브', '전선관', '절단·나사', '계측', '기준 잡기', '공통']) {
+    for (final g in ['튜브', '전선관', '절단·나사 가공', '계측', '실측', '공통']) {
       await tester.tap(find.text(g).first);
       await tester.pumpAndSettle();
       final heads = find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('guide_head_'), skipOffstage: false);
@@ -126,9 +126,9 @@ void main() {
   testWidgets('장비 사용법: REMS 아미고 2·타이거 SR에 제원·주의·정비·고장·정리 칸이 있고, 설명서 단추가 받는 곳을 알려 준다', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await _openUsage(tester);
-    await _openGuide(tester, '절단·나사', 'rems_amigo');
+    await _openGuide(tester, '절단·나사 가공', 'rems_amigo');
     expect(find.text('1700 W'), findsOneWidget); // 처음 칸 = 제원
-    for (final t in ['제원', '쓰는 법', '주의', '정비', '고장', '정리']) {
+    for (final t in ['제원', '작업 순서', '안전 수칙', '점검·정비', '고장 조치', '정리정돈']) {
       expect(find.descendant(of: find.byKey(const Key('guide_rems_amigo')), matching: find.text(t)), findsOneWidget, reason: t);
     }
     final amigo = find.byKey(const Key('vendor_manual_REMS|Amigo 2'));
@@ -146,7 +146,7 @@ void main() {
     await tester.tap(tiger);
     await tester.pumpAndSettle();
     expect(find.text('230 V 6.4 A / 110 V 12.8 A'), findsOneWidget);
-    await _pickPart(tester, 'rems_tiger', '주의');
+    await _pickPart(tester, 'rems_tiger', '안전 수칙');
     expect(find.textContaining('격리·배수·퍼지'), findsOneWidget);
     expect(find.byKey(const Key('vendor_manual_REMS|Tiger SR')), findsOneWidget);
   });
