@@ -496,7 +496,12 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
   late final _model = TextEditingController(text: widget.existing?.model ?? kEquipPresetDetails[widget.presetName]?.model ?? '');
   late final _serial = TextEditingController(text: widget.existing?.serial ?? '');
   late final _location = TextEditingController(text: widget.existing?.location ?? '');
-  late final _note = TextEditingController(text: widget.existing?.note ?? kEquipPresetDetails[widget.presetName]?.spec ?? '');
+  late final _note = TextEditingController(text: widget.existing?.note ?? '');
+  // 제원 줄(항목·값). 예시를 골랐으면 그 제원으로 채운다.
+  late final List<(TextEditingController, TextEditingController)> _specs = [
+    for (final s in widget.existing?.specs ?? kEquipPresetDetails[widget.presetName]?.specs ?? const <(String, String)>[])
+      (TextEditingController(text: s.$1), TextEditingController(text: s.$2)),
+  ];
   late EquipCategory _category = widget.existing?.category ?? _presetCategory();
   late int _interval = widget.existing?.intervalMonths ?? _presetMonths();
   late DateTime? _lastDone = widget.existing?.lastDone;
@@ -522,6 +527,10 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
   void dispose() {
     for (final c in [_name, _assetNo, _maker, _model, _serial, _location, _note]) {
       c.dispose();
+    }
+    for (final r in _specs) {
+      r.$1.dispose();
+      r.$2.dispose();
     }
     super.dispose();
   }
@@ -568,6 +577,10 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
       intervalMonths: _interval,
       lastDone: _lastDone,
       note: _note.text.trim(),
+      specs: [
+        for (final r in _specs)
+          if (r.$1.text.trim().isNotEmpty) (r.$1.text.trim(), r.$2.text.trim()),
+      ],
     );
     await EquipmentStore.put(saved);
     rescheduleEquipmentReminders(await EquipmentStore.load());
@@ -612,7 +625,11 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                         if (d != null) {
                           if (_maker.text.trim().isEmpty) _maker.text = d.maker;
                           if (_model.text.trim().isEmpty) _model.text = d.model;
-                          if (_note.text.trim().isEmpty) _note.text = d.spec;
+                          if (_specs.every((r) => r.$1.text.trim().isEmpty && r.$2.text.trim().isEmpty)) {
+                            _specs
+                              ..clear()
+                              ..addAll([for (final s in d.specs) (TextEditingController(text: s.$1), TextEditingController(text: s.$2))]);
+                          }
                         }
                       }),
                     ),
@@ -670,7 +687,57 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                 style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.brand),
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              const Expanded(child: Text('제원', style: AppText.title)),
+              TextButton.icon(
+                key: const Key('equip_spec_add'),
+                onPressed: () => setState(() => _specs.add((TextEditingController(), TextEditingController()))),
+                icon: const Icon(AppIcons.add, size: 18),
+                label: const Text('줄 더하기'),
+              ),
+            ],
+          ),
+          if (_specs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text('전동기 출력·무게·작업 범위처럼 장비의 제원을 줄마다 적습니다.', style: AppText.sub),
+            ),
+          for (var i = 0; i < _specs.length; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 130,
+                    child: TextField(
+                      key: Key('equip_spec_name_$i'),
+                      controller: _specs[i].$1,
+                      decoration: const InputDecoration(labelText: '항목', hintText: '예: 전동기', isDense: true, filled: true, fillColor: AppColors.surface),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      key: Key('equip_spec_value_$i'),
+                      controller: _specs[i].$2,
+                      decoration: const InputDecoration(labelText: '값', hintText: '예: 1700 W', isDense: true, filled: true, fillColor: AppColors.surface),
+                    ),
+                  ),
+                  IconButton(
+                    key: Key('equip_spec_del_$i'),
+                    onPressed: () => setState(() {
+                      final r = _specs.removeAt(i);
+                      r.$1.dispose();
+                      r.$2.dispose();
+                    }),
+                    icon: const Icon(AppIcons.delete, size: 18, color: AppColors.textFaint),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
           field('equip_note', _note, '메모', lines: 2),
           if (_error != null)
             Padding(
@@ -935,6 +1002,12 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           _info('시리얼', e.serial),
           _info('보관 위치', e.location),
           _info('교정·검사 주기', e.intervalMonths == 0 ? '없음' : '${e.intervalMonths}개월'),
+          if (e.specs.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            const Text('제원', style: AppText.title),
+            const SizedBox(height: 4),
+            for (final s in e.specs) _info(s.$1, s.$2),
+          ],
           _info('메모', e.note),
           const SizedBox(height: 8),
           OutlinedButton.icon(

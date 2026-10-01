@@ -40,7 +40,7 @@ void main() {
     await tester.dragUntilVisible(
       find.widgetWithText(OutlinedButton, '전체 매뉴얼 보기(설치·배선·보정 세 가지·경보표 전부)'),
       find.byType(ListView).last,
-      const Offset(0, -400),
+      const Offset(0, -400), maxIteration: 200,
     );
     await tester.ensureVisible(find.widgetWithText(OutlinedButton, '전체 매뉴얼 보기(설치·배선·보정 세 가지·경보표 전부)'));
     await tester.pumpAndSettle();
@@ -50,7 +50,7 @@ void main() {
     await tester.dragUntilVisible(
       find.textContaining('10. 수소순도계 보정 절차'),
       find.byType(ListView).last,
-      const Offset(0, -400),
+      const Offset(0, -400), maxIteration: 200,
     );
     expect(find.textContaining('10. 수소순도계 보정 절차'), findsOneWidget);
   });
@@ -62,7 +62,7 @@ void main() {
     addTearDown(tester.view.reset);
     await tester.pumpWidget(const MaterialApp(home: EquipmentUsagePage()));
     await tester.pumpAndSettle();
-    await tester.dragUntilVisible(find.byKey(const Key('vendor_manual_REMS|Amigo 2')), find.byType(ListView).last, const Offset(0, -400));
+    await tester.dragUntilVisible(find.byKey(const Key('vendor_manual_REMS|Amigo 2')), find.byType(ListView).last, const Offset(0, -400), maxIteration: 200);
     expect(find.textContaining('REMS 아미고 2'), findsWidgets);
     expect(find.text('1700 W'), findsOneWidget);
     await tester.ensureVisible(find.byKey(const Key('vendor_manual_REMS|Amigo 2')));
@@ -73,7 +73,7 @@ void main() {
     expect(find.text(kOfficialManualUrls['REMS|Amigo 2']!), findsOneWidget);
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
-    await tester.dragUntilVisible(find.byKey(const Key('vendor_manual_REMS|Tiger SR')), find.byType(ListView).last, const Offset(0, -400));
+    await tester.dragUntilVisible(find.byKey(const Key('vendor_manual_REMS|Tiger SR')), find.byType(ListView).last, const Offset(0, -400), maxIteration: 200);
     expect(find.text('1400 W (230 V 6.4 A / 110 V 12.8 A)'), findsOneWidget);
     // 두 카드 모두 주의 사항·정비·고장 대처·정리가 기본으로 들어 있다
     for (final t in ['주의 사항', '정비 (점검)', '고장 났을 때', '쓴 뒤 정리']) {
@@ -99,13 +99,13 @@ void main() {
     await tester.dragUntilVisible(
       find.textContaining('10. 수소순도계 보정 절차'),
       list,
-      const Offset(0, -400),
+      const Offset(0, -400), maxIteration: 200,
     );
     expect(find.textContaining('제로가스'), findsWidgets);
     await tester.dragUntilVisible(
       find.textContaining('11. 점검·유지보수'),
       list,
-      const Offset(0, -400),
+      const Offset(0, -400), maxIteration: 200,
     );
     expect(find.textContaining('11. 점검·유지보수'), findsOneWidget);
     await _scrollThrough(tester);

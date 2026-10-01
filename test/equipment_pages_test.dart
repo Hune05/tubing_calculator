@@ -78,7 +78,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.widgetWithText(TextField, 'REMS'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'Amigo 2'), findsOneWidget);
-      expect(find.textContaining('1700 W'), findsOneWidget);
+      // 제원은 메모가 아니라 제원 줄에 들어간다
+      expect(tester.widget<TextField>(find.byKey(const Key('equip_spec_name_0'))).controller!.text, '전동기');
+      expect(tester.widget<TextField>(find.byKey(const Key('equip_spec_value_0'))).controller!.text, '1700 W');
+      expect(tester.widget<TextField>(find.byKey(const Key('equip_note'))).controller!.text, '');
+      await tester.ensureVisible(find.byKey(const Key('equip_save')));
+      await tester.tap(find.byKey(const Key('equip_save')));
+      await tester.pumpAndSettle();
+      final saved = (await EquipmentStore.load()).single;
+      expect(saved.specs.first, ('전동기', '1700 W'));
+      expect(saved.specs.length, 7);
+      expect(Equipment.fromJson(saved.toJson()).specs.last, ('고정', '받침대(서포트 브래킷), 바이스 없이'));
     });
 
     testWidgets('요약 숫자와 걸러 보기·검색', (tester) async {

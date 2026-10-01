@@ -136,6 +136,9 @@ class Equipment {
   final DateTime createdAt;
   final List<EquipEvent> events; // 최신이 앞
 
+  /// 제원: 항목과 값 줄(예: 전동기 · 1700 W). 순서대로 보여 준다.
+  final List<(String, String)> specs;
+
   const Equipment({
     required this.id,
     required this.name,
@@ -155,6 +158,7 @@ class Equipment {
     this.note = '',
     required this.createdAt,
     this.events = const [],
+    this.specs = const [],
   });
 
   bool get isOut => holder.trim().isNotEmpty;
@@ -206,6 +210,7 @@ class Equipment {
     Object? checkedOutAt = _keep,
     String? note,
     List<EquipEvent>? events,
+    List<(String, String)>? specs,
   }) => Equipment(
     id: id,
     name: name ?? this.name,
@@ -229,6 +234,7 @@ class Equipment {
     note: note ?? this.note,
     createdAt: createdAt,
     events: events ?? this.events,
+    specs: specs ?? this.specs,
   );
 
   static const Object _keep = Object();
@@ -252,6 +258,7 @@ class Equipment {
     'note': note,
     'createdAt': createdAt.toIso8601String(),
     'events': [for (final e in events) e.toJson()],
+    if (specs.isNotEmpty) 'specs': [for (final s in specs) [s.$1, s.$2]],
   };
 
   static Equipment fromJson(Map<String, dynamic> j) {
@@ -288,9 +295,22 @@ class Equipment {
       note: (j['note'] ?? '').toString(),
       createdAt: created ?? DateTime.now(),
       events: events,
+      specs: specsFromJson(j['specs']),
     );
   }
 }
+
+/// 저장된 제원 줄 읽기(망가진 줄은 건너뛴다).
+List<(String, String)> specsFromJson(Object? raw) {
+  if (raw is! List) return const [];
+  return [
+    for (final r in raw)
+      if (r is List && r.length >= 2 && '${r[0]}'.trim().isNotEmpty) ('${r[0]}'.trim(), '${r[1]}'.trim()),
+  ];
+}
+
+/// 제원을 한 줄 글로(목록·CSV·카톡).
+String specsLine(List<(String, String)> specs) => [for (final s in specs) '${s.$1} ${s.$2}'.trim()].join(' · ');
 
 // ── 이력을 남기는 동작(새 장비를 돌려준다) ──
 
@@ -550,21 +570,33 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
   (name: '가스 검지기', category: EquipCategory.safety, months: 6),
 ];
 
-/// 예시를 고르면 함께 채우는 제조사·모델·제원(메모 칸). 제원은 제조사가 공개한 값.
-const Map<String, ({String maker, String model, String spec})> kEquipPresetDetails = {
+/// 예시를 고르면 함께 채우는 제조사·모델·제원. 제원은 제조사가 공개한 값.
+const Map<String, ({String maker, String model, List<(String, String)> specs})> kEquipPresetDetails = {
   'REMS 아미고 2 (전동 나사 절삭기)': (
     maker: 'REMS',
     model: 'Amigo 2',
-    spec: '제원: 전동기 1700 W · 나사 내는 회전 30~18 rpm · 본체 6.5 kg(다이 헤드 빼고) · '
-        '관용 나사 1/8~2" (16~50 mm) · 볼트 나사 6~30 mm (1/4~1") · 4" 자동 다이 헤드를 달면 2 1/2~4" · '
-        '받침대(서포트 브래킷)로 바이스 없이 작업. 정기 점검: 전원선·플러그·스위치·카본 브러시.',
+    specs: [
+      ('전동기', '1700 W'),
+      ('나사 내는 회전', '30~18 rpm'),
+      ('무게', '6.5 kg (다이 헤드 빼고)'),
+      ('관용 나사', '1/8~2" (16~50 mm)'),
+      ('볼트 나사', '6~30 mm (1/4~1")'),
+      ('4" 자동 다이 헤드', '2 1/2~4"'),
+      ('고정', '받침대(서포트 브래킷), 바이스 없이'),
+    ],
   ),
   'REMS 타이거 SR (컷쏘)': (
     maker: 'REMS',
     model: 'Tiger SR',
-    spec: '제원: 1400 W (230 V 6.4 A / 110 V 12.8 A) · 3.0 kg · 행정 속도 전자식 조절(SR) · '
-        '가이드 홀더로 직각 절단: 2" 홀더 1/8~2", 4" 홀더 2 1/2~4", 6" 홀더 5~6" · 홀더 없이 손으로도 절단. '
-        '정기 점검: 전원선·플러그·스위치·카본 브러시·톱날 고정부.',
+    specs: [
+      ('전동기', '1400 W'),
+      ('전원', '230 V 6.4 A / 110 V 12.8 A'),
+      ('무게', '3.0 kg'),
+      ('행정 속도', '전자식 조절'),
+      ('가이드 홀더 2"', '1/8~2"'),
+      ('가이드 홀더 4"', '2 1/2~4"'),
+      ('가이드 홀더 6"', '5~6"'),
+    ],
   ),
 };
 
@@ -574,7 +606,7 @@ String _q(String s) => '"${s.replaceAll('"', '""').replaceAll('\n', ' ')}"';
 
 /// 엑셀에서 열 수 있는 CSV(맨 앞 BOM).
 String buildLedgerCsv(List<Equipment> all, DateTime now) {
-  final b = StringBuffer('﻿관리번호,장비명,분류,제조사,모델,시리얼,보관 위치,상태,교정·검사 주기(개월),마지막 교정·검사일,다음 기한,기한 상태,사용자,프로젝트,메모')
+  final b = StringBuffer('﻿관리번호,장비명,분류,제조사,모델,시리얼,보관 위치,상태,교정·검사 주기(개월),마지막 교정·검사일,다음 기한,기한 상태,사용자,프로젝트,메모,제원')
     ..writeln();
   for (final e in sortLedger(all, now)) {
     final st = switch (e.dueState(now)) {
@@ -600,6 +632,7 @@ String buildLedgerCsv(List<Equipment> all, DateTime now) {
         _q(e.holder),
         _q(e.holderProject),
         _q(e.note),
+        _q(specsLine(e.specs)),
       ].join(','),
     );
   }
