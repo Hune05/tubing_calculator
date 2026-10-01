@@ -12,11 +12,11 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('탭 10장을 하나씩 열고 끝까지 넘겨도 예외가 없다', (tester) async {
+  testWidgets('탭 11장을 하나씩 열고 끝까지 넘겨도 예외가 없다', (tester) async {
     phone(tester);
     await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage()));
     await tester.pumpAndSettle();
-    const ids = ['overview', 'keys', 'setup', 'output', 'alarm', 'display', 'cal', 'op', 'codes', 'maint'];
+    const ids = ['overview', 'principle', 'keys', 'setup', 'output', 'alarm', 'display', 'cal', 'op', 'codes', 'maint'];
     for (var i = 0; i < ids.length; i++) {
       final tab = find.byKey(Key('gdg_tab_$i'));
       await tester.ensureVisible(tab);
@@ -35,7 +35,7 @@ void main() {
 
   testWidgets('교정 따라하기: 11단계를 넘기며 ZERO → 0.0899 H2 → CAL.SET → SPAN → 1.9771 CO2 순서', (tester) async {
     phone(tester);
-    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 6)));
+    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 7)));
     await tester.pumpAndSettle();
     final list = find.byKey(const Key('gdg_list_cal'));
     final next = find.byKey(const Key('gdw_next_mancal'));
@@ -58,7 +58,7 @@ void main() {
 
   testWidgets('서비스 코드 50 따라하기는 * → *RANGE … *SERVC → 50 → *MODEL 2', (tester) async {
     phone(tester);
-    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 2)));
+    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 3)));
     await tester.pumpAndSettle();
     final list = find.byKey(const Key('gdg_list_setup'));
     final next = find.byKey(const Key('gdw_next_code50'));
