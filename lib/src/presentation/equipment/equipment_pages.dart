@@ -710,7 +710,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
               child: Row(
                 children: [
                   SizedBox(
-                    width: 130,
+                    width: 150,
                     child: TextField(
                       key: Key('equip_spec_name_$i'),
                       controller: _specs[i].$1,
