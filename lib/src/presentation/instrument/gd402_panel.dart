@@ -135,7 +135,7 @@ void paintGd402(Canvas c, GdStep s) {
   tag('FAIL', 170, s.fail);
   // 숫자 표시(오른쪽 맞춤, 바꾸는 자리 밑줄)
   final dataStyle = const TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: ink, fontFamily: 'monospace', letterSpacing: -1, fontFeatures: [FontFeature.tabularFigures()]);
-  final ghost = TextPainter(text: TextSpan(text: '888888', style: dataStyle.copyWith(color: faint)), textDirection: TextDirection.ltr)..layout();
+  final ghost = TextPainter(text: TextSpan(text: '888888', style: dataStyle.copyWith(color: ink.withValues(alpha: .06))), textDirection: TextDirection.ltr)..layout();
   const dataRight = 232.0;
   ghost.paint(c, Offset(dataRight - ghost.width, 64));
   if (s.data.isNotEmpty) {
@@ -153,8 +153,8 @@ void paintGd402(Canvas c, GdStep s) {
   }
   // 메시지 표시
   final msgStyle = const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: ink, fontFamily: 'monospace', letterSpacing: .5);
-  final mg = TextPainter(text: TextSpan(text: '######', style: msgStyle.copyWith(color: faint)), textDirection: TextDirection.ltr)..layout();
-  mg.paint(c, const Offset(52, 116));
+  // 메시지 칸(배경 글자 없이, 가운데 맞춤 기준 폭만)
+  final mg = TextPainter(text: TextSpan(text: 'MAN.CA', style: msgStyle), textDirection: TextDirection.ltr)..layout();
   if (s.msg.isNotEmpty) {
     final mp = TextPainter(text: TextSpan(text: s.msg, style: msgStyle), textDirection: TextDirection.ltr)..layout();
     mp.paint(c, Offset(52 + (mg.width - mp.width).clamp(0, 999) / 2, 116));
