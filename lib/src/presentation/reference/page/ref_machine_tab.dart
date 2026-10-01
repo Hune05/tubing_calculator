@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../equipment/equipment_manual.dart';
+import '../../instrument/gd402_guide_page.dart';
 import '../../instrument/meter_loop_guide_page.dart';
 import 'gd402_manual_page.dart';
 import 'reference_widgets.dart';
@@ -1132,11 +1133,23 @@ final List<_Guide> _guides = [
         '보정값·날짜 기록',
       ]),
     ],
-    footer: (c) => _manualButton(
-      key: const Key('gd402_manual'),
-      label: '전체 매뉴얼 보기(설치·배선·보정 세 가지·경보표 전부)',
-      color: Colors.indigo,
-      onTap: () => Navigator.push(c, MaterialPageRoute(builder: (_) => const Gd402ManualPage())),
+    footer: (c) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _manualButton(
+          key: const Key('gd402_guide'),
+          label: '수소 순도계 가이드 (설정·교정 화면 따라하기)',
+          color: Colors.indigo,
+          onTap: () => Navigator.push(c, MaterialPageRoute(builder: (_) => const Gd402GuidePage())),
+        ),
+        const SizedBox(height: 8),
+        _manualButton(
+          key: const Key('gd402_manual'),
+          label: '전체 매뉴얼 보기(설치·배선·보정 세 가지·경보표 전부)',
+          color: Colors.indigo,
+          onTap: () => Navigator.push(c, MaterialPageRoute(builder: (_) => const Gd402ManualPage())),
+        ),
+      ],
     ),
   ),
 

@@ -11,6 +11,7 @@ import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../pressure_test/pressure_units.dart';
 import 'cal_gas.dart';
+import 'gd402_guide_page.dart';
 
 const String kCalGasDraftKey = 'cal_gas_draft_v1';
 
@@ -210,6 +211,15 @@ class _CalGasTabState extends State<CalGasTab>
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
         children: [
+          // GD402 수소 순도계 설정·교정 화면 따라하기(10-01)
+          OutlinedButton.icon(
+            key: const Key('cg_gd402_guide'),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const Gd402GuidePage(initialTab: 6))),
+            icon: const Icon(Icons.menu_book, size: 18),
+            label: const Text('GD402 수소 순도계 가이드 (교정 화면 따라하기)'),
+            style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+          ),
+          const SizedBox(height: 12),
           _chips(
             '가스',
             '요꼬가와 GD402 수소 순도 교정: 제로는 수소 100%, 스팬은 이산화탄소 100%입니다(설명서 IM 11T03E01-01E 10장). '
