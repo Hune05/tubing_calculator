@@ -486,8 +486,8 @@ class RefMachineTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "13. REMS 타이거 SR (전동 파이프 톱)",
-          subtitle: "왕복식 톱. 가이드 홀더를 관에 대면 바이스 없이 직각으로 자른다",
+          title: "13. REMS 타이거 SR (컷쏘)",
+          subtitle: "파이프용 컷쏘(날이 앞뒤로 오가는 톱). 가이드 홀더를 관에 대면 바이스 없이 직각으로 자른다",
           icon: LucideIcons.scissors,
           iconColor: Colors.red.shade700,
           children: [

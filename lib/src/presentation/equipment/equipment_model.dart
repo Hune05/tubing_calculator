@@ -544,7 +544,7 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
   (name: '튜브 벤더', category: EquipCategory.tool, months: 0),
   (name: '튜브 커터', category: EquipCategory.tool, months: 0),
   (name: 'REMS 아미고 2 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
-  (name: 'REMS 타이거 SR (전동 파이프 톱)', category: EquipCategory.tool, months: 12),
+  (name: 'REMS 타이거 SR (컷쏘)', category: EquipCategory.tool, months: 12),
   (name: '안전대', category: EquipCategory.safety, months: 6),
   (name: '소화기', category: EquipCategory.safety, months: 12),
   (name: '가스 검지기', category: EquipCategory.safety, months: 6),
@@ -559,7 +559,7 @@ const Map<String, ({String maker, String model, String spec})> kEquipPresetDetai
         '관용 나사 1/8~2" (16~50 mm) · 볼트 나사 6~30 mm (1/4~1") · 4" 자동 다이 헤드를 달면 2 1/2~4" · '
         '받침대(서포트 브래킷)로 바이스 없이 작업. 정기 점검: 전원선·플러그·스위치·카본 브러시.',
   ),
-  'REMS 타이거 SR (전동 파이프 톱)': (
+  'REMS 타이거 SR (컷쏘)': (
     maker: 'REMS',
     model: 'Tiger SR',
     spec: '제원: 1400 W (230 V 6.4 A / 110 V 12.8 A) · 3.0 kg · 행정 속도 전자식 조절(SR) · '
