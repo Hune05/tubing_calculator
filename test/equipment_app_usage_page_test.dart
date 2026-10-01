@@ -73,7 +73,7 @@ void main() {
   testWidgets('장비 사용법: 모든 장비 줄을 펴서 모든 칸을 눌러도 예외가 없다', (tester) async {
     await _openUsage(tester);
     final seen = <String>{};
-    for (final g in ['튜브', '전선관', '절단·나사 가공', '계측', '실측', '공통']) {
+    for (final g in ['튜브', '전선관', '절단·나사 가공', '드릴·임팩', '계측', '실측', '공통']) {
       await tester.tap(find.text(g).first);
       await tester.pumpAndSettle();
       final heads = find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('guide_head_'), skipOffstage: false);
@@ -102,7 +102,7 @@ void main() {
         await tester.pumpAndSettle();
       }
     }
-    expect(seen.length, 17);
+    expect(seen.length, 19);
   });
 
   testWidgets('장비 사용법: GD402 줄의 "전체 매뉴얼 보기"를 누르면 매뉴얼 화면이 열린다', (tester) async {
@@ -160,6 +160,32 @@ void main() {
     await tester.tap(tigerManual);
     await tester.pumpAndSettle();
     expect(find.text(kOfficialManualUrls['REMS|Tiger SR']!), findsOneWidget);
+  });
+
+  testWidgets('장비 사용법: DEWALT 장비(설명서 기준) - 밴드쏘 재질별 절단·고속절단기 절단 능력·드릴 칸', (tester) async {
+    await _openUsage(tester);
+    await _openGuide(tester, '절단·나사 가공', 'cut_chop');
+    await _pickPart(tester, 'cut_chop', '절단 능력');
+    expect(find.text('125 mm'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('guide_head_cut_chop'))); // 접기
+    await tester.pumpAndSettle();
+    final band = find.byKey(const Key('guide_head_cut_band'));
+    await tester.ensureVisible(band);
+    await tester.pumpAndSettle();
+    await tester.tap(band);
+    await tester.pumpAndSettle();
+    expect(find.text('620 W'), findsOneWidget);
+    await _pickPart(tester, 'cut_band', '재질별 절단');
+    expect(find.text('SUS관·SUS 형강'), findsOneWidget);
+    expect(find.text('25'), findsOneWidget); // 두께 2 mm → 최소 25 TPI
+    await _pickPart(tester, 'cut_band', '절단 자세');
+    expect(find.text('H빔'), findsOneWidget);
+    await tester.fling(find.byType(ListView).last, const Offset(0, 4000), 4000); // 맨 위 칩으로
+    await tester.pumpAndSettle();
+    await _openGuide(tester, '드릴·임팩', 'drill_dcd801');
+    expect(find.text('90 / 27 Nm (단단한 조임 / 무른 조임)'), findsOneWidget);
+    await tester.dragUntilVisible(find.byKey(const Key('guide_drill_dcf870')), find.byType(ListView).last, const Offset(0, -300));
+    expect(find.text('DEWALT DCF870 (유압 임팩 드라이버)'), findsOneWidget);
   });
 
   test('설명서 열쇠: 같은 제조사·모델이면 같은 설명서', () {
