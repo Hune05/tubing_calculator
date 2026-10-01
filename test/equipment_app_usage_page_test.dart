@@ -147,6 +147,11 @@ void main() {
     await tester.tap(tiger);
     await tester.pumpAndSettle();
     expect(find.text('230 V 6.4 A / 110 V 12.8 A'), findsOneWidget);
+    expect(find.text('700~2200회/분 (다이얼로 미리 맞춤)'), findsOneWidget);
+    // 재질별 톱날 표(설명서 그림 8)
+    await _pickPart(tester, 'rems_tiger', '톱날 선택');
+    expect(find.text('561002'), findsOneWidget);
+    expect(find.textContaining('두께 1.2 mm 이상'), findsOneWidget);
     await _pickPart(tester, 'rems_tiger', '안전 수칙');
     expect(find.textContaining('격리·배수·퍼지'), findsOneWidget);
     final tigerManual = find.byKey(const Key('vendor_manual_REMS|Tiger SR'));
