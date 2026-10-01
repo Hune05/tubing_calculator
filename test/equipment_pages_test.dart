@@ -71,6 +71,16 @@ void main() {
       expect(tester.widget<ChoiceChip>(find.byKey(const Key('equip_interval_12'))).selected, true);
     });
 
+    testWidgets('REMS 예시를 고르면 제조사·모델·제원이 채워진다', (tester) async {
+      await _open(tester, _ledger());
+      await tester.ensureVisible(find.byKey(const Key('equip_preset_REMS 아미고 2 (전동 나사 절삭기)')));
+      await tester.tap(find.byKey(const Key('equip_preset_REMS 아미고 2 (전동 나사 절삭기)')));
+      await tester.pumpAndSettle();
+      expect(find.widgetWithText(TextField, 'REMS'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Amigo 2'), findsOneWidget);
+      expect(find.textContaining('1700 W'), findsOneWidget);
+    });
+
     testWidgets('요약 숫자와 걸러 보기·검색', (tester) async {
       await _seed([
         _e('1', name: '만료 게이지', assetNo: 'PG-1', last: DateTime(2025, 1, 1)),

@@ -12,6 +12,7 @@ import '../../core/theme/app_tokens.dart';
 import '../inventory/pages/barcode_scan.dart';
 import '../steel_cutting/screens/steel_pdf_preview_page.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
+import 'equipment_manual.dart';
 import 'equipment_model.dart';
 import 'equipment_pdf.dart';
 import 'equipment_reminders.dart';
@@ -491,11 +492,11 @@ class EquipmentEditPage extends StatefulWidget {
 class _EquipmentEditPageState extends State<EquipmentEditPage> {
   late final _name = TextEditingController(text: widget.existing?.name ?? widget.presetName ?? '');
   late final _assetNo = TextEditingController(text: widget.existing?.assetNo ?? '');
-  late final _maker = TextEditingController(text: widget.existing?.maker ?? '');
-  late final _model = TextEditingController(text: widget.existing?.model ?? '');
+  late final _maker = TextEditingController(text: widget.existing?.maker ?? kEquipPresetDetails[widget.presetName]?.maker ?? '');
+  late final _model = TextEditingController(text: widget.existing?.model ?? kEquipPresetDetails[widget.presetName]?.model ?? '');
   late final _serial = TextEditingController(text: widget.existing?.serial ?? '');
   late final _location = TextEditingController(text: widget.existing?.location ?? '');
-  late final _note = TextEditingController(text: widget.existing?.note ?? '');
+  late final _note = TextEditingController(text: widget.existing?.note ?? kEquipPresetDetails[widget.presetName]?.spec ?? '');
   late EquipCategory _category = widget.existing?.category ?? _presetCategory();
   late int _interval = widget.existing?.intervalMonths ?? _presetMonths();
   late DateTime? _lastDone = widget.existing?.lastDone;
@@ -599,13 +600,20 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                 spacing: 6,
                 runSpacing: 4,
                 children: [
-                  for (final p in kEquipPresets.take(6))
+                  for (final p in [...kEquipPresets.take(6), ...kEquipPresets.where((x) => kEquipPresetDetails.containsKey(x.name))])
                     _Action(
                       label: Text(p.name, style: const TextStyle(fontSize: 12)),
                       onPressed: () => setState(() {
                         _name.text = p.name;
                         _category = p.category;
                         _interval = p.months;
+                        // 제조사·모델·제원이 있는 예시면 빈 칸만 채운다
+                        final d = kEquipPresetDetails[p.name];
+                        if (d != null) {
+                          if (_maker.text.trim().isEmpty) _maker.text = d.maker;
+                          if (_model.text.trim().isEmpty) _model.text = d.model;
+                          if (_note.text.trim().isEmpty) _note.text = d.spec;
+                        }
                       }),
                     ),
                 ],
@@ -937,6 +945,17 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             ),
             icon: const Icon(AppIcons.qr, size: 18),
             label: const Text('QR 라벨'),
+          ),
+          const SizedBox(height: 6),
+          OutlinedButton.icon(
+            key: const Key('equip_manual'),
+            onPressed: () => openEquipManual(
+              context,
+              key: manualKeyFor(maker: e.maker, model: e.model, id: e.id),
+              title: e.model.isNotEmpty ? '${e.maker} ${e.model}'.trim() : e.name,
+            ),
+            icon: const Icon(AppIcons.pdf, size: 18),
+            label: const Text('제조사 설명서'),
           ),
           const SizedBox(height: 20),
           const Text('이력', style: AppText.title),

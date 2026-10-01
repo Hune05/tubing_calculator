@@ -1,8 +1,9 @@
 // 장비 사용법 탭: 튜브 벤더(수동·전동·NC), 전선관 벤더(수동·유압·시카고),
-// 실측 캘리브레이션, 톱·절단기, GD402 가스 밀도계 보정, 안전.
+// 실측 캘리브레이션, 톱·절단기, GD402 가스 밀도계 보정, REMS 아미고 2·타이거 SR, 안전.
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../equipment/equipment_manual.dart';
 import 'gd402_manual_page.dart';
 import 'reference_widgets.dart';
 
@@ -29,6 +30,25 @@ class RefMachineTab extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// 제조사 설명서(원본 PDF)를 붙여 두고 여는 단추. 장비 대장과 같은 설명서를 쓴다.
+  Widget _vendorManualButton(BuildContext context, {required String key, required String title}) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        key: Key('vendor_manual_$key'),
+        onPressed: () => openEquipManual(context, key: key, title: title),
+        icon: const Icon(LucideIcons.bookOpen, size: 18),
+        label: const Text("제조사 설명서 (원본 PDF)", style: TextStyle(fontWeight: FontWeight.w700)),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.red.shade700,
+          side: BorderSide(color: Colors.red.shade700),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       ),
     );
@@ -432,7 +452,74 @@ class RefMachineTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "12. 안전",
+          title: "12. REMS 아미고 2 (전동 나사 절삭기)",
+          subtitle: "손에 들고 쓰는 전동 다이스. 바이스 없이 받침대로 관에 물려 나사를 낸다",
+          icon: LucideIcons.wrench,
+          iconColor: Colors.red.shade700,
+          children: [
+            refSectionTitle("제원"),
+            refDataRow("전동기", "1700 W"),
+            refGap(),
+            refDataRow("나사 내는 회전", "30~18 rpm"),
+            refGap(),
+            refDataRow("무게", "본체 6.5 kg (다이 헤드 빼고)"),
+            refGap(),
+            refDataRow("나사 범위", "관용 1/8~2\" (16~50 mm), 볼트 6~30 mm (1/4~1\"). 4\" 자동 다이 헤드를 달면 2 1/2~4\""),
+            refGap(),
+            refDataRow("구성", "본체, 크기별 다이 헤드, 받침대(서포트 브래킷), 공구함"),
+            refGap(),
+            refSectionTitle("현장 순서"),
+            refStep(1, "관 끝을 직각으로 자르고 안쪽 버를 깎는다. 비스듬하면 나사가 비뚤게 먹는다."),
+            refStep(2, "관 크기에 맞는 다이 헤드를 본체 앞에서 끼워 끝까지 밀어 넣는다(빠른 교환식이라 공구 없이 끼운다)."),
+            refStep(3, "받침대를 관에 물린다. 받침대가 본체가 도는 힘을 받아 주므로 손으로 버티지 않는다."),
+            refStep(4, "방향 스위치를 나사 내는 쪽에 두고, 다이 헤드를 관 끝에 대고 켠다. 절삭유를 넉넉히 친다."),
+            refStep(5, "관 끝이 다이 헤드 앞면과 맞을 때까지(규격 나사 길이) 내고 멈춘다. 더 내면 나사가 길어진다."),
+            refStep(6, "방향을 반대로 바꿔 켜서 다이 헤드를 빼낸다. 칩을 털고 나사를 본다."),
+            refGap(),
+            refWarnBox("받침대 없이 손으로만 잡고 켜지 않는다. 본체가 돌아가며 손목을 친다. 회전하는 다이 헤드 근처에 장갑·소매가 닿지 않게."),
+            refGap(),
+            refTipBox("절삭유가 모자라면 나사산이 뜯긴다. 먹는 물 관이면 먹는 물용 절삭유를 쓴다. 카본 브러시·전원선은 장비 대장 점검 때 같이 본다."),
+            const SizedBox(height: 12),
+            _vendorManualButton(context, key: 'REMS|Amigo 2', title: 'REMS 아미고 2'),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "13. REMS 타이거 SR (전동 파이프 톱)",
+          subtitle: "왕복식 톱. 가이드 홀더를 관에 대면 바이스 없이 직각으로 자른다",
+          icon: LucideIcons.scissors,
+          iconColor: Colors.red.shade700,
+          children: [
+            refSectionTitle("제원"),
+            refDataRow("전동기", "1400 W (230 V 6.4 A / 110 V 12.8 A)"),
+            refGap(),
+            refDataRow("무게", "3.0 kg"),
+            refGap(),
+            refDataRow("행정 속도", "SR은 전자식으로 속도를 조절한다(타이거 기본형은 고정)"),
+            refGap(),
+            refDataRow("가이드 홀더", "2\" 홀더 1/8~2\", 4\" 홀더 2 1/2~4\", 6\" 홀더 5~6\""),
+            refGap(),
+            refDataRow("쓰임", "강관·스테인리스·주철·플라스틱 관 절단, 홀더 없이 손으로 하는 절단"),
+            refGap(),
+            refSectionTitle("현장 순서"),
+            refStep(1, "자를 관 재질에 맞는 톱날을 고른다(강관·스테인리스는 고운 날, 플라스틱·나무는 굵은 날). 날을 끝까지 끼우고 잠김을 확인한다."),
+            refStep(2, "관 크기에 맞는 가이드 홀더를 달고, 홀더를 관에 대어 절단선에 맞춘다."),
+            refStep(3, "켜기 전에 날이 관에 닿지 않게 둔다. 켜고 나서 천천히 내린다. SR은 처음엔 느리게, 들어가면 속도를 올린다."),
+            refStep(4, "홀더가 힘을 받아 주므로 위에서 세게 누르지 않는다. 날 무게와 왕복으로 자르게 둔다."),
+            refStep(5, "다 자르면 끄고 날이 멈춘 뒤 뺀다. 자른 면 버를 깎는다."),
+            refGap(),
+            refWarnBox("날은 자르고 나면 뜨겁다. 맨손으로 바로 갈지 않는다. 날을 바꿀 때는 플러그부터 뽑는다."),
+            refGap(),
+            refTipBox("톱날 두께(절단 손실)를 재서 튜브 컷팅·형강 컷팅 화면에 넣어 두면 재단 길이가 맞는다."),
+            const SizedBox(height: 12),
+            _vendorManualButton(context, key: 'REMS|Tiger SR', title: 'REMS 타이거 SR'),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        refCard(
+          title: "14. 안전",
           subtitle: "매일 지키는 것",
           icon: LucideIcons.hardHat,
           iconColor: Colors.amber.shade800,

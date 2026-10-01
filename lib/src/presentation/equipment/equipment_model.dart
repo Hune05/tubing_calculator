@@ -543,10 +543,30 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
   (name: '토크 렌치', category: EquipCategory.tool, months: 12),
   (name: '튜브 벤더', category: EquipCategory.tool, months: 0),
   (name: '튜브 커터', category: EquipCategory.tool, months: 0),
+  (name: 'REMS 아미고 2 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
+  (name: 'REMS 타이거 SR (전동 파이프 톱)', category: EquipCategory.tool, months: 12),
   (name: '안전대', category: EquipCategory.safety, months: 6),
   (name: '소화기', category: EquipCategory.safety, months: 12),
   (name: '가스 검지기', category: EquipCategory.safety, months: 6),
 ];
+
+/// 예시를 고르면 함께 채우는 제조사·모델·제원(메모 칸). 제원은 제조사가 공개한 값.
+const Map<String, ({String maker, String model, String spec})> kEquipPresetDetails = {
+  'REMS 아미고 2 (전동 나사 절삭기)': (
+    maker: 'REMS',
+    model: 'Amigo 2',
+    spec: '제원: 전동기 1700 W · 나사 내는 회전 30~18 rpm · 본체 6.5 kg(다이 헤드 빼고) · '
+        '관용 나사 1/8~2" (16~50 mm) · 볼트 나사 6~30 mm (1/4~1") · 4" 자동 다이 헤드를 달면 2 1/2~4" · '
+        '받침대(서포트 브래킷)로 바이스 없이 작업. 정기 점검: 전원선·플러그·스위치·카본 브러시.',
+  ),
+  'REMS 타이거 SR (전동 파이프 톱)': (
+    maker: 'REMS',
+    model: 'Tiger SR',
+    spec: '제원: 1400 W (230 V 6.4 A / 110 V 12.8 A) · 3.0 kg · 행정 속도 전자식 조절(SR) · '
+        '가이드 홀더로 직각 절단: 2" 홀더 1/8~2", 4" 홀더 2 1/2~4", 6" 홀더 5~6" · 홀더 없이 손으로도 절단. '
+        '정기 점검: 전원선·플러그·스위치·카본 브러시·톱날 고정부.',
+  ),
+};
 
 // ── 내보내기 글 ──
 
