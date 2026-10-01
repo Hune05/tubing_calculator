@@ -162,7 +162,7 @@ void main() {
     expect(find.text(kOfficialManualUrls['REMS|Tiger SR']!), findsOneWidget);
   });
 
-  testWidgets('장비 사용법: DEWALT 장비(설명서 기준) - 밴드쏘 재질별 절단·고속절단기 절단 능력·드릴 칸', (tester) async {
+  testWidgets('장비 사용법: DEWALT 장비(설명서 기준) - 밴드쏘(DCS377) 재질별 절단·고속절단기 절단 능력·드릴 칸', (tester) async {
     await _openUsage(tester);
     await _openGuide(tester, '절단·나사 가공', 'cut_chop');
     await _pickPart(tester, 'cut_chop', '절단 능력');
@@ -174,12 +174,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(band);
     await tester.pumpAndSettle();
-    expect(find.text('620 W'), findsOneWidget);
+    expect(find.text('1-3/4" (약 44 mm)'), findsOneWidget);
     await _pickPart(tester, 'cut_band', '재질별 절단');
-    expect(find.text('SUS관·SUS 형강'), findsOneWidget);
-    expect(find.text('25'), findsOneWidget); // 두께 2 mm → 최소 25 TPI
+    expect(find.textContaining('열처리 볼트·환봉'), findsOneWidget);
+    expect(find.text('24 또는 18'), findsOneWidget); // 설명서 톱날 표(3.2 mm 이하)
     await _pickPart(tester, 'cut_band', '절단 자세');
-    expect(find.text('H빔'), findsOneWidget);
+    expect(find.text('찬넬·유니스트럿'), findsOneWidget);
     await tester.fling(find.byType(ListView).last, const Offset(0, 4000), 4000); // 맨 위 칩으로
     await tester.pumpAndSettle();
     await _openGuide(tester, '드릴·임팩', 'drill_dcd801');

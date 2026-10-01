@@ -17,6 +17,7 @@ import 'cal_record.dart';
 import 'cal_record_pdf.dart';
 import 'cal_records_page.dart';
 import 'loop_voltage_guide.dart';
+import 'meter_loop_guide_page.dart';
 import 'signal_calc.dart';
 import 'switch_check.dart';
 import 'temp_sensor.dart';
@@ -594,6 +595,15 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       );
     }
     return _page([
+      // 멀티미터로 루프 잡는 법을 모르는 사람이 많아 맨 위에 그림 안내를 둔다(10-01).
+      OutlinedButton.icon(
+        key: const Key('sg_meter_guide'),
+        onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const MeterLoopGuidePage())),
+        icon: const Icon(Icons.cable, size: 18),
+        label: const Text('멀티미터로 4-20 mA 재는 법 (연결 그림)'),
+        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+      ),
+      const SizedBox(height: 12),
       ..._rangeFields('sg'),
       _chips(
         '입력 항목',

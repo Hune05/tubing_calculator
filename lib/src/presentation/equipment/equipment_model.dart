@@ -558,6 +558,7 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
   (name: '압력 게이지', category: EquipCategory.inst, months: 12),
   (name: '압력 교정기', category: EquipCategory.inst, months: 12),
   (name: '멀티미터', category: EquipCategory.inst, months: 12),
+  (name: 'HIOKI DT4282 (멀티미터)', category: EquipCategory.inst, months: 12),
   (name: '루프 캘리브레이터', category: EquipCategory.inst, months: 12),
   (name: '온도 교정기', category: EquipCategory.inst, months: 12),
   (name: '토크 렌치', category: EquipCategory.tool, months: 12),
@@ -568,7 +569,7 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
   (name: 'REMS 아미고 2 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
   (name: 'REMS 타이거 SR (컷쏘)', category: EquipCategory.tool, months: 12),
   (name: 'DEWALT D28730 (고속절단기)', category: EquipCategory.tool, months: 12),
-  (name: 'DEWALT DCS374 (충전 밴드쏘)', category: EquipCategory.tool, months: 12),
+  (name: 'DEWALT DCS377 (충전 밴드쏘)', category: EquipCategory.tool, months: 12),
   (name: 'DEWALT DCD806 (해머 드릴)', category: EquipCategory.tool, months: 12),
   (name: 'DEWALT DCD801 (드릴 드라이버)', category: EquipCategory.tool, months: 12),
   (name: 'DEWALT DCF870 (임팩 드라이버)', category: EquipCategory.tool, months: 12),
@@ -579,6 +580,19 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
 
 /// 예시를 고르면 함께 채우는 제조사·모델·제원. 제원은 제조사가 공개한 값.
 const Map<String, ({String maker, String model, List<(String, String)> specs})> kEquipPresetDetails = {
+  // HIOKI 값은 사용자가 준 DT4281/DT4282 설명서.
+  'HIOKI DT4282 (멀티미터)': (
+    maker: 'HIOKI',
+    model: 'DT4282',
+    specs: [
+      ('전류 범위', 'μA 6000 μA, mA 600 mA, A 10 A'),
+      ('DC mA 정확도', '±0.05% rdg ±5 dgt (60 mA 범위)'),
+      ('4-20mA %', '±0.1% rdg ±20 dgt'),
+      ('퓨즈', '630 mA / 1000 V, 11 A / 1000 V'),
+      ('전원', 'AA 4개'),
+      ('크기·중량', '93 × 197 × 53 mm, 약 650 g'),
+    ],
+  ),
   // 공성 값은 사용자가 준 제원(같은 구조인 REX N80A 설명서를 씀).
   '공성 KSU N80A (3" 나사 절삭기)': (
     maker: '공성',
@@ -645,16 +659,14 @@ const Map<String, ({String maker, String model, List<(String, String)> specs})> 
       ('중량', '16 kg'),
     ],
   ),
-  'DEWALT DCS374 (충전 밴드쏘)': (
+  'DEWALT DCS377 (충전 밴드쏘)': (
     maker: 'DEWALT',
-    model: 'DCS374',
+    model: 'DCS377',
     specs: [
-      ('전압', '18 V'),
-      ('최대 출력', '620 W'),
-      ('날 속도', '0~150 m/분'),
-      ('절단 능력', 'Ø120.7 mm, 127 × 120.7 mm'),
-      ('톱날', '0.5 × 12.5 × 1140 mm'),
-      ('중량', '5.6 kg (배터리 제외)'),
+      ('전압', '20V MAX (18 V)'),
+      ('절단 능력', '1-3/4" (약 44 mm)'),
+      ('날 속도', '150~380 SFPM (약 46~116 m/분)'),
+      ('톱날', '0.5 × 12.7 × 686~692 mm'),
     ],
   ),
   'DEWALT DCD806 (해머 드릴)': (
