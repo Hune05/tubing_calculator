@@ -813,13 +813,30 @@ class _GuideTileState extends State<_GuideTile> {
       final (head, body) = p.steps[i];
       out.add(refStep(i + 1, head.isEmpty ? body : '$head: $body'));
     }
+    // 머리말이 긴 칸(고장 증상 등)은 머리말을 위에, 내용을 아래에 둔다. 옆에 두면 머리말이 두세 줄로 꺾인다.
+    final stacked = p.rows.any((r) => r.$1.length > 7);
     for (var i = 0; i < p.rows.length; i++) {
       if (i > 0) out.add(refGap());
-      out.add(refDataRow(p.rows[i].$1, p.rows[i].$2));
+      final (head, body) = p.rows[i];
+      out.add(stacked ? _stackedRow(head, body) : refDataRow(head, body));
     }
     if (p.extra != null) out.add(p.extra!(context));
     if (p.warn != null) out.addAll([const SizedBox(height: 10), refWarnBox(p.warn!)]);
     if (p.tip != null) out.addAll([const SizedBox(height: 10), refTipBox(p.tip!)]);
     return out;
+  }
+
+  Widget _stackedRow(String head, String body) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(head, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: refTextMain, height: 1.4)),
+          const SizedBox(height: 2),
+          Text(body, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: refTextSub, height: 1.5)),
+        ],
+      ),
+    );
   }
 }

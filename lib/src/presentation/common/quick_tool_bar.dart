@@ -155,7 +155,7 @@ final List<QuickToolDef> kQuickTools = [
     '장비 사용법',
     AppGlyph.benderHand,
     (_) => const EquipmentUsagePage(),
-    subtitle: '벤더·톱 조작 순서, 실측 캘리브레이션, 안전',
+    subtitle: '벤더·절단기·계측기 쓰는 법, 주의·정비·고장·정리',
     group: '참고 자료',
   ),
   QuickToolDef(
