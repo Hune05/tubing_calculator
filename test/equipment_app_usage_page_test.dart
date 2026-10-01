@@ -102,7 +102,7 @@ void main() {
         await tester.pumpAndSettle();
       }
     }
-    expect(seen.length, 19);
+    expect(seen.length, 20);
   });
 
   testWidgets('장비 사용법: GD402 줄의 "전체 매뉴얼 보기"를 누르면 매뉴얼 화면이 열린다', (tester) async {
@@ -186,6 +186,17 @@ void main() {
     expect(find.text('90 / 27 Nm (단단한 조임 / 무른 조임)'), findsOneWidget);
     await tester.dragUntilVisible(find.byKey(const Key('guide_drill_dcf870')), find.byType(ListView).last, const Offset(0, -300));
     expect(find.text('DEWALT DCF870 (유압 임팩 드라이버)'), findsOneWidget);
+  });
+
+  testWidgets('장비 사용법: 공성 KSU N80A(제원은 공성 값, 나머지는 REX N80A 설명서)', (tester) async {
+    await _openUsage(tester);
+    await _openGuide(tester, '절단·나사 가공', 'cut_n80a');
+    expect(find.text('3단: 12 / 16.5 / 33.5 rpm'), findsOneWidget);
+    await _pickPart(tester, 'cut_n80a', '니플');
+    expect(find.text('80 mm'), findsOneWidget);
+    await _pickPart(tester, 'cut_n80a', '고장 조치');
+    expect(find.text('나사에 계단 자국'), findsOneWidget);
+    expect(manualKeyFor(maker: '공성', model: 'KSU N80A[3"]-A'), '공성|KSU N80A[3"]-A');
   });
 
   test('설명서 열쇠: 같은 제조사·모델이면 같은 설명서', () {

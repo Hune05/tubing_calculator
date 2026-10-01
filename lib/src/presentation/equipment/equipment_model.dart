@@ -563,6 +563,7 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
   (name: '토크 렌치', category: EquipCategory.tool, months: 12),
   (name: '튜브 벤더', category: EquipCategory.tool, months: 0),
   (name: '튜브 커터', category: EquipCategory.tool, months: 0),
+  (name: '공성 KSU N80A (3" 나사 절삭기)', category: EquipCategory.tool, months: 12),
   (name: 'REMS 아미고 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
   (name: 'REMS 아미고 2 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
   (name: 'REMS 타이거 SR (컷쏘)', category: EquipCategory.tool, months: 12),
@@ -578,6 +579,19 @@ const List<({String name, EquipCategory category, int months})> kEquipPresets = 
 
 /// 예시를 고르면 함께 채우는 제조사·모델·제원. 제원은 제조사가 공개한 값.
 const Map<String, ({String maker, String model, List<(String, String)> specs})> kEquipPresetDetails = {
+  // 공성 값은 사용자가 준 제원(같은 구조인 REX N80A 설명서를 씀).
+  '공성 KSU N80A (3" 나사 절삭기)': (
+    maker: '공성',
+    model: 'KSU N80A[3"]-A',
+    specs: [
+      ('작업 범위', '1/2"~3" (나사 절삭·절단·리밍)'),
+      ('전원', 'AC 220 V (50/60 Hz)'),
+      ('모터', '단상 750 W 콘덴서 모터'),
+      ('회전수', '3단: 12 / 16.5 / 33.5 rpm'),
+      ('중량', '115 kg'),
+      ('크기', '940 × 530 × 560 mm'),
+    ],
+  ),
   // 아미고·아미고 2 값은 REMS 설명서(아미고·아미고 E·아미고 2·컴팩트 묶음) 1장 제원표.
   'REMS 아미고 (전동 나사 절삭기)': (
     maker: 'REMS',
