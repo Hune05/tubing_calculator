@@ -17,34 +17,102 @@ Future<void> _scrollThrough(WidgetTester tester) async {
   }
 }
 
+Future<void> _openUsage(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(390, 844) * 2;
+  tester.view.devicePixelRatio = 2;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(const MaterialApp(home: EquipmentUsagePage()));
+  await tester.pumpAndSettle();
+}
+
+/// 묶음 칩을 고르고 장비 줄을 편다.
+Future<void> _openGuide(WidgetTester tester, String group, String id) async {
+  await tester.tap(find.text(group).first);
+  await tester.pumpAndSettle();
+  final head = find.byKey(Key('guide_head_$id'));
+  await tester.ensureVisible(head);
+  await tester.pumpAndSettle();
+  await tester.tap(head);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _pickPart(WidgetTester tester, String id, String part) async {
+  final chip = find.descendant(of: find.byKey(Key('guide_$id')), matching: find.text(part));
+  await tester.ensureVisible(chip);
+  await tester.pumpAndSettle();
+  await tester.tap(chip);
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets('장비 사용법 화면: 벤더 종류가 보이고 끝까지 넘겨도 예외가 없다', (tester) async {
-    tester.view.physicalSize = const Size(390, 844) * 2;
-    tester.view.devicePixelRatio = 2;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(const MaterialApp(home: EquipmentUsagePage()));
-    await tester.pumpAndSettle();
+  testWidgets('장비 사용법 화면: 장비 줄이 접혀서 보이고, 모두 펴고 끝까지 넘겨도 예외가 없다', (tester) async {
+    await _openUsage(tester);
     expect(find.text('장비 사용법'), findsWidgets);
-    expect(find.textContaining('튜브 수동 벤더'), findsOneWidget);
+    expect(find.text('튜브 수동 벤더'), findsOneWidget);
+    // 접혀 있으면 안 내용은 없다
+    expect(find.textContaining('롤러 핀을 끝까지'), findsNothing);
     await _scrollThrough(tester);
   });
 
-  testWidgets('장비 사용법: GD402 카드의 "전체 매뉴얼 보기"를 누르면 매뉴얼 화면이 열린다', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844) * 2;
-    tester.view.devicePixelRatio = 2;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(const MaterialApp(home: EquipmentUsagePage()));
+  testWidgets('장비 사용법: 묶음 칩으로 거르고, 줄을 펴서 칸을 바꾸면 그 내용이 보인다', (tester) async {
+    await _openUsage(tester);
+    await _openGuide(tester, '튜브', 'tube_hand');
+    expect(find.text('유압식 벤더'), findsNothing); // 전선관은 걸러졌다
+    expect(find.textContaining('롤러를 내리고 핀을 끝까지'), findsOneWidget); // 처음 칸 = 쓰는 법
+    await _pickPart(tester, 'tube_hand', '고장');
+    expect(find.text('관이 납작하다·주름'), findsOneWidget);
+    expect(find.textContaining('롤러를 내리고 핀을 끝까지'), findsNothing);
+    await _pickPart(tester, 'tube_hand', '정리');
+    expect(find.textContaining('규격별로 케이스에'), findsOneWidget);
+    // 다시 누르면 접힌다
+    await tester.tap(find.byKey(const Key('guide_head_tube_hand')));
     await tester.pumpAndSettle();
-    await tester.dragUntilVisible(
-      find.widgetWithText(OutlinedButton, '전체 매뉴얼 보기(설치·배선·보정 세 가지·경보표 전부)'),
-      find.byType(ListView).last,
-      const Offset(0, -400), maxIteration: 200,
-    );
-    await tester.ensureVisible(find.widgetWithText(OutlinedButton, '전체 매뉴얼 보기(설치·배선·보정 세 가지·경보표 전부)'));
+    expect(find.textContaining('규격별로 케이스에'), findsNothing);
+  });
+
+  testWidgets('장비 사용법: 모든 장비 줄을 펴서 모든 칸을 눌러도 예외가 없다', (tester) async {
+    await _openUsage(tester);
+    final seen = <String>{};
+    for (final g in ['튜브', '전선관', '절단·나사', '계측', '기준 잡기', '공통']) {
+      await tester.tap(find.text(g).first);
+      await tester.pumpAndSettle();
+      final heads = find.byWidgetPredicate((w) => w.key is ValueKey<String> && (w.key as ValueKey<String>).value.startsWith('guide_head_'), skipOffstage: false);
+      final ids = [for (final e in heads.evaluate()) ((e.widget.key as ValueKey<String>).value).substring('guide_head_'.length)];
+      expect(ids, isNotEmpty, reason: g);
+      seen.addAll(ids);
+      for (final id in ids) {
+        final head = find.byKey(Key('guide_head_$id'));
+        await tester.ensureVisible(head);
+        await tester.pumpAndSettle();
+        await tester.tap(head);
+        await tester.pumpAndSettle();
+        final chips = find.descendant(of: find.byKey(Key('guide_$id')), matching: find.byType(ChoiceChip));
+        final n = chips.evaluate().length;
+        for (var i = 0; i < n; i++) {
+          final c = chips.at(i);
+          await tester.ensureVisible(c);
+          await tester.pumpAndSettle();
+          await tester.tap(c);
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull, reason: '$id 칸 $i');
+        }
+        await tester.ensureVisible(head);
+        await tester.pumpAndSettle();
+        await tester.tap(head);
+        await tester.pumpAndSettle();
+      }
+    }
+    expect(seen.length, 17);
+  });
+
+  testWidgets('장비 사용법: GD402 줄의 "전체 매뉴얼 보기"를 누르면 매뉴얼 화면이 열린다', (tester) async {
+    await _openUsage(tester);
+    await _openGuide(tester, '계측', 'meter_gd402');
+    expect(find.text('수소(H2) 100%'), findsOneWidget);
+    final btn = find.byKey(const Key('gd402_manual'));
+    await tester.ensureVisible(btn);
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(OutlinedButton, '전체 매뉴얼 보기(설치·배선·보정 세 가지·경보표 전부)'));
+    await tester.tap(btn);
     await tester.pumpAndSettle();
     expect(find.text('GD402 가스 밀도계 매뉴얼'), findsOneWidget);
     await tester.dragUntilVisible(
@@ -55,30 +123,32 @@ void main() {
     expect(find.textContaining('10. 수소순도계 보정 절차'), findsOneWidget);
   });
 
-  testWidgets('장비 사용법: REMS 아미고 2·타이거 SR 카드에 제원이 있고, 설명서 단추가 받는 곳을 알려 준다', (tester) async {
+  testWidgets('장비 사용법: REMS 아미고 2·타이거 SR에 제원·주의·정비·고장·정리 칸이 있고, 설명서 단추가 받는 곳을 알려 준다', (tester) async {
     SharedPreferences.setMockInitialValues({});
-    tester.view.physicalSize = const Size(390, 844) * 2;
-    tester.view.devicePixelRatio = 2;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(const MaterialApp(home: EquipmentUsagePage()));
+    await _openUsage(tester);
+    await _openGuide(tester, '절단·나사', 'rems_amigo');
+    expect(find.text('1700 W'), findsOneWidget); // 처음 칸 = 제원
+    for (final t in ['제원', '쓰는 법', '주의', '정비', '고장', '정리']) {
+      expect(find.descendant(of: find.byKey(const Key('guide_rems_amigo')), matching: find.text(t)), findsOneWidget, reason: t);
+    }
+    final amigo = find.byKey(const Key('vendor_manual_REMS|Amigo 2'));
+    await tester.ensureVisible(amigo);
     await tester.pumpAndSettle();
-    await tester.dragUntilVisible(find.byKey(const Key('vendor_manual_REMS|Amigo 2')), find.byType(ListView).last, const Offset(0, -400), maxIteration: 200);
-    expect(find.textContaining('REMS 아미고 2'), findsWidgets);
-    expect(find.text('1700 W'), findsOneWidget);
-    await tester.ensureVisible(find.byKey(const Key('vendor_manual_REMS|Amigo 2')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('vendor_manual_REMS|Amigo 2')));
+    await tester.tap(amigo);
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('manual_pick')), findsOneWidget);
     expect(find.text(kOfficialManualUrls['REMS|Amigo 2']!), findsOneWidget);
     await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
-    await tester.dragUntilVisible(find.byKey(const Key('vendor_manual_REMS|Tiger SR')), find.byType(ListView).last, const Offset(0, -400), maxIteration: 200);
-    expect(find.text('1400 W (230 V 6.4 A / 110 V 12.8 A)'), findsOneWidget);
-    // 두 카드 모두 주의 사항·정비·고장 대처·정리가 기본으로 들어 있다
-    for (final t in ['주의 사항', '정비 (점검)', '고장 났을 때', '쓴 뒤 정리']) {
-      expect(find.text(t, skipOffstage: false), findsNWidgets(2), reason: t);
-    }
+    final tiger = find.byKey(const Key('guide_head_rems_tiger'));
+    await tester.ensureVisible(tiger);
+    await tester.pumpAndSettle();
+    await tester.tap(tiger);
+    await tester.pumpAndSettle();
+    expect(find.text('230 V 6.4 A / 110 V 12.8 A'), findsOneWidget);
+    await _pickPart(tester, 'rems_tiger', '주의');
+    expect(find.textContaining('격리·배수·퍼지'), findsOneWidget);
+    expect(find.byKey(const Key('vendor_manual_REMS|Tiger SR')), findsOneWidget);
   });
 
   test('설명서 열쇠: 같은 제조사·모델이면 같은 설명서', () {
