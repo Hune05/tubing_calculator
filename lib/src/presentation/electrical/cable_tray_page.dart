@@ -91,6 +91,8 @@ class _TrayRow {
 const List<String> kFloorTrayNotes = [
   '덮개: 사람이 다니거나 물건이 떨어지거나 밟힐 수 있는 곳은 덮개를 씌웁니다. KEC 232.41.2 10호 "별도로 방호를 필요로 하는 곳은 불연성 커버"를 따릅니다.',
   '덮개 무게도 트레이 자중 칸에 더해 넣으십시오.',
+  '바닥 트렌치(홈) 안이면 KEC 232.24: 받침대는 2m 이내마다, 뚜껑은 바닥 마감면과 평평하고 다니는 사람·장비 하중에 변형되지 않게, 바닥·옆면 방수와 물 고임 방지.',
+  '참고: NEMA VE 2는 트레이를 바닥에 바로 놓지 말고 스트럿 위에 띄워 클램프로 고정하라고 합니다(해외 권고).',
 ];
 
 /// 트레이에 넣는 케이블로 고를 수 있는 것: 케이블과 트레이용 접지선(F-GV).
@@ -129,6 +131,8 @@ class _CableTrayPageState extends State<CableTrayPage>
   final List<_TrayRow> _rows = [_TrayRow()];
   double _span = 2;
   TrayMount _mount = TrayMount.hanging;
+  BendRule _bendRule = BendRule.domestic;
+  double _elbow = 300;
   final _trayKg = TextEditingController();
   final _allow = TextEditingController();
 
@@ -163,6 +167,8 @@ class _CableTrayPageState extends State<CableTrayPage>
     'm': _marginPct,
     'sp': _span,
     'mt': _mount.name,
+    'br': _bendRule.name,
+    'el': _elbow,
     'tk': _trayKg.text,
     'al': _allow.text,
     'rows': [for (final r in _rows) r.toJson()],
@@ -187,6 +193,9 @@ class _CableTrayPageState extends State<CableTrayPage>
           if (m['tk'] is String) _trayKg.text = m['tk'] as String;
           final mt = TrayMount.values.where((x) => x.name == m['mt']);
           if (mt.isNotEmpty) _mount = mt.first;
+          final br = BendRule.values.where((x) => x.name == m['br']);
+          if (br.isNotEmpty) _bendRule = br.first;
+          if (m['el'] is num && kTrayElbowRadii.contains((m['el'] as num).toDouble())) _elbow = (m['el'] as num).toDouble();
           if (m['al'] is String) _allow.text = m['al'] as String;
           if (rows.isNotEmpty) {
             for (final r in _rows) {
@@ -247,6 +256,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           count: n.toInt(),
           control: r.control,
           weight: sp.kg,
+          shielded: true,
         ));
       } else if (r.kind != null) {
         final c = TrayCable.fromKind(r.kind!, r.size, n.toInt());
@@ -254,7 +264,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           bad.add(i + 1);
           continue;
         }
-        out.add(TrayCable(name: c.name, od: c.od, size: c.size, cores: c.cores, count: c.count, control: r.control, weight: c.weight));
+        out.add(TrayCable(name: c.name, od: c.od, size: c.size, cores: c.cores, count: c.count, control: r.control, weight: c.weight, shielded: c.shielded));
       } else {
         final od = readNum(r.od), sz = readNum(r.sizeText), co = readNum(r.cores);
         if (od == null || od <= 0 || sz == null || sz <= 0 || co == null || co < 1) {
@@ -519,6 +529,48 @@ class _CableTrayPageState extends State<CableTrayPage>
     ];
   }
 
+  /// 곡률(굽힘) 반경: 가장 굵은(배수 큰) 케이블의 최소 굽힘 반경을 엘보 반경과 견준다.
+  List<Widget> _bendSection(List<TrayCable> cables) {
+    final mb = maxBend(cables, _bendRule);
+    if (mb == null) return const [];
+    final (need, worst) = mb;
+    final ok = _elbow >= need - 1e-9;
+    final fit = elbowFor(need);
+    final f = bendFactor(worst, _bendRule);
+    return [
+      const SizedBox(height: 16),
+      elecSectionTitle('곡률 반경'),
+      elecChipGroup(
+        '굽힘 반경 기준',
+        '국내 시방서: 다심 외경의 6배, 단심 8배(서울시 SMCS·KRCCS·나라장터 시방서 등). 차폐 제어·AMS 케이블은 국내 규정이 없어 제조사 값 12배를 씁니다. '
+            '제조사: 넥상스코리아 제품 자료의 12배(TFR-CV·TFR-CVV-S·TFR-CVV-AMS). KEC에는 굽힘 반경 조항이 없습니다.',
+        [for (final r in BendRule.values) calcChip('ct_br_${r.name}', bendRuleLabel(r), _bendRule == r, () => _set(() => _bendRule = r))],
+      ),
+      elecChipGroup(
+        '엘보(곡관) 반경 (mm)',
+        '트레이 수평·수직 엘보의 반경입니다. 흔히 300·600·900mm(LH 시방서 300 이상, 제조사 300·600·900).',
+        [for (final e in kTrayElbowRadii) calcChip('ct_el_${e.toInt()}', fmt(e), _elbow == e, () => _set(() => _elbow = e))],
+      ),
+      calcResult(
+        key: const Key('ct_bend'),
+        big: 'R ${fmt(need, 0)} mm',
+        caption: '최소 굽힘 반경 · 엘보 R${fmt(_elbow)} ${ok ? '합격' : '불합격'}',
+        warn: !ok,
+        lines: [
+          '가장 큰 것: ${worst.name} 외경 ${fmt(worst.od)}mm × ${fmt(f.$1)} (${f.$2})',
+          ok
+              ? '엘보 R${fmt(_elbow)} 안에서 굽힐 수 있습니다.'
+              : fit == null
+              ? 'R900 엘보로도 모자랍니다. 더 큰 반경으로 돌리거나 굵은 케이블은 따로 돌리십시오.'
+              : 'R${fmt(fit)} 이상 엘보를 쓰십시오.',
+          for (final c in cables)
+            if (c.count > 0) '${c.name}: R ${fmt(bendRadius(c, _bendRule), 0)}mm (${bendFactor(c, _bendRule).$2})',
+          '반경은 케이블 안쪽 면 기준으로 보는 것이 보통입니다(ICEA). 국내 시방서는 기준점을 적지 않았습니다.',
+        ],
+      ),
+    ];
+  }
+
   /// 하중: 케이블 무게 + 트레이 자중을 지지 간격별 허용 하중과 견준다.
   List<Widget> _loadSection(List<TrayCable> cables) {
     final tray = readNum(_trayKg);
@@ -547,7 +599,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           [for (final sp in kTraySpans) calcChip('ct_sp_${sp.toString()}', '${fmt(sp)}m', _span == sp, () => _set(() => _span = sp))],
         ),
       ],
-      elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 무게입니다. 제조사 카탈로그 값을 넣습니다(예: 대양엔지니어링 사다리형 300폭 H100 가로대 300mm, 2.6t 7.0kg/m — 한 곳 자료). 지지점 하중에만 들어가고, 허용 하중 판정은 케이블 하중으로 합니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
+      elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 무게입니다. 제조사 카탈로그 값을 넣습니다(예: 대양엔지니어링 사다리형 300폭 H100 가로대 300mm, 2.6t 7.0kg/m. 한 곳 자료). 지지점 하중에만 들어가고, 허용 하중 판정은 케이블 하중으로 합니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
       if (trayMountSpans(_mount))
         elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그에서 이 지지 간격의 등분포 허용(사용) 하중입니다. 케이블만의 하중 기준(트레이 자중 제외)이라 케이블 하중과 견줍니다. NEMA VE-1·IEC 61537 기준 값은 안전율(1.5 이상)이 이미 들어 있어 그대로 넣고, KS 정하중이나 파괴 하중만 있으면 1.5로 나눠 넣으십시오(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
       calcResult(
@@ -569,6 +621,8 @@ class _CableTrayPageState extends State<CableTrayPage>
             ok
                 ? '케이블 하중 ${fmt(l.cableKgM, 1)} kg/m가 허용 하중 ${fmt(l.allowKgM!, 1)} kg/m 안입니다.'
                 : '케이블 하중 ${fmt(l.cableKgM, 1)} kg/m가 허용 하중 ${fmt(l.allowKgM!, 1)} kg/m를 넘습니다. 지지 간격을 줄이거나 더 튼튼한 트레이로 하십시오.',
+          if (spanWarning(_mount, _span) != null) spanWarning(_mount, _span)!,
+          if (spans) '케이블 결속: 수평은 2m 이내마다 케이블타이(국내 시방서). 수평이 아닌 곳은 가로대에 단단히 고정(KEC 232.41.1 4호), 수직 간격은 국내 규정이 없습니다(NEMA VE 2는 약 450mm 권고).',
           if (!spans) ...kFloorTrayNotes,
           if (l.missing.isNotEmpty) '무게를 몰라 빠진 케이블: ${l.missing.join(', ')}. 직접 입력 줄에 kg/km를 넣으면 들어갑니다.',
           cableWeightSource,
@@ -712,6 +766,7 @@ class _CableTrayPageState extends State<CableTrayPage>
         ),
       ],
       if (check != null) ..._derating(cables, check),
+      if (check != null) ..._bendSection(cables),
       if (check != null) ..._loadSection(cables),
       const SizedBox(height: 12),
       elecBasis('ct_basis', [

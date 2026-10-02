@@ -100,6 +100,9 @@ class TrayCable {
   /// 한 가닥 무게(kg/km, 개산). 모르면 null(하중 계산에서 빠진다고 알린다).
   final double? weight;
 
+  /// 차폐(동 테이프·편조·알루미늄 마일라)가 있는지. 굽힘 반경 배수가 달라진다.
+  final bool shielded;
+
   const TrayCable({
     required this.name,
     required this.od,
@@ -108,7 +111,8 @@ class TrayCable {
     required this.count,
     this.control = false,
     this.weight,
-  });
+    bool? shielded,
+  }) : shielded = shielded ?? control;
 
   bool get isMulti => cores > 1;
 
@@ -136,6 +140,7 @@ class TrayCable {
       count: count,
       control: cvvsCores(k) != null,
       weight: cableWeight(k, size),
+      shielded: cvvsCores(k) != null, // F-CVV-S만 차폐
     );
   }
 }
@@ -502,6 +507,60 @@ TrayLoad trayLoad({
     allowKgM: allowKgM,
     missing: missing,
   );
+}
+
+// ── 곡률(굽힘) 반경 ──
+
+/// 굽힘 반경 기준.
+enum BendRule { domestic, maker }
+
+String bendRuleLabel(BendRule r) => switch (r) {
+  BendRule.domestic => '국내 시방서',
+  BendRule.maker => '제조사 (넥상스)',
+};
+
+/// 트레이 엘보(곡관) 반경(mm): LH 시방서 "300 이상", 에이인텍·B-Line 300·600·900.
+const List<double> kTrayElbowRadii = [300, 600, 900];
+
+/// 케이블 외경에 곱하는 최소 굽힘 반경 배수와 그 근거.
+/// - 국내 시방서(서울시 SMCS·KRCCS·나라장터·LH 시방서, 600V 표): 다심 6D, 단심 8D. 차폐 케이블은
+///   국내 규정이 없어 제조사 값(넥상스 TFR-CVV-S·TFR-CVV-AMS 12D)을 쓴다.
+/// - 제조사(넥상스코리아 제품 자료): TFR-CV·TFR-CVV-S·TFR-CVV-AMS 12D.
+(double, String) bendFactor(TrayCable c, BendRule rule) {
+  if (rule == BendRule.maker) return (12, '제조사 12D');
+  if (c.shielded) return (12, '차폐: 국내 규정 없음 → 제조사 12D');
+  return c.isMulti ? (6, '다심 6D') : (8, '단심 8D');
+}
+
+/// 케이블 한 줄의 최소 굽힘 반경(mm).
+double bendRadius(TrayCable c, BendRule rule) => c.od * bendFactor(c, rule).$1;
+
+/// 목록에서 가장 큰 최소 굽힘 반경과 그 케이블.
+(double, TrayCable)? maxBend(List<TrayCable> cables, BendRule rule) {
+  (double, TrayCable)? best;
+  for (final c in cables) {
+    if (c.count <= 0) continue;
+    final r = bendRadius(c, rule);
+    if (best == null || r > best.$1) best = (r, c);
+  }
+  return best;
+}
+
+/// 엘보 반경 목록에서 [need] 이상인 가장 작은 것(없으면 null).
+double? elbowFor(double need, {List<double> radii = kTrayElbowRadii}) {
+  for (final r in [...radii]..sort()) {
+    if (r >= need - 1e-9) return r;
+  }
+  return null;
+}
+
+/// 지지 간격 안내(국내 시방서). 판정에는 넣지 않는다.
+String? spanWarning(TrayMount m, double span) {
+  if (!trayMountSpans(m)) return null;
+  if (span > 2) {
+    return '국내 시방서 대부분은 지지 간격 2m 이하입니다(서울시 SMCS·KRCCS·나라장터). LH 시방서는 찬넬 3m도 둡니다. 시방서를 확인하십시오.';
+  }
+  return null;
 }
 
 /// 폭마다 판정한 결과와 처음 합격하는 폭.

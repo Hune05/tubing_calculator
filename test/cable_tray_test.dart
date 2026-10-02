@@ -312,4 +312,30 @@ void main() {
       expect(amsSizes(AmsKind.overallCore, 30), [1.5, 2.5, 4]);
     });
   });
+
+  group('곡률 반경·지지 간격', () {
+    test('국내: 다심 6D, 단심 8D, 차폐 12D / 제조사: 모두 12D', () {
+      final multi = _c(35, 4, 28, 1), single = _c(150, 1, 24, 1), shield = _c(2.5, 10, 20.5, 1, control: true);
+      expect(bendRadius(multi, BendRule.domestic), 168);
+      expect(bendRadius(single, BendRule.domestic), 192);
+      expect(bendRadius(shield, BendRule.domestic), 246);
+      expect(bendRadius(multi, BendRule.maker), 336);
+      final mb = maxBend([multi, single, shield], BendRule.domestic)!;
+      expect(mb.$1, 246);
+      expect(elbowFor(246), 300);
+      expect(elbowFor(336), 600);
+      expect(elbowFor(1000), isNull);
+    });
+
+    test('F-CV를 제어용으로 표시해도 차폐로 보지 않는다(F-CVV-S만 차폐)', () {
+      expect(TrayCable.fromKind(CableKind.fcv4, 35, 1)!.shielded, isFalse);
+      expect(TrayCable.fromKind(CableKind.cvvs10, 2.5, 1)!.shielded, isTrue);
+    });
+
+    test('지지 간격 2m 넘으면 안내, 바닥 직접은 안내 없음', () {
+      expect(spanWarning(TrayMount.hanging, 3), isNotNull);
+      expect(spanWarning(TrayMount.hanging, 2), isNull);
+      expect(spanWarning(TrayMount.floor, 3), isNull);
+    });
+  });
 }
