@@ -170,6 +170,9 @@ enum AppGlyph {
   /// 전기 계산기: 번개.
   electric,
 
+  /// 케이블 트레이 계산기: ㄷ자 트레이 단면에 케이블(원) 셋.
+  cableTray,
+
   /// 압력 시험 계산기: 압력계(둥근 눈금 + 바늘 + 아래 연결구).
   pressureGauge,
 
@@ -1110,6 +1113,19 @@ class _AppIconPainter extends CustomPainter {
           ..close();
         canvas.drawPath(bolt, soft);
         canvas.drawPath(bolt, line);
+
+      case AppGlyph.cableTray:
+        // 트레이 단면(ㄷ자, 위가 열림)과 바닥에 한 층으로 깐 케이블 셋.
+        final tray = Path()
+          ..moveTo(3.0, 8.0)
+          ..lineTo(3.0, 18.5)
+          ..lineTo(21.0, 18.5)
+          ..lineTo(21.0, 8.0);
+        canvas.drawPath(tray, line);
+        for (final x in [7.6, 12.0, 16.4]) {
+          canvas.drawCircle(Offset(x, 15.3), 2.3, soft);
+          canvas.drawCircle(Offset(x, 15.3), 2.3, line);
+        }
 
       case AppGlyph.unitConvert:
         // 위: 오른쪽 화살표, 가운데: 왼쪽 화살표, 아래: 자.

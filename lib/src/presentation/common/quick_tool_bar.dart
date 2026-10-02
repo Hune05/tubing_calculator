@@ -37,6 +37,7 @@ import '../tube_cutting/screens/mobile_cutting_project_list_page.dart';
 import 'feature_search.dart';
 import 'quick_sub_tools.dart';
 import 'app_icons.dart';
+import '../electrical/cable_tray_page.dart';
 
 /// 막대에 넣을 수 있는(그리고 전체 검색에 나오는) 기능 하나.
 /// 큰 기능은 [glyph](직접 그린 아이콘), 세부 기능(탭·분류)은 [icon](Lucide 선 아이콘)을 쓴다.
@@ -204,6 +205,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.electric,
     (_) => const ElectricCalculatorPage(),
     subtitle: '부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지',
+    group: '전기',
+  ),
+  QuickToolDef(
+    'cabletray',
+    '케이블 트레이 계산기',
+    AppGlyph.cableTray,
+    (_) => const CableTrayPage(),
+    subtitle: '트레이 점유율 판정·권장 폭 (KEC 232.41)',
     group: '전기',
   ),
   QuickToolDef(

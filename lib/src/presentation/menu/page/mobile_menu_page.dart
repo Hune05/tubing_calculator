@@ -88,6 +88,7 @@ import 'package:tubing_calculator/src/presentation/pressure_test/pressure_test_p
 import 'package:tubing_calculator/src/presentation/flow/flow_calc_page.dart';
 import 'package:tubing_calculator/src/presentation/instrument/signal_calculator_page.dart';
 import '../../trash/trash_page.dart';
+import '../../electrical/cable_tray_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
 const Color tossBlue = AppColors.brand;
@@ -1472,6 +1473,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             MaterialPageRoute(
                               builder: (context) =>
                                   const ElectricCalculatorPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "케이블 트레이 계산기",
+                        subtitle: "트레이 점유율 판정·권장 폭 (KEC 232.41)",
+                        icon: AppGlyph.cableTray,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CableTrayPage(),
                             ),
                           );
                         },
