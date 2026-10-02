@@ -15,7 +15,7 @@ void main() {
     expect(p.positions.first, 25);
     expect(p.positions.last, closeTo(25 + 4 * 25.4, 1e-9));
     expect(p.endRight, closeTo(25, 1e-9));
-    expect(p.centerLine, 25);
+    expect(p.rowY, [25]);
     expect(p.ok, isTrue);
   });
 
@@ -191,9 +191,9 @@ void main() {
       tabHolePitch: 25.4,
     );
     // 평평한 길이 50 − 12 = 38 → 구멍 중심 19
-    expect(p.tabHoles.length, 2);
-    expect(p.tabHoles.first, closeTo(19, 1e-9));
-    expect(p.tabHoles.last, closeTo(p.length - 19, 1e-9));
+    expect(p.tabHoleList.length, 2);
+    expect(p.tabHoleList.first.x, closeTo(19, 1e-9));
+    expect(p.tabHoleList.last.x, closeTo(p.length - 19, 1e-9));
   });
 
   test('탭 구멍이 안 들어가면 알린다', () {
@@ -210,5 +210,160 @@ void main() {
       tabHolePitch: 25.4,
     );
     expect(p.ok, isFalse);
+  });
+
+  test('챙 길이를 왼쪽·오른쪽 따로: 길이와 꺾기 선이 각각 맞다', () {
+    final a = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 4,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 40,
+    );
+    final b = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 4,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 40,
+      hatFlangeRight: 60,
+    );
+    expect(b.length, closeTo(a.length + 20, 1e-9));
+    expect(b.bends.first.start, a.bends.first.start);
+    expect(b.bendPlan!.cutLength, closeTo(b.length, 1e-9));
+    expect(b.flatTabR, closeTo(48, 1e-9));
+    expect(b.flatTabL, closeTo(28, 1e-9));
+  });
+
+  test('두 줄 대칭: 같은 x에 위아래로, 줄 간격은 가운데에서 반씩', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      rows: 2,
+      rowGap: 20,
+    );
+    expect(p.groundHoles.length, 6);
+    expect(p.rowY, [15, 35]);
+    expect(p.positions, p.positionsB);
+    expect(p.length, closeTo(50 + 2 * 25.4, 1e-9));
+    expect(p.ok, isTrue);
+    expect(p.groundHoles.first.label, 'A1');
+  });
+
+  test('두 줄 비대칭(엇갈림): B줄이 반 피치 이동하고 길이가 그만큼 늘어난다', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      rows: 2,
+      rowGap: 20,
+      staggered: true,
+    );
+    expect(p.stagger, closeTo(12.7, 1e-9));
+    expect(p.positionsB.first, closeTo(p.positions.first + 12.7, 1e-9));
+    expect(p.length, closeTo(50 + 2 * 25.4 + 12.7, 1e-9));
+    expect(p.endRight, closeTo(25, 1e-9));
+    expect(p.ok, isTrue);
+  });
+
+  test('두 줄이 너무 붙으면 겹침 알림, 줄 간격이 크면 폭 밖', () {
+    final tight = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      rows: 2,
+      rowGap: 8,
+    );
+    expect(tight.ok, isFalse);
+    final wide = groundBar(
+      t: 6,
+      w: 30,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      rows: 2,
+      rowGap: 24,
+    );
+    expect(wide.problems.any((s) => s.contains('폭 밖')), isTrue);
+    expect(wide.problems.length, lessThan(4)); // 구멍마다 반복하지 않고 한 줄로 묶는다
+  });
+
+  test('구멍 하나만 크기를 바꾼다: 그 구멍만 지름이 달라지고 무게가 줄어든다', () {
+    final base = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 4,
+    );
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 4,
+      overrides: const {'gA2': 18},
+    );
+    expect(p.groundHoles[1].dia, 18);
+    expect(p.groundHoles[1].custom, isTrue);
+    expect(p.groundHoles[0].dia, 11.1);
+    expect(p.customCount, 1);
+    expect(p.weightKg, lessThan(base.weightKg));
+    final big = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 4,
+      overrides: const {'gA2': 45},
+    );
+    expect(big.ok, isFalse); // 이웃 구멍과 겹침
+  });
+
+  test('챙 구멍도 두 줄 · 구멍 번호로 크기 바꾸기', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 50,
+      rows: 2,
+      rowGap: 20,
+      tabHoleCount: 1,
+      tabHoleDia: 9,
+      tabHolePitch: 25.4,
+      overrides: const {'tR-B1': 11},
+    );
+    expect(p.tabHoleList.length, 4); // 왼쪽 A·B, 오른쪽 A·B
+    final rb = p.tabHoleList.firstWhere((h) => h.id == 'tR-B1');
+    expect(rb.dia, 11);
+    expect(rb.label, '오른쪽 B1');
+    expect(rb.y, 35);
   });
 }

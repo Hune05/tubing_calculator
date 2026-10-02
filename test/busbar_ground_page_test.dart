@@ -118,6 +118,64 @@ void main() {
     await tester.tap(find.byKey(const Key('gb_share')));
     await tester.pumpAndSettle();
     expect(sent, contains('모자 높이 40 · 챙 50'));
-    expect(sent, contains('챙 구멍 φ11.1 (왼쪽 끝에서 중심): 19 ·'));
+    expect(sent, contains('챙 구멍 φ11.1 (왼쪽 끝에서 중심): 왼쪽 1 19 · 오른쪽 1'));
+  });
+
+  testWidgets('두 줄 대칭·비대칭 바꾸기: 줄 간격, A·B줄 위치, 엇갈림 칸', (tester) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t, height: 9000);
+    await tester.tap(find.byKey(const Key('gb_rm_1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gb_gap')), findsOneWidget);
+    expect(find.byKey(const Key('gb_shift')), findsNothing);
+    // 폭 50, 간격 20 → A줄 15 · B줄 35, 길이 변화 없음 278.6
+    expect(find.text('278.6 mm'), findsOneWidget);
+    expect(find.textContaining('두 줄 대칭'), findsWidgets);
+    expect(find.text('A1~5'), findsOneWidget);
+    expect(find.text('B1~5'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('gb_rm_2')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gb_shift')), findsOneWidget);
+    expect(find.text('291.3 mm'), findsOneWidget); // 278.6 + 12.7
+    await tester.tap(find.byKey(const Key('gb_share')));
+    await tester.pumpAndSettle();
+    expect(sent, contains('구멍 φ11.1 10개 × 2줄'));
+    expect(sent, contains('B줄은 길이 방향으로 12.7mm 옮김'));
+  });
+
+  testWidgets('구멍 하나만 크기 바꾸기: 적용·기본으로·전부 기본으로', (tester) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t, height: 9000);
+    expect(find.byKey(const Key('gb_ov_list')), findsNothing);
+    await _type(tester, 'gb_ovdia', '18');
+    await tester.tap(find.byKey(const Key('gb_ov_apply'))); // 처음 구멍(1번)이 선택돼 있다
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gb_ov_list')), findsOneWidget);
+    expect(find.textContaining('바꾼 구멍 1개: 1번 φ18'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('gb_share')));
+    await tester.pumpAndSettle();
+    expect(sent, contains('크기 바꾼 구멍: 1번 φ18'));
+    await tester.tap(find.byKey(const Key('gb_ov_reset')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gb_ov_list')), findsNothing);
+    // 너무 큰 지름은 겹침 알림
+    await _type(tester, 'gb_ovdia', '45');
+    await tester.tap(find.byKey(const Key('gb_ov_apply')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('서로 겹칩니다'), findsWidgets);
+    await tester.tap(find.byKey(const Key('gb_ov_clear')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('서로 겹칩니다'), findsNothing);
+  });
+
+  testWidgets('모자 오른쪽 챙을 따로: 비우면 같고 넣으면 길이가 늘어난다', (tester) async {
+    await _open(tester, height: 9000);
+    await tester.tap(find.byKey(const Key('gb_tab_4')));
+    await tester.pumpAndSettle();
+    final before = find.textContaining('mm · 구멍');
+    expect(before, findsWidgets);
+    expect(find.byKey(const Key('gb_hatfr')), findsOneWidget);
+    await _type(tester, 'gb_hatfr', '60');
+    expect(find.textContaining('챙 40 / 60'), findsWidgets);
   });
 }

@@ -88,30 +88,19 @@ class GroundBarPainter extends CustomPainter {
         );
       }
     }
-    final rr = math.max(holeDia * sc / 2, 2.5);
-    final tr = math.max(plan.tabHoleDia * sc / 2, 2.5);
-    for (final p in plan.tabHoles) {
-      final c = Offset(x0 + p * sc, y0 + h / 2);
-      canvas.drawCircle(c, tr, Paint()..color = bg);
+    for (final hole in [...plan.tabHoleList, ...plan.groundHoles]) {
+      final c = Offset(x0 + hole.x * sc, y0 + hole.y * sc);
+      final rad = math.max(hole.dia * sc / 2, 2.5);
+      canvas.drawCircle(c, rad, Paint()..color = bg);
       canvas.drawCircle(
         c,
-        tr,
+        rad,
         Paint()
-          ..color = const Color(0x66000000)
+          ..color = hole.custom
+              ? const Color(0xFFE08A1E)
+              : const Color(0x66000000)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1,
-      );
-    }
-    for (final p in plan.positions) {
-      final c = Offset(x0 + p * sc, y0 + h / 2);
-      canvas.drawCircle(c, rr, Paint()..color = bg);
-      canvas.drawCircle(
-        c,
-        rr,
-        Paint()
-          ..color = const Color(0x66000000)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1,
+          ..strokeWidth = hole.custom ? 2 : 1,
       );
     }
     final dim = Paint()
@@ -137,11 +126,15 @@ class GroundBarPainter extends CustomPainter {
           fmt(plan.positions[1] - plan.positions.first, 1),
         );
       }
-      dimLine(plan.positions.last, plan.flatEnd, fmt(plan.endRight, 1));
+      dimLine(
+        plan.flatEnd - plan.endRight,
+        plan.flatEnd,
+        fmt(plan.endRight, 1),
+      );
     }
     _label(
       canvas,
-      '${fmt(plan.length, 1)} mm × ${fmt(width)} mm · 구멍 ${plan.holes}개',
+      '${fmt(plan.length, 1)} mm × ${fmt(width)} mm · 구멍 ${plan.groundHoles.length}개',
       Offset(size.width / 2, 14),
       sub,
     );
