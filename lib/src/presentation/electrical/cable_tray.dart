@@ -175,7 +175,22 @@ class TrayCheck {
   double get pct => limit <= 0 ? double.infinity : used / limit * 100;
 }
 
-String _n(double v) => v >= 100 ? v.round().toString() : v.toStringAsFixed(1);
+/// 숫자 글: 100 이상은 반올림해 천 단위 쉼표(9,030), 그 아래는 소수 한 자리(뒤 0은 뗌).
+String trayNum(double v) {
+  if (v.abs() >= 100) {
+    final t = v.round().abs().toString();
+    final b = StringBuffer(v < 0 ? '-' : '');
+    for (var i = 0; i < t.length; i++) {
+      if (i > 0 && (t.length - i) % 3 == 0) b.write(',');
+      b.write(t[i]);
+    }
+    return b.toString();
+  }
+  final s = v.toStringAsFixed(1);
+  return s.endsWith('.0') ? s.substring(0, s.length - 2) : s;
+}
+
+String _n(double v) => trayNum(v);
 
 /// 트레이 하나를 판정한다. [margin]은 예비 여유(0.2 = 20%)로, 쓴 양에 (1 + margin)을 곱한다.
 /// 케이블이 없으면 null.

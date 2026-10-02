@@ -2,6 +2,7 @@
 // 자료의 케이블은 옛 굵기(TFR-CV 22·38·60·100·150·200·250·500·600·800mm²)라 외경을 직접 넣는다.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/electrical/cable_tray.dart';
+import 'package:tubing_calculator/src/presentation/electrical/cable_tray_painter.dart';
 import 'package:tubing_calculator/src/presentation/electrical/conduit_tables.dart';
 
 TrayCable _c(double size, int cores, double od, int count, {bool control = false}) =>
@@ -153,5 +154,39 @@ void main() {
     test('케이블이 없으면 판정하지 않는다', () {
       expect(checkTray(type: TrayType.ladder, width: 300, depth: 100, cables: const []), isNull);
     });
+  });
+
+  group('단면 그림 놓기', () {
+    test('굵은 것부터 바닥 왼쪽에, 폭을 넘으면 위 줄로', () {
+      final lay = layoutTray([_c(10, 4, 20, 3), _c(100, 4, 50, 2)], 120, 100, singleLayer: false);
+      expect(lay.dots.length, 5);
+      expect(lay.dots.first.r, 25); // 50mm가 먼저
+      expect(lay.dots[0].x, 25);
+      expect(lay.dots[1].x, 75);
+      expect(lay.dots[2].y, 10); // 50+50+20 = 120 → 셋째(20mm)는 바닥 줄 끝
+      expect(lay.dots[3].y, 50 + 10); // 넷째부터 위 줄
+      expect(lay.anyOver, isFalse);
+    });
+
+    test('한 층 규칙이면 위 줄로 안 올리고 폭을 넘친 것을 표시', () {
+      final lay = layoutTray([_c(500, 1, 40, 4)], 150, 100, singleLayer: true);
+      expect(lay.dots.every((d) => d.y == 20), isTrue);
+      expect(lay.dots.where((d) => d.over).length, 1); // 40×4 = 160 > 150
+    });
+
+    test('깊이를 넘치면 표시하고, 너무 많으면 300가닥까지만 그린다', () {
+      final deep = layoutTray([_c(10, 4, 60, 4)], 120, 100, singleLayer: false);
+      expect(deep.anyOver, isTrue);
+      final many = layoutTray([_c(2.5, 2, 12, 350)], 900, 150, singleLayer: false);
+      expect(many.dots.length, kTrayDrawMax);
+      expect(many.hidden, 50);
+    });
+  });
+
+  test('숫자 글: 천 단위 쉼표', () {
+    expect(trayNum(27090), '27,090');
+    expect(trayNum(558), '558');
+    expect(trayNum(13.5), '13.5');
+    expect(trayNum(40), '40');
   });
 }

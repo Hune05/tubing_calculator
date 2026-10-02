@@ -10,7 +10,9 @@ import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'cable_tray.dart';
+import 'cable_tray_painter.dart';
 import 'conduit_tables.dart';
 import 'elec_calc.dart' show sqText;
 import 'elec_form_parts.dart';
@@ -74,8 +76,16 @@ final List<CableKind> kTrayCableKinds = [
     if (!isInsulatedWire(k) || k == CableKind.fgv) k,
 ];
 
+Future<void> _defaultShare(String text) async {
+  if (await kakaoSender(text)) return;
+  await textSharer(text);
+}
+
 class CableTrayPage extends StatefulWidget {
-  const CableTrayPage({super.key});
+  const CableTrayPage({super.key, this.share = _defaultShare});
+
+  /// 결과 글 보내기(시험에서 바꿔 끼운다).
+  final Future<void> Function(String text) share;
 
   static const draftKey = 'cable_tray_draft_v1';
 
@@ -260,7 +270,7 @@ class _CableTrayPageState extends State<CableTrayPage>
                   // 번호를 잡고 밀면 지운다(칸을 잡으면 글자 칸이 끌기를 가져간다).
                   SizedBox(
                     width: 26,
-                    child: Text('${i + 1}', key: Key('ct_no_$i'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: fc.textSub)),
+                    child: Text('${i + 1}', key: Key('ct_no_$i'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: trayRowColor(i))),
                   ),
                   Expanded(
                     child: DropdownButton<CableKind?>(
@@ -339,6 +349,50 @@ class _CableTrayPageState extends State<CableTrayPage>
     );
   }
 
+  Widget _section(List<TrayCable> cables, TrayCheck check) {
+    final lay = layoutTray(cables, _width, _depth, singleLayer: check.singleLayer);
+    return Container(
+      key: const Key('ct_section'),
+      height: 190,
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: fc.line),
+      ),
+      child: CustomPaint(
+        painter: TraySectionPainter(
+          type: _type,
+          width: _width,
+          depth: _depth,
+          layout: lay,
+          text: fc.text,
+          sub: fc.textSub,
+          line: fc.line,
+          bg: fc.background,
+        ),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+
+  /// 카톡으로 보내는 글.
+  String _shareText(List<TrayCable> cables, TrayCheck check, TraySizing? sizing) {
+    final b = StringBuffer('[케이블 트레이 점유율] ${trayTypeLabel(_type)} 폭 ${trayNum(_width)} × 깊이 ${trayNum(_depth)}mm');
+    b.write('\n판정: ${check.ok ? '합격' : '불합격'} (${fmt(check.pct, 0)}%)');
+    final best = sizing?.minWidth;
+    b.write(best == null ? '\n권장 폭: 표준 폭 안에 없음' : '\n권장 폭: ${trayNum(best)}mm');
+    if (_marginPct > 0) b.write(' (예비 여유 $_marginPct%)');
+    b.write('\n규칙: ${trayRuleLabel(check.rule)}');
+    b.write('\n계산: ${check.formula}');
+    b.write('\n케이블:');
+    for (var i = 0; i < cables.length; i++) {
+      final c = cables[i];
+      b.write('\n ${i + 1}. ${c.name} × ${c.count}가닥${c.control ? ' (제어·신호)' : ''}');
+    }
+    b.write('\n근거: KEC 232.41(판단기준 제213조의2)');
+    return b.toString();
+  }
+
   // ── 화면 ──
 
   @override
@@ -375,8 +429,8 @@ class _CableTrayPageState extends State<CableTrayPage>
         warn: !ok,
         lines: [
           ok
-              ? '한도 안입니다 (${fmt(check.used, 0)} / ${fmt(check.limit, 0)} $unit).'
-              : '한도를 넘습니다 (${fmt(check.used, 0)} / ${fmt(check.limit, 0)} $unit). ${best == null ? '표준 폭 안에 맞는 폭이 없습니다. 트레이를 나누십시오.' : '폭 ${fmt(best)}mm 이상으로 선정하십시오.'}',
+              ? '한도 안입니다 (${trayNum(check.used)} / ${trayNum(check.limit)} $unit).'
+              : '한도를 넘습니다 (${trayNum(check.used)} / ${trayNum(check.limit)} $unit). ${best == null ? '표준 폭 안에 맞는 폭이 없습니다. 트레이를 나누십시오.' : '폭 ${fmt(best)}mm 이상으로 선정하십시오.'}',
           if (ok && best != null && best < _width) '더 좁은 폭 ${fmt(best)}mm도 됩니다.',
           trayRuleLabel(check.rule),
           check.formula,
@@ -425,6 +479,12 @@ class _CableTrayPageState extends State<CableTrayPage>
         ),
       const SizedBox(height: 8),
       result,
+      if (check != null) ...[
+        const SizedBox(height: 12),
+        calcLabel('단면 그림', '케이블을 실제 외경 비율로 굵은 것부터 바닥에 깔아 본 그림입니다. 원 안 숫자는 목록의 줄 번호, 빨간 테두리는 폭이나 깊이를 넘친 가닥입니다. 판정은 위 결과를 따릅니다.'),
+        const SizedBox(height: 4),
+        _section(cables, check),
+      ],
       if (sizing != null) ...[
         const SizedBox(height: 12),
         calcLabel('폭별 판정', '같은 케이블로 표준 폭마다 본 사용률입니다. 누르면 그 폭으로 바꿉니다.'),
@@ -463,7 +523,16 @@ class _CableTrayPageState extends State<CableTrayPage>
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             title: Text('케이블 트레이 계산기', style: TextStyle(fontWeight: FontWeight.w800, color: fc.text)),
-            actions: [calcHistoryButton()],
+            actions: [
+              if (check != null)
+                IconButton(
+                  key: const Key('ct_share'),
+                  tooltip: '카톡으로 보내기',
+                  icon: Icon(Icons.share_outlined, color: fc.text),
+                  onPressed: () => widget.share(_shareText(cables, check, sizing)),
+                ),
+              calcHistoryButton(),
+            ],
           ),
           body: elecPage(children, sumKey: 'ct_sum', summary: summary, warn: check != null && !check.ok),
         ),

@@ -74,4 +74,22 @@ void main() {
     expect(find.textContaining('제어·신호 다심만'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('단면 그림이 나오고, 보내기 글에 판정·케이블이 들어간다', (tester) async {
+    String? sent;
+    tester.view.physicalSize = const Size(800, 2400);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: CableTrayPage(share: (t) async => sent = t)));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('ct_n_0')), '6');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('ct_section'), skipOffstage: false), findsOneWidget);
+    await tester.tap(find.byKey(const Key('ct_share')));
+    await tester.pumpAndSettle();
+    expect(sent, contains('[케이블 트레이 점유율] 사다리형 폭 300'));
+    expect(sent, contains('판정: 합격'));
+    expect(sent, contains('1. F-CV 4심 35sq × 6가닥'));
+    expect(sent, contains('KEC 232.41'));
+  });
 }
