@@ -111,6 +111,7 @@ class _CableTrayPageState extends State<CableTrayPage>
   int _marginPct = 20;
   final List<_TrayRow> _rows = [_TrayRow()];
   double _span = 2;
+  TrayMount _mount = TrayMount.hanging;
   final _trayKg = TextEditingController();
   final _allow = TextEditingController();
 
@@ -144,6 +145,7 @@ class _CableTrayPageState extends State<CableTrayPage>
     'd': _depth,
     'm': _marginPct,
     'sp': _span,
+    'mt': _mount.name,
     'tk': _trayKg.text,
     'al': _allow.text,
     'rows': [for (final r in _rows) r.toJson()],
@@ -166,6 +168,8 @@ class _CableTrayPageState extends State<CableTrayPage>
           if (m['m'] is int) _marginPct = m['m'] as int;
           if (m['sp'] is num && kTraySpans.contains((m['sp'] as num).toDouble())) _span = (m['sp'] as num).toDouble();
           if (m['tk'] is String) _trayKg.text = m['tk'] as String;
+          final mt = TrayMount.values.where((x) => x.name == m['mt']);
+          if (mt.isNotEmpty) _mount = mt.first;
           if (m['al'] is String) _allow.text = m['al'] as String;
           if (rows.isNotEmpty) {
             for (final r in _rows) {
@@ -429,11 +433,12 @@ class _CableTrayPageState extends State<CableTrayPage>
   List<Widget> _loadSection(List<TrayCable> cables) {
     final tray = readNum(_trayKg);
     final allow = readNum(_allow);
+    final spans = trayMountSpans(_mount);
     final l = trayLoad(
       cables: cables,
       trayKgM: tray != null && tray > 0 ? tray : 0,
       span: _span,
-      allowKgM: allow != null && allow > 0 ? allow : null,
+      allowKgM: spans && allow != null && allow > 0 ? allow : null,
       margin: _marginPct / 100,
     );
     final ok = l.ok;
@@ -441,20 +446,35 @@ class _CableTrayPageState extends State<CableTrayPage>
       const SizedBox(height: 16),
       elecSectionTitle('하중'),
       elecChipGroup(
-        '지지 간격 (m)',
-        '행거·찬넬 사이 거리입니다. 시방서마다 다릅니다(보통 2m 이하, 변전실 1.5m, 찬넬 3m).',
-        [for (final sp in kTraySpans) calcChip('ct_sp_${sp.toString()}', '${fmt(sp)}m', _span == sp, () => _set(() => _span = sp))],
+        '설치 방법',
+        '매달기·브래킷·받침대 위는 지지점 사이가 떠 있어 지지 간격과 허용 하중을 따집니다. 바닥에 직접 놓으면 바닥이 계속 받쳐 줘서 그 계산은 필요 없고, 1m당 무게만 봅니다.',
+        [for (final mt in TrayMount.values) calcChip('ct_mt_${mt.name}', trayMountLabel(mt), _mount == mt, () => _set(() => _mount = mt))],
       ),
+      if (trayMountSpans(_mount)) ...[
+        elecChipGroup(
+          _mount == TrayMount.stand ? '받침대 간격 (m)' : '지지 간격 (m)',
+          '지지점 사이 거리입니다. 시방서마다 다릅니다(보통 2m 이하, 변전실 1.5m, 찬넬 3m).',
+          [for (final sp in kTraySpans) calcChip('ct_sp_${sp.toString()}', '${fmt(sp)}m', _span == sp, () => _set(() => _span = sp))],
+        ),
+      ],
       elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 무게입니다. 제조사 카탈로그 값을 넣습니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
-      elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그의 이 지지 간격에서 등분포 허용(사용) 하중입니다. 파괴 하중만 있으면 1.5로 나눈 값을 넣습니다(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
+      if (trayMountSpans(_mount))
+        elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그의 이 지지 간격에서 등분포 허용(사용) 하중입니다. 파괴 하중만 있으면 1.5로 나눈 값을 넣습니다(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
       calcResult(
         key: const Key('ct_load'),
         big: '${fmt(l.totalKgM, 1)} kg/m',
-        caption: ok == null ? '트레이 1m당 하중 · 허용 하중을 넣으면 판정합니다' : '트레이 1m당 하중 · ${ok ? '합격' : '불합격'} ${fmt(l.pct!, 0)}%',
+        caption: !spans
+            ? '트레이 1m당 무게 · 바닥에 직접 설치'
+            : ok == null
+            ? '트레이 1m당 하중 · 허용 하중을 넣으면 판정합니다'
+            : '트레이 1m당 하중 · ${ok ? '합격' : '불합격'} ${fmt(l.pct!, 0)}%',
         warn: ok == false || l.missing.isNotEmpty,
         lines: [
           '케이블 ${fmt(l.cableKgM, 1)} kg/m${_marginPct > 0 ? ' (예비 여유 $_marginPct% 포함)' : ''} + 트레이 자중 ${fmt(l.trayKgM, 1)} kg/m',
-          '지지점 하나가 받는 하중 약 ${fmt(l.perSupportKg, 0)} kg (1m당 하중 × 지지 간격 ${fmt(_span)}m). 행거·앵커 선정에 씁니다.',
+          if (spans)
+            '지지점 하나가 받는 하중 약 ${fmt(l.perSupportKg, 0)} kg (1m당 하중 × ${_mount == TrayMount.stand ? '받침대' : '지지'} 간격 ${fmt(_span)}m). ${_mount == TrayMount.stand ? '받침대' : '행거·앵커'} 선정에 씁니다.'
+          else
+            '바닥이 계속 받쳐 지지 간격·허용 하중 판정은 하지 않습니다. 바닥(슬래브·트렌치) 허용 하중 확인에 1m당 무게를 쓰십시오.',
           if (ok != null)
             ok
                 ? '허용 하중 ${fmt(l.allowKgM!, 1)} kg/m 안입니다.'

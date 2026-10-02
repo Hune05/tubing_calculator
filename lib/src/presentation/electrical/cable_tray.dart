@@ -432,6 +432,18 @@ double trayGroupFactor(TrayType t, List<TrayCable> cables, {required bool oneRow
 
 // ── 하중 ──
 
+/// 설치 방법. 바닥에 직접 놓으면 바닥이 계속 받쳐 지지 간격·허용 하중 판정이 필요 없다.
+enum TrayMount { hanging, stand, floor }
+
+String trayMountLabel(TrayMount m) => switch (m) {
+  TrayMount.hanging => '매달기·브래킷',
+  TrayMount.stand => '받침대 위',
+  TrayMount.floor => '바닥에 직접',
+};
+
+/// 지지점 사이가 떠 있는지(지지 간격·허용 하중을 따지는지).
+bool trayMountSpans(TrayMount m) => m != TrayMount.floor;
+
 /// 고를 수 있는 지지 간격(m). 시방서: 2m 이하(변전실 1.5m), LH 찬넬 3m.
 const List<double> kTraySpans = [1.5, 2, 3];
 
