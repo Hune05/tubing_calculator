@@ -90,6 +90,7 @@ import 'package:tubing_calculator/src/presentation/instrument/signal_calculator_
 import '../../trash/trash_page.dart';
 import '../../electrical/cable_tray_page.dart';
 import '../../electrical/busbar_bend_page.dart';
+import '../../electrical/busbar_ground_page.dart';
 import '../../electrical/cable_tray_route_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
@@ -1520,6 +1521,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const BusbarBendPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "접지바 구멍 계산기",
+                        subtitle: "구멍 위치·자르는 길이·무게",
+                        icon: AppGlyph.groundBar,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const GroundBarPage(),
                             ),
                           );
                         },

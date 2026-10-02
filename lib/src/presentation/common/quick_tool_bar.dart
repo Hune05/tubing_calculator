@@ -39,6 +39,7 @@ import 'quick_sub_tools.dart';
 import 'app_icons.dart';
 import '../electrical/cable_tray_page.dart';
 import '../electrical/busbar_bend_page.dart';
+import '../electrical/busbar_ground_page.dart';
 import '../electrical/cable_tray_route_page.dart';
 
 /// 막대에 넣을 수 있는(그리고 전체 검색에 나오는) 기능 하나.
@@ -231,6 +232,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.busbarBend,
     (_) => const BusbarBendPage(),
     subtitle: 'L·U·Z 꺾기 자르는 길이와 꺾기 시작선',
+    group: '전기',
+  ),
+  QuickToolDef(
+    'groundbar',
+    '접지바 구멍 계산기',
+    AppGlyph.groundBar,
+    (_) => const GroundBarPage(),
+    subtitle: '구멍 위치·자르는 길이·무게',
     group: '전기',
   ),
   QuickToolDef(

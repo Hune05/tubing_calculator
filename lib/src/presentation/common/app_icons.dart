@@ -179,6 +179,9 @@ enum AppGlyph {
   /// 부스바 절곡 계산기: 옆에서 본 Z로 꺾은 평강.
   busbarBend,
 
+  /// 접지바 구멍 계산기: 구멍이 일정 간격으로 뚫린 평강.
+  groundBar,
+
   /// 압력 시험 계산기: 압력계(둥근 눈금 + 바늘 + 아래 연결구).
   pressureGauge,
 
@@ -1173,6 +1176,22 @@ class _AppIconPainter extends CustomPainter {
             ..strokeCap = StrokeCap.butt,
         );
         l(2.5, 20.5, 21.5, 20.5);
+
+      case AppGlyph.groundBar:
+        // 평강 띠에 구멍 넷과 바닥 선.
+        final gb = RRect.fromLTRBR(
+          2.5,
+          8.5,
+          21.5,
+          15.5,
+          const Radius.circular(1.2),
+        );
+        canvas.drawRRect(gb, soft);
+        canvas.drawRRect(gb, line);
+        for (final x in [6.5, 10.5, 14.5, 18.5]) {
+          canvas.drawCircle(Offset(x, 12), 1.35, line);
+        }
+        l(2.5, 19.5, 21.5, 19.5);
 
       case AppGlyph.unitConvert:
         // 위: 오른쪽 화살표, 가운데: 왼쪽 화살표, 아래: 자.
