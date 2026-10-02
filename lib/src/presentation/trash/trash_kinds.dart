@@ -273,7 +273,12 @@ void showTrashUndo(
       try {
         await restoreTrash(await moved);
         await onRestored?.call();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('휴지통 되돌리기 실패: $e');
+        if (context.mounted) {
+          showAppSnack(context, '되돌리지 못했습니다. 점 3개 메뉴 → 휴지통에서 복원하십시오.', kind: AppSnackKind.error);
+        }
+      }
     },
   );
 }
