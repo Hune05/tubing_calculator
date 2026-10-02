@@ -38,6 +38,7 @@ import 'feature_search.dart';
 import 'quick_sub_tools.dart';
 import 'app_icons.dart';
 import '../electrical/cable_tray_page.dart';
+import '../electrical/busbar_bend_page.dart';
 import '../electrical/cable_tray_route_page.dart';
 
 /// 막대에 넣을 수 있는(그리고 전체 검색에 나오는) 기능 하나.
@@ -222,6 +223,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.trayRoute,
     (_) => const CableTrayRoutePage(),
     subtitle: '넘어가기·옆으로 비켜가기·단 오르내리기·가지 내기(티)',
+    group: '전기',
+  ),
+  QuickToolDef(
+    'busbarbend',
+    '부스바 절곡 계산기',
+    AppGlyph.busbarBend,
+    (_) => const BusbarBendPage(),
+    subtitle: 'L·U·Z 꺾기 자르는 길이와 꺾기 시작선',
     group: '전기',
   ),
   QuickToolDef(

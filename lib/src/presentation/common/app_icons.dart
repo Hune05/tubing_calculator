@@ -176,6 +176,9 @@ enum AppGlyph {
   /// 케이블 트레이 형상 계산기: 옆에서 본 트레이가 바닥의 상자(장애물)를 넘어가는 모양.
   trayRoute,
 
+  /// 부스바 절곡 계산기: 옆에서 본 Z로 꺾은 평강.
+  busbarBend,
+
   /// 압력 시험 계산기: 압력계(둥근 눈금 + 바늘 + 아래 연결구).
   pressureGauge,
 
@@ -1152,6 +1155,24 @@ class _AppIconPainter extends CustomPainter {
           ..lineTo(20.4, 15.2)
           ..lineTo(22, 15.2);
         canvas.drawPath(rail, line);
+
+      case AppGlyph.busbarBend:
+        // 옆에서 본 Z로 꺾은 평강(두꺼운 띠)과 아래 바닥 선.
+        final bar = Path()
+          ..moveTo(2.5, 16)
+          ..lineTo(8, 16)
+          ..lineTo(13, 8)
+          ..lineTo(21.5, 8);
+        canvas.drawPath(
+          bar,
+          Paint()
+            ..color = line.color
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = line.strokeWidth * 2.2
+            ..strokeJoin = StrokeJoin.round
+            ..strokeCap = StrokeCap.butt,
+        );
+        l(2.5, 20.5, 21.5, 20.5);
 
       case AppGlyph.unitConvert:
         // 위: 오른쪽 화살표, 가운데: 왼쪽 화살표, 아래: 자.
