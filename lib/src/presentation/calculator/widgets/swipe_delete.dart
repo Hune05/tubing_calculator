@@ -6,29 +6,8 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// 카드를 왼쪽으로 밀 때 뒤에 보이는 빨간 바탕.
-Widget swipeDeleteBackground({double radius = 12, double bottomMargin = 8}) {
-  return Container(
-    margin: EdgeInsets.only(bottom: bottomMargin),
-    padding: const EdgeInsets.only(right: 24),
-    alignment: Alignment.centerRight,
-    decoration: BoxDecoration(
-      color: Colors.redAccent,
-      borderRadius: BorderRadius.circular(radius),
-    ),
-    child: const Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.delete_outline_rounded, color: Colors.white),
-        SizedBox(width: 6),
-        Text(
-          '삭제',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ],
-    ),
-  );
-}
+// 빨간 바탕은 앱 공통 밀어서 지우기와 같은 것을 쓴다.
+export '../../../core/common_widgets/swipe_to_delete.dart' show swipeDeleteBackground;
 
 /// 지운 뒤 아래에 "N번 줄을 지웠습니다 · 되돌리기"를 띄운다.
 void showDeletedSnackBar(
