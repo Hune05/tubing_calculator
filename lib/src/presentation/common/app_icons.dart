@@ -173,6 +173,9 @@ enum AppGlyph {
   /// 케이블 트레이 계산기: ㄷ자 트레이 단면에 케이블(원) 셋.
   cableTray,
 
+  /// 케이블 트레이 형상 계산기: 옆에서 본 트레이가 바닥의 상자(장애물)를 넘어가는 모양.
+  trayRoute,
+
   /// 압력 시험 계산기: 압력계(둥근 눈금 + 바늘 + 아래 연결구).
   pressureGauge,
 
@@ -1126,6 +1129,29 @@ class _AppIconPainter extends CustomPainter {
           canvas.drawCircle(Offset(x, 15.3), 2.3, soft);
           canvas.drawCircle(Offset(x, 15.3), 2.3, line);
         }
+
+      case AppGlyph.trayRoute:
+        // 바닥 선, 가운데 장애물 상자, 그 위로 넘어가는 트레이 띠(위로·아래로 꺾기).
+        l(2, 20.5, 22, 20.5);
+        final box = RRect.fromLTRBR(9, 14.5, 15, 20.5, const Radius.circular(1));
+        canvas.drawRRect(box, soft);
+        canvas.drawRRect(box, line);
+        final route = Path()
+          ..moveTo(2, 18)
+          ..lineTo(6.2, 18)
+          ..lineTo(6.2, 10.5)
+          ..lineTo(17.8, 10.5)
+          ..lineTo(17.8, 18)
+          ..lineTo(22, 18);
+        canvas.drawPath(route, line);
+        final rail = Path()
+          ..moveTo(2, 15.2)
+          ..lineTo(3.6, 15.2)
+          ..lineTo(3.6, 7.8)
+          ..lineTo(20.4, 7.8)
+          ..lineTo(20.4, 15.2)
+          ..lineTo(22, 15.2);
+        canvas.drawPath(rail, line);
 
       case AppGlyph.unitConvert:
         // 위: 오른쪽 화살표, 가운데: 왼쪽 화살표, 아래: 자.

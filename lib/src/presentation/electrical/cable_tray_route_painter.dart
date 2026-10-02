@@ -1,0 +1,480 @@
+// 케이블 트레이 형상 그림(10-03): 옆에서 본 모양(장애물·트레이)과 자르기 전 측판 마킹.
+// 계산은 cable_tray_route.dart. 그림은 실제 비율(옆 모습)이고, 마킹 그림만 높이를 키워 그린다.
+library;
+
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import 'cable_tray.dart' show trayNum;
+import 'cable_tray_route.dart';
+
+const Color _metalLight = Color(0xFFD7DDE2);
+const Color _metalMid = Color(0xFF9AA5AE);
+const Color _metalDark = Color(0xFF5E6A73);
+const Color _upColor = Color(0xFF0E7C86); // 위로 꺾기(윗변 V컷)
+const Color _downColor = Color(0xFFE07A1F); // 아래로 꺾기(아랫변 V컷)
+
+Color trayCornerColor(TrayCorner c) => c.up ? _upColor : _downColor;
+
+void _label(
+  Canvas canvas,
+  String t,
+  Offset at,
+  Color color, {
+  double size = 12,
+  bool center = true,
+  bool bold = true,
+}) {
+  final tp = TextPainter(
+    text: TextSpan(
+      text: t,
+      style: TextStyle(
+        fontSize: size,
+        fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+        color: color,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  tp.paint(canvas, center ? at - Offset(tp.width / 2, tp.height / 2) : at);
+}
+
+void _badge(Canvas canvas, Offset c, int n, Color col) {
+  canvas.drawCircle(
+    c + const Offset(0.6, 1),
+    9,
+    Paint()..color = Colors.black.withValues(alpha: 0.2),
+  );
+  canvas.drawCircle(
+    c,
+    9,
+    Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.35, -0.4),
+        colors: [
+          Color.lerp(col, Colors.white, 0.3)!,
+          col,
+          Color.lerp(col, Colors.black, 0.25)!,
+        ],
+      ).createShader(Rect.fromCircle(center: c, radius: 9)),
+  );
+  _label(canvas, '$n', c, Colors.white, size: 11);
+}
+
+/// 옆에서 본 모양. 바닥면 선(아래)과 측판 윗변(위)을 꺾는 점마다 이어 그린다.
+class TrayRouteSidePainter extends CustomPainter {
+  final TrayRoute route;
+
+  /// 장애물(넘어가기)이나 단(올라가기·내려가기): 시작점 기준 x 범위와 높이(mm, 지금 트레이 바닥 기준).
+  final double? boxFrom, boxTo, boxHeight;
+  final Color text, sub, line, bg;
+
+  TrayRouteSidePainter({
+    required this.route,
+    this.boxFrom,
+    this.boxTo,
+    this.boxHeight,
+    required this.text,
+    required this.sub,
+    required this.line,
+    required this.bg,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final pts = route.points;
+    if (pts.length < 2) return;
+    final h = route.rail;
+    // 윗변 점: 꺾는 점마다 두 선(앞뒤 구간을 h만큼 왼쪽으로 민 선)의 교점
+    final top = <Offset>[];
+    for (var i = 0; i < pts.length; i++) {
+      final p = Offset(pts[i].$1, pts[i].$2);
+      final a = i > 0
+          ? math.atan2(pts[i].$2 - pts[i - 1].$2, pts[i].$1 - pts[i - 1].$1)
+          : null;
+      final b = i < pts.length - 1
+          ? math.atan2(pts[i + 1].$2 - pts[i].$2, pts[i + 1].$1 - pts[i].$1)
+          : null;
+      final dirA = a ?? b!, dirB = b ?? a!;
+      final mid = (dirA + dirB) / 2;
+      final half = (dirB - dirA) / 2;
+      final k = h / math.cos(half);
+      top.add(p + Offset(-math.sin(mid) * k, math.cos(mid) * k));
+    }
+    var minX = 0.0, maxX = 0.0, minY = 0.0, maxY = 0.0;
+    void grow(double x, double y) {
+      minX = math.min(minX, x);
+      maxX = math.max(maxX, x);
+      minY = math.min(minY, y);
+      maxY = math.max(maxY, y);
+    }
+
+    for (final p in pts) {
+      grow(p.$1, p.$2);
+    }
+    for (final p in top) {
+      grow(p.dx, p.dy);
+    }
+    final bh = boxHeight;
+    final hasBox =
+        boxFrom != null &&
+        bh != null &&
+        (route.kind != TrayRouteKind.over || boxTo != null);
+    if (hasBox) {
+      grow(boxFrom!, route.kind == TrayRouteKind.down ? 0 : bh);
+      if (boxTo != null) grow(boxTo!, 0);
+    }
+    const padL = 18.0, padR = 18.0, padT = 26.0, padB = 34.0;
+    final w = size.width - padL - padR, hh = size.height - padT - padB;
+    final s = math.min(
+      w / math.max(1, maxX - minX),
+      hh / math.max(1, maxY - minY),
+    );
+    final ox = padL + (w - (maxX - minX) * s) / 2 - minX * s;
+    final oy = padT + hh - (hh - (maxY - minY) * s) / 2 + minY * s;
+    Offset m(double x, double y) => Offset(ox + x * s, oy - y * s);
+
+    // 바닥(지금 트레이가 놓인 면)
+    final floorY = route.kind == TrayRouteKind.down
+        ? m(0, route.points.last.$2).dy
+        : m(0, 0).dy;
+    final ground = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [line.withValues(alpha: 0.55), line.withValues(alpha: 0.05)],
+      ).createShader(Rect.fromLTRB(0, floorY, size.width, floorY + 18));
+    canvas.drawRect(
+      Rect.fromLTRB(4, floorY, size.width - 4, floorY + 18),
+      ground,
+    );
+    canvas.drawLine(
+      Offset(4, floorY),
+      Offset(size.width - 4, floorY),
+      Paint()
+        ..color = sub
+        ..strokeWidth = 1.2,
+    );
+
+    // 장애물·단: 콘크리트 느낌 그라데이션 + 그림자
+    if (hasBox) {
+      final r = switch (route.kind) {
+        TrayRouteKind.over => Rect.fromPoints(m(boxFrom!, bh), m(boxTo!, 0)),
+        TrayRouteKind.up => Rect.fromPoints(
+          m(boxFrom!, bh),
+          Offset(size.width - 4, m(0, 0).dy),
+        ),
+        TrayRouteKind.down => Rect.fromPoints(
+          Offset(4, m(0, 0).dy),
+          m(boxFrom!, route.points.last.$2),
+        ),
+      };
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          r.shift(const Offset(2, 3)),
+          const Radius.circular(3),
+        ),
+        Paint()..color = Colors.black.withValues(alpha: 0.12),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(r, const Radius.circular(3)),
+        Paint()
+          ..shader = const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFB9B4AA), Color(0xFF8F8A80)],
+          ).createShader(r),
+      );
+      canvas.drawLine(
+        r.topLeft + const Offset(2, 1.5),
+        r.topRight + const Offset(-2, 1.5),
+        Paint()
+          ..color = Colors.white.withValues(alpha: 0.5)
+          ..strokeWidth = 1.5,
+      );
+      if (route.kind == TrayRouteKind.over)
+        _label(canvas, '장애물', r.center, Colors.white);
+    }
+
+    // 트레이 띠(측판 옆면)
+    final band = Path()
+      ..moveTo(
+        m(pts.first.$1, pts.first.$2).dx,
+        m(pts.first.$1, pts.first.$2).dy,
+      );
+    for (final p in pts.skip(1)) {
+      final o = m(p.$1, p.$2);
+      band.lineTo(o.dx, o.dy);
+    }
+    for (final t in top.reversed) {
+      final o = m(t.dx, t.dy);
+      band.lineTo(o.dx, o.dy);
+    }
+    band.close();
+    canvas.drawPath(
+      band.shift(const Offset(1.5, 2.5)),
+      Paint()..color = Colors.black.withValues(alpha: 0.16),
+    );
+    final bounds = band.getBounds();
+    canvas.drawPath(
+      band,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_metalLight, _metalMid, _metalDark],
+          stops: [0, 0.6, 1],
+        ).createShader(bounds),
+    );
+    canvas.drawPath(
+      band,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = _metalDark,
+    );
+    // 윗변 하이라이트
+    final hl = Path();
+    for (var i = 0; i < top.length; i++) {
+      final o = m(top[i].dx, top[i].dy) + const Offset(0, 1.2);
+      i == 0 ? hl.moveTo(o.dx, o.dy) : hl.lineTo(o.dx, o.dy);
+    }
+    canvas.drawPath(
+      hl,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = Colors.white.withValues(alpha: 0.6),
+    );
+
+    // 꺾는 점: 접는 선(바닥면↔윗변)과 번호
+    final placed = <Offset>[];
+    for (var i = 0; i < route.corners.length; i++) {
+      final c = route.corners[i];
+      final j = pts.indexWhere(
+        (p) => (p.$1 - c.x).abs() < 1e-6 && (p.$2 - c.y).abs() < 1e-6,
+      );
+      if (j < 0) continue;
+      final b = m(c.x, c.y), t = m(top[j].dx, top[j].dy);
+      canvas.drawLine(
+        b,
+        t,
+        Paint()
+          ..color = trayCornerColor(c)
+          ..strokeWidth = 2.2,
+      );
+      // 번호는 V컷 쪽(위로 꺾기 = 윗변 바깥, 아래로 꺾기 = 바닥면 바깥)
+      // 번호가 앞 번호와 겹치면 같은 방향으로 더 밀어낸다
+      final from = c.up ? t : b;
+      final unit = c.up
+          ? (t - b) / (t - b).distance
+          : (b - t) / (b - t).distance;
+      var away = from + unit * 13;
+      for (
+        var k = 0;
+        k < 4 && placed.any((p) => (p - away).distance < 19);
+        k++
+      ) {
+        away += unit * 18;
+      }
+      placed.add(away);
+      _badge(canvas, away, i + 1, trayCornerColor(c));
+    }
+
+    // 높이 치수: 번호와 겹치지 않게 시작 직선(좁으면 끝 직선) 가운데
+    final rise = route.kind == TrayRouteKind.over
+        ? pts.map((p) => p.$2).reduce(math.max)
+        : pts.last.$2;
+    if (rise.abs() > 0 && route.corners.isNotEmpty) {
+      final a0 = m(0, 0).dx, a1 = m(route.corners.first.x, 0).dx;
+      final b0 = m(route.corners.last.x, 0).dx, b1 = m(pts.last.$1, 0).dx;
+      final x0 = a1 - a0 >= 60
+          ? (a0 + a1) / 2
+          : (b1 - b0 >= 60 ? (b0 + b1) / 2 : a1 - 40);
+      final y0 = m(0, math.min(0, rise)).dy, y1 = m(0, math.max(0, rise)).dy;
+      final dim = Paint()
+        ..color = sub
+        ..strokeWidth = 1;
+      canvas.drawLine(Offset(x0, y0), Offset(x0, y1), dim);
+      for (final y in [y0, y1]) {
+        canvas.drawLine(Offset(x0 - 4, y), Offset(x0 + 4, y), dim);
+      }
+      final tp = TextPainter(
+        text: TextSpan(
+          text: trayNum(rise.abs()),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: text,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final at = Offset(x0 - tp.width / 2, (y0 + y1) / 2 - tp.height / 2);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(at.dx - 4, at.dy - 1, tp.width + 8, tp.height + 2),
+          const Radius.circular(4),
+        ),
+        Paint()..color = bg,
+      );
+      tp.paint(canvas, at);
+    }
+    _label(canvas, '시작점', m(0, 0) + const Offset(0, 12), sub, size: 11);
+  }
+
+  @override
+  bool shouldRepaint(TrayRouteSidePainter o) =>
+      o.route != route ||
+      o.boxFrom != boxFrom ||
+      o.boxTo != boxTo ||
+      o.boxHeight != boxHeight ||
+      o.bg != bg;
+}
+
+/// 자르기 전 곧은 트레이 측판(옆면). 위로 꺾기는 윗변, 아래로 꺾기는 아랫변에 V컷을 그리고
+/// 아랫변 마킹 거리를 적는다. 길이는 실제 비율, 높이는 보기 좋게 키웠다.
+class TrayRouteMarkPainter extends CustomPainter {
+  final TrayRoute route;
+  final Color text, sub, line, bg;
+
+  TrayRouteMarkPainter({
+    required this.route,
+    required this.text,
+    required this.sub,
+    required this.line,
+    required this.bg,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const padX = 16.0;
+    final len = math.max(1.0, route.material);
+    final s = (size.width - padX * 2) / len;
+    const railH = 46.0;
+    final top = size.height / 2 - railH / 2 - 4;
+    final bot = top + railH;
+    double x(double mm) => padX + mm * s;
+    final hScale = railH / route.rail; // 세로는 따로 키움
+
+    // 측판 외곽: V컷을 판 모양
+    final path = Path()..moveTo(x(0), top);
+    final ups = route.corners.where((c) => c.up).toList()
+      ..sort((a, b) => a.mark.compareTo(b.mark));
+    final downs = route.corners.where((c) => !c.up).toList()
+      ..sort((a, b) => a.mark.compareTo(b.mark));
+    for (final c in ups) {
+      final half = c.notch / 2 * s;
+      path
+        ..lineTo(x(c.mark) - half, top)
+        ..lineTo(x(c.mark), bot - 1.5)
+        ..lineTo(x(c.mark) + half, top);
+    }
+    path.lineTo(x(len), top);
+    path.lineTo(x(len), bot);
+    for (final c in downs.reversed) {
+      final half = c.notch / 2 * s;
+      path
+        ..lineTo(x(c.mark) + half, bot)
+        ..lineTo(x(c.mark), top + 1.5)
+        ..lineTo(x(c.mark) - half, bot);
+    }
+    path
+      ..lineTo(x(0), bot)
+      ..close();
+    final rect = Rect.fromLTRB(x(0), top, x(len), bot);
+    canvas.drawPath(
+      path.shift(const Offset(1.5, 2.5)),
+      Paint()..color = Colors.black.withValues(alpha: 0.16),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_metalLight, _metalMid, _metalDark],
+          stops: [0, 0.6, 1],
+        ).createShader(rect),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1
+        ..color = _metalDark,
+    );
+    canvas.drawLine(
+      Offset(x(0), top + 1.2),
+      Offset(x(len), top + 1.2),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.55)
+        ..strokeWidth = 1.1,
+    );
+    _label(
+      canvas,
+      '측판 윗변',
+      Offset(x(0), top - 16),
+      sub,
+      size: 10.5,
+      center: false,
+      bold: false,
+    );
+    _label(
+      canvas,
+      '아랫변 (가로대 쪽, 마킹 기준)',
+      Offset(x(0), bot + 3),
+      sub,
+      size: 10.5,
+      center: false,
+      bold: false,
+    );
+
+    // 마킹: 번호와 거리. 번호는 V컷 쪽, 거리는 아래 줄에 엇갈려
+    final sorted = [...route.corners]..sort((a, b) => a.mark.compareTo(b.mark));
+    for (var k = 0; k < sorted.length; k++) {
+      final c = sorted[k];
+      final i = route.corners.indexOf(c);
+      final col = trayCornerColor(c);
+      final cx = x(c.mark);
+      canvas.drawLine(
+        Offset(cx, top - 2),
+        Offset(cx, bot + 2),
+        Paint()
+          ..color = col
+          ..strokeWidth = 1.6,
+      );
+      _badge(canvas, Offset(cx, c.up ? top - 24 : top - 24), i + 1, col);
+      _label(
+        canvas,
+        trayNum(c.mark),
+        Offset(cx, bot + 22 + (k.isOdd ? 14 : 0)),
+        text,
+        size: 11.5,
+      );
+    }
+    _label(
+      canvas,
+      '전체 ${trayNum(len)}mm',
+      Offset(size.width / 2, size.height - 14),
+      sub,
+      size: 11,
+    );
+    // 높이 키운 비율 표시(그림 아래 글 대신)
+    if (hScale > s * 1.5) {
+      _label(
+        canvas,
+        '높이는 키워 그림',
+        Offset(x(len) - 50, top - 16),
+        sub,
+        size: 10,
+        center: false,
+        bold: false,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(TrayRouteMarkPainter o) => o.route != route || o.bg != bg;
+}

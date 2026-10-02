@@ -21,6 +21,7 @@ const Map<String, String> kElecTabLabels = {
   'ec_sum_cd': '전선관',
   'ec_sum_bus': '부스바',
   'ct_sum': '케이블 트레이',
+  'tr_sum': '트레이 형상',
 };
 
 /// 소수 [d]자리까지 쓰고 뒤의 0은 뗀다(12.50 → 12.5).

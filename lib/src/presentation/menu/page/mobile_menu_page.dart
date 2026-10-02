@@ -89,6 +89,7 @@ import 'package:tubing_calculator/src/presentation/flow/flow_calc_page.dart';
 import 'package:tubing_calculator/src/presentation/instrument/signal_calculator_page.dart';
 import '../../trash/trash_page.dart';
 import '../../electrical/cable_tray_page.dart';
+import '../../electrical/cable_tray_route_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
 const Color tossBlue = AppColors.brand;
@@ -1488,6 +1489,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const CableTrayPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "케이블 트레이 형상 계산기",
+                        subtitle: "장애물 넘어가기·단 오르내리기 V컷 마킹",
+                        icon: AppGlyph.trayRoute,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CableTrayRoutePage(),
                             ),
                           );
                         },

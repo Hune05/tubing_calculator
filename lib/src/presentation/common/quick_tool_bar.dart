@@ -38,6 +38,7 @@ import 'feature_search.dart';
 import 'quick_sub_tools.dart';
 import 'app_icons.dart';
 import '../electrical/cable_tray_page.dart';
+import '../electrical/cable_tray_route_page.dart';
 
 /// 막대에 넣을 수 있는(그리고 전체 검색에 나오는) 기능 하나.
 /// 큰 기능은 [glyph](직접 그린 아이콘), 세부 기능(탭·분류)은 [icon](Lucide 선 아이콘)을 쓴다.
@@ -213,6 +214,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.cableTray,
     (_) => const CableTrayPage(),
     subtitle: '트레이 점유율 판정·권장 폭 (KEC 232.41)',
+    group: '전기',
+  ),
+  QuickToolDef(
+    'trayroute',
+    '케이블 트레이 형상 계산기',
+    AppGlyph.trayRoute,
+    (_) => const CableTrayRoutePage(),
+    subtitle: '장애물 넘어가기·단 오르내리기 V컷 마킹',
     group: '전기',
   ),
   QuickToolDef(
