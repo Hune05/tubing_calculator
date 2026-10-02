@@ -89,6 +89,19 @@ class GroundBarPainter extends CustomPainter {
       }
     }
     final rr = math.max(holeDia * sc / 2, 2.5);
+    final tr = math.max(plan.tabHoleDia * sc / 2, 2.5);
+    for (final p in plan.tabHoles) {
+      final c = Offset(x0 + p * sc, y0 + h / 2);
+      canvas.drawCircle(c, tr, Paint()..color = bg);
+      canvas.drawCircle(
+        c,
+        tr,
+        Paint()
+          ..color = const Color(0x66000000)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+    }
     for (final p in plan.positions) {
       final c = Offset(x0 + p * sc, y0 + h / 2);
       canvas.drawCircle(c, rr, Paint()..color = bg);

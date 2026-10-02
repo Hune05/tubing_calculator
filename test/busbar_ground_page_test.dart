@@ -7,8 +7,9 @@ import 'package:tubing_calculator/src/presentation/electrical/busbar_ground_page
 Future<void> _open(
   WidgetTester tester, {
   Future<void> Function(String)? share,
+  double height = 5200,
 }) async {
-  tester.view.physicalSize = const Size(800, 5200);
+  tester.view.physicalSize = Size(800, height);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -87,7 +88,7 @@ void main() {
     expect(find.textContaining('첫 구멍 66.2'), findsOneWidget);
     await tester.tap(find.byKey(const Key('gb_share')));
     await tester.pumpAndSettle();
-    expect(sent, contains('왼쪽 꺾기 시작선 28 · 끝선 41.2mm'));
+    expect(sent, contains('왼쪽 탭 꺾기 시작선 28 · 끝선 41.2mm'));
     expect(sent, contains('1~4번 66.2 · 91.6 · 117 · 142.4'));
   });
 
@@ -97,5 +98,26 @@ void main() {
     await tester.pumpAndSettle();
     await _type(tester, 'gb_tabr', '5');
     expect(find.textContaining('꺾기에 너무 짧습니다'), findsOneWidget);
+  });
+
+  testWidgets('모자: 챙·높이 입력, 꺾기 4곳, 챙 구멍 위치, 옆모습', (tester) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t, height: 12000);
+    await _type(tester, 'gb_n', '4');
+    await tester.tap(find.byKey(const Key('gb_tab_4')));
+    await tester.pumpAndSettle();
+    await _type(tester, 'gb_t', '6');
+    await _type(tester, 'gb_hatf', '50');
+    await tester.tap(find.byKey(const Key('gb_mc_1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gb_shape_view')), findsOneWidget);
+    expect(find.textContaining('왼쪽 챙 → 다리'), findsWidgets);
+    expect(find.textContaining('오른쪽 다리 → 챙'), findsWidgets);
+    expect(find.byKey(const Key('gb_tab_holes')), findsOneWidget);
+    expect(find.text('19'), findsOneWidget); // 왼쪽 챙 구멍: 평평한 38 가운데
+    await tester.tap(find.byKey(const Key('gb_share')));
+    await tester.pumpAndSettle();
+    expect(sent, contains('모자 높이 40 · 챙 50'));
+    expect(sent, contains('챙 구멍 φ11.1 (왼쪽 끝에서 중심): 19 ·'));
   });
 }

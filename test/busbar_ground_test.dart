@@ -150,4 +150,65 @@ void main() {
     );
     expect(p.ok, isFalse);
   });
+
+  test('모자: 길이 = 2F + 2H + W − 4BD, 곧은 구간 · 꺾기 4곳 · 시작/끝선', () {
+    // t 6, r 6, k 0.4: BD = 2·12 − (π/2)·8.4 = 10.805, OS = 12
+    const bd = 2 * 12 - 3.141592653589793 / 2 * 8.4;
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 4,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 40,
+    );
+    final w = 126.2 + 2 * 12; // 몸체 바깥 폭
+    expect(p.hatWidth, closeTo(w, 1e-9));
+    expect(p.length, closeTo(2 * 40 + 2 * 40 + w - 4 * bd, 1e-9));
+    expect(p.bends.length, 4);
+    expect(p.bends.first.start, closeTo(40 - 12, 1e-9));
+    expect(p.bendPlan!.cutLength, closeTo(p.length, 1e-9));
+    expect(p.positions.first, closeTo(p.bends[1].end + 25, 1e-9));
+    expect(p.ok, isTrue);
+  });
+
+  test('챙 구멍: 평평한 길이 가운데, 오른쪽은 오른쪽 끝에서 같은 거리', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 4,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 50,
+      tabHoleCount: 1,
+      tabHoleDia: 11.1,
+      tabHolePitch: 25.4,
+    );
+    // 평평한 길이 50 − 12 = 38 → 구멍 중심 19
+    expect(p.tabHoles.length, 2);
+    expect(p.tabHoles.first, closeTo(19, 1e-9));
+    expect(p.tabHoles.last, closeTo(p.length - 19, 1e-9));
+  });
+
+  test('탭 구멍이 안 들어가면 알린다', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      tabLeft: 25,
+      tabHoleCount: 2,
+      tabHoleDia: 11.1,
+      tabHolePitch: 25.4,
+    );
+    expect(p.ok, isFalse);
+  });
 }
