@@ -16,6 +16,7 @@ import '../drawing_viewer/dxf_reader.dart';
 const Map<String, String> kOfficialManualUrls = {
   'REMS|Amigo 2': 'https://www.rems.de/dlbatv2/536003R',
   'REMS|Tiger SR': 'https://www.rems.de/dlbatv2/566008RX',
+  'UE|J120': 'https://www.ueonline.com/wp-content/uploads/IMP120.pdf',
 };
 
 /// 같은 장비면 같은 설명서를 쓰도록 제조사·모델로 열쇠를 만든다. 모델이 없으면 장비 하나에만.

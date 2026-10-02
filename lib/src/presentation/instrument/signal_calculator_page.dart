@@ -21,6 +21,7 @@ import 'meter_loop_guide_page.dart';
 import 'signal_calc.dart';
 import 'switch_check.dart';
 import 'temp_sensor.dart';
+import 'ue_switch_guide_page.dart';
 
 String _fmt(double v, [int d = 3]) {
   // 0.125가 0.12로 내려가지 않게(이진 소수 오차) 반올림 전에 아주 작게 밀어 준다.
@@ -1721,6 +1722,15 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     return _page([
       ..._editingBanner(),
       _modeChips(),
+      // UE J120 압력 스위치 설정점 맞추는 법(10-02)
+      OutlinedButton.icon(
+        key: const Key('sg_ue_guide'),
+        onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const UeSwitchGuidePage())),
+        icon: const Icon(Icons.tune, size: 18),
+        label: const Text('UE J120 스위치 셋팅 가이드 (그림 따라하기)'),
+        style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+      ),
+      const SizedBox(height: 12),
       _settingsHeader(),
       if (_settingsOpen) ..._swSettings(),
       _phaseChips('동작점·데드밴드를 조정한 뒤'),
