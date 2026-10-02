@@ -130,10 +130,6 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
           }
           if (n is int && n >= 1 && n <= 3) _pieces = n;
           if (m['mk'] is bool) _elbowMode = m['mk'] as bool;
-          // 처음 판(기본 100)으로 저장된 값은 대양 표에 맞는 125로
-          if (m['etv'] == null && _tangent.text.trim() == '100') {
-            _tangent.text = '125';
-          }
           final er = m['er'];
           if (er is num && kTrayElbowRadii.contains(er.toDouble())) {
             _elbowR = er.toDouble();
@@ -144,6 +140,10 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
           for (var i = 0; i < _fields.length; i++) {
             final v = m[_fieldKeys[i]];
             if (v is String) _fields[i].text = v;
+          }
+          // 처음 판(기본 100)으로 저장된 값은 대양 표에 맞는 125로
+          if (m['etv'] == null && _tangent.text.trim() == '100') {
+            _tangent.text = '125';
           }
         });
       }

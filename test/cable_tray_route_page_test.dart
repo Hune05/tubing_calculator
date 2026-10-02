@@ -118,4 +118,30 @@ void main() {
     expect(find.text('수평 엘보 45° · R300'), findsWidgets);
     expect(find.text('위에서 본 모양'), findsOneWidget);
   });
+
+  testWidgets('처음 판 기본 끝 직선 100으로 저장된 값은 125로, 직접 넣은 값은 그대로', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      CableTrayRoutePage.draftKey: '{"k":"over","mk":true,"et":"100"}',
+    });
+    await _open(tester);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('tr_tan')))
+          .controller!
+          .text,
+      '125',
+    );
+    await tester.pumpWidget(const SizedBox());
+    SharedPreferences.setMockInitialValues({
+      CableTrayRoutePage.draftKey: '{"k":"over","mk":true,"et":"100","etv":2}',
+    });
+    await _open(tester);
+    expect(
+      tester
+          .widget<TextField>(find.byKey(const Key('tr_tan')))
+          .controller!
+          .text,
+      '100',
+    );
+  });
 }
