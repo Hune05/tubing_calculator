@@ -293,3 +293,241 @@ const List<String> kTrayRouteBasis = [
   '엘보 이름: 위로 꺾는 것 수직 엘보 IN(내측형), 아래로 꺾는 것 수직 엘보 OUT(외측형)(NEMA VE 2·아인텍·대양).',
   '트레이 길이: 3m(KS C 8464·LH 61014·대양), 6m(대양).',
 ];
+
+// ── 기성 엘보로 넘어가기·비켜가기 ──
+//
+// 엘보 R은 꺾임 안쪽 테두리 반경으로 본다(대양 수평 엘보 R1 = 안쪽 레일, B-Line 수직 엘보
+// VI = R + 끝 직선 + H, VO = R + 끝 직선). 기준선(바닥면·장애물 쪽 측판)의 반경은
+// 위로(장애물 반대쪽으로) 꺾는 엘보 = R + 측판 높이(옆으로는 트레이 폭), 반대 = R.
+// 엘보 양 끝에 곧은 부분(끝 직선 [tangent])이 있다(대양 100, B-Line 3" = 76).
+
+/// 엘보 끝 직선 기본값(mm, 대양 카탈로그).
+const double kTrayElbowTangent = 100;
+
+/// 엘보 이름.
+String trayElbowName(TrayRouteKind k, bool up) =>
+    trayRouteIsPlan(k) ? '수평 엘보' : (up ? '수직 엘보 IN' : '수직 엘보 OUT');
+
+/// 부품 하나(시작점부터 차례로).
+class TrayPiece {
+  /// 엘보면 true, 직선이면 false.
+  final bool elbow;
+
+  /// 직선 길이(mm). 엘보면 기준선을 따라 잰 길이(참고).
+  final double length;
+
+  /// 엘보 꺾는 각(°): + = 위로(장애물 반대쪽으로), − = 아래로(장애물 쪽으로).
+  final double turn;
+
+  /// 부품 시작·끝(기준선 위 점과 진행 방향 rad). 그림에서 이음 자리를 긋는다.
+  final (double, double, double) from, to;
+
+  const TrayPiece({
+    required this.elbow,
+    required this.length,
+    required this.turn,
+    required this.from,
+    required this.to,
+  });
+
+  bool get up => turn > 0;
+}
+
+/// 기성 엘보 계산 결과.
+class TrayElbowRoute {
+  final TrayRouteKind kind;
+  final double angle, radius, tangent, rail;
+
+  /// 그림용(꺾는 점 없이 기준선만, 엘보는 잘게 나눈 점).
+  final TrayRoute shape;
+  final List<TrayPiece> pieces;
+
+  /// 엘보 사이 경사(비스듬한) 직선 길이(mm).
+  final double leg;
+  final double footprint, top, lead;
+  final List<String> problems;
+
+  const TrayElbowRoute({
+    required this.kind,
+    required this.angle,
+    required this.radius,
+    required this.tangent,
+    required this.rail,
+    required this.shape,
+    required this.pieces,
+    required this.leg,
+    required this.footprint,
+    required this.top,
+    required this.lead,
+    required this.problems,
+  });
+
+  bool get ok => problems.isEmpty;
+  int get elbows => pieces.where((p) => p.elbow).length;
+  List<TrayPiece> get straights => [
+    for (final p in pieces)
+      if (!p.elbow && p.length > 1e-6) p,
+  ];
+  double get straightTotal => straights.fold(0.0, (s, p) => s + p.length);
+
+  /// 직선을 몇 개 트레이에서 자르는지(이음 여유 없이 길이 합만).
+  int lengthsNeeded(double stock) => stock <= 0 || straightTotal <= 0
+      ? 0
+      : (straightTotal / stock - 1e-9).ceil().clamp(1, 1 << 20);
+
+  /// 90° 엘보 한 변 길이(끝면 → 다른 쪽 안쪽 테두리) = R + 끝 직선. 카탈로그 A와 견준다.
+  double get sideA => radius + tangent;
+}
+
+TrayElbowRoute trayElbowRoute({
+  required TrayRouteKind kind,
+  required double rise,
+  required double angle,
+  required double rail,
+  required double radius,
+  double tangent = kTrayElbowTangent,
+  double obstacle = 0,
+  double side = 0,
+  double toFace = 0,
+  double tail = 0,
+}) {
+  final problems = <String>[];
+  final plan = trayRouteIsPlan(kind);
+  final th = _rad(angle);
+  final t = math.max(0.0, tangent);
+  final rIn = radius + rail, rOut = radius; // 기준선 반경: 위로 꺾는 엘보·아래로 꺾는 엘보
+  if (rise <= 0) problems.add(plan ? '옮길 거리가 0입니다.' : '높이가 0입니다.');
+  var leg =
+      (rise - (rIn + rOut) * (1 - math.cos(th)) - 2 * t * math.sin(th)) /
+      math.sin(th);
+  if (leg < -1e-6) {
+    problems.add(
+      '${plan ? '옮길 거리가 짧아' : '높이가 낮아'} 이 엘보 두 개로는 못 ${plan ? '옮깁니다' : '올라갑니다'}(엘보끼리 바로 이어도 ${(rise - leg * math.sin(th)).round()}mm). 각도가 작거나 반경이 작은 엘보를 쓰십시오.',
+    );
+    leg = 0;
+  }
+  final foot =
+      2 * t +
+      (rIn + rOut) * math.sin(th) +
+      2 * t * math.cos(th) +
+      leg * math.cos(th);
+  final top = trayRouteReturns(kind) ? obstacle + 2 * side : 0.0;
+  final lead = kind == TrayRouteKind.down
+      ? toFace + side
+      : toFace - side - foot;
+  if (lead < -1e-6) {
+    problems.add(
+      '시작점이 장애물에 너무 가깝습니다. 시작점을 ${(-lead).ceil()}mm 더 앞으로 잡거나 더 작은 엘보를 쓰십시오.',
+    );
+  }
+  final a = math.max(0.0, lead);
+
+  final points = <(double, double)>[(0, 0)];
+  final pieces = <TrayPiece>[];
+  var x = 0.0, y = 0.0, dir = 0.0;
+  void addPoint() {
+    if (points.last.$1 != x || points.last.$2 != y) points.add((x, y));
+  }
+
+  void straight(double len) {
+    x += len * math.cos(dir);
+    y += len * math.sin(dir);
+    addPoint();
+  }
+
+  void piece(double len) {
+    final f = (x, y, dir);
+    straight(len);
+    pieces.add(
+      TrayPiece(elbow: false, length: len, turn: 0, from: f, to: (x, y, dir)),
+    );
+  }
+
+  void elbow(double sign) {
+    final f = (x, y, dir);
+    final rb = sign > 0 ? rIn : rOut;
+    straight(t);
+    // 원호: 중심은 꺾는 쪽(위로 = 왼쪽 법선)으로 rb
+    final cx = x - math.sin(dir) * rb * sign,
+        cy = y + math.cos(dir) * rb * sign;
+    final steps = math.max(2, (angle / 5).ceil());
+    final start = dir;
+    for (var k = 1; k <= steps; k++) {
+      final d = start + sign * th * k / steps;
+      x = cx + math.sin(d) * rb * sign;
+      y = cy - math.cos(d) * rb * sign;
+      addPoint();
+    }
+    dir = start + sign * th;
+    straight(t);
+    pieces.add(
+      TrayPiece(
+        elbow: true,
+        length: 2 * t + rb * th,
+        turn: sign * angle,
+        from: f,
+        to: (x, y, dir),
+      ),
+    );
+  }
+
+  final first = kind == TrayRouteKind.down ? -1.0 : 1.0;
+  piece(a);
+  elbow(first);
+  piece(leg);
+  elbow(-first);
+  if (trayRouteReturns(kind)) {
+    piece(top);
+    elbow(-1);
+    piece(leg);
+    elbow(1);
+  }
+  piece(tail);
+
+  final shape = TrayRoute(
+    kind: kind,
+    rail: rail,
+    angle: angle,
+    pieces: 1,
+    pitch: 0,
+    points: points,
+    corners: const [],
+    leg: leg,
+    footprint: foot,
+    top: top,
+    material: 0,
+    lead: a,
+    problems: problems,
+  );
+  return TrayElbowRoute(
+    kind: kind,
+    angle: angle,
+    radius: radius,
+    tangent: t,
+    rail: rail,
+    shape: shape,
+    pieces: pieces,
+    leg: leg,
+    footprint: foot,
+    top: top,
+    lead: a,
+    problems: problems,
+  );
+}
+
+/// 기성 엘보로 할 때 작업 순서(개조식).
+const List<String> kTrayElbowNotes = [
+  '직선은 직각으로 자르고, 이음판을 형판으로 대고 볼트 구멍을 뚫을 것',
+  '엘보·직선은 이음판·볼트로 체결. 볼트는 안에서 밖으로, 너트는 바깥',
+  '절단면 날 제거, 아연 도료로 보수(맨살보다 13~25mm 넓게)',
+  '연결 부분 양쪽 접지띠(본딩 점퍼)',
+  '이음 자리는 지지대와 경간 1/4 사이가 좋음',
+  '엘보 반경 ≥ 가장 굵은 케이블의 최소 굽힘 반경',
+  '계산은 R을 꺾임 안쪽 테두리로 봄. 카탈로그 그림과 다르면 끝 직선 칸으로 맞출 것',
+];
+
+/// 수직 엘보 지지(NEMA VE 2 3.5.1.6)와 수평 엘보 지지(OBO).
+const String kTrayVerticalElbowSupport =
+    '지지: 위쪽 엘보는 양 끝, 아래쪽 엘보는 윗끝과 아래 끝 600mm 안';
+const String kTrayHorizontalElbowSupport =
+    '지지: 엘보 끝에서 250~300mm 안, 폭 400 이상이면 엘보 밑에 하나 더';

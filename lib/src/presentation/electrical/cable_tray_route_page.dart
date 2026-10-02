@@ -10,7 +10,7 @@ import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
-import 'cable_tray.dart' show trayNum, kTrayWidths;
+import 'cable_tray.dart' show trayNum, kTrayWidths, kTrayElbowRadii;
 import 'cable_tray_route.dart';
 import 'cable_tray_route_painter.dart';
 import 'elec_form_parts.dart';
@@ -43,6 +43,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
   bool _obsLeft = false; // 장애물이 진행 방향 왼쪽
   double _angle = 90;
   int _pieces = 1;
+  bool _elbowMode = false; // 기성 엘보로
+  double _elbowR = 300;
   double _stock = 3000;
   final _height = TextEditingController(text: '300');
   final _clear = TextEditingController(text: '50');
@@ -52,6 +54,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
   final _tail = TextEditingController(text: '500');
   final _pitch = TextEditingController(text: '150');
   final _minR = TextEditingController();
+  final _tangent = TextEditingController(text: '100');
 
   Timer? _saveTimer;
   bool _draftReady = false;
@@ -65,8 +68,9 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     _tail,
     _pitch,
     _minR,
+    _tangent,
   ];
-  static const _fieldKeys = ['h', 'c', 'l', 's', 'f', 't', 'p', 'r'];
+  static const _fieldKeys = ['h', 'c', 'l', 's', 'f', 't', 'p', 'r', 'et'];
 
   @override
   void initState() {
@@ -93,6 +97,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     'ol': _obsLeft,
     'a': _angle,
     'n': _pieces,
+    'mk': _elbowMode,
+    'er': _elbowR,
     'st': _stock,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
   });
@@ -122,6 +128,11 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
             _angle = a.toDouble();
           }
           if (n is int && n >= 1 && n <= 3) _pieces = n;
+          if (m['mk'] is bool) _elbowMode = m['mk'] as bool;
+          final er = m['er'];
+          if (er is num && kTrayElbowRadii.contains(er.toDouble())) {
+            _elbowR = er.toDouble();
+          }
           if (st is num && kTrayStockLengths.contains(st.toDouble())) {
             _stock = st.toDouble();
           }
@@ -172,9 +183,11 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
   String get _refEdge => _plan ? _refRail : '측판 아랫변';
 
   /// 꺾는 방향 말: 위로·아래로, 옆으로는 왼쪽으로·오른쪽으로(장애물 반대쪽이 c.up).
-  String _dir(TrayCorner c) {
-    if (!_plan) return c.up ? '위로' : '아래로';
-    return c.up != _obsLeft ? '왼쪽으로' : '오른쪽으로';
+  String _dir(TrayCorner c) => _dirUp(c.up);
+
+  String _dirUp(bool up) {
+    if (!_plan) return up ? '위로' : '아래로';
+    return up != _obsLeft ? '왼쪽으로' : '오른쪽으로';
   }
 
   /// V컷 자리와 접는 쪽.
@@ -208,6 +221,199 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       pieces: _pieces,
       pitch: _num(_pitch),
     );
+  }
+
+  TrayElbowRoute? _elbowRoute() {
+    if (_rise <= 0) return null;
+    return trayElbowRoute(
+      kind: _kind,
+      rise: _rise,
+      angle: _angle,
+      rail: _plan ? _width : _rail,
+      radius: _elbowR,
+      tangent: readNum(_tangent) ?? kTrayElbowTangent,
+      obstacle: _returns ? _num(_length) : 0,
+      side: _num(_side),
+      toFace: _num(_toFace),
+      tail: _num(_tail),
+    );
+  }
+
+  /// 기성 엘보 부품 이름과 설명(번호는 0이 아닌 부품만 센다).
+  (String, String) _pieceText(TrayElbowRoute e, int i) {
+    final p = e.pieces[i];
+    if (p.elbow) {
+      return (
+        '${trayElbowName(_kind, p.up)} ${fmt(_angle)}° · R${fmt(_elbowR)}',
+        '${_dirUp(p.up)} 꺾기 · 양 끝 직선 ${trayNum(e.tangent)} 포함',
+      );
+    }
+    final last = i == e.pieces.length - 1;
+    final role = i == 0
+        ? '시작점에서 첫 엘보까지'
+        : last
+        ? '마지막 엘보 뒤'
+        : (_returns && i == 4)
+        ? (_plan ? '장애물 옆 직선' : '장애물 위 직선')
+        : '엘보 사이 직선';
+    return ('직선 ${trayNum(p.length)} mm', '$role · 직각으로 잘라 이음판으로 연결');
+  }
+
+  String _elbowShareText(TrayElbowRoute e) {
+    final b = StringBuffer(
+      '[트레이 형상] ${trayRouteKindLabel(_kind)} ${fmt(_angle)}° 기성 엘보 R${fmt(_elbowR)}',
+    );
+    b.write(
+      _plan
+          ? ' · 트레이 폭 ${trayNum(_width)}mm · 장애물 ${_obsLeft ? '왼쪽' : '오른쪽'}'
+          : ' · 측판 높이 ${trayNum(_rail)}mm',
+    );
+    b.write('\n엘보 끝 직선 ${trayNum(e.tangent)}mm');
+    b.write('\n부품 (시작점부터):');
+    var n = 0;
+    for (var i = 0; i < e.pieces.length; i++) {
+      if (!e.pieces[i].elbow && e.pieces[i].length < 1e-6) continue;
+      n++;
+      b.write('\n $n. ${_pieceText(e, i).$1}');
+    }
+    b.write('\n직선 합 ${trayNum(e.straightTotal)}mm');
+    for (final p in e.problems) {
+      b.write('\n※ $p');
+    }
+    return b.toString();
+  }
+
+  Widget _pieceTile(TrayElbowRoute e, int i, int n) {
+    final p = e.pieces[i];
+    final col = p.elbow
+        ? trayCornerColor(
+            TrayCorner(x: 0, y: 0, turn: p.turn, notch: 0, mark: 0),
+          )
+        : fc.textSub;
+    final (title, sub) = _pieceText(e, i);
+    return calcBox(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 13,
+              backgroundColor: col,
+              child: Text(
+                '$n',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: fc.text,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      color: fc.textSub,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 기성 엘보 결과(계산 결과·그림·부품 목록·작업 순서).
+  List<Widget> _elbowResult(TrayElbowRoute e) {
+    final plan = _plan, over = _returns;
+    final minR = readNum(_minR);
+    final radOk = minR == null || minR <= 0 ? null : _elbowR >= minR - 1e-9;
+    final widgets = <Widget>[
+      calcResult(
+        key: const Key('tr_result'),
+        big: '엘보 ${e.elbows}개 · 직선 ${e.straights.length}토막',
+        caption: '기성 엘보 R${fmt(_elbowR)} · 직선 합 ${trayNum(e.straightTotal)}mm',
+        warn: !e.ok || radOk == false,
+        lines: [
+          ...e.problems,
+          e.leg < 1e-6
+              ? '엘보 사이 직선 없음. 엘보끼리 바로 잇습니다.'
+              : '${plan ? '비스듬한' : '경사'} 직선(엘보 사이) ${trayNum(e.leg)}mm',
+          if (_angle != 90)
+            '한쪽 ${plan ? '진행 방향' : '수평'} 길이 ${trayNum(e.footprint)}mm',
+          if (over)
+            '${plan ? '장애물 옆' : '장애물 위'} 직선 ${trayNum(e.top)}mm (장애물 ${trayNum(_num(_length))} + 앞뒤 여유)',
+          '첫 엘보: 시작점에서 ${trayNum(e.lead)}mm',
+          '${fmt(_stock / 1000)}m 트레이 ${e.lengthsNeeded(_stock)}개(직선만, 이음 여유 제외)',
+          if (radOk != null)
+            radOk
+                ? '엘보 R${fmt(_elbowR)} ≥ 케이블 최소 굽힘 반경 R ${trayNum(minR!)}입니다.'
+                : '엘보 R${fmt(_elbowR)}이 케이블 최소 굽힘 반경 R ${trayNum(minR!)}보다 작습니다. 더 큰 엘보를 쓰십시오.',
+          if (_angle == 90)
+            '90° 엘보 한 변 = R + 끝 직선 = ${trayNum(e.sideA)}mm. 카탈로그 A와 다르면 끝 직선 칸을 맞추십시오.',
+        ],
+      ),
+      const SizedBox(height: 12),
+      calcLabel(
+        plan ? '위에서 본 모양' : '옆에서 본 모양',
+        '실제 비율입니다. 번호는 아래 부품 번호와 같고, 진한 선은 이음 자리입니다. 청록은 ${plan ? '장애물 반대쪽으로' : '위로'} 꺾는 엘보, 주황은 ${plan ? '장애물 쪽으로' : '아래로'} 꺾는 엘보, 회색은 직선입니다.',
+      ),
+      const SizedBox(height: 4),
+      _drawing(
+        const Key('tr_side_view'),
+        210,
+        TrayRouteSidePainter(
+          route: e.shape,
+          pieces: e.pieces,
+          flip: plan && _obsLeft,
+          boxFrom: _num(_toFace),
+          boxTo: over ? _num(_toFace) + _num(_length) : null,
+          boxHeight: _num(_height),
+          text: fc.text,
+          sub: fc.textSub,
+          line: fc.line,
+          bg: fc.background,
+        ),
+      ),
+      const SizedBox(height: 12),
+      elecSectionTitle('부품 (시작점부터)'),
+    ];
+    var n = 0;
+    for (var i = 0; i < e.pieces.length; i++) {
+      if (!e.pieces[i].elbow && e.pieces[i].length < 1e-6) continue;
+      n++;
+      widgets.add(_pieceTile(e, i, n));
+    }
+    widgets.addAll([
+      const SizedBox(height: 8),
+      calcResult(
+        key: const Key('tr_notes'),
+        big: '작업 순서',
+        caption: '기성 엘보로 할 때',
+        lines: [
+          ...kTrayElbowNotes,
+          plan ? kTrayHorizontalElbowSupport : kTrayVerticalElbowSupport,
+        ],
+      ),
+    ]);
+    return widgets;
   }
 
   String _cornerLine(TrayCorner c, int i) =>
@@ -318,7 +524,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
 
   @override
   Widget build(BuildContext context) {
-    final r = _route();
+    final r = _elbowMode ? null : _route();
+    final e = _elbowMode ? _elbowRoute() : null;
     final over = _returns;
     final plan = _plan;
     String? summary;
@@ -336,10 +543,30 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
             ),
         ],
       ),
+      elecChipGroup(
+        '만드는 방법',
+        '현장 꺾기: 곧은 트레이를 V컷으로 따서 접습니다. 기성 엘보: ${plan ? '수평' : '수직'} 엘보를 사서 직선만 잘라 잇습니다.',
+        [
+          calcChip(
+            'tr_mk_field',
+            '현장 꺾기 (V컷)',
+            !_elbowMode,
+            () => _set(() => _elbowMode = false),
+          ),
+          calcChip(
+            'tr_mk_elbow',
+            '기성 엘보',
+            _elbowMode,
+            () => _set(() => _elbowMode = true),
+          ),
+        ],
+      ),
       if (plan)
         elecChipGroup(
           '트레이 폭 (mm)',
-          '측판 사이 거리(내측 폭)입니다. 옆으로 꺾을 때는 V컷 폭 = 2 × 트레이 폭 × tan(꺾는 각 ÷ 2).',
+          _elbowMode
+              ? '측판 사이 거리(내측 폭)입니다. 장애물 반대쪽으로 꺾는 엘보는 장애물 쪽 측판 반경이 R + 트레이 폭입니다.'
+              : '측판 사이 거리(내측 폭)입니다. 옆으로 꺾을 때는 V컷 폭 = 2 × 트레이 폭 × tan(꺾는 각 ÷ 2).',
           [
             for (final w in kTrayWidths)
               calcChip(
@@ -372,7 +599,9 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       if (!plan)
         elecChipGroup(
           '측판 높이 (mm)',
-          'V컷 깊이가 되는 측판 전체 높이입니다. V컷 폭 = 2 × 측판 높이 × tan(꺾는 각 ÷ 2).',
+          _elbowMode
+              ? '측판 전체 높이입니다. 수직 엘보 IN은 바닥면 반경이 R + 측판 높이입니다.'
+              : 'V컷 깊이가 되는 측판 전체 높이입니다. V컷 폭 = 2 × 측판 높이 × tan(꺾는 각 ÷ 2).',
           [
             for (final h in kTrayRailHeights)
               calcChip(
@@ -460,20 +689,51 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
             ),
         ],
       ),
-      elecChipGroup(
-        '나눠 꺾기',
-        '한 곳에서 다 꺾지 않고 작은 각으로 여러 번 꺾어 모서리를 둥글게 합니다(예: 90° = 45° 2번). 굵은 케이블이 모서리에 눌리지 않게 합니다. 중국 제조사 자료는 45° 두 번을 트레이 폭만큼 띄워 꺾습니다(한 곳 자료).',
-        [
-          for (final n in const [1, 2, 3])
-            calcChip(
-              'tr_n_$n',
-              n == 1 ? '한 번에' : '$n번',
-              _pieces == n,
-              () => _set(() => _pieces = n),
-            ),
-        ],
-      ),
-      if (_pieces > 1)
+      if (_elbowMode)
+        elecChipGroup(
+          '엘보 반경 R (mm)',
+          '꺾임 안쪽 테두리 반경으로 계산합니다(대양 수평 엘보 R1 = 안쪽 레일, B-Line 수직 엘보 치수와 같은 기준). 흔히 300·600·900.',
+          [
+            for (final er in kTrayElbowRadii)
+              calcChip(
+                'tr_er_${er.toInt()}',
+                fmt(er),
+                _elbowR == er,
+                () => _set(() => _elbowR = er),
+              ),
+          ],
+        ),
+      if (_elbowMode)
+        elecField(
+          'tr_tan',
+          '엘보 끝 직선 (mm)',
+          _tangent,
+          '엘보 양 끝 곧은 부분 길이입니다. 대양 카탈로그 100, B-Line 76(3").',
+          onEdit: _saveSoon,
+        ),
+      if (_elbowMode)
+        elecField(
+          'tr_minr',
+          '케이블 최소 굽힘 반경 (mm)',
+          _minR,
+          '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 엘보 R과 견줍니다. 비워도 됩니다.',
+          onEdit: _saveSoon,
+        ),
+      if (!_elbowMode)
+        elecChipGroup(
+          '나눠 꺾기',
+          '한 곳에서 다 꺾지 않고 작은 각으로 여러 번 꺾어 모서리를 둥글게 합니다(예: 90° = 45° 2번). 굵은 케이블이 모서리에 눌리지 않게 합니다. 중국 제조사 자료는 45° 두 번을 트레이 폭만큼 띄워 꺾습니다(한 곳 자료).',
+          [
+            for (final n in const [1, 2, 3])
+              calcChip(
+                'tr_n_$n',
+                n == 1 ? '한 번에' : '$n번',
+                _pieces == n,
+                () => _set(() => _pieces = n),
+              ),
+          ],
+        ),
+      if (!_elbowMode && _pieces > 1)
         elecField(
           'tr_pitch',
           '마디 간격 (mm)',
@@ -483,7 +743,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
               : '나눠 꺾을 때 꺾는 곳 사이 거리입니다(바닥면 기준).',
           onEdit: _saveSoon,
         ),
-      if (_pieces > 1)
+      if (!_elbowMode && _pieces > 1)
         elecField(
           'tr_minr',
           '케이블 최소 굽힘 반경 (mm)',
@@ -503,7 +763,11 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       const SizedBox(height: 8),
     ];
 
-    if (r == null) {
+    if (e != null) {
+      summary =
+          '${trayRouteKindLabel(_kind)} ${fmt(_angle)}° 기성 엘보 · 엘보 ${e.elbows}개 · 직선 ${trayNum(e.straightTotal)}mm';
+      children.addAll(_elbowResult(e));
+    } else if (r == null) {
       children.add(
         calcResult(
           key: const Key('tr_result'),
@@ -615,12 +879,14 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             actions: [
-              if (r != null)
+              if (r != null || e != null)
                 IconButton(
                   key: const Key('tr_share'),
                   tooltip: '카톡으로 보내기',
                   icon: Icon(Icons.share_outlined, color: fc.text),
-                  onPressed: () => widget.share(_shareText(r)),
+                  onPressed: () => widget.share(
+                    e != null ? _elbowShareText(e) : _shareText(r!),
+                  ),
                 ),
               calcHistoryButton(),
             ],
@@ -629,7 +895,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
             children,
             sumKey: 'tr_sum',
             summary: summary,
-            warn: r != null && !r.ok,
+            warn: (r != null && !r.ok) || (e != null && !e.ok),
           ),
         ),
       ),

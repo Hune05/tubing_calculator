@@ -172,4 +172,77 @@ void main() {
     );
     expect(short.problems.first, contains('옮길 거리가 짧아'));
   });
+
+  test('기성 엘보 올라가기 90°: R300·측판 100·끝 직선 100', () {
+    // 기준선 반경: IN = 300 + 100, OUT = 300. 경사 직선 = 1200 − 700 − 200 = 300
+    final r = trayElbowRoute(
+      kind: TrayRouteKind.up,
+      rise: 1200,
+      angle: 90,
+      rail: 100,
+      radius: 300,
+      side: 50,
+      toFace: 1000,
+      tail: 500,
+    );
+    expect(r.ok, isTrue);
+    expect(r.leg, closeTo(300, 1e-9));
+    expect(r.footprint, closeTo(900, 1e-9));
+    expect(r.lead, closeTo(50, 1e-9));
+    expect(r.elbows, 2);
+    expect(r.straights.map((p) => p.length.round()), [50, 300, 500]);
+    expect(r.shape.points.last.$1, closeTo(950 + 500, 1e-6));
+    expect(r.shape.points.last.$2, closeTo(1200, 1e-6));
+    expect(r.sideA, 400);
+    expect(trayElbowName(TrayRouteKind.up, true), '수직 엘보 IN');
+  });
+
+  test('기성 엘보 넘어가기 45°: 다시 바닥으로, 엘보 4개', () {
+    final r = trayElbowRoute(
+      kind: TrayRouteKind.over,
+      rise: 350,
+      angle: 45,
+      rail: 100,
+      radius: 300,
+      obstacle: 400,
+      side: 50,
+      toFace: 2000,
+    );
+    expect(r.ok, isTrue);
+    expect(r.elbows, 4);
+    expect(r.pieces.where((p) => p.elbow).map((p) => p.turn), [
+      45,
+      -45,
+      -45,
+      45,
+    ]);
+    expect(r.shape.points.last.$2, closeTo(0, 1e-6));
+    // 윗면 직선 = 장애물 + 앞뒤 여유, 기준선 높이 350
+    expect(r.top, 500);
+    expect(r.pieces[4].from.$2, closeTo(350, 1e-6));
+    expect(r.pieces[4].from.$1, closeTo(2000 - 50, 1e-6));
+  });
+
+  test('기성 엘보: 높이가 낮으면 알림', () {
+    final r = trayElbowRoute(
+      kind: TrayRouteKind.up,
+      rise: 600,
+      angle: 90,
+      rail: 100,
+      radius: 300,
+      toFace: 3000,
+    );
+    expect(r.ok, isFalse);
+    expect(r.problems.first, contains('높이가 낮아'));
+    final p = trayElbowRoute(
+      kind: TrayRouteKind.aside,
+      rise: 100,
+      angle: 90,
+      rail: 300,
+      radius: 300,
+      toFace: 3000,
+    );
+    expect(p.problems.first, contains('옮길 거리가 짧아'));
+    expect(trayElbowName(TrayRouteKind.aside, true), '수평 엘보');
+  });
 }

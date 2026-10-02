@@ -70,6 +70,9 @@ class TrayRouteSidePainter extends CustomPainter {
   /// 위에서 본 모양에서 장애물이 진행 방향 왼쪽이면 위아래를 뒤집는다(왼쪽이 위).
   final bool flip;
 
+  /// 기성 엘보 모드: 부품(직선·엘보)마다 이음 자리 선과 번호를 그린다.
+  final List<TrayPiece>? pieces;
+
   /// 장애물(넘어가기)이나 단(올라가기·내려가기): 시작점 기준 x 범위와 높이(mm, 지금 트레이 바닥 기준).
   final double? boxFrom, boxTo, boxHeight;
   final Color text, sub, line, bg;
@@ -77,6 +80,7 @@ class TrayRouteSidePainter extends CustomPainter {
   TrayRouteSidePainter({
     required this.route,
     this.flip = false,
+    this.pieces,
     this.boxFrom,
     this.boxTo,
     this.boxHeight,
@@ -287,6 +291,57 @@ class TrayRouteSidePainter extends CustomPainter {
         ..color = Colors.white.withValues(alpha: 0.6),
     );
 
+    // 기성 엘보: 이음 자리(부품 경계) 선과 부품 번호
+    final ps = pieces;
+    if (ps != null) {
+      Offset nrm(double d, double k) =>
+          Offset(-math.sin(d) * k, math.cos(d) * k);
+      final joint = Paint()
+        ..color = _metalDark
+        ..strokeWidth = 1.6;
+      for (var i = 0; i < ps.length; i++) {
+        final p = ps[i];
+        if (i > 0) {
+          final b = Offset(p.from.$1, p.from.$2);
+          canvas.drawLine(
+            m(b.dx, b.dy),
+            m(b.dx + nrm(p.from.$3, h).dx, b.dy + nrm(p.from.$3, h).dy),
+            joint,
+          );
+        }
+      }
+      var n = 0;
+      final placedP = <Offset>[];
+      for (final p in ps) {
+        if (!p.elbow && p.length < 1e-6) continue;
+        n++;
+        final mx = (p.from.$1 + p.to.$1) / 2, my = (p.from.$2 + p.to.$2) / 2;
+        final d = (p.from.$3 + p.to.$3) / 2;
+        // 번호는 기준선 반대쪽(윗변 바깥)
+        final o = nrm(d, h);
+        final c = m(mx + o.dx, my + o.dy);
+        final c0 = m(mx, my);
+        final unit = (c - c0).distance == 0
+            ? const Offset(0, -1)
+            : (c - c0) / (c - c0).distance;
+        var at = c + unit * 13;
+        for (
+          var k = 0;
+          k < 4 && placedP.any((q) => (q - at).distance < 19);
+          k++
+        ) {
+          at += unit * 18;
+        }
+        placedP.add(at);
+        _badge(
+          canvas,
+          at,
+          n,
+          p.elbow ? (p.up ? _upColor : _downColor) : _metalDark,
+        );
+      }
+    }
+
     // 꺾는 점: 접는 선(바닥면↔윗변)과 번호
     final placed = <Offset>[];
     for (var i = 0; i < route.corners.length; i++) {
@@ -325,9 +380,15 @@ class TrayRouteSidePainter extends CustomPainter {
     final rise = trayRouteReturns(route.kind)
         ? pts.map((p) => p.$2).reduce(math.max)
         : pts.last.$2;
-    if (rise.abs() > 0 && route.corners.isNotEmpty) {
-      final a0 = m(0, 0).dx, a1 = m(route.corners.first.x, 0).dx;
-      final b0 = m(route.corners.last.x, 0).dx, b1 = m(pts.last.$1, 0).dx;
+    if (rise.abs() > 0 && pts.length > 2) {
+      final firstX = route.corners.isNotEmpty
+          ? route.corners.first.x
+          : pts[1].$1;
+      final lastX = route.corners.isNotEmpty
+          ? route.corners.last.x
+          : pts[pts.length - 2].$1;
+      final a0 = m(0, 0).dx, a1 = m(firstX, 0).dx;
+      final b0 = m(lastX, 0).dx, b1 = m(pts.last.$1, 0).dx;
       final x0 = plan
           ? a0 - 26
           : a1 - a0 >= 60

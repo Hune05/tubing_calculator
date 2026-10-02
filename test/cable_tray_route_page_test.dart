@@ -93,4 +93,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('3,250mm'), findsOneWidget);
   });
+
+  testWidgets('기성 엘보: 높이가 낮으면 알림, 45° 엘보 4개와 부품 목록, 옆으로는 수평 엘보', (
+    tester,
+  ) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t);
+    await tester.tap(find.byKey(const Key('tr_mk_elbow')));
+    await tester.pumpAndSettle();
+    // 90° R300: 350mm로는 못 올라감(엘보 두 개만 700 + 끝 직선 200)
+    expect(find.textContaining('높이가 낮아 이 엘보 두 개로는'), findsOneWidget);
+    expect(find.byKey(const Key('tr_n_2')), findsNothing);
+    await tester.tap(find.byKey(const Key('tr_a_45')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('넘어가기 45° 기성 엘보 · 엘보 4개'), findsOneWidget);
+    expect(find.text('수직 엘보 IN 45° · R300'), findsWidgets);
+    expect(find.text('수직 엘보 OUT 45° · R300'), findsWidgets);
+    expect(find.text('직선 500 mm'), findsWidgets);
+    await tester.tap(find.byKey(const Key('tr_share')));
+    await tester.pumpAndSettle();
+    expect(sent, startsWith('[트레이 형상] 넘어가기 45° 기성 엘보 R300'));
+    await tester.tap(find.byKey(const Key('tr_k_aside')));
+    await tester.pumpAndSettle();
+    expect(find.text('수평 엘보 45° · R300'), findsWidgets);
+    expect(find.text('위에서 본 모양'), findsOneWidget);
+  });
 }
