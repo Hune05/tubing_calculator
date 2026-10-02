@@ -181,6 +181,7 @@ void main() {
       angle: 90,
       rail: 100,
       radius: 300,
+      tangent: 100,
       side: 50,
       toFace: 1000,
       tail: 500,
@@ -204,6 +205,7 @@ void main() {
       angle: 45,
       rail: 100,
       radius: 300,
+      tangent: 100,
       obstacle: 400,
       side: 50,
       toFace: 2000,
@@ -244,5 +246,79 @@ void main() {
     );
     expect(p.problems.first, contains('옮길 거리가 짧아'));
     expect(trayElbowName(TrayRouteKind.aside, true), '수평 엘보');
+  });
+
+  // 대양엔지니어링 2025 카탈로그 18쪽 수평 엘보 표(R1 = 안쪽 레일, R2 = R1 + W). 엔진으로 첫 엘보를
+  // 그려 끝면 치수를 재면 끝 직선 125일 때 A·B가 맞는다(그림에는 100이라 적혀 있음).
+  // 표에서 뺀 줄: 90° W300(A가 R2 + 175, 다른 줄은 R2 + 125), 90° W150 R300(570, +120), W500 줄(값이 W600).
+  (double, double) dyElbow(double w, double r1, double deg, double t) {
+    final e = trayElbowRoute(
+      kind: TrayRouteKind.aside,
+      rise: 5000,
+      angle: deg,
+      rail: w,
+      radius: r1,
+      tangent: t,
+      toFace: 20000,
+    );
+    final p = e.pieces[1];
+    final a = p.to.$1 - p.from.$1;
+    // B(60°): 바깥 레일 시작에서 안쪽 레일 끝면까지 높이 = 기준선 끝 높이 + W·cos(60°)
+    final b = p.to.$2 - p.from.$2 + w * math.cos(deg * math.pi / 180);
+    return (a, b);
+  }
+
+  test('대양 수평 엘보 90° 표 A = R2 + 125', () {
+    const rows = [
+      [150, 600, 875],
+      [150, 900, 1175],
+      [200, 300, 625],
+      [200, 600, 925],
+      [200, 900, 1225],
+      [450, 300, 875],
+      [450, 600, 1175],
+      [450, 900, 1475],
+      [750, 300, 1175],
+      [750, 600, 1475],
+      [900, 300, 1325],
+      [900, 900, 1925],
+      [1000, 300, 1425],
+      [1000, 600, 1725],
+      [1000, 900, 2025],
+    ];
+    for (final r in rows) {
+      expect(
+        dyElbow(r[0].toDouble(), r[1].toDouble(), 90, 125).$1,
+        closeTo(r[2], 0.5),
+        reason: 'W${r[0]} R${r[1]}',
+      );
+    }
+    // 끝 직선 100이면 25씩 모자란다
+    expect(dyElbow(200, 300, 90, 100).$1, closeTo(600, 0.5));
+  });
+
+  test('대양 수평 엘보 60° 표 A·B', () {
+    const rows = [
+      // W, R1, A, B
+      [150, 300, 577, 408], [150, 600, 837, 558], [150, 900, 1097, 708],
+      [200, 300, 620, 458], [200, 600, 880, 608], [200, 900, 1140, 758],
+      [300, 300, 707, 558], [300, 600, 967, 708], [300, 900, 1227, 858],
+      [450, 300, 837, 708], [450, 600, 1097, 858], [450, 900, 1357, 1008],
+      [750, 300, 1097, 1008], [750, 600, 1357, 1158], [750, 900, 1617, 1308],
+      [900, 300, 1227, 1158], [900, 600, 1487, 1308], [900, 900, 1747, 1458],
+    ];
+    for (final r in rows) {
+      final (a, b) = dyElbow(r[0].toDouble(), r[1].toDouble(), 60, 125);
+      expect(a, closeTo(r[2], 1), reason: 'A W${r[0]} R${r[1]}');
+      expect(b, closeTo(r[3], 1), reason: 'B W${r[0]} R${r[1]}');
+    }
+    // W1000 줄은 A가 200씩 늘어 다른 줄(260씩)과 안 맞는다(표 오기로 봄). B만 맞춘다.
+    for (final (r1, b) in const [
+      (300.0, 1258.0),
+      (600.0, 1408.0),
+      (900.0, 1558.0),
+    ]) {
+      expect(dyElbow(1000, r1, 60, 125).$2, closeTo(b, 1));
+    }
   });
 }

@@ -54,7 +54,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
   final _tail = TextEditingController(text: '500');
   final _pitch = TextEditingController(text: '150');
   final _minR = TextEditingController();
-  final _tangent = TextEditingController(text: '100');
+  final _tangent = TextEditingController(text: '125');
 
   Timer? _saveTimer;
   bool _draftReady = false;
@@ -98,6 +98,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     'a': _angle,
     'n': _pieces,
     'mk': _elbowMode,
+    'etv': 2, // 끝 직선 기본값을 125로 바꾼 뒤 저장
     'er': _elbowR,
     'st': _stock,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
@@ -129,6 +130,10 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
           }
           if (n is int && n >= 1 && n <= 3) _pieces = n;
           if (m['mk'] is bool) _elbowMode = m['mk'] as bool;
+          // 처음 판(기본 100)으로 저장된 값은 대양 표에 맞는 125로
+          if (m['etv'] == null && _tangent.text.trim() == '100') {
+            _tangent.text = '125';
+          }
           final er = m['er'];
           if (er is num && kTrayElbowRadii.contains(er.toDouble())) {
             _elbowR = er.toDouble();
@@ -367,7 +372,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 ? '엘보 R${fmt(_elbowR)} ≥ 케이블 최소 굽힘 반경 R ${trayNum(minR!)}입니다.'
                 : '엘보 R${fmt(_elbowR)}이 케이블 최소 굽힘 반경 R ${trayNum(minR!)}보다 작습니다. 더 큰 엘보를 쓰십시오.',
           if (_angle == 90)
-            '90° 엘보 한 변 = R + 끝 직선 = ${trayNum(e.sideA)}mm. 카탈로그 A와 다르면 끝 직선 칸을 맞추십시오.',
+            '90° 엘보 한 변 A = ${_plan ? 'R + 트레이 폭(바깥 레일 R2)' : 'R'} + 끝 직선 = ${trayNum(e.sideA)}mm. 카탈로그 A와 다르면 끝 직선 칸을 맞추십시오.',
         ],
       ),
       const SizedBox(height: 12),
@@ -708,7 +713,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
           'tr_tan',
           '엘보 끝 직선 (mm)',
           _tangent,
-          '엘보 양 끝 곧은 부분 길이입니다. 대양 카탈로그 100, B-Line 76(3").',
+          '엘보 양 끝 곧은 부분 길이입니다. 대양 카탈로그는 그림에 100이라 적었지만 표 치수(A·B)는 125로 맞습니다. B-Line 76(3").',
           onEdit: _saveSoon,
         ),
       if (_elbowMode)

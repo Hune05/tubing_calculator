@@ -299,10 +299,12 @@ const List<String> kTrayRouteBasis = [
 // 엘보 R은 꺾임 안쪽 테두리 반경으로 본다(대양 수평 엘보 R1 = 안쪽 레일, B-Line 수직 엘보
 // VI = R + 끝 직선 + H, VO = R + 끝 직선). 기준선(바닥면·장애물 쪽 측판)의 반경은
 // 위로(장애물 반대쪽으로) 꺾는 엘보 = R + 측판 높이(옆으로는 트레이 폭), 반대 = R.
-// 엘보 양 끝에 곧은 부분(끝 직선 [tangent])이 있다(대양 100, B-Line 3" = 76).
+// 엘보 양 끝에 곧은 부분(끝 직선 [tangent])이 있다. 대양 카탈로그 그림에는 100이라 적혀 있지만
+// 표 치수는 125로 맞는다: 수평 90° A = R2 + 125, 수평 60° A·B(W150~900 18줄 1mm 안),
+// 수직 90° A = R + 125(시험 cable_tray_route_test.dart). B-Line은 3" = 76.
 
-/// 엘보 끝 직선 기본값(mm, 대양 카탈로그).
-const double kTrayElbowTangent = 100;
+/// 엘보 끝 직선 기본값(mm, 대양 카탈로그 표 치수에 맞는 값).
+const double kTrayElbowTangent = 125;
 
 /// 엘보 이름.
 String trayElbowName(TrayRouteKind k, bool up) =>
@@ -375,8 +377,8 @@ class TrayElbowRoute {
       ? 0
       : (straightTotal / stock - 1e-9).ceil().clamp(1, 1 << 20);
 
-  /// 90° 엘보 한 변 길이(끝면 → 다른 쪽 안쪽 테두리) = R + 끝 직선. 카탈로그 A와 견준다.
-  double get sideA => radius + tangent;
+  /// 90° 엘보 한 변(카탈로그 A): 수직은 R + 끝 직선, 수평은 바깥 레일까지라 R + 트레이 폭 + 끝 직선.
+  double get sideA => radius + (trayRouteIsPlan(kind) ? rail : 0) + tangent;
 }
 
 TrayElbowRoute trayElbowRoute({
