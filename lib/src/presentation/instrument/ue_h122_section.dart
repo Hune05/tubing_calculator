@@ -67,7 +67,7 @@ class UeH122Painter extends CustomPainter {
         lpText(c, name, Offset(x, 30), size: 7.5, color: on ? const Color(0xFF15803D) : AppColors.textSub, w: FontWeight.w900);
       }
     }
-    if (v.hot == 'dialcap') _glow(c, const Offset(180, 54), 44);
+    if (v.hot == 'dialcap') _glow(c, const Offset(180, 56), 36);
     if (v.hot == 'low') _glow(c, const Offset(160, 54), 18);
     if (v.hot == 'high') _glow(c, const Offset(200, 54), 18);
 
@@ -125,11 +125,11 @@ class UeDialPainter extends CustomPainter {
     const a0 = math.pi * .8, sweep = math.pi * 1.4;
     for (var i = 0; i <= 20; i++) {
       final a = a0 + i / 20 * sweep;
-      final big = i % 5 == 0;
+      final big = i % 4 == 0; // 0·2·4·6·8·10 (2.5가 "3"으로 찍히지 않게)
       c.drawLine(ctr + Offset(math.cos(a), math.sin(a)) * (r - (big ? 12 : 7)), ctr + Offset(math.cos(a), math.sin(a)) * (r - 2), Paint()
         ..color = const Color(0xFF2B3036)
         ..strokeWidth = big ? 1.6 : .9);
-      if (big) lpText(c, (max * i / 20).toStringAsFixed(0), ctr + Offset(math.cos(a), math.sin(a)) * (r - 21), size: 7, color: const Color(0xFF2B3036));
+      if (big) lpText(c, (max * i / 20).toStringAsFixed(max * i / 20 % 1 == 0 ? 0 : 1), ctr + Offset(math.cos(a), math.sin(a)) * (r - 21), size: 7, color: const Color(0xFF2B3036));
     }
     final a = a0 + (val / max).clamp(0.0, 1.0) * sweep;
     c.drawLine(ctr, ctr + Offset(math.cos(a), math.sin(a)) * (r - 6), Paint()
