@@ -304,6 +304,13 @@ class _DensSetup extends StatelessWidget {
       GdStep(say: '오늘 날짜 (년.월.일) → [ENT]', press: GdKey.ent, data: '26.10.02', msg: '*Y_M_D', setPtr: 3, keyOp: {GdKey.right, GdKey.up, GdKey.ent}),
       GdStep(say: '지금 시각 (시.분) → [ENT]. *SERVC로 돌아옴', press: GdKey.ent, data: '10.30', msg: '*H_M', setPtr: 3, keyOp: {GdKey.right, GdKey.up, GdKey.ent}),
     ]),
+    _title('표시 설정 (서비스 레벨)'),
+    ..._rows(const [
+      ('CODE 20·21·22·23', '압력·밀도·열량·온도 단위'),
+      ('CODE 31', '음수 측정값 0 보임 / 1 숨김 (따라하기는 "수소 표시" 탭, 순서는 같음)'),
+      ('CODE 43', '0 보통 / 1 고분해능'),
+      ('설명서에 없음', '100%·상한에서 값을 막는 설정, 백라이트'),
+    ]),
     _title('접점 NO/NC (CODE 05, 밀도·열량 모드)'),
     _contactTableDC(),
   ]);

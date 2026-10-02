@@ -543,6 +543,21 @@ class _Display extends StatelessWidget {
     ]),
     const SizedBox(height: 10),
     refTipBox('치환계 범위는 접점 입력으로도 바꿀 수 있음: CODE 14 = 1이면 단자 1·2 열림 = Air in CO2, 닫힘 = H2 in CO2'),
+    _title('따라하기: 음수 값 숨기기 (CODE 31)'),
+    Gd402Walkthrough(id: 'code31', steps: [
+      const GdStep(say: '제로 근처에서 지시가 음수로 내려간 모습 (예: 치환계 A_CO2 -0.4)', data: '-0.4', msg: 'A_CO2', opPtr: kOpMeasure),
+      ..._toSetting(3, '서비스'),
+      const GdStep(say: '31을 만들고 [ENT]', press: GdKey.ent, data: '31', msg: '*CODE', setPtr: 3, keyOp: {GdKey.right, GdKey.up, GdKey.ent}),
+      const GdStep(say: '0 = 음수 보임, 1 = 음수 숨김. [∧]로 1 → [ENT]. *SERVC로 돌아옴 → [MODE]', press: GdKey.ent, data: '1', msg: '*MINUS', setPtr: 3, keyOp: {GdKey.up, GdKey.ent}),
+    ]),
+    const SizedBox(height: 10),
+    ..._rows(const [
+      ('설명서 내용', '"음수 측정값(-)을 보일지 숨길지 정함. 보임 0 / 숨김 1" 이 한 줄뿐'),
+      ('실물 확인', '숨겼을 때 화면에 0이 뜨는지 빈칸인지, 4-20 mA 출력(4 mA 아래)도 같이 막히는지는 설명서에 없음. 바꾼 뒤 DISP의 MA1%·MA2%와 DCS 값을 보고 확인'),
+      ('100% 넘을 때', '100%로 막는 설정은 설명서에 없음. 순도가 100.3%처럼 나오면 그대로 보임 → 제로·스팬 교정으로 바로잡을 일'),
+    ]),
+    const SizedBox(height: 8),
+    refWarnBox('음수를 숨기면 화면은 깔끔해도 실제 값은 음수 그대로. 제로가 틀어졌다는 신호가 안 보이게 되니, 숨기기 전에 제로 교정부터 확인할 것'),
     _title('단위·표시 설정 (서비스 레벨)'),
     ..._rows(const [
       ('CODE 20', '압력 단위: kPa (XXX.XX) / MPa (X.XXXX) / psi (XX.XXX)'),
