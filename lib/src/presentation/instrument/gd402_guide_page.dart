@@ -1,4 +1,4 @@
-// GD402 수소 순도계 가이드(10-01): 처음 설정부터 출력·알람·표시·교정·운전·고장 코드·점검까지 탭 10장.
+// GD402 가이드(10-01, 10-02 넓힘): 수소 순도계 설정~교정에 더해 설치·배선, 밀도계·열량계 설정·교정까지 탭 16장.
 // 키 조작은 "화면 따라하기"(gd402_panel.dart)로 단계마다 누를 키와 표시창 모습을 보여 준다.
 // 근거: 사용자가 준 요꼬가와 설명서 IM 11T03E01-01E(13판), IM 11T03E01-51E(GD402G /M1 단자대형, 7판).
 // 화면 글자·코드·범위는 설명서 그대로, 숫자 표시의 측정값은 그림용 예시. 설명서끼리 다른 곳은 화면에 밝힌다.
@@ -9,11 +9,16 @@ import '../reference/page/reference_widgets.dart';
 import 'gd40_principle.dart';
 import 'gd402_panel.dart';
 
+part 'gd402_guide_more.dart';
+
 class Gd402GuidePage extends StatelessWidget {
   final int initialTab;
   const Gd402GuidePage({super.key, this.initialTab = 0});
 
-  static const tabs = ['개요', '원리·구조 (GD40)', '키·화면', '처음 설정', '출력 4-20mA', '알람', '표시', '교정', '운전·정지', '알람·고장 코드', '점검'];
+  static const tabs = ['개요', '원리·구조 (GD40)', '키·화면', '설치·배선', '수소 설정', '수소 출력', '수소 알람', '수소 표시', '수소 교정', '운전·정지', '알람·고장 코드', '점검', '밀도계 설정', '밀도계 교정', '열량계 설정', '열량계 교정'];
+
+  /// 탭 번호(다른 화면에서 바로 열 때).
+  static const tabH2Cal = 8;
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +28,7 @@ class Gd402GuidePage extends StatelessWidget {
       child: Scaffold(
         backgroundColor: AppColors.background,
         appBar: AppBar(
-          title: const Text('GD402 수소 순도계 가이드'),
+          title: const Text('GD402 가스 밀도계 가이드'),
           bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
@@ -31,7 +36,7 @@ class Gd402GuidePage extends StatelessWidget {
           ),
         ),
         body: const TabBarView(
-          children: [_Overview(), _Principle(), _Keys(), _FirstSetup(), _Output(), _Alarm(), _Display(), _Calibration(), _Operation(), _Codes(), _Maintenance()],
+          children: [_Overview(), _Principle(), _Keys(), _Install(), _FirstSetup(), _Output(), _Alarm(), _Display(), _Calibration(), _Operation(), _Codes(), _Maintenance(), _DensSetup(), _DensCal(), _CalSetup(), _CalCal()],
         ),
       ),
     );

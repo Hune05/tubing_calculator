@@ -214,9 +214,9 @@ class _CalGasTabState extends State<CalGasTab>
           // GD402 수소 순도계 설정·교정 화면 따라하기(10-01)
           OutlinedButton.icon(
             key: const Key('cg_gd402_guide'),
-            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const Gd402GuidePage(initialTab: 7))),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const Gd402GuidePage(initialTab: Gd402GuidePage.tabH2Cal))),
             icon: const Icon(Icons.menu_book, size: 18),
-            label: const Text('GD402 수소 순도계 가이드 (교정 화면 따라하기)'),
+            label: const Text('GD402 가이드 (수소 순도 교정 화면 따라하기)'),
             style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
           ),
           const SizedBox(height: 12),

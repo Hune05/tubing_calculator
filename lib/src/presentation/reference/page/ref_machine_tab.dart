@@ -1138,7 +1138,7 @@ final List<_Guide> _guides = [
       children: [
         _manualButton(
           key: const Key('gd402_guide'),
-          label: '수소 순도계 가이드 (설정·교정 화면 따라하기)',
+          label: 'GD402 가이드 (수소 순도·밀도·열량 설정·교정 따라하기)',
           color: Colors.indigo,
           onTap: () => Navigator.push(c, MaterialPageRoute(builder: (_) => const Gd402GuidePage())),
         ),

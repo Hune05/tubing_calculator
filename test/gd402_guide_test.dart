@@ -12,11 +12,11 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('탭 11장을 하나씩 열고 끝까지 넘겨도 예외가 없다', (tester) async {
+  testWidgets('탭 16장을 하나씩 열고 끝까지 넘겨도 예외가 없다', (tester) async {
     phone(tester);
     await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage()));
     await tester.pumpAndSettle();
-    const ids = ['overview', 'principle', 'keys', 'setup', 'output', 'alarm', 'display', 'cal', 'op', 'codes', 'maint'];
+    const ids = ['overview', 'principle', 'keys', 'install', 'setup', 'output', 'alarm', 'display', 'cal', 'op', 'codes', 'maint', 'dens_setup', 'dens_cal', 'calo_setup', 'calo_cal'];
     for (var i = 0; i < ids.length; i++) {
       final tab = find.byKey(Key('gdg_tab_$i'));
       await tester.ensureVisible(tab);
@@ -35,7 +35,7 @@ void main() {
 
   testWidgets('교정 따라하기: 11단계를 넘기며 ZERO → 0.0899 H2 → CAL.SET → SPAN → 1.9771 CO2 순서', (tester) async {
     phone(tester);
-    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 7)));
+    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 8)));
     await tester.pumpAndSettle();
     final list = find.byKey(const Key('gdg_list_cal'));
     final next = find.byKey(const Key('gdw_next_mancal'));
@@ -58,7 +58,7 @@ void main() {
 
   testWidgets('서비스 코드 50 따라하기는 * → *RANGE … *SERVC → 50 → *MODEL 2', (tester) async {
     phone(tester);
-    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 3)));
+    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 4)));
     await tester.pumpAndSettle();
     final list = find.byKey(const Key('gdg_list_setup'));
     final next = find.byKey(const Key('gdw_next_code50'));
@@ -76,5 +76,25 @@ void main() {
     expect(seen.contains('2|*MODEL'), isTrue);
     expect(seen.contains('50|*CODE'), isTrue);
     expect(seen.indexOf('|*SERVC') < seen.indexOf('00|*CODE'), isTrue);
+  });
+
+  testWidgets('밀도계 수동 교정 따라하기: ZERO → Z_DNS → CAL.SET → SPAN → S_DNS → CAL.SET → WAIT', (tester) async {
+    phone(tester);
+    await tester.pumpWidget(const MaterialApp(home: Gd402GuidePage(initialTab: 13)));
+    await tester.pumpAndSettle();
+    final list = find.byKey(const Key('gdg_list_dens_cal'));
+    final next = find.byKey(const Key('gdw_next_d_man'));
+    final nextAll = find.byKey(const Key('gdw_next_d_man'), skipOffstage: false);
+    await tester.dragUntilVisible(next, list, const Offset(0, -300));
+    final msgs = <String>[];
+    for (var i = 0; i < 13; i++) {
+      final p = tester.widget<CustomPaint>(find.byKey(const Key('gdw_panel_d_man'), skipOffstage: false)).painter! as Gd402PanelPainter;
+      msgs.add(p.step.msg);
+      await tester.ensureVisible(nextAll);
+      await tester.pumpAndSettle();
+      await tester.tap(nextAll);
+      await tester.pumpAndSettle();
+    }
+    expect(msgs, ['KG/M3', 'DISP', 'SEM.CAL', 'MAN.CAL', 'ZERO', 'Z_DNS', 'CAL.SET', 'SPAN', 'S_DNS', 'CAL.SET', 'WAIT', 'KG/M3', 'KG/M3']);
   });
 }

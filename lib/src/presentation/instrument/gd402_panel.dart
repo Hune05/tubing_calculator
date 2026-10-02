@@ -24,11 +24,18 @@ enum GdKey { yes, no, mode, right, up, ent, star }
 /// 밸브 상태(교정 그림).
 class GdGas {
   final bool sample, zero, span;
-  const GdGas({this.sample = false, this.zero = false, this.span = false});
+
+  /// false면 수소 순도(H2·CO2 용기), true면 밀도·열량계(사용자가 정한 제로·스팬 표준가스, 회색 용기).
+  final bool generic;
+  const GdGas({this.sample = false, this.zero = false, this.span = false, this.generic = false});
   static const measuring = GdGas(sample: true);
   static const allClosed = GdGas();
   static const zeroFlow = GdGas(zero: true);
   static const spanFlow = GdGas(span: true);
+  static const gMeasuring = GdGas(sample: true, generic: true);
+  static const gAllClosed = GdGas(generic: true);
+  static const gZeroFlow = GdGas(zero: true, generic: true);
+  static const gSpanFlow = GdGas(span: true, generic: true);
 }
 
 /// 화면 따라하기 한 단계.
@@ -354,7 +361,9 @@ class GdGasPainter extends CustomPainter {
     c.scale(size.width / 360, size.height / 200);
     const ys = [44.0, 104.0, 164.0];
     final opens = [gas.sample, gas.zero, gas.span];
-    final colors = [_sampleColor, _h2Color, _co2Color];
+    final zc = gas.generic ? const Color(0xFF6B7280) : _h2Color;
+    final sc = gas.generic ? const Color(0xFF475569) : _co2Color;
+    final colors = [_sampleColor, zc, sc];
     Color? flowColor;
     for (var i = 0; i < 3; i++) {
       if (opens[i]) flowColor = colors[i];
@@ -372,10 +381,10 @@ class GdGasPainter extends CustomPainter {
     // 공급 쪽
     lpText(c, '시료 (발전기)', const Offset(40, 22), size: 8.5, color: AppColors.textSub, w: FontWeight.w800);
     c.drawRect(const Rect.fromLTWH(10, 38, 34, 12), Paint()..color = const Color(0xFFCBD2D8));
-    _cylinder(c, const Rect.fromLTWH(22, 76, 26, 50), _h2Color, 'H2');
-    _cylinder(c, const Rect.fromLTWH(22, 148, 26, 50), _co2Color, 'CO2');
-    lpText(c, '제로가스', const Offset(70, 92), size: 8, color: _h2Color, w: FontWeight.w900);
-    lpText(c, '스팬가스', const Offset(70, 152), size: 8, color: _co2Color, w: FontWeight.w900);
+    _cylinder(c, const Rect.fromLTWH(22, 76, 26, 50), zc, gas.generic ? 'ZERO' : 'H2');
+    _cylinder(c, const Rect.fromLTWH(22, 148, 26, 50), sc, gas.generic ? 'SPAN' : 'CO2');
+    lpText(c, '제로가스', const Offset(70, 92), size: 8, color: zc, w: FontWeight.w900);
+    lpText(c, '스팬가스', const Offset(70, 152), size: 8, color: sc, w: FontWeight.w900);
     for (var i = 0; i < 3; i++) {
       final y = ys[i];
       final start = i == 0 ? 44.0 : 48.0;
@@ -430,7 +439,7 @@ class GdGasPainter extends CustomPainter {
     _tri(c, const Offset(338, 104), 6, flowColor ?? const Color(0xFFB4BBC2));
     lpText(c, '대기', const Offset(340, 124), size: 8, color: AppColors.textSub, w: FontWeight.w800);
     if (flowColor != null) {
-      final name = gas.sample ? '시료가스' : (gas.zero ? 'H2 100% (제로)' : 'CO2 100% (스팬)');
+      final name = gas.sample ? '시료가스' : (gas.zero ? (gas.generic ? '제로 표준가스' : 'H2 100% (제로)') : (gas.generic ? '스팬 표준가스' : 'CO2 100% (스팬)'));
       lpPill(c, '지금 흐르는 가스: $name', const Offset(260, 160), flowColor, size: 8.5);
     } else {
       lpPill(c, '모든 밸브 닫힘', const Offset(260, 160), const Color(0xFF6B737B), size: 8.5);
@@ -440,7 +449,7 @@ class GdGasPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(GdGasPainter o) => o.gas.sample != gas.sample || o.gas.zero != gas.zero || o.gas.span != gas.span;
+  bool shouldRepaint(GdGasPainter o) => o.gas.sample != gas.sample || o.gas.zero != gas.zero || o.gas.span != gas.span || o.gas.generic != gas.generic;
 }
 
 // ───────── 화면 따라하기 ─────────
