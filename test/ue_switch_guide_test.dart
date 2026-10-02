@@ -121,9 +121,9 @@ void main() {
     final list = find.byKey(const Key('ue_list'));
     await tester.dragUntilVisible(find.byKey(const Key('ue_ct_fig')), list, const Offset(0, -300));
     await tester.pumpAndSettle();
-    expect(find.text('COM–N.C. 붙음 (통전) · N.O. 떨어짐'), findsOneWidget);
+    expect(find.text('COM–N.C. closed · N.O. open'), findsOneWidget);
     Future<void> tap(String t) async {
-      final f = find.text(t);
+      final f = find.widgetWithText(ChoiceChip, t, skipOffstage: false); // 표·설명 줄에도 같은 글(DPDT)이 있어 칩만
       await tester.ensureVisible(f);
       await tester.pumpAndSettle();
       await tester.tap(f);
@@ -131,12 +131,12 @@ void main() {
     }
     await tap('DPDT');
     await tap('압력 높음 (동작)');
-    expect(find.text('접점 1: COM1–N.O.1 붙음 (통전) · N.C.1 떨어짐'), findsOneWidget);
-    expect(find.text('접점 2: COM2–N.O.2 붙음 (통전) · N.C.2 떨어짐'), findsOneWidget);
+    expect(find.text('접점 1: COM1–N.O.1 closed · N.C.1 open'), findsOneWidget);
+    expect(find.text('접점 2: COM2–N.O.2 closed · N.C.2 open'), findsOneWidget);
     await tap('2SPDT');
     await tap('1번만 동작');
-    expect(find.text('스위치 1: COM–N.O. 붙음 (통전) · N.C. 떨어짐'), findsOneWidget);
-    expect(find.text('스위치 2: COM–N.C. 붙음 (통전) · N.O. 떨어짐'), findsOneWidget);
+    expect(find.text('스위치 1: COM–N.O. closed · N.C. open'), findsOneWidget);
+    expect(find.text('스위치 2: COM–N.C. closed · N.O. open'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

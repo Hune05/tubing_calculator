@@ -132,7 +132,7 @@ class UeContactPainter extends CustomPainter {
       final ly = _leverY(oy, on);
       final rod = Rect.fromLTRB(ox + 125, ly + (on ? 3 : 10), ox + 135, oy + 108); // 동작 전엔 레버에 안 닿음
       c.drawRRect(RRect.fromRectAndRadius(rod, const Radius.circular(3)), Paint()..shader = const LinearGradient(colors: [Color(0xFF8E979F), Color(0xFFE2E6EA), Color(0xFF7D868E)]).createShader(rod));
-      lpText(c, on ? '플런저가 밀어 올림' : '플런저', Offset(ox + 92, oy + 101), size: 7, color: on ? _ctGreen : AppColors.textSub, w: FontWeight.w900);
+      lpText(c, on ? '플런저 ↑' : '플런저', Offset(ox + 92, oy + 101), size: 7, color: on ? _ctGreen : AppColors.textSub, w: FontWeight.w900);
     }
 
     // 단자대
@@ -160,7 +160,7 @@ class _ContactDemoState extends State<_ContactDemo> {
   static const _dual = ['둘 다 동작 전', '1번만 동작', '둘 다 동작'];
   int _kind = 0, _st = 0;
 
-  String _say(bool on, String n) => on ? 'COM$n–N.O.$n 붙음 (통전) · N.C.$n 떨어짐' : 'COM$n–N.C.$n 붙음 (통전) · N.O.$n 떨어짐';
+  String _say(bool on, String n) => on ? 'COM$n–N.O.$n closed · N.C.$n open' : 'COM$n–N.C.$n closed · N.O.$n open';
 
   @override
   Widget build(BuildContext context) {
@@ -196,9 +196,9 @@ class _ContactDemoState extends State<_ContactDemo> {
         const SizedBox(height: 4),
         Text(
           switch (_kind) {
-            0 => 'COM이 평소에는 N.C. 쪽에 붙어 있다가, 동작하면 N.O. 쪽으로 넘어가 붙음',
-            1 => 'SPDT 2개가 한 번에 같이 동작함. 두 회로는 서로 통하지 않아 따로 쓸 수 있음',
-            _ => 'SPDT 2개가 각자 자기 설정값에서 따로 동작함 (H122의 HIGH, LOW)',
+            0 => '평소 COM–N.C., 동작하면 COM–N.O.',
+            1 => 'SPDT 2개가 같이 동작. 두 회로는 서로 분리됨',
+            _ => 'SPDT 2개가 각자 set point에서 따로 동작 (H122 HIGH · LOW)',
           },
           style: const TextStyle(fontSize: 13, height: 1.5, color: AppColors.textSub),
         ),
@@ -208,64 +208,36 @@ class _ContactDemoState extends State<_ContactDemo> {
 }
 
 List<Widget> contactSection(Widget Function(String) title, List<Widget> Function(List<(String, String)>) rows) => [
-  title('접점 알기: SPDT · DPDT'),
+  title('접점: SPDT · DPDT'),
   ...rows(const [
-    ('COM', '공통 단자. 전선 하나는 항상 여기에 물림'),
-    ('N.O. (a접점)', '평소에는 떨어져 있다가, 스위치가 동작하면 COM과 붙음'),
-    ('N.C. (b접점)', '평소에는 COM과 붙어 있다가, 스위치가 동작하면 떨어짐'),
-    ('SPDT (1c 접점)', '단자 3개 (COM, N.O., N.C.). 스위치 1개, 설정값 1개'),
-    ('DPDT (2c 접점)', '단자 6개. SPDT 2개가 한 번에 같이 동작. 설정값은 1개'),
-    ('2SPDT', 'SPDT 2개가 각자 따로 동작. 설정값 2개 (HIGH, LOW)'),
+    ('COM', 'Common'),
+    ('N.O.', 'Normal Open. 동작하면 COM과 붙음'),
+    ('N.C.', 'Normal Close. 동작하면 COM과 떨어짐'),
   ]),
-  const SizedBox(height: 8),
-  refTipBox('이름 읽는 법: SPDT = Single Pole Double Throw. 앞의 S(1개)·D(2개)는 스위치가 몇 개 묶였는지, 뒤의 DT는 COM이 N.O.와 N.C. 두 곳으로 갈 수 있다는 뜻'),
   const SizedBox(height: 10),
   refTable(
-    headers: const ['종류', '단자 수', '설정값', 'UE 120 시리즈'],
-    flex: const [3, 2, 2, 4],
+    headers: const ['종류', '접점', 'Set point', 'UE 120'],
+    flex: const [2, 4, 2, 3],
     rows: const [
-      ['SPDT (1c)', '3개', '1개', 'J120, H121 기본'],
-      ['DPDT (2c)', '6개', '1개', '옵션 (H122는 안 됨)'],
-      ['2SPDT', '3개 + 3개', '2개', 'H122 기본'],
+      ['SPDT', 'COM · N.O. · N.C.', '1', 'J120, H121'],
+      ['DPDT', 'SPDT × 2, 같이 동작', '1', '옵션 (H122 안 됨)'],
+      ['2SPDT', 'SPDT × 2, 따로 동작', '2', 'H122 (HIGH · LOW)'],
     ],
-    footer: '출처: UE 카탈로그 120-B, 설명서 IMP120 그림 3',
+    footer: '출처: UE 120-B, IMP120 Fig.3',
   ),
   const SizedBox(height: 12),
   const _ContactDemo(),
-  title('주의: "평소"의 뜻'),
-  ...[
-    refStep(1, 'N.O.(평소 열림), N.C.(평소 닫힘)의 "평소"는 스위치가 동작하지 않은 상태. 압력이 0이거나 설정값보다 낮은 상태를 말함'),
-    refStep(2, '운전 중인 평소 상태를 말하는 것이 아님. 운전 압력이 설정값보다 높으면, 운전 중에는 이미 동작해 있음'),
-    refStep(3, '예) 고압 경보, 설정 7 bar, 운전 5 bar. 설정값까지 안 올라갔으니 동작 전 상태. COM과 N.C.가 붙어 있음'),
-    refStep(4, '예) 저압 경보, 설정 3 bar, 운전 5 bar. 압력이 오르면서 설정값을 지날 때 이미 동작함. 운전 중에는 COM과 N.O.가 붙어 있고, 압력이 3 bar 밑으로 떨어지면 다시 COM과 N.C.가 붙음'),
-  ],
+  const SizedBox(height: 10),
+  refTipBox('Normal = 압력이 set point에 안 닿은 상태 (운전 중 상태 아님). 저압 경보는 운전 압력에서 이미 동작해 있어서 COM–N.O.가 붙어 있음'),
   const SizedBox(height: 8),
-  refWarnBox('H122 LOW 스위치는 안쪽 배선이 HIGH와 반대로 되어 있음 (설명서 그림 3). 단자 이름만 보고 판단하지 말고, 압력을 걸어 테스터로 직접 확인할 것'),
-  title('결선할 때'),
+  refWarnBox('H122 LOW 스위치는 내부 배선이 반대 (IMP120 Fig.3 "REVERSE WIRING"). 단자 표시만 믿지 말고 압력 걸어서 테스터로 확인'),
+  title('결선 · 확인'),
   ...rows(const [
-    ('기준', '루프도·결선도에 나온 대로 물림. 어느 접점을 쓸지는 설계에서 정함'),
-    ('경보·트립 회로', '정상일 때 붙어 있고, 이상이 생기면 떨어지게 무는 경우가 많음. 선이 끊어져도 경보가 뜨게 하려는 것 (페일 세이프)'),
-    ('DPDT를 쓰는 곳', '같은 설정값으로 두 군데에 신호를 줄 때. 예) DCS 경보와 현장 경광등'),
-    ('DPDT 주의', '두 접점이 정확히 같은 압력에서 바뀌지 않을 수 있음 (카탈로그 120-B)'),
-    ('2SPDT를 쓰는 곳', '설정값이 2개 필요할 때. 예) 고압 경보와 저압 경보, 펌프 기동과 정지'),
-  ]),
-  title('테스터로 접점 확인'),
-  ...[
-    refStep(1, '회로를 차단하고 검전. 방폭 함은 전기가 살아 있을 때 열지 않음. 정션 박스 단자에서 재도 됨'),
-    refStep(2, '테스터를 통전(삐 소리) 또는 저항(Ω)에 놓음'),
-    refStep(3, '압력 0일 때: COM과 N.C.에 대면 삐 소리, COM과 N.O.에 대면 소리 없음 (OL)'),
-    refStep(4, '압력을 올려 스위치가 동작하면 반대로 바뀜: COM과 N.O.에서 삐 소리'),
-    refStep(5, '소리가 바뀌는 순간의 표준 압력계 값이 동작점. 천천히 내려서 다시 바뀌는 값이 복귀점'),
-    refStep(6, 'N.O.와 N.C. 사이는 언제 대도 소리가 안 남. 정상임'),
-  ],
-  const SizedBox(height: 8),
-  refWarnBox('전기가 살아 있는 회로에 통전·저항 레인지로 대지 말 것 (테스터·퓨즈 손상). 살아 있으면 전압 레인지로 잼: 떨어진 접점 양쪽에는 전압이 나오고, 붙은 접점은 0 V 가까이 나옴'),
-  title('접점 용량'),
-  ...rows(const [
-    ('기본 용량', 'AC 125/250/480 V에서 15 A (저항 부하 기준)'),
-    ('DC', 'AC보다 훨씬 작음. 30 V 2 A, 48 V 1 A, 125 V 0.5 A. 명판에는 DC 용량이 안 적혀 있음 (카탈로그 120-B)'),
-    ('솔레노이드·릴레이 코일', '바로 물리면 접점이 빨리 상함. 용량 안인지 꼭 확인. 보통은 릴레이를 거쳐서 씀'),
-    ('용량 초과', '명판 용량을 넘기면 한 번 동작에도 접점이 상할 수 있음 (설명서)'),
-    ('아주 작은 전류', 'DCS 입력처럼 전류가 아주 작은 회로는 금도금 접점 옵션을 쓰기도 함 (0140, 1180, 1190)'),
+    ('결선', '루프도대로. 경보·트립은 보통 fail-safe (정상 시 closed, 알람 시 open)'),
+    ('DPDT', '같은 set point로 두 회로 (예: DCS + 경광등). 두 접점 전환 시점이 조금 다를 수 있음'),
+    ('테스터', '회로 차단 후 통전 모드. 0 bar에서 COM–N.C. 삐. 올려서 동작하면 COM–N.O. 삐. 바뀌는 순간이 동작점, 내려서 돌아오는 값이 복귀점'),
+    ('살아 있는 회로', '통전·Ω 레인지 금지. V 레인지로 (open 접점 양단에 전압, closed는 0 V)'),
+    ('접점 용량', '15 A 125/250/480 VAC (resistive). DC는 2 A 30 V, 1 A 48 V, 0.5 A 125 V (명판에 DC 표기 없음)'),
+    ('유도 부하', '솔레노이드·릴레이 코일 직결 시 용량 확인. 보통 릴레이 거쳐서 씀'),
   ]),
 ];
