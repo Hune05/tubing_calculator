@@ -115,7 +115,7 @@ final List<QuickToolDef> kQuickTools = [
     '장비 대장',
     AppGlyph.equipment,
     (_) => const EquipmentLedgerPage(),
-    subtitle: '공구 점검 기한 · 반출·반납 · QR 찾기',
+    subtitle: '개인·작업 공구 점검 기한 · QR 찾기',
     group: '현장 도구',
   ),
   QuickToolDef(

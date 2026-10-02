@@ -133,36 +133,10 @@ void main() {
     });
   });
 
-  group('반출·반납', () {
-    test('반출하면 사용자·프로젝트가 붙고, 중복 반출은 안 된다', () {
-      final o = checkOut(_e(), at: _now, who: '홍길동', project: '루마')!;
-      expect(o.isOut, true);
-      expect(o.holderProject, '루마');
-      expect(o.events.first.type, EventType.out);
-      expect(checkOut(o, at: _now, who: '김철수'), isNull);
-    });
-
-    test('사용자 이름이 없거나 수리 중·폐기면 반출 안 된다', () {
-      expect(checkOut(_e(), at: _now, who: '  '), isNull);
-      expect(checkOut(_e(status: EquipStatus.repair), at: _now, who: 'a'), isNull);
-      expect(checkOut(_e(status: EquipStatus.retired), at: _now, who: 'a'), isNull);
-    });
-
-    test('반납하면 비워지고, 반출 중이 아니면 안 된다', () {
-      final o = checkOut(_e(), at: _now, who: '홍길동')!;
-      final b = checkIn(o, at: _now.add(const Duration(days: 2)))!;
-      expect(b.isOut, false);
-      expect(b.checkedOutAt, isNull);
-      expect(b.events.first.type, EventType.back);
-      expect(b.events.first.by, '홍길동');
-      expect(checkIn(_e(), at: _now), isNull);
-    });
-
-    test('폐기하면 반출 정보도 지운다', () {
-      final o = checkOut(_e(), at: _now, who: '홍길동')!;
-      final r = retire(o, at: _now, note: '파손');
+  group('수리·폐기', () {
+    test('폐기하면 폐기 상태가 되고 이력에 남는다', () {
+      final r = retire(_e(), at: _now, note: '파손');
       expect(r.isRetired, true);
-      expect(r.isOut, false);
       expect(r.events.first.note, '폐기: 파손');
     });
 
@@ -189,7 +163,6 @@ void main() {
       expect(s.total, 5);
       expect(s.overdue, 1);
       expect(s.soon, 1);
-      expect(s.out, 1);
       expect(s.repair, 1);
     });
 
@@ -201,17 +174,15 @@ void main() {
       expect(ids.last, '5');
     });
 
-    test('기한 보기는 만료·임박만, 반출 보기는 반출 중만', () {
+    test('기한 보기는 만료·임박만', () {
       expect(filterLedger(list, _now, view: LedgerView.due).map((e) => e.id), ['1', '2']);
-      expect(filterLedger(list, _now, view: LedgerView.out).map((e) => e.id), ['4']);
     });
 
-    test('분류·검색(관리번호·이름·사용자, 띄어쓰기 무시)', () {
+    test('분류·검색(관리번호·이름, 띄어쓰기 무시)', () {
       expect(filterLedger(list, _now, category: EquipCategory.work).map((e) => e.id).toSet(), {'3', '4'});
       expect(filterLedger(list, _now, query: 'pg001'), isEmpty); // 하이픈은 무시하지 않는다
       expect(filterLedger(list, _now, query: 'pg-001').single.id, '1');
       expect(filterLedger(list, _now, query: '압력게이지').single.id, '1');
-      expect(filterLedger(list, _now, query: '홍길동').single.id, '4');
     });
   });
 
@@ -219,11 +190,11 @@ void main() {
     test('JSON 왕복', () {
       var e = _e(assetNo: 'PG-001', last: DateTime(2026, 3, 1));
       e = recordInspection(e, at: DateTime(2026, 9, 1), type: EventType.cal, certNo: 'C1');
-      e = checkOut(e, at: _now, who: '홍길동', project: '루마')!;
+      e = e.copyWith(holder: '홍길동'); // 예전에 반출해 둔 자료도 그대로 읽고 쓴다
       final back = Equipment.fromJson(e.toJson());
       expect(back.assetNo, 'PG-001');
       expect(back.holder, '홍길동');
-      expect(back.events.length, 2);
+      expect(back.events.length, 1);
       expect(back.events.last.certNo, 'C1');
       expect(back.nextDue, e.nextDue);
     });

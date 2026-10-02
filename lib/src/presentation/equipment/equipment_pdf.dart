@@ -24,7 +24,7 @@ Future<Uint8List> buildLedgerPdf(List<Equipment> all, DateTime now) async {
     DueState.none => e.isRetired ? '폐기' : '',
   };
 
-  const head = ['관리번호', '장비명', '분류', '제조사·모델', '시리얼', '위치', '마지막 점검', '다음 점검', '상태', '사용자'];
+  const head = ['관리번호', '장비명', '분류', '제조사·모델', '시리얼', '위치', '마지막 점검', '다음 점검', '상태'];
   final rows = [
     for (final e in list)
       [
@@ -37,7 +37,6 @@ Future<Uint8List> buildLedgerPdf(List<Equipment> all, DateTime now) async {
         e.lastDone == null ? '' : dateLabel(e.lastDone!),
         due(e),
         state(e),
-        e.holder,
       ],
   ];
 
@@ -53,7 +52,7 @@ Future<Uint8List> buildLedgerPdf(List<Equipment> all, DateTime now) async {
             pw.Text('장비 관리 대장', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.Text(
               '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} 기준 · '
-              '전체 ${s.total}대 · 만료 ${s.overdue} · 임박 ${s.soon} · 반출 ${s.out}',
+              '전체 ${s.total}대 · 만료 ${s.overdue} · 임박 ${s.soon}',
               style: const pw.TextStyle(fontSize: 10),
             ),
           ],

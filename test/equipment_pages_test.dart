@@ -1,4 +1,4 @@
-// 장비 관리 대장 화면: 등록, 목록 요약·걸러 보기, 상세의 점검·반출·반납, QR로 찾기, 내보내기 글.
+// 장비 관리 대장 화면: 등록, 목록 요약·걸러 보기, 상세의 점검·수리·폐기, QR로 찾기, 내보내기 글.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -100,30 +100,24 @@ void main() {
         _e('1', name: '만료 게이지', assetNo: 'PG-1', last: DateTime(2025, 1, 1)),
         _e('2', name: '임박 멀티미터', last: DateTime(2025, 10, 5)),
         _e('3', name: '정상 렌치', last: DateTime(2026, 9, 1)),
-        _e('4', name: '반출 벤더', interval: 0, holder: '홍길동'),
+        _e('4', name: '기한 없는 벤더', interval: 0),
       ]);
       await _open(tester, _ledger());
       expect(find.text('만료 게이지'), findsNothing); // 관리번호가 앞에 붙어 "PG-1  만료 게이지"
       expect(find.text('PG-1  만료 게이지'), findsOneWidget);
-      // 요약: 전체 4, 기한(만료+임박) 2, 반출 1
+      // 요약: 전체 4, 기한(만료+임박) 2. 반출 칸은 없다
       Finder stat(String key) => find.descendant(
         of: find.byKey(Key(key)),
         matching: find.byType(Text),
       );
       expect(tester.widget<Text>(stat('equip_stat_all').first).data, '4');
       expect(tester.widget<Text>(stat('equip_stat_due').first).data, '2');
-      expect(tester.widget<Text>(stat('equip_stat_out').first).data, '1');
+      expect(find.byKey(const Key('equip_stat_out')), findsNothing);
 
       await tester.tap(find.byKey(const Key('equip_stat_due')));
       await tester.pumpAndSettle();
       expect(find.text('정상 렌치'), findsNothing);
       expect(find.text('임박 멀티미터'), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('equip_stat_out')));
-      await tester.pumpAndSettle();
-      expect(find.text('반출 벤더'), findsOneWidget);
-      expect(find.text('임박 멀티미터'), findsNothing);
-      expect(find.textContaining('홍길동 반출 중'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('equip_stat_all')));
       await tester.pumpAndSettle();
@@ -237,7 +231,7 @@ void main() {
       expect(find.text('김반장'), findsOneWidget);
     });
 
-    testWidgets('불량이면 수리·점검 중이 되고 반출 단추가 막힌다', (tester) async {
+    testWidgets('불량이면 수리·점검 중이 되고 반출 단추는 없다', (tester) async {
       await _seed([_e('1', last: DateTime(2026, 9, 1))]);
       await _open(tester, EquipmentDetailPage(id: '1', now: _clock));
       await tester.tap(find.byKey(const Key('equip_inspect')));
@@ -247,33 +241,8 @@ void main() {
       await tester.tap(find.byKey(const Key('inspect_save')));
       await tester.pumpAndSettle();
       expect((await EquipmentStore.load()).single.status, EquipStatus.repair);
-      final out = tester.widget<OutlinedButton>(find.byKey(const Key('equip_checkout')));
-      expect(out.onPressed, isNull);
-    });
-
-    testWidgets('반출하면 사용자가 붙고 반납하면 비워진다', (tester) async {
-      await _seed([_e('1', name: '벤더', interval: 0)]);
-      await _open(tester, EquipmentDetailPage(id: '1', now: _clock));
-      await tester.tap(find.byKey(const Key('equip_checkout')));
-      await tester.pumpAndSettle();
-      // 이름이 없으면 막는다.
-      await tester.tap(find.byKey(const Key('checkout_save')));
-      await tester.pump();
-      expect(find.text('가져가는 사람을 적어 주십시오'), findsOneWidget);
-      await tester.enterText(find.byKey(const Key('checkout_who')), '홍길동');
-      await tester.enterText(find.byKey(const Key('checkout_project')), '루마');
-      await tester.tap(find.byKey(const Key('checkout_save')));
-      await tester.pumpAndSettle();
-      var e = (await EquipmentStore.load()).single;
-      expect(e.holder, '홍길동');
-      expect(e.holderProject, '루마');
-      expect(find.byKey(const Key('equip_checkin')), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('equip_checkin')));
-      await tester.pumpAndSettle();
-      e = (await EquipmentStore.load()).single;
-      expect(e.isOut, false);
-      expect(find.byKey(const Key('equip_checkout')), findsOneWidget);
+      expect(find.byKey(const Key('equip_checkout')), findsNothing);
+      expect(find.textContaining('수리·점검 중'), findsWidgets);
     });
 
     testWidgets('폐기하면 이력은 남고 기한을 따지지 않는다', (tester) async {

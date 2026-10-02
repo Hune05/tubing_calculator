@@ -1,5 +1,6 @@
-// 장비 관리 대장: 개인 공구·작업 공구 한 대와 그 이력, 정기 점검 기한 계산, 반출·반납, 걸러 보기.
-// 계측기 검교정은 관리 부서가 하므로 여기서는 다루지 않는다(10-02 사용자 결정).
+// 장비 관리 대장: 개인 공구·작업 공구 한 대와 그 이력, 정기 점검 기한 계산, 걸러 보기.
+// 계측기 검교정은 관리 부서가 하므로, 반출·반납은 쓰지 않아서 다루지 않는다(10-02 사용자 결정).
+// holder·holderProject·checkedOutAt은 예전에 저장한 자료를 그대로 읽고 쓰려고만 남겨 둔다.
 // 화면과 저장은 따로 두고 여기서는 자료와 계산만 한다(전부 시험으로 확인한다).
 import 'dart:convert';
 
@@ -409,52 +410,10 @@ Equipment retire(Equipment e, {required DateTime at, String note = ''}) => e.cop
   ),
 );
 
-/// 반출한다. 이미 반출 중이거나 폐기·수리 중이면 null(하지 않는다).
-Equipment? checkOut(
-  Equipment e, {
-  required DateTime at,
-  required String who,
-  String project = '',
-  String note = '',
-}) {
-  if (e.isOut || e.status != EquipStatus.ok || who.trim().isEmpty) return null;
-  final ev = EquipEvent(
-    id: _eventId(at, e.events.length),
-    at: at,
-    type: EventType.out,
-    by: who.trim(),
-    note: [if (project.trim().isNotEmpty) project.trim(), if (note.trim().isNotEmpty) note.trim()].join(' · '),
-  );
-  return e.copyWith(
-    holder: who.trim(),
-    holderProject: project.trim(),
-    checkedOutAt: at,
-    events: _prepend(e, ev),
-  );
-}
-
-/// 반납한다. 반출 중이 아니면 null.
-Equipment? checkIn(Equipment e, {required DateTime at, String note = ''}) {
-  if (!e.isOut) return null;
-  final ev = EquipEvent(
-    id: _eventId(at, e.events.length),
-    at: at,
-    type: EventType.back,
-    by: e.holder,
-    note: note.trim(),
-  );
-  return e.copyWith(
-    holder: '',
-    holderProject: '',
-    checkedOutAt: null,
-    events: _prepend(e, ev),
-  );
-}
-
 // ── 목록 보기 ──
 
 /// 목록 걸러 보기.
-enum LedgerView { all, due, out }
+enum LedgerView { all, due }
 
 /// 기한이 급한 순(만료 → 임박 → 정상 → 기한 없음), 같으면 이름순. 폐기한 것은 맨 뒤.
 List<Equipment> sortLedger(List<Equipment> all, DateTime now) {
@@ -499,12 +458,10 @@ List<Equipment> filterLedger(
       case LedgerView.due:
         final s = e.dueState(now);
         if (s != DueState.overdue && s != DueState.soon) continue;
-      case LedgerView.out:
-        if (!e.isOut) continue;
     }
     if (q.isNotEmpty) {
       final hay = _norm(
-        '${e.name} ${e.assetNo} ${e.maker} ${e.model} ${e.serial} ${e.location} ${e.holder} ${e.holderProject} ${e.category.label}',
+        '${e.name} ${e.assetNo} ${e.maker} ${e.model} ${e.serial} ${e.location} ${e.category.label}',
       );
       if (!hay.contains(q)) continue;
     }
@@ -518,13 +475,12 @@ class LedgerSummary {
   final int total; // 폐기 제외
   final int overdue;
   final int soon;
-  final int out;
   final int repair;
-  const LedgerSummary(this.total, this.overdue, this.soon, this.out, this.repair);
+  const LedgerSummary(this.total, this.overdue, this.soon, this.repair);
 }
 
 LedgerSummary summarize(List<Equipment> all, DateTime now) {
-  var total = 0, overdue = 0, soon = 0, out = 0, repair = 0;
+  var total = 0, overdue = 0, soon = 0, repair = 0;
   for (final e in all) {
     if (e.isRetired) continue;
     total++;
@@ -535,10 +491,9 @@ LedgerSummary summarize(List<Equipment> all, DateTime now) {
         soon++;
       default:
     }
-    if (e.isOut) out++;
     if (e.status == EquipStatus.repair) repair++;
   }
-  return LedgerSummary(total, overdue, soon, out, repair);
+  return LedgerSummary(total, overdue, soon, repair);
 }
 
 /// "D-12", "오늘까지", "3일 지남", "" (기한 없음).
@@ -708,7 +663,7 @@ String _q(String s) => '"${s.replaceAll('"', '""').replaceAll('\n', ' ')}"';
 
 /// 엑셀에서 열 수 있는 CSV(맨 앞 BOM).
 String buildLedgerCsv(List<Equipment> all, DateTime now) {
-  final b = StringBuffer('﻿관리번호,장비명,분류,제조사,모델,시리얼,보관 위치,상태,점검 주기(개월),마지막 점검일,다음 점검일,기한 상태,사용자,프로젝트,메모,제원')
+  final b = StringBuffer('﻿관리번호,장비명,분류,제조사,모델,시리얼,보관 위치,상태,점검 주기(개월),마지막 점검일,다음 점검일,기한 상태,메모,제원')
     ..writeln();
   for (final e in sortLedger(all, now)) {
     final st = switch (e.dueState(now)) {
@@ -731,8 +686,6 @@ String buildLedgerCsv(List<Equipment> all, DateTime now) {
         e.lastDone == null ? '' : dateLabel(e.lastDone!),
         e.nextDue == null ? '' : dateLabel(e.nextDue!),
         st,
-        _q(e.holder),
-        _q(e.holderProject),
         _q(e.note),
         _q(specsLine(e.specs)),
       ].join(','),
@@ -759,7 +712,6 @@ String buildEquipmentText(Equipment e, DateTime now) {
   if (e.maker.isNotEmpty || e.model.isNotEmpty) b.write('\n${[e.maker, e.model].where((s) => s.isNotEmpty).join(' ')}');
   if (e.serial.isNotEmpty) b.write('\n시리얼 ${e.serial}');
   if (e.nextDue != null) b.write('\n다음 점검 ${dateLabel(e.nextDue!)} (${dueLabel(e, now)})');
-  if (e.isOut) b.write('\n반출 중: ${e.holder}${e.holderProject.isEmpty ? '' : ' · ${e.holderProject}'}');
   for (final ev in e.events.take(10)) {
     b.write('\n${dateLabel(ev.at)} ${ev.type.label}${ev.result.isEmpty ? '' : ' ${ev.result}'}${ev.by.isEmpty ? '' : ' (${ev.by})'}${ev.certNo.isEmpty ? '' : ' 성적서 ${ev.certNo}'}');
   }

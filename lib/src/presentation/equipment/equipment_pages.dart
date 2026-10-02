@@ -1,11 +1,10 @@
-// 장비 관리 대장 화면: 목록(요약·검색·걸러 보기), 등록·수정, 상세(점검 기한·이력·반출), QR 라벨.
+// 장비 관리 대장 화면: 목록(요약·검색·걸러 보기), 등록·수정, 상세(점검 기한·이력), QR 라벨.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
@@ -268,7 +267,7 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
                     onChanged: (_) => setState(() {}),
                     decoration: const InputDecoration(
                       prefixIcon: Icon(AppIcons.search),
-                      hintText: '이름·관리번호·시리얼·사용자',
+                      hintText: '이름·관리번호·시리얼',
                       filled: true,
                       fillColor: AppColors.surface,
                       isDense: true,
@@ -346,8 +345,6 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
           stat('equip_stat_all', '전체', s.total, AppColors.text, LedgerView.all),
           const SizedBox(width: 8),
           stat('equip_stat_due', '기한 지남·임박', s.overdue + s.soon, s.overdue > 0 ? AppColors.danger : AppColors.caution, LedgerView.due),
-          const SizedBox(width: 8),
-          stat('equip_stat_out', '반출 중', s.out, AppColors.brand, LedgerView.out),
         ],
       ),
     );
@@ -434,20 +431,10 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
                       ].where((v) => v.isNotEmpty).join(' · '),
                       style: const TextStyle(fontSize: 13, color: AppColors.textSub),
                     ),
-                    if (e.isOut || e.status != EquipStatus.ok)
+                    if (e.status != EquipStatus.ok)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
-                        child: Wrap(
-                          spacing: 6,
-                          children: [
-                            if (e.isOut)
-                              _badge(
-                                '${e.holder}${e.holderProject.isEmpty ? '' : ' · ${e.holderProject}'} 반출 중',
-                                AppColors.brand,
-                              ),
-                            if (e.status != EquipStatus.ok) _badge(e.status.label, AppColors.textSub),
-                          ],
-                        ),
+                        child: _badge(e.status.label, AppColors.textSub),
                       ),
                   ],
                 ),
@@ -816,30 +803,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     }
   }
 
-  Future<void> _checkOut() async {
-    final e = _e!;
-    final p = await SharedPreferences.getInstance();
-    final who = p.getString('user_real_name') ?? '';
-    if (!mounted) return;
-    final result = await showModalBottomSheet<Equipment>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (_) => _CheckOutSheet(equipment: e, now: _now, defaultWho: who),
-    );
-    if (result != null) {
-      await _put(result);
-      _toast('반출했습니다');
-    }
-  }
-
-  Future<void> _checkIn() async {
-    final r = checkIn(_e!, at: _now);
-    if (r == null) return;
-    await _put(r);
-    _toast('반납했습니다');
-  }
-
   Future<void> _edit() async {
     await Navigator.push(
       context,
@@ -952,7 +915,6 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       Text(
                         [
                           e.status.label,
-                          if (e.isOut) '${e.holder}${e.holderProject.isEmpty ? '' : ' · ${e.holderProject}'} 반출 중',
                           if (e.lastDone != null) '마지막 점검 ${dateLabel(e.lastDone!)}',
                         ].join(' · '),
                         style: const TextStyle(fontSize: 13, color: AppColors.textSub),
@@ -967,33 +929,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           ),
           const SizedBox(height: 12),
           if (!e.isRetired)
-            Row(
-              children: [
-                Expanded(
-                  child: FilledButton.icon(
-                    key: const Key('equip_inspect'),
-                    onPressed: _inspect,
-                    icon: const Icon(AppIcons.check, size: 18),
-                    label: const Text('점검 기록'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: e.isOut
-                      ? OutlinedButton.icon(
-                          key: const Key('equip_checkin'),
-                          onPressed: _checkIn,
-                          icon: const Icon(AppIcons.undo, size: 18),
-                          label: const Text('반납'),
-                        )
-                      : OutlinedButton.icon(
-                          key: const Key('equip_checkout'),
-                          onPressed: e.status == EquipStatus.ok ? _checkOut : null,
-                          icon: const Icon(AppIcons.send, size: 18),
-                          label: const Text('반출'),
-                        ),
-                ),
-              ],
+            FilledButton.icon(
+              key: const Key('equip_inspect'),
+              onPressed: _inspect,
+              icon: const Icon(AppIcons.check, size: 18),
+              label: const Text('점검 기록'),
             ),
           const SizedBox(height: 16),
           _info('관리번호', e.assetNo),
@@ -1198,72 +1138,6 @@ class _InspectSheetState extends State<_InspectSheet> {
       ),
     );
   }
-}
-
-// ── 반출 창 ──
-
-class _CheckOutSheet extends StatefulWidget {
-  final Equipment equipment;
-  final DateTime now;
-  final String defaultWho;
-  const _CheckOutSheet({required this.equipment, required this.now, required this.defaultWho});
-
-  @override
-  State<_CheckOutSheet> createState() => _CheckOutSheetState();
-}
-
-class _CheckOutSheetState extends State<_CheckOutSheet> {
-  late final _who = TextEditingController(text: widget.defaultWho);
-  final _project = TextEditingController();
-  final _note = TextEditingController();
-  String? _error;
-
-  @override
-  void dispose() {
-    _who.dispose();
-    _project.dispose();
-    _note.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.of(context).viewInsets.bottom),
-    child: SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('반출', style: AppText.title),
-          const SizedBox(height: 8),
-          TextField(key: const Key('checkout_who'), controller: _who, decoration: const InputDecoration(labelText: '가져가는 사람')),
-          TextField(key: const Key('checkout_project'), controller: _project, decoration: const InputDecoration(labelText: '프로젝트·현장 (선택)')),
-          TextField(key: const Key('checkout_note'), controller: _note, decoration: const InputDecoration(labelText: '메모 (선택)')),
-          if (_error != null)
-            Padding(padding: const EdgeInsets.only(top: 8), child: Text(_error!, style: const TextStyle(color: AppColors.danger))),
-          const SizedBox(height: 12),
-          FilledButton(
-            key: const Key('checkout_save'),
-            onPressed: () {
-              final r = checkOut(
-                widget.equipment,
-                at: widget.now,
-                who: _who.text,
-                project: _project.text,
-                note: _note.text,
-              );
-              if (r == null) {
-                setState(() => _error = '가져가는 사람을 적어 주십시오');
-                return;
-              }
-              Navigator.pop(context, r);
-            },
-            child: const Text('반출'),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 // ───────────────────────── QR 라벨 ─────────────────────────
