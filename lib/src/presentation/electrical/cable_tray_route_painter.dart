@@ -140,7 +140,7 @@ class TrayRouteSidePainter extends CustomPainter {
       if (plan) grow(boxFrom!, outside);
     }
     // 위에서 본 모양은 옮기는 거리 치수를 시작점 왼쪽 바깥에 둔다
-    final padL = plan ? 52.0 : 18.0;
+    final padL = 52.0;
     const padR = 18.0, padT = 26.0, padB = 34.0;
     final w = size.width - padL - padR, hh = size.height - padT - padB;
     final s = math.min(
@@ -384,16 +384,9 @@ class TrayRouteSidePainter extends CustomPainter {
       final firstX = route.corners.isNotEmpty
           ? route.corners.first.x
           : pts[1].$1;
-      final lastX = route.corners.isNotEmpty
-          ? route.corners.last.x
-          : pts[pts.length - 2].$1;
       final a0 = m(0, 0).dx, a1 = m(firstX, 0).dx;
-      final b0 = m(lastX, 0).dx, b1 = m(pts.last.$1, 0).dx;
-      final x0 = plan
-          ? a0 - 26
-          : a1 - a0 >= 60
-          ? (a0 + a1) / 2
-          : (b1 - b0 >= 60 ? (b0 + b1) / 2 : a1 - 40);
+      // 시작 직선이 짧거나 옆 모양이면 시작점 왼쪽 바깥에(끝 직선은 장애물 위일 수 있어 안 씀)
+      final x0 = !plan && a1 - a0 >= 60 ? (a0 + a1) / 2 : a0 - 26;
       final y0 = m(0, math.min(0, rise)).dy, y1 = m(0, math.max(0, rise)).dy;
       final dim = Paint()
         ..color = sub
