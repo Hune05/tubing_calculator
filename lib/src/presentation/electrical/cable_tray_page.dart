@@ -98,6 +98,7 @@ class _CableTrayPageState extends State<CableTrayPage>
     with CalcFormParts<CableTrayPage>, RecentCalcHistoryMixin<CableTrayPage>, ElecTabParts<CableTrayPage> {
   static const int _maxRows = 12;
 
+  TrayStandard _std = TrayStandard.kec;
   TrayType _type = TrayType.ladder;
   double _width = 300;
   double _depth = 100;
@@ -126,6 +127,7 @@ class _CableTrayPageState extends State<CableTrayPage>
   // ── 입력값 남기기 ──
 
   String _draft() => jsonEncode({
+    'std': _std.name,
     't': _type.name,
     'w': _width,
     'd': _depth,
@@ -140,9 +142,11 @@ class _CableTrayPageState extends State<CableTrayPage>
       if (raw != null && mounted) {
         final m = jsonDecode(raw) as Map<String, dynamic>;
         final t = TrayType.values.where((x) => x.name == m['t']);
+        final st = TrayStandard.values.where((x) => x.name == m['std']);
         final rows = [for (final r in (m['rows'] as List? ?? const [])) ?_TrayRow.fromJson(r)];
         setState(() {
           if (t.isNotEmpty) _type = t.first;
+          if (st.isNotEmpty) _std = st.first;
           if (m['w'] is num && kTrayWidths.contains((m['w'] as num).toDouble())) _width = (m['w'] as num).toDouble();
           if (m['d'] is num && kTrayDepths.contains((m['d'] as num).toDouble())) _depth = (m['d'] as num).toDouble();
           if (m['m'] is int) _marginPct = m['m'] as int;
@@ -404,7 +408,8 @@ class _CableTrayPageState extends State<CableTrayPage>
 
   /// 카톡으로 보내는 글.
   String _shareText(List<TrayCable> cables, TrayCheck check, TraySizing? sizing) {
-    final b = StringBuffer('[케이블 트레이 점유율] ${trayTypeLabel(_type)} 폭 ${trayNum(_width)} × 깊이 ${trayNum(_depth)}mm');
+    final b = StringBuffer('[케이블 트레이] ${trayTypeLabel(_type)} 폭 ${trayNum(_width)} × 깊이 ${trayNum(_depth)}mm');
+    b.write('\n기준: ${trayStandardLabel(_std)}');
     b.write('\n판정: ${check.ok ? '합격' : '불합격'} (${fmt(check.pct, 0)}%)');
     final best = sizing?.minWidth;
     b.write(best == null ? '\n권장 폭: 표준 폭 안에 없음' : '\n권장 폭: ${trayNum(best)}mm');
@@ -416,7 +421,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       final c = cables[i];
       b.write('\n ${i + 1}. ${c.name} × ${c.count}가닥${c.control ? ' (제어·신호)' : ''}');
     }
-    b.write('\n근거: KEC 232.41(판단기준 제213조의2)');
+    b.write(_std == TrayStandard.kec ? '\n근거: KEC 232.41.1 6~9호' : '\n근거: 옛 전기설비기술기준의 판단기준 제213조의2(참고)');
     return b.toString();
   }
 
@@ -428,10 +433,10 @@ class _CableTrayPageState extends State<CableTrayPage>
     final margin = _marginPct / 100;
     final check = cables.isEmpty
         ? null
-        : checkTray(type: _type, width: _width, depth: _depth, cables: cables, margin: margin);
+        : checkTray(type: _type, width: _width, depth: _depth, cables: cables, margin: margin, standard: _std);
     final sizing = cables.isEmpty
         ? null
-        : sizeTray(type: _type, depth: _depth, cables: cables, margin: margin);
+        : sizeTray(type: _type, depth: _depth, cables: cables, margin: margin, standard: _std);
     String? summary;
     Widget result;
     if (check == null) {
@@ -462,6 +467,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           trayRuleLabel(check.rule),
           check.formula,
           ...check.notes,
+          if (_std == TrayStandard.kec) '이격: 벽면 20mm·트레이 위아래 300mm 이상(좁으면 허용전류 저감). 자세한 것은 근거 보기.',
           if (bad.isNotEmpty) '${bad.join(', ')}번 줄은 숫자가 잘못되어 뺐습니다.',
         ],
       );
@@ -469,8 +475,16 @@ class _CableTrayPageState extends State<CableTrayPage>
 
     final children = <Widget>[
       elecChipGroup(
+        '판정 기준',
+        'KEC 232.41(현행): 트레이 종류·다심·단심을 가리지 않고 케이블 외경 합 ≤ 내측 폭, 한 층입니다. '
+            '옛 판단기준(제213조의2)은 2021년 KEC 전의 점유면적 표·비율 규정으로, 비교용 참고입니다.',
+        [for (final t in TrayStandard.values) calcChip('ct_std_${t.name}', trayStandardLabel(t), _std == t, () => _set(() => _std = t))],
+      ),
+      elecChipGroup(
         '트레이 종류',
-        '사다리형·펀칭형·메시형은 통풍이 되는 표(넓은 한도), 바닥밀폐형은 더 작은 표를 씁니다.',
+        _std == TrayStandard.kec
+            ? 'KEC에서는 종류와 관계없이 같은 규칙입니다(허용전류 보정에만 영향).'
+            : '옛 기준: 사다리형·펀칭형·메시형은 통풍이 되는 표(넓은 한도), 바닥밀폐형은 더 작은 표를 씁니다.',
         [for (final t in TrayType.values) calcChip('ct_type_${t.name}', trayTypeLabel(t), _type == t, () => _set(() => _type = t))],
       ),
       elecChipGroup(
@@ -529,14 +543,21 @@ class _CableTrayPageState extends State<CableTrayPage>
       if (check != null) ..._derating(cables, check),
       const SizedBox(height: 12),
       elecBasis('ct_basis', [
-        'KEC 232.41 케이블트레이공사(옛 판단기준 제213조의2). 케이블 단면적은 완성품 외경으로 π/4 × 외경².',
-        '다심 100mm² 이상만: 외경 합 ≤ 트레이 내측 폭, 한 층으로.',
-        '다심 100mm² 미만만: 단면적 합 ≤ 표(사다리·통풍 150 4,510 / 300 9,030 / 450 13,540 / 600 18,060 / 750 22,580 / 900 27,090mm², 바닥밀폐 3,540 / 7,090 / 10,640 / 14,190 / 17,740 / 21,290mm²).',
-        '다심 섞임: 작은 케이블 단면적 합 ≤ 표 − 30.5(바닥밀폐 25.4) × 100mm² 이상 외경 합.',
-        '제어·신호 다심만(깊이 150mm 이하): 단면적 합 ≤ 트레이 내 단면적의 50%(바닥밀폐 40%).',
-        '단심 500mm² 이상만: 외경 합 ≤ 폭. 100~500mm²만: 단면적 합 ≤ 표(150 4,190 / 300 8,380 / 450 12,580 / 600 16,770 / 750 20,960 / 900 25,160mm²). 섞임: 표 − 28 × 500mm² 이상 외경 합.',
-        '단심 100mm² 미만이 있거나 다심·단심을 함께 넣으면: 모두 한 층, 외경 합 ≤ 폭.',
-        '표 값은 판단기준 해설 자료(jungi.net)에서 옮겼고, 미국 NEC 392.22를 mm로 바꾼 값과 같습니다. 같은 자료의 계산 예 7개로 맞춰 봤습니다.',
+        if (_std == TrayStandard.kec) ...[
+          'KEC 232.41.1 6~9호(수평·수직, 다심·단심): 케이블 외경 합 ≤ 트레이 내측 폭, 한 층으로 시설. 점유면적 표·비율 규정은 없습니다.',
+          ...kKecSpacingNotes,
+          '허용전류 저감계수: KS C IEC 60364-5-52 표 B.52.17(여러 단이면 B.52.20·B.52.21).',
+          '확인: 산업부 공고 2022-809·2023-563, 기후에너지환경부 공고 2025-198 신구조문, cq4l KEC 조문. 2026-01-05 시행본(2025-227)에서 트레이 조문은 바뀌지 않았습니다.',
+        ] else ...[
+          '옛 판단기준 제213조의2(2021년 KEC 전, 참고용). 케이블 단면적은 완성품 외경으로 π/4 × 외경².',
+          '다심 100mm² 이상만: 외경 합 ≤ 내측 폭(바닥밀폐형 90%), 한 층.',
+          '다심 100mm² 미만만: 단면적 합 ≤ 표(사다리·통풍 150 4,510 / 300 9,030 / 450 13,540 / 600 18,060 / 750 22,580 / 900 27,090mm², 바닥밀폐 3,540 / 7,090 / 10,640 / 14,190 / 17,740 / 21,290mm²).',
+          '다심 섞임: 작은 케이블 단면적 합 ≤ 표 − 30.5(바닥밀폐 25.4) × 100mm² 이상 외경 합. 굵은 케이블은 한 층, 위에 얹지 않음.',
+          '제어·신호 다심만(깊이 150mm 이하, 넘으면 150으로): 단면적 합 ≤ 트레이 내 단면적의 50%(바닥밀폐 40%).',
+          '단심 500mm² 이상만: 외경 합 ≤ 폭. 100~500mm²만: 단면적 합 ≤ 표(150 4,190 / 300 8,380 / 450 12,580 / 600 16,770 / 750 20,960 / 900 25,160mm²). 섞임: 표 − 28 × 500mm² 이상 외경 합. 50~100mm²가 있으면 외경 합 ≤ 폭, 한 층.',
+          '다심·단심을 함께 넣으면 다심 규정과 단심 규정을 각각 만족(8호).',
+          '표 값: 판단기준 해설 자료(jungi.net)·eom 조문·KRCCS 시방서가 같고, 미국 NEC 392.22를 mm로 바꾼 값과 같습니다. 해설 자료 계산 예 7개로 맞춰 봤습니다. 표에 없는 폭은 비례로 계산했습니다(규정 문구 아님).',
+        ],
         cableOdSource,
       ]),
     ];

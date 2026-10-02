@@ -1,11 +1,13 @@
 // 케이블 트레이 점유율·폭 선정(10-03). 화면 없이 계산만 한다(전부 시험으로 확인).
 //
-// 근거: KEC 232.41 케이블트레이공사(옛 전기설비기술기준의 판단기준 제213조의2). 표 값은
-// 판단기준 해설 자료(jungi.net "다심케이블을 동일케이블트레이에 시설하는 경우 규격선정")에서
-// 옮겼고, 미국 NEC 392.22를 mm로 바꾼 값과 같다(예: 사다리형 다심 150mm 폭 4,510mm² ≈ 7in²).
-// 같은 자료의 계산 예 7개를 시험(cable_tray_test.dart)으로 그대로 확인한다.
+// 기본(현행): KEC 232.41 케이블트레이공사. 트레이 종류·다심·단심·수평·수직을 가리지 않고
+// "케이블 외경 합 ≤ 트레이 내측 폭, 한 층"(232.41.1 6~9호). 점유면적 표·비율 규정은 없다.
+// 정부 공고문(산업부 2022-809·2023-563, 기후에너지환경부 2025-198) 신구조문과 cq4l 조문으로 확인.
 //
-// 케이블 단면적은 완성품 외경으로 잰다: π/4 × 외경².
+// 참고(옛 기준): 전기설비기술기준의 판단기준 제213조의2. 표 값은 판단기준 해설 자료(jungi.net)·
+// eom 조문·KRCCS 시방서가 같고, 미국 NEC 392.22를 mm로 바꾼 값과 같다. 해설 자료의 계산 예
+// 7개를 시험(cable_tray_test.dart)으로 확인한다. 케이블 단면적은 완성품 외경으로 π/4 × 외경².
+// 근거와 출처 목록은 docs/전기_케이블트레이_근거.md.
 library;
 
 import 'dart:math' as math;
@@ -13,8 +15,16 @@ import 'dart:math' as math;
 import 'conduit_tables.dart';
 import 'elec_tables.dart' show GroupLayout, groupFactor;
 
-/// 트레이 종류. 펀칭형·메시형은 통풍이 되는 쪽(사다리형 표)을 쓴다.
+/// 트레이 종류. 옛 기준에서 펀칭형·메시형은 통풍이 되는 쪽(사다리형 표)을 쓴다.
 enum TrayType { ladder, punched, mesh, solid }
+
+/// 판정 기준.
+enum TrayStandard { kec, old213 }
+
+String trayStandardLabel(TrayStandard s) => switch (s) {
+  TrayStandard.kec => 'KEC 232.41 (현행)',
+  TrayStandard.old213 => '옛 판단기준 (참고)',
+};
 
 String trayTypeLabel(TrayType t) => switch (t) {
   TrayType.ladder => '사다리형',
@@ -29,11 +39,12 @@ bool isSolidTray(TrayType t) => t == TrayType.solid;
 /// 표에 있는 폭(mm). 그 밖의 폭은 폭에 비례로 계산한다(표 값 ÷ 폭이 일정하다).
 const List<double> kTrayTableWidths = [150, 300, 450, 600, 750, 900];
 
-/// 고를 수 있는 표준 폭(mm).
-const List<double> kTrayWidths = [100, 150, 200, 300, 400, 450, 500, 600, 750, 900, 1000];
+/// 고를 수 있는 폭(mm): KS C 8464 표(사다리형 200~1000, 펀칭·바닥밀폐형 150~600)와
+/// 제조사 카탈로그(150·450·750 등)를 합친 것.
+const List<double> kTrayWidths = [150, 200, 300, 400, 450, 500, 600, 700, 750, 800, 900, 1000];
 
-/// 표준 내측 깊이(측판 높이, mm).
-const List<double> kTrayDepths = [75, 100, 150];
+/// 내측 깊이(측판 높이, mm): KS C 8464 높이 60·75·100·150.
+const List<double> kTrayDepths = [60, 75, 100, 150];
 
 // 표 1: 다심, 사다리형·통풍형, 100mm² 미만만 → 최대허용 점유면적(mm²).
 const List<double> _multiOpen = [4510, 9030, 13540, 18060, 22580, 27090];
@@ -50,9 +61,11 @@ const double kSingleOpenSd = 28.0;
 /// 다심 케이블을 "굵은 것"으로 보는 단면적(mm², 이상).
 const double kMultiBig = 100;
 
-/// 단심 케이블: 이 이상은 외경 합으로, [kSingleMid] 이상 이 미만은 면적 표로.
+/// 단심 케이블: 이 이상은 외경 합으로, [kSingleMid] 이상 이 미만은 면적 표로,
+/// [kSingleSmall]~[kSingleMid]는 외경 합·한 층. 50mm² 미만은 옛 기준에 규정이 없다.
 const double kSingleBig = 500;
 const double kSingleMid = 100;
+const double kSingleSmall = 50;
 
 /// 제어·신호 다심만 있을 때 트레이 내 단면적에 대한 한도(깊이 150mm 이하).
 const double kControlOpenPct = 50;
@@ -123,18 +136,20 @@ class TrayCable {
 
 /// 어떤 규칙으로 봤는지.
 enum TrayRule {
-  multiBigDia, // 다심 100 이상만: 외경 합 ≤ 폭, 한 층
-  multiSmallArea, // 다심 100 미만만: 단면적 합 ≤ 표
-  multiMixed, // 다심 섞임: 작은 것 단면적 합 ≤ 표 − 계수 × 굵은 것 외경 합
-  controlPct, // 제어·신호 다심만: 단면적 합 ≤ 내 단면적 × 50%(40%)
-  singleBigDia, // 단심 500 이상만: 외경 합 ≤ 폭
-  singleMidArea, // 단심 100~500만: 단면적 합 ≤ 표 5
-  singleMixed, // 단심 500 이상과 100~500 섞임
-  singleLayerDia, // 단심 100 미만이 있거나, 다심·단심이 함께: 모두 외경 합 ≤ 폭, 한 층
+  kecDia, // KEC: 모든 케이블 외경 합 ≤ 내측 폭, 한 층
+  multiBigDia, // 옛 기준 다심 100 이상만: 외경 합 ≤ 폭(바닥밀폐 90%), 한 층
+  multiSmallArea, // 옛 기준 다심 100 미만만: 단면적 합 ≤ 표
+  multiMixed, // 옛 기준 다심 섞임: 작은 것 단면적 합 ≤ 표 − 계수 × 굵은 것 외경 합
+  controlPct, // 옛 기준 제어·신호 다심만: 단면적 합 ≤ 내 단면적 × 50%(40%)
+  singleBigDia, // 옛 기준 단심 500 이상만: 외경 합 ≤ 폭
+  singleMidArea, // 옛 기준 단심 100~500만: 단면적 합 ≤ 표 5
+  singleMixed, // 옛 기준 단심 500 이상과 100~500 섞임
+  singleLayerDia, // 옛 기준 단심 50~100이 있을 때(또는 외경 합 규칙끼리 함께): 외경 합 ≤ 폭, 한 층
 }
 
 String trayRuleLabel(TrayRule r) => switch (r) {
-  TrayRule.multiBigDia => '다심 100mm² 이상: 외경 합 ≤ 트레이 폭, 한 층',
+  TrayRule.kecDia => 'KEC 232.41: 케이블 외경 합 ≤ 트레이 내측 폭, 한 층',
+  TrayRule.multiBigDia => '다심 100mm² 이상: 외경 합 ≤ 트레이 폭(바닥밀폐 90%), 한 층',
   TrayRule.multiSmallArea => '다심 100mm² 미만: 단면적 합 ≤ 표의 최대 점유면적',
   TrayRule.multiMixed => '다심 섞임: 작은 케이블 단면적 합 ≤ 표 − 계수 × 굵은 케이블 외경 합',
   TrayRule.controlPct => '제어·신호 다심만: 단면적 합 ≤ 트레이 내 단면적의 일정 %',
@@ -174,6 +189,16 @@ class TrayCheck {
 
   /// 한도에 대한 사용률(%).
   double get pct => limit <= 0 ? double.infinity : used / limit * 100;
+
+  TrayCheck withNotes(List<String> more) => TrayCheck(
+    rule: rule,
+    used: used,
+    limit: limit,
+    byDia: byDia,
+    singleLayer: singleLayer,
+    formula: formula,
+    notes: [...notes, ...more],
+  );
 }
 
 /// 숫자 글: 100 이상은 반올림해 천 단위 쉼표(9,030), 그 아래는 소수 한 자리(뒤 0은 뗌).
@@ -193,6 +218,13 @@ String trayNum(double v) {
 
 String _n(double v) => trayNum(v);
 
+/// KEC 232.41.1 이격 안내(판정에는 넣지 않는다).
+const List<String> kKecSpacingNotes = [
+  '트레이와 벽면은 20mm 이상, 트레이끼리 위아래 간격은 300mm 이상 띄웁니다. 더 좁으면 허용전류 저감계수를 적용합니다(232.41.1 6·7호).',
+  '수직 트레이는 벽면과 가장 굵은 케이블 외경의 0.3배 이상 띄웁니다(8·9호).',
+  '단심을 삼각(트레포일)으로 묶어 깔면 묶음 사이를 단심 외경의 2배 이상 띄웁니다(7·9호).',
+];
+
 /// 트레이 하나를 판정한다. [margin]은 예비 여유(0.2 = 20%)로, 쓴 양에 (1 + margin)을 곱한다.
 /// 케이블이 없으면 null.
 TrayCheck? checkTray({
@@ -201,90 +233,138 @@ TrayCheck? checkTray({
   required double depth,
   required List<TrayCable> cables,
   double margin = 0,
+  TrayStandard standard = TrayStandard.kec,
 }) {
   final list = [for (final c in cables) if (c.count > 0) c];
   if (list.isEmpty) return null;
   final k = 1 + margin;
-  final notes = <String>[];
-  if (margin > 0) notes.add('예비 여유 ${(margin * 100).round()}%를 더해 판정했습니다.');
-  if (!kTrayTableWidths.contains(width)) {
-    notes.add('${_n(width)}mm는 표에 없는 폭이라 표 값을 폭에 비례해 계산했습니다.');
+  final common = <String>[];
+  if (margin > 0) common.add('예비 여유 ${(margin * 100).round()}%를 더해 판정했습니다.');
+  final maxOd = list.map((c) => c.od).reduce(math.max);
+  if (maxOd > depth) {
+    common.add('가장 굵은 케이블(외경 ${_n(maxOd)}mm)이 측판 높이 ${_n(depth)}mm보다 높습니다. 깊은 트레이를 검토하십시오.');
   }
-  final solid = isSolidTray(type);
-  final multi = [for (final c in list) if (c.isMulti) c];
-  final single = [for (final c in list) if (!c.isMulti) c];
-
-  TrayCheck dia(TrayRule rule, List<TrayCable> cs, String what) {
-    final sd = cs.fold(0.0, (a, c) => a + c.diaSum);
+  if (standard == TrayStandard.kec) {
+    final sd = list.fold(0.0, (a, c) => a + c.diaSum);
     return TrayCheck(
-      rule: rule,
+      rule: TrayRule.kecDia,
       used: sd * k,
       limit: width,
       byDia: true,
       singleLayer: true,
-      formula: '$what 외경 합 ${_n(sd)}mm${margin > 0 ? ' × ${k.toStringAsFixed(2)}' : ''} ≤ 폭 ${_n(width)}mm',
-      notes: [...notes, '한 층으로 나란히 깔아야 합니다(겹쳐 쌓지 않음).'],
+      formula: '외경 합 ${_n(sd)}mm${margin > 0 ? ' × ${k.toStringAsFixed(2)}' : ''} ≤ 내측 폭 ${_n(width)}mm',
+      notes: [...common, '한 층으로 나란히 깔아야 합니다(겹쳐 쌓지 않음). 트레이 종류·다심·단심·수평·수직 모두 같은 규칙입니다.'],
     );
   }
-
-  // 다심과 단심이 함께 있으면 모두 한 층으로 본다(판단기준 해설 자료의 함께 넣는 예와 같은 방법).
-  if (multi.isNotEmpty && single.isNotEmpty) {
-    return dia(TrayRule.singleLayerDia, list, '다심·단심 모두');
+  if (!kTrayTableWidths.contains(width)) {
+    common.add('${_n(width)}mm는 옛 기준 표에 없는 폭이라 표 값을 폭에 비례해 계산했습니다.');
   }
+  final multi = [for (final c in list) if (c.isMulti) c];
+  final single = [for (final c in list) if (!c.isMulti) c];
+  final m = multi.isEmpty ? null : _oldMulti(type, width, depth, multi, k);
+  final s = single.isEmpty ? null : _oldSingle(type, width, single, k);
+  if (m != null && s != null) {
+    // 판단기준 8호: 다심 규정과 단심 규정을 각각 만족해야 한다. 둘 다 외경 합 규칙이면 같은
+    // 바닥을 나눠 쓰므로 외경을 합한다(해설 자료의 함께 넣는 예와 같은 방법).
+    if (m.byDia && s.byDia && m.limit == width && s.limit == width) {
+      final sd = list.fold(0.0, (a, c) => a + c.diaSum);
+      return TrayCheck(
+        rule: TrayRule.singleLayerDia,
+        used: sd * k,
+        limit: width,
+        byDia: true,
+        singleLayer: true,
+        formula: '다심·단심 모두 외경 합 ${_n(sd)}mm${margin > 0 ? ' × ${k.toStringAsFixed(2)}' : ''} ≤ 폭 ${_n(width)}mm',
+        notes: [...common, '한 층으로 나란히 깔아야 합니다(겹쳐 쌓지 않음).'],
+      );
+    }
+    final worse = m.pct >= s.pct ? m : s;
+    final other = identical(worse, m) ? s : m;
+    return worse.withNotes([
+      ...common,
+      '다심과 단심을 함께 넣으면 다심 규정과 단심 규정을 각각 만족해야 합니다(판단기준 8호). 더 빠듯한 쪽을 보였고, 다른 쪽은 ${_n(other.pct)}%(${trayRuleLabel(other.rule)})입니다.',
+    ]);
+  }
+  return (m ?? s)!.withNotes(common);
+}
 
-  if (multi.isNotEmpty) {
-    // 제어·신호 다심만: 트레이 내 단면적의 50%(바닥밀폐 40%).
-    if (multi.every((c) => c.control) && depth <= kControlDepthMax) {
-      final pct = solid ? kControlSolidPct : kControlOpenPct;
-      final inner = width * depth;
-      final a = multi.fold(0.0, (s, c) => s + c.area);
-      return TrayCheck(
-        rule: TrayRule.controlPct,
-        used: a * k,
-        limit: inner * pct / 100,
-        byDia: false,
-        singleLayer: false,
-        formula: '단면적 합 ${_n(a)}mm²${margin > 0 ? ' × ${k.toStringAsFixed(2)}' : ''} ≤ 내 단면적 ${_n(width)}×${_n(depth)}mm²의 ${pct.round()}%',
-        notes: notes,
-      );
-    }
-    final big = [for (final c in multi) if (c.size >= kMultiBig) c];
-    final small = [for (final c in multi) if (c.size < kMultiBig) c];
-    if (small.isEmpty) return dia(TrayRule.multiBigDia, big, '다심 100mm² 이상');
-    final table = _table(solid ? _multiSolid : _multiOpen, width);
-    final a = small.fold(0.0, (s, c) => s + c.area);
-    if (big.isEmpty) {
-      return TrayCheck(
-        rule: TrayRule.multiSmallArea,
-        used: a * k,
-        limit: table,
-        byDia: false,
-        singleLayer: false,
-        formula: '단면적 합 ${_n(a)}mm²${margin > 0 ? ' × ${k.toStringAsFixed(2)}' : ''} ≤ ${trayTypeLabel(type)} ${_n(width)}mm 표 ${_n(table)}mm²',
-        notes: notes,
-      );
-    }
-    final coef = solid ? kMultiSolidSd : kMultiOpenSd;
-    final sd = big.fold(0.0, (s, c) => s + c.diaSum);
+TrayCheck _dia(TrayRule rule, List<TrayCable> cs, String what, double limit, double k, {String limitText = '폭'}) {
+  final sd = cs.fold(0.0, (a, c) => a + c.diaSum);
+  return TrayCheck(
+    rule: rule,
+    used: sd * k,
+    limit: limit,
+    byDia: true,
+    singleLayer: true,
+    formula: '$what 외경 합 ${_n(sd)}mm${k > 1 ? ' × ${k.toStringAsFixed(2)}' : ''} ≤ $limitText ${_n(limit)}mm',
+    notes: const ['한 층으로 나란히 깔아야 합니다(겹쳐 쌓지 않음).'],
+  );
+}
+
+String _x(double k) => k > 1 ? ' × ${k.toStringAsFixed(2)}' : '';
+
+/// 옛 판단기준 다심 규정.
+TrayCheck _oldMulti(TrayType type, double width, double depth, List<TrayCable> multi, double k) {
+  final solid = isSolidTray(type);
+  // 제어·신호 다심만: 트레이 내 단면적의 50%(바닥밀폐 40%). 깊이는 150mm까지만 센다.
+  if (multi.every((c) => c.control)) {
+    final pct = solid ? kControlSolidPct : kControlOpenPct;
+    final d = math.min(depth, kControlDepthMax);
+    final a = multi.fold(0.0, (s, c) => s + c.area);
     return TrayCheck(
-      rule: TrayRule.multiMixed,
-      used: (a + coef * sd) * k,
+      rule: TrayRule.controlPct,
+      used: a * k,
+      limit: width * d * pct / 100,
+      byDia: false,
+      singleLayer: false,
+      formula: '단면적 합 ${_n(a)}mm²${_x(k)} ≤ 내 단면적 ${_n(width)}×${_n(d)}mm²의 ${pct.round()}%',
+      notes: [if (depth > kControlDepthMax) '깊이가 150mm를 넘어 150mm로 계산했습니다.'],
+    );
+  }
+  final big = [for (final c in multi) if (c.size >= kMultiBig) c];
+  final small = [for (final c in multi) if (c.size < kMultiBig) c];
+  if (small.isEmpty) {
+    return solid
+        ? _dia(TrayRule.multiBigDia, big, '다심 100mm² 이상', width * 0.9, k, limitText: '폭의 90%')
+        : _dia(TrayRule.multiBigDia, big, '다심 100mm² 이상', width, k);
+  }
+  final table = _table(solid ? _multiSolid : _multiOpen, width);
+  final a = small.fold(0.0, (s, c) => s + c.area);
+  if (big.isEmpty) {
+    return TrayCheck(
+      rule: TrayRule.multiSmallArea,
+      used: a * k,
       limit: table,
       byDia: false,
       singleLayer: false,
-      formula: '100mm² 미만 단면적 합 ${_n(a)}mm² + ${coef.toStringAsFixed(1)} × 100mm² 이상 외경 합 ${_n(sd)}mm${margin > 0 ? ' (× ${k.toStringAsFixed(2)})' : ''} ≤ 표 ${_n(table)}mm²',
-      notes: [...notes, '100mm² 이상 케이블은 한 층으로 깝니다.'],
+      formula: '단면적 합 ${_n(a)}mm²${_x(k)} ≤ ${trayTypeLabel(type)} ${_n(width)}mm 표 ${_n(table)}mm²',
     );
   }
+  final coef = solid ? kMultiSolidSd : kMultiOpenSd;
+  final sd = big.fold(0.0, (s, c) => s + c.diaSum);
+  return TrayCheck(
+    rule: TrayRule.multiMixed,
+    used: (a + coef * sd) * k,
+    limit: table,
+    byDia: false,
+    singleLayer: false,
+    formula: '100mm² 미만 단면적 합 ${_n(a)}mm² + ${coef.toStringAsFixed(1)} × 100mm² 이상 외경 합 ${_n(sd)}mm${k > 1 ? ' (${_x(k).trim()})' : ''} ≤ 표 ${_n(table)}mm²',
+    notes: const ['100mm² 이상 케이블은 한 층으로 깔고 그 위에 다른 케이블을 얹지 않습니다.'],
+  );
+}
 
-  // 단심만.
+/// 옛 판단기준 단심 규정.
+TrayCheck _oldSingle(TrayType type, double width, List<TrayCable> single, double k) {
   if (single.any((c) => c.size < kSingleMid)) {
-    return dia(TrayRule.singleLayerDia, single, '단심 모두');
+    final r = _dia(TrayRule.singleLayerDia, single, '단심 모두', width, k);
+    return single.any((c) => c.size < kSingleSmall)
+        ? r.withNotes(['50mm² 미만 단심은 옛 기준에 규정이 없어 같은 방법(외경 합, 한 층)으로 봤습니다.'])
+        : r;
   }
   final big = [for (final c in single) if (c.size >= kSingleBig) c];
   final mid = [for (final c in single) if (c.size < kSingleBig) c];
-  if (mid.isEmpty) return dia(TrayRule.singleBigDia, big, '단심 500mm² 이상');
-  if (solid) notes.add('단심 표는 사다리형·통풍형 기준입니다. 바닥밀폐형도 같은 표로 봤습니다.');
+  if (mid.isEmpty) return _dia(TrayRule.singleBigDia, big, '단심 500mm² 이상', width, k);
+  final notes = [if (isSolidTray(type)) '단심 표는 사다리형·통풍형 기준입니다. 바닥밀폐형도 같은 표로 봤습니다.'];
   final table = _table(_singleOpen, width);
   final a = mid.fold(0.0, (s, c) => s + c.area);
   if (big.isEmpty) {
@@ -294,7 +374,7 @@ TrayCheck? checkTray({
       limit: table,
       byDia: false,
       singleLayer: false,
-      formula: '단면적 합 ${_n(a)}mm²${margin > 0 ? ' × ${k.toStringAsFixed(2)}' : ''} ≤ ${_n(width)}mm 표 ${_n(table)}mm²',
+      formula: '단면적 합 ${_n(a)}mm²${_x(k)} ≤ ${_n(width)}mm 표 ${_n(table)}mm²',
       notes: notes,
     );
   }
@@ -305,7 +385,7 @@ TrayCheck? checkTray({
     limit: table,
     byDia: false,
     singleLayer: false,
-    formula: '100~500mm² 단면적 합 ${_n(a)}mm² + 28 × 500mm² 이상 외경 합 ${_n(sd)}mm${margin > 0 ? ' (× ${k.toStringAsFixed(2)})' : ''} ≤ 표 ${_n(table)}mm²',
+    formula: '100~500mm² 단면적 합 ${_n(a)}mm² + 28 × 500mm² 이상 외경 합 ${_n(sd)}mm${k > 1 ? ' (${_x(k).trim()})' : ''} ≤ 표 ${_n(table)}mm²',
     notes: [...notes, '500mm² 이상 케이블은 한 층으로 깝니다.'],
   );
 }
@@ -358,11 +438,12 @@ TraySizing? sizeTray({
   required List<TrayCable> cables,
   double margin = 0,
   List<double> widths = kTrayWidths,
+  TrayStandard standard = TrayStandard.kec,
 }) {
   final rows = <(double, TrayCheck)>[];
   double? best;
   for (final w in [...widths]..sort()) {
-    final c = checkTray(type: type, width: w, depth: depth, cables: cables, margin: margin);
+    final c = checkTray(type: type, width: w, depth: depth, cables: cables, margin: margin, standard: standard);
     if (c == null) return null;
     rows.add((w, c));
     if (best == null && c.ok) best = w;
