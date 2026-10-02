@@ -49,8 +49,11 @@ void main() {
 
   testWidgets('피치가 구멍 지름 이하이면 겹침 알림, 피치 칩은 칸을 채운다', (tester) async {
     await _open(tester);
+    await _type(tester, 'gb_hole', '14');
     await _type(tester, 'gb_pitch', '8');
+    // 피치 8은 최소 12로 올려 계산하므로 구멍 14와 겹친다
     expect(find.textContaining('서로 겹칩니다'), findsOneWidget);
+    expect(find.textContaining('최소 간격 12mm보다 작아 12mm로 계산'), findsOneWidget);
     await tester.tap(find.byKey(const Key('gb_pp_4445')));
     await tester.pumpAndSettle();
     expect(find.textContaining('서로 겹칩니다'), findsNothing);
@@ -206,18 +209,59 @@ void main() {
     await tester.pumpAndSettle();
     await _type(tester, 'gb_lugn', '3');
     expect(find.text('러그 3개 · 볼트 6세트'), findsOneWidget);
-    expect(find.textContaining('러그 1: 1번 · 2번'), findsOneWidget);
-    expect(find.textContaining('러그 3: 5번 · 6번'), findsOneWidget);
+    expect(find.textContaining('러그 1: 3번 · 4번'), findsOneWidget);
+    expect(find.textContaining('러그 3: 7번 · 8번'), findsOneWidget);
     expect(find.textContaining('볼트 3/8"(9.5mm) 또는 M10 6개'), findsWidgets);
     expect(find.byKey(const Key('gb_lug_notes')), findsOneWidget);
     await tester.tap(find.byKey(const Key('gb_share')));
     await tester.pumpAndSettle();
     expect(sent, contains('접지 러그 2구멍 3개:'));
-    expect(sent, contains('러그 2: 3번 · 4번'));
+    expect(sent, contains('러그 2: 5번 · 6번'));
     await tester.tap(
       find.byKey(const Key('gb_lsp_1905')),
     ); // 3/4" = 19.05, 피치 25.4와 안 맞음
     await tester.pumpAndSettle();
     expect(find.textContaining('정수배가 아닙니다'), findsOneWidget);
+  });
+
+  testWidgets('접지바 취부: 모자 챙 구멍으로 판넬 구멍 자리와 볼트 세트, 판넬 두께', (tester) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t, height: 12000);
+    expect(find.byKey(const Key('gb_mount_result')), findsNothing);
+    await _type(tester, 'gb_n', '3');
+    await tester.tap(find.byKey(const Key('gb_tab_4')));
+    await tester.pumpAndSettle();
+    await _type(tester, 'gb_hatf', '50');
+    await tester.tap(find.byKey(const Key('gb_mc_1')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gb_mount_result')), findsOneWidget);
+    expect(find.text('취부 구멍 2개 · 볼트 세트 2'), findsOneWidget);
+    expect(find.textContaining('가로 간격 186.8mm'), findsOneWidget);
+    expect(find.textContaining('그립) 9mm'), findsOneWidget); // 부스바 6 + 판넬 3
+    expect(find.byKey(const Key('gb_mount_notes')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('gb_share')));
+    await tester.pumpAndSettle();
+    expect(sent, contains('판넬 취부 구멍(왼쪽 구멍 0 기준): 왼쪽 1 가로 0'));
+  });
+
+  testWidgets('러그·판넬 칸 값이 저장 순서가 어긋나지 않고 다시 열면 그대로', (tester) async {
+    await _open(tester, height: 12000);
+    await tester.tap(find.byKey(const Key('gb_tab_4')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('gb_mc_1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('gb_lug_1')));
+    await tester.pumpAndSettle();
+    await _type(tester, 'gb_lugskip', '1');
+    await _type(tester, 'gb_lugpad', '7');
+    await _type(tester, 'gb_panelt', '4');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    await _open(tester, height: 12000);
+    String text(String k) =>
+        tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+    expect(text('gb_lugskip'), '1');
+    expect(text('gb_lugpad'), '7');
+    expect(text('gb_panelt'), '4');
   });
 }

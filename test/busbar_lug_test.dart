@@ -93,4 +93,66 @@ void main() {
     expect(lugBoltFor(7.9), '1/4"(6.35mm)');
     expect(lugBoltFor(10.2), isNull);
   });
+
+  test('가운데 정렬: 구멍 10개에 2구멍 러그 3개(6구멍)는 3~8번, 러그 묶음이 줄 가운데', () {
+    final p = lugPlan(
+      row: _row(),
+      pitch: 25.4,
+      lugHoles: 2,
+      spacing: 25.4,
+      count: 3,
+      centered: true,
+    );
+    expect(p.lugs.first.holes.first.label, '3번');
+    expect(p.lugs.last.holes.last.label, '8번');
+    // 구멍 줄 가운데 = 묶음 가운데
+    final row = _row();
+    final mid = (row.first.x + row.last.x) / 2;
+    final gm = (p.lugs.first.holes.first.x + p.lugs.last.holes.last.x) / 2;
+    expect(gm, closeTo(mid, 1e-9));
+  });
+
+  test('가운데 정렬: 1구멍 러그 2개(구멍 10개)는 5·6번, 구멍이 홀수 개면 정가운데', () {
+    final a = lugPlan(
+      row: _row(),
+      pitch: 25.4,
+      lugHoles: 1,
+      spacing: 0,
+      count: 2,
+      centered: true,
+    );
+    expect(a.lugs.map((l) => l.holes.single.label), ['5번', '6번']);
+    final b = lugPlan(
+      row: _row(n: 9),
+      pitch: 25.4,
+      lugHoles: 1,
+      spacing: 0,
+      count: 1,
+      centered: true,
+    );
+    expect(b.lugs.single.holes.single.label, '5번');
+  });
+
+  test('판넬 취부 자리: 왼쪽 구멍을 0으로 한 가로 거리 = 챙 안쪽 + 몸체 폭 + 챙 안쪽', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 50,
+      tabHoleCount: 1,
+      tabHoleDia: 11.1,
+      tabHolePitch: 25.4,
+    );
+    final pts = panelPattern(p, flangeLeft: 50, flangeRight: 50);
+    expect(pts.length, 2);
+    expect(pts.first.x, 0);
+    // 구멍은 다리 바깥면에서 50 − 19 = 31, 몸체 바깥 폭 100.8 + 24 = 124.8 → 31 + 124.8 + 31
+    expect(pts.last.x, closeTo(31 + 124.8 + 31, 1e-9));
+    expect(pts.first.y, 25);
+  });
 }

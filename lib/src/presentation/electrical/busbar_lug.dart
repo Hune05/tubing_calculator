@@ -80,6 +80,7 @@ LugPlan lugPlan({
   int skip = 0,
   double lugPad = 0,
   double barThick = 0,
+  bool centered = false,
 }) {
   final problems = <String>[];
   final lugs = <LugPlacement>[];
@@ -99,6 +100,20 @@ LugPlan lugPlan({
   if (count < 1) problems.add('러그 개수를 1개 이상으로 넣으십시오.');
   if (problems.isEmpty) {
     var at = (start < 1 ? 1 : start) - 1;
+    if (centered && row.isNotEmpty) {
+      // 러그 묶음이 덮는 구멍 수 H를 구멍 줄 가운데에 놓는다(홀수 차이는 가운데에 가까운 쪽).
+      final span = lugHoles == 2 ? step + 1 : 1;
+      final covered = count * span + (count - 1) * skip;
+      final lo = ((row.length - covered) / 2).floor().clamp(0, row.length);
+      final mid = (row.first.x + row.last.x) / 2;
+      double off(int a) {
+        if (a < 0 || a + covered > row.length) return double.infinity;
+        return ((row[a].x + row[a + covered - 1].x) / 2 - mid).abs();
+      }
+
+      at = off(lo) <= off(lo + 1) ? lo : lo + 1;
+      if (at + covered > row.length) at = lo;
+    }
     for (var i = 0; i < count; i++) {
       final last = at + (lugHoles == 2 ? step : 0);
       if (last >= row.length) {
@@ -128,4 +143,36 @@ String _f(double v) {
   var s = v.toStringAsFixed(1);
   if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
   return s;
+}
+
+/// 챙 구멍으로 접지바를 판넬에 취부할 때 판넬에 뚫을 자리 하나.
+class PanelHole {
+  final GroundHole hole;
+
+  /// 판넬에서 가장 왼쪽 구멍을 0으로 한 가로 거리, 막대 A쪽 가장자리에서 잰 세로 거리(mm).
+  final double x, y;
+  const PanelHole(this.hole, this.x, this.y);
+}
+
+/// 모자 모양으로 꺾은 접지바를 판넬에 올렸을 때 챙 구멍 자리(판넬 구멍 뚫는 위치).
+/// 챙 길이는 다리 바깥면에서 챙 끝까지(바깥 치수). 모자가 아니거나 챙 구멍이 없으면 빈 목록.
+List<PanelHole> panelPattern(
+  GroundBarPlan p, {
+  required double flangeLeft,
+  required double flangeRight,
+}) {
+  if (!p.hat || p.tabHoleList.isEmpty) return const [];
+  final raw = <(GroundHole, double)>[];
+  for (final h in p.tabHoleList) {
+    final left = h.label.startsWith('왼쪽');
+    // 왼쪽 다리 바깥면을 0으로, 오른쪽은 몸체 바깥 폭만큼 더 간 자리
+    final x = left
+        ? -(flangeLeft - h.x)
+        : p.hatWidth + (flangeRight - (p.length - h.x));
+    raw.add((h, x));
+  }
+  final min = raw.map((e) => e.$2).reduce((a, b) => a < b ? a : b);
+  final out = [for (final (h, x) in raw) PanelHole(h, x - min, h.y)];
+  out.sort((a, b) => a.x != b.x ? a.x.compareTo(b.x) : a.y.compareTo(b.y));
+  return out;
 }

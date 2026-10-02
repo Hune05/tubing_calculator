@@ -29,6 +29,9 @@ const List<double> kGroundHoleDias = [7.9, 11.1];
 /// 구멍 피치 칩(mm). 5/8"(통신 5/16" 구멍 줄), 3/4"·1"(NEMA 2구멍 러그), 1-3/4"(NEMA 러그 패드).
 const List<double> kGroundPitches = [15.875, 19.05, 25.4, 44.45];
 
+/// 구멍 사이 최소 간격(mm, 구멍 중심 사이): 구멍 피치·줄 간격이 이보다 작으면 이 값으로 계산한다.
+const double kGroundMinSpacing = 12;
+
 /// 한 줄에 가장 많이 뚫는 구멍 수(화면·그림이 감당하는 한도).
 const int kGroundMaxHoles = 60;
 
@@ -106,6 +109,12 @@ class GroundBarPlan {
   final bool hat;
   final double hatWidth;
 
+  /// 실제로 계산에 쓴 구멍 피치(최소 간격으로 올린 뒤 값)와 탭·챙 구멍 피치.
+  final double pitchUsed, tabPitchUsed;
+
+  /// 입력을 바꿔 계산했다는 알림(문제는 아님).
+  final List<String> notes;
+
   /// 만들 수 없는 이유들(비어 있으면 가능).
   final List<String> problems;
 
@@ -140,6 +149,9 @@ class GroundBarPlan {
     required this.flatTabR,
     required this.hat,
     required this.hatWidth,
+    required this.pitchUsed,
+    required this.tabPitchUsed,
+    required this.notes,
     required this.problems,
   });
 }
@@ -186,6 +198,22 @@ GroundBarPlan groundBar({
   int tabSides = 3,
   Map<String, double> overrides = const {},
 }) {
+  final tabName = hat ? '챙' : '탭';
+  final notes = <String>[];
+  double minUp(double v, String name) {
+    if (v <= 0 || v >= kGroundMinSpacing) return v;
+    notes.add(
+      '$name ${_f(v)}mm는 최소 간격 ${_f(kGroundMinSpacing)}mm보다 작아 ${_f(kGroundMinSpacing)}mm로 계산했습니다.',
+    );
+    return kGroundMinSpacing;
+  }
+
+  pitch = minUp(pitch, '구멍 피치');
+  if (rows == 2) rowGap = minUp(rowGap, '줄 간격');
+  if (tabHoleCount > 1) tabHolePitch = minUp(tabHolePitch, '$tabName 구멍 피치');
+  if (tabRows == 2 && tabHoleCount > 0) {
+    tabRowGap = minUp(tabRowGap, '$tabName 구멍 줄 간격');
+  }
   final problems = <String>[];
   void warn(String s) {
     if (!problems.contains(s)) problems.add(s);
@@ -466,6 +494,9 @@ GroundBarPlan groundBar({
     flatTabR: flatR,
     hat: hat,
     hatWidth: hat ? run + 2 * os : 0,
+    pitchUsed: pitch,
+    tabPitchUsed: tabHolePitch,
+    notes: notes,
     problems: problems,
   );
 }

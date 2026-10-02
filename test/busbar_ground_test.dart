@@ -65,7 +65,7 @@ void main() {
       groundBar(
         t: 6,
         w: 50,
-        holeDia: 11.1,
+        holeDia: 14,
         pitch: 10,
         endDist: 20,
         count: 3,
@@ -285,7 +285,7 @@ void main() {
     final tight = groundBar(
       t: 6,
       w: 50,
-      holeDia: 11.1,
+      holeDia: 14,
       pitch: 25.4,
       endDist: 25,
       count: 3,
@@ -412,5 +412,45 @@ void main() {
     expect(make(1).tabHoleList.map((h) => h.label), ['왼쪽 1']);
     expect(make(2).tabHoleList.map((h) => h.label), ['오른쪽 1']);
     expect(make(3).tabHoleList.length, 2);
+  });
+
+  test('구멍 간격은 12mm 밑으로 안 줄어든다: 피치·줄 간격·탭 피치를 12로 올려 계산하고 알린다', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 7.9,
+      pitch: 9,
+      endDist: 25,
+      count: 3,
+      rows: 2,
+      rowGap: 5,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 60,
+      tabHoleCount: 2,
+      tabHoleDia: 7.9,
+      tabHolePitch: 8,
+      tabRows: 2,
+      tabRowGap: 6,
+    );
+    expect(p.pitchUsed, 12);
+    expect(p.tabPitchUsed, 12);
+    expect(p.positions[1] - p.positions[0], 12);
+    expect(p.rowY, [19, 31]); // 줄 간격 12
+    expect(p.tabRowY, [19, 31]);
+    expect(p.notes.length, 4);
+    expect(p.notes.first, contains('최소 간격 12mm'));
+    expect(p.ok, isTrue); // 알림일 뿐 문제가 아니다
+    // 12 이상은 그대로
+    final q = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 7.9,
+      pitch: 12,
+      endDist: 25,
+      count: 3,
+    );
+    expect(q.notes, isEmpty);
+    expect(q.pitchUsed, 12);
   });
 }
