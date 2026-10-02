@@ -16,7 +16,7 @@ import 'dart:math' as math;
 
 /// 무엇을 하는지. 옆으로 비켜가기·옮겨가기는 위에서 본 모양으로 같은 계산을 한다:
 /// 바닥면 선 → 장애물 쪽 측판, 측판 높이 → 트레이 폭(측판 사이), 위로 → 장애물 반대쪽으로.
-enum TrayRouteKind { over, up, down, aside, shift }
+enum TrayRouteKind { over, up, down, aside, shift, tee }
 
 String trayRouteKindLabel(TrayRouteKind k) => switch (k) {
   TrayRouteKind.over => '넘어가기',
@@ -24,6 +24,7 @@ String trayRouteKindLabel(TrayRouteKind k) => switch (k) {
   TrayRouteKind.down => '내려가기',
   TrayRouteKind.aside => '옆으로 비켜가기',
   TrayRouteKind.shift => '옆으로 옮겨가기',
+  TrayRouteKind.tee => '가지 내기 (티)',
 };
 
 /// 옆으로(수평으로) 꺾는지.
@@ -293,6 +294,7 @@ const List<String> kTrayRouteBasis = [
   '엘보 이름: 위로 꺾는 것 수직 엘보 IN(내측형), 아래로 꺾는 것 수직 엘보 OUT(외측형)(NEMA VE 2·아인텍·대양).',
   '트레이 길이: 3m(KS C 8464·LH 61014·대양), 6m(대양).',
   '기성 엘보 치수: 대양엔지니어링 2025 카탈로그 표를 이 계산으로 다시 만들어 맞췄습니다. 수평 90° A = R2 + 125, 수평 60° A·B, 수직 90° IN A = R + 125(측판 높이와 관계없음), 수평 티 A = W + 2 × (R + 125). 끝 직선은 그림에 적힌 100이 아니라 125로 맞습니다. 수직 60° OUT 표는 90° 표를 옮겨 적은 것이라 쓰지 않았습니다.',
+  '가지 내기는 기성 수평 티만 계산합니다(대양 티 표 24줄 일치, 본선·가지 폭 같음). 현장에서 측판을 따내 만드는 티는 자료가 없어 넣지 않았습니다.',
 ];
 
 // ── 기성 엘보로 넘어가기·비켜가기 ──
@@ -534,3 +536,86 @@ const String kTrayVerticalElbowSupport =
     '지지: 위쪽 엘보는 양 끝, 아래쪽 엘보는 윗끝과 아래 끝 600mm 안';
 const String kTrayHorizontalElbowSupport =
     '지지: 엘보 끝에서 250~300mm 안, 폭 400 이상이면 엘보 밑에 하나 더';
+
+// ── 가지 내기(수평 티) ──
+//
+// 대양엔지니어링 2025 카탈로그 20쪽 수평 티: 본선 방향 길이 A = W + 2 × (R + 끝 직선),
+// 가지 끝면까지 B = W + R + 끝 직선(본선 반대쪽 측판에서). 끝 직선 125로 표 24줄이 맞는다
+// (W200 R300 B "1625"는 625 오기, "W500" 줄은 W600 값). R은 가지와 본선을 잇는 안쪽 곡선 반경, 본선·가지 폭은 같다.
+
+/// 수평 티 계산 결과. 거리는 모두 mm, 본선 방향은 시작점에서 잰다.
+class TrayTee {
+  final double width, radius, tangent;
+
+  /// 시작점 → 가지 중심(본선 방향).
+  final double at;
+
+  /// 본선의 가지 쪽 측판 → 가지 끝(가지 방향).
+  final double reach;
+
+  /// 티 뒤 본선 직선.
+  final double tail;
+  final List<String> problems;
+
+  const TrayTee({
+    required this.width,
+    required this.radius,
+    required this.tangent,
+    required this.at,
+    required this.reach,
+    required this.tail,
+    required this.problems,
+  });
+
+  /// 본선 방향 티 길이(끝면 → 끝면).
+  double get a => width + 2 * (radius + tangent);
+
+  /// 본선 반대쪽 측판 → 가지 끝면.
+  double get b => width + radius + tangent;
+
+  /// 본선의 가지 쪽 측판 → 가지 끝면 = R + 끝 직선.
+  double get branchFace => radius + tangent;
+
+  /// 티 앞 본선 직선(시작점 → 티 끝면).
+  double get before => math.max(0.0, at - a / 2);
+
+  /// 가지 직선(티 가지 끝면 → 가지 끝).
+  double get branch => math.max(0.0, reach - branchFace);
+
+  bool get ok => problems.isEmpty;
+  double get straightTotal => before + tail + branch;
+
+  int lengthsNeeded(double stock) => stock <= 0 || straightTotal <= 0
+      ? 0
+      : (straightTotal / stock - 1e-9).ceil().clamp(1, 1 << 20);
+}
+
+TrayTee trayTee({
+  required double width,
+  required double radius,
+  double tangent = kTrayElbowTangent,
+  required double at,
+  required double reach,
+  double tail = 0,
+}) {
+  final t = math.max(0.0, tangent);
+  final half = width / 2 + radius + t;
+  final problems = <String>[
+    if (at < half - 1e-6)
+      '시작점이 가지 중심에 너무 가깝습니다. 티 반 길이(A ÷ 2) ${(half).round()}mm보다 멀리 잡으십시오.',
+    if (reach < radius + t - 1e-6)
+      '가지 끝이 티 가지 끝면(R + 끝 직선 ${(radius + t).round()}mm)보다 가깝습니다. 반경이 작은 티를 쓰십시오.',
+  ];
+  return TrayTee(
+    width: width,
+    radius: radius,
+    tangent: t,
+    at: at,
+    reach: reach,
+    tail: math.max(0, tail),
+    problems: problems,
+  );
+}
+
+/// 티 지지(OBO 설치 설명서, 부품 공통).
+const String kTrayTeeSupport = '지지: 티 각 끝에서 250~300mm 안, 폭 400 이상이면 티 밑에 하나 더';

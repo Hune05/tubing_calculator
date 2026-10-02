@@ -55,6 +55,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
   final _pitch = TextEditingController(text: '150');
   final _minR = TextEditingController();
   final _tangent = TextEditingController(text: '125');
+  final _reach = TextEditingController(text: '1000'); // 가지 내기: 가지 끝까지
 
   Timer? _saveTimer;
   bool _draftReady = false;
@@ -69,8 +70,20 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     _pitch,
     _minR,
     _tangent,
+    _reach,
   ];
-  static const _fieldKeys = ['h', 'c', 'l', 's', 'f', 't', 'p', 'r', 'et'];
+  static const _fieldKeys = [
+    'h',
+    'c',
+    'l',
+    's',
+    'f',
+    't',
+    'p',
+    'r',
+    'et',
+    'rc',
+  ];
 
   @override
   void initState() {
@@ -345,6 +358,255 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     );
   }
 
+  bool get _isTee => _kind == TrayRouteKind.tee;
+
+  TrayTee _teeRoute() => trayTee(
+    width: _width,
+    radius: _elbowR,
+    tangent: readNum(_tangent) ?? kTrayElbowTangent,
+    at: _num(_toFace),
+    reach: _num(_reach),
+    tail: _num(_tail),
+  );
+
+  String _teeShareText(TrayTee t) {
+    final b = StringBuffer(
+      '[트레이 형상] 가지 내기 수평 티 W${fmt(_width)} R${fmt(_elbowR)} · 가지 ${_obsLeft ? '왼쪽' : '오른쪽'}',
+    );
+    b.write(
+      '\n티 A ${trayNum(t.a)} · B ${trayNum(t.b)} (끝 직선 ${trayNum(t.tangent)})',
+    );
+    b.write('\n티 앞 본선 직선 ${trayNum(t.before)}mm');
+    b.write('\n티 뒤 본선 직선 ${trayNum(t.tail)}mm');
+    b.write('\n가지 직선 ${trayNum(t.branch)}mm');
+    for (final p in t.problems) {
+      b.write('\n※ $p');
+    }
+    return b.toString();
+  }
+
+  Widget _simpleTile(int n, Color col, String title, String sub) => calcBox(
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 13,
+            backgroundColor: col,
+            child: Text(
+              '$n',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w900,
+                    color: fc.text,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  sub,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: fc.textSub,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  /// 가지 내기(수평 티): 입력과 결과.
+  List<Widget> _teeWidgets(TrayTee t) {
+    final minR = readNum(_minR);
+    final radOk = minR == null || minR <= 0 ? null : _elbowR >= minR - 1e-9;
+    final widgets = <Widget>[
+      elecChipGroup(
+        '트레이 폭 (mm)',
+        '본선·가지 폭(측판 사이)입니다. 대양 수평 티는 본선과 가지 폭이 같습니다.',
+        [
+          for (final w in kTrayWidths)
+            calcChip(
+              'tr_w_${w.toInt()}',
+              fmt(w),
+              _width == w,
+              () => _set(() => _width = w),
+            ),
+        ],
+      ),
+      elecChipGroup('가지 쪽', '시작점에서 진행 방향을 보고 가지를 내는 쪽입니다.', [
+        calcChip('tr_ol_l', '왼쪽', _obsLeft, () => _set(() => _obsLeft = true)),
+        calcChip(
+          'tr_ol_r',
+          '오른쪽',
+          !_obsLeft,
+          () => _set(() => _obsLeft = false),
+        ),
+      ]),
+      elecSectionTitle('가지'),
+      elecField(
+        'tr_face',
+        '시작점 → 가지 중심 (mm)',
+        _toFace,
+        '본선을 따라 시작점(트레이 끝·이음 자리)에서 가지 트레이 가운데까지입니다.',
+        onEdit: _saveSoon,
+      ),
+      elecField(
+        'tr_reach',
+        '가지 끝까지 (mm)',
+        _reach,
+        '본선의 가지 쪽 측판에서 가지 트레이를 끝낼 곳까지입니다.',
+        onEdit: _saveSoon,
+      ),
+      elecField(
+        'tr_tail',
+        '티 뒤 본선 직선 (mm)',
+        _tail,
+        '티 뒤로 이어 갈 본선 직선 길이입니다.',
+        onEdit: _saveSoon,
+      ),
+      elecSectionTitle('티'),
+      elecChipGroup('티 반경 R (mm)', '본선과 가지를 잇는 곡선 반경입니다. 대양 300·600·900.', [
+        for (final er in kTrayElbowRadii)
+          calcChip(
+            'tr_er_${er.toInt()}',
+            fmt(er),
+            _elbowR == er,
+            () => _set(() => _elbowR = er),
+          ),
+      ]),
+      elecField(
+        'tr_tan',
+        '티 끝 직선 (mm)',
+        _tangent,
+        '티 끝면 곧은 부분입니다. 대양 카탈로그 표 치수(A·B)는 125로 맞습니다.',
+        onEdit: _saveSoon,
+      ),
+      elecField(
+        'tr_minr',
+        '케이블 최소 굽힘 반경 (mm)',
+        _minR,
+        '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 티 R과 견줍니다. 비워도 됩니다.',
+        onEdit: _saveSoon,
+      ),
+      elecChipGroup('트레이 한 개 길이', '자를 직선이 몇 개 드는지 계산합니다(이음 여유 제외).', [
+        for (final st in kTrayStockLengths)
+          calcChip(
+            'tr_st_${st.toInt()}',
+            '${fmt(st / 1000)}m',
+            _stock == st,
+            () => _set(() => _stock = st),
+          ),
+      ]),
+      const SizedBox(height: 8),
+      calcResult(
+        key: const Key('tr_result'),
+        big: '가지 직선 ${trayNum(t.branch)} mm',
+        caption:
+            '수평 티 W${fmt(_width)} R${fmt(_elbowR)} · A ${trayNum(t.a)} · B ${trayNum(t.b)}',
+        warn: !t.ok || radOk == false,
+        lines: [
+          ...t.problems,
+          '티 앞 본선 직선 ${trayNum(t.before)}mm (시작점 → 티 끝면)',
+          '티 뒤 본선 직선 ${trayNum(t.tail)}mm',
+          '티 끝면 사이 A = W + 2 × (R + 끝 직선) = ${trayNum(t.a)}mm',
+          '가지 끝면까지 B = W + R + 끝 직선 = ${trayNum(t.b)}mm (본선 반대쪽 측판에서). 카탈로그 A·B와 다르면 끝 직선 칸을 맞추십시오.',
+          '${fmt(_stock / 1000)}m 트레이 ${t.lengthsNeeded(_stock)}개(직선만, 이음 여유 제외)',
+          if (radOk != null)
+            radOk
+                ? '티 R${fmt(_elbowR)} ≥ 케이블 최소 굽힘 반경 R ${trayNum(minR!)}입니다.'
+                : '티 R${fmt(_elbowR)}이 케이블 최소 굽힘 반경 R ${trayNum(minR!)}보다 작습니다. 더 큰 티를 쓰십시오.',
+        ],
+      ),
+      const SizedBox(height: 12),
+      calcLabel('위에서 본 모양', '실제 비율입니다. 번호는 아래 부품 번호와 같고, 진한 선은 이음 자리입니다.'),
+      const SizedBox(height: 4),
+      _drawing(
+        const Key('tr_side_view'),
+        230,
+        TrayTeePainter(
+          tee: t,
+          flip: _obsLeft,
+          text: fc.text,
+          sub: fc.textSub,
+          line: fc.line,
+          bg: fc.background,
+        ),
+      ),
+      const SizedBox(height: 12),
+      elecSectionTitle('부품 (시작점부터)'),
+    ];
+    var n = 0;
+    final side = _obsLeft ? '왼쪽' : '오른쪽';
+    if (t.before > 1e-6) {
+      widgets.add(
+        _simpleTile(
+          ++n,
+          fc.textSub,
+          '직선 ${trayNum(t.before)} mm',
+          '시작점에서 티까지 · 직각으로 잘라 이음판으로 연결',
+        ),
+      );
+    }
+    widgets.add(
+      _simpleTile(
+        ++n,
+        trayCornerColor(
+          const TrayCorner(x: 0, y: 0, turn: 1, notch: 0, mark: 0),
+        ),
+        '수평 티 W${fmt(_width)} · R${fmt(_elbowR)}',
+        '가지 $side · 끝 직선 ${trayNum(t.tangent)} 포함',
+      ),
+    );
+    if (t.tail > 1e-6) {
+      widgets.add(
+        _simpleTile(
+          ++n,
+          fc.textSub,
+          '직선 ${trayNum(t.tail)} mm',
+          '티 뒤 본선 · 직각으로 잘라 이음판으로 연결',
+        ),
+      );
+    }
+    if (t.branch > 1e-6) {
+      widgets.add(
+        _simpleTile(
+          ++n,
+          fc.textSub,
+          '직선 ${trayNum(t.branch)} mm',
+          '가지 (티 가지 끝면 → 가지 끝) · 직각으로 잘라 이음판으로 연결',
+        ),
+      );
+    }
+    widgets.addAll([
+      const SizedBox(height: 8),
+      calcResult(
+        key: const Key('tr_notes'),
+        big: '작업 순서',
+        caption: '기성 티로 할 때',
+        lines: [...kTrayElbowNotes, kTrayTeeSupport],
+      ),
+    ]);
+    return widgets;
+  }
+
   /// 기성 엘보 결과(계산 결과·그림·부품 목록·작업 순서).
   List<Widget> _elbowResult(TrayElbowRoute e) {
     final plan = _plan, over = _returns;
@@ -529,246 +791,257 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
 
   @override
   Widget build(BuildContext context) {
-    final r = _elbowMode ? null : _route();
-    final e = _elbowMode ? _elbowRoute() : null;
+    final tt = _isTee ? _teeRoute() : null;
+    final r = _elbowMode || _isTee ? null : _route();
+    final e = _elbowMode && !_isTee ? _elbowRoute() : null;
     final over = _returns;
     final plan = _plan;
     String? summary;
-    final children = <Widget>[
-      elecChipGroup(
-        '무엇을',
-        '넘어가기: 바닥의 배관·기초·턱을 위로 넘어 다시 바닥으로. 올라가기·내려가기: 높이가 다른 바닥으로 한 번 오르내림. 옆으로 비켜가기: 기둥·장비를 옆으로 돌아 다시 원래 줄로. 옆으로 옮겨가기: 옆 줄로 한 번 옮겨 계속.',
-        [
-          for (final k in TrayRouteKind.values)
-            calcChip(
-              'tr_k_${k.name}',
-              trayRouteKindLabel(k),
-              _kind == k,
-              () => _set(() => _kind = k),
-            ),
-        ],
-      ),
-      elecChipGroup(
-        '만드는 방법',
-        '현장 꺾기: 곧은 트레이를 V컷으로 따서 접습니다. 기성 엘보: ${plan ? '수평' : '수직'} 엘보를 사서 직선만 잘라 잇습니다.',
-        [
+    final kindChips = elecChipGroup(
+      '무엇을',
+      '넘어가기: 바닥의 배관·기초·턱을 위로 넘어 다시 바닥으로. 올라가기·내려가기: 높이가 다른 바닥으로 한 번 오르내림. 옆으로 비켜가기: 기둥·장비를 옆으로 돌아 다시 원래 줄로. 옆으로 옮겨가기: 옆 줄로 한 번 옮겨 계속. 가지 내기: 본선에 수평 티를 넣어 옆으로 가지를 냄.',
+      [
+        for (final k in TrayRouteKind.values)
           calcChip(
-            'tr_mk_field',
-            '현장 꺾기 (V컷)',
-            !_elbowMode,
-            () => _set(() => _elbowMode = false),
+            'tr_k_${k.name}',
+            trayRouteKindLabel(k),
+            _kind == k,
+            () => _set(() => _kind = k),
           ),
-          calcChip(
-            'tr_mk_elbow',
-            '기성 엘보',
-            _elbowMode,
-            () => _set(() => _elbowMode = true),
-          ),
-        ],
-      ),
-      if (plan)
-        elecChipGroup(
-          '트레이 폭 (mm)',
-          _elbowMode
-              ? '측판 사이 거리(내측 폭)입니다. 장애물 반대쪽으로 꺾는 엘보는 장애물 쪽 측판 반경이 R + 트레이 폭입니다.'
-              : '측판 사이 거리(내측 폭)입니다. 옆으로 꺾을 때는 V컷 폭 = 2 × 트레이 폭 × tan(꺾는 각 ÷ 2).',
-          [
-            for (final w in kTrayWidths)
-              calcChip(
-                'tr_w_${w.toInt()}',
-                fmt(w),
-                _width == w,
-                () => _set(() => _width = w),
-              ),
-          ],
-        ),
-      if (plan)
-        elecChipGroup(
-          '장애물 쪽',
-          '시작점에서 진행 방향을 보고 장애물이 있는 쪽입니다. 그쪽 측판으로 마킹을 잽니다.',
-          [
-            calcChip(
-              'tr_ol_l',
-              '왼쪽',
-              _obsLeft,
-              () => _set(() => _obsLeft = true),
+      ],
+    );
+    final children = tt != null
+        ? <Widget>[kindChips, ..._teeWidgets(tt)]
+        : <Widget>[
+            kindChips,
+            elecChipGroup(
+              '만드는 방법',
+              '현장 꺾기: 곧은 트레이를 V컷으로 따서 접습니다. 기성 엘보: ${plan ? '수평' : '수직'} 엘보를 사서 직선만 잘라 잇습니다.',
+              [
+                calcChip(
+                  'tr_mk_field',
+                  '현장 꺾기 (V컷)',
+                  !_elbowMode,
+                  () => _set(() => _elbowMode = false),
+                ),
+                calcChip(
+                  'tr_mk_elbow',
+                  '기성 엘보',
+                  _elbowMode,
+                  () => _set(() => _elbowMode = true),
+                ),
+              ],
             ),
-            calcChip(
-              'tr_ol_r',
-              '오른쪽',
-              !_obsLeft,
-              () => _set(() => _obsLeft = false),
-            ),
-          ],
-        ),
-      if (!plan)
-        elecChipGroup(
-          '측판 높이 (mm)',
-          _elbowMode
-              ? '측판 전체 높이입니다. 수직 엘보 IN은 바닥면 반경이 R + 측판 높이입니다.'
-              : 'V컷 깊이가 되는 측판 전체 높이입니다. V컷 폭 = 2 × 측판 높이 × tan(꺾는 각 ÷ 2).',
-          [
-            for (final h in kTrayRailHeights)
-              calcChip(
-                'tr_rail_${h.toInt()}',
-                fmt(h),
-                _rail == h,
-                () => _set(() => _rail = h),
+            if (plan)
+              elecChipGroup(
+                '트레이 폭 (mm)',
+                _elbowMode
+                    ? '측판 사이 거리(내측 폭)입니다. 장애물 반대쪽으로 꺾는 엘보는 장애물 쪽 측판 반경이 R + 트레이 폭입니다.'
+                    : '측판 사이 거리(내측 폭)입니다. 옆으로 꺾을 때는 V컷 폭 = 2 × 트레이 폭 × tan(꺾는 각 ÷ 2).',
+                [
+                  for (final w in kTrayWidths)
+                    calcChip(
+                      'tr_w_${w.toInt()}',
+                      fmt(w),
+                      _width == w,
+                      () => _set(() => _width = w),
+                    ),
+                ],
               ),
-          ],
-        ),
-      elecSectionTitle(over || plan ? '장애물' : '단'),
-      elecField(
-        'tr_h',
-        switch (_kind) {
-          TrayRouteKind.over => '장애물 높이 (mm)',
-          TrayRouteKind.aside => '장애물이 들어온 폭 (mm)',
-          TrayRouteKind.shift => '옮겨 갈 거리 (mm)',
-          _ => '단 높이 (mm)',
-        },
-        _height,
-        switch (_kind) {
-          TrayRouteKind.over => '지금 트레이 바닥면에서 장애물 윗면까지입니다.',
-          TrayRouteKind.aside => '장애물 쪽 측판 줄에서 트레이 안쪽으로 들어온 장애물 끝까지입니다.',
-          TrayRouteKind.shift => '장애물 쪽 측판이 옆으로 옮겨 갈 거리입니다.',
-          _ => '트레이 바닥면이 올라가거나 내려갈 높이입니다.',
-        },
-        onEdit: _saveSoon,
-      ),
-      if (over)
-        elecField(
-          'tr_clear',
-          plan ? '옆 여유 (mm)' : '위 여유 (mm)',
-          _clear,
-          plan ? '장애물과 트레이 측판 사이를 띄울 거리입니다.' : '장애물 윗면과 트레이 바닥면 사이를 띄울 거리입니다.',
-          onEdit: _saveSoon,
-        ),
-      if (over)
-        elecField(
-          'tr_len',
-          '장애물 길이 (mm)',
-          _length,
-          '트레이가 지나가는 방향으로 잰 장애물 길이입니다.',
-          onEdit: _saveSoon,
-        ),
-      elecField(
-        'tr_side',
-        over ? '앞뒤 여유 (mm)' : '여유 (mm)',
-        _side,
-        over
-            ? '장애물 앞면·뒷면에서 꺾는 곳까지 띄울 거리입니다.'
-            : switch (_kind) {
-                TrayRouteKind.up => '단 앞면에서 띄울 거리입니다.',
-                TrayRouteKind.shift => '장애물 앞면에서 띄울 거리입니다.',
-                _ => '단 끝에서 더 나가서 꺾을 거리입니다.',
+            if (plan)
+              elecChipGroup(
+                '장애물 쪽',
+                '시작점에서 진행 방향을 보고 장애물이 있는 쪽입니다. 그쪽 측판으로 마킹을 잽니다.',
+                [
+                  calcChip(
+                    'tr_ol_l',
+                    '왼쪽',
+                    _obsLeft,
+                    () => _set(() => _obsLeft = true),
+                  ),
+                  calcChip(
+                    'tr_ol_r',
+                    '오른쪽',
+                    !_obsLeft,
+                    () => _set(() => _obsLeft = false),
+                  ),
+                ],
+              ),
+            if (!plan)
+              elecChipGroup(
+                '측판 높이 (mm)',
+                _elbowMode
+                    ? '측판 전체 높이입니다. 수직 엘보 IN은 바닥면 반경이 R + 측판 높이입니다.'
+                    : 'V컷 깊이가 되는 측판 전체 높이입니다. V컷 폭 = 2 × 측판 높이 × tan(꺾는 각 ÷ 2).',
+                [
+                  for (final h in kTrayRailHeights)
+                    calcChip(
+                      'tr_rail_${h.toInt()}',
+                      fmt(h),
+                      _rail == h,
+                      () => _set(() => _rail = h),
+                    ),
+                ],
+              ),
+            elecSectionTitle(over || plan ? '장애물' : '단'),
+            elecField(
+              'tr_h',
+              switch (_kind) {
+                TrayRouteKind.over => '장애물 높이 (mm)',
+                TrayRouteKind.aside => '장애물이 들어온 폭 (mm)',
+                TrayRouteKind.shift => '옮겨 갈 거리 (mm)',
+                _ => '단 높이 (mm)',
               },
-        onEdit: _saveSoon,
-      ),
-      elecField(
-        'tr_face',
-        _kind == TrayRouteKind.down
-            ? '시작점 → 단 끝 (mm)'
-            : (over || plan ? '시작점 → 장애물 앞면 (mm)' : '시작점 → 단 앞면 (mm)'),
-        _toFace,
-        '마킹을 재기 시작할 트레이 끝(이음 자리)에서 잽니다.',
-        onEdit: _saveSoon,
-      ),
-      elecField(
-        'tr_tail',
-        '뒤 직선 (mm)',
-        _tail,
-        '마지막 꺾는 곳 뒤로 더 둘 곧은 길이입니다.',
-        onEdit: _saveSoon,
-      ),
-      elecSectionTitle('꺾기'),
-      elecChipGroup(
-        '꺾는 각도',
-        plan ? '가던 방향에서 옆으로 트는 각도입니다.' : '바닥에서 일어서는 각도입니다. 90°는 수직으로 세웁니다.',
-        [
-          for (final a in kTrayRouteAngles)
-            calcChip(
-              'tr_a_${a.toInt()}',
-              '${fmt(a)}°',
-              _angle == a,
-              () => _set(() => _angle = a),
+              _height,
+              switch (_kind) {
+                TrayRouteKind.over => '지금 트레이 바닥면에서 장애물 윗면까지입니다.',
+                TrayRouteKind.aside => '장애물 쪽 측판 줄에서 트레이 안쪽으로 들어온 장애물 끝까지입니다.',
+                TrayRouteKind.shift => '장애물 쪽 측판이 옆으로 옮겨 갈 거리입니다.',
+                _ => '트레이 바닥면이 올라가거나 내려갈 높이입니다.',
+              },
+              onEdit: _saveSoon,
             ),
-        ],
-      ),
-      if (_elbowMode)
-        elecChipGroup(
-          '엘보 반경 R (mm)',
-          '꺾임 안쪽 테두리 반경으로 계산합니다(대양 수평 엘보 R1 = 안쪽 레일, B-Line 수직 엘보 치수와 같은 기준). 흔히 300·600·900.',
-          [
-            for (final er in kTrayElbowRadii)
-              calcChip(
-                'tr_er_${er.toInt()}',
-                fmt(er),
-                _elbowR == er,
-                () => _set(() => _elbowR = er),
+            if (over)
+              elecField(
+                'tr_clear',
+                plan ? '옆 여유 (mm)' : '위 여유 (mm)',
+                _clear,
+                plan
+                    ? '장애물과 트레이 측판 사이를 띄울 거리입니다.'
+                    : '장애물 윗면과 트레이 바닥면 사이를 띄울 거리입니다.',
+                onEdit: _saveSoon,
               ),
-          ],
-        ),
-      if (_elbowMode)
-        elecField(
-          'tr_tan',
-          '엘보 끝 직선 (mm)',
-          _tangent,
-          '엘보 양 끝 곧은 부분 길이입니다. 대양 카탈로그는 그림에 100이라 적었지만 표 치수(A·B)는 125로 맞습니다. B-Line 76(3").',
-          onEdit: _saveSoon,
-        ),
-      if (_elbowMode)
-        elecField(
-          'tr_minr',
-          '케이블 최소 굽힘 반경 (mm)',
-          _minR,
-          '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 엘보 R과 견줍니다. 비워도 됩니다.',
-          onEdit: _saveSoon,
-        ),
-      if (!_elbowMode)
-        elecChipGroup(
-          '나눠 꺾기',
-          '한 곳에서 다 꺾지 않고 작은 각으로 여러 번 꺾어 모서리를 둥글게 합니다(예: 90° = 45° 2번). 굵은 케이블이 모서리에 눌리지 않게 합니다. 중국 제조사 자료는 45° 두 번을 트레이 폭만큼 띄워 꺾습니다(한 곳 자료).',
-          [
-            for (final n in const [1, 2, 3])
-              calcChip(
-                'tr_n_$n',
-                n == 1 ? '한 번에' : '$n번',
-                _pieces == n,
-                () => _set(() => _pieces = n),
+            if (over)
+              elecField(
+                'tr_len',
+                '장애물 길이 (mm)',
+                _length,
+                '트레이가 지나가는 방향으로 잰 장애물 길이입니다.',
+                onEdit: _saveSoon,
               ),
-          ],
-        ),
-      if (!_elbowMode && _pieces > 1)
-        elecField(
-          'tr_pitch',
-          '마디 간격 (mm)',
-          _pitch,
-          plan
-              ? '나눠 꺾을 때 꺾는 곳 사이 거리입니다(장애물 쪽 측판 기준).'
-              : '나눠 꺾을 때 꺾는 곳 사이 거리입니다(바닥면 기준).',
-          onEdit: _saveSoon,
-        ),
-      if (!_elbowMode && _pieces > 1)
-        elecField(
-          'tr_minr',
-          '케이블 최소 굽힘 반경 (mm)',
-          _minR,
-          '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 나눠 꺾은 반경과 견줍니다. 비워도 됩니다.',
-          onEdit: _saveSoon,
-        ),
-      elecChipGroup('트레이 한 개 길이', '자르기 전 길이로 몇 개 드는지 계산합니다(이음 여유 제외).', [
-        for (final s in kTrayStockLengths)
-          calcChip(
-            'tr_st_${s.toInt()}',
-            '${fmt(s / 1000)}m',
-            _stock == s,
-            () => _set(() => _stock = s),
-          ),
-      ]),
-      const SizedBox(height: 8),
-    ];
+            elecField(
+              'tr_side',
+              over ? '앞뒤 여유 (mm)' : '여유 (mm)',
+              _side,
+              over
+                  ? '장애물 앞면·뒷면에서 꺾는 곳까지 띄울 거리입니다.'
+                  : switch (_kind) {
+                      TrayRouteKind.up => '단 앞면에서 띄울 거리입니다.',
+                      TrayRouteKind.shift => '장애물 앞면에서 띄울 거리입니다.',
+                      _ => '단 끝에서 더 나가서 꺾을 거리입니다.',
+                    },
+              onEdit: _saveSoon,
+            ),
+            elecField(
+              'tr_face',
+              _kind == TrayRouteKind.down
+                  ? '시작점 → 단 끝 (mm)'
+                  : (over || plan ? '시작점 → 장애물 앞면 (mm)' : '시작점 → 단 앞면 (mm)'),
+              _toFace,
+              '마킹을 재기 시작할 트레이 끝(이음 자리)에서 잽니다.',
+              onEdit: _saveSoon,
+            ),
+            elecField(
+              'tr_tail',
+              '뒤 직선 (mm)',
+              _tail,
+              '마지막 꺾는 곳 뒤로 더 둘 곧은 길이입니다.',
+              onEdit: _saveSoon,
+            ),
+            elecSectionTitle('꺾기'),
+            elecChipGroup(
+              '꺾는 각도',
+              plan
+                  ? '가던 방향에서 옆으로 트는 각도입니다.'
+                  : '바닥에서 일어서는 각도입니다. 90°는 수직으로 세웁니다.',
+              [
+                for (final a in kTrayRouteAngles)
+                  calcChip(
+                    'tr_a_${a.toInt()}',
+                    '${fmt(a)}°',
+                    _angle == a,
+                    () => _set(() => _angle = a),
+                  ),
+              ],
+            ),
+            if (_elbowMode)
+              elecChipGroup(
+                '엘보 반경 R (mm)',
+                '꺾임 안쪽 테두리 반경으로 계산합니다(대양 수평 엘보 R1 = 안쪽 레일, B-Line 수직 엘보 치수와 같은 기준). 흔히 300·600·900.',
+                [
+                  for (final er in kTrayElbowRadii)
+                    calcChip(
+                      'tr_er_${er.toInt()}',
+                      fmt(er),
+                      _elbowR == er,
+                      () => _set(() => _elbowR = er),
+                    ),
+                ],
+              ),
+            if (_elbowMode)
+              elecField(
+                'tr_tan',
+                '엘보 끝 직선 (mm)',
+                _tangent,
+                '엘보 양 끝 곧은 부분 길이입니다. 대양 카탈로그는 그림에 100이라 적었지만 표 치수(A·B)는 125로 맞습니다. B-Line 76(3").',
+                onEdit: _saveSoon,
+              ),
+            if (_elbowMode)
+              elecField(
+                'tr_minr',
+                '케이블 최소 굽힘 반경 (mm)',
+                _minR,
+                '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 엘보 R과 견줍니다. 비워도 됩니다.',
+                onEdit: _saveSoon,
+              ),
+            if (!_elbowMode)
+              elecChipGroup(
+                '나눠 꺾기',
+                '한 곳에서 다 꺾지 않고 작은 각으로 여러 번 꺾어 모서리를 둥글게 합니다(예: 90° = 45° 2번). 굵은 케이블이 모서리에 눌리지 않게 합니다. 중국 제조사 자료는 45° 두 번을 트레이 폭만큼 띄워 꺾습니다(한 곳 자료).',
+                [
+                  for (final n in const [1, 2, 3])
+                    calcChip(
+                      'tr_n_$n',
+                      n == 1 ? '한 번에' : '$n번',
+                      _pieces == n,
+                      () => _set(() => _pieces = n),
+                    ),
+                ],
+              ),
+            if (!_elbowMode && _pieces > 1)
+              elecField(
+                'tr_pitch',
+                '마디 간격 (mm)',
+                _pitch,
+                plan
+                    ? '나눠 꺾을 때 꺾는 곳 사이 거리입니다(장애물 쪽 측판 기준).'
+                    : '나눠 꺾을 때 꺾는 곳 사이 거리입니다(바닥면 기준).',
+                onEdit: _saveSoon,
+              ),
+            if (!_elbowMode && _pieces > 1)
+              elecField(
+                'tr_minr',
+                '케이블 최소 굽힘 반경 (mm)',
+                _minR,
+                '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 나눠 꺾은 반경과 견줍니다. 비워도 됩니다.',
+                onEdit: _saveSoon,
+              ),
+            elecChipGroup('트레이 한 개 길이', '자르기 전 길이로 몇 개 드는지 계산합니다(이음 여유 제외).', [
+              for (final s in kTrayStockLengths)
+                calcChip(
+                  'tr_st_${s.toInt()}',
+                  '${fmt(s / 1000)}m',
+                  _stock == s,
+                  () => _set(() => _stock = s),
+                ),
+            ]),
+            const SizedBox(height: 8),
+          ];
 
-    if (e != null) {
+    if (tt != null) {
+      summary =
+          '가지 내기 티 W${fmt(_width)} R${fmt(_elbowR)} · 가지 직선 ${trayNum(tt.branch)}mm';
+    } else if (e != null) {
       summary =
           '${trayRouteKindLabel(_kind)} ${fmt(_angle)}° 기성 엘보 · 엘보 ${e.elbows}개 · 직선 ${trayNum(e.straightTotal)}mm';
       children.addAll(_elbowResult(e));
@@ -884,13 +1157,15 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             actions: [
-              if (r != null || e != null)
+              if (r != null || e != null || tt != null)
                 IconButton(
                   key: const Key('tr_share'),
                   tooltip: '카톡으로 보내기',
                   icon: Icon(Icons.share_outlined, color: fc.text),
                   onPressed: () => widget.share(
-                    e != null ? _elbowShareText(e) : _shareText(r!),
+                    tt != null
+                        ? _teeShareText(tt)
+                        : (e != null ? _elbowShareText(e) : _shareText(r!)),
                   ),
                 ),
               calcHistoryButton(),
@@ -900,7 +1175,10 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
             children,
             sumKey: 'tr_sum',
             summary: summary,
-            warn: (r != null && !r.ok) || (e != null && !e.ok),
+            warn:
+                (r != null && !r.ok) ||
+                (e != null && !e.ok) ||
+                (tt != null && !tt.ok),
           ),
         ),
       ),

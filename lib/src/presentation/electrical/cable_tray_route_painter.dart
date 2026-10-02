@@ -211,6 +211,7 @@ class TrayRouteSidePainter extends CustomPainter {
           m(boxFrom!, bh),
           Offset(size.width - 4, m(0, outside).dy),
         ),
+        TrayRouteKind.tee => Rect.zero, // 티는 TrayTeePainter로 그린다
       };
       canvas.drawRRect(
         RRect.fromRectAndRadius(
@@ -588,4 +589,128 @@ class TrayRouteMarkPainter extends CustomPainter {
       o.flip != flip ||
       o.farLabel != farLabel ||
       o.refLabel != refLabel;
+}
+
+/// 가지 내기(수평 티)를 위에서 본 모양. 본선(앞 직선·티·뒤 직선)과 가지 직선, 이음 자리, 부품 번호.
+/// 좌표(mm): x = 본선 방향(시작점 0), y = 가지 쪽 측판이 0, 본선은 y 0~W, 가지는 y < 0.
+/// [flip]이면 가지가 진행 방향 왼쪽(그림 위쪽).
+class TrayTeePainter extends CustomPainter {
+  final TrayTee tee;
+  final bool flip;
+  final Color text, sub, line, bg;
+
+  TrayTeePainter({
+    required this.tee,
+    this.flip = false,
+    required this.text,
+    required this.sub,
+    required this.line,
+    required this.bg,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = tee.width, r = tee.radius, t = tee.tangent;
+    final x1 = tee.before, x2 = x1 + tee.a, total = x2 + tee.tail;
+    final cx = x1 + tee.a / 2;
+    final reach = math.max(tee.reach, r + t);
+    const pad = 22.0;
+    final spanX = math.max(1.0, total), spanY = w + reach;
+    final s = math.min(
+      (size.width - pad * 2) / spanX,
+      (size.height - pad * 2) / spanY,
+    );
+    final ox = (size.width - spanX * s) / 2;
+    // 그림 위쪽 = 본선 반대쪽 측판(y = W), flip이면 위아래 뒤집음
+    final oyTop = (size.height - spanY * s) / 2;
+    Offset m(double x, double y) {
+      final fromTop = flip ? (y + reach) : (w - y);
+      return Offset(ox + x * s, oyTop + fromTop * s);
+    }
+
+    // 본선 + 티 + 가지 바깥선
+    final path = Path();
+    void to(double x, double y) {
+      final o = m(x, y);
+      path.lineTo(o.dx, o.dy);
+    }
+
+    void arc(double ax, double ay, double from, double sweep) {
+      // 중심 (ax, ay) mm, 반경 r, 각(rad, mm 좌표 기준)
+      const n = 12;
+      for (var k = 1; k <= n; k++) {
+        final d = from + sweep * k / n;
+        to(ax + r * math.cos(d), ay + r * math.sin(d));
+      }
+    }
+
+    final start = m(0, w);
+    path.moveTo(start.dx, start.dy);
+    to(total, w);
+    to(total, 0);
+    to(x2, 0);
+    to(x2 - t, 0);
+    // 오른쪽 곡선: 중심 (x2 − t, −R), (x2 − t, 0) → (cx + W/2, −R)
+    arc(x2 - t, -r, math.pi / 2, math.pi / 2);
+    to(cx + w / 2, -(r + t));
+    to(cx + w / 2, -reach);
+    to(cx - w / 2, -reach);
+    to(cx - w / 2, -(r + t));
+    to(cx - w / 2, -r);
+    // 왼쪽 곡선: 중심 (x1 + t, −R), (cx − W/2, −R) → (x1 + t, 0)
+    arc(x1 + t, -r, 0, math.pi / 2);
+    to(x1, 0);
+    to(0, 0);
+    path.close();
+    final bounds = path.getBounds();
+    canvas.drawPath(
+      path.shift(const Offset(1.5, 2.5)),
+      Paint()..color = Colors.black.withValues(alpha: 0.16),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_metalLight, _metalMid, _metalDark],
+          stops: [0, 0.6, 1],
+        ).createShader(bounds),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = _metalDark,
+    );
+
+    // 이음 자리: 티 양 끝면, 티 가지 끝면
+    final joint = Paint()
+      ..color = _metalDark
+      ..strokeWidth = 1.8;
+    if (x1 > 0) canvas.drawLine(m(x1, 0), m(x1, w), joint);
+    if (tee.tail > 0) canvas.drawLine(m(x2, 0), m(x2, w), joint);
+    if (tee.branch > 0) {
+      canvas.drawLine(m(cx - w / 2, -(r + t)), m(cx + w / 2, -(r + t)), joint);
+    }
+
+    // 부품 번호: 1 앞 직선, 2 티, 3 뒤 직선, 4 가지 직선(길이 0이면 건너뜀)
+    var n = 0;
+    void badge(bool show, double x, double y, Color col) {
+      if (!show) return;
+      n++;
+      _badge(canvas, m(x, y), n, col);
+    }
+
+    badge(x1 > 0, x1 / 2, w / 2, _metalDark);
+    badge(true, cx, w / 2, _upColor);
+    badge(tee.tail > 0, x2 + tee.tail / 2, w / 2, _metalDark);
+    badge(tee.branch > 0, cx, -(r + t + tee.branch / 2), _metalDark);
+    _label(canvas, '시작점', m(0, 0) + Offset(0, flip ? -12 : 12), sub, size: 11);
+  }
+
+  @override
+  bool shouldRepaint(TrayTeePainter o) =>
+      o.tee != tee || o.flip != flip || o.bg != bg;
 }

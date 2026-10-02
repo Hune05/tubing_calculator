@@ -144,4 +144,28 @@ void main() {
       '100',
     );
   });
+
+  testWidgets('가지 내기(티): 티 앞 본선·가지 직선, 부품 목록, 카톡 글', (tester) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t);
+    await tester.tap(find.byKey(const Key('tr_k_tee')));
+    await tester.pumpAndSettle();
+    // W300 R300 끝 직선 125: A 1150, B 725, 티 앞 1000 − 575 = 425, 가지 1000 − 425 = 575
+    expect(
+      find.textContaining('가지 내기 티 W300 R300 · 가지 직선 575mm'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('A 1,150 · B 725'), findsOneWidget);
+    expect(find.text('직선 425 mm'), findsOneWidget);
+    expect(find.text('수평 티 W300 · R300'), findsOneWidget);
+    expect(find.byKey(const Key('tr_mk_elbow')), findsNothing);
+    expect(find.byKey(const Key('tr_rail_100')), findsNothing);
+    await tester.tap(find.byKey(const Key('tr_share')));
+    await tester.pumpAndSettle();
+    expect(sent, startsWith('[트레이 형상] 가지 내기 수평 티 W300 R300 · 가지 오른쪽'));
+    expect(sent, contains('가지 직선 575mm'));
+    await tester.enterText(find.byKey(const Key('tr_face')), '400');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('가지 중심에 너무 가깝습니다'), findsOneWidget);
+  });
 }
