@@ -178,4 +178,46 @@ void main() {
     await _type(tester, 'gb_hatfr', '60');
     expect(find.textContaining('챙 40 / 60'), findsWidgets);
   });
+
+  testWidgets('취부(챙) 구멍은 접지 구멍 줄 수와 따로: 접지 두 줄이어도 챙은 1개씩', (tester) async {
+    await _open(tester, height: 12000);
+    await tester.tap(find.byKey(const Key('gb_tab_4')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('gb_mc_1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('gb_rm_1'))); // 접지 두 줄 대칭
+    await tester.pumpAndSettle();
+    expect(find.textContaining('왼쪽 챙 1개 + 오른쪽 챙 1개(합계 2개)'), findsOneWidget);
+    expect(find.byKey(const Key('gb_tabgap')), findsNothing); // 챙은 한 줄
+    await tester.tap(find.byKey(const Key('gb_trm_1')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('(합계 4개)'), findsOneWidget);
+    expect(find.byKey(const Key('gb_tabgap')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('gb_tsd_1'))); // 왼쪽만
+    await tester.pumpAndSettle();
+    expect(find.textContaining('왼쪽 챙 2개(합계 2개)'), findsOneWidget);
+  });
+
+  testWidgets('접지 러그: 2구멍 러그 3개, 볼트 세트, 구멍 번호, 간격이 안 맞으면 알림', (tester) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t, height: 12000);
+    expect(find.byKey(const Key('gb_lug_result')), findsNothing);
+    await tester.tap(find.byKey(const Key('gb_lug_2')));
+    await tester.pumpAndSettle();
+    await _type(tester, 'gb_lugn', '3');
+    expect(find.text('러그 3개 · 볼트 6세트'), findsOneWidget);
+    expect(find.textContaining('러그 1: 1번 · 2번'), findsOneWidget);
+    expect(find.textContaining('러그 3: 5번 · 6번'), findsOneWidget);
+    expect(find.textContaining('볼트 3/8"(9.5mm) 또는 M10 6개'), findsWidgets);
+    expect(find.byKey(const Key('gb_lug_notes')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('gb_share')));
+    await tester.pumpAndSettle();
+    expect(sent, contains('접지 러그 2구멍 3개:'));
+    expect(sent, contains('러그 2: 3번 · 4번'));
+    await tester.tap(
+      find.byKey(const Key('gb_lsp_1905')),
+    ); // 3/4" = 19.05, 피치 25.4와 안 맞음
+    await tester.pumpAndSettle();
+    expect(find.textContaining('정수배가 아닙니다'), findsOneWidget);
+  });
 }

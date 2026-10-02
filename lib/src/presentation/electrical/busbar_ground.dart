@@ -73,6 +73,10 @@ class GroundBarPlan {
   /// 접지 구멍 전부(A줄 다음 B줄)와 탭·챙 구멍 전부(왼쪽 다음 오른쪽).
   final List<GroundHole> groundHoles, tabHoleList;
 
+  /// 탭·챙 구멍 줄 수와 줄 위치(폭 방향). 접지 구멍과 따로 정한다.
+  final int tabRows;
+  final List<double> tabRowY;
+
   /// 구멍 줄이 놓이는 곧은 구간(왼쪽 끝에서 잰 시작·끝, mm). 끝 여유 e는 여기서부터 잰다.
   final double flatStart, flatEnd;
 
@@ -120,6 +124,8 @@ class GroundBarPlan {
     required this.positionsB,
     required this.groundHoles,
     required this.tabHoleList,
+    required this.tabRows,
+    required this.tabRowY,
     required this.flatStart,
     required this.flatEnd,
     required this.endLeft,
@@ -174,6 +180,10 @@ GroundBarPlan groundBar({
   int tabHoleCount = 0,
   double tabHoleDia = 0,
   double tabHolePitch = 0,
+  int tabRows = 1,
+  double tabRowGap = 0,
+  bool tabStaggered = false,
+  int tabSides = 3,
   Map<String, double> overrides = const {},
 }) {
   final problems = <String>[];
@@ -285,18 +295,23 @@ GroundBarPlan groundBar({
     }
   }
 
-  // 탭·챙 구멍: 평평한 길이 가운데에 모은다. 줄마다 tabHoleCount개.
+  // 탭·챙 구멍: 평평한 길이 가운데에 모은다. 줄마다 tabHoleCount개. 줄 수·줄 간격은 접지 구멍과 따로.
+  final nRowsT = tabRows == 2 ? 2 : 1;
+  final rowYT = nRowsT == 1
+      ? [w / 2]
+      : [w / 2 - tabRowGap / 2, w / 2 + tabRowGap / 2];
   final tabs = <GroundHole>[];
   final hasTabs = hat || tabLeft > 0 || tabRight > 0;
   if (hasTabs && tabHoleCount > 0 && tabHoleDia > 0) {
-    final stT = nRows == 2 && staggered && tabHoleCount > 1
+    final stT = nRowsT == 2 && tabStaggered && tabHoleCount > 1
         ? tabHolePitch / 2
         : 0.0;
+    if (nRowsT == 2 && tabRowGap <= 0) warn('취부 구멍 두 줄은 줄 간격이 있어야 합니다.');
     void side(String letter, String name, double flat, bool left) {
       if (flat <= 0) return;
       final group = (tabHoleCount - 1) * tabHolePitch + stT;
       final start = (flat - group) / 2;
-      for (var row = 0; row < nRows; row++) {
+      for (var row = 0; row < nRowsT; row++) {
         final rl = row == 0 ? 'A' : 'B';
         for (var i = 0; i < tabHoleCount; i++) {
           final off = start + (row == 1 ? stT : 0) + i * tabHolePitch;
@@ -304,9 +319,9 @@ GroundBarPlan groundBar({
           tabs.add(
             GroundHole(
               id: id,
-              label: nRows == 1 ? '$name ${i + 1}' : '$name $rl${i + 1}',
+              label: nRowsT == 1 ? '$name ${i + 1}' : '$name $rl${i + 1}',
               x: left ? off : len - off,
-              y: rowY[row],
+              y: rowYT[row],
               dia: overrides[id] ?? tabHoleDia,
               custom: overrides.containsKey(id),
             ),
@@ -323,8 +338,18 @@ GroundBarPlan groundBar({
       }
     }
 
-    side('L', '왼쪽', hat || tabLeft > 0 ? flatL : 0, true);
-    side('R', '오른쪽', hat || tabRight > 0 ? flatR : 0, false);
+    side(
+      'L',
+      '왼쪽',
+      (hat || tabLeft > 0) && tabSides & 1 != 0 ? flatL : 0,
+      true,
+    );
+    side(
+      'R',
+      '오른쪽',
+      (hat || tabRight > 0) && tabSides & 2 != 0 ? flatR : 0,
+      false,
+    );
     if (tabHoleCount > 1 && tabHolePitch <= tabHoleDia) {
       warn('탭 구멍 피치가 구멍 지름 이하라 구멍이 서로 겹칩니다.');
     }
@@ -425,6 +450,8 @@ GroundBarPlan groundBar({
     positionsB: posB,
     groundHoles: ground,
     tabHoleList: tabs,
+    tabRows: nRowsT,
+    tabRowY: rowYT,
     flatStart: spanL,
     flatEnd: len - spanR,
     endLeft: n < 1 ? 0 : first - spanL,

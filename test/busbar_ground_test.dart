@@ -358,6 +358,8 @@ void main() {
       tabHoleCount: 1,
       tabHoleDia: 9,
       tabHolePitch: 25.4,
+      tabRows: 2,
+      tabRowGap: 20,
       overrides: const {'tR-B1': 11},
     );
     expect(p.tabHoleList.length, 4); // 왼쪽 A·B, 오른쪽 A·B
@@ -365,5 +367,50 @@ void main() {
     expect(rb.dia, 11);
     expect(rb.label, '오른쪽 B1');
     expect(rb.y, 35);
+  });
+
+  test('취부 구멍 줄은 접지 구멍 줄과 따로: 접지가 두 줄이어도 챙은 한 줄이면 챙마다 1개', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 50,
+      rows: 2,
+      rowGap: 20,
+      tabHoleCount: 1,
+      tabHoleDia: 11.1,
+      tabHolePitch: 25.4,
+    );
+    expect(p.groundHoles.length, 6);
+    expect(p.tabHoleList.length, 2); // 왼쪽 챙 1 + 오른쪽 챙 1
+    expect(p.tabHoleList.first.label, '왼쪽 1');
+    expect(p.tabHoleList.first.y, 25);
+    expect(p.tabRows, 1);
+  });
+
+  test('취부 구멍을 뚫을 챙 고르기: 왼쪽만·오른쪽만', () {
+    GroundBarPlan make(int sides) => groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 50,
+      tabHoleCount: 1,
+      tabHoleDia: 11.1,
+      tabHolePitch: 25.4,
+      tabSides: sides,
+    );
+    expect(make(1).tabHoleList.map((h) => h.label), ['왼쪽 1']);
+    expect(make(2).tabHoleList.map((h) => h.label), ['오른쪽 1']);
+    expect(make(3).tabHoleList.length, 2);
   });
 }

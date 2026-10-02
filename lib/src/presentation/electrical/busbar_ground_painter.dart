@@ -14,11 +14,15 @@ class GroundBarPainter extends CustomPainter {
     required this.text,
     required this.sub,
     required this.bg,
+    this.lugNumbers = const {},
   });
 
   final GroundBarPlan plan;
   final double width, holeDia;
   final Color text, sub, bg;
+
+  /// 러그를 붙이는 구멍: 구멍 번호(id) → 러그 번호.
+  final Map<String, int> lugNumbers;
 
   void _label(
     Canvas canvas,
@@ -102,6 +106,24 @@ class GroundBarPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = hole.custom ? 2 : 1,
       );
+      final lug = lugNumbers[hole.id];
+      if (lug != null) {
+        canvas.drawCircle(
+          c,
+          rad + 3,
+          Paint()
+            ..color = const Color(0xFF2563EB)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 2,
+        );
+        _label(
+          canvas,
+          'L$lug',
+          c - Offset(0, rad + 10),
+          const Color(0xFF2563EB),
+          bold: true,
+        );
+      }
     }
     final dim = Paint()
       ..color = sub
@@ -142,5 +164,8 @@ class GroundBarPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(GroundBarPainter o) =>
-      o.plan != plan || o.width != width || o.holeDia != holeDia;
+      o.plan != plan ||
+      o.width != width ||
+      o.holeDia != holeDia ||
+      o.lugNumbers != lugNumbers;
 }
