@@ -13,7 +13,7 @@ import '../common/calc_form_parts.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'cable_tray.dart';
 import 'cable_tray_painter.dart';
-import 'cable_weights.dart' show cableWeightSource;
+import 'cable_weights.dart';
 import 'elec_tables.dart' show GroupLayout;
 import 'conduit_tables.dart';
 import 'elec_calc.dart' show sqText;
@@ -22,6 +22,8 @@ import 'elec_form_parts.dart';
 /// 케이블 한 줄 입력. [kind]가 null이면 직접 입력(외경·굵기·심 수).
 class _TrayRow {
   CableKind? kind;
+  AmsKind? ams; // AMS 계장 케이블이면(그때 kind는 안 씀)
+  int amsN;
   double size;
   bool control;
   final TextEditingController count;
@@ -29,7 +31,7 @@ class _TrayRow {
   final TextEditingController sizeText;
   final TextEditingController cores;
   final TextEditingController weight; // 직접 입력 무게(kg/km)
-  _TrayRow({this.kind = CableKind.fcv4, this.size = 35, this.control = false, String n = '1', String od = '', String sz = '', String cores = '1', String w = ''})
+  _TrayRow({this.kind = CableKind.fcv4, this.ams, this.amsN = 2, this.size = 35, this.control = false, String n = '1', String od = '', String sz = '', String cores = '1', String w = ''})
       : count = TextEditingController(text: n),
         od = TextEditingController(text: od),
         sizeText = TextEditingController(text: sz),
@@ -46,6 +48,8 @@ class _TrayRow {
 
   Map<String, Object?> toJson() => {
     'k': kind?.name,
+    'a': ams?.name,
+    'an': amsN,
     's': size,
     'c': control,
     'n': count.text,
@@ -58,9 +62,12 @@ class _TrayRow {
   static _TrayRow? fromJson(Object? m) {
     if (m is! Map) return null;
     final k = CableKind.values.where((c) => c.name == m['k']);
+    final a = AmsKind.values.where((c) => c.name == m['a']);
     final s = m['s'];
     final row = _TrayRow(
       kind: k.isEmpty ? null : k.first,
+      ams: a.isEmpty ? null : a.first,
+      amsN: m['an'] is int ? m['an'] as int : 2,
       size: s is num ? s.toDouble() : 35,
       control: m['c'] == true,
       n: '${m['n'] ?? '1'}',
@@ -69,7 +76,11 @@ class _TrayRow {
       cores: '${m['co'] ?? '1'}',
       w: '${m['w'] ?? ''}',
     );
-    if (row.kind != null && !cableSizes(row.kind!).contains(row.size)) {
+    if (row.ams != null) {
+      if (!amsCounts(row.ams!).contains(row.amsN)) row.amsN = amsCounts(row.ams!).first;
+      final ss = amsSizes(row.ams!, row.amsN);
+      if (!ss.contains(row.size)) row.size = ss.first;
+    } else if (row.kind != null && !cableSizes(row.kind!).contains(row.size)) {
       row.size = cableSizes(row.kind!).first;
     }
     return row;
@@ -222,7 +233,22 @@ class _CableTrayPageState extends State<CableTrayPage>
         bad.add(i + 1);
         continue;
       }
-      if (r.kind != null) {
+      if (r.ams != null) {
+        final sp = amsSpec(r.ams!, r.amsN, r.size);
+        if (sp == null) {
+          bad.add(i + 1);
+          continue;
+        }
+        out.add(TrayCable(
+          name: '${amsKindLabel(r.ams!)} ${amsCountLabel(r.ams!, r.amsN)} ${sqText(r.size)}',
+          od: sp.od,
+          size: r.size,
+          cores: amsCores(r.ams!, r.amsN),
+          count: n.toInt(),
+          control: r.control,
+          weight: sp.kg,
+        ));
+      } else if (r.kind != null) {
         final c = TrayCable.fromKind(r.kind!, r.size, n.toInt());
         if (c == null) {
           bad.add(i + 1);
@@ -252,7 +278,7 @@ class _CableTrayPageState extends State<CableTrayPage>
   void _addRow() {
     if (_rows.length >= _maxRows) return;
     final last = _rows.last;
-    _set(() => _rows.add(_TrayRow(kind: last.kind, size: last.size, control: last.control, n: '1', od: last.od.text, sz: last.sizeText.text, cores: last.cores.text)));
+    _set(() => _rows.add(_TrayRow(kind: last.kind, ams: last.ams, amsN: last.amsN, size: last.size, control: last.control, n: '1', od: last.od.text, sz: last.sizeText.text, cores: last.cores.text)));
   }
 
   void _deleteRow(_TrayRow r) {
@@ -306,30 +332,88 @@ class _CableTrayPageState extends State<CableTrayPage>
                     child: Text('${i + 1}', key: Key('ct_no_$i'), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: trayRowColor(i))),
                   ),
                   Expanded(
-                    child: DropdownButton<CableKind?>(
+                    child: DropdownButton<String>(
                       key: Key('ct_kind_$i'),
-                      value: r.kind,
+                      value: r.ams != null ? 'a:${r.ams!.name}' : (r.kind != null ? 'k:${r.kind!.name}' : 'direct'),
                       isExpanded: true,
                       underline: const SizedBox.shrink(),
                       dropdownColor: fc.surface,
                       style: dropdownStyle,
                       items: [
-                        for (final k in kTrayCableKinds) DropdownMenuItem(value: k, child: Text(cableKindLabel(k))),
-                        const DropdownMenuItem(value: null, child: Text('직접 입력 (외경)')),
+                        for (final k in kTrayCableKinds) DropdownMenuItem(value: 'k:${k.name}', child: Text(cableKindLabel(k))),
+                        for (final a in AmsKind.values) DropdownMenuItem(value: 'a:${a.name}', child: Text(amsKindLabel(a))),
+                        const DropdownMenuItem(value: 'direct', child: Text('직접 입력 (외경)')),
                       ],
-                      onChanged: (k) => _set(() {
-                        r.kind = k;
-                        if (k != null) {
+                      onChanged: (v) => _set(() {
+                        if (v == null) return;
+                        if (v.startsWith('a:')) {
+                          final a = AmsKind.values.firstWhere((x) => 'a:${x.name}' == v);
+                          r.ams = a;
+                          r.kind = null;
+                          if (!amsCounts(a).contains(r.amsN)) r.amsN = amsCounts(a).first;
+                          final ss = amsSizes(a, r.amsN);
+                          if (!ss.contains(r.size)) r.size = ss.first;
+                          r.control = true;
+                        } else if (v.startsWith('k:')) {
+                          final k = CableKind.values.firstWhere((x) => 'k:${x.name}' == v);
+                          r.ams = null;
+                          r.kind = k;
                           final ss = cableSizes(k);
                           if (!ss.contains(r.size)) r.size = ss.firstWhere((s) => s >= r.size, orElse: () => ss.last);
                           r.control = cvvsCores(k) != null;
+                        } else {
+                          r.ams = null;
+                          r.kind = null;
                         }
                       }),
                     ),
                   ),
                 ],
               ),
-              if (r.kind != null)
+              if (r.ams != null)
+                Row(
+                  children: [
+                    const SizedBox(width: 26),
+                    SizedBox(
+                      width: 78,
+                      child: DropdownButton<int>(
+                        key: Key('ct_amsn_$i'),
+                        value: r.amsN,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        dropdownColor: fc.surface,
+                        style: dropdownStyle.copyWith(fontWeight: FontWeight.w600),
+                        items: [for (final n in amsCounts(r.ams!)) DropdownMenuItem(value: n, child: Text(amsCountLabel(r.ams!, n)))],
+                        onChanged: (n) => _set(() {
+                          if (n == null) return;
+                          r.amsN = n;
+                          final ss = amsSizes(r.ams!, n);
+                          if (!ss.contains(r.size)) r.size = ss.first;
+                        }),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButton<double>(
+                        key: Key('ct_size_$i'),
+                        value: r.size,
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        dropdownColor: fc.surface,
+                        style: dropdownStyle.copyWith(fontWeight: FontWeight.w600),
+                        items: [
+                          for (final s in amsSizes(r.ams!, r.amsN))
+                            DropdownMenuItem(value: s, child: Text('${sqText(s)} (외경 ${fmt(amsSpec(r.ams!, r.amsN, s)!.od)})')),
+                        ],
+                        onChanged: (s) {
+                          if (s != null) _set(() => r.size = s);
+                        },
+                      ),
+                    ),
+                    _numBox('ct_n_$i', r.count, '가닥', width: 86),
+                  ],
+                )
+              else if (r.kind != null)
                 Row(
                   children: [
                     const SizedBox(width: 26),
@@ -463,9 +547,9 @@ class _CableTrayPageState extends State<CableTrayPage>
           [for (final sp in kTraySpans) calcChip('ct_sp_${sp.toString()}', '${fmt(sp)}m', _span == sp, () => _set(() => _span = sp))],
         ),
       ],
-      elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 무게입니다. 제조사 카탈로그 값을 넣습니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
+      elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 무게입니다. 제조사 카탈로그 값을 넣습니다(예: 대양엔지니어링 사다리형 300폭 H100 가로대 300mm, 2.6t 7.0kg/m — 한 곳 자료). 지지점 하중에만 들어가고, 허용 하중 판정은 케이블 하중으로 합니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
       if (trayMountSpans(_mount))
-        elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그의 이 지지 간격에서 등분포 허용(사용) 하중입니다. 파괴 하중만 있으면 1.5로 나눈 값을 넣습니다(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
+        elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그에서 이 지지 간격의 등분포 허용(사용) 하중입니다. 케이블만의 하중 기준(트레이 자중 제외)이라 케이블 하중과 견줍니다. NEMA VE-1·IEC 61537 기준 값은 안전율(1.5 이상)이 이미 들어 있어 그대로 넣고, KS 정하중이나 파괴 하중만 있으면 1.5로 나눠 넣으십시오(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
       calcResult(
         key: const Key('ct_load'),
         big: '${fmt(l.totalKgM, 1)} kg/m',
@@ -483,8 +567,8 @@ class _CableTrayPageState extends State<CableTrayPage>
             '바닥이 계속 받쳐 지지 간격·허용 하중 판정은 하지 않습니다. 바닥(슬래브·트렌치) 허용 하중 확인에 1m당 무게를 쓰십시오.',
           if (ok != null)
             ok
-                ? '허용 하중 ${fmt(l.allowKgM!, 1)} kg/m 안입니다.'
-                : '허용 하중 ${fmt(l.allowKgM!, 1)} kg/m를 넘습니다. 지지 간격을 줄이거나 더 튼튼한 트레이로 하십시오.',
+                ? '케이블 하중 ${fmt(l.cableKgM, 1)} kg/m가 허용 하중 ${fmt(l.allowKgM!, 1)} kg/m 안입니다.'
+                : '케이블 하중 ${fmt(l.cableKgM, 1)} kg/m가 허용 하중 ${fmt(l.allowKgM!, 1)} kg/m를 넘습니다. 지지 간격을 줄이거나 더 튼튼한 트레이로 하십시오.',
           if (!spans) ...kFloorTrayNotes,
           if (l.missing.isNotEmpty) '무게를 몰라 빠진 케이블: ${l.missing.join(', ')}. 직접 입력 줄에 kg/km를 넣으면 들어갑니다.',
           cableWeightSource,

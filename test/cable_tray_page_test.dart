@@ -111,4 +111,17 @@ void main() {
     expect(sent, contains('1. F-CV 4심 35sq × 6가닥'));
     expect(sent, contains('KEC 232.41'));
   });
+
+  testWidgets('AMS 쌍 케이블을 고르면 외경·무게 표로 계산한다', (tester) async {
+    await _open(tester);
+    await tester.tap(find.byKey(const Key('ct_kind_0')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('F-CVV-I/C-AMS 쌍').last);
+    await tester.pumpAndSettle();
+    // 기본 2P 1.5sq: 외경 18.5 → 10가닥 185mm × 1.2 = 222 ≤ 300
+    await tester.enterText(find.byKey(const Key('ct_n_0')), '10');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('사다리형 300 합격 74%'), findsOneWidget);
+    expect(tester.widget<ChoiceChip>(find.byKey(const Key('ct_ctrl_0'))).selected, isTrue); // 제어·신호로
+  });
 }

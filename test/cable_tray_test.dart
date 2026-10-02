@@ -3,6 +3,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/electrical/cable_tray.dart';
 import 'package:tubing_calculator/src/presentation/electrical/cable_tray_painter.dart';
+import 'package:tubing_calculator/src/presentation/electrical/cable_weights.dart';
 import 'package:tubing_calculator/src/presentation/electrical/conduit_tables.dart';
 
 TrayCable _c(double size, int cores, double od, int count, {bool control = false}) =>
@@ -275,9 +276,11 @@ void main() {
       expect(l.cableKgM, closeTo(22.8, 1e-9));
       expect(l.totalKgM, closeTo(28.8, 1e-9));
       expect(l.perSupportKg, closeTo(57.6, 1e-9));
+      // 허용 하중은 케이블 하중(22.8)과 견준다(카탈로그 값은 트레이 자중 제외).
       expect(l.ok, isTrue);
-      expect(l.pct, closeTo(96, 1e-9));
-      expect(trayLoad(cables: [w(1500, 10)], trayKgM: 6, span: 3, allowKgM: 20).ok, isFalse);
+      expect(l.pct, closeTo(76, 1e-9));
+      expect(trayLoad(cables: [w(1500, 10)], trayKgM: 6, span: 3, allowKgM: 12).ok, isFalse);
+      expect(trayLoad(cables: [w(1500, 10)], trayKgM: 6, span: 3, allowKgM: 15).ok, isTrue); // 자중 6을 더하면 21이지만 판정은 15
     });
 
     test('허용 하중이 없으면 판정 없이 하중만, 무게 모르는 케이블은 알린다', () {
@@ -285,6 +288,28 @@ void main() {
       expect(l.ok, isNull);
       expect(l.cableKgM, closeTo(2, 1e-9));
       expect(l.missing.single, contains('TFR-CV'));
+    });
+  });
+
+  group('무게 표·AMS', () {
+    test('F-CV·F-CVV-S·F-GV 무게(세 회사 중 큰 값)', () {
+      expect(cableWeight(CableKind.fcv4, 35), 1635);
+      expect(cableWeight(CableKind.fcv1, 300), 3030);
+      expect(cableWeight(CableKind.fcv2, 6), 250); // 넥상스 2454 오기는 뺐다
+      expect(cableWeight(CableKind.cvvs10, 2.5), 660);
+      expect(cableWeight(CableKind.cvvs15, 10), isNull);
+      expect(cableWeight(CableKind.fgv, 16), 230);
+      expect(cableWeight(CableKind.hfix, 2.5), isNull);
+      expect(TrayCable.fromKind(CableKind.fcv4, 35, 1)!.weight, 1635);
+    });
+
+    test('AMS: 일괄 심형은 F-CVV-S 외경, I/C 쌍·3심은 큰 값, 한 곳에만 있는 1P는 없다', () {
+      expect(amsSpec(AmsKind.overallCore, 10, 1.5), (od: 18.5, kg: 470.0));
+      expect(amsSpec(AmsKind.icPair, 4, 2.5), (od: 23.0, kg: 550.0));
+      expect(amsSpec(AmsKind.icTriad, 30, 1.5), (od: 51.0, kg: 3360.0));
+      expect(amsCounts(AmsKind.icPair).contains(1), isFalse);
+      expect(amsCores(AmsKind.icPair, 4), 8);
+      expect(amsSizes(AmsKind.overallCore, 30), [1.5, 2.5, 4]);
     });
   });
 }

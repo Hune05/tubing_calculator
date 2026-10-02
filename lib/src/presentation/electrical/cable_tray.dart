@@ -455,7 +455,7 @@ class TrayLoad {
   final double cableKgM; // 케이블 무게(예비 여유 포함)
   final double trayKgM; // 트레이 자중
   final double span; // 지지 간격(m)
-  final double? allowKgM; // 제조사 허용 하중(이 지지 간격에서)
+  final double? allowKgM; // 제조사 허용(사용) 하중(이 지지 간격에서, 케이블만 — 트레이 자중 제외)
   final List<String> missing; // 무게를 몰라 빠진 케이블
 
   const TrayLoad({
@@ -471,8 +471,9 @@ class TrayLoad {
   /// 지지점 하나가 받는 하중(kg) ≈ 1m당 하중 × 지지 간격(이어진 트레이 가운데 지지점).
   double get perSupportKg => totalKgM * span;
 
-  bool? get ok => allowKgM == null ? null : totalKgM <= allowKgM! + 1e-9;
-  double? get pct => allowKgM == null || allowKgM! <= 0 ? null : totalKgM / allowKgM! * 100;
+  /// 카탈로그 허용 하중(NEMA VE-1 working load·IEC 61537 SWL)은 케이블 하중 기준이라 케이블 하중과 견준다.
+  bool? get ok => allowKgM == null ? null : cableKgM <= allowKgM! + 1e-9;
+  double? get pct => allowKgM == null || allowKgM! <= 0 ? null : cableKgM / allowKgM! * 100;
 }
 
 /// 케이블 무게 합(kg/m)에 예비 여유를 더하고 트레이 자중을 더해 허용 하중과 견준다.
