@@ -321,4 +321,44 @@ void main() {
       expect(dyElbow(1000, r1, 60, 125).$2, closeTo(b, 1));
     }
   });
+
+  // 대양 카탈로그 19쪽 수직 엘보 90° IN 표: 폭 150~1000 모두 R 300/600/900 → A 425/725/1025.
+  // A는 끝면에서 다른 쪽 다리의 안쪽 테두리(측판 윗변)까지라 측판 높이와 관계없다.
+  // 같은 쪽 "60° OUT" 표는 번호(VE9-)·그림(90°)·값이 90° 표와 똑같아 옮겨 적은 것으로 보고 뺐다.
+  test('대양 수직 엘보 90° IN 표 A = R + 125 (측판 높이와 관계없음)', () {
+    for (final h in kTrayRailHeights) {
+      for (final (r, a) in const [
+        (300.0, 425.0),
+        (600.0, 725.0),
+        (900.0, 1025.0),
+      ]) {
+        final e = trayElbowRoute(
+          kind: TrayRouteKind.up,
+          rise: 5000,
+          angle: 90,
+          rail: h,
+          radius: r,
+          tangent: 125,
+          toFace: 20000,
+        );
+        final p = e.pieces[1];
+        expect(p.elbow && p.up, isTrue);
+        // 바닥면 기준선은 R + 측판 높이로 돈다 → 가로 A = 끝 직선 + R + H − H
+        expect(p.to.$1 - p.from.$1 - h, closeTo(a, 1e-6), reason: 'H$h R$r 가로');
+        // 세로 A: 위 끝면에서 아래 다리 윗변(높이 H)까지
+        expect(p.to.$2 - p.from.$2 - h, closeTo(a, 1e-6), reason: 'H$h R$r 세로');
+      }
+    }
+    expect(
+      trayElbowRoute(
+        kind: TrayRouteKind.up,
+        rise: 5000,
+        angle: 90,
+        rail: 100,
+        radius: 300,
+        toFace: 20000,
+      ).sideA,
+      425,
+    );
+  });
 }
