@@ -70,6 +70,24 @@ class GroundBarPainter extends CustomPainter {
           colors: [Color(0xFFE9A878), Color(0xFFB66A3C)],
         ).createShader(bar),
     );
+    for (final b in plan.bends) {
+      final zone = Rect.fromLTRB(
+        x0 + b.start * sc,
+        y0,
+        x0 + math.max(b.end * sc, b.start * sc + 2),
+        y0 + h,
+      );
+      canvas.drawRect(zone, Paint()..color = const Color(0x8C0F9D8F));
+      for (final x in [b.start, b.end]) {
+        canvas.drawLine(
+          Offset(x0 + x * sc, y0 - 4),
+          Offset(x0 + x * sc, y0 + h + 4),
+          Paint()
+            ..color = const Color(0xFF0F9D8F)
+            ..strokeWidth = 1.6,
+        );
+      }
+    }
     final rr = math.max(holeDia * sc / 2, 2.5);
     for (final p in plan.positions) {
       final c = Offset(x0 + p * sc, y0 + h / 2);
@@ -98,7 +116,7 @@ class GroundBarPainter extends CustomPainter {
     }
 
     if (plan.holes > 0) {
-      dimLine(0, plan.positions.first, fmt(plan.positions.first, 1));
+      dimLine(plan.flatStart, plan.positions.first, fmt(plan.endLeft, 1));
       if (plan.holes > 1) {
         dimLine(
           plan.positions.first,
@@ -106,7 +124,7 @@ class GroundBarPainter extends CustomPainter {
           fmt(plan.positions[1] - plan.positions.first, 1),
         );
       }
-      dimLine(plan.positions.last, plan.length, fmt(plan.endRight, 1));
+      dimLine(plan.positions.last, plan.flatEnd, fmt(plan.endRight, 1));
     }
     _label(
       canvas,

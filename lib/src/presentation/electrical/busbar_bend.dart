@@ -220,9 +220,13 @@ BusbarZ busbarZ({
 
 /// 꺾은 부스바 중립선의 옆모습 좌표(mm, y는 위쪽이 +). 시작 끝은 (0, 0)에서 오른쪽으로 간다.
 /// + 각은 위쪽(왼쪽으로 도는 방향)으로 꺾는다. 호는 5° 간격으로 나눈 꺾은선이다.
-List<math.Point<double>> busbarShape(BusbarBendPlan plan, double rho) {
+List<math.Point<double>> busbarShape(
+  BusbarBendPlan plan,
+  double rho, {
+  double startHeadingDeg = 0,
+}) {
   final pts = <math.Point<double>>[const math.Point(0, 0)];
-  var x = 0.0, y = 0.0, heading = 0.0;
+  var x = 0.0, y = 0.0, heading = _rad(startHeadingDeg);
   void go(double len) {
     x += len * math.cos(heading);
     y += len * math.sin(heading);

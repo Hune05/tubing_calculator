@@ -31,8 +31,10 @@ void main() {
     await _open(tester);
     // 50 + 9 × 25.4 = 278.6
     expect(find.text('278.6 mm'), findsOneWidget);
-    expect(find.text('1번 25'), findsOneWidget);
-    expect(find.text('10번 253.6'), findsOneWidget);
+    expect(find.text('첫 구멍 25 → 피치 25.4 × 9칸 → 마지막 구멍 253.6'), findsOneWidget);
+    expect(find.text('1~5번'), findsOneWidget);
+    expect(find.text('6~10번'), findsOneWidget);
+    expect(find.text('25   50.4   75.8   101.2   126.6'), findsOneWidget);
     expect(find.byKey(const Key('gb_view')), findsOneWidget);
   });
 
@@ -68,5 +70,32 @@ void main() {
       tester.widget<TextField>(find.byKey(const Key('gb_n'))).controller!.text,
       '4',
     );
+  });
+
+  testWidgets('끝 L 꺾기: 왼쪽 탭을 켜면 꺾기 선과 옆모습, 카톡 글에 포함', (tester) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t);
+    await tester.tap(find.byKey(const Key('gb_tab_1')));
+    await tester.pumpAndSettle();
+    await _type(tester, 'gb_n', '4');
+    await _type(tester, 'gb_tabl', '40');
+    await _type(tester, 'gb_t', '6');
+    // 곧은 28 + 호 13.2 + 구멍 줄 126.2
+    expect(find.text('167.4 mm'), findsOneWidget);
+    expect(find.byKey(const Key('gb_shape_view')), findsOneWidget);
+    expect(find.textContaining('왼쪽 탭 · 시작선 28 mm'), findsOneWidget);
+    expect(find.textContaining('첫 구멍 66.2'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('gb_share')));
+    await tester.pumpAndSettle();
+    expect(sent, contains('왼쪽 꺾기 시작선 28 · 끝선 41.2mm'));
+    expect(sent, contains('1~4번 66.2 · 91.6 · 117 · 142.4'));
+  });
+
+  testWidgets('탭이 너무 짧으면 알림', (tester) async {
+    await _open(tester);
+    await tester.tap(find.byKey(const Key('gb_tab_2')));
+    await tester.pumpAndSettle();
+    await _type(tester, 'gb_tabr', '5');
+    expect(find.textContaining('꺾기에 너무 짧습니다'), findsOneWidget);
   });
 }

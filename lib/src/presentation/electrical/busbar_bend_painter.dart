@@ -49,18 +49,19 @@ class BusbarShapePainter extends CustomPainter {
     required this.plan,
     required this.rho,
     required this.thickness,
+    this.startHeadingDeg = 0,
     required this.text,
     required this.sub,
     required this.line,
   });
 
   final BusbarBendPlan plan;
-  final double rho, thickness;
+  final double rho, thickness, startHeadingDeg;
   final Color text, sub, line;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final pts = busbarShape(plan, rho);
+    final pts = busbarShape(plan, rho, startHeadingDeg: startHeadingDeg);
     var minX = 0.0, maxX = 0.0, minY = 0.0, maxY = 0.0;
     for (final p in pts) {
       minX = math.min(minX, p.x);
@@ -124,7 +125,10 @@ class BusbarShapePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(BusbarShapePainter o) =>
-      o.plan != plan || o.rho != rho || o.thickness != thickness;
+      o.plan != plan ||
+      o.rho != rho ||
+      o.thickness != thickness ||
+      o.startHeadingDeg != startHeadingDeg;
 }
 
 /// 꺾은선 위에서 시작점으로부터 길이 [len]인 점.
