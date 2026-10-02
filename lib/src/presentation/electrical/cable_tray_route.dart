@@ -14,14 +14,25 @@ library;
 
 import 'dart:math' as math;
 
-/// 무엇을 하는지.
-enum TrayRouteKind { over, up, down }
+/// 무엇을 하는지. 옆으로 비켜가기·옮겨가기는 위에서 본 모양으로 같은 계산을 한다:
+/// 바닥면 선 → 장애물 쪽 측판, 측판 높이 → 트레이 폭(측판 사이), 위로 → 장애물 반대쪽으로.
+enum TrayRouteKind { over, up, down, aside, shift }
 
 String trayRouteKindLabel(TrayRouteKind k) => switch (k) {
   TrayRouteKind.over => '넘어가기',
   TrayRouteKind.up => '올라가기',
   TrayRouteKind.down => '내려가기',
+  TrayRouteKind.aside => '옆으로 비켜가기',
+  TrayRouteKind.shift => '옆으로 옮겨가기',
 };
+
+/// 옆으로(수평으로) 꺾는지.
+bool trayRouteIsPlan(TrayRouteKind k) =>
+    k == TrayRouteKind.aside || k == TrayRouteKind.shift;
+
+/// 장애물을 지나 다시 제자리 줄로 돌아오는지(꺾는 곳 4무리).
+bool trayRouteReturns(TrayRouteKind k) =>
+    k == TrayRouteKind.over || k == TrayRouteKind.aside;
 
 /// 꺾는 각도(°) 칩.
 const List<double> kTrayRouteAngles = [30, 45, 60, 90];
@@ -156,13 +167,16 @@ TrayRoute trayRoute({
     sRun += p * math.cos(k * d);
   }
   var leg = (rise - 2 * sRise) / math.sin(th);
-  if (rise <= 0) problems.add('높이가 0입니다.');
+  final plan = trayRouteIsPlan(kind);
+  if (rise <= 0) problems.add(plan ? '옮길 거리가 0입니다.' : '높이가 0입니다.');
   if (leg < -1e-6) {
-    problems.add('높이가 낮아 이 각도·마디 간격으로는 못 꺾습니다. 각도를 줄이거나 마디 간격을 줄이십시오.');
+    problems.add(
+      '${plan ? '옮길 거리가 짧아' : '높이가 낮아'} 이 각도·마디 간격으로는 못 꺾습니다. 각도를 줄이거나 마디 간격을 줄이십시오.',
+    );
     leg = 0;
   }
   final foot = 2 * sRun + leg * math.cos(th);
-  final top = kind == TrayRouteKind.over ? obstacle + 2 * side : 0.0;
+  final top = trayRouteReturns(kind) ? obstacle + 2 * side : 0.0;
   // 첫 꺾는 점: 올라가기·넘어가기는 장애물 앞면 − 여유 − 올라가는 수평 길이, 내려가기는 단 끝 + 여유
   final lead = kind == TrayRouteKind.down
       ? toFace + side
@@ -188,7 +202,7 @@ TrayRoute trayRoute({
   group(first);
   steps.add((leg, 0));
   group(-first);
-  if (kind == TrayRouteKind.over) {
+  if (trayRouteReturns(kind)) {
     steps.add((top, 0));
     group(-1);
     steps.add((leg, 0));
@@ -251,10 +265,26 @@ const List<String> kTrayFieldBendNotes = [
   '자르지 않고 라이저 커넥터(수직 가변 이음판)로 이어도 됨. 꺾는 곳은 경첩 가운데, 본딩 점퍼 필요',
 ];
 
+/// 옆으로 꺾을 때 작업 순서(개조식).
+const List<String> kTrayFieldBendPlanNotes = [
+  '마킹은 장애물 쪽 측판을 따라 잴 것. 직각자로 반대쪽 측판까지 선을 넘길 것',
+  '꺾는 안쪽 측판을 V컷 폭만큼 따내고 바깥 측판을 경첩으로 접음',
+  'V컷 안에 든 가로대는 떼어 냄',
+  '맞닿은 안쪽 측판은 각도 맞춘 이음판·볼트로 체결. 볼트는 안에서 밖으로, 너트는 바깥',
+  '용접·열가공 피할 것(SMCS·KRCCS, LH 시방서는 금지)',
+  '절단면 날 제거, 아연 도료로 보수(맨살보다 13~25mm 넓게)',
+  '꺾은 곳 양쪽 접지 본딩 점퍼(접지띠)',
+  '케이블은 꺾는 안쪽 측판으로 당겨짐. 굵은 케이블은 나눠 꺾거나 수평 엘보 사용',
+  '시방서 원칙은 방향 전환에 기성 엘보 사용. 현장 꺾기는 감독 승인 후',
+  '마킹 값은 측판 두께 무시(몇 mm 차이). 첫 작업은 토막으로 맞춰 볼 것',
+  '양쪽 측판을 다 잘라 수평 가변 이음판으로 이어도 됨. 안쪽 짧은 이음판 먼저, 바깥 이음판은 경첩이 가운데, 양쪽 600mm 안에 지지대, 본딩 점퍼',
+];
+
 /// 근거 보기.
 const List<String> kTrayRouteBasis = [
   'V컷 폭 = 2 × 측판 높이 × tan(꺾는 각 ÷ 2). 꺾임 안쪽 테두리에서 따고 반대 테두리를 접는 곳으로 남깁니다. 기하로 계산한 식이고, 중국 현장 자료 "측판 높이 × 0.8"(45°)과 영국 현장 글(45°에 중심선 양쪽 41.4mm)이 같은 값입니다. 정해 둔 표준·제조사 자료는 없습니다.',
   '마킹 간격: 위로 꺾는 곳 → 아래로 꺾는 곳 = 경사 길이 + V컷 폭 ÷ 2, 아래로 꺾는 두 곳 사이 = 윗면 길이 + V컷 폭. 경사 길이 = 높이 ÷ sin(각), 수평 길이 = 높이 ÷ tan(각).',
+  '옆으로 꺾기: 같은 식에 측판 높이 대신 트레이 폭(측판 사이)을 넣고, 바닥(가로대)과 안쪽 측판을 따고 바깥 측판을 경첩으로 씁니다(중국 제조사 글, 트로프형 기준, 한 곳 자료). 기준선은 장애물 쪽 측판입니다. 수평 가변 이음판: NEMA VE 2 3.4.4.',
   '나눠 꺾은 반경 = 마디 간격 ÷ (2 × tan(한 번 각 ÷ 2)). 기하로 계산한 값입니다.',
   'SMCS 31 65 10 3.8.5(4)·KRCCS 3.1.5(4): 방향 전환은 수평·수직 엘보 사용. SMCS 3.8.1(5)·KRCCS 3.1.7: 현장 굴곡은 전기적 연속성과 케이블 지지 유지. 현장 가공은 용접·열가공을 되도록 피하고 볼트·클램프로 결합(LH 61014는 금지).',
   '절단면: 날카로운 모서리·거친 절단면 금지(SMCS·KRCCS·LH). 아연 보수: ASTM A780 아연 함량 높은 도료, 맨살보다 13~25mm 넓게(NEMA VE 2 3.6.4).',

@@ -1496,7 +1496,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "케이블 트레이 형상 계산기",
-                        subtitle: "장애물 넘어가기·단 오르내리기 V컷 마킹",
+                        subtitle: "넘어가기·옆으로 비켜가기·단 오르내리기 V컷 마킹",
                         icon: AppGlyph.trayRoute,
                         onTap: () {
                           HapticFeedback.lightImpact();

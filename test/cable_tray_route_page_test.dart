@@ -68,4 +68,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('너무 가깝습니다'), findsOneWidget);
   });
+
+  testWidgets('옆으로 비켜가기: 트레이 폭·장애물 쪽, 측판 이름으로 마킹', (tester) async {
+    await _open(tester);
+    await tester.tap(find.byKey(const Key('tr_k_aside')));
+    await tester.pumpAndSettle();
+    // 들어온 폭 300 + 옆 여유 50, 트레이 폭 300(V컷 600): 950 + 350 + 600 + 500 + 600 + 350 + 500
+    expect(
+      find.textContaining('옆으로 비켜가기 90° · 마킹 4곳 · 3,850mm'),
+      findsOneWidget,
+    );
+    expect(find.text('950 mm · 왼쪽으로 90°'), findsOneWidget);
+    expect(
+      find.text('왼쪽 측판 V컷 폭 600 (650~1,250)\n오른쪽 측판은 남기고 접습니다'),
+      findsOneWidget,
+    );
+    expect(find.text('위에서 본 모양'), findsOneWidget);
+    expect(find.byKey(const Key('tr_rail_100')), findsNothing);
+    await tester.tap(find.byKey(const Key('tr_ol_l')));
+    await tester.pumpAndSettle();
+    expect(find.text('950 mm · 오른쪽으로 90°'), findsOneWidget);
+    expect(find.textContaining('오른쪽 측판 V컷 폭 600'), findsWidgets);
+    await tester.tap(find.byKey(const Key('tr_w_150')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('3,250mm'), findsOneWidget);
+  });
 }

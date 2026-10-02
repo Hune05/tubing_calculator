@@ -128,4 +128,48 @@ void main() {
     expect(r.lengthsNeeded(3000), 1);
     expect(r.lengthsNeeded(2000), 2);
   });
+
+  test('옆으로 비켜가기: 트레이 폭이 V컷 깊이, 계산은 넘어가기와 같다', () {
+    final r = trayRoute(
+      kind: TrayRouteKind.aside,
+      rise: 250,
+      angle: 90,
+      rail: 300,
+      obstacle: 400,
+      side: 50,
+      toFace: 1000,
+      tail: 500,
+    );
+    expect(r.ok, isTrue);
+    expect(r.corners.map((c) => c.turn), [90, -90, -90, 90]);
+    expect(r.corners.first.notch, closeTo(600, 1e-9));
+    // 950 / 950 + 250 + 300 / + 600 + 500 / + 600 + 250
+    expect(r.corners.map((c) => c.mark.round()), [950, 1500, 2600, 3150]);
+    expect(r.material, closeTo(3650, 1e-9));
+    expect(trayRouteIsPlan(TrayRouteKind.aside), isTrue);
+    expect(trayRouteReturns(TrayRouteKind.shift), isFalse);
+  });
+
+  test('옆으로 옮겨가기는 꺾는 곳 두 무리, 거리가 짧으면 알림', () {
+    final r = trayRoute(
+      kind: TrayRouteKind.shift,
+      rise: 200,
+      angle: 45,
+      rail: 300,
+      side: 50,
+      toFace: 1000,
+    );
+    expect(r.corners.length, 2);
+    expect(r.points.last.$2, closeTo(200, 1e-9));
+    final short = trayRoute(
+      kind: TrayRouteKind.shift,
+      rise: 100,
+      angle: 90,
+      rail: 300,
+      toFace: 1000,
+      pieces: 3,
+      pitch: 150,
+    );
+    expect(short.problems.first, contains('옮길 거리가 짧아'));
+  });
 }

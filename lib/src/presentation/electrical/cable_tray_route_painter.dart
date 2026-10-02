@@ -63,8 +63,12 @@ void _badge(Canvas canvas, Offset c, int n, Color col) {
 }
 
 /// 옆에서 본 모양. 바닥면 선(아래)과 측판 윗변(위)을 꺾는 점마다 이어 그린다.
+/// 옆으로 비켜가기·옮겨가기는 위에서 본 모양(장애물 쪽 측판과 반대쪽 측판)으로 그린다.
 class TrayRouteSidePainter extends CustomPainter {
   final TrayRoute route;
+
+  /// 위에서 본 모양에서 장애물이 진행 방향 왼쪽이면 위아래를 뒤집는다(왼쪽이 위).
+  final bool flip;
 
   /// 장애물(넘어가기)이나 단(올라가기·내려가기): 시작점 기준 x 범위와 높이(mm, 지금 트레이 바닥 기준).
   final double? boxFrom, boxTo, boxHeight;
@@ -72,6 +76,7 @@ class TrayRouteSidePainter extends CustomPainter {
 
   TrayRouteSidePainter({
     required this.route,
+    this.flip = false,
     this.boxFrom,
     this.boxTo,
     this.boxHeight,
@@ -102,12 +107,14 @@ class TrayRouteSidePainter extends CustomPainter {
       final k = h / math.cos(half);
       top.add(p + Offset(-math.sin(mid) * k, math.cos(mid) * k));
     }
+    final plan = trayRouteIsPlan(route.kind);
+    double fy(double y) => flip ? -y : y;
     var minX = 0.0, maxX = 0.0, minY = 0.0, maxY = 0.0;
     void grow(double x, double y) {
       minX = math.min(minX, x);
       maxX = math.max(maxX, x);
-      minY = math.min(minY, y);
-      maxY = math.max(maxY, y);
+      minY = math.min(minY, fy(y));
+      maxY = math.max(maxY, fy(y));
     }
 
     for (final p in pts) {
@@ -120,12 +127,17 @@ class TrayRouteSidePainter extends CustomPainter {
     final hasBox =
         boxFrom != null &&
         bh != null &&
-        (route.kind != TrayRouteKind.over || boxTo != null);
+        (!trayRouteReturns(route.kind) || boxTo != null);
+    // 위에서 본 장애물은 측판 줄 바깥으로도 조금 걸쳐 그린다
+    final outside = plan && bh != null ? -math.max(120.0, bh * 0.5) : 0.0;
     if (hasBox) {
       grow(boxFrom!, route.kind == TrayRouteKind.down ? 0 : bh);
       if (boxTo != null) grow(boxTo!, 0);
+      if (plan) grow(boxFrom!, outside);
     }
-    const padL = 18.0, padR = 18.0, padT = 26.0, padB = 34.0;
+    // 위에서 본 모양은 옮기는 거리 치수를 시작점 왼쪽 바깥에 둔다
+    final padL = plan ? 52.0 : 18.0;
+    const padR = 18.0, padT = 26.0, padB = 34.0;
     final w = size.width - padL - padR, hh = size.height - padT - padB;
     final s = math.min(
       w / math.max(1, maxX - minX),
@@ -133,29 +145,47 @@ class TrayRouteSidePainter extends CustomPainter {
     );
     final ox = padL + (w - (maxX - minX) * s) / 2 - minX * s;
     final oy = padT + hh - (hh - (maxY - minY) * s) / 2 + minY * s;
-    Offset m(double x, double y) => Offset(ox + x * s, oy - y * s);
+    Offset m(double x, double y) => Offset(ox + x * s, oy - fy(y) * s);
 
+    if (plan) {
+      // 원래 가던 줄(곧게 갔다면 트레이가 놓일 자리)을 점선으로
+      final dash = Paint()
+        ..color = sub.withValues(alpha: 0.7)
+        ..strokeWidth = 1;
+      for (final y in [0.0, h]) {
+        final y0 = m(0, y).dy;
+        for (var x = m(0, 0).dx; x < m(maxX, 0).dx; x += 9) {
+          canvas.drawLine(
+            Offset(x, y0),
+            Offset(math.min(x + 5, m(maxX, 0).dx), y0),
+            dash,
+          );
+        }
+      }
+    }
     // 바닥(지금 트레이가 놓인 면)
     final floorY = route.kind == TrayRouteKind.down
         ? m(0, route.points.last.$2).dy
         : m(0, 0).dy;
-    final ground = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [line.withValues(alpha: 0.55), line.withValues(alpha: 0.05)],
-      ).createShader(Rect.fromLTRB(0, floorY, size.width, floorY + 18));
-    canvas.drawRect(
-      Rect.fromLTRB(4, floorY, size.width - 4, floorY + 18),
-      ground,
-    );
-    canvas.drawLine(
-      Offset(4, floorY),
-      Offset(size.width - 4, floorY),
-      Paint()
-        ..color = sub
-        ..strokeWidth = 1.2,
-    );
+    if (!plan) {
+      final ground = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [line.withValues(alpha: 0.55), line.withValues(alpha: 0.05)],
+        ).createShader(Rect.fromLTRB(0, floorY, size.width, floorY + 18));
+      canvas.drawRect(
+        Rect.fromLTRB(4, floorY, size.width - 4, floorY + 18),
+        ground,
+      );
+      canvas.drawLine(
+        Offset(4, floorY),
+        Offset(size.width - 4, floorY),
+        Paint()
+          ..color = sub
+          ..strokeWidth = 1.2,
+      );
+    }
 
     // 장애물·단: 콘크리트 느낌 그라데이션 + 그림자
     if (hasBox) {
@@ -168,6 +198,14 @@ class TrayRouteSidePainter extends CustomPainter {
         TrayRouteKind.down => Rect.fromPoints(
           Offset(4, m(0, 0).dy),
           m(boxFrom!, route.points.last.$2),
+        ),
+        TrayRouteKind.aside => Rect.fromPoints(
+          m(boxFrom!, bh),
+          m(boxTo!, outside),
+        ),
+        TrayRouteKind.shift => Rect.fromPoints(
+          m(boxFrom!, bh),
+          Offset(size.width - 4, m(0, outside).dy),
         ),
       };
       canvas.drawRRect(
@@ -193,8 +231,9 @@ class TrayRouteSidePainter extends CustomPainter {
           ..color = Colors.white.withValues(alpha: 0.5)
           ..strokeWidth = 1.5,
       );
-      if (route.kind == TrayRouteKind.over)
+      if (trayRouteReturns(route.kind) || plan) {
         _label(canvas, '장애물', r.center, Colors.white);
+      }
     }
 
     // 트레이 띠(측판 옆면)
@@ -283,13 +322,15 @@ class TrayRouteSidePainter extends CustomPainter {
     }
 
     // 높이 치수: 번호와 겹치지 않게 시작 직선(좁으면 끝 직선) 가운데
-    final rise = route.kind == TrayRouteKind.over
+    final rise = trayRouteReturns(route.kind)
         ? pts.map((p) => p.$2).reduce(math.max)
         : pts.last.$2;
     if (rise.abs() > 0 && route.corners.isNotEmpty) {
       final a0 = m(0, 0).dx, a1 = m(route.corners.first.x, 0).dx;
       final b0 = m(route.corners.last.x, 0).dx, b1 = m(pts.last.$1, 0).dx;
-      final x0 = a1 - a0 >= 60
+      final x0 = plan
+          ? a0 - 26
+          : a1 - a0 >= 60
           ? (a0 + a1) / 2
           : (b1 - b0 >= 60 ? (b0 + b1) / 2 : a1 - 40);
       final y0 = m(0, math.min(0, rise)).dy, y1 = m(0, math.max(0, rise)).dy;
@@ -321,7 +362,7 @@ class TrayRouteSidePainter extends CustomPainter {
       );
       tp.paint(canvas, at);
     }
-    _label(canvas, '시작점', m(0, 0) + const Offset(0, 12), sub, size: 11);
+    _label(canvas, '시작점', m(0, 0) + Offset(0, flip ? -12 : 12), sub, size: 11);
   }
 
   @override
@@ -330,17 +371,26 @@ class TrayRouteSidePainter extends CustomPainter {
       o.boxFrom != boxFrom ||
       o.boxTo != boxTo ||
       o.boxHeight != boxHeight ||
+      o.flip != flip ||
       o.bg != bg;
 }
 
 /// 자르기 전 곧은 트레이 측판(옆면). 위로 꺾기는 윗변, 아래로 꺾기는 아랫변에 V컷을 그리고
 /// 아랫변 마킹 거리를 적는다. 길이는 실제 비율, 높이는 보기 좋게 키웠다.
+/// 옆으로 꺾을 때는 위에서 본 곧은 트레이(측판 두 줄 사이)로 보고, [flip]이면 마킹 기준 측판이 위.
 class TrayRouteMarkPainter extends CustomPainter {
   final TrayRoute route;
   final Color text, sub, line, bg;
 
+  /// V컷 반대쪽 테두리 이름과 마킹 기준 테두리 이름.
+  final String farLabel, refLabel;
+  final bool flip;
+
   TrayRouteMarkPainter({
     required this.route,
+    this.farLabel = '측판 윗변',
+    this.refLabel = '아랫변 (가로대 쪽, 마킹 기준)',
+    this.flip = false,
     required this.text,
     required this.sub,
     required this.line,
@@ -358,8 +408,10 @@ class TrayRouteMarkPainter extends CustomPainter {
     double x(double mm) => padX + mm * s;
     final hScale = railH / route.rail; // 세로는 따로 키움
 
-    // 측판 외곽: V컷을 판 모양
-    final path = Path()..moveTo(x(0), top);
+    // 측판 외곽: V컷을 판 모양. eT = 기준 반대쪽 테두리, eB = 마킹 기준 테두리
+    final eT = flip ? bot : top, eB = flip ? top : bot;
+    double inset(double v, double toward) => v + (toward > v ? 1.5 : -1.5);
+    final path = Path()..moveTo(x(0), eT);
     final ups = route.corners.where((c) => c.up).toList()
       ..sort((a, b) => a.mark.compareTo(b.mark));
     final downs = route.corners.where((c) => !c.up).toList()
@@ -367,21 +419,21 @@ class TrayRouteMarkPainter extends CustomPainter {
     for (final c in ups) {
       final half = c.notch / 2 * s;
       path
-        ..lineTo(x(c.mark) - half, top)
-        ..lineTo(x(c.mark), bot - 1.5)
-        ..lineTo(x(c.mark) + half, top);
+        ..lineTo(x(c.mark) - half, eT)
+        ..lineTo(x(c.mark), inset(eB, eT))
+        ..lineTo(x(c.mark) + half, eT);
     }
-    path.lineTo(x(len), top);
-    path.lineTo(x(len), bot);
+    path.lineTo(x(len), eT);
+    path.lineTo(x(len), eB);
     for (final c in downs.reversed) {
       final half = c.notch / 2 * s;
       path
-        ..lineTo(x(c.mark) + half, bot)
-        ..lineTo(x(c.mark), top + 1.5)
-        ..lineTo(x(c.mark) - half, bot);
+        ..lineTo(x(c.mark) + half, eB)
+        ..lineTo(x(c.mark), inset(eT, eB))
+        ..lineTo(x(c.mark) - half, eB);
     }
     path
-      ..lineTo(x(0), bot)
+      ..lineTo(x(0), eB)
       ..close();
     final rect = Rect.fromLTRB(x(0), top, x(len), bot);
     canvas.drawPath(
@@ -414,7 +466,7 @@ class TrayRouteMarkPainter extends CustomPainter {
     );
     _label(
       canvas,
-      '측판 윗변',
+      flip ? refLabel : farLabel,
       Offset(x(0), top - 16),
       sub,
       size: 10.5,
@@ -423,7 +475,7 @@ class TrayRouteMarkPainter extends CustomPainter {
     );
     _label(
       canvas,
-      '아랫변 (가로대 쪽, 마킹 기준)',
+      flip ? farLabel : refLabel,
       Offset(x(0), bot + 3),
       sub,
       size: 10.5,
@@ -476,5 +528,10 @@ class TrayRouteMarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(TrayRouteMarkPainter o) => o.route != route || o.bg != bg;
+  bool shouldRepaint(TrayRouteMarkPainter o) =>
+      o.route != route ||
+      o.bg != bg ||
+      o.flip != flip ||
+      o.farLabel != farLabel ||
+      o.refLabel != refLabel;
 }
