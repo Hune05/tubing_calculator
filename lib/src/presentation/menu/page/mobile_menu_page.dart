@@ -1765,7 +1765,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "장비 관리 대장",
-                        subtitle: "계기·공구 교정 기한, 반출·반납, QR 찾기",
+                        subtitle: "개인·작업 공구 점검 기한, 반출·반납, QR 찾기",
                         icon: AppGlyph.equipment,
                         iconColor: slate900,
                         badgeText: _equipDue > 0 ? "기한 $_equipDue건" : null,
