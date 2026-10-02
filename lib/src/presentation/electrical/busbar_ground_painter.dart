@@ -92,7 +92,11 @@ class GroundBarPainter extends CustomPainter {
         );
       }
     }
-    for (final hole in [...plan.tabHoleList, ...plan.groundHoles]) {
+    for (final hole in [
+      ...plan.tabHoleList,
+      ...plan.groundHoles,
+      ...plan.lugHoleList,
+    ]) {
       final c = Offset(x0 + hole.x * sc, y0 + hole.y * sc);
       final rad = math.max(hole.dia * sc / 2, 2.5);
       canvas.drawCircle(c, rad, Paint()..color = bg);

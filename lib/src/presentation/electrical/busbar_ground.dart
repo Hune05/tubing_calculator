@@ -76,6 +76,9 @@ class GroundBarPlan {
   /// 접지 구멍 전부(A줄 다음 B줄)와 탭·챙 구멍 전부(왼쪽 다음 오른쪽).
   final List<GroundHole> groundHoles, tabHoleList;
 
+  /// 접지 러그 구멍(접지 구멍과 따로 추가하는 구멍, 부스바 가운데). 러그 번호별로 이어서.
+  final List<GroundHole> lugHoleList;
+
   /// 탭·챙 구멍 줄 수와 줄 위치(폭 방향). 접지 구멍과 따로 정한다.
   final int tabRows;
   final List<double> tabRowY;
@@ -123,7 +126,8 @@ class GroundBarPlan {
   /// 바꾼 크기가 있는 구멍 수.
   int get customCount =>
       groundHoles.where((h) => h.custom).length +
-      tabHoleList.where((h) => h.custom).length;
+      tabHoleList.where((h) => h.custom).length +
+      lugHoleList.where((h) => h.custom).length;
 
   const GroundBarPlan({
     required this.length,
@@ -133,6 +137,7 @@ class GroundBarPlan {
     required this.positionsB,
     required this.groundHoles,
     required this.tabHoleList,
+    required this.lugHoleList,
     required this.tabRows,
     required this.tabRowY,
     required this.flatStart,
@@ -168,6 +173,8 @@ String _f(double v) {
 /// [hat]이면 챙 달린 모자 모양: [hatFlange] 왼쪽 챙, [hatFlangeRight] 오른쪽 챙(null이면 같음), [hatHeight] 높이.
 /// [rows] 1 또는 2, [rowGap] 두 줄 사이 간격, [staggered] 두 줄을 엇갈리게(비대칭), [shift] 엇갈림 거리(null이면 반 피치).
 /// [tabHoleCount]개(줄마다) 구멍(지름 [tabHoleDia], 피치 [tabHolePitch])을 탭·챙 평평한 길이 가운데에 뚫는다.
+/// 접지 러그 구멍: [lugHoles] 1·2구멍 러그, [lugSpacing] 2구멍 러그의 구멍 간격, [lugCount] 러그 수,
+/// [lugPitch] 러그 사이 중심 간격, [lugHoleDia] 러그 구멍 지름. 구멍은 곧은 구간 가운데·폭 가운데에 따로 뚫는다.
 /// [overrides]로 구멍마다 지름을 따로 준다(키는 [GroundHole.id]).
 GroundBarPlan groundBar({
   required double t,
@@ -196,6 +203,11 @@ GroundBarPlan groundBar({
   double tabRowGap = 0,
   bool tabStaggered = false,
   int tabSides = 3,
+  int lugHoles = 0,
+  double lugSpacing = 0,
+  int lugCount = 0,
+  double lugPitch = 0,
+  double lugHoleDia = 0,
   Map<String, double> overrides = const {},
 }) {
   final tabName = hat ? '챙' : '탭';
@@ -214,6 +226,8 @@ GroundBarPlan groundBar({
   if (tabRows == 2 && tabHoleCount > 0) {
     tabRowGap = minUp(tabRowGap, '$tabName 구멍 줄 간격');
   }
+  if (lugHoles == 2 && lugCount > 0) lugSpacing = minUp(lugSpacing, '러그 구멍 간격');
+  if (lugCount > 1) lugPitch = minUp(lugPitch, '러그 사이 간격');
   final problems = <String>[];
   void warn(String s) {
     if (!problems.contains(s)) problems.add(s);
@@ -383,20 +397,46 @@ GroundBarPlan groundBar({
     }
   }
 
+  // 접지 러그 구멍: 곧은 구간 가운데, 폭 가운데에 따로 추가한다(접지 구멍을 쓰지 않음).
+  final lugs = <GroundHole>[];
+  if (lugHoles > 0 && lugCount > 0 && lugHoleDia > 0) {
+    final cx = (spanL + (len - spanR)) / 2;
+    for (var k = 0; k < lugCount; k++) {
+      final lx = cx + (k - (lugCount - 1) / 2) * lugPitch;
+      for (var m = 0; m < (lugHoles == 2 ? 2 : 1); m++) {
+        final id = 'u${k + 1}-${m + 1}';
+        lugs.add(
+          GroundHole(
+            id: id,
+            label: lugHoles == 2 ? '러그 ${k + 1}-${m + 1}' : '러그 ${k + 1}',
+            x:
+                lx +
+                (lugHoles == 2
+                    ? (m == 0 ? -lugSpacing / 2 : lugSpacing / 2)
+                    : 0),
+            y: w / 2,
+            dia: overrides[id] ?? lugHoleDia,
+            custom: overrides.containsKey(id),
+          ),
+        );
+      }
+    }
+  }
+
   // 구멍 검사(접지 구멍): 폭 안, 곧은 구간 안, 겹침
   // 같은 종류의 문제는 구멍마다 반복하지 않고 한 줄로 묶는다.
   String names(List<String> l) =>
       l.length <= 3 ? l.join('·') : '${l.take(3).join('·')} 외 ${l.length - 3}개';
   final tooBig = <String>[], outWidth = <String>[], outFlat = <String>[];
-  for (final h in [...ground, ...tabs]) {
+  for (final h in [...ground, ...tabs, ...lugs]) {
     if (h.dia >= w) {
       tooBig.add(h.label);
     } else if (h.y - h.dia / 2 < -1e-9 || h.y + h.dia / 2 > w + 1e-9) {
       outWidth.add(h.label);
     }
   }
-  for (final h in ground) {
-    if (n > 0 &&
+  for (final h in [...ground, ...lugs]) {
+    if ((n > 0 || h.id.startsWith('u')) &&
         (h.x - h.dia / 2 < spanL - 1e-9 ||
             h.x + h.dia / 2 > len - spanR + 1e-9)) {
       outFlat.add(h.label);
@@ -434,6 +474,34 @@ GroundBarPlan groundBar({
 
   overlap(ground);
   overlap(tabs);
+  // 러그 구멍끼리, 러그 구멍과 접지 구멍
+  final lugClash = <String>[];
+  for (var i = 0; i < lugs.length; i++) {
+    for (var j = i + 1; j < lugs.length; j++) {
+      final dx = lugs[i].x - lugs[j].x, dy = lugs[i].y - lugs[j].y;
+      if (math.sqrt(dx * dx + dy * dy) <=
+          (lugs[i].dia + lugs[j].dia) / 2 - 1e-9) {
+        lugClash.add('${lugs[i].label}-${lugs[j].label}');
+      }
+    }
+  }
+  if (lugClash.isNotEmpty) {
+    warn('러그 구멍(${names(lugClash)})이 서로 겹칩니다. 러그 사이 간격이나 러그 구멍 간격을 늘리십시오.');
+  }
+  final lugOnGround = <String>[];
+  for (final l in lugs) {
+    for (final g in ground) {
+      final dx = l.x - g.x, dy = l.y - g.y;
+      if (math.sqrt(dx * dx + dy * dy) <= (l.dia + g.dia) / 2 - 1e-9) {
+        lugOnGround.add('${l.label}-${g.label}');
+      }
+    }
+  }
+  if (lugOnGround.isNotEmpty) {
+    warn(
+      '러그 구멍이 접지 구멍과 겹칩니다(${names(lugOnGround)}). 접지 구멍을 두 줄로 하거나 줄 간격·피치를 늘리거나 러그 위치를 바꾸십시오.',
+    );
+  }
 
   // 꺾기 계산(옆모습 그림·꺾기 선).
   BusbarBendPlan? bp;
@@ -464,7 +532,11 @@ GroundBarPlan groundBar({
     heading = tabLeft > 0 ? -90 : 0;
   }
   final holeVol =
-      [...ground, ...tabs].fold<double>(0, (a, h) => a + h.dia * h.dia) *
+      [
+        ...ground,
+        ...tabs,
+        ...lugs,
+      ].fold<double>(0, (a, h) => a + h.dia * h.dia) *
       math.pi /
       4 *
       t;
@@ -478,6 +550,7 @@ GroundBarPlan groundBar({
     positionsB: posB,
     groundHoles: ground,
     tabHoleList: tabs,
+    lugHoleList: lugs,
     tabRows: nRowsT,
     tabRowY: rowYT,
     flatStart: spanL,

@@ -34,9 +34,9 @@ const List<String> kGroundBarBasis = [
   '끝 L 꺾기: 두께 방향(눕혀 꺾기) 90°, 부스바 절곡 계산기와 같은 식(중립선 반경 r + k·t)입니다. 탭 길이는 바깥 치수, 최소 안쪽 반경은 CDA 한 곳 자료(두께 10mm 이하 1배)입니다. k 기본 0.4는 범위(0.33~0.5)의 가운데 값이니 시험 조각으로 맞추십시오.',
   '모자(챙 달림): 몸체 양쪽 다리를 90°로 내리고 다리 끝을 바깥으로 다시 꺾어 바닥에 대는 챙을 만듭니다. 치수는 모두 바깥 치수(챙 길이는 다리 바깥면까지, 높이는 챙 바닥면에서 윗면까지)이고 자르는 길이 = 왼쪽 챙 + 오른쪽 챙 + 2 × 높이 + 몸체 폭 − 4 × 굽힘 공제입니다. 챙은 왼쪽·오른쪽 길이를 따로 줄 수 있습니다.',
   '탭·챙(취부) 구멍은 평평한 길이(끝에서 꺾기 시작선까지) 가운데에 모아 뚫습니다. 줄 수·줄 간격·뚫을 챙(왼쪽·오른쪽·양쪽)은 접지 구멍과 따로 정합니다.',
-  '접지 러그 취부: 러그 1구멍은 구멍 하나, 2구멍은 러그 구멍 간격만큼 떨어진 구멍 둘을 씁니다. 러그 간격은 구멍 피치의 정수배여야 합니다. 볼트 세트 = 볼트 + 너트 + 평와셔 2 + 스프링 와셔 1(구멍 하나). 볼트 규격은 NEMA 접지바 7/16" 구멍 = 3/8" 볼트, 5/16" 구멍 = 1/4" 볼트, 그 밖에는 ISO 273 보통급 틈새 구멍(M6 6.6·M8 9·M10 11·M12 13.5·M16 17.5)으로 짐작합니다. 조임 토크와 산화방지제 종류는 러그·볼트 제조사 값을 따르며 이 앱은 값을 정하지 않습니다.',
+  '접지 러그 구멍: 접지 구멍을 쓰지 않고 부스바 가운데(길이 방향 곧은 구간 가운데, 폭 가운데)에 따로 추가로 뚫습니다. 러그 1구멍은 구멍 하나, 2구멍은 러그 구멍 간격만큼 떨어진 구멍 둘이고, 러그가 여럿이면 러그 사이 간격으로 가운데에서 양쪽으로 놓습니다. 접지 구멍 한 줄과 같은 높이라 겹치면 알리니 접지 구멍을 두 줄(줄 간격은 러그 구멍 지름보다 넉넉히)로 하십시오. 볼트 세트 = 볼트 + 너트 + 평와셔 2 + 스프링 와셔 1(구멍 하나). 볼트 규격은 NEMA 접지바 7/16" 구멍 = 3/8" 볼트, 5/16" 구멍 = 1/4" 볼트, 그 밖에는 ISO 273 보통급 틈새 구멍(M6 6.6·M8 9·M10 11·M12 13.5·M16 17.5)으로 짐작합니다. 조임 토크와 산화방지제 종류는 러그·볼트 제조사 값을 따르며 이 앱은 값을 정하지 않습니다.',
   '구멍 사이 최소 간격: 구멍 피치·줄 간격(접지·취부)은 12mm보다 작게 넣어도 12mm로 올려 계산하고 알립니다(구멍 중심 사이 기준).',
-  '접지 러그는 기본으로 구멍 줄 가운데에 한 줄로 붙입니다(시작 번호를 직접 정할 수도 있음). 접지바 취부: 모자 접지바를 챙 구멍으로 판넬에 설치할 때 판넬 구멍 가로 간격(왼쪽 구멍 0 기준)과 볼트 세트를 계산합니다. 판넬 두께 기본 3mm는 임의 값입니다.',
+  '접지바 취부: 모자 접지바를 챙 구멍으로 판넬에 설치할 때 판넬 구멍 가로 간격(왼쪽 구멍 0 기준)과 볼트 세트를 계산합니다. 판넬 두께 기본 3mm는 임의 값입니다.',
   '넣지 않은 것: 3줄 이상, 스프링백, 모서리 둥글림, 구멍 면취.',
 ];
 
@@ -64,8 +64,6 @@ class _GroundBarPageState extends State<GroundBarPage>
   int _tabRowMode = 0; // 탭·챙 구멍 줄(접지 구멍과 따로)
   int _tabSides = 3; // 취부 구멍을 뚫을 챙: 1 왼쪽, 2 오른쪽, 3 양쪽
   int _lug = 0; // 접지 러그: 0 없음, 1 1구멍, 2 2구멍
-  bool _lugRowB = false; // 러그를 B줄에 붙임
-  bool _lugCenter = true; // 러그 묶음을 구멍 줄 가운데에 놓음(false면 시작 구멍 번호부터)
   double _k = 0.4;
   final Map<String, double> _overrides = {}; // 구멍 번호 → 지름
   String? _selHole;
@@ -90,9 +88,9 @@ class _GroundBarPageState extends State<GroundBarPage>
   final _tabGap = TextEditingController(text: '20');
   final _lugSpacing = TextEditingController(text: '25.4');
   final _lugCount = TextEditingController(text: '2');
-  final _lugStart = TextEditingController(text: '1');
   final _panelT = TextEditingController(text: '3'); // 취부면(판넬) 두께
-  final _lugSkip = TextEditingController(text: '0');
+  final _lugPitch = TextEditingController(text: '50'); // 러그 사이 중심 간격
+  final _lugDia = TextEditingController(text: '11.1'); // 러그 구멍 지름
   final _lugPad = TextEditingController(text: '5');
 
   Timer? _saveTimer;
@@ -119,10 +117,10 @@ class _GroundBarPageState extends State<GroundBarPage>
     _tabGap,
     _lugSpacing,
     _lugCount,
-    _lugStart,
-    _lugSkip,
     _lugPad,
     _panelT,
+    _lugPitch,
+    _lugDia,
   ];
   static const _fieldKeys = [
     't',
@@ -145,10 +143,10 @@ class _GroundBarPageState extends State<GroundBarPage>
     'tg',
     'ls',
     'lc',
-    'lt',
-    'lk',
     'lp',
     'pnl',
+    'lq',
+    'ld',
   ];
 
   @override
@@ -175,8 +173,6 @@ class _GroundBarPageState extends State<GroundBarPage>
     'trm': _tabRowMode,
     'tsd': _tabSides,
     'lg': _lug,
-    'lrb': _lugRowB,
-    'lcn': _lugCenter,
     'k': _k,
     'ov': _overrides,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
@@ -198,8 +194,6 @@ class _GroundBarPageState extends State<GroundBarPage>
           if (trm is int && trm >= 0 && trm <= 2) _tabRowMode = trm;
           if (tsd is int && tsd >= 1 && tsd <= 3) _tabSides = tsd;
           if (lg is int && lg >= 0 && lg <= 2) _lug = lg;
-          if (m['lrb'] is bool) _lugRowB = m['lrb'] as bool;
-          if (m['lcn'] is bool) _lugCenter = m['lcn'] as bool;
           if (kk is num && kBusbarK.contains(kk.toDouble())) _k = kk.toDouble();
           final ov = m['ov'];
           if (ov is Map) {
@@ -284,6 +278,11 @@ class _GroundBarPageState extends State<GroundBarPage>
       tabRowGap: _num(_tabGap),
       tabStaggered: _tabRowMode == 2,
       tabSides: _tabSides,
+      lugHoles: _lug,
+      lugSpacing: _num(_lugSpacing),
+      lugCount: _lug == 0 ? 0 : _num(_lugCount).floor(),
+      lugPitch: _num(_lugPitch),
+      lugHoleDia: _num(_lugDia),
       overrides: Map.of(_overrides),
     );
   }
@@ -385,17 +384,22 @@ class _GroundBarPageState extends State<GroundBarPage>
         '\n판넬 취부 구멍(왼쪽 구멍 0 기준): ${pts.map((h) => "${h.hole.label} 가로 ${fmt(h.x, 1)}/세로 ${fmt(h.y, 1)}").join(" · ")}',
       );
     }
-    final lp = _lugResult(p);
-    if (lp != null && lp.lugs.isNotEmpty) {
-      b.write('\n접지 러그 ${_lug == 2 ? "2구멍" : "1구멍"} ${lp.lugs.length}개:');
-      for (final l in lp.lugs) {
-        b.write('\n ${_lugLine(l)}');
+    final groups = _lugGroups(p);
+    if (groups.isNotEmpty) {
+      b.write(
+        '\n접지 러그 ${_lug == 2 ? "2구멍" : "1구멍"} ${groups.length}개(접지 구멍과 따로, 폭 가운데 ${fmt(p.lugHoleList.first.y, 1)}mm 추가 구멍 φ${fmt(_num(_lugDia))}):',
+      );
+      for (final e in groups.entries) {
+        b.write('\n ${_lugLine(e.key, e.value)}');
       }
-      b.write('\n볼트 세트 ${lp.bolts}개 = ${_lugParts(lp).join(" · ")}');
+      b.write(
+        '\n볼트 세트 ${p.lugHoleList.length}개 = ${_lugParts(p.lugHoleList.length).join(" · ")}',
+      );
     }
     final custom = [
       ...p.groundHoles,
       ...p.tabHoleList,
+      ...p.lugHoleList,
     ].where((h) => h.custom).toList();
     if (custom.isNotEmpty) {
       b.write(
@@ -585,44 +589,40 @@ class _GroundBarPageState extends State<GroundBarPage>
     );
   }
 
-  // ── 접지 러그 취부 ──
+  // ── 접지 러그 구멍(접지 구멍과 따로, 부스바 가운데에 추가) ──
 
-  LugPlan? _lugResult(GroundBarPlan p) {
-    if (_lug == 0 || p.holes == 0) return null;
-    final prefix = _lugRowB && p.rows == 2 ? 'gB' : 'gA';
-    final row = p.groundHoles.where((h) => h.id.startsWith(prefix)).toList();
-    return lugPlan(
-      row: row,
-      pitch: p.pitchUsed,
-      lugHoles: _lug,
-      spacing: _num(_lugSpacing),
-      count: _num(_lugCount).floor(),
-      start: _num(_lugStart).floor(),
-      centered: _lugCenter,
-      skip: _num(_lugSkip).floor(),
-      lugPad: _num(_lugPad),
-      barThick: _num(_thick),
-    );
+  /// 러그 번호(1부터) → 그 러그의 구멍들.
+  Map<int, List<GroundHole>> _lugGroups(GroundBarPlan p) {
+    final m = <int, List<GroundHole>>{};
+    for (final h in p.lugHoleList) {
+      final k = int.parse(h.id.substring(1, h.id.indexOf('-')));
+      m.putIfAbsent(k, () => []).add(h);
+    }
+    return m;
   }
 
-  String _lugLine(LugPlacement l) =>
-      '러그 ${l.number}: ${l.holes.map((h) => h.label).join(' · ')} (왼쪽 끝에서 ${l.holes.map((h) => fmt(h.x, 1)).join(' · ')})';
+  String _lugLine(int k, List<GroundHole> hs) =>
+      '러그 $k: 왼쪽 끝에서 ${hs.map((h) => fmt(h.x, 1)).join(' · ')}${hs.any((h) => h.custom) ? ' (φ${hs.map((h) => fmt(h.dia)).join("/")})' : ''}';
 
-  List<String> _lugParts(LugPlan lp) => [
-    '볼트 ${lp.boltName ?? "구멍에 맞는 규격"} ${lp.bolts}개',
-    '너트 ${lp.bolts}개',
-    '평와셔 ${lp.bolts * 2}개',
-    '스프링 와셔 ${lp.bolts}개',
-  ];
+  List<String> _lugParts(int bolts) {
+    final bolt = lugBoltFor(_num(_lugDia));
+    return [
+      '볼트 ${bolt ?? "구멍에 맞는 규격"} $bolts개',
+      '너트 $bolts개',
+      '평와셔 ${bolts * 2}개',
+      '스프링 와셔 $bolts개',
+    ];
+  }
 
   List<Widget> _lugSection(GroundBarPlan p) {
     if (p.holes == 0) return const [];
-    final lp = _lugResult(p);
+    final groups = _lugGroups(p);
+    final bolts = p.lugHoleList.length;
     return [
-      elecSectionTitle('접지 러그 취부'),
+      elecSectionTitle('접지 러그 구멍 (가운데에 추가)'),
       elecChipGroup(
         '러그 종류',
-        '접지 구멍에 볼트로 붙일 압착 러그입니다. 1구멍: 구멍 하나. 2구멍: 러그 구멍 간격만큼 떨어진 구멍 둘(NEMA 2구멍 러그).',
+        '접지 러그를 달 구멍을 접지 구멍과 따로 부스바 가운데(길이·폭)에 추가로 뚫습니다. 1구멍: 러그당 구멍 하나. 2구멍: 러그 구멍 간격만큼 떨어진 구멍 둘(NEMA 2구멍 러그).',
         [
           for (final (i, label) in const [
             (0, '안 붙임'),
@@ -638,7 +638,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             'gb_lugsp',
             '러그 구멍 간격 (mm)',
             _lugSpacing,
-            '2구멍 러그의 두 구멍 중심 사이 거리입니다. 구멍 피치의 정수배여야 합니다(NEMA 3/4"=19.05, 1"=25.4, 1-3/4"=44.45).',
+            '2구멍 러그의 두 구멍 중심 사이 거리입니다(NEMA 3/4"=19.05, 1"=25.4, 1-3/4"=44.45). 구멍 중심 사이 최소 12mm입니다.',
             onEdit: _saveSoon,
           ),
           _presetChips(
@@ -653,61 +653,35 @@ class _GroundBarPageState extends State<GroundBarPage>
           ),
           const SizedBox(height: 8),
         ],
-        if (p.rows == 2)
-          elecChipGroup('러그를 붙일 줄', '두 줄 구멍 중 러그를 붙일 줄입니다.', [
-            calcChip(
-              'gb_lugrow_a',
-              'A줄',
-              !_lugRowB,
-              () => _set(() => _lugRowB = false),
-            ),
-            calcChip(
-              'gb_lugrow_b',
-              'B줄',
-              _lugRowB,
-              () => _set(() => _lugRowB = true),
-            ),
-          ]),
         elecField(
           'gb_lugn',
           '러그 개수',
           _lugCount,
-          '붙일 러그 수입니다.',
+          '붙일 러그 수입니다. 러그 구멍 묶음의 한가운데가 부스바 가운데에 옵니다.',
           onEdit: _saveSoon,
         ),
-        elecChipGroup(
-          '러그 위치',
-          '가운데: 러그 묶음을 구멍 줄 가운데에 한 줄로 놓습니다. 시작 번호: 지정한 구멍부터 왼쪽에서 오른쪽으로 붙입니다. 러그는 고른 한 줄(A줄 또는 B줄)에만 붙습니다.',
-          [
-            calcChip(
-              'gb_lugpos_c',
-              '가운데',
-              _lugCenter,
-              () => _set(() => _lugCenter = true),
-            ),
-            calcChip(
-              'gb_lugpos_s',
-              '시작 번호로',
-              !_lugCenter,
-              () => _set(() => _lugCenter = false),
-            ),
-          ],
-        ),
-        if (!_lugCenter)
+        if (_num(_lugCount) > 1)
           elecField(
-            'gb_lugstart',
-            '시작 구멍 번호',
-            _lugStart,
-            '첫 러그를 붙일 구멍 번호입니다(왼쪽부터 1번).',
+            'gb_lugpitch',
+            '러그 사이 간격 (mm)',
+            _lugPitch,
+            '이웃한 러그 중심 사이 거리(길이 방향)입니다. 러그 몸체 폭보다 넓게 잡습니다. 구멍 중심 사이 최소 12mm입니다.',
             onEdit: _saveSoon,
           ),
         elecField(
-          'gb_lugskip',
-          '러그 사이 비울 구멍 수',
-          _lugSkip,
-          '러그와 러그 사이에 비워 둘 구멍 개수입니다. 0이면 바로 이웃에 붙입니다.',
+          'gb_lugdia',
+          '러그 구멍 지름 (mm)',
+          _lugDia,
+          '러그 볼트가 지나는 구멍 지름입니다. 접지 구멍과 다르게 줄 수 있습니다.',
           onEdit: _saveSoon,
         ),
+        _presetChips(
+          'gb_lugd_',
+          _lugDia,
+          kGroundHoleDias,
+          (v) => v == 7.9 ? 'φ7.9 (5/16")' : 'φ11.1 (7/16")',
+        ),
+        const SizedBox(height: 8),
         elecField(
           'gb_lugpad',
           '러그 패드 두께 (mm)',
@@ -715,28 +689,21 @@ class _GroundBarPageState extends State<GroundBarPage>
           '러그 볼트 자리(패드)의 두께입니다. 러그 규격서 값을 넣으십시오. 5는 임의 기본값입니다.',
           onEdit: _saveSoon,
         ),
-        if (lp != null)
+        if (groups.isNotEmpty)
           calcResult(
             key: const Key('gb_lug_result'),
-            big: lp.lugs.isEmpty
-                ? '러그 붙일 자리 없음'
-                : '러그 ${lp.lugs.length}개 · 볼트 ${lp.bolts}세트',
-            caption: '접지 러그 취부',
-            warn: !lp.ok,
+            big: '러그 구멍 $bolts개 · 볼트 세트 $bolts',
+            caption:
+                '접지 러그 ${groups.length}개 · 폭 가운데 ${fmt(p.lugHoleList.first.y, 1)}mm · 접지 구멍과 따로',
+            warn: !p.ok,
             lines: [
-              ...lp.problems,
-              for (final l in lp.lugs) _lugLine(l),
-              if (lp.lugs.isNotEmpty) ...[
-                if (_lugCenter)
-                  '러그 묶음은 구멍 줄 가운데에 한 줄로 놓았습니다(왼쪽 끝 ${fmt(lp.lugs.first.holes.first.x, 1)} ~ ${fmt(lp.lugs.last.holes.last.x, 1)}).',
-                '볼트 세트 ${lp.bolts}개 = ${_lugParts(lp).join(' · ')}',
-                if (lp.boltName == null)
-                  '구멍 지름 φ${fmt(p.groundHoles.first.dia)}에 맞는 볼트 규격을 알 수 없습니다. 구멍은 볼트보다 1~1.6mm 큰 것이 일반적입니다.',
-                '볼트가 지나는 두께(그립) ${fmt(lp.grip, 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(_num(_thick), 1)}. 볼트 길이는 여기에 평와셔 2장·스프링 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다(와셔·너트 두께는 제품마다 다릅니다).',
-              ],
+              for (final e in groups.entries) _lugLine(e.key, e.value),
+              '러그 구멍은 접지 구멍을 쓰지 않고 부스바 가운데에 추가한 구멍입니다(펼친 막대 왼쪽 끝에서 잰 거리).',
+              '볼트 세트 $bolts개 = ${_lugParts(bolts).join(' · ')}',
+              '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + _num(_thick), 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(_num(_thick), 1)}. 볼트 길이는 여기에 평와셔 2장·스프링 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다(와셔·너트 두께는 제품마다 다릅니다).',
             ],
           ),
-        if (lp != null && lp.lugs.isNotEmpty)
+        if (groups.isNotEmpty)
           calcResult(
             key: const Key('gb_lug_notes'),
             big: '러그 취부 방법',
@@ -806,7 +773,7 @@ class _GroundBarPageState extends State<GroundBarPage>
           '체결: 볼트에 평와셔를 끼워 ${p.hat ? "챙" : "탭"}과 판넬을 지나게 한 뒤 반대쪽에서 평와셔 → 스프링 와셔 → 너트 순으로 조입니다. 양쪽 챙 볼트를 번갈아 조여 접지바가 비틀리지 않게 합니다.',
           '조임 토크는 볼트·접지바 제조사 값이나 사내 기준을 따릅니다(이 앱은 값을 정하지 않습니다). 조인 뒤 표시선을 긋습니다.',
           '절연 접지바(판넬과 따로 접지해야 하는 것)는 판넬과 닿는 곳에 절연 받침을 끼우고 절연 볼트 세트를 씁니다. 판넬 접지로 쓰는 일반 접지바는 금속 접촉으로 취부합니다.',
-          '취부 뒤 접지바 위에 접지 러그를 붙이고(위 "접지 러그 취부") 러그·접지바·판넬 접촉 저항을 점검합니다.',
+          '취부 뒤 접지바 위에 접지 러그를 붙이고(위 "접지 러그 구멍") 러그·접지바·판넬 접촉 저항을 점검합니다.',
         ],
       ),
     ];
@@ -814,14 +781,14 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   /// 구멍별 크기 바꾸기: 구멍을 고르고 지름을 넣어 적용.
   List<Widget> _sizeEditor(GroundBarPlan p) {
-    final all = [...p.groundHoles, ...p.tabHoleList];
+    final all = [...p.groundHoles, ...p.tabHoleList, ...p.lugHoleList];
     if (all.isEmpty) return const [];
     final sel = all.firstWhere(
       (h) => h.id == _selHole,
       orElse: () => all.first,
     );
     String name(GroundHole h) =>
-        '${h.id.startsWith('g') ? '접지' : _tabName} ${h.label} · φ${fmt(h.dia)}${h.custom ? ' (바꿈)' : ''}';
+        '${h.id.startsWith('g') ? '접지' : (h.id.startsWith('u') ? '' : _tabName)} ${h.label} · φ${fmt(h.dia)}${h.custom ? ' (바꿈)' : ''}';
     return [
       elecSectionTitle('구멍 크기 바꾸기'),
       calcDropdown<String>(
@@ -849,7 +816,9 @@ class _GroundBarPageState extends State<GroundBarPage>
             calcChip('gb_ov_apply', '이 구멍에 적용', false, () {
               final v = readNum(_ovDia);
               if (v == null || v <= 0) return;
-              final base = sel.id.startsWith('g') ? _num(_hole) : _num(_mDia);
+              final base = sel.id.startsWith('g')
+                  ? _num(_hole)
+                  : (sel.id.startsWith('u') ? _num(_lugDia) : _num(_mDia));
               _set(() {
                 _selHole = sel.id;
                 if ((v - base).abs() < 1e-9) {
@@ -873,7 +842,7 @@ class _GroundBarPageState extends State<GroundBarPage>
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Text(
-              '바꾼 구멍 ${p.customCount}개: ${[...p.groundHoles, ...p.tabHoleList].where((h) => h.custom).map((h) => "${h.label} φ${fmt(h.dia)}").join(" · ")}',
+              '바꾼 구멍 ${p.customCount}개: ${[...p.groundHoles, ...p.tabHoleList, ...p.lugHoleList].where((h) => h.custom).map((h) => "${h.label} φ${fmt(h.dia)}").join(" · ")}',
               key: const Key('gb_ov_list'),
               style: TextStyle(
                 fontSize: 14.5,
@@ -1222,6 +1191,8 @@ class _GroundBarPageState extends State<GroundBarPage>
             else if (p.bends.isNotEmpty)
               'L 꺾기 ${p.bends.length}곳. 구멍 줄은 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.',
             if (p.tabHoleList.isNotEmpty) _tabHoleSummary(p),
+            if (p.lugHoleList.isNotEmpty)
+              '접지 러그 구멍 ${p.lugHoleList.length}개를 접지 구멍과 따로 부스바 가운데(폭 ${fmt(p.lugHoleList.first.y, 1)}mm)에 추가했습니다.',
           ],
         ),
         if (p.bendPlan != null) ...[
@@ -1259,8 +1230,8 @@ class _GroundBarPageState extends State<GroundBarPage>
             sub: fc.textSub,
             bg: fc.background,
             lugNumbers: {
-              for (final l in _lugResult(p)?.lugs ?? <LugPlacement>[])
-                for (final h in l.holes) h.id: l.number,
+              for (final e in _lugGroups(p).entries)
+                for (final h in e.value) h.id: e.key,
             },
           ),
         ),
