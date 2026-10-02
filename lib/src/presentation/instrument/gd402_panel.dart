@@ -142,9 +142,7 @@ void paintGd402(Canvas c, GdStep s) {
   tag('FAIL', 170, s.fail);
   // 숫자 표시(오른쪽 맞춤, 바꾸는 자리 밑줄)
   final dataStyle = const TextStyle(fontSize: 34, fontWeight: FontWeight.w700, color: ink, fontFamily: 'monospace', letterSpacing: -1, fontFeatures: [FontFeature.tabularFigures()]);
-  final ghost = TextPainter(text: TextSpan(text: '888888', style: dataStyle.copyWith(color: ink.withValues(alpha: .06))), textDirection: TextDirection.ltr)..layout();
   const dataRight = 232.0;
-  ghost.paint(c, Offset(dataRight - ghost.width, 64));
   if (s.data.isNotEmpty) {
     final tp = TextPainter(text: TextSpan(text: s.data, style: dataStyle), textDirection: TextDirection.ltr)..layout();
     final x0 = dataRight - tp.width;
@@ -379,7 +377,7 @@ class GdGasPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..color = col;
     // 공급 쪽
-    lpText(c, '시료 (발전기)', const Offset(40, 22), size: 8.5, color: AppColors.textSub, w: FontWeight.w800);
+    lpText(c, gas.generic ? '시료' : '시료 (발전기)', Offset(gas.generic ? 26 : 40, 22), size: 8.5, color: AppColors.textSub, w: FontWeight.w800);
     c.drawRect(const Rect.fromLTWH(10, 38, 34, 12), Paint()..color = const Color(0xFFCBD2D8));
     _cylinder(c, const Rect.fromLTWH(22, 76, 26, 50), zc, gas.generic ? 'ZERO' : 'H2');
     _cylinder(c, const Rect.fromLTWH(22, 148, 26, 50), sc, gas.generic ? 'SPAN' : 'CO2');
