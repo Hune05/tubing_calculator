@@ -257,13 +257,13 @@ class _H122BenchState extends State<_H122Bench> {
       _p = v;
       if (!_hOn && up && _p >= _hReal) {
         _hOn = true;
-        _hAt = _p;
+        _hAt = _hReal; // 천천히 올릴 때 표준기가 읽는 값(빨리 밀어 지나친 값이 아니라)
       } else if (_hOn && !up && _p <= _hReal - _db) {
         _hOn = false;
       }
       if (!_lOn && !up && _p <= _lReal) {
         _lOn = true;
-        _lAt = _p;
+        _lAt = _lReal;
       } else if (_lOn && up && _p >= _lReal + _db) {
         _lOn = false;
       }
