@@ -171,18 +171,18 @@ class UeJ120Painter extends CustomPainter {
     const termX = [146.0, 180.0, 214.0];
     const termName = ['N.O.', 'COM.', 'N.C.'];
     for (var i = 0; i < 3; i++) {
-      lpText(c, termName[i], Offset(termX[i], 46), size: 7.5, color: const Color(0xFF1F2328), w: FontWeight.w900);
-      lpScrew(c, Offset(termX[i], 70), r: 7.5);
+      lpText(c, termName[i], Offset(termX[i], 60), size: 7.5, color: const Color(0xFF1F2328), w: FontWeight.w900);
+      lpScrew(c, Offset(termX[i], 77), r: 7);
     }
-    if (v.hot == 'term') _glow(c, const Offset(180, 70), 40);
+    if (v.hot == 'term') _glow(c, const Offset(180, 74), 40);
     // 현장 선
     if (!v.wiresOff) {
       const cols = [Color(0xFFDC2626), Color(0xFF111316), Color(0xFFF8FAFC)];
       for (var i = 0; i < 3; i++) {
         if (i == 2) continue; // N.C. 안 씀(예: N.O.·COM 두 선)
         final w = Path()
-          ..moveTo(termX[i], 70)
-          ..cubicTo(termX[i] - 10, 96, 60, 100, 24, 138);
+          ..moveTo(termX[i], 77)
+          ..cubicTo(termX[i] - 10, 100, 60, 100, 24, 138);
         lpWire(c, w, cols[i], w: 3.2);
       }
     }
@@ -242,14 +242,15 @@ class UeJ120Painter extends CustomPainter {
         ..strokeWidth = 2.6
         ..strokeCap = StrokeCap.round;
       c.drawPath(Path()
-        ..moveTo(termX[0], 70)
-        ..quadraticBezierTo(120, 20, 74, 10), probe..color = const Color(0xFFDC2626));
+        ..moveTo(termX[0], 77)
+        ..quadraticBezierTo(130, 96, 80, 96), probe..color = const Color(0xFFDC2626));
       c.drawPath(Path()
-        ..moveTo(termX[1], 70)
-        ..quadraticBezierTo(170, 16, 108, 8), probe..color = const Color(0xFF111316));
-      final m = RRect.fromRectAndRadius(const Rect.fromLTWH(46, 0, 78, 22), const Radius.circular(5));
+        ..moveTo(termX[1], 77)
+        ..quadraticBezierTo(170, 106, 80, 104), probe..color = const Color(0xFF111316));
+      final m = RRect.fromRectAndRadius(const Rect.fromLTWH(2, 88, 78, 24), const Radius.circular(5));
+      lpShadow(c, m, blur: 3, off: const Offset(0, 2), a: .3);
       c.drawRRect(m, Paint()..color = const Color(0xFF2B3036));
-      lpText(c, v.closedNO ? '도통 ♪ 0.2 Ω' : '열림 OL', const Offset(85, 11), size: 8, color: v.closedNO ? const Color(0xFF4ADE80) : const Color(0xFFFCA5A5), w: FontWeight.w900);
+      lpText(c, v.closedNO ? '도통 ♪ 0.2 Ω' : '열림 OL', const Offset(41, 100), size: 8, color: v.closedNO ? const Color(0xFF4ADE80) : const Color(0xFFFCA5A5), w: FontWeight.w900);
     }
     c.restore();
   }
