@@ -1,4 +1,4 @@
-// 장비 관리 대장 화면: 등록, 목록 요약·걸러 보기, 상세의 교정·반출·반납, QR로 찾기, 내보내기 글.
+// 장비 관리 대장 화면: 등록, 목록 요약·걸러 보기, 상세의 점검·반출·반납, QR로 찾기, 내보내기 글.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -65,10 +65,14 @@ void main() {
     testWidgets('비어 있으면 예시가 뜨고, 예시를 누르면 이름·주기가 채워진 등록 화면이 열린다', (tester) async {
       await _open(tester, _ledger());
       expect(find.text('등록한 장비가 없습니다'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('equip_preset_압력 게이지')));
+      await tester.tap(find.byKey(const Key('equip_preset_DEWALT D28730 (고속절단기)')));
       await tester.pumpAndSettle();
-      expect(find.widgetWithText(TextField, '압력 게이지'), findsOneWidget);
-      expect(tester.widget<ChoiceChip>(find.byKey(const Key('equip_interval_12'))).selected, true);
+      expect(find.widgetWithText(TextField, 'DEWALT D28730 (고속절단기)'), findsOneWidget);
+      // 전동공구는 작업 공구, 정기 점검 매월
+      expect(tester.widget<ChoiceChip>(find.byKey(const Key('equip_interval_1'))).selected, true);
+      expect(tester.widget<ChoiceChip>(find.byKey(const Key('equip_cat_tool'))).selected, true);
+      // 검교정 칸은 없다
+      expect(find.textContaining('교정'), findsNothing);
     });
 
     testWidgets('REMS 예시를 고르면 제조사·모델·제원이 채워진다', (tester) async {
@@ -94,7 +98,7 @@ void main() {
     testWidgets('요약 숫자와 걸러 보기·검색', (tester) async {
       await _seed([
         _e('1', name: '만료 게이지', assetNo: 'PG-1', last: DateTime(2025, 1, 1)),
-        _e('2', name: '임박 멀티미터', last: DateTime(2025, 10, 15)),
+        _e('2', name: '임박 멀티미터', last: DateTime(2025, 10, 5)),
         _e('3', name: '정상 렌치', last: DateTime(2026, 9, 1)),
         _e('4', name: '반출 벤더', interval: 0, holder: '홍길동'),
       ]);
@@ -184,7 +188,7 @@ void main() {
       await tester.pumpAndSettle();
       final all = await EquipmentStore.load();
       expect(all.single.name, '토크 렌치');
-      expect(all.single.category, EquipCategory.tool);
+      expect(all.single.category, EquipCategory.work);
       expect(all.single.intervalMonths, 6);
     });
 
@@ -211,27 +215,29 @@ void main() {
   });
 
   group('상세', () {
-    testWidgets('교정을 기록하면 기한이 새로 잡히고 이력이 쌓인다', (tester) async {
-      await _seed([_e('1', name: '만료 게이지', last: DateTime(2025, 1, 1))]);
+    testWidgets('점검을 기록하면 다음 달로 기한이 잡히고 이력이 쌓인다', (tester) async {
+      await _seed([_e('1', name: '만료 절단기', last: DateTime(2025, 1, 1), interval: 1)]);
       await _open(tester, EquipmentDetailPage(id: '1', now: _clock, share: (t) async => _shared = t));
       expect(find.textContaining('일 지남'), findsOneWidget);
 
       await tester.tap(find.byKey(const Key('equip_inspect')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const Key('inspect_by')), '한국교정');
-      await tester.enterText(find.byKey(const Key('inspect_cert')), 'C-100');
+      expect(find.byKey(const Key('inspect_cert')), findsNothing); // 성적서 칸 없음
+      await tester.enterText(find.byKey(const Key('inspect_by')), '김반장');
       await tester.tap(find.byKey(const Key('inspect_save')));
       await tester.pumpAndSettle();
 
       final e = (await EquipmentStore.load()).single;
       expect(e.lastDone, DateTime(2026, 9, 30));
-      expect(e.nextDue, DateTime(2027, 9, 30));
-      expect(e.events.single.certNo, 'C-100');
+      expect(e.nextDue, DateTime(2026, 10, 30));
+      expect(e.events.single.type, EventType.check);
+      expect(e.events.single.result, '양호');
       expect(find.textContaining('일 지남'), findsNothing);
-      expect(find.textContaining('성적서 C-100'), findsOneWidget);
+      expect(find.text('점검 · 양호'), findsOneWidget);
+      expect(find.text('김반장'), findsOneWidget);
     });
 
-    testWidgets('불합격이면 수리·점검 중이 되고 반출 단추가 막힌다', (tester) async {
+    testWidgets('불량이면 수리·점검 중이 되고 반출 단추가 막힌다', (tester) async {
       await _seed([_e('1', last: DateTime(2026, 9, 1))]);
       await _open(tester, EquipmentDetailPage(id: '1', now: _clock));
       await tester.tap(find.byKey(const Key('equip_inspect')));

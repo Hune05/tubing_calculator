@@ -1,12 +1,13 @@
-// 장비 관리 대장: 장비(계측기·공구·안전장비) 한 대와 그 이력, 교정·검사 기한 계산, 반출·반납, 걸러 보기.
+// 장비 관리 대장: 개인 공구·작업 공구 한 대와 그 이력, 정기 점검 기한 계산, 반출·반납, 걸러 보기.
+// 계측기 검교정은 관리 부서가 하므로 여기서는 다루지 않는다(10-02 사용자 결정).
 // 화면과 저장은 따로 두고 여기서는 자료와 계산만 한다(전부 시험으로 확인한다).
 import 'dart:convert';
 
 /// 장비 분류. [id]를 저장하고 [label]을 보인다.
+/// 예전에 저장한 'tool'(공구)은 작업 공구로, 'inst'(계측기)·'safety'(안전장비)는 기타로 읽힌다.
 enum EquipCategory {
-  inst('inst', '계측기'),
-  tool('tool', '공구'),
-  safety('safety', '안전장비'),
+  personal('personal', '개인 공구'),
+  work('tool', '작업 공구'),
   etc('etc', '기타');
 
   final String id;
@@ -33,8 +34,8 @@ enum EquipStatus {
 
 /// 이력 종류.
 enum EventType {
-  cal('cal', '교정'),
-  check('check', '점검·검사'),
+  cal('cal', '교정'), // 예전 기록 읽기용(새로 남기지 않음)
+  check('check', '점검'),
   repair('repair', '수리'),
   out('out', '반출'),
   back('in', '반납'),
@@ -49,18 +50,17 @@ enum EventType {
       values.firstWhere((t) => t.id == id, orElse: () => EventType.note);
 }
 
-const String kResultPass = '합격';
-const String kResultFail = '불합격';
-const String kResultConditional = '조건부';
+const String kResultPass = '양호';
+const String kResultFail = '불량';
 
 /// 이력 한 줄.
 class EquipEvent {
   final String id;
   final DateTime at;
   final EventType type;
-  final String result; // 교정·점검 결과(합격/불합격/조건부), 그 밖에는 빈 글
-  final String by; // 교정 기관·수리 업체·반출한 사람 등
-  final String certNo; // 성적서 번호
+  final String result; // 점검 결과(양호/불량, 예전 기록은 합격/불합격), 그 밖에는 빈 글
+  final String by; // 점검자·수리 업체·반출한 사람 등
+  final String certNo; // 예전 교정 기록의 성적서 번호
   final String note;
   const EquipEvent({
     required this.id,
@@ -113,8 +113,8 @@ DateTime addMonths(DateTime d, int months) {
 /// 기한 상태.
 enum DueState { none, ok, soon, overdue }
 
-/// 몇 일 안이면 "임박"으로 볼지.
-const int kDueSoonDays = 30;
+/// 몇 일 안이면 "임박"으로 볼지(월 1회 점검 기준).
+const int kDueSoonDays = 7;
 
 class Equipment {
   final String id;
@@ -125,8 +125,8 @@ class Equipment {
   final String model;
   final String serial;
   final String location; // 보관 위치
-  final int intervalMonths; // 교정·검사 주기(개월), 0이면 기한 없음
-  final DateTime? lastDone; // 마지막 교정·검사일
+  final int intervalMonths; // 정기 점검 주기(개월), 0이면 기한 없음
+  final DateTime? lastDone; // 마지막 점검일
   final DateTime? dueOverride; // 직접 정한 다음 기한(없으면 마지막일 + 주기)
   final EquipStatus status;
   final String holder; // 지금 가지고 있는 사람(비면 보관 중)
@@ -143,7 +143,7 @@ class Equipment {
     required this.id,
     required this.name,
     this.assetNo = '',
-    this.category = EquipCategory.inst,
+    this.category = EquipCategory.work,
     this.maker = '',
     this.model = '',
     this.serial = '',
@@ -167,7 +167,7 @@ class Equipment {
   /// QR에 넣는 글(관리번호가 있으면 그것, 없으면 앱 안 번호).
   String get qrText => 'FH-EQ:${assetNo.trim().isNotEmpty ? assetNo.trim() : id}';
 
-  /// 다음 교정·검사 기한. 정할 수 없으면 null.
+  /// 다음 점검 기한. 정할 수 없으면 null.
   DateTime? get nextDue {
     if (dueOverride != null) return dayOnly(dueOverride!);
     if (lastDone != null && intervalMonths > 0) {
@@ -318,13 +318,13 @@ String _eventId(DateTime at, int n) => '${at.microsecondsSinceEpoch}_$n';
 
 List<EquipEvent> _prepend(Equipment e, EquipEvent ev) => [ev, ...e.events];
 
-/// 교정·점검·검사를 기록한다. 합격·조건부이면 마지막일이 [at]로 바뀌고 다음 기한은 주기로 다시 계산된다
-/// (직접 정한 기한은 지운다). 불합격이면 마지막일은 그대로 두고 "수리·점검 중"으로 바꾼다.
+/// 점검을 기록한다. 양호이면 마지막일이 [at]로 바뀌고 다음 기한은 주기로 다시 계산된다
+/// (직접 정한 기한은 지운다). 불량이면 마지막일은 그대로 두고 "수리·점검 중"으로 바꾼다.
 /// [nextDue]를 주면 그 날짜를 다음 기한으로 직접 정한다.
 Equipment recordInspection(
   Equipment e, {
   required DateTime at,
-  required EventType type,
+  EventType type = EventType.check,
   String result = kResultPass,
   String by = '',
   String certNo = '',
@@ -347,13 +347,13 @@ Equipment recordInspection(
   return e.copyWith(
     lastDone: dayOnly(at),
     dueOverride: nextDue == null ? null : dayOnly(nextDue),
-    // 수리 중이던 장비가 합격하면 다시 쓸 수 있다.
+    // 수리 중이던 장비가 점검 양호면 다시 쓸 수 있다.
     status: e.status == EquipStatus.repair ? EquipStatus.ok : e.status,
     events: _prepend(e, ev),
   );
 }
 
-/// 축 정렬을 했다는 기록. 교정·검사 기한과 상태는 바꾸지 않는다.
+/// 축 정렬을 했다는 기록. 점검 기한과 상태는 바꾸지 않는다.
 Equipment recordAlignment(Equipment e, {required DateTime at, String note = ''}) => e.copyWith(
   events: _prepend(
     e,
@@ -550,32 +550,28 @@ String dueLabel(Equipment e, DateTime now) {
   return 'D-$d';
 }
 
+/// 점검 주기 글: 0 없음, 1 매월, 12 1년, 그 밖에 N개월.
+String intervalLabel(int m) => m == 0 ? '없음' : (m == 1 ? '매월' : (m % 12 == 0 ? '${m ~/ 12}년' : '$m개월'));
+
 String dateLabel(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-/// 처음 등록할 때 고를 수 있는 예시(이름, 분류, 주기 개월). 현장에서 자주 쓰는 것.
+/// 처음 등록할 때 고를 수 있는 예시(이름, 분류, 점검 주기 개월). 전동공구는 월 1회 정기 점검,
+/// 손공구·계측기는 기한 없음(계측기 검교정은 관리 부서가 따로 한다).
 const List<({String name, EquipCategory category, int months})> kEquipPresets = [
-  (name: '압력 게이지', category: EquipCategory.inst, months: 12),
-  (name: '압력 교정기', category: EquipCategory.inst, months: 12),
-  (name: '멀티미터', category: EquipCategory.inst, months: 12),
-  (name: 'HIOKI DT4282 (멀티미터)', category: EquipCategory.inst, months: 12),
-  (name: '루프 캘리브레이터', category: EquipCategory.inst, months: 12),
-  (name: '온도 교정기', category: EquipCategory.inst, months: 12),
-  (name: '토크 렌치', category: EquipCategory.tool, months: 12),
-  (name: '튜브 벤더', category: EquipCategory.tool, months: 0),
-  (name: '튜브 커터', category: EquipCategory.tool, months: 0),
-  (name: '공성 KSU N80A (3" 나사 절삭기)', category: EquipCategory.tool, months: 12),
-  (name: 'REMS 아미고 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
-  (name: 'REMS 아미고 2 (전동 나사 절삭기)', category: EquipCategory.tool, months: 12),
-  (name: 'REMS 타이거 SR (컷쏘)', category: EquipCategory.tool, months: 12),
-  (name: 'DEWALT D28730 (고속절단기)', category: EquipCategory.tool, months: 12),
-  (name: 'DEWALT DCS377 (충전 밴드쏘)', category: EquipCategory.tool, months: 12),
-  (name: 'DEWALT DCD806 (해머 드릴)', category: EquipCategory.tool, months: 12),
-  (name: 'DEWALT DCD801 (드릴 드라이버)', category: EquipCategory.tool, months: 12),
-  (name: 'DEWALT DCF870 (임팩 드라이버)', category: EquipCategory.tool, months: 12),
-  (name: '안전대', category: EquipCategory.safety, months: 6),
-  (name: '소화기', category: EquipCategory.safety, months: 12),
-  (name: '가스 검지기', category: EquipCategory.safety, months: 6),
+  (name: 'DEWALT D28730 (고속절단기)', category: EquipCategory.work, months: 1),
+  (name: 'DEWALT DCS377 (충전 밴드쏘)', category: EquipCategory.work, months: 1),
+  (name: 'REMS 타이거 SR (컷쏘)', category: EquipCategory.work, months: 1),
+  (name: 'REMS 아미고 (전동 나사 절삭기)', category: EquipCategory.work, months: 1),
+  (name: 'REMS 아미고 2 (전동 나사 절삭기)', category: EquipCategory.work, months: 1),
+  (name: '공성 KSU N80A (3" 나사 절삭기)', category: EquipCategory.work, months: 1),
+  (name: 'DEWALT DCD806 (해머 드릴)', category: EquipCategory.personal, months: 1),
+  (name: 'DEWALT DCD801 (드릴 드라이버)', category: EquipCategory.personal, months: 1),
+  (name: 'DEWALT DCF870 (임팩 드라이버)', category: EquipCategory.personal, months: 1),
+  (name: 'HIOKI DT4282 (멀티미터)', category: EquipCategory.personal, months: 0),
+  (name: '튜브 벤더', category: EquipCategory.personal, months: 0),
+  (name: '튜브 커터', category: EquipCategory.personal, months: 0),
+  (name: '토크 렌치', category: EquipCategory.personal, months: 0),
 ];
 
 /// 예시를 고르면 함께 채우는 제조사·모델·제원. 제원은 제조사가 공개한 값.
@@ -712,7 +708,7 @@ String _q(String s) => '"${s.replaceAll('"', '""').replaceAll('\n', ' ')}"';
 
 /// 엑셀에서 열 수 있는 CSV(맨 앞 BOM).
 String buildLedgerCsv(List<Equipment> all, DateTime now) {
-  final b = StringBuffer('﻿관리번호,장비명,분류,제조사,모델,시리얼,보관 위치,상태,교정·검사 주기(개월),마지막 교정·검사일,다음 기한,기한 상태,사용자,프로젝트,메모,제원')
+  final b = StringBuffer('﻿관리번호,장비명,분류,제조사,모델,시리얼,보관 위치,상태,점검 주기(개월),마지막 점검일,다음 점검일,기한 상태,사용자,프로젝트,메모,제원')
     ..writeln();
   for (final e in sortLedger(all, now)) {
     final st = switch (e.dueState(now)) {
@@ -748,11 +744,11 @@ String buildLedgerCsv(List<Equipment> all, DateTime now) {
 /// 카톡으로 보내는 "기한 지난·임박 장비" 글.
 String buildDueText(List<Equipment> all, DateTime now) {
   final list = filterLedger(all, now, view: LedgerView.due);
-  if (list.isEmpty) return '[장비 교정·검사 기한] 기한이 지났거나 30일 안에 오는 장비가 없습니다.';
-  final b = StringBuffer('[장비 교정·검사 기한] ${now.month}/${now.day} 기준');
+  if (list.isEmpty) return '[공구 점검 기한] 기한이 지났거나 $kDueSoonDays일 안에 오는 장비가 없습니다.';
+  final b = StringBuffer('[공구 점검 기한] ${now.month}/${now.day} 기준');
   for (final e in list) {
     final no = e.assetNo.isEmpty ? '' : '${e.assetNo} ';
-    b.write('\n${e.dueState(now) == DueState.overdue ? '⚠ ' : '· '}$no${e.name} — 기한 ${dateLabel(e.nextDue!)} (${dueLabel(e, now)})');
+    b.write('\n${e.dueState(now) == DueState.overdue ? '⚠ ' : '· '}$no${e.name} · 점검 기한 ${dateLabel(e.nextDue!)} (${dueLabel(e, now)})');
   }
   return b.toString();
 }
@@ -762,7 +758,7 @@ String buildEquipmentText(Equipment e, DateTime now) {
   final b = StringBuffer('[장비] ${e.assetNo.isEmpty ? '' : '${e.assetNo} '}${e.name}');
   if (e.maker.isNotEmpty || e.model.isNotEmpty) b.write('\n${[e.maker, e.model].where((s) => s.isNotEmpty).join(' ')}');
   if (e.serial.isNotEmpty) b.write('\n시리얼 ${e.serial}');
-  if (e.nextDue != null) b.write('\n다음 기한 ${dateLabel(e.nextDue!)} (${dueLabel(e, now)})');
+  if (e.nextDue != null) b.write('\n다음 점검 ${dateLabel(e.nextDue!)} (${dueLabel(e, now)})');
   if (e.isOut) b.write('\n반출 중: ${e.holder}${e.holderProject.isEmpty ? '' : ' · ${e.holderProject}'}');
   for (final ev in e.events.take(10)) {
     b.write('\n${dateLabel(ev.at)} ${ev.type.label}${ev.result.isEmpty ? '' : ' ${ev.result}'}${ev.by.isEmpty ? '' : ' (${ev.by})'}${ev.certNo.isEmpty ? '' : ' 성적서 ${ev.certNo}'}');

@@ -187,7 +187,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
     if (out == null) return;
     await AlignStore.put(out);
     if (_rounds.isNotEmpty) await _setRounds([]); // 회차는 기록에 같이 저장됐다
-    // 장비 대장의 장비를 골랐으면 그 장비 이력에 "축 정렬"을 남긴다(교정 기한은 그대로).
+    // 장비 대장의 장비를 골랐으면 그 장비 이력에 "축 정렬"을 남긴다(점검 기한은 그대로).
     if (out.equipmentId.isNotEmpty) {
       final list = await EquipmentStore.load();
       for (final e in list) {

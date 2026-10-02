@@ -24,7 +24,7 @@ Future<Uint8List> buildLedgerPdf(List<Equipment> all, DateTime now) async {
     DueState.none => e.isRetired ? '폐기' : '',
   };
 
-  const head = ['관리번호', '장비명', '분류', '제조사·모델', '시리얼', '위치', '마지막 교정', '다음 기한', '상태', '사용자'];
+  const head = ['관리번호', '장비명', '분류', '제조사·모델', '시리얼', '위치', '마지막 점검', '다음 점검', '상태', '사용자'];
   final rows = [
     for (final e in list)
       [

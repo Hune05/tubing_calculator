@@ -1,4 +1,4 @@
-// 장비 관리 대장 화면: 목록(요약·검색·걸러 보기), 등록·수정, 상세(기한·이력·교정·반출), QR 라벨.
+// 장비 관리 대장 화면: 목록(요약·검색·걸러 보기), 등록·수정, 상세(점검 기한·이력·반출), QR 라벨.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -367,7 +367,7 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
           ),
           const SizedBox(height: 6),
           const Text(
-            '아래 예시를 누르면 이름과 교정 주기가 채워진 채로 등록 화면이 열립니다.',
+            '아래 예시를 누르면 이름과 점검 주기가 채워진 채로 등록 화면이 열립니다.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, height: 1.5, color: AppColors.textSub),
           ),
@@ -513,14 +513,14 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
     for (final p in kEquipPresets) {
       if (p.name == widget.presetName) return p.category;
     }
-    return EquipCategory.inst;
+    return EquipCategory.work;
   }
 
   int _presetMonths() {
     for (final p in kEquipPresets) {
       if (p.name == widget.presetName) return p.months;
     }
-    return 12;
+    return 1; // 정기 점검 월 1회
   }
 
   @override
@@ -605,7 +605,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
-          field('equip_name', _name, '장비 이름', hint: '예: 압력 게이지'),
+          field('equip_name', _name, '장비 이름', hint: '예: 고속절단기'),
           if (widget.existing == null)
             Padding(
               padding: const EdgeInsets.only(bottom: 10),
@@ -613,7 +613,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                 spacing: 6,
                 runSpacing: 4,
                 children: [
-                  for (final p in [...kEquipPresets.take(6), ...kEquipPresets.where((x) => kEquipPresetDetails.containsKey(x.name))])
+                  for (final p in kEquipPresets)
                     _Action(
                       label: Text(p.name, style: const TextStyle(fontSize: 12)),
                       onPressed: () => setState(() {
@@ -636,7 +636,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                 ],
               ),
             ),
-          field('equip_assetno', _assetNo, '관리번호 (QR 라벨에 들어갑니다)', hint: '예: PG-001'),
+          field('equip_assetno', _assetNo, '관리번호 (QR 라벨에 들어갑니다)', hint: '예: CT-001'),
           Wrap(
             spacing: 8,
             children: [
@@ -656,15 +656,15 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
           field('equip_serial', _serial, '시리얼 번호'),
           field('equip_location', _location, '보관 위치', hint: '예: 계장 공구함 2번'),
           const SizedBox(height: 4),
-          const Text('교정·검사 주기', style: AppText.title),
+          const Text('정기 점검', style: AppText.title),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: [
-              for (final m in const [0, 3, 6, 12, 24, 36])
+              for (final m in const [0, 1, 3, 6, 12])
                 _Choice(
                   key: Key('equip_interval_$m'),
-                  label: Text(m == 0 ? '없음' : (m % 12 == 0 ? '${m ~/ 12}년' : '$m개월')),
+                  label: Text(intervalLabel(m)),
                   selected: _interval == m,
                   showCheckmark: false,
                   onSelected: (_) => setState(() => _interval = m),
@@ -676,13 +676,13 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
             key: const Key('equip_lastdone'),
             onPressed: _pickDate,
             icon: const Icon(AppIcons.calendar, size: 18),
-            label: Text(_lastDone == null ? '마지막 교정·검사일 고르기' : '마지막 교정·검사일 ${dateLabel(_lastDone!)}'),
+            label: Text(_lastDone == null ? '마지막 점검일 고르기' : '마지막 점검일 ${dateLabel(_lastDone!)}'),
           ),
           if (due != null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '다음 기한은 ${dateLabel(due)}입니다 (마지막일 + $_interval개월)',
+                '다음 점검은 ${dateLabel(due)}입니다 (마지막 점검일 + ${intervalLabel(_interval)})',
                 key: const Key('equip_due_preview'),
                 style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.brand),
               ),
@@ -812,7 +812,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
     );
     if (result != null) {
       await _put(result);
-      _toast('교정·점검을 기록했습니다');
+      _toast('점검을 기록했습니다');
     }
   }
 
@@ -945,7 +945,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                       Text(
                         e.isRetired
                             ? '폐기한 장비'
-                            : (e.nextDue == null ? '교정·검사 기한 없음' : '다음 교정·검사 ${dateLabel(e.nextDue!)}'),
+                            : (e.nextDue == null ? '점검 기한 없음' : '다음 점검 ${dateLabel(e.nextDue!)}'),
                         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                       ),
                       const SizedBox(height: 4),
@@ -953,7 +953,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                         [
                           e.status.label,
                           if (e.isOut) '${e.holder}${e.holderProject.isEmpty ? '' : ' · ${e.holderProject}'} 반출 중',
-                          if (e.lastDone != null) '마지막 ${dateLabel(e.lastDone!)}',
+                          if (e.lastDone != null) '마지막 점검 ${dateLabel(e.lastDone!)}',
                         ].join(' · '),
                         style: const TextStyle(fontSize: 13, color: AppColors.textSub),
                       ),
@@ -974,7 +974,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
                     key: const Key('equip_inspect'),
                     onPressed: _inspect,
                     icon: const Icon(AppIcons.check, size: 18),
-                    label: const Text('교정·점검 기록'),
+                    label: const Text('점검 기록'),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -1001,7 +1001,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           _info('제조사·모델', [e.maker, e.model].where((v) => v.isNotEmpty).join(' ')),
           _info('시리얼', e.serial),
           _info('보관 위치', e.location),
-          _info('교정·검사 주기', e.intervalMonths == 0 ? '없음' : '${e.intervalMonths}개월'),
+          _info('점검 주기', intervalLabel(e.intervalMonths)),
           if (e.specs.isNotEmpty) ...[
             const SizedBox(height: 8),
             const Text('제원', style: AppText.title),
@@ -1092,7 +1092,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
   };
 }
 
-// ── 교정·점검 기록 창 ──
+// ── 점검 기록 창 ──
 
 class _InspectSheet extends StatefulWidget {
   final Equipment equipment;
@@ -1104,18 +1104,15 @@ class _InspectSheet extends StatefulWidget {
 }
 
 class _InspectSheetState extends State<_InspectSheet> {
-  EventType _type = EventType.cal;
   String _result = kResultPass;
   late DateTime _date = dayOnly(widget.now);
   DateTime? _nextDue;
   final _by = TextEditingController();
-  final _cert = TextEditingController();
   final _note = TextEditingController();
 
   @override
   void dispose() {
     _by.dispose();
-    _cert.dispose();
     _note.dispose();
     super.dispose();
   }
@@ -1123,7 +1120,7 @@ class _InspectSheetState extends State<_InspectSheet> {
   Future<void> _pick({required bool next}) async {
     final d = await showDatePicker(
       context: context,
-      initialDate: next ? (_nextDue ?? addMonths(_date, widget.equipment.intervalMonths == 0 ? 12 : widget.equipment.intervalMonths)) : _date,
+      initialDate: next ? (_nextDue ?? addMonths(_date, widget.equipment.intervalMonths == 0 ? 1 : widget.equipment.intervalMonths)) : _date,
       firstDate: DateTime(2000),
       lastDate: DateTime(widget.now.year + 10, 12, 31),
     );
@@ -1141,26 +1138,12 @@ class _InspectSheetState extends State<_InspectSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('교정·점검 기록', style: AppText.title),
+            const Text('점검 기록', style: AppText.title),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
               children: [
-                for (final t in [EventType.cal, EventType.check])
-                  _Choice(
-                    key: Key('inspect_type_${t.id}'),
-                    label: Text(t.label),
-                    selected: _type == t,
-                    showCheckmark: false,
-                    onSelected: (_) => setState(() => _type = t),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final r in [kResultPass, kResultConditional, kResultFail])
+                for (final r in [kResultPass, kResultFail])
                   _Choice(
                     key: Key('inspect_result_$r'),
                     label: Text(r),
@@ -1175,11 +1158,10 @@ class _InspectSheetState extends State<_InspectSheet> {
               key: const Key('inspect_date'),
               onPressed: () => _pick(next: false),
               icon: const Icon(AppIcons.calendar, size: 18),
-              label: Text('실시일 ${dateLabel(_date)}'),
+              label: Text('점검일 ${dateLabel(_date)}'),
             ),
             const SizedBox(height: 8),
-            TextField(key: const Key('inspect_by'), controller: _by, decoration: const InputDecoration(labelText: '교정 기관·점검자 (선택)')),
-            TextField(key: const Key('inspect_cert'), controller: _cert, decoration: const InputDecoration(labelText: '성적서 번호 (선택)')),
+            TextField(key: const Key('inspect_by'), controller: _by, decoration: const InputDecoration(labelText: '점검자 (선택)')),
             TextField(key: const Key('inspect_note'), controller: _note, decoration: const InputDecoration(labelText: '메모 (선택)')),
             const SizedBox(height: 8),
             if (_result != kResultFail)
@@ -1189,12 +1171,12 @@ class _InspectSheetState extends State<_InspectSheet> {
                 icon: const Icon(AppIcons.calendarEdit, size: 18),
                 label: Text(
                   _nextDue != null
-                      ? '다음 기한 ${dateLabel(_nextDue!)} (직접 정함)'
-                      : (auto != null ? '다음 기한 ${dateLabel(auto)} (주기 ${e.intervalMonths}개월로 자동)' : '다음 기한 정하기 (선택)'),
+                      ? '다음 점검 ${dateLabel(_nextDue!)} (직접 정함)'
+                      : (auto != null ? '다음 점검 ${dateLabel(auto)} (${intervalLabel(e.intervalMonths)} 자동)' : '다음 점검일 정하기 (선택)'),
                 ),
               )
             else
-              const Text('불합격이면 "수리·점검 중"으로 바뀌고 기한은 그대로 둡니다.', style: TextStyle(fontSize: 13, color: AppColors.danger)),
+              const Text('불량이면 "수리·점검 중"으로 바뀌고 기한은 그대로 둡니다.', style: TextStyle(fontSize: 13, color: AppColors.danger)),
             const SizedBox(height: 12),
             FilledButton(
               key: const Key('inspect_save'),
@@ -1203,10 +1185,8 @@ class _InspectSheetState extends State<_InspectSheet> {
                 recordInspection(
                   e,
                   at: _date,
-                  type: _type,
                   result: _result,
                   by: _by.text,
-                  certNo: _cert.text,
                   note: _note.text,
                   nextDue: _nextDue,
                 ),

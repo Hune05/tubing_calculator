@@ -81,7 +81,7 @@ Route<void>? routeForNotification(String? payload, Map<String, dynamic> data) {
       builder: (_) => MobileMyScheduleScreen(initialDate: sched.date),
     );
   }
-  // 장비 교정·검사 기한 알림: 기한 지남·임박 장비 목록을 연다.
+  // 공구 점검 기한 알림: 기한 지남·임박 장비 목록을 연다.
   if (payload != null && payload.startsWith(kEquipPayloadPrefix)) {
     return MaterialPageRoute<void>(
       builder: (_) => const EquipmentLedgerPage(initialView: LedgerView.due),

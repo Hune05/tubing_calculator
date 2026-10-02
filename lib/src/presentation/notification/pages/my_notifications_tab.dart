@@ -165,7 +165,7 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         safetyUsedRecently(records, now) && safetyCheckToday(records, now) == null;
   } catch (_) {}
 
-  // 교정·검사 기한이 지났거나 30일 안에 오는 장비.
+  // 점검 기한이 지났거나 7일 안에 오는 공구.
   LedgerSummary? equipSummary;
   try {
     equipSummary = summarize(await EquipmentStore.load(), DateTime.now());
@@ -180,13 +180,13 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         icon: Icons.build_circle_outlined,
         color: s.overdue > 0 ? AppColors.danger : AppColors.caution,
         title: s.overdue > 0
-            ? '장비 교정 기한 지남 ${s.overdue}대'
-            : '장비 교정 기한 임박 ${s.soon}대',
+            ? '공구 점검 기한 지남 ${s.overdue}대'
+            : '공구 점검 기한 임박 ${s.soon}대',
         detail: s.overdue > 0 && s.soon > 0
             ? '기한이 지난 장비 ${s.overdue}대, 30일 안에 오는 장비 ${s.soon}대가 있습니다. 눌러서 확인하십시오.'
             : (s.overdue > 0
-                  ? '교정·검사 기한이 지난 장비가 있습니다. 눌러서 확인하십시오.'
-                  : '30일 안에 교정·검사 기한이 오는 장비가 있습니다. 눌러서 확인하십시오.'),
+                  ? '점검 기한이 지난 공구가 있습니다. 눌러서 확인하십시오.'
+                  : '7일 안에 점검 기한이 오는 공구가 있습니다. 눌러서 확인하십시오.'),
         route: () => MaterialPageRoute<void>(
           builder: (_) => const EquipmentLedgerPage(initialView: LedgerView.due),
         ),

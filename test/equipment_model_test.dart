@@ -1,4 +1,4 @@
-// 장비 관리 대장의 계산: 기한, 상태, 교정·반출 기록, 걸러 보기, 내보내기 글.
+// 장비 관리 대장의 계산: 점검 기한, 상태, 점검·반출 기록, 걸러 보기, 내보내기 글.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart';
 
@@ -13,7 +13,7 @@ Equipment _e({
   DateTime? override,
   EquipStatus status = EquipStatus.ok,
   String holder = '',
-  EquipCategory cat = EquipCategory.inst,
+  EquipCategory cat = EquipCategory.personal,
 }) => Equipment(
   id: id,
   name: name,
@@ -46,7 +46,7 @@ void main() {
       expect(e.dueState(_now), DueState.soon);
     });
 
-    test('지났으면 만료, 30일 밖이면 정상, 기한 없으면 none', () {
+    test('지났으면 만료, 7일 밖이면 정상, 기한 없으면 none', () {
       expect(_e(last: DateTime(2025, 8, 1)).dueState(_now), DueState.overdue);
       expect(dueLabel(_e(last: DateTime(2025, 8, 1)), _now), '60일 지남');
       expect(_e(last: DateTime(2026, 9, 1)).dueState(_now), DueState.ok);
@@ -55,10 +55,10 @@ void main() {
       expect(_e().dueState(_now), DueState.none); // 마지막일 없음
     });
 
-    test('30일째는 임박, 31일째는 정상', () {
-      // 다음 기한 = 오늘 + 30일
-      final soon = _e(override: DateTime(2026, 10, 30));
-      final ok = _e(override: DateTime(2026, 10, 31));
+    test('7일째는 임박, 8일째는 정상', () {
+      // 다음 기한 = 오늘 + 7일
+      final soon = _e(override: DateTime(2026, 10, 7));
+      final ok = _e(override: DateTime(2026, 10, 8));
       expect(soon.dueState(_now), DueState.soon);
       expect(ok.dueState(_now), DueState.ok);
     });
@@ -177,9 +177,9 @@ void main() {
   group('걸러 보기와 요약', () {
     final list = [
       _e(id: '1', name: '압력 게이지 A', assetNo: 'PG-001', last: DateTime(2025, 1, 1)), // 만료
-      _e(id: '2', name: '멀티미터', last: DateTime(2025, 10, 15)), // 임박
-      _e(id: '3', name: '토크 렌치', cat: EquipCategory.tool, last: DateTime(2026, 9, 1)), // 정상
-      _e(id: '4', name: '튜브 벤더', cat: EquipCategory.tool, interval: 0, holder: '홍길동'), // 기한 없음·반출
+      _e(id: '2', name: '멀티미터', last: DateTime(2025, 10, 5)), // 임박(5일 남음)
+      _e(id: '3', name: '토크 렌치', cat: EquipCategory.work, last: DateTime(2026, 9, 1)), // 정상
+      _e(id: '4', name: '튜브 벤더', cat: EquipCategory.work, interval: 0, holder: '홍길동'), // 기한 없음·반출
       _e(id: '5', name: '옛 게이지', last: DateTime(2020, 1, 1), status: EquipStatus.retired),
       _e(id: '6', name: '수리 중 계기', status: EquipStatus.repair, interval: 0),
     ];
@@ -207,7 +207,7 @@ void main() {
     });
 
     test('분류·검색(관리번호·이름·사용자, 띄어쓰기 무시)', () {
-      expect(filterLedger(list, _now, category: EquipCategory.tool).map((e) => e.id).toSet(), {'3', '4'});
+      expect(filterLedger(list, _now, category: EquipCategory.work).map((e) => e.id).toSet(), {'3', '4'});
       expect(filterLedger(list, _now, query: 'pg001'), isEmpty); // 하이픈은 무시하지 않는다
       expect(filterLedger(list, _now, query: 'pg-001').single.id, '1');
       expect(filterLedger(list, _now, query: '압력게이지').single.id, '1');
@@ -259,13 +259,11 @@ void main() {
       final e = recordInspection(
         _e(name: '게이지', assetNo: 'PG-1'),
         at: DateTime(2026, 9, 1),
-        type: EventType.cal,
-        by: '한국교정',
-        certNo: 'C9',
+        by: '김반장',
       );
       final t = buildEquipmentText(e, _now);
       expect(t, contains('[장비] PG-1 게이지'));
-      expect(t, contains('교정 합격 (한국교정) 성적서 C9'));
+      expect(t, contains('점검 양호 (김반장)'));
     });
 
     test('예시 목록은 이름이 겹치지 않는다', () {

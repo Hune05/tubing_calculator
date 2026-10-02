@@ -110,21 +110,20 @@ void main() {
   });
 
   group('기한 알림 계획', () {
-    test('30일 전·7일 전·당일 오전 9시, 지난 시각은 뺀다', () {
+    test('7일 전·당일 오전 9시, 지난 시각은 뺀다', () {
       final e = _e('a', name: '게이지', assetNo: 'PG-1', last: DateTime(2025, 10, 31)); // 기한 2026-10-31
       final plan = planEquipmentReminders([e], _now);
       expect(plan.map((r) => r.when), [
-        DateTime(2026, 10, 1, 9),
         DateTime(2026, 10, 24, 9),
         DateTime(2026, 10, 31, 9),
       ]);
       expect(plan.first.body, contains('PG-1 게이지'));
-      expect(plan.first.body, contains('30일 남았습니다'));
+      expect(plan.first.body, contains('7일 남았습니다'));
       expect(plan.last.body, contains('오늘입니다'));
     });
 
     test('이미 지난 알림은 잡지 않는다', () {
-      // 기한 10/5: 30일 전(9/5)·… 7일 전(9/28)은 지났고 당일(10/5)만 남는다.
+      // 기한 10/5: 7일 전(9/28)은 지났고 당일(10/5)만 남는다.
       final e = _e('a', last: DateTime(2025, 10, 5));
       final plan = planEquipmentReminders([e], _now);
       expect(plan.length, 1);

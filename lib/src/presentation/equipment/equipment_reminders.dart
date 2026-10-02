@@ -1,4 +1,4 @@
-// 장비 교정·검사 기한 알림: 기한 30일 전·7일 전·당일 오전 9시에 폰이 알려 준다.
+// 공구 정기 점검 기한 알림: 기한 7일 전·당일 오전 9시에 폰이 알려 준다.
 // 무엇을 언제 알릴지는 순수 함수(planEquipmentReminders)가 정하고, 폰에 예약하는 일만 따로 한다.
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -15,7 +15,10 @@ const String kEquipReminderChannelId = 'equipment_due_channel';
 const String kEquipPayloadPrefix = 'equip:';
 
 /// 기한 며칠 전에 알릴지(0은 당일).
-const List<int> kEquipReminderOffsets = [30, 7, 0];
+const List<int> kEquipReminderOffsets = [7, 0];
+
+/// 예전(30일 전 알림이 있던 때) 예약까지 지우려고 취소할 때는 이것을 쓴다.
+const List<int> _kCancelOffsets = [30, 7, 0];
 
 /// 알림 시각(시).
 const int kEquipReminderHour = 9;
@@ -46,9 +49,9 @@ List<EquipReminder> planEquipmentReminders(List<Equipment> all, DateTime now) {
       if (!when.isAfter(now)) continue;
       final label = e.assetNo.isEmpty ? e.name : '${e.assetNo} ${e.name}';
       final body = off == 0
-          ? '$label 교정·검사 기한이 오늘입니다'
-          : '$label 교정·검사 기한이 $off일 남았습니다 (${dateLabel(due)})';
-      out.add(EquipReminder(equipNotifId(e.id, off), e.id, when, '장비 교정·검사 기한', body));
+          ? '$label 점검일이 오늘입니다'
+          : '$label 점검일이 $off일 남았습니다 (${dateLabel(due)})';
+      out.add(EquipReminder(equipNotifId(e.id, off), e.id, when, '공구 점검 기한', body));
     }
   }
   out.sort((a, b) => a.when.compareTo(b.when));
@@ -69,8 +72,8 @@ Future<void> _ensureChannel() async {
   if (_channelReady) return;
   const channel = AndroidNotificationChannel(
     kEquipReminderChannelId,
-    '장비 교정·검사 기한',
-    description: '장비 교정·검사 기한 알림',
+    '공구 점검 기한',
+    description: '공구 정기 점검 기한 알림',
     importance: Importance.high,
   );
   await flutterLocalNotificationsPlugin
@@ -81,7 +84,7 @@ Future<void> _ensureChannel() async {
 
 /// 이 장비의 알림 예약을 모두 취소한다(지우거나 다시 잡기 전에).
 Future<void> cancelEquipmentReminders(String equipmentId) async {
-  for (final off in kEquipReminderOffsets) {
+  for (final off in _kCancelOffsets) {
     try {
       await flutterLocalNotificationsPlugin.cancel(id: equipNotifId(equipmentId, off));
     } catch (_) {}
@@ -110,8 +113,8 @@ Future<int> rescheduleEquipmentReminders(List<Equipment> all, {DateTime? now}) a
         notificationDetails: const NotificationDetails(
           android: AndroidNotificationDetails(
             kEquipReminderChannelId,
-            '장비 교정·검사 기한',
-            channelDescription: '장비 교정·검사 기한 알림',
+            '공구 점검 기한',
+            channelDescription: '공구 정기 점검 기한 알림',
             importance: Importance.high,
             priority: Priority.high,
           ),
