@@ -327,6 +327,26 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       }
       _rReads = list;
     });
+    // 중간 측정을 잘못 지웠을 때 "되돌리기"로 같은 자리에 다시 넣는다(10-02).
+    if (res.delete) {
+      final start = _rStart;
+      showDeleteUndo(
+        context,
+        '${ptReadKindLabel(r.kind)} ${ptHms(r.at)}',
+        onUndo: () {
+          // 그 사이 새로 시작했으면 다른 시험이라 넣지 않는다.
+          if (!mounted || _rStart != start || _rReads.contains(r)) return;
+          setState(() {
+            final list = [..._rReads];
+            // 시각 순서대로 제자리를 찾는다(그 사이 다른 줄이 바뀌었을 수 있다).
+            var at = list.indexWhere((e) => e.at.isAfter(r.at));
+            if (at < 0) at = list.length;
+            list.insert(at, r);
+            _rReads = list;
+          });
+        },
+      );
+    }
   }
 
   Future<bool> _rConfirm(String title, String body, String okLabel) async {

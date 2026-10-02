@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../steel_cutting/screens/steel_pdf_preview_page.dart';
@@ -355,11 +356,27 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
     DrawingMark? next;
     switch (out.type) {
       case _ActType.delete:
+        // 잘못 눌러 지웠을 때 "되돌리기"로 같은 표시(같은 번호·자리)를 다시 넣는다(10-02).
+        final at = _marks.indexWhere((x) => x.id == m.id);
         setState(() {
           _marks = [for (final x in _marks) if (x.id != m.id) x];
           _selected = null;
         });
         await _persist();
+        if (!mounted) return;
+        showDeleteUndo(
+          context,
+          [m.kind.numbered ? '${m.kind.label} ${m.no}' : m.kind.label, if (m.text.trim().isNotEmpty) m.text.trim()].join(' '),
+          onUndo: () {
+            if (!mounted || _marks.any((x) => x.id == m.id)) return;
+            setState(() {
+              final next = [..._marks];
+              next.insert(at < 0 ? next.length : at.clamp(0, next.length), m);
+              _marks = next;
+            });
+            _persist();
+          },
+        );
         return;
       case _ActType.save:
         final events = [...m.history];

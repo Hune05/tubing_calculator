@@ -6,6 +6,8 @@
 // 2026-09-26 점검(docs/근태관리_근거.md): 휴게 뺀 근로시간, 달 합계(연장·야간·휴일·가산 시간),
 // 주 52시간 경고, 연차 잔여(입사일 기준), 달력 보기, 현장 메모, PDF·CSV 내보내기를 넣었다.
 // 저장·지우기는 서버 응답을 기다리지 않는다(통신 없는 현장에서 창이 멈추던 문제).
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart'
+    show showDeleteUndo;
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -149,6 +151,7 @@ class _AttendancePageState extends State<AttendancePage> {
     );
     if (result == null || !mounted) return;
     if (result.delete) {
+      final old = _records[key];
       final ok = await (widget.deleteRecord ?? deleteAttendance)(day);
       if (!mounted) return;
       if (!ok) {
@@ -157,6 +160,14 @@ class _AttendancePageState extends State<AttendancePage> {
       }
       AttendanceCache.byDate.remove(key);
       setState(() => _records.remove(key));
+      // 잘못 눌렀을 때 되살릴 수 있게 "되돌리기"를 띄운다(10-02, 예전엔 바로 사라졌다).
+      if (old != null) {
+        showDeleteUndo(
+          context,
+          "${day.month}월 ${day.day}일 근태 기록",
+          onUndo: () => _restore(old),
+        );
+      }
       return;
     }
     final rec = result.save!;
@@ -169,6 +180,19 @@ class _AttendancePageState extends State<AttendancePage> {
     // 통계 화면(project_stats_page 등)이 새로고침 없이 바로 반영하도록 캐시도 고친다.
     AttendanceCache.byDate[key] = rec.type;
     setState(() => _records[key] = rec);
+  }
+
+  /// 지운 근태 기록을 같은 날짜·같은 내용으로 다시 저장한다.
+  Future<void> _restore(AttendanceRecord old) async {
+    final ok = await (widget.saveRecord ?? saveAttendance)(old);
+    if (!mounted) return;
+    if (!ok) {
+      _toast("로그인하지 않아 되돌리지 못했습니다. 로그인한 뒤 다시 하십시오.");
+      return;
+    }
+    final key = dateKey(old.date);
+    AttendanceCache.byDate[key] = old.type;
+    setState(() => _records[key] = old);
   }
 
   LeaveBalance? _leave() {

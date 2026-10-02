@@ -13,6 +13,7 @@ import '../cutting_optimizer.dart';
 import '../cutting_plan_settings.dart';
 import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
+import '../../../core/common_widgets/swipe_to_delete.dart';
 import 'leftover_log_page.dart';
 import 'package:tubing_calculator/src/core/utils/number_input.dart';
 
@@ -1263,172 +1264,233 @@ Future<List<Leftover>?> _manageLeftovers(
   List<String> labels,
 ) {
   final list = [...current];
+  // 같은 길이 잔재가 여럿이어도 줄마다 다른 열쇠(밀어서 지우기에 쓴다). list와 같이 고친다.
+  final rowKeys = <Key>[for (final _ in list) UniqueKey()];
   final ctrl = TextEditingController();
   String label = labels.first;
   bool changed = false;
   String? addError;
   return showDialog<List<Leftover>>(
     context: context,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setD) => _tealTheme(
-        ctx,
-        Dialog(
-          backgroundColor: CuttingColors.surface,
-          surfaceTintColor: Colors.transparent,
-          insetPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 24,
-          ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "잔재",
-                    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 잔재는 남겨 두지 않습니다.",
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                  ),
-                  if (list.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Text(
-                      "전체 ${list.length}개 · 합계 ${list.fold<double>(0, (s, l) => s + l.length).toStringAsFixed(0)}mm · 규격 ${groupLeftoversByLabel(list).length}종",
-                      key: const Key('leftover_total'),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w900,
-                        color: CuttingColors.primaryDark,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 12),
-                  Flexible(
-                    child: list.isEmpty
-                        ? const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Text("저장된 잔재가 없습니다."),
-                          )
-                        : ListView(
-                            shrinkWrap: true,
-                            children: [
-                              // 규격별로 묶고, 규격 안에서는 긴 잔재부터.
-                              for (final g in groupLeftoversByLabel(list)) ...[
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Text(
-                                    "${g.label.isEmpty ? '규격 미지정' : g.label}  ·  ${g.indices.length}개 · 합계 ${g.totalMm.toStringAsFixed(0)}mm",
-                                    key: Key('leftover_group_${g.label}'),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w900,
-                                    ),
-                                  ),
-                                ),
-                                for (final i in g.indices)
-                                  ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    title: Text(
-                                      "${list[i].length.toStringAsFixed(0)}mm",
-                                    ),
-                                    trailing: IconButton(
-                                      icon: const Icon(Icons.delete_outline),
-                                      tooltip: "삭제",
-                                      onPressed: () => setD(() {
-                                        list.removeAt(i);
-                                        changed = true;
-                                      }),
-                                    ),
-                                  ),
-                              ],
-                            ],
-                          ),
-                  ),
-                  const Divider(),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    crossAxisAlignment: WrapCrossAlignment.center,
-                    children: [
-                      if (labels.length > 1)
-                        DropdownButton<String>(
-                          dropdownColor: Colors.white,
-                          value: label,
-                          items: [
-                            for (final l in labels)
-                              DropdownMenuItem(
-                                value: l,
-                                child: Text(l.isEmpty ? '규격 미지정' : l),
-                              ),
-                          ],
-                          onChanged: (v) => setD(() => label = v ?? label),
-                        ),
-                      SizedBox(
-                        width: 140,
-                        child: TextField(
-                          controller: ctrl,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
-                          ),
-                          key: const Key('leftover_add_len'),
-                          decoration: InputDecoration(
-                            labelText: "길이",
-                            suffixText: "mm",
-                            isDense: true,
-                            errorText: addError,
-                            errorMaxLines: 2,
-                          ),
-                        ),
-                      ),
-                      OutlinedButton(
-                        onPressed: () {
-                          // 🚀 [고침] 짧거나 숫자가 아니면 말없이 넘어갔다.
-                          final v = parseNumInput(ctrl.text);
-                          if (v == null || v < kMinLeftoverMm) {
-                            setD(
-                              () => addError =
-                                  "${kMinLeftoverMm.toStringAsFixed(0)}mm 이상만 잔재로 둡니다",
-                            );
-                            return;
-                          }
-                          setD(() {
-                            addError = null;
-                            list.add(Leftover(label, v.floorToDouble()));
-                            ctrl.clear();
-                            changed = true;
-                          });
-                        },
-                        child: const Text("추가"),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(ctx),
-                        // 지운 것은 저장을 눌러야 남는다. 그냥 닫으면 버려진다는 것을 보여 준다.
-                        child: Text(changed ? "저장 안 하고 닫기" : "닫기"),
-                      ),
-                      FilledButton(
-                        onPressed: () =>
-                            Navigator.pop(ctx, changed ? list : null),
-                        child: const Text("저장"),
-                      ),
-                    ],
-                  ),
-                ],
+    // 🚀 [10-02] 되돌리기 알림이 창 뒤에 가려지지 않게 창 위에 알림 자리를 둔다.
+    builder: (dialogCtx) => ScaffoldMessenger(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        resizeToAvoidBottomInset: false,
+        body: Stack(
+          children: [
+            // 창 바깥을 누르면 예전처럼 닫힌다(저장 안 함).
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => Navigator.pop(dialogCtx),
               ),
             ),
-          ),
+            StatefulBuilder(
+              builder: (ctx, setD) => _tealTheme(
+                ctx,
+                Dialog(
+                  backgroundColor: CuttingColors.surface,
+                  surfaceTintColor: Colors.transparent,
+                  insetPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 24,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 560),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "잔재",
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 잔재는 남겨 두지 않습니다.",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                          if (list.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Text(
+                              "전체 ${list.length}개 · 합계 ${list.fold<double>(0, (s, l) => s + l.length).toStringAsFixed(0)}mm · 규격 ${groupLeftoversByLabel(list).length}종",
+                              key: const Key('leftover_total'),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                                color: CuttingColors.primaryDark,
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          Flexible(
+                            child: list.isEmpty
+                                ? const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Text("저장된 잔재가 없습니다."),
+                                  )
+                                : ListView(
+                                    shrinkWrap: true,
+                                    children: [
+                                      // 규격별로 묶고, 규격 안에서는 긴 잔재부터.
+                                      for (final g in groupLeftoversByLabel(
+                                        list,
+                                      )) ...[
+                                        Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 8,
+                                          ),
+                                          child: Text(
+                                            "${g.label.isEmpty ? '규격 미지정' : g.label}  ·  ${g.indices.length}개 · 합계 ${g.totalMm.toStringAsFixed(0)}mm",
+                                            key: Key(
+                                              'leftover_group_${g.label}',
+                                            ),
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                        // 🚀 [10-02] 휴지통 단추 대신 왼쪽으로 밀어서 지우고 되돌리기.
+                                        for (final i in g.indices)
+                                          SwipeToDelete(
+                                            itemKey: rowKeys[i],
+                                            radius: 8,
+                                            bottomMargin: 0,
+                                            onDelete: () {
+                                              final removed = list[i];
+                                              setD(() {
+                                                list.removeAt(i);
+                                                rowKeys.removeAt(i);
+                                                changed = true;
+                                              });
+                                              showDeleteUndo(
+                                                ctx,
+                                                "${removed.length.toStringAsFixed(0)}mm",
+                                                onUndo: () {
+                                                  if (!ctx.mounted) return;
+                                                  final at = i.clamp(
+                                                    0,
+                                                    list.length,
+                                                  );
+                                                  setD(() {
+                                                    list.insert(at, removed);
+                                                    rowKeys.insert(
+                                                      at,
+                                                      UniqueKey(),
+                                                    );
+                                                  });
+                                                },
+                                              );
+                                            },
+                                            child: ListTile(
+                                              dense: true,
+                                              contentPadding: EdgeInsets.zero,
+                                              title: Text(
+                                                "${list[i].length.toStringAsFixed(0)}mm",
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ],
+                                  ),
+                          ),
+                          const Divider(),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              if (labels.length > 1)
+                                DropdownButton<String>(
+                                  dropdownColor: Colors.white,
+                                  value: label,
+                                  items: [
+                                    for (final l in labels)
+                                      DropdownMenuItem(
+                                        value: l,
+                                        child: Text(l.isEmpty ? '규격 미지정' : l),
+                                      ),
+                                  ],
+                                  onChanged: (v) =>
+                                      setD(() => label = v ?? label),
+                                ),
+                              SizedBox(
+                                width: 140,
+                                child: TextField(
+                                  controller: ctrl,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  key: const Key('leftover_add_len'),
+                                  decoration: InputDecoration(
+                                    labelText: "길이",
+                                    suffixText: "mm",
+                                    isDense: true,
+                                    errorText: addError,
+                                    errorMaxLines: 2,
+                                  ),
+                                ),
+                              ),
+                              OutlinedButton(
+                                onPressed: () {
+                                  // 🚀 [고침] 짧거나 숫자가 아니면 말없이 넘어갔다.
+                                  final v = parseNumInput(ctrl.text);
+                                  if (v == null || v < kMinLeftoverMm) {
+                                    setD(
+                                      () => addError =
+                                          "${kMinLeftoverMm.toStringAsFixed(0)}mm 이상만 잔재로 둡니다",
+                                    );
+                                    return;
+                                  }
+                                  setD(() {
+                                    addError = null;
+                                    list.add(
+                                      Leftover(label, v.floorToDouble()),
+                                    );
+                                    rowKeys.add(UniqueKey());
+                                    ctrl.clear();
+                                    changed = true;
+                                  });
+                                },
+                                child: const Text("추가"),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                // 지운 것은 저장을 눌러야 남는다. 그냥 닫으면 버려진다는 것을 보여 준다.
+                                child: Text(changed ? "저장 안 하고 닫기" : "닫기"),
+                              ),
+                              FilledButton(
+                                onPressed: () =>
+                                    Navigator.pop(ctx, changed ? list : null),
+                                child: const Text("저장"),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     ),

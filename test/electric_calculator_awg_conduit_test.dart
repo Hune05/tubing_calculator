@@ -272,9 +272,28 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('ec_cd_easy')), findsNothing);
       expect(await resultOf(tester, 'ec_cd_result'), contains('굵기가 다른 전선'));
-      // 첫 줄 지우고 남은 줄을 F-CV 4심 16sq 1본으로
-      await tapKey(tester, 'ec_cd_del_0');
+      // X 단추는 없고, 첫 줄을 왼쪽으로 밀어 지운다. 되돌리기로 다시 들어온다.
+      expect(find.byKey(const Key('ec_cd_del_0')), findsNothing);
+      await reveal(tester, find.byKey(const Key('ec_cd_kind_0')));
+      await tester.drag(find.byKey(const Key('ec_cd_kind_0')), const Offset(-500, 0));
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('ec_cd_kind_1')), findsNothing);
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('ec_cd_kind_1')), findsOneWidget);
+      await reveal(tester, find.byKey(const Key('ec_cd_kind_0')));
+      await tester.drag(find.byKey(const Key('ec_cd_kind_0')), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('ec_cd_kind_1')), findsNothing);
+      // 마지막 한 줄은 밀리지 않는다.
+      final last = tester.widget<Dismissible>(
+        find.ancestor(
+          of: find.byKey(const Key('ec_cd_kind_0')),
+          matching: find.byType(Dismissible),
+        ),
+      );
+      expect(last.direction, DismissDirection.none);
+      // 남은 줄을 F-CV 4심 16sq 1본으로
       await pickDropdown(tester, 'ec_cd_kind_0', 'F-CV 4심');
       await pickDropdown(tester, 'ec_cd_size_0', '16sq (외경 22)');
       final r = await resultOf(tester, 'ec_cd_result');

@@ -125,6 +125,33 @@ void main() {
     expect(find.text('삭제하기'), findsOneWidget);
   });
 
+  testWidgets('목록 화면: 줄을 왼쪽으로 밀면 이름을 보여 주고 묻는다, 취소하면 그대로', (tester) async {
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    final ctrl = StreamController<List<LayoutListEntry>>();
+    addTearDown(ctrl.close);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LayoutBoardProjectListPage(entries: ctrl.stream, owner: me),
+      ),
+    );
+    ctrl.add([
+      const LayoutListEntry('a', {
+        'projectName': '1호기 분전반',
+        'ownerUid': 'u-me',
+      }),
+    ]);
+    await tester.pumpAndSettle();
+    await tester.drag(find.text('1호기 분전반'), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('배치도 삭제'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('1호기 분전반'), findsOneWidget);
+  });
+
   group('다른 도면에서 가져오기 후보', () {
     List<MapEntry<String, Map<String, dynamic>>> pick(
       List<MapEntry<String, Map<String, dynamic>>> docs, {

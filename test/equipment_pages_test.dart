@@ -95,6 +95,47 @@ void main() {
       expect(Equipment.fromJson(saved.toJson()).specs.last, ('중량', '본체 6.5 kg, 지지대 2.9 kg'));
     });
 
+    testWidgets('제원 줄은 휴지통 없이 번호를 잡고 밀어서 지우고, 되돌리기로 같은 자리에 다시 넣는다', (tester) async {
+      await _open(tester, _ledger());
+      await tester.ensureVisible(find.byKey(const Key('equip_preset_REMS 아미고 2 (전동 나사 절삭기)')));
+      await tester.tap(find.byKey(const Key('equip_preset_REMS 아미고 2 (전동 나사 절삭기)')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('equip_spec_del_0')), findsNothing);
+      String specName(int i) => tester.widget<TextField>(find.byKey(Key('equip_spec_name_$i'))).controller!.text;
+      final second = specName(1);
+      await tester.ensureVisible(find.byKey(const Key('equip_spec_no_0')));
+      await tester.drag(find.byKey(const Key('equip_spec_no_0')), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(specName(0), second);
+      expect(find.textContaining('삭제했습니다: 전동기'), findsOneWidget);
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(specName(0), '전동기');
+      expect(specName(1), second);
+      await tester.ensureVisible(find.byKey(const Key('equip_save')));
+      await tester.tap(find.byKey(const Key('equip_save')));
+      await tester.pumpAndSettle();
+      expect((await EquipmentStore.load()).single.specs.length, 7);
+    });
+
+    testWidgets('목록 줄을 밀면 지우고, 되돌리기로 이력까지 그대로 돌아온다', (tester) async {
+      final e = _e('1', name: '정상 렌치', last: DateTime(2026, 9, 1)).copyWith(
+        events: [EquipEvent(id: 'ev1', at: DateTime(2026, 9, 1), type: EventType.check, note: '양호')],
+      );
+      await _seed([e, _e('2', name: '만료 게이지', last: DateTime(2025, 1, 1))]);
+      await _open(tester, _ledger());
+      await tester.drag(find.byKey(const Key('equip_card_1')), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('정상 렌치'), findsNothing);
+      expect(find.textContaining('삭제했습니다: 정상 렌치'), findsOneWidget);
+      expect((await EquipmentStore.load()).map((x) => x.id), ['2']);
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(find.text('정상 렌치'), findsOneWidget);
+      final back = (await EquipmentStore.load()).firstWhere((x) => x.id == '1');
+      expect(back.events.single.note, '양호');
+    });
+
     testWidgets('요약 숫자와 걸러 보기·검색', (tester) async {
       await _seed([
         _e('1', name: '만료 게이지', assetNo: 'PG-1', last: DateTime(2025, 1, 1)),

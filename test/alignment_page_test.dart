@@ -228,6 +228,17 @@ void main() {
     await tester.tap(find.byKey(const Key('align_history_delete')));
     await tester.pumpAndSettle();
     expect(find.text('저장한 정렬 기록이 없습니다'), findsOneWidget);
+    // 지운 뒤 되돌리기로 다시 들어온다.
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('align_record_9')), findsOneWidget);
+    expect((await AlignStore.load()).single.id, '9');
+    // 줄을 왼쪽으로 밀어도 지운다.
+    await tester.drag(find.byKey(const Key('align_record_9')), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('저장한 정렬 기록이 없습니다'), findsOneWidget);
+    expect(await AlignStore.load(), isEmpty);
+    expect(find.text('되돌리기'), findsOneWidget);
   });
 
   test('정렬 후 기록은 같은 기계의 정렬 전과 비교한다', () {

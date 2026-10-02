@@ -5,6 +5,7 @@ import '../widgets/korean_text.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart'
     show shiftedEndDate, pickerRangeFor;
 
@@ -253,24 +254,20 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
       _schedules.removeAt(idx);
       _changed = true;
     });
-    // 한 번 눌러 지워지는 것이라 되돌리기를 준다(변경 이력·검사 결과도 같이 사라진다).
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(keepWords("일정을 지웠습니다.")),
-          persist: false,
-          action: SnackBarAction(
-            label: "되돌리기",
-            onPressed: () {
-              if (!mounted) return;
-              setState(() {
-                _schedules.insert(idx.clamp(0, _schedules.length), item);
-              });
-            },
-          ),
-        ),
-      );
+    // 밀어서 지운 뒤 되돌리기를 준다(변경 이력·검사 결과도 같이 사라진다).
+    // 지운 표시(deletedIds)는 이 화면을 닫을 때 replaceItemList가 남기므로,
+    // 닫기 전에 되돌리면 표시도 남지 않는다.
+    showDeleteUndo(
+      context,
+      (item['title'] ?? item['type'] ?? '일정').toString(),
+      onUndo: () {
+        if (!mounted) return;
+        if (_schedules.any((s) => s['id'] == item['id'])) return;
+        setState(() {
+          _schedules.insert(idx.clamp(0, _schedules.length), item);
+        });
+      },
+    );
   }
 
   String _formatDateTime(DateTime dt) {
@@ -582,110 +579,152 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                   dt != null &&
                                   dt.isBefore(DateTime.now());
 
-                              return Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: pureWhite,
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: Row(
-                                  children: [
-                                    GestureDetector(
-                                      onTap: () => _toggleComplete(item),
-                                      child: Container(
-                                        width: 40,
-                                        height: 40,
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: isCompleted
-                                              ? Colors.green.withValues(
-                                                  alpha: 0.12,
-                                                )
-                                              : tossBlue.withValues(alpha: 0.1),
-                                        ),
-                                        child: Icon(
-                                          isCompleted
-                                              ? Icons.check_rounded
-                                              : _iconForType(
-                                                  item['type'] ?? '기타',
-                                                ),
-                                          color: isCompleted
-                                              ? Colors.green
-                                              : tossBlue,
-                                          size: 20,
+                              // 줄을 왼쪽으로 밀어 지운다(X 단추는 잘못 눌러
+                              // 바로 지워져서 뺐다). 지운 뒤 되돌리기가 뜬다.
+                              return SwipeToDelete(
+                                itemKey: ValueKey('schedule-${item['id']}'),
+                                radius: 16,
+                                bottomMargin: 0,
+                                onDelete: () => _delete(item),
+                                child: Container(
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: pureWhite,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: () => _toggleComplete(item),
+                                        child: Container(
+                                          width: 40,
+                                          height: 40,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: isCompleted
+                                                ? Colors.green.withValues(
+                                                    alpha: 0.12,
+                                                  )
+                                                : tossBlue.withValues(
+                                                    alpha: 0.1,
+                                                  ),
+                                          ),
+                                          child: Icon(
+                                            isCompleted
+                                                ? Icons.check_rounded
+                                                : _iconForType(
+                                                    item['type'] ?? '기타',
+                                                  ),
+                                            color: isCompleted
+                                                ? Colors.green
+                                                : tossBlue,
+                                            size: 20,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Flexible(
-                                                child: Text(
-                                                  item['title'] ??
-                                                      item['type'] ??
-                                                      '',
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w700,
-                                                    fontSize: 15,
-                                                    color: isCompleted
-                                                        ? tossSubText
-                                                        : tossText,
-                                                    decoration: isCompleted
-                                                        ? TextDecoration
-                                                              .lineThrough
-                                                        : null,
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    item['title'] ??
+                                                        item['type'] ??
+                                                        '',
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      fontSize: 15,
+                                                      color: isCompleted
+                                                          ? tossSubText
+                                                          : tossText,
+                                                      decoration: isCompleted
+                                                          ? TextDecoration
+                                                                .lineThrough
+                                                          : null,
+                                                    ),
                                                   ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              (dt != null
+                                                      ? _formatDateTime(dt)
+                                                      : _pendingRequestLabel(
+                                                          item,
+                                                        )) +
+                                                  (_phaseNameOf(item) != null
+                                                      ? "  ·  ${_phaseNameOf(item)}"
+                                                      : ''),
+                                              style: TextStyle(
+                                                color: isPending
+                                                    ? warningRed
+                                                    : tossSubText,
+                                                fontSize: 12,
+                                                fontWeight: isPending
+                                                    ? FontWeight.w700
+                                                    : FontWeight.normal,
+                                              ),
+                                            ),
+                                            if ((item['changeHistory'] as List?)
+                                                    ?.isNotEmpty ==
+                                                true) ...[
+                                              const SizedBox(height: 4),
+                                              InkWell(
+                                                onTap: () =>
+                                                    _showChangeHistory(item),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.history_rounded,
+                                                      size: 13,
+                                                      color: tossBlue,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      _lastChangeLabel(item),
+                                                      style: const TextStyle(
+                                                        color: tossBlue,
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            (dt != null
-                                                    ? _formatDateTime(dt)
-                                                    : _pendingRequestLabel(
-                                                        item,
-                                                      )) +
-                                                (_phaseNameOf(item) != null
-                                                    ? "  ·  ${_phaseNameOf(item)}"
-                                                    : ''),
-                                            style: TextStyle(
-                                              color: isPending
-                                                  ? warningRed
-                                                  : tossSubText,
-                                              fontSize: 12,
-                                              fontWeight: isPending
-                                                  ? FontWeight.w700
-                                                  : FontWeight.normal,
-                                            ),
-                                          ),
-                                          if ((item['changeHistory'] as List?)
-                                                  ?.isNotEmpty ==
-                                              true) ...[
-                                            const SizedBox(height: 4),
-                                            InkWell(
-                                              onTap: () =>
-                                                  _showChangeHistory(item),
-                                              child: Row(
+                                            // 🚀 [추가] 이 검사일정에 연결된
+                                            // 이슈 중 미해결 건수 - 검사 전에
+                                            // 뭘 마저 처리해야 하는지 보여준다.
+                                            if (!isCompleted &&
+                                                _unresolvedIssueCount(item) >
+                                                    0) ...[
+                                              const SizedBox(height: 4),
+                                              Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   const Icon(
-                                                    Icons.history_rounded,
+                                                    Icons.error_outline_rounded,
                                                     size: 13,
-                                                    color: tossBlue,
+                                                    color: warningRed,
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Text(
-                                                    _lastChangeLabel(item),
+                                                    keepWords(
+                                                      "연결된 미해결 이슈 ${_unresolvedIssueCount(item)}건",
+                                                    ),
                                                     style: const TextStyle(
-                                                      color: tossBlue,
+                                                      color: warningRed,
                                                       fontSize: 11,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -693,133 +732,93 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                                   ),
                                                 ],
                                               ),
-                                            ),
-                                          ],
-                                          // 🚀 [추가] 이 검사일정에 연결된
-                                          // 이슈 중 미해결 건수 - 검사 전에
-                                          // 뭘 마저 처리해야 하는지 보여준다.
-                                          if (!isCompleted &&
-                                              _unresolvedIssueCount(item) >
-                                                  0) ...[
-                                            const SizedBox(height: 4),
-                                            Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(
-                                                  Icons.error_outline_rounded,
-                                                  size: 13,
-                                                  color: warningRed,
+                                            ],
+                                            // 🚀 [추가] 검사일정 완료 시 남긴 코멘트를
+                                            // 함께 보여준다.
+                                            if (isCompleted &&
+                                                (item['inspectionComment']
+                                                            as String?)
+                                                        ?.isNotEmpty ==
+                                                    true) ...[
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                "↳ ${item['inspectionComment']}",
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: tossSubText,
+                                                  fontSize: 11,
                                                 ),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  keepWords(
-                                                    "연결된 미해결 이슈 ${_unresolvedIssueCount(item)}건",
-                                                  ),
-                                                  style: const TextStyle(
-                                                    color: warningRed,
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ],
-                                          // 🚀 [추가] 검사일정 완료 시 남긴 코멘트를
-                                          // 함께 보여준다.
-                                          if (isCompleted &&
-                                              (item['inspectionComment']
-                                                          as String?)
-                                                      ?.isNotEmpty ==
-                                                  true) ...[
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              "↳ ${item['inspectionComment']}",
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                color: tossSubText,
-                                                fontSize: 11,
+                                        ),
+                                      ),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: pureWhite,
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              border: Border.all(
+                                                color: Colors.black12,
                                               ),
                                             ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 3,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: pureWhite,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.black12,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            isCompleted &&
-                                                    item['inspectionResult'] !=
-                                                        null
-                                                ? (item['inspectionResult'] ==
-                                                          'FAIL'
-                                                      ? "❌ 불합격"
-                                                      : "✅ 합격")
-                                                : dt != null
-                                                ? _relativeLabel(
-                                                    dt,
-                                                    isCompleted,
-                                                  )
-                                                : (isCompleted ? "완료됨" : "미정"),
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                              color: isCompleted
+                                            child: Text(
+                                              isCompleted &&
+                                                      item['inspectionResult'] !=
+                                                          null
                                                   ? (item['inspectionResult'] ==
                                                             'FAIL'
-                                                        ? warningRed
-                                                        : tossSubText)
-                                                  : (isOverdue || isPending
-                                                        ? warningRed
-                                                        : tossBlue),
+                                                        ? "❌ 불합격"
+                                                        : "✅ 합격")
+                                                  : dt != null
+                                                  ? _relativeLabel(
+                                                      dt,
+                                                      isCompleted,
+                                                    )
+                                                  : (isCompleted
+                                                        ? "완료됨"
+                                                        : "미정"),
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: isCompleted
+                                                    ? (item['inspectionResult'] ==
+                                                              'FAIL'
+                                                          ? warningRed
+                                                          : tossSubText)
+                                                    : (isOverdue || isPending
+                                                          ? warningRed
+                                                          : tossBlue),
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        IconButton(
-                                          onPressed: () =>
-                                              _showEditor(existing: item),
-                                          icon: const Icon(
-                                            Icons.edit_outlined,
-                                            size: 18,
-                                            color: tossSubText,
+                                          IconButton(
+                                            onPressed: () =>
+                                                _showEditor(existing: item),
+                                            icon: const Icon(
+                                              Icons.edit_outlined,
+                                              size: 18,
+                                              color: tossSubText,
+                                            ),
+                                            constraints: const BoxConstraints(),
+                                            padding: const EdgeInsets.only(
+                                              top: 6,
+                                            ),
+                                            splashRadius: 18,
                                           ),
-                                          constraints: const BoxConstraints(),
-                                          padding: const EdgeInsets.only(
-                                            top: 6,
-                                          ),
-                                          splashRadius: 18,
-                                        ),
-                                      ],
-                                    ),
-                                    IconButton(
-                                      onPressed: () {
-                                        HapticFeedback.lightImpact();
-                                        _delete(item);
-                                      },
-                                      icon: const Icon(
-                                        Icons.close_rounded,
-                                        size: 18,
-                                        color: tossSubText,
+                                        ],
                                       ),
-                                      splashRadius: 18,
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               );
                             },

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import 'drawing_models.dart';
@@ -105,21 +106,34 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
     await _reload();
   }
 
-  Future<void> _delete(DrawingDoc d) async {
+  /// 끝까지 밀었을 때 묻는다. 폰에 둔 도면 파일과 표시가 같이 지워져 되돌릴 수 없으므로
+  /// 되돌리기 대신 도면 이름을 적어 한 번 더 묻는다(10-02).
+  Future<bool> _confirmDelete(DrawingDoc d) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('보관함에서 지우기'),
-        content: Text('"${d.displayName}"와 그 위에 한 표시를 이 폰에서 지웁니다. 받은 원래 파일(카톡 등)은 그대로 있습니다.'),
+        title: const Text('도면을 삭제하겠습니까?'),
+        content: Text('"${d.displayName}"와 그 위에 한 표시를 이 폰에서 지웁니다. 되돌릴 수 없습니다. 받은 원래 파일(카톡 등)은 그대로 있습니다.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('그만두기')),
-          TextButton(key: const Key('dl_delete_ok'), onPressed: () => Navigator.pop(ctx, true), child: const Text('지우기', style: TextStyle(color: AppColors.danger))),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
+          TextButton(key: const Key('dl_delete_ok'), onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제', style: TextStyle(color: AppColors.danger))),
         ],
       ),
     );
-    if (ok != true) return;
-    await DrawingStore.delete(d.id);
-    _thumbs.remove(d.id);
+    return ok == true;
+  }
+
+  /// 확인을 받은 뒤: 목록에서 곧바로 빼고(밀린 줄이 남지 않게) 폰에서 지운다.
+  Future<void> _delete(DrawingDoc d) async {
+    setState(() {
+      _docs = [for (final x in _docs ?? const <DrawingDoc>[]) if (x.id != d.id) x];
+      _thumbs.remove(d.id);
+    });
+    try {
+      await DrawingStore.delete(d.id);
+    } catch (_) {
+      if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('도면을 지우지 못했습니다.')));
+    }
     await _reload();
   }
 
@@ -212,9 +226,23 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
       DrawingKind.image => '사진',
       DrawingKind.dxf => 'DXF',
     };
+    // 왼쪽으로 끝까지 밀면 도면 이름을 적은 확인창이 뜬다(휴지통 단추는 뺐다).
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: SwipeToDelete(
+        itemKey: ValueKey('dl_swipe_${d.id}'),
+        bottomMargin: 0,
+        confirm: () => _confirmDelete(d),
+        onDelete: () => _delete(d),
+        child: _card(d, thumb, kind),
+      ),
+    );
+  }
+
+  Widget _card(DrawingDoc d, String? thumb, String kind) {
     return Card(
       key: Key('dl_doc_${d.id}'),
-      margin: const EdgeInsets.only(top: 8),
+      margin: EdgeInsets.zero,
       elevation: 0,
       color: AppColors.surface,
       clipBehavior: Clip.antiAlias,
@@ -255,7 +283,6 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
                   decoration: BoxDecoration(color: AppColors.danger.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
                   child: Text('문제 ${d.openIssues}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.danger)),
                 ),
-              IconButton(key: Key('dl_del_${d.id}'), icon: const Icon(AppIcons.delete, size: 20, color: AppColors.textFaint), onPressed: () => _delete(d)),
             ],
           ),
         ),

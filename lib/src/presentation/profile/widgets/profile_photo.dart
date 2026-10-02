@@ -1,4 +1,6 @@
 // 프로필 사진 고르기: 갤러리·카메라·지우기. 프로필 화면과 상세 프로필이 같이 쓴다.
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
+    show showAppConfirm;
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 
@@ -85,6 +87,16 @@ Future<ProfilePhotoChange?> changeProfilePhoto(
   if (choice == null || !context.mounted) return null;
 
   if (choice == 'delete') {
+    // 서버에 올린 사진이 지워져 되돌릴 수 없으므로 한 번 더 묻는다(10-02).
+    final sure = await showAppConfirm(
+      context,
+      title: '프로필 사진을 삭제하겠습니까?',
+      message: '지금 올려 둔 프로필 사진을 지웁니다. 되돌릴 수 없습니다.',
+      okText: '삭제',
+      destructive: true,
+      okKey: const Key('profile_photo_delete_ok'),
+    );
+    if (!sure || !context.mounted) return null;
     onBusy(true);
     final ok = await ProfileStore.instance.deletePhoto(userName);
     onBusy(false);

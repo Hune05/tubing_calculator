@@ -333,4 +333,73 @@ void main() {
     );
     expect(find.textContaining('금주 완료 · 완료B'), findsOneWidget);
   });
+
+  testWidgets('단계는 밀거나 메뉴로 지울 때 이름과 딸린 일정 수를 보여 주고 묻는다', (tester) async {
+    final log = proj(
+      'A',
+      phases: [
+        {'id': 'p1', 'name': '자재 입고', 'isCompleted': false},
+        {'id': 'p2', 'name': '설치', 'isCompleted': false},
+      ],
+    );
+    log['schedules'] = [
+      <String, dynamic>{
+        'id': 's1',
+        'title': '배관 입고',
+        'type': '입고일',
+        'phaseId': 'p1',
+      },
+    ];
+    await pump(
+      tester,
+      ProjectDetailPage(
+        log: log,
+        actions: ProjectActions(
+          addPunch: () async {},
+          openPunch: (_) async {},
+          addReport: () async {},
+          openReport: (_) async {},
+          openReportCalendar: () async {},
+          openSchedule: ({String? phaseId, bool add = false}) async {},
+          save: () {},
+          toggleStatus: () {},
+          toggleArchive: () {},
+          delete: () {},
+        ),
+      ),
+    );
+    await tester.tap(find.text('단계·일정'));
+    await tester.pumpAndSettle();
+
+    // 밀면 바로 지우지 않고 묻는다. 취소하면 그대로.
+    await tester.drag(find.text('자재 입고'), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(findTextContaining('일정 1건은 지우지 않고'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(find.text('자재 입고'), findsOneWidget);
+    expect((log['phases'] as List).length, 2);
+
+    // 메뉴로 지워도 묻는다. 삭제하면 일정은 남고 단계만 빠진다.
+    await tester.tap(find.byIcon(Icons.more_vert_rounded).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('단계 삭제'));
+    await tester.pumpAndSettle();
+    expect(findTextContaining("'자재 입고' 단계를 삭제하시겠습니까?"), findsOneWidget);
+    await tester.tap(find.byKey(const Key('confirm_delete_ok')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('자재 입고'), findsNothing);
+    expect((log['phases'] as List).map((p) => p['id']), ['p2']);
+    expect((log['schedules'] as List).single['phaseId'], isNull);
+    expect(log['deletedIds'], contains('p1'));
+
+    // 밀어서 삭제하기.
+    await tester.drag(find.text('설치'), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('confirm_delete_ok')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(log['phases'], isEmpty);
+  });
 }

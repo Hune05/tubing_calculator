@@ -5,6 +5,7 @@ import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 
 import 'package:tubing_calculator/src/core/common_widgets/recent_calc_history.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
@@ -14,7 +15,6 @@ import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/app_dialog.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
@@ -1037,7 +1037,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     final int total = _groupedHistory.values.fold(0, (n, l) => n + l.length);
 
     // 🚀 전선관 보관함과 같은 모양: 큰 제목 "보관된 도면 N개", 폴더 제목 줄,
-    // 흰 카드(도면 이름·날짜·×, 총 절단 길이·규격, 단추). 검색과 폴더
+    // 흰 카드(도면 이름·날짜, 총 절단 길이·규격, 단추, 밀어서 지우기). 검색과 폴더
     // 접기·펴기, 누르면 도면 보기는 그대로 둔다.
     return ColoredBox(
       color: slate100,
@@ -1181,8 +1181,20 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     );
   }
 
-  /// 도면 카드(전선관 보관함 카드와 같은 모양).
+  /// 🚀 [10-02] × 단추를 잘못 눌러 바로 지워지던 것을 왼쪽으로 밀어서 지우기로 바꿨다.
+  /// 지운 뒤에는 "되돌리기"로 같은 줄을 다시 넣는다.
   Widget _buildDrawingCard(Map<String, dynamic> item) {
+    return SwipeToDelete(
+      itemKey: ValueKey('tube_history_${item['id']}'),
+      radius: 24,
+      bottomMargin: 16,
+      onDelete: () => _deleteDrawing(item),
+      child: _buildDrawingCardBody(item),
+    );
+  }
+
+  /// 도면 카드(전선관 보관함 카드와 같은 모양).
+  Widget _buildDrawingCardBody(Map<String, dynamic> item) {
     String fromTo = "경로 미상";
     String note = "";
     try {
@@ -1270,18 +1282,6 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                         ),
                       ],
                     ],
-                  ),
-                ),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    key: ValueKey('tube_history_delete_${item['id']}'),
-                    borderRadius: BorderRadius.circular(50),
-                    onTap: () => _confirmDelete(item),
-                    child: Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Icon(AppIcons.close, color: _slate400, size: 20),
-                    ),
                   ),
                 ),
               ],
@@ -1418,43 +1418,31 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     _refreshHistory(showFullLoader: false);
   }
 
-  Future<void> _confirmDelete(Map<String, dynamic> item) async {
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AppDialog(
-        title: "삭제 확인",
-        okText: "삭제",
-        destructive: true,
-        okKey: const Key('history_delete_ok'),
-        onCancel: () => Navigator.pop(ctx, false),
-        onOk: () => Navigator.pop(ctx, true),
-        content: AppDialog.message("이 도면을 보관함에서 삭제하시겠습니까?"),
-      ),
-    );
-    if (confirm != true) return;
-    // 🚀 [고침] 지우면 되돌릴 길이 없었다. 지운 줄을 그대로(같은 id로) 들고 있다가
-    // 알림의 "되돌리기"로 다시 넣는다.
+  /// 밀어서 지운 도면. 화면 목록에서 곧바로 빼고(밀린 줄이 남아 있으면 오류) DB에서
+  /// 지운다. 지운 줄을 그대로(같은 id로) 들고 있다가 "되돌리기"로 다시 넣는다.
+  Future<void> _deleteDrawing(Map<String, dynamic> item) async {
     final backup = Map<String, dynamic>.from(item);
-    await DatabaseHelper.instance.deleteHistory(item['id']);
+    final id = item['id'];
+    setState(() {
+      _groupedHistory.removeWhere((_, list) {
+        list.removeWhere((e) => e['id'] == id);
+        return list.isEmpty;
+      });
+    });
+    String name = "도면";
+    try {
+      final pData = jsonDecode(item['p_to_p'] ?? '{}');
+      name = "${pData['from']} ➔ ${pData['to']}";
+    } catch (_) {}
+    await DatabaseHelper.instance.deleteHistory(id);
     if (!mounted) return;
-    // 🚀 [수정] 삭제 후에도 조용히 갱신
-    _refreshHistory(showFullLoader: false);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 5),
-          content: const Text("도면을 지웠습니다."),
-          action: SnackBarAction(
-            key: const Key('history_delete_undo'),
-            label: "되돌리기",
-            onPressed: () async {
-              await DatabaseHelper.instance.insertHistory(backup);
-              if (mounted) _refreshHistory(showFullLoader: false);
-            },
-          ),
-        ),
-      );
+    showDeleteUndo(
+      context,
+      name,
+      onUndo: () async {
+        await DatabaseHelper.instance.insertHistory(backup);
+        if (mounted) _refreshHistory(showFullLoader: false);
+      },
+    );
   }
 }

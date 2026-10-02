@@ -38,6 +38,7 @@ import 'package:vector_math/vector_math_64.dart' as vm;
 import '../models/layout_board_owner.dart';
 import '../models/layout_board_painters.dart';
 import '../widgets/layout_board_ui.dart';
+import '../../../core/common_widgets/swipe_to_delete.dart';
 export '../models/layout_board_painters.dart';
 export '../models/layout_board_models.dart';
 export '../models/instrument_shape_painter.dart';
@@ -565,6 +566,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   Future<void> _deleteCustomPreset(int index) async {
     setState(() {
       _customPresets = [..._customPresets]..removeAt(index);
+    });
+    await _saveCustomPresets();
+  }
+
+  /// 밀어서 지운 프리셋을 같은 자리에 돌려놓는다.
+  Future<void> _restoreCustomPreset(int index, ModulePreset preset) async {
+    if (!mounted || _customPresets.contains(preset)) return;
+    setState(() {
+      _customPresets = [..._customPresets]
+        ..insert(index.clamp(0, _customPresets.length), preset);
     });
     await _saveCustomPresets();
   }
@@ -2905,111 +2916,153 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   void _showTemplateLibrarySheet() {
+    // 시트를 다시 그릴 때마다 서버를 새로 읽지 않게 한 번만 읽어 둔다.
+    final Future<QuerySnapshot> future = FirebaseFirestore.instance
+        .collection('layout_templates')
+        .orderBy('createdAt', descending: true)
+        .get();
+    // 밀어서 지운 줄(서버 목록은 다시 읽기 전까지 그대로라 여기서 뺀다).
+    final Set<String> hidden = {};
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return SafeArea(
-          child: Container(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.7,
-            ),
-            margin: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: pureWhite,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-                  child: Text(
-                    "템플릿 불러오기",
-                    style: TextStyle(
-                      color: tossText,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 15,
+        return StatefulBuilder(
+          builder: (ctx, setSheet) => SafeArea(
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.7,
+              ),
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: pureWhite,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: _sheetUndoHost(
+                (hostCtx) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+                      child: Text(
+                        "템플릿 불러오기",
+                        style: TextStyle(
+                          color: tossText,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                Flexible(
-                  child: FutureBuilder<QuerySnapshot>(
-                    future: FirebaseFirestore.instance
-                        .collection('layout_templates')
-                        .orderBy('createdAt', descending: true)
-                        .get(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Center(
-                            child: CircularProgressIndicator(color: tossBlue),
-                          ),
-                        );
-                      }
-                      final docs = snapshot.data?.docs ?? [];
-                      if (docs.isEmpty) {
-                        return Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            keepWords(
-                              "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어 보십시오.",
-                            ),
-                            style: TextStyle(color: tossSubText),
-                          ),
-                        );
-                      }
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: docs.length,
-                        itemBuilder: (context, i) {
-                          final data = docs[i].data() as Map<String, dynamic>;
-                          final int itemCount =
-                              (data['items'] as List?)?.length ?? 0;
-                          return ListTile(
-                            leading: const Icon(
-                              Icons.dashboard_customize_rounded,
-                              color: tossBlue,
-                            ),
-                            title: Text(
-                              data['name'] as String? ?? "이름 없는 템플릿",
-                              style: const TextStyle(
-                                color: tossText,
-                                fontWeight: FontWeight.w700,
+                    Flexible(
+                      child: FutureBuilder<QuerySnapshot>(
+                        future: future,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  color: tossBlue,
+                                ),
                               ),
-                            ),
-                            subtitle: Text(
-                              "모듈 $itemCount개",
-                              style: const TextStyle(
-                                color: tossSubText,
-                                fontSize: 14,
+                            );
+                          }
+                          final docs = (snapshot.data?.docs ?? [])
+                              .where((d) => !hidden.contains(d.id))
+                              .toList();
+                          if (docs.isEmpty) {
+                            return Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text(
+                                keepWords(
+                                  "저장된 템플릿이 없습니다.\n'더보기 > 템플릿으로 저장'으로 먼저 만들어 보십시오.",
+                                ),
+                                style: TextStyle(color: tossSubText),
                               ),
-                            ),
-                            trailing: IconButton(
-                              icon: const Icon(
-                                Icons.delete_outline,
-                                color: warningRed,
-                              ),
-                              onPressed: () async {
-                                await docs[i].reference.delete();
-                                if (context.mounted) Navigator.pop(ctx);
-                              },
-                            ),
-                            onTap: () {
-                              Navigator.pop(ctx);
-                              _applyTemplate(data);
+                            );
+                          }
+                          return ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: docs.length,
+                            itemBuilder: (context, i) {
+                              final doc = docs[i];
+                              final data = doc.data() as Map<String, dynamic>;
+                              final int itemCount =
+                                  (data['items'] as List?)?.length ?? 0;
+                              final String name =
+                                  data['name'] as String? ?? "이름 없는 템플릿";
+                              // 휴지통 단추는 잘못 누르면 바로 지워졌다 → 왼쪽으로 밀어 지우고
+                              // 되돌리기를 준다(같은 문서에 같은 내용을 다시 적는다).
+                              return SwipeToDelete(
+                                itemKey: ValueKey('layout-template-${doc.id}'),
+                                radius: 0,
+                                bottomMargin: 0,
+                                onDelete: () {
+                                  setSheet(() => hidden.add(doc.id));
+                                  doc.reference.delete().catchError((Object e) {
+                                    debugPrint('템플릿 삭제 실패: $e');
+                                  });
+                                  showDeleteUndo(
+                                    hostCtx,
+                                    name,
+                                    onUndo: () {
+                                      doc.reference.set(data).catchError((
+                                        Object e,
+                                      ) {
+                                        debugPrint('템플릿 되돌리기 실패: $e');
+                                      });
+                                      if (ctx.mounted) {
+                                        setSheet(() => hidden.remove(doc.id));
+                                      }
+                                    },
+                                  );
+                                },
+                                child: ListTile(
+                                  leading: const Icon(
+                                    Icons.dashboard_customize_rounded,
+                                    color: tossBlue,
+                                  ),
+                                  title: Text(
+                                    name,
+                                    style: const TextStyle(
+                                      color: tossText,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    "모듈 $itemCount개",
+                                    style: const TextStyle(
+                                      color: tossSubText,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(ctx);
+                                    _applyTemplate(data);
+                                  },
+                                ),
+                              );
                             },
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                      child: Text(
+                        keepWords("줄을 왼쪽으로 밀면 삭제됩니다."),
+                        style: const TextStyle(
+                          color: tossSubText,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-              ],
+              ),
             ),
           ),
         );
@@ -5578,10 +5631,22 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           const SizedBox(width: 12),
                           Expanded(
                             child: OutlinedButton.icon(
-                              onPressed: () {
-                                setModalState(
-                                  () => _backgroundImagePath = null,
+                              onPressed: () async {
+                                // 바로 빠졌다 → 맞춰 둔 축척까지 지워지므로 한 번 묻는다
+                                // (도면 되돌리기에는 배경이 들어 있지 않다).
+                                final ok = await confirmLayoutDanger(
+                                  context,
+                                  title: "배경 제거",
+                                  message:
+                                      "깔아 둔 배경 사진을 뺍니다. 사진에 맞춰 둔 축척도 같이 지워집니다.",
+                                  confirmLabel: "삭제",
                                 );
+                                if (!ok || !mounted) return;
+                                if (context.mounted) {
+                                  setModalState(
+                                    () => _backgroundImagePath = null,
+                                  );
+                                }
                                 setState(() {
                                   _backgroundImagePath = null;
                                   _backgroundRect = null;
@@ -8816,7 +8881,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  // 내 프리셋 관리: 길게 누르지 않아도 줄마다 지우기 단추로 지운다.
+  // 내 프리셋 관리: 줄을 왼쪽으로 밀어 지우고, 잘못 밀었으면 되돌린다.
+  // (예전엔 줄마다 휴지통 단추가 있어 잘못 누르기 쉬웠다.)
   void _showPresetManageSheet() {
     showModalBottomSheet(
       context: context,
@@ -8834,109 +8900,120 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               color: pureWhite,
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
-                  child: Text(
-                    "내 프리셋 관리",
-                    style: TextStyle(
-                      color: tossText,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                  child: Text(
-                    keepWords("이 폰에만 저장됩니다. 지우면 끌어다 놓는 목록에서 빠집니다."),
-                    style: const TextStyle(color: tossSubText, fontSize: 14),
-                  ),
-                ),
-                if (_customPresets.isEmpty)
+            child: _sheetUndoHost(
+              (hostCtx) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
                   const Padding(
-                    padding: EdgeInsets.all(24),
+                    padding: EdgeInsets.fromLTRB(20, 20, 20, 4),
                     child: Text(
-                      "저장된 프리셋이 없습니다",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: tossSubText, fontSize: 15),
-                    ),
-                  )
-                else
-                  Flexible(
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: _customPresets.length,
-                      separatorBuilder: (_, _) =>
-                          const Divider(height: 1, color: layoutLine),
-                      itemBuilder: (context, i) {
-                        final p = _customPresets[i];
-                        return ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 60),
-                          child: Padding(
-                            padding: const EdgeInsets.only(left: 20, right: 8),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.star_rounded,
-                                  color: tossBlue,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        p.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: tossText,
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w800,
-                                        ),
-                                      ),
-                                      Text(
-                                        "${p.width.toInt()} × ${p.height.toInt()} mm",
-                                        style: const TextStyle(
-                                          color: tossSubText,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: "프리셋 삭제",
-                                  constraints: const BoxConstraints(
-                                    minWidth: 52,
-                                    minHeight: 52,
-                                  ),
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    color: warningRed,
-                                    size: 26,
-                                  ),
-                                  onPressed: () async {
-                                    await _confirmDeleteCustomPreset(i);
-                                    setSheet(() {});
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+                      "내 프리셋 관리",
+                      style: TextStyle(
+                        color: tossText,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
-                const SizedBox(height: 8),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: Text(
+                      keepWords(
+                        "이 폰에만 저장됩니다. 줄을 왼쪽으로 밀면 삭제되고, 끌어다 놓는 목록에서 빠집니다.",
+                      ),
+                      style: const TextStyle(color: tossSubText, fontSize: 14),
+                    ),
+                  ),
+                  if (_customPresets.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        "저장된 프리셋이 없습니다",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: tossSubText, fontSize: 15),
+                      ),
+                    )
+                  else
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: _customPresets.length,
+                        separatorBuilder: (_, _) =>
+                            const Divider(height: 1, color: layoutLine),
+                        itemBuilder: (context, i) {
+                          final p = _customPresets[i];
+                          return SwipeToDelete(
+                            // 이름이 같은 프리셋이 있을 수 있어 객체로 가른다.
+                            itemKey: ValueKey('preset-${identityHashCode(p)}'),
+                            radius: 0,
+                            bottomMargin: 0,
+                            onDelete: () {
+                              final idx = _customPresets.indexOf(p);
+                              if (idx < 0) return;
+                              _deleteCustomPreset(idx);
+                              setSheet(() {});
+                              showDeleteUndo(
+                                hostCtx,
+                                p.name,
+                                onUndo: () async {
+                                  await _restoreCustomPreset(idx, p);
+                                  if (ctx.mounted) setSheet(() {});
+                                },
+                              );
+                            },
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(minHeight: 60),
+                              child: Padding(
+                                padding: const EdgeInsets.only(
+                                  left: 20,
+                                  right: 20,
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.star_rounded,
+                                      color: tossBlue,
+                                      size: 22,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            p.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: tossText,
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          Text(
+                                            "${p.width.toInt()} × ${p.height.toInt()} mm",
+                                            style: const TextStyle(
+                                              color: tossSubText,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                ],
+              ),
             ),
           ),
         ),
@@ -9459,117 +9536,132 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               color: pureWhite,
               borderRadius: BorderRadius.circular(20),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const Text(
-                  "전선관 경로",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: tossText,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  keepWords(
-                    "전선관은 경로로 그립니다. 시작 부품에서 계산기 입력 탭처럼 한 줄씩 넣고, 구조물은 특수 벤딩의 오프셋으로 비켜 갑니다. 도면에서 경로 선을 눌러도 고칠 수 있습니다.",
-                  ),
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: tossSubText,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Flexible(
-                  child: ListView(
-                    shrinkWrap: true,
-                    children: [
-                      for (final r in _routes)
-                        ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: const Icon(
-                            Icons.route_rounded,
-                            color: tossBlue,
-                          ),
-                          title: Text(
-                            "${r.name} · 후강 ${r.size}",
-                            style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: tossText,
-                            ),
-                          ),
-                          subtitle: Text(
-                            "${r.bends.length}줄 · 길이 합 ${r.totalLengthWith(_planItems).toInt()} mm"
-                            "${r.endRun(_planItems) == null ? "" : " · 끝: ${r.endRun(_planItems)!.item.name}"}"
-                            "${_skidRouteClashes().any((c) => c.route.id == r.id) ? "\n⚠ 형강·부품과 겹칩니다: ${_skidRouteClashes().where((c) => c.route.id == r.id).map((c) => c.item.name).toSet().join(', ')}" : ""}",
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: tossSubText,
-                            ),
-                          ),
-                          trailing: IconButton(
-                            tooltip: "지우기",
-                            icon: const Icon(
-                              Icons.delete_outline_rounded,
-                              color: warningRed,
-                            ),
-                            onPressed: () async {
-                              final ok = await confirmLayoutDanger(
-                                context,
-                                title: "경로 지우기",
-                                message: "'${r.name}' 경로를 지웁니다.",
-                                confirmLabel: "지우기",
-                              );
-                              if (!ok || !mounted) return;
-                              _pushUndo();
-                              setState(() => _routes.remove(r));
-                              setSheet(() {});
-                              _saveDraftToPrefs();
-                            },
-                          ),
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            _showRouteEditor(r);
-                          },
-                        ),
-                      if (_routes.isEmpty)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Text(
-                            "아직 경로가 없습니다.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: tossSubText, fontSize: 15),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ElevatedButton.icon(
-                  key: const ValueKey("route_new"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: tossBlue,
-                    minimumSize: const Size(double.infinity, 48),
-                  ),
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _showRouteEditor(null);
-                  },
-                  icon: const Icon(Icons.add_rounded, color: pureWhite),
-                  label: const Text(
-                    "새 경로",
+            child: _sheetUndoHost(
+              (hostCtx) => Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    "전선관 경로",
                     style: TextStyle(
-                      color: pureWhite,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w900,
+                      color: tossText,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    keepWords(
+                      "전선관은 경로로 그립니다. 시작 부품에서 계산기 입력 탭처럼 한 줄씩 넣고, 구조물은 특수 벤딩의 오프셋으로 비켜 갑니다. 도면에서 경로 선을 눌러도 고칠 수 있습니다. 줄을 왼쪽으로 밀면 삭제됩니다.",
+                    ),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: tossSubText,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // 시트 높이가 정해져 있어 목록이 남은 자리를 채우고 "새 경로"는 맨 아래에 둔다.
+                  Expanded(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final r in _routes)
+                          // 휴지통 단추 대신 왼쪽으로 밀어 지우고 되돌리기를 준다.
+                          SwipeToDelete(
+                            itemKey: ValueKey('route-${r.id}'),
+                            radius: 0,
+                            bottomMargin: 0,
+                            onDelete: () {
+                              final idx = _routes.indexOf(r);
+                              if (idx < 0) return;
+                              _pushUndo();
+                              setState(() => _routes.removeAt(idx));
+                              setSheet(() {});
+                              _saveDraftToPrefs();
+                              showDeleteUndo(
+                                hostCtx,
+                                r.name,
+                                onUndo: () {
+                                  if (!mounted || _routes.contains(r)) return;
+                                  setState(
+                                    () => _routes.insert(
+                                      idx.clamp(0, _routes.length),
+                                      r,
+                                    ),
+                                  );
+                                  if (ctx.mounted) setSheet(() {});
+                                  _saveDraftToPrefs();
+                                },
+                              );
+                            },
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(
+                                Icons.route_rounded,
+                                color: tossBlue,
+                              ),
+                              title: Text(
+                                "${r.name} · 후강 ${r.size}",
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: tossText,
+                                ),
+                              ),
+                              subtitle: Text(
+                                "${r.bends.length}줄 · 길이 합 ${r.totalLengthWith(_planItems).toInt()} mm"
+                                "${r.endRun(_planItems) == null ? "" : " · 끝: ${r.endRun(_planItems)!.item.name}"}"
+                                "${_skidRouteClashes().any((c) => c.route.id == r.id) ? "\n⚠ 형강·부품과 겹칩니다: ${_skidRouteClashes().where((c) => c.route.id == r.id).map((c) => c.item.name).toSet().join(', ')}" : ""}",
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: tossSubText,
+                                ),
+                              ),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                _showRouteEditor(r);
+                              },
+                            ),
+                          ),
+                        if (_routes.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Text(
+                              "아직 경로가 없습니다.",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: tossSubText,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton.icon(
+                    key: const ValueKey("route_new"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: tossBlue,
+                      minimumSize: const Size(double.infinity, 48),
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      _showRouteEditor(null);
+                    },
+                    icon: const Icon(Icons.add_rounded, color: pureWhite),
+                    label: const Text(
+                      "새 경로",
+                      style: TextStyle(
+                        color: pureWhite,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -10988,3 +11080,14 @@ class _HiddenOutlinePainter extends CustomPainter {
   bool shouldRepaint(covariant _HiddenOutlinePainter old) =>
       old.strokeWidth != strokeWidth;
 }
+
+/// 아래 시트 안에서 "되돌리기" 알림이 보이게 하는 자리. 화면 알림은 시트 밑에 깔려
+/// 안 보여서 시트 안에 알림 자리를 따로 둔다. [builder]가 받는 context로
+/// [showDeleteUndo]를 부른다.
+Widget _sheetUndoHost(WidgetBuilder builder) => ScaffoldMessenger(
+  child: Scaffold(
+    backgroundColor: Colors.transparent,
+    resizeToAvoidBottomInset: false,
+    body: Builder(builder: builder),
+  ),
+);

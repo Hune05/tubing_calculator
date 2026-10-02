@@ -1,4 +1,5 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
@@ -68,29 +69,20 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
     });
   }
 
+  /// 밀어서 지운 도면. 밀린 줄이 화면에 남으면 오류라 목록에서 먼저 빼고 지운다.
   void _deleteHistory(String id) async {
-    HapticFeedback.mediumImpact();
     final removed = _byId[id];
+    setState(() => _savedDrawings.removeWhere((e) => e['id'] == id));
     await deleteConduitDrawing(id);
     await _reload();
     if (!mounted || removed == null) return;
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "'${removed.title}' 도면을 지웠습니다.",
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        action: SnackBarAction(
-          label: "되돌리기",
-          onPressed: () async {
-            await restoreConduitDrawing(removed);
-            await _reload();
-          },
-        ),
-      ),
+    showDeleteUndo(
+      context,
+      removed.title,
+      onUndo: () async {
+        await restoreConduitDrawing(removed);
+        await _reload();
+      },
     );
   }
 
@@ -353,8 +345,19 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
     );
   }
 
-  // 🚀 인자로 Map 자체를 받도록 수정 (id 접근 용이)
+  // 🚀 [10-02] × 단추를 잘못 눌러 바로 지워지던 것을 왼쪽으로 밀어서 지우기로 바꿨다.
   Widget _buildTossStyleCard(Map<String, dynamic> item) {
+    return SwipeToDelete(
+      itemKey: ValueKey('conduit_history_${item['id']}'),
+      radius: 24,
+      bottomMargin: 16,
+      onDelete: () => _deleteHistory(item['id']),
+      child: _buildTossStyleCardBody(item),
+    );
+  }
+
+  // 🚀 인자로 Map 자체를 받도록 수정 (id 접근 용이)
+  Widget _buildTossStyleCardBody(Map<String, dynamic> item) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
@@ -429,17 +432,6 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                       ),
                     ],
                   ],
-                ),
-              ),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(50),
-                  onTap: () => _deleteHistory(item['id']), // 🚀 고유 id 전달
-                  child: const Padding(
-                    padding: EdgeInsets.all(8.0),
-                    child: Icon(Icons.close_rounded, color: slate200, size: 20),
-                  ),
                 ),
               ),
             ],

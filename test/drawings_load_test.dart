@@ -115,6 +115,45 @@ void main() {
       expect(lens(m.bendList), [500]);
     });
 
+    testWidgets('도면 줄은 × 단추 없이 왼쪽으로 밀어 지우고, 되돌리기로 다시 넣는다', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1600));
+      final saved = await tester.runAsync(
+        () => saveConduitDrawing(
+          folderName: 'A구역',
+          title: '밀어서 지울 도면',
+          totalCut: 616,
+          bends: [b(150, 0), b(72.3, 21)],
+        ),
+      );
+      await tester.pumpWidget(const MaterialApp(home: ConduitHistoryTab()));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('밀어서 지울 도면'), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsNothing);
+
+      await tester.drag(
+        find.byKey(ValueKey('conduit_history_${saved!.id}')),
+        const Offset(-500, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('밀어서 지울 도면'), findsNothing);
+      expect((await tester.runAsync(loadConduitDrawings))!, isEmpty);
+
+      await tester.tap(find.text('되돌리기'));
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('밀어서 지울 도면'), findsOneWidget);
+      expect((await tester.runAsync(loadConduitDrawings))!.single.id, saved.id);
+    });
+
     testWidgets('마킹 탭 저장 창: 넣은 이름으로 저장하고 작업 이름을 기억한다', (tester) async {
       await tester.pumpWidget(
         MaterialApp(

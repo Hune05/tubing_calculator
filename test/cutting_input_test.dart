@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
+import 'package:tubing_calculator/src/data/models/smart_fitting_db.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_fitting_favorites.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_math.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 
@@ -258,6 +260,56 @@ void main() {
       }
       expect(find.text('4 SET'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+    testWidgets('구간 줄은 × 단추 없이 왼쪽으로 밀어 지우고, 실행 취소로 되살린다', (tester) async {
+      await open(tester);
+      // 구간이 2개뿐이면 밀리지 않는다.
+      expect(
+        tester
+            .widgetList<Dismissible>(find.byType(Dismissible))
+            .map((d) => d.direction),
+        everyElement(DismissDirection.none),
+      );
+
+      // 세 구간이 다 보이게 화면을 길게.
+      tester.view.physicalSize = const Size(1080, 6000);
+      await tester.tap(find.text('포인트 추가'));
+      await tester.pumpAndSettle();
+      expect(find.text('PT3'), findsOneWidget);
+      expect(find.byIcon(Icons.close_rounded), findsNothing);
+
+      await tester.drag(find.text('PT3'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('PT3'), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('실행 취소'));
+      await tester.pumpAndSettle();
+      expect(find.text('PT3'), findsOneWidget);
+    });
+
+    testWidgets('부속 세트는 밀어서 지우고 되돌리기로 같은 자리에 다시 넣는다', (tester) async {
+      final none = SmartFittingDB.getById('none');
+      await saveFittingSets([
+        FittingSetGroup(name: '세트A', items: [none, none]),
+        FittingSetGroup(name: '세트B', items: [none, none]),
+      ]);
+      await open(tester);
+      await tester.tap(find.byTooltip('부속 세트'));
+      await tester.pumpAndSettle();
+      expect(find.text('세트A'), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+
+      await tester.drag(find.text('세트A'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('세트A'), findsNothing);
+      expect(find.text('삭제했습니다: 세트A'), findsOneWidget);
+      expect((await loadFittingSets()).map((s) => s.name), ['세트B']);
+
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(find.text('세트A'), findsOneWidget);
+      expect((await loadFittingSets()).map((s) => s.name), ['세트A', '세트B']);
     });
   });
 }

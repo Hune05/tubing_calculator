@@ -161,6 +161,59 @@ void main() {
     expect((saved['routes'] as List).single['name'], 'JB→PT');
   });
 
+  testWidgets('경로 목록: 줄을 왼쪽으로 밀어 지우고, 시트 안의 되돌리기로 살린다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+      'layout_board_draft_v1': jsonEncode({
+        'kind': 'skid',
+        'panelWidth': 2400,
+        'panelHeight': 1200,
+        'items': [jb().toJson()],
+        'dimensions': [],
+        'routes': [
+          for (final n in ['JB→PT', 'JB→TT'])
+            ConduitRoute(
+              id: n,
+              name: n,
+              startItemId: 'jb',
+              bends: [
+                {'length': 1000, 'angle': 0, 'rotation': 0},
+              ],
+            ).toJson(),
+        ],
+      }),
+    });
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: LayoutBoardPage()));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('이어하기'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('skid_route')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('skid_route')));
+    await tester.pumpAndSettle();
+
+    // 줄마다 있던 휴지통 단추는 없다.
+    expect(find.byTooltip('지우기'), findsNothing);
+    await tester.drag(find.textContaining('JB→PT'), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('JB→PT · 후강'), findsNothing);
+    expect(find.textContaining('JB→TT'), findsOneWidget);
+    // 되돌리기가 시트에 가려지지 않고 눌린다.
+    expect(find.text('되돌리기'), findsOneWidget);
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('JB→PT · 후강'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.textContaining('JB→PT · 후강')).dy,
+      lessThan(tester.getTopLeft(find.textContaining('JB→TT')).dy),
+    );
+  });
+
   testWidgets('경로 입력: 아래는 전선관 계산기 입력 탭, 넣은 줄이 위 작은 도면에 바로 그려지고 저장된다', (
     tester,
   ) async {

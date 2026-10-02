@@ -168,6 +168,46 @@ void main() {
       });
     });
 
+    testWidgets('도면 줄은 휴지통 단추 없이 밀어서 지우고, 도면 이름을 적어 먼저 묻는다', (tester) async {
+      late DrawingDoc doc;
+      await tester.runAsync(() async {
+        final src = File('${tmp.path}/plan.dxf')..writeAsStringSync(_sample);
+        doc = await DrawingStore.importFile(src.path, now: DateTime(2026, 10, 1, 10));
+      });
+      await tester.pumpWidget(const MaterialApp(home: DrawingLibraryPage()));
+      // 보관함은 폰 파일을 읽으므로 실제 시간을 조금씩 흘려 가며 목록이 뜰 때까지 기다린다.
+      Future<void> settleFiles() async {
+        for (var i = 0; i < 20; i++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+          await tester.pump();
+        }
+      }
+
+      await settleFiles();
+      final row = find.byKey(Key('dl_doc_${doc.id}'));
+      expect(row, findsOneWidget);
+      expect(find.byKey(Key('dl_del_${doc.id}')), findsNothing);
+
+      // 밀면 확인창, 취소하면 줄이 그대로 남는다.
+      await tester.drag(row, const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('도면을 삭제하겠습니까?'), findsOneWidget);
+      expect(find.textContaining('"${doc.displayName}"'), findsOneWidget);
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      expect(row, findsOneWidget);
+
+      // 다시 밀고 삭제를 누르면 목록과 폰에서 빠진다.
+      await tester.drag(row, const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('dl_delete_ok')));
+      await tester.pumpAndSettle();
+      expect(row, findsNothing);
+      await settleFiles();
+      await tester.runAsync(() async => expect(await DrawingStore.load(), isEmpty));
+      expect(find.byKey(const Key('dl_empty')), findsOneWidget);
+    });
+
     testWidgets('보관함이 비면 안내가 나온다', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: DrawingLibraryPage()));
       await tester.pumpAndSettle();
@@ -264,9 +304,16 @@ void main() {
       await tester.tapAt(center(tester) + const Offset(60, 40)); // 구름 안쪽 모서리 근처
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('dv_mark_delete')), findsOneWidget);
+      final before = saved.single;
       await tester.tap(find.byKey(const Key('dv_mark_delete')));
       await tester.pumpAndSettle();
       expect(saved, isEmpty);
+      // 되돌리기로 같은 표시(같은 id·자리)가 다시 저장된다.
+      expect(find.textContaining('삭제했습니다: 구름'), findsOneWidget);
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(saved.single.id, before.id);
+      expect(saved.single.points, before.points);
     });
 
     testWidgets('쪽 넘기기와 도면 정보(도번·REV)', (tester) async {

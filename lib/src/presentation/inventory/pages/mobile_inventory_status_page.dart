@@ -1,12 +1,12 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../tube_cutting/cutting_leftovers.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
-import '../../tube_cutting/cutting_theme.dart'
-    show showCuttingConfirmDialog, showCuttingSnack;
+import '../../tube_cutting/cutting_theme.dart' show showCuttingSnack;
 import '../../tube_cutting/widgets/leftover_log_page.dart';
 import '../material_catalog.dart';
 import 'barcode_scan.dart';
@@ -713,35 +713,52 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     }
   }
 
-  Future<void> _removeLeftover(Leftover l) async {
-    final ok = await showCuttingConfirmDialog(
-      context,
-      title: "이 잔재를 지우겠습니까?",
-      message: "${_leftoverTitle(l)}를 잔재 목록에서 지웁니다.",
-      confirmLabel: "지우기",
-      danger: true,
-    );
-    if (!ok) return;
+  /// 밀어서 지운 잔재를 화면에서 곧바로 빼고 "되돌리기"를 띄운다(10-02).
+  /// 예전에는 줄마다 휴지통 단추가 있어 잘못 누르기 쉬웠다.
+  void _removeLeftover(Leftover l) {
     final all = [...(_leftovers ?? const <Leftover>[])];
-    final i = l.id.isNotEmpty
-        ? all.indexWhere((x) => x.id == l.id)
-        : all.indexWhere((x) => x.label == l.label && x.length == l.length);
+    var i = all.indexWhere((x) => identical(x, l));
+    if (i < 0) {
+      i = l.id.isNotEmpty
+          ? all.indexWhere((x) => x.id == l.id)
+          : all.indexWhere((x) => x.label == l.label && x.length == l.length);
+    }
     if (i < 0) return;
     final gone = all.removeAt(i);
-    try {
-      // 이 잔재 하나만 뺀다(목록을 통째로 덮으면 다른 폰에서 바꾼 잔재가 사라진다).
-      await leftoverStore.change(used: [gone]);
+    _setLeftovers(all);
+    // 이 잔재 하나만 뺀다(목록을 통째로 덮으면 다른 폰에서 바꾼 잔재가 사라진다).
+    leftoverStore.change(used: [gone]).catchError((Object _) {
       if (!mounted) return;
-      setState(() {
-        _leftovers = all;
-        // 자재 줄의 "잔재 있음" 표시도 같이 갱신(예전엔 지운 잔재가 계속 보였다).
-        _leftoverBySpec = leftoverSummaryBySpec(all);
-      });
-      showCuttingSnack(context, "지웠습니다.");
-    } catch (_) {
-      if (!mounted) return;
+      _putBackLeftover(gone, i);
       showCuttingSnack(context, "지우지 못했습니다.", isError: true);
-    }
+    });
+    showDeleteUndo(
+      context,
+      "${_leftoverTitle(gone)} ${gone.length.toStringAsFixed(0)}mm",
+      onUndo: () {
+        if (!mounted) return;
+        _putBackLeftover(gone, i);
+        leftoverStore.change(added: [gone]).catchError((Object _) {
+          if (!mounted) return;
+          showCuttingSnack(context, "되돌리지 못했습니다.", isError: true);
+        });
+      },
+    );
+  }
+
+  void _putBackLeftover(Leftover gone, int index) {
+    final all = [...(_leftovers ?? const <Leftover>[])];
+    if (all.any((x) => identical(x, gone))) return;
+    all.insert(index.clamp(0, all.length), gone);
+    _setLeftovers(all);
+  }
+
+  void _setLeftovers(List<Leftover> all) {
+    setState(() {
+      _leftovers = all;
+      // 자재 줄의 "잔재 있음" 표시도 같이 갱신(예전엔 지운 잔재가 계속 보였다).
+      _leftoverBySpec = leftoverSummaryBySpec(all);
+    });
   }
 
   String _leftoverTitle(Leftover l) =>
@@ -821,48 +838,49 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                   ),
                   itemBuilder: (context, i) {
                     final l = list[i];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 18,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _leftoverTitle(l),
-                                  style: const TextStyle(
-                                    color: slate900,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  "${l.length.toStringAsFixed(0)}mm",
-                                  style: const TextStyle(
-                                    color: makitaTeal,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
+                    // 왼쪽으로 밀어서 지운다(휴지통 단추는 뺐다).
+                    return SwipeToDelete(
+                      itemKey: ObjectKey(l),
+                      radius: 0,
+                      bottomMargin: 0,
+                      onDelete: () => _removeLeftover(l),
+                      child: ColoredBox(
+                        color: pureWhite,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 18,
                           ),
-                          IconButton(
-                            tooltip: '잔재 지우기',
-                            icon: const Icon(
-                              LucideIcons.trash2,
-                              size: 20,
-                              color: slate600,
-                            ),
-                            onPressed: () => _removeLeftover(l),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _leftoverTitle(l),
+                                      style: const TextStyle(
+                                        color: slate900,
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      "${l.length.toStringAsFixed(0)}mm",
+                                      style: const TextStyle(
+                                        color: makitaTeal,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     );
                   },

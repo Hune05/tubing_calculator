@@ -204,8 +204,18 @@ void main() {
       await tester.enterText(find.byKey(const Key('safety_add_field')), '다');
       await tester.tap(find.byKey(const Key('safety_add_button')));
       await tester.pump();
-      await tester.tap(find.byKey(const Key('safety_remove_가')));
+      // 휴지통 단추는 없고, 왼쪽으로 밀어서 지운다.
+      expect(find.byKey(const Key('safety_remove_가')), findsNothing);
+      await tester.drag(find.byKey(const Key('safety_item_나')), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('safety_item_나')), findsNothing);
+      expect(find.text('삭제했습니다: 나'), findsOneWidget);
+      // 되돌리기로 같은 자리에 다시 들어온다.
+      await tester.tap(find.byKey(const Key('safety_item_undo')));
       await tester.pump();
+      expect(find.byKey(const Key('safety_item_나')), findsOneWidget);
+      await tester.drag(find.byKey(const Key('safety_item_가')), const Offset(-500, 0));
+      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('safety_items_done')));
       await tester.pumpAndSettle();
       expect(find.text('가'), findsNothing);
@@ -231,6 +241,17 @@ void main() {
       await tester.tap(find.byKey(const Key('safety_history_delete')));
       await tester.pumpAndSettle();
       expect(find.text('저장한 점검 기록이 없습니다'), findsOneWidget);
+      // 지운 뒤 되돌리기로 다시 들어온다.
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('safety_record_7')), findsOneWidget);
+      expect((await loadSafetyRecords()).single.id, '7');
+      // 줄을 왼쪽으로 밀어도 지운다.
+      await tester.drag(find.byKey(const Key('safety_record_7')), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('저장한 점검 기록이 없습니다'), findsOneWidget);
+      expect(await loadSafetyRecords(), isEmpty);
+      expect(find.text('되돌리기'), findsOneWidget);
     });
   });
 }

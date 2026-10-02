@@ -22,6 +22,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import 'awg_tables.dart';

@@ -497,6 +497,15 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     );
     if (action == null) return;
     if (action == 'delete' && index != null) {
+      // 묻지 않고 바로 지웠다 → 이름을 보여 주고 한 번 묻는다.
+      final who = (cur['name']?.toString() ?? '').trim();
+      if (!mounted) return;
+      final ok = await confirmDeleteDialog(
+        context,
+        title: "연락처 삭제",
+        message: who.isEmpty ? "이 연락처를 삭제하시겠습니까?" : "'$who' 연락처를 삭제하시겠습니까?",
+      );
+      if (!ok || !mounted) return;
       list.removeAt(index);
     } else if (action == 'save') {
       if (name.text.trim().isEmpty && phone.text.trim().isEmpty) return;
@@ -531,46 +540,76 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(ctx).size.height * 0.6,
             ),
-            child: book.isEmpty
-                ? Padding(
-                    padding: EdgeInsets.all(30),
-                    child: Text(
-                      keepWords("주소록이 비어 있습니다. 연락처를 저장할 때 '주소록에도 저장'을 체크하십시오."),
-                      style: TextStyle(color: tossSubText),
-                    ),
-                  )
-                : ListView(
-                    shrinkWrap: true,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
-                        child: Text(
-                          "주소록 (길게 누르면 삭제)",
-                          style: TextStyle(fontWeight: FontWeight.w800),
+            // 시트 안에 알림 자리를 둬야 "되돌리기"가 시트에 가려지지 않는다.
+            child: _sheetUndoHost(
+              (hostCtx) => book.isEmpty
+                  ? Padding(
+                      padding: EdgeInsets.all(30),
+                      child: Text(
+                        keepWords(
+                          "주소록이 비어 있습니다. 연락처를 저장할 때 '주소록에도 저장'을 체크하십시오.",
                         ),
+                        style: TextStyle(color: tossSubText),
                       ),
-                      for (final e in book)
-                        ListTile(
-                          title: Text("${e['name']}  ·  ${e['role']}"),
-                          subtitle: Text(e['phone']?.toString() ?? ''),
-                          onTap: () => Navigator.pop(ctx, e),
-                          // 🚀 [고침] 길게 누르면 묻지 않고 바로 지웠다.
-                          onLongPress: () async {
-                            final ok = await confirmDeleteDialog(
-                              ctx,
-                              message: "${e['name']}을(를) 주소록에서 지우겠습니까?",
-                            );
-                            if (!ok) return;
-                            await removeAddress(e);
-                            final nb = await loadAddressBook();
-                            setB(() => book = nb);
-                          },
+                    )
+                  : ListView(
+                      shrinkWrap: true,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.fromLTRB(20, 16, 20, 4),
+                          child: Text(
+                            "주소록 (왼쪽으로 밀면 삭제)",
+                            style: TextStyle(fontWeight: FontWeight.w800),
+                          ),
                         ),
-                    ],
-                  ),
+                        for (final e in book)
+                          // 🚀 [고침] 길게 누르면 지웠다 → 왼쪽으로 밀어 지우고 되돌리기를 준다.
+                          SwipeToDelete(
+                            itemKey: ValueKey(
+                              'book-${e['name']}|${e['phone']}',
+                            ),
+                            radius: 0,
+                            bottomMargin: 0,
+                            onDelete: () {
+                              final idx = book.indexOf(e);
+                              setB(() => book = List.of(book)..remove(e));
+                              removeAddress(e);
+                              showDeleteUndo(
+                                hostCtx,
+                                e['name']?.toString() ?? '',
+                                onUndo: () {
+                                  saveAddress(e);
+                                  if (!ctx.mounted) return;
+                                  setB(() {
+                                    book = List.of(book)
+                                      ..insert(idx.clamp(0, book.length), e);
+                                  });
+                                },
+                              );
+                            },
+                            child: ListTile(
+                              title: Text("${e['name']}  ·  ${e['role']}"),
+                              subtitle: Text(e['phone']?.toString() ?? ''),
+                              onTap: () => Navigator.pop(ctx, e),
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
     );
   }
 }
+
+/// 아래 시트 안에서 "되돌리기" 알림이 보이게 하는 자리. 화면 알림은 시트 밑에 깔려
+/// 안 보여서 시트 안에 알림 자리를 따로 둔다. [builder]가 받는 context로
+/// [showDeleteUndo]를 부른다.
+Widget _sheetUndoHost(WidgetBuilder builder) => ScaffoldMessenger(
+  child: Scaffold(
+    backgroundColor: Colors.transparent,
+    resizeToAvoidBottomInset: false,
+    body: Builder(builder: builder),
+  ),
+);

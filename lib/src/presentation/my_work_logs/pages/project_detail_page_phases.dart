@@ -79,7 +79,16 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
           },
           children: [
             for (int i = 0; i < phases.length; i++)
-              _phaseCard(phases[i], i, key: ValueKey(phases[i]['id'])),
+              // 단계 줄은 왼쪽으로 밀어 지운다. 일정이 딸려 있어 먼저 묻는다.
+              SwipeToDelete(
+                key: ValueKey('phase-swipe-${phases[i]['id']}'),
+                itemKey: ValueKey('phase-dismiss-${phases[i]['id']}'),
+                radius: 16,
+                bottomMargin: 10,
+                confirm: () => _confirmDeletePhase(phases[i]),
+                onDelete: () => _deletePhase(phases[i]),
+                child: _phaseCard(phases[i], i, key: ValueKey(phases[i]['id'])),
+              ),
           ],
         ),
         if (unassigned.isNotEmpty) ...[
@@ -237,7 +246,11 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                     ),
                     onSelected: (v) {
                       if (v == 'edit') _showPhaseEditor(existing: p);
-                      if (v == 'delete') _deletePhase(p);
+                      if (v == 'delete') {
+                        _confirmDeletePhase(p).then((ok) {
+                          if (ok && mounted) _deletePhase(p);
+                        });
+                      }
                     },
                     itemBuilder: (_) => const [
                       PopupMenuItem(value: 'edit', child: Text("단계 수정")),
@@ -325,6 +338,19 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
       onTap: () => _run(
         () => widget.actions.openSchedule(phaseId: s['phaseId']?.toString()),
       ),
+    );
+  }
+
+  /// 단계를 지우기 전에 이름과 딸린 일정 수를 알려 주고 묻는다.
+  Future<bool> _confirmDeletePhase(Map<String, dynamic> p) {
+    final name = p['name']?.toString() ?? '';
+    final count = schedulesInPhase(log, p['id'].toString()).length;
+    return confirmDeleteDialog(
+      context,
+      title: "단계 삭제",
+      message: count > 0
+          ? "'$name' 단계를 삭제하시겠습니까? 이 단계의 일정 $count건은 지우지 않고 단계 없는 일정으로 옮깁니다."
+          : "'$name' 단계를 삭제하시겠습니까?",
     );
   }
 

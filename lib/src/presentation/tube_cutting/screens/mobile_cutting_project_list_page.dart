@@ -11,6 +11,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_firestor
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_pending_banner.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.dart';
 import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 
 // 🚀 [신규] 컷팅 계산기용 프로젝트 목록 - 모바일 전용, Firestore 기반.
 // 예전엔 (1) 데스크톱 ProjectManagementPage 안에서만 열 수 있었고 데이터도
@@ -18,8 +19,18 @@ import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
 // '/cutting' 경로는 아예 메모리에만 저장해서 화면 나가면 작업 목록 자체가
 // 사라지는 상태였다. 이 화면은 그 두 문제를 없애고 Firestore 컬렉션
 // 'cutting_projects'에 저장해서 기기가 바뀌어도 데이터가 유지되게 한다.
-class MobileCuttingProjectListPage extends StatelessWidget {
+class MobileCuttingProjectListPage extends StatefulWidget {
   const MobileCuttingProjectListPage({super.key});
+
+  @override
+  State<MobileCuttingProjectListPage> createState() =>
+      _MobileCuttingProjectListPageState();
+}
+
+class _MobileCuttingProjectListPageState
+    extends State<MobileCuttingProjectListPage> {
+  // 밀어서 지운 작업은 서버 목록이 따라오기 전에 바로 빠져야 한다(안 그러면 오류).
+  final Set<String> _hiddenIds = {};
 
   // 🚀 [재구성] 가운데 뜨는 AlertDialog 대신, 엄지로 바로 닿는 하단
   // 시트로 바꾸고 아이콘/여백/둥근 모서리를 요즘 모바일 앱 트렌드에
@@ -181,20 +192,40 @@ class MobileCuttingProjectListPage extends StatelessWidget {
     );
   }
 
-  Future<void> _deleteProject(BuildContext context, String docId) async {
-    final confirmed = await showCuttingConfirmDialog(
+  // 작업과 딸린 컷팅 기록을 한꺼번에 지워 되돌리기가 어렵다. 그래서 이름을 적어 먼저 묻는다.
+  Future<bool> _confirmDeleteProject(BuildContext context, String name) {
+    return showCuttingConfirmDialog(
       context,
       title: "작업 삭제",
-      message: "이 컷팅 작업과 저장된 컷팅 기록을 모두 삭제하시겠습니까? 되돌릴 수 없습니다.",
+      message: "'$name' 작업과 저장된 컷팅 기록을 모두 지우시겠습니까? 되돌릴 수 없습니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
     );
-    if (confirmed) {
+  }
+
+  // ⋮ 메뉴의 "삭제하기".
+  Future<void> _deleteProject(
+    BuildContext context,
+    String docId,
+    String name,
+  ) async {
+    if (!await _confirmDeleteProject(context, name)) return;
+    if (!mounted) return;
+    await _removeProject(docId);
+  }
+
+  // 확인을 받은 뒤 지운다. 목록에서는 바로 빼고, 못 지우면 다시 보인다.
+  // 줄의 context는 줄이 빠지면 사라지므로 알림은 화면(State)의 context로 띄운다.
+  Future<void> _removeProject(String docId) async {
+    setState(() => _hiddenIds.add(docId));
+    try {
       await deleteCuttingProjectWithRecords(docId);
-      if (context.mounted) {
-        showCuttingSnack(context, "작업을 삭제했습니다.");
-      }
+      if (mounted) showCuttingSnack(context, "작업을 삭제했습니다.");
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _hiddenIds.remove(docId));
+      showCuttingSnack(context, "지우지 못했습니다. 통신을 확인하십시오.", isError: true);
     }
   }
 
@@ -331,7 +362,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _deleteProject(context, docId);
+                  _deleteProject(context, docId, project.name);
                 },
               ),
               const SizedBox(height: 8),
@@ -528,6 +559,7 @@ class MobileCuttingProjectListPage extends StatelessWidget {
             // 공용과 내 것만(남의 작업은 안 보인다).
             final uid = currentUid();
             final docs = (snapshot.data?.docs ?? [])
+                .where((d) => !_hiddenIds.contains(d.id))
                 .where((d) => canSeeDoc(d.data() as Map, uid))
                 .toList();
 
@@ -586,102 +618,111 @@ class MobileCuttingProjectListPage extends StatelessWidget {
                 final pendingMaterials =
                     (data['materials'] as List?)?.length ?? 0;
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: InkWell(
-                    onTap: () => _openProject(context, doc.id, project),
-                    onLongPress: () =>
-                        _showItemActions(context, doc.id, project, data),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: CuttingColors.background,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: CuttingColors.primary.withValues(
-                                alpha: 0.1,
+                // 🚀 [10-02] 왼쪽으로 밀어서도 지운다. 기록까지 지우므로 먼저 묻는다.
+                return SwipeToDelete(
+                  itemKey: ValueKey('cut_project_${doc.id}'),
+                  radius: 20,
+                  bottomMargin: 12,
+                  confirm: () => _confirmDeleteProject(context, project.name),
+                  onDelete: () => _removeProject(doc.id),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () => _openProject(context, doc.id, project),
+                      onLongPress: () =>
+                          _showItemActions(context, doc.id, project, data),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: CuttingColors.background,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: CuttingColors.primary.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                              child: const AppIcon(
+                                AppGlyph.tubeCut,
+                                color: CuttingColors.primary,
+                                size: 22,
+                              ),
                             ),
-                            child: const AppIcon(
-                              AppGlyph.tubeCut,
-                              color: CuttingColors.primary,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  project.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: CuttingColors.textPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    project.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: CuttingColors.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "총 절단 ${project.cutCount < 0 ? 0 : project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
-                                  style: const TextStyle(
-                                    color: CuttingColors.textSecondary,
-                                    fontSize: 13,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "총 절단 ${project.cutCount < 0 ? 0 : project.cutCount}회 · 소모량 ${project.estimatedMeters}m",
+                                    style: const TextStyle(
+                                      color: CuttingColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
                                   ),
-                                ),
-                                if (lastCutAt != null ||
-                                    pendingMaterials > 0) ...[
-                                  const SizedBox(height: 6),
-                                  Wrap(
-                                    spacing: 8,
-                                    runSpacing: 4,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      if (lastCutAt != null)
-                                        Text(
-                                          "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
-                                          // 🚀 [고침] 옅은 회색 11px라 안 보였다.
-                                          style: const TextStyle(
-                                            color: CuttingColors.textSecondary,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.bold,
+                                  if (lastCutAt != null ||
+                                      pendingMaterials > 0) ...[
+                                    const SizedBox(height: 6),
+                                    Wrap(
+                                      spacing: 8,
+                                      runSpacing: 4,
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
+                                      children: [
+                                        if (lastCutAt != null)
+                                          Text(
+                                            "마지막 작업 ${lastCutAt.month}/${lastCutAt.day}",
+                                            // 🚀 [고침] 옅은 회색 11px라 안 보였다.
+                                            style: const TextStyle(
+                                              color:
+                                                  CuttingColors.textSecondary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
+                                        PendingDeductionBadge(
+                                          materialCount: pendingMaterials,
                                         ),
-                                      PendingDeductionBadge(
-                                        materialCount: pendingMaterials,
-                                      ),
-                                    ],
-                                  ),
+                                      ],
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                          // 🚀 [고침] 기록·재고·삭제 메뉴가 길게 누르기로만 열려 있는 줄 몰랐다.
-                          IconButton(
-                            key: const Key('cut_project_more'),
-                            tooltip: "메뉴",
-                            icon: const Icon(
-                              Icons.more_vert_rounded,
-                              color: CuttingColors.textSecondary,
+                            // 🚀 [고침] 기록·재고·삭제 메뉴가 길게 누르기로만 열려 있는 줄 몰랐다.
+                            IconButton(
+                              key: const Key('cut_project_more'),
+                              tooltip: "메뉴",
+                              icon: const Icon(
+                                Icons.more_vert_rounded,
+                                color: CuttingColors.textSecondary,
+                              ),
+                              onPressed: () => _showItemActions(
+                                context,
+                                doc.id,
+                                project,
+                                data,
+                              ),
                             ),
-                            onPressed: () => _showItemActions(
-                              context,
-                              doc.id,
-                              project,
-                              data,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

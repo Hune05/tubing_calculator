@@ -342,8 +342,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('규격 미지정  ·  1개 · 합계 1000mm'), findsOneWidget);
       expect(find.text('1000mm'), findsOneWidget);
-      await tester.tap(find.byIcon(Icons.delete_outline));
-      await tester.pump();
+      // 휴지통 단추 없이 왼쪽으로 밀어 지우고, 되돌리기로 다시 넣을 수 있다.
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+      await tester.drag(find.text('1000mm'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('1000mm'), findsNothing);
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(find.text('1000mm'), findsOneWidget);
+      await tester.drag(find.text('1000mm'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(find.text('1000mm'), findsNothing);
       await tester.enterText(find.byType(TextField).last, '1500');
       await tester.tap(find.text('추가'));
       await tester.pump();

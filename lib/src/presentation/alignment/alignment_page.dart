@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../equipment/equipment_model.dart';
@@ -1274,9 +1275,25 @@ class _AlignmentHistoryPageState extends State<AlignmentHistoryPage> {
     if (action == 'send') {
       await widget.share([buildAlignText(r), if (cmp != null) '비교: $cmp'].join('\n'));
     } else if (action == 'delete') {
-      await AlignStore.delete(r.id);
-      await _reload();
+      _delete(r);
     }
+  }
+
+  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다(10-02).
+  void _delete(AlignRecord r) {
+    final l = _list;
+    if (l == null || !mounted) return;
+    setState(() => _list = [...l]..removeWhere((e) => e.id == r.id));
+    final done = AlignStore.delete(r.id);
+    showDeleteUndo(
+      context,
+      '${r.at.month}/${r.at.day} ${r.stage.label}${r.machine.isEmpty ? '' : ' ${r.machine}'}',
+      onUndo: () async {
+        await done;
+        await AlignStore.put(r);
+        await _reload();
+      },
+    );
   }
 
   @override
@@ -1293,25 +1310,29 @@ class _AlignmentHistoryPageState extends State<AlignmentHistoryPage> {
               padding: const EdgeInsets.all(16),
               children: [
                 for (final r in list)
-                  Card(
-                    elevation: 0,
-                    color: AppColors.surface,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      key: Key('align_record_${r.id}'),
-                      onTap: () => _open(r),
-                      title: Text(
-                        [
-                          '${r.at.month}/${r.at.day}',
-                          r.stage.label,
-                          if (r.machine.isNotEmpty) r.machine,
-                        ].join(' · '),
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                  SwipeToDelete(
+                    itemKey: ValueKey('align_swipe_${r.id}'),
+                    onDelete: () => _delete(r),
+                    child: Card(
+                      elevation: 0,
+                      color: AppColors.surface,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        key: Key('align_record_${r.id}'),
+                        onTap: () => _open(r),
+                        title: Text(
+                          [
+                            '${r.at.month}/${r.at.day}',
+                            r.stage.label,
+                            if (r.machine.isNotEmpty) r.machine,
+                          ].join(' · '),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text(
+                          '평행 ${r.offset.toStringAsFixed(3)} mm · 각도 ${r.angle100.toStringAsFixed(3)} mm/100mm · ${verdictLabel(r.verdict)}',
+                        ),
+                        trailing: const Icon(AppIcons.forward),
                       ),
-                      subtitle: Text(
-                        '평행 ${r.offset.toStringAsFixed(3)} mm · 각도 ${r.angle100.toStringAsFixed(3)} mm/100mm · ${verdictLabel(r.verdict)}',
-                      ),
-                      trailing: const Icon(AppIcons.forward),
                     ),
                   ),
               ],

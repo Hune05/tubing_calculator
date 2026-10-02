@@ -11,7 +11,11 @@
 /// 늦게 따라오면 "dismissed Dismissible is still part of the tree" 오류가 난다.
 library;
 
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_components.dart';
 
@@ -40,7 +44,10 @@ Widget swipeDeleteBackground({double radius = 12, double bottomMargin = 8}) {
 }
 
 /// 왼쪽으로 밀어서 지우는 줄.
-class SwipeToDelete extends StatelessWidget {
+///
+/// 앱을 깔고 처음 한 번은, 처음 그려진 줄이 살짝 밀렸다 돌아오며 빨간 "삭제"를 보여 주고
+/// 안내 한 줄을 띄운다(상용 메일 앱의 첫 안내처럼). 본 뒤에는 다시 안 나온다.
+class SwipeToDelete extends StatefulWidget {
   /// 줄마다 다른 열쇠(보통 `ValueKey(id)`).
   final Key itemKey;
   final Widget child;
@@ -69,16 +76,92 @@ class SwipeToDelete extends StatelessWidget {
     this.enabled = true,
   });
 
+  /// 첫 안내를 본 적이 있는지(폰 저장 열쇠).
+  static const String hintSeenKey = 'swipe_delete_hint_seen_v1';
+
+  /// 시험에서 첫 안내를 켤 때 true(평소 시험에서는 안 나온다).
+  static bool debugForceHint = false;
+
+  /// 이번 실행에서 이미 안내를 시도했으면 다른 줄은 안 한다.
+  static bool _triedThisRun = false;
+
+  /// 시험에서 다시 처음 상태로.
+  @visibleForTesting
+  static void debugResetHint() => _triedThisRun = false;
+
+  @override
+  State<SwipeToDelete> createState() => _SwipeToDeleteState();
+}
+
+class _SwipeToDeleteState extends State<SwipeToDelete> with SingleTickerProviderStateMixin {
+  AnimationController? _peek;
+
+  static bool get _inTest => Platform.environment.containsKey('FLUTTER_TEST');
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.enabled && !SwipeToDelete._triedThisRun && (!_inTest || SwipeToDelete.debugForceHint)) {
+      SwipeToDelete._triedThisRun = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _maybeHint());
+    }
+  }
+
+  Future<void> _maybeHint() async {
+    final p = await SharedPreferences.getInstance();
+    if (p.getBool(SwipeToDelete.hintSeenKey) == true || !mounted) return;
+    await p.setBool(SwipeToDelete.hintSeenKey, true);
+    final c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+    setState(() => _peek = c);
+    if (mounted) {
+      showAppSnack(context, '줄을 왼쪽으로 밀면 지웁니다. 잘못 지웠으면 바로 뜨는 되돌리기를 누르십시오.');
+    }
+    try {
+      await c.forward().orCancel;
+    } catch (_) {}
+    if (!mounted) return;
+    setState(() => _peek = null);
+    c.dispose();
+  }
+
+  @override
+  void dispose() {
+    _peek?.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final c = _peek;
+    Widget child = widget.child;
+    if (c != null) {
+      // 0 → 왼쪽으로 72 → 0 (가운데에서 잠깐 멈춤)
+      child = Stack(
+        children: [
+          Positioned.fill(child: swipeDeleteBackground(radius: widget.radius, bottomMargin: widget.bottomMargin)),
+          AnimatedBuilder(
+            animation: c,
+            builder: (_, kid) {
+              final t = c.value;
+              final k = t < 0.35 ? Curves.easeOut.transform(t / 0.35) : (t < 0.65 ? 1.0 : 1 - Curves.easeIn.transform((t - 0.65) / 0.35));
+              return Transform.translate(offset: Offset(-72 * k, 0), child: kid);
+            },
+            child: widget.child,
+          ),
+        ],
+      );
+    }
     return Dismissible(
-      key: itemKey,
-      direction: enabled ? DismissDirection.endToStart : DismissDirection.none,
+      key: widget.itemKey,
+      direction: widget.enabled ? DismissDirection.endToStart : DismissDirection.none,
       // 실수로 살짝 밀린 것은 지우지 않게 절반 넘게 밀어야 한다.
       dismissThresholds: const {DismissDirection.endToStart: 0.5},
-      background: swipeDeleteBackground(radius: radius, bottomMargin: bottomMargin),
-      confirmDismiss: confirm == null ? null : (_) => confirm!(),
-      onDismissed: (_) => onDelete(),
+      background: swipeDeleteBackground(radius: widget.radius, bottomMargin: widget.bottomMargin),
+      confirmDismiss: widget.confirm == null ? null : (_) => widget.confirm!(),
+      onDismissed: (_) {
+        HapticFeedback.mediumImpact();
+        widget.onDelete();
+      },
       child: child,
     );
   }

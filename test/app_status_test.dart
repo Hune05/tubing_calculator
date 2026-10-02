@@ -160,7 +160,16 @@ void main() {
       await tester.tap(find.text('오류 기록 복사'));
       await tester.pumpAndSettle();
       expect(copied, contains('[알림 예약] 실패했습니다'));
+      // 지우기 전에 한 번 묻는다. 취소하면 그대로 남는다.
       await tester.tap(find.text('기록 지우기'));
+      await tester.pumpAndSettle();
+      expect(findText('오류 기록 삭제'), findsOneWidget);
+      await tester.tap(find.text('취소'));
+      await tester.pumpAndSettle();
+      expect(cleared, 0);
+      await tester.tap(find.text('기록 지우기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('삭제'));
       await tester.pumpAndSettle();
       expect(cleared, 1);
     });

@@ -3,6 +3,7 @@ import '../widgets/korean_text.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/layout_board_owner.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
@@ -232,18 +233,48 @@ class _LayoutBoardProjectListPageState
     );
   }
 
+  Future<bool> _confirmDeleteProject(String name) => confirmLayoutDanger(
+    context,
+    title: "배치도 삭제",
+    message: "'$name' 배치도를 지웁니다. 지우면 되돌릴 수 없습니다.",
+    confirmLabel: "삭제",
+  );
+
   Future<void> _deleteProject(String docId, String name) async {
-    final confirmed = await confirmLayoutDanger(
-      context,
-      title: "배치도 삭제",
-      message: "'$name' 배치도를 지웁니다. 지우면 되돌릴 수 없습니다.",
-      confirmLabel: "삭제",
-    );
-    if (confirmed) {
-      await FirebaseFirestore.instance
+    final confirmed = await _confirmDeleteProject(name);
+    if (confirmed && mounted) _removeProject(docId);
+  }
+
+  // 밀어서 지운 줄은 서버 목록이 따라오기 전에 바로 빠져야 해서 여기 적어 둔다.
+  final Set<String> _hiddenIds = {};
+
+  void _removeProject(String docId) {
+    setState(() => _hiddenIds.add(docId));
+    void failed(Object e) {
+      // 못 지웠으면 줄을 다시 보이고 알린다. 밀어서 지운 줄이 한 번은 화면에서 빠진 뒤에
+      // 다시 넣어야 해서 다음 그림 뒤로 미룬다.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() => _hiddenIds.remove(docId));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(keepWords("삭제하지 못했습니다: $e")),
+            backgroundColor: warningRed,
+          ),
+        );
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    }
+
+    // 통신이 없어도 폰에 먼저 지워지므로 서버 확인을 기다리지 않는다.
+    try {
+      FirebaseFirestore.instance
           .collection(kLayoutsCollection)
           .doc(docId)
-          .delete();
+          .delete()
+          .catchError(failed);
+    } catch (e) {
+      failed(e);
     }
   }
 
@@ -299,7 +330,7 @@ class _LayoutBoardProjectListPageState
           final docs = visibleLayoutEntries(
             snapshot.data ?? const <LayoutListEntry>[],
             _me!,
-          );
+          ).where((e) => !_hiddenIds.contains(e.id)).toList();
 
           return Column(
             children: [
@@ -470,6 +501,25 @@ class _LayoutBoardProjectListPageState
     final double h = (data['panelHeight'] as num?)?.toDouble() ?? 0;
     final DateTime? updatedAt = (data['updatedAt'] as Timestamp?)?.toDate();
 
+    // 왼쪽으로 밀어도 지울 수 있다. 도면 한 장이 통째로 지워져서 이름을 보여 주고 묻는다.
+    return SwipeToDelete(
+      itemKey: ValueKey('layout-${doc.id}'),
+      radius: 18,
+      bottomMargin: 12,
+      confirm: () => _confirmDeleteProject(name),
+      onDelete: () => _removeProject(doc.id),
+      child: _buildCardBody(doc, name, itemCount, w, h, updatedAt),
+    );
+  }
+
+  Widget _buildCardBody(
+    LayoutListEntry doc,
+    String name,
+    int itemCount,
+    double w,
+    double h,
+    DateTime? updatedAt,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(

@@ -94,126 +94,143 @@ extension _ConduitTab on _ElectricCalculatorPageState {
     final area = n == null || n <= 0
         ? null
         : wireArea(ConduitWire(r.kind, r.size, n.round()));
-    return calcBox(
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButton<CableKind>(
-                    key: Key('ec_cd_kind_$i'),
-                    value: r.kind,
-                    isExpanded: true,
-                    underline: const SizedBox.shrink(),
-                    dropdownColor: fc.surface,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: fc.text,
-                    ),
-                    items: [
-                      for (final k in CableKind.values)
-                        DropdownMenuItem(
-                          value: k,
-                          child: Text(cableKindLabel(k)),
-                        ),
-                    ],
-                    onChanged: (k) {
-                      if (k == null) return;
-                      _set(() {
-                        r.kind = k;
-                        final ss = cableSizes(k);
-                        if (!ss.contains(r.size)) {
-                          r.size = ss.firstWhere(
-                            (s) => s >= r.size,
-                            orElse: () => ss.last,
-                          );
-                        }
-                      });
-                    },
-                  ),
-                ),
-                if (_cdRows.length > 1)
-                  IconButton(
-                    key: Key('ec_cd_del_$i'),
-                    tooltip: '이 줄 지우기',
-                    icon: Icon(Icons.close_rounded, color: fc.textSub),
-                    onPressed: () => _set(() {
-                      _cdRows.removeAt(i).count.dispose();
-                    }),
-                  ),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: DropdownButton<double>(
-                    key: Key('ec_cd_size_$i'),
-                    value: r.size,
-                    isExpanded: true,
-                    underline: const SizedBox.shrink(),
-                    dropdownColor: fc.surface,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: fc.text,
-                    ),
-                    items: [
-                      for (final s in sizes)
-                        DropdownMenuItem(
-                          value: s,
-                          child: Text(
-                            '${sqText(s)} (외경 ${fmt(cableOd(r.kind, s)!)})',
+    // 줄을 왼쪽으로 밀어 지운다(마지막 한 줄은 남긴다). 지운 뒤 "되돌리기"(10-02).
+    return SwipeToDelete(
+      itemKey: ObjectKey(r),
+      radius: 14,
+      enabled: _cdRows.length > 1,
+      onDelete: () => _deleteCdRow(r),
+      child: calcBox(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButton<CableKind>(
+                      key: Key('ec_cd_kind_$i'),
+                      value: r.kind,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      dropdownColor: fc.surface,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: fc.text,
+                      ),
+                      items: [
+                        for (final k in CableKind.values)
+                          DropdownMenuItem(
+                            value: k,
+                            child: Text(cableKindLabel(k)),
                           ),
-                        ),
-                    ],
-                    onChanged: (s) {
-                      if (s != null) _set(() => r.size = s);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    key: Key('ec_cd_n_$i'),
-                    controller: r.count,
-                    textAlign: TextAlign.right,
-                    keyboardType: const TextInputType.numberWithOptions(),
-                    textInputAction: TextInputAction.next,
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: fc.text,
+                      ],
+                      onChanged: (k) {
+                        if (k == null) return;
+                        _set(() {
+                          r.kind = k;
+                          final ss = cableSizes(k);
+                          if (!ss.contains(r.size)) {
+                            r.size = ss.firstWhere(
+                              (s) => s >= r.size,
+                              orElse: () => ss.last,
+                            );
+                          }
+                        });
+                      },
                     ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      suffixText: '가닥',
-                    ),
-                    onChanged: (_) => _set(() {}),
                   ),
-                ),
-                const SizedBox(width: 8),
-              ],
-            ),
-            if (area != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 2, bottom: 4),
-                child: Text(
-                  '단면적 ${fmt(area, 1)} mm²'
-                  '${total != null && total > 0 ? ' (합의 ${fmt(area / total * 100, 0)}%)' : ''}',
-                  key: Key('ec_cd_area_$i'),
-                  style: TextStyle(fontSize: 13, color: fc.textSub),
-                ),
+                ],
               ),
-          ],
+              Row(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: DropdownButton<double>(
+                      key: Key('ec_cd_size_$i'),
+                      value: r.size,
+                      isExpanded: true,
+                      underline: const SizedBox.shrink(),
+                      dropdownColor: fc.surface,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: fc.text,
+                      ),
+                      items: [
+                        for (final s in sizes)
+                          DropdownMenuItem(
+                            value: s,
+                            child: Text(
+                              '${sqText(s)} (외경 ${fmt(cableOd(r.kind, s)!)})',
+                            ),
+                          ),
+                      ],
+                      onChanged: (s) {
+                        if (s != null) _set(() => r.size = s);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      key: Key('ec_cd_n_$i'),
+                      controller: r.count,
+                      textAlign: TextAlign.right,
+                      keyboardType: const TextInputType.numberWithOptions(),
+                      textInputAction: TextInputAction.next,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: fc.text,
+                      ),
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        suffixText: '가닥',
+                      ),
+                      onChanged: (_) => _set(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              if (area != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2, bottom: 4),
+                  child: Text(
+                    '단면적 ${fmt(area, 1)} mm²'
+                    '${total != null && total > 0 ? ' (합의 ${fmt(area / total * 100, 0)}%)' : ''}',
+                    key: Key('ec_cd_area_$i'),
+                    style: TextStyle(fontSize: 13, color: fc.textSub),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  /// 전선 줄을 곧바로 빼고, "되돌리기"를 누르면 같은 값으로 같은 자리에 다시 넣는다.
+  void _deleteCdRow(_CdRow r) {
+    final i = _cdRows.indexOf(r);
+    if (i < 0 || _cdRows.length <= 1) return;
+    final kind = r.kind, size = r.size, n = r.count.text;
+    _set(() => _cdRows.removeAt(i).count.dispose());
+    showDeleteUndo(
+      context,
+      '${cableKindLabel(kind)} ${sqText(size)}',
+      onUndo: () {
+        if (!mounted || _cdRows.length >= _maxRows) return;
+        _set(
+          () =>
+              _cdRows.insert(i.clamp(0, _cdRows.length), _CdRow(kind, size, n)),
+        );
+      },
     );
   }
 
@@ -362,6 +379,15 @@ extension _ConduitTab on _ElectricCalculatorPageState {
       ),
       for (var i = 0; i < _cdRows.length; i++)
         _cdRowBox(i, negative ? null : wiresArea(wires)),
+      if (_cdRows.length > 1)
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 2),
+          child: Text(
+            '지울 줄은 왼쪽으로 끝까지 미십시오.',
+            key: const Key('ec_cd_swipe_hint'),
+            style: TextStyle(fontSize: 13, color: fc.textSub),
+          ),
+        ),
       if (_cdRows.length < _maxRows)
         Align(
           alignment: Alignment.centerLeft,

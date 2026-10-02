@@ -5,6 +5,7 @@ import '../my_work_logs/widgets/work_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/utils/cache_first.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1824,6 +1825,13 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   // 한 번에 전부 만든다. 각 항목은 절대 날짜가 아니라 기준일로부터의
   // 상대 일수(dayOffset)로 저장해서, 언제 적용하든 같은 간격이 유지된다.
   Future<void> _showTemplateSheet() async {
+    // 시트를 다시 그릴 때마다 새로 구독하지 않게 한 번만 만든다.
+    final Stream<QuerySnapshot> templates = FirebaseFirestore.instance
+        .collection(kScheduleTemplatesCollection)
+        .where('owner', isEqualTo: _currentWorker)
+        .snapshots();
+    // 밀어서 지운 템플릿(서버 목록이 따라오기 전에 바로 빼려고 적어 둔다).
+    final Set<String> hidden = {};
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1838,170 +1846,189 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             color: scheduleWhite,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        "일정 세트 템플릿",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: scheduleText,
+          child: StatefulBuilder(
+            builder: (ctx, setSheet) => _sheetUndoHost(
+              (hostCtx) => Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            "일정 세트 템플릿",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: scheduleText,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, color: Colors.grey),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.pop(ctx);
-                      await _showCreateTemplateSheet();
-                    },
-                    icon: const Icon(Icons.add, color: scheduleTeal),
-                    label: const Text(
-                      "새 템플릿 만들기",
-                      style: TextStyle(
-                        color: scheduleTeal,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: scheduleTeal),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.grey,
+                          ),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection(kScheduleTemplatesCollection)
-                      .where('owner', isEqualTo: _currentWorker)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: scheduleTeal),
-                      );
-                    }
-                    final docs = snapshot.data!.docs;
-                    if (docs.isEmpty) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            "저장된 템플릿이 없습니다.",
-                            style: TextStyle(color: Colors.grey),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(ctx);
+                          await _showCreateTemplateSheet();
+                        },
+                        icon: const Icon(Icons.add, color: scheduleTeal),
+                        label: const Text(
+                          "새 템플릿 만들기",
+                          style: TextStyle(
+                            color: scheduleTeal,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      );
-                    }
-                    return ListView.separated(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                      itemCount: docs.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final doc = docs[i];
-                        final data = doc.data() as Map<String, dynamic>;
-                        final name = (data['name'] as String?) ?? '이름 없는 템플릿';
-                        final items = (data['items'] as List? ?? []);
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: scheduleBg,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: scheduleTeal),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(20, 8, 20, 8),
+                    child: Text(
+                      "줄을 왼쪽으로 밀면 삭제됩니다.",
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ),
+                  Expanded(
+                    child: StreamBuilder<QuerySnapshot>(
+                      stream: templates,
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                            child: CircularProgressIndicator(
+                              color: scheduleTeal,
+                            ),
+                          );
+                        }
+                        final docs = snapshot.data!.docs
+                            .where((d) => !hidden.contains(d.id))
+                            .toList();
+                        if (docs.isEmpty) {
+                          return const Center(
+                            child: Padding(
+                              padding: EdgeInsets.all(24),
+                              child: Text(
+                                "저장된 템플릿이 없습니다.",
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                          );
+                        }
+                        return ListView.separated(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          itemCount: docs.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (context, i) {
+                            final doc = docs[i];
+                            final data = doc.data() as Map<String, dynamic>;
+                            final name =
+                                (data['name'] as String?) ?? '이름 없는 템플릿';
+                            final items = (data['items'] as List? ?? []);
+                            // 휴지통 단추(적용 단추 옆이라 잘못 누르기 쉬웠다) 대신 왼쪽으로
+                            // 밀어 지운다. 되돌리기는 같은 문서에 같은 내용을 다시 적는다.
+                            return SwipeToDelete(
+                              itemKey: ValueKey('schedule-template-${doc.id}'),
+                              bottomMargin: 0,
+                              onDelete: () {
+                                setSheet(() => hidden.add(doc.id));
+                                doc.reference.delete().catchError((Object e) {
+                                  debugPrint('템플릿 삭제 실패: $e');
+                                });
+                                showDeleteUndo(
+                                  hostCtx,
+                                  name,
+                                  onUndo: () {
+                                    doc.reference.set(data).catchError((
+                                      Object e,
+                                    ) {
+                                      debugPrint('템플릿 되돌리기 실패: $e');
+                                    });
+                                    if (ctx.mounted) {
+                                      setSheet(() => hidden.remove(doc.id));
+                                    }
+                                  },
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: scheduleBg,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
                                       name,
                                       style: const TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: scheduleText,
                                       ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      color: scheduleDanger,
-                                      size: 20,
+                                    Text(
+                                      items
+                                          .map((e) => (e as Map)['title'] ?? '')
+                                          .join(' · '),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey.shade600,
+                                      ),
                                     ),
-                                    onPressed: () async {
-                                      // 옆의 적용 단추를 누르려다 잘못 눌러도 바로 지워지지 않게 한 번 묻는다.
-                                      final ok = await confirmScheduleDelete(
-                                        context,
-                                        title: "템플릿 삭제",
-                                        message:
-                                            "'$name' 템플릿을 삭제하시겠습니까? 되돌릴 수 없습니다.",
-                                      );
-                                      if (!ok) return;
-                                      await doc.reference.delete();
-                                    },
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                items
-                                    .map((e) => (e as Map)['title'] ?? '')
-                                    .join(' · '),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: OutlinedButton(
+                                        onPressed: () async {
+                                          final baseDate = await showDatePicker(
+                                            context: context,
+                                            initialDate: DateTime.now(),
+                                            firstDate: DateTime(2020),
+                                            lastDate: DateTime(2035),
+                                          );
+                                          if (baseDate == null) return;
+                                          await _applyTemplate(data, baseDate);
+                                          if (ctx.mounted) Navigator.pop(ctx);
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(
+                                            color: scheduleTeal,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          "기준일을 선택해서 적용하기",
+                                          style: TextStyle(color: scheduleTeal),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton(
-                                  onPressed: () async {
-                                    final baseDate = await showDatePicker(
-                                      context: context,
-                                      initialDate: DateTime.now(),
-                                      firstDate: DateTime(2020),
-                                      lastDate: DateTime(2035),
-                                    );
-                                    if (baseDate == null) return;
-                                    await _applyTemplate(data, baseDate);
-                                    if (ctx.mounted) Navigator.pop(ctx);
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: scheduleTeal),
-                                  ),
-                                  child: const Text(
-                                    "기준일을 선택해서 적용하기",
-                                    style: TextStyle(color: scheduleTeal),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                            );
+                          },
                         );
                       },
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -2096,154 +2123,201 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   color: scheduleWhite,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                      child: Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              "새 템플릿 만들기",
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                color: scheduleText,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () => Navigator.pop(ctx),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        controller: scrollController,
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                child: _sheetUndoHost(
+                  (hostCtx) => Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                        child: Row(
                           children: [
-                            TextField(
-                              controller: nameCtrl,
-                              decoration: InputDecoration(
-                                hintText: "템플릿 이름 (예: 매달 정기 점검)",
-                                filled: true,
-                                fillColor: const Color(0xFFF7F8F9),
-                                hintStyle: const TextStyle(
-                                  color: Color(0xFF6B7684),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D6DB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D6DB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(
-                                    color: scheduleTeal,
-                                    width: 1.6,
-                                  ),
+                            const Expanded(
+                              child: Text(
+                                "새 템플릿 만들기",
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: scheduleText,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            for (int i = 0; i < blueprint.length; i++)
-                              // 줄마다 키를 줘야 한 줄을 지웠을 때 다음 줄 글이 지운 줄 글로 남지 않는다.
-                              KeyedSubtree(
-                                key: ValueKey(identityHashCode(blueprint[i])),
-                                child: _buildTemplateItemRow(
-                                  blueprint[i],
-                                  onRemove: blueprint.length <= 1
-                                      ? null
-                                      : () => setSheetState(
-                                          () => blueprint.removeAt(i),
-                                        ),
-                                  setSheetState: setSheetState,
-                                ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: Colors.grey,
                               ),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: () => setSheetState(() {
-                                blueprint.add({
-                                  'title': '',
-                                  'category': '개인',
-                                  'dayOffset': 0,
-                                  'hasTime': false,
-                                  'timeMinutes': 9 * 60,
-                                });
-                              }),
-                              icon: const Icon(Icons.add, color: scheduleTeal),
-                              label: const Text(
-                                "항목 추가",
-                                style: TextStyle(color: scheduleTeal),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: scheduleTeal),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed: () async {
-                                  final validItems = blueprint
-                                      .where(
-                                        (b) => (b['title'] as String)
-                                            .trim()
-                                            .isNotEmpty,
-                                      )
-                                      .toList();
-                                  if (nameCtrl.text.trim().isEmpty ||
-                                      validItems.isEmpty) {
-                                    return;
-                                  }
-                                  await FirebaseFirestore.instance
-                                      .collection(kScheduleTemplatesCollection)
-                                      .add({
-                                        'name': nameCtrl.text.trim(),
-                                        'owner': _currentWorker,
-                                        'items': validItems,
-                                        'createdAt':
-                                            FieldValue.serverTimestamp(),
-                                      });
-                                  if (ctx.mounted) Navigator.pop(ctx);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: scheduleTeal,
-                                  elevation: 0,
-                                  minimumSize: const Size(double.infinity, 52),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
-                                child: const Text(
-                                  "템플릿 저장",
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
+                              onPressed: () => Navigator.pop(ctx),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                      Expanded(
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextField(
+                                controller: nameCtrl,
+                                decoration: InputDecoration(
+                                  hintText: "템플릿 이름 (예: 매달 정기 점검)",
+                                  filled: true,
+                                  fillColor: const Color(0xFFF7F8F9),
+                                  hintStyle: const TextStyle(
+                                    color: Color(0xFF6B7684),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFD1D6DB),
+                                    ),
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(
+                                      color: Color(0xFFD1D6DB),
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(10),
+                                    borderSide: const BorderSide(
+                                      color: scheduleTeal,
+                                      width: 1.6,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              if (blueprint.length > 1)
+                                const Padding(
+                                  padding: EdgeInsets.only(bottom: 8),
+                                  child: Text(
+                                    "항목 줄을 왼쪽으로 밀면 빠집니다.",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                              for (int i = 0; i < blueprint.length; i++)
+                                // 줄마다 키를 줘야 한 줄을 지웠을 때 다음 줄 글이 지운 줄 글로 남지 않는다.
+                                // X 단추 대신 왼쪽으로 밀어 지우고 되돌리기를 준다. 마지막 한 줄은 안 밀린다.
+                                SwipeToDelete(
+                                  key: ValueKey(identityHashCode(blueprint[i])),
+                                  itemKey: ValueKey(
+                                    'tpl-item-${identityHashCode(blueprint[i])}',
+                                  ),
+                                  bottomMargin: 10,
+                                  enabled: blueprint.length > 1,
+                                  onDelete: () {
+                                    final item = blueprint[i];
+                                    final idx = i;
+                                    setSheetState(
+                                      () => blueprint.removeAt(idx),
+                                    );
+                                    final title =
+                                        (item['title'] as String? ?? '').trim();
+                                    showDeleteUndo(
+                                      hostCtx,
+                                      title.isEmpty ? '항목' : title,
+                                      onUndo: () {
+                                        if (!ctx.mounted ||
+                                            blueprint.contains(item)) {
+                                          return;
+                                        }
+                                        setSheetState(
+                                          () => blueprint.insert(
+                                            idx.clamp(0, blueprint.length),
+                                            item,
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                  child: _buildTemplateItemRow(
+                                    blueprint[i],
+                                    setSheetState: setSheetState,
+                                  ),
+                                ),
+                              const SizedBox(height: 8),
+                              OutlinedButton.icon(
+                                onPressed: () => setSheetState(() {
+                                  blueprint.add({
+                                    'title': '',
+                                    'category': '개인',
+                                    'dayOffset': 0,
+                                    'hasTime': false,
+                                    'timeMinutes': 9 * 60,
+                                  });
+                                }),
+                                icon: const Icon(
+                                  Icons.add,
+                                  color: scheduleTeal,
+                                ),
+                                label: const Text(
+                                  "항목 추가",
+                                  style: TextStyle(color: scheduleTeal),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: scheduleTeal),
+                                ),
+                              ),
+                              const SizedBox(height: 20),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    final validItems = blueprint
+                                        .where(
+                                          (b) => (b['title'] as String)
+                                              .trim()
+                                              .isNotEmpty,
+                                        )
+                                        .toList();
+                                    if (nameCtrl.text.trim().isEmpty ||
+                                        validItems.isEmpty) {
+                                      return;
+                                    }
+                                    await FirebaseFirestore.instance
+                                        .collection(
+                                          kScheduleTemplatesCollection,
+                                        )
+                                        .add({
+                                          'name': nameCtrl.text.trim(),
+                                          'owner': _currentWorker,
+                                          'items': validItems,
+                                          'createdAt':
+                                              FieldValue.serverTimestamp(),
+                                        });
+                                    if (ctx.mounted) Navigator.pop(ctx);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: scheduleTeal,
+                                    elevation: 0,
+                                    minimumSize: const Size(
+                                      double.infinity,
+                                      52,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    "템플릿 저장",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -2255,7 +2329,6 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
 
   Widget _buildTemplateItemRow(
     Map<String, dynamic> item, {
-    required VoidCallback? onRemove,
     required StateSetter setSheetState,
   }) {
     final int minutes = item['timeMinutes'] as int;
@@ -2289,15 +2362,6 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   ),
                 ),
               ),
-              if (onRemove != null)
-                IconButton(
-                  icon: const Icon(
-                    Icons.close_rounded,
-                    size: 18,
-                    color: Colors.grey,
-                  ),
-                  onPressed: onRemove,
-                ),
             ],
           ),
           const SizedBox(height: 8),
@@ -4565,3 +4629,14 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
     return 0;
   }
 }
+
+/// 아래 시트 안에서 "되돌리기" 알림이 보이게 하는 자리. 화면 알림은 시트 밑에 깔려
+/// 안 보여서 시트 안에 알림 자리를 따로 둔다. [builder]가 받는 context로
+/// [showDeleteUndo]를 부른다.
+Widget _sheetUndoHost(WidgetBuilder builder) => ScaffoldMessenger(
+  child: Scaffold(
+    backgroundColor: Colors.transparent,
+    resizeToAvoidBottomInset: false,
+    body: Builder(builder: builder),
+  ),
+);

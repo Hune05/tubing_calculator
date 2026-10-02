@@ -537,11 +537,24 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(find.byKey(const Key('els_del_3')));
-      await tester.pump();
+      // X 단추는 없고, 줄을 왼쪽으로 밀어 지운다.
+      expect(find.byKey(const Key('els_del_3')), findsNothing);
+      await tester.ensureVisible(find.byKey(const Key('els_name_3')));
+      await tester.pumpAndSettle();
+      // 글 칸은 글자 고르기로 밀기를 먹으므로 줄 번호를 잡고 민다.
+      await tester.drag(find.text('4번'), const Offset(-500, 0));
+      await tester.pumpAndSettle();
       expect(find.byKey(const Key('els_kw_3')), findsNothing);
       expect(find.text('줄 추가 (3/30)'), findsOneWidget);
       expect(sum(tester), '최대수요 80 kW · 필요 88.9 kVA');
+      // 되돌리기로 같은 값이 같은 자리에 다시 들어온다.
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(find.text('줄 추가 (4/30)'), findsOneWidget);
+      expect(
+        find.textContaining('최대수요 100 kW, 53.7 kvar, 113.5 kVA'),
+        findsOneWidget,
+      );
       await tester.pump(const Duration(seconds: 1));
     });
 

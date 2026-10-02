@@ -90,4 +90,24 @@ void main() {
     // 입력창(바텀시트)에는 글자를 적는 칸이 있다.
     expect(find.byType(TextField), findsWidgets);
   });
+
+  testWidgets('일정 줄은 왼쪽으로 밀어 지우고, 되돌리기로 같은 자리에 돌아온다', (tester) async {
+    await open(tester);
+    // 잘못 누르기 쉬운 X 단추는 없다.
+    expect(find.byIcon(Icons.close_rounded), findsNothing);
+    await tester.drag(findText('도면 검토'), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(findText('도면 검토'), findsNothing);
+    expect(findTextContaining('덕트 입고'), findsOneWidget);
+    expect(find.text('되돌리기'), findsOneWidget);
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    expect(findText('도면 검토'), findsOneWidget);
+    // 돌아온 줄은 원래 자리(맨 위)에 있다.
+    expect(
+      tester.getTopLeft(findText('도면 검토')).dy,
+      lessThan(tester.getTopLeft(findTextContaining('덕트 입고')).dy),
+    );
+  });
 }

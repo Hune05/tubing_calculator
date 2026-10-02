@@ -27,6 +27,7 @@ import '../../../data/repositories/work_project_repository.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
 import 'project_stats_page.dart';
 import '../../calculator/widgets/app_dialog.dart' show confirmDeleteDialog;
+import '../../../core/common_widgets/swipe_to_delete.dart';
 
 part 'project_detail_page_overview.dart';
 part 'project_detail_page_phases.dart';

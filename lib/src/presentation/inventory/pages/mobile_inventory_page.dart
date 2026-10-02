@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -107,6 +108,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   /// 지난 재고조사 뒤로 자재가 얼마나 드나들었는지(자재 이름별).
   Map<String, UsageSinceCount> _usage = const {};
   final Map<String, Map<String, dynamic>> _newLocalItems = {};
+
+  /// 지운 자재. 서버 목록이 따라올 때까지 화면에서 먼저 뺀다(10-02).
+  final Set<String> _deletedIds = {};
   final List<Map<String, dynamic>> _historyLogs = [];
 
   ItemData _createItemDataFromDoc(Map<String, dynamic> docData) {
@@ -387,17 +391,21 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
             .length;
 
         // 서버에 있는 자재 + 이 화면에서 새로 적은 자재를 한 목록으로 합친다.
-        final dbDocs = snapshot.data!.docs.where(_matchesFilter).toList()
-          ..sort((a, b) {
-            final ma = a.data() as Map<String, dynamic>;
-            final mb = b.data() as Map<String, dynamic>;
-            final ca = (ma['category'] ?? '').toString();
-            final cb = (mb['category'] ?? '').toString();
-            if (ca != cb) return ca.compareTo(cb);
-            return (ma['name'] ?? '').toString().compareTo(
-              (mb['name'] ?? '').toString(),
-            );
-          });
+        final dbDocs =
+            snapshot.data!.docs
+                .where((d) => !_deletedIds.contains(d.id))
+                .where(_matchesFilter)
+                .toList()
+              ..sort((a, b) {
+                final ma = a.data() as Map<String, dynamic>;
+                final mb = b.data() as Map<String, dynamic>;
+                final ca = (ma['category'] ?? '').toString();
+                final cb = (mb['category'] ?? '').toString();
+                if (ca != cb) return ca.compareTo(cb);
+                return (ma['name'] ?? '').toString().compareTo(
+                  (mb['name'] ?? '').toString(),
+                );
+              });
 
         final localNew = _newLocalItems.entries.where((e) {
           final m = Map<String, dynamic>.from(e.value);
@@ -508,28 +516,43 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
               _showExtraInfoDialog(docId, displayData, infoType),
         );
 
-        return GestureDetector(
-          onLongPress: () => _askDelete(
+        // 왼쪽으로 끝까지 밀거나 길게 누르면 이름을 적은 확인창을 먼저 띄운다.
+        // 창고 자재는 여럿이 같이 쓰는 자료라 되돌리기 대신 확인을 받는다(10-02).
+        return SwipeToDelete(
+          itemKey: ValueKey('inv_$docId'),
+          radius: 16,
+          bottomMargin: 16,
+          confirm: () =>
+              _confirmDelete(itemName: itemName, isLocalNew: isLocalNew),
+          onDelete: () => _deleteItem(
             docId: docId,
             itemName: itemName,
             isLocalNew: isLocalNew,
             qty: displayData.qty,
           ),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Container(
-              decoration: BoxDecoration(
-                color: pureWhite,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: slate100, width: 2),
-              ),
-              child: Theme(
-                data: ThemeData.light().copyWith(
-                  cardColor: pureWhite,
-                  scaffoldBackgroundColor: pureWhite,
-                  colorScheme: const ColorScheme.light(surface: pureWhite),
+          child: GestureDetector(
+            onLongPress: () => _askDelete(
+              docId: docId,
+              itemName: itemName,
+              isLocalNew: isLocalNew,
+              qty: displayData.qty,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: pureWhite,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: slate100, width: 2),
                 ),
-                child: card,
+                child: Theme(
+                  data: ThemeData.light().copyWith(
+                    cardColor: pureWhite,
+                    scaffoldBackgroundColor: pureWhite,
+                    colorScheme: const ColorScheme.light(surface: pureWhite),
+                  ),
+                  child: card,
+                ),
               ),
             ),
           ),
@@ -561,17 +584,39 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     required int qty,
   }) async {
     HapticFeedback.heavyImpact();
-    final ok = await showCuttingConfirmDialog(
+    final ok = await _confirmDelete(itemName: itemName, isLocalNew: isLocalNew);
+    if (!ok || !mounted) return;
+    await _deleteItem(
+      docId: docId,
+      itemName: itemName,
+      isLocalNew: isLocalNew,
+      qty: qty,
+    );
+  }
+
+  Future<bool> _confirmDelete({
+    required String itemName,
+    required bool isLocalNew,
+  }) {
+    return showCuttingConfirmDialog(
       context,
-      title: isLocalNew ? "올릴 목록에서 지우겠습니까?" : "자재를 아주 지우겠습니까?",
+      title: isLocalNew ? "올릴 목록에서 삭제하겠습니까?" : "자재를 삭제하겠습니까?",
       message: isLocalNew
           ? "$itemName을 올릴 목록에서 지웁니다."
           : "$itemName을 창고 목록에서 아주 지웁니다. 되돌릴 수 없습니다.",
-      confirmLabel: "지우기",
+      confirmLabel: "삭제",
       danger: true,
     );
-    if (!ok) return;
+  }
 
+  /// 확인을 받은 뒤 지운다. 화면에서는 곧바로 빼고(밀어서 지운 줄이 남지 않게),
+  /// 서버에서 못 지우면 다시 보인다.
+  Future<void> _deleteItem({
+    required String docId,
+    required String itemName,
+    required bool isLocalNew,
+    required int qty,
+  }) async {
     if (isLocalNew) {
       setState(() {
         _newLocalItems.remove(docId);
@@ -580,14 +625,18 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       return;
     }
 
+    setState(() {
+      _deletedIds.add(docId);
+      _localEdits.remove(docId);
+    });
     try {
       await _inventoryDb.doc(docId).delete();
-      if (mounted) setState(() => _localEdits.remove(docId));
       await recordMobileLog(itemName: itemName, action: '완전 삭제', qty: qty);
       if (!mounted) return;
-      showCuttingSnack(context, "지웠습니다.");
+      showCuttingSnack(context, "삭제했습니다: $itemName");
     } catch (_) {
       if (!mounted) return;
+      setState(() => _deletedIds.remove(docId));
       showCuttingSnack(context, "지우지 못했습니다.", isError: true);
     }
   }

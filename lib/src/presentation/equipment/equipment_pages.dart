@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../inventory/pages/barcode_scan.dart';
@@ -394,66 +395,91 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
     final st = e.dueState(now);
     final color = dueColor(st);
     final label = dueLabel(e, now);
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      color: AppColors.surface,
-      child: InkWell(
-        key: Key('equip_card_${e.id}'),
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _open(e),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(width: 5, height: 46, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      [if (e.assetNo.isNotEmpty) e.assetNo, e.name].join('  '),
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: e.isRetired ? AppColors.textFaint : AppColors.text,
-                        decoration: e.isRetired ? TextDecoration.lineThrough : null,
+    return SwipeToDelete(
+      itemKey: ValueKey('equip_swipe_${e.id}'),
+      onDelete: () => _delete(e),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 8),
+        elevation: 0,
+        color: AppColors.surface,
+        child: InkWell(
+          key: Key('equip_card_${e.id}'),
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _open(e),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(width: 5, height: 46, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(3))),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        [if (e.assetNo.isNotEmpty) e.assetNo, e.name].join('  '),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: e.isRetired ? AppColors.textFaint : AppColors.text,
+                          decoration: e.isRetired ? TextDecoration.lineThrough : null,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      [
-                        e.category.label,
-                        [e.maker, e.model].where((v) => v.isNotEmpty).join(' '),
-                        if (e.location.isNotEmpty) e.location,
-                      ].where((v) => v.isNotEmpty).join(' · '),
-                      style: const TextStyle(fontSize: 13, color: AppColors.textSub),
-                    ),
-                    if (e.status != EquipStatus.ok)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: _badge(e.status.label, AppColors.textSub),
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          e.category.label,
+                          [e.maker, e.model].where((v) => v.isNotEmpty).join(' '),
+                          if (e.location.isNotEmpty) e.location,
+                        ].where((v) => v.isNotEmpty).join(' · '),
+                        style: const TextStyle(fontSize: 13, color: AppColors.textSub),
                       ),
-                  ],
+                      if (e.status != EquipStatus.ok)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: _badge(e.status.label, AppColors.textSub),
+                        ),
+                    ],
+                  ),
                 ),
-              ),
-              if (label.isNotEmpty)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color)),
-                    Text(
-                      e.nextDue == null ? '' : dateLabel(e.nextDue!),
-                      style: const TextStyle(fontSize: 11, color: AppColors.textFaint),
-                    ),
-                  ],
-                ),
-            ],
+                if (label.isNotEmpty)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(label, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: color)),
+                      Text(
+                        e.nextDue == null ? '' : dateLabel(e.nextDue!),
+                        style: const TextStyle(fontSize: 11, color: AppColors.textFaint),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 목록에서 곧바로 빼고 지운다(알림 예약도 취소). "되돌리기"를 누르면 같은 장비(이력 포함)를
+  /// 다시 넣고 알림도 다시 잡는다(10-02).
+  void _delete(Equipment e) {
+    setState(() => _all = [..._all]..removeWhere((x) => x.id == e.id));
+    final done = () async {
+      await EquipmentStore.delete(e.id);
+      await cancelEquipmentReminders(e.id);
+    }();
+    showDeleteUndo(
+      context,
+      [if (e.assetNo.isNotEmpty) e.assetNo, e.name].join(' '),
+      onUndo: () async {
+        await done;
+        await EquipmentStore.put(e);
+        final all = await EquipmentStore.load();
+        rescheduleEquipmentReminders(all);
+        if (mounted) setState(() => _all = all);
+      },
     );
   }
 
@@ -520,6 +546,29 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
       r.$2.dispose();
     }
     super.dispose();
+  }
+
+  /// 제원 줄을 곧바로 빼고, "되돌리기"를 누르면 같은 글로 같은 자리에 다시 넣는다.
+  void _removeSpec(int i) {
+    if (i < 0 || i >= _specs.length) return;
+    final r = _specs[i];
+    final name = r.$1.text, value = r.$2.text;
+    setState(() => _specs.removeAt(i));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      r.$1.dispose();
+      r.$2.dispose();
+    });
+    showDeleteUndo(
+      context,
+      [name.trim(), value.trim()].where((v) => v.isNotEmpty).join(' '),
+      onUndo: () {
+        if (!mounted) return;
+        setState(() => _specs.insert(
+              i.clamp(0, _specs.length),
+              (TextEditingController(text: name), TextEditingController(text: value)),
+            ));
+      },
+    );
   }
 
   Future<void> _pickDate() async {
@@ -691,38 +740,49 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
               padding: EdgeInsets.only(bottom: 8),
               child: Text('전동기 출력·무게·작업 범위처럼 장비의 제원을 줄마다 적습니다.', style: AppText.sub),
             ),
+          // 줄은 번호를 잡고 왼쪽으로 밀어 지운다(글 칸은 밀기를 먹는다). 지운 뒤 "되돌리기"(10-02).
           for (var i = 0; i < _specs.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 150,
-                    child: TextField(
-                      key: Key('equip_spec_name_$i'),
-                      controller: _specs[i].$1,
-                      decoration: const InputDecoration(labelText: '항목', hintText: '예: 전동기', isDense: true, filled: true, fillColor: AppColors.surface),
+            SwipeToDelete(
+              itemKey: ObjectKey(_specs[i].$1),
+              radius: 8,
+              onDelete: () => _removeSpec(i),
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      key: Key('equip_spec_no_$i'),
+                      width: 28,
+                      child: Text(
+                        '${i + 1}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.textSub),
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      key: Key('equip_spec_value_$i'),
-                      controller: _specs[i].$2,
-                      decoration: const InputDecoration(labelText: '값', hintText: '예: 1700 W', isDense: true, filled: true, fillColor: AppColors.surface),
+                    SizedBox(
+                      width: 140,
+                      child: TextField(
+                        key: Key('equip_spec_name_$i'),
+                        controller: _specs[i].$1,
+                        decoration: const InputDecoration(labelText: '항목', hintText: '예: 전동기', isDense: true, filled: true, fillColor: AppColors.surface),
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    key: Key('equip_spec_del_$i'),
-                    onPressed: () => setState(() {
-                      final r = _specs.removeAt(i);
-                      r.$1.dispose();
-                      r.$2.dispose();
-                    }),
-                    icon: const Icon(AppIcons.delete, size: 18, color: AppColors.textFaint),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        key: Key('equip_spec_value_$i'),
+                        controller: _specs[i].$2,
+                        decoration: const InputDecoration(labelText: '값', hintText: '예: 1700 W', isDense: true, filled: true, fillColor: AppColors.surface),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ),
+          if (_specs.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text('지울 줄은 번호를 잡고 왼쪽으로 끝까지 미십시오.', key: Key('equip_spec_hint'), style: AppText.caption),
             ),
           const SizedBox(height: 8),
           field('equip_note', _note, '메모', lines: 2),

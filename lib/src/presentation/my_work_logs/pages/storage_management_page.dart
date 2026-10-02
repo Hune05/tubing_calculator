@@ -15,6 +15,7 @@ import '../models/report_tools.dart'
     show loadPdfCleanupRecord, reportPdfDir, runPdfCleanup;
 import '../models/photo_store.dart';
 import '../widgets/work_theme.dart';
+import '../widgets/confirm_delete.dart';
 import 'app_status_page.dart';
 
 const Color _teal = AppColors.brand;
@@ -104,6 +105,15 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       : "${(b / 1024 / 1024).toStringAsFixed(1)}MB";
 
   Future<void> _clearTemp() async {
+    // 단추 한 번에 바로 지웠다 → 몇 개를 지우는지 보여 주고 한 번 묻는다.
+    final ok = await confirmDelete(
+      context,
+      title: "임시 파일 삭제",
+      message:
+          "임시 파일 $_tempCount개(${_mb(_tempBytes)})를 삭제하시겠습니까? 작업 일지와 사진 데이터는 그대로 남습니다.",
+      confirmLabel: "삭제",
+    );
+    if (!ok || !mounted) return;
     for (final f in await _tempFiles()) {
       try {
         await f.delete();

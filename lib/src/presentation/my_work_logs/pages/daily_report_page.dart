@@ -17,6 +17,7 @@ import 'layout_board_page.dart';
 import '../widgets/ai_polish_button.dart';
 import '../widgets/photo_detail_modal.dart';
 import '../widgets/confirm_delete.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'floor_plan_pin_page.dart';
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
@@ -356,6 +357,26 @@ class _DailyReportPageState extends State<DailyReportPage> {
       final items = [..._favMaterials];
       sendQuietly(() => _favDoc.set({'items': items}), what: '자재 즐겨찾기 서버 저장');
     } catch (_) {}
+  }
+
+  /// 길게 눌러 지운 즐겨찾기는 되돌리기로 같은 자리에 돌려놓는다(잘못 눌러도 살릴 수 있게).
+  void _removeFav(String f) {
+    final idx = _favMaterials.indexOf(f);
+    if (idx < 0) return;
+    HapticFeedback.mediumImpact();
+    setState(() => _favMaterials.removeAt(idx));
+    _saveFavs();
+    showDeleteUndo(
+      context,
+      f,
+      onUndo: () {
+        if (!mounted || _favMaterials.contains(f)) return;
+        setState(
+          () => _favMaterials.insert(idx.clamp(0, _favMaterials.length), f),
+        );
+        _saveFavs();
+      },
+    );
   }
 
   void _addFavFromInput() {
@@ -1603,10 +1624,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                     children: [
                       for (final f in _favMaterials)
                         GestureDetector(
-                          onLongPress: () {
-                            setState(() => _favMaterials.remove(f));
-                            _saveFavs();
-                          },
+                          onLongPress: () => _removeFav(f),
                           child: ActionChip(
                             avatar: const Icon(
                               Icons.star_rounded,

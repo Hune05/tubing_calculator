@@ -190,6 +190,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(await loadBendChecks(), isEmpty);
       expect(find.text('아직 기록이 없습니다'), findsOneWidget);
+      // 되돌리기로 같은 기록(같은 id)이 다시 들어온다.
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect((await loadBendChecks()).single.id, '1');
+      expect(find.byKey(const Key('bendcheck_record_1')), findsOneWidget);
     });
   });
 }

@@ -245,19 +245,35 @@ void main() {
     await disposeBoard(tester);
   });
 
-  testWidgets('내 프리셋은 관리 단추에서 줄마다 지우기 단추로 지운다', (tester) async {
+  testWidgets('내 프리셋은 관리 시트에서 줄을 왼쪽으로 밀어 지우고, 되돌리기로 살린다', (
+    tester,
+  ) async {
     await openWithDraft(tester, kPhone, presets: true);
     expect(find.text('차단기 3P'), findsOneWidget);
     await tester.tap(find.text('관리'));
     await tester.pumpAndSettle();
     expect(find.text('내 프리셋 관리'), findsOneWidget);
-    expect(find.byTooltip('프리셋 삭제'), findsNWidgets(2));
-    expectTouchable(tester, find.byTooltip('프리셋 삭제').first);
-    await tester.tap(find.byTooltip('프리셋 삭제').first);
+    // 잘못 누르기 쉬운 휴지통 단추는 없다.
+    expect(find.byTooltip('프리셋 삭제'), findsNothing);
+    Finder inSheet(String t) =>
+        find.descendant(of: find.byType(BottomSheet), matching: find.text(t));
+    expect(inSheet('차단기 3P'), findsOneWidget);
+    await tester.drag(inSheet('차단기 3P'), const Offset(-500, 0));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('삭제'));
+    expect(tester.takeException(), isNull);
+    expect(inSheet('차단기 3P'), findsNothing);
+    expect(inSheet('SMPS'), findsOneWidget);
+    // 되돌리기는 시트 안에 떠서 눌린다. 같은 자리(맨 위)로 돌아온다.
+    await tester.tap(find.text('되돌리기'));
     await tester.pumpAndSettle();
-    expect(find.byTooltip('프리셋 삭제'), findsOneWidget);
+    expect(inSheet('차단기 3P'), findsOneWidget);
+    expect(
+      tester.getTopLeft(inSheet('차단기 3P')).dy,
+      lessThan(tester.getTopLeft(inSheet('SMPS')).dy),
+    );
+    await tester.drag(inSheet('차단기 3P'), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(inSheet('차단기 3P'), findsNothing);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('layout_board_custom_presets'), contains('SMPS'));
     expect(

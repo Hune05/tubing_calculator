@@ -293,7 +293,7 @@ void main() {
     );
   });
 
-  testWidgets('저장한 기록 지우기는 확인을 받는다', (tester) async {
+  testWidgets('저장한 기록은 밀어서 지우고 되돌릴 수 있다', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await CalRecordStore.put(
       CalRecord(
@@ -307,18 +307,26 @@ void main() {
     );
     await tester.pumpWidget(const MaterialApp(home: CalRecordsPage()));
     await tester.pumpAndSettle();
+    await tester.drag(find.byKey(const Key('cr_item_z')), const Offset(-500, 0));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cr_item_z')), findsNothing);
+    expect(
+      find.textContaining('삭제했습니다: LT-9 2026-09-26 00:00'),
+      findsOneWidget,
+    );
+    expect(await CalRecordStore.load(), isEmpty);
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    expect((await CalRecordStore.load()).single.tag, 'LT-9');
+    expect(find.byKey(const Key('cr_item_z')), findsOneWidget);
+    // 누른 창의 지우기도 확인창 없이 지우고 되돌리기를 띄운다.
     await tester.tap(find.byKey(const Key('cr_item_z')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('cr_act_delete')));
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('LT-9 2026-09-26 00:00 기록을 지우겠습니까?'),
-      findsOneWidget,
-    );
-    await tester.tap(find.byKey(const Key('cr_delete_ok')));
-    await tester.pumpAndSettle();
     expect(await CalRecordStore.load(), isEmpty);
     expect(find.textContaining('저장한 기록이 없습니다'), findsOneWidget);
+    expect(find.text('되돌리기'), findsOneWidget);
   });
 
   testWidgets('성적서 보기는 미리보기로 열린다(공유는 단추를 눌러야만)', (tester) async {

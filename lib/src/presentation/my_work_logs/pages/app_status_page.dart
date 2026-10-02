@@ -10,6 +10,7 @@ import '../models/backup_tools.dart' show lastAutoBackup;
 import '../models/report_tools.dart'
     show areNotificationsAllowed, canScheduleExactAlarms, pendingReminderIds;
 import '../widgets/korean_text.dart';
+import '../widgets/confirm_delete.dart';
 
 const Color _teal = AppColors.brand;
 const Color _text = AppColors.text;
@@ -177,6 +178,14 @@ class _AppStatusPageState extends State<AppStatusPage> {
   }
 
   Future<void> _clearErrors() async {
+    // 잘못 눌러 원인 찾을 기록이 날아가지 않게 한 번 묻는다.
+    final ok = await confirmDelete(
+      context,
+      title: "오류 기록 삭제",
+      message: "오류 기록 ${_errors.length}건을 모두 삭제하시겠습니까? 삭제하면 되돌릴 수 없습니다.",
+      confirmLabel: "삭제",
+    );
+    if (!ok || !mounted) return;
     await (widget.errorsClearer ?? clearErrors)();
     await _load();
   }

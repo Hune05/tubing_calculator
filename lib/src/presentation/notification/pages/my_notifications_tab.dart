@@ -15,6 +15,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart'
+    show showDeleteUndo;
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/pending_write_log.dart';
@@ -162,7 +164,8 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
     final records = await loadSafetyRecords();
     final now = DateTime.now();
     safetyMissing =
-        safetyUsedRecently(records, now) && safetyCheckToday(records, now) == null;
+        safetyUsedRecently(records, now) &&
+        safetyCheckToday(records, now) == null;
   } catch (_) {}
 
   // 점검 기한이 지났거나 7일 안에 오는 공구.
@@ -188,7 +191,8 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
                   ? '점검 기한이 지난 공구가 있습니다. 눌러서 확인하십시오.'
                   : '7일 안에 점검 기한이 오는 공구가 있습니다. 눌러서 확인하십시오.'),
         route: () => MaterialPageRoute<void>(
-          builder: (_) => const EquipmentLedgerPage(initialView: LedgerView.due),
+          builder: (_) =>
+              const EquipmentLedgerPage(initialView: LedgerView.due),
         ),
       ),
     );
@@ -201,7 +205,8 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         color: AppColors.caution,
         title: '오늘 안전 점검 아직',
         detail: '작업 전 안전 점검을 아직 안 했습니다. 눌러서 바로 점검하십시오.',
-        route: () => MaterialPageRoute<void>(builder: (_) => const SafetyCheckPage()),
+        route: () =>
+            MaterialPageRoute<void>(builder: (_) => const SafetyCheckPage()),
       ),
     );
   }
@@ -560,11 +565,33 @@ class _PastNotificationsTabState extends State<PastNotificationsTab> {
     if (mounted) setState(() => _archive = list.reversed.toList());
   }
 
+  /// "전부 지우기". 잘못 눌러도 되살릴 수 있게 지운 목록을 잠깐 들고 있다가
+  /// "되돌리기"를 누르면 그대로 다시 넣는다(10-02, 예전엔 바로 사라졌다).
   Future<void> _clearAll() async {
     HapticFeedback.mediumImpact();
     final p = await SharedPreferences.getInstance();
+    final old = await _loadArchive();
+    if (old.isEmpty) return;
     await p.remove(_kArchiveKey);
-    _load();
+    if (!mounted) return;
+    setState(() => _archive = const []);
+    showDeleteUndo(
+      context,
+      '지난 알림 ${old.length}건',
+      onUndo: () async {
+        final p = await SharedPreferences.getInstance();
+        // 지운 뒤 새로 쌓인 알림이 있으면 그 앞에 다시 넣는다.
+        final merged = [...old, ...await _loadArchive()];
+        final capped = merged.length > _kArchiveCap
+            ? merged.sublist(merged.length - _kArchiveCap)
+            : merged;
+        await p.setString(
+          _kArchiveKey,
+          jsonEncode([for (final x in capped) x.toJson()]),
+        );
+        _load();
+      },
+    );
   }
 
   String _timeLabel(DateTime t) {

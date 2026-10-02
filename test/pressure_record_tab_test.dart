@@ -385,6 +385,13 @@ void main() {
     log = textIn(tester, const Key('pt_r_log'));
     expect(log, isNot(contains('11.9 bar')));
     expect(find.byKey(const Key('pt_r_read_1')), findsNothing);
+    // 되돌리기로 같은 자리에 다시 들어온다.
+    expect(find.text('되돌리기'), findsOneWidget);
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    log = textIn(tester, const Key('pt_r_log'));
+    expect(log, contains('11.9 bar'));
+    expect(find.byKey(const Key('pt_r_read_1')), findsOneWidget);
   });
 
   testWidgets('단위를 바꾸면 허용 압력강하 칸과 측정 기록이 새 단위로', (tester) async {
@@ -691,9 +698,7 @@ void main() {
     expect(got!.witnessContractor, isEmpty);
   });
 
-  testWidgets('저장 창: 첨부 사진을 누르면 풀 화면 뷰어가 뜨고, 썸네일을 누르면 넘어간다', (
-    tester,
-  ) async {
+  testWidgets('저장 창: 첨부 사진을 누르면 풀 화면 뷰어가 뜨고, 썸네일을 누르면 넘어간다', (tester) async {
     tester.view.physicalSize = const Size(390, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -743,7 +748,7 @@ void main() {
     expect(find.byKey(const Key('ps_photo_view_0')), findsOneWidget);
   });
 
-  testWidgets('저장한 기록 지우기는 확인을 받는다, CSV 내보내기 단추가 있다', (tester) async {
+  testWidgets('저장한 기록은 밀어서 지우고 되돌릴 수 있다, CSV 내보내기 단추가 있다', (tester) async {
     await PtRecordStore.put(
       PtRecord(
         id: 'z',
@@ -759,26 +764,28 @@ void main() {
     expect(find.byKey(const Key('pr_csv')), findsOneWidget);
     expect(find.text('HT-9 · 급수'), findsOneWidget);
     expect(textOf(tester, 'pr_kind_z'), 'B31.3 수압 · 물');
-    await tester.tap(find.byKey(const Key('pr_item_z')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('pr_act_delete')));
-    await tester.pumpAndSettle();
-    expect(
-      find.textContaining('L-9 2026-09-26 00:00 기록을 지우겠습니까?'),
-      findsOneWidget,
+    // 왼쪽으로 밀면 지우고, 되돌리기로 다시 넣는다.
+    await tester.drag(
+      find.byKey(const Key('pr_item_z')),
+      const Offset(-500, 0),
     );
-    await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
-    expect((await PtRecordStore.load()).length, 1);
+    expect(find.byKey(const Key('pr_item_z')), findsNothing);
+    expect(find.textContaining('삭제했습니다: L-9'), findsOneWidget);
+    expect(await PtRecordStore.load(), isEmpty);
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    expect((await PtRecordStore.load()).single.testNo, 'HT-9');
+    expect(find.byKey(const Key('pr_item_z')), findsOneWidget);
+    // 누른 창의 지우기도 확인창 없이 지우고 되돌리기를 띄운다.
     await tester.tap(find.byKey(const Key('pr_item_z')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pr_act_delete')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('pr_delete_ok')));
     await tester.pumpAndSettle();
     expect(await PtRecordStore.load(), isEmpty);
     expect(find.textContaining('저장한 기록이 없습니다'), findsOneWidget);
     expect(find.byKey(const Key('pr_csv')), findsNothing);
+    expect(find.text('되돌리기'), findsOneWidget);
   });
 
   testWidgets('기록서 보기는 미리보기로 열린다(공유는 단추를 눌러야만)', (tester) async {

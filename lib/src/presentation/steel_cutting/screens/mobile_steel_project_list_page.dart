@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import '../../../data/models/steel_cutting_project_model.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart';
+import '../../../core/common_widgets/swipe_to_delete.dart';
 import '../steel_weight.dart';
 import 'steel_cutting_detail_screen.dart';
 
@@ -15,8 +16,18 @@ import 'steel_cutting_detail_screen.dart';
 // 컷팅 기록(이력) 화면은 이번 범위에서 빠졌다 - 형강 재고 카테고리 자체가
 // 아직 없어서, 나중에 필요해지면 튜브 쪽 cutting_firestore_helper.dart
 // 패턴을 그대로 가져와 붙이면 된다.
-class MobileSteelProjectListPage extends StatelessWidget {
+class MobileSteelProjectListPage extends StatefulWidget {
   const MobileSteelProjectListPage({super.key});
+
+  @override
+  State<MobileSteelProjectListPage> createState() =>
+      _MobileSteelProjectListPageState();
+}
+
+class _MobileSteelProjectListPageState
+    extends State<MobileSteelProjectListPage> {
+  // 밀어서 지운 작업은 서버 목록이 따라오기 전에 바로 빠져야 한다(안 그러면 오류).
+  final Set<String> _hiddenIds = {};
 
   Future<void> _createProject(BuildContext context) async {
     final nameCtrl = TextEditingController();
@@ -229,16 +240,34 @@ class MobileSteelProjectListPage extends StatelessWidget {
         .update({'name': name});
   }
 
-  Future<void> _deleteProject(BuildContext context, String docId) async {
-    final confirmed = await showCuttingConfirmDialog(
+  // 작업과 변경 이력을 한꺼번에 지워 되돌리기가 어렵다. 그래서 이름을 적어 먼저 묻는다.
+  Future<bool> _confirmDeleteProject(BuildContext context, String name) {
+    return showCuttingConfirmDialog(
       context,
       title: "작업 삭제",
-      message: "이 형강 컷팅 작업을 삭제하시겠습니까? 되돌릴 수 없습니다.",
+      message: "'$name' 작업과 변경 이력을 모두 지우시겠습니까? 되돌릴 수 없습니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
     );
-    if (confirmed) {
+  }
+
+  // ⋮ 메뉴의 "삭제하기".
+  Future<void> _deleteProject(
+    BuildContext context,
+    String docId,
+    String name,
+  ) async {
+    if (!await _confirmDeleteProject(context, name)) return;
+    if (!mounted) return;
+    await _removeProject(docId);
+  }
+
+  // 확인을 받은 뒤 지운다. 목록에서는 바로 빼고, 못 지우면 다시 보인다.
+  // 줄의 context는 줄이 빠지면 사라지므로 알림은 화면(State)의 context로 띄운다.
+  Future<void> _removeProject(String docId) async {
+    setState(() => _hiddenIds.add(docId));
+    try {
       // 변경 이력(하위 모음)도 같이 지운다(튜브 쪽 deleteCuttingProjectWithRecords와 같게).
       final docRef = FirebaseFirestore.instance
           .collection(kSteelCuttingProjectsCollection)
@@ -271,7 +300,11 @@ class MobileSteelProjectListPage extends StatelessWidget {
         const Duration(seconds: 8),
         onTimeout: () {},
       );
-      if (context.mounted) showCuttingSnack(context, "작업을 삭제했습니다.");
+      if (mounted) showCuttingSnack(context, "작업을 삭제했습니다.");
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _hiddenIds.remove(docId));
+      showCuttingSnack(context, "지우지 못했습니다. 통신을 확인하십시오.", isError: true);
     }
   }
 
@@ -379,7 +412,7 @@ class MobileSteelProjectListPage extends StatelessWidget {
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _deleteProject(context, docId);
+                  _deleteProject(context, docId, name);
                 },
               ),
               const SizedBox(height: 8),
@@ -449,6 +482,7 @@ class MobileSteelProjectListPage extends StatelessWidget {
 
             final uid = currentUid();
             final docs = (snapshot.data?.docs ?? [])
+                .where((d) => !_hiddenIds.contains(d.id))
                 .where((d) => canSeeDoc(d.data() as Map, uid))
                 .toList();
 
@@ -501,93 +535,103 @@ class MobileSteelProjectListPage extends StatelessWidget {
                 final data = doc.data() as Map<String, dynamic>;
                 final project = SteelCuttingProject.fromMap(doc.id, data);
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: InkWell(
-                    onTap: () => _openProject(context, project),
-                    onLongPress: () =>
-                        _showItemActions(context, doc.id, project.name, data),
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: CuttingColors.background,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: CuttingColors.primary.withValues(
-                                alpha: 0.1,
+                // 🚀 [10-02] 왼쪽으로 밀어서도 지운다. 이력까지 지우므로 먼저 묻는다.
+                return SwipeToDelete(
+                  itemKey: ValueKey('steel_project_${doc.id}'),
+                  radius: 20,
+                  bottomMargin: 12,
+                  confirm: () => _confirmDeleteProject(context, project.name),
+                  onDelete: () => _removeProject(doc.id),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    child: InkWell(
+                      onTap: () => _openProject(context, project),
+                      onLongPress: () =>
+                          _showItemActions(context, doc.id, project.name, data),
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: CuttingColors.background,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: CuttingColors.primary.withValues(
+                                  alpha: 0.1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
                               ),
-                              borderRadius: BorderRadius.circular(12),
+                              child: const AppIcon(
+                                AppGlyph.stChannel,
+                                color: CuttingColors.primary,
+                                size: 22,
+                              ),
                             ),
-                            child: const AppIcon(
-                              AppGlyph.stChannel,
-                              color: CuttingColors.primary,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  project.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: CuttingColors.textPrimary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  "항목 ${project.items.length}건 · 총 길이 "
-                                  "${(project.totalLength / 1000).toStringAsFixed(1)}m",
-                                  style: const TextStyle(
-                                    color: CuttingColors.textSecondary,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                if (steelProjectWeightText(project).isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 2),
-                                    child: Text(
-                                      steelProjectWeightText(project),
-                                      key: Key(
-                                        'steel_project_weight_${project.id}',
-                                      ),
-                                      style: const TextStyle(
-                                        color: CuttingColors.primaryDark,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    project.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: CuttingColors.textPrimary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w800,
                                     ),
                                   ),
-                              ],
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "항목 ${project.items.length}건 · 총 길이 "
+                                    "${(project.totalLength / 1000).toStringAsFixed(1)}m",
+                                    style: const TextStyle(
+                                      color: CuttingColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  if (steelProjectWeightText(
+                                    project,
+                                  ).isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        steelProjectWeightText(project),
+                                        key: Key(
+                                          'steel_project_weight_${project.id}',
+                                        ),
+                                        style: const TextStyle(
+                                          color: CuttingColors.primaryDark,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                          // 🚀 [고침] 기록·재고·삭제 메뉴가 길게 누르기로만 열려 있는 줄 몰랐다.
-                          IconButton(
-                            key: const Key('steel_project_more'),
-                            tooltip: "메뉴",
-                            icon: const Icon(
-                              Icons.more_vert_rounded,
-                              color: CuttingColors.textSecondary,
+                            // 🚀 [고침] 기록·재고·삭제 메뉴가 길게 누르기로만 열려 있는 줄 몰랐다.
+                            IconButton(
+                              key: const Key('steel_project_more'),
+                              tooltip: "메뉴",
+                              icon: const Icon(
+                                Icons.more_vert_rounded,
+                                color: CuttingColors.textSecondary,
+                              ),
+                              onPressed: () => _showItemActions(
+                                context,
+                                doc.id,
+                                project.name,
+                                data,
+                              ),
                             ),
-                            onPressed: () => _showItemActions(
-                              context,
-                              doc.id,
-                              project.name,
-                              data,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),

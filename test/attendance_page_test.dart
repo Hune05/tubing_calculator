@@ -256,6 +256,15 @@ void main() {
     expect(store.deleted.single, DateTime(2026, 9, 23));
     expect(AttendanceCache.byDate.containsKey('2026-09-23'), isFalse);
     expect(_textOf(tester, 'att_sum_leave'), '0일');
+
+    // 잘못 지웠으면 "되돌리기"로 같은 날짜·같은 근태가 다시 저장된다(10-02).
+    expect(find.text('삭제했습니다: 9월 23일 근태 기록'), findsOneWidget);
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    expect(store.saved.single.date, DateTime(2026, 9, 23));
+    expect(store.saved.single.type, '연차');
+    expect(store.data.containsKey('2026-09-23'), isTrue);
+    expect(AttendanceCache.byDate['2026-09-23'], '연차');
   });
 
   testWidgets('기록을 읽지 못하면 빈 달 대신 알림과 다시 읽기', (tester) async {

@@ -2,6 +2,8 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
+
 import '../../tube_cutting/cutting_theme.dart';
 import '../material_catalog.dart';
 import 'material_catalog_store.dart';
@@ -327,24 +329,41 @@ class _CatalogBodyState extends State<_CatalogBody> {
     }
   }
 
-  Future<void> _deleteItem(CatalogItem item) async {
-    final ok = await showCuttingConfirmDialog(
-      context,
-      title: "목록에서 지우겠습니까?",
-      message: "${item.name}을 자재 목록에서 지웁니다. 창고 재고는 그대로 둡니다.",
-      confirmLabel: "지우기",
-      danger: true,
-    );
-    if (!ok) return;
-    try {
-      await deleteCatalogItem(item.id);
+  /// 자재 목록에서 지운다(밀어서 지우기·길게 눌러 지우기). 창고 재고는 그대로 둔다.
+  /// 화면에서는 곧바로 빼고, "되돌리기"를 누르면 같은 자리·같은 내용으로 다시 넣는다(10-02).
+  void _deleteItem(CatalogItem item) {
+    final index = _all.indexWhere((i) => i.id == item.id);
+    if (index < 0) return;
+    final wasPicked = _picked.contains(item.id);
+    setState(() {
+      _all = [..._all]..removeAt(index);
+      _picked.remove(item.id);
+    });
+    deleteCatalogItem(item.id).catchError((Object _) {
       if (!mounted) return;
-      showCuttingSnack(context, "지웠습니다.");
-      await _load();
-    } catch (_) {
-      if (!mounted) return;
+      _restoreItem(item, index, wasPicked);
       showCuttingSnack(context, "지우지 못했습니다.", isError: true);
-    }
+    });
+    showDeleteUndo(
+      context,
+      item.name,
+      onUndo: () {
+        if (!mounted) return;
+        _restoreItem(item, index, wasPicked);
+        saveCatalogItem(item).catchError((Object _) {
+          if (!mounted) return;
+          showCuttingSnack(context, "되돌리지 못했습니다.", isError: true);
+        });
+      },
+    );
+  }
+
+  void _restoreItem(CatalogItem item, int index, bool wasPicked) {
+    if (_all.any((i) => i.id == item.id)) return;
+    setState(() {
+      _all = [..._all]..insert(index.clamp(0, _all.length), item);
+      if (wasPicked) _picked.add(item.id);
+    });
   }
 
   @override
@@ -455,44 +474,55 @@ class _CatalogBodyState extends State<_CatalogBody> {
                           itemBuilder: (context, i) {
                             final item = shown[i];
                             final on = _picked.contains(item.id);
-                            return ListTile(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                setState(() {
-                                  if (on) {
-                                    _picked.remove(item.id);
-                                  } else {
-                                    _picked.add(item.id);
-                                  }
-                                });
-                              },
-                              onLongPress: () => _showRowMenu(item),
-                              leading: Icon(
-                                on ? Icons.check_circle : Icons.circle_outlined,
-                                color: on
-                                    ? CuttingColors.primary
-                                    : CuttingColors.border,
-                              ),
-                              title: Text(
-                                item.name,
-                                style: const TextStyle(
-                                  color: CuttingColors.textPrimary,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              subtitle: Text(
-                                [
-                                  if (item.kind.isNotEmpty)
-                                    item.kind
-                                  else
-                                    materialCategoryLabel(item.category),
-                                  "단위 ${item.unit}",
-                                  if (item.source.isNotEmpty) item.source,
-                                ].join(' · '),
-                                style: const TextStyle(
-                                  color: CuttingColors.textSecondary,
-                                  fontSize: 13,
+                            return SwipeToDelete(
+                              itemKey: ValueKey('catalog_${item.id}'),
+                              radius: 0,
+                              bottomMargin: 0,
+                              onDelete: () => _deleteItem(item),
+                              child: ColoredBox(
+                                color: CuttingColors.surface,
+                                child: ListTile(
+                                  onTap: () {
+                                    HapticFeedback.selectionClick();
+                                    setState(() {
+                                      if (on) {
+                                        _picked.remove(item.id);
+                                      } else {
+                                        _picked.add(item.id);
+                                      }
+                                    });
+                                  },
+                                  onLongPress: () => _showRowMenu(item),
+                                  leading: Icon(
+                                    on
+                                        ? Icons.check_circle
+                                        : Icons.circle_outlined,
+                                    color: on
+                                        ? CuttingColors.primary
+                                        : CuttingColors.border,
+                                  ),
+                                  title: Text(
+                                    item.name,
+                                    style: const TextStyle(
+                                      color: CuttingColors.textPrimary,
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    [
+                                      if (item.kind.isNotEmpty)
+                                        item.kind
+                                      else
+                                        materialCategoryLabel(item.category),
+                                      "단위 ${item.unit}",
+                                      if (item.source.isNotEmpty) item.source,
+                                    ].join(' · '),
+                                    style: const TextStyle(
+                                      color: CuttingColors.textSecondary,
+                                      fontSize: 13,
+                                    ),
+                                  ),
                                 ),
                               ),
                             );

@@ -632,9 +632,19 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             ...quickOptions.map((opt) {
                               bool isSelected = ctrl.text == opt;
                               return GestureDetector(
-                                onLongPress: () {
+                                // 길게 누르면 바로 지우지 않고 이름을 적어 한 번 묻는다(10-02).
+                                // 이 창 위에서는 아래 알림의 "되돌리기"를 누를 수 없어 확인으로 했다.
+                                onLongPress: () async {
                                   if (allowCustomAdd) {
                                     HapticFeedback.heavyImpact();
+                                    final ok = await showCuttingConfirmDialog(
+                                      context,
+                                      title: "보관 위치를 삭제하겠습니까?",
+                                      message: "보관 위치 목록에서 '$opt' 칸을 지웁니다.",
+                                      confirmLabel: "삭제",
+                                      danger: true,
+                                    );
+                                    if (!ok || !context.mounted) return;
                                     setDialogState(() {
                                       _globalLocationOptions.remove(opt);
                                       if (ctrl.text == opt) {

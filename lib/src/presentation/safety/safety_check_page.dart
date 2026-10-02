@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
@@ -336,14 +337,68 @@ class _ItemsSheetState extends State<_ItemsSheet> {
     super.dispose();
   }
 
+  /// 방금 지운 항목과 자리(되돌리기용). 아래 알림은 이 창에 가려지므로 창 안에 띄운다.
+  (String, int)? _removed;
+
   void _addItem() {
     final t = _add.text.trim();
     if (t.isEmpty || _list.contains(t)) return;
     setState(() {
       _list.add(t);
       _add.clear();
+      _removed = null;
     });
   }
+
+  void _remove(String l) {
+    final i = _list.indexOf(l);
+    if (i < 0) return;
+    setState(() {
+      _list.removeAt(i);
+      _removed = (l, i);
+    });
+  }
+
+  void _undoRemove() {
+    final r = _removed;
+    if (r == null) return;
+    setState(() {
+      if (!_list.contains(r.$1)) {
+        _list.insert(r.$2.clamp(0, _list.length), r.$1);
+      }
+      _removed = null;
+    });
+  }
+
+  Widget _undoBar(String label) => Container(
+    key: const Key('safety_item_undo_bar'),
+    margin: const EdgeInsets.only(top: 6),
+    padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
+    decoration: BoxDecoration(
+      color: AppColors.text,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Row(
+      children: [
+        Expanded(
+          child: Text(
+            '삭제했습니다: $label',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+        ),
+        TextButton(
+          key: const Key('safety_item_undo'),
+          onPressed: _undoRemove,
+          child: const Text(
+            '되돌리기',
+            style: TextStyle(color: Color(0xFF7FD4DC), fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -365,18 +420,26 @@ class _ItemsSheetState extends State<_ItemsSheet> {
               shrinkWrap: true,
               children: [
                 for (final l in _list)
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(l, style: const TextStyle(fontSize: 14)),
-                    trailing: IconButton(
-                      key: Key('safety_remove_$l'),
-                      icon: const Icon(AppIcons.delete, size: 20),
-                      onPressed: () => setState(() => _list.remove(l)),
+                  SwipeToDelete(
+                    itemKey: ValueKey('safety_swipe_$l'),
+                    radius: 8,
+                    bottomMargin: 0,
+                    onDelete: () => _remove(l),
+                    child: ListTile(
+                      key: Key('safety_item_$l'),
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(l, style: const TextStyle(fontSize: 14)),
                     ),
                   ),
               ],
             ),
           ),
+          if (_removed != null) _undoBar(_removed!.$1),
+          if (_list.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(top: 2, bottom: 4),
+              child: Text('지울 항목은 왼쪽으로 끝까지 미십시오.', style: AppText.caption),
+            ),
           Row(
             children: [
               Expanded(
@@ -403,6 +466,7 @@ class _ItemsSheetState extends State<_ItemsSheet> {
                   _list
                     ..clear()
                     ..addAll(kDefaultSafetyItems);
+                  _removed = null;
                 }),
                 child: const Text('처음 항목으로'),
               ),
@@ -489,9 +553,25 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
     if (action == 'send') {
       await widget.share(buildSafetyCheckText(r));
     } else if (action == 'delete') {
-      await deleteSafetyRecord(r.id);
-      await _reload();
+      _delete(r);
     }
+  }
+
+  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다(10-02).
+  void _delete(SafetyRecord r) {
+    final l = _records;
+    if (l == null || !mounted) return;
+    setState(() => _records = [...l]..removeWhere((e) => e.id == r.id));
+    final done = deleteSafetyRecord(r.id);
+    showDeleteUndo(
+      context,
+      [safetyTimeLabel(r.at), if (r.site.isNotEmpty) r.site].join(' '),
+      onUndo: () async {
+        await done;
+        await addSafetyRecord(r);
+        await _reload();
+      },
+    );
   }
 
   @override
@@ -510,26 +590,30 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
               padding: const EdgeInsets.all(16),
               children: [
                 for (final r in list)
-                  Card(
-                    elevation: 0,
-                    color: AppColors.surface,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: ListTile(
-                      key: Key('safety_record_${r.id}'),
-                      onTap: () => _open(r),
-                      title: Text(
-                        [safetyTimeLabel(r.at), if (r.site.isNotEmpty) r.site].join(' · '),
-                        style: const TextStyle(fontWeight: FontWeight.w800),
+                  SwipeToDelete(
+                    itemKey: ValueKey('safety_record_swipe_${r.id}'),
+                    onDelete: () => _delete(r),
+                    child: Card(
+                      elevation: 0,
+                      color: AppColors.surface,
+                      margin: const EdgeInsets.only(bottom: 8),
+                      child: ListTile(
+                        key: Key('safety_record_${r.id}'),
+                        onTap: () => _open(r),
+                        title: Text(
+                          [safetyTimeLabel(r.at), if (r.site.isNotEmpty) r.site].join(' · '),
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                        subtitle: Text(
+                          [
+                            if (r.work.isNotEmpty) r.work,
+                            r.unanswered == 0
+                                ? '항목 모두 확인'
+                                : '미확인 ${r.unanswered}개',
+                          ].join(' · '),
+                        ),
+                        trailing: const Icon(AppIcons.forward),
                       ),
-                      subtitle: Text(
-                        [
-                          if (r.work.isNotEmpty) r.work,
-                          r.unanswered == 0
-                              ? '항목 모두 확인'
-                              : '미확인 ${r.unanswered}개',
-                        ].join(' · '),
-                      ),
-                      trailing: const Icon(AppIcons.forward),
                     ),
                   ),
               ],

@@ -1,4 +1,5 @@
 // 저장한 교정 기록 목록(폰 저장 + 서버, 열 때 서버 것과 합침). 누르면 성적서 보기·계산기로 불러오기·지우기. CSV 내보내기(엑셀용).
+// 지우기는 줄을 왼쪽으로 밀거나 누른 창의 "지우기" — 지운 뒤 "되돌리기"를 띄운다(10-02).
 // 불러오기를 고르면 그 기록을 돌려주며 닫는다(Navigator.pop(record)).
 import 'dart:async';
 import 'dart:convert';
@@ -8,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
 import '../../data/record_sync.dart';
 import 'cal_record.dart';
@@ -190,71 +192,96 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
     final color = pass == false
         ? fc.danger
         : (pass == true ? fc.brand : fc.textSub);
-    return Material(
-      color: fc.surface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        key: Key('cr_item_${r.id}'),
+    return SwipeToDelete(
+      itemKey: ValueKey('cr_swipe_${r.id}'),
+      radius: 14,
+      bottomMargin: 0,
+      onDelete: () => _delete(r),
+      child: Material(
+        color: fc.surface,
         borderRadius: BorderRadius.circular(14),
-        onTap: () => _actions(r),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      r.tag.isEmpty ? '(태그 없음)' : r.tag,
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
-                        color: fc.text,
-                      ),
-                    ),
-                    if (r.instrument.isNotEmpty)
+        child: InkWell(
+          key: Key('cr_item_${r.id}'),
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => _actions(r),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        r.instrument,
-                        style: TextStyle(fontSize: 14, color: fc.text),
-                      ),
-                    Text(
-                      '${_date(r.date)}${r.worker.isEmpty ? '' : ' · ${r.worker}'}',
-                      style: TextStyle(fontSize: 13, color: fc.textSub),
-                    ),
-                    if (r.isSwitch)
-                      Text(
-                        '스위치 · ${switchDirLabel(r.sw!.dir)} · 동작점 ${_pv(r.sw!.setpoint, r.unit)}',
-                        key: Key('cr_type_${r.id}'),
+                        r.tag.isEmpty ? '(태그 없음)' : r.tag,
                         style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: fc.brand,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          color: fc.text,
                         ),
                       ),
-                    Text(
-                      r.adjusted
-                          ? '조정 전 ${calVerdictText(r.foundPass)} → 조정 후 ${calVerdictText(r.leftPass)}'
-                          : '조정 없음',
-                      key: Key('cr_phase_${r.id}'),
-                      style: TextStyle(fontSize: 13, color: fc.textSub),
-                    ),
-                  ],
+                      if (r.instrument.isNotEmpty)
+                        Text(
+                          r.instrument,
+                          style: TextStyle(fontSize: 14, color: fc.text),
+                        ),
+                      Text(
+                        '${_date(r.date)}${r.worker.isEmpty ? '' : ' · ${r.worker}'}',
+                        style: TextStyle(fontSize: 13, color: fc.textSub),
+                      ),
+                      if (r.isSwitch)
+                        Text(
+                          '스위치 · ${switchDirLabel(r.sw!.dir)} · 동작점 ${_pv(r.sw!.setpoint, r.unit)}',
+                          key: Key('cr_type_${r.id}'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: fc.brand,
+                          ),
+                        ),
+                      Text(
+                        r.adjusted
+                            ? '조정 전 ${calVerdictText(r.foundPass)} → 조정 후 ${calVerdictText(r.leftPass)}'
+                            : '조정 없음',
+                        key: Key('cr_phase_${r.id}'),
+                        style: TextStyle(fontSize: 13, color: fc.textSub),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                calVerdictText(pass),
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
-                  color: color,
+                const SizedBox(width: 8),
+                Text(
+                  calVerdictText(pass),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: color,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다.
+  void _delete(CalRecord r) {
+    final l = _list;
+    if (l == null) return;
+    setState(() => _list = [...l]..removeWhere((e) => e.id == r.id));
+    final done = CalRecordStore.delete(r.id);
+    unawaited(done.then((_) => _refreshSyncAfterPush()));
+    showDeleteUndo(
+      context,
+      '${r.tag.isEmpty ? '(태그 없음)' : r.tag} ${_date(r.date)}',
+      onUndo: () async {
+        await done;
+        await CalRecordStore.put(r);
+        await _reload();
+        unawaited(_refreshSyncAfterPush());
+      },
     );
   }
 
@@ -307,31 +334,7 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
       case 'load':
         Navigator.pop(context, r);
       case 'delete':
-        final ok = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('기록 지우기'),
-            content: Text(
-              '${r.tag.isEmpty ? '(태그 없음)' : r.tag} ${_date(r.date)} 기록을 지우겠습니까?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('취소'),
-              ),
-              TextButton(
-                key: const Key('cr_delete_ok'),
-                onPressed: () => Navigator.pop(ctx, true),
-                child: Text('지우기', style: TextStyle(color: fc.danger)),
-              ),
-            ],
-          ),
-        );
-        if (ok == true) {
-          await CalRecordStore.delete(r.id);
-          await _reload();
-          unawaited(_refreshSyncAfterPush());
-        }
+        _delete(r);
     }
   }
 }

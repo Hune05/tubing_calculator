@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
 import '../../data/record_sync.dart';
 import '../common/calc_form_parts.dart';
@@ -336,18 +337,29 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     setState(() => _rows.add(_RowCtl(_nextId++)));
   }
 
+  /// 밀어서 지운 줄을 곧바로 빼고, "되돌리기"를 누르면 같은 값으로 같은 자리에 다시 넣는다(10-02).
+  /// 마지막 한 줄은 밀리지 않는다.
   void _removeRow(_RowCtl r) {
+    final i = _rows.indexOf(r);
+    if (i < 0 || _rows.length <= 1) return;
+    final id = r.id;
+    final input = r.input;
     setState(() {
-      if (_rows.length == 1) {
-        r.name.clear();
-        r.kw.clear();
-        r.pf.clear();
-        r.df.clear();
-        return;
-      }
-      _rows.remove(r);
+      _rows.removeAt(i);
       WidgetsBinding.instance.addPostFrameCallback((_) => r.dispose());
     });
+    final name = input.name.trim();
+    showDeleteUndo(
+      context,
+      name.isEmpty ? '${i + 1}번 줄' : name,
+      onUndo: () {
+        if (!mounted || _rows.length >= kLoadSumMaxRows) return;
+        if (_rows.any((e) => e.id == id)) return;
+        setState(
+          () => _rows.insert(i.clamp(0, _rows.length), _RowCtl(id, input)),
+        );
+      },
+    );
   }
 
   // ─────────────── 화면 부품 ───────────────
@@ -395,8 +407,16 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     ),
   );
 
-  Widget _rowCard(int i, _RowCtl r) =>
-      KeyedSubtree(key: ValueKey('els_rowbox_${r.id}'), child: _rowBox(i, r));
+  Widget _rowCard(int i, _RowCtl r) => KeyedSubtree(
+    key: ValueKey('els_rowbox_${r.id}'),
+    child: SwipeToDelete(
+      itemKey: ValueKey('els_swipe_${r.id}'),
+      radius: 14,
+      enabled: _rows.length > 1,
+      onDelete: () => _removeRow(r),
+      child: _rowBox(i, r),
+    ),
+  );
 
   Widget _rowBox(int i, _RowCtl r) => calcBox(
     child: Padding(
@@ -421,13 +441,6 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
                   r.name,
                   numeric: false,
                 ),
-              ),
-              IconButton(
-                key: Key('els_del_${r.id}'),
-                tooltip: '줄 삭제',
-                visualDensity: VisualDensity.compact,
-                onPressed: () => _removeRow(r),
-                icon: Icon(Icons.close_rounded, color: fc.textSub),
               ),
             ],
           ),
@@ -621,6 +634,15 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         '줄의 수용률 칸을 비워 두면 이 값을 씁니다. 설비용량 중 동시에 쓰는 비율입니다. 0 초과 100 이하입니다.',
       ),
       for (var i = 0; i < _rows.length; i++) _rowCard(i, _rows[i]),
+      if (_rows.length > 1)
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 4),
+          child: Text(
+            '지울 줄은 번호를 잡고 왼쪽으로 끝까지 미십시오.',
+            key: const Key('els_swipe_hint'),
+            style: TextStyle(fontSize: 13, color: fc.textSub),
+          ),
+        ),
       Align(
         alignment: Alignment.centerLeft,
         child: OutlinedButton.icon(

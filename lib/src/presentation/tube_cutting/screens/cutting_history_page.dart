@@ -3,7 +3,6 @@ import 'dart:io';
 
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
@@ -17,6 +16,7 @@ import '../cutting_firestore_helper.dart'
 import '../cutting_math.dart' show safeFileName;
 import '../cutting_record_export.dart';
 import '../cutting_theme.dart';
+import '../../../core/common_widgets/swipe_to_delete.dart';
 
 const List<String> _kWeekdaysKo = ['월', '화', '수', '목', '금', '토', '일'];
 
@@ -41,6 +41,8 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
   String? _specFilter;
   // 화면에 불러온 기록(내보내기에 그대로 쓴다).
   List<CutRecord> _records = [];
+  // 밀어서 지운 기록은 서버 목록이 따라오기 전에 바로 빠져야 한다(안 그러면 오류).
+  final Set<String> _hiddenIds = {};
 
   @override
   void dispose() {
@@ -53,16 +55,24 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
     return "${day.month}월 ${day.day}일 ($weekday)";
   }
 
-  Future<void> _deleteRecord(CutRecord record) async {
-    final confirmed = await showCuttingConfirmDialog(
+  // 🚀 [10-02] 기록 지우기는 누적 합계·재고 사용량까지 같이 빼서 되돌리기가 어렵다.
+  // 그래서 줄을 왼쪽으로 끝까지 밀면 어떤 기록인지 적어 먼저 묻는다.
+  Future<bool> _confirmDeleteRecord(CutRecord record) {
+    final time = DateFormat('HH:mm').format(record.timestamp);
+    return showCuttingConfirmDialog(
       context,
       title: "기록 삭제",
-      message: "이 컷팅 기록을 삭제하시겠습니까? 프로젝트 누적 합계에서도 이만큼 함께 빠집니다.",
+      message:
+          "'$time · 절단 ${record.cutLength.toStringAsFixed(1)}mm' 기록을 지우시겠습니까? 프로젝트 누적 합계에서도 이만큼 함께 빠집니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
     );
-    if (confirmed) {
+  }
+
+  Future<void> _deleteRecord(CutRecord record) async {
+    setState(() => _hiddenIds.add(record.id));
+    try {
       // 기록 지우기와 누적 합계 빼기를 한 묶음으로. 예전엔 따로 기다려서, 통신이 없으면
       // 첫 번째(지우기)에서 영영 멈춰 합계는 빠지지 않은 채 기록만 나중에 지워졌다.
       final projectRef = FirebaseFirestore.instance
@@ -111,6 +121,11 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
       if (mounted) {
         showCuttingSnack(context, "기록을 삭제했습니다.");
       }
+    } catch (_) {
+      // 못 지웠으면 줄을 다시 보인다.
+      if (!mounted) return;
+      setState(() => _hiddenIds.remove(record.id));
+      showCuttingSnack(context, "지우지 못했습니다. 통신을 확인하십시오.", isError: true);
     }
   }
 
@@ -268,7 +283,9 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
               );
             }
 
-            final docs = snapshot.data?.docs ?? [];
+            final docs = (snapshot.data?.docs ?? [])
+                .where((d) => !_hiddenIds.contains(d.id))
+                .toList();
             if (docs.isEmpty) {
               return const Center(
                 child: Padding(
@@ -544,7 +561,13 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             separatorBuilder: (context, index) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final r = sorted[index];
-              return _buildRecordCard(r);
+              return SwipeToDelete(
+                itemKey: ValueKey('cut_record_${r.id}'),
+                bottomMargin: 0,
+                confirm: () => _confirmDeleteRecord(r),
+                onDelete: () => _deleteRecord(r),
+                child: _buildRecordCard(r),
+              );
             },
           ),
         ),
@@ -608,20 +631,6 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
               Text(
                 timeStr,
                 style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-              ),
-              IconButton(
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  Icons.close_rounded,
-                  size: 16,
-                  color: Colors.grey.shade400,
-                ),
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  _deleteRecord(r);
-                },
               ),
             ],
           ),

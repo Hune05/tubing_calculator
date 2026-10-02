@@ -41,6 +41,7 @@ import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
 import '../cutting_fitting_favorites.dart';
+import '../../../core/common_widgets/swipe_to_delete.dart';
 
 // 🚀 [입력 고도화] 라인 템플릿(자주 쓰는 부속 구성)을 저장하는 컬렉션.
 // 프로젝트와 무관하게 공유되는 참고 데이터라 fittings 컬렉션과 같은
@@ -1207,24 +1208,28 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     if (mounted) showCuttingSnack(context, "템플릿을 불러왔습니다.");
   }
 
-  Future<void> _deleteTemplate(String docId) async {
-    final confirmed = await showCuttingConfirmDialog(
-      context,
-      title: "템플릿 삭제",
-      message: "이 템플릿을 삭제하시겠습니까? 되돌릴 수 없습니다.",
-      confirmLabel: "삭제",
-      danger: true,
-      icon: Icons.delete_outline_rounded,
+  /// 🚀 [10-02] 밀어서 지운 라인 템플릿. 확인창 대신 "되돌리기"로 같은 문서(같은 id·같은
+  /// 내용)를 다시 적는다. [listContext]는 시트 안 알림 자리 아래의 context.
+  void _deleteTemplate(
+    BuildContext listContext,
+    String docId,
+    String name,
+    Map<String, dynamic> data, {
+    required VoidCallback onRestored,
+  }) {
+    final ref = FirebaseFirestore.instance
+        .collection(kCuttingLineTemplatesCollection)
+        .doc(docId);
+    final backup = Map<String, dynamic>.from(data);
+    unawaited(ref.delete().catchError((_) {}));
+    showDeleteUndo(
+      listContext.mounted ? listContext : context,
+      name,
+      onUndo: () {
+        unawaited(ref.set(backup).catchError((_) {}));
+        onRestored();
+      },
     );
-    if (confirmed) {
-      unawaited(
-        FirebaseFirestore.instance
-            .collection(kCuttingLineTemplatesCollection)
-            .doc(docId)
-            .delete()
-            .catchError((_) {}),
-      );
-    }
   }
 
   // 🚀 [6번 강화] 낱개 부속 즐겨찾기(부속 검색 팝업의 별표) 중 몇 개를
@@ -1244,20 +1249,34 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
-  Future<void> _deleteFittingSet(String name) async {
-    final confirmed = await showCuttingConfirmDialog(
-      context,
-      title: "부속 세트 삭제",
-      message: "'$name' 세트를 삭제하시겠습니까?",
-      confirmLabel: "삭제",
-      danger: true,
-      icon: Icons.delete_outline_rounded,
-    );
-    if (!confirmed) return;
+  /// 🚀 [10-02] 밀어서 지운 부속 세트. 확인창 대신 "되돌리기"로 같은 자리에 다시 넣는다.
+  /// [listContext]는 시트 안 알림 자리 아래의 context(시트가 닫혔으면 이 화면에 띄운다).
+  Future<void> _deleteFittingSet(
+    BuildContext listContext,
+    FittingSetGroup set,
+    int index, {
+    required VoidCallback onRestored,
+  }) async {
+    // 이름이 같은 세트가 여럿일 수 있어 그 자리의 것 하나만 뺀다.
     final sets = await loadFittingSets();
-    sets.removeWhere((s) => s.name == name);
+    final at = index < sets.length && sets[index].name == set.name
+        ? index
+        : sets.indexWhere((s) => s.name == set.name);
+    if (at >= 0) sets.removeAt(at);
     await saveFittingSets(sets);
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {});
+    showDeleteUndo(
+      listContext.mounted ? listContext : context,
+      set.name,
+      onUndo: () async {
+        final now = await loadFittingSets();
+        now.insert(index.clamp(0, now.length), set);
+        await saveFittingSets(now);
+        onRestored();
+        if (mounted) setState(() {});
+      },
+    );
   }
 
   Future<void> _promptCreateFittingSet() async {
@@ -1416,6 +1435,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   }
 
   void _showFittingSetSheet() {
+    // 밀어서 지운 줄이 바로 빠지게 시트가 읽어 온 목록을 그대로 들고 고친다.
+    final setsFuture = loadFittingSets();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1478,101 +1499,132 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 ),
               ),
               Expanded(
-                child: FutureBuilder<List<FittingSetGroup>>(
-                  future: loadFittingSets(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return const Center(
-                        child: Text("불러오지 못했습니다. 통신을 확인하십시오."),
-                      );
-                    }
-                    if (!snapshot.hasData) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: makitaTeal),
-                      );
-                    }
-                    final sets = snapshot.data!;
-                    if (sets.isEmpty) {
-                      return const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: Text(
-                            "저장된 부속 세트가 없습니다.",
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                      );
-                    }
-                    return ListView.separated(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                      itemCount: sets.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final set = sets[i];
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: lightBg,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
+                // 되돌리기 알림이 시트 뒤에 가려지지 않게 시트 안에 알림 자리를 둔다.
+                child: ScaffoldMessenger(
+                  child: Scaffold(
+                    backgroundColor: Colors.transparent,
+                    resizeToAvoidBottomInset: false,
+                    body: StatefulBuilder(
+                      builder: (listCtx, setSheetState) =>
+                          FutureBuilder<List<FittingSetGroup>>(
+                            future: setsFuture,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasError) {
+                                return const Center(
+                                  child: Text("불러오지 못했습니다. 통신을 확인하십시오."),
+                                );
+                              }
+                              if (!snapshot.hasData) {
+                                return const Center(
+                                  child: CircularProgressIndicator(
+                                    color: makitaTeal,
+                                  ),
+                                );
+                              }
+                              final sets = snapshot.data!;
+                              if (sets.isEmpty) {
+                                return const Center(
+                                  child: Padding(
+                                    padding: EdgeInsets.all(24),
                                     child: Text(
-                                      set.name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: textPrimary,
+                                      "저장된 부속 세트가 없습니다.",
+                                      style: TextStyle(color: Colors.grey),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return ListView.separated(
+                                controller: scrollController,
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  8,
+                                  20,
+                                  20,
+                                ),
+                                itemCount: sets.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, i) {
+                                  final set = sets[i];
+                                  // 🚀 [10-02] 휴지통 단추 대신 왼쪽으로 밀어서 지우고 되돌리기.
+                                  return SwipeToDelete(
+                                    itemKey: ObjectKey(set),
+                                    bottomMargin: 0,
+                                    onDelete: () {
+                                      setSheetState(() => sets.removeAt(i));
+                                      _deleteFittingSet(
+                                        listCtx,
+                                        set,
+                                        i,
+                                        onRestored: () {
+                                          if (!listCtx.mounted) return;
+                                          if (sets.contains(set)) return;
+                                          setSheetState(
+                                            () => sets.insert(
+                                              i.clamp(0, sets.length),
+                                              set,
+                                            ),
+                                          );
+                                        },
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(14),
+                                      decoration: BoxDecoration(
+                                        color: lightBg,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            set.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: textPrimary,
+                                            ),
+                                          ),
+                                          Text(
+                                            set.items
+                                                .map((e) => e.name)
+                                                .join(' · '),
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: OutlinedButton(
+                                              onPressed: () {
+                                                Navigator.pop(ctx);
+                                                _insertFittingSet(set);
+                                              },
+                                              style: OutlinedButton.styleFrom(
+                                                side: const BorderSide(
+                                                  color: makitaTeal,
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                "라인에 추가",
+                                                style: TextStyle(
+                                                  color: makitaTeal,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      color: CuttingColors.danger,
-                                      size: 20,
-                                    ),
-                                    onPressed: () async {
-                                      await _deleteFittingSet(set.name);
-                                      if (ctx.mounted) Navigator.pop(ctx);
-                                    },
-                                  ),
-                                ],
-                              ),
-                              Text(
-                                set.items.map((e) => e.name).join(' · '),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: OutlinedButton(
-                                  onPressed: () {
-                                    Navigator.pop(ctx);
-                                    _insertFittingSet(set);
-                                  },
-                                  style: OutlinedButton.styleFrom(
-                                    side: const BorderSide(color: makitaTeal),
-                                  ),
-                                  child: const Text(
-                                    "라인에 추가",
-                                    style: TextStyle(color: makitaTeal),
-                                  ),
-                                ),
-                              ),
-                            ],
+                                  );
+                                },
+                              );
+                            },
                           ),
-                        );
-                      },
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -1583,6 +1635,12 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   }
 
   void _showTemplateSheet() {
+    final templates = FirebaseFirestore.instance
+        .collection(kCuttingLineTemplatesCollection)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+    // 밀어서 지운 줄은 서버 목록이 따라오기 전에 바로 빠져야 한다(안 그러면 오류).
+    final hidden = <String>{};
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1661,99 +1719,135 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 ),
               ),
               Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection(kCuttingLineTemplatesCollection)
-                      .orderBy('createdAt', descending: true)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.hasError) {
-                      return const Center(
-                        child: Text("불러오지 못했습니다. 통신을 확인하십시오."),
-                      );
-                    }
-                    if (!snapshot.hasData) {
-                      return const Center(
-                        child: CircularProgressIndicator(color: makitaTeal),
-                      );
-                    }
-                    final uid = currentUid();
-                    final docs = snapshot.data!.docs
-                        .where((d) => canSeeDoc(d.data() as Map, uid))
-                        .toList();
-                    if (docs.isEmpty) {
-                      return const Center(
-                        child: Text(
-                          "저장된 템플릿이 없습니다.",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      );
-                    }
-                    return ListView.separated(
-                      controller: scrollController,
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                      itemCount: docs.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final doc = docs[i];
-                        final data = doc.data() as Map<String, dynamic>;
-                        final name = (data['name'] as String?) ?? "이름 없음";
-                        final count = (data['points'] as List?)?.length ?? 0;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            color: lightBg,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.view_list_outlined,
-                                color: makitaTeal,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      name,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: textPrimary,
+                // 되돌리기 알림이 시트 뒤에 가려지지 않게 시트 안에 알림 자리를 둔다.
+                child: ScaffoldMessenger(
+                  child: Scaffold(
+                    backgroundColor: Colors.transparent,
+                    resizeToAvoidBottomInset: false,
+                    body: StatefulBuilder(
+                      builder: (listCtx, setSheetState) =>
+                          StreamBuilder<QuerySnapshot>(
+                            stream: templates,
+                            builder: (context, snapshot) {
+                              if (snapshot.hasError) {
+                                return const Center(
+                                  child: Text("불러오지 못했습니다. 통신을 확인하십시오."),
+                                );
+                              }
+                              if (!snapshot.hasData) {
+                                return const Center(
+                                  child: CircularProgressIndicator(
+                                    color: makitaTeal,
+                                  ),
+                                );
+                              }
+                              final uid = currentUid();
+                              final docs = snapshot.data!.docs
+                                  .where((d) => !hidden.contains(d.id))
+                                  .where((d) => canSeeDoc(d.data() as Map, uid))
+                                  .toList();
+                              if (docs.isEmpty) {
+                                return const Center(
+                                  child: Text(
+                                    "저장된 템플릿이 없습니다.",
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                );
+                              }
+                              return ListView.separated(
+                                controller: scrollController,
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  0,
+                                  20,
+                                  20,
+                                ),
+                                itemCount: docs.length,
+                                separatorBuilder: (_, _) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, i) {
+                                  final doc = docs[i];
+                                  final data =
+                                      doc.data() as Map<String, dynamic>;
+                                  final name =
+                                      (data['name'] as String?) ?? "이름 없음";
+                                  final count =
+                                      (data['points'] as List?)?.length ?? 0;
+                                  // 🚀 [10-02] 휴지통 단추 대신 왼쪽으로 밀어서 지우고 되돌리기.
+                                  return SwipeToDelete(
+                                    itemKey: ValueKey(
+                                      'line_template_${doc.id}',
+                                    ),
+                                    bottomMargin: 0,
+                                    onDelete: () {
+                                      setSheetState(() => hidden.add(doc.id));
+                                      _deleteTemplate(
+                                        listCtx,
+                                        doc.id,
+                                        name,
+                                        data,
+                                        onRestored: () {
+                                          if (listCtx.mounted) {
+                                            setSheetState(
+                                              () => hidden.remove(doc.id),
+                                            );
+                                          }
+                                        },
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: lightBg,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.view_list_outlined,
+                                            color: makitaTeal,
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  name,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: textPrimary,
+                                                  ),
+                                                ),
+                                                Text(
+                                                  "포인트 $count개",
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                _applyTemplateData(ctx, data),
+                                            child: const Text("불러오기"),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    Text(
-                                      "포인트 $count개",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: () => _applyTemplateData(ctx, data),
-                                child: const Text("불러오기"),
-                              ),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.delete_outline,
-                                  color: CuttingColors.danger,
-                                  size: 20,
-                                ),
-                                onPressed: () => _deleteTemplate(doc.id),
-                              ),
-                            ],
+                                  );
+                                },
+                              );
+                            },
                           ),
-                        );
-                      },
-                    );
-                  },
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -2963,7 +3057,15 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   padding: const EdgeInsets.only(bottom: 6),
                   child: Column(
                     children: [
-                      _buildFittingCard(index),
+                      // 🚀 [10-02] × 단추를 잘못 눌러 바로 지워지던 것을 왼쪽으로
+                      // 밀어서 지우기로 바꿨다(구간이 2개 넘을 때만, 실행 취소 있음).
+                      SwipeToDelete(
+                        itemKey: ValueKey('cut_point_${_points[index].id}'),
+                        bottomMargin: 0,
+                        enabled: _points.length > 2,
+                        onDelete: () => _removePoint(index),
+                        child: _buildFittingCard(index),
+                      ),
                       if (index < _points.length - 1) ...[
                         _buildLengthInputCard(index),
                         _buildInsertHereButton(index + 1),
@@ -3344,7 +3446,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 상단: 드래그 핸들 + 순번 배지 + 삭제
+          // 상단: 드래그 핸들 + 순번 배지 + 복제(삭제는 왼쪽으로 밀기)
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 6, 4, 0),
             child: Row(
@@ -3398,30 +3500,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     ),
                   ),
                 ),
-                if (_points.length > 2) ...[
-                  const SizedBox(width: 6),
-                  Tooltip(
-                    message: "이 구간 삭제",
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(20),
-                      onTap: () => _removePoint(index),
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: CuttingColors.dangerSoft,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: CuttingColors.danger,
-                          size: 18,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
@@ -100,9 +101,19 @@ class _BendCheckPageState extends State<BendCheckPage> {
     _toast('저장했습니다');
   }
 
-  Future<void> _delete(BendCheck c) async {
-    await deleteBendCheck(c.id);
-    await _reload();
+  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다(10-02).
+  void _delete(BendCheck c) {
+    setState(() => _all = [..._all]..removeWhere((e) => e.id == c.id));
+    final done = deleteBendCheck(c.id);
+    showDeleteUndo(
+      context,
+      '${c.at.month}/${c.at.day} ${c.group}',
+      onUndo: () async {
+        await done;
+        await addBendCheck(c);
+        await _reload();
+      },
+    );
   }
 
   @override
@@ -281,16 +292,10 @@ class _BendCheckPageState extends State<BendCheckPage> {
 
   Widget _recordTile(BendCheck c) {
     final d = c.diff;
-    return Dismissible(
-      key: ObjectKey(c),
-      direction: DismissDirection.endToStart,
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: AppColors.danger,
-        child: const Icon(AppIcons.delete, color: Colors.white),
-      ),
-      onDismissed: (_) => _delete(c),
+    return SwipeToDelete(
+      itemKey: ValueKey('bendcheck_swipe_${c.id}'),
+      bottomMargin: 6,
+      onDelete: () => _delete(c),
       child: Card(
         margin: const EdgeInsets.only(bottom: 6),
         elevation: 0,

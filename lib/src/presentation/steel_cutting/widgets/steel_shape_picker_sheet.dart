@@ -1,9 +1,11 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_theme.dart';
+import '../../../core/common_widgets/swipe_to_delete.dart';
 import '../steel_custom_shapes.dart';
 import '../steel_shape_icons.dart';
 import '../steel_weight.dart';
@@ -102,50 +104,33 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
     return list.toList();
   }
 
-  Future<void> _confirmRemove(String label) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: CuttingColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          "'$label'을(를) 내 규격에서 지우겠습니까?",
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            color: CuttingColors.textPrimary,
-            fontSize: 16,
-          ),
-        ),
-        content: const Text(
-          "이미 넣은 항목은 그대로 남습니다.",
-          style: TextStyle(color: CuttingColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("취소", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            key: const Key('custom_remove_confirm'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: CuttingColors.danger,
-            ),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              "지우기",
-              style: TextStyle(color: CuttingColors.surface),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (ok != true) return;
-    final left = await removeCustomSteelShape(label);
-    if (!mounted) return;
+  // 🚀 [10-02] 밀어서 지운 내 규격. 확인창 대신 "되돌리기"로 같은 자리에 다시 넣는다.
+  // [listContext]는 시트 안 알림 자리 아래의 context.
+  Future<void> _removeCustom(BuildContext listContext, String label) async {
+    final index = _custom.indexOf(label);
+    // 밀린 줄은 곧바로 화면 목록에서 빠져야 한다.
     setState(() {
-      _custom = left;
+      _custom = [..._custom]..remove(label);
       if (_custom.isEmpty && _categoryFilter == _kMine) _categoryFilter = '전체';
     });
+    final left = await removeCustomSteelShape(label);
+    if (!mounted) return;
+    setState(() => _custom = left);
+    showDeleteUndo(
+      listContext.mounted ? listContext : context,
+      label,
+      onUndo: () async {
+        final now = [...await loadCustomSteelShapes()];
+        if (!now.contains(label)) {
+          now.insert(index.clamp(0, now.length), label);
+          try {
+            final p = await SharedPreferences.getInstance();
+            await p.setStringList(kCustomSteelShapesPrefsKey, now);
+          } catch (_) {}
+        }
+        if (mounted) setState(() => _custom = now);
+      },
+    );
   }
 
   Widget _buildCategoryChip(String label) {
@@ -326,59 +311,74 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                   color: Color(0xFFEEEEEE),
                 ),
                 Expanded(
-                  child: results.isEmpty
-                      ? Center(
-                          child: Text(
-                            "검색 결과가 없습니다.\n위 '직접 입력'을 이용해 보십시오.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey.shade500),
-                          ),
-                        )
-                      : ListView.builder(
-                          controller: scrollController,
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          itemCount: results.length,
-                          itemBuilder: (context, i) {
-                            final item = results[i];
-                            return ListTile(
-                              leading: anyIcon(
-                                iconForSteel(item.category),
-                                color: CuttingColors.primary,
-                              ),
-                              subtitle: Text(
-                                [
-                                  SteelShapeDB.categoryLabel(item.category),
-                                  if (steelShapeNote(item.label).isNotEmpty)
-                                    steelShapeNote(item.label),
-                                ].join(' · '),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade500,
+                  // 되돌리기 알림이 시트 뒤에 가려지지 않게 시트 안에 알림 자리를 둔다.
+                  child: ScaffoldMessenger(
+                    child: Scaffold(
+                      backgroundColor: Colors.transparent,
+                      resizeToAvoidBottomInset: false,
+                      body: Builder(
+                        builder: (listCtx) => results.isEmpty
+                            ? Center(
+                                child: Text(
+                                  "검색 결과가 없습니다.\n위 '직접 입력'을 이용해 보십시오.",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey.shade500),
                                 ),
-                              ),
-                              title: Text(
-                                item.label,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: CuttingColors.textPrimary,
+                              )
+                            : ListView.builder(
+                                controller: scrollController,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
                                 ),
-                              ),
-                              trailing: item.category == 'CUSTOM'
-                                  ? IconButton(
-                                      key: Key('custom_remove_${item.label}'),
-                                      tooltip: '내 규격에서 지우기',
-                                      icon: Icon(
-                                        Icons.close_rounded,
+                                itemCount: results.length,
+                                itemBuilder: (context, i) {
+                                  final item = results[i];
+                                  final tile = ListTile(
+                                    leading: anyIcon(
+                                      iconForSteel(item.category),
+                                      color: CuttingColors.primary,
+                                    ),
+                                    subtitle: Text(
+                                      [
+                                        SteelShapeDB.categoryLabel(
+                                          item.category,
+                                        ),
+                                        if (steelShapeNote(
+                                          item.label,
+                                        ).isNotEmpty)
+                                          steelShapeNote(item.label),
+                                      ].join(' · '),
+                                      style: TextStyle(
+                                        fontSize: 12,
                                         color: Colors.grey.shade500,
                                       ),
-                                      onPressed: () =>
-                                          _confirmRemove(item.label),
-                                    )
-                                  : null,
-                              onTap: () => Navigator.pop(context, item),
-                            );
-                          },
-                        ),
+                                    ),
+                                    title: Text(
+                                      item.label,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: CuttingColors.textPrimary,
+                                      ),
+                                    ),
+                                    onTap: () => Navigator.pop(context, item),
+                                  );
+                                  if (item.category != 'CUSTOM') return tile;
+                                  // 내 규격은 X 단추 대신 왼쪽으로 밀어서 지우고 되돌리기.
+                                  return SwipeToDelete(
+                                    itemKey: ValueKey(
+                                      'custom_shape_${item.label}',
+                                    ),
+                                    radius: 0,
+                                    bottomMargin: 0,
+                                    onDelete: () =>
+                                        _removeCustom(listCtx, item.label),
+                                    child: tile,
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),

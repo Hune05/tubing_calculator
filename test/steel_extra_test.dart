@@ -253,20 +253,25 @@ void main() {
       );
     });
 
-    testWidgets('지우기는 확인을 거치고, 다 지우면 칩이 사라진다', (tester) async {
+    testWidgets('내 규격은 밀어서 지우고 되돌리기로 같은 자리에, 다 지우면 칩이 사라진다', (tester) async {
       SharedPreferences.setMockInitialValues({
-        kCustomSteelShapesPrefsKey: ['내 브래킷'],
+        kCustomSteelShapesPrefsKey: ['앵글 50x50x6', '내 브래킷'],
       });
       await openPicker(tester);
-      await tester.tap(find.byKey(const Key('custom_remove_내 브래킷')));
+      // X 단추는 없다.
+      expect(find.byKey(const Key('custom_remove_내 브래킷')), findsNothing);
+      await tester.drag(find.text('앵글 50x50x6'), const Offset(-500, 0));
       await tester.pumpAndSettle();
-      // 취소하면 그대로
-      await tester.tap(find.text('취소'));
+      expect(find.text('앵글 50x50x6'), findsNothing);
+      expect(await loadCustomSteelShapes(), ['내 브래킷']);
+      await tester.tap(find.text('되돌리기'));
       await tester.pumpAndSettle();
-      expect(find.text('내 브래킷'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('custom_remove_내 브래킷')));
+      expect(find.text('앵글 50x50x6'), findsOneWidget);
+      expect(await loadCustomSteelShapes(), ['앵글 50x50x6', '내 브래킷']);
+
+      await tester.drag(find.text('앵글 50x50x6'), const Offset(-500, 0));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('custom_remove_confirm')));
+      await tester.drag(find.text('내 브래킷'), const Offset(-500, 0));
       await tester.pumpAndSettle();
       expect(find.text('내 브래킷'), findsNothing);
       expect(find.text('내 규격'), findsNothing);
