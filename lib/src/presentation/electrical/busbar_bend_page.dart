@@ -510,7 +510,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         const SizedBox(height: 4),
         _drawing(
           const Key('bb_mark_view'),
-          110,
+          130,
           BusbarMarkPainter(
             plan: p,
             text: fc.text,
@@ -527,11 +527,11 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           big: '작업 순서',
           caption: '현장에서 꺾을 때',
           lines: const [
-            '1. 자르는 길이로 부스바를 자릅니다. 절단면 버(burr)를 갈아 냅니다.',
-            '2. 한쪽 끝에서 꺾기 시작선을 줄긋기로 표시합니다. 양면에 같이 긋습니다.',
-            '3. 벤더 꺾는 날(어댑터)의 시작 위치를 시작선에 맞춥니다.',
-            '4. 먼저 같은 규격 시험 조각을 꺾어 길이·각도를 확인하고 k와 반경을 맞춥니다.',
-            '5. 꺾은 뒤 스프링백이 있으니 목표 각도보다 조금 더 꺾고 되돌리며 맞춥니다.',
+            '자르는 길이로 부스바를 자릅니다. 절단면 버(burr)를 갈아 냅니다.',
+            '한쪽 끝에서 꺾기 시작선을 줄긋기로 표시합니다. 양면에 같이 긋습니다.',
+            '벤더 꺾는 날(어댑터)의 시작 위치를 시작선에 맞춥니다.',
+            '먼저 같은 규격 시험 조각을 꺾어 길이·각도를 확인하고 k와 반경을 맞춥니다.',
+            '꺾은 뒤 스프링백이 있으니 목표 각도보다 조금 더 꺾고 되돌리며 맞춥니다.',
           ],
         ),
       ]);

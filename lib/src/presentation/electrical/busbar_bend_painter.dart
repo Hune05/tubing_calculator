@@ -161,7 +161,7 @@ class BusbarMarkPainter extends CustomPainter {
     const pad = 16.0;
     final len = math.max(plan.cutLength, 1.0);
     final sc = (size.width - 2 * pad) / len;
-    final y0 = size.height / 2 - 14;
+    final y0 = size.height / 2 - 6;
     const barH = 26.0;
     final bar = Rect.fromLTWH(pad, y0, len * sc, barH);
     canvas.drawRRect(
