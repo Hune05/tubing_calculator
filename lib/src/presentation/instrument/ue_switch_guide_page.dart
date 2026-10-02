@@ -14,6 +14,8 @@ import '../equipment/equipment_manual.dart';
 import '../reference/page/reference_widgets.dart';
 import 'loop_paint_kit.dart';
 
+part 'ue_h122_section.dart';
+
 /// 그림 상태.
 class UeView {
   final bool cover; // 덮개 닫힘
@@ -26,8 +28,8 @@ class UeView {
   const UeView({this.cover = false, this.lockLoose = false, this.hexTurn = 0, this.meter = false, this.wiresOff = false, this.closedNO = false, this.hot});
 }
 
-const _ueBlue = Color(0xFF1E4F9C);
-const _ueBlueDark = Color(0xFF123566);
+const _ueBlue = Color(0xFF7FA6BE); // 카탈로그 사진의 연한 회청색 에폭시
+const _ueBlueDark = Color(0xFF4E7590);
 
 void _glow(Canvas c, Offset p, double r) {
   c.drawCircle(p, r, Paint()
@@ -106,7 +108,7 @@ class UeJ120Painter extends CustomPainter {
     // 전선관 구멍(좌우, 3/4" NPT)
     for (final x in const [6.0, 318.0]) {
       final r = RRect.fromRectAndRadius(Rect.fromLTWH(x, 112, 36, 52), const Radius.circular(6));
-      c.drawRRect(r, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF3567B8), _ueBlue, _ueBlueDark]).createShader(r.outerRect));
+      c.drawRRect(r, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFA9C6D8), _ueBlue, _ueBlueDark]).createShader(r.outerRect));
       c.drawCircle(Offset(x + 18, 138), 11, Paint()..color = const Color(0xFF15181C));
     }
     if (v.hot == 'hub') {
@@ -117,7 +119,7 @@ class UeJ120Painter extends CustomPainter {
     // 몸체(다이캐스트 알루미늄, 파란 에폭시) + 설치 귀 4개
     final body = RRect.fromRectAndRadius(const Rect.fromLTWH(38, 24, 284, 222), const Radius.circular(26));
     lpShadow(c, body, blur: 10, off: const Offset(3, 7), a: .3);
-    c.drawRRect(body, Paint()..shader = const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF3F75C9), _ueBlue, _ueBlueDark]).createShader(body.outerRect));
+    c.drawRRect(body, Paint()..shader = const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFA9C6D8), _ueBlue, _ueBlueDark]).createShader(body.outerRect));
     c.drawRRect(body.deflate(2), Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5
@@ -132,7 +134,7 @@ class UeJ120Painter extends CustomPainter {
       c.drawCircle(ctr + const Offset(2, 4), 104, Paint()
         ..color = Colors.black.withValues(alpha: .3)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
-      c.drawCircle(ctr, 104, Paint()..shader = const RadialGradient(center: Alignment(-.35, -.4), colors: [Color(0xFF4F86D8), _ueBlue, _ueBlueDark]).createShader(Rect.fromCircle(center: ctr, radius: 104)));
+      c.drawCircle(ctr, 104, Paint()..shader = const RadialGradient(center: Alignment(-.35, -.4), colors: [Color(0xFFB7D0DF), _ueBlue, _ueBlueDark]).createShader(Rect.fromCircle(center: ctr, radius: 104)));
       for (var k = 0; k < 36; k++) {
         final a = k * math.pi / 18;
         c.drawLine(ctr + Offset(math.cos(a), math.sin(a)) * 96, ctr + Offset(math.cos(a), math.sin(a)) * 104, Paint()
@@ -486,7 +488,7 @@ class _BenchPainter extends CustomPainter {
     // 스위치(작게)
     final sw = RRect.fromRectAndRadius(const Rect.fromLTWH(270, 44, 60, 56), const Radius.circular(12));
     lpShadow(c, sw, blur: 4, off: const Offset(1, 3), a: .25);
-    c.drawRRect(sw, Paint()..shader = const LinearGradient(colors: [Color(0xFF3F75C9), _ueBlueDark]).createShader(sw.outerRect));
+    c.drawRRect(sw, Paint()..shader = const LinearGradient(colors: [Color(0xFFA9C6D8), _ueBlueDark]).createShader(sw.outerRect));
     lpText(c, 'J120', const Offset(300, 72), size: 10, color: Colors.white, w: FontWeight.w900);
     // 램프(동작 표시)
     final lamp = tripped ? const Color(0xFF22C55E) : const Color(0xFF9CA3AF);
@@ -506,8 +508,16 @@ class _BenchPainter extends CustomPainter {
 
 // ───────── 화면 ─────────
 
-class UeSwitchGuidePage extends StatelessWidget {
+class UeSwitchGuidePage extends StatefulWidget {
   const UeSwitchGuidePage({super.key});
+
+  @override
+  State<UeSwitchGuidePage> createState() => _UeSwitchGuidePageState();
+}
+
+class _UeSwitchGuidePageState extends State<UeSwitchGuidePage> {
+  // 처음엔 H122(사용자가 쓰는 형: 바깥 다이얼, 스위치 2개, single conduit)
+  bool _h122 = true;
 
   Widget _title(String t) => Padding(
     padding: const EdgeInsets.only(top: 18, bottom: 8),
@@ -521,11 +531,18 @@ class UeSwitchGuidePage extends StatelessWidget {
     ];
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('UE J120 스위치 셋팅')),
+      appBar: AppBar(title: const Text('UE 120 시리즈 스위치 셋팅')),
       body: ListView(
         key: const Key('ue_list'),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
         children: [
+          refChips(
+            items: const ['H121·H122 (바깥 다이얼)', 'J120 (안쪽 육각)'],
+            selected: _h122 ? 'H121·H122 (바깥 다이얼)' : 'J120 (안쪽 육각)',
+            onSelected: (v) => setState(() => _h122 = v.startsWith('H')),
+          ),
+          const SizedBox(height: 12),
+          if (_h122) ...h122Section(_title, rows) else ...[
           refIntroBadge('UE 120 시리즈 방폭 압력 스위치 J120(차압 J120K) 설정점 맞추는 법입니다. 근거는 UE 설치·운전 안내서 IMP120. 그림은 실물을 단순화했습니다.'),
           _title('부품 (덮개 연 모습)'),
           _frame(CustomPaint(key: const Key('ue_parts_fig'), painter: const UeJ120Painter(UeView())), 360 / 320),
@@ -585,6 +602,7 @@ class UeSwitchGuidePage extends StatelessWidget {
             ('조이기', '압력 접속구 육각에 스패너. 함을 돌려 조이면 센서·용접부 상함'),
             ('고정', '함의 1/4" 나사 구멍 4개로 벽에, 또는 압력 접속구로 단단한 배관에'),
           ]),
+          ],
           _title('압력 한도 (명판)'),
           ...rows(const [
             ('프루프 압력', '가끔(기동·시험) 걸려도 영구 손상이 없는 최대 압력. 걸린 뒤 다시 맞춰야 할 수 있음'),

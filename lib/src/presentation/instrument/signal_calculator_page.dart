@@ -1727,7 +1727,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         key: const Key('sg_ue_guide'),
         onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const UeSwitchGuidePage())),
         icon: const Icon(Icons.tune, size: 18),
-        label: const Text('UE J120 스위치 셋팅 가이드 (그림 따라하기)'),
+        label: const Text('UE 압력 스위치 셋팅 가이드 (H122·J120 그림 따라하기)'),
         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
       ),
       const SizedBox(height: 12),

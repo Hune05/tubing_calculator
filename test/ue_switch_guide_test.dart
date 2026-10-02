@@ -15,6 +15,8 @@ void main() {
     phone(tester);
     await tester.pumpWidget(const MaterialApp(home: UeSwitchGuidePage()));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('J120 (안쪽 육각)'));
+    await tester.pumpAndSettle();
     final next = find.byKey(const Key('ue_walk_next'), skipOffstage: false);
     await tester.dragUntilVisible(find.byKey(const Key('ue_walk_next')), find.byKey(const Key('ue_list')), const Offset(0, -300));
     for (var i = 0; i < 14; i++) {
@@ -34,6 +36,8 @@ void main() {
   testWidgets('시험대: 잠금 나사를 안 풀면 육각이 안 돌고, 올리면 동작·내리면 복귀', (tester) async {
     phone(tester);
     await tester.pumpWidget(const MaterialApp(home: UeSwitchGuidePage()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('J120 (안쪽 육각)'));
     await tester.pumpAndSettle();
     final list = find.byKey(const Key('ue_list'));
     final slider = find.byKey(const Key('ue_bench_slider'));
@@ -67,6 +71,47 @@ void main() {
     await tester.tap(cw);
     await tester.pumpAndSettle();
     expect(find.text('압력을 올려 보십시오', skipOffstage: false), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('H122: 처음 열면 H122, 따라하기 10단계, 시험대에서 HIGH 올림·LOW 내림 동작, LOW를 HIGH보다 못 올림', (tester) async {
+    phone(tester);
+    await tester.pumpWidget(const MaterialApp(home: UeSwitchGuidePage()));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('h122_fig')), findsOneWidget);
+    final list = find.byKey(const Key('ue_list'));
+    final next = find.byKey(const Key('h122_walk_next'), skipOffstage: false);
+    await tester.dragUntilVisible(find.byKey(const Key('h122_walk_next')), list, const Offset(0, -300));
+    for (var i = 0; i < 10; i++) {
+      await tester.ensureVisible(next);
+      await tester.pumpAndSettle();
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('1 / 10'), findsOneWidget);
+    final slider = find.byKey(const Key('h122_bench_slider'));
+    await tester.dragUntilVisible(slider, list, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    final r = tester.getRect(slider);
+    await tester.tapAt(Offset(r.right - 4, r.center.dy)); // 10 bar: HIGH 동작
+    await tester.pumpAndSettle();
+    await tester.tapAt(Offset(r.left + 4, r.center.dy)); // 0 bar: LOW 동작
+    await tester.pumpAndSettle();
+    expect(find.textContaining('(목표 7.0과', skipOffstage: false), findsOneWidget);
+    expect(find.textContaining('(목표 3.0과', skipOffstage: false), findsOneWidget);
+    final up = find.byKey(const Key('h122_low_up'));
+    await tester.ensureVisible(up);
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 20; i++) {
+      await tester.tap(up);
+      await tester.pump();
+    }
+    expect(find.text('LOW를 HIGH보다 높게 두지 마십시오 (설명서)'), findsWidgets);
+    await tester.pumpAndSettle(const Duration(seconds: 5));
+    for (var k = 0; k < 20; k++) {
+      await tester.drag(list, const Offset(0, -900));
+      await tester.pump();
+    }
     expect(tester.takeException(), isNull);
   });
 }
