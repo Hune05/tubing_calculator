@@ -13,6 +13,7 @@ import '../common/calc_form_parts.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'cable_tray.dart';
 import 'cable_tray_painter.dart';
+import 'cable_weights.dart' show cableWeightSource;
 import 'elec_tables.dart' show GroupLayout;
 import 'conduit_tables.dart';
 import 'elec_calc.dart' show sqText;
@@ -27,17 +28,20 @@ class _TrayRow {
   final TextEditingController od;
   final TextEditingController sizeText;
   final TextEditingController cores;
-  _TrayRow({this.kind = CableKind.fcv4, this.size = 35, this.control = false, String n = '1', String od = '', String sz = '', String cores = '1'})
+  final TextEditingController weight; // 직접 입력 무게(kg/km)
+  _TrayRow({this.kind = CableKind.fcv4, this.size = 35, this.control = false, String n = '1', String od = '', String sz = '', String cores = '1', String w = ''})
       : count = TextEditingController(text: n),
         od = TextEditingController(text: od),
         sizeText = TextEditingController(text: sz),
-        cores = TextEditingController(text: cores);
+        cores = TextEditingController(text: cores),
+        weight = TextEditingController(text: w);
 
   void dispose() {
     count.dispose();
     od.dispose();
     sizeText.dispose();
     cores.dispose();
+    weight.dispose();
   }
 
   Map<String, Object?> toJson() => {
@@ -48,6 +52,7 @@ class _TrayRow {
     'od': od.text,
     'sz': sizeText.text,
     'co': cores.text,
+    'w': weight.text,
   };
 
   static _TrayRow? fromJson(Object? m) {
@@ -62,6 +67,7 @@ class _TrayRow {
       od: '${m['od'] ?? ''}',
       sz: '${m['sz'] ?? ''}',
       cores: '${m['co'] ?? '1'}',
+      w: '${m['w'] ?? ''}',
     );
     if (row.kind != null && !cableSizes(row.kind!).contains(row.size)) {
       row.size = cableSizes(row.kind!).first;
@@ -104,6 +110,9 @@ class _CableTrayPageState extends State<CableTrayPage>
   double _depth = 100;
   int _marginPct = 20;
   final List<_TrayRow> _rows = [_TrayRow()];
+  double _span = 2;
+  final _trayKg = TextEditingController();
+  final _allow = TextEditingController();
 
   Timer? _saveTimer;
   bool _draftReady = false;
@@ -121,6 +130,8 @@ class _CableTrayPageState extends State<CableTrayPage>
     for (final r in _rows) {
       r.dispose();
     }
+    _trayKg.dispose();
+    _allow.dispose();
     super.dispose();
   }
 
@@ -132,6 +143,9 @@ class _CableTrayPageState extends State<CableTrayPage>
     'w': _width,
     'd': _depth,
     'm': _marginPct,
+    'sp': _span,
+    'tk': _trayKg.text,
+    'al': _allow.text,
     'rows': [for (final r in _rows) r.toJson()],
   });
 
@@ -150,6 +164,9 @@ class _CableTrayPageState extends State<CableTrayPage>
           if (m['w'] is num && kTrayWidths.contains((m['w'] as num).toDouble())) _width = (m['w'] as num).toDouble();
           if (m['d'] is num && kTrayDepths.contains((m['d'] as num).toDouble())) _depth = (m['d'] as num).toDouble();
           if (m['m'] is int) _marginPct = m['m'] as int;
+          if (m['sp'] is num && kTraySpans.contains((m['sp'] as num).toDouble())) _span = (m['sp'] as num).toDouble();
+          if (m['tk'] is String) _trayKg.text = m['tk'] as String;
+          if (m['al'] is String) _allow.text = m['al'] as String;
           if (rows.isNotEmpty) {
             for (final r in _rows) {
               r.dispose();
@@ -201,7 +218,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           bad.add(i + 1);
           continue;
         }
-        out.add(TrayCable(name: c.name, od: c.od, size: c.size, cores: c.cores, count: c.count, control: r.control));
+        out.add(TrayCable(name: c.name, od: c.od, size: c.size, cores: c.cores, count: c.count, control: r.control, weight: c.weight));
       } else {
         final od = readNum(r.od), sz = readNum(r.sizeText), co = readNum(r.cores);
         if (od == null || od <= 0 || sz == null || sz <= 0 || co == null || co < 1) {
@@ -215,6 +232,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           cores: co.round(),
           count: n.toInt(),
           control: r.control,
+          weight: readNum(r.weight) != null && readNum(r.weight)! > 0 ? readNum(r.weight) : null,
         ));
       }
     }
@@ -335,6 +353,7 @@ class _CableTrayPageState extends State<CableTrayPage>
                     _numBox('ct_sz_$i', r.sizeText, 'sq', width: 76),
                     _numBox('ct_co_$i', r.cores, '심', width: 60),
                     _numBox('ct_n_$i', r.count, '가닥', width: 80),
+                    _numBox('ct_wt_$i', r.weight, 'kg/km', width: 112),
                   ],
                 ),
               Padding(
@@ -401,6 +420,47 @@ class _CableTrayPageState extends State<CableTrayPage>
           '회로 수: 전력용 다심은 한 가닥이 한 회로, 전력용 단심은 3가닥이 한 회로로 셌습니다. 제어·신호는 뺐습니다.',
           'IEC 60364-5-52 표 B.52.17 ${layout == GroupLayout.bunched ? '1행(겹쳐 쌓음)' : '한 줄 행'}. 전기 설계 계산의 "전선 굵기" 탭에서 회로 수 $n개로 넣으면 같은 보정이 들어갑니다.',
           if (!oneRow) '한 줄로 펴서 깔면 보정이 덜 줄어듭니다(넓은 트레이).',
+        ],
+      ),
+    ];
+  }
+
+  /// 하중: 케이블 무게 + 트레이 자중을 지지 간격별 허용 하중과 견준다.
+  List<Widget> _loadSection(List<TrayCable> cables) {
+    final tray = readNum(_trayKg);
+    final allow = readNum(_allow);
+    final l = trayLoad(
+      cables: cables,
+      trayKgM: tray != null && tray > 0 ? tray : 0,
+      span: _span,
+      allowKgM: allow != null && allow > 0 ? allow : null,
+      margin: _marginPct / 100,
+    );
+    final ok = l.ok;
+    return [
+      const SizedBox(height: 16),
+      elecSectionTitle('하중'),
+      elecChipGroup(
+        '지지 간격 (m)',
+        '행거·찬넬 사이 거리입니다. 시방서마다 다릅니다(보통 2m 이하, 변전실 1.5m, 찬넬 3m).',
+        [for (final sp in kTraySpans) calcChip('ct_sp_${sp.toString()}', '${fmt(sp)}m', _span == sp, () => _set(() => _span = sp))],
+      ),
+      elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 무게입니다. 제조사 카탈로그 값을 넣습니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
+      elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그의 이 지지 간격에서 등분포 허용(사용) 하중입니다. 파괴 하중만 있으면 1.5로 나눈 값을 넣습니다(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
+      calcResult(
+        key: const Key('ct_load'),
+        big: '${fmt(l.totalKgM, 1)} kg/m',
+        caption: ok == null ? '트레이 1m당 하중 · 허용 하중을 넣으면 판정합니다' : '트레이 1m당 하중 · ${ok ? '합격' : '불합격'} ${fmt(l.pct!, 0)}%',
+        warn: ok == false || l.missing.isNotEmpty,
+        lines: [
+          '케이블 ${fmt(l.cableKgM, 1)} kg/m${_marginPct > 0 ? ' (예비 여유 $_marginPct% 포함)' : ''} + 트레이 자중 ${fmt(l.trayKgM, 1)} kg/m',
+          '지지점 하나가 받는 하중 약 ${fmt(l.perSupportKg, 0)} kg (1m당 하중 × 지지 간격 ${fmt(_span)}m). 행거·앵커 선정에 씁니다.',
+          if (ok != null)
+            ok
+                ? '허용 하중 ${fmt(l.allowKgM!, 1)} kg/m 안입니다.'
+                : '허용 하중 ${fmt(l.allowKgM!, 1)} kg/m를 넘습니다. 지지 간격을 줄이거나 더 튼튼한 트레이로 하십시오.',
+          if (l.missing.isNotEmpty) '무게를 몰라 빠진 케이블: ${l.missing.join(', ')}. 직접 입력 줄에 kg/km를 넣으면 들어갑니다.',
+          cableWeightSource,
         ],
       ),
     ];
@@ -541,6 +601,7 @@ class _CableTrayPageState extends State<CableTrayPage>
         ),
       ],
       if (check != null) ..._derating(cables, check),
+      if (check != null) ..._loadSection(cables),
       const SizedBox(height: 12),
       elecBasis('ct_basis', [
         if (_std == TrayStandard.kec) ...[

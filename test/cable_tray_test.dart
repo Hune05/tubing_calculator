@@ -264,4 +264,27 @@ void main() {
       expect(c.notes.any((n) => n.contains('각각 만족')), isTrue);
     });
   });
+
+  group('하중', () {
+    TrayCable w(double kgKm, int n, {String name = 'x'}) =>
+        TrayCable(name: name, od: 20, size: 35, cores: 4, count: n, weight: kgKm);
+
+    test('케이블 kg/km × 가닥 → kg/m, 여유·자중을 더하고 지지점 하중 = 1m당 × 간격', () {
+      final l = trayLoad(cables: [w(1500, 10), w(800, 5)], trayKgM: 6, span: 2, allowKgM: 30, margin: 0.2);
+      // (1.5×10 + 0.8×5) = 19 kg/m × 1.2 = 22.8, + 6 = 28.8
+      expect(l.cableKgM, closeTo(22.8, 1e-9));
+      expect(l.totalKgM, closeTo(28.8, 1e-9));
+      expect(l.perSupportKg, closeTo(57.6, 1e-9));
+      expect(l.ok, isTrue);
+      expect(l.pct, closeTo(96, 1e-9));
+      expect(trayLoad(cables: [w(1500, 10)], trayKgM: 6, span: 3, allowKgM: 20).ok, isFalse);
+    });
+
+    test('허용 하중이 없으면 판정 없이 하중만, 무게 모르는 케이블은 알린다', () {
+      final l = trayLoad(cables: [w(1000, 2), _c(35, 4, 28, 3)], span: 1.5);
+      expect(l.ok, isNull);
+      expect(l.cableKgM, closeTo(2, 1e-9));
+      expect(l.missing.single, contains('TFR-CV'));
+    });
+  });
 }

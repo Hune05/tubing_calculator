@@ -12,6 +12,7 @@ library;
 
 import 'dart:math' as math;
 
+import 'cable_weights.dart';
 import 'conduit_tables.dart';
 import 'elec_tables.dart' show GroupLayout, groupFactor;
 
@@ -96,6 +97,9 @@ class TrayCable {
   /// 제어·신호용인지(전력용이 아니면 true).
   final bool control;
 
+  /// 한 가닥 무게(kg/km, 개산). 모르면 null(하중 계산에서 빠진다고 알린다).
+  final double? weight;
+
   const TrayCable({
     required this.name,
     required this.od,
@@ -103,6 +107,7 @@ class TrayCable {
     required this.cores,
     required this.count,
     this.control = false,
+    this.weight,
   });
 
   bool get isMulti => cores > 1;
@@ -130,6 +135,7 @@ class TrayCable {
       cores: cores,
       count: count,
       control: cvvsCores(k) != null,
+      weight: cableWeight(k, size),
     );
   }
 }
@@ -422,6 +428,67 @@ double trayGroupFactor(TrayType t, List<TrayCable> cables, {required bool oneRow
   final n = trayCircuits(cables);
   if (n <= 1) return 1;
   return groupFactor(n, trayGroupLayout(t, oneRow: oneRow));
+}
+
+// ── 하중 ──
+
+/// 고를 수 있는 지지 간격(m). 시방서: 2m 이하(변전실 1.5m), LH 찬넬 3m.
+const List<double> kTraySpans = [1.5, 2, 3];
+
+/// KEC 232.41.2 1호: 케이블트레이의 안전율은 1.5 이상.
+const double kTraySafety = 1.5;
+
+/// 하중 계산 결과(kg/m는 트레이 1m당).
+class TrayLoad {
+  final double cableKgM; // 케이블 무게(예비 여유 포함)
+  final double trayKgM; // 트레이 자중
+  final double span; // 지지 간격(m)
+  final double? allowKgM; // 제조사 허용 하중(이 지지 간격에서)
+  final List<String> missing; // 무게를 몰라 빠진 케이블
+
+  const TrayLoad({
+    required this.cableKgM,
+    required this.trayKgM,
+    required this.span,
+    required this.allowKgM,
+    required this.missing,
+  });
+
+  double get totalKgM => cableKgM + trayKgM;
+
+  /// 지지점 하나가 받는 하중(kg) ≈ 1m당 하중 × 지지 간격(이어진 트레이 가운데 지지점).
+  double get perSupportKg => totalKgM * span;
+
+  bool? get ok => allowKgM == null ? null : totalKgM <= allowKgM! + 1e-9;
+  double? get pct => allowKgM == null || allowKgM! <= 0 ? null : totalKgM / allowKgM! * 100;
+}
+
+/// 케이블 무게 합(kg/m)에 예비 여유를 더하고 트레이 자중을 더해 허용 하중과 견준다.
+TrayLoad trayLoad({
+  required List<TrayCable> cables,
+  double trayKgM = 0,
+  required double span,
+  double? allowKgM,
+  double margin = 0,
+}) {
+  var kg = 0.0;
+  final missing = <String>[];
+  for (final c in cables) {
+    if (c.count <= 0) continue;
+    final w = c.weight;
+    if (w == null) {
+      missing.add(c.name);
+      continue;
+    }
+    kg += w / 1000 * c.count;
+  }
+  return TrayLoad(
+    cableKgM: kg * (1 + margin),
+    trayKgM: trayKgM,
+    span: span,
+    allowKgM: allowKgM,
+    missing: missing,
+  );
 }
 
 /// 폭마다 판정한 결과와 처음 합격하는 폭.
