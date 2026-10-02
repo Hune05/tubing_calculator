@@ -189,4 +189,21 @@ void main() {
     expect(trayNum(13.5), '13.5');
     expect(trayNum(40), '40');
   });
+
+  group('허용전류 보정', () {
+    test('회로 수: 다심 전력은 가닥마다, 단심 전력은 3가닥에 하나, 제어는 빼고', () {
+      expect(trayCircuits([_c(35, 4, 28, 4), _c(150, 1, 24, 9), _c(2.5, 10, 20, 5, control: true)]), 4 + 3);
+      expect(trayCircuits([_c(150, 1, 24, 4)]), 2); // 4가닥 → 2회로(올림)
+    });
+
+    test('B.52.17: 한 줄 사다리형 4회로 0.80, 펀칭형 0.77, 바닥밀폐 0.75, 겹쳐 쌓음 0.65', () {
+      final cs = [_c(35, 4, 28, 4)];
+      expect(trayGroupFactor(TrayType.ladder, cs, oneRow: true), 0.80);
+      expect(trayGroupFactor(TrayType.mesh, cs, oneRow: true), 0.80);
+      expect(trayGroupFactor(TrayType.punched, cs, oneRow: true), 0.77);
+      expect(trayGroupFactor(TrayType.solid, cs, oneRow: true), 0.75);
+      expect(trayGroupFactor(TrayType.ladder, cs, oneRow: false), 0.65);
+      expect(trayGroupFactor(TrayType.ladder, [_c(35, 4, 28, 1)], oneRow: true), 1);
+    });
+  });
 }

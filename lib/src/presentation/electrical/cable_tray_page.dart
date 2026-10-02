@@ -13,6 +13,7 @@ import '../common/calc_form_parts.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'cable_tray.dart';
 import 'cable_tray_painter.dart';
+import 'elec_tables.dart' show GroupLayout;
 import 'conduit_tables.dart';
 import 'elec_calc.dart' show sqText;
 import 'elec_form_parts.dart';
@@ -375,6 +376,32 @@ class _CableTrayPageState extends State<CableTrayPage>
     );
   }
 
+  /// 트레이에 모아 깔면 허용전류가 줄어드는 정도(회로 수 보정).
+  List<Widget> _derating(List<TrayCable> cables, TrayCheck check) {
+    final n = trayCircuits(cables);
+    if (n <= 1) return const [];
+    final lay = layoutTray(cables, _width, _depth, singleLayer: check.singleLayer);
+    final oneRow = lay.dots.every((d) => (d.y - d.r).abs() < 1e-6);
+    final layout = trayGroupLayout(_type, oneRow: oneRow);
+    final f = trayGroupFactor(_type, cables, oneRow: oneRow);
+    final how = oneRow ? '${trayTypeLabel(_type)}에 한 줄로 나란히' : '겹쳐 쌓음(묶음)';
+    return [
+      const SizedBox(height: 12),
+      calcResult(
+        key: const Key('ct_derate'),
+        big: '× ${f.toStringAsFixed(2)}',
+        caption: '허용전류 보정 · 전력 회로 $n개 · $how',
+        warn: f < 0.8,
+        lines: [
+          '각 케이블의 허용전류에 ${f.toStringAsFixed(2)}를 곱해 굵기를 다시 확인하십시오.',
+          '회로 수: 전력용 다심은 한 가닥이 한 회로, 전력용 단심은 3가닥이 한 회로로 셌습니다. 제어·신호는 뺐습니다.',
+          'IEC 60364-5-52 표 B.52.17 ${layout == GroupLayout.bunched ? '1행(겹쳐 쌓음)' : '한 줄 행'}. 전기 설계 계산의 "전선 굵기" 탭에서 회로 수 $n개로 넣으면 같은 보정이 들어갑니다.',
+          if (!oneRow) '한 줄로 펴서 깔면 보정이 덜 줄어듭니다(넓은 트레이).',
+        ],
+      ),
+    ];
+  }
+
   /// 카톡으로 보내는 글.
   String _shareText(List<TrayCable> cables, TrayCheck check, TraySizing? sizing) {
     final b = StringBuffer('[케이블 트레이 점유율] ${trayTypeLabel(_type)} 폭 ${trayNum(_width)} × 깊이 ${trayNum(_depth)}mm');
@@ -499,6 +526,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           ],
         ),
       ],
+      if (check != null) ..._derating(cables, check),
       const SizedBox(height: 12),
       elecBasis('ct_basis', [
         'KEC 232.41 케이블트레이공사(옛 판단기준 제213조의2). 케이블 단면적은 완성품 외경으로 π/4 × 외경².',

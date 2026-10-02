@@ -11,6 +11,7 @@ library;
 import 'dart:math' as math;
 
 import 'conduit_tables.dart';
+import 'elec_tables.dart' show GroupLayout, groupFactor;
 
 /// 트레이 종류. 펀칭형·메시형은 통풍이 되는 쪽(사다리형 표)을 쓴다.
 enum TrayType { ladder, punched, mesh, solid }
@@ -307,6 +308,40 @@ TrayCheck? checkTray({
     formula: '100~500mm² 단면적 합 ${_n(a)}mm² + 28 × 500mm² 이상 외경 합 ${_n(sd)}mm${margin > 0 ? ' (× ${k.toStringAsFixed(2)})' : ''} ≤ 표 ${_n(table)}mm²',
     notes: [...notes, '500mm² 이상 케이블은 한 층으로 깝니다.'],
   );
+}
+
+// ── 허용전류 보정(트레이에 모아 깔 때) ──
+
+/// 트레이에 깐 모양에 맞는 IEC 60364-5-52 B.52.17 줄. 한 줄로 나란히([oneRow])가 아니면 겹쳐 쌓음(1행).
+GroupLayout trayGroupLayout(TrayType t, {required bool oneRow}) {
+  if (!oneRow) return GroupLayout.bunched;
+  return switch (t) {
+    TrayType.ladder || TrayType.mesh => GroupLayout.ladder,
+    TrayType.punched => GroupLayout.perforatedTray,
+    TrayType.solid => GroupLayout.wallSingleLayer,
+  };
+}
+
+/// 보정에 세는 회로 수: 전력용 다심 케이블은 한 가닥이 한 회로, 전력용 단심은 3가닥이 한 회로(3상).
+/// 제어·신호 케이블은 전류가 작아 세지 않는다.
+int trayCircuits(List<TrayCable> cables) {
+  var multi = 0, single = 0;
+  for (final c in cables) {
+    if (c.control) continue;
+    if (c.isMulti) {
+      multi += c.count;
+    } else {
+      single += c.count;
+    }
+  }
+  return multi + (single / 3).ceil();
+}
+
+/// 회로 수 보정계수(표 B.52.17). 회로가 없으면 1.
+double trayGroupFactor(TrayType t, List<TrayCable> cables, {required bool oneRow}) {
+  final n = trayCircuits(cables);
+  if (n <= 1) return 1;
+  return groupFactor(n, trayGroupLayout(t, oneRow: oneRow));
 }
 
 /// 폭마다 판정한 결과와 처음 합격하는 폭.
