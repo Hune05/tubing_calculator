@@ -97,8 +97,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tapAt(Offset(r.left + 4, r.center.dy)); // 0 bar: LOW 동작
     await tester.pumpAndSettle();
-    expect(find.textContaining('(목표 7.0과', skipOffstage: false), findsOneWidget);
-    expect(find.textContaining('(목표 3.0과', skipOffstage: false), findsOneWidget);
+    expect(find.textContaining('(목표보다', skipOffstage: false), findsNWidgets(2));
     final up = find.byKey(const Key('h122_low_up'));
     await tester.ensureVisible(up);
     await tester.pumpAndSettle();
@@ -106,7 +105,7 @@ void main() {
       await tester.tap(up);
       await tester.pump();
     }
-    expect(find.text('LOW를 HIGH보다 높게 두지 마십시오 (설명서)'), findsWidgets);
+    expect(find.text('LOW를 HIGH보다 높게 맞출 수 없습니다 (설명서)'), findsWidgets);
     await tester.pumpAndSettle(const Duration(seconds: 5));
     for (var k = 0; k < 20; k++) {
       await tester.drag(list, const Offset(0, -900));
@@ -122,7 +121,7 @@ void main() {
     final list = find.byKey(const Key('ue_list'));
     await tester.dragUntilVisible(find.byKey(const Key('ue_ct_fig')), list, const Offset(0, -300));
     await tester.pumpAndSettle();
-    expect(find.text('닫힘 COM–N.C. · 열림 COM–N.O.'), findsOneWidget);
+    expect(find.text('COM–N.C. 붙음 (통전) · N.O. 떨어짐'), findsOneWidget);
     Future<void> tap(String t) async {
       final f = find.text(t);
       await tester.ensureVisible(f);
@@ -131,13 +130,13 @@ void main() {
       await tester.pumpAndSettle();
     }
     await tap('DPDT');
-    await tap('동작 (설정점 넘음)');
-    expect(find.text('접점 1: 닫힘 COM1–N.O.1 · 열림 COM1–N.C.1'), findsOneWidget);
-    expect(find.text('접점 2: 닫힘 COM2–N.O.2 · 열림 COM2–N.C.2'), findsOneWidget);
+    await tap('압력 높음 (동작)');
+    expect(find.text('접점 1: COM1–N.O.1 붙음 (통전) · N.C.1 떨어짐'), findsOneWidget);
+    expect(find.text('접점 2: COM2–N.O.2 붙음 (통전) · N.C.2 떨어짐'), findsOneWidget);
     await tap('2SPDT');
     await tap('1번만 동작');
-    expect(find.text('스위치 1: 닫힘 COM–N.O. · 열림 COM–N.C.'), findsOneWidget);
-    expect(find.text('스위치 2: 닫힘 COM–N.C. · 열림 COM–N.O.'), findsOneWidget);
+    expect(find.text('스위치 1: COM–N.O. 붙음 (통전) · N.C. 떨어짐'), findsOneWidget);
+    expect(find.text('스위치 2: COM–N.C. 붙음 (통전) · N.O. 떨어짐'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

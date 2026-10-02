@@ -167,16 +167,16 @@ class _H122Step {
 }
 
 const _h122Steps = [
-  _H122Step('설정은 덮개를 안 열고 위 다이얼로 함. 그래도 제어실에 알리고 이 스위치가 물린 경보·인터록은 바이패스 (시험 중 동작함)', UeH122View()),
-  _H122Step('시험 압력원(핸드 펌프 + 표준 압력계)을 압력 접속구 쪽 시험 포트에 연결하고 원밸브는 잠금. 스패너는 접속구 육각에', UeH122View(hot: 'conn')),
-  _H122Step('접점 확인 자리를 정함: 판넬(정션 박스·DCS 입력)에서 HIGH·LOW 접점 상태를 봄. 덮개를 열어 단자에서 보려면 회로를 끊고 엶 (방폭)', UeH122View(hot: 'term'), warn: '방폭: 회로가 살아 있으면 본체 덮개를 열지 말 것'),
-  _H122Step('위 다이얼 덮개(스테인리스, 변조 방지)의 나사 둘을 풀고 엶', UeH122View(hot: 'dialcap')),
-  _H122Step('앞(LOW) 손잡이를 돌려 지침을 저압 설정값(예 3.0 bar)에 맞춤. 손잡이마다 따로 올리고 내림', UeH122View(dialCap: false, hot: 'low'), low: 3.0),
-  _H122Step('뒤(HIGH) 손잡이를 고압 설정값(예 7.0 bar)에 맞춤. LOW는 HIGH보다 높게 두지 말 것', UeH122View(dialCap: false, hot: 'high'), high: 7.0, warn: '설명서: 앞(LOW) 스위치를 뒤(HIGH)보다 높게 설정하지 말 것. 두 스위치는 같이 또는 따로 범위의 100%까지 설정 가능'),
-  _H122Step('다이얼은 참고 눈금. 압력을 천천히 올려 HIGH가 동작하는 압력을 표준 압력계로 읽음', UeH122View(dialCap: false, highOn: true), high: 7.0),
-  _H122Step('압력을 천천히 내려 HIGH 복귀, 더 내려 LOW가 동작하는 압력을 읽음 (LOW는 하강 때 동작)', UeH122View(dialCap: false, lowOn: true), low: 3.0),
-  _H122Step('목표와 다르면 그 손잡이를 조금 돌리고 다시 시험. 2~3번 같은 값이 나오는지 확인', UeH122View(dialCap: false, hot: 'high'), high: 7.2),
-  _H122Step('다이얼 덮개를 닫고 나사 조임. 압력원 떼고 원밸브 복구, 바이패스 해제, 결과 기록', UeH122View(hot: 'dialcap')),
+  _H122Step('다이얼 덮개만 열고 설정하므로 본체 덮개는 안 엶. 시작 전에 제어실에 알리고, 이 스위치에 걸린 경보·인터록은 바이패스 (시험하면 동작함)', UeH122View()),
+  _H122Step('시험 압력원(핸드 펌프와 표준 압력계)을 시험 포트에 연결하고 원밸브를 잠금. 조일 때 스패너는 압력 접속구 육각에 댐', UeH122View(hot: 'conn')),
+  _H122Step('접점이 바뀌는지는 정션 박스나 DCS 화면에서 확인. 본체 덮개를 열고 단자에서 보려면 반드시 회로를 먼저 차단', UeH122View(hot: 'term'), warn: '방폭: 전기가 살아 있으면 본체 덮개를 열지 말 것'),
+  _H122Step('위쪽 다이얼 덮개(스테인리스)의 나사 2개를 풀고 덮개를 엶', UeH122View(hot: 'dialcap')),
+  _H122Step('앞쪽 LOW 손잡이를 돌려 바늘을 저압 설정값(예 3.0 bar)에 맞춤. 두 손잡이는 각자 따로 돌아감', UeH122View(dialCap: false, hot: 'low'), low: 3.0),
+  _H122Step('뒤쪽 HIGH 손잡이를 돌려 바늘을 고압 설정값(예 7.0 bar)에 맞춤', UeH122View(dialCap: false, hot: 'high'), high: 7.0, warn: '설명서: LOW를 HIGH보다 높게 맞추지 말 것. 두 값은 범위 안에서 같게 해도 되고 따로 떨어뜨려도 됨'),
+  _H122Step('다이얼 눈금은 참고용. 압력을 천천히 올리면서 HIGH가 동작하는 압력을 표준 압력계로 읽음', UeH122View(dialCap: false, highOn: true), high: 7.0),
+  _H122Step('압력을 천천히 내리면 HIGH가 복귀하고, 더 내리면 LOW가 동작함. 이때 압력을 읽음', UeH122View(dialCap: false, lowOn: true), low: 3.0),
+  _H122Step('목표값과 다르면 그 손잡이를 조금 돌리고 다시 시험. 2~3번 해서 같은 값이 나오는지 확인', UeH122View(dialCap: false, hot: 'high'), high: 7.2),
+  _H122Step('다이얼 덮개를 닫고 나사를 조임. 압력원을 떼고 원밸브 원위치, 바이패스 해제, 결과 기록', UeH122View(hot: 'dialcap')),
 ];
 
 class _H122Walk extends StatefulWidget {
@@ -278,7 +278,7 @@ class _H122BenchState extends State<_H122Bench> {
       } else {
         final n = (_low + dir * _div).clamp(0.0, 10.0);
         if (n > _high) {
-          ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('LOW를 HIGH보다 높게 두지 마십시오 (설명서)')));
+          ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('LOW를 HIGH보다 높게 맞출 수 없습니다 (설명서)')));
           return;
         }
         _low = n;
@@ -289,7 +289,7 @@ class _H122BenchState extends State<_H122Bench> {
 
   Widget _row(String name, double? at, double target) {
     final err = at == null ? null : at - target;
-    return refDataRow(name, at == null ? (name.startsWith('HIGH') ? '압력을 올려 보십시오' : '압력을 내려 보십시오') : '${at.toStringAsFixed(2)} bar (목표 ${target.toStringAsFixed(1)}과 ${err! >= 0 ? '+' : ''}${err.toStringAsFixed(2)})');
+    return refDataRow(name, at == null ? (name.startsWith('HIGH') ? '압력을 올려 보십시오' : '압력을 내려 보십시오') : '${at.toStringAsFixed(2)} bar (목표보다 ${err! >= 0 ? '+' : ''}${err.toStringAsFixed(2)})');
   }
 
   @override
@@ -299,7 +299,7 @@ class _H122BenchState extends State<_H122Bench> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Text('목표: HIGH는 7.0 bar로 오르면, LOW는 3.0 bar로 내리면 동작', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.text)),
+        const Text('목표: 압력이 오를 때 HIGH가 7.0 bar에서, 내릴 때 LOW가 3.0 bar에서 동작', style: TextStyle(fontWeight: FontWeight.w800, color: AppColors.text)),
         const SizedBox(height: 8),
         _frame(CustomPaint(key: const Key('h122_bench_dial'), painter: UeDialPainter(low: _low, high: _high, max: 10)), 360 / 180),
         const SizedBox(height: 8),
@@ -321,11 +321,11 @@ class _H122BenchState extends State<_H122Bench> {
         refGap(),
         _row('LOW 동작점', _lAt, _tLow),
         const SizedBox(height: 8),
-        if (hErr != null && hErr.abs() > 0.1) refWarnBox(hErr < 0 ? 'HIGH가 일찍 동작함 → HIGH 손잡이를 올림(+)' : 'HIGH가 늦게 동작함 → HIGH 손잡이를 내림(−)'),
-        if (lErr != null && lErr.abs() > 0.1) ...[const SizedBox(height: 6), refWarnBox(lErr > 0 ? 'LOW가 일찍(높은 압력에서) 동작함 → LOW 손잡이를 내림(−)' : 'LOW가 늦게 동작함 → LOW 손잡이를 올림(+)')],
-        if (hErr != null && lErr != null && hErr.abs() <= 0.1 && lErr.abs() <= 0.1) refTipBox('둘 다 목표 안 (±0.1 bar). 다이얼 덮개를 닫고 기록'),
+        if (hErr != null && hErr.abs() > 0.1) refWarnBox(hErr < 0 ? 'HIGH가 목표보다 낮은 압력에서 동작함. HIGH 손잡이를 올릴 것 (+)' : 'HIGH가 목표보다 높은 압력에서 동작함. HIGH 손잡이를 내릴 것 (−)'),
+        if (lErr != null && lErr.abs() > 0.1) ...[const SizedBox(height: 6), refWarnBox(lErr > 0 ? 'LOW가 목표보다 높은 압력에서 동작함. LOW 손잡이를 내릴 것 (−)' : 'LOW가 목표보다 낮은 압력에서 동작함. LOW 손잡이를 올릴 것 (+)')],
+        if (hErr != null && lErr != null && hErr.abs() <= 0.1 && lErr.abs() <= 0.1) refTipBox('둘 다 목표 ±0.1 bar 안. 다이얼 덮개를 닫고 기록'),
         const SizedBox(height: 8),
-        const Text('※ 그림용: 범위 0~10 bar, 한 눈금 0.2 bar, 데드밴드 0.3 bar, 다이얼과 실제가 0.15 bar 다르게 정한 흉내입니다. 다이얼은 참고 눈금이라 실제 동작점은 꼭 표준 압력계로 확인합니다. 실제 눈금 간격·데드밴드는 모델표(120-B)에 있습니다.', style: TextStyle(fontSize: 12, color: AppColors.textSub)),
+        const Text('※ 연습용 설정: 범위 0~10 bar, 손잡이 한 번에 0.2 bar, 데드밴드 0.3 bar, 다이얼과 실제 동작이 0.15 bar 차이 나게 해 놨습니다. 실제로도 다이얼은 참고용이라 동작점은 꼭 표준 압력계로 확인합니다. 실제 눈금 간격과 데드밴드는 카탈로그 120-B 모델표에 있습니다.', style: TextStyle(fontSize: 12, color: AppColors.textSub)),
       ],
     );
   }
@@ -358,7 +358,7 @@ class _H122BenchPainter extends CustomPainter {
       }
       c.drawCircle(Offset(x, 56), 12, Paint()..color = on ? col : const Color(0xFFCBD2D8));
       lpText(c, name, Offset(x, 82), size: 8.5, color: on ? col : AppColors.textSub, w: FontWeight.w900);
-      lpText(c, on ? '동작' : '대기', Offset(x, 96), size: 7.5, color: AppColors.textSub);
+      lpText(c, on ? '동작' : '동작 전', Offset(x, 96), size: 7.5, color: AppColors.textSub);
     }
     c.restore();
   }
@@ -368,40 +368,42 @@ class _H122BenchPainter extends CustomPainter {
 }
 
 List<Widget> h122Section(Widget Function(String) title, List<Widget> Function(List<(String, String)>) rows) => [
-  refIntroBadge('H122: 원통형 방폭 외함, 스위치 2개(HIGH·LOW), 위 다이얼로 덮개를 안 열고 설정. 본체 덮개는 결선할 때만 엽니다. 근거 UE IMP120·120-B, 다이얼 덮개·손잡이 모양은 단순화했습니다.'),
+  refIntroBadge('H122는 원통형 방폭 스위치로, 안에 스위치가 2개(HIGH, LOW) 들어 있습니다. 위쪽 다이얼로 설정하기 때문에 본체 덮개는 결선할 때만 엽니다. UE 설명서 IMP120과 카탈로그 120-B 기준이며, 그림은 실물보다 단순하게 그렸습니다.'),
   title('겉모습'),
   _frame(const CustomPaint(key: Key('h122_fig'), painter: UeH122Painter(UeH122View())), 360 / 320),
   const SizedBox(height: 10),
   ...rows(const [
-    ('다이얼 덮개', '위쪽 스테인리스 덮개, 나사 둘 (변조 방지, 개스킷 있음). 열면 손잡이 둘'),
-    ('LOW 손잡이 (앞)', '앞 마이크로스위치. 보통 저압 경보 (하강 때 동작)'),
-    ('HIGH 손잡이 (뒤)', '뒤 마이크로스위치. 보통 고압 경보 (상승 때 동작)'),
-    ('다이얼', '참고 눈금 (reference dial). 눈금 간격은 모델마다 다름 (120-B "Dial Divisions")'),
-    ('본체 덮개', '나사식 둥근 덮개. 결선할 때만 엶 (회로 차단 후)'),
-    ('전선관', '하나 (single conduit, 3/4" NPT)'),
+    ('다이얼 덮개', '위쪽 스테인리스 덮개. 나사 2개로 고정되어 있어 아무나 못 돌림. 열면 손잡이 2개가 보임'),
+    ('LOW 손잡이 (앞)', '앞쪽 스위치. 보통 저압 경보로 씀 (압력이 내려갈 때 동작)'),
+    ('HIGH 손잡이 (뒤)', '뒤쪽 스위치. 보통 고압 경보로 씀 (압력이 올라갈 때 동작)'),
+    ('다이얼 눈금', '참고용 눈금. 눈금 간격은 모델마다 다름 (카탈로그 120-B)'),
+    ('본체 덮개', '돌려서 여는 둥근 덮개. 결선할 때만 엶 (회로 차단 후)'),
+    ('전선관 입구', '1개, 3/4" NPT'),
   ]),
-  title('따라하기: 다이얼로 설정'),
+  title('따라하기: 설정값 맞추기'),
   const _H122Walk(),
-  title('시험대: 직접 해 보기 (스위치 2개)'),
+  title('연습: 직접 맞춰 보기'),
   const _H122Bench(),
-  title('안쪽 (결선할 때만)'),
+  title('본체 안쪽 (결선할 때)'),
   _frame(const CustomPaint(key: Key('h122_inside'), painter: UeH122Painter(UeH122View(cover: false))), 360 / 320),
   const SizedBox(height: 10),
   refTable(
-    headers: const ['단자대', '순서', '배선 색 (설명서 그림 3)'],
+    headers: const ['단자대', '단자 순서', '선 색 (설명서 그림 3)'],
     flex: const [2, 4, 4],
     rows: const [
       ['HIGH (위)', 'N.O. · COM. · N.C.', '주황 · 노랑 · 빨강'],
       ['LOW (아래)', 'N.C. · COM. · N.O.', '검정 · 보라 · 파랑'],
     ],
-    footer: '※ 2SPDT: LOW 스위치는 배선이 반대로 되어 있음 (단자 순서가 HIGH와 거꾸로). 단자 이름을 보고 물릴 것',
+    footer: '※ LOW 스위치는 단자 순서가 HIGH와 반대임. 단자에 적힌 이름을 보고 물릴 것',
   ),
   const SizedBox(height: 10),
   ...rows(const [
-    ('결선 순서', '회로 차단 → 본체 덮개 엶 → 단자대에 직접 결선 → 내부 접지 단자(전선관 옆)에 접지 → 덮개를 손으로 끝까지 (O-링)'),
-    ('범위 끝', '설정 범위 아래 끝은 하강 때, 위 끝은 상승 때 기준 (120-B 모델표)'),
-    ('설정 한계', '두 스위치는 같이 또는 따로 범위의 100%까지. LOW는 HIGH보다 높게 두지 말 것'),
-    ('전선·조임', '구리 90 ℃ 이상, 14 AWG(약 2.0 mm²)까지, 7~17 in·lb (약 0.8~1.9 N·m). 명판 접점 정격을 넘기지 말 것'),
-    ('방폭 실링', '전선관은 함에서 18" (약 450 mm) 안에 실링, 덮개 나사산 윤활제는 닦지 말 것'),
+    ('결선 순서', '회로 차단 → 본체 덮개 열기 → 단자대에 결선 → 전선관 옆 내부 접지 단자에 접지 → 덮개를 손으로 끝까지 돌려 닫기 (O-링이 다 물리게)'),
+    ('설정 범위', '범위 아래쪽 끝은 압력이 내려갈 때, 위쪽 끝은 올라갈 때 기준 (카탈로그 120-B 모델표)'),
+    ('설정 제한', '두 스위치 모두 범위 안 어디든 설정 가능. 단, LOW를 HIGH보다 높게 하지 말 것'),
+    ('전선', '구리선, 90 ℃ 이상 제품, 14 AWG (약 2.0 mm²)까지'),
+    ('단자 조임', '7~17 in·lb (약 0.8~1.9 N·m)'),
+    ('방폭 실링', '함에서 18" (약 450 mm) 안에 실링 피팅 설치'),
+    ('덮개 나사산', '윤활제를 닦아 내지 말 것 (덮개가 눌어붙음)'),
   ]),
 ];
