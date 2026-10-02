@@ -76,6 +76,12 @@ class _TrayRow {
   }
 }
 
+/// 바닥에 직접 놓는 트레이 안내(덮개).
+const List<String> kFloorTrayNotes = [
+  '덮개: 사람이 다니거나 물건이 떨어지거나 밟힐 수 있는 곳은 덮개를 씌웁니다. KEC 232.41.2 10호 "별도로 방호를 필요로 하는 곳은 불연성 커버"를 따릅니다.',
+  '덮개 무게도 트레이 자중 칸에 더해 넣으십시오.',
+];
+
 /// 트레이에 넣는 케이블로 고를 수 있는 것: 케이블과 트레이용 접지선(F-GV).
 /// HFIX·IV·HIV 같은 시스 없는 절연전선은 트레이에 그대로 깔지 않는다.
 final List<CableKind> kTrayCableKinds = [
@@ -479,6 +485,7 @@ class _CableTrayPageState extends State<CableTrayPage>
             ok
                 ? '허용 하중 ${fmt(l.allowKgM!, 1)} kg/m 안입니다.'
                 : '허용 하중 ${fmt(l.allowKgM!, 1)} kg/m를 넘습니다. 지지 간격을 줄이거나 더 튼튼한 트레이로 하십시오.',
+          if (!spans) ...kFloorTrayNotes,
           if (l.missing.isNotEmpty) '무게를 몰라 빠진 케이블: ${l.missing.join(', ')}. 직접 입력 줄에 kg/km를 넣으면 들어갑니다.',
           cableWeightSource,
         ],
