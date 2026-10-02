@@ -114,4 +114,30 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('접점 알기: SPDT 동작 전 → DPDT 동작 → 2SPDT 1번만 동작, 닫힌 접점 글이 바뀐다', (tester) async {
+    phone(tester);
+    await tester.pumpWidget(const MaterialApp(home: UeSwitchGuidePage()));
+    await tester.pumpAndSettle();
+    final list = find.byKey(const Key('ue_list'));
+    await tester.dragUntilVisible(find.byKey(const Key('ue_ct_fig')), list, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    expect(find.text('닫힘 COM–N.C. · 열림 COM–N.O.'), findsOneWidget);
+    Future<void> tap(String t) async {
+      final f = find.text(t);
+      await tester.ensureVisible(f);
+      await tester.pumpAndSettle();
+      await tester.tap(f);
+      await tester.pumpAndSettle();
+    }
+    await tap('DPDT');
+    await tap('동작 (설정점 넘음)');
+    expect(find.text('접점 1: 닫힘 COM1–N.O.1 · 열림 COM1–N.C.1'), findsOneWidget);
+    expect(find.text('접점 2: 닫힘 COM2–N.O.2 · 열림 COM2–N.C.2'), findsOneWidget);
+    await tap('2SPDT');
+    await tap('1번만 동작');
+    expect(find.text('스위치 1: 닫힘 COM–N.O. · 열림 COM–N.C.'), findsOneWidget);
+    expect(find.text('스위치 2: 닫힘 COM–N.C. · 열림 COM–N.O.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -14,6 +14,7 @@ import '../equipment/equipment_manual.dart';
 import '../reference/page/reference_widgets.dart';
 import 'loop_paint_kit.dart';
 
+part 'ue_contact_section.dart';
 part 'ue_h122_section.dart';
 
 /// 그림 상태.
@@ -603,6 +604,7 @@ class _UeSwitchGuidePageState extends State<UeSwitchGuidePage> {
             ('고정', '함의 1/4" 나사 구멍 4개로 벽에, 또는 압력 접속구로 단단한 배관에'),
           ]),
           ],
+          ...contactSection(_title, rows),
           _title('압력 한도 (명판)'),
           ...rows(const [
             ('프루프 압력', '가끔(기동·시험) 걸려도 영구 손상이 없는 최대 압력. 걸린 뒤 다시 맞춰야 할 수 있음'),
