@@ -14,6 +14,7 @@ import '../../core/theme/field_view.dart';
 import '../../data/record_sync.dart';
 import 'test_record.dart';
 import 'test_record_pdf.dart';
+import '../trash/trash_kinds.dart';
 
 String _date(DateTime d) => '${ptDay(d)} ${ptHm(d)}';
 
@@ -275,19 +276,19 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
     );
   }
 
-  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다.
+  /// 목록에서 곧바로 빼고 휴지통으로 옮긴다. "되돌리기"를 누르면 휴지통에서 복원한다.
   void _delete(PtRecord r) {
     final l = _list;
     if (l == null) return;
     setState(() => _list = [...l]..removeWhere((e) => e.id == r.id));
-    final done = PtRecordStore.delete(r.id);
+    final title = '${_name(r)} ${_date(r.date)}';
+    final done = trashPtRecord(r, title: title);
     unawaited(done.then((_) => _refreshSyncAfterPush()));
-    showDeleteUndo(
+    showTrashUndo(
       context,
-      '${_name(r)} ${_date(r.date)}',
-      onUndo: () async {
-        await done;
-        await PtRecordStore.put(r);
+      title,
+      done,
+      onRestored: () async {
         await _reload();
         unawaited(_refreshSyncAfterPush());
       },

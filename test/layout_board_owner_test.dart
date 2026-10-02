@@ -125,7 +125,7 @@ void main() {
     expect(find.text('삭제하기'), findsOneWidget);
   });
 
-  testWidgets('목록 화면: 줄을 왼쪽으로 밀면 이름을 보여 주고 묻는다, 취소하면 그대로', (tester) async {
+  testWidgets('목록 화면: 줄을 왼쪽으로 밀면 묻지 않고 휴지통으로, 못 옮기면 줄이 돌아온다', (tester) async {
     tester.view.physicalSize = const Size(390, 844) * 2;
     tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.reset);
@@ -144,9 +144,11 @@ void main() {
     ]);
     await tester.pumpAndSettle();
     await tester.drag(find.text('1호기 분전반'), const Offset(-500, 0));
-    await tester.pumpAndSettle();
-    expect(find.text('배치도 삭제'), findsOneWidget);
-    await tester.tap(find.text('취소'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('배치도 삭제'), findsNothing); // 확인창 없음
+    expect(find.textContaining('휴지통으로 옮겼습니다: 1호기 분전반'), findsOneWidget);
+    // 시험에는 서버가 없어 옮기기가 실패한다 → 줄이 다시 보이고 알린다(오류로 멈추지 않는다).
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.text('1호기 분전반'), findsOneWidget);

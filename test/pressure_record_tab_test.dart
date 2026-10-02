@@ -771,7 +771,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('pr_item_z')), findsNothing);
-    expect(find.textContaining('삭제했습니다: L-9'), findsOneWidget);
+    expect(find.textContaining('휴지통으로 옮겼습니다: L-9'), findsOneWidget);
     expect(await PtRecordStore.load(), isEmpty);
     await tester.tap(find.text('되돌리기'));
     await tester.pumpAndSettle();

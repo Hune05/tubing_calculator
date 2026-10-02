@@ -11,6 +11,7 @@ import 'package:tubing_calculator/src/presentation/drawing_viewer/drawing_models
 import 'package:tubing_calculator/src/presentation/drawing_viewer/drawing_store.dart';
 import 'package:tubing_calculator/src/presentation/drawing_viewer/drawing_viewer_page.dart';
 import 'package:tubing_calculator/src/presentation/drawing_viewer/dxf_reader.dart';
+import 'package:tubing_calculator/src/presentation/trash/trash_kinds.dart';
 
 String _dxf(List<String> pairs) => '${pairs.join('\n')}\n';
 
@@ -168,7 +169,7 @@ void main() {
       });
     });
 
-    testWidgets('도면 줄은 휴지통 단추 없이 밀어서 지우고, 도면 이름을 적어 먼저 묻는다', (tester) async {
+    testWidgets('도면 줄은 휴지통 단추 없이 밀어서 휴지통으로, 되돌리기로 파일까지 돌아온다', (tester) async {
       late DrawingDoc doc;
       await tester.runAsync(() async {
         final src = File('${tmp.path}/plan.dxf')..writeAsStringSync(_sample);
@@ -188,24 +189,26 @@ void main() {
       expect(row, findsOneWidget);
       expect(find.byKey(Key('dl_del_${doc.id}')), findsNothing);
 
-      // 밀면 확인창, 취소하면 줄이 그대로 남는다.
+      // 밀면 묻지 않고 휴지통으로 간다(파일은 휴지통 폴더로).
       await tester.drag(row, const Offset(-500, 0));
-      await tester.pumpAndSettle();
-      expect(find.text('도면을 삭제하겠습니까?'), findsOneWidget);
-      expect(find.textContaining('"${doc.displayName}"'), findsOneWidget);
-      await tester.tap(find.text('취소'));
-      await tester.pumpAndSettle();
-      expect(row, findsOneWidget);
-
-      // 다시 밀고 삭제를 누르면 목록과 폰에서 빠진다.
-      await tester.drag(row, const Offset(-500, 0));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('dl_delete_ok')));
       await tester.pumpAndSettle();
       expect(row, findsNothing);
+      expect(find.textContaining('휴지통으로 옮겼습니다'), findsOneWidget);
       await settleFiles();
-      await tester.runAsync(() async => expect(await DrawingStore.load(), isEmpty));
-      expect(find.byKey(const Key('dl_empty')), findsOneWidget);
+      await tester.runAsync(() async {
+        expect(await DrawingStore.load(), isEmpty);
+        expect((await loadTrash()).single.kind, TrashKind.drawing);
+      });
+
+      // 되돌리기 → 목록과 파일이 그대로 돌아온다.
+      await tester.tap(find.text('되돌리기'));
+      await settleFiles();
+      await tester.runAsync(() async {
+        final back = await DrawingStore.load();
+        expect(back.single.id, doc.id);
+        expect(await loadTrash(), isEmpty);
+        expect((await DrawingStore.dirOf(doc.id)).listSync(), isNotEmpty);
+      });
     });
 
     testWidgets('보관함이 비면 안내가 나온다', (tester) async {

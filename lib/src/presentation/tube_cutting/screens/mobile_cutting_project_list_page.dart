@@ -12,6 +12,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_pending_
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.dart';
 import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
+import '../../trash/trash_kinds.dart';
 
 // 🚀 [신규] 컷팅 계산기용 프로젝트 목록 - 모바일 전용, Firestore 기반.
 // 예전엔 (1) 데스크톱 ProjectManagementPage 안에서만 열 수 있었고 데이터도
@@ -192,41 +193,26 @@ class _MobileCuttingProjectListPageState
     );
   }
 
-  // 작업과 딸린 컷팅 기록을 한꺼번에 지워 되돌리기가 어렵다. 그래서 이름을 적어 먼저 묻는다.
-  Future<bool> _confirmDeleteProject(BuildContext context, String name) {
-    return showCuttingConfirmDialog(
-      context,
-      title: "작업 삭제",
-      message: "'$name' 작업과 저장된 컷팅 기록을 모두 지우시겠습니까? 되돌릴 수 없습니다.",
-      confirmLabel: "삭제",
-      danger: true,
-      icon: Icons.delete_outline_rounded,
-    );
-  }
-
-  // ⋮ 메뉴의 "삭제하기".
-  Future<void> _deleteProject(
-    BuildContext context,
-    String docId,
-    String name,
-  ) async {
-    if (!await _confirmDeleteProject(context, name)) return;
-    if (!mounted) return;
-    await _removeProject(docId);
-  }
-
-  // 확인을 받은 뒤 지운다. 목록에서는 바로 빼고, 못 지우면 다시 보인다.
+  // 작업과 딸린 컷팅 기록을 휴지통으로 옮긴다(30일 보관). 목록에서는 바로 빼고
+  // "되돌리기"를 누르면 휴지통에서 같은 아이디로 되살린다(10-02).
   // 줄의 context는 줄이 빠지면 사라지므로 알림은 화면(State)의 context로 띄운다.
-  Future<void> _removeProject(String docId) async {
+  void _removeProject(String docId, String name) {
     setState(() => _hiddenIds.add(docId));
-    try {
-      await deleteCuttingProjectWithRecords(docId);
-      if (mounted) showCuttingSnack(context, "작업을 삭제했습니다.");
-    } catch (_) {
+    // 서버가 준비 안 됐을 때 나는 오류도 아래 onError로 받는다.
+    final done = Future.sync(() => trashFirestoreDoc(
+      kind: TrashKind.cuttingProject,
+      title: name,
+      ref: FirebaseFirestore.instance.collection(kCuttingProjectsCollection).doc(docId),
+      subcollections: const [kCutRecordsSubcollection],
+    ));
+    onTrashFailed(done, () {
       if (!mounted) return;
       setState(() => _hiddenIds.remove(docId));
       showCuttingSnack(context, "지우지 못했습니다. 통신을 확인하십시오.", isError: true);
-    }
+    });
+    showTrashUndo(context, name, done, onRestored: () async {
+      if (mounted) setState(() => _hiddenIds.remove(docId));
+    });
   }
 
   // 🚀 [신규] 롱프레스로 바로 삭제 확인창이 뜨던 걸 하단 액션 시트로 바꿔서,
@@ -362,7 +348,7 @@ class _MobileCuttingProjectListPageState
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _deleteProject(context, docId, project.name);
+                  _removeProject(docId, project.name);
                 },
               ),
               const SizedBox(height: 8),
@@ -618,13 +604,12 @@ class _MobileCuttingProjectListPageState
                 final pendingMaterials =
                     (data['materials'] as List?)?.length ?? 0;
 
-                // 🚀 [10-02] 왼쪽으로 밀어서도 지운다. 기록까지 지우므로 먼저 묻는다.
+                // 🚀 [10-02] 왼쪽으로 밀어서도 지운다. 휴지통으로 가니 묻지 않고 되돌리기를 띄운다.
                 return SwipeToDelete(
                   itemKey: ValueKey('cut_project_${doc.id}'),
                   radius: 20,
                   bottomMargin: 12,
-                  confirm: () => _confirmDeleteProject(context, project.name),
-                  onDelete: () => _removeProject(doc.id),
+                  onDelete: () => _removeProject(doc.id, project.name),
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: InkWell(

@@ -239,7 +239,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("프로젝트 삭제"),
-        content: Text(keepWords("일정·일지·이슈가 모두 함께 삭제됩니다. 계속하시겠습니까?")),
+        content: Text(keepWords("일정·일지·이슈와 함께 휴지통으로 옮깁니다. 30일 안에는 휴지통에서 되살릴 수 있습니다. 계속하시겠습니까?")),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

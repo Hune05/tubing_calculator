@@ -311,7 +311,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('cr_item_z')), findsNothing);
     expect(
-      find.textContaining('삭제했습니다: LT-9 2026-09-26 00:00'),
+      find.textContaining('휴지통으로 옮겼습니다: LT-9 2026-09-26 00:00'),
       findsOneWidget,
     );
     expect(await CalRecordStore.load(), isEmpty);

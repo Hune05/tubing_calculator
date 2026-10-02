@@ -15,6 +15,7 @@ import '../../data/record_sync.dart';
 import 'cal_record.dart';
 import 'cal_record_pdf.dart';
 import 'switch_check.dart';
+import '../trash/trash_kinds.dart';
 
 String _date(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')} '
@@ -266,19 +267,19 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
     );
   }
 
-  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다.
+  /// 목록에서 곧바로 빼고 휴지통으로 옮긴다. "되돌리기"를 누르면 휴지통에서 복원한다.
   void _delete(CalRecord r) {
     final l = _list;
     if (l == null) return;
     setState(() => _list = [...l]..removeWhere((e) => e.id == r.id));
-    final done = CalRecordStore.delete(r.id);
+    final title = '${r.tag.isEmpty ? '(태그 없음)' : r.tag} ${_date(r.date)}';
+    final done = trashCalRecord(r, title: title);
     unawaited(done.then((_) => _refreshSyncAfterPush()));
-    showDeleteUndo(
+    showTrashUndo(
       context,
-      '${r.tag.isEmpty ? '(태그 없음)' : r.tag} ${_date(r.date)}',
-      onUndo: () async {
-        await done;
-        await CalRecordStore.put(r);
+      title,
+      done,
+      onRestored: () async {
         await _reload();
         unawaited(_refreshSyncAfterPush());
       },

@@ -8,6 +8,7 @@ import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'safety_check_model.dart';
+import '../trash/trash_kinds.dart';
 
 // 카카오톡으로 바로 보내고, 카카오톡이 없으면 일반 공유창으로 보낸다.
 Future<void> _defaultShare(String text) async {
@@ -557,21 +558,16 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
     }
   }
 
-  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다(10-02).
+  /// 목록에서 곧바로 빼고 휴지통으로 옮긴다. "되돌리기"를 누르면 휴지통에서 복원한다(10-02).
   void _delete(SafetyRecord r) {
     final l = _records;
     if (l == null || !mounted) return;
     setState(() => _records = [...l]..removeWhere((e) => e.id == r.id));
-    final done = deleteSafetyRecord(r.id);
-    showDeleteUndo(
-      context,
-      [safetyTimeLabel(r.at), if (r.site.isNotEmpty) r.site].join(' '),
-      onUndo: () async {
-        await done;
-        await addSafetyRecord(r);
+    final title = [safetyTimeLabel(r.at), if (r.site.isNotEmpty) r.site].join(' ');
+    final done = trashSafetyRecord(r, title: title);
+    showTrashUndo(context, title, done, onRestored: () async {
         await _reload();
-      },
-    );
+      });
   }
 
   @override

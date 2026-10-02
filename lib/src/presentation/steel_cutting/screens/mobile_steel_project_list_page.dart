@@ -10,6 +10,7 @@ import '../../tube_cutting/cutting_theme.dart';
 import '../../../core/common_widgets/swipe_to_delete.dart';
 import '../steel_weight.dart';
 import 'steel_cutting_detail_screen.dart';
+import '../../trash/trash_kinds.dart';
 
 // 🚀 [형강 컷팅 신규] 튜브 컷팅 작업 목록(mobile_cutting_project_list_page.dart)과
 // 같은 형식으로 만든 형강(찬넬/앵글) 컷팅 프로젝트 목록. 재고 연동과
@@ -240,72 +241,26 @@ class _MobileSteelProjectListPageState
         .update({'name': name});
   }
 
-  // 작업과 변경 이력을 한꺼번에 지워 되돌리기가 어렵다. 그래서 이름을 적어 먼저 묻는다.
-  Future<bool> _confirmDeleteProject(BuildContext context, String name) {
-    return showCuttingConfirmDialog(
-      context,
-      title: "작업 삭제",
-      message: "'$name' 작업과 변경 이력을 모두 지우시겠습니까? 되돌릴 수 없습니다.",
-      confirmLabel: "삭제",
-      danger: true,
-      icon: Icons.delete_outline_rounded,
-    );
-  }
-
-  // ⋮ 메뉴의 "삭제하기".
-  Future<void> _deleteProject(
-    BuildContext context,
-    String docId,
-    String name,
-  ) async {
-    if (!await _confirmDeleteProject(context, name)) return;
-    if (!mounted) return;
-    await _removeProject(docId);
-  }
-
-  // 확인을 받은 뒤 지운다. 목록에서는 바로 빼고, 못 지우면 다시 보인다.
+  // 작업과 변경 이력을 휴지통으로 옮긴다(30일 보관). 목록에서는 바로 빼고 "되돌리기"를
+  // 누르면 휴지통에서 같은 아이디로 되살린다(10-02). 통신이 없으면 폰에 남은 이력으로 옮긴다.
   // 줄의 context는 줄이 빠지면 사라지므로 알림은 화면(State)의 context로 띄운다.
-  Future<void> _removeProject(String docId) async {
+  void _removeProject(String docId, String name) {
     setState(() => _hiddenIds.add(docId));
-    try {
-      // 변경 이력(하위 모음)도 같이 지운다(튜브 쪽 deleteCuttingProjectWithRecords와 같게).
-      final docRef = FirebaseFirestore.instance
-          .collection(kSteelCuttingProjectsCollection)
-          .doc(docId);
-      // 🚀 [고침] 통신이 없으면 이력 읽기가 8초 뒤 오류로 끝나 작업이 안 지워졌다.
-      // 폰 캐시에 있는 이력으로 지우고, 그것도 없으면 작업 문서만 지운다.
-      List<QueryDocumentSnapshot<Map<String, dynamic>>> logs = const [];
-      try {
-        logs =
-            (await docRef
-                    .collection(kSteelChangeLogSubcollection)
-                    .get()
-                    .timeout(const Duration(seconds: 8)))
-                .docs;
-      } catch (_) {
-        try {
-          logs =
-              (await docRef
-                      .collection(kSteelChangeLogSubcollection)
-                      .get(const GetOptions(source: Source.cache)))
-                  .docs;
-        } catch (_) {}
-      }
-      final batch = FirebaseFirestore.instance.batch();
-      for (final d in logs) {
-        batch.delete(d.reference);
-      }
-      batch.delete(docRef);
-      await batch.commit().timeout(
-        const Duration(seconds: 8),
-        onTimeout: () {},
-      );
-      if (mounted) showCuttingSnack(context, "작업을 삭제했습니다.");
-    } catch (_) {
+    // 서버가 준비 안 됐을 때 나는 오류도 아래 onError로 받는다.
+    final done = Future.sync(() => trashFirestoreDoc(
+      kind: TrashKind.steelProject,
+      title: name,
+      ref: FirebaseFirestore.instance.collection(kSteelCuttingProjectsCollection).doc(docId),
+      subcollections: const [kSteelChangeLogSubcollection],
+    ));
+    onTrashFailed(done, () {
       if (!mounted) return;
       setState(() => _hiddenIds.remove(docId));
       showCuttingSnack(context, "지우지 못했습니다. 통신을 확인하십시오.", isError: true);
-    }
+    });
+    showTrashUndo(context, name, done, onRestored: () async {
+      if (mounted) setState(() => _hiddenIds.remove(docId));
+    });
   }
 
   void _showItemActions(
@@ -412,7 +367,7 @@ class _MobileSteelProjectListPageState
                 ),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _deleteProject(context, docId, name);
+                  _removeProject(docId, name);
                 },
               ),
               const SizedBox(height: 8),
@@ -535,13 +490,12 @@ class _MobileSteelProjectListPageState
                 final data = doc.data() as Map<String, dynamic>;
                 final project = SteelCuttingProject.fromMap(doc.id, data);
 
-                // 🚀 [10-02] 왼쪽으로 밀어서도 지운다. 이력까지 지우므로 먼저 묻는다.
+                // 🚀 [10-02] 왼쪽으로 밀어서도 지운다. 휴지통으로 가니 묻지 않고 되돌리기를 띄운다.
                 return SwipeToDelete(
                   itemKey: ValueKey('steel_project_${doc.id}'),
                   radius: 20,
                   bottomMargin: 12,
-                  confirm: () => _confirmDeleteProject(context, project.name),
-                  onDelete: () => _removeProject(doc.id),
+                  onDelete: () => _removeProject(doc.id, project.name),
                   child: Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: InkWell(

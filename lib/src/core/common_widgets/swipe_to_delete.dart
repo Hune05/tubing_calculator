@@ -29,16 +29,20 @@ Widget swipeDeleteBackground({double radius = 12, double bottomMargin = 8}) {
       color: Colors.redAccent,
       borderRadius: BorderRadius.circular(radius),
     ),
-    child: const Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.delete_outline_rounded, color: Colors.white),
-        SizedBox(width: 6),
-        Text(
-          '삭제',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ],
+    // 줄이 좁아도 넘치지 않게 줄여서 그린다.
+    child: const FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.delete_outline_rounded, color: Colors.white),
+          SizedBox(width: 6),
+          Text(
+            '삭제',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
     ),
   );
 }
@@ -137,6 +141,8 @@ class _SwipeToDeleteState extends State<SwipeToDelete> with SingleTickerProvider
     if (c != null) {
       // 0 → 왼쪽으로 72 → 0 (가운데에서 잠깐 멈춤)
       child = Stack(
+        // 줄 크기는 원래 줄 그대로(안내 중에 줄이 줄어들지 않게).
+        fit: StackFit.passthrough,
         children: [
           Positioned.fill(child: swipeDeleteBackground(radius: widget.radius, bottomMargin: widget.bottomMargin)),
           AnimatedBuilder(

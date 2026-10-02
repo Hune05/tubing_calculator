@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/utils/cache_first.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 // debugPrint 사용을 위해 추가
-import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
+import 'package:cloud_firestore/cloud_firestore.dart' show FirebaseFirestore, Timestamp;
 
 // 🚀 [수정됨] Dialog가 아니라 새로 만든 Page를 임포트합니다.
 // 경로가 본인 프로젝트 폴더와 맞는지 꼭 확인해 주세요!
@@ -37,6 +37,7 @@ import '../pages/punch_detail_page.dart';
 import '../pages/project_schedule_page.dart';
 import '../pages/daily_report_calendar_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
+import 'package:tubing_calculator/src/presentation/trash/trash_kinds.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 
 part 'work_log_main_screen_banners.dart';
@@ -540,9 +541,22 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     delete: () {
       final id = log['id']?.toString();
       setState(() => _workLogs.remove(log));
-      if (id != null) _repo.deleteProject(id);
       // 삭제한 프로젝트에 걸려 있던 작업 일지 알림이 남지 않도록 바로 다시 맞춘다.
       syncReportReminder(_workLogs);
+      if (id == null) return;
+      // 휴지통으로 옮긴다(30일 보관). "되돌리기"를 누르면 같은 아이디로 되살리고 목록을 다시 읽는다(10-02).
+      // 서버가 준비 안 됐을 때 나는 오류도 아래 onError로 받는다.
+    final done = Future.sync(() => trashFirestoreDoc(
+        kind: TrashKind.workProject,
+        title: log['name']?.toString() ?? '',
+        ref: FirebaseFirestore.instance.collection(kWorkProjectsCollection).doc(id),
+      ));
+      onTrashFailed(done, () {
+        if (!mounted) return;
+        _loadData();
+        showAppSnack(context, '삭제하지 못했습니다. 통신을 확인하십시오.', kind: AppSnackKind.error);
+      });
+      showTrashUndo(context, log['name']?.toString() ?? '', done, onRestored: _loadData);
     },
   );
 

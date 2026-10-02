@@ -17,6 +17,7 @@ import 'equipment_model.dart';
 import 'equipment_pdf.dart';
 import 'equipment_reminders.dart';
 import 'equipment_store.dart';
+import '../trash/trash_kinds.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -462,22 +463,17 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
     );
   }
 
-  /// 목록에서 곧바로 빼고 지운다(알림 예약도 취소). "되돌리기"를 누르면 같은 장비(이력 포함)를
-  /// 다시 넣고 알림도 다시 잡는다(10-02).
+  /// 목록에서 곧바로 빼고 휴지통으로 옮긴다(알림 예약도 취소). "되돌리기"를 누르면 휴지통에서
+  /// 같은 장비(이력 포함)를 되살리고 알림도 다시 잡는다(10-02).
   void _delete(Equipment e) {
     setState(() => _all = [..._all]..removeWhere((x) => x.id == e.id));
-    final done = () async {
-      await EquipmentStore.delete(e.id);
-      await cancelEquipmentReminders(e.id);
-    }();
-    showDeleteUndo(
+    final done = trashEquipment(e);
+    showTrashUndo(
       context,
       [if (e.assetNo.isNotEmpty) e.assetNo, e.name].join(' '),
-      onUndo: () async {
-        await done;
-        await EquipmentStore.put(e);
+      done,
+      onRestored: () async {
         final all = await EquipmentStore.load();
-        rescheduleEquipmentReminders(all);
         if (mounted) setState(() => _all = all);
       },
     );
@@ -885,9 +881,8 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
           await _put(retire(e, at: _now));
         }
       case 'delete':
-        if (await _confirm('이 장비를 대장에서 지우시겠습니까?', '이력도 함께 지워지며 되돌릴 수 없습니다.')) {
-          await EquipmentStore.delete(e.id);
-          await cancelEquipmentReminders(e.id);
+        if (await _confirm('이 장비를 대장에서 지우시겠습니까?', '이력과 함께 휴지통으로 옮깁니다. 30일 안에는 휴지통에서 되살릴 수 있습니다.')) {
+          await trashEquipment(e);
           if (mounted) Navigator.pop(context);
         }
     }

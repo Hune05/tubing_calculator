@@ -87,6 +87,7 @@ import 'package:tubing_calculator/src/presentation/electrical/electric_calculato
 import 'package:tubing_calculator/src/presentation/pressure_test/pressure_test_page.dart';
 import 'package:tubing_calculator/src/presentation/flow/flow_calc_page.dart';
 import 'package:tubing_calculator/src/presentation/instrument/signal_calculator_page.dart';
+import '../../trash/trash_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
 const Color tossBlue = AppColors.brand;
@@ -2020,6 +2021,14 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             builder: (context) => const AppUsagePage(),
                           ),
                         );
+                      } else if (v == 'trash') {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TrashPage(),
+                          ),
+                        );
                       } else if (v == 'quick_edit') {
                         // 전체 메뉴를 보고 있었어도 빠른 실행으로 바꾸고
                         // 바로 편집 모드까지 켠다(2026-09-28).
@@ -2034,6 +2043,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       PopupMenuItem(value: 'profile', child: Text("내 프로필")),
                       PopupMenuItem(value: 'settings', child: Text("설정")),
                       PopupMenuItem(value: 'app_usage', child: Text("앱 사용법")),
+                      PopupMenuItem(value: 'trash', child: Text("휴지통")),
                       PopupMenuItem(
                         value: 'quick_edit',
                         child: Text("빠른 실행 편집"),

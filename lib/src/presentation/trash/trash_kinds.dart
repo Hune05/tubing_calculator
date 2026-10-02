@@ -10,6 +10,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/common_widgets/app_components.dart';
 import '../../core/trash/trash_store.dart';
 import '../alignment/alignment_record.dart';
 import '../bend_check/bend_check_model.dart';
@@ -131,11 +132,13 @@ Future<TrashEntry> trashFirestoreDoc({
   required DocumentReference<Map<String, dynamic>> ref,
   List<String> subcollections = const [],
 }) async {
-  final snap = await ref.get();
+  // 통신이 없으면 폰에 남아 있는 것(캐시)으로 읽는다.
+  final snap = await _orCache(() => ref.get(), () => ref.get(const GetOptions(source: Source.cache)));
   final subs = <String, Map<String, dynamic>>{};
   final toDelete = <DocumentReference>[];
   for (final name in subcollections) {
-    final q = await ref.collection(name).get();
+    final c = ref.collection(name);
+    final q = await _orCache(() => c.get(), () => c.get(const GetOptions(source: Source.cache)));
     subs[name] = {for (final d in q.docs) d.id: trashEncode(d.data())};
     toDelete.addAll(q.docs.map((d) => d.reference));
   }
@@ -150,14 +153,24 @@ Future<TrashEntry> trashFirestoreDoc({
   return e;
 }
 
-/// 한 번에 500개까지라 나눠서 쓴다.
+/// 서버에서 읽되, 5초 안에 안 되면(통신 없음) 폰에 남은 것으로.
+Future<T> _orCache<T>(Future<T> Function() server, Future<T> Function() cache) async {
+  try {
+    return await server().timeout(const Duration(seconds: 5));
+  } catch (_) {
+    return cache();
+  }
+}
+
+/// 한 번에 500개까지라 나눠서 쓴다. 통신이 없으면 서버 답을 기다리지 않는다: 쓰기는 폰에
+/// 쌓였다가 통신되면 순서대로 올라가므로(지우기 뒤 복원도 순서가 지켜진다) 5초만 기다린다.
 Future<void> _commitChunks(List<void Function(WriteBatch)> ops) async {
   for (var i = 0; i < ops.length; i += 450) {
     final b = trashDb().batch();
     for (final op in ops.skip(i).take(450)) {
       op(b);
     }
-    await b.commit();
+    await b.commit().timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 }
 
@@ -240,4 +253,36 @@ Future<void> emptyTrash() async {
     await purgeTrashFiles(e);
   }
   await TrashStore.clear();
+}
+
+/// 휴지통으로 옮긴 뒤 "휴지통으로 옮겼습니다: 이름 · 되돌리기"(6초). 되돌리면 휴지통에서 복원하고
+/// [onRestored]를 부른다(목록 다시 읽기 등). 옮기기([moved])가 끝나기를 기다린 뒤 복원한다.
+void showTrashUndo(
+  BuildContext context,
+  String name,
+  Future<TrashEntry> moved, {
+  Future<void> Function()? onRestored,
+}) {
+  if (ScaffoldMessenger.maybeOf(context) == null) return;
+  final n = name.trim();
+  showAppSnack(
+    context,
+    n.isEmpty ? '휴지통으로 옮겼습니다' : '휴지통으로 옮겼습니다: $n',
+    kind: AppSnackKind.undo,
+    onUndo: () async {
+      try {
+        await restoreTrash(await moved);
+        await onRestored?.call();
+      } catch (_) {}
+    },
+  );
+}
+
+/// 휴지통 옮기기가 실패하면 [handler]를 부른다(줄을 다시 보이고 알리기). 밀어서 지운 줄이
+/// 화면에서 한 번 빠진 뒤에 다시 넣어야 해서 다음 그림 뒤로 미룬다.
+void onTrashFailed(Future<Object?> moved, VoidCallback handler) {
+  moved.then((_) {}, onError: (Object _) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => handler());
+    WidgetsBinding.instance.scheduleFrame();
+  });
 }

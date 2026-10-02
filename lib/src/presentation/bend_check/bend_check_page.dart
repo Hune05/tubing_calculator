@@ -8,6 +8,7 @@ import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'bend_check_model.dart';
+import '../trash/trash_kinds.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -101,16 +102,16 @@ class _BendCheckPageState extends State<BendCheckPage> {
     _toast('저장했습니다');
   }
 
-  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다(10-02).
+  /// 목록에서 곧바로 빼고 휴지통으로 옮긴다. "되돌리기"를 누르면 휴지통에서 복원한다(10-02).
   void _delete(BendCheck c) {
     setState(() => _all = [..._all]..removeWhere((e) => e.id == c.id));
-    final done = deleteBendCheck(c.id);
-    showDeleteUndo(
+    final title = '${c.at.month}/${c.at.day} ${c.group}';
+    final done = trashBendCheck(c, title: title);
+    showTrashUndo(
       context,
-      '${c.at.month}/${c.at.day} ${c.group}',
-      onUndo: () async {
-        await done;
-        await addBendCheck(c);
+      title,
+      done,
+      onRestored: () async {
         await _reload();
       },
     );
@@ -229,9 +230,13 @@ class _BendCheckPageState extends State<BendCheckPage> {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Expanded(child: _numField('bendcheck_calc', _calc, '계산값 (mm)')),
+                    Expanded(
+                      child: _numField('bendcheck_calc', _calc, '계산값 (mm)'),
+                    ),
                     const SizedBox(width: 10),
-                    Expanded(child: _numField('bendcheck_actual', _actual, '실측값 (mm)')),
+                    Expanded(
+                      child: _numField('bendcheck_actual', _actual, '실측값 (mm)'),
+                    ),
                   ],
                 ),
                 if (live != null)

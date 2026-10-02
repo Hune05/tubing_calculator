@@ -16,6 +16,7 @@ import 'alignment_dial_painter.dart';
 import 'alignment_render.dart';
 import 'alignment_record.dart';
 import 'alignment_session.dart';
+import '../trash/trash_kinds.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -1279,21 +1280,16 @@ class _AlignmentHistoryPageState extends State<AlignmentHistoryPage> {
     }
   }
 
-  /// 목록에서 곧바로 빼고 지운다. "되돌리기"를 누르면 같은 기록을 다시 넣는다(10-02).
+  /// 목록에서 곧바로 빼고 휴지통으로 옮긴다. "되돌리기"를 누르면 휴지통에서 복원한다(10-02).
   void _delete(AlignRecord r) {
     final l = _list;
     if (l == null || !mounted) return;
     setState(() => _list = [...l]..removeWhere((e) => e.id == r.id));
-    final done = AlignStore.delete(r.id);
-    showDeleteUndo(
-      context,
-      '${r.at.month}/${r.at.day} ${r.stage.label}${r.machine.isEmpty ? '' : ' ${r.machine}'}',
-      onUndo: () async {
-        await done;
-        await AlignStore.put(r);
+    final title = '${r.at.month}/${r.at.day} ${r.stage.label}${r.machine.isEmpty ? '' : ' ${r.machine}'}';
+    final done = trashAlignRecord(r, title: title);
+    showTrashUndo(context, title, done, onRestored: () async {
         await _reload();
-      },
-    );
+      });
   }
 
   @override

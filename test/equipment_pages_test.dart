@@ -127,7 +127,7 @@ void main() {
       await tester.drag(find.byKey(const Key('equip_card_1')), const Offset(-500, 0));
       await tester.pumpAndSettle();
       expect(find.text('정상 렌치'), findsNothing);
-      expect(find.textContaining('삭제했습니다: 정상 렌치'), findsOneWidget);
+      expect(find.textContaining('휴지통으로 옮겼습니다: 정상 렌치'), findsOneWidget);
       expect((await EquipmentStore.load()).map((x) => x.id), ['2']);
       await tester.tap(find.text('되돌리기'));
       await tester.pumpAndSettle();

@@ -13,6 +13,7 @@ import 'drawing_models.dart';
 import 'drawing_store.dart';
 import 'drawing_viewer_page.dart';
 import 'dxf_reader.dart';
+import '../trash/trash_kinds.dart';
 
 /// 파일을 보관함에 넣고 바로 연다(카톡 공유·파일 고르기 공용). DWG·모르는 형식은 안내만 한다.
 Future<void> importAndOpenDrawing(BuildContext context, String path, {String? name}) async {
@@ -106,35 +107,19 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
     await _reload();
   }
 
-  /// 끝까지 밀었을 때 묻는다. 폰에 둔 도면 파일과 표시가 같이 지워져 되돌릴 수 없으므로
-  /// 되돌리기 대신 도면 이름을 적어 한 번 더 묻는다(10-02).
-  Future<bool> _confirmDelete(DrawingDoc d) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('도면을 삭제하겠습니까?'),
-        content: Text('"${d.displayName}"와 그 위에 한 표시를 이 폰에서 지웁니다. 되돌릴 수 없습니다. 받은 원래 파일(카톡 등)은 그대로 있습니다.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('취소')),
-          TextButton(key: const Key('dl_delete_ok'), onPressed: () => Navigator.pop(ctx, true), child: const Text('삭제', style: TextStyle(color: AppColors.danger))),
-        ],
-      ),
-    );
-    return ok == true;
-  }
-
-  /// 확인을 받은 뒤: 목록에서 곧바로 빼고(밀린 줄이 남지 않게) 폰에서 지운다.
-  Future<void> _delete(DrawingDoc d) async {
+  /// 목록에서 곧바로 빼고 휴지통으로 옮긴다(파일과 표시는 휴지통 폴더로). "되돌리기"를 누르면
+  /// 그대로 되살린다. 30일 지나면 파일까지 지워진다(10-02).
+  void _delete(DrawingDoc d) {
     setState(() {
       _docs = [for (final x in _docs ?? const <DrawingDoc>[]) if (x.id != d.id) x];
       _thumbs.remove(d.id);
     });
-    try {
-      await DrawingStore.delete(d.id);
-    } catch (_) {
+    final done = trashDrawing(d);
+    done.then((_) {}, onError: (Object _) {
       if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('도면을 지우지 못했습니다.')));
-    }
-    await _reload();
+      _reload();
+    });
+    showTrashUndo(context, d.displayName, done, onRestored: _reload);
   }
 
   @override
@@ -226,13 +211,12 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
       DrawingKind.image => '사진',
       DrawingKind.dxf => 'DXF',
     };
-    // 왼쪽으로 끝까지 밀면 도면 이름을 적은 확인창이 뜬다(휴지통 단추는 뺐다).
+    // 왼쪽으로 끝까지 밀면 휴지통으로 간다(휴지통 단추는 뺐다).
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: SwipeToDelete(
         itemKey: ValueKey('dl_swipe_${d.id}'),
         bottomMargin: 0,
-        confirm: () => _confirmDelete(d),
         onDelete: () => _delete(d),
         child: _card(d, thumb, kind),
       ),
