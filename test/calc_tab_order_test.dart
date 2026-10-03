@@ -34,21 +34,21 @@ void main() {
       '접지',
       '부하 합산',
       '역률 개선',
-      '전선관',
-      '부스바',
+      '전선관 규격 선정',
+      '부스바 허용전류',
       '축전지 용량',
     ]);
   });
 
   testWidgets('전동기·발전기 계산: 전동기 공식이 먼저, 보호·점검, 발전기 용량', (tester) async {
     await pump(tester, const ElectricCalculatorPage(group: ElecGroup.motor));
-    expect(tabLabels(tester), ['전동기 공식', '전동기 선정', '콘덴서·단상', '전동기 기타', '전동기 보호', '전동기 점검', '발전기 용량']);
+    expect(tabLabels(tester), ['전동기 공식', '전동기 선정', '콘덴서·단상', '전동기 구동·효율', '전동기 보호', '전동기 점검', '발전기 용량']);
     expect(find.text('전동기·발전기 계산'), findsOneWidget);
   });
 
   testWidgets('옛 탭 번호로 열어도 맞는 묶음이 열린다(12·13·9 = 전동기·발전기)', (tester) async {
     await pump(tester, const ElectricCalculatorPage(initialTab: 13));
-    expect(tabLabels(tester), ['전동기 공식', '전동기 선정', '콘덴서·단상', '전동기 기타', '전동기 보호', '전동기 점검', '발전기 용량']);
+    expect(tabLabels(tester), ['전동기 공식', '전동기 선정', '콘덴서·단상', '전동기 구동·효율', '전동기 보호', '전동기 점검', '발전기 용량']);
     final c = tester.widget<TabBar>(find.byType(TabBar)).controller!;
     expect(c.index, 5, reason: '전동기 점검(전동기·발전기 묶음의 여섯 번째)');
     expect(elecGroupOf(3), ElecGroup.general);

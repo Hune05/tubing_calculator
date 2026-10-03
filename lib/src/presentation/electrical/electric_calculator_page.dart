@@ -225,7 +225,7 @@ enum ElecGroup { general, motor }
 /// 이 번호이고, 번호가 어느 묶음에 속하는지는 아래 목록이 정한다. 순서만 바꾸고 번호는 바꾸지 않는다.
 /// 0 기초 계산, 1 부하 전류, 2 부하 합산, 3 전선 굵기, 4 전압강하, 5 단락 전류, 6 전선관, 7 부스바,
 /// 8 역률 개선, 9 발전기 용량, 10 축전지 용량, 11 접지, 12 전동기 보호, 13 전동기 점검, 14 전동기 공식,
-/// 15 전동기 선정, 16 콘덴서·단상, 17 전동기 기타.
+/// 15 전동기 선정, 16 콘덴서·단상, 17 전동기 구동·효율.
 /// 일반: 앞쪽 여덟 개가 현장에서 가장 많이 쓰는 필수 공식, 뒤쪽 셋(전선관·부스바·축전지)은 덜 쓰는 것.
 const List<int> kElecGeneralTabs = [0, 1, 3, 4, 5, 11, 2, 8, 6, 7, 10];
 
@@ -835,8 +835,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     Tab(key: Key('ec_tab_cable'), text: '전선 굵기'),
     Tab(key: Key('ec_tab_vd'), text: '전압강하'),
     Tab(key: Key('ec_tab_short'), text: '단락 전류'),
-    Tab(key: Key('ec_tab_conduit'), text: '전선관'),
-    Tab(key: Key('ec_tab_bus'), text: '부스바'),
+    Tab(key: Key('ec_tab_conduit'), text: '전선관 규격 선정'),
+    Tab(key: Key('ec_tab_bus'), text: '부스바 허용전류'),
     Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
     Tab(key: Key('ec_tab_gen'), text: '발전기 용량'),
     Tab(key: Key('ec_tab_batt'), text: '축전지 용량'),
@@ -846,7 +846,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     Tab(key: Key('ec_tab_motorformula'), text: '전동기 공식'),
     Tab(key: Key('ec_tab_motorselect'), text: '전동기 선정'),
     Tab(key: Key('ec_tab_motorcap'), text: '콘덴서·단상'),
-    Tab(key: Key('ec_tab_motormisc'), text: '전동기 기타'),
+    Tab(key: Key('ec_tab_motormisc'), text: '전동기 구동·효율'),
   ];
 
   /// 안정 번호의 탭 몸통.

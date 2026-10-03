@@ -1,4 +1,4 @@
-// 전동기 기타 계산: 손으로 푼 값과 맞춘다.
+// 전동기 구동·효율 계산: 손으로 푼 값과 맞춘다.
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';

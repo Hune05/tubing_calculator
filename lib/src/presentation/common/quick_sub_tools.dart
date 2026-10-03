@@ -159,7 +159,7 @@ final List<QuickToolDef> kQuickSubTools = [
   ),
   _sub(
     'el_conduit',
-    '전선관 (전선 수용)',
+    '전선관 규격 선정',
     LucideIcons.boxes,
     '전기 설비 계산',
     (_) => const ElectricCalculatorPage(initialTab: 6),
@@ -167,7 +167,7 @@ final List<QuickToolDef> kQuickSubTools = [
   ),
   _sub(
     'el_bus',
-    '부스바',
+    '부스바 허용전류',
     LucideIcons.minus,
     '전기 설비 계산',
     (_) => const ElectricCalculatorPage(initialTab: 7),

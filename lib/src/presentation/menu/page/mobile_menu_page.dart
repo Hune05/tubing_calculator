@@ -1606,7 +1606,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "전동기·발전기 계산",
-                        subtitle: "전동기 공식·선정·콘덴서·기타·보호·점검, 발전기 용량",
+                        subtitle: "전동기 공식·선정·콘덴서·구동·보호·점검, 발전기 용량",
                         icon: AppGlyph.motor,
                         onTap: () {
                           HapticFeedback.lightImpact();
