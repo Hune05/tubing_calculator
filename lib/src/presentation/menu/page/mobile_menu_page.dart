@@ -1499,7 +1499,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "전기 설비 계산",
-                        subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
+                        subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·접지·축전지",
                         icon: AppGlyph.electric,
                         onTap: () {
                           HapticFeedback.lightImpact();

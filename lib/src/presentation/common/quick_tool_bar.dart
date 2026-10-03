@@ -219,7 +219,7 @@ final List<QuickToolDef> kQuickTools = [
     '전기 설비 계산',
     AppGlyph.electric,
     (_) => const ElectricCalculatorPage(),
-    subtitle: '부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지',
+    subtitle: '부하 합산·전선 굵기·전압강하·단락 전류·접지·축전지',
     group: '전기',
   ),
   QuickToolDef(
