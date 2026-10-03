@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/electrical/elec_load_sum.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 
 Future<void> _open(WidgetTester tester, String tab) async {
@@ -26,6 +27,7 @@ String _all(WidgetTester tester) => tester
     .join('\n');
 
 void main() {
+  loadSumGroup();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('처음 열면 일반 부하: 효율 100, 전동기 여유 없음', (tester) async {
@@ -91,5 +93,34 @@ void main() {
     await tester.tap(find.byKey(const Key('ec_tab_load')));
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byKey(const Key('ec_v_custom'))).controller!.text, '208');
+  });
+}
+
+// 부하 합산: 2차 전압 직접 입력과 단상 변압기
+void loadSumGroup() {
+  group('부하 합산 2차 전압·상', () {
+    const row = LoadRowInput(name: 'A', kw: '10', pf: '100', df: '100');
+    test('3상 380 V: 10 kVA → 15.2 A', () {
+      final r = computeLoadSum(const LoadSumInput(rows: [row]));
+      expect(r.ratedAmps, closeTo(10000 / (1.7320508 * 380), 1e-3));
+      expect(r.three, isTrue);
+    });
+    test('단상 220 V: 10 kVA → 45.5 A (√3 없음)', () {
+      final r = computeLoadSum(
+        const LoadSumInput(rows: [row], volts: 220, three: false),
+      );
+      expect(r.ratedAmps, closeTo(10000 / 220, 1e-6));
+    });
+    test('직접 입력한 6600 V도 저장·복원된다', () {
+      const i = LoadSumInput(rows: [row], volts: 6600);
+      final back = LoadSumInput.fromJson(i.toJson());
+      expect(back.volts, 6600);
+      expect(back.three, isTrue);
+    });
+    test('옛 저장 값(상 정보 없음)은 3상으로 읽는다', () {
+      final back = LoadSumInput.fromJson({'v': 440.0, 'rows': []});
+      expect(back.three, isTrue);
+      expect(back.volts, 440);
+    });
   });
 }

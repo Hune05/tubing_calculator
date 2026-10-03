@@ -337,7 +337,8 @@ void main() {
       expect(back.margin, '15');
       expect(back.site, '1호기');
       expect(LoadSumInput.fromJson('쓰레기').rows, isEmpty);
-      expect(LoadSumInput.fromJson({'v': 123}).volts, 380);
+      expect(LoadSumInput.fromJson({'v': 123}).volts, 123, reason: '칩에 없는 전압도 직접 입력으로 받는다');
+      expect(LoadSumInput.fromJson({'v': 0}).volts, 380);
       expect(decodeLoadSheets('{깨짐'), isEmpty);
       expect(decodeLoadSheets(null), isEmpty);
       expect(decodeLoadSheets('[1, {"name": "가"}]').single.name, '가');
@@ -453,11 +454,20 @@ void main() {
     Future<void> show(WidgetTester tester, String key) async {
       final f = find.byKey(Key(key));
       if (f.evaluate().isEmpty) {
-        await tester.scrollUntilVisible(
-          f,
-          300,
-          scrollable: find.byType(Scrollable).first,
-        );
+        // 목록을 아래로 먼저 밀어 보고, 못 찾으면 위로 올려 다시 찾는다(화면이 길어지면 칸이 위쪽에 있을 수 있다).
+        for (final dy in [300.0, -300.0]) {
+          try {
+            await tester.scrollUntilVisible(
+              f,
+              dy,
+              scrollable: find.byType(Scrollable).first,
+              maxScrolls: 60,
+            );
+            break;
+          } catch (_) {
+            if (dy < 0) rethrow;
+          }
+        }
       }
       await tester.ensureVisible(f);
       await tester.pump();

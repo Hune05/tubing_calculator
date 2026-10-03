@@ -14,8 +14,8 @@ const int kLoadSumMaxRows = 30;
 /// 저장한 계산서 수 상한.
 const int kLoadSumMaxSheets = 50;
 
-/// 2차 전압 선택지(교류 3상, V).
-const List<double> kLoadSumVolts = [380, 440, 480];
+/// 2차 전압 칩(V). 이 밖의 전압은 직접 입력한다.
+const List<double> kLoadSumVolts = [220, 380, 400, 440, 480];
 
 /// 설비용량 입력 상한(kW). 자릿수 실수를 걸러 내는 값.
 const double kLoadSumMaxKw = 1000000;
@@ -62,8 +62,11 @@ class LoadSumInput {
   /// 장래 증설 여유(%). 비우면 0.
   final String margin;
 
-  /// 2차 전압(V, 3상).
+  /// 2차 전압(V, 선간).
   final double volts;
+
+  /// 3상이면 true, 단상이면 false.
+  final bool three;
 
   /// 선정한 변압기 용량(kVA). 비우면 부하율은 계산하지 않습니다.
   final String selectedKva;
@@ -77,6 +80,7 @@ class LoadSumInput {
     this.diversity = '1.0',
     this.margin = '0',
     this.volts = 380,
+    this.three = true,
     this.selectedKva = '',
     this.site = '',
     this.memo = '',
@@ -89,6 +93,7 @@ class LoadSumInput {
     'div': diversity,
     'mar': margin,
     'v': volts,
+    'ph3': three,
     'sel': selectedKva,
     'site': site,
     'memo': memo,
@@ -111,7 +116,8 @@ class LoadSumInput {
       defaultDf: s('dDf', ''),
       diversity: s('div', '1.0'),
       margin: s('mar', '0'),
-      volts: kLoadSumVolts.contains(v) ? v : 380,
+      volts: v > 0 ? v : 380,
+      three: j['ph3'] is bool ? j['ph3'] as bool : true,
       selectedKva: s('sel', ''),
       site: s('site', ''),
       memo: s('memo', ''),
@@ -162,6 +168,7 @@ class LoadSumResult {
   final double diversity;
   final double marginPct;
   final double volts;
+  final bool three;
 
   /// 필요 변압기 용량 [kVA].
   final double requiredKva;
@@ -187,6 +194,7 @@ class LoadSumResult {
     this.diversity = 1,
     this.marginPct = 0,
     this.volts = 380,
+    this.three = true,
     this.requiredKva = 0,
     this.ratedAmps = 0,
     this.selectedKva,
@@ -369,7 +377,7 @@ LoadSumResult computeLoadSum(LoadSumInput input) {
   }
   final sKva = math.sqrt(sp * sp + sq * sq);
   final required = sKva / diversity * (1 + margin / 100);
-  final amps = required * 1000 / (math.sqrt(3) * input.volts);
+  final amps = required * 1000 / ((input.three ? math.sqrt(3) : 1) * input.volts);
   return LoadSumResult(
     lines: lines,
     totalKw: totalKw,
@@ -380,6 +388,7 @@ LoadSumResult computeLoadSum(LoadSumInput input) {
     diversity: diversity,
     marginPct: margin,
     volts: input.volts,
+    three: input.three,
     requiredKva: required,
     ratedAmps: amps,
     selectedKva: selected,

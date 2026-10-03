@@ -144,7 +144,7 @@ Future<Uint8List> buildLoadSumPdf(
     ('부등률', fmt(r.diversity, 2), false),
     ('장래 증설 여유', '${fmt(r.marginPct, 1)} %', false),
     ('필요 변압기 용량', '${fmt(r.requiredKva, 1)} kVA', false),
-    ('2차 정격전류', '${fmt(r.ratedAmps, 1)} A (${fmt(r.volts, 0)} V, 3상)', false),
+    ('2차 정격전류', '${fmt(r.ratedAmps, 1)} A (${fmt(r.volts, 0)} V, ${r.three ? '3상' : '단상'})', false),
     (
       '선정 변압기 용량',
       r.selectedKva == null ? '입력하지 않음' : '${fmt(r.selectedKva!, 1)} kVA',

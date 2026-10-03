@@ -82,6 +82,8 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
   final _memo = TextEditingController();
   final _saveName = TextEditingController();
   double _volts = 380;
+  bool _three = true;
+  final _vCustom = TextEditingController(); // 칩에 없는 2차 전압 직접 입력
   List<LoadSheet> _sheets = [];
 
   Timer? _saveTimer;
@@ -98,6 +100,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     _site,
     _memo,
     _saveName,
+    _vCustom,
   ];
 
   @override
@@ -132,6 +135,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     diversity: _diversity.text,
     margin: _margin.text,
     volts: _volts,
+    three: _three,
     selectedKva: _selected.text,
     site: _site.text,
     memo: _memo.text,
@@ -151,6 +155,10 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     _site.text = i.site;
     _memo.text = i.memo;
     _volts = i.volts;
+    _three = i.three;
+    _vCustom.text = kLoadSumVolts.contains(i.volts)
+        ? ''
+        : fmt(i.volts, i.volts == i.volts.roundToDouble() ? 0 : 1);
     // 화면이 아직 옛 칸을 쓰고 있으므로 다음 그림 뒤에 버린다.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       for (final r in old) {
@@ -609,7 +617,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
           'S = √(ΣP² + ΣQ²) = √(${fmt(r.demandKw, 1)}² + ${fmt(r.demandKvar, 1)}²) = ${fmt(r.demandKva, 1)} kVA',
           '종합 역률 = ΣP ÷ S = ${fmt(r.demandKw, 1)} ÷ ${fmt(r.demandKva, 1)} = ${fmt(r.pf * 100, 1)}%',
           '③ 필요 용량 = S ÷ 부등률 × (1 + 여유) = ${fmt(r.demandKva, 1)} ÷ ${fmt(r.diversity, 2)} × (1 + ${fmt(r.marginPct, 1)}%) = ${fmt(r.requiredKva, 1)} kVA',
-          '④ 2차 정격전류 = 필요 용량 × 1000 ÷ (√3 × 2차 전압) = ${fmt(r.requiredKva, 1)} × 1000 ÷ (√3 × ${fmt(r.volts, 0)} V) = ${fmt(r.ratedAmps, 1)} A (3상)',
+          '④ 2차 정격전류 = 필요 용량 × 1000 ÷ (${r.three ? '√3 × ' : ''}2차 전압) = ${fmt(r.requiredKva, 1)} × 1000 ÷ (${r.three ? '√3 × ' : ''}${fmt(r.volts, 0)} V) = ${fmt(r.ratedAmps, 1)} A (${r.three ? '3상' : '단상'})',
           if (pass == null)
             '선정 변압기 용량(kVA)을 넣으면 부하율과 합격/불합격을 판정합니다.'
           else ...[
@@ -678,12 +686,28 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         _margin,
         '앞으로 부하가 늘 것을 감안해 필요 용량에 더하는 비율입니다. 없으면 0입니다.',
       ),
-      elecChipGroup('2차 전압 (3상)', '변압기 2차 쪽 선간 전압입니다. 정격전류 계산에 씁니다.', [
+      elecChipGroup('2차 전압', '변압기 2차 쪽 전압입니다. 정격전류 계산에 씁니다. 칩에 없으면 아래에 직접 넣으십시오.', [
         for (final v in kLoadSumVolts)
           calcChip('els_v_${v.round()}', '${v.round()} V', _volts == v, () {
-            setState(() => _volts = v);
+            setState(() {
+              _volts = v;
+              _vCustom.clear();
+            });
           }),
+        const SizedBox(width: 8),
+        calcChip('els_ph_3', '3상', _three, () => setState(() => _three = true)),
+        calcChip('els_ph_1', '단상', !_three, () => setState(() => _three = false)),
       ]),
+      elecField(
+        'els_v_custom',
+        '다른 2차 전압 직접 입력 (V)',
+        _vCustom,
+        '칩에 없는 전압(예: 200, 208, 6600)을 넣습니다. 넣으면 칩보다 이 값을 씁니다.',
+        onEdit: () {
+          final v = double.tryParse(_vCustom.text.trim().replaceAll(',', '.'));
+          if (v != null && v > 0) _volts = v;
+        },
+      ),
       elecField(
         'els_selected',
         '선정 변압기 용량 (kVA, 선택)',
@@ -692,7 +716,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
       ),
       const SizedBox(height: 4),
       result,
-      if (r.ok && !r.noLines && widget.onSendToShortCircuit != null)
+      if (r.ok && !r.noLines && r.three && widget.onSendToShortCircuit != null)
         Padding(
           padding: const EdgeInsets.only(top: 8),
           child: Align(
@@ -724,7 +748,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         '최대수요전력 = 설비용량 × 수용률. 줄마다 유효전력 P = kW × 수용률, 무효전력 Q = P × tanφ(φ = acos 역률).',
         '최대수요 kVA = √((ΣP)² + (ΣQ)²). 종합 역률 = ΣP ÷ 최대수요 kVA.',
         '필요 변압기 용량 [kVA] = 최대수요 kVA ÷ 부등률 × (1 + 여유). 역률이 한 값이면 Σ(설비용량×수용률) ÷ (부등률×역률)과 같습니다.',
-        '2차 정격전류 [A] = 필요 용량[kVA] × 1000 ÷ (√3 × 2차 전압[V]).',
+        '2차 정격전류 [A] = 필요 용량[kVA] × 1000 ÷ (√3 × 2차 전압[V]). 단상이면 √3을 뺍니다.',
         '부하율 = 필요 용량 ÷ 선정 용량. 100% 초과면 불합격입니다.',
         '식과 용어(수용률·부등률)는 국내 전기 설계 자료의 통용 식입니다. 조항 원문 대조 전(2차 자료)입니다.',
         '부하율 60~80% 적정이라는 설명도 2차 자료라 원문 대조 전입니다. 판정에는 쓰지 않았습니다.',

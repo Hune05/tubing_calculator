@@ -537,8 +537,22 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         _volts,
         '변압기 2차 정격전압이며 계통 공칭전압으로 씁니다. 아래 단추로 넣을 수 있습니다.',
       ),
+      if ((double.tryParse(_volts.text.trim().replaceAll(',', '.')) ?? 0) > 1000)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            '2차 전압이 1 kV를 넘습니다(고압). 이 계산의 전압 계수 c와 케이블 표는 저압(1 kV 이하) 기준이라 '
+            '고압 단락 전류로는 맞지 않습니다. 고압은 IEC 60909 고압 전압 계수와 계통 자료로 따로 검토하십시오.',
+            key: const Key('ec_sc_hv_note'),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: fc.danger,
+            ),
+          ),
+        ),
       elecChipGroup('자주 쓰는 전압', '누르면 2차 전압 칸에 넣습니다.', [
-        for (final v in const [220, 380, 440, 480])
+        for (final v in const [220, 380, 400, 440, 480])
           calcChip('ec_sc_v_$v', '$v V', _volts.text.trim() == '$v', () {
             _set(() => _volts.text = '$v');
           }),
@@ -558,7 +572,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       elecChipGroup(
         '전압 허용오차',
         'IEC 60909 저압 전압 계수 cmax를 정합니다.\n'
-            '+6%: cmax 1.05. +10%: cmax 1.10. 계통의 최대 전압 허용오차에 맞추십시오. 모르면 +10%로 두십시오(단락전류가 큰 쪽).',
+            '+6%: cmax 1.05. +10%: cmax 1.10. 처음 값은 +6%입니다. 계통의 최대 전압 허용오차가 +6%를 넘거나 모르면 +10%를 누르십시오(단락전류가 큰 쪽).',
         [
           calcChip('ec_sc_c6', '+6% (c 1.05)', !_cMax10, () {
             _set(() => _cMax10 = false);
