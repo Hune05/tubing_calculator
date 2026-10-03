@@ -211,7 +211,7 @@ class _MobileFabricationDetailScreenState
     _marksFromCurrentSpecs = _savedSpecs == null;
   }
 
-  /// 이 도면을 벤딩 마킹 계산기 입력 목록으로 불러온다.
+  /// 이 도면을 튜브 벤딩 마킹 입력 목록으로 불러온다.
   /// 🚀 [추가] 예전에는 보관함 도면을 보기만 할 수 있고 다시 고쳐 쓸 수 없었다.
   /// 목록은 입력 탭의 ↶로 되돌릴 수 있다. 피팅·꼬리·시작 방향도 저장 때로 맞춘다.
   Future<void> _loadToCalculator() async {

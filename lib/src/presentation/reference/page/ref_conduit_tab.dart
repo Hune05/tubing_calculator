@@ -60,7 +60,7 @@ class RefConduitTab extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         refIntroBadge(
-          "벤더 제원 표는 전선관 벤딩 마킹 계산기 설정에서 제조사·재질·규격을 고르면 들어가는 기본값 그대로입니다. "
+          "벤더 제원 표는 전선관 벤딩 마킹 설정에서 제조사·재질·규격을 고르면 들어가는 기본값 그대로입니다. "
           "설정에서 고쳐 저장한 값은 그 규격에 따로 남고, 이 표는 바뀌지 않습니다.",
         ),
         const SizedBox(height: 16),

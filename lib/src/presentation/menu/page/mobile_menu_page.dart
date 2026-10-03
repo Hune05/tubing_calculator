@@ -824,9 +824,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   Future<void> _showQuickLaunchHistory(_MenuEntry entry) async {
     HapticFeedback.selectionClick();
     List<Widget> rows;
-    if (entry.title == '벤딩 마킹 계산기') {
+    if (entry.title == '튜브 벤딩 마킹') {
       rows = await _tubeWorkHistoryRows();
-    } else if (entry.title == '전선관 벤딩 마킹 계산기') {
+    } else if (entry.title == '전선관 벤딩 마킹') {
       rows = await _conduitWorkHistoryRows();
     } else {
       rows = await _genericQuickLaunchHistoryRows(entry.title);
@@ -916,7 +916,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     ];
   }
 
-  /// 튜브 벤딩 마킹 계산기가 실제로 저장해 둔 도면 기록(보관함, SQLite
+  /// 튜브 벤딩 마킹이 실제로 저장해 둔 도면 기록(보관함, SQLite
   /// `history` 테이블)에서 "무슨 프로젝트로 뭘 했는지"를 그대로 읽어 온다.
   Future<List<Widget>> _tubeWorkHistoryRows() async {
     List<Map<String, dynamic>> rows = [];
@@ -964,7 +964,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     return [if (note.isNotEmpty) note, '총 ${cut}mm', date].join(' · ');
   }
 
-  /// 전선관 벤딩 마킹 계산기의 보관함(SharedPreferences에 저장한 도면
+  /// 전선관 벤딩 마킹의 보관함(SharedPreferences에 저장한 도면
   /// 목록)에서 "무슨 작업(묶음)으로 뭘 했는지"를 그대로 읽어 온다.
   Future<List<Widget>> _conduitWorkHistoryRows() async {
     List<ConduitDrawing> drawings = [];
@@ -1399,7 +1399,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _sectionHeader("배관·튜브"),
                       _buildMenuButton(
                         context: context,
-                        title: "벤딩 마킹 계산기",
+                        title: "튜브 벤딩 마킹",
                         subtitle: "스마트폰용 · 단계별 치수 입력",
                         icon: AppGlyph.tubeBend,
                         iconColor: makitaTeal,
@@ -1433,7 +1433,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "튜브 컷팅 계산기",
+                        title: "튜브 컷팅",
                         subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
                         icon: AppGlyph.tubeCut,
                         iconColor: makitaTeal,
@@ -1481,7 +1481,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _sectionHeader("전기"),
                       _buildMenuButton(
                         context: context,
-                        title: "전선관 벤딩 마킹 계산기",
+                        title: "전선관 벤딩 마킹",
                         subtitle: "장비 프로필 설정 · 마킹 뷰어",
                         icon: AppGlyph.conduitBend,
                         iconColor: Colors.blueGrey, // 메인 기능이므로 파란색 강조
@@ -1544,7 +1544,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "부스바 절곡 계산기",
+                        title: "부스바 가공",
                         subtitle: "L·U·Z 절곡 절단 길이와 절곡 시작선",
                         icon: AppGlyph.busbarBend,
                         onTap: () {

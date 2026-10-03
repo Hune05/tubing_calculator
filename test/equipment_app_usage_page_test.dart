@@ -236,7 +236,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: AppUsagePage()));
     await tester.pumpAndSettle();
     expect(find.text('앱 사용법'), findsWidgets);
-    expect(find.textContaining('벤딩 마킹 계산기 (튜브)'), findsOneWidget);
+    expect(find.textContaining('튜브 벤딩 마킹'), findsOneWidget);
     await _scrollThrough(tester);
   });
 }

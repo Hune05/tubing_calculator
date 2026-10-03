@@ -93,7 +93,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       children: [
         refIntroBadge(
-          "여기 숫자는 벤딩 마킹 계산기·튜브 컷팅 계산기가 쓰는 자료에서 그대로 읽습니다. "
+          "여기 숫자는 튜브 벤딩 마킹·튜브 컷팅이 쓰는 자료에서 그대로 읽습니다. "
           "설정에서 반경·테이크업·게인·삽입 깊이를 고치면 마킹은 그 값으로 계산하고, 이 표는 기본값을 보여 줍니다.",
         ),
         const SizedBox(height: 16),
@@ -141,11 +141,11 @@ class _RefTubeTabState extends State<RefTubeTab> {
         refCard(
           title: "2. 피팅 삽입 깊이 · 최소 직선",
           subtitle:
-              "튜브 컷팅 계산기가 빼는 삽입 깊이(Swagelok·Hy-Lok·Parker 같은 값)와 계산기가 경고하는 최소 직선·최소 물림 길이입니다.",
+              "튜브 컷팅이 빼는 삽입 깊이(Swagelok·Hy-Lok·Parker 같은 값)와 계산기가 경고하는 최소 직선·최소 물림 길이입니다.",
           icon: Icons.compress,
           iconColor: Colors.blueAccent,
           children: [
-            refDataRow("삽입 깊이", "튜브 끝이 피팅 안으로 들어가는 길이입니다. 컷팅 계산기가 구간 길이에서 뺍니다."),
+            refDataRow("삽입 깊이", "튜브 끝이 피팅 안으로 들어가는 길이입니다. 튜브 컷팅이 구간 길이에서 뺍니다."),
             refDataRow(
               "피팅 최소 직선",
               "벤드 끝에서 튜브 끝까지 이만큼 곧아야 너트·페룰이 물립니다(계산기 경고 기준).",
@@ -322,7 +322,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
         // 7. 컷팅 계산기 부속 공제값
         refExpandCard(
           title: "7. 튜브 컷팅 부속 공제값 (앱 자료)",
-          subtitle: "컷팅 계산기가 부속을 고르면 구간에서 빼는 값. 제조사·규격별.",
+          subtitle: "튜브 컷팅이 부속을 고르면 구간에서 빼는 값. 제조사·규격별.",
           icon: LucideIcons.scissors,
           iconColor: Colors.teal,
           children: [
@@ -339,7 +339,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
               ),
               const SizedBox(height: 12),
             ],
-            refTipBox("목록에 없는 부속은 컷팅 계산기에서 '직접 입력(삽입 깊이)'을 고르고 카탈로그 값을 넣으십시오."),
+            refTipBox("목록에 없는 부속은 튜브 컷팅에서 '직접 입력(삽입 깊이)'을 고르고 카탈로그 값을 넣으십시오."),
           ],
         ),
         const SizedBox(height: 16),

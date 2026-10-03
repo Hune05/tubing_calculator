@@ -40,7 +40,7 @@ import 'steel_cutting_history_page.dart';
 import 'steel_pdf_preview_page.dart';
 
 // 🚀 [형강 컷팅 신규] 찬넬/앵글처럼 피팅 없이 그냥 "규격 - 길이 - 수량"만
-// 있는 단순 절단 작업 전용 화면. 튜브 컷팅 계산기와 달리 라인(구간)을
+// 있는 단순 절단 작업 전용 화면. 튜브 컷팅와 달리 라인(구간)을
 // 조립할 필요가 없어서, 목록에 항목을 추가하고 바로 재단 계획·지시서
 // 출력으로 넘어가는 훨씬 짧은 흐름으로 만들었다. 재단 계획는 튜브
 // 컷팅과 완전히 같은 다중 규격 조합 FFD 빈 패킹(cutting_optimizer.dart)을
@@ -83,7 +83,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 카드에서 개수를 바꾸면 화면은 바로 고치고, 저장(과 변경 기록)은 손을 뗀 뒤 한 번만 한다.
   final Map<String, Timer> _qtyTimers = {};
 
-  // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅 계산기와 같은 방식으로
+  // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅와 같은 방식으로
   // 넓은 화면(태블릿/폴더블 펼침)에서는 입력/결과를 좌우 2단으로 동시에
   // 보여주고, 좁은 화면(폰)에서는 "입력"/"결과" 탭으로 나눠 한 화면에
   // 하나씩 전체 폭을 쓰게 한다. 형강은 배치도(다이어그램) 개념이 없어서
@@ -1149,7 +1149,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     }
   }
 
-  // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅 계산기(cutting_main_screen.dart)의
+  // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅(cutting_main_screen.dart)의
   // AppBar와 똑같이 브랜드 틸 색 배경 + 흰 글씨, 제목은 "프로젝트: 이름"
   // 형식으로 맞췄다. 다른 컷팅 관련 화면들이 최근 흰 배경 AppBar로
   // 통일됐지만, 실제로 매일 쓰는 계산기 화면(cutting_main_screen)만은

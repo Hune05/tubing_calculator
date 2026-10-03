@@ -18,7 +18,7 @@ class RefAppTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "벤딩 마킹 계산기 (튜브)",
+          title: "튜브 벤딩 마킹",
           subtitle: "설정 → 입력 → 마킹 가이드 → 마킹지·리모컨",
           icon: LucideIcons.ruler,
           iconColor: refTeal,
@@ -53,7 +53,7 @@ class RefAppTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "전선관 벤딩 마킹 계산기",
+          title: "전선관 벤딩 마킹",
           subtitle: "설정(제조사·재질·규격) → 입력 → 결과 → 현장 탭",
           icon: LucideIcons.zap,
           iconColor: Colors.orange,
@@ -85,7 +85,7 @@ class RefAppTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "튜브 컷팅 계산기",
+          title: "튜브 컷팅",
           subtitle: "피팅 삽입 깊이를 빼서 절단 길이를 계산하고 자재 사용량을 기록",
           icon: LucideIcons.scissors,
           iconColor: Colors.teal,

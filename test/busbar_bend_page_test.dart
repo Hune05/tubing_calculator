@@ -1,4 +1,4 @@
-// 부스바 절곡 계산기 화면(10-03): 기본값 L 꺾기, U·Z 바꾸기, 반경 경고, 카톡 글, 입력값 남기기.
+// 부스바 가공 화면(10-03): 기본값 L 꺾기, U·Z 바꾸기, 반경 경고, 카톡 글, 입력값 남기기.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

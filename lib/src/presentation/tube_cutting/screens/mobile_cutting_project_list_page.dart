@@ -498,7 +498,7 @@ class _MobileCuttingProjectListPageState
           scrolledUnderElevation: 0,
           centerTitle: false,
           title: const Text(
-            "튜브 컷팅 계산기",
+            "튜브 컷팅",
             style: TextStyle(
               color: CuttingColors.textPrimary,
               fontWeight: FontWeight.w800,

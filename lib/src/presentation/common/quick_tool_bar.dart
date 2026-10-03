@@ -176,7 +176,7 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'bend',
-    '벤딩 마킹 계산기',
+    '튜브 벤딩 마킹',
     AppGlyph.tubeBend,
     (_) => const MobileCalculatorPage(),
     subtitle: '스마트폰용 · 단계별 치수 입력',
@@ -184,7 +184,7 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'cut',
-    '튜브 컷팅 계산기',
+    '튜브 컷팅',
     AppGlyph.tubeCut,
     (_) => const MobileCuttingProjectListPage(),
     subtitle: '피팅 삽입깊이 차감 · 절단 자재 기록',
@@ -208,7 +208,7 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'conduit',
-    '전선관 벤딩 마킹 계산기',
+    '전선관 벤딩 마킹',
     AppGlyph.conduitBend,
     (_) => const ConduitMainNavigation(),
     subtitle: '장비 프로필 설정 · 마킹 뷰어',
@@ -240,7 +240,7 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'busbarbend',
-    '부스바 절곡 계산기',
+    '부스바 가공',
     AppGlyph.busbarBend,
     (_) => const BusbarBendPage(),
     subtitle: 'L·U·Z 절곡 절단 길이와 절곡 시작선',

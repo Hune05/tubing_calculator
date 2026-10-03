@@ -1,4 +1,4 @@
-// 부스바 절곡 계산기(10-03): 구리 부스바를 현장에서 L·U·Z로 꺾을 때 절단 길이와 꺾기 시작선.
+// 부스바 가공(10-03): 구리 부스바를 현장에서 L·U·Z로 꺾을 때 절단 길이와 꺾기 시작선.
 // 계산은 busbar_bend.dart.
 import 'dart:async';
 import 'dart:convert';
@@ -697,7 +697,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             title: Text(
-              '부스바 절곡 계산기',
+              '부스바 가공',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             actions: [

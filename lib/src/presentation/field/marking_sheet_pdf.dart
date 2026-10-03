@@ -64,7 +64,7 @@ Future<Uint8List> buildMarkingSheetPdf({
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
           pw.Text(
-            'FIELD HELPER · 벤딩 마킹 계산기',
+            'FIELD HELPER · 튜브 벤딩 마킹',
             style: const pw.TextStyle(fontSize: 8, color: _grey),
           ),
           pw.Text(
