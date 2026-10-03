@@ -1,4 +1,4 @@
-// 전선관 특수 벤딩 시트(킥·분할 90°·백투백 90°·스터브업): 입력 → 결과 글 → 목록에 줄이 들어가는지.
+// 전선관 특수 벤딩 시트(킥·분할 90°·백투백 90°·스터브업): 오프셋 시트와 같은 틀로, 입력 → 결과 글 → 목록에 줄이 들어가는지.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
@@ -19,9 +19,10 @@ typedef Opener = void Function(
 
 Future<List<List<Map<String, dynamic>>>> open(
   WidgetTester tester,
-  Opener opener,
-) async {
-  tester.view.physicalSize = const Size(400, 900) * 2;
+  Opener opener, {
+  Size size = const Size(400, 900),
+}) async {
+  tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   final added = <List<Map<String, dynamic>>>[];
@@ -45,8 +46,9 @@ Future<List<List<Map<String, dynamic>>>> open(
   return added;
 }
 
+/// 숫자 칸은 눌러서 숫자판으로 넣는 칸(읽기 전용)이라, 시험에서는 칸의 값을 바로 바꾼다.
 Future<void> type(WidgetTester tester, String key, String text) async {
-  await tester.enterText(find.byKey(Key(key)), text);
+  tester.widget<TextField>(find.byKey(Key(key))).controller!.text = text;
   await tester.pumpAndSettle();
 }
 
@@ -63,15 +65,26 @@ Future<void> tapKey(WidgetTester tester, String key) async {
 }
 
 void main() {
+  testWidgets('오프셋 시트와 같은 틀: 머리 줄·그림·시작 거리 상자·6축 방향·결과 상자가 모두 있다', (tester) async {
+    await open(
+      tester,
+      (c, add) => ConduitSpecialSheets.showKick(c, currentRotation: 90, onAddBends: add, specs: specs),
+    );
+    final t = allText(tester);
+    expect(t, contains('킥'));
+    expect(t, contains('장애물 앞 시작 거리 (선택)'));
+    expect(t, contains('꺾는 방향 (6축)'));
+    expect(t, contains('목록에 넣기'));
+    expect(find.byKey(const Key('quick_kick_guide_replay')), findsOneWidget, reason: '튜브 퀵 킥과 같은 그림');
+    for (final d in [0, 360, 270, 90, 180, 450]) {
+      expect(find.byKey(Key('cs_dir_$d')), findsOneWidget);
+    }
+  });
+
   testWidgets('킥: H 100·30° → 200·173.2·26.8·배수 2, 방향 고르면 한 줄이 들어간다', (tester) async {
     final added = await open(
       tester,
-      (c, add) => ConduitSpecialSheets.showKick(
-        c,
-        currentRotation: 90,
-        onAddBends: add,
-        specs: specs,
-      ),
+      (c, add) => ConduitSpecialSheets.showKick(c, currentRotation: 90, onAddBends: add, specs: specs),
     );
     await type(tester, 'cs_height', '100');
     await type(tester, 'cs_start', '500');
@@ -79,9 +92,7 @@ void main() {
     expect(t, contains('200 mm'));
     expect(t, contains('173.2 mm'));
     expect(t, contains('26.8 mm'));
-    expect(t, contains('2'));
-    // 방향을 고르기 전에는 추가 단추가 꺼져 있다.
-    expect(tester.widget<ElevatedButton>(find.byKey(const Key('cs_add'))).onPressed, isNull);
+    expect(t, contains('배수 2'));
     await tapKey(tester, 'cs_dir_0');
     await tapKey(tester, 'cs_add');
     expect(added.length, 1);
@@ -92,27 +103,51 @@ void main() {
     expect(b['length'], closeTo(500 + specs.markOffset(30), 0.06));
   });
 
-  testWidgets('킥: 지금 진행 방향(오른쪽)과 같은 쪽·반대 쪽은 막는다', (tester) async {
+  testWidgets('방향을 안 고르고 넣으려 하면 오프셋 시트와 같은 경고 창이 뜬다', (tester) async {
+    final added = await open(
+      tester,
+      (c, add) => ConduitSpecialSheets.showKick(c, currentRotation: 90, onAddBends: add, specs: specs),
+    );
+    await type(tester, 'cs_height', '100');
+    await tapKey(tester, 'cs_add');
+    expect(find.text('경고'), findsOneWidget);
+    expect(find.text('꺾는 방향(6축)을 먼저 선택해 주십시오.'), findsOneWidget);
+    expect(added, isEmpty);
+  });
+
+  testWidgets('킥: 지금 진행 방향(오른쪽)과 같은 쪽은 막는다', (tester) async {
     final added = await open(
       tester,
       (c, add) => ConduitSpecialSheets.showKick(c, currentRotation: 90, onAddBends: add, specs: specs),
     );
     await type(tester, 'cs_height', '100');
     await tapKey(tester, 'cs_dir_90');
-    expect(allText(tester), contains('꺾을 수 없습니다'));
-    expect(tester.widget<ElevatedButton>(find.byKey(const Key('cs_add'))).onPressed, isNull);
+    await tapKey(tester, 'cs_add');
+    expect(find.textContaining('꺾을 수 없습니다'), findsOneWidget);
     expect(added, isEmpty);
   });
 
-  testWidgets('분할 90°: R 300·5번 → 각 18°, 간격 2R·tan9° = 95.0, 목록에 5줄', (tester) async {
+  testWidgets('킥: 높이를 비우면 알림이 뜬다', (tester) async {
+    final added = await open(
+      tester,
+      (c, add) => ConduitSpecialSheets.showKick(c, currentRotation: 90, onAddBends: add, specs: specs),
+    );
+    await tapKey(tester, 'cs_dir_0');
+    await tapKey(tester, 'cs_add');
+    expect(find.textContaining('높이와 각도를 넣으십시오'), findsOneWidget);
+    expect(added, isEmpty);
+  });
+
+  testWidgets('분할 90°: R 300·5번 → 각 18°, 간격 2R·tan9° = 95, 목록에 5줄', (tester) async {
     final added = await open(
       tester,
       (c, add) => ConduitSpecialSheets.showSegmented(c, currentRotation: 90, onAddBends: add, specs: specs),
     );
     await type(tester, 'cs_corner', '1000');
     final t = allText(tester);
-    expect(t, contains('18°'));
-    expect(t, contains('95.0 mm'.replaceAll('.0', '')) , reason: '간격 95 (95.03)');
+    expect(t, contains('18 °'));
+    expect(t, contains('95 mm'), reason: '간격 95 (95.03)');
+    expect(find.byKey(const Key('segmented_guide_replay')), findsOneWidget);
     await tapKey(tester, 'cs_dir_0');
     await tapKey(tester, 'cs_add');
     final list = added.single;
@@ -122,7 +157,7 @@ void main() {
     expect(list[1]['length'], closeTo(95.0, 0.06));
   });
 
-  testWidgets('분할 90°: 반경이 모서리 거리보다 크면 경고하고 추가 못 한다', (tester) async {
+  testWidgets('분할 90°: 반경이 모서리 거리보다 크면 경고하고 넣지 않는다', (tester) async {
     final added = await open(
       tester,
       (c, add) => ConduitSpecialSheets.showSegmented(c, currentRotation: 90, onAddBends: add, specs: specs),
@@ -130,7 +165,7 @@ void main() {
     await type(tester, 'cs_corner', '100');
     await tapKey(tester, 'cs_dir_0');
     expect(allText(tester), contains('너무 큽니다'));
-    expect(tester.widget<ElevatedButton>(find.byKey(const Key('cs_add'))).onPressed, isNull);
+    await tapKey(tester, 'cs_add');
     expect(added, isEmpty);
   });
 
@@ -148,13 +183,13 @@ void main() {
     await type(tester, 'cs_first', '400');
     await type(tester, 'cs_dist', '300');
     expect(allText(tester), contains('273.5 mm'));
+    expect(find.byKey(const Key('backtoback_guide_replay')), findsOneWidget);
     await tapKey(tester, 'cs_dir_0'); // 첫 90°는 위로
     await tapKey(tester, 'cs_add');
     final list = added.single;
     expect(list.length, 2);
     expect(list[0], {'length': 400.0, 'angle': 90.0, 'rotation': 0.0});
     expect(list[1], {'length': 273.5, 'angle': 90.0, 'rotation': 270.0});
-    // 안쪽~안쪽으로 바꾸면 간격이 326.5
   });
 
   testWidgets('백투백 90°: 안쪽~안쪽이면 간격 = 거리 + 관 지름', (tester) async {
@@ -173,16 +208,17 @@ void main() {
     expect(allText(tester), contains('326.5 mm'));
   });
 
-  testWidgets('백투백 90°: 진행 방향에 수직이 아니면(앞으로 꺾음은 수직이지만 대각선 없음) 위로만 허용 — 같은 쪽은 막는다', (tester) async {
-    await open(
+  testWidgets('백투백 90°: 진행 방향의 반대(왼쪽)로는 꺾을 수 없다', (tester) async {
+    final added = await open(
       tester,
       (c, add) => ConduitSpecialSheets.showBackToBack(c, currentRotation: 90, onAddBends: add, specs: specs, conduitOd: 26.5),
     );
     await type(tester, 'cs_first', '400');
     await type(tester, 'cs_dist', '300');
-    await tapKey(tester, 'cs_dir_270'); // 왼쪽 = 진행 방향의 반대
-    expect(allText(tester), contains('꺾을 수 없습니다'));
-    expect(tester.widget<ElevatedButton>(find.byKey(const Key('cs_add'))).onPressed, isNull);
+    await tapKey(tester, 'cs_dir_270');
+    await tapKey(tester, 'cs_add');
+    expect(find.textContaining('꺾을 수 없습니다'), findsOneWidget);
+    expect(added, isEmpty);
   });
 
   testWidgets('스터브업: 길이 300 → 마킹 = 300 − 테이크업(90°), 한 줄', (tester) async {
@@ -192,12 +228,14 @@ void main() {
     );
     await type(tester, 'cs_stub', '300');
     expect(allText(tester), contains('147.6 mm'));
+    expect(find.byKey(const Key('stubup_guide_replay')), findsOneWidget);
     await tapKey(tester, 'cs_dir_0');
     await tapKey(tester, 'cs_add');
     expect(added.single, [
       {'length': 300.0, 'angle': 90.0, 'rotation': 0.0},
     ]);
   });
+
   for (final (name, opener) in <(String, Opener)>[
     ('킥', (c, add) => ConduitSpecialSheets.showKick(c, currentRotation: 90, onAddBends: add, specs: specs)),
     ('분할 90°', (c, add) => ConduitSpecialSheets.showSegmented(c, currentRotation: 90, onAddBends: add, specs: specs)),
@@ -229,7 +267,7 @@ void main() {
       // 입력을 채워 결과 줄까지 그려 본다.
       for (final k in ['cs_height', 'cs_corner', 'cs_first', 'cs_dist', 'cs_stub']) {
         if (find.byKey(Key(k)).evaluate().isNotEmpty) {
-          await tester.enterText(find.byKey(Key(k)), '300');
+          await type(tester, k, '300');
         }
       }
       await tester.pumpAndSettle();

@@ -1,38 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
-import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/opposite_rotation.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/quick_kick_guide.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_special_calc.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_guides.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_ui.dart';
 
-// 🚀 전선관 특수 벤딩 시트 넷: 킥, 분할 90°, 백투백 90°, 스터브업. 오프셋·새들 시트와 같이 목록에 줄을 넣는다.
-// 셈은 conduit_special_calc.dart(엔진으로 끝 위치·접선까지 시험), 이 파일은 입력과 결과 보여 주기만 맡는다.
+// 🚀 전선관 특수 벤딩 시트 넷: 킥, 분할 90°, 백투백 90°, 스터브업. 오프셋·새들·롤링 오프셋 시트와 같은 틀
+// (머리 줄 · 그림 · 시작 거리 상자 · 입력 칸 · 6축 방향 · 결과 상자 · 경고 창)이고, 줄을 목록에 넣는 방식도 같다.
+// 셈은 conduit_special_calc.dart(엔진으로 끝 위치·접선까지 시험), 틀은 conduit_special_ui.dart.
 
-const Color _teal = AppColors.brand;
-const Color _ink = AppColors.text;
-const Color _sub = AppColors.textSub;
-const Color _bg = AppColors.background;
-
-/// 꺾는 방향 여섯 축(값은 꺾은 뒤 관이 향할 절대 방향).
-const List<(String, double, IconData)> _kDirs = [
-  ('위', 0.0, Icons.arrow_upward),
-  ('앞', 360.0, Icons.call_made),
-  ('왼쪽', 270.0, AppIcons.back),
-  ('오른쪽', 90.0, Icons.arrow_forward),
-  ('아래', 180.0, Icons.arrow_downward),
-  ('뒤', 450.0, Icons.call_received),
-];
-
-String _fmt(double v, [int d = 1]) {
-  final s = v.toStringAsFixed(d);
-  return s.contains('.') ? s.replaceFirst(RegExp(r'\.?0+$'), '') : s;
-}
-
-double? _read(TextEditingController c) =>
-    double.tryParse(c.text.trim().replaceAll(',', '.'));
+typedef ConduitAddBends = void Function(List<Map<String, dynamic>> bends);
 
 class ConduitSpecialSheets {
   static void _open(BuildContext context, Widget child) => showModalBottomSheet(
@@ -45,7 +26,7 @@ class ConduitSpecialSheets {
   static void showKick(
     BuildContext context, {
     required double currentRotation,
-    required void Function(List<Map<String, dynamic>>) onAddBends,
+    required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
   }) => _open(
     context,
@@ -55,7 +36,7 @@ class ConduitSpecialSheets {
   static void showSegmented(
     BuildContext context, {
     required double currentRotation,
-    required void Function(List<Map<String, dynamic>>) onAddBends,
+    required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
   }) => _open(
     context,
@@ -65,7 +46,7 @@ class ConduitSpecialSheets {
   static void showBackToBack(
     BuildContext context, {
     required double currentRotation,
-    required void Function(List<Map<String, dynamic>>) onAddBends,
+    required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
     double? conduitOd,
   }) => _open(
@@ -81,7 +62,7 @@ class ConduitSpecialSheets {
   static void showStubUp(
     BuildContext context, {
     required double currentRotation,
-    required void Function(List<Map<String, dynamic>>) onAddBends,
+    required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
   }) => _open(
     context,
@@ -89,237 +70,52 @@ class ConduitSpecialSheets {
   );
 }
 
-// ───────────────────────── 공용 부품 ─────────────────────────
-
-class _Shell extends StatelessWidget {
-  final String title;
-  final String help;
-  final List<Widget> children;
-  const _Shell({required this.title, required this.help, required this.children});
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottom),
-      child: Container(
-        constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.92),
-        padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(color: _ink, fontSize: 18, fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: _sub),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              Text(help, style: const TextStyle(color: _sub, fontSize: 13, height: 1.4)),
-              const SizedBox(height: 16),
-              ...children,
-              SizedBox(height: MediaQuery.of(context).padding.bottom),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Num extends StatelessWidget {
-  final Key fieldKey;
-  final String label;
-  final TextEditingController ctrl;
-  final String unit;
-  final VoidCallback onChanged;
-  final String? hint;
-  const _Num({
-    required this.fieldKey,
-    required this.label,
-    required this.ctrl,
-    required this.unit,
-    required this.onChanged,
-    this.hint,
-  });
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: TextField(
-      key: fieldKey,
-      controller: ctrl,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-      onChanged: (_) => onChanged(),
-      style: const TextStyle(color: _teal, fontSize: 20, fontWeight: FontWeight.w900),
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        suffixText: unit,
-        filled: true,
-        fillColor: _bg,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-      ),
-    ),
-  );
-}
-
-class _DirPicker extends StatelessWidget {
-  final double? value;
-  final ValueChanged<double> onPick;
-  final String label;
-  const _DirPicker({required this.value, required this.onPick, this.label = '꺾는 방향 (꺾은 뒤 관이 향할 쪽)'});
-
-  @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text.rich(
-        TextSpan(
-          text: label,
-          style: TextStyle(
-            color: value == null ? Colors.red.shade700 : _sub,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-          ),
-          children: [
-            if (value == null)
-              TextSpan(
-                text: '  *필수',
-                style: TextStyle(color: Colors.red.shade700, fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-          ],
-        ),
-      ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          for (final d in _kDirs)
-            ChoiceChip(
-              key: Key('cs_dir_${d.$2.toInt()}'),
-              avatar: Icon(d.$3, size: 16, color: value == d.$2 ? Colors.white : _sub),
-              label: Text(d.$1),
-              selected: value == d.$2,
-              selectedColor: _teal,
-              labelStyle: TextStyle(
-                color: value == d.$2 ? Colors.white : _ink,
-                fontWeight: FontWeight.bold,
-              ),
-              onSelected: (_) => onPick(d.$2),
-            ),
-        ],
-      ),
-    ],
-  );
-}
-
-class _Line extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool strong;
-  const _Line(this.label, this.value, {this.strong = false});
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 3),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 3,
-          child: Text(label, style: const TextStyle(color: _sub, fontSize: 14)),
-        ),
-        const SizedBox(width: 12),
-        Flexible(
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              color: strong ? _teal : _ink,
-              fontSize: strong ? 17 : 15,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _ResultBox extends StatelessWidget {
-  final List<Widget> children;
-  const _ResultBox(this.children);
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: _teal.withValues(alpha: 0.06),
-      borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: _teal.withValues(alpha: 0.25)),
-    ),
-    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
-  );
-}
-
-Widget _warn(String text) => Padding(
-  padding: const EdgeInsets.only(top: 8),
-  child: Text(text, style: TextStyle(color: Colors.red.shade700, fontSize: 13, fontWeight: FontWeight.bold, height: 1.4)),
-);
-
 /// 지금 진행 방향에서 [rot] 방향으로 꺾을 수 있는지(나란하거나 반대면 안 된다).
 bool _canBend(double heading, double rot) =>
     canBendToward(directionForRotation(heading), directionForRotation(rot));
 
-class _AddButton extends StatelessWidget {
-  final bool enabled;
-  final VoidCallback onTap;
-  final String label;
-  const _AddButton({required this.enabled, required this.onTap, this.label = '목록에 추가'});
+double _r1(double v) => double.parse(v.toStringAsFixed(1));
+
+const String _kCannotBend = '넣을 수 없습니다. 지금 진행 방향과 같거나 반대 쪽으로는 꺾을 수 없습니다.';
+
+/// 네 시트가 같이 쓰는 뼈대: 값 칸 변화에 다시 그리기, 방향 고르기, 넣기 전 검사.
+abstract class _SheetState<T extends StatefulWidget> extends State<T> {
+  double? dir;
+  final List<TextEditingController> _ctrls = [];
+
+  TextEditingController ctrl([String text = '']) {
+    final c = TextEditingController(text: text)..addListener(() => setState(() {}));
+    _ctrls.add(c);
+    return c;
+  }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 16),
-    child: ElevatedButton(
-      key: const Key('cs_add'),
-      onPressed: enabled
-          ? () {
-              HapticFeedback.mediumImpact();
-              onTap();
-            }
-          : null,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _teal,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-      child: Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w900)),
-    ),
-  );
+  void dispose() {
+    for (final c in _ctrls) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  /// 방향을 안 골랐으면 경고 창, 지금 진행 방향과 나란하면 알림. 문제가 없으면 true.
+  bool checkDirection(double heading) {
+    if (dir == null) {
+      csShowDirectionWarning(context);
+      return false;
+    }
+    if (!_canBend(heading, dir!)) {
+      csSnackMissing(context, _kCannotBend);
+      return false;
+    }
+    return true;
+  }
 }
 
 // ───────────────────────── 킥 ─────────────────────────
 
 class _KickSheet extends StatefulWidget {
   final double currentRotation;
-  final void Function(List<Map<String, dynamic>>) onAddBends;
+  final ConduitAddBends onAddBends;
   final BendSheetSpecs specs;
   const _KickSheet({required this.currentRotation, required this.onAddBends, required this.specs});
 
@@ -327,71 +123,102 @@ class _KickSheet extends StatefulWidget {
   State<_KickSheet> createState() => _KickSheetState();
 }
 
-class _KickSheetState extends State<_KickSheet> {
-  final _h = TextEditingController();
-  final _a = TextEditingController(text: '30');
-  final _start = TextEditingController(text: '0');
-  double? _dir;
+class _KickSheetState extends _SheetState<_KickSheet> {
+  late final _h = ctrl();
+  late final _a = ctrl('30');
+  late final _start = ctrl('0');
 
-  @override
-  void dispose() {
-    _h.dispose();
-    _a.dispose();
-    _start.dispose();
-    super.dispose();
+  void _apply(double? h, double? a) {
+    if (!checkDirection(widget.currentRotation)) return;
+    final kick = (h != null && a != null) ? conduitKick(height: h, angle: a) : null;
+    if (kick == null) {
+      csSnackMissing(
+        context,
+        (a != null && a >= 90) ? '넣을 수 없습니다. 각도는 90°보다 작아야 합니다.' : '넣을 수 없습니다. 높이와 각도를 넣으십시오.',
+      );
+      return;
+    }
+    final double start = csRead(_start) ?? 0;
+    final double len = _r1(widget.specs.firstLength(start, a!, 0));
+    widget.onAddBends([
+      {'length': len, 'angle': _r1(a), 'rotation': dir},
+    ]);
+    csSnackAdded(
+      context,
+      '1번 마킹이 ${start.toStringAsFixed(0)}mm 자리에 찍힙니다. 축소값 ${csFmt(kick.shrink)}mm만큼 직진 거리가 줄어듭니다.',
+    );
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final double? h = _read(_h), a = _read(_a);
-    final double start = _read(_start) ?? 0;
+    final double? h = csRead(_h), a = csRead(_a);
     final kick = (h != null && a != null) ? conduitKick(height: h, angle: a) : null;
-    final bool dirOk = _dir != null && _canBend(widget.currentRotation, _dir!);
-    final double? lenForList = kick == null ? null : widget.specs.firstLength(start, a!, 0);
-    final markOff = a == null ? 0.0 : widget.specs.markOffset(a);
-    return _Shell(
+    final double gain = kick == null
+        ? 0
+        : effectiveGain(
+            radius: widget.specs.radius,
+            angleDeg: a!,
+            measuredGain90: widget.specs.gain90,
+          );
+    return CsFrame(
       title: '킥',
-      help: '한 번만 꺾어 높이를 올립니다(오프셋처럼 되돌아오지 않습니다). 높이와 각도로 비스듬한 관 길이와 축소값을 구하고, 꺾는 자리를 목록에 넣습니다.',
+      guide: QuickKickGuide(
+        heightMm: h ?? 0,
+        runMm: kick?.run ?? 0,
+        travelMm: kick?.travel ?? 0,
+        angleDeg: a ?? 0,
+      ),
       children: [
-        _Num(fieldKey: const Key('cs_height'), label: '올릴 높이', ctrl: _h, unit: 'mm', onChanged: () => setState(() {})),
-        _Num(fieldKey: const Key('cs_angle'), label: '꺾는 각도', ctrl: _a, unit: '°', onChanged: () => setState(() {})),
-        Wrap(
-          spacing: 8,
+        CsInfoBox(
+          title: '장애물 앞 시작 거리 (선택)',
+          note: '1번 마킹이 이 거리에 찍힙니다.',
+          field: CsField(fieldKey: const Key('cs_start'), ctrl: _start, hint: '거리 mm'),
+        ),
+        const SizedBox(height: 16),
+        const CsLabel('올릴 높이 (H)'),
+        Row(
           children: [
-            for (final v in const [10.0, 22.5, 30.0, 45.0, 60.0])
-              ActionChip(label: Text('${_fmt(v)}°'), onPressed: () => setState(() => _a.text = _fmt(v))),
+            Expanded(child: CsField(fieldKey: const Key('cs_height'), ctrl: _h, hint: '높이 mm')),
+            const SizedBox(width: 12),
+            CsQuickBtn(ctrl: _h, amount: -5, label: '-5'),
+            const SizedBox(width: 4),
+            CsQuickBtn(ctrl: _h, amount: 5, label: '+5'),
           ],
         ),
-        const SizedBox(height: 12),
-        _Num(
-          fieldKey: const Key('cs_start'),
-          label: '시작 거리 (관 끝에서 1번 마킹까지)',
-          ctrl: _start,
-          unit: 'mm',
-          onChanged: () => setState(() {}),
+        const SizedBox(height: 16),
+        const CsLabel('각도 (∠)'),
+        Wrap(
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(width: 120, child: CsField(fieldKey: const Key('cs_angle'), ctrl: _a, hint: '각도 °')),
+            const SizedBox(width: 12),
+            for (final v in const [15.0, 22.5, 30.0, 45.0, 60.0]) CsQuickAngleBtn(ctrl: _a, value: v),
+          ],
         ),
-        _DirPicker(value: _dir, onPick: (v) => setState(() => _dir = v)),
-        const SizedBox(height: 14),
-        if (kick != null)
-          _ResultBox([
-            _Line('비스듬한 관 길이', '${_fmt(kick.travel)} mm', strong: true),
-            _Line('앞으로 가는 거리', '${_fmt(kick.run)} mm'),
-            _Line('축소값 (관이 덜 쓰이는 양)', '${_fmt(kick.shrink)} mm'),
-            _Line('배수', _fmt(kick.multiplier, 3)),
-            _Line('1번 마킹', '${_fmt(start)} mm'),
-            _Line('꺾이는 점 (마킹 + 테이크업 ${_fmt(markOff)})', '${_fmt(lenForList!)} mm'),
-          ])
-        else
-          const Text('높이와 각도(0° 초과 90° 미만)를 넣으십시오.', style: TextStyle(color: _sub, fontSize: 13)),
-        if (_dir != null && !dirOk) _warn('지금 진행 방향과 같거나 반대 쪽으로는 꺾을 수 없습니다. 다른 방향을 고르십시오.'),
-        _AddButton(
-          enabled: kick != null && dirOk,
-          onTap: () {
-            widget.onAddBends([
-              {'length': (lenForList! * 10).roundToDouble() / 10, 'angle': a, 'rotation': _dir},
-            ]);
-            Navigator.pop(context);
-          },
+        const SizedBox(height: 24),
+        CsDirectionSelector(value: dir, onPick: (v) => setState(() => dir = v)),
+        const SizedBox(height: 16),
+        CsResultBox(
+          title: '계산된 빗변 (Travel)',
+          value: kick == null ? null : '${csFmt(kick.travel)} mm',
+          onPressed: () => _apply(h, a),
+          details: kick == null
+              ? const []
+              : [
+                  CsDetail(
+                    label: '수평 거리 (Run)',
+                    value: '${csFmt(kick.run)} mm',
+                    note: '(킥 구간의 수평 거리 · 배수 ${csFmt(kick.multiplier, 3)})',
+                  ),
+                  CsShrinkGainRow(
+                    shrink: '+${csFmt(kick.shrink)} mm',
+                    shrinkNote: '(직진 거리가 이만큼 줄어듭니다)',
+                    gainLabel: '게인 (벤드 1곳)',
+                    gain: '-${csFmt(gain)} mm',
+                  ),
+                ],
         ),
       ],
     );
@@ -402,7 +229,7 @@ class _KickSheetState extends State<_KickSheet> {
 
 class _SegmentedSheet extends StatefulWidget {
   final double currentRotation;
-  final void Function(List<Map<String, dynamic>>) onAddBends;
+  final ConduitAddBends onAddBends;
   final BendSheetSpecs specs;
   const _SegmentedSheet({required this.currentRotation, required this.onAddBends, required this.specs});
 
@@ -410,87 +237,119 @@ class _SegmentedSheet extends StatefulWidget {
   State<_SegmentedSheet> createState() => _SegmentedSheetState();
 }
 
-class _SegmentedSheetState extends State<_SegmentedSheet> {
-  final _r = TextEditingController(text: '300');
-  final _corner = TextEditingController();
+class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
+  late final _r = ctrl('300');
+  late final _corner = ctrl();
   int _n = 5;
-  double? _dir;
 
-  @override
-  void dispose() {
-    _r.dispose();
-    _corner.dispose();
-    super.dispose();
+  void _apply(double? r, double? corner) {
+    if (!checkDirection(widget.currentRotation)) return;
+    final seg = r == null ? null : conduitSegmented(radius: r, bends: _n);
+    if (seg == null) {
+      csSnackMissing(context, '넣을 수 없습니다. 반경을 넣으십시오.');
+      return;
+    }
+    if (corner == null || corner <= 0) {
+      csSnackMissing(context, '넣을 수 없습니다. 직각 모서리까지 거리를 넣으십시오.');
+      return;
+    }
+    final list = conduitSegmentedBends(cornerDistance: corner, radius: r!, bends: _n, rotation: dir!);
+    if (list == null) {
+      csSnackMissing(context, '넣을 수 없습니다. 반경이 모서리 거리에 비해 너무 큽니다. 반경을 줄이거나 거리를 늘리십시오.');
+      return;
+    }
+    widget.onAddBends(list);
+    final double first = (list.first['length'] as num).toDouble();
+    csSnackAdded(
+      context,
+      '$_n줄을 넣었습니다. 1번 마킹이 ${csFmt(first - widget.specs.markOffset(seg.angle), 0)}mm 자리에 찍힙니다.',
+    );
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final double? r = _read(_r), corner = _read(_corner);
+    final double? r = csRead(_r), corner = csRead(_corner);
     final seg = r == null ? null : conduitSegmented(radius: r, bends: _n);
-    final bool dirOk = _dir != null && _canBend(widget.currentRotation, _dir!);
-    final list = (seg != null && corner != null && dirOk)
-        ? conduitSegmentedBends(cornerDistance: corner, radius: r!, bends: _n, rotation: _dir!)
+    final list = (seg != null && corner != null && dir != null)
+        ? conduitSegmentedBends(cornerDistance: corner, radius: r!, bends: _n, rotation: dir!)
         : null;
     final bool tooBig = seg != null && corner != null && corner - seg.lead <= 0;
-    final double? mark1 = list == null ? null : (list.first['length'] as num).toDouble() - widget.specs.markOffset(seg!.angle);
-    return _Shell(
+    final double gainPer = seg == null
+        ? 0
+        : effectiveGain(radius: widget.specs.radius, angleDeg: seg.angle, measuredGain90: widget.specs.gain90);
+    return CsFrame(
       title: '분할 90°',
-      help: '큰 반경으로 90°를 돌릴 때 작은 각을 여러 번 이어 꺾습니다. 가상의 직각 모서리까지 거리를 넣으면 꺾이는 점 간격과 첫 마킹을 구합니다.',
+      guide: SegmentedGuide(
+        radiusMm: r ?? 0,
+        bends: _n,
+        spacingMm: seg?.spacing ?? 0,
+        angleDeg: seg?.angle ?? 0,
+      ),
       children: [
-        _Num(fieldKey: const Key('cs_radius'), label: '원하는 반경 R', ctrl: _r, unit: 'mm', onChanged: () => setState(() {})),
-        _Num(
-          fieldKey: const Key('cs_corner'),
-          label: '직각 모서리까지 거리 (관 끝에서)',
-          ctrl: _corner,
-          unit: 'mm',
-          onChanged: () => setState(() {}),
+        CsInfoBox(
+          title: '직각 모서리까지 거리',
+          note: '관 끝에서 가상의 직각 모서리까지입니다. 첫 꺾이는 점은 모서리보다 조금 앞에 옵니다.',
+          field: CsField(fieldKey: const Key('cs_corner'), ctrl: _corner, hint: '거리 mm'),
         ),
-        const Text('나눌 횟수', style: TextStyle(color: _sub, fontSize: 13, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
+        const CsLabel('원하는 반경 (R)'),
+        CsField(fieldKey: const Key('cs_radius'), ctrl: _r, hint: '반경 mm'),
+        const SizedBox(height: 16),
+        const CsLabel('나눌 횟수'),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
           children: [
             for (var n = 3; n <= 9; n++)
-              ChoiceChip(
-                key: Key('cs_n_$n'),
-                label: Text('$n번'),
+              CsChoice(
+                choiceKey: Key('cs_n_$n'),
+                label: '$n번',
                 selected: _n == n,
-                selectedColor: _teal,
-                labelStyle: TextStyle(color: _n == n ? Colors.white : _ink, fontWeight: FontWeight.bold),
-                onSelected: (_) => setState(() => _n = n),
+                onTap: () => setState(() => _n = n),
               ),
           ],
         ),
-        const SizedBox(height: 12),
-        _DirPicker(value: _dir, onPick: (v) => setState(() => _dir = v)),
-        const SizedBox(height: 14),
-        if (seg != null)
-          _ResultBox([
-            _Line('한 번에 꺾는 각', '${_fmt(seg.angle, 2)}°', strong: true),
-            _Line('꺾이는 점 사이 간격', '${_fmt(seg.spacing)} mm', strong: true),
-            _Line('모서리에서 첫·끝 꺾이는 점까지', '${_fmt(seg.lead)} mm'),
-            _Line('호 길이 (반 원호)', '${_fmt(seg.arcLength)} mm'),
-            if (list != null) _Line('첫 줄 길이 (꺾이는 점)', '${_fmt((list.first['length'] as num).toDouble())} mm'),
-            if (mark1 != null) _Line('1번 마킹', '${_fmt(mark1)} mm'),
-          ])
-        else
-          const Text('반경(0 초과)을 넣으십시오.', style: TextStyle(color: _sub, fontSize: 13)),
-        if (tooBig) _warn('반경이 모서리 거리에 비해 너무 큽니다. 반경을 줄이거나 거리를 늘리십시오.'),
-        if (_dir != null && !dirOk) _warn('지금 진행 방향과 같거나 반대 쪽으로는 꺾을 수 없습니다. 다른 방향을 고르십시오.'),
-        const Padding(
-          padding: EdgeInsets.only(top: 8),
-          child: Text(
-            '이어지는 다음 구간은 목록에서 직접 넣으십시오. 마지막 꺾이는 점은 모서리에서 위 "첫·끝 꺾이는 점" 거리만큼 앞에 있습니다.',
-            style: TextStyle(color: _sub, fontSize: 12, height: 1.4),
-          ),
-        ),
-        _AddButton(
-          enabled: list != null,
-          label: '목록에 $_n줄 추가',
-          onTap: () {
-            widget.onAddBends(list!);
-            Navigator.pop(context);
-          },
+        const SizedBox(height: 24),
+        CsDirectionSelector(value: dir, onPick: (v) => setState(() => dir = v)),
+        const SizedBox(height: 16),
+        CsResultBox(
+          title: '한 번에 꺾는 각',
+          value: seg == null ? null : '${csFmt(seg.angle, 2)} °',
+          btnText: '목록에 넣기',
+          onPressed: () => _apply(r, corner),
+          details: seg == null
+              ? const []
+              : [
+                  CsDetail(
+                    label: '꺾이는 점 사이 간격',
+                    value: '${csFmt(seg.spacing)} mm',
+                    note: '(2 × R × tan(각 ÷ 2))',
+                  ),
+                  CsDetail(
+                    label: '모서리에서 첫·끝 꺾이는 점까지',
+                    value: '${csFmt(seg.lead)} mm',
+                    note: '(R × (1 − tan(각 ÷ 2)) · 호 길이 ${csFmt(seg.arcLength)} mm)',
+                  ),
+                  if (list != null)
+                    CsDetail(
+                      label: '1번 마킹',
+                      value: '${csFmt((list.first['length'] as num).toDouble() - widget.specs.markOffset(seg.angle))} mm',
+                      note: '(첫 꺾이는 점 ${csFmt((list.first['length'] as num).toDouble())} − 테이크업)',
+                    ),
+                  if (tooBig)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        '반경이 모서리 거리에 비해 너무 큽니다. 반경을 줄이거나 거리를 늘리십시오.',
+                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                  CsShrinkGainRow(
+                    gainLabel: '게인 (벤드 $_n곳)',
+                    gain: '-${csFmt(gainPer * _n)} mm',
+                  ),
+                ],
         ),
       ],
     );
@@ -501,7 +360,7 @@ class _SegmentedSheetState extends State<_SegmentedSheet> {
 
 class _BackToBackSheet extends StatefulWidget {
   final double currentRotation;
-  final void Function(List<Map<String, dynamic>>) onAddBends;
+  final ConduitAddBends onAddBends;
   final BendSheetSpecs specs;
   final double? conduitOd;
   const _BackToBackSheet({
@@ -515,102 +374,142 @@ class _BackToBackSheet extends StatefulWidget {
   State<_BackToBackSheet> createState() => _BackToBackSheetState();
 }
 
-class _BackToBackSheetState extends State<_BackToBackSheet> {
-  final _first = TextEditingController();
-  final _dist = TextEditingController();
-  late final TextEditingController _od = TextEditingController(
-    text: widget.conduitOd == null ? '' : _fmt(widget.conduitOd!),
-  );
+class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
+  late final _first = ctrl();
+  late final _dist = ctrl();
+  late final _od = ctrl(widget.conduitOd == null ? '' : csFmt(widget.conduitOd!));
   bool _outside = true;
-  double? _dir;
 
-  @override
-  void dispose() {
-    _first.dispose();
-    _dist.dispose();
-    _od.dispose();
-    super.dispose();
+  bool get _perpendicular =>
+      dir == null ||
+      directionForRotation(widget.currentRotation).dot(directionForRotation(dir!)).abs() < 1e-6;
+
+  void _apply(double? first, double? spacing) {
+    if (!checkDirection(widget.currentRotation)) return;
+    if (!_perpendicular) {
+      csSnackMissing(context, '넣을 수 없습니다. U자는 진행 방향에 수직인 방향으로 꺾어야 합니다.');
+      return;
+    }
+    if (first == null || first <= 0) {
+      csSnackMissing(context, '넣을 수 없습니다. 첫 다리 길이를 넣으십시오.');
+      return;
+    }
+    if (spacing == null) {
+      csSnackMissing(context, '넣을 수 없습니다. 두 다리 사이 거리와 관 바깥지름을 넣으십시오.');
+      return;
+    }
+    final list = conduitBackToBackBends(
+      firstLength: first,
+      spacing: spacing,
+      firstRotation: dir!,
+      secondRotation: oppositeRotation(widget.currentRotation),
+    );
+    if (list == null) {
+      csSnackMissing(context, '넣을 수 없습니다. 두 다리 사이 거리가 관 바깥지름보다 작아 만들 수 없습니다.');
+      return;
+    }
+    widget.onAddBends(list);
+    csSnackAdded(
+      context,
+      '2줄을 넣었습니다. 1번 마킹이 ${csFmt(first - widget.specs.markOffset(90), 0)}mm 자리에 찍힙니다.',
+    );
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final double? first = _read(_first), dist = _read(_dist), od = _read(_od);
-    final double heading = widget.currentRotation;
-    final double second = oppositeRotation(heading);
-    final bool dirOk = _dir != null && _canBend(heading, _dir!);
-    // 첫 90°는 진행 방향에 수직으로 꺾어야 U자가 된다.
-    final bool perpendicular = _dir == null
-        ? true
-        : directionForRotation(heading).dot(directionForRotation(_dir!)).abs() < 1e-6;
+    final double? first = csRead(_first), dist = csRead(_dist), od = csRead(_od);
     final double? spacing = (dist != null && od != null && od > 0)
         ? conduitBackToBackSpacing(distance: dist, od: od, outside: _outside)
         : null;
-    final list = (first != null && spacing != null && dirOk && perpendicular)
-        ? conduitBackToBackBends(firstLength: first, spacing: spacing, firstRotation: _dir!, secondRotation: second)
-        : null;
-    return _Shell(
+    final double gainPer = effectiveGain(
+      radius: widget.specs.radius,
+      angleDeg: 90,
+      measuredGain90: widget.specs.gain90,
+    );
+    return CsFrame(
       title: '백투백 90°',
-      help: '같은 평면에서 90°를 두 번 꺾어 U자로 만듭니다. 두 다리 사이 거리를 넣으면 꺾이는 점 간격을 구해 목록에 두 줄을 넣습니다.',
+      guide: BackToBackGuide(
+        spacingMm: (spacing != null && spacing > 0) ? spacing : 0,
+        distanceMm: dist ?? 0,
+        firstMm: first ?? 0,
+        outside: _outside,
+      ),
       children: [
-        _Num(
-          fieldKey: const Key('cs_first'),
-          label: '첫 다리 길이 (관 끝에서 첫 꺾이는 점까지)',
-          ctrl: _first,
-          unit: 'mm',
-          onChanged: () => setState(() {}),
+        CsInfoBox(
+          title: '첫 다리 길이',
+          note: '관 끝에서 첫 꺾이는 점까지입니다. 1번 마킹은 여기서 테이크업을 뺀 자리입니다.',
+          field: CsField(fieldKey: const Key('cs_first'), ctrl: _first, hint: '길이 mm'),
         ),
-        _Num(fieldKey: const Key('cs_dist'), label: '두 다리 사이 거리', ctrl: _dist, unit: 'mm', onChanged: () => setState(() {})),
+        const SizedBox(height: 16),
+        const CsLabel('두 다리 사이 거리'),
+        CsField(fieldKey: const Key('cs_dist'), ctrl: _dist, hint: '거리 mm'),
+        const SizedBox(height: 8),
         Wrap(
           spacing: 8,
+          runSpacing: 8,
           children: [
-            ChoiceChip(
-              key: const Key('cs_outside'),
-              label: const Text('바깥~바깥 (등 사이)'),
+            CsChoice(
+              choiceKey: const Key('cs_outside'),
+              label: '바깥~바깥 (등 사이)',
               selected: _outside,
-              selectedColor: _teal,
-              labelStyle: TextStyle(color: _outside ? Colors.white : _ink, fontWeight: FontWeight.bold),
-              onSelected: (_) => setState(() => _outside = true),
+              onTap: () => setState(() => _outside = true),
             ),
-            ChoiceChip(
-              key: const Key('cs_inside'),
-              label: const Text('안쪽~안쪽'),
+            CsChoice(
+              choiceKey: const Key('cs_inside'),
+              label: '안쪽~안쪽',
               selected: !_outside,
-              selectedColor: _teal,
-              labelStyle: TextStyle(color: !_outside ? Colors.white : _ink, fontWeight: FontWeight.bold),
-              onSelected: (_) => setState(() => _outside = false),
+              onTap: () => setState(() => _outside = false),
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        _Num(
-          fieldKey: const Key('cs_od'),
-          label: '관 바깥지름',
-          ctrl: _od,
-          unit: 'mm',
-          hint: '예: 후강 22 = 26.5',
-          onChanged: () => setState(() {}),
+        const SizedBox(height: 16),
+        const CsLabel('관 바깥지름'),
+        CsField(fieldKey: const Key('cs_od'), ctrl: _od, hint: '바깥지름 mm (후강 22 = 26.5)'),
+        const SizedBox(height: 24),
+        CsDirectionSelector(
+          value: dir,
+          onPick: (v) => setState(() => dir = v),
+          title: '첫 90°를 꺾는 방향 (6축)',
         ),
-        _DirPicker(value: _dir, onPick: (v) => setState(() => _dir = v), label: '첫 90°를 꺾는 방향'),
-        const SizedBox(height: 14),
-        if (spacing != null)
-          _ResultBox([
-            _Line('꺾이는 점 사이 간격', '${_fmt(spacing)} mm', strong: true),
-            _Line('두 번째 90° 방향', '처음 진행 방향의 반대'),
-            if (first != null) _Line('1번 마킹', '${_fmt(first - widget.specs.markOffset(90))} mm'),
-          ])
-        else
-          const Text('두 다리 사이 거리와 관 바깥지름을 넣으십시오.', style: TextStyle(color: _sub, fontSize: 13)),
-        if (spacing != null && spacing <= 0) _warn('두 다리 사이 거리가 관 바깥지름보다 작아 만들 수 없습니다.'),
-        if (_dir != null && dirOk && !perpendicular) _warn('U자는 진행 방향에 수직인 방향으로 꺾어야 합니다.'),
-        if (_dir != null && !dirOk) _warn('지금 진행 방향과 같거나 반대 쪽으로는 꺾을 수 없습니다. 다른 방향을 고르십시오.'),
-        _AddButton(
-          enabled: list != null,
-          label: '목록에 2줄 추가',
-          onTap: () {
-            widget.onAddBends(list!);
-            Navigator.pop(context);
-          },
+        const SizedBox(height: 16),
+        CsResultBox(
+          title: '꺾이는 점 사이 간격',
+          value: (spacing != null && spacing > 0) ? '${csFmt(spacing)} mm' : null,
+          onPressed: () => _apply(first, spacing),
+          details: (spacing != null && spacing > 0)
+              ? [
+                  const CsDetail(
+                    label: '두 번째 90° 방향',
+                    value: '처음 진행 방향의 반대',
+                    note: '(같은 평면에서 U자로 돌아옵니다)',
+                  ),
+                  if (first != null && first > 0)
+                    CsDetail(
+                      label: '1번 마킹',
+                      value: '${csFmt(first - widget.specs.markOffset(90))} mm',
+                      note: '(첫 다리 ${csFmt(first)} − 테이크업)',
+                    ),
+                  if (dir != null && !_perpendicular)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        'U자는 진행 방향에 수직인 방향으로 꺾어야 합니다.',
+                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                  CsShrinkGainRow(gainLabel: '게인 (벤드 2곳)', gain: '-${csFmt(gainPer * 2)} mm'),
+                ]
+              : const [],
         ),
+        if (spacing != null && spacing <= 0)
+          const Padding(
+            padding: EdgeInsets.only(top: 8),
+            child: Text(
+              '두 다리 사이 거리가 관 바깥지름보다 작아 만들 수 없습니다.',
+              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ),
       ],
     );
   }
@@ -620,7 +519,7 @@ class _BackToBackSheetState extends State<_BackToBackSheet> {
 
 class _StubUpSheet extends StatefulWidget {
   final double currentRotation;
-  final void Function(List<Map<String, dynamic>>) onAddBends;
+  final ConduitAddBends onAddBends;
   final BendSheetSpecs specs;
   const _StubUpSheet({required this.currentRotation, required this.onAddBends, required this.specs});
 
@@ -628,44 +527,68 @@ class _StubUpSheet extends StatefulWidget {
   State<_StubUpSheet> createState() => _StubUpSheetState();
 }
 
-class _StubUpSheetState extends State<_StubUpSheet> {
-  final _stub = TextEditingController();
-  double? _dir;
+class _StubUpSheetState extends _SheetState<_StubUpSheet> {
+  late final _stub = ctrl();
 
-  @override
-  void dispose() {
-    _stub.dispose();
-    super.dispose();
+  void _apply(double? s) {
+    if (!checkDirection(widget.currentRotation)) return;
+    final list = (s == null) ? null : conduitStubBends(stub: s, rotation: dir!);
+    if (list == null) {
+      csSnackMissing(context, '넣을 수 없습니다. 스터브 길이를 넣으십시오.');
+      return;
+    }
+    widget.onAddBends(list);
+    csSnackAdded(
+      context,
+      '1번 마킹이 ${csFmt(s! - widget.specs.markOffset(90), 0)}mm 자리에 찍힙니다.',
+    );
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    final double? s = _read(_stub);
-    final bool dirOk = _dir != null && _canBend(widget.currentRotation, _dir!);
-    final list = (s != null && dirOk) ? conduitStubBends(stub: s, rotation: _dir!) : null;
+    final double? s = csRead(_stub);
     final double off = widget.specs.markOffset(90);
-    return _Shell(
+    final bool ok = s != null && s > 0;
+    final double gain = effectiveGain(
+      radius: widget.specs.radius,
+      angleDeg: 90,
+      measuredGain90: widget.specs.gain90,
+    );
+    return CsFrame(
       title: '스터브업 (90°)',
-      help: '관 끝에서 한 번 90°로 꺾어 세웁니다. 스터브 길이를 넣으면 마킹 자리(길이 − 테이크업)를 알려 주고 목록에 넣습니다.',
+      guide: StubUpGuide(stubMm: ok ? s : 0, markMm: ok ? s - off : 0),
       children: [
-        _Num(fieldKey: const Key('cs_stub'), label: '스터브 길이 (관 끝에서)', ctrl: _stub, unit: 'mm', onChanged: () => setState(() {})),
-        _DirPicker(value: _dir, onPick: (v) => setState(() => _dir = v)),
-        const SizedBox(height: 14),
-        if (s != null && s > 0)
-          _ResultBox([
-            _Line('마킹 자리', '${_fmt(s - off)} mm', strong: true),
-            _Line('테이크업', '${_fmt(off)} mm'),
-          ])
-        else
-          const Text('스터브 길이를 넣으십시오.', style: TextStyle(color: _sub, fontSize: 13)),
-        if (s != null && s - off <= 0) _warn('스터브가 테이크업보다 짧아 마킹이 관 끝 안쪽에 찍힙니다.'),
-        if (_dir != null && !dirOk) _warn('지금 진행 방향과 같거나 반대 쪽으로는 꺾을 수 없습니다. 다른 방향을 고르십시오.'),
-        _AddButton(
-          enabled: list != null,
-          onTap: () {
-            widget.onAddBends(list!);
-            Navigator.pop(context);
-          },
+        CsInfoBox(
+          title: '스터브 길이',
+          note: '관 끝에서 꺾이는 점까지입니다. 1번 마킹은 여기서 테이크업을 뺀 자리입니다.',
+          field: CsField(fieldKey: const Key('cs_stub'), ctrl: _stub, hint: '길이 mm'),
+        ),
+        const SizedBox(height: 24),
+        CsDirectionSelector(value: dir, onPick: (v) => setState(() => dir = v)),
+        const SizedBox(height: 16),
+        CsResultBox(
+          title: '마킹 자리',
+          value: ok ? '${csFmt(s - off)} mm' : null,
+          onPressed: () => _apply(s),
+          details: ok
+              ? [
+                  CsDetail(
+                    label: '테이크업 (90°)',
+                    value: '${csFmt(off)} mm',
+                    note: '(스터브 길이에서 뺍니다)',
+                  ),
+                  if (s - off <= 0)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        '스터브가 테이크업보다 짧아 마킹이 관 끝 안쪽에 찍힙니다.',
+                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
+                  CsShrinkGainRow(gainLabel: '게인 (벤드 1곳)', gain: '-${csFmt(gain)} mm'),
+                ]
+              : const [],
         ),
       ],
     );
