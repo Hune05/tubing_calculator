@@ -181,6 +181,30 @@ final List<QuickToolDef> kQuickSubTools = [
     (_) => const ElectricCalculatorPage(initialTab: 10),
     subtitle: '축전지·충전기 용량',
   ),
+  _sub(
+    'el_ground',
+    '접지·절연',
+    LucideIcons.shieldCheck,
+    '전기 설계 계산',
+    (_) => const ElectricCalculatorPage(initialTab: 11),
+    subtitle: '보호도체·접지저항·TN 차단·절연저항',
+  ),
+  _sub(
+    'el_motor',
+    '전동기 보호',
+    LucideIcons.cog,
+    '전기 설계 계산',
+    (_) => const ElectricCalculatorPage(initialTab: 12),
+    subtitle: '과부하계전기 설정·트립 클래스',
+  ),
+  _sub(
+    'el_motorcheck',
+    '전동기 점검',
+    LucideIcons.stethoscope,
+    '전기 설계 계산',
+    (_) => const ElectricCalculatorPage(initialTab: 13),
+    subtitle: '절연저항·권선 저항·불평형으로 소손 판정',
+  ),
   // ── 유량 계산 ──
   _sub(
     'fl_vel',

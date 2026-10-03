@@ -10,6 +10,7 @@ import 'knowledge_entry.dart';
 
 const String _srcGround = '전기 설계 계산 · 접지 탭';
 const String _srcMotor = '전기 설계 계산 · 전동기 보호 탭';
+const String _srcMotorCheck = '전기 설계 계산 · 전동기 점검 탭';
 
 void _openCalc(BuildContext c, int tab) => Navigator.push(
   c,
@@ -220,6 +221,53 @@ List<KnowledgeEntry> electricalKnowledge() => [
     keywords: const ['루프 임피던스', 'Zs', '지락', '자동 차단', 'TN', '차단시간', '0.4초', '감전 보호'],
     sourceLabel: _srcGround,
     open: (c) => _openCalc(c, 11),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.motor.burnt',
+    category: '접지·전동기 점검',
+    title: '전동기가 탔는지 확인하는 순서',
+    lines: const [
+      '① 전원 차단·검전·잠금 후 케이블·콘덴서·CT를 떼고 전동기만 측정합니다.',
+      '② 외관: 권선 절연 부풂·갈라짐·변색, 오염, 쐐기 풀림을 봅니다.',
+      '③ 메거: 세 상을 묶어 권선-접지 1분값을 측정해 40 ℃로 환산합니다. 저압 랜덤권선 5 MΩ, 고압 폼권선 100 MΩ 이상(IEEE 43).',
+      '④ 권선 저항: U-V, V-W, W-U를 측정해 평균에서 2 %(폼권선 1 %) 이내인지 봅니다(EASA AR100). 한 상이 OL이면 단선입니다.',
+      '판정 계산은 전동기 점검 탭에서 값만 넣으면 과정까지 보여 줍니다.',
+    ],
+    keywords: const ['전동기', '모터', '소손', '탔', '권선', '메거', '절연저항', '점검', '고장'],
+    sourceLabel: _srcMotorCheck,
+    open: (c) => _openCalc(c, 13),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.motor.ir',
+    category: '접지·전동기 점검',
+    title: '전동기 절연저항은 몇 MΩ이면 정상인가',
+    lines: const [
+      '시험전압: 정격 1000 V 미만은 DC 500 V, 3.3 kV급은 1000~2500 V, 6.6 kV급은 2500~5000 V(IEEE 43 표 1).',
+      '최소(40 ℃ 환산 1분값): 랜덤권선(저압) 5 MΩ, 1970년 이후 폼권선(고압) 100 MΩ, 옛 권선 kV + 1 MΩ(IEEE 43 표 3).',
+      '온도 환산: 10 ℃ 낮을 때마다 측정값의 절반으로 봅니다. 20 ℃에서 12 MΩ이면 40 ℃ 3 MΩ입니다.',
+      '성극지수 PI = 10분값 ÷ 1분값, B·F·H종 2.0 이상(A종 1.5).',
+      '흔히 쓰는 "1 MΩ 이상"은 전로 기준(전기설비기술기준 제52조)이고 권선 기준이 아닙니다. 제조사 기준도 서로 달라(효성 5, ABB 1 MΩ 25 ℃) 설명서를 우선합니다.',
+    ],
+    keywords: const ['메거', '절연저항', 'MΩ', '전동기', '모터', 'PI', '성극지수', 'IEEE 43', '1MΩ'],
+    sourceLabel: _srcMotorCheck,
+    open: (c) => _openCalc(c, 13),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.motor.unbalance',
+    category: '접지·전동기 점검',
+    title: '전동기 전압·전류 불평형이 클 때',
+    lines: const [
+      '전압 불평형 % = 평균에서 가장 먼 선간전압의 차 ÷ 평균 × 100. 단자에서 1 % 이하가 권장이고, 넘으면 출력을 줄여 씁니다(NEMA MG1). 5 % 초과는 운전 권장 안 함.',
+      '전류 불평형은 전압 불평형의 6~10배가 될 수 있습니다(DOE).',
+      '원인 가리기: 세 상 리드를 한 칸씩 돌려 꽂아, 큰 전류가 전원선을 따라가면 전원 쪽, 전동기선을 따라가면 전동기 쪽입니다.',
+      '한 상만 탄 권선은 전압 불평형(단자 접속 불량, 접점 고저항), 세 상이 고르게 탄 권선은 과부하·저전압·과전압이 원인인 경우가 많습니다(EASA).',
+    ],
+    keywords: const ['불평형', '전압 불평형', '전류 불평형', '전동기', '모터', '단상 운전', '결상'],
+    sourceLabel: _srcMotorCheck,
+    open: (c) => _openCalc(c, 13),
     priority: 1,
   ),
 ];

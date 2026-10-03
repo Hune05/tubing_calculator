@@ -15,7 +15,7 @@ void main() {
     expect(cats.containsKey('계기 신호 진단'), isFalse);
     expect(cats['축 정렬 지침'], greaterThanOrEqualTo(30));
     expect(cats['현장 자료'], greaterThanOrEqualTo(30));
-    expect(cats['접지·전동기 점검'], 10);
+    expect(cats['접지·전동기 점검'], 13);
     final ids = all.map((e) => e.id).toList();
     expect(ids.toSet().length, ids.length);
     expect(ids, containsAll(["press.drop.notleak", "sig.loop.ranges"]));
