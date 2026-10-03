@@ -1,4 +1,4 @@
-// 케이블 트레이 형상 계산기 화면(10-03): 기본값으로 바로 마킹, 각도·나눠 꺾기·종류 바꾸기, 카톡 글, 입력값 남기기.
+// 케이블 트레이 가공 화면(10-03): 기본값으로 바로 마킹, 각도·나눠 꺾기·종류 바꾸기, 카톡 글, 입력값 남기기.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,7 +43,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('tr_share')));
     await tester.pumpAndSettle();
-    expect(sent, startsWith('[트레이 형상] 넘어가기 90° · 측판 높이 150mm'));
+    expect(sent, startsWith('[트레이 가공] 넘어가기 90° · 측판 높이 150mm'));
     expect(sent, contains('윗변 V컷 폭 300'));
     // 다시 열면 측판 150 그대로
     await tester.pumpWidget(const SizedBox());
@@ -112,7 +112,7 @@ void main() {
     expect(find.text('직선 500 mm'), findsWidgets);
     await tester.tap(find.byKey(const Key('tr_share')));
     await tester.pumpAndSettle();
-    expect(sent, startsWith('[트레이 형상] 넘어가기 45° 기성 엘보 R300'));
+    expect(sent, startsWith('[트레이 가공] 넘어가기 45° 기성 엘보 R300'));
     await tester.tap(find.byKey(const Key('tr_k_aside')));
     await tester.pumpAndSettle();
     expect(find.text('수평 엘보 45° · R300'), findsWidgets);
@@ -162,7 +162,7 @@ void main() {
     expect(find.byKey(const Key('tr_rail_100')), findsNothing);
     await tester.tap(find.byKey(const Key('tr_share')));
     await tester.pumpAndSettle();
-    expect(sent, startsWith('[트레이 형상] 가지 내기 수평 티 W300 R300 · 가지 오른쪽'));
+    expect(sent, startsWith('[트레이 가공] 가지 내기 수평 티 W300 R300 · 가지 오른쪽'));
     expect(sent, contains('가지 직선 575mm'));
     await tester.enterText(find.byKey(const Key('tr_face')), '400');
     await tester.pumpAndSettle();

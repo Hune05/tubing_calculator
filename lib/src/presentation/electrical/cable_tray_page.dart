@@ -1,4 +1,4 @@
-// 케이블 트레이 계산기(10-03): 트레이에 넣을 케이블 목록으로 점유율 판정과 권장 폭.
+// 케이블 트레이 규격 선정(10-03): 트레이에 넣을 케이블 목록으로 점유율 판정과 권장 폭.
 // 계산은 cable_tray.dart(KEC 232.41·판단기준 제213조의2 표와 규칙), 케이블 외경은 conduit_tables.dart.
 import 'dart:async';
 import 'dart:convert';
@@ -798,7 +798,7 @@ class _CableTrayPageState extends State<CableTrayPage>
             foregroundColor: fc.text,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
-            title: Text('케이블 트레이 계산기', style: TextStyle(fontWeight: FontWeight.w800, color: fc.text)),
+            title: Text('케이블 트레이 규격 선정', style: TextStyle(fontWeight: FontWeight.w800, color: fc.text)),
             actions: [
               if (check != null)
                 IconButton(

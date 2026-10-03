@@ -1,4 +1,4 @@
-// 케이블 트레이 계산기 화면(10-03): 가닥 수를 넣으면 판정·권장 폭, 폭 칩, 줄 더하기·밀어서 지우기, 직접 입력.
+// 케이블 트레이 규격 선정 화면(10-03): 가닥 수를 넣으면 판정·권장 폭, 폭 칩, 줄 더하기·밀어서 지우기, 직접 입력.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

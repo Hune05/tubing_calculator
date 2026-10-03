@@ -31,7 +31,7 @@ const Map<String, String> kElecTabLabels = {
   'pd_bal_sum': '상 평형',
   'pd_feed_sum': '간선 전압강하',
   'ct_sum': '케이블 트레이',
-  'tr_sum': '트레이 형상',
+  'tr_sum': '트레이 가공',
   'bb_sum': '부스바 절곡',
   'gb_sum': '접지바 구멍',
 };

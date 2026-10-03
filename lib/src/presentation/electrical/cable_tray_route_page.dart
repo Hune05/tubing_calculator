@@ -1,4 +1,4 @@
-// 케이블 트레이 형상 계산기(10-03): 바닥 구조물을 넘어가거나 단을 오르내릴 때
+// 케이블 트레이 가공(10-03): 바닥 구조물을 넘어가거나 단을 오르내릴 때
 // 트레이를 현장에서 잘라 꺾는 V컷 마킹과 길이. 계산은 cable_tray_route.dart.
 import 'dart:async';
 import 'dart:convert';
@@ -279,7 +279,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
 
   String _elbowShareText(TrayElbowRoute e) {
     final b = StringBuffer(
-      '[트레이 형상] ${trayRouteKindLabel(_kind)} ${fmt(_angle)}° 기성 엘보 R${fmt(_elbowR)}',
+      '[트레이 가공] ${trayRouteKindLabel(_kind)} ${fmt(_angle)}° 기성 엘보 R${fmt(_elbowR)}',
     );
     b.write(
       _plan
@@ -371,7 +371,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
 
   String _teeShareText(TrayTee t) {
     final b = StringBuffer(
-      '[트레이 형상] 가지 내기 수평 티 W${fmt(_width)} R${fmt(_elbowR)} · 가지 ${_obsLeft ? '왼쪽' : '오른쪽'}',
+      '[트레이 가공] 가지 내기 수평 티 W${fmt(_width)} R${fmt(_elbowR)} · 가지 ${_obsLeft ? '왼쪽' : '오른쪽'}',
     );
     b.write(
       '\n티 A ${trayNum(t.a)} · B ${trayNum(t.b)} (끝 직선 ${trayNum(t.tangent)})',
@@ -503,7 +503,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
         'tr_minr',
         '케이블 최소 굽힘 반경 (mm)',
         _minR,
-        '케이블 트레이 계산기의 "최소 굽힘 반경" 값을 넣으면 티 R과 비교합니다. 비워도 됩니다.',
+        '케이블 트레이 규격 선정의 "최소 굽힘 반경" 값을 넣으면 티 R과 비교합니다. 비워도 됩니다.',
         onEdit: _saveSoon,
       ),
       elecChipGroup('트레이 한 개 길이', '자를 직선이 몇 개 드는지 계산합니다(이음 여유 제외).', [
@@ -688,7 +688,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
 
   String _shareText(TrayRoute r) {
     final b = StringBuffer(
-      '[트레이 형상] ${trayRouteKindLabel(_kind)} ${fmt(_angle)}°',
+      '[트레이 가공] ${trayRouteKindLabel(_kind)} ${fmt(_angle)}°',
     );
     if (_pieces > 1) b.write(' (${fmt(_angle / _pieces)}° × $_pieces번)');
     b.write(
@@ -991,7 +991,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 'tr_minr',
                 '케이블 최소 굽힘 반경 (mm)',
                 _minR,
-                '케이블 트레이 계산기의 "최소 굽힘 반경" 값을 넣으면 엘보 R과 비교합니다. 비워도 됩니다.',
+                '케이블 트레이 규격 선정의 "최소 굽힘 반경" 값을 넣으면 엘보 R과 비교합니다. 비워도 됩니다.',
                 onEdit: _saveSoon,
               ),
             if (!_elbowMode)
@@ -1023,7 +1023,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 'tr_minr',
                 '케이블 최소 굽힘 반경 (mm)',
                 _minR,
-                '케이블 트레이 계산기의 "최소 굽힘 반경" 값을 넣으면 나눠 꺾은 반경과 비교합니다. 비워도 됩니다.',
+                '케이블 트레이 규격 선정의 "최소 굽힘 반경" 값을 넣으면 나눠 꺾은 반경과 비교합니다. 비워도 됩니다.',
                 onEdit: _saveSoon,
               ),
             elecChipGroup('트레이 한 개 길이', '자르기 전 길이로 몇 개 드는지 계산합니다(이음 여유 제외).', [
@@ -1153,7 +1153,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             title: Text(
-              '케이블 트레이 형상 계산기',
+              '케이블 트레이 가공',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             actions: [

@@ -1514,7 +1514,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "케이블 트레이 계산기",
+                        title: "케이블 트레이 규격 선정",
                         subtitle: "트레이 점유율 판정·권장 폭 (KEC 232.41)",
                         icon: AppGlyph.cableTray,
                         onTap: () {
@@ -1529,7 +1529,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "케이블 트레이 형상 계산기",
+                        title: "케이블 트레이 가공",
                         subtitle: "넘어가기·옆으로 비켜가기·단 오르내리기·가지 내기(티)",
                         icon: AppGlyph.trayRoute,
                         onTap: () {
