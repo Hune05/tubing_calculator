@@ -17,6 +17,7 @@ void main() {
     expect(cats['접지·전동기 점검'], 8);
     final ids = all.map((e) => e.id).toList();
     expect(ids.toSet().length, ids.length);
+    expect(ids, containsAll(["press.drop.notleak", "sig.loop.ranges"]));
     for (final e in all) {
       expect(e.title.trim(), isNotEmpty, reason: e.id);
       expect(e.category.trim(), isNotEmpty, reason: e.id);
