@@ -570,4 +570,30 @@ void main() {
     expect(find.text('합격'), findsOneWidget);
     expect(find.byKey(const Key('cr_csv')), findsOneWidget);
   });
+  testWidgets('루프 전압: 전원 전압을 지우고 다시 쳐도 칸이 그대로라 자판이 닫히지 않는다', (tester) async {
+    await pumpPage(tester);
+    await openTab(tester, 'sg_tab_loop');
+    bool hasFocus() => tester
+        .widget<EditableText>(
+          find.descendant(
+            of: find.byKey(const Key('sl_supply')),
+            matching: find.byType(EditableText),
+          ),
+        )
+        .focusNode
+        .hasFocus;
+    await tester.tap(find.byKey(const Key('sl_supply')));
+    await tester.pumpAndSettle();
+    expect(hasFocus(), true);
+    // 지우면 위쪽 그림이 사라지고, 다시 쓰면 생긴다. 두 경우 모두 칸이 포커스를 지켜야 한다.
+    await tester.enterText(find.byKey(const Key('sl_supply')), '');
+    await tester.pumpAndSettle();
+    expect(hasFocus(), true, reason: '비운 뒤');
+    await tester.enterText(find.byKey(const Key('sl_supply')), '2');
+    await tester.pumpAndSettle();
+    expect(hasFocus(), true, reason: '한 글자 친 뒤(그림이 다시 생김)');
+    await tester.enterText(find.byKey(const Key('sl_supply')), '24');
+    await tester.pumpAndSettle();
+    expect(hasFocus(), true);
+  });
 }

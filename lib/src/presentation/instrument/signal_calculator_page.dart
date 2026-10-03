@@ -2234,20 +2234,23 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
             extraV: extra,
           );
     final cm = _fmt(_checkMa, 2);
+    // 맨 위 그림은 전압 칸이 비거나 숫자가 되는 순간 생기고 사라진다. 자리를 항상 두 칸 잡아 두지 않으면
+    // 아래 입력 칸이 한 칸씩 밀리면서 칸이 새로 만들어져 자판이 닫힌다.
     return _page([
-      if (lc != null)
-        LoopVoltageGuide(
-          supplyV: vs!,
-          minV: vmin!,
-          wireV: wire * lc.checkMa / 1000,
-          hartV: hart * lc.checkMa / 1000,
-          barrierV: barrier * lc.checkMa / 1000,
-          extraV: extra,
-          terminalV: lc.voltsCheck,
-          ok: lc.okAtCheck(vmin),
-          checkMa: lc.checkMa,
-        ),
-      if (lc != null) const SizedBox(height: 16),
+      lc != null
+          ? LoopVoltageGuide(
+              supplyV: vs!,
+              minV: vmin!,
+              wireV: wire * lc.checkMa / 1000,
+              hartV: hart * lc.checkMa / 1000,
+              barrierV: barrier * lc.checkMa / 1000,
+              extraV: extra,
+              terminalV: lc.voltsCheck,
+              ok: lc.okAtCheck(vmin),
+              checkMa: lc.checkMa,
+            )
+          : const SizedBox.shrink(),
+      SizedBox(height: lc != null ? 16 : 0),
       calcField(
         'sl_supply',
         '전원 전압 (V)',
