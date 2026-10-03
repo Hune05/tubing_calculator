@@ -16,6 +16,7 @@ void main() {
     expect(cats['축 정렬 지침'], greaterThanOrEqualTo(30));
     expect(cats['현장 자료'], greaterThanOrEqualTo(30));
     expect(cats['접지·전동기 점검'], 13);
+    expect(cats['전기 일반 기준'], 10);
     final ids = all.map((e) => e.id).toList();
     expect(ids.toSet().length, ids.length);
     expect(ids, containsAll(["press.drop.notleak", "sig.loop.ranges"]));

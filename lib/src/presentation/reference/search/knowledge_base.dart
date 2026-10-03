@@ -11,6 +11,7 @@ import '../page/ref_machine_tab.dart';
 import '../page/reference_search_index.dart';
 import '../page/tube_reference_page.dart';
 import 'knowledge_electrical.dart';
+import 'knowledge_electrical_general.dart';
 import 'knowledge_entry.dart';
 import 'knowledge_pressure.dart';
 import 'knowledge_signal.dart';
@@ -47,6 +48,7 @@ List<KnowledgeEntry> knowledgeBase() => _cache ??= [
   ...alignmentKnowledge(),
   ...fieldReferenceKnowledge(),
   ...electricalKnowledge(),
+  ...electricalGeneralKnowledge(),
   ...pressureKnowledge(),
   ...signalKnowledge(),
 ];

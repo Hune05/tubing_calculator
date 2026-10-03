@@ -1,0 +1,195 @@
+// 자료 통합 검색: 전기 일반 기준(설비 종류와 상관없는 것). 2026-10-03 조사에서 두 곳 이상이 일치하거나 규격 원문으로
+// 확인한 값만 넣었다. 원문 확인이 안 된 것은 항목 안에 "2차 자료·원문 대조 전"이라고 적었다.
+library;
+
+import 'package:flutter/material.dart';
+
+import '../../electrical/electric_calculator_page.dart';
+import '../../electrical/panel_design_page.dart';
+import '../../electrical/troubleshoot_page.dart';
+import 'knowledge_entry.dart';
+
+const String _cat = '전기 일반 기준';
+const String _srcCalc = '전기 설계 계산';
+const String _srcDiag = '고장 진단';
+const String _srcPanel = '분전반·조명 설계';
+
+void _openCalc(BuildContext c, int tab) => Navigator.push(
+  c,
+  MaterialPageRoute<void>(builder: (_) => ElectricCalculatorPage(initialTab: tab)),
+);
+
+void _openDiag(BuildContext c) => Navigator.push(
+  c,
+  MaterialPageRoute<void>(builder: (_) => const TroubleshootPage()),
+);
+
+void _openPanel(BuildContext c, int tab) => Navigator.push(
+  c,
+  MaterialPageRoute<void>(builder: (_) => PanelDesignPage(initialTab: tab)),
+);
+
+/// 전기 일반 기준 항목.
+List<KnowledgeEntry> electricalGeneralKnowledge() => [
+  KnowledgeEntry(
+    id: 'elecg.rcd.install',
+    category: _cat,
+    title: '누전차단기를 달아야 하는 곳과 감도전류',
+    lines: const [
+      '대상: 금속제 외함이 있고 사용전압 50 V를 넘는 저압 기계기구로 사람이 쉽게 접촉할 우려가 있는 곳의 전로(KEC 211.2.4). 건조한 곳 등은 제외됩니다.',
+      '콘센트: 일반인이 쓰는 정격전류 20 A 이하 콘센트와, 옥외에서 쓰는 32 A 이하 이동용 전기기기는 추가 보호가 필요합니다(KEC 211.2.3).',
+      '인체 감전 보호용은 정격감도전류 30 mA 이하, 동작시간 0.03초 이내입니다(산업안전보건기준에 관한 규칙 제304조, 구 판단기준 계열).',
+      '정격 전부하전류 50 A 이상 기기는 감도전류 200 mA 이하, 동작시간 0.1초 이내로 완화할 수 있습니다.',
+      '욕실·샤워실 콘센트는 15 mA 이하, 0.03초 이하의 인체감전보호용 누전차단기나 3 kVA 이하 절연변압기입니다(KEC 234.5).',
+      'IEC 61008 기준으로 감도전류의 50 % 이하에서는 동작하지 않고 50~100 % 사이에서 동작합니다. 상시 누설전류가 감도전류의 절반에 가까우면 이유 없이 떨어질 수 있습니다.',
+      '위 값은 해설 자료 두 곳 이상이 일치한 것입니다. 현행 KEC 본문에는 30 mA·0.03초가 직접 적혀 있지 않을 수 있어 규정 원문 대조 전입니다.',
+    ],
+    keywords: const ['누전차단기', 'ELB', 'RCD', 'RCBO', '감도전류', '30mA', '콘센트', '욕실', '감전', '누전'],
+    sourceLabel: _srcDiag,
+    open: _openDiag,
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elecg.neutral.harmonic',
+    category: _cat,
+    title: '3상 4선 중성선 굵기와 3고조파 (표 E.52.1)',
+    lines: const [
+      '평형 3상이면 중성선은 통전 도체 수에 넣지 않습니다. 3고조파 전류가 선전류의 15 %를 넘으면 중성선도 고려합니다(KEC 232.5.4).',
+      '3고조파 15 % 이하: 보정 없음. 15~33 %: 허용전류 × 0.86(선전류로 굵기). 33~45 %: 중성선 전류로 굵기를 정하고 × 0.86. 45 % 초과: 중성선 전류로 굵기를 정하고 × 1.0.',
+      '평형 3상에서 중성선 전류 = 3 × 3고조파 함유율 × 선전류.',
+      '선도체가 구리 16 mm²·알루미늄 25 mm² 이하이거나 THD가 15~33 %인 3상 회로는 중성선을 선도체 이상으로 합니다(KEC 231.3.2).',
+      '3고조파가 33 %를 넘으면 중성선이 선전류의 1.45배를 흘릴 수 있게 합니다.',
+      '9차·12차 고차 고조파가 15 %를 넘거나 상 불평형이 50 %를 넘으면 표 값보다 낮은 계수가 필요합니다(표에 값 없음).',
+      '원문 규격(IEC 60364-5-52 표 E.52.1)으로 확인한 값이고, 전선 굵기 탭의 3고조파 칸이 이 값으로 계산합니다.',
+    ],
+    keywords: const ['중성선', '고조파', '3고조파', '표 E.52.1', '0.86', 'THD', '4심', '전선 굵기'],
+    sourceLabel: _srcCalc,
+    open: (c) => _openCalc(c, 3),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elecg.thermal.neta',
+    category: _cat,
+    title: '열화상 판정 기준 (온도 차이 ΔT)',
+    lines: const [
+      'NETA·Infraspection 기준, 비슷한 부품끼리 ΔT: 1~3 K 가능한 결함(조사), 4~15 K 개연성 있는 결함(가능할 때 수리), 15 K 초과 중대한 결함(즉시 수리).',
+      '주위 온도 대비 ΔT: 1~10 K 가능한 결함, 11~20 K 개연성 있는 결함, 21~40 K 결함(다음 기회에 수리), 40 K 초과 중대한 결함(즉시 수리).',
+      '한국전기안전공사 3상 비교(2차 자료): 5 K 미만 정상, 5 K 이상 10 K 미만 요주의, 10 K 이상 이상. NETA보다 엄격합니다.',
+      '정상 운전 부하에서 재고 부하 전류를 같이 기록하십시오. 부하가 낮으면 실제보다 낮게 나옵니다.',
+      'NETA 값은 NETA·Infraspection 표준과 미국 개척국 FIST 4-13 표 두 곳이 일치합니다. 판정이 유효한 최소 부하는 확인하지 못했습니다.',
+    ],
+    keywords: const ['열화상', '발열', '온도 차이', 'ΔT', 'NETA', '단자', '접속부', '과열', '적외선'],
+    sourceLabel: _srcDiag,
+    open: _openDiag,
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elecg.voltage.range',
+    category: _cat,
+    title: '공급 전압 허용 범위 (110·220·380 V)',
+    lines: const [
+      '전기사업법 시행규칙 별표 3: 110 V는 ±6 V(104~116 V), 220 V는 ±22 V(198~242 V), 380 V는 ±38 V(342~418 V), 주파수 60 Hz ±0.2 Hz.',
+      '220 V 범위는 2025-06 개정으로 ±13 V에서 ±22 V로 넓어졌다는 보도와 법령 개정 표기가 일치합니다. 별표 원문은 대조 전입니다.',
+      '순간 전압 변동(IEEE 1159): 저하(sag) 0.1~0.9 pu, 상승(swell) 1.1~1.8 pu, 저전압 0.8~0.9 pu, 과전압 1.1~1.2 pu(1분 초과).',
+      '선로·접속부에서의 전압강하 한도(KEC 232.3.9): 저압 수전 동력 5 %, 조명 3 %.',
+    ],
+    keywords: const ['전압', '저전압', '과전압', '허용 범위', '220', '380', 'sag', '전압 변동', '전압강하'],
+    sourceLabel: _srcDiag,
+    open: _openDiag,
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elecg.unbalance.limit',
+    category: _cat,
+    title: '설비 불평형률 한도',
+    lines: const [
+      '3상 3선식·3상 4선식: 불평형률 = (각 선간에 접속되는 단상 부하 설비용량의 최대와 최소의 차) ÷ (총 부하설비용량의 1/3) × 100. 한도 30 % 이하.',
+      '단상 3선식: 불평형률 = (중성선과 각 전압선 사이 부하설비용량의 차) ÷ (총 부하설비용량의 1/2) × 100. 한도 40 % 이내.',
+      '계약전력 5 kW 정도 이하의 소규모 설비처럼 평형이 어려운 경우는 40 %를 넘게 허용하는 설명이 있습니다.',
+      '전용 변압기로 수전하는 경우 등 30 % 예외가 있다는 설명은 한 곳 자료입니다.',
+      '한전 전기공급약관과 내선규정 해설 자료 둘 이상이 같은 값입니다. KEC 조항 번호는 확인하지 못했고, 원문 대조 전입니다.',
+    ],
+    keywords: const ['불평형률', '상 평형', '상평형', '단상 부하', '3상 4선', '단상 3선', '30%', '40%'],
+    sourceLabel: _srcPanel,
+    open: (c) => _openPanel(c, 1),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elecg.transformer.protect',
+    category: _cat,
+    title: '변압기 1차 보호와 돌입전류',
+    lines: const [
+      '정격전류: 3상 I = S[kVA] ÷ (√3 × V[kV]), 단상 I = S ÷ V.',
+      'NEC 450.3(B) 1차만 보호할 때 과전류 보호 정격: 1차 전류 9 A 이상은 정격전류의 125 %(표준 용량이 아니면 다음 큰 표준 용량), 9 A 미만은 167 %, 2 A 미만은 300 %.',
+      '1차와 2차를 모두 보호하면 1차는 250 %, 2차는 9 A 이상 125 %·9 A 미만 167 %입니다.',
+      '돌입전류는 정격 1차 전류의 8~12배, 약 0.1초이고 첫 반주기가 가장 큽니다. 퓨즈는 12배·0.1초, 25배·0.01초를 견디는 것으로 고릅니다.',
+      'KEC에서 변압기 1차 보호를 정격의 몇 %로 하라는 조항은 찾지 못했습니다(KEC 212는 기동·돌입전류를 고려하라는 정성 요구).',
+      '표준 용량 후보(일반 3상 계열): 20, 30, 50, 75, 100, 150, 200, 300, 500, 750, 1000 kVA. 수험·제조사 자료 기준이며 규격 원문은 대조 전입니다.',
+    ],
+    keywords: const ['변압기', '1차 보호', '돌입전류', '표준 용량', 'NEC 450', '정격전류', 'kVA'],
+    sourceLabel: '전기 설계 계산 · 부하 합산',
+    open: (c) => _openCalc(c, 2),
+  ),
+  KnowledgeEntry(
+    id: 'elecg.transformer.oil',
+    category: _cat,
+    title: '변압기 절연유·온도 상승 판정값',
+    lines: const [
+      '절연유 내압(전극 간격 2.5 mm): 신유 30 kV 이상 적합. 사용 중 20 kV 이상 적합, 15~20 kV 요주의, 15 kV 미만 부적합.',
+      '절연유 산가(mg KOH/g): 신유 0.02 이하. 사용 중 0.2 이하 적합, 0.2~0.4 요주의, 0.4 이상 부적합.',
+      '온도 상승 한계(IEC 60076-2, 최고 주위 40 ℃): 상부 유온 60 K, 권선 평균 65 K, 핫스팟 78 K.',
+      '절연저항 측정 전압: 1차 대지·1차-2차 DC 1,000 V, 2차 대지 DC 500 V(점검 자료 기준).',
+      '절연유 판정값은 점검 자료 두 곳이 같은 2차 자료이고 원문 대조 전입니다. 온도 상승 한계는 국제 규격으로 여러 곳이 일치합니다.',
+    ],
+    keywords: const ['변압기', '절연유', '내압', '산가', '온도 상승', '유온', 'IEC 60076'],
+    sourceLabel: _srcDiag,
+    open: _openDiag,
+  ),
+  KnowledgeEntry(
+    id: 'elecg.capacitor.check',
+    category: _cat,
+    title: '역률 콘덴서 점검 기준',
+    lines: const [
+      '정전용량: 정격 대비 −5~+10 % 이내, 세 상 중 최대 ÷ 최소 108 % 이하.',
+      '측정 전에 전원을 끊고 5분 이상 방전한 뒤 단자를 단락해 잔류전하가 없는지 확인합니다.',
+      '고장 징후: 용량 감소, 누액, 팽창, 단자 75 ℃ 이상 발열.',
+      '위 값은 콘덴서 점검 자료와 전기안전관리규정 두 곳이 같은 2차 자료이고 원문 대조 전입니다. 절연저항(500 MΩ 이상) 값은 한 곳 자료라 넣지 않았습니다.',
+    ],
+    keywords: const ['콘덴서', '진상', '역률', '정전용량', '팽창', '누액', 'μF', '방전'],
+    sourceLabel: _srcDiag,
+    open: _openDiag,
+  ),
+  KnowledgeEntry(
+    id: 'elecg.light.lux',
+    category: _cat,
+    title: '조명 설계: 광속법과 조도 기준',
+    lines: const [
+      '등기구 수 N = E × A ÷ (F × U × M). E 평균 조도(lx), A 방 면적, F 등기구 광속(lm), U 조명률, M 보수율.',
+      '실지수 K = X × Y ÷ (H × (X + Y)). H는 작업면에서 등기구까지 높이.',
+      '한국식 표기는 F × U × N = E × A × D로 D(감광보상률)는 1 ÷ M입니다. M과 D를 섞어 쓰지 마십시오.',
+      '보수율 전형값: 청결한 LED 실내 0.8(CIBSE 기본값). 형광등기구 0.70, 매입 LED 평판 0.79는 한국도로공사 설계 자료가 인용한 값입니다(2차 자료).',
+      'KS A 3011 조도 분류(최저-표준-최고 lx): E 60-100-150, F 150-200-300, G 300-400-600, H 600-1000-1500. 사무 작업은 F~G, 계단·복도는 E로 분류한 자료가 있습니다.',
+      '산업안전보건기준에 관한 규칙 제8조 최소 조도: 초정밀 작업 750 lx, 정밀 작업 300 lx, 보통 작업 150 lx, 그 밖의 작업 75 lx 이상.',
+      '사무실·복도·주차장의 장소별 조도 값은 자료마다 달라 확정하지 않았습니다. 설계 도서나 KS A 3011 원문으로 확인하십시오.',
+    ],
+    keywords: const ['조명', '조도', '광속법', '실지수', '보수율', '조명률', 'lux', '등기구', 'KS A 3011'],
+    sourceLabel: _srcPanel,
+    open: (c) => _openPanel(c, 0),
+  ),
+  KnowledgeEntry(
+    id: 'elecg.aluminum.size',
+    category: _cat,
+    title: '알루미늄 도체 허용전류와 최소 굵기',
+    lines: const [
+      '알루미늄 허용전류는 KS C IEC 60364-5-52 표 B.52.2~B.52.5(방법 E는 B.52.11·B.52.13)에 있습니다. 같은 굵기 구리의 약 0.73~0.80배입니다.',
+      '이 앱은 알루미늄을 10 mm²부터 받습니다. IEC 60364-5-52 표 52.2 최소 굵기와 IEC 60228 알루미늄 저항 표가 10 mm²부터입니다.',
+      '병렬로 쓰는 전선은 구리 50 mm², 알루미늄 70 mm² 이상(KEC 123 계열).',
+      '알루미늄은 접지도체로 쓸 수 없습니다(KEC 142.3.1). 케이블 일부가 아닌 보호도체는 알루미늄 16 mm² 이상입니다(142.3.2).',
+      '구리 값에 0.78을 곱해 알루미늄을 추정하면 방법 C·E에서 2~6 % 크게 나옵니다. 표 값을 직접 쓰십시오.',
+      '저항 20 ℃(Ω/km): 10 mm² 3.08, 16 mm² 1.91, 25 mm² 1.20, 35 mm² 0.868, 50 mm² 0.641. 온도계수 0.00403.',
+    ],
+    keywords: const ['알루미늄', 'Al', 'ACSR', '허용전류', '병렬', '도체', '표 B.52', '10mm'],
+    sourceLabel: _srcCalc,
+    open: (c) => _openCalc(c, 3),
+  ),
+];
