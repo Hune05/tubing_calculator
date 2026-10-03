@@ -8724,6 +8724,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   // 전선관은 "경로"로 그린다(따로 놓는 막대는 경로와 이어지지 않아 헷갈렸다).
                   _buildRouteButton(),
                   const SizedBox(width: 8),
+                  _buildIsoButton(),
+                  const SizedBox(width: 8),
                   _buildSkidButton(
                     "skid_jb",
                     Icons.inbox_outlined,
@@ -9543,6 +9545,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     iconWidget: _routeIcon,
     label: "경로",
     onTap: _showRoutesSheet,
+  );
+
+  /// 좁은 화면 모듈 배치 도구의 "입체" 단추(스키드 입체 보기, 보기 전용).
+  Widget _buildIsoButton() => _buildSheetButton(
+    key: const ValueKey("skid_iso"),
+    icon: Icons.view_in_ar_rounded,
+    label: "입체",
+    onTap: _openSkidIso,
   );
 
   void _showRoutesSheet() {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/pages/skid_iso_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/skid_route_editor_page.dart';
 import 'package:vector_math/vector_math_64.dart' as vm;
 
@@ -420,5 +421,31 @@ void main() {
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
+  });
+  testWidgets('스키드 도구 줄의 "입체" 단추로 입체 보기가 열리고, 놓은 부품 수가 나온다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+      'layout_board_draft_v1': jsonEncode({
+        'kind': 'skid',
+        'panelWidth': 2400,
+        'panelHeight': 1200,
+        'items': [jb().toJson()],
+        'dimensions': [],
+      }),
+    });
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: LayoutBoardPage()));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('이어하기'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('skid_iso')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('skid_iso')));
+    await tester.pumpAndSettle();
+    expect(find.byType(SkidIsoPage), findsOneWidget);
+    expect(find.textContaining('부품 1개'), findsOneWidget);
   });
 }
