@@ -259,7 +259,7 @@ final List<QuickToolDef> kQuickTools = [
     '전기기기 계산',
     AppGlyph.motor,
     (_) => const ElectricCalculatorPage(group: ElecGroup.motor),
-    subtitle: '전동기 보호·점검, 발전기 용량',
+    subtitle: '전동기 공식·선정·콘덴서·보호·점검, 발전기 용량',
     group: '전기기기',
   ),
   QuickToolDef(
