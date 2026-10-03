@@ -252,4 +252,60 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('놓은 부품이 없습니다'), findsOneWidget);
   });
+  test('화면 맞춤: 어느 시점이든 둘러싸는 상자가 화면 안에 들어오고 가운데에 놓인다', () {
+    final s = buildSkidIsoScene(
+      [_beam(), _beam(id: 'b2', y: 0, len: 30000, elev: 8000)],
+      const [],
+      length: 30000,
+      width: 12000,
+    );
+    const size = Size(400, 600);
+    for (final v in [IsoView.standard, IsoView.front, IsoView.top, IsoView.right]) {
+      final fit = fitIso(s, v, size);
+      expect(fit.scale, greaterThan(0));
+      final b = s.bounds;
+      final c = (b.min + b.max) * 0.5;
+      double minX = 1e18, maxX = -1e18, minY = 1e18, maxY = -1e18;
+      for (final x in [b.min.x, b.max.x]) {
+        for (final y in [b.min.y, b.max.y]) {
+          for (final z in [b.min.z, b.max.z]) {
+            final q = v.project(vm.Vector3(x, y, z), c);
+            final sx = size.width / 2 + fit.shift.dx + q.sx * fit.scale;
+            final sy = size.height / 2 + fit.shift.dy + q.sy * fit.scale;
+            minX = math.min(minX, sx);
+            maxX = math.max(maxX, sx);
+            minY = math.min(minY, sy);
+            maxY = math.max(maxY, sy);
+          }
+        }
+      }
+      expect(minX, greaterThanOrEqualTo(0));
+      expect(maxX, lessThanOrEqualTo(size.width));
+      expect(minY, greaterThanOrEqualTo(0));
+      expect(maxY, lessThanOrEqualTo(size.height));
+      expect((minX + maxX) / 2, closeTo(size.width / 2, size.width * 0.08));
+      expect((minY + maxY) / 2, closeTo(size.height / 2, size.height * 0.08));
+    }
+  });
+
+  testWidgets('"이름" 칩으로 부품 이름 표시를 켜고 끈다', (tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SkidIsoPage(plan: [_beam()], routes: const [], length: 2400, width: 1200),
+      ),
+    );
+    await tester.pumpAndSettle();
+    // 시점 칩이 많아 "이름" 칩은 옆으로 밀어야 보인다.
+    await tester.drag(find.byType(ListView).first, const Offset(-400, 0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('iso_labels')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(find.byKey(const Key('iso_labels'))).selected, true);
+    await tester.tap(find.byKey(const Key('iso_labels')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<FilterChip>(find.byKey(const Key('iso_labels'))).selected, false);
+  });
 }

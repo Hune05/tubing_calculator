@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show Color;
+import 'dart:ui' show Color, Offset, Size;
 
 import 'package:vector_math/vector_math_64.dart' as vm;
 
@@ -300,4 +300,39 @@ double niceGridStep(double span, {int lines = 10}) {
   final double f = raw / mag;
   final double n = f < 1.5 ? 1 : (f < 3.5 ? 2 : (f < 7.5 ? 5 : 10));
   return n * mag;
+}
+
+/// 지금 시점에서 화면을 가득 채우는 크기와 가운데 맞춤.
+/// [scale]은 mm → 화면 점, [shift]는 둘러싸는 상자를 화면 가운데에 놓는 이동(확대 1일 때).
+class IsoFit {
+  final double scale;
+  final Offset shift;
+  const IsoFit(this.scale, this.shift);
+}
+
+/// 둘러싸는 상자 여덟 모서리를 [view]로 옮긴 모양이 [size]에 꽉 들어가게 크기를 정한다.
+/// [margin]은 가장자리 여백(0~1, 작을수록 여백이 큼). 치수선이 들어갈 자리를 위해 상자를 조금 키워 잰다.
+IsoFit fitIso(IsoScene scene, IsoView view, Size size, {double margin = 0.9}) {
+  final b = scene.bounds;
+  final vm.Vector3 c = (b.min + b.max) * 0.5;
+  final double pad = (b.max - b.min).length * 0.08;
+  final xs = [b.min.x - pad, b.max.x + pad];
+  final ys = [b.min.y - pad, b.max.y + pad];
+  final zs = [b.min.z, b.max.z + pad];
+  double minX = double.infinity, maxX = -double.infinity;
+  double minY = double.infinity, maxY = -double.infinity;
+  for (final x in xs) {
+    for (final y in ys) {
+      for (final z in zs) {
+        final q = view.project(vm.Vector3(x, y, z), c);
+        minX = math.min(minX, q.sx);
+        maxX = math.max(maxX, q.sx);
+        minY = math.min(minY, q.sy);
+        maxY = math.max(maxY, q.sy);
+      }
+    }
+  }
+  final double bw = math.max(maxX - minX, 1e-6), bh = math.max(maxY - minY, 1e-6);
+  final double scale = math.min(size.width * margin / bw, size.height * margin / bh);
+  return IsoFit(scale, Offset(-(minX + maxX) / 2 * scale, -(minY + maxY) / 2 * scale));
 }
