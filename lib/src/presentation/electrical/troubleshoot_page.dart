@@ -24,7 +24,7 @@ class TroubleshootPage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(2, 0, 2, 12),
             child: Text(
-              '증상을 고르면 질문과 측정값 입력으로 원인을 좁혀 갑니다. 판정 기준은 앱 안 계산기와 같은 값을 씁니다.',
+              '증상을 고르면 질문과 측정값 입력으로 원인을 좁혀 갑니다. 판정 기준은 계산기와 같은 값이나 규격·법령 값만 쓰고, 근거가 약한 값은 화면에 표시합니다.',
               style: TextStyle(fontSize: 14, height: 1.45, color: fc.textSub),
             ),
           ),

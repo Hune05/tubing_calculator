@@ -1605,7 +1605,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "고장 진단",
-                        subtitle: "차단기 트립·전동기 이상·지락 보호를 질문과 측정값으로 좁히기",
+                        subtitle: "차단기 트립·전압 이상·접속부 발열·지락·조명·변압기·전동기를 질문과 측정값으로 좁히기",
                         icon: AppGlyph.troubleshoot,
                         onTap: () {
                           HapticFeedback.lightImpact();
