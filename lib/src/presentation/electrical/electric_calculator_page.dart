@@ -29,6 +29,8 @@ import 'awg_tables.dart';
 import 'basic_calc.dart';
 import 'busbar_tables.dart';
 import 'conduit_tables.dart';
+import 'diagnosis_causes.dart';
+import 'diagnosis_page.dart';
 import 'elec_calc.dart';
 import 'elec_battery_tab.dart';
 import 'elec_ground_tab.dart';
@@ -828,6 +830,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     required String sumKey,
     String? summary,
     bool warn = false,
+    DiagCase? diagnosis,
   }) {
     if (summary != null) {
       logCalc(kElecTabLabels[sumKey] ?? sumKey, summary);
@@ -860,7 +863,24 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         Expanded(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-            children: children,
+            children: [
+              if (warn && diagnosis != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: FilledButton.icon(
+                    key: Key('${sumKey}_diag'),
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => DiagnosisPage(diag: diagnosis),
+                      ),
+                    ),
+                    icon: const Icon(Icons.manage_search),
+                    label: const Text('원인 확인'),
+                  ),
+                ),
+              ...children,
+            ],
           ),
         ),
       ],
@@ -1254,6 +1274,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     Widget result;
     String? summary;
     var warn = false;
+    DiagCase? diag;
     List<String> basis;
     if (negative) {
       result = _negativeResult('ec_cable_result');
@@ -1287,6 +1308,49 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       summary = r.$2;
       warn = r.$3;
       basis = r.$4;
+      if (warn) {
+        final br = brIn == null || brIn <= 0 ? null : brIn.round();
+        CircuitCheck rerun({
+          double? size,
+          int? circuits,
+          double? ambientC,
+          int? breaker,
+          int? parallel,
+        }) => checkCircuit(
+          size: size ?? _chkSize,
+          load: load,
+          margin: margin,
+          breaker: breaker ?? br,
+          volts: _cv,
+          phase: _cph,
+          ins: _kind.insulation,
+          method: _method,
+          lengthM: len,
+          pf: pf,
+          ambientC: ambientC ?? amb,
+          circuits: circuits ?? n,
+          parallel: parallel ?? _parallel,
+          layout: layout,
+          supply: _supply,
+          table: _kind.table,
+          motor: _cableMotor,
+        );
+        diag = circuitCheckDiagnosis(
+          k: k,
+          rerun: rerun,
+          baseAmbientC: _defaultAmbient,
+          ambientC: amb,
+          circuits: n,
+          inputs: [
+            ('전선 굵기', '${sqText(_chkSize)}${_parallel > 1 ? " × $_parallel가닥" : ""}'),
+            if (load != null) ('부하 전류', '${fmt(load, 2)} A (설계전류 ${fmt(k.ib ?? load, 1)} A)'),
+            if (br != null) ('차단기', '$br A'),
+            (_ambientLabel(), '${fmt(amb)} ℃'),
+            ('같이 포설된 회로', '$n회로'),
+            if (len != null) ('편도 길이', '${fmt(len, 1)} m'),
+          ],
+        );
+      }
     } else if (load == null) {
       result = calcResult(
         key: const Key('ec_cable_result'),
@@ -1320,7 +1384,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       basis = r.$4;
     }
     final ground = isGround(_method);
-    return _page(sumKey: 'ec_sum_cable', summary: summary, warn: warn, [
+    return _page(sumKey: 'ec_sum_cable', summary: summary, warn: warn, diagnosis: diag, [
       _systemPicker('ec_cable'),
       _unitPicker('ec_cable'),
       _chipGroup(
@@ -2060,7 +2124,33 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         st.add('기동 시 ${_dropPctLine(startDv, volts, startPct)}');
       }
     }
-    return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over || startOver, [
+    DiagCase? diag;
+    if ((over || startOver) && len != null && i != null) {
+      diag = voltageDropDiagnosis(
+        current: i,
+        lengthM: len,
+        size: _vdSize,
+        phase: ph,
+        pf: pf,
+        volts: volts,
+        ins: ins,
+        supply: _supply,
+        reservedPct: up,
+        startMult: _vdStart && !_dc ? startMult : null,
+        startPf: startPf,
+        startLimitPct: startLimit,
+        startMultIsDirect: _vdStartMode == StartMode.starDelta,
+        inputs: [
+          ('전선 굵기', sqText(_vdSize)),
+          ('전류', '${fmt(i, 2)} A'),
+          ('편도 길이', '${fmt(len, 1)} m'),
+          if (!_dc) ('역률', fmt(pf, 2)),
+          ('전압', '${fmt(volts)} V'),
+          if (up > 0) ('전원 쪽 전압강하', '${fmt(up, 2)} %'),
+        ],
+      );
+    }
+    return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over || startOver, diagnosis: diag, [
       _systemPicker('ec_vd'),
       _unitPicker('ec_vd'),
       calcDropdown<double>(
