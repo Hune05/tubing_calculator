@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../common/calc_form_parts.dart';
 import 'elec_form_parts.dart';
+import 'ac_calc.dart';
 import 'ground_calc.dart';
 import 'protection_calc.dart';
 
@@ -699,6 +700,10 @@ class _ElecGroundTabState extends State<ElecGroundTab>
           ? maxDisconnectTime(sys: EarthSystem.tt, u0: u0!)
           : distributionDisconnectTime(EarthSystem.tt);
       final ok = zs == null ? null : zs <= zmax;
+      // 단락(지락) 전류가 동작전류 이상이 되는 최대 케이블 길이: 상·보호도체 단면적을 넣었을 때.
+      final maxLen = (sph != null && spe != null)
+          ? maxLengthForTrip(u0: u0!, iaA: ia!, ze: ze ?? 0, phaseMm2: sph, peMm2: spe)
+          : null;
       out('TN Zs ${fmt(zmax, 2)} Ω 이하', ok == false);
       children.add(
         calcResult(
@@ -715,6 +720,8 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               '최대 차단시간: ${fmt(t, 2)}초 (${_branch ? "표 211.2-1, 32 A 이하 분기회로" : "배전회로·32 A 초과, 211.2.3"}). 같은 전압 TT 계통은 ${tt == null ? "표 대상 아님" : "${fmt(tt, 2)}초"}.',
             if (est != null)
               '케이블 어림: Ze ${fmt(ze!, 3)} + 0.0225 × ${fmt(len!)} × (1/${fmt(sph!)} + 1/${fmt(spe!)}) = ${fmt(est, 3)} Ω (참고, 리액턴스 제외)',
+            if (maxLen != null)
+              '이 보호장치로 자동 차단되는 최대 케이블 길이 L = (U₀ ÷ Ia − Ze) ÷ (ρ × (1/S상 + 1/S보호)) = (${fmt(zmax, 3)} − ${fmt(ze ?? 0, 3)}) ÷ (0.0225 × (1/${fmt(sph!)} + 1/${fmt(spe!)})) = ${fmt(maxLen, 1)} m (참고, 리액턴스 제외라 큰 단면적에서는 실제보다 길게 나옵니다)',
             if (ok != null)
               ok
                   ? '${zsMeas != null ? "측정값" : "어림값"} Zs ${fmt(zs!, 3)} Ω ≤ ${fmt(zmax, 3)} Ω: 합격'

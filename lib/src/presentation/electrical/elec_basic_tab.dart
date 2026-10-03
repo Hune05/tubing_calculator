@@ -3,12 +3,14 @@
 part of 'electric_calculator_page.dart';
 
 /// 기초 계산 탭의 항목.
-enum BasicSection { ohm, acPower, starDelta, energy, resistance, frequency }
+enum BasicSection { ohm, acPower, acSolve, impedance, starDelta, energy, resistance, frequency }
 
 extension on BasicSection {
   String get label => switch (this) {
     BasicSection.ohm => '옴의 법칙·전력',
     BasicSection.acPower => '교류 전력',
+    BasicSection.acSolve => '역률·전압 구하기',
+    BasicSection.impedance => '임피던스',
     BasicSection.starDelta => 'Y·Δ 결선',
     BasicSection.energy => '전력량·요금',
     BasicSection.resistance => '도체 저항',
@@ -38,6 +40,8 @@ extension _BasicTab on _ElectricCalculatorPageState {
     final (body, summary) = switch (_bsSec) {
       BasicSection.ohm => _ohmSection(),
       BasicSection.acPower => _acPowerSection(),
+      BasicSection.acSolve => (const <Widget>[AcSolveSection()], null),
+      BasicSection.impedance => (const <Widget>[ImpedanceSection()], null),
       BasicSection.starDelta => _starDeltaSection(),
       BasicSection.energy => _energySection(),
       BasicSection.resistance => _resistanceSection(),
@@ -48,6 +52,8 @@ extension _BasicTab on _ElectricCalculatorPageState {
         '계산 항목',
         '옴의 법칙·전력: V·I·R·P 중 두 값으로 나머지를 계산합니다.\n'
             '교류 전력: 전압·전류·역률로 kW·kvar·kVA를 계산합니다.\n'
+            '역률·전압 구하기: kW·전압·전류로 역률을, kW·전류·역률로 전압을 구합니다.\n'
+            '임피던스: 저항과 리액턴스(또는 L·C)로 Z·역률·전류를 구합니다.\n'
             'Y·Δ 결선: 선간전압·상전압, 선전류·상전류를 바꿉니다.\n'
             '전력량·요금: kW와 사용 시간으로 kWh와 요금을 계산합니다.\n'
             '도체 저항: 구리·알루미늄 도체의 저항과 직렬·병렬 합성 저항을 계산합니다.\n'

@@ -25,6 +25,7 @@ import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import 'ac_calc.dart';
 import 'awg_tables.dart';
 import 'basic_calc.dart';
 import 'busbar_tables.dart';
@@ -40,6 +41,8 @@ import 'elec_motor_capacitor_tab.dart';
 import 'elec_motor_misc_tab.dart';
 import 'elec_motor_select_tab.dart';
 import 'elec_motor_protect_tab.dart';
+import 'elec_ac_sections.dart';
+import 'elec_extra_sections.dart';
 import 'elec_form_parts.dart';
 import 'elec_generator_tab.dart';
 import 'elec_load_sum_tab.dart';
@@ -1650,6 +1653,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       const SizedBox(height: 12),
       result,
       if (basis.isNotEmpty) _basis('ec_cable_basis', basis),
+      const MiCableSection(),
     ]);
   }
 
@@ -1755,6 +1759,65 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   }
 
   /// 굵기 선정 풀이: ① 설계전류 → ② 차단기 → ③ 허용전류 보정 → ④ 허용전류 기준 굵기 → ⑤ 전압강하 확인 → ⑥ 굵기 결정.
+  /// 풀이에 이어 붙이는 케이블 임피던스·전력 손실·도체 온도 줄. [rr]은 운전 온도에서의 저항(Ω/km), [load]는 전체 전류.
+  List<String> _cableExtraLines({
+    required double size,
+    required double load,
+    required double lenM,
+    required int parallel,
+    required double? iz,
+    required double amb,
+    required double rr,
+    required double pf,
+    required double power,
+  }) {
+    final out = <String>[];
+    final dc = _cph == Phase.dc;
+    final three = _cph == Phase.three;
+    final per = load / parallel;
+    final zl = cableImpedance(
+      rOhmPerKm: rr,
+      xOhmPerKm: dc ? 0 : kReactanceOhmPerKm,
+      lengthM: lenM,
+    );
+    if (zl != null) {
+      out.add(
+        dc
+            ? '케이블 저항(한 가닥 ${fmt(lenM, 1)} m) R = ${fmt(rr, 4)} × ${fmt(lenM, 1)} ÷ 1000 = ${fmt(zl.r, 4)} Ω'
+            : '케이블 임피던스(한 가닥 ${fmt(lenM, 1)} m) R = ${fmt(zl.r, 4)} Ω, X = ${fmt(kReactanceOhmPerKm, 3)} × ${fmt(lenM, 1)} ÷ 1000 = ${fmt(zl.x, 4)} Ω, Z = √(R² + X²) = ${fmt(zl.z, 4)} Ω',
+      );
+    }
+    final loss = cableLoss(
+      current: per,
+      rOhmPerKm: rr,
+      lengthM: lenM,
+      three: three,
+      powerKw: power,
+    );
+    if (loss != null) {
+      final total = loss.watts * parallel;
+      out.add(
+        '케이블 전력 손실 = 도체 수 × I² × R × L = ${three ? 3 : 2} × ${fmt(per, 1)}² × ${fmt(rr, 4)} × ${fmt(lenM, 1)} ÷ 1000'
+        '${parallel > 1 ? ' × $parallel가닥' : ''} = ${fmt(total, 0)} W (1 m당 ${fmt(total / lenM, 2)} W)'
+        '${power > 0 ? ', 전송 전력 ${fmt(power, 1)} kW의 ${fmt(total / (power * 1000) * 100, 2)} %' : ''}',
+      );
+    }
+    if (iz != null && iz > 0) {
+      final t = cableConductorTemp(
+        ambientC: amb,
+        maxC: conductorTemp(_kind.insulation),
+        current: load,
+        iz: iz,
+      );
+      if (t != null) {
+        out.add(
+          '도체 온도 ≈ Ta + (Tmax − Ta) × (I ÷ IZ)² = ${fmt(amb, 0)} + (${fmt(conductorTemp(_kind.insulation), 0)} − ${fmt(amb, 0)}) × (${fmt(load, 1)} ÷ ${fmt(iz, 1)})² = ${fmt(t, 1)} ℃ (근사식)',
+        );
+      }
+    }
+    return out;
+  }
+
   List<String> _cableSteps(CableChoice c, double amb) {
     final st = _Steps();
     final size = c.size;
@@ -1818,6 +1881,21 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       );
       st.add(_dropPctLine(c.dropV!, _cv, c.dropPct!));
       st.add(_dropLimitLine(_supply, lenIn, c.dropPct!));
+      for (final l in _cableExtraLines(
+        size: size,
+        load: c.load,
+        lenM: lenIn,
+        parallel: c.parallel,
+        iz: c.iz,
+        amb: amb,
+        rr: rr,
+        pf: pf,
+        power: dc
+            ? _cv * c.load / 1000
+            : (_cph == Phase.three ? 1.7320508 : 1) * _cv * c.load * pf / 1000,
+      )) {
+        st.add(l);
+      }
       if (c.sizeByDrop != null && c.sizeByAmpacity != null) {
         st.add(
           '굵기 결정: 허용전류 기준 ${sqText(c.sizeByAmpacity!)}, 전압강하 기준 ${sqText(c.sizeByDrop!)} 중 '
@@ -1979,6 +2057,21 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       );
       st.add(_dropPctLine(k.dropV!, _cv, k.dropPct!));
       st.add(_dropLimitLine(_supply, lenIn, k.dropPct!));
+      for (final l in _cableExtraLines(
+        size: k.size,
+        load: load,
+        lenM: lenIn,
+        parallel: k.parallel,
+        iz: k.iz,
+        amb: amb,
+        rr: rr,
+        pf: pf,
+        power: dc
+            ? _cv * load / 1000
+            : (_cph == Phase.three ? 1.7320508 : 1) * _cv * load * pf / 1000,
+      )) {
+        st.add(l);
+      }
     }
     return st.lines;
   }
@@ -2558,6 +2651,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         'C(μF) = Qc(kvar) × 10⁹ ÷ (2π × 60 × V²) (국내 저압 콘덴서 표기, 삼화엔지니어링 기술자료)',
         '전류: I = P ÷ (${_phase == Phase.three ? '√3 × ' : ''}V × 역률), 콘덴서 전류 = Qc ÷ (${_phase == Phase.three ? '√3 × ' : ''}V)',
       ]),
+      const CapVoltageSection(),
+      const TransformerPfSection(),
     ]);
   }
 

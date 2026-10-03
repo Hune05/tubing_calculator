@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 
 Future<void> _open(WidgetTester tester, String tab) async {
-  tester.view.physicalSize = const Size(800, 6000);
+  tester.view.physicalSize = const Size(800, 10000);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home: ElectricCalculatorPage()));

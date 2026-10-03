@@ -26,6 +26,11 @@ String textIn(WidgetTester tester, Key key) {
 
 /// "근거 보기"를 펴고 글을 읽는다.
 Future<String> basisText(WidgetTester tester, String key) async {
+  await tester.scrollUntilVisible(
+    find.byKey(Key(key)),
+    300,
+    scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first,
+  );
   await tester.ensureVisible(find.byKey(Key(key)));
   await tester.tap(find.text('근거 보기'));
   await tester.pumpAndSettle();
