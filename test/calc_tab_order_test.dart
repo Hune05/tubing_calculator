@@ -23,24 +23,36 @@ Future<void> pump(WidgetTester tester, Widget page) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('전기 설계 계산: 기초 계산부터, 전동기 점검이 끝', (tester) async {
+  testWidgets('전기 설계 계산(일반): 필수 공식 앞, 전선관·부스바·축전지는 뒤, 전동기·발전기는 없음', (tester) async {
     await pump(tester, const ElectricCalculatorPage());
     expect(tabLabels(tester), [
       '기초 계산',
       '부하 전류',
-      '부하 합산',
       '전선 굵기',
       '전압강하',
       '단락 전류',
+      '접지',
+      '부하 합산',
+      '역률 개선',
       '전선관',
       '부스바',
-      '역률 개선',
-      '발전기 용량',
       '축전지 용량',
-      '접지',
-      '전동기 보호',
-      '전동기 점검',
     ]);
+  });
+
+  testWidgets('전기기기 계산: 전동기 보호·점검, 발전기 용량만', (tester) async {
+    await pump(tester, const ElectricCalculatorPage(group: ElecGroup.motor));
+    expect(tabLabels(tester), ['전동기 보호', '전동기 점검', '발전기 용량']);
+    expect(find.text('전기기기 계산'), findsOneWidget);
+  });
+
+  testWidgets('옛 탭 번호로 열어도 맞는 묶음이 열린다(12·13·9 = 전기기기)', (tester) async {
+    await pump(tester, const ElectricCalculatorPage(initialTab: 13));
+    expect(tabLabels(tester), ['전동기 보호', '전동기 점검', '발전기 용량']);
+    final c = tester.widget<TabBar>(find.byType(TabBar)).controller!;
+    expect(c.index, 1, reason: '전동기 점검');
+    expect(elecGroupOf(3), ElecGroup.general);
+    expect(elecGroupOf(9), ElecGroup.motor);
   });
 
   testWidgets('계기 교정: 교정 점검부터, 환산 탭 이름은 4-20mA', (tester) async {

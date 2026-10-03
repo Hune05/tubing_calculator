@@ -771,14 +771,14 @@ void main() {
       const tabs = [
         'ec_tab_basic',
         'ec_tab_load',
-        'ec_tab_loadsum',
         'ec_tab_cable',
         'ec_tab_vd',
         'ec_tab_short',
+        'ec_tab_ground',
+        'ec_tab_loadsum',
+        'ec_tab_pf',
         'ec_tab_conduit',
         'ec_tab_bus',
-        'ec_tab_pf',
-        'ec_tab_gen',
         'ec_tab_batt',
       ];
       for (final t in [...tabs.reversed, ...tabs]) {

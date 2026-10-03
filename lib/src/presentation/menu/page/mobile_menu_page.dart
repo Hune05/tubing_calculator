@@ -1574,21 +1574,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "결선도·기동 회로",
-                        subtitle: "Y·Δ 결선, 직입·정역·Y-Δ 시퀀스를 눌러 보며 이해",
-                        icon: AppGlyph.ladder,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const CircuitReadingPage(),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildMenuButton(
-                        context: context,
                         title: "분전반·조명 설계",
                         subtitle: "조명 광속법 · 분전반 상 평형 · 여러 부하 간선 전압강하",
                         icon: AppGlyph.panelBoard,
@@ -1613,6 +1598,39 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const TroubleshootPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _sectionHeader("전기기기"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "전기기기 계산",
+                        subtitle: "전동기 보호·점검, 발전기 용량",
+                        icon: AppGlyph.motor,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ElectricCalculatorPage(
+                                group: ElecGroup.motor,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "결선도·기동 회로",
+                        subtitle: "Y·Δ 결선, 직입·정역·Y-Δ 시퀀스를 눌러 보며 이해",
+                        icon: AppGlyph.ladder,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CircuitReadingPage(),
                             ),
                           );
                         },

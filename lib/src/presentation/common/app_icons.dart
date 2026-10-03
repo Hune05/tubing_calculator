@@ -185,6 +185,9 @@ enum AppGlyph {
   /// 결선도·기동 회로: 양쪽 모선 사이 한 줄에 a접점과 코일(원).
   ladder,
 
+  /// 전동기: 몸통(원통) + 냉각 핀 + 축 + 받침, 몸통 가운데 회전 표시.
+  motor,
+
   /// 분전반·조명 설계: 분전반 문(사각형)과 안쪽 차단기 스위치 줄.
   panelBoard,
 
@@ -1216,6 +1219,19 @@ class _AppIconPainter extends CustomPainter {
         canvas.drawCircle(const Offset(16, 12), 3, soft);
         canvas.drawCircle(const Offset(16, 12), 3, line);
         l(19, 12, 21, 12);
+
+      case AppGlyph.motor:
+        // 몸통(둥근 직사각형), 핀 세 줄, 오른쪽 축, 아래 받침, 몸통 안 원(회전자).
+        final body = RRect.fromLTRBR(3.5, 6, 16.5, 17, const Radius.circular(2.4));
+        canvas.drawRRect(body, soft);
+        canvas.drawRRect(body, line);
+        for (final x in [6.5, 9.5, 12.5]) {
+          l(x, 6.8, x, 16.2);
+        }
+        l(16.5, 11.5, 21, 11.5);
+        l(4.5, 17, 4.5, 19.5);
+        l(15.5, 17, 15.5, 19.5);
+        l(2.5, 19.5, 17.5, 19.5);
 
       case AppGlyph.panelBoard:
         // 분전반 함(문)과 안쪽에 차단기 레버 두 줄, 아래 인입선.

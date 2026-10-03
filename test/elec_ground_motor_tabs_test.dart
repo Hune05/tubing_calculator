@@ -7,7 +7,15 @@ Future<void> _open(WidgetTester tester, String tabKey) async {
   tester.view.physicalSize = const Size(800, 9000);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(const MaterialApp(home: ElectricCalculatorPage()));
+  // 전동기 보호·점검은 전기기기 화면에 있다. 그 밖의 탭은 일반 화면.
+  final motor = tabKey == 'ec_tab_motor' || tabKey == 'ec_tab_motorcheck';
+  await tester.pumpWidget(
+    MaterialApp(
+      home: ElectricCalculatorPage(
+        group: motor ? ElecGroup.motor : ElecGroup.general,
+      ),
+    ),
+  );
   await tester.pumpAndSettle();
   final tab = find.byKey(Key(tabKey));
   await tester.ensureVisible(tab);

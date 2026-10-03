@@ -42,16 +42,33 @@ Future<void> openTab(WidgetTester tester, String key) async {
 void main() {
   setUp(legacyElectricDefaults);
 
-  testWidgets('"최근 계산 기록"이 본체 탭과 별도 파일 탭(발전기 용량)을 함께 쌓는다', (tester) async {
+  testWidgets('"최근 계산 기록"이 본체 탭과 별도 파일 탭(부하 합산)을 함께 쌓는다', (tester) async {
     await pumpPage(tester);
     await tester.enterText(find.byKey(const Key('ec_kw')), '11');
     await tester.pump(const Duration(milliseconds: 800));
-    await openTab(tester, 'ec_tab_gen');
-    await tester.enterText(find.byKey(const Key('eg_load')), '100');
+    await openTab(tester, 'ec_tab_loadsum');
+    await tester.enterText(find.byKey(const Key('els_kw_0')), '100');
+    await tester.enterText(find.byKey(const Key('els_pf_0')), '90');
+    await tester.enterText(find.byKey(const Key('els_df_0')), '80');
     await tester.pump(const Duration(milliseconds: 800));
     await tester.tap(find.byKey(const Key('calc_history_button')));
     await tester.pumpAndSettle();
     expect(find.text('부하 전류'), findsOneWidget);
+    expect(find.text('부하 합산'), findsNWidgets(2), reason: '탭 이름표와 기록 목록');
+  });
+
+  testWidgets('"최근 계산 기록"은 전기기기 화면(발전기 용량)에서도 쌓인다', (tester) async {
+    tester.view.physicalSize = const Size(390, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(home: ElectricCalculatorPage(initialTab: 9)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('eg_load')), '100');
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.byKey(const Key('calc_history_button')));
+    await tester.pumpAndSettle();
     expect(find.text('발전기 용량'), findsOneWidget);
   });
 
@@ -207,14 +224,14 @@ void main() {
         [
           'ec_tab_basic',
           'ec_tab_load',
-          'ec_tab_loadsum',
           'ec_tab_cable',
           'ec_tab_vd',
           'ec_tab_short',
+          'ec_tab_ground',
+          'ec_tab_loadsum',
+          'ec_tab_pf',
           'ec_tab_conduit',
           'ec_tab_bus',
-          'ec_tab_pf',
-          'ec_tab_gen',
           'ec_tab_batt',
         ].indexOf(t),
       );

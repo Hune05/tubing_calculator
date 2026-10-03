@@ -5,12 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 
-Future<void> pumpPage(WidgetTester tester) async {
+Future<void> pumpPage(WidgetTester tester, {ElecGroup? group}) async {
   SharedPreferences.setMockInitialValues({});
   tester.view.physicalSize = const Size(390, 3200);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(const MaterialApp(home: ElectricCalculatorPage()));
+  await tester.pumpWidget(
+    MaterialApp(home: ElectricCalculatorPage(group: group)),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -73,8 +75,8 @@ void main() {
     await tapKey(tester, 'els_to_short');
     expect(
       tester.widget<TabBar>(find.byType(TabBar)).controller!.index,
-      5,
-      reason: '단락 전류 탭',
+      4,
+      reason: '단락 전류 탭(일반 묶음의 다섯 번째)',
     );
     expect(fieldText(tester, 'ec_sc_kva'), '88.9');
     expect(fieldText(tester, 'ec_sc_volts'), '440');
@@ -102,12 +104,12 @@ void main() {
     await openTab(tester, 'ec_tab_short');
     await type(tester, 'ec_sc_kva', '750');
     await openTab(tester, 'ec_tab_basic');
-    await openTab(tester, 'ec_tab_gen');
-    await type(tester, 'eg_load', '123');
+    await openTab(tester, 'ec_tab_loadsum');
+    await type(tester, 'els_kw_0', '123');
     await openTab(tester, 'ec_tab_short');
     expect(fieldText(tester, 'ec_sc_kva'), '750');
-    await openTab(tester, 'ec_tab_gen');
-    expect(fieldText(tester, 'eg_load'), '123');
+    await openTab(tester, 'ec_tab_loadsum');
+    expect(fieldText(tester, 'els_kw_0'), '123');
   });
 
   testWidgets('단락 전류: 선택 칸을 비웠다고 요약 줄이 붉어지지 않는다', (tester) async {
@@ -125,7 +127,7 @@ void main() {
   });
 
   testWidgets('발전기: 효율·역률을 %로 넣는다(85, 80). 0.85 꼴도 그대로 받는다', (tester) async {
-    await pumpPage(tester);
+    await pumpPage(tester, group: ElecGroup.motor);
     await openTab(tester, 'ec_tab_gen');
     expect(fieldText(tester, 'eg_eff'), '85');
     expect(fieldText(tester, 'eg_pf'), '80');

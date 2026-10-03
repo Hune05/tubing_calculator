@@ -210,10 +210,31 @@ String _maxLenLine(double a, double base, double reserved, double maxLen) {
   return '최대 편도 길이: 가산 0.5 %가 다 찬 구간이라 L = (${fmt(b, 2)} + 0.5) ÷ ${sig(a)} = ${fmt(maxLen, 0)} m';
 }
 
+/// 전기 설계 계산은 자격시험의 전기이론(일반·설비)과 전기기기(전동기·발전기)처럼 따로 보여 준다
+/// (섞어 놓으면 정신없다는 사용자 지시, 2026-10-03). enum의 motor가 전기기기 묶음이다.
+enum ElecGroup { general, motor }
+
+/// 탭의 안정 번호(처음 만들 때의 순서). 다른 화면이 ElectricCalculatorPage(initialTab: 번호)로 탭을 고르는 것도
+/// 이 번호이고, 번호가 어느 묶음에 속하는지는 아래 목록이 정한다. 순서만 바꾸고 번호는 바꾸지 않는다.
+/// 0 기초 계산, 1 부하 전류, 2 부하 합산, 3 전선 굵기, 4 전압강하, 5 단락 전류, 6 전선관, 7 부스바,
+/// 8 역률 개선, 9 발전기 용량, 10 축전지 용량, 11 접지, 12 전동기 보호, 13 전동기 점검.
+/// 일반: 앞쪽 여덟 개가 현장에서 가장 많이 쓰는 필수 공식, 뒤쪽 셋(전선관·부스바·축전지)은 덜 쓰는 것.
+const List<int> kElecGeneralTabs = [0, 1, 3, 4, 5, 11, 2, 8, 6, 7, 10];
+
+/// 전기기기: 전동기 보호(과부하계전기·차단기 상한)·전동기 점검(절연·권선 저항·불평형)·발전기 용량.
+const List<int> kElecMotorTabs = [12, 13, 9];
+
+/// 번호가 속한 묶음. 12·13·9(전동기·발전기)면 전기기기, 나머지는 일반.
+ElecGroup elecGroupOf(int id) =>
+    kElecMotorTabs.contains(id) ? ElecGroup.motor : ElecGroup.general;
+
 class ElectricCalculatorPage extends StatefulWidget {
   /// 열 때 먼저 보일 탭(0 = 기초 계산).
   final int initialTab;
-  const ElectricCalculatorPage({super.key, this.initialTab = 0});
+
+  /// 보여 줄 묶음. 비우면 [initialTab]이 속한 묶음이다(전동기 보호·점검 번호면 전동기).
+  final ElecGroup? group;
+  const ElectricCalculatorPage({super.key, this.initialTab = 0, this.group});
 
   /// 넣은 값을 저장하는 폰 저장 칸.
   static const draftKey = 'electric_calc_draft_v1';
@@ -227,10 +248,22 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         SingleTickerProviderStateMixin,
         CalcFormParts,
         RecentCalcHistoryMixin<ElectricCalculatorPage> {
+  /// 이 화면에 보이는 탭의 안정 번호(화면 순서).
+  late final List<int> _order =
+      (widget.group ?? elecGroupOf(widget.initialTab)) == ElecGroup.motor
+      ? kElecMotorTabs
+      : kElecGeneralTabs;
+
+  /// 안정 번호 → 이 화면의 위치(이 화면에 없으면 맨 앞).
+  int _pos(int id) {
+    final i = _order.indexOf(id);
+    return i < 0 ? 0 : i;
+  }
+
   late final TabController _tabs = TabController(
-    length: 14,
+    length: _order.length,
     vsync: this,
-    initialIndex: widget.initialTab.clamp(0, 13),
+    initialIndex: _pos(widget.initialTab),
   );
 
   // 공통
@@ -768,7 +801,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _pf2.text = _pf.text;
       _checkMode = false;
     });
-    _tabs.animateTo(_kCableTab);
+    _tabs.animateTo(_pos(_kCableTab));
   }
 
   /// 부하 합산 탭이 단락 전류 탭으로 넘기는 변압기 값.
@@ -778,12 +811,49 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     HapticFeedback.selectionClick();
     FocusManager.instance.primaryFocus?.unfocus();
     _shortSeed.value = ElecTransformerSeed(kva, volts);
-    _tabs.animateTo(_kShortTab);
+    _tabs.animateTo(_pos(_kShortTab));
   }
 
-  /// 전선 굵기·단락 전류 탭 위치(탭 순서를 바꾸면 같이 고친다).
+  /// 전선 굵기·단락 전류 탭의 안정 번호(화면 위치는 elecTabPosition이 구한다).
   static const _kCableTab = 3;
   static const _kShortTab = 5;
+
+  /// 탭 이름표(안정 번호 순서 = 예전 탭 순서). 화면 순서는 kElecTabOrder가 정한다.
+  static const List<Tab> _kTabsById = [
+    Tab(key: Key('ec_tab_basic'), text: '기초 계산'),
+    Tab(key: Key('ec_tab_load'), text: '부하 전류'),
+    Tab(key: Key('ec_tab_loadsum'), text: '부하 합산'),
+    Tab(key: Key('ec_tab_cable'), text: '전선 굵기'),
+    Tab(key: Key('ec_tab_vd'), text: '전압강하'),
+    Tab(key: Key('ec_tab_short'), text: '단락 전류'),
+    Tab(key: Key('ec_tab_conduit'), text: '전선관'),
+    Tab(key: Key('ec_tab_bus'), text: '부스바'),
+    Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
+    Tab(key: Key('ec_tab_gen'), text: '발전기 용량'),
+    Tab(key: Key('ec_tab_batt'), text: '축전지 용량'),
+    Tab(key: Key('ec_tab_ground'), text: '접지'),
+    Tab(key: Key('ec_tab_motor'), text: '전동기 보호'),
+    Tab(key: Key('ec_tab_motorcheck'), text: '전동기 점검'),
+  ];
+
+  /// 안정 번호의 탭 몸통.
+  Widget _bodyFor(int id) => switch (id) {
+    0 => _basicTab(),
+    1 => _loadTab(),
+    2 => ElecLoadSumTab(onSendToShortCircuit: _sendToShort, history: calcLog),
+    3 => _cableTab(),
+    4 => _vdTab(),
+    5 => ElecShortCircuitTab(seed: _shortSeed, history: calcLog),
+    6 => _conduitTab(),
+    7 => _busTab(),
+    8 => _pfTab(),
+    9 => ElecGeneratorTab(history: calcLog),
+    10 => ElecBatteryTab(history: calcLog),
+    11 => ElecGroundTab(history: calcLog),
+    12 => ElecMotorProtectTab(history: calcLog),
+    13 => ElecMotorCheckTab(history: calcLog),
+    _ => const SizedBox.shrink(),
+  };
 
   // ─────────────── 그리기 ───────────────
 
@@ -800,7 +870,11 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             title: Text(
-              '전기 설계 계산',
+              widget.group == ElecGroup.motor ||
+                      (widget.group == null &&
+                          elecGroupOf(widget.initialTab) == ElecGroup.motor)
+                  ? '전기기기 계산'
+                  : '전기 설계 계산',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             actions: [calcHistoryButton()],
@@ -815,44 +889,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
               ),
-              tabs: const [
-                // 2026-09-26 사용자 선택 "자주 쓰는 것 먼저": 기초 계산을 맨 앞, 부스바를 역률 개선 앞으로.
-                Tab(key: Key('ec_tab_basic'), text: '기초 계산'),
-                Tab(key: Key('ec_tab_load'), text: '부하 전류'),
-                Tab(key: Key('ec_tab_loadsum'), text: '부하 합산'),
-                Tab(key: Key('ec_tab_cable'), text: '전선 굵기'),
-                Tab(key: Key('ec_tab_vd'), text: '전압강하'),
-                Tab(key: Key('ec_tab_short'), text: '단락 전류'),
-                Tab(key: Key('ec_tab_conduit'), text: '전선관'),
-                Tab(key: Key('ec_tab_bus'), text: '부스바'),
-                Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
-                Tab(key: Key('ec_tab_gen'), text: '발전기 용량'),
-                Tab(key: Key('ec_tab_batt'), text: '축전지 용량'),
-                Tab(key: Key('ec_tab_ground'), text: '접지'),
-                Tab(key: Key('ec_tab_motor'), text: '전동기 보호'),
-                Tab(key: Key('ec_tab_motorcheck'), text: '전동기 점검'),
-              ],
+              tabs: [for (final id in _order) _kTabsById[id]],
             ),
           ),
           body: SafeArea(
             child: TabBarView(
               controller: _tabs,
-              children: [
-                _basicTab(),
-                _loadTab(),
-                ElecLoadSumTab(onSendToShortCircuit: _sendToShort, history: calcLog),
-                _cableTab(),
-                _vdTab(),
-                ElecShortCircuitTab(seed: _shortSeed, history: calcLog),
-                _conduitTab(),
-                _busTab(),
-                _pfTab(),
-                ElecGeneratorTab(history: calcLog),
-                ElecBatteryTab(history: calcLog),
-                ElecGroundTab(history: calcLog),
-                ElecMotorProtectTab(history: calcLog),
-                ElecMotorCheckTab(history: calcLog),
-              ],
+              children: [for (final id in _order) _bodyFor(id)],
             ),
           ),
         ),
@@ -2396,7 +2439,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _syncAmbient();
       _checkMode = true;
     });
-    _tabs.animateTo(_kCableTab);
+    _tabs.animateTo(_pos(_kCableTab));
   }
 
   /// 역률 개선 풀이: ① tanφ ② 콘덴서 용량 ③ μF ④ 콘덴서 전류 ⑤ 부하 전류 변화.
