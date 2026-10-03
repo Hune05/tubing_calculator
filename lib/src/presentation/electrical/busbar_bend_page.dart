@@ -12,6 +12,8 @@ import '../common/calc_form_parts.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'busbar_bend.dart';
 import 'busbar_bend_painter.dart';
+import 'busbar_bend_pdf.dart';
+import 'busbar_saved_specs.dart';
 import 'elec_form_parts.dart';
 
 Future<void> _defaultShare(String text) async {
@@ -75,6 +77,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   final _b = TextEditingController(text: '100'); // L: 다리 b, U: 바닥
   final _c = TextEditingController(text: '100'); // U: 다리 c, Z: 끝 직선
   final _h = TextEditingController(text: '40'); // Z 높이
+  final _jobName = TextEditingController(); // 작업 이름(지시서·저장 이름)
 
   Timer? _saveTimer;
   bool _draftReady = false;
@@ -87,8 +90,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     _b,
     _c,
     _h,
+    _jobName,
   ];
-  static const _fieldKeys = ['t', 'w', 'r', 'a', 'b', 'c', 'h'];
+  static const _fieldKeys = ['t', 'w', 'r', 'a', 'b', 'c', 'h', 'jn'];
 
   @override
   void initState() {
@@ -121,7 +125,17 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       final raw = p.getString(BusbarBendPage.draftKey);
       if (raw != null && mounted) {
         final m = jsonDecode(raw) as Map<String, dynamic>;
-        setState(() {
+        setState(() => _applyMap(m));
+      }
+    } catch (_) {}
+    _draftReady = true;
+  }
+
+  /// 저장된 값을 화면 상태에 넣는다. setState 안에서 부른다.
+  void _applyMap(Map<String, dynamic> m) {
+    {
+      {
+        {
           final kd = BusbarBendKind.values.where((x) => x.name == m['kind']);
           if (kd.isNotEmpty) _kind = kd.first;
           final pl = BusbarBendPlane.values.where((x) => x.name == m['plane']);
@@ -137,10 +151,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
             final v = m[_fieldKeys[i]];
             if (v is String) _fields[i].text = v;
           }
-        });
+        }
       }
-    } catch (_) {}
-    _draftReady = true;
+    }
   }
 
   void _saveSoon() {
@@ -248,6 +261,60 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   String _bendLine(BusbarBend b, int i) =>
       '${i + 1}. 시작선 ${fmt(b.start, 1)}mm · 끝선 ${fmt(b.end, 1)}mm  (${b.turn >= 0 ? '위로' : '아래로'} ${fmt(b.turn.abs())}°)';
 
+  String _savedSummary(Map<String, dynamic> d) {
+    final kd = switch (d['kind']) {
+      'u' => 'U 꺾기',
+      'z' => 'Z 꺾기',
+      _ => 'L 꺾기',
+    };
+    final pl = d['plane'] == 'edge' ? '세워' : '눕혀';
+    return '${d['t'] ?? ''}×${d['w'] ?? ''} · $kd · $pl';
+  }
+
+  Future<void> _openSaved() => openSavedSpecs(
+    context,
+    storageKey: 'busbar_bend_saved_v1',
+    current: () => jsonDecode(_draft()) as Map<String, dynamic>,
+    summaryOf: _savedSummary,
+    defaultName: _jobName.text.trim().isNotEmpty
+        ? _jobName.text.trim()
+        : '${_thick.text}×${_width.text} ${busbarBendKindLabel(_kind)}',
+    onLoad: (m) => _set(() => _applyMap(m)),
+    surface: fc.surface,
+    text: fc.text,
+    textSub: fc.textSub,
+  );
+
+  BendPdfInput _pdfInput(BusbarBendPlan p) => BendPdfInput(
+    title: _jobName.text,
+    plan: p,
+    thickness: _d,
+    rho: busbarNeutralRadius(_d, _r, _k),
+    summary: [
+      ('재료', '구리 평강 ${fmt(_t)} × ${fmt(_w)} mm'),
+      (
+        '꺾는 방법',
+        '${busbarBendKindLabel(_kind)} · ${busbarBendPlaneLabel(_plane)}',
+      ),
+      ('치수', _dimText),
+      ('꺾기 조건', '안쪽 반경 ${fmt(_r)}mm · k ${fmt(_k, 2)}'),
+      ('자르는 길이', '${fmt(p.cutLength, 1)} mm'),
+      if (_z != null)
+        (
+          '옵셋',
+          '비스듬한 곧은 길이 ${fmt(_z!.slope, 1)}mm · 꺾기 사이 진행 ${fmt(_z!.run, 1)}mm',
+        ),
+    ],
+    notes: [
+      ?_radiusWarn,
+      if (_z != null && !_z!.feasible)
+        '이 높이는 반경 때문에 꺾을 수 없습니다. 최소 높이 ${fmt(_z!.minHeight, 1)}mm.',
+      if (_plane == BusbarBendPlane.edge)
+        '세워 꺾기는 최소 반경 자료를 못 찾아 확인하지 않았습니다. 시험 조각으로 먼저 꺾어 보십시오.',
+      '꺾은 뒤 되돌아오는 각(스프링백)과 벤더 기종 차이는 넣지 않았습니다. 같은 규격 시험 조각으로 길이·각도를 확인하고 k와 반경을 맞추십시오.',
+    ],
+  );
+
   String _shareText(BusbarBendPlan p) {
     final b = StringBuffer(
       '[부스바 절곡] ${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)}mm ${busbarBendPlaneLabel(_plane)}',
@@ -342,6 +409,13 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     String? summary;
 
     final children = <Widget>[
+      elecField(
+        'bb_job',
+        '작업 이름 (선택)',
+        _jobName,
+        '지시서 PDF 제목과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
+        onEdit: _saveSoon,
+      ),
       elecChipGroup(
         '어떻게 꺾나',
         'L: 한 번 꺾기. U: 같은 방향으로 두 번(ㄷ자). Z: 반대 방향으로 두 번(옵셋, 높이를 맞춰 비켜감).',
@@ -562,6 +636,19 @@ class _BusbarBendPageState extends State<BusbarBendPage>
                   icon: Icon(Icons.share_outlined, color: fc.text),
                   onPressed: () => widget.share(_shareText(p)),
                 ),
+              if (p != null)
+                IconButton(
+                  key: const Key('bb_pdf'),
+                  tooltip: '절곡 지시서 PDF',
+                  icon: Icon(Icons.picture_as_pdf_outlined, color: fc.text),
+                  onPressed: () => openBendPdf(context, _pdfInput(p)),
+                ),
+              IconButton(
+                key: const Key('bb_saved'),
+                tooltip: '저장한 규격',
+                icon: Icon(Icons.bookmarks_outlined, color: fc.text),
+                onPressed: _openSaved,
+              ),
               calcHistoryButton(),
             ],
           ),
