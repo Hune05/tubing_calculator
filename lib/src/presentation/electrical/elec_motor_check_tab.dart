@@ -78,6 +78,14 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
 
   void _set(VoidCallback f) => setState(f);
 
+  /// 세 값의 불평형을 식 → 대입 → 결과로 적는다.
+  String _unbText(List<double> v, String unit, int d) {
+    final avg = (v[0] + v[1] + v[2]) / 3;
+    final dev = v.map((x) => (x - avg).abs()).reduce((a, b) => a > b ? a : b);
+    final pct = dev / avg * 100;
+    return '불평형 = 평균에서 가장 먼 값의 차 ÷ 평균 × 100. 평균 = (${fmt(v[0], d)} + ${fmt(v[1], d)} + ${fmt(v[2], d)}) ÷ 3 = ${fmt(avg, d + 1)} $unit, 차 ${fmt(dev, d + 1)} ÷ ${fmt(avg, d + 1)} × 100 = ${fmt(pct, 2)} %';
+  }
+
   String _kindLabel(WindingKind k) => switch (k) {
     WindingKind.random => '저압 랜덤권선',
     WindingKind.form => '고압 폼권선(1970년 이후)',
@@ -216,7 +224,9 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
               '합성수지 절연은 40 ℃ 이하에서 보정하지 않습니다: ${fmt(r40, 2)} MΩ'
             else
               '40 ℃ 환산: ${fmt(ir1, 1)} × 2^((${fmt(irT)} − 40) ÷ 17) = ${fmt(r40, 2)} MΩ',
-            '최소 ${fmt(minIr, 1)} MΩ (IEEE 43 표 3, ${_kindLabel(_kind)})',
+            _kind == WindingKind.old
+                ? '최소 = 정격 kV + 1 = ${fmt((ratedV ?? 0) / 1000, 2)} + 1 = ${fmt(minIr, 1)} MΩ (IEEE 43 표 3, ${_kindLabel(_kind)})'
+                : '최소 ${fmt(minIr, 1)} MΩ (IEEE 43 표 3, ${_kindLabel(_kind)})',
             ok
                 ? '${fmt(r40, 2)} ≥ ${fmt(minIr, 1)} MΩ: 합격'
                 : '${fmt(r40, 2)} < ${fmt(minIr, 1)} MΩ: 불합격. 습기·오염이면 청소·건조 후 다시 측정하고, 심한 열화면 운전과 내전압 시험을 하지 마십시오(IEEE 43 11.2).',
@@ -325,10 +335,12 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
                   : (der == null
                         ? '5 %를 초과합니다: 운전을 권장하지 않습니다(NEMA MG1).'
                         : '1 %를 초과합니다: 출력 저감 계수 약 ${fmt(der, 2)}(NEMA 그림 기준, 4·5 % 값은 원문 미확인).'),
-              '온도상승이 약 ${fmt(unbalanceHeatingPct(vUnb), 1)} % 커집니다(2 × 불평형²). 10 ℃ 오를 때마다 절연 수명이 절반입니다(DOE).',
+              _unbText([vu[0]!, vu[1]!, vu[2]!], 'V', 1),
+              '온도상승 증가 = 2 × 불평형² = 2 × ${fmt(vUnb, 2)}² = ${fmt(unbalanceHeatingPct(vUnb), 1)} %입니다. 10 ℃ 오를 때마다 절연 수명이 절반입니다(DOE).',
             ],
             if (aUnb != null) ...[
               '전류 불평형 ${fmt(aUnb, 1)} %. 전류 불평형은 전압 불평형의 6~10배가 될 수 있습니다(DOE).',
+              _unbText([au[0]!, au[1]!, au[2]!], 'A', 1),
               '원인 가리기: 세 상 리드를 한 칸씩 돌려 꽂아, 큰 전류가 전원선을 따라가면 전원 쪽, 전동기선을 따라가면 전동기 쪽 원인입니다(Franklin Electric 설명서).',
               '일반 전동기의 전류 불평형 판정값은 원문을 확인하지 못했습니다(수중 전동기 설명서는 만부하 5 % 이하).',
             ],

@@ -18,6 +18,9 @@ import 'elec_load_sum_pdf.dart';
 /// 입력값을 남기는 저장 칸 이름.
 const String kLoadSumDraftKey = 'elec_load_sum_draft_v1';
 
+/// 결과 상자에 풀이를 줄마다 보이는 부하 줄 수(나머지는 합계에만 들어간다고 알린다).
+const int _kStepRows = 8;
+
 class _RowCtl {
   final int id;
   final TextEditingController name;
@@ -595,15 +598,24 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         warn: warn,
         lines: [
           '설비용량 합계 ${fmt(r.totalKw, 1)} kW',
-          '최대수요 ${fmt(r.demandKw, 1)} kW, ${fmt(r.demandKvar, 1)} kvar, ${fmt(r.demandKva, 1)} kVA',
-          '종합 역률 ${fmt(r.pf * 100, 1)}%',
-          '필요 용량 = ${fmt(r.demandKva, 1)} kVA ÷ ${fmt(r.diversity, 2)} × ${fmt(1 + r.marginPct / 100, 3)}',
-          '2차 정격전류 ${fmt(r.ratedAmps, 1)} A (${fmt(r.volts, 0)} V, 3상)',
+          '① 줄마다 유효전력 P = 설비용량 × 수용률, 무효전력 Q = P × tanφ (φ = acos 역률)',
+          for (final l in r.lines.take(_kStepRows))
+            '${l.name.isEmpty ? '${l.no}번' : '${l.no}번 ${l.name}'}: '
+                'P = ${fmt(l.kw, 1)} × ${fmt(l.dfPct, 1)}% = ${fmt(l.p, 1)} kW, '
+                'Q = ${fmt(l.p, 1)} × tan(acos ${fmt(l.pfPct / 100, 3)}) = ${fmt(l.q, 1)} kvar',
+          if (r.lines.length > _kStepRows)
+            '나머지 ${r.lines.length - _kStepRows}줄도 같은 식으로 합계에 들어갔습니다.',
+          '② 최대수요 ${fmt(r.demandKw, 1)} kW, ${fmt(r.demandKvar, 1)} kvar, ${fmt(r.demandKva, 1)} kVA',
+          'S = √(ΣP² + ΣQ²) = √(${fmt(r.demandKw, 1)}² + ${fmt(r.demandKvar, 1)}²) = ${fmt(r.demandKva, 1)} kVA',
+          '종합 역률 = ΣP ÷ S = ${fmt(r.demandKw, 1)} ÷ ${fmt(r.demandKva, 1)} = ${fmt(r.pf * 100, 1)}%',
+          '③ 필요 용량 = S ÷ 부등률 × (1 + 여유) = ${fmt(r.demandKva, 1)} ÷ ${fmt(r.diversity, 2)} × (1 + ${fmt(r.marginPct, 1)}%) = ${fmt(r.requiredKva, 1)} kVA',
+          '④ 2차 정격전류 = 필요 용량 × 1000 ÷ (√3 × 2차 전압) = ${fmt(r.requiredKva, 1)} × 1000 ÷ (√3 × ${fmt(r.volts, 0)} V) = ${fmt(r.ratedAmps, 1)} A (3상)',
           if (pass == null)
             '선정 변압기 용량(kVA)을 넣으면 부하율과 합격/불합격을 판정합니다.'
           else ...[
-            '선정 ${fmt(r.selectedKva!, 1)} kVA: 부하율 ${fmt(r.loadPct!, 1)}% ${pass ? '합격' : '불합격'}'
-                '${r.marginPct > 0 ? ' (여유를 뺀 부하율 ${fmt(r.loadPctNoMargin!, 1)}%)' : ''}',
+            '⑤ 부하율 = 필요 용량 ÷ 선정 용량 × 100 = ${fmt(r.requiredKva, 1)} ÷ ${fmt(r.selectedKva!, 1)} × 100 = ${fmt(r.loadPct!, 1)}%: ${pass ? '합격(100% 이하)' : '불합격(100% 초과)'}',
+            if (r.marginPct > 0)
+              '여유를 뺀 부하율 = S ÷ 부등률 ÷ 선정 용량 × 100 = ${fmt(r.demandKva, 1)} ÷ ${fmt(r.diversity, 2)} ÷ ${fmt(r.selectedKva!, 1)} × 100 = ${fmt(r.loadPctNoMargin!, 1)}%',
             if (!pass) '선정 용량이 필요 용량보다 작습니다. 더 큰 용량을 선정하십시오.',
           ],
           '참고(원문 대조 전): 부하율 60~80%를 적정으로 보는 설명이 있습니다. 2차 자료입니다.',

@@ -425,11 +425,16 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
         caption: '필요 축전지 용량 (${_method.label} 방식)',
         warn: fail,
         lines: [
-          '구간 용량 최댓값: ${fmt(r.base!, 2)} Ah (구간 ${r.maxSection})',
+          '① 구간별 용량 = Σ (전류 변화 × K): ${[
+            for (final s in r.sections) '구간 ${s.endStep} ${fmt(s.total, 2)} Ah',
+          ].join(', ')}',
+          '② 구간 용량 최댓값: 구간 ${r.maxSection} = ${[
+            for (final t in r.sections[r.maxSection! - 1].terms) '${t.dAmps < 0 ? '(${fmt(t.dAmps, 2)})' : fmt(t.dAmps, 2)} × ${fmt(t.k, 3)}',
+          ].join(' + ')} = ${fmt(r.base!, 2)} Ah',
           if (sba)
-            '필요 용량 = 구간 최댓값 ÷ 보수율 = ${fmt(r.base!, 2)} ÷ ${fmt(input.maintenance!, 2)} = ${fmt(req, 1)} Ah'
+            '③ 필요 용량 = 구간 최댓값 ÷ 보수율 = ${fmt(r.base!, 2)} ÷ ${fmt(input.maintenance!, 2)} = ${fmt(req, 1)} Ah'
           else
-            '필요 용량 = 구간 최댓값 × 온도 보정계수 × (1 + 설계 여유) × 노화계수 = ${fmt(r.base!, 2)} × '
+            '③ 필요 용량 = 구간 최댓값 × 온도 보정계수 × (1 + 설계 여유) × 노화계수 = ${fmt(r.base!, 2)} × '
                 '${fmt(input.tempFactor!, 2)} × ${fmt(1 + input.marginPct! / 100, 2)} × '
                 '${fmt(input.agingFactor!, 2)} = ${fmt(req, 1)} Ah',
           sba
@@ -440,10 +445,10 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
                 ? '선정 ${fmt(input.chosenAh!, 0)} Ah: 합격 (여유 ${fmt(r.chosenMarginPct!, 1)}%)'
                 : '선정 ${fmt(input.chosenAh!, 0)} Ah: 불합격 (필요 ${fmt(req, 1)} Ah에 ${fmt(-r.chosenMarginPct!, 1)}% 부족)',
           if (r.cellRatio != null)
-            '셀 수 계산값: ${fmt(input.busVolts!, 1)} V ÷ ${fmt(input.cellNominal!, 2)} V = ${fmt(r.cellRatio!, 2)}셀'
+            '④ 셀 수 계산값: ${fmt(input.busVolts!, 1)} V ÷ ${fmt(input.cellNominal!, 2)} V = ${fmt(r.cellRatio!, 2)}셀'
                 '${r.cellRatio! == r.cellRatio!.roundToDouble() ? '' : ' (정수가 아니므로 제조사와 계통 기준으로 셀 수를 정하십시오)'}',
           if (r.endVolts != null)
-            '방전 종지 모선 전압: ${fmt(input.cells!, 0)}셀 × ${fmt(input.cellMin!, 2)} V = ${fmt(r.endVolts!, 1)} V'
+            '⑤ 방전 종지 모선 전압: ${fmt(input.cells!, 0)}셀 × ${fmt(input.cellMin!, 2)} V = ${fmt(r.endVolts!, 1)} V'
                 '${r.endVoltsPass == null
                     ? ''
                     : r.endVoltsPass!

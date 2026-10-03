@@ -100,5 +100,10 @@ void main() {
     await _type(tester, 'mc_v2', '390');
     await _type(tester, 'mc_v3', '370');
     expect(find.textContaining('전압 불평형 2.63 %'), findsOneWidget);
+    expect(
+      find.textContaining('평균 = (380 + 390 + 370) ÷ 3 = 380 V, 차 10 ÷ 380 × 100 = 2.63 %'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('2 × 2.63² = 13.'), findsOneWidget);
   });
 }

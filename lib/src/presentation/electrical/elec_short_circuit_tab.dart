@@ -2,6 +2,7 @@
 // 계산은 elec_short_circuit.dart, 근거는 docs/전기_단락전류_근거.md. 입력값은 SharedPreferences 한 칸에 남긴다.
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -275,23 +276,23 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     ];
 
     ScResult? res;
+    ScInput? scIn;
     if (errs.isEmpty && missing.isEmpty) {
-      res = calcShortCircuit(
-        ScInput(
-          kva: kva!,
-          volts: volts!,
-          zPercent: zPct!,
-          pcuKw: pcu,
-          upstreamMvaMax: upMax,
-          upstreamMvaMin: upMin,
-          motorKw: mKw,
-          motorEffPf: mEff,
-          motorMultiple: mMult,
-          cMax: _cMax10 ? kScCMax10 : kScCMax6,
-          insulation: _ins,
-          segments: segs,
-        ),
+      scIn = ScInput(
+        kva: kva!,
+        volts: volts!,
+        zPercent: zPct!,
+        pcuKw: pcu,
+        upstreamMvaMax: upMax,
+        upstreamMvaMin: upMin,
+        motorKw: mKw,
+        motorEffPf: mEff,
+        motorMultiple: mMult,
+        cMax: _cMax10 ? kScCMax10 : kScCMax6,
+        insulation: _ins,
+        segments: segs,
       );
+      res = calcShortCircuit(scIn);
     }
 
     final n = _rows.length;
@@ -331,10 +332,9 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         caption: 'Ik″ 최대 (3상 대칭 초기 단락전류, 고장점 = ${_posLabel(n, n)})',
         lines: [
           'IEC 60909 등가 전압원법: c = ${fmt(_cMax10 ? kScCMax10 : kScCMax6, 2)}, KT = ${fmt(r.kT, 3)}. 차단기 차단용량 선정용 최대값입니다.',
+          ..._maxSteps(r, scIn!),
           '%임피던스법(비교): ${_ka(r.ikPercentZA)} kA. IEC 값보다 ${fmt(diff.abs(), 1)}% ${diff < 0 ? '작습니다' : '큽니다'}.',
-          if (r.motorsIncluded)
-            '이 중 변압기·계통 ${_ka(r.ikNetA)} kA, 전동기 ${_ka(r.ikMotorA)} kA.',
-          '피크 전류 ip = ${_ka(r.ipA)} kA (κ = ${fmt(r.kappa, 3)}, R/X = ${fmt(r.rOverX, 3)}).',
+          _peakLine(r),
         ],
       );
       final minCard = calcResult(
@@ -343,7 +343,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         caption: 'Ik″ 최소 (2상 단락, 보호 감도용)',
         warn: r.minUsesMaxUpstream,
         lines: [
-          '3상 최소 ${_ka(r.ikMin3A)} kA. 2상 = 3상 × √3/2.',
+          ..._minSteps(r, scIn),
           'c = ${fmt(kScCMin, 2)}, 케이블 저항은 ${fmt(minScConductorTemp(_ins), 0)}°C 값, 전동기 기여 제외.',
           '지락(1선) 단락은 포함하지 않음. 영상 임피던스가 필요합니다.',
           '차단기 순시 설정값이 이 값보다 작아야 최소 단락에서도 순시로 차단합니다.',
@@ -487,10 +487,12 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
             '구간 ${cabSeg + 1}: ${fmt(seg.size)}mm²${seg.parallel > 1 ? ' × ${seg.parallel}가닥' : ''}, 구리 $insName, k = ${fmt(w.k, 0)}',
         warn: cabWarn,
         lines: [
-          '단락전류 ${_ka(ikA)} kA(${manualKa != null ? '직접 입력값. 자동 값 ${_ka(autoA)} kA' : '구간 시작점 자동 값'}), 차단 시간 ${fmt(tSec, 3)}초.',
-          if (seg.parallel > 1) '가닥마다 ${_ka(w.ikPerConductorA)} kA가 흐르는 것으로 계산했습니다.',
-          '필요한 최소 굵기 S = Ik×√t/k = ${fmt(w.sMinMm2, 1)} mm². 선정 ${fmt(w.sMm2)} mm²는 ${w.ok ? '이상이라 합격' : '미만이라 불합격'}입니다.',
-          '이 전류에서 허용 최대 시간 t = (k·S/Ik)² = ${fmt(w.tMaxSec, 3)}초.',
+          '① 단락전류 ${_ka(ikA)} kA(${manualKa != null ? '직접 입력값. 자동 값 ${_ka(autoA)} kA' : '구간 시작점 자동 값'}), 차단 시간 ${fmt(tSec, 3)}초.',
+          if (seg.parallel > 1) '가닥마다 Ik = ${_ka(ikA)} kA ÷ ${seg.parallel}가닥 = ${_ka(w.ikPerConductorA)} kA가 흐르는 것으로 계산했습니다.',
+          '② 필요한 최소 굵기 S = Ik × √t ÷ k = ${fmt(w.ikPerConductorA, 0)} A × √${fmt(tSec, 3)} ÷ ${fmt(w.k, 0)} = ${fmt(w.sMinMm2, 1)} mm². 선정 ${fmt(w.sMm2)} mm²는 ${w.ok ? '이상이라 합격' : '미만이라 불합격'}입니다.',
+          '③ 이 전류에서 허용 최대 시간 t = (k × S ÷ Ik)² = (${fmt(w.k, 0)} × ${fmt(w.sMm2)} ÷ ${fmt(w.ikPerConductorA, 0)})² = ${fmt(w.tMaxSec, 3)}초.',
+          if (lt != null)
+            '④ 허용 통과 에너지 = (병렬 수)² × k² × S² = ${seg.parallel}² × ${fmt(w.k, 0)}² × ${fmt(w.sMm2)}² = ${fmt(w.allowedA2s, 0)} A²s.',
           if (lt != null)
             w.letThroughOk!
                 ? '차단기 통과 에너지 ${fmt(lt, 0)} A²s가 허용 ${fmt(w.allowedA2s, 0)} A²s 이내입니다.'
@@ -692,6 +694,155 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       ),
       elecBasis('ec_sc_basis', _basisLines()),
     ]);
+  }
+
+  // ─────────────── 풀이 줄(화면 글만. 계산은 elec_short_circuit.dart) ───────────────
+  // 임피던스는 계산 함수와 같은 식으로 화면에서 다시 구해 보인다(시험에서 결과 kA와 맞는지 확인).
+
+  /// Ω을 mΩ 글로. 1 mΩ 미만은 소수 셋째 자리까지.
+  String _mo(double ohm) {
+    final m = ohm * 1000;
+    return fmt(m, m.abs() < 1 ? 3 : 2);
+  }
+
+  /// 상위 계통 임피던스 (R, X) Ω: Z = c·U²/S″k, X = 0.995 Z, R = 0.1 X. 용량이 없으면 0.
+  (double, double, double) _network(double? mva, double c, double u) {
+    if (mva == null) return (0, 0, 0);
+    final z = c * u * u / (mva * 1e6);
+    final x = kScNetX * z;
+    return (z, kScNetRoverX * x, x);
+  }
+
+  /// 최대 단락 풀이: ① 전원 ② 변압기 ③ 케이블 구간 ④ 합계 ⑤ Ik″ (전동기가 있으면 ⑥).
+  List<String> _maxSteps(ScResult r, ScInput i) {
+    final u = i.volts;
+    final c = i.cMax;
+    final s3 = math.sqrt(3);
+    final uTxt = fmt(u, 1);
+    final cTxt = fmt(c, 2);
+    final zBase = u * u / (i.kva * 1000);
+    final zt = r.ztOhm;
+    final rt = r.rtOhm;
+    final xt = math.sqrt(zt * zt - rt * rt);
+    final kT = r.kT;
+    final kvaTxt = fmt(i.kva, 1);
+    final out = <String>[];
+
+    final (zq, qR, qX) = _network(i.upstreamMvaMax, c, u);
+    if (i.upstreamMvaMax == null) {
+      out.add('① 전원: 상위 계통 단락용량을 넣지 않아 무한 전원으로 봅니다. Zq = 0.');
+    } else {
+      out.add(
+        '① 전원: Zq = c × U² ÷ S″k = $cTxt × $uTxt² ÷ (${fmt(i.upstreamMvaMax!, 2)} × 10⁶) = ${_mo(zq)} mΩ. '
+        'X = 0.995 × Zq = ${_mo(qX)} mΩ, R = 0.1 × X = ${_mo(qR)} mΩ.',
+      );
+    }
+
+    out.add(
+      '② 변압기: ZT = %Z ÷ 100 × U² ÷ S = ${fmt(i.zPercent, 2)} ÷ 100 × $uTxt² ÷ ($kvaTxt × 1000) = ${_mo(zt)} mΩ.',
+    );
+    if (r.hasLoss) {
+      out.add(
+        'RT = 부하손 ÷ 용량 × U² ÷ S = ${fmt(i.pcuKw!, 2)} ÷ $kvaTxt × ${_mo(zBase)} mΩ = ${_mo(rt)} mΩ. '
+        'XT = √(ZT² − RT²) = √(${_mo(zt)}² − ${_mo(rt)}²) = ${_mo(xt)} mΩ.',
+      );
+    } else {
+      out.add('부하손을 넣지 않아 RT = 0, XT = ZT = ${_mo(xt)} mΩ.');
+    }
+    out.add(
+      'KT = 0.95 × cmax ÷ (1 + 0.6 × xT) = 0.95 × $cTxt ÷ (1 + 0.6 × ${fmt(xt / zBase, 4)}) = ${fmt(kT, 3)}. '
+      'xT = XT ÷ (U² ÷ S). 변압기는 KT를 곱해 R = ${_mo(rt * kT)} mΩ, X = ${_mo(xt * kT)} mΩ로 씁니다.',
+    );
+
+    var cabR = 0.0, cabX = 0.0;
+    if (i.segments.isEmpty) {
+      out.add('③ 케이블 구간 없음: 고장점이 변압기 2차 단자입니다.');
+    } else {
+      out.add(
+        '③ 케이블(최대 단락은 20 ℃ 저항): R = 저항(Ω/km) × 길이 ÷ 1000 ÷ 가닥 수, X = ${fmt(kReactanceOhmPerKm, 3)} × 길이 ÷ 1000 ÷ 가닥 수.',
+      );
+      for (var j = 0; j < i.segments.length; j++) {
+        final s = i.segments[j];
+        final z = s.z(20);
+        cabR += z.r;
+        cabX += z.x;
+        final par = s.parallel > 1 ? ' ÷ ${s.parallel}' : '';
+        final len = fmt(s.lengthM, 1);
+        out.add(
+          '구간 ${j + 1} (${fmt(s.sizeMm2)} mm², $len m${s.parallel > 1 ? ', ${s.parallel}가닥' : ''}): '
+          'R = ${fmt(cuResistance(s.sizeMm2, 20), 4)} × $len ÷ 1000$par = ${_mo(z.r)} mΩ, '
+          'X = ${fmt(kReactanceOhmPerKm, 3)} × $len ÷ 1000$par = ${_mo(z.x)} mΩ.',
+        );
+      }
+    }
+
+    final totR = qR + rt * kT + cabR;
+    final totX = qX + xt * kT + cabX;
+    final totZ = math.sqrt(totR * totR + totX * totX);
+    out.add(
+      '④ 합계: R = ${_mo(qR)} + ${_mo(rt * kT)} + ${_mo(cabR)} = ${_mo(totR)} mΩ, '
+      'X = ${_mo(qX)} + ${_mo(xt * kT)} + ${_mo(cabX)} = ${_mo(totX)} mΩ. '
+      'Z = √(R² + X²) = √(${_mo(totR)}² + ${_mo(totX)}²) = ${_mo(totZ)} mΩ.',
+    );
+    out.add(
+      '⑤ Ik″ = c × Un ÷ (√3 × Z) = $cTxt × $uTxt ÷ (√3 × ${_mo(totZ)} mΩ) = ${_ka(r.ikNetA)} kA'
+      '${r.motorsIncluded ? '(변압기·계통분)' : ''}.',
+    );
+
+    if (r.motorsIncluded) {
+      final mult = i.motorMultiple!;
+      final zM = u / (s3 * mult * r.motorRatedA);
+      final zmc = math.sqrt(cabR * cabR + (zM + cabX) * (zM + cabX));
+      out.add(
+        '⑥ 전동기 기여: 정격전류 IrM = kW × 1000 ÷ (√3 × U × 효율×역률) = ${fmt(i.motorKw!, 1)} × 1000 ÷ (√3 × $uTxt × ${fmt(i.motorEffPf!, 3)}) = ${fmt(r.motorRatedA, 1)} A. '
+        'ZM = U ÷ (√3 × 배수 × IrM) = $uTxt ÷ (√3 × ${fmt(mult, 2)} × ${fmt(r.motorRatedA, 1)}) = ${_mo(zM)} mΩ.',
+      );
+      out.add(
+        '전동기 기여 = c × Un ÷ (√3 × |ZM + 케이블|) = $cTxt × $uTxt ÷ (√3 × ${_mo(zmc)} mΩ) = ${_ka(r.ikMotorA)} kA. '
+        '합계 Ik″ = ${_ka(r.ikNetA)} + ${_ka(r.ikMotorA)} = ${_ka(r.ikMaxA)} kA.',
+      );
+    }
+    return out;
+  }
+
+  /// 피크 전류 풀이 한 줄: ip = κ·√2·Ik″.
+  String _peakLine(ScResult r) {
+    final kap = fmt(r.kappa, 3);
+    final rx = fmt(r.rOverX, 3);
+    if (!r.motorsIncluded) {
+      return '피크 전류 ip = κ × √2 × Ik″ = $kap × 1.414 × ${_ka(r.ikMaxA)} = ${_ka(r.ipA)} kA (κ = 1.02 + 0.98·e^(−3R/X), R/X = $rx).';
+    }
+    return '피크 전류 ip = κ × √2 × Ik″(변압기·계통) + 2 × √2 × Ik″(전동기) = $kap × 1.414 × ${_ka(r.ikNetA)} + 2 × 1.414 × ${_ka(r.ikMotorA)} = ${_ka(r.ipA)} kA (R/X = $rx).';
+  }
+
+  /// 최소 단락 풀이: ① 합계 임피던스 ② 3상 ③ 2상.
+  List<String> _minSteps(ScResult r, ScInput i) {
+    final u = i.volts;
+    final uTxt = fmt(u, 1);
+    final cTxt = fmt(kScCMin, 2);
+    final rt = r.rtOhm;
+    final xt = math.sqrt(r.ztOhm * r.ztOhm - rt * rt);
+    final kT = r.kT;
+    final minMva = i.upstreamMvaMin ?? i.upstreamMvaMax;
+    final (_, qR, qX) = _network(minMva, kScCMin, u);
+    final temp = minScConductorTemp(i.insulation);
+    var cabR = 0.0, cabX = 0.0;
+    for (final s in i.segments) {
+      final z = s.z(temp);
+      cabR += z.r;
+      cabX += z.x;
+    }
+    final totR = qR + rt * kT + cabR;
+    final totX = qX + xt * kT + cabX;
+    final totZ = math.sqrt(totR * totR + totX * totX);
+    return [
+      '① 합계(전원 c = $cTxt${minMva == null ? ', 무한 전원 0' : ''} + 변압기 × KT + 케이블 ${fmt(temp, 0)} ℃ 저항): '
+          'R = ${_mo(qR)} + ${_mo(rt * kT)} + ${_mo(cabR)} = ${_mo(totR)} mΩ, '
+          'X = ${_mo(qX)} + ${_mo(xt * kT)} + ${_mo(cabX)} = ${_mo(totX)} mΩ. '
+          'Z = √(${_mo(totR)}² + ${_mo(totX)}²) = ${_mo(totZ)} mΩ.',
+      '② 3상 최소 = c × Un ÷ (√3 × Z) = $cTxt × $uTxt ÷ (√3 × ${_mo(totZ)} mΩ) = ${_ka(r.ikMin3A)} kA.',
+      '③ 2상 최소 = 3상 × √3 ÷ 2 = ${_ka(r.ikMin3A)} × 0.866 = ${_ka(r.ikMin2A)} kA.',
+    ];
   }
 
   String _posLabel(int k, int n) {

@@ -188,6 +188,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
             '전압강하 ${fmt(c.dropV!, 2)}V (${fmt(c.dropPct!, 2)}%), '
                 '${dropOver ? '한도 ${fmt(c.dropLimitPct, 2)}% 초과' : '한도 ${fmt(c.dropLimitPct, 2)}% 이내입니다.'}',
           if (!c.dropChecked) '길이를 넣으면 전압강하를 검토합니다.',
+          ..._awgSteps(c, len, pf),
           if (s != null) _sqEquivLine(s),
           if (s != null) ?_ul508aLine(s),
           _necNote,
@@ -284,6 +285,55 @@ extension _AwgTab on _ElectricCalculatorPageState {
       result,
       if (basis.isNotEmpty) _basis('ec_cable_basis', basis),
     ]);
+  }
+
+  /// 허용전류 IZ 식(절연 열 × 온도 보정 × 가닥 감소, 단자 열 값 중 작은 쪽)에 숫자를 넣은 줄.
+  String? _awgIzLine(AwgSize s, AwgAmpacity a) {
+    final base = necAmpacity(s, _awgCol);
+    final kt = necTempFactor(_awgAmbC, _awgCol);
+    final kadj = necAdjustFactor(_awgCccN);
+    final lim = a.terminalLimit;
+    if (base == null || kt == null || a.corrected == null || lim == null) {
+      return null;
+    }
+    return '${s.label} 허용전류 IZ = min(${_colLabel(_awgCol)} 열 값 × 온도 보정 × 가닥 감소, '
+        '단자 ${_colLabel(a.terminal)} 열 값) = min($base × ${fmt(kt, 2)} × ${fmt(kadj, 2)}, $lim) '
+        '= min(${fmt(a.corrected!, 1)}, $lim) = ${fmt(a.iz!, 1)} A';
+  }
+
+  /// AWG 굵기 선정 풀이: ① 설계전류 → ② 허용전류 → ③ 허용전류 기준 굵기 → ④ 전압강하 → ⑤ 굵기 결정.
+  List<String> _awgSteps(AwgChoice c, double? len, double pf) {
+    final st = _Steps();
+    st.add(
+      c.ib != c.load
+          ? '설계전류 IB = 부하 전류 × 1.25 = ${fmt(c.load, 2)} × 1.25 = ${fmt(c.ib, 1)} A (NEC 430.22)'
+          : '설계전류 IB = 부하 전류 = ${fmt(c.load, 2)} A (여유 없음)',
+    );
+    final s = c.size;
+    final a = c.amp;
+    if (s != null && a != null) {
+      final z = _awgIzLine(s, a);
+      if (z != null) st.add(z);
+    }
+    if (c.byAmpacity != null) {
+      st.add(
+        '허용전류 기준 굵기: IZ ≥ IB ${fmt(c.ib, 1)} A를 만족하는 가장 가는 굵기 = ${c.byAmpacity!.label}',
+      );
+    }
+    if (c.dropChecked && c.dropV != null && s != null && len != null) {
+      st.add(
+        '전압강하 ${_dropSubLine(ph: _cph, currentText: fmt(c.load, 2), lengthM: len, r: s.r75, pf: pf, dv: c.dropV!)} '
+        '(R = ${s.label} 75°C 저항 Ω/km)',
+      );
+      st.add(_dropPctLine(c.dropV!, _cv, c.dropPct!));
+      st.add(_dropLimitLine(_supply, len, c.dropPct!));
+      if (c.byAmpacity != null && c.byDrop != null) {
+        st.add(
+          '굵기 결정: 허용전류 기준 ${c.byAmpacity!.label}, 전압강하 기준 ${c.byDrop!.label} 중 굵은 쪽 = ${s.label}',
+        );
+      }
+    }
+    return st.lines;
   }
 
   List<String> _awgAmpBasis(AwgSize s, AwgAmpacity a) {
@@ -389,6 +439,35 @@ extension _AwgTab on _ElectricCalculatorPageState {
     } else {
       lines.add('부하 전류를 넣으면 전압강하를 검토합니다.');
     }
+    final st = _Steps();
+    if (ib != null && load != null) {
+      st.add(
+        ib != load
+            ? '설계전류 IB = 부하 전류 × 1.25 = ${fmt(load, 2)} × 1.25 = ${fmt(ib, 1)} A (NEC 430.22)'
+            : '설계전류 IB = 부하 전류 = ${fmt(load, 2)} A (여유 없음)',
+      );
+    }
+    final izLine = _awgIzLine(s, a);
+    if (izLine != null) st.add(izLine);
+    if (iz != null && ib != null) {
+      st.add(
+        'IB ≤ IZ: ${fmt(ib, 1)} ≤ ${fmt(iz, 1)} → ${ib <= iz + 1e-9 ? '만족' : '불만족'}',
+      );
+    }
+    if (iz != null && br != null) {
+      st.add(
+        'In ≤ IZ: ${fmt(br)} ≤ ${fmt(iz, 1)} → ${br <= iz + 1e-9 ? '만족' : (_cableMotor ? '넘음(전동기 회로는 NEC 430조 표로 확인)' : '불만족')}',
+      );
+    }
+    if (dv != null && len != null && load != null) {
+      st.add(
+        '전압강하 ${_dropSubLine(ph: _cph, currentText: fmt(load, 2), lengthM: len, r: s.r75, pf: pf, dv: dv)} '
+        '(R = ${s.label} 75°C 저항 Ω/km)',
+      );
+      st.add(_dropPctLine(dv, _cv, pct!));
+      st.add(_dropLimitLine(_supply, len, pct));
+    }
+    lines.addAll(st.lines);
     lines.add(_sqEquivLine(s));
     final ul = _ul508aLine(s);
     if (ul != null) lines.add(ul);
@@ -461,6 +540,29 @@ extension _AwgTab on _ElectricCalculatorPageState {
       summary =
           '${fmt(pct, 2)}% · ${over ? '한도 ${fmt(limit, 2)}% 초과' : '한도 ${fmt(limit, 2)}% 이내'}';
     }
+    // 풀이: ① ΔU → ② 전압강하율 → ③ 한도 → ④ 최대 길이.
+    final st = _Steps();
+    if (dv != null && pct != null && len != null && i != null) {
+      st.add(
+        _dropSubLine(
+          ph: ph,
+          currentText: fmt(i, 2),
+          lengthM: len,
+          r: s.r75,
+          pf: pf,
+          dv: dv,
+        ),
+      );
+      st.add(_dropPctLine(dv, volts, pct));
+      st.add(_dropLimitLine(_supply, len, pct));
+      if (maxLen != null) {
+        final a =
+            awgVoltageDrop(current: i, lengthM: 1, size: s, phase: ph, pf: pf) /
+            volts *
+            100;
+        st.add(_maxLenLine(a, voltageDropLimit(_supply, 0), 0, maxLen));
+      }
+    }
     return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over, [
       _systemPicker('ec_vd'),
       _unitPicker('ec_vd'),
@@ -496,6 +598,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
                   : '한도 ${fmt(limit, 2)}% 이내입니다.',
             if (maxLen != null) '한도 이내 최대 편도 길이 약 ${fmt(maxLen, 0)} m',
             '${s.label} 저항 ${fmt(s.r75, 4)} Ω/km (75°C, NEC 9장 표 8)',
+            ...st.lines,
             if (_dc) '직류 제어·계장 회로는 기기 최소 동작 전압으로도 확인하십시오.',
             ...notes,
           ],

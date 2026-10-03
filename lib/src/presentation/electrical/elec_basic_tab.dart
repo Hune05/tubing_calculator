@@ -68,6 +68,22 @@ extension _BasicTab on _ElectricCalculatorPageState {
 
   // ─────────────── 옴의 법칙·전력 ───────────────
 
+  /// 넣은 두 값으로 나머지를 구한 식에 숫자를 넣은 줄.
+  List<String> _ohmSubLines(OhmResult r) {
+    final v = sig(r.v), i = sig(r.i), rr = sig(r.r), p = sig(r.p);
+    return switch (r.from.join()) {
+      'VI' => ['R = V ÷ I = $v ÷ $i = $rr Ω', 'P = V × I = $v × $i = $p W'],
+      'VR' => ['I = V ÷ R = $v ÷ $rr = $i A', 'P = V² ÷ R = $v² ÷ $rr = $p W'],
+      'VP' => ['I = P ÷ V = $p ÷ $v = $i A', 'R = V² ÷ P = $v² ÷ $p = $rr Ω'],
+      'IR' => ['V = I × R = $i × $rr = $v V', 'P = I² × R = $i² × $rr = $p W'],
+      'IP' => ['V = P ÷ I = $p ÷ $i = $v V', 'R = P ÷ I² = $p ÷ $i² = $rr Ω'],
+      _ => [
+        'I = √(P ÷ R) = √($p ÷ $rr) = $i A',
+        'V = √(P × R) = √($p × $rr) = $v V',
+      ],
+    };
+  }
+
   (List<Widget>, String?) _ohmSection() {
     final cs = [_ohmV, _ohmI, _ohmR, _ohmP];
     final negative = _neg(cs);
@@ -117,11 +133,12 @@ extension _BasicTab on _ElectricCalculatorPageState {
             big: out == null ? '—' : out.join(' · '),
             caption: r == null
                 ? 'V·I·R·P 중 두 값을 넣으십시오'
-                : '${names[r.from[0]]}·${names[r.from[1]]}로 계산',
+                : '${names[r.from[0]]}·${names[r.from[1]]} 두 값으로 계산',
             lines: [
               if (r != null) ...[
                 'V = ${sig(r.v)} V, I = ${sig(r.i)} A',
                 'R = ${sig(r.r)} Ω, P = ${p(r.p)}',
+                ..._ohmSubLines(r),
               ],
               if (filled > 2) '세 칸 이상 넣으면 V·I·R·P 순서로 앞의 두 값만 씁니다.',
               '식: V = I × R, P = V × I = I² × R = V² ÷ R',
@@ -217,6 +234,15 @@ extension _BasicTab on _ElectricCalculatorPageState {
                 '피상전력 S = ${sig(r.kva)} kVA',
                 if (_acFromKw) '전류 I = ${sig(r.amps)} A',
                 '역률 ${fmt(r.pf * 100)}% (위상각 ${fmt(r.angleDeg, 1)}°)',
+                if (_acFromKw) ...[
+                  'S = P ÷ cosφ = ${sig(r.kw)} ÷ ${fmt(pf, 2)} = ${sig(r.kva)} kVA',
+                  'Q = √(S² − P²) = √(${sig(r.kva)}² − ${sig(r.kw)}²) = ${sig(r.kvar)} kvar',
+                  'I = S × 1000 ÷ (${k}V) = ${sig(r.kva)} × 1000 ÷ ($k${fmt(v!)}) = ${sig(r.amps)} A',
+                ] else ...[
+                  'S = ${k}V × I ÷ 1000 = $k${fmt(v!)} × ${fmt(a!, 2)} ÷ 1000 = ${sig(r.kva)} kVA',
+                  'P = S × cosφ = ${sig(r.kva)} × ${fmt(pf, 2)} = ${sig(r.kw)} kW',
+                  'Q = √(S² − P²) = √(${sig(r.kva)}² − ${sig(r.kw)}²) = ${sig(r.kvar)} kvar',
+                ],
                 ...notes,
               ],
               _acFromKw
@@ -304,6 +330,18 @@ extension _BasicTab on _ElectricCalculatorPageState {
               if (r != null && r.lineV != null && r.lineI != null)
                 '피상전력 S = √3 × V선 × I선 = ${sig(math.sqrt(3) * r.lineV! * r.lineI! / 1000)} kVA',
               _ydStar ? '식: V선 = √3 × V상, I선 = I상' : '식: V선 = V상, I선 = √3 × I상',
+              if (r != null && v != null)
+                _ydStar
+                    ? (_ydFromLine
+                          ? 'V상 = V선 ÷ √3 = ${sig(v)} ÷ 1.732 = ${sig(r.phaseV!)} V'
+                          : 'V선 = √3 × V상 = 1.732 × ${sig(v)} = ${sig(r.lineV!)} V')
+                    : 'V선 = V상 = ${sig(v)} V (Δ 결선은 같습니다)',
+              if (r != null && i != null)
+                _ydStar
+                    ? 'I선 = I상 = ${sig(i)} A (Y 결선은 같습니다)'
+                    : (_ydFromLine
+                          ? 'I상 = I선 ÷ √3 = ${sig(i)} ÷ 1.732 = ${sig(r.phaseI!)} A'
+                          : 'I선 = √3 × I상 = 1.732 × ${sig(i)} = ${sig(r.lineI!)} A'),
               'Y-Δ 기동: Y로 기동하면 권선 전압이 1/√3이 되어 선전류와 토크가 Δ 직입 기동의 1/3입니다.',
             ],
           ),
@@ -373,8 +411,10 @@ extension _BasicTab on _ElectricCalculatorPageState {
             caption: kwh == null ? '전력(kW)을 넣으십시오' : '전력량',
             lines: [
               if (kwh != null) '하루 ${sig(kw! * h)} kWh × ${fmt(d)}일',
+              if (kwh != null)
+                '전력량 = kW × 하루 사용 시간 × 일수 = ${fmt(kw!, 2)} × ${fmt(h)} × ${fmt(d)} = ${sig(kwh)} kWh',
               if (cost != null)
-                '요금 약 ${fmt(cost, 0)}원 (단가 ${fmt(price!, 2)}원/kWh)',
+                '요금 약 ${fmt(cost, 0)}원 (= ${sig(kwh!)} kWh × 단가 ${fmt(price!, 2)}원/kWh)',
               if (cost != null)
                 '기본요금·계절·시간대별 요금·부가세 등은 들어 있지 않습니다. 계약 요금표로 확인하십시오.',
               ...notes,
@@ -467,6 +507,8 @@ extension _BasicTab on _ElectricCalculatorPageState {
                     '연선 전선은 이 표 값으로 계산하는 것이 안전합니다.',
               ...notes,
               '식: R = ρ20 × L ÷ A × (1 + α(θ − 20))',
+              if (r != null)
+                'R = ${fmt(rho20(_rsMetal), 6)} × ${fmt(l!, 2)} ÷ ${fmt(a!, 2)} × (1 + ${fmt(alpha20(_rsMetal), 5)} × (${fmt(t)} − 20)) = ${sig(r)} Ω',
             ],
           ),
         const SizedBox(height: 16),
@@ -482,6 +524,10 @@ extension _BasicTab on _ElectricCalculatorPageState {
           lines: [
             if (spReady) '병렬 합성 저항 ${sig(parallelResistance(rs))} Ω',
             '식: 직렬 R = R1 + R2 + R3, 병렬 1/R = 1/R1 + 1/R2 + 1/R3',
+            if (spReady)
+              '직렬 R = ${rs.map(sig).join(' + ')} = ${sig(seriesResistance(rs))} Ω',
+            if (spReady)
+              '병렬 R = 1 ÷ (${rs.map((x) => '1/${sig(x)}').join(' + ')}) = ${sig(parallelResistance(rs))} Ω',
           ],
         ),
       ],
@@ -543,6 +589,8 @@ extension _BasicTab on _ElectricCalculatorPageState {
             lines: [
               if (f != null) '각주파수 ω = ${sig(angularFreq(f))} rad/s',
               '식: T = 1 ÷ f, ω = 2π × f',
+              if (f != null)
+                'T = 1 ÷ ${fmt(f)} = ${sig(periodSec(f) * 1000)} ms, ω = 2π × ${fmt(f)} = ${sig(angularFreq(f))} rad/s',
             ],
           ),
         const SizedBox(height: 16),
@@ -569,11 +617,13 @@ extension _BasicTab on _ElectricCalculatorPageState {
                       : '주파수와 극수를 넣으십시오')
                 : '동기속도 ns ($poles극, ${fmt(f!)}Hz)',
             lines: [
+              if (ns != null)
+                'ns = 120 × f ÷ p = 120 × ${fmt(f!)} ÷ $poles = ${fmt(ns, 0)} rpm',
               if (ns != null && rpm != null)
-                '슬립 s = (ns − n) ÷ ns = ${fmt(slip(ns, rpm) * 100, 2)}%'
+                '슬립 s = (ns − n) ÷ ns = (${fmt(ns, 0)} − ${fmt(rpm, 0)}) ÷ ${fmt(ns, 0)} = ${fmt(slip(ns, rpm) * 100, 2)}%'
                     '${rpm > ns ? ' (동기속도보다 빠름: 유도 발전기 운전)' : ''}',
               if (polesOk && rpm != null)
-                '동기발전기라면 f = p × n ÷ 120 = ${sig(generatorHz(poles, rpm))} Hz',
+                '동기발전기라면 f = p × n ÷ 120 = $poles × ${fmt(rpm, 0)} ÷ 120 = ${sig(generatorHz(poles, rpm))} Hz',
               '60Hz 동기속도(rpm): ${speedTable(60)}',
               '50Hz 동기속도(rpm): ${speedTable(50)}',
               '50Hz 전동기를 60Hz로 쓰면 동기속도는 1.2배(60 ÷ 50)입니다. 토크·전류는 전압과 전압/주파수(V/f) 비에 따라 '
@@ -604,11 +654,11 @@ extension _BasicTab on _ElectricCalculatorPageState {
                             : 'L이나 C를 넣으십시오')),
             lines: [
               if (henry != null && f != null)
-                'XL = 2π × f × L = ${sig(inductiveReactance(f, henry))} Ω (${fmt(f)}Hz)',
+                'XL = 2π × f × L = 2π × ${fmt(f)} × ${sig(henry)} = ${sig(inductiveReactance(f, henry))} Ω (${fmt(f)}Hz, L ${sig(henry * 1000)} mH = ${sig(henry)} H)',
               if (farad != null && f != null)
-                'XC = 1 ÷ (2π × f × C) = ${sig(capacitiveReactance(f, farad))} Ω (${fmt(f)}Hz)',
+                'XC = 1 ÷ (2π × f × C) = 1 ÷ (2π × ${fmt(f)} × ${sig(farad)}) = ${sig(capacitiveReactance(f, farad))} Ω (${fmt(f)}Hz, C ${sig(farad * 1e6)} μF = ${sig(farad)} F)',
               if (henry != null && farad != null)
-                'f0 = 1 ÷ (2π × √(L × C)) = ${sig(resonanceHz(henry, farad))} Hz',
+                'f0 = 1 ÷ (2π × √(L × C)) = 1 ÷ (2π × √(${sig(henry)} × ${sig(farad)})) = ${sig(resonanceHz(henry, farad))} Hz',
               '식: XL = 2πfL, XC = 1 ÷ (2πfC), f0 = 1 ÷ (2π√(LC))',
             ],
           ),

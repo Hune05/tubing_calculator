@@ -258,9 +258,17 @@ class _ElecGroundTabState extends State<ElecGroundTab>
                   : '표와 단열 식 중 큰 값 (표준 규격)',
               warn: warn,
               lines: [
-                '표 142.3-1: 선도체 ${fmt(s!)} mm² → 보호도체 ${fmt(tableOnly, 1)} mm² (규격 ${fmt(tableStd)} mm²)',
+                '① 표 142.3-1: 선도체 ${fmt(s!)} mm² → 보호도체 ${fmt(tableOnly, 1)} mm² (규격 ${fmt(tableStd)} mm²)',
+                if (s <= 16)
+                  '표 규칙: 선도체 16 mm² 이하는 같은 단면적입니다. S = ${fmt(s)} mm²',
+                if (s > 16 && s <= 35)
+                  '표 규칙: 선도체 16 mm² 초과 35 mm² 이하는 16 mm²입니다.',
+                if (s > 35)
+                  '표 규칙: 선도체 35 mm² 초과는 S ÷ 2 = ${fmt(s)} ÷ 2 = ${fmt(tableOnly, 1)} mm²입니다.',
                 if (ad != null)
-                  '단열 식: √(${fmt(i!, 0)}² × ${fmt(t!, 2)}) ÷ k ${fmt(k, 0)} = ${fmt(ad, 1)} mm² (규격 ${_std(ad)}), 차단시간 5초 이하에만 적용',
+                  '② 단열 식: S = √(I² × t) ÷ k = √(${fmt(i!, 0)}² × ${fmt(t!, 2)}) ÷ ${fmt(k, 0)} = ${fmt(ad, 1)} mm² (규격 ${_std(ad)}), 차단시간 5초 이하에만 적용',
+                if (ad != null)
+                  '③ 필요 단면적 = 표 값과 단열 식 중 큰 값 = ${fmt(tableOnly, 1)}와 ${fmt(ad, 1)} 중 ${fmt(need, 1)} mm² → 규격 ${_std(need)}',
                 if (ad == null && (i != null || t != null))
                   '단열 식은 고장전류와 차단시간(5초 이하)을 모두 넣어야 계산합니다.',
                 '표 값은 선도체와 같은 재질일 때입니다. 재질이 다르면 (k₁/k₂)를 곱해 구합니다.',
@@ -510,9 +518,9 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               warn: warn,
               caption: n == 1 ? '접지봉 1본 접지저항 (근사)' : '접지봉 $n본 병렬 (근사)',
               lines: [
-                '1본: ρ/(2πl)·(ln(4l/r) − 1) = ${fmt(one, 1)} Ω',
+                '① 1본: ρ/(2πl)·(ln(4l/r) − 1) = ${fmt(rho!, 0)} ÷ (2π × ${fmt(l!)}) × (ln(4 × ${fmt(l)} ÷ ${fmt(d! / 2000, 4)}) − 1) = ${fmt(one, 1)} Ω (r = 지름 ${fmt(d)} mm ÷ 2 = ${fmt(d / 2000, 4)} m)',
                 if (n > 1)
-                  '$n본: ${sp > 10 ? "1.0" : "1.2"} × 1본 ÷ $n = ${fmt(many, 1)} Ω (집합계수 ${sp > 10 ? "1.0(간격 10 m 초과)" : "1.2(간격 1~10 m)"})',
+                  '② $n본: ${sp > 10 ? "1.0" : "1.2"} × 1본 ÷ $n = ${sp > 10 ? "1.0" : "1.2"} × ${fmt(one, 1)} ÷ $n = ${fmt(many, 1)} Ω (집합계수 ${sp > 10 ? "1.0(간격 10 m 초과)" : "1.2(간격 1~10 m)"})',
                 if (ok != null)
                   ok
                       ? '목표 ${fmt(target!, 1)} Ω 이내입니다.'
@@ -555,7 +563,9 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               caption: '보호등전위본딩 도체 최소 단면적 (구리)',
               lines: [
                 '가장 큰 보호도체의 1/2 이상, 구리 6 mm² 이상. 구리 25 mm²를 넘길 필요는 없습니다.',
-                '${fmt(pe!)} ÷ 2 = ${fmt(pe / 2, 1)} → 6 mm² 이상, 25 mm² 상한 적용 = ${fmt(b, 1)} mm²',
+                '① 보호도체 ÷ 2 = ${fmt(pe!)} ÷ 2 = ${fmt(pe / 2, 1)} mm²',
+                '② 6 mm² 이상: 큰 값 = max(6, ${fmt(pe / 2, 1)}) = ${fmt(pe / 2 < 6 ? 6 : pe / 2, 1)} mm²',
+                '③ 25 mm² 상한: 작은 값 = min(25, ${fmt(pe / 2 < 6 ? 6 : pe / 2, 1)}) = ${fmt(b, 1)} mm²',
                 '알루미늄은 16 mm², 강은 50 mm² 이상입니다.',
                 '수도관·가스관은 건물 인입 최초 밸브 뒤에서 본딩합니다.',
               ],
@@ -822,6 +832,15 @@ class _ElecGroundTabState extends State<ElecGroundTab>
           HvCircuit.over60Solid: '최대사용전압 × 0.72',
           HvCircuit.over170PlantSolid: '최대사용전압 × 0.64',
         };
+        const factors = {
+          HvCircuit.upTo7k: 1.5,
+          HvCircuit.multiGround7to25: 0.92,
+          HvCircuit.k7to60: 1.25,
+          HvCircuit.over60Ungrounded: 1.25,
+          HvCircuit.over60Grounded: 1.1,
+          HvCircuit.over60Solid: 0.72,
+          HvCircuit.over170PlantSolid: 0.64,
+        };
         out(t == null ? null : '절연내력 ${fmt(t, 2)} kV 10분', t == null && vm != null);
         children.addAll([
           elecChipGroup('전로 종류', 'KEC 표 132-1의 전로 구분입니다. 중성점 접지 방식과 최대사용전압으로 고릅니다.', [
@@ -847,9 +866,10 @@ class _ElecGroundTabState extends State<ElecGroundTab>
                 ? (vm == null ? '최대사용전압을 넣으면 계산합니다' : '이 전압은 고른 전로 종류의 범위를 벗어났습니다')
                 : '전로와 대지 사이 10분 (KEC 표 132-1)',
             lines: [
-              if (t != null) '${rules[_hvKind]} = ${fmt(t, 2)} kV',
               if (t != null)
-                '교류 케이블 전로는 직류 ${fmt(t * 2, 2)} kV(2배)로 10분 시험해도 됩니다.',
+                '${rules[_hvKind]} = ${fmt(vm!, 2)} × ${fmt(factors[_hvKind]!, 2)} = ${fmt(vm * factors[_hvKind]!, 2)} kV${(t - vm * factors[_hvKind]!).abs() > 1e-9 ? " → 최소값 적용 ${fmt(t, 2)} kV" : ""}',
+              if (t != null)
+                '교류 케이블 전로는 직류로 ${fmt(t, 2)} × 2 = ${fmt(t * 2, 2)} kV(2배)를 10분 가해 시험해도 됩니다.',
               '다심 케이블은 심선 상호 간과 심선-대지 사이에 가합니다.',
               'XLPE 등 고분자 케이블은 0.1 Hz 정현파로 상전압의 3배를 60분(정격 6~30 kV 케이블은 30분) 가해도 됩니다(132의 6).',
               '특고압 기기는 종류별 시험성적서 확인으로 대신할 수 있습니다(132의 5, 7 kV 이하 제외).',
@@ -876,10 +896,10 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             lines: [
               if (t != null)
                 vm! <= 7
-                    ? '최대사용전압 × 1.5 (500 V 미만이면 500 V) = ${volt(t)}'
-                    : '최대사용전압 × 1.25 (10.5 kV 미만이면 10.5 kV) = ${volt(t)}',
+                    ? '최대사용전압 × 1.5 (500 V 미만이면 500 V) = ${fmt(vm, 2)} × 1.5 = ${fmt(vm * 1.5, 3)} kV${vm * 1.5 < 0.5 ? " → 최소 500 V 적용" : ""} = ${volt(t)}'
+                    : '최대사용전압 × 1.25 (10.5 kV 미만이면 10.5 kV) = ${fmt(vm, 2)} × 1.25 = ${fmt(vm * 1.25, 3)} kV${vm * 1.25 < 10.5 ? " → 최소 10.5 kV 적용" : ""} = ${volt(t)}',
               if (t != null)
-                '회전변류기가 아닌 교류 회전기는 직류 ${volt(t * 1.6)}(1.6배)로 시험해도 됩니다.',
+                '회전변류기가 아닌 교류 회전기는 직류로 ${volt(t)} × 1.6 = ${volt(t * 1.6)}(1.6배)를 가해 시험해도 됩니다.',
               'KEC에는 전동기 절연저항(메거) 판정값이 없습니다. 메거 판정은 제조사 기준을 따르십시오.',
             ],
           ),

@@ -481,5 +481,28 @@ void main() {
       );
       expect(find.text('150 Ah'), findsOneWidget);
     });
+
+    testWidgets('풀이 줄: 구간 합 식과 대입, 보수율 나누기', (tester) async {
+      await pumpTab(tester);
+      await put(tester, 'eb_a_0', '50');
+      await put(tester, 'eb_m_0', '10');
+      await tester.tap(find.byKey(const Key('eb_add')));
+      await tester.pumpAndSettle();
+      await put(tester, 'eb_a_1', '20');
+      await put(tester, 'eb_m_1', '20');
+      await put(tester, 'eb_k_10', '0.5');
+      await put(tester, 'eb_k_20', '0.8');
+      await put(tester, 'eb_k_30', '1');
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('① 구간별 용량 = Σ (전류 변화 × K): 구간 1 25 Ah, 구간 2 26 Ah'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('② 구간 용량 최댓값: 구간 2 = 50 × 1 + (-30) × 0.8 = 26 Ah'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('③ 필요 용량 = 구간 최댓값 ÷ 보수율'), findsOneWidget);
+    });
   });
 }

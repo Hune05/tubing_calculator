@@ -83,11 +83,36 @@ void main() {
     expect(find.textContaining('1 m 미만이라 병렬 식을 쓸 수 없습니다'), findsOneWidget);
   });
 
+  testWidgets('접지 탭: 풀이 줄(표 규칙·필요 단면적·접지봉 대입·본딩 단계)', (tester) async {
+    await _open(tester, 'ec_tab_ground');
+    expect(find.textContaining('S ÷ 2 = 50 ÷ 2 = 25 mm²'), findsOneWidget);
+    await _type(tester, 'gr_fault', '10000');
+    expect(find.textContaining('③ 필요 단면적'), findsOneWidget);
+    expect(find.textContaining('중 61.5 mm² → 규격 70 mm²'), findsOneWidget);
+    await _tap(tester, 'gr_mode_rod');
+    expect(
+      find.textContaining('= 100 ÷ (2π × 2.4) × (ln(4 × 2.4 ÷ 0.0071) − 1) = 41.2 Ω'),
+      findsOneWidget,
+    );
+    await _type(tester, 'gr_n', '4');
+    expect(find.textContaining('1.2 × 1본 ÷ 4 = 1.2 × 41.2 ÷ 4 = 12.4 Ω'), findsOneWidget);
+    await _tap(tester, 'gr_mode_bonding');
+    expect(find.textContaining('① 보호도체 ÷ 2 = 16 ÷ 2 = 8 mm²'), findsOneWidget);
+    expect(find.textContaining('③ 25 mm² 상한: 작은 값 = min(25, 8) = 8 mm²'), findsOneWidget);
+  });
+
+  testWidgets('접지 탭: 고압 내력 계산식 대입', (tester) async {
+    await _open(tester, 'ec_tab_ground');
+    await _tap(tester, 'gr_mode_insulation');
+    await _tap(tester, 'gr_ins_hv');
+    expect(find.textContaining('= 6.9 × 1.5 = 10.35 kV'), findsOneWidget);
+  });
+
   testWidgets('전동기 보호 탭: 직입 설정 = 정격, Y-Δ 델타 안 = 0.58배', (tester) async {
     await _open(tester, 'ec_tab_motor');
     expect(find.text('40 A'), findsOneWidget);
     expect(
-      find.textContaining('NEC 430.32 상한: 50 A (FLA × 125%)'),
+      find.textContaining('NEC 430.32 상한 = FLA × 125% = 40 × 1.25 = 50 A'),
       findsOneWidget,
     );
     await _tap(tester, 'emp_yd');
@@ -95,13 +120,14 @@ void main() {
     await _tap(tester, 'emp_line');
     expect(find.text('40 A'), findsOneWidget);
     await _tap(tester, 'emp_sf_n');
-    expect(find.textContaining('46 A (FLA × 115%)'), findsOneWidget);
+    expect(find.textContaining('FLA × 115% = 40 × 1.15 = 46 A'), findsOneWidget);
   });
 
   testWidgets('전동기 보호 탭: EOCR 범위, 트립 클래스, 단락 상한', (tester) async {
     await _open(tester, 'ec_tab_motor');
     await _type(tester, 'emp_run', '30');
     expect(find.textContaining('33 ~ 37.5 A'), findsOneWidget);
+    expect(find.textContaining('= 30 × 1.10 ~ 30 × 1.25 = 33 ~ 37.5 A'), findsOneWidget);
     // 기동시간 6초: 클래스 10(상한 10초) 안
     expect(find.textContaining('기동시간 6초는 클래스 10 상한 10초 이내입니다'), findsOneWidget);
     await _type(tester, 'emp_start', '12');
@@ -109,7 +135,7 @@ void main() {
     await _tap(tester, 'emp_cls_20');
     expect(find.textContaining('기동시간 12초는 클래스 20 상한 20초 이내입니다'), findsOneWidget);
     // 단락 상한: 40 A × 250% = 100 A
-    expect(find.textContaining('반한시 차단기: 최대 100 A'), findsOneWidget);
-    expect(find.textContaining('FLC × 125% = 50 A'), findsOneWidget);
+    expect(find.textContaining('반한시 차단기 최대 = FLC × 250% = 40 × 2.5 = 100 A'), findsOneWidget);
+    expect(find.textContaining('FLC × 125% = 40 × 1.25 = 50 A'), findsOneWidget);
   });
 }

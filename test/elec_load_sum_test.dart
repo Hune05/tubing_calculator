@@ -483,6 +483,8 @@ void main() {
                 w is TextField &&
                 w.key is ValueKey<String> &&
                 (w.key as ValueKey<String>).value.startsWith('els_kw_'),
+            // 결과 상자가 길어져 첫 줄이 화면 밖으로 밀려도 찾는다.
+            skipOffstage: false,
           ),
         )
         .first
@@ -518,7 +520,7 @@ void main() {
       expect(sum(tester), '최대수요 80 kW · 필요 88.9 kVA');
       expect(find.text('88.9 kVA'), findsOneWidget);
       expect(
-        find.textContaining('2차 정격전류 135.1 A (380 V, 3상)'),
+        find.textContaining('(√3 × 380 V) = 135.1 A (3상)'),
         findsOneWidget,
       );
 
@@ -616,7 +618,66 @@ void main() {
       expect(find.textContaining('선정 용량이 필요 용량보다 작습니다'), findsOneWidget);
       await tester.tap(find.byKey(const Key('els_v_440')));
       await tester.pump();
-      expect(find.textContaining('(440 V, 3상)'), findsOneWidget);
+      expect(find.textContaining('(√3 × 440 V)'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    // 풀이 줄: 100 kW × 80% = 80 kW, Q = 80 × tan(acos 0.9) = 38.7 kvar, S = 88.9 kVA,
+    // 필요 = 88.9 ÷ 1.25 × 1.1 = 78.2 kVA, 전류 = 78.2 × 1000 ÷ (√3 × 380) = 118.8 A, 부하율 = 78.2 ÷ 100 = 78.2%.
+    testWidgets('결과 상자에 ①~⑤ 단계 풀이가 식과 숫자로 나온다', (tester) async {
+      await pumpTab(tester);
+      await type(tester, 'els_name_0', '모터');
+      await type(tester, 'els_kw_0', '100');
+      await type(tester, 'els_pf_0', '90');
+      await type(tester, 'els_df_0', '80');
+      await type(tester, 'els_diversity', '1.25');
+      await type(tester, 'els_margin', '10');
+      await type(tester, 'els_selected', '100');
+      expect(
+        find.textContaining(
+          '1번 모터: P = 100 × 80% = 80 kW, Q = 80 × tan(acos 0.9) = 38.7 kvar',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('S = √(ΣP² + ΣQ²) = √(80² + 38.7²) = 88.9 kVA'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('종합 역률 = ΣP ÷ S = 80 ÷ 88.9 = 90%'), findsOneWidget);
+      expect(
+        find.textContaining(
+          '③ 필요 용량 = S ÷ 부등률 × (1 + 여유) = 88.9 ÷ 1.25 × (1 + 10%) = 78.2 kVA',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('78.2 × 1000 ÷ (√3 × 380 V) = 118.8 A (3상)'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('⑤ 부하율 = 필요 용량 ÷ 선정 용량 × 100 = 78.2 ÷ 100 × 100 = 78.2%: 합격'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('여유를 뺀 부하율 = S ÷ 부등률 ÷ 선정 용량 × 100 = 88.9 ÷ 1.25 ÷ 100 × 100 = 71.1%'),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(seconds: 1));
+    });
+
+    testWidgets('부하 줄이 9개 이상이면 8줄까지만 풀고 나머지를 알린다', (tester) async {
+      await pumpTab(tester);
+      await type(tester, 'els_def_pf', '90');
+      await type(tester, 'els_def_df', '80');
+      for (var i = 0; i < 10; i++) {
+        if (i >= 3) {
+          await tester.ensureVisible(find.byKey(const Key('els_add')));
+          await tester.tap(find.byKey(const Key('els_add')));
+          await tester.pump();
+        }
+        await type(tester, 'els_kw_$i', '10');
+      }
+      expect(find.textContaining('나머지 2줄도 같은 식으로 합계에 들어갔습니다.'), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
     });
 

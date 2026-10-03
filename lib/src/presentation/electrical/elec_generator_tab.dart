@@ -222,22 +222,29 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         caption: '필요 발전기 용량 (${r.governing} 기준)',
         warn: fail,
         lines: [
-          'PG1 정상 운전: ${fmt(r.pg1!, 1)} kVA = ${fmt(input.loadKw!, 1)} × '
+          '① PG1 정상 운전: ${fmt(r.pg1!, 1)} kVA = ${fmt(input.loadKw!, 1)} × '
               '${fmt(input.demand!, 2)} ÷ (${fmt(input.eff!, 2)} × ${fmt(input.pf!, 2)})',
           if (r.pg2 != null)
-            'PG2 전동기 기동 전압강하: ${fmt(r.pg2!, 1)} kVA = ${fmt(input.motorKw!, 1)} × '
+            '② PG2 전동기 기동 전압강하: ${fmt(r.pg2!, 1)} kVA = ${fmt(input.motorKw!, 1)} × '
                 '${fmt(input.beta!, 2)} × ${fmt(input.startC!, 2)} × ${fmt(input.xdPct! / 100, 3)} '
                 '× (1 − ${fmt(input.dvPct! / 100, 3)}) ÷ ${fmt(input.dvPct! / 100, 3)}',
           if (r.pg3 != null)
-            'PG3 마지막 전동기 기동: ${fmt(r.pg3!, 1)} kVA = [(${fmt(input.loadKw!, 1)} − '
+            '③ PG3 마지막 전동기 기동: ${fmt(r.pg3!, 1)} kVA = [(${fmt(input.loadKw!, 1)} − '
                 '${fmt(input.motorKw!, 1)}) ÷ ${fmt(input.eff!, 2)} + ${fmt(input.motorKw!, 1)} × '
                 '${fmt(input.beta!, 2)} × ${fmt(input.startC!, 2)} × ${fmt(input.startPf!, 2)}] '
                 '÷ ${fmt(input.genPf!, 2)}',
           if (r.pg4 != null)
-            'PG4 고조파 가산: ${fmt(r.pg4!, 1)} kVA = PG1 + ${fmt(input.harmonicKva!, 1)} × '
+            '④ PG4 고조파 가산: ${fmt(r.pg4!, 1)} kVA = PG1 + ${fmt(input.harmonicKva!, 1)} × '
+                '${fmt(input.harmonicFactor!, 2)} = ${fmt(r.pg1!, 1)} + ${fmt(input.harmonicKva!, 1)} × '
                 '${fmt(input.harmonicFactor!, 2)}',
+          '⑤ 가장 큰 값을 필요 용량으로 합니다: max(${[
+            'PG1 ${fmt(r.pg1!, 1)}',
+            if (r.pg2 != null) 'PG2 ${fmt(r.pg2!, 1)}',
+            if (r.pg3 != null) 'PG3 ${fmt(r.pg3!, 1)}',
+            if (r.pg4 != null) 'PG4 ${fmt(r.pg4!, 1)}',
+          ].join(', ')}) = ${fmt(req, 1)} kVA (${r.governing})',
           if (r.currentA != null)
-            '정격전류: ${fmt(r.currentA!, 0)} A (${fmt(req, 1)} kVA, 3상 ${fmt(input.volts!, 0)} V)',
+            '정격전류: ${fmt(r.currentA!, 0)} A = ${fmt(req, 1)} kVA × 1000 ÷ (√3 × ${fmt(input.volts!, 0)} V)',
           if (r.chosenPass != null)
             r.chosenPass!
                 ? '선정 ${fmt(input.chosenKva!, 0)} kVA: 합격 (여유 ${fmt(r.chosenMarginPct!, 1)}%)'

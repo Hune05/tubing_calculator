@@ -41,8 +41,10 @@ extension _BusbarTab on _ElectricCalculatorPageState {
         warn: warn,
         lines: [
           if (amps != null)
-            '전류 밀도 ${fmt(k.density!, 2)} A/mm² (단면적 ${fmt(_busRow.area)} mm²'
-                '${_busBars > 1 ? ' × $_busBars' : ''})',
+            '전류 밀도 ${fmt(k.density!, 2)} A/mm² = 허용전류 $amps A ÷ '
+                '${_busBars > 1 ? '(단면적 ${fmt(_busRow.area)} mm² × $_busBars가닥)' : '단면적 ${fmt(_busRow.area)} mm²'}',
+          if (amps != null && need != null && margin > 0)
+            '선정 전류 = 부하 전류 × (1 + 여유 ÷ 100) = ${fmt(load!, 1)} × (1 + ${fmt(margin)} ÷ 100) = ${fmt(need, 1)} A',
           if (k.cell == BusbarCell.notInTable)
             'DIN 43671 표에 이 가닥 수 값이 없습니다. 가닥 수를 줄이거나 규격을 바꾸십시오.',
           if (k.cell == BusbarCell.notVerified)

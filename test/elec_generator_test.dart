@@ -269,5 +269,32 @@ void main() {
         '123',
       );
     });
+
+    testWidgets('풀이 줄: PG별 식과 대입, 가장 큰 값 고르기, 정격전류 식', (tester) async {
+      await pumpTab(tester);
+      Future<void> put(String k, String v) async =>
+          tester.enterText(find.byKey(Key(k)), v);
+      await put('eg_load', '80');
+      await put('eg_motor', '75');
+      await put('eg_beta', '7.2');
+      await tester.tap(find.byKey(const Key('eg_start_reactor65')));
+      await tester.pump();
+      await put('eg_xd', '25');
+      await put('eg_dv', '20');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('① PG1 정상 운전'), findsOneWidget);
+      expect(
+        find.textContaining('② PG2 전동기 기동 전압강하: 351 kVA = 75 × 7.2 × 0.65 × 0.25 × (1 − 0.2) ÷ 0.2'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('⑤ 가장 큰 값을 필요 용량으로 합니다: max(PG1 117.6, PG2 351) = 351 kVA (PG2)'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('정격전류: 533 A = 351 kVA × 1000 ÷ (√3 × 380 V)'),
+        findsOneWidget,
+      );
+    });
   });
 }

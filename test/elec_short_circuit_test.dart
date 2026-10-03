@@ -489,9 +489,15 @@ void main() {
     }
 
     String textOf(WidgetTester tester, String key) {
-      final f = find.byKey(Key(key));
+      final f = find.byKey(Key(key), skipOffstage: false);
       return tester
-          .widgetList<Text>(find.descendant(of: f, matching: find.byType(Text)))
+          .widgetList<Text>(
+            find.descendant(
+              of: f,
+              matching: find.byType(Text),
+              skipOffstage: false,
+            ),
+          )
           .map((t) => t.data ?? '')
           .join('\n');
     }
@@ -518,7 +524,7 @@ void main() {
       expect(t, contains('30.04 kA'));
       expect(t, contains('27.62 kA'));
       expect(t, contains('c = 1.05'));
-      expect(t, contains('피크 전류 ip = 84.96 kA'));
+      expect(t, contains('= 84.96 kA (κ = 1.02 + 0.98·e^(−3R/X), R/X = 0)'));
       final sum = tester.widget<Text>(
         find.descendant(
           of: find.byKey(const Key('ec_sc_sum')),
@@ -526,9 +532,112 @@ void main() {
         ),
       );
       expect(sum.data, contains('30.04'));
+      // 결과 상자가 길어져 아래 상자는 목록을 내려야 그려진다.
+      await reveal(tester, find.byKey(const Key('ec_sc_min_result')));
       final min = textOf(tester, 'ec_sc_min_result');
       expect(min, contains('지락(1선) 단락은 포함하지 않음'));
       expect(textOf(tester, 'ec_sc_notes'), contains('무한 전원'));
+      await finish(tester);
+    });
+
+    // 예 A(무한 전원, 케이블 없음): ZT = 5.5 ÷ 100 × 380² ÷ (1000 × 1000) = 7.94 mΩ, KT = 0.966.
+    //  X = 7.942 × 0.96563 = 7.67 mΩ, R = 0, Z = 7.67 mΩ → Ik″ = 1.05 × 380 ÷ (√3 × 7.67 mΩ) = 30.04 kA.
+    testWidgets('최대 단락 풀이가 ①~⑤ 단계 번호와 식·숫자로 나온다 (예 A)', (tester) async {
+      await pumpTab(tester);
+      await enter(tester, 'ec_sc_kva', '1000');
+      await enter(tester, 'ec_sc_volts', '380');
+      await enter(tester, 'ec_sc_z', '5.5');
+      final t = textOf(tester, 'ec_sc_result');
+      expect(t, contains('① 전원: 상위 계통 단락용량을 넣지 않아 무한 전원'));
+      expect(
+        t,
+        contains(
+          '② 변압기: ZT = %Z ÷ 100 × U² ÷ S = 5.5 ÷ 100 × 380² ÷ (1000 × 1000) = 7.94 mΩ.',
+        ),
+      );
+      expect(t, contains('KT = 0.95 × cmax ÷ (1 + 0.6 × xT) = 0.95 × 1.05 ÷ (1 + 0.6 × 0.055) = 0.966'));
+      expect(t, contains('③ 케이블 구간 없음'));
+      expect(t, contains('④ 합계: R = 0 + 0 + 0 = 0 mΩ, X = 0 + 7.67 + 0 = 7.67 mΩ.'));
+      expect(
+        t,
+        contains(
+          '⑤ Ik″ = c × Un ÷ (√3 × Z) = 1.05 × 380 ÷ (√3 × 7.67 mΩ) = 30.04 kA.',
+        ),
+      );
+      await finish(tester);
+    });
+
+    // 화면에서 다시 구한 임피던스가 계산 함수의 결과와 같은지: 부하손·상위 계통·케이블·전동기를 모두 넣는다.
+    testWidgets('풀이의 kA가 계산 함수의 결과와 같다 (부하손·계통·케이블·전동기)', (tester) async {
+      final calc = calcShortCircuit(
+        const ScInput(
+          kva: 1000,
+          volts: 380,
+          zPercent: 5.5,
+          pcuKw: 10,
+          upstreamMvaMax: 500,
+          motorKw: 200,
+          motorEffPf: 0.8,
+          motorMultiple: 5,
+          segments: [ScSegment(sizeMm2: 50, lengthM: 30, parallel: 2)],
+        ),
+      );
+      // 화면은 끝의 0을 떼어 적는다(16.70 → 16.7).
+      String ka(double a) => (a / 1000)
+          .toStringAsFixed(2)
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), '');
+      await pumpTab(tester);
+      await enter(tester, 'ec_sc_kva', '1000');
+      await enter(tester, 'ec_sc_volts', '380');
+      await enter(tester, 'ec_sc_z', '5.5');
+      await enter(tester, 'ec_sc_pcu', '10');
+      await enter(tester, 'ec_sc_up_max', '500');
+      await enter(tester, 'ec_sc_mkw', '200');
+      await enter(tester, 'ec_sc_meff', '0.8');
+      await enter(tester, 'ec_sc_mmult', '5');
+      await reveal(tester, find.byKey(const Key('ec_sc_add')));
+      await tester.tap(find.byKey(const Key('ec_sc_add')));
+      await tester.pump();
+      await enter(tester, 'ec_sc_seg_0_len', '30');
+      await reveal(tester, find.byKey(const Key('ec_sc_seg_0_p2')));
+      await tester.tap(find.byKey(const Key('ec_sc_seg_0_p2')));
+      await tester.pump();
+      final t = textOf(tester, 'ec_sc_result');
+      expect(t, contains('① 전원: Zq = c × U² ÷ S″k = 1.05 × 380² ÷ (500 × 10⁶) = 0.303 mΩ.'));
+      expect(t, contains('RT = 부하손 ÷ 용량 × U² ÷ S = 10 ÷ 1000 × 144.4 mΩ = 1.44 mΩ.'));
+      expect(t, contains('구간 1 (50 mm², 30 m, 2가닥): R = 0.387 × 30 ÷ 1000 ÷ 2 = 5.8 mΩ'));
+      expect(t, contains('⑤ Ik″ = c × Un ÷ (√3 × Z)'));
+      expect(t, contains('= ${ka(calc.ikNetA)} kA(변압기·계통분).'));
+      expect(t, contains('⑥ 전동기 기여: 정격전류 IrM'));
+      expect(t, contains('= ${ka(calc.ikMotorA)} kA. 합계 Ik″ = ${ka(calc.ikNetA)} + ${ka(calc.ikMotorA)} = ${ka(calc.ikMaxA)} kA.'));
+      expect(t, contains('= ${ka(calc.ipA)} kA (R/X ='));
+      await reveal(tester, find.byKey(const Key('ec_sc_min_result')));
+      final min = textOf(tester, 'ec_sc_min_result');
+      expect(min, contains('② 3상 최소 = c × Un ÷ (√3 × Z)'));
+      expect(min, contains('= ${ka(calc.ikMin3A)} kA.'));
+      expect(min, contains('③ 2상 최소 = 3상 × √3 ÷ 2 = ${ka(calc.ikMin3A)} × 0.866 = ${ka(calc.ikMin2A)} kA.'));
+      await finish(tester);
+    });
+
+    testWidgets('케이블 열 견딤 풀이: ② 최소 굵기 ③ 허용 시간 ④ 허용 통과 에너지', (tester) async {
+      await pumpTab(tester);
+      await enter(tester, 'ec_sc_kva', '1000');
+      await enter(tester, 'ec_sc_volts', '380');
+      await enter(tester, 'ec_sc_z', '5.5');
+      await reveal(tester, find.byKey(const Key('ec_sc_add')));
+      await tester.tap(find.byKey(const Key('ec_sc_add')));
+      await tester.pump();
+      await enter(tester, 'ec_sc_seg_0_len', '50');
+      await enter(tester, 'ec_sc_t', '1');
+      await enter(tester, 'ec_sc_ik_manual', '10');
+      await enter(tester, 'ec_sc_i2t', '5000000');
+      final c = textOf(tester, 'ec_sc_cable_result');
+      // 직접 입력 10 kA = 10000 A, PVC k = 115, 50 mm²: S = 10000 × √1 ÷ 115 = 87 mm², t = (115 × 50 ÷ 10000)² = 0.331초.
+      expect(c, contains('② 필요한 최소 굵기 S = Ik × √t ÷ k = 10000 A × √1 ÷ 115 = 87 mm²'));
+      expect(c, contains('③ 이 전류에서 허용 최대 시간 t = (k × S ÷ Ik)² = (115 × 50 ÷ 10000)² = 0.331초.'));
+      // 허용 = 1² × 115² × 50² = 33,062,500 A²s. 5,000,000 이하라 통과.
+      expect(c, contains('④ 허용 통과 에너지 = (병렬 수)² × k² × S² = 1² × 115² × 50² = 33062500 A²s.'));
       await finish(tester);
     });
 

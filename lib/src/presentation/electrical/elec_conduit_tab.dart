@@ -234,6 +234,35 @@ extension _ConduitTab on _ElectricCalculatorPageState {
     );
   }
 
+  /// 점유율 풀이: ① 전선 단면적 → ② 관 내 단면적 → ③ 점유율 → ④ 한도로 필요한 관 내 단면적.
+  List<String> _cdSteps(
+    List<ConduitWire> wires,
+    ConduitSpec spec,
+    double limitPct,
+    double area,
+    double pct,
+  ) {
+    final st = _Steps();
+    final terms = [
+      for (final w in wires)
+        'π ÷ 4 × ${fmt(cableOd(w.kind, w.size)!)}² × ${w.count}',
+    ];
+    st.add(
+      '전선 단면적 합 = π ÷ 4 × 외경² × 가닥 수 = ${terms.join(' + ')} = ${fmt(area, 1)} mm²',
+    );
+    st.add(
+      '관 내 단면적 = π ÷ 4 × 내경² = π ÷ 4 × ${fmt(spec.id, 1)}² = ${fmt(conduitArea(spec.id), 1)} mm²',
+    );
+    st.add(
+      '점유율 = 전선 단면적 합 ÷ 관 내 단면적 × 100 = ${fmt(area, 1)} ÷ ${fmt(conduitArea(spec.id), 1)} × 100 = ${fmt(pct, 1)} %',
+    );
+    st.add(
+      '한도 ${fmt(limitPct)} %를 지키려면 관 내 단면적 ≥ ${fmt(area, 1)} ÷ (${fmt(limitPct)} ÷ 100) = ${fmt(area / (limitPct / 100), 1)} mm². '
+      '이 값 이상인 가장 작은 호칭이 최소 전선관입니다.',
+    );
+    return st.lines;
+  }
+
   Widget _conduitTab() {
     final wires = _cdWires();
     final negative = wires == null;
@@ -275,6 +304,7 @@ extension _ConduitTab on _ElectricCalculatorPageState {
               : '한도 ${fmt(limit.pct)}% 이내입니다.',
           limit.reason,
           '전선 단면적 합 ${fmt(area, 1)} mm² (외경 기준), 관 내 단면적 ${fmt(conduitArea(spec.id), 1)} mm²',
+          ..._cdSteps(wires, spec, limit.pct, area, pct),
           ...limit.notes,
         ],
       );

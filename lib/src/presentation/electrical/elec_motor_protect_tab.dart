@@ -167,18 +167,18 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
           lines: [
             if (_method == StartMethod.starDelta &&
                 _place == RelayPlace.insideDelta)
-              '${fmt(fla, 1)} A ÷ √3 = ${fmt(thr, 2)} A. 정격전류의 0.58배보다 높게 맞추지 마십시오(Siemens 설명서).'
+              '① 설정 = FLA ÷ √3 = ${fmt(fla, 1)} ÷ 1.732 = ${fmt(thr, 2)} A. 정격전류의 0.58배보다 높게 맞추지 마십시오(Siemens 설명서).'
             else
-              '설정 = 명판 정격전류 ${fmt(fla, 1)} A. 설정값은 트립 전류가 아니라 정격전류이고, 설정전류의 1.05배에서는 동작하지 않고 1.2배에서 동작합니다(IEC).',
-            'NEC 430.32 상한: ${fmt(necMax, 1)} A (FLA × ${_sf ? "125" : "115"}%). 기동이 안 되어 설정을 올릴 때도 이 값을 초과하면 안 됩니다.',
+              '① 설정 = 명판 정격전류 ${fmt(fla, 1)} A. 설정값은 트립 전류가 아니라 정격전류이고, 설정전류의 1.05배에서는 동작하지 않고 1.2배에서 동작합니다(IEC).',
+            '② NEC 430.32 상한 = FLA × ${_sf ? "125" : "115"}% = ${fmt(fla, 1)} × ${_sf ? "1.25" : "1.15"} = ${fmt(necMax, 1)} A. 기동이 안 되어 설정을 올릴 때도 이 값을 초과하면 안 됩니다.',
             if (run != null && run > 0) ...[
               () {
                 final (lo, hi) = eocrRange(run);
-                return '전자식(EOCR) 부하 설정: 운전전류 ${fmt(run, 1)} A의 110~125% = ${fmt(lo, 1)} ~ ${fmt(hi, 1)} A(삼화 매뉴얼). 다른 자료는 정격전류의 125~150%라 기준이 다르니 제조사 설명서를 따르십시오.';
+                return '③ 전자식(EOCR) 부하 설정 = 운전전류 × 110~125% = ${fmt(run, 1)} × 1.10 ~ ${fmt(run, 1)} × 1.25 = ${fmt(lo, 1)} ~ ${fmt(hi, 1)} A(삼화 매뉴얼). 다른 자료는 정격전류의 125~150%라 기준이 다르니 제조사 설명서를 따르십시오.';
               }(),
               'EOCR 기동지연(D-TIME)은 실측 기동시간 + 1초 정도, 과전류 지연(O-TIME)은 보통 4~6초입니다.',
             ],
-            '트립 클래스 $_cls: 7.2배 설정전류에서 ${fmt(cLo, 0)}~${fmt(cHi, 0)}초에 동작합니다.',
+            '${run != null && run > 0 ? "④" : "③"} 트립 클래스 $_cls: 설정전류 7.2배에서 ${fmt(cLo, 0)}~${fmt(cHi, 0)}초에 동작합니다.',
             if (may == true)
               '기동시간 ${fmt(startS!, 1)}초가 클래스 $_cls 상한 ${fmt(cHi, 0)}초 이상이라 기동 중 트립될 수 있습니다. 더 큰 클래스를 쓰거나 기동 방식을 바꾸십시오.'
             else if (may == false)
@@ -194,9 +194,9 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
           caption: 'FLC ${fmt(flc, 1)} A 기준(NEC 표 430.250 값을 쓰는 것이 원칙)',
           lines: [
             for (final e in kNecShortCircuitPct.entries)
-              'NEC 430.52 ${e.key}: 최대 ${fmt(necShortCircuitMax(flc, e.key), 1)} A (FLC × ${fmt(e.value, 0)}%)',
+              'NEC 430.52 ${e.key} 최대 = FLC × ${fmt(e.value, 0)}% = ${fmt(flc, 1)} × ${fmt(e.value / 100, 2)} = ${fmt(necShortCircuitMax(flc, e.key), 1)} A',
             '이 정격은 단락·지락 보호용이고 과부하 보호가 아닙니다. 규격 정격에 안 맞으면 다음 큰 규격을 쓸 수 있고, 기동이 안 되면 더 올릴 수 있습니다. 전동기 회로 차단기 범위는 "전선 굵기" 탭에서 계산합니다.',
-            '전선 허용전류 하한: FLC × 125% = ${fmt(motorConductorMin(flc), 1)} A (전동기 1대 연속운전).',
+            '전선 허용전류 하한 = FLC × 125% = ${fmt(flc, 1)} × 1.25 = ${fmt(motorConductorMin(flc), 1)} A (전동기 1대 연속운전).',
           ],
         ),
       );
