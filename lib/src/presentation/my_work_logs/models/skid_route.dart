@@ -504,3 +504,35 @@ class SkidOverlayPainter extends CustomPainter {
   bool shouldRepaint(covariant SkidOverlayPainter old) =>
       old.version != version || old.markScale != markScale;
 }
+
+/// 형강(단면 부재)인가. 형강 위에는 다른 부품을 얹을 수 있다.
+bool skidIsSteel(String? shape) =>
+    shape == SkidShape.beam ||
+    shape == SkidShape.channel ||
+    shape == SkidShape.angle ||
+    shape == SkidShape.square ||
+    shape == SkidShape.strut;
+
+/// 형강 위로 올린 부품이 앉을 "바닥에서 높이(가운데까지)". 부품 가운데가 형강 칸 안에 있으면
+/// 그 형강 윗면 + 부품 높이의 반이다. 형강이 여럿 겹치면 가장 높은 윗면에 앉는다.
+/// 형강 위가 아니거나(부품 가운데가 어느 형강 칸에도 없음) 형강 자신이면 null(높이를 건드리지 않는다).
+double? skidRestElevation(PlacedItem item, List<PlacedItem> plan) {
+  if (!SkidShape.isSkid(item.shape) || skidIsSteel(item.shape)) return null;
+  final double cx = item.position.dx + item.width / 2;
+  final double cy = item.position.dy + item.height / 2;
+  double? top;
+  for (final o in plan) {
+    if (o.id == item.id || !skidIsSteel(o.shape)) continue;
+    if (cx < o.position.dx ||
+        cx > o.position.dx + o.width ||
+        cy < o.position.dy ||
+        cy > o.position.dy + o.height) {
+      continue;
+    }
+    final double v = skidVerticalSize(o);
+    final double t = (o.elevation ?? v / 2) + v / 2;
+    if (top == null || t > top) top = t;
+  }
+  if (top == null) return null;
+  return top + skidVerticalSize(item) / 2;
+}

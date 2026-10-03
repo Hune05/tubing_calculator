@@ -3461,6 +3461,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         rotation: 0,
       );
       _snapToRail(newItem);
+      _snapToSteel(newItem, plan: _placedItems);
 
       _placedItems.add(newItem);
       _activeItem = newItem;
@@ -7146,6 +7147,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                             if (_groupDragOrigins.isEmpty) {
                                               _snapToRail(item);
                                             }
+                                            // 스키드: 형강 위로 올렸으면 바닥에서 높이를 형강 윗면에 맞춘다.
+                                            if (_groupDragOrigins.isEmpty) {
+                                              _snapToSteel(item);
+                                            }
                                             // 넓은 화면에서는 오른쪽 칸이 이 모듈을 계속 보여 주도록 선택을 남긴다.
                                             if (!wide) _activeItem = null;
                                             _alignGuideX = null;
@@ -9780,9 +9785,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   ) => _showPresetSheet(
     title: title,
     help: groups == kSkidFittingPresets
-        ? "삼화기전 F-7 곤질레다와 커플링·유니온 커플링입니다. 삼화는 치수를 공개하지 않아 곤질레다는 같은 모양인 국산(JK) 표, 커플링은 KS 표, 유니온은 국산(대승) 표 값입니다. 위에서 본 길이×폭(mm)으로 놓이고, 높이는 정면에서 끌어 맞추거나 편집 칸에 넣으십시오."
+        ? "삼화기전 F-7 곤질레다와 커플링·유니온 커플링입니다. 삼화는 치수를 공개하지 않아 곤질레다는 같은 모양인 국산(JK) 표, 커플링은 KS 표, 유니온은 국산(대승) 표 값입니다. 위에서 본 길이×폭(mm)으로 놓이고, 높이는 정면에서 끌어 맞추거나 편집 칸에 넣으십시오. 형강 위로 올려 놓으면 높이는 형강 윗면에 자동으로 맞춥니다."
         : groups == kSkidJbPresets
-        ? "위에서 본 가로×세로(mm)입니다. 누르면 지금 보이는 도면 가운데에 놓습니다. 바닥에서 높이는 놓은 뒤 편집 칸에 넣으십시오."
+        ? "위에서 본 가로×세로(mm)입니다. 누르면 지금 보이는 도면 가운데에 놓습니다. 바닥에서 높이는 놓은 뒤 편집 칸에 넣으십시오. 형강 위로 올려 놓으면 형강 윗면에 자동으로 맞춥니다."
         : "위에서 본 폭(mm)으로, 길이 1000으로 놓입니다. 놓은 뒤 편집 칸에서 실제 길이로 고치고, 세로로 쓰려면 돌리십시오.",
     groups: groups,
   );
@@ -10230,6 +10235,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       it.shape != null && it.shape!.startsWith('el_') && !_isRail(it);
 
   /// 부품 가운데가 레일 위(가로 안, 세로로 40mm 안)에 오면 세로 자리를 레일 가운데에 맞춘다.
+  /// 스키드 평면에서 부품을 형강 위로 올렸으면(부품 가운데가 형강 칸 안) 바닥에서 높이를 그 형강 윗면에
+  /// 맞춘다. 형강 위가 아니면 높이를 건드리지 않는다. 맞췄으면 안내 글을 띄운다.
+  void _snapToSteel(PlacedItem item, {List<PlacedItem>? plan}) {
+    if (!_isSkid || _plateId != kPlateMain) return;
+    final double? e = skidRestElevation(item, plan ?? _placedItems);
+    if (e == null) return;
+    if (item.elevation != null && (item.elevation! - e).abs() < 0.5) return;
+    item.elevation = e;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              keepWords('형강 위에 얹었습니다. 바닥에서 높이 ${e.round()}mm로 맞췄습니다.'),
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+    });
+  }
+
   void _snapToRail(PlacedItem item) {
     if (!_isRailPart(item)) return;
     final double cx = item.position.dx + item.width / 2;

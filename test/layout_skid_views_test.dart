@@ -632,4 +632,76 @@ void main() {
       SkidFace.end,
     );
   });
+  test('형강 위로 올린 부품이 앉을 높이: 형강 윗면 + 부품 높이의 반, 형강이 아니면 건드리지 않는다', () {
+    PlacedItem steel(String id, double x, double y, double w, double h, {double? elev, String name = 'H형강 150x150x7x10', String shape = SkidShape.beam}) =>
+        PlacedItem(id: id, name: name, position: Offset(x, y), width: w, height: h, shape: shape, elevation: elev);
+    PlacedItem jb(double x, double y, {double? elev}) => PlacedItem(
+      id: 'jb',
+      name: '정션박스',
+      position: Offset(x, y),
+      width: 200,
+      height: 150,
+      shape: SkidShape.jb,
+      elevation: elev,
+    );
+    // 높이를 안 넣은 형강은 바닥에 놓인 것: 윗면 150. 정션박스 세로 크기는 min(200,150) = 150.
+    final beam = steel('b', 0, 0, 2400, 150);
+    expect(skidRestElevation(jb(100, 0), [beam]), 150 + 75);
+    // 바닥에서 높이를 넣은 형강(가운데 300 → 윗면 375).
+    final raised = steel('r', 0, 0, 2400, 150, elev: 300);
+    expect(skidRestElevation(jb(100, 0), [raised]), 375 + 75);
+    // 부품 가운데가 형강 칸 밖이면 null.
+    expect(skidRestElevation(jb(100, 500), [beam]), isNull);
+    // 형강이 둘 겹치면 더 높은 윗면에 앉는다.
+    expect(skidRestElevation(jb(100, 0), [beam, raised]), 375 + 75);
+    // 형강끼리는 안 얹는다. 메모·계기처럼 스키드 부품이 아니면 null.
+    expect(skidRestElevation(steel('s2', 0, 0, 100, 100), [beam]), isNull);
+    expect(
+      skidRestElevation(
+        PlacedItem(id: 'n', name: '메모', position: const Offset(0, 0), width: 160, height: 40),
+        [beam],
+      ),
+      isNull,
+    );
+    // 자기 자신 위에는 앉지 않는다.
+    expect(skidRestElevation(beam, [beam]), isNull);
+  });
+
+  testWidgets('정션박스를 형강 위에 놓으면 높이가 형강 윗면에 맞춰진다', (tester) async {
+    await openSkid(
+      tester,
+      prefs: {
+        'layout_board_draft_v1': jsonEncode({
+          'kind': kLayoutKindSkid,
+          'panelWidth': 2400,
+          'panelHeight': 1200,
+          'items': [
+            PlacedItem(
+              id: 'big',
+              name: 'H형강 150x150x7x10',
+              position: const Offset(0, 0),
+              width: 2400,
+              height: 1200,
+              shape: SkidShape.beam,
+            ).toJson(),
+          ],
+          'dimensions': [],
+        }),
+      },
+    );
+    await tester.ensureVisible(find.byKey(const ValueKey('skid_jb')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('skid_jb')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('정션박스 300×200').first);
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    final prefs = await SharedPreferences.getInstance();
+    final saved = jsonDecode(prefs.getString('layout_board_draft_v1')!) as Map;
+    final items = (saved['items'] as List).cast<Map>();
+    final box = items.firstWhere((m) => m['shape'] == SkidShape.jb);
+    // 형강 윗면 150 + 정션박스 세로 크기(min(300,200)) ÷ 2 = 250
+    expect((box['elev'] as num).toDouble(), 250);
+  });
 }
