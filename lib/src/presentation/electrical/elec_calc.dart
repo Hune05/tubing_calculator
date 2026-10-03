@@ -79,10 +79,13 @@ double voltageDrop({
   required Phase phase,
   double pf = 0.85,
   double conductorTempC = 70,
+  Conductor conductor = Conductor.copper,
 }) => voltageDropR(
   current: current,
   lengthM: lengthM,
-  rOhmPerKm: cuResistance(size, conductorTempC),
+  rOhmPerKm:
+      wireResistance(size, conductorTempC, conductor) ??
+      cuResistance(size, conductorTempC),
   phase: phase,
   pf: pf,
 );
@@ -123,6 +126,7 @@ double? maxLengthForDrop({
   SupplyType supply = SupplyType.lvOther,
   double? rOhmPerKm,
   double reservedPct = 0,
+  Conductor conductor = Conductor.copper,
 }) {
   if (current <= 0 || volts <= 0) return null;
   // 1m당 전압강하(%). [rOhmPerKm]가 있으면(AWG) 그 저항을 쓴다.
@@ -135,6 +139,7 @@ double? maxLengthForDrop({
               phase: phase,
               pf: pf,
               conductorTempC: conductorTempC,
+              conductor: conductor,
             )
           : voltageDropR(
               current: current,
@@ -243,6 +248,12 @@ class CableChoice {
   final bool tempOutOfRange;
   final MotorBreakerRange? motorRange;
   final List<String> notes;
+
+  /// 3고조파 저감계수(1이면 보정 없음), 중성선 전류 기준 여부와 그 전류(A).
+  final double harmonicFactor;
+  final bool neutralBased;
+  final double? neutralAmps;
+  final Conductor conductor;
   const CableChoice({
     required this.ib,
     required this.load,
@@ -263,6 +274,10 @@ class CableChoice {
     required this.tempOutOfRange,
     required this.motorRange,
     required this.notes,
+    this.harmonicFactor = 1,
+    this.neutralBased = false,
+    this.neutralAmps,
+    this.conductor = Conductor.copper,
   });
 }
 
@@ -275,6 +290,10 @@ class _Ampacity {
   final int count;
   final Phase phase;
   final InstallMethod method;
+  final Conductor conductor;
+
+  /// 3고조파 저감계수(없으면 1).
+  final double hf;
   const _Ampacity(
     this.panel,
     this.ins,
@@ -283,6 +302,8 @@ class _Ampacity {
     this.count,
     this.phase,
     this.method,
+    this.conductor,
+    this.hf,
   );
 
   factory _Ampacity.of({
@@ -294,6 +315,8 @@ class _Ampacity {
     required int parallel,
     required GroupLayout layout,
     required AmpacityTable table,
+    Conductor conductor = Conductor.copper,
+    double hf = 1,
   }) {
     final panel = table == AmpacityTable.panel60204;
     final i = panel ? Insulation.pvc70 : ins; // 표 6은 PVC 70°C
@@ -308,20 +331,30 @@ class _Ampacity {
       n,
       phase,
       method,
+      panel ? Conductor.copper : conductor,
+      hf,
     );
   }
 
   double? base(double s) => panel
       ? panelBaseAmpacity(s, method)
-      : baseAmpacity(s, ins, phase == Phase.three ? 3 : 2, method);
+      : baseAmpacity(
+          s,
+          ins,
+          phase == Phase.three ? 3 : 2,
+          method,
+          conductor: conductor,
+        );
 
-  /// 1가닥 보정 허용전류.
+  /// 1가닥 보정 허용전류(온도·묶음·3고조파 보정 포함).
   double? one(double s) {
     final b = base(s);
-    return b == null || kt == null ? null : b * kt! * kg;
+    return b == null || kt == null ? null : b * kt! * kg * hf;
   }
 
-  List<double> get sizes => panel ? kPanelSizes : kCableSizes;
+  List<double> get sizes => panel
+      ? kPanelSizes
+      : (conductor == Conductor.aluminum ? kAlSizes : kCableSizes);
 
   String tempNote(double ambientC) => panel
       ? '반 내부 온도 ${_f(ambientC)}°C가 IEC 60204-1 표 D.1 범위(60°C까지)를 초과합니다.'
@@ -335,8 +368,34 @@ String _f(double v) {
   return s;
 }
 
-/// KEC 123 6 가: 병렬로 쓰는 전선은 구리 50mm² 이상.
+/// KEC 123 6 가: 병렬로 쓰는 전선은 구리 50mm², 알루미늄 70mm² 이상.
 const double kParallelMinSize = 50;
+
+/// 병렬 가닥의 최소 굵기(mm²). 구리 50, 알루미늄 70.
+double parallelMinSize(Conductor c) => c == Conductor.aluminum ? 70 : kParallelMinSize;
+
+/// 3고조파 저감계수(KS C IEC 60364-5-52 표 E.52.1, KEC 232.5.4·231.3.2가 부속서 E를 따른다).
+/// [h3Pct]는 선전류 대비 3고조파 함유율(%). 4심·5심 케이블에서 중성선이 선도체와 같은 굵기일 때 쓴다.
+/// 15 % 이하 1.0(상전류로 굵기), 15~33 % 0.86(상전류), 33~45 % 0.86(중성선 전류), 45 % 초과 1.0(중성선 전류).
+class HarmonicDerating {
+  const HarmonicDerating(this.factor, this.neutralBased);
+
+  /// 허용전류에 곱하는 계수.
+  final double factor;
+
+  /// 굵기를 중성선 전류(= 3 × h3 × 선전류)로 정하면 true.
+  final bool neutralBased;
+}
+
+HarmonicDerating harmonicDerating(double h3Pct) {
+  if (h3Pct <= 15) return const HarmonicDerating(1.0, false);
+  if (h3Pct <= 33) return const HarmonicDerating(0.86, false);
+  if (h3Pct <= 45) return const HarmonicDerating(0.86, true);
+  return const HarmonicDerating(1.0, true);
+}
+
+/// 평형 3상에서 중성선 전류(A) = 3 × (3고조파 함유율) × 선전류. 3의 배수 고조파는 중성선에서 더해진다.
+double neutralCurrent(double lineAmps, double h3Pct) => 3 * h3Pct / 100 * lineAmps;
 
 /// 전선 굵기 선정. [load] 실제 부하 전류(전압강하), [margin] 여유 배수(전동기는 [motorMargin]).
 /// 차단기·허용전류는 load × margin으로 고른다. [lengthM]이 없거나 0이면 전압강하는 보지 않는다.
@@ -357,10 +416,17 @@ CableChoice chooseCable({
   SupplyType supply = SupplyType.lvOther,
   AmpacityTable table = AmpacityTable.iec60364,
   bool motor = false,
+  Conductor conductor = Conductor.copper,
+  double thirdHarmonicPct = 0,
 }) {
   final notes = <String>[];
   final n = math.max(1, parallel);
   final ib = load * margin;
+  // 3고조파는 삼상 4심·5심에서만 본다.
+  final hd = phase == Phase.three && thirdHarmonicPct > 15
+      ? harmonicDerating(thirdHarmonicPct)
+      : const HarmonicDerating(1.0, false);
+  final inN = hd.neutralBased ? neutralCurrent(ib, thirdHarmonicPct) : null;
   final a = _Ampacity.of(
     ins: ins,
     phase: phase,
@@ -370,6 +436,8 @@ CableChoice chooseCable({
     parallel: n,
     layout: layout,
     table: table,
+    conductor: conductor,
+    hf: hd.factor,
   );
   final len = lengthM ?? 0;
   final checkDrop = len > 0;
@@ -382,11 +450,23 @@ CableChoice chooseCable({
   }
   if (a.kt == null) notes.add(a.tempNote(ambientC));
   if (a.count > 20) notes.add('다조 포설은 표 끝 20회로로 계산했습니다(입력 ${a.count}).');
-  final need = (breaker ?? ib).toDouble(); // IZ ≥ In
+  // IZ ≥ In. 3고조파가 33 %를 넘으면 굵기는 중성선 전류로 정한다(KEC 212.4 각주, 232.5.4).
+  var need = (breaker ?? ib).toDouble();
+  if (inN != null && inN > need) need = inN;
+  if (phase == Phase.three && thirdHarmonicPct > 15) {
+    notes.add(
+      hd.neutralBased
+          ? '3고조파 ${_f(thirdHarmonicPct)}%: 중성선 전류 ${_f(inN!)} A(= 3 × 함유율 × 선전류)로 굵기를 정하고 저감계수 ${hd.factor}를 적용했습니다(표 E.52.1). 중성선은 선도체와 같은 굵기로 4심 케이블에 포함시키십시오.'
+          : '3고조파 ${_f(thirdHarmonicPct)}%: 저감계수 0.86을 적용했습니다(표 E.52.1, 선전류로 굵기 결정). 중성선은 선도체 이상이어야 합니다(KEC 231.3.2).',
+    );
+  }
+  if (conductor == Conductor.aluminum && !a.panel) {
+    notes.add('알루미늄 도체: 10 mm² 이상 표만 씁니다(표 B.52.2~B.52.5, 방법 E는 B.52.11·13). 단자는 알루미늄용을 쓰십시오.');
+  }
   double? byAmp;
   double? byDrop;
   for (final s in a.sizes) {
-    if (n > 1 && s < kParallelMinSize) continue;
+    if (n > 1 && s < parallelMinSize(conductor)) continue;
     final one = a.one(s);
     if (byAmp == null && one != null && one * n >= need - 1e-9) byAmp = s;
     if (!checkDrop) continue;
@@ -397,6 +477,7 @@ CableChoice chooseCable({
       phase: phase,
       pf: pf,
       conductorTempC: conductorTemp(a.ins),
+      conductor: conductor,
     );
     if (byDrop == null && volts > 0 && dv / volts * 100 <= limit + 1e-9) {
       byDrop = s;
@@ -432,6 +513,7 @@ CableChoice chooseCable({
         phase: phase,
         pf: pf,
         conductorTempC: conductorTemp(a.ins),
+        conductor: conductor,
       );
     }
   }
@@ -458,6 +540,10 @@ CableChoice chooseCable({
         ? motorBreakerRange(load: load, low: breaker, iz: iz)
         : null,
     notes: notes,
+    harmonicFactor: hd.factor,
+    neutralBased: hd.neutralBased,
+    neutralAmps: inN,
+    conductor: conductor,
   );
 }
 
@@ -481,6 +567,9 @@ class CircuitCheck {
   final bool tempOutOfRange;
   final MotorBreakerRange? motorRange;
   final List<String> notes;
+  final double harmonicFactor;
+  final double? neutralAmps;
+  final Conductor conductor;
   const CircuitCheck({
     required this.size,
     required this.parallel,
@@ -500,6 +589,9 @@ class CircuitCheck {
     required this.tempOutOfRange,
     required this.motorRange,
     required this.notes,
+    this.harmonicFactor = 1,
+    this.neutralAmps,
+    this.conductor = Conductor.copper,
   });
 
   /// 전동기 회로에서 차단기가 허용전류보다 크지만 전동기 상한 이내인지(과부하 계전기로 보호할 때).
@@ -531,9 +623,14 @@ CircuitCheck checkCircuit({
   SupplyType supply = SupplyType.lvOther,
   AmpacityTable table = AmpacityTable.iec60364,
   bool motor = false,
+  Conductor conductor = Conductor.copper,
+  double thirdHarmonicPct = 0,
 }) {
   final notes = <String>[];
   final n = math.max(1, parallel);
+  final hd = phase == Phase.three && thirdHarmonicPct > 15
+      ? harmonicDerating(thirdHarmonicPct)
+      : const HarmonicDerating(1.0, false);
   final a = _Ampacity.of(
     ins: ins,
     phase: phase,
@@ -543,11 +640,17 @@ CircuitCheck checkCircuit({
     parallel: n,
     layout: layout,
     table: table,
+    conductor: conductor,
+    hf: hd.factor,
   );
   if (a.kt == null) notes.add(a.tempNote(ambientC));
   if (a.count > 20) notes.add('다조 포설은 표 끝 20회로로 계산했습니다(입력 ${a.count}).');
-  if (n > 1 && size < kParallelMinSize) {
-    notes.add('병렬로 쓰는 전선은 구리 50sq 이상이어야 합니다(KEC 123).');
+  if (n > 1 && size < parallelMinSize(conductor)) {
+    notes.add(
+      conductor == Conductor.aluminum
+          ? '병렬로 쓰는 전선은 알루미늄 70sq 이상이어야 합니다(KEC 123).'
+          : '병렬로 쓰는 전선은 구리 50sq 이상이어야 합니다(KEC 123).',
+    );
   }
   final base = a.base(size);
   if (base == null) notes.add('${sqText(size)}은 이 표에 없습니다.');
@@ -559,6 +662,19 @@ CircuitCheck checkCircuit({
   if (ib != null && breaker != null) ibOk = ib <= breaker + 1e-9;
   if (ib != null && breaker == null && iz != null) ibOk = ib <= iz + 1e-9;
   if (breaker != null && iz != null) inOk = breaker <= iz + 1e-9;
+  final inN = ib != null && hd.neutralBased
+      ? neutralCurrent(ib, thirdHarmonicPct)
+      : null;
+  if (phase == Phase.three && thirdHarmonicPct > 15) {
+    notes.add(
+      hd.neutralBased
+          ? '3고조파 ${_f(thirdHarmonicPct)}%: 저감계수 ${hd.factor}를 적용했고, 굵기는 중성선 전류(${inN == null ? '부하를 넣으면 계산' : '${_f(inN)} A'})로 봅니다(표 E.52.1).'
+          : '3고조파 ${_f(thirdHarmonicPct)}%: 저감계수 0.86을 적용했습니다(표 E.52.1). 중성선은 선도체 이상이어야 합니다(KEC 231.3.2).',
+    );
+    if (inN != null && iz != null && inN > iz + 1e-9) {
+      notes.add('중성선 전류 ${_f(inN)} A가 보정 허용전류 ${_f(iz)} A를 넘습니다: 굵기가 부족합니다.');
+    }
+  }
   final len = lengthM ?? 0;
   final amps = load ?? 0;
   final checkDrop = len > 0 && amps > 0;
@@ -572,6 +688,7 @@ CircuitCheck checkCircuit({
       phase: phase,
       pf: pf,
       conductorTempC: conductorTemp(a.ins),
+      conductor: conductor,
     );
   }
   return CircuitCheck(
@@ -595,6 +712,9 @@ CircuitCheck checkCircuit({
         ? motorBreakerRange(load: amps, low: breakerFor(ib), iz: iz)
         : null,
     notes: notes,
+    harmonicFactor: hd.factor,
+    neutralAmps: inN,
+    conductor: conductor,
   );
 }
 

@@ -83,7 +83,6 @@ extension on WireKind {
     ],
     _ => const [InstallMethod.b1, InstallMethod.a1],
   };
-  List<double> get sizes => this == WireKind.panel ? kPanelSizes : kCableSizes;
 }
 
 /// 부하 종류: 효율·역률 기본값과 전동기 여유를 정한다.
@@ -280,6 +279,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
 
   // ③ 전압강하
   double _vdSize = 4;
+  Conductor _cond = Conductor.copper; // 전선 굵기·전압강하 탭이 같이 쓰는 도체 재질
+  final _h3 = TextEditingController(); // 3고조파 함유율(%), 비우면 0
   WireKind _vdKind = WireKind.fcv;
   final _vdI = TextEditingController();
   final _vdLen = TextEditingController(text: '50');
@@ -354,6 +355,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   late final List<(TextEditingController, String)> _texts = [
     (_kw, 'kw'),
     (_eff, 'eff'),
+    (_h3, 'h3'),
     (_pf, 'pf'),
     (_convVal, 'convVal'),
     (_ib, 'ib'),
@@ -408,6 +410,23 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     _vCustom,
     _dcvCustom,
   ];
+
+  /// 전선 굵기 탭에서 고를 수 있는 굵기: 제어반 내부는 표 6, 알루미늄은 10 mm²부터, 그 밖은 구리 표.
+  List<double> get _cableSizes => _kind == WireKind.panel
+      ? kPanelSizes
+      : (_cond == Conductor.aluminum ? kAlSizes : kCableSizes);
+
+  /// 전압강하 탭에서 고를 수 있는 굵기(저항 표가 있는 굵기).
+  List<double> get _vdSizes =>
+      _cond == Conductor.aluminum ? kAlSizes : kVdSizes;
+
+  /// 같은 굵기가 없으면 목록에서 가장 가까운 큰 굵기(없으면 마지막).
+  double _nearestSize(double s, List<double> list) {
+    for (final x in list) {
+      if (x >= s - 1e-9) return x;
+    }
+    return list.last;
+  }
 
   /// 탭 파일(elec_basic_tab.dart·elec_busbar_tab.dart)에서 화면을 다시 그릴 때 쓴다.
   void _set(VoidCallback f) => setState(f);
@@ -467,6 +486,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     'par': _parallel,
     'chkSize': _chkSize,
     'vdSize': _vdSize,
+    'cond': _cond.name,
     'vdKind': _vdKind.name,
     'vdStart': _vdStart,
     'vdStartMode': _vdStartMode.name,
@@ -518,8 +538,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     _ambientEdited = b('ambEd', _ambientEdited);
     final par = n('par', 1).round();
     _parallel = par.clamp(1, 4);
+    _cond = en(Conductor.values, 'cond', _cond);
+    if (_kind == WireKind.panel || _vdKind == WireKind.panel) _cond = Conductor.copper;
     final chk = n('chkSize', _chkSize);
-    _chkSize = _kind.sizes.contains(chk) ? chk : _chkSize;
+    _chkSize = _cableSizes.contains(chk) ? chk : _chkSize;
     // 교류/직류: 예전 저장 칸(전압강하 탭 vdDc·vdDcV)도 읽는다.
     _dc = b('dc', b('vdDc', _dc));
     final dcv = n('dcV', n('vdDcV', _dcVolts));
@@ -528,7 +550,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       if (!kDcVolts.contains(dcv)) _dcvCustom.text = fmt(dcv, dcv == dcv.roundToDouble() ? 0 : 1);
     }
     final vds = n('vdSize', _vdSize);
-    if (kVdSizes.contains(vds)) _vdSize = vds;
+    if (_vdSizes.contains(vds)) _vdSize = vds;
     _vdKind = en(WireKind.values, 'vdKind', _vdKind);
     _vdStart = b('vdStart', _vdStart);
     _vdStartMode = en(StartMode.values, 'vdStartMode', _vdStartMode);
@@ -1285,6 +1307,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (len != null && load != null) notes.addAll(pfNotes);
     final layout = layoutFor(_method, stacked: _stacked);
     final margin = load == null ? 1.0 : _marginFor(load, _cableMotor);
+    final h3 = _cph == Phase.three && _kind != WireKind.panel
+        ? (_num(_h3) ?? 0).clamp(0.0, 100.0)
+        : 0.0;
 
     Widget result;
     String? summary;
@@ -1317,6 +1342,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         supply: _supply,
         table: _kind.table,
         motor: _cableMotor,
+        conductor: _cond,
+        thirdHarmonicPct: h3,
       );
       final r = _checkResult(k, notes, amb, n);
       result = r.$1;
@@ -1349,6 +1376,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           supply: _supply,
           table: _kind.table,
           motor: _cableMotor,
+          conductor: _cond,
+          thirdHarmonicPct: h3,
         );
         diag = circuitCheckDiagnosis(
           k: k,
@@ -1391,6 +1420,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         supply: _supply,
         table: _kind.table,
         motor: _cableMotor,
+        conductor: _cond,
+        thirdHarmonicPct: h3,
       );
       final r = _cableResult(c, notes, amb, n);
       result = r.$1;
@@ -1402,6 +1433,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     return _page(sumKey: 'ec_sum_cable', summary: summary, warn: warn, diagnosis: diag, [
       _systemPicker('ec_cable'),
       _unitPicker('ec_cable'),
+      _conductorPicker('ec_cable'),
       _chipGroup(
         '할 일',
         '굵기 선정: 부하 전류로 전선 굵기·차단기를 선정합니다. 직류는 차단기 정격을 선정하지 않고 '
@@ -1422,7 +1454,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           'ec_chk_size',
           '전선 굵기',
           _chkSize,
-          _kind.sizes,
+          _cableSizes,
           sqText,
           (s) => setState(() => _chkSize = s),
           '포설되어 있거나 포설할 전선의 굵기(sq = mm²)입니다. 병렬이면 한 가닥의 굵기입니다.',
@@ -1443,6 +1475,16 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         _motorSwitchGuide,
         key: 'ec_cable_motor',
       ),
+      if (_cph == Phase.three && _kind != WireKind.panel)
+        _field(
+          'ec_h3',
+          '3고조파 함유율 (%, 선택)',
+          _h3,
+          '조명·전산 부하처럼 3고조파가 많은 삼상 4선 회로에서 선전류 대비 3고조파 비율입니다. 비우면 0으로 봅니다.\n'
+              '15% 이하: 보정 없음. 15~33%: 허용전류 × 0.86. 33~45%: 중성선 전류(3 × 함유율 × 선전류)로 굵기를 정하고 × 0.86. '
+              '45% 초과: 중성선 전류로 굵기를 정하고 × 1.0(KS C IEC 60364-5-52 표 E.52.1, KEC 232.5.4·231.3.2). '
+              '4심·5심 케이블에서 중성선이 선도체와 같은 굵기일 때 씁니다.',
+        ),
       if (_checkMode)
         _field(
           'ec_chk_breaker',
@@ -1459,7 +1501,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         (k) => setState(() {
           _kind = k;
           if (!k.methods.contains(_method)) _method = k.methods.first;
-          if (!k.sizes.contains(_chkSize)) _chkSize = 2.5;
+          if (k == WireKind.panel) _cond = Conductor.copper;
+          if (!_cableSizes.contains(_chkSize)) {
+            _chkSize = _nearestSize(_chkSize, _cableSizes);
+          }
           _syncAmbient();
         }),
         'F-CV: 동력용 0.6/1kV 케이블(XLPE, 90°C).\n'
@@ -1704,7 +1749,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final lenIn = _num(_length);
     if (c.dropChecked && c.dropV != null && size != null && lenIn != null) {
       final pf = dc ? 1.0 : _pctOf(_pf2, 0.85, '역률', []);
-      final rr = cuResistance(size, conductorTemp(_kind.insulation));
+      final rr =
+          wireResistance(size, conductorTemp(_kind.insulation), _cond) ??
+          cuResistance(size, conductorTemp(_kind.insulation));
       final cur = c.parallel > 1
           ? '(${fmt(c.load, 2)} ÷ ${c.parallel})'
           : fmt(c.load, 2);
@@ -1863,7 +1910,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (k.dropV != null && lenIn != null && load != null) {
       final dc = _cph == Phase.dc;
       final pf = dc ? 1.0 : _pctOf(_pf2, 0.85, '역률', []);
-      final rr = cuResistance(k.size, conductorTemp(_kind.insulation));
+      final rr =
+          wireResistance(k.size, conductorTemp(_kind.insulation), _cond) ??
+          cuResistance(k.size, conductorTemp(_kind.insulation));
       final cur = k.parallel > 1
           ? '(${fmt(load, 2)} ÷ ${k.parallel})'
           : fmt(load, 2);
@@ -2026,6 +2075,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             phase: ph,
             pf: pf,
             conductorTempC: conductorTemp(ins),
+            conductor: _cond,
           );
     final simple = dv == null || _dc
         ? null
@@ -2046,6 +2096,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             volts: volts,
             pf: pf,
             conductorTempC: conductorTemp(ins),
+            conductor: _cond,
             supply: _supply,
             reservedPct: up,
           );
@@ -2073,6 +2124,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             phase: ph,
             pf: startPf,
             conductorTempC: conductorTemp(ins),
+            conductor: _cond,
           );
     final startPct = startDv == null ? null : startDv / volts * 100;
     final startTotal = startPct == null ? null : startPct + up;
@@ -2096,10 +2148,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final st = _Steps();
     if (dv != null && pct != null && len != null && i != null) {
       final temp = conductorTemp(ins);
-      final r20 = kCuR20[_vdSize]!;
-      final rr = cuResistance(_vdSize, temp);
+      final al = _cond == Conductor.aluminum;
+      final r20 = (al ? kAlR20[_vdSize] : kCuR20[_vdSize]) ?? kCuR20[_vdSize]!;
+      final rr = wireResistance(_vdSize, temp, _cond) ?? cuResistance(_vdSize, temp);
+      final alpha = al ? '0.00403' : '0.00393';
       st.add(
-        '저항 R = R20 × (1 + 0.00393 × (θ − 20)) = ${fmt(r20, r20 < 1 ? 4 : 2)} × (1 + 0.00393 × (${fmt(temp)} − 20)) '
+        '저항 R = R20 × (1 + $alpha × (θ − 20)) = ${fmt(r20, r20 < 1 ? 4 : 2)} × (1 + $alpha × (${fmt(temp)} − 20)) '
         '= ${fmt(rr, rr < 1 ? 4 : 3)} Ω/km (${sqText(_vdSize)}, 도체 ${fmt(temp)}°C)',
       );
       st.add(
@@ -2123,6 +2177,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               phase: ph,
               pf: pf,
               conductorTempC: temp,
+              conductor: _cond,
             ) /
             volts *
             100;
@@ -2155,6 +2210,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         startPf: startPf,
         startLimitPct: startLimit,
         startMultIsDirect: _vdStartMode == StartMode.starDelta,
+        conductor: _cond,
         inputs: [
           ('전선 굵기', sqText(_vdSize)),
           ('전류', '${fmt(i, 2)} A'),
@@ -2168,11 +2224,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over || startOver, diagnosis: diag, [
       _systemPicker('ec_vd'),
       _unitPicker('ec_vd'),
+      _conductorPicker('ec_vd'),
       calcDropdown<double>(
         'ec_vd_size',
         '전선 굵기',
         _vdSize,
-        kVdSizes,
+        _vdSizes,
         sqText,
         (s) => setState(() => _vdSize = s),
         '포설되어 있거나 포설할 전선의 굵기(sq = mm²)입니다. 계장·제어용 0.75·1sq도 있습니다.',
@@ -2332,7 +2389,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     setState(() {
       _kind = _vdKind;
       _method = _kind.methods.contains(_method) ? _method : _kind.methods.first;
-      _chkSize = _kind.sizes.contains(_vdSize) ? _vdSize : _chkSize;
+      _chkSize = _cableSizes.contains(_vdSize) ? _vdSize : _chkSize;
       _ib.text = _vdI.text;
       _length.text = _vdLen.text;
       _pf2.text = _vdPf.text;
@@ -2565,6 +2622,34 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     }
     return null;
   }
+
+  /// 도체 재질(구리/알루미늄). 전선 굵기·전압강하 탭이 같은 값을 쓴다.
+  /// 알루미늄은 10 mm²부터이고, 제어반 내부 배선은 구리만 있다.
+  Widget _conductorPicker(String prefix) => _chipGroup(
+    '도체 재질',
+    '구리 또는 알루미늄입니다. 알루미늄은 IEC 60364-5-52 표 B.52.2~B.52.5(방법 E는 B.52.11·13)의 알루미늄 열과 '
+        'IEC 60228 알루미늄 저항을 씁니다. 10 mm² 이상만 있고, 병렬은 70 mm² 이상입니다. 제어반 내부 배선은 구리만 있습니다.',
+    [
+      calcChip('${prefix}_cu', '구리', _cond == Conductor.copper, () {
+        setState(() {
+          _cond = Conductor.copper;
+        });
+      }),
+      calcChip('${prefix}_al', '알루미늄', _cond == Conductor.aluminum, () {
+        setState(() {
+          _cond = Conductor.aluminum;
+          if (_kind == WireKind.panel) {
+            _kind = WireKind.fcv;
+            if (!_kind.methods.contains(_method)) _method = _kind.methods.first;
+            _syncAmbient();
+          }
+          if (_vdKind == WireKind.panel) _vdKind = WireKind.fcv;
+          _chkSize = _nearestSize(_chkSize, _cableSizes);
+          _vdSize = _nearestSize(_vdSize, _vdSizes);
+        });
+      }),
+    ],
+  );
 
   /// 교류/직류 선택과 전압. 부하 전류·전선 굵기·전압강하 탭이 같은 값(_dc·_dcVolts)을 쓴다.
   /// 키: '$prefix_ac'·'$prefix_dc'·'$prefix_dcv_125' 등.

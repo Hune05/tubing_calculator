@@ -25,6 +25,7 @@ DiagCase voltageDropDiagnosis({
   double? startPf,
   double? startLimitPct,
   bool startMultIsDirect = false,
+  Conductor conductor = Conductor.copper,
 }) {
   final temp = conductorTemp(ins);
   double pctOf({double? i, double? len, double? sz, double? p}) =>
@@ -35,6 +36,7 @@ DiagCase voltageDropDiagnosis({
         phase: phase,
         pf: p ?? pf,
         conductorTempC: temp,
+        conductor: conductor,
       ) /
       volts *
       100;
@@ -43,7 +45,9 @@ DiagCase voltageDropDiagnosis({
   final pct = pctOf();
   final total = pct + reservedPct;
   final room = limit - reservedPct;
-  final sizes = kCuR20.keys.toList()..sort();
+  final sizes = conductor == Conductor.aluminum
+      ? List<double>.of(kAlSizes)
+      : (kCuR20.keys.toList()..sort());
   final causes = <DiagCause>[];
 
   // 1. 입력한 전류 (확인하기 가장 쉽다)
@@ -68,6 +72,7 @@ DiagCase voltageDropDiagnosis({
     conductorTempC: temp,
     supply: supply,
     reservedPct: reservedPct,
+    conductor: conductor,
   );
   causes.add(
     DiagCause(
@@ -191,7 +196,7 @@ DiagCase circuitCheckDiagnosis({
   required List<(String, String)> inputs,
 }) {
   final causes = <DiagCause>[];
-  final sizes = kCableSizes;
+  final sizes = k.conductor == Conductor.aluminum ? kAlSizes : kCableSizes;
   final iz = k.iz;
   final ib = k.ib;
   final b = k.breaker;
@@ -300,7 +305,7 @@ DiagCase circuitCheckDiagnosis({
             : '${sqText(s)}로 올리면 IZ ${fmt(sr!.iz ?? 0, 1)} A${sr.dropPct == null ? "" : ", 전압강하율 ${fmt(sr.dropPct!, 2)} %"}로 모두 만족합니다(현재 ${sqText(k.size)}: IZ ${fmt(iz ?? 0, 1)} A).',
       ),
     );
-    if (k.parallel == 1 && k.size >= kParallelMinSize) {
+    if (k.parallel == 1 && k.size >= parallelMinSize(k.conductor)) {
       final r = rerun(parallel: 2);
       if (r.iz != null) {
         causes.add(
