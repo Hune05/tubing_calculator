@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import 'circuit_reading_page.dart';
 import 'elec_form_parts.dart';
 import 'motor_check.dart';
 
@@ -363,6 +364,18 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
           'Y-Δ 불리한 결선: L1 → U1·W2, L2 → V1·U2, L3 → W1·V2. 같은 방향으로 돌지만 전환 순간 돌입이 커 차단기 트립·접촉기 용착이 생길 수 있습니다.',
           'Y-Δ에서 Y 접촉기는 정격의 0.33배, 주·Δ 접촉기와 과부하계전기는 0.58배로 고릅니다.',
         ],
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          key: const Key('mc_open_circuit'),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const CircuitReadingPage()),
+          ),
+          icon: const Icon(Icons.account_tree_outlined),
+          label: const Text('결선도·기동 회로 그림으로 보기'),
+        ),
       ),
       const SizedBox(height: 12),
       elecBasis('mc_basis', const [

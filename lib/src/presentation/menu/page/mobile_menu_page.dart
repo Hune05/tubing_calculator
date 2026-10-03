@@ -92,6 +92,7 @@ import '../../trash/trash_page.dart';
 import '../../electrical/cable_tray_page.dart';
 import '../../electrical/busbar_bend_page.dart';
 import '../../electrical/busbar_ground_page.dart';
+import '../../electrical/circuit_reading_page.dart';
 import '../../electrical/cable_tray_route_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
@@ -1565,6 +1566,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const GroundBarPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "결선도·기동 회로",
+                        subtitle: "Y·Δ 결선, 직입·정역·Y-Δ 시퀀스를 눌러 보며 이해",
+                        icon: AppGlyph.ladder,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const CircuitReadingPage(),
                             ),
                           );
                         },

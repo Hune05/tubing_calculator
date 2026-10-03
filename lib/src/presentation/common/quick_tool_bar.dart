@@ -41,6 +41,7 @@ import 'app_icons.dart';
 import '../electrical/cable_tray_page.dart';
 import '../electrical/busbar_bend_page.dart';
 import '../electrical/busbar_ground_page.dart';
+import '../electrical/circuit_reading_page.dart';
 import '../electrical/cable_tray_route_page.dart';
 
 /// 막대에 넣을 수 있는(그리고 전체 검색에 나오는) 기능 하나.
@@ -249,6 +250,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.groundBar,
     (_) => const GroundBarPage(),
     subtitle: '구멍 위치·절단 길이·중량',
+    group: '전기',
+  ),
+  QuickToolDef(
+    'circuit',
+    '결선도·기동 회로',
+    AppGlyph.ladder,
+    (_) => const CircuitReadingPage(),
+    subtitle: 'Y·Δ 결선, 직입·정역·Y-Δ 시퀀스',
     group: '전기',
   ),
   QuickToolDef(

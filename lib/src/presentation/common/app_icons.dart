@@ -182,6 +182,9 @@ enum AppGlyph {
   /// 접지바 구멍 계산기: 구멍이 일정 간격으로 뚫린 평강.
   groundBar,
 
+  /// 결선도·기동 회로: 양쪽 모선 사이 한 줄에 a접점과 코일(원).
+  ladder,
+
   /// 자료 검색: 문서 한 장과 돋보기.
   searchDocs,
 
@@ -1195,6 +1198,18 @@ class _AppIconPainter extends CustomPainter {
           canvas.drawCircle(Offset(x, 12), 1.35, line);
         }
         l(2.5, 19.5, 21.5, 19.5);
+
+      case AppGlyph.ladder:
+        // 양쪽 모선, 가운데 줄에 a접점(막대 둘)과 코일(원).
+        l(3, 4, 3, 20);
+        l(21, 4, 21, 20);
+        l(3, 12, 7.5, 12);
+        l(7.5, 8.5, 7.5, 15.5);
+        l(10.5, 8.5, 10.5, 15.5);
+        l(10.5, 12, 13, 12);
+        canvas.drawCircle(const Offset(16, 12), 3, soft);
+        canvas.drawCircle(const Offset(16, 12), 3, line);
+        l(19, 12, 21, 12);
 
       case AppGlyph.searchDocs:
         // 문서 한 장(접힌 귀퉁이)과 오른쪽 아래 돋보기.
