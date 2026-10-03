@@ -34,7 +34,16 @@ const PdfColor _amberBg = PdfColor.fromInt(0xFFFFF4E0);
 class GroundPdfSection {
   final String title;
   final List<String> lines;
-  const GroundPdfSection(this.title, this.lines);
+
+  /// 표(선택): 머리글 [headers]와 줄 [rows]. 구멍 위치처럼 값이 많을 때 쓴다.
+  final List<String> headers;
+  final List<List<String>> rows;
+  const GroundPdfSection(
+    this.title,
+    this.lines, {
+    this.headers = const [],
+    this.rows = const [],
+  });
 }
 
 /// 지시서에 들어갈 내용. 글은 화면이 이미 만든 것을 그대로 받는다.
@@ -392,6 +401,21 @@ Future<Uint8List> buildGroundBarPdf(
                 style: const pw.TextStyle(fontSize: 9.5, color: _ink),
               ),
             ),
+          if (sec.rows.isNotEmpty) ...[
+            pw.SizedBox(height: 3),
+            pw.Table(
+              border: pw.TableBorder.all(color: _line, width: 0.6),
+              children: [
+                pw.TableRow(
+                  decoration: const pw.BoxDecoration(color: _head),
+                  repeat: true,
+                  children: [for (final h in sec.headers) cell(h, bold: true)],
+                ),
+                for (final r in sec.rows)
+                  pw.TableRow(children: [for (final c in r) cell(c)]),
+              ],
+            ),
+          ],
         ],
         if (input.notes.isNotEmpty) ...[
           sectionTitle('주의'),

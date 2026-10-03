@@ -68,6 +68,50 @@ void main() {
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });
 
+  test('구멍 위치 표가 PDF에 들어간다(표가 있으면 더 커지고 여러 쪽이 된다)', () async {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 12,
+      endDist: 25,
+      count: 40,
+      rows: 2,
+      rowGap: 20,
+    );
+    GroundPdfInput make(List<GroundPdfSection> sec) => GroundPdfInput(
+      title: '표 시험',
+      plan: p,
+      thickness: 6,
+      width: 50,
+      rho: 8.4,
+      summary: const [('재료', '구리 평강')],
+      bendRows: const [],
+      sections: sec,
+      notes: const [],
+    );
+    final none = await buildGroundBarPdf(
+      make(const [
+        GroundPdfSection('접지 구멍 위치', ['첫 구멍 25']),
+      ]),
+    );
+    final table = await buildGroundBarPdf(
+      make([
+        GroundPdfSection(
+          '접지 구멍 위치',
+          const ['첫 구멍 25'],
+          headers: const ['번호', '왼쪽 끝에서(mm)', '폭 방향(mm)', '지름(mm)'],
+          rows: [
+            for (final h in p.groundHoles)
+              [h.label, '${h.x}', '${h.y}', '${h.dia}'],
+          ],
+        ),
+      ]),
+    );
+    expect(p.groundHoles.length, 80);
+    expect(table.length, greaterThan(none.length + 1500));
+  });
+
   test('파일 이름', () {
     expect(
       groundBarFileName('1호기 접지바', DateTime(2026, 10, 3)),

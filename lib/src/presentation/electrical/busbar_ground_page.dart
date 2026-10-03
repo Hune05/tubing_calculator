@@ -402,6 +402,14 @@ class _GroundBarPageState extends State<GroundBarPage>
   String _holeLine(GroundHole h) =>
       '${h.label} ${fmt(h.x, 1)}${h.custom ? " φ${fmt(h.dia)}" : ""}';
 
+  /// 구멍 위치 표 한 줄: 번호 · 왼쪽 끝에서 · 폭 방향 · 지름(바꾼 구멍은 * 표시).
+  List<String> _holeRow(GroundHole h) => [
+    h.label,
+    fmt(h.x, 1),
+    fmt(h.y, 1),
+    '${fmt(h.dia)}${h.custom ? " *" : ""}',
+  ];
+
   /// 접지바 가공 지시서(PDF)에 넣을 내용. 글은 화면에 보이는 것과 같은 말을 쓴다.
   GroundPdfInput _pdfInput(GroundBarPlan p) {
     final t = _num(_thick), w = _num(_width);
@@ -444,33 +452,32 @@ class _GroundBarPageState extends State<GroundBarPage>
     ];
     final sections = <GroundPdfSection>[
       if (p.holes > 0)
-        GroundPdfSection('접지 구멍 위치 (왼쪽 끝에서 중심까지, mm)', [
-          _ruleText(p),
-          for (final (label, vals) in groundHoleRows(
-            p.positions,
-            prefix: p.rows == 2 ? 'A' : '',
-          ))
-            '$label   ${vals.map((v) => fmt(v, 1)).join("   ")}',
-          if (p.rows == 2)
-            for (final (label, vals) in groundHoleRows(
-              p.positionsB,
-              prefix: 'B',
-            ))
-              '$label   ${vals.map((v) => fmt(v, 1)).join("   ")}',
-          '검산: 마지막 접지 구멍에서 ${_tabs == 4 || _tabs & 2 != 0 ? "꺾기 시작선" : "끝"}까지 ${fmt(p.endRight, 1)}mm.',
-        ]),
+        GroundPdfSection(
+          '접지 구멍 위치 (왼쪽 끝에서 중심까지, mm)',
+          [
+            _ruleText(p),
+            '검산: 마지막 접지 구멍에서 ${_tabs == 4 || _tabs & 2 != 0 ? "꺾기 시작선" : "끝"}까지 ${fmt(p.endRight, 1)}mm.',
+          ],
+          headers: const ['번호', '왼쪽 끝에서(mm)', '폭 방향(mm)', '지름(mm)'],
+          rows: [for (final h in p.groundHoles) _holeRow(h)],
+        ),
       if (p.tabHoleList.isNotEmpty)
-        GroundPdfSection('$_tabName 구멍 위치 (왼쪽 끝에서 중심까지, mm)', [
-          for (final h in p.tabHoleList)
-            '${h.label}   ${fmt(h.x, 1)}   (폭 방향 ${fmt(h.y, 1)}mm, φ${fmt(h.dia)})',
-        ]),
+        GroundPdfSection(
+          '$_tabName 구멍 위치 (왼쪽 끝에서 중심까지, mm)',
+          const [],
+          headers: const ['번호', '왼쪽 끝에서(mm)', '폭 방향(mm)', '지름(mm)'],
+          rows: [for (final h in p.tabHoleList) _holeRow(h)],
+        ),
       if (p.lugHoleList.isNotEmpty)
-        GroundPdfSection('접지 러그 구멍 위치 (접지 구멍과 따로, 왼쪽 끝에서 중심까지, mm)', [
-          for (final h in p.lugHoleList)
-            '${h.label}   ${fmt(h.x, 1)}   (폭 방향 ${fmt(h.y, 1)}mm, φ${fmt(h.dia)})',
-          '볼트 세트 ${p.lugHoleList.length}개 = ${_lugParts(p.lugHoleList.length).join(" · ")}',
-          '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + t, 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(t, 1)}.',
-        ]),
+        GroundPdfSection(
+          '접지 러그 구멍 위치 (접지 구멍과 따로, 왼쪽 끝에서 중심까지, mm)',
+          [
+            '볼트 세트 ${p.lugHoleList.length}개 = ${_lugParts(p.lugHoleList.length).join(" · ")}',
+            '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + t, 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(t, 1)}.',
+          ],
+          headers: const ['번호', '왼쪽 끝에서(mm)', '폭 방향(mm)', '지름(mm)'],
+          rows: [for (final h in p.lugHoleList) _holeRow(h)],
+        ),
       if (_panel(p).isNotEmpty)
         GroundPdfSection('판넬 취부 자리 (가장 왼쪽 구멍 = 0, mm)', [
           for (final h in _panel(p))
