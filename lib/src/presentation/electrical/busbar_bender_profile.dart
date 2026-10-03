@@ -210,7 +210,7 @@ Future<void> openBenderProfiles(
                           final ok = await showDialog<bool>(
                             context: ctx,
                             builder: (d) => AlertDialog(
-                              content: Text('"${e.name}" 프로필을 지울까요?'),
+                              content: Text('"${e.name}" 프로필을 지우시겠습니까?'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(d, false),
@@ -361,7 +361,7 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
                     ? 'k: 값을 넣으면 바로 계산합니다'
                     : kOk
                     ? '구한 k = ${_n(k, 3)}'
-                    : '구한 k = ${_n(k, 3)} — 구리 범위(${_n(kBenderKMin)}~${_n(kBenderKMax)})를 벗어났습니다. 치수를 다시 재십시오.',
+                    : '구한 k = ${_n(k, 3)}: 구리 범위(${_n(kBenderKMin)}~${_n(kBenderKMax)})를 벗어났습니다. 치수를 다시 재십시오.',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),

@@ -20,6 +20,8 @@ const Map<String, String> kElecTabLabels = {
   'ec_sum_basic': '기초 계산',
   'ec_sum_cd': '전선관',
   'ec_sum_bus': '부스바',
+  'gr_sum': '접지',
+  'emp_sum': '전동기 보호',
   'ct_sum': '케이블 트레이',
   'tr_sum': '트레이 형상',
   'bb_sum': '부스바 절곡',

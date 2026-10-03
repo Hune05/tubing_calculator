@@ -1,0 +1,191 @@
+// 자료 통합 검색: 접지·전동기 보호 점검 자료. 2026-10-03 조사에서 두 곳 이상이 같았던 항목만 넣었다.
+// 현장에서 흔한 "고장 증상표"는 출처를 못 찾은 것을 지어내지 않았다(없는 것은 비워 둠). 근거와 확인 정도는
+// docs/전기_접지_전동기보호_근거.md.
+library;
+
+import 'package:flutter/material.dart';
+
+import '../../electrical/electric_calculator_page.dart';
+import 'knowledge_entry.dart';
+
+const String _srcGround = '전기 설계 계산 · 접지 탭';
+const String _srcMotor = '전기 설계 계산 · 전동기 보호 탭';
+
+void _openCalc(BuildContext c, int tab) => Navigator.push(
+  c,
+  MaterialPageRoute<void>(
+    builder: (_) => ElectricCalculatorPage(initialTab: tab),
+  ),
+);
+
+/// 접지·전동기 보호 점검 항목.
+List<KnowledgeEntry> electricalKnowledge() => [
+  KnowledgeEntry(
+    id: 'elec.ground.measure',
+    category: '접지·전동기 점검',
+    title: '접지저항 측정값이 흔들리거나 안 맞을 때 (3점 전위강하법)',
+    lines: const [
+      '확인: 전류 보조극(C)을 접지극에서 접지극 규모의 6.5배 이상, 또는 80 m 이상 띄웠는지',
+      '확인: 전위 보조극(P)을 접지극~C 사이 거리의 61.8 % 지점에 박았는지',
+      '확인: 51.8 %와 71.8 % 지점에서도 재어 값이 비슷한지(보통 평균을 씀)',
+      '값이 지점에 따라 계속 변하고 곡선에 평평한 구간이 없으면 C 보조극이 너무 가까워 저항구역이 겹친 측정 불량입니다.',
+      '접지극에 연결된 기기의 누설전류가 대지 전압으로 잡음이 됩니다.',
+      '보조극 자체의 접지저항이 크면 측정전류가 작아져 잡음에 약해집니다.',
+      '주접지단자에서 각 접지도체를 분리해 개별로 측정할 수 있게 해 두어야 합니다(KEC 142.3.7).',
+    ],
+    keywords: const [
+      '접지저항',
+      '접지 저항',
+      '접지저항계',
+      '메거',
+      '3점',
+      '전위강하',
+      '61.8',
+      'earth',
+      '접지극',
+    ],
+    sourceLabel: _srcGround,
+    open: (c) => _openCalc(c, 11),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.ground.install',
+    category: '접지·전동기 점검',
+    title: '접지극·접지도체 설치 확인 기준 (KEC 142.2)',
+    lines: const [
+      '접지극 매설 깊이: 고압 이상 설비와 중성점 접지극은 지표면 아래 0.75 m 이상',
+      '접지도체를 철주 등 금속체를 따라 시설할 때는 접지극을 그 금속체에서 1 m 이상 떼어 묻습니다.',
+      '수도관을 접지극으로 쓰려면 대지와의 저항이 3 Ω 이하여야 합니다.',
+      '건물 철골을 접지극으로 쓰려면 대지와의 저항이 2 Ω 이하여야 합니다.',
+      '접지도체는 지하 0.75 m부터 지표 위 2 m까지 합성수지관이나 몰드로 덮습니다.',
+      'KEC 조문은 사설 옮김 사이트로 확인했습니다. 현행 원문으로 확인하십시오.',
+    ],
+    keywords: const ['접지극', '매설', '접지도체', '수도관', '철골', '0.75', 'KEC 142'],
+    sourceLabel: _srcGround,
+    open: (c) => _openCalc(c, 11),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.ground.nogo',
+    category: '접지·전동기 점검',
+    title: '보호도체로 쓰면 안 되는 것',
+    lines: const [
+      '금속 수도관, 가스·액체 배관, 가요 전선관, 케이블 트레이, 지지선(전선 지지용 선)',
+      '보호도체 전류가 10 mA를 넘으면 구리 10 mm² 또는 알루미늄 16 mm² 이상으로 보강합니다.',
+      '따로 포설한 보호도체는 기계적 보호가 있으면 구리 2.5 mm², 없으면 구리 4 mm² 이상입니다.',
+    ],
+    keywords: const ['PE', '보호도체', '접지선', '금지', 'KEC 142.3.2'],
+    sourceLabel: _srcGround,
+    open: (c) => _openCalc(c, 11),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.ground.tt',
+    category: '접지·전동기 점검',
+    title: 'TT 계통 누전차단기가 믿을 만한 접지저항인지 확인',
+    lines: const [
+      '기준: R_A × IΔn ≤ 50 V (교류). R_A = 노출도전부 PE 저항 + 접지극 저항',
+      '30 mA → 1667 Ω 이하, 100 mA → 500 Ω 이하, 1 A → 50 Ω 이하',
+      '직류는 120 V 기준입니다.',
+      '실제 접지극 저항은 계절에 따라 변하니 한도에 바짝 맞추지 말고 훨씬 낮게 시공합니다.',
+    ],
+    keywords: const ['TT', '누전차단기', 'ELB', '감도전류', 'IΔn', '접촉전압', '50V'],
+    sourceLabel: _srcGround,
+    open: (c) => _openCalc(c, 11),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.ground.oldclass',
+    category: '접지·전동기 점검',
+    title: '옛 접지 종별(제1·2·3종)과 KEC 대응',
+    lines: const [
+      'A종 = 구 제1종(고압·특고압 기기 외함, 피뢰기 등, 10 Ω 이하)',
+      'B종 = 구 제2종(변압기 중성점, 150/1선 지락전류 이하)',
+      'C종 = 구 특별 제3종(400 V 초과 저압 기기 외함, 10 Ω 이하)',
+      'D종 = 구 제3종(400 V 이하 저압 기기 외함, 100 Ω 이하)',
+      'KEC는 종별을 없애고 목적별(계통·보호·피뢰)로 바꿨습니다. 옛 10 Ω·100 Ω이 모든 접지공사에 그대로 적용되는 것은 아닙니다.',
+    ],
+    keywords: const [
+      '제1종',
+      '제2종',
+      '제3종',
+      '특별제3종',
+      'A종',
+      'B종',
+      'C종',
+      'D종',
+      '접지공사',
+    ],
+    sourceLabel: _srcGround,
+    open: (c) => _openCalc(c, 11),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.motor.trip',
+    category: '접지·전동기 점검',
+    title: '전동기가 기동할 때 과부하계전기가 트립될 때',
+    lines: const [
+      '확인: 기동시간이 트립 클래스 상한(7.2배 기준 10A: 10초, 10: 10초, 20: 20초, 30: 30초) 이상이면 기동 중에 트립됩니다. 더 큰 클래스를 쓰거나 기동 방식을 바꿉니다.',
+      '확인: 설정값이 명판 정격전류인지(트립 전류를 넣으면 안 됩니다). 설정전류 1.05배에서는 동작하지 않고 1.2배에서 동작합니다.',
+      '확인(Y-Δ): 계전기가 델타 권선 안에 있으면 설정이 정격전류의 0.58배(1/√3)이고, 그보다 높게 맞추지 않습니다.',
+      '확인: 진상 콘덴서가 계전기 부하 쪽에 붙어 있으면 계전기 전류가 줄어 오동작할 수 있습니다. 콘덴서는 계전기 전원 쪽에서 분기합니다.',
+      '직입 기동전류는 정격의 약 5~8배, Y-Δ는 직입의 1/3입니다.',
+      '소프트스타터·인버터 구동 전동기의 설정은 확인하지 못했습니다. 제조사 설명서를 따르십시오.',
+    ],
+    keywords: const [
+      '과부하계전기',
+      '열동',
+      'THR',
+      '트립',
+      '기동',
+      '전동기',
+      '모터',
+      'Y-Δ',
+      '스타델타',
+      '클래스',
+    ],
+    sourceLabel: _srcMotor,
+    open: (c) => _openCalc(c, 12),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.motor.eocr',
+    category: '접지·전동기 점검',
+    title: 'EOCR(전자식 과전류계전기) 설정 순서',
+    lines: const [
+      'LOAD(부하): 기동이 끝난 정상 운전전류를 재서 그 110~125 %로 설정(삼화 매뉴얼 설명). 다른 자료는 정격전류의 125~150 %라 기준이 다르니 제조사 설명서를 확인하십시오.',
+      'D-TIME(기동 지연): 기동시간을 재서 +1초 정도',
+      'O-TIME(과전류 지연): 보통 4~6초',
+      'EOCR은 과부하·단락·지락·결상·역상을 보호합니다(제품 구성에 따라 다름).',
+    ],
+    keywords: const [
+      'EOCR',
+      '전자식',
+      '과전류계전기',
+      'LOAD',
+      'D-TIME',
+      'O-TIME',
+      '삼화',
+      '설정',
+    ],
+    sourceLabel: _srcMotor,
+    open: (c) => _openCalc(c, 12),
+    priority: 1,
+  ),
+  KnowledgeEntry(
+    id: 'elec.motor.short',
+    category: '접지·전동기 점검',
+    title: '전동기 단락·지락 보호 장치 최대 정격 (NEC 430.52)',
+    lines: const [
+      '이중소자(지연) 퓨즈 175 %, 역시간 차단기 250 %, 비지연 퓨즈 300 %, 순시트립 차단기 800 %(Design B 고효율 최대 1100 %)',
+      '기준 전류는 명판이 아니라 NEC 표 430.250 FLC 값입니다.',
+      '규격 정격에 안 맞으면 다음 큰 규격을 쓸 수 있고, 전동기가 기동되지 않으면 더 올릴 수 있습니다.',
+      '단락·지락 보호용이며 과부하 보호가 아닙니다.',
+      '미국 기준입니다. 국내 설계는 내선규정·KEC·제조사 선정표를 우선합니다.',
+    ],
+    keywords: const ['차단기', 'MCCB', '퓨즈', '전동기', '단락', 'NEC', '430.52', '250%'],
+    sourceLabel: _srcMotor,
+    open: (c) => _openCalc(c, 12),
+    priority: 1,
+  ),
+];

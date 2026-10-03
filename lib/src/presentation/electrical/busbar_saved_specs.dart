@@ -129,7 +129,7 @@ Future<void> openSavedSpecs(
               ),
               const SizedBox(height: 4),
               Text(
-                '지금 넣은 값을 이름 붙여 보관해 두고, 나중에 불러와서 필요한 칸만 고쳐 쓰십시오.',
+                '지금 입력값을 이름 붙여 보관해 두고, 나중에 불러와서 필요한 칸만 고쳐 쓰십시오.',
                 style: TextStyle(fontSize: 13, color: textSub),
               ),
               const SizedBox(height: 10),
@@ -145,7 +145,7 @@ Future<void> openSavedSpecs(
                     if (name == null || name.isEmpty) return;
                     if (list.any((e) => e['name'] == name) &&
                         ctx.mounted &&
-                        !await _confirm(ctx, '같은 이름이 있습니다. 덮어쓸까요?', '덮어쓰기')) {
+                        !await _confirm(ctx, '같은 이름이 있습니다. 덮어쓰시겠습니까?', '덮어쓰기')) {
                       return;
                     }
                     final l = await _read(storageKey);
@@ -214,7 +214,7 @@ Future<void> openSavedSpecs(
                             onPressed: () async {
                               if (!await _confirm(
                                 ctx,
-                                '"${e['name']}" 저장을 지울까요?',
+                                '"${e['name']}" 저장을 지우시겠습니까?',
                                 '지우기',
                               )) {
                                 return;

@@ -10,6 +10,7 @@ import '../../instrument/meter_loop_guide_page.dart';
 import '../page/ref_machine_tab.dart';
 import '../page/reference_search_index.dart';
 import '../page/tube_reference_page.dart';
+import 'knowledge_electrical.dart';
 import 'knowledge_entry.dart';
 
 /// 현장 자료 화면의 카드 제목 색인을 검색 항목으로(고르면 그 탭이 열린다).
@@ -43,6 +44,7 @@ List<KnowledgeEntry> knowledgeBase() => _cache ??= [
   ...loopKnowledge(),
   ...alignmentKnowledge(),
   ...fieldReferenceKnowledge(),
+  ...electricalKnowledge(),
 ];
 
 /// 시험에서 쓴다: 모아 둔 목록을 지운다.

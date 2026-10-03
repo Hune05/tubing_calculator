@@ -14,6 +14,7 @@ void main() {
     expect(cats['계기 신호 이상'], 6);
     expect(cats['축 정렬 지침'], greaterThanOrEqualTo(30));
     expect(cats['현장 자료'], greaterThanOrEqualTo(30));
+    expect(cats['접지·전동기 점검'], 8);
     final ids = all.map((e) => e.id).toList();
     expect(ids.toSet().length, ids.length);
     for (final e in all) {
@@ -32,6 +33,9 @@ void main() {
     expect(ids('Err.03'), contains('gd402.Err.03'));
     // 루프 값
     expect(ids('0mA'), contains('loop.0 mA'));
+    expect(ids('접지저항 측정'), contains('elec.ground.measure'));
+    expect(ids('과부하계전기 트립'), contains('elec.motor.trip'));
+    expect(ids('EOCR'), contains('elec.motor.eocr'));
     // 장비 증상
     expect(ids('튜브 찌그러짐'), isNotEmpty);
     expect(ids('각도 부족'), isNotEmpty);

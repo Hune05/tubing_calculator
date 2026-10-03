@@ -31,6 +31,8 @@ import 'busbar_tables.dart';
 import 'conduit_tables.dart';
 import 'elec_calc.dart';
 import 'elec_battery_tab.dart';
+import 'elec_ground_tab.dart';
+import 'elec_motor_protect_tab.dart';
 import 'elec_form_parts.dart';
 import 'elec_generator_tab.dart';
 import 'elec_load_sum_tab.dart';
@@ -152,9 +154,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         CalcFormParts,
         RecentCalcHistoryMixin<ElectricCalculatorPage> {
   late final TabController _tabs = TabController(
-    length: 11,
+    length: 13,
     vsync: this,
-    initialIndex: widget.initialTab.clamp(0, 10),
+    initialIndex: widget.initialTab.clamp(0, 12),
   );
 
   // 공통
@@ -719,6 +721,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 Tab(key: Key('ec_tab_pf'), text: '역률 개선'),
                 Tab(key: Key('ec_tab_gen'), text: '발전기 용량'),
                 Tab(key: Key('ec_tab_batt'), text: '축전지 용량'),
+                Tab(key: Key('ec_tab_ground'), text: '접지'),
+                Tab(key: Key('ec_tab_motor'), text: '전동기 보호'),
               ],
             ),
           ),
@@ -737,6 +741,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                 _pfTab(),
                 ElecGeneratorTab(history: calcLog),
                 ElecBatteryTab(history: calcLog),
+                ElecGroundTab(history: calcLog),
+                ElecMotorProtectTab(history: calcLog),
               ],
             ),
           ),
