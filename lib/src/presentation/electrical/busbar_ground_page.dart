@@ -17,6 +17,7 @@ import 'busbar_ground.dart';
 import 'busbar_ground_painter.dart';
 import 'busbar_ground_pdf.dart';
 import 'busbar_lug.dart';
+import 'busbar_saved_specs.dart';
 import 'elec_form_parts.dart';
 
 Future<void> _defaultShare(String text) async {
@@ -224,34 +225,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     }
   }
 
-  // ── 저장한 규격(이름 붙여 보관, 불러와서 조금만 고쳐 쓰기) ──
-
-  static const _savedKey = 'busbar_ground_saved_v1';
-
-  /// 저장한 규격 목록: [{name, at, data}] 새로 저장한 것이 앞.
-  Future<List<Map<String, dynamic>>> _readSaved() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      final raw = p.getString(_savedKey);
-      if (raw == null) return [];
-      final l = jsonDecode(raw);
-      if (l is! List) return [];
-      return [
-        for (final e in l)
-          if (e is Map && e['name'] is String && e['data'] is Map)
-            Map<String, dynamic>.from(e),
-      ];
-    } catch (_) {
-      return [];
-    }
-  }
-
-  Future<void> _writeSaved(List<Map<String, dynamic>> l) async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.setString(_savedKey, jsonEncode(l));
-    } catch (_) {}
-  }
+  // ── 저장한 규격(공용 창 busbar_saved_specs.dart) ──
 
   /// 목록 한 줄에 보이는 요약: 두께×폭 · 끝 모양 · 러그.
   String _savedSummary(Map<String, dynamic> data) {
@@ -272,174 +246,23 @@ class _GroundBarPageState extends State<GroundBarPage>
     return '$t×$w · $shape$lug';
   }
 
-  Future<void> _saveCurrent(String name) async {
-    final l = await _readSaved();
-    final data = jsonDecode(_draft()) as Map<String, dynamic>;
-    l.removeWhere((e) => e['name'] == name);
-    l.insert(0, {
-      'name': name,
-      'at': DateTime.now().toIso8601String(),
-      'data': data,
-    });
-    await _writeSaved(l);
-  }
-
-  Future<String?> _askName(String initial) async {
-    final r = await showDialog<String>(
-      context: context,
-      builder: (ctx) => _NameDialog(initial: initial),
-    );
-    return r == null || r.isEmpty ? null : r;
-  }
-
-  Future<bool> _confirm(String msg, String ok) async {
-    final r = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        content: Text(msg),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
-          ),
-          TextButton(
-            key: const Key('gb_confirm_ok'),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(ok),
-          ),
-        ],
-      ),
-    );
-    return r == true;
-  }
-
-  Future<void> _openSavedSheet() async {
-    var list = await _readSaved();
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: fc.surface,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '저장한 규격',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: fc.text,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '지금 넣은 값을 이름 붙여 보관해 두고, 나중에 불러와서 필요한 칸만 고쳐 쓰십시오.',
-                  style: TextStyle(fontSize: 13, color: fc.textSub),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    key: const Key('gb_save_now'),
-                    onPressed: () async {
-                      final name = await _askName(
-                        _jobName.text.trim().isNotEmpty
-                            ? _jobName.text.trim()
-                            : '${_thick.text}×${_width.text} 접지바',
-                      );
-                      if (name == null) return;
-                      if (list.any((e) => e['name'] == name) &&
-                          !await _confirm('같은 이름이 있습니다. 덮어쓸까요?', '덮어쓰기')) {
-                        return;
-                      }
-                      await _saveCurrent(name);
-                      list = await _readSaved();
-                      setSheet(() {});
-                    },
-                    icon: const Icon(Icons.bookmark_add_outlined),
-                    label: const Text('지금 값 저장'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (list.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    child: Text(
-                      '저장한 규격이 없습니다.',
-                      key: const Key('gb_saved_empty'),
-                      style: TextStyle(color: fc.textSub),
-                    ),
-                  )
-                else
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(ctx).size.height * 0.5,
-                    ),
-                    child: ListView(
-                      shrinkWrap: true,
-                      children: [
-                        for (final e in list)
-                          ListTile(
-                            key: Key('gb_saved_${e['name']}'),
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(
-                              e['name'] as String,
-                              style: TextStyle(
-                                fontWeight: FontWeight.w800,
-                                color: fc.text,
-                              ),
-                            ),
-                            subtitle: Text(
-                              _savedSummary(e['data'] as Map<String, dynamic>),
-                              style: TextStyle(color: fc.textSub),
-                            ),
-                            onTap: () {
-                              _set(() {
-                                _applyMap(e['data'] as Map<String, dynamic>);
-                                _selHole = null;
-                                _ovDia.clear();
-                              });
-                              Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    '"${e['name']}"을 불러왔습니다. 필요한 칸만 고쳐 쓰십시오.',
-                                  ),
-                                ),
-                              );
-                            },
-                            trailing: IconButton(
-                              key: Key('gb_saved_del_${e['name']}'),
-                              tooltip: '지우기',
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () async {
-                                if (!await _confirm(
-                                  '"${e['name']}" 저장을 지울까요?',
-                                  '지우기',
-                                )) {
-                                  return;
-                                }
-                                list.removeWhere((x) => x['name'] == e['name']);
-                                await _writeSaved(list);
-                                setSheet(() {});
-                              },
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Future<void> _openSavedSheet() => openSavedSpecs(
+    context,
+    storageKey: 'busbar_ground_saved_v1',
+    current: () => jsonDecode(_draft()) as Map<String, dynamic>,
+    summaryOf: _savedSummary,
+    defaultName: _jobName.text.trim().isNotEmpty
+        ? _jobName.text.trim()
+        : '${_thick.text}×${_width.text} 접지바',
+    onLoad: (m) => _set(() {
+      _applyMap(m);
+      _selHole = null;
+      _ovDia.clear();
+    }),
+    surface: fc.surface,
+    text: fc.text,
+    textSub: fc.textSub,
+  );
 
   void _saveSoon() {
     if (!_draftReady) return;
@@ -1700,47 +1523,4 @@ class _GroundBarPageState extends State<GroundBarPage>
       ),
     );
   }
-}
-
-/// 규격 저장 이름을 묻는 창. 입력 컨트롤러를 창 안에서 만들고 없애 닫힐 때 안전하게 한다.
-class _NameDialog extends StatefulWidget {
-  const _NameDialog({required this.initial});
-  final String initial;
-
-  @override
-  State<_NameDialog> createState() => _NameDialogState();
-}
-
-class _NameDialogState extends State<_NameDialog> {
-  late final TextEditingController _c = TextEditingController(
-    text: widget.initial,
-  );
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('이름 붙여 저장'),
-    content: TextField(
-      key: const Key('gb_save_name'),
-      controller: _c,
-      autofocus: true,
-      decoration: const InputDecoration(hintText: '예: 6×50 모자 접지바'),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('취소'),
-      ),
-      TextButton(
-        key: const Key('gb_save_ok'),
-        onPressed: () => Navigator.pop(context, _c.text.trim()),
-        child: const Text('저장'),
-      ),
-    ],
-  );
 }

@@ -109,24 +109,24 @@ void main() {
     await _type(tester, 'gb_w', '60');
     await tester.tap(find.byKey(const Key('gb_saved')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('gb_saved_empty')), findsOneWidget);
-    await tester.tap(find.byKey(const Key('gb_save_now')));
+    expect(find.byKey(const Key('ss_saved_empty')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('ss_save_now')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('gb_save_name')), '8×60 시험');
-    await tester.tap(find.byKey(const Key('gb_save_ok')));
+    await tester.enterText(find.byKey(const Key('ss_save_name')), '8×60 시험');
+    await tester.tap(find.byKey(const Key('ss_save_ok')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('gb_saved_8×60 시험')), findsOneWidget);
+    expect(find.byKey(const Key('ss_saved_8×60 시험')), findsOneWidget);
     expect(find.textContaining('8×60 · 곧은 막대'), findsOneWidget);
     // 바깥을 눌러 시트를 닫고 값을 바꾼 뒤 불러온다
     Navigator.of(
-      tester.element(find.byKey(const Key('gb_saved_8×60 시험'))),
+      tester.element(find.byKey(const Key('ss_saved_8×60 시험'))),
     ).pop();
     await tester.pumpAndSettle();
     await _type(tester, 'gb_t', '5');
     await _type(tester, 'gb_w', '40');
     await tester.tap(find.byKey(const Key('gb_saved')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('gb_saved_8×60 시험')));
+    await tester.tap(find.byKey(const Key('ss_saved_8×60 시험')));
     await tester.pumpAndSettle();
     String text(String k) =>
         tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
@@ -136,10 +136,10 @@ void main() {
     // 지우기(확인창)
     await tester.tap(find.byKey(const Key('gb_saved')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('gb_saved_del_8×60 시험')));
+    await tester.tap(find.byKey(const Key('ss_saved_del_8×60 시험')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('gb_confirm_ok')));
+    await tester.tap(find.byKey(const Key('ss_confirm_ok')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('gb_saved_empty')), findsOneWidget);
+    expect(find.byKey(const Key('ss_saved_empty')), findsOneWidget);
   });
 }
