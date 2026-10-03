@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_sheets.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart' show kThickConduitOd;
 import 'package:flutter/services.dart';
 
 // 새롭게 만든 전선관 전용 데이터 매니저 임포트 (경로를 맞게 수정해 주세요)
@@ -952,12 +954,16 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       isScrollControlled: true,
       builder: (ctx) {
         return Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(ctx).size.height * 0.92,
+          ),
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: pureWhite,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1020,6 +1026,56 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               }),
               const SizedBox(height: 12),
 
+              _buildPopupToolBtn("킥", AppGlyph.kick, () {
+                Navigator.pop(ctx);
+                ConduitSpecialSheets.showKick(
+                  context,
+                  currentRotation: currentRot,
+                  onAddBends: manager.addMultipleBends,
+                  specs: specs,
+                );
+              }),
+              const SizedBox(height: 12),
+
+              _buildPopupToolBtn("분할 90°", AppGlyph.conduitBend, () {
+                Navigator.pop(ctx);
+                ConduitSpecialSheets.showSegmented(
+                  context,
+                  currentRotation: currentRot,
+                  onAddBends: manager.addMultipleBends,
+                  specs: specs,
+                );
+              }),
+              const SizedBox(height: 12),
+
+              _buildPopupToolBtn("백투백 90°", AppGlyph.uBend, () {
+                Navigator.pop(ctx);
+                final String sizeText =
+                    globalBenderSettings.value['conduitSize']?.toString() ?? '';
+                final int? sz = int.tryParse(
+                  RegExp(r'd+').firstMatch(sizeText)?.group(0) ?? '',
+                );
+                ConduitSpecialSheets.showBackToBack(
+                  context,
+                  currentRotation: currentRot,
+                  onAddBends: manager.addMultipleBends,
+                  specs: specs,
+                  conduitOd: sz == null ? null : kThickConduitOd[sz],
+                );
+              }),
+              const SizedBox(height: 12),
+
+              _buildPopupToolBtn("스터브업", AppGlyph.conduitBend, () {
+                Navigator.pop(ctx);
+                ConduitSpecialSheets.showStubUp(
+                  context,
+                  currentRotation: currentRot,
+                  onAddBends: manager.addMultipleBends,
+                  specs: specs,
+                );
+              }),
+              const SizedBox(height: 12),
+
               _buildPopupToolBtn("평행·축소", AppGlyph.parallel, () {
                 Navigator.pop(ctx);
                 MobileParallelShrinkBottomSheet.show(
@@ -1030,6 +1086,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
 
               SizedBox(height: MediaQuery.of(context).padding.bottom),
             ],
+          ),
           ),
         );
       },
