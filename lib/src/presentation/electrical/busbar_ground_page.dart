@@ -88,9 +88,7 @@ class _GroundBarPageState extends State<GroundBarPage>
   final _ovDia = TextEditingController();
   final _tabGap = TextEditingController(text: '20');
   final _lugSpacing = TextEditingController(text: '25.4');
-  final _lugCount = TextEditingController(text: '2');
   final _panelT = TextEditingController(text: '3'); // 취부면(판넬) 두께
-  final _lugPitch = TextEditingController(text: '50'); // 러그 사이 중심 간격
   final _lugDia = TextEditingController(text: '11.1'); // 러그 구멍 지름
   final _lugPad = TextEditingController(text: '5');
 
@@ -117,10 +115,8 @@ class _GroundBarPageState extends State<GroundBarPage>
     _shift,
     _tabGap,
     _lugSpacing,
-    _lugCount,
     _lugPad,
     _panelT,
-    _lugPitch,
     _lugDia,
   ];
   static const _fieldKeys = [
@@ -143,10 +139,8 @@ class _GroundBarPageState extends State<GroundBarPage>
     'sh',
     'tg',
     'ls',
-    'lc',
     'lp',
     'pnl',
-    'lq',
     'ld',
   ];
 
@@ -283,8 +277,7 @@ class _GroundBarPageState extends State<GroundBarPage>
       tabSides: _tabSides,
       lugHoles: _lug,
       lugSpacing: _num(_lugSpacing),
-      lugCount: _lug == 0 ? 0 : _num(_lugCount).floor(),
-      lugPitch: _num(_lugPitch),
+      lugCount: _lug == 0 ? 0 : 1,
       lugHoleDia: _num(_lugDia),
       packGround: _packGround,
       overrides: Map.of(_overrides),
@@ -641,7 +634,6 @@ class _GroundBarPageState extends State<GroundBarPage>
                   if (_lugSpacing.text.trim() == '25.4') {
                     _lugSpacing.text = '44.45';
                   }
-                  if (_lugPitch.text.trim() == '50') _lugPitch.text = '80';
                 }
                 _lug = i;
               });
@@ -649,6 +641,24 @@ class _GroundBarPageState extends State<GroundBarPage>
         ],
       ),
       if (_lug != 0) ...[
+        elecField(
+          'gb_lugdia',
+          '러그 구멍 지름 (mm)',
+          _lugDia,
+          '러그 볼트가 지나는 구멍 지름입니다. ${_lug == 2 ? "2구멍 러그의 구멍 둘 모두" : "1구멍 러그의 구멍"}에 적용됩니다. 접지 구멍과 다르게 줄 수 있고, 구멍마다 따로 바꾸려면 아래 "구멍 크기 바꾸기"를 씁니다.',
+          onEdit: _saveSoon,
+        ),
+        _presetChips(
+          'gb_lugd_',
+          _lugDia,
+          const [11.1, 13.5, 17.5],
+          (v) => switch (v) {
+            11.1 => 'φ11.1 (3/8")',
+            13.5 => 'φ13.5 (M12)',
+            _ => 'φ17.5 (M16)',
+          },
+        ),
+        const SizedBox(height: 8),
         if (_lug == 2) ...[
           elecField(
             'gb_lugsp',
@@ -669,39 +679,6 @@ class _GroundBarPageState extends State<GroundBarPage>
           ),
           const SizedBox(height: 8),
         ],
-        elecField(
-          'gb_lugn',
-          '러그 개수',
-          _lugCount,
-          '붙일 러그 수입니다. 러그 구멍 묶음의 한가운데가 부스바 가운데에 옵니다.',
-          onEdit: _saveSoon,
-        ),
-        if (_num(_lugCount) > 1)
-          elecField(
-            'gb_lugpitch',
-            '러그 사이 간격 (mm)',
-            _lugPitch,
-            '이웃한 러그 중심 사이 거리(길이 방향)입니다. 러그 몸체 폭보다 넓게 잡습니다. 구멍 중심 사이 최소 12mm입니다.',
-            onEdit: _saveSoon,
-          ),
-        elecField(
-          'gb_lugdia',
-          '러그 구멍 지름 (mm)',
-          _lugDia,
-          '러그 볼트가 지나는 구멍 지름입니다. 접지 구멍과 다르게 줄 수 있습니다.',
-          onEdit: _saveSoon,
-        ),
-        _presetChips(
-          'gb_lugd_',
-          _lugDia,
-          const [11.1, 13.5, 17.5],
-          (v) => switch (v) {
-            11.1 => 'φ11.1 (3/8")',
-            13.5 => 'φ13.5 (M12)',
-            _ => 'φ17.5 (M16)',
-          },
-        ),
-        const SizedBox(height: 8),
         elecChipGroup(
           '접지 구멍 놓는 방법',
           '뒤로 몰기: 기본 접지 구멍을 왼쪽 끝에서부터 한 줄로 촘촘히 놓고, 큰 러그 구멍은 그 뒤 남는 자리 가운데에 같은 줄로 둡니다. 가운데 균등: 접지 구멍을 막대 가운데에 고르게 놓고 러그 구멍을 그 가운데에 겹쳐 둡니다(겹치면 알림). 한 줄일 때만 적용됩니다.',

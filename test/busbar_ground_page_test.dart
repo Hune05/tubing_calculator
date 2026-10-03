@@ -212,7 +212,6 @@ void main() {
         tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
     expect(text('gb_lugdia'), '13.5');
     expect(text('gb_lugsp'), '44.45');
-    await _type(tester, 'gb_lugn', '1');
     // 기본은 "뒤로 몰기": 겹치지 않고 길이 = 마지막 접지 구멍 + 피치 + 러그 묶음 + 끝 여유
     expect(find.textContaining('접지 구멍과 겹칩니다'), findsNothing);
     expect(find.text('러그 구멍 2개 · 볼트 세트 2'), findsOneWidget);
@@ -237,6 +236,9 @@ void main() {
     await _open(tester, height: 12000);
     await tester.tap(find.byKey(const Key('gb_lug_1')));
     await tester.pumpAndSettle();
+    // 1구멍 러그는 구멍 1개만(2개·4개가 아니다)
+    expect(find.text('러그 구멍 1개 · 볼트 세트 1'), findsOneWidget);
+    expect(find.byKey(const Key('gb_lugn')), findsNothing);
     await tester.tap(find.byKey(const Key('gb_ov_sel')));
     await tester.pumpAndSettle();
     expect(find.textContaining('러그 1 · φ13.5'), findsWidgets);
