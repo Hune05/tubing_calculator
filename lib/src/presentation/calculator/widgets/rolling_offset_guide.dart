@@ -1,17 +1,19 @@
 // 롤링 오프셋(굴림 오프셋) 그림 설명. 시트를 열 때 한 번 자동으로 움직여
-// 장애물·Rise(수직)·Roll(수평)·회전각을 순서대로 보여 준다. 값을 바꿔도 그림은
-// 그대로 있고, "다시 보기"를 누르면 처음부터 다시 움직인다(2026-09-27, 09-27 저녁
-// 그림 품질을 올렸다: 관을 입체감 있는 굵은 선으로, 회전각은 각도기 다이얼로).
+// 입체 상자 안에서 관이 꺾여 올라가는 모습과 Run·Rise·Roll·대각선·Travel·회전각을
+// 순서대로 보여 준다. 값을 바꿔도 그림은 그대로 있고, "다시 보기"를 누르면 처음부터
+// 다시 움직인다. (2026-10-04: 평면 그림을 입체 상자 그림으로 바꿨다. 상자의 세 변이
+// Run(관 방향)·Rise(위)·Roll(안쪽)이고, 관은 상자 한쪽 모서리에서 반대쪽 모서리로
+// 대각선을 가로지른다. 관 길이 = Travel, 끝면의 대각선 = True Offset.)
 //
 // 실제 순서(스낵바 "꺾기 전에 관을 X° 굴려서 잡으십시오"와 같다):
 //  ① 고른 기준면에서 회전각만큼 관을 돌려 벤더에 문다.
 //  ② 그 자리에서 벤딩 각도로 꺾는다(1번 마킹).
 //  ③ 관을 180° 굴려 반대로 돌린 뒤 같은 각도로 꺾는다(2번 마킹).
-//  → 관이 위·옆으로 동시에 벌어져 장애물을 대각선으로 피한다.
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'package:tubing_calculator/src/presentation/common/guide_paint_kit.dart';
 
 class RollingOffsetGuide extends StatefulWidget {
   final double rise;
@@ -37,7 +39,7 @@ class _RollingOffsetGuideState extends State<RollingOffsetGuide>
     with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 3000),
+    duration: const Duration(milliseconds: 4600),
   )..forward();
 
   void _replay() => _c.forward(from: 0);
@@ -52,454 +54,626 @@ class _RollingOffsetGuideState extends State<RollingOffsetGuide>
   String _deg(double v) => '${v.toStringAsFixed(0)}°';
 
   @override
-  Widget build(BuildContext context) => Container(
-    key: const Key('rolling_guide'),
-    height: 172,
-    width: double.infinity,
-    clipBehavior: Clip.antiAlias,
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [AppColors.background, AppColors.surface],
-      ),
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: Colors.grey.shade200),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 6,
-          offset: const Offset(0, 2),
+  Widget build(BuildContext context) {
+    final bend = widget.bendAngle;
+    final validBend = bend > 0 && bend < 180;
+    final travel = validBend && widget.trueOffset > 0
+        ? widget.trueOffset / math.sin(degToRad(bend))
+        : 0.0;
+    final run = validBend && bend != 90 && widget.trueOffset > 0
+        ? widget.trueOffset / math.tan(degToRad(bend))
+        : 0.0;
+    return Container(
+      key: const Key('rolling_guide'),
+      height: 272,
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [AppColors.background, AppColors.surface],
         ),
-      ],
-    ),
-    child: Stack(
-      children: [
-        Positioned.fill(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-            child: AnimatedBuilder(
-              animation: _c,
-              builder: (context, _) => CustomPaint(
-                size: Size.infinite,
-                painter: _RollingOffsetGuidePainter(
-                  t: _c.value,
-                  riseLabel: _mm(widget.rise),
-                  rollLabel: _mm(widget.roll),
-                  offsetLabel: _mm(widget.trueOffset),
-                  rollAngleLabel: _deg(widget.rollAngle),
-                  rollAngleDeg: widget.rollAngle,
-                  hasValues: widget.rise > 0 || widget.roll > 0,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+              child: AnimatedBuilder(
+                animation: _c,
+                builder: (context, _) => CustomPaint(
+                  size: Size.infinite,
+                  painter: _RollingOffsetGuidePainter(
+                    t: _c.value,
+                    rise: widget.rise,
+                    roll: widget.roll,
+                    run: run,
+                    bendAngle: validBend ? bend : 0,
+                    riseLabel: _mm(widget.rise),
+                    rollLabel: _mm(widget.roll),
+                    runLabel: _mm(run),
+                    offsetLabel: _mm(widget.trueOffset),
+                    travelLabel: _mm(travel),
+                    rollAngleLabel: _deg(widget.rollAngle),
+                    bendLabel: _deg(bend),
+                    hasValues: widget.rise > 0 || widget.roll > 0,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          right: 2,
-          top: 2,
-          child: IconButton(
-            key: const Key('rolling_guide_replay'),
-            iconSize: 18,
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.all(6),
-            constraints: const BoxConstraints(),
-            tooltip: '다시 보기',
-            icon: Icon(Icons.replay, color: AppColors.brand),
-            onPressed: _replay,
+          Positioned(
+            right: 2,
+            top: 2,
+            child: IconButton(
+              key: const Key('rolling_guide_replay'),
+              iconSize: 18,
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(),
+              tooltip: '다시 보기',
+              icon: Icon(Icons.replay, color: AppColors.brand),
+              onPressed: _replay,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
+
+const Color _kRunColor = Color(0xFF7C3AED);
+const Color _kRiseColor = Color(0xFF2563EB);
+const Color _kRollColor = Color(0xFFDC2626);
+const Color _kTravelColor = Color(0xFF16A34A);
 
 class _RollingOffsetGuidePainter extends CustomPainter {
   final double t;
+  final double rise;
+  final double roll;
+  final double run;
+  final double bendAngle;
   final String riseLabel;
   final String rollLabel;
+  final String runLabel;
   final String offsetLabel;
+  final String travelLabel;
   final String rollAngleLabel;
-  final double rollAngleDeg;
+  final String bendLabel;
   final bool hasValues;
 
   _RollingOffsetGuidePainter({
     required this.t,
+    required this.rise,
+    required this.roll,
+    required this.run,
+    required this.bendAngle,
     required this.riseLabel,
     required this.rollLabel,
+    required this.runLabel,
     required this.offsetLabel,
+    required this.travelLabel,
     required this.rollAngleLabel,
-    required this.rollAngleDeg,
+    required this.bendLabel,
     required this.hasValues,
   });
 
-  static double _stage(double t, double a, double b) =>
-      Curves.easeOutCubic.transform(((t - a) / (b - a)).clamp(0.0, 1.0));
+  // 화면 투영: x(관 방향)는 오른쪽으로 조금 앞쪽, y는 위, z(안쪽)는 오른쪽 위로 간다.
+  static const Offset _ex = Offset(0.94, 0.16);
+  static const Offset _ey = Offset(0, -1);
+  static const Offset _ez = Offset(0.56, -0.36);
 
-  void _pill(
+  static Offset _raw(double x, double y, double z) =>
+      _ex * x + _ey * y + _ez * z;
+
+  /// 화살촉 달린 치수선. [s]는 0~1(그려지는 정도).
+  void _dim(
     Canvas canvas,
-    String s,
-    Offset center, {
-    required Color color,
-    double size = 10.5,
+    Offset a,
+    Offset b,
+    double s,
+    Color color, {
+    double width = 1.8,
+    bool dashed = false,
   }) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: s,
-        style: TextStyle(
-          color: color,
-          fontSize: size,
-          fontWeight: FontWeight.w800,
-          fontFamily: kAppFontFamily,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromCenter(
-        center: center,
-        width: tp.width + 12,
-        height: tp.height + 6,
-      ),
-      const Radius.circular(8),
-    );
-    canvas.drawRRect(
-      rect,
+    if (s <= 0) return;
+    final tip = Offset.lerp(a, b, s)!;
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round;
+    if (dashed) {
+      final d = (tip - a).distance;
+      if (d > 1) {
+        final dir = (tip - a) / d;
+        var covered = 0.0;
+        while (covered < d) {
+          canvas.drawLine(
+            a + dir * covered,
+            a + dir * math.min(covered + 5, d),
+            paint,
+          );
+          covered += 8;
+        }
+      }
+    } else {
+      canvas.drawLine(a, tip, paint);
+    }
+    if (s > 0.96) {
+      final d = (b - a);
+      final len = d.distance;
+      if (len < 14) return;
+      final dir = d / len;
+      final n = Offset(-dir.dy, dir.dx);
+      void head(Offset p, Offset towards) {
+        final path = Path()
+          ..moveTo(p.dx, p.dy)
+          ..lineTo(
+            p.dx - towards.dx * 7 + n.dx * 3.2,
+            p.dy - towards.dy * 7 + n.dy * 3.2,
+          )
+          ..lineTo(
+            p.dx - towards.dx * 7 - n.dx * 3.2,
+            p.dy - towards.dy * 7 - n.dy * 3.2,
+          )
+          ..close();
+        canvas.drawPath(path, Paint()..color = color);
+      }
+
+      head(b, dir);
+      head(a, -dir);
+    }
+  }
+
+  void _dashedLine(
+    Canvas canvas,
+    Offset a,
+    Offset b,
+    double s,
+    Paint paint, {
+    double dash = 4,
+    double gap = 4,
+  }) {
+    if (s <= 0) return;
+    final tip = Offset.lerp(a, b, s)!;
+    final d = (tip - a).distance;
+    if (d < 1) return;
+    final dir = (tip - a) / d;
+    var covered = 0.0;
+    while (covered < d) {
+      canvas.drawLine(
+        a + dir * covered,
+        a + dir * math.min(covered + dash, d),
+        paint,
+      );
+      covered += dash + gap;
+    }
+  }
+
+  /// 번호가 든 주황 점(1번·2번 마킹 자리).
+  void _marker(Canvas canvas, Offset p, String label, double s) {
+    if (s <= 0) return;
+    final r = 8.0 * s;
+    canvas.drawCircle(
+      p + const Offset(0, 1.5),
+      r,
       Paint()
-        ..color = AppColors.surface.withValues(alpha: 0.96)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.6),
+        ..color = Colors.black.withValues(alpha: 0.18)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5),
     );
-    canvas.drawRRect(
-      rect,
+    canvas.drawCircle(p, r, Paint()..color = kGuideOrange);
+    canvas.drawCircle(
+      p,
+      r,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = color.withValues(alpha: 0.35),
+        ..strokeWidth = 1.4
+        ..color = Colors.white,
     );
-    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
+    if (s > 0.8) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.w900,
+            fontFamily: kAppFontFamily,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
+    }
   }
 
-  void _icon(
+  /// 3차원에서 두 방향 사이를 둥글게 잇는 호(각도 표시).
+  void _arc3(
     Canvas canvas,
-    IconData icon,
-    Offset center,
-    double size,
+    Offset Function(double, double, double) map,
+    List<double> center,
+    List<double> u,
+    List<double> v,
+    double r,
+    double s,
     Color color,
   ) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: String.fromCharCode(icon.codePoint),
-        style: TextStyle(
-          fontSize: size,
-          fontFamily: icon.fontFamily,
-          package: icon.fontPackage,
-          color: color,
+    if (s <= 0) return;
+    double dot(List<double> a, List<double> b) =>
+        a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    final phi = math.acos(dot(u, v).clamp(-1.0, 1.0));
+    if (phi < 0.01) return;
+    final pts = <Offset>[];
+    const steps = 24;
+    for (var i = 0; i <= steps * s; i++) {
+      final q = i / steps;
+      final a = math.sin((1 - q) * phi) / math.sin(phi);
+      final b = math.sin(q * phi) / math.sin(phi);
+      pts.add(
+        map(
+          center[0] + r * (a * u[0] + b * v[0]),
+          center[1] + r * (a * u[1] + b * v[1]),
+          center[2] + r * (a * u[2] + b * v[2]),
         ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
-  }
-
-  /// 굵고 입체감 있는 "관" 한 구간. 가운데에 밝은 하이라이트 줄을 얹어 둥근 파이프처럼 보이게 한다.
-  void _pipeSegment(Canvas canvas, Offset a, Offset b, double s, Color base) {
-    final tip = Offset.lerp(a, b, s)!;
-    final shadow = Paint()
-      ..color = Colors.black.withValues(alpha: 0.12)
-      ..strokeWidth = 7
-      ..strokeCap = StrokeCap.round
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.4);
-    canvas.drawLine(
-      a + const Offset(0, 1.4),
-      tip + const Offset(0, 1.4),
-      shadow,
-    );
-    canvas.drawLine(
-      a,
-      tip,
+      );
+    }
+    if (pts.length < 2) return;
+    // 호 안쪽을 옅게 채워 "이만큼 돌린다"를 보인다.
+    final fill = Path()
+      ..moveTo(
+        map(center[0], center[1], center[2]).dx,
+        map(center[0], center[1], center[2]).dy,
+      );
+    for (final p in pts) {
+      fill.lineTo(p.dx, p.dy);
+    }
+    fill.close();
+    canvas.drawPath(fill, Paint()..color = color.withValues(alpha: 0.2));
+    final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (final p in pts.skip(1)) {
+      path.lineTo(p.dx, p.dy);
+    }
+    canvas.drawPath(
+      path,
       Paint()
-        ..color = base
-        ..strokeWidth = 6.5
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      a,
-      tip,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.55)
-        ..strokeWidth = 1.6
-        ..strokeCap = StrokeCap.round,
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..color = color,
     );
   }
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
-    final leftW = w * 0.54;
+    paintDotGrid(canvas, size);
 
-    // ── 배경: 아주 옅은 도면 느낌의 점 격자 ──
-    final dotPaint = Paint()..color = AppColors.textSub.withValues(alpha: 0.08);
-    for (double gx = 6; gx < w; gx += 14) {
-      for (double gy = 6; gy < h; gy += 14) {
-        canvas.drawCircle(Offset(gx, gy), 0.7, dotPaint);
-      }
-    }
+    // ── 장면의 크기: 값이 없으면 보기 좋은 본보기(150·200·45°)로 그린다 ──
+    final riseV = hasValues ? rise : 150.0;
+    final rollV = hasValues ? roll : 200.0;
+    final off = math.sqrt(riseV * riseV + rollV * rollV);
+    final th = bendAngle > 0 ? bendAngle : 45.0;
+    final runV = hasValues && run > 0
+        ? run
+        : (th >= 89.5 ? 0.0 : off / math.tan(degToRad(th)));
+    final m = math.max(1.0, math.max(runV, math.max(riseV, rollV)));
+    double fr(double v) => math.max(v / m, 0.22);
+    final dx = fr(runV), dy = fr(riseV), dz = fr(rollV);
+    final pre = 0.5, post = 0.42;
 
-    // ── 왼쪽: 장애물 + Rise(수직) 관 + Roll(수평) 관 + 대각선(True Offset) ──
-    final baseY = h - 16;
-    final p0 = Offset(16, baseY); // 시작점
-    const riseLen = 64.0, rollLen = 50.0;
-    final p1 = p0.translate(0, -riseLen); // Rise 다 간 자리
-    final p2 = p1.translate(math.min(rollLen, leftW - 34), 0); // Roll 다 간 자리
-
-    // 바닥선(기준면).
-    canvas.drawLine(
-      Offset(6, baseY),
-      Offset(leftW - 8, baseY),
-      Paint()
-        ..color = AppColors.textSub.withValues(alpha: 0.4)
-        ..strokeWidth = 1.2,
-    );
-
-    // 장애물: 관이 두르는 안쪽 모서리(Rise 오른쪽·Roll 아래쪽)에 그린다.
-    // 그림자 있는 둥근 상자 + 대각 줄무늬(경고 표시).
-    final obstacleT = _stage(t, 0, 0.16);
-    if (obstacleT > 0) {
-      const obw = 26.0, obh = 26.0;
-      final cx = p1.dx + (p2.dx - p1.dx) * 0.46;
-      final cy = p1.dy + (baseY - p1.dy) * 0.46;
-      final rect = Rect.fromCenter(
-        center: Offset(cx, cy),
-        width: obw,
-        height: obh * obstacleT,
-      );
-      final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(4));
-      canvas.drawRRect(
-        rrect.shift(const Offset(0, 1.6)),
-        Paint()
-          ..color = Colors.black.withValues(alpha: 0.10)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.6),
-      );
-      canvas.drawRRect(
-        rrect,
-        Paint()
-          ..shader = LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.caution.withValues(alpha: 0.85),
-              AppColors.caution.withValues(alpha: 0.55),
-            ],
-          ).createShader(rect),
-      );
-      canvas.save();
-      canvas.clipRRect(rrect);
-      final stripe = Paint()
-        ..color = Colors.white.withValues(alpha: 0.35)
-        ..strokeWidth = 3;
-      for (double x = rect.left - obh; x < rect.right + obh; x += 7) {
-        canvas.drawLine(
-          Offset(x, rect.bottom),
-          Offset(x + obh, rect.top),
-          stripe,
-        );
-      }
-      canvas.restore();
-      if (obstacleT > 0.7) {
-        _icon(
-          canvas,
-          Icons.warning_amber_rounded,
-          rect.center,
-          12,
-          Colors.white,
-        );
-      }
-    }
-
-    // 위쪽 빈자리(관·장애물은 모두 그 아래에 있다)에 값표를 세로로 쌓아 겹치지 않게 한다.
-    const legendX = 46.0;
-    final riseT = _stage(t, 0.10, 0.36);
-    if (riseT > 0) {
-      _pipeSegment(canvas, p0, p1, riseT, AppColors.brand);
-      if (riseT > 0.6) {
-        _pill(
-          canvas,
-          'Rise $riseLabel',
-          const Offset(legendX, 14),
-          color: AppColors.brand,
-        );
-      }
-    }
-    final rollT = _stage(t, 0.40, 0.62);
-    if (rollT > 0) {
-      _pipeSegment(canvas, p1, p2, rollT, fieldOrange);
-      if (rollT > 0.6) {
-        _pill(
-          canvas,
-          'Roll $rollLabel',
-          const Offset(legendX, 34),
-          color: fieldOrange,
-        );
-      }
-    }
-    final diagT = _stage(t, 0.64, 0.90);
-    if (diagT > 0) {
-      final tip = Offset.lerp(p0, p2, diagT)!;
-      final dash = Paint()
-        ..color = AppColors.text
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round;
-      final d = (tip - p0).distance;
-      if (d > 1) {
-        final dir = (tip - p0) / d;
-        const step = 8.0, gap = 5.0;
-        var covered = 0.0;
-        while (covered < d) {
-          final segEnd = math.min(covered + step, d);
-          canvas.drawLine(p0 + dir * covered, p0 + dir * segEnd, dash);
-          covered += step + gap;
+    // ── 화면에 꽉 차게 맞추기 ──
+    var minX = double.infinity, maxX = -double.infinity;
+    var minY = double.infinity, maxY = -double.infinity;
+    for (final x in [-pre, dx + post]) {
+      for (final y in [0.0, dy]) {
+        for (final z in [0.0, dz]) {
+          final p = _raw(x, y, z);
+          minX = math.min(minX, p.dx);
+          maxX = math.max(maxX, p.dx);
+          minY = math.min(minY, p.dy);
+          maxY = math.max(maxY, p.dy);
         }
       }
-      if (diagT > 0.75) {
-        _pill(
-          canvas,
-          '대각선 $offsetLabel',
-          const Offset(legendX, 54),
-          color: AppColors.text,
-          size: 9.5,
-        );
+    }
+    // 값표가 들어갈 가장자리 여백.
+    // 값표는 그림 아래 범례 줄에 모아 둔다(선 색과 같은 색 점으로 구분).
+    final chips = <_Chip>[
+      _Chip('Run $runLabel', _kRunColor, 0.56),
+      _Chip('Rise $riseLabel', _kRiseColor, 0.65),
+      _Chip('Roll $rollLabel', _kRollColor, 0.74),
+      _Chip('대각선 $offsetLabel', kGuideOrange, 0.83),
+      _Chip('Travel $travelLabel', _kTravelColor, 0.46),
+      _Chip('회전각 $rollAngleLabel', kGuideOrange, 0.90),
+      if (bendAngle > 0) _Chip('벤딩 $bendLabel', AppColors.brand, 0.90),
+    ];
+    final legend = _layoutLegend(chips, w);
+    const padL = 12.0, padR = 12.0, padT = 14.0;
+    final padB = legend.height + 10;
+    final sc = math.min(
+      (w - padL - padR) / (maxX - minX),
+      (h - padT - padB) / (maxY - minY),
+    );
+    final ox = padL + ((w - padL - padR) - (maxX - minX) * sc) / 2 - minX * sc;
+    final oy = padT + ((h - padT - padB) - (maxY - minY) * sc) / 2 - minY * sc;
+    Offset map(double x, double y, double z) {
+      final p = _raw(x, y, z);
+      return Offset(ox + p.dx * sc, oy + p.dy * sc);
+    }
+
+    Offset c(double x, double y, double z) => map(x, y, z);
+
+    // ── 단계별 진행 ──
+    final boxT = stageT(t, 0.0, 0.14);
+    final preT = stageT(t, 0.08, 0.22);
+    final diagT = stageT(t, 0.22, 0.44);
+    final postT = stageT(t, 0.40, 0.52);
+    final travelT = stageT(t, 0.46, 0.56);
+    final runT = stageT(t, 0.56, 0.65);
+    final riseT = stageT(t, 0.65, 0.74);
+    final rollT = stageT(t, 0.74, 0.83);
+    final offT = stageT(t, 0.83, 0.91);
+    final angT = stageT(t, 0.90, 1.0);
+
+    // ── 상자(바닥·뒷면·왼쪽 면은 진하게, 앞쪽 면은 유리처럼 옅게) ──
+    void face(List<Offset> pts, double alpha, Color color) {
+      if (boxT <= 0) return;
+      final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+      for (final p in pts.skip(1)) {
+        path.lineTo(p.dx, p.dy);
+      }
+      path.close();
+      canvas.drawPath(path, Paint()..color = color.withValues(alpha: alpha * boxT));
+    }
+
+    const boxColor = Color(0xFFF5D547);
+    final floorC = AppColors.textSub;
+    face([c(0, 0, 0), c(dx, 0, 0), c(dx, 0, dz), c(0, 0, dz)], 0.10, floorC);
+    face([c(0, 0, dz), c(dx, 0, dz), c(dx, dy, dz), c(0, dy, dz)], 0.22, boxColor);
+    face([c(0, 0, 0), c(0, 0, dz), c(0, dy, dz), c(0, dy, 0)], 0.14, boxColor);
+    face([c(0, 0, 0), c(dx, 0, 0), c(dx, dy, 0), c(0, dy, 0)], 0.10, boxColor);
+    face([c(dx, 0, 0), c(dx, 0, dz), c(dx, dy, dz), c(dx, dy, 0)], 0.16, boxColor);
+    face([c(0, dy, 0), c(dx, dy, 0), c(dx, dy, dz), c(0, dy, dz)], 0.12, boxColor);
+
+    // 가려진 모서리(점선)와 보이는 모서리(실선).
+    final hiddenPaint = Paint()
+      ..color = AppColors.textSub.withValues(alpha: 0.55)
+      ..strokeWidth = 1.1;
+    final edgePaint = Paint()
+      ..color = AppColors.textSub.withValues(alpha: 0.75)
+      ..strokeWidth = 1.3
+      ..strokeCap = StrokeCap.round;
+    _dashedLine(canvas, c(0, 0, 0), c(0, 0, dz), boxT, hiddenPaint);
+    _dashedLine(canvas, c(0, 0, dz), c(dx, 0, dz), boxT, hiddenPaint);
+    _dashedLine(canvas, c(0, 0, dz), c(0, dy, dz), boxT, hiddenPaint);
+
+    // ── 바닥에 비친 관 그림자와 내려오는 점선(높이를 읽기 쉽게) ──
+    if (diagT > 0) {
+      final shadow = Paint()
+        ..color = Colors.black.withValues(alpha: 0.22)
+        ..strokeWidth = 1.4;
+      _dashedLine(canvas, c(0, 0, 0), c(dx, 0, dz), diagT, shadow, dash: 3, gap: 3);
+      _dashedLine(canvas, c(dx, dy, dz), c(dx, 0, dz), diagT, shadow, dash: 2, gap: 3);
+      if (postT > 0) {
+        _dashedLine(canvas, c(dx, 0, dz), c(dx + post, 0, dz), postT, shadow, dash: 3, gap: 3);
       }
     }
 
-    // ── 오른쪽: 각도기 다이얼(관 단면 + 회전각) ──
-    final cx = leftW + (w - leftW) / 2;
-    final cy = h / 2 - 2;
-    final r = math.min((w - leftW) / 2 - 16, h / 2 - 20).clamp(18.0, 36.0);
-    final dialT = _stage(t, 0.50, 0.68);
-    if (dialT > 0) {
-      // 바깥 다이얼 판.
-      canvas.drawCircle(
-        Offset(cx, cy),
-        r + 6,
-        Paint()..color = AppColors.surface.withValues(alpha: 0.9 * dialT),
+    // ── 관 ──
+    const pipeW = 9.0;
+    paintPipeSegment(canvas, c(-pre, 0, 0), c(0, 0, 0), preT, AppColors.textSub, width: pipeW);
+    paintPipeSegment(canvas, c(0, 0, 0), c(dx, dy, dz), diagT, AppColors.brand, width: pipeW);
+    paintPipeSegment(canvas, c(dx, dy, dz), c(dx + post, dy, dz), postT, AppColors.textSub, width: pipeW);
+
+    // 관 끝 단면(열린 입구).
+    if (preT > 0.3) {
+      final e = c(-pre, 0, 0);
+      canvas.drawOval(
+        Rect.fromCenter(center: e, width: 6, height: pipeW + 1),
+        Paint()..color = Colors.white.withValues(alpha: 0.85),
       );
-      canvas.drawCircle(
-        Offset(cx, cy),
-        r + 6,
+      canvas.drawOval(
+        Rect.fromCenter(center: e, width: 6, height: pipeW + 1),
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 1
-          ..color = AppColors.textSub.withValues(alpha: 0.5),
-      );
-      // 30°마다 눈금.
-      for (var d = 0; d < 360; d += 30) {
-        final rad = d * math.pi / 180;
-        final a = Offset(cx + r * math.sin(rad), cy - r * math.cos(rad));
-        final b = Offset(
-          cx + (r + 4) * math.sin(rad),
-          cy - (r + 4) * math.cos(rad),
-        );
-        canvas.drawLine(
-          a,
-          b,
-          Paint()
-            ..color = AppColors.textSub.withValues(alpha: 0.5 * dialT)
-            ..strokeWidth = 1.2,
-        );
-      }
-      canvas.drawCircle(
-        Offset(cx, cy),
-        r * dialT,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.6
+          ..strokeWidth = 1.1
           ..color = AppColors.textSub,
       );
     }
-    if (dialT > 0.85) {
-      _icon(
+
+    // 보이는 모서리를 관 위에 얇게 한 번 더(상자 형태가 또렷하도록).
+    void edge(Offset a, Offset b) {
+      if (boxT <= 0) return;
+      canvas.drawLine(a, Offset.lerp(a, b, boxT)!, edgePaint);
+    }
+
+    edge(c(0, 0, 0), c(dx, 0, 0));
+    edge(c(dx, 0, 0), c(dx, 0, dz));
+    edge(c(dx, 0, dz), c(dx, dy, dz));
+    edge(c(dx, dy, 0), c(dx, dy, dz));
+    edge(c(0, dy, 0), c(dx, dy, 0));
+    edge(c(0, dy, 0), c(0, dy, dz));
+    edge(c(0, dy, dz), c(dx, dy, dz));
+    edge(c(0, 0, 0), c(0, dy, 0));
+    edge(c(dx, 0, 0), c(dx, dy, 0));
+
+    // 1번·2번 마킹 점.
+    _marker(canvas, c(0, 0, 0), '1', stageT(t, 0.20, 0.28));
+    _marker(canvas, c(dx, dy, dz), '2', stageT(t, 0.40, 0.48));
+
+    // ── 치수선(색은 범례의 점과 같다) ──
+    // Travel: 관을 따라 안쪽(왼쪽 위)으로 띄운 초록 선.
+    final a0 = c(0, 0, 0), b0 = c(dx, dy, dz);
+    final dirAB = (b0 - a0) / (b0 - a0).distance;
+    final nAB = Offset(dirAB.dy, -dirAB.dx);
+    final travelShift = nAB * 15;
+    _dim(canvas, a0 + travelShift, b0 + travelShift, travelT, _kTravelColor);
+
+    // Run: 바닥 앞 모서리를 따라(보라).
+    const runShift = Offset(0, 11);
+    _dim(canvas, c(0, 0, 0) + runShift, c(dx, 0, 0) + runShift, runT, _kRunColor);
+
+    // Rise: 앞쪽 오른 세로 모서리(파랑).
+    const riseShift = Offset(10, 0);
+    _dim(canvas, c(dx, 0, 0) + riseShift, c(dx, dy, 0) + riseShift, riseT, _kRiseColor);
+
+    // Roll: 위쪽 안으로 들어가는 모서리(빨강).
+    const rollShift = Offset(0, -9);
+    _dim(canvas, c(dx, dy, 0) + rollShift, c(dx, dy, dz) + rollShift, rollT, _kRollColor);
+
+    // 끝면의 대각선(True Offset, 주황 점선).
+    _dim(canvas, c(dx, 0, 0), c(dx, dy, dz), offT, kGuideOrange, width: 2.2, dashed: true);
+
+    // 각도: 끝면 아래 모서리의 회전각(주황), 1번 마킹의 벤딩 각도(청록).
+    final diagLen = math.sqrt(dy * dy + dz * dz);
+    if (angT > 0) {
+      _arc3(
         canvas,
-        Icons.push_pin,
-        Offset(cx, cy - r - 12),
-        13,
-        AppColors.textSub,
+        map,
+        [dx, 0, 0],
+        [0, 1, 0],
+        [0, dy / diagLen, dz / diagLen],
+        math.min(0.26, diagLen * 0.5),
+        angT,
+        kGuideOrange,
+      );
+      final full3 = math.sqrt(dx * dx + dy * dy + dz * dz);
+      _arc3(
+        canvas,
+        map,
+        [0, 0, 0],
+        [1, 0, 0],
+        [dx / full3, dy / full3, dz / full3],
+        0.2,
+        angT,
+        AppColors.brand,
       );
     }
-    final rotT = _stage(t, 0.70, 1.0);
-    if (rotT > 0 && hasValues) {
-      final sweepDeg = rotT * rollAngleDeg;
-      final sweepRad = sweepDeg * math.pi / 180;
-      // 회전한 만큼 부채꼴(반투명 주황)로 채워 "이만큼 돌린다"를 보인다.
-      final path = Path()
-        ..moveTo(cx, cy)
-        ..lineTo(cx, cy - r)
-        ..arcTo(
-          Rect.fromCircle(center: Offset(cx, cy), radius: r),
-          -math.pi / 2,
-          sweepRad,
-          false,
-        )
-        ..close();
-      canvas.drawPath(
-        path,
-        Paint()..color = fieldOrange.withValues(alpha: 0.18),
-      );
-      final end = Offset(
-        cx + r * math.sin(sweepRad),
-        cy - r * math.cos(sweepRad),
-      );
-      canvas.drawLine(
-        Offset(cx, cy),
-        end,
-        Paint()
-          ..color = fieldOrange
-          ..strokeWidth = 3
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawCircle(end, 5, Paint()..color = fieldOrange);
-      canvas.drawCircle(
-        end,
-        5,
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.4
-          ..color = Colors.white.withValues(alpha: 0.85),
-      );
-      canvas.drawCircle(
-        Offset(cx, cy),
-        3.5,
-        Paint()..color = AppColors.textSub,
-      );
-      if (rotT > 0.8) {
-        _pill(
-          canvas,
-          '회전각 $rollAngleLabel',
-          Offset(cx, h - 8),
-          color: fieldOrange,
-        );
+
+    // ── 범례(값표) ──
+    if (hasValues) {
+      for (var i = 0; i < chips.length; i++) {
+        final k = stageT(t, chips[i].at - 0.04, chips[i].at + 0.06);
+        if (k <= 0) continue;
+        final r = legend.rects[i];
+        canvas.save();
+        canvas.translate(0, (1 - k) * 6);
+        _paintChip(canvas, chips[i], legend.painters[i], r.shift(Offset(0, h - legend.height - 2)), k);
+        canvas.restore();
       }
-    }
-    if (!hasValues && t > 0.6) {
-      _pill(
+    } else if (t > 0.6) {
+      paintPill(
         canvas,
-        'Rise·Roll을 넣으면 움직입니다',
-        Offset(cx, cy),
+        'Rise·Roll을 넣으면 값이 나옵니다',
+        Offset(w / 2, h - 14),
         color: AppColors.textSub,
         size: 9,
       );
     }
   }
 
+  /// 범례 칩들을 폭에 맞춰 줄바꿈하며 가운데 정렬로 놓는다(보이기 전에도 자리는 고정).
+  _Legend _layoutLegend(List<_Chip> chips, double w) {
+    const padX = 8.0, dot = 14.0, hgap = 6.0, vgap = 6.0, hh = 20.0;
+    final tps = <TextPainter>[
+      for (final c in chips)
+        TextPainter(
+          text: TextSpan(
+            text: c.label,
+            style: const TextStyle(
+              color: AppColors.text,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              fontFamily: kAppFontFamily,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout(),
+    ];
+    final rows = <List<int>>[[]];
+    var x = 0.0;
+    for (var i = 0; i < chips.length; i++) {
+      final cw = tps[i].width + padX * 2 + dot - 4;
+      if (rows.last.isNotEmpty && x + cw > w - 8) {
+        rows.add([]);
+        x = 0;
+      }
+      rows.last.add(i);
+      x += cw + hgap;
+    }
+    final rects = List<Rect>.filled(chips.length, Rect.zero);
+    for (var r = 0; r < rows.length; r++) {
+      var total = -hgap;
+      for (final i in rows[r]) {
+        total += tps[i].width + padX * 2 + dot - 4 + hgap;
+      }
+      var cx = (w - total) / 2;
+      for (final i in rows[r]) {
+        final cw = tps[i].width + padX * 2 + dot - 4;
+        rects[i] = Rect.fromLTWH(cx, r * (hh + vgap), cw, hh);
+        cx += cw + hgap;
+      }
+    }
+    return _Legend(rects, tps, rows.length * hh + (rows.length - 1) * vgap + 4);
+  }
+
+  void _paintChip(Canvas canvas, _Chip chip, TextPainter tp, Rect r, double k) {
+    final rr = RRect.fromRectAndRadius(r, const Radius.circular(10));
+    canvas.drawRRect(
+      rr,
+      Paint()..color = AppColors.surface.withValues(alpha: 0.96 * k),
+    );
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = chip.color.withValues(alpha: 0.45 * k),
+    );
+    canvas.drawCircle(
+      Offset(r.left + 10, r.center.dy),
+      4,
+      Paint()..color = chip.color.withValues(alpha: k),
+    );
+    tp.paint(canvas, Offset(r.left + 18, r.center.dy - tp.height / 2));
+  }
+
   @override
   bool shouldRepaint(_RollingOffsetGuidePainter old) =>
       old.t != t ||
+      old.rise != rise ||
+      old.roll != roll ||
+      old.run != run ||
+      old.bendAngle != bendAngle ||
       old.riseLabel != riseLabel ||
       old.rollLabel != rollLabel ||
+      old.runLabel != runLabel ||
       old.offsetLabel != offsetLabel ||
+      old.travelLabel != travelLabel ||
       old.rollAngleLabel != rollAngleLabel ||
-      old.rollAngleDeg != rollAngleDeg ||
+      old.bendLabel != bendLabel ||
       old.hasValues != hasValues;
 }
 
-/// 롤(Roll)·회전각에 쓰는 주황(현장 보기 테마 없이도 쓸 수 있게 고정값).
-const Color fieldOrange = Color(0xFFEA580C);
+class _Chip {
+  final String label;
+  final Color color;
+  final double at;
+  const _Chip(this.label, this.color, this.at);
+}
+
+class _Legend {
+  final List<Rect> rects;
+  final List<TextPainter> painters;
+  final double height;
+  const _Legend(this.rects, this.painters, this.height);
+}
