@@ -7,10 +7,11 @@ import 'package:flutter/material.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../common/calc_form_parts.dart';
 import 'elec_form_parts.dart';
+import 'motor_capacitor.dart';
 import 'motor_formula.dart';
 import 'motor_tables.dart';
 
-enum _Sec { speed, current, torque, start, load, flc }
+enum _Sec { speed, current, torque, maxTorque, start, load, flc }
 
 /// 전류·전압·역률 중 구할 값.
 enum _Solve { current, voltage, pf }
@@ -19,6 +20,7 @@ String _secName(_Sec s) => switch (s) {
   _Sec.speed => '속도·슬립',
   _Sec.current => '전류·효율',
   _Sec.torque => '토크·출력',
+  _Sec.maxTorque => '최대 토크',
   _Sec.start => '기동 방식',
   _Sec.load => '부하율',
   _Sec.flc => '전부하 전류 표',
@@ -70,6 +72,14 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
   final _trpm = TextEditingController();
   final _tnm = TextEditingController();
 
+  // 최대 토크
+  final _xkw = TextEditingController();
+  final _xrpm = TextEditingController();
+  final _xmult = TextEditingController();
+  final _xvolt = TextEditingController();
+  bool _xIec = true; // true IEC 60034-12 설계 N, false NEMA MG-1 설계 A·B
+  int _xPoles = 4;
+
   // 기동 방식
   final _rated = TextEditingController();
   final _mult = TextEditingController(text: '6');
@@ -90,6 +100,7 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
   List<TextEditingController> get _all => [
     _hz, _poles, _rpm, _slipPct, _kw, _volts, _eff, _pf, _tkw, _trpm, _tnm,
     _rated, _mult, _tap, _meas, _lrated, _lpf, _leff, _amps,
+    _xkw, _xrpm, _xmult, _xvolt,
   ];
 
   @override
@@ -324,6 +335,69 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
     );
   }
 
+  (List<Widget>, String?, List<String>, bool) _maxTorque() {
+    final kw = readNum(_xkw);
+    final rpm = readNum(_xrpm);
+    final mult = readNum(_xmult);
+    final vIn = readNum(_xvolt);
+    final vr = vIn == null ? null : (vIn > 3 ? vIn / 100 : vIn);
+    final tr = (kw != null && rpm != null) ? motorTorqueNm(kw, rpm) : null;
+    final lines = <String>[];
+    String? summary;
+    if (tr != null) {
+      lines.add('① 정격 토크 T = P × 1000 × 60 ÷ (2π × N) = ${fmt(kw!, 2)} × 1000 × 60 ÷ (2π × ${fmt(rpm!, 0)}) = ${fmt(tr, 1)} N·m');
+      final tm = mult == null ? null : maxTorqueNm(tr, mult);
+      if (tm != null) {
+        lines.add('② 최대 토크 = 정격 토크 × 명판 배수 = ${fmt(tr, 1)} × ${fmt(mult!, 2)} = ${fmt(tm, 1)} N·m (${fmt(nmToKgfM(tm), 2)} kgf·m)');
+        summary = '최대 토크 ${fmt(tm, 1)} N·m';
+        if (vr != null && vr > 0) {
+          final tv = torqueAtVoltage(tm, vr);
+          lines.add('③ 전압이 정격의 ${fmt(vr * 100, 0)} %이면 최대 토크는 전압²에 비례해 ${fmt(tv, 1)} N·m(${fmt(vr * vr * 100, 0)} %)로 줄고, 정격 토크 대비 ${fmt(tv / tr, 2)}배입니다.');
+        }
+      }
+      // 규격 최소 배수
+      if (_xIec) {
+        final m = iecDesignNMinMultiple(kw, _xPoles);
+        lines.add(
+          m == null
+              ? '④ IEC 60034-12 설계 N 표에서 ${fmt(kw, 2)} kW $_xPoles극 값을 찾지 못했습니다.'
+              : '④ IEC 60034-12 설계 N 최소값: ${fmt(kw, 2)} kW $_xPoles극은 정격 토크의 ${fmt(m, 1)}배 이상입니다 → 최소 ${fmt(tr * m, 1)} N·m. 상한은 없고, 설계 H는 확인하지 못했습니다.',
+        );
+        if (tm == null && m != null) summary = '규격 최소 최대 토크 ${fmt(tr * m, 1)} N·m';
+      } else {
+        final hp = kw / 0.7457;
+        final sync = {2: 3600, 4: 1800, 6: 1200, 8: 900}[_xPoles]!;
+        final pct = nemaAbMinPercent(hp, sync);
+        lines.add(
+          pct == null
+              ? '④ NEMA MG-1 12.39 설계 A·B 표에서 ${fmt(hp, 1)} hp $_xPoles극($sync rpm) 값을 확인하지 못했습니다(표에서 읽은 행은 1·1.5·2·3·5·7.5 hp, 10~125 hp, 250 hp 이상이고 1 hp 3600 rpm 칸은 비어 있습니다).'
+              : '④ NEMA MG-1 설계 A·B 최소값: ${fmt(hp, 1)} hp $_xPoles극($sync rpm)은 정격 토크의 ${fmt(pct, 0)} % 이상입니다 → 최소 ${fmt(tr * pct / 100, 1)} N·m. 설계 C·D는 값이 다릅니다.',
+        );
+        if (tm == null && pct != null) summary = '규격 최소 최대 토크 ${fmt(tr * pct / 100, 1)} N·m';
+      }
+      lines.add('명판이나 제조사 자료에 최대 토크(또는 배수)가 있으면 그 값을 우선하십시오. 규격 값은 "최소" 보증이라 실제 전동기는 이보다 클 수 있고, 인버터 전용기·대형·2·6·8극은 다를 수 있습니다.');
+    }
+    return (
+      [
+        elecField('mf_xkw', '출력 P (kW)', _xkw, '전동기 명판의 정격 출력입니다.'),
+        elecField('mf_xrpm', '정격 회전수 N (rpm)', _xrpm, '명판의 정격 회전수입니다.'),
+        elecField('mf_xmult', '최대 토크 배수 (선택)', _xmult, '정격 토크의 몇 배인지입니다. 명판·제조사 자료의 breakdown torque 값입니다. 넣으면 최대 토크를 구합니다.'),
+        elecField('mf_xvolt', '운전 전압 / 정격 전압 (%, 선택)', _xvolt, '전압이 떨어졌을 때 확인하려면 넣으십시오. 90 또는 0.9처럼 넣습니다.'),
+        elecChipGroup('규격 최소값', '명판에 최대 토크가 없을 때 참고하는 규격의 보증 최소값입니다.', [
+          calcChip('mf_x_iec', 'IEC 60034-12 설계 N', _xIec, () => setState(() => _xIec = true)),
+          calcChip('mf_x_nema', 'NEMA MG-1 설계 A·B', !_xIec, () => setState(() => _xIec = false)),
+        ]),
+        elecChipGroup('극수', '규격 표를 읽을 극수입니다(60 Hz 동기속도 3600·1800·1200·900 rpm에 해당).', [
+          for (final p in const [2, 4, 6, 8])
+            calcChip('mf_xp_$p', '$p극', _xPoles == p, () => setState(() => _xPoles = p)),
+        ]),
+      ],
+      summary,
+      lines.isEmpty ? const ['출력과 정격 회전수를 넣으십시오.'] : lines,
+      false,
+    );
+  }
+
   (List<Widget>, String?, List<String>, bool) _start() {
     final ir = readNum(_rated);
     final m = readNum(_mult);
@@ -430,6 +504,7 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
       _Sec.speed => _speed(),
       _Sec.current => _current(),
       _Sec.torque => _torque(),
+      _Sec.maxTorque => _maxTorque(),
       _Sec.start => _start(),
       _Sec.load => _load(),
       _Sec.flc => _flc(),
@@ -458,6 +533,7 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
           '동기속도 Ns = 120f ÷ P, 슬립 s = (Ns − N) ÷ Ns, 회전수 N = (1 − s)Ns, 회전자 주파수 f2 = s·f.',
           '정격전류 I = P ÷ (√3·V·η·cosφ), 입력 P1 = P ÷ η, 토크 T = P ÷ ω (ω = 2πN ÷ 60). 전압·역률은 같은 식을 풀어서 구합니다.',
           '기동: Y-Δ는 전류·토크가 직입의 1/3, 기동보상기는 전원 쪽 전류와 토크가 탭², 리액터는 전류가 탭·토크가 탭²입니다.',
+          '최대 토크: 정격 토크 × 명판 배수, 전압²에 비례. 규격 최소값은 NEMA MG-1 12.39 설계 A·B 표와 IEC 60034-12 표 1 설계 N 원문입니다(NEMA 설계 C·D와 IEC 설계 H는 못 찾아 넣지 않았습니다).',
           '명판의 정격전류·효율·역률이 있으면 명판 값을 우선합니다. 과부하계전기·차단기 상한은 "전동기 보호" 탭에서 계산합니다.',
         ]),
       ],
