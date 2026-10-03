@@ -69,6 +69,7 @@ void main() {
     await _type(tester, 'pd_bal_va_2', '2000');
     await _tap(tester, 'pd_bal_ph_2_T');
     expect(_all(tester), contains('100 %'));
+    expect(_all(tester), contains('불합격'), reason: '한도 30 % 초과');
     expect(_all(tester), contains('7.9 A'));
     // 모두 R로 몰아 놓고 자동 배정
     await _tap(tester, 'pd_bal_ph_1_R');
@@ -96,5 +97,20 @@ void main() {
     // 길이만 넣으면 오류
     await _type(tester, 'pd_feed_len_2', '10');
     expect(_all(tester), contains('둘 다 넣으십시오'));
+  });
+
+  testWidgets('분기회로 수: 사무실 200 m², 220 V 20 A → 2개', (tester) async {
+    await _open(tester, tab: 3);
+    await _tap(tester, 'pd_use_30');
+    expect(tester.widget<TextField>(find.byKey(const Key('pd_branch_density'))).controller!.text, '30');
+    await _type(tester, 'pd_branch_area', '200');
+    final t = _all(tester);
+    expect(t, contains('6000 VA'));
+    expect(t, contains('4400 VA'));
+    expect(t, contains('올림 2개'));
+    await _type(tester, 'pd_branch_extra', '1000');
+    expect(_all(tester), contains('7000 VA'));
+    await _type(tester, 'pd_branch_util', '80');
+    expect(_all(tester), contains('3520 VA'));
   });
 }

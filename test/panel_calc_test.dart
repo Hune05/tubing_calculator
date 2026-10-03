@@ -6,6 +6,7 @@ import 'package:tubing_calculator/src/presentation/electrical/elec_calc.dart';
 import 'package:tubing_calculator/src/presentation/electrical/panel_calc.dart';
 
 void main() {
+  branchGroup();
   group('조명 광속법', () {
     test('실지수: 10 × 5 m, 높이 2.5 m → 1.33', () {
       expect(roomIndex(x: 10, y: 5, h: 2.5)!, closeTo(50 / (2.5 * 15), 1e-9));
@@ -154,6 +155,46 @@ void main() {
         ),
         isNull,
       );
+    });
+  });
+}
+
+void branchGroup() {
+  group('분기회로 수', () {
+    test('사무실 30 VA/m², 200 m², 220 V 20 A → 6000 VA ÷ 4400 VA = 1.36 → 2회로', () {
+      final r = branchCircuits(
+        areaM2: 200,
+        densityVaPerM2: 30,
+        volts: 220,
+        branchAmps: 20,
+      )!;
+      expect(r.totalVa, 6000);
+      expect(r.perCircuitVa, 4400);
+      expect(r.exact, closeTo(6000 / 4400, 1e-9));
+      expect(r.count, 2);
+    });
+    test('가산부하와 이용률 80 %를 반영한다', () {
+      final r = branchCircuits(
+        areaM2: 100,
+        densityVaPerM2: 40,
+        extraVa: 1000,
+        volts: 110,
+        branchAmps: 15,
+        utilization: 0.8,
+      )!;
+      expect(r.totalVa, 5000);
+      expect(r.perCircuitVa, closeTo(110 * 15 * 0.8, 1e-9));
+      expect(r.count, (5000 / 1320).ceil());
+    });
+    test('딱 나누어떨어지면 올림하지 않는다', () {
+      final r = branchCircuits(areaM2: 100, densityVaPerM2: 44, volts: 220, branchAmps: 20)!;
+      expect(r.exact, closeTo(1, 1e-9));
+      expect(r.count, 1);
+    });
+    test('잘못된 값은 계산하지 않는다', () {
+      expect(branchCircuits(areaM2: 0, densityVaPerM2: 0, volts: 220, branchAmps: 20), isNull);
+      expect(branchCircuits(areaM2: 10, densityVaPerM2: 30, volts: 0, branchAmps: 20), isNull);
+      expect(branchCircuits(areaM2: 10, densityVaPerM2: 30, volts: 220, branchAmps: 20, utilization: 1.5), isNull);
     });
   });
 }

@@ -618,6 +618,10 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
           '종합 역률 = ΣP ÷ S = ${fmt(r.demandKw, 1)} ÷ ${fmt(r.demandKva, 1)} = ${fmt(r.pf * 100, 1)}%',
           '③ 필요 용량 = S ÷ 부등률 × (1 + 여유) = ${fmt(r.demandKva, 1)} ÷ ${fmt(r.diversity, 2)} × (1 + ${fmt(r.marginPct, 1)}%) = ${fmt(r.requiredKva, 1)} kVA',
           '④ 2차 정격전류 = 필요 용량 × 1000 ÷ (${r.three ? '√3 × ' : ''}2차 전압) = ${fmt(r.requiredKva, 1)} × 1000 ÷ (${r.three ? '√3 × ' : ''}${fmt(r.volts, 0)} V) = ${fmt(r.ratedAmps, 1)} A (${r.three ? '3상' : '단상'})',
+          if (nextStandardKva(r.requiredKva) != null)
+            '표준 용량 후보: ${fmt(nextStandardKva(r.requiredKva)!, 0)} kVA(필요 용량 이상 중 가장 작은 일반 계열 값, 규격은 제조사·설계 기준으로 확인)'
+          else
+            '필요 용량이 1000 kVA를 넘어 표준 용량 후보를 정하지 않았습니다. 제조사 표준품을 확인하십시오.',
           if (pass == null)
             '선정 변압기 용량(kVA)을 넣으면 부하율과 합격/불합격을 판정합니다.'
           else ...[

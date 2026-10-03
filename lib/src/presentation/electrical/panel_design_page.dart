@@ -18,27 +18,30 @@ final List<double> _kSizes = kCuR20.keys.toList()..sort();
 class PanelDesignPage extends StatelessWidget {
   const PanelDesignPage({super.key, this.initialTab = 0});
 
-  /// 0 조명, 1 분전반 상 평형, 2 간선 전압강하.
+  /// 0 조명, 1 분전반 상 평형, 2 간선 전압강하, 3 분기회로 수.
   final int initialTab;
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-    length: 3,
-    initialIndex: initialTab.clamp(0, 2),
+    length: 4,
+    initialIndex: initialTab.clamp(0, 3),
     child: Scaffold(
       backgroundColor: fc.background,
       appBar: AppBar(
         title: const Text('분전반·조명 설계'),
         bottom: const TabBar(
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: [
             Tab(key: Key('pd_tab_light'), text: '조명'),
             Tab(key: Key('pd_tab_balance'), text: '상 평형'),
             Tab(key: Key('pd_tab_feeder'), text: '간선 전압강하'),
+            Tab(key: Key('pd_tab_branch'), text: '분기회로 수'),
           ],
         ),
       ),
       body: const TabBarView(
-        children: [_LightingTab(), _BalanceTab(), _FeederTab()],
+        children: [_LightingTab(), _BalanceTab(), _FeederTab(), _BranchTab()],
       ),
     ),
   );
@@ -290,7 +293,8 @@ class _BalanceTabState extends State<_BalanceTab>
       sumKey: 'pd_bal_sum',
       summary: r == null
           ? null
-          : '불평형률 ${fmt(r.unbalancePct, 1)} % · 중성선 약 ${fmt(r.neutralAmps, 1)} A',
+          : '불평형률 ${fmt(r.unbalancePct, 1)} % (한도 ${fmt(kUnbalanceLimitPct, 0)} % ${r.unbalancePct <= kUnbalanceLimitPct + 1e-9 ? '이내' : '초과'}) · 중성선 약 ${fmt(r.neutralAmps, 1)} A',
+      warn: r != null && r.unbalancePct > kUnbalanceLimitPct + 1e-9,
       [
         elecField('pd_bal_v', '상전압 (V)', _volts,
             '각 상과 중성선 사이 전압입니다. 380/220 V 계통이면 220, 208/120 V 계통이면 120입니다.'),
@@ -328,7 +332,9 @@ class _BalanceTabState extends State<_BalanceTab>
             key: const Key('pd_bal_result'),
             big: '${fmt(r.unbalancePct, 1)} %',
             caption: '설비 불평형률',
+            warn: r.unbalancePct > kUnbalanceLimitPct + 1e-9,
             lines: [
+              '한도 ${fmt(kUnbalanceLimitPct, 0)} %(3상 3선식·4선식, 전기공급약관·내선규정 해설 기준): ${r.unbalancePct <= kUnbalanceLimitPct + 1e-9 ? '합격' : '불합격'}',
               '상별 부하: R ${fmt(r.phaseVa[0], 0)} VA(${fmt(r.phaseAmps[0], 1)} A), S ${fmt(r.phaseVa[1], 0)} VA(${fmt(r.phaseAmps[1], 1)} A), T ${fmt(r.phaseVa[2], 0)} VA(${fmt(r.phaseAmps[2], 1)} A)',
               '① 불평형률 = (최대 상 − 최소 상) ÷ (총 부하 × 1/3) × 100 = (${fmt(r.phaseVa[r.maxPhase.index], 0)} − ${fmt(r.phaseVa[r.minPhase.index], 0)}) ÷ (${fmt(r.totalVa, 0)} × 1/3) × 100 = ${fmt(r.unbalancePct, 1)} %',
               '② 최대 상은 ${phaseName(r.maxPhase)}, 최소 상은 ${phaseName(r.minPhase)}입니다. 큰 상의 회로를 작은 상으로 옮기면 줄어듭니다.',
@@ -339,7 +345,8 @@ class _BalanceTabState extends State<_BalanceTab>
           '설비 불평형률 = (각 상에 걸린 단상 부하 용량의 최대와 최소의 차) ÷ (총 부하 용량 × 1/3) × 100 %.',
           '삼상 부하는 세 상에 같은 크기로 나눠 넣습니다.',
           '중성선 전류는 세 상 부하의 역률이 같고 전류에 고조파가 없다고 본 값입니다. 조명·전산 부하처럼 3고조파가 큰 설비는 이보다 클 수 있습니다.',
-          '한도와 판정 기준은 설계 기준·수전 약관을 확인하십시오.',
+          '한도 30 %는 3상 3선식·4선식 수전의 기준(한전 전기공급약관, 내선규정 해설서 인용)입니다. 전용 변압기로 수전하거나 단상 부하가 작은 경우 등 예외가 있고, 소규모 설비는 40 %까지 허용하는 설명도 있습니다. 규정 원문은 대조 전이니 설계 기준으로 확인하십시오.',
+          '단상 3선식은 식이 다릅니다(분모가 총 부하의 1/2, 한도 40 %). 이 화면은 3상 4선식(상-중성선 부하)용입니다.',
           '자동 배정은 큰 회로부터 가장 가벼운 상에 차례로 넣는 방식입니다. 최적해는 아니지만 현장에서 손으로 맞추는 방식과 같습니다.',
         ]),
       ],
@@ -638,4 +645,123 @@ class _FeederTabState extends State<_FeederTab>
       ],
     ),
   );
+}
+
+// ─────────────────────────── 분기회로 수 ───────────────────────────
+
+class _BranchTab extends StatefulWidget {
+  const _BranchTab();
+  @override
+  State<_BranchTab> createState() => _BranchTabState();
+}
+
+class _BranchTabState extends State<_BranchTab>
+    with
+        CalcFormParts<_BranchTab>,
+        RecentCalcHistoryMixin<_BranchTab>,
+        ElecTabParts<_BranchTab>,
+        AutomaticKeepAliveClientMixin<_BranchTab> {
+  @override
+  bool get wantKeepAlive => true;
+
+  final _area = TextEditingController();
+  final _density = TextEditingController();
+  final _extra = TextEditingController();
+  final _volts = TextEditingController(text: '220');
+  final _amps = TextEditingController(text: '20');
+  final _util = TextEditingController(text: '100');
+
+  @override
+  void dispose() {
+    for (final c in [_area, _density, _extra, _volts, _amps, _util]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  /// 건축물 용도별 표준부하(VA/m²): 내선규정 해설 자료. 주택·아파트는 자료마다 40·30으로 갈린다.
+  static const _uses = <(String, String, double)>[
+    ('pd_use_10', '공장·극장·교회 등 10', 10),
+    ('pd_use_20', '병원·호텔·학교·음식점 등 20', 20),
+    ('pd_use_30', '사무실·은행·상점 등 30', 30),
+    ('pd_use_house', '주택·아파트 40', 40),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final area = readNum(_area);
+    final dens = readNum(_density);
+    final extra = readNum(_extra) ?? 0;
+    final volts = readNum(_volts);
+    final amps = readNum(_amps);
+    final utilIn = readNum(_util);
+    final util = utilIn == null ? null : (utilIn > 1 ? utilIn / 100 : utilIn);
+    final r = (area != null && dens != null && volts != null && amps != null && util != null)
+        ? branchCircuits(
+            areaM2: area,
+            densityVaPerM2: dens,
+            extraVa: extra,
+            volts: volts,
+            branchAmps: amps,
+            utilization: util,
+          )
+        : null;
+    return elecPage(
+      sumKey: 'pd_branch_sum',
+      summary: r == null ? null : '분기회로 ${r.count}개 · 부하 ${fmt(r.totalVa, 0)} VA',
+      [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            '바닥면적에 표준부하를 곱한 부하설비용량을 분기회로 하나가 맡는 용량으로 나눠 회로 수를 구합니다.',
+            style: TextStyle(fontSize: 13, height: 1.45, color: fc.textSub),
+          ),
+        ),
+        elecChipGroup(
+          '건축물 용도 (표준부하, VA/m²)',
+          '내선규정 해설 자료의 표준부하입니다. 눌러서 값을 넣고, 설계 기준이 다르면 아래 칸에서 고치십시오.\n'
+              '주택·아파트는 자료에 따라 40으로도 30으로도 적혀 있어 어느 쪽이 현행인지 확인하지 못했습니다. 설계 기준으로 확인하십시오.',
+          [
+            for (final (k, label, v) in _uses)
+              calcChip(k, label, readNum(_density) == v, () => setState(() => _density.text = fmt(v, 0))),
+          ],
+        ),
+        elecField('pd_branch_density', '표준부하 (VA/m²)', _density, '용도에 맞는 값을 위에서 누르거나 직접 넣으십시오.'),
+        elecField('pd_branch_area', '바닥면적 (m²)', _area, '그 부하를 쓰는 건축물 바닥면적입니다.'),
+        elecField('pd_branch_extra', '가산부하 (VA, 선택)', _extra,
+            '표준부하에 더하는 부하입니다. 주택·아파트의 세대당 가산, 상점 진열장(폭 1 m당 500 VA) 등입니다. 설계 기준의 값을 넣으십시오.'),
+        elecField('pd_branch_v', '전압 (V)', _volts, '110 또는 220처럼 넣으십시오.'),
+        elecField('pd_branch_amps', '분기회로 정격 (A)', _amps, '15, 20처럼 분기회로 과전류차단기 정격입니다.'),
+        elecField('pd_branch_util', '이용률 (%)', _util,
+            '분기회로 정격 중 쓸 비율입니다. 정격 전부를 쓰면 100, 정격의 80% 이내로 쓰려면 80을 넣으십시오.'),
+        const SizedBox(height: 6),
+        if (r == null)
+          calcResult(
+            key: const Key('pd_branch_result'),
+            big: '-',
+            caption: '분기회로 수',
+            lines: const ['표준부하, 바닥면적, 전압, 분기회로 정격, 이용률을 넣으십시오.'],
+          )
+        else
+          calcResult(
+            key: const Key('pd_branch_result'),
+            big: '${r.count}개',
+            caption: '분기회로 수',
+            lines: [
+              '① 부하설비용량 = 바닥면적 × 표준부하 + 가산부하 = ${fmt(area!, 1)} × ${fmt(dens!, 1)} + ${fmt(extra, 0)} = ${fmt(r.totalVa, 0)} VA',
+              '② 분기회로 하나의 용량 = 전압 × 분기 전류 × 이용률 = ${fmt(volts!, 0)} × ${fmt(amps!, 0)} × ${fmt(util!, 2)} = ${fmt(r.perCircuitVa, 0)} VA',
+              '③ 회로 수 = ${fmt(r.totalVa, 0)} ÷ ${fmt(r.perCircuitVa, 0)} = ${fmt(r.exact, 2)} → 올림 ${r.count}개',
+              '3 kW(110 V는 1.5 kW) 이상 냉난방·취사 기기는 별도 전용 분기회로로 하는 것이 일반적입니다(내선규정 해설). 이 계산에는 따로 넣지 않았으니 전용 회로는 더해 주십시오.',
+            ],
+          ),
+        elecBasis('pd_branch_basis', const [
+          '분기회로 수 = 부하설비용량 ÷ (전압 × 분기 전류 × 이용률), 소수는 올림.',
+          '부하설비용량 = P × A + Q × B + C (P 바닥면적, A 표준부하, Q 별도 계산 부분의 면적, B 그 표준부하, C 가산부하)를 한 용도 기준으로 줄인 식입니다.',
+          '표준부하 10·20·30 VA/m²(공장·극장 / 병원·호텔·학교 / 사무실·상점)는 내선규정 해설 자료 여러 곳에서 같습니다. 주택·아파트는 40과 30으로 갈립니다.',
+          '내선규정·KEC 원문은 대조 전입니다. 분기회로 정격별 최대 부하, 콘센트 수, 전선 최소 굵기는 자료마다 달라 이 화면에 넣지 않았습니다. 전선 굵기는 전선 굵기 탭으로 확인하십시오.',
+        ]),
+      ],
+    );
+  }
 }

@@ -17,6 +17,18 @@ const int kLoadSumMaxSheets = 50;
 /// 2차 전압 칩(V). 이 밖의 전압은 직접 입력한다.
 const List<double> kLoadSumVolts = [220, 380, 400, 440, 480];
 
+/// 변압기 표준 용량 후보(kVA, 일반 3상 계열 20~1000). 수험·제조사 자료에서 두 곳 이상 같은 값이며
+/// 규격서 원문 대조 전이다. 실제 선정은 제조사 표준품과 설계 기준으로 확인한다.
+const List<double> kStandardKva = [20, 30, 50, 75, 100, 150, 200, 300, 500, 750, 1000];
+
+/// [kva] 이상인 가장 작은 표준 용량. 1000 kVA를 넘으면 null.
+double? nextStandardKva(double kva) {
+  for (final s in kStandardKva) {
+    if (s >= kva - 1e-9) return s;
+  }
+  return null;
+}
+
 /// 설비용량 입력 상한(kW). 자릿수 실수를 걸러 내는 값.
 const double kLoadSumMaxKw = 1000000;
 

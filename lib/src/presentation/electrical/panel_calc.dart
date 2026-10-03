@@ -211,6 +211,58 @@ List<PanelCircuit> autoBalance(List<PanelCircuit> circuits) {
   return out;
 }
 
+// ─────────────── 분기회로 수 ───────────────
+
+/// 상 불평형 한도(%): 3상 3선식·3상 4선식, 한전 전기공급약관과 내선규정 해설서 기준(원문 대조 전).
+/// 단상 3선식은 40 %(식의 분모가 총 부하의 1/2). 계약전력 5 kW 이하 소규모 등 완전 평형이 어려우면 40 %까지 허용하는 설명이 있다.
+const double kUnbalanceLimitPct = 30;
+
+/// 분기회로 수 계산 결과.
+class BranchResult {
+  const BranchResult({
+    required this.totalVa,
+    required this.perCircuitVa,
+    required this.exact,
+    required this.count,
+  });
+
+  /// 부하설비용량(VA) = 바닥면적 × 표준부하 + 가산부하.
+  final double totalVa;
+
+  /// 분기회로 하나가 맡는 용량(VA) = 전압 × 분기 전류 × 이용률.
+  final double perCircuitVa;
+
+  /// 분기회로 수(소수), 올림한 수.
+  final double exact;
+  final int count;
+}
+
+/// 분기회로 수 = 부하설비용량 ÷ (전압 × 분기 전류 × 이용률). 올림한다.
+/// [densityVaPerM2] 표준부하(VA/m²), [extraVa] 가산부하(VA), [utilization] 0~1(1이면 정격 전부).
+BranchResult? branchCircuits({
+  required double areaM2,
+  required double densityVaPerM2,
+  double extraVa = 0,
+  required double volts,
+  required double branchAmps,
+  double utilization = 1,
+}) {
+  if (areaM2 < 0 || densityVaPerM2 < 0 || extraVa < 0) return null;
+  if (volts <= 0 || branchAmps <= 0 || utilization <= 0 || utilization > 1) {
+    return null;
+  }
+  final total = areaM2 * densityVaPerM2 + extraVa;
+  if (total <= 0) return null;
+  final per = volts * branchAmps * utilization;
+  final exact = total / per;
+  return BranchResult(
+    totalVa: total,
+    perCircuitVa: per,
+    exact: exact,
+    count: exact.ceil(),
+  );
+}
+
 // ─────────────── 여러 부하가 붙은 간선의 전압강하 ───────────────
 
 /// 간선의 구간 하나: 앞 지점에서 이 구간 끝까지의 길이(m)와, 구간 끝에서 빠지는 부하 전류(A).

@@ -485,6 +485,12 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    // 화면이 길어도 첫 줄이 그려지도록 맨 위로 올린다.
+    Future<void> toTop(WidgetTester tester) async {
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 8000));
+      await tester.pumpAndSettle();
+    }
+
     // 불러오기 뒤에는 줄 번호표(키)가 새로 매겨지므로 첫 설비용량 칸을 화면 순서로 찾는다.
     String firstKwText(WidgetTester tester) => tester
         .widgetList<TextField>(
@@ -704,6 +710,7 @@ void main() {
 
       await tester.pumpWidget(const SizedBox());
       await pumpTab(tester);
+      await toTop(tester);
       expect(firstKwText(tester), '55');
       expect(find.text('줄 추가 (4/30)'), findsOneWidget);
       await tester.pump(const Duration(seconds: 1));
@@ -736,10 +743,12 @@ void main() {
       expect(find.textContaining('불러오시겠습니까?'), findsOneWidget);
       await tester.tap(find.byKey(const Key('els_dialog_cancel')));
       await tester.pumpAndSettle();
+      await toTop(tester);
       expect(firstKwText(tester), '999');
       await tapKey(tester, 'els_open_0');
       await tester.tap(find.byKey(const Key('els_dialog_ok')));
       await tester.pumpAndSettle();
+      await toTop(tester);
       expect(firstKwText(tester), '100');
 
       // 같은 이름 저장은 덮어쓰기를 묻는다.
