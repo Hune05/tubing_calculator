@@ -15,6 +15,7 @@ import 'busbar_bend_page.dart' show busbarMinRadius, kBusbarK;
 import 'busbar_bend_painter.dart' show BusbarShapePainter, busbarBendColor;
 import 'busbar_ground.dart';
 import 'busbar_ground_painter.dart';
+import 'busbar_ground_pdf.dart';
 import 'busbar_lug.dart';
 import 'elec_form_parts.dart';
 
@@ -90,6 +91,7 @@ class _GroundBarPageState extends State<GroundBarPage>
   final _lugSpacing = TextEditingController(text: '25.4');
   final _panelT = TextEditingController(text: '3'); // 취부면(판넬) 두께
   final _lugDia = TextEditingController(text: '11.1'); // 러그 구멍 지름
+  final _jobName = TextEditingController(); // 작업 이름(지시서·저장 이름)
   final _lugPad = TextEditingController(text: '5');
 
   Timer? _saveTimer;
@@ -118,6 +120,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     _lugPad,
     _panelT,
     _lugDia,
+    _jobName,
   ];
   static const _fieldKeys = [
     't',
@@ -142,6 +145,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     'lp',
     'pnl',
     'ld',
+    'jn',
   ];
 
   @override
@@ -180,7 +184,17 @@ class _GroundBarPageState extends State<GroundBarPage>
       final raw = p.getString(GroundBarPage.draftKey);
       if (raw != null && mounted) {
         final m = jsonDecode(raw) as Map<String, dynamic>;
-        setState(() {
+        setState(() => _applyMap(m));
+      }
+    } catch (_) {}
+    _draftReady = true;
+  }
+
+  /// 저장된 값(입력칸·칩)을 화면 상태에 넣는다. setState 안에서 부른다.
+  void _applyMap(Map<String, dynamic> m) {
+    {
+      {
+        {
           if (m['bl'] is bool) _byLength = m['bl'] as bool;
           final tb = m['tb'], mc = m['mc'], rm = m['rm'], kk = m['k'];
           if (tb is int && tb >= 0 && tb <= 4) _tabs = tb;
@@ -205,10 +219,226 @@ class _GroundBarPageState extends State<GroundBarPage>
             final v = m[_fieldKeys[i]];
             if (v is String) _fields[i].text = v;
           }
-        });
+        }
       }
+    }
+  }
+
+  // ── 저장한 규격(이름 붙여 보관, 불러와서 조금만 고쳐 쓰기) ──
+
+  static const _savedKey = 'busbar_ground_saved_v1';
+
+  /// 저장한 규격 목록: [{name, at, data}] 새로 저장한 것이 앞.
+  Future<List<Map<String, dynamic>>> _readSaved() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString(_savedKey);
+      if (raw == null) return [];
+      final l = jsonDecode(raw);
+      if (l is! List) return [];
+      return [
+        for (final e in l)
+          if (e is Map && e['name'] is String && e['data'] is Map)
+            Map<String, dynamic>.from(e),
+      ];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _writeSaved(List<Map<String, dynamic>> l) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_savedKey, jsonEncode(l));
     } catch (_) {}
-    _draftReady = true;
+  }
+
+  /// 목록 한 줄에 보이는 요약: 두께×폭 · 끝 모양 · 러그.
+  String _savedSummary(Map<String, dynamic> data) {
+    final t = data['t'] is String ? data['t'] as String : '';
+    final w = data['w'] is String ? data['w'] as String : '';
+    final shape = switch (data['tb']) {
+      1 => '왼쪽 L',
+      2 => '오른쪽 L',
+      3 => '양쪽 L',
+      4 => '모자',
+      _ => '곧은 막대',
+    };
+    final lug = switch (data['lg']) {
+      1 => ' · 러그 1구멍',
+      2 => ' · 러그 2구멍',
+      _ => '',
+    };
+    return '$t×$w · $shape$lug';
+  }
+
+  Future<void> _saveCurrent(String name) async {
+    final l = await _readSaved();
+    final data = jsonDecode(_draft()) as Map<String, dynamic>;
+    l.removeWhere((e) => e['name'] == name);
+    l.insert(0, {
+      'name': name,
+      'at': DateTime.now().toIso8601String(),
+      'data': data,
+    });
+    await _writeSaved(l);
+  }
+
+  Future<String?> _askName(String initial) async {
+    final r = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _NameDialog(initial: initial),
+    );
+    return r == null || r.isEmpty ? null : r;
+  }
+
+  Future<bool> _confirm(String msg, String ok) async {
+    final r = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        content: Text(msg),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            key: const Key('gb_confirm_ok'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(ok),
+          ),
+        ],
+      ),
+    );
+    return r == true;
+  }
+
+  Future<void> _openSavedSheet() async {
+    var list = await _readSaved();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: fc.surface,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '저장한 규격',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: fc.text,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '지금 넣은 값을 이름 붙여 보관해 두고, 나중에 불러와서 필요한 칸만 고쳐 쓰십시오.',
+                  style: TextStyle(fontSize: 13, color: fc.textSub),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    key: const Key('gb_save_now'),
+                    onPressed: () async {
+                      final name = await _askName(
+                        _jobName.text.trim().isNotEmpty
+                            ? _jobName.text.trim()
+                            : '${_thick.text}×${_width.text} 접지바',
+                      );
+                      if (name == null) return;
+                      if (list.any((e) => e['name'] == name) &&
+                          !await _confirm('같은 이름이 있습니다. 덮어쓸까요?', '덮어쓰기')) {
+                        return;
+                      }
+                      await _saveCurrent(name);
+                      list = await _readSaved();
+                      setSheet(() {});
+                    },
+                    icon: const Icon(Icons.bookmark_add_outlined),
+                    label: const Text('지금 값 저장'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (list.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: Text(
+                      '저장한 규격이 없습니다.',
+                      key: const Key('gb_saved_empty'),
+                      style: TextStyle(color: fc.textSub),
+                    ),
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+                    ),
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final e in list)
+                          ListTile(
+                            key: Key('gb_saved_${e['name']}'),
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(
+                              e['name'] as String,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w800,
+                                color: fc.text,
+                              ),
+                            ),
+                            subtitle: Text(
+                              _savedSummary(e['data'] as Map<String, dynamic>),
+                              style: TextStyle(color: fc.textSub),
+                            ),
+                            onTap: () {
+                              _set(() {
+                                _applyMap(e['data'] as Map<String, dynamic>);
+                                _selHole = null;
+                                _ovDia.clear();
+                              });
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '"${e['name']}"을 불러왔습니다. 필요한 칸만 고쳐 쓰십시오.',
+                                  ),
+                                ),
+                              );
+                            },
+                            trailing: IconButton(
+                              key: Key('gb_saved_del_${e['name']}'),
+                              tooltip: '지우기',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                                if (!await _confirm(
+                                  '"${e['name']}" 저장을 지울까요?',
+                                  '지우기',
+                                )) {
+                                  return;
+                                }
+                                list.removeWhere((x) => x['name'] == e['name']);
+                                await _writeSaved(list);
+                                setSheet(() {});
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   void _saveSoon() {
@@ -348,6 +578,111 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   String _holeLine(GroundHole h) =>
       '${h.label} ${fmt(h.x, 1)}${h.custom ? " φ${fmt(h.dia)}" : ""}';
+
+  /// 접지바 가공 지시서(PDF)에 넣을 내용. 글은 화면에 보이는 것과 같은 말을 쓴다.
+  GroundPdfInput _pdfInput(GroundBarPlan p) {
+    final t = _num(_thick), w = _num(_width);
+    final shape = switch (_tabs) {
+      1 => '왼쪽 끝 L 꺾기 (탭 ${fmt(_num(_tabL))}mm)',
+      2 => '오른쪽 끝 L 꺾기 (탭 ${fmt(_num(_tabR))}mm)',
+      3 => '양쪽 끝 L 꺾기 (탭 ${fmt(_num(_tabL))} / ${fmt(_num(_tabR))}mm)',
+      4 =>
+        '모자(챙 달림): 높이 ${fmt(_num(_hatH))}, 챙 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))}mm',
+      _ => '곧은 막대(꺾지 않음)',
+    };
+    final custom = [
+      ...p.groundHoles,
+      ...p.tabHoleList,
+      ...p.lugHoleList,
+    ].where((h) => h.custom).toList();
+    final summary = <(String, String)>[
+      ('재료', '구리 평강 ${fmt(t)} × ${fmt(w)} mm'),
+      ('끝 모양', shape),
+      ('자르는 길이', '${fmt(p.length, 1)} mm (약 ${fmt(p.weightKg, 2)} kg)'),
+      (
+        '접지 구멍',
+        'φ${fmt(_num(_hole))} · ${p.rows == 2 ? "${p.holes}개 × 2줄" : "${p.holes}개"} · 피치 ${fmt(p.pitchUsed)}mm',
+      ),
+      if (p.holes > 0) ('구멍 줄', _rowText(p)),
+      if (p.tabHoleList.isNotEmpty)
+        ('$_tabName 구멍', _tabHoleSummary(p).replaceFirst('$_tabName 구멍 ', '')),
+      if (p.lugHoleList.isNotEmpty)
+        (
+          '러그 구멍',
+          '${_lug == 2 ? "2구멍" : "1구멍"} 러그 · ${p.lugHoleList.length}개 · φ${fmt(_num(_lugDia))}${_lug == 2 ? " · 구멍 간격 ${fmt(_num(_lugSpacing))}mm" : ""} (접지 구멍과 따로)',
+        ),
+      if (p.bends.isNotEmpty)
+        ('꺾기 조건', '안쪽 반경 ${fmt(_r)}mm · k ${fmt(_k, 2)} · 눕혀 꺾기 90°'),
+      if (custom.isNotEmpty)
+        (
+          '크기 바꾼 구멍',
+          custom.map((h) => '${h.label} φ${fmt(h.dia)}').join(' · '),
+        ),
+    ];
+    final sections = <GroundPdfSection>[
+      if (p.holes > 0)
+        GroundPdfSection('접지 구멍 위치 (왼쪽 끝에서 중심까지, mm)', [
+          _ruleText(p),
+          for (final (label, vals) in groundHoleRows(
+            p.positions,
+            prefix: p.rows == 2 ? 'A' : '',
+          ))
+            '$label   ${vals.map((v) => fmt(v, 1)).join("   ")}',
+          if (p.rows == 2)
+            for (final (label, vals) in groundHoleRows(
+              p.positionsB,
+              prefix: 'B',
+            ))
+              '$label   ${vals.map((v) => fmt(v, 1)).join("   ")}',
+          '검산: 마지막 접지 구멍에서 ${_tabs == 4 || _tabs & 2 != 0 ? "꺾기 시작선" : "끝"}까지 ${fmt(p.endRight, 1)}mm.',
+        ]),
+      if (p.tabHoleList.isNotEmpty)
+        GroundPdfSection('$_tabName 구멍 위치 (왼쪽 끝에서 중심까지, mm)', [
+          for (final h in p.tabHoleList)
+            '${h.label}   ${fmt(h.x, 1)}   (폭 방향 ${fmt(h.y, 1)}mm, φ${fmt(h.dia)})',
+        ]),
+      if (p.lugHoleList.isNotEmpty)
+        GroundPdfSection('접지 러그 구멍 위치 (접지 구멍과 따로, 왼쪽 끝에서 중심까지, mm)', [
+          for (final h in p.lugHoleList)
+            '${h.label}   ${fmt(h.x, 1)}   (폭 방향 ${fmt(h.y, 1)}mm, φ${fmt(h.dia)})',
+          '볼트 세트 ${p.lugHoleList.length}개 = ${_lugParts(p.lugHoleList.length).join(" · ")}',
+          '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + t, 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(t, 1)}.',
+        ]),
+      if (_panel(p).isNotEmpty)
+        GroundPdfSection('판넬 취부 자리 (가장 왼쪽 구멍 = 0, mm)', [
+          for (final h in _panel(p))
+            '${h.hole.label}   가로 ${fmt(h.x, 1)} · 세로 ${fmt(h.y, 1)} (막대 A쪽 가장자리 기준)',
+          if (_panel(p).length > 1)
+            '왼쪽 구멍과 오른쪽 구멍 가로 간격 ${fmt(_panel(p).last.x - _panel(p).first.x, 1)}mm (구멍 중심 사이).',
+          '볼트 세트 ${p.tabHoleList.length}개 = 볼트 ${lugBoltFor(_num(_mDia)) ?? "구멍에 맞는 규격"} ${p.tabHoleList.length}개 · 너트 · 평와셔 2개 · 스프링 와셔 1개(개당).',
+          '볼트가 지나는 두께(그립) ${fmt(t + _num(_panelT), 1)}mm = 부스바 ${fmt(t, 1)} + 판넬 ${fmt(_num(_panelT), 1)}.',
+        ]),
+    ];
+    return GroundPdfInput(
+      title: _jobName.text,
+      plan: p,
+      thickness: t,
+      width: w,
+      rho: _r + _k * t,
+      summary: summary,
+      bendRows: [
+        for (var i = 0; i < p.bends.length; i++)
+          [
+            '${i + 1}',
+            _bendName(i, p),
+            fmt(p.bends[i].start, 1),
+            fmt(p.bends[i].end, 1),
+          ],
+      ],
+      sections: sections,
+      notes: [
+        ...p.problems,
+        ...p.notes,
+        ?_radiusWarn,
+        if (p.minEdgeBody != null || p.minEdgeTab != null) _edgeLine(p),
+      ],
+    );
+  }
 
   String _shareText(GroundBarPlan p) {
     final b = StringBuffer(
@@ -925,6 +1260,13 @@ class _GroundBarPageState extends State<GroundBarPage>
     final warn = p != null && !p.ok;
     String? summary;
     final children = <Widget>[
+      elecField(
+        'gb_job',
+        '작업 이름 (선택)',
+        _jobName,
+        '지시서 PDF 제목과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
+        onEdit: _saveSoon,
+      ),
       elecChipGroup(
         '무엇으로 정하나',
         '구멍 수: 한 줄 구멍 수와 피치로 자르는 길이를 계산합니다. 막대 길이: 가진 막대 길이에 구멍이 몇 개 들어가는지 계산합니다.',
@@ -1332,6 +1674,19 @@ class _GroundBarPageState extends State<GroundBarPage>
                   icon: Icon(Icons.share_outlined, color: fc.text),
                   onPressed: () => widget.share(_shareText(p)),
                 ),
+              if (p != null)
+                IconButton(
+                  key: const Key('gb_pdf'),
+                  tooltip: '가공 지시서 PDF',
+                  icon: Icon(Icons.picture_as_pdf_outlined, color: fc.text),
+                  onPressed: () => openGroundBarPdf(context, _pdfInput(p)),
+                ),
+              IconButton(
+                key: const Key('gb_saved'),
+                tooltip: '저장한 규격',
+                icon: Icon(Icons.bookmarks_outlined, color: fc.text),
+                onPressed: _openSavedSheet,
+              ),
               calcHistoryButton(),
             ],
           ),
@@ -1345,4 +1700,47 @@ class _GroundBarPageState extends State<GroundBarPage>
       ),
     );
   }
+}
+
+/// 규격 저장 이름을 묻는 창. 입력 컨트롤러를 창 안에서 만들고 없애 닫힐 때 안전하게 한다.
+class _NameDialog extends StatefulWidget {
+  const _NameDialog({required this.initial});
+  final String initial;
+
+  @override
+  State<_NameDialog> createState() => _NameDialogState();
+}
+
+class _NameDialogState extends State<_NameDialog> {
+  late final TextEditingController _c = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('이름 붙여 저장'),
+    content: TextField(
+      key: const Key('gb_save_name'),
+      controller: _c,
+      autofocus: true,
+      decoration: const InputDecoration(hintText: '예: 6×50 모자 접지바'),
+    ),
+    actions: [
+      TextButton(
+        onPressed: () => Navigator.pop(context),
+        child: const Text('취소'),
+      ),
+      TextButton(
+        key: const Key('gb_save_ok'),
+        onPressed: () => Navigator.pop(context, _c.text.trim()),
+        child: const Text('저장'),
+      ),
+    ],
+  );
 }

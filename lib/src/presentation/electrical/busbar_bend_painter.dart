@@ -109,7 +109,7 @@ class BusbarShapePainter extends CustomPainter {
     for (var i = 0; i < plan.bends.length; i++) {
       final b = plan.bends[i];
       // 호 가운데 좌표: pts에서 직선 + 호 절반 지점을 다시 구하지 않고 가까운 점을 찾는다.
-      final mid = _pointAtLength(pts, b.center);
+      final mid = busbarPointAt(pts, b.center);
       final o = map(mid);
       canvas.drawCircle(o, 9, Paint()..color = busbarBendColor(b.turn));
       _label(canvas, '${i + 1}', o, Colors.white, bold: true);
@@ -132,21 +132,6 @@ class BusbarShapePainter extends CustomPainter {
 }
 
 /// 꺾은선 위에서 시작점으로부터 길이 [len]인 점.
-math.Point<double> _pointAtLength(List<math.Point<double>> pts, double len) {
-  var acc = 0.0;
-  for (var i = 1; i < pts.length; i++) {
-    final seg = pts[i].distanceTo(pts[i - 1]);
-    if (acc + seg >= len || i == pts.length - 1) {
-      final t = seg == 0 ? 0.0 : ((len - acc) / seg).clamp(0.0, 1.0);
-      return math.Point(
-        pts[i - 1].x + (pts[i].x - pts[i - 1].x) * t,
-        pts[i - 1].y + (pts[i].y - pts[i - 1].y) * t,
-      );
-    }
-    acc += seg;
-  }
-  return pts.last;
-}
 
 /// 자르기 전 곧은 부스바와 꺾기 시작·끝선 마킹.
 class BusbarMarkPainter extends CustomPainter {

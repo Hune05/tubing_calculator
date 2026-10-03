@@ -248,3 +248,20 @@ List<math.Point<double>> busbarShape(
   go(plan.straights.last);
   return pts;
 }
+
+/// 꺾은선 위에서 시작점으로부터 길이 [len]인 점.
+math.Point<double> busbarPointAt(List<math.Point<double>> pts, double len) {
+  var acc = 0.0;
+  for (var i = 1; i < pts.length; i++) {
+    final seg = pts[i].distanceTo(pts[i - 1]);
+    if (acc + seg >= len || i == pts.length - 1) {
+      final t = seg == 0 ? 0.0 : ((len - acc) / seg).clamp(0.0, 1.0);
+      return math.Point(
+        pts[i - 1].x + (pts[i].x - pts[i - 1].x) * t,
+        pts[i - 1].y + (pts[i].y - pts[i - 1].y) * t,
+      );
+    }
+    acc += seg;
+  }
+  return pts.last;
+}
