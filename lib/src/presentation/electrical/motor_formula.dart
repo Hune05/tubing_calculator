@@ -185,3 +185,173 @@ MotorLoad? motorLoad({
     outputKw: eff == null ? null : pin * eff,
   );
 }
+
+// ─────────────── 전압·역률 구하기 ───────────────
+
+/// 전압 V = P ÷ (√3 × I × η × cosφ). 출력 [kw]는 축 출력, 입력 전력을 알면 [eff]에 1을 넣는다.
+double? motorVoltage({
+  required double kw,
+  required double amps,
+  required double eff,
+  required double pf,
+  required bool three,
+}) {
+  if (kw <= 0 || amps <= 0 || eff <= 0 || eff > 1 || pf <= 0 || pf > 1) {
+    return null;
+  }
+  final k = three ? math.sqrt(3) : 1.0;
+  return kw * 1000 / (k * amps * eff * pf);
+}
+
+/// 역률 cosφ = P ÷ (√3 × V × I × η). 1을 넘으면 입력값이 서로 맞지 않는 것이라 null.
+double? motorPowerFactor({
+  required double kw,
+  required double volts,
+  required double amps,
+  required double eff,
+  required bool three,
+}) {
+  if (kw <= 0 || volts <= 0 || amps <= 0 || eff <= 0 || eff > 1) return null;
+  final k = three ? math.sqrt(3) : 1.0;
+  final pf = kw * 1000 / (k * volts * amps * eff);
+  return pf > 1 + 1e-9 ? null : pf;
+}
+
+// ─────────────── 펌프·팬 소요 동력 ───────────────
+
+class LoadPower {
+  const LoadPower({
+    required this.hydraulicKw,
+    required this.shaftKw,
+    required this.motorKw,
+  });
+
+  /// 유체가 받는 동력(수동력·공기동력, kW).
+  final double hydraulicKw;
+
+  /// 펌프·팬 축동력 = 유체 동력 ÷ 펌프(팬) 효율 (kW).
+  final double shaftKw;
+
+  /// 전동기 소요 출력 = 축동력 × (1 + 여유율) ÷ 전달 효율 (kW). 표준 정격으로 올림해서 고른다.
+  final double motorKw;
+}
+
+/// 펌프: 수동력 P = ρ·g·Q·H ÷ 1000 (Q m³/s). [flowM3h]는 m³/h, [headM]은 전양정(m), [density]는 kg/m³.
+/// [pumpEff]는 펌프 효율, [margin]은 여유율(0.1 = 10 %), [driveEff]는 커플링·벨트 전달 효율(직결 1).
+LoadPower? pumpPower({
+  required double flowM3h,
+  required double headM,
+  double density = 1000,
+  required double pumpEff,
+  double margin = 0,
+  double driveEff = 1,
+}) {
+  if (flowM3h <= 0 || headM <= 0 || density <= 0) return null;
+  if (pumpEff <= 0 || pumpEff > 1 || driveEff <= 0 || driveEff > 1) return null;
+  if (margin < 0) return null;
+  final hyd = density * 9.80665 * (flowM3h / 3600) * headM / 1000;
+  final shaft = hyd / pumpEff;
+  return LoadPower(
+    hydraulicKw: hyd,
+    shaftKw: shaft,
+    motorKw: shaft * (1 + margin) / driveEff,
+  );
+}
+
+/// 팬·블로어: 공기동력 P = Q × Δp ÷ 1000 (Q m³/s, Δp Pa).
+LoadPower? fanPower({
+  required double flowM3h,
+  required double pressurePa,
+  required double fanEff,
+  double margin = 0,
+  double driveEff = 1,
+}) {
+  if (flowM3h <= 0 || pressurePa <= 0) return null;
+  if (fanEff <= 0 || fanEff > 1 || driveEff <= 0 || driveEff > 1) return null;
+  if (margin < 0) return null;
+  final air = (flowM3h / 3600) * pressurePa / 1000;
+  final shaft = air / fanEff;
+  return LoadPower(
+    hydraulicKw: air,
+    shaftKw: shaft,
+    motorKw: shaft * (1 + margin) / driveEff,
+  );
+}
+
+/// 표준 목록에서 [kw] 이상인 가장 작은 값. 없으면 null.
+double? roundUpToList(double kw, List<double> list) {
+  for (final x in list) {
+    if (x >= kw - 1e-9) return x;
+  }
+  return null;
+}
+
+// ─────────────── 상사법칙 ───────────────
+
+class Affinity {
+  const Affinity({required this.ratio, required this.flow, required this.head, required this.power});
+
+  /// 속도비 N2 ÷ N1.
+  final double ratio;
+
+  /// 새 유량·양정·동력(입력한 기준값에 비를 곱한 것).
+  final double? flow;
+  final double? head;
+  final double? power;
+}
+
+/// 상사법칙: 유량 Q2 = Q1 × r, 양정 H2 = H1 × r², 동력 P2 = P1 × r³ (r = N2 ÷ N1).
+/// 양정이 대부분 정적 양정이거나 배관 저항이 일정하지 않으면 어긋난다.
+Affinity? affinity({
+  required double n1,
+  required double n2,
+  double? q1,
+  double? h1,
+  double? p1,
+}) {
+  if (n1 <= 0 || n2 <= 0) return null;
+  final r = n2 / n1;
+  return Affinity(
+    ratio: r,
+    flow: q1 == null ? null : q1 * r,
+    head: h1 == null ? null : h1 * r * r,
+    power: p1 == null ? null : p1 * r * r * r,
+  );
+}
+
+// ─────────────── 가속(기동) 시간 ───────────────
+
+/// 환산 관성: 전동기 축으로 옮긴 부하 관성 J = J부하 × (N부하 ÷ N전동기)² (kg·m²).
+double reflectedInertia(double loadJ, double loadRpm, double motorRpm) =>
+    loadJ * (loadRpm / motorRpm) * (loadRpm / motorRpm);
+
+/// GD²(kgf·m²) → J(kg·m²) = GD² ÷ 4.
+double gd2ToJ(double gd2) => gd2 / 4;
+
+class AccelResult {
+  const AccelResult({required this.seconds, required this.totalJ, required this.accelTorqueNm});
+
+  /// 가속 시간(초) = J × ω ÷ T가속.
+  final double seconds;
+
+  /// 전동기 축 기준 총 관성(kg·m²).
+  final double totalJ;
+
+  /// 평균 가속 토크 = 전동기 평균 토크 − 부하 평균 토크 (N·m).
+  final double accelTorqueNm;
+}
+
+/// 정지에서 정격 속도 [rpm]까지 가속하는 시간. [totalJ]는 전동기 + 환산한 부하 관성(kg·m²).
+/// [motorAvgNm]·[loadAvgNm]은 기동 구간 평균 토크(N·m). 가속 토크가 0 이하면 기동하지 못하므로 null.
+AccelResult? accelTime({
+  required double totalJ,
+  required double rpm,
+  required double motorAvgNm,
+  required double loadAvgNm,
+}) {
+  if (totalJ <= 0 || rpm <= 0 || motorAvgNm <= 0 || loadAvgNm < 0) return null;
+  final ta = motorAvgNm - loadAvgNm;
+  if (ta <= 0) return null;
+  final w = 2 * math.pi * rpm / 60;
+  return AccelResult(seconds: totalJ * w / ta, totalJ: totalJ, accelTorqueNm: ta);
+}

@@ -1,5 +1,7 @@
 // 전기기기 계산: 전동기 공식 탭. 속도·슬립, 전류·효율, 토크·출력, 기동 방식, 부하율 다섯 묶음.
 // 계산은 motor_formula.dart. 모두 정의식·교재 일반식이고, 명판 값(효율·역률·정격전류)은 사용자가 넣는다.
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
@@ -8,7 +10,10 @@ import 'elec_form_parts.dart';
 import 'motor_formula.dart';
 import 'motor_tables.dart';
 
-enum _Sec { speed, current, torque, start, load }
+enum _Sec { speed, current, torque, start, load, flc }
+
+/// 전류·전압·역률 중 구할 값.
+enum _Solve { current, voltage, pf }
 
 String _secName(_Sec s) => switch (s) {
   _Sec.speed => '속도·슬립',
@@ -16,6 +21,7 @@ String _secName(_Sec s) => switch (s) {
   _Sec.torque => '토크·출력',
   _Sec.start => '기동 방식',
   _Sec.load => '부하율',
+  _Sec.flc => '전부하 전류 표',
 };
 
 class ElecMotorFormulaTab extends StatefulWidget {
@@ -48,7 +54,10 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
   final _rpm = TextEditingController();
   final _slipPct = TextEditingController();
 
-  // 전류·효율, 부하율이 같이 쓰는 값
+  // 전류·전압·역률, 부하율이 같이 쓰는 값
+  _Solve _solve = _Solve.current;
+  bool _pIsInput = false; // kW가 입력 전력(전력계 값)이면 true, 아니면 축 출력
+  final _amps = TextEditingController();
   final _kw = TextEditingController();
   final _volts = TextEditingController(text: '380');
   final _eff = TextEditingController();
@@ -67,6 +76,11 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
   StartKind _kind = StartKind.direct;
   final _tap = TextEditingController(text: '65');
 
+  // 전부하 전류 표
+  bool _flcNec = true;
+  double _necHp = 10;
+  double _ie3Kw = 11;
+
   // 부하율
   final _meas = TextEditingController();
   final _lrated = TextEditingController();
@@ -75,7 +89,7 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
 
   List<TextEditingController> get _all => [
     _hz, _poles, _rpm, _slipPct, _kw, _volts, _eff, _pf, _tkw, _trpm, _tnm,
-    _rated, _mult, _tap, _meas, _lrated, _lpf, _leff,
+    _rated, _mult, _tap, _meas, _lrated, _lpf, _leff, _amps,
   ];
 
   @override
@@ -144,33 +158,126 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
   (List<Widget>, String?, List<String>, bool) _current() {
     final kw = readNum(_kw);
     final v = readNum(_volts);
-    final eff = _ratio(_eff);
+    final amps = readNum(_amps);
+    final effIn = _ratio(_eff);
+    final eff = _pIsInput ? 1.0 : effIn;
     final pf = _ratio(_pf);
-    final r = (kw != null && v != null && eff != null && pf != null)
-        ? motorElectrical(kw: kw, volts: v, eff: eff, pf: pf, three: _three)
-        : null;
     final k = _three ? '√3 × ' : '';
-    final lines = <String>[
-      if (r != null) ...[
-        '① 정격전류 I = P ÷ (${k}V × η × cosφ) = ${fmt(kw!, 2)} × 1000 ÷ ($k${fmt(v!, 0)} × ${fmt(eff!, 3)} × ${fmt(pf!, 3)}) = ${fmt(r.current, 1)} A',
-        '② 입력 전력 P1 = P ÷ η = ${fmt(kw, 2)} ÷ ${fmt(eff, 3)} = ${fmt(r.inputKw, 2)} kW',
-        '③ 피상전력 S = P1 ÷ cosφ = ${fmt(r.inputKw, 2)} ÷ ${fmt(pf, 3)} = ${fmt(r.apparentKva, 2)} kVA',
-        '④ 손실 = P1 − P = ${fmt(r.inputKw, 2)} − ${fmt(kw, 2)} = ${fmt(r.lossKw, 2)} kW',
-        '명판 정격전류가 있으면 그 값을 우선 적용하십시오(명판은 효율·역률이 실제 제품 값이라 위 식과 조금 다릅니다).',
-      ],
-    ];
+    final pName = _pIsInput ? '입력 전력 P1' : '축 출력 P';
+    final lines = <String>[];
+    String? summary;
+    switch (_solve) {
+      case _Solve.current:
+        final r = (kw != null && v != null && eff != null && pf != null)
+            ? motorElectrical(kw: kw, volts: v, eff: eff, pf: pf, three: _three)
+            : null;
+        if (r != null) {
+          lines.addAll([
+            '① 정격전류 I = P ÷ (${k}V × η × cosφ) = ${fmt(kw!, 2)} × 1000 ÷ ($k${fmt(v!, 0)} × ${fmt(eff!, 3)} × ${fmt(pf!, 3)}) = ${fmt(r.current, 1)} A',
+            '② 입력 전력 P1 = P ÷ η = ${fmt(kw, 2)} ÷ ${fmt(eff, 3)} = ${fmt(r.inputKw, 2)} kW',
+            '③ 피상전력 S = P1 ÷ cosφ = ${fmt(r.inputKw, 2)} ÷ ${fmt(pf, 3)} = ${fmt(r.apparentKva, 2)} kVA',
+            '④ 손실 = P1 − P = ${fmt(r.inputKw, 2)} − ${fmt(kw, 2)} = ${fmt(r.lossKw, 2)} kW',
+            '명판 정격전류가 있으면 그 값을 우선 적용하십시오(명판은 효율·역률이 실제 제품 값이라 위 식과 조금 다릅니다).',
+          ]);
+          summary = '정격전류 ${fmt(r.current, 1)} A · 입력 ${fmt(r.inputKw, 2)} kW';
+        }
+      case _Solve.voltage:
+        final r = (kw != null && amps != null && eff != null && pf != null)
+            ? motorVoltage(kw: kw, amps: amps, eff: eff, pf: pf, three: _three)
+            : null;
+        if (r != null) {
+          lines.addAll([
+            '① 전압 V = P ÷ (${k}I × η × cosφ) = ${fmt(kw!, 2)} × 1000 ÷ ($k${fmt(amps!, 2)} × ${fmt(eff!, 3)} × ${fmt(pf!, 3)}) = ${fmt(r, 1)} V',
+            '${_three ? '삼상은 선간 전압입니다. ' : ''}정격 전압과 크게 다르면 전류·역률·효율 값이 맞는지 확인하십시오.',
+          ]);
+          summary = '전압 ${fmt(r, 1)} V';
+        }
+      case _Solve.pf:
+        final r = (kw != null && v != null && amps != null && eff != null)
+            ? motorPowerFactor(kw: kw, volts: v, amps: amps, eff: eff, three: _three)
+            : null;
+        if (r != null) {
+          lines.addAll([
+            '① 역률 cosφ = P ÷ (${k}V × I × η) = ${fmt(kw!, 2)} × 1000 ÷ ($k${fmt(v!, 0)} × ${fmt(amps!, 2)} × ${fmt(eff!, 3)}) = ${fmt(r, 3)} (${fmt(r * 100, 1)} %)',
+            '② 위상각 φ = ${fmt(math.acos(r) * 180 / math.pi, 1)}°',
+          ]);
+          summary = '역률 ${fmt(r * 100, 1)} %';
+        } else if (kw != null && v != null && amps != null && eff != null) {
+          lines.add('계산한 역률이 1을 넘습니다. 전압·전류·출력·효율 값이 서로 맞는지 확인하십시오.');
+        }
+    }
     return (
       [
         _phaseChips(),
-        elecField('mf_kw', '축 출력 P (kW)', _kw, '전동기 명판의 정격 출력(축에서 나오는 기계 출력)입니다. HP면 × 0.7457 해서 kW로 바꾸십시오.'),
-        elecField('mf_v', '전압 V (V)', _volts, '삼상은 선간 전압, 단상은 사용 전압입니다.'),
-        elecField('mf_eff', '효율 η (%)', _eff, '명판의 효율입니다. 90 또는 0.9처럼 넣으십시오. 명판에 없으면 제조사 자료의 값을 넣으십시오.'),
-        elecField('mf_pf', '역률 cosφ (%)', _pf, '명판의 역률입니다. 85 또는 0.85처럼 넣으십시오.'),
+        elecChipGroup('구할 값', '정격전류, 전압, 역률 중 모르는 것을 고르면 나머지 값으로 구합니다.', [
+          calcChip('mf_s_current', '전류', _solve == _Solve.current, () => setState(() => _solve = _Solve.current)),
+          calcChip('mf_s_voltage', '전압', _solve == _Solve.voltage, () => setState(() => _solve = _Solve.voltage)),
+          calcChip('mf_s_pf', '역률', _solve == _Solve.pf, () => setState(() => _solve = _Solve.pf)),
+        ]),
+        elecChipGroup('kW 기준', '전동기 명판의 축 출력을 쓰면 "축 출력"(효율을 같이 넣습니다). 전력계로 잰 값이면 "입력 전력"을 고르면 효율이 필요 없습니다.', [
+          calcChip('mf_p_out', '축 출력', !_pIsInput, () => setState(() => _pIsInput = false)),
+          calcChip('mf_p_in', '입력 전력(전력계)', _pIsInput, () => setState(() => _pIsInput = true)),
+        ]),
+        elecField('mf_kw', _pIsInput ? '입력 전력 P1 (kW)' : '축 출력 P (kW)', _kw, _pIsInput ? '전력계로 잰 입력 전력입니다.' : '전동기 명판의 정격 출력(축에서 나오는 기계 출력)입니다. HP면 × 0.7457 해서 kW로 바꾸십시오.'),
+        if (_solve != _Solve.voltage)
+          elecField('mf_v', '전압 V (V)', _volts, '삼상은 선간 전압, 단상은 사용 전압입니다.'),
+        if (_solve != _Solve.current)
+          elecField('mf_amps', '전류 I (A)', _amps, '클램프 미터로 잰 운전 전류이거나 명판 정격전류입니다.'),
+        if (!_pIsInput)
+          elecField('mf_eff', '효율 η (%)', _eff, '명판의 효율입니다. 90 또는 0.9처럼 넣으십시오. 명판에 없으면 제조사 자료의 값을 넣으십시오.'),
+        if (_solve != _Solve.pf)
+          elecField('mf_pf', '역률 cosφ (%)', _pf, '명판의 역률입니다. 85 또는 0.85처럼 넣으십시오.'),
       ],
-      r == null ? null : '정격전류 ${fmt(r.current, 1)} A · 입력 ${fmt(r.inputKw, 2)} kW',
-      lines.isEmpty ? const ['출력·전압·효율·역률을 넣으십시오.'] : lines,
+      summary,
+      lines.isEmpty ? ['구할 값에 필요한 칸을 모두 넣으십시오($pName 포함).'] : lines,
       false,
     );
+  }
+
+  (List<Widget>, String?, List<String>, bool) _flc() {
+    final lines = <String>[];
+    String? summary;
+    final widgets = <Widget>[
+      elecChipGroup('표 선택', 'NEC 430.250은 미국 규격의 삼상 유도전동기 전부하 전류 표(HP, 230·460 V)입니다. IE3 예시는 제조사 카탈로그의 4극 60 Hz 380·440 V 값입니다.', [
+        calcChip('mf_flc_nec', 'NEC 430.250 (HP)', _flcNec, () => setState(() => _flcNec = true)),
+        calcChip('mf_flc_ie3', 'IE3 4극 예시 (kW)', !_flcNec, () => setState(() => _flcNec = false)),
+      ]),
+    ];
+    if (_flcNec) {
+      final r = necRow(_necHp)!;
+      widgets.add(calcDropdown<double>(
+        'mf_flc_row',
+        '전동기 출력 (HP)',
+        _necHp,
+        [for (final x in kNec430250) x.hpValue],
+        (hp) => '${necRow(hp)!.hp} HP (${fmt(hp * 0.7457, 2)} kW)',
+        (hp) => setState(() => _necHp = hp),
+        '표에 있는 HP를 고릅니다. kW는 × 1.341 해서 HP로 바꾸십시오.',
+      ));
+      lines.addAll([
+        '230 V: ${fmt(r.a230, 1)} A, 460 V: ${fmt(r.a460, 1)} A (삼상 유도전동기, ${r.hp} HP)',
+        'NEC 430.6(A)(1)은 전선·차단기를 명판이 아니라 이 표 값으로 고르게 합니다(저속·다속 전동기 예외). 한국 현장은 명판 값을 우선하십시오.',
+        '표 값은 NECA·1999 NEC·NEC 2014 세 사본이 모든 칸에서 같았습니다.',
+      ]);
+      summary = '${r.hp} HP: 230 V ${fmt(r.a230, 1)} A · 460 V ${fmt(r.a460, 1)} A';
+    } else {
+      final r = ie3Row(_ie3Kw)!;
+      widgets.add(calcDropdown<double>(
+        'mf_flc_row',
+        '전동기 출력 (kW)',
+        _ie3Kw,
+        [for (final x in kIe3Hd60Hz) x.kw],
+        (kw) => '${fmt(kw, 2)} kW',
+        (kw) => setState(() => _ie3Kw = kw),
+        '카탈로그에 있는 정격 출력을 고릅니다.',
+      ));
+      lines.addAll([
+        '380 V: ${fmt(r.a380, 2)} A, 440 V: ${fmt(r.a440, 2)} A (효율 ${fmt(r.eff, 1)} %, 역률 ${fmt(r.pf * 100, 1)} %)',
+        'HD현대일렉트릭 저압 유도전동기 카탈로그(2022-03) 4극 60 Hz 값입니다. 제조사 예시일 뿐이고 실제 전동기는 명판 값을 쓰십시오.',
+      ]);
+      summary = '${fmt(r.kw, 2)} kW: 380 V ${fmt(r.a380, 1)} A · 440 V ${fmt(r.a440, 1)} A';
+    }
+    return (widgets, summary, lines, false);
   }
 
   (List<Widget>, String?, List<String>, bool) _torque() {
@@ -325,6 +432,7 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
       _Sec.torque => _torque(),
       _Sec.start => _start(),
       _Sec.load => _load(),
+      _Sec.flc => _flc(),
     };
     final ok = summary != null;
     return elecPage(
@@ -332,7 +440,7 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
       summary: summary,
       warn: warn,
       [
-        elecChipGroup('계산 항목', '전동기에서 가장 자주 쓰는 식을 다섯 묶음으로 나눴습니다.', [
+        elecChipGroup('계산 항목', '전동기에서 가장 자주 쓰는 식을 묶음으로 나눴습니다.', [
           for (final s in _Sec.values)
             calcChip('mf_sec_${s.name}', _secName(s), _sec == s, () => setState(() => _sec = s)),
         ]),
@@ -348,7 +456,7 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
         elecBasis('mf_basis', const [
           '모두 정의식과 교재에 나오는 일반식입니다. 표 값은 쓰지 않습니다.',
           '동기속도 Ns = 120f ÷ P, 슬립 s = (Ns − N) ÷ Ns, 회전수 N = (1 − s)Ns, 회전자 주파수 f2 = s·f.',
-          '정격전류 I = P ÷ (√3·V·η·cosφ), 입력 P1 = P ÷ η, 토크 T = P ÷ ω (ω = 2πN ÷ 60).',
+          '정격전류 I = P ÷ (√3·V·η·cosφ), 입력 P1 = P ÷ η, 토크 T = P ÷ ω (ω = 2πN ÷ 60). 전압·역률은 같은 식을 풀어서 구합니다.',
           '기동: Y-Δ는 전류·토크가 직입의 1/3, 기동보상기는 전원 쪽 전류와 토크가 탭², 리액터는 전류가 탭·토크가 탭²입니다.',
           '명판의 정격전류·효율·역률이 있으면 명판 값을 우선합니다. 과부하계전기·차단기 상한은 "전동기 보호" 탭에서 계산합니다.',
         ]),

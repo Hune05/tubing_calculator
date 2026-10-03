@@ -36,6 +36,7 @@ import 'elec_battery_tab.dart';
 import 'elec_ground_tab.dart';
 import 'elec_motor_check_tab.dart';
 import 'elec_motor_formula_tab.dart';
+import 'elec_motor_select_tab.dart';
 import 'elec_motor_protect_tab.dart';
 import 'elec_form_parts.dart';
 import 'elec_generator_tab.dart';
@@ -218,13 +219,14 @@ enum ElecGroup { general, motor }
 /// 탭의 안정 번호(처음 만들 때의 순서). 다른 화면이 ElectricCalculatorPage(initialTab: 번호)로 탭을 고르는 것도
 /// 이 번호이고, 번호가 어느 묶음에 속하는지는 아래 목록이 정한다. 순서만 바꾸고 번호는 바꾸지 않는다.
 /// 0 기초 계산, 1 부하 전류, 2 부하 합산, 3 전선 굵기, 4 전압강하, 5 단락 전류, 6 전선관, 7 부스바,
-/// 8 역률 개선, 9 발전기 용량, 10 축전지 용량, 11 접지, 12 전동기 보호, 13 전동기 점검, 14 전동기 공식.
+/// 8 역률 개선, 9 발전기 용량, 10 축전지 용량, 11 접지, 12 전동기 보호, 13 전동기 점검, 14 전동기 공식,
+/// 15 전동기 선정.
 /// 일반: 앞쪽 여덟 개가 현장에서 가장 많이 쓰는 필수 공식, 뒤쪽 셋(전선관·부스바·축전지)은 덜 쓰는 것.
 const List<int> kElecGeneralTabs = [0, 1, 3, 4, 5, 11, 2, 8, 6, 7, 10];
 
 /// 전기기기: 전동기 공식(속도·슬립·전류·토크·기동·부하율)이 맨 앞, 이어서 전동기 보호(과부하계전기·차단기 상한)·
 /// 전동기 점검(절연·권선 저항·불평형)·발전기 용량.
-const List<int> kElecMotorTabs = [14, 12, 13, 9];
+const List<int> kElecMotorTabs = [14, 15, 12, 13, 9];
 
 /// 번호가 속한 묶음. 12·13·9(전동기·발전기)면 전기기기, 나머지는 일반.
 ElecGroup elecGroupOf(int id) =>
@@ -837,6 +839,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     Tab(key: Key('ec_tab_motor'), text: '전동기 보호'),
     Tab(key: Key('ec_tab_motorcheck'), text: '전동기 점검'),
     Tab(key: Key('ec_tab_motorformula'), text: '전동기 공식'),
+    Tab(key: Key('ec_tab_motorselect'), text: '전동기 선정'),
   ];
 
   /// 안정 번호의 탭 몸통.
@@ -856,6 +859,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     12 => ElecMotorProtectTab(history: calcLog),
     13 => ElecMotorCheckTab(history: calcLog),
     14 => ElecMotorFormulaTab(history: calcLog),
+    15 => ElecMotorSelectTab(history: calcLog),
     _ => const SizedBox.shrink(),
   };
 
