@@ -171,6 +171,9 @@ void main() {
     for (final k in ['instrument_button', 'valve_button', 'fitting_button']) {
       expect(find.byKey(ValueKey(k)), findsNothing, reason: k);
     }
+    // 도구 줄에 "입체" 단추가 늘어 부속 단추가 옆으로 밀릴 수 있다.
+    await tester.ensureVisible(find.byKey(const ValueKey('skid_fitting')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('skid_fitting')));
     await tester.pumpAndSettle();
     expect(find.text('전선관 부속 놓기'), findsOneWidget);
