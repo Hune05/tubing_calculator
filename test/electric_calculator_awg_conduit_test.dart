@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'electric_legacy_defaults.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 
 Future<void> pumpPage(
@@ -108,7 +109,7 @@ Future<String> basisOf(WidgetTester tester, String key) async {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(legacyElectricDefaults);
 
   group('AWG·kcmil', () {
     testWidgets('기본은 SQ, AWG를 누르면 전선 굵기·전압강하 탭이 같이 바뀐다', (tester) async {

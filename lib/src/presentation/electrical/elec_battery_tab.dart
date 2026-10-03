@@ -1,4 +1,4 @@
-// 전기 설계 계산: 축전지 용량 탭(발전소 직류 전원). 계산은 elec_battery.dart, 근거는 docs/전기_축전지_근거.md.
+// 전기 설계 계산: 축전지 용량 탭(제어·통신·비상 직류 전원). 계산은 elec_battery.dart, 근거는 docs/전기_축전지_근거.md.
 // K 값(용량환산시간)은 제조사 방전 특성표에서 읽어 넣는다. 표는 앱에 없다.
 import 'dart:async';
 import 'dart:convert';
@@ -551,7 +551,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
         'eb_bus',
         '직류 모선 전압 (V)',
         _bus,
-        '발전소 제어 전원은 125V를 쓰는 곳이 많습니다. 설비 기준으로 넣으십시오.',
+        '제어 전원은 125V, 통신·비상등 전원은 48V·24V 등 설비마다 다릅니다. 설비 기준으로 넣으십시오.',
       ),
       elecChipGroup(
         '셀당 공칭 전압',

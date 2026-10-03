@@ -1,7 +1,7 @@
 // 전기 계산기 화면: 부하 전류 → 전선 굵기 넘기기, 결과 글, 안내 창, 좁은 폰.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'electric_legacy_defaults.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 
 Future<void> pumpPage(
@@ -40,7 +40,7 @@ Future<void> openTab(WidgetTester tester, String key) async {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(legacyElectricDefaults);
 
   testWidgets('"최근 계산 기록"이 본체 탭과 별도 파일 탭(발전기 용량)을 함께 쌓는다', (tester) async {
     await pumpPage(tester);
@@ -188,6 +188,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('ec_tab_load')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('ec_v_custom')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull, reason: '전압 직접 입력 칸');
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('ec_kw')),
+      200,
+      scrollable: find.byType(Scrollable).last,
+    );
     await tester.enterText(find.byKey(const Key('ec_kw')), '75');
     await tester.pump();
     expect(tester.takeException(), isNull);

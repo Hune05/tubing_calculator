@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'electric_legacy_defaults.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 
 Future<void> pumpPage(
@@ -113,7 +114,7 @@ Future<String> basisOf(WidgetTester tester, String key) async {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(legacyElectricDefaults);
 
   group('교류/직류', () {
     testWidgets('교류 110V는 단상: 히터 1.1kW → 10A', (tester) async {

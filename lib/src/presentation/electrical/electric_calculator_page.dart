@@ -1,4 +1,4 @@
-// 전기 설계 계산(홈 "전기"). 480V까지, 발전소·플랜트·시험 설비·제어반.
+// 전기 설계 계산(홈 "전기"). 저압(1 kV 이하) 배선·보호·접지, 전동기·발전기·축전지. 어느 설비·공사에서든 쓴다.
 //
 // 파일로 나눈 독립 탭(각자 저장 칸): 부하 합산(elec_load_sum_tab.dart), 단락 전류(elec_short_circuit_tab.dart),
 // 발전기 용량(elec_generator_tab.dart), 축전지 용량(elec_battery_tab.dart). 탭 순서는 TabBar와 TabBarView를 같이 고친다.
@@ -128,9 +128,14 @@ String supplyLabel(SupplyType t) => switch (t) {
 /// 전압강하 탭에서 고를 수 있는 굵기(저항 표에 있는 굵기, 0.75sq부터).
 final List<double> kVdSizes = kCuR20.keys.toList()..sort();
 
-/// 교류: 110·220V 단상, 380·440·480V 삼상. 직류: 125VDC(발전소 축전지·제어 전원)가 기본.
-const List<double> kAcVolts = [110, 220, 380, 440, 480];
-const List<double> kDcVolts = [24, 48, 110, 125, 220];
+/// 교류: 110·220V 단상, 380·400·440·480V 삼상(칩). 이 밖의 전압은 "직접 입력"으로 넣는다.
+/// 직류: 125VDC(축전지·제어 전원)가 기본. 이 밖의 전압도 "직접 입력".
+const List<double> kAcVolts = [110, 220, 380, 400, 440, 480];
+const List<double> kDcVolts = [12, 24, 48, 110, 125, 220];
+
+/// 저압의 상한: 교류 1 kV, 직류 1.5 kV(KEC 111.1). 넘으면 이 앱의 허용전류·단락 표를 쓸 수 없다.
+const double kLvMaxAc = 1000;
+const double kLvMaxDc = 1500;
 const double kDcVoltsDefault = 125;
 
 const String _motorSwitchLabel = '전동기 부하 (×1.25, 50A 초과 ×1.1)';
@@ -231,6 +236,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
 
   // 공통
   double _volts = 380;
+  final _vCustom = TextEditingController(); // 칩에 없는 교류 전압 직접 입력
+  final _dcvCustom = TextEditingController(); // 칩에 없는 직류 전압 직접 입력
   Phase _phase = Phase.three;
   SupplyType _supply = SupplyType.lvOther;
   // 교류/직류: 부하 전류·전선 굵기·전압강하·부스바 탭이 같이 쓴다.
@@ -246,19 +253,19 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   String _vdAwg = '12 AWG';
 
   // ① 부하 전류
-  LoadType _loadType = LoadType.motor;
+  LoadType _loadType = LoadType.general;
   final _kw = TextEditingController();
   bool _hp = false;
-  final _eff = TextEditingController(text: '90');
+  final _eff = TextEditingController(text: '100');
   final _pf = TextEditingController(text: '85');
-  bool _motor = true;
+  bool _motor = false;
   ConvMode _conv = ConvMode.ampToPower;
   final _convVal = TextEditingController();
 
   // ② 전선 굵기
   bool _checkMode = false;
   final _ib = TextEditingController();
-  bool _cableMotor = true; // 차단기·허용전류에 ×1.25(50A 초과 ×1.1)
+  bool _cableMotor = false; // 차단기·허용전류에 ×1.25(50A 초과 ×1.1). 전동기 회로일 때만 켠다
   WireKind _kind = WireKind.fcv;
   InstallMethod _method = InstallMethod.e;
   bool _stacked = true; // 트레이에 겹쳐 쌓음(묶음): 안전 쪽 기본
@@ -398,6 +405,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
 
   List<TextEditingController> get _controllers => [
     for (final (c, _) in _texts) c,
+    _vCustom,
+    _dcvCustom,
   ];
 
   /// 탭 파일(elec_basic_tab.dart·elec_busbar_tab.dart)에서 화면을 다시 그릴 때 쓴다.
@@ -490,7 +499,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     }
 
     final v = n('v', _volts);
-    if (kAcVolts.contains(v)) _volts = v;
+    if (v > 0) {
+      _volts = v;
+      if (!kAcVolts.contains(v)) _vCustom.text = fmt(v, v == v.roundToDouble() ? 0 : 1);
+    }
     _phase = en([Phase.single, Phase.three], 'ph', _phase);
     _supply = en(SupplyType.values, 'sup', _supply);
     _loadType = en(LoadType.values, 'lt', _loadType);
@@ -511,7 +523,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     // 교류/직류: 예전 저장 칸(전압강하 탭 vdDc·vdDcV)도 읽는다.
     _dc = b('dc', b('vdDc', _dc));
     final dcv = n('dcV', n('vdDcV', _dcVolts));
-    if (kDcVolts.contains(dcv)) _dcVolts = dcv;
+    if (dcv > 0) {
+      _dcVolts = dcv;
+      if (!kDcVolts.contains(dcv)) _dcvCustom.text = fmt(dcv, dcv == dcv.roundToDouble() ? 0 : 1);
+    }
     final vds = n('vdSize', _vdSize);
     if (kVdSizes.contains(vds)) _vdSize = vds;
     _vdKind = en(WireKind.values, 'vdKind', _vdKind);
@@ -1493,7 +1508,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             : _kind == WireKind.panel
             ? '반 내부 온도입니다. IEC 60204-1 표 6 기준은 40°C입니다. 40°C 미만은 현행 표 D.1에 없어 '
                   '1.0으로 계산합니다(안전 쪽).'
-            : '케이블 주위 온도입니다. 표 기준은 30°C입니다. 보일러·터빈 건물처럼 더운 곳은 40~50을 넣으십시오.',
+            : '케이블 주위 온도입니다. 표 기준은 30°C입니다. 보일러실·기계실처럼 더운 곳은 40~50을 넣으십시오.',
         onEdit: () => _ambientEdited = _ambient.text.trim().isNotEmpty,
       ),
       _field(
@@ -1556,7 +1571,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     (s) => setState(() => _supply = s),
     'KEC 232.3.9 표 232.3-1 값은 수전점(수용가 설비의 인입구)부터 기기까지 전체 전압강하 한도입니다. '
         '여기서는 이 케이블 한 구간만 계산하므로, 간선 전압강하를 더해 한도 이내인지 확인하십시오.\n'
-        '고압 수전(발전소·플랜트 자체 변압기)이라도 최종 회로는 저압 수전 값(동력 5%, 조명 3%)을 초과하지 않는 것이 '
+        '고압 수전(자체 변압기)이라도 최종 회로는 저압 수전 값(동력 5%, 조명 3%)을 초과하지 않는 것이 '
         '바람직합니다(표 232.3-1 주 a). 그래서 기본은 5%입니다.\n'
         '100m를 초과하는 만큼 1m에 0.005%씩(최대 0.5%) 더 허용됩니다.',
   );
@@ -2460,6 +2475,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             calcChip('ec_v_${v.toInt()}', '${v.toInt()}V', _volts == v, () {
               setState(() {
                 _volts = v;
+                _vCustom.clear();
                 _phase = v <= 220 ? Phase.single : Phase.three;
               });
             }),
@@ -2478,6 +2494,29 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           ),
         ],
       ),
+      const SizedBox(height: 6),
+      _field(
+        'ec_v_custom',
+        '다른 전압 직접 입력 (V)',
+        _vCustom,
+        '칩에 없는 선간 전압(예: 200, 208, 600, 6600)을 넣습니다. 넣으면 칩 선택보다 이 값을 씁니다. '
+            '비우면 칩에서 고른 전압을 씁니다.\n'
+            '단상·삼상은 바꾸지 않으니 아래에서 직접 고르십시오.',
+        onEdit: _applyCustomVolts,
+      ),
+      if (_hvNote != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(
+            _hvNote!,
+            key: const Key('ec_hv_note'),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: fc.danger,
+            ),
+          ),
+        ),
       if (_oddSystem != null)
         Padding(
           padding: const EdgeInsets.only(top: 6),
@@ -2494,6 +2533,27 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       const SizedBox(height: 12),
     ],
   );
+
+  /// 직접 입력한 교류 전압을 반영한다. 비우거나 숫자가 아니면 칩 값을 그대로 둔다.
+  void _applyCustomVolts() {
+    final v = double.tryParse(_vCustom.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0) return;
+    _volts = v;
+  }
+
+  void _applyCustomDcVolts() {
+    final v = double.tryParse(_dcvCustom.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0) return;
+    _dcVolts = v;
+  }
+
+  /// 저압 범위를 넘는 전압이면 알리는 글. 이 앱의 허용전류·단락 표는 저압 기준이라 그대로 쓰면 안 된다.
+  String? get _hvNote {
+    final over = _dc ? _dcVolts > kLvMaxDc : _volts > kLvMaxAc;
+    if (!over) return null;
+    return '고압(교류 1 kV·직류 1.5 kV 초과)입니다. 이 앱의 전선 허용전류·전압강하 한도·단락 표는 저압 기준이라 '
+        '고압 케이블에는 맞지 않습니다. 전류 환산과 전압강하 % 계산만 참고하고, 선정은 제조사 표로 하십시오.';
+  }
 
   /// 보통 쓰지 않는 전압·상 조합이면 확인하라는 글(계산은 막지 않는다).
   String? get _oddSystem {
@@ -2514,7 +2574,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _chipGroup(
         '회로',
         '교류: 110·220V 단상, 380·440·480V 삼상.\n'
-            '직류: 발전소 축전지·제어 전원은 125VDC를 많이 씁니다. 24VDC 계장 회로도 있습니다. '
+            '직류: 축전지·제어 전원은 125VDC를 많이 쓰고, 24VDC·48VDC 제어·통신 전원도 있습니다. 다른 전압은 "직접 입력"에 넣으십시오. '
             '직류는 역률이 없고 전압강하는 저항만으로 계산합니다(ΔU = 2 × I × L × R).\n'
             '부하 전류·전선 굵기·전압강하·부스바 탭이 같은 선택을 씁니다.',
         [
@@ -2526,17 +2586,40 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           }),
         ],
       ),
-      if (_dc)
+      if (_dc) ...[
         _chipGroup('직류 전압', '회로의 직류 전압입니다. 전압강하 %는 이 전압을 기준으로 계산합니다.', [
           for (final v in kDcVolts)
             calcChip(
               '${prefix}_dcv_${v.toInt()}',
               '${v.toInt()}V',
               _dcVolts == v,
-              () => setState(() => _dcVolts = v),
+              () => setState(() {
+                _dcVolts = v;
+                _dcvCustom.clear();
+              }),
             ),
-        ])
-      else
+        ]),
+        _field(
+          'ec_dcv_custom',
+          '다른 전압 직접 입력 (V)',
+          _dcvCustom,
+          '칩에 없는 직류 전압(예: 600, 750, 1500)을 넣습니다. 넣으면 칩 선택보다 이 값을 씁니다.',
+          onEdit: _applyCustomDcVolts,
+        ),
+        if (_hvNote != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              _hvNote!,
+              key: const Key('ec_hv_note_dc'),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: fc.danger,
+              ),
+            ),
+          ),
+      ] else
         _voltsPhase(),
     ],
   );

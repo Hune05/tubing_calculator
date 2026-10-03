@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'electric_legacy_defaults.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 
 Future<void> pumpPage(
@@ -84,7 +85,7 @@ Future<void> type(WidgetTester tester, String key, String v) async {
 }
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(legacyElectricDefaults);
 
   testWidgets('전압 칩: 220V는 단상, 380·440·480V는 삼상, 단상·삼상은 직접 바꿀 수 있다', (
     tester,
@@ -354,7 +355,7 @@ void main() {
       ElectricCalculatorPage.draftKey: '{망가진',
     });
     await pumpPage(tester);
-    expect(fieldText(tester, 'ec_eff'), '90');
+    expect(fieldText(tester, 'ec_eff'), '100');
     expect(tester.takeException(), isNull);
   });
 

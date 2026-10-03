@@ -1,7 +1,7 @@
 // 계산기 → 원인 확인: 한도를 넘거나 불합격이면 [원인 확인]이 나오고, 입력값을 가진 채 원인 후보와 고친 값을 보여 준다.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'electric_legacy_defaults.dart';
 import 'package:tubing_calculator/src/presentation/electrical/diagnosis_causes.dart';
 import 'package:tubing_calculator/src/presentation/electrical/elec_calc.dart';
 import 'package:tubing_calculator/src/presentation/electrical/elec_tables.dart';
@@ -39,7 +39,7 @@ String _all(WidgetTester tester) => tester
     .join('\n');
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(legacyElectricDefaults);
 
   test('전압강하 원인: 값은 전압강하 계산 함수와 같다', () {
     final d = voltageDropDiagnosis(
