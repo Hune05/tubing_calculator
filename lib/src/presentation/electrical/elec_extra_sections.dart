@@ -63,7 +63,7 @@ class _TransformerPfSectionState extends State<TransformerPfSection>
       }
     }
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 16),
         Text(
@@ -173,7 +173,7 @@ class _MiCableSectionState extends State<MiCableSection>
     ];
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 16),
         Text(

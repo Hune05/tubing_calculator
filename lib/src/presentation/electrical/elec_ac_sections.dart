@@ -100,7 +100,7 @@ class _AcSolveSectionState extends State<AcSolveSection> with CalcFormParts<AcSo
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _chips('구하는 값', '역률 또는 전압 중 모르는 값을 고르면 나머지로 구합니다.', [
           calcChip('ec_as_pf', '역률', _solve == _Solve.pf, () => setState(() => _solve = _Solve.pf)),
@@ -197,7 +197,7 @@ class _ImpedanceSectionState extends State<ImpedanceSection> with CalcFormParts<
       ]);
     }
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         calcField('ec_zi_r', '저항 R (Ω)', _r, '회로의 저항분입니다.'),
         calcField('ec_zi_xl', '유도 리액턴스 XL (Ω, 선택)', _xl, '알면 직접 넣고, 모르면 아래 인덕턴스로 구합니다.'),
@@ -257,7 +257,7 @@ class _CapVoltageSectionState extends State<CapVoltageSection> with CalcFormPart
       ]);
     }
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const SizedBox(height: 12),
         Text('다른 전압에서의 콘덴서 출력', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: fc.text)),
