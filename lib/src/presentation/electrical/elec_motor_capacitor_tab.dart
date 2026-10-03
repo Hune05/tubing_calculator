@@ -1,4 +1,4 @@
-// 전기기기 계산: 콘덴서·단상 탭. 전동기 단자 콘덴서 한도, 3상 모터 단상 운전(Steinmetz), 단상 모터 콘덴서.
+// 전동기·발전기 계산: 콘덴서·단상 탭. 전동기 단자 콘덴서 한도, 3상 모터 단상 운전(Steinmetz), 단상 모터 콘덴서.
 // 계산은 motor_capacitor.dart, 근거와 확인 정도는 docs/전동기_콘덴서_토크_근거.md.
 import 'package:flutter/material.dart';
 

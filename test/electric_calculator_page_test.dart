@@ -62,7 +62,7 @@ void main() {
     expect(find.text('부하 합산'), findsNWidgets(2), reason: '탭 이름표와 기록 목록');
   });
 
-  testWidgets('"최근 계산 기록"은 전기기기 화면(발전기 용량)에서도 쌓인다', (tester) async {
+  testWidgets('"최근 계산 기록"은 전동기·발전기 화면(발전기 용량)에서도 쌓인다', (tester) async {
     tester.view.physicalSize = const Size(390, 3000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

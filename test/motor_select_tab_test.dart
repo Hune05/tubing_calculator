@@ -1,4 +1,4 @@
-// 전기기기 계산: 전동기 공식 추가 묶음(전압·역률 구하기, 전부하 전류 표)과 전동기 선정 탭.
+// 전동기·발전기 계산: 전동기 공식 추가 묶음(전압·역률 구하기, 전부하 전류 표)과 전동기 선정 탭.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

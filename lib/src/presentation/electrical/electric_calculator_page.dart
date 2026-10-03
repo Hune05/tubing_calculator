@@ -218,7 +218,7 @@ String _maxLenLine(double a, double base, double reserved, double maxLen) {
 }
 
 /// 전기 설계 계산은 자격시험의 전기이론(일반·설비)과 전기기기(전동기·발전기)처럼 따로 보여 준다
-/// (섞어 놓으면 정신없다는 사용자 지시, 2026-10-03). enum의 motor가 전기기기 묶음이다.
+/// (섞어 놓으면 정신없다는 사용자 지시, 2026-10-03). enum의 motor가 전동기·발전기 묶음이다.
 enum ElecGroup { general, motor }
 
 /// 탭의 안정 번호(처음 만들 때의 순서). 다른 화면이 ElectricCalculatorPage(initialTab: 번호)로 탭을 고르는 것도
@@ -890,7 +890,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               widget.group == ElecGroup.motor ||
                       (widget.group == null &&
                           elecGroupOf(widget.initialTab) == ElecGroup.motor)
-                  ? '전기기기 계산'
+                  ? '전동기·발전기 계산'
                   : '전기 설계 계산',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),

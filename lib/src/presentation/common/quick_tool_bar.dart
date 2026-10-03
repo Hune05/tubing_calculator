@@ -256,11 +256,11 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'motor',
-    '전기기기 계산',
+    '전동기·발전기 계산',
     AppGlyph.motor,
     (_) => const ElectricCalculatorPage(group: ElecGroup.motor),
     subtitle: '전동기 공식·선정·콘덴서·기타·보호·점검, 발전기 용량',
-    group: '전기기기',
+    group: '전동기·발전기',
   ),
   QuickToolDef(
     'circuit',
@@ -268,7 +268,7 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.ladder,
     (_) => const CircuitReadingPage(),
     subtitle: 'Y·Δ 결선, 직입·정역·Y-Δ 시퀀스',
-    group: '전기기기',
+    group: '전동기·발전기',
   ),
   QuickToolDef(
     'paneldesign',

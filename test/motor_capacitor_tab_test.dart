@@ -1,4 +1,4 @@
-// 전기기기 계산: 콘덴서·단상 탭과 전동기 공식 탭의 최대 토크 묶음.
+// 전동기·발전기 계산: 콘덴서·단상 탭과 전동기 공식 탭의 최대 토크 묶음.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

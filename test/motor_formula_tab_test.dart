@@ -1,4 +1,4 @@
-// 전기기기 계산의 "전동기 공식" 탭: 다섯 묶음 입력 → 결과·풀이.
+// 전동기·발전기 계산의 "전동기 공식" 탭: 다섯 묶음 입력 → 결과·풀이.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

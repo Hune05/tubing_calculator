@@ -7,7 +7,7 @@ Future<void> _open(WidgetTester tester, String tabKey) async {
   tester.view.physicalSize = const Size(800, 9000);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
-  // 전동기 보호·점검은 전기기기 화면에 있다. 그 밖의 탭은 일반 화면.
+  // 전동기 보호·점검은 전동기·발전기 화면에 있다. 그 밖의 탭은 일반 화면.
   final motor = tabKey == 'ec_tab_motor' || tabKey == 'ec_tab_motorcheck';
   await tester.pumpWidget(
     MaterialApp(

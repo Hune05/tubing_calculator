@@ -1602,10 +1602,10 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           );
                         },
                       ),
-                      _sectionHeader("전기기기"),
+                      _sectionHeader("전동기·발전기"),
                       _buildMenuButton(
                         context: context,
-                        title: "전기기기 계산",
+                        title: "전동기·발전기 계산",
                         subtitle: "전동기 공식·선정·콘덴서·기타·보호·점검, 발전기 용량",
                         icon: AppGlyph.motor,
                         onTap: () {
