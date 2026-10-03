@@ -159,7 +159,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
     '라인 수정',
     '결선/트레이싱',
     '철거/교체',
-    '검사/테스트',
+    '검사/시험',
   ];
   int _workerCount = 1;
   bool _isOvertime = false;
@@ -193,7 +193,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
     '튜빙 벤딩',
     '지지대 설치',
     '배선/결선',
-    '압력 테스트',
+    '압력시험',
     '누설 점검',
     '자재 정리',
   ];
@@ -278,14 +278,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
       );
       _isAsBuilt = widget.existingData!['is_as_built'] ?? false;
       // 🚀 예전엔 work_type이 단일 문자열이었다 - 리스트/문자열 둘 다
-      // 안전하게 처리해서 이전에 저장된 일지도 그대로 열린다.
-      final dynamic wt = widget.existingData!['work_type'];
-      _selectedWorkTypes.clear();
-      if (wt is List) {
-        _selectedWorkTypes.addAll(wt.map((e) => e.toString()));
-      } else if (wt is String && wt.isNotEmpty) {
-        _selectedWorkTypes.add(wt);
-      }
+      // 안전하게 처리해서 이전에 저장된 일지도 그대로 열린다(예전 이름은 새 이름으로).
+      _selectedWorkTypes
+        ..clear()
+        ..addAll(workTypesOf(widget.existingData!['work_type']));
       if (_selectedWorkTypes.isEmpty) _selectedWorkTypes.add('신규 설치');
       _workerCount = widget.existingData!['worker_count'] ?? 1;
       _isOvertime = widget.existingData!['is_overtime'] ?? false;
@@ -421,11 +417,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
     return '${d.month}월 ${d.day}일 (${wd[d.weekday - 1]})';
   }
 
-  String _workTypesOf(Map<String, dynamic> r) {
-    final dynamic wt = r['work_type'];
-    if (wt is List) return wt.map((e) => e.toString()).join('·');
-    return wt?.toString() ?? '';
-  }
+  String _workTypesOf(Map<String, dynamic> r) =>
+      workTypesOf(r['work_type']).join('·');
 
   // 채우기 창에서 "무엇이 채워지는지" 미리 보여 주는 줄들.
   List<String> _fillPreview(
@@ -726,13 +719,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
   // 불러온다 - 반복되는 작업일 때 타이핑을 줄여준다.
   void _applyPreviousBasic(Map<String, dynamic> prev) {
     setState(() {
-      final dynamic wt = prev['work_type'];
-      _selectedWorkTypes.clear();
-      if (wt is List) {
-        _selectedWorkTypes.addAll(wt.map((e) => e.toString()));
-      } else if (wt is String && wt.isNotEmpty) {
-        _selectedWorkTypes.add(wt);
-      }
+      _selectedWorkTypes
+        ..clear()
+        ..addAll(workTypesOf(prev['work_type']));
       if (_selectedWorkTypes.isEmpty) _selectedWorkTypes.add('신규 설치');
       _workerCount = prev['worker_count'] ?? _workerCount;
       _isOvertime = prev['is_overtime'] ?? _isOvertime;
@@ -1096,7 +1085,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
             !_hasUnsavedEdit ||
             await confirmDelete(
               context,
-              title: "고친 것을 버리겠습니까?",
+              title: "고친 것을 버리시겠습니까?",
               message: "저장하지 않고 나가면 고친 내용이 사라집니다.",
               confirmLabel: "버리기",
             );
@@ -1494,7 +1483,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
             // ── 접이식 항목들 ──
             _more(
-              title: "연장 / 야간 작업",
+              title: "연장/야간 작업",
               icon: Icons.nights_stay_outlined,
               summary: _isOvertime
                   ? (_overtimeHours != null

@@ -66,7 +66,7 @@ void main() {
       await tester.pump();
       await back(tester);
       // 예전: 묻지 않고 닫혀 고친 것이 사라졌다.
-      expect(findText('고친 것을 버리겠습니까?'), findsOneWidget);
+      expect(findText('고친 것을 버리시겠습니까?'), findsOneWidget);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(atHome(), isFalse);
@@ -91,7 +91,7 @@ void main() {
       await tester.enterText(find.byType(TextField).first, '3층 배관');
       await tester.pump();
       await back(tester);
-      expect(findText('쓰던 이슈를 버리겠습니까?'), findsOneWidget);
+      expect(findText('쓰던 이슈를 버리시겠습니까?'), findsOneWidget);
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(atHome(), isFalse);

@@ -119,7 +119,7 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
     pw.TableRow(
       decoration: const pw.BoxDecoration(color: _head),
       children: [
-        for (final h in ['구분', '시각', '경과 (분)', '압력 (${u.label})', '온도 (°C)'])
+        for (final h in ['구분', '시간', '경과 (분)', '압력 (${u.label})', '온도 (°C)'])
           cell(h, bold: true),
       ],
     ),

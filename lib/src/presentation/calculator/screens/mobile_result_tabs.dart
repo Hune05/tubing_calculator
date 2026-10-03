@@ -51,13 +51,18 @@ List<(String, String)> tubeMarkingSheetSpecs() {
     ("게인(90°)", "${n(m.gain90)} mm"),
     ("스프링백", "${n(m.springback)}°"),
     (
-      "피팅 깊이",
+      "피팅 삽입 깊이",
       m.startFit || m.endFit
           ? "${n(m.fittingDepth)} mm (${[if (m.startFit) "시작", if (m.endFit) "끝"].join("·")})"
           : "넣지 않음",
     ),
     if (m.tail > 0) ("꼬리", "${n(m.tail)} mm"),
-    if (m.benderOffset != 0) ("벤더 원점", "${n(m.benderOffset)} mm"),
+    // 설정 화면과 같은 이름(수동은 기준선 오프셋, 전동은 장비 원점 오프셋).
+    if (m.benderOffset != 0)
+      (
+        s.benderType == "전동 (Electric)" ? "장비 원점 오프셋" : "기준선 오프셋",
+        "${n(m.benderOffset)} mm",
+      ),
     if (m.cutMargin > 0) ("톱날 손실", "${n(m.cutMargin)} mm"),
   ];
 }
@@ -1195,7 +1200,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
 
   /// 도면 카드(전선관 보관함 카드와 같은 모양).
   Widget _buildDrawingCardBody(Map<String, dynamic> item) {
-    String fromTo = "경로 미상";
+    String fromTo = "경로 모름";
     String note = "";
     try {
       final pData = jsonDecode(item['p_to_p'] ?? '{}');

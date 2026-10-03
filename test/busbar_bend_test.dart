@@ -8,7 +8,7 @@ void main() {
   const d = 5.0, r = 5.0, k = 0.33;
   const bd90 = 2 * (r + d) - (math.pi / 2) * (r + k * d); // 굽힘 공제(손 계산)
 
-  test('L 90° 바깥 치수: 자르는 길이 = a + b − 굽힘 공제', () {
+  test('L 90° 바깥 치수: 절단 길이 = a + b − 굽힘 공제', () {
     final p = busbarL(d: d, r: r, k: k, a: 100, b: 100, deg: 90);
     expect(p.cutLength, closeTo(200 - bd90, 1e-9));
     expect(p.cutLength, closeTo(190.4456, 1e-3));
@@ -48,7 +48,7 @@ void main() {
     expect(z.slope, closeTo(z.slopeVertex - 2 * s, 1e-9));
     expect(z.plan.bends[0].turn, 45);
     expect(z.plan.bends[1].turn, -45);
-    // 자르는 길이 = 직선 합 + 호 두 개
+    // 절단 길이 = 직선 합 + 호 두 개
     final arc = (r + k * d) * math.pi / 4;
     expect(z.plan.cutLength, closeTo(50 + 50 + z.slope + 2 * arc, 1e-9));
     expect(z.feasible, isTrue);

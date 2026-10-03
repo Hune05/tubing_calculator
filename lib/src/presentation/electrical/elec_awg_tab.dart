@@ -79,7 +79,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
     ),
     _chipGroup(
       '단자 온도',
-      'NEC 110.14(C)(1): 허용전류는 차단기·기기 단자 온도 열 값을 넘을 수 없습니다.\n'
+      'NEC 110.14(C)(1): 허용전류는 차단기·기기 단자 온도 열 값을 초과할 수 없습니다.\n'
           '· 자동: 100A 이하 회로는 60°C, 100A 초과는 75°C 열로 제한합니다.\n'
           '· 60°C·75°C: 기기 단자에 표시된 값이 있으면 고르십시오(예: 60/75°C 표시는 75°C).\n'
           '90°C 전선은 온도·가닥 보정에만 90°C 열을 쓰고, 결과는 단자 열 값 이하로 둡니다.\n'
@@ -107,7 +107,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
       '관·케이블 속 통전 도체 수',
       _awgCcc,
       '같은 전선관·케이블 속에서 전류가 흐르는 도체 수입니다. 삼상 3선이면 3입니다. '
-          '접지선은 세지 않습니다. 3을 넘으면 NEC 310.15(C)(1) 감소계수를 곱합니다.',
+          '접지선은 세지 않습니다. 3을 초과하면 NEC 310.15(C)(1) 감소계수를 곱합니다.',
     ),
   ];
 
@@ -177,7 +177,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
         key: const Key('ec_cable_result'),
         big: s == null ? '검토 필요' : s.label,
         caption: s == null
-            ? '표 범위(500 kcmil)를 넘습니다'
+            ? '표 범위(500 kcmil)를 초과합니다'
             : 'NEC 310.16 기준 추천 굵기${_dc ? '(직류)' : ''}',
         warn: warn,
         lines: [
@@ -241,7 +241,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
           kAwgPowerSizes,
           _awgText,
           (s) => _set(() => _awgChk = s.label),
-          'AWG 번호가 작을수록 굵습니다. 4/0 AWG 다음은 kcmil(천 원형 밀)입니다. 괄호는 NEC 9장 표 8 단면적입니다.',
+          'AWG 번호가 작을수록 굵습니다. 4/0 AWG 다음은 kcmil입니다. 괄호는 NEC 9장 표 8 단면적입니다.',
         ),
       _field(
         'ec_ib',
@@ -326,7 +326,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
     final ocpd = _cableMotor ? null : necSmallConductorMaxOcpd(s);
     if (iz == null) {
       lines.add(
-        '주위 온도 ${fmt(_awgAmbC)}°C가 ${_colLabel(_awgCol)} 전선의 보정표 범위를 넘습니다.',
+        '주위 온도 ${fmt(_awgAmbC)}°C가 ${_colLabel(_awgCol)} 전선의 보정표 범위를 초과합니다.',
       );
     } else {
       final izT = fmt(iz, 1);
@@ -409,7 +409,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
         ? '검토 필요'
         : [
             '${s.label} 허용전류 ${fmt(iz, 1)}A',
-            if (checked) fail ? '점검 필요' : '조건 만족',
+            if (checked) fail ? '불합격' : '합격',
             if (pct != null) '전압강하 ${fmt(pct, 1)}%',
           ].join(' · ');
     final basis = [
@@ -502,7 +502,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
         ),
       _basis('ec_vd_basis', [
         _awgVdFormula(ph),
-        '최대 길이: 한도(100m를 넘으면 1m당 0.005%, 최대 0.5% 더함)와 전압강하가 같아지는 길이',
+        '최대 길이: 한도(100m를 초과하면 1m당 0.005%, 최대 0.5% 더함)와 전압강하가 같아지는 길이',
         _ElectricCalculatorPageState._supplyTotalLine,
       ]),
     ]);

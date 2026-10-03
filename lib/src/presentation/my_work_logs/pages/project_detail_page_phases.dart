@@ -592,7 +592,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                                       // 🚀 [고침] 묻지 않고 바로 지웠다.
                                       final ok = await confirmDeleteDialog(
                                         ctx,
-                                        message: "'${t.name}' 단계 틀을 지우겠습니까?",
+                                        message: "'${t.name}' 단계 틀을 지우시겠습니까?",
                                       );
                                       if (!ok) return;
                                       await deletePhaseTemplate(t.name);

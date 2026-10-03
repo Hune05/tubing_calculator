@@ -111,7 +111,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(keepWords("PDF 생성 실패: $e")),
+                                  content: Text(keepWords("PDF를 만들지 못했습니다: $e")),
                                 ),
                               );
                             }
@@ -381,7 +381,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
         message = "줄일 만한 큰 사진이 없습니다.";
       }
     } catch (e) {
-      message = "정리 중 오류가 발생했습니다: $e";
+      message = "사진을 정리하지 못했습니다: $e";
     }
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop();

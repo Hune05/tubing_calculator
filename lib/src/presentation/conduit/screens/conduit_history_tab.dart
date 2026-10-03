@@ -467,7 +467,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                 ),
               ),
               child: const Text(
-                "작업창으로 불러오기",
+                "계산기로 불러오기",
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
             ),

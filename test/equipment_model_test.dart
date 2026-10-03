@@ -216,7 +216,7 @@ void main() {
       expect(lines.length, 2);
       expect(lines[1], contains('"게이지 ""A"""'));
       expect(lines[1], contains('2026-01-01'));
-      expect(lines[1], contains('만료'));
+      expect(lines[1], contains('기한 지남'));
     });
 
     test('기한 글: 없으면 안내, 있으면 만료가 ⚠', () {

@@ -209,7 +209,7 @@ void main() {
       await open(tester);
       await tester.tap(find.byKey(const Key('result_btn_kakao')));
       await tester.pumpAndSettle();
-      expect(find.textContaining('보내기 실패'), findsOneWidget);
+      expect(find.textContaining('보내지 못했습니다'), findsOneWidget);
     });
 
     testWidgets('치수가 없으면 보내지 않고 안내한다', (tester) async {

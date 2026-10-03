@@ -508,11 +508,11 @@ extension _InventoryDialogsExt on _InventoryPageState {
         backgroundColor: pureWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         title: const Text(
-          "아이템 삭제",
+          "자재 삭제",
           style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
         ),
         content: const Text(
-          "이 자재 마스터를 영구적으로 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.",
+          "이 자재를 목록에서 지우시겠습니까?\n지우면 되돌릴 수 없습니다.",
           style: TextStyle(fontSize: 14, color: slate700),
         ),
         actions: [
@@ -704,7 +704,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
                   ),
                   const SizedBox(height: 16),
                   _buildInputLabelField(
-                    "최소 유지 수량 (안전 재고)",
+                    "최소 수량",
                     minQtyCtrl,
                     "10",
                     isNumber: true,
@@ -899,7 +899,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
             AppIcon(AppGlyph.stockAudit, color: slate900),
             SizedBox(width: 8),
             Text(
-              "재고 임의 수정",
+              "수량 고치기",
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 18,

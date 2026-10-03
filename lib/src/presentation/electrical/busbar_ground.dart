@@ -325,7 +325,7 @@ GroundBarPlan groundBar({
         : ((run - 2 * endDist - fixed) / pitch + 1e-9).floor() + 1;
   }
   if (n > kGroundMaxHoles) {
-    warn('구멍이 한 줄에 $kGroundMaxHoles개를 넘어 계산하지 않습니다.');
+    warn('구멍이 한 줄에 $kGroundMaxHoles개를 초과해 계산하지 않습니다.');
     n = 0;
   }
   if (n < 1) warn('구멍이 들어갈 자리가 없습니다. 길이나 구멍 수를 늘리십시오.');
@@ -599,7 +599,7 @@ GroundBarPlan groundBar({
   final reqTab = reqFor(tabs);
   if (edgeTab != null && edgeTab < reqTab - 1e-9) {
     notes.add(
-      '$tabName 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeTab)}mm로 필요 거리 ${_f(reqTab)}mm(2T + R)보다 가깝습니다. 꺾을 때 구멍이 늘어날 수 있으니 $tabName 길이를 ${_f(reqTab - edgeTab)}mm 이상 늘리거나 구멍을 줄이거나 시험 조각으로 확인하십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
+      '$tabName 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeTab)}mm로 필요 거리 ${_f(reqTab)}mm(2T + R)보다 가깝습니다. 꺾을 때 구멍이 늘어날 수 있으니 $tabName 길이를 ${_f(reqTab - edgeTab)}mm 이상 늘리거나 구멍 지름을 줄이거나 시험 조각으로 확인하십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
     );
   }
   if (edgeBody != null && edgeBody < reqBody - 1e-9) {

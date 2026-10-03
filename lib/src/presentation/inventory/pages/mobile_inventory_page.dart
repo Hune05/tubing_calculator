@@ -167,7 +167,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           builder: (ctx) => AlertDialog(
             backgroundColor: pureWhite,
             title: const Text("아직 올리지 않은 수량이 있습니다"),
-            content: const Text("나가면 센 수량이 사라집니다. 그래도 나가겠습니까?"),
+            content: const Text("나가면 센 수량이 사라집니다. 그래도 나가시겠습니까?"),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -357,7 +357,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   Future<void> _undoEdits() async {
     final ok = await showCuttingConfirmDialog(
       context,
-      title: "고친 것을 되돌리겠습니까?",
+      title: "고친 것을 되돌리시겠습니까?",
       message: "서버에 올리지 않은 ${_localEdits.length}건을 모두 되돌립니다.",
       confirmLabel: "되돌리기",
       danger: true,
@@ -600,7 +600,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   }) {
     return showCuttingConfirmDialog(
       context,
-      title: isLocalNew ? "올릴 목록에서 삭제하겠습니까?" : "자재를 삭제하겠습니까?",
+      title: isLocalNew ? "올릴 목록에서 삭제하시겠습니까?" : "자재를 삭제하시겠습니까?",
       message: isLocalNew
           ? "$itemName을 올릴 목록에서 지웁니다."
           : "$itemName을 창고 목록에서 아주 지웁니다. 되돌릴 수 없습니다.",

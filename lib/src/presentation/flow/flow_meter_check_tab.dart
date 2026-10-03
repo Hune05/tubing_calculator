@@ -60,7 +60,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
 
   String get _typeGuide =>
       '차압식: 오리피스·벤추리·피토관 + 차압 전송기. 명판의 측정 범위는 차압(예: 0~25kPa)이고, '
-      '출력은 선형(LINEAR, 차압 비례) 또는 제곱근(SQRT, 유량 비례)입니다.\n'
+      '출력은 선형(LINEAR, 차압 비례) 또는 제곱근(전송기 출력, 유량 비례)입니다.\n'
       '전자식·와류식·터빈·질량식: mA가 유량에 비례합니다. 명판이나 변환기 설정의 측정 범위(Range)를 넣습니다. '
       '와류식·터빈의 K-factor는 펄스 출력에 쓰는 값이라 mA 점검에는 필요 없습니다.';
 
@@ -83,19 +83,19 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         _pgc._chips(
           '전송기 출력',
           '명판·설정(HART의 Transfer function, 요꼬가와 Output mode)을 보십시오.\n'
-              '제곱근(SQRT): 전송기가 제곱근을 해서 mA가 유량에 비례합니다. DCS는 선형으로 받습니다.\n'
-              '차압 그대로(LINEAR): mA가 차압에 비례합니다. DCS·지시계에서 제곱근을 해야 합니다.\n'
-              '제곱근은 한 곳에서만 해야 합니다.',
+              '제곱근(전송기 출력): 전송기가 제곱근 연산을 해서 mA가 유량에 비례합니다. DCS는 선형으로 받습니다.\n'
+              '선형(LINEAR): mA가 차압에 비례합니다. DCS·지시계에서 제곱근 연산을 해야 합니다.\n'
+              '제곱근 연산은 한 곳에서만 해야 합니다.',
           [
             calcChip(
               'mc_out_sqrt',
-              '제곱근(SQRT)',
+              '제곱근(전송기 출력)',
               _mcDpOut == DpOut.sqrtOut,
               () => setState(() => _mcDpOut = DpOut.sqrtOut),
             ),
             calcChip(
               'mc_out_lin',
-              '차압 그대로(LINEAR)',
+              '선형(LINEAR)',
               _mcDpOut == DpOut.linearDp,
               () => setState(() => _mcDpOut = DpOut.linearDp),
             ),
@@ -164,7 +164,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
       ],
       calcField(
         'mc_cut',
-        '소유량 차단 (%, 선택)',
+        '저유량 차단 (%, 선택)',
         _mcCut,
         '설정된 유량 % 아래는 0으로 표시하는 기능입니다(Low flow cut-off). 전송기나 DCS 설정에 있습니다. '
             '이 값 아래에서 지시가 0이면 정상입니다.',
@@ -173,7 +173,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         'mc_tol',
         '허용오차 (±스팬 %, 선택)',
         _mcTol,
-        '교정 절차서·제조사 사양의 허용오차입니다. 넣으면 합격·불합격을 봅니다. 앱에 정해 둔 값은 없습니다.',
+        '교정 절차서·제조사 사양의 허용오차입니다. 넣으면 합격·불합격을 판정합니다. 앱에 정해 둔 값은 없습니다.',
       ),
       calcField(
         'mc_ma',
@@ -185,7 +185,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         'mc_ind',
         '지시값 (선택)',
         _mcInd,
-        '같은 때에 읽은 전송기 표시창이나 DCS 화면의 유량입니다. 측정 범위와 같은 단위로 넣으십시오.',
+        '같은 시점의 전송기 표시창이나 DCS 화면 유량입니다. 측정 범위와 같은 단위로 넣으십시오.',
         signed: true,
       ),
       const SizedBox(height: 4),
@@ -197,7 +197,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
       _pgc._note(
         isDp
             ? '차압식: 유량 % = 10 × √(차압 %). 유량 50%에서 차압은 25%입니다. '
-                  '제곱근(SQRT) 출력이면 유량 50%에서 12mA, 차압 그대로(LINEAR)면 8mA입니다.'
+                  '제곱근(전송기 출력)이면 유량 50%에서 12mA, 선형(LINEAR)이면 8mA입니다.'
             : 'mA = 4 + 16 × (유량 − 하한) / (상한 − 하한). 유량 50%에서 12mA입니다.',
       ),
       _pgc._note(
@@ -268,7 +268,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         '이 전류면 보여야 할 지시값: ${_sig(r.expected)}$u',
       '유량 ${_fmt(r.flowPct)}%'
           '${_mcIsDp ? ' · 차압 ${_fmt(dpPctOfFlow(r.flowPct))}%' : ''}',
-      if (r.cutOff) '소유량 차단(${_fmt(cut!)}%) 아래라 0으로 표시되는 것이 정상입니다.',
+      if (r.cutOff) '저유량 차단(${_fmt(cut!)}%) 아래라 0으로 표시되는 것이 정상입니다.',
       if (st != SignalState.normal) _mcSignalText(st),
       if (ind != null) ...[
         '지시값 차이: ${_sig(ind - r.expected)}$u (스팬 ${_fmt(r.errSpanPct!)}%'
@@ -278,10 +278,10 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
       ],
       if (r.mistake == SqrtMistake.twice)
         _mcIsDp
-            ? '지시값이 제곱근을 두 번 한 값과 맞습니다. 전송기가 제곱근(SQRT) 출력인데 DCS에서도 제곱근을 하고 있는지 보십시오.'
-            : '지시값이 제곱근을 한 값과 맞습니다. DCS 태그에 제곱근(SQRT)이 켜져 있는지 보십시오.',
+            ? '지시값이 제곱근 연산을 두 번 한 값과 맞습니다. 전송기가 제곱근(전송기 출력)인데 DCS에서도 제곱근 연산을 하고 있는지 보십시오.'
+            : '지시값이 제곱근 연산을 한 값과 맞습니다. DCS 태그에 제곱근 연산(SQRT)이 켜져 있는지 보십시오.',
       if (r.mistake == SqrtMistake.none)
-        '지시값이 제곱근을 안 한 값과 맞습니다. 전송기가 차압 그대로(LINEAR)인데 DCS에서도 제곱근을 안 하고 있는지 보십시오.',
+        '지시값이 제곱근 연산을 안 한 값과 맞습니다. 전송기가 선형(LINEAR)인데 DCS에서도 제곱근 연산을 안 하고 있는지 보십시오.',
       if (ind != null && r.pass == false && r.mistake == null)
         '측정 범위(명판·전송기 설정·DCS 태그)가 서로 같은지 먼저 보십시오.',
     ];
@@ -315,7 +315,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
   String _mcSignalText(SignalState st) => switch (st) {
     SignalState.failLow => '3.6mA 이하: 고장 신호(하한)입니다. 단선·전원·계기 고장을 점검하십시오.',
     SignalState.gapLow => '3.6~3.8mA: 정상 측정 구간이 아닙니다. 계기의 고장 신호 설정값인지 보십시오.',
-    SignalState.underRange => '3.8~4mA: 0% 아래지만 유효한 측정입니다. 역류나 영점 틀어짐을 보십시오.',
+    SignalState.underRange => '3.8~4mA: 0% 아래지만 유효한 측정입니다. 역류나 제로 틀어짐을 보십시오.',
     SignalState.normal => '',
     SignalState.overRange =>
       '20~20.5mA: 100%를 넘었지만 유효한 측정입니다. 측정 범위가 작지 않은지 보십시오.',

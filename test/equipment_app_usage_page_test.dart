@@ -116,11 +116,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('GD402 가스 밀도계 매뉴얼'), findsOneWidget);
     await tester.dragUntilVisible(
-      find.textContaining('10. 수소순도계 보정 절차'),
+      find.textContaining('10. 수소순도계 교정 절차'),
       find.byType(ListView).last,
       const Offset(0, -400), maxIteration: 200,
     );
-    expect(find.textContaining('10. 수소순도계 보정 절차'), findsOneWidget);
+    expect(find.textContaining('10. 수소순도계 교정 절차'), findsOneWidget);
   });
 
   testWidgets('장비 사용법: REMS 아미고(설명서 기준)·타이거 SR에 제원·안전 수칙·점검·고장 조치·정리정돈 칸이 있고, 설명서 단추가 받는 곳을 알려 준다', (tester) async {
@@ -215,7 +215,7 @@ void main() {
     final list = find.byType(ListView).last;
     // 10장(수소순도)은 처음부터 펼쳐져 있다 — 화면까지 내리면 탭 없이도 안 내용이 보인다.
     await tester.dragUntilVisible(
-      find.textContaining('10. 수소순도계 보정 절차'),
+      find.textContaining('10. 수소순도계 교정 절차'),
       list,
       const Offset(0, -400), maxIteration: 200,
     );

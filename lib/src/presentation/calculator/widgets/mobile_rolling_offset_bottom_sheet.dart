@@ -151,7 +151,7 @@ class _MobileRollingOffsetBottomSheetState
     if (_selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("진행할 기준면 축을 먼저 선택해 주십시오!"),
+          content: Text("꺾는 방향(6축)을 먼저 선택해 주십시오."),
           backgroundColor: Colors.deepOrange,
         ),
       );
@@ -208,8 +208,8 @@ class _MobileRollingOffsetBottomSheetState
             key: const Key('rolling_missing'),
             content: Text(
               _isReverseMode
-                  ? "넣을 수 없습니다. 빗변을 높이·굴림으로 만든 오프셋보다 길게 넣으십시오."
-                  : "넣을 수 없습니다. 높이·굴림 값과 꺾는 각도를 넣으십시오.",
+                  ? "넣을 수 없습니다. 빗변을 True Offset보다 길게 넣으십시오."
+                  : "넣을 수 없습니다. Rise·Roll 값과 벤딩 각도를 넣으십시오.",
             ),
             backgroundColor: Colors.deepOrange,
           ),
@@ -224,7 +224,7 @@ class _MobileRollingOffsetBottomSheetState
         Row(
           children: [
             Text(
-              "진행할 기준면 축 지정 (6축)",
+              "꺾는 방향 (6축)",
               style: TextStyle(
                 color: _selectedRotation == null ? Colors.redAccent : slate600,
                 fontSize: 12,
@@ -408,7 +408,7 @@ class _MobileRollingOffsetBottomSheetState
                           ),
                           alignment: Alignment.center,
                           child: Text(
-                            "정산 (각도 입력)",
+                            "정방향 (각도 입력)",
                             style: TextStyle(
                               color: !_isReverseMode ? pureWhite : slate600,
                               fontWeight: FontWeight.bold,
@@ -450,7 +450,7 @@ class _MobileRollingOffsetBottomSheetState
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildCompactInputRow(_rollCtrl, "수평 거리 (Roll)"),
+                    child: _buildCompactInputRow(_rollCtrl, "롤링 (Roll)"),
                   ),
                 ],
               ),
@@ -458,7 +458,7 @@ class _MobileRollingOffsetBottomSheetState
               _buildCompactInputRow(_startCtrl, "시작 거리 (1번 마킹 자리, mm)"),
               const SizedBox(height: 12),
               if (_isReverseMode) ...[
-                _buildCompactInputRow(_travelCtrl, "가진 파이프 빗변 (Travel)"),
+                _buildCompactInputRow(_travelCtrl, "현장 빗변 (Travel)"),
               ] else ...[
                 _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
                 const SizedBox(height: 12),
@@ -507,7 +507,7 @@ class _MobileRollingOffsetBottomSheetState
                         Icon(Icons.info_outline, color: makitaTeal, size: 16),
                         SizedBox(width: 6),
                         Text(
-                          "기하학적 계산 지표",
+                          "계산 결과",
                           style: TextStyle(
                             color: makitaTeal,
                             fontWeight: FontWeight.bold,
@@ -537,7 +537,7 @@ class _MobileRollingOffsetBottomSheetState
                             "${trueOffset.toStringAsFixed(1)} mm",
                           ),
                           _buildMiniResult(
-                            "가로(Run)",
+                            "수평 거리 (Run)",
                             "${advance.toStringAsFixed(1)} mm",
                           ),
                           _buildMiniResult(
@@ -661,10 +661,10 @@ class _MobileRollingOffsetBottomSheetState
                               _isReverseMode
                                   ? (finalBendAngle > 0
                                         ? "${finalBendAngle.toStringAsFixed(1)}°"
-                                        : "에러")
+                                        : "계산 불가")
                                   : (finalTravel > 0
                                         ? "${finalTravel.toStringAsFixed(1)} mm"
-                                        : "대기"),
+                                        : "입력 필요"),
                               style: TextStyle(
                                 color:
                                     (_isReverseMode

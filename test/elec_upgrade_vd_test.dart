@@ -163,7 +163,7 @@ void main() {
     await type(tester, 'ec_pf', '120');
     final r = textIn(tester, const Key('ec_load_result'));
     expect(r, contains('입력 확인'));
-    expect(r, contains('역률·효율은 100%를 넘을 수 없습니다'));
+    expect(r, contains('역률·효율은 100%를 초과할 수 없습니다'));
     await type(tester, 'ec_pf', '85');
     expect(
       textIn(tester, const Key('ec_load_result')),
@@ -191,12 +191,12 @@ void main() {
     await type(tester, 'ec_pc_kw', '100');
     expect(
       textIn(tester, const Key('ec_pf_result')),
-      isNot(contains('95%를 넘습니다')),
+      isNot(contains('95%를 초과합니다')),
     );
     await type(tester, 'ec_pc_target', '98');
     expect(
       textIn(tester, const Key('ec_pf_result')),
-      contains('목표 역률이 95%를 넘습니다'),
+      contains('목표 역률이 95%를 초과합니다'),
     );
   });
 }

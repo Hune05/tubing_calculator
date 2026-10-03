@@ -1,4 +1,4 @@
-// 축 정렬 현장 지침 화면: 경우별 대책을 찾아 보고, 자기 현장 요령을 항목마다 메모로 남긴다.
+// 축 정렬 현장 지침 화면: 경우별 조치를 찾아 보고, 자기 현장 요령을 항목마다 메모로 남긴다.
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -31,9 +31,9 @@ class AlignGuideNotes {
 
 /// 한 항목을 글로(카톡 보내기용).
 String alignTipText(AlignTip t, {String note = ''}) {
-  final b = StringBuffer('[정렬 지침] ${t.title}\n이럴 때: ${t.symptom}');
+  final b = StringBuffer('[정렬 지침] ${t.title}\n현상: ${t.symptom}');
   if (t.causes.isNotEmpty) b.write('\n원인: ${t.causes.join(' / ')}');
-  b.write('\n대책:');
+  b.write('\n조치:');
   for (var i = 0; i < t.fixes.length; i++) {
     b.write('\n${i + 1}. ${t.fixes[i]}');
   }
@@ -110,7 +110,7 @@ class _AlignmentGuidePageState extends State<AlignmentGuidePage> {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(AppRadius.medium)),
             child: const Text(
-              '현장이 늘 좋은 조건은 아닙니다. 여러 현장에서 흔히 쓰는 요령을 경우별로 모았습니다(이럴 때 → 원인 → 대책 → 확인). '
+              '현장이 늘 좋은 조건은 아닙니다. 여러 현장에서 흔히 쓰는 요령을 경우별로 모았습니다(현상 → 원인 → 조치 → 확인). '
               '숫자는 흔히 쓰는 값이고, 제조사 매뉴얼·사내 절차가 있으면 그것이 먼저입니다. 항목마다 내 현장 메모를 남길 수 있습니다.',
               style: TextStyle(fontSize: 12.5, height: 1.55, color: AppColors.text),
             ),
@@ -223,9 +223,9 @@ class _AlignmentGuidePageState extends State<AlignmentGuidePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Divider(height: 1),
-                  if (t.causes.isNotEmpty) section('흔한 원인', AppColors.caution, [for (final c in t.causes) line(c)]),
-                  section('대책', AppColors.brand, [for (var i = 0; i < t.fixes.length; i++) line(t.fixes[i], mark: '${i + 1}.')]),
-                  section('됐는지 보기', AppColors.ok, [line(t.check)]),
+                  if (t.causes.isNotEmpty) section('원인', AppColors.caution, [for (final c in t.causes) line(c)]),
+                  section('조치', AppColors.brand, [for (var i = 0; i < t.fixes.length; i++) line(t.fixes[i], mark: '${i + 1}.')]),
+                  section('확인', AppColors.ok, [line(t.check)]),
                   if (note.isNotEmpty)
                     section('내 현장 메모', AppColors.text, [Text(note, key: Key('guide_note_${t.id}'), style: const TextStyle(fontSize: 13.5, height: 1.5, color: AppColors.text))]),
                   const SizedBox(height: 6),

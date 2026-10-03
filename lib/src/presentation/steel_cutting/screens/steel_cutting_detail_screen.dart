@@ -841,7 +841,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     if (!mounted) return null;
     final ok = await showCuttingConfirmDialog(
       context,
-      title: "재고에서 빼겠습니까?",
+      title: "재고에서 빼시겠습니까?",
       message: warning.isEmpty
           ? "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다."
           : "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다.\n\n$warning",
@@ -881,7 +881,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     if (!mounted) return false;
     final ok = await showCuttingConfirmDialog(
       context,
-      title: "뺀 것을 도로 넣겠습니까?",
+      title: "뺀 수량을 재고에 도로 넣으시겠습니까?",
       message: "$lines\n\n창고 재고에 위 수량을 도로 넣고 자재 기록에 남깁니다.",
       confirmLabel: "도로 넣기",
       icon: Icons.undo,
@@ -1070,7 +1070,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             pw.Text("프로젝트: ${widget.project.name}"),
             pw.Text("작성 날짜: $dateStr"),
             pw.Text(
-              "원자재 기준 길이: ${_stockLength.toStringAsFixed(0)}mm    세트 수: $_setMultiplier SET"
+              "원자재 기준 길이: ${_stockLength.toStringAsFixed(0)}mm    세트 수: $_setMultiplier세트"
               "${_bladeKerf > 0 ? '    톱날 손실: ${_bladeKerf.toStringAsFixed(1)}mm/회' : ''}",
             ),
             pw.SizedBox(height: 16),
@@ -1523,7 +1523,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "원자재(${fmtMm(_maxStock)}mm)보다 긴 항목 $count건 — 배치에서 빠집니다.",
+            "원자재(${fmtMm(_maxStock)}mm)보다 긴 항목 $count건은 배치에서 빠집니다.",
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w800,
@@ -1770,7 +1770,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                         }
                       }),
                       child: Text(
-                        picked.length == group.length ? "모두 지우기" : "모두 고르기",
+                        picked.length == group.length ? "선택 해제" : "모두 고르기",
                       ),
                     ),
                   ],
@@ -2689,7 +2689,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           ? "원자재보다 긴 조각 $oversized개는 뺐습니다"
           : "$base · 원자재보다 긴 조각 $oversized개는 뺐습니다";
     }
-    final len = _mixLengths.isNotEmpty ? "길이 섞어" : fmtMm(_stockLength);
+    final len = _mixLengths.isNotEmpty ? "여러 길이" : fmtMm(_stockLength);
     return "새 원자재 $len $bars본$scrap$over";
   }
 
@@ -2765,7 +2765,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             },
           ),
           Text(
-            "$_setMultiplier SET",
+            "$_setMultiplier세트",
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,

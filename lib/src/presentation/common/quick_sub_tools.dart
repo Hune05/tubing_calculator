@@ -49,7 +49,7 @@ final List<QuickToolDef> kQuickSubTools = [
     LucideIcons.arrowLeftRight,
     '공학용 계산기',
     (_) => const MiniUnitConverterPage(),
-    subtitle: '계산기 안 간단 단위 변환',
+    subtitle: '계산기 안 간단 단위 환산',
   ),
   _sub(
     'eng_formula',
@@ -59,12 +59,12 @@ final List<QuickToolDef> kQuickSubTools = [
     (_) => const FormulaCalcPage(),
     subtitle: '전기·유량·유공압 공식 모음',
   ),
-  // ── 압력 시험 ──
+  // ── 압력시험 ──
   _sub(
     'pt_plan',
-    '시험 압력',
+    '시험압력',
     LucideIcons.gauge,
-    '압력 시험',
+    '압력시험',
     (_) => const PressureTestPage(initialTab: 0),
     subtitle: 'ASME B31.3·B31.1 수압·공압 시험압력',
   ),
@@ -72,23 +72,23 @@ final List<QuickToolDef> kQuickSubTools = [
     'pt_record',
     '시험 기록',
     LucideIcons.clipboardList,
-    '압력 시험',
+    '압력시험',
     (_) => const PressureTestPage(initialTab: 1),
     subtitle: '유지시간 타이머 · 기록서',
   ),
   _sub(
     'pt_decay',
-    '압력 강하',
+    '압력강하',
     LucideIcons.trendingDown,
-    '압력 시험',
+    '압력시험',
     (_) => const PressureTestPage(initialTab: 2),
-    subtitle: '유지 중 압력 떨어짐 판정',
+    subtitle: '유지시간 중 압력강하 판정',
   ),
   _sub(
     'pt_energy',
     '공압 안전거리',
     LucideIcons.shieldAlert,
-    '압력 시험',
+    '압력시험',
     (_) => const PressureTestPage(initialTab: 3),
     subtitle: '저장 에너지 · 출입 통제 거리',
   ),
@@ -184,11 +184,11 @@ final List<QuickToolDef> kQuickSubTools = [
   // ── 유량 계산 ──
   _sub(
     'fl_vel',
-    '유속·관 굵기',
+    '유속·관경',
     LucideIcons.waves,
     '유량 계산',
     (_) => const FlowCalcPage(initialTab: 0),
-    subtitle: '유량으로 관 굵기·유속',
+    subtitle: '유량으로 관경·유속',
   ),
   _sub(
     'fl_dp',

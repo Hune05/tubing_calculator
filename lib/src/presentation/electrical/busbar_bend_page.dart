@@ -1,4 +1,4 @@
-// 부스바 절곡 계산기(10-03): 구리 부스바를 현장에서 L·U·Z로 꺾을 때 자르는 길이와 꺾기 시작선.
+// 부스바 절곡 계산기(10-03): 구리 부스바를 현장에서 L·U·Z로 꺾을 때 절단 길이와 꺾기 시작선.
 // 계산은 busbar_bend.dart.
 import 'dart:async';
 import 'dart:convert';
@@ -27,7 +27,7 @@ enum BusbarBendKind { l, u, z }
 String busbarBendKindLabel(BusbarBendKind k) => switch (k) {
   BusbarBendKind.l => 'L 꺾기',
   BusbarBendKind.u => 'U 꺾기',
-  BusbarBendKind.z => 'Z 꺾기 (옵셋)',
+  BusbarBendKind.z => 'Z 꺾기 (오프셋)',
 };
 
 /// 꺾는 각도(°) 칩.
@@ -42,11 +42,12 @@ double busbarMinRadius(double thickness) => thickness <= 10
     : (thickness <= 25 ? 1.5 * thickness : 2 * thickness);
 
 const List<String> kBusbarBendBasis = [
-  '식: 중립선 반경 ρ = r + k·d, 꼭짓점 물림 s = ρ·tan(θ/2), 호 길이 = ρ·θ. 자르는 길이 = 꼭짓점 사이 길이의 합 − Σ(2s − 호 길이). 90° L 한 번은 일반 굽힘 공제식 BD = 2(r + t) − (π/2)(r + k·t)와 같습니다.',
+  '식: 중립선 반경 ρ = r + k·d, 셋백 s = ρ·tan(θ/2), 호 길이 = ρ·θ. 절단 길이 = 꼭짓점 사이 길이의 합 − Σ(2s − 호 길이). 90° L 한 번은 일반 굽힘 공제식 BD = 2(r + t) − (π/2)(r + k·t)와 같습니다.',
   'k: 구리 부스바는 0.33~0.5(Rittal·payapress 두 자료가 같은 범위)입니다. 기본 0.4는 그 가운데 값이라, 시험 조각을 꺾어 실측으로 맞추십시오.',
   '최소 안쪽 반경: CDA(Copper Development Association) Pub.22 표 6 한 곳 자료입니다. 두께 10mm 이하 1배, 11~25mm 1.5배, 26~50mm 2배. 재질(연질·경질)과 상관없이 같습니다.',
   '세워 꺾기(edgewise)는 값을 확인한 자료를 못 찾아 반경 경고를 하지 않습니다. 폭이 넓을수록 큰 반경이 필요하니 시험 조각으로 확인하십시오.',
-  '넣지 않은 것: 스프링백(꺾은 뒤 되돌아오는 각), 벤더 장비별 보정, 비틀기, 구멍 가공.',
+  '스프링백·벤더별 보정: 시험 조각을 꺾어 측정한 값으로 벤더 프로필을 만들면 k와 스프링백 비율이 들어갑니다. 기계에서 꺾을 각도 = 목표 각도 × 스프링백 비율입니다. 프로필이 없으면 스프링백은 보정하지 않습니다.',
+  '넣지 않은 것: 비틀기, 구멍 가공.',
 ];
 
 class BusbarBendPage extends StatefulWidget {
@@ -336,10 +337,10 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       ),
       ('치수', _dimText),
       ('꺾기 조건', '안쪽 반경 ${fmt(_r)}mm · k ${fmt(_k, 2)}'),
-      ('자르는 길이', '${fmt(p.cutLength, 1)} mm'),
+      ('절단 길이', '${fmt(p.cutLength, 1)} mm'),
       if (_z != null)
         (
-          '옵셋',
+          '오프셋',
           '비스듬한 곧은 길이 ${fmt(_z!.slope, 1)}mm · 꺾기 사이 진행 ${fmt(_z!.run, 1)}mm',
         ),
     ],
@@ -350,7 +351,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         '이 높이는 반경 때문에 꺾을 수 없습니다. 최소 높이 ${fmt(_z!.minHeight, 1)}mm.',
       if (_plane == BusbarBendPlane.edge)
         '세워 꺾기는 최소 반경 자료를 못 찾아 확인하지 않았습니다. 시험 조각으로 먼저 꺾어 보십시오.',
-      '꺾은 뒤 되돌아오는 각(스프링백)과 벤더 기종 차이는 넣지 않았습니다. 같은 규격 시험 조각으로 길이·각도를 확인하고 k와 반경을 맞추십시오.',
+      _spring == 1.0
+          ? '스프링백(꺾은 뒤 되돌아오는 각)은 보정하지 않았습니다. 벤더 프로필을 만들거나 같은 규격 시험 조각으로 길이·각도를 확인하십시오.'
+          : '스프링백은 벤더 프로필 값으로 보정했습니다. 첫 작업은 같은 규격 시험 조각으로 길이·각도를 확인하십시오.',
     ],
   );
 
@@ -362,7 +365,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     b.write(
       '\n안쪽 반경 ${fmt(_r)}mm · k ${fmt(_k, 3)}${_profileName == null ? "" : " (벤더 프로필 $_profileName)"}',
     );
-    b.write('\n자르는 길이: ${fmt(p.cutLength, 1)}mm');
+    b.write('\n절단 길이: ${fmt(p.cutLength, 1)}mm');
     b.write('\n마킹 (한쪽 끝에서):');
     for (var i = 0; i < p.bends.length; i++) {
       b.write('\n ${_bendLine(p.bends[i], i)}');
@@ -461,8 +464,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         onEdit: _saveSoon,
       ),
       elecChipGroup(
-        '어떻게 꺾나',
-        'L: 한 번 꺾기. U: 같은 방향으로 두 번(ㄷ자). Z: 반대 방향으로 두 번(옵셋, 높이를 맞춰 비켜감).',
+        '꺾기 종류',
+        'L: 한 번 꺾기. U: 같은 방향으로 두 번(ㄷ자). Z: 반대 방향으로 두 번(오프셋, 높이를 맞춰 비켜감).',
         [
           for (final k in BusbarBendKind.values)
             calcChip(
@@ -525,7 +528,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       ),
       elecChipGroup(
         '벤더 프로필',
-        '시험 조각을 꺾어 잰 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 들어갑니다.',
+        '시험 조각을 꺾어 측정한 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 들어갑니다.',
         [
           calcChip(
             'bb_profile',
@@ -547,7 +550,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       ),
       elecSectionTitle('치수'),
       if (!isZ)
-        elecChipGroup('치수 재는 곳', '바깥 치수: 꺾은 바깥 모서리까지. 안쪽 치수: 안쪽 모서리까지.', [
+        elecChipGroup('치수 기준', '바깥 치수: 꺾은 바깥 모서리까지. 안쪽 치수: 안쪽 모서리까지.', [
           for (final r in BusbarDimRef.values)
             calcChip(
               'bb_ref_${r.name}',
@@ -592,7 +595,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       if (isZ)
         elecField(
           'bb_ih',
-          '옵셋 높이 (mm)',
+          '오프셋 높이 (mm)',
           _h,
           '두 곧은 구간의 같은 쪽 면 사이 높이입니다.',
           onEdit: _saveSoon,
@@ -611,12 +614,12 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       );
     } else {
       summary =
-          '${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)} · 자르는 길이 ${fmt(p.cutLength, 1)}mm';
+          '${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)} · 절단 길이 ${fmt(p.cutLength, 1)}mm';
       children.addAll([
         calcResult(
           key: const Key('bb_result'),
           big: '${fmt(p.cutLength, 1)} mm',
-          caption: '자르는 길이 · 꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
+          caption: '절단 길이 · 꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
           warn: warn != null || bad,
           lines: [
             if (bad)
@@ -649,7 +652,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           ),
         ),
         const SizedBox(height: 12),
-        calcLabel('자르기 전 마킹', '곧은 부스바 한쪽 끝에서 잰 꺾기 시작선·끝선입니다.'),
+        calcLabel('자르기 전 마킹', '곧은 부스바 한쪽 끝 기준 꺾기 시작선·끝선 위치입니다.'),
         const SizedBox(height: 4),
         _drawing(
           const Key('bb_mark_view'),
@@ -670,7 +673,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           big: '작업 순서',
           caption: '현장에서 꺾을 때',
           lines: const [
-            '자르는 길이로 부스바를 자릅니다. 절단면 버(burr)를 갈아 냅니다.',
+            '절단 길이로 부스바를 자릅니다. 절단면 버(burr)를 갈아 냅니다.',
             '한쪽 끝에서 꺾기 시작선을 줄긋기로 표시합니다. 양면에 같이 긋습니다.',
             '벤더 꺾는 날(어댑터)의 시작 위치를 시작선에 맞춥니다.',
             '먼저 같은 규격 시험 조각을 꺾어 길이·각도를 확인하고 k와 반경을 맞춥니다.',

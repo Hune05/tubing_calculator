@@ -40,7 +40,7 @@ abstract final class TrashKind {
 
 /// 휴지통 목록에 보이는 종류 이름과 아이콘.
 (String, IconData) trashKindLabel(String kind) => switch (kind) {
-  TrashKind.ptRecord => ('압력 시험 기록', Icons.speed_rounded),
+  TrashKind.ptRecord => ('압력시험 기록', Icons.speed_rounded),
   TrashKind.calRecord => ('교정 기록', Icons.tune_rounded),
   TrashKind.alignRecord => ('축 정렬 기록', Icons.straighten_rounded),
   TrashKind.safetyRecord => ('안전 점검 기록', Icons.health_and_safety_outlined),
@@ -49,7 +49,7 @@ abstract final class TrashKind {
   TrashKind.drawing => ('도면', Icons.picture_as_pdf_outlined),
   TrashKind.cuttingProject => ('튜브 컷팅 프로젝트', Icons.content_cut_rounded),
   TrashKind.steelProject => ('형강 컷팅 프로젝트', Icons.view_column_outlined),
-  TrashKind.workProject => ('작업 일지 프로젝트', Icons.assignment_outlined),
+  TrashKind.workProject => ('내 프로젝트', Icons.assignment_outlined),
   TrashKind.layout => ('작업 배치도', Icons.dashboard_outlined),
   _ => ('기타', Icons.delete_outline_rounded),
 };

@@ -64,7 +64,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                     ),
                   ),
                   const Text(
-                    "숫자를 눌러서 수정하십시오",
+                    "창고에 실제로 있는 수량을 넣으십시오",
                     style: TextStyle(
                       color: slate600,
                       fontSize: 14,
@@ -181,7 +181,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 titlePadding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
                 contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
                 title: const Text(
-                  "신규 자재 임시 등록",
+                  "새 자재 등록",
                   style: TextStyle(
                     color: slate900,
                     fontSize: 20,
@@ -311,7 +311,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       ),
                       const SizedBox(height: 20),
                       const Text(
-                        "제조사 (Maker)",
+                        "제조사",
                         style: TextStyle(
                           color: slate900,
                           fontSize: 14,
@@ -369,7 +369,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       ),
                       const SizedBox(height: 20),
                       const Text(
-                        "최소 유지 수량 (안전 재고)",
+                        "최소 수량",
                         style: TextStyle(
                           color: slate900,
                           fontSize: 14,
@@ -386,7 +386,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
-                          hintText: "예: 10 (부족 시 알람)",
+                          hintText: "예: 10 (이보다 적으면 자재 부족으로 표시)",
                           hintStyle: TextStyle(
                             color: slate600.withValues(alpha: 0.6),
                           ),
@@ -554,7 +554,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
               quickOptions = _globalLocationOptions;
               allowCustomAdd = true;
             } else if (infoType == 'Spec') {
-              titleText = "규격(Spec) 입력";
+              titleText = "규격 입력";
               quickOptions = ["1/4\"", "3/8\"", "1/2\"", "6mm", "8mm"];
             } else if (infoType == 'Project') {
               titleText = "프로젝트 배정";
@@ -563,9 +563,9 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
               titleText = "담당 부서/팀";
               quickOptions = ["발전 설비", "한화 콤프레샤", "전기 제어", "배관 설비"];
             } else if (infoType == 'HeatNo') {
-              titleText = "히트 넘버 (Heat No.)";
+              titleText = "히트 넘버";
             } else if (infoType == 'MinQty') {
-              titleText = "최소 유지 수량 (안전 재고)";
+              titleText = "최소 수량";
               quickOptions = ["5", "10", "20", "50"];
               kbType = TextInputType.number;
             }
@@ -639,7 +639,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                     HapticFeedback.heavyImpact();
                                     final ok = await showCuttingConfirmDialog(
                                       context,
-                                      title: "보관 위치를 삭제하겠습니까?",
+                                      title: "보관 위치를 삭제하시겠습니까?",
                                       message: "보관 위치 목록에서 '$opt' 칸을 지웁니다.",
                                       confirmLabel: "삭제",
                                       danger: true,

@@ -615,7 +615,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       context,
       title: "일정 삭제",
       message: isRecurring(recurrence)
-          ? "이 반복 일정을 회차까지 모두 삭제합니다. 되돌릴 수 없습니다."
+          ? "이 반복 일정의 모든 회차를 삭제하시겠습니까? 되돌릴 수 없습니다."
           : "이 개인 일정을 삭제하시겠습니까? 되돌릴 수 없습니다.",
     );
     if (!confirmed) return;
@@ -642,7 +642,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     BuildContext ctx, {
     required bool forDelete,
   }) {
-    final verb = forDelete ? "삭제" : "고치기";
+    final verb = forDelete ? "삭제" : "수정";
     return showDialog<String>(
       context: ctx,
       builder: (dctx) => AlertDialog(
@@ -880,7 +880,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 color: scheduleText,
                               ),
                               decoration: InputDecoration(
-                                hintText: "장소 (선택) — 예: 중부발전",
+                                hintText: "장소 (선택, 예: 중부발전)",
                                 prefixIcon: const Icon(
                                   Icons.place_outlined,
                                   size: 20,
@@ -1002,7 +1002,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 color: scheduleText,
                               ),
                               decoration: InputDecoration(
-                                hintText: "메모 (선택) — 준비물, 만날 사람 등",
+                                hintText: "메모 (선택, 준비물·만날 사람 등)",
                                 prefixIcon: const Icon(
                                   Icons.notes_rounded,
                                   size: 20,
@@ -1428,7 +1428,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       ),
                                       label: Text(
                                         recurrenceUntil == null
-                                            ? "반복 끝 (계속)"
+                                            ? "반복 종료일 없음"
                                             : "${recurrenceUntil!.year}.${recurrenceUntil!.month.toString().padLeft(2, '0')}.${recurrenceUntil!.day.toString().padLeft(2, '0')}까지",
                                         style: const TextStyle(
                                           color: scheduleTeal,
@@ -1443,7 +1443,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   ),
                                   if (recurrenceUntil != null)
                                     IconButton(
-                                      tooltip: "반복 끝 지우기",
+                                      tooltip: "반복 종료일 지우기",
                                       icon: const Icon(
                                         Icons.close_rounded,
                                         size: 18,
@@ -1798,7 +1798,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   ),
                                 ),
                                 child: const Text(
-                                  "저장하기",
+                                  "저장",
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
@@ -2012,7 +2012,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                           ),
                                         ),
                                         child: const Text(
-                                          "기준일을 선택해서 적용하기",
+                                          "기준일 골라 적용",
                                           style: TextStyle(color: scheduleTeal),
                                         ),
                                       ),

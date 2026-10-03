@@ -91,7 +91,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('기다리는 저장이 없습니다'), findsOneWidget);
+      expect(find.text('못 올린 저장이 없습니다'), findsOneWidget);
     });
 
     testWidgets('프로젝트 이름과 건수·기다린 시간이 뜨고, 끝나면 사라진다', (tester) async {
@@ -120,7 +120,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('루마'), findsOneWidget);
       expect(find.textContaining('변경 내용 저장 · 일정 완료 표시 2건'), findsOneWidget);
-      expect(find.textContaining('12분째 대기'), findsOneWidget);
+      expect(find.textContaining('12분째 못 올라감'), findsOneWidget);
 
       log.end(token);
       await tester.pump();
@@ -163,12 +163,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('오프라인 저장 대기 1건'), findsOneWidget);
-    expect(find.textContaining('루마 — 통신이 없어'), findsOneWidget);
+    expect(find.text('서버에 못 올린 저장 1건'), findsOneWidget);
+    expect(find.textContaining('루마: 통신이 없어'), findsOneWidget);
 
-    await tester.tap(find.text('오프라인 저장 대기 1건'));
+    await tester.tap(find.text('서버에 못 올린 저장 1건'));
     await tester.pumpAndSettle();
-    expect(find.text('저장 대기'), findsOneWidget); // 앱바 제목
+    expect(find.text('못 올린 저장'), findsOneWidget); // 앱바 제목
     expect(find.textContaining('12분째'), findsNothing);
     expect(find.text('루마'), findsOneWidget);
   });

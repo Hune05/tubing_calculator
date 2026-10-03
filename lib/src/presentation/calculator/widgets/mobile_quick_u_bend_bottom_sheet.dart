@@ -245,7 +245,7 @@ class _MobileQuickUBendBottomSheetState
               ),
               const SizedBox(height: 8),
               const Text(
-                "호(Arc) 길이를 제외한 '앞뒤 순수 직관 길이'를 입력하여 절단 기장과 조립 후 최고점(Apex)을 산출합니다.",
+                "U자 곡선(Arc)을 뺀 앞뒤 직관 길이를 넣으면 자를 길이와 조립 후 최고점(Apex)을 계산합니다.",
                 style: TextStyle(color: slate600, fontSize: 12),
               ),
               const SizedBox(height: 16),
@@ -302,7 +302,7 @@ class _MobileQuickUBendBottomSheetState
                           const SizedBox(height: 4),
                           Text(
                             "• 앞 직관 + U자 + 뒤 직관이 자를 길이입니다"
-                            " (마킹 탭과 같은 셈)",
+                            " (마킹 탭과 같은 계산)",
                             style: TextStyle(
                               color: Colors.amber.shade900,
                               fontSize: 12,
@@ -469,7 +469,7 @@ class _MobileQuickUBendBottomSheetState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            "총 절단 원장 기장",
+                            "총 절단 길이",
                             style: TextStyle(
                               color: slate600,
                               fontSize: 12,

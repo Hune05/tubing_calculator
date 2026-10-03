@@ -5,7 +5,7 @@ import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'daily_report_page.dart';
-import '../models/report_tools.dart' show reportDateOf;
+import '../models/report_tools.dart' show reportDateOf, workTypesOf;
 import '../models/attendance.dart';
 
 const Color tossBlue = AppColors.brand; // 🚀 마키타 틸로 통일
@@ -313,12 +313,11 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
 
         // 🚀 work_type이 복수 선택(List)으로 바뀌어서, 예전 단일 문자열
         // 데이터와 둘 다 안전하게 처리한다.
-        final dynamic wt = r['work_type'];
-        final String workTypeStr = wt is List ? wt.join('/') : (wt ?? '');
+        final String workTypeStr = workTypesOf(r['work_type']).join('/');
         final tag = attendanceTag(Map<String, dynamic>.from(r));
 
         buffer.writeln(
-          "$key ($workTypeStr, ${r['worker_count'] ?? 1}명${overtime ? ', 야간' : ''}${tag.isEmpty ? '' : ', $tag'}) "
+          "$key ($workTypeStr, ${r['worker_count'] ?? 1}명${overtime ? ', 연장/야간' : ''}${tag.isEmpty ? '' : ', $tag'}) "
           "- 벤딩 ${pts}pt / 결선 $wiring개소",
         );
         final note = r['note']?.toString() ?? '';
@@ -331,7 +330,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     buffer.writeln();
     buffer.writeln("총 벤딩 포인트: ${totalPoints}pt");
     buffer.writeln("총 결선: $totalWiring개소");
-    buffer.writeln("초과/야간 근무: $overtimeDays일");
+    buffer.writeln("연장/야간 근무: $overtimeDays일");
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -398,7 +397,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
             IconButton(
               onPressed: _exportMonth,
               icon: const Icon(AppIcons.share),
-              tooltip: "이번 달 요약 내보내기",
+              tooltip: "이번 달 요약 복사",
             ),
           ],
         ),
@@ -441,7 +440,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                       _statTile("기록일", "${byDate.length}/$daysInMonth일"),
                       _statTile("벤딩", "${totalPoints}pt"),
                       _statTile("결선", "$totalWiring개소"),
-                      _statTile("초과근무", "$overtimeDays일"),
+                      _statTile("연장/야간", "$overtimeDays일"),
                     ],
                   ),
                 ],

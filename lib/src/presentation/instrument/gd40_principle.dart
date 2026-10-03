@@ -261,7 +261,7 @@ class _ModesPainter extends CustomPainter {
     final ph = t * math.pi * 2 * 3;
     _mode(c, const Offset(92, 96), 2, ph, '2차 원주 모드', 'F2 약 2 kHz');
     _mode(c, const Offset(268, 96), 4, ph * 1.6, '4차 원주 모드', 'F4 약 6 kHz');
-    lpText(c, '두 모드를 동시에 울리고 F2 ÷ F4 비율로 밀도 계산', const Offset(180, 182), size: 8.5, color: AppColors.textSub, w: FontWeight.w800);
+    lpText(c, '두 모드로 동시에 진동시키고 F2 ÷ F4 비율로 밀도 계산', const Offset(180, 182), size: 8.5, color: AppColors.textSub, w: FontWeight.w800);
     c.restore();
   }
 

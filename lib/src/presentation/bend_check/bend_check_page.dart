@@ -146,7 +146,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 const Text(
-                  '계산한 값과 실제로 잰 값을 남기면, 같은 규격·장비의 지난 차이를 참고로 보여 줍니다. '
+                  '계산값과 실측값을 남기면 같은 규격·장비의 지난 차이를 참고로 보여 줍니다. '
                   '마킹 계산 결과는 바뀌지 않습니다.',
                   style: TextStyle(
                     fontSize: 13,
@@ -161,7 +161,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
                   onChanged: (_) => setState(() {}),
                   decoration: const InputDecoration(
                     labelText: '튜브 규격·장비',
-                    hintText: '예: 1/2" SUS · 스웨이지락 수동',
+                    hintText: '예: 1/2" SUS · 스웨즈락 수동',
                     filled: true,
                     fillColor: AppColors.surface,
                   ),
@@ -221,7 +221,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
                   key: const Key('bendcheck_what'),
                   controller: _what,
                   decoration: const InputDecoration(
-                    labelText: '무엇을 쟀는지 (선택)',
+                    labelText: '측정 위치 (선택)',
                     hintText: '예: 90° 1번 마킹',
                     filled: true,
                     fillColor: AppColors.surface,

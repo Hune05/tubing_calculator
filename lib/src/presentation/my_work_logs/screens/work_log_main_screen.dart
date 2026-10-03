@@ -1018,7 +1018,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 18, 20, 6),
               child: Text(
-                "어느 프로젝트 일지를 쓰겠습니까?",
+                "어느 프로젝트 일지를 쓰시겠습니까?",
                 style: TextStyle(fontWeight: FontWeight.w800, fontSize: 17),
               ),
             ),
@@ -1204,7 +1204,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 실패: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords("PDF를 만들지 못했습니다: $e"))));
       }
     }
   }
@@ -1552,7 +1552,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     "매일 '일지 작성'에 작업 내용·사진·처리한 이슈를 남기면 진행률과 통계에 쌓입니다.",
     "자재는 입고일이 미정이어도 먼저 등록하고, 날짜가 정해지면 채우십시오. 지연되면 알려 줍니다.",
     "금요일엔 '주간 보고'로 이번 주 업무를 한 번에 공유하십시오.",
-    "⋮ 메뉴에서 보고서 양식, 백업, 저장 공간 관리를 할 수 있습니다.",
+    "⋮ 메뉴에서 보고서 양식을 바꾸고, '저장 공간 관리'에서 백업·복원을 할 수 있습니다.",
   ];
 
   Widget _buildGuideCard() {
@@ -1600,7 +1600,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             child: TextButton(
               onPressed: _dismissGuide,
               child: const Text(
-                "확인했습니다",
+                "확인",
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -1891,7 +1891,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                         child: Text(
                           _showCompleted
                               ? "완료된 프로젝트가 없습니다."
-                              : "아직 등록된 작업 기록이 없습니다.\n아래 버튼을 눌러 새로 시작해 보십시오.",
+                              : "아직 등록된 프로젝트가 없습니다.\n아래 '새 프로젝트 추가'를 눌러 시작하십시오.",
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             color: tossSubText,

@@ -159,8 +159,8 @@ class _RefKecTabState extends State<RefKecTab> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  '새 개정 공고가 났습니다 — 공고 제${n.noticeNo}호'
-                  '${detail.isNotEmpty ? '($detail)' : ''}. 아래 요약은 그 전 '
+                  '새 개정 공고가 났습니다. 공고 제${n.noticeNo}호'
+                  '${detail.isNotEmpty ? '($detail)' : ''}입니다. 아래 요약은 그 전 '
                   '공고${basis.noticeNo.isNotEmpty ? '(제${basis.noticeNo}호)' : ''} '
                   '기준이니 원문을 확인하십시오.',
                   style: TextStyle(

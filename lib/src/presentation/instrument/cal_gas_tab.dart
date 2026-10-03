@@ -246,23 +246,23 @@ class _CalGasTabState extends State<CalGasTab>
             ]),
             calcField(
               'cg_p',
-              '지금 용기 압력 ($pu)',
+              '현재 용기 압력 ($pu)',
               _p,
               '조정기 1차(용기 쪽) 압력계 값입니다. 게이지 압력으로 넣습니다. 새 수소·질소 용기는 보통 14.7MPa로 충전됩니다.',
             ),
             calcField(
               'cg_rest',
-              '남길 압력 ($pu)',
+              '교체 기준 잔압 ($pu)',
               _rest,
-              '이 압력이 되면 용기를 바꿉니다. 조정기가 제대로 일하는 압력보다 높게, 공기가 거꾸로 들어가지 않게 조금 남깁니다. '
+              '이 압력이 되면 용기를 교체합니다. 조정기 최소 입구 압력보다 높게, 공기가 역류하지 않도록 남기는 압력입니다. '
                   '회사·공급사 기준을 넣으십시오.',
             ),
           ] else
             calcField(
               'cg_kg',
-              '남은 가스 무게 (kg)',
+              '가스 잔량 (kg)',
               _kg,
-              '저울에 단 무게에서 용기 무게(각인 TW)를 뺀 값입니다. 이산화탄소는 용기 안에서 액체로 있어 20°C에서 압력이 '
+              '저울로 측정한 총 중량에서 용기 중량(각인 TW)을 뺀 값입니다. 이산화탄소는 용기 안에서 액체로 있어 20°C에서 압력이 '
                   '57.3bar에 머뭅니다. 그래서 압력계로는 남은 양을 알 수 없습니다.\n'
                   '가득 찬 용기는 내용적 ÷ 1.47(충전상수)kg입니다'
                   '${water > 0 ? ': ${_f(water, 0)}L면 ${_f(water / kCo2FillConstant, 1)}kg' : ''}.',
@@ -281,7 +281,7 @@ class _CalGasTabState extends State<CalGasTab>
           ),
           _chips(
             '유량계 눈금',
-            '면적식 유량계(로터미터)는 눈금을 맞춘 가스가 따로 있습니다. 유량계 명판을 보십시오. '
+            '면적식 유량계(로터미터)는 눈금 기준 가스가 정해져 있습니다. 유량계 명판을 보십시오. '
                 '공기 눈금으로 수소를 흘리면 실제 유량은 눈금의 약 3.8배입니다(√(공기 밀도 ÷ 가스 밀도)).',
             [
               calcChip('cg_scale_gas', '이 가스 눈금', !_airScale, () {
@@ -306,7 +306,7 @@ class _CalGasTabState extends State<CalGasTab>
             '150bar 수소를 이상기체로 계산하면 약 9% 많게 나옵니다.',
           ),
           _note(
-            '수소는 공기 중 4~75%에서 탑니다. 교정 가스는 벤트 라인으로 밖에 내보내십시오. '
+            '수소의 폭발 범위는 공기 중 4~75%입니다. 교정 가스는 벤트 라인으로 밖에 내보내십시오. '
             '요꼬가와는 표준 가스로 2~3개월마다 확인하고, 틀어졌으면 교정하라고 합니다(IM 11T03E01-01E 11장).',
             key: const Key('cg_note'),
           ),
@@ -352,24 +352,24 @@ class _CalGasTabState extends State<CalGasTab>
       return calcResult(
         big: '—',
         caption: _gas.byWeight
-            ? '남은 가스 무게를 넣으십시오'
+            ? '가스 잔량을 넣으십시오'
             : p == null || rest == null
-            ? '지금 용기 압력과 남길 압력을 넣으십시오'
+            ? '현재 용기 압력과 교체 기준 잔압을 넣으십시오'
             : p < rest
-            ? '남길 압력이 지금 압력보다 높습니다'
+            ? '교체 기준 잔압이 현재 압력보다 높습니다'
             : '압력은 ${_f(kZMaxBar - kAtmBar, 0)}bar(게이지)까지 계산합니다',
         lines: const [],
       );
     }
     final lines = <String>[
-      if (r.totalNm3 != null) '지금 용기 안: ${_f(r.totalNm3!, 2)} Nm³',
+      if (r.totalNm3 != null) '현재 용기 내 가스량: ${_f(r.totalNm3!, 2)} Nm³',
       if (r.actualLpm != null && _airScale)
         '실제 유량: ${_f(r.actualLpm!, 2)} L/min (공기 눈금 × ${_f(airScaleFactor(_gas), 2)})',
       if (r.perCalNL != null) '교정 1회 사용량: ${_f(r.perCalNL!, 1)} NL',
       if (r.dropPerCalBar != null)
         '교정 1회에 용기 압력이 ${_f(r.dropPerCalBar! * 100 / _pUnit.kpa, _pUnit == PUnit.mpa ? 4 : 2)} ${_pUnit.label}쯤 내려갑니다',
       if (r.flowMinutes != null)
-        '계속 흘리면 ${_gas.byWeight ? '다 쓸 때' : '남길 압력'}까지 ${_time(r.flowMinutes!)}',
+        '계속 흘리면 ${_gas.byWeight ? '다 쓸 때' : '잔압'}까지 ${_time(r.flowMinutes!)}',
       if (r.perCalNL == null) '교정 1회에 흘리는 시간을 넣으면 남은 교정 횟수가 나옵니다.',
     ];
     if (r.calsLeft != null) {
@@ -383,7 +383,7 @@ class _CalGasTabState extends State<CalGasTab>
     return calcResult(
       key: const Key('cg_result'),
       big: '${_f(r.availableNm3, 2)} Nm³',
-      caption: _gas.byWeight ? '쓸 수 있는 양' : '남길 압력까지 쓸 수 있는 양',
+      caption: _gas.byWeight ? '쓸 수 있는 양' : '잔압까지 쓸 수 있는 양',
       lines: lines,
     );
   }

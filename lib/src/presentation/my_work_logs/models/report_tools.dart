@@ -39,6 +39,24 @@ DateTime reportDateOf(Map r) {
   return reportDate(r['date']?.toString() ?? '');
 }
 
+// 작업 유형 이름을 바꾼 것(2026-10-03 화면 문구 통일). 예전 일지에 저장된 이름은 그대로 두고
+// 읽을 때 새 이름으로 바꿔 보여 준다(고쳐 저장하면 새 이름으로 적힌다).
+const Map<String, String> kWorkTypeRenamed = {
+  '검사/테스트': '검사/시험',
+  '압력 테스트': '압력시험',
+};
+
+// 일지의 작업 유형 목록. 예전 단일 문자열·예전 이름도 읽는다. 빈 값은 뺀다.
+List<String> workTypesOf(dynamic wt) {
+  final Iterable<String> raw = wt is List
+      ? wt.map((e) => e.toString())
+      : [if (wt is String) wt];
+  return [
+    for (final t in raw)
+      if (t.isNotEmpty) kWorkTypeRenamed[t] ?? t,
+  ];
+}
+
 // ───────────────────────── 기간 보고서 ─────────────────────────
 class ReportSection {
   final String heading;
@@ -237,9 +255,7 @@ ReportDoc buildReportDoc(
       s['id'].toString(): (s['title'] ?? s['type'] ?? '').toString(),
   };
   for (final r in reports) {
-    final types = r['work_type'] is List
-        ? (r['work_type'] as List).join('·')
-        : (r['work_type']?.toString() ?? '');
+    final types = workTypesOf(r['work_type']).join('·');
     final workers = (r['worker_count'] as num?)?.toInt() ?? 1;
     manDays += manDaysOf(Map<String, dynamic>.from(r));
     final pt = (r['points'] as num?)?.toInt() ?? 0;
@@ -418,7 +434,7 @@ ReportDoc buildIssueReportDoc(
     final loc = p['location']?.toString() ?? '';
     final content = (p['content']?.toString() ?? '').trim();
     lines.add(
-      '· [${done ? '완료' : '미해결'}/${p['priority'] ?? '보통'}] $loc — $content',
+      '· [${done ? '완료' : '미해결'}/${p['priority'] ?? '보통'}] $loc: $content',
     );
     final meta = <String>[
       if (p['created_at'] != null) '등록 ${_md(asDate(p['created_at']))}',

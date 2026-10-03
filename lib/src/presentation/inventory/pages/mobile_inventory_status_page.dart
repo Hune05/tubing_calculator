@@ -762,7 +762,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   }
 
   String _leftoverTitle(Leftover l) =>
-      l.label.trim().isEmpty ? "규격 없음" : l.label;
+      l.label.trim().isEmpty ? "규격 미지정" : l.label;
 
   Widget _buildLeftoverList() {
     if (_leftovers == null || _leftoversLoading) {
@@ -787,7 +787,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
             children: [
               const Expanded(
                 child: Text(
-                  "자르고 남은 잔재입니다. 재단 계획에서 이 잔재부터 씁니다.",
+                  "재단 계획에서 이 잔재부터 씁니다.",
                   style: TextStyle(
                     color: slate600,
                     fontSize: 13,

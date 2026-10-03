@@ -277,7 +277,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
             if (snapshot.hasError) {
               return Center(
                 child: Text(
-                  "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
+                  "작업 목록을 불러오지 못했습니다. 통신을 확인하십시오.",
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: CuttingColors.textSecondary),
                 ),
@@ -467,7 +467,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
           backgroundColor: CuttingColors.primary,
           icon: const Icon(Icons.add, color: Colors.white),
           label: const Text(
-            "새 작업 생성",
+            "새 작업 만들기",
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
           ),
         ),

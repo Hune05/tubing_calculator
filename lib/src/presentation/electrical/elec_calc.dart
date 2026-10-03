@@ -324,8 +324,8 @@ class _Ampacity {
   List<double> get sizes => panel ? kPanelSizes : kCableSizes;
 
   String tempNote(double ambientC) => panel
-      ? '반 내부 온도 ${_f(ambientC)}°C가 IEC 60204-1 표 D.1 범위(60°C까지)를 넘습니다.'
-      : '주위 온도 ${_f(ambientC)}°C가 온도 보정계수 표 범위를 넘습니다'
+      ? '반 내부 온도 ${_f(ambientC)}°C가 IEC 60204-1 표 D.1 범위(60°C까지)를 초과합니다.'
+      : '주위 온도 ${_f(ambientC)}°C가 온도 보정계수 표 범위를 초과합니다'
             '(PVC 60°C, XLPE 80°C까지). 내열 전선이나 제조사 자료를 확인하십시오.';
 }
 
@@ -378,7 +378,7 @@ CableChoice chooseCable({
   final dc = phase == Phase.dc;
   final breaker = dc ? null : breakerFor(ib);
   if (!dc && breaker == null) {
-    notes.add('800A를 넘어 표준 차단기 정격 범위 밖입니다. 병렬 케이블·설계 검토가 필요합니다.');
+    notes.add('800A를 초과해 표준 차단기 정격 범위 밖입니다. 병렬 케이블·설계 검토가 필요합니다.');
   }
   if (a.kt == null) notes.add(a.tempNote(ambientC));
   if (a.count > 20) notes.add('다조 포설은 표 끝 20회로로 계산했습니다(입력 ${a.count}).');

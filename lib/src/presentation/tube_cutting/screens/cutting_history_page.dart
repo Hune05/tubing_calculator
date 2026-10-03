@@ -63,7 +63,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
       context,
       title: "기록 삭제",
       message:
-          "'$time · 절단 ${record.cutLength.toStringAsFixed(1)}mm' 기록을 지우시겠습니까? 프로젝트 누적 합계에서도 이만큼 함께 빠집니다.",
+          "'$time · 절단 ${record.cutLength.toStringAsFixed(1)}mm' 기록을 지우시겠습니까? 작업 누적 합계에서도 이만큼 함께 빠집니다.",
       confirmLabel: "삭제",
       danger: true,
       icon: Icons.delete_outline_rounded,
@@ -168,8 +168,8 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
               style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 8),
-            pw.Text("프로젝트: ${widget.project.name}"),
-            pw.Text("기간: ${recordPeriodText(data)}    작성일: $dateStr"),
+            pw.Text("작업: ${widget.project.name}"),
+            pw.Text("기간: ${recordPeriodText(data)}    작성 날짜: $dateStr"),
             if (_specFilter != null) pw.Text("규격: $_specFilter (이 규격의 기록만)"),
             pw.SizedBox(height: 14),
             table(kRecordHeaders, data.rows),
@@ -208,7 +208,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
               ),
               pw.SizedBox(height: 4),
               table(
-                ['피팅', '수량'],
+                ['부속', '수량'],
                 [
                   for (final e in fittings) [e.key, '${e.value}'],
                 ],
@@ -228,8 +228,9 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
         XFile(file.path),
       ], text: "${widget.project.name} 컷팅 기록입니다.");
     } catch (e) {
+      debugPrint('컷팅 기록 내보내기 실패: $e');
       if (!mounted) return;
-      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+      showCuttingSnack(context, "내보내지 못했습니다.", isError: true);
     }
   }
 
@@ -271,7 +272,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             if (snapshot.hasError) {
               return Center(
                 child: Text(
-                  "기록을 불러오지 못했습니다.\n${snapshot.error}",
+                  "기록을 불러오지 못했습니다. 통신을 확인하십시오.",
                   textAlign: TextAlign.center,
                   style: const TextStyle(color: CuttingColors.textSecondary),
                 ),
@@ -304,7 +305,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        "계산기에서 '완료'를 누르면 여기에 남습니다.",
+                        "계산기에서 '저장하기'를 누르면 여기에 남습니다.",
                         style: TextStyle(
                           color: CuttingColors.textSecondary,
                           fontSize: 13,
@@ -454,7 +455,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                   ),
                 ),
                 Text(
-                  "${_currentPage + 1} / ${days.length}일 · 좌우로 스와이프",
+                  "${_currentPage + 1} / ${days.length}일 · 좌우로 밀어 넘기기",
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],

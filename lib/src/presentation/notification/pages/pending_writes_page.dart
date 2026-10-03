@@ -74,7 +74,7 @@ class _PendingWritesPageState extends State<PendingWritesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('저장 대기')),
+      appBar: AppBar(title: const Text('못 올린 저장')),
       body: ValueListenableBuilder<List<PendingWrite>>(
         valueListenable: _log.entries,
         builder: (context, entries, _) {
@@ -104,7 +104,7 @@ class _PendingWritesPageState extends State<PendingWritesPage> {
                 _card(
                   name: g.projectName,
                   lines: [
-                    '${g.kinds.join(' · ')} ${g.count}건 — ${waitingLabel(g.oldest, _now)} 대기',
+                    '${g.kinds.join(' · ')} ${g.count}건 · ${waitingLabel(g.oldest, _now)} 못 올라감',
                     if (_photos[g.projectId] != null)
                       '사진 ${_photos[g.projectId]!.photos}장도 아직 안 올라갔습니다',
                   ],
@@ -137,7 +137,7 @@ class _PendingWritesPageState extends State<PendingWritesPage> {
           Icon(Icons.cloud_done_outlined, size: 48, color: AppColors.ok),
           SizedBox(height: 16),
           Text(
-            '기다리는 저장이 없습니다',
+            '못 올린 저장이 없습니다',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
           SizedBox(height: 8),

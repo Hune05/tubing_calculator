@@ -82,7 +82,7 @@ Future<List<KakaoPlace>> searchKakaoPlaces(
         .timeout(const Duration(seconds: 8));
     if (res.statusCode == 401 || res.statusCode == 403) {
       throw const KakaoSearchException(
-        "카카오 키가 거부되었습니다(권한). 개발자 콘솔에서 키와 플랫폼 설정을 확인하십시오.",
+        "카카오 키 권한 문제로 주소 검색을 쓸 수 없습니다. 장소 이름만 적어 두고 지도 단추로 찾으십시오.",
       );
     }
     if (res.statusCode != 200) {

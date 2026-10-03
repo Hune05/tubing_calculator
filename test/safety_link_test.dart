@@ -45,19 +45,19 @@ void main() {
       final y = DateTime.now().subtract(const Duration(days: 1));
       await addSafetyRecordForTest(_r('y', y));
       await open(tester);
-      expect(find.text('오늘 안전 점검 아직'), findsOneWidget);
+      expect(find.text('오늘 안전 점검 안 함'), findsOneWidget);
     });
 
     testWidgets('오늘 했으면 알리지 않는다', (tester) async {
       await addSafetyRecordForTest(_r('t', DateTime.now()));
       await open(tester);
-      expect(find.text('오늘 안전 점검 아직'), findsNothing);
+      expect(find.text('오늘 안전 점검 안 함'), findsNothing);
     });
 
     testWidgets('안 써 본 사람에게는 알리지 않는다', (tester) async {
       SharedPreferences.setMockInitialValues({});
       await open(tester);
-      expect(find.text('오늘 안전 점검 아직'), findsNothing);
+      expect(find.text('오늘 안전 점검 안 함'), findsNothing);
     });
   });
 

@@ -163,7 +163,7 @@ class _MobileQuickKickBottomSheetState
               ),
               const SizedBox(height: 8),
               const Text(
-                "장애물을 넘거나 목표 포트에 닿기 위한 빗변 길이를 셈해 봅니다. (도면 목록에는 넣지 않습니다)",
+                "장애물을 넘거나 목표 포트에 닿기 위한 빗변 길이를 계산해 봅니다. (도면 목록에는 넣지 않습니다)",
                 style: TextStyle(color: slate600, fontSize: 12),
               ),
               const SizedBox(height: 16),
@@ -343,7 +343,7 @@ class _MobileQuickKickBottomSheetState
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            "실제 펜 마킹 거리",
+                            "실제 마킹 간격",
                             style: TextStyle(
                               color: Colors.deepOrange.shade800,
                               fontSize: 11,
@@ -387,7 +387,7 @@ class _MobileQuickKickBottomSheetState
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          "계산된 빗변(${travel.toStringAsFixed(1)}mm)이 최소 물림 기장($_minStraight mm)보다 짧아 벤더기에 안 물릴 수 있습니다.",
+                          "계산된 빗변(${travel.toStringAsFixed(1)}mm)이 최소 물림 길이($_minStraight mm)보다 짧아 벤더기에 안 물릴 수 있습니다.",
                           style: TextStyle(
                             color: Colors.red.shade900,
                             fontSize: 12,
@@ -438,7 +438,7 @@ class _MobileQuickKickBottomSheetState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          "※ 수평 진행 거리(Run): ${run > 0 ? run.toStringAsFixed(1) : '0.0'} mm",
+                          "※ 수평 거리 (Run): ${run > 0 ? run.toStringAsFixed(1) : '0.0'} mm",
                           style: const TextStyle(
                             color: Colors.black54,
                             fontSize: 11,

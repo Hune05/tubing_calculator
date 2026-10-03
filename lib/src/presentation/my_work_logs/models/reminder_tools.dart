@@ -127,7 +127,7 @@ List<String> addSyncLog(
   return out.length > 5 ? out.sublist(out.length - 5) : out;
 }
 
-// "9/19 19:20 · 새로 예약 1건" / "… · 새로 예약 0건 · 도착 시간 안이라 그대로 둔 알림 1건". 읽을 수 없는 줄은 null.
+// "9/19 19:20 · 새로 예약 1건" / "… · 새로 예약 0건 · 곧 울릴 예정이라 그대로 둔 알림 1건". 읽을 수 없는 줄은 null.
 String? syncLogLabel(String entry) {
   final p = entry.split('|');
   if (p.length != 3) return null;
@@ -138,7 +138,7 @@ String? syncLogLabel(String entry) {
   final hm =
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   final base = '${t.month}/${t.day} $hm · 새로 예약 $sc건';
-  return kp == 0 ? base : '$base · 도착 시간 안이라 그대로 둔 알림 $kp건';
+  return kp == 0 ? base : '$base · 곧 울릴 예정이라 그대로 둔 알림 $kp건';
 }
 
 Future<void> _recordSync(DateTime at, int scheduled, int kept) async {
@@ -515,7 +515,7 @@ Future<void> showTestNotification() async {
   await flutterLocalNotificationsPlugin.show(
     id: 918299,
     title: '알림 점검',
-    body: '이 알림이 보이면 알림 권한과 채널은 정상입니다.',
+    body: '이 알림이 보이면 알림 권한과 설정은 정상입니다.',
     notificationDetails: const NotificationDetails(
       android: AndroidNotificationDetails(
         _kReminderChannel,

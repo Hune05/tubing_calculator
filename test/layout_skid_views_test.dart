@@ -458,7 +458,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(lb()['flip'], isNull);
   });
-  testWidgets('정면에서 고정 치수 측정: 평면 부품 둘을 누르면 치수가 생기고, 부품이 옮겨지면 치수가 따라온다', (
+  testWidgets('정면에서 치수 측정: 평면 부품 둘을 누르면 치수가 생기고, 부품이 옮겨지면 치수가 따라온다', (
     tester,
   ) async {
     Map<String, dynamic> jb(String id, double x, double elev) => PlacedItem(
@@ -483,7 +483,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('고정 치수 측정'));
+    await tester.tap(find.text('치수 측정'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('view_a')));
     await tester.pumpAndSettle();
@@ -511,7 +511,7 @@ void main() {
     // 평면에서 b를 오른쪽으로 옮기면(저장 칸을 직접 고침) 정면 치수가 따라온다.
     await tester.tap(find.byKey(const ValueKey('plate_tab_main')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('모듈 배치/이동'));
+    await tester.tap(find.text('부품 배치/이동'));
     await tester.pumpAndSettle();
     final Offset c = tester.getCenter(find.byKey(const ValueKey('b')));
     final g = await tester.startGesture(c);

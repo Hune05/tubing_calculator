@@ -37,7 +37,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
       if (docId.startsWith("NEW_")) {
         final name = _newLocalItems[docId]?['name'] ?? "이름 없는 새 자재";
-        lines.add("새 자재 $name — ${data.qty}EA 등록");
+        lines.add("새 자재 $name: ${data.qty}EA 등록");
         continue;
       }
 
@@ -53,7 +53,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
       } catch (_) {}
 
       if (before < 0) {
-        lines.add("$name — ${data.qty}$unit로 맞춤");
+        lines.add("$name: ${data.qty}$unit로 맞춤");
         continue;
       }
       final ad = auditDelta(
@@ -67,10 +67,10 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
           : " (센 뒤 ${moved > 0 ? '+' : ''}$moved$unit 움직인 것 그대로 둠)";
       final clampNote = ad.clamped ? " (0 아래라 0으로)" : "";
       if (ad.delta == 0) {
-        lines.add("$name — $before$unit (수량 그대로)$movedNote");
+        lines.add("$name: $before$unit (수량 그대로)$movedNote");
       } else {
         lines.add(
-          "$name — $before$unit → ${ad.after}$unit$movedNote$clampNote",
+          "$name: $before$unit → ${ad.after}$unit$movedNote$clampNote",
         );
       }
     }
@@ -89,7 +89,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             borderRadius: BorderRadius.circular(24),
           ),
           title: const Text(
-            "이대로 서버에 올리겠습니까?",
+            "이대로 서버에 올리시겠습니까?",
             style: TextStyle(
               color: slate900,
               fontSize: 20,
@@ -145,7 +145,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
               ),
               onPressed: () => Navigator.pop(ctx, true),
               child: const Text(
-                "올립니다",
+                "올리기",
                 style: TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -199,7 +199,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
         // 1. 모바일에서 새로 추가한 자재 (DB에 없는 것)
         if (docId.startsWith("NEW_")) {
-          String itemName = _newLocalItems[docId]?['name'] ?? "알수없는 임시자재";
+          String itemName = _newLocalItems[docId]?['name'] ?? "이름 없는 새 자재";
           String category = _newLocalItems[docId]?['category'] ?? "기타";
 
           DocumentReference newDocRef = _inventoryDb.doc();

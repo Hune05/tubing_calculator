@@ -678,7 +678,7 @@ void main() {
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
       expect(find.text('재단 계획 (원자재 몇 본 드는지)'), findsOneWidget);
-      final save = find.text('잘랐습니다 (잔재 저장)');
+      final save = find.text('자른 뒤 잔재 저장');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();
@@ -699,7 +699,7 @@ void main() {
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
-      final save = find.text('잘랐습니다 (잔재 저장)');
+      final save = find.text('자른 뒤 잔재 저장');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();
@@ -765,7 +765,7 @@ void main() {
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
       expect(find.text('저장했습니다'), findsOneWidget);
-      expect(find.text('잘랐습니다 (잔재 저장)'), findsNothing);
+      expect(find.text('자른 뒤 잔재 저장'), findsNothing);
     });
 
     testWidgets('저장하지 않은 결과는 저장 버튼이 있다', (tester) async {
@@ -773,7 +773,7 @@ void main() {
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
-      expect(find.text('잘랐습니다 (잔재 저장)'), findsOneWidget);
+      expect(find.text('자른 뒤 잔재 저장'), findsOneWidget);
     });
 
     test('립C형강 규격은 41종이고 모두 무게가 계산되며 옛 규격 이름은 그대로다', () {
@@ -844,7 +844,7 @@ void main() {
       await open(tester);
       await tester.tap(find.byKey(const Key('steel_btn_optimize')));
       await tester.pumpAndSettle();
-      final save = find.text('잘랐습니다 (잔재 저장)');
+      final save = find.text('자른 뒤 잔재 저장');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();
@@ -855,7 +855,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(await loadLeftovers(), isEmpty);
       // 저장 버튼이 다시 나온다
-      expect(find.text('잘랐습니다 (잔재 저장)'), findsOneWidget);
+      expect(find.text('자른 뒤 잔재 저장'), findsOneWidget);
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();
       final progress = tester
@@ -1118,7 +1118,7 @@ void main() {
 
     testWidgets('저장하면 기록이 남고 되돌리면 기록도 지워지며, 기록 버튼으로 볼 수 있다', (tester) async {
       await openOptimize(tester);
-      final save = find.text('잘랐습니다 (잔재 저장)');
+      final save = find.text('자른 뒤 잔재 저장');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();

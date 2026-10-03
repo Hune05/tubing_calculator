@@ -362,7 +362,7 @@ Future<Uint8List> buildGroundBarPdf(
         topView(),
         if (p.bendPlan != null) ...[sectionTitle('꺾은 뒤 모양'), sideView()],
         if (input.bendRows.isNotEmpty) ...[
-          sectionTitle('꺾기 (왼쪽 끝에서 잰 거리, mm)'),
+          sectionTitle('꺾기 (왼쪽 끝 기준 거리, mm)'),
           pw.Table(
             border: pw.TableBorder.all(color: _line, width: 0.6),
             columnWidths: const {

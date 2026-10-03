@@ -548,7 +548,7 @@ class _LayoutBoardProjectListPageState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          "${w.toInt()}×${h.toInt()}mm · 모듈 $itemCount개",
+                          "${w.toInt()}×${h.toInt()}mm · 부품 $itemCount개",
                           style: const TextStyle(
                             color: tossSubText,
                             fontSize: 14,

@@ -110,7 +110,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       context,
       title: "임시 파일 삭제",
       message:
-          "임시 파일 $_tempCount개(${_mb(_tempBytes)})를 삭제하시겠습니까? 작업 일지와 사진 데이터는 그대로 남습니다.",
+          "임시 파일 $_tempCount개(${_mb(_tempBytes)})를 삭제하시겠습니까? 작업 일지와 사진은 그대로 남습니다.",
       confirmLabel: "삭제",
     );
     if (!ok || !mounted) return;
@@ -223,7 +223,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     final ok = await uploadCloudBackup(widget.logs);
     await _loadAuto();
     if (mounted) setState(() => _cloudBusy = false);
-    _toast(ok ? "클라우드에 백업했습니다." : "백업에 실패했습니다. 네트워크를 확인해 주십시오.");
+    _toast(ok ? "클라우드에 백업했습니다." : "백업에 실패했습니다. 통신을 확인해 주십시오.");
   }
 
   Future<void> _restoreFromCloud() async {
@@ -283,7 +283,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
         title: Text(keepWords("임시 PDF를 지금 정리하시겠습니까?")),
         content: Text(
           keepWords(
-            "공유하려고 만들어 둔 PDF 파일만 삭제합니다. 보고서 데이터와 사진은 그대로 유지됩니다. "
+            "공유하려고 만들어 둔 PDF 파일만 삭제합니다. 보고서 기록과 사진은 그대로 남습니다. "
             "이미 보낸 PDF는 상대방에게 그대로 남아 있습니다.",
           ),
         ),
@@ -438,7 +438,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                 card(
                   "임시 파일",
                   "${_mb(_tempBytes)} ($_tempCount개)",
-                  "사진 압축본, 내보낸 PDF/CSV처럼 앱이 만든 임시 파일입니다. 지워도 데이터에는 영향이 없습니다.",
+                  "사진 압축본, 내보낸 PDF/CSV처럼 앱이 만든 임시 파일입니다. 지워도 작업 일지·사진은 그대로 남습니다.",
                   action: Align(
                     alignment: Alignment.centerRight,
                     child: OutlinedButton(
@@ -509,7 +509,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                   ),
                 ),
                 card(
-                  "데이터 백업 / 복원",
+                  "백업 / 복원",
                   "${widget.logs.length}건",
                   "내 프로젝트 전체와 단계 템플릿, 자재 즐겨찾기, 튜브·전선관 도면 보관함을 파일 하나로 내보내고 다시 불러옵니다. 사진은 클라우드에 올라간 것만 복원 후에도 보입니다.",
                   action: Row(
@@ -532,7 +532,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                   ),
                 ),
                 card(
-                  "업로드 대기 사진",
+                  "아직 안 올라간 사진",
                   "$_pendingPhotos장",
                   _pendingPhotos == 0
                       ? "모든 사진이 클라우드에 올라가 있습니다."

@@ -216,7 +216,7 @@ class _Body extends StatelessWidget {
                       ),
                       onPressed: () => _moveQty(context, use: true),
                       icon: const Icon(Icons.remove, size: 18),
-                      label: const Text("씀"),
+                      label: const Text("사용"),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -431,10 +431,10 @@ class _Body extends StatelessWidget {
     final toShared = !isSharedStock(data);
     final sure = await showCuttingConfirmDialog(
       context,
-      title: toShared ? "공용 재고로 돌리겠습니까?" : "내 재고로 가져오겠습니까?",
+      title: toShared ? "공용 재고로 돌리시겠습니까?" : "내 재고로 가져오시겠습니까?",
       message: toShared
-          ? "$_name — 같이 쓰는 사람 모두 보고 쓸 수 있게 됩니다."
-          : "$_name — 다른 사람 목록에서 안 보이게 됩니다.",
+          ? "$_name: 같이 쓰는 사람 모두 보고 쓸 수 있습니다."
+          : "$_name: 다른 사람 목록에서 안 보입니다.",
       confirmLabel: toShared ? "공용으로" : "가져오기",
     );
     if (!sure) return;
@@ -509,7 +509,7 @@ class _Body extends StatelessWidget {
                 }
                 Navigator.pop(ctx, true);
               },
-              child: Text(use ? "뺍니다" : "더합니다"),
+              child: Text(use ? "빼기" : "더하기"),
             ),
           ],
         ),
@@ -633,8 +633,8 @@ class _Body extends StatelessWidget {
 
     final sure = await showCuttingConfirmDialog(
       context,
-      title: "재고를 고치겠습니까?",
-      message: "$_name — $_qty$_unit → $next$_unit",
+      title: "재고를 고치시겠습니까?",
+      message: "$_name: $_qty$_unit → $next$_unit",
       confirmLabel: "고치기",
     );
     if (!sure) return;

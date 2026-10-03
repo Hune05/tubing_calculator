@@ -98,17 +98,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('피팅 놓기'), findsOneWidget);
     await tester.scrollUntilVisible(
-      find.text('유니언 티 1/2"'),
+      find.text('유니온 티 1/2"'),
       200,
       scrollable: find.byType(Scrollable).last,
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('유니언 티 1/2"'));
+    await tester.tap(find.text('유니온 티 1/2"'));
     await tester.pumpAndSettle();
     expect(
       find.descendant(
         of: find.byType(InteractiveViewer),
-        matching: find.text('유니언 티 1/2"'),
+        matching: find.text('유니온 티 1/2"'),
       ),
       findsOneWidget,
     );

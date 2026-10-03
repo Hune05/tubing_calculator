@@ -51,16 +51,16 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('guide_tip_sag')), findsOneWidget);
     expect(find.byKey(const Key('guide_tip_weld')), findsNothing);
-    expect(find.text('대책'), findsNothing);
+    expect(find.text('조치'), findsNothing);
     await tester.tap(find.byKey(const Key('guide_tip_sag')));
     await tester.pump();
-    expect(find.text('대책'), findsOneWidget);
+    expect(find.text('조치'), findsOneWidget);
     expect(find.textContaining('브래킷 처짐 보정'), findsOneWidget);
   });
 
   testWidgets('내 메모를 남기면 보이고, 다시 열어도 남는다', (tester) async {
     await _pump(tester, const AlignmentGuidePage(openId: 'weld'));
-    expect(find.text('대책'), findsOneWidget); // 처음부터 펼쳐져 있다
+    expect(find.text('조치'), findsOneWidget); // 처음부터 펼쳐져 있다
     await tester.tap(find.byKey(const Key('guide_note_btn_weld')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('guide_note_field')), '3호기는 토출 쪽 맞춤 용접을 두 번째 엘보에서');

@@ -19,9 +19,7 @@ String buildReportsCsv(Iterable<(Map<String, dynamic>, Map)> reports) {
     final names = {
       for (final p in phasesOf(l)) p['id'].toString(): p['name'].toString(),
     };
-    final types = r['work_type'] is List
-        ? (r['work_type'] as List).join('/')
-        : (r['work_type']?.toString() ?? '');
+    final types = workTypesOf(r['work_type']).join('/');
     b.writeln(
       [
         _q(l['name']?.toString() ?? ''),

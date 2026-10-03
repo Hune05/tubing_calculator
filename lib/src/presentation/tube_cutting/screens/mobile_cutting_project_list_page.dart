@@ -436,10 +436,10 @@ class _MobileCuttingProjectListPageState
   Future<void> _reseedFittingCatalog(BuildContext context) async {
     final confirmed = await showCuttingConfirmDialog(
       context,
-      title: "부속 DB 새로고침",
+      title: "부속 목록 새로고침",
       message:
-          "부속 카탈로그를 최신 버전(DK-Lok 브랜드, 나사산 구분, 규격쌍 리듀서 포함)으로 다시 만듭니다. "
-          "기존 부속 데이터는 전부 지워지고 새로 올라갑니다(현장에서 직접 입력한 커스텀 부속은 영향 없음). 계속하시겠습니까?",
+          "부속 목록을 최신판(DK-Lok, 나사산 구분, 리듀서 양쪽 규격 포함)으로 다시 만듭니다. "
+          "기존 부속 목록은 전부 지우고 새로 올립니다(직접 입력한 부속은 그대로입니다). 계속하시겠습니까?",
       confirmLabel: "새로고침",
       icon: Icons.cloud_sync_outlined,
     );
@@ -476,12 +476,13 @@ class _MobileCuttingProjectListPageState
       await SmartFittingDBSeeder.uploadInitialData();
       if (context.mounted) Navigator.pop(context);
       if (context.mounted) {
-        showCuttingSnack(context, "부속 DB를 최신 카탈로그로 새로고침했습니다.");
+        showCuttingSnack(context, "부속 목록을 최신판으로 다시 만들었습니다.");
       }
     } catch (e) {
+      debugPrint('부속 목록 새로고침 실패: $e');
       if (context.mounted) Navigator.pop(context);
       if (context.mounted) {
-        showCuttingSnack(context, "새로고침 실패: $e", isError: true);
+        showCuttingSnack(context, "새로고침하지 못했습니다.", isError: true);
       }
     }
   }
@@ -508,7 +509,7 @@ class _MobileCuttingProjectListPageState
           iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
           actions: [
             IconButton(
-              tooltip: "부속 DB 새로고침 (개발자용)",
+              tooltip: "부속 목록 새로고침 (개발자용)",
               icon: Icon(
                 Icons.cloud_sync_outlined,
                 color: CuttingColors.textSecondary,
@@ -528,7 +529,7 @@ class _MobileCuttingProjectListPageState
                 child: Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text(
-                    "작업 목록을 불러오지 못했습니다.\n${snapshot.error}",
+                    "작업 목록을 불러오지 못했습니다. 통신을 확인하십시오.",
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: CuttingColors.textSecondary),
                   ),
@@ -721,7 +722,7 @@ class _MobileCuttingProjectListPageState
           backgroundColor: CuttingColors.primary,
           icon: const Icon(Icons.add, color: CuttingColors.surface),
           label: const Text(
-            "새 작업 생성",
+            "새 작업 만들기",
             style: TextStyle(
               color: CuttingColors.surface,
               fontWeight: FontWeight.bold,

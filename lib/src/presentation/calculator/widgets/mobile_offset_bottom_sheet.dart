@@ -91,14 +91,14 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     final double add = _shrinkToAdd(shrink);
     final double mark = startDistance + add;
     if (mark <= 0) {
-      return "넣었습니다. 축소값 ${shrink.toStringAsFixed(1)}mm는 직진 거리가 줄어드는 몫입니다.";
+      return "넣었습니다. 축소값 ${shrink.toStringAsFixed(1)}mm만큼 직진 거리가 줄어듭니다.";
     }
     if (add > 0) {
       return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다"
           "(시작 거리 ${startDistance.toStringAsFixed(0)} + 축소값 ${add.toStringAsFixed(1)}).";
     }
     return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다. "
-        "축소값 ${shrink.toStringAsFixed(1)}mm는 직진 거리가 줄어드는 몫입니다.";
+        "축소값 ${shrink.toStringAsFixed(1)}mm만큼 직진 거리가 줄어듭니다.";
   }
 
   final TextEditingController _heightCtrl = TextEditingController();
@@ -261,7 +261,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
             ],
           ),
           content: const Text(
-            "돌출 방향(Direction)을 먼저 선택해 주십시오!",
+            "꺾는 방향(6축)을 먼저 선택해 주십시오.",
             style: TextStyle(color: slate900, fontSize: 15),
           ),
           actions: [
@@ -377,7 +377,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         Row(
           children: [
             Text(
-              "돌출 방향 지정 (6축)",
+              "꺾는 방향 (6축)",
               style: TextStyle(
                 color: _selectedRotation == null ? Colors.redAccent : slate600,
                 fontSize: 12,
@@ -564,7 +564,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            "장애물 앞 시작 거리 (옵션)",
+                            "장애물 앞 시작 거리 (선택)",
                             style: TextStyle(
                               color: slate900,
                               fontSize: 13,
@@ -899,7 +899,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                       child: Text(
                         value > 0 && !isError
                             ? "${value.toStringAsFixed(1)} ${isAngle ? "°" : "mm"}"
-                            : "입력 대기",
+                            : "입력 필요",
                         style: TextStyle(
                           color: value > 0 && !isError
                               ? makitaTeal
@@ -943,7 +943,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  "직선 진행 거리 (Run)",
+                  "수평 거리 (Run)",
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -961,7 +961,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                   ),
                 ),
                 const Text(
-                  "(바닥을 타고 앞으로 나아간 실제 직선 거리)",
+                  "(오프셋 구간의 수평 거리)",
                   style: TextStyle(fontSize: 10, color: Colors.black54),
                 ),
               ],
@@ -978,7 +978,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        "오프셋 축소량",
+                        "축소값 (Shrink)",
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -997,7 +997,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                       ),
                       Text(
                         shrinkToAdd > 0
-                            ? "(직진 거리가 줄어드는 몫 · 1번 마킹에 +${shrinkToAdd.toStringAsFixed(1)})"
+                            ? "(직진 거리 감소분 · 1번 마킹에 +${shrinkToAdd.toStringAsFixed(1)})"
                             : "(직진 거리가 이만큼 줄어듭니다)",
                         style: const TextStyle(
                           fontSize: 10,
@@ -1014,7 +1014,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "2포인트 연신율 (Gain)",
+                        "게인 (벤드 2곳)",
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -1032,7 +1032,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                         ),
                       ),
                       const Text(
-                        "(절단 기장에서 뺌)",
+                        "(총 절단 길이에서 뺌)",
                         style: TextStyle(fontSize: 10, color: Colors.black54),
                       ),
                     ],

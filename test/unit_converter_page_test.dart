@@ -472,7 +472,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'psi');
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('단위 환산 — 압력'));
+    await tester.tap(find.textContaining('단위 환산: 압력'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('uc_field_psi')), findsOneWidget);
     final chip = tester.widget<ChoiceChip>(

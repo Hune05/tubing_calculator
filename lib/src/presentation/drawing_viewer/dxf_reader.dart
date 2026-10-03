@@ -140,7 +140,7 @@ String cleanDxfText(String s) {
 
 DxfDrawing readDxf(String text) {
   if (text.startsWith('AutoCAD Binary DXF')) {
-    throw const DxfError('이진(바이너리) DXF는 열 수 없습니다. 보낸 사람에게 글자 형식(ASCII) DXF나 PDF로 부탁하십시오.');
+    throw const DxfError('바이너리 DXF는 열 수 없습니다. 보낸 사람에게 ASCII DXF나 PDF로 다시 받으십시오.');
   }
   final lines = const LineSplitter().convert(text);
   final pairs = <_Pair>[];

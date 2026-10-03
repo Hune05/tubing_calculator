@@ -60,7 +60,7 @@ void main() {
     // 창이 열려 있는 동안 다른 폰(또는 형강 화면)이 잔재 1200을 더함
     await leftoverStore.change(added: [const Leftover('', 1200, id: 'b')]);
 
-    await tester.tap(find.textContaining('잘랐습니다'));
+    await tester.tap(find.text('자른 뒤 잔재 저장'));
     await tester.pumpAndSettle();
     // 예전: 열 때 목록으로 계산해 통째로 덮어 [500]만 남았다(1200이 사라짐).
     expect(lengths(await loadLeftovers()), [500, 1200]);
@@ -116,8 +116,8 @@ void main() {
     // 예전: 잔재 읽기 오류를 안 잡아 창이 아예 안 떴다.
     expect(find.text('필요 원자재'), findsOneWidget);
     expect(find.textContaining('잔재를 불러오지 못해'), findsOneWidget);
-    // 잘랐습니다를 누르면 새 잔재만 더한다(목록을 덮어쓰지 않는다).
-    await tester.tap(find.textContaining('잘랐습니다'));
+    // '자른 뒤 잔재 저장'을 누르면 새 잔재만 더한다(목록을 덮어쓰지 않는다).
+    await tester.tap(find.text('자른 뒤 잔재 저장'));
     await tester.pumpAndSettle();
     expect(store.added.map((l) => l.length), [1000]);
     expect(await loadLeftovers(), isEmpty); // 다른 화면도 오류 없이 빈 목록

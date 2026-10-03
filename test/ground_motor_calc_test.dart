@@ -151,7 +151,7 @@ void main() {
     });
 
     test('NEC 430.52 최대 정격: 25 HP 460 V 34 A × 250% = 85 A', () {
-      expect(necShortCircuitMax(34, '역시간 차단기'), 85);
+      expect(necShortCircuitMax(34, '반한시 차단기'), 85);
       expect(necShortCircuitMax(34, '이중소자(지연) 퓨즈'), closeTo(59.5, 1e-9));
       expect(necShortCircuitMax(34, '비지연 퓨즈'), 102);
       expect(necShortCircuitMax(34, '순시트립 차단기'), 272);

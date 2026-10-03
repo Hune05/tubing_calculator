@@ -180,7 +180,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
               ),
               const SizedBox(height: 12),
               Text(
-                _version.isEmpty ? "모바일 현장 지원 시스템" : "모바일 현장 지원 시스템 v$_version",
+                _version.isEmpty ? "Field Helper" : "Field Helper v$_version",
                 style: const TextStyle(color: Colors.grey, fontSize: 16),
               ),
               const SizedBox(height: 100),

@@ -18,9 +18,9 @@ import 'pressure_units.dart';
 
 const int kPtHoldNotifId = 918400;
 const String kPtHoldChannelId = 'pressure_test_hold';
-const String kPtHoldChannelName = '압력 시험 알림';
-const String kPtHoldChannelDesc = '압력 시험 유지시간 완료 알림';
-const String kPtHoldTitle = '압력 시험 유지시간 완료';
+const String kPtHoldChannelName = '압력시험 알림';
+const String kPtHoldChannelDesc = '압력시험 유지시간 완료 알림';
+const String kPtHoldTitle = '압력시험 유지시간 완료';
 
 /// 알림 글(payload). 알림을 누르면 main.dart routeForNotification이 이 글을 보고
 /// 압력 시험의 시험 기록 탭을 연다(이미 열려 있으면 그 화면의 시험 기록 탭으로 간다).

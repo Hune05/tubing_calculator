@@ -25,15 +25,16 @@ class RefPlantTab extends StatelessWidget {
         const SizedBox(height: 16),
         refCard(
           title: "왜 대형 발전기는 수소(H₂)로 냉각하나",
-          subtitle: "설치 사유 — 공기 냉각으로는 열을 못 뺀다",
+          subtitle: "설치 사유: 대용량은 공기 냉각만으로 열을 다 빼기 어렵습니다",
           icon: LucideIcons.wind,
           iconColor: Colors.lightBlue,
           children: [
             refStep(
               1,
-              "발전기 안 권선·철심에서 나는 열은 크기(출력)의 세제곱에 가깝게 "
-              "늘어나는데, 식힐 표면적은 그만큼 못 늘어납니다. 100MW급을 "
-              "넘어가면 공기 냉각만으로는 열을 다 못 뺍니다.",
+              "발전기 용량이 커질수록 권선·철심에서 나는 열은 늘어나는데, 식힐 "
+              "표면적은 그만큼 늘지 않습니다. 대용량 발전기는 공기 냉각만으로 열을 "
+              "다 빼기 어려워 수소 냉각을 씁니다. 공랭식이 어느 용량까지 가능한지는 "
+              "제조사·기종마다 다르니 해당 발전기 자료를 보십시오.",
             ),
             refStep(
               2,
@@ -44,7 +45,7 @@ class RefPlantTab extends StatelessWidget {
             refStep(
               3,
               "그래서 발전기 케이싱을 통째로 밀폐해 수소를 채우고 그 안에서 "
-              "순환시킵니다 — 냉각도 더 잘 되고, 도는 데 드는 손실도 줄어서 "
+              "순환시킵니다. 냉각도 더 잘 되고, 도는 데 드는 손실도 줄어서 "
               "효율이 올라갑니다(대형기일수록 이 차이가 큽니다).",
             ),
             refGap(),
@@ -57,7 +58,7 @@ class RefPlantTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         refExpandCard(
-          title: "수소 가스 계통 — 판넬·드라이어·퍼지",
+          title: "수소 가스 계통: 판넬·드라이어·퍼지",
           subtitle: "H2 Gas Panel · Gas Dryer · CO₂ Purge",
           icon: LucideIcons.gauge,
           iconColor: Colors.teal,
@@ -81,7 +82,7 @@ class RefPlantTab extends StatelessWidget {
               "재생(regeneration)한 뒤 다시 씁니다.",
             ),
             refGap(),
-            refSectionTitle("CO₂ 퍼지 — 왜 공기와 직접 안 바꾸나"),
+            refSectionTitle("CO₂ 퍼지: 왜 공기와 직접 안 바꾸나"),
             refDataRow(
               "충전할 때",
               "공기 → CO₂로 먼저 밀어내 케이싱을 채우고 → CO₂를 다시 수소로 "
@@ -98,7 +99,7 @@ class RefPlantTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         refExpandCard(
-          title: "씰 오일 계통 — 수소가 축을 따라 안 새는 이유",
+          title: "씰 오일 계통: 수소가 축을 따라 안 새는 이유",
           subtitle: "Seal Oil System",
           icon: LucideIcons.droplet,
           iconColor: Colors.orange,
@@ -113,7 +114,7 @@ class RefPlantTab extends StatelessWidget {
               2,
               "차압 조절기(differential pressure regulator)가 씰에 들어가는 "
               "오일 압력을 케이싱 안 수소 압력보다 항상 일정하게(보통 "
-              "0.5~1 kgf/cm² 정도) 더 높게 유지합니다 — 압력이 높은 쪽에서 "
+              "0.5~1 kgf/cm² 정도) 더 높게 유지합니다. 압력이 높은 쪽에서 "
               "낮은 쪽으로만 흐르므로, 오일이 수소 쪽으로 아주 조금씩 "
               "새어 들어갈 뿐 수소가 밖으로 새지는 않습니다.",
             ),
@@ -127,7 +128,7 @@ class RefPlantTab extends StatelessWidget {
             refStep(
               4,
               "씰 오일 펌프는 정상 운전용(AC) 외에 정전 대비용 DC 펌프를 "
-              "따로 둡니다 — 씰 오일이 끊기면 수소가 그대로 새므로, 발전기가 "
+              "따로 둡니다. 씰 오일이 끊기면 수소가 그대로 새므로, 발전기가 "
               "멈춘 뒤에도 한동안은 씰 오일 압력을 반드시 유지해야 합니다.",
             ),
           ],
@@ -150,25 +151,25 @@ class RefPlantTab extends StatelessWidget {
               "① 메인 오일펌프(정상 운전 중, 축이나 전동기로 구동) "
               "② 보조 오일펌프(AC, 기동·정지 구간처럼 축 회전이 느려 메인 "
               "펌프압이 부족할 때) ③ 비상 오일펌프(DC, 완전 정전 시에도 "
-              "베어링이 마르지 않게 최소압을 지킴) — 세 단이 겹쳐 있어 "
+              "베어링이 마르지 않게 최소압을 지킴). 세 단이 겹쳐 있어 "
               "어떤 상황에서도 베어링에 오일이 끊기지 않게 합니다.",
             ),
             refDataRow(
               "오일 쿨러",
               "베어링을 돌고 뜨거워진 오일은 열교환기(오일 쿨러)를 지나며 "
-              "식습니다 — 이 열을 받아가는 쪽이 아래 냉각수 계통입니다.",
+              "식습니다. 이 열을 받아가는 쪽이 아래 냉각수 계통입니다.",
             ),
             refDataRow(
               "오일 미스트",
               "베어링 하우징 안에서 생기는 오일 증기·미스트는 별도 팬으로 "
-              "빨아내(vapor extractor) 압력을 살짝 낮게 유지합니다 — "
+              "빨아내(vapor extractor) 압력을 살짝 낮게 유지합니다. "
               "오일이 하우징 틈으로 새어 나오지 않게 하는 목적입니다.",
             ),
           ],
         ),
         const SizedBox(height: 16),
         refExpandCard(
-          title: "냉각수 계통(워터 쿨링) — 열을 밖으로 빼내는 3단",
+          title: "냉각수 계통(워터 쿨링): 열을 밖으로 빼내는 3단",
           subtitle: "Stator Cooling → Closed Cooling → Service Water",
           icon: LucideIcons.waves,
           iconColor: Colors.blueAccent,
@@ -198,7 +199,7 @@ class RefPlantTab extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         refCard(
-          title: "밸브 스테이션 — 밸브를 왜 한 곳에 모아두나",
+          title: "밸브 스테이션: 밸브를 왜 한 곳에 모아두나",
           icon: LucideIcons.workflow,
           iconColor: Colors.indigo,
           children: [
@@ -210,8 +211,8 @@ class RefPlantTab extends StatelessWidget {
             refStep(
               2,
               "그래서 주요 차단·조절 밸브와 계측기를 사람이 안전하게 접근할 "
-              "수 있는 한 자리(스킷/판넬)에 모아 놓은 것이 밸브 스테이션 "
-              "입니다 — 예: 주증기 밸브 스테이션, 씰 스팀 밸브 스테이션.",
+              "수 있는 한 자리(스키드·판넬)에 모아 놓은 것이 밸브 "
+              "스테이션입니다. 예: 주증기 밸브 스테이션, 씰 스팀 밸브 스테이션.",
             ),
             refStep(
               3,
@@ -234,7 +235,7 @@ class RefPlantTab extends StatelessWidget {
             ),
             refStep(
               2,
-              "발전기 케이싱 안은 수소로 채워 냉각하고(가스 판넬·드라이어· "
+              "발전기 케이싱 안은 수소로 채워 냉각하고(가스 판넬·드라이어·"
               "CO₂ 퍼지), 축이 케이싱을 뚫는 자리는 씰 오일로 막습니다.",
             ),
             refStep(
@@ -256,7 +257,7 @@ class RefPlantTab extends StatelessWidget {
             refGap(),
             Text(
               "즉 발전기 하나를 돌리려면 가스·오일·물 세 계통이 서로 열을 "
-              "주고받으며 같이 움직입니다 — 어느 한쪽이 멈추면 나머지도 "
+              "주고받으며 같이 움직입니다. 어느 한쪽이 멈추면 나머지도 "
               "정지 절차를 따라야 하는 이유입니다.",
               style: TextStyle(
                 fontSize: 13,
@@ -276,8 +277,8 @@ class RefPlantTab extends StatelessWidget {
           children: [
             refDataRow(
               "여자(Excitation) 계통",
-              "발전기 로터에 직류 전류를 흘려 자석으로 만들어 주는 계통입니다 "
-              "— 이 전류 크기를 조절해서 발전기가 내보내는 전압을 맞춥니다.",
+              "발전기 로터에 직류 전류를 흘려 자석으로 만들어 주는 계통입니다. "
+              "이 전류 크기를 조절해서 발전기가 내보내는 전압을 맞춥니다.",
             ),
             refDataRow(
               "조속기(Governor/EHC)",
@@ -287,15 +288,15 @@ class RefPlantTab extends StatelessWidget {
             refDataRow(
               "복수기 진공계통",
               "터빈을 나온 증기가 물로 되돌아가는 복수기 안을 진공에 "
-              "가깝게 유지해야 터빈이 낼 수 있는 출력이 커집니다 — "
-              "진공을 만들고 지키는 펌프·이젝터 계통입니다.",
+              "가깝게 유지해야 터빈이 낼 수 있는 출력이 커집니다. "
+              "이 진공을 만들고 지키는 펌프·이젝터 계통입니다.",
             ),
           ],
         ),
         const SizedBox(height: 16),
         refWarnBox(
           "여기까지는 대형 터빈-발전기에 흔히 같이 붙는 보조계통의 일반 원리 "
-          "설명입니다. 실제 설비의 정확한 사양·정상 범위·조작 순서는 발전소· "
+          "설명입니다. 실제 설비의 정확한 사양·정상 범위·조작 순서는 발전소·"
           "제작사·기종마다 다르므로, 실무에서는 반드시 해당 발전소의 운전 "
           "절차서(SOP)·안전 기준을 따르셔야 합니다.",
         ),

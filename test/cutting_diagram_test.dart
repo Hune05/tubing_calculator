@@ -447,7 +447,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('배관 라인 구축'), findsOneWidget);
+      expect(find.text('라인 구성'), findsOneWidget);
       expect(find.byType(TabBar), findsOneWidget);
       expect(tester.takeException(), isNull);
 
@@ -482,7 +482,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('배관 라인 구축'), findsOneWidget);
+      expect(find.text('라인 구성'), findsOneWidget);
       expect(find.byType(TabBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     });

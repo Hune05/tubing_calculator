@@ -667,7 +667,7 @@ String buildLedgerCsv(List<Equipment> all, DateTime now) {
     ..writeln();
   for (final e in sortLedger(all, now)) {
     final st = switch (e.dueState(now)) {
-      DueState.overdue => '만료',
+      DueState.overdue => '기한 지남',
       DueState.soon => '임박',
       DueState.ok => '정상',
       DueState.none => '',

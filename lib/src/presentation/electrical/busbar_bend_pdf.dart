@@ -196,7 +196,7 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
           left: 0,
           top: 0,
           child: pw.Text(
-            '자르기 전 곧은 부스바 · 숫자는 한쪽 끝에서 잰 꺾기 시작선(mm)',
+            '자르기 전 곧은 부스바 · 숫자는 한쪽 끝 기준 꺾기 시작선 위치(mm)',
             style: const pw.TextStyle(fontSize: 8, color: _grey),
           ),
         ),
@@ -291,7 +291,7 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
         side(),
         title('자르기 전 마킹'),
         mark(),
-        title('꺾기 (한쪽 끝에서 잰 거리, mm)'),
+        title('꺾기 (한쪽 끝 기준 거리, mm)'),
         pw.Table(
           border: pw.TableBorder.all(color: _line, width: 0.6),
           columnWidths: const {

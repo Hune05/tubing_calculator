@@ -127,7 +127,7 @@ void main() {
       });
       await pumpTab(tester, s);
       expect(find.byKey(const Key('kec_new_notice')), findsOneWidget);
-      expect(find.textContaining('새 개정 공고가 났습니다 — 공고 제2026-15호'), findsOneWidget);
+      expect(find.textContaining('새 개정 공고가 났습니다. 공고 제2026-15호'), findsOneWidget);
       expect(find.textContaining('(제2025-227호) 기준'), findsOneWidget);
       expect(find.text('원문 보기'), findsOneWidget);
     });

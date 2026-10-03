@@ -432,7 +432,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
             IconButton(
               onPressed: _exportMonth,
               icon: const Icon(AppIcons.share),
-              tooltip: "이번 달 일정 요약 내보내기",
+              tooltip: "이번 달 일정 요약 복사",
             ),
             IconButton(
               onPressed: () => setState(() => _showCalendar = !_showCalendar),
@@ -508,7 +508,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                             child: Row(
                               children:
                                   [
-                                    {'id': null, 'name': '전 단계'},
+                                    {'id': null, 'name': '모든 단계'},
                                     ...widget.phases,
                                     {'id': '__none__', 'name': '단계 없음'},
                                   ].map((p) {

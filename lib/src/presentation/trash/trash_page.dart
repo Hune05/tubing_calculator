@@ -52,7 +52,7 @@ class _TrashPageState extends State<TrashPage> {
 
   Future<bool> _confirmPurge(TrashEntry e) => showAppConfirm(
     context,
-    title: '완전히 삭제하겠습니까?',
+    title: '완전히 삭제하시겠습니까?',
     message: "'${e.title}' 항목을 휴지통에서도 지웁니다. 되돌릴 수 없습니다.",
     okText: '삭제',
     destructive: true,
@@ -67,7 +67,7 @@ class _TrashPageState extends State<TrashPage> {
   Future<void> _emptyAll() async {
     final ok = await showAppConfirm(
       context,
-      title: '휴지통을 비우겠습니까?',
+      title: '휴지통을 비우시겠습니까?',
       message: '휴지통에 있는 ${_list.length}개를 모두 완전히 지웁니다. 되돌릴 수 없습니다.',
       okText: '비우기',
       destructive: true,

@@ -325,7 +325,7 @@ void main() {
       );
       expect(c.size, isNull);
       expect(c.tempOutOfRange, isTrue);
-      expect(c.notes.join(), contains('온도 보정계수 표 범위를 넘습니다'));
+      expect(c.notes.join(), contains('온도 보정계수 표 범위를 초과합니다'));
       expect(c.notes.join(), isNot(contains('부족합니다')));
     });
 

@@ -497,7 +497,7 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
     final cur = minutesOfDay(isStart ? _s.workStart : _s.workEnd);
     final picked = await showMakitaTimePicker(
       context: context,
-      title: isStart ? "소정 출근 시각" : "소정 퇴근 시각",
+      title: isStart ? "소정 출근 시간" : "소정 퇴근 시간",
       initialTime: cur == null
           ? TimeOfDay(hour: isStart ? 8 : 17, minute: 0)
           : TimeOfDay(hour: cur ~/ 60, minute: cur % 60),
@@ -696,12 +696,12 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
                       clearWorkEnd: true,
                     ),
                   ),
-                  child: const Text("소정 시각 지우기"),
+                  child: const Text("소정 시간 지우기"),
                 ),
               ),
             _help(
-              "회사가 정한 출근·퇴근 시각입니다. 새 기록을 열 때 이 시각으로 미리 채우고, 늦은 출근·이른 퇴근을 알려 줍니다. "
-              "두 시각을 다 넣으면 소정 출근 전(조출)과 소정 퇴근 후(연장)를 1시간 단위로 내려서(나머지는 버림) "
+              "회사가 정한 출근·퇴근 시간입니다. 새 기록을 열 때 이 시간으로 미리 채우고, 늦은 출근·이른 퇴근을 알려 줍니다. "
+              "출근·퇴근을 다 넣으면 소정 출근 전(조출)과 소정 퇴근 후(연장)를 1시간 단위로 내려서(나머지는 버림) "
               "'사규 인정' 시간으로 따로 보여 줍니다. 평일만 세고, 법정 연장·야간·휴일 계산과는 별개입니다.",
             ),
             const SizedBox(height: 12),
@@ -774,7 +774,7 @@ class AttendanceRulesSheet extends StatelessWidget {
             const SizedBox(height: 14),
             if (!s.hasRules)
               const Text(
-                "넣어 둔 사규가 없습니다. 설정에서 소정 출근·퇴근 시각과 사규 메모를 넣을 수 있습니다.",
+                "넣어 둔 사규가 없습니다. 설정에서 소정 출근·퇴근 시간과 사규 메모를 넣을 수 있습니다.",
                 style: TextStyle(color: _sub, fontSize: 13, height: 1.4),
               ),
             if (hasTime) ...[

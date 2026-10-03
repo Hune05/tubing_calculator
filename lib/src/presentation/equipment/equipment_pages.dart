@@ -633,7 +633,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
     final due = _interval > 0 && _lastDone != null ? addMonths(dayOnly(_lastDone!), _interval) : null;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: Text(widget.existing == null ? '장비 등록' : '장비 고치기')),
+      appBar: AppBar(title: Text(widget.existing == null ? '장비 등록' : '장비 정보 수정')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -714,7 +714,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
             Padding(
               padding: const EdgeInsets.only(top: 8),
               child: Text(
-                '다음 점검은 ${dateLabel(due)}입니다 (마지막 점검일 + ${intervalLabel(_interval)})',
+                '다음 점검은 ${dateLabel(due)}입니다 (마지막 점검일 + $_interval개월)',
                 key: const Key('equip_due_preview'),
                 style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.brand),
               ),
@@ -734,7 +734,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
           if (_specs.isEmpty)
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
-              child: Text('전동기 출력·무게·작업 범위처럼 장비의 제원을 줄마다 적습니다.', style: AppText.sub),
+              child: Text('전동기 출력·중량·작업 범위처럼 장비의 제원을 줄마다 적습니다.', style: AppText.sub),
             ),
           // 줄은 번호를 잡고 왼쪽으로 밀어 지운다(글 칸은 밀기를 먹는다). 지운 뒤 "되돌리기"(10-02).
           for (var i = 0; i < _specs.length; i++)
@@ -877,11 +877,11 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
       case 'usable':
         await _put(markUsable(e, at: _now));
       case 'retire':
-        if (await _confirm('이 장비를 폐기 처리하시겠습니까?', '이력은 남고, 기한 알림은 더 오지 않습니다.')) {
+        if (await _confirm('이 장비를 폐기 처리하시겠습니까?', '기록은 남고, 기한 알림은 더 오지 않습니다.')) {
           await _put(retire(e, at: _now));
         }
       case 'delete':
-        if (await _confirm('이 장비를 대장에서 지우시겠습니까?', '이력과 함께 휴지통으로 옮깁니다. 30일 안에는 휴지통에서 되살릴 수 있습니다.')) {
+        if (await _confirm('이 장비를 대장에서 지우시겠습니까?', '기록과 함께 휴지통으로 옮깁니다. 30일 안에는 휴지통에서 되살릴 수 있습니다.')) {
           await trashEquipment(e);
           if (mounted) Navigator.pop(context);
         }
@@ -925,7 +925,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
         actions: [
           IconButton(
             key: const Key('equip_edit'),
-            tooltip: '고치기',
+            tooltip: '정보 수정',
             icon: const Icon(AppIcons.edit),
             onPressed: _edit,
           ),
@@ -1026,10 +1026,10 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             label: const Text('제조사 설명서'),
           ),
           const SizedBox(height: 20),
-          const Text('이력', style: AppText.title),
+          const Text('점검·수리 기록', style: AppText.title),
           const SizedBox(height: 8),
           if (e.events.isEmpty)
-            const Text('아직 이력이 없습니다', style: AppText.sub)
+            const Text('아직 기록이 없습니다', style: AppText.sub)
           else
             for (final ev in e.events) _event(ev),
         ],

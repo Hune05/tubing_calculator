@@ -467,17 +467,17 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               Text(
                 keepWords(
                   _isWide
-                      ? "① 왼쪽 팔레트에서 모듈을 도면 위로 끌어다 놓습니다."
-                      : "① 아래 팔레트에서 모듈을 도면 위로 끌어다 놓습니다.",
+                      ? "① 왼쪽 팔레트에서 부품을 도면 위로 끌어다 놓습니다."
+                      : "① 아래 팔레트에서 부품을 도면 위로 끌어다 놓습니다.",
                 ),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
-                keepWords("② '고정 치수 측정' 모드에서 두 지점을 순서대로 탭하면 거리가 자동으로 표시됩니다."),
+                keepWords("② '치수 측정' 모드에서 두 지점을 차례로 누르면 거리가 표시됩니다."),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
-                keepWords("③ 상단의 '다중 선택'을 켜면 여러 모듈을 한 번에 옮기거나 정렬할 수 있습니다."),
+                keepWords("③ '여러 개 선택'을 켜면 여러 부품을 한 번에 옮기거나 정렬할 수 있습니다."),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
@@ -1208,7 +1208,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               const SizedBox(height: 6),
               Text(
                 keepWords(
-                  "측판 크기는 측판 탭에서 '외함 사이즈 설정'으로 따로 바꿉니다. 간섭 확인은 좌측판 오른쪽 끝·우측판 왼쪽 끝이 중판 쪽이라고 보고 셈합니다.",
+                  "측판 크기는 측판 탭의 '외함 크기 설정'에서 따로 바꿉니다. 간섭은 좌측판 오른쪽 끝·우측판 왼쪽 끝을 중판 쪽으로 보고 계산합니다.",
                 ),
                 style: const TextStyle(
                   fontSize: 14,
@@ -1319,7 +1319,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                lines.isEmpty ? "부딪히는 부품이 없습니다" : "부딪히는 곳 ${lines.length}건",
+                lines.isEmpty ? "간섭 없음" : "간섭 ${lines.length}건",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -1350,7 +1350,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 const SizedBox(height: 8),
                 Text(
                   keepWords(
-                    "깊이를 안 넣은 부품은 빼고 견줬습니다: ${missing.map((e) => "${plateLabel(e.key)} ${e.value}개").join(", ")}. 모듈을 눌러 깊이를 넣으십시오.",
+                    "깊이를 넣지 않은 부품은 빼고 확인했습니다: ${missing.map((e) => "${plateLabel(e.key)} ${e.value}개").join(", ")}. 부품을 눌러 깊이를 넣으십시오.",
                   ),
                   style: const TextStyle(
                     fontSize: 14,
@@ -1362,7 +1362,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               if (!_sidePlatesOn && _cabinetDepth == null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  keepWords("측판을 켜거나 캐비닛 깊이를 넣어야 견줄 것이 있습니다."),
+                  keepWords("측판을 켜거나 캐비닛 깊이를 넣어야 간섭을 확인할 수 있습니다."),
                   style: const TextStyle(fontSize: 14, color: tossSubText),
                 ),
               ],
@@ -1719,7 +1719,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (!doc.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(keepWords("프로젝트를 찾을 수 없습니다.")),
+            content: Text(keepWords("배치도를 찾을 수 없습니다.")),
             backgroundColor: warningRed,
           ),
         );
@@ -2006,7 +2006,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              keepWords("최소 간격 기준을 만족하지 못하는 치수선이 ${violations.length}건 있습니다:"),
+              keepWords("최소 간격보다 좁은 치수선이 ${violations.length}건 있습니다:"),
               style: const TextStyle(color: tossText),
             ),
             const SizedBox(height: 8),
@@ -2302,7 +2302,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (_currentProjectId == null) {
         await _saveToFirebase(projectName);
         if (_currentProjectId == null) {
-          throw Exception("프로젝트 저장에 실패해 QR을 만들 수 없습니다");
+          throw Exception("배치도를 저장하지 못해 QR을 만들 수 없습니다");
         }
       }
       // 고른 부품의 파란 테두리·안내선이 같이 찍히지 않게 찍기 전에 정리한다.
@@ -2452,7 +2452,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
-                            _isSkid ? "스키드 배치도" : "판넬 배치도",
+                            _isSkid ? "스키드 배치도" : "캐비닛 배치도",
                             style: pw.TextStyle(
                               fontSize: 20,
                               fontWeight: pw.FontWeight.bold,
@@ -2460,7 +2460,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           ),
                           pw.SizedBox(height: 4),
                           pw.Text(
-                            "프로젝트: $projectName",
+                            "배치도 이름: $projectName",
                             style: const pw.TextStyle(fontSize: 12),
                           ),
                           pw.Text(
@@ -2615,7 +2615,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         _pdfCell("태그", bold: true),
                         _pdfCell("이름", bold: true),
                         _pdfCell("가로×세로", bold: true),
-                        _pdfCell("자리 (왼쪽·위)", bold: true),
+                        _pdfCell("위치 (왼쪽·위)", bold: true),
                       ],
                     ),
                     for (final it in listed)
@@ -2714,7 +2714,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 오류: $e"))));
+      ).showSnackBar(SnackBar(content: Text(keepWords("PDF를 만들지 못했습니다: $e"))));
     } finally {
       _pdfCapture = false;
       if (mounted) setState(() => _isSaving = false);
@@ -2795,7 +2795,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(keepWords("프로젝트 저장 완료!")),
+          content: Text(keepWords("배치도를 저장했습니다.")),
           backgroundColor: tossBlue,
         ),
       );
@@ -2803,7 +2803,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(keepWords("저장 실패")),
+          content: Text(keepWords("저장하지 못했습니다. 통신을 확인하십시오.")),
           backgroundColor: warningRed,
         ),
       );
@@ -3033,7 +3033,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                     ),
                                   ),
                                   subtitle: Text(
-                                    "모듈 $itemCount개",
+                                    "부품 $itemCount개",
                                     style: const TextStyle(
                                       color: tossSubText,
                                       fontSize: 14,
@@ -3109,7 +3109,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ),
         content: Text(
           keepWords(
-            "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(실행 취소로 되돌릴 수 있습니다). 계속하시겠습니까?",
+            "템플릿을 불러오면 지금 작업 중인 배치는 사라집니다(되돌리기로 돌아올 수 있습니다). 계속하시겠습니까?",
           ),
           style: TextStyle(color: tossSubText),
         ),
@@ -3224,7 +3224,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             subtitle: Text(
-                              "모듈 $itemCount개",
+                              "부품 $itemCount개",
                               style: const TextStyle(
                                 color: tossSubText,
                                 fontSize: 14,
@@ -3281,7 +3281,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
                       child: Text(
                         keepWords(
-                          "가져올 모듈 선택 (${sourceData['projectName'] ?? ''})",
+                          "가져올 부품 선택 (${sourceData['projectName'] ?? ''})",
                         ),
                         style: const TextStyle(
                           color: tossText,
@@ -3351,7 +3351,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             ),
                           ),
                           child: Text(
-                            keepWords("선택한 모듈 ${selectedIds.length}개 가져오기"),
+                            keepWords("선택한 부품 ${selectedIds.length}개 가져오기"),
                             style: const TextStyle(
                               color: pureWhite,
                               fontWeight: FontWeight.bold,
@@ -3415,7 +3415,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     HapticFeedback.mediumImpact();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(keepWords("모듈 ${items.length}개를 가져왔습니다.")),
+        content: Text(keepWords("부품 ${items.length}개를 가져왔습니다.")),
         backgroundColor: tossBlue,
       ),
     );
@@ -3968,7 +3968,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      keepWords("최소 유지 간격 (mm) - 이보다 좁아지면 경고 표시"),
+                      keepWords("최소 유지 간격 (mm): 이보다 좁으면 경고 표시"),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -4311,11 +4311,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         backgroundColor: pureWhite,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
-          "선택 모듈 삭제",
+          "선택 부품 삭제",
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
         ),
         content: Text(
-          keepWords("선택한 모듈 ${_multiSelectedIds.length}개를 삭제하시겠습니까?"),
+          keepWords("선택한 부품 ${_multiSelectedIds.length}개를 삭제하시겠습니까?"),
           style: const TextStyle(color: tossSubText),
         ),
         actions: [
@@ -4529,7 +4529,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     final TextEditingController projectCtrl = TextEditingController(
       text: _projectName.isNotEmpty
           ? _projectName
-          : "현장 레이아웃_${DateTime.now().day}일",
+          : "배치도_${DateTime.now().day}일",
     );
     showModalBottomSheet(
       context: context,
@@ -4554,7 +4554,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               children: [
                 _buildBottomSheetHandle(),
                 const Text(
-                  "저장 및 공유하기",
+                  "저장·공유",
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w800,
@@ -4571,7 +4571,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     color: tossText,
                   ),
                   decoration: InputDecoration(
-                    labelText: "프로젝트/현장 명칭",
+                    labelText: "배치도 이름 (현장명)",
                     labelStyle: const TextStyle(
                       color: tossSubText,
                       fontSize: 16,
@@ -4610,7 +4610,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       color: pureWhite,
                     ),
                     label: const Text(
-                      "프로젝트 서버에 저장",
+                      "서버에 저장",
                       style: TextStyle(
                         color: pureWhite,
                         fontWeight: FontWeight.bold,
@@ -4673,7 +4673,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         color: tossBlue,
                       ),
                       label: const Text(
-                        "완성된 배치도, 일지 사진으로 추가",
+                        "배치도를 작업 일지 사진으로 추가",
                         style: TextStyle(
                           color: tossBlue,
                           fontWeight: FontWeight.bold,
@@ -4762,7 +4762,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          "모듈 속성 편집",
+                          "부품 편집",
                           style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
@@ -4898,7 +4898,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
-                                    keepWords("'${item.name}' 모듈을 복사했습니다."),
+                                    keepWords("'${item.name}' 부품을 복사했습니다."),
                                   ),
                                   backgroundColor: tossText,
                                   behavior: SnackBarBehavior.floating,
@@ -4912,7 +4912,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               color: tossText,
                             ),
                             label: const Text(
-                              "모듈 복제",
+                              "부품 복제",
                               style: TextStyle(
                                 color: tossText,
                                 fontWeight: FontWeight.bold,
@@ -5073,7 +5073,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           color: item.isLocked ? warningRed : tossSubText,
                         ),
                         label: Text(
-                          item.isLocked ? "잠금 해제" : "이 모듈 위치 잠그기",
+                          item.isLocked ? "잠금 해제" : "이 부품 위치 잠그기",
                           style: TextStyle(
                             color: item.isLocked ? warningRed : tossSubText,
                             fontWeight: FontWeight.bold,
@@ -5092,7 +5092,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         color: tossText,
                       ),
                       decoration: InputDecoration(
-                        labelText: "모듈 이름",
+                        labelText: "부품 이름",
                         labelStyle: const TextStyle(
                           color: tossSubText,
                           fontSize: 16,
@@ -5133,7 +5133,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ],
                     const SizedBox(height: 28),
                     const Text(
-                      "모듈 크기 (가로 x 세로)",
+                      "부품 크기 (가로 x 세로)",
                       style: TextStyle(
                         color: tossText,
                         fontSize: 15,
@@ -5205,7 +5205,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ),
                     const SizedBox(height: 28),
                     const Text(
-                      "도면 내 절대 위치",
+                      "위치 (mm, 왼쪽 위 기준)",
                       style: TextStyle(
                         color: tossText,
                         fontSize: 15,
@@ -5280,7 +5280,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           color: warningRed,
                         ),
                         label: const Text(
-                          "이 모듈 삭제",
+                          "이 부품 삭제",
                           style: TextStyle(
                             color: warningRed,
                             fontWeight: FontWeight.bold,
@@ -5428,7 +5428,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     const SizedBox(height: 4),
                     Text(
                       keepWords(
-                        "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에 모듈을\n배치할 수 있습니다. PDF 도면은 카톡에서 사진으로 저장해서 받으십시오.",
+                        "카톡으로 받은 실제 도면 사진을 배경에 깔고 그 위에 부품을\n배치할 수 있습니다. PDF 도면은 카톡에서 사진으로 저장해서 받으십시오.",
                       ),
                       style: TextStyle(
                         fontSize: 14,
@@ -5753,10 +5753,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                row(centerDimColor, "파란색", "센터(중심) 기준 치수선/가이드선"),
+                row(centerDimColor, "파란색", "센터 기준 치수선·가상선"),
                 row(edgeDimColor, "주황색", "측면(여백) 기준 치수선"),
                 row(diagonalDimColor, "보라색", "대각선 모드 치수선(직선거리+각도)"),
-                row(alignGuideColor, "마젠타색", "모듈을 옮길 때 뜨는 정렬 안내선"),
+                row(alignGuideColor, "마젠타색", "부품을 옮길 때 뜨는 정렬 안내선"),
                 row(warningRed, "빨간색", "최소 간격 위반 경고, 삭제 등 위험/주의 표시"),
                 row(tossText, "🛡 방패 표시", "안전 이격거리로 강조된 치수선(굵은 선)"),
               ],
@@ -5830,7 +5830,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           "- ${e.key} x ${e.value}개${tags == null ? "" : " (${tags.join(', ')})"}",
         );
       }
-      buf.writeln("총 모듈 $totalItems개");
+      buf.writeln("총 부품 $totalItems개");
       if (lengthLines.isNotEmpty) {
         buf.writeln("길이 합");
         for (final l in lengthLines) {
@@ -5876,7 +5876,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  keepWords("배치된 모듈을 이름별로 모아 세었습니다."),
+                  keepWords("배치된 부품을 이름별로 모아 세었습니다."),
                   style: TextStyle(fontSize: 14, color: tossSubText),
                 ),
                 const SizedBox(height: 16),
@@ -5885,7 +5885,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
                       child: Text(
-                        "배치된 모듈이 없습니다.",
+                        "배치된 부품이 없습니다.",
                         style: TextStyle(color: tossSubText),
                       ),
                     ),
@@ -5973,7 +5973,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 Row(
                   children: [
                     const Text(
-                      "총 모듈 수",
+                      "총 부품 수",
                       style: TextStyle(
                         fontSize: 14,
                         color: tossSubText,
@@ -6104,7 +6104,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
-                      "레이아웃 크기 설정",
+                      "도면 크기 설정",
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -6123,7 +6123,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   keepWords(
                     _isSkid
                         ? "스키드 평면(길이 × 폭)을 mm로 넣으십시오. 정면·측면 판 폭도 따라 바뀝니다."
-                        : "실제 중판(캐비닛)의 사이즈를 mm 단위로 입력하십시오.",
+                        : "중판(캐비닛) 실제 크기를 mm로 넣으십시오.",
                   ),
                   style: TextStyle(color: tossSubText, fontSize: 14),
                 ),
@@ -6501,7 +6501,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   _moreSection("도면", [
                     layoutSheetRow(
                       icon: Icons.aspect_ratio_rounded,
-                      label: _isSkid ? "스키드 크기 (길이 × 폭)" : "외함 사이즈 설정",
+                      label: _isSkid ? "스키드 크기 (길이 × 폭)" : "외함 크기 설정",
                       caption:
                           "${_showTabs ? "${_tabLabel(_plateId)} " : ""}지금 ${_panelWidth.toInt()} × ${_panelHeight.toInt()} mm",
                       onTap: () => run(_showPanelSettingsSheet),
@@ -6548,7 +6548,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       layoutSheetRow(
                         icon: Icons.warning_amber_rounded,
                         label: "간섭 확인",
-                        caption: "중판·측판 부품이 부딪히는지, 문보다 깊은지",
+                        caption: "중판·측판 부품 간섭, 문보다 깊은 부품 확인",
                         onTap: () => run(_showClashSheet),
                       ),
                     ],
@@ -6607,7 +6607,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     ),
                     layoutSheetRow(
                       icon: Icons.move_down_outlined,
-                      label: "다른 도면에서 모듈 가져오기",
+                      label: "다른 도면에서 부품 가져오기",
                       onTap: () => run(_showImportModulesFlow),
                     ),
                   ]),
@@ -6638,7 +6638,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         layoutSheetRow(
                           icon: Icons.delete_sweep_outlined,
                           label: "도면 전체 지우기",
-                          caption: "모든 탭의 모듈·경로·치수선을 지웁니다",
+                          caption: "모든 탭의 부품·경로·치수선을 지웁니다",
                           danger: true,
                           onTap: _hasAnyContent
                               ? () => run(_confirmClearBoard)
@@ -6698,7 +6698,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       context,
       title: "도면 전체 지우기",
       message:
-          "모든 탭의 $routeNote모듈 $items개, 치수선 $dims개를 지웁니다. 지운 뒤에도 되돌리기로 돌아올 수 있습니다.",
+          "모든 탭의 $routeNote부품 $items개, 치수선 $dims개를 지웁니다. 지운 뒤에도 되돌리기로 돌아올 수 있습니다.",
       confirmLabel: "전체 지우기",
     );
     if (ok && mounted) _clearBoard();
@@ -6709,7 +6709,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       context,
       title: "치수선 전체 지우기",
       message:
-          "치수선 ${_dimensions.length}개를 모두 지웁니다. 모듈은 그대로 둡니다. 지운 뒤에도 되돌리기로 돌아올 수 있습니다.",
+          "치수선 ${_dimensions.length}개를 모두 지웁니다. 부품은 그대로 둡니다. 지운 뒤에도 되돌리기로 돌아올 수 있습니다.",
       confirmLabel: "전체 지우기",
     );
     if (!ok || !mounted) return;
@@ -7270,8 +7270,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                       Text(
                                         keepWords(
                                           wide
-                                              ? "왼쪽에서 모듈을 끌어다\n놓아 배치를 시작하십시오"
-                                              : "아래에서 모듈을 끌어다\n놓아 배치를 시작하십시오",
+                                              ? "왼쪽에서 부품을 끌어다\n놓아 배치를 시작하십시오"
+                                              : "아래에서 부품을 끌어다\n놓아 배치를 시작하십시오",
                                         ),
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
@@ -7569,7 +7569,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              "자재 라이브러리",
+              "부품 목록",
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 17,
@@ -7578,7 +7578,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             ),
             const SizedBox(height: 4),
             Text(
-              keepWords("오른쪽 도면으로 끌어다 놓습니다. 놓은 모듈을 누르면 오른쪽 칸에서 이름과 크기를 고칩니다."),
+              keepWords("오른쪽 도면으로 끌어다 놓습니다. 놓은 부품을 누르면 오른쪽 칸에서 이름과 크기를 고칩니다."),
               style: const TextStyle(
                 color: tossSubText,
                 fontSize: 14,
@@ -7587,8 +7587,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             ),
             const SizedBox(height: 12),
             _dragTile(
-              const ModulePreset("신규 모듈", 80, 80),
-              (_) => _buildPaletteItem("신규 박스 모듈", large: true),
+              const ModulePreset("신규 부품", 80, 80),
+              (_) => _buildPaletteItem("신규 박스 부품", large: true),
               affinity: Axis.horizontal,
             ),
             const SizedBox(height: 8),
@@ -7808,7 +7808,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              measuring ? "치수 재기" : "모듈 편집",
+              measuring ? "치수 측정" : "부품 편집",
               style: const TextStyle(
                 fontWeight: FontWeight.w900,
                 fontSize: 17,
@@ -7827,7 +7827,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  keepWords("도면에서 모듈을 누르면 여기서 이름·크기·위치를 고칩니다."),
+                  keepWords("도면에서 부품을 누르면 여기서 이름·크기·위치를 고칩니다."),
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: tossSubText,
@@ -7837,7 +7837,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 ),
               )
             else ...[
-              _panelLabel("모듈 이름"),
+              _panelLabel("부품 이름"),
               const SizedBox(height: 8),
               TextField(
                 controller: _inspectorNameCtrl,
@@ -8042,7 +8042,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 icon: item.isLocked
                     ? Icons.lock_rounded
                     : Icons.lock_open_rounded,
-                label: item.isLocked ? "잠금 풀기" : "이 모듈 위치 잠그기",
+                label: item.isLocked ? "잠금 풀기" : "이 부품 위치 잠그기",
                 onTap: () {
                   setState(() => item.isLocked = !item.isLocked);
                   HapticFeedback.lightImpact();
@@ -8087,7 +8087,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               // 모듈 하나 지우기는 되돌리기로 돌아오므로 따로 묻지 않는다.
               _inspectorButton(
                 icon: Icons.delete_outline_rounded,
-                label: "모듈 삭제",
+                label: "부품 삭제",
                 danger: true,
                 onTap: () {
                   _pushUndo();
@@ -8221,7 +8221,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
           const SizedBox(height: 4),
           Text(
-            keepWords("치수선을 누르면 지우기·기준 바꾸기·메모를 합니다. 전체 지우기는 위 막대 더보기에 있습니다."),
+            keepWords("치수선을 누르면 지우기·기준 바꾸기·메모를 합니다. 전체 지우기는 위쪽 ⋮ 더보기에 있습니다."),
             style: const TextStyle(
               color: tossSubText,
               fontSize: 14,
@@ -8248,14 +8248,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 치수 재기 안내 한 줄(좁은 화면 아래 칸과 넓은 화면 오른쪽 칸이 같이 쓴다).
   String _dimensionHint() {
     if (_dimensionStartPoint != null && _dimensionBaselineMode) {
-      return "기준점: 다음 지점마다 기준점에서 잰 치수가 하나씩 생깁니다. '첫 지점 취소'로 기준을 풉니다.";
+      return "기준점: 다음 지점마다 기준점에서 측정한 치수가 하나씩 생깁니다. '첫 지점 취소'로 기준을 풉니다.";
     }
     if (_dimensionStartPoint != null) return "다음 지점을 누르면 치수선이 이어집니다.";
-    if (_dimensionChainMode) return "체인: 지점을 계속 누르면 이어서 잽니다.";
+    if (_dimensionChainMode) return "체인: 지점을 계속 누르면 이어서 측정합니다.";
     if (_dimensionBaselineMode) {
       return "기준점: 처음 누른 지점이 기준으로 남고, 다음 지점마다 치수가 생깁니다.";
     }
-    return "잴 두 지점(모듈 또는 벽면)을 차례로 누르십시오. 치수선을 누르면 고칩니다.";
+    return "측정할 두 지점(부품 또는 벽면)을 차례로 누르십시오. 치수선을 누르면 고칩니다.";
   }
 
   /// 태그 번호 칸(좁은 화면 편집창). 비우면 없앤다.
@@ -8605,8 +8605,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 고른 쪽만 틸로 채운다.
   Widget _buildModeSegmentedControl() {
     final segments = <(BoardMode, String, IconData)>[
-      (BoardMode.placeModule, "모듈 배치/이동", Icons.open_with_rounded),
-      (BoardMode.measureDimension, "고정 치수 측정", Icons.straighten_rounded),
+      (BoardMode.placeModule, "부품 배치/이동", Icons.open_with_rounded),
+      (BoardMode.measureDimension, "치수 측정", Icons.straighten_rounded),
     ];
 
     return Container(
@@ -8694,8 +8694,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             child: Row(
               children: [
                 _dragTile(
-                  const ModulePreset("신규 모듈", 80, 80),
-                  (_) => _buildPaletteItem("신규 모듈"),
+                  const ModulePreset("신규 부품", 80, 80),
+                  (_) => _buildPaletteItem("신규 부품"),
                   affinity: Axis.vertical,
                 ),
                 const SizedBox(width: 8),

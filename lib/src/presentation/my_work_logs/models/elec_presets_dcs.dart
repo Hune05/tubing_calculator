@@ -63,7 +63,7 @@ final Map<String, List<ModulePreset>> kDcsPresets = {
     _io("A1BA4D DIN 단자판 (요꼬가와)", 110, 85.5, 54, 'din'),
     _io("A1BD5D DIN 단자판 (요꼬가와)", 210, 85.5, 68, 'din'),
     _io("DeltaV SQ·SX 제어기 (에머슨)", 41.8, 199.3, 162, 'dv'),
-    _io("DeltaV CIOC 이중화 카리어 (에머슨)", 125, 186, 158.3, 'carrier'),
+    _io("DeltaV CIOC 이중화 캐리어 (에머슨)", 125, 186, 158.3, 'carrier'),
     _io("AC 800M PM851~PM866 + TP830 (ABB)", 119, 186, 135, 'cpu'),
     _io("AC 800M PM891 + 베이스 (ABB)", 200, 186, 102, 'cpu'),
     _io("CI854 통신 유닛 + TP854 (ABB)", 59, 185, 127.5, 'ci'),

@@ -246,7 +246,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _isElectric ? "전동 장비 설정이 저장되었습니다." : "수동 장비 설정이 저장되었습니다.",
+            _isElectric ? "전동 장비 설정을 저장했습니다." : "수동 장비 설정을 저장했습니다.",
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           backgroundColor: makitaTeal,
@@ -438,7 +438,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("연신율만 저장했습니다. 다른 바꾼 값은 아직 저장하지 않았습니다."),
+          content: Text("게인만 저장했습니다. 다른 바꾼 값은 아직 저장하지 않았습니다."),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -470,7 +470,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           },
         ),
         icon: const Icon(Icons.straighten, size: 18),
-        label: const Text("한 번 꺾어 보고 잡기"),
+        label: const Text("시험 벤딩으로 게인 잡기"),
       ),
     );
   }
@@ -1272,7 +1272,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           label: "외경 (OD) [$_unit]",
           helpTitle: "외경 (OD: Outside Diameter)",
           helpContent:
-              "파이프의 바깥쪽 지름을 의미합니다.\n튜빙에서 가장 중요한 기준이 되며, 기계의 다이(Die)와 피팅 사이즈를 결정하는 핵심 치수입니다.",
+              "벤더 다이와 피팅 규격을 고르는 기준 치수입니다.",
           value: _currentOD,
           items: _odList,
           onChanged: (val) {
@@ -1281,12 +1281,12 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           },
           displayMapper: (item) =>
               SettingsController.getDisplayOD(item, _isInch),
-          helperText: "※ 배관의 바깥쪽 지름",
+          helperText: "※ 배관 외경",
         ),
         _buildNumpadInputWithHelp(
           "두께 (WT) [$_unit]",
           "두께 (WT: Wall Thickness)",
-          "파이프 벽의 두께입니다.\n두께가 다르면 연신율(파이프가 늘어나는 정도)이 달라지므로 정밀한 계산을 위해 입력이 필요합니다.",
+          "두께에 따라 게인이 달라집니다.",
           _wtController,
           helperText: "※ 배관 벽의 두께",
         ),
@@ -1294,7 +1294,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           label: "튜브 재질",
           helpTitle: "튜브 재질",
           helpContent:
-              "파이프의 소재입니다.\nSUS(스텐), Copper(구리), Carbon(탄소강) 등 재질에 따라 탄성(스프링백)이 다르기 때문에 벤딩 후 튕겨나오는 각도를 보정할 때 참고합니다.",
+              "재질마다 스프링백이 다릅니다. 스프링백 값을 정할 때 참고합니다.",
           value: _tubeMaterial,
           items: const ["SUS", "Copper", "Carbon", "Aluminum"],
           onChanged: (val) => setState(() => _tubeMaterial = val!),
@@ -1304,7 +1304,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           label: "피팅 타입",
           helpTitle: "피팅 타입",
           helpContent:
-              "파이프를 연결하는 부속의 종류입니다.\nTwin Ferrule(스웨즈락 등) 방식은 튜브가 부속 안으로 일정 깊이만큼 삽입되어야 하므로 이를 계산에 반영합니다.",
+              "Twin Ferrule(스웨즈락 등)은 튜브가 피팅 안으로 들어가는 깊이를 길이에 더합니다.",
           value: _fittingType,
           items: const ["Twin Ferrule", "Bite Type", "Flare"],
           onChanged: (val) {
@@ -1322,7 +1322,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _buildNumpadInputWithHelp(
           "피팅 삽입 깊이 [mm]",
           "피팅 삽입 깊이 (Insertion Depth)",
-          "파이프 끝이 피팅(부속) 안으로 완전히 삽입되어야 하는 길이입니다.\n이 값을 정확히 입력해야 벤딩 후 피팅을 조립했을 때 전체 기장(C-C)이 짧아지는 불량(누설)을 막을 수 있습니다.\n[AUTO] 모드 시 규격에 맞춰 자동 입력됩니다.",
+          "튜브 끝이 피팅 안으로 끝까지 들어가는 깊이입니다.\n틀리게 넣으면 조립 후 C-C 길이가 맞지 않습니다.\n[AUTO]에서는 규격에 맞춰 자동으로 들어갑니다.",
           _fittingDepthController,
           key: 'fittingDepth',
           helperText: "※ 전체 체결 기준",
@@ -1332,7 +1332,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             key: Key('mark_zero_note'),
             padding: EdgeInsets.fromLTRB(4, 8, 4, 4),
             child: Text(
-              "※ 마킹은 벤더의 0 눈금에 맞춰 셈합니다(L·R 눈금은 쓰지 않습니다).",
+              "※ 마킹은 벤더의 0 눈금 기준으로 계산합니다(L·R 눈금은 쓰지 않습니다).",
               style: TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ),
@@ -1363,7 +1363,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           label: "장비 타입",
           helpTitle: "장비 타입 (수동/전동)",
           helpContent:
-              "손으로 꺾는 수동(Hand) 벤더인지, 기계가 꺾어주는 전동(Electric) 벤더인지 선택합니다.\n타입에 따라 연신율이나 입력 기준이 달라집니다.",
+              "수동(Hand)·전동(Electric) 중 고릅니다.\n타입에 따라 게인과 입력 칸이 달라집니다.",
           value: _benderType,
           items: const ["수동 (Hand)", "전동 (Electric)"],
           onChanged: (val) {
@@ -1379,26 +1379,26 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           _buildNumpadInputWithHelp(
             "금형 반경 (CLR) [mm]",
             "금형 반경 (Center Line Radius)",
-            "파이프를 둥글게 꺾어주는 다이(금형)의 중심 반경입니다.\n이 값이 클수록 파이프가 완만하게 꺾이고, 연신율(늘어나는 길이) 계산의 핵심이 됩니다.",
+            "다이(금형)의 중심선 반경입니다. 게인 계산에 씁니다.",
             _rController,
             key: 'radius',
             helperText: "※ 다이 R값",
           ),
           _buildNumpadInputWithHelp(
-            "클램프 물림 길이 [mm]",
-            "클램프 물림 길이 (최소 직선 구간)",
+            "최소 물림 길이 [mm]",
+            "최소 물림 길이 (클램프)",
             "전동 벤더가 파이프를 단단히 잡고 꺾기 위해 필요한 최소한의 직관(일자) 길이입니다.\n이 길이보다 짧게 벤딩을 시도하면 기계에 물리지 않아 작업이 불가능합니다.",
             _minStraightController,
             key: 'minStraight',
             helperText: "※ 최소 구간",
           ),
           _buildNumpadInputWithHelp(
-            "연신율 (Gain) [mm]",
-            "연신율 (Gain)",
-            "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 계산됩니다.",
+            "게인 (Gain) [mm]",
+            "게인 (Gain)",
+            "90° 한 번 꺾을 때 도면 치수 합계(교차점 기준)보다 관이 덜 드는 길이입니다(2 × 셋백 − 호 길이).\n총 절단 길이는 도면 합계에서 벤드마다 이 값을 뺍니다.\n[AUTO]에서는 반경으로 계산합니다.",
             _gainController,
             key: 'gain',
-            helperText: "※ 늘어나는 양",
+            helperText: "※ 90° 1회에 줄어드는 길이",
           ),
           _buildNumpadInputWithHelp(
             "스프링백 보상 [°]",
@@ -1421,7 +1421,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           _buildNumpadInputWithHelp(
             "벤드 반경 (R) [mm]",
             "벤드 반경 (Radius)",
-            "수동 벤더 다이(둥근 롤러)의 중심에서 파이프 중심선까지의 반경입니다.\n이 값으로 연신율과 축소량을 계산합니다.",
+            "수동 벤더 다이(둥근 롤러)의 중심에서 파이프 중심선까지의 반경입니다.\n이 값으로 게인과 축소값을 계산합니다.",
             _rController,
             key: 'radius',
             helperText: "※ 다이 중심 ~ 튜브 중심",
@@ -1435,20 +1435,20 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             helperText: "※ 차감 보정치",
           ),
           _buildNumpadInputWithHelp(
-            "연신율 (Gain) [mm]",
-            "연신율 (Gain)",
-            "파이프가 곡선으로 꺾이면서 바깥쪽으로 늘어나는 총 길이입니다.\n전체 자를 길이를 이 값만큼 빼주어야 치수 불량이 안 납니다.\n[AUTO] 시 기계 제원 기반으로 자동 계산됩니다.",
+            "게인 (Gain) [mm]",
+            "게인 (Gain)",
+            "90° 한 번 꺾을 때 도면 치수 합계(교차점 기준)보다 관이 덜 드는 길이입니다(2 × 셋백 − 호 길이).\n총 절단 길이는 도면 합계에서 벤드마다 이 값을 뺍니다.\n[AUTO]에서는 장비 제원(반경)으로 계산합니다.",
             _gainController,
             key: 'gain',
-            helperText: "※ 늘어나는 총 길이",
+            helperText: "※ 90° 1회에 줄어드는 길이",
           ),
           _buildNumpadInputWithHelp(
-            "최소 직선 구간 [mm]",
-            "최소 물림 구간 (Minimum Straight)",
+            "최소 물림 길이 [mm]",
+            "최소 물림 길이 (Minimum Straight)",
             "벤더기의 후크(고리)가 파이프를 단단히 물어주기 위해 확보되어야 하는 최소한의 직관 길이입니다.\n연속 벤딩 시 이 길이보다 짧으면 기계에 파이프가 걸려 안 꺾입니다.",
             _minStraightController,
             key: 'minStraight',
-            helperText: "※ 벤더 후크 물림 최소장",
+            helperText: "※ 벤더 후크가 무는 최소 길이",
           ),
           _buildNumpadInputWithHelp(
             "기준선 오프셋 [mm]",
@@ -1474,9 +1474,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           _buildNumpadInputWithHelp(
             "오프셋 축소 [mm]",
             "오프셋 축소 (간섭 회피 여유)",
-            "연속 S자 벤딩(오프셋)을 할 때, 파이프를 반대로 뒤집어 기계에 넣으면 기존에 꺾인 부위가 기계 몸통(바디/슈)에 닿아 안 들어가는 경우가 생깁니다.\n이를 피하기 위해 빗변 기장을 강제로 살짝 밀어주는 여유 길이입니다.",
+            "오프셋·새들 계산기에서 1번 마킹을 이 값만큼 뒤로 미는 여유입니다.\n관을 뒤집어 두 번째 벤드를 꺾을 때 이미 꺾인 부분이 벤더 몸통(슈)에 닿으면 넣으십시오. 0이면 쓰지 않습니다.",
             _offsetShrinkController,
-            helperText: "※ 간섭 회피용 여유 축소값",
+            helperText: "※ 1번 마킹을 뒤로 미는 값",
           ),
         ],
         _buildNumpadInputWithHelp(
@@ -1499,7 +1499,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             context,
             "물림 길이(간섭) 경고",
             "물림 길이 경고 (초보자 권장)",
-            "파이프 길이가 기계의 '최소 물림 구간'보다 짧게 입력되면 경고창을 띄워 불량을 막아줍니다.\n\n"
+            "파이프 길이가 기계의 '최소 물림 길이'보다 짧게 입력되면 경고창을 띄워 불량을 막아줍니다.\n\n"
                 "짧은 길이인 줄 알고도 물려서 꺾을 때는 이 스위치를 끄면 경고창이 뜨지 않습니다.",
           ),
           Switch(
@@ -1555,8 +1555,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               Expanded(
                 child: Text(
                   isSwagelok
-                      ? "Swagelok 전동기 가이드 (MS-BTB)"
-                      : "TRACTO-TECHNIK 전동기 가이드 (TB20D)",
+                      ? "Swagelok 전동 벤더 가이드 (MS-BTB)"
+                      : "TRACTO-TECHNIK 전동 벤더 가이드 (TB20D)",
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 16,
@@ -1580,14 +1580,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _machineSpecText("모델명 (Type)", "Swagelok MS-BTB Series"),
-                  _machineSpecText("적용 규격", "1/2\" ~ 1-1/4\" (주력: 3/4\", 1\")"),
-                  _machineSpecText("구동 방식", "전자식 제어 펜던트 & 모터 구동"),
+                  _machineSpecText("적용 규격", "1/4\" ~ 1-1/4\", 6 ~ 30 mm"),
+                  _machineSpecText("구동 방식", "전동 벤치탑 (각도는 숫자 바퀴와 토글 스위치로 설정)"),
                 ],
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              "🔧 제어반(Pendant) 조작 매뉴얼",
+              "🔧 조작 순서 (요약)",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -1597,23 +1597,15 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             const SizedBox(height: 8),
             _guideText(
               "1. 툴링 세팅",
-              "관경(3/4\" 또는 1\")에 맞는 벤드 슈(Bend Shoe)와 롤러 서포트(Roller Support)를 장착합니다.",
+              "관 규격에 맞는 벤드 슈(Bend Shoe)와 롤러 서포트(Roller Support)를 장착합니다.",
             ),
             _guideText(
-              "2. 기기 초기화",
-              "전원 스위치를 켜고 펜던트의 [RETURN] 버튼을 눌러 벤드 슈를 0° 원점 위치로 복귀시킵니다.",
+              "2. 각도 설정",
+              "숫자 바퀴로 목표 각도에 스프링백만큼 더한 값을 맞춥니다.",
             ),
             _guideText(
-              "3. 각도/스프링백",
-              "펜던트의 [ANGLE] 버튼을 눌러 목표 각도를, [SPRINGBACK] 버튼을 눌러 탄성 보정값(SUS 통상 1.5°~3.0°)을 입력합니다.",
-            ),
-            _guideText(
-              "4. 파이프 고정",
-              "파이프를 삽입하고 토글 클램프(Toggle Clamp) 레버를 끝까지 밀어 고정시킵니다.",
-            ),
-            _guideText(
-              "5. 벤딩 실행",
-              "펜던트의 [BEND] 버튼을 누르고 있으면 벤딩이 진행됩니다. 벤딩 후 [RETURN]을 눌러 원위치시킵니다.",
+              "3. 고정·벤딩",
+              "버튼 이름과 조작 순서는 Swagelok 설명서(MS-13-145)를 따르십시오. 이 앱은 조작 버튼 순서를 확인하지 못했습니다.",
             ),
             const SizedBox(height: 12),
             Container(
@@ -1648,7 +1640,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ),
             const SizedBox(height: 16),
             const Text(
-              "📊 대구경 집중 권장 제원표 (SUS 기준)",
+              "📊 슈 반경과 이론 게인 (Swagelok MS-13-145·MS-01-179, 게인 = 0.43 × R)",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
@@ -1691,7 +1683,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                       Padding(
                         padding: EdgeInsets.all(8),
                         child: Text(
-                          "표준 R (CLR)",
+                          "슈 반경 (CLR)",
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 10,
@@ -1703,7 +1695,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                       Padding(
                         padding: EdgeInsets.all(8),
                         child: Text(
-                          "연신율",
+                          "게인",
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 10,
@@ -1715,7 +1707,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                       Padding(
                         padding: EdgeInsets.all(8),
                         child: Text(
-                          "최소물림",
+                          "비고",
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 10,
@@ -1726,32 +1718,42 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                       ),
                     ],
                   ),
+                  _buildGuideRow4Col("1/4\" (6.35)", "R36", "약 15.5", ""),
+                  _buildGuideRow4Col(
+                    "3/8\" (9.52)",
+                    "R36",
+                    "약 15.5",
+                    "R56 슈도 있음",
+                  ),
                   _buildGuideRow4Col(
                     "1/2\" (12.7)",
-                    "R 38.1 (1.5\")",
-                    "약 16.5",
-                    "65 mm",
+                    "R36",
+                    "약 15.5",
+                    "R56 슈도 있음 (게인 약 24.0)",
                   ),
+                  _buildGuideRow4Col("5/8\" (15.88)", "R46", "약 19.7", ""),
                   _buildGuideRow4Col(
                     "3/4\" (19.05)",
-                    "R 76.2 (3.0\")",
-                    "약 32.5",
-                    "85 mm",
+                    "R56",
+                    "약 24.0",
+                    "",
                     isHighlight: true,
                   ),
+                  _buildGuideRow4Col("7/8\" (22.23)", "R67", "약 28.8", ""),
                   _buildGuideRow4Col(
                     "1\" (25.4)",
-                    "R 101.6 (4.0\")",
-                    "약 43.5",
-                    "110 mm",
+                    "R82",
+                    "약 35.2",
+                    "",
                     isHighlight: true,
                   ),
-                  _buildGuideRow4Col(
-                    "1-1/4\" (31.75)",
-                    "R 127.0 (5.0\")",
-                    "약 55.0",
-                    "130 mm",
-                  ),
+                  _buildGuideRow4Col("1-1/4\" (31.75)", "R112", "약 48.1", ""),
+                  _buildGuideRow4Col("6·10·12 mm", "R36", "약 15.5", ""),
+                  _buildGuideRow4Col("14·15·16 mm", "R46", "약 19.7", ""),
+                  _buildGuideRow4Col("18 mm", "R56", "약 24.0", ""),
+                  _buildGuideRow4Col("20·22 mm", "R67", "약 28.8", ""),
+                  _buildGuideRow4Col("25 mm", "R82", "약 35.2", ""),
+                  _buildGuideRow4Col("28·30 mm", "R112", "약 48.1", ""),
                 ],
               ),
             ),
@@ -1779,7 +1781,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ),
             const SizedBox(height: 16),
             const Text(
-              "🔧 제어반(HMI) 조작 매뉴얼",
+              "🔧 조작 순서 (요약)",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
@@ -1788,114 +1790,30 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             ),
             const SizedBox(height: 8),
             _guideText(
-              "1. 기기 초기화",
-              "전원(Main Switch) 인가 후, 터치패널에서 [HOME] 또는 [RESET] 버튼을 눌러 C축(벤딩 암)을 0° 원점으로 복귀시킵니다.",
+              "1. 방식",
+              "반자동입니다. 각도만 기계가 꺾고, 이송과 회전은 손으로 합니다.",
             ),
             _guideText(
-              "2. 프로그램 입력",
-              "화면의 [PROG] 버튼을 눌러 빈 슬롯을 선택합니다.\n• [ANGLE] 칸에 앱에서 계산된 각도를 입력합니다.\n• [SPRINGBACK] 칸에 재질별 탄성 보정값을 입력하고 [ENTER]로 저장합니다.",
+              "2. 각도 입력",
+              "각도 8개까지 미리 넣어 둘 수 있습니다. 앱에서 계산한 각도에 스프링백만큼 더해 넣으십시오.",
             ),
             _guideText(
-              "3. 클램핑 조작",
-              "다이(Die)에 파이프를 삽입하여 최소 물림 길이 이상 확보한 뒤, 제어반의 [CLAMP] 버튼을 눌러 파이프 고정합니다.",
-            ),
-            _guideText(
-              "4. 벤딩 실행",
-              "[MANUAL] 또는 [AUTO] 모드 선택 후, 풋스위치를 끝까지 밟아 벤딩을 실행합니다. 종료 후 [OPEN]을 눌러 파이프를 분리합니다.",
+              "3. 고정·벤딩",
+              "버튼 이름과 조작 순서는 TRACTO-TECHNIK 설명서를 따르십시오. 이 앱은 조작 화면 버튼 이름을 확인하지 못했습니다.",
             ),
             const SizedBox(height: 16),
             const Text(
-              "📊 규격별 권장 연신율 표 (SUS 기준)",
+              "📊 금형별 게인",
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Table(
-                columnWidths: const {
-                  0: FlexColumnWidth(1),
-                  1: FlexColumnWidth(1),
-                  2: FlexColumnWidth(1),
-                },
-                border: TableBorder.symmetric(
-                  inside: BorderSide(color: Colors.grey.shade200),
-                ),
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(color: Colors.grey.shade100),
-                    children: const [
-                      Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Text(
-                          "규격(OD)",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Text(
-                          "표준 금형(CLR)",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black87,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: EdgeInsets.all(8),
-                        child: Text(
-                          "권장 연신율",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFE65100),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  _buildGuideRow3Col(
-                    "1/4\" (6.35)",
-                    "R15.0",
-                    "7.0 ~ 8.0",
-                    Colors.orange.shade900,
-                  ),
-                  _buildGuideRow3Col(
-                    "3/8\" (9.52)",
-                    "R22.5",
-                    "11.0 ~ 12.5",
-                    Colors.orange.shade900,
-                  ),
-                  _buildGuideRow3Col(
-                    "1/2\" (12.7)",
-                    "R35.0",
-                    "18.0 ~ 20.0",
-                    Colors.orange.shade900,
-                  ),
-                  _buildGuideRow3Col(
-                    "25mm",
-                    "R75.0",
-                    "38.0 ~ 42.0",
-                    Colors.orange.shade900,
-                  ),
-                ],
-              ),
+            const SizedBox(height: 8),
+            _guideText(
+              "확인한 값 없음",
+              "TB20D 금형별 반경·게인은 공개 자료에서 확인하지 못했습니다. 쓰는 금형으로 90° 시험 벤딩을 하고 '시험 벤딩으로 게인 잡기'로 측정값을 넣으십시오.",
             ),
           ],
           const Divider(height: 40, color: Colors.black12, thickness: 1),
@@ -1905,7 +1823,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "📐 연신율(Gain) 산출 공식 및 실무 적용",
+                  "📐 게인(Gain) 계산식과 현장 적용",
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 14,
@@ -1927,7 +1845,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             child: Column(
               children: [
                 const Text(
-                  "이론상 90° 연신율 공식 (Centerline 기준)",
+                  "이론상 90° 게인 계산식 (Centerline 기준)",
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
@@ -1949,7 +1867,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
           const SizedBox(height: 8),
           const Text(
-            "⚠️ 위 공식은 '관의 중심선'을 기준으로 한 제조사 이론값입니다. 실제 벤딩 시에는 파이프의 외경(OD)과 두께(WT)에 의해 중립축이 안쪽으로 이동하므로, 파이프가 더 길게 늘어납니다. 반드시 시편을 꺾어 실제 기장을 측정한 뒤 [MAN(수동)] 모드에 실측값을 입력하십시오.",
+            "⚠️ 위 식은 관 중심선 기준 이론값입니다. 실제 게인은 재질·두께·벤더에 따라 이론값과 다릅니다. 시험 조각을 꺾어 측정한 값을 [MAN(수동)]에 넣으십시오.",
             style: TextStyle(
               fontSize: 11,
               height: 1.5,
@@ -2021,7 +1939,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
-                        "축소량 (×)",
+                        "축소값 (×)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -2047,7 +1965,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
           const SizedBox(height: 8),
           const Text(
-            "※ 마킹 간격(빗변) = 오프셋 높이 × 마킹 배수\n※ 기장 추가분 = 오프셋 높이 × 축소량",
+            "※ 마킹 간격(빗변) = 오프셋 높이 × 마킹 배수\n※ 길이 추가분 = 오프셋 높이 × 축소값",
             style: TextStyle(
               fontSize: 11,
               color: Colors.black54,
@@ -2095,15 +2013,15 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           _guideText("1. 적용 규격", "[Inch] 1/4\" ~ 1\"  /  [mm] 8mm ~ 25mm"),
           _guideText(
             "2. 테이크업 (Take-Up)",
-            "가상 센터라인 기준이 아닌, 튜브 두께(WT)를 적용하여 보정해야 정확한 치수가 나옵니다.",
+            "벤더 0점(마킹 기준)에서 꺾이기 시작하는 점까지의 거리입니다. 수동 벤더는 보통 반경과 같고, 정확한 값은 시험 벤딩으로 측정해 넣으십시오.",
           ),
           _guideText(
-            "3. 연신율 (Gain)",
-            "90도 벤딩 시 늘어나는 총 길이입니다. 마킹 시 이 값을 고려해야 합니다.",
+            "3. 게인 (Gain)",
+            "90° 한 번 꺾을 때 도면 치수 합계보다 관이 덜 드는 길이입니다. 총 절단 길이에서 벤드마다 뺍니다.",
           ),
           const Divider(height: 32, color: Colors.black12),
           const Text(
-            "📊 규격별 권장 연신율 표",
+            "📊 규격별 게인 (AUTO 값과 같음, 실측값이 우선)",
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 13,
@@ -2144,7 +2062,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
-                        "연신율 (Gain)",
+                        "게인 (Gain)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -2157,27 +2075,27 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 ),
                 _buildGuideRow2Col(
                   "1/4\" (6.35mm)",
-                  "approx. 8.5 mm",
+                  "약 6.1 mm (R14.3)",
                   makitaTeal,
                 ),
                 _buildGuideRow2Col(
                   "3/8\" (9.52mm)",
-                  "approx. 12.5 mm",
+                  "약 10.2 mm (R23.8)",
                   makitaTeal,
                 ),
                 _buildGuideRow2Col(
                   "1/2\" (12.7mm)",
-                  "approx. 20.0 mm",
+                  "약 20.0 mm (R38.1)",
                   makitaTeal,
                 ),
                 _buildGuideRow2Col(
                   "3/4\" (19.05mm)",
-                  "approx. 28.5 mm",
+                  "약 24.5 mm (R57.2)",
                   makitaTeal,
                 ),
                 _buildGuideRow2Col(
                   "1\" (25.4mm)",
-                  "approx. 38.0 mm",
+                  "약 32.6 mm (R76.2)",
                   makitaTeal,
                 ),
               ],
@@ -2302,7 +2220,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
           const SizedBox(height: 12),
           const Text(
-            "장애물 회피 벤딩 시, 두 번째 마킹 위치(빗변)와 총 기장 축소량을 계산하기 위한 곱셈 배수입니다.",
+            "장애물을 피하는 벤딩에서 두 번째 마킹 위치(빗변)와 축소값을 계산하는 배수입니다.",
             style: TextStyle(
               fontSize: 11,
               height: 1.5,
@@ -2357,7 +2275,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
-                        "축소량 (×)",
+                        "축소값 (×)",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 11,
@@ -2378,7 +2296,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
           const SizedBox(height: 8),
           const Text(
-            "※ 마킹 간격(빗변) = 오프셋 높이 × 마킹 배수\n※ 기장 추가분 = 오프셋 높이 × 축소량",
+            "※ 마킹 간격(빗변) = 오프셋 높이 × 마킹 배수\n※ 길이 추가분 = 오프셋 높이 × 축소값",
             style: TextStyle(
               fontSize: 11,
               color: Colors.black54,
@@ -2412,7 +2330,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "배관 실무 꿀단지 참고표",
+                  "배관 참고표",
                   style: TextStyle(
                     fontWeight: FontWeight.w900,
                     fontSize: 16,
@@ -2433,7 +2351,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
           const SizedBox(height: 4),
           const Text(
-            "180도 연속 벤딩 시 90도 연신율의 2배보다 파이프가 더 늘어납니다. (재단 시 더 많이 잘라야 함)",
+            "180° U-벤딩은 90° 게인의 2배로 계산하면 맞지 않습니다(재단 길이가 모자랄 수 있음). U-Bend 계산기로 계산하십시오.",
             style: TextStyle(
               fontSize: 11,
               color: Colors.black54,
@@ -2500,7 +2418,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     Padding(
                       padding: EdgeInsets.all(8),
                       child: Text(
-                        "180° 연신율",
+                        "180° 게인",
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -2553,7 +2471,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
           const SizedBox(height: 4),
           const Text(
-            "Twin Ferrule 피팅 체결 시 튜브가 부속 안으로 들어가는 깊이. (총 기장 계산 시 양쪽 삽입 깊이를 더해야 함)",
+            "Twin Ferrule 피팅 체결 시 튜브가 부속 안으로 들어가는 깊이. (총 절단 길이에 양쪽 삽입 깊이를 더함)",
             style: TextStyle(
               fontSize: 11,
               color: Colors.black54,
@@ -2624,7 +2542,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ),
           const SizedBox(height: 4),
           const Text(
-            "나사 조립 시 피팅이 암나사 안으로 먹어 들어가는 길이. (총 기장 산출 시 이 값을 빼주어야 정확함)",
+            "나사 조립 시 피팅이 암나사 안으로 먹어 들어가는 길이. (총 절단 길이를 낼 때 이 값을 빼야 정확함)",
             style: TextStyle(
               fontSize: 11,
               color: Colors.black54,

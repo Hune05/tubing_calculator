@@ -31,6 +31,11 @@ void main() {
     expect(r, {'내 프로젝트', '내 일정 관리'});
   });
 
+  test('이름을 바꾼 메뉴: 예전 이름으로 저장된 즐겨찾기를 새 이름으로 읽는다(겹치면 하나)', () {
+    expect(renameQuickLaunchTitles(['내 프로젝트', '압력 시험']), ['내 프로젝트', '압력시험']);
+    expect(renameQuickLaunchTitles(['압력시험', '압력 시험']), ['압력시험']);
+  });
+
   group('빠른 실행 순서(끌어서 바꾸기)', () {
     test('저장된 순서가 있으면 그 순서대로, 없는 건 원래 순서로 뒤에', () {
       expect(orderQuickLaunch(['가', '나', '다', '라'], ['다', '가']), [

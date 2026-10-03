@@ -82,7 +82,7 @@ void main() {
     // 밀면 묻고, 취소하면 그대로
     await tester.drag(find.text('밴드쏘'), const Offset(-600, 0));
     await tester.pumpAndSettle();
-    expect(find.text('완전히 삭제하겠습니까?'), findsOneWidget);
+    expect(find.text('완전히 삭제하시겠습니까?'), findsOneWidget);
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(find.text('밴드쏘'), findsOneWidget);

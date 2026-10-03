@@ -415,7 +415,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
               fontSize: 15,
             ),
             tabs: const [
-              Tab(key: Key('fl_tab_vel'), text: '유속·관 굵기'),
+              Tab(key: Key('fl_tab_vel'), text: '유속·관경'),
               Tab(key: Key('fl_tab_dp'), text: '압력손실'),
               Tab(key: Key('fl_tab_meter'), text: '차압 유량계'),
               Tab(key: Key('fl_tab_check'), text: '유량계 점검'),
@@ -684,7 +684,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
       final regime = regimeOf(re);
       final over = g != null && v > g.max + 1e-12;
       final under = g != null && g.min != null && v < g.min! - 1e-12;
-      logCalc('유속·관 굵기', '$_conduitText → ${_fmt(v)} m/s (Re ${_int(re)})');
+      logCalc('유속·관경','$_conduitText → ${_fmt(v)} m/s (Re ${_int(re)})');
       result = calcResult(
         key: const Key('fl_vel_result'),
         big: '${_fmt(v)} m/s',
@@ -723,7 +723,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
       const SizedBox(height: 4),
       result,
       _note(
-        '${g == null ? '기름 권장 유속은 두 출처가 맞는 값을 찾지 못해 넣지 않았습니다.' : '권장 유속 출처: ${g.source}'}\n'
+        '${g == null ? '기름 권장 유속은 출처끼리 값이 맞지 않아 넣지 않았습니다.' : '권장 유속 출처: ${g.source}'}\n'
         'Re 2300 미만 층류, 4000 이상 난류, 그 사이는 천이 구간입니다. '
         '${_fluid.gas ? '기체 유속은 입구 압력 기준입니다. 압력이 내려가는 하류에서는 더 빨라집니다.' : ''}',
         key: const Key('fl_vel_note'),

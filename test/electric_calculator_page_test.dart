@@ -76,7 +76,7 @@ void main() {
     expect(r, contains('차단기 30A ~ 50A (전동기 회로)'));
     expect(r, contains('허용전류 32A (보정 후) ≥ 차단기 30A'));
     expect(r, contains('한도 5% 이내입니다.'));
-    expect(r, contains('과부하는 열동형 과부하 계전기(THR)로 보호합니다'));
+    expect(r, contains('과부하는 과부하계전기(THR)로 보호합니다'));
     expect(
       r,
       contains('보호도체(접지선): 케이블 안 2.5sq / 따로 포설할 때 최소 2.5sq(기계적 보호)·4sq'),

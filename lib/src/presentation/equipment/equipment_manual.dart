@@ -1,5 +1,5 @@
 // 장비 설명서 붙이기: 제조사가 배포한 설명서 PDF를 한 번 골라 두면 이 폰에 보관하고(도면 보기 보관함),
-// 장비 대장·장비 사용법 어디서든 같은 설명서를 연다. 통신 없이 열린다.
+// 장비 관리 대장·장비 사용법 어디서든 같은 설명서를 연다. 통신 없이 열린다.
 // 설명서 내용은 앱이 옮겨 적지 않는다 — 제조사 원본 파일을 그대로 보관해 연다.
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -116,7 +116,7 @@ class _ManualSheetState extends State<_ManualSheet> {
             const SizedBox(height: 6),
             const Text(
               '제조사 설명서 PDF를 한 번 골라 두면 이 폰에 보관되어 통신 없이도 열립니다. '
-              '장비 대장과 장비 사용법에서 같은 설명서를 엽니다.',
+              '장비 관리 대장과 장비 사용법에서 같은 설명서를 엽니다.',
               style: TextStyle(fontSize: 13, height: 1.5, color: AppColors.textSub),
             ),
             if (url != null) ...[

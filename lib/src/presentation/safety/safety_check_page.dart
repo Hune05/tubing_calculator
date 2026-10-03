@@ -105,7 +105,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('확인하지 않은 항목이 있습니다'),
-        content: Text('${r.unanswered}개 항목이 아직 "확인"이나 "해당 없음"이 아닙니다. 그대로 진행하시겠습니까?'),
+        content: Text('${r.unanswered}개 항목이 아직 "확인"이나 "해당 없음"이 아닙니다. 그대로 저장하시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -114,7 +114,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
           TextButton(
             key: const Key('safety_confirm_go'),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('그대로'),
+            child: const Text('그대로 저장'),
           ),
         ],
       ),
@@ -219,7 +219,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
                         const SizedBox(height: 12),
                         _field(_risks, '위험 요인·메모 (선택)', key: 'safety_risks', lines: 2),
                         const SizedBox(height: 8),
-                        _field(_people, '참석자 (선택)', key: 'safety_people', hint: '이름을 쉼표로'),
+                        _field(_people, '참석자 (선택)', key: 'safety_people', hint: '이름을 쉼표로 구분 (예: 홍길동, 김철수)'),
                       ],
                     ),
                   ),
@@ -469,7 +469,7 @@ class _ItemsSheetState extends State<_ItemsSheet> {
                     ..addAll(kDefaultSafetyItems);
                   _removed = null;
                 }),
-                child: const Text('처음 항목으로'),
+                child: const Text('기본 항목으로'),
               ),
               const Spacer(),
               FilledButton(

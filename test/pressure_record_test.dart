@@ -464,7 +464,7 @@ void main() {
 
   group('유지시간 알림', () {
     test('알림 문구: 라인 번호와 유지시간', () {
-      expect(kPtHoldTitle, '압력 시험 유지시간 완료');
+      expect(kPtHoldTitle, '압력시험 유지시간 완료');
       expect(kPtHoldNotifId, 918400);
       expect(
         ptHoldBody(line: 'P-1001', holdMin: 30),

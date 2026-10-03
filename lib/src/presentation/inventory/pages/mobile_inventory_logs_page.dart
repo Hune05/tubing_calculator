@@ -246,7 +246,7 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
                         actionIcon = AppGlyph.stockOut;
                         displayQtyPrefix = "-";
                       } else if (rawAction.contains('사용')) {
-                        displayAction = "씀";
+                        displayAction = "사용";
                         actionColor = Colors.orange.shade700;
                         actionIcon = AppGlyph.stockOut;
                         displayQtyPrefix = "-";

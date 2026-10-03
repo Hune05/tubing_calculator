@@ -157,5 +157,5 @@ int amsCores(AmsKind k, int n) => switch (k) {
 }
 
 const String cableWeightSource =
-    '무게(개산): F-CV는 LS전선·대한전선·넥상스, F-CVV-S는 LS전선·넥상스·대한전선, F-GV는 LS전선·넥상스, '
+    '중량(개산): F-CV는 LS전선·대한전선·넥상스, F-CVV-S는 LS전선·넥상스·대한전선, F-GV는 LS전선·넥상스, '
     'AMS는 LS전선·넥상스·대한전선 카탈로그 중 큰 값(안전 쪽).';

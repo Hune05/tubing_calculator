@@ -225,7 +225,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    "수량은 0으로 넣습니다. 재고조사나 반납으로 채웁니다.",
+                    "수량은 0으로 넣습니다. 재고조사나 자재 화면의 '채움'으로 채웁니다.",
                     style: TextStyle(
                       color: CuttingColors.textSecondary,
                       fontSize: 13,

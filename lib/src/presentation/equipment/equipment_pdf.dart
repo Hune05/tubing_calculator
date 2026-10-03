@@ -18,7 +18,7 @@ Future<Uint8List> buildLedgerPdf(List<Equipment> all, DateTime now) async {
 
   String due(Equipment e) => e.nextDue == null ? '' : dateLabel(e.nextDue!);
   String state(Equipment e) => switch (e.dueState(now)) {
-    DueState.overdue => '만료',
+    DueState.overdue => '기한 지남',
     DueState.soon => '임박',
     DueState.ok => '정상',
     DueState.none => e.isRetired ? '폐기' : '',
@@ -52,7 +52,7 @@ Future<Uint8List> buildLedgerPdf(List<Equipment> all, DateTime now) async {
             pw.Text('장비 관리 대장', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
             pw.Text(
               '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} 기준 · '
-              '전체 ${s.total}대 · 만료 ${s.overdue} · 임박 ${s.soon}',
+              '전체 ${s.total}대 · 기한 지남 ${s.overdue} · 임박 ${s.soon}',
               style: const pw.TextStyle(fontSize: 10),
             ),
           ],

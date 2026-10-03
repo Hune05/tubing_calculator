@@ -35,23 +35,23 @@ final Map<String, List<ModulePreset>> kContactorPresets = {
   ],
   // LS MT 열동: LS Metasol 카탈로그 p.170과 UL 카탈로그(MT-32는 제품 데이터시트도) 일치. 정면 특징은 사진·문서 설명.
   // 슈나이더 LRD08·16: 데이터시트 2건과 검색 요약(폭 45).
-  "열동 계전기 (LS MT·슈나이더 LRD)": [
+  "과부하계전기 (LS MT·슈나이더 LRD)": [
     const ModulePreset(
-      "MT-12 열동 계전기 (LS)",
+      "MT-12 과부하계전기 (LS)",
       45,
       73.2,
       shape: '${ElecShape.ol}:ls',
       depth: 63.7,
     ),
     const ModulePreset(
-      "MT-32 열동 계전기 (LS)",
+      "MT-32 과부하계전기 (LS)",
       45,
       74.55,
       shape: '${ElecShape.ol}:ls',
       depth: 86.3,
     ),
     const ModulePreset(
-      "LRD08·16 열동 계전기 (슈나이더)",
+      "LRD08·16 과부하계전기 (슈나이더)",
       45,
       66,
       shape: '${ElecShape.ol}:sch',
@@ -93,9 +93,9 @@ final Map<String, List<ModulePreset>> kContactorPresets = {
   // 오므론 H3CR-A(11핀)·A8(8핀): 오므론 데이터시트 2본(같은 도면), 앞판 48×48 앞으로 15, 뒷 소켓 P3G-08을 쓰면 총 81.5.
   // 오토닉스 AT8N: 카탈로그 K-64와 설명서 도면(앞 15 + 몸통 50, 핀·소켓 별도).
   // 오므론 K8AK-PM: 데이터시트 2건(레일형 22.5 × 90 × 100).
-  "타이머·감시 계전기 (오므론·오토닉스)": [
+  "타이머·감시 계전기 (옴론·오토닉스)": [
     const ModulePreset(
-      "H3CR-A·A8 타이머 (오므론, 판 매입 48×48, 소켓 포함 깊이)",
+      "H3CR-A·A8 타이머 (옴론, 판 매입 48×48, 소켓 포함 깊이)",
       48,
       48,
       shape: '${ElecShape.timer}:omron',
@@ -109,7 +109,7 @@ final Map<String, List<ModulePreset>> kContactorPresets = {
       depth: 64.5,
     ),
     const ModulePreset(
-      "K8AK-PM 전압 감시 계전기 (오므론, 레일형)",
+      "K8AK-PM 전압 감시 계전기 (옴론, 레일형)",
       22.5,
       90,
       shape: '${ElecShape.mon}:omron',

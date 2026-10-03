@@ -38,7 +38,7 @@ const List<RefSearchEntry> refSearchIndex = [
     'mm',
   ]),
   RefSearchEntry(0, '피팅 삽입 깊이 · 최소 직선'),
-  RefSearchEntry(0, '각도별 셈 (계산기 공식 그대로)', ['셋백', '게인', '호 길이']),
+  RefSearchEntry(0, '각도별 계산 (계산기 공식 그대로)', ['셋백', '게인', '호 길이']),
   RefSearchEntry(0, '오프셋 계수 (빗변·수축·직진)'),
   RefSearchEntry(0, '180° U벤드가 차지하는 자리'),
   RefSearchEntry(0, '스프링백 참고값', ['동관', 'sus316l']),
@@ -48,13 +48,13 @@ const List<RefSearchEntry> refSearchIndex = [
   RefSearchEntry(0, '튜브 작업, 현장에서 지키는 것'),
 
   // 전선관(1)
-  RefSearchEntry(1, '전선관 규격 · 바깥지름', ['ks c 8401', '후강', '박강']),
+  RefSearchEntry(1, '전선관 규격 · 외경', ['ks c 8401', '후강', '박강', '바깥지름']),
   RefSearchEntry(1, '수동 벤더 제원 (앱 값)', ['테이크업', '게인', 'clr']),
   RefSearchEntry(1, '유압식 벤더 제원 (앱 값)', ['램', '셋백', 'clr']),
   RefSearchEntry(1, '시카고식 벤더 제원 (앱 값)', ['노치', '롤러']),
   RefSearchEntry(1, '각도별 테이크업 환산 (계산기 식)'),
   RefSearchEntry(1, '스프링백 · 커플링 끝 여유 기본값'),
-  RefSearchEntry(1, '오프셋·새들 계수 (전선관도 같음)'),
+  RefSearchEntry(1, '오프셋·새들 계수 (튜브 탭 4번과 같은 식)'),
   RefSearchEntry(1, '곤질레다·커플링 (삼화기전 F-7)', [
     'lb',
     'll',
@@ -89,7 +89,7 @@ const List<RefSearchEntry> refSearchIndex = [
   RefSearchEntry(1, '전선관 작업, 현장에서 지키는 것'),
 
   // 형강(2)
-  RefSearchEntry(2, '재단 계획이 세는 법'),
+  RefSearchEntry(2, '재단 계획 계산 방법'),
   RefSearchEntry(2, '앵글 이론 중량표', ['kg/m']),
   RefSearchEntry(2, '찬넬 이론 중량표', ['kg/m']),
   RefSearchEntry(2, '스트럿 이론 중량표', ['kg/m']),
@@ -104,24 +104,24 @@ const List<RefSearchEntry> refSearchIndex = [
   RefSearchEntry(2, '절단 현장에서 지키는 것', ['고속절단기', '밴드쏘']),
 
   // 단위 환산(3)
-  RefSearchEntry(3, '단위 환산 — 길이·인치 분수·피트', ['mm', 'inch', '인치', '분수', 'ft', '피트']),
-  RefSearchEntry(3, '단위 환산 — 압력', ['bar', 'psi', 'mpa', 'kgf/cm2', '수주', 'mmhg']),
-  RefSearchEntry(3, '단위 환산 — 토크', ['nm', 'lb-ft', 'kgf·m', 'kgm', '토크']),
-  RefSearchEntry(3, '단위 환산 — 중량·힘', ['kg', 'lb', 'kgf', '톤', 'lbf', '무게']),
-  RefSearchEntry(3, '단위 환산 — 온도·온도차·유량·면적·부피', ['°c', '°f', 'gpm', 'l/min', '갤런', '온도차']),
-  RefSearchEntry(3, '단위 환산 — 각도·구배·동력·에너지', ['구배', '%', 'mm/m', 'kw', '마력', 'kwh', 'kcal', '냉동톤']),
-  RefSearchEntry(3, '단위 환산 — 전선 굵기 (SQ ↔ AWG)', ['awg', 'sq', '스퀘어', '전선']),
-  RefSearchEntry(3, '단위 환산 — 배관 호칭 (A·B·DN·외경)', ['15a', 'dn', 'nps', '호칭', '외경', '바깥지름']),
+  RefSearchEntry(3, '단위 환산: 길이·인치 분수·피트', ['mm', 'inch', '인치', '분수', 'ft', '피트']),
+  RefSearchEntry(3, '단위 환산: 압력', ['bar', 'psi', 'mpa', 'kgf/cm2', '수주', 'mmhg']),
+  RefSearchEntry(3, '단위 환산: 토크', ['nm', 'lb-ft', 'kgf·m', 'kgm', '토크']),
+  RefSearchEntry(3, '단위 환산: 중량·힘', ['kg', 'lb', 'kgf', '톤', 'lbf', '무게']),
+  RefSearchEntry(3, '단위 환산: 온도·온도차·유량·면적·부피', ['°c', '°f', 'gpm', 'l/min', '갤런', '온도차']),
+  RefSearchEntry(3, '단위 환산: 각도·구배·동력·에너지', ['구배', '%', 'mm/m', 'kw', '마력', 'kwh', 'kcal', '냉동톤']),
+  RefSearchEntry(3, '단위 환산: 전선 굵기 (SQ ↔ AWG)', ['awg', 'sq', '스퀘어', '전선']),
+  RefSearchEntry(3, '단위 환산: 배관 호칭 (A·B·DN·외경)', ['15a', 'dn', 'nps', '호칭', '외경', '바깥지름']),
 
   // 발전 설비(4)
   RefSearchEntry(4, '왜 대형 발전기는 수소(H₂)로 냉각하나', ['h2', '수소냉각', '풍손']),
-  RefSearchEntry(4, '수소 가스 계통 — 판넬·드라이어·퍼지', [
+  RefSearchEntry(4, '수소 가스 계통: 판넬·드라이어·퍼지', [
     '가스 판넬',
     '가스 드라이어',
     'co2 퍼지',
     '순도',
   ]),
-  RefSearchEntry(4, '씰 오일 계통 — 수소가 축을 따라 안 새는 이유', [
+  RefSearchEntry(4, '씰 오일 계통: 수소가 축을 따라 안 새는 이유', [
     'seal oil',
     '씰오일탱크',
     '차압',
@@ -133,13 +133,13 @@ const List<RefSearchEntry> refSearchIndex = [
     '오일쿨러',
     '비상오일펌프',
   ]),
-  RefSearchEntry(4, '냉각수 계통(워터 쿨링) — 열을 밖으로 빼내는 3단', [
+  RefSearchEntry(4, '냉각수 계통(워터 쿨링): 열을 밖으로 빼내는 3단', [
     '워터쿨링',
     '고정자냉각수',
     '밀폐냉각수',
     'ccw',
   ]),
-  RefSearchEntry(4, '밸브 스테이션 — 밸브를 왜 한 곳에 모아두나', ['valve station']),
+  RefSearchEntry(4, '밸브 스테이션: 밸브를 왜 한 곳에 모아두나', ['valve station']),
   RefSearchEntry(4, '전체 흐름 한눈에 보기', ['원자로', '보일러', '터빈', '복수기']),
   RefSearchEntry(4, '같이 딸려 다니는 다른 보조계통', [
     '여자계통',
@@ -156,13 +156,13 @@ const List<RefSearchEntry> refSearchIndex = [
     '전기설비기술기준',
     'law.go.kr',
   ]),
-  RefSearchEntry(5, '접지·과전류 보호 — 감전·화재와 직결', [
+  RefSearchEntry(5, '접지·과전류 보호: 감전·화재와 직결', [
     '접지',
     '계통접지',
     '과전류보호',
     '차단기',
   ]),
-  RefSearchEntry(5, '절연저항·이격거리 — 측정값 기준', ['절연저항', '이격거리', '메거']),
+  RefSearchEntry(5, '절연저항·이격거리: 측정값 기준', ['절연저항', '이격거리', '메거']),
   RefSearchEntry(5, '최근 몇 년 사이 개정이 잦았던 분야', [
     'ev충전',
     '신재생',

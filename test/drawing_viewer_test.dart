@@ -87,6 +87,8 @@ void main() {
       final back = DrawingMark.fromJson(a.toJson());
       expect(back.points.single, (0.25, 0.5));
       expect(back.history.single.what, '만듦');
+      // 예전에 '다시 남음'으로 저장한 기록은 '해결 취소'로 읽는다(10-03 문구 통일).
+      expect(MarkEvent.fromJson({'at': at.toIso8601String(), 'what': '다시 남음', 'who': '김'}).what, '해결 취소');
       expect(nextIssueNo([a, b, c]), 3);
       expect(issuesOf([c, b, a]).map((m) => m.id), ['1', '2']);
       expect(openIssueCount([a, b, c]), 1);

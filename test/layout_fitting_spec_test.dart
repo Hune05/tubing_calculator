@@ -25,7 +25,7 @@ void main() {
     ModulePreset find(String n) =>
         kFittingPresets.values.expand((l) => l).firstWhere((p) => p.name == n);
     expect(find('피메일 커넥터 3/8"×3/8" NPT').width, 39.1); // CFC 6-6N L
-    expect(find('리듀싱 유니언 1/2"×3/8"').width, 48.5); // CUR 8-6 L
+    expect(find('리듀싱 유니온 1/2"×3/8"').width, 48.5); // CUR 8-6 L
     expect(find('벌크헤드 메일 커넥터 1/2"×1/2" NPT').width, 68.8); // CBMC 8-8N L
   });
 

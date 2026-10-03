@@ -186,7 +186,7 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
             ? '공구 점검 기한 지남 ${s.overdue}대'
             : '공구 점검 기한 임박 ${s.soon}대',
         detail: s.overdue > 0 && s.soon > 0
-            ? '기한이 지난 장비 ${s.overdue}대, 30일 안에 오는 장비 ${s.soon}대가 있습니다. 눌러서 확인하십시오.'
+            ? '기한이 지난 공구 ${s.overdue}대, 7일 안에 기한이 오는 공구 ${s.soon}대가 있습니다. 눌러서 확인하십시오.'
             : (s.overdue > 0
                   ? '점검 기한이 지난 공구가 있습니다. 눌러서 확인하십시오.'
                   : '7일 안에 점검 기한이 오는 공구가 있습니다. 눌러서 확인하십시오.'),
@@ -203,7 +203,7 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         id: 'safety_today',
         icon: Icons.health_and_safety_outlined,
         color: AppColors.caution,
-        title: '오늘 안전 점검 아직',
+        title: '오늘 안전 점검 안 함',
         detail: '작업 전 안전 점검을 아직 안 했습니다. 눌러서 바로 점검하십시오.',
         route: () =>
             MaterialPageRoute<void>(builder: (_) => const SafetyCheckPage()),
@@ -216,12 +216,12 @@ Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
         id: 'pending_writes',
         icon: Icons.cloud_upload_outlined,
         color: Colors.deepOrange,
-        title: '오프라인 저장 대기 $pending건',
+        title: '서버에 못 올린 저장 $pending건',
         detail: () {
           final names = PendingWriteLog.namesLabel(
             WorkProjectRepository.pendingLog.entries.value,
           );
-          final head = names.isEmpty ? '' : '$names — ';
+          final head = names.isEmpty ? '' : '$names: ';
           return '$head통신이 없어 폰에만 저장된 작업이 있습니다. 연결되면 서버로 자동으로 올라갑니다.';
         }(),
         route: () =>

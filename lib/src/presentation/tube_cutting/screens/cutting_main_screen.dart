@@ -414,7 +414,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     if (!mounted) return null;
     final ok = await showCuttingConfirmDialog(
       context,
-      title: "재고에서 빼겠습니까?",
+      title: "재고에서 빼시겠습니까?",
       message: warning.isEmpty
           ? "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다."
           : "$lines\n\n창고 재고에서 위 수량을 빼고 자재 기록에 남깁니다.\n\n$warning",
@@ -455,7 +455,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     ].join('\n');
     final ok = await showCuttingConfirmDialog(
       context,
-      title: "뺀 것을 도로 넣겠습니까?",
+      title: "뺀 것을 도로 넣으시겠습니까?",
       message: "$lines\n\n창고 재고에 위 수량을 도로 넣고 자재 기록에 남깁니다.",
       confirmLabel: "도로 넣기",
       icon: Icons.undo,
@@ -690,7 +690,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 8),
-            pw.Text("프로젝트: ${widget.project.name}"),
+            pw.Text("작업: ${widget.project.name}"),
             pw.Text("작성 날짜: $dateStr"),
             pw.Text(
               "메이커 고정: $_globalMaker    세트 수: $_setMultiplier SET"
@@ -743,8 +743,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         XFile(file.path),
       ], text: "${widget.project.name} 컷팅 지시서입니다.");
     } catch (e) {
+      debugPrint('컷팅 지시서 내보내기 실패: $e');
       if (!mounted) return;
-      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+      showCuttingSnack(context, "내보내지 못했습니다.", isError: true);
     }
   }
 
@@ -770,7 +771,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
             ),
             pw.SizedBox(height: 6),
-            pw.Text("프로젝트: ${widget.project.name}    작성일: $dateStr"),
+            pw.Text("작업: ${widget.project.name}    작성 날짜: $dateStr"),
             pw.SizedBox(height: 14),
             ...buildDiagramPdfWidgets(
               points: data.$1,
@@ -791,8 +792,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         XFile(file.path),
       ], text: "${widget.project.name} 배치도입니다.");
     } catch (e) {
+      debugPrint('배치도 내보내기 실패: $e');
       if (!mounted) return;
-      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+      showCuttingSnack(context, "내보내지 못했습니다.", isError: true);
     }
   }
 
@@ -2475,7 +2477,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           OutlinedButton(
             key: const Key('tube_stock_later'),
             onPressed: () => Navigator.pop(ctx, _TubeStockChoice.later),
-            child: const Text("목록 '빼기 대기'에 남기고 저장"),
+            child: const Text("저장하고 나중에 빼기"),
           ),
           TextButton(
             key: const Key('tube_stock_skip'),
@@ -2672,7 +2674,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           shape: const Border(bottom: BorderSide(color: AppColors.line)),
           elevation: 0,
           title: Text(
-            "프로젝트: ${widget.project.name}",
+            "작업: ${widget.project.name}",
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
           ),
@@ -2879,7 +2881,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "배관 라인 구축",
+                      "라인 구성",
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
@@ -3222,7 +3224,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ],
           ),
           Text(
-            "지점을 누르면 입력 화면에서 바로 고치고, 길게 누르면 부속을 바꿀 수 있습니다",
+            "포인트를 누르면 입력 화면에서 바로 고치고, 길게 누르면 부속을 바꿀 수 있습니다",
             style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
           ),
           const SizedBox(height: 10),
@@ -3561,7 +3563,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    isCustom ? "수동 입력값" : "공제값",
+                    isCustom ? "공제값 (직접 입력)" : "공제값",
                     style: TextStyle(
                       color: Colors.grey.shade600,
                       fontSize: 12,
@@ -4262,8 +4264,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       if (!mounted) return;
       showCuttingSnack(context, "카카오톡을 찾지 못해 공유창으로 보냈습니다.");
     } catch (e) {
+      debugPrint('지시서 보내기 실패: $e');
       if (!mounted) return;
-      showCuttingSnack(context, "보내기 실패: $e", isError: true);
+      showCuttingSnack(context, "보내지 못했습니다.", isError: true);
     }
   }
 

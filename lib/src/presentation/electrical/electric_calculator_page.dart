@@ -132,7 +132,7 @@ const double kDcVoltsDefault = 125;
 
 const String _motorSwitchLabel = '전동기 부하 (×1.25, 50A 초과 ×1.1)';
 const String _motorSwitchGuide =
-    '연속 운전 전동기는 전선 허용전류와 차단기를 정격전류의 1.25배(정격전류가 50A를 넘으면 1.1배)로 '
+    '연속 운전 전동기는 전선 허용전류와 차단기를 정격전류의 1.25배(정격전류가 50A를 초과하면 1.1배)로 '
     '선정하는 것이 관례입니다(구 내선규정 방식, LS ELECTRIC MCCB 선정 자료). 미국 NEC 430.22는 늘 1.25배입니다.\n'
     'KEC에는 이 배수가 없으니 설계 기준을 따르십시오. 전압강하는 실제 전류로 계산합니다.';
 
@@ -544,7 +544,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       return true;
     }
     if (cs.any((c) => _pctFields.contains(c) && (_num(c) ?? 0) > 100)) {
-      _badMsg = '역률·효율은 100%를 넘을 수 없습니다';
+      _badMsg = '역률·효율은 100%를 초과할 수 없습니다';
       return true;
     }
     return false;
@@ -558,7 +558,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     lines: [
       _badMsg.startsWith('음수')
           ? '0보다 큰 값을 넣으십시오.'
-          : '100 이하의 값을 넣으십시오. 소수(0.85)로 넣으면 85%로 읽습니다.',
+          : '100 이하의 값을 넣으십시오. 소수(0.85)로 넣으면 85%로 계산합니다.',
     ],
   );
 
@@ -1325,7 +1325,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         ground ? '같은 관로·트렌치의 회로 수' : '같이 포설된 회로 수',
         _circuits,
         '같은 트레이·같은 관·같은 묶음에 나란히 있는 회로(케이블) 수입니다. 이 회로를 포함해 넣으십시오. '
-            '많을수록 열이 빠지지 않아 허용전류가 줄어듭니다(다조 포설 보정). 20회로를 넘으면 표 끝 20회로 값을 씁니다.',
+            '많을수록 열이 빠지지 않아 허용전류가 줄어듭니다(다조 포설 보정). 20회로를 초과하면 표 끝 20회로 값을 씁니다.',
       ),
       _chipGroup(
         '병렬 가닥 수',
@@ -1380,9 +1380,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     (s) => setState(() => _supply = s),
     'KEC 232.3.9 표 232.3-1 값은 수전점(수용가 설비의 인입구)부터 기기까지 전체 전압강하 한도입니다. '
         '여기서는 이 케이블 한 구간만 계산하므로, 간선 전압강하를 더해 한도 이내인지 확인하십시오.\n'
-        '고압 수전(발전소·플랜트 자체 변압기)이라도 최종 회로는 저압 수전 값(동력 5%, 조명 3%)을 넘지 않는 것이 '
+        '고압 수전(발전소·플랜트 자체 변압기)이라도 최종 회로는 저압 수전 값(동력 5%, 조명 3%)을 초과하지 않는 것이 '
         '바람직합니다(표 232.3-1 주 a). 그래서 기본은 5%입니다.\n'
-        '100m를 넘는 만큼 1m에 0.005%씩(최대 0.5%) 더 허용됩니다.',
+        '100m를 초과하는 만큼 1m에 0.005%씩(최대 0.5%) 더 허용됩니다.',
   );
 
   String _peLine(double size) {
@@ -1482,7 +1482,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       if (!c.dropChecked) '길이를 넣으면 전압강하를 검토합니다.',
       if (size != null) _peLine(size),
       if (r != null)
-        '과부하는 열동형 과부하 계전기(THR)로 보호합니다. 제조사 전동기 회로용 차단기 선정표로 확인하십시오.',
+        '과부하는 과부하계전기(THR)로 보호합니다. 제조사 전동기 회로용 차단기 선정표로 확인하십시오.',
       if (c.parallel >= 4) '4가닥 이상 병렬은 버스바 트렁킹 사용을 검토하십시오(KEC 232.3.2).',
       ...inputNotes,
       ...c.notes,
@@ -1515,8 +1515,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           : '${sqText(size)}${c.parallel > 1 ? ' × ${c.parallel}가닥' : ''}',
       caption: size == null
           ? (c.tempOutOfRange
-                ? '온도 보정계수 표 범위를 넘습니다'
-                : '표 범위(${top}sq ${c.parallel}가닥)를 넘습니다')
+                ? '온도 보정계수 표 범위를 초과합니다'
+                : '표 범위(${top}sq ${c.parallel}가닥)를 초과합니다')
           : '${_kind == WireKind.fcv ? 'F-CV ' : ''}${_cph == Phase.three ? '3심' : '2심'} 기준 추천 굵기'
                 '${_dc ? '(직류)' : ''}',
       warn: warn,
@@ -1558,7 +1558,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             if (k.motorOverIzAllowed) {
               lines.add(
                 '차단기 ${br}A가 허용전류 ${izT}A를 초과하지만 전동기 회로 상한 ${fmt(k.motorRange!.highA, 1)}A 이내입니다. '
-                '과부하는 과부하 계전기(THR)로 보호해야 합니다.',
+                '과부하는 과부하계전기(THR)로 보호해야 합니다.',
               );
             } else {
               fail = true;
@@ -1620,7 +1620,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       big: iz == null ? '검토 필요' : '${fmt(iz, 1)} A',
       caption: iz == null
           ? (k.tempOutOfRange
-                ? '온도 보정계수 표 범위를 넘습니다'
+                ? '온도 보정계수 표 범위를 초과합니다'
                 : '$sizeT 허용전류를 계산할 수 없습니다')
           : '$sizeT 보정 후 허용전류',
       warn: warn,
@@ -1631,7 +1631,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         ? '검토 필요'
         : [
             '$sizeT 허용전류 ${fmt(iz, 1)}A',
-            if (checked) fail ? '점검 필요' : '조건 만족',
+            if (checked) fail ? '불합격' : '합격',
             if (k.dropPct != null) '전압강하 ${fmt(k.dropPct!, 1)}%',
           ].join(' · ');
     final basis = <String>[
@@ -1745,7 +1745,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (pct != null) {
       summary =
           '${fmt(pct, 2)}% · ${over ? '한도 ${fmt(limit, 2)}% 초과' : '한도 ${fmt(limit, 2)}% 이내'}';
-      if (startOver) summary = '$summary · 기동 시 허용 초과';
+      if (startOver) summary = '$summary · 기동 시 허용 전압강하 초과';
     }
     return _page(sumKey: 'ec_sum_vd', summary: summary, warn: over || startOver, [
       _systemPicker('ec_vd'),
@@ -1839,7 +1839,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           'ec_vd_startlim',
           '허용 기동 전압강하 (%, 선택)',
           _vdStartLimit,
-          '설계 기준이나 전동기 제조사가 정하는 값입니다. 넣으면 기동 시 전압강하가 이 값 이내인지 합격/불합격으로 봅니다. '
+          '설계 기준이나 전동기 제조사가 정하는 값입니다. 넣으면 기동 시 전압강하가 이 값 이내인지 합격/불합격을 판정합니다. '
               '비우면 판정하지 않습니다. KEC에는 기동 중 한도가 없습니다.',
         ),
       _supplyDropdown('ec_vd_supply'),
@@ -1898,8 +1898,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           '기동: 정격전류 × ${fmt(startMult)}배(${_vdStartMode == StartMode.starDelta ? 'Y-Δ는 직입 배수 ${fmt(mult)}의 1/3' : '입력한 배수'}), '
               '역률 ${fmt(startPf, 2)}(직입 기본 0.35는 Schneider EIG 2009 그림 G27·G28)',
         if (_vdStart && !_dc)
-          '기동 토크는 전압의 제곱에 비례합니다(유도전동기 일반 이론). 단자 전압 잔존은 전원 쪽 합계를 정격 전압에서 뺀 근사값입니다.',
-        '최대 길이: 한도(100m를 넘으면 1m당 0.005%, 최대 0.5% 더함)에서 전원 쪽 강하를 뺀 값과 이 회로 전압강하가 같아지는 길이',
+          '기동 토크는 전압의 제곱에 비례합니다(유도전동기 일반 이론). 단자 전압은 정격 전압에서 전원 쪽 포함 전압강하 합계를 뺀 근사값입니다.',
+        '최대 길이: 한도(100m를 초과하면 1m당 0.005%, 최대 0.5% 더함)에서 전원 쪽 강하를 뺀 값과 이 회로 전압강하가 같아지는 길이',
         _supplyTotalLine,
       ]),
     ]);
@@ -1949,7 +1949,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _voltsPhase(),
       _field(
         'ec_pc_kw',
-        '유효 전력 (kW)',
+        '유효전력 (kW)',
         _pcKw,
         '역률을 올릴 부하의 전력(kW)입니다. 전력량계나 부하 목록에서 보십시오.',
       ),
@@ -1976,7 +1976,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               '부하 전류 개선 전 ${fmt(i1, 1)} A → 개선 후 ${fmt(i2, 1)} A',
             if (q != null && q == 0) '목표 역률이 개선 전 역률보다 높아야 합니다.',
             if (q != null && q > 0 && target > 0.95)
-              '목표 역률이 95%를 넘습니다. 콘덴서를 고정으로 달면 경부하 때 진상(과보상)이 될 수 있습니다. 자동 역률 조정 장치나 단계 투입을 검토하십시오.',
+              '목표 역률이 95%를 초과합니다. 콘덴서를 고정으로 달면 경부하 때 진상(과보상)이 될 수 있습니다. 자동 역률 조정 장치나 단계 투입을 검토하십시오.',
             if (uf != null && q! > 0)
               'μF는 국내 저압 진상 콘덴서 표기(선간전압 기준)로 환산했습니다. 제조사 표로 확인하십시오.',
             ...notes,

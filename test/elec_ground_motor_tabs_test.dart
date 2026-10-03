@@ -78,7 +78,7 @@ void main() {
     await _type(tester, 'gr_target', '10');
     // 1.2 × 41.2 ÷ 4 = 12.4 → 목표 10 초과
     expect(find.text('12.4 Ω'), findsOneWidget);
-    expect(find.textContaining('목표 10 Ω를 넘습니다'), findsOneWidget);
+    expect(find.textContaining('목표 10 Ω를 초과합니다'), findsOneWidget);
     await _type(tester, 'gr_space', '0.5');
     expect(find.textContaining('1 m 미만이라 병렬 식을 쓸 수 없습니다'), findsOneWidget);
   });
@@ -103,13 +103,13 @@ void main() {
     await _type(tester, 'emp_run', '30');
     expect(find.textContaining('33 ~ 37.5 A'), findsOneWidget);
     // 기동시간 6초: 클래스 10(상한 10초) 안
-    expect(find.textContaining('기동시간 6초는 클래스 10 상한 10초 안입니다'), findsOneWidget);
+    expect(find.textContaining('기동시간 6초는 클래스 10 상한 10초 이내입니다'), findsOneWidget);
     await _type(tester, 'emp_start', '12');
     expect(find.textContaining('기동 중 트립될 수 있습니다'), findsOneWidget);
     await _tap(tester, 'emp_cls_20');
-    expect(find.textContaining('기동시간 12초는 클래스 20 상한 20초 안입니다'), findsOneWidget);
+    expect(find.textContaining('기동시간 12초는 클래스 20 상한 20초 이내입니다'), findsOneWidget);
     // 단락 상한: 40 A × 250% = 100 A
-    expect(find.textContaining('역시간 차단기: 최대 100 A'), findsOneWidget);
+    expect(find.textContaining('반한시 차단기: 최대 100 A'), findsOneWidget);
     expect(find.textContaining('FLC × 125% = 50 A'), findsOneWidget);
   });
 }

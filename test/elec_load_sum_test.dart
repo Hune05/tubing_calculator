@@ -662,7 +662,7 @@ void main() {
       // 값을 바꾸고 불러오기: 묻는 창에서 취소하면 그대로, 확인하면 돌아온다.
       await type(tester, 'els_kw_0', '999');
       await tapKey(tester, 'els_open_0');
-      expect(find.textContaining('불러오겠습니까?'), findsOneWidget);
+      expect(find.textContaining('불러오시겠습니까?'), findsOneWidget);
       await tester.tap(find.byKey(const Key('els_dialog_cancel')));
       await tester.pumpAndSettle();
       expect(firstKwText(tester), '999');
@@ -673,7 +673,7 @@ void main() {
 
       // 같은 이름 저장은 덮어쓰기를 묻는다.
       await tapKey(tester, 'els_save');
-      expect(find.textContaining('덮어쓰겠습니까?'), findsOneWidget);
+      expect(find.textContaining('덮어쓰시겠습니까?'), findsOneWidget);
       await tester.tap(find.byKey(const Key('els_dialog_ok')));
       await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
@@ -681,7 +681,7 @@ void main() {
 
       // 지우기.
       await tapKey(tester, 'els_sheet_del_0');
-      expect(find.textContaining('지우겠습니까?'), findsOneWidget);
+      expect(find.textContaining('지우시겠습니까?'), findsOneWidget);
       await tester.tap(find.byKey(const Key('els_dialog_ok')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('els_open_0')), findsNothing);

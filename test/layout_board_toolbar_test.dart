@@ -287,7 +287,7 @@ void main() {
     await openWithDraft(tester, kPhone, presets: true);
     expectNoSmallText(tester);
     expectTouchable(tester, buttonOf('여러 개 선택'));
-    for (final t in ['모듈 배치/이동', '고정 치수 측정']) {
+    for (final t in ['부품 배치/이동', '치수 측정']) {
       final Size s = tester.getSize(
         find.ancestor(
           of: find.text(t),
@@ -298,7 +298,7 @@ void main() {
     }
 
     // 치수 모드 도구 칸도 같다.
-    await tester.tap(find.text('고정 치수 측정'));
+    await tester.tap(find.text('치수 측정'));
     await tester.pumpAndSettle();
     expectNoSmallText(tester);
     expectTouchable(tester, buttonOf('체인'));
@@ -310,17 +310,17 @@ void main() {
     await openWithDraft(tester, kTablet);
     expect(find.byType(FilterChip), findsNothing);
     expect(find.byType(ChoiceChip), findsNothing);
-    await tester.tap(find.text('고정 치수 측정'));
+    await tester.tap(find.text('치수 측정'));
     await tester.pumpAndSettle();
     expect(find.byType(FilterChip), findsNothing);
     expect(find.byType(ChoiceChip), findsNothing);
     await disposeBoard(tester);
   });
 
-  testWidgets('폰 폭: 아래 칸의 신규 모듈을 위로 끌어 도면에 놓는다', (tester) async {
+  testWidgets('폰 폭: 아래 칸의 신규 부품을 위로 끌어 도면에 놓는다', (tester) async {
     await openWithDraft(tester, kPhone);
-    expect(onBoard('신규 모듈'), findsNothing);
-    final Offset from = tester.getCenter(find.text('신규 모듈'));
+    expect(onBoard('신규 부품'), findsNothing);
+    final Offset from = tester.getCenter(find.text('신규 부품'));
     final g = await tester.startGesture(from);
     for (int i = 0; i < 12; i++) {
       await g.moveBy(const Offset(0, -40));
@@ -329,7 +329,7 @@ void main() {
     await g.up();
     await tester.pumpAndSettle();
     // 놓으면 좁은 화면에서는 편집 바텀시트가 열린다.
-    expect(onBoard('신규 모듈'), findsOneWidget);
+    expect(onBoard('신규 부품'), findsOneWidget);
     await disposeBoard(tester);
   });
 
@@ -346,7 +346,7 @@ void main() {
     ) async {
       await openWithDraft(tester, size, presets: true);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('고정 치수 측정'));
+      await tester.tap(find.text('치수 측정'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await disposeBoard(tester);

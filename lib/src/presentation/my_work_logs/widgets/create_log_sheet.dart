@@ -138,7 +138,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
               ),
               const SizedBox(height: 28),
               const Text(
-                "새로운 작업을\n시작하시겠습니까?",
+                "새 프로젝트를\n만드시겠습니까?",
                 style: TextStyle(
                   color: tossText,
                   fontSize: 24,
@@ -159,7 +159,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                   color: tossText,
                 ),
                 decoration: InputDecoration(
-                  labelText: "작업 명칭 (현장명)",
+                  labelText: "프로젝트 이름 (현장명)",
                   labelStyle: const TextStyle(color: tossSubText, fontSize: 15),
                   filled: true,
                   fillColor: tossInputBg,

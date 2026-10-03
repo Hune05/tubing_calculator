@@ -27,7 +27,7 @@ class AlignRecord {
   final AlignMethod method;
   final AlignStage stage;
   final int rpm;
-  final String equipmentId; // 장비 대장의 장비(없으면 빈 글)
+  final String equipmentId; // 장비 관리 대장의 장비(없으면 빈 글)
   final String note;
 
   /// 화면에 넣은 값 그대로(다시 열어 볼 수 있게).
@@ -122,10 +122,10 @@ class AlignRecord {
 }
 
 String verdictLabel(AlignVerdict v) => switch (v) {
-  AlignVerdict.ok => '허용 안',
-  AlignVerdict.offsetOut => '평행 어긋남 초과',
-  AlignVerdict.angleOut => '각도 어긋남 초과',
-  AlignVerdict.bothOut => '평행·각도 모두 초과',
+  AlignVerdict.ok => '합격 (허용오차 이내)',
+  AlignVerdict.offsetOut => '불합격: 평행 어긋남 초과',
+  AlignVerdict.angleOut => '불합격: 각도 어긋남 초과',
+  AlignVerdict.bothOut => '불합격: 평행·각도 모두 초과',
 };
 
 String _two(int n) => n.toString().padLeft(2, '0');

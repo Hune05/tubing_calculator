@@ -12,7 +12,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: MeterLoopGuidePage()));
     await tester.pumpAndSettle(); // 흐름 그림이 멈추므로 끝난다
     expect(find.byKey(const Key('mlg_meter')), findsOneWidget);
-    expect(find.text('멀티미터로 4-20 mA 재기'), findsOneWidget);
+    expect(find.text('멀티미터로 4-20 mA 측정'), findsOneWidget);
     // %로 보기
     await tester.ensureVisible(find.text('4-20mA %로 보기'));
     await tester.pumpAndSettle();

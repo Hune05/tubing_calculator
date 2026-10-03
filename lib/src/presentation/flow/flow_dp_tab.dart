@@ -134,8 +134,8 @@ mixin _FlowDpTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         warn: dpPct > 100 + 1e-9,
         lines: [
           '유량 ${_fmt(qPct)}% · 차압 ${_fmt(dpPct)}%',
-          '전송기 출력(차압 비례): ${_fmt(4 + 16 * dpPct / 100, 3)} mA',
-          '전송기 출력(제곱근 출력 설정): ${_fmt(4 + 16 * qPct / 100, 3)} mA',
+          '선형(LINEAR)이면 ${_fmt(4 + 16 * dpPct / 100, 3)} mA',
+          '제곱근(전송기 출력)이면 ${_fmt(4 + 16 * qPct / 100, 3)} mA',
           if (dpPct > 100 + 1e-9) '측정 범위(최대 차압)를 초과했습니다.',
         ],
       );
@@ -248,7 +248,7 @@ mixin _FlowDpTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
             ],
           ),
           const SizedBox(height: 8),
-          _row('유량', '차압', 'mA(차압)', head: true),
+          _row('유량', '차압', 'mA(선형)', head: true),
           for (final p in pts)
             () {
               final qPct = _mByFlow ? p : 10 * math.sqrt(p);
@@ -392,7 +392,7 @@ mixin _FlowDpTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         'fm_o_d',
         '오리피스 구멍 d (mm)',
         _oBore,
-        '오리피스 판 구멍 지름입니다. 판 손잡이(탭)에 각인되어 있고 사이징 시트에도 있습니다. '
+        '오리피스 판 구멍 지름입니다. 판 핸들에 각인되어 있고 사이징 시트에도 있습니다. '
             'd/D(β)는 0.1~0.75, d는 12.5mm 이상이어야 합니다.',
       ),
       _pg._chips(

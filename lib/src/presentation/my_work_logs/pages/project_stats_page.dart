@@ -102,7 +102,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
   Future<void> _exportPdf(_Summary s) async {
     final charts = <ReportChart>[
       if (s.rows.isNotEmpty)
-        ReportChart(_logs.length == 1 ? '단계별 투입 (인원-일)' : '프로젝트별 투입 (인원-일)', [
+        ReportChart(_logs.length == 1 ? '단계별 투입 (인·일)' : '프로젝트별 투입 (인·일)', [
           for (final r in s.rows) ReportChartRow(r.label, r.value, r.right),
         ]),
       if (s.plan.any((p) => p.$2 > 0))
@@ -116,7 +116,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
             ),
         ]),
       if (s.months.isNotEmpty)
-        ReportChart('월별 투입 (인원-일)', [
+        ReportChart('월별 투입 (인·일)', [
           for (final m in s.months)
             ReportChartRow(
               '${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월',
@@ -133,7 +133,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
       ReportSection(_logs.length == 1 ? '단계별 투입' : '프로젝트별 투입', [
         for (final r in s.rows) '· ${r.label}: ${r.right}  ${r.sub}',
       ]),
-      ReportSection('월별 투입 인원-일', [
+      ReportSection('월별 투입 인·일', [
         for (final m in s.months)
           '· ${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월: ${formatManDays(s.monthMan[m]!)}인·일',
       ]),
@@ -438,7 +438,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
               runSpacing: 10,
               children: [
                 tile("작업일수", "${s.days}일"),
-                tile("투입 인원-일", "${formatManDays(s.manDays)} 인·일"),
+                tile("투입 인·일", "${formatManDays(s.manDays)} 인·일"),
                 tile("하루 평균 인원", (s.manDays / s.days).toStringAsFixed(1)),
                 tile("연장/야간", "${s.otHours.toStringAsFixed(1)}시간"),
                 tile("벤딩 합계", "${s.pt.round()} pt"),
@@ -460,7 +460,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  keepWords("다음 견적/일정에서 필요한 인원-일을 어림할 때 참고하십시오."),
+                  keepWords("다음 견적/일정에서 필요한 인·일을 어림할 때 참고하십시오."),
                   style: TextStyle(color: _sub, fontSize: 12),
                 ),
               ]),
@@ -583,7 +583,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                     },
                   ),
               ]),
-            section("월별 투입 인원-일", [
+            section("월별 투입 인·일", [
               for (final m in s.months)
                 bar(
                   "${m.substring(0, 4)}년 ${int.parse(m.substring(5))}월",

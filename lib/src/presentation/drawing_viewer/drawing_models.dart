@@ -47,8 +47,14 @@ class MarkEvent {
   const MarkEvent(this.at, this.what, this.who);
 
   Map<String, dynamic> toJson() => {'at': at.toIso8601String(), 'what': what, 'who': who};
-  static MarkEvent fromJson(Map<String, dynamic> j) =>
-      MarkEvent(DateTime.tryParse('${j['at']}') ?? DateTime.fromMillisecondsSinceEpoch(0), '${j['what'] ?? ''}', '${j['who'] ?? ''}');
+  static MarkEvent fromJson(Map<String, dynamic> j) => MarkEvent(
+    DateTime.tryParse('${j['at']}') ?? DateTime.fromMillisecondsSinceEpoch(0),
+    _renamedEvents['${j['what'] ?? ''}'] ?? '${j['what'] ?? ''}',
+    '${j['who'] ?? ''}',
+  );
+
+  /// 이름을 바꾼 기록 글(예전 글 → 새 글). 예전에 저장한 기록도 새 글로 읽는다(10-03).
+  static const Map<String, String> _renamedEvents = {'다시 남음': '해결 취소'};
 }
 
 class DrawingMark {

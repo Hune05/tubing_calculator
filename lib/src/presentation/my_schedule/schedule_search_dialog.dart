@@ -85,7 +85,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
             if (widget.filtered) ...[
               const SizedBox(height: 8),
               const Text(
-                "종류·프로젝트 필터를 걸어 두어서 그 안에서만 찾습니다.",
+                "종류·프로젝트 필터가 걸려 있어 그 안에서만 찾습니다.",
                 style: TextStyle(fontSize: 13, color: Color(0xFF4E5968)),
               ),
             ],

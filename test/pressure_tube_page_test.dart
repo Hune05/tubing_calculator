@@ -266,10 +266,10 @@ void main() {
     await type(tester, 'pt_tube_temp', '500');
     r = await tubeText(tester);
     expect(r, startsWith('튜브 허용 사용압력 (설계 온도 500°C)\n—'));
-    expect(r, contains('표 A-1에 넣은 범위(-254~427°C) 밖이라 계산하지 않습니다.'));
+    expect(r, contains('앱에 들어 있는 표 A-1 범위(-254~427°C)를 벗어나 계산하지 않습니다.'));
     await tapKey(tester, 'pt_tm_cs');
     await type(tester, 'pt_tube_temp', '-40');
-    expect(await tubeText(tester), contains('(-29~427°C) 밖이라'));
+    expect(await tubeText(tester), contains('(-29~427°C)를 벗어나'));
     await finish(tester);
   });
 
@@ -312,12 +312,12 @@ void main() {
     r = await tubeText(tester);
     expect(
       r,
-      contains('B31.1 표 A-3, A213 TP316에 넣은 범위(-29~427°C) 밖이라 계산하지 않습니다.'),
+      contains('앱에 들어 있는 B31.1 표 A-3, A213 TP316 범위(-29~427°C)를 벗어나 계산하지 않습니다.'),
     );
     expect(r, contains('B31.1은 −29°C 아래 저온을 124.1.2(B31T 요건)로 따로 확인합니다.'));
     await tapKey(tester, 'pt_b313');
     r = await tubeText(tester);
-    expect(r, isNot(contains('밖이라')));
+    expect(r, isNot(contains('벗어나')));
     await finish(tester);
   });
 
@@ -363,7 +363,7 @@ void main() {
     await openTab(tester, 'pt_tab_energy');
     expect(
       textOf(tester, 'pt_se_tube'),
-      '구간 1: SS316 1/4" × 0.035", 내경 4.57 mm (시험 압력 탭 규격)',
+      '구간 1: SS316 1/4" × 0.035", 내경 4.57 mm (시험압력 탭 규격)',
     );
     expect(find.byKey(const Key('pt_se_id')), findsNothing);
     await type(tester, 'pt_se_tlen', '100');

@@ -228,7 +228,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     if (t.isEmpty) return null;
     final v = readNum(c);
     if (v == null || !v.isFinite) {
-      errs.add('$label: 숫자로 읽을 수 없습니다.');
+      errs.add('$label: 숫자가 아닙니다.');
       return null;
     }
     return v;
@@ -393,7 +393,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       bkCard = calcResult(
         key: const Key('ec_sc_breaker_result'),
         big: '—',
-        caption: rr == null ? '위 단락전류를 먼저 계산하십시오' : '차단용량을 넣으면 합격/불합격을 봅니다',
+        caption: rr == null ? '위 단락전류를 먼저 계산하십시오' : '차단용량을 넣으면 합격/불합격을 판정합니다',
         lines: const [],
       );
     } else {
@@ -453,14 +453,14 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       cabCard = calcResult(
         key: const Key('ec_sc_cable_result'),
         big: '—',
-        caption: '케이블 구간을 추가하면 그 구간의 열 견딤을 봅니다',
+        caption: '케이블 구간을 추가하면 그 구간의 열적 강도를 판정합니다',
         lines: const [],
       );
     } else if (rr == null || tSec == null) {
       cabCard = calcResult(
         key: const Key('ec_sc_cable_result'),
         big: '—',
-        caption: rr == null ? '위 단락전류를 먼저 계산하십시오' : '차단 시간(초)을 넣으면 합격/불합격을 봅니다',
+        caption: rr == null ? '위 단락전류를 먼저 계산하십시오' : '차단 시간(초)을 넣으면 합격/불합격을 판정합니다',
         lines: const [],
       );
     } else {
@@ -488,7 +488,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         warn: cabWarn,
         lines: [
           '단락전류 ${_ka(ikA)} kA(${manualKa != null ? '직접 입력값. 자동 값 ${_ka(autoA)} kA' : '구간 시작점 자동 값'}), 차단 시간 ${fmt(tSec, 3)}초.',
-          if (seg.parallel > 1) '가닥마다 ${_ka(w.ikPerConductorA)} kA가 흐른다고 봤습니다.',
+          if (seg.parallel > 1) '가닥마다 ${_ka(w.ikPerConductorA)} kA가 흐르는 것으로 계산했습니다.',
           '필요한 최소 굵기 S = Ik×√t/k = ${fmt(w.sMinMm2, 1)} mm². 선정 ${fmt(w.sMm2)} mm²는 ${w.ok ? '이상이라 합격' : '미만이라 불합격'}입니다.',
           '이 전류에서 허용 최대 시간 t = (k·S/Ik)² = ${fmt(w.tMaxSec, 3)}초.',
           if (lt != null)
@@ -556,7 +556,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       elecChipGroup(
         '전압 허용오차',
         'IEC 60909 저압 전압 계수 cmax를 정합니다.\n'
-            '+6%: cmax 1.05. +10%: cmax 1.10. 계통의 최대 전압 허용오차에 맞추십시오. 모르면 +10%가 큰 값입니다.',
+            '+6%: cmax 1.05. +10%: cmax 1.10. 계통의 최대 전압 허용오차에 맞추십시오. 모르면 +10%로 두십시오(단락전류가 큰 쪽).',
         [
           calcChip('ec_sc_c6', '+6% (c 1.05)', !_cMax10, () {
             _set(() => _cMax10 = false);
@@ -570,7 +570,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         'ec_sc_up_max',
         '상위 계통 단락용량 (MVA, 선택)',
         _upMax,
-        '한전이나 수전 설비 자료의 최대 단락용량입니다. 비우면 무한 전원으로 보고, 이는 최대값입니다.',
+        '한전이나 수전 설비 자료의 최대 단락용량입니다. 비우면 무한 전원으로 계산합니다(최대값).',
       ),
       elecField(
         'ec_sc_up_min',
@@ -600,7 +600,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       elecSectionTitle('케이블 구간 (변압기 쪽부터 순서대로)'),
       elecChipGroup(
         '케이블 절연',
-        '최소 단락의 도체 온도(PVC 70°C, XLPE 90°C)와 열 견딤 k 값에 씁니다. 구리 도체만 지원합니다.',
+        '최소 단락의 도체 온도(PVC 70°C, XLPE 90°C)와 열적 강도 k 값에 씁니다. 구리 도체만 지원합니다.',
         [
           calcChip('ec_sc_pvc', 'PVC', _ins == Insulation.pvc70, () {
             _set(() => _ins = Insulation.pvc70);
@@ -654,7 +654,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         '차단기 정격 투입용량(피크값 kA)입니다. 넣으면 피크 전류와 비교합니다.',
       ),
       bkCard,
-      elecSectionTitle('케이블 단락 열 견딤 (I²t)'),
+      elecSectionTitle('케이블 단락 열적 강도 (I²t)'),
       if (n > 0)
         elecChipGroup('검토할 구간', '케이블 시작점의 단락전류를 씁니다. 시작점이 전류가 가장 큽니다.', [
           for (var i = 0; i < n; i++)
@@ -683,7 +683,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       cabCard,
       const SizedBox(height: 10),
       Text(
-        '최종 선정은 상위 계통 실제 데이터와 차단기 제조사 자료로 확인하십시오.',
+        '최종 선정은 상위 계통 실제 자료와 차단기 제조사 자료로 확인하십시오.',
         style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
@@ -752,7 +752,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
                 flex: 5,
                 child: calcLabel(
                   '편도 길이 (m)',
-                  '이 구간 케이블의 한쪽 길이입니다. 3상이라 왕복으로 곱하지 않습니다.',
+                  '이 구간 케이블의 편도 길이입니다. 3상이라 왕복으로 곱하지 않습니다.',
                 ),
               ),
               Expanded(
@@ -795,7 +795,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
   }
 
   List<String> _basisLines() => [
-    '방식: IEC 60909-0 등가 전압원법을 주로 쓰고 %임피던스법을 비교로 보입니다. Ik″ = c·Un / (√3·|Z|).',
+    '방식: IEC 60909-0 등가 전압원법을 주로 쓰고 %임피던스법 값을 비교용으로 함께 표시합니다. Ik″ = c·Un / (√3·|Z|).',
     '전압 계수 c(저압 100V~1kV): 최대 단락 cmax 1.05(허용오차 +6%) 또는 1.10(+10%), 최소 단락 cmin 0.95.',
     '변압기: ZT = %Z/100 × U²/S. 부하손을 넣으면 RT = 부하손/S × U²/S, XT = √(ZT² − RT²). 보정계수 KT = 0.95·cmax / (1 + 0.6·xT), xT = XT ÷ (U²/S)를 ZT·RT·XT에 곱합니다.',
     '상위 계통: Z = c·U²/S″k, X = 0.995 Z, R = 0.1 X (Schneider 설치 지침 2009). 넣지 않으면 무한 전원(0)입니다.',
@@ -804,11 +804,10 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     '피크 전류: ip = κ·√2·Ik″, κ = 1.02 + 0.98·e^(−3R/X). R/X는 고장점까지 전체 합입니다. 전동기 분의 κ는 R/X를 몰라 최댓값 2.0을 썼습니다.',
     '%임피던스법(비교): c와 KT 없이 공칭 전압 그대로. Ik = Un / (√3·|Z|). 케이블 저항은 같은 20°C 표 값을 씁니다.',
     '최소 단락 2상 = 3상 × √3/2. 최소 단락은 전동기 기여를 뺍니다.',
-    '열 견딤: S = Ik·√t / k, t = (k·S/Ik)². k는 구리 PVC 115(70→160°C, 300mm² 이하), XLPE·EPR 143(90→250°C). 5초 이하 단열 계산입니다.',
+    '열적 강도: S = Ik·√t / k, t = (k·S/Ik)². k는 구리 PVC 115(70→160°C, 300mm² 이하), XLPE·EPR 143(90→250°C). 5초 이하 단열 계산입니다.',
     '케이블 시작점의 전류로 검토합니다. 차단기가 순시 영역(0.1초 미만)에서 끊으면 제조사 통과 에너지(I²t) 곡선으로 확인하십시오. 통과 에너지를 넣으면 허용 (병렬 수)²·k²·S²와 비교합니다.',
     '원문 대조 전(2차 자료): IEC 60909-0의 c 계수·KT·κ·전동기·최소 단락 온도와 IEC 60364-4-43 표 43A의 k는 원문을 못 봤습니다. Schneider 설치 지침 2009·기술 자료 158, pandapower 논문, 해설 자료 여러 곳이 맞는 값만 넣었습니다.',
     '출처끼리 값이 다른 것: 전동기 기여 배수(3.5, 4, 4.8, 약 6)는 기본값을 넣지 않았습니다. 전동기를 무시해도 되는 기준(1% 또는 5%)도 자동 적용하지 않았습니다.',
     '계산에서 뺀 것: 지락(1선) 단락, 발전기 근처 단락(Ib·Ik 감쇠), 차단기·부스바 임피던스, 아크 저항, 150mm² 이상 표피 효과, 병렬 가닥 상호 리액턴스, 300mm² 초과 PVC의 k, 알루미늄 도체, 상위 차단기 한류 효과.',
-    '상세 식과 출처 주소: docs/전기_단락전류_근거.md.',
   ];
 }

@@ -369,7 +369,7 @@ class _MobilePipeVisualizerState extends State<MobilePipeVisualizer> {
           const Icon(Icons.straighten, size: 14, color: makitaTeal),
           const SizedBox(width: 6),
           Text(
-            "총 기장: ",
+            "총 절단 길이: ",
             style: TextStyle(
               fontSize: 12,
               color: widget.isLightMode ? Colors.black54 : Colors.white70,

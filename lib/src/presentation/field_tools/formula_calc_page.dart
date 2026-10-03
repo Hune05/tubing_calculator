@@ -252,7 +252,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
                   lines: const [],
                 )
               else
-                calcResult(big: '—', caption: '위 칸을 모두 넣으십시오', lines: const []),
+                calcResult(big: '—', caption: '위 칸에 값을 모두 넣으십시오', lines: const []),
             ],
           ),
         ),

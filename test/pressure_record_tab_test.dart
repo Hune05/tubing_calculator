@@ -133,7 +133,7 @@ void main() {
     var info = textIn(tester, const Key('pt_r_info'));
     expect(info, contains('적용 코드: ASME B31.3'));
     expect(info, contains('시험 종류: 수압'));
-    expect(info, contains('설계압력: 없음 (시험 압력 탭에서 넣으십시오)'));
+    expect(info, contains('설계압력: 없음 (시험압력 탭에서 넣으십시오)'));
     expect(info, contains('시험압력: 없음'));
     expect(info, contains('규정 유지시간: 10분 이상'));
     expect(fieldText(tester, 'pt_r_hold'), '10');
@@ -171,12 +171,12 @@ void main() {
     await tapKey(tester, 'pt_r_start');
     // 시작 압력은 시험압력(실제 12bar)으로 미리 채운다
     expect(fieldText(tester, 'pt_rd_p'), '12');
-    expect(find.text('확인을 누른 시각부터 유지시간을 계산합니다.'), findsOneWidget);
+    expect(find.text('"시작"을 누른 때부터 유지시간을 계산합니다.'), findsOneWidget);
     await reading(tester, '12', '20');
     expect(alarm.scheduled.length, 1);
     final (at, title, body) = alarm.scheduled.single;
     expect(at, DateTime(2026, 9, 26, 9, 10));
-    expect(title, '압력 시험 유지시간 완료');
+    expect(title, '압력시험 유지시간 완료');
     expect(body, 'P-1001 유지시간 10분이 지났습니다. 종료 압력을 기록하십시오.');
     expect(textOf(tester, 'pt_r_status'), '유지 중');
     expect(textOf(tester, 'pt_r_elapsed'), '00:00');
@@ -374,7 +374,7 @@ void main() {
     // 시작 줄: 지우기 없음
     await tapKey(tester, 'pt_r_read_0');
     expect(find.byKey(const Key('pt_rd_delete')), findsNothing);
-    expect(textOf(tester, 'pt_rd_note'), '시각(09:00:00)은 그대로 둡니다.');
+    expect(textOf(tester, 'pt_rd_note'), '측정 시간(09:00:00)은 그대로 둡니다.');
     await reading(tester, '12.01', '19.5');
     var log = textIn(tester, const Key('pt_r_log'));
     expect(log, contains('12.01 bar\n19.5°C'));

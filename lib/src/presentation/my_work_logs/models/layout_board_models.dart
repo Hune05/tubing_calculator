@@ -189,7 +189,7 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
   "로즈마운트": [
     ModulePreset("3051CD DPT", 104, 181, shape: InstrumentShape.rmCoplanar),
     ModulePreset(
-      "3051CD DPT 재래식 플랜지",
+      "3051CD DPT 트래디셔널 플랜지",
       115,
       200,
       shape: InstrumentShape.rmTraditional,
@@ -205,7 +205,7 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
       shape: '${InstrumentShape.rmCoplanar}${InstrumentShape.bracketSuffix}',
     ),
     ModulePreset(
-      "3051CD DPT 재래식 플랜지 (브래킷)",
+      "3051CD DPT 트래디셔널 플랜지 (브래킷)",
       175,
       240,
       shape: '${InstrumentShape.rmTraditional}${InstrumentShape.bracketSuffix}',
@@ -291,25 +291,25 @@ const Map<String, List<ModulePreset>> kInstrumentPresets = {
 /// 옆에서 본 가로×세로(mm): 곧은 것은 전체 길이 × 너트 육각, 엘보·티·크로스는
 /// 가운데~끝 길이(A)에 몸통 육각 반을 더했다. 메일 엘보는 하이록 L·L1.
 final Map<String, List<ModulePreset>> kFittingPresets = {
-  "유니언": [
-    ModulePreset('유니언 1/4"', 41, 14, shape: InstrumentShape.fitUnion),
-    ModulePreset('유니언 3/8"', 45, 17, shape: InstrumentShape.fitUnion),
-    ModulePreset('유니언 1/2"', 51, 22, shape: InstrumentShape.fitUnion),
+  "유니온": [
+    ModulePreset('유니온 1/4"', 41, 14, shape: InstrumentShape.fitUnion),
+    ModulePreset('유니온 3/8"', 45, 17, shape: InstrumentShape.fitUnion),
+    ModulePreset('유니온 1/2"', 51, 22, shape: InstrumentShape.fitUnion),
   ],
-  "유니언 엘보": [
-    ModulePreset('유니언 엘보 1/4"', 33, 33, shape: InstrumentShape.fitElbow),
-    ModulePreset('유니언 엘보 3/8"', 38, 38, shape: InstrumentShape.fitElbow),
-    ModulePreset('유니언 엘보 1/2"', 46, 46, shape: InstrumentShape.fitElbow),
+  "유니온 엘보": [
+    ModulePreset('유니온 엘보 1/4"', 33, 33, shape: InstrumentShape.fitElbow),
+    ModulePreset('유니온 엘보 3/8"', 38, 38, shape: InstrumentShape.fitElbow),
+    ModulePreset('유니온 엘보 1/2"', 46, 46, shape: InstrumentShape.fitElbow),
   ],
-  "유니언 티": [
-    ModulePreset('유니언 티 1/4"', 54, 33, shape: InstrumentShape.fitTee),
-    ModulePreset('유니언 티 3/8"', 61, 38, shape: InstrumentShape.fitTee),
-    ModulePreset('유니언 티 1/2"', 72, 46, shape: InstrumentShape.fitTee),
+  "유니온 티": [
+    ModulePreset('유니온 티 1/4"', 54, 33, shape: InstrumentShape.fitTee),
+    ModulePreset('유니온 티 3/8"', 61, 38, shape: InstrumentShape.fitTee),
+    ModulePreset('유니온 티 1/2"', 72, 46, shape: InstrumentShape.fitTee),
   ],
-  "유니언 크로스": [
-    ModulePreset('유니언 크로스 1/4"', 54, 54, shape: InstrumentShape.fitCross),
-    ModulePreset('유니언 크로스 3/8"', 61, 61, shape: InstrumentShape.fitCross),
-    ModulePreset('유니언 크로스 1/2"', 72, 72, shape: InstrumentShape.fitCross),
+  "유니온 크로스": [
+    ModulePreset('유니온 크로스 1/4"', 54, 54, shape: InstrumentShape.fitCross),
+    ModulePreset('유니온 크로스 3/8"', 61, 61, shape: InstrumentShape.fitCross),
+    ModulePreset('유니온 크로스 1/2"', 72, 72, shape: InstrumentShape.fitCross),
   ],
   "메일 커넥터": [
     ModulePreset(
@@ -351,10 +351,10 @@ final Map<String, List<ModulePreset>> kFittingPresets = {
       shape: InstrumentShape.fitMaleElbow,
     ),
   ],
-  "벌크헤드 유니언": [
-    ModulePreset('벌크헤드 유니언 1/4"', 58, 16, shape: InstrumentShape.fitBulkhead),
-    ModulePreset('벌크헤드 유니언 3/8"', 62, 19, shape: InstrumentShape.fitBulkhead),
-    ModulePreset('벌크헤드 유니언 1/2"', 71, 24, shape: InstrumentShape.fitBulkhead),
+  "벌크헤드 유니온": [
+    ModulePreset('벌크헤드 유니온 1/4"', 58, 16, shape: InstrumentShape.fitBulkhead),
+    ModulePreset('벌크헤드 유니온 3/8"', 62, 19, shape: InstrumentShape.fitBulkhead),
+    ModulePreset('벌크헤드 유니온 1/2"', 71, 24, shape: InstrumentShape.fitBulkhead),
   ],
   // ── 하이록 H-200TF(2020) 표 값을 조각 목록으로(fitting_spec.dart) ──
   // p.13 리듀싱 유니언, p.25 벌크헤드 메일, p.26 45° 메일 엘보, p.27·28 메일 런·브랜치 티,
@@ -362,17 +362,17 @@ final Map<String, List<ModulePreset>> kFittingPresets = {
   // p.36 리듀서, p.38 벌크헤드 리듀서, p.42·45 메일·피메일 어댑터, p.46 포트 커넥터, p.65 캡.
   // 어림: 어댑터 몸통 육각 길이 7, 벌크헤드 잠금 너트 6, 피메일 몸통 육각(1/4 NPT 11/16",
   // 3/8 NPT 13/16", 1/2 NPT 1"). 나머지 길이·육각은 카탈로그 인쇄 값.
-  "리듀싱 유니언": [
+  "리듀싱 유니온": [
     fittingPreset(
-      '리듀싱 유니언 3/8"×1/4"',
+      '리듀싱 유니온 3/8"×1/4"',
       'fs:n:14.2:17.5,h:16.3:15.9,n:12.7:14.3',
     ),
     fittingPreset(
-      '리듀싱 유니언 1/2"×1/4"',
+      '리듀싱 유니온 1/2"×1/4"',
       'fs:n:17.5:22.2,h:16.8:20.6,n:12.7:14.3',
     ),
     fittingPreset(
-      '리듀싱 유니언 1/2"×3/8"',
+      '리듀싱 유니온 1/2"×3/8"',
       'fs:n:17.5:22.2,h:16.8:20.6,n:14.2:17.5',
     ),
   ],
@@ -677,19 +677,19 @@ final Map<String, List<ModulePreset>> kValvePresets = {
       'fv:needle;L=76;top=91.7;bot=16;end=f;bar=76;pipe=27',
     ),
     fittingPreset(
-      "GB 유니언 보닛 니들 3/8\" 튜브",
+      "GB 유니온 보닛 니들 3/8\" 튜브",
       'fv:gb;L=73;top=93.7;bot=14;end=n;bar=64;pipe=17.5',
     ),
     fittingPreset(
-      "GB 유니언 보닛 니들 3/8\" 암나사",
+      "GB 유니온 보닛 니들 3/8\" 암나사",
       'fv:gb;L=57.2;top=93.7;bot=14;end=f;bar=64;pipe=22',
     ),
     fittingPreset(
-      "GB 유니언 보닛 니들 1/2\" 튜브",
+      "GB 유니온 보닛 니들 1/2\" 튜브",
       'fv:gb;L=100;top=121.5;bot=16;end=n;bar=76;pipe=22.2',
     ),
     fittingPreset(
-      "GB 유니언 보닛 니들 1/2\" 암나사",
+      "GB 유니온 보닛 니들 1/2\" 암나사",
       'fv:gb;L=79.4;top=121.5;bot=16;end=f;bar=76;pipe=27',
     ),
   ],
@@ -749,7 +749,7 @@ const Map<String, double> kPresetDepth = {
   'APT3100 DPT': 112,
   'APT3200 PT': 112,
   '3051CD DPT': 109,
-  '3051CD DPT 재래식 플랜지': 109,
+  '3051CD DPT 트래디셔널 플랜지': 109,
   '3051CG PT': 109,
   '3051TG PT 인라인': 109,
   '2051CD DPT': 111,
@@ -763,7 +763,7 @@ const Map<String, double> kPresetDepth = {
   'APT3100 DPT (브래킷)': 112,
   'APT3200 PT (브래킷)': 112,
   '3051CD DPT (브래킷)': 109,
-  '3051CD DPT 재래식 플랜지 (브래킷)': 109,
+  '3051CD DPT 트래디셔널 플랜지 (브래킷)': 109,
   '3051CG PT (브래킷)': 109,
   '3051TG PT 인라인 (브래킷)': 109,
   '2051CD DPT (브래킷)': 111,
@@ -800,6 +800,40 @@ const Map<String, double> kPresetDepth = {
   'V3 3밸브 매니폴드': 104,
   'V5 5밸브 매니폴드': 78,
 };
+
+/// 화면 문구 통일(2026-10-03)로 바꾼 부품 이름 낱말(예전 → 지금).
+const Map<String, String> kPresetWordRenamed = {
+  '유니언': '유니온',
+  '재래식 플랜지': '트래디셔널 플랜지',
+  '오므론': '옴론',
+  '카리어': '캐리어',
+  '열동 계전기': '과부하계전기',
+  '(단종 표기, 어림값)': '(단종, 치수 추정값)',
+};
+
+Set<String>? _presetNames;
+Set<String> _allPresetNames() => _presetNames ??= {
+  ...kPresetDepth.keys,
+  for (final list in [
+    ...kInstrumentPresets.values,
+    ...kFittingPresets.values,
+    ...kValvePresets.values,
+    ...kElecPresets.values,
+    kDuctPresets,
+    kDuctMorePresets,
+  ])
+    for (final p in list) p.name,
+};
+
+/// 예전 배치도에 예전 이름(유니언·재래식 플랜지 등)으로 저장된 목록 부품은 읽을 때 지금 이름으로
+/// 바꾼다. 저장된 값은 다음에 저장할 때 지금 이름으로 적힌다. 바꾼 이름이 목록에 없으면
+/// (사용자가 고친 이름) 그대로 둔다.
+String currentPresetName(String name) {
+  var n = name;
+  kPresetWordRenamed.forEach((from, to) => n = n.replaceAll(from, to));
+  if (n == name) return name;
+  return _allPresetNames().contains(n) ? n : name;
+}
 
 /// 목록에 있는 이름이면 그 깊이(예전에 깊이 없이 놓은 계기도 읽을 때 채운다).
 double? _presetDepthByName(String? name) {
@@ -992,24 +1026,27 @@ class PlacedItem implements MeasurePoint {
     if (rotation != null) 'rot': rotation,
   };
 
-  factory PlacedItem.fromJson(Map<String, dynamic> j) => PlacedItem(
-    id: j['id'] as String,
-    name: j['name'] as String? ?? "이름 없음",
-    position: Offset((j['x'] as num).toDouble(), (j['y'] as num).toDouble()),
-    width: (j['w'] as num?)?.toDouble() ?? 80.0,
-    height: (j['h'] as num?)?.toDouble() ?? 80.0,
-    isLocked: j['locked'] as bool? ?? false,
-    shape: _upgradeShape(j['name'] as String?, j['shape'] as String?),
-    depth:
-        (j['depth'] as num?)?.toDouble() ??
-        _presetDepthByName(j['name'] as String?),
-    elevation: (j['elev'] as num?)?.toDouble(),
-    flipped: j['flip'] == true,
-    tag: (j['tag'] as String?)?.trim().isEmpty ?? true
-        ? null
-        : (j['tag'] as String).trim(),
-    rotation: (j['rot'] as num?)?.toInt(),
-  );
+  factory PlacedItem.fromJson(Map<String, dynamic> j) {
+    // 예전 이름으로 저장된 목록 부품은 지금 이름으로 읽는다(kPresetWordRenamed).
+    final String? raw = j['name'] as String?;
+    final String? name = raw == null ? null : currentPresetName(raw);
+    return PlacedItem(
+      id: j['id'] as String,
+      name: name ?? "이름 없음",
+      position: Offset((j['x'] as num).toDouble(), (j['y'] as num).toDouble()),
+      width: (j['w'] as num?)?.toDouble() ?? 80.0,
+      height: (j['h'] as num?)?.toDouble() ?? 80.0,
+      isLocked: j['locked'] as bool? ?? false,
+      shape: _upgradeShape(name, j['shape'] as String?),
+      depth: (j['depth'] as num?)?.toDouble() ?? _presetDepthByName(name),
+      elevation: (j['elev'] as num?)?.toDouble(),
+      flipped: j['flip'] == true,
+      tag: (j['tag'] as String?)?.trim().isEmpty ?? true
+          ? null
+          : (j['tag'] as String).trim(),
+      rotation: (j['rot'] as num?)?.toInt(),
+    );
+  }
 }
 
 class WallPoint implements MeasurePoint {

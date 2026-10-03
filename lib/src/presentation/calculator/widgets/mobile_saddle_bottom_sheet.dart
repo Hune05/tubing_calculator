@@ -111,14 +111,14 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     final double add = _shrinkToAdd(shrink);
     final double mark = startDistance + add;
     if (mark <= 0) {
-      return "넣었습니다. 축소값 ${shrink.toStringAsFixed(1)}mm는 직진 거리가 줄어드는 몫입니다.";
+      return "넣었습니다. 축소값 ${shrink.toStringAsFixed(1)}mm만큼 직진 거리가 줄어듭니다.";
     }
     if (add > 0) {
       return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다"
           "(시작 거리 ${startDistance.toStringAsFixed(0)} + 축소값 ${add.toStringAsFixed(1)}).";
     }
     return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다. "
-        "축소값 ${shrink.toStringAsFixed(1)}mm는 직진 거리가 줄어드는 몫입니다.";
+        "축소값 ${shrink.toStringAsFixed(1)}mm만큼 직진 거리가 줄어듭니다.";
   }
 
   // 🚀 [추가] 장애물 앞 시작 거리. 예전에는 첫 구간을 축소값으로 강제해서
@@ -306,7 +306,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             ],
           ),
           content: const Text(
-            "장애물 회피 방향을 먼저 선택해 주십시오!",
+            "장애물 회피 방향(6축)을 먼저 선택해 주십시오.",
             style: TextStyle(color: slate900, fontSize: 15),
           ),
           actions: [
@@ -463,7 +463,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             ],
           ),
           content: const Text(
-            "장애물 회피 방향을 먼저 선택해 주십시오!",
+            "장애물 회피 방향(6축)을 먼저 선택해 주십시오.",
             style: TextStyle(color: slate900, fontSize: 15),
           ),
           actions: [
@@ -483,7 +483,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       return;
     }
     if (travel4Pt <= 0 || w <= 0 || a4 <= 0) {
-      _snackMissing("넣을 수 없습니다. 높이·넓이·각도를 넣으십시오.");
+      _snackMissing("넣을 수 없습니다. 높이·폭·각도를 넣으십시오.");
       return;
     }
     if (a4 >= 90) {
@@ -517,7 +517,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           content: Text(
             "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
             "• 계산된 빗변: ${roundedTravel}mm\n"
-            "• 상단 넓이(W): ${roundedW}mm\n\n"
+            "• 상단 폭(W): ${roundedW}mm\n\n"
             "구간 길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 넣으시겠습니까?",
             style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
           ),
@@ -680,9 +680,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         gainDetails3Pt =
             "센터(${a3.toInt()}°): +${gainCenter.toStringAsFixed(1)} mm\n"
             "사이드(${(a3 / 2).toInt()}°): +${gainSide.toStringAsFixed(1)} mm x 2곳\n"
-            "▶ 총 연신율(늘어난 길이): +${gain3Pt.toStringAsFixed(1)} mm";
+            "▶ 총 게인(자를 길이에서 빼는 값): ${gain3Pt.toStringAsFixed(1)} mm";
       } else {
-        gainDetails3Pt = "설정된 연신율 데이터 없음";
+        gainDetails3Pt = "설정된 게인 값이 없습니다.";
       }
 
       // 🚀 [고침] 게인은 자를 때 "빼는" 값인데 더하고 있었다(오프셋 시트는
@@ -720,9 +720,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       if (gainBend > 0) {
         gainDetails4Pt =
             "1개소당(${a4.toInt()}°): +${gainBend.toStringAsFixed(1)} mm x 4곳\n"
-            "▶ 총 연신율(늘어난 길이): +${gain4Pt.toStringAsFixed(1)} mm";
+            "▶ 총 게인(자를 길이에서 빼는 값): ${gain4Pt.toStringAsFixed(1)} mm";
       } else {
-        gainDetails4Pt = "설정된 연신율 데이터 없음";
+        gainDetails4Pt = "설정된 게인 값이 없습니다.";
       }
 
       totalConsumed4Pt = pipeUsed4Pt - gain4Pt;
@@ -772,8 +772,8 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                 labelColor: makitaTeal,
                 unselectedLabelColor: slate600,
                 tabs: const [
-                  Tab(text: "3-Point (원형)"),
-                  Tab(text: "4-Point (사각)"),
+                  Tab(text: "3점 새들 (원형)"),
+                  Tab(text: "4점 새들 (사각)"),
                 ],
               ),
               const SizedBox(height: 16),
@@ -848,7 +848,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         Row(children: [Expanded(child: _buildInputRow(_heightCtrl, "높이 mm"))]),
         const SizedBox(height: 20),
         Text(
-          _conduitCenter ? "관 끝에서 장애물 중심까지 (옵션)" : "장애물 앞 시작 거리 (옵션)",
+          _conduitCenter ? "관 끝에서 장애물 중심까지 (선택)" : "장애물 앞 시작 거리 (선택)",
           style: const TextStyle(
             color: slate600,
             fontSize: 13,
@@ -905,7 +905,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           pipeUsed: pipeUsed,
           shrink: shrink,
           addNote: _conduitCenter
-              ? "가운데가 장애물 중심 위에 옵니다(축소값 ${shrink.toStringAsFixed(1)} mm는 양쪽 몫 합계)"
+              ? "가운데가 장애물 중심 위에 옵니다(축소값 ${shrink.toStringAsFixed(1)} mm는 양쪽 합계)"
               : null,
           gainDetails: gainDetails,
           totalConsumed: totalConsumed,
@@ -953,7 +953,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "넓이 (W)",
+                    "폭 (W)",
                     style: TextStyle(
                       color: slate600,
                       fontSize: 13,
@@ -961,7 +961,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _buildInputRow(_widthCtrl, "넓이 mm"),
+                  _buildInputRow(_widthCtrl, "폭 mm"),
                 ],
               ),
             ),
@@ -969,7 +969,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         ),
         const SizedBox(height: 20),
         const Text(
-          "장애물 앞 시작 거리 (옵션)",
+          "장애물 앞 시작 거리 (선택)",
           style: TextStyle(
             color: slate600,
             fontSize: 13,
@@ -1224,7 +1224,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     ),
                   ),
                   const Text(
-                    "연신율 적용 전 기본 합계",
+                    "게인 빼기 전 합계",
                     style: TextStyle(color: Colors.black54, fontSize: 10),
                   ),
                 ],
@@ -1237,7 +1237,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           const SizedBox(height: 16),
 
           const Text(
-            "📍 연신율 상세 내역 (Gain)",
+            "📍 게인 내역 (Gain)",
             style: TextStyle(
               color: makitaTeal,
               fontSize: 13,
@@ -1281,7 +1281,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "실제 커팅 기장 (총 기장)",
+                        "총 절단 길이",
                         style: TextStyle(
                           color: makitaTeal,
                           fontSize: 14,
@@ -1290,7 +1290,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                       ),
                       SizedBox(height: 2),
                       Text(
-                        "도면합계 − 총 연신율 (실제 자를 길이)",
+                        "도면상 합계 − 총 게인",
                         style: TextStyle(color: slate600, fontSize: 10),
                       ),
                     ],
@@ -1346,7 +1346,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                         Padding(
                           padding: const EdgeInsets.only(top: 4.0),
                           child: Text(
-                            "※ 3/8\" 기준 약 ${(pipeUsed + 5.0).toStringAsFixed(1)} ~ ${(pipeUsed + 6.0).toStringAsFixed(1)} mm 예상",
+                            "※ 반지름 예: 1/4\" 3.2 mm, 3/8\" 4.8 mm, 1/2\" 6.4 mm",
                             style: const TextStyle(
                               color: Colors.deepOrange,
                               fontSize: 12,
@@ -1384,7 +1384,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                       addNote ??
                           (added > 0
                               ? "1번 마킹에 축소값 +${added.toStringAsFixed(1)} mm를 더합니다"
-                              : "축소값 ${shrink.toStringAsFixed(1)} mm는 직진 거리가 줄어드는 몫입니다"),
+                              : "축소값 ${shrink.toStringAsFixed(1)} mm만큼 직진 거리가 줄어듭니다"),
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,

@@ -181,7 +181,7 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          "알림 내역",
+          "공지",
           style: TextStyle(
             color: slate900,
             fontSize: 18,
@@ -397,7 +397,7 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
           Icon(LucideIcons.bellOff, size: 48, color: slate100),
           const SizedBox(height: 16),
           const Text(
-            "새로운 알림이 없습니다.",
+            "새 공지가 없습니다.",
             style: TextStyle(
               color: slate600,
               fontSize: 16,
@@ -421,7 +421,7 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
           ),
           const SizedBox(height: 16),
           const Text(
-            "알림을 불러오지 못했습니다.",
+            "공지를 불러오지 못했습니다.",
             style: TextStyle(
               color: slate600,
               fontSize: 16,

@@ -405,10 +405,10 @@ extension InventoryTabsExt on _InventoryPageState {
                       if (isDead) _buildMenuRow('normal', "정상 재고 복구"),
                       if (_isAdmin) ...[
                         const PopupMenuDivider(),
-                        _buildMenuRow('audit', "재고 임의 수정"),
+                        _buildMenuRow('audit', "수량 고치기"),
                         _buildMenuRow(
                           'delete',
-                          "마스터 삭제",
+                          "자재 삭제",
                           color: Colors.red.shade700,
                         ),
                       ],
@@ -850,7 +850,7 @@ extension InventoryTabsExt on _InventoryPageState {
             ),
             const SizedBox(height: 8),
             const Text(
-              "앱 데이터와 실제 현장의 물리적 일치를 위한 필수 준수 사항입니다.",
+              "앱 수량과 창고 실물을 맞추기 위해 지킬 것",
               style: TextStyle(
                 fontSize: 14,
                 color: slate700,
@@ -900,7 +900,7 @@ extension InventoryTabsExt on _InventoryPageState {
               color: slate900,
               title: "5. 정기 재고 조사(실사) 및 전산 보정",
               points: [
-                "전산 수량과 실제 보관함 수량이 다를 경우 점 3개(⋮) 메뉴에서 [재고 임의 수정] 기능을 사용해 개수를 맞추십시오.",
+                "전산 수량과 실제 보관함 수량이 다르면 ⋮ 메뉴의 [수량 고치기]로 맞추십시오.",
               ],
               isLast: true,
             ),

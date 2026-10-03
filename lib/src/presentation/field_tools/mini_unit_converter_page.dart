@@ -112,7 +112,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
             _categorySlider(),
             const SizedBox(height: 12),
             _unitCard(
-              label: '보내는 값',
+              label: '입력값',
               unit: _from,
               onUnitChanged: (u) => setState(() => _from = u),
               child: TextField(
@@ -144,7 +144,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
               ),
             ),
             _unitCard(
-              label: '바뀐 값',
+              label: '환산값',
               unit: _to,
               onUnitChanged: (u) => setState(() => _to = u),
               child: Text(

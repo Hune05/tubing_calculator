@@ -442,7 +442,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(
-            const SnackBar(content: Text('정확한 분수가 없습니다(무리수 등을 거쳤습니다).')),
+            const SnackBar(content: Text('분수로 나타낼 수 없는 값입니다(무리수가 들어간 계산).')),
           );
         return;
       }

@@ -253,7 +253,7 @@ void main() {
     expect(csv.startsWith('﻿태그 번호,'), isTrue);
     final lines = csv.trim().split('\r\n');
     expect(lines.length, 2);
-    expect(lines[1], startsWith('PT-101,,,2026-09-26,2027-09-26,0,10,bar,선형,'));
+    expect(lines[1], startsWith('PT-101,,,2026-09-26,2027-09-26,0,10,bar,선형(LINEAR),'));
     expect(lines[1], contains('"밸브 교체, 재점검"'));
     expect(lines[1], contains(',0.625,불합격,0,합격,합격,'));
     // 50% 점 조정 전: 입력값 5, 측정값 12.1, 오차 0.625

@@ -48,7 +48,7 @@ void main() {
 
     await tester.enterText(find.byType(TextField).first, '토크');
     await tester.pumpAndSettle();
-    await tester.tap(find.textContaining('단위 환산 — 토크'));
+    await tester.tap(find.textContaining('단위 환산: 토크'));
     await tester.pumpAndSettle();
 
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));

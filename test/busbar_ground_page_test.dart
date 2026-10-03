@@ -66,7 +66,7 @@ void main() {
     await tester.tap(find.byKey(const Key('gb_share')));
     await tester.pumpAndSettle();
     expect(sent, startsWith('[접지바] 구리 6×50mm · 구멍 φ11.1 4개 피치 25.4'));
-    expect(sent, contains('자르는 길이: 126.2mm'));
+    expect(sent, contains('절단 길이: 126.2mm'));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
     await _open(tester);
@@ -201,7 +201,7 @@ void main() {
     expect(find.textContaining('왼쪽 챙 2개(합계 2개)'), findsOneWidget);
   });
 
-  testWidgets('접지 러그(외부 큰 러그): 접지 구멍 뒤로 몰고 러그 구멍은 같은 줄 가운데', (tester) async {
+  testWidgets('접지 러그(외부 큰 러그): 접지 구멍 왼쪽으로 몰고 러그 구멍은 같은 줄 가운데', (tester) async {
     String? sent;
     await _open(tester, share: (t) async => sent = t, height: 12000);
     expect(find.byKey(const Key('gb_lug_result')), findsNothing);
@@ -212,7 +212,7 @@ void main() {
         tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
     expect(text('gb_lugdia'), '13.5');
     expect(text('gb_lugsp'), '44.45');
-    // 기본은 "뒤로 몰기": 겹치지 않고 길이 = 마지막 접지 구멍 + 피치 + 러그 묶음 + 끝 여유
+    // 기본은 "왼쪽으로 몰기": 겹치지 않고 길이 = 마지막 접지 구멍 + 피치 + 러그 묶음 + 끝 여유
     expect(find.textContaining('접지 구멍과 겹칩니다'), findsNothing);
     expect(find.text('러그 구멍 2개 · 볼트 세트 2'), findsOneWidget);
     expect(find.textContaining('접지 구멍은 왼쪽 끝으로 몰았고'), findsOneWidget);

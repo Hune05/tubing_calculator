@@ -1,5 +1,5 @@
 import 'project_phase.dart';
-import 'report_tools.dart' show reportDateOf;
+import 'report_tools.dart' show reportDateOf, workTypesOf;
 
 // 🚀 통합 검색(작업 일지·이슈 본문에서 단어 찾기).
 // ───────────────────────── 통합 검색 ─────────────────────────
@@ -36,9 +36,8 @@ List<SearchHit> searchProjects(
     for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
       if (kind == '이슈') break;
       if (from != null && reportDateOf(r).isBefore(from)) continue;
-      final wt = r['work_type'] is List
-          ? (r['work_type'] as List).join(' ')
-          : (r['work_type']?.toString() ?? '');
+      // 예전 이름('검사/테스트')으로 저장된 일지도 새 이름('검사/시험')으로 찾힌다.
+      final wt = workTypesOf(r['work_type']).join(' ');
       final fields = [
         r['note'],
         r['materials_used'],

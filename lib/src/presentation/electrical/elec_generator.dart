@@ -155,9 +155,9 @@ GenResult calcGenerator(GenInput i) {
   bool frac(double? v) => v != null && v > 0 && v <= 1;
 
   if (!pos(i.loadKw)) errors.add('부하 합계(kW)를 0보다 크게 넣으십시오.');
-  if (!frac(i.demand)) errors.add('수용률은 0 초과 1 이하로 넣으십시오.');
-  if (!frac(i.eff)) errors.add('효율은 0 초과 1 이하로 넣으십시오.');
-  if (!frac(i.pf)) errors.add('역률은 0 초과 1 이하로 넣으십시오.');
+  if (!frac(i.demand)) errors.add('수용률은 0 초과 100% 이하로 넣으십시오.');
+  if (!frac(i.eff)) errors.add('효율은 0 초과 100% 이하로 넣으십시오.');
+  if (!frac(i.pf)) errors.add('역률은 0 초과 100% 이하로 넣으십시오.');
 
   final hasMotor = i.motorKw != null && i.motorKw! != 0;
   if (i.motorKw != null && i.motorKw! < 0) {
@@ -165,7 +165,7 @@ GenResult calcGenerator(GenInput i) {
   }
   if (hasMotor && i.motorKw! > 0) {
     if (!pos(i.beta)) errors.add('전동기 1kW당 기동 kVA(β)를 0보다 크게 넣으십시오.');
-    if (!pos(i.startC)) errors.add('시동방식 계수(C)를 0보다 크게 넣으십시오.');
+    if (!pos(i.startC)) errors.add('기동 방식 계수(C)를 0보다 크게 넣으십시오.');
     if (i.xdPct == null || i.xdPct! <= 0 || i.xdPct! >= 100) {
       errors.add('발전기 X″d(%)를 0 초과 100 미만으로 넣으십시오.');
     }
@@ -177,10 +177,10 @@ GenResult calcGenerator(GenInput i) {
     }
   }
   if (i.startPf != null && !frac(i.startPf)) {
-    errors.add('기동 역률은 0 초과 1 이하로 넣으십시오.');
+    errors.add('기동 역률은 0 초과 100% 이하로 넣으십시오.');
   }
   if (i.genPf != null && !frac(i.genPf)) {
-    errors.add('발전기 역률은 0 초과 1 이하로 넣으십시오.');
+    errors.add('발전기 역률은 0 초과 100% 이하로 넣으십시오.');
   }
   if (i.harmonicKva != null && i.harmonicKva! < 0) {
     errors.add('고조파 부하(kVA)는 0 이상으로 넣으십시오.');

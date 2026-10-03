@@ -147,7 +147,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
       backgroundColor: pureWhite,
       surfaceTintColor: Colors.transparent,
       title: const Text(
-        "이름을 바꿉니다",
+        "이름을 바꾸시겠습니까?",
         style: TextStyle(fontWeight: FontWeight.bold, color: slate900),
       ),
       content: Text(

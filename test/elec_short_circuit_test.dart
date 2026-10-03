@@ -539,7 +539,7 @@ void main() {
       await enter(tester, 'ec_sc_z', '5.5');
       var t = textOf(tester, 'ec_sc_result');
       expect(t, contains('입력 확인'));
-      expect(t, contains('변압기 용량: 숫자로 읽을 수 없습니다.'));
+      expect(t, contains('변압기 용량: 숫자가 아닙니다.'));
       await enter(tester, 'ec_sc_kva', '-5');
       t = textOf(tester, 'ec_sc_result');
       expect(t, contains('입력 확인'));

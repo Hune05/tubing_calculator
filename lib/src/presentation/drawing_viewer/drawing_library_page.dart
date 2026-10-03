@@ -148,7 +148,7 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
                   key: const Key('dl_add_file'),
                   leading: const Icon(LucideIcons.folderOpen),
                   title: const Text('파일에서 (PDF·DXF·사진)'),
-                  subtitle: const Text('카톡으로 받은 파일은 카톡에서 "공유 → 필드 헬퍼"로도 엽니다'),
+                  subtitle: const Text('카톡으로 받은 파일은 카톡에서 "공유 → Field Helper"로도 엽니다'),
                   onTap: () {
                     Navigator.pop(ctx);
                     _pickFile();
@@ -192,7 +192,7 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 40),
                     child: Text(
-                      '아직 가져온 도면이 없습니다.\n아래 "가져오기"로 PDF·DXF·사진을 넣거나,\n카톡에서 도면을 "공유 → 필드 헬퍼"로 보내십시오.\n\n통신 없이 폰에 보관되고, 원본은 바꾸지 않습니다.',
+                      '아직 가져온 도면이 없습니다.\n아래 "가져오기"로 PDF·DXF·사진을 넣거나,\n카톡에서 도면을 "공유 → Field Helper"로 보내십시오.\n\n통신 없이 폰에 보관되고, 원본은 바꾸지 않습니다.',
                       key: Key('dl_empty'),
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 14, height: 1.6, color: AppColors.textSub),
@@ -256,7 +256,7 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
                       [kind, if (d.pages > 1) '${d.pages}쪽', if (d.drawingNo.isNotEmpty) d.drawingNo, if (d.rev.isNotEmpty) 'REV ${d.rev}'].join(' · '),
                       style: const TextStyle(fontSize: 12.5, color: AppColors.textSub),
                     ),
-                    Text('연 때 ${markDate(d.openedAt)}', style: const TextStyle(fontSize: 11.5, color: AppColors.textFaint)),
+                    Text('최근 열람 ${markDate(d.openedAt)}', style: const TextStyle(fontSize: 11.5, color: AppColors.textFaint)),
                   ],
                 ),
               ),

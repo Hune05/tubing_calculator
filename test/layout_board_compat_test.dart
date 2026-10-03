@@ -133,4 +133,41 @@ void main() {
       for (final d in dims) d.toJson(),
     ]);
   });
+
+  // 2026-10-03 화면 문구 통일로 바꾼 부품 이름: 예전 배치도에 예전 이름으로 저장된 부품도
+  // 지금 이름으로 읽고 깊이도 그대로 찾는다. 사용자가 고친 이름은 건드리지 않는다.
+  test('예전 이름(유니언·재래식 플랜지·오므론·열동 계전기)으로 저장된 부품을 지금 이름으로 읽는다', () {
+    final items = layoutItemsFromData({
+      'items': [
+        {'type': 'item', 'id': 'u', 'name': '유니언 1/2"', 'x': 0, 'y': 0},
+        {
+          'type': 'item',
+          'id': 't',
+          'name': '3051CD DPT 재래식 플랜지',
+          'x': 0,
+          'y': 0,
+          'shape': 'dp_trad',
+        },
+        {
+          'type': 'item',
+          'id': 'o',
+          'name': 'K8AK-PM 전압 감시 계전기 (오므론, 레일형)',
+          'x': 0,
+          'y': 0,
+        },
+        {'type': 'item', 'id': 'm', 'name': 'MT-12 열동 계전기 (LS)', 'x': 0, 'y': 0},
+        {'type': 'item', 'id': 'c', 'name': '유니언 앞 차단기', 'x': 0, 'y': 0},
+      ],
+    });
+    expect(items.map((e) => e.name).toList(), [
+      '유니온 1/2"',
+      '3051CD DPT 트래디셔널 플랜지',
+      'K8AK-PM 전압 감시 계전기 (옴론, 레일형)',
+      'MT-12 과부하계전기 (LS)',
+      '유니언 앞 차단기', // 목록에 없는 이름(사용자가 고친 것)은 그대로
+    ]);
+    expect(items[1].depth, 109); // 깊이 표도 지금 이름으로 찾는다
+    expect(items[1].shape, 'rm_trad'); // 예전 모양도 지금 모양으로
+    expect(currentPresetName('유니언 1/4"'), '유니온 1/4"');
+  });
 }

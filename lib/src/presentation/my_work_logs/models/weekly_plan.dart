@@ -59,9 +59,7 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
   for (final r in reports) {
     manDays += manDaysOf(Map<String, dynamic>.from(r));
     final d = reportDateOf(r);
-    final types = r['work_type'] is List
-        ? (r['work_type'] as List).join('·')
-        : (r['work_type']?.toString() ?? '');
+    final types = workTypesOf(r['work_type']).join('·');
     final note = (r['note']?.toString() ?? '').trim();
     final body = (note.isEmpty || note == '특이사항 없음') ? types : _firstLine(note);
     lines.add('  · ${_md(d)} $body');
@@ -270,7 +268,7 @@ ReportDoc buildWeeklyPlanDoc(
   final combined = <ReportSection>[
     sec(
       weeks[0],
-      '— 실적',
+      '실적',
       _sectionLines(
         targets,
         weeks[0],
@@ -281,7 +279,7 @@ ReportDoc buildWeeklyPlanDoc(
     ),
     sec(
       weeks[1],
-      '— 진행 및 예정',
+      '진행 및 예정',
       _sectionLines(
         targets,
         weeks[1],
@@ -293,7 +291,7 @@ ReportDoc buildWeeklyPlanDoc(
     ),
     sec(
       weeks[2],
-      '— 계획',
+      '계획',
       _sectionLines(
         targets,
         weeks[2],
@@ -308,9 +306,9 @@ ReportDoc buildWeeklyPlanDoc(
   final sections = <ReportSection>[];
   if (perProject && targets.length > 1) {
     const parts = [
-      (0, '— 실적', true, false),
-      (1, '— 진행 및 예정', true, true),
-      (2, '— 계획', false, true),
+      (0, '실적', true, false),
+      (1, '진행 및 예정', true, true),
+      (2, '계획', false, true),
     ];
     for (var i = 0; i < targets.length; i++) {
       final t = targets[i];
@@ -385,7 +383,7 @@ ReportDoc buildWeeklyPlanDoc(
     final overdue = open.where((p) => overdueDays(p) > 0).length;
     final noDue = open.where((p) => p['dueDate'] == null).length;
     issueLines.add(
-      '■ ${log['name']} — 미해결 ${open.length}건'
+      '■ ${log['name']} · 미해결 ${open.length}건'
       '${overdue > 0 ? ' (기한 초과 $overdue건)' : ''}'
       '${noDue > 0 ? ' (기한 미정 $noDue건)' : ''}',
     );

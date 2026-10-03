@@ -28,11 +28,11 @@ void main() {
 
   testWidgets('필터를 걸어 두었으면 그 안에서만 찾는다고 알려 준다', (tester) async {
     await open(tester, filtered: true);
-    expect(find.text('종류·프로젝트 필터를 걸어 두어서 그 안에서만 찾습니다.'), findsOneWidget);
+    expect(find.text('종류·프로젝트 필터가 걸려 있어 그 안에서만 찾습니다.'), findsOneWidget);
   });
 
   testWidgets('필터가 없으면 안내 줄이 없다', (tester) async {
     await open(tester, filtered: false);
-    expect(find.textContaining('필터를 걸어 두어서'), findsNothing);
+    expect(find.textContaining('필터가 걸려 있어'), findsNothing);
   });
 }

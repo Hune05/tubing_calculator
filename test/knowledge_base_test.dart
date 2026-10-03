@@ -11,7 +11,8 @@ void main() {
     final cats = {for (final (n, c) in knowledgeCategories(all)) n: c};
     expect(cats['장비 고장 조치'], greaterThanOrEqualTo(70));
     expect(cats['계기 알람·고장 코드'], 15); // ALM 10 + Err 5
-    expect(cats['계기 신호 이상'], 6);
+    expect(cats['계기 신호 이상'], 12); // 멀티미터 루프 측정값 6 + 신호 이상 자료 6
+    expect(cats.containsKey('계기 신호 진단'), isFalse);
     expect(cats['축 정렬 지침'], greaterThanOrEqualTo(30));
     expect(cats['현장 자료'], greaterThanOrEqualTo(30));
     expect(cats['접지·전동기 점검'], 8);

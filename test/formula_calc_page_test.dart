@@ -141,10 +141,10 @@ void main() {
     await pump(tester);
     await tester.tap(find.byKey(const Key('formula_ohm_v')));
     await tester.pumpAndSettle();
-    expect(find.text('위 칸을 모두 넣으십시오'), findsOneWidget);
+    expect(find.text('위 칸에 값을 모두 넣으십시오'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('formula_in_i')), '10');
     await tester.pump();
-    expect(find.text('위 칸을 모두 넣으십시오'), findsOneWidget); // 아직 저항이 비었다.
+    expect(find.text('위 칸에 값을 모두 넣으십시오'), findsOneWidget); // 아직 저항이 비었다.
     await tester.enterText(find.byKey(const Key('formula_in_r')), '5');
     await tester.pump();
     expect(find.text('50 V'), findsOneWidget);
@@ -153,11 +153,23 @@ void main() {
 
   testWidgets('"?" 도움말을 누르면 이 칸에 뭘 넣는지 알려준다', (tester) async {
     await pump(tester);
-    await tester.tap(find.byKey(const Key('formula_ohm_v')));
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('formula_power_3ph')),
+      200,
+      scrollable: find.byType(Scrollable),
+    );
+    await tester.tap(find.byKey(const Key('formula_power_3ph')));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.help_outline_rounded).first);
     await tester.pumpAndSettle();
-    expect(find.textContaining('전류입니다'), findsOneWidget);
+    expect(find.textContaining('선과 선 사이 전압'), findsOneWidget);
+  });
+
+  testWidgets('칸 이름으로 충분한 칸(도움말이 빈 칸)에는 "?"가 없다', (tester) async {
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('formula_ohm_v')));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.help_outline_rounded), findsNothing);
   });
 
   testWidgets('0으로 나누면 오류로 알린다(예: 저항 0)', (tester) async {

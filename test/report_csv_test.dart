@@ -38,7 +38,8 @@ void main() {
     expect(lines[2], contains('2026-09-29'));
     expect(lines[2], contains('"루마 ""계장"""'));
     expect(lines[2], contains('"센서 결선 튜브 연결, ""완료"""'));
-    expect(lines[2], contains('"결선/트레이싱/검사/테스트"'));
+    // 예전 이름('검사/테스트')으로 저장된 일지도 새 이름으로 나온다.
+    expect(lines[2], contains('"결선/트레이싱/검사/시험"'));
     expect(lines[2], contains(',3,1.5,12,4,'));
   });
 

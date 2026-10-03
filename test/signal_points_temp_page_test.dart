@@ -99,7 +99,7 @@ void main() {
     expect(r, contains('히스테리시스 초과: 하강 50%'));
     expect(
       text(tester, 'sc_settings_line'),
-      '0 bar ~ 10 bar · 선형 · 전송기 출력(mA) · ±0.5% · 5점 상승·하강 · 히스테리시스 0.1%',
+      '0 bar ~ 10 bar · 선형(LINEAR) · 전송기 출력(mA) · ±0.5% · 5점 상승·하강 · 히스테리시스 0.1%',
     );
     // 하강을 끄면 허용값 칸도 숨고 판정에서 빠진다(하강 칸 값이 있으니 먼저 묻는다)
     await tapKey(tester, 'sc_down');

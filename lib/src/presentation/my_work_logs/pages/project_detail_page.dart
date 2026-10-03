@@ -877,7 +877,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(keepWords("PDF 생성 실패: $e")),
+                                    content: Text(keepWords("PDF를 만들지 못했습니다: $e")),
                                   ),
                                 );
                               }
@@ -1289,7 +1289,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 실패: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords("PDF를 만들지 못했습니다: $e"))));
       }
     }
   }

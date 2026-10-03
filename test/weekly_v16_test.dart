@@ -256,7 +256,7 @@ void _focusTest() {
     );
     await tester.tap(find.text('열기'));
     await tester.pumpAndSettle();
-    expect(find.text('새로운 작업을\n시작하시겠습니까?'), findsOneWidget);
+    expect(find.text('새 프로젝트를\n만드시겠습니까?'), findsOneWidget);
     await tester.tap(find.byType(TextField).first); // 이름 입력칸에 포커스
     await tester.pump();
     expect(FocusManager.instance.primaryFocus?.hasFocus, true);

@@ -29,7 +29,7 @@ Future<AiPolishResult> callAiPolish(String text) async {
   } on FirebaseFunctionsException catch (e) {
     return AiPolishResult.fail(aiPolishErrorMessage(e.code, e.message));
   } catch (_) {
-    return const AiPolishResult.fail('인터넷이 연결되어 있는지 확인해 주십시오');
+    return const AiPolishResult.fail('통신이 되는지 확인해 주십시오');
   }
 }
 
@@ -46,6 +46,6 @@ String aiPolishErrorMessage(String code, String? serverMessage) {
     case 'deadline-exceeded':
       return 'AI가 지금 응답하지 않습니다. 잠시 뒤에 다시 눌러 주십시오';
     default:
-      return 'AI 다듬기에 실패했습니다';
+      return 'AI가 처리하지 못했습니다. 잠시 뒤에 다시 눌러 주십시오';
   }
 }

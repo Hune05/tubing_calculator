@@ -90,7 +90,7 @@ Future<ProfilePhotoChange?> changeProfilePhoto(
     // 서버에 올린 사진이 지워져 되돌릴 수 없으므로 한 번 더 묻는다(10-02).
     final sure = await showAppConfirm(
       context,
-      title: '프로필 사진을 삭제하겠습니까?',
+      title: '프로필 사진을 삭제하시겠습니까?',
       message: '지금 올려 둔 프로필 사진을 지웁니다. 되돌릴 수 없습니다.',
       okText: '삭제',
       destructive: true,

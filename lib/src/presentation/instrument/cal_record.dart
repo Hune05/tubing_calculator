@@ -117,7 +117,7 @@ String calSensorText(TempSensor? s, double? cjC) {
 
 /// 출력 특성 이름(화면·성적서·CSV 공통).
 String transferLabel(Transfer t) => switch (t) {
-  Transfer.linear => '선형',
+  Transfer.linear => '선형(LINEAR)',
   Transfer.sqrt => '제곱근(DCS 연산)',
   Transfer.sqrtOut => '제곱근(전송기 출력)',
 };

@@ -90,7 +90,7 @@ class _TrayRow {
 /// 바닥에 직접 놓는 트레이 안내(덮개).
 const List<String> kFloorTrayNotes = [
   '덮개: 사람이 다니거나 물건이 떨어지거나 밟힐 수 있는 곳은 덮개를 씌웁니다. KEC 232.41.2 10호 "별도로 방호를 필요로 하는 곳은 불연성 커버"를 따릅니다.',
-  '덮개 무게도 트레이 자중 칸에 더해 넣으십시오.',
+  '덮개 중량도 트레이 자중 칸에 더해 넣으십시오.',
   '바닥 트렌치(홈) 안이면 KEC 232.24: 받침대는 2m 이내마다, 뚜껑은 바닥 마감면과 평평하고 다니는 사람·장비 하중에 변형되지 않게, 바닥·옆면 방수와 물 고임 방지.',
   '참고: NEMA VE 2는 트레이를 바닥에 바로 놓지 말고 스트럿 위에 띄워 클램프로 고정하라고 합니다(해외 권고).',
 ];
@@ -523,7 +523,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           '각 케이블의 허용전류에 ${f.toStringAsFixed(2)}를 곱해 굵기를 다시 확인하십시오.',
           '회로 수: 전력용 다심은 한 가닥이 한 회로, 전력용 단심은 3가닥이 한 회로로 셌습니다. 제어·신호는 뺐습니다.',
           'IEC 60364-5-52 표 B.52.17 ${layout == GroupLayout.bunched ? '1행(겹쳐 쌓음)' : '한 줄 행'}. 전기 설계 계산의 "전선 굵기" 탭에서 회로 수 $n개로 넣으면 같은 보정이 들어갑니다.',
-          if (!oneRow) '한 줄로 펴서 깔면 보정이 덜 줄어듭니다(넓은 트레이).',
+          if (!oneRow) '한 줄로 펴서 포설하면 허용전류가 덜 줄어듭니다(넓은 트레이 필요).',
         ],
       ),
     ];
@@ -539,7 +539,7 @@ class _CableTrayPageState extends State<CableTrayPage>
     final f = bendFactor(worst, _bendRule);
     return [
       const SizedBox(height: 16),
-      elecSectionTitle('곡률 반경'),
+      elecSectionTitle('최소 굽힘 반경'),
       elecChipGroup(
         '굽힘 반경 기준',
         '국내 시방서: 다심 외경의 6배, 단심 8배(서울시 SMCS·KRCCS·나라장터 시방서 등). 차폐 제어·AMS 케이블은 국내 규정이 없어 제조사 값 12배를 씁니다. '
@@ -559,9 +559,9 @@ class _CableTrayPageState extends State<CableTrayPage>
         lines: [
           '가장 큰 것: ${worst.name} 외경 ${fmt(worst.od)}mm × ${fmt(f.$1)} (${f.$2})',
           ok
-              ? '엘보 R${fmt(_elbow)} 안에서 굽힐 수 있습니다.'
+              ? '엘보 R${fmt(_elbow)}로 굽힐 수 있습니다(최소 굽힘 반경 이상).'
               : fit == null
-              ? 'R900 엘보로도 모자랍니다. 더 큰 반경으로 돌리거나 굵은 케이블은 따로 돌리십시오.'
+              ? 'R900 엘보로도 부족합니다. 더 큰 반경으로 돌리거나 굵은 케이블은 따로 돌리십시오.'
               : 'R${fmt(fit)} 이상 엘보를 쓰십시오.',
           for (final c in cables)
             if (c.count > 0) '${c.name}: R ${fmt(bendRadius(c, _bendRule), 0)}mm (${bendFactor(c, _bendRule).$2})',
@@ -589,7 +589,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       elecSectionTitle('하중'),
       elecChipGroup(
         '설치 방법',
-        '매달기·브래킷·받침대 위는 지지점 사이가 떠 있어 지지 간격과 허용 하중을 따집니다. 바닥에 직접 놓으면 바닥이 계속 받쳐 줘서 그 계산은 필요 없고, 1m당 무게만 봅니다.',
+        '매달기·브래킷·받침대 위는 지지점 사이가 떠 있어 지지 간격과 허용 하중을 계산합니다. 바닥에 직접 설치하면 바닥이 받쳐 주므로 이 계산은 하지 않고 1m당 중량만 계산합니다.',
         [for (final mt in TrayMount.values) calcChip('ct_mt_${mt.name}', trayMountLabel(mt), _mount == mt, () => _set(() => _mount = mt))],
       ),
       if (trayMountSpans(_mount)) ...[
@@ -599,14 +599,14 @@ class _CableTrayPageState extends State<CableTrayPage>
           [for (final sp in kTraySpans) calcChip('ct_sp_${sp.toString()}', '${fmt(sp)}m', _span == sp, () => _set(() => _span = sp))],
         ),
       ],
-      elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 무게입니다. 제조사 카탈로그 값을 넣습니다(예: 대양엔지니어링 사다리형 300폭 H100 가로대 300mm, 2.6t 7.0kg/m. 한 곳 자료). 지지점 하중에만 들어가고, 허용 하중 판정은 케이블 하중으로 합니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
+      elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 중량입니다. 제조사 카탈로그 값을 넣습니다(예: 대양엔지니어링 사다리형 300폭 H100 가로대 300mm, 2.6t 7.0kg/m. 한 곳 자료). 지지점 하중에만 들어가고, 허용 하중 판정은 케이블 하중으로 합니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
       if (trayMountSpans(_mount))
-        elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그에서 이 지지 간격의 등분포 허용(사용) 하중입니다. 케이블만의 하중 기준(트레이 자중 제외)이라 케이블 하중과 견줍니다. NEMA VE-1·IEC 61537 기준 값은 안전율(1.5 이상)이 이미 들어 있어 그대로 넣고, KS 정하중이나 파괴 하중만 있으면 1.5로 나눠 넣으십시오(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
+        elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그에서 이 지지 간격의 등분포 허용(사용) 하중입니다. 케이블만의 하중 기준(트레이 자중 제외)이라 케이블 하중과 비교합니다. NEMA VE-1·IEC 61537 기준 값은 안전율(1.5 이상)이 이미 들어 있어 그대로 넣고, KS 정하중이나 파괴 하중만 있으면 1.5로 나눠 넣으십시오(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
       calcResult(
         key: const Key('ct_load'),
         big: '${fmt(l.totalKgM, 1)} kg/m',
         caption: !spans
-            ? '트레이 1m당 무게 · 바닥에 직접 설치'
+            ? '트레이 1m당 중량 · 바닥에 직접 설치'
             : ok == null
             ? '트레이 1m당 하중 · 허용 하중을 넣으면 판정합니다'
             : '트레이 1m당 하중 · ${ok ? '합격' : '불합격'} ${fmt(l.pct!, 0)}%',
@@ -616,15 +616,15 @@ class _CableTrayPageState extends State<CableTrayPage>
           if (spans)
             '지지점 하나가 받는 하중 약 ${fmt(l.perSupportKg, 0)} kg (1m당 하중 × ${_mount == TrayMount.stand ? '받침대' : '지지'} 간격 ${fmt(_span)}m). ${_mount == TrayMount.stand ? '받침대' : '행거·앵커'} 선정에 씁니다.'
           else
-            '바닥이 계속 받쳐 지지 간격·허용 하중 판정은 하지 않습니다. 바닥(슬래브·트렌치) 허용 하중 확인에 1m당 무게를 쓰십시오.',
+            '바닥이 계속 받쳐 지지 간격·허용 하중 판정은 하지 않습니다. 바닥(슬래브·트렌치) 허용 하중 확인에 1m당 중량을 쓰십시오.',
           if (ok != null)
             ok
-                ? '케이블 하중 ${fmt(l.cableKgM, 1)} kg/m가 허용 하중 ${fmt(l.allowKgM!, 1)} kg/m 안입니다.'
-                : '케이블 하중 ${fmt(l.cableKgM, 1)} kg/m가 허용 하중 ${fmt(l.allowKgM!, 1)} kg/m를 넘습니다. 지지 간격을 줄이거나 더 튼튼한 트레이로 하십시오.',
+                ? '케이블 하중 ${fmt(l.cableKgM, 1)} kg/m가 허용 하중 ${fmt(l.allowKgM!, 1)} kg/m 이내입니다.'
+                : '케이블 하중 ${fmt(l.cableKgM, 1)} kg/m가 허용 하중 ${fmt(l.allowKgM!, 1)} kg/m를 초과합니다. 지지 간격을 줄이거나 허용 하중이 큰 트레이로 선정하십시오.',
           if (spanWarning(_mount, _span) != null) spanWarning(_mount, _span)!,
           if (spans) '케이블 결속: 수평은 2m 이내마다 케이블타이(국내 시방서). 수평이 아닌 곳은 가로대에 단단히 고정(KEC 232.41.1 4호), 수직 간격은 국내 규정이 없습니다(NEMA VE 2는 약 450mm 권고).',
           if (!spans) ...kFloorTrayNotes,
-          if (l.missing.isNotEmpty) '무게를 몰라 빠진 케이블: ${l.missing.join(', ')}. 직접 입력 줄에 kg/km를 넣으면 들어갑니다.',
+          if (l.missing.isNotEmpty) '중량을 몰라 빠진 케이블: ${l.missing.join(', ')}. 직접 입력 줄에 kg/km를 넣으면 들어갑니다.',
           cableWeightSource,
         ],
       ),
@@ -646,7 +646,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       final c = cables[i];
       b.write('\n ${i + 1}. ${c.name} × ${c.count}가닥${c.control ? ' (제어·신호)' : ''}');
     }
-    b.write(_std == TrayStandard.kec ? '\n근거: KEC 232.41.1 6~9호' : '\n근거: 옛 전기설비기술기준의 판단기준 제213조의2(참고)');
+    b.write(_std == TrayStandard.kec ? '\n근거: KEC 232.41.1 6~9호' : '\n근거: 구 전기설비기술기준의 판단기준 제213조의2(참고)');
     return b.toString();
   }
 
@@ -686,8 +686,8 @@ class _CableTrayPageState extends State<CableTrayPage>
         warn: !ok,
         lines: [
           ok
-              ? '한도 안입니다 (${trayNum(check.used)} / ${trayNum(check.limit)} $unit).'
-              : '한도를 넘습니다 (${trayNum(check.used)} / ${trayNum(check.limit)} $unit). ${best == null ? '표준 폭 안에 맞는 폭이 없습니다. 트레이를 나누십시오.' : '폭 ${fmt(best)}mm 이상으로 선정하십시오.'}',
+              ? '한도 이내입니다 (${trayNum(check.used)} / ${trayNum(check.limit)} $unit).'
+              : '한도를 초과합니다 (${trayNum(check.used)} / ${trayNum(check.limit)} $unit). ${best == null ? '표준 폭 안에 맞는 폭이 없습니다. 트레이를 나누십시오.' : '폭 ${fmt(best)}mm 이상으로 선정하십시오.'}',
           if (ok && best != null && best < _width) '더 좁은 폭 ${fmt(best)}mm도 됩니다.',
           trayRuleLabel(check.rule),
           check.formula,
@@ -702,14 +702,14 @@ class _CableTrayPageState extends State<CableTrayPage>
       elecChipGroup(
         '판정 기준',
         'KEC 232.41(현행): 트레이 종류·다심·단심을 가리지 않고 케이블 외경 합 ≤ 내측 폭, 한 층입니다. '
-            '옛 판단기준(제213조의2)은 2021년 KEC 전의 점유면적 표·비율 규정으로, 비교용 참고입니다.',
+            '구 판단기준(제213조의2)은 2021년 KEC 전의 점유면적 표·비율 규정으로, 비교용 참고입니다.',
         [for (final t in TrayStandard.values) calcChip('ct_std_${t.name}', trayStandardLabel(t), _std == t, () => _set(() => _std = t))],
       ),
       elecChipGroup(
         '트레이 종류',
         _std == TrayStandard.kec
             ? 'KEC에서는 종류와 관계없이 같은 규칙입니다(허용전류 보정에만 영향).'
-            : '옛 기준: 사다리형·펀칭형·메시형은 통풍이 되는 표(넓은 한도), 바닥밀폐형은 더 작은 표를 씁니다.',
+            : '구 기준: 사다리형·펀칭형·메시형은 통풍이 되는 표(넓은 한도), 바닥밀폐형은 더 작은 표를 씁니다.',
         [for (final t in TrayType.values) calcChip('ct_type_${t.name}', trayTypeLabel(t), _type == t, () => _set(() => _type = t))],
       ),
       elecChipGroup(
@@ -724,7 +724,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       ),
       elecChipGroup(
         '예비 여유',
-        '나중에 더 넣을 케이블 몫입니다. 쓴 양에 (1 + 여유)를 곱해 판정합니다. KEC에는 여유 기준이 없고 설계 관례입니다.',
+        '나중에 추가할 케이블을 위한 여유입니다. 사용량에 (1 + 여유)를 곱해 판정합니다. KEC에는 여유 기준이 없고 설계 관례입니다.',
         [for (final m in const [0, 10, 20, 30]) calcChip('ct_m_$m', '$m%', _marginPct == m, () => _set(() => _marginPct = m))],
       ),
       elecSectionTitle('케이블 목록'),
@@ -735,25 +735,25 @@ class _CableTrayPageState extends State<CableTrayPage>
           key: const Key('ct_add'),
           onPressed: _rows.length >= _maxRows ? null : _addRow,
           icon: const Icon(Icons.add_rounded),
-          label: const Text('케이블 줄 더하기', style: TextStyle(fontWeight: FontWeight.w800)),
+          label: const Text('케이블 줄 추가', style: TextStyle(fontWeight: FontWeight.w800)),
         ),
       ),
       if (_rows.length > 1)
         Padding(
           padding: const EdgeInsets.only(left: 8, bottom: 4),
-          child: Text('줄 번호를 잡고 왼쪽으로 밀면 지웁니다', style: TextStyle(fontSize: 12, color: fc.textSub)),
+          child: Text('지울 줄은 번호를 잡고 왼쪽으로 끝까지 미십시오.', style: TextStyle(fontSize: 12, color: fc.textSub)),
         ),
       const SizedBox(height: 8),
       result,
       if (check != null) ...[
         const SizedBox(height: 12),
-        calcLabel('단면 그림', '케이블을 실제 외경 비율로 굵은 것부터 바닥에 깔아 본 그림입니다. 원 안 숫자는 목록의 줄 번호, 빨간 테두리는 폭이나 깊이를 넘친 가닥입니다. 판정은 위 결과를 따릅니다.'),
+        calcLabel('단면 그림', '케이블을 실제 외경 비율로 굵은 것부터 바닥에 포설한 모양으로 그린 그림입니다. 원 안 숫자는 목록의 줄 번호, 빨간 테두리는 폭이나 깊이를 벗어난 가닥입니다. 판정은 위 결과를 따릅니다.'),
         const SizedBox(height: 4),
         _section(cables, check),
       ],
       if (sizing != null) ...[
         const SizedBox(height: 12),
-        calcLabel('폭별 판정', '같은 케이블로 표준 폭마다 본 사용률입니다. 누르면 그 폭으로 바꿉니다.'),
+        calcLabel('폭별 판정', '같은 케이블을 표준 폭마다 계산한 사용률입니다. 누르면 그 폭으로 바꿉니다.'),
         const SizedBox(height: 4),
         Wrap(
           key: const Key('ct_widths'),
@@ -776,11 +776,11 @@ class _CableTrayPageState extends State<CableTrayPage>
           '허용전류 저감계수: KS C IEC 60364-5-52 표 B.52.17(여러 단이면 B.52.20·B.52.21).',
           '확인: 산업부 공고 2022-809·2023-563, 기후에너지환경부 공고 2025-198 신구조문, cq4l KEC 조문. 2026-01-05 시행본(2025-227)에서 트레이 조문은 바뀌지 않았습니다.',
         ] else ...[
-          '옛 판단기준 제213조의2(2021년 KEC 전, 참고용). 케이블 단면적은 완성품 외경으로 π/4 × 외경².',
+          '구 판단기준 제213조의2(2021년 KEC 전, 참고용). 케이블 단면적은 완성품 외경으로 π/4 × 외경².',
           '다심 100mm² 이상만: 외경 합 ≤ 내측 폭(바닥밀폐형 90%), 한 층.',
           '다심 100mm² 미만만: 단면적 합 ≤ 표(사다리·통풍 150 4,510 / 300 9,030 / 450 13,540 / 600 18,060 / 750 22,580 / 900 27,090mm², 바닥밀폐 3,540 / 7,090 / 10,640 / 14,190 / 17,740 / 21,290mm²).',
           '다심 섞임: 작은 케이블 단면적 합 ≤ 표 − 30.5(바닥밀폐 25.4) × 100mm² 이상 외경 합. 굵은 케이블은 한 층, 위에 얹지 않음.',
-          '제어·신호 다심만(깊이 150mm 이하, 넘으면 150으로): 단면적 합 ≤ 트레이 내 단면적의 50%(바닥밀폐 40%).',
+          '제어·신호 다심만(깊이 150mm 이하, 초과하면 150으로): 단면적 합 ≤ 트레이 내 단면적의 50%(바닥밀폐 40%).',
           '단심 500mm² 이상만: 외경 합 ≤ 폭. 100~500mm²만: 단면적 합 ≤ 표(150 4,190 / 300 8,380 / 450 12,580 / 600 16,770 / 750 20,960 / 900 25,160mm²). 섞임: 표 − 28 × 500mm² 이상 외경 합. 50~100mm²가 있으면 외경 합 ≤ 폭, 한 층.',
           '다심·단심을 함께 넣으면 다심 규정과 단심 규정을 각각 만족(8호).',
           '표 값: 판단기준 해설 자료(jungi.net)·eom 조문·KRCCS 시방서가 같고, 미국 NEC 392.22를 mm로 바꾼 값과 같습니다. 해설 자료 계산 예 7개로 맞춰 봤습니다. 표에 없는 폭은 비례로 계산했습니다(규정 문구 아님).',

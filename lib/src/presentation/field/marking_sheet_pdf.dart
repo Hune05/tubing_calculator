@@ -373,7 +373,7 @@ pw.TableRow _headRow(List<String> cols) => pw.TableRow(
 
 pw.Widget _markTable(FieldMarkingData data) {
   final rows = <pw.TableRow>[
-    _headRow(['번호', '줄자 눈금', '앞 마킹에서', '각도', '꺾을 각도', '방향', '굴림']),
+    _headRow(['번호', '줄자 눈금', '앞 마킹에서', '각도', '꺾을 각도', '방향', '롤링']),
   ];
   for (final m in data.bends) {
     rows.add(
@@ -403,7 +403,7 @@ pw.Widget _markTable(FieldMarkingData data) {
       pw.TableRow(
         decoration: const pw.BoxDecoration(color: PdfColors.grey100),
         children: [
-          _cell('자름', bold: true),
+          _cell('절단', bold: true),
           _cell(
             data.inchMode == FieldInchMode.none
                 ? '${_mm(data.totalCut)} mm'
@@ -411,7 +411,7 @@ pw.Widget _markTable(FieldMarkingData data) {
             bold: true,
             size: 11,
           ),
-          _cell('자르는 자리', bold: true),
+          _cell('절단 위치', bold: true),
           _cell(''),
           _cell(''),
           _cell(''),

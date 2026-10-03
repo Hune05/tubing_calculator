@@ -116,7 +116,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
               ),
               const SizedBox(height: 16),
               const Text(
-                "한 번 꺾어 보고 잡기",
+                "시험 벤딩으로 테이크업·게인 잡기",
                 style: TextStyle(
                   color: _slate900,
                   fontSize: 18,
@@ -126,7 +126,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
               const SizedBox(height: 6),
               const Text(
                 "한 토막 잘라 마킹하고 90°로 한 번 꺾은 뒤, 양쪽 끝에서 꺾인 관 "
-                "바깥면(등)까지 재서 넣으십시오. 이 벤더의 테이크업과 게인을 "
+                "바깥면(등)까지 측정해 넣으십시오. 이 벤더의 테이크업과 게인을 "
                 "한 번에 잡습니다.",
                 style: TextStyle(color: _slate600, fontSize: 13, height: 1.4),
               ),
@@ -170,7 +170,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                           if (suspicious) ...[
                             const SizedBox(height: 10),
                             const Text(
-                              "지금 값과 20% 넘게 다릅니다. 잰 자리(바깥면·화살표)를 다시 확인하십시오.",
+                              "지금 값과 20% 넘게 다릅니다. 측정 위치(바깥면·화살표)를 다시 확인하십시오.",
                               style: TextStyle(
                                 color: _amber,
                                 fontSize: 12,

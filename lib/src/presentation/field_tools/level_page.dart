@@ -404,7 +404,7 @@ class _LevelPageState extends State<LevelPage> {
       if (_calibrated) _tag("영점 맞춤", kLevelBlue),
       if (_poseLocked)
         _tag(
-          "모양 고정 · $_poseLabel",
+          "자세 고정 · $_poseLabel",
           fieldPick(Colors.orange, sunlight: fc.caution, night: fc.caution),
         ),
       if (_hold)
@@ -433,15 +433,15 @@ class _LevelPageState extends State<LevelPage> {
             RoundToolButton(
               key: const Key('level_pose_lock'),
               icon: _poseLocked ? Icons.lock : Icons.hdr_auto,
-              tooltip: _poseLocked ? "모양 고정 풀기" : "모양 고정",
+              tooltip: _poseLocked ? "자세 고정 풀기" : "자세 고정",
               color: btnColor,
               active: _poseLocked,
               onTap: () {
                 setState(() => _poseLocked = !_poseLocked);
                 _snack(
                   _poseLocked
-                      ? "지금 모양($_poseLabel)으로 고정했습니다. 폰을 돌려도 안 바뀝니다."
-                      : "폰을 놓는 모양에 따라 다시 자동으로 바뀝니다.",
+                      ? "지금 자세($_poseLabel)로 고정했습니다. 폰을 돌려도 바뀌지 않습니다."
+                      : "폰을 놓는 자세에 따라 다시 자동으로 바뀝니다.",
                 );
               },
             ),
@@ -698,7 +698,7 @@ class _RulerCalibrationPageState extends State<RulerCalibrationPage> {
             Padding(
               padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
               child: Text(
-                "신용카드(교통카드)를 세로로 세워 아래 상자 위에 대고, 상자가 카드와 같아지게 밉니다.",
+                "신용카드(교통카드)를 세로로 화면의 상자 위에 대고, 아래 막대를 밀어 상자 크기를 카드에 맞추십시오.",
                 style: TextStyle(color: _grey, height: 1.4),
               ),
             ),
@@ -737,7 +737,7 @@ class _RulerCalibrationPageState extends State<RulerCalibrationPage> {
                   FilledButton(
                     key: const Key('ruler_ok'),
                     onPressed: () => Navigator.pop(context, _v),
-                    child: const Text("맞춤"),
+                    child: const Text("저장"),
                   ),
                 ],
               ),

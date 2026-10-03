@@ -619,7 +619,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                 maxLines: 2,
                 style: const TextStyle(color: tossText),
                 decoration: InputDecoration(
-                  hintText: "코멘트 (선택)",
+                  hintText: "메모 (선택)",
                   hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
                   filled: true,
                   fillColor: tossBg,

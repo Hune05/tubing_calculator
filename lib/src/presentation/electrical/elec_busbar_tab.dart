@@ -82,7 +82,7 @@ extension _BusbarTab on _ElectricCalculatorPageState {
         key: const Key('ec_bus_result'),
         big: first.$2 == null ? '검토 필요' : _barsText(first.$2!.row, first.$1),
         caption: first.$2 == null
-            ? '표 범위(200×10 × 4가닥)를 넘습니다'
+            ? '표 범위(200×10 × 4가닥)를 초과합니다'
             : '${fmt(need, 1)} A 이상, 가닥 수가 가장 적은 규격 ($_busKind)',
         warn: warn,
         lines: [
@@ -93,7 +93,7 @@ extension _BusbarTab on _ElectricCalculatorPageState {
           if (margin > 0)
             '선정 전류 ${fmt(need, 1)} A = 부하 ${fmt(load!, 1)} A × ${fmt(1 + margin / 100, 2)}',
           if (_dc) '얇은 부스바의 직류 2·3가닥 값은 두 출처로 확인하지 못해 선정에서 뺐습니다.',
-          '단면적이 같은 규격(예: 20×10과 40×5)은 허용전류가 큰 쪽을 보입니다.',
+          '단면적이 같은 규격(예: 20×10과 40×5)은 허용전류가 큰 쪽을 표시합니다.',
           _condLine,
         ],
       );
@@ -155,7 +155,7 @@ extension _BusbarTab on _ElectricCalculatorPageState {
           '구리 부스바의 폭 × 두께(mm)입니다. 괄호는 DIN 43671 표의 단면적입니다(모서리 둥글림 반영).',
         ),
         _chipGroup(
-          '상당 가닥 수',
+          '한 상 가닥 수',
           '한 상에 나란히 붙여 쓰는 부스바 수입니다. 가닥 사이 간격은 부스바 두께와 같다고 봅니다.\n'
               '교류 4가닥은 2가닥씩 두 묶음(묶음 사이 50mm)입니다. DIN 43671의 4가닥 값은 교류 40×10과 폭 50mm 이상, '
               '직류 폭 60mm 이상에만 있습니다.',
@@ -173,7 +173,7 @@ extension _BusbarTab on _ElectricCalculatorPageState {
         _busI,
         _busPick
             ? '부스바에 흐르는 최대 연속 전류입니다. 차단기 정격이나 변압기 정격전류를 넣기도 합니다.'
-            : '넣으면 허용전류 이내인지 봅니다.',
+            : '넣으면 허용전류 이내인지 판정합니다.',
       ),
       _field(
         'ec_bus_margin',

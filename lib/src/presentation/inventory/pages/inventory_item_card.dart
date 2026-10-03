@@ -216,7 +216,7 @@ class _InventoryItemCardState extends State<InventoryItemCard> {
                   const SizedBox(height: 8),
                   _buildFullWidthInputBtn(
                     'MinQty',
-                    "최소 유지 수량",
+                    "최소 수량",
                     widget.data.minQty == 0
                         ? ""
                         : widget.data.minQty.toString(),

@@ -381,7 +381,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
       case _ActType.save:
         final events = [...m.history];
         if (out.text != m.text) events.add(MarkEvent(_now, '내용 고침', _author));
-        if (out.done != m.done) events.add(MarkEvent(_now, out.done ? '해결' : '다시 남음', _author));
+        if (out.done != m.done) events.add(MarkEvent(_now, out.done ? '해결' : '해결 취소', _author));
         if (out.color != m.color) events.add(MarkEvent(_now, '색 바꿈(${out.color.label})', _author));
         next = m.copyWith(text: out.text, done: out.done, color: out.color, history: events);
     }
@@ -418,7 +418,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
         doc: _doc,
         marks: _marks,
         onToggle: (m) async {
-          final n = m.copyWith(done: !m.done, history: [...m.history, MarkEvent(_now, m.done ? '다시 남음' : '해결', _author)]);
+          final n = m.copyWith(done: !m.done, history: [...m.history, MarkEvent(_now, m.done ? '해결 취소' : '해결', _author)]);
           setState(() => _marks = [for (final x in _marks) x.id == m.id ? n : x]);
           await _persist();
           return _marks;
@@ -860,7 +860,7 @@ class _MarkSheetState extends State<_MarkSheet> {
               ),
             if (m.history.isNotEmpty) ...[
               const SizedBox(height: 4),
-              const Text('이력', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+              const Text('기록', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.textSub)),
               for (final h in m.history)
                 Text('${markDate(h.at)}  ${h.what}${h.who.isEmpty ? '' : ' · ${h.who}'}', style: const TextStyle(fontSize: 12, color: AppColors.textSub)),
             ],
@@ -981,7 +981,7 @@ class _IssueSheetState extends State<_IssueSheet> {
                         widget.onExport();
                       },
                       icon: const Icon(AppIcons.pdf, size: 18),
-                      label: const Text('표시한 PDF'),
+                      label: const Text('표시한 PDF 보내기'),
                     ),
                   ),
                 ],

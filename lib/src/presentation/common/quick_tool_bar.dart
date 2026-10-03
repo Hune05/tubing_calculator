@@ -112,7 +112,7 @@ final List<QuickToolDef> kQuickTools = [
     '벤딩 실측 기록',
     AppGlyph.tubeSpec,
     (_) => const BendCheckPage(),
-    subtitle: '계산값과 잰 값의 차이를 남겨 다음 마킹에 참고',
+    subtitle: '계산값과 실측값의 차이를 남겨 다음 마킹에 참고',
     group: '현장 도구',
   ),
   QuickToolDef(
@@ -189,7 +189,7 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'pressure',
-    '압력 시험',
+    '압력시험',
     AppGlyph.pressureGauge,
     (_) => const PressureTestPage(),
     subtitle: '튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서',
@@ -200,7 +200,7 @@ final List<QuickToolDef> kQuickTools = [
     '유량 계산',
     AppGlyph.flow,
     (_) => const FlowCalcPage(),
-    subtitle: '유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검',
+    subtitle: '유속·관경 · 압력손실 · 차압 유량계 · 유량계 점검',
     group: '배관·튜브',
   ),
   QuickToolDef(
@@ -240,7 +240,7 @@ final List<QuickToolDef> kQuickTools = [
     '부스바 절곡 계산기',
     AppGlyph.busbarBend,
     (_) => const BusbarBendPage(),
-    subtitle: 'L·U·Z 꺾기 자르는 길이와 꺾기 시작선',
+    subtitle: 'L·U·Z 절곡 절단 길이와 절곡 시작선',
     group: '전기',
   ),
   QuickToolDef(
@@ -248,7 +248,7 @@ final List<QuickToolDef> kQuickTools = [
     '접지바 구멍 계산기',
     AppGlyph.groundBar,
     (_) => const GroundBarPage(),
-    subtitle: '구멍 위치·자르는 길이·무게',
+    subtitle: '구멍 위치·절단 길이·중량',
     group: '전기',
   ),
   QuickToolDef(
@@ -264,7 +264,7 @@ final List<QuickToolDef> kQuickTools = [
     '형강 컷팅 (찬넬/앵글)',
     AppGlyph.steel,
     (_) => const MobileSteelProjectListPage(),
-    subtitle: '라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력',
+    subtitle: '규격·길이만 넣어 재단 계획·지시서 출력',
     group: '가공·배치',
   ),
   QuickToolDef(
@@ -446,7 +446,7 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
           group: m.group,
           onTap: () => nav.push(MaterialPageRoute<void>(builder: m.builder)),
           children: [
-            leaf(m, title: '전체 화면'),
+            leaf(m, title: '첫 화면'),
             for (final s in kids) leaf(s),
           ],
         ),

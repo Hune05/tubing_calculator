@@ -267,7 +267,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
       _toast('저장은 $kLoadSumMaxSheets개까지 됩니다. 안 쓰는 계산서를 지우십시오.');
       return;
     }
-    if (same >= 0 && !await _confirm('"$name" 이름이 이미 있습니다. 덮어쓰겠습니까?', '덮어쓰기')) {
+    if (same >= 0 && !await _confirm('"$name" 이름이 이미 있습니다. 덮어쓰시겠습니까?', '덮어쓰기')) {
       return;
     }
     // 같은 이름이면 첫 것의 이름표를 이어 쓴다(다른 기기에서 그 계산서가 새 것으로 바뀌게).
@@ -303,7 +303,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
   }
 
   Future<void> _openSheet(LoadSheet s) async {
-    if (!await _confirm('"${s.name}" 계산서를 불러오겠습니까?\n지금 입력한 값은 바뀝니다.', '불러오기')) {
+    if (!await _confirm('"${s.name}" 계산서를 불러오시겠습니까?\n지금 입력한 값은 바뀝니다.', '불러오기')) {
       return;
     }
     if (!mounted) return;
@@ -314,7 +314,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
   }
 
   Future<void> _deleteSheet(LoadSheet s) async {
-    if (!await _confirm('"${s.name}" 계산서를 지우겠습니까?', '지우기')) return;
+    if (!await _confirm('"${s.name}" 계산서를 지우시겠습니까?', '지우기')) return;
     final next = [
       for (final x in _sheets)
         if (x.id != s.id) x,
@@ -600,7 +600,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
           '필요 용량 = ${fmt(r.demandKva, 1)} kVA ÷ ${fmt(r.diversity, 2)} × ${fmt(1 + r.marginPct / 100, 3)}',
           '2차 정격전류 ${fmt(r.ratedAmps, 1)} A (${fmt(r.volts, 0)} V, 3상)',
           if (pass == null)
-            '선정 변압기 용량(kVA)을 넣으면 부하율과 합격/불합격을 봅니다.'
+            '선정 변압기 용량(kVA)을 넣으면 부하율과 합격/불합격을 판정합니다.'
           else ...[
             '선정 ${fmt(r.selectedKva!, 1)} kVA: 부하율 ${fmt(r.loadPct!, 1)}% ${pass ? '합격' : '불합격'}'
                 '${r.marginPct > 0 ? ' (여유를 뺀 부하율 ${fmt(r.loadPctNoMargin!, 1)}%)' : ''}',
@@ -676,7 +676,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         'els_selected',
         '선정 변압기 용량 (kVA, 선택)',
         _selected,
-        '실제로 선정한 변압기 용량입니다. 넣으면 부하율과 합격/불합격을 봅니다. 표준 용량 목록은 원문 대조 전이라 넣지 않았습니다.',
+        '실제로 선정한 변압기 용량입니다. 넣으면 부하율과 합격/불합격을 판정합니다.',
       ),
       const SizedBox(height: 4),
       result,

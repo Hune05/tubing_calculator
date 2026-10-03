@@ -513,7 +513,7 @@ final Map<String, List<ModulePreset>> kElecPresets = {
       depth: 72.5,
     ),
     const ModulePreset(
-      "GCP-33AN 차단기 3P (단종 표기, 어림값)",
+      "GCP-33AN 차단기 3P (단종, 치수 추정값)",
       52.5,
       73,
       shape: '${ElecShape.gcp}:3',

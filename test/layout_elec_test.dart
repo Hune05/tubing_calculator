@@ -72,8 +72,15 @@ void main() {
     expect(preset('GCP-32AN 차단기 2P (서킷 프로텍터)').depth, 72.5); // 65 + 레일 7.5
     expect(preset('GCP-32AN 차단기 2P (서킷 프로텍터)').shape, '${ElecShape.gcp}:2');
     final names = kElecPresets.values.expand((l) => l).map((p) => p.name);
-    // "GCP-33AN … (단종 표기, 어림값)" 하나만 이름에 그 사실을 밝히고 남긴 예외다.
-    expect(names.where((n) => n.contains('대략값') || n.contains('추정')), isEmpty);
+    // "GCP-33AN … (단종, 치수 추정값)" 하나만 이름에 그 사실을 밝히고 남긴 예외다.
+    expect(
+      names.where(
+        (n) =>
+            !n.startsWith('GCP-33AN ') &&
+            (n.contains('대략값') || n.contains('추정')),
+      ),
+      isEmpty,
+    );
     expect(kElecPresets.keys.any((k) => k.contains('하이웰')), isFalse);
     // 예전에 놓은 사진 어림 압력 스위치도 그림은 그대로 그려진다.
     final rec = ui.PictureRecorder();
@@ -110,8 +117,8 @@ void main() {
     );
     expect(preset('PYF14A 소켓 단품 (옴론, 14핀)').width, 29.5);
 
-    // GCP-33AN은 이름에 단종·어림값임을 밝혀 뒀다.
-    final gcp3 = preset('GCP-33AN 차단기 3P (단종 표기, 어림값)');
+    // GCP-33AN은 이름에 단종·치수 추정값임을 밝혀 뒀다.
+    final gcp3 = preset('GCP-33AN 차단기 3P (단종, 치수 추정값)');
     expect(gcp3.width, 52.5);
     expect(gcp3.height, 73);
     expect(gcp3.shape, '${ElecShape.gcp}:3');

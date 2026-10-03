@@ -91,6 +91,6 @@ Future<MaterialNoteResult> callParseMaterialNote(Uint8List jpeg) async {
   } on FirebaseFunctionsException catch (e) {
     return MaterialNoteResult.fail(aiPolishErrorMessage(e.code, e.message));
   } catch (_) {
-    return const MaterialNoteResult.fail('인터넷이 연결되어 있는지 확인해 주십시오');
+    return const MaterialNoteResult.fail('통신이 되는지 확인해 주십시오');
   }
 }

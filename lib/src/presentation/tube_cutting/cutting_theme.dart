@@ -164,9 +164,8 @@ Future<double?> showBladeKerfDialog(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "원자재를 여러 구간으로 자를 때 톱날 두께만큼 소재가 갈려 없어집니다. "
-            "절단 1회당 손실량을 넣어두면 총 소모량 계산에 자동으로 더해집니다.\n"
-            "(구간별 설치 길이 자체엔 영향 없습니다)",
+            "절단 1회당 톱날 손실을 넣으면 총 소모량에 더해집니다.\n"
+            "구간별 절단 길이는 바뀌지 않습니다.",
             style: TextStyle(fontSize: 13, color: CuttingColors.textSecondary),
           ),
           const SizedBox(height: 16),
@@ -252,7 +251,7 @@ class PendingDeductionBadge extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            "빼기 대기 $materialCount건",
+            "재고 안 뺀 자재 $materialCount건",
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.bold,

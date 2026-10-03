@@ -646,7 +646,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
             ),
           if (index == 3)
             InnerTabSelector(
-              tabs: const ["3 포인트 새들", "4 포인트 새들"],
+              tabs: const ["3점 새들", "4점 새들"],
               selectedIndex: _innerTabs[index],
               activeColor: modeColor,
               onTabSelected: (i) => setState(() {
@@ -789,7 +789,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         ),
         const SizedBox(height: 32),
         RemoteReadOnlyField(
-          label: "자동 계산된 대각 길이 (D)",
+          label: "자동 계산된 빗변 (Travel)",
           ctrl: _val2Ctrls[m],
           textColor: fieldPick(
             Colors.blue.shade700,
@@ -809,7 +809,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
         ),
         const SizedBox(height: 32),
         RemoteTextField(
-          label: "대각 길이 (D)",
+          label: "빗변 (Travel)",
           ctrl: _val2Ctrls[m],
           currentFocus: _val2FocusNodes[m],
           focusColor: color,
@@ -887,7 +887,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       ),
       const SizedBox(height: 32),
       RemoteTextField(
-        label: "수평 롤 (Roll)",
+        label: "롤링 (Roll)",
         ctrl: _val2Ctrls[m],
         currentFocus: _val2FocusNodes[m],
         focusColor: color,
@@ -895,7 +895,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
       ),
       const SizedBox(height: 32),
       RemoteReadOnlyField(
-        label: "진단차 (True H) - 자동 계산",
+        label: "자동 계산된 True Offset",
         ctrl: _result1Ctrls[m],
         textColor: fieldPick(
           Colors.purple.shade700,
@@ -977,7 +977,7 @@ class _MobileRemotePageState extends State<MobileRemotePage> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    "연동 반경 값을 최신화했습니다.",
+                    "반경 값을 다시 불러왔습니다.",
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   backgroundColor: makitaTeal,

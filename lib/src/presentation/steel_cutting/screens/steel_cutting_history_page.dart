@@ -321,7 +321,7 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
                   ),
                 ),
                 Text(
-                  "${_currentPage + 1} / ${days.length}일 · 좌우로 스와이프",
+                  "${_currentPage + 1} / ${days.length}일 · 좌우로 밀어 넘기기",
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],

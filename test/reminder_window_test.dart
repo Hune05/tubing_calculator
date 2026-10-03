@@ -144,7 +144,7 @@ void main() {
       final k = addSyncLog([], t, 0, 1);
       expect(
         syncLogLabel(k.single),
-        '9/19 19:20 · 새로 예약 0건 · 도착 시간 안이라 그대로 둔 알림 1건',
+        '9/19 19:20 · 새로 예약 0건 · 곧 울릴 예정이라 그대로 둔 알림 1건',
       );
       expect(syncLogLabel('깨짐'), isNull);
       expect(syncLogLabel('a|b|c'), isNull);

@@ -232,7 +232,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       okLabel: '시작',
       kpa: last?.kpa ?? _pg._currentPlan?.usedKpa,
       tempC: last?.tempC ?? _rLastTemp,
-      note: '확인을 누른 시각부터 유지시간을 계산합니다.',
+      note: '"시작"을 누른 때부터 유지시간을 계산합니다.',
     );
     if (res == null || !mounted) return;
     final now = _now();
@@ -314,7 +314,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       okLabel: '고치기',
       kpa: r.kpa,
       tempC: r.tempC,
-      note: '시각(${ptHms(r.at)})은 그대로 둡니다.',
+      note: '측정 시간(${ptHms(r.at)})은 그대로 둡니다.',
       canDelete: r.kind == PtReadKind.mid,
     );
     if (res == null || !mounted || i >= _rReads.length) return;
@@ -382,7 +382,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final running = _rRunning;
     if (!await _rConfirm(
       '새로 시작',
-      '시작 시각·측정 기록·누설 확인·라인 번호를 지우고 새로 시작하겠습니까? 저장한 기록은 지워지지 않습니다.'
+      '시작 시간·측정 기록·누설 확인·라인 번호를 지우고 새로 시작하시겠습니까? 저장한 기록은 지워지지 않습니다.'
           '${running ? ' 유지시간 알림도 취소합니다.' : ''}',
       '새로 시작',
     )) {
@@ -836,7 +836,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
           '시험 정보',
           trailing: calcToggle(
             'pt_r_goto_plan',
-            '시험 압력 탭에서 바꾸기',
+            '시험압력 탭에서 바꾸기',
             () => _pg._tabs.animateTo(0),
           ),
         ),
@@ -846,7 +846,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
           _line('튜브: ${_pg._tubeSpec}', key: const Key('pt_r_info_tube')),
         _line(
           design == null || design <= 0
-              ? '설계압력: 없음 (시험 압력 탭에서 넣으십시오)'
+              ? '설계압력: 없음 (시험압력 탭에서 넣으십시오)'
               : '설계압력: ${_pg._p(design)}',
         ),
         _line(test),
@@ -894,7 +894,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
             ],
           ),
           _line(
-            '완료 시각에 폰 알림이 울립니다. 화면이나 앱을 나가도 시간은 계속 계산됩니다.',
+            '완료 시간에 폰 알림이 울립니다. 화면이나 앱을 나가도 시간은 계속 계산됩니다.',
             color: fc.textSub,
           ),
         ] else

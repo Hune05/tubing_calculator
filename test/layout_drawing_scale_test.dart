@@ -216,7 +216,7 @@ void main() {
 
     SharedPreferences.setMockInitialValues({});
     await open();
-    expect(find.text('받은 도면을 어느 배치도에 깔겠습니까?'), findsOneWidget);
+    expect(find.text('받은 도면을 어느 배치도에 넣으시겠습니까?'), findsOneWidget);
     expect(find.byKey(const ValueKey('shared_to_cabinet')), findsOneWidget);
     expect(find.byKey(const ValueKey('shared_to_skid')), findsOneWidget);
     expect(find.byKey(const ValueKey('shared_to_draft')), findsNothing);

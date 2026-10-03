@@ -83,7 +83,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
     } catch (error) {
       debugPrint("구글 로그인 실패: $error");
       if (mounted) {
-        _showSnackBar("로그인하지 못했습니다. 통신이 없으면 '이름만 넣기'로 쓰십시오.", isError: true);
+        _showSnackBar("로그인하지 못했습니다. 통신이 없으면 '이름만 넣고 시작'을 누르십시오.", isError: true);
       }
     } finally {
       if (mounted) setState(() => _isLoggingIn = false);

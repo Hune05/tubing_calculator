@@ -209,7 +209,7 @@ class BusbarMarkPainter extends CustomPainter {
     );
     _label(
       canvas,
-      '자르기 전 곧은 부스바 · 숫자는 한쪽 끝에서 잰 꺾기 시작선(mm)',
+      '자르기 전 곧은 부스바 · 숫자는 한쪽 끝 기준 꺾기 시작선 위치(mm)',
       const Offset(10, 6),
       sub,
       center: false,

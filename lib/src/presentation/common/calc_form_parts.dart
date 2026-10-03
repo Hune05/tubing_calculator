@@ -92,7 +92,8 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
           ),
         ),
       ),
-      calcHelp(label, guide),
+      // 도움말이 비어 있으면(칸 이름으로 충분하면) "?"를 두지 않는다.
+      if (guide.isNotEmpty) calcHelp(label, guide),
     ],
   );
 

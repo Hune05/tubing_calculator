@@ -140,7 +140,7 @@ void main() {
     await type(tester, 'ec_circuits', '1');
     await type(tester, 'ec_ambient', '85');
     r = textIn(tester, const Key('ec_cable_result'));
-    expect(r, contains('온도 보정계수 표 범위를 넘습니다'));
+    expect(r, contains('온도 보정계수 표 범위를 초과합니다'));
     expect(r, contains('주위 온도 85°C가'));
     expect(r, isNot(contains('허용전류가 부족합니다')));
     await type(tester, 'ec_ambient', '30');
@@ -218,14 +218,14 @@ void main() {
     expect(r, contains('32 A'));
     expect(r, contains('IB 27.3A ≤ In 30A ≤ IZ 32A: 조건을 만족합니다.'));
     expect(r, contains('전동기 회로 차단기 범위 30A ~ 50A'));
-    expect(textIn(tester, const Key('ec_sum_cable')), contains('조건 만족'));
+    expect(textIn(tester, const Key('ec_sum_cable')), contains('합격'));
     await type(tester, 'ec_chk_breaker', '50');
     r = textIn(tester, const Key('ec_cable_result'));
     expect(r, contains('전동기 회로 상한 54.6A 이내입니다'));
     await tapKey(tester, 'ec_cable_motor');
     r = textIn(tester, const Key('ec_cable_result'));
     expect(r, contains('차단기 50A가 허용전류 32A를 초과합니다. 전선 굵기가 부족합니다.'));
-    expect(textIn(tester, const Key('ec_sum_cable')), contains('점검 필요'));
+    expect(textIn(tester, const Key('ec_sum_cable')), contains('불합격'));
     // 부하·차단기를 비우면 허용전류만.
     await type(tester, 'ec_ib', '');
     await type(tester, 'ec_chk_breaker', '');

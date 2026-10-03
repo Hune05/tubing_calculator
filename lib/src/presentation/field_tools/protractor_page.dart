@@ -290,7 +290,7 @@ class _ProtractorPageState extends State<ProtractorPage>
                 children: [
                   _pill(
                     hasRef
-                        ? "② 굽힌 다리에 대면 굽힌 각입니다"
+                        ? "② 굽힌 다리에 대면 벤딩 각도가 나옵니다"
                         : "① 폰을 세워 긴 옆면을 곧은 다리에 대고 '기준 잡기'",
                     _ink,
                   ),

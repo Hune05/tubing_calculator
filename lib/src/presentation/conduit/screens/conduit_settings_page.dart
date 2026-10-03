@@ -86,11 +86,11 @@ Future<void> saveGlobalBenderSettings() async {
 const String kUnitHelp = "현장 탭(가로 줄자)에서 인치로도 같이 보여 줍니다. 제원 칸과 마킹 탭 값은 늘 mm입니다.";
 
 /// 설정에는 있지만 아직 마킹 셈에 쓰지 않는 칸에 붙이는 말.
-const String kNotUsedYet = "아직 마킹 셈에는 쓰지 않습니다.";
+const String kNotUsedYet = "아직 마킹 계산에는 쓰지 않습니다.";
 
 /// 유압·시카고 화면의 게인 칸 도움말.
 const String kGainHelp =
-    "관이 90°로 꺾이며 줄어드는 길이입니다. 총 절단 길이에서 벤드마다 뺍니다. 제조사를 고르면 CLR로 셈한 값이 들어갑니다.";
+    "관이 90°로 꺾이며 줄어드는 길이입니다. 총 절단 길이에서 벤드마다 뺍니다. 제조사를 고르면 CLR로 계산한 값이 들어갑니다.";
 
 class ConduitSettingsPage extends StatefulWidget {
   const ConduitSettingsPage({super.key});
@@ -572,7 +572,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           actions: [
             IconButton(
               key: const Key('conduit_bender_guide_button'),
-              tooltip: '장비 사용법',
+              tooltip: '벤더 사용법',
               icon: const Icon(Icons.help_outline, color: slate900),
               onPressed: () => Navigator.push(
                 context,
@@ -661,7 +661,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
                 onTap: () {
                   _showHelpDialog(
                     "작동 방식",
-                    "현장에서 사용하는 벤더의 종류(수동, 유압식, 시카고식)를 선택하십시오.\n선택한 장비에 맞춰 데이터 파일에서 제조사와 규격을 불러옵니다.",
+                    "현장에서 사용하는 벤더의 종류(수동, 유압식, 시카고식)를 선택하십시오.\n고른 장비의 제조사와 규격 목록을 불러옵니다.",
                   );
                 },
                 child: Icon(
@@ -794,7 +794,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             _availableManufacturers,
             _manufacturer,
             helpText:
-                "데이터 파일에 등록된 제조사 목록입니다. 선택 시 해당 장비의 고유 치수(테이크업, 반경 등)가 자동 입력됩니다.",
+                "앱에 등록된 제조사 목록입니다. 고르면 그 장비의 테이크업·반경 등이 자동으로 들어갑니다.",
             (v) {
               if (v != null) {
                 _changeCombo(() => _manufacturer = v);
@@ -816,7 +816,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             "규격 사이즈",
             _availableConduitSizes,
             _conduitSize,
-            helpText: "작업할 전선관의 외경(KS 규격)을 선택하십시오.",
+            helpText: "작업할 전선관의 호칭(KS, 16·22·28·36 …)을 선택하십시오. 호칭은 외경이 아닙니다.",
             (v) {
               if (v != null) {
                 _changeCombo(() => _conduitSize = v);
@@ -913,7 +913,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             },
           ),
           icon: const Icon(Icons.straighten, size: 18),
-          label: const Text("한 번 꺾어 보고 잡기"),
+          label: const Text("시험 벤딩으로 테이크업·게인 잡기"),
         ),
       ),
     );
@@ -938,10 +938,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         ),
         if (_applySpringback) _buildInputRow("스프링백 각도", _springbackController),
         _buildSwitchRow(
-          "수축량(Shrink) 자동 공제",
+          "1번 마킹에 축소값 더하기",
           _applyShrink,
           helpText:
-              "켜면 오프셋·새들 계산기의 1번 마킹을 \"시작 거리 + 축소값\" 자리에 찍습니다(현장 셈법). 끄면 시작 거리 그대로 찍습니다.",
+              "켜면 오프셋·새들 계산기의 1번 마킹을 \"시작 거리 + 축소값\" 자리에 찍습니다(현장 계산법). 끄면 시작 거리 그대로 찍습니다.",
           (v) {
             setState(() => _applyShrink = v);
           },
@@ -976,7 +976,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             "제조사",
             _availableManufacturers,
             _manufacturer,
-            helpText: "데이터 파일에 등록된 유압식 장비 제조사 목록입니다.",
+            helpText: "앱에 등록된 유압식 장비 제조사 목록입니다.",
             (v) {
               if (v != null) {
                 _changeCombo(() => _manufacturer = v);
@@ -1017,7 +1017,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             _ramTravelController,
             suffix: unit,
             helpText:
-                "90°로 꺾을 때 램이 나가는 거리입니다. 다른 각도는 이 값에서 셈해 보여 주므로, 최대 스트로크 한계가 아닙니다.",
+                "90°로 꺾을 때 램이 나가는 거리입니다. 다른 각도는 이 값으로 계산해 보여 주므로, 최대 스트로크 한계가 아닙니다.",
           ),
           _buildInputRow(
             "셋백 (Setback)",
@@ -1096,7 +1096,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             _takeUpController,
             suffix: unit,
             helpText:
-                "꺾이는 점에서 이만큼 빼서 마킹을 찍습니다(벤드마다 뺍니다). 같은 규격 수동 벤더 값을 어림값으로 씁니다.",
+                "꺾이는 점에서 이만큼 빼서 마킹을 찍습니다(벤드마다 뺍니다). 같은 규격 수동 벤더 값을 대략값으로 씁니다.",
           ),
           _buildInputRow(
             "벤딩 게인 (Gain)",

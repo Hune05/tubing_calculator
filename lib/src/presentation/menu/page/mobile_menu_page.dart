@@ -161,6 +161,21 @@ Set<String> toggleQuickLaunchFavorite(Set<String> current, String title) {
   return next;
 }
 
+/// 이름을 바꾼 메뉴(예전 이름 → 새 이름). 빠른 실행은 제목으로 저장하므로, 예전 이름으로
+/// 저장된 즐겨찾기·순서·사용 기록·홈 위젯 동작을 새 이름으로 읽는다(2026-10-03 문구 통일).
+const Map<String, String> kQuickLaunchRenamed = {'압력 시험': '압력시험'};
+
+/// 저장된 제목 목록의 예전 이름을 새 이름으로 바꾼다(겹치면 하나만 남긴다).
+/// 위젯 없이 시험 가능한 순수 함수.
+List<String> renameQuickLaunchTitles(List<String> titles) {
+  final out = <String>[];
+  for (final t in titles) {
+    final n = kQuickLaunchRenamed[t] ?? t;
+    if (!out.contains(n)) out.add(n);
+  }
+  return out;
+}
+
 /// 빠른 실행 줄 순서 — 저장된 [order]에 있는 제목은 그 순서대로 앞에, 순서에 없는
 /// 즐겨찾기(예전에 담아 둔 것 등)는 [titles]에 온 원래 순서대로 뒤에 붙인다.
 /// [titles]에 없는 제목은 버린다. 위젯 없이 시험 가능한 순수 함수.
@@ -201,6 +216,18 @@ String quickLaunchRelativeTime(DateTime at, DateTime now) {
 }
 
 String _quickLaunchLastUsedKey(String title) => 'home_quick_last_used_$title';
+
+/// [title]의 사용 기록 글. 이름을 바꾼 메뉴는 예전 이름으로 남긴 기록도 읽는다.
+String? _readQuickLaunchHistory(SharedPreferences p, String title) {
+  final raw = p.getString(_quickLaunchLastUsedKey(title));
+  if (raw != null) return raw;
+  for (final e in kQuickLaunchRenamed.entries) {
+    if (e.value != title) continue;
+    final old = p.getString(_quickLaunchLastUsedKey(e.key));
+    if (old != null) return old;
+  }
+  return null;
+}
 
 /// 빠른 실행에서 실제로 눌러 들어간 시각 목록에 새 기록 하나를 맨 앞에
 /// 붙인다 — 위젯 없이 시험 가능한 순수 함수(원래 목록은 안 바꾸고 새
@@ -374,7 +401,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   void _onWidgetAction() {
     final a = HomeWidgetSync.pendingAction.value;
     if (a == null || !mounted) return;
-    final title = a.quickTitle;
+    final quick = a.quickTitle;
+    final title = quick == null ? null : (kQuickLaunchRenamed[quick] ?? quick);
     if (title == null) {
       HomeWidgetSync.pendingAction.value = null; // "open"·"summary": 앱만 열면 된다.
       return;
@@ -444,8 +472,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       final order = p.getStringList(_kQuickOrderKey);
       if (!mounted) return;
       setState(() {
-        if (favs != null) _favorites = favs.toSet();
-        if (order != null) _quickOrder = order;
+        if (favs != null) _favorites = renameQuickLaunchTitles(favs).toSet();
+        if (order != null) _quickOrder = renameQuickLaunchTitles(order);
       });
       // 메뉴 줄은 첫 build 뒤에 생기므로 한 프레임 뒤에 빠른 실행 위젯에 넘긴다.
       WidgetsBinding.instance.addPostFrameCallback((_) => _syncQuickWidget());
@@ -560,7 +588,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               Icon(Icons.star_border, size: 40, color: slate600),
               const SizedBox(height: 12),
               const Text(
-                "즐겨찾기한 기능이 없습니다",
+                "빠른 실행에 넣은 기능이 없습니다",
                 style: TextStyle(fontWeight: FontWeight.w700, color: slate900),
               ),
               const SizedBox(height: 6),
@@ -588,7 +616,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               children: [
                 const Flexible(
                   child: Text(
-                    "빠른 실행 편집 중 — 꾹 눌러 끌어서 순서 바꾸기, ⊖로 빼기",
+                    "빠른 실행 편집 중: 길게 눌러 끌면 순서 바꾸기, ⊖로 빼기",
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
@@ -772,7 +800,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     try {
       final p = await SharedPreferences.getInstance();
       final key = _quickLaunchLastUsedKey(entry.title);
-      final history = quickLaunchDecodeHistory(p.getString(key));
+      final history = quickLaunchDecodeHistory(
+        _readQuickLaunchHistory(p, entry.title),
+      );
       await p.setString(
         key,
         quickLaunchEncodeHistory(
@@ -832,7 +862,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                 const SizedBox(width: 14),
                 Expanded(
                   child: Text(
-                    '${entry.title} · 작업 히스토리',
+                    '${entry.title} · 작업 기록',
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
@@ -866,9 +896,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     List<DateTime> history = [];
     try {
       final p = await SharedPreferences.getInstance();
-      history = quickLaunchDecodeHistory(
-        p.getString(_quickLaunchLastUsedKey(title)),
-      );
+      history = quickLaunchDecodeHistory(_readQuickLaunchHistory(p, title));
     } catch (_) {}
     if (history.isEmpty) {
       return const [
@@ -913,11 +941,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     try {
       final p = jsonDecode(item['p_to_p'] ?? '{}');
       final project = (p['project'] ?? '프로젝트 미지정').toString();
-      final from = (p['from'] ?? '미상').toString();
-      final to = (p['to'] ?? '미상').toString();
+      final from = (p['from'] ?? '모름').toString();
+      final to = (p['to'] ?? '모름').toString();
       return '$project · $from ➔ $to';
     } catch (_) {
-      return '경로 미상';
+      return '경로 모름';
     }
   }
 
@@ -1289,7 +1317,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "내 프로젝트",
-                        subtitle: "개인 작업 일지 · 이슈 리스트 및 자재 기록",
+                        subtitle: "개인 작업 일지 · 이슈 목록 · 자재 기록",
                         icon: AppGlyph.project,
                         iconColor: slate900,
                         onTap: () {
@@ -1324,7 +1352,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "내 일정 관리",
-                        subtitle: "프로젝트 일정 통합 + 개인 일정 · 반복 · 알림",
+                        subtitle: "프로젝트 일정과 개인 일정 함께 보기 · 반복 · 알림",
                         icon: AppGlyph.schedule,
                         iconColor: makitaTeal,
                         badgeText:
@@ -1387,7 +1415,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "벤딩 실측 기록",
-                        subtitle: "계산값과 잰 값의 차이를 남겨 다음 마킹에 참고",
+                        subtitle: "계산값과 실측값의 차이를 남겨 다음 마킹에 참고",
                         icon: AppGlyph.tubeSpec,
                         iconColor: makitaTeal,
                         onTap: () {
@@ -1419,7 +1447,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "압력 시험",
+                        title: "압력시험",
                         subtitle: "튜브·배관 수압·공압 시험압력 · 유지시간 기록 · 기록서",
                         icon: AppGlyph.pressureGauge,
                         onTap: () {
@@ -1435,7 +1463,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "유량 계산",
-                        subtitle: "유속·관 굵기 · 압력손실 · 차압 유량계 · 유량계 점검",
+                        subtitle: "유속·관경 · 압력손실 · 차압 유량계 · 유량계 점검",
                         icon: AppGlyph.flow,
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -1514,7 +1542,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "부스바 절곡 계산기",
-                        subtitle: "L·U·Z 꺾기 자르는 길이와 꺾기 시작선",
+                        subtitle: "L·U·Z 절곡 절단 길이와 절곡 시작선",
                         icon: AppGlyph.busbarBend,
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -1529,7 +1557,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "접지바 구멍 계산기",
-                        subtitle: "구멍 위치·자르는 길이·무게",
+                        subtitle: "구멍 위치·절단 길이·중량",
                         icon: AppGlyph.groundBar,
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -1578,7 +1606,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "축 정렬 현장 지침",
-                        subtitle: "배관 당김·용접 변형·소프트 풋 등 잘 안 맞을 때 대책",
+                        subtitle: "배관 당김·용접 변형·소프트 풋 등 잘 안 맞을 때 조치",
                         icon: AppGlyph.alignment,
                         iconColor: slate900,
                         onTap: () {
@@ -1595,7 +1623,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "형강 컷팅 (찬넬/앵글)",
-                        subtitle: "라인 조립 없이 규격·길이만으로 재단 계획·지시서 출력",
+                        subtitle: "규격·길이만 넣어 재단 계획·지시서 출력",
                         icon: AppGlyph.steel,
                         iconColor: makitaTeal,
                         onTap: () {
@@ -1634,7 +1662,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "도면 보기",
-                        subtitle: "PDF·DXF·사진 도면 확인 · 틀림·질문 체크 · 문제 목록 · 표시한 PDF",
+                        subtitle: "PDF·DXF·사진 도면 보기 · 틀림·질문 표시 · 문제 목록 · 표시한 PDF 보내기",
                         icon: AppGlyph.layout,
                         iconColor: slate900,
                         onTap: () {
@@ -1725,7 +1753,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "현장 도면 스캔 (QR)",
-                        subtitle: "오프라인 지시서 스캔 후 3D 뷰어 실행",
+                        subtitle: "종이 지시서 QR을 찍어 3D 뷰어로 보기",
                         icon: AppGlyph.scan,
                         onTap: () async {
                           HapticFeedback.lightImpact();
@@ -2252,7 +2280,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           ? "회의 일정 공지가\n등록되어 있습니다."
                           : "회식 일정 공지가\n등록되어 있습니다.",
                       titleIcon: LucideIcons.bellRing,
-                      subText: "터치하여 전체 알림을 확인하십시오.",
+                      subText: "눌러서 전체 공지를 확인하십시오.",
                       isActionable: true,
                       onTap: () {
                         HapticFeedback.heavyImpact();

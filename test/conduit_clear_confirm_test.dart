@@ -29,7 +29,7 @@ void main() {
     // 취소하면 그대로.
     await tester.tap(find.byIcon(Icons.delete_sweep_rounded));
     await tester.pumpAndSettle();
-    expect(find.textContaining('3줄을 모두 지우겠습니까'), findsOneWidget);
+    expect(find.textContaining('3줄을 모두 지우시겠습니까'), findsOneWidget);
     await tester.tap(find.text('취소'));
     await tester.pumpAndSettle();
     expect(ConduitDataManager().bendList, hasLength(3));

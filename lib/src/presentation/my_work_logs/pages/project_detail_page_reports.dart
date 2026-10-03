@@ -63,9 +63,7 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
               ? "자재: ${r['materials_used']}"
               : "특이사항 없음")
         : note.split('\n').first;
-    final types = (r['work_type'] is List)
-        ? (r['work_type'] as List).join(' · ')
-        : (r['work_type']?.toString() ?? '');
+    final types = workTypesOf(r['work_type']).join(' · ');
     final phaseChips = reportIds(
       r,
       'workedPhaseIds',

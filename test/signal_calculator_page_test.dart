@@ -437,7 +437,7 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.byKey(const Key('sc_settings_line'))).data,
-      '0 bar ~ 10 bar · 선형 · 전송기 출력(mA) · ±0.5%',
+      '0 bar ~ 10 bar · 선형(LINEAR) · 전송기 출력(mA) · ±0.5%',
     );
     await tester.tap(find.byKey(const Key('sc_settings_toggle')));
     await tester.pump();

@@ -230,7 +230,7 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('사진 지우기'),
-        content: const Text('이 사진을 지우겠습니까?'),
+        content: const Text('이 사진을 지우시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

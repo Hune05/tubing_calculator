@@ -214,7 +214,7 @@ class _PunchListPageState extends State<PunchListPage> {
     if (textValue.isEmpty && _attachedImages.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(keepWords("결함 내용이나 사진을 최소 1장 첨부해야 합니다.")),
+          content: Text(keepWords("결함 내용을 적거나 사진을 1장 이상 첨부하십시오.")),
           backgroundColor: warningRed,
         ),
       );
@@ -297,7 +297,7 @@ class _PunchListPageState extends State<PunchListPage> {
             !_hasInput ||
             await confirmDelete(
               context,
-              title: "쓰던 이슈를 버리겠습니까?",
+              title: "쓰던 이슈를 버리시겠습니까?",
               message: "등록하지 않고 나가면 쓴 내용과 사진이 사라집니다.",
               confirmLabel: "버리기",
             );
@@ -722,7 +722,7 @@ class _PunchListPageState extends State<PunchListPage> {
                               onTap: () async {
                                 if (!await confirmDelete(
                                   context,
-                                  title: "이 사진을 지우겠습니까?",
+                                  title: "이 사진을 지우시겠습니까?",
                                 )) {
                                   return;
                                 }

@@ -123,7 +123,7 @@ class _SaveDialogState extends State<_SaveDialog> {
             controller: _notes,
             style: appFieldTextStyle,
             maxLines: 2,
-            decoration: appFieldDecoration('무엇을 했는지 (메모, 선택)'),
+            decoration: appFieldDecoration('메모 (선택)'),
           ),
         ],
       ),

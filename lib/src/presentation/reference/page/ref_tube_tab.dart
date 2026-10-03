@@ -1,4 +1,4 @@
-// 튜브 탭: 규격·벤더 제원·피팅 깊이·각도별 셈. 숫자는 계산기가 쓰는 자료
+// 튜브 탭: 규격·벤더 제원·피팅 깊이·각도별 계산. 숫자는 계산기가 쓰는 자료
 // (FittingData·SmartFittingDB·bend_geometry)에서 바로 읽어 설정과 늘 같다.
 import 'dart:math' as math;
 
@@ -11,7 +11,7 @@ import '../../../data/models/smart_fitting_db.dart';
 import '../../calculator/segment_length_check.dart';
 import 'reference_widgets.dart';
 
-/// 규격 이름 · 자료 키 · 바깥지름(mm).
+/// 규격 이름 · 자료 키 · 외경(mm).
 class _TubeSize {
   final String label;
   final String key;
@@ -94,7 +94,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
       children: [
         refIntroBadge(
           "여기 숫자는 벤딩 마킹 계산기·튜브 컷팅 계산기가 쓰는 자료에서 그대로 읽습니다. "
-          "설정에서 반경·테이크업·게인·삽입 깊이를 고치면 마킹은 그 값으로 셈하고, 이 표는 기본값을 보여 줍니다.",
+          "설정에서 반경·테이크업·게인·삽입 깊이를 고치면 마킹은 그 값으로 계산하고, 이 표는 기본값을 보여 줍니다.",
         ),
         const SizedBox(height: 16),
 
@@ -102,7 +102,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
         refCard(
           title: "1. 튜브 규격표 · 계산기 기본 제원",
           subtitle:
-              "바깥지름(OD)과 수동 벤더(Swagelok형) 기본 반경 R·90° 테이크업·게인. 설정의 기본값이 이 값입니다.",
+              "외경(OD)과 수동 벤더(Swagelok형) 기본 반경 R·90° 테이크업·게인. 설정의 기본값이 이 값입니다.",
           icon: LucideIcons.ruler,
           iconColor: Colors.blueGrey,
           children: [
@@ -131,7 +131,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
               rows: _specRows(_metricSizes),
               flex: const [3, 3, 3, 3, 3],
               footer:
-                  "※ 테이크업 = 마킹선에서 벤더 0점을 맞출 때 꺾이는 점까지 빼는 값. 게인 = 90°로 꺾을 때 교차점 길이 합에서 줄어드는 길이(자를 때 뺀다).",
+                  "※ 테이크업 = 마킹선에서 벤더 0점을 맞출 때 꺾이는 점까지 빼는 값. 게인 = 90°로 꺾을 때 교차점 길이 합에서 줄어드는 길이(자를 때 뺍니다).",
             ),
           ],
         ),
@@ -141,38 +141,38 @@ class _RefTubeTabState extends State<RefTubeTab> {
         refCard(
           title: "2. 피팅 삽입 깊이 · 최소 직선",
           subtitle:
-              "튜브 컷팅 계산기가 빼는 삽입 깊이(Swagelok·Hy-Lok·Parker 같은 값)와 계산기가 경고하는 최소 직선.",
+              "튜브 컷팅 계산기가 빼는 삽입 깊이(Swagelok·Hy-Lok·Parker 같은 값)와 계산기가 경고하는 최소 직선·최소 물림 길이입니다.",
           icon: Icons.compress,
           iconColor: Colors.blueAccent,
           children: [
-            refDataRow("삽입 깊이", "튜브 끝이 피팅 안으로 들어가는 길이. 컷팅 계산기가 구간 길이에서 뺀다."),
+            refDataRow("삽입 깊이", "튜브 끝이 피팅 안으로 들어가는 길이입니다. 컷팅 계산기가 구간 길이에서 뺍니다."),
             refDataRow(
               "피팅 최소 직선",
-              "벤드 끝에서 튜브 끝까지 이만큼 곧아야 너트·페룰이 물린다(계산기 경고 기준).",
+              "벤드 끝에서 튜브 끝까지 이만큼 곧아야 너트·페룰이 물립니다(계산기 경고 기준).",
             ),
-            refDataRow("벤더 최소 직선", "벤드와 벤드 사이 벤더 슈가 물릴 수 있는 최소 곧은 길이(설정 기본값)."),
+            refDataRow("최소 물림 길이", "벤드와 벤드 사이에 벤더 슈가 물릴 수 있는 최소 곧은 길이입니다(설정 기본값)."),
             const SizedBox(height: 12),
             refSectionTitle("인치 규격"),
             refTable(
-              headers: ["규격", "삽입 깊이\n(mm)", "피팅 최소\n직선(mm)", "벤더 최소\n직선(mm)"],
+              headers: ["규격", "삽입 깊이\n(mm)", "피팅 최소\n직선(mm)", "최소 물림\n길이(mm)"],
               rows: _fitRows(_inchSizes),
             ),
             const SizedBox(height: 16),
             refSectionTitle("미터 규격"),
             refTable(
-              headers: ["규격", "삽입 깊이\n(mm)", "피팅 최소\n직선(mm)", "벤더 최소\n직선(mm)"],
+              headers: ["규격", "삽입 깊이\n(mm)", "피팅 최소\n직선(mm)", "최소 물림\n길이(mm)"],
               rows: _fitRows(_metricSizes),
               footer:
-                  "※ 부속을 조일 때 튜브가 턱까지 닿았는지 꼭 확인. 덜 들어간 채 조이면 고압에서 제일 먼저 샌다.",
+                  "※ 부속을 조일 때 튜브가 턱까지 닿았는지 꼭 확인하십시오. 덜 들어간 채 조이면 고압에서 제일 먼저 샙니다.",
             ),
           ],
         ),
         const SizedBox(height: 16),
 
-        // 3. 각도별 셈 — 규격 고르기
+        // 3. 각도별 계산(규격 고르기)
         refCard(
-          title: "3. 각도별 셈 (계산기 공식 그대로)",
-          subtitle: "규격을 고르면 그 반경 R로 셋백·게인·호 길이를 계산기와 같은 식으로 셉니다.",
+          title: "3. 각도별 계산 (계산기 공식 그대로)",
+          subtitle: "규격을 고르면 그 반경 R로 셋백·게인·호 길이를 계산기와 같은 식으로 계산합니다.",
           icon: LucideIcons.calculator,
           iconColor: refTeal,
           children: [
@@ -185,12 +185,12 @@ class _RefTubeTabState extends State<RefTubeTab> {
             ),
             const SizedBox(height: 12),
             refDataRow("반경 R", "${refNum(r)} mm (설정 기본값)"),
-            refDataRow("셋백", "R × tan(각/2) — 교차점에서 관이 휘기 시작하는 점까지"),
+            refDataRow("셋백", "R × tan(각/2) (교차점에서 관이 휘기 시작하는 점까지)"),
             refDataRow(
               "게인",
               "90° 게인 ${refNum(sp.gain)}mm를 각도 모양대로 환산(각도에 비례하지 않음)",
             ),
-            refDataRow("호 길이", "π × R × 각 ÷ 180 — 휘는 구간의 중심선 길이"),
+            refDataRow("호 길이", "π × R × 각 ÷ 180 (휘는 구간의 중심선 길이)"),
             const SizedBox(height: 12),
             refTable(
               headers: [
@@ -211,7 +211,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
                   ],
               ],
               footer:
-                  "※ 테이크업은 90° 값의 반경 몫만 tan(각/2)로 줄인 것 — 계산기가 45° 마킹을 찍을 때 쓰는 식입니다.",
+                  "※ 테이크업은 90° 값 중 반경에 해당하는 부분만 tan(각/2)로 줄인 값입니다. 계산기가 45° 마킹을 찍을 때 쓰는 식입니다.",
             ),
           ],
         ),
@@ -225,9 +225,9 @@ class _RefTubeTabState extends State<RefTubeTab> {
           icon: Icons.call_made,
           iconColor: Colors.orange,
           children: [
-            refDataRow("빗변", "H ÷ sin(각) — 두 마킹 사이 거리"),
-            refDataRow("수축", "H × tan(각/2) — 단차 때문에 줄어드는 직진 길이(자를 때 더한다)"),
-            refDataRow("직진", "H ÷ tan(각) — 단차가 차지하는 수평 길이"),
+            refDataRow("빗변", "H ÷ sin(각) (두 마킹 사이 거리)"),
+            refDataRow("수축", "H × tan(각/2) (단차 때문에 줄어드는 직진 길이, 자를 때 더합니다)"),
+            refDataRow("직진", "H ÷ tan(각) (단차가 차지하는 수평 길이)"),
             const SizedBox(height: 12),
             refTable(
               headers: ["각도", "빗변\n× H", "수축\n× H", "직진\n× H"],
@@ -254,7 +254,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
                   ],
               ],
               footer:
-                  "※ 새들(장애물 넘기)은 가운데 벤드 양옆에 이 빗변만큼 마킹을 띄우고, 수축은 양쪽 몫을 더합니다.",
+                  "※ 새들(장애물 넘기)은 가운데 벤드 양옆에 이 빗변만큼 마킹을 띄우고, 수축은 양쪽 값을 더합니다.",
             ),
           ],
         ),
@@ -264,7 +264,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
         refCard(
           title: "5. 180° U벤드가 차지하는 자리",
           subtitle:
-              "고른 규격(${_size.label}, R ${refNum(r)})로 셈. 벽·장애물 간섭은 센터가 아니라 바깥 폭으로 봅니다.",
+              "고른 규격(${_size.label}, R ${refNum(r)})으로 계산합니다. 벽·장애물 간섭은 센터가 아니라 바깥 폭으로 봅니다.",
           icon: LucideIcons.cornerUpLeft,
           iconColor: Colors.deepPurple,
           children: [
@@ -313,7 +313,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
                 ['3/4"', "+1.5°", "+3~3.5°", "+4~5°"],
               ],
               footer:
-                  "※ 두께가 두꺼울수록, 굵을수록 더 펴집니다. 한 번 꺾어 각도기로 재서 내 값을 설정에 넣어 두십시오.",
+                  "※ 두께가 두꺼울수록, 굵을수록 더 펴집니다. 한 번 꺾어 각도기로 측정해 내 값을 설정에 넣어 두십시오.",
             ),
           ],
         ),
@@ -383,7 +383,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
                 ['3/4"', "—", "2,400 psi\n(165 bar)", "3,300 psi\n(225 bar)"],
                 ['1"', "—", "1,800 psi\n(120 bar)", "2,400 psi\n(165 bar)"],
               ],
-              footer: "※ 같은 두께면 굵을수록 견디는 압력이 낮습니다. 라인 압력은 도면·사양서로 확인.",
+              footer: "※ 같은 두께면 굵을수록 견디는 압력이 낮습니다. 라인 압력은 도면·사양서로 확인하십시오.",
             ),
           ],
         ),
@@ -392,7 +392,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
         // 9. NPT
         refCard(
           title: "9. NPT 나사 규격",
-          subtitle: "호칭과 실제 나사 바깥지름은 다릅니다(1/2\" 밸브 나사는 12.7이 아니라 21.3mm).",
+          subtitle: "호칭과 실제 나사 외경은 다릅니다(1/2\" 밸브 나사는 12.7이 아니라 21.3mm).",
           icon: LucideIcons.settings,
           iconColor: Colors.blueGrey,
           children: [
@@ -422,36 +422,36 @@ class _RefTubeTabState extends State<RefTubeTab> {
           children: [
             refDataRow(
               "먼저 자르지 않기",
-              "도면 합계대로 미리 자르면 게인만큼 짧아진다. 다 꺾고 마지막에 자른다(계산기의 '총 절단 길이'는 게인·톱날 손실을 넣은 값).",
+              "도면 치수 합계대로 자르면 꺾은 뒤 게인만큼 길어집니다. 미리 자를 때는 계산기의 '총 절단 길이'(게인을 빼고 톱날 손실을 반영한 값)로 자르고, 처음 쓰는 벤더·규격은 길게 두고 다 꺾은 뒤 끝을 잘라 맞춥니다.",
             ),
             refGap(),
             refDataRow(
               "마킹선 굵기",
-              "네임펜 1~1.5mm. 선의 가운데를 0점에 맞추는지 늘 같게. 네 번 꺾으면 6mm 차이.",
+              "네임펜 1~1.5mm입니다. 0점에 선의 가운데·앞·뒤 중 어디를 맞출지 늘 같게 합니다. 네 번 꺾으면 6mm 차이가 납니다.",
             ),
             refGap(),
             refDataRow(
               "화살표 방향",
-              "마킹을 뒤집어 물리면 각도·길이가 다 틀어진다. 벤더 화살표와 관의 진행 방향 확인.",
+              "마킹을 뒤집어 물리면 각도·길이가 다 틀어집니다. 벤더 화살표와 관의 진행 방향을 확인하십시오.",
             ),
             refGap(),
             refDataRow(
-              "허공 시늉",
-              "3D 벤딩은 꺾기 전 손으로 방향을 허공에 그려 본다. 반대로 꺾는 실수가 제일 흔하다.",
+              "꺾기 전 방향 확인",
+              "3D 벤딩은 꺾기 전에 손으로 방향을 허공에 그려 봅니다. 반대로 꺾는 실수가 제일 흔합니다.",
             ),
             refGap(),
             refDataRow(
               "끝 직선",
-              "마지막 벤드 뒤 튜브 끝은 표 2의 '피팅 최소 직선' 이상 곧아야 너트가 물린다.",
+              "마지막 벤드 뒤 튜브 끝은 표 2의 '피팅 최소 직선' 이상 곧아야 너트가 물립니다.",
             ),
             refGap(),
-            refDataRow("일정한 속도", "급하게 당기면 관이 타원으로 눌린다(오벌리티). 지그시 한 번에."),
+            refDataRow("일정한 속도", "급하게 당기면 관이 타원으로 눌립니다(오벌리티). 지그시 한 번에 당깁니다."),
             refGap(),
-            refDataRow("옷걸이 철사", "복잡한 3D 라인은 얇은 철사로 먼저 접어 보고 그대로 꺾는다."),
+            refDataRow("옷걸이 철사", "복잡한 3D 라인은 얇은 철사로 먼저 접어 보고 그대로 꺾습니다."),
             refGap(),
             refDataRow(
-              "내 값 재기",
-              "자투리 300mm에 100mm 간격 마킹 → 90° → 실제 늘어난 값을 재서 설정의 게인에 넣는다.",
+              "내 값 측정",
+              "잔재 300mm에 100mm 간격 마킹 → 90° 벤딩 → 실제 늘어난 값을 측정해 설정의 게인에 넣습니다.",
             ),
           ],
         ),

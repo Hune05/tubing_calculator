@@ -32,7 +32,7 @@ Future<void> openSharedDrawing(BuildContext context, String imagePath, {String? 
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              "받은 도면을 어느 배치도에 깔겠습니까?",
+              "받은 도면을 어느 배치도에 넣으시겠습니까?",
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,

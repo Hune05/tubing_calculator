@@ -329,9 +329,9 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               // 🚀 [고침] 유압 램은 관 굵기·받침 간격에 따라 실제로 밀어야 하는
               // 양이 달라진다. 이 값은 sin(각/2) 비율로 잡은 어림값이므로,
               // 값 옆에 어림값이라고 적어 한 번 재 보고 쓰게 한다.
-              label: "실린더 푸시량(어림):",
+              label: "램 이동 거리(대략):",
               valueText: ramTravel > 0
-                  ? "${ramTravel.toStringAsFixed(1)} mm · 첫 개는 재 보십시오"
+                  ? "${ramTravel.toStringAsFixed(1)} mm · 첫 벤드는 측정해 확인하십시오"
                   : "설정에서 값을 넣으십시오",
               themeColor: ramBlue,
             )
@@ -866,7 +866,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               ),
               const SizedBox(height: 20),
               Text(
-                "마킹 데이터가 없습니다",
+                "마킹 값이 없습니다",
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 18,

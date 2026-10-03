@@ -118,7 +118,7 @@ class _SwipeToDeleteState extends State<SwipeToDelete> with SingleTickerProvider
     final c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
     setState(() => _peek = c);
     if (mounted) {
-      showAppSnack(context, '줄을 왼쪽으로 밀면 지웁니다. 잘못 지웠으면 바로 뜨는 되돌리기를 누르십시오.');
+      showAppSnack(context, '줄을 왼쪽으로 밀면 삭제됩니다. 잘못 삭제했으면 바로 뜨는 되돌리기를 누르십시오.');
     }
     try {
       await c.forward().orCancel;

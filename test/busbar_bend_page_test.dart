@@ -29,7 +29,7 @@ Future<void> _type(WidgetTester tester, String key, String text) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('기본값(5×50, r 5, k 0.4, 바깥 100×100, 90°): 자르는 길이 191.0', (
+  testWidgets('기본값(5×50, r 5, k 0.4, 바깥 100×100, 90°): 절단 길이 191.0', (
     tester,
   ) async {
     await _open(tester);
@@ -72,7 +72,7 @@ void main() {
     await tester.tap(find.byKey(const Key('bb_share')));
     await tester.pumpAndSettle();
     expect(sent, startsWith('[부스바 절곡] L 꺾기 10×50mm 눕혀 꺾기'));
-    expect(sent, contains('자르는 길이:'));
+    expect(sent, contains('절단 길이:'));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
     await _open(tester);

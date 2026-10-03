@@ -118,7 +118,7 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
       ),
       elecChipGroup(
         '트립 클래스',
-        '열동계전기의 동작 특성입니다. 일반 펌프·팬은 10A·10, 기동이 긴 부하는 20, 관성이 큰 부하는 30입니다.',
+        '과부하계전기의 동작 특성입니다. 일반 펌프·팬은 10A·10, 기동이 긴 부하는 20, 관성이 큰 부하는 30입니다.',
         [
           for (final c in kTripClass72.keys)
             calcChip(
@@ -153,7 +153,7 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
       final may = startS == null ? null : startMayTrip(_cls, startS);
       final (cLo, cHi) = kTripClass72[_cls]!;
       warn = may == true;
-      summary = '열동 설정 ${fmt(thr, 1)} A';
+      summary = '과부하계전기 설정 ${fmt(thr, 1)} A';
       children.add(
         calcResult(
           key: const Key('emp_result'),
@@ -170,19 +170,19 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
               '${fmt(fla, 1)} A ÷ √3 = ${fmt(thr, 2)} A. 정격전류의 0.58배보다 높게 맞추지 마십시오(Siemens 설명서).'
             else
               '설정 = 명판 정격전류 ${fmt(fla, 1)} A. 설정값은 트립 전류가 아니라 정격전류이고, 설정전류의 1.05배에서는 동작하지 않고 1.2배에서 동작합니다(IEC).',
-            'NEC 430.32 상한: ${fmt(necMax, 1)} A (FLA × ${_sf ? "125" : "115"}%). 기동이 안 되어 올릴 때 넘으면 안 됩니다.',
+            'NEC 430.32 상한: ${fmt(necMax, 1)} A (FLA × ${_sf ? "125" : "115"}%). 기동이 안 되어 설정을 올릴 때도 이 값을 초과하면 안 됩니다.',
             if (run != null && run > 0) ...[
               () {
                 final (lo, hi) = eocrRange(run);
                 return '전자식(EOCR) 부하 설정: 운전전류 ${fmt(run, 1)} A의 110~125% = ${fmt(lo, 1)} ~ ${fmt(hi, 1)} A(삼화 매뉴얼). 다른 자료는 정격전류의 125~150%라 기준이 다르니 제조사 설명서를 따르십시오.';
               }(),
-              'EOCR 기동지연(D-TIME)은 기동시간을 재서 +1초 정도, 과전류 지연(O-TIME)은 보통 4~6초입니다.',
+              'EOCR 기동지연(D-TIME)은 실측 기동시간 + 1초 정도, 과전류 지연(O-TIME)은 보통 4~6초입니다.',
             ],
             '트립 클래스 $_cls: 7.2배 설정전류에서 ${fmt(cLo, 0)}~${fmt(cHi, 0)}초에 동작합니다.',
             if (may == true)
               '기동시간 ${fmt(startS!, 1)}초가 클래스 $_cls 상한 ${fmt(cHi, 0)}초 이상이라 기동 중 트립될 수 있습니다. 더 큰 클래스를 쓰거나 기동 방식을 바꾸십시오.'
             else if (may == false)
-              '기동시간 ${fmt(startS!, 1)}초는 클래스 $_cls 상한 ${fmt(cHi, 0)}초 안입니다.',
+              '기동시간 ${fmt(startS!, 1)}초는 클래스 $_cls 상한 ${fmt(cHi, 0)}초 이내입니다.',
           ],
         ),
       );
@@ -207,8 +207,8 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
         big: '설정할 때 주의',
         caption: '확인된 항목만',
         lines: const [
-          '진상 콘덴서를 전동기 단자에 병렬로 달 때는 과부하계전기 전원 쪽에서 분기하십시오. 계전기 부하 쪽(Y-Δ 델타 안 등)에 두면 계전기 전류가 줄어 오부동작·미동작할 수 있습니다(내선규정 인용 두 곳과 실측 한 곳).',
-          '열동계전기는 과부하와 결상을 보호하고, EOCR은 과부하·단락·지락·결상·역상을 보호합니다(제품 구성에 따라 다름).',
+          '진상 콘덴서를 전동기 단자에 병렬로 달 때는 과부하계전기 전원 쪽에서 분기하십시오. 계전기 부하 쪽(Y-Δ 델타 안 등)에 두면 계전기 전류가 줄어 오동작하거나 동작하지 않을 수 있습니다(내선규정 인용 두 곳과 실측 한 곳).',
+          '과부하계전기(THR)는 과부하와 결상을 보호하고, EOCR은 과부하·단락·지락·결상·역상을 보호합니다(제품 구성에 따라 다름).',
           '기동 전류는 직입 정격의 약 5~8배, Y-Δ는 직입의 1/3입니다.',
           '소프트스타터·인버터로 구동하는 전동기의 과부하 설정은 확인하지 못했습니다. 제조사 설명서를 따르십시오.',
         ],
@@ -218,7 +218,7 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
         'Y-Δ 델타 안 0.58배: Siemens RAJA+ 설명서와 교재 자료가 같습니다. 라인 쪽 위치는 검색 요약 한 곳이라 확인이 필요합니다.',
         'NEC 430.32(125%·115%)와 NEC 430.52(175·250·300·800%)는 두 곳 이상이 같습니다. NEC는 미국 기준이라 국내 설계는 내선규정·KEC·제조사 선정표를 우선합니다.',
         '트립 클래스 시간(10A 2~10, 10 4~10, 20 6~20, 30 9~30초)은 두 곳이 같습니다.',
-        '국내 열동 계전기 설정 "120~125%" 규칙과 EOCR 설정 배수(운전전류 110~125% 대 정격 125~150%)는 출처마다 달라 범위로만 보였습니다. 제조사 설명서가 우선입니다.',
+        '국내 과부하계전기 설정 "120~125%" 규칙과 EOCR 설정 배수(운전전류 110~125% 대 정격 125~150%)는 출처마다 달라 범위로만 표시했습니다. 제조사 설명서가 우선입니다.',
         'LS ELECTRIC 전동기 회로 선정표(차단기·접촉기 짝)는 PDF 한글이 깨져 원본 대조 전이라 넣지 않았습니다.',
       ]),
     ]);

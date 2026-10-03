@@ -67,7 +67,7 @@ GdStep _set(String say, String msg, int ptr, {GdKey? press}) => GdStep(say: say,
 
 /// 측정 모드에서 * → *RANGE → … 원하는 설정 레벨 메뉴까지.
 List<GdStep> _toSetting(int target, String what) => [
-  _meas('측정 모드. 덮개 안 오른쪽 * 스위치를 누름 ($what은 설정 레벨)', press: GdKey.star),
+  _meas('측정 모드. 덮개 안 오른쪽 * 스위치를 누름 ($what 메뉴는 설정 레벨에 있음)', press: GdKey.star),
   for (var i = 0; i <= target; i++)
     _set(
       i == 0
@@ -91,7 +91,7 @@ class _Overview extends StatelessWidget {
     gdGasFigure(GdGas.measuring, key: const Key('gdg_overview_gas')),
     const SizedBox(height: 10),
     ..._rows(const [
-      ('검출기', 'GD40 (가스 밀도를 재는 센서)'),
+      ('검출기', 'GD40 (가스 밀도를 측정하는 센서)'),
       ('변환기', 'GD402 (표시·설정·출력). 수소 순도는 밀도에서 계산'),
       ('압력 전송기', 'EJX310A 절대압 (옵션). 수소 순도계로 쓰려면 압력 보상용으로 필요'),
       ('교정 가스', '제로 = 수소(H2) 100%, 스팬 = 이산화탄소(CO2) 100%. 공기는 교정에 안 씀'),
@@ -120,7 +120,7 @@ class _Overview extends StatelessWidget {
     ..._steps(const [
       '유량계는 검출기 앞(상류)에. H2 in CO2·Air in CO2 범위에서 검출기 압력을 대기압 가깝게 해야 출력이 안 흔들림',
       '시료 회수점에 반드시 차단 밸브(stop valve)',
-      '압력 전송기 도압관은 검출기에서 0.5 m 안쪽으로',
+      '압력 전송기 도압관은 검출기에서 0.5 m 이내로',
       '교정 때 출구 압력은 대기압',
     ]),
     _title('전원·출력·접점'),
@@ -183,19 +183,19 @@ class _Principle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _page('principle', [
-    refIntroBadge('검사관이 "순도를 어떻게 재느냐"고 물을 때: 수소 순도를 직접 재는 게 아니라 가스의 무게(밀도)를 재서 계산합니다. 근거는 요꼬가와 기술 자료 TI 11T03E01-01E와 사용자 설명서입니다.'),
+    refIntroBadge('검사관이 "순도를 어떻게 측정하느냐"고 물을 때: 수소 순도를 직접 측정하지 않고 가스 밀도를 측정해 계산합니다. 근거는 요꼬가와 기술 자료 TI 11T03E01-01E와 사용자 설명서입니다.'),
     _title('한 줄로'),
-    refTipBox('얇은 쇠 원통을 가스 속에서 떨게 하면, 둘레 가스도 같이 흔들려 원통이 무거워진 것처럼 진동수가 내려감. 가스가 무거울수록(밀도가 클수록) 진동수가 더 내려감. 수소는 공기보다 약 14배 가벼워서, 공기가 조금만 섞여도 밀도가 크게 달라짐 → 밀도로 순도를 계산'),
+    refTipBox('얇은 금속 원통을 가스 속에서 진동시키면 둘레 가스도 같이 움직여 원통이 무거워진 것처럼 진동수가 내려감. 가스 밀도가 클수록 진동수가 더 내려감. 수소는 공기보다 약 14배 가벼워서, 공기가 조금만 섞여도 밀도가 크게 달라짐 → 밀도로 순도를 계산'),
     _title('검출기 GD40 단면'),
     gd40StructureFigure(),
     const SizedBox(height: 6),
     const Text('※ 원리를 보이려고 단순화한 그림 (부품 배치는 TI 그림 1 기준)', style: TextStyle(fontSize: 12, color: AppColors.textSub)),
     const SizedBox(height: 10),
     ..._rows(const [
-      ('원통 공진자', '얇은 벽 스테인리스 원통. 가스 속에서 떨리는 "저울" 역할. 녹 안 나게 스테인리스'),
-      ('압전 소자', '원통 네 곳에 두 쌍. 한 쌍은 원통을 떨게 하고(구동), 한 쌍은 떨림을 읽음(검출). 전기 ↔ 떨림을 바꿔 주는 부품'),
-      ('가스 챔버', '원통 둘레의 가스 공간. 시료가스가 입구로 들어와 원통 바깥을 감싸고 지나 출구로 나감. 원통 둘레를 시료로 채워야 그 가스의 밀도가 진동수에 실림 (가스는 원통 바깥을 지나감, TI 4장)'),
-      ('백금 온도 센서', '가스 온도를 잼. 같은 가스도 온도가 오르면 밀도가 내려가므로 0 ℃ 기준 밀도로 바꾸는 데 씀'),
+      ('원통 공진자', '얇은 벽 스테인리스 원통. 가스 속에서 진동하는 "저울" 역할. 녹 안 나게 스테인리스'),
+      ('압전 소자', '원통 네 곳에 두 쌍. 한 쌍은 원통을 진동시키고(구동), 한 쌍은 진동을 검출. 전기 신호와 진동을 서로 바꿔 주는 부품'),
+      ('가스 챔버', '원통 둘레의 가스 공간. 시료가스가 입구로 들어와 원통 바깥을 지나 출구로 나감 (TI 4장). 원통 둘레가 시료로 채워져야 그 가스의 밀도가 진동수에 반영됨'),
+      ('백금 온도 센서', '가스 온도를 측정. 같은 가스도 온도가 오르면 밀도가 내려가므로 0 ℃ 기준 밀도로 바꾸는 데 씀'),
       ('O-링', 'NBR. 챔버를 막아 가스가 새지 않게 하고 진동을 잡아 줌. 굳으면 누설·진동에 약해져 오차 → 2~3년마다 교체 권장'),
       ('몸체', '원통과 챔버를 감싸는 함체. 외부 진동에 강하게 만들어짐 (TI). 방폭형(GD40R)은 Exd [ia] IIB+H2T5'),
       ('변환기 GD402', '두 진동수를 받아 밀도·순도 계산, 표시, 4-20 mA 출력, 알람'),
@@ -204,15 +204,15 @@ class _Principle extends StatelessWidget {
     const Gd40ModesFigure(),
     const SizedBox(height: 6),
     ..._steps(const [
-      '압전 소자가 원통을 원래 떨리기 좋은 진동수(고유 진동수)로 계속 떨게 함 (자려 발진, 회로가 스스로 맞춰 줌)',
-      '원통이 떨면 겉면에 닿은 가스도 같이 밀리고 당겨짐 → 원통에 가스 무게가 얹힌 꼴 (관성 부하)',
-      '무게가 늘면 진동수가 내려감 (그네에 사람이 타면 느려지는 것과 같은 이치)',
-      '그래서 진동수를 재면 둘레 가스의 밀도를 알 수 있음',
+      '압전 소자가 원통을 고유 진동수로 계속 진동시킴 (자려 발진)',
+      '원통이 진동하면 표면에 닿은 가스도 같이 움직임 → 원통에 가스 질량이 더해진 효과 (관성 부하)',
+      '질량이 늘면 진동수가 내려감 (그네에 사람이 타면 느려지는 것과 같은 이치)',
+      '그래서 진동수를 측정하면 둘레 가스의 밀도를 알 수 있음',
     ]),
     _title('왜 두 모드(F2·F4)를 동시에 쓰나'),
     ..._rows(const [
-      ('문제', '진동수는 가스 말고도 원통 자체 때문에 바뀜: 온도에 따른 쇠의 탄성 변화, 오래 쓰며 생기는 변화, 겉면에 앉은 먼지·오일 미스트·수분'),
-      ('해결', '원통을 2차 원주 모드(F2 약 2 kHz)와 4차 원주 모드(F4 약 6 kHz)로 동시에 울림. 원통 자체 때문인 변화는 두 모드에 같은 비율로 걸려서, F2 ÷ F4 비율을 쓰면 서로 지워짐. 가스 무게는 두 모드에 다르게 걸려서 비율에 남음'),
+      ('문제', '진동수는 가스 말고도 원통 자체 때문에 바뀜: 온도에 따른 금속의 탄성 변화, 오래 쓰며 생기는 변화, 표면에 앉은 먼지·오일 미스트·수분'),
+      ('해결', '원통을 2차 원주 모드(F2 약 2 kHz)와 4차 원주 모드(F4 약 6 kHz)로 동시에 진동시킴. 원통 자체 때문인 변화는 두 모드에 같은 비율로 걸려서, F2 ÷ F4 비율을 쓰면 서로 지워짐. 가스 질량 효과는 두 모드에 다르게 걸려서 비율에 남음'),
       ('효과', '먼지(MgO 0.4 mg/cm²)가 앉았을 때 오차가 한 모드만 쓸 때의 약 1/10 (TI 5.5). 드리프트가 거의 없어 손볼 일이 적음'),
       ('확인', '서비스 CODE 41에서 F2·F4·F2/F4를 볼 수 있음. F2 1000~10000 Hz, F4 4000~10000 Hz를 벗어나면 Err.02'),
     ]),
@@ -220,7 +220,7 @@ class _Principle extends StatelessWidget {
     ..._steps(const [
       'F2·F4 → 실제 밀도 d (그 자리 온도·압력에서의 밀도)',
       '표준 상태로 바꿈: do = d × (273.15 + t) ÷ 273.15 × 101.33 ÷ P  (t: 가스 온도 ℃, P: 가스 압력 kPa abs)',
-      '두 가스 섞임을 직선으로: 순도 = (공기 밀도 − do) ÷ (공기 밀도 − 수소 밀도) × 100',
+      '수소·공기 혼합을 직선 관계로 봄: 순도 = (공기 밀도 − do) ÷ (공기 밀도 − 수소 밀도) × 100',
       '교정은 이 직선의 두 끝을 맞추는 일: 제로 = 수소 100% (0.0899), 스팬 = CO2 100% (1.9771)',
     ]),
     const SizedBox(height: 8),
@@ -229,11 +229,11 @@ class _Principle extends StatelessWidget {
     const Gd40PurityFigure(),
     _title('왜 압력 전송기를 다나'),
     ..._rows(const [
-      ('이유', '검출기가 재는 건 그 자리의 실제 밀도. 같은 가스도 압력이 2배면 밀도가 2배 → 압력이 흔들리면 순도가 흔들린 것처럼 보임'),
-      ('하는 일', 'EJX310A 절대압 전송기가 검출기 가스 압력을 재서 변환기가 101.33 kPa 기준으로 바꿈 (서비스 CODE 10·12)'),
+      ('이유', '검출기가 측정하는 것은 그 자리의 실제 밀도. 같은 가스도 압력이 2배면 밀도가 2배 → 압력이 흔들리면 순도가 흔들린 것처럼 보임'),
+      ('하는 일', 'EJX310A 절대압 전송기가 검출기 가스 압력을 측정해 변환기가 101.33 kPa 기준으로 바꿈 (서비스 CODE 10·12)'),
       ('필수', '설명서: 수소 순도계로 쓸 때는 압력 보상용 압력 전송기가 필요'),
       ('없으면', '보상을 끄면 101.33 kPa abs로 보고 계산 → 실제 압력이 다르면 그만큼 틀림'),
-      ('설치', '도압관은 검출기에서 0.5 m 안쪽 (검출기 압력과 같게 재려고)'),
+      ('설치', '도압관은 검출기에서 0.5 m 이내 (검출기와 같은 압력을 측정하려고)'),
     ]),
     _title('왜 유량을 일정하게 하나'),
     refTable(
@@ -247,11 +247,11 @@ class _Principle extends StatelessWidget {
     ),
     _title('검사관이 자주 묻는 것'),
     ..._rows(const [
-      ('공기 말고 다른 게 섞이면?', '두 가스(수소·공기) 섞임으로 계산하므로, 다른 가스(수분 등)가 섞이면 그만큼 밀도가 바뀌어 순도 오차가 됨 (원리상). 그래서 시료는 필터·제습을 거침'),
-      ('수소가 왜 냉각에 쓰이나?', '고속으로 도는 발전기 냉각에 수소를 씀. 공기와 섞이면 위험해서 운전 중 순도를 늘 봄 (TI 8.1)'),
+      ('공기 말고 다른 게 섞이면?', '두 가스(수소·공기) 혼합으로 계산하므로, 다른 가스(수분 등)가 섞이면 그만큼 밀도가 바뀌어 순도 오차가 됨 (원리상). 그래서 시료는 필터·제습을 거침'),
+      ('수소 순도는 왜 늘 보나?', '고속으로 도는 발전기 냉각에 수소를 씀. 공기와 섞이면 위험해서 운전 중 순도를 늘 봄 (TI 8.1)'),
       ('왜 CO2를 거치나?', '정비 때 수소를 바로 공기로 바꾸면 위험한 혼합이 생김. 수소 → CO2 → 공기 순서로 바꾸고, 다시 운전할 때는 공기 → CO2 → 수소. 이때 H2 in CO2, Air in CO2 범위로 치환 정도를 봄 (TI 8.1)'),
       ('정확도는?', 'H2 in Air 85~100%: 직선성 ±1, 반복성 ±0.5, 드리프트 ±0.5/월 (vol%), 응답 90% 약 5초'),
-      ('온도가 갑자기 바뀌면?', '10 ℃ 급변에도 1 g/m³ 안 (TI 2장)'),
+      ('온도가 갑자기 바뀌면?', '10 ℃ 급변에도 1 g/m³ 이내 (TI 2장)'),
       ('얼마나 자주 교정하나?', '설명서: 2~3개월마다 표준가스로 확인, 틀리면 교정. TI 예: 3개월에 한 번 정도 점검'),
     ]),
   ]);
@@ -291,7 +291,7 @@ class _Keys extends StatelessWidget {
       rows: const [
         ['측정', '측정값 보기', '전원 켜면 바로'],
         ['운전', '표시 항목, 측정 범위, 교정', '측정 모드에서 [MODE]'],
-        ['설정', '출력, 교정 데이터, 알람', '측정 모드에서 [*]'],
+        ['설정', '출력, 교정값, 알람', '측정 모드에서 [*]'],
         ['서비스', '기능 선택 (코드 번호)', '*SERVC에서 [YES] → 코드'],
       ],
     ),
@@ -366,7 +366,7 @@ class _FirstSetup extends StatelessWidget {
       GdStep(say: '스팬 (예: 500.00 kPa). 압력 전송기 20 mA 값과 같게 → [ENT]. 끝나면 [MODE]', press: GdKey.ent, data: '500.00', msg: '*S_PRS', setPtr: 3, keyOp: {GdKey.right, GdKey.up, GdKey.ent}),
     ]),
     const SizedBox(height: 10),
-    refWarnBox('압력 보상을 안 하면 101.33 kPa abs 기준 밀도로 계산함. 압력 전송기로 보상하려면 전송기를 연결하고 CODE 12 범위를 반드시 넣을 것. 예시 숫자는 그림용, 실제는 압력 전송기 레인지대로'),
+    refWarnBox('압력 보상을 안 하면 101.33 kPa abs 기준 밀도로 계산함. 압력 전송기로 보상하려면 전송기를 연결하고 CODE 12 범위를 반드시 넣을 것. 예시 숫자는 그림용, 실제는 압력 전송기 측정 범위대로'),
     _title('서비스 코드 (수소 순도 모드)'),
     refTable(
       headers: const ['코드', '화면', '내용·범위'],
@@ -392,7 +392,7 @@ class _FirstSetup extends StatelessWidget {
         ['44', '*PASS', '비밀번호 0.0.0~9.9.9'],
         ['45', '*BAT', '0 배터리 검출 안 함 / 1 검출'],
         ['50', '*MODEL', '0 밀도계 / 1 열량계 / 2 수소 순도·치환계'],
-        ['82', '*K_A_H 등', '검출기 상수 (020 *PASSW). 출하 짝 그대로면 손대지 말 것'],
+        ['82', '*K_A_H 등', '검출기 상수 (020 *PASSW). 출하 때 검출기와 맞춘 값이면 손대지 말 것'],
       ],
       footer: '※ 표에 없는 코드는 넣지 말 것. 잘못 넣었으면 [MODE]로 빠져나옴. CODE 10의 1은 설명서 표에 "측정값", 본문에 "직전값"으로 서로 다르게 적힘',
     ),
@@ -590,7 +590,7 @@ class _Calibration extends StatelessWidget {
     ]),
     _title('따라하기 1: 교정 중 출력 유지 (*C_HLD)'),
     Gd402Walkthrough(id: 'chld', steps: [
-      ..._toSetting(1, '교정 데이터'),
+      ..._toSetting(1, '교정값'),
       const GdStep(say: '0 = 유지 안 함, 1 = 교정 직전 값 유지, 2 = 지정값 유지. DCS 경보를 막으려면 1이나 2 → [ENT]', press: GdKey.ent, data: '1', msg: '*C_HLD', setPtr: 1, keyOp: {GdKey.up, GdKey.ent}),
       const GdStep(say: '2를 골랐을 때만: 유지할 출력 %(-10.0~110.0) → [ENT]', press: GdKey.ent, data: '050.0', msg: '*PR.SET', setPtr: 1, keyOp: {GdKey.right, GdKey.up, GdKey.ent}),
       const GdStep(say: '*RANGE로 돌아옴. [MODE]로 측정 모드', press: GdKey.mode, msg: '*RANGE', setPtr: 0, keyOp: {GdKey.yes, GdKey.no}),
@@ -605,7 +605,7 @@ class _Calibration extends StatelessWidget {
       const GdStep(say: 'MAN.CAL에서 [YES]', press: GdKey.yes, msg: 'MAN.CAL', opPtr: kOpManCal, keyOp: {GdKey.yes, GdKey.no}, gas: GdGas.measuring),
       const GdStep(say: 'ZERO 표시. 시료가스 밸브를 닫고 [YES] (제로를 건너뛰려면 [NO] → SPAN)', press: GdKey.yes, msg: 'ZERO', opPtr: kOpManCal, keyOp: {GdKey.yes, GdKey.no}, gas: GdGas.allClosed),
       const GdStep(say: '제로 기준 밀도(H2) 0.0899 표시. 고정값이라 못 바꿈. [ENT]', press: GdKey.ent, data: '0.0899', msg: 'H2', opPtr: kOpManCal, keyOp: {GdKey.ent}, gas: GdGas.allClosed),
-      GdStep(say: '제로가스(H2) 밸브를 엶. 지시(보정 밀도)가 내려가 안정되면 [ENT] → 제로가스 밸브를 닫음', press: GdKey.ent, data: '0.0903', msg: 'CAL.SET', opPtr: kOpManCal, keyOp: const {GdKey.ent}, gas: GdGas.zeroFlow, warn: '이 화면은 [>][∧]를 안 받음. 값이 계속 움직이면 안정될 때까지 기다림'),
+      GdStep(say: '제로가스(H2) 밸브를 엶. 지시(보상 밀도)가 내려가 안정되면 [ENT] → 제로가스 밸브를 닫음', press: GdKey.ent, data: '0.0903', msg: 'CAL.SET', opPtr: kOpManCal, keyOp: const {GdKey.ent}, gas: GdGas.zeroFlow, warn: '이 화면은 [>][∧]를 안 받음. 값이 계속 움직이면 안정될 때까지 기다림'),
       const GdStep(say: 'SPAN 표시. [YES]', press: GdKey.yes, msg: 'SPAN', opPtr: kOpManCal, keyOp: {GdKey.yes, GdKey.no}, gas: GdGas.allClosed),
       const GdStep(say: '스팬 기준 밀도(CO2) 1.9771 표시. 고정값. [ENT]', press: GdKey.ent, data: '1.9771', msg: 'CO2', opPtr: kOpManCal, keyOp: {GdKey.ent}, gas: GdGas.allClosed),
       const GdStep(say: '스팬가스(CO2) 밸브를 엶. 지시가 올라가 안정되면 [ENT] → 스팬가스 밸브를 닫고 시료가스 밸브를 엶', press: GdKey.ent, data: '1.9758', msg: 'CAL.SET', opPtr: kOpManCal, keyOp: {GdKey.ent}, gas: GdGas.spanFlow),
@@ -613,7 +613,7 @@ class _Calibration extends StatelessWidget {
     ]),
     _title('교정이 안 맞을 때 (ALM.10)'),
     const Gd402Walkthrough(id: 'alm10', steps: [
-      GdStep(say: '마지막 [ENT] 뒤 ALM.10이 뜨면 교정 데이터 이상. [YES]나 [NO]', press: GdKey.yes, msg: 'ALM.10', opPtr: kOpManCal, keyOp: {GdKey.yes, GdKey.no}, lamps: {'ALARM'}),
+      GdStep(say: '마지막 [ENT] 뒤 ALM.10이 뜨면 교정값 이상. [YES]나 [NO]', press: GdKey.yes, msg: 'ALM.10', opPtr: kOpManCal, keyOp: {GdKey.yes, GdKey.no}, lamps: {'ALARM'}),
       GdStep(say: 'MAN.CAL로 돌아옴. 가스 종류·농도, 유량, 출구 대기압, 누설을 확인하고 다시 교정', press: GdKey.yes, msg: 'MAN.CAL', opPtr: kOpManCal, keyOp: {GdKey.yes, GdKey.no}),
     ]),
     const SizedBox(height: 10),
@@ -652,8 +652,8 @@ class _Operation extends StatelessWidget {
     _title('운전 시작'),
     ..._steps(const [
       '외부 전원 스위치 ON → 측정 모드로 시작 (예열 시간은 설명서에 없음)',
-      '서비스 CODE 50 = 2(수소 순도) 확인, 필요한 파라미터 설정 ("처음 설정" 탭)',
-      '제로·스팬 교정 ("교정" 탭)',
+      '서비스 CODE 50 = 2(수소 순도) 확인, 필요한 파라미터 설정 ("수소 설정" 탭)',
+      '제로·스팬 교정 ("수소 교정" 탭)',
       '측정 모드로 돌아와 측정 루프 기기를 다 켜고 한동안 이상 없는지 본 뒤 정상 운전',
     ]),
     _title('접점 상태'),
@@ -675,8 +675,8 @@ class _Operation extends StatelessWidget {
     ..._rows(const [
       ('FAIL', 'FAIL 접점(18·19) 열림, FAIL 램프, 에러 번호 표시'),
       ('출력', '직전값 또는 설정값으로 유지 (CODE 02, 수소 순도 출력이면 CODE 03)'),
-      ('Err.01·02', '전원을 껐다 켜 보고, 그래도면 요꼬가와 서비스'),
-      ('Err.03~05', '요꼬가와 서비스'),
+      ('Err.01·02', '전원을 껐다 켜 보고, 그래도 안 되면 요꼬가와 A/S 요청'),
+      ('Err.03~05', '요꼬가와 A/S 요청'),
     ]),
     _title('정지·재시작'),
     ..._steps(const [
@@ -698,17 +698,17 @@ const List<List<String>> kGd402AlarmRows = [
         ['ALM.05', '분자량 상하한', '상하한값 확인·변경'],
         ['ALM.06', '농도 상하한 (수소 순도 하한으로 보임)', '알람값·실제 순도 확인'],
         ['ALM.07', '압력 입력 범위 이상: 0점 -3% 이하, 스팬 +5% 이상, 0.1 kPa 이하', '시료가스 압력·압력 범위(CODE 12) 확인'],
-        ['ALM.08', '시료가스 온도 이상 (-25~80 ℃ 밖)', '허용 범위 안에서 사용'],
-        ['ALM.09', '배터리 이상 (접점 안 나감)', '요꼬가와 서비스'],
-        ['ALM.10', '교정 이상 (제로·스팬)', '다시 교정 ("교정" 탭)'],
+        ['ALM.08', '시료가스 온도 이상 (-25~80 ℃ 밖)', '허용 범위 이내에서 사용'],
+        ['ALM.09', '배터리 이상 (접점 안 나감)', '요꼬가와 A/S 요청'],
+        ['ALM.10', '교정 이상 (제로·스팬)', '다시 교정 ("수소 교정" 탭)'],
       ];
 
 const List<List<String>> kGd402ErrRows = [
-        ['Err.01', '센서 발진 정지', '전원 껐다 켬 → 서비스'],
-        ['Err.02', '발진 주파수 이상 (F2 1000~10000 Hz, F4 4000~10000 Hz 밖)', '전원 껐다 켬 → 서비스'],
-        ['Err.03', '센서 온도 검출 이상', '서비스'],
-        ['Err.04', 'A/D 변환기 이상', '서비스'],
-        ['Err.05', '메모리 이상', '서비스'],
+        ['Err.01', '센서 발진 정지', '전원 껐다 켬 → A/S 요청'],
+        ['Err.02', '발진 주파수 이상 (F2 1000~10000 Hz, F4 4000~10000 Hz 밖)', '전원 껐다 켬 → A/S 요청'],
+        ['Err.03', '센서 온도 검출 이상', 'A/S 요청'],
+        ['Err.04', 'A/D 변환기 이상', 'A/S 요청'],
+        ['Err.05', '메모리 이상', 'A/S 요청'],
       ];
 
 class _Codes extends StatelessWidget {
@@ -716,7 +716,7 @@ class _Codes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => _page('codes', [
-    refIntroBadge('알람(ALM)은 ALARM 접점(16·17)과 ALARM 램프, 고장(Err)은 FAIL 접점(18·19)이 열리고 FAIL 램프가 켜집니다.'),
+    refIntroBadge('알람(ALM)이면 ALARM 접점(16·17)이 동작하고 ALARM 램프가 켜집니다. 고장(Err)이면 FAIL 접점(18·19)이 열리고 FAIL 램프가 켜집니다.'),
     _title('알람'),
     refTable(
       headers: const ['표시', '내용', '조치'],
@@ -768,7 +768,7 @@ List<KnowledgeEntry> gd402Knowledge() => [
         id: 'gd402.${r[0]}',
         category: '계기 알람·고장 코드',
         title: 'GD402 ${r[0]} · ${r[1]}',
-        lines: ['조치: ${r[2]}', '$kind 코드. 알람은 ALARM 접점, 고장(Err)은 FAIL 접점이 열립니다.'],
+        lines: ['조치: ${r[2]}', '$kind 코드. 알람은 ALARM 접점이 동작하고, 고장(Err)은 FAIL 접점이 열립니다.'],
         keywords: ['GD402', '가스밀도계', '밀도계', '요꼬가와', r[0]],
         sourceLabel: 'GD402 화면 따라하기 · 알람·고장 코드',
         priority: 1,

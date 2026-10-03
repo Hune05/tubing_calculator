@@ -178,7 +178,7 @@ void main() {
       final r = await resultOf(tester, 'ec_cable_result');
       expect(r, contains('14 AWG 허용전류'));
       expect(r, contains('15A를 초과합니다(NEC 240.4(D))'));
-      expect(textIn(tester, const Key('ec_sum_cable')), contains('점검 필요'));
+      expect(textIn(tester, const Key('ec_sum_cable')), contains('불합격'));
     });
 
     testWidgets('전압강하 AWG: 삼상 380V 20A 50m 12 AWG 역률 100', (tester) async {

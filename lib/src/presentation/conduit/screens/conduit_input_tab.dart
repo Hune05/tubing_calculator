@@ -438,7 +438,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
         onCancel: () => Navigator.pop(ctx, false),
         onOk: () => Navigator.pop(ctx, true),
         content: AppDialog.message(
-          "배관 목록 ${manager.bendList.length}줄을 모두 지우겠습니까?\n(위의 ↶로 되돌릴 수 있습니다)",
+          "배관 목록 ${manager.bendList.length}줄을 모두 지우시겠습니까?\n(위의 ↶로 되돌릴 수 있습니다)",
         ),
       ),
     );
@@ -784,7 +784,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                               controller: _lengthController,
                               title: _selectedAngle == 0.0
                                   ? "직관 길이 (mm)"
-                                  : "도달 거리 (mm)",
+                                  : "길이 (mm)",
                             );
                             setState(() {});
                           },

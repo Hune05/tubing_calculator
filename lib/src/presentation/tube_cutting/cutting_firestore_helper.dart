@@ -352,7 +352,7 @@ Future<void> deductCuttingProjectInventory({
   if (!context.mounted) return;
   final confirmed = await showCuttingConfirmDialog(
     context,
-    title: "재고에서 빼겠습니까?",
+    title: "재고에서 빼시겠습니까?",
     message: warning.isEmpty
         ? "'$projectName'에서 쓴 자재를 창고 재고에서 뺍니다.\n\n"
               "${stockTakeLines(takes, stock.qtyByName)}"

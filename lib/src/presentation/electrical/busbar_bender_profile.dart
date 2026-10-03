@@ -144,7 +144,7 @@ Future<void> openBenderProfiles(
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '시험 조각을 꺾어 잰 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 계산기에 들어갑니다.',
+                  '시험 조각을 꺾어 측정한 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 계산기에 들어갑니다.',
                   style: TextStyle(fontSize: 13, color: textSub),
                 ),
                 const SizedBox(height: 10),
@@ -326,7 +326,7 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '같은 규격 부스바를 L 90°로 꺾어 보고 재서 넣으십시오. 바깥 치수는 꺾인 바깥 모서리까지 잰 길이입니다.',
+              '같은 규격 부스바를 L 90°로 꺾은 뒤 측정해 넣으십시오. 바깥 치수는 꺾인 바깥 모서리까지의 길이입니다.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 10),
@@ -345,7 +345,7 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
             _field('bp_r', '안쪽 반경 (mm, 어댑터)', _r),
             _field('bp_a', '다리 1 바깥 치수 (mm)', _a),
             _field('bp_b', '다리 2 바깥 치수 (mm)', _b),
-            _field('bp_flat', '실제 자른 길이 (mm)', _flat, '꺾기 전 곧은 막대를 잰 길이'),
+            _field('bp_flat', '실제 자른 길이 (mm)', _flat, '꺾기 전 곧은 막대의 실측 길이'),
             Container(
               key: const Key('bp_k_result'),
               padding: const EdgeInsets.all(8),
@@ -361,17 +361,17 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
                     ? 'k: 값을 넣으면 바로 계산합니다'
                     : kOk
                     ? '구한 k = ${_n(k, 3)}'
-                    : '구한 k = ${_n(k, 3)}: 구리 범위(${_n(kBenderKMin)}~${_n(kBenderKMax)})를 벗어났습니다. 치수를 다시 재십시오.',
+                    : '구한 k = ${_n(k, 3)}: 구리 범위(${_n(kBenderKMin)}~${_n(kBenderKMax)})를 벗어났습니다. 치수를 다시 측정하십시오.',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
             const Text(
-              '스프링백(선택): 기계에서 꺾은 각도와 놓은 뒤 잰 각도를 넣으면 보정 비율을 구합니다.',
+              '스프링백(선택): 기계에서 꺾은 각도와 놓은 뒤 측정한 각도를 넣으면 보정 비율을 구합니다.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 6),
             _field('bp_set', '기계에서 꺾은 각도 (°)', _setDeg),
-            _field('bp_meas', '놓은 뒤 잰 각도 (°)', _measDeg),
+            _field('bp_meas', '놓은 뒤 측정한 각도 (°)', _measDeg),
             Container(
               key: const Key('bp_sp_result'),
               padding: const EdgeInsets.all(8),

@@ -31,7 +31,7 @@ void main() {
     await tester.pumpWidget(_list());
     await tester.pump(); // 첫 그림 뒤 안내 시작
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.textContaining('줄을 왼쪽으로 밀면 지웁니다'), findsOneWidget);
+    expect(find.textContaining('줄을 왼쪽으로 밀면 삭제됩니다'), findsOneWidget);
     final first = tester.getTopLeft(find.text('줄 가')).dx;
     final second = tester.getTopLeft(find.text('줄 나')).dx;
     expect(first, lessThan(second)); // 첫 줄만 왼쪽으로
@@ -46,7 +46,7 @@ void main() {
     await tester.pumpWidget(_list());
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
-    expect(find.textContaining('줄을 왼쪽으로 밀면 지웁니다'), findsNothing);
+    expect(find.textContaining('줄을 왼쪽으로 밀면 삭제됩니다'), findsNothing);
     expect(tester.getTopLeft(find.text('줄 가')).dx, tester.getTopLeft(find.text('줄 나')).dx);
   });
 }

@@ -68,14 +68,14 @@ void main() {
     setSize(tester, kPhone);
     addTearDown(tester.view.reset);
     await pumpBoard(tester);
-    expect(find.text('신규 모듈'), findsOneWidget);
-    expect(find.text('자재 라이브러리'), findsNothing);
+    expect(find.text('신규 부품'), findsOneWidget);
+    expect(find.text('부품 목록'), findsNothing);
 
     setSize(tester, kTablet);
     await tester.pumpAndSettle();
-    expect(find.text('신규 모듈'), findsOneWidget);
-    expect(find.text('자재 라이브러리'), findsNothing);
-    expect(find.text('모듈 편집'), findsNothing);
+    expect(find.text('신규 부품'), findsOneWidget);
+    expect(find.text('부품 목록'), findsNothing);
+    expect(find.text('부품 편집'), findsNothing);
     await disposeBoard(tester);
   });
 
@@ -91,14 +91,14 @@ void main() {
     // 폴드를 편다(같은 방식, 화면만 커진다)
     setSize(tester, kTablet);
     await tester.pumpAndSettle();
-    expect(find.text('자재 라이브러리'), findsNothing);
+    expect(find.text('부품 목록'), findsNothing);
     expect(find.text('차단기 A'), findsOneWidget);
     expect(find.text('차단기 B'), findsOneWidget);
 
     // 다시 접는다
     setSize(tester, kPhone);
     await tester.pumpAndSettle();
-    expect(find.text('자재 라이브러리'), findsNothing);
+    expect(find.text('부품 목록'), findsNothing);
     expect(find.text('차단기 A'), findsOneWidget);
 
     // 되돌리기 기록도 그대로라, 되돌리면 샘플을 불러오기 전(빈 도면)으로 간다.

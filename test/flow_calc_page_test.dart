@@ -195,7 +195,7 @@ void main() {
     await type(tester, 'fm_value', '6.25');
     await tester.pump(const Duration(milliseconds: 800));
     await tapKey(tester, 'calc_history_button');
-    expect(find.text('유속·관 굵기'), findsOneWidget);
+    expect(find.text('유속·관경'), findsOneWidget);
     expect(find.text('차압 유량계 환산'), findsOneWidget);
   });
 
@@ -246,7 +246,7 @@ void main() {
     await type(tester, 'mc_ind', '50');
     r = textIn(tester, const Key('mc_result'));
     expect(r, contains('불합격'));
-    expect(r, contains('제곱근을 안 한 값'));
+    expect(r, contains('제곱근 연산을 안 한 값'));
     expect(r, contains('나와야 할 전류: 8 mA'));
     final t = textIn(tester, const Key('mc_table'));
     expect(t, contains('6.25 kPa')); // 유량 50% → 차압 25%

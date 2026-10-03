@@ -503,7 +503,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
         'tr_minr',
         '케이블 최소 굽힘 반경 (mm)',
         _minR,
-        '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 티 R과 견줍니다. 비워도 됩니다.',
+        '케이블 트레이 계산기의 "최소 굽힘 반경" 값을 넣으면 티 R과 비교합니다. 비워도 됩니다.',
         onEdit: _saveSoon,
       ),
       elecChipGroup('트레이 한 개 길이', '자를 직선이 몇 개 드는지 계산합니다(이음 여유 제외).', [
@@ -615,7 +615,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     final widgets = <Widget>[
       calcResult(
         key: const Key('tr_result'),
-        big: '엘보 ${e.elbows}개 · 직선 ${e.straights.length}토막',
+        big: '엘보 ${e.elbows}개 · 직선 ${e.straights.length}개',
         caption: '기성 엘보 R${fmt(_elbowR)} · 직선 합 ${trayNum(e.straightTotal)}mm',
         warn: !e.ok || radOk == false,
         lines: [
@@ -798,7 +798,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     final plan = _plan;
     String? summary;
     final kindChips = elecChipGroup(
-      '무엇을',
+      '작업 종류',
       '넘어가기: 바닥의 배관·기초·턱을 위로 넘어 다시 바닥으로. 올라가기·내려가기: 높이가 다른 바닥으로 한 번 오르내림. 옆으로 비켜가기: 기둥·장비를 옆으로 돌아 다시 원래 줄로. 옆으로 옮겨가기: 옆 줄로 한 번 옮겨 계속. 가지 내기: 본선에 수평 티를 넣어 옆으로 가지를 냄.',
       [
         for (final k in TrayRouteKind.values)
@@ -851,7 +851,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
             if (plan)
               elecChipGroup(
                 '장애물 쪽',
-                '시작점에서 진행 방향을 보고 장애물이 있는 쪽입니다. 그쪽 측판으로 마킹을 잽니다.',
+                '시작점에서 진행 방향을 보고 장애물이 있는 쪽입니다. 그쪽 측판을 기준으로 마킹합니다.',
                 [
                   calcChip(
                     'tr_ol_l',
@@ -916,7 +916,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 'tr_len',
                 '장애물 길이 (mm)',
                 _length,
-                '트레이가 지나가는 방향으로 잰 장애물 길이입니다.',
+                '트레이 진행 방향의 장애물 길이입니다.',
                 onEdit: _saveSoon,
               ),
             elecField(
@@ -938,7 +938,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                   ? '시작점 → 단 끝 (mm)'
                   : (over || plan ? '시작점 → 장애물 앞면 (mm)' : '시작점 → 단 앞면 (mm)'),
               _toFace,
-              '마킹을 재기 시작할 트레이 끝(이음 자리)에서 잽니다.',
+              '마킹 기준이 되는 트레이 끝(이음 자리)부터의 거리입니다.',
               onEdit: _saveSoon,
             ),
             elecField(
@@ -991,7 +991,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 'tr_minr',
                 '케이블 최소 굽힘 반경 (mm)',
                 _minR,
-                '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 엘보 R과 견줍니다. 비워도 됩니다.',
+                '케이블 트레이 계산기의 "최소 굽힘 반경" 값을 넣으면 엘보 R과 비교합니다. 비워도 됩니다.',
                 onEdit: _saveSoon,
               ),
             if (!_elbowMode)
@@ -1023,7 +1023,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 'tr_minr',
                 '케이블 최소 굽힘 반경 (mm)',
                 _minR,
-                '케이블 트레이 계산기의 "곡률 반경" 값을 넣으면 나눠 꺾은 반경과 견줍니다. 비워도 됩니다.',
+                '케이블 트레이 계산기의 "최소 굽힘 반경" 값을 넣으면 나눠 꺾은 반경과 비교합니다. 비워도 됩니다.',
                 onEdit: _saveSoon,
               ),
             elecChipGroup('트레이 한 개 길이', '자르기 전 길이로 몇 개 드는지 계산합니다(이음 여유 제외).', [
@@ -1078,7 +1078,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
             '첫 꺾는 곳: 시작점에서 ${trayNum(r.lead)}mm',
             '${fmt(_stock / 1000)}m 트레이 ${r.lengthsNeeded(_stock)}개',
             if (r.pieces > 1)
-              '나눠 꺾은 반경 약 R ${trayNum(rad)}mm${radOk == null ? '' : (radOk ? ' · 케이블 최소 굽힘 반경 안입니다' : ' · 케이블 최소 굽힘 반경 R ${trayNum(minR!)}보다 작습니다. 마디 간격을 늘리거나 더 나눠 꺾으십시오')}',
+              '나눠 꺾은 반경 약 R ${trayNum(rad)}mm${radOk == null ? '' : (radOk ? ' · 케이블 최소 굽힘 반경 R ${trayNum(minR!)} 이상입니다' : ' · 케이블 최소 굽힘 반경 R ${trayNum(minR!)}보다 작습니다. 마디 간격을 늘리거나 더 나눠 꺾으십시오')}',
           ],
         ),
         const SizedBox(height: 12),
@@ -1108,8 +1108,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
         calcLabel(
           '자르기 전 마킹',
           plan
-              ? '곧은 트레이를 위에서 본 그림입니다. 거리는 시작점에서 $_refRail을 따라 잽니다.'
-              : '곧은 트레이 측판을 옆에서 본 그림입니다. 거리는 시작점에서 측판 아랫변을 따라 잽니다. 양쪽 측판에 같은 자리로 마킹합니다.',
+              ? '곧은 트레이를 위에서 본 그림입니다. 거리는 시작점에서 $_refRail을 따라 측정합니다.'
+              : '곧은 트레이 측판을 옆에서 본 그림입니다. 거리는 시작점에서 측판 아랫변을 따라 측정합니다. 양쪽 측판에 같은 자리로 마킹합니다.',
         ),
         const SizedBox(height: 4),
         _drawing(

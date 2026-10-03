@@ -119,7 +119,7 @@ extension _DailyReportDraft on _DailyReportPageState {
       _nextDayPlanCtrl.text = m['plan']?.toString() ?? '';
       _asBuiltCtrl.text = m['asBuiltReason']?.toString() ?? '';
       _isAsBuilt = m['isAsBuilt'] == true;
-      final wt = _strList(m['workTypes']);
+      final wt = workTypesOf(_strList(m['workTypes']));
       if (wt.isNotEmpty) {
         _selectedWorkTypes
           ..clear()

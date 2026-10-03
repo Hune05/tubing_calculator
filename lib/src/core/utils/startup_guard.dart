@@ -44,7 +44,7 @@ InitializationSettings notificationInitSettings() =>
       ),
       macOS: DarwinInitializationSettings(),
       windows: WindowsInitializationSettings(
-        appName: '필드 헬퍼',
+        appName: 'Field Helper',
         appUserModelId: 'TubingCalculator.App',
         guid: '9cb65cfc-d23a-47c9-8876-5b1a127ba64b',
       ),

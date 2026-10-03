@@ -137,7 +137,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           Text(
-            '증상·코드·장비 이름으로 찾으십시오. 고장 조치, 계기 알람 코드, 루프 이상값, 축 정렬 지침, 현장 자료가 한 곳에서 찾아집니다.',
+            '증상·코드·장비 이름으로 찾으십시오. 고장 조치, 계기 알람 코드, 루프 이상값, 축 정렬 지침, 현장 자료를 한 곳에서 찾을 수 있습니다.',
             style: TextStyle(fontSize: 14, color: refTextSub, height: 1.5),
           ),
           const SizedBox(height: 14),

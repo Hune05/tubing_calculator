@@ -106,7 +106,7 @@ Future<Uint8List> buildMarkedPdf({
           pw.Text('번호 붙은 문제가 없습니다.', style: const pw.TextStyle(fontSize: 10))
         else
           pw.TableHelper.fromTextArray(
-            headers: ['번호', '쪽', '종류', '내용', '상태', '적은 사람', '적은 때'],
+            headers: ['번호', '쪽', '종류', '내용', '상태', '작성자', '작성일시'],
             headerStyle: pw.TextStyle(font: fonts.bold, fontSize: 9),
             cellStyle: const pw.TextStyle(fontSize: 9),
             columnWidths: {

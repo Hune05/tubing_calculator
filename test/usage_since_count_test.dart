@@ -111,7 +111,7 @@ void main() {
 
     test('지난 재고조사가 없으면 그렇게 적는다', () {
       const u = UsageSinceCount(out: 5, inQty: 0, hasLastCount: false);
-      expect(u.note, '기록에 남은 것만 5 나감');
+      expect(u.note, '지금까지 기록상 5 나감');
     });
 
     test('드나든 것이 없으면 빈 글', () {

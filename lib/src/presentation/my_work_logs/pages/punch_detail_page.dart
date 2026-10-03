@@ -180,7 +180,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                         onTap: () async {
                           if (!await confirmDelete(
                             context,
-                            title: "이 사진을 지우겠습니까?",
+                            title: "이 사진을 지우시겠습니까?",
                           )) {
                             return;
                           }
@@ -231,7 +231,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(keepWords("미처리 상태로 되돌렸습니다."))));
+    ).showSnackBar(SnackBar(content: Text(keepWords("미해결로 되돌렸습니다."))));
   }
 
   @override
@@ -299,7 +299,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      isCompleted ? "처리 완료" : "미처리",
+                      isCompleted ? "처리 완료" : "미해결",
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
@@ -457,7 +457,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                           ),
                         ),
                         child: const Text(
-                          "다시 미처리로 되돌리기",
+                          "다시 미해결로 되돌리기",
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),

@@ -288,7 +288,7 @@ AwgChoice chooseAwg({
   final kadj = necAdjustFactor(currentCarrying);
   if (kt == null) {
     notes.add(
-      '주위 온도 ${_f(ambientC)}°C가 ${necColumnTemp(column)}°C 전선의 보정표(NEC 310.15(B)(1)) 범위를 넘습니다.',
+      '주위 온도 ${_f(ambientC)}°C가 ${necColumnTemp(column)}°C 전선의 보정표(NEC 310.15(B)(1)) 범위를 초과합니다.',
     );
   }
   final len = lengthM ?? 0;

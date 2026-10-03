@@ -117,8 +117,8 @@ class TubeBendingEngine {
         // 이후 모든 마킹/절단 길이 계산이 조용히 깨진 값으로 오염된다.
         if (inst.angle <= 0 || inst.angle >= _maxSafeAngle) {
           throw ArgumentError(
-            '벤딩 각도(${inst.angle}°)가 유효 범위(0° 초과 ~ $_maxSafeAngle° 미만)를 벗어났습니다. '
-            '180°에 가까운 U-Bend는 전용 U-Bend 계산기를 사용해 주십시오.',
+            '벤딩 각도(${inst.angle}°)는 0° 초과 $_maxSafeAngle° 미만이어야 합니다. '
+            '180°에 가까운 U-Bend는 특수 벤딩 툴의 퀵 U-Bend 계산기를 쓰십시오.',
           );
         }
 

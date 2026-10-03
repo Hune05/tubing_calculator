@@ -48,7 +48,7 @@ class ImagePickerHelper {
             const Padding(
               padding: EdgeInsets.all(16.0),
               child: Text(
-                "사진 첨부 방식 선택",
+                "사진 추가",
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
@@ -59,7 +59,7 @@ class ImagePickerHelper {
             ListTile(
               leading: const Icon(Icons.camera_alt, color: makitaTeal),
               title: const Text(
-                '카메라로 바로 촬영',
+                '카메라로 촬영',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),

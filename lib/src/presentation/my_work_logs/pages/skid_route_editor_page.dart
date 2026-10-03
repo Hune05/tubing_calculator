@@ -498,7 +498,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
                   items: [
                     const DropdownMenuItem<String?>(
                       value: null,
-                      child: Text("부품 없이 자리로"),
+                      child: Text("부품 없이 좌표로 지정"),
                     ),
                     for (final it in plan)
                       DropdownMenuItem<String?>(

@@ -3,7 +3,7 @@ import 'package:tubing_calculator/src/presentation/electrical/busbar_bend.dart';
 import 'package:tubing_calculator/src/presentation/electrical/busbar_bender_profile.dart';
 
 void main() {
-  test('k 역산: 엔진으로 만든 자르는 길이를 다시 넣으면 같은 k가 나온다', () {
+  test('k 역산: 엔진으로 만든 절단 길이를 다시 넣으면 같은 k가 나온다', () {
     for (final k in [0.33, 0.4, 0.45, 0.5]) {
       final p = busbarL(d: 6, r: 6, k: k, a: 100, b: 80, deg: 90);
       final back = benderKFromTest(

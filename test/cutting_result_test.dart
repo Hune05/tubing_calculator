@@ -143,7 +143,7 @@ void main() {
         kerfMm: 3,
       );
       expect(t, '''[컷팅 지시서] 루마 라인
-2026.09.20 · Swagelok · 2세트 · 톱날 3mm
+2026.09.20 · Swagelok · 2세트 · 톱날 손실 3mm
 
 ■ 자를 길이
 1) PT1 → PT2 2555.3mm × 2개
@@ -462,7 +462,7 @@ Union Cross 1/2" × 2''');
       // 같은 창에서 되돌리면 표시도 저장 전(0개)으로.
       await tester.tap(find.byKey(const Key('result_btn_optimize')));
       await tester.pumpAndSettle();
-      final save0 = find.text('잘랐습니다 (잔재 저장)');
+      final save0 = find.text('자른 뒤 잔재 저장');
       await tester.ensureVisible(save0);
       await tester.tap(save0);
       await tester.pumpAndSettle();
@@ -476,7 +476,7 @@ Union Cross 1/2" × 2''');
 
       await tester.tap(find.byKey(const Key('result_btn_optimize')));
       await tester.pumpAndSettle();
-      final save = find.text('잘랐습니다 (잔재 저장)');
+      final save = find.text('자른 뒤 잔재 저장');
       await tester.ensureVisible(save);
       await tester.tap(save);
       await tester.pumpAndSettle();
@@ -493,7 +493,7 @@ Union Cross 1/2" × 2''');
       // 잔재를 쓰는 계획으로 바뀌고 저장 단추가 다시 나왔다).
       await tester.tap(find.byKey(const Key('result_btn_optimize')));
       await tester.pumpAndSettle();
-      expect(find.text('잘랐습니다 (잔재 저장)'), findsNothing);
+      expect(find.text('자른 뒤 잔재 저장'), findsNothing);
       expect(find.text('저장했습니다'), findsOneWidget);
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();

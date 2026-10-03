@@ -215,7 +215,7 @@ class AlignDialGuidePainter extends CustomPainter {
     final label = '${value >= 0 ? '+' : '−'}${value.abs().toStringAsFixed(2)} mm';
     final tp = TextPainter(
       text: TextSpan(children: [
-        const TextSpan(text: '이 바늘의 읽음  ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSub)),
+        const TextSpan(text: '이 바늘의 지시값  ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSub)),
         TextSpan(text: label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFFC62828))),
       ]),
       textDirection: TextDirection.ltr,

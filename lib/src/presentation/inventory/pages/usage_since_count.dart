@@ -30,7 +30,7 @@ class UsageSinceCount {
   /// 재고조사 화면에 붙일 한 줄.
   String get note {
     if (isEmpty) return '';
-    final head = hasLastCount ? '지난 재고조사 뒤' : '기록에 남은 것만';
+    final head = hasLastCount ? '지난 재고조사 뒤' : '지금까지 기록상';
     if (inQty == 0) return '$head $out 나감';
     if (out == 0) return '$head $inQty 들어옴';
     return '$head $out 나가고 $inQty 들어옴';

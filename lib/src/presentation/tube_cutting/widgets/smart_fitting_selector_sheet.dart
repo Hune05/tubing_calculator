@@ -640,7 +640,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                 ),
                                 const SizedBox(height: 12),
                                 Text(
-                                  "이 규격에 등록된 부속 데이터가 없습니다.",
+                                  "이 규격에 등록된 부속이 없습니다.",
                                   style: TextStyle(
                                     fontSize: 15,
                                     color: Colors.grey.shade600,
@@ -655,7 +655,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                     size: 18,
                                   ),
                                   label: const Text(
-                                    "커스텀으로 직접 입력",
+                                    "직접 입력",
                                     style: TextStyle(color: makitaTeal),
                                   ),
                                   style: OutlinedButton.styleFrom(
@@ -719,7 +719,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                     size: 18,
                                   ),
                                   label: const Text(
-                                    "커스텀으로 직접 입력",
+                                    "직접 입력",
                                     style: TextStyle(color: makitaTeal),
                                   ),
                                   style: OutlinedButton.styleFrom(

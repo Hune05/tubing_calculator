@@ -177,7 +177,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       pf: _read(_pf, '역률', bad, pct: true),
       motorKw: _read(_motor, '가장 큰 전동기', bad),
       beta: _read(_beta, 'β', bad),
-      startC: _read(_c, '시동방식 계수', bad),
+      startC: _read(_c, '기동 방식 계수', bad),
       xdPct: _read(_xd, 'X″d', bad),
       dvPct: _read(_dv, '허용 전압강하', bad),
       startPf: _read(_startPf, '기동 역률', bad, pct: true),
@@ -261,7 +261,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         'eg_demand',
         '수용률 (α, %)',
         _demand,
-        '부하가 한꺼번에 다 걸리지 않을 때 줄이는 비율입니다. 근거가 없으면 100으로 두십시오. 100을 넘게 넣을 수 없습니다.',
+        '부하가 한꺼번에 다 걸리지 않을 때 줄이는 비율입니다. 근거가 없으면 100으로 두십시오. 100을 초과해 넣을 수 없습니다.',
       ),
       elecField(
         'eg_eff',
@@ -283,8 +283,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         '기동 용량이 가장 큰 전동기의 출력입니다. 없으면 비워 두십시오. 그러면 PG2와 PG3는 계산하지 않습니다.',
       ),
       elecChipGroup(
-        '시동방식',
-        '시동방식 계수 C: 직입 1.0, Y-Δ 0.67, 리액터 65% 0.65. 논문 표 한 곳에서 확인한 값이며 원문 대조 전(2차 자료)입니다.\n'
+        '기동 방식',
+        '기동 방식 계수 C: 직입 1.0, Y-Δ 0.67, 리액터 65% 0.65. 논문 표 한 곳에서 확인한 값이며 원문 대조 전(2차 자료)입니다.\n'
             '소프트스타터·인버터는 제조사 자료로 계수를 직접 넣으십시오.',
         [
           for (final k in GenStartKind.values)
@@ -301,9 +301,9 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       ),
       elecField(
         'eg_c',
-        '시동방식 계수 (C)',
+        '기동 방식 계수 (C)',
         _c,
-        '위 시동방식을 고르면 값이 채워집니다. 다른 방식은 제조사 자료 값을 직접 넣으십시오.',
+        '위 기동 방식을 고르면 값이 채워집니다. 다른 방식은 제조사 자료 값을 직접 넣으십시오.',
       ),
       elecField(
         'eg_beta',
@@ -353,7 +353,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         'eg_chosen',
         '선정 용량 (kVA, 선택)',
         _chosen,
-        '제조사 표준 용량 중 고른 값을 넣으면 합격/불합격을 봅니다.',
+        '제조사 표준 용량 중 고른 값을 넣으면 합격/불합격을 판정합니다.',
       ),
       const SizedBox(height: 12),
       result,
@@ -365,7 +365,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         'PG4 = PG1 + 고조파 부하 × 가산 계수.',
         '출처: KIEE 논문 2018(이종혁·김진오), 한양대 논문 2021, 발전기 용량 산정 정리 글(cq4l.com). 모두 원문 대조 전(2차 자료)입니다. 논문의 PG2 예제 351 kVA와 이 식의 결과가 같습니다.',
         '서로 다른 값: β를 논문은 7.2, 정리 글은 0.72로 적었습니다. PG3의 역률 기호도 자료마다 다르게 적혀 있어 기동 역률 칸을 따로 두었습니다.',
-        '2021년 6월 개정 KDS 31 60 20은 GP 방식을 씁니다. 자료마다 식이 셋으로 갈려 원문 대조 전이라 넣지 않았습니다. 자세한 내용은 docs/전기_발전기_근거.md에 있습니다.',
+        '2021년 6월 개정 KDS 31 60 20은 GP 방식을 씁니다. 자료마다 식이 셋으로 갈려 원문 대조 전이라 넣지 않았습니다.',
         '넣지 않은 것: GP 방식, 단상 부하 불평형 보정, 고도·온도 출력 감소, 연료·환기 조건.',
       ]),
     ]);

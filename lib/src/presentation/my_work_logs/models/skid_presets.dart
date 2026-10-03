@@ -120,7 +120,7 @@ const Map<int, double> kThinConduitOd = {
 };
 
 final Map<String, List<ModulePreset>> kSkidConduitPresets = {
-  "후강 전선관 (바깥지름)": [
+  "후강 전선관 (외경)": [
     for (final e in kThickConduitOd.entries)
       ModulePreset(
         "후강 전선관 ${e.key}",

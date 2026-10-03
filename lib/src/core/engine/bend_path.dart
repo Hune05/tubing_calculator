@@ -178,7 +178,7 @@ double segmentDistance(
 }
 
 /// 관이 저희끼리 부딪히는지 본다.
-/// 바깥지름 [outerDiameter]만큼 떨어져 있어야 하고, 붙어 있는 두 토막은
+/// 외경 [outerDiameter]만큼 떨어져 있어야 하고, 붙어 있는 두 토막은
 /// 벤드로 이어지므로 보지 않는다.
 /// 🚀 [고침] 예전에는 화면에 형상만 그려 줄 뿐, 관이 자기 자신을 뚫고
 /// 지나가도 아무 말이 없었다. 만들 수 없는 형상을 현장에 가서야 알았다.
@@ -194,9 +194,9 @@ List<String> selfInterferenceWarnings(
       final d = segmentDistance(lines[i].a, lines[i].b, lines[j].a, lines[j].b);
       if (d < outerDiameter) {
         out.add(
-          '${i + 1}번 구간과 ${j + 1}번 구간이 '
-          '${d.toStringAsFixed(0)}mm까지 붙습니다(관 굵기 '
-          '${outerDiameter.toStringAsFixed(0)}mm). 이대로는 서로 닿습니다.',
+          '${i + 1}번 구간과 ${j + 1}번 구간의 중심 간격이 '
+          '${d.toStringAsFixed(0)}mm로 외경('
+          '${outerDiameter.toStringAsFixed(0)}mm)보다 좁습니다. 이대로는 서로 닿습니다.',
         );
       }
     }
@@ -313,7 +313,7 @@ BendPath buildBendPath(
     if (tailStraight < 0) {
       warnings.add(
         '꼬리 구간: 마지막 벤드를 빼면 곧은 부분이 '
-        '${tailStraight.toStringAsFixed(1)}mm입니다.',
+        '${tailStraight.toStringAsFixed(1)}mm입니다. 이대로는 만들 수 없습니다.',
       );
     }
     developed += tailStraight;

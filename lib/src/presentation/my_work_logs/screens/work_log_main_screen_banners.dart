@@ -57,10 +57,10 @@ extension _WorkLogMainBanners on _WorkLogMainScreenState {
         if (uploading) {
           text = "사진 올리는 중… (남은 사진 $_localPhotos장)";
         } else if (_localPhotos > 0) {
-          text = "사진 $_localPhotos장이 아직 올라가지 않았습니다. 네트워크를 확인해 주십시오.";
+          text = "사진 $_localPhotos장이 아직 올라가지 않았습니다. 통신을 확인해 주십시오.";
           warn = true;
         } else {
-          text = "변경사항을 서버에 저장하는 중입니다. 오프라인이면 연결될 때 자동으로 올라갑니다.";
+          text = "변경 내용을 서버에 저장하는 중입니다. 통신이 없으면 연결될 때 자동으로 올라갑니다.";
         }
         final color = warn ? AppColors.caution : tossBlue;
         return Container(

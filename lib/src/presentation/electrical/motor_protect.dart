@@ -55,7 +55,7 @@ bool? startMayTrip(String cls, double startSeconds) {
 /// NEC 430.52 단락·지락 보호 장치 최대 정격(FLC 대비 %). FLC는 명판이 아니라 NEC 표 430.250 값.
 const Map<String, double> kNecShortCircuitPct = {
   '이중소자(지연) 퓨즈': 175,
-  '역시간 차단기': 250,
+  '반한시 차단기': 250,
   '비지연 퓨즈': 300,
   '순시트립 차단기': 800,
 };

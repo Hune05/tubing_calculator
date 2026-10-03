@@ -104,7 +104,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
   }
 
   Widget _modeChips() =>
-      elecChipGroup('무엇을 계산하나', '접지 계산 여섯 가지입니다. 고르면 입력 칸이 바뀝니다.', [
+      elecChipGroup('계산 항목', '접지 계산 여섯 가지입니다. 고르면 입력 칸이 바뀝니다.', [
         for (final m in _GMode.values)
           calcChip('gr_mode_${m.name}', _modeLabel(m), _mode == m, () {
             _set(() => _mode = m);
@@ -118,7 +118,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
     String? summary;
     var warn = false;
     final basis = <String>[
-      'KEC 조문은 사설 옮김 사이트(cq4l 등)로 확인했고 원문(법제처·협회) 대조 전입니다. 설계 도서와 현행 KEC 원문으로 확인하십시오.',
+      'KEC 조문은 공식 원문이 아닌 사이트(cq4l 등)로 확인했고 원문(법제처·협회) 대조 전입니다. 설계 도서와 현행 KEC 원문으로 확인하십시오.',
       '2026-01-06 개정 KEC 142.3.1(접지도체)은 일렉킴 인용으로 확인했습니다. TT 100 Ω 상한과 고압·특고압 접지저항 제한은 개정안 단계 보도만 확인해 넣지 않았습니다.',
     ];
 
@@ -151,7 +151,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             'gr_sec',
             '차단시간 (초, 5초 이하)',
             _sec,
-            '보호장치가 고장전류를 끊는 시간입니다. 5초를 넘으면 이 식을 쓰지 않습니다.',
+            '보호장치가 고장전류를 끊는 시간입니다. 5초를 초과하면 이 식을 쓰지 않습니다.',
           ),
           elecChipGroup('재질', '보호도체 재질입니다.', [
             calcChip(
@@ -234,7 +234,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
                   '단열 식은 고장전류와 차단시간(5초 이하)을 모두 넣어야 계산합니다.',
                 '표 값은 선도체와 같은 재질일 때입니다. 재질이 다르면 (k₁/k₂)를 곱해 구합니다.',
                 '따로 포설하는 보호도체(케이블의 일부가 아님)는 기계적 보호가 있으면 구리 2.5 mm²·알루미늄 16 mm² 이상, 없으면 구리 4 mm²·알루미늄 16 mm² 이상이고 표 값이 더 크면 표 값입니다.',
-                '보호도체 전류가 10 mA를 넘으면 구리 10 mm² 또는 알루미늄 16 mm² 이상으로 보강합니다. 금속 수도관·가스관·가요 전선관·케이블 트레이는 보호도체로 쓰지 않습니다.',
+                '보호도체 전류가 10 mA를 초과하면 구리 10 mm² 또는 알루미늄 16 mm² 이상으로 보강합니다. 금속 수도관·가스관·가요 전선관·케이블 트레이는 보호도체로 쓰지 않습니다.',
               ],
             ),
           );
@@ -296,7 +296,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
           ),
           elecChipGroup(
             '저압 혼촉 시 자동 차단',
-            '고압·특고압 전로가 저압과 혼촉해 저압 대지전압이 150 V를 넘을 때의 차단 시간입니다. 일반은 150, 1~2초 이내는 300, 1초 이내는 600을 씁니다.',
+            '고압·특고압 전로가 저압과 혼촉해 저압 대지전압이 150 V를 초과할 때의 차단 시간입니다. 일반은 150, 1~2초 이내는 300, 1초 이내는 600을 씁니다.',
             [
               calcChip(
                 'gr_trip_n',
@@ -338,7 +338,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               lines: [
                 'R ≤ ${fmt(_trip == 'within1s' ? 600 : (_trip == 'within2s' ? 300 : 150), 0)} ÷ 1선 지락전류 ${fmt(_v(_i1)!, 1)} A = ${fmt(r, 2)} Ω',
                 '구 제2종(B종) 접지의 150/300/600 규칙과 같습니다.',
-                '구 종별 참고(옛 기준): 제1종·특별 제3종 10 Ω, 제3종 100 Ω. KEC는 종별을 없앴고 이 숫자가 그대로 모든 접지공사에 적용되는 것은 아닙니다.',
+                '구 종별 참고: 제1종·특별 제3종 10 Ω, 제3종 100 Ω. KEC는 종별을 없앴고 이 숫자가 그대로 모든 접지공사에 적용되는 것은 아닙니다.',
               ],
             ),
           );
@@ -412,7 +412,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             'gr_rho',
             '대지저항률 ρ (Ω·m)',
             _rho,
-            '측정한 값이 가장 좋습니다. 아래 토양 칩은 참고값입니다.',
+            '측정한 값이 가장 좋습니다. 아래 토양별 값은 참고값입니다.',
           ),
           elecChipGroup('토양 참고값', '습도·계절·층 구조에 따라 크게 다릅니다. 확인용입니다.', [
             for (final (name, v) in kSoilResistivity)
@@ -423,7 +423,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
                 () => _set(() => _rho.text = fmt(v, 0)),
               ),
           ]),
-          elecField('gr_len', '봉 길이 (m)', _len, '땅에 묻힌 길이입니다.'),
+          elecField('gr_len', '봉 길이 (m)', _len, '매설 길이입니다.'),
           elecField('gr_dia', '봉 지름 (mm)', _dia, '예: 14.2(직경 14.2mm 접지봉).'),
           elecField('gr_n', '봉 개수', _n, '병렬로 박는 봉 수입니다.'),
           if (n > 1)
@@ -431,7 +431,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               'gr_space',
               '봉 사이 간격 (m)',
               _space,
-              '1 m 이상이어야 이 식을 씁니다. 10 m를 넘으면 서로 영향이 없다고 봅니다.',
+              '1 m 이상이어야 이 식을 씁니다. 10 m를 초과하면 서로 영향이 없다고 봅니다.',
             ),
           elecField(
             'gr_target',
@@ -477,9 +477,9 @@ class _ElecGroundTabState extends State<ElecGroundTab>
                 if (ok != null)
                   ok
                       ? '목표 ${fmt(target!, 1)} Ω 이내입니다.'
-                      : '목표 ${fmt(target!, 1)} Ω를 넘습니다. 봉을 늘리거나 길게 박거나 접지저항 저감 방법을 검토하십시오.',
+                      : '목표 ${fmt(target!, 1)} Ω를 초과합니다. 봉을 늘리거나 길게 박거나 접지저항 저감 방법을 검토하십시오.',
                 '이 식은 근사식이고 한 곳 자료입니다. 실제 접지저항은 시공 후 측정(3점 전위강하법)으로 확인하십시오.',
-                '측정 요령: 전류 보조극을 접지극에서 접지극 규모의 6.5배 이상(또는 80 m 이상) 띄우고, 전위 보조극은 그 61.8 % 지점에 박습니다. 51.8 %·71.8 % 지점도 재서 평균과 비교합니다.',
+                '측정 요령: 전류 보조극을 접지극에서 접지극 규모의 6.5배 이상(또는 80 m 이상) 띄우고, 전위 보조극은 그 61.8 % 지점에 박습니다. 51.8 %·71.8 % 지점도 측정해 평균과 비교합니다.',
               ],
             ),
           );

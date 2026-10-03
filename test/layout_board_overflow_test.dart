@@ -103,7 +103,7 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      await tester.tap(find.text('고정 치수 측정'));
+      await tester.tap(find.text('치수 측정'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await disposeBoard(tester);

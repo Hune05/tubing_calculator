@@ -424,7 +424,7 @@ class _PressureTestPageState extends State<PressureTestPage>
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            '압력 시험',
+            '압력시험',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           bottom: TabBar(
@@ -439,9 +439,9 @@ class _PressureTestPageState extends State<PressureTestPage>
               fontSize: 15,
             ),
             tabs: const [
-              Tab(key: Key('pt_tab_plan'), text: '시험 압력'),
+              Tab(key: Key('pt_tab_plan'), text: '시험압력'),
               Tab(key: Key('pt_tab_record'), text: '시험 기록'),
-              Tab(key: Key('pt_tab_decay'), text: '압력 강하'),
+              Tab(key: Key('pt_tab_decay'), text: '압력강하'),
               Tab(key: Key('pt_tab_energy'), text: '공압 안전거리'),
             ],
           ),
@@ -584,7 +584,7 @@ class _PressureTestPageState extends State<PressureTestPage>
         '적용 코드',
         'ASME B31.3: 공정(플랜트) 배관. ASME B31.1: 동력(발전소) 배관으로 보일러·증기·급수 계통 등입니다. '
             '어느 것을 따르는지는 설계 도서·배관 등급표(Line class)에 적혀 있습니다. '
-            '칩을 꾹 누르면 그 코드의 수압·공압 시험압력 기준을 볼 수 있습니다.',
+            '코드 단추를 길게 누르면 그 코드의 수압·공압 시험압력 기준이 나옵니다.',
         [
           for (final c in PipingCode.values)
             GestureDetector(
@@ -600,7 +600,7 @@ class _PressureTestPageState extends State<PressureTestPage>
       ),
       _chips(
         '시험 종류',
-        '두 코드 모두 수압이 기본입니다. 공압은 수압이 어려울 때 발주처가 정하거나 허락할 때만 합니다.',
+        '두 코드 모두 수압이 기본입니다. 공압은 수압이 어려울 때 발주처가 정하거나 승인할 때만 합니다.',
         [
           calcChip('pt_hydro', '수압', hydro, () {
             setState(() => _medium = TestMedium.hydro);
@@ -636,7 +636,7 @@ class _PressureTestPageState extends State<PressureTestPage>
       if (hydro)
         calcField(
           'pt_head',
-          '압력계 위 최고점 높이 (m, 선택)',
+          '압력계에서 최고점까지 높이 (m, 선택)',
           _head,
           '압력계보다 가장 높은 곳이 몇 m 위에 있는지 넣습니다. 압력계는 보통 낮은 곳에 둡니다. '
               '물은 1m 높아질 때마다 압력이 9.81kPa씩 낮아집니다. '
@@ -821,7 +821,7 @@ class _PressureTestPageState extends State<PressureTestPage>
         '설계 온도 (°C, 선택)',
         _tubeTemp,
         '설계 도서·배관 등급표의 설계 온도입니다. 비우면 38°C 이하로 계산합니다. '
-            '허용 응력 S를 이 온도로 정합니다. 표에 넣은 범위 밖이면 계산하지 않습니다. '
+            '허용 응력 S를 이 온도로 정합니다. 앱에 들어 있는 표 범위를 벗어나면 계산하지 않습니다. '
             'B31.3은 SS316 −254~427°C, 탄소강 −29~427°C입니다. B31.1은 두 재질 모두 −29~427°C입니다.',
         signed: true,
       ),
@@ -860,9 +860,9 @@ class _PressureTestPageState extends State<PressureTestPage>
           lines: [
             _tubeDims(t),
             _code == PipingCode.b311
-                ? '설계 온도 $tempText: ${tubeStressTableText(_tubeMat, _code)}에 넣은 범위'
-                      '(${tubeTempRangeText(_tubeMat, code: _code)}) 밖이라 계산하지 않습니다.'
-                : '설계 온도 $tempText: 표 A-1에 넣은 범위(${tubeTempRangeText(_tubeMat)}) 밖이라 계산하지 않습니다.',
+                ? '설계 온도 $tempText: 앱에 들어 있는 ${tubeStressTableText(_tubeMat, _code)} 범위'
+                      '(${tubeTempRangeText(_tubeMat, code: _code)})를 벗어나 계산하지 않습니다.'
+                : '설계 온도 $tempText: 앱에 들어 있는 표 A-1 범위(${tubeTempRangeText(_tubeMat)})를 벗어나 계산하지 않습니다.',
             if (_code == PipingCode.b311 && tIn != null && tIn < kTube311MinC)
               'B31.1은 −29°C 아래 저온을 124.1.2(B31T 요건)로 따로 확인합니다.',
           ],
@@ -1055,13 +1055,13 @@ class _PressureTestPageState extends State<PressureTestPage>
         'pt_p1',
         '시작 압력 (${_unit.label})',
         _p1,
-        '유지시간을 시작할 때 읽은 게이지 압력입니다.',
+        '유지시간 시작 때의 압력계 지시값(게이지 압력)입니다.',
       ),
       calcField(
         'pt_p2',
         '종료 압력 (${_unit.label})',
         _p2,
-        '유지시간을 마칠 때 읽은 게이지 압력입니다.',
+        '유지시간 종료 때의 압력계 지시값(게이지 압력)입니다.',
       ),
       calcField(
         'pt_allow',
@@ -1180,7 +1180,7 @@ class _PressureTestPageState extends State<PressureTestPage>
         '매설(축 구속)',
         _restrained,
         (v) => setState(() => _restrained = v),
-        '땅에 묻혔거나 양 끝이 고정돼 축 방향으로 늘어나지 못하는 관입니다. '
+        '매설되었거나 양 끝이 고정돼 축 방향으로 늘어나지 못하는 관입니다. '
             '이때는 dP/dT = (β − 2α) / (κ + D(1 − ν²)/(E·t))로 계산합니다. '
             '강관(D/t 20)은 약 7%, 두꺼운 튜브는 약 10% 커집니다.',
         key: 'pt_restrained',
@@ -1250,7 +1250,7 @@ class _PressureTestPageState extends State<PressureTestPage>
           alignment: Alignment.centerRight,
           child: calcToggle(
             '${key}_goto',
-            '시험 압력 탭에서 바꾸기',
+            '시험압력 탭에서 바꾸기',
             () => _tabs.animateTo(0),
           ),
         ),
@@ -1280,7 +1280,7 @@ class _PressureTestPageState extends State<PressureTestPage>
     return [
       _tubeLine(
         'pt_se_tube',
-        '구간 1: ${_tubeMat.label} ${t.label}, 내경 ${_fmt(t.idMm)} mm (시험 압력 탭 규격)',
+        '구간 1: ${_tubeMat.label} ${t.label}, 내경 ${_fmt(t.idMm)} mm (시험압력 탭 규격)',
       ),
       calcField('pt_se_tlen', '구간 1 길이 (m)', _tubeLen, '구간 1 튜브의 전체 길이입니다.'),
       for (var i = 0; i < _segs.length; i++) ...[
@@ -1359,7 +1359,7 @@ class _PressureTestPageState extends State<PressureTestPage>
         'pt_se_pt',
         '공압 시험압력 (${_unit.label})',
         _sePt,
-        '공압 시험압력(게이지)입니다. 아래 단추로 "시험 압력" 탭 값을 가져올 수 있습니다. '
+        '공압 시험압력(게이지)입니다. 아래 단추로 "시험압력" 탭 값을 가져올 수 있습니다. '
             '실제 시험압력이 없으면 공압 최대 시험압력을 가져옵니다.',
       ),
       if (src != null)
@@ -1367,7 +1367,7 @@ class _PressureTestPageState extends State<PressureTestPage>
           alignment: Alignment.centerRight,
           child: calcToggle(
             'pt_se_import',
-            '시험 압력 탭 값 가져오기 (${_p(src)})',
+            '시험압력 탭 값 가져오기 (${_p(src)})',
             () => setState(() => _putKpa(_sePt, src)),
           ),
         ),

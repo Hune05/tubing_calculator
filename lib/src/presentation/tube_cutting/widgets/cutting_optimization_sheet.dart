@@ -350,7 +350,7 @@ Future<void> showCuttingOptimizationSheet(
             if (isGroupedView) ...[
               const SizedBox(height: 8),
               Text(
-                "규격이 다르면 같은 원자재를 함께 쓸 수 없어 규격별로 따로 계산합니다.",
+                "규격별로 따로 계산합니다.",
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ],
@@ -419,7 +419,7 @@ Future<void> showCuttingOptimizationSheet(
             if (isGroupedView) ...[
               const SizedBox(height: 4),
               Text(
-                "규격별 값은 아래에 규격마다 따로 나옵니다.",
+                "규격별 값은 아래에 따로 나옵니다.",
                 style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
               ),
             ],
@@ -496,7 +496,7 @@ Future<void> showCuttingOptimizationSheet(
                     child: _smallNumField(
                       key: const Key('plan_min_leftover'),
                       controller: minLeftCtrl,
-                      label: "남길 잔재 최소",
+                      label: "잔재 최소 길이",
                       onSubmitted: (v) {
                         planSettings = CutPlanSettings(
                           endTrim: planSettings.endTrim,
@@ -674,6 +674,7 @@ Future<void> showCuttingOptimizationSheet(
                 ctx,
                 leftovers,
                 groups.keys.toList(),
+                minLeftover: planSettings.minLeftover,
               );
               if (changed != null) {
                 // 지우거나 더한 것만 적는다(통째로 덮으면 다른 곳에서 바꾼 잔재가 사라진다).
@@ -1065,7 +1066,7 @@ Widget _buildOptBarCard(
             Text(
               // 🚀 [고침] 톱날 손실을 빼지 않아 PDF·저장되는 잔재(994)와 달리
               // 1000으로 보였다. 저장·PDF와 같은 값을 보인다.
-              "잔여 ${bar.remainderWithKerf(kerf).toStringAsFixed(0)}mm",
+              "남는 길이 ${bar.remainderWithKerf(kerf).toStringAsFixed(0)}mm",
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -1191,7 +1192,7 @@ Widget _buildLeftoverCard({
                 ] else
                   OutlinedButton(
                     onPressed: onSave,
-                    child: const Text("잘랐습니다 (잔재 저장)"),
+                    child: const Text("자른 뒤 잔재 저장"),
                   ),
                 if (onDeduct != null)
                   if (anyDeducted && remainingBars == 0) ...[
@@ -1261,8 +1262,9 @@ Widget _buildLeftoverCard({
 Future<List<Leftover>?> _manageLeftovers(
   BuildContext context,
   List<Leftover> current,
-  List<String> labels,
-) {
+  List<String> labels, {
+  double minLeftover = kMinLeftoverMm,
+}) {
   final list = [...current];
   // 같은 길이 잔재가 여럿이어도 줄마다 다른 열쇠(밀어서 지우기에 쓴다). list와 같이 고친다.
   final rowKeys = <Key>[for (final _ in list) UniqueKey()];
@@ -1313,7 +1315,7 @@ Future<List<Leftover>?> _manageLeftovers(
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            "${kMinLeftoverMm.toStringAsFixed(0)}mm보다 짧은 잔재는 남겨 두지 않습니다.",
+                            "재단 계획은 ${minLeftover.toStringAsFixed(0)}mm보다 짧은 조각을 잔재로 남기지 않습니다(잔재 최소 길이 설정).",
                             style: TextStyle(
                               fontSize: 12,
                               color: Colors.grey.shade600,

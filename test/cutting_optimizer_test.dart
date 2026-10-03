@@ -305,7 +305,7 @@ void main() {
     testWidgets('잘랐다고 누르면 잔재가 저장되고 다음에 먼저 쓴다', (tester) async {
       await open(tester);
       expect(find.text('필요 원자재'), findsOneWidget);
-      await tester.tap(find.textContaining('잘랐습니다'));
+      await tester.tap(find.text('자른 뒤 잔재 저장'));
       await tester.pumpAndSettle();
       expect(find.text('저장했습니다'), findsOneWidget);
       expect(await loadLeftovers(), [

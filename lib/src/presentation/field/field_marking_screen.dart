@@ -354,7 +354,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                data.error != null ? '이 도면은 셈할 수 없습니다' : '입력한 배관이 없습니다',
+                data.error != null ? '이 도면은 계산할 수 없습니다' : '입력한 배관이 없습니다',
                 style: TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w900,
@@ -542,7 +542,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           _toolButton(
             key: const Key('field_mode_toggle'),
             icon: AppGlyph.fieldSteps,
-            label: '한 단계',
+            label: '한 단계씩',
             selected: _stepMode,
             onTap: _toggleMode,
           ),
@@ -595,13 +595,18 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 children: [
                   anyIcon(icon, size: 21, color: fg),
                   const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 11,
-                      height: 1.1,
-                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                      color: fg,
+                  // 이름이 칸(54)보다 길면 두 줄로 넘치지 않게 한 줄로 줄여 보인다("한 단계씩").
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 11,
+                        height: 1.1,
+                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        color: fg,
+                      ),
                     ),
                   ),
                 ],
@@ -1007,7 +1012,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           ),
           _bigNumber(s.at, gap: fieldStepGap(data, s), inch: data.inch(s.at)),
           Text(
-            _showGap ? '마지막 마킹에서 · 줄자 눈금 ${s.at.round()} mm' : '관 끝 0에서 잰 자리',
+            _showGap ? '마지막 마킹에서 · 줄자 눈금 ${s.at.round()} mm' : '관 끝 0 기준 위치',
             style: TextStyle(fontSize: 14, color: _muted),
           ),
         ],
@@ -1138,7 +1143,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     Icon(Icons.threesixty_rounded, size: 16, color: _muted),
                     const SizedBox(width: 4),
                     Text(
-                      '꺾기 전에 관을 ${m.roll!.round()}° 굴립니다',
+                      '꺾기 전에 관을 ${m.roll!.round()}° 롤링합니다',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,

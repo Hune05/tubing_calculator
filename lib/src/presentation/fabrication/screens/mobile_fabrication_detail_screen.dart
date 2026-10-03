@@ -228,7 +228,7 @@ class _MobileFabricationDetailScreenState
           "(입력 탭의 ↶로 목록을 되돌릴 수 있습니다)"
           "${_specsChanged ? "\n\n저장할 때 장비 값(${describeTubeSpecs(_savedSpecs!)})이 "
                     "지금 설정(${describeTubeSpecs(tubeSpecsSnapshot(MachineSpecs()))})과 "
-                    "다릅니다. 계산기에서는 지금 설정으로 셈하므로 마킹·자를 길이가 달라집니다." : ""}",
+                    "다릅니다. 계산기에서는 지금 설정으로 계산하므로 마킹·자를 길이가 달라집니다." : ""}",
         ),
       ),
     );
@@ -354,7 +354,7 @@ class _MobileFabricationDetailScreenState
     if (_bendList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("공유할 데이터가 없습니다."),
+          content: Text("공유할 내용이 없습니다."),
           backgroundColor: slate600,
         ),
       );
@@ -630,7 +630,7 @@ class _MobileFabricationDetailScreenState
               pw.Container(
                 alignment: pw.Alignment.centerRight,
                 child: pw.Text(
-                  "* 여유 기장(Tail): ${_tailLength.round()} mm   |   시작 방향(Start Dir): $_startDir",
+                  "* 꼬리 길이(Tail): ${_tailLength.round()} mm   |   시작 방향(Start Dir): $_startDir",
                   style: pw.TextStyle(
                     fontSize: 10,
                     fontWeight: pw.FontWeight.bold,
@@ -677,13 +677,13 @@ class _MobileFabricationDetailScreenState
       // ignore: deprecated_member_use
       await Share.shareXFiles([
         XFile(file.path),
-      ], text: '[$_projectName] ${_pToP['from'] ?? ''} 작업 지시서 리포트입니다.');
+      ], text: '[$_projectName] ${_pToP['from'] ?? ''} 작업 지시서입니다.');
     } catch (e) {
       debugPrint("PDF 생성 실패: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("PDF 생성 중 오류가 발생했습니다."),
+            content: Text("PDF를 만들지 못했습니다."),
             backgroundColor: Colors.red,
           ),
         );
@@ -919,7 +919,7 @@ class _MobileFabricationDetailScreenState
                                   setModalState(() => isSaving = false);
                                   messenger.showSnackBar(
                                     const SnackBar(
-                                      content: Text("저장 중 오류가 발생했습니다."),
+                                      content: Text("저장하지 못했습니다."),
                                       backgroundColor: Colors.red,
                                     ),
                                   );
@@ -1161,7 +1161,7 @@ class _MobileFabricationDetailScreenState
   Widget _buildMarkingPage(List<Map<String, dynamic>> displayMarks) {
     if (displayMarks.isEmpty) {
       return const Center(
-        child: Text("표시할 마킹 데이터가 없습니다.", style: TextStyle(color: slate600)),
+        child: Text("마킹 값이 없습니다.", style: TextStyle(color: slate600)),
       );
     }
 
@@ -1188,11 +1188,11 @@ class _MobileFabricationDetailScreenState
                     child: Text(
                       _specsChanged
                           ? "저장할 때 장비 값(${describeTubeSpecs(_savedSpecs!)})으로 "
-                                "셈한 마킹입니다. 지금 설정"
+                                "계산한 마킹입니다. 지금 설정"
                                 "(${describeTubeSpecs(tubeSpecsSnapshot(MachineSpecs()))})과 "
                                 "다릅니다."
                           : "지금 장비 설정(반경 ${MachineSpecs().radius.round()}mm)으로 "
-                                "셈한 마킹입니다.",
+                                "계산한 마킹입니다.",
                       style: TextStyle(
                         color: _specsChanged ? _amber700 : slate600,
                         fontSize: 12,

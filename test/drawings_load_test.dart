@@ -103,7 +103,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('21° 오프셋'), findsOneWidget);
 
-      await tester.tap(find.text('작업창으로 불러오기'));
+      await tester.tap(find.text('계산기로 불러오기'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('불러오기'));
       await tester.pumpAndSettle();

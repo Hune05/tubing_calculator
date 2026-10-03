@@ -339,11 +339,11 @@ void main() {
     expect(fieldText(tester, 'pt_se_pt'), '12');
   });
 
-  testWidgets('탭: 시험 압력 · 시험 기록 · 압력 강하 · 공압 안전거리(에어 누설은 뺌)', (tester) async {
+  testWidgets('탭: 시험압력 · 시험 기록 · 압력강하 · 공압 안전거리(에어 누설은 뺌)', (tester) async {
     await pumpPage(tester);
     expect(
       tester.widgetList<Tab>(find.byType(Tab)).map((t) => t.text).toList(),
-      ['시험 압력', '시험 기록', '압력 강하', '공압 안전거리'],
+      ['시험압력', '시험 기록', '압력강하', '공압 안전거리'],
     );
     expect(find.text('에어 누설'), findsNothing);
     expect(find.text('저장 에너지'), findsNothing);

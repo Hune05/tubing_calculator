@@ -72,7 +72,7 @@ List<FeatureItem> flattenFeatures(List<FeatureItem> items) {
     for (final k in flattenFeatures(kids)) {
       out.add(
         FeatureItem(
-          title: k.title == '전체 화면' ? it.title : k.title,
+          title: k.title == '첫 화면' ? it.title : k.title,
           subtitle: k.subtitle.isEmpty
               ? it.title
               : '${it.title} › ${k.subtitle}',

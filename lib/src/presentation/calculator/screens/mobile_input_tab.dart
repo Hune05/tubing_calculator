@@ -149,7 +149,7 @@ class _MobileInputTabState extends State<MobileInputTab>
     if (_selectedAngle > 0 && _selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("벤딩 진행 방향(6축)을 먼저 선택해 주십시오!"),
+          content: Text("진행 방향(6축)을 먼저 선택해 주십시오."),
           backgroundColor: Colors.deepOrange,
         ),
       );
@@ -213,9 +213,9 @@ class _MobileInputTabState extends State<MobileInputTab>
               ],
             ),
             content: Text(
-              "관이 이미 '$label' 쪽으로 가고 있거나 그 정반대입니다.\n"
-              "방향은 '꺾고 나서 관이 향할 쪽'을 고르는 것이라, 지금 가는 쪽과"
-              " 같으면 꺾을 수 없습니다. 다른 축(위·아래·앞·뒤 등)에서 고르십시오.",
+              "관이 이미 '$label' 쪽이나 그 반대쪽으로 가고 있습니다.\n"
+              "방향은 꺾은 뒤 관이 향할 쪽입니다."
+              " 다른 축(위·아래·앞·뒤 등)에서 고르십시오.",
               style: TextStyle(color: slate900, fontSize: 14),
             ),
             actions: [
@@ -305,7 +305,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   ),
                 ),
                 Text(
-                  "장비 최소 물림 거리(${AppSettingsController().minStraight}mm) 부족",
+                  "장비 최소 물림 길이(${AppSettingsController().minStraight}mm) 부족",
                   style: TextStyle(color: slate600, fontSize: 12),
                 ),
               ],
@@ -468,7 +468,7 @@ class _MobileInputTabState extends State<MobileInputTab>
         okText: "지우기",
         onCancel: () => Navigator.pop(ctx, false),
         onOk: () => Navigator.pop(ctx, true),
-        content: AppDialog.message("배관 목록 $n줄을 모두 지우겠습니까?\n(위의 ↶로 되돌릴 수 있습니다)"),
+        content: AppDialog.message("배관 목록 $n줄을 모두 지우시겠습니까?\n(위의 ↶로 되돌릴 수 있습니다)"),
       ),
     );
     if (ok != true || !mounted) return;
@@ -512,7 +512,7 @@ class _MobileInputTabState extends State<MobileInputTab>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "특수 벤딩 계산 및 삽입",
+                  "특수 벤딩 계산기",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -521,7 +521,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  "현장 치수를 입력하면 벤딩 데이터가 자동으로 조립됩니다.",
+                  "현장 치수를 넣으면 벤딩 각도와 마킹 간격을 계산합니다.",
                   style: TextStyle(fontSize: 13, color: slate600),
                 ),
                 const SizedBox(height: 24),

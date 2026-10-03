@@ -91,17 +91,17 @@ void main() {
     await _type(tester, 'rpm', '1800');
     await _fillReverse(tester);
     // 평행 0.075 > 0.05 → 초과
-    expect(find.text('평행 어긋남 초과'), findsOneWidget);
+    expect(find.text('불합격: 평행 어긋남 초과'), findsOneWidget);
     await tester.enterText(find.byKey(const Key('align_tol_offset')), '0.10');
     await tester.pump();
-    expect(find.text('허용 범위 안입니다'), findsOneWidget);
+    expect(find.text('합격: 허용오차 이내입니다'), findsOneWidget);
     // 화면을 다시 열면 고친 기준 0.10이 그대로
     await tester.pumpWidget(const SizedBox());
     await _open(tester);
     await _type(tester, 'rpm', '1800');
     await _fillReverse(tester);
     expect(tester.widget<TextField>(find.byKey(const Key('align_tol_offset'))).controller!.text, '0.10');
-    expect(find.text('허용 범위 안입니다'), findsOneWidget);
+    expect(find.text('합격: 허용오차 이내입니다'), findsOneWidget);
   });
 
   testWidgets('읽음값이 서로 안 맞으면 검산 경고가 뜬다', (tester) async {

@@ -66,14 +66,14 @@ class RefConduitTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "1. 전선관 규격 · 바깥지름",
+          title: "1. 전선관 규격 · 외경",
           subtitle: "후강은 KS C 8401(JIS G관과 같음). 배치도의 전선관 폭도 이 값입니다.",
           icon: LucideIcons.ruler,
           iconColor: Colors.blueGrey,
           children: [
             refSectionTitle("후강 전선관 (앱 규격 16~54)"),
             refTable(
-              headers: ["호칭", "바깥지름\n(mm)", "곤질레다 LB\n길이(mm)", "커플링\n길이(mm)"],
+              headers: ["호칭", "외경\n(mm)", "곤질레다 LB\n길이(mm)", "커플링\n길이(mm)"],
               rows: [
                 for (final e in kThickConduitOd.entries)
                   [
@@ -87,7 +87,7 @@ class RefConduitTab extends StatelessWidget {
             const SizedBox(height: 16),
             refSectionTitle("박강 전선관 (KS C 8401, 참고)"),
             refTable(
-              headers: ["호칭", "바깥지름 (mm)"],
+              headers: ["호칭", "외경 (mm)"],
               rows: [
                 for (final e in kThinConduitOd.entries)
                   ["${e.key}", refNum(e.value)],
@@ -106,9 +106,9 @@ class RefConduitTab extends StatelessWidget {
           iconColor: Colors.brown,
           initiallyExpanded: true,
           children: [
-            refDataRow("테이크업", "꺾이는 점까지의 거리에서 이만큼 빼고 화살표를 맞춘다(벤드마다)."),
-            refDataRow("게인", "90°로 꺾으며 줄어드는 길이. 총 절단 길이에서 벤드마다 뺀다."),
-            refDataRow("CLR", "슈가 그리는 곡선의 중심선 반지름. 45° 같은 각도의 테이크업 환산에 쓴다."),
+            refDataRow("테이크업", "꺾이는 점까지의 거리에서 이만큼 빼고 화살표를 맞춥니다(벤드마다)."),
+            refDataRow("게인", "90°로 꺾으며 줄어드는 길이입니다. 총 절단 길이에서 벤드마다 뺍니다."),
+            refDataRow("CLR", "슈가 그리는 곡선의 중심선 반지름입니다. 45° 같은 각도의 테이크업 환산에 씁니다."),
             const SizedBox(height: 8),
             _specTables(
               'hand',
@@ -125,8 +125,8 @@ class RefConduitTab extends StatelessWidget {
           icon: Icons.precision_manufacturing,
           iconColor: Colors.indigo,
           children: [
-            refDataRow("램 이동", "90°로 꺾을 때 램이 나가는 거리. 다른 각도는 이 값에서 셈해 보여 준다."),
-            refDataRow("셋백", "꺾이는 점에서 슈 가운데 표시까지 빼는 거리."),
+            refDataRow("램 이동", "90°로 꺾을 때 램이 나가는 거리입니다. 다른 각도는 이 값으로 계산해 보여 줍니다."),
+            refDataRow("셋백", "꺾이는 점에서 슈 가운데 표시까지 빼는 거리입니다."),
             const SizedBox(height: 8),
             _specTables(
               'ram',
@@ -143,8 +143,8 @@ class RefConduitTab extends StatelessWidget {
           icon: LucideIcons.cog,
           iconColor: Colors.deepOrange,
           children: [
-            refDataRow("노치당 각도", "기어(노치) 한 칸 넘길 때 꺾이는 각. 90 ÷ 칸 수로 잰다."),
-            refDataRow("테이크업", "수동 벤더와 같은 슈 구조라 같은 값을 쓴다(어림값)."),
+            refDataRow("노치당 각도", "기어(노치) 한 칸 넘길 때 꺾이는 각입니다. 90 ÷ 칸 수로 구합니다."),
+            refDataRow("테이크업", "수동 벤더와 같은 슈 구조라 같은 값을 씁니다(어림값)."),
             const SizedBox(height: 8),
             _specTables(
               'chicago',
@@ -157,7 +157,7 @@ class RefConduitTab extends StatelessWidget {
 
         refCard(
           title: "5. 각도별 테이크업 환산 (계산기 식)",
-          subtitle: "보기: Greenlee 후강 수동 벤더. 테이크업 = 반경 몫 × tan(각/2) + 슈 고정분.",
+          subtitle: "보기: Greenlee 후강 수동 벤더. 테이크업 = 반경 해당분 × tan(각/2) + 슈 고정분.",
           icon: LucideIcons.calculator,
           iconColor: refTeal,
           children: [
@@ -178,7 +178,7 @@ class RefConduitTab extends StatelessWidget {
                   ],
               ],
               footer:
-                  "※ 예전 계산은 45°에도 90° 테이크업을 그대로 빼서 첫 마킹이 앞으로 밀렸습니다. 지금은 위 식으로 줄입니다.",
+                  "※ 90°가 아닌 각도는 위 식으로 테이크업을 줄여서 뺍니다.",
             ),
           ],
         ),
@@ -190,10 +190,10 @@ class RefConduitTab extends StatelessWidget {
           icon: LucideIcons.refreshCcw,
           iconColor: Colors.pinkAccent,
           children: [
-            refDataRow("스프링백", "굵고 두꺼울수록 더 펴진다(박강 < 후강). PVC는 열로 굽혀 0."),
+            refDataRow("스프링백", "굵고 두꺼울수록 더 펴집니다(박강 < 후강). PVC는 열로 굽혀 0입니다."),
             refDataRow(
               "커플링 끝 여유",
-              "마킹에서 '체결'을 고르면 줄자 0점을 커플링 끝에 대고 마킹. 나사 물림 길이만큼 여유.",
+              "마킹에서 '체결'을 고르면 줄자 0점을 커플링 끝에 대고 마킹합니다. 나사 물림 길이만큼 여유를 둡니다.",
             ),
             const SizedBox(height: 12),
             refTable(
@@ -218,8 +218,8 @@ class RefConduitTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "7. 오프셋·새들 계수 (전선관도 같음, 튜브 탭 4번과 같은 식)",
-          subtitle: "단차 H에 곱한다. 빗변 = H ÷ sin(각), 수축 = H × tan(각/2).",
+          title: "7. 오프셋·새들 계수 (튜브 탭 4번과 같은 식)",
+          subtitle: "단차 H에 곱합니다. 빗변 = H ÷ sin(각), 수축 = H × tan(각/2).",
           icon: Icons.call_made,
           iconColor: Colors.orange,
           children: [
@@ -298,26 +298,24 @@ class RefConduitTab extends StatelessWidget {
 
         refCard(
           title: "9. 전선관·후렉시블 관통 구멍(홀쏘) 최소 지름",
-          subtitle: "위 1번 바깥지름 + 통과 여유 — 실제 홀쏘 규격은 제조사 카탈로그에서 이 값 이상으로 고른다",
+          subtitle: "위 1번 외경 + 통과 여유. 실제 홀쏘 규격은 제조사 카탈로그에서 이 값 이상으로 고릅니다.",
           icon: LucideIcons.circleDot,
           iconColor: Colors.indigo,
           children: [
             refTable(
-              headers: ["호칭", "바깥지름\n(mm)", "최소 홀쏘\n지름(mm)"],
+              headers: ["호칭", "외경\n(mm)", "최소 홀쏘\n지름(mm)"],
               rows: [
                 for (final e in kThickConduitOd.entries)
                   ["${e.key}", refNum(e.value), refNum(e.value + 3)],
               ],
               footer:
-                  "※ 최소 홀쏘 지름 = 바깥지름 + 3mm(관을 헐렁하게 통과시킬 여유). "
-                  "관에 커플링·부싱을 끼운 채로 넣거나 후렉시블이면 그 부속 바깥지름이 더 크므로, "
-                  "실제 부속을 관에 대 보고 그보다 한 단계 큰 홀쏘를 고른다.",
+                  "※ 최소 홀쏘 지름 = 외경 + 3mm(관을 헐렁하게 통과시킬 여유). "
+                  "관에 커플링·부싱을 끼운 채로 넣거나 후렉시블이면 그 부속 외경이 더 크므로, "
+                  "실제 부속을 관에 대 보고 그보다 한 단계 큰 홀쏘를 고릅니다.",
             ),
             refGap(),
             refWarnBox(
-              "홀쏘·유볼트 규격은 제조사 카탈로그마다 실제 판매 치수가 다릅니다. 이 표는 \"이 지름보다 "
-              "작으면 안 된다\"는 최소값이고, 정확한 판매 규격(예: 22mm·25mm 홀쏘 중 어느 것)은 현장에서 "
-              "쓰는 카탈로그로 확인해야 합니다.",
+              "이 표는 최소값입니다. 실제 홀쏘·유볼트 규격은 쓰는 카탈로그에서 이 값 이상으로 고르십시오.",
             ),
           ],
         ),
@@ -331,7 +329,7 @@ class RefConduitTab extends StatelessWidget {
           children: [
             refStep(
               1,
-              "유볼트는 감싸는 관의 바깥지름(위 1번 표)에 맞춰 고릅니다 — 관이 헐렁하면 흔들리고, 꽉 조이면 관이 눌립니다.",
+              "유볼트는 감싸는 관의 외경(위 1번 표)에 맞춰 고릅니다. 관이 헐렁하면 흔들리고, 꽉 조이면 관이 눌립니다.",
             ),
             refStep(
               2,
@@ -339,7 +337,7 @@ class RefConduitTab extends StatelessWidget {
             ),
             refStep(
               3,
-              "로드(볼트) 지름·나사 규격은 제조사마다 다릅니다 — 쓰시는 유볼트 카탈로그를 보십시오.",
+              "로드(볼트) 지름·나사 규격은 제조사마다 다릅니다. 쓰시는 유볼트 카탈로그를 보십시오.",
             ),
           ],
         ),
@@ -347,7 +345,7 @@ class RefConduitTab extends StatelessWidget {
 
         refCard(
           title: "11. 탭 사이즈별 홀가공 지름(탭 드릴)",
-          subtitle: "미터 보통 나사(ISO), 75% 나사 물림 기준 — 정판·전산볼트 구멍에 쓴다",
+          subtitle: "미터 보통 나사(ISO), 75% 나사 물림 기준. 정판·전산볼트 구멍에 씁니다.",
           icon: LucideIcons.settings2,
           iconColor: Colors.blueGrey,
           children: [
@@ -375,7 +373,7 @@ class RefConduitTab extends StatelessWidget {
 
         refCard(
           title: "12. 볼트 머리·렌치(스패너) 사이즈",
-          subtitle: "ISO 미터 육각머리·육각소켓(옥타곤) 표준값 — 유볼트·전산볼트 체결에 쓴다",
+          subtitle: "ISO 미터 육각머리·육각소켓(렌치볼트) 표준값. 유볼트·전산볼트 체결에 씁니다",
           icon: LucideIcons.wrench,
           iconColor: Colors.brown,
           children: [
@@ -410,7 +408,7 @@ class RefConduitTab extends StatelessWidget {
               ],
               footer:
                   "※ 육각머리(볼트를 바깥에서 감싸 돌리는 렌치·스패너)와 육각소켓(볼트머리 안쪽에 "
-                  "박힌 육각렌치용) 볼트는 서로 다른 규격입니다 — 어느 쪽 볼트인지 보고 표를 고릅니다.",
+                  "박힌 육각렌치용) 볼트는 서로 다른 규격입니다. 어느 쪽 볼트인지 보고 표를 고릅니다.",
             ),
           ],
         ),
@@ -424,7 +422,7 @@ class RefConduitTab extends StatelessWidget {
           children: [
             refDataRow(
               "로크너트(Lock Nut)",
-              "관을 박스에 끼운 뒤 안쪽에서 조여 고정하는 너트. 보통 관 하나에 안팎 두 개(밖 하나·안 하나) 씁니다.",
+              "관을 박스에 끼운 뒤 안쪽에서 조여 고정하는 너트. 보통 관 하나에 안팎 하나씩 씁니다.",
             ),
             refDataRow(
               "부싱(Bushing)",
@@ -448,35 +446,35 @@ class RefConduitTab extends StatelessWidget {
 
         refCard(
           title: "14. 전선관 현장에서 지키는 것",
-          subtitle: "전선관은 튜브보다 굵어 실수 하나가 크다",
+          subtitle: "전선관은 튜브보다 굵어 실수 하나가 큽니다",
           icon: LucideIcons.alertTriangle,
           iconColor: Colors.redAccent,
           children: [
             refDataRow(
               "한 관에 360° 이내",
-              "박스와 박스 사이 꺾임 각도 합이 360°(90° 넷)를 넘지 않게. 넘으면 선 못 넣는다.",
+              "박스와 박스 사이 꺾임 각도 합이 360°(90° 넷)를 넘지 않게 합니다. 넘으면 선을 못 넣습니다.",
             ),
             refGap(),
             refDataRow(
               "테이크업 빼기",
-              "꺾이는 점 치수에서 테이크업을 빼고 화살표를 맞춘다. 계산기 마킹은 이미 뺀 값.",
+              "꺾이는 점 치수에서 테이크업을 빼고 화살표를 맞춥니다. 계산기 마킹은 이미 뺀 값입니다.",
             ),
             refGap(),
-            refDataRow("나사 절단면", "자른 뒤 안쪽 버를 반드시 깎는다(리머). 남으면 선 피복이 찢어진다."),
+            refDataRow("나사 절단면", "자른 뒤 안쪽 버를 반드시 깎습니다(리머). 남으면 선 피복이 찢어집니다."),
             refGap(),
             refDataRow(
               "커플링 체결",
-              "커플링 끝 여유만큼 관을 더 둔다. 마킹에서 '체결'을 고르면 계산기가 넣는다.",
+              "커플링 끝 여유만큼 관을 더 둡니다. 마킹에서 '체결'을 고르면 계산기가 넣습니다.",
             ),
             refGap(),
             refDataRow(
               "스프링백",
-              "한 번 꺾어 각도기로 재고 설정에 넣는다. 90°를 92~93°까지 꺾는 게 보통.",
+              "한 번 꺾어 각도기로 측정하고 설정에 넣습니다. 보통 90°를 92~93°까지 꺾습니다.",
             ),
             refGap(),
             refDataRow(
-              "개 도그 방지",
-              "새들·오프셋은 두 벤드가 한 평면에 있어야 한다. 관에 그은 선을 벤더 슈 가운데에 맞춰 비틀림을 잡는다.",
+              "개다리(도그렉) 방지",
+              "새들·오프셋은 두 벤드가 한 평면에 있어야 합니다. 관에 그은 선을 벤더 슈 가운데에 맞춰 비틀림을 잡습니다.",
             ),
           ],
         ),

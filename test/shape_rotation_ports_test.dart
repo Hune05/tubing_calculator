@@ -250,7 +250,7 @@ void main() {
     }
 
     expect(n('3051CD DPT'), 2); // 차압 둘
-    expect(n('3051CD DPT 재래식 플랜지'), 2);
+    expect(n('3051CD DPT 트래디셔널 플랜지'), 2);
     expect(n('EJA110E DPT 수직배관'), 2);
     expect(n('APT3100 DPT'), 2);
     expect(n('101NN 차압 스위치'), 2);
@@ -259,10 +259,10 @@ void main() {
     expect(n('2120 레벨 스위치'), 1);
     expect(n('MA 압력 스위치'), 1);
     expect(n('6NN 압력 스위치'), 1);
-    expect(n('유니언 3/8"'), 2); // 피팅 팔마다
-    expect(n('유니언 엘보 3/8"'), 2);
-    expect(n('유니언 티 3/8"'), 3);
-    expect(n('유니언 크로스 3/8"'), 4);
+    expect(n('유니온 3/8"'), 2); // 피팅 팔마다
+    expect(n('유니온 엘보 3/8"'), 2);
+    expect(n('유니온 티 3/8"'), 3);
+    expect(n('유니온 크로스 3/8"'), 4);
     expect(n('피메일 커넥터 3/8"×3/8" NPT'), 2); // fs:
     expect(n('메일 브랜치 티 3/8"×3/8" NPT'), 3); // fl:
     expect(n('45° 메일 엘보 3/8"×3/8" NPT'), 2);

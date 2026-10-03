@@ -292,7 +292,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
               child: Text(
-                '읽음값과 거리를 모두 넣으면 결과가 나옵니다.',
+                '지시값과 거리를 모두 넣으면 결과가 나옵니다.',
                 key: Key('align_hint'),
                 textAlign: TextAlign.center,
                 style: AppText.sub,
@@ -327,7 +327,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
                 children: [
                   Text('현장 지침 (잘 안 맞을 때)', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w900, color: AppColors.text)),
                   SizedBox(height: 2),
-                  Text('배관이 당김·용접 변형·소프트 풋·못 돌림·볼트 바운드 등 경우별 대책', style: TextStyle(fontSize: 12.5, color: AppColors.textSub)),
+                  Text('배관 당김·용접 변형·소프트 풋·못 돌림·볼트 바운드 등 경우별 조치', style: TextStyle(fontSize: 12.5, color: AppColors.textSub)),
                 ],
               ),
             ),
@@ -367,15 +367,15 @@ class _AlignmentPageState extends State<AlignmentPage> {
         children: reverse
             ? [
                 const Text('리버스 다이얼 방식', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text)),
-                line('재는 것', '다이얼 두 개를 서로 반대로 걸어, 각각 상대 축의 림(바깥 둘레)을 읽습니다. A는 펌프 쪽에 걸어 모터 림을, B는 모터 쪽에 걸어 펌프 림을 읽습니다.', AppColors.brand),
-                line('좋은 점', '옆면(페이스)을 재지 않아 축이 앞뒤로 밀려도 값이 덜 틀어집니다. 커플링 사이가 먼 경우(스페이서)에도 맞습니다.', AppColors.ok),
+                line('측정 방법', '다이얼 두 개를 서로 반대로 걸어, 각각 상대 축의 림(바깥 둘레)을 읽습니다. A는 펌프 쪽에 걸어 모터 림을, B는 모터 쪽에 걸어 펌프 림을 읽습니다.', AppColors.brand),
+                line('좋은 점', '옆면(페이스)을 측정하지 않아 축이 앞뒤로 밀려도 값이 덜 틀어집니다. 커플링 사이가 먼 경우(스페이서)에도 맞습니다.', AppColors.ok),
                 line('주의', '두 접촉면 사이(①)가 짧으면 기울기 오차가 커집니다. 브래킷이 길면 처짐 보정을 넣습니다.', AppColors.caution),
               ]
             : [
                 const Text('림·페이스 방식', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: AppColors.text)),
-                line('재는 것', '브래킷 하나에 다이얼 두 개를 달아, 하나는 모터 쪽 커플링의 림(바깥 둘레)을, 하나는 페이스(옆면)를 읽습니다. 림은 어긋남, 페이스는 기울기를 봅니다.', AppColors.brand),
+                line('측정 방법', '브래킷 하나에 다이얼 두 개를 달아, 하나는 모터 쪽 커플링의 림(바깥 둘레)을, 하나는 페이스(옆면)를 읽습니다. 림은 어긋남, 페이스는 기울기를 봅니다.', AppColors.brand),
                 line('좋은 점', '한쪽 축에서만 걸면 되어 자리가 좁을 때 쉽습니다. 커플링 지름이 크고 사이가 가까울 때 잘 맞습니다.', AppColors.ok),
-                line('주의', '돌리는 동안 축이 앞뒤로 밀리면 페이스 값이 틀어집니다. 축을 한쪽으로 밀어 붙인 채 읽습니다. 페이스가 닿는 반지름(④)을 정확히 잽니다.', AppColors.caution),
+                line('주의', '돌리는 동안 축이 앞뒤로 밀리면 페이스 값이 틀어집니다. 축을 한쪽으로 밀어 붙인 채 읽습니다. 페이스가 닿는 반지름(④)을 정확히 측정합니다.', AppColors.caution),
               ],
       ),
     );
@@ -437,7 +437,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
         const Padding(
           padding: EdgeInsets.only(bottom: 8),
           child: Text(
-            '재기 → 심 넣고 빼기·옆으로 밀기 → 다시 재기를 회차로 남깁니다. 발마다 넣고 뺀 심이 누계로 쌓여, 지금 발 밑에 얼마가 더 들어가 있는지 알 수 있습니다.',
+            '측정 → 심 넣고 빼기·옆으로 밀기 → 재측정을 회차로 남깁니다. 발마다 넣고 뺀 심이 누계로 쌓여, 지금 발 밑에 얼마가 더 들어가 있는지 알 수 있습니다.',
             style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
           ),
         ),
@@ -460,7 +460,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '평행 ${_rounds[i].offset.toStringAsFixed(3)} mm · 각도 ${_rounds[i].angle100.toStringAsFixed(3)} · ${verdictLabel(_rounds[i].verdict)}',
+                      '평행 ${_rounds[i].offset.toStringAsFixed(3)} mm · 각도 ${_rounds[i].angle100.toStringAsFixed(3)} mm/100mm · ${verdictLabel(_rounds[i].verdict)}',
                       style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.text),
                     ),
                     const SizedBox(height: 2),
@@ -617,7 +617,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
           const Padding(
             padding: EdgeInsets.fromLTRB(6, 2, 6, 2),
             child: Text(
-              '그림의 번호(①②③④)는 아래 입력칸 이름의 번호와 같습니다. 거리는 모두 mm로 잽니다. 그림 비율은 모터 IEC 160M, 펌프 ISO 2858 65-40-250 치수표를 따랐습니다(심 두께만 크게 그림).',
+              '그림의 번호(①②③④)는 아래 입력칸 이름의 번호와 같습니다. 거리는 모두 mm로 측정합니다. 그림 비율은 모터 IEC 160M, 펌프 ISO 2858 65-40-250 치수표를 따랐습니다(심 두께만 크게 그림).',
               style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.textSub),
             ),
           ),
@@ -627,7 +627,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
   );
 
   List<Widget> _reverseInputs() => [
-    _card('리버스 다이얼 읽음 (12시는 0)', [
+    _card('리버스 다이얼 지시값 (12시는 0)', [
       _readingRow('a', '다이얼 A (고정 쪽에 걸고 모터 림을 읽음)'),
       _readingRow('b', '다이얼 B (모터 쪽에 걸고 펌프 림을 읽음)'),
     ]),
@@ -638,7 +638,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
   ];
 
   List<Widget> _rimFaceInputs() => [
-    _card('림·페이스 읽음 (12시는 0)', [
+    _card('림·페이스 지시값 (12시는 0)', [
       _readingRow('r', '림 (바깥둘레)'),
       _readingRow('f', '페이스 (옆면)'),
     ]),
@@ -765,7 +765,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
         if (guideId != null)
           Align(
             alignment: Alignment.centerRight,
-            child: TextButton(key: Key('${key}_guide'), onPressed: () => _openGuide(guideId), child: const Text('현장 지침에서 대책 보기')),
+            child: TextButton(key: Key('${key}_guide'), onPressed: () => _openGuide(guideId), child: const Text('현장 지침에서 조치 보기')),
           ),
       ],
     ),
@@ -792,7 +792,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              ok ? '허용 범위 안입니다' : verdictLabel(v),
+              ok ? '합격: 허용오차 이내입니다' : verdictLabel(v),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900, color: color),
             ),
             const SizedBox(height: 6),
@@ -807,7 +807,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
       ),
       if (r.closure > 0.05)
         _notice(
-          '읽음값이 서로 안 맞습니다 (3시 + 9시 ≠ 6시, 차이 ${r.closure.toStringAsFixed(2)} mm). '
+          '지시값이 서로 안 맞습니다 (3시 + 9시 ≠ 6시, 차이 ${r.closure.toStringAsFixed(2)} mm). '
           '다이얼이 흔들렸거나 부호를 잘못 넣었을 수 있습니다. 다시 읽어 보십시오.',
           AppColors.caution,
           key: 'align_closure',
@@ -893,7 +893,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
       ),
       const SizedBox(height: 6),
       const Text(
-        '이 결과는 두 축의 어긋남을 직선으로 본 계산입니다. 소프트 풋(발 뜸)·파이프 변형·커플링 상태는 따로 확인하십시오. '
+        '이 결과는 두 축의 어긋남을 직선으로 본 계산입니다. 소프트 풋(발 뜸)·배관 당김(파이프 스트레인)·커플링 상태는 따로 확인하십시오. '
         '제조사·사내 정렬 기준이 있으면 그것이 우선입니다.',
         style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.textFaint),
       ),
@@ -935,7 +935,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('허용 오차', style: AppText.title),
+          const Text('허용오차', style: AppText.title),
           const SizedBox(height: 4),
           Text(
             '판정에 쓰는 현장 기준입니다. 처음에는 0.05 mm(100분의 5)로 두었고, 고치면 폰에 남아 다음에도 그 값으로 판정합니다. '
@@ -1053,7 +1053,7 @@ class _SaveSheetState extends State<_SaveSheet> {
                 key: const Key('align_equipment'),
                 initialValue: _equipmentId,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: '장비 대장의 장비에 이력 남기기 (선택)'),
+                decoration: const InputDecoration(labelText: '장비 관리 대장에 기록 남기기 (선택)'),
                 items: [
                   const DropdownMenuItem(value: '', child: Text('연결 안 함')),
                   for (final e in widget.equipment)
@@ -1168,7 +1168,7 @@ class _DoneSheetState extends State<_DoneSheet> {
             Text('${widget.index + 1}회차에 실제로 한 일', style: AppText.title),
             const SizedBox(height: 4),
             const Text(
-              '계산이 말한 값이 미리 들어 있습니다. 실제로 넣고 뺀 만큼으로 고치십시오. 넣은 심은 +, 뺀 심은 −입니다.',
+              '계산값이 미리 들어 있습니다. 실제로 넣고 뺀 만큼으로 고치십시오. 넣은 심은 +, 뺀 심은 −입니다.',
               style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
             ),
             const SizedBox(height: 8),

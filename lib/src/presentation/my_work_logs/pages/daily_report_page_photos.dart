@@ -164,7 +164,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
             right: 4,
             child: GestureDetector(
               onTap: () async {
-                if (!await confirmDelete(context, title: "이 사진을 지우겠습니까?")) {
+                if (!await confirmDelete(context, title: "이 사진을 지우시겠습니까?")) {
                   return;
                 }
                 if (!mounted) return;

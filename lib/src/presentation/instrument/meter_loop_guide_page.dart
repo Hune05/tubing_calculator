@@ -14,7 +14,7 @@ import 'loop_paint_kit.dart';
 
 /// 4-20 mA 루프에서 값이 이상할 때(현상, 원인·조치). 화면과 자료 통합 검색이 같이 쓴다.
 const List<(String, String)> kLoopFaultRows = [
-  ('0 mA', '퓨즈 끊김, μA mA 단자가 아님, 루프 단선\n퓨즈는 빼서 저항을 재면 약 1.2 Ω 이하가 정상'),
+  ('0 mA', '퓨즈 끊김, 빨강 리드가 μA mA 단자에 꽂혀 있지 않음, 루프 단선\n퓨즈는 빼서 저항을 측정하면 약 1.2 Ω 이하가 정상'),
   ('마이너스', '빨강·검정이 바뀜'),
   ('3.6 mA 이하', '고장 신호(하한): 단선·전송기 고장 점검 (NAMUR NE43)'),
   ('21 mA 이상', '고장 신호(상한): 전송기 설정·센서 점검'),
@@ -81,13 +81,13 @@ class _MeterLoopGuidePageState extends State<MeterLoopGuidePage> with SingleTick
     final reading = _reading;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('멀티미터로 4-20 mA 재기')),
+      appBar: AppBar(title: const Text('멀티미터로 4-20 mA 측정')),
       body: ListView(
         key: const Key('mlg_list'),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
         children: [
-          refIntroBadge('루프 선 하나를 풀고 그 사이에 멀티미터를 끼워(직렬) 잽니다. 그림은 HIOKI DT4282 기준이고, 다른 멀티미터도 단자 이름만 다르고 방법은 같습니다.'),
-          _title('1. 계기 세팅'),
+          refIntroBadge('루프 선 하나를 풀고 그 사이에 멀티미터를 끼워(직렬) 측정합니다. 그림은 HIOKI DT4282 기준이고, 다른 멀티미터도 단자 이름만 다르고 방법은 같습니다.'),
+          _title('1. 멀티미터 설정'),
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 380),
@@ -103,7 +103,7 @@ class _MeterLoopGuidePageState extends State<MeterLoopGuidePage> with SingleTick
           const SizedBox(height: 10),
           Text('전송기 출력 ${_ma.toStringAsFixed(1)} mA (${((_ma - 4) / 16 * 100).toStringAsFixed(1)}%)', style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.textSub)),
           Slider(key: const Key('mlg_slider'), min: 4, max: 20, divisions: 32, value: _ma, onChanged: (v) => setState(() => _ma = v)),
-          refStep(1, '로터리 스위치를 mA 자리로 (A 자리 아님). 4-20 mA는 600 mA 이하라 mA 자리에서 잽니다'),
+          refStep(1, '로터리 스위치를 mA 자리로 (A 자리 아님). 4-20 mA는 600 mA 이하라 mA 자리에서 측정합니다'),
           refStep(2, '표시창에 DC 확인. mA 자리에서 SHIFT를 누를 때마다 DC → AC → 4-20mA(%) 순서로 바뀜'),
           refStep(3, '빨강 리드 → μA mA 단자, 검정 리드 → COM 단자'),
           const SizedBox(height: 6),
@@ -123,12 +123,12 @@ class _MeterLoopGuidePageState extends State<MeterLoopGuidePage> with SingleTick
           refStep(6, '빨강 집게 → 풀어낸 선 (전원 쪽), 검정 집게 → 전송기 + 단자'),
           refStep(7, '값 읽기: 4 mA = 0%, 12 mA = 50%, 20 mA = 100%. 마이너스가 뜨면 빨강·검정이 바뀐 것'),
           const SizedBox(height: 6),
-          refTipBox('미터를 끼워도 루프에 걸리는 전압은 20 mA에서 약 0.05 V (분류 저항 1 Ω + 퓨즈 약 1.2 Ω). 루프 동작에는 영향 없음'),
+          refTipBox('멀티미터를 끼워도 멀티미터의 전압강하는 20 mA에서 약 0.05 V (분류 저항 1 Ω + 퓨즈 약 1.2 Ω). 루프 동작에는 영향 없음'),
 
           _title('3. 이렇게 대면 안 됨'),
           _figure(const Key('mlg_wrong'), 360 / 200, const _WrongPainter()),
           const SizedBox(height: 10),
-          refWarnBox('mA 단자에 꽂은 채로 + 와 − 사이(전압 재듯이)에 대면 전원이 바로 합선. 퓨즈(630 mA)가 끊어지고, 루프 신호가 0 mA로 떨어져 경보·인터록이 걸릴 수 있음. 전압을 재려면 빨강 리드를 V 단자로 옮기고 로터리를 V로'),
+          refWarnBox('mA 단자에 꽂은 채로 + 와 − 사이(전압 측정하듯이)에 대면 전원이 바로 합선. 퓨즈(630 mA)가 끊어지고, 루프 신호가 0 mA로 떨어져 경보·인터록이 걸릴 수 있음. 전압을 측정하려면 빨강 리드를 V 단자로 옮기고 로터리를 V로'),
 
           _title('4. 끝낼 때'),
           refStep(1, '집게 빼기 전에 제어실에 알림'),
@@ -143,7 +143,7 @@ class _MeterLoopGuidePageState extends State<MeterLoopGuidePage> with SingleTick
             if (i < kLoopFaultRows.length - 1) refGap(),
           ],
           const SizedBox(height: 14),
-          refTipBox('전송기에 TEST 단자가 있으면 선을 풀지 않고 그 단자에 mA계를 대고 잴 수 있음. 단자 이름과 짝은 전송기마다 다르니 전송기 설명서대로'),
+          refTipBox('전송기에 TEST 단자가 있으면 선을 풀지 않고 그 단자에 mA계를 대고 측정할 수 있음. 단자 이름과 짝은 전송기마다 다르니 전송기 설명서대로'),
           const SizedBox(height: 10),
           refDataRow('DT4282 정확도', 'DC 60 mA 범위 ±0.05% rdg ±5 dgt (느린 표시)\n보통 표시는 ±20 dgt 더함. 4-20mA(%) 표시는 ±0.1% rdg ±20 dgt'),
         ],
@@ -362,7 +362,7 @@ class _WrongPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     c.drawLine(const Offset(160, 20), const Offset(250, 160), xp);
     c.drawLine(const Offset(250, 20), const Offset(160, 160), xp);
-    lpPill(c, 'mA 단자로 + / − 사이에 대기 금지 (합선)', const Offset(180, 184), const Color(0xFFDC2626), size: 9);
+    lpPill(c, 'mA 단자 리드를 + / − 사이에 대지 말 것 (합선)', const Offset(180, 184), const Color(0xFFDC2626), size: 9);
     c.restore();
   }
 
@@ -379,7 +379,7 @@ List<KnowledgeEntry> loopKnowledge() => [
       title: '4-20 mA 루프 측정값 $sym',
       lines: cause.split('\n'),
       keywords: ['4-20mA', '멀티미터', '전류 루프', '전송기', 'HIOKI', 'DT4282'],
-      sourceLabel: '멀티미터로 4-20 mA 재기',
+      sourceLabel: '멀티미터로 4-20 mA 측정',
       priority: 1,
       open: (c) => Navigator.push(
         c,

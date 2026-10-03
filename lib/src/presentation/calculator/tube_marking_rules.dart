@@ -64,7 +64,7 @@ String tubeEngineErrorText(Object e) =>
 /// 모두 지나 절단 길이도 숫자가 아니다. 이런 값은 크게 보여 주지 않는다.
 String? badCutLengthText(double pureCutLength) {
   if (!pureCutLength.isFinite) {
-    return "셈 결과가 숫자가 아닙니다. 각도와 길이를 다시 확인하십시오.";
+    return "계산 결과가 숫자가 아닙니다. 각도와 길이를 다시 확인하십시오.";
   }
   if (pureCutLength <= 0) {
     return "총 절단 길이가 ${pureCutLength.toStringAsFixed(0)}mm로 나옵니다. "

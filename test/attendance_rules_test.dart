@@ -97,7 +97,7 @@ void main() {
       await tester.tap(find.byKey(const Key('att_rules')));
       await tester.pumpAndSettle();
       expect(
-        find.text('넣어 둔 사규가 없습니다. 설정에서 소정 출근·퇴근 시각과 사규 메모를 넣을 수 있습니다.'),
+        find.text('넣어 둔 사규가 없습니다. 설정에서 소정 출근·퇴근 시간과 사규 메모를 넣을 수 있습니다.'),
         findsOneWidget,
       );
       expect(find.byKey(const Key('att_rules_edit')), findsOneWidget);

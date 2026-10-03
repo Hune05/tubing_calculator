@@ -489,7 +489,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     _unitField(tab),
     _chips(
       '출력 특성',
-      '선형: mA가 측정값에 비례합니다.\n'
+      '선형(LINEAR): mA가 측정값에 비례합니다.\n'
           '제곱근(DCS 연산): 차압 전송기 출력은 차압에 비례하고 DCS가 유량으로 바꿉니다. 측정 범위를 유량으로 넣으십시오.\n'
           '제곱근(전송기 출력): 전송기가 제곱근 출력으로 설정되어 mA가 유량에 비례합니다. 측정 범위를 차압으로 넣으십시오. '
           '차압 약 1% 아래 저유량 구간은 제조사 설정(선형·차단)에 따라 다릅니다.',
@@ -600,7 +600,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         key: const Key('sg_meter_guide'),
         onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const MeterLoopGuidePage())),
         icon: const Icon(Icons.cable, size: 18),
-        label: const Text('멀티미터로 4-20 mA 재는 법 (연결 그림)'),
+        label: const Text('멀티미터로 4-20 mA 측정하는 법 (연결 그림)'),
         style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
       ),
       const SizedBox(height: 12),
@@ -822,7 +822,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       _modeChips(),
       _settingsHeader(),
       if (_settingsOpen) ..._calSettings(),
-      _phaseChips('영점·스팬을 조정한 뒤'),
+      _phaseChips('제로·스팬을 조정한 뒤'),
       if (s != null && !s.isEmpty) _miniSummary(s),
       if (range != null && s != null)
         for (var i = 0; i < s.defs.length; i++)
@@ -873,7 +873,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     '교정 대상',
     '전송기: 4-20mA 전송기·루프를 시험점마다 점검합니다.\n'
         '스위치: 압력·온도·레벨 스위치의 동작점·복귀점·데드밴드를 시험합니다.\n'
-        '입력한 값은 따로 보관되어 바꿔도 지워지지 않습니다.',
+        '전송기·스위치를 바꿔도 입력한 값은 따로 보관되어 지워지지 않습니다.',
     [
       calcChip(
         'sc_mode_tx',
@@ -1033,7 +1033,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       '시험점',
       '교정 절차서에 정한 시험점을 고르십시오.\n'
           '3점: 0·50·100%.\n5점: 0·25·50·75·100%(기본).\n11점: 0%부터 100%까지 10%씩.\n'
-          '값을 넣은 뒤 바꾸면 새 시험점에도 있는 점의 값은 그대로 둡니다.',
+          '시험점을 바꿔도 새 시험점에 같은 점이 있으면 그 값은 남습니다.',
       [
         for (final p in CalPointSet.values)
           calcChip(
@@ -1114,7 +1114,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     if (lost.isNotEmpty &&
         !await _confirm(
           '시험점 바꾸기',
-          '새 시험점에 없는 점(${lost.map((i) => calPointLabel(oldDefs, i)).join(', ')})에 입력한 값은 지워집니다. 바꾸겠습니까?',
+          '새 시험점에 없는 점(${lost.map((i) => calPointLabel(oldDefs, i)).join(', ')})에 입력한 값은 지워집니다. 바꾸시겠습니까?',
           '바꾸기',
         )) {
       return;
@@ -1146,7 +1146,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('측정 방법 바꾸기'),
-        content: const Text('측정 방법을 바꾸면 입력한 값의 뜻이 달라집니다. 입력한 값을 지우고 바꾸겠습니까?'),
+        content: const Text('측정 방법을 바꾸면 입력한 값의 뜻이 달라집니다. 입력한 값을 지우고 바꾸시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -1249,7 +1249,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     if (!_anyInput && _editing == null) return;
     if (!await _confirm(
       '새로 시작',
-      '조정 전·후에 입력한 값을 모두 지우고 새로 시작하겠습니까? 저장한 기록은 지워지지 않습니다.',
+      '조정 전·후에 입력한 값을 모두 지우고 새로 시작하시겠습니까? 저장한 기록은 지워지지 않습니다.',
       '새로 시작',
     )) {
       return;
@@ -1266,7 +1266,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     if (![..._applied, ..._reading].any((c) => c.text.trim().isNotEmpty)) {
       return;
     }
-    if (!await _confirm('이 표 지우기', '$_phase 표에 입력한 값을 지우겠습니까?', '지우기')) {
+    if (!await _confirm('이 표 지우기', '$_phase 표에 입력한 값을 지우시겠습니까?', '지우기')) {
       return;
     }
     setState(() {
@@ -2132,7 +2132,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     if (!_swAnyInput && _editingForMode == null) return;
     if (!await _confirm(
       '새로 시작',
-      '스위치 시험의 조정 전·후에 입력한 값을 모두 지우고 새로 시작하겠습니까? 저장한 기록은 지워지지 않습니다.',
+      '스위치 시험의 조정 전·후에 입력한 값을 모두 지우고 새로 시작하시겠습니까? 저장한 기록은 지워지지 않습니다.',
       '새로 시작',
     )) {
       return;
@@ -2148,7 +2148,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     if (![..._swTrip, ..._swReset].any((c) => c.text.trim().isNotEmpty)) {
       return;
     }
-    if (!await _confirm('이 표 지우기', '$_phase 표에 입력한 값을 지우겠습니까?', '지우기')) {
+    if (!await _confirm('이 표 지우기', '$_phase 표에 입력한 값을 지우시겠습니까?', '지우기')) {
       return;
     }
     setState(() {
@@ -2276,9 +2276,9 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       ),
       calcField(
         'sl_extra',
-        '지시계·기타 전압 강하 (V)',
+        '지시계·기타 전압강하 (V)',
         _extraV,
-        '루프 지시계처럼 전류와 상관없이 전압을 먹는 기기의 전압 강하입니다(사양서). 없으면 0.',
+        '루프 지시계처럼 전류와 상관없이 전압을 소모하는 기기의 전압강하입니다(사양서). 없으면 0.',
       ),
       calcField(
         'sl_len',
@@ -2342,7 +2342,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
             '최대 루프 저항 ${_fmt(lc.maxOhm, 0)}Ω (${cm}mA 기준)',
             if (lc.totalOhm < 230)
               'HART 통신을 하려면 루프 저항이 230Ω 이상이어야 합니다(보통 250Ω).',
-            '식: 단자 전압 = 전원 − 전류 × 루프 저항 − 기타 전압 강하.',
+            '식: 단자 전압 = 전원 − 전류 × 루프 저항 − 기타 전압강하.',
           ],
         ),
     ]);

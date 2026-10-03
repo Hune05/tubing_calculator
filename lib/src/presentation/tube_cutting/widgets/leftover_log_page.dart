@@ -140,8 +140,9 @@ class _LogListState extends State<_LogList> {
       if (!mounted) return;
       _snack(context, "카카오톡을 찾지 못해 공유창으로 보냈습니다.");
     } catch (e) {
+      debugPrint('잔재 기록 보내기 실패: $e');
       if (!mounted) return;
-      _snack(context, "보내기 실패: $e", isError: true);
+      _snack(context, "보내지 못했습니다.", isError: true);
     }
   }
 
@@ -153,7 +154,7 @@ class _LogListState extends State<_LogList> {
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            "아직 잔재 기록이 없습니다.\n재단 계획에서 '잘랐습니다 (잔재 저장)'를 누르면 남습니다.",
+            "아직 잔재 기록이 없습니다.\n재단 계획에서 '자른 뒤 잔재 저장'을 누르면 남습니다.",
             textAlign: TextAlign.center,
             style: TextStyle(color: CuttingColors.textSecondary),
           ),

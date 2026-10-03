@@ -170,7 +170,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "작업 도면 저장",
+              "보관함에 저장",
               style: TextStyle(
                 color: _slate900,
                 fontSize: 20,
@@ -179,7 +179,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
             ),
             const SizedBox(height: 20),
             _buildFieldInput(
-              "프로젝트 네임 (예: A동 보일러실)",
+              "프로젝트 이름 (예: A동 보일러실)",
               _projectController,
               icon: Icons.business,
             ),
@@ -217,7 +217,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
             ),
             const SizedBox(height: 24),
             const Text(
-              "파이프 규격 (Inch)",
+              "튜브 규격 (inch)",
               style: TextStyle(
                 color: _slate600,
                 fontSize: 13,
@@ -232,7 +232,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
             ),
             const SizedBox(height: 16),
             const Text(
-              "파이프 규격 (mm)",
+              "튜브 규격 (mm)",
               style: TextStyle(
                 color: _slate600,
                 fontSize: 13,
@@ -262,10 +262,10 @@ class _SmartSavePadState extends State<SmartSavePad> {
                         ? "프로젝트 미지정"
                         : _projectController.text,
                     "from": _fromController.text.isEmpty
-                        ? "미상"
+                        ? "모름"
                         : _fromController.text,
                     "to": _toController.text.isEmpty
-                        ? "미상"
+                        ? "모름"
                         : _toController.text,
                     "start_fit": widget.includeStart,
                     "end_fit": widget.includeEnd,
@@ -318,15 +318,20 @@ class _SmartSavePadState extends State<SmartSavePad> {
                   // 4. 안전하게 UI 조작 (경고 100% 소멸)
                   Navigator.pop(context);
 
+                  // 프로젝트에 연결해 저장할 때(콜백이 있을 때)만 프로젝트 자재에도 들어간다.
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text("작업 보관함 및 프로젝트 자재에 누적 저장되었습니다! 💾"),
+                    SnackBar(
+                      content: Text(
+                        widget.onSaveCallback != null
+                            ? "보관함과 프로젝트 자재에 저장했습니다."
+                            : "보관함에 저장했습니다.",
+                      ),
                       backgroundColor: makitaTeal,
                     ),
                   );
                 },
                 child: const Text(
-                  "도면 저장하기",
+                  "저장",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

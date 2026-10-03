@@ -92,7 +92,7 @@ class _MobileGainCalibrationSheetState
               ),
               const SizedBox(height: 16),
               const Text(
-                "한 번 꺾어 보고 연신율 잡기",
+                "시험 벤딩으로 게인 잡기",
                 style: TextStyle(
                   color: _slate900,
                   fontSize: 18,
@@ -101,16 +101,24 @@ class _MobileGainCalibrationSheetState
               ),
               const SizedBox(height: 6),
               const Text(
-                "한 토막 잘라 한 번 꺾고, 꺾인 점에서 양쪽 끝까지 재서 넣으십시오.\n"
-                "표에서 베낀 값 대신 이 벤더의 실제 값을 씁니다.",
+                "한 토막 잘라 한 번 꺾고, 꺾인 점에서 양쪽 끝까지 측정해 넣으십시오.\n"
+                "표 값 대신 이 벤더의 실측값을 씁니다.",
                 style: TextStyle(color: _slate600, fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 16),
               _field(_cut, "자른 길이 (mm)", "꺾기 전 토막 길이"),
               const SizedBox(height: 10),
-              _field(_legA, "꺾인 점에서 한쪽 끝 (mm)", "도면 치수로 재는 자리"),
+              _field(
+                _legA,
+                "한쪽 끝 → 다른 다리 중심선 (mm)",
+                "다른 다리 바깥면까지 측정한 값 − 외경/2 (도면 C-C 기준)",
+              ),
               const SizedBox(height: 10),
-              _field(_legB, "꺾인 점에서 반대쪽 끝 (mm)", ""),
+              _field(
+                _legB,
+                "반대쪽 끝 → 다른 다리 중심선 (mm)",
+                "같은 방법으로 측정",
+              ),
               const SizedBox(height: 10),
               _field(_angle, "꺾은 각도 (°)", "90°가 아니면 90° 기준으로 바꿔 줍니다"),
               const SizedBox(height: 18),
@@ -125,7 +133,7 @@ class _MobileGainCalibrationSheetState
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      "이 벤더의 연신율 (90° 기준)",
+                      "이 벤더의 게인 (90° 기준)",
                       style: TextStyle(
                         color: _slate600,
                         fontSize: 13,

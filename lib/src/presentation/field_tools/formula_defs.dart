@@ -61,13 +61,13 @@ const _i = FormulaVar(
   key: 'i',
   label: '전류 (I)',
   unit: 'A',
-  hint: '도체에 흐르는 전류입니다.',
+  hint: '',
 );
 const _r = FormulaVar(
   key: 'r',
   label: '저항 (R)',
   unit: 'Ω',
-  hint: '도체·부하의 저항입니다.',
+  hint: '',
 );
 const _v = FormulaVar(
   key: 'v',
@@ -81,7 +81,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'ohm_v',
     category: '전기',
-    name: '옴의 법칙 — 전압 구하기',
+    name: '옴의 법칙(전압 구하기)',
     description: '전류와 저항을 알 때 전압을 구합니다.',
     formulaText: 'V = I × R',
     inputs: const [_i, _r],
@@ -92,7 +92,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'ohm_i',
     category: '전기',
-    name: '옴의 법칙 — 전류 구하기',
+    name: '옴의 법칙(전류 구하기)',
     description: '전압과 저항을 알 때 전류를 구합니다.',
     formulaText: 'I = V / R',
     inputs: const [_v, _r],
@@ -103,7 +103,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'ohm_r',
     category: '전기',
-    name: '옴의 법칙 — 저항 구하기',
+    name: '옴의 법칙(저항 구하기)',
     description: '전압과 전류를 알 때 저항을 구합니다.',
     formulaText: 'R = V / I',
     inputs: const [_v, _i],
@@ -114,7 +114,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'power_vi',
     category: '전기',
-    name: '전력 — 전압·전류로',
+    name: '전력(전압·전류로)',
     description: '단상 전력을 전압·전류로 구합니다(직류이거나 역률 1일 때).',
     formulaText: 'P = V × I',
     inputs: const [_v, _i],
@@ -125,7 +125,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'power_ir',
     category: '전기',
-    name: '전력 — 전류·저항으로',
+    name: '전력(전류·저항으로)',
     description: '전류와 저항을 알 때 소비 전력을 구합니다.',
     formulaText: 'P = I² × R',
     inputs: const [_i, _r],
@@ -136,7 +136,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'power_vr',
     category: '전기',
-    name: '전력 — 전압·저항으로',
+    name: '전력(전압·저항으로)',
     description: '전압과 저항을 알 때 소비 전력을 구합니다.',
     formulaText: 'P = V² / R',
     inputs: const [_v, _r],
@@ -148,7 +148,7 @@ final List<FormulaDef> kFormulas = [
     id: 'power_3ph',
     category: '전기',
     name: '3상 전력',
-    description: '평형 3상 부하의 전력입니다. 역률각은 전류·전압 사이 위상각(cosθ)입니다.',
+    description: '평형 3상 부하의 유효전력입니다. cosθ는 역률이고, θ(역률각)는 전압과 전류 사이 위상각입니다.',
     formulaText: 'P = √3 × V × I × cosθ',
     inputs: const [
       FormulaVar(
@@ -249,7 +249,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'flow_q',
     category: '유량',
-    name: '연속방정식 — 유량 구하기',
+    name: '연속방정식(유량 구하기)',
     description: '관 단면적과 유속을 알 때 유량을 구합니다.',
     formulaText: 'Q = A × V',
     inputs: const [
@@ -257,13 +257,13 @@ final List<FormulaDef> kFormulas = [
         key: 'a',
         label: '단면적 (A)',
         unit: 'm²',
-        hint: '관 안지름의 단면적입니다(원관이면 π×D²/4).',
+        hint: '관 내경의 단면적입니다(원관이면 π×D²/4).',
       ),
       FormulaVar(
         key: 'vel',
         label: '유속 (V)',
         unit: 'm/s',
-        hint: '유체가 흐르는 속도입니다.',
+        hint: '',
       ),
     ],
     resultLabel: '유량',
@@ -273,21 +273,21 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'flow_v_from_d',
     category: '유량',
-    name: '관 유속(안지름으로)',
-    description: '원형 관의 안지름과 유량을 알 때 유속을 구합니다.',
+    name: '관 유속(내경으로)',
+    description: '원형 관의 내경과 유량을 알 때 유속을 구합니다.',
     formulaText: 'V = Q / (π × D²/4)',
     inputs: const [
       FormulaVar(
         key: 'q',
         label: '유량 (Q)',
         unit: 'm³/s',
-        hint: '단위시간당 흐르는 부피입니다.',
+        hint: '',
       ),
       FormulaVar(
         key: 'd',
-        label: '안지름 (D)',
+        label: '내경 (D)',
         unit: 'm',
-        hint: '관 안지름입니다(mm면 0.001을 곱해 넣으십시오).',
+        hint: '관 내경입니다(mm면 0.001을 곱해 넣으십시오).',
       ),
     ],
     resultLabel: '유속',
@@ -311,9 +311,9 @@ final List<FormulaDef> kFormulas = [
         key: 'vel',
         label: '유속 (V)',
         unit: 'm/s',
-        hint: '유체가 흐르는 속도입니다.',
+        hint: '',
       ),
-      FormulaVar(key: 'd', label: '안지름 (D)', unit: 'm', hint: '관 안지름입니다.'),
+      FormulaVar(key: 'd', label: '내경 (D)', unit: 'm', hint: ''),
       FormulaVar(
         key: 'mu',
         label: '점성계수 (μ)',
@@ -338,7 +338,7 @@ final List<FormulaDef> kFormulas = [
         unit: 'kg/m³',
         hint: '유체 밀도입니다(물 약 1000).',
       ),
-      FormulaVar(key: 'h', label: '높이 (h)', unit: 'm', hint: '액체 기둥의 높이입니다.'),
+      FormulaVar(key: 'h', label: '높이 (h)', unit: 'm', hint: ''),
     ],
     resultLabel: '압력',
     resultUnit: 'Pa',
@@ -355,7 +355,7 @@ final List<FormulaDef> kFormulas = [
         key: 'vel',
         label: '유속 (V)',
         unit: 'm/s',
-        hint: '유체가 흐르는 속도입니다.',
+        hint: '',
       ),
     ],
     resultLabel: '속도수두',
@@ -379,14 +379,14 @@ final List<FormulaDef> kFormulas = [
         key: 'l',
         label: '배관 길이 (L)',
         unit: 'm',
-        hint: '유체가 지나는 배관 길이입니다.',
+        hint: '',
       ),
-      FormulaVar(key: 'd', label: '안지름 (D)', unit: 'm', hint: '관 안지름입니다.'),
+      FormulaVar(key: 'd', label: '내경 (D)', unit: 'm', hint: ''),
       FormulaVar(
         key: 'vel',
         label: '유속 (V)',
         unit: 'm/s',
-        hint: '유체가 흐르는 속도입니다.',
+        hint: '',
       ),
     ],
     resultLabel: '마찰손실수두',
@@ -411,7 +411,7 @@ final List<FormulaDef> kFormulas = [
         key: 'a',
         label: '구멍 단면적 (A)',
         unit: 'm²',
-        hint: '오리피스·노즐 구멍의 단면적입니다.',
+        hint: '',
       ),
       FormulaVar(
         key: 'h',
@@ -441,7 +441,7 @@ final List<FormulaDef> kFormulas = [
         key: 'q',
         label: '유량 (Q)',
         unit: 'm³/s',
-        hint: '펌프가 보내는 유량입니다.',
+        hint: '',
       ),
       FormulaVar(
         key: 'h',
@@ -466,7 +466,7 @@ final List<FormulaDef> kFormulas = [
     id: 'apparent_power',
     category: '전기',
     name: '피상전력(유효·무효전력으로)',
-    description: '전력 삼각형에서 유효전력(P)과 무효전력(Q)으로 피상전력(S, 변압기·발전기 용량 단위)을 구합니다.',
+    description: '유효전력(P)과 무효전력(Q)으로 피상전력(S, 변압기·발전기 용량)을 구합니다.',
     formulaText: 'S = √(P² + Q²)',
     inputs: const [
       FormulaVar(
@@ -514,14 +514,14 @@ final List<FormulaDef> kFormulas = [
     id: 'power_factor',
     category: '전기',
     name: '역률(유효·피상전력으로)',
-    description: '지금 부하의 역률을 계기로 잰 유효전력·피상전력으로 거꾸로 구합니다.',
+    description: '지금 부하의 역률을 계기로 측정한 유효전력·피상전력으로 거꾸로 구합니다.',
     formulaText: 'cosθ = P / S',
     inputs: const [
       FormulaVar(
         key: 'p',
         label: '유효전력 (P)',
         unit: 'W',
-        hint: '전력계(kW)로 잰 유효전력입니다.',
+        hint: '전력계(kW)로 측정한 유효전력입니다.',
       ),
       FormulaVar(
         key: 's',
@@ -627,19 +627,19 @@ final List<FormulaDef> kFormulas = [
         key: 'v1',
         label: '1차 전압 (V1)',
         unit: 'V',
-        hint: '변압기 1차(입력) 전압입니다.',
+        hint: '',
       ),
       FormulaVar(
         key: 'n1',
         label: '1차 권수 (N1)',
         unit: '턴',
-        hint: '변압기 1차 코일 감은 수입니다.',
+        hint: '',
       ),
       FormulaVar(
         key: 'n2',
         label: '2차 권수 (N2)',
         unit: '턴',
-        hint: '변압기 2차 코일 감은 수입니다.',
+        hint: '',
       ),
     ],
     resultLabel: '2차 전압',
@@ -736,7 +736,7 @@ final List<FormulaDef> kFormulas = [
         key: 'n',
         label: '회전수 (N)',
         unit: 'rpm',
-        hint: '전동기 실제 회전수입니다.',
+        hint: '',
       ),
     ],
     resultLabel: '토크',
@@ -776,13 +776,13 @@ final List<FormulaDef> kFormulas = [
         key: 'f',
         label: '힘 (F)',
         unit: 'N',
-        hint: '피스톤 등에 가해지는 힘입니다.',
+        hint: '',
       ),
       FormulaVar(
         key: 'a',
         label: '단면적 (A)',
         unit: 'm²',
-        hint: '피스톤(실린더) 단면적입니다.',
+        hint: '',
       ),
     ],
     resultLabel: '압력',
@@ -806,7 +806,7 @@ final List<FormulaDef> kFormulas = [
         key: 'a',
         label: '피스톤 단면적 (A)',
         unit: 'm²',
-        hint: '피스톤(실린더 안지름 기준) 단면적입니다(π×D²/4).',
+        hint: '피스톤(실린더 내경 기준) 단면적입니다(π×D²/4).',
       ),
     ],
     resultLabel: '힘',
@@ -864,7 +864,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'boyle_pressure',
     category: '유공압',
-    name: '보일의 법칙 — 압력 구하기',
+    name: '보일의 법칙(압력 구하기)',
     description: '온도가 같을 때 기체의 압력과 부피는 반비례합니다(공기 압축·에어탱크 계산에 씁니다).',
     formulaText: 'P2 = P1 × V1 / V2',
     inputs: const [
@@ -878,13 +878,13 @@ final List<FormulaDef> kFormulas = [
         key: 'v1',
         label: '처음 부피 (V1)',
         unit: 'm³',
-        hint: '처음 상태의 기체 부피입니다.',
+        hint: '',
       ),
       FormulaVar(
         key: 'v2',
         label: '나중 부피 (V2)',
         unit: 'm³',
-        hint: '압축·팽창 후 부피입니다.',
+        hint: '',
       ),
     ],
     resultLabel: '나중 압력',
@@ -894,7 +894,7 @@ final List<FormulaDef> kFormulas = [
   FormulaDef(
     id: 'boyle_volume',
     category: '유공압',
-    name: '보일의 법칙 — 부피 구하기',
+    name: '보일의 법칙(부피 구하기)',
     description: '온도가 같을 때 기체의 압력과 부피는 반비례합니다. 압력이 바뀐 뒤 부피를 구합니다.',
     formulaText: 'V2 = P1 × V1 / P2',
     inputs: const [
@@ -908,7 +908,7 @@ final List<FormulaDef> kFormulas = [
         key: 'v1',
         label: '처음 부피 (V1)',
         unit: 'm³',
-        hint: '처음 상태의 기체 부피입니다.',
+        hint: '',
       ),
       FormulaVar(
         key: 'p2',

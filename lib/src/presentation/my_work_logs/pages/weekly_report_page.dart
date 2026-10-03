@@ -636,7 +636,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("PDF 생성 실패: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords("PDF를 만들지 못했습니다: $e"))));
       }
     } finally {
       if (mounted) setState(() => _pdfBusy = false);

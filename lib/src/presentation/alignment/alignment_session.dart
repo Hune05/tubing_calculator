@@ -175,7 +175,7 @@ String buildRoundsText(List<AlignRound> rounds) {
   final b = StringBuffer('정렬 작업 ${rounds.length}회차');
   for (var i = 0; i < rounds.length; i++) {
     final r = rounds[i];
-    b.write('\n${i + 1}회차 ${_two(r.at.hour)}:${_two(r.at.minute)}  평행 ${r.offset.toStringAsFixed(3)} · 각도 ${r.angle100.toStringAsFixed(3)}');
+    b.write('\n${i + 1}회차 ${_two(r.at.hour)}:${_two(r.at.minute)}  평행 ${r.offset.toStringAsFixed(3)} mm · 각도 ${r.angle100.toStringAsFixed(3)} mm/100mm');
     if (r.done != null) b.write('\n  한 일: ${doneLine(r)}');
   }
   final t = shimTotals(rounds);

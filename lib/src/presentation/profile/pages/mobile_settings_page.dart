@@ -187,8 +187,8 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
             content: Text(
               anonymous
                   ? "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.\n\n"
-                        "구글 계정을 잇지 않았으므로, 로그아웃하면 '내 것'으로 넣은 재고·배치도를 "
-                        "다시 찾을 수 없습니다. 먼저 구글 계정을 이으십시오."
+                        "구글 계정을 연결하지 않아 로그아웃하면 '내 것'으로 넣은 재고·배치도를 "
+                        "다시 찾을 수 없습니다. 먼저 구글 계정을 연결하십시오."
                   : "이 폰에서 이름과 알림을 지웁니다. 폰에 저장된 일지·설정은 그대로 남습니다.",
               style: const TextStyle(
                 fontSize: 15,
@@ -209,7 +209,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
                             final ok = await _linkGoogleAccount();
                             if (ok && dialogCtx.mounted) {
                               Navigator.pop(dialogCtx);
-                              showProfileSnack(context, "구글 계정을 이었습니다.");
+                              showProfileSnack(context, "구글 계정을 연결했습니다.");
                             }
                           },
                     style: ElevatedButton.styleFrom(
@@ -222,7 +222,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
                       ),
                     ),
                     child: const Text(
-                      "구글 계정 잇기",
+                      "구글 계정 연결",
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -316,7 +316,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
           ]),
           const SizedBox(height: 16),
           Text(
-            _version.isEmpty ? "현장 도우미" : "현장 도우미 v$_version",
+            _version.isEmpty ? "Field Helper" : "Field Helper v$_version",
             key: const Key('settings_version'),
             style: const TextStyle(color: profileSlate600, fontSize: 12),
           ),

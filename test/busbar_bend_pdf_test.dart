@@ -131,7 +131,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('bp_r')), '8');
     await tester.enterText(find.byKey(const Key('bp_a')), '100');
     await tester.enterText(find.byKey(const Key('bp_b')), '100');
-    // k = 0.4, r 8, t 6 인 엔진의 자르는 길이를 실제 길이로 넣는다
+    // k = 0.4, r 8, t 6 인 엔진의 절단 길이를 실제 길이로 넣는다
     final cut = busbarL(d: 6, r: 8, k: 0.4, a: 100, b: 100, deg: 90).cutLength;
     await tester.enterText(
       find.byKey(const Key('bp_flat')),

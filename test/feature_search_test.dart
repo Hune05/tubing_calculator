@@ -27,21 +27,21 @@ void main() {
 
     final items = [
       _it('공학용 계산기', '사칙연산·삼각함수'),
-      _it('압력 시험', '수압·공압 시험압력 · 기록서'),
+      _it('압력시험', '수압·공압 시험압력 · 기록서'),
       _it('단위 환산', '길이·압력·온도'),
     ];
 
     test('이름·설명으로 찾고, 이름이 앞에서 맞는 것을 위로', () {
       expect(searchFeatures('압력', items).map((e) => e.title), [
-        '압력 시험', // 제목이 앞에서 맞음
+        '압력시험', // 제목이 앞에서 맞음
         '단위 환산', // 설명에 압력
       ]);
       expect(searchFeatures('삼각', items).single.title, '공학용 계산기');
     });
 
-    test('초성 검색: ㄱㅅㄱ → 공학용 계산기, ㅇㄹㅅㅎ → 압력 시험', () {
+    test('초성 검색: ㄱㅅㄱ → 공학용 계산기, ㅇㄹㅅㅎ → 압력시험', () {
       expect(searchFeatures('ㄱㅅㄱ', items).single.title, '공학용 계산기');
-      expect(searchFeatures('ㅇㄹ', items).first.title, '압력 시험');
+      expect(searchFeatures('ㅇㄹ', items).first.title, '압력시험');
     });
 
     test('공백·대소문자는 무시, 없으면 빈 목록, 빈 검색어는 그대로', () {
@@ -88,7 +88,7 @@ void main() {
       var hit = '';
       await open(tester, [
         _it('공학용 계산기', '사칙', onTap: () => hit = 'eng'),
-        _it('압력 시험', '수압', onTap: () => hit = 'pt'),
+        _it('압력시험', '수압', onTap: () => hit = 'pt'),
       ]);
       expect(find.byKey(const Key('feature_공학용 계산기')), findsOneWidget);
       await tester.enterText(
@@ -105,7 +105,7 @@ void main() {
       expect(find.byKey(const Key('feature_search_empty')), findsOneWidget);
       await tester.tap(find.byKey(const Key('feature_search_clear')));
       await tester.pump();
-      await tester.tap(find.byKey(const Key('feature_압력 시험')));
+      await tester.tap(find.byKey(const Key('feature_압력시험')));
       await tester.pumpAndSettle();
       expect(hit, 'pt');
       expect(find.byKey(const Key('feature_search_sheet')), findsNothing);
@@ -187,7 +187,7 @@ void main() {
 
   group('폴더', () {
     FeatureItem folder(List<String> kids, {VoidCallback? onKid}) => FeatureItem(
-      title: '압력 시험',
+      title: '압력시험',
       subtitle: '시험압력',
       glyph: AppGlyph.pressureGauge,
       group: '배관',
@@ -205,11 +205,11 @@ void main() {
 
     test('검색용으로 풀면 안의 기능이 하나씩 나오고 폴더 이름이 설명 앞에 붙는다', () {
       final flat = flattenFeatures([
-        folder(['시험 기록', '압력 강하']),
+        folder(['시험 기록', '압력강하']),
       ]);
-      expect(flat.map((e) => e.title), ['시험 기록', '압력 강하']);
-      expect(flat.first.subtitle, '압력 시험');
-      expect(searchFeatures('강하', flat).single.title, '압력 강하');
+      expect(flat.map((e) => e.title), ['시험 기록', '압력강하']);
+      expect(flat.first.subtitle, '압력시험');
+      expect(searchFeatures('강하', flat).single.title, '압력강하');
     });
 
     testWidgets('격자에는 폴더 하나, 누르면 안의 기능이 열리고 누르면 실행', (tester) async {
@@ -228,7 +228,7 @@ void main() {
                   title: '전체',
                   grid: true,
                   items: [
-                    folder(['시험 기록', '압력 강하'], onKid: () => hit++),
+                    folder(['시험 기록', '압력강하'], onKid: () => hit++),
                   ],
                 ),
                 child: const Text('열기'),
@@ -240,9 +240,9 @@ void main() {
       await tester.tap(find.byKey(const Key('open')));
       await tester.pumpAndSettle();
       // 폴더 하나만 보이고 안의 기능은 아직 안 보인다.
-      expect(find.byKey(const Key('feature_folder_압력 시험')), findsOneWidget);
+      expect(find.byKey(const Key('feature_folder_압력시험')), findsOneWidget);
       expect(find.byKey(const Key('feature_시험 기록')), findsNothing);
-      await tester.tap(find.byKey(const Key('feature_folder_압력 시험')));
+      await tester.tap(find.byKey(const Key('feature_folder_압력시험')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key("feature_folder_dialog")), findsOneWidget);
       // 폴더 카드는 검색 창 안쪽에 쏙 들어오고(창보다 좁고), 높이는 내용 높이(머리글 56 + 한 줄 104)에 딱 맞고, 두 줄 반을 넘으면 스크롤.
@@ -278,7 +278,7 @@ void main() {
                   title: '전체',
                   grid: true,
                   items: [
-                    folder(['시험 기록', '압력 강하']),
+                    folder(['시험 기록', '압력강하']),
                   ],
                 ),
                 child: const Text('열기'),
@@ -294,8 +294,8 @@ void main() {
         '강하',
       );
       await tester.pump();
-      expect(find.byKey(const Key('feature_압력 강하')), findsOneWidget);
-      expect(find.byKey(const Key('feature_folder_압력 시험')), findsNothing);
+      expect(find.byKey(const Key('feature_압력강하')), findsOneWidget);
+      expect(find.byKey(const Key('feature_folder_압력시험')), findsNothing);
     });
   });
 

@@ -112,14 +112,14 @@ class _AppStatusPageState extends State<AppStatusPage> {
     final rows = <_Row>[
       _Row(
         '알림 권한',
-        allowed == null ? '확인하지 못함' : (allowed ? '허용됨' : '꺼져 있음 — 폰 설정에서 켜십시오'),
+        allowed == null ? '확인하지 못함' : (allowed ? '허용됨' : '꺼져 있음. 폰 설정에서 켜십시오'),
         allowed == null ? _Level.unknown : (allowed ? _Level.ok : _Level.bad),
       ),
       _Row(
         '정확한 시간 알림',
         exact == null
             ? '확인하지 못함'
-            : (exact ? '허용됨' : '허용 안 됨 — 알림이 최대 1시간 늦을 수 있습니다'),
+            : (exact ? '허용됨' : '허용 안 됨. 알림이 최대 1시간 늦을 수 있습니다'),
         exact == null ? _Level.unknown : (exact ? _Level.ok : _Level.warn),
       ),
       _Row(
@@ -129,7 +129,7 @@ class _AppStatusPageState extends State<AppStatusPage> {
       ),
       _Row(
         '서버 연결',
-        server == null ? '연결하지 못함 — 통신을 확인하십시오' : '연결됨',
+        server == null ? '연결하지 못함. 통신을 확인하십시오' : '연결됨',
         server == null ? _Level.bad : _Level.ok,
       ),
       _Row(
@@ -143,7 +143,7 @@ class _AppStatusPageState extends State<AppStatusPage> {
       ),
       _Row(
         '서버로 올리는 중',
-        waiting == 0 ? '없음' : '$waiting건 (네트워크가 연결되면 자동으로 올라갑니다)',
+        waiting == 0 ? '없음' : '$waiting건 (통신이 되면 자동으로 올라갑니다)',
         waiting == 0 ? _Level.ok : _Level.warn,
       ),
     ];

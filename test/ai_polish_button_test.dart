@@ -12,7 +12,7 @@ void main() {
     expect(aiPolishErrorMessage('unauthenticated', null), contains('로그인'));
     expect(aiPolishErrorMessage('resource-exhausted', '오늘 30번까지'), '오늘 30번까지');
     expect(aiPolishErrorMessage('unavailable', null), contains('응답'));
-    expect(aiPolishErrorMessage('x', null), contains('실패'));
+    expect(aiPolishErrorMessage('x', null), contains('처리하지 못했습니다'));
   });
 
   testWidgets('바꾸기를 눌러야만 글이 바뀐다', (tester) async {

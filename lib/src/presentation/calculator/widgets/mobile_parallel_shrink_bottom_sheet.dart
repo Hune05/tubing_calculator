@@ -92,7 +92,7 @@ class _MobileParallelShrinkBottomSheetState
     if (_isParallelMode && angle > 90.0) {
       angleProblem = "각도는 90°까지 넣을 수 있습니다.";
     } else if (!_isParallelMode && angle >= 90.0) {
-      angleProblem = "축소값은 90°보다 작은 각에서만 셈합니다.";
+      angleProblem = "축소값은 90° 미만에서만 계산합니다.";
     }
 
     if (angleProblem != null) {
@@ -208,7 +208,7 @@ class _MobileParallelShrinkBottomSheetState
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: _buildCompactInputRow(_rollCtrl, "수평 이동 (Roll)"),
+                        child: _buildCompactInputRow(_rollCtrl, "롤링 (Roll)"),
                       ),
                     ],
                   ),
@@ -318,7 +318,7 @@ class _MobileParallelShrinkBottomSheetState
                       ),
                       child: Text(
                         _isParallelMode
-                            ? "배관 간격 유지를 위해 기존 마킹점에서\n진입 시(+), 탈출 시(-) 연산하여 마킹합니다."
+                            ? "기준 관 마킹에서 들어가는 벤드는 더하고(+),\n나오는 벤드는 빼서(-) 마킹합니다."
                             : "간섭 회피를 위해 첫 번째 벤딩 마킹점을\n기존 길이에서 아래 수치만큼 뒤로 미룹니다.",
                         style: const TextStyle(
                           color: slate900,
@@ -334,7 +334,7 @@ class _MobileParallelShrinkBottomSheetState
                     Text(
                       _isParallelMode
                           ? "$_pipeIndex번 보정치 (Stagger)"
-                          : "첫 벤딩 미루기 (Shrink)",
+                          : "축소값 (Shrink)",
                       style: const TextStyle(
                         color: slate600,
                         fontSize: 13,
@@ -355,7 +355,7 @@ class _MobileParallelShrinkBottomSheetState
                       Text(
                         finalResult > 0
                             ? "+${finalResult.toStringAsFixed(1)} mm"
-                            : "계산 대기중",
+                            : "입력 필요",
                         style: TextStyle(
                           color: finalResult > 0
                               ? makitaTeal
