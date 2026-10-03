@@ -154,6 +154,7 @@ class SkidIsoPainter extends CustomPainter {
           p.od,
           p.color,
           partId: p.partId,
+          round: p.round,
         ),
     ];
   }
@@ -431,6 +432,38 @@ class SkidIsoPainter extends CustomPainter {
       final Offset a = pv(p.a), e = pv(p.b);
       final double w = math.max(p.od * scale, 3.0);
       final bool sel = p.partId != null && p.partId == selectedId;
+      final StrokeCap cap = p.round ? StrokeCap.round : StrokeCap.butt;
+      // 관 방향이 보는 방향과 거의 같으면(끝이 정면으로 보임) 동그라미로 그린다.
+      final double len3 = (p.b - p.a).length * scale;
+      if (!p.round && len3 > 0 && (e - a).distance < len3 * 0.22) {
+        final Offset mid = (a + e) / 2;
+        final Rect rr = Rect.fromCircle(center: mid, radius: w / 2);
+        if (sel) {
+          canvas.drawCircle(mid, w / 2 + 2.5, Paint()..color = _accent);
+        }
+        canvas.drawCircle(
+          mid,
+          w / 2,
+          Paint()
+            ..shader = ui.Gradient.radial(
+              mid.translate(-w * 0.15, -w * 0.15),
+              w * 0.7,
+              [_shade(p.color, 1.15), _shade(p.color, 0.7)],
+            ),
+        );
+        canvas.drawCircle(
+          mid,
+          w / 2,
+          Paint()
+            ..color = _edge
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 0.6,
+        );
+        if (p.partId != null) {
+          hits.shapes.add((p.partId!, Path()..addOval(rr)));
+        }
+        continue;
+      }
       if (sel) {
         canvas.drawLine(
           a,
@@ -438,7 +471,7 @@ class SkidIsoPainter extends CustomPainter {
           Paint()
             ..color = _accent
             ..strokeWidth = w + 5
-            ..strokeCap = StrokeCap.round,
+            ..strokeCap = cap,
         );
       }
       // 관을 둥글게 보이게: 어두운 바탕 → 본색 → 밝은 줄(왼쪽 위에서 빛이 온다).
@@ -448,7 +481,7 @@ class SkidIsoPainter extends CustomPainter {
         Paint()
           ..color = _shade(p.color, 0.62)
           ..strokeWidth = w
-          ..strokeCap = StrokeCap.round,
+          ..strokeCap = cap,
       );
       canvas.drawLine(
         a,
@@ -456,7 +489,7 @@ class SkidIsoPainter extends CustomPainter {
         Paint()
           ..color = _shade(p.color, 1.0)
           ..strokeWidth = w * 0.72
-          ..strokeCap = StrokeCap.round,
+          ..strokeCap = cap,
       );
       canvas.drawLine(
         a.translate(-w * 0.1, -w * 0.18),
@@ -464,7 +497,7 @@ class SkidIsoPainter extends CustomPainter {
         Paint()
           ..color = const Color(0x66FFFFFF)
           ..strokeWidth = math.max(w * 0.22, 1.2)
-          ..strokeCap = StrokeCap.round,
+          ..strokeCap = cap,
       );
       if (p.partId != null) {
         final Offset d = e - a;
@@ -739,13 +772,19 @@ class _SkidIsoPageState extends State<SkidIsoPage> {
     if (it != null) {
       final double v = skidVerticalSize(it);
       final double zc = it.elevation ?? v / 2;
+      final String noH = it.elevation == null
+          ? '\n바닥에서 높이를 안 넣어 바닥에 놓은 것으로 그렸습니다.'
+          : '';
       return '${it.label}\n'
-          '평면 ${_mm(it.width)} × ${_mm(it.height)}mm · 높이 ${_mm(v)}mm · 바닥에서 ${_mm(zc - v / 2)}~${_mm(zc + v / 2)}mm';
+          '평면 ${_mm(it.width)} × ${_mm(it.height)}mm · 높이 ${_mm(v)}mm · 바닥에서 ${_mm(zc - v / 2)}~${_mm(zc + v / 2)}mm$noH';
     }
     final b = _scene.bounds;
     final d = b.max - b.min;
+    final String noH = _scene.noHeightCount > 0
+        ? '\n바닥에서 높이를 안 넣은 부품 ${_scene.noHeightCount}개는 바닥에 놓은 것으로 그렸습니다.'
+        : '';
     return '전체 ${_mm(d.x)} × ${_mm(d.y)} × 높이 ${_mm(b.max.z)}mm\n'
-        '부품 ${_scene.partCount}개 · 전선관 경로 ${_scene.routeCount}줄';
+        '부품 ${_scene.partCount}개 · 전선관 경로 ${_scene.routeCount}줄$noH';
   }
 
   @override
@@ -768,37 +807,33 @@ class _SkidIsoPageState extends State<SkidIsoPage> {
               )
             : Column(
                 children: [
-                  SizedBox(
-                    height: 52,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+                    child: Wrap(
+                      alignment: WrapAlignment.start,
+                      spacing: 6,
+                      runSpacing: 0,
                       children: [
                         for (final p in _presets)
-                          Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              key: Key(p.$1),
-                              label: Text(p.$2),
-                              selected: _isPreset(p.$3),
-                              onSelected: (_) => _setView(p.$3),
-                            ),
+                          ChoiceChip(
+                            key: Key(p.$1),
+                            label: Text(p.$2),
+                            visualDensity: VisualDensity.compact,
+                            selected: _isPreset(p.$3),
+                            onSelected: (_) => _setView(p.$3),
                           ),
-                        Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            key: const Key('iso_labels'),
-                            label: const Text('이름'),
-                            selected: _showLabels,
-                            onSelected: (v) => setState(() => _showLabels = v),
-                          ),
+                        FilterChip(
+                          key: const Key('iso_labels'),
+                          label: const Text('이름'),
+                          visualDensity: VisualDensity.compact,
+                          selected: _showLabels,
+                          onSelected: (v) => setState(() => _showLabels = v),
                         ),
                         ActionChip(
                           key: const Key('iso_fit'),
                           label: const Text('맞춤'),
+                          visualDensity: VisualDensity.compact,
                           onPressed: () => _setView(_view),
                         ),
                       ],

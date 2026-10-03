@@ -55,7 +55,17 @@ class IsoPipe {
   final Color color;
   final String? partId;
 
-  const IsoPipe(this.a, this.b, this.od, this.color, {this.partId});
+  /// 끝이 둥근 관(전선관 경로·이음)이면 true, 잘린 끝(허브·커플링)이면 false.
+  final bool round;
+
+  const IsoPipe(
+    this.a,
+    this.b,
+    this.od,
+    this.color, {
+    this.partId,
+    this.round = true,
+  });
 }
 
 /// 입체 보기에 그릴 것 전부와 둘러싸는 상자.
@@ -70,6 +80,9 @@ class IsoScene {
   final int partCount;
   final int routeCount;
 
+  /// 바닥에서 높이를 안 넣어 바닥에 놓은 것으로 그린 부품 수.
+  final int noHeightCount;
+
   const IsoScene({
     required this.boxes,
     required this.pipes,
@@ -77,6 +90,7 @@ class IsoScene {
     required this.floorWidth,
     required this.partCount,
     required this.routeCount,
+    this.noHeightCount = 0,
   });
 
   bool get isEmpty => boxes.isEmpty && pipes.isEmpty;
@@ -119,6 +133,9 @@ const Color _cFitting = Color(0xFFE0A526);
 const Color _cConduit = Color(0xFF0F766E);
 const Color _cRoute = Color(0xFF14B8A6);
 const Color _cOther = Color(0xFF94A3B8);
+const Color _cHub = Color(0xFFA9B4C2); // 곤질레다 허브·커플링 쇠
+const Color _cCover = Color(0xFFF1D58A); // 곤질레다 뚜껑
+const Color _cLid = Color(0xFFFFB84D); // 정션박스 뚜껑
 
 List<double> _nums(String name) => [
   for (final m in RegExp(r'(\d+(?:\.\d+)?)').allMatches(name))
@@ -126,6 +143,135 @@ List<double> _nums(String name) => [
 ];
 
 double _clamp(double v, double lo, double hi) => v < lo ? lo : (v > hi ? hi : v);
+
+
+/// 부속처럼 길이 방향·옆 방향이 있는 부품의 "자기 좌표"(u = 길이, v = 옆)를 평면 자리로 옮긴다.
+/// 평면 그림(SkidPartPainter)과 같은 규칙: 먼저 길이 방향으로 뒤집고(flipped), 시계 방향으로 [q]번 90° 돌린다.
+/// 자기 좌표에서 허브 하나는 u = 0(왼쪽 끝), 옆 허브 A는 v 작은 쪽(평면 위), B는 v 큰 쪽이다.
+class _Frame {
+  final double x0, y0, w, h;
+  final int q;
+  final bool flip;
+  const _Frame(this.x0, this.y0, this.w, this.h, this.q, this.flip);
+
+  /// 자기 좌표 길이(u 범위)와 옆 길이(v 범위).
+  double get len => q.isOdd ? h : w;
+  double get span => q.isOdd ? w : h;
+
+  (double, double) plan(double u, double v) {
+    final double uu = flip ? len - u : u;
+    return switch (q) {
+      0 => (x0 + uu, y0 + v),
+      1 => (x0 + w - v, y0 + uu),
+      2 => (x0 + w - uu, y0 + h - v),
+      _ => (x0 + v, y0 + h - uu),
+    };
+  }
+
+  vm.Vector3 p3(double u, double v, double z) {
+    final (x, y) = plan(u, v);
+    return vm.Vector3(x, y, z);
+  }
+
+  /// 자기 좌표의 직육면체 [u0,u1]×[v0,v1]×[zl,zh]를 평면 축에 맞춘 상자로.
+  IsoBox box(
+    double u0,
+    double u1,
+    double v0,
+    double v1,
+    double zl,
+    double zh,
+    Color col,
+    String id,
+  ) {
+    final (xa, ya) = plan(u0, v0);
+    final (xb, yb) = plan(u1, v1);
+    return IsoBox(
+      math.min(xa, xb),
+      math.min(ya, yb),
+      zl,
+      math.max(xa, xb),
+      math.max(yb, ya),
+      zh,
+      col,
+      partId: id,
+    );
+  }
+}
+
+/// 곤질레다(삼화기전 F-7)를 몸통 + 뚜껑 + 허브(관 모양)로 세운다. 허브 자리는 평면 그림과 같다.
+void _addCondulet(
+  PlacedItem it,
+  _Frame fr,
+  double zBottom,
+  double v,
+  List<IsoBox> boxes,
+  List<IsoPipe> pipes,
+) {
+  final String shape = it.shape!;
+  final bool endR = shape == SkidShape.cdLT || shape == SkidShape.cdLX || shape == SkidShape.cdLC;
+  final bool sideA = shape == SkidShape.cdLR || shape == SkidShape.cdLX;
+  final bool sideB = shape == SkidShape.cdLL || shape == SkidShape.cdLT || shape == SkidShape.cdLX;
+  final bool back = shape == SkidShape.cdLB;
+  final double L = fr.len, C = fr.span;
+  // 몸통이 차지하는 옆 폭 띠(평면 그림의 _bandOf와 같은 비율).
+  final double bandStart = (sideA && sideB) ? C * 0.23 : (sideA ? C * 0.3 : 0);
+  final double bandW = (sideA && sideB) ? C * 0.54 : ((sideA || sideB) ? C * 0.7 : C);
+  final double hl = L * 0.14;
+  final double bl = hl, br = endR ? L - hl : L;
+  final double bodyH = back ? v * 0.7 : v;
+  final double zTop = zBottom + v;
+  final double zBodyBottom = zTop - bodyH;
+  final double hd = math.min(bandW, bodyH) * 0.72;
+  final double vc = bandStart + bandW / 2;
+  final double zc = zBodyBottom + hd / 2;
+  final String id = it.id;
+  boxes.add(fr.box(bl, br, bandStart, bandStart + bandW, zBodyBottom, zTop, _cFitting, id));
+  // 뚜껑: 위쪽 14%를 밝은 판으로(몸통보다 살짝 크게 덮는다).
+  final double lid = bodyH * 0.14;
+  final double inset = bandW * 0.04;
+  boxes.add(
+    fr.box(bl + inset, br - inset, bandStart + inset, bandStart + bandW - inset, zTop - lid, zTop, _cCover, id),
+  );
+  void hubAlongU(double u0, double u1) =>
+      pipes.add(IsoPipe(fr.p3(u0, vc, zc), fr.p3(u1, vc, zc), hd, _cHub, partId: id, round: false));
+  void hubAlongV(double u, double v0, double v1) =>
+      pipes.add(IsoPipe(fr.p3(u, v0, zc), fr.p3(u, v1, zc), hd, _cHub, partId: id, round: false));
+  hubAlongU(0, bl + 1);
+  if (endR) hubAlongU(br - 1, L);
+  final double hx = endR ? (bl + br) / 2 : br - bandW * 0.55;
+  if (sideA) hubAlongV(hx, 0, bandStart + 1);
+  if (sideB) hubAlongV(hx, bandStart + bandW - 1, C);
+  if (back) {
+    pipes.add(IsoPipe(fr.p3(hx, vc, zBottom), fr.p3(hx, vc, zBodyBottom + 1), hd, _cHub, partId: id, round: false));
+  }
+}
+
+/// 커플링: 관 모양 몸통 + 양 끝 띠.
+void _addCoupling(
+  PlacedItem it,
+  _Frame fr,
+  double zc,
+  List<IsoPipe> pipes,
+) {
+  final double od = fr.span;
+  final double L = fr.len;
+  final double vc = fr.span / 2;
+  final id = it.id;
+  pipes.add(IsoPipe(fr.p3(0, vc, zc), fr.p3(L, vc, zc), od * 0.94, _cHub, partId: id, round: false));
+  pipes.add(IsoPipe(fr.p3(0, vc, zc), fr.p3(L * 0.14, vc, zc), od, _cHub, partId: id, round: false));
+  pipes.add(IsoPipe(fr.p3(L * 0.86, vc, zc), fr.p3(L, vc, zc), od, _cHub, partId: id, round: false));
+}
+
+/// 유니온 커플링: 양 끝 가는 몸통 + 가운데 굵은 너트.
+void _addUnion(PlacedItem it, _Frame fr, double zc, List<IsoPipe> pipes) {
+  final double od = fr.span;
+  final double L = fr.len;
+  final double vc = fr.span / 2;
+  final id = it.id;
+  pipes.add(IsoPipe(fr.p3(0, vc, zc), fr.p3(L, vc, zc), od * 0.6, _cHub, partId: id, round: false));
+  pipes.add(IsoPipe(fr.p3(L * 0.28, vc, zc), fr.p3(L * 0.72, vc, zc), od, const Color(0xFFB8C2CE), partId: id, round: false));
+}
 
 /// 평면 부품 하나를 입체 조각으로 바꾼다. H형강·찬넬·앵글은 단면대로 상자 둘~셋, 전선관은 관, 나머지는 한 상자.
 void _addPart(PlacedItem it, List<IsoBox> boxes, List<IsoPipe> pipes) {
@@ -157,6 +303,19 @@ void _addPart(PlacedItem it, List<IsoBox> boxes, List<IsoPipe> pipes) {
   final double c0 = alongX ? y0 : x0, c1 = alongX ? y1 : x1;
   final double cw = c1 - c0;
 
+  if (SkidShape.isFitting(it.shape)) {
+    final bool turnsOnly = skidTurnsOnly(it.shape);
+    final int q = it.quarterTurns ?? (turnsOnly ? 0 : (it.height > it.width ? 1 : 0));
+    final fr = _Frame(x0, y0, it.width, it.height, q, it.flipped);
+    if (it.shape == SkidShape.coupling) {
+      _addCoupling(it, fr, zc, pipes);
+    } else if (it.shape == SkidShape.union) {
+      _addUnion(it, fr, zc, pipes);
+    } else {
+      _addCondulet(it, fr, z0, v, boxes, pipes);
+    }
+    return;
+  }
   switch (it.shape) {
     case SkidShape.beam:
       {
@@ -206,11 +365,13 @@ void _addPart(PlacedItem it, List<IsoBox> boxes, List<IsoPipe> pipes) {
         final vm.Vector3 pb = alongX
             ? vm.Vector3(a1, cc, zc)
             : vm.Vector3(cc, a1, zc);
-        pipes.add(IsoPipe(pa, pb, od, _cConduit, partId: id));
+        pipes.add(IsoPipe(pa, pb, od, _cConduit, partId: id, round: false));
         return;
       }
     case SkidShape.jb:
       boxes.add(IsoBox(x0, y0, z0, x1, y1, z1, _cJb, partId: id));
+      // 뚜껑: 위쪽 10%를 밝은 판으로 덮는다.
+      boxes.add(IsoBox(x0, y0, z1 - v * 0.1, x1, y1, z1, _cLid, partId: id));
       return;
     default:
       boxes.add(
@@ -238,11 +399,15 @@ IsoScene buildSkidIsoScene(
   final boxes = <IsoBox>[];
   final pipes = <IsoPipe>[];
   int parts = 0;
+  int noHeight = 0;
   for (final it in plan) {
     if (it.shape == InstrumentShape.note) continue;
     final before = boxes.length + pipes.length;
     _addPart(it, boxes, pipes);
-    if (boxes.length + pipes.length > before) parts++;
+    if (boxes.length + pipes.length > before) {
+      parts++;
+      if (it.elevation == null) noHeight++;
+    }
   }
   int routeCount = 0;
   for (final r in routes) {
@@ -253,6 +418,10 @@ IsoScene buildSkidIsoScene(
       if ((pts[i + 1] - pts[i]).length < 1e-6) continue;
       pipes.add(IsoPipe(pts[i], pts[i + 1], r.od, _cRoute));
     }
+    // 꺾이는 곳은 둥근 이음으로(길이 0인 관 = 동그란 점).
+    for (var i = 1; i + 1 < pts.length; i++) {
+      pipes.add(IsoPipe(pts[i], pts[i], r.od, _cRoute));
+    }
   }
   return IsoScene(
     boxes: boxes,
@@ -261,6 +430,7 @@ IsoScene buildSkidIsoScene(
     floorWidth: width,
     partCount: parts,
     routeCount: routeCount,
+    noHeightCount: noHeight,
   );
 }
 

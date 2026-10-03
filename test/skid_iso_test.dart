@@ -120,7 +120,7 @@ void main() {
     expect(s.pipes.length, 1);
     expect(s.pipes.first.od, 26.5);
     expect(s.pipes.first.a.z, 300);
-    expect(s.boxes.length, 1);
+    expect(s.boxes.length, 2, reason: '정션박스 몸통 + 뚜껑');
     expect(s.partCount, 2);
   });
 
@@ -298,14 +298,124 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    // 시점 칩이 많아 "이름" 칩은 옆으로 밀어야 보인다.
-    await tester.drag(find.byType(ListView).first, const Offset(-400, 0));
-    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('iso_labels')));
     await tester.pumpAndSettle();
     expect(tester.widget<FilterChip>(find.byKey(const Key('iso_labels'))).selected, true);
     await tester.tap(find.byKey(const Key('iso_labels')));
     await tester.pumpAndSettle();
     expect(tester.widget<FilterChip>(find.byKey(const Key('iso_labels'))).selected, false);
+  });
+  PlacedItem cd(String shape, {double w = 243, double h = 110, int? rot, bool flip = false, double elev = 60, double depth = 100}) =>
+      PlacedItem(
+        id: 'cd',
+        name: '곤질레다',
+        position: const Offset(100, 200),
+        width: w,
+        height: h,
+        shape: shape,
+        depth: depth,
+        elevation: elev,
+        rotation: rot,
+        flipped: flip,
+      );
+
+  test('곤질레다 LL: 몸통 + 뚜껑, 왼쪽 끝 허브와 평면 아래쪽(옆 B) 허브', () {
+    final s = buildSkidIsoScene([cd(SkidShape.cdLL, rot: 0)], const [], length: 1000, width: 800);
+    expect(s.boxes.length, 2, reason: '몸통 + 뚜껑');
+    expect(s.pipes.length, 2, reason: '끝 허브 + 옆 허브');
+    final end = s.pipes.firstWhere((p) => (p.a.x - p.b.x).abs() > 1);
+    expect(end.a.x, closeTo(100, 1e-6), reason: '왼쪽 끝 허브는 평면 왼쪽 끝에서 시작');
+    final side = s.pipes.firstWhere((p) => (p.a.y - p.b.y).abs() > 1);
+    expect(side.b.y, closeTo(310, 1e-6), reason: '옆 허브 바깥 끝 = 평면 아래쪽 끝(y 200 + 110)');
+    expect(s.pipes.every((p) => !p.round), true, reason: '허브는 잘린 끝');
+    // 부품 전체가 놓은 칸 안에 들어간다.
+    final b = s.bounds;
+    expect(b.max.y, lessThanOrEqualTo(800));
+  });
+
+  test('곤질레다 LL을 180° 돌리면 허브가 오른쪽 끝, 옆 허브는 위쪽(평면 y 작은 쪽)으로 간다', () {
+    final s = buildSkidIsoScene([cd(SkidShape.cdLL, rot: 180)], const [], length: 1000, width: 800);
+    final end = s.pipes.firstWhere((p) => (p.a.x - p.b.x).abs() > 1);
+    expect(end.a.x, closeTo(343, 1e-6), reason: '끝 허브가 오른쪽 끝(100 + 243)에서 시작');
+    final side = s.pipes.firstWhere((p) => (p.a.y - p.b.y).abs() > 1);
+    expect(side.b.y, closeTo(200, 1e-6));
+  });
+
+  test('곤질레다 LB: 뒤 허브는 아래로 바닥까지, LX는 허브 넷', () {
+    final lb = buildSkidIsoScene([cd(SkidShape.cdLB, rot: 0)], const [], length: 1000, width: 800);
+    final back = lb.pipes.firstWhere((p) => (p.a.z - p.b.z).abs() > 1);
+    expect(back.a.z, closeTo(10, 1e-6), reason: '바닥에서 높이 60 − 높이 100 ÷ 2');
+    final lx = buildSkidIsoScene([cd(SkidShape.cdLX, w: 243, h: 160, rot: 0)], const [], length: 1000, width: 800);
+    expect(lx.pipes.length, 4, reason: '양 끝 + 양 옆');
+  });
+
+  test('뒤집으면(flipped) 끝 허브가 오른쪽으로, 세워 돌리면(90°) 허브가 위쪽 끝(평면 y 작은 쪽)이 아니라 아래 끝으로 간다', () {
+    final fl = buildSkidIsoScene([cd(SkidShape.cdLC, rot: 0, flip: true)], const [], length: 1000, width: 800);
+    final end = fl.pipes.firstWhere((p) => (p.a.x - p.b.x).abs() > 1);
+    expect(end.a.x, closeTo(343, 1e-6), reason: '뒤집으면 왼쪽 끝 허브가 오른쪽 끝에서 시작');
+    // 90도 돌린 부품: 칸이 세로로 길다(가로 110, 세로 243). 90도(시계)면 왼쪽 끝 허브는 위쪽 끝.
+    final r1 = buildSkidIsoScene([cd(SkidShape.cdLB, w: 110, h: 243, rot: 90)], const [], length: 1000, width: 800);
+    final hub = r1.pipes.firstWhere((p) => (p.a.y - p.b.y).abs() > 1 && (p.a.x - p.b.x).abs() < 1e-6 && (p.a.z - p.b.z).abs() < 1e-6);
+    expect(hub.a.y, closeTo(200, 1e-6), reason: '세로로 놓으면 길이 방향이 평면 세로, 왼쪽 끝 허브는 위쪽 끝');
+  });
+
+  test('커플링·유니온은 길이 방향 관 모양, 지름은 칸 짧은 쪽이 아니라 단면 방향 크기', () {
+    final c = PlacedItem(
+      id: 'c',
+      name: '커플링 54',
+      position: const Offset(0, 0),
+      width: 64,
+      height: 68,
+      shape: SkidShape.coupling,
+      depth: 68,
+      elevation: 100,
+      rotation: 0,
+    );
+    final s = buildSkidIsoScene([c], const [], length: 500, width: 500);
+    expect(s.pipes.length, 3, reason: '몸통 + 양 끝 띠');
+    expect(s.pipes.first.od, closeTo(68 * 0.94, 1e-6));
+    final u = PlacedItem(
+      id: 'u',
+      name: '유니온 커플링 54',
+      position: const Offset(0, 0),
+      width: 63,
+      height: 82,
+      shape: SkidShape.union,
+      depth: 82,
+      elevation: 100,
+      rotation: 0,
+    );
+    final su = buildSkidIsoScene([u], const [], length: 500, width: 500);
+    expect(su.pipes.length, 2);
+    expect(su.pipes.last.od, closeTo(82, 1e-6));
+  });
+
+  test('높이를 안 넣은 부품 수를 센다, 정션박스는 뚜껑이 붙고 경로 꺾임은 둥근 이음', () {
+    final a = _beam(id: 'a');
+    final b = PlacedItem(
+      id: 'b',
+      name: 'JB',
+      position: const Offset(0, 0),
+      width: 200,
+      height: 150,
+      shape: SkidShape.jb,
+    );
+    final r = ConduitRoute(
+      id: 'r',
+      name: 'r',
+      x: 0,
+      y: 0,
+      z: 100,
+      startDir: 90,
+      bends: [
+        {'length': 500.0, 'angle': 90.0, 'rotation': 0.0},
+        {'length': 400.0, 'angle': 0.0, 'rotation': 0.0},
+      ],
+    );
+    final s = buildSkidIsoScene([a, b], [r], length: 1000, width: 500);
+    expect(s.noHeightCount, 1);
+    expect(s.boxes.where((x) => x.partId == 'b').length, 2, reason: '몸통 + 뚜껑');
+    final dots = s.pipes.where((p) => (p.b - p.a).length < 1e-9).length;
+    expect(dots, 1, reason: '꺾이는 곳 하나 = 둥근 이음 하나');
   });
 }
