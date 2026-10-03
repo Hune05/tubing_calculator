@@ -40,17 +40,17 @@ void main() {
     ]);
   });
 
-  testWidgets('전기기기 계산: 전동기 보호·점검, 발전기 용량만', (tester) async {
+  testWidgets('전기기기 계산: 전동기 공식이 먼저, 보호·점검, 발전기 용량', (tester) async {
     await pump(tester, const ElectricCalculatorPage(group: ElecGroup.motor));
-    expect(tabLabels(tester), ['전동기 보호', '전동기 점검', '발전기 용량']);
+    expect(tabLabels(tester), ['전동기 공식', '전동기 보호', '전동기 점검', '발전기 용량']);
     expect(find.text('전기기기 계산'), findsOneWidget);
   });
 
   testWidgets('옛 탭 번호로 열어도 맞는 묶음이 열린다(12·13·9 = 전기기기)', (tester) async {
     await pump(tester, const ElectricCalculatorPage(initialTab: 13));
-    expect(tabLabels(tester), ['전동기 보호', '전동기 점검', '발전기 용량']);
+    expect(tabLabels(tester), ['전동기 공식', '전동기 보호', '전동기 점검', '발전기 용량']);
     final c = tester.widget<TabBar>(find.byType(TabBar)).controller!;
-    expect(c.index, 1, reason: '전동기 점검');
+    expect(c.index, 2, reason: '전동기 점검(전기기기 묶음의 세 번째)');
     expect(elecGroupOf(3), ElecGroup.general);
     expect(elecGroupOf(9), ElecGroup.motor);
   });

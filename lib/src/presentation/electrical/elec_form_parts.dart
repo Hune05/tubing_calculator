@@ -23,6 +23,7 @@ const Map<String, String> kElecTabLabels = {
   'gr_sum': '접지',
   'emp_sum': '전동기 보호',
   'mc_sum': '전동기 점검',
+  'mf_sum': '전동기 공식',
   'pd_light_sum': '조명 광속법',
   'pd_bal_sum': '상 평형',
   'pd_feed_sum': '간선 전압강하',
