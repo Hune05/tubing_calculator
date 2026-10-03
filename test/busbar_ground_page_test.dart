@@ -78,7 +78,7 @@ void main() {
 
   testWidgets('끝 L 꺾기: 왼쪽 탭을 켜면 꺾기 선과 옆모습, 카톡 글에 포함', (tester) async {
     String? sent;
-    await _open(tester, share: (t) async => sent = t);
+    await _open(tester, share: (t) async => sent = t, height: 12000);
     await tester.tap(find.byKey(const Key('gb_tab_1')));
     await tester.pumpAndSettle();
     await _type(tester, 'gb_n', '4');

@@ -13,6 +13,7 @@ import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'busbar_bend.dart';
 import 'busbar_bend_painter.dart';
 import 'busbar_bend_pdf.dart';
+import 'busbar_bender_profile.dart';
 import 'busbar_saved_specs.dart';
 import 'elec_form_parts.dart';
 
@@ -69,6 +70,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   BusbarBendPlane _plane = BusbarBendPlane.flat;
   BusbarDimRef _ref = BusbarDimRef.outside;
   double _k = 0.4;
+  double _spring = 1.0; // 스프링백 비율(기계 세팅 ÷ 목표), 1이면 보정 없음
+  String? _profileName; // 적용 중인 벤더 프로필 이름
   double _angle = 90;
   final _thick = TextEditingController(text: '5');
   final _width = TextEditingController(text: '50');
@@ -115,6 +118,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     'plane': _plane.name,
     'ref': _ref.name,
     'k': _k,
+    'sp': _spring,
+    'pn': _profileName,
     'ang': _angle,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
   });
@@ -143,7 +148,12 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           final rf = BusbarDimRef.values.where((x) => x.name == m['ref']);
           if (rf.isNotEmpty) _ref = rf.first;
           final k = m['k'], a = m['ang'];
-          if (k is num && kBusbarK.contains(k.toDouble())) _k = k.toDouble();
+          if (k is num && k >= kBenderKMin && k <= kBenderKMax) {
+            _k = k.toDouble();
+          }
+          final sp = m['sp'], pn = m['pn'];
+          _spring = sp is num && sp >= 0.8 && sp <= 1.5 ? sp.toDouble() : 1.0;
+          _profileName = pn is String ? pn : null;
           if (a is num && kBusbarBendAngles.contains(a.toDouble())) {
             _angle = a.toDouble();
           }
@@ -261,6 +271,34 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   String _bendLine(BusbarBend b, int i) =>
       '${i + 1}. 시작선 ${fmt(b.start, 1)}mm · 끝선 ${fmt(b.end, 1)}mm  (${b.turn >= 0 ? '위로' : '아래로'} ${fmt(b.turn.abs())}°)';
 
+  void _applyProfile(BenderProfile p) => _set(() {
+    _radius.text = fmt(p.radius, 2);
+    _k = p.k;
+    _spring = p.spring;
+    _profileName = p.name;
+  });
+
+  Future<void> _openProfiles() => openBenderProfiles(
+    context,
+    thickness: _d,
+    radius: _r,
+    onApply: _applyProfile,
+    surface: fc.surface,
+    text: fc.text,
+    textSub: fc.textSub,
+  );
+
+  /// 기계에서 꺾을 각도 안내(스프링백 비율이 1이 아닐 때). 같은 각도는 한 줄로 묶는다.
+  List<String> _springLines(Iterable<double> turns) {
+    if (_spring == 1.0) return const [];
+    final seen = <double>{};
+    return [
+      for (final tdeg in turns)
+        if (seen.add(tdeg.abs()))
+          '스프링백 보정(×${fmt(_spring, 3)}): 목표 ${fmt(tdeg.abs())}° → 기계에서 ${fmt(benderMachineAngle(tdeg.abs(), _spring), 1)}°로 꺾기',
+    ];
+  }
+
   String _savedSummary(Map<String, dynamic> d) {
     final kd = switch (d['kind']) {
       'u' => 'U 꺾기',
@@ -307,6 +345,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     ],
     notes: [
       ?_radiusWarn,
+      ..._springLines(p.bends.map((b) => b.turn)),
       if (_z != null && !_z!.feasible)
         '이 높이는 반경 때문에 꺾을 수 없습니다. 최소 높이 ${fmt(_z!.minHeight, 1)}mm.',
       if (_plane == BusbarBendPlane.edge)
@@ -320,11 +359,16 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       '[부스바 절곡] ${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)}mm ${busbarBendPlaneLabel(_plane)}',
     );
     b.write('\n$_dimText');
-    b.write('\n안쪽 반경 ${fmt(_r)}mm · k ${fmt(_k, 2)}');
+    b.write(
+      '\n안쪽 반경 ${fmt(_r)}mm · k ${fmt(_k, 3)}${_profileName == null ? "" : " (벤더 프로필 $_profileName)"}',
+    );
     b.write('\n자르는 길이: ${fmt(p.cutLength, 1)}mm');
     b.write('\n마킹 (한쪽 끝에서):');
     for (var i = 0; i < p.bends.length; i++) {
       b.write('\n ${_bendLine(p.bends[i], i)}');
+    }
+    for (final l in _springLines(p.bends.map((b) => b.turn))) {
+      b.write('\n$l');
     }
     final warn = _radiusWarn;
     if (warn != null) b.write('\n※ $warn');
@@ -475,6 +519,30 @@ class _BusbarBendPageState extends State<BusbarBendPage>
               _k == k,
               () => _set(() => _k = k),
             ),
+          if (!kBusbarK.contains(_k))
+            calcChip('bb_kf_custom', fmt(_k, 3), true, () {}),
+        ],
+      ),
+      elecChipGroup(
+        '벤더 프로필',
+        '시험 조각을 꺾어 잰 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 들어갑니다.',
+        [
+          calcChip(
+            'bb_profile',
+            _profileName == null ? '프로필 고르기·만들기' : '적용: $_profileName',
+            _profileName != null,
+            _openProfiles,
+          ),
+          if (_profileName != null)
+            calcChip(
+              'bb_profile_off',
+              '해제',
+              false,
+              () => _set(() {
+                _profileName = null;
+                _spring = 1.0;
+              }),
+            ),
         ],
       ),
       elecSectionTitle('치수'),
@@ -557,6 +625,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
             if (z != null && z.feasible)
               '비스듬한 곧은 길이 ${fmt(z.slope, 1)}mm · 꺾기 사이 진행 거리 ${fmt(z.run, 1)}mm',
             '직선 구간: ${p.straights.map((s) => fmt(s, 1)).join(' · ')}mm',
+            ..._springLines(p.bends.map((b) => b.turn)),
             if (_plane == BusbarBendPlane.edge)
               '세워 꺾기는 최소 반경 자료를 못 찾아 확인하지 않았습니다. 시험 조각으로 먼저 꺾어 보십시오.',
           ],

@@ -118,4 +118,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ss_saved_empty')), findsOneWidget);
   });
+
+  testWidgets('벤더 프로필: 시험 조각으로 k를 구해 만들고 적용하면 반경·k·스프링백이 들어간다', (tester) async {
+    await _open(tester);
+    await tester.tap(find.byKey(const Key('bb_profile')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('bp_empty')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('bp_new')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('bp_name')), 'A벤더 어댑터8');
+    await tester.enterText(find.byKey(const Key('bp_t')), '6');
+    await tester.enterText(find.byKey(const Key('bp_r')), '8');
+    await tester.enterText(find.byKey(const Key('bp_a')), '100');
+    await tester.enterText(find.byKey(const Key('bp_b')), '100');
+    // k = 0.4, r 8, t 6 인 엔진의 자르는 길이를 실제 길이로 넣는다
+    final cut = busbarL(d: 6, r: 8, k: 0.4, a: 100, b: 100, deg: 90).cutLength;
+    await tester.enterText(
+      find.byKey(const Key('bp_flat')),
+      cut.toStringAsFixed(3),
+    );
+    await tester.enterText(find.byKey(const Key('bp_set')), '95');
+    await tester.enterText(find.byKey(const Key('bp_meas')), '90');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('구한 k = 0.4'), findsOneWidget);
+    expect(
+      find.textContaining('스프링백 비율 ×1.056 (목표 90° → 기계 95°)'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('bp_make')));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('안쪽 반경 8mm · k 0.4 · 스프링백 ×1.056'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('bp_item_A벤더 어댑터8')));
+    await tester.pumpAndSettle();
+    String text(String k) =>
+        tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+    expect(text('bb_r'), '8');
+    expect(find.text('적용: A벤더 어댑터8'), findsOneWidget);
+    expect(
+      find.textContaining('스프링백 보정(×1.056): 목표 90° → 기계에서 95'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('k가 범위를 벗어나면 알리고 만들 수 없다', (tester) async {
+    await _open(tester);
+    await tester.tap(find.byKey(const Key('bb_profile')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('bp_new')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('bp_name')), '엉터리');
+    await tester.enterText(find.byKey(const Key('bp_a')), '100');
+    await tester.enterText(find.byKey(const Key('bp_b')), '100');
+    await tester.enterText(find.byKey(const Key('bp_flat')), '150');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('를 벗어났습니다'), findsOneWidget);
+    final make = tester.widget<TextButton>(find.byKey(const Key('bp_make')));
+    expect(make.onPressed, isNull);
+  });
 }

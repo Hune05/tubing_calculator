@@ -13,6 +13,7 @@ import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'busbar_bend.dart' show BusbarBend;
 import 'busbar_bend_page.dart' show busbarMinRadius, kBusbarK;
 import 'busbar_bend_painter.dart' show BusbarShapePainter, busbarBendColor;
+import 'busbar_bender_profile.dart';
 import 'busbar_ground.dart';
 import 'busbar_ground_painter.dart';
 import 'busbar_ground_pdf.dart';
@@ -68,6 +69,8 @@ class _GroundBarPageState extends State<GroundBarPage>
   int _lug = 0; // 접지 러그: 0 없음, 1 1구멍, 2 2구멍
   bool _packGround = true; // 접지 구멍을 왼쪽(뒤)으로 몰고 러그 구멍은 그 뒤 가운데에
   double _k = 0.4;
+  double _spring = 1.0; // 스프링백 비율(기계 세팅 ÷ 목표), 1이면 보정 없음
+  String? _profileName; // 적용 중인 벤더 프로필 이름
   final Map<String, double> _overrides = {}; // 구멍 번호 → 지름
   String? _selHole;
   final _thick = TextEditingController(text: '6');
@@ -175,6 +178,8 @@ class _GroundBarPageState extends State<GroundBarPage>
     'lg': _lug,
     'pk': _packGround,
     'k': _k,
+    'sp': _spring,
+    'pn': _profileName,
     'ov': _overrides,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
   });
@@ -206,7 +211,12 @@ class _GroundBarPageState extends State<GroundBarPage>
           if (tsd is int && tsd >= 1 && tsd <= 3) _tabSides = tsd;
           if (lg is int && lg >= 0 && lg <= 2) _lug = lg;
           if (m['pk'] is bool) _packGround = m['pk'] as bool;
-          if (kk is num && kBusbarK.contains(kk.toDouble())) _k = kk.toDouble();
+          if (kk is num && kk >= kBenderKMin && kk <= kBenderKMax) {
+            _k = kk.toDouble();
+          }
+          final sp = m['sp'], pn = m['pn'];
+          _spring = sp is num && sp >= 0.8 && sp <= 1.5 ? sp.toDouble() : 1.0;
+          _profileName = pn is String ? pn : null;
           final ov = m['ov'];
           if (ov is Map) {
             _overrides.clear();
@@ -228,6 +238,34 @@ class _GroundBarPageState extends State<GroundBarPage>
   // ── 저장한 규격(공용 창 busbar_saved_specs.dart) ──
 
   /// 목록 한 줄에 보이는 요약: 두께×폭 · 끝 모양 · 러그.
+  void _applyProfile(BenderProfile p) => _set(() {
+    _radius.text = fmt(p.radius, 2);
+    _k = p.k;
+    _spring = p.spring;
+    _profileName = p.name;
+  });
+
+  Future<void> _openProfiles() => openBenderProfiles(
+    context,
+    thickness: _num(_thick),
+    radius: _r,
+    onApply: _applyProfile,
+    surface: fc.surface,
+    text: fc.text,
+    textSub: fc.textSub,
+  );
+
+  /// 기계에서 꺾을 각도 안내(스프링백 비율이 1이 아닐 때). 같은 각도는 한 줄로 묶는다.
+  List<String> _springLines(Iterable<double> turns) {
+    if (_spring == 1.0) return const [];
+    final seen = <double>{};
+    return [
+      for (final tdeg in turns)
+        if (seen.add(tdeg.abs()))
+          '스프링백 보정(×${fmt(_spring, 3)}): 목표 ${fmt(tdeg.abs())}° → 기계에서 ${fmt(benderMachineAngle(tdeg.abs(), _spring), 1)}°로 꺾기',
+    ];
+  }
+
   String _savedSummary(Map<String, dynamic> data) {
     final t = data['t'] is String ? data['t'] as String : '';
     final w = data['w'] is String ? data['w'] as String : '';
@@ -509,6 +547,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         ...p.problems,
         ...p.notes,
         ?_radiusWarn,
+        ..._springLines(p.bends.map((b) => b.turn)),
         if (p.minEdgeBody != null || p.minEdgeTab != null) _edgeLine(p),
       ],
     );
@@ -579,6 +618,9 @@ class _GroundBarPageState extends State<GroundBarPage>
       b.write(
         '\n크기 바꾼 구멍: ${custom.map((h) => "${h.label} φ${fmt(h.dia)}").join(" · ")}',
       );
+    }
+    for (final l in _springLines(p.bends.map((b) => b.turn))) {
+      b.write('\n$l');
     }
     for (final s in p.problems) {
       b.write('\n※ $s');
@@ -1358,6 +1400,31 @@ class _GroundBarPageState extends State<GroundBarPage>
                 _k == k,
                 () => _set(() => _k = k),
               ),
+            if (!kBusbarK.contains(_k))
+              calcChip('gb_kf_custom', fmt(_k, 3), true, () {}),
+          ],
+        ),
+      if (_tabs != 0)
+        elecChipGroup(
+          '벤더 프로필',
+          '시험 조각을 꺾어 잰 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 들어갑니다.',
+          [
+            calcChip(
+              'gb_profile',
+              _profileName == null ? '프로필 고르기·만들기' : '적용: $_profileName',
+              _profileName != null,
+              _openProfiles,
+            ),
+            if (_profileName != null)
+              calcChip(
+                'gb_profile_off',
+                '해제',
+                false,
+                () => _set(() {
+                  _profileName = null;
+                  _spring = 1.0;
+                }),
+              ),
           ],
         ),
       const SizedBox(height: 8),
@@ -1385,6 +1452,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             ...p.problems,
             ...p.notes,
             ?_radiusWarn,
+            ..._springLines(p.bends.map((b) => b.turn)),
             if (p.holes > 0) _rowText(p),
             if (_byLength &&
                 p.holes > 0 &&
