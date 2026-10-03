@@ -32,6 +32,7 @@ import '../calculator/screens/mobile_remote_page.dart';
 import '../conduit/screens/main_navigation_page.dart';
 import '../my_work_logs/pages/layout_board_project_list_page.dart';
 import '../reference/page/equipment_usage_page.dart';
+import '../reference/search/knowledge_search_page.dart';
 import '../steel_cutting/screens/mobile_steel_project_list_page.dart';
 import '../tube_cutting/screens/mobile_cutting_project_list_page.dart';
 import 'feature_search.dart';
@@ -145,6 +146,14 @@ final List<QuickToolDef> kQuickTools = [
     (_) => const MobileRemotePage(),
     subtitle: '수치 전송용 리모컨 (스마트폰 권장)',
     group: '현장 도구',
+  ),
+  QuickToolDef(
+    'kbsearch',
+    '자료 검색',
+    AppGlyph.searchDocs,
+    (_) => const KnowledgeSearchPage(),
+    subtitle: '증상·코드·장비 이름으로 고장 조치·알람 코드·현장 자료 찾기',
+    group: '참고 자료',
   ),
   QuickToolDef(
     'ref',

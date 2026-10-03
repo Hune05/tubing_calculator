@@ -10,7 +10,9 @@ import 'ref_machine_tab.dart';
 import 'reference_widgets.dart';
 
 class EquipmentUsagePage extends StatelessWidget {
-  const EquipmentUsagePage({super.key});
+  /// 처음부터 펼쳐 보일 장비 번호(자료 검색에서 넘어올 때).
+  final String? openId;
+  const EquipmentUsagePage({super.key, this.openId});
 
   @override
   Widget build(BuildContext context) =>
@@ -33,7 +35,7 @@ class EquipmentUsagePage extends StatelessWidget {
         centerTitle: false,
         iconTheme: IconThemeData(color: refTextMain),
       ),
-      body: const RefMachineTab(),
+      body: RefMachineTab(openId: openId),
     );
   }
 }

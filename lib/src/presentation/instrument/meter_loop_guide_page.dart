@@ -6,9 +6,21 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../reference/search/knowledge_entry.dart';
+
 import '../../core/theme/app_tokens.dart';
 import '../reference/page/reference_widgets.dart';
 import 'loop_paint_kit.dart';
+
+/// 4-20 mA 루프에서 값이 이상할 때(현상, 원인·조치). 화면과 자료 통합 검색이 같이 쓴다.
+const List<(String, String)> kLoopFaultRows = [
+  ('0 mA', '퓨즈 끊김, μA mA 단자가 아님, 루프 단선\n퓨즈는 빼서 저항을 재면 약 1.2 Ω 이하가 정상'),
+  ('마이너스', '빨강·검정이 바뀜'),
+  ('3.6 mA 이하', '고장 신호(하한): 단선·전송기 고장 점검 (NAMUR NE43)'),
+  ('21 mA 이상', '고장 신호(상한): 전송기 설정·센서 점검'),
+  ('값이 튐', '집게 접촉 불량, 단자 조임 불량'),
+  ('OL·과대 표시', '범위 초과: 로터리 자리 확인'),
+];
 
 class MeterLoopGuidePage extends StatefulWidget {
   const MeterLoopGuidePage({super.key});
@@ -126,17 +138,10 @@ class _MeterLoopGuidePageState extends State<MeterLoopGuidePage> with SingleTick
           refStep(5, '측정값은 "교정 점검" 탭에 기록'),
 
           _title('5. 값이 이상할 때'),
-          refDataRow('0 mA', '퓨즈 끊김, μA mA 단자가 아님, 루프 단선\n퓨즈는 빼서 저항을 재면 약 1.2 Ω 이하가 정상'),
-          refGap(),
-          refDataRow('마이너스', '빨강·검정이 바뀜'),
-          refGap(),
-          refDataRow('3.6 mA 이하', '고장 신호(하한): 단선·전송기 고장 점검 (NAMUR NE43)'),
-          refGap(),
-          refDataRow('21 mA 이상', '고장 신호(상한): 전송기 설정·센서 점검'),
-          refGap(),
-          refDataRow('값이 튐', '집게 접촉 불량, 단자 조임 불량'),
-          refGap(),
-          refDataRow('OL·과대 표시', '범위 초과: 로터리 자리 확인'),
+          for (var i = 0; i < kLoopFaultRows.length; i++) ...[
+            refDataRow(kLoopFaultRows[i].$1, kLoopFaultRows[i].$2),
+            if (i < kLoopFaultRows.length - 1) refGap(),
+          ],
           const SizedBox(height: 14),
           refTipBox('전송기에 TEST 단자가 있으면 선을 풀지 않고 그 단자에 mA계를 대고 잴 수 있음. 단자 이름과 짝은 전송기마다 다르니 전송기 설명서대로'),
           const SizedBox(height: 10),
@@ -364,3 +369,21 @@ class _WrongPainter extends CustomPainter {
   @override
   bool shouldRepaint(_WrongPainter o) => false;
 }
+
+/// 자료 통합 검색용 항목: 멀티미터 4-20 mA 루프에서 값이 이상할 때.
+List<KnowledgeEntry> loopKnowledge() => [
+  for (final (sym, cause) in kLoopFaultRows)
+    KnowledgeEntry(
+      id: 'loop.$sym',
+      category: '계기 신호 이상',
+      title: '4-20 mA 루프 측정값 $sym',
+      lines: cause.split('\n'),
+      keywords: ['4-20mA', '멀티미터', '전류 루프', '전송기', 'HIOKI', 'DT4282'],
+      sourceLabel: '멀티미터로 4-20 mA 재기',
+      priority: 1,
+      open: (c) => Navigator.push(
+        c,
+        MaterialPageRoute<void>(builder: (_) => const MeterLoopGuidePage()),
+      ),
+    ),
+];

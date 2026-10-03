@@ -1,3 +1,8 @@
+import 'package:flutter/material.dart';
+
+import '../reference/search/knowledge_entry.dart';
+import 'alignment_guide_page.dart';
+
 // 축 정렬 현장 지침: 현장이 늘 좋은 조건이 아니라서 생기는 일들을 경우별로 모았다(증상 → 원인 → 대책 → 확인).
 // 현장에서 가장 흔한 원인은 배관이 당기거나 용접으로 틀어지는 것이라 '배관·용접'을 따로 두었다.
 // 여러 현장에서 흔히 쓰는 요령을 정리한 것이고, 제조사 매뉴얼·사내 절차가 있으면 그것이 먼저다.
@@ -549,4 +554,27 @@ const List<AlignTip> kAlignTips = [
     check: '마지막 값이 기준 안쪽이고 기록이 남았으면 끝입니다.',
     words: ['마무리', '커플링 간격', '가드'],
   ),
+];
+
+/// 자료 통합 검색용 항목: 축 정렬 현장 지침(증상 → 원인 → 대책 → 확인).
+List<KnowledgeEntry> alignmentKnowledge() => [
+  for (final t in kAlignTips)
+    KnowledgeEntry(
+      id: 'align.${t.id}',
+      category: '축 정렬 지침',
+      title: t.title,
+      lines: [
+        '이럴 때: ${t.symptom}',
+        for (final c in t.causes) '원인: $c',
+        for (final f in t.fixes) '대책: $f',
+        '확인: ${t.check}',
+      ],
+      keywords: [t.cat.label, ...t.words],
+      sourceLabel: '축 정렬 현장 지침 · ${t.cat.label}',
+      priority: 1,
+      open: (c) => Navigator.push(
+        c,
+        MaterialPageRoute<void>(builder: (_) => AlignmentGuidePage(openId: t.id)),
+      ),
+    ),
 ];

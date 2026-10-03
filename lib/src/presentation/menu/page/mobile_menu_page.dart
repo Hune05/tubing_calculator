@@ -46,6 +46,7 @@ import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_on
 import 'package:tubing_calculator/src/presentation/reference/page/app_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/equipment_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
+import 'package:tubing_calculator/src/presentation/reference/search/knowledge_search_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/mobile_cutting_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/mobile_steel_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
@@ -1879,6 +1880,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         },
                       ),
                       _sectionHeader("참고 자료"),
+                      _buildMenuButton(
+                        context: context,
+                        title: "자료 검색",
+                        subtitle: "증상·코드·장비 이름으로 고장 조치·알람 코드·현장 자료 찾기",
+                        icon: AppGlyph.searchDocs,
+                        iconColor: slate900,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const KnowledgeSearchPage(),
+                            ),
+                          );
+                        },
+                      ),
                       _buildMenuButton(
                         context: context,
                         title: "현장 자료",

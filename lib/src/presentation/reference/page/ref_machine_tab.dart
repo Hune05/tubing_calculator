@@ -9,6 +9,8 @@ import '../../equipment/equipment_manual.dart';
 import '../../instrument/gd402_guide_page.dart';
 import '../../instrument/meter_loop_guide_page.dart';
 import 'gd402_manual_page.dart';
+import '../search/knowledge_entry.dart';
+import 'equipment_usage_page.dart';
 import 'reference_widgets.dart';
 
 enum _Group {
@@ -1240,7 +1242,9 @@ final List<_Guide> _guides = [
 ];
 
 class RefMachineTab extends StatefulWidget {
-  const RefMachineTab({super.key});
+  /// 처음부터 펼쳐 보일 장비 번호(자료 검색에서 넘어올 때). 없으면 모두 접힘.
+  final String? openId;
+  const RefMachineTab({super.key, this.openId});
 
   @override
   State<RefMachineTab> createState() => _RefMachineTabState();
@@ -1264,7 +1268,11 @@ class _RefMachineTabState extends State<RefMachineTab> {
         ),
         const SizedBox(height: 12),
         for (final g in list) ...[
-          _GuideTile(key: Key('guide_${g.id}'), guide: g),
+          _GuideTile(
+            key: Key('guide_${g.id}'),
+            guide: g,
+            initiallyOpen: g.id == widget.openId,
+          ),
           const SizedBox(height: 10),
         ],
       ],
@@ -1274,14 +1282,15 @@ class _RefMachineTabState extends State<RefMachineTab> {
 
 class _GuideTile extends StatefulWidget {
   final _Guide guide;
-  const _GuideTile({super.key, required this.guide});
+  final bool initiallyOpen;
+  const _GuideTile({super.key, required this.guide, this.initiallyOpen = false});
 
   @override
   State<_GuideTile> createState() => _GuideTileState();
 }
 
 class _GuideTileState extends State<_GuideTile> {
-  bool _open = false;
+  late bool _open = widget.initiallyOpen;
   int _part = 0;
 
   static final _headStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: refTextMain, height: 1.4);
@@ -1422,4 +1431,63 @@ class _GuideTileState extends State<_GuideTile> {
       ),
     );
   }
+}
+
+/// 자료 통합 검색용 항목: 장비 사용법의 고장 조치·안전·점검·작업 순서·제원.
+List<KnowledgeEntry> equipmentKnowledge() {
+  final out = <KnowledgeEntry>[];
+  for (final g in _guides) {
+    void open(BuildContext c) => Navigator.push(
+      c,
+      MaterialPageRoute<void>(builder: (_) => EquipmentUsagePage(openId: g.id)),
+    );
+    final names = [g.title, g.sub, g.group.label];
+    for (final p in g.parts) {
+      for (var i = 0; i < p.trouble.length; i++) {
+        final (sym, cause, fix) = p.trouble[i];
+        out.add(
+          KnowledgeEntry(
+            id: 'eq.${g.id}.trouble.$i',
+            category: '장비 고장 조치',
+            title: '${g.title} — $sym',
+            lines: ['원인: $cause', '조치: $fix'],
+            keywords: names,
+            sourceLabel: '장비 사용법 · ${g.title}',
+            open: open,
+            priority: 1,
+          ),
+        );
+      }
+      for (var i = 0; i < p.rows.length; i++) {
+        final (head, body) = p.rows[i];
+        out.add(
+          KnowledgeEntry(
+            id: 'eq.${g.id}.${p.name}.$i',
+            category: '장비 ${p.name}',
+            title: '${g.title} — $head',
+            lines: body.split('\n'),
+            keywords: names,
+            sourceLabel: '장비 사용법 · ${g.title}',
+            open: open,
+          ),
+        );
+      }
+      if (p.steps.isNotEmpty) {
+        out.add(
+          KnowledgeEntry(
+            id: 'eq.${g.id}.${p.name}.steps',
+            category: '장비 ${p.name}',
+            title: '${g.title} — ${p.name}',
+            lines: [
+              for (var i = 0; i < p.steps.length; i++) '${i + 1}. ${p.steps[i]}',
+            ],
+            keywords: names,
+            sourceLabel: '장비 사용법 · ${g.title}',
+            open: open,
+          ),
+        );
+      }
+    }
+  }
+  return out;
 }

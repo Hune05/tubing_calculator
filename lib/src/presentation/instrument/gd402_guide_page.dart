@@ -4,6 +4,8 @@
 // 화면 글자·코드·범위는 설명서 그대로, 숫자 표시의 측정값은 그림용 예시. 설명서끼리 다른 곳은 화면에 밝힌다.
 import 'package:flutter/material.dart';
 
+import '../reference/search/knowledge_entry.dart';
+
 import '../../core/theme/app_tokens.dart';
 import '../reference/page/reference_widgets.dart';
 import 'gd40_principle.dart';
@@ -687,17 +689,8 @@ class _Operation extends StatelessWidget {
 
 // ───────── 9. 알람·고장 코드 ─────────
 
-class _Codes extends StatelessWidget {
-  const _Codes();
-
-  @override
-  Widget build(BuildContext context) => _page('codes', [
-    refIntroBadge('알람(ALM)은 ALARM 접점(16·17)과 ALARM 램프, 고장(Err)은 FAIL 접점(18·19)이 열리고 FAIL 램프가 켜집니다.'),
-    _title('알람'),
-    refTable(
-      headers: const ['표시', '내용', '조치'],
-      flex: const [3, 6, 5],
-      rows: const [
+/// 알람·고장 코드 표(표시, 내용, 조치). 화면과 자료 통합 검색이 같이 쓴다.
+const List<List<String>> kGd402AlarmRows = [
         ['ALM.01', '물리 밀도 상하한', '상하한값 확인·변경'],
         ['ALM.02', '보상 밀도 상하한', '상하한값 확인·변경'],
         ['ALM.03', '비중 상하한', '상하한값 확인·변경'],
@@ -708,19 +701,33 @@ class _Codes extends StatelessWidget {
         ['ALM.08', '시료가스 온도 이상 (-25~80 ℃ 밖)', '허용 범위 안에서 사용'],
         ['ALM.09', '배터리 이상 (접점 안 나감)', '요꼬가와 서비스'],
         ['ALM.10', '교정 이상 (제로·스팬)', '다시 교정 ("교정" 탭)'],
-      ],
-    ),
-    _title('고장 (FAIL)'),
-    refTable(
-      headers: const ['표시', '내용', '조치'],
-      flex: const [3, 6, 5],
-      rows: const [
+      ];
+
+const List<List<String>> kGd402ErrRows = [
         ['Err.01', '센서 발진 정지', '전원 껐다 켬 → 서비스'],
         ['Err.02', '발진 주파수 이상 (F2 1000~10000 Hz, F4 4000~10000 Hz 밖)', '전원 껐다 켬 → 서비스'],
         ['Err.03', '센서 온도 검출 이상', '서비스'],
         ['Err.04', 'A/D 변환기 이상', '서비스'],
         ['Err.05', '메모리 이상', '서비스'],
-      ],
+      ];
+
+class _Codes extends StatelessWidget {
+  const _Codes();
+
+  @override
+  Widget build(BuildContext context) => _page('codes', [
+    refIntroBadge('알람(ALM)은 ALARM 접점(16·17)과 ALARM 램프, 고장(Err)은 FAIL 접점(18·19)이 열리고 FAIL 램프가 켜집니다.'),
+    _title('알람'),
+    refTable(
+      headers: const ['표시', '내용', '조치'],
+      flex: const [3, 6, 5],
+      rows: kGd402AlarmRows,
+    ),
+    _title('고장 (FAIL)'),
+    refTable(
+      headers: const ['표시', '내용', '조치'],
+      flex: const [3, 6, 5],
+      rows: kGd402ErrRows,
       footer: '※ 발진 주파수는 서비스 CODE 41에서 볼 수 있음',
     ),
   ]);
@@ -752,3 +759,24 @@ class _Maintenance extends StatelessWidget {
     refTipBox('원리상 드리프트가 거의 없어 기본적으로 손볼 곳은 적지만 주기 점검은 권장 (설명서 3.2.3)'),
   ]);
 }
+
+/// 자료 통합 검색용 항목: GD402 알람·고장 코드.
+List<KnowledgeEntry> gd402Knowledge() => [
+  for (final (kind, rows) in [('알람', kGd402AlarmRows), ('고장', kGd402ErrRows)])
+    for (final r in rows)
+      KnowledgeEntry(
+        id: 'gd402.${r[0]}',
+        category: '계기 알람·고장 코드',
+        title: 'GD402 ${r[0]} · ${r[1]}',
+        lines: ['조치: ${r[2]}', '$kind 코드. 알람은 ALARM 접점, 고장(Err)은 FAIL 접점이 열립니다.'],
+        keywords: ['GD402', '가스밀도계', '밀도계', '요꼬가와', r[0]],
+        sourceLabel: 'GD402 화면 따라하기 · 알람·고장 코드',
+        priority: 1,
+        open: (c) => Navigator.push(
+          c,
+          MaterialPageRoute<void>(
+            builder: (_) => const Gd402GuidePage(initialTab: 10),
+          ),
+        ),
+      ),
+];

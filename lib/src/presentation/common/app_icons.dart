@@ -182,6 +182,9 @@ enum AppGlyph {
   /// 접지바 구멍 계산기: 구멍이 일정 간격으로 뚫린 평강.
   groundBar,
 
+  /// 자료 검색: 문서 한 장과 돋보기.
+  searchDocs,
+
   /// 압력 시험 계산기: 압력계(둥근 눈금 + 바늘 + 아래 연결구).
   pressureGauge,
 
@@ -1192,6 +1195,25 @@ class _AppIconPainter extends CustomPainter {
           canvas.drawCircle(Offset(x, 12), 1.35, line);
         }
         l(2.5, 19.5, 21.5, 19.5);
+
+      case AppGlyph.searchDocs:
+        // 문서 한 장(접힌 귀퉁이)과 오른쪽 아래 돋보기.
+        final doc = Path()
+          ..moveTo(5, 3.5)
+          ..lineTo(14, 3.5)
+          ..lineTo(18.5, 8)
+          ..lineTo(18.5, 11.5)
+          ..moveTo(5, 3.5)
+          ..lineTo(5, 20.5)
+          ..lineTo(11, 20.5)
+          ..moveTo(14, 3.5)
+          ..lineTo(14, 8)
+          ..lineTo(18.5, 8);
+        canvas.drawPath(doc, line);
+        l(8, 10, 12, 10);
+        l(8, 13.2, 11, 13.2);
+        canvas.drawCircle(const Offset(15.4, 16), 3.1, line);
+        l(17.6, 18.3, 20.5, 21.2);
 
       case AppGlyph.unitConvert:
         // 위: 오른쪽 화살표, 가운데: 왼쪽 화살표, 아래: 자.
