@@ -93,6 +93,7 @@ import '../../electrical/cable_tray_page.dart';
 import '../../electrical/busbar_bend_page.dart';
 import '../../electrical/busbar_ground_page.dart';
 import '../../electrical/circuit_reading_page.dart';
+import '../../electrical/panel_design_page.dart';
 import '../../electrical/troubleshoot_page.dart';
 import '../../electrical/cable_tray_route_page.dart';
 
@@ -1582,6 +1583,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const CircuitReadingPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "분전반·조명 설계",
+                        subtitle: "조명 광속법 · 분전반 상 평형 · 여러 부하 간선 전압강하",
+                        icon: AppGlyph.panelBoard,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PanelDesignPage(),
                             ),
                           );
                         },

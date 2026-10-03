@@ -185,6 +185,9 @@ enum AppGlyph {
   /// 결선도·기동 회로: 양쪽 모선 사이 한 줄에 a접점과 코일(원).
   ladder,
 
+  /// 분전반·조명 설계: 분전반 문(사각형)과 안쪽 차단기 스위치 줄.
+  panelBoard,
+
   /// 고장 진단: 위에서 내려온 줄이 마름모(판단)에서 두 갈래로 나뉜다.
   troubleshoot,
 
@@ -1213,6 +1216,19 @@ class _AppIconPainter extends CustomPainter {
         canvas.drawCircle(const Offset(16, 12), 3, soft);
         canvas.drawCircle(const Offset(16, 12), 3, line);
         l(19, 12, 21, 12);
+
+      case AppGlyph.panelBoard:
+        // 분전반 함(문)과 안쪽에 차단기 레버 두 줄, 아래 인입선.
+        final box = RRect.fromLTRBR(4.5, 3, 19.5, 17.5, const Radius.circular(1.6));
+        canvas.drawRRect(box, soft);
+        canvas.drawRRect(box, line);
+        for (final y in [7.5, 12.5]) {
+          l(8, y, 11, y);
+          l(13, y, 16, y);
+          canvas.drawCircle(Offset(12, y), 0.9, line);
+        }
+        l(12, 17.5, 12, 21);
+        l(9, 21, 15, 21);
 
       case AppGlyph.troubleshoot:
         // 위 시작점에서 내려온 줄이 마름모에서 왼쪽·오른쪽 갈래로 나뉘어 끝점(원)에 닿는다.

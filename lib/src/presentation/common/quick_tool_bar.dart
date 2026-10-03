@@ -42,6 +42,7 @@ import '../electrical/cable_tray_page.dart';
 import '../electrical/busbar_bend_page.dart';
 import '../electrical/busbar_ground_page.dart';
 import '../electrical/circuit_reading_page.dart';
+import '../electrical/panel_design_page.dart';
 import '../electrical/troubleshoot_page.dart';
 import '../electrical/cable_tray_route_page.dart';
 
@@ -259,6 +260,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.ladder,
     (_) => const CircuitReadingPage(),
     subtitle: 'Y·Δ 결선, 직입·정역·Y-Δ 시퀀스',
+    group: '전기',
+  ),
+  QuickToolDef(
+    'paneldesign',
+    '분전반·조명 설계',
+    AppGlyph.panelBoard,
+    (_) => const PanelDesignPage(),
+    subtitle: '조명 광속법 · 분전반 상 평형 · 여러 부하 간선 전압강하',
     group: '전기',
   ),
   QuickToolDef(
