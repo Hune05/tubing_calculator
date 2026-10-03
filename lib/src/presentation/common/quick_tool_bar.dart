@@ -272,7 +272,7 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'paneldesign',
-    '분전반·조명 설계',
+    '분전반·조명 계산',
     AppGlyph.panelBoard,
     (_) => const PanelDesignPage(),
     subtitle: '조명 광속법 · 분전반 상 평형 · 여러 부하 간선 전압강하',
@@ -296,7 +296,7 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'steel',
-    '형강 컷팅 (찬넬/앵글)',
+    '형강 컷팅',
     AppGlyph.steel,
     (_) => const MobileSteelProjectListPage(),
     subtitle: '규격·길이만 넣어 재단 계획·지시서 출력',

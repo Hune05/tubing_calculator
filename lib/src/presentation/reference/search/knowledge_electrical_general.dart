@@ -12,7 +12,7 @@ import 'knowledge_entry.dart';
 const String _cat = '전기 일반 기준';
 const String _srcCalc = '전기 설비 계산';
 const String _srcDiag = '고장 진단';
-const String _srcPanel = '분전반·조명 설계';
+const String _srcPanel = '분전반·조명 계산';
 
 void _openCalc(BuildContext c, int tab) => Navigator.push(
   c,

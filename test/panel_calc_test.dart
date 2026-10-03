@@ -1,4 +1,4 @@
-// 분전반·조명 설계 계산: 손으로 푼 값과 맞춘다.
+// 분전반·조명 계산 계산: 손으로 푼 값과 맞춘다.
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';

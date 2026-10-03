@@ -1574,7 +1574,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "분전반·조명 설계",
+                        title: "분전반·조명 계산",
                         subtitle: "조명 광속법 · 분전반 상 평형 · 여러 부하 간선 전압강하",
                         icon: AppGlyph.panelBoard,
                         onTap: () {
@@ -1688,7 +1688,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _sectionHeader("가공·배치"),
                       _buildMenuButton(
                         context: context,
-                        title: "형강 컷팅 (찬넬/앵글)",
+                        title: "형강 컷팅",
                         subtitle: "규격·길이만 넣어 재단 계획·지시서 출력",
                         icon: AppGlyph.steel,
                         iconColor: makitaTeal,
@@ -1942,7 +1942,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "자재 통합 관리",
+                        title: "재고조사·자재 등록",
                         subtitle: "재고조사 · 새 자재 등록 및 삭제",
                         icon: AppGlyph.stockAdmin,
                         iconColor: slate900,

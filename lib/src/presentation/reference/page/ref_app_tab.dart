@@ -109,7 +109,7 @@ class RefAppTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "형강 컷팅 (찬넬/앵글)",
+          title: "형강 컷팅",
           subtitle: "규격·길이만 넣고 재단 계획·지시서",
           icon: LucideIcons.columns,
           iconColor: Colors.blueGrey,
@@ -193,7 +193,7 @@ class RefAppTab extends StatelessWidget {
         const SizedBox(height: 16),
 
         refCard(
-          title: "자재 현황 · 자재 통합 관리",
+          title: "자재 현황 · 재고조사·자재 등록",
           subtitle: "재고 보기 → 입출고 → 재고조사",
           icon: LucideIcons.package,
           iconColor: Colors.brown,
@@ -201,7 +201,7 @@ class RefAppTab extends StatelessWidget {
             refStep(1, "'자재 현황'에서 규격·위치로 찾고 입고·출고를 누릅니다. 최소 수량 아래면 '자재 부족'이 표시됩니다."),
             refStep(
               2,
-              "'자재 통합 관리' → 재고조사: 실사 수량을 넣고 '올리기'를 누릅니다. 통신이 없으면 폰에 두었다가 통신될 때 올라갑니다.",
+              "'재고조사·자재 등록' → 재고조사: 실사 수량을 넣고 '올리기'를 누릅니다. 통신이 없으면 폰에 두었다가 통신될 때 올라갑니다.",
             ),
             refStep(
               3,

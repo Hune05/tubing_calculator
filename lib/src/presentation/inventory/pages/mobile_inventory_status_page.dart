@@ -559,7 +559,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text(
-                  '이 바코드와 맞는 자재를 찾지 못했습니다. 새 자재는 자재 통합 관리에서 등록하십시오.',
+                  '이 바코드와 맞는 자재를 찾지 못했습니다. 새 자재는 재고조사·자재 등록 메뉴에서 등록하십시오.',
                 ),
               ),
             );

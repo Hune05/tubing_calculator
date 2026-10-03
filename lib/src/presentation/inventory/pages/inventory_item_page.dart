@@ -14,7 +14,7 @@ import 'package:tubing_calculator/src/core/utils/number_input.dart';
 ///
 /// 🚀 [고침] 혼자 쓰는 앱이라 불출·반납은 같은 일을 두 번 하게 만들었다.
 /// 재고 수량은 재고조사에서 맞춘다.
-/// (예전에는 보는 화면[자재 현황]과 고치는 화면[자재 통합 관리]이 갈려 있어서
+/// (예전에는 보는 화면[자재 현황]과 고치는 화면[재고조사·자재 등록]이 갈려 있어서
 ///  같은 자재를 두 군데서 따로 봐야 했다.)
 class InventoryItemPage extends StatelessWidget {
   final String docId;

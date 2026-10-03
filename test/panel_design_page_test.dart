@@ -1,4 +1,4 @@
-// 분전반·조명 설계 화면: 입력 → 결과, 상 자동 배정, 간선 구간 추가.
+// 분전반·조명 계산 화면: 입력 → 결과, 상 자동 배정, 간선 구간 추가.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/electrical/panel_design_page.dart';

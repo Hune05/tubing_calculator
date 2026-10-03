@@ -1,4 +1,4 @@
-// 분전반·조명 설계(10-03): 조명 광속법, 분전반 상 평형, 여러 부하가 붙은 간선의 전압강하.
+// 분전반·조명 계산(10-03): 조명 광속법, 분전반 상 평형, 여러 부하가 붙은 간선의 전압강하.
 // 식은 모두 정의식(panel_calc.dart)이라 표 값이 필요 없다. 조도·조명률·보수율은 설계 도서나 등기구 자료에서 읽어 넣는다.
 // 어느 설비·공사에서든 쓴다(조명, 콘센트, 분전반, 간선).
 import 'package:flutter/material.dart';
@@ -28,7 +28,7 @@ class PanelDesignPage extends StatelessWidget {
     child: Scaffold(
       backgroundColor: fc.background,
       appBar: AppBar(
-        title: const Text('분전반·조명 설계'),
+        title: const Text('분전반·조명 계산'),
         bottom: const TabBar(
           isScrollable: true,
           tabAlignment: TabAlignment.start,

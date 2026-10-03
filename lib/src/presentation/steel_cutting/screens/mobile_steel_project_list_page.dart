@@ -399,7 +399,7 @@ class _MobileSteelProjectListPageState
           scrolledUnderElevation: 0,
           centerTitle: false,
           title: const Text(
-            "형강 컷팅 (찬넬/앵글)",
+            "형강 컷팅",
             style: TextStyle(
               color: CuttingColors.textPrimary,
               fontWeight: FontWeight.w800,
