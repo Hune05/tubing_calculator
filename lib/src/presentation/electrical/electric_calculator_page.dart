@@ -1653,7 +1653,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       const SizedBox(height: 12),
       result,
       if (basis.isNotEmpty) _basis('ec_cable_basis', basis),
-      const MiCableSection(),
+      const MiCableSection(key: Key('ec_mi_section')),
     ]);
   }
 
@@ -2651,8 +2651,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         'C(μF) = Qc(kvar) × 10⁹ ÷ (2π × 60 × V²) (국내 저압 콘덴서 표기, 삼화엔지니어링 기술자료)',
         '전류: I = P ÷ (${_phase == Phase.three ? '√3 × ' : ''}V × 역률), 콘덴서 전류 = Qc ÷ (${_phase == Phase.three ? '√3 × ' : ''}V)',
       ]),
-      const CapVoltageSection(),
-      const TransformerPfSection(),
+      const CapVoltageSection(key: Key('ec_cv_section')),
+      const TransformerPfSection(key: Key('ec_tp_section')),
     ]);
   }
 

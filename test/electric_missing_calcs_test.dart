@@ -151,4 +151,13 @@ void main() {
     t = _all(tester);
     expect(t, contains('표의 가장 큰 단면적(4 mm², 64 A)으로도 모자랍니다'));
   });
+  testWidgets('미네랄 절연 선택은 위쪽 부하 전류를 넣어도 풀리지 않는다', (tester) async {
+    await _open(tester, 'ec_tab_cable');
+    await _tap(tester, 'ec_mi_t105');
+    await _tap(tester, 'ec_mi_efg');
+    await _type(tester, 'ec_ib', '100');
+    final t = _all(tester);
+    expect(t, contains('외피 105 ℃'));
+    expect(t, contains('포설 방법 E·F·G'));
+  });
 }
