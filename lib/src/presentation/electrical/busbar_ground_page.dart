@@ -319,6 +319,18 @@ class _GroundBarPageState extends State<GroundBarPage>
   String _bendText(BusbarBend b, int i, GroundBarPlan p) =>
       '${i + 1}. ${_bendName(i, p)} 꺾기 시작선 ${fmt(b.start, 1)} · 끝선 ${fmt(b.end, 1)}mm';
 
+  /// 구멍 가장자리 ~ 꺾기 시작선 거리(구멍 종류별). 꺾을 때 구멍이 늘어나는지 가늠하는 값.
+  String _edgeLine(GroundBarPlan p) {
+    final t = _num(_thick);
+    String one(String name, double d) =>
+        '$name ${fmt(d, 1)}mm(두께의 ${fmt(t > 0 ? d / t : 0, 1)}배)';
+    final parts = [
+      if (p.minEdgeBody != null) one('접지·러그 구멍', p.minEdgeBody!),
+      if (p.minEdgeTab != null) one('$_tabName 구멍', p.minEdgeTab!),
+    ];
+    return '구멍 가장자리 ~ 꺾기 시작선 거리: ${parts.join(' · ')}. 가까울수록 꺾을 때 구멍이 늘어날 수 있습니다.';
+  }
+
   /// 탭·챙 구멍 수 설명: 어느 쪽에 몇 개인지 풀어 쓴다.
   String _tabHoleSummary(GroundBarPlan p) {
     final l = p.tabHoleList.where((h) => h.label.startsWith('왼쪽')).length;
@@ -1213,6 +1225,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             else if (p.bends.isNotEmpty)
               'L 꺾기 ${p.bends.length}곳. 구멍 줄은 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.',
             if (p.tabHoleList.isNotEmpty) _tabHoleSummary(p),
+            if (p.minEdgeBody != null || p.minEdgeTab != null) _edgeLine(p),
             if (p.lugHoleList.isNotEmpty)
               '접지 러그 구멍 ${p.lugHoleList.length}개를 접지 구멍과 따로 부스바 가운데(폭 ${fmt(p.lugHoleList.first.y, 1)}mm)에 추가했습니다.',
           ],

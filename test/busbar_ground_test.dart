@@ -453,4 +453,45 @@ void main() {
     expect(q.notes, isEmpty);
     expect(q.pitchUsed, 12);
   });
+
+  test('구멍 가장자리 ~ 꺾기 시작선 거리: 챙 구멍이 두께 2배보다 가까우면 주의 알림', () {
+    GroundBarPlan make(double flange) => groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: flange,
+      tabHoleCount: 1,
+      tabHoleDia: 11.1,
+      tabHolePitch: 25.4,
+    );
+    final near = make(40); // 평평한 28, 구멍 중심 14 → 가장자리 14 − 5.55 = 8.45
+    expect(near.minEdgeTab, closeTo(8.45, 1e-9));
+    expect(near.minEdgeBody, closeTo(25 - 5.55, 1e-9));
+    expect(
+      near.notes.any(
+        (s) => s.contains('꺾기 시작선에서 8.5mm') || s.contains('꺾기 시작선에서 8.4mm'),
+      ),
+      isTrue,
+    );
+    expect(near.ok, isTrue); // 알림일 뿐 문제가 아니다
+    final far = make(60); // 평평한 48 → 24 − 5.55 = 18.45
+    expect(far.minEdgeTab, closeTo(18.45, 1e-9));
+    expect(far.notes.where((s) => s.contains('꺾기 시작선에서')), isEmpty);
+    // 꺾지 않으면 거리 없음
+    final flat = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+    );
+    expect(flat.minEdgeBody, isNull);
+    expect(flat.minEdgeTab, isNull);
+  });
 }

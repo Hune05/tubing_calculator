@@ -115,6 +115,9 @@ class GroundBarPlan {
   /// 실제로 계산에 쓴 구멍 피치(최소 간격으로 올린 뒤 값)와 탭·챙 구멍 피치.
   final double pitchUsed, tabPitchUsed;
 
+  /// 구멍 가장자리에서 가장 가까운 꺾기 시작선까지 거리(mm): 몸체(접지·러그 구멍)와 탭·챙 구멍. 꺾기가 없으면 null.
+  final double? minEdgeBody, minEdgeTab;
+
   /// 입력을 바꿔 계산했다는 알림(문제는 아님).
   final List<String> notes;
 
@@ -155,6 +158,8 @@ class GroundBarPlan {
     required this.hat,
     required this.hatWidth,
     required this.pitchUsed,
+    required this.minEdgeBody,
+    required this.minEdgeTab,
     required this.tabPitchUsed,
     required this.notes,
     required this.problems,
@@ -559,6 +564,36 @@ GroundBarPlan groundBar({
       4 *
       t;
   final kg = math.max(0.0, t * w * len - holeVol) * kCopperKgPerMm3;
+  // 구멍 가장자리 ~ 꺾기 시작선 거리(꺾는 쪽만): 몸체 구멍은 곧은 구간 양 끝, 탭·챙 구멍은 각 평평한 길이 끝.
+  double? edgeBody;
+  for (final h in [...ground, ...lugs]) {
+    final r = h.dia / 2;
+    if (spanL > 0) {
+      final d = h.x - spanL - r;
+      edgeBody = edgeBody == null ? d : math.min(edgeBody, d);
+    }
+    if (spanR > 0) {
+      final d = len - spanR - h.x - r;
+      edgeBody = edgeBody == null ? d : math.min(edgeBody, d);
+    }
+  }
+  double? edgeTab;
+  for (final h in tabs) {
+    final left = h.label.startsWith('왼쪽');
+    final off = left ? h.x : len - h.x;
+    final d = (left ? flatL : flatR) - off - h.dia / 2;
+    edgeTab = edgeTab == null ? d : math.min(edgeTab, d);
+  }
+  if (edgeTab != null && edgeTab < 2 * t) {
+    notes.add(
+      '$tabName 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeTab)}mm(두께의 ${_f(edgeTab / t)}배)로 가깝습니다. 꺾을 때 구멍이 늘어날 수 있으니 $tabName 길이를 늘리거나 구멍을 줄이거나 시험 조각으로 확인하십시오(두께 2배 이상은 판재 경험 규칙이며 확인한 규격 값은 아닙니다).',
+    );
+  }
+  if (edgeBody != null && edgeBody < 2 * t) {
+    notes.add(
+      '접지·러그 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeBody)}mm(두께의 ${_f(edgeBody / t)}배)로 가깝습니다. 끝 여유를 늘리십시오(두께 2배 이상은 판재 경험 규칙이며 확인한 규격 값은 아닙니다).',
+    );
+  }
   final lastX = n < 1 ? 0.0 : first + (n - 1) * pitch + st;
   return GroundBarPlan(
     length: len,
@@ -586,6 +621,8 @@ GroundBarPlan groundBar({
     hat: hat,
     hatWidth: hat ? run + 2 * os : 0,
     pitchUsed: pitch,
+    minEdgeBody: edgeBody,
+    minEdgeTab: edgeTab,
     tabPitchUsed: tabHolePitch,
     notes: notes,
     problems: problems,

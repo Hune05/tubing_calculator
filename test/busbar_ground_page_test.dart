@@ -259,6 +259,7 @@ void main() {
     expect(find.textContaining('가로 간격 186.8mm'), findsOneWidget);
     expect(find.textContaining('그립) 9mm'), findsOneWidget); // 부스바 6 + 판넬 3
     expect(find.byKey(const Key('gb_mount_notes')), findsOneWidget);
+    expect(find.textContaining('구멍 가장자리 ~ 꺾기 시작선 거리'), findsOneWidget);
     await tester.tap(find.byKey(const Key('gb_share')));
     await tester.pumpAndSettle();
     expect(sent, contains('판넬 취부 구멍(왼쪽 구멍 0 기준): 왼쪽 1 가로 0'));
