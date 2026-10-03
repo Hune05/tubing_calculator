@@ -1498,7 +1498,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "전기 설계 계산",
+                        title: "전기 설비 계산",
                         subtitle: "부하 합산·전선 굵기·전압강하·단락 전류·발전기·축전지",
                         icon: AppGlyph.electric,
                         onTap: () {
@@ -1559,7 +1559,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "접지바 구멍 계산기",
+                        title: "접지바 가공",
                         subtitle: "구멍 위치·절단 길이·중량",
                         icon: AppGlyph.groundBar,
                         onTap: () {

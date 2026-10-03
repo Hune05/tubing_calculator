@@ -86,7 +86,7 @@ class WizEnd extends WizStep {
   final List<String> causes;
   final List<String> actions;
 
-  /// (이름, 전기 설계 계산 탭 번호)
+  /// (이름, 전기 설비 계산 탭 번호)
   final List<(String, int)> links;
   final String? note;
 }

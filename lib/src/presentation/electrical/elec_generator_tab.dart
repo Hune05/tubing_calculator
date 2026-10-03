@@ -1,4 +1,4 @@
-// 전기 설계 계산: 발전기 용량 탭(비상발전기 PG 방식). 계산은 elec_generator.dart, 근거는 docs/전기_발전기_근거.md.
+// 전기 설비 계산: 발전기 용량 탭(비상발전기 PG 방식). 계산은 elec_generator.dart, 근거는 docs/전기_발전기_근거.md.
 import 'dart:async';
 import 'dart:convert';
 

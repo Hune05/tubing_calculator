@@ -1,4 +1,4 @@
-// 범용 전기 설계 계산기에 새로 넣은 식: 역률·전압 구하기, 임피던스, 케이블 임피던스·손실·온도, 자동 차단 최대 길이,
+// 범용 전기 설비 계산기에 새로 넣은 식: 역률·전압 구하기, 임피던스, 케이블 임피던스·손실·온도, 자동 차단 최대 길이,
 // 다른 전압에서의 콘덴서 출력.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

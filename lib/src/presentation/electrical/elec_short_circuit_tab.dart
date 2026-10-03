@@ -1,4 +1,4 @@
-// 전기 설계 계산 탭: 단락 전류(3상 최대·최소), 차단기 차단용량 확인, 케이블 열 견딤(I²t).
+// 전기 설비 계산 탭: 단락 전류(3상 최대·최소), 차단기 차단용량 확인, 케이블 열 견딤(I²t).
 // 계산은 elec_short_circuit.dart, 근거는 docs/전기_단락전류_근거.md. 입력값은 SharedPreferences 한 칸에 남긴다.
 import 'dart:async';
 import 'dart:convert';

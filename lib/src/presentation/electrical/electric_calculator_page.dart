@@ -1,4 +1,4 @@
-// 전기 설계 계산(홈 "전기"). 저압(1 kV 이하) 배선·보호·접지, 전동기·발전기·축전지. 어느 설비·공사에서든 쓴다.
+// 전기 설비 계산(홈 "전기"). 저압(1 kV 이하) 배선·보호·접지, 전동기·발전기·축전지. 어느 설비·공사에서든 쓴다.
 //
 // 파일로 나눈 독립 탭(각자 저장 칸): 부하 합산(elec_load_sum_tab.dart), 단락 전류(elec_short_circuit_tab.dart),
 // 발전기 용량(elec_generator_tab.dart), 축전지 용량(elec_battery_tab.dart). 탭 순서는 TabBar와 TabBarView를 같이 고친다.
@@ -217,7 +217,7 @@ String _maxLenLine(double a, double base, double reserved, double maxLen) {
   return '최대 편도 길이: 가산 0.5 %가 다 찬 구간이라 L = (${fmt(b, 2)} + 0.5) ÷ ${sig(a)} = ${fmt(maxLen, 0)} m';
 }
 
-/// 전기 설계 계산은 자격시험의 전기이론(일반·설비)과 전기기기(전동기·발전기)처럼 따로 보여 준다
+/// 전기 설비 계산은 자격시험의 전기이론(일반·설비)과 전기기기(전동기·발전기)처럼 따로 보여 준다
 /// (섞어 놓으면 정신없다는 사용자 지시, 2026-10-03). enum의 motor가 전동기·발전기 묶음이다.
 enum ElecGroup { general, motor }
 
@@ -891,7 +891,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                       (widget.group == null &&
                           elecGroupOf(widget.initialTab) == ElecGroup.motor)
                   ? '전동기·발전기 계산'
-                  : '전기 설계 계산',
+                  : '전기 설비 계산',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             actions: [calcHistoryButton()],

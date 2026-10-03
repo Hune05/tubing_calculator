@@ -1,4 +1,4 @@
-// 접지바 구멍 계산기(10-03): 구리 평강에 구멍을 한 줄·두 줄로 뚫고 끝을 L 탭·챙 달린 모자로 꺾어
+// 접지바 가공(10-03): 구리 평강에 구멍을 한 줄·두 줄로 뚫고 끝을 L 탭·챙 달린 모자로 꺾어
 // 접지바를 만들 때 절단 길이와 구멍·꺾기 위치. 계산은 busbar_ground.dart.
 import 'dart:async';
 import 'dart:convert';
@@ -1562,7 +1562,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             title: Text(
-              '접지바 구멍 계산기',
+              '접지바 가공',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             actions: [

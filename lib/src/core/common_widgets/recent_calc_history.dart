@@ -20,7 +20,7 @@ class RecentCalcEntry {
 }
 
 /// 기록 쌓기 그 자체(디바운스·중복 방지·최대 개수). 보통은 [RecentCalcHistoryMixin]이
-/// 화면마다 하나씩 따로 갖지만, 탭이 여러 화면 파일로 나뉜 계산기(전기 설계 계산처럼)는
+/// 화면마다 하나씩 따로 갖지만, 탭이 여러 화면 파일로 나뉜 계산기(전기 설비 계산처럼)는
 /// 이 객체 하나를 만들어 각 탭 State에 나눠 주면 기록을 한 목록으로 합칠 수 있다.
 class RecentCalcLog {
   final List<RecentCalcEntry> entries = [];

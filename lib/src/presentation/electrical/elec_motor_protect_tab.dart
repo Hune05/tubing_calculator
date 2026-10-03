@@ -1,4 +1,4 @@
-// 전기 설계 계산: 전동기 보호 탭. 계산은 motor_protect.dart, 근거는 docs/전기_접지_전동기보호_근거.md.
+// 전기 설비 계산: 전동기 보호 탭. 계산은 motor_protect.dart, 근거는 docs/전기_접지_전동기보호_근거.md.
 // 국내 열동 계전기 설정 비율과 EOCR 설정 배수는 출처마다 달라 범위와 "제조사 설명서 우선"으로 안내한다.
 import 'package:flutter/material.dart';
 

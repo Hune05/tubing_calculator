@@ -8,9 +8,9 @@ import 'package:flutter/material.dart';
 import '../../electrical/electric_calculator_page.dart';
 import 'knowledge_entry.dart';
 
-const String _srcGround = '전기 설계 계산 · 접지 탭';
-const String _srcMotor = '전기 설계 계산 · 전동기 보호 탭';
-const String _srcMotorCheck = '전기 설계 계산 · 전동기 점검 탭';
+const String _srcGround = '전기 설비 계산 · 접지 탭';
+const String _srcMotor = '전기 설비 계산 · 전동기 보호 탭';
+const String _srcMotorCheck = '전기 설비 계산 · 전동기 점검 탭';
 
 void _openCalc(BuildContext c, int tab) => Navigator.push(
   c,

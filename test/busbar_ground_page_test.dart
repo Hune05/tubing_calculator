@@ -1,4 +1,4 @@
-// 접지바 구멍 계산기 화면(10-03): 기본값, 막대 길이로 바꾸기, 겹침 알림, 카톡 글, 입력값 남기기.
+// 접지바 가공 화면(10-03): 기본값, 막대 길이로 바꾸기, 겹침 알림, 카톡 글, 입력값 남기기.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';

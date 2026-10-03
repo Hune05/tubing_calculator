@@ -1,4 +1,4 @@
-// 전기 설계 계산의 탭들이 같이 쓰는 화면 부품(탭 몸통·숫자 칸·이름표 칩·근거 보기)과 숫자 글꼴.
+// 전기 설비 계산의 탭들이 같이 쓰는 화면 부품(탭 몸통·숫자 칸·이름표 칩·근거 보기)과 숫자 글꼴.
 // 기존 탭은 electric_calculator_page.dart 안의 같은 모양 함수(_page·_field·_chipGroup·_basis)를 쓰고,
 // 파일로 나눈 새 탭(부하 합산·단락 전류·발전기·축전지)은 이 mixin을 쓴다.
 import 'package:flutter/material.dart';
@@ -33,7 +33,7 @@ const Map<String, String> kElecTabLabels = {
   'ct_sum': '케이블 트레이',
   'tr_sum': '트레이 가공',
   'bb_sum': '부스바 절곡',
-  'gb_sum': '접지바 구멍',
+  'gb_sum': '접지바 가공',
 };
 
 /// 소수 [d]자리까지 쓰고 뒤의 0은 뗀다(12.50 → 12.5).

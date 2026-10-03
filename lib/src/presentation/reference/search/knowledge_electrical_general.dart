@@ -10,7 +10,7 @@ import '../../electrical/troubleshoot_page.dart';
 import 'knowledge_entry.dart';
 
 const String _cat = '전기 일반 기준';
-const String _srcCalc = '전기 설계 계산';
+const String _srcCalc = '전기 설비 계산';
 const String _srcDiag = '고장 진단';
 const String _srcPanel = '분전반·조명 설계';
 
@@ -127,7 +127,7 @@ List<KnowledgeEntry> electricalGeneralKnowledge() => [
       '표준 용량 후보(일반 3상 계열): 20, 30, 50, 75, 100, 150, 200, 300, 500, 750, 1000 kVA. 수험·제조사 자료 기준이며 규격 원문은 대조 전입니다.',
     ],
     keywords: const ['변압기', '1차 보호', '돌입전류', '표준 용량', 'NEC 450', '정격전류', 'kVA'],
-    sourceLabel: '전기 설계 계산 · 부하 합산',
+    sourceLabel: '전기 설비 계산 · 부하 합산',
     open: (c) => _openCalc(c, 2),
   ),
   KnowledgeEntry(

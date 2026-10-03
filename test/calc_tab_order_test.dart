@@ -1,4 +1,4 @@
-// 계산기 탭 순서(2026-09-26 사용자 선택): 전기 설계 계산은 자주 쓰는 것 먼저, 계기 교정은 교정 점검 먼저,
+// 계산기 탭 순서(2026-09-26 사용자 선택): 전기 설비 계산은 자주 쓰는 것 먼저, 계기 교정은 교정 점검 먼저,
 // 계기 교정에 교정 가스(압력 시험 에어 누설을 바꿈), 유량 계산 끝에 유량계 점검.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,7 +23,7 @@ Future<void> pump(WidgetTester tester, Widget page) async {
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('전기 설계 계산(일반): 필수 공식 앞, 전선관·부스바·축전지는 뒤, 전동기·발전기는 없음', (tester) async {
+  testWidgets('전기 설비 계산(일반): 필수 공식 앞, 전선관·부스바·축전지는 뒤, 전동기·발전기는 없음', (tester) async {
     await pump(tester, const ElectricCalculatorPage());
     expect(tabLabels(tester), [
       '기초 계산',

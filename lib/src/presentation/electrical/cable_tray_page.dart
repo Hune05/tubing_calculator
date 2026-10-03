@@ -522,7 +522,7 @@ class _CableTrayPageState extends State<CableTrayPage>
         lines: [
           '각 케이블의 허용전류에 ${f.toStringAsFixed(2)}를 곱해 굵기를 다시 확인하십시오.',
           '회로 수: 전력용 다심은 한 가닥이 한 회로, 전력용 단심은 3가닥이 한 회로로 셌습니다. 제어·신호는 뺐습니다.',
-          'IEC 60364-5-52 표 B.52.17 ${layout == GroupLayout.bunched ? '1행(겹쳐 쌓음)' : '한 줄 행'}. 전기 설계 계산의 "전선 굵기" 탭에서 회로 수 $n개로 넣으면 같은 보정이 들어갑니다.',
+          'IEC 60364-5-52 표 B.52.17 ${layout == GroupLayout.bunched ? '1행(겹쳐 쌓음)' : '한 줄 행'}. 전기 설비 계산의 "전선 굵기" 탭에서 회로 수 $n개로 넣으면 같은 보정이 들어갑니다.',
           if (!oneRow) '한 줄로 펴서 포설하면 허용전류가 덜 줄어듭니다(넓은 트레이 필요).',
         ],
       ),

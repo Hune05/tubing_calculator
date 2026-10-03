@@ -1,4 +1,4 @@
-// 전기 설계 계산: 접지 탭. 계산은 ground_calc.dart, 근거는 docs/전기_접지_전동기보호_근거.md.
+// 전기 설비 계산: 접지 탭. 계산은 ground_calc.dart, 근거는 docs/전기_접지_전동기보호_근거.md.
 // KEC 조문은 사설 옮김 사이트로 확인했고 원문 대조 전이라 화면에도 "원문 확인 전"을 적는다.
 import 'package:flutter/material.dart';
 
