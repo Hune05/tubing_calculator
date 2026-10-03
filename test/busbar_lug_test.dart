@@ -142,4 +142,57 @@ void main() {
     expect(pts.last.x, closeTo(31 + 124.8 + 31, 1e-9));
     expect(pts.first.y, 25);
   });
+
+  test('접지 구멍을 뒤(왼쪽 끝)로 몰고 러그 구멍은 그 뒤 남는 자리 가운데에 같은 줄로', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 7,
+      lugHoles: 2,
+      lugSpacing: 44.45,
+      lugCount: 1,
+      lugHoleDia: 13.5,
+      packGround: true,
+    );
+    // 접지 구멍은 왼쪽 끝 25부터 피치 25.4씩: 마지막 구멍 177.4
+    expect(p.positions.first, 25);
+    expect(p.positions.last, closeTo(25 + 6 * 25.4, 1e-9));
+    // 길이 = 마지막 접지 구멍 + 피치 + 러그 묶음 폭 44.45 + 끝 여유 25
+    expect(p.length, closeTo(25 + 6 * 25.4 + 25.4 + 44.45 + 25, 1e-9));
+    // 러그 구멍은 같은 줄(폭 가운데), 남는 자리 가운데
+    expect(p.lugHoleList.length, 2);
+    expect(
+      p.lugHoleList.every((h) => h.y == 25 && p.rowY.single == 25),
+      isTrue,
+    );
+    final c = (p.lugHoleList[0].x + p.lugHoleList[1].x) / 2;
+    expect(c, closeTo((p.positions.last + 25.4 + p.length - 25) / 2, 1e-9));
+    expect(p.lugHoleList[1].x - p.lugHoleList[0].x, closeTo(44.45, 1e-9));
+    expect(p.ok, isTrue);
+  });
+
+  test('길이로 정하면 러그 자리를 남기고 접지 구멍을 채운다', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      length: 400,
+      lugHoles: 2,
+      lugSpacing: 44.45,
+      lugCount: 1,
+      lugHoleDia: 13.5,
+      packGround: true,
+    );
+    // (400 − 50 − 25.4 − 44.45) ÷ 25.4 = 11.0 → 11칸 → 12개
+    expect(p.holes, 12);
+    expect(p.positions.first, 25);
+    expect(p.lugHoleList.first.x, greaterThan(p.positions.last + 25.4 - 1e-9));
+    expect(p.lugHoleList.last.x, lessThan(400 - 25 + 1e-9));
+    expect(p.ok, isTrue);
+  });
 }

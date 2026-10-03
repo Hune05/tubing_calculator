@@ -64,6 +64,7 @@ class _GroundBarPageState extends State<GroundBarPage>
   int _tabRowMode = 0; // 탭·챙 구멍 줄(접지 구멍과 따로)
   int _tabSides = 3; // 취부 구멍을 뚫을 챙: 1 왼쪽, 2 오른쪽, 3 양쪽
   int _lug = 0; // 접지 러그: 0 없음, 1 1구멍, 2 2구멍
+  bool _packGround = true; // 접지 구멍을 왼쪽(뒤)으로 몰고 러그 구멍은 그 뒤 가운데에
   double _k = 0.4;
   final Map<String, double> _overrides = {}; // 구멍 번호 → 지름
   String? _selHole;
@@ -173,6 +174,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     'trm': _tabRowMode,
     'tsd': _tabSides,
     'lg': _lug,
+    'pk': _packGround,
     'k': _k,
     'ov': _overrides,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
@@ -194,6 +196,7 @@ class _GroundBarPageState extends State<GroundBarPage>
           if (trm is int && trm >= 0 && trm <= 2) _tabRowMode = trm;
           if (tsd is int && tsd >= 1 && tsd <= 3) _tabSides = tsd;
           if (lg is int && lg >= 0 && lg <= 2) _lug = lg;
+          if (m['pk'] is bool) _packGround = m['pk'] as bool;
           if (kk is num && kBusbarK.contains(kk.toDouble())) _k = kk.toDouble();
           final ov = m['ov'];
           if (ov is Map) {
@@ -283,6 +286,7 @@ class _GroundBarPageState extends State<GroundBarPage>
       lugCount: _lug == 0 ? 0 : _num(_lugCount).floor(),
       lugPitch: _num(_lugPitch),
       lugHoleDia: _num(_lugDia),
+      packGround: _packGround,
       overrides: Map.of(_overrides),
     );
   }
@@ -629,7 +633,19 @@ class _GroundBarPageState extends State<GroundBarPage>
             (1, '1구멍 러그'),
             (2, '2구멍 러그'),
           ])
-            calcChip('gb_lug_$i', label, _lug == i, () => _set(() => _lug = i)),
+            calcChip('gb_lug_$i', label, _lug == i, () {
+              _set(() {
+                if (_lug == 0 && i != 0) {
+                  // 외부 접지 러그는 크다: 처음 켤 때 큰 러그 기본값(M12 구멍, 1-3/4" 간격)
+                  if (_lugDia.text.trim() == '11.1') _lugDia.text = '13.5';
+                  if (_lugSpacing.text.trim() == '25.4') {
+                    _lugSpacing.text = '44.45';
+                  }
+                  if (_lugPitch.text.trim() == '50') _lugPitch.text = '80';
+                }
+                _lug = i;
+              });
+            }),
         ],
       ),
       if (_lug != 0) ...[
@@ -678,8 +694,31 @@ class _GroundBarPageState extends State<GroundBarPage>
         _presetChips(
           'gb_lugd_',
           _lugDia,
-          kGroundHoleDias,
-          (v) => v == 7.9 ? 'φ7.9 (5/16")' : 'φ11.1 (7/16")',
+          const [11.1, 13.5, 17.5],
+          (v) => switch (v) {
+            11.1 => 'φ11.1 (3/8")',
+            13.5 => 'φ13.5 (M12)',
+            _ => 'φ17.5 (M16)',
+          },
+        ),
+        const SizedBox(height: 8),
+        elecChipGroup(
+          '접지 구멍 놓는 방법',
+          '뒤로 몰기: 기본 접지 구멍을 왼쪽 끝에서부터 한 줄로 촘촘히 놓고, 큰 러그 구멍은 그 뒤 남는 자리 가운데에 같은 줄로 둡니다. 가운데 균등: 접지 구멍을 막대 가운데에 고르게 놓고 러그 구멍을 그 가운데에 겹쳐 둡니다(겹치면 알림). 한 줄일 때만 적용됩니다.',
+          [
+            calcChip(
+              'gb_pack_on',
+              '뒤로 몰기',
+              _packGround,
+              () => _set(() => _packGround = true),
+            ),
+            calcChip(
+              'gb_pack_off',
+              '가운데 균등',
+              !_packGround,
+              () => _set(() => _packGround = false),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         elecField(
@@ -698,7 +737,9 @@ class _GroundBarPageState extends State<GroundBarPage>
             warn: !p.ok,
             lines: [
               for (final e in groups.entries) _lugLine(e.key, e.value),
-              '러그 구멍은 접지 구멍을 쓰지 않고 부스바 가운데에 추가한 구멍입니다(펼친 막대 왼쪽 끝에서 잰 거리).',
+              _packGround && _rowMode == 0
+                  ? '접지 구멍은 왼쪽 끝으로 몰았고, 러그 구멍은 접지 구멍과 따로 그 뒤 남는 자리 가운데에 같은 줄로 추가했습니다(펼친 막대 왼쪽 끝에서 잰 거리).'
+                  : '러그 구멍은 접지 구멍을 쓰지 않고 부스바 가운데에 추가한 구멍입니다(펼친 막대 왼쪽 끝에서 잰 거리).',
               '볼트 세트 $bolts개 = ${_lugParts(bolts).join(' · ')}',
               '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + _num(_thick), 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(_num(_thick), 1)}. 볼트 길이는 여기에 평와셔 2장·스프링 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다(와셔·너트 두께는 제품마다 다릅니다).',
             ],
@@ -1184,8 +1225,15 @@ class _GroundBarPageState extends State<GroundBarPage>
             ...p.notes,
             ?_radiusWarn,
             if (p.holes > 0) _rowText(p),
-            if (_byLength && p.holes > 0)
-              '남는 길이는 양 끝 여유에 똑같이 나눴습니다(양 끝 ${fmt(p.endLeft, 1)} / ${fmt(p.endRight, 1)}mm).',
+            if (_byLength &&
+                p.holes > 0 &&
+                !(_packGround && _rowMode == 0 && p.lugHoleList.isNotEmpty))
+              '남는 길이는 양 끝 여유에 똑같이 나눴습니다(양 끝 ${fmt(p.endLeft, 1)} / ${fmt(p.endRight, 1)}mm).'
+            else if (p.holes > 0 &&
+                _packGround &&
+                _rowMode == 0 &&
+                p.lugHoleList.isNotEmpty)
+              '접지 구멍 ${p.holes}개를 왼쪽 끝에서부터 놓고, 오른쪽 남는 자리에 러그 구멍을 가운데로 두었습니다.',
             if (p.hat)
               '모자: 높이 ${fmt(_num(_hatH))} · 챙 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))} · 몸체 바깥 폭 ${fmt(p.hatWidth, 1)}mm. 꺾기 4곳, 접지 구멍 줄은 몸체 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.'
             else if (p.bends.isNotEmpty)

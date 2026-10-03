@@ -175,6 +175,8 @@ String _f(double v) {
 /// [tabHoleCount]개(줄마다) 구멍(지름 [tabHoleDia], 피치 [tabHolePitch])을 탭·챙 평평한 길이 가운데에 뚫는다.
 /// 접지 러그 구멍: [lugHoles] 1·2구멍 러그, [lugSpacing] 2구멍 러그의 구멍 간격, [lugCount] 러그 수,
 /// [lugPitch] 러그 사이 중심 간격, [lugHoleDia] 러그 구멍 지름. 구멍은 곧은 구간 가운데·폭 가운데에 따로 뚫는다.
+/// [packGround]이면 한 줄 접지 구멍을 왼쪽(뒤) 끝에서부터 촘촘히 놓고, 러그 구멍 묶음은 그 뒤 남는 자리 가운데에 같은 줄로 둔다.
+/// [packGround]이면 한 줄 접지 구멍을 왼쪽(뒤) 끝에서부터 촘촘히 놓고, 러그 구멍 묶음은 그 뒤 남는 자리 가운데에 같은 줄로 둔다.
 /// [overrides]로 구멍마다 지름을 따로 준다(키는 [GroundHole.id]).
 GroundBarPlan groundBar({
   required double t,
@@ -208,6 +210,7 @@ GroundBarPlan groundBar({
   int lugCount = 0,
   double lugPitch = 0,
   double lugHoleDia = 0,
+  bool packGround = false,
   Map<String, double> overrides = const {},
 }) {
   final tabName = hat ? '챙' : '탭';
@@ -286,20 +289,30 @@ GroundBarPlan groundBar({
   }
 
   // 접지 구멍 줄 길이 계산
+  final lugOn = lugHoles > 0 && lugCount > 0 && lugHoleDia > 0;
+  final packed = packGround && lugOn && nRows == 1;
+  final lugGroupW =
+      (lugCount > 1 ? (lugCount - 1) * lugPitch : 0.0) +
+      (lugHoles == 2 ? lugSpacing : 0.0);
   final st = nRows == 2 && staggered ? (shift ?? pitch / 2) : 0.0;
   var n = 0;
   var run = 0.0; // 접지 구멍 줄이 놓이는 곧은 구간 길이
   var len = 0.0;
   if (count != null) {
     n = count;
-    run = n < 1 ? 0 : 2 * endDist + (n - 1) * pitch + st;
+    run = n < 1
+        ? 0
+        : packed
+        ? endDist + (n - 1) * pitch + pitch + lugGroupW + endDist
+        : 2 * endDist + (n - 1) * pitch + st;
     len = run + spanL + spanR;
   } else if (length != null) {
     len = length;
     run = len - spanL - spanR;
-    n = run < 2 * endDist + st || pitch <= 0
+    final fixed = packed ? pitch + lugGroupW : st;
+    n = run < 2 * endDist + fixed || pitch <= 0
         ? 0
-        : ((run - 2 * endDist - st) / pitch + 1e-9).floor() + 1;
+        : ((run - 2 * endDist - fixed) / pitch + 1e-9).floor() + 1;
   }
   if (n > kGroundMaxHoles) {
     warn('구멍이 한 줄에 $kGroundMaxHoles개를 넘어 계산하지 않습니다.');
@@ -312,7 +325,7 @@ GroundBarPlan groundBar({
   }
   if (nRows == 2 && rowGap <= 0) warn('두 줄은 줄 간격이 있어야 합니다.');
   final holeRun = n < 1 ? 0.0 : 2 * endDist + (n - 1) * pitch + st;
-  final rest = n < 1 ? 0.0 : run - holeRun;
+  final rest = n < 1 || packed ? 0.0 : run - holeRun;
   final first = spanL + endDist + rest / 2;
 
   double dOf(String id) => overrides[id] ?? holeDia;
@@ -400,7 +413,12 @@ GroundBarPlan groundBar({
   // 접지 러그 구멍: 곧은 구간 가운데, 폭 가운데에 따로 추가한다(접지 구멍을 쓰지 않음).
   final lugs = <GroundHole>[];
   if (lugHoles > 0 && lugCount > 0 && lugHoleDia > 0) {
-    final cx = (spanL + (len - spanR)) / 2;
+    // 묶은 경우: 마지막 접지 구멍 뒤 남는 자리(마지막 구멍 + 피치 ~ 끝 여유 앞)의 가운데
+    final cx = packed
+        ? ((spanL + endDist + (n - 1) * pitch + pitch) +
+                  (len - spanR - endDist)) /
+              2
+        : (spanL + (len - spanR)) / 2;
     for (var k = 0; k < lugCount; k++) {
       final lx = cx + (k - (lugCount - 1) / 2) * lugPitch;
       for (var m = 0; m < (lugHoles == 2 ? 2 : 1); m++) {
