@@ -290,7 +290,7 @@ GroundBarPlan groundBar({
 
   // 접지 구멍 줄 길이 계산
   final lugOn = lugHoles > 0 && lugCount > 0 && lugHoleDia > 0;
-  final packed = packGround && lugOn && nRows == 1;
+  final packed = packGround && lugOn;
   final lugGroupW =
       (lugCount > 1 ? (lugCount - 1) * lugPitch : 0.0) +
       (lugHoles == 2 ? lugSpacing : 0.0);
@@ -303,13 +303,13 @@ GroundBarPlan groundBar({
     run = n < 1
         ? 0
         : packed
-        ? endDist + (n - 1) * pitch + pitch + lugGroupW + endDist
+        ? endDist + (n - 1) * pitch + st + pitch + lugGroupW + endDist
         : 2 * endDist + (n - 1) * pitch + st;
     len = run + spanL + spanR;
   } else if (length != null) {
     len = length;
     run = len - spanL - spanR;
-    final fixed = packed ? pitch + lugGroupW : st;
+    final fixed = packed ? st + pitch + lugGroupW : st;
     n = run < 2 * endDist + fixed || pitch <= 0
         ? 0
         : ((run - 2 * endDist - fixed) / pitch + 1e-9).floor() + 1;
@@ -415,7 +415,7 @@ GroundBarPlan groundBar({
   if (lugHoles > 0 && lugCount > 0 && lugHoleDia > 0) {
     // 묶은 경우: 마지막 접지 구멍 뒤 남는 자리(마지막 구멍 + 피치 ~ 끝 여유 앞)의 가운데
     final cx = packed
-        ? ((spanL + endDist + (n - 1) * pitch + pitch) +
+        ? ((spanL + endDist + (n - 1) * pitch + st + pitch) +
                   (len - spanR - endDist)) /
               2
         : (spanL + (len - spanR)) / 2;

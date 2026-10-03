@@ -195,4 +195,32 @@ void main() {
     expect(p.lugHoleList.last.x, lessThan(400 - 25 + 1e-9));
     expect(p.ok, isTrue);
   });
+
+  test('두 줄에서도 C 배치: 두 줄 접지 구멍을 왼쪽에 몰고 큰 러그 구멍은 뒤 남는 자리 가운데', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      length: 500,
+      rows: 2,
+      rowGap: 20,
+      staggered: true,
+      lugHoles: 2,
+      lugSpacing: 44.45,
+      lugCount: 1,
+      lugHoleDia: 13.5,
+      packGround: true,
+    );
+    expect(p.ok, isTrue);
+    expect(p.positions.first, 25);
+    final lastGround = [
+      ...p.positions,
+      ...p.positionsB,
+    ].reduce((a, b) => a > b ? a : b);
+    expect(p.lugHoleList.first.x, greaterThan(lastGround + 25.4 - 1e-9));
+    expect(p.lugHoleList.last.x, lessThan(500 - 25 + 1e-9));
+    expect(p.lugHoleList.length, 2);
+  });
 }

@@ -681,7 +681,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         ],
         elecChipGroup(
           '접지 구멍 놓는 방법',
-          '뒤로 몰기: 기본 접지 구멍을 왼쪽 끝에서부터 한 줄로 촘촘히 놓고, 큰 러그 구멍은 그 뒤 남는 자리 가운데에 같은 줄로 둡니다. 가운데 균등: 접지 구멍을 막대 가운데에 고르게 놓고 러그 구멍을 그 가운데에 겹쳐 둡니다(겹치면 알림). 한 줄일 때만 적용됩니다.',
+          '뒤로 몰기: 기본 접지 구멍을 왼쪽 끝에서부터 한 줄로 촘촘히 놓고, 큰 러그 구멍은 그 뒤 남는 자리 가운데에 같은 줄로 둡니다. 가운데 균등: 접지 구멍을 막대 가운데에 고르게 놓고 러그 구멍을 그 가운데에 겹쳐 둡니다(겹치면 알림)..',
           [
             calcChip(
               'gb_pack_on',
@@ -714,7 +714,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             warn: !p.ok,
             lines: [
               for (final e in groups.entries) _lugLine(e.key, e.value),
-              _packGround && _rowMode == 0
+              _packGround
                   ? '접지 구멍은 왼쪽 끝으로 몰았고, 러그 구멍은 접지 구멍과 따로 그 뒤 남는 자리 가운데에 같은 줄로 추가했습니다(펼친 막대 왼쪽 끝에서 잰 거리).'
                   : '러그 구멍은 접지 구멍을 쓰지 않고 부스바 가운데에 추가한 구멍입니다(펼친 막대 왼쪽 끝에서 잰 거리).',
               '볼트 세트 $bolts개 = ${_lugParts(bolts).join(' · ')}',
@@ -1204,12 +1204,9 @@ class _GroundBarPageState extends State<GroundBarPage>
             if (p.holes > 0) _rowText(p),
             if (_byLength &&
                 p.holes > 0 &&
-                !(_packGround && _rowMode == 0 && p.lugHoleList.isNotEmpty))
+                !(_packGround && p.lugHoleList.isNotEmpty))
               '남는 길이는 양 끝 여유에 똑같이 나눴습니다(양 끝 ${fmt(p.endLeft, 1)} / ${fmt(p.endRight, 1)}mm).'
-            else if (p.holes > 0 &&
-                _packGround &&
-                _rowMode == 0 &&
-                p.lugHoleList.isNotEmpty)
+            else if (p.holes > 0 && _packGround && p.lugHoleList.isNotEmpty)
               '접지 구멍 ${p.holes}개를 왼쪽 끝에서부터 놓고, 오른쪽 남는 자리에 러그 구멍을 가운데로 두었습니다.',
             if (p.hat)
               '모자: 높이 ${fmt(_num(_hatH))} · 챙 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))} · 몸체 바깥 폭 ${fmt(p.hatWidth, 1)}mm. 꺾기 4곳, 접지 구멍 줄은 몸체 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.'
