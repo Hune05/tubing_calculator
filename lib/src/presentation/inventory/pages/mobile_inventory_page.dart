@@ -220,7 +220,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           ),
           const Expanded(
             child: Text(
-              "재고조사",
+              "재고조사·자재 등록",
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: slate900,

@@ -91,7 +91,7 @@ class _MobileInventoryLoginScreenState
   void _enterWithoutCheck(SharedPreferences? prefs, String why) {
     final ok = prefs?.getBool(kInventoryAdminOkPrefsKey) == true;
     if (!ok) {
-      _showErrorAndPop("$why 통신되는 곳에서 한 번 열어 주십시오.");
+      _showErrorAndPop("$why 통신되는 곳에서 한 번 여십시오.");
       return;
     }
     final name = prefs?.getString('user_real_name') ?? "관리자";

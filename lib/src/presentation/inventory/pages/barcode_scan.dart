@@ -49,7 +49,7 @@ class _BarcodeScanPageState extends State<_BarcodeScanPage> {
             child: Padding(
               padding: EdgeInsets.only(bottom: 48),
               child: Text(
-                '자재의 바코드나 QR을 화면 안에 맞춰 주십시오',
+                '자재의 바코드나 QR을 화면 안에 맞추십시오',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,

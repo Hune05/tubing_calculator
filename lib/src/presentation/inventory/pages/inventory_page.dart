@@ -218,7 +218,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                         context,
                                       ).showSnackBar(
                                         const SnackBar(
-                                          content: Text("입고할 자재를 먼저 선택해 주십시오."),
+                                          content: Text("입고할 자재를 먼저 선택하십시오."),
                                         ),
                                       );
                                     }
@@ -318,7 +318,7 @@ class _InventoryPageState extends State<InventoryPage> {
                                       ).showSnackBar(
                                         const SnackBar(
                                           content: Text(
-                                            "반납할 현장 자재를 먼저 선택해 주십시오.",
+                                            "반납할 현장 자재를 먼저 선택하십시오.",
                                           ),
                                         ),
                                       );

@@ -450,7 +450,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             if (name.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text("자재명을 입력해 주십시오."),
+                                  content: Text("자재명을 입력하십시오."),
                                   backgroundColor: Colors.redAccent,
                                 ),
                               );
@@ -602,7 +602,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: slate100,
-                        hintText: "직접 입력해 주십시오",
+                        hintText: "직접 입력하십시오",
                         errorText: minQtyError,
                         hintStyle: TextStyle(
                           color: slate600.withValues(alpha: 0.6),

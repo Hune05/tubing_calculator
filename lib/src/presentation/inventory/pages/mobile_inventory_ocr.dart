@@ -33,14 +33,14 @@ class OcrService {
         sourcePath: image.path,
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: '라벨 전체 구역을 지정해 주십시오',
+            toolbarTitle: '라벨 전체 구역을 지정하십시오',
             toolbarColor: AppColors.brand, // 마키타 틸 색상
             toolbarWidgetColor: Colors.white,
             initAspectRatio: CropAspectRatioPreset.original,
             lockAspectRatio: false,
             hideBottomControls: false,
           ),
-          IOSUiSettings(title: '라벨 전체 구역을 지정해 주십시오'),
+          IOSUiSettings(title: '라벨 전체 구역을 지정하십시오'),
         ],
       );
 
@@ -68,7 +68,7 @@ class OcrService {
 
       if (recognizedText.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정해 주십시오.")),
+          const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정하십시오.")),
         );
         return null;
       }
@@ -139,14 +139,14 @@ class OcrService {
         aspectRatio: const CropAspectRatio(ratioX: 5, ratioY: 1),
         uiSettings: [
           AndroidUiSettings(
-            toolbarTitle: '해당 글자 한 줄만 좁게 잘라 주십시오',
+            toolbarTitle: '해당 글자 한 줄만 좁게 자르십시오',
             toolbarColor: AppColors.brand,
             toolbarWidgetColor: Colors.white,
             initAspectRatio: CropAspectRatioPreset.ratio16x9,
             lockAspectRatio: false, // 사용자가 모서리를 당겨서 미세 조정하는 것은 허용
           ),
           IOSUiSettings(
-            title: '해당 글자 한 줄만 좁게 잘라 주십시오',
+            title: '해당 글자 한 줄만 좁게 자르십시오',
             aspectRatioLockEnabled: false,
           ),
         ],
@@ -174,7 +174,7 @@ class OcrService {
 
       if (recognizedText.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정해 주십시오.")),
+          const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정하십시오.")),
         );
         return null;
       }
