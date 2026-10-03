@@ -16,7 +16,7 @@ import 'cable_weights.dart';
 import 'conduit_tables.dart';
 import 'elec_tables.dart' show GroupLayout, groupFactor;
 
-/// 트레이 종류. 옛 기준에서 펀칭형·메시형은 통풍이 되는 쪽(사다리형 표)을 쓴다.
+/// 트레이 종류. 옛 기준에서 펀칭형·그물망형은 통풍이 되는 쪽(사다리형 표)을 쓴다.
 enum TrayType { ladder, punched, mesh, solid }
 
 /// 판정 기준.
@@ -30,7 +30,7 @@ String trayStandardLabel(TrayStandard s) => switch (s) {
 String trayTypeLabel(TrayType t) => switch (t) {
   TrayType.ladder => '사다리형',
   TrayType.punched => '펀칭형',
-  TrayType.mesh => '메시형',
+  TrayType.mesh => '그물망형',
   TrayType.solid => '바닥밀폐형',
 };
 

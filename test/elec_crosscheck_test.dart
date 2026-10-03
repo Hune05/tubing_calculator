@@ -1783,10 +1783,9 @@ void main() {
           t.run('중성점 ${ig}A $trip', (c) => c.n('Ω', gc.neutralGroundMaxOhms(ig, trip: trip), v / ig));
         }
       }
+      // KEC 211.2.6의 3: TT는 50 V 하나(직류 120 V 조건 없음, 원문 확인).
       for (final idn in [0.03, 0.1, 0.3, 0.5, 1.0]) {
-        for (final dc in [false, true]) {
-          t.run('TT ${idn}A ${dc ? '직류' : '교류'}', (c) => c.n('Ω', gc.ttMaxOhms(idn, dc: dc), (dc ? 120 : 50) / idn));
-        }
+        t.run('TT ${idn}A', (c) => c.n('Ω', gc.ttMaxOhms(idn), 50 / idn));
       }
       for (final rho in [30.0, 100.0, 300.0, 1000.0]) {
         for (final l in [1.0, 1.5, 2.4, 3.0, 6.0]) {

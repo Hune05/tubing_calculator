@@ -81,7 +81,7 @@ double? adiabaticMinArea({
   return fault * math.sqrt(seconds) / k;
 }
 
-/// 접지도체 최소 단면적(고정설비, 큰 고장전류가 없을 때). 2026-01-06 개정 KEC 142.3.1 인용(원문 대조 전):
+/// 접지도체 최소 단면적. KEC 142.3.1의 1(2025.12.30 개정, 현행 원문 확인):
 /// 구리 저압 6 / 고압 이상 16 mm², 철 50 mm², 알루미늄은 접지도체로 쓸 수 없다.
 /// 반환: (최소 mm², 쓸 수 없으면 null, 설명).
 ({double? mm2, String note}) groundingConductorMin({
@@ -97,7 +97,7 @@ double? adiabaticMinArea({
     case 'fe':
       return (mm2: 50, note: '철(아연도금 등) 50 mm² 이상');
     default:
-      return (mm2: null, note: '알루미늄은 접지도체로 쓸 수 없습니다(2026-01 개정)');
+      return (mm2: null, note: '알루미늄은 접지도체로 쓸 수 없습니다(142.3.1의 1 다)');
   }
 }
 
@@ -117,10 +117,10 @@ double? neutralGroundMaxOhms(double groundFaultAmps, {String trip = 'normal'}) {
   return base / groundFaultAmps;
 }
 
-/// TT 계통 누전차단기 보호: R_A × IΔn ≤ 50 V(교류) / 120 V(직류) → 접지저항 최댓값(Ω).
-double? ttMaxOhms(double residualAmps, {bool dc = false}) {
+/// TT 계통 누전차단기 보호: R_A × IΔn ≤ 50 V → 접지저항 최댓값(Ω). KEC 211.2.6의 3(직류 120 V 조건은 없다).
+double? ttMaxOhms(double residualAmps) {
   if (residualAmps <= 0) return null;
-  return (dc ? 120 : 50) / residualAmps;
+  return 50 / residualAmps;
 }
 
 /// 접지봉 1본 접지저항(Ω): R = ρ/(2πl)·(ln(4l/r) − 1). [rho] Ω·m, [lengthM] m, [diaMm] 봉 지름 mm.

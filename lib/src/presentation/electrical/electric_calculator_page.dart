@@ -1788,7 +1788,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           _vdStart,
           (v) => setState(() => _vdStart = v),
           '전동기 기동 중에는 정격전류의 5~7배가 역률 약 0.35로 흐릅니다(Schneider EIG). 이 기동 전류로 '
-              '전압강하를 따로 계산합니다. 기동 중 전압강하에는 표 232.3-1 한도를 적용하지 않습니다(KEC 232.3.9 2).',
+              '전압강하를 따로 계산합니다. 기동 중 전압강하는 표 232.3-1보다 큰 값을 허용할 수 있습니다(KEC 232.3.9의 2 가).',
           key: 'ec_vd_start',
         ),
       if (!_dc && _vdStart)
@@ -1875,7 +1875,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                   ? '허용 기동 전압강하 ${fmt(startLimit, 1)}%를 초과합니다(불합격).'
                   : '허용 기동 전압강하 ${fmt(startLimit, 1)}% 이내입니다(합격).',
             if (startDv != null)
-              '기동 중 전압강하는 표 232.3-1 한도 대상이 아닙니다. 전동기 단자 전압이 기동에 충분한지 확인하십시오.',
+              '기동 중 전압강하는 표 232.3-1보다 큰 값을 허용할 수 있습니다(232.3.9의 2 가). 전동기 단자 전압이 기동에 충분한지 확인하십시오.',
             if (startDv != null)
               '변압기·발전기 자체의 기동 전압강하는 포함하지 않았습니다. 알고 있으면 전원 쪽 전압강하 칸에 넣으십시오.',
             if (_dc) '직류 제어·계장 회로는 기기 최소 동작 전압으로도 확인하십시오.',

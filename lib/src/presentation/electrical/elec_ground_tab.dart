@@ -63,7 +63,6 @@ class _ElecGroundTabState extends State<ElecGroundTab>
 
   // TT
   final _idn = TextEditingController(text: '0.03');
-  bool _dc = false;
 
   // 접지봉
   final _rho = TextEditingController(text: '100');
@@ -151,7 +150,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
     var warn = false;
     final basis = <String>[
       'TN·TT 자동 차단(211.2), 절연저항·절연내력(132·133·기술기준 제52조)은 현행 KEC 원문(2026.1.5 시행)으로 확인했습니다. 그 밖의 조문은 공식 원문이 아닌 사이트(cq4l 등)로 확인했습니다.',
-      '2026-01-06 개정 KEC 142.3.1(접지도체)은 일렉킴 인용으로 확인했습니다. TT·IT 계통 노출도전부 접지극 100 Ω 이하는 2025.12.30 개정으로 원문에 들어 있습니다.',
+      '접지도체 최소 굵기(142.3.1)와 TT·IT 계통 노출도전부 접지극 100 Ω 이하는 2025.12.30 개정(공고 제2025-198호)으로 바뀌었고, 현행 원문(2026.1.5 시행)으로 확인했습니다.',
     ];
 
     switch (_mode) {
@@ -265,8 +264,9 @@ class _ElecGroundTabState extends State<ElecGroundTab>
                 if (ad == null && (i != null || t != null))
                   '단열 식은 고장전류와 차단시간(5초 이하)을 모두 넣어야 계산합니다.',
                 '표 값은 선도체와 같은 재질일 때입니다. 재질이 다르면 (k₁/k₂)를 곱해 구합니다.',
+                'TT 계통에서 전원과 설비의 접지극이 따로 떨어져 있으면 보호도체는 구리 25 mm²·알루미늄 35 mm²를 넘을 필요가 없습니다(142.3.2의 1 가).',
                 '따로 포설하는 보호도체(케이블의 일부가 아님)는 기계적 보호가 있으면 구리 2.5 mm²·알루미늄 16 mm² 이상, 없으면 구리 4 mm²·알루미늄 16 mm² 이상이고 표 값이 더 크면 표 값입니다.',
-                '보호도체 전류가 10 mA를 초과하면 구리 10 mm² 또는 알루미늄 16 mm² 이상으로 보강합니다. 금속 수도관·가스관·가요 전선관·케이블 트레이는 보호도체로 쓰지 않습니다.',
+                '보호도체 전류가 10 mA를 초과하면 구리 10 mm² 또는 알루미늄 16 mm² 이상으로 보강합니다. 금속 수도관, 인화성 물질(가스·액체·가루)을 담는 금속관, 상시 기계적 응력을 받는 지지 구조물, 가요성 금속배관(보호도체용 설계 제외), 가요성 금속전선관, 지지선·케이블 트레이는 보호도체·보호본딩도체로 쓰지 않습니다(142.3.2의 2 다).',
               ],
             ),
           );
@@ -306,12 +306,12 @@ class _ElecGroundTabState extends State<ElecGroundTab>
           calcResult(
             key: const Key('gr_result'),
             big: g.mm2 == null ? '쓸 수 없음' : '${fmt(g.mm2!)} mm²',
-            caption: '접지도체 최소 단면적 (고정설비, 큰 고장전류가 없을 때)',
+            caption: '접지도체 최소 단면적 (KEC 142.3.1의 1 가)',
             warn: warn,
             lines: [
               g.note,
-              '큰 고장전류가 흐르는 접지도체는 보호도체와 같은 식(S = √(I²t)/k)으로 구합니다. 중성점 접지용은 16 mm² 이상이고 7 kV 이하 전로는 6 mm²입니다.',
-              '피뢰시스템이 접속되면 구리 16 mm² 이상입니다(2024년 판).',
+              '접지도체 단면적은 보호도체 규정(142.3.2의 1, 표 또는 S = √(I²t)/k)도 만족해야 합니다. 중성점 접지용은 16 mm² 이상이고 7 kV 이하 전로는 6 mm²입니다.',
+              '피뢰시스템이 접속되면 구리 16 mm² 또는 철 50 mm² 이상입니다(142.3.1의 1 나).',
               '이동용 기계 외함 접지는 별도 규정이 있습니다(캡타이어 등). 이 화면은 고정설비만 다룹니다.',
             ],
           ),
@@ -369,7 +369,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               caption: 'KEC 142.5 변압기 중성점 접지저항',
               lines: [
                 'R ≤ ${fmt(_trip == 'within1s' ? 600 : (_trip == 'within2s' ? 300 : 150), 0)} ÷ 1선 지락전류 ${fmt(_v(_i1)!, 1)} A = ${fmt(r, 2)} Ω',
-                '구 제2종(B종) 접지의 150/300/600 규칙과 같습니다.',
+                '고압·35 kV 이하 특고압 전로가 저압과 혼촉할 때의 규정입니다(142.5). 구 제2종 접지의 150/300/600 규칙과 같습니다.',
                 '구 종별 참고: 제1종·특별 제3종 10 Ω, 제3종 100 Ω. KEC는 종별을 없앴고 이 숫자가 그대로 모든 접지공사에 적용되는 것은 아닙니다.',
               ],
             ),
@@ -377,7 +377,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         }
       case _GMode.tt:
         final i = _v(_idn);
-        final r = i == null ? null : ttMaxOhms(i, dc: _dc);
+        final r = i == null ? null : ttMaxOhms(i);
         children.addAll([
           elecField(
             'gr_idn',
@@ -400,10 +400,6 @@ class _ElecGroundTabState extends State<ElecGroundTab>
                 () => _set(() => _idn.text = v),
               ),
           ]),
-          elecChipGroup('전류 종류', '교류는 50 V, 직류는 120 V를 씁니다.', [
-            calcChip('gr_ac', '교류 50 V', !_dc, () => _set(() => _dc = false)),
-            calcChip('gr_dc', '직류 120 V', _dc, () => _set(() => _dc = true)),
-          ]),
         ]);
         if (r == null) {
           children.add(
@@ -420,10 +416,11 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             calcResult(
               key: const Key('gr_result'),
               big: '${fmt(r, 0)} Ω 이하',
-              caption: 'TT 계통 누전차단기 보호: R_A × IΔn ≤ ${_dc ? 120 : 50} V',
+              caption: 'TT 계통 누전차단기 보호: R_A × IΔn ≤ 50 V (KEC 211.2.6의 3)',
               lines: [
                 'R_A = 노출도전부 PE 저항 + 접지극 저항의 합입니다.',
-                '${_dc ? 120 : 50} V ÷ ${fmt(_v(_idn)!, 3)} A = ${fmt(r, 0)} Ω',
+                '50 V ÷ ${fmt(_v(_idn)!, 3)} A = ${fmt(r, 0)} Ω',
+                'KEC의 TT 조건은 50 V 하나입니다. 직류 120 V는 IT 계통(211.2.7)과 보조 보호등전위본딩(143.2.2)에만 있습니다.',
                 '실제 설비는 이 값보다 훨씬 낮게(수십 Ω 이하) 시공하는 것이 안전합니다. 접지극 저항은 계절에 따라 변합니다.',
                 '노출도전부 접지극 저항은 따로 100 Ω 이하여야 합니다(KEC 211.2.6의 3, 2025.12.30 추가). 계산값이 더 커도 접지극은 100 Ω 이하로 시공합니다.',
               ],

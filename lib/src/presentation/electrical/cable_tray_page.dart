@@ -89,7 +89,7 @@ class _TrayRow {
 
 /// 바닥에 직접 놓는 트레이 안내(덮개).
 const List<String> kFloorTrayNotes = [
-  '덮개: 사람이 다니거나 물건이 떨어지거나 밟힐 수 있는 곳은 덮개를 씌웁니다. KEC 232.41.2 10호 "별도로 방호를 필요로 하는 곳은 불연성 커버"를 따릅니다.',
+  '덮개: 사람이 다니거나 물건이 떨어지거나 밟힐 수 있는 곳은 덮개를 씌웁니다. KEC 232.41.2의 10 "별도로 방호를 필요로 하는 배선부분에는 필요한 방호력이 있는 불연성의 덮개 등"을 따릅니다.',
   '덮개 중량도 트레이 자중 칸에 더해 넣으십시오.',
   '바닥 트렌치(홈) 안이면 KEC 232.24: 받침대는 2m 이내마다, 뚜껑은 바닥 마감면과 평평하고 다니는 사람·장비 하중에 변형되지 않게, 바닥·옆면 방수와 물 고임 방지.',
   '참고: NEMA VE 2는 트레이를 바닥에 바로 놓지 말고 스트럿 위에 띄워 클램프로 고정하라고 합니다(해외 권고).',
@@ -543,7 +543,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       elecChipGroup(
         '굽힘 반경 기준',
         '국내 시방서: 다심 외경의 6배, 단심 8배(서울시 SMCS·KRCCS·나라장터 시방서 등). 차폐 제어·AMS 케이블은 국내 규정이 없어 제조사 값 12배를 씁니다. '
-            '제조사: 넥상스코리아 제품 자료의 12배(TFR-CV·TFR-CVV-S·TFR-CVV-AMS). KEC에는 굽힘 반경 조항이 없습니다.',
+            '제조사: 넥상스코리아 제품 자료의 12배(TFR-CV·TFR-CVV-S·TFR-CVV-AMS). KEC는 굽힘 반경 수치를 정하지 않고, 굽은 부분이 손상·응력을 받지 않는 반지름으로 하라고만 합니다(232.4.8의 4).',
         [for (final r in BendRule.values) calcChip('ct_br_${r.name}', bendRuleLabel(r), _bendRule == r, () => _set(() => _bendRule = r))],
       ),
       elecChipGroup(
@@ -709,7 +709,7 @@ class _CableTrayPageState extends State<CableTrayPage>
         '트레이 종류',
         _std == TrayStandard.kec
             ? 'KEC에서는 종류와 관계없이 같은 규칙입니다(허용전류 보정에만 영향).'
-            : '구 기준: 사다리형·펀칭형·메시형은 통풍이 되는 표(넓은 한도), 바닥밀폐형은 더 작은 표를 씁니다.',
+            : '구 기준: 사다리형·펀칭형·그물망형은 통풍이 되는 표(넓은 한도), 바닥밀폐형은 더 작은 표를 씁니다.',
         [for (final t in TrayType.values) calcChip('ct_type_${t.name}', trayTypeLabel(t), _type == t, () => _set(() => _type = t))],
       ),
       elecChipGroup(

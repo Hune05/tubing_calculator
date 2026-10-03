@@ -94,7 +94,6 @@ void main() {
       expect(ttMaxOhms(0.03), closeTo(1666.67, 0.01));
       expect(ttMaxOhms(0.1), 500);
       expect(ttMaxOhms(1), 50);
-      expect(ttMaxOhms(0.03, dc: true), 4000);
     });
 
     test('접지봉: ρ 100, 길이 2.4 m, 지름 14.2 mm 손 계산', () {
