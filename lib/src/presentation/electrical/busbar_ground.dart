@@ -118,6 +118,9 @@ class GroundBarPlan {
   /// 구멍 가장자리에서 가장 가까운 꺾기 시작선까지 거리(mm): 몸체(접지·러그 구멍)와 탭·챙 구멍. 꺾기가 없으면 null.
   final double? minEdgeBody, minEdgeTab;
 
+  /// 위 두 거리에 필요한 최소 거리(mm): 구멍 지름 25.4 미만 2T + R, 이상 2.5T + R(일반 판금 규칙).
+  final double reqEdgeBody, reqEdgeTab;
+
   /// 입력을 바꿔 계산했다는 알림(문제는 아님).
   final List<String> notes;
 
@@ -160,6 +163,8 @@ class GroundBarPlan {
     required this.pitchUsed,
     required this.minEdgeBody,
     required this.minEdgeTab,
+    required this.reqEdgeBody,
+    required this.reqEdgeTab,
     required this.tabPitchUsed,
     required this.notes,
     required this.problems,
@@ -584,15 +589,55 @@ GroundBarPlan groundBar({
     final d = (left ? flatL : flatR) - off - h.dia / 2;
     edgeTab = edgeTab == null ? d : math.min(edgeTab, d);
   }
-  if (edgeTab != null && edgeTab < 2 * t) {
+  // 필요 거리: 일반 판금 규칙 d ≥ 2T + R(구멍 지름 25.4mm 미만), 2.5T + R(이상). 구리 부스바 전용 표준은 아니다.
+  double reqFor(Iterable<GroundHole> hs) {
+    final big = hs.any((h) => h.dia >= 25.4);
+    return (big ? 2.5 : 2.0) * t + rr;
+  }
+
+  final reqBody = reqFor([...ground, ...lugs]);
+  final reqTab = reqFor(tabs);
+  if (edgeTab != null && edgeTab < reqTab - 1e-9) {
     notes.add(
-      '$tabName 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeTab)}mm(두께의 ${_f(edgeTab / t)}배)로 가깝습니다. 꺾을 때 구멍이 늘어날 수 있으니 $tabName 길이를 늘리거나 구멍을 줄이거나 시험 조각으로 확인하십시오(두께 2배 이상은 판재 경험 규칙이며 확인한 규격 값은 아닙니다).',
+      '$tabName 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeTab)}mm로 필요 거리 ${_f(reqTab)}mm(2T + R)보다 가깝습니다. 꺾을 때 구멍이 늘어날 수 있으니 $tabName 길이를 ${_f(reqTab - edgeTab)}mm 이상 늘리거나 구멍을 줄이거나 시험 조각으로 확인하십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
     );
   }
-  if (edgeBody != null && edgeBody < 2 * t) {
+  if (edgeBody != null && edgeBody < reqBody - 1e-9) {
     notes.add(
-      '접지·러그 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeBody)}mm(두께의 ${_f(edgeBody / t)}배)로 가깝습니다. 끝 여유를 늘리십시오(두께 2배 이상은 판재 경험 규칙이며 확인한 규격 값은 아닙니다).',
+      '접지·러그 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeBody)}mm로 필요 거리 ${_f(reqBody)}mm(2T + R)보다 가깝습니다. 끝 여유를 ${_f(reqBody - edgeBody)}mm 이상 늘리십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
     );
+  }
+  // 막대 가장자리(폭 방향·꺾지 않은 끝)와 구멍 가장자리: 권장 2T, 최소 1T(일반 판금 자료).
+  double? edgeW;
+  for (final h in [...ground, ...tabs, ...lugs]) {
+    final d = math.min(h.y, w - h.y) - h.dia / 2;
+    edgeW = edgeW == null ? d : math.min(edgeW, d);
+  }
+  if (edgeW != null && edgeW < 2 * t - 1e-9) {
+    notes.add(
+      '구멍 가장자리가 막대 가장자리(폭 방향)에서 ${_f(edgeW)}mm로 가깝습니다. 일반 판금 자료는 권장 2T(${_f(2 * t)}mm), 최소 1T(${_f(t)}mm)입니다${edgeW < t - 1e-9 ? ' — 최소에도 못 미칩니다' : ''}.',
+    );
+  }
+  if (n > 0) {
+    final endGap = <double>[
+      if (spanL == 0) endDist - holeDia / 2,
+      if (spanR == 0) endDist - holeDia / 2,
+    ];
+    final endMin = endGap.isEmpty ? null : endGap.reduce(math.min);
+    if (endMin != null && endMin < 2 * t - 1e-9) {
+      notes.add(
+        '꺾지 않은 막대 끝에서 구멍 가장자리까지 ${_f(endMin)}mm입니다. 일반 판금 자료는 권장 2T(${_f(2 * t)}mm), 최소 1T(${_f(t)}mm)입니다.',
+      );
+    }
+  }
+  // 구멍 가장자리 사이 간격(같은 줄 이웃): 최소 1T, 권장 2T(한 곳 자료).
+  if (n > 1) {
+    final gap = pitch - holeDia;
+    if (gap < t - 1e-9) {
+      notes.add(
+        '이웃한 접지 구멍 가장자리 사이가 ${_f(gap)}mm로 좁습니다(최소 1T = ${_f(t)}mm, 한 곳 자료). 구멍 사이가 찢어질 수 있습니다.',
+      );
+    }
   }
   final lastX = n < 1 ? 0.0 : first + (n - 1) * pitch + st;
   return GroundBarPlan(
@@ -623,6 +668,8 @@ GroundBarPlan groundBar({
     pitchUsed: pitch,
     minEdgeBody: edgeBody,
     minEdgeTab: edgeTab,
+    reqEdgeBody: reqBody,
+    reqEdgeTab: reqTab,
     tabPitchUsed: tabHolePitch,
     notes: notes,
     problems: problems,

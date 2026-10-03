@@ -374,14 +374,14 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   /// 구멍 가장자리 ~ 꺾기 시작선 거리(구멍 종류별). 꺾을 때 구멍이 늘어나는지 가늠하는 값.
   String _edgeLine(GroundBarPlan p) {
-    final t = _num(_thick);
-    String one(String name, double d) =>
-        '$name ${fmt(d, 1)}mm(두께의 ${fmt(t > 0 ? d / t : 0, 1)}배)';
+    String one(String name, double d, double req) =>
+        '$name ${fmt(d, 1)}mm (필요 ${fmt(req, 1)}mm 이상 ${d >= req - 1e-9 ? "✓" : "✗"})';
     final parts = [
-      if (p.minEdgeBody != null) one('접지·러그 구멍', p.minEdgeBody!),
-      if (p.minEdgeTab != null) one('$_tabName 구멍', p.minEdgeTab!),
+      if (p.minEdgeBody != null) one('접지·러그 구멍', p.minEdgeBody!, p.reqEdgeBody),
+      if (p.minEdgeTab != null)
+        one('$_tabName 구멍', p.minEdgeTab!, p.reqEdgeTab),
     ];
-    return '구멍 가장자리 ~ 꺾기 시작선 거리: ${parts.join(' · ')}. 가까울수록 꺾을 때 구멍이 늘어날 수 있습니다.';
+    return '구멍 가장자리 ~ 꺾기 시작선 거리: ${parts.join(' · ')}. 필요 거리 = 2T + R(구멍 지름 25.4 이상은 2.5T + R, 일반 판금 규칙).';
   }
 
   /// 탭·챙 구멍 수 설명: 어느 쪽에 몇 개인지 풀어 쓴다.

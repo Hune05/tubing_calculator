@@ -438,7 +438,7 @@ void main() {
     expect(p.positions[1] - p.positions[0], 12);
     expect(p.rowY, [19, 31]); // 줄 간격 12
     expect(p.tabRowY, [19, 31]);
-    expect(p.notes.length, 4);
+    expect(p.notes.where((s) => s.contains("12mm로 계산")).length, 4);
     expect(p.notes.first, contains('최소 간격 12mm'));
     expect(p.ok, isTrue); // 알림일 뿐 문제가 아니다
     // 12 이상은 그대로
@@ -450,7 +450,7 @@ void main() {
       endDist: 25,
       count: 3,
     );
-    expect(q.notes, isEmpty);
+    expect(q.notes.where((s) => s.contains("12mm로 계산")), isEmpty);
     expect(q.pitchUsed, 12);
   });
 
@@ -493,5 +493,73 @@ void main() {
     );
     expect(flat.minEdgeBody, isNull);
     expect(flat.minEdgeTab, isNull);
+  });
+
+  test('필요 거리 2T + R: 두께 6·반경 6이면 18mm, 부족하면 필요한 만큼 늘리라고 알린다', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 40,
+      tabHoleCount: 1,
+      tabHoleDia: 11.1,
+      tabHolePitch: 25.4,
+    );
+    expect(p.reqEdgeTab, closeTo(18, 1e-9));
+    expect(p.reqEdgeBody, closeTo(18, 1e-9));
+    expect(p.minEdgeTab, closeTo(8.45, 1e-9));
+    final note = p.notes.firstWhere((s) => s.contains('필요 거리 18mm'));
+    expect(note, contains('9.6mm 이상 늘리거나')); // 18 − 8.45
+    // 지름 25.4 이상은 2.5T + R = 21
+    final big = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 30,
+      endDist: 30,
+      count: 2,
+      hat: true,
+      hatHeight: 40,
+      hatFlange: 60,
+      tabHoleCount: 1,
+      tabHoleDia: 26,
+      tabHolePitch: 30,
+    );
+    expect(big.reqEdgeTab, closeTo(21, 1e-9));
+  });
+
+  test('막대 가장자리·끝·구멍 사이 간격 주의(권장 2T, 최소 1T)', () {
+    final p = groundBar(
+      t: 6,
+      w: 20,
+      holeDia: 11.1,
+      pitch: 15,
+      endDist: 8,
+      count: 3,
+    );
+    // 폭 20, 구멍 11.1: 가장자리까지 4.45mm
+    expect(
+      p.notes.any(
+        (s) => s.contains('막대 가장자리(폭 방향)') && s.contains('최소에도 못 미칩니다'),
+      ),
+      isTrue,
+    );
+    expect(p.notes.any((s) => s.contains('꺾지 않은 막대 끝')), isTrue);
+    expect(p.notes.any((s) => s.contains('이웃한 접지 구멍 가장자리 사이')), isTrue);
+    expect(p.ok, isTrue); // 알림일 뿐 문제가 아니다
+    final fine = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+    );
+    expect(fine.notes, isEmpty);
   });
 }
