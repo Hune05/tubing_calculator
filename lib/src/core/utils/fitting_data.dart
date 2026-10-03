@@ -94,7 +94,7 @@ class FittingData {
     "0.5": const BenderSpec(
       bendRadius: 38.1,
       takeUp: 38.1,
-      gain: 20.0,
+      gain: 16.3,
       minStraight: 30.0,
       benderOffset: 0.0,
     ),
@@ -166,7 +166,7 @@ class FittingData {
     "12.0": const BenderSpec(
       bendRadius: 38.1,
       takeUp: 38.1,
-      gain: 20.0,
+      gain: 16.3,
       minStraight: 30.0,
       benderOffset: 0.0,
     ),

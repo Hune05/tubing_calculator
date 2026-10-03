@@ -2085,7 +2085,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 ),
                 _buildGuideRow2Col(
                   "1/2\" (12.7mm)",
-                  "약 20.0 mm (R38.1)",
+                  "약 16.3 mm (R38.1)",
                   makitaTeal,
                 ),
                 _buildGuideRow2Col(
