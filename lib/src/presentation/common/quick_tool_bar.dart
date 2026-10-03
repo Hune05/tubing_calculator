@@ -42,6 +42,7 @@ import '../electrical/cable_tray_page.dart';
 import '../electrical/busbar_bend_page.dart';
 import '../electrical/busbar_ground_page.dart';
 import '../electrical/circuit_reading_page.dart';
+import '../electrical/troubleshoot_page.dart';
 import '../electrical/cable_tray_route_page.dart';
 
 /// 막대에 넣을 수 있는(그리고 전체 검색에 나오는) 기능 하나.
@@ -258,6 +259,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.ladder,
     (_) => const CircuitReadingPage(),
     subtitle: 'Y·Δ 결선, 직입·정역·Y-Δ 시퀀스',
+    group: '전기',
+  ),
+  QuickToolDef(
+    'troubleshoot',
+    '고장 진단',
+    AppGlyph.troubleshoot,
+    (_) => const TroubleshootPage(),
+    subtitle: '차단기 트립·전동기 이상·지락 보호를 질문과 측정값으로 좁히기',
     group: '전기',
   ),
   QuickToolDef(

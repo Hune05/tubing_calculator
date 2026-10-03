@@ -185,6 +185,9 @@ enum AppGlyph {
   /// 결선도·기동 회로: 양쪽 모선 사이 한 줄에 a접점과 코일(원).
   ladder,
 
+  /// 고장 진단: 위에서 내려온 줄이 마름모(판단)에서 두 갈래로 나뉜다.
+  troubleshoot,
+
   /// 자료 검색: 문서 한 장과 돋보기.
   searchDocs,
 
@@ -1210,6 +1213,27 @@ class _AppIconPainter extends CustomPainter {
         canvas.drawCircle(const Offset(16, 12), 3, soft);
         canvas.drawCircle(const Offset(16, 12), 3, line);
         l(19, 12, 21, 12);
+
+      case AppGlyph.troubleshoot:
+        // 위 시작점에서 내려온 줄이 마름모에서 왼쪽·오른쪽 갈래로 나뉘어 끝점(원)에 닿는다.
+        canvas.drawCircle(const Offset(12, 3.6), 1.6, line);
+        l(12, 5.2, 12, 7);
+        final dia = Path()
+          ..moveTo(12, 7)
+          ..lineTo(16.5, 11.5)
+          ..lineTo(12, 16)
+          ..lineTo(7.5, 11.5)
+          ..close();
+        canvas.drawPath(dia, soft);
+        canvas.drawPath(dia, line);
+        l(7.5, 11.5, 4.5, 11.5);
+        l(4.5, 11.5, 4.5, 18);
+        l(16.5, 11.5, 19.5, 11.5);
+        l(19.5, 11.5, 19.5, 18);
+        canvas.drawCircle(const Offset(4.5, 19.6), 1.6, soft);
+        canvas.drawCircle(const Offset(4.5, 19.6), 1.6, line);
+        canvas.drawCircle(const Offset(19.5, 19.6), 1.6, soft);
+        canvas.drawCircle(const Offset(19.5, 19.6), 1.6, line);
 
       case AppGlyph.searchDocs:
         // 문서 한 장(접힌 귀퉁이)과 오른쪽 아래 돋보기.
