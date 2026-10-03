@@ -32,6 +32,7 @@ import '../models/elec_presets.dart';
 import '../models/skid_route.dart';
 import '../models/skid_part_painter.dart';
 import 'skid_route_editor_page.dart';
+import 'skid_iso_page.dart';
 import 'drawing_scale_page.dart';
 import '../models/drawing_scale.dart';
 import 'package:vector_math/vector_math_64.dart' as vm;
@@ -7649,6 +7650,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 ),
               ),
               const SizedBox(height: 6),
+              OutlinedButton.icon(
+                key: const Key('skid_iso_open'),
+                onPressed: _openSkidIso,
+                icon: const Icon(Icons.view_in_ar_rounded, size: 20),
+                label: const Text(
+                  "입체로 보기",
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
+              ),
+              const SizedBox(height: 6),
               for (final e in [
                 (
                   "형강",
@@ -9127,6 +9138,21 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 경로는 평면 기준(탭과 상관없이 하나)이고, 탭마다 그 방향에서 본 선으로 그린다.
 
   final List<ConduitRoute> _routes = [];
+
+  /// 스키드 입체 보기(보기 전용). 지금 평면 부품과 전선관 경로를 그대로 세워 보여 준다.
+  void _openSkidIso() {
+    final (double l, double w) = _planSize;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SkidIsoPage(
+          plan: List.of(_planItems),
+          routes: List.of(_routes),
+          length: l,
+          width: w,
+        ),
+      ),
+    );
+  }
 
   List<PlacedItem> get _planItems => _plateId == kPlateMain
       ? _placedItems
