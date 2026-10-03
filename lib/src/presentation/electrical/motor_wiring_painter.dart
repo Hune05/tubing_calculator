@@ -102,7 +102,20 @@ class MotorTerminalPainter extends CustomPainter {
       final p = pos(t);
       canvas.drawCircle(p, 12, Paint()..color = const Color(0xFF9AA3AD));
       canvas.drawCircle(p, 7, Paint()..color = const Color(0xFF59616B));
-      _t(canvas, 'T$t', Offset(p.dx - 30, p.dy - 8), text, bold: true, size: 13);
+      // 점퍼 막대가 글자를 가리지 않게 배경 칩을 깐다.
+      final chip = RRect.fromRectAndRadius(
+        Rect.fromCenter(center: Offset(p.dx - 34, p.dy), width: 34, height: 20),
+        const Radius.circular(6),
+      );
+      canvas.drawRRect(chip, Paint()..color = Color.lerp(surface, Colors.white, 0.6)!);
+      canvas.drawRRect(
+        chip,
+        Paint()
+          ..color = text.withValues(alpha: 0.25)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1,
+      );
+      _t(canvas, 'T$t', Offset(p.dx - 34, p.dy - 8), text, bold: true, size: 13);
     }
   }
 
