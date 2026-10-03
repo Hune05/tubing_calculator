@@ -264,7 +264,7 @@ class _OffsetBottomSheetState extends State<OffsetBottomSheet>
                           ),
                           SizedBox(width: 12),
                           Text(
-                            "오프셋 계산기 패널",
+                            "오프셋 패널",
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 20,

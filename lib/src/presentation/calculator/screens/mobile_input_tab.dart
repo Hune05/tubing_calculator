@@ -512,7 +512,7 @@ class _MobileInputTabState extends State<MobileInputTab>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "특수 벤딩 계산기",
+                  "특수 벤딩",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -527,13 +527,13 @@ class _MobileInputTabState extends State<MobileInputTab>
                 const SizedBox(height: 24),
 
                 // 🚀 1. 퀵 킥 (독립 실행형)
-                _buildSpecialMenuBtn("퀵 킥 (단일 단차) 계산기", AppGlyph.kick, () {
+                _buildSpecialMenuBtn("퀵 킥", AppGlyph.kick, () {
                   Navigator.pop(context);
                   MobileQuickKickBottomSheet.show(context);
                 }),
 
                 // 🚀 2. 퀵 U-Bend (독립 실행형) 추가!
-                _buildSpecialMenuBtn("퀵 U-Bend (180°) 계산기", AppGlyph.uBend, () {
+                _buildSpecialMenuBtn("퀵 U벤드", AppGlyph.uBend, () {
                   Navigator.pop(context);
                   MobileQuickUBendBottomSheet.show(
                     context,

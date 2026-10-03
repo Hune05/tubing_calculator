@@ -140,7 +140,7 @@ class _MobileParallelShrinkBottomSheetState
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      "평행 & 축소 계산기",
+                      "평행·축소",
                       style: TextStyle(
                         color: slate900,
                         fontSize: 20,
@@ -168,8 +168,8 @@ class _MobileParallelShrinkBottomSheetState
                     ),
               const SizedBox(height: 16),
               _buildToggleBox(
-                "평행 계산기",
-                "축소값 계산기",
+                "평행",
+                "축소값",
                 _isParallelMode,
                 // 🚀 [개선] "3D 입체" 모드는 축소값(Shrink) 계산에만 실제로
                 // 반영되고, 평행(Stagger) 계산은 spacing/각도만 쓰고

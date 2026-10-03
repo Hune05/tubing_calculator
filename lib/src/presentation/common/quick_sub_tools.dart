@@ -45,7 +45,7 @@ final List<QuickToolDef> kQuickSubTools = [
   // ── 공학용 계산기 ──
   _sub(
     'eng_unit',
-    '단위 계산기',
+    '단위 환산',
     LucideIcons.arrowLeftRight,
     '공학용 계산기',
     (_) => const MiniUnitConverterPage(),

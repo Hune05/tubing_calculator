@@ -148,7 +148,7 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
             Icon(LucideIcons.layoutGrid, color: makitaTeal, size: 28),
             SizedBox(width: 12),
             Text(
-              "평행 & 축소 계산기 (V2)",
+              "평행·축소 (V2)",
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -169,8 +169,8 @@ class _ParallelShrinkBottomSheetState extends State<ParallelShrinkBottomSheet> {
     return Column(
       children: [
         _buildToggleBox(
-          "평행 계산기",
-          "축소값 계산기",
+          "평행",
+          "축소값",
           _isParallelMode,
           () => setState(() => _isParallelMode = true),
           () => setState(() => _isParallelMode = false),

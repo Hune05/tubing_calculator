@@ -1,4 +1,4 @@
-// 공학용 계산기 안의 "단위 계산기" 화면: 분류 고르기(슬라이더)·값 넣기·단위 맞바꾸기.
+// 공학용 계산기 안의 "단위 환산" 화면: 분류 고르기(슬라이더)·값 넣기·단위 맞바꾸기.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/mini_unit_converter_page.dart';

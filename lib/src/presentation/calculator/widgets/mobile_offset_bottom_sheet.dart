@@ -524,7 +524,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                       Icon(LucideIcons.calculator, color: makitaTeal, size: 28),
                       SizedBox(width: 12),
                       Text(
-                        "오프셋 계산기",
+                        "오프셋",
                         style: TextStyle(
                           color: slate900,
                           fontSize: 18,

@@ -229,7 +229,7 @@ class _MobileQuickUBendBottomSheetState
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      "퀵 U-Bend (180°) 계산기",
+                      "퀵 U벤드",
                       style: TextStyle(
                         color: slate900,
                         fontSize: 18,

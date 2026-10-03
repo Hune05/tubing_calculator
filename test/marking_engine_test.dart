@@ -163,7 +163,7 @@ void main() {
   });
 
   group('조합 형상 — 3차원 기하와 대조', () {
-    // 오프셋 계산기가 만드는 목록 (45°, 높이 100, 시작 거리 300)
+    // 오프셋이 만드는 목록 (45°, 높이 100, 시작 거리 300)
     final travel = 100 / math.sin(45 * math.pi / 180);
     final run45 = 100 / math.tan(45 * math.pi / 180);
     final shrink = travel - run45;

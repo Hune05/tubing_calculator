@@ -942,7 +942,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     double currentRot = manager.bendList.isNotEmpty
         ? (manager.bendList.last['rotation'] as num).toDouble()
         : 90.0;
-    // 🚀 [고침] 특수 벤딩 계산기들이 튜브 벤더 제원으로 셈하고 있었다.
+    // 🚀 [고침] 특수 벤딩들이 튜브 벤더 제원으로 셈하고 있었다.
     // 전선관 설정(CLR·테이크업·게인·수축량 스위치)을 넘긴다.
     final specs = BendSheetSpecs.conduit(globalBenderSettings.value);
 
@@ -973,7 +973,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               ),
               const SizedBox(height: 24),
               Text(
-                "특수 벤딩 계산기",
+                "특수 벤딩",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -983,7 +983,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               ),
               const SizedBox(height: 24),
 
-              _buildPopupToolBtn("오프셋 계산기", AppGlyph.offset, () {
+              _buildPopupToolBtn("오프셋", AppGlyph.offset, () {
                 Navigator.pop(ctx);
                 MobileOffsetBottomSheet.show(
                   context,
@@ -994,7 +994,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               }),
               const SizedBox(height: 12),
 
-              _buildPopupToolBtn("롤링 오프셋 계산기", AppGlyph.rollingOffset, () {
+              _buildPopupToolBtn("롤링 오프셋", AppGlyph.rollingOffset, () {
                 Navigator.pop(ctx);
                 MobileRollingOffsetBottomSheet.show(
                   context,
@@ -1007,7 +1007,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               }),
               const SizedBox(height: 12),
 
-              _buildPopupToolBtn("새들 벤딩 계산기", AppGlyph.saddle, () {
+              _buildPopupToolBtn("새들", AppGlyph.saddle, () {
                 Navigator.pop(ctx);
                 MobileSaddleBottomSheet.show(
                   context,
@@ -1020,7 +1020,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
               }),
               const SizedBox(height: 12),
 
-              _buildPopupToolBtn("평행/축소 벤딩 계산기", AppGlyph.parallel, () {
+              _buildPopupToolBtn("평행·축소", AppGlyph.parallel, () {
                 Navigator.pop(ctx);
                 MobileParallelShrinkBottomSheet.show(
                   context,

@@ -364,7 +364,7 @@ class _MobileRollingOffsetBottomSheetState
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      "롤링 오프셋 계산기",
+                      "롤링 오프셋",
                       style: TextStyle(
                         color: slate900,
                         fontSize: 20,

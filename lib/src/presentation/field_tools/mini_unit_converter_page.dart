@@ -1,4 +1,4 @@
-// 공학용 계산기 안의 "단위 계산기" — 갤럭시 계산기가 계산기 안에 내장한 단위
+// 공학용 계산기 안의 "단위 환산" — 갤럭시 계산기가 계산기 안에 내장한 단위
 // 변환기 같은 빠른 도구. 자세한 표(배관 호칭·전선 굵기·인치 분수 입력 등)는 이미
 // 현장 자료 안 "단위 환산"(unit_converter_page.dart)에 따로 있으니 여기서는 그
 // 자료(unit_defs.dart)를 그대로 가져다 써서, 자주 쓰는 몇 분류만 숫자 두 칸(보내는
@@ -100,7 +100,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
         elevation: 0,
         foregroundColor: fc.text,
         title: Text(
-          "단위 계산기",
+          "단위 환산",
           style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
         ),
         actions: [calcHistoryButton()],
