@@ -9,6 +9,7 @@ import 'ground_calc.dart';
 import 'motor_check.dart';
 import 'motor_protect.dart';
 import 'protection_calc.dart';
+import 'troubleshoot_flows_general.dart';
 
 /// 입력 칸 하나. [choices]가 있으면 고르는 칸이다.
 class WizField {
@@ -696,5 +697,17 @@ WizFlow _earthFlow() => WizFlow(
   },
 );
 
-/// 진단 흐름 목록.
-List<WizFlow> troubleshootFlows() => [_tripFlow(), _motorFlow(), _earthFlow()];
+/// 진단 흐름 목록. 설비 종류와 상관없는 흐름을 앞에 두고 전동기 전용은 맨 뒤에 둔다.
+List<WizFlow> troubleshootFlows() {
+  final g = {for (final f in generalFlows()) f.id: f};
+  return [
+    _tripFlow(),
+    g['voltage']!,
+    g['heat']!,
+    _earthFlow(),
+    g['lighting']!,
+    g['transformer']!,
+    g['capacitor']!,
+    _motorFlow(),
+  ];
+}

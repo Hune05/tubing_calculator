@@ -66,10 +66,12 @@ void main() {
   });
 
   test('소스에 적힌 다음 단계 id가 모두 실제 단계다', () {
-    final src = File('lib/src/presentation/electrical/troubleshoot_flows.dart')
-        .readAsStringSync();
+    final src = [
+      'lib/src/presentation/electrical/troubleshoot_flows.dart',
+      'lib/src/presentation/electrical/troubleshoot_flows_general.dart',
+    ].map((f) => File(f).readAsStringSync()).join('\n');
     final ids = {for (final f in troubleshootFlows()) ...f.steps.keys};
-    final used = RegExp(r"'((?:e|t|m|g)_w+)'").allMatches(src).map((m) => m.group(1)!);
+    final used = RegExp(r"'((?:e|t|m|g|v|h|x|c|l)_\w+)'").allMatches(src).map((m) => m.group(1)!);
     for (final u in used) {
       expect(ids.contains(u), isTrue, reason: '$u 단계가 없음');
     }
@@ -157,5 +159,92 @@ void main() {
     expect(find.byKey(const Key('ts_end_e_tt_fail')), findsOneWidget);
     await _type(tester, 'ts_in_g_tt_ra', '50');
     expect(find.byKey(const Key('ts_end_e_tt_ok')), findsOneWidget);
+  });
+
+  testWidgets('흐름 목록: 전동기 전용은 맨 뒤, 범용 흐름이 앞에 있다', (tester) async {
+    final ids = troubleshootFlows().map((f) => f.id).toList();
+    expect(ids.last, 'motor');
+    expect(ids.take(3), ['trip', 'voltage', 'heat']);
+    expect(ids.toSet().length, ids.length);
+  });
+
+  testWidgets('전압 이상: 220 V 기준 198~242 V, 낮음·높음·정상과 무부하 비교', (tester) async {
+    await _open(tester, 'voltage');
+    await _type(tester, 'ts_in_v_meas_v', '190');
+    expect(_all(tester), contains('198~242 V'));
+    expect(find.byKey(const Key('ts_end_e_v_low')), findsOneWidget);
+    await _type(tester, 'ts_in_v_meas_v', '250');
+    expect(find.byKey(const Key('ts_end_e_v_high')), findsOneWidget);
+    await _type(tester, 'ts_in_v_meas_v', '220');
+    expect(find.byKey(const Key('ts_end_e_v_ok')), findsOneWidget);
+    await _type(tester, 'ts_in_v_meas_vno', '230');
+    expect(_all(tester), contains('10 V(4.3 %)'));
+    await _tap(tester, 'ts_sel_v_meas_nom_380');
+    expect(_all(tester), contains('342~418 V'));
+    expect(find.byKey(const Key('ts_end_e_v_low')), findsOneWidget); // 220 V는 380 V 기준으로 낮음
+  });
+
+  testWidgets('열화상: NETA 비슷한 부품 ΔT 구간, 안전공사 기준, 주위 대비', (tester) async {
+    await _open(tester, 'heat');
+    await _tap(tester, 'ts_opt_h0_0');
+    await _type(tester, 'ts_in_h_sim_dt', '2');
+    expect(_all(tester), contains('우선순위 4 (1~3 K)'));
+    expect(find.byKey(const Key('ts_end_e_h_act')), findsOneWidget);
+    await _type(tester, 'ts_in_h_sim_dt', '10');
+    expect(_all(tester), contains('우선순위 3 (4~15 K)'));
+    await _type(tester, 'ts_in_h_sim_dt', '20');
+    expect(_all(tester), contains('우선순위 1 (15 K 초과)'));
+    await _type(tester, 'ts_in_h_sim_dt', '0.5');
+    expect(find.byKey(const Key('ts_end_e_h_ok')), findsOneWidget);
+    await _tap(tester, 'ts_sel_h_sim_std_kesco');
+    await _type(tester, 'ts_in_h_sim_dt', '7');
+    expect(_all(tester), contains('요주의(5 K 이상 10 K 미만)'));
+    await _type(tester, 'ts_in_h_sim_dt', '3');
+    expect(find.byKey(const Key('ts_end_e_h_ok')), findsOneWidget);
+    // 주위 대비
+    await _tap(tester, 'ts_opt_h0_1');
+    await _type(tester, 'ts_in_h_amb_dt', '30');
+    expect(_all(tester), contains('우선순위 2 (21~40 K)'));
+    await _type(tester, 'ts_in_h_amb_dt', '50');
+    expect(_all(tester), contains('우선순위 1 (40 K 초과)'));
+  });
+
+  testWidgets('변압기: 사용 중 내압 18 kV 요주의, 25 kV 적합, 온도 상승 70 K 초과', (tester) async {
+    await _open(tester, 'transformer');
+    await _type(tester, 'ts_in_x_meas_bd', '18');
+    expect(_all(tester), contains('15~20 kV 요주의'));
+    expect(find.byKey(const Key('ts_end_e_x_bad')), findsOneWidget);
+    await _type(tester, 'ts_in_x_meas_bd', '25');
+    expect(find.byKey(const Key('ts_end_e_x_ok')), findsOneWidget);
+    await _type(tester, 'ts_in_x_meas_rise', '70');
+    expect(_all(tester), contains('한계 60 K'));
+    expect(find.byKey(const Key('ts_end_e_x_bad')), findsOneWidget);
+    await _type(tester, 'ts_in_x_meas_rise', '50');
+    await _type(tester, 'ts_in_x_meas_acid', '0.3');
+    expect(_all(tester), contains('0.2~0.4 요주의'));
+    await _tap(tester, 'ts_sel_x_meas_state_new');
+    expect(_all(tester), contains('신유는 30 kV 이상 부적합'));
+  });
+
+  testWidgets('역률 콘덴서: −5~+10 %와 세 상 최대÷최소 108 %', (tester) async {
+    await _open(tester, 'capacitor');
+    await _type(tester, 'ts_in_c_meas_rated', '100');
+    await _type(tester, 'ts_in_c_meas_cr', '98');
+    await _type(tester, 'ts_in_c_meas_cs', '101');
+    await _type(tester, 'ts_in_c_meas_ct', '105');
+    expect(find.byKey(const Key('ts_end_e_c_ok')), findsOneWidget);
+    expect(_all(tester), contains('107.1 %'));
+    await _type(tester, 'ts_in_c_meas_cr', '90');
+    expect(find.byKey(const Key('ts_end_e_c_bad')), findsOneWidget);
+    expect(_all(tester), contains('−5~+10 %'));
+  });
+
+  testWidgets('조명: 증상 고르면 바로 점검 순서가 나온다', (tester) async {
+    await _open(tester, 'lighting');
+    await _tap(tester, 'ts_opt_l0_0');
+    expect(find.byKey(const Key('ts_end_e_l_single')), findsOneWidget);
+    await _tap(tester, 'ts_opt_l0_3');
+    expect(find.byKey(const Key('ts_end_e_l_none')), findsOneWidget);
+    expect(find.byKey(const Key('ts_end_e_l_single')), findsNothing);
   });
 }
