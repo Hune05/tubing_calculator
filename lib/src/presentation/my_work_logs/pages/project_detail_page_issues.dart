@@ -411,11 +411,47 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     }
   }
 
+  Future<void> _mail(String email) async {
+    final e = email.trim();
+    if (e.isEmpty) return;
+    final ok = await launchUrl(Uri(scheme: 'mailto', path: e));
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("메일 앱을 열 수 없습니다.")),
+      );
+    }
+  }
+
+  // 번호·이메일이 여러 개일 때 하나를 고른다. 하나뿐이면 묻지 않는다.
+  Future<String> _chooseOne(
+    BuildContext ctx,
+    String title,
+    List<String> options,
+  ) async {
+    if (options.isEmpty) return '';
+    if (options.length == 1) return options.first;
+    final picked = await showDialog<String>(
+      context: ctx,
+      builder: (c) => SimpleDialog(
+        title: Text(title),
+        children: [
+          for (final o in options)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(c, o),
+              child: Text(o, style: const TextStyle(fontSize: 15)),
+            ),
+        ],
+      ),
+    );
+    return picked ?? options.first;
+  }
+
   Future<void> _editContact({int? index}) async {
     final list = _contacts;
     final cur = index == null ? <String, dynamic>{} : list[index];
     final name = TextEditingController(text: cur['name']?.toString() ?? '');
     final phone = TextEditingController(text: cur['phone']?.toString() ?? '');
+    final email = TextEditingController(text: cur['email']?.toString() ?? '');
     String role = cur['role']?.toString() ?? _contactRoles.first;
     bool saveToBook = index == null;
     final action = await showDialog<String>(
@@ -438,6 +474,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                           setD(() {
                             name.text = picked['name']?.toString() ?? '';
                             phone.text = picked['phone']?.toString() ?? '';
+                            email.text = picked['email']?.toString() ?? '';
                             role = picked['role']?.toString() ?? role;
                             saveToBook = false;
                           });
@@ -452,11 +489,26 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                         // 폰의 연락처 선택창에서 한 명만 골라 이름·번호를 칸에 채운다(저장은 따로).
                         try {
                           final c = await pickPhoneContact();
-                          if (c == null) return;
+                          if (c == null || !ctx.mounted) return;
+                          final ph = await _chooseOne(ctx, "전화번호 선택", c.phones);
+                          if (!ctx.mounted) return;
+                          final em = await _chooseOne(ctx, "이메일 선택", c.emails);
                           setD(() {
                             name.text = c.name;
-                            phone.text = c.phone;
+                            phone.text = ph;
+                            email.text = em;
                           });
+                        } on PlatformException catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                e.code == 'denied'
+                                    ? "연락처 접근을 허용해야 가져올 수 있습니다."
+                                    : "폰 연락처를 열 수 없습니다.",
+                              ),
+                            ),
+                          );
                         } catch (_) {
                           if (!mounted) return;
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -479,6 +531,12 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                   controller: phone,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(labelText: "전화번호"),
+                ),
+                TextField(
+                  key: const Key('contact_email'),
+                  controller: email,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(labelText: "이메일 (선택)"),
                 ),
                 const SizedBox(height: 12),
                 Wrap(
@@ -536,10 +594,15 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       if (!ok || !mounted) return;
       list.removeAt(index);
     } else if (action == 'save') {
-      if (name.text.trim().isEmpty && phone.text.trim().isEmpty) return;
+      if (name.text.trim().isEmpty &&
+          phone.text.trim().isEmpty &&
+          email.text.trim().isEmpty) {
+        return;
+      }
       final item = {
         'name': name.text.trim(),
         'phone': phone.text.trim(),
+        'email': email.text.trim(),
         'role': role,
       };
       if (saveToBook) saveAddress(item);

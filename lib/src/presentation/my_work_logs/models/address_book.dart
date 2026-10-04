@@ -28,6 +28,7 @@ Future<List<Map<String, dynamic>>> _loadLocal() async {
       'name': parts.isNotEmpty ? parts[0] : '',
       'phone': parts.length > 1 ? parts[1] : '',
       'role': parts.length > 2 ? parts[2] : '기타',
+      'email': parts.length > 3 ? parts[3] : '',
     };
   }).toList();
 }
@@ -36,7 +37,12 @@ Future<void> _saveLocal(List<Map<String, dynamic>> l) async {
   final p = await SharedPreferences.getInstance();
   await p.setStringList(
     _kKey,
-    l.map((e) => '${e['name']}${e['phone']}${e['role']}').toList(),
+    l
+        .map(
+          (e) =>
+              '${e['name']}${e['phone']}${e['role']}${e['email'] ?? ''}',
+        )
+        .toList(),
   );
 }
 
@@ -63,6 +69,7 @@ Future<void> saveAddress(Map<String, dynamic> entry) async {
     'name': entry['name'],
     'phone': entry['phone'],
     'role': entry['role'],
+    'email': entry['email'] ?? '',
   });
   await _saveLocal(all);
   // 통신이 없어도 목록이 바로 바뀌게 서버는 기다리지 않는다.

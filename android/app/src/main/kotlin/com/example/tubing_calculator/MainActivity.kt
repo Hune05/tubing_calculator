@@ -1,12 +1,17 @@
 package com.example.tubing_calculator
 
+import android.Manifest
+import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.ContactsContract
 import android.provider.OpenableColumns
 import android.view.KeyEvent
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
@@ -24,8 +29,14 @@ class MainActivity : FlutterActivity() {
     private var widgetChannel: MethodChannel? = null
     private var pendingWidgetAction: String? = null
 
+    // 폰 연락처에서 사용자가 고른 한 명의 이름·전화번호·이메일만 읽는다(앱은 연락처 전체를 읽지 않는다).
+    private var contactChannel: MethodChannel? = null
+    private var pendingContact: MethodChannel.Result? = null
+
     companion object {
         const val EXTRA_WIDGET_ACTION = "widget_action"
+        const val REQ_CONTACT_PERMISSION = 7101
+        const val REQ_CONTACT_PICK = 7102
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -81,9 +92,127 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+        contactChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "field/contact_pick"
+        ).also { ch ->
+            ch.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "pick" -> startContactPick(result)
+                    else -> result.notImplemented()
+                }
+            }
+        }
         readWidgetAction(intent)?.let { pendingWidgetAction = it }
         // 앱이 꺼져 있을 때 공유로 열린 경우.
         readSharedDrawing(intent)?.let { pendingDrawing = it }
+    }
+
+    private fun startContactPick(result: MethodChannel.Result) {
+        if (pendingContact != null) {
+            result.error("busy", "이미 연락처를 고르는 중입니다.", null)
+            return
+        }
+        pendingContact = result
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            launchContactPicker()
+        } else {
+            requestPermissions(arrayOf(Manifest.permission.READ_CONTACTS), REQ_CONTACT_PERMISSION)
+        }
+    }
+
+    private fun launchContactPicker() {
+        try {
+            startActivityForResult(
+                Intent(Intent.ACTION_PICK, ContactsContract.Contacts.CONTENT_URI),
+                REQ_CONTACT_PICK
+            )
+        } catch (e: Exception) {
+            finishContact { it.error("picker", "연락처 선택창을 열 수 없습니다.", null) }
+        }
+    }
+
+    private fun finishContact(block: (MethodChannel.Result) -> Unit) {
+        val r = pendingContact ?: return
+        pendingContact = null
+        block(r)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQ_CONTACT_PERMISSION) return
+        if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            launchContactPicker()
+        } else {
+            finishContact { it.error("denied", "연락처 접근이 허용되지 않았습니다.", null) }
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_CONTACT_PICK) return
+        val uri = data?.data
+        if (resultCode != Activity.RESULT_OK || uri == null) {
+            finishContact { it.success(null) }
+            return
+        }
+        try {
+            var id: String? = null
+            var name = ""
+            contentResolver.query(
+                uri,
+                arrayOf(ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME),
+                null, null, null
+            )?.use { c ->
+                if (c.moveToFirst()) {
+                    id = c.getString(0)
+                    name = c.getString(1) ?: ""
+                }
+            }
+            val contactId = id
+            val phones = LinkedHashSet<String>()
+            val emails = LinkedHashSet<String>()
+            if (contactId != null) {
+                contentResolver.query(
+                    ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
+                    arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+                    ContactsContract.CommonDataKinds.Phone.CONTACT_ID + "=?",
+                    arrayOf(contactId), null
+                )?.use { c ->
+                    while (c.moveToNext()) {
+                        c.getString(0)?.trim()?.takeIf { it.isNotEmpty() }?.let { phones.add(it) }
+                    }
+                }
+                contentResolver.query(
+                    ContactsContract.CommonDataKinds.Email.CONTENT_URI,
+                    arrayOf(ContactsContract.CommonDataKinds.Email.ADDRESS),
+                    ContactsContract.CommonDataKinds.Email.CONTACT_ID + "=?",
+                    arrayOf(contactId), null
+                )?.use { c ->
+                    while (c.moveToNext()) {
+                        c.getString(0)?.trim()?.takeIf { it.isNotEmpty() }?.let { emails.add(it) }
+                    }
+                }
+            }
+            finishContact {
+                it.success(
+                    mapOf(
+                        "name" to name,
+                        "phones" to phones.toList(),
+                        "emails" to emails.toList()
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            finishContact { it.error("read", "연락처를 읽을 수 없습니다.", null) }
+        }
     }
 
     // 앱이 떠 있을 때 공유로 다시 들어온 경우.

@@ -66,7 +66,6 @@ dependencies:
   printing: ^5.14.3
   barcode: ^2.2.9
   package_info_plus: ^9.0.1
-  flutter_native_contact_picker: ^0.0.12
 
 dev_dependencies:
   flutter_test:

@@ -308,6 +308,14 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                                 fontSize: 12,
                               ),
                             ),
+                          if ((list[i]['email']?.toString() ?? '').isNotEmpty)
+                            Text(
+                              list[i]['email'].toString(),
+                              style: const TextStyle(
+                                color: tossSubText,
+                                fontSize: 12,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -327,6 +335,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                             _call(list[i]['phone'].toString(), sms: true),
                       ),
                     ],
+                    if ((list[i]['email']?.toString() ?? '').isNotEmpty)
+                      IconButton(
+                        tooltip: "메일",
+                        icon: const Icon(Icons.mail_outline, color: tossBlue),
+                        onPressed: () => _mail(list[i]['email'].toString()),
+                      ),
                     IconButton(
                       tooltip: "수정",
                       icon: const Icon(
