@@ -8,6 +8,7 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../../my_schedule/korean_holidays.dart';
 import '../../my_work_logs/models/attendance.dart';
 import '../attendance_calc.dart';
+import '../attendance_clock.dart';
 import '../attendance_settings.dart';
 
 const Color _text = AppColors.text;
@@ -35,17 +36,167 @@ Widget _tag(String type, {double fontSize = 11}) => Container(
   ),
 );
 
+// ───────────── 출근·퇴근 카드 ─────────────
+
+/// 월 이동 줄 아래에 늘 보이는 한 줄: 지금 시각으로 출근·퇴근을 한 번에 찍는다.
+/// 읽지 못했으면(통신 없음·읽기 실패) 단추를 막는다 - 모르는 채로 찍으면 있던 기록을 덮을 수 있다.
+class AttendanceClockCard extends StatelessWidget {
+  final ClockStatus? status; // null = 아직 읽는 중이거나 읽지 못함
+  final bool loadFailed;
+  final DateTime today;
+  final VoidCallback onPunchIn;
+  final VoidCallback onPunchOut;
+  final VoidCallback onEdit;
+  final VoidCallback onRetry;
+  const AttendanceClockCard({
+    super.key,
+    required this.status,
+    required this.loadFailed,
+    required this.today,
+    required this.onPunchIn,
+    required this.onPunchOut,
+    required this.onEdit,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final st = status;
+    String title;
+    String? sub;
+    Widget? action;
+    if (loadFailed) {
+      title = "출퇴근 기록을 읽지 못했습니다";
+      sub = "읽은 뒤에 출근·퇴근을 찍을 수 있습니다.";
+      action = OutlinedButton(
+        key: const Key('att_clock_retry'),
+        onPressed: onRetry,
+        child: const Text("출퇴근 다시 읽기"),
+      );
+    } else if (st == null) {
+      title = "출퇴근 기록을 읽는 중";
+      action = null;
+    } else {
+      final r = st.record;
+      switch (st.phase) {
+        case ClockPhase.ready:
+          title = "오늘 출근 전";
+          sub =
+              "${today.month}월 ${today.day}일 ${kWeekdayKo[today.weekday - 1]}요일";
+          action = _clockButton(
+            key: const Key('att_clock_in'),
+            label: "출근",
+            icon: Icons.login_rounded,
+            onTap: onPunchIn,
+            color: _brand,
+          );
+        case ClockPhase.working:
+          final e = st.elapsedMin ?? 0;
+          title = "${r?.checkIn ?? '--:--'} 출근 · 근무 중";
+          sub =
+              "${formatMinutes(e)} 지났습니다"
+              "${st.day == DateTime(today.year, today.month, today.day) ? '' : ' (어제 출근)'}";
+          action = _clockButton(
+            key: const Key('att_clock_out'),
+            label: "퇴근",
+            icon: Icons.logout_rounded,
+            onTap: onPunchOut,
+            color: _text,
+          );
+        case ClockPhase.done:
+          title = "${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}";
+          sub = "오늘 근무를 마쳤습니다";
+          action = TextButton(
+            key: const Key('att_clock_edit'),
+            onPressed: onEdit,
+            child: const Text("고치기"),
+          );
+        case ClockPhase.off:
+          title = "오늘은 ${r?.type ?? ''}입니다";
+          sub = "출퇴근을 적지 않는 날입니다";
+          action = TextButton(
+            key: const Key('att_clock_edit'),
+            onPressed: onEdit,
+            child: const Text("고치기"),
+          );
+      }
+    }
+    return Container(
+      key: const Key('att_clock_card'),
+      width: double.infinity,
+      color: _white,
+      padding: const EdgeInsets.fromLTRB(16, 4, 12, 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  key: const Key('att_clock_title'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _text,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+                if (sub != null)
+                  Text(
+                    sub,
+                    key: const Key('att_clock_sub'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(color: _sub, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+          if (action != null) ...[const SizedBox(width: 8), action],
+        ],
+      ),
+    );
+  }
+
+  Widget _clockButton({
+    required Key key,
+    required String label,
+    required IconData icon,
+    required VoidCallback onTap,
+    required Color color,
+  }) => FilledButton.icon(
+    key: key,
+    onPressed: onTap,
+    icon: Icon(icon, size: 20),
+    label: Text(
+      label,
+      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+    ),
+    style: FilledButton.styleFrom(
+      backgroundColor: color,
+      minimumSize: const Size(112, 46),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    ),
+  );
+}
+
 // ───────────── 달 합계 ─────────────
 
 class AttendanceSummaryCard extends StatelessWidget {
   final DateTime month;
   final MonthSummary summary;
   final AttendanceSettings settings;
+
+  /// 퇴근 시각이 빠진 지난 날 수(0이면 안 보인다).
+  final int missingCheckOut;
   const AttendanceSummaryCard({
     super.key,
     required this.month,
     required this.summary,
     required this.settings,
+    this.missingCheckOut = 0,
   });
 
   Widget _stat(String k, String v, {Color color = _text, Key? key}) =>
@@ -167,6 +318,19 @@ class AttendanceSummaryCard extends StatelessWidget {
               ),
             ),
           ],
+          if (missingCheckOut > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                "퇴근 시각을 안 적은 날이 $missingCheckOut일 있습니다. 그 날은 근로시간에 들어가지 않습니다.",
+                key: const Key('att_sum_missing_out'),
+                style: const TextStyle(
+                  color: AppColors.danger,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           for (final w in over)
             Container(
               key: Key('att_over52_${dateKey(w.monday)}'),
@@ -352,6 +516,9 @@ class AttendanceDayRow extends StatelessWidget {
   final bool isToday;
   final bool isRest;
   final VoidCallback onTap;
+
+  /// 출근만 있고 퇴근을 안 적은 지난 날("퇴근 입력 필요"를 붙인다).
+  final bool missingCheckOut;
   const AttendanceDayRow({
     super.key,
     required this.day,
@@ -360,6 +527,7 @@ class AttendanceDayRow extends StatelessWidget {
     required this.isToday,
     required this.isRest,
     required this.onTap,
+    this.missingCheckOut = false,
   });
 
   @override
@@ -439,12 +607,18 @@ class AttendanceDayRow extends StatelessWidget {
                       ),
                       child: Text(
                         "${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}"
-                        "${w == null ? '' : ' · 근로 ${formatMinutes(w.work)}'}",
+                        "${w == null ? '' : ' · 근로 ${formatMinutes(w.work)}'}"
+                        "${missingCheckOut ? ' · 퇴근 입력 필요' : ''}",
+                        key: missingCheckOut
+                            ? Key('att_missing_out_${dateKey(day)}')
+                            : null,
                         maxLines: 2,
-                        style: const TextStyle(
-                          color: _sub,
+                        style: TextStyle(
+                          color: missingCheckOut ? AppColors.danger : _sub,
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: missingCheckOut
+                              ? FontWeight.w800
+                              : FontWeight.w600,
                         ),
                       ),
                     ),

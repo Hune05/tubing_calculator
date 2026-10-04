@@ -70,11 +70,15 @@ class AttendanceEditSheet extends StatefulWidget {
   final DateTime day;
   final AttendanceRecord? existing;
   final AttendanceCalcOptions options;
+
+  /// 이 날 앞쪽에서 가장 가까이 적은 기록("같게" 단추에 쓴다). 없으면 단추를 안 보인다.
+  final AttendanceRecord? previous;
   const AttendanceEditSheet({
     super.key,
     required this.day,
     this.existing,
     this.options = const AttendanceCalcOptions(),
+    this.previous,
   });
 
   @override
@@ -134,6 +138,20 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
       breakMin: noTime ? null : _breakMin,
       memo: memo.isEmpty ? null : memo,
     );
+  }
+
+  /// 전에 적은 기록의 종류·시간·휴게·메모를 이 날에 가져온다(저장은 따로 누른다).
+  void _copyPrevious() {
+    final p = widget.previous;
+    if (p == null) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _type = kAttendanceTypes.contains(p.type) ? p.type : kAttendanceNormal;
+      _checkIn = _parse(p.checkIn);
+      _checkOut = _parse(p.checkOut);
+      _breakMin = p.breakMin;
+      _memo.text = p.memo ?? '';
+    });
   }
 
   Future<void> _pickTime({required bool isStart}) async {
@@ -293,6 +311,17 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
                   ),
               ],
             ),
+            if (widget.previous != null) ...[
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                key: const Key('att_copy_prev'),
+                onPressed: _copyPrevious,
+                icon: const Icon(Icons.content_copy_rounded, size: 16),
+                label: Text(
+                  "${widget.previous!.date.month}월 ${widget.previous!.date.day}일 기록과 같게",
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             Wrap(
               spacing: 8,

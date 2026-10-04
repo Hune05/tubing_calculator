@@ -17,7 +17,7 @@ const String kCloudWriterKey = '_writer';
 const String kCloudEditedAtKey = '_editedAt';
 
 /// 서버에 올리는 폰 설정 칸(SharedPreferences 키).
-/// 튜브 벤딩 · 전선관 · 튜브 컷팅 설정만. 작업 목록·기록은 넣지 않는다.
+/// 튜브 벤딩 · 전선관 · 튜브 컷팅 · 근태 설정만. 작업 목록·기록은 넣지 않는다.
 const List<String> kCloudSettingKeys = [
   // 튜브 벤딩 (SettingsManager.saveSettings)
   'isInch', 'useHaptic', 'saveHistory', 'tubeMaterial', 'benderBrand',
@@ -37,7 +37,14 @@ const List<String> kCloudSettingKeys = [
   'cutting_blade_kerf', 'cutting_stock_length',
   // 형강 컷팅(톱날 손실을 튜브와 따로)
   'cutting_blade_kerf_steel',
+  // 근태 설정(입사일·기본 휴게·토요일 휴일·연차 부여 일수·소정 시각·사규 메모). 보기 방식은 기기마다.
+  'attendance_hire_date', 'attendance_default_break',
+  'attendance_saturday_holiday', 'attendance_leave_override',
+  'attendance_work_start', 'attendance_work_end', 'attendance_rule_note',
 ];
+
+/// 정수로 읽는 칸(서버가 30을 30.0으로 돌려줘도 정수로 쓴다). 나머지 숫자 칸은 소수(double).
+const Set<String> kCloudIntKeys = {'attendance_default_break'};
 
 /// 폰에 저장된 설정을 서버에 올릴 모양으로 모은다. 없는 칸은 뺀다.
 Map<String, Object> collectLocalSettings(SharedPreferences prefs) {
@@ -66,8 +73,12 @@ Future<int> applyCloudSettings(
     } else if (v is String) {
       await prefs.setString(k, v);
     } else if (v is num) {
-      // 서버는 30.0을 30(정수)로 돌려줄 수 있다. 앱은 double로 읽으므로 맞춘다.
-      await prefs.setDouble(k, v.toDouble());
+      if (kCloudIntKeys.contains(k)) {
+        await prefs.setInt(k, v.toInt());
+      } else {
+        // 서버는 30.0을 30(정수)로 돌려줄 수 있다. 앱은 double로 읽으므로 맞춘다.
+        await prefs.setDouble(k, v.toDouble());
+      }
     } else {
       continue;
     }
@@ -139,7 +150,8 @@ class SettingsCloudSync {
   Future<String> _deviceId(SharedPreferences prefs) async {
     var id = prefs.getString(_deviceKey);
     if (id == null || id.isEmpty) {
-      id = 'd${clock().toRadixString(36)}${Random().nextInt(1 << 30).toRadixString(36)}';
+      id =
+          'd${clock().toRadixString(36)}${Random().nextInt(1 << 30).toRadixString(36)}';
       await prefs.setString(_deviceKey, id);
     }
     return id;

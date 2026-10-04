@@ -1,5 +1,7 @@
 // 근태 설정(입사일·기본 휴게·토요일 휴일·연차 부여 일수 직접 입력·보기 방식·사규).
-// 폰(SharedPreferences)에만 저장한다: 폰을 바꾸면 다시 넣어야 한다(docs/근태관리_근거.md 7절).
+// 폰(SharedPreferences)에 저장하고, 계산기 설정과 같은 서버 문서(settings_cloud.dart)에도 올린다:
+// 구글 계정을 연결해 두면 폰을 바꾸거나 태블릿을 써도 같은 설정이 된다(docs/근태관리_근거.md 11절).
+// 보기 방식(달력·목록)은 기기마다 다르게 둔다.
 //
 // 사규(2026-09-29): 회사 지정 휴일, 소정 출근·퇴근 시각, 사규 메모. 기본값은 모두 "없음"이라
 // 넣지 않으면 계산 결과가 예전과 똑같다.
@@ -125,25 +127,14 @@ class AttendanceSettings {
   Future<void> save() async {
     try {
       final p = await SharedPreferences.getInstance();
-      if (hireDate == null) {
-        await p.remove(hireKey);
-      } else {
-        await p.setString(hireKey, dateKey(hireDate!));
-      }
+      // 비운 값은 지우지 않고 빈 글자로 둔다(서버로 올려 다른 기기에서도 비워지게).
+      await p.setString(hireKey, hireDate == null ? '' : dateKey(hireDate!));
       await p.setInt(breakKey, defaultBreak);
       await p.setBool(saturdayKey, saturdayIsHoliday);
       await p.setString(overrideKey, jsonEncode(leaveOverrides));
       await p.setBool(viewKey, calendarView);
-      if (workStart == null) {
-        await p.remove(workStartKey);
-      } else {
-        await p.setString(workStartKey, workStart!);
-      }
-      if (workEnd == null) {
-        await p.remove(workEndKey);
-      } else {
-        await p.setString(workEndKey, workEnd!);
-      }
+      await p.setString(workStartKey, workStart ?? '');
+      await p.setString(workEndKey, workEnd ?? '');
       await p.setString(ruleNoteKey, ruleNote);
     } catch (_) {}
   }
