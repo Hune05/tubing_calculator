@@ -13,6 +13,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_num
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/angle_matcher_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -745,6 +746,12 @@ class _CalculatorPageState extends State<CalculatorPage>
                                             currentAngle: _currentAngle,
                                           );
                                         },
+                                      ),
+                                      const SizedBox(width: 6),
+                                      _buildToolChip(
+                                        "각도 역산",
+                                        LucideIcons.ruler,
+                                        () => AngleMatcherSheet.show(context),
                                       ),
                                       const SizedBox(width: 8),
                                       IconButton(
