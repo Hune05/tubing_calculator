@@ -515,19 +515,19 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     final a0 = c(0, 0, 0), b0 = c(dx, dy, dz);
     final dirAB = (b0 - a0) / (b0 - a0).distance;
     final nAB = Offset(dirAB.dy, -dirAB.dx);
-    final travelShift = nAB * 15;
+    final travelShift = nAB * 24;
     _dim(canvas, a0 + travelShift, b0 + travelShift, travelT, _kTravelColor);
 
     // Run: 바닥 앞 모서리를 따라(보라).
-    const runShift = Offset(0, 11);
+    const runShift = Offset(0, 15);
     _dim(canvas, c(0, 0, 0) + runShift, c(dx, 0, 0) + runShift, runT, _kRunColor);
 
     // Rise: 앞쪽 오른 세로 모서리(파랑).
-    const riseShift = Offset(10, 0);
+    const riseShift = Offset(-15, 0);
     _dim(canvas, c(dx, 0, 0) + riseShift, c(dx, dy, 0) + riseShift, riseT, _kRiseColor);
 
     // Roll: 위쪽 안으로 들어가는 모서리(빨강).
-    const rollShift = Offset(0, -9);
+    const rollShift = Offset(-8, -13);
     _dim(canvas, c(dx, dy, 0) + rollShift, c(dx, dy, dz) + rollShift, rollT, _kRollColor);
 
     // 끝면의 대각선(True Offset, 주황 점선).
