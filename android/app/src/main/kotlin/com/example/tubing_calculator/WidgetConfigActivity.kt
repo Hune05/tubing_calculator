@@ -12,6 +12,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.RadioGroup
+import android.widget.Switch
 import android.widget.TextView
 
 /**
@@ -31,14 +32,28 @@ object WidgetCfg {
     fun alpha(c: Context, id: Int): Int = p(c).getInt("a_$id", 100)
     fun mode(c: Context, id: Int): Int = p(c).getInt("m_$id", MODE_AUTO)
 
-    fun save(c: Context, id: Int, alpha: Int, mode: Int) {
-        p(c).edit().putInt("a_$id", alpha).putInt("m_$id", mode).apply()
+    /** 배경을 보일지(끄면 배경화면 위에 글자만 흰색으로 뜬다). */
+    fun bgOn(c: Context, id: Int): Boolean = p(c).getBoolean("b_$id", true)
+
+    fun save(c: Context, id: Int, alpha: Int, mode: Int, bgOn: Boolean = true) {
+        p(c).edit().putInt("a_$id", alpha).putInt("m_$id", mode).putBoolean("b_$id", bgOn).apply()
     }
 
     fun clear(c: Context, ids: IntArray) {
         val e = p(c).edit()
-        for (id in ids) e.remove("a_$id").remove("m_$id")
+        for (id in ids) e.remove("a_$id").remove("m_$id").remove("b_$id")
         e.apply()
+    }
+
+    /**
+     * 배경을 끈 위젯의 글자 색과 타일을 흰 글자·반투명 어두운 타일로 바꾼다.
+     * [main] 주요 글자, [sub] 보조 글자, [accent] 강조(흐르는 시간), [tiles] 타일 칸.
+     */
+    fun applyPlain(v: android.widget.RemoteViews, main: IntArray, sub: IntArray, accent: IntArray, tiles: IntArray) {
+        for (i in main) v.setTextColor(i, 0xFFFFFFFF.toInt())
+        for (i in sub) v.setTextColor(i, 0xCCFFFFFF.toInt())
+        for (i in accent) v.setTextColor(i, 0xFF7DE3EA.toInt())
+        for (i in tiles) v.setInt(i, "setBackgroundResource", R.drawable.widget_tile_bg_off)
     }
 
     /** 투명도에 맞는 배경 모양. */
@@ -94,8 +109,24 @@ class WidgetConfigActivity : Activity() {
                 isChecked = alphaValues[i] == curAlpha
             })
         }
+        val bgSwitch = Switch(this).apply {
+            text = "배경 보이기"
+            textSize = 16f
+            isChecked = WidgetCfg.bgOn(this@WidgetConfigActivity, widgetId)
+            setPadding(0, px(14), 0, px(4))
+        }
+        root.addView(bgSwitch)
+        root.addView(TextView(this).apply {
+            text = "끄면 배경화면 위에 글자만 흰색으로 보입니다."
+            textSize = 12f
+        })
         root.addView(title("배경 투명도"))
         root.addView(alphaGroup)
+        fun syncAlphaEnabled() {
+            for (i in 0 until alphaGroup.childCount) alphaGroup.getChildAt(i).isEnabled = bgSwitch.isChecked
+        }
+        bgSwitch.setOnCheckedChangeListener { _, _ -> syncAlphaEnabled() }
+        syncAlphaEnabled()
 
         val modeLabels = arrayOf("자동 (크기에 맞춤)", "항상 한 줄로", "항상 카드로")
         val curMode = WidgetCfg.mode(this, widgetId)
@@ -121,7 +152,7 @@ class WidgetConfigActivity : Activity() {
             setOnClickListener {
                 val a = alphaValues[(alphaGroup.checkedRadioButtonId - 100).coerceIn(0, 3)]
                 val m = (modeGroup.checkedRadioButtonId - 200).coerceIn(0, 2)
-                WidgetCfg.save(this@WidgetConfigActivity, widgetId, a, m)
+                WidgetCfg.save(this@WidgetConfigActivity, widgetId, a, m, bgSwitch.isChecked)
                 FieldWidgetStore.refreshAll(applicationContext)
                 setResult(RESULT_OK, Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId))
                 finish()

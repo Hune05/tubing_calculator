@@ -35,9 +35,14 @@ object Adaptive {
         smallRoot: Int, largeRoot: Int
     ): RemoteViews {
         // 위젯 하나마다 따로 저장한 설정(WidgetCfg): 배경 투명도, 모양(자동·한 줄·카드).
-        val bg = WidgetCfg.bgRes(WidgetCfg.alpha(c, id))
-        small.setInt(smallRoot, "setBackgroundResource", bg)
-        large.setInt(largeRoot, "setBackgroundResource", bg)
+        if (WidgetCfg.bgOn(c, id)) {
+            val bg = WidgetCfg.bgRes(WidgetCfg.alpha(c, id))
+            small.setInt(smallRoot, "setBackgroundResource", bg)
+            large.setInt(largeRoot, "setBackgroundResource", bg)
+        } else {
+            small.setInt(smallRoot, "setBackgroundColor", 0)
+            large.setInt(largeRoot, "setBackgroundColor", 0)
+        }
         return when (WidgetCfg.mode(c, id)) {
             WidgetCfg.MODE_SMALL -> small
             WidgetCfg.MODE_LARGE -> large
@@ -154,10 +159,18 @@ class QuickLaunchWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        fun build(c: Context, id: Int = 0): RemoteViews = Adaptive.views(
-            c, id, QuickSmallWidgetProvider.build(c), buildLarge(c), SizeF(180f, 40f), SizeF(180f, 130f),
-            R.id.widget_quick_s_root, R.id.widget_quick_root
-        )
+        fun build(c: Context, id: Int = 0): RemoteViews {
+            val small = QuickSmallWidgetProvider.build(c)
+            val large = buildLarge(c)
+        if (!WidgetCfg.bgOn(c, id)) {
+            WidgetCfg.applyPlain(small, intArrayOf(R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3), intArrayOf(R.id.quick_s_empty), intArrayOf(), intArrayOf(R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3))
+            WidgetCfg.applyPlain(large, intArrayOf(R.id.widget_quick_title, R.id.quick_slot_1_text, R.id.quick_slot_2_text, R.id.quick_slot_3_text, R.id.quick_slot_4_text), intArrayOf(R.id.widget_quick_empty), intArrayOf(), intArrayOf(R.id.quick_slot_1, R.id.quick_slot_2, R.id.quick_slot_3, R.id.quick_slot_4))
+        }
+            return Adaptive.views(
+                c, id, small, large, SizeF(180f, 40f), SizeF(180f, 130f),
+                R.id.widget_quick_s_root, R.id.widget_quick_root
+            )
+        }
 
         private val SLOTS = intArrayOf(
             R.id.quick_slot_1, R.id.quick_slot_2, R.id.quick_slot_3, R.id.quick_slot_4
@@ -214,10 +227,18 @@ class SummaryWidgetProvider : AppWidgetProvider() {
             v.setTextViewText(value, if (n == null) "—" else if (n == 0) none else some(n))
         }
 
-        fun build(c: Context, id: Int = 0): RemoteViews = Adaptive.views(
-            c, id, SummarySmallWidgetProvider.build(c), buildLarge(c), SizeF(180f, 40f), SizeF(180f, 110f),
-            R.id.widget_summary_s_root, R.id.widget_summary_root
-        )
+        fun build(c: Context, id: Int = 0): RemoteViews {
+            val small = SummarySmallWidgetProvider.build(c)
+            val large = buildLarge(c)
+        if (!WidgetCfg.bgOn(c, id)) {
+            WidgetCfg.applyPlain(small, intArrayOf(R.id.summary_s_value_schedule, R.id.summary_s_value_reports, R.id.summary_s_value_stock, R.id.summary_s_value_attendance), intArrayOf(R.id.lbl_schedule, R.id.lbl_reports, R.id.lbl_stock, R.id.lbl_attendance), intArrayOf(), intArrayOf(R.id.sum_s_tile_1, R.id.sum_s_tile_2, R.id.sum_s_tile_3, R.id.sum_s_tile_4))
+            WidgetCfg.applyPlain(large, intArrayOf(R.id.summary_title, R.id.summary_value_schedule, R.id.summary_value_reports, R.id.summary_value_stock, R.id.summary_value_attendance), intArrayOf(R.id.lbl_schedule, R.id.lbl_reports, R.id.lbl_stock, R.id.lbl_attendance, R.id.summary_updated), intArrayOf(), intArrayOf(R.id.sum_tile_1))
+        }
+            return Adaptive.views(
+                c, id, small, large, SizeF(180f, 40f), SizeF(180f, 110f),
+                R.id.widget_summary_s_root, R.id.widget_summary_root
+            )
+        }
 
         fun buildLarge(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_summary)
@@ -257,10 +278,18 @@ class ClockWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        fun build(c: Context, id: Int = 0): RemoteViews = Adaptive.views(
-            c, id, ClockSmallWidgetProvider.build(c), buildLarge(c), SizeF(110f, 40f), SizeF(180f, 110f),
-            R.id.widget_clock_s_root, R.id.widget_clock_root
-        )
+        fun build(c: Context, id: Int = 0): RemoteViews {
+            val small = ClockSmallWidgetProvider.build(c)
+            val large = buildLarge(c)
+        if (!WidgetCfg.bgOn(c, id)) {
+            WidgetCfg.applyPlain(small, intArrayOf(R.id.clock_s_text), intArrayOf(R.id.clock_s_sub), intArrayOf(R.id.clock_s_timer), intArrayOf())
+            WidgetCfg.applyPlain(large, intArrayOf(R.id.clock_text, R.id.clock_done_note), intArrayOf(R.id.clock_title), intArrayOf(R.id.clock_timer), intArrayOf(R.id.clock_done_note))
+        }
+            return Adaptive.views(
+                c, id, small, large, SizeF(110f, 40f), SizeF(180f, 110f),
+                R.id.widget_clock_s_root, R.id.widget_clock_root
+            )
+        }
 
         fun buildLarge(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_clock)
