@@ -12,4 +12,7 @@
     <color name="widget_btn_out_dark">#1E293B</color>
     <color name="widget_btn_in">#007580</color>
     <color name="widget_btn_in_dark">#005A63</color>
+    <color name="widget_bg_80">#CCFFFFFF</color>
+    <color name="widget_bg_60">#99FFFFFF</color>
+    <color name="widget_bg_40">#66FFFFFF</color>
 </resources>

@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="widget_quick_label">빠른 실행</string>
-    <string name="widget_quick_desc">즐겨찾기한 기능을 바로 엽니다</string>
+    <string name="widget_quick_desc">즐겨찾기한 기능을 바로 엽니다. 크기를 줄이면 한 줄이 됩니다</string>
     <string name="widget_quick_empty">즐겨찾기한 기능이 없습니다.\n앱 전체 메뉴에서 카드를 길게 누르면 여기 나옵니다.</string>
     <string name="widget_summary_label">오늘 요약</string>
-    <string name="widget_summary_desc">오늘 일정·일지·자재·근태를 한눈에 봅니다</string>
+    <string name="widget_summary_desc">오늘 일정·일지·자재·근태를 한눈에 봅니다. 크기를 줄이면 숫자만 한 줄로 보입니다</string>
     <string name="widget_clock_label">출퇴근</string>
-    <string name="widget_clock_desc">출근·퇴근을 앱을 열지 않고 한 번 눌러 찍습니다</string>
+    <string name="widget_clock_desc">출근·퇴근을 앱을 열지 않고 한 번 눌러 찍습니다. 크기를 줄이면 한 줄이 됩니다</string>
     <string name="widget_clock_in">출근</string>
     <string name="widget_clock_out">퇴근</string>
     <string name="widget_clock_done">오늘 근무를 마쳤습니다</string>
@@ -14,11 +14,5 @@
     <string name="widget_row_reports">일지</string>
     <string name="widget_row_stock">자재</string>
     <string name="widget_row_attendance">근태</string>
-    <string name="widget_clock_small_label">출퇴근 (작게)</string>
-    <string name="widget_clock_small_desc">출근·퇴근 단추 하나를 작게 둡니다</string>
-    <string name="widget_summary_small_label">오늘 요약 (작게)</string>
-    <string name="widget_summary_small_desc">일정·일지·자재·근태 숫자만 한 줄로 봅니다</string>
-    <string name="widget_quick_small_label">빠른 실행 (작게)</string>
-    <string name="widget_quick_small_desc">즐겨찾기 세 개를 한 줄로 바로 엽니다</string>
     <string name="widget_quick_small_empty">즐겨찾기 없음</string>
 </resources>

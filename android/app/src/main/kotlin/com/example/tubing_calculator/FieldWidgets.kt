@@ -7,7 +7,9 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.SystemClock
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONArray
@@ -21,6 +23,32 @@ import java.util.Locale
 // 위젯은 통신 없이 이 저장된 자료만 읽는다(발전소처럼 통신이 없어도 뜬다).
 // 위젯을 누르면 MainActivity를 "widget_action" 값과 함께 열고, 앱이 그 값을 보고 해당 기능을 연다.
 // 출퇴근 위젯의 [출근]·[퇴근] 단추만은 앱을 열지 않고 ClockPunch(ClockPunch.kt)가 바로 기록한다.
+
+/**
+ * 가변식 위젯 도우미. 안드로이드 12(API 31) 이상에서는 [small]·[large] 두 모양을 함께 넘기면
+ * 위젯 크기를 줄이고 늘릴 때 시스템이 알맞은 모양을 고른다(작게 줄이면 한 줄, 키우면 카드).
+ * 그보다 낮은 버전은 큰 모양만 쓴다. 크기는 dp, "이 크기 이상이면 이 모양" 기준이다.
+ */
+object Adaptive {
+    fun views(
+        c: Context, id: Int, small: RemoteViews, large: RemoteViews, smallDp: SizeF, largeDp: SizeF,
+        smallRoot: Int, largeRoot: Int
+    ): RemoteViews {
+        // 위젯 하나마다 따로 저장한 설정(WidgetCfg): 배경 투명도, 모양(자동·한 줄·카드).
+        val bg = WidgetCfg.bgRes(WidgetCfg.alpha(c, id))
+        small.setInt(smallRoot, "setBackgroundResource", bg)
+        large.setInt(largeRoot, "setBackgroundResource", bg)
+        return when (WidgetCfg.mode(c, id)) {
+            WidgetCfg.MODE_SMALL -> small
+            WidgetCfg.MODE_LARGE -> large
+            else -> if (Build.VERSION.SDK_INT >= 31) {
+                RemoteViews(mapOf(smallDp to small, largeDp to large))
+            } else {
+                large
+            }
+        }
+    }
+}
 
 object FieldWidgetStore {
     private const val PREFS = "field_widget_prefs"
@@ -72,34 +100,15 @@ object FieldWidgetStore {
         val mgr = AppWidgetManager.getInstance(c)
         val quickIds = mgr.getAppWidgetIds(ComponentName(c, QuickLaunchWidgetProvider::class.java))
         if (quickIds.isNotEmpty()) {
-            val v = QuickLaunchWidgetProvider.build(c)
-            for (id in quickIds) mgr.updateAppWidget(id, v)
+            for (id in quickIds) mgr.updateAppWidget(id, QuickLaunchWidgetProvider.build(c, id))
         }
         val sumIds = mgr.getAppWidgetIds(ComponentName(c, SummaryWidgetProvider::class.java))
         if (sumIds.isNotEmpty()) {
-            val v = SummaryWidgetProvider.build(c)
-            for (id in sumIds) mgr.updateAppWidget(id, v)
+            for (id in sumIds) mgr.updateAppWidget(id, SummaryWidgetProvider.build(c, id))
         }
         val clockIds = mgr.getAppWidgetIds(ComponentName(c, ClockWidgetProvider::class.java))
         if (clockIds.isNotEmpty()) {
-            val v = ClockWidgetProvider.build(c)
-            for (id in clockIds) mgr.updateAppWidget(id, v)
-        }
-        // 작은 위젯 세 개(한 줄짜리)
-        val clockSmallIds = mgr.getAppWidgetIds(ComponentName(c, ClockSmallWidgetProvider::class.java))
-        if (clockSmallIds.isNotEmpty()) {
-            val v = ClockSmallWidgetProvider.build(c)
-            for (id in clockSmallIds) mgr.updateAppWidget(id, v)
-        }
-        val sumSmallIds = mgr.getAppWidgetIds(ComponentName(c, SummarySmallWidgetProvider::class.java))
-        if (sumSmallIds.isNotEmpty()) {
-            val v = SummarySmallWidgetProvider.build(c)
-            for (id in sumSmallIds) mgr.updateAppWidget(id, v)
-        }
-        val quickSmallIds = mgr.getAppWidgetIds(ComponentName(c, QuickSmallWidgetProvider::class.java))
-        if (quickSmallIds.isNotEmpty()) {
-            val v = QuickSmallWidgetProvider.build(c)
-            for (id in quickSmallIds) mgr.updateAppWidget(id, v)
+            for (id in clockIds) mgr.updateAppWidget(id, ClockWidgetProvider.build(c, id))
         }
     }
 
@@ -137,11 +146,19 @@ object FieldWidgetStore {
 
 class QuickLaunchWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = build(context)
-        for (id in ids) manager.updateAppWidget(id, views)
+        for (id in ids) manager.updateAppWidget(id, build(context, id))
+    }
+
+    override fun onDeleted(context: Context, ids: IntArray) {
+        WidgetCfg.clear(context, ids)
     }
 
     companion object {
+        fun build(c: Context, id: Int = 0): RemoteViews = Adaptive.views(
+            c, id, QuickSmallWidgetProvider.build(c), buildLarge(c), SizeF(180f, 40f), SizeF(180f, 130f),
+            R.id.widget_quick_s_root, R.id.widget_quick_root
+        )
+
         private val SLOTS = intArrayOf(
             R.id.quick_slot_1, R.id.quick_slot_2, R.id.quick_slot_3, R.id.quick_slot_4
         )
@@ -149,7 +166,7 @@ class QuickLaunchWidgetProvider : AppWidgetProvider() {
             R.id.quick_slot_1_text, R.id.quick_slot_2_text, R.id.quick_slot_3_text, R.id.quick_slot_4_text
         )
 
-        fun build(c: Context): RemoteViews {
+        fun buildLarge(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_quick)
             val titles = FieldWidgetStore.quickTitles(c).take(SLOTS.size)
             v.setViewVisibility(R.id.widget_quick_empty, if (titles.isEmpty()) View.VISIBLE else View.GONE)
@@ -173,8 +190,11 @@ class QuickLaunchWidgetProvider : AppWidgetProvider() {
 
 class SummaryWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = build(context)
-        for (id in ids) manager.updateAppWidget(id, views)
+        for (id in ids) manager.updateAppWidget(id, build(context, id))
+    }
+
+    override fun onDeleted(context: Context, ids: IntArray) {
+        WidgetCfg.clear(context, ids)
     }
 
     companion object {
@@ -194,7 +214,12 @@ class SummaryWidgetProvider : AppWidgetProvider() {
             v.setTextViewText(value, if (n == null) "—" else if (n == 0) none else some(n))
         }
 
-        fun build(c: Context): RemoteViews {
+        fun build(c: Context, id: Int = 0): RemoteViews = Adaptive.views(
+            c, id, SummarySmallWidgetProvider.build(c), buildLarge(c), SizeF(180f, 40f), SizeF(180f, 110f),
+            R.id.widget_summary_s_root, R.id.widget_summary_root
+        )
+
+        fun buildLarge(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_summary)
             val s = FieldWidgetStore.summary(c)
             val date = s?.optString("date").orEmpty()
@@ -224,12 +249,20 @@ class SummaryWidgetProvider : AppWidgetProvider() {
  */
 class ClockWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = build(context)
-        for (id in ids) manager.updateAppWidget(id, views)
+        for (id in ids) manager.updateAppWidget(id, build(context, id))
+    }
+
+    override fun onDeleted(context: Context, ids: IntArray) {
+        WidgetCfg.clear(context, ids)
     }
 
     companion object {
-        fun build(c: Context): RemoteViews {
+        fun build(c: Context, id: Int = 0): RemoteViews = Adaptive.views(
+            c, id, ClockSmallWidgetProvider.build(c), buildLarge(c), SizeF(110f, 40f), SizeF(180f, 110f),
+            R.id.widget_clock_s_root, R.id.widget_clock_root
+        )
+
+        fun buildLarge(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_clock)
             val s = FieldWidgetStore.clock(c)
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
@@ -279,12 +312,8 @@ class ClockWidgetProvider : AppWidgetProvider() {
  * 퇴근했거나 쉬는 날이면 단추 없이 글만 보인다. 단추는 큰 위젯과 같이 앱을 열지 않고 바로 기록한다(ClockPunch).
  * 값이 낡았으면(오늘 날짜가 아니면) 두 단추를 다 보인다.
  */
-class ClockSmallWidgetProvider : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = build(context)
-        for (id in ids) manager.updateAppWidget(id, views)
-    }
-
+/** (등록하지 않는다) 가변식 위젯의 작은 모양만 만든다. */
+class ClockSmallWidgetProvider {
     companion object {
         /** 큰 위젯의 글("08:05 출근 · 근무 중", "08:00 ~ 17:31")을 작은 칸에 맞게 줄인다. */
         private fun shortText(phase: String, text: String): String = when (phase) {
@@ -330,12 +359,8 @@ class ClockSmallWidgetProvider : AppWidgetProvider() {
 }
 
 /** 오늘 요약 작은 위젯(3x1): 일정·일지·자재·근태를 숫자 하나씩 한 줄로. 누르면 앱이 열린다. */
-class SummarySmallWidgetProvider : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = build(context)
-        for (id in ids) manager.updateAppWidget(id, views)
-    }
-
+/** (등록하지 않는다) 가변식 위젯의 작은 모양만 만든다. */
+class SummarySmallWidgetProvider {
     companion object {
         private fun count(o: JSONObject?, key: String): Int? =
             if (o == null || !o.has(key) || o.isNull(key)) null else o.optInt(key, -1).takeIf { it >= 0 }
@@ -374,12 +399,8 @@ class SummarySmallWidgetProvider : AppWidgetProvider() {
 }
 
 /** 빠른 실행 작은 위젯(3x1): 즐겨찾기 앞의 세 개를 한 줄에. 누르면 그 기능이 열린다. */
-class QuickSmallWidgetProvider : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        val views = build(context)
-        for (id in ids) manager.updateAppWidget(id, views)
-    }
-
+/** (등록하지 않는다) 가변식 위젯의 작은 모양만 만든다. */
+class QuickSmallWidgetProvider {
     companion object {
         private val SLOTS = intArrayOf(R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3)
 
