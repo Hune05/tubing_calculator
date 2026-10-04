@@ -22,13 +22,17 @@ Future<void> _defaultShare(String text) async {
   await textSharer(text);
 }
 
-enum BusbarBendKind { l, u, z }
+enum BusbarBendKind { l, u, z, free }
 
 String busbarBendKindLabel(BusbarBendKind k) => switch (k) {
   BusbarBendKind.l => 'L 꺾기',
   BusbarBendKind.u => 'U 꺾기',
   BusbarBendKind.z => 'Z 꺾기 (오프셋)',
+  BusbarBendKind.free => '자유 꺾기 (여러 번)',
 };
+
+/// 자유 꺾기에서 꺾을 수 있는 최대 곳 수.
+const int kBusbarFreeMax = 6;
 
 /// 꺾는 각도(°) 칩.
 const List<double> kBusbarBendAngles = [15, 30, 45, 60, 90];
@@ -83,6 +87,13 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   final _h = TextEditingController(text: '40'); // Z 높이
   final _jobName = TextEditingController(); // 작업 이름(지시서·저장 이름)
 
+  // 자유 꺾기: 꺾는 곳 수, 곧은 길이(곳 수 + 1개), 곳마다 부호 있는 각(+ 위로, − 아래로).
+  int _nBends = 3;
+  final List<TextEditingController> _fs = [
+    for (var i = 0; i <= kBusbarFreeMax; i++) TextEditingController(text: '100'),
+  ];
+  final List<double> _ft = [90, -90, 90, -90, 90, -90];
+
   Timer? _saveTimer;
   bool _draftReady = false;
 
@@ -111,6 +122,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     for (final c in _fields) {
       c.dispose();
     }
+    for (final c in _fs) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -122,6 +136,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     'sp': _spring,
     'pn': _profileName,
     'ang': _angle,
+    'nb': _nBends,
+    'fs': [for (final c in _fs) c.text],
+    'ft': _ft,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
   });
 
@@ -161,6 +178,23 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           for (var i = 0; i < _fields.length; i++) {
             final v = m[_fieldKeys[i]];
             if (v is String) _fields[i].text = v;
+          }
+          final nb = m['nb'];
+          if (nb is num && nb >= 1 && nb <= kBusbarFreeMax) _nBends = nb.toInt();
+          final fsv = m['fs'];
+          if (fsv is List) {
+            for (var i = 0; i < _fs.length && i < fsv.length; i++) {
+              if (fsv[i] is String) _fs[i].text = fsv[i] as String;
+            }
+          }
+          final ftv = m['ft'];
+          if (ftv is List) {
+            for (var i = 0; i < _ft.length && i < ftv.length; i++) {
+              final v = ftv[i];
+              if (v is num && kBusbarBendAngles.contains(v.abs().toDouble())) {
+                _ft[i] = v.toDouble();
+              }
+            }
           }
         }
       }
@@ -208,6 +242,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       BusbarBendKind.l => _num(_a) > 0 && _num(_b) > 0,
       BusbarBendKind.u => _num(_a) > 0 && _num(_b) > 0 && _num(_c) > 0,
       BusbarBendKind.z => _num(_h) > 0,
+      BusbarBendKind.free => [
+        for (var i = 0; i <= _nBends; i++) readNum(_fs[i]),
+      ].every((v) => v != null && v >= 0),
     };
   }
 
@@ -249,6 +286,14 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         );
         _z = z;
         return z.plan;
+      case BusbarBendKind.free:
+        return busbarFree(
+          d: _d,
+          r: _r,
+          k: _k,
+          straights: [for (var i = 0; i <= _nBends; i++) _num(_fs[i])],
+          turns: [for (var i = 0; i < _nBends; i++) _ft[i]],
+        );
     }
   }
 
@@ -267,7 +312,16 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       '${busbarDimRefLabel(_ref)} 다리 ${fmt(_num(_a))} · 바닥 ${fmt(_num(_b))} · 다리 ${fmt(_num(_c))}mm, 90°',
     BusbarBendKind.z =>
       '직선 ${fmt(_num(_a))} · 높이 ${fmt(_num(_h))} · 직선 ${fmt(_num(_c))}mm, ${fmt(_angle)}°',
+    BusbarBendKind.free => '${_freeDimParts().join(' · ')}mm',
   };
+
+  List<String> _freeDimParts() => [
+    '직선 ${fmt(_num(_fs[0]))}',
+    for (var i = 0; i < _nBends; i++) ...[
+      '${_ft[i] >= 0 ? '위' : '아래'} ${fmt(_ft[i].abs())}°',
+      '직선 ${fmt(_num(_fs[i + 1]))}',
+    ],
+  ];
 
   String _bendLine(BusbarBend b, int i) =>
       '${i + 1}. 시작선 ${fmt(b.start, 1)}mm · 끝선 ${fmt(b.end, 1)}mm  (${b.turn >= 0 ? '위로' : '아래로'} ${fmt(b.turn.abs())}°)';
@@ -304,6 +358,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     final kd = switch (d['kind']) {
       'u' => 'U 꺾기',
       'z' => 'Z 꺾기',
+      'free' => '자유 꺾기 ${d['nb'] ?? ''}곳',
       _ => 'L 꺾기',
     };
     final pl = d['plane'] == 'edge' ? '세워' : '눕혀';
@@ -445,6 +500,57 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     ),
   );
 
+  /// 자유 꺾기 입력: 곳 수 → 시작 직선 → (곳마다 각도·방향·다음 직선).
+  List<Widget> _freeFields() => [
+    elecChipGroup(
+      '꺾는 곳 수',
+      '곳 수를 고르면 그 수만큼 칸이 나옵니다(최대 $kBusbarFreeMax곳). 곧은 길이는 꺾기선 사이입니다: 꺾기 끝선에서 다음 꺾기 시작선까지(줄긋기 마킹과 같은 기준).',
+      [
+        for (var n = 1; n <= kBusbarFreeMax; n++)
+          calcChip('bb_n_$n', '$n곳', _nBends == n, () => _set(() => _nBends = n)),
+      ],
+    ),
+    elecField(
+      'bb_fs_0',
+      '시작 직선 (mm)',
+      _fs[0],
+      '부스바 끝에서 첫 꺾기 시작선까지 곧은 길이입니다.',
+      onEdit: _saveSoon,
+    ),
+    for (var i = 0; i < _nBends; i++) ...[
+      elecChipGroup(
+        '꺾기 ${i + 1} 각도',
+        '꺾은 뒤 진행 방향이 바뀐 각도입니다.',
+        [
+          for (final a in kBusbarBendAngles)
+            calcChip(
+              'bb_fa_${i}_${a.toInt()}',
+              '${fmt(a)}°',
+              _ft[i].abs() == a,
+              () => _set(() => _ft[i] = _ft[i] < 0 ? -a : a),
+            ),
+        ],
+      ),
+      elecChipGroup(
+        '꺾기 ${i + 1} 방향',
+        '위로(청록)와 아래로(주황)는 그림의 옆모습에서 꺾이는 쪽입니다. 같은 쪽으로 이어 꺾으면 ㄷ자·계단, 번갈아 꺾으면 ㄹ자·오프셋입니다.',
+        [
+          calcChip('bb_fd_${i}_up', '위로', _ft[i] >= 0, () => _set(() => _ft[i] = _ft[i].abs())),
+          calcChip('bb_fd_${i}_down', '아래로', _ft[i] < 0, () => _set(() => _ft[i] = -_ft[i].abs())),
+        ],
+      ),
+      elecField(
+        'bb_fs_${i + 1}',
+        i == _nBends - 1 ? '끝 직선 (mm)' : '직선 ${i + 1} (mm)',
+        _fs[i + 1],
+        i == _nBends - 1
+            ? '꺾기 ${i + 1} 끝선에서 부스바 끝까지 곧은 길이입니다.'
+            : '꺾기 ${i + 1} 끝선에서 꺾기 ${i + 2} 시작선까지 곧은 길이입니다.',
+        onEdit: _saveSoon,
+      ),
+    ],
+  ];
+
   @override
   Widget build(BuildContext context) {
     final p = _plan();
@@ -453,6 +559,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     final bad = z != null && !z.feasible;
     final isU = _kind == BusbarBendKind.u;
     final isZ = _kind == BusbarBendKind.z;
+    final isFree = _kind == BusbarBendKind.free;
     String? summary;
 
     final children = <Widget>[
@@ -465,7 +572,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       ),
       elecChipGroup(
         '꺾기 종류',
-        'L: 한 번 꺾기. U: 같은 방향으로 두 번(ㄷ자). Z: 반대 방향으로 두 번(오프셋, 높이를 맞춰 비켜감).',
+        'L: 한 번 꺾기. U: 같은 방향으로 두 번(ㄷ자). Z: 반대 방향으로 두 번(오프셋, 높이를 맞춰 비켜감). 자유: 꺾는 곳을 최대 6곳까지 곳마다 각도·방향을 골라 이어 꺾기(계단·ㄹ자 등).',
         [
           for (final k in BusbarBendKind.values)
             calcChip(
@@ -549,7 +656,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         ],
       ),
       elecSectionTitle('치수'),
-      if (!isZ)
+      if (!isZ && !isFree)
         elecChipGroup('치수 기준', '바깥 치수: 꺾은 바깥 모서리까지. 안쪽 치수: 안쪽 모서리까지.', [
           for (final r in BusbarDimRef.values)
             calcChip(
@@ -559,7 +666,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
               () => _set(() => _ref = r),
             ),
         ]),
-      if (!isU)
+      if (!isU && !isFree)
         elecChipGroup('꺾는 각도', '꺾은 뒤 진행 방향이 바뀐 각도입니다. 90°는 직각으로 꺾습니다.', [
           for (final a in kBusbarBendAngles)
             calcChip(
@@ -569,6 +676,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
               () => _set(() => _angle = a),
             ),
         ]),
+      if (isFree) ..._freeFields(),
+      if (!isFree)
       elecField(
         'bb_ia',
         isZ ? '시작 직선 (mm)' : '다리 1 (mm)',
@@ -576,7 +685,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         isZ ? '부스바 끝에서 첫 꺾기 시작선까지 곧은 길이입니다.' : '부스바 한쪽 끝에서 꺾인 모서리까지 길이입니다.',
         onEdit: _saveSoon,
       ),
-      if (!isZ)
+      if (!isZ && !isFree)
         elecField(
           'bb_ib',
           isU ? '바닥 (mm)' : '다리 2 (mm)',
@@ -584,7 +693,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           isU ? 'U의 바닥 길이(두 모서리 사이)입니다.' : '다른 쪽 끝에서 꺾인 모서리까지 길이입니다.',
           onEdit: _saveSoon,
         ),
-      if (isU || isZ)
+      if ((isU || isZ) && !isFree)
         elecField(
           'bb_ic',
           isZ ? '끝 직선 (mm)' : '다리 2 (mm)',
@@ -592,7 +701,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           isZ ? '두 번째 꺾기 끝선에서 부스바 끝까지 곧은 길이입니다.' : '다른 쪽 다리 길이입니다.',
           onEdit: _saveSoon,
         ),
-      if (isZ)
+      if (isZ && !isFree)
         elecField(
           'bb_ih',
           '오프셋 높이 (mm)',

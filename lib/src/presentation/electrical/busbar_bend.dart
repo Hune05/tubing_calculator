@@ -106,6 +106,27 @@ BusbarBendPlan busbarBendPlan({
   return BusbarBendPlan(cutLength: pos, bends: bends, straights: straights);
 }
 
+/// 자유 꺾기(여러 번): 꺾기선 사이 곧은 길이 [straights]와 꺾는 각 [turns]로 바로 계산한다.
+/// 꺾는 곳이 n개면 [straights]는 n+1개(시작 직선, 곳 사이 직선들, 끝 직선).
+/// 곧은 길이는 꺾기 끝선에서 다음 꺾기 시작선까지라 줄긋기 마킹과 같은 기준이다(꼭짓점 보정이 필요 없다).
+/// 안에서는 꼭짓점 사이 길이(곧은 길이 + 앞뒤 꼭짓점 물림)로 바꿔 [busbarBendPlan]에 넘긴다.
+BusbarBendPlan busbarFree({
+  required double d,
+  required double r,
+  required double k,
+  required List<double> straights,
+  required List<double> turns,
+}) {
+  assert(straights.length == turns.length + 1);
+  final n = turns.length;
+  final setbacks = [for (final t in turns) busbarSetback(d, r, k, t)];
+  final legs = [
+    for (var i = 0; i <= n; i++)
+      straights[i] + (i > 0 ? setbacks[i - 1] : 0) + (i < n ? setbacks[i] : 0),
+  ];
+  return busbarBendPlan(d: d, r: r, k: k, legs: legs, turns: turns);
+}
+
 /// 치수를 어디서 재는지(L·U 꺾기).
 enum BusbarDimRef { outside, inside }
 

@@ -7,8 +7,9 @@ import 'package:tubing_calculator/src/presentation/electrical/busbar_bend_page.d
 Future<void> _open(
   WidgetTester tester, {
   Future<void> Function(String)? share,
+  double height = 5200,
 }) async {
-  tester.view.physicalSize = const Size(800, 5200);
+  tester.view.physicalSize = Size(800, height);
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -80,5 +81,76 @@ void main() {
       tester.widget<TextField>(find.byKey(const Key('bb_t'))).controller!.text,
       '10',
     );
+  });
+
+  testWidgets('자유 꺾기: 기본 3곳(100씩·90°) → 마킹 3곳, 곳 수를 4·5로 늘리면 칸과 마킹이 따라 늘어난다', (tester) async {
+    await _open(tester, height: 16000);
+    await tester.tap(find.byKey(const Key('bb_k_free')));
+    await tester.pumpAndSettle();
+    // 기본: 직선 4개 400 + 호 3개(ρ 7 → 10.996 × 3 = 33.0)
+    expect(find.text('433 mm'), findsOneWidget);
+    expect(find.byKey(const Key('bb_fs_3')), findsOneWidget);
+    expect(find.byKey(const Key('bb_fs_4')), findsNothing);
+
+    await tester.ensureVisible(find.byKey(const Key('bb_n_4')));
+    await tester.tap(find.byKey(const Key('bb_n_4')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('bb_fs_4')), findsOneWidget);
+    expect(find.text('544 mm'), findsOneWidget, reason: '직선 5개 500 + 호 4개 43.98');
+
+    await tester.ensureVisible(find.byKey(const Key('bb_n_5')));
+    await tester.tap(find.byKey(const Key('bb_n_5')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('bb_fs_5')), findsOneWidget);
+    expect(find.textContaining('꺾는 곳 5곳'), findsOneWidget);
+  });
+
+  testWidgets('자유 꺾기: 각도와 방향을 곳마다 바꾸면 마킹 줄에 위로·아래로가 반영된다', (tester) async {
+    await _open(tester, height: 16000);
+    await tester.tap(find.byKey(const Key('bb_k_free')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('bb_fa_0_45')));
+    await tester.tap(find.byKey(const Key('bb_fa_0_45')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('bb_fd_0_down')));
+    await tester.tap(find.byKey(const Key('bb_fd_0_down')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('아래로 45°'), findsWidgets);
+    expect(find.textContaining('위로 90°'), findsWidgets, reason: '2번째·3번째 꺾기는 그대로');
+  });
+
+  testWidgets('자유 꺾기: 입력값(곳 수·길이·각도)이 남았다가 다시 열면 이어진다', (tester) async {
+    await _open(tester, height: 16000);
+    await tester.tap(find.byKey(const Key('bb_k_free')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('bb_n_5')));
+    await tester.tap(find.byKey(const Key('bb_n_5')));
+    await tester.pumpAndSettle();
+    await _type(tester, 'bb_fs_5', '123');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    await _open(tester, height: 16000);
+    expect(find.byKey(const Key('bb_fs_5')), findsOneWidget);
+    expect(tester.widget<TextField>(find.byKey(const Key('bb_fs_5'))).controller!.text, '123');
+  });
+
+  testWidgets('자유 꺾기: 칸이 비면 계산하지 않고, 카톡 글에 모든 꺾기가 들어간다', (tester) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t, height: 16000);
+    await tester.tap(find.byKey(const Key('bb_k_free')));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('bb_n_4')));
+    await tester.tap(find.byKey(const Key('bb_n_4')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('bb_share')));
+    await tester.pumpAndSettle();
+    expect(sent, contains('자유 꺾기'));
+    for (final n in ['1.', '2.', '3.', '4.']) {
+      expect(sent, contains(n));
+    }
+    expect(sent, contains('직선 100 · 위 90° · 직선 100 · 아래 90°'));
+
+    await _type(tester, 'bb_fs_2', '');
+    expect(find.text('— mm'), findsOneWidget);
   });
 }

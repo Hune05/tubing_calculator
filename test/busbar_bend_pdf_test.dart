@@ -41,6 +41,28 @@ void main() {
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });
 
+  test('자유 꺾기 6곳(위·아래 섞임)도 지시서 PDF가 만들어진다', () async {
+    final plan = busbarFree(
+      d: 5,
+      r: 5,
+      k: 0.4,
+      straights: [60, 80, 70, 90, 60, 80, 70],
+      turns: [90, -45, 60, -90, 30, -15],
+    );
+    final bytes = await buildBendPdf(
+      BendPdfInput(
+        title: '자유 6곳',
+        plan: plan,
+        thickness: 5,
+        rho: 7,
+        summary: const [('재료', '구리 평강 5 × 50 mm')],
+        notes: const ['시험 주의'],
+      ),
+    );
+    expect(bytes.length, greaterThan(2000));
+    expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+  });
+
   test('파일 이름', () {
     expect(
       bendFileName('1호기 모선', DateTime(2026, 10, 3)),
