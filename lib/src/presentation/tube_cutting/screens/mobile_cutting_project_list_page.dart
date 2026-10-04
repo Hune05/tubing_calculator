@@ -10,6 +10,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_firestore_helper.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_pending_banner.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.dart';
+import 'short_pipe_cutting_page.dart';
 import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import '../../trash/trash_kinds.dart';
@@ -508,6 +509,18 @@ class _MobileCuttingProjectListPageState
           ),
           iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
           actions: [
+            // 라인(부속 구성) 없이 "길이 × 개수"만 넣어 원자재 본수와 자르는 눈금을 보는 짧은 단관용 화면.
+            TextButton.icon(
+              key: const Key('open_short_pipe'),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ShortPipeCuttingPage()),
+              ),
+              icon: const Icon(Icons.content_cut_rounded, size: 18),
+              label: const Text(
+                "단관 컷팅",
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
             IconButton(
               tooltip: "부속 목록 새로고침 (개발자용)",
               icon: Icon(
