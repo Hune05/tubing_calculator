@@ -20,6 +20,9 @@ class FittingItem {
   final double insertionDepth; // 튜브 삽입 깊이 (Seat Depth)
   final bool isCustom; // 커스텀(직접 입력) 여부
 
+  /// 사용자가 실제 부속을 재서 이 폰에 기억해 둔 공제값이면 true(카탈로그 값을 덮은 것).
+  final bool measured;
+
   final IconData icon;
 
   const FittingItem({
@@ -33,6 +36,7 @@ class FittingItem {
     required this.deduction,
     this.insertionDepth = 0.0, // 기본값 0
     this.isCustom = false, // 기본값 false (커스텀 아님)
+    this.measured = false,
     required this.icon,
   });
 
@@ -42,4 +46,31 @@ class FittingItem {
     }
     return name;
   }
+
+  /// 공제값이 카탈로그 확정값이 아니라 크기별 기준값에 계수를 곱해 만든 **근사값**인지.
+  /// 직접 입력한 부속·직관("없음")·사용자가 잰 값(실측)은 근사값이 아니다.
+  bool get isApprox =>
+      !measured &&
+      !isCustom &&
+      category != 'CUSTOM' &&
+      maker != 'CUSTOM' &&
+      maker != 'ALL' &&
+      id != 'none' &&
+      id != 'custom_input' &&
+      id != kCustomFittingRequestId;
+
+  FittingItem copyWith({double? deduction, bool? measured}) => FittingItem(
+    id: id,
+    maker: maker,
+    tubeOD: tubeOD,
+    category: category,
+    name: name,
+    threadType: threadType,
+    threadSize: threadSize,
+    deduction: deduction ?? this.deduction,
+    insertionDepth: insertionDepth,
+    isCustom: isCustom,
+    measured: measured ?? this.measured,
+    icon: icon,
+  );
 }

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/models/fitting_item.dart';
 import '../cutting_theme.dart';
 import '../cutting_fitting_favorites.dart';
+import '../cutting_fitting_catalog.dart';
 
 const Color pureWhite = CuttingColors.surface;
 const Color makitaTeal = CuttingColors.primary;
@@ -48,6 +49,8 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   static const int _kMaxRecents = 8;
   List<FittingItem> _favorites = [];
   List<FittingItem> _recents = [];
+  // 사용자가 부속을 재서 이 폰에 기억해 둔 공제값(실측). 카탈로그 값 대신 쓴다.
+  FittingOverrides _overrides = {};
 
   final List<String> allSizes = [
     "1/4",
@@ -114,8 +117,10 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     final prefs = await SharedPreferences.getInstance();
     final favStr = prefs.getString(kFavoriteFittingsPrefsKey);
     final recStr = prefs.getString(_kRecentsKey);
+    final overrides = await loadFittingOverrides();
     if (!mounted) return;
     setState(() {
+      _overrides = overrides;
       if (favStr != null) {
         _favorites = (jsonDecode(favStr) as List)
             .map((e) => fittingItemFromJson(e as Map<String, dynamic>))
@@ -247,6 +252,103 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     );
   }
 
+  // 공제값이 근사값인지 잰 값인지 목록에서 바로 보이게 한다.
+  Widget _valueTag(FittingItem item) {
+    if (!item.measured && !item.isApprox) return const SizedBox.shrink();
+    final bool m = item.measured;
+    final Color c = m ? const Color(0xFF2E7D32) : CuttingColors.warning;
+    return Container(
+      key: Key(m ? 'fit_tag_measured' : 'fit_tag_approx'),
+      margin: const EdgeInsets.only(left: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        m ? '실측' : '근사',
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: c),
+      ),
+    );
+  }
+
+  String _fmtMm(double v) =>
+      v == v.roundToDouble() ? v.toInt().toString() : v.toString();
+
+  // 부속을 실제로 재서 구한 공제값을 이 폰에 기억한다(다음부터 이 값을 쓴다).
+  Future<void> _editMeasured(FittingItem item) async {
+    final key = fittingKeyOf(item);
+    final ctrl = TextEditingController(text: _fmtMm(item.deduction));
+    String? error;
+    final String? action = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: Text("${item.name} 실측 공제값"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.measured
+                    ? "지금은 잰 값을 쓰고 있습니다."
+                    : "카탈로그 값은 근사값일 수 있습니다. 부속을 실제로 재서 구한 값을 넣으면 이 폰에 기억하고, 다음부터 이 값을 씁니다.",
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('fit_measured_field'),
+                controller: ctrl,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: "공제값",
+                  suffixText: "mm",
+                  errorText: error,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("취소"),
+            ),
+            if (item.measured)
+              TextButton(
+                key: const Key('fit_measured_reset'),
+                onPressed: () => Navigator.pop(ctx, 'reset'),
+                child: const Text("카탈로그 값으로"),
+              ),
+            TextButton(
+              key: const Key('fit_measured_save'),
+              onPressed: () {
+                if (parseMeasuredDeduction(ctrl.text) == null) {
+                  setD(() => error = "0~500mm 사이 숫자를 넣으십시오.");
+                  return;
+                }
+                Navigator.pop(ctx, 'save');
+              },
+              child: const Text("저장"),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (action == 'save') {
+      final v = parseMeasuredDeduction(ctrl.text);
+      if (v == null) return;
+      setState(() => _overrides = {..._overrides, key: v});
+      await saveFittingOverrides(_overrides);
+    } else if (action == 'reset') {
+      setState(() => _overrides = {..._overrides}..remove(key));
+      await saveFittingOverrides(_overrides);
+    }
+  }
+
   Widget _buildCategoryBadge(String category) {
     return Container(
       width: 44,
@@ -374,7 +476,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
               ),
               const SizedBox(height: 2),
               Text(
-                "${item.tubeOD} · -${item.deduction}mm",
+                "${item.tubeOD} · -${item.deduction}mm${item.measured ? ' · 실측' : (item.isApprox ? ' · 근사' : '')}",
                 style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
               ),
             ],
@@ -385,8 +487,14 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   }
 
   Widget _buildQuickPickSection() {
-    final favs = _favorites.where((f) => f.maker == widget.maker).toList();
-    final recents = _recents.where((f) => f.maker == widget.maker).toList();
+    final favs = [
+      for (final f in _favorites)
+        if (f.maker == widget.maker) withOverride(f, _overrides),
+    ];
+    final recents = [
+      for (final f in _recents)
+        if (f.maker == widget.maker) withOverride(f, _overrides),
+    ];
     if (_searchQuery.isNotEmpty || (favs.isEmpty && recents.isEmpty)) {
       return const SizedBox.shrink();
     }
@@ -621,12 +729,26 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                         .where('tubeOD', isEqualTo: selectedSize)
                         .snapshots(),
                     builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(color: makitaTeal),
-                        );
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      // 서버 목록이 비었거나 통신이 없으면 앱 안 부속표를 쓴다(통신 없는 현장).
+                      final bool serverOk =
+                          snapshot.hasData && snapshot.data!.docs.isNotEmpty;
+                      final List<Map<String, dynamic>> rows = serverOk
+                          ? [
+                              for (final d in snapshot.data!.docs)
+                                {
+                                  ...(d.data() as Map<String, dynamic>),
+                                  if (((d.data() as Map<String, dynamic>)['id'] ??
+                                          '')
+                                      .toString()
+                                      .isEmpty)
+                                    'id': d.id,
+                                },
+                            ]
+                          : builtInFittingMaps(
+                              maker: widget.maker,
+                              tubeOD: selectedSize,
+                            );
+                      if (rows.isEmpty) {
                         return Center(
                           child: Padding(
                             padding: const EdgeInsets.all(24),
@@ -668,9 +790,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                         );
                       }
 
-                      var allDocs = snapshot.data!.docs;
-                      var filteredDocs = allDocs.where((doc) {
-                        var data = doc.data() as Map<String, dynamic>;
+                      var filteredDocs = rows.where((data) {
                         String cat = (data['category'] ?? '').toString();
                         String name =
                             (data['displayName'] ?? data['name'] ?? '')
@@ -756,23 +876,10 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               itemCount: filteredDocs.length,
                               itemBuilder: (context, index) {
-                                final doc = filteredDocs[index];
-                                var data = doc.data() as Map<String, dynamic>;
-                                final rawId = data['id'] as String?;
-
-                                FittingItem item = FittingItem(
-                                  id: (rawId != null && rawId.isNotEmpty)
-                                      ? rawId
-                                      : doc.id,
-                                  tubeOD: data['tubeOD'] ?? '',
-                                  category: data['category'] ?? '',
-                                  name:
-                                      data['displayName'] ?? data['name'] ?? '',
-                                  maker: data['maker'] ?? '',
-                                  deduction:
-                                      (data['deduction'] as num?)?.toDouble() ??
-                                      0.0,
-                                  icon: Icons.settings,
+                                final data = filteredDocs[index];
+                                final FittingItem item = withOverride(
+                                  fittingFromMap(data),
+                                  _overrides,
                                 );
                                 final bool fav = _isFavorite(item);
 
@@ -804,24 +911,49 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                         color: textDark,
                                       ),
                                     ),
-                                    subtitle: Text(
-                                      "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
-                                      style: TextStyle(
-                                        color: Colors.grey.shade600,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12,
-                                      ),
+                                    subtitle: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Colors.grey.shade600,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
+                                        _valueTag(item),
+                                      ],
                                     ),
-                                    trailing: IconButton(
-                                      icon: Icon(
-                                        fav
-                                            ? Icons.star_rounded
-                                            : Icons.star_border_rounded,
-                                        color: fav
-                                            ? CuttingColors.warning
-                                            : Colors.grey.shade400,
-                                      ),
-                                      onPressed: () => _toggleFavorite(item),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          key: Key('fit_measure_${item.id}'),
+                                          tooltip: "실측 공제값",
+                                          icon: Icon(
+                                            Icons.straighten_rounded,
+                                            size: 20,
+                                            color: item.measured
+                                                ? const Color(0xFF2E7D32)
+                                                : Colors.grey.shade400,
+                                          ),
+                                          onPressed: () => _editMeasured(item),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(
+                                            fav
+                                                ? Icons.star_rounded
+                                                : Icons.star_border_rounded,
+                                            color: fav
+                                                ? CuttingColors.warning
+                                                : Colors.grey.shade400,
+                                          ),
+                                          onPressed: () => _toggleFavorite(item),
+                                        ),
+                                      ],
                                     ),
                                     onTap: () => _recordRecentAndPop(item),
                                   ),

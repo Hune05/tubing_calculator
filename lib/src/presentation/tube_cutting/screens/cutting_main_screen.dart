@@ -41,6 +41,7 @@ import '../cutting_stock_deduct.dart';
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
 import '../cutting_fitting_favorites.dart';
+import '../cutting_fitting_catalog.dart';
 import '../../../core/common_widgets/swipe_to_delete.dart';
 
 // 🚀 [입력 고도화] 라인 템플릿(자주 쓰는 부속 구성)을 저장하는 컬렉션.
@@ -696,6 +697,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               "메이커 고정: $_globalMaker    세트 수: $_setMultiplier SET"
               "${_bladeKerf > 0 ? '    톱날 손실: ${_bladeKerf.toStringAsFixed(1)}mm/회' : ''}",
             ),
+            if (_approxNote().isNotEmpty)
+              pw.Text(
+                "※ ${_approxNote()}",
+                style: pw.TextStyle(font: koreanBold, fontSize: 10),
+              ),
             pw.SizedBox(height: 16),
             pw.TableHelper.fromTextArray(
               headers: headers,
@@ -860,14 +866,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         'tubeSpec': _tubeSpec,
         'lengthUnit': _lengthUnit,
         'points': _points.map((p) {
-          return {
-            'fittingId': p.fitting.id,
-            'c2c': p.c2cController.text,
-            'isCustom': p.fitting.category == 'CUSTOM',
-            'customName': p.fitting.name,
-            'customDed': p.fitting.deduction,
-            'customOD': p.fitting.tubeOD,
-          };
+          return {...fittingPointJson(p.fitting), 'c2c': p.c2cController.text};
         }).toList(),
       };
       await prefs.setString(_draftKey, jsonEncode(stateData));
@@ -888,6 +887,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     try {
       final prefs = await SharedPreferences.getInstance();
       final jsonStr = prefs.getString(_draftKey);
+      // 실측 공제값도 같이 읽는다(읽기가 끝난 뒤에 아래에서 "치는 중인지"를 본다).
+      final overrides = await loadFittingOverrides();
       if (!mounted) return;
       // 읽기가 늦게 왔는데 그새 치기 시작했으면 치던 것을 지우지 않는다.
       final bool typing = _points.any(
@@ -922,21 +923,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
 
             _points = (stateData['points'] as List).map((pData) {
               CutPoint p = CutPoint(fitting: SmartFittingDB.getById("none"));
-              if (pData['isCustom'] == true) {
-                p.fitting = FittingItem(
-                  id: pData['fittingId'] ?? "custom",
-                  category: "CUSTOM",
-                  name: pData['customName'] ?? "커스텀 부속",
-                  tubeOD: pData['customOD'] ?? "미지정",
-                  maker: "CUSTOM",
-                  deduction: (pData['customDed'] as num?)?.toDouble() ?? 0.0,
-                  icon: Icons.extension,
-                );
-              } else {
-                p.fitting = SmartFittingDB.getById(
-                  pData['fittingId'] ?? "none",
-                );
-              }
+              p.fitting = restoreFittingFromPoint(
+                pData as Map,
+                overrides: overrides,
+              );
               p.c2cController.text = pData['c2c'] ?? "";
               return p;
             }).toList();
@@ -1076,14 +1066,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 데이터라 fittings 컬렉션처럼 별도 Firestore 컬렉션에 저장한다.
   List<Map<String, dynamic>> _serializePointsForTemplate() {
     return _points.map((p) {
-      return {
-        'fittingId': p.fitting.id,
-        'c2c': p.c2cController.text,
-        'isCustom': p.fitting.category == 'CUSTOM',
-        'customName': p.fitting.name,
-        'customDed': p.fitting.deduction,
-        'customOD': p.fitting.tubeOD,
-      };
+      return {...fittingPointJson(p.fitting), 'c2c': p.c2cController.text};
     }).toList();
   }
 
@@ -1181,6 +1164,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       if (!confirmed) return;
     }
 
+    final overrides = await loadFittingOverrides();
+    if (!mounted) return;
     setState(() {
       for (var p in _points) {
         p.dispose();
@@ -1188,19 +1173,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       _points = pointsData.map((pData) {
         final m = pData as Map;
         CutPoint p = CutPoint(fitting: SmartFittingDB.getById("none"));
-        if (m['isCustom'] == true) {
-          p.fitting = FittingItem(
-            id: m['fittingId'] ?? "custom",
-            category: "CUSTOM",
-            name: m['customName'] ?? "커스텀 부속",
-            tubeOD: m['customOD'] ?? "미지정",
-            maker: "CUSTOM",
-            deduction: (m['customDed'] as num?)?.toDouble() ?? 0.0,
-            icon: Icons.extension,
-          );
-        } else {
-          p.fitting = SmartFittingDB.getById(m['fittingId'] ?? "none");
-        }
+        p.fitting = restoreFittingFromPoint(m, overrides: overrides);
         p.c2cController.text = m['c2c'] ?? "";
         return p;
       }).toList();
@@ -3583,6 +3556,35 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           fontWeight: FontWeight.w900,
                         ),
                       ),
+                      if (item.measured || item.isApprox)
+                        Container(
+                          key: Key(
+                            item.measured ? 'pt_tag_measured' : 'pt_tag_approx',
+                          ),
+                          margin: const EdgeInsets.only(left: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color:
+                                (item.measured
+                                        ? const Color(0xFF2E7D32)
+                                        : CuttingColors.warning)
+                                    .withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            item.measured ? '실측' : '근사',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w900,
+                              color: item.measured
+                                  ? const Color(0xFF2E7D32)
+                                  : CuttingColors.warning,
+                            ),
+                          ),
+                        ),
                       const SizedBox(width: 4),
                       InkWell(
                         onTap: () => _showCustomFittingDialog(index),
@@ -4304,7 +4306,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       emptyIsError: d.interferenceCount > 0,
       tubeSpec: _tubeSpec,
       onPickSpec: _pickTubeSpec,
+      approxNote: _approxNote(),
     );
+  }
+
+  /// 공제값이 근사값인 부속이 라인에 있으면 결과 맨 위와 지시서에 붙일 안내. 없으면 빈 글.
+  String _approxNote() {
+    final n = approxFittingCount([for (final p in _points) p.fitting]);
+    return approxFittingNote(n);
   }
 }
 

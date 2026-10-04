@@ -41,6 +41,8 @@ class CuttingResultView extends StatelessWidget {
   final bool hideDoneLines;
   // 총계 카드에 한 줄 더 붙일 글(예: "새 자재 6000 3본"). 비면 붙이지 않는다.
   final String stockNote;
+  // 공제값이 근사값인 부속이 있을 때 붙이는 안내(예: "공제값 근사 부속 3개"). 비면 붙이지 않는다.
+  final String approxNote;
 
   const CuttingResultView({
     super.key,
@@ -65,6 +67,7 @@ class CuttingResultView extends StatelessWidget {
     this.onToggleSpec,
     this.hideDoneLines = false,
     this.stockNote = '',
+    this.approxNote = '',
   });
 
   // 그 규격을 지금 접어 두었는지(규격 머리글을 쓰고, 접기를 켰을 때만).
@@ -103,6 +106,7 @@ class CuttingResultView extends StatelessWidget {
           allDoneActionLabel: allDoneActionLabel,
           onAllDoneAction: onAllDoneAction,
           stockNote: stockNote,
+          approxNote: approxNote,
         ),
         const SizedBox(height: 10),
         for (var i = 0; i < lines.length; i++) ...[
@@ -153,6 +157,7 @@ class _Header extends StatelessWidget {
   final String? allDoneActionLabel;
   final VoidCallback? onAllDoneAction;
   final String stockNote;
+  final String approxNote;
 
   const _Header({
     required this.summary,
@@ -168,6 +173,7 @@ class _Header extends StatelessWidget {
     this.allDoneActionLabel,
     this.onAllDoneAction,
     this.stockNote = '',
+    this.approxNote = '',
   });
 
   @override
@@ -234,6 +240,43 @@ class _Header extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
+              ),
+            ),
+          // 공제값이 카탈로그 확정값이 아닌 부속이 있으면 알려 준다(실제 부속으로 재서 확인하라고).
+          if (approxNote.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                key: const Key('result_approx_note'),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: CuttingColors.warningSoft,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: CuttingColors.warning.withValues(alpha: 0.5),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.straighten_rounded,
+                      size: 18,
+                      color: CuttingColors.warning,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        approxNote,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: CuttingColors.warning,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

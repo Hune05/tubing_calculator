@@ -26,6 +26,13 @@ class SmartFittingDBSeeder {
     '25mm': '3/4',
   };
 
+  static List<Map<String, dynamic>>? _catalogCache;
+
+  /// 서버에 올리는 것과 같은 부속 목록(앱 안에서 만든다). 통신이 없어도 부속을 고를 수 있게 앱이 직접 쓴다.
+  /// 값은 크기별 기준값에 부속 종류·제조사 계수를 곱한 **근사값**이다(카탈로그 확정값이 아니다).
+  static List<Map<String, dynamic>> catalog() =>
+      _catalogCache ??= _generateProfessionalCatalog();
+
   static Future<void> uploadInitialData() async {
     final firestore = FirebaseFirestore.instance;
     final collectionRef = firestore.collection('fittings');
