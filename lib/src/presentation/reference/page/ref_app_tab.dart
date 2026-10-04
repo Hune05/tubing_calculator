@@ -86,7 +86,7 @@ class RefAppTab extends StatelessWidget {
 
         refCard(
           title: "라인 컷팅",
-          subtitle: "튜브 가공 안에서 피팅 삽입 깊이를 빼서 절단 길이를 계산하고 자재 사용량을 기록",
+          subtitle: "피팅 삽입 깊이를 빼서 절단 길이를 계산하고 자재 사용량을 기록",
           icon: LucideIcons.scissors,
           iconColor: Colors.teal,
           children: [

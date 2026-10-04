@@ -47,7 +47,8 @@ import 'package:tubing_calculator/src/presentation/reference/page/app_usage_page
 import 'package:tubing_calculator/src/presentation/reference/page/equipment_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/search/knowledge_search_page.dart';
-import 'package:tubing_calculator/src/presentation/tube_cutting/screens/tube_work_hub_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/mobile_cutting_project_list_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/short_pipe_cutting_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/mobile_steel_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 
@@ -168,7 +169,8 @@ Set<String> toggleQuickLaunchFavorite(Set<String> current, String title) {
 /// 저장된 즐겨찾기·순서·사용 기록·홈 위젯 동작을 새 이름으로 읽는다(2026-10-03 문구 통일).
 const Map<String, String> kQuickLaunchRenamed = {
   '압력 시험': '압력시험',
-  '튜브 컷팅': '튜브 가공',
+  '튜브 컷팅': '라인 컷팅',
+  '튜브 가공': '라인 컷팅',
 };
 
 /// 저장된 제목 목록의 예전 이름을 새 이름으로 바꾼다(겹치면 하나만 남긴다).
@@ -1436,8 +1438,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "튜브 가공",
-                        subtitle: "라인 컷팅 · 단관 컷팅",
+                        title: "라인 컷팅",
+                        subtitle: "부속 공제로 절단 길이 · 지시서 · 재고",
                         icon: AppGlyph.tubeCut,
                         iconColor: makitaTeal,
                         onTap: () {
@@ -1445,7 +1447,24 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const TubeWorkHubPage(),
+                              builder: (context) =>
+                                  const MobileCuttingProjectListPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "단관 컷팅",
+                        subtitle: "같은 길이 여러 개 · 원자재 본수 · 자르는 눈금",
+                        icon: AppGlyph.straightPipe,
+                        iconColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const ShortPipeCuttingPage(),
                             ),
                           );
                         },
