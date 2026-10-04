@@ -159,6 +159,8 @@ class _AgendaItem {
   // 예전 방식(일정 전체에 완료 표시 하나)으로 끝낸 일정은 날마다 풀 때 옮겨 적어야 해서 따로 안다.
   final bool? spanAllDone;
   final bool legacyWholeDone;
+  // 기간 일정에서 끝낸 날 수(카드에 "3/5일 완료"로 보인다).
+  final int? spanDoneCount;
   // 끝나는 시각(넣었을 때만)과 메모.
   final DateTime? end;
   final String note;
@@ -193,6 +195,7 @@ class _AgendaItem {
     this.spanKey,
     this.spanAllDone,
     this.legacyWholeDone = false,
+    this.spanDoneCount,
     this.end,
     this.note = '',
   });
@@ -462,6 +465,12 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             ),
             spanAllDone: allDone,
             legacyWholeDone: wholeDone,
+            spanDoneCount: spanDoneCount(
+              completedMap,
+              startDay,
+              totalDays,
+              wholeDone: wholeDone,
+            ),
             isPersonal: true,
             personalDocId: docId,
             recurrence: recurrence,
@@ -605,6 +614,145 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         !item.isCompleted,
       );
     }
+  }
+
+  // 반복 없는 개인 일정을 [newStartDay]로 옮긴다. 기간 일정은 길이를 그대로 두고 통째로 옮기고,
+  // 알림도 새 날짜로 다시 잡는다. 끝나면 "되돌리기"를 준다.
+  Future<void> _moveSchedule(_AgendaItem item, DateTime newStartDay) async {
+    if (!item.isPersonal ||
+        item.recurrence != 'none' ||
+        item.personalDocId == null) {
+      return;
+    }
+    final docRef = FirebaseFirestore.instance
+        .collection(kPersonalSchedulesCollection)
+        .doc(item.personalDocId);
+    final doc = await docRef.get();
+    final data = doc.data();
+    if (!doc.exists || data == null) return;
+    final fields = movedScheduleFields(data, newStartDay);
+    if (fields.isEmpty) return;
+    final before = scheduleDateFields(data);
+    if (fields['dateTime'] == before['dateTime']) return;
+    HapticFeedback.mediumImpact();
+    unawaited(
+      docRef
+          .update({...fields, 'updatedAt': FieldValue.serverTimestamp()})
+          .catchError(_scheduleSaveFailed),
+    );
+    unawaited(_scheduleOrCancelReminder(doc.id, {...data, ...fields}));
+    if (!mounted) return;
+    final d = DateTime(newStartDay.year, newStartDay.month, newStartDay.day);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text("'${item.baseTitle}' 일정을 ${d.month}월 ${d.day}일로 옮겼습니다."),
+          action: SnackBarAction(
+            label: "되돌리기",
+            onPressed: () {
+              unawaited(
+                docRef
+                    .update({...before, 'updatedAt': FieldValue.serverTimestamp()})
+                    .catchError(_scheduleSaveFailed),
+              );
+              unawaited(_scheduleOrCancelReminder(doc.id, {...data, ...before}));
+            },
+          ),
+        ),
+      );
+  }
+
+  // 일정 카드의 "날짜 옮기기": 내일로 · 다음 주 같은 요일로 · 날짜 고르기.
+  // 여러 날 일정은 시작일을 옮기며 기간은 그대로다.
+  void _showMoveSheet(_AgendaItem item) {
+    final DateTime first = DateTime(
+      item.date.year,
+      item.date.month,
+      item.date.day - item.spanIndex,
+    );
+    final bool span = item.spanTotal > 1;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: scheduleWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "날짜 옮기기",
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: scheduleText,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                span
+                    ? "기간은 그대로 두고 시작일을 옮깁니다."
+                    : "시각은 그대로 두고 날짜만 옮깁니다.",
+                style: const TextStyle(fontSize: 13, color: Color(0xFF6B7684)),
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                key: const Key('move_tomorrow'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.today_rounded, color: scheduleTeal),
+                title: Text(span ? "하루 뒤로" : "내일로"),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _moveSchedule(
+                    item,
+                    DateTime(first.year, first.month, first.day + 1),
+                  );
+                },
+              ),
+              ListTile(
+                key: const Key('move_next_week'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.date_range_rounded, color: scheduleTeal),
+                title: const Text("다음 주 같은 요일로"),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _moveSchedule(
+                    item,
+                    DateTime(first.year, first.month, first.day + 7),
+                  );
+                },
+              ),
+              ListTile(
+                key: const Key('move_pick'),
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.edit_calendar_rounded, color: scheduleTeal),
+                title: const Text("날짜 고르기"),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final range = pickerRangeFor(
+                    first,
+                    DateTime(2020),
+                    DateTime(2035),
+                  );
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: first,
+                    firstDate: range.first,
+                    lastDate: range.last,
+                  );
+                  if (picked != null) _moveSchedule(item, picked);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   // 개인 일정 알림 예약은 schedule_reminders.dart 의 함수가 한다(알림 점검에서도 같이 쓴다).
@@ -3258,7 +3406,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         : today
         ? scheduleTeal
         : ((weekend || holiday) ? scheduleDanger : scheduleText);
-    return Align(
+    return _dropCell(
+      day,
+      child: Align(
       alignment: Alignment.topCenter,
       child: Container(
         margin: const EdgeInsets.only(top: 3),
@@ -3280,6 +3430,45 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           ),
         ),
       ),
+      ),
+    );
+  }
+
+  // 달력에서 일정 막대를 길게 눌러 끌어 온 것을 [day] 칸이 받는다(날짜 옮기기).
+  // 받을 때 칸이 옅게 물든다. 같은 날로는 받지 않는다.
+  Widget _dropCell(DateTime day, {required Widget child}) {
+    return DragTarget<_AgendaItem>(
+      onWillAcceptWithDetails: (d) => !isSameDay(d.data.date, day),
+      onAcceptWithDetails: (d) {
+        setState(() => _selectedDay = day);
+        _moveSchedule(d.data, day);
+      },
+      builder: (context, candidates, _) => DecoratedBox(
+        decoration: BoxDecoration(
+          color: candidates.isNotEmpty
+              ? scheduleTeal.withValues(alpha: 0.12)
+              : null,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: child,
+      ),
+    );
+  }
+
+  // 하루짜리 반복 없는 개인 일정 막대는 길게 눌러 끌 수 있다. 나머지(기간·반복·프로젝트)는 그대로 그린다.
+  Widget _dayBar(_AgendaItem e) {
+    final bar = _calendarBar(e);
+    if (!e.isPersonal || e.recurrence != 'none' || e.spanTotal > 1) return bar;
+    return LongPressDraggable<_AgendaItem>(
+      data: e,
+      delay: const Duration(milliseconds: 350),
+      onDragStarted: HapticFeedback.mediumImpact,
+      feedback: Material(
+        color: Colors.transparent,
+        child: SizedBox(width: 96, height: _kCellBarH + 6, child: _calendarBar(e)),
+      ),
+      childWhenDragging: Opacity(opacity: 0.3, child: bar),
+      child: bar,
     );
   }
 
@@ -3651,7 +3840,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               placed.add(e);
             }
             final int hidden = events.length - spans.length - placed.length;
-            return LayoutBuilder(
+            return _dropCell(
+              day,
+              child: LayoutBuilder(
               builder: (context, box) {
                 final double cellW = box.maxWidth;
                 return Stack(
@@ -3666,7 +3857,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                           width: cellW - 6,
                           top: _kCellRowTop + row.key * _kCellRowH,
                           height: _kCellBarH,
-                          child: _calendarBar(row.value),
+                          child: _dayBar(row.value),
                         )
                       else if (row.value.spanIndex == 0 || dayIdx == 0)
                         // 기간 일정: 구간의 첫 칸(기간 첫날 또는 그 주의 일요일)에서 그 주 끝까지
@@ -3712,6 +3903,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   ],
                 );
               },
+            ),
             );
           },
         ),
@@ -4162,6 +4354,20 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         ),
                       ),
                     ),
+                    if (item.spanTotal > 1 && item.spanDoneCount != null)
+                      Text(
+                        item.spanDoneCount == item.spanTotal
+                            ? '전체 완료'
+                            : '${item.spanTotal}일 중 ${item.spanDoneCount}일 완료',
+                        key: const Key('span_progress'),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: item.spanDoneCount == item.spanTotal
+                              ? scheduleTeal
+                              : Colors.grey.shade600,
+                        ),
+                      ),
                     if (overdue)
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -4244,6 +4450,19 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               ],
             ),
           ),
+          if (item.isPersonal && item.recurrence == 'none')
+            IconButton(
+              key: const Key('move_schedule'),
+              tooltip: "날짜 옮기기",
+              padding: const EdgeInsets.all(8),
+              constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+              icon: const Icon(
+                Icons.event_repeat_outlined,
+                size: 18,
+                color: Colors.grey,
+              ),
+              onPressed: () => _showMoveSheet(item),
+            ),
           if (item.isPersonal)
             IconButton(
               icon: const Icon(

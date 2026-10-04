@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 
 void main() {
+  moveTests();
   final d1 = DateTime(2026, 10, 5);
   final d2 = DateTime(2026, 10, 6);
   final d3 = DateTime(2026, 10, 7);
@@ -91,6 +92,81 @@ void main() {
       expect(isSpanDayCompleted(map, d1), true);
       expect(isSpanDayCompleted(map, d2), false);
       expect(isSpanDayCompleted(map, d3), true);
+    });
+  });
+}
+
+// ── 날짜 옮기기(끌어서·카드 메뉴)와 기간 진행 표시 ──
+void moveTests() {
+  group('일정 날짜 옮기기', () {
+    test('하루 일정: 시각은 그대로, 날짜만 옮긴다', () {
+      final f = movedScheduleFields({
+        'dateTime': DateTime(2026, 10, 5, 14, 30).toIso8601String(),
+        'hasTime': true,
+      }, DateTime(2026, 10, 9));
+      expect(f['dateTime'], DateTime(2026, 10, 9, 14, 30).toIso8601String());
+      expect(f['endDate'], isNull);
+      expect(f['endTime'], isNull);
+    });
+
+    test('끝나는 시각이 있으면 같은 길이만큼 따라 옮긴다', () {
+      final f = movedScheduleFields({
+        'dateTime': DateTime(2026, 10, 5, 14, 0).toIso8601String(),
+        'endTime': DateTime(2026, 10, 5, 16, 30).toIso8601String(),
+      }, DateTime(2026, 10, 7));
+      expect(f['endTime'], DateTime(2026, 10, 7, 16, 30).toIso8601String());
+    });
+
+    test('기간 일정: 길이를 그대로 두고 종료일도 같이 옮긴다', () {
+      final f = movedScheduleFields({
+        'dateTime': DateTime(2026, 10, 5).toIso8601String(),
+        'endDate': DateTime(2026, 10, 9).toIso8601String(),
+      }, DateTime(2026, 10, 12));
+      expect(f['dateTime'], DateTime(2026, 10, 12).toIso8601String());
+      expect(f['endDate'], DateTime(2026, 10, 16).toIso8601String());
+    });
+
+    test('하루씩 적어 둔 완료 표시도 같은 만큼 옮긴다', () {
+      final f = movedScheduleFields({
+        'dateTime': DateTime(2026, 10, 5).toIso8601String(),
+        'endDate': DateTime(2026, 10, 7).toIso8601String(),
+        'completedOccurrences': {occurrenceKey(DateTime(2026, 10, 5)): true},
+      }, DateTime(2026, 10, 12));
+      expect(f['completedOccurrences'], {
+        occurrenceKey(DateTime(2026, 10, 12)): true,
+      });
+    });
+
+    test('날짜를 읽을 수 없으면 아무것도 바꾸지 않는다', () {
+      expect(movedScheduleFields({'dateTime': 'x'}, DateTime(2026, 10, 9)), isEmpty);
+      expect(movedScheduleFields({}, DateTime(2026, 10, 9)), isEmpty);
+    });
+
+    test('되돌리기용 지금 값을 그대로 돌려준다(옮기고 되돌리면 원래대로)', () {
+      final data = <String, dynamic>{
+        'dateTime': DateTime(2026, 10, 5, 9).toIso8601String(),
+        'endDate': DateTime(2026, 10, 7).toIso8601String(),
+        'endTime': null,
+      };
+      final before = scheduleDateFields(data);
+      expect(before['dateTime'], data['dateTime']);
+      expect(before['endDate'], data['endDate']);
+      expect(before['completedOccurrences'], <String, dynamic>{});
+    });
+  });
+
+  group('기간 일정 진행 표시', () {
+    test('끝낸 날 수를 센다', () {
+      final done = {
+        occurrenceKey(DateTime(2026, 10, 5)): true,
+        occurrenceKey(DateTime(2026, 10, 7)): true,
+      };
+      expect(spanDoneCount(done, DateTime(2026, 10, 5), 5), 2);
+      expect(spanDoneCount(null, DateTime(2026, 10, 5), 5), 0);
+    });
+
+    test('예전 방식으로 전체가 끝난 일정은 전부 센다', () {
+      expect(spanDoneCount({}, DateTime(2026, 10, 5), 4, wholeDone: true), 4);
     });
   });
 }

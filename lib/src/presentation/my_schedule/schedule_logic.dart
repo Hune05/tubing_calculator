@@ -510,6 +510,71 @@ DateTime? shiftedEndDate({
   return DateTime(ns.year, ns.month, ns.day + days);
 }
 
+/// 반복 없는 개인 일정을 [newStartDay]로 옮길 때 문서에서 바뀌는 칸들(dateTime·endDate·endTime·
+/// completedOccurrences). 시각은 그대로 두고 날짜만 옮기며, 기간 일정은 길이를 그대로 둔다(종료일·끝 시각도
+/// 같이 옮김). 하루씩 적어 둔 완료 표시도 같은 만큼 옮긴다. 시작 날짜를 읽을 수 없으면 빈 맵.
+Map<String, Object?> movedScheduleFields(
+  Map<String, dynamic> data,
+  DateTime newStartDay,
+) {
+  final base = DateTime.tryParse(data['dateTime']?.toString() ?? '');
+  if (base == null) return const {};
+  final newDay = _dayOnly(newStartDay);
+  final moved = DateTime(newDay.year, newDay.month, newDay.day, base.hour, base.minute);
+  final int shiftDays = newDay.difference(_dayOnly(base)).inDays;
+
+  final rawEnd = data['endDate'] is String
+      ? DateTime.tryParse(data['endDate'] as String)
+      : null;
+  final newEndDate = shiftedEndDate(oldStart: base, oldEnd: rawEnd, newStart: newDay);
+
+  final oldEndTime = readEndTime(data, base);
+  final DateTime? newEndTime = oldEndTime == null
+      ? null
+      : moved.add(oldEndTime.difference(base));
+
+  final Map<String, Object?> doneOut = {};
+  final rawDone = data['completedOccurrences'];
+  if (rawDone is Map) {
+    rawDone.forEach((k, v) {
+      final d = DateTime.tryParse(k.toString());
+      if (v != true || d == null) return;
+      final nd = DateTime(d.year, d.month, d.day + shiftDays);
+      doneOut[occurrenceKey(nd)] = true;
+    });
+  }
+
+  return {
+    'dateTime': moved.toIso8601String(),
+    'endDate': newEndDate?.toIso8601String(),
+    'endTime': newEndTime?.toIso8601String(),
+    'completedOccurrences': doneOut,
+  };
+}
+
+/// [movedScheduleFields]가 바꾸는 칸들의 지금 값(되돌리기용).
+Map<String, Object?> scheduleDateFields(Map<String, dynamic> data) => {
+  'dateTime': data['dateTime'],
+  'endDate': data['endDate'],
+  'endTime': data['endTime'],
+  'completedOccurrences': data['completedOccurrences'] ?? <String, dynamic>{},
+};
+
+/// 기간 일정에서 완료한 날 수(전체 일수 [totalDays] 안에서).
+int spanDoneCount(
+  Map? completed,
+  DateTime firstDay,
+  int totalDays, {
+  bool wholeDone = false,
+}) {
+  var n = 0;
+  for (var i = 0; i < totalDays; i++) {
+    final d = DateTime(firstDay.year, firstDay.month, firstDay.day + i);
+    if (isSpanDayCompleted(completed, d, wholeDone: wholeDone)) n++;
+  }
+  return n;
+}
+
 /// 기간 일정을 달력에 펼칠 때의 최대 일수. 프로젝트 일정 편집의 종료일 선택(시작일 + 730일)과 맞춘다.
 const int kMaxSpanDays = 731;
 
