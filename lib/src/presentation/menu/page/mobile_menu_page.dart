@@ -47,7 +47,7 @@ import 'package:tubing_calculator/src/presentation/reference/page/app_usage_page
 import 'package:tubing_calculator/src/presentation/reference/page/equipment_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/search/knowledge_search_page.dart';
-import 'package:tubing_calculator/src/presentation/tube_cutting/screens/mobile_cutting_project_list_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/tube_work_hub_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/mobile_steel_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_project_list_page.dart';
 
@@ -166,7 +166,10 @@ Set<String> toggleQuickLaunchFavorite(Set<String> current, String title) {
 
 /// 이름을 바꾼 메뉴(예전 이름 → 새 이름). 빠른 실행은 제목으로 저장하므로, 예전 이름으로
 /// 저장된 즐겨찾기·순서·사용 기록·홈 위젯 동작을 새 이름으로 읽는다(2026-10-03 문구 통일).
-const Map<String, String> kQuickLaunchRenamed = {'압력 시험': '압력시험'};
+const Map<String, String> kQuickLaunchRenamed = {
+  '압력 시험': '압력시험',
+  '튜브 컷팅': '튜브 가공',
+};
 
 /// 저장된 제목 목록의 예전 이름을 새 이름으로 바꾼다(겹치면 하나만 남긴다).
 /// 위젯 없이 시험 가능한 순수 함수.
@@ -1433,8 +1436,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "튜브 컷팅",
-                        subtitle: "피팅 삽입깊이 차감 · 절단 자재 기록",
+                        title: "튜브 가공",
+                        subtitle: "라인 컷팅 · 단관 컷팅",
                         icon: AppGlyph.tubeCut,
                         iconColor: makitaTeal,
                         onTap: () {
@@ -1442,8 +1445,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  const MobileCuttingProjectListPage(),
+                              builder: (context) => const TubeWorkHubPage(),
                             ),
                           );
                         },

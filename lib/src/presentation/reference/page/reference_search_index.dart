@@ -42,7 +42,7 @@ const List<RefSearchEntry> refSearchIndex = [
   RefSearchEntry(0, '오프셋 계수 (빗변·수축·직진)'),
   RefSearchEntry(0, '180° U벤드가 차지하는 자리'),
   RefSearchEntry(0, '스프링백 참고값', ['동관', 'sus316l']),
-  RefSearchEntry(0, '튜브 컷팅 부속 공제값 (앱 자료)'),
+  RefSearchEntry(0, '라인 컷팅 부속 공제값 (앱 자료)'),
   RefSearchEntry(0, '튜브 두께별 최대 허용 압력', ['sus 316l', 'psi', 'bar']),
   RefSearchEntry(0, 'NPT 나사 규격'),
   RefSearchEntry(0, '튜브 작업, 현장에서 지키는 것'),

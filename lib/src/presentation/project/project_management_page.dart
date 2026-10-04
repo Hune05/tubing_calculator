@@ -1192,7 +1192,7 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
       // 기록에 남는 작업 이름은 형강 쪽 모양으로 맞춘다.
       final result = await deductStockTakes(
         takes,
-        projectName: '튜브 컷팅 · ${(project['name'] ?? '').toString()}',
+        projectName: '라인 컷팅 · ${(project['name'] ?? '').toString()}',
         device: 'PC',
       );
       if (mounted) Navigator.pop(context);

@@ -37,7 +37,7 @@ class RefSteelTab extends StatelessWidget {
 
         refCard(
           title: "재단 계획 계산 방법",
-          subtitle: "형강·튜브 컷팅의 '재단 계획' 시트와 결과 탭 본수는 같은 식으로 계산합니다.",
+          subtitle: "형강·라인 컷팅의 '재단 계획' 시트와 결과 탭 본수는 같은 식으로 계산합니다.",
           icon: LucideIcons.calculator,
           iconColor: refTeal,
           children: [

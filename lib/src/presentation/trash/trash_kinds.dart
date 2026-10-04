@@ -47,7 +47,7 @@ abstract final class TrashKind {
   TrashKind.bendCheck => ('벤딩 실측 기록', Icons.architecture_rounded),
   TrashKind.equipment => ('장비', Icons.handyman_outlined),
   TrashKind.drawing => ('도면', Icons.picture_as_pdf_outlined),
-  TrashKind.cuttingProject => ('튜브 컷팅 프로젝트', Icons.content_cut_rounded),
+  TrashKind.cuttingProject => ('라인 컷팅 프로젝트', Icons.content_cut_rounded),
   TrashKind.steelProject => ('형강 컷팅 프로젝트', Icons.view_column_outlined),
   TrashKind.workProject => ('내 프로젝트', Icons.assignment_outlined),
   TrashKind.layout => ('작업 배치도', Icons.dashboard_outlined),

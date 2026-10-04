@@ -381,7 +381,7 @@ Future<void> deductCuttingProjectInventory({
     // 튜브는 "루마"처럼 모양이 달랐다. 형강 쪽으로 맞춘다.
     final result = await deductStockTakes(
       takes,
-      projectName: '튜브 컷팅 · $projectName',
+      projectName: '라인 컷팅 · $projectName',
       worker: who,
       projectId: projectId,
     );

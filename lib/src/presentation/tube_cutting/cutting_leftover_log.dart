@@ -13,7 +13,7 @@ const int kMaxLeftoverLog = 100;
 class LeftoverLogEntry {
   final String id;
   final DateTime at;
-  final String source; // "튜브 컷팅 · 루마"처럼 어느 작업인지
+  final String source; // "라인 컷팅 · 루마"처럼 어느 작업인지
   final List<Leftover> used; // 이번에 쓴 잔재
   final List<Leftover> added; // 새로 생긴 잔재
 

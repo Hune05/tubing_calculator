@@ -35,7 +35,7 @@ const Color _slate200 = AppColors.line;
 const Color _teal = AppColors.brand;
 const Color _white = Color(0xFFFFFFFF);
 
-/// 계산기 설정(튜브 벤딩·전선관·튜브 컷팅) 서버 보관 칸.
+/// 계산기 설정(튜브 벤딩·전선관·튜브 가공) 서버 보관 칸.
 /// 설정을 저장하면 자동으로 올라가고, 새로 깔면 자동으로 받는다.
 /// 여기서는 마지막 보관 시각을 보고, 직접 올리거나 받는다.
 class SettingsCloudCard extends StatefulWidget {
@@ -93,7 +93,7 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
           style: TextStyle(color: _slate900, fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          "지금 폰에 있는 계산기 설정(튜브 벤딩·전선관·튜브 컷팅)을 서버에 보관한 설정으로 바꿉니다.",
+          "지금 폰에 있는 계산기 설정(튜브 벤딩·전선관·튜브 가공)을 서버에 보관한 설정으로 바꿉니다.",
           style: TextStyle(color: _slate600, height: 1.4),
         ),
         actions: [
@@ -159,8 +159,8 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
           const SizedBox(height: 8),
           Text(
             linked
-                ? "튜브 벤딩·전선관·튜브 컷팅 설정을 저장하면 구글 계정에 같이 올라갑니다. 앱을 새로 깔면 자동으로 받습니다."
-                : "구글 계정을 연결하면 튜브 벤딩·전선관·튜브 컷팅 설정을 계정에 보관합니다. 앱을 지웠다 깔아도 설정이 돌아옵니다. 이름은 그대로입니다.",
+                ? "튜브 벤딩·전선관·튜브 가공 설정을 저장하면 구글 계정에 같이 올라갑니다. 앱을 새로 깔면 자동으로 받습니다."
+                : "구글 계정을 연결하면 튜브 벤딩·전선관·튜브 가공 설정을 계정에 보관합니다. 앱을 지웠다 깔아도 설정이 돌아옵니다. 이름은 그대로입니다.",
             style: const TextStyle(color: _slate600, fontSize: 14, height: 1.4),
           ),
           if (!linked && widget.onLinkGoogle != null) ...[

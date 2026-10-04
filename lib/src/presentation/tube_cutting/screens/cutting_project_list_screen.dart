@@ -258,7 +258,7 @@ class _CuttingProjectListScreenState extends State<CuttingProjectListScreen> {
           scrolledUnderElevation: 0,
           centerTitle: false,
           title: const Text(
-            "튜브 컷팅 작업 보관함",
+            "라인 컷팅 작업 보관함",
             style: TextStyle(
               color: CuttingColors.textPrimary,
               fontWeight: FontWeight.w800,

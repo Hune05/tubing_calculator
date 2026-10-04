@@ -34,7 +34,7 @@ import '../my_work_logs/pages/layout_board_project_list_page.dart';
 import '../reference/page/equipment_usage_page.dart';
 import '../reference/search/knowledge_search_page.dart';
 import '../steel_cutting/screens/mobile_steel_project_list_page.dart';
-import '../tube_cutting/screens/mobile_cutting_project_list_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/tube_work_hub_page.dart';
 import 'feature_search.dart';
 import 'quick_sub_tools.dart';
 import 'app_icons.dart';
@@ -184,10 +184,10 @@ final List<QuickToolDef> kQuickTools = [
   ),
   QuickToolDef(
     'cut',
-    '튜브 컷팅',
+    '튜브 가공',
     AppGlyph.tubeCut,
-    (_) => const MobileCuttingProjectListPage(),
-    subtitle: '피팅 삽입깊이 차감 · 절단 자재 기록',
+    (_) => const TubeWorkHubPage(),
+    subtitle: '라인 컷팅 · 단관 컷팅',
     group: '배관·튜브',
   ),
   QuickToolDef(

@@ -368,14 +368,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       context,
       groupedPieces: _collectRequiredPiecesByTubeSize(),
       pieceLabels: _collectPieceLabelsByTubeSize(),
-      exportName: '튜브 컷팅 ${widget.project.name}',
+      exportName: '라인 컷팅 ${widget.project.name}',
       initialStockLength: _stockLength,
       mixPrefsKey: kTubeMixPrefsKey,
       onLeftoversSaved: _onLeftoversSaved,
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
-      leftoverLogSource: '튜브 컷팅 · ${widget.project.name}',
-      jobLogName: '튜브 컷팅 · ${widget.project.name}',
+      leftoverLogSource: '라인 컷팅 · ${widget.project.name}',
+      jobLogName: '라인 컷팅 · ${widget.project.name}',
       kerf: _bladeKerf,
       // 🚀 [추가] 튜브도 형강처럼 재단 계획의 새 원자재 본수로 재고에서 뺀다
       // (잔재에서 자른 것은 빠지지 않는다).
@@ -426,7 +426,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     try {
       final result = await deductStockTakes(
         takes,
-        projectName: '튜브 컷팅 · ${widget.project.name}',
+        projectName: '라인 컷팅 · ${widget.project.name}',
         action: '튜브 재단',
         projectId: widget.project.id,
       );
@@ -465,7 +465,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     try {
       await undoStockTakes(
         takes,
-        projectName: '튜브 컷팅 · ${widget.project.name}',
+        projectName: '라인 컷팅 · ${widget.project.name}',
         projectId: widget.project.id,
       );
       if (mounted) showCuttingSnack(context, "재고에 도로 넣었습니다.");
