@@ -178,22 +178,19 @@ class _ParallelPainter extends CustomPainter {
     // 간격(spacing) 표시.
     final spT = stageT(t, 0.2, 0.4);
     if (spT > 0) {
-      final dash = Paint()
-        ..color = AppColors.textSub.withValues(alpha: 0.45)
-        ..strokeWidth = 1.2;
-      final endY = topY + (botY - topY) * spT;
-      var y = topY;
-      while (y < endY) {
-        final segEnd = (y + 6).clamp(topY, endY);
-        canvas.drawLine(Offset(18, y), Offset(18, segEnd), dash);
-        y += 10;
-      }
-      if (spT > 0.7) {
+      paintDimLine(
+        canvas,
+        Offset(20, topY),
+        Offset(20, botY),
+        spT,
+        kGuideRiseColor,
+      );
+      if (spT > 0.7 && hasValues) {
         paintPill(
           canvas,
           '간격 $spacingLabel',
-          Offset(46, (topY + botY) / 2),
-          color: AppColors.textSub,
+          Offset(58, (topY + botY) / 2),
+          color: kGuideRiseColor,
           size: 9.5,
         );
       }
@@ -211,12 +208,23 @@ class _ParallelPainter extends CustomPainter {
         Offset(bendX2, botY - 10),
         dash,
       );
-      paintPill(
+      final midY = (topY + botY) / 2;
+      paintDimLine(
         canvas,
-        '스태거 $staggerLabel',
-        Offset((refX + bendX2) / 2, (topY + botY) / 2),
-        color: kGuideOrange,
+        Offset(bendX2, midY),
+        Offset(refX, midY),
+        stT,
+        kGuideOrange,
+        width: 2.2,
       );
+      if (stT > 0.7) {
+        paintPill(
+          canvas,
+          '스태거 $staggerLabel',
+          Offset((refX + bendX2) / 2, midY - 16),
+          color: kGuideOrange,
+        );
+      }
     }
 
     if (hasValues && t > 0.1) {
@@ -303,27 +311,21 @@ class _ShrinkPainter extends CustomPainter {
     // Rise 안내선(세로).
     final riseT = stageT(t, 0.5, 0.7);
     if (riseT > 0) {
-      final dash = Paint()
-        ..color = AppColors.textSub.withValues(alpha: 0.45)
-        ..strokeWidth = 1.2;
-      final endY = baseY - (baseY - tip.dy) * riseT;
-      var y = baseY;
-      while (y > endY) {
-        final segEnd = (y - 6).clamp(endY, baseY);
-        canvas.drawLine(
-          Offset(tip.dx + 14, y),
-          Offset(tip.dx + 14, segEnd),
-          dash,
-        );
-        y -= 10;
-      }
-      if (riseT > 0.7) {
-        paintPill(
+      paintDimLine(
+        canvas,
+        Offset(tip.dx + 16, baseY),
+        Offset(tip.dx + 16, tip.dy),
+        riseT,
+        kGuideRiseColor,
+      );
+      if (riseT > 0.7 && hasValues) {
+        paintPillBeside(
           canvas,
+          size,
           'Rise $riseLabel',
-          Offset(tip.dx + 32, (baseY + tip.dy) / 2),
-          color: AppColors.textSub,
-          size: 9.5,
+          tip.dx + 16,
+          (baseY + tip.dy) / 2,
+          color: kGuideRiseColor,
         );
       }
     }
@@ -332,14 +334,13 @@ class _ShrinkPainter extends CustomPainter {
     final shrinkT = stageT(t, 0.74, 0.94);
     if (shrinkT > 0 && hasValues) {
       final y = baseY - 14;
-      final endX = bend.dx + (theoretical.dx - bend.dx) * shrinkT;
-      canvas.drawLine(
+      paintDimLine(
+        canvas,
         Offset(bend.dx, y),
-        Offset(endX, y),
-        Paint()
-          ..color = kGuideOrange
-          ..strokeWidth = 2.5
-          ..strokeCap = StrokeCap.round,
+        Offset(theoretical.dx, y),
+        shrinkT,
+        kGuideOrange,
+        width: 2.4,
       );
       canvas.drawLine(
         Offset(bend.dx, y - 4),

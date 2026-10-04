@@ -8,9 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/common/guide_paint_kit.dart';
 
-const Color _kRise = Color(0xFF2563EB);
-const Color _kTravel = Color(0xFF16A34A);
-const Color _kRun = Color(0xFF7C3AED);
+const Color _kRise = kGuideRiseColor;
+const Color _kTravel = kGuideTravelColor;
+const Color _kRun = kGuideRunColor;
 
 class AngleMatchGuide extends StatefulWidget {
   /// 구한 각도(°). 값이 모자라면 null(본보기 30°로 그린다).

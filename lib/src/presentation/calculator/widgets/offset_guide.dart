@@ -91,7 +91,7 @@ class _OffsetPainter extends CustomPainter {
     final w = size.width, h = size.height;
     paintDotGrid(canvas, size);
 
-    final baseY = h - 24;
+    final baseY = h - 38;
     final topY = h * 0.22;
     final p0 = Offset(10, baseY);
     final bend1 = Offset(w * 0.28, baseY);
@@ -124,35 +124,24 @@ class _OffsetPainter extends CustomPainter {
 
       dashLine(bend1, Offset(bend2.dx, bend1.dy), guideT); // Run(가로)
       dashLine(Offset(bend2.dx, bend1.dy), bend2, guideT); // Rise(세로)
-      if (guideT > 0.7) {
-        paintPill(
-          canvas,
-          'Run $runLabel',
-          Offset((bend1.dx + bend2.dx) / 2, bend1.dy + 12),
-          color: AppColors.textSub,
-          size: 9.5,
-        );
-        paintPill(
-          canvas,
-          'Rise $heightLabel',
-          Offset(bend2.dx + 26, (bend1.dy + bend2.dy) / 2),
-          color: AppColors.textSub,
-          size: 9.5,
-        );
-      }
     }
 
     // 대각(Travel) 관 — 실제 꺾이는 구간.
     final travelT = stageT(t, 0.38, 0.66);
     paintPipeSegment(canvas, bend1, bend2, travelT, AppColors.brand, width: 7);
-    if (travelT > 0.75) {
-      paintPill(
-        canvas,
-        'Travel $travelLabel',
-        Offset.lerp(bend1, bend2, 0.5)! + const Offset(0, -14),
-        color: AppColors.brand,
-      );
-    }
+    // 치수선(화살표)과 같은 색 값표: Run·Rise는 안내선이 그려진 뒤, Travel은 관이 다 그려진 뒤.
+    paintTriangleDims(
+      canvas,
+      size,
+      low: bend1,
+      high: bend2,
+      runLabel: hasValues ? runLabel : null,
+      riseLabel: hasValues ? heightLabel : null,
+      travelLabel: hasValues ? travelLabel : null,
+      runT: stageT(t, 0.18, 0.32),
+      riseT: stageT(t, 0.30, 0.42),
+      travelT: stageT(t, 0.62, 0.74),
+    );
 
     // 원래 방향으로 계속(끝 관).
     final tailT = stageT(t, 0.66, 0.82);
@@ -185,7 +174,7 @@ class _OffsetPainter extends CustomPainter {
         paintPill(
           canvas,
           '∠ $angleLabel',
-          bend1 + const Offset(0, -34),
+          bend1 + const Offset(-30, -18),
           color: kGuideOrange,
         );
       }
@@ -197,7 +186,7 @@ class _OffsetPainter extends CustomPainter {
       paintPill(
         canvas,
         '축소값 $shrinkLabel',
-        Offset(w - 56, h - 6),
+        const Offset(64, 14),
         color: kGuideOrange,
         size: 10.5,
       );

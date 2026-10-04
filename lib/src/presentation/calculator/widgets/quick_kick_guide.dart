@@ -86,12 +86,12 @@ class _QuickKickPainter extends CustomPainter {
     final w = size.width, h = size.height;
     paintDotGrid(canvas, size);
 
-    final baseY = h - 20;
+    final baseY = h - 38;
     final p0 = Offset(14, baseY);
     final bend = Offset(w * 0.32, baseY);
     // 각도가 클수록(가파를수록) 높이 비율을 키워 보이게(그림 안에서만, 실제 값과는 별개).
     final angT = hasValues ? (angleDeg / 90).clamp(0.15, 0.9) : 0.5;
-    final tip = Offset(bend.dx + (w * 0.5) * (1 - angT), 18.0);
+    final tip = Offset(bend.dx + (w * 0.5) * (1 - angT), 30.0);
 
     // 시작 수평 관.
     final leadT = stageT(t, 0, 0.18);
@@ -119,42 +119,31 @@ class _QuickKickPainter extends CustomPainter {
 
       dashLine(bend, Offset(tip.dx, bend.dy), guideT); // Run(가로)
       dashLine(Offset(tip.dx, bend.dy), tip, guideT); // Rise(세로)
-      if (guideT > 0.7) {
-        paintPill(
-          canvas,
-          'Run $runLabel',
-          Offset((bend.dx + tip.dx) / 2, bend.dy + 12),
-          color: AppColors.textSub,
-          size: 9.5,
-        );
-        paintPill(
-          canvas,
-          'Rise $heightLabel',
-          Offset(tip.dx + 24, (bend.dy + tip.dy) / 2),
-          color: AppColors.textSub,
-          size: 9.5,
-        );
-      }
     }
 
     // 대각(Travel) 관 — 실제 벤딩 구간.
     final travelT = stageT(t, 0.44, 0.74);
     paintPipeSegment(canvas, bend, tip, travelT, AppColors.brand, width: 7);
-    if (travelT > 0.75) {
-      paintPill(
-        canvas,
-        'Travel $travelLabel',
-        Offset.lerp(bend, tip, 0.5)! + const Offset(0, -14),
-        color: AppColors.brand,
-      );
-    }
+    // 치수선(화살표)과 같은 색 값표: Run·Rise는 안내선이 그려진 뒤, Travel은 관이 다 그려진 뒤.
+    paintTriangleDims(
+      canvas,
+      size,
+      low: bend,
+      high: tip,
+      runLabel: hasValues ? runLabel : null,
+      riseLabel: hasValues ? heightLabel : null,
+      travelLabel: hasValues ? travelLabel : null,
+      runT: stageT(t, 0.20, 0.34),
+      riseT: stageT(t, 0.32, 0.44),
+      travelT: stageT(t, 0.66, 0.78),
+    );
 
     // 목표 지점 표시(포트·장애물 위).
     if (travelT > 0.9) {
       paintGuideIcon(
         canvas,
         Icons.flag_rounded,
-        tip + const Offset(10, -4),
+        tip + const Offset(0, -17),
         16,
         kGuideOrange,
       );
@@ -180,7 +169,7 @@ class _QuickKickPainter extends CustomPainter {
         paintPill(
           canvas,
           '∠ $angleLabel',
-          bend + const Offset(44, 20),
+          bend + const Offset(-30, -18),
           color: kGuideOrange,
         );
       }

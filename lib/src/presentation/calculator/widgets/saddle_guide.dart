@@ -140,12 +140,26 @@ class _SaddlePainter extends CustomPainter {
     // 내려가는 관.
     final downT = stageT(t, hasFlat ? 0.58 : 0.48, 0.74);
     paintPipeSegment(canvas, peak2, down1, downT, AppColors.brand, width: 7);
-    if (downT > 0.8) {
+    // Travel: 올라가는 다리를 따라 왼쪽 위로 띄운 초록 치수선.
+    final trT = stageT(t, 0.72, 0.84);
+    final legDir = (peak1 - up1) / (peak1 - up1).distance;
+    final legN = Offset(legDir.dy, -legDir.dx);
+    paintDimLine(
+      canvas,
+      up1 + legN * 15,
+      peak1 + legN * 15,
+      trT,
+      kGuideTravelColor,
+    );
+    if (hasValues && trT > 0.7) {
       paintPill(
         canvas,
         'Travel $travelLabel',
-        Offset.lerp(up1, peak1, 0.5)! + const Offset(-8, -12),
-        color: AppColors.brand,
+        Offset(
+          (Offset.lerp(up1, peak1, 0.5)! + legN * 36).dx.clamp(52.0, w - 52),
+          (Offset.lerp(up1, peak1, 0.5)! + legN * 36).dy,
+        ),
+        color: kGuideTravelColor,
         size: 9.5,
       );
     }
@@ -154,30 +168,34 @@ class _SaddlePainter extends CustomPainter {
     final tailT = stageT(t, 0.74, 0.86);
     paintPipeSegment(canvas, down1, end, tailT, AppColors.textSub);
 
-    // 높이 안내선.
+    // 높이(H): 마루 높이를 오른쪽 끝 관에서 잰다. 점선 연장선 + 파란 화살표 치수선.
     final hgT = stageT(t, 0.60, 0.78);
     if (hgT > 0) {
+      final dimX = down1.dx + 16;
       final dash = Paint()
         ..color = AppColors.textSub.withValues(alpha: 0.45)
         ..strokeWidth = 1.2;
-      final endY = baseY - (baseY - topY) * hgT;
-      var y = baseY;
-      while (y > endY) {
-        final segEnd = (y - 6).clamp(endY, baseY);
-        canvas.drawLine(
-          Offset(peak2.dx + 14, y),
-          Offset(peak2.dx + 14, segEnd),
-          dash,
-        );
-        y -= 10;
+      var x = peak2.dx + 6;
+      final endX = peak2.dx + 6 + (dimX - peak2.dx) * hgT;
+      while (x < endX) {
+        canvas.drawLine(Offset(x, topY), Offset((x + 5).clamp(x, endX), topY), dash);
+        x += 9;
       }
-      if (hgT > 0.7) {
-        paintPill(
+      paintDimLine(
+        canvas,
+        Offset(dimX, baseY),
+        Offset(dimX, topY),
+        hgT,
+        kGuideRiseColor,
+      );
+      if (hasValues && hgT > 0.7) {
+        paintPillBeside(
           canvas,
+          size,
           'H $heightLabel',
-          Offset(peak2.dx + 30, (baseY + topY) / 2),
-          color: AppColors.textSub,
-          size: 9.5,
+          dimX,
+          (baseY + topY) / 2,
+          color: kGuideRiseColor,
         );
       }
     }
@@ -197,7 +215,7 @@ class _SaddlePainter extends CustomPainter {
       paintPill(
         canvas,
         '∠ $cornerAngleLabel',
-        up1 + const Offset(-4, -20),
+        up1 + const Offset(-40, -16),
         color: kGuideOrange,
         size: 9.5,
       );

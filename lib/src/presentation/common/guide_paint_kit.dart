@@ -11,6 +11,44 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 double stageT(double t, double a, double b) =>
     Curves.easeOutCubic.transform(((t - a) / (b - a)).clamp(0.0, 1.0));
 
+/// [paintPill]이 그릴 값표의 가로 길이.
+double pillWidth(String s, {double size = 10.5}) {
+  final tp = TextPainter(
+    text: TextSpan(
+      text: s,
+      style: TextStyle(
+        fontSize: size,
+        fontWeight: FontWeight.w800,
+        fontFamily: kAppFontFamily,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  return tp.width + 12;
+}
+
+/// 세로 치수선([x], 높이 가운데 [y]) 오른쪽에 값표를 붙인다. 오른쪽이 모자라면 왼쪽에 붙인다.
+void paintPillBeside(
+  Canvas canvas,
+  Size size,
+  String s,
+  double x,
+  double y, {
+  required Color color,
+  double fontSize = 9.5,
+}) {
+  final w = pillWidth(s, size: fontSize);
+  final fitsRight = x + 8 + w <= size.width - 2;
+  paintPill(
+    canvas,
+    s,
+    Offset(fitsRight ? x + 8 : x - 8 - w, y.clamp(10.0, size.height - 10)),
+    color: color,
+    size: fontSize,
+    alignLeft: true,
+  );
+}
+
 /// 그림 위에 뜨는 작은 값표(예: "Rise 100mm"). 흰 알약 배경 + 테두리.
 void paintPill(
   Canvas canvas,
@@ -18,6 +56,8 @@ void paintPill(
   Offset center, {
   required Color color,
   double size = 10.5,
+  // true면 [center]를 값표의 왼쪽 끝 가운데로 본다(화살표 오른쪽에 붙여 놓을 때).
+  bool alignLeft = false,
 }) {
   final tp = TextPainter(
     text: TextSpan(
@@ -31,6 +71,7 @@ void paintPill(
     ),
     textDirection: TextDirection.ltr,
   )..layout();
+  if (alignLeft) center = center + Offset((tp.width + 12) / 2, 0);
   final rect = RRect.fromRectAndRadius(
     Rect.fromCenter(
       center: center,
@@ -289,4 +330,71 @@ void paintDimLine(
 
   head(b, dir);
   head(a, -dir);
+}
+
+/// 치수선 색(롤링 오프셋·각도 역산과 같다): Run 보라, Rise 파랑, Travel 초록.
+const Color kGuideRunColor = Color(0xFF7C3AED);
+const Color kGuideRiseColor = Color(0xFF2563EB);
+const Color kGuideTravelColor = Color(0xFF16A34A);
+
+/// 한 번 꺾는 구간(아래 관 끝 [low] → 위 관 시작 [high])의 직각삼각형 치수선 세 개와 같은 색 값표:
+/// Run은 아래, Rise는 오른쪽, Travel은 관을 따라 위쪽. 각 [runT]·[riseT]·[travelT]는 0~1(그려지는 정도),
+/// 값표는 0.7을 넘으면 나온다. 값표가 그림 밖으로 나가지 않게 [size] 안으로 눌러 놓는다.
+void paintTriangleDims(
+  Canvas canvas,
+  Size size, {
+  required Offset low,
+  required Offset high,
+  String? runLabel,
+  String? riseLabel,
+  String? travelLabel,
+  required double runT,
+  required double riseT,
+  required double travelT,
+}) {
+  final corner = Offset(high.dx, low.dy);
+  // Run: 아래 가로 줄 밑으로 띄운다.
+  const runShift = Offset(0, 14);
+  paintDimLine(canvas, low + runShift, corner + runShift, runT, kGuideRunColor);
+  // Rise: 위 관 시작점 오른쪽으로 띄운다.
+  const riseShift = Offset(16, 0);
+  paintDimLine(canvas, corner + riseShift, high + riseShift, riseT, kGuideRiseColor);
+  // Travel: 대각 관을 따라 왼쪽 위로 띄운다.
+  final d = high - low;
+  final dir = d / d.distance;
+  final n = Offset(dir.dy, -dir.dx);
+  paintDimLine(canvas, low + n * 15, high + n * 15, travelT, kGuideTravelColor);
+
+  Offset keep(Offset p, double hx) => Offset(
+    p.dx.clamp(hx, size.width - hx),
+    p.dy.clamp(10.0, size.height - 10),
+  );
+  if (runLabel != null && runT > 0.7) {
+    paintPill(
+      canvas,
+      'Run $runLabel',
+      keep(Offset((low.dx + corner.dx) / 2, low.dy + 30), 44),
+      color: kGuideRunColor,
+      size: 9.5,
+    );
+  }
+  if (riseLabel != null && riseT > 0.7) {
+    paintPillBeside(
+      canvas,
+      size,
+      'Rise $riseLabel',
+      corner.dx + 16,
+      (corner.dy + high.dy) / 2,
+      color: kGuideRiseColor,
+    );
+  }
+  if (travelLabel != null && travelT > 0.7) {
+    paintPill(
+      canvas,
+      'Travel $travelLabel',
+      keep(Offset.lerp(low, high, 0.5)! + n * 34, 52),
+      color: kGuideTravelColor,
+      size: 9.5,
+    );
+  }
 }
