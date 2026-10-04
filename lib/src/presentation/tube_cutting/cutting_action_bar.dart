@@ -195,7 +195,7 @@ class CutActionBar extends StatelessWidget {
                 ),
                 if (showLabels)
                   SizedBox(
-                    width: 44,
+                    width: 54,
                     child: Text(
                       a.label,
                       key: Key('action_label_${a.label}'),

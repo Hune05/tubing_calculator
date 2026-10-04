@@ -279,3 +279,67 @@ class CuttingSummaryBar extends StatelessWidget {
     );
   }
 }
+
+/// 결과 탭의 작은 칩 단추(예: "자른 줄 감추기", "잘랐음 지우기"). 켜진 상태는 틸 바탕.
+/// [showLabel]이 거짓이면 아이콘만 보인다(형강 컷팅 결과 탭과 같은 규칙).
+class CuttingResultChip extends StatelessWidget {
+  final Key chipKey;
+  final IconData icon;
+  final String label;
+  final bool on;
+  final bool showLabel;
+  final VoidCallback onTap;
+
+  const CuttingResultChip({
+    super.key,
+    required this.chipKey,
+    required this.icon,
+    required this.label,
+    required this.on,
+    required this.onTap,
+    this.showLabel = true,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = on ? Colors.white : Colors.grey.shade700;
+    return Tooltip(
+      message: label,
+      child: InkWell(
+        key: chipKey,
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Container(
+          padding: showLabel
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 6)
+              : const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: on ? CuttingColors.primary : Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: showLabel ? 16 : 20, color: fg),
+              if (showLabel) ...[
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: fg,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

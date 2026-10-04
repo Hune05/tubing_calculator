@@ -170,6 +170,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 자체는 정확해야 하니 건드리지 않고, "총 소모량" 누적에만 절단
   // 횟수만큼 더해서 원자재 발주량이 실제와 어긋나지 않게 한다.
   double _bladeKerf = 0.0;
+  // 결과 탭: 자른 줄 감추기(이 폰에 기억).
+  static const String _kHideDoneKey = 'cutting_result_hide_done';
+  bool _hideDone = false;
   static const String _kerfPrefsKey = 'cutting_blade_kerf';
 
   // 🚀 [5번 강화, 추가] 재단 계획(원자재 소요 계산)에 쓸 원자재 기준
@@ -195,6 +198,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     _initializeSequence();
     _loadDraftState();
     _loadBladeKerf();
+    _loadHideDone();
     _loadStockLength();
     _loadIconsUsed();
   }
@@ -245,6 +249,40 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         _scrollDiagramToFocused();
       });
     }
+  }
+
+  Future<void> _loadHideDone() async {
+    try {
+      final on =
+          (await SharedPreferences.getInstance()).getBool(_kHideDoneKey) ??
+          false;
+      if (mounted && on) setState(() => _hideDone = true);
+    } catch (_) {}
+  }
+
+  void _toggleHideDone() {
+    HapticFeedback.selectionClick();
+    setState(() => _hideDone = !_hideDone);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_kHideDoneKey, _hideDone))
+        .catchError((_) => false);
+  }
+
+  // 잘랐음 표시를 한꺼번에 지운다(같은 작업을 다시 자를 때). 표시만 지우는 일이라 확인 창 없이 하고 되돌리기를 준다.
+  void _clearDone() {
+    final before = Set<String>.of(_doneKeys);
+    if (before.isEmpty) return;
+    HapticFeedback.selectionClick();
+    setState(() => _doneKeys.clear());
+    _saveDraftState();
+    showCuttingUndoSnack(
+      context,
+      "${before.length}줄의 잘랐음 표시를 지웠습니다.",
+      onUndo: () {
+        setState(() => _doneKeys.addAll(before));
+        _saveDraftState();
+      },
+    );
   }
 
   Future<void> _loadBladeKerf() async {
@@ -3148,9 +3186,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 토글과 SET 스테퍼는 spaceBetween으로 좌우에 분리해 항상 정돈되게
   // 했다.
   Widget _buildInstructionsPane() {
+    final bool hasLines = _resultLines().isNotEmpty;
+    final bool showChipLabels = !_iconsUsed || _labelsPinned;
     return Container(
       color: Colors.grey.shade50,
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -3265,8 +3305,36 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               _buildSetStepper(),
             ],
           ),
-          const SizedBox(height: 10),
-          const SizedBox(height: 10),
+          if (hasLines)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  CuttingResultChip(
+                    chipKey: const Key('result_hide_done'),
+                    icon: Icons.visibility_off_rounded,
+                    label: "자른 줄 감추기",
+                    on: _hideDone,
+                    showLabel: showChipLabels,
+                    onTap: _toggleHideDone,
+                  ),
+                  // 잘랐음 표시가 하나라도 있을 때만 지우는 단추를 둔다.
+                  if (_doneKeys.isNotEmpty)
+                    CuttingResultChip(
+                      chipKey: const Key('result_clear_done'),
+                      icon: Icons.restart_alt_rounded,
+                      label: "잘랐음 지우기",
+                      on: false,
+                      showLabel: showChipLabels,
+                      onTap: _clearDone,
+                    ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 8),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -3277,7 +3345,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               child: _buildCuttingListRenderer(),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           // 🚀 [간소화] "N 세트 작업 완료 (저장 및 초기화)"는 글자 수가
           // 많아 좁은 화면에서 부담스러웠다. 세트 수는 바로 위 카운터에
           // 이미 보이므로 버튼엔 짧은 동작 문구만, 무슨 일이 일어나는지는
@@ -3289,7 +3357,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: makitaTeal,
               elevation: 0,
-              minimumSize: const Size(double.infinity, 56),
+              minimumSize: const Size(double.infinity, 52),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -4209,6 +4277,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       tubeSpec: _tubeSpec,
       onPickSpec: _pickTubeSpec,
       approxNote: _approxNote(),
+      hideDoneLines: _hideDone,
+      onWarningTap: issues.isEmpty ? null : () => _tabController.animateTo(0),
+      emptyActionLabel: d.interferenceCount > 0 ? "입력 탭에서 고치기" : "입력 탭으로 가기",
+      onEmptyAction: () => _tabController.animateTo(0),
     );
   }
 

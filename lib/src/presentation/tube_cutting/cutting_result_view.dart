@@ -43,6 +43,11 @@ class CuttingResultView extends StatelessWidget {
   final String stockNote;
   // 공제값이 근사값인 부속이 있을 때 붙이는 안내(예: "공제값 근사 부속 3개"). 비면 붙이지 않는다.
   final String approxNote;
+  // 경고("목록에서 뺀 구간")를 눌렀을 때의 동작(예: 입력 탭으로 가기). 없으면 글만 보인다.
+  final VoidCallback? onWarningTap;
+  // 목록이 비었을 때 글 아래에 두는 단추(예: "입력 탭으로"). 둘 다 있을 때만 보인다.
+  final String? emptyActionLabel;
+  final VoidCallback? onEmptyAction;
 
   const CuttingResultView({
     super.key,
@@ -68,6 +73,9 @@ class CuttingResultView extends StatelessWidget {
     this.hideDoneLines = false,
     this.stockNote = '',
     this.approxNote = '',
+    this.onWarningTap,
+    this.emptyActionLabel,
+    this.onEmptyAction,
   });
 
   // 그 규격을 지금 접어 두었는지(규격 머리글을 쓰고, 접기를 켰을 때만).
@@ -78,11 +86,38 @@ class CuttingResultView extends StatelessWidget {
   Widget build(BuildContext context) {
     if (lines.isEmpty) {
       return Center(
-        child: Text(
-          emptyMessage,
-          style: TextStyle(
-            color: emptyIsError ? CuttingColors.danger : Colors.grey.shade600,
-            fontWeight: FontWeight.bold,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                emptyMessage,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: emptyIsError
+                      ? CuttingColors.danger
+                      : Colors.grey.shade600,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (emptyActionLabel != null && onEmptyAction != null) ...[
+                const SizedBox(height: 14),
+                OutlinedButton(
+                  key: const Key('result_empty_action'),
+                  onPressed: onEmptyAction,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: CuttingColors.primary,
+                    side: const BorderSide(color: CuttingColors.primary),
+                    minimumSize: const Size(0, 44),
+                  ),
+                  child: Text(
+                    emptyActionLabel!,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       );
@@ -107,6 +142,7 @@ class CuttingResultView extends StatelessWidget {
           onAllDoneAction: onAllDoneAction,
           stockNote: stockNote,
           approxNote: approxNote,
+          onWarningTap: onWarningTap,
         ),
         const SizedBox(height: 10),
         for (var i = 0; i < lines.length; i++) ...[
@@ -158,6 +194,7 @@ class _Header extends StatelessWidget {
   final VoidCallback? onAllDoneAction;
   final String stockNote;
   final String approxNote;
+  final VoidCallback? onWarningTap;
 
   const _Header({
     required this.summary,
@@ -174,6 +211,7 @@ class _Header extends StatelessWidget {
     this.onAllDoneAction,
     this.stockNote = '',
     this.approxNote = '',
+    this.onWarningTap,
   });
 
   @override
@@ -479,13 +517,21 @@ class _Header extends StatelessWidget {
             ),
           if (warning.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Text(
-              warning,
-              key: const Key('result_warning'),
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: CuttingColors.danger,
+            InkWell(
+              key: const Key('result_warning_tap'),
+              onTap: onWarningTap,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  onWarningTap == null ? warning : '$warning · 눌러서 입력 탭에서 확인',
+                  key: const Key('result_warning'),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: CuttingColors.danger,
+                  ),
+                ),
               ),
             ),
           ],
