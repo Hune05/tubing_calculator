@@ -72,7 +72,7 @@ class _RollingOffsetGuideState extends State<RollingOffsetGuide>
         : 0.0;
     return Container(
       key: const Key('rolling_guide'),
-      height: 272,
+      height: guideHeightFor(context, 272),
       width: double.infinity,
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(

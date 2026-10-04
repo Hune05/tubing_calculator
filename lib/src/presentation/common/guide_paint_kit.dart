@@ -222,6 +222,13 @@ void paintDotGrid(Canvas canvas, Size size) {
   }
 }
 
+/// 태블릿(짧은 변 600dp 이상)에서는 그림 칸을 이만큼 키운다. 폰은 그대로(입력 칸이 아래로 밀리지 않게).
+const double kTabletGuideScale = 1.3;
+
+/// 그림 칸 높이: 폰은 [base], 태블릿은 [base] × [kTabletGuideScale].
+double guideHeightFor(BuildContext context, double base) =>
+    MediaQuery.sizeOf(context).shortestSide >= 600 ? base * kTabletGuideScale : base;
+
 /// 그림 설명 공통 바깥 틀(옅은 그라데이션 카드 + 테두리 + 그림자) + "다시 보기" 단추.
 class GuideFrame extends StatelessWidget {
   final Widget Function(BuildContext, Animation<double>) painterBuilder;
@@ -241,7 +248,7 @@ class GuideFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    height: height,
+    height: guideHeightFor(context, height),
     width: double.infinity,
     clipBehavior: Clip.antiAlias,
     decoration: BoxDecoration(
