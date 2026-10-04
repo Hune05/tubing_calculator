@@ -496,6 +496,8 @@ class _MobileInputTabState extends State<MobileInputTab>
       currentRot = (lastRot as num?)?.toDouble() ?? (_selectedRotation ?? 90.0);
     }
 
+    // 아래 시트 안의 `context`는 시트 길이므로 시트가 닫힌 뒤에는 쓸 수 없다. 나중에 다른 시트를 열 때는 이것을 쓴다.
+    final BuildContext screenContext = context;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true, // 🚀 높이가 오버플로우되지 않도록 허용
@@ -596,11 +598,13 @@ class _MobileInputTabState extends State<MobileInputTab>
                     AngleMatcherSheet.show(
                       context,
                       onUseInOffset: (rise, angle) {
+                        // 각도 역산 시트를 닫은 뒤에 불리므로 시트 길이 아니라 화면 길로 연다.
+                        if (!screenContext.mounted) return;
                         MobileBendDataManager()
                           ..offsetHeight = rise
                           ..offsetAngle = angle;
                         MobileOffsetBottomSheet.show(
-                          context,
+                          screenContext,
                           currentRotation: currentRot,
                           onAddMultipleBends: _addMultipleBends,
                         );
