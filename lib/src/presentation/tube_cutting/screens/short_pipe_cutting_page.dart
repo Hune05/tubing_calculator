@@ -179,6 +179,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
         hintText: hint,
         suffixText: suffix,
         isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         filled: true,
         fillColor: CuttingColors.background,
         border: OutlineInputBorder(
@@ -242,33 +243,35 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
 
   Widget _settingsCard() => _card(
     title: '원자재와 톱',
-    child: Row(
+    child: Column(
       children: [
-        Expanded(
-          child: _numField(
-            _stock,
-            '원자재 길이',
-            suffix: 'mm',
-            key: const Key('sp_stock'),
-          ),
+        _numField(
+          _stock,
+          '원자재 길이',
+          suffix: 'mm',
+          key: const Key('sp_stock'),
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _numField(
-            _kerf,
-            '톱날 손실',
-            suffix: 'mm',
-            key: const Key('sp_kerf'),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _numField(
-            _trim,
-            '끝 다듬기',
-            suffix: 'mm',
-            key: const Key('sp_trim'),
-          ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: _numField(
+                _kerf,
+                '톱날 손실',
+                suffix: 'mm',
+                key: const Key('sp_kerf'),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _numField(
+                _trim,
+                '끝 다듬기',
+                suffix: 'mm',
+                key: const Key('sp_trim'),
+              ),
+            ),
+          ],
         ),
       ],
     ),
@@ -281,6 +284,11 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
         selected: selected,
         onSelected: (_) => onTap(),
         selectedColor: CuttingColors.primarySoft,
+        backgroundColor: CuttingColors.surface,
+        surfaceTintColor: Colors.transparent,
+        side: BorderSide(
+          color: selected ? CuttingColors.primary : CuttingColors.border,
+        ),
         labelStyle: TextStyle(
           fontWeight: FontWeight.w800,
           color: selected ? CuttingColors.primary : CuttingColors.textSecondary,
@@ -532,7 +540,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
             children: [
               Flexible(
                 child: Text(
-                  '${index + 1}번 원자재 ${fmtMm(bar.stockLength)}mm',
+                  '${index + 1}번 원자재',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
