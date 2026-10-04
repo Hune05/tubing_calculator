@@ -428,20 +428,48 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextButton.icon(
-                  onPressed: () async {
-                    final picked = await _pickFromBook();
-                    if (picked != null) {
-                      setD(() {
-                        name.text = picked['name']?.toString() ?? '';
-                        phone.text = picked['phone']?.toString() ?? '';
-                        role = picked['role']?.toString() ?? role;
-                        saveToBook = false;
-                      });
-                    }
-                  },
-                  icon: const Icon(Icons.menu_book_outlined, size: 18),
-                  label: const Text("주소록에서 선택"),
+                Wrap(
+                  spacing: 4,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () async {
+                        final picked = await _pickFromBook();
+                        if (picked != null) {
+                          setD(() {
+                            name.text = picked['name']?.toString() ?? '';
+                            phone.text = picked['phone']?.toString() ?? '';
+                            role = picked['role']?.toString() ?? role;
+                            saveToBook = false;
+                          });
+                        }
+                      },
+                      icon: const Icon(Icons.menu_book_outlined, size: 18),
+                      label: const Text("주소록에서 선택"),
+                    ),
+                    TextButton.icon(
+                      key: const Key('contact_from_phone'),
+                      onPressed: () async {
+                        // 폰의 연락처 선택창에서 한 명만 골라 이름·번호를 칸에 채운다(저장은 따로).
+                        try {
+                          final c = await pickPhoneContact();
+                          if (c == null) return;
+                          setD(() {
+                            name.text = c.name;
+                            phone.text = c.phone;
+                          });
+                        } catch (_) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text("폰 연락처를 열 수 없습니다."),
+                            ),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.contacts_outlined, size: 18),
+                      label: const Text("폰 연락처에서 가져오기"),
+                    ),
+                  ],
                 ),
                 TextField(
                   controller: name,
