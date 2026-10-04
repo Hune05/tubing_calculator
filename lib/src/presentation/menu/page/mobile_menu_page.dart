@@ -1429,7 +1429,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             MaterialPageRoute(
                               builder: (context) => const AttendancePage(),
                             ),
-                          );
+                          ).then((_) => _loadTodayAttendanceForWidget());
                         },
                       ),
                       _sectionHeader("배관·튜브"),
