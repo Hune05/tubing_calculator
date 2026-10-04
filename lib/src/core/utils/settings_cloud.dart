@@ -44,6 +44,16 @@ const List<String> kCloudSettingKeys = [
   'attendance_clockout_reminder',
 ];
 
+/// 비어 있는 값으로는 서버 값을 덮지도, 폰 값을 덮지도 않는 칸(근태 설정의 글 칸).
+/// 새로 깐 기기에서 근태 설정을 처음 저장하면 이 칸들이 빈 글자인데, 그것이 서버로 올라가
+/// 다른 기기의 입사일·소정 시각을 지우면 안 되기 때문이다. 대신 한 기기에서 비운 값은 다른 기기에 전해지지 않는다.
+const Set<String> kCloudBlankGuardKeys = {
+  'attendance_hire_date',
+  'attendance_work_start',
+  'attendance_work_end',
+  'attendance_rule_note',
+};
+
 /// 정수로 읽는 칸(서버가 30을 30.0으로 돌려줘도 정수로 쓴다). 나머지 숫자 칸은 소수(double).
 const Set<String> kCloudIntKeys = {'attendance_default_break'};
 
@@ -52,6 +62,8 @@ Map<String, Object> collectLocalSettings(SharedPreferences prefs) {
   final out = <String, Object>{};
   for (final k in kCloudSettingKeys) {
     final v = prefs.get(k);
+    // 빈 글자는 올리지 않는다(kCloudBlankGuardKeys).
+    if (v is String && v.isEmpty && kCloudBlankGuardKeys.contains(k)) continue;
     if (v is bool || v is int || v is double || v is String) out[k] = v!;
   }
   return out;
@@ -69,6 +81,8 @@ Future<int> applyCloudSettings(
   for (final k in kCloudSettingKeys) {
     if (onlyMissing && prefs.containsKey(k)) continue;
     final v = data[k];
+    // 서버의 빈 글자로 폰에 있는 값을 지우지 않는다(kCloudBlankGuardKeys).
+    if (v is String && v.isEmpty && kCloudBlankGuardKeys.contains(k)) continue;
     if (v is bool) {
       await prefs.setBool(k, v);
     } else if (v is String) {

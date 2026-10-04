@@ -65,6 +65,7 @@ class AttendanceLeaveSheet extends StatelessWidget {
               ),
               const SizedBox(height: 10),
               Container(
+                width: double.infinity,
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.fill,

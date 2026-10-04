@@ -55,26 +55,38 @@ void main() {
     expect(b.ruleNote, '제18조 연장은 17시부터');
   });
 
-  test('비운 값(입사일·소정 시각)도 지우지 않고 빈 글자로 올라가 다른 기기에서도 비워진다', () async {
-    await AttendanceSettings(
-      hireDate: DateTime(2021, 3, 15),
-      workStart: '08:00',
-      workEnd: '17:00',
-    ).save();
-    // 비운 뒤 다시 저장
-    await AttendanceSettings.load().then(
-      (s) => s
-          .copyWith(clearHire: true, clearWorkStart: true, clearWorkEnd: true)
-          .save(),
-    );
-    final up = collectLocalSettings(await SharedPreferences.getInstance());
-    expect(up[AttendanceSettings.hireKey], '');
-    expect(up[AttendanceSettings.workStartKey], '');
-    expect(up[AttendanceSettings.workEndKey], '');
+  test('비운 값은 서버에 올리지 않고, 서버의 빈 값은 폰 값을 지우지 않는다', () async {
+    // 새 기기: 근태 설정을 처음 저장하면 입사일·소정 시각이 빈 글자로 저장된다.
+    await const AttendanceSettings(defaultBreak: 60).save();
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(AttendanceSettings.hireKey), '');
+    final up = collectLocalSettings(prefs);
+    expect(up.containsKey(AttendanceSettings.hireKey), isFalse);
+    expect(up.containsKey(AttendanceSettings.workStartKey), isFalse);
+    expect(up.containsKey(AttendanceSettings.workEndKey), isFalse);
+    expect(up.containsKey(AttendanceSettings.ruleNoteKey), isFalse);
+    expect(up[AttendanceSettings.breakKey], 60); // 값이 있는 칸은 그대로 올라간다
 
+    // 다른 기기(진짜 값이 있다): 서버가 빈 글자를 보내도 지워지지 않는다.
+    SharedPreferences.setMockInitialValues({
+      AttendanceSettings.hireKey: '2021-03-15',
+      AttendanceSettings.workEndKey: '17:00',
+    });
+    final p2 = await SharedPreferences.getInstance();
+    await applyCloudSettings(p2, {
+      AttendanceSettings.hireKey: '',
+      AttendanceSettings.workEndKey: '',
+    });
     final s = await AttendanceSettings.load();
-    expect(s.hireDate, isNull);
-    expect(s.workStart, isNull);
-    expect(s.workEnd, isNull);
+    expect(s.hireDate, DateTime(2021, 3, 15));
+    expect(s.workEnd, '17:00');
+  });
+
+  test('폰에서 비운 입사일은 이 폰에서는 비워진 채로 읽힌다', () async {
+    await AttendanceSettings(hireDate: DateTime(2021, 3, 15)).save();
+    await AttendanceSettings.load().then(
+      (s) => s.copyWith(clearHire: true).save(),
+    );
+    expect((await AttendanceSettings.load()).hireDate, isNull);
   });
 }

@@ -106,6 +106,20 @@ class HomeWidgetSync {
     }
   }
 
+  /// 퇴근 깜빡 알림을 안드로이드(알람)에 예약한다. [at]이 없으면 예약을 취소한다.
+  /// 위젯 단추로 출근했을 때는 안드로이드가 설정을 읽어 스스로 예약한다(ClockReminder.kt).
+  static Future<void> setClockOutReminder(DateTime? at) async {
+    try {
+      await _ch.invokeMethod<void>('clockOutReminder', {
+        'at': at?.millisecondsSinceEpoch,
+      });
+    } on MissingPluginException {
+      // 안드로이드가 아닌 곳
+    } catch (e) {
+      debugPrint('퇴근 알림 예약 실패: $e');
+    }
+  }
+
   /// 시험용: 마지막으로 보낸 값을 잊는다.
   @visibleForTesting
   static void resetForTest() {

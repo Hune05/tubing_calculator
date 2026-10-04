@@ -146,7 +146,8 @@ class AttendanceSettings {
   Future<void> save() async {
     try {
       final p = await SharedPreferences.getInstance();
-      // 비운 값은 지우지 않고 빈 글자로 둔다(서버로 올려 다른 기기에서도 비워지게).
+      // 비운 값은 지우지 않고 빈 글자로 둔다. 빈 글자는 서버로 올리지 않는다(settings_cloud.dart의
+      // kCloudBlankGuardKeys): 새 기기에서 저장해도 다른 기기의 입사일·소정 시각이 지워지지 않게.
       await p.setString(hireKey, hireDate == null ? '' : dateKey(hireDate!));
       await p.setInt(breakKey, defaultBreak);
       await p.setBool(saturdayKey, saturdayIsHoliday);

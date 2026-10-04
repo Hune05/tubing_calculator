@@ -186,6 +186,8 @@ object ClockPunch {
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
             saveClock(c, todayKey, "working", "$nowText 출근 · 근무 중", since)
+            // 앱이 꺼져 있어도 퇴근 깜빡 알림이 잡히게 한다(설정에서 켜 둔 경우만).
+            ClockReminder.scheduleFromSettings(c)
             return note ?: "출근 $nowText 저장했습니다."
         }
 
@@ -208,6 +210,7 @@ object ClockPunch {
         val stay = stayMinutes(target.checkIn, nowText)
             ?: return "방금 출근하셨습니다. 1분 뒤에 퇴근을 눌러 주세요."
         val note = write(uid, targetKey, mapOf("date" to targetKey, "uid" to uid, "checkOut" to nowText))
+        ClockReminder.cancel(c)
         if (targetKey == yestKey) {
             // 밤샘 퇴근: 오늘 기록은 아직 없으니 출근 전으로 돌아간다.
             saveClock(c, todayKey, "ready", "오늘 출근 전", 0L)

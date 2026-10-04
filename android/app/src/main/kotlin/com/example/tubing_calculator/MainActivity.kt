@@ -89,6 +89,16 @@ class MainActivity : FlutterActivity() {
                         result.success(pendingWidgetAction)
                         pendingWidgetAction = null
                     }
+                    // 퇴근 깜빡 알림 예약: at(epoch ms)이 있으면 그 시각으로 잡고, 없으면 취소한다.
+                    "clockOutReminder" -> {
+                        val at = call.argument<Number>("at")?.toLong()
+                        if (at == null) {
+                            ClockReminder.cancel(applicationContext)
+                        } else {
+                            ClockReminder.schedule(applicationContext, at)
+                        }
+                        result.success(null)
+                    }
                     else -> result.notImplemented()
                 }
             }
