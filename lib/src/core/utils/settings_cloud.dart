@@ -41,6 +41,7 @@ const List<String> kCloudSettingKeys = [
   'attendance_hire_date', 'attendance_default_break',
   'attendance_saturday_holiday', 'attendance_leave_override',
   'attendance_work_start', 'attendance_work_end', 'attendance_rule_note',
+  'attendance_clockout_reminder',
 ];
 
 /// 정수로 읽는 칸(서버가 30을 30.0으로 돌려줘도 정수로 쓴다). 나머지 숫자 칸은 소수(double).

@@ -7,6 +7,8 @@
 // 계산(연장·야간 등)은 attendance_calc.dart가 그대로 한다. 여기는 시각만 채운다.
 library;
 
+import 'dart:convert';
+
 import '../my_work_logs/models/attendance.dart';
 
 /// 밤샘 근무로 보는 최대 시간(출근 뒤 이 시간 안이면 어제 기록에 퇴근을 찍는다).
@@ -128,4 +130,50 @@ int missingCheckOutCount(
     if (isMissingCheckOut(r, today)) n++;
   }
   return n;
+}
+
+/// 홈 화면 "출퇴근" 위젯에 보일 한 줄(앱 안 카드의 제목과 같은 말).
+String clockWidgetText(ClockStatus st) {
+  final r = st.record;
+  switch (st.phase) {
+    case ClockPhase.ready:
+      return '오늘 출근 전';
+    case ClockPhase.working:
+      return '${r?.checkIn ?? '--:--'} 출근 · 근무 중';
+    case ClockPhase.done:
+      return '${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}';
+    case ClockPhase.off:
+      return '오늘은 ${r?.type ?? ''}입니다';
+  }
+}
+
+/// 위젯에 넘길 값(JSON). 위젯은 [date]가 오늘이 아니면 낡은 값으로 보고 단추를 둘 다 보인다.
+/// [phase]는 ready / working / done / off.
+String encodeClockWidgetPayload(ClockStatus st, DateTime now) => jsonEncode({
+  'date': dateKey(now),
+  'phase': st.phase.name,
+  'text': clockWidgetText(st),
+});
+
+/// 퇴근 깜빡 알림: 소정 퇴근 시각에서 몇 분 뒤에 알릴지.
+const int kClockOutReminderDelayMin = 30;
+
+/// 알림을 울릴 시각. 켜져 있고, 소정 퇴근 시각이 있고, 오늘 출근만 찍은(퇴근 없음) 때만 계획이 있고
+/// 그 시각이 아직 안 지났을 때만 돌려준다. 아니면 null(예약을 지운다).
+DateTime? planClockOutReminder({
+  required bool enabled,
+  required String? workEnd,
+  required AttendanceRecord? today,
+  required DateTime now,
+}) {
+  if (!enabled) return null;
+  final end = minutesOfDay(workEnd);
+  if (end == null || !_open(today)) return null;
+  final day = _day(today!.date);
+  final when = DateTime(
+    day.year,
+    day.month,
+    day.day,
+  ).add(Duration(minutes: end + kClockOutReminderDelayMin));
+  return when.isAfter(now) ? when : null;
 }

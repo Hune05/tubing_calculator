@@ -1,7 +1,7 @@
 // 근태 설정(입사일·기본 휴게·토요일 휴일·연차 부여 일수 직접 입력·보기 방식·사규).
 // 폰(SharedPreferences)에 저장하고, 계산기 설정과 같은 서버 문서(settings_cloud.dart)에도 올린다:
 // 구글 계정을 연결해 두면 폰을 바꾸거나 태블릿을 써도 같은 설정이 된다(docs/근태관리_근거.md 11절).
-// 보기 방식(달력·목록)은 기기마다 다르게 둔다.
+// 보기 방식(달력·목록)은 기기마다 다르게 두고, 통상시급(급여 정보)은 서버에 올리지 않는다.
 //
 // 사규(2026-09-29): 회사 지정 휴일, 소정 출근·퇴근 시각, 사규 메모. 기본값은 모두 "없음"이라
 // 넣지 않으면 계산 결과가 예전과 똑같다.
@@ -23,6 +23,10 @@ class AttendanceSettings {
   static const String workStartKey = 'attendance_work_start';
   static const String workEndKey = 'attendance_work_end';
   static const String ruleNoteKey = 'attendance_rule_note';
+  static const String clockOutKey = 'attendance_clockout_reminder';
+
+  /// 통상시급(원). 급여 정보라 서버에 올리지 않고 이 기기에만 둔다.
+  static const String wageKey = 'attendance_hourly_wage';
 
   /// 사규 메모 최대 글자 수.
   static const int ruleNoteMax = 2000;
@@ -44,6 +48,12 @@ class AttendanceSettings {
   /// 사규 메모(조항 번호·내용). 계산에는 쓰지 않고 찾아보는 용도.
   final String ruleNote;
 
+  /// 소정 퇴근 시각 30분 뒤에도 퇴근을 안 찍었으면 알림(소정 퇴근 시각이 있어야 한다).
+  final bool clockOutReminder;
+
+  /// 통상시급(원). 있으면 한 달 합계에 예상 수당을 보인다. 없으면 안 보인다.
+  final int? hourlyWage;
+
   const AttendanceSettings({
     this.hireDate,
     this.defaultBreak = kBreakLegalAuto,
@@ -53,6 +63,8 @@ class AttendanceSettings {
     this.workStart,
     this.workEnd,
     this.ruleNote = '',
+    this.clockOutReminder = false,
+    this.hourlyWage,
   });
 
   AttendanceCalcOptions get calcOptions => AttendanceCalcOptions(
@@ -78,6 +90,9 @@ class AttendanceSettings {
     String? workEnd,
     bool clearWorkEnd = false,
     String? ruleNote,
+    bool? clockOutReminder,
+    int? hourlyWage,
+    bool clearWage = false,
   }) => AttendanceSettings(
     hireDate: clearHire ? null : (hireDate ?? this.hireDate),
     defaultBreak: defaultBreak ?? this.defaultBreak,
@@ -87,6 +102,8 @@ class AttendanceSettings {
     workStart: clearWorkStart ? null : (workStart ?? this.workStart),
     workEnd: clearWorkEnd ? null : (workEnd ?? this.workEnd),
     ruleNote: ruleNote ?? this.ruleNote,
+    clockOutReminder: clockOutReminder ?? this.clockOutReminder,
+    hourlyWage: clearWage ? null : (hourlyWage ?? this.hourlyWage),
   );
 
   static Future<AttendanceSettings> load() async {
@@ -116,6 +133,8 @@ class AttendanceSettings {
         workStart: _validTime(p.getString(workStartKey)),
         workEnd: _validTime(p.getString(workEndKey)),
         ruleNote: p.getString(ruleNoteKey) ?? '',
+        clockOutReminder: p.getBool(clockOutKey) ?? false,
+        hourlyWage: (p.getInt(wageKey) ?? 0) > 0 ? p.getInt(wageKey) : null,
       );
     } catch (_) {
       return const AttendanceSettings();
@@ -136,6 +155,12 @@ class AttendanceSettings {
       await p.setString(workStartKey, workStart ?? '');
       await p.setString(workEndKey, workEnd ?? '');
       await p.setString(ruleNoteKey, ruleNote);
+      await p.setBool(clockOutKey, clockOutReminder);
+      if (hourlyWage == null) {
+        await p.remove(wageKey);
+      } else {
+        await p.setInt(wageKey, hourlyWage!);
+      }
     } catch (_) {}
   }
 }

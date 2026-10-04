@@ -488,6 +488,7 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
   late AttendanceSettings _s = widget.settings;
   late final TextEditingController _grant;
   late final TextEditingController _ruleNote;
+  late final TextEditingController _wage;
 
   String? get _periodKey {
     final b = widget.balance;
@@ -502,12 +503,16 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
     final v = k == null ? null : widget.settings.leaveOverrides[k];
     _grant = TextEditingController(text: v == null ? '' : formatLeaveDays(v));
     _ruleNote = TextEditingController(text: widget.settings.ruleNote);
+    _wage = TextEditingController(
+      text: widget.settings.hourlyWage?.toString() ?? '',
+    );
   }
 
   @override
   void dispose() {
     _grant.dispose();
     _ruleNote.dispose();
+    _wage.dispose();
     super.dispose();
   }
 
@@ -571,6 +576,11 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
       }
       s = s.copyWith(leaveOverrides: m);
     }
+    // 통상시급: 숫자만 읽는다. 비우거나 0이면 끈다(예상 수당이 안 보인다).
+    final wage = int.tryParse(_wage.text.trim().replaceAll(',', ''));
+    s = (wage == null || wage <= 0)
+        ? s.copyWith(clearWage: true)
+        : s.copyWith(hourlyWage: wage);
     Navigator.pop(context, s.copyWith(ruleNote: _ruleNote.text.trim()));
   }
 
@@ -636,7 +646,9 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
                   ),
               ],
             ),
-            _help("연차 잔여를 입사일 기준으로 계산합니다(근로기준법 제60조). 이 폰에만 저장됩니다."),
+            _help(
+              "연차 잔여를 입사일 기준으로 계산합니다(근로기준법 제60조). 구글 계정을 연결해 두면 다른 기기에도 같은 설정이 됩니다.",
+            ),
             if (b != null && _periodKey != null) ...[
               const SizedBox(height: 16),
               _sectionLabel("이번 기간 부여 일수"),
@@ -733,6 +745,26 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
               "출근·퇴근을 다 넣으면 소정 출근 전(조출)과 소정 퇴근 후(연장)를 1시간 단위로 내려서(나머지는 버림) "
               "'사규 인정' 시간으로 따로 보여 줍니다. 평일만 세고, 법정 연장·야간·휴일 계산과는 별개입니다.",
             ),
+            SwitchListTile(
+              key: const Key('att_clockout_reminder'),
+              contentPadding: EdgeInsets.zero,
+              value: _s.clockOutReminder,
+              activeThumbColor: _brand,
+              onChanged: _s.workEnd == null
+                  ? null
+                  : (v) =>
+                        setState(() => _s = _s.copyWith(clockOutReminder: v)),
+              title: const Text(
+                "퇴근 안 찍으면 알림",
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(
+                _s.workEnd == null
+                    ? "소정 퇴근 시간을 넣으면 쓸 수 있습니다."
+                    : "출근만 찍고 소정 퇴근 시각 30분 뒤에도 퇴근이 없으면 폰이 알려 줍니다.",
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
             const SizedBox(height: 12),
             TextField(
               key: const Key('att_rule_note'),
@@ -749,6 +781,23 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
             ),
             _help(
               "조항이나 내용을 적어 두면 근태 화면의 사규 보기(책 아이콘)에서 다시 볼 수 있습니다. 계산에는 쓰지 않습니다.",
+            ),
+            const SizedBox(height: 18),
+            _sectionLabel("통상시급(선택)"),
+            TextField(
+              key: const Key('att_wage'),
+              controller: _wage,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                hintText: "비우면 예상 수당을 안 보입니다",
+                suffixText: "원",
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            _help(
+              "넣으면 한 달 합계에 연장·야간·휴일 예상 수당을 보여 줍니다(참고용). "
+              "급여 정보라 이 기기에만 저장하고 서버에는 올리지 않습니다.",
             ),
             const SizedBox(height: 12),
             SizedBox(

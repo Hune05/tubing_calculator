@@ -8,11 +8,14 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.view.View
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import android.widget.RemoteViews
 import org.json.JSONArray
 import org.json.JSONObject
 
-// 홈 화면 위젯 두 개("빠른 실행", "오늘 요약")가 쓰는 자료와 그리는 곳.
+// 홈 화면 위젯 세 개("빠른 실행", "오늘 요약", "출퇴근")가 쓰는 자료와 그리는 곳.
 // 앱(Dart)이 MethodChannel "field/widget"의 update로 자료를 넘기면 여기에 저장하고 위젯을 다시 그린다.
 // 위젯은 통신 없이 이 저장된 자료만 읽는다(발전소처럼 통신이 없어도 뜬다).
 // 위젯을 누르면 MainActivity를 "widget_action" 값과 함께 열고, 앱이 그 값을 보고 해당 기능을 연다.
@@ -21,13 +24,15 @@ object FieldWidgetStore {
     private const val PREFS = "field_widget_prefs"
     private const val KEY_QUICK = "quick"
     private const val KEY_SUMMARY = "summary"
+    private const val KEY_CLOCK = "clock"
 
     private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun save(c: Context, quick: String?, summary: String?) {
+    fun save(c: Context, quick: String?, summary: String?, clock: String? = null) {
         val e = prefs(c).edit()
         if (quick != null) e.putString(KEY_QUICK, quick)
         if (summary != null) e.putString(KEY_SUMMARY, summary)
+        if (clock != null) e.putString(KEY_CLOCK, clock)
         e.apply()
     }
 
@@ -51,6 +56,16 @@ object FieldWidgetStore {
         }
     }
 
+    /** 출퇴근 위젯 값: {"date":"yyyy-MM-dd","phase":"ready|working|done|off","text":"..."} */
+    fun clock(c: Context): JSONObject? {
+        val raw = prefs(c).getString(KEY_CLOCK, null) ?: return null
+        return try {
+            JSONObject(raw)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun refreshAll(c: Context) {
         val mgr = AppWidgetManager.getInstance(c)
         val quickIds = mgr.getAppWidgetIds(ComponentName(c, QuickLaunchWidgetProvider::class.java))
@@ -62,6 +77,11 @@ object FieldWidgetStore {
         if (sumIds.isNotEmpty()) {
             val v = SummaryWidgetProvider.build(c)
             for (id in sumIds) mgr.updateAppWidget(id, v)
+        }
+        val clockIds = mgr.getAppWidgetIds(ComponentName(c, ClockWidgetProvider::class.java))
+        if (clockIds.isNotEmpty()) {
+            val v = ClockWidgetProvider.build(c)
+            for (id in clockIds) mgr.updateAppWidget(id, v)
         }
     }
 
@@ -147,6 +167,38 @@ class SummaryWidgetProvider : AppWidgetProvider() {
             val at = s?.optString("updatedAt").orEmpty()
             v.setTextViewText(R.id.summary_updated, if (at.isEmpty()) "앱을 한 번 열면 채워집니다" else "$at 기준")
             v.setOnClickPendingIntent(R.id.widget_summary_root, FieldWidgetStore.openAppIntent(c, "summary", 200))
+            return v
+        }
+    }
+}
+
+/**
+ * 출퇴근 위젯: 오늘 상태 한 줄과 [출근]·[퇴근] 단추.
+ * 단추를 누르면 앱이 잠깐 열리면서 근태 화면이 지금 시각으로 한 번 찍는다(앱 쪽이 이미 찍었는지 확인한다).
+ * 앱이 마지막으로 넘긴 날짜가 오늘이 아니면(낡은 값) 상태를 믿지 않고 단추를 둘 다 보인다.
+ */
+class ClockWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        val views = build(context)
+        for (id in ids) manager.updateAppWidget(id, views)
+    }
+
+    companion object {
+        fun build(c: Context): RemoteViews {
+            val v = RemoteViews(c.packageName, R.layout.widget_clock)
+            val s = FieldWidgetStore.clock(c)
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
+            val fresh = s != null && s.optString("date") == today
+            val phase = if (fresh) s!!.optString("phase") else ""
+            val text = if (fresh) s!!.optString("text") else "앱을 한 번 열면 오늘 상태가 나옵니다"
+            v.setTextViewText(R.id.clock_text, text.ifEmpty { "오늘 출퇴근" })
+            val showIn = !fresh || phase == "ready"
+            val showOut = !fresh || phase == "working"
+            v.setViewVisibility(R.id.clock_btn_in, if (showIn) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_btn_out, if (showOut) View.VISIBLE else View.GONE)
+            v.setOnClickPendingIntent(R.id.widget_clock_root, FieldWidgetStore.openAppIntent(c, "attendance:open", 300))
+            v.setOnClickPendingIntent(R.id.clock_btn_in, FieldWidgetStore.openAppIntent(c, "attendance:in", 301))
+            v.setOnClickPendingIntent(R.id.clock_btn_out, FieldWidgetStore.openAppIntent(c, "attendance:out", 302))
             return v
         }
     }

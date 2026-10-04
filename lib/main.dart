@@ -1,6 +1,8 @@
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart' show LedgerView;
 import 'package:tubing_calculator/src/presentation/equipment/equipment_pages.dart' show EquipmentLedgerPage;
+import 'package:tubing_calculator/src/presentation/attendance/attendance_reminder.dart' show kClockOutPayload;
+import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_page.dart' show AttendancePage;
 import 'package:tubing_calculator/src/presentation/equipment/equipment_reminders.dart' show kEquipPayloadPrefix;
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
@@ -86,6 +88,10 @@ Route<void>? routeForNotification(String? payload, Map<String, dynamic> data) {
     return MaterialPageRoute<void>(
       builder: (_) => const EquipmentLedgerPage(initialView: LedgerView.due),
     );
+  }
+  // 퇴근 깜빡 알림(예약 918500, attendance_reminder.dart): 근태 화면을 연다(찍는 것은 사용자가 누른다).
+  if (payload == kClockOutPayload) {
+    return MaterialPageRoute<void>(builder: (_) => const AttendancePage());
   }
   // 압력 시험 유지시간 완료(폰 예약 알림 918400, hold_alarm.dart).
   if (payload == kPtHoldPayload) {

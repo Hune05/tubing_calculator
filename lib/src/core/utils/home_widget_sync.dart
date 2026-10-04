@@ -1,6 +1,6 @@
 // 안드로이드 홈 화면 위젯("빠른 실행", "오늘 요약")과 주고받는 곳.
 // 위젯은 통신 없이 앱이 넘겨 둔 자료만 그린다(MainActivity의 FieldWidgetStore).
-// - 앱 → 위젯: [push]로 빠른 실행 제목들과 오늘 요약 값을 넘긴다(같은 값이면 안 보낸다).
+// - 앱 → 위젯: [push]로 빠른 실행 제목들, 오늘 요약 값, 출퇴근 상태를 넘긴다(같은 값이면 안 보낸다).
 // - 위젯 → 앱: 위젯을 누르면 앱이 열리면서 동작("quick:제목" 등)이 넘어와 [pendingAction]에 놓인다.
 import 'dart:convert';
 
@@ -11,6 +11,12 @@ import 'package:flutter/services.dart';
 class HomeWidgetAction {
   final String action;
   const HomeWidgetAction(this.action);
+
+  /// 출퇴근 위젯 단추: "attendance:in"·"attendance:out"·"attendance:open" → in·out·open. 아니면 null.
+  String? get attendanceAction =>
+      action.startsWith('attendance:') && action.length > 11
+      ? action.substring(11)
+      : null;
 
   /// "quick:내 프로젝트" → "내 프로젝트". 빠른 실행 동작이 아니면 null.
   String? get quickTitle => action.startsWith('quick:') && action.length > 6
@@ -49,6 +55,7 @@ class HomeWidgetSync {
 
   static String? _lastQuick;
   static String? _lastSummary;
+  static String? _lastClock;
 
   /// 앱을 켤 때 한 번 부른다. 앱이 떠 있는 동안 위젯이 눌리면 [onReceived]를 먼저 부른다
   /// (예: 열려 있던 화면을 닫고 홈으로 돌아가기).
@@ -75,17 +82,24 @@ class HomeWidgetSync {
   }
 
   /// 위젯에 자료를 넘긴다. [quickJson]·[summaryJson] 중 바뀐 것만 보낸다.
-  static Future<void> push({String? quickJson, String? summaryJson}) async {
+  static Future<void> push({
+    String? quickJson,
+    String? summaryJson,
+    String? clockJson,
+  }) async {
     final sendQuick = quickJson != null && quickJson != _lastQuick;
     final sendSummary = summaryJson != null && summaryJson != _lastSummary;
-    if (!sendQuick && !sendSummary) return;
+    final sendClock = clockJson != null && clockJson != _lastClock;
+    if (!sendQuick && !sendSummary && !sendClock) return;
     try {
       await _ch.invokeMethod<void>('update', {
         if (sendQuick) 'quick': quickJson,
         if (sendSummary) 'summary': summaryJson,
+        if (sendClock) 'clock': clockJson,
       });
       if (sendQuick) _lastQuick = quickJson;
       if (sendSummary) _lastSummary = summaryJson;
+      if (sendClock) _lastClock = clockJson;
     } on MissingPluginException {
       // 안드로이드가 아닌 곳
     } catch (e) {
@@ -98,6 +112,7 @@ class HomeWidgetSync {
   static void resetForTest() {
     _lastQuick = null;
     _lastSummary = null;
+    _lastClock = null;
     pendingAction.value = null;
   }
 }

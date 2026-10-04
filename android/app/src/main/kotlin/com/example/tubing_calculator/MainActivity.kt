@@ -79,7 +79,8 @@ class MainActivity : FlutterActivity() {
                         FieldWidgetStore.save(
                             applicationContext,
                             call.argument<String>("quick"),
-                            call.argument<String>("summary")
+                            call.argument<String>("summary"),
+                            call.argument<String>("clock")
                         )
                         FieldWidgetStore.refreshAll(applicationContext)
                         result.success(null)

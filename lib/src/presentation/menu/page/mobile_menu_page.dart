@@ -13,7 +13,7 @@ import 'package:tubing_calculator/src/data/repositories/work_project_repository.
 import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart' show allMaterialCatalog;
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/attendance.dart'
-    show AttendanceCache, dateKey;
+    show AttendanceCache, dateKey, loadAttendanceRange;
 import 'package:tubing_calculator/src/core/common_widgets/press_feedback.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -57,6 +57,7 @@ import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_invent
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_status_page.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/low_stock_count.dart';
 import 'package:tubing_calculator/src/presentation/material_request/material_request_page.dart';
+import 'package:tubing_calculator/src/presentation/attendance/attendance_clock.dart';
 import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_page.dart';
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
@@ -380,7 +381,19 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       if (!mounted) return;
       _todayAttendance = AttendanceCache.byDate[dateKey(DateTime.now())];
       _syncSummaryWidget();
+      await _syncClockWidget();
     } catch (_) {}
+  }
+
+  /// 출퇴근 위젯에 오늘 상태(출근 전·근무 중·퇴근함)를 넘긴다. 못 읽으면 보내지 않는다(위젯은 낡은 값이면 단추를 둘 다 보인다).
+  Future<void> _syncClockWidget() async {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final y = DateTime(now.year, now.month, now.day - 1);
+    final recs = await loadAttendanceRange(y, today);
+    if (!mounted || recs == null) return;
+    final st = clockStatus(now: now, today: recs[dateKey(today)], yesterday: recs[dateKey(y)]);
+    HomeWidgetSync.push(clockJson: encodeClockWidgetPayload(st, now));
   }
 
   /// 빠른 실행 위젯에 지금 즐겨찾기 순서를 넘긴다(같은 값이면 안 보낸다).
@@ -409,6 +422,24 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   void _onWidgetAction() {
     final a = HomeWidgetSync.pendingAction.value;
     if (a == null || !mounted) return;
+    // 출퇴근 위젯 단추: 근태 화면을 열면서 지금 시각으로 한 번 찍는다(화면이 이미 찍었는지 확인한다).
+    final att = a.attendanceAction;
+    if (att != null) {
+      HomeWidgetSync.pendingAction.value = null;
+      final auto = switch (att) {
+        'in' => AttendanceAutoPunch.clockIn,
+        'out' => AttendanceAutoPunch.clockOut,
+        _ => AttendanceAutoPunch.none,
+      };
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AttendancePage(autoPunch: auto)),
+        );
+      });
+      return;
+    }
     final quick = a.quickTitle;
     final title = quick == null ? null : (kQuickLaunchRenamed[quick] ?? quick);
     if (title == null) {

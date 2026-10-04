@@ -93,7 +93,7 @@
 
         </activity>
         
-        <!-- 홈 화면 위젯: 빠른 실행, 오늘 요약(FieldWidgets.kt). -->
+        <!-- 홈 화면 위젯: 빠른 실행, 오늘 요약, 출퇴근(FieldWidgets.kt). -->
         <receiver android:name=".QuickLaunchWidgetProvider" android:exported="false" android:label="@string/widget_quick_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
@@ -105,6 +105,12 @@
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/summary_widget_info" />
+        </receiver>
+        <receiver android:name=".ClockWidgetProvider" android:exported="false" android:label="@string/widget_clock_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/clock_widget_info" />
         </receiver>
 
         <!-- 예약 알림을 실제로 화면에 띄우는 수신기. 이게 없으면 예약한 알림이 시간이 돼도 나오지 않는다. -->

@@ -9,6 +9,7 @@ import '../../my_schedule/korean_holidays.dart';
 import '../../my_work_logs/models/attendance.dart';
 import '../attendance_calc.dart';
 import '../attendance_clock.dart';
+import '../attendance_pay.dart';
 import '../attendance_settings.dart';
 
 const Color _text = AppColors.text;
@@ -191,12 +192,16 @@ class AttendanceSummaryCard extends StatelessWidget {
 
   /// 퇴근 시각이 빠진 지난 날 수(0이면 안 보인다).
   final int missingCheckOut;
+
+  /// 연간 보기를 여는 동작(없으면 링크를 안 보인다).
+  final VoidCallback? onOpenYear;
   const AttendanceSummaryCard({
     super.key,
     required this.month,
     required this.summary,
     required this.settings,
     this.missingCheckOut = 0,
+    this.onOpenYear,
   });
 
   Widget _stat(String k, String v, {Color color = _text, Key? key}) =>
@@ -240,6 +245,7 @@ class AttendanceSummaryCard extends StatelessWidget {
         .map((e) => "${e.key} ${e.value}회")
         .join(" · ");
     final over = s.weeksOver52;
+    final pay = estimateExtraPay(s, settings.hourlyWage);
     final noHolidayTable = month.year > lastHolidayYear;
     final stats = <Widget>[
       _stat("근로시간", formatMinutes(s.work), key: const Key('att_sum_work')),
@@ -279,13 +285,30 @@ class AttendanceSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "${month.month}월 합계",
-            style: const TextStyle(
-              color: _text,
-              fontWeight: FontWeight.w800,
-              fontSize: 15,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "${month.month}월 합계",
+                  style: const TextStyle(
+                    color: _text,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              if (onOpenYear != null)
+                TextButton(
+                  key: const Key('att_open_year'),
+                  onPressed: onOpenYear,
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 32),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text("연간 보기"),
+                ),
+            ],
           ),
           const SizedBox(height: 2),
           Text(
@@ -306,6 +329,45 @@ class AttendanceSummaryCard extends StatelessWidget {
               );
             },
           ),
+          if (pay != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.brandSoft,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "예상 수당 약 ${formatWon(pay.total)}",
+                    key: const Key('att_sum_pay'),
+                    style: const TextStyle(
+                      color: _brand,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 15,
+                    ),
+                  ),
+                  Text(
+                    "연장 ${formatWon(pay.overtime)} · 야간 ${formatWon(pay.night)} · 휴일 ${formatWon(pay.holiday)}",
+                    key: const Key('att_sum_pay_detail'),
+                    style: const TextStyle(color: _text, fontSize: 12),
+                  ),
+                  Text(
+                    "통상시급 ${formatWon(pay.wage)} 기준(연장 1.5배·야간 0.5배·휴일 1.5배, 8시간 넘는 휴일 2배). "
+                    "참고용이며 회사 급여 기준과 다를 수 있습니다.",
+                    style: const TextStyle(
+                      color: _sub,
+                      fontSize: 11,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           if (counts.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
@@ -391,11 +453,15 @@ class AttendanceLeaveCard extends StatelessWidget {
   final LeaveBalance? balance;
   final bool hasHireDate;
   final VoidCallback onOpenSettings;
+
+  /// 연차 사용 내역을 여는 동작(없으면 단추를 안 보인다).
+  final VoidCallback? onOpenHistory;
   const AttendanceLeaveCard({
     super.key,
     required this.balance,
     required this.hasHireDate,
     required this.onOpenSettings,
+    this.onOpenHistory,
   });
 
   @override
@@ -499,6 +565,15 @@ class AttendanceLeaveCard extends StatelessWidget {
               const Text(
                 "쓴 연차가 발생보다 많습니다. 회사 부여 일수를 설정에서 확인하십시오.",
                 style: TextStyle(color: AppColors.danger, fontSize: 12),
+              ),
+            if (onOpenHistory != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  key: const Key('att_leave_history'),
+                  onPressed: onOpenHistory,
+                  child: const Text("사용 내역 보기"),
+                ),
               ),
           ],
         ),

@@ -10,6 +10,7 @@ import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
     show AppSnackKind, showAppSnack;
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart'
     show showDeleteUndo;
+import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -24,14 +25,20 @@ import '../attendance_bulk.dart';
 import '../attendance_calc.dart';
 import '../attendance_clock.dart';
 import '../attendance_export.dart';
+import '../attendance_reminder.dart';
 import '../attendance_settings.dart';
+import '../widgets/attendance_leave_sheet.dart';
 import '../widgets/attendance_range_sheet.dart';
 import '../widgets/attendance_sheets.dart';
+import '../widgets/attendance_year_page.dart';
 import '../widgets/attendance_views.dart';
 
 const Color _bg = AppColors.background;
 const Color _text = AppColors.text;
 const Color _white = Color(0xFFFFFFFF);
+
+/// 위젯·알림에서 열렸을 때 화면이 열리자마자 할 일.
+enum AttendanceAutoPunch { none, clockIn, clockOut }
 
 typedef AttendanceRangeLoader =
     Future<Map<String, AttendanceRecord>?> Function(DateTime from, DateTime to);
@@ -53,6 +60,9 @@ class AttendancePage extends StatefulWidget {
   /// 출근·퇴근 단추가 찍을 "지금 시각"(시험용). 없으면 지금 시각(today만 주면 그 날짜의 지금 시·분).
   final DateTime Function()? nowProvider;
 
+  /// 홈 위젯의 [출근]·[퇴근] 단추로 열렸을 때: 읽은 뒤 바로 한 번 찍는다(이미 찍었으면 알리기만).
+  final AttendanceAutoPunch autoPunch;
+
   const AttendancePage({
     super.key,
     this.today,
@@ -61,6 +71,7 @@ class AttendancePage extends StatefulWidget {
     this.deleteRecord,
     this.workerName,
     this.nowProvider,
+    this.autoPunch = AttendanceAutoPunch.none,
   });
 
   @override
@@ -111,6 +122,7 @@ class _AttendancePageState extends State<AttendancePage> {
     setState(() => _settings = s);
     await _load();
     await _loadClock();
+    await _runAutoPunch();
     // 연차 잔여는 모든 날의 근태 종류(AttendanceCache)로 계산한다.
     if (widget.loadRange == null) {
       await AttendanceCache.refresh();
@@ -161,6 +173,61 @@ class _AttendancePageState extends State<AttendancePage> {
       _clockFailed = m == null;
       if (m != null) _clockRecs = Map.of(m);
     });
+    _syncOutside();
+  }
+
+  bool _isClockDay(DateTime d) {
+    final x = dayOnly(d);
+    return x == _today ||
+        x == DateTime(_today.year, _today.month, _today.day - 1);
+  }
+
+  /// 홈 화면 출퇴근 위젯과 퇴근 알림을 지금 상태에 맞춘다(둘 다 실패해도 화면에는 영향이 없다).
+  void _syncOutside() {
+    final st = _clockStatus();
+    if (st == null) return;
+    HomeWidgetSync.push(clockJson: encodeClockWidgetPayload(st, _now()));
+    syncClockOutReminder(
+      enabled: _settings.clockOutReminder,
+      workEnd: _settings.workEnd,
+      today: _clockRecs[dateKey(_today)],
+      now: _now(),
+    );
+  }
+
+  /// 위젯 단추로 열렸으면 읽은 직후 한 번만 찍는다.
+  bool _autoDone = false;
+  Future<void> _runAutoPunch() async {
+    if (_autoDone || widget.autoPunch == AttendanceAutoPunch.none || !mounted) {
+      return;
+    }
+    _autoDone = true;
+    final st = _clockStatus();
+    if (st == null) {
+      _toast("기록을 읽지 못해 출퇴근을 찍지 못했습니다.");
+      return;
+    }
+    final r = st.record;
+    switch (widget.autoPunch) {
+      case AttendanceAutoPunch.clockIn:
+        if (st.phase == ClockPhase.ready) {
+          await _punchIn();
+        } else if (st.phase == ClockPhase.off) {
+          _toast("오늘은 ${r?.type ?? ''}이라 출근을 찍지 않았습니다.");
+        } else {
+          _toast("이미 ${r?.checkIn ?? '--:--'}에 출근을 찍었습니다.");
+        }
+      case AttendanceAutoPunch.clockOut:
+        if (st.phase == ClockPhase.working) {
+          await _punchOut();
+        } else if (st.phase == ClockPhase.done) {
+          _toast("이미 ${r?.checkOut ?? '--:--'}에 퇴근을 찍었습니다.");
+        } else {
+          _toast("출근 기록이 없어 퇴근을 찍지 못했습니다. 오늘 줄에서 출근 시각을 먼저 적어 주십시오.");
+        }
+      case AttendanceAutoPunch.none:
+        break;
+    }
   }
 
   ClockStatus? _clockStatus() {
@@ -222,6 +289,7 @@ class _AttendancePageState extends State<AttendancePage> {
         _records.remove(key);
         _clockRecs.remove(key);
       });
+      if (_isClockDay(day)) _syncOutside();
       // 잘못 눌렀을 때 되살릴 수 있게 "되돌리기"를 띄운다(10-02, 예전엔 바로 사라졌다).
       if (old != null) {
         showDeleteUndo(
@@ -250,6 +318,7 @@ class _AttendancePageState extends State<AttendancePage> {
       _records[key] = rec;
       _clockRecs[key] = rec;
     });
+    if (_isClockDay(rec.date)) _syncOutside();
     return true;
   }
 
@@ -263,6 +332,7 @@ class _AttendancePageState extends State<AttendancePage> {
       _records.remove(key);
       _clockRecs.remove(key);
     });
+    if (_isClockDay(day)) _syncOutside();
     return true;
   }
 
@@ -435,6 +505,40 @@ class _AttendancePageState extends State<AttendancePage> {
     await s.save();
     // 계산기 설정과 같은 서버 문서에 올린다(구글 로그인이 없거나 통신이 없으면 조용히 건너뛴다).
     SettingsCloudSync.instance.backup();
+    _syncOutside();
+  }
+
+  void _openYear() {
+    HapticFeedback.selectionClick();
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => AttendanceYearPage(
+          year: _viewedMonth.year,
+          options: _settings.calcOptions,
+          hourlyWage: _settings.hourlyWage,
+          loader: _loader,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openLeaveHistory() async {
+    final b = _leave();
+    if (b == null) return;
+    HapticFeedback.selectionClick();
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: _white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => AttendanceLeaveSheet(
+        balance: b,
+        types: AttendanceCache.byDate,
+        today: _today,
+      ),
+    );
   }
 
   Future<void> _toggleView() async {
@@ -688,11 +792,15 @@ class _AttendancePageState extends State<AttendancePage> {
                           summary: summary,
                           settings: _settings,
                           missingCheckOut: missing,
+                          onOpenYear: _openYear,
                         ),
                         AttendanceLeaveCard(
                           balance: _leave(),
                           hasHireDate: _settings.hireDate != null,
                           onOpenSettings: _openSettings,
+                          onOpenHistory: _leave() == null
+                              ? null
+                              : _openLeaveHistory,
                         ),
                         if (_settings.calendarView)
                           AttendanceMonthCalendar(
