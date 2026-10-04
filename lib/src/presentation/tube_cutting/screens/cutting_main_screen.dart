@@ -3724,11 +3724,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
+  // 구간 카드: 위에 "PT1 → PT2"와 상태, 가운데에 길이 칸(카메라), 그 아래에 ± 단추와 "이전 구간과 동일"을 한 줄로,
+  // 맨 아래에 계산 결과(절단 길이와 식)를 눈에 띄게 둔다. 경고는 색 띠로 따로 보여 준다.
   Widget _buildLengthInputCard(int index) {
-    bool hasInput = _points[index].c2cController.text.trim().isNotEmpty;
+    final String text = _points[index].c2cController.text;
+    final bool hasInput = text.trim().isNotEmpty;
     final bool unreadable = hasInput && _points[index].unreadable;
-    bool isInterference = hasInput && _points[index].calculatedCut < 0;
-    bool isSuspiciouslyShort =
+    final bool isInterference = hasInput && _points[index].calculatedCut < 0;
+    final bool isSuspiciouslyShort =
         hasInput &&
         !isInterference &&
         _points[index].calculatedCut > 0 &&
@@ -3748,35 +3751,101 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     final bool canCopyPrevious =
         index > 0 && _points[index - 1].c2cController.text.trim().isNotEmpty;
     final bool isLastSegment = index == _points.length - 2;
+    final bool hasResult =
+        hasInput &&
+        !unreadable &&
+        !isInterference &&
+        _points[index].calculatedCut > 0;
+    final bool bad = isInterference || unreadable;
 
-    // 🚀 [입력 UI 고도화] 카메라/스테퍼/경고문구까지 들어가며 내용이
-    // 많아진 만큼, 가는 연결선 하나로는 내용이 붕 떠 보였다. 부속
-    // 카드(흰 배경+굵은 테두리)와는 다른 톤 - 옅은 회색 배경 - 으로
-    // 카드화해서 담음새를 줬다. (왼쪽 색 띠는 포인트가 과했다는 피드백에
-    // 따라 제거)
+    Widget banner(IconData icon, String msg, Color c, Color bg, {Key? key}) =>
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, color: c, size: 15),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  msg,
+                  key: key,
+                  style: TextStyle(
+                    color: c,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+    // 상태 칩(오른쪽 위): 계산됨 / 확인 필요 / 입력 필요
+    final String stateText = bad
+        ? "확인 필요"
+        : (hasResult ? "계산됨" : (hasInput ? "확인 필요" : "입력 필요"));
+    final Color stateColor = bad || (hasInput && !hasResult)
+        ? CuttingColors.danger
+        : (hasResult ? CuttingColors.success : CuttingColors.warning);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Container(
         decoration: BoxDecoration(
-          color: isInterference
-              ? CuttingColors.dangerSoft
-              : Colors.grey.shade50,
+          color: bad ? CuttingColors.dangerSoft : Colors.grey.shade50,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isInterference
+            color: bad
                 ? CuttingColors.danger.withValues(alpha: 0.4)
                 : Colors.grey.shade200,
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 🚀 [입력 UI 고도화] 카메라 버튼이 Row 맨 위(start)에
-              // 붙어서 라벨 있는 TextField보다 위쪽에 붕 떠 보였다.
-              // IntrinsicHeight + stretch로 필드와 정확히 같은 높이를
-              // 갖도록 맞춰서 하나의 입력 그룹처럼 보이게 했다.
+              Row(
+                children: [
+                  Text(
+                    "PT${index + 1} → PT${index + 2}",
+                    key: Key('segment_title_$index'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: CuttingColors.textSecondary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Container(
+                    key: Key('segment_state_$index'),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: stateColor.withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      stateText,
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w900,
+                        color: stateColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               IntrinsicHeight(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3829,18 +3898,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: (isInterference || unreadable)
-                                  ? Colors.red
-                                  : Colors.grey.shade300,
-                              width: (isInterference || unreadable) ? 2 : 1,
+                              color: bad ? Colors.red : Colors.grey.shade300,
+                              width: bad ? 2 : 1,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide: BorderSide(
-                              color: (isInterference || unreadable)
-                                  ? Colors.red
-                                  : makitaTeal,
+                              color: bad ? Colors.red : makitaTeal,
                               width: 2,
                             ),
                           ),
@@ -3872,17 +3937,18 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 ),
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 10,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
+              // ± 단추와 "이전 구간과 동일"을 한 줄에(좁은 폭에서는 줄어든다).
+              Row(
                 children: [
-                  // 🚀 [입력 UI 고도화] 낱개 칩 4개가 따로 떠 있어 간격이
-                  // 들쭉날쭉해 보였다. 하나로 이어붙인 세그먼트 스테퍼로
-                  // 바꿔서 정렬된 하나의 컨트롤처럼 보이게 했다.
-                  _buildStepStepper(index),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: _buildStepStepper(index),
+                    ),
+                  ),
                   if (canCopyPrevious)
                     InkWell(
+                      key: Key('copy_prev_$index'),
                       onTap: () {
                         HapticFeedback.selectionClick();
                         setState(() {
@@ -3894,22 +3960,22 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       borderRadius: BorderRadius.circular(6),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 4,
+                          horizontal: 6,
+                          vertical: 6,
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
+                          children: const [
+                            Icon(
                               Icons.content_copy_rounded,
-                              size: 12,
+                              size: 13,
                               color: makitaTeal,
                             ),
-                            const SizedBox(width: 3),
+                            SizedBox(width: 3),
                             Text(
-                              "이전 구간과 동일",
+                              "이전과 동일",
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 11.5,
                                 fontWeight: FontWeight.bold,
                                 color: makitaTeal,
                               ),
@@ -3920,13 +3986,19 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     ),
                 ],
               ),
-              // 어떻게 나온 절단 길이인지(중심 간 거리 − 양쪽 공제값) 바로 보여 준다.
-              if (hasInput &&
-                  !unreadable &&
-                  !isInterference &&
-                  _points[index].calculatedCut > 0)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6, left: 4),
+              // 계산 결과: 절단 길이와 식(시험·글은 cutBreakdownText 그대로).
+              if (hasResult)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 9,
+                  ),
+                  decoration: BoxDecoration(
+                    color: CuttingColors.primarySoft,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                   child: Text(
                     cutBreakdownText(
                       c2cMm: _points[index].c2cMm,
@@ -3935,110 +4007,41 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     ),
                     key: Key('cut_breakdown_$index'),
                     style: const TextStyle(
-                      color: makitaTeal,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
+                      color: CuttingColors.primary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
               if (unreadable)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.error_outline_rounded,
-                        color: Colors.red,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          "숫자로 읽을 수 없습니다. 예: 1200 또는 1200.5",
-                          key: Key('unreadable_$index'),
-                          style: TextStyle(
-                            color: Colors.red.shade700,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                banner(
+                  Icons.error_outline_rounded,
+                  "숫자로 읽을 수 없습니다. 예: 1200 또는 1200.5",
+                  Colors.red.shade700,
+                  Colors.white,
+                  key: Key('unreadable_$index'),
                 ),
               if (isInterference)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_rounded,
-                        color: Colors.red,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          "간섭: 입력값이 양쪽 부속 공제값의 합보다 작습니다.",
-                          style: TextStyle(
-                            color: Colors.red.shade700,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                banner(
+                  Icons.warning_rounded,
+                  "간섭: 입력값이 양쪽 부속 공제값의 합보다 작습니다.",
+                  Colors.red.shade700,
+                  Colors.white,
                 ),
-              // 🚀 [입력 고도화 5번] 서로 다른 규격(OD)의 부속을 이어 붙인
-              // 경우, 실수인지 확인할 수 있게 막지는 않고 알려만 준다.
+              // 서로 다른 규격(OD)의 부속을 이어 붙인 경우: 막지는 않고 알려만 준다.
               if (!isInterference && specMismatch)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_amber_rounded,
-                        color: CuttingColors.warning,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          "규격이 다른 부속끼리 연결됨: ${startItem.tubeOD} → ${endItem.tubeOD}",
-                          style: const TextStyle(
-                            color: CuttingColors.warning,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                banner(
+                  Icons.warning_amber_rounded,
+                  "규격이 다른 부속끼리 연결됨: ${startItem.tubeOD} → ${endItem.tubeOD}",
+                  CuttingColors.warning,
+                  CuttingColors.warningSoft,
                 ),
               if (!isInterference && !specMismatch && isSuspiciouslyShort)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, left: 4),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.warning_amber_rounded,
-                        color: CuttingColors.warning,
-                        size: 14,
-                      ),
-                      const SizedBox(width: 4),
-                      const Expanded(
-                        child: Text(
-                          "절단 길이가 매우 짧습니다. 치수를 다시 확인해 주십시오.",
-                          style: TextStyle(
-                            color: CuttingColors.warning,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                banner(
+                  Icons.warning_amber_rounded,
+                  "절단 길이가 매우 짧습니다. 치수를 다시 확인해 주십시오.",
+                  CuttingColors.warning,
+                  CuttingColors.warningSoft,
                 ),
             ],
           ),
