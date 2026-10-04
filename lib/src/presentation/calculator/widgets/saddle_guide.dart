@@ -222,12 +222,16 @@ class _SaddlePainter extends CustomPainter {
     final angT = stageT(t, 0.80, 0.92);
     if (angT > 0 && hasValues) {
       if (peakAngleLabel != null) {
+        // 봉우리 오른쪽으로 비켜 놓는다 — 가운데에 두면 왼쪽 위의 Travel 값표를 가린다.
+        final peakText = '봉우리 ∠ $peakAngleLabel';
+        final peakW = pillWidth(peakText, size: 9.5);
         paintPill(
           canvas,
-          '봉우리 ∠ $peakAngleLabel',
-          Offset(peak1.dx.clamp(60.0, w - 60), topY - 16),
+          peakText,
+          Offset((peak1.dx + 6).clamp(4.0, w - peakW - 4), topY - 16),
           color: kGuideOrange,
           size: 9.5,
+          alignLeft: true,
         );
       }
       paintPill(
