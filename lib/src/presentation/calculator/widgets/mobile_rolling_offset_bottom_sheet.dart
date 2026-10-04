@@ -85,6 +85,7 @@ class MobileRollingOffsetBottomSheet extends StatefulWidget {
 class _MobileRollingOffsetBottomSheetState
     extends State<MobileRollingOffsetBottomSheet> {
   bool _isReverseMode = false;
+  RollingFocus? _focus; // 마지막으로 누른 입력 칸(그림에서 그 값을 강조)
   double? _selectedRotation;
   double _bendRadius = 0.0; // 🚀 설정화면에서 불러올 R값 저장 변수
   BendSheetSpecs? _specs;
@@ -385,6 +386,7 @@ class _MobileRollingOffsetBottomSheetState
                 trueOffset: trueOffset,
                 rollAngle: rollAngle,
                 bendAngle: finalBendAngle,
+                focus: _focus,
               ),
               const SizedBox(height: 16),
               Container(
@@ -446,21 +448,41 @@ class _MobileRollingOffsetBottomSheetState
               Row(
                 children: [
                   Expanded(
-                    child: _buildCompactInputRow(_riseCtrl, "수직 거리 (Rise)"),
+                    child: _buildCompactInputRow(
+                      _riseCtrl,
+                      "수직 거리 (Rise)",
+                      RollingFocus.rise,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _buildCompactInputRow(_rollCtrl, "롤링 (Roll)"),
+                    child: _buildCompactInputRow(
+                      _rollCtrl,
+                      "롤링 (Roll)",
+                      RollingFocus.roll,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              _buildCompactInputRow(_startCtrl, "시작 거리 (1번 마킹 자리, mm)"),
+              _buildCompactInputRow(
+                _startCtrl,
+                "시작 거리 (1번 마킹 자리, mm)",
+                RollingFocus.start,
+              ),
               const SizedBox(height: 12),
               if (_isReverseMode) ...[
-                _buildCompactInputRow(_travelCtrl, "현장 빗변 (Travel)"),
+                _buildCompactInputRow(
+                  _travelCtrl,
+                  "현장 빗변 (Travel)",
+                  RollingFocus.travel,
+                ),
               ] else ...[
-                _buildCompactInputRow(_angleCtrl, "벤딩 각도 (∠)"),
+                _buildCompactInputRow(
+                  _angleCtrl,
+                  "벤딩 각도 (∠)",
+                  RollingFocus.bend,
+                ),
                 const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
@@ -745,7 +767,12 @@ class _MobileRollingOffsetBottomSheetState
     );
   }
 
-  Widget _buildCompactInputRow(TextEditingController ctrl, String hint) {
+  Widget _buildCompactInputRow(
+    TextEditingController ctrl,
+    String hint,
+    RollingFocus focus,
+  ) {
+    final active = _focus == focus;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -761,8 +788,10 @@ class _MobileRollingOffsetBottomSheetState
         TextField(
           controller: ctrl,
           readOnly: true,
-          onTap: () =>
-              MakitaNumpadGlass.show(context, controller: ctrl, title: hint),
+          onTap: () {
+            setState(() => _focus = focus);
+            MakitaNumpadGlass.show(context, controller: ctrl, title: hint);
+          },
           style: const TextStyle(
             color: makitaTeal,
             fontSize: 20,
@@ -782,7 +811,9 @@ class _MobileRollingOffsetBottomSheetState
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey.shade300),
+              borderSide: active
+                  ? const BorderSide(color: makitaTeal, width: 2)
+                  : BorderSide(color: Colors.grey.shade300),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -798,7 +829,10 @@ class _MobileRollingOffsetBottomSheetState
     return Padding(
       padding: const EdgeInsets.only(right: 6.0),
       child: InkWell(
-        onTap: () => ctrl.text = val.toStringAsFixed(val % 1 == 0 ? 0 : 1),
+        onTap: () {
+          setState(() => _focus = RollingFocus.bend);
+          ctrl.text = val.toStringAsFixed(val % 1 == 0 ? 0 : 1);
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(

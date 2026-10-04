@@ -10,6 +10,7 @@ import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_offset_guide.dart';
 
 BendSheetSpecs tubeSpecs(double r) =>
     BendSheetSpecs(radius: r, gain90: 0, markOffset: (a) => bendSetback(r, a));
@@ -159,5 +160,33 @@ void main() {
     await tester.pump();
     expect(one, isEmpty);
     expect(find.byKey(const Key('rolling_missing')), findsOneWidget);
+  });
+
+  testWidgets('입력 칸을 누르면 그림이 그 값을 강조한다(칸 ↔ 그림 연동)', (tester) async {
+    await openSheet(tester, one: (l, a, r) {});
+    RollingFocus? focus() =>
+        tester
+            .widget<RollingOffsetGuide>(
+              find.byType(RollingOffsetGuide, skipOffstage: false),
+            )
+            .focus;
+    expect(focus(), isNull);
+
+    await tester.ensureVisible(find.byType(TextField).at(0));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextField).at(0)); // Rise 칸
+    await tester.pumpAndSettle();
+    expect(focus(), RollingFocus.rise);
+    // 숫자판 오른쪽 위 닫기 단추.
+    await tester.tap(find.byIcon(Icons.close).last);
+    await tester.pumpAndSettle();
+
+    // 빠른 각도 단추는 벤딩 각도 칸과 같은 값이다.
+    await tester.ensureVisible(find.text('30°'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('30°'));
+    await tester.pumpAndSettle();
+    expect(focus(), RollingFocus.bend);
+    expect(tester.takeException(), isNull);
   });
 }

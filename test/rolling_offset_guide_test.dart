@@ -59,4 +59,27 @@ void main() {
     }
     expect(errors, isEmpty);
   });
+
+  testWidgets('강조할 값을 어느 것으로 골라도 오류 없이 그려진다', (tester) async {
+    for (final f in RollingFocus.values) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: RollingOffsetGuide(
+              rise: 150,
+              roll: 200,
+              trueOffset: 250,
+              rollAngle: 53,
+              bendAngle: 45,
+              focus: f,
+            ),
+          ),
+        ),
+      );
+      // 애니메이션이 끝나기 전에도, 끝난 뒤에도 그려 본다.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '$f');
+    }
+  });
 }

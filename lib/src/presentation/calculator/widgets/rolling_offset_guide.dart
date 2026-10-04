@@ -15,12 +15,18 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/common/guide_paint_kit.dart';
 
+/// 입력 칸을 눌렀을 때 그림에서 강조할 값(칸 ↔ 그림 연동).
+enum RollingFocus { rise, roll, start, travel, bend }
+
 class RollingOffsetGuide extends StatefulWidget {
   final double rise;
   final double roll;
   final double trueOffset;
   final double rollAngle;
   final double bendAngle;
+
+  /// 지금 고르고 있는 입력 칸. 있으면 그림에서 그 값만 진하게, 나머지는 흐리게 보인다.
+  final RollingFocus? focus;
 
   const RollingOffsetGuide({
     super.key,
@@ -29,6 +35,7 @@ class RollingOffsetGuide extends StatefulWidget {
     required this.trueOffset,
     required this.rollAngle,
     required this.bendAngle,
+    this.focus,
   });
 
   @override
@@ -99,6 +106,7 @@ class _RollingOffsetGuideState extends State<RollingOffsetGuide>
                     roll: widget.roll,
                     run: run,
                     bendAngle: validBend ? bend : 0,
+                    focus: widget.focus,
                     riseLabel: _mm(widget.rise),
                     rollLabel: _mm(widget.roll),
                     runLabel: _mm(run),
@@ -151,6 +159,7 @@ class _RollingOffsetGuidePainter extends CustomPainter {
   final String rollAngleLabel;
   final String bendLabel;
   final bool hasValues;
+  final RollingFocus? focus;
 
   _RollingOffsetGuidePainter({
     required this.t,
@@ -166,12 +175,15 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     required this.rollAngleLabel,
     required this.bendLabel,
     required this.hasValues,
+    required this.focus,
   });
 
-  // 화면 투영: x(관 방향)는 오른쪽으로 조금 앞쪽, y는 위, z(안쪽)는 오른쪽 위로 간다.
-  static const Offset _ex = Offset(0.94, 0.16);
+  // 화면 투영(기준 그림과 같은 각도): 앞쪽 왼편 위에서 본다. x(관 방향)는 오른쪽 위로,
+  // y는 위로, 앞→뒤(z)는 왼쪽 위로 간다. 그래서 끝면의 Rise·Roll·대각선이 관 뒤가 아니라
+  // 오른쪽 바깥으로 펼쳐져 화살표끼리 겹치지 않는다.
+  static const Offset _ex = Offset(0.94, -0.24);
   static const Offset _ey = Offset(0, -1);
-  static const Offset _ez = Offset(0.56, -0.36);
+  static const Offset _ez = Offset(0.5, 0.32);
 
   static Offset _raw(double x, double y, double z) =>
       _ex * x + _ey * y + _ez * z;
@@ -185,9 +197,20 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     Color color, {
     double width = 1.8,
     bool dashed = false,
+    bool emph = false,
   }) {
     if (s <= 0) return;
     final tip = Offset.lerp(a, b, s)!;
+    if (emph) {
+      canvas.drawLine(
+        a,
+        tip,
+        Paint()
+          ..color = color.withValues(alpha: 0.28)
+          ..strokeWidth = width + 7
+          ..strokeCap = StrokeCap.round,
+      );
+    }
     final paint = Paint()
       ..color = color
       ..strokeWidth = width
@@ -306,8 +329,9 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     List<double> v,
     double r,
     double s,
-    Color color,
-  ) {
+    Color color, {
+    double strokeWidth = 2,
+  }) {
     if (s <= 0) return;
     double dot(List<double> a, List<double> b) =>
         a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
@@ -347,7 +371,7 @@ class _RollingOffsetGuidePainter extends CustomPainter {
       path,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
+        ..strokeWidth = strokeWidth
         ..strokeCap = StrokeCap.round
         ..color = color,
     );
@@ -389,12 +413,13 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     // 값표는 그림 아래 범례 줄에 모아 둔다(선 색과 같은 색 점으로 구분).
     final chips = <_Chip>[
       _Chip('Run $runLabel', _kRunColor, 0.56),
-      _Chip('Rise $riseLabel', _kRiseColor, 0.65),
-      _Chip('Roll $rollLabel', _kRollColor, 0.74),
+      _Chip('Rise $riseLabel', _kRiseColor, 0.65, RollingFocus.rise),
+      _Chip('Roll $rollLabel', _kRollColor, 0.74, RollingFocus.roll),
       _Chip('대각선 $offsetLabel', kGuideOrange, 0.83),
-      _Chip('Travel $travelLabel', _kTravelColor, 0.46),
+      _Chip('Travel $travelLabel', _kTravelColor, 0.46, RollingFocus.travel),
       _Chip('회전각 $rollAngleLabel', kGuideOrange, 0.90),
-      if (bendAngle > 0) _Chip('벤딩 $bendLabel', AppColors.brand, 0.90),
+      if (bendAngle > 0)
+        _Chip('벤딩 $bendLabel', AppColors.brand, 0.90, RollingFocus.bend),
     ];
     final legend = _layoutLegend(chips, w);
     const padL = 12.0, padR = 12.0, padT = 14.0;
@@ -410,7 +435,8 @@ class _RollingOffsetGuidePainter extends CustomPainter {
       return Offset(ox + p.dx * sc, oy + p.dy * sc);
     }
 
-    Offset c(double x, double y, double z) => map(x, y, z);
+    // z는 앞(0)→뒤(dz). 화면에서는 앞이 오른쪽 아래, 뒤가 왼쪽 위다.
+    Offset c(double x, double y, double z) => map(x, y, dz - z);
 
     // ── 단계별 진행 ──
     final boxT = stageT(t, 0.0, 0.14);
@@ -423,6 +449,13 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     final rollT = stageT(t, 0.74, 0.83);
     final offT = stageT(t, 0.83, 0.91);
     final angT = stageT(t, 0.90, 1.0);
+
+    // 입력 칸을 고른 값은 항상 보이게 하고 진하게, 나머지는 흐리게(칸 ↔ 그림 연동).
+    final fc = focus;
+    bool on(RollingFocus f) => fc == f;
+    Color tone(RollingFocus? f, Color c) =>
+        fc == null || fc == f ? c : c.withValues(alpha: 0.28);
+    double seen(RollingFocus f, double v) => fc == f ? 1.0 : v;
 
     // ── 상자(바닥·뒷면·왼쪽 면은 진하게, 앞쪽 면은 유리처럼 옅게) ──
     void face(List<Offset> pts, double alpha, Color color) {
@@ -452,9 +485,9 @@ class _RollingOffsetGuidePainter extends CustomPainter {
       ..color = AppColors.textSub.withValues(alpha: 0.75)
       ..strokeWidth = 1.3
       ..strokeCap = StrokeCap.round;
-    _dashedLine(canvas, c(0, 0, 0), c(0, 0, dz), boxT, hiddenPaint);
+    _dashedLine(canvas, c(dx, 0, 0), c(dx, 0, dz), boxT, hiddenPaint);
     _dashedLine(canvas, c(0, 0, dz), c(dx, 0, dz), boxT, hiddenPaint);
-    _dashedLine(canvas, c(0, 0, dz), c(0, dy, dz), boxT, hiddenPaint);
+    _dashedLine(canvas, c(dx, 0, dz), c(dx, dy, dz), boxT, hiddenPaint);
 
     // ── 바닥에 비친 관 그림자와 내려오는 점선(높이를 읽기 쉽게) ──
     if (diagT > 0) {
@@ -497,8 +530,8 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     }
 
     edge(c(0, 0, 0), c(dx, 0, 0));
-    edge(c(dx, 0, 0), c(dx, 0, dz));
-    edge(c(dx, 0, dz), c(dx, dy, dz));
+    edge(c(0, 0, 0), c(0, 0, dz));
+    edge(c(0, 0, dz), c(0, dy, dz));
     edge(c(dx, dy, 0), c(dx, dy, dz));
     edge(c(0, dy, 0), c(dx, dy, 0));
     edge(c(0, dy, 0), c(0, dy, dz));
@@ -507,67 +540,139 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     edge(c(dx, 0, 0), c(dx, dy, 0));
 
     // 1번·2번 마킹 점.
-    _marker(canvas, c(0, 0, 0), '1', stageT(t, 0.20, 0.28));
+    if (on(RollingFocus.start)) {
+      final p = c(0, 0, 0);
+      canvas.drawCircle(
+        p,
+        15,
+        Paint()..color = kGuideOrange.withValues(alpha: 0.25),
+      );
+      canvas.drawCircle(
+        p,
+        15,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = kGuideOrange,
+      );
+    }
+    _marker(
+      canvas,
+      c(0, 0, 0),
+      '1',
+      seen(RollingFocus.start, stageT(t, 0.20, 0.28)),
+    );
     _marker(canvas, c(dx, dy, dz), '2', stageT(t, 0.40, 0.48));
 
     // ── 치수선(색은 범례의 점과 같다) ──
     // Travel: 관을 따라 안쪽(왼쪽 위)으로 띄운 초록 선.
     final a0 = c(0, 0, 0), b0 = c(dx, dy, dz);
     final dirAB = (b0 - a0) / (b0 - a0).distance;
-    final nAB = Offset(dirAB.dy, -dirAB.dx);
+    var nAB = Offset(dirAB.dy, -dirAB.dx);
+    if (nAB.dy > 0) nAB = -nAB; // 항상 위쪽으로 띄운다
     final travelShift = nAB * 24;
-    _dim(canvas, a0 + travelShift, b0 + travelShift, travelT, _kTravelColor);
+    _dim(
+      canvas,
+      a0 + travelShift,
+      b0 + travelShift,
+      seen(RollingFocus.travel, travelT),
+      tone(RollingFocus.travel, _kTravelColor),
+      width: on(RollingFocus.travel) ? 3.2 : 1.8,
+      emph: on(RollingFocus.travel),
+    );
 
     // Run: 바닥 앞 모서리를 따라(보라).
     const runShift = Offset(0, 15);
-    _dim(canvas, c(0, 0, 0) + runShift, c(dx, 0, 0) + runShift, runT, _kRunColor);
+    _dim(
+      canvas,
+      c(0, 0, 0) + runShift,
+      c(dx, 0, 0) + runShift,
+      runT,
+      tone(null, _kRunColor),
+    );
 
     // Rise: 앞쪽 오른 세로 모서리(파랑).
-    const riseShift = Offset(-15, 0);
-    _dim(canvas, c(dx, 0, 0) + riseShift, c(dx, dy, 0) + riseShift, riseT, _kRiseColor);
+    const riseShift = Offset(13, 0);
+    _dim(
+      canvas,
+      c(dx, 0, 0) + riseShift,
+      c(dx, dy, 0) + riseShift,
+      seen(RollingFocus.rise, riseT),
+      tone(RollingFocus.rise, _kRiseColor),
+      width: on(RollingFocus.rise) ? 3.2 : 1.8,
+      emph: on(RollingFocus.rise),
+    );
 
     // Roll: 위쪽 안으로 들어가는 모서리(빨강).
-    const rollShift = Offset(-8, -13);
-    _dim(canvas, c(dx, dy, 0) + rollShift, c(dx, dy, dz) + rollShift, rollT, _kRollColor);
+    const rollShift = Offset(5, -9);
+    _dim(
+      canvas,
+      c(dx, dy, 0) + rollShift,
+      c(dx, dy, dz) + rollShift,
+      seen(RollingFocus.roll, rollT),
+      tone(RollingFocus.roll, _kRollColor),
+      width: on(RollingFocus.roll) ? 3.2 : 1.8,
+      emph: on(RollingFocus.roll),
+    );
 
     // 끝면의 대각선(True Offset, 주황 점선).
-    _dim(canvas, c(dx, 0, 0), c(dx, dy, dz), offT, kGuideOrange, width: 2.2, dashed: true);
+    _dim(
+      canvas,
+      c(dx, 0, 0),
+      c(dx, dy, dz),
+      offT,
+      tone(null, kGuideOrange),
+      width: 2.2,
+      dashed: true,
+    );
 
     // 각도: 끝면 아래 모서리의 회전각(주황), 1번 마킹의 벤딩 각도(청록).
     final diagLen = math.sqrt(dy * dy + dz * dz);
-    if (angT > 0) {
+    final bendS = seen(RollingFocus.bend, angT);
+    if (bendS > 0) {
       _arc3(
         canvas,
-        map,
+        c,
         [dx, 0, 0],
         [0, 1, 0],
         [0, dy / diagLen, dz / diagLen],
         math.min(0.26, diagLen * 0.5),
         angT,
-        kGuideOrange,
+        tone(null, kGuideOrange),
       );
       final full3 = math.sqrt(dx * dx + dy * dy + dz * dz);
       _arc3(
         canvas,
-        map,
+        c,
         [0, 0, 0],
         [1, 0, 0],
         [dx / full3, dy / full3, dz / full3],
-        0.2,
-        angT,
-        AppColors.brand,
+        on(RollingFocus.bend) ? 0.3 : 0.2,
+        bendS,
+        tone(RollingFocus.bend, AppColors.brand),
+        strokeWidth: on(RollingFocus.bend) ? 3.4 : 2,
       );
     }
 
     // ── 범례(값표) ──
     if (hasValues) {
       for (var i = 0; i < chips.length; i++) {
-        final k = stageT(t, chips[i].at - 0.04, chips[i].at + 0.06);
+        final k = chips[i].focus != null && chips[i].focus == fc
+            ? 1.0
+            : stageT(t, chips[i].at - 0.04, chips[i].at + 0.06);
         if (k <= 0) continue;
         final r = legend.rects[i];
         canvas.save();
         canvas.translate(0, (1 - k) * 6);
-        _paintChip(canvas, chips[i], legend.painters[i], r.shift(Offset(0, h - legend.height - 2)), k);
+        _paintChip(
+          canvas,
+          chips[i],
+          legend.painters[i],
+          r.shift(Offset(0, h - legend.height - 2)),
+          k,
+          emph: fc != null && chips[i].focus == fc,
+          dim: fc != null && chips[i].focus != fc,
+        );
         canvas.restore();
       }
     } else if (t > 0.6) {
@@ -626,25 +731,43 @@ class _RollingOffsetGuidePainter extends CustomPainter {
     return _Legend(rects, tps, rows.length * hh + (rows.length - 1) * vgap + 4);
   }
 
-  void _paintChip(Canvas canvas, _Chip chip, TextPainter tp, Rect r, double k) {
+  void _paintChip(
+    Canvas canvas,
+    _Chip chip,
+    TextPainter tp,
+    Rect r,
+    double k, {
+    bool emph = false,
+    bool dim = false,
+  }) {
+    if (dim) k *= 0.45;
     final rr = RRect.fromRectAndRadius(r, const Radius.circular(10));
     canvas.drawRRect(
       rr,
       Paint()..color = AppColors.surface.withValues(alpha: 0.96 * k),
     );
+    if (emph) {
+      canvas.drawRRect(rr, Paint()..color = chip.color.withValues(alpha: 0.14));
+    }
     canvas.drawRRect(
       rr,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1
-        ..color = chip.color.withValues(alpha: 0.45 * k),
+        ..strokeWidth = emph ? 2 : 1
+        ..color = chip.color.withValues(alpha: (emph ? 0.95 : 0.45) * k),
     );
     canvas.drawCircle(
       Offset(r.left + 10, r.center.dy),
       4,
       Paint()..color = chip.color.withValues(alpha: k),
     );
-    tp.paint(canvas, Offset(r.left + 18, r.center.dy - tp.height / 2));
+    if (dim) {
+      canvas.saveLayer(r, Paint()..color = Colors.white.withValues(alpha: 0.5));
+      tp.paint(canvas, Offset(r.left + 18, r.center.dy - tp.height / 2));
+      canvas.restore();
+    } else {
+      tp.paint(canvas, Offset(r.left + 18, r.center.dy - tp.height / 2));
+    }
   }
 
   @override
@@ -661,14 +784,16 @@ class _RollingOffsetGuidePainter extends CustomPainter {
       old.travelLabel != travelLabel ||
       old.rollAngleLabel != rollAngleLabel ||
       old.bendLabel != bendLabel ||
-      old.hasValues != hasValues;
+      old.hasValues != hasValues ||
+      old.focus != focus;
 }
 
 class _Chip {
   final String label;
   final Color color;
   final double at;
-  const _Chip(this.label, this.color, this.at);
+  final RollingFocus? focus;
+  const _Chip(this.label, this.color, this.at, [this.focus]);
 }
 
 class _Legend {
