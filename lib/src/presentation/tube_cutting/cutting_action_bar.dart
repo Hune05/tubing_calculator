@@ -196,16 +196,19 @@ class CutActionBar extends StatelessWidget {
                 if (showLabels)
                   SizedBox(
                     width: 54,
-                    child: Text(
-                      a.label,
-                      key: Key('action_label_${a.label}'),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        color: CuttingColors.textSecondary,
+                    // 넓은 화면에서 글자가 크게 보여도 이름이 잘리지 않게 줄여서 맞춘다.
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        a.label,
+                        key: Key('action_label_${a.label}'),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: CuttingColors.textSecondary,
+                        ),
                       ),
                     ),
                   ),
