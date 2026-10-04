@@ -6,7 +6,12 @@
     <string name="widget_summary_label">오늘 요약</string>
     <string name="widget_summary_desc">오늘 일정·일지·자재·근태를 한눈에 봅니다</string>
     <string name="widget_clock_label">출퇴근</string>
-    <string name="widget_clock_desc">출근·퇴근을 한 번 눌러 찍습니다(앱이 잠깐 열립니다)</string>
+    <string name="widget_clock_desc">출근·퇴근을 앱을 열지 않고 한 번 눌러 찍습니다</string>
     <string name="widget_clock_in">출근</string>
     <string name="widget_clock_out">퇴근</string>
+    <string name="widget_clock_done">오늘 근무를 마쳤습니다</string>
+    <string name="widget_row_schedule">일정</string>
+    <string name="widget_row_reports">일지</string>
+    <string name="widget_row_stock">자재</string>
+    <string name="widget_row_attendance">근태</string>
 </resources>

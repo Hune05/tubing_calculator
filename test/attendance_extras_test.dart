@@ -301,6 +301,50 @@ void main() {
       expect(r['text'], '오늘 출근 전');
     });
 
+    test('위젯 값: 근무 중일 때만 출근 시각(since)을 넘긴다', () {
+      final now = DateTime(2026, 10, 14, 9);
+      final w =
+          jsonDecode(
+                encodeClockWidgetPayload(
+                  clockStatus(
+                    now: now,
+                    today: _rec(day, inT: '08:05'),
+                  ),
+                  now,
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(w['since'], DateTime(2026, 10, 14, 8, 5).millisecondsSinceEpoch);
+
+      final done =
+          jsonDecode(
+                encodeClockWidgetPayload(
+                  clockStatus(
+                    now: now,
+                    today: _rec(day, inT: '08:05', outT: '08:50'),
+                  ),
+                  now,
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(done.containsKey('since'), isFalse);
+      expect(done['phase'], 'done');
+
+      // 밤샘: 출근한 날(어제) 기준으로 센다.
+      final night =
+          jsonDecode(
+                encodeClockWidgetPayload(
+                  clockStatus(
+                    now: DateTime(2026, 10, 14, 6),
+                    yesterday: _rec(DateTime(2026, 10, 13), inT: '22:00'),
+                  ),
+                  DateTime(2026, 10, 14, 6),
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(night['since'], DateTime(2026, 10, 13, 22).millisecondsSinceEpoch);
+    });
+
     test('위젯 동작 이름: attendance:in/out/open', () {
       expect(const HomeWidgetAction('attendance:in').attendanceAction, 'in');
       expect(const HomeWidgetAction('attendance:out').attendanceAction, 'out');

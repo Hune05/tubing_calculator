@@ -149,11 +149,28 @@ String clockWidgetText(ClockStatus st) {
 
 /// 위젯에 넘길 값(JSON). 위젯은 [date]가 오늘이 아니면 낡은 값으로 보고 단추를 둘 다 보인다.
 /// [phase]는 ready / working / done / off.
-String encodeClockWidgetPayload(ClockStatus st, DateTime now) => jsonEncode({
-  'date': dateKey(now),
-  'phase': st.phase.name,
-  'text': clockWidgetText(st),
-});
+String encodeClockWidgetPayload(ClockStatus st, DateTime now) {
+  // 근무 중이면 출근 시각(epoch ms)도 넘겨, 위젯이 스스로 흐른 시간을 센다.
+  int? since;
+  if (st.phase == ClockPhase.working) {
+    final m = minutesOfDay(st.record?.checkIn);
+    if (m != null) {
+      since = DateTime(
+        st.day.year,
+        st.day.month,
+        st.day.day,
+        m ~/ 60,
+        m % 60,
+      ).millisecondsSinceEpoch;
+    }
+  }
+  return jsonEncode({
+    'date': dateKey(now),
+    'phase': st.phase.name,
+    'text': clockWidgetText(st),
+    'since': ?since,
+  });
+}
 
 /// 퇴근 깜빡 알림: 소정 퇴근 시각에서 몇 분 뒤에 알릴지.
 const int kClockOutReminderDelayMin = 30;

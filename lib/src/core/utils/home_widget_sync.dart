@@ -55,7 +55,6 @@ class HomeWidgetSync {
 
   static String? _lastQuick;
   static String? _lastSummary;
-  static String? _lastClock;
 
   /// 앱을 켤 때 한 번 부른다. 앱이 떠 있는 동안 위젯이 눌리면 [onReceived]를 먼저 부른다
   /// (예: 열려 있던 화면을 닫고 홈으로 돌아가기).
@@ -89,7 +88,8 @@ class HomeWidgetSync {
   }) async {
     final sendQuick = quickJson != null && quickJson != _lastQuick;
     final sendSummary = summaryJson != null && summaryJson != _lastSummary;
-    final sendClock = clockJson != null && clockJson != _lastClock;
+    // 출퇴근 값은 위젯 단추가 앱 밖에서 바꿀 수 있어(ClockPunch.kt) 같은 값이어도 늘 새로 보낸다.
+    final sendClock = clockJson != null;
     if (!sendQuick && !sendSummary && !sendClock) return;
     try {
       await _ch.invokeMethod<void>('update', {
@@ -99,7 +99,6 @@ class HomeWidgetSync {
       });
       if (sendQuick) _lastQuick = quickJson;
       if (sendSummary) _lastSummary = summaryJson;
-      if (sendClock) _lastClock = clockJson;
     } on MissingPluginException {
       // 안드로이드가 아닌 곳
     } catch (e) {
@@ -112,7 +111,6 @@ class HomeWidgetSync {
   static void resetForTest() {
     _lastQuick = null;
     _lastSummary = null;
-    _lastClock = null;
     pendingAction.value = null;
   }
 }

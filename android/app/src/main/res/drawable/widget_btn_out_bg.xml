@@ -2,7 +2,7 @@
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
     <gradient
         android:angle="0"
-        android:endColor="@color/widget_btn_in_dark"
-        android:startColor="@color/widget_btn_in" />
+        android:endColor="@color/widget_btn_out_dark"
+        android:startColor="@color/widget_btn_out" />
     <corners android:radius="16dp" />
 </shape>

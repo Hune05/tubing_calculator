@@ -106,6 +106,8 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/summary_widget_info" />
         </receiver>
+        <!-- 출퇴근 위젯 단추: 앱을 열지 않고 근태를 기록한다(ClockPunch.kt). -->
+        <receiver android:name=".ClockPunchReceiver" android:exported="false" />
         <receiver android:name=".ClockWidgetProvider" android:exported="false" android:label="@string/widget_clock_label">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

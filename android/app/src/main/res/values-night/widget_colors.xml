@@ -1,8 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="widget_bg">#1E2428</color>
+    <color name="widget_stroke">#323C44</color>
     <color name="widget_tile">#2A3238</color>
     <color name="widget_text">#F3F5F7</color>
     <color name="widget_sub">#A0A9B2</color>
     <color name="widget_brand">#4DC3CC</color>
+    <color name="widget_brand_dark">#2B9AA3</color>
+    <color name="widget_chip">#23454A</color>
+    <color name="widget_btn_out">#475569</color>
+    <color name="widget_btn_out_dark">#334155</color>
+    <color name="widget_btn_in">#0E8A94</color>
+    <color name="widget_btn_in_dark">#0A6B73</color>
 </resources>

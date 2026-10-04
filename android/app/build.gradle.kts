@@ -84,6 +84,11 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     
     // 🔥 구글 ML Kit 스캐너 언어팩 추가 (R8 빌드 에러 해결용) 🔥
+    // 출퇴근 위젯 단추가 앱을 열지 않고 근태를 적을 때 쓴다(ClockPunch.kt). 버전은 firebase_core 플러그인과 같은 BoM.
+    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+
     implementation("com.google.mlkit:text-recognition-korean:16.0.0")
     implementation("com.google.mlkit:text-recognition-chinese:16.0.0")
     implementation("com.google.mlkit:text-recognition-japanese:16.0.0")
