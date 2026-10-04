@@ -12,6 +12,7 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/attendance.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart'
     show dayOnly;
@@ -40,12 +41,16 @@ class AttendancePage extends StatefulWidget {
   final AttendanceSaver? saveRecord;
   final AttendanceDeleter? deleteRecord;
 
+  /// PDF 성명에 적을 이름(시험용). 없으면 프로필에 저장된 이름.
+  final String? workerName;
+
   const AttendancePage({
     super.key,
     this.today,
     this.loadRange,
     this.saveRecord,
     this.deleteRecord,
+    this.workerName,
   });
 
   @override
@@ -298,12 +303,18 @@ class _AttendancePageState extends State<AttendancePage> {
     if (choice == null || !mounted) return;
     if (choice == 'pdf') {
       try {
+        // PDF 머리의 성명 자리에 내 이름을 적는다(프로필에 저장된 이름).
+        final String? name =
+            widget.workerName ??
+            (await SharedPreferences.getInstance()).getString('user_real_name');
+        if (!mounted) return;
         await openAttendanceMonthPdf(
           context,
           month: _viewedMonth,
           records: _records,
           options: _settings.calcOptions,
           leave: _leave(),
+          workerName: name,
         );
       } catch (_) {
         _toast("PDF를 만들지 못했습니다.");

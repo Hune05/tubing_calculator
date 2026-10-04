@@ -66,6 +66,25 @@ void main() {
     expect(bytes.length, greaterThan(1000));
   });
 
+  test('PDF 성명 자리: 이름이 있으면 이름, 없거나 로그인 전이면 손으로 적는 빈 줄', () {
+    expect(attendanceNameText('홍길동'), '홍길동');
+    expect(attendanceNameText('  홍길동 '), '홍길동');
+    expect(attendanceNameText(null), '____________');
+    expect(attendanceNameText(''), '____________');
+    expect(attendanceNameText('로그인 필요'), '____________');
+  });
+
+  test('PDF: 이름을 넘겨도 한 장이 만들어진다', () async {
+    final bytes = await buildAttendanceMonthPdf(
+      month: DateTime(2026, 9),
+      records: _recs(),
+      options: const AttendanceCalcOptions(),
+      workerName: '홍길동',
+      now: DateTime(2026, 9, 26),
+    );
+    expect(latin1.decode(bytes.sublist(0, 4)), '%PDF');
+  });
+
   test('파일 이름', () {
     expect(attendanceFileBase(DateTime(2026, 9)), 'attendance_202609');
   });

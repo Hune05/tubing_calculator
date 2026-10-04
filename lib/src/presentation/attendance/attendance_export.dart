@@ -118,12 +118,19 @@ const PdfColor _red = PdfColor.fromInt(0xFFD32F2F);
 const PdfColor _redBg = PdfColor.fromInt(0xFFFDECEC);
 const PdfColor _restBg = PdfColor.fromInt(0xFFFFF5F5);
 
-/// 월 근태 기록 PDF(A4 한 장). [leave]가 있으면 연차 잔여 줄을 넣는다.
+/// PDF 머리의 "성명" 자리 글. 이름을 모르면(비었거나 로그인 전 자리 글) 손으로 적는 빈 줄.
+String attendanceNameText(String? name) {
+  final n = (name ?? '').trim();
+  return n.isEmpty || n == '로그인 필요' ? '____________' : n;
+}
+
+/// 월 근태 기록 PDF(A4 한 장). [leave]가 있으면 연차 잔여 줄을 넣고, [workerName]이 있으면 성명 자리에 적는다.
 Future<Uint8List> buildAttendanceMonthPdf({
   required DateTime month,
   required Map<String, AttendanceRecord> records,
   required AttendanceCalcOptions options,
   LeaveBalance? leave,
+  String? workerName,
   DateTime? now,
 }) async {
   final fonts = await loadKoreanPdfFonts();
@@ -243,7 +250,7 @@ Future<Uint8List> buildAttendanceMonthPdf({
           pw.SizedBox(height: 2),
           pw.Text(
             '만든 날 ${made.year}-${_two(made.month)}-${_two(made.day)}'
-            '   ·   성명 ____________',
+            '   ·   성명 ${attendanceNameText(workerName)}',
             style: const pw.TextStyle(fontSize: 8, color: _grey),
           ),
           pw.SizedBox(height: 8),
@@ -335,12 +342,14 @@ Future<void> openAttendanceMonthPdf(
   required Map<String, AttendanceRecord> records,
   required AttendanceCalcOptions options,
   LeaveBalance? leave,
+  String? workerName,
 }) async {
   final bytes = await buildAttendanceMonthPdf(
     month: month,
     records: records,
     options: options,
     leave: leave,
+    workerName: workerName,
   );
   final fileName = '${attendanceFileBase(month)}.pdf';
   if (!context.mounted) return;
