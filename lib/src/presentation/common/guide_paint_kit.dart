@@ -316,14 +316,17 @@ void paintDimLine(
   );
   final d = b - a;
   final len = d.distance;
-  if (s < 0.96 || len < 16) return;
+  if (s < 0.96 || len < 10) return;
   final dir = d / len;
   final n = Offset(-dir.dy, dir.dx);
+  // 짧은 선에서는 화살촉도 줄인다(서로 겹쳐 선이 안 보이지 않게).
+  final hl = len < 22 ? len * 0.32 : 7.0;
+  final hw = hl * 0.46;
   void head(Offset p, Offset toward) {
     final path = Path()
       ..moveTo(p.dx, p.dy)
-      ..lineTo(p.dx - toward.dx * 7 + n.dx * 3.2, p.dy - toward.dy * 7 + n.dy * 3.2)
-      ..lineTo(p.dx - toward.dx * 7 - n.dx * 3.2, p.dy - toward.dy * 7 - n.dy * 3.2)
+      ..lineTo(p.dx - toward.dx * hl + n.dx * hw, p.dy - toward.dy * hl + n.dy * hw)
+      ..lineTo(p.dx - toward.dx * hl - n.dx * hw, p.dy - toward.dy * hl - n.dy * hw)
       ..close();
     canvas.drawPath(path, Paint()..color = color);
   }
@@ -384,7 +387,8 @@ void paintTriangleDims(
       size,
       'Rise $riseLabel',
       corner.dx + 16,
-      (corner.dy + high.dy) / 2,
+      // 높이가 아주 낮으면(작은 각도) 값표가 위 관을 가리므로 아래로 내린다.
+      (corner.dy + high.dy) / 2 + math.max(0.0, 20 - (corner.dy - high.dy) / 2),
       color: kGuideRiseColor,
     );
   }

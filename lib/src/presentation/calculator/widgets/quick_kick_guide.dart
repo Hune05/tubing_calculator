@@ -4,6 +4,8 @@
 // 뜻: 관을 한 번만 꺾어서(단일 단차) 높이 h만큼 올리며(또는 내리며) run만큼
 // 가로로 나아가 장애물을 넘거나 목표 지점(포트 등)에 닿는다. 빗변(Travel)이
 // 실제 관 길이(공제량 반영 전), 꺾는 자리의 각도가 벤딩 각도다.
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/common/guide_paint_kit.dart';
@@ -86,12 +88,18 @@ class _QuickKickPainter extends CustomPainter {
     final w = size.width, h = size.height;
     paintDotGrid(canvas, size);
 
-    final baseY = h - 38;
-    final p0 = Offset(14, baseY);
-    final bend = Offset(w * 0.32, baseY);
-    // 각도가 클수록(가파를수록) 높이 비율을 키워 보이게(그림 안에서만, 실제 값과는 별개).
-    final angT = hasValues ? (angleDeg / 90).clamp(0.15, 0.9) : 0.5;
-    final tip = Offset(bend.dx + (w * 0.5) * (1 - angT), 30.0);
+    // 모양은 각도가 정한다: Travel을 1로 두면 Run = cos, Rise = sin. 높이·길이 값은 글자로만 쓴다.
+    final th = degToRad((hasValues ? angleDeg : 30.0).clamp(5.0, 85.0));
+    final run = math.cos(th), rise = math.sin(th);
+    const pre = 0.7;
+    const padL = 12.0, padR = 100.0, padT = 34.0, padB = 46.0;
+    final unitsW = pre + run;
+    final sc = math.min((w - padL - padR) / unitsW, (h - padT - padB) / rise);
+    final x0 = padL + ((w - padL - padR) - unitsW * sc) / 2;
+    final baseY = padT + ((h - padT - padB) - rise * sc) / 2 + rise * sc;
+    final p0 = Offset(x0, baseY);
+    final bend = Offset(x0 + pre * sc, baseY);
+    final tip = Offset(bend.dx + run * sc, baseY - rise * sc);
 
     // 시작 수평 관.
     final leadT = stageT(t, 0, 0.18);
@@ -124,6 +132,7 @@ class _QuickKickPainter extends CustomPainter {
     // 대각(Travel) 관 — 실제 벤딩 구간.
     final travelT = stageT(t, 0.44, 0.74);
     paintPipeSegment(canvas, bend, tip, travelT, AppColors.brand, width: 7);
+
     // 치수선(화살표)과 같은 색 값표: Run·Rise는 안내선이 그려진 뒤, Travel은 관이 다 그려진 뒤.
     paintTriangleDims(
       canvas,
@@ -149,15 +158,13 @@ class _QuickKickPainter extends CustomPainter {
       );
     }
 
-    // 꺾는 자리 각도 호.
+    // 꺾는 자리 각도 호(실제로 그려진 기울기만큼 휜다).
     final angArcT = stageT(t, 0.76, 1.0);
     if (angArcT > 0 && hasValues) {
-      final dir = (tip - bend);
-      final fullAngle = dir.direction; // 라디안, 기준 +x축, 시계방향이 +y.
-      final sweep = fullAngle * angArcT; // 0(수평)에서 실제 각도까지.
+      final r = math.min(28.0, run * sc * 0.45);
       final path = Path()
-        ..moveTo(bend.dx + 28, bend.dy)
-        ..arcTo(Rect.fromCircle(center: bend, radius: 28), 0, sweep, false);
+        ..moveTo(bend.dx + r, bend.dy)
+        ..arcTo(Rect.fromCircle(center: bend, radius: r), 0, -th * angArcT, false);
       canvas.drawPath(
         path,
         Paint()

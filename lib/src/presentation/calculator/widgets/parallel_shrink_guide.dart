@@ -6,6 +6,8 @@
 // 밀어야 굽힌 뒤에도 나란해진다.
 // 축소값: 관 하나가 각도만큼 꺾일 때, 꼭짓점(이론 교차점)보다 실제 마킹 자리가
 // 얼마나 안쪽으로 들어오는지(줄어드는지)를 보여준다.
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/common/guide_paint_kit.dart';
@@ -71,6 +73,7 @@ class _ParallelShrinkGuideState extends State<ParallelShrinkGuide>
           ? _ParallelPainter(
               t: _c.value,
               angleLabel: _deg(widget.angleDeg),
+              angleDeg: widget.angleDeg,
               spacingLabel: _mm(widget.spacingMm),
               staggerLabel: _mm(widget.staggerMm),
               hasValues: widget.angleDeg > 0 && widget.spacingMm > 0,
@@ -78,6 +81,7 @@ class _ParallelShrinkGuideState extends State<ParallelShrinkGuide>
           : _ShrinkPainter(
               t: _c.value,
               angleLabel: _deg(widget.angleDeg),
+              angleDeg: widget.angleDeg,
               riseLabel: _mm(widget.riseMm),
               shrinkLabel: _mm(widget.shrinkMm),
               hasValues: widget.angleDeg > 0 && widget.riseMm > 0,
@@ -89,6 +93,7 @@ class _ParallelShrinkGuideState extends State<ParallelShrinkGuide>
 class _ParallelPainter extends CustomPainter {
   final double t;
   final String angleLabel;
+  final double angleDeg;
   final String spacingLabel;
   final String staggerLabel;
   final bool hasValues;
@@ -96,6 +101,7 @@ class _ParallelPainter extends CustomPainter {
   _ParallelPainter({
     required this.t,
     required this.angleLabel,
+    required this.angleDeg,
     required this.spacingLabel,
     required this.staggerLabel,
     required this.hasValues,
@@ -109,10 +115,12 @@ class _ParallelPainter extends CustomPainter {
     final topY = h * 0.34;
     final botY = h * 0.64;
     final refX = w * 0.48;
-    final staggerPx = 26.0;
-    // 두 파이프 다 같은(짧고 완만한) 기울기로 꺾여 나간다 — 캔버스 크기와
-    // 무관하게 고정 길이만큼만 올라가 위로 넘치지 않는다.
-    const dx = 70.0, dy = 30.0;
+    // 모양은 각도가 정한다: 두 관이 같은 각도로 꺾여 올라가고, 옆 관이 앞당겨 꺾는 폭(스태거)은
+    // 간격 × tan(각도 ÷ 2) 비율이다(시트의 계산식과 같다). 값이 없으면 30°로 그린다.
+    final th = degToRad((hasValues ? angleDeg : 30.0).clamp(5.0, 70.0));
+    final staggerPx = ((botY - topY) * math.tan(th / 2)).clamp(6.0, 70.0);
+    final tailLen = math.min(86.0, (topY - 10) / math.sin(th));
+    final dx = tailLen * math.cos(th), dy = tailLen * math.sin(th);
 
     // 기준(중심) 파이프 — refX에서 그대로 꺾인다.
     final leadT = stageT(t, 0, 0.2);
@@ -169,7 +177,7 @@ class _ParallelPainter extends CustomPainter {
       paintPill(
         canvas,
         '옆',
-        Offset(bendX2 - 24, botY + 16),
+        Offset(math.max(bendX2 - 70, 34), botY + 16),
         color: kGuideOrange,
         size: 9.5,
       );
@@ -199,6 +207,17 @@ class _ParallelPainter extends CustomPainter {
     // 스태거(굽는 자리 차이) 표시.
     final stT = stageT(t, 0.8, 1.0);
     if (stT > 0 && hasValues) {
+      // 기준 관의 꺾는 각도 호.
+      final arcR = math.min(24.0, dx * 0.5);
+      canvas.drawPath(
+        Path()
+          ..moveTo(refX + arcR, topY)
+          ..arcTo(Rect.fromCircle(center: Offset(refX, topY), radius: arcR), 0, -th * stT, false),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = kGuideOrange,
+      );
       final dash = Paint()
         ..color = kGuideOrange
         ..strokeWidth = 1.4;
@@ -221,7 +240,7 @@ class _ParallelPainter extends CustomPainter {
         paintPill(
           canvas,
           '스태거 $staggerLabel',
-          Offset((refX + bendX2) / 2, midY - 16),
+          Offset((refX + bendX2) / 2, botY + 22),
           color: kGuideOrange,
         );
       }
@@ -251,6 +270,7 @@ class _ParallelPainter extends CustomPainter {
   bool shouldRepaint(_ParallelPainter old) =>
       old.t != t ||
       old.angleLabel != angleLabel ||
+      old.angleDeg != angleDeg ||
       old.spacingLabel != spacingLabel ||
       old.staggerLabel != staggerLabel ||
       old.hasValues != hasValues;
@@ -259,6 +279,7 @@ class _ParallelPainter extends CustomPainter {
 class _ShrinkPainter extends CustomPainter {
   final double t;
   final String angleLabel;
+  final double angleDeg;
   final String riseLabel;
   final String shrinkLabel;
   final bool hasValues;
@@ -266,6 +287,7 @@ class _ShrinkPainter extends CustomPainter {
   _ShrinkPainter({
     required this.t,
     required this.angleLabel,
+    required this.angleDeg,
     required this.riseLabel,
     required this.shrinkLabel,
     required this.hasValues,
@@ -276,12 +298,16 @@ class _ShrinkPainter extends CustomPainter {
     final w = size.width, h = size.height;
     paintDotGrid(canvas, size);
 
-    final baseY = h - 20;
+    // 모양은 각도가 정한다: 높이(Rise)를 한 변으로 한 삼각형. 이론 교차점은 굽는 자리에서
+    // 높이 × tan(각도 ÷ 2)만큼 나가 있다(= 축소값). 값이 없으면 30°로 그린다.
+    final th = degToRad((hasValues ? angleDeg : 30.0).clamp(5.0, 85.0));
+    final baseY = h - 26;
     final p0 = Offset(14, baseY);
-    final bend = Offset(w * 0.42, baseY);
-    final tip = Offset(w * 0.7, 20.0);
+    final bend = Offset(w * 0.30, baseY);
+    final risePx = math.min(baseY - 24, (w - 84 - bend.dx) * math.tan(th));
+    final tip = Offset(bend.dx + risePx / math.tan(th), baseY - risePx);
     // 이론 교차점(꺾지 않고 곧장 갔다면 만났을 자리) — 실제 굽는 자리보다 더 나가 있다.
-    final theoretical = Offset(bend.dx + 26, baseY);
+    final theoretical = Offset(bend.dx + risePx * math.tan(th / 2), baseY);
 
     final leadT = stageT(t, 0, 0.2);
     paintPipeSegment(canvas, p0, bend, leadT, AppColors.textSub);
@@ -302,7 +328,7 @@ class _ShrinkPainter extends CustomPainter {
       paintPill(
         canvas,
         '∠ $angleLabel',
-        bend + const Offset(46, 16),
+        bend + const Offset(-34, -18),
         color: kGuideOrange,
         size: 9.5,
       );
@@ -362,7 +388,7 @@ class _ShrinkPainter extends CustomPainter {
         paintPill(
           canvas,
           '축소값 $shrinkLabel',
-          Offset((bend.dx + theoretical.dx) / 2, y - 16),
+          Offset((bend.dx + theoretical.dx) / 2, baseY + 16),
           color: kGuideOrange,
         );
       }
@@ -383,6 +409,7 @@ class _ShrinkPainter extends CustomPainter {
   bool shouldRepaint(_ShrinkPainter old) =>
       old.t != t ||
       old.angleLabel != angleLabel ||
+      old.angleDeg != angleDeg ||
       old.riseLabel != riseLabel ||
       old.shrinkLabel != shrinkLabel ||
       old.hasValues != hasValues;

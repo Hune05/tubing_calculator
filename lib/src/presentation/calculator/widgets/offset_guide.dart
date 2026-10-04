@@ -4,6 +4,8 @@
 // 뜻: 시작 관 → 1번 꺾음(각도) → 대각(Travel) → 2번 꺾음(반대 각도) → 원래
 // 방향으로 계속. 대각으로 가는 만큼 실제 필요한 수평 거리(Run)보다 관이
 // 더 길게 들어가는데, 그 차이가 축소값(Shrink)이다(자재를 그만큼 당겨 잡아야 함).
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/common/guide_paint_kit.dart';
@@ -91,12 +93,19 @@ class _OffsetPainter extends CustomPainter {
     final w = size.width, h = size.height;
     paintDotGrid(canvas, size);
 
-    final baseY = h - 38;
-    final topY = h * 0.22;
-    final p0 = Offset(10, baseY);
-    final bend1 = Offset(w * 0.28, baseY);
-    final bend2 = Offset(w * 0.62, topY);
-    final end = Offset(w - 12, topY);
+    // 모양은 각도가 정한다: Travel을 1로 두면 Run = cos, Rise = sin. 높이·길이 값은 글자로만 쓴다.
+    final th = degToRad((hasValues ? angleDeg : 30.0).clamp(5.0, 85.0));
+    final run = math.cos(th), rise = math.sin(th);
+    const pre = 0.5, tail = 0.5;
+    const padL = 12.0, padR = 72.0, padT = 30.0, padB = 46.0;
+    final unitsW = pre + run + tail;
+    final sc = math.min((w - padL - padR) / unitsW, (h - padT - padB) / rise);
+    final x0 = padL + ((w - padL - padR) - unitsW * sc) / 2;
+    final baseY = padT + ((h - padT - padB) - rise * sc) / 2 + rise * sc;
+    final p0 = Offset(x0, baseY);
+    final bend1 = Offset(x0 + pre * sc, baseY);
+    final bend2 = Offset(bend1.dx + run * sc, baseY - rise * sc);
+    final end = Offset(bend2.dx + tail * sc, bend2.dy);
 
     // 시작 관(수평).
     final leadT = stageT(t, 0, 0.16);
@@ -129,6 +138,7 @@ class _OffsetPainter extends CustomPainter {
     // 대각(Travel) 관 — 실제 꺾이는 구간.
     final travelT = stageT(t, 0.38, 0.66);
     paintPipeSegment(canvas, bend1, bend2, travelT, AppColors.brand, width: 7);
+
     // 치수선(화살표)과 같은 색 값표: Run·Rise는 안내선이 그려진 뒤, Travel은 관이 다 그려진 뒤.
     paintTriangleDims(
       canvas,
@@ -147,16 +157,20 @@ class _OffsetPainter extends CustomPainter {
     final tailT = stageT(t, 0.66, 0.82);
     paintPipeSegment(canvas, bend2, end, tailT, AppColors.textSub);
 
-    // 두 꺾는 자리 각도(같은 각도, 반대 방향).
+    // 두 꺾는 자리 각도(같은 각도, 반대 방향). 호는 실제로 그려진 기울기만큼 휜다.
     final angT = stageT(t, 0.70, 0.88);
     if (angT > 0 && hasValues) {
-      void arc(Offset center, double startAngle, double sign) {
+      final r = math.min(26.0, run * sc * 0.45);
+      void arc(Offset center, double startAngle) {
         final path = Path()
-          ..moveTo(center.dx + 26 * sign, center.dy)
+          ..moveTo(
+            center.dx + r * math.cos(startAngle),
+            center.dy + r * math.sin(startAngle),
+          )
           ..arcTo(
-            Rect.fromCircle(center: center, radius: 26),
+            Rect.fromCircle(center: center, radius: r),
             startAngle,
-            sign * (angleDeg / 180 * 3.14159) * angT,
+            -th * angT,
             false,
           );
         canvas.drawPath(
@@ -168,8 +182,8 @@ class _OffsetPainter extends CustomPainter {
         );
       }
 
-      arc(bend1, 0, -1);
-      arc(bend2, 3.14159, -1);
+      arc(bend1, 0);
+      arc(bend2, math.pi);
       if (angT > 0.8) {
         paintPill(
           canvas,

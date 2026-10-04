@@ -20,20 +20,6 @@ void _dashedArc(Canvas canvas, Rect rect, double start, double sweep, Paint pain
   }
 }
 
-void _dashedLine(Canvas canvas, Offset a, Offset b, double s, Paint paint) {
-  final end = Offset.lerp(a, b, s)!;
-  final d = (end - a).distance;
-  if (d < 1) return;
-  final dir = (end - a) / d;
-  const step = 6.0, gap = 4.0;
-  var covered = 0.0;
-  while (covered < d) {
-    final segEnd = covered + step > d ? d : covered + step;
-    canvas.drawLine(a + dir * covered, a + dir * segEnd, paint);
-    covered += step + gap;
-  }
-}
-
 abstract class _GuideBase extends StatefulWidget {
   const _GuideBase({super.key});
 }
@@ -166,12 +152,22 @@ class _SegmentedPainter extends CustomPainter {
       }
     }
 
+    // 치수선(화살표): 반경(호의 중심 → 호 한가운데), 첫 두 꺾임 사이 간격(구간 바깥쪽).
+    final c0 = q(const Offset(-R, -R));
+    final arcMid = q(Offset(-R + R * math.sqrt1_2, -R + R * math.sqrt1_2));
+    paintDimLine(canvas, c0, arcMid, stageT(t, 0.84, 0.96), kGuideRiseColor);
+    final segDir = (q(pts[2]) - q(pts[1]));
+    final segLen = segDir.distance;
+    var segN = segLen < 1 ? Offset.zero : Offset(-segDir.dy, segDir.dx) / segLen;
+    if (segN.dx + segN.dy < 0) segN = -segN; // 모서리 쪽(오른쪽 아래)으로 띄운다
+    paintDimLine(canvas, q(pts[1]) + segN * 13, q(pts[2]) + segN * 13, stageT(t, 0.86, 1.0), kGuideTravelColor);
+
     // 값표는 오른쪽 빈 자리에 쌓는다.
     if (has && t > 0.85) {
       final double x = cornerX + (w - cornerX) * 0.5 + 6;
-      paintPill(canvas, 'R ${radius.toStringAsFixed(0)}', q(const Offset(-R * 0.55, -R * 0.55)), color: AppColors.textSub, size: 9.5);
+      paintPill(canvas, 'R ${radius.toStringAsFixed(0)}', c0 + const Offset(-30, -12), color: kGuideRiseColor, size: 9.5);
       paintPill(canvas, '∠ ${angle.toStringAsFixed(angle % 1 == 0 ? 0 : 1)}° × $k번', Offset(x, h * 0.28), color: kGuideOrange);
-      paintPill(canvas, '간격 ${spacing.toStringAsFixed(0)}', Offset(x, h * 0.50), color: AppColors.brand, size: 9.5);
+      paintPill(canvas, '간격 ${spacing.toStringAsFixed(0)}', Offset(x, h * 0.50), color: kGuideTravelColor, size: 9.5);
     }
     if (!has && t > 0.6) {
       paintPill(canvas, '반경·모서리 거리를 넣으면 움직입니다', Offset(cornerX + (w - cornerX) * 0.5, h * 0.4), color: AppColors.textSub, size: 9);
@@ -243,9 +239,13 @@ class _BackToBackPainter extends CustomPainter {
     final w = size.width, h = size.height;
     paintDotGrid(canvas, size);
     final bool has = spacing > 0 && distance > 0;
-    // 관 끝(왼쪽 아래) → 위로 → 오른쪽 → 아래로 내려오는 U자.
-    final double left = w * 0.30, right = w * 0.70;
-    final double top = 34, bottom = h - 22;
+    // 관 끝(왼쪽 아래) → 위로 → 오른쪽 → 아래로 내려오는 U자. 가로 폭은 (꺾이는 점 사이 간격 ÷ 첫 다리)
+    // 비율로 정한다(값이 없으면 보기 좋은 본보기 비율).
+    final double top = 38, bottom = h - 30;
+    final double legPx = bottom - top;
+    final double ratio = (has && first > 0) ? spacing / first : 1.1;
+    final double widthPx = (legPx * ratio).clamp(w * 0.2, w * 0.56);
+    final double left = (w - widthPx) / 2, right = (w + widthPx) / 2;
     final a = Offset(left, bottom);
     final v1 = Offset(left, top);
     final v2 = Offset(right, top);
@@ -264,37 +264,25 @@ class _BackToBackPainter extends CustomPainter {
       }
     }
 
-    // 간격(꺾이는 점 사이)과 거리(바깥~바깥 또는 안쪽~안쪽) 치수선.
-    final dimT = stageT(t, 0.80, 1.0);
-    if (dimT > 0) {
-      final dim = Paint()
-        ..color = AppColors.textSub.withValues(alpha: 0.6)
-        ..strokeWidth = 1.2;
-      // 간격: 두 꺾이는 점 위쪽.
-      final yS = top - 14;
-      _dashedLine(canvas, Offset(left, top - 4), Offset(left, yS), dimT, dim);
-      _dashedLine(canvas, Offset(right, top - 4), Offset(right, yS), dimT, dim);
-      canvas.drawLine(Offset(left, yS), Offset.lerp(Offset(left, yS), Offset(right, yS), dimT)!, dim);
-      // 거리: 바깥이면 관 두께의 바깥 끝끼리, 안쪽이면 안쪽 끝끼리, 아래쪽에 잰다.
-      final double off = pipeW / 2 + 1;
-      final double xl = outside ? left - off : left + off;
-      final double xr = outside ? right + off : right - off;
-      final yD = bottom - 12;
-      canvas.drawLine(Offset(xl, yD), Offset.lerp(Offset(xl, yD), Offset(xr, yD), dimT)!, dim);
-      canvas.drawLine(Offset(xl, yD - 4), Offset(xl, yD + 4), dim);
-      if (dimT > 0.9) canvas.drawLine(Offset(xr, yD - 4), Offset(xr, yD + 4), dim);
-    }
+    // 치수선(화살표): 간격(꺾이는 점 사이) 위쪽 파랑, 거리(바깥~바깥 또는 안쪽~안쪽) 아래쪽 주황,
+    // 첫 다리(관 끝 ~ 첫 꺾임) 왼쪽 보라.
+    final spT = stageT(t, 0.80, 0.92);
+    final double off = pipeW / 2 + 1;
+    final double xl = outside ? left - off : left + off;
+    final double xr = outside ? right + off : right - off;
+    paintDimLine(canvas, Offset(left, top - 14), Offset(right, top - 14), spT, kGuideRiseColor);
+    paintDimLine(canvas, Offset(xl, bottom + 12), Offset(xr, bottom + 12), stageT(t, 0.84, 0.96), kGuideOrange);
+    paintDimLine(canvas, Offset(left - 16, bottom), Offset(left - 16, top), stageT(t, 0.88, 1.0), kGuideRunColor);
 
     if (has && t > 0.9) {
-      paintPill(canvas, '간격 ${spacing.toStringAsFixed(0)}', Offset((left + right) / 2, 12), color: AppColors.brand, size: 9.5);
-      paintPill(canvas, '${outside ? '바깥~바깥' : '안쪽~안쪽'} ${distance.toStringAsFixed(0)}', Offset((left + right) / 2, bottom - 26), color: kGuideOrange, size: 9.5);
+      paintPill(canvas, '간격 ${spacing.toStringAsFixed(0)}', Offset((left + right) / 2, top - 29), color: kGuideRiseColor, size: 9.5);
+      paintPill(canvas, '${outside ? '바깥~바깥' : '안쪽~안쪽'} ${distance.toStringAsFixed(0)}', Offset((left + right) / 2, bottom + 27), color: kGuideOrange, size: 9.5);
       if (first > 0) {
-        paintPill(canvas, '첫 다리 ${first.toStringAsFixed(0)}', Offset(left - 44, (top + bottom) / 2), color: AppColors.textSub, size: 9.5);
+        paintPill(canvas, '첫 다리 ${first.toStringAsFixed(0)}', Offset(math.max(left - 16 - 8 - 40, 44), (top + bottom) / 2), color: kGuideRunColor, size: 9.5);
       }
     }
     if (t > 0.9) {
-      paintPill(canvas, '90°', v1 + const Offset(-22, 14), color: kGuideOrange, size: 9.5);
-      paintPill(canvas, '90°', v2 + const Offset(22, 14), color: kGuideOrange, size: 9.5);
+      paintPill(canvas, '90° × 2', Offset((left + right) / 2, top + 20), color: kGuideOrange, size: 9.5);
     }
     if (!has && t > 0.6) {
       paintPill(canvas, '두 다리 사이 거리와 관 지름을 넣으면 값이 나옵니다', Offset(w / 2, h / 2), color: AppColors.textSub, size: 9);
@@ -355,15 +343,7 @@ class _StubUpPainter extends CustomPainter {
 
     // 치수선: 스터브 길이(관 끝 ~ 꺾이는 점).
     final dimT = stageT(t, 0.62, 0.84);
-    if (dimT > 0) {
-      final dim = Paint()
-        ..color = AppColors.textSub.withValues(alpha: 0.6)
-        ..strokeWidth = 1.2;
-      final y = baseY + 14;
-      canvas.drawLine(Offset(p0.dx, y), Offset.lerp(Offset(p0.dx, y), Offset(bend.dx, y), dimT)!, dim);
-      canvas.drawLine(Offset(p0.dx, y - 4), Offset(p0.dx, y + 4), dim);
-      if (dimT > 0.9) canvas.drawLine(Offset(bend.dx, y - 4), Offset(bend.dx, y + 4), dim);
-    }
+    paintDimLine(canvas, Offset(p0.dx, baseY + 14), Offset(bend.dx, baseY + 14), dimT, kGuideRunColor);
 
     // 마킹 자리(꺾이는 점보다 테이크업만큼 앞).
     final markT = stageT(t, 0.80, 0.95);
@@ -374,7 +354,7 @@ class _StubUpPainter extends CustomPainter {
     }
 
     if (t > 0.9) {
-      paintPill(canvas, has ? '스터브 ${stub.toStringAsFixed(0)}' : '스터브 길이', Offset((p0.dx + bend.dx) / 2, baseY + 12 + 14 > h - 6 ? h - 8 : baseY + 26), color: AppColors.textSub, size: 9.5);
+      paintPill(canvas, has ? '스터브 ${stub.toStringAsFixed(0)}' : '스터브 길이', Offset((p0.dx + bend.dx) / 2, baseY + 12 + 14 > h - 6 ? h - 8 : baseY + 26), color: kGuideRunColor, size: 9.5);
       if (has) {
         paintPill(canvas, '마킹 ${mark.toStringAsFixed(0)}', Offset(p0.dx + (bend.dx - p0.dx) * (stub > 0 ? (mark / stub).clamp(0.0, 1.0) : 1.0), baseY - 22), color: kGuideOrange, size: 9.5);
       }
