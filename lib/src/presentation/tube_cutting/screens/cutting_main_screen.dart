@@ -42,6 +42,7 @@ import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
 import '../cutting_fitting_favorites.dart';
 import '../cutting_fitting_catalog.dart';
+import '../cutting_input_parts.dart';
 import '../../../core/common_widgets/swipe_to_delete.dart';
 
 // 🚀 [입력 고도화] 라인 템플릿(자주 쓰는 부속 구성)을 저장하는 컬렉션.
@@ -2653,11 +2654,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           ),
           actions: [
             IconButton(
-              tooltip: "톱날 손실 설정",
-              icon: const AppIcon(AppGlyph.tubeCut),
-              onPressed: _showBladeKerfDialog,
-            ),
-            IconButton(
               tooltip: "컷팅 기록",
               icon: const Icon(AppIcons.history),
               onPressed: () {
@@ -2681,76 +2677,15 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
-  // 🚀 [추가] "메이커 고정" 라벨과 버튼 3개를 한 줄에 욱여넣으면 넘칠 수 있어서
-  // 라벨을 위에, 버튼을 아래 줄로 뺀다.
+  // 제조사는 칩 한 줄(예전에는 큰 단추 넷과 제목줄이 화면 위쪽을 차지했다).
   Widget _buildMakerHeader() {
-    // 🚀 [피팅 고도화] 국내 현장에서 많이 쓰는 DK-Lok을 추가했다(피팅
-    // 데이터도 db_seeder.dart에 DK-Lok 항목을 함께 시드해뒀다). 버튼이
-    // 3개에서 4개로 늘어난 만큼 글자가 넘치지 않게 폰트를 살짝 줄이고
-    // 말줄임을 넣었다.
-    final makerButtons = Row(
-      children: ["Swagelok", "Parker", "Hy-Lok", "DK-Lok"].map((maker) {
-        bool isSelected = _globalMaker == maker;
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              setState(() => _globalMaker = maker);
-              _saveDraftState();
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              margin: const EdgeInsets.symmetric(horizontal: 4),
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              decoration: BoxDecoration(
-                color: isSelected ? makitaTeal : lightBg,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: isSelected ? makitaTeal : Colors.grey.shade300,
-                  width: 2,
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                maker,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: isSelected ? whiteCard : textPrimary,
-                ),
-              ),
-            ),
-          ),
-        );
-      }).toList(),
-    );
-
-    final label = Row(
-      children: [
-        const Icon(Icons.precision_manufacturing, size: 24, color: makitaTeal),
-        const SizedBox(width: 8),
-        Text(
-          "메이커 고정",
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade700,
-          ),
-        ),
-      ],
-    );
-
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-      decoration: BoxDecoration(
-        color: whiteCard,
-        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [label, const SizedBox(height: 8), makerButtons],
-      ),
+    return CuttingMakerChips(
+      makers: const ["Swagelok", "Parker", "Hy-Lok", "DK-Lok"],
+      selected: _globalMaker,
+      onSelected: (maker) {
+        setState(() => _globalMaker = maker);
+        _saveDraftState();
+      },
     );
   }
 
@@ -2831,10 +2766,29 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ],
             ),
           ),
+          // 입력·배치도에서는 절단 길이 합계를 아래에 항상 보여 주고, 결과 탭으로 바로 간다.
+          AnimatedBuilder(
+            animation: _tabController,
+            builder: (context, _) {
+              if (_tabController.index == 2) return const SizedBox.shrink();
+              final diag = _diagramData();
+              return CuttingSummaryBar(
+                summary: summarizeDiagram(diag.$1, diag.$2, _setMultiplier),
+                setMultiplier: _setMultiplier,
+                onOpenResult: () {
+                  FocusScope.of(context).unfocus();
+                  _tabController.animateTo(2);
+                },
+              );
+            },
+          ),
         ],
       ),
     );
   }
+
+  String _formatMmShort(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
 
   // 🚀 [추가] "배관 라인 구축" - 포인트 추가 버튼 + 드래그 정렬 리스트.
   // 🚀 [입력 UI 고도화] 예전엔 제목·부제(괄호 설명)·템플릿 버튼·"포인트
@@ -2842,89 +2796,63 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 버튼들과 균형이 깨졌다. 제목/부제를 세로로 분리해 위계를 주고,
   // "포인트 추가"는 엄지로 누르기 쉬운 전체 폭 버튼으로 아래에 뒀다.
   Widget _buildPointListPane() {
+    final bool untouched = _points.every(
+      (p) => p.fitting.id == "none" && p.c2cController.text.trim().isEmpty,
+    );
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
       child: Column(
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "라인 구성",
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      "카드를 길게 눌러 드래그하면 순서를 바꿀 수 있습니다",
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              // 🚀 [6번 강화] 즐겨찾기해둔 부속 몇 개를 묶어 이름 붙인
-              // "부속 세트"를 한 번에 라인에 추가한다.
-              Tooltip(
-                message: "부속 세트",
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () {
-                    HapticFeedback.selectionClick();
-                    _showFittingSetSheet();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: makitaDark.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.dataset_outlined,
-                      color: makitaDark,
-                      size: 22,
-                    ),
+                child: Text(
+                  "라인 구성",
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              // 즐겨찾기해 둔 부속을 묶은 "부속 세트"와 "라인 템플릿": 이름을 붙여 뜻이 보이게 한다.
+              Tooltip(
+                message: "부속 세트",
+                child: TextButton.icon(
+                  key: const Key('open_fitting_sets'),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    _showFittingSetSheet();
+                  },
+                  icon: const Icon(Icons.dataset_outlined, size: 18),
+                  label: const Text(
+                    "세트",
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+                  ),
+                ),
+              ),
               Tooltip(
                 message: "라인 템플릿",
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(10),
-                  onTap: () {
+                child: TextButton.icon(
+                  key: const Key('open_templates'),
+                  onPressed: () {
                     HapticFeedback.selectionClick();
                     _showTemplateSheet();
                   },
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: makitaDark.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.bookmark_outline,
-                      color: makitaDark,
-                      size: 22,
-                    ),
+                  icon: const Icon(Icons.bookmark_outline, size: 18),
+                  label: const Text(
+                    "템플릿",
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           Row(
             children: [
-              // 🚀 [4번 강화] 현장에 따라 인치로 측정하는 경우가 있어서,
-              // mm/in을 눌러 바꾸면 이미 입력된 값도 같은 실제 길이로
-              // 자동 환산되고, 이후 입력도 선택한 단위로 해석된다.
+              // 현장에 따라 인치로 측정하는 경우가 있어서 mm/in을 눌러 바꾸면 이미 넣은 값도
+              // 같은 실제 길이로 환산되고, 이후 입력도 선택한 단위로 읽는다.
               _buildUnitToggle(),
               const SizedBox(width: 10),
               Expanded(
@@ -2954,51 +2882,44 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ],
           ),
           const SizedBox(height: 8),
-          // 자를 튜브 규격. 결과 탭의 규격 버튼과 같은 값(같은 고르는 창)을 함께 쓴다.
-          InkWell(
-            key: const Key('input_spec_picker'),
-            borderRadius: BorderRadius.circular(10),
-            onTap: _pickTubeSpec,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-              decoration: BoxDecoration(
-                color: whiteCard,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.straighten_rounded,
-                    size: 18,
-                    color: makitaTeal,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _tubeSpec.isEmpty
-                          ? "튜브 규격: 부속 기준(자동)"
-                          : "튜브 규격: $_tubeSpec",
-                      key: const Key('input_spec_label'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: textPrimary,
-                      ),
-                    ),
-                  ),
-                  const Icon(Icons.arrow_drop_down_rounded, color: makitaTeal),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 4),
           Expanded(
             child: ReorderableListView.builder(
               scrollController: _inputScrollController,
+              // 규격·톱날 줄과 처음 안내는 목록과 같이 밀려 올라간다(위쪽 고정 자리를 아낀다).
+              header: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+          // 자를 튜브 규격(결과 탭의 규격 단추와 같은 값)과 톱날 손실을 한 줄에 둔다.
+          Row(
+            children: [
+              Expanded(
+                child: CuttingSettingPill(
+                  pillKey: const Key('input_spec_picker'),
+                  labelKey: const Key('input_spec_label'),
+                  icon: Icons.straighten_rounded,
+                  label: _tubeSpec.isEmpty
+                      ? "튜브 규격: 자동"
+                      : "튜브 규격: $_tubeSpec",
+                  onTap: _pickTubeSpec,
+                ),
+              ),
+              const SizedBox(width: 8),
+              CuttingSettingPill(
+                pillKey: const Key('input_kerf_picker'),
+                icon: Icons.content_cut_rounded,
+                label: _bladeKerf > 0
+                    ? "톱날 ${_formatMmShort(_bladeKerf)}mm"
+                    : "톱날 없음",
+                onTap: _showBladeKerfDialog,
+                emphasized: _bladeKerf > 0,
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (untouched) const CuttingFirstHint(),
+                ],
+              ),
               itemCount: _points.length,
               proxyDecorator:
                   (Widget child, int index, Animation<double> animation) {
@@ -3404,10 +3325,38 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 작아지고 터치하기도 힘들었다. 상단(순번/드래그/삭제)·본문(부속
   // 선택, 카드 전체 너비 사용)·하단(공제값/수동입력) 3단으로 나눠서
   // 요소마다 충분한 터치 영역과 가로 공간을 확보했다.
+  // 지점 카드: 위 줄(끌기 손잡이·PT 번호·수정·복제)과 아래 줄(부속 모양·이름·규격·공제값).
+  // 예전에는 부속 줄과 공제값 줄이 따로 있어 한 지점이 화면 한 장 가까이 차지했다.
   Widget _buildFittingCard(int index) {
     FittingItem item = _points[index].fitting;
     bool isNone = item.id == "none";
     bool isCustom = item.category == "CUSTOM";
+
+    Widget roundIcon(IconData icon, String tip, VoidCallback onTap, Key? key) =>
+        Tooltip(
+          message: tip,
+          child: InkWell(
+            key: key,
+            borderRadius: BorderRadius.circular(20),
+            onTap: onTap,
+            child: Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: Colors.grey.shade600, size: 16),
+            ),
+          ),
+        );
+
+    final String deductionText = isNone
+        ? ""
+        : (isCustom
+              ? "공제 ${item.deduction}mm (직접 입력)"
+              : "공제 - ${item.deduction}mm");
 
     return Container(
       decoration: BoxDecoration(
@@ -3421,9 +3370,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 상단: 드래그 핸들 + 순번 배지 + 복제(삭제는 왼쪽으로 밀기)
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 6, 4, 0),
+            padding: const EdgeInsets.fromLTRB(8, 6, 6, 0),
             child: Row(
               children: [
                 const Icon(Icons.drag_handle, color: Colors.grey, size: 20),
@@ -3447,45 +3395,32 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   ),
                 ),
                 const Spacer(),
-                // 🚀 [입력 UI 고도화] 복제 아이콘은 배경 없이 흐릿하게,
-                // 삭제 아이콘은 진한 빨강으로 따로 놀아서 두 버튼의 무게가
-                // 안 맞았다. 같은 크기의 원형 배경 버튼으로 맞춰 균형을
-                // 잡았다.
-                Tooltip(
-                  message: "이 구간 복제",
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
-                    onTap: () {
-                      HapticFeedback.selectionClick();
-                      _duplicatePoint(index);
-                    },
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.copy_all_outlined,
-                        color: Colors.grey.shade600,
-                        size: 16,
-                      ),
-                    ),
+                if (!isNone) ...[
+                  roundIcon(
+                    Icons.edit_rounded,
+                    "공제값 직접 입력",
+                    () => _showCustomFittingDialog(index),
+                    Key('pt_edit_$index'),
                   ),
-                ),
+                  const SizedBox(width: 6),
+                ],
+                roundIcon(Icons.copy_all_outlined, "이 구간 복제", () {
+                  HapticFeedback.selectionClick();
+                  _duplicatePoint(index);
+                }, null),
               ],
             ),
           ),
-          // 본문: 부속 선택 - 카드 전체 너비를 다 쓰는 큰 터치 영역
           InkWell(
             onTap: () {
               _setFocusedPoint(index);
               _openFittingSelector(index);
             },
+            borderRadius: const BorderRadius.vertical(
+              bottom: Radius.circular(11),
+            ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+              padding: const EdgeInsets.fromLTRB(12, 4, 10, 10),
               child: Row(
                 children: [
                   _buildFittingBadge(item, isNone),
@@ -3494,24 +3429,74 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (!isNone)
-                          Text(
-                            "${item.tubeOD} 규격",
-                            style: const TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
                         Text(
                           isNone ? "탭해서 부속 고르기" : item.name,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: isNone ? Colors.grey.shade600 : textPrimary,
-                            fontSize: 16,
+                            fontSize: 15,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        if (!isNone)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Wrap(
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 6,
+                              children: [
+                                Text(
+                                  "${item.tubeOD} 규격",
+                                  style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  deductionText,
+                                  style: TextStyle(
+                                    color: isCustom
+                                        ? Colors.orange.shade800
+                                        : makitaDark,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                if (item.measured || item.isApprox)
+                                  Container(
+                                    key: Key(
+                                      item.measured
+                                          ? 'pt_tag_measured'
+                                          : 'pt_tag_approx',
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 1,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          (item.measured
+                                                  ? const Color(0xFF2E7D32)
+                                                  : CuttingColors.warning)
+                                              .withValues(alpha: 0.14),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      item.measured ? '실측' : '근사',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w900,
+                                        color: item.measured
+                                            ? const Color(0xFF2E7D32)
+                                            : CuttingColors.warning,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -3520,89 +3505,6 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               ),
             ),
           ),
-          // 하단: 공제값 표시 + 수동 입력 버튼 (부속이 선택된 경우만)
-          if (!isNone)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(11),
-                ),
-                border: Border(top: BorderSide(color: Colors.grey.shade200)),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    isCustom ? "공제값 (직접 입력)" : "공제값",
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        isCustom
-                            ? "${item.deduction}mm (수동)"
-                            : "- ${item.deduction}mm",
-                        style: TextStyle(
-                          color: isCustom ? Colors.orange.shade800 : makitaDark,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      if (item.measured || item.isApprox)
-                        Container(
-                          key: Key(
-                            item.measured ? 'pt_tag_measured' : 'pt_tag_approx',
-                          ),
-                          margin: const EdgeInsets.only(left: 6),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color:
-                                (item.measured
-                                        ? const Color(0xFF2E7D32)
-                                        : CuttingColors.warning)
-                                    .withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            item.measured ? '실측' : '근사',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              color: item.measured
-                                  ? const Color(0xFF2E7D32)
-                                  : CuttingColors.warning,
-                            ),
-                          ),
-                        ),
-                      const SizedBox(width: 4),
-                      InkWell(
-                        onTap: () => _showCustomFittingDialog(index),
-                        borderRadius: BorderRadius.circular(6),
-                        child: Padding(
-                          padding: const EdgeInsets.all(6),
-                          child: Icon(
-                            Icons.edit_rounded,
-                            color: Colors.grey.shade500,
-                            size: 16,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );

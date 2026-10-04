@@ -445,7 +445,7 @@ void main() {
       await open(tester);
       expect(
         tester.widget<Text>(find.byKey(const Key('input_spec_label'))).data,
-        '튜브 규격: 부속 기준(자동)',
+        '튜브 규격: 자동',
       );
       await tester.tap(find.byKey(const Key('input_spec_picker')));
       await tester.pumpAndSettle();
