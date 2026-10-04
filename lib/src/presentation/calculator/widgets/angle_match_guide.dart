@@ -194,7 +194,7 @@ class _AngleMatchPainter extends CustomPainter {
         paintPill(canvas, angleLabel, a + Offset(60, -16 - 12 * math.sin(th)), color: kGuideOrange, size: 10.5);
       }
     } else if (t > 0.6) {
-      paintPill(canvas, '높이와 Travel(또는 Run)을 넣으면 각도가 나옵니다', Offset(w / 2, 14), color: AppColors.textSub, size: 9);
+      paintPill(canvas, '높이와 Travel(또는 Run)을 넣으면 각도가 나옵니다', Offset(w / 2, h - 12), color: AppColors.textSub, size: 9);
     }
   }
 
