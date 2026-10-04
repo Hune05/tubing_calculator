@@ -5,6 +5,9 @@ import 'dart:ui'; // 반투명 블러 효과 패키지
 const Color makitaTeal = AppColors.brand;
 const Color numpadBg = Color(0xFF121212); // 조금 더 깊고 깨끗한 다크톤
 
+/// 숫자판 높이: 화면 높이의 44%, 다만 380~440 사이.
+double numpadHeightFor(double screenHeight) => (screenHeight * 0.44).clamp(380.0, 440.0);
+
 class MakitaNumpadGlass extends StatefulWidget {
   final TextEditingController controller;
   final VoidCallback? onApply;
@@ -22,13 +25,17 @@ class MakitaNumpadGlass extends StatefulWidget {
     required TextEditingController controller,
     required String title,
   }) {
+    // 숫자판은 화면 아래에 붙인다. 이 숫자판을 쓰는 화면은 모두 위쪽에 그림 설명(애니메이션)이 있고,
+    // 값을 고르는 동안 그 그림이 보여야 한다(2026-10-04: 가운데에 뜨면 그림 대부분을 가렸다).
+    // 높이는 화면의 44%까지(작은 폰에서도 그림 아래로), 뒤 화면은 거의 안 어둡게 둔다.
     showDialog(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.4), // 바깥쪽 배경을 살짝 더 투명하게
+      barrierColor: Colors.black.withValues(alpha: 0.10),
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 24), // 좌우 여백 확보
+        alignment: Alignment.bottomCenter,
+        insetPadding: const EdgeInsets.fromLTRB(24, 24, 24, 12), // 좌우 여백 확보
         child: ClipRRect(
           borderRadius: BorderRadius.circular(32), // 더 둥글고 부드러운 모서리
           child: BackdropFilter(
@@ -38,7 +45,7 @@ class MakitaNumpadGlass extends StatefulWidget {
             ), // 블러 강도 Up (더 영롱하게)
             child: Container(
               width: 340,
-              height: 520, // 여백을 위해 높이를 살짝 키움
+              height: numpadHeightFor(MediaQuery.of(context).size.height),
               decoration: BoxDecoration(
                 color: numpadBg.withValues(alpha: 0.65), // 유리를 더 투명하게
                 borderRadius: BorderRadius.circular(32),
