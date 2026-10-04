@@ -14,4 +14,11 @@
     <string name="widget_row_reports">일지</string>
     <string name="widget_row_stock">자재</string>
     <string name="widget_row_attendance">근태</string>
+    <string name="widget_clock_small_label">출퇴근 (작게)</string>
+    <string name="widget_clock_small_desc">출근·퇴근 단추 하나를 작게 둡니다</string>
+    <string name="widget_summary_small_label">오늘 요약 (작게)</string>
+    <string name="widget_summary_small_desc">일정·일지·자재·근태 숫자만 한 줄로 봅니다</string>
+    <string name="widget_quick_small_label">빠른 실행 (작게)</string>
+    <string name="widget_quick_small_desc">즐겨찾기 세 개를 한 줄로 바로 엽니다</string>
+    <string name="widget_quick_small_empty">즐겨찾기 없음</string>
 </resources>

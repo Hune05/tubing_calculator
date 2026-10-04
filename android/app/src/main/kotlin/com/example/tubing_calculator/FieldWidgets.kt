@@ -85,6 +85,22 @@ object FieldWidgetStore {
             val v = ClockWidgetProvider.build(c)
             for (id in clockIds) mgr.updateAppWidget(id, v)
         }
+        // 작은 위젯 세 개(한 줄짜리)
+        val clockSmallIds = mgr.getAppWidgetIds(ComponentName(c, ClockSmallWidgetProvider::class.java))
+        if (clockSmallIds.isNotEmpty()) {
+            val v = ClockSmallWidgetProvider.build(c)
+            for (id in clockSmallIds) mgr.updateAppWidget(id, v)
+        }
+        val sumSmallIds = mgr.getAppWidgetIds(ComponentName(c, SummarySmallWidgetProvider::class.java))
+        if (sumSmallIds.isNotEmpty()) {
+            val v = SummarySmallWidgetProvider.build(c)
+            for (id in sumSmallIds) mgr.updateAppWidget(id, v)
+        }
+        val quickSmallIds = mgr.getAppWidgetIds(ComponentName(c, QuickSmallWidgetProvider::class.java))
+        if (quickSmallIds.isNotEmpty()) {
+            val v = QuickSmallWidgetProvider.build(c)
+            for (id in quickSmallIds) mgr.updateAppWidget(id, v)
+        }
     }
 
     /** 위젯을 누르면 앱을 열면서 [action]을 넘긴다. [code]는 위젯 눌림마다 달라야 한다. */
@@ -253,6 +269,134 @@ class ClockWidgetProvider : AppWidgetProvider() {
             v.setOnClickPendingIntent(R.id.widget_clock_root, FieldWidgetStore.openAppIntent(c, "attendance:open", 300))
             v.setOnClickPendingIntent(R.id.clock_btn_in, FieldWidgetStore.punchIntent(c, "in", 301))
             v.setOnClickPendingIntent(R.id.clock_btn_out, FieldWidgetStore.punchIntent(c, "out", 302))
+            return v
+        }
+    }
+}
+
+/**
+ * 출퇴근 작은 위젯(2x1): 한 줄에 상태와 단추 하나. 출근 전이면 [출근], 근무 중이면 [퇴근]만 보이고,
+ * 퇴근했거나 쉬는 날이면 단추 없이 글만 보인다. 단추는 큰 위젯과 같이 앱을 열지 않고 바로 기록한다(ClockPunch).
+ * 값이 낡았으면(오늘 날짜가 아니면) 두 단추를 다 보인다.
+ */
+class ClockSmallWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        val views = build(context)
+        for (id in ids) manager.updateAppWidget(id, views)
+    }
+
+    companion object {
+        /** 큰 위젯의 글("08:05 출근 · 근무 중", "08:00 ~ 17:31")을 작은 칸에 맞게 줄인다. */
+        private fun shortText(phase: String, text: String): String = when (phase) {
+            "ready" -> "출근 전"
+            "working" -> text.substringBefore(" 출근").trim() + " 출근"
+            "done" -> "퇴근 " + text.substringAfter("~", "").trim()
+            "off" -> "쉬는 날"
+            else -> "출퇴근"
+        }
+
+        fun build(c: Context): RemoteViews {
+            val v = RemoteViews(c.packageName, R.layout.widget_clock_small)
+            val s = FieldWidgetStore.clock(c)
+            val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
+            val fresh = s != null && s.optString("date") == today
+            val phase = if (fresh) s!!.optString("phase") else ""
+            val text = if (fresh) s!!.optString("text") else ""
+            v.setTextViewText(R.id.clock_s_text, if (fresh) shortText(phase, text) else "출퇴근")
+
+            val since = if (fresh) s!!.optLong("since", 0L) else 0L
+            if (phase == "working" && since > 0L) {
+                val elapsed = (System.currentTimeMillis() - since).coerceAtLeast(0L)
+                v.setViewVisibility(R.id.clock_s_timer, View.VISIBLE)
+                v.setViewVisibility(R.id.clock_s_sub, View.GONE)
+                v.setChronometer(R.id.clock_s_timer, SystemClock.elapsedRealtime() - elapsed, null, true)
+            } else {
+                v.setViewVisibility(R.id.clock_s_timer, View.GONE)
+                v.setViewVisibility(R.id.clock_s_sub, View.VISIBLE)
+                v.setTextViewText(R.id.clock_s_sub, if (fresh) FieldWidgetStore.todayText() else "앱을 열면 상태가 나옵니다")
+                v.setChronometer(R.id.clock_s_timer, SystemClock.elapsedRealtime(), null, false)
+            }
+
+            val showIn = !fresh || phase == "ready"
+            val showOut = !fresh || phase == "working"
+            v.setViewVisibility(R.id.clock_s_btn_in, if (showIn) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_s_btn_out, if (showOut) View.VISIBLE else View.GONE)
+            v.setOnClickPendingIntent(R.id.widget_clock_s_root, FieldWidgetStore.openAppIntent(c, "attendance:open", 320))
+            v.setOnClickPendingIntent(R.id.clock_s_btn_in, FieldWidgetStore.punchIntent(c, "in", 321))
+            v.setOnClickPendingIntent(R.id.clock_s_btn_out, FieldWidgetStore.punchIntent(c, "out", 322))
+            return v
+        }
+    }
+}
+
+/** 오늘 요약 작은 위젯(3x1): 일정·일지·자재·근태를 숫자 하나씩 한 줄로. 누르면 앱이 열린다. */
+class SummarySmallWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        val views = build(context)
+        for (id in ids) manager.updateAppWidget(id, views)
+    }
+
+    companion object {
+        private fun count(o: JSONObject?, key: String): Int? =
+            if (o == null || !o.has(key) || o.isNull(key)) null else o.optInt(key, -1).takeIf { it >= 0 }
+
+        private fun tile(v: RemoteViews, dot: Int, value: Int, n: Int?) {
+            v.setImageViewResource(
+                dot,
+                when {
+                    n == null -> R.drawable.widget_dot_idle
+                    n == 0 -> R.drawable.widget_dot_ok
+                    else -> R.drawable.widget_dot_warn
+                }
+            )
+            v.setTextViewText(value, if (n == null) "—" else n.toString())
+        }
+
+        fun build(c: Context): RemoteViews {
+            val v = RemoteViews(c.packageName, R.layout.widget_summary_small)
+            val s = FieldWidgetStore.summary(c)
+            tile(v, R.id.summary_s_dot_schedule, R.id.summary_s_value_schedule, count(s, "schedule"))
+            tile(v, R.id.summary_s_dot_reports, R.id.summary_s_value_reports, count(s, "reports"))
+            tile(v, R.id.summary_s_dot_stock, R.id.summary_s_value_stock, count(s, "stock"))
+            val att = s?.optString("attendance").orEmpty()
+            v.setImageViewResource(
+                R.id.summary_s_dot_attendance,
+                if (att.isEmpty()) R.drawable.widget_dot_idle else R.drawable.widget_dot_ok
+            )
+            v.setTextViewText(
+                R.id.summary_s_value_attendance,
+                if (att.isEmpty()) "—" else if (att == "정상근무") "정상" else att
+            )
+            v.setOnClickPendingIntent(R.id.widget_summary_s_root, FieldWidgetStore.openAppIntent(c, "summary", 330))
+            return v
+        }
+    }
+}
+
+/** 빠른 실행 작은 위젯(3x1): 즐겨찾기 앞의 세 개를 한 줄에. 누르면 그 기능이 열린다. */
+class QuickSmallWidgetProvider : AppWidgetProvider() {
+    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
+        val views = build(context)
+        for (id in ids) manager.updateAppWidget(id, views)
+    }
+
+    companion object {
+        private val SLOTS = intArrayOf(R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3)
+
+        fun build(c: Context): RemoteViews {
+            val v = RemoteViews(c.packageName, R.layout.widget_quick_small)
+            val titles = FieldWidgetStore.quickTitles(c).take(SLOTS.size)
+            v.setViewVisibility(R.id.quick_s_empty, if (titles.isEmpty()) View.VISIBLE else View.GONE)
+            v.setOnClickPendingIntent(R.id.widget_quick_s_root, FieldWidgetStore.openAppIntent(c, "open", 340))
+            for ((i, slot) in SLOTS.withIndex()) {
+                if (i < titles.size) {
+                    v.setViewVisibility(slot, View.VISIBLE)
+                    v.setTextViewText(slot, titles[i])
+                    v.setOnClickPendingIntent(slot, FieldWidgetStore.openAppIntent(c, "quick:" + titles[i], 341 + i))
+                } else {
+                    v.setViewVisibility(slot, View.GONE)
+                }
+            }
             return v
         }
     }
