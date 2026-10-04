@@ -384,13 +384,13 @@ class CsResultBox extends StatelessWidget {
   final String title;
   final String? value; // null이면 "입력 필요"
   final String btnText;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed; // null이면 단추를 감춘다(보기만 하는 결과)
   final List<Widget> details;
   const CsResultBox({
     super.key,
     required this.title,
     required this.value,
-    required this.onPressed,
+    this.onPressed,
     this.btnText = '목록에 넣기',
     this.details = const [],
   });
@@ -435,6 +435,7 @@ class CsResultBox extends StatelessWidget {
                   ],
                 ),
               ),
+              if (onPressed != null) ...[
               const SizedBox(width: 12),
               ElevatedButton(
                 key: const Key('cs_add'),
@@ -448,6 +449,7 @@ class CsResultBox extends StatelessWidget {
                   style: const TextStyle(color: csWhite, fontWeight: FontWeight.bold),
                 ),
               ),
+              ],
             ],
           ),
           if (ok && details.isNotEmpty) ...[

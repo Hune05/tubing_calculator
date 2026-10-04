@@ -16,6 +16,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/angle_matcher_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
@@ -1082,6 +1083,13 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   context,
                   currentAngle: 30.0,
                 );
+              }),
+
+              const SizedBox(height: 12),
+
+              _buildPopupToolBtn("각도 역산", AppGlyph.protractor, () {
+                Navigator.pop(ctx);
+                AngleMatcherSheet.show(context);
               }),
 
               SizedBox(height: MediaQuery.of(context).padding.bottom),

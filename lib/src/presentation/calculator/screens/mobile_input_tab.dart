@@ -17,6 +17,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/conduit/widgets/angle_matcher_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_parallel_shrink_bottom_sheet.dart';
 // 🚀 퀵 킥 및 퀵 U-Bend 바텀시트 임포트 추가
@@ -584,6 +585,15 @@ class _MobileInputTabState extends State<MobileInputTab>
                       context,
                       currentAngle: _selectedAngle,
                     );
+                  },
+                ),
+
+                _buildSpecialMenuBtn(
+                  "각도 역산 (Field Matcher)",
+                  AppGlyph.protractor,
+                  () {
+                    Navigator.pop(context);
+                    AngleMatcherSheet.show(context);
                   },
                 ),
               ],

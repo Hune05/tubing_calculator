@@ -253,3 +253,40 @@ class GuideFrame extends StatelessWidget {
 const Color kGuideOrange = Color(0xFFEA580C);
 
 double degToRad(double d) => d * math.pi / 180;
+
+/// 양끝에 화살촉이 달린 치수선. [s]는 0~1(그려지는 정도), 화살촉은 다 그려진 뒤에 나온다.
+void paintDimLine(
+  Canvas canvas,
+  Offset a,
+  Offset b,
+  double s,
+  Color color, {
+  double width = 1.8,
+}) {
+  if (s <= 0) return;
+  final tip = Offset.lerp(a, b, s)!;
+  canvas.drawLine(
+    a,
+    tip,
+    Paint()
+      ..color = color
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round,
+  );
+  final d = b - a;
+  final len = d.distance;
+  if (s < 0.96 || len < 16) return;
+  final dir = d / len;
+  final n = Offset(-dir.dy, dir.dx);
+  void head(Offset p, Offset toward) {
+    final path = Path()
+      ..moveTo(p.dx, p.dy)
+      ..lineTo(p.dx - toward.dx * 7 + n.dx * 3.2, p.dy - toward.dy * 7 + n.dy * 3.2)
+      ..lineTo(p.dx - toward.dx * 7 - n.dx * 3.2, p.dy - toward.dy * 7 - n.dy * 3.2)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  head(b, dir);
+  head(a, -dir);
+}
