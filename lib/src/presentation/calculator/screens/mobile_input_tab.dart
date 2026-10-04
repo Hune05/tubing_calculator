@@ -593,7 +593,19 @@ class _MobileInputTabState extends State<MobileInputTab>
                   AppGlyph.protractor,
                   () {
                     Navigator.pop(context);
-                    AngleMatcherSheet.show(context);
+                    AngleMatcherSheet.show(
+                      context,
+                      onUseInOffset: (rise, angle) {
+                        MobileBendDataManager()
+                          ..offsetHeight = rise
+                          ..offsetAngle = angle;
+                        MobileOffsetBottomSheet.show(
+                          context,
+                          currentRotation: currentRot,
+                          onAddMultipleBends: _addMultipleBends,
+                        );
+                      },
+                    );
                   },
                 ),
               ],

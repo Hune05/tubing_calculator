@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/angle_matcher_sheet.dart';
 
-Future<void> open(WidgetTester tester, {Size size = const Size(400, 900), double textScale = 1}) async {
+Future<void> open(
+  WidgetTester tester, {
+  Size size = const Size(400, 900),
+  double textScale = 1,
+  void Function(double rise, double angle)? onUse,
+}) async {
   tester.view.physicalSize = size * 2;
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
@@ -16,7 +21,7 @@ Future<void> open(WidgetTester tester, {Size size = const Size(400, 900), double
             body: Center(
               child: ElevatedButton(
                 key: const Key('open'),
-                onPressed: () => AngleMatcherSheet.show(context),
+                onPressed: () => AngleMatcherSheet.show(context, onUseInOffset: onUse),
                 child: const Text('열기'),
               ),
             ),
@@ -97,6 +102,32 @@ void main() {
     await type(tester, 'am_rise', '100');
     await type(tester, 'am_measure', '200');
     expect(find.byKey(const Key('cs_add')), findsNothing);
+  });
+
+  testWidgets('오프셋으로 넘기는 연결이 없으면 단추도 안내도 없다', (tester) async {
+    await open(tester);
+    await type(tester, 'am_rise', '100');
+    await type(tester, 'am_measure', '190');
+    expect(find.text('오프셋 계산'), findsNothing);
+    expect(find.byKey(const Key('am_to_offset_note')), findsNothing);
+  });
+
+  testWidgets('오프셋 계산 단추: 닫고 높이와 가까운 표준 각도를 넘긴다', (tester) async {
+    double? rise, angle;
+    await open(tester, onUse: (r, a) {
+      rise = r;
+      angle = a;
+    });
+    expect(find.text('오프셋 계산'), findsNothing, reason: '값이 없으면 단추도 없다');
+    await type(tester, 'am_rise', '100');
+    await type(tester, 'am_measure', '190');
+    expect(allText(tester), contains('높이 100mm, 30°가 들어간 오프셋 계산이 열립니다.'));
+    await tester.ensureVisible(find.text('오프셋 계산'));
+    await tester.tap(find.text('오프셋 계산'));
+    await tester.pumpAndSettle();
+    expect(rise, 100);
+    expect(angle, 30, reason: '31.8° 대신 가까운 표준 각도');
+    expect(find.byType(AngleMatcherSheet), findsNothing, reason: '시트는 닫힌다');
   });
 
   for (final w in [320.0, 360.0]) {

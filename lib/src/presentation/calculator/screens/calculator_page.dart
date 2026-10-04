@@ -10,6 +10,7 @@ import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 
 // 🚀 [수정] Mobile 접두사가 붙은 최신 파일 경로 및 클래스명으로 모두 교체
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
+import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_saddle_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
@@ -751,7 +752,37 @@ class _CalculatorPageState extends State<CalculatorPage>
                                       _buildToolChip(
                                         "각도 역산",
                                         LucideIcons.ruler,
-                                        () => AngleMatcherSheet.show(context),
+                                        () => AngleMatcherSheet.show(
+                                          context,
+                                          onUseInOffset: (rise, angle) {
+                                            MobileBendDataManager()
+                                              ..offsetHeight = rise
+                                              ..offsetAngle = angle;
+                                            MobileOffsetBottomSheet.show(
+                                              context,
+                                              currentRotation:
+                                                  _currentRotation ?? 0.0,
+                                              onAddMultipleBends: (bends) {
+                                                if (_editingIndex != null) {
+                                                  widget.onDeleteBend(
+                                                    _editingIndex!,
+                                                  );
+                                                  widget.onAddMultipleBends(
+                                                    bends,
+                                                  );
+                                                  setState(() {
+                                                    _editingIndex = null;
+                                                    _tempController.clear();
+                                                  });
+                                                } else {
+                                                  widget.onAddMultipleBends(
+                                                    bends,
+                                                  );
+                                                }
+                                              },
+                                            );
+                                          },
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       IconButton(

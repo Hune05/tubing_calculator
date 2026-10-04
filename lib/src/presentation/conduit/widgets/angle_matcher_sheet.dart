@@ -8,13 +8,19 @@ import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_speci
 // 구하고, 가장 가까운 표준 각도와 그 차이를 보여 준다. 튜브·전선관 특수 벤딩 목록에서 같이 쓴다.
 // 틀은 오프셋 시트와 같은 공용 부품(conduit_special_ui.dart), 셈은 angle_matcher.dart.
 class AngleMatcherSheet extends StatefulWidget {
-  const AngleMatcherSheet({super.key});
+  /// 있으면 결과 상자에 "오프셋 계산" 단추가 생긴다. 누르면 이 시트를 닫고 (높이, 표준 각도)를 넘겨 준다.
+  final void Function(double rise, double angle)? onUseInOffset;
 
-  static void show(BuildContext context) => showModalBottomSheet(
+  const AngleMatcherSheet({super.key, this.onUseInOffset});
+
+  static void show(
+    BuildContext context, {
+    void Function(double rise, double angle)? onUseInOffset,
+  }) => showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
-    builder: (_) => const AngleMatcherSheet(),
+    builder: (_) => AngleMatcherSheet(onUseInOffset: onUseInOffset),
   );
 
   @override
@@ -122,6 +128,13 @@ class _AngleMatcherSheetState extends State<AngleMatcherSheet> {
         CsResultBox(
           title: '실제로 꺾은 각도',
           value: m == null ? null : '${csFmt(m.angle)}°',
+          btnText: '오프셋 계산',
+          onPressed: m == null || widget.onUseInOffset == null
+              ? null
+              : () {
+                  Navigator.pop(context);
+                  widget.onUseInOffset!(m.rise, m.nearest.angle);
+                },
           details: m == null ? const [] : _details(m, byTravel),
         ),
       ],
@@ -165,6 +178,15 @@ class _AngleMatcherSheetState extends State<AngleMatcherSheet> {
           ],
         ),
       ),
+      if (widget.onUseInOffset != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            '"오프셋 계산"을 누르면 높이 ${csFmt(m.rise)}mm, ${csFmt(n.angle)}°가 들어간 오프셋 계산이 열립니다.',
+            key: const Key('am_to_offset_note'),
+            style: const TextStyle(color: csSub, fontSize: 11),
+          ),
+        ),
       CsDetail(label: '빗변 (Travel)', value: '${csFmt(m.travel)} mm'),
       CsDetail(label: '수평 거리 (Run)', value: '${csFmt(m.run)} mm', note: '(배수 ${csFmt(m.multiplier, 3)})'),
       CsDetail(
