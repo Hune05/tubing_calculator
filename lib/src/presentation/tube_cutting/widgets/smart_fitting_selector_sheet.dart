@@ -222,17 +222,28 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
 
   // 🚀 검색어와 일치하는 부분을 굵게/색으로 강조해서, 왜 이 항목이
   // 검색 결과에 걸렸는지 눈으로 바로 확인할 수 있게 한다.
-  Widget _highlightedTitle(String text, TextStyle style) {
+  Widget _highlightedTitle(String text, TextStyle style, {int maxLines = 1}) {
     if (_searchQuery.isEmpty) {
-      return Text(text, overflow: TextOverflow.ellipsis, style: style);
+      return Text(
+        text,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
     }
     final lowerText = text.toLowerCase();
     final lowerQuery = _searchQuery.toLowerCase();
     final idx = lowerText.indexOf(lowerQuery);
     if (idx < 0) {
-      return Text(text, overflow: TextOverflow.ellipsis, style: style);
+      return Text(
+        text,
+        maxLines: maxLines,
+        overflow: TextOverflow.ellipsis,
+        style: style,
+      );
     }
     return RichText(
+      maxLines: maxLines,
       overflow: TextOverflow.ellipsis,
       text: TextSpan(
         style: style,
@@ -363,7 +374,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
         category.replaceAll('_', '\n'),
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: category.length > 4 ? 9 : 12,
+          fontSize: category.length > 6 ? 8 : (category.length > 4 ? 9 : 12),
           fontWeight: FontWeight.w900,
           color: makitaTeal,
           height: 1.1,
@@ -905,23 +916,24 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                     leading: _buildCategoryBadge(item.category),
                                     title: _highlightedTitle(
                                       item.name,
+                                      maxLines: 2,
                                       const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.bold,
                                         color: textDark,
                                       ),
                                     ),
-                                    subtitle: Row(
+                                    // 규격·공제값은 잘리지 않게 하고, 자리가 모자라면 "근사" 표시가 아래 줄로 내려간다.
+                                    subtitle: Wrap(
+                                      crossAxisAlignment:
+                                          WrapCrossAlignment.center,
                                       children: [
-                                        Flexible(
-                                          child: Text(
-                                            "${item.maker} | ${item.tubeOD}  ·  -${item.deduction}mm",
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
+                                        Text(
+                                          "${item.tubeOD}  ·  -${item.deduction}mm",
+                                          style: TextStyle(
+                                            color: Colors.grey.shade600,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
                                           ),
                                         ),
                                         _valueTag(item),

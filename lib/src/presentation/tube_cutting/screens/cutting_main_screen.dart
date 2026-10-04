@@ -2661,7 +2661,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         isNone ? "-" : item.category.replaceAll('_', '\n'),
         textAlign: TextAlign.center,
         style: TextStyle(
-          fontSize: item.category.length > 4 ? 9 : 12,
+          fontSize: item.category.length > 6 ? 8 : (item.category.length > 4 ? 9 : 12),
           fontWeight: FontWeight.w900,
           color: isNone
               ? Colors.grey
