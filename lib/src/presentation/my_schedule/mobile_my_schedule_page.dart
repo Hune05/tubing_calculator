@@ -155,6 +155,10 @@ class _AgendaItem {
   final int spanIndex;
   final int spanTotal;
   final String? spanKey;
+  // 기간 일정은 하루씩 따로 완료한다. 막대(타임라인)는 모든 날이 끝났을 때만 흐리게 그리고,
+  // 예전 방식(일정 전체에 완료 표시 하나)으로 끝낸 일정은 날마다 풀 때 옮겨 적어야 해서 따로 안다.
+  final bool? spanAllDone;
+  final bool legacyWholeDone;
   // 끝나는 시각(넣었을 때만)과 메모.
   final DateTime? end;
   final String note;
@@ -187,6 +191,8 @@ class _AgendaItem {
     this.spanIndex = 0,
     this.spanTotal = 1,
     this.spanKey,
+    this.spanAllDone,
+    this.legacyWholeDone = false,
     this.end,
     this.note = '',
   });
@@ -431,6 +437,12 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           : null;
       final int totalDays = spanDayCount(startDay, rawEnd);
       if (totalDays > 1) {
+        // 하루씩 따로 완료한다(예전에는 일정 전체에 완료 표시 하나여서, 하루만 끝내도 전체가 끝났다).
+        final bool wholeDone = data['isCompleted'] == true;
+        final bool allDone = List.generate(
+          totalDays,
+          (i) => DateTime(startDay.year, startDay.month, startDay.day + i),
+        ).every((d) => isSpanDayCompleted(completedMap, d, wholeDone: wholeDone));
         return List.generate(totalDays, (i) {
           final DateTime day = DateTime(
             startDay.year,
@@ -443,7 +455,13 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             hasTime: i == 0 ? hasTime : false,
             title: '$title (${i + 1}/$totalDays일)',
             category: category,
-            isCompleted: data['isCompleted'] == true,
+            isCompleted: isSpanDayCompleted(
+              completedMap,
+              day,
+              wholeDone: wholeDone,
+            ),
+            spanAllDone: allDone,
+            legacyWholeDone: wholeDone,
             isPersonal: true,
             personalDocId: docId,
             recurrence: recurrence,
@@ -530,7 +548,27 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       final docRef = FirebaseFirestore.instance
           .collection(kPersonalSchedulesCollection)
           .doc(item.personalDocId);
-      if (item.recurrence == 'none') {
+      if (item.recurrence == 'none' && item.spanTotal > 1) {
+        // 여러 날 일정은 누른 그 날만 바꾼다(전체 일정이 한꺼번에 완료되지 않게).
+        final DateTime day = DateTime(
+          item.date.year,
+          item.date.month,
+          item.date.day,
+        );
+        final changes = spanDayCompletionChanges(
+          day: day,
+          nowDone: !item.isCompleted,
+          firstDay: DateTime(day.year, day.month, day.day - item.spanIndex),
+          totalDays: item.spanTotal,
+          wholeDone: item.legacyWholeDone,
+        );
+        await docRef.update({
+          for (final c in changes)
+            FieldPath(c.path): c.value ?? FieldValue.delete(),
+          // 예전 방식으로 전체가 끝나 있던 일정의 하루를 풀 때는 전체 완료 표시를 푼다.
+          if (item.isCompleted && item.legacyWholeDone) 'isCompleted': false,
+        });
+      } else if (item.recurrence == 'none') {
         await docRef.update({'isCompleted': !item.isCompleted});
       } else {
         // 키에 점이 들어 있어서 칸 목록(FieldPath)으로 넘긴다. 완료를 풀 때는 예전 중첩 모양도 지운다.
@@ -2690,7 +2728,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         alignment: Alignment.centerLeft,
                         decoration: BoxDecoration(
                           color: e.item.color.withValues(
-                            alpha: e.item.isCompleted ? 0.45 : 1,
+                            alpha: (e.item.spanAllDone ?? e.item.isCompleted)
+                                ? 0.45
+                                : 1,
                           ),
                           borderRadius: BorderRadius.circular(5),
                         ),
@@ -4609,7 +4649,11 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
 
       if (recurrence == 'none') {
         if (spanCoversDay(base, _looseDate(data['endDate']), today) &&
-            data['isCompleted'] != true) {
+            !isSpanDayCompleted(
+              completedMap,
+              today,
+              wholeDone: data['isCompleted'] == true,
+            )) {
           count++;
         }
       } else {

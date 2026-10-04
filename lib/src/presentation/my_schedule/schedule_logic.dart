@@ -255,6 +255,41 @@ bool isOccurrenceCompleted(Map? completed, DateTime day) {
   return legacy is Map && legacy[key.substring(dot + 1)] == true;
 }
 
+/// 여러 날(기간) 일정의 [day] 하루가 완료인지. 하루씩 따로 표시한다(completedOccurrences).
+/// [wholeDone]은 예전 방식(일정 전체에 완료 표시 하나 = 문서의 isCompleted)으로 이미 끝낸 일정이라는 뜻이고,
+/// 이 경우 모든 날을 완료로 본다.
+bool isSpanDayCompleted(Map? completed, DateTime day, {bool wholeDone = false}) =>
+    wholeDone || isOccurrenceCompleted(completed, day);
+
+/// 기간 일정의 하루 완료를 바꿀 때 문서에 적을 변경. 키는 칸 목록(경로), 값은 true나 null(=지움).
+/// 예전 방식으로 전체가 끝나 있던 일정([wholeDone])의 하루를 풀면, 나머지 날은 날마다 완료로 옮기고
+/// 전체 완료 표시는 푼다(그래야 그 하루만 미완료로 돌아간다).
+/// [firstDay]는 기간의 첫날, [totalDays]는 전체 일수.
+List<({List<String> path, bool? value})> spanDayCompletionChanges({
+  required DateTime day,
+  required bool nowDone,
+  required DateTime firstDay,
+  required int totalDays,
+  bool wholeDone = false,
+}) {
+  if (nowDone) {
+    return [(path: occurrenceFieldPath(day), value: true)];
+  }
+  final out = <({List<String> path, bool? value})>[
+    (path: occurrenceFieldPath(day), value: null),
+    (path: legacyOccurrenceFieldPath(day), value: null),
+  ];
+  if (wholeDone) {
+    final target = DateTime(day.year, day.month, day.day);
+    for (var i = 0; i < totalDays; i++) {
+      final d = DateTime(firstDay.year, firstDay.month, firstDay.day + i);
+      if (d == target) continue;
+      out.add((path: occurrenceFieldPath(d), value: true));
+    }
+  }
+  return out;
+}
+
 /// 일정 알림을 울릴 시각. 알림이 필요 없으면 null.
 /// - [minutesBefore]가 0 이하이거나 시간이 없는 일정(종일)이면 알림 없음.
 /// - 반복 일정은 지금 이후의 가장 가까운 회차 기준으로 맞춘다.
