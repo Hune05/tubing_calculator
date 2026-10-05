@@ -5,7 +5,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_input_tab.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_input_tab.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -181,6 +183,23 @@ void main() {
       expect(find.textContaining('방향을 선택하십시오'), findsOneWidget);
     });
 
+    testWidgets('골라 둔 방향이 목록이 바뀌어 못 꺾는 방향이 되면 선택을 푼다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.byKey(const ValueKey('dir_0.0'))); // UP 고름
+      await tester.pump();
+      expect(find.textContaining('방향을 선택하십시오'), findsNothing);
+
+      // 위로 꺾는 줄이 들어오면(예: 다른 곳에서 불러오기·↶) 관이 위로 가므로 UP은 못 꺾는다.
+      MobileBendDataManager().addBend({
+        'length': 200.0,
+        'angle': 90.0,
+        'rotation': 0.0,
+      });
+      await tester.pumpAndSettle();
+      expect(opacityOf(tester, '0.0'), 0.38);
+      expect(find.textContaining('방향을 선택하십시오'), findsOneWidget);
+    });
+
     testWidgets('방향을 안 골랐으면 숫자판에 추가가 없고 적용만 있다', (tester) async {
       await pump(tester);
       await typeLength(tester, '500');
@@ -240,6 +259,79 @@ void main() {
       await tester.tap(find.text('무시하고 추가'));
       await tester.pumpAndSettle();
       expect(MobileBendDataManager().bendList.length, 2);
+    });
+  });
+
+  group('전선관 입력 탭', () {
+    late ConduitDataManager manager;
+
+    Future<void> pump(WidgetTester tester) async {
+      phone(tester);
+      manager = ConduitDataManager.detached();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: ConduitInputTab(manager: manager)),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> typeLength(WidgetTester tester, String digits) async {
+      await tester.tap(find.byIcon(AppIcons.edit), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      for (final d in digits.split('')) {
+        await tester.tap(numKey(d));
+      }
+      await tester.pump();
+    }
+
+    testWidgets('0° 직관은 숫자판의 추가로 바로 들어간다', (tester) async {
+      await pump(tester);
+      await typeLength(tester, '300');
+      await tester.tap(find.byKey(const Key('numpad_add')));
+      await tester.pumpAndSettle();
+      expect(manager.bendList.length, 1);
+      expect(manager.bendList.single['length'], 300.0);
+      expect(manager.bendList.single['angle'], 0.0);
+    });
+
+    testWidgets('90° 벤딩은 방향을 고르기 전에는 숫자판에 추가가 없다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('90° 벤딩'));
+      await tester.pumpAndSettle();
+      await typeLength(tester, '200');
+      expect(find.byKey(const Key('numpad_add')), findsNothing);
+      expect(find.text('적용'), findsOneWidget);
+      await tester.tap(find.text('적용'));
+      await tester.pumpAndSettle();
+
+      // 방향을 고르고 다시 열면 추가가 있고, 누르면 목록에 들어간다.
+      await tester.tap(find.text('UP'));
+      await tester.pump();
+      await tester.tap(find.byIcon(AppIcons.edit), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      await tester.tap(numKey('5'));
+      await tester.tap(find.byKey(const Key('numpad_add')));
+      await tester.pumpAndSettle();
+      expect(manager.bendList.length, 1);
+      expect(manager.bendList.single['length'], 5.0);
+      expect(manager.bendList.single['angle'], 90.0);
+      expect(manager.bendList.single['rotation'], 0.0);
+    });
+
+    testWidgets('각도가 상한(90°)을 넘으면 공용 오류 알림이 뜬다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('직관+각도'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(AppIcons.edit).first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+      for (final d in '200'.split('')) {
+        await tester.tap(numKey(d));
+      }
+      await tester.tap(find.text('적용'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('까지 넣을 수 있습니다'), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
     });
   });
 }

@@ -1170,6 +1170,15 @@ class _MobileInputTabState extends State<MobileInputTab>
                             Builder(
                               builder: (context) {
                                 final canBend = _bendRule();
+                                // 목록이 바뀌어(↶ 등) 골라 둔 방향이 이제 못 꺾는 방향이면 선택을 푼다.
+                                final picked = _selectedRotation;
+                                if (picked != null && !canBend(picked)) {
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (mounted && _selectedRotation == picked) {
+                                      setState(() => _selectedRotation = null);
+                                    }
+                                  });
+                                }
                                 return GridView.builder(
                                   shrinkWrap: true,
                                   physics: const NeverScrollableScrollPhysics(),

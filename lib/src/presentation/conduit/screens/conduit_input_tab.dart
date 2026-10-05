@@ -86,6 +86,14 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     return true;
   }
 
+  /// 숫자판에서 바로 "추가"를 눌러도 되는지: 각도가 정해졌고 상한 안이며,
+  /// 꺾는 줄이면 방향도 골랐을 때(길이는 숫자판에서 넣는다).
+  bool get _readyToAdd {
+    if (_bendType == "custom" && _selectedAngle <= 0) return false;
+    if (_selectedAngle > kConduitMaxAngle) return false;
+    return _selectedAngle == 0.0 || _selectedRotation != null;
+  }
+
   String _getDirectionText(double rot) {
     return _directions
         .firstWhere(
@@ -608,13 +616,11 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       if (_selectedAngle == 0.0) _selectedRotation = null;
                     });
                     if (typed > kConduitMaxAngle) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            "각도는 ${kConduitMaxAngle.toInt()}°까지 넣을 수 있습니다. "
-                            "그보다 크면 마킹 값이 맞지 않습니다.",
-                          ),
-                        ),
+                      showAppSnack(
+                        context,
+                        "각도는 ${kConduitMaxAngle.toInt()}°까지 넣을 수 있습니다. "
+                        "그보다 크면 마킹 값이 맞지 않습니다.",
+                        kind: AppSnackKind.error,
                       );
                     }
                   },
@@ -783,14 +789,19 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                         const SizedBox(height: 8),
                         InkWell(
                           onTap: () async {
-                            await MakitaNumpad.show(
+                            final added = await MakitaNumpad.show(
                               context,
                               controller: _lengthController,
                               title: _selectedAngle == 0.0
                                   ? "직관 길이 (mm)"
                                   : "길이 (mm)",
+                              addLabel: _readyToAdd
+                                  ? (_editingIndex != null ? "수정" : "추가")
+                                  : null,
                             );
+                            if (!mounted) return;
                             setState(() {});
+                            if (added) _addBend(manager);
                           },
                           child: AbsorbPointer(
                             child: TextField(
