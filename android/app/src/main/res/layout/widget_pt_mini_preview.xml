@@ -23,7 +23,7 @@
 
         <TextView
             android:id="@+id/ptm_label"
-            android:text="압력시험"
+            android:text="~10:45 완료"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#FF60A5FA"

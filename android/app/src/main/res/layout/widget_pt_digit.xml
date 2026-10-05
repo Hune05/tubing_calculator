@@ -70,10 +70,18 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <FrameLayout
+    <TextView
+        android:id="@+id/ptb_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp">
+        android:layout_marginTop="2dp"
+        android:gravity="center_horizontal"
+        android:textColor="#FF9AA3AD"
+        android:textSize="12sp" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
 
         <Chronometer
             android:id="@+id/ptb_timer"

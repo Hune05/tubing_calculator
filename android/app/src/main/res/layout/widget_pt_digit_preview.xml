@@ -72,10 +72,19 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <FrameLayout
+    <TextView
+        android:id="@+id/ptb_label"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="2dp">
+        android:layout_marginTop="2dp"
+        android:gravity="center_horizontal"
+        android:text="남은 시간"
+        android:textColor="#FF9AA3AD"
+        android:textSize="12sp" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
 
         <TextView
             android:id="@+id/ptb_timer"
@@ -109,7 +118,7 @@
 
     <TextView
         android:id="@+id/ptb_sub"
-        android:text="시작 10:15 · 완료 10:45"
+        android:text="시작 10:15:20 · 완료 예정 10:45"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"

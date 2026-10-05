@@ -72,6 +72,9 @@ object PressureTimer {
 
     fun hm(ms: Long): String = SimpleDateFormat("HH:mm", Locale.KOREA).format(Date(ms))
 
+    /** 앱 유지시간 타이머 줄과 같은 글: 시작은 초까지, 완료 예정은 분까지. */
+    fun hms(ms: Long): String = SimpleDateFormat("HH:mm:ss", Locale.KOREA).format(Date(ms))
+
     fun minText(m: Double): String = if (m % 1.0 == 0.0) "${m.toInt()}분" else "${m}분"
 }
 
@@ -95,7 +98,8 @@ internal class PtFace(
     val startMs: Long = 0L,
     val dueMs: Long = 0L,
     val endMs: Long = 0L,
-    val holdText: String = ""
+    val holdText: String = "",
+    val times2: String = ""   // 두 줄로 쓸 때(시작 / 완료 예정)
 ) {
     val title: String get() = if (line.isEmpty()) "압력시험 타이머" else "압력시험 · $line"
 
@@ -112,16 +116,19 @@ internal class PtFace(
                     if (due > now) {
                         val total = (due - start).coerceAtLeast(1L)
                         PtFace("running", line, "유지 중", due - now, ((due - now).toFloat() / total).coerceIn(0f, 1f),
-                            "남은 시간", "", "시작 ${PressureTimer.hm(start)} · 완료 ${PressureTimer.hm(due)}", start, due, 0L, PressureTimer.minText(hold))
+                            "남은 시간", "", "시작 ${PressureTimer.hms(start)} · 완료 예정 ${PressureTimer.hm(due)}", start, due, 0L, PressureTimer.minText(hold),
+                            "시작 ${PressureTimer.hms(start)}\n완료 예정 ${PressureTimer.hm(due)}")
                     } else {
-                        PtFace("done", line, "완료", 0L, 1f, "유지시간", "완료", "종료 압력을 기록하세요", start, due, 0L, PressureTimer.minText(hold))
+                        PtFace("done", line, "완료", 0L, 1f, "유지시간", "완료", "시작 ${PressureTimer.hms(start)} · 완료 예정 ${PressureTimer.hm(due)}", start, due, 0L, PressureTimer.minText(hold),
+                            "시작 ${PressureTimer.hms(start)}\n완료 예정 ${PressureTimer.hm(due)}")
                     }
                 }
                 "ended" -> {
                     val start = s.optLong("startMs", 0L)
                     val end = s.optLong("endMs", 0L)
                     PtFace("ended", line, "종료", 0L, 0f, "시험", "종료",
-                        "${PressureTimer.hm(start)} ~ ${PressureTimer.hm(end)} · 유지 ${PressureTimer.minText(hold)}", start, 0L, end, PressureTimer.minText(hold))
+                        "시작 ${PressureTimer.hms(start)} · 종료 ${PressureTimer.hms(end)}", start, 0L, end, PressureTimer.minText(hold),
+                        "시작 ${PressureTimer.hms(start)}\n종료 ${PressureTimer.hms(end)}")
                 }
                 else -> PtFace("idle", line, "시험 전", 0L, 0f, "압력시험", "시험 전", "앱 시험 기록 탭에서 시작", 0L, 0L, 0L, PressureTimer.minText(hold))
             }
@@ -224,7 +231,7 @@ class PressureDialWidgetProvider : AppWidgetProvider() {
             v.setImageViewBitmap(R.id.ptd_ring, PtRing.draw(px, f.fraction, f.state))
             v.setTextViewText(R.id.ptd_title, f.title)
             v.setTextViewText(R.id.ptd_label, f.label)
-            v.setTextViewText(R.id.ptd_sub, f.sub)
+            v.setTextViewText(R.id.ptd_sub, if (f.times2.isEmpty()) f.sub else f.times2)
             fillTime(v, R.id.ptd_timer, R.id.ptd_text, f)
             v.setOnClickPendingIntent(R.id.widget_ptd_root, openIntent(c, 370))
             return v
@@ -245,6 +252,7 @@ class PressureDigitWidgetProvider : AppWidgetProvider() {
             v.setTextViewText(R.id.ptb_line, f.line)
             v.setTextViewText(R.id.ptb_chip, f.chip)
             v.setTextViewText(R.id.ptb_sub, f.sub)
+            v.setTextViewText(R.id.ptb_label, if (f.state == "running") "남은 시간" else f.label)
             fillTime(v, R.id.ptb_timer, R.id.ptb_text, f)
             // 막대는 남은 비율(1000분율)
             v.setProgressBar(R.id.ptb_bar, 1000, (f.fraction * 1000).toInt(), false)
@@ -266,7 +274,7 @@ class PressureMiniWidgetProvider : AppWidgetProvider() {
             val f = PtFace.of(c)
             val px = (150 * density(c)).toInt().coerceIn(200, 480)
             v.setImageViewBitmap(R.id.ptm_ring, PtRing.draw(px, f.fraction, f.state))
-            v.setTextViewText(R.id.ptm_label, if (f.state == "running") "압력시험" else f.label)
+            v.setTextViewText(R.id.ptm_label, if (f.dueMs > 0L && f.state != "ended") "~${PressureTimer.hm(f.dueMs)} 완료" else f.label)
             fillTime(v, R.id.ptm_timer, R.id.ptm_text, f)
             v.setOnClickPendingIntent(R.id.widget_ptm_root, openIntent(c, 372))
             return v
@@ -333,6 +341,8 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
                     }
                 )
             }
+            v.setTextViewText(R.id.pta_times, if (f.state == "idle") "" else f.sub)
+            v.setViewVisibility(R.id.pta_times, if (f.state == "idle") View.GONE else View.VISIBLE)
             v.setOnClickPendingIntent(R.id.widget_pta_root, FieldWidgetStore.openAppIntent(c, "pressure:open", 373))
             return v
         }

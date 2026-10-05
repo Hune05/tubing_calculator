@@ -63,13 +63,15 @@
 
     <TextView
         android:id="@+id/ptd_sub"
-        android:text="시작 10:15 · 완료 10:45"
+        android:text="시작 10:15:20
+완료 예정 10:45"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="4dp"
         android:ellipsize="end"
-        android:maxLines="1"
+        android:gravity="center_horizontal"
+        android:maxLines="2"
         android:textColor="#FF9AA3AD"
         android:textSize="11sp" />
 </FrameLayout>

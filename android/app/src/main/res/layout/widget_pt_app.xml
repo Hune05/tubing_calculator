@@ -111,4 +111,14 @@
             android:textStyle="bold"
             android:visibility="gone" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/pta_times"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="@color/widget_sub"
+        android:textSize="13sp" />
 </LinearLayout>

@@ -115,4 +115,15 @@
             android:textSize="18sp"
             android:textStyle="bold" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/pta_times"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="시작 10:15:20 · 완료 예정 10:45"
+        android:textColor="@color/widget_sub"
+        android:textSize="13sp" />
 </LinearLayout>
