@@ -9,6 +9,8 @@
 ///   왼쪽·볼륨 내림은 이전. 끝낸 단계는 ✓.
 library;
 
+import 'dart:convert';
+
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -135,6 +137,20 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       setState(() {
         _showGap = prefs.getBool(_gapKey) ?? false;
         _sound = prefs.getBool(_soundKey) ?? false;
+        final raw = prefs.getString(_progressKey);
+        if (raw != null && raw.isNotEmpty) {
+          try {
+            final j = jsonDecode(raw);
+            if (j is Map<String, dynamic>) _savedProgress = j;
+          } catch (_) {}
+        }
+        // 도면은 이미 떠 있는데 저장된 진행이 늦게 읽힌 경우.
+        if (_signature.isNotEmpty &&
+            _done.isEmpty &&
+            _current == 0 &&
+            _measured.isEmpty) {
+          _applySavedProgress(_signature);
+        }
         final sc = prefs.getDouble(_scaleKey);
         if (sc != null) _scale = sc.clamp(_minScale, _maxScale);
       });
@@ -147,6 +163,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       await prefs.setBool(key, v);
     } catch (_) {}
   }
+
+  // 한 단계씩 진행(어디까지 했는지·실측)을 같은 도면이면 앱을 나갔다 와도 이어 한다.
+  static const String _progressKey = 'field_progress_v1';
+  Map<String, dynamic>? _savedProgress;
 
   // 단계 넘길 때 "딸깍" 소리(진동은 늘 난다). 폰에 기억한다.
   static const String _soundKey = 'field_step_sound';
@@ -235,6 +255,74 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
   // ---------------- 단계 움직이기 ----------------
 
+  /// 저장된 진행이 [sig] 도면 것이면 현재 단계·끝낸 단계·실측 표시를 되살린다.
+  void _applySavedProgress(String sig) {
+    final p = _savedProgress;
+    if (p == null || p['sig'] != sig) return;
+    final cur = p['current'];
+    if (cur is int) _current = cur;
+    final done = p['done'];
+    if (done is List) {
+      _done
+        ..clear()
+        ..addAll(done.whereType<int>());
+    }
+    final measured = p['measured'];
+    if (measured is Map) {
+      _measured.clear();
+      measured.forEach((k, v) {
+        final i = int.tryParse('$k');
+        if (i != null && v is num) _measured[i] = v.toDouble();
+      });
+    }
+    _selectedStep = _current;
+  }
+
+  /// 지금 진행을 폰에 적는다(도면 구분 글 `_signature`와 함께).
+  Future<void> _persistProgress() async {
+    final p = <String, dynamic>{
+      'sig': _signature,
+      'current': _current,
+      'done': _done.toList()..sort(),
+      'measured': {for (final e in _measured.entries) '${e.key}': e.value},
+    };
+    _savedProgress = p;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_progressKey, jsonEncode(p));
+    } catch (_) {}
+  }
+
+  /// "처음부터": 진행·실측 표시를 비우고 1번 단계로(실측 기록 자체는 지우지 않는다).
+  Future<void> _resetProgress() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('처음부터 다시 하시겠습니까?'),
+        content: const Text('끝낸 단계 표시와 실측 표시가 지워집니다.\n실측 기록은 그대로 남습니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            key: const Key('field_progress_reset_ok'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('처음부터'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() {
+      _current = 0;
+      _done.clear();
+      _measured.clear();
+      _selectedStep = null;
+    });
+    await _persistProgress();
+  }
+
   void _go(int to, int count) {
     if (count == 0) return;
     final next = to.clamp(0, count - 1);
@@ -251,6 +339,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       _current = next;
       _selectedStep = next;
     });
+    _persistProgress();
   }
 
   void _next(int count) {
@@ -258,6 +347,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       // 마지막(자르기)까지 끝냈다.
       HapticFeedback.heavyImpact();
       setState(() => _done.add(_current));
+      _persistProgress();
       return;
     }
     _go(_current + 1, count);
@@ -420,9 +510,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     );
     if (actual == null || !mounted) return;
     final at = DateTime.now();
+    final checkId = at.millisecondsSinceEpoch.toString();
     await addBendCheck(
       BendCheck(
-        id: at.millisecondsSinceEpoch.toString(),
+        id: checkId,
         at: at,
         group: group.isEmpty ? '현장' : group,
         what: what,
@@ -434,12 +525,22 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     HapticFeedback.lightImpact();
     final diff = actual - s.at;
     setState(() => _measured[index] = diff);
+    _persistProgress();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text('실측을 기록했습니다 (${signedMm(diff)})'),
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 6),
+          action: SnackBarAction(
+            label: '되돌리기',
+            onPressed: () async {
+              await deleteBendCheck(checkId);
+              if (!mounted) return;
+              setState(() => _measured.remove(index));
+              _persistProgress();
+            },
+          ),
         ),
       );
   }
@@ -511,6 +612,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           _selectedStep = null;
           _measured.clear();
           _needsFollow = true;
+          // 같은 도면을 다시 열었으면 하던 데까지 되살린다.
+          if (!data.isEmpty) _applySavedProgress(data.signature);
         }
         if (_current >= steps.length) _current = 0;
 
@@ -1540,6 +1643,22 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                         widget.measureGroup != null)
                       const SizedBox(width: 24),
                     if (widget.measureGroup != null) _measureButton(s),
+                    if (_done.isNotEmpty || _current > 0) ...[
+                      const SizedBox(width: 12),
+                      TextButton.icon(
+                        key: const Key('field_progress_reset'),
+                        onPressed: _resetProgress,
+                        icon: Icon(Icons.restart_alt_rounded, size: 18, color: _muted),
+                        label: Text(
+                          '처음부터',
+                          style: TextStyle(
+                            fontSize: _small(13),
+                            fontWeight: FontWeight.w700,
+                            color: _muted,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                   ),
                 ),
