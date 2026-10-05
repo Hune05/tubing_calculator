@@ -283,7 +283,13 @@ class ClockWidgetProvider : AppWidgetProvider() {
             val large = buildLarge(c)
         if (!WidgetCfg.bgOn(c, id)) {
             WidgetCfg.applyPlain(small, intArrayOf(R.id.clock_s_text), intArrayOf(R.id.clock_s_sub), intArrayOf(R.id.clock_s_timer), intArrayOf())
+            // 배경이 없을 때 단추만 진한 청록 덩어리로 떠 보이지 않게, 반투명 흰 테두리 모양으로 바꾼다.
+            for (b in intArrayOf(R.id.clock_s_btn_in, R.id.clock_s_btn_out)) small.setInt(b, "setBackgroundResource", R.drawable.widget_btn_plain)
+            // 배경 없이 단추만 진한 색으로 떠 보이지 않게, 단추도 배경화면에 어울리는 반투명 테두리 모양으로 바꾼다.
+            for (b in intArrayOf(R.id.clock_s_btn_in, R.id.clock_s_btn_out)) small.setInt(b, "setBackgroundResource", R.drawable.widget_btn_plain)
             WidgetCfg.applyPlain(large, intArrayOf(R.id.clock_text, R.id.clock_done_note), intArrayOf(R.id.clock_title), intArrayOf(R.id.clock_timer), intArrayOf(R.id.clock_done_note))
+            for (b in intArrayOf(R.id.clock_btn_in, R.id.clock_btn_out)) large.setInt(b, "setBackgroundResource", R.drawable.widget_btn_plain)
+            for (b in intArrayOf(R.id.clock_btn_in, R.id.clock_btn_out)) large.setInt(b, "setBackgroundResource", R.drawable.widget_btn_plain)
         }
             return Adaptive.views(
                 c, id, small, large, SizeF(110f, 40f), SizeF(180f, 110f),
