@@ -75,6 +75,8 @@ object ClockBreak {
 
     private fun setAlarm(c: Context, whenMs: Long, pi: PendingIntent) {
         val am = c.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        // SCHEDULE_EXACT_ALARM은 안드로이드 14부터 기본으로 꺼져 있어 그때는 최대 1시간 늦게 울렸다.
+        // 매니페스트의 USE_EXACT_ALARM(자동 허용)으로 정시에 울린다. 알람시계 방식(setAlarmClock)도 같은 권한이 필요하다.
         val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
         try {
             if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, whenMs, pi)

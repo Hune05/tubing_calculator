@@ -8,6 +8,8 @@
     <!-- 예약 알림: 폰을 다시 켜도 알림이 유지되게 하고, 사용자가 허용하면 정해진 시간에 맞춰 울린다. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- 안드로이드 13+에서 자동 허용: 휴게·퇴근 알람이 정시에 울리게(SCHEDULE_EXACT_ALARM은 14부터 기본 꺼짐). -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application
         android:label="Field Helper"

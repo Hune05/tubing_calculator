@@ -44,7 +44,12 @@ class ClockQuickActivity : Activity() {
         val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_MEMO
         window.setGravity(Gravity.TOP)
         window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+        // 메모만 글자를 치니 자판을 띄운다. 휴게의 시간 휠(NumberPicker)은 안에 입력 칸이 있어서 자판이 떠 저장·지우기 단추를 덮었다.
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
+                if (mode == MODE_BREAK) WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                else WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
+        )
         window.setBackgroundDrawable(GradientDrawable().apply {
             setColor(Color.WHITE)
             cornerRadii = floatArrayOf(0f, 0f, 0f, 0f, dp(22).toFloat(), dp(22).toFloat(), dp(22).toFloat(), dp(22).toFloat())
@@ -184,6 +189,8 @@ class ClockQuickActivity : Activity() {
             value = (cal.get(Calendar.MINUTE) / 5) % 12
             wrapSelectorWheel = true
         }
+        hour.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        minute.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         val pickers = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -251,10 +258,10 @@ class ClockQuickActivity : Activity() {
                 setTextColor(0xFF6B7280.toInt())
                 setPadding(0, dp(12), 0, dp(2))
             })
-            for (it in existing) {
+            for (item in existing) {
                 val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
                 row.addView(TextView(this).apply {
-                    text = ClockBreak.label(it)
+                    text = ClockBreak.label(item)
                     textSize = 16f
                     setTextColor(0xFF1F2933.toInt())
                 }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -264,7 +271,7 @@ class ClockQuickActivity : Activity() {
                     setTextColor(0xFFE5195E.toInt())
                     setPadding(dp(14), dp(8), dp(14), dp(8))
                     setOnClickListener {
-                        ClockBreak.remove(this@ClockQuickActivity, it.id)
+                        ClockBreak.remove(this@ClockQuickActivity, item.id)
                         Toast.makeText(this@ClockQuickActivity, "휴게 알람을 지웠습니다.", Toast.LENGTH_SHORT).show()
                         finish()
                     }
