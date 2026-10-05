@@ -165,7 +165,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.isActive) _setLandscape();
+    if (widget.isActive) _applyOrientation();
     _loadViewPrefs();
   }
 
@@ -173,7 +173,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   void didUpdateWidget(covariant FieldMarkingScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isActive && !oldWidget.isActive) {
-      _setLandscape();
+      _applyOrientation();
       _focus.requestFocus();
     } else if (!widget.isActive && oldWidget.isActive) {
       _restorePortrait();
@@ -207,11 +207,13 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     super.dispose();
   }
 
-  void _setLandscape() {
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeRight,
-      DeviceOrientation.landscapeLeft,
-    ]);
+  /// 줄자 보기는 가로, 한 단계씩은 세로(숫자를 위아래로 길고 크게). 보일 때만 건다.
+  void _applyOrientation() {
+    SystemChrome.setPreferredOrientations(
+      _stepMode
+          ? [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]
+          : [DeviceOrientation.landscapeRight, DeviceOrientation.landscapeLeft],
+    );
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -289,6 +291,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       if (_stepMode && _selectedStep != null) _current = _selectedStep!;
       if (!_stepMode) _needsFollow = true;
     });
+    if (widget.isActive) _applyOrientation();
     if (_stepMode) _focus.requestFocus();
     _syncVolumeCapture();
   }
@@ -1286,6 +1289,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     final s = steps[_current];
     final bool done = _done.contains(_current);
     final bool isLast = _current == steps.length - 1;
+    // 세로 화면이면 숫자와 각도를 위아래로 쌓고, 이전·다음은 아래에 넓게 둔다.
+    final bool portrait =
+        MediaQuery.sizeOf(context).height > MediaQuery.sizeOf(context).width;
 
     Widget body;
     if (s.isCut) {
@@ -1316,9 +1322,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       );
     } else {
       final m = s.mark!;
-      body = Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
+      final parts = <Widget>[
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1368,12 +1372,19 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ),
             ],
           ),
-          Container(
-            width: 1,
-            height: 150,
-            margin: const EdgeInsets.symmetric(horizontal: 36),
-            color: _line,
-          ),
+          portrait
+              ? Container(
+                  width: 180,
+                  height: 1,
+                  margin: const EdgeInsets.symmetric(vertical: 20),
+                  color: _line,
+                )
+              : Container(
+                  width: 1,
+                  height: 150,
+                  margin: const EdgeInsets.symmetric(horizontal: 36),
+                  color: _line,
+                ),
           Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1452,19 +1463,19 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ],
             ],
           ),
-        ],
-      );
+      ];
+      body = portrait
+          ? Column(mainAxisSize: MainAxisSize.min, children: parts)
+          : Row(mainAxisAlignment: MainAxisAlignment.center, children: parts);
     }
 
-    return Row(
-      children: [
-        _navButton(
-          icon: AppIcons.back,
-          label: '이전',
-          onTap: _current > 0 ? () => _prev(steps.length) : null,
-        ),
-        Expanded(
-          child: Stack(
+    final prevButton = _navButton(
+      wide: portrait,
+      icon: AppIcons.back,
+      label: '이전',
+      onTap: _current > 0 ? () => _prev(steps.length) : null,
+    );
+    final center = Stack(
             children: [
               Positioned.fill(
                 child: LayoutBuilder(
@@ -1472,12 +1483,21 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             // 닿으면 안 한 마킹이 ✓가 됐다). 이제 양옆 이전·다음 단추와 볼륨 단추로만 넘긴다.
             builder: (context, c) => SizedBox(
               key: const Key('field_step_area'),
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: FittedBox(fit: BoxFit.scaleDown, child: body),
-                ),
-              ),
+              // 세로 화면에서는 영역을 꽉 채워 폭·높이에 맞게 키워서 숫자가 크게 보이게 한다
+              // (느슨한 제약에서는 FittedBox가 키우지 못하므로 SizedBox.expand로 감싼다).
+              child: portrait
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 40),
+                      child: SizedBox.expand(
+                        child: FittedBox(fit: BoxFit.contain, child: body),
+                      ),
+                    )
+                  : Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(8),
+                        child: FittedBox(fit: BoxFit.scaleDown, child: body),
+                      ),
+                    ),
             ),
                 ),
               ),
@@ -1511,15 +1531,32 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 ),
               ),
             ],
+          );
+    final nextButton = _navButton(
+      wide: portrait,
+      icon: isLast ? Icons.check_rounded : AppIcons.forward,
+      label: isLast ? '끝' : '다음',
+      onTap: () => _next(steps.length),
+      strong: true,
+    );
+    if (portrait) {
+      return Column(
+        children: [
+          Expanded(child: center),
+          SizedBox(
+            height: 96,
+            child: Row(
+              children: [
+                Expanded(child: prevButton),
+                Expanded(child: nextButton),
+              ],
+            ),
           ),
-        ),
-        _navButton(
-          icon: isLast ? Icons.check_rounded : AppIcons.forward,
-          label: isLast ? '끝' : '다음',
-          onTap: () => _next(steps.length),
-          strong: true,
-        ),
-      ],
+        ],
+      );
+    }
+    return Row(
+      children: [prevButton, Expanded(child: center), nextButton],
     );
   }
 
@@ -1583,13 +1620,14 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     required String label,
     required VoidCallback? onTap,
     bool strong = false,
+    bool wide = false,
   }) {
     // 🚀 [바꿈] 검은 판 대신 옅은 바탕. "다음"만 청록으로 눈에 띄게.
     // 장갑 낀 손을 위해 누르는 자리는 그대로 넓게 둔다.
     final enabled = onTap != null;
     final Color fg = !enabled ? _line : (strong ? _teal : _muted);
     return SizedBox(
-      width: 96,
+      width: wide ? null : 96,
       child: Material(
         color: strong && enabled
             ? _teal.withValues(alpha: 0.08)
