@@ -46,7 +46,7 @@ import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigati
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
-import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
+import 'package:tubing_calculator/src/presentation/fabrication/fab_qr.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/app_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/equipment_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
@@ -1942,70 +1942,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           );
 
                           if (scannedData != null && context.mounted) {
-                            try {
-                              Uri uri = Uri.parse(scannedData);
-                              String project =
-                                  uri.queryParameters['p'] ?? "Scanned Project";
-                              String pipeSize =
-                                  uri.queryParameters['s'] ?? "1/4\"";
-                              String bendsStr = uri.queryParameters['b'] ?? "";
-                              bool startFit =
-                                  uri.queryParameters['sf'] == 'true';
-                              bool endFit = uri.queryParameters['ef'] == 'true';
-                              double tail =
-                                  double.tryParse(
-                                    uri.queryParameters['t'] ?? '0.0',
-                                  ) ??
-                                  0.0;
-                              String startDir =
-                                  uri.queryParameters['d'] ?? 'RIGHT';
-                              List<Map<String, double>> parsedBends = [];
-
-                              if (bendsStr.isNotEmpty) {
-                                final parts = bendsStr.split('-');
-                                for (var part in parts) {
-                                  final vals = part.split('_');
-                                  if (vals.length >= 3) {
-                                    parsedBends.add({
-                                      'length': double.tryParse(vals[0]) ?? 0.0,
-                                      'angle': double.tryParse(vals[1]) ?? 0.0,
-                                      'rotation':
-                                          double.tryParse(vals[2]) ?? 0.0,
-                                      'mark': vals.length >= 4
-                                          ? (double.tryParse(vals[3]) ?? 0.0)
-                                          : 0.0,
-                                    });
-                                  }
-                                }
-                              }
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => ViewerOnlyScreen(
-                                    project: project,
-                                    pipeSize: pipeSize,
-                                    bendList: parsedBends,
-                                    startFit: startFit,
-                                    endFit: endFit,
-                                    tailLength: tail,
-                                    startDir: startDir,
-                                  ),
-                                ),
-                              );
-                            } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text(
-                                    "QR 코드를 읽을 수 없습니다.",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  backgroundColor: Colors.redAccent.shade400,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
-                              );
-                            }
+                            // 읽은 QR은 규격·총 길이 확인 창을 거쳐 연다(fab_qr.dart).
+                            await FabQr.openWithConfirm(context, scannedData);
                           }
                         },
                       ),

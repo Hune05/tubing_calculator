@@ -1,4 +1,5 @@
 import '../../my_work_logs/widgets/ai_polish_button.dart';
+import '../fab_qr.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -300,19 +301,6 @@ class _MobileFabricationDetailScreenState
     return "";
   }
 
-  // 🚀 [추가] _extractValue는 화면 표시용으로 정수 반올림을 하기 때문에,
-  // 소수점을 보존해야 하는 QR 압축 데이터에는 이 버전을 대신 쓴다.
-  double _extractRawValue(Map<String, dynamic> map, List<String> keys) {
-    for (String key in keys) {
-      if (map.containsKey(key) && map[key] != null) {
-        var val = map[key];
-        if (val is num) return val.toDouble();
-        if (val is String) return double.tryParse(val) ?? 0.0;
-      }
-    }
-    return 0.0;
-  }
-
   Future<Uint8List?> _captureIsoImage() async {
     try {
       RenderRepaintBoundary boundary =
@@ -327,28 +315,6 @@ class _MobileFabricationDetailScreenState
       debugPrint("이미지 캡처 에러: $e");
       return null;
     }
-  }
-
-  // 🚀 [버그 수정] 예전엔 전부 정수로 반올림해서 QR/공유 링크에 넣는
-  // 바람에 소수점 이하 길이·각도가 잘려나가, 스캔해서 불러온 도면
-  // 형상이 원본과 미묘하게 달라지는 원인이 됐다. 소수점 둘째 자리까지
-  // 보존한다 (디코더는 이미 double.tryParse라 그대로 호환됨).
-  String _formatCompressed(double v) {
-    return v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(2);
-  }
-
-  String _compressBendData(List<Map<String, dynamic>> bends) {
-    if (bends.isEmpty) return "";
-    return bends
-        .map((b) {
-          double l = (b['length'] as num?)?.toDouble() ?? 0.0;
-          double a = double.tryParse(b['angle']?.toString() ?? '0') ?? 0.0;
-          double r = (b['rotation'] as num?)?.toDouble() ?? 0.0;
-          double m = _extractRawValue(b, ['mark', 'marking', 'marking_point']);
-          return "${_formatCompressed(l)}_${_formatCompressed(a)}_"
-              "${_formatCompressed(r)}_${_formatCompressed(m)}";
-        })
-        .join('-');
   }
 
   Future<void> _exportToPDFAndShare() async {
@@ -391,34 +357,25 @@ class _MobileFabricationDetailScreenState
       if (_endFit) fittingStr += (fittingStr.isNotEmpty ? "& E" : "E");
       if (fittingStr.isEmpty) fittingStr = "None";
 
-      String compressedBends = _compressBendData(_bendList);
-
-      String qrDataUrl =
-          "tubingapp://view?p=${Uri.encodeComponent(_projectName)}&s=${Uri.encodeComponent(_pipeSize)}&b=$compressedBends&sf=$_startFit&ef=$_endFit&t=$_tailLength&d=$_startDir";
-
-      pw.Widget buildQRCodeWidget() {
-        return pw.Column(
-          mainAxisSize: pw.MainAxisSize.min,
-          crossAxisAlignment: pw.CrossAxisAlignment.center,
-          children: [
-            pw.SizedBox(
-              width: 50,
-              height: 50,
-              child: pw.BarcodeWidget(
-                barcode: pw.Barcode.qrCode(),
-                data: qrDataUrl.isEmpty ? "tubingapp://error" : qrDataUrl,
-                color: PdfColors.black,
-                drawText: false,
-              ),
-            ),
-            pw.SizedBox(height: 4),
-            pw.Text(
-              "3D VIEWER",
-              style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold),
-            ),
-          ],
+      final qrLink = FabQr.build(
+        project: _projectName,
+        pipeSize: _pipeSize,
+        bends: _bendList,
+        startFit: _startFit,
+        endFit: _endFit,
+        tail: _tailLength,
+        startDir: _startDir,
+        totalCut: _totalLength,
+      );
+      if (qrLink.dense && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("벤딩이 많아 QR이 촘촘합니다. 인쇄한 뒤 앱으로 읽히는지 확인하십시오."),
+          ),
         );
       }
+
+      pw.Widget buildQRCodeWidget() => FabQr.pdfWidget(qrLink);
 
       pw.Widget buildTitleBlock() {
         return pw.Container(

@@ -46,7 +46,7 @@ import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminder
     show parsePersonalReminderPayload;
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
-import 'package:tubing_calculator/src/presentation/fabrication/screens/viewer_only_screen.dart';
+import 'package:tubing_calculator/src/presentation/fabrication/fab_qr.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart'
     show LayoutBoardPage;
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/weekly_report_page.dart';
@@ -526,53 +526,13 @@ class _DeepLinkHandlerState extends State<DeepLinkHandler> {
     }
   }
 
+  // 도면 QR은 바로 열지 않고 규격·총 길이를 먼저 보여 준 뒤 연다(fab_qr.dart).
   void _handleViewerLink(Uri uri) {
     try {
-      final String proj = uri.queryParameters['p'] ?? 'Unknown';
-      final String size = uri.queryParameters['s'] ?? 'Unknown';
-      final String compressedBends = uri.queryParameters['b'] ?? '';
-      final bool startFit = uri.queryParameters['sf'] == 'true';
-      final bool endFit = uri.queryParameters['ef'] == 'true';
-      final double tail =
-          double.tryParse(uri.queryParameters['t'] ?? '0.0') ?? 0.0;
-      final String startDir = uri.queryParameters['d'] ?? 'RIGHT';
-
-      List<Map<String, dynamic>> parsedBends = [];
-      if (compressedBends.isNotEmpty) {
-        List<String> segments = compressedBends.split('-');
-        for (String seg in segments) {
-          List<String> parts = seg.split('_');
-          // 🚀 [수정] 마킹값(4번째 항목)이 포함된 최신 압축 포맷도 인식하도록 >= 3으로 완화
-          if (parts.length >= 3) {
-            double a = double.tryParse(parts[1]) ?? 0.0;
-            parsedBends.add({
-              'length': double.tryParse(parts[0]) ?? 0.0,
-              'angle': a,
-              'rotation': double.tryParse(parts[2]) ?? 0.0,
-              'is_straight': a == 0.0,
-              'mark': parts.length >= 4
-                  ? (double.tryParse(parts[3]) ?? 0.0)
-                  : 0.0,
-            });
-          }
-        }
-      }
-
-      if (mounted) {
-        appNavigatorKey.currentState?.push(
-          MaterialPageRoute(
-            builder: (context) => ViewerOnlyScreen(
-              project: proj,
-              pipeSize: size,
-              bendList: parsedBends,
-              startFit: startFit,
-              endFit: endFit,
-              tailLength: tail,
-              startDir: startDir,
-            ),
-          ),
-        );
-      }
+      // 확인 창은 Navigator 안쪽 context가 있어야 뜬다.
+      final ctx = appNavigatorKey.currentState?.overlay?.context;
+      if (!mounted || ctx == null) return;
+      FabQr.openWithConfirm(ctx, uri.toString());
     } catch (e) {
       debugPrint("딥링크 파싱 및 뷰어 연결 에러: $e");
     }
