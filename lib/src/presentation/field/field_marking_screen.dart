@@ -92,6 +92,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   double _pinchStartScale = _defaultScale;
   bool _pinching = false;
   static const double _padLeft = 48;
+  // 맨 끝(자르기) 말풍선이 줄자 끝에서 반 폭만큼 더 나가므로 오른쪽 여백은 그만큼 둔다.
+  static const double _padRight = 58;
   static const double _labelW = 108;
   static const double _labelH = 46;
   static const double _laneGap = 6;
@@ -349,7 +351,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   void _zoomFit(double maxMm) {
     if (maxMm <= 0 || _tapeViewW <= 0) return;
     HapticFeedback.selectionClick();
-    final next = ((_tapeViewW - _padLeft * 2) / maxMm).clamp(
+    final next = ((_tapeViewW - _padLeft - _padRight) / maxMm).clamp(
       _minScale,
       _maxScale,
     );
@@ -838,7 +840,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       data.totalCut,
       ...data.marks.map((m) => m.position),
     ].fold<double>(0, (a, b) => b > a ? b : a);
-    final double width = _padLeft * 2 + maxMm * _scale;
+    final double width = _padLeft + _padRight + maxMm * _scale;
 
     // 말풍선: 마킹(직관 끝 포함)과 자르는 자리.
     final labels = <_Label>[
@@ -908,6 +910,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     );
     final tape = LayoutBuilder(
       builder: (context, c) {
+        // 화면이 가로로 돌아 폭이 바뀌면(처음엔 세로 폭으로 셈한 뒤 가로가 된다) 다시 가운데로 맞춘다.
+        if ((_tapeViewW - c.maxWidth).abs() > 1) _needsFollow = true;
         _tapeViewW = c.maxWidth;
         if (_needsFollow) {
           _needsFollow = false;

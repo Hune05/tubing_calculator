@@ -69,6 +69,7 @@ ScrollPosition tapePosition(WidgetTester tester) => tester
     .position;
 
 void main() {
+  rotateTests();
   testWidgets('처음 열면 줄자가 첫 마킹(1007mm) 쪽으로 가 있다(0에 머물지 않는다)', (tester) async {
     await pumpField(tester);
     final p = tapePosition(tester);
@@ -181,5 +182,29 @@ void main() {
     await tester.tap(find.byKey(const Key('field_measure_save')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('field_measure_input')), findsOneWidget);
+  });
+}
+
+// 처음엔 세로 폭으로 셈한 뒤 화면이 가로로 돌아도 첫 마킹이 가운데에 온다(A11에서 왼쪽에 치우쳤던 것).
+void rotateTests() {
+  testWidgets('세로로 열렸다가 가로로 돌면 다시 가운데로 맞춘다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(600, 1005); // 세로
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: FieldMarkingScreen(
+          listenable: ValueNotifier(0),
+          compute: longData,
+          isActive: false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(1006, 600); // 가로로 돎
+    await tester.pumpAndSettle();
+    final p = tapePosition(tester);
+    expect(p.pixels, closeTo(2062 - 1006 / 2, 3));
   });
 }
