@@ -158,8 +158,13 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
   Future<void> _editDrawing(String id) async {
     final d = _byId[id];
     if (d == null) return;
+    // 추천 칩에는 지금 이 도면의 작업 이름을 빼고 다른 작업 이름만 보인다(누르나 마나라서).
     final others = recentDistinctNames(
-      {for (final e in _savedDrawings) '${e['folderName'] ?? '미분류 도면'}'},
+      {
+        for (final e in _savedDrawings)
+          if ('${e['folderName'] ?? '미분류 도면'}' != d.folderName)
+            '${e['folderName'] ?? '미분류 도면'}',
+      },
       max: 8,
     );
     final info = await showConduitDrawingEditDialog(

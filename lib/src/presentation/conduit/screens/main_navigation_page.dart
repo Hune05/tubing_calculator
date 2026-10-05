@@ -237,7 +237,12 @@ class ConduitViewerTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([ConduitDataManager(), globalMarkingState]),
+      // 굽힘 반경·관 굵기·커플링 깊이를 설정에서 읽으므로 설정이 바뀌어도 다시 그린다.
+      animation: Listenable.merge([
+        ConduitDataManager(),
+        globalMarkingState,
+        globalBenderSettings,
+      ]),
       builder: (context, child) {
         final manager = ConduitDataManager();
         final bendList = manager.bendList;

@@ -240,6 +240,23 @@ void main() {
       expect([saved.folderName, saved.title, saved.notes], ['A동', '옛 이름', '옛 메모']);
     });
 
+    testWidgets('고치기 창의 추천 칩에는 지금 작업 이름이 안 나오고 다른 작업만 나온다', (tester) async {
+      await seedW(tester, 'B동', '다른 도면');
+      final d = await seedW(tester, 'A동', '내 도면');
+      await openTab(tester);
+      await tester.tap(find.byKey(ValueKey('conduit_edit_${d.id}')));
+      await tester.pumpAndSettle();
+      // 'A동'은 입력 칸 안에만 한 번, 'B동'은 추천 칩으로 한 번(폴더 줄 글자는 창에 가려 있어도 트리에 있다).
+      expect(
+        find.descendant(of: find.byType(AlertDialog), matching: find.text('A동')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: find.byType(AlertDialog), matching: find.text('B동')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('도면 이름을 비우면 저장되지 않는다', (tester) async {
       final d = await seedW(tester, 'A', 'a');
       await openTab(tester);

@@ -1195,15 +1195,18 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       globalBenderSettings.value['conduitSize']?.toString() ??
                       '';
                   final int? sz = int.tryParse(
-                    RegExp(r'd+').firstMatch(sizeText)?.group(0) ?? '',
+                    RegExp(r'\d+').firstMatch(sizeText)?.group(0) ?? '',
                   );
+                  // 바깥지름 표는 후강 기준이라 후강(Rigid)일 때만 미리 채운다. 다른 종류는 직접 넣는다.
+                  final bool thick =
+                      globalBenderSettings.value['conduitType'] == 'Rigid';
                   ConduitSpecialSheets.showBackToBack(
                     context,
                     currentRotation: currentRot,
                     canBendTo: rule,
                     onAddBends: manager.addMultipleBends,
                     specs: specs,
-                    conduitOd: sz == null ? null : kThickConduitOd[sz],
+                    conduitOd: (sz == null || !thick) ? null : kThickConduitOd[sz],
                   );
                 }),
                 const SizedBox(height: 12),

@@ -9,6 +9,8 @@ import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart'
     show conduitStartDir;
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_input_tab.dart';
+import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart'
+    show globalBenderSettings;
 import 'package:vector_math/vector_math_64.dart' as vm;
 
 void phone(WidgetTester tester, {double height = 1800}) {
@@ -110,6 +112,36 @@ void main() {
       expect(find.byKey(const Key('cs_missing')), findsNothing); // 거절 알림 없음
       expect(manager.bendList.length, 3); // 오프셋 2줄 + 킥 1줄
       expect(manager.bendList.last['rotation'], 0.0);
+    });
+
+    testWidgets('백투백 시트: 후강(Rigid) 22mm이면 바깥지름 26.5를 미리 채운다', (tester) async {
+      final saved = Map<String, dynamic>.from(globalBenderSettings.value);
+      addTearDown(() => globalBenderSettings.value = saved);
+      globalBenderSettings.value = {
+        ...saved,
+        'conduitType': 'Rigid',
+        'conduitSize': '22mm',
+      };
+      await openTool(tester, '백투백 90°', dirKey: 'cs_dir_0');
+      expect(
+        tester.widget<TextField>(find.byKey(const Key('cs_od'))).controller!.text,
+        '26.5',
+      );
+    });
+
+    testWidgets('백투백 시트: 후강이 아닌 종류(EMT)이면 바깥지름을 비워 둔다', (tester) async {
+      final saved = Map<String, dynamic>.from(globalBenderSettings.value);
+      addTearDown(() => globalBenderSettings.value = saved);
+      globalBenderSettings.value = {
+        ...saved,
+        'conduitType': 'EMT',
+        'conduitSize': '22mm',
+      };
+      await openTool(tester, '백투백 90°', dirKey: 'cs_dir_0');
+      expect(
+        tester.widget<TextField>(find.byKey(const Key('cs_od'))).controller!.text,
+        '',
+      );
     });
 
     testWidgets('킥 시트: 진행 방향(오른쪽)과 나란한 칸은 흐리게, 누르면 안내 창만 뜨고 선택은 안 된다', (tester) async {
