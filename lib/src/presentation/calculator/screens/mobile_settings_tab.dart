@@ -86,11 +86,28 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       SettingsController.odListIncluding(_isInch, _currentOD);
   bool get _isElectric => _benderType == "전동 (Electric)";
 
+  /// 이 탭이 마지막으로 읽은 컨트롤러 읽기 번호. 서버에서 받아 다시 읽히면 달라진다.
+  int _seenLoadRevision = -1;
+
+  /// 서버에서 받은 설정으로 컨트롤러가 다시 읽혔으면 칸도 새로 채운다.
+  /// 안 그러면 열려 있던 탭이 옛 값을 보여 주고, 저장을 누르면 받은 값을 옛 값으로 덮는다.
+  void _onControllerChanged() {
+    final c = AppSettingsController();
+    if (!mounted ||
+        !c.isLoaded ||
+        _seenLoadRevision < 0 ||
+        c.loadRevision == _seenLoadRevision) {
+      return;
+    }
+    _loadData();
+  }
+
   @override
   void initState() {
     super.initState();
     _currentOD = "12.7";
     _loadData();
+    AppSettingsController().addListener(_onControllerChanged);
   }
 
   // 🚀 [수정] SettingsManager/SharedPreferences를 직접 부르는 대신,
@@ -101,6 +118,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   Future<void> _loadData() async {
     await AppSettingsController().ensureLoaded();
     final c = AppSettingsController();
+    _seenLoadRevision = c.loadRevision;
     if (mounted) {
       setState(() {
         _isInch = c.isInch;
@@ -477,6 +495,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
 
   @override
   void dispose() {
+    AppSettingsController().removeListener(_onControllerChanged);
     _wtController.dispose();
     _rController.dispose();
     _takeUpController.dispose();

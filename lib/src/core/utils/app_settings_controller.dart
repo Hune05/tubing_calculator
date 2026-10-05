@@ -29,6 +29,10 @@ class AppSettingsController extends ChangeNotifier {
 
   bool _isLoaded = false;
   bool get isLoaded => _isLoaded;
+
+  /// [load]가 끝날 때마다 하나씩 올라간다. 저장([save])으로는 안 올라간다.
+  /// 서버에서 설정을 받아 다시 읽었을 때 설정 화면이 칸을 새로 채우는 데 쓴다.
+  int loadRevision = 0;
   Future<void>? _loadingFuture;
 
   // ------------------------------
@@ -128,6 +132,7 @@ class AppSettingsController extends ChangeNotifier {
 
     _isLoaded = true;
     _loadingFuture = null;
+    loadRevision++;
     _syncMachineSpecs(persist: false);
     _applyWakelock();
     notifyListeners();
