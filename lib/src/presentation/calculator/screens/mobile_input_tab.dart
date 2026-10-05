@@ -493,6 +493,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   MobileOffsetBottomSheet.show(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: _bendRule(),
                     onAddMultipleBends: _addMultipleBends,
                   );
                 }),
@@ -505,6 +506,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                     MobileRollingOffsetBottomSheet.show(
                       context,
                       currentRotation: currentRot,
+                      canBendTo: _bendRule(),
                       onAddBend: _addSingleBend,
                       onAddBends: _addMultipleBends,
                     );
@@ -516,6 +518,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   MobileSaddleBottomSheet.show(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: _bendRule(),
                     onAddBend: _addSingleBend,
                     onAddBends: _addMultipleBends,
                   );
@@ -549,6 +552,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                         MobileOffsetBottomSheet.show(
                           screenContext,
                           currentRotation: currentRot,
+                          canBendTo: _bendRule(),
                           onAddMultipleBends: _addMultipleBends,
                         );
                       },

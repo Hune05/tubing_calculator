@@ -9,6 +9,7 @@ import 'dart:math' as math;
 
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/sheet_direction_gate.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/saddle_guide.dart';
 
@@ -30,12 +31,16 @@ class MobileSaddleBottomSheet extends StatefulWidget {
   /// 어느 계산기에서 열었는지에 따른 장비 값. 없으면 튜브 제원을 읽는다.
   final BendSheetSpecs? specs;
 
+  /// 지금 진행 방향에서 그 방향으로 꺾을 수 있는지(입력 탭이 넘긴다). 없으면 모두 고를 수 있다.
+  final BendRule? canBendTo;
+
   const MobileSaddleBottomSheet({
     super.key,
     required this.currentRotation,
     required this.onAddBend,
     this.onAddBends,
     this.specs,
+    this.canBendTo,
   });
 
   static void show(
@@ -44,6 +49,7 @@ class MobileSaddleBottomSheet extends StatefulWidget {
     required Function(double, double, double) onAddBend,
     void Function(List<Map<String, double>> bends)? onAddBends,
     BendSheetSpecs? specs,
+    BendRule? canBendTo,
   }) {
     showModalBottomSheet(
       context: context,
@@ -54,6 +60,7 @@ class MobileSaddleBottomSheet extends StatefulWidget {
         onAddBend: onAddBend,
         onAddBends: onAddBends,
         specs: specs,
+        canBendTo: canBendTo,
       ),
     );
   }
@@ -593,34 +600,41 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           itemBuilder: (context, index) {
             final dir = _directions[index];
             bool isSelected = _selectedRotation == dir['val'];
-            return InkWell(
-              onTap: () => setState(() => _selectedRotation = dir['val']),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isSelected ? makitaTeal : slate100,
-                  border: Border.all(
-                    color: isSelected ? makitaTeal : Colors.grey.shade300,
+            return gateSheetDirection(
+              context: context,
+              rule: widget.canBendTo,
+              rot: dir['val'] as double,
+              label: dir['label'].split(' ')[0],
+              onPick: () => setState(() => _selectedRotation = dir['val']),
+              chip: (onTap) => InkWell(
+                onTap: onTap,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: isSelected ? makitaTeal : slate100,
+                    border: Border.all(
+                      color: isSelected ? makitaTeal : Colors.grey.shade300,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      dir['icon'],
-                      size: 16,
-                      color: isSelected ? pureWhite : slate600,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      dir['label'].split(' ')[0],
-                      style: TextStyle(
-                        color: isSelected ? pureWhite : slate900,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        dir['icon'],
+                        size: 16,
+                        color: isSelected ? pureWhite : slate600,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        dir['label'].split(' ')[0],
+                        style: TextStyle(
+                          color: isSelected ? pureWhite : slate900,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );
