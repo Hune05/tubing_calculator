@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/presentation/my_schedule/schedule_widget.dart';
 import 'package:tubing_calculator/src/presentation/common/feature_search.dart';
 import 'package:tubing_calculator/src/presentation/common/record_search.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
@@ -451,6 +452,20 @@ class _MobileMenuPageState extends State<MobileMenuPage>
           context,
           MaterialPageRoute(builder: (_) => AttendancePage(autoPunch: auto)),
         );
+      });
+      return;
+    }
+    // 내 일정 위젯: 내 일정 화면을 연다.
+    if (a.isScheduleOpen) {
+      HomeWidgetSync.pendingAction.value = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MobileMyScheduleScreen(currentWorker: widget.currentWorker),
+          ),
+        ).then((_) => _loadTodayScheduleCount());
       });
       return;
     }
@@ -1097,6 +1112,17 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     final count = await fetchTodayScheduleCount(widget.currentWorker);
     if (mounted) setState(() => _todayScheduleCount = count);
     _syncSummaryWidget();
+    // 내 일정 위젯에 오늘·내일 일정 목록을 넘긴다(읽지 못하면 이전 값 그대로).
+    final agenda = await fetchWidgetAgenda(widget.currentWorker);
+    if (agenda != null) {
+      HomeWidgetSync.push(
+        scheduleJson: encodeScheduleWidgetPayload(
+          now: DateTime.now(),
+          items: agenda,
+          todayCount: count,
+        ),
+      );
+    }
   }
 
   // 🚀 날씨 상태 단순화 (맑음, 흐림, 비, 눈)

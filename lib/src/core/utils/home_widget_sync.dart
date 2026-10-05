@@ -18,6 +18,9 @@ class HomeWidgetAction {
       ? action.substring(11)
       : null;
 
+  /// 내 일정 위젯을 눌러 들어왔나(내 일정 화면을 연다).
+  bool get isScheduleOpen => action == 'schedule:open';
+
   /// 압력시험 위젯을 눌러 들어왔나(시험 기록 탭을 연다).
   bool get isPressureOpen => action == 'pressure:open';
 
@@ -59,6 +62,7 @@ class HomeWidgetSync {
   static String? _lastQuick;
   static String? _lastSummary;
   static String? _lastPt;
+  static String? _lastSched;
 
   /// 앱을 켤 때 한 번 부른다. 앱이 떠 있는 동안 위젯이 눌리면 [onReceived]를 먼저 부른다
   /// (예: 열려 있던 화면을 닫고 홈으로 돌아가기).
@@ -90,23 +94,29 @@ class HomeWidgetSync {
     String? summaryJson,
     String? clockJson,
     String? ptJson,
+    String? scheduleJson,
   }) async {
     final sendQuick = quickJson != null && quickJson != _lastQuick;
     final sendSummary = summaryJson != null && summaryJson != _lastSummary;
     // 출퇴근 값은 위젯 단추가 앱 밖에서 바꿀 수 있어(ClockPunch.kt) 같은 값이어도 늘 새로 보낸다.
     final sendClock = clockJson != null;
     final sendPt = ptJson != null && ptJson != _lastPt;
-    if (!sendQuick && !sendSummary && !sendClock && !sendPt) return;
+    final sendSched = scheduleJson != null && scheduleJson != _lastSched;
+    if (!sendQuick && !sendSummary && !sendClock && !sendPt && !sendSched) {
+      return;
+    }
     try {
       await _ch.invokeMethod<void>('update', {
         if (sendQuick) 'quick': quickJson,
         if (sendSummary) 'summary': summaryJson,
         if (sendClock) 'clock': clockJson,
         if (sendPt) 'pt': ptJson,
+        if (sendSched) 'sched': scheduleJson,
       });
       if (sendQuick) _lastQuick = quickJson;
       if (sendSummary) _lastSummary = summaryJson;
       if (sendPt) _lastPt = ptJson;
+      if (sendSched) _lastSched = scheduleJson;
     } on MissingPluginException {
       // 안드로이드가 아닌 곳
     } catch (e) {
@@ -134,6 +144,7 @@ class HomeWidgetSync {
     _lastQuick = null;
     _lastSummary = null;
     _lastPt = null;
+    _lastSched = null;
     pendingAction.value = null;
   }
 }

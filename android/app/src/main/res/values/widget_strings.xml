@@ -21,4 +21,6 @@
     <string name="widget_pt_open">시험 기록 열기</string>
     <string name="widget_pta_label">압력 시험 타이머</string>
     <string name="widget_pta_desc">앱의 유지시간 타이머와 같은 모양으로 경과·남은 시간, 시작·완료 예정 시각을 크게 봅니다. 줄이면 한 줄이 됩니다</string>
+    <string name="widget_sch_label">내 일정</string>
+    <string name="widget_sch_desc">오늘과 내일 일정을 시간 순으로 봅니다. 줄이면 다음 일정 한 줄이 됩니다</string>
 </resources>

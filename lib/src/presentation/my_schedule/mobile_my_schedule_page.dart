@@ -1,3 +1,4 @@
+import 'schedule_widget.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
@@ -4890,6 +4891,101 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
     return count;
   } catch (_) {
     return 0;
+  }
+}
+
+/// 홈 화면 "내 일정" 위젯에 보일 오늘·내일 일정(안 끝낸 것). fetchTodayScheduleCount와 같은 규칙으로 센다.
+/// 읽지 못하면 null(위젯은 이전 값을 그대로 둔다).
+Future<List<WidgetAgendaItem>?> fetchWidgetAgenda(
+  String currentWorker, {
+  DateTime? now,
+  int days = 2,
+}) async {
+  try {
+    final t = now ?? DateTime.now();
+    final today = DateTime(t.year, t.month, t.day);
+    final out = <WidgetAgendaItem>[];
+
+    final repo = WorkProjectRepository();
+    final projects = await repo.fetchAllProjects();
+    final personalSnap = await FirebaseFirestore.instance
+        .collection(kPersonalSchedulesCollection)
+        .where('owner', isEqualTo: currentWorker)
+        .get();
+
+    for (var off = 0; off < days; off++) {
+      final day = DateTime(today.year, today.month, today.day + off);
+      for (final project in projects) {
+        for (final raw in (project['schedules'] as List<dynamic>? ?? [])) {
+          final s = Map<String, dynamic>.from(raw as Map);
+          if (s['dateTime'] == null || s['isCompleted'] == true) continue;
+          final date = _looseDate(s['dateTime']) ?? today;
+          if (!spanCoversDay(date, _looseDate(s['endDate']), day)) continue;
+          final rawTitle = (s['title'] as String?)?.trim();
+          final title = (rawTitle != null && rawTitle.isNotEmpty)
+              ? rawTitle
+              : ((s['type'] as String?) ?? '일정');
+          final sameDay = DateTime(date.year, date.month, date.day) == day;
+          out.add(
+            WidgetAgendaItem(
+              day: off,
+              time: sameDay ? agendaTime(date) : null,
+              title: title,
+            ),
+          );
+        }
+      }
+      for (final doc in personalSnap.docs) {
+        final data = doc.data();
+        if (data['dateTime'] == null) continue;
+        final base = _looseDate(data['dateTime']);
+        if (base == null) continue;
+        final title = (data['title'] as String?)?.trim().isNotEmpty == true
+            ? (data['title'] as String).trim()
+            : '제목 없음';
+        final hasTime = data['hasTime'] != false;
+        final recurrence = (data['recurrence'] as String?) ?? 'none';
+        final completedMap = Map<String, dynamic>.from(
+          data['completedOccurrences'] as Map? ?? {},
+        );
+        if (recurrence == 'none') {
+          if (!spanCoversDay(base, _looseDate(data['endDate']), day)) continue;
+          if (isSpanDayCompleted(
+            completedMap,
+            day,
+            wholeDone: data['isCompleted'] == true,
+          )) {
+            continue;
+          }
+          final sameDay = DateTime(base.year, base.month, base.day) == day;
+          out.add(
+            WidgetAgendaItem(
+              day: off,
+              time: sameDay ? agendaTime(base, hasTime: hasTime) : null,
+              title: title,
+            ),
+          );
+        } else if (recurrenceOccursOn(
+              base,
+              recurrence,
+              day,
+              until: readUntil(data),
+              exceptions: readExceptions(data),
+            ) &&
+            !isOccurrenceCompleted(completedMap, day)) {
+          out.add(
+            WidgetAgendaItem(
+              day: off,
+              time: agendaTime(base, hasTime: hasTime),
+              title: title,
+            ),
+          );
+        }
+      }
+    }
+    return out;
+  } catch (_) {
+    return null;
   }
 }
 

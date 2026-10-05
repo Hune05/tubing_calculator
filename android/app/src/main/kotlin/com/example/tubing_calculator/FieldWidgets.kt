@@ -71,15 +71,17 @@ object FieldWidgetStore {
     private const val KEY_SUMMARY = "summary"
     private const val KEY_CLOCK = "clock"
     private const val KEY_PT = "pt"
+    private const val KEY_SCHED = "sched"
 
     private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun save(c: Context, quick: String?, summary: String?, clock: String? = null, pt: String? = null) {
+    fun save(c: Context, quick: String?, summary: String?, clock: String? = null, pt: String? = null, sched: String? = null) {
         val e = prefs(c).edit()
         if (quick != null) e.putString(KEY_QUICK, quick)
         if (summary != null) e.putString(KEY_SUMMARY, summary)
         if (clock != null) e.putString(KEY_CLOCK, clock)
         if (pt != null) e.putString(KEY_PT, pt)
+        if (sched != null) e.putString(KEY_SCHED, sched)
         e.apply()
         if (pt != null) PressureTimer.scheduleRefresh(c)
     }
@@ -124,6 +126,16 @@ object FieldWidgetStore {
         }
     }
 
+    /** 내 일정 값: {"date":"yyyy-MM-dd","updatedAt":"HH:mm","todayCount":n,"items":[{"d":0|1,"t":"09:30","x":"제목"}]} */
+    fun sched(c: Context): JSONObject? {
+        val raw = prefs(c).getString(KEY_SCHED, null) ?: return null
+        return try {
+            JSONObject(raw)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun refreshAll(c: Context) {
         val mgr = AppWidgetManager.getInstance(c)
         val quickIds = mgr.getAppWidgetIds(ComponentName(c, QuickLaunchWidgetProvider::class.java))
@@ -138,6 +150,7 @@ object FieldWidgetStore {
         if (clockIds.isNotEmpty()) {
             for (id in clockIds) mgr.updateAppWidget(id, ClockWidgetProvider.build(c, id))
         }
+        for (id in mgr.getAppWidgetIds(ComponentName(c, ScheduleWidgetProvider::class.java))) mgr.updateAppWidget(id, ScheduleWidgetProvider.build(c, id))
         // 압력시험 타이머(앱 타이머형)
         for (id in mgr.getAppWidgetIds(ComponentName(c, PressureAppWidgetProvider::class.java))) mgr.updateAppWidget(id, PressureAppWidgetProvider.build(c))
     }
