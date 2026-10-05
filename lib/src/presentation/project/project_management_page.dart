@@ -1,3 +1,4 @@
+import '../my_work_logs/widgets/ai_polish_button.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
@@ -486,7 +487,11 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: AiPolishButton(controller: punchCtrl),
+                  ),
+                  const SizedBox(height: 8),
                   InkWell(
                     onTap: attachedImages.length >= 5
                         ? null
@@ -817,7 +822,11 @@ class _ProjectManagementPageState extends State<ProjectManagementPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: AiPolishButton(controller: noteCtrl),
+                    ),
+                    const SizedBox(height: 8),
 
                     InkWell(
                       onTap: attachedImages.length >= 5

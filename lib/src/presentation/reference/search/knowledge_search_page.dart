@@ -3,12 +3,21 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/field_view.dart';
+import '../../../core/utils/ai_ask.dart';
 import '../page/reference_widgets.dart';
 import 'knowledge_base.dart';
 import 'knowledge_entry.dart';
 
 class KnowledgeSearchPage extends StatefulWidget {
-  const KnowledgeSearchPage({super.key, this.entries, this.initialQuery = ''});
+  const KnowledgeSearchPage({
+    super.key,
+    this.entries,
+    this.initialQuery = '',
+    this.askAi = callAiAsk,
+  });
+
+  /// "AI에게 물어보기" 서버 호출(시험에서 바꿔 끼운다).
+  final AiAskCall askAi;
 
   /// 시험에서 바꿔 끼운다. 비우면 앱의 모든 자료.
   final List<KnowledgeEntry>? entries;
@@ -30,6 +39,68 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
   void dispose() {
     _c.dispose();
     super.dispose();
+  }
+
+  /// 앱 자료에서 답을 못 찾았을 때 AI에게 묻는다. 답은 따로 표시한 시트에 보인다.
+  void _askAi(String question) {
+    final q = question.trim();
+    if (q.length < 2) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: refWhite,
+      builder: (_) => _AiAnswerSheet(question: q, askAi: widget.askAi),
+    );
+  }
+
+  /// 검색 결과 아래(또는 결과가 없을 때)에 붙는 "AI에게 물어보기" 카드.
+  Widget _askAiCard(String q, {required bool noHits}) {
+    final tooLong = q.trim().length > kAiAskMaxChars;
+    return Container(
+      key: const Key('ks_ai_card'),
+      margin: EdgeInsets.only(top: noHits ? 0 : 14),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F7FF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFBBD7F5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF2563EB)),
+              const SizedBox(width: 6),
+              Text(
+                noHits ? '앱 자료에 없습니다' : '찾는 답이 없으면',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: refTextMain,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'AI에게 물어볼 수 있습니다. AI는 앱 자료가 아니라 자기가 아는 지식으로 답하므로 틀릴 수 있습니다. 질문 글만 전송됩니다.',
+            style: TextStyle(fontSize: 13, color: refTextSub, height: 1.45),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              key: const Key('ks_ask_ai'),
+              onPressed: tooLong ? null : () => _askAi(q),
+              icon: const Icon(Icons.auto_awesome),
+              label: Text(tooLong ? '질문이 너무 깁니다 (최대 $kAiAskMaxChars자)' : 'AI에게 물어보기'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showDetail(KnowledgeEntry e) {
@@ -184,24 +255,29 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
         ],
       );
     } else if (hits.isEmpty) {
-      body = Center(
+      body = ListView(
         key: const Key('ks_empty'),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+        children: [
+          Text(
             '찾는 자료가 없습니다.\n다른 낱말(증상, 코드, 장비 이름)로 다시 찾아 보십시오.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 15, color: refTextSub, height: 1.5),
           ),
-        ),
+          if (q.trim().length >= 2) ...[
+            const SizedBox(height: 18),
+            _askAiCard(q, noHits: true),
+          ],
+        ],
       );
     } else {
       body = ListView.separated(
         key: const Key('ks_list'),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        itemCount: hits.length,
+        itemCount: hits.length + (q.trim().length >= 2 ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (_, i) {
+          if (i == hits.length) return _askAiCard(q, noHits: false);
           final e = hits[i].entry;
           final snippet = e.lines.take(2).join('\n');
           return Material(
@@ -339,6 +415,171 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
               ),
             Expanded(child: body),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// AI 답 시트: 보내는 중 → 답(또는 실패). 위에 늘 "AI 답변·앱 자료 아님"을 표시하고,
+/// 안전과 관계된 질문이면 확인 경고를 더 크게 붙인다.
+class _AiAnswerSheet extends StatefulWidget {
+  const _AiAnswerSheet({required this.question, required this.askAi});
+
+  final String question;
+  final AiAskCall askAi;
+
+  @override
+  State<_AiAnswerSheet> createState() => _AiAnswerSheetState();
+}
+
+class _AiAnswerSheetState extends State<_AiAnswerSheet> {
+  late Future<AiAskResult> _future = widget.askAi(widget.question);
+
+  Widget _banner(String text, Color bg, Color fg, IconData icon, Key key) =>
+      Container(
+        key: key,
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 20, color: fg),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w700,
+                  color: fg,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    final safety = isSafetySensitive(widget.question);
+    return SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.85,
+        ),
+        child: SingleChildScrollView(
+          key: const Key('ks_ai_sheet'),
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _banner(
+                'AI 답변입니다. 앱 자료가 아니라 AI가 아는 지식이므로 틀릴 수 있습니다.',
+                const Color(0xFFEAF2FF),
+                const Color(0xFF1D4ED8),
+                Icons.auto_awesome,
+                const Key('ks_ai_banner'),
+              ),
+              if (safety)
+                _banner(
+                  '압력·전기·가스 등 안전과 관계된 질문입니다. 이 답만 믿고 작업하지 말고 설명서·절차서·안전 담당자에게 꼭 확인하십시오.',
+                  const Color(0xFFFEF2F2),
+                  const Color(0xFFB91C1C),
+                  Icons.priority_high,
+                  const Key('ks_ai_safety'),
+                ),
+              Text(
+                '질문',
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: refTextSub),
+              ),
+              const SizedBox(height: 2),
+              SelectableText(
+                widget.question,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: refTextMain, height: 1.4),
+              ),
+              const SizedBox(height: 14),
+              FutureBuilder<AiAskResult>(
+                future: _future,
+                builder: (context, snap) {
+                  if (snap.connectionState != ConnectionState.done) {
+                    return Padding(
+                      key: const Key('ks_ai_loading'),
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(strokeWidth: 2.5),
+                          ),
+                          const SizedBox(width: 12),
+                          Text('AI가 답하는 중입니다…', style: TextStyle(color: refTextSub)),
+                        ],
+                      ),
+                    );
+                  }
+                  final res = snap.data ?? const AiAskResult.fail('AI가 처리하지 못했습니다');
+                  if (!res.ok) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          res.error ?? 'AI가 처리하지 못했습니다',
+                          key: const Key('ks_ai_error'),
+                          style: TextStyle(fontSize: 15, color: refTextMain, height: 1.5),
+                        ),
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          key: const Key('ks_ai_retry'),
+                          onPressed: () {
+                            // setState 안에서 Future를 돌려주면 안 되므로 먼저 만들어 둔다.
+                            final next = widget.askAi(widget.question);
+                            setState(() {
+                              _future = next;
+                            });
+                          },
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('다시 묻기'),
+                        ),
+                      ],
+                    );
+                  }
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AI 답변',
+                        style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: refTextSub),
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        res.text!,
+                        key: const Key('ks_ai_answer'),
+                        style: TextStyle(fontSize: 16, color: refTextMain, height: 1.55),
+                      ),
+                      if (res.remaining != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(
+                            '오늘 남은 횟수 ${res.remaining}번',
+                            key: const Key('ks_ai_remaining'),
+                            style: TextStyle(fontSize: 12.5, color: refTextSub),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

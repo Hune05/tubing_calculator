@@ -1,3 +1,4 @@
+import '../widgets/ai_polish_button.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -505,7 +506,11 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   hintText: "예: 자재 입고가 2주 늦어짐",
                 ),
               ),
-              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerRight,
+                child: AiPolishButton(controller: cause),
+              ),
+              const SizedBox(height: 4),
               TextField(
                 controller: lesson,
                 maxLines: 3,
@@ -513,6 +518,10 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   labelText: "다음에 참고할 점",
                   hintText: "예: 자재는 시작하기 전에 미리 발주",
                 ),
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: AiPolishButton(controller: lesson),
               ),
             ],
           ),

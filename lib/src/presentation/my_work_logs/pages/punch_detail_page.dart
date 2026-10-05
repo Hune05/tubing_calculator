@@ -1,3 +1,4 @@
+import '../widgets/ai_polish_button.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -483,7 +484,11 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: AiPolishButton(controller: _resolutionCtrl),
+                    ),
+                    const SizedBox(height: 4),
                     _afterThumbs(editable: true),
                     const SizedBox(height: 16),
                     SizedBox(

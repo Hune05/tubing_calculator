@@ -1,3 +1,4 @@
+import '../../my_work_logs/widgets/ai_polish_button.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -837,7 +838,14 @@ class _MobileFabricationDetailScreenState
                       textInputAction: TextInputAction.newline,
                       onChanged: onTextChanged,
                     ),
-                    const SizedBox(height: 32),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: AiPolishButton(
+                        controller: memoCtrl,
+                        onChanged: () => onTextChanged(''),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       height: 56,

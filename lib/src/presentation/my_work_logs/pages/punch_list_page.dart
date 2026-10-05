@@ -1,3 +1,4 @@
+import '../widgets/ai_polish_button.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
@@ -614,9 +615,15 @@ class _PunchListPageState extends State<PunchListPage> {
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
-                child: VoiceInputButton(
-                  controller: _punchCtrl,
-                  label: "음성으로 이슈 내용 입력",
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  children: [
+                    AiPolishButton(controller: _punchCtrl),
+                    VoiceInputButton(
+                      controller: _punchCtrl,
+                      label: "음성으로 이슈 내용 입력",
+                    ),
+                  ],
                 ),
               ),
               TextField(

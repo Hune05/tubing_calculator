@@ -1663,9 +1663,18 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 ),
                 Align(
                   alignment: Alignment.centerRight,
-                  child: VoiceInputButton(
-                    controller: _nextDayPlanCtrl,
-                    onChanged: () => setState(() {}),
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    children: [
+                      AiPolishButton(
+                        controller: _nextDayPlanCtrl,
+                        onChanged: () => setState(() {}),
+                      ),
+                      VoiceInputButton(
+                        controller: _nextDayPlanCtrl,
+                        onChanged: () => setState(() {}),
+                      ),
+                    ],
                   ),
                 ),
               ],

@@ -484,6 +484,7 @@ exports.checkKecNotice = onSchedule(
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const aiPolish = require("./ai_polish");
 const aiMaterial = require("./ai_material");
+const aiAsk = require("./ai_ask");
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 const AI_OPTIONS = { secrets: [ANTHROPIC_API_KEY], region: "asia-northeast3", maxInstances: 5 };
 
@@ -556,6 +557,24 @@ exports.polishDailyNote = onCall({ ...AI_OPTIONS, timeoutSeconds: 30 }, async (r
         if (!text) throw new HttpsError("internal", "AI가 빈 답을 보냈습니다");
     } catch (e) {
         await refundDailyUse("ai_usage", uid);
+        throw e;
+    }
+    return { text, remaining: usage.limit - usage.count };
+});
+
+// 자료 검색에서 앱 자료로 답을 못 찾았을 때 "AI에게 물어보기". 질문 글만 받고, 하루 횟수 상한이 있다.
+exports.askFieldQuestion = onCall({ ...AI_OPTIONS, timeoutSeconds: 40 }, async (request) => {
+    const uid = requireUid(request);
+    const checked = aiAsk.validateQuestion(request.data && request.data.question);
+    if (checked.error) throw new HttpsError("invalid-argument", checked.error);
+    const usage = await takeDailyUse("ai_usage_ask", uid, aiAsk.DAILY_LIMIT);
+
+    let text;
+    try {
+        text = aiAsk.extractText(await callAnthropic(aiAsk.buildRequest(checked.question)));
+        if (!text) throw new HttpsError("internal", "AI가 빈 답을 보냈습니다");
+    } catch (e) {
+        await refundDailyUse("ai_usage_ask", uid);
         throw e;
     }
     return { text, remaining: usage.limit - usage.count };
