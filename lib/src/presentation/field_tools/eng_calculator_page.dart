@@ -567,17 +567,17 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         foregroundColor: _ink,
         title: Text(
           "공학용 계산기",
-          style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
+          // 아이콘이 네 개라 좁은 폰(약 350dp)에서 제목이 "공학…"로 잘리지 않게 작게 둔다.
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            color: _ink,
+            fontSize: 18,
+          ),
         ),
         actions: [
           IconButton(
-            key: const Key('calc_copy'),
-            icon: const Icon(Icons.copy_outlined),
-            tooltip: '결과 복사',
-            onPressed: _copyResult,
-          ),
-          IconButton(
             key: const Key('calc_unit_convert'),
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.swap_horiz),
             tooltip: '단위 환산',
             onPressed: () => Navigator.push(
@@ -587,6 +587,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           ),
           IconButton(
             key: const Key('calc_formulas'),
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.menu_book_outlined),
             tooltip: '공식으로 계산',
             onPressed: () => Navigator.push(
@@ -596,6 +597,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           ),
           IconButton(
             key: const Key('calc_settings'),
+            visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.tune),
             onPressed: _openSettings,
           ),
@@ -767,6 +769,20 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // 결과 복사(숫자를 길게 눌러도 된다). 앱바 아이콘은 좁은 폰에서 제목이 잘려서 여기로 옮겼다.
+            if (_live != null && _error == null)
+              Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: GestureDetector(
+                  key: const Key('calc_copy'),
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _copyResult,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Icon(Icons.copy_outlined, size: 20, color: _sub),
+                  ),
+                ),
+              ),
             if (_live?.exact != null)
               Padding(
                 padding: const EdgeInsets.only(right: 6),
@@ -804,7 +820,9 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                     child: FittedBox(
                       fit: BoxFit.contain,
                       alignment: Alignment.centerRight,
-                      child: Text(
+                      child: GestureDetector(
+                        onLongPress: _copyResult,
+                        child: Text(
                         big,
                         key: const Key('calc_display_result'),
                         style: TextStyle(
@@ -813,6 +831,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                           color: _error != null ? _danger : _ink,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
+                      ),
                       ),
                     ),
                   ),

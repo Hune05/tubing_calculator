@@ -1,5 +1,6 @@
 // 공학용 계산기 화면: 누름판으로 계산, FT 단추, 분수 표시, 설정, 오류, 좁은 폰.
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,6 +29,7 @@ String? fraction(WidgetTester tester) {
 
 void main() {
   moreTests();
+  titleTests();
   testWidgets('숫자·연산자를 누르면 바로 결과가 뜬다(=  없이도)', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_2');
@@ -569,5 +571,20 @@ void moreTests() {
     await tap(tester, 'calc_copy');
     expect(copied, '5');
     expect(find.textContaining('복사했습니다'), findsOneWidget);
+  });
+}
+
+// 좁은 폰(폴드 겉화면 약 347dp)에서 앱바 제목이 잘리지 않는다(아이콘 네 개 때문에 "공학…"으로 잘린 적 있다).
+void titleTests() {
+  testWidgets('좁은 폰(347dp)에서도 제목 "공학용 계산기"가 안 잘린다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(347, 770);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+    await tester.pump();
+    await tester.pump();
+    final p = tester.renderObject<RenderParagraph>(find.text('공학용 계산기'));
+    expect(p.didExceedMaxLines, isFalse);
   });
 }
