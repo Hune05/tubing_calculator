@@ -17,7 +17,7 @@
     <string name="widget_quick_small_empty">즐겨찾기 없음</string>
     <string name="widget_clock_break">휴게 알람</string>
     <string name="widget_clock_memo">메모</string>
-    <string name="widget_pt_label">압력시험 타이머</string>
+    <string name="widget_pt_label">압력 시험 타이머</string>
     <string name="widget_pt_open">시험 기록 열기</string>
     <string name="widget_ptd_label">압력시험 · 다이얼</string>
     <string name="widget_ptd_desc">눈금 다이얼에 남은 유지시간이 줄어드는 압력시험 타이머</string>
