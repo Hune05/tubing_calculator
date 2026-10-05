@@ -59,6 +59,7 @@
 
             <TextView
                 android:id="@+id/pt_title"
+        android:text="L-101"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
@@ -71,6 +72,7 @@
 
             <TextView
                 android:id="@+id/pt_chip"
+        android:text="유지 중"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/widget_chip_blue"
@@ -97,6 +99,7 @@
 
                 <TextView
                     android:id="@+id/pt_big"
+        android:visibility="gone"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:ellipsize="end"
@@ -105,14 +108,14 @@
                     android:textSize="30sp"
                     android:textStyle="bold" />
 
-                <Chronometer
+                <TextView
                     android:id="@+id/pt_timer"
+        android:text="24:35"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:textColor="@color/widget_pt_text"
                     android:textSize="36sp"
-                    android:textStyle="bold"
-                    android:visibility="gone" />
+                    android:textStyle="bold" />
             </FrameLayout>
 
             <ImageView
@@ -128,6 +131,7 @@
 
         <TextView
             android:id="@+id/pt_sub"
+        android:text="시작 10:15 · 완료 10:45"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"

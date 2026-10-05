@@ -79,7 +79,7 @@ class PressureWidgetProvider : AppWidgetProvider() {
         private fun face(c: Context): Face {
             val s = FieldWidgetStore.pt(c)
             val line = s?.optString("line").orEmpty()
-            val title = if (line.isEmpty()) "압력시험" else "압력시험 · $line"
+            val title = line
             val hold = s?.optDouble("holdMin", 0.0) ?: 0.0
             val now = System.currentTimeMillis()
             return when (s?.optString("phase")) {
@@ -105,8 +105,12 @@ class PressureWidgetProvider : AppWidgetProvider() {
             val small = buildSmall(c)
             val large = buildLarge(c)
             if (!WidgetCfg.bgOn(c, id)) {
-                WidgetCfg.applyPlain(small, intArrayOf(R.id.pt_s_text, R.id.pt_s_timer), intArrayOf(R.id.pt_s_sub), intArrayOf(), intArrayOf())
-                WidgetCfg.applyPlain(large, intArrayOf(R.id.pt_big, R.id.pt_timer), intArrayOf(R.id.pt_title, R.id.pt_sub), intArrayOf(), intArrayOf())
+                WidgetCfg.applyPlain(small, intArrayOf(R.id.pt_s_text), intArrayOf(), intArrayOf(), intArrayOf())
+                // 배경이 없어도 압력시험은 파랑 글자로 알아보게
+                small.setTextColor(R.id.pt_s_timer, 0xFF8DB8FF.toInt())
+                small.setTextColor(R.id.pt_s_sub, 0xFF8DB8FF.toInt())
+                WidgetCfg.applyPlain(large, intArrayOf(R.id.pt_big), intArrayOf(R.id.pt_title, R.id.pt_sub), intArrayOf(), intArrayOf())
+                large.setTextColor(R.id.pt_timer, 0xFF8DB8FF.toInt())
                 small.setInt(R.id.pt_s_btn_open, "setBackgroundResource", R.drawable.widget_circle_plain)
                 large.setInt(R.id.pt_btn_open, "setBackgroundResource", R.drawable.widget_circle_plain)
             }
@@ -142,7 +146,8 @@ class PressureWidgetProvider : AppWidgetProvider() {
         private fun buildSmall(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_pt_small)
             val f = face(c)
-            v.setTextViewText(R.id.pt_s_sub, f.title)
+            // 한 줄 모양의 아랫줄은 위젯 이름(파랑)으로 고정해 출퇴근 위젯과 헷갈리지 않게 한다. 라인 번호가 있으면 덧붙인다.
+            v.setTextViewText(R.id.pt_s_sub, if (f.title.isEmpty()) "압력시험 타이머" else "압력시험 · ${f.title}")
             if (f.remainMs > 0L) {
                 v.setViewVisibility(R.id.pt_s_timer, View.VISIBLE)
                 v.setViewVisibility(R.id.pt_s_text, View.GONE)

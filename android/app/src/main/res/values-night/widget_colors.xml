@@ -15,4 +15,7 @@
     <color name="widget_bg_80">#CC1E2428</color>
     <color name="widget_bg_60">#991E2428</color>
     <color name="widget_bg_40">#661E2428</color>
+    <color name="widget_pt">#3B82F6</color>
+    <color name="widget_pt_soft">#1E3358</color>
+    <color name="widget_pt_text">#8DB8FF</color>
 </resources>

@@ -15,4 +15,7 @@
     <color name="widget_bg_80">#CCFFFFFF</color>
     <color name="widget_bg_60">#99FFFFFF</color>
     <color name="widget_bg_40">#66FFFFFF</color>
+    <color name="widget_pt">#2563EB</color>
+    <color name="widget_pt_soft">#DCE8FF</color>
+    <color name="widget_pt_text">#1D4ED8</color>
 </resources>
