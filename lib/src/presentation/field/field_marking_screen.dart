@@ -13,6 +13,7 @@ import 'dart:convert';
 
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/field_view_picker.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -722,9 +723,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     final int doneCount = _done.length;
     final bool narrow =
         MediaQuery.sizeOf(context).height > MediaQuery.sizeOf(context).width;
+    // 폭 420 미만(폴드 겉화면 344 등): "절단"·"mm" 글자, 진행 막대, 구분선을 빼서 한 줄에 다 넣는다.
+    final bool compact = MediaQuery.sizeOf(context).width < 420;
     return Container(
       height: 56,
-      padding: EdgeInsets.symmetric(horizontal: narrow ? 8 : 16),
+      padding: EdgeInsets.symmetric(horizontal: compact ? 4 : (narrow ? 8 : 16)),
       decoration: BoxDecoration(
         color: fc.surface,
         border: Border(bottom: BorderSide(color: _line)),
@@ -734,14 +737,15 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           Text.rich(
             TextSpan(
               children: [
-                TextSpan(
-                  text: '절단  ',
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: _muted,
-                    fontWeight: FontWeight.w600,
+                if (!compact)
+                  TextSpan(
+                    text: '절단  ',
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: _muted,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
                 TextSpan(
                   text: data.totalCut.round().toString(),
                   style: TextStyle(
@@ -751,10 +755,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                     letterSpacing: -0.5,
                   ),
                 ),
-                TextSpan(
-                  text: ' mm',
-                  style: TextStyle(fontSize: 13, color: _muted),
-                ),
+                if (!compact)
+                  TextSpan(
+                    text: ' mm',
+                    style: TextStyle(fontSize: 13, color: _muted),
+                  ),
               ],
             ),
           ),
@@ -783,14 +788,15 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               child: Row(
                 children: [
                   Text(
-                    '${_current + 1} / ${steps.length}',
+                    compact ? '${_current + 1}/${steps.length}' : '${_current + 1} / ${steps.length}',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
                       color: _muted,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  if (!compact) const SizedBox(width: 12),
+                  if (!compact)
                   Expanded(
                     // 넓으면 남는 폭을 다 쓰고, 좁은 폭(밀어 보기)에서도 60쯤은 보이게.
                     // 세로 화면(폭 좁음)에서는 막대를 짧게 해 "닫기"까지 한 줄에 들어오게 한다.
@@ -821,57 +827,23 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           // 🚀 [바꿈] 앱 아래 탭과 같은 모양: 아이콘 + 짧은 이름, 테두리 없음.
           // 켜진 것만 청록 바탕을 옅게 깐다. 보기(누적·간격·햇빛)와
           // 움직임(한 단계·닫기) 사이에 가는 선.
-          Row(
-            key: const Key('field_gap_toggle'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _toolButton(
-                key: const Key('field_cumulative'),
-                icon: AppGlyph.fieldCumulative,
-                label: '누적',
-                selected: !_showGap,
-                onTap: () => _setShowGap(false),
-              ),
-              _toolButton(
-                key: const Key('field_gap'),
-                icon: AppGlyph.fieldGap,
-                label: '간격',
-                selected: _showGap,
-                onTap: () => _setShowGap(true),
-              ),
-            ],
-          ),
+          _viewSegments(),
+          // 햇빛(보통·햇빛·야간)과 소리는 자주 안 바꿔서 단추 하나("보기")로 묶었다.
+          // 보통이 아닌 보기이거나 소리가 켜져 있으면 켜진 모양으로 알린다.
           _toolButton(
-            key: const Key('field_contrast_toggle'),
+            key: const Key('field_view_menu'),
             icon: AppGlyph.fieldSun,
-            label: '햇빛',
-            selected: _highContrast,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              FieldColors.set(
-                _highContrast ? FieldViewMode.normal : FieldViewMode.sunlight,
-              );
-              setState(() {});
-            },
+            label: '보기',
+            selected: FieldColors.mode.value != FieldViewMode.normal || _sound,
+            onTap: _openViewMenu,
           ),
-          _toolButton(
-            key: const Key('field_sound_toggle'),
-            icon: _sound ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-            label: '소리',
-            selected: _sound,
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _sound = !_sound);
-              _saveViewPref(_soundKey, _sound);
-              if (_sound) SystemSound.play(SystemSoundType.click);
-            },
-          ),
-          Container(
-            width: 1,
-            height: 28,
-            margin: const EdgeInsets.symmetric(horizontal: 6),
-            color: _line,
-          ),
+          if (!compact)
+            Container(
+              width: 1,
+              height: 28,
+              margin: const EdgeInsets.symmetric(horizontal: 6),
+              color: _line,
+            ),
           _toolButton(
             key: const Key('field_mode_toggle'),
             icon: AppGlyph.fieldSteps,
@@ -889,6 +861,139 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         ],
       ),
     );
+  }
+
+  /// 위쪽 막대 단추 한 칸의 폭. 가로 54, 세로 44, 아주 좁은 폰(폭 420 미만)은 40.
+  double _toolWidth() {
+    final s = MediaQuery.sizeOf(context);
+    if (s.height <= s.width) return 54;
+    return s.width < 420 ? 38 : 44;
+  }
+
+  /// 누적 | 간격: 둘 중 하나만 고르는 설정이라 한 덩어리(전환 단추)로 둔다.
+  Widget _viewSegments() {
+    final bool narrow =
+        MediaQuery.sizeOf(context).height > MediaQuery.sizeOf(context).width;
+    Widget seg(
+      Key key,
+      Object icon,
+      String label,
+      bool selected,
+      VoidCallback onTap,
+    ) {
+      final fg = selected ? _teal : _muted;
+      return Semantics(
+        button: true,
+        selected: selected,
+        label: label,
+        child: Material(
+          color: selected ? _teal.withValues(alpha: 0.10) : Colors.transparent,
+          child: InkWell(
+            key: key,
+            onTap: onTap,
+            child: SizedBox(
+              width: _toolWidth(),
+              height: 46,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  anyIcon(icon, size: 21, color: fg),
+                  const SizedBox(height: 2),
+                  Text(
+                    label,
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontSize: 11,
+                      height: 1.1,
+                      fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                      color: fg,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: narrow ? 1 : 3),
+      child: Container(
+        key: const Key('field_gap_toggle'),
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          border: Border.all(color: _line),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            seg(
+              const Key('field_cumulative'),
+              AppGlyph.fieldCumulative,
+              '누적',
+              !_showGap,
+              () => _setShowGap(false),
+            ),
+            Container(width: 1, height: 30, color: _line),
+            seg(
+              const Key('field_gap'),
+              AppGlyph.fieldGap,
+              '간격',
+              _showGap,
+              () => _setShowGap(true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// "보기" 창: 현장 보기(보통·햇빛·야간)와 단계 소리. 고르면 바로 바뀐다.
+  Future<void> _openViewMenu() async {
+    HapticFeedback.selectionClick();
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => FieldViewTheme(
+        child: StatefulBuilder(
+          builder: (ctx, setDialog) => AlertDialog(
+            title: const Text('보기'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const FieldViewModePicker(),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    key: const Key('field_view_sound'),
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('단계 넘길 때 소리'),
+                    subtitle: const Text('딸깍 소리가 납니다(진동은 늘 납니다)'),
+                    value: _sound,
+                    onChanged: (v) {
+                      setState(() => _sound = v);
+                      setDialog(() {});
+                      _saveViewPref(_soundKey, v);
+                      if (v) SystemSound.play(SystemSoundType.click);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                key: const Key('field_view_close'),
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('닫기'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
   }
 
   void _setShowGap(bool v) {
@@ -924,7 +1029,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           child: InkWell(
             onTap: onTap,
             child: SizedBox(
-              width: narrow ? 44 : 54,
+              width: _toolWidth(),
               height: 46,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,

@@ -149,7 +149,12 @@ void main() {
       final old = FlutterError.onError;
       FlutterError.onError = (d) => errors.add(d.exceptionAsString());
       await pump(tester, sample(inch: FieldInchMode.fraction));
-      await tester.tap(find.byKey(const Key('field_contrast_toggle')));
+      // 햇빛은 "보기" 창에서 고른다(헤더 단추를 하나로 묶었다).
+      await tester.tap(find.byKey(const Key('field_view_menu')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('field_view_sunlight')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('field_view_close')));
       await tester.pumpAndSettle();
       expect(
         tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,

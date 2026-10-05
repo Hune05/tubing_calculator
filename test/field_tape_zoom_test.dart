@@ -334,9 +334,14 @@ void extrasTests() {
     await tester.pumpAndSettle();
     expect(calls.length, 2); // 우리 소리는 꺼져 있어 안 더해진다
 
-    await tester.tap(find.byKey(const Key('field_sound_toggle')));
+    // 소리는 "보기" 창에서 켠다(헤더 단추를 하나로 묶었다).
+    await tester.tap(find.byKey(const Key('field_view_menu')));
     await tester.pumpAndSettle();
-    calls.clear(); // 켤 때 들려 주는 소리는 뺀다
+    await tester.tap(find.byKey(const Key('field_view_sound')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('field_view_close')));
+    await tester.pumpAndSettle();
+    calls.clear(); // 켤 때 들려 주는 소리·창 단추 소리는 뺀다
     await tester.tap(find.text('다음')); // 터치 소리 1 + 우리 소리 1
     await tester.pumpAndSettle();
     expect(calls.length, 2);
