@@ -4,8 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
+    android:gravity="center_vertical"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="14dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,138 +14,139 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:contentDescription="@null"
-            android:src="@mipmap/ic_launcher" />
-
-        <TextView
-            android:id="@+id/clock_title"
+        <FrameLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1">
+
+            <TextView
+                android:id="@+id/clock_big"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/widget_text"
+                android:textSize="32sp"
+                android:textStyle="bold" />
+
+            <Chronometer
+                android:id="@+id/clock_timer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/widget_text"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <ImageView
+            android:id="@+id/clock_btn_in"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
             android:layout_marginStart="8dp"
+            android:background="@drawable/widget_circle_green"
+            android:contentDescription="@string/widget_clock_in"
+            android:padding="11dp"
+            android:src="@drawable/ic_widget_play" />
+
+        <ImageView
+            android:id="@+id/clock_btn_out"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_circle_red"
+            android:contentDescription="@string/widget_clock_out"
+            android:padding="11dp"
+            android:src="@drawable/ic_widget_stop"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/clock_btn_break"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_circle_orange"
+            android:contentDescription="@string/widget_clock_break"
+            android:padding="11dp"
+            android:src="@drawable/ic_widget_cup"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/clock_btn_memo"
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_circle_green"
+            android:contentDescription="@string/widget_clock_memo"
+            android:padding="11dp"
+            android:src="@drawable/ic_widget_note"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/clock_sub"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
             android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/widget_sub"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+            android:textSize="12sp" />
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:contentDescription="@null"
+            android:src="@mipmap/ic_launcher" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/clock_chips"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
 
         <TextView
-            android:id="@+id/clock_chip"
+            android:id="@+id/clock_chip_break"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:background="@drawable/widget_chip_bg"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:paddingStart="9dp"
-            android:paddingTop="2dp"
+            android:paddingTop="3dp"
             android:paddingEnd="9dp"
-            android:paddingBottom="2dp"
+            android:paddingBottom="3dp"
             android:textColor="@color/widget_brand"
             android:textSize="11sp"
             android:textStyle="bold"
             android:visibility="gone" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/clock_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/widget_text"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <Chronometer
-            android:id="@+id/clock_timer"
+            android:id="@+id/clock_chip_memo"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
+            android:layout_marginStart="6dp"
+            android:background="@drawable/widget_chip_bg"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:paddingStart="9dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="9dp"
+            android:paddingBottom="3dp"
             android:textColor="@color/widget_brand"
-            android:textSize="14sp"
+            android:textSize="11sp"
             android:textStyle="bold"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_marginTop="8dp"
-        android:layout_weight="1"
-        android:orientation="horizontal">
-
-        <LinearLayout
-            android:id="@+id/clock_btn_in"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@drawable/widget_btn_bg"
-            android:gravity="center"
-            android:minHeight="38dp"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_widget_login" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="@string/widget_clock_in"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/clock_btn_out"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:background="@drawable/widget_btn_out_bg"
-            android:gravity="center"
-            android:minHeight="38dp"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_widget_logout" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="6dp"
-                android:text="@string/widget_clock_out"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/clock_done_note"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="@drawable/widget_tile_bg"
-            android:gravity="center"
-            android:text="@string/widget_clock_done"
-            android:textColor="@color/widget_sub"
-            android:textSize="13sp"
             android:visibility="gone" />
     </LinearLayout>
 </LinearLayout>

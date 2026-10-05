@@ -15,4 +15,13 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- 위젯 [휴게]·[메모] 창: 위에서 내려오는 투명 바탕 창 -->
+    <style name="QuickWindowTheme" parent="@android:style/Theme.DeviceDefault.Light.Dialog.NoActionBar">
+        <item name="android:windowAnimationStyle">@style/QuickWindowAnim</item>
+        <item name="android:windowIsFloating">true</item>
+    </style>
+    <style name="QuickWindowAnim" parent="@android:style/Animation.Dialog">
+        <item name="android:windowEnterAnimation">@anim/slide_down_in</item>
+        <item name="android:windowExitAnimation">@anim/slide_up_out</item>
+    </style>
 </resources>

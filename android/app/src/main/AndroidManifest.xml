@@ -106,6 +106,14 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/summary_widget_info" />
         </receiver>
+        <!-- 출퇴근 위젯의 [휴게]·[메모] 창: 위에서 내려오는 작은 창(ClockQuickActivity.kt). -->
+        <activity
+            android:name=".ClockQuickActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@style/QuickWindowTheme" />
         <!-- 위젯별 설정(투명도·모양): 위젯을 올릴 때와 길게 눌러 "설정"으로 다시 열 때 뜬다. -->
         <activity
             android:name=".WidgetConfigActivity"

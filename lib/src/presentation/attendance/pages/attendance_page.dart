@@ -160,7 +160,8 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future<void> _loadClock() async {
-    final y = DateTime(_today.year, _today.month, _today.day - 1);
+    // 어제·오늘 기록과, 위젯의 "지난 퇴근" 줄에 쓸 일주일 치.
+    final y = DateTime(_today.year, _today.month, _today.day - 7);
     Map<String, AttendanceRecord>? m;
     try {
       m = await _loader(y, _today);
@@ -186,7 +187,9 @@ class _AttendancePageState extends State<AttendancePage> {
   void _syncOutside() {
     final st = _clockStatus();
     if (st == null) return;
-    HomeWidgetSync.push(clockJson: encodeClockWidgetPayload(st, _now()));
+    HomeWidgetSync.push(
+      clockJson: encodeClockWidgetPayload(st, _now(), records: _clockRecs),
+    );
     syncClockOutReminder(
       enabled: _settings.clockOutReminder,
       workEnd: _settings.workEnd,

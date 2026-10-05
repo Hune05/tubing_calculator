@@ -4,13 +4,16 @@ import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart
 import 'package:tubing_calculator/src/presentation/alignment/alignment_page.dart';
 import 'package:tubing_calculator/src/presentation/alignment/alignment_guide_page.dart';
 import 'package:tubing_calculator/src/presentation/drawing_viewer/drawing_library_page.dart';
-import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart' show summarize;
+import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart'
+    show summarize;
 import 'package:tubing_calculator/src/presentation/equipment/equipment_pages.dart';
-import 'package:tubing_calculator/src/presentation/equipment/equipment_reminders.dart' show rescheduleEquipmentReminders;
+import 'package:tubing_calculator/src/presentation/equipment/equipment_reminders.dart'
+    show rescheduleEquipmentReminders;
 import 'package:tubing_calculator/src/presentation/equipment/equipment_store.dart';
 import 'package:tubing_calculator/src/presentation/bend_check/bend_check_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
-import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart' show allMaterialCatalog;
+import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart'
+    show allMaterialCatalog;
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/attendance.dart'
     show AttendanceCache, dateKey, loadAttendanceRange;
@@ -345,7 +348,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     WidgetsBinding.instance.addObserver(this);
     _loadEquipmentDue();
     // 공구 점검 기한 알림을 다시 잡는다(폰을 껐다 켜거나 다른 폰에서 고쳐도 맞게).
-    EquipmentStore.load().then(rescheduleEquipmentReminders).catchError((_) => 0);
+    EquipmentStore.load()
+        .then(rescheduleEquipmentReminders)
+        .catchError((_) => 0);
     _fetchDetailedWeather();
     // 다른 기기(폰↔태블릿)에서 고친 계산기 설정이 더 새로우면 받는다(기다리지 않음, 통신이 없으면 그대로).
     pullNewerCalculatorSettings();
@@ -390,10 +395,19 @@ class _MobileMenuPageState extends State<MobileMenuPage>
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final y = DateTime(now.year, now.month, now.day - 1);
-    final recs = await loadAttendanceRange(y, today);
+    final recs = await loadAttendanceRange(
+      DateTime(now.year, now.month, now.day - 7),
+      today,
+    );
     if (!mounted || recs == null) return;
-    final st = clockStatus(now: now, today: recs[dateKey(today)], yesterday: recs[dateKey(y)]);
-    HomeWidgetSync.push(clockJson: encodeClockWidgetPayload(st, now));
+    final st = clockStatus(
+      now: now,
+      today: recs[dateKey(today)],
+      yesterday: recs[dateKey(y)],
+    );
+    HomeWidgetSync.push(
+      clockJson: encodeClockWidgetPayload(st, now, records: recs),
+    );
   }
 
   /// 빠른 실행 위젯에 지금 즐겨찾기 순서를 넘긴다(같은 값이면 안 보낸다).
@@ -1495,7 +1509,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const ShortPipeCuttingPage(),
+                              builder: (context) =>
+                                  const ShortPipeCuttingPage(),
                             ),
                           );
                         },
@@ -1642,7 +1657,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "고장 진단",
-                        subtitle: "차단기 트립·전압 이상·접속부 발열·지락·조명·변압기·전동기를 질문과 측정값으로 좁히기",
+                        subtitle:
+                            "차단기 트립·전압 이상·접속부 발열·지락·조명·변압기·전동기를 질문과 측정값으로 좁히기",
                         icon: AppGlyph.troubleshoot,
                         onTap: () {
                           HapticFeedback.lightImpact();
@@ -1665,9 +1681,10 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const ElectricCalculatorPage(
-                                group: ElecGroup.motor,
-                              ),
+                              builder: (context) =>
+                                  const ElectricCalculatorPage(
+                                    group: ElecGroup.motor,
+                                  ),
                             ),
                           );
                         },
@@ -1780,7 +1797,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "도면 보기",
-                        subtitle: "PDF·DXF·사진 도면 보기 · 틀림·질문 표시 · 문제 목록 · 표시한 PDF 보내기",
+                        subtitle:
+                            "PDF·DXF·사진 도면 보기 · 틀림·질문 표시 · 문제 목록 · 표시한 PDF 보내기",
                         icon: AppGlyph.layout,
                         iconColor: slate900,
                         onTap: () {
@@ -2124,8 +2142,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      MobileInventoryStatusPage(workerName: widget.currentWorker),
+                  builder: (_) => MobileInventoryStatusPage(
+                    workerName: widget.currentWorker,
+                  ),
                 ),
               );
               return;

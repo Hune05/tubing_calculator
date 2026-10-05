@@ -147,13 +147,46 @@ String clockWidgetText(ClockStatus st) {
   }
 }
 
-/// 위젯에 넘길 값(JSON). 위젯은 [date]가 오늘이 아니면 낡은 값으로 보고 단추를 둘 다 보인다.
+/// 가장 가까운 지난 퇴근을 "어제 17:30 퇴근"·"10월 3일 17:30 퇴근"으로(일주일 안, 없으면 null).
+String? lastCheckOutText(
+  Map<String, AttendanceRecord>? records,
+  DateTime today,
+) {
+  if (records == null) return null;
+  final t = _day(today);
+  for (var i = 1; i <= 7; i++) {
+    final d = DateTime(t.year, t.month, t.day - i);
+    final r = records[dateKey(d)];
+    final out = r?.checkOut;
+    if (r != null && out != null && minutesOfDay(out) != null) {
+      return '${i == 1 ? '어제' : '${d.month}월 ${d.day}일'} $out 퇴근';
+    }
+  }
+  return null;
+}
+
+/// 분 → "H:MM"(위젯 큰 글용). 음수는 0.
+String _hMm(int minutes) {
+  final m = minutes < 0 ? 0 : minutes;
+  return '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
+}
+
+/// 위젯에 넘길 값(JSON). 위젯은 [date]가 오늘이 아니면 낡은 값으로 보고 시작 단추만 보인다.
 /// [phase]는 ready / working / done / off.
-String encodeClockWidgetPayload(ClockStatus st, DateTime now) {
+/// - big: 근무 중이 아닐 때 큰 글(출근 전 "00:00", 퇴근 뒤 근무 시간 "8:31", 쉬는 날).
+/// - sub: 아랫줄(출근 전엔 지난 퇴근 "어제 17:30 퇴근", 근무 중엔 "08:05 출근").
+/// - brk·memo: 이 날 기록의 휴게(분)·메모(위젯 칩으로 보인다).
+/// [records]는 최근 기록(지난 퇴근 줄을 만들 때 쓴다).
+String encodeClockWidgetPayload(
+  ClockStatus st,
+  DateTime now, {
+  Map<String, AttendanceRecord>? records,
+}) {
+  final r = st.record;
   // 근무 중이면 출근 시각(epoch ms)도 넘겨, 위젯이 스스로 흐른 시간을 센다.
   int? since;
   if (st.phase == ClockPhase.working) {
-    final m = minutesOfDay(st.record?.checkIn);
+    final m = minutesOfDay(r?.checkIn);
     if (m != null) {
       since = DateTime(
         st.day.year,
@@ -164,11 +197,35 @@ String encodeClockWidgetPayload(ClockStatus st, DateTime now) {
       ).millisecondsSinceEpoch;
     }
   }
+  String big;
+  String sub;
+  switch (st.phase) {
+    case ClockPhase.ready:
+      big = '00:00';
+      sub = lastCheckOutText(records, now) ?? '오늘 출근 전';
+    case ClockPhase.working:
+      big = '';
+      sub =
+          '${r?.checkIn ?? '--:--'} 출근${st.day.isBefore(_day(now)) ? ' (어제)' : ''}';
+    case ClockPhase.done:
+      final stay = stayMinutesOf(r?.checkIn, r?.checkOut);
+      big = stay == null ? '--:--' : _hMm(stay - (r?.breakMin ?? 0));
+      sub = '${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}';
+    case ClockPhase.off:
+      big = '쉬는 날';
+      sub = '오늘은 ${r?.type ?? ''}입니다';
+  }
+  final memo = r?.memo?.trim();
   return jsonEncode({
     'date': dateKey(now),
     'phase': st.phase.name,
     'text': clockWidgetText(st),
+    'big': big,
+    'sub': sub,
     'since': ?since,
+    if (st.phase == ClockPhase.working || st.phase == ClockPhase.done)
+      'brk': ?r?.breakMin,
+    if (memo != null && memo.isNotEmpty) 'memo': memo,
   });
 }
 

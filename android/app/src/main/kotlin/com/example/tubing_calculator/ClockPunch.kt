@@ -58,7 +58,7 @@ object ClockPunch {
     private const val OVERNIGHT_START_MIN = 15 * 60
     private const val OVERNIGHT_MAX_MIN = 16 * 60
 
-    private class Rec(val type: String, val checkIn: String?, val checkOut: String?)
+    private class Rec(val type: String, val checkIn: String?, val checkOut: String?, val breakMin: Int? = null, val memo: String? = null)
 
     private fun dateKey(c: Calendar) = String.format(
         Locale.US, "%04d-%02d-%02d", c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH)
@@ -116,7 +116,10 @@ object ClockPunch {
         val out = HashMap<String, Rec>()
         for (d in snap.documents) {
             val date = d.getString("date") ?: continue
-            out[date] = Rec(d.getString("type") ?: "정상근무", d.getString("checkIn"), d.getString("checkOut"))
+            out[date] = Rec(
+                d.getString("type") ?: "정상근무", d.getString("checkIn"), d.getString("checkOut"),
+                d.getLong("breakMin")?.toInt(), d.getString("memo")?.takeIf { it.isNotBlank() }
+            )
         }
         return out
     }
@@ -135,12 +138,22 @@ object ClockPunch {
         }
     }
 
-    private fun saveClock(c: Context, todayKey: String, phase: String, text: String, sinceMs: Long) {
+    private fun hmm(min: Int) = String.format(Locale.US, "%d:%02d", min / 60, min % 60)
+
+    /** 위젯이 그릴 상태를 저장한다. big은 근무 중이 아닐 때 큰 글(00:00, 근무 시간), sub는 아랫줄. */
+    private fun saveClock(
+        c: Context, todayKey: String, phase: String, text: String, sinceMs: Long,
+        big: String, sub: String, brk: Int?, memo: String?
+    ) {
         val o = JSONObject()
             .put("date", todayKey)
             .put("phase", phase)
             .put("text", text)
             .put("since", sinceMs)
+            .put("big", big)
+            .put("sub", sub)
+        if (brk != null) o.put("brk", brk)
+        if (!memo.isNullOrBlank()) o.put("memo", memo)
         FieldWidgetStore.save(c, null, null, o.toString())
         FieldWidgetStore.refreshAll(c)
     }
@@ -185,7 +198,7 @@ object ClockPunch {
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }.timeInMillis
-            saveClock(c, todayKey, "working", "$nowText 출근 · 근무 중", since)
+            saveClock(c, todayKey, "working", "$nowText 출근 · 근무 중", since, "", "$nowText 출근", t?.breakMin, t?.memo)
             // 앱이 꺼져 있어도 퇴근 깜빡 알림이 잡히게 한다(설정에서 켜 둔 경우만).
             ClockReminder.scheduleFromSettings(c)
             return note ?: "출근 $nowText 저장했습니다."
@@ -213,10 +226,69 @@ object ClockPunch {
         ClockReminder.cancel(c)
         if (targetKey == yestKey) {
             // 밤샘 퇴근: 오늘 기록은 아직 없으니 출근 전으로 돌아간다.
-            saveClock(c, todayKey, "ready", "오늘 출근 전", 0L)
+            saveClock(c, todayKey, "ready", "오늘 출근 전", 0L, "00:00", "$nowText 퇴근", null, null)
         } else {
-            saveClock(c, todayKey, "done", "${target.checkIn} ~ $nowText", 0L)
+            saveClock(
+                c, todayKey, "done", "${target.checkIn} ~ $nowText", 0L,
+                hmm((stay - (target.breakMin ?: 0)).coerceAtLeast(0)), "${target.checkIn} ~ $nowText",
+                target.breakMin, target.memo
+            )
         }
         return note ?: "퇴근 $nowText 저장했습니다 · 출근~퇴근 ${minutesText(stay)}"
+    }
+
+    /**
+     * [메모]·[휴게] 창이 저장할 때 부른다. 지금 근무 중인 기록(밤샘이면 어제 것, 아니면 오늘 것)에 칸 하나만 합쳐 쓴다.
+     * 출퇴근 시각은 건드리지 않는다. 쓸 기록이 없으면(출근 전) 안내만 한다.
+     */
+    fun setField(c: Context, memo: String?, brk: Int?): String {
+        val user = FirebaseAuth.getInstance().currentUser
+            ?: return "로그인이 안 되어 있습니다. 앱을 열어 로그인하세요."
+        val uid = user.uid
+        val now = Calendar.getInstance()
+        val yest = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, -1) }
+        val todayKey = dateKey(now)
+        val yestKey = dateKey(yest)
+        val recs = load(uid, yestKey, todayKey)
+            ?: return "기록을 읽지 못해 저장하지 않았습니다. 앱에서 확인하세요."
+        val y = recs[yestKey]
+        val t = recs[todayKey]
+        var overnight = false
+        if (isOpen(y)) {
+            val m = minutesOf(y!!.checkIn)!!
+            val start = (yest.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, m / 60)
+                set(Calendar.MINUTE, m % 60)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val elapsed = (now.timeInMillis - start.timeInMillis) / 60000
+            overnight = m >= OVERNIGHT_START_MIN && elapsed in 0..OVERNIGHT_MAX_MIN.toLong()
+        }
+        val targetKey = if (overnight) yestKey else todayKey
+        val target = if (overnight) y else t
+        if (target == null || minutesOf(target.checkIn) == null) {
+            return "출근한 뒤에 쓸 수 있습니다. 먼저 출근을 찍어 주세요."
+        }
+        val data = HashMap<String, Any?>()
+        data["date"] = targetKey
+        data["uid"] = uid
+        if (memo != null) data["memo"] = memo
+        if (brk != null) data["breakMin"] = brk
+        val note = write(uid, targetKey, data)
+
+        // 위젯 상태에도 바로 반영
+        val old = FieldWidgetStore.clock(c)
+        val phase = old?.optString("phase").orEmpty()
+        if (old != null && phase.isNotEmpty()) {
+            val newBrk = if (brk != null) brk else (if (old.has("brk")) old.optInt("brk") else null)
+            val newMemo = if (memo != null) memo else old.optString("memo")
+            val sub = old.optString("sub")
+            val big = old.optString("big")
+            saveClock(
+                c, todayKey, phase, old.optString("text"), old.optLong("since", 0L), big, sub, newBrk, newMemo
+            )
+        }
+        return note ?: if (memo != null) "메모를 저장했습니다." else "휴게시간을 ${if (brk == 0) "없음" else minutesText(brk ?: 0)}으로 저장했습니다."
     }
 }

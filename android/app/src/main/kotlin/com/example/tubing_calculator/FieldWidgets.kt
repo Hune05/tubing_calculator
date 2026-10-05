@@ -141,6 +141,18 @@ object FieldWidgetStore {
         )
     }
 
+    /** [휴게]·[메모] 창(ClockQuickActivity)을 여는 단추. */
+    fun quickWindowIntent(c: Context, mode: String, code: Int): PendingIntent {
+        val i = Intent(c, ClockQuickActivity::class.java).apply {
+            putExtra(ClockQuickActivity.EXTRA_MODE, mode)
+            data = Uri.parse("fieldwidget://quick/$mode")
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        return PendingIntent.getActivity(
+            c, code, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
     fun todayText(): String {
         val now = Date()
         val day = SimpleDateFormat("M월 d일", Locale.KOREA).format(now)
@@ -263,10 +275,10 @@ class SummaryWidgetProvider : AppWidgetProvider() {
 }
 
 /**
- * 출퇴근 위젯: 오늘 상태와 [출근]·[퇴근] 단추.
- * 단추는 앱을 열지 않고 ClockPunch가 지금 시각으로 바로 기록한다(앱에서 로그인해 둔 계정으로).
- * 위젯 본문을 누르면 앱의 근태 화면이 열린다.
- * 앱이 마지막으로 넘긴 날짜가 오늘이 아니면(낡은 값) 상태를 믿지 않고 단추를 둘 다 보인다.
+ * 출퇴근 위젯: 출근 전에는 큰 시간(00:00)과 [시작] 단추 하나, 출근하면 흐르는 시간과 단추 셋
+ * ([퇴근]=정지, [휴게], [메모])으로 늘어난다. 단추는 앱을 열지 않는다:
+ * 시작·정지는 ClockPunch가 바로 기록하고, 휴게·메모는 위에서 내려오는 작은 창(ClockQuickActivity)에서 고른다.
+ * 앱이 마지막으로 넘긴 날짜가 오늘이 아니면(낡은 값) 상태를 믿지 않고 시작 단추만 보인다.
  */
 class ClockWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -281,21 +293,21 @@ class ClockWidgetProvider : AppWidgetProvider() {
         fun build(c: Context, id: Int = 0): RemoteViews {
             val small = ClockSmallWidgetProvider.build(c)
             val large = buildLarge(c)
-        if (!WidgetCfg.bgOn(c, id)) {
-            WidgetCfg.applyPlain(small, intArrayOf(R.id.clock_s_text), intArrayOf(R.id.clock_s_sub), intArrayOf(R.id.clock_s_timer), intArrayOf())
-            // 배경이 없을 때 단추만 진한 청록 덩어리로 떠 보이지 않게, 반투명 흰 테두리 모양으로 바꾼다.
-            for (b in intArrayOf(R.id.clock_s_btn_in, R.id.clock_s_btn_out)) small.setInt(b, "setBackgroundResource", R.drawable.widget_btn_plain)
-            // 배경 없이 단추만 진한 색으로 떠 보이지 않게, 단추도 배경화면에 어울리는 반투명 테두리 모양으로 바꾼다.
-            for (b in intArrayOf(R.id.clock_s_btn_in, R.id.clock_s_btn_out)) small.setInt(b, "setBackgroundResource", R.drawable.widget_btn_plain)
-            WidgetCfg.applyPlain(large, intArrayOf(R.id.clock_text, R.id.clock_done_note), intArrayOf(R.id.clock_title), intArrayOf(R.id.clock_timer), intArrayOf(R.id.clock_done_note))
-            for (b in intArrayOf(R.id.clock_btn_in, R.id.clock_btn_out)) large.setInt(b, "setBackgroundResource", R.drawable.widget_btn_plain)
-            for (b in intArrayOf(R.id.clock_btn_in, R.id.clock_btn_out)) large.setInt(b, "setBackgroundResource", R.drawable.widget_btn_plain)
-        }
+            if (!WidgetCfg.bgOn(c, id)) {
+                WidgetCfg.applyPlain(small, intArrayOf(R.id.clock_s_text, R.id.clock_s_timer), intArrayOf(R.id.clock_s_sub), intArrayOf(), intArrayOf())
+                WidgetCfg.applyPlain(large, intArrayOf(R.id.clock_big, R.id.clock_timer), intArrayOf(R.id.clock_sub), intArrayOf(), intArrayOf())
+                // 배경이 없을 때 색 동그라미가 떠 보이지 않게 반투명 흰 테두리 동그라미로 바꾼다.
+                for (b in intArrayOf(R.id.clock_s_btn_in, R.id.clock_s_btn_out)) small.setInt(b, "setBackgroundResource", R.drawable.widget_circle_plain)
+                for (b in intArrayOf(R.id.clock_btn_in, R.id.clock_btn_out, R.id.clock_btn_break, R.id.clock_btn_memo)) large.setInt(b, "setBackgroundResource", R.drawable.widget_circle_plain)
+            }
             return Adaptive.views(
                 c, id, small, large, SizeF(110f, 40f), SizeF(180f, 110f),
                 R.id.widget_clock_s_root, R.id.widget_clock_root
             )
         }
+
+        private fun breakText(min: Int): String =
+            if (min <= 0) "" else if (min % 60 == 0) "휴게 ${min / 60}시간" else if (min < 60) "휴게 ${min}분" else "휴게 ${min / 60}시간 ${min % 60}분"
 
         fun buildLarge(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_clock)
@@ -303,88 +315,89 @@ class ClockWidgetProvider : AppWidgetProvider() {
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
             val fresh = s != null && s.optString("date") == today
             val phase = if (fresh) s!!.optString("phase") else ""
-            val text = if (fresh) s!!.optString("text") else "앱을 열면 오늘 상태가 나옵니다"
-            v.setTextViewText(R.id.clock_title, "출퇴근 · " + FieldWidgetStore.todayText())
-            v.setTextViewText(R.id.clock_text, text.ifEmpty { "오늘 출퇴근" })
+            val working = phase == "working"
 
-            // 상태 칩: 근무 중 / 퇴근함 / 출근 전
-            val chip = when (phase) {
-                "working" -> "근무 중"
-                "done" -> "퇴근함"
-                "off" -> "쉬는 날"
-                "ready" -> "출근 전"
-                else -> ""
-            }
-            v.setViewVisibility(R.id.clock_chip, if (chip.isEmpty()) View.GONE else View.VISIBLE)
-            v.setTextViewText(R.id.clock_chip, chip)
-
-            // 근무 중이면 출근 뒤 지난 시간을 위젯이 스스로 센다(앱이 꺼져 있어도 흐른다).
+            // 큰 글: 근무 중이면 출근 뒤 흐른 시간(위젯이 스스로 센다), 아니면 00:00·근무 시간 같은 글
             val since = if (fresh) s!!.optLong("since", 0L) else 0L
-            if (phase == "working" && since > 0L) {
+            if (working && since > 0L) {
                 val elapsed = (System.currentTimeMillis() - since).coerceAtLeast(0L)
                 v.setViewVisibility(R.id.clock_timer, View.VISIBLE)
+                v.setViewVisibility(R.id.clock_big, View.GONE)
                 v.setChronometer(R.id.clock_timer, SystemClock.elapsedRealtime() - elapsed, null, true)
             } else {
                 v.setViewVisibility(R.id.clock_timer, View.GONE)
+                v.setViewVisibility(R.id.clock_big, View.VISIBLE)
                 v.setChronometer(R.id.clock_timer, SystemClock.elapsedRealtime(), null, false)
+                val big = if (fresh) s!!.optString("big") else ""
+                v.setTextViewText(R.id.clock_big, big.ifEmpty { "00:00" })
             }
+            v.setTextViewText(
+                R.id.clock_sub,
+                if (fresh) s!!.optString("sub").ifEmpty { s.optString("text") } else "앱을 열면 오늘 상태가 나옵니다"
+            )
 
+            // 단추: 출근 전(또는 낡은 값)은 시작만, 근무 중은 정지·휴게·메모, 퇴근했거나 쉬는 날은 없음
             val showIn = !fresh || phase == "ready"
-            val showOut = !fresh || phase == "working"
             v.setViewVisibility(R.id.clock_btn_in, if (showIn) View.VISIBLE else View.GONE)
-            v.setViewVisibility(R.id.clock_btn_out, if (showOut) View.VISIBLE else View.GONE)
-            v.setViewVisibility(R.id.clock_done_note, if (!showIn && !showOut) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_btn_out, if (working) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_btn_break, if (working) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_btn_memo, if (working) View.VISIBLE else View.GONE)
+
+            // 아래 칩: 휴게시간·메모(근무 중이거나 퇴근한 뒤)
+            val brk = if (fresh && s!!.has("brk")) s.optInt("brk") else 0
+            val memo = if (fresh) s!!.optString("memo") else ""
+            val showBrk = (working || phase == "done") && brk > 0
+            val showMemo = (working || phase == "done") && memo.isNotBlank()
+            v.setViewVisibility(R.id.clock_chips, if (showBrk || showMemo) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_chip_break, if (showBrk) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_chip_memo, if (showMemo) View.VISIBLE else View.GONE)
+            if (showBrk) v.setTextViewText(R.id.clock_chip_break, breakText(brk))
+            if (showMemo) v.setTextViewText(R.id.clock_chip_memo, memo)
+
             v.setOnClickPendingIntent(R.id.widget_clock_root, FieldWidgetStore.openAppIntent(c, "attendance:open", 300))
             v.setOnClickPendingIntent(R.id.clock_btn_in, FieldWidgetStore.punchIntent(c, "in", 301))
             v.setOnClickPendingIntent(R.id.clock_btn_out, FieldWidgetStore.punchIntent(c, "out", 302))
+            v.setOnClickPendingIntent(R.id.clock_btn_break, FieldWidgetStore.quickWindowIntent(c, ClockQuickActivity.MODE_BREAK, 303))
+            v.setOnClickPendingIntent(R.id.clock_btn_memo, FieldWidgetStore.quickWindowIntent(c, ClockQuickActivity.MODE_MEMO, 304))
             return v
         }
     }
 }
 
 /**
- * 출퇴근 작은 위젯(2x1): 한 줄에 상태와 단추 하나. 출근 전이면 [출근], 근무 중이면 [퇴근]만 보이고,
- * 퇴근했거나 쉬는 날이면 단추 없이 글만 보인다. 단추는 큰 위젯과 같이 앱을 열지 않고 바로 기록한다(ClockPunch).
- * 값이 낡았으면(오늘 날짜가 아니면) 두 단추를 다 보인다.
+ * 출퇴근 작은 위젯(한 줄): 출근 전이면 상태 글과 [시작], 근무 중이면 흐르는 시간과 [정지]만 보인다.
+ * 휴게·메모는 큰 모양에서만 쓴다. 단추는 앱을 열지 않고 바로 기록한다(ClockPunch).
  */
-/** (등록하지 않는다) 가변식 위젯의 작은 모양만 만든다. */
 class ClockSmallWidgetProvider {
     companion object {
-        /** 큰 위젯의 글("08:05 출근 · 근무 중", "08:00 ~ 17:31")을 작은 칸에 맞게 줄인다. */
-        private fun shortText(phase: String, text: String): String = when (phase) {
-            "ready" -> "출근 전"
-            "working" -> text.substringBefore(" 출근").trim() + " 출근"
-            "done" -> "퇴근 " + text.substringAfter("~", "").trim()
-            "off" -> "쉬는 날"
-            else -> "출퇴근"
-        }
-
         fun build(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_clock_small)
             val s = FieldWidgetStore.clock(c)
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
             val fresh = s != null && s.optString("date") == today
             val phase = if (fresh) s!!.optString("phase") else ""
-            val text = if (fresh) s!!.optString("text") else ""
-            v.setTextViewText(R.id.clock_s_text, if (fresh) shortText(phase, text) else "출퇴근")
+            val working = phase == "working"
 
             val since = if (fresh) s!!.optLong("since", 0L) else 0L
-            if (phase == "working" && since > 0L) {
+            if (working && since > 0L) {
                 val elapsed = (System.currentTimeMillis() - since).coerceAtLeast(0L)
                 v.setViewVisibility(R.id.clock_s_timer, View.VISIBLE)
-                v.setViewVisibility(R.id.clock_s_sub, View.GONE)
+                v.setViewVisibility(R.id.clock_s_text, View.GONE)
                 v.setChronometer(R.id.clock_s_timer, SystemClock.elapsedRealtime() - elapsed, null, true)
             } else {
                 v.setViewVisibility(R.id.clock_s_timer, View.GONE)
-                v.setViewVisibility(R.id.clock_s_sub, View.VISIBLE)
-                v.setTextViewText(R.id.clock_s_sub, if (fresh) FieldWidgetStore.todayText() else "앱을 열면 상태가 나옵니다")
+                v.setViewVisibility(R.id.clock_s_text, View.VISIBLE)
                 v.setChronometer(R.id.clock_s_timer, SystemClock.elapsedRealtime(), null, false)
+                val big = if (fresh) s!!.optString("big") else ""
+                v.setTextViewText(R.id.clock_s_text, big.ifEmpty { "00:00" })
             }
-
+            v.setTextViewText(
+                R.id.clock_s_sub,
+                if (fresh) s!!.optString("sub").ifEmpty { s.optString("text") } else "앱을 열면 상태가 나옵니다"
+            )
             val showIn = !fresh || phase == "ready"
-            val showOut = !fresh || phase == "working"
             v.setViewVisibility(R.id.clock_s_btn_in, if (showIn) View.VISIBLE else View.GONE)
-            v.setViewVisibility(R.id.clock_s_btn_out, if (showOut) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_s_btn_out, if (working) View.VISIBLE else View.GONE)
             v.setOnClickPendingIntent(R.id.widget_clock_s_root, FieldWidgetStore.openAppIntent(c, "attendance:open", 320))
             v.setOnClickPendingIntent(R.id.clock_s_btn_in, FieldWidgetStore.punchIntent(c, "in", 321))
             v.setOnClickPendingIntent(R.id.clock_s_btn_out, FieldWidgetStore.punchIntent(c, "out", 322))

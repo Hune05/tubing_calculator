@@ -357,6 +357,8 @@ void main() {
     });
   });
 
+  widgetPayloadTests();
+
   group('설정 저장', () {
     test('통상시급은 기기에만, 퇴근 알림은 서버에 올리는 칸에 있다', () async {
       await const AttendanceSettings(
@@ -528,6 +530,84 @@ void main() {
       );
       expect(store.saved, isEmpty);
       expect(find.textContaining('출근 기록이 없어 퇴근을 찍지 못했습니다'), findsOneWidget);
+    });
+  });
+}
+
+void widgetPayloadTests() {
+  group('위젯 값(큰 글·아랫줄·휴게·메모)', () {
+    final now = DateTime(2026, 10, 14, 9);
+    final day = DateTime(2026, 10, 14);
+
+    Map<String, dynamic> enc(
+      ClockStatus st, {
+      Map<String, AttendanceRecord>? recs,
+    }) =>
+        jsonDecode(encodeClockWidgetPayload(st, now, records: recs))
+            as Map<String, dynamic>;
+
+    test('출근 전: 큰 글 00:00, 아랫줄은 지난 퇴근', () {
+      final recs = {
+        '2026-10-13': AttendanceRecord(
+          date: DateTime(2026, 10, 13),
+          checkIn: '08:00',
+          checkOut: '17:30',
+        ),
+      };
+      final j = enc(clockStatus(now: now), recs: recs);
+      expect(j['phase'], 'ready');
+      expect(j['big'], '00:00');
+      expect(j['sub'], '어제 17:30 퇴근');
+    });
+
+    test('지난 퇴근이 없으면 "오늘 출근 전", 며칠 전이면 날짜로', () {
+      expect(enc(clockStatus(now: now))['sub'], '오늘 출근 전');
+      final recs = {
+        '2026-10-10': AttendanceRecord(
+          date: DateTime(2026, 10, 10),
+          checkIn: '08:00',
+          checkOut: '17:10',
+        ),
+      };
+      expect(enc(clockStatus(now: now), recs: recs)['sub'], '10월 10일 17:10 퇴근');
+    });
+
+    test('근무 중: 큰 글은 비우고(위젯이 흐르는 시간을 그림), 휴게·메모를 넘긴다', () {
+      final r = AttendanceRecord(
+        date: day,
+        checkIn: '08:05',
+        breakMin: 60,
+        memo: '출장 태안',
+      );
+      final j = enc(clockStatus(now: now, today: r));
+      expect(j['big'], '');
+      expect(j['sub'], '08:05 출근');
+      expect(j['brk'], 60);
+      expect(j['memo'], '출장 태안');
+      expect(j.containsKey('since'), isTrue);
+    });
+
+    test('퇴근 뒤: 큰 글은 근무 시간(휴게 뺀 것), 아랫줄은 출퇴근', () {
+      final r = AttendanceRecord(
+        date: day,
+        checkIn: '08:00',
+        checkOut: '17:30',
+        breakMin: 60,
+      );
+      final j = enc(clockStatus(now: now, today: r));
+      expect(j['big'], '8:30');
+      expect(j['sub'], '08:00 ~ 17:30');
+    });
+
+    test('휴게·메모가 없으면 그 칸을 넘기지 않는다', () {
+      final j = enc(
+        clockStatus(
+          now: now,
+          today: AttendanceRecord(date: day, checkIn: '08:05'),
+        ),
+      );
+      expect(j.containsKey('brk'), isFalse);
+      expect(j.containsKey('memo'), isFalse);
     });
   });
 }

@@ -28,8 +28,17 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/widget_text"
-            android:textSize="14sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
+
+        <Chronometer
+            android:id="@+id/clock_s_timer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/widget_text"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/clock_s_sub"
@@ -39,38 +48,25 @@
             android:maxLines="1"
             android:textColor="@color/widget_sub"
             android:textSize="11sp" />
-
-        <Chronometer
-            android:id="@+id/clock_s_timer"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/widget_brand"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
     </LinearLayout>
 
-    <TextView
+    <ImageView
         android:id="@+id/clock_s_btn_in"
-        android:layout_width="64dp"
-        android:layout_height="match_parent"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
         android:layout_marginStart="6dp"
-        android:background="@drawable/widget_btn_bg"
-        android:gravity="center"
-        android:text="@string/widget_clock_in"
-        android:textColor="#FFFFFF"
-        android:textSize="15sp"
-        android:textStyle="bold" />
+        android:background="@drawable/widget_circle_green"
+        android:contentDescription="@string/widget_clock_in"
+        android:padding="9dp"
+        android:src="@drawable/ic_widget_play" />
 
-    <TextView
+    <ImageView
         android:id="@+id/clock_s_btn_out"
-        android:layout_width="64dp"
-        android:layout_height="match_parent"
+        android:layout_width="38dp"
+        android:layout_height="38dp"
         android:layout_marginStart="6dp"
-        android:background="@drawable/widget_btn_out_bg"
-        android:gravity="center"
-        android:text="@string/widget_clock_out"
-        android:textColor="#FFFFFF"
-        android:textSize="15sp"
-        android:textStyle="bold" />
+        android:background="@drawable/widget_circle_red"
+        android:contentDescription="@string/widget_clock_out"
+        android:padding="9dp"
+        android:src="@drawable/ic_widget_stop" />
 </LinearLayout>
