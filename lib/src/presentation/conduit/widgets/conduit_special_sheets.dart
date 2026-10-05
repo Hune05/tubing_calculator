@@ -209,7 +209,11 @@ class _KickSheetState extends _SheetState<_KickSheet> {
           ],
         ),
         const SizedBox(height: 24),
-        CsDirectionSelector(value: dir, onPick: (v) => setState(() => dir = v)),
+        CsDirectionSelector(
+          value: dir,
+          onPick: (v) => setState(() => dir = v),
+          canBendTo: widget.canBendTo,
+        ),
         const SizedBox(height: 16),
         CsResultBox(
           title: '계산된 빗변 (Travel)',
@@ -325,7 +329,11 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
           ],
         ),
         const SizedBox(height: 24),
-        CsDirectionSelector(value: dir, onPick: (v) => setState(() => dir = v)),
+        CsDirectionSelector(
+          value: dir,
+          onPick: (v) => setState(() => dir = v),
+          canBendTo: widget.canBendTo,
+        ),
         const SizedBox(height: 16),
         CsResultBox(
           title: '한 번에 꺾는 각',
@@ -488,6 +496,7 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
         CsDirectionSelector(
           value: dir,
           onPick: (v) => setState(() => dir = v),
+          canBendTo: widget.canBendTo,
           title: '첫 90°를 꺾는 방향 (6축)',
         ),
         const SizedBox(height: 16),
@@ -586,7 +595,11 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
           field: CsField(fieldKey: const Key('cs_stub'), ctrl: _stub, hint: '길이 mm'),
         ),
         const SizedBox(height: 24),
-        CsDirectionSelector(value: dir, onPick: (v) => setState(() => dir = v)),
+        CsDirectionSelector(
+          value: dir,
+          onPick: (v) => setState(() => dir = v),
+          canBendTo: widget.canBendTo,
+        ),
         const SizedBox(height: 16),
         CsResultBox(
           title: '마킹 자리',

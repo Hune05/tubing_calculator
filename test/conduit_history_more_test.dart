@@ -173,10 +173,40 @@ void main() {
       expect(find.text('장비 설정이 다릅니다'), findsOneWidget);
       expect(find.text('규격: 저장 때 16mm → 지금 22mm'), findsOneWidget);
       expect(find.text('게인: 저장 때 70 → 지금 81.2'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('conduit_diff_ok')));
+      await tester.tap(find.text('그대로 두기'));
       await tester.pumpAndSettle();
       expect(globalBenderSettings.value['gain'], 81.2);
+      expect(globalBenderSettings.value['conduitSize'], '22mm');
       expect(ConduitDataManager().bendList.length, 1);
+    });
+
+    testWidgets('"저장 때 설정으로"를 누르면 다른 항목만 맞추고 되돌릴 수 있다', (tester) async {
+      globalBenderSettings.value = {
+        ...globalBenderSettings.value,
+        'gain': 81.2,
+        'conduitSize': '22mm',
+        'takeUp': 152.4,
+      };
+      await seedW(tester, 'A', 'a', settings: {
+        'gain': 70.0,
+        'conduitSize': '16mm',
+        'takeUp': 152.4,
+      });
+      await openTab(tester);
+      await tester.tap(find.text('계산기로 불러오기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('불러오기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('conduit_diff_apply')));
+      await settle(tester);
+      expect(globalBenderSettings.value['gain'], 70.0);
+      expect(globalBenderSettings.value['conduitSize'], '16mm');
+      expect(globalBenderSettings.value['takeUp'], 152.4);
+
+      await tester.tap(find.text('되돌리기'));
+      await settle(tester);
+      expect(globalBenderSettings.value['gain'], 81.2);
+      expect(globalBenderSettings.value['conduitSize'], '22mm');
     });
 
     testWidgets('설정이 같으면 알림 창 없이 불러온다', (tester) async {

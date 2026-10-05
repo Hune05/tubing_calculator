@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
-import 'conduit_settings_page.dart' show globalBenderSettings;
+import 'conduit_settings_page.dart'
+    show globalBenderSettings, saveGlobalBenderSettings;
 import 'conduit_settings_diff.dart';
 import '../widgets/conduit_drawing_edit_dialog.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
@@ -121,6 +122,34 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
           debugPrint('작업 이름 되돌리기 실패: $e');
         }
         if (mounted) await _reload();
+      },
+    );
+  }
+
+  /// 지금 장비 설정을 도면을 저장했을 때의 값으로 맞춘다(다른 항목만). "되돌리기"로 이전 값을 되돌린다.
+  Future<void> _applySavedSettings(ConduitDrawing drawing) async {
+    final now = globalBenderSettings.value;
+    final changes = conduitSettingChanges(drawing.settings, now);
+    if (changes.isEmpty) return;
+    final previous = {for (final k in changes.keys) k: now[k]};
+    globalBenderSettings.value = {...now, ...changes};
+    try {
+      await saveGlobalBenderSettings();
+    } catch (e) {
+      debugPrint('설정 저장 실패: $e');
+    }
+    if (!mounted) return;
+    showAppSnack(
+      context,
+      '장비 설정을 저장 때 값으로 맞췄습니다 (${changes.length}개)',
+      kind: AppSnackKind.undo,
+      onUndo: () async {
+        globalBenderSettings.value = {...globalBenderSettings.value, ...previous};
+        try {
+          await saveGlobalBenderSettings();
+        } catch (e) {
+          debugPrint('설정 되돌리기 실패: $e');
+        }
       },
     );
   }
@@ -265,9 +294,13 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                         builder: (dctx) => AppConfirmDialog(
                           title: '장비 설정이 다릅니다',
                           icon: const Icon(Icons.tune_rounded),
-                          cancelText: null,
-                          okKey: const Key('conduit_diff_ok'),
-                          onOk: () => Navigator.pop(dctx),
+                          cancelText: '그대로 두기',
+                          okText: '저장 때 설정으로',
+                          okKey: const Key('conduit_diff_apply'),
+                          onOk: () {
+                            Navigator.pop(dctx);
+                            _applySavedSettings(drawing);
+                          },
                           content: Column(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,7 +312,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                                 ),
                               const SizedBox(height: 6),
                               AppConfirmDialog.message(
-                                '계산기에서는 지금 설정으로 계산하므로 마킹 자리가 저장 때와 달라집니다. 설정은 바꾸지 않았습니다.',
+                                '계산기에서는 지금 설정으로 계산하므로 마킹 자리가 저장 때와 달라집니다.\n"저장 때 설정으로"를 누르면 위 항목이 저장 때 값으로 바뀝니다(되돌릴 수 있습니다). "그대로 두기"는 설정을 바꾸지 않습니다.',
                               ),
                             ],
                           ),

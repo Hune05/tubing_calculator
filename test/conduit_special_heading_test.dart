@@ -112,20 +112,16 @@ void main() {
       expect(manager.bendList.last['rotation'], 0.0);
     });
 
-    testWidgets('킥 시트: 실제 진행 방향(오른쪽)과 같은 오른쪽으로 꺾으면 거절된다', (tester) async {
+    testWidgets('킥 시트: 진행 방향(오른쪽)과 나란한 칸은 흐리게, 누르면 안내 창만 뜨고 선택은 안 된다', (tester) async {
       await openTool(tester, '킥', dirKey: 'cs_dir_0');
+      double op(String r) => tester.widget<Opacity>(find.byKey(Key('cs_dir_op_$r'))).opacity;
+      expect(op('90'), 0.38);
+      expect(op('270'), 0.38);
+      expect(op('0'), 1.0);
       await tester.tap(find.byKey(const Key('cs_dir_90')));
-      await tester.pump();
-      await tester.tap(find.byKey(const Key('cs_height')));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, '1'));
-      await tester.tap(find.widgetWithText(TextButton, '0'));
-      await tester.tap(find.widgetWithText(TextButton, '0'));
-      await tester.tap(find.text('적용'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('cs_add')));
-      await tester.pumpAndSettle();
-      expect(manager.bendList, isEmpty);
+      expect(find.text('그 방향으로는 못 꺾습니다'), findsOneWidget);
     });
+
   });
 }

@@ -34,6 +34,21 @@ bool _same(Object? a, Object? b) {
   return '$a' == '$b';
 }
 
+/// 저장 때 값 중 지금과 다른 것만 모은 설정(지금 설정에 덮어 씌울 값). 다른 게 없으면 빈 맵.
+Map<String, dynamic> conduitSettingChanges(
+  Map<String, dynamic> saved,
+  Map<String, dynamic> now,
+) {
+  final out = <String, dynamic>{};
+  for (final (key, _) in _labels) {
+    final s = saved[key];
+    final n = now[key];
+    if (s == null || '$s'.isEmpty || n == null) continue;
+    if (!_same(s, n)) out[key] = s;
+  }
+  return out;
+}
+
 /// 저장 때 값이 있고 지금 값과 다른 항목만 "게인: 저장 때 70 → 지금 81.2" 꼴로 돌려준다.
 /// 저장 때 값이 없던 항목(옛 도면)은 비교하지 않는다.
 List<String> conduitSettingDiffs(

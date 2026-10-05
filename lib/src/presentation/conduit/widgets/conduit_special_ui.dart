@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/sheet_direction_gate.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
 
@@ -262,11 +263,15 @@ class CsDirectionSelector extends StatelessWidget {
   final double? value;
   final ValueChanged<double> onPick;
   final String title;
+
+  /// 지금 진행 방향에서 그 방향으로 꺾을 수 있는지. 있으면 못 꺾는 칸은 흐리게 하고 누르면 이유만 알린다.
+  final BendRule? canBendTo;
   const CsDirectionSelector({
     super.key,
     required this.value,
     required this.onPick,
     this.title = '꺾는 방향 (6축)',
+    this.canBendTo,
   });
 
   @override
@@ -310,9 +315,15 @@ class CsDirectionSelector extends StatelessWidget {
         itemBuilder: (context, index) {
           final d = kCsDirections[index];
           final bool sel = value == d.$2;
-          return InkWell(
+          final bool allowed = canBendTo == null || canBendTo!(d.$2);
+          return Opacity(
+            key: Key('cs_dir_op_${d.$2.toInt()}'),
+            opacity: allowed ? 1.0 : 0.38,
+            child: InkWell(
             key: Key('cs_dir_${d.$2.toInt()}'),
-            onTap: () => onPick(d.$2),
+            onTap: allowed
+                ? () => onPick(d.$2)
+                : () => showCannotBendNotice(context, d.$1),
             child: Container(
               decoration: BoxDecoration(
                 color: sel ? csTeal : csBg,
@@ -335,6 +346,7 @@ class CsDirectionSelector extends StatelessWidget {
                 ],
               ),
             ),
+          ),
           );
         },
       ),
