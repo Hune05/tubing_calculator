@@ -31,6 +31,7 @@ void main() {
   moreTests();
   titleTests();
   modeStabilityTests();
+  ansAndCopyTests();
   testWidgets('숫자·연산자를 누르면 바로 결과가 뜬다(=  없이도)', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_2');
@@ -631,5 +632,53 @@ void modeStabilityTests() {
     );
     final p = await SharedPreferences.getInstance();
     expect(p.getBool(kEngCalcAdvancedKey), isFalse);
+  });
+}
+
+// 5·6번(2026-10-05): 앱을 다시 열어도 Ans, 복사 아이콘은 숫자 바로 옆.
+void ansAndCopyTests() {
+  testWidgets('앱을 다시 열면 기록 마지막 줄의 결과가 Ans로 살아난다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      kEngCalcHistoryKey: ['1+1 = 2', '2+3 = 5'],
+    });
+    await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tap(tester, 'calc_ans');
+    await tap(tester, 'calc_mul');
+    await tap(tester, 'calc_2');
+    expect(result(tester), '10');
+  });
+
+  testWidgets('기록이 분수 결과여도 Ans로 읽는다(7/2)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      kEngCalcHistoryKey: ['7/2 = 7/2'],
+    });
+    await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tap(tester, 'calc_ans');
+    await tap(tester, 'calc_mul');
+    await tap(tester, 'calc_2');
+    expect(result(tester), '7');
+  });
+
+  testWidgets('기록이 비어 있으면 Ans는 여전히 안내 오류', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_ans');
+    expect(find.textContaining('직전 결과가 없습니다'), findsWidgets);
+  });
+
+  testWidgets('복사 아이콘은 결과 숫자 바로 왼쪽에 붙어 있다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    final icon = tester.getRect(find.byKey(const Key('calc_copy')));
+    final number = tester.getRect(find.byKey(const Key('calc_display_result')));
+    expect(icon.right, lessThanOrEqualTo(number.left + 1));
+    expect(number.left - icon.right, lessThan(24)); // 멀리 떨어져 있지 않다
   });
 }

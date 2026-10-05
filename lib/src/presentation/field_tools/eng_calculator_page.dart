@@ -132,6 +132,8 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           if (_history.length > 50) {
             _history.removeRange(0, _history.length - 50);
           }
+          // 앱을 다시 열어도 직전 결과(Ans)를 쓸 수 있게 기록 마지막 줄 값으로 되살린다.
+          _lastAnswer ??= _answerFromHistory();
         }
         if (angle == 'rad') _angle = AngleUnit.radian;
         if (frac != null) _showFraction = frac;
@@ -158,6 +160,19 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       await p.setInt(kEngCalcDenomKey, _denom);
       await p.setBool(kEngCalcAdvancedKey, _advanced);
     } catch (_) {}
+  }
+
+  /// 기록 맨 아래 줄의 결과("2+3 = 5" → 5)를 "Ans" 값으로. 못 읽으면 null.
+  CalcValue? _answerFromHistory() {
+    if (_history.isEmpty) return null;
+    final line = _history.last;
+    final at = line.lastIndexOf(' = ');
+    final text = (at < 0 ? line : line.substring(at + 3)).replaceAll('−', '-');
+    try {
+      return evaluateExprValue(text, angle: _angle);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _saveHistory() async {
@@ -769,20 +784,6 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           mainAxisAlignment: MainAxisAlignment.end,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // 결과 복사(숫자를 길게 눌러도 된다). 앱바 아이콘은 좁은 폰에서 제목이 잘려서 여기로 옮겼다.
-            if (_live != null && _error == null)
-              Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: GestureDetector(
-                  key: const Key('calc_copy'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: _copyResult,
-                  child: Padding(
-                    padding: const EdgeInsets.all(6),
-                    child: Icon(Icons.copy_outlined, size: 20, color: _sub),
-                  ),
-                ),
-              ),
             if (_live?.exact != null)
               Padding(
                 padding: const EdgeInsets.only(right: 6),
@@ -817,22 +818,47 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                   // 크지만 가는(thin) 굵기라 커도 두껍고 답답해 보이지 않는다.
                   child: SizedBox(
                     height: box.maxHeight.clamp(0, 84),
-                    child: FittedBox(
-                      fit: BoxFit.contain,
-                      alignment: Alignment.centerRight,
-                      child: GestureDetector(
-                        onLongPress: _copyResult,
-                        child: Text(
-                        big,
-                        key: const Key('calc_display_result'),
-                        style: TextStyle(
-                          fontSize: 56,
-                          fontWeight: FontWeight.w300,
-                          color: _error != null ? _danger : _ink,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                    // 복사 아이콘은 숫자 바로 왼쪽에 붙인다(숫자를 길게 눌러도 복사된다).
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        if (_live != null && _error == null)
+                          GestureDetector(
+                            key: const Key('calc_copy'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _copyResult,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Icon(
+                                Icons.copy_outlined,
+                                size: 20,
+                                color: _sub,
+                              ),
+                            ),
+                          ),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.contain,
+                            alignment: Alignment.centerRight,
+                            child: GestureDetector(
+                              onLongPress: _copyResult,
+                              child: Text(
+                                big,
+                                key: const Key('calc_display_result'),
+                                style: TextStyle(
+                                  fontSize: 56,
+                                  fontWeight: FontWeight.w300,
+                                  color: _error != null ? _danger : _ink,
+                                  fontFeatures: const [
+                                    FontFeature.tabularFigures(),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                      ),
+                      ],
                     ),
                   ),
                 ),

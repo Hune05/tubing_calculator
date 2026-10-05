@@ -16,6 +16,12 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         
+        <!-- 안드로이드 16(API 36)은 큰 화면(최소 폭 600dp 이상, 예: 8.7인치 태블릿)에서 앱의 방향 요청을
+             무시한다. 현장 탭이 가로로 돌아가게 이 규칙을 끈다(API 37부터는 못 끈다). -->
+        <property
+            android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY"
+            android:value="true" />
+
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="ocr" />
