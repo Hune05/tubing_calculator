@@ -18,6 +18,13 @@
     <string name="widget_clock_break">휴게 알람</string>
     <string name="widget_clock_memo">메모</string>
     <string name="widget_pt_label">압력시험 타이머</string>
-    <string name="widget_pt_desc">압력 시험 유지시간의 남은 시간을 홈 화면에서 봅니다. 줄이면 한 줄이 됩니다</string>
     <string name="widget_pt_open">시험 기록 열기</string>
+    <string name="widget_ptd_label">압력시험 · 다이얼</string>
+    <string name="widget_ptd_desc">눈금 다이얼에 남은 유지시간이 줄어드는 압력시험 타이머</string>
+    <string name="widget_ptb_label">압력시험 · 큰 숫자</string>
+    <string name="widget_ptb_desc">큰 숫자와 진행 막대로 보는 압력시험 타이머</string>
+    <string name="widget_ptm_label">압력시험 · 미니</string>
+    <string name="widget_ptm_desc">작은 링으로 보는 압력시험 타이머</string>
+    <string name="widget_pta_label">압력시험 · 앱 타이머</string>
+    <string name="widget_pta_desc">앱의 유지시간 타이머와 같은 모양(경과 시간과 남은 시간)을 크게 봅니다</string>
 </resources>
