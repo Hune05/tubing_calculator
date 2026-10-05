@@ -306,9 +306,6 @@ class ClockWidgetProvider : AppWidgetProvider() {
             )
         }
 
-        private fun breakText(min: Int): String =
-            if (min <= 0) "" else if (min % 60 == 0) "휴게 ${min / 60}시간" else if (min < 60) "휴게 ${min}분" else "휴게 ${min / 60}시간 ${min % 60}분"
-
         fun buildLarge(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_clock)
             val s = FieldWidgetStore.clock(c)
@@ -344,14 +341,14 @@ class ClockWidgetProvider : AppWidgetProvider() {
             v.setViewVisibility(R.id.clock_btn_memo, if (working) View.VISIBLE else View.GONE)
 
             // 아래 칩: 휴게시간·메모(근무 중이거나 퇴근한 뒤)
-            val brk = if (fresh && s!!.has("brk")) s.optInt("brk") else 0
+            val brkText = ClockBreak.chipText(c)
             val memo = if (fresh) s!!.optString("memo") else ""
-            val showBrk = (working || phase == "done") && brk > 0
+            val showBrk = working && brkText != null
             val showMemo = (working || phase == "done") && memo.isNotBlank()
             v.setViewVisibility(R.id.clock_chips, if (showBrk || showMemo) View.VISIBLE else View.GONE)
             v.setViewVisibility(R.id.clock_chip_break, if (showBrk) View.VISIBLE else View.GONE)
             v.setViewVisibility(R.id.clock_chip_memo, if (showMemo) View.VISIBLE else View.GONE)
-            if (showBrk) v.setTextViewText(R.id.clock_chip_break, breakText(brk))
+            if (showBrk) v.setTextViewText(R.id.clock_chip_break, brkText)
             if (showMemo) v.setTextViewText(R.id.clock_chip_memo, memo)
 
             v.setOnClickPendingIntent(R.id.widget_clock_root, FieldWidgetStore.openAppIntent(c, "attendance:open", 300))

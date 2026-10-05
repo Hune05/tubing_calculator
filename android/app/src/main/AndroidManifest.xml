@@ -106,6 +106,8 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/summary_widget_info" />
         </receiver>
+        <!-- 휴게 알람이 울릴 때(ClockBreak.kt). -->
+        <receiver android:name=".ClockBreakAlarmReceiver" android:exported="false" />
         <!-- 출퇴근 위젯의 [휴게]·[메모] 창: 위에서 내려오는 작은 창(ClockQuickActivity.kt). -->
         <activity
             android:name=".ClockQuickActivity"

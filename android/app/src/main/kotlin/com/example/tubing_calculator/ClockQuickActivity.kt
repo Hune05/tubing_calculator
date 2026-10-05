@@ -15,6 +15,8 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.NumberPicker
+import java.util.Calendar
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
@@ -23,7 +25,7 @@ import android.widget.Toast
 /**
  * 출퇴근 위젯의 [휴게]·[메모] 단추가 여는 작은 창. 위에서 내려오고, 앱을 열지 않는다.
  * - 메모: 자주 쓰는 태그를 누르면 글에 붙고, 직접 적어도 된다(최대 40자). 앱 근태 기록의 "현장 메모"로 저장된다.
- * - 휴게: 없음·30분·1시간·1시간 30분·2시간 중에서 고른다. 앱 근태 기록의 휴게시간으로 저장된다.
+ * - 휴게: "10:00 ~ 10:15"처럼 쉬는 시간대를 정하면 시작할 때와 끝날 때 폰이 알려 준다(ClockBreak). 근태 기록은 바꾸지 않는다.
  * 저장은 ClockPunch가 서버에 칸만 합쳐 쓴다(출퇴근 시각 등 다른 칸은 그대로).
  */
 class ClockQuickActivity : Activity() {
@@ -33,8 +35,7 @@ class ClockQuickActivity : Activity() {
         const val MODE_BREAK = "break"
         const val MEMO_MAX = 40
         val TAGS = listOf("현장 작업", "출장", "교육", "회의", "대기", "정비", "이동")
-        val BREAK_VALUES = intArrayOf(0, 30, 60, 90, 120)
-        val BREAK_LABELS = arrayOf("없음", "30분", "1시간", "1시간 30분", "2시간")
+        val BREAK_LENGTHS = intArrayOf(10, 15, 20, 30, 60)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
@@ -54,7 +55,7 @@ class ClockQuickActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(22), dp(24), dp(22), dp(18))
         }
-        if (mode == MODE_BREAK) buildBreak(root, state?.optInt("brk", -1) ?: -1)
+        if (mode == MODE_BREAK) buildBreak(root)
         else buildMemo(root, state?.optString("memo").orEmpty())
         setContentView(root)
     }
@@ -145,31 +146,127 @@ class ClockQuickActivity : Activity() {
         })
     }
 
-    private fun buildBreak(root: LinearLayout, current: Int) {
-        root.addView(title("휴게시간"))
+    private fun buildBreak(root: LinearLayout) {
+        root.addView(title("휴게 알람"))
         root.addView(TextView(this).apply {
-            text = "오늘 쉰 시간을 고르면 근로시간에서 빠집니다."
+            text = "쉬는 시간대를 정하면 시작할 때와 끝날 때 알려 줍니다."
             textSize = 13f
             setTextColor(0xFF6B7280.toInt())
         })
-        val group = RadioGroup(this)
-        for ((i, label) in BREAK_LABELS.withIndex()) {
-            group.addView(RadioButton(this).apply {
-                id = 500 + i
-                text = label
-                textSize = 16f
-                isChecked = BREAK_VALUES[i] == current
-            })
+
+        // 시작 시각: 지금 이후 가까운 5분 단위로 맞춰 둔다
+        val cal = Calendar.getInstance().apply { add(Calendar.MINUTE, 5) }
+        val hour = NumberPicker(this).apply {
+            minValue = 0
+            maxValue = 23
+            displayedValues = Array(24) { h -> if (h < 12) "오전 ${if (h == 0) 12 else h}시" else "오후 ${if (h == 12) 12 else h - 12}시" }
+            value = cal.get(Calendar.HOUR_OF_DAY)
+            wrapSelectorWheel = true
         }
-        root.addView(group, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+        val minute = NumberPicker(this).apply {
+            minValue = 0
+            maxValue = 11
+            displayedValues = Array(12) { m -> String.format("%02d분", m * 5) }
+            value = (cal.get(Calendar.MINUTE) / 5) % 12
+            wrapSelectorWheel = true
+        }
+        val pickers = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        pickers.addView(hour, LinearLayout.LayoutParams(dp(120), ViewGroup.LayoutParams.WRAP_CONTENT))
+        pickers.addView(minute, LinearLayout.LayoutParams(dp(90), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(8) })
+        root.addView(pickers, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             topMargin = dp(8)
         })
+
+        // 쉬는 길이
+        val preview = TextView(this).apply {
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(0xFF007580.toInt())
+            gravity = Gravity.CENTER
+        }
+        var lengthMin = 15
+        val chips = HashMap<Int, TextView>()
+        fun startMs(): Long = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, hour.value)
+            set(Calendar.MINUTE, minute.value * 5)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        fun refresh() {
+            val st = startMs()
+            preview.text = "${ClockBreak.fmt(st)} ~ ${ClockBreak.fmt(st + lengthMin * 60000L)}"
+            for ((m, chip) in chips) {
+                val on = m == lengthMin
+                chip.setTextColor(if (on) Color.WHITE else 0xFF007580.toInt())
+                chip.background = GradientDrawable().apply {
+                    cornerRadius = dp(18).toFloat()
+                    setColor(if (on) 0xFF007580.toInt() else 0xFFE0F1F2.toInt())
+                }
+            }
+        }
+        val lenRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        for (m in BREAK_LENGTHS) {
+            val chip = TextView(this).apply {
+                text = if (m == 60) "1시간" else "${m}분"
+                textSize = 14f
+                setTypeface(typeface, Typeface.BOLD)
+                setPadding(dp(14), dp(8), dp(14), dp(8))
+                setOnClickListener { lengthMin = m; refresh() }
+            }
+            chips[m] = chip
+            lenRow.addView(chip, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginStart = dp(4); marginEnd = dp(4)
+            })
+        }
+        hour.setOnValueChangedListener { _, _, _ -> refresh() }
+        minute.setOnValueChangedListener { _, _, _ -> refresh() }
+        root.addView(lenRow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(6)
+        })
+        root.addView(preview, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(10)
+        })
+        refresh()
+
+        // 이미 정한 휴게 알람(지울 수 있다)
+        val existing = ClockBreak.list(this)
+        if (existing.isNotEmpty()) {
+            root.addView(TextView(this).apply {
+                text = "정해 둔 휴게"
+                textSize = 13f
+                setTextColor(0xFF6B7280.toInt())
+                setPadding(0, dp(12), 0, dp(2))
+            })
+            for (it in existing) {
+                val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+                row.addView(TextView(this).apply {
+                    text = ClockBreak.label(it)
+                    textSize = 16f
+                    setTextColor(0xFF1F2933.toInt())
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                row.addView(Button(this).apply {
+                    text = "지우기"
+                    setOnClickListener {
+                        ClockBreak.remove(this@ClockQuickActivity, it.id)
+                        Toast.makeText(this@ClockQuickActivity, "휴게 알람을 지웠습니다.", Toast.LENGTH_SHORT).show()
+                        finish()
+                    }
+                })
+                root.addView(row)
+            }
+        }
+
         root.addView(buttons {
-            val i = (group.checkedRadioButtonId - 500)
-            if (i !in BREAK_VALUES.indices) {
-                Toast.makeText(this, "휴게시간을 골라 주세요.", Toast.LENGTH_SHORT).show()
+            val st = startMs()
+            val err = ClockBreak.add(this, st, st + lengthMin * 60000L)
+            if (err != null) {
+                Toast.makeText(this, err, Toast.LENGTH_LONG).show()
             } else {
-                save(memo = null, brk = BREAK_VALUES[i])
+                Toast.makeText(this, "휴게 알람을 정했습니다: ${preview.text}", Toast.LENGTH_LONG).show()
+                finish()
             }
         })
     }
