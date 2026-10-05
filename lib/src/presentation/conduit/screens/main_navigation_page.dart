@@ -176,6 +176,16 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     compute: computeConduitFieldData,
     onCloseTab: _goToMarkingTab,
     isActive: _selectedIndex == 3,
+    measureGroup: () {
+      // 실측 기록 묶음: 종류·규격·장비 한 줄(예: Rigid 22mm · 유압식).
+      final s = globalBenderSettings.value;
+      final type = switch (s['benderType']) {
+        'ram' => '유압식',
+        'chicago' => '시카고식',
+        _ => '수동',
+      };
+      return '${s['conduitType']} ${s['conduitSize']} · $type';
+    },
   );
 
   Widget _buildNarrowBody() {

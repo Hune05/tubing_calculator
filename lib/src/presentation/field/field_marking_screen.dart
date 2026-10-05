@@ -18,6 +18,7 @@ import 'package:tubing_calculator/src/core/common_widgets/app_frame.dart'
     show kAppSystemUiMode;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:tubing_calculator/src/presentation/bend_check/bend_check_model.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
 
 // 🚀 [바꿈] 색을 줄였다. 바탕은 흰색 계열 하나, 누를 수 있는 것·켜진 것은
@@ -56,12 +57,17 @@ class FieldMarkingScreen extends StatefulWidget {
   /// 뒤로가기를 가로챈다.
   final bool isActive;
 
+  /// 실측 기록에 적을 묶음 이름("1/2\" SUS · 스웨이지락 수동" 같은 규격·장비 한 줄).
+  /// 없으면 한 단계씩 화면의 "실측 기록" 단추를 안 보인다.
+  final String Function()? measureGroup;
+
   const FieldMarkingScreen({
     super.key,
     required this.listenable,
     required this.compute,
     this.onCloseTab,
     this.isActive = true,
+    this.measureGroup,
   });
 
   @override
@@ -69,7 +75,22 @@ class FieldMarkingScreen extends StatefulWidget {
 }
 
 class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
-  static const double _scale = 2.0; // 1mm = 2px
+  static const double _defaultScale = 2.0;
+  static const double _minScale = 0.3;
+  static const double _maxScale = 8.0;
+  static const String _scaleKey = 'field_tape_scale';
+
+  /// 1mm가 몇 px인지. 두 손가락·확대 단추로 바꾸고 폰에 기억한다.
+  double _scale = _defaultScale;
+
+  /// 줄자를 지금 할 마킹 쪽으로 옮겨야 한다(처음 열 때·도면이 바뀔 때·한 단계씩에서 돌아올 때).
+  /// 줄자는 길어서 (1007mm 같은) 첫 마킹과 말풍선이 처음엔 화면 밖에 있었다.
+  bool _needsFollow = true;
+  double _tapeViewW = 0;
+  final Map<int, Offset> _pointers = {};
+  double _pinchStartDist = 0;
+  double _pinchStartScale = _defaultScale;
+  bool _pinching = false;
   static const double _padLeft = 48;
   static const double _labelW = 108;
   static const double _labelH = 46;
@@ -111,6 +132,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       if (!mounted) return;
       setState(() {
         _showGap = prefs.getBool(_gapKey) ?? false;
+        final sc = prefs.getDouble(_scaleKey);
+        if (sc != null) _scale = sc.clamp(_minScale, _maxScale);
       });
     } catch (_) {}
   }
@@ -253,6 +276,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     setState(() {
       _stepMode = !_stepMode;
       if (_stepMode && _selectedStep != null) _current = _selectedStep!;
+      if (!_stepMode) _needsFollow = true;
     });
     if (_stepMode) _focus.requestFocus();
     _syncVolumeCapture();
@@ -264,19 +288,181 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       _selectedStep = _selectedStep == i ? null : i;
       _current = i;
     });
-    if (!_tapeScroll.hasClients || i >= steps.length) return;
+    _scrollToStep(i, steps, animate: true);
+  }
+
+  /// 줄자를 [i]번째 단계의 눈금이 화면 가운데 오게 옮긴다.
+  void _scrollToStep(int i, List<FieldStep> steps, {required bool animate}) {
+    if (!_tapeScroll.hasClients || i < 0 || i >= steps.length) return;
     final x = _padLeft + steps[i].at * _scale;
     final view = _tapeScroll.position.viewportDimension;
     final target = (x - view / 2).clamp(
       0.0,
       _tapeScroll.position.maxScrollExtent,
     );
-    _tapeScroll.animateTo(
-      target,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    if (animate) {
+      _tapeScroll.animateTo(
+        target,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    } else {
+      _tapeScroll.jumpTo(target);
+    }
   }
+
+  // ---------------- 줄자 확대·축소 ----------------
+
+  Future<void> _saveScale() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_scaleKey, _scale);
+    } catch (_) {}
+  }
+
+  /// 확대 비율을 [next]로. 화면 가로 [focalX] 자리(기본은 가운데)의 눈금이 그대로 있게 줄자를 옮긴다.
+  void _applyScale(double next, {double? focalX}) {
+    next = next.clamp(_minScale, _maxScale);
+    if ((next - _scale).abs() < 0.001) return;
+    final fx = focalX ?? _tapeViewW / 2;
+    final anchorMm = _tapeScroll.hasClients
+        ? (_tapeScroll.offset + fx - _padLeft) / _scale
+        : 0.0;
+    setState(() => _scale = next);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_tapeScroll.hasClients) return;
+      final off = (anchorMm * _scale + _padLeft - fx).clamp(
+        0.0,
+        _tapeScroll.position.maxScrollExtent,
+      );
+      _tapeScroll.jumpTo(off);
+    });
+  }
+
+  void _zoomBy(double factor) {
+    HapticFeedback.selectionClick();
+    _applyScale(_scale * factor);
+    _saveScale();
+  }
+
+  /// 관 전체가 한 화면에 들어오게(말풍선이 화면 밖으로 안 밀리게).
+  void _zoomFit(double maxMm) {
+    if (maxMm <= 0 || _tapeViewW <= 0) return;
+    HapticFeedback.selectionClick();
+    final next = ((_tapeViewW - _padLeft * 2) / maxMm).clamp(
+      _minScale,
+      _maxScale,
+    );
+    setState(() => _scale = next);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _tapeScroll.hasClients) _tapeScroll.jumpTo(0);
+    });
+    _saveScale();
+  }
+
+  void _onPointerDown(PointerDownEvent e) {
+    _pointers[e.pointer] = e.localPosition;
+    if (_pointers.length == 2) {
+      final p = _pointers.values.toList();
+      _pinchStartDist = (p[0] - p[1]).distance;
+      _pinchStartScale = _scale;
+      setState(() => _pinching = true);
+    }
+  }
+
+  void _onPointerMove(PointerMoveEvent e) {
+    if (!_pointers.containsKey(e.pointer)) return;
+    _pointers[e.pointer] = e.localPosition;
+    if (_pinching && _pointers.length >= 2 && _pinchStartDist > 8) {
+      final p = _pointers.values.toList();
+      final d = (p[0] - p[1]).distance;
+      _applyScale(
+        _pinchStartScale * d / _pinchStartDist,
+        focalX: (p[0].dx + p[1].dx) / 2,
+      );
+    }
+  }
+
+  void _onPointerEnd(PointerEvent e) {
+    _pointers.remove(e.pointer);
+    if (_pinching && _pointers.length < 2) {
+      setState(() => _pinching = false);
+      _saveScale();
+    }
+  }
+
+  // ---------------- 실측 기록 ----------------
+
+  /// 이 단계를 실제로 해 보고 잰 값을 "벤딩 실측 기록"에 남긴다(참고용, 마킹 값은 안 바뀐다).
+  Future<void> _recordMeasure(FieldStep s) async {
+    final group = widget.measureGroup?.call() ?? '';
+    final what = s.isCut
+        ? '자르기'
+        : '${_fmt(s.mark!.angle)}° ${s.mark!.number}번 마킹';
+    final actual = await showDialog<double>(
+      context: context,
+      builder: (ctx) => _MeasureDialog(what: what, calc: s.at),
+    );
+    if (actual == null || !mounted) return;
+    final at = DateTime.now();
+    await addBendCheck(
+      BendCheck(
+        id: at.millisecondsSinceEpoch.toString(),
+        at: at,
+        group: group.isEmpty ? '현장' : group,
+        what: what,
+        calc: s.at,
+        actual: actual,
+      ),
+    );
+    if (!mounted) return;
+    HapticFeedback.lightImpact();
+    final diff = actual - s.at;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('실측을 기록했습니다 (${signedMm(diff)})'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+  }
+
+  Widget _measureButton(FieldStep s) => TextButton.icon(
+    key: const Key('field_measure'),
+    onPressed: () => _recordMeasure(s),
+    icon: Icon(Icons.straighten_rounded, size: 18, color: _muted),
+    label: Text(
+      '실측 기록',
+      style: TextStyle(
+        fontSize: _small(13),
+        fontWeight: FontWeight.w700,
+        color: _muted,
+      ),
+    ),
+  );
+
+  Widget _zoomButton(Key key, IconData icon, String tip, VoidCallback onTap) =>
+      Padding(
+        padding: const EdgeInsets.only(left: 6),
+        child: Material(
+          color: fc.surface.withValues(alpha: 0.92),
+          shape: CircleBorder(side: BorderSide(color: _line)),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            key: key,
+            onTap: onTap,
+            child: Tooltip(
+              message: tip,
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(icon, size: 22, color: _muted),
+              ),
+            ),
+          ),
+        ),
+      );
 
   // ---------------- 그리기 ----------------
 
@@ -299,6 +485,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           _current = 0;
           _done.clear();
           _selectedStep = null;
+          _needsFollow = true;
         }
         if (_current >= steps.length) _current = 0;
 
@@ -719,19 +906,72 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         ],
       ),
     );
-    return LayoutBuilder(
+    final tape = LayoutBuilder(
       builder: (context, c) {
+        _tapeViewW = c.maxWidth;
+        if (_needsFollow) {
+          _needsFollow = false;
+          final follow = (_selectedStep ?? _current).clamp(
+            0,
+            steps.isEmpty ? 0 : steps.length - 1,
+          );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _scrollToStep(follow, steps, animate: false);
+          });
+        }
         final scroll = SingleChildScrollView(
           controller: _tapeScroll,
           scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
+          // 두 손가락으로 늘릴 때는 줄자가 같이 밀리지 않게 한다.
+          physics: _pinching
+              ? const NeverScrollableScrollPhysics()
+              : const BouncingScrollPhysics(),
           child: stack,
         );
-        if (c.maxHeight >= contentH) {
-          return Align(alignment: Alignment.center, child: scroll);
-        }
-        return SingleChildScrollView(child: scroll);
+        final body = c.maxHeight >= contentH
+            ? Align(alignment: Alignment.center, child: scroll)
+            : SingleChildScrollView(child: scroll);
+        return Listener(
+          key: const Key('field_tape_pinch'),
+          onPointerDown: _onPointerDown,
+          onPointerMove: _onPointerMove,
+          onPointerUp: _onPointerEnd,
+          onPointerCancel: _onPointerEnd,
+          child: body,
+        );
       },
+    );
+    return Stack(
+      children: [
+        Positioned.fill(child: tape),
+        Positioned(
+          right: 10,
+          bottom: 10,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _zoomButton(
+                const Key('field_zoom_out'),
+                Icons.remove_rounded,
+                '줄이기',
+                () => _zoomBy(1 / 1.4),
+              ),
+              _zoomButton(
+                const Key('field_zoom_fit'),
+                Icons.fit_screen_rounded,
+                '전체 보기',
+                () => _zoomFit(maxMm),
+              ),
+              _zoomButton(
+                const Key('field_zoom_in'),
+                Icons.add_rounded,
+                '키우기',
+                () => _zoomBy(1.4),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1167,7 +1407,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           onTap: _current > 0 ? () => _prev(steps.length) : null,
         ),
         Expanded(
-          child: LayoutBuilder(
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: LayoutBuilder(
             // 🚀 [고침] 예전에는 숫자 칸 아무 데나 닿아도 넘어가(폰을 관에 대다 손바닥이
             // 닿으면 안 한 마킹이 ✓가 됐다). 이제 양옆 이전·다음 단추와 볼륨 단추로만 넘긴다.
             builder: (context, c) => SizedBox(
@@ -1179,6 +1422,16 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 ),
               ),
             ),
+                ),
+              ),
+              if (widget.measureGroup != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 2,
+                  child: Center(child: _measureButton(s)),
+                ),
+            ],
           ),
         ),
         _navButton(
@@ -1383,6 +1636,66 @@ class _Line {
   });
 }
 
+/// 실측 값 입력 창. 입력 컨트롤러를 이 창이 스스로 만들고 없앤다(닫히는 동안에도 안전하게).
+class _MeasureDialog extends StatefulWidget {
+  final String what;
+  final double calc;
+  const _MeasureDialog({required this.what, required this.calc});
+
+  @override
+  State<_MeasureDialog> createState() => _MeasureDialogState();
+}
+
+class _MeasureDialogState extends State<_MeasureDialog> {
+  final TextEditingController _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('실측 기록'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${widget.what} · 계산 ${widget.calc.round()} mm'),
+          const SizedBox(height: 12),
+          TextField(
+            key: const Key('field_measure_input'),
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: '실제로 잰 값 (mm)',
+              suffixText: 'mm',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('취소'),
+        ),
+        TextButton(
+          key: const Key('field_measure_save'),
+          onPressed: () {
+            final v = double.tryParse(_ctrl.text.trim().replaceAll(',', '.'));
+            if (v == null) return;
+            Navigator.pop(context, v);
+          },
+          child: const Text('저장'),
+        ),
+      ],
+    );
+  }
+}
+
 /// 관·줄자·마킹 선을 그린다.
 class _TapePainter extends CustomPainter {
   final double totalCut;
@@ -1527,6 +1840,7 @@ class _TapePainter extends CustomPainter {
   bool shouldRepaint(covariant _TapePainter old) =>
       old.totalCut != totalCut ||
       old.maxMm != maxMm ||
+      old.scale != scale ||
       old.lines.length != lines.length ||
       !_sameLines(old.lines, lines);
 

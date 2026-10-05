@@ -203,6 +203,12 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     compute: () => computeTubeFieldData(startDir: _startDir),
     onCloseTab: _goToMarkingTab,
     isActive: _currentIndex == 3,
+    measureGroup: () {
+      // 실측 기록 묶음: 규격·장비 한 줄(예: 12.7mm SUS · Swagelok 수동 (Hand)).
+      final c = AppSettingsController();
+      final od = c.isInch ? '${c.tubeOD}"' : '${c.tubeOD}mm';
+      return '$od ${c.tubeMaterial} · ${c.benderBrand} ${c.benderType}';
+    },
   );
 
   Widget _buildNarrowBody() {
