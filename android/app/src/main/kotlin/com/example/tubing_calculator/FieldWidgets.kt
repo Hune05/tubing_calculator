@@ -295,7 +295,7 @@ class ClockWidgetProvider : AppWidgetProvider() {
             val large = buildLarge(c)
             if (!WidgetCfg.bgOn(c, id)) {
                 WidgetCfg.applyPlain(small, intArrayOf(R.id.clock_s_text, R.id.clock_s_timer), intArrayOf(R.id.clock_s_sub), intArrayOf(), intArrayOf())
-                WidgetCfg.applyPlain(large, intArrayOf(R.id.clock_big, R.id.clock_timer), intArrayOf(R.id.clock_sub), intArrayOf(), intArrayOf())
+                WidgetCfg.applyPlain(large, intArrayOf(R.id.clock_big, R.id.clock_timer, R.id.clock_memo), intArrayOf(R.id.clock_sub), intArrayOf(), intArrayOf())
                 // 배경이 없을 때 색 동그라미가 떠 보이지 않게 반투명 흰 테두리 동그라미로 바꾼다.
                 for (b in intArrayOf(R.id.clock_s_btn_in, R.id.clock_s_btn_out)) small.setInt(b, "setBackgroundResource", R.drawable.widget_circle_plain)
                 for (b in intArrayOf(R.id.clock_btn_in, R.id.clock_btn_out, R.id.clock_btn_break, R.id.clock_btn_memo)) large.setInt(b, "setBackgroundResource", R.drawable.widget_circle_plain)
@@ -345,11 +345,12 @@ class ClockWidgetProvider : AppWidgetProvider() {
             val memo = if (fresh) s!!.optString("memo") else ""
             val showBrk = working && brkText != null
             val showMemo = (working || phase == "done") && memo.isNotBlank()
-            v.setViewVisibility(R.id.clock_chips, if (showBrk || showMemo) View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.clock_chips, if (showBrk) View.VISIBLE else View.GONE)
             v.setViewVisibility(R.id.clock_chip_break, if (showBrk) View.VISIBLE else View.GONE)
-            v.setViewVisibility(R.id.clock_chip_memo, if (showMemo) View.VISIBLE else View.GONE)
             if (showBrk) v.setTextViewText(R.id.clock_chip_break, brkText)
-            if (showMemo) v.setTextViewText(R.id.clock_chip_memo, memo)
+            // 메모는 칩이 아니라 글로 한두 줄 보인다
+            v.setViewVisibility(R.id.clock_memo, if (showMemo) View.VISIBLE else View.GONE)
+            if (showMemo) v.setTextViewText(R.id.clock_memo, memo)
 
             v.setOnClickPendingIntent(R.id.widget_clock_root, FieldWidgetStore.openAppIntent(c, "attendance:open", 300))
             v.setOnClickPendingIntent(R.id.clock_btn_in, FieldWidgetStore.punchIntent(c, "in", 301))

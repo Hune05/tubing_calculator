@@ -4,9 +4,12 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
-    android:gravity="center_vertical"
+    android:gravity="top"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="10dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -111,7 +114,7 @@
         android:id="@+id/clock_chips"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="6dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:visibility="gone">
@@ -131,22 +134,17 @@
             android:textSize="11sp"
             android:textStyle="bold"
             android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/clock_chip_memo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="6dp"
-            android:background="@drawable/widget_chip_bg"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:paddingStart="9dp"
-            android:paddingTop="3dp"
-            android:paddingEnd="9dp"
-            android:paddingBottom="3dp"
-            android:textColor="@color/widget_brand"
-            android:textSize="11sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/clock_memo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:ellipsize="end"
+        android:lineSpacingExtra="1dp"
+        android:maxLines="2"
+        android:textColor="@color/widget_text"
+        android:textSize="13sp"
+        android:visibility="gone" />
 </LinearLayout>
