@@ -5,6 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'conduit_settings_page.dart' show globalBenderSettings;
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
+import 'package:tubing_calculator/src/core/common_widgets/save_name_chips.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/history_card_info.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/history_folder_rename_dialog.dart';
 
 /// 보관함에 새로 저장하면 올린다(보관함 탭이 다시 읽는다).
 final ValueNotifier<int> conduitDrawingsRevision = ValueNotifier(0);
@@ -63,10 +67,54 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
             'date': d.date,
             'totalCut': d.totalCut.round(),
             'segmentCount': d.segmentCount,
+            'shape': bendShapeSummary([
+              for (final b in d.bends) (b['angle'] as num?)?.toDouble() ?? 0.0,
+            ]),
             'notes': d.notes,
           },
       ];
     });
+  }
+
+  /// 작업 이름(폴더)의 이름을 바꾼다. 이미 있는 작업 이름으로 바꾸면 그 작업과 합쳐진다.
+  /// 도면마다 저장된 작업 이름을 한 번에 고치고, "되돌리기"로 이전 이름을 되돌린다.
+  Future<void> _renameFolder(String folderName, List<Map<String, dynamic>> items) async {
+    final existing = {for (final e in _savedDrawings) '${e['folderName'] ?? '미분류 도면'}'};
+    final others = recentDistinctNames(existing.where((k) => k != folderName), max: 8);
+    final newName = await showFolderRenameDialog(
+      context,
+      current: folderName == '미분류 도면' ? '' : folderName,
+      others: others,
+    );
+    if (newName == null || !mounted) return;
+    final target = newName.trim();
+    if (target.isEmpty || target == folderName) return;
+    final merged = existing.contains(target);
+    final ids = [for (final it in items) '${it['id']}'];
+    try {
+      await setConduitFolders({for (final id in ids) id: target});
+    } catch (e) {
+      debugPrint('작업 이름 바꾸기 실패: $e');
+      if (mounted) {
+        showAppSnack(context, '이름을 바꾸지 못했습니다. 다시 시도하십시오.', kind: AppSnackKind.error);
+      }
+      return;
+    }
+    await _reload();
+    if (!mounted) return;
+    showAppSnack(
+      context,
+      merged ? '작업을 합쳤습니다: $target (${ids.length}개)' : '작업 이름을 바꿨습니다: $target (${ids.length}개)',
+      kind: AppSnackKind.undo,
+      onUndo: () async {
+        try {
+          await setConduitFolders({for (final id in ids) id: folderName});
+        } catch (e) {
+          debugPrint('작업 이름 되돌리기 실패: $e');
+        }
+        if (mounted) await _reload();
+      },
+    );
   }
 
   /// 밀어서 지운 도면. 밀린 줄이 화면에 남으면 오류라 목록에서 먼저 빼고 지운다.
@@ -110,7 +158,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
           ),
         ),
         content: Text(
-          "'${targetItem['title']}'을(를) 불러오면 지금 입력 목록이 이 도면으로 바뀝니다.\n(입력 탭의 ↶로 되돌릴 수 있습니다)",
+          "'${targetItem['title']}'을(를) 불러오면 지금 입력 목록이 이 도면으로 바뀝니다.\n(입력 탭의 ↶로 되돌릴 수 있습니다)\n고쳐서 저장할 때 이 도면에 덮어쓸 수도 있습니다.",
           style: const TextStyle(color: slate600, fontSize: 15, height: 1.5),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
@@ -146,6 +194,8 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                     if (drawing == null) return;
                     // 🚀 [고침] 예전에는 알림만 띄우고 목록에 넣지 않았다.
                     ConduitDataManager().replaceAll(drawing.bends);
+                    // 고친 뒤 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있게 어느 도면인지 기억한다.
+                    ConduitDataManager().setSource(drawing.id);
                     widget.onLoaded?.call();
                     // 도면을 저장할 때 규격과 지금 설정 규격이 다르면 마킹이 다르게 나온다.
                     final String savedSize =
@@ -238,35 +288,53 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
             padding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
             child: Row(
               children: [
-                const Icon(Icons.folder_rounded, color: slate400, size: 22),
-                const SizedBox(width: 8),
-                Text(
-                  folderName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: slate900,
-                    letterSpacing: -0.5,
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.folder_rounded, color: slate400, size: 22),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          folderName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: slate900,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: slate200,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          "${items.length}",
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: slate600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: slate200,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    "${items.length}",
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: slate600,
-                    ),
-                  ),
+                // 작업 이름 바꾸기·합치기
+                IconButton(
+                  key: ValueKey('conduit_folder_menu_$folderName'),
+                  tooltip: '작업 이름 바꾸기',
+                  visualDensity: VisualDensity.compact,
+                  icon: const Icon(Icons.edit_outlined, color: slate600, size: 20),
+                  onPressed: () => _renameFolder(folderName, items),
                 ),
               ],
             ),
@@ -411,6 +479,16 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                     const SizedBox(height: 6),
                     Text(
                       item['date'],
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: slate600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      item['shape'] ?? '',
+                      key: const Key('conduit_card_shape'),
                       style: const TextStyle(
                         fontSize: 13,
                         color: slate600,

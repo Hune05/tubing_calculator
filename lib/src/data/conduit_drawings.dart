@@ -39,6 +39,17 @@ class ConduitDrawing {
 
   int get segmentCount => bends.length;
 
+  ConduitDrawing copyWith({String? folderName}) => ConduitDrawing(
+    id: id,
+    folderName: folderName ?? this.folderName,
+    title: title,
+    date: date,
+    totalCut: totalCut,
+    bends: bends,
+    notes: notes,
+    settings: settings,
+  );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'folderName': folderName,
@@ -158,6 +169,78 @@ Future<void> deleteConduitDrawing(String id) async {
     for (final d in all)
       if (d.id != id) d,
   ]);
+}
+
+/// 여러 도면의 작업 이름(폴더)을 한 번에 바꾼다. 키는 도면 번호, 값은 새 작업 이름.
+/// 작업 이름을 바꾸거나 합칠 때와 그 되돌리기에 쓴다.
+Future<void> setConduitFolders(Map<String, String> idToFolder) async {
+  if (idToFolder.isEmpty) return;
+  final all = await loadConduitDrawings();
+  await _write([
+    for (final d in all)
+      if (idToFolder.containsKey(d.id))
+        d.copyWith(
+          folderName: idToFolder[d.id]!.trim().isEmpty ? '미분류 도면' : idToFolder[d.id]!.trim(),
+        )
+      else
+        d,
+  ]);
+}
+
+/// 불러와 고친 도면에 덮어쓴다. 번호는 그대로, 저장 시각은 지금으로 바꾼다.
+/// 덮어쓰기 전의 도면을 돌려준다(되돌리기에 쓴다). 그 번호의 도면이 없으면 null(아무것도 안 한다).
+Future<ConduitDrawing?> overwriteConduitDrawing({
+  required String id,
+  required String folderName,
+  required String title,
+  required double totalCut,
+  required List<Map<String, dynamic>> bends,
+  String notes = '',
+  Map<String, dynamic> settings = const {},
+}) async {
+  final all = await loadConduitDrawings();
+  ConduitDrawing? before;
+  for (final d in all) {
+    if (d.id == id) before = d;
+  }
+  if (before == null) return null;
+  final saved = ConduitDrawing(
+    id: id,
+    folderName: folderName.trim().isEmpty ? '미분류 도면' : folderName.trim(),
+    title: title.trim().isEmpty ? '이름 없는 도면' : title.trim(),
+    date: _now(),
+    totalCut: totalCut,
+    notes: notes.trim(),
+    bends: [
+      for (final b in bends)
+        {
+          'length': (b['length'] as num?)?.toDouble() ?? 0.0,
+          'angle': (b['angle'] as num?)?.toDouble() ?? 0.0,
+          'rotation': (b['rotation'] as num?)?.toDouble() ?? 0.0,
+        },
+    ],
+    settings: {
+      for (final k in const [
+        'benderType',
+        'manufacturer',
+        'conduitType',
+        'conduitSize',
+        'takeUp',
+        'gain',
+        'clr',
+        'setback',
+      ])
+        if (settings[k] != null) k: settings[k],
+    },
+  );
+  await _write([for (final d in all) d.id == id ? saved : d]);
+  return before;
+}
+
+/// 같은 번호의 도면을 [drawing] 내용으로 통째로 바꾼다(덮어쓰기 되돌리기).
+Future<void> replaceConduitDrawing(ConduitDrawing drawing) async {
+  final all = await loadConduitDrawings();
+  await _write([for (final d in all) d.id == drawing.id ? drawing : d]);
 }
 
 /// 지운 도면을 다시 넣는다(지운 알림의 "되돌리기").

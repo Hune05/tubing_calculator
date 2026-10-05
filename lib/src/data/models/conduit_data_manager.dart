@@ -29,6 +29,29 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
 
   List<Map<String, dynamic>> bendList = [];
 
+  /// 보관함에서 불러온 도면 번호. 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있다.
+  /// 목록을 모두 지우거나 불러오기를 ↶로 되돌리면 잊는다.
+  String? sourceDrawingId;
+  int _sourceDepth = 0;
+
+  /// 방금 `replaceAll`로 불러온 목록이 [id] 도면에서 왔다고 기억한다.
+  void setSource(String id) {
+    sourceDrawingId = id;
+    _sourceDepth = undoDepth;
+  }
+
+  void clearSource() => sourceDrawingId = null;
+
+  @override
+  bool undo() {
+    final ok = super.undo();
+    // 불러오기 자체를 되돌렸으면(그 전 목록으로 돌아갔으면) 그 도면은 더 이상 원본이 아니다.
+    if (ok && sourceDrawingId != null && undoDepth < _sourceDepth) {
+      sourceDrawingId = null;
+    }
+    return ok;
+  }
+
   // --- 상태 업데이트 및 로컬 저장 공통 메서드 ---
   void _updateAndSave() {
     notifyListeners(); // UI 갱신
@@ -85,6 +108,7 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
   }
 
   void clearBends() {
+    sourceDrawingId = null;
     if (bendList.isEmpty) return;
     recordHistory();
     bendList.clear();

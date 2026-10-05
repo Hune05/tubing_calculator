@@ -88,6 +88,15 @@ class HistoryOverwriteTarget {
   String get dateText => HistoryCardInfo.of(row).dateText;
 }
 
+/// 굽힘 각도 목록을 "굽힘 2개 (90°, 45°)" 한 줄로(6개까지만, 넘으면 " …"). 굽힘이 없으면 "직관만".
+String bendShapeSummary(Iterable<double> angles) {
+  final list = angles.where((a) => a > 0).toList();
+  if (list.isEmpty) return '직관만';
+  String t(double a) => '${a == a.roundToDouble() ? a.round() : a}°';
+  final shown = list.take(6).map(t).join(', ');
+  return '굽힘 ${list.length}개 ($shown${list.length > 6 ? ' …' : ''})';
+}
+
 /// 보관함 카드에 보일 글.
 class HistoryCardInfo {
   /// 카드 제목: "A ➔ B". 시작·도착을 둘 다 모르면 "굽힘 3개 도면"처럼 도면 요약.
@@ -119,9 +128,6 @@ class HistoryCardInfo {
   static bool _unknown(String s) =>
       s.trim().isEmpty || s.trim() == '모름' || s.trim() == 'null';
 
-  static String _angleText(double a) =>
-      '${a == a.roundToDouble() ? a.round() : a}°';
-
   static HistoryCardInfo of(Map<String, dynamic> item) {
     var from = '';
     var to = '';
@@ -147,10 +153,7 @@ class HistoryCardInfo {
       }
     } catch (_) {}
 
-    final shown = angles.take(6).map(_angleText).join(', ');
-    final shape = angles.isEmpty
-        ? '직관만'
-        : '굽힘 ${angles.length}개 ($shown${angles.length > 6 ? ' …' : ''})';
+    final shape = bendShapeSummary(angles);
     final String title;
     if (_unknown(from) && _unknown(to)) {
       title = angles.isEmpty ? '직관 도면' : '굽힘 ${angles.length}개 도면';
