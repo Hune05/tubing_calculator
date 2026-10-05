@@ -223,6 +223,29 @@ void main() {
       expect(list.single.bends.first['angle'], 45.0);
     });
 
+    testWidgets('앱이 붙인 도면 이름이면 덮어쓸 때 새 길이로 갱신하고, 지은 이름은 그대로 둔다', (
+      tester,
+    ) async {
+      final saved = await tester.runAsync(
+        () => saveConduitDrawing(
+          folderName: 'EPS실',
+          title: '벤드 1개 · 600mm',
+          totalCut: 600,
+          bends: [b(200, 45), b(300, 0)],
+        ),
+      );
+      ConduitDataManager().replaceAll([b(300, 90), b(400, 0)]);
+      ConduitDataManager().setSource(saved!.id);
+      await open(tester);
+      // 현재 목록은 벤드 1개 · 618mm
+      expect(find.widgetWithText(TextField, '벤드 1개 · 618mm'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('conduit_save_ok')));
+      await settle(tester);
+      final list = (await tester.runAsync(loadConduitDrawings))!;
+      expect(list.single.title, '벤드 1개 · 618mm');
+      expect(list.single.id, saved.id);
+    });
+
     testWidgets('"새 도면으로 저장"을 고르면 덮어쓰지 않고 새 줄을 더하며 옛 이름은 쓰지 않는다', (
       tester,
     ) async {
@@ -264,7 +287,6 @@ void main() {
 
   group('보관함 탭', () {
     late ConduitDrawing a;
-    late ConduitDrawing c;
 
     Future<void> openTab(WidgetTester tester) async {
       await tester.binding.setSurfaceSize(const Size(420, 2400));
@@ -280,14 +302,14 @@ void main() {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 3)),
       );
-      c = (await tester.runAsync(
+      await tester.runAsync(
         () => saveConduitDrawing(
           folderName: 'B구역',
           title: '직관 도면',
           totalCut: 300,
           bends: [b(300, 0)],
         ),
-      ))!;
+      );
       await tester.pumpWidget(const MaterialApp(home: ConduitHistoryTab()));
       await settle(tester);
     }

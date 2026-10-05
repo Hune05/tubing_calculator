@@ -13,6 +13,9 @@ import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_histo
 
 const String _lastFolderKey = 'conduit_last_folder';
 
+/// 저장 때 앱이 붙인 도면 이름("벤드 2개 · 617mm")인지. 사람이 지은 이름은 건드리지 않는다.
+bool _isAutoTitle(String t) => RegExp(r'^벤드 \d+개 · \d+mm$').hasMatch(t.trim());
+
 /// 창이 돌려주는 값. [overwrite]면 불러온 도면에 덮어쓴다.
 class _SaveResult {
   final String folder;
@@ -194,8 +197,14 @@ class _SaveDialogState extends State<_SaveDialog> {
               : widget.target!.folderName)
         : widget.folder,
   );
+  // 덮어쓸 때 도면 이름: 사람이 지은 이름은 그대로, 앱이 붙인 이름이면 새 값(길이·굽힘 수)으로 갱신.
+  late final String _overwriteTitle =
+      widget.target != null && !_isAutoTitle(widget.target!.title)
+      ? widget.target!.title
+      : widget.title;
+
   late final TextEditingController _title = TextEditingController(
-    text: widget.target?.title ?? widget.title,
+    text: widget.target != null ? _overwriteTitle : widget.title,
   );
   late final TextEditingController _notes = TextEditingController(
     text: widget.target?.notes ?? '',
@@ -218,8 +227,12 @@ class _SaveDialogState extends State<_SaveDialog> {
     final t = widget.target;
     if (t == null || overwrite == _overwrite) return;
     setState(() {
-      if (overwrite && _title.text == widget.title) _title.text = t.title;
-      if (!overwrite && _title.text == t.title) _title.text = widget.title;
+      if (overwrite && _title.text == widget.title) {
+        _title.text = _overwriteTitle;
+      }
+      if (!overwrite && _title.text == _overwriteTitle) {
+        _title.text = widget.title;
+      }
       _overwrite = overwrite;
     });
   }
