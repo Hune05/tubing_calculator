@@ -30,6 +30,7 @@ String? fraction(WidgetTester tester) {
 void main() {
   moreTests();
   titleTests();
+  modeStabilityTests();
   testWidgets('숫자·연산자를 누르면 바로 결과가 뜬다(=  없이도)', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_2');
@@ -586,5 +587,49 @@ void titleTests() {
     await tester.pump();
     final p = tester.renderObject<RenderParagraph>(find.text('공학용 계산기'));
     expect(p.didExceedMaxLines, isFalse);
+  });
+}
+
+// 폴드4에서 숫자를 누르던 중 키패드가 공학→기본 모드로 바뀐 일이 있었다(재현은 안 됨).
+// 모드는 모드 단추와 저장값 읽기로만 바뀌고, 숫자·연산을 눌러서는 안 바뀐다는 것을 지킨다.
+void modeStabilityTests() {
+  testWidgets('공학 모드에서 숫자·연산을 많이 눌러도 모드가 안 바뀐다', (tester) async {
+    await pump(tester);
+    expect(find.byKey(const Key('calc_sin')), findsOneWidget);
+    for (final k in [
+      'calc_1', 'calc_2', 'calc_3', 'calc_4', 'calc_5', 'calc_6', 'calc_7',
+      'calc_8', 'calc_9', 'calc_mul', 'calc_9', 'calc_8', 'calc_7', 'calc_6',
+      'calc_5', 'calc_4', 'calc_3', 'calc_2', 'calc_1',
+    ]) {
+      await tap(tester, k);
+    }
+    expect(find.byKey(const Key('calc_sin')), findsOneWidget);
+    expect(find.text('기본 계산기'), findsOneWidget); // 지금이 공학 모드라는 뜻(누르면 기본으로)
+  });
+
+  testWidgets('저장된 모드가 기본이면 기본으로 시작하고 눌러도 그대로다', (tester) async {
+    SharedPreferences.setMockInitialValues({kEngCalcAdvancedKey: false});
+    await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byKey(const Key('calc_sin')), findsNothing);
+    await tap(tester, 'calc_7');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    expect(find.byKey(const Key('calc_sin')), findsNothing);
+    expect(result(tester), '10');
+  });
+
+  testWidgets('모드 단추를 누르면 바뀌고 폰에 저장된다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_mode_toggle');
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byKey(const Key('calc_sin')), findsNothing);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    final p = await SharedPreferences.getInstance();
+    expect(p.getBool(kEngCalcAdvancedKey), isFalse);
   });
 }
