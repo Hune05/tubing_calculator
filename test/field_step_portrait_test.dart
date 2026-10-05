@@ -100,7 +100,7 @@ void main() {
     expect(find.byKey(const Key('field_next_gap')), findsOneWidget);
   });
 
-  testWidgets('한 단계씩을 켜면 세로 고정, 끄면 다시 가로 고정', (tester) async {
+  testWidgets('현장 탭은 줄자·한 단계씩 어느 쪽이든 화면 방향을 묶지 않는다', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final calls = <List<dynamic>>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -131,15 +131,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(calls.last, ['DeviceOrientation.landscapeRight', 'DeviceOrientation.landscapeLeft']);
-
     await tester.tap(find.byKey(const Key('field_mode_toggle'))); // 한 단계씩
     await tester.pumpAndSettle();
-    expect(calls.last, ['DeviceOrientation.portraitUp', 'DeviceOrientation.portraitDown']);
-
     await tester.tap(find.byKey(const Key('field_mode_toggle'))); // 줄자로
     await tester.pumpAndSettle();
-    expect(calls.last, ['DeviceOrientation.landscapeRight', 'DeviceOrientation.landscapeLeft']);
+    // 묶는 호출(가로·세로 목록)은 한 번도 없고, 푸는 호출(빈 목록)만 있다.
+    expect(calls.where((l) => l.isNotEmpty), isEmpty);
   });
 }
 

@@ -207,13 +207,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     super.dispose();
   }
 
-  /// 줄자 보기는 가로, 한 단계씩은 세로(숫자를 위아래로 길고 크게). 보일 때만 건다.
+  /// 현장 탭은 화면 방향을 묶지 않는다(가로·세로 모두 허용, 기기를 돌리는 대로 따라간다).
+  /// 한때 줄자는 가로·한 단계씩은 세로로 묶었다가 사용자가 풀어 달라고 해서 처음처럼 풀었다.
+  /// 두 화면 모두 세로·가로 레이아웃을 가지고 있다.
   void _applyOrientation() {
-    SystemChrome.setPreferredOrientations(
-      _stepMode
-          ? [DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]
-          : [DeviceOrientation.landscapeRight, DeviceOrientation.landscapeLeft],
-    );
+    SystemChrome.setPreferredOrientations(const []);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
@@ -291,7 +289,6 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       if (_stepMode && _selectedStep != null) _current = _selectedStep!;
       if (!_stepMode) _needsFollow = true;
     });
-    if (widget.isActive) _applyOrientation();
     if (_stepMode) _focus.requestFocus();
     _syncVolumeCapture();
   }

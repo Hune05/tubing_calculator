@@ -37,7 +37,7 @@ void main() {
     );
     await tester.pumpWidget(screen(true));
     await tester.pump();
-    expect(orientations.last, isNotEmpty); // 켜 있을 때는 가로
+    expect(orientations.last, isEmpty); // 켜 있어도 방향을 묶지 않는다(가로·세로 모두 허용)
 
     await tester.pumpWidget(screen(false)); // 다른 탭으로
     await tester.pump();
