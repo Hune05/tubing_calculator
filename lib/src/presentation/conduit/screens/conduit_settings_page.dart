@@ -135,10 +135,54 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     '54mm',
   ];
 
+  /// 이 화면이 마지막으로 읽거나 쓴 전역 설정. 다른 곳에서 바뀌면(저장 도면 설정 맞추기·서버에서
+  /// 받기 등) 이 값과 달라져서 화면 칸을 다시 채운다. 안 그러면 옛 값이 보이고, 저장을 누르면
+  /// 옛 값이 되살아난다.
+  Map<String, dynamic>? _lastSeenSettings;
+
+  void _onGlobalSettingsChanged() {
+    if (!mounted || identical(globalBenderSettings.value, _lastSeenSettings)) {
+      return;
+    }
+    final s = globalBenderSettings.value;
+    _lastSeenSettings = s;
+    setState(() {
+      _selectedTypeId = s['benderType'];
+      _manufacturer = s['manufacturer'];
+      _conduitType = s['conduitType'];
+      _conduitSize = s['conduitSize'];
+      _unitSystem = s['unitSystem'];
+      _fractionPrecision = s['fractionPrecision'];
+      _applyShrink = s['applyShrink'];
+      _applySpringback = s['applySpringback'];
+      _keepScreenOn = s['keepScreenOn'];
+      _degPerNotch = s['degPerNotch'];
+      _referenceMark = s['referenceMark'];
+      _bendRadiusWarning = s['bendRadiusWarning'];
+      _springbackController.text = s['springback'].toString();
+      _clrController.text = s['clr'].toString();
+      _takeUpController.text = s['takeUp'].toString();
+      _gainController.text = s['gain'].toString();
+      _ramTravelController.text = s['ramTravel'].toString();
+      _setbackController.text = s['setback'].toString();
+      _notchSpacingController.text = s['notchSpacing'].toString();
+      _rollerSizeController.text = s['rollerSize'].toString();
+      _couplingDepthController.text = s['couplingDepth'].toString();
+      _couplingAllowanceController.text = (s['couplingAllowance'] ?? 50.0)
+          .toString();
+      _bladeKerfController.text = s['bladeKerf'].toString();
+      _enteredValues = _currentSpecValues();
+      _specSets[_comboKey] = {...?_specSets[_comboKey], ..._enteredValues};
+      _fromSaved = true;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     final s = globalBenderSettings.value;
+    _lastSeenSettings = s;
+    globalBenderSettings.addListener(_onGlobalSettingsChanged);
 
     _selectedTypeId = s['benderType'];
     _manufacturer = s['manufacturer'];
@@ -199,6 +243,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
 
   @override
   void dispose() {
+    globalBenderSettings.removeListener(_onGlobalSettingsChanged);
     _springbackController.dispose();
     _clrController.dispose();
     _takeUpController.dispose();
@@ -455,7 +500,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     };
     _unsavedKeys.clear();
     _fromSaved = true;
-    globalBenderSettings.value = {
+    final Map<String, dynamic> newSettings = {
       'benderType': _selectedTypeId,
       'manufacturer': _manufacturer,
       'conduitType': _conduitType,
@@ -481,6 +526,8 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       'referenceMark': _referenceMark,
       'bendRadiusWarning': _bendRadiusWarning,
     };
+    _lastSeenSettings = newSettings; // 내가 쓴 값이니 다시 읽지 않는다
+    globalBenderSettings.value = newSettings;
     if (mounted) setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
