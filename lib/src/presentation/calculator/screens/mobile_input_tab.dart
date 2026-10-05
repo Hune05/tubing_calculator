@@ -1,5 +1,4 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
-import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
@@ -108,37 +107,50 @@ class _MobileInputTabState extends State<MobileInputTab>
   }
 
   void _showAngleLimitNotice() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          "각도는 ${kTubeMaxAngle.toInt()}°까지 넣을 수 있습니다. "
-          "U자로 꺾는 것은 특수 벤딩 툴의 퀵 U-Bend 계산기를 쓰십시오.",
-        ),
-        backgroundColor: Colors.deepOrange,
-      ),
+    showAppSnack(
+      context,
+      "각도는 ${kTubeMaxAngle.toInt()}°까지 넣을 수 있습니다. "
+      "U자로 꺾는 것은 특수 벤딩 툴의 퀵 U-Bend 계산기를 쓰십시오.",
+      kind: AppSnackKind.error,
     );
+  }
+
+  /// 지금까지 넣은 줄(고치는 중이면 그 줄 앞까지)을 걷고 난 진행 방향을 기준으로,
+  /// 방향값(rot)으로 꺾을 수 있는지 판단하는 함수. 나란하거나 정반대인 축은 못 꺾는다.
+  bool Function(double rot) _bendRule() {
+    final settings = AppSettingsController();
+    final allBends = MobileBendDataManager().bendList;
+    final before = _editingIndex != null && _editingIndex! <= allBends.length
+        ? allBends.sublist(0, _editingIndex!)
+        : allBends;
+    final current = directionAfter([
+      for (final b in before)
+        PathSegment(
+          length: (b['length'] as num?)?.toDouble() ?? 0.0,
+          angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+          rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+        ),
+    ], radius: settings.bendRadius > 0 ? settings.bendRadius : 1.0);
+    return (rot) => canBendToward(current, directionForRotation(rot));
+  }
+
+  /// 숫자판에서 바로 "추가"를 눌러도 되는지: 각도가 정해졌고(직관이거나 각도>0),
+  /// 꺾는 줄이면 방향도 골랐을 때.
+  bool get _readyToAdd {
+    if (_bendType == "custom" && _selectedAngle <= 0) return false;
+    return _selectedAngle == 0.0 || _selectedRotation != null;
   }
 
   void _addSegment() {
     double length = double.tryParse(_lengthController.text) ?? 0.0;
 
     if (length <= 0.0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("정확한 길이를 입력해 주십시오."),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      showAppSnack(context, "정확한 길이를 입력해 주십시오.", kind: AppSnackKind.error);
       return;
     }
 
     if (_bendType == "custom" && _selectedAngle <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("각도를 정확히 입력해 주십시오."),
-          backgroundColor: Colors.deepOrange,
-        ),
-      );
+      showAppSnack(context, "각도를 정확히 입력해 주십시오.", kind: AppSnackKind.error);
       return;
     }
 
@@ -148,11 +160,10 @@ class _MobileInputTabState extends State<MobileInputTab>
     }
 
     if (_selectedAngle > 0 && _selectedRotation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("진행 방향(6축)을 먼저 선택해 주십시오."),
-          backgroundColor: Colors.deepOrange,
-        ),
+      showAppSnack(
+        context,
+        "진행 방향(6축)을 먼저 선택해 주십시오.",
+        kind: AppSnackKind.error,
       );
       return;
     }
@@ -185,52 +196,19 @@ class _MobileInputTabState extends State<MobileInputTab>
           (d) => d['val'] == finalRotation,
           orElse: () => {'label': ''},
         )['label'];
-        showDialog(
+        showDialog<void>(
           context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: pureWhite,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            title: Row(
-              children: [
-                Icon(
-                  AppIcons.warning,
-                  color: fieldPick(
-                    Colors.deepOrange,
-                    sunlight: fc.caution,
-                    night: fc.caution,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  "그 방향으로는 못 꺾습니다",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: slate900,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
+          builder: (ctx) => AppConfirmDialog(
+            title: "그 방향으로는 못 꺾습니다",
+            icon: const Icon(AppIcons.warning),
+            cancelText: null,
+            okText: "확인",
+            onOk: () => Navigator.pop(ctx),
+            content: AppDialog.message(
               "관이 이미 '$label' 쪽이나 그 반대쪽으로 가고 있습니다.\n"
               "방향은 꺾은 뒤 관이 향할 쪽입니다."
               " 다른 축(위·아래·앞·뒤 등)에서 고르십시오.",
-              style: TextStyle(color: slate900, fontSize: 14),
             ),
-            actions: [
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepOrange,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () => Navigator.pop(ctx),
-                child: Text("확인", style: TextStyle(color: pureWhite)),
-              ),
-            ],
           ),
         );
         return;
@@ -253,124 +231,79 @@ class _MobileInputTabState extends State<MobileInputTab>
 
     // 만약 둘 중 하나라도 위험 요소가 발견되면 복합 경고창을 띄움
     if (isShoeInterference || isLeakRisk) {
-      showDialog(
+      showDialog<void>(
         context: context,
-        builder: (ctx) => AlertDialog(
-          backgroundColor: pureWhite,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Row(
-            children: [
-              Icon(
-                Icons.warning_rounded,
-                color: fieldPick(
-                  Colors.orange.shade800,
-                  sunlight: fc.caution,
-                  night: fc.caution,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                "벤딩 및 누설 경고",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: slate900,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
+        builder: (ctx) => AppConfirmDialog(
+          title: "벤딩 및 누설 경고",
+          icon: const Icon(Icons.warning_rounded),
+          cancelText: "취소 (다시 입력)",
+          okText: "무시하고 추가",
+          // 위험을 알고도 넣는 것이라 빨간 단추로 한 번 더 눈에 띄게 한다.
+          destructive: true,
+          onOk: () {
+            Navigator.pop(ctx);
+            _executeAddSegment(length, _selectedAngle, finalRotation);
+          },
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              AppDialog.message(
                 lengthCheck.merged
-                    ? "앞 직관과 이어서 곧은 길이가 ${lengthCheck.run.toStringAsFixed(1)}mm뿐이라 현장에서 문제가 생길 수 있습니다.\n"
-                    : "입력하신 길이(${length.toStringAsFixed(1)}mm)가 너무 짧아 현장에서 문제가 생길 수 있습니다.\n",
-                style: TextStyle(color: slate900, fontSize: 13),
+                    ? "앞 직관과 이어서 곧은 길이가 ${lengthCheck.run.toStringAsFixed(1)}mm뿐이라 현장에서 문제가 생길 수 있습니다."
+                    : "입력하신 길이(${length.toStringAsFixed(1)}mm)가 너무 짧아 현장에서 문제가 생길 수 있습니다.",
               ),
               if (isShoeInterference) ...[
-                const SizedBox(height: 4),
-                Text(
-                  "❌ 기계 간섭 위험",
-                  style: TextStyle(
-                    color: fieldPick(
-                      Colors.red.shade700,
-                      sunlight: fc.danger,
-                      night: fc.danger,
-                    ),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
+                const SizedBox(height: 12),
+                _riskLine(
+                  Icons.cancel_outlined,
+                  fc.danger,
+                  "기계 간섭 위험",
                   "장비 최소 물림 길이(${AppSettingsController().minStraight}mm) 부족",
-                  style: TextStyle(color: slate600, fontSize: 12),
                 ),
               ],
               if (isLeakRisk) ...[
-                const SizedBox(height: 8),
-                Text(
-                  "💧 피팅 누설(Leak) 위험",
-                  style: TextStyle(
-                    color: fieldPick(
-                      Colors.blue.shade700,
-                      sunlight: const Color(0xFF0B4F9C),
-                      night: const Color(0xFF7CB7FF),
-                    ),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 13,
-                  ),
-                ),
-                Text(
+                const SizedBox(height: 12),
+                _riskLine(
+                  Icons.water_drop_outlined,
+                  fc.brand,
+                  "피팅 누설(Leak) 위험",
                   "너트를 물릴 곧은 길이(${minFittingStraight}mm)가 모자랍니다. 관이 찌그러져 샐 수 있습니다.",
-                  style: TextStyle(color: slate600, fontSize: 12),
                 ),
               ],
               const SizedBox(height: 12),
-              Text(
-                "그래도 강제로 도면에 추가하시겠습니까?",
-                style: TextStyle(
-                  color: slate900,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              AppDialog.message("그래도 도면에 추가하시겠습니까?"),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(
-                "취소 (다시 입력)",
-                style: TextStyle(color: slate600, fontWeight: FontWeight.bold),
-              ),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kCaution, // 경고를 알고 진행(주의)
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              onPressed: () {
-                Navigator.pop(ctx);
-                _executeAddSegment(length, _selectedAngle, finalRotation);
-              },
-              child: Text(
-                "무시하고 추가",
-                style: TextStyle(color: pureWhite, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
         ),
       );
       return;
     }
 
     _executeAddSegment(length, _selectedAngle, finalRotation);
+  }
+
+  /// 경고창의 위험 항목 한 줄(그림, 굵은 제목, 설명).
+  Widget _riskLine(IconData icon, Color color, String title, String detail) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(color: color, fontWeight: FontWeight.bold),
+              ),
+              Text(detail, style: TextStyle(color: fc.textSub, fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
   void _executeAddSegment(double length, double angle, double rotation) {
@@ -469,7 +402,9 @@ class _MobileInputTabState extends State<MobileInputTab>
         okText: "지우기",
         onCancel: () => Navigator.pop(ctx, false),
         onOk: () => Navigator.pop(ctx, true),
-        content: AppDialog.message("배관 목록 $n줄을 모두 지우시겠습니까?\n(위의 ↶로 되돌릴 수 있습니다)"),
+        content: AppDialog.message(
+          "배관 목록 $n줄을 모두 지우시겠습니까?\n(위의 ↶로 되돌릴 수 있습니다)",
+        ),
       ),
     );
     if (ok != true || !mounted) return;
@@ -1232,72 +1167,97 @@ class _MobileInputTabState extends State<MobileInputTab>
                               ],
                             ),
                             const SizedBox(height: 8),
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate:
-                                  const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 3,
-                                    // 칸 높이를 폭에 비례로 잡으면 가로 화면에서 칸이 커져 281px 넘쳤다.
-                                    mainAxisExtent: 40,
-                                    crossAxisSpacing: 8,
-                                    mainAxisSpacing: 8,
-                                  ),
-                              itemCount: _directions.length,
-                              itemBuilder: (context, index) {
-                                final dir = _directions[index];
-                                bool isSelected =
-                                    _selectedRotation == dir['val'];
-                                return InkWell(
-                                  onTap: () => setState(
-                                    () => _selectedRotation = dir['val'],
-                                  ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? makitaTeal.withValues(alpha: 0.1)
-                                          : fieldPick(
-                                              Colors.grey.shade50,
-                                              sunlight: fc.fill,
-                                              night: fc.fill,
-                                            ),
-                                      border: Border.all(
-                                        color: isSelected
-                                            ? makitaTeal
-                                            : fieldPick(
-                                                Colors.grey.shade300,
-                                                sunlight: fc.line,
-                                                night: fc.line,
-                                              ),
-                                        width: isSelected ? 2 : 1,
+                            Builder(
+                              builder: (context) {
+                                final canBend = _bendRule();
+                                return GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                        crossAxisCount: 3,
+                                        // 칸 높이를 폭에 비례로 잡으면 가로 화면에서 칸이 커져 281px 넘쳤다.
+                                        mainAxisExtent: 40,
+                                        crossAxisSpacing: 8,
+                                        mainAxisSpacing: 8,
                                       ),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          dir['icon'],
-                                          size: 16,
-                                          color: isSelected
-                                              ? makitaTeal
-                                              : slate600,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          dir['label'].split(' ')[0],
-                                          style: TextStyle(
+                                  itemCount: _directions.length,
+                                  itemBuilder: (context, index) {
+                                    final dir = _directions[index];
+                                    bool isSelected =
+                                        _selectedRotation == dir['val'];
+                                    // 관이 이미 그 축으로 가고 있으면 꺾을 평면이 없어 못 꺾는다(입력 점검과 같은 규칙).
+                                    final bool allowed = canBend(
+                                      dir['val'] as double,
+                                    );
+                                    return Opacity(
+                                      key: ValueKey('dir_${dir['val']}'),
+                                      opacity: allowed ? 1.0 : 0.38,
+                                      child: InkWell(
+                                        onTap: allowed
+                                            ? () => setState(
+                                                () => _selectedRotation =
+                                                    dir['val'],
+                                              )
+                                            : () => showAppSnack(
+                                                context,
+                                                "'${dir['label'].split(' ')[0]}' 쪽으로는 지금 꺾을 수 없습니다. "
+                                                "관이 이미 그 쪽이나 반대쪽으로 가고 있습니다.",
+                                                kind: AppSnackKind.error,
+                                              ),
+                                        child: Container(
+                                          decoration: BoxDecoration(
                                             color: isSelected
-                                                ? makitaTeal
-                                                : slate900,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
+                                                ? makitaTeal.withValues(
+                                                    alpha: 0.1,
+                                                  )
+                                                : fieldPick(
+                                                    Colors.grey.shade50,
+                                                    sunlight: fc.fill,
+                                                    night: fc.fill,
+                                                  ),
+                                            border: Border.all(
+                                              color: isSelected
+                                                  ? makitaTeal
+                                                  : fieldPick(
+                                                      Colors.grey.shade300,
+                                                      sunlight: fc.line,
+                                                      night: fc.line,
+                                                    ),
+                                              width: isSelected ? 2 : 1,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Icon(
+                                                dir['icon'],
+                                                size: 16,
+                                                color: isSelected
+                                                    ? makitaTeal
+                                                    : slate600,
+                                              ),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                dir['label'].split(' ')[0],
+                                                style: TextStyle(
+                                                  color: isSelected
+                                                      ? makitaTeal
+                                                      : slate900,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             ),
@@ -1321,12 +1281,20 @@ class _MobileInputTabState extends State<MobileInputTab>
                                     const SizedBox(height: 8),
                                     InkWell(
                                       onTap: () async {
-                                        await MakitaNumpad.show(
+                                        final added = await MakitaNumpad.show(
                                           context,
                                           controller: _lengthController,
                                           title: "배관 길이 (mm)",
+                                          // 각도와 방향이 정해졌을 때만 숫자판에서 바로 넣을 수 있다.
+                                          addLabel: _readyToAdd
+                                              ? (_editingIndex != null
+                                                    ? "수정"
+                                                    : "추가")
+                                              : null,
                                         );
+                                        if (!mounted) return;
                                         setState(() {});
+                                        if (added) _addSegment();
                                       },
                                       child: AbsorbPointer(
                                         child: TextField(

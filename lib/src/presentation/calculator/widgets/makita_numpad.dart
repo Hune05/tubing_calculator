@@ -19,11 +19,18 @@ class MakitaNumpad extends StatefulWidget {
   final VoidCallback? onCancel;
   final String title;
 
+  /// "적용" 옆의 "추가"(또는 "수정") 단추. 숫자를 넣고 창을 닫으면서 바로 목록에 넣는다.
+  /// null이면 단추가 없다. 숫자가 0이거나 비어 있으면 누를 수 없다.
+  final VoidCallback? onAdd;
+  final String addLabel;
+
   const MakitaNumpad({
     super.key,
     required this.controller,
     this.onApply,
     this.onCancel,
+    this.onAdd,
+    this.addLabel = "추가",
     this.title = "수치 입력",
   });
 
@@ -31,13 +38,18 @@ class MakitaNumpad extends StatefulWidget {
   /// 🚀 [고침] 예전에는 누를 때마다 칸이 바뀌고(첫 키에 원래 값을 지움), 머리의 X도
   /// "적용"과 같아서, 잘못 누르고 X·바깥 누르기·뒤로 가기로 닫아도 틀린 값이 남았다.
   /// 이제 X·바깥·뒤로는 열 때 값으로 되돌린다.
-  static Future<void> show(
+  ///
+  /// [addLabel]을 주면 "적용" 옆에 "추가" 단추가 생긴다. 그것을 눌러 닫았으면 true를 돌려준다
+  /// (값은 적용된 상태). 부르는 쪽이 그때 바로 목록에 넣는다.
+  static Future<bool> show(
     BuildContext context, {
     required TextEditingController controller,
     required String title,
+    String? addLabel,
   }) async {
     final original = controller.text;
     var applied = false;
+    var added = false;
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -63,11 +75,20 @@ class MakitaNumpad extends StatefulWidget {
               Navigator.pop(context);
             },
             onCancel: () => Navigator.pop(context),
+            addLabel: addLabel ?? "추가",
+            onAdd: addLabel == null
+                ? null
+                : () {
+                    applied = true;
+                    added = true;
+                    Navigator.pop(context);
+                  },
           ),
         ),
       ),
     );
     if (!applied && controller.text != original) controller.text = original;
+    return added;
   }
 
   @override
@@ -175,6 +196,71 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                   ),
                 ),
               ),
+      ),
+    );
+  }
+
+  /// "추가"가 있을 때의 "적용": 눈에 덜 띄는 알약.
+  Widget _buildQuietApply() {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.all(6.0),
+        child: ElevatedButton(
+          key: const Key('numpad_apply'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: _p.background,
+            foregroundColor: _p.brand,
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            padding: EdgeInsets.zero,
+          ),
+          onPressed: () => widget.onApply?.call(),
+          child: const Text(
+            '적용',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 값이 0보다 클 때만 누를 수 있는 "추가"(또는 "수정").
+  Widget _buildAddButton() {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.all(6.0),
+        child: AnimatedBuilder(
+          animation: widget.controller,
+          builder: (context, _) {
+            final v = double.tryParse(widget.controller.text) ?? 0.0;
+            return ElevatedButton(
+              key: const Key('numpad_add'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _p.brand,
+                foregroundColor: _p.onBrand,
+                disabledBackgroundColor: _p.brand.withValues(alpha: 0.3),
+                disabledForegroundColor: _p.onBrand.withValues(alpha: 0.8),
+                elevation: 0,
+                shadowColor: Colors.transparent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                padding: EdgeInsets.zero,
+              ),
+              onPressed: v > 0 ? () => widget.onAdd?.call() : null,
+              child: Text(
+                widget.addLabel,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -296,11 +382,16 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                     children: [
                       _buildButton('00'),
                       _buildButton('0'),
-                      _buildButton(
-                        '적용',
-                        isPrimary: true,
-                        flex: 2,
-                      ), // 확 눈에 띄는 알약 버튼
+                      if (widget.onAdd == null)
+                        _buildButton(
+                          '적용',
+                          isPrimary: true,
+                          flex: 2,
+                        ) // 확 눈에 띄는 알약 버튼
+                      else ...[
+                        _buildQuietApply(),
+                        _buildAddButton(),
+                      ],
                     ],
                   ),
                 ),
