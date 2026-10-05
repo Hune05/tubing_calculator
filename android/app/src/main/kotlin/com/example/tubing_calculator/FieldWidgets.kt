@@ -70,15 +70,18 @@ object FieldWidgetStore {
     private const val KEY_QUICK = "quick"
     private const val KEY_SUMMARY = "summary"
     private const val KEY_CLOCK = "clock"
+    private const val KEY_PT = "pt"
 
     private fun prefs(c: Context) = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    fun save(c: Context, quick: String?, summary: String?, clock: String? = null) {
+    fun save(c: Context, quick: String?, summary: String?, clock: String? = null, pt: String? = null) {
         val e = prefs(c).edit()
         if (quick != null) e.putString(KEY_QUICK, quick)
         if (summary != null) e.putString(KEY_SUMMARY, summary)
         if (clock != null) e.putString(KEY_CLOCK, clock)
+        if (pt != null) e.putString(KEY_PT, pt)
         e.apply()
+        if (pt != null) PressureTimer.scheduleRefresh(c)
     }
 
     /** 빠른 실행 제목들(앱이 정해 준 순서, 최대 4개만 그린다). */
@@ -111,6 +114,16 @@ object FieldWidgetStore {
         }
     }
 
+    /** 압력시험 값: {"phase":"running|ended|idle","line":"...","holdMin":30.0,"startMs":..,"dueMs":..,"endMs":..} */
+    fun pt(c: Context): JSONObject? {
+        val raw = prefs(c).getString(KEY_PT, null) ?: return null
+        return try {
+            JSONObject(raw)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun refreshAll(c: Context) {
         val mgr = AppWidgetManager.getInstance(c)
         val quickIds = mgr.getAppWidgetIds(ComponentName(c, QuickLaunchWidgetProvider::class.java))
@@ -125,6 +138,8 @@ object FieldWidgetStore {
         if (clockIds.isNotEmpty()) {
             for (id in clockIds) mgr.updateAppWidget(id, ClockWidgetProvider.build(c, id))
         }
+        val ptIds = mgr.getAppWidgetIds(ComponentName(c, PressureWidgetProvider::class.java))
+        for (id in ptIds) mgr.updateAppWidget(id, PressureWidgetProvider.build(c, id))
     }
 
     /** 위젯을 누르면 앱을 열면서 [action]을 넘긴다. [code]는 위젯 눌림마다 달라야 한다. */

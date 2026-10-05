@@ -106,6 +106,14 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/summary_widget_info" />
         </receiver>
+        <!-- 압력시험 타이머 위젯(PressureWidget.kt). -->
+        <receiver android:name=".PressureWidgetProvider" android:exported="false" android:label="@string/widget_pt_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/pt_widget_info" />
+        </receiver>
+        <receiver android:name=".PressureRefreshReceiver" android:exported="false" />
         <!-- 휴게 알람이 울릴 때(ClockBreak.kt). -->
         <receiver android:name=".ClockBreakAlarmReceiver" android:exported="false" />
         <!-- 출퇴근 위젯의 [휴게]·[메모] 창: 위에서 내려오는 작은 창(ClockQuickActivity.kt). -->

@@ -177,6 +177,25 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   /// 진행 중이면 완료 시각에 알림을 예약한다(같은 시각·본문이면 그대로).
   /// 완료 시각이 지났거나 진행 중이 아니면, 이 화면이 예약한 알림만 취소한다.
   Future<void> _syncAlarm() async {
+    await _syncAlarmInner();
+    _pushWidget();
+  }
+
+  /// 홈 화면 "압력시험" 위젯에 지금 타이머 상태(유지 중·종료·시험 전)를 넘긴다.
+  void _pushWidget() {
+    HomeWidgetSync.push(
+      ptJson: encodePressureWidgetPayload(
+        running: _rRunning,
+        start: _rStart,
+        end: _rEnd,
+        due: _rDue,
+        line: _rLine.text,
+        holdMin: _requiredHold,
+      ),
+    );
+  }
+
+  Future<void> _syncAlarmInner() async {
     final due = _rRunning ? _rDue : null;
     if (due == null || !due.isAfter(_now())) {
       if (_rScheduledKey != null) {
@@ -196,6 +215,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     _rAlarmTimer?.cancel();
     _rScheduledKey = null;
     await _alarm.cancel();
+    _pushWidget();
   }
 
   // ── 입력 창 ──

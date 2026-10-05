@@ -80,7 +80,8 @@ class MainActivity : FlutterActivity() {
                             applicationContext,
                             call.argument<String>("quick"),
                             call.argument<String>("summary"),
-                            call.argument<String>("clock")
+                            call.argument<String>("clock"),
+                            call.argument<String>("pt")
                         )
                         FieldWidgetStore.refreshAll(applicationContext)
                         result.success(null)

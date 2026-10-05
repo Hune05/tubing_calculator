@@ -19,7 +19,10 @@ import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../my_work_logs/models/photo_store.dart';
+import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
+
 import 'hold_alarm.dart';
+import 'pressure_widget.dart';
 import 'pressure_calc.dart';
 import 'pressure_units.dart';
 import 'test_record.dart';

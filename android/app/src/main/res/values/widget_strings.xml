@@ -17,4 +17,7 @@
     <string name="widget_quick_small_empty">즐겨찾기 없음</string>
     <string name="widget_clock_break">휴게 알람</string>
     <string name="widget_clock_memo">메모</string>
+    <string name="widget_pt_label">압력시험 타이머</string>
+    <string name="widget_pt_desc">압력 시험 유지시간의 남은 시간을 홈 화면에서 봅니다. 줄이면 한 줄이 됩니다</string>
+    <string name="widget_pt_open">시험 기록 열기</string>
 </resources>

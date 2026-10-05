@@ -454,6 +454,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       });
       return;
     }
+    // 압력시험 위젯: 시험 기록 탭(타이머)을 연다.
+    if (a.isPressureOpen) {
+      HomeWidgetSync.pendingAction.value = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const PressureTestPage(initialTab: kPtRecordTabIndex),
+          ),
+        );
+      });
+      return;
+    }
     final quick = a.quickTitle;
     final title = quick == null ? null : (kQuickLaunchRenamed[quick] ?? quick);
     if (title == null) {
