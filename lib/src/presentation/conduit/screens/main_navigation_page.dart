@@ -254,9 +254,7 @@ class ConduitViewerTab extends StatelessWidget {
         final double clr = (cs['clr'] as num?)?.toDouble() ?? 0.0;
         final double coupling =
             (cs['couplingDepth'] as num?)?.toDouble() ?? 0.0;
-        final double od = conduitOuterDiameterMm(
-          (cs['conduitSize'] ?? '').toString(),
-        );
+        final double od = conduitDrawOuterDiameterMm(cs);
 
         return Scaffold(
           backgroundColor: const Color(0xFF151B22),

@@ -15,6 +15,8 @@ import 'dart:math' as math;
 
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
+    show kThickConduitOd;
 
 /// 각도별 게인. 표에는 90° 값 하나만 있으므로 기하 비율로 줄인다.
 double conduitGainForAngle(double angle, double gain90) {
@@ -170,10 +172,22 @@ BendCheck conduitBendCheck(
     bendList,
     radius: _num(settings, 'clr', 0.0),
     startDir: startDir,
-    outerDiameter: conduitOuterDiameterMm(
-      settings['conduitSize']?.toString() ?? '',
-    ),
+    outerDiameter: conduitDrawOuterDiameterMm(settings),
   );
+}
+
+/// 3D 그림·관끼리 닿음 점검에 쓸 관 바깥지름(mm).
+/// 후강(Rigid)의 "22mm"는 지름이 아니라 호칭이라, 호칭 숫자를 그대로 지름으로 그리면 관이
+/// 가늘게 그려진다(22 대신 실제 26.5). 후강일 때는 KS C 8401 표([kThickConduitOd])로 실제
+/// 바깥지름을 쓰고, 그 밖의 종류·표기는 예전처럼 규격 글에서 읽는다.
+double conduitDrawOuterDiameterMm(Map<String, dynamic> settings) {
+  final size = (settings['conduitSize'] ?? '').toString().trim();
+  if (settings['conduitType'] == 'Rigid') {
+    final m = RegExp(r'^(\d+)\s*mm$').firstMatch(size);
+    final od = m == null ? null : kThickConduitOd[int.parse(m.group(1)!)];
+    if (od != null) return od;
+  }
+  return conduitOuterDiameterMm(size);
 }
 
 /// 전선관 규격 이름(22mm, G22, E25, 1/2" …)에서 바깥지름(mm)을 뽑는다.

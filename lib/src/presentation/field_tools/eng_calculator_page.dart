@@ -1018,24 +1018,24 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         _util('', _tapBack, key: 'calc_back', icon: Icons.backspace_outlined),
       ],
     ];
+    // 공학 줄은 두 줄(여섯 칸)이다. 한 줄 더 늘리면 작은 폰에서 단추가 눌리기 힘들 만큼 작아져서
+    // 한 줄에 여섯 칸을 둔다(단추는 줄 높이에 맞춘 원이라 칸을 늘려도 크기는 같다).
     final advancedRows = <List<Widget>>[
       [
         _fn('sin', key: 'calc_sin'),
         _fn('cos', key: 'calc_cos'),
         _fn('tan', key: 'calc_tan'),
         _fn('√', fnName: 'sqrt', key: 'calc_sqrt'),
+        _postfix('!', key: 'calc_fact'),
+        _const('e', key: 'calc_e'),
       ],
       [
         _fn('ln', key: 'calc_ln'),
         _fn('log', key: 'calc_log'),
         _op('^', key: 'calc_pow'),
-        _util('S⇔D', _tapSD, key: 'calc_sd_key'),
-      ],
-      [
         _modKey(key: 'calc_mod'),
         _const('Ans', key: 'calc_ans', fontSize: 15),
-        _postfix('!', key: 'calc_fact'),
-        _const('e', key: 'calc_e'),
+        _util('S⇔D', _tapSD, key: 'calc_sd_key'),
       ],
     ];
     final lowerRows = <List<Widget>>[
@@ -1086,7 +1086,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                     : Duration.zero,
                 curve: Curves.easeInOut,
                 builder: (context, t, _) {
-                  final rowH = box.maxHeight / (basicCount + 3 * t);
+                  final rowH = box.maxHeight / (basicCount + 2 * t);
                   Widget sized(List<Widget> keys, {double factor = 1}) =>
                       SizedBox(
                         height: rowH * factor,
