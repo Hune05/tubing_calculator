@@ -319,6 +319,54 @@ void main() {
       expect(manager.bendList.single['rotation'], 0.0);
     });
 
+    double conduitOpacity(WidgetTester tester, String rot) =>
+        tester.widget<Opacity>(find.byKey(ValueKey('dir_$rot'))).opacity;
+
+    testWidgets('처음에는 우·좌가 흐리고 흐린 칸을 누르면 이유만 알려 준다(선택은 안 된다)', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('90° 벤딩'));
+      await tester.pumpAndSettle();
+      expect(conduitOpacity(tester, '90.0'), 0.38); // RIGHT
+      expect(conduitOpacity(tester, '270.0'), 0.38); // LEFT
+      expect(conduitOpacity(tester, '0.0'), 1.0); // UP
+
+      await tester.tap(find.byKey(const ValueKey('dir_90.0')));
+      await tester.pump();
+      expect(find.textContaining('쪽으로는 지금 꺾을 수 없습니다'), findsOneWidget);
+      expect(find.textContaining('방향을 선택하십시오'), findsOneWidget);
+    });
+
+    testWidgets('위로 꺾은 뒤에는 위·아래가 흐리고, 골라 둔 방향이 못 꺾게 되면 선택이 풀린다', (
+      tester,
+    ) async {
+      await pump(tester);
+      await tester.tap(find.text('90° 벤딩'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dir_0.0'))); // UP 고름
+      await tester.pump();
+      expect(find.textContaining('방향을 선택하십시오'), findsNothing);
+
+      manager.addBend({'length': 200.0, 'angle': 90.0, 'rotation': 0.0});
+      await tester.pumpAndSettle();
+      expect(conduitOpacity(tester, '0.0'), 0.38); // UP
+      expect(conduitOpacity(tester, '180.0'), 0.38); // DOWN
+      expect(conduitOpacity(tester, '90.0'), 1.0); // RIGHT
+      expect(find.textContaining('방향을 선택하십시오'), findsOneWidget); // 선택이 풀렸다
+    });
+
+    testWidgets('살아 있는 방향으로는 그대로 추가된다', (tester) async {
+      await pump(tester);
+      await tester.tap(find.text('90° 벤딩'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('dir_0.0')));
+      await tester.pump();
+      await typeLength(tester, '250');
+      await tester.tap(find.byKey(const Key('numpad_add')));
+      await tester.pumpAndSettle();
+      expect(manager.bendList.single['rotation'], 0.0);
+      expect(manager.bendList.single['length'], 250.0);
+    });
+
     testWidgets('각도가 상한(90°)을 넘으면 공용 오류 알림이 뜬다', (tester) async {
       await pump(tester);
       await tester.tap(find.text('직관+각도'));

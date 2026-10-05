@@ -2,9 +2,11 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
+import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_sheets.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart' show kThickConduitOd;
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
+    show kThickConduitOd;
 import 'package:flutter/services.dart';
 
 // 새롭게 만든 전선관 전용 데이터 매니저 임포트 (경로를 맞게 수정해 주세요)
@@ -84,6 +86,45 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     if (_selectedAngle > kConduitMaxAngle) return false;
     if (_selectedAngle > 0 && _selectedRotation == null) return false;
     return true;
+  }
+
+  /// 지금까지 넣은 줄(고치는 중이면 그 줄 앞까지)을 걷고 난 진행 방향을 기준으로,
+  /// 방향값(rot)으로 꺾을 수 있는지 판단하는 함수. 나란하거나 정반대인 축은 못 꺾는다.
+  /// 마킹 계산은 방향을 쓰지 않지만 3D 그림은 못 꺾는 줄을 꺾지 않고 지나가서,
+  /// 절단 길이에는 호가 들어가는데 그림은 직선인 어긋남이 생긴다(튜브와 같은 규칙).
+  bool Function(double rot) _bendRule(ConduitDataManager manager) {
+    final all = manager.bendList;
+    final before = _editingIndex != null && _editingIndex! <= all.length
+        ? all.sublist(0, _editingIndex!)
+        : all;
+    final current = directionAfter([
+      for (final b in before)
+        PathSegment(
+          length: (b['length'] as num?)?.toDouble() ?? 0.0,
+          angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+          rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+        ),
+    ], radius: 1.0);
+    return (rot) => canBendToward(current, directionForRotation(rot));
+  }
+
+  /// 못 꺾는 방향을 골라 추가하려 할 때 알리는 창.
+  void _showCannotBend(double rot) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AppConfirmDialog(
+        title: "그 방향으로는 못 꺾습니다",
+        icon: const Icon(AppIcons.warning),
+        cancelText: null,
+        okText: "확인",
+        onOk: () => Navigator.pop(ctx),
+        content: AppDialog.message(
+          "관이 이미 '${_getDirectionText(rot)}' 쪽이나 그 반대쪽으로 가고 있습니다.\n"
+          "방향은 꺾은 뒤 관이 향할 쪽입니다."
+          " 다른 축(위·아래·앞·뒤 등)에서 고르십시오.",
+        ),
+      ),
+    );
   }
 
   /// 숫자판에서 바로 "추가"를 눌러도 되는지: 각도가 정해졌고 상한 안이며,
@@ -706,66 +747,96 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   ],
                 ),
                 const SizedBox(height: 8),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    // 칸 높이를 폭에 비례로 잡으면 가로 화면에서 칸이 커져 281px 넘쳤다.
-                    mainAxisExtent: 40,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemCount: _directions.length,
-                  itemBuilder: (context, index) {
-                    final dir = _directions[index];
-                    final bool isSelected = _selectedRotation == dir['val'];
-                    return InkWell(
-                      onTap: () {
-                        HapticFeedback.lightImpact();
-                        setState(() => _selectedRotation = dir['val']);
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? makitaTeal.withValues(alpha: 0.1)
-                              : fieldPick(
-                                  Colors.grey.shade50,
-                                  sunlight: fc.fill,
-                                  night: fc.fill,
-                                ),
-                          border: Border.all(
-                            color: isSelected
-                                ? makitaTeal
-                                : fieldPick(
-                                    Colors.grey.shade300,
-                                    sunlight: fc.line,
-                                    night: fc.line,
-                                  ),
-                            width: isSelected ? 2 : 1,
+                Builder(
+                  builder: (context) {
+                    final canBend = _bendRule(manager);
+                    // 목록이 바뀌어(↶ 등) 골라 둔 방향이 이제 못 꺾는 방향이면 선택을 푼다.
+                    final picked = _selectedRotation;
+                    if (picked != null && !canBend(picked)) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted && _selectedRotation == picked) {
+                          setState(() => _selectedRotation = null);
+                        }
+                      });
+                    }
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 3,
+                            // 칸 높이를 폭에 비례로 잡으면 가로 화면에서 칸이 커져 281px 넘쳤다.
+                            mainAxisExtent: 40,
+                            crossAxisSpacing: 8,
+                            mainAxisSpacing: 8,
                           ),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              dir['icon'],
-                              size: 16,
-                              color: isSelected ? makitaTeal : slate600,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              dir['label'],
-                              style: TextStyle(
-                                color: isSelected ? makitaTeal : slate900,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                      itemCount: _directions.length,
+                      itemBuilder: (context, index) {
+                        final dir = _directions[index];
+                        final bool isSelected = _selectedRotation == dir['val'];
+                        // 관이 이미 그 축으로 가고 있으면 꺾을 평면이 없어 못 꺾는다.
+                        final bool allowed = canBend(dir['val'] as double);
+                        return Opacity(
+                          key: ValueKey('dir_${dir['val']}'),
+                          opacity: allowed ? 1.0 : 0.38,
+                          child: InkWell(
+                            onTap: allowed
+                                ? () {
+                                    HapticFeedback.lightImpact();
+                                    setState(
+                                      () => _selectedRotation = dir['val'],
+                                    );
+                                  }
+                                : () => showAppSnack(
+                                    context,
+                                    "'${dir['label']}' 쪽으로는 지금 꺾을 수 없습니다. "
+                                    "관이 이미 그 쪽이나 반대쪽으로 가고 있습니다.",
+                                    kind: AppSnackKind.error,
+                                  ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? makitaTeal.withValues(alpha: 0.1)
+                                    : fieldPick(
+                                        Colors.grey.shade50,
+                                        sunlight: fc.fill,
+                                        night: fc.fill,
+                                      ),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? makitaTeal
+                                      : fieldPick(
+                                          Colors.grey.shade300,
+                                          sunlight: fc.line,
+                                          night: fc.line,
+                                        ),
+                                  width: isSelected ? 2 : 1,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    dir['icon'],
+                                    size: 16,
+                                    color: isSelected ? makitaTeal : slate600,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    dir['label'],
+                                    style: TextStyle(
+                                      color: isSelected ? makitaTeal : slate900,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
-                      ),
+                          ),
+                        );
+                      },
                     );
                   },
                 ),
@@ -921,6 +992,10 @@ class _ConduitInputTabState extends State<ConduitInputTab>
 
   void _addBend(ConduitDataManager manager) {
     if (!_canAdd) return;
+    if (_selectedAngle > 0 && !_bendRule(manager)(_selectedRotation!)) {
+      _showCannotBend(_selectedRotation!);
+      return;
+    }
 
     double val = double.parse(_lengthController.text);
     HapticFeedback.mediumImpact();
@@ -977,149 +1052,156 @@ class _ConduitInputTabState extends State<ConduitInputTab>
           ),
           child: SingleChildScrollView(
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: slate600.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: slate600.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                "특수 벤딩",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: slate900,
+                const SizedBox(height: 24),
+                Text(
+                  "특수 벤딩",
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: slate900,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 24),
 
-              _buildPopupToolBtn("오프셋", AppGlyph.offset, () {
-                Navigator.pop(ctx);
-                MobileOffsetBottomSheet.show(
-                  context,
-                  currentRotation: currentRot,
-                  onAddMultipleBends: manager.addMultipleBends,
-                  specs: specs,
-                );
-              }),
-              const SizedBox(height: 12),
+                _buildPopupToolBtn("오프셋", AppGlyph.offset, () {
+                  Navigator.pop(ctx);
+                  MobileOffsetBottomSheet.show(
+                    context,
+                    currentRotation: currentRot,
+                    onAddMultipleBends: manager.addMultipleBends,
+                    specs: specs,
+                  );
+                }),
+                const SizedBox(height: 12),
 
-              _buildPopupToolBtn("롤링 오프셋", AppGlyph.rollingOffset, () {
-                Navigator.pop(ctx);
-                MobileRollingOffsetBottomSheet.show(
-                  context,
-                  currentRotation: currentRot,
-                  onAddBend: (l, a, r) =>
-                      manager.addBend({'length': l, 'angle': a, 'rotation': r}),
-                  onAddBends: (bends) => manager.addMultipleBends(bends),
-                  specs: specs,
-                );
-              }),
-              const SizedBox(height: 12),
+                _buildPopupToolBtn("롤링 오프셋", AppGlyph.rollingOffset, () {
+                  Navigator.pop(ctx);
+                  MobileRollingOffsetBottomSheet.show(
+                    context,
+                    currentRotation: currentRot,
+                    onAddBend: (l, a, r) => manager.addBend({
+                      'length': l,
+                      'angle': a,
+                      'rotation': r,
+                    }),
+                    onAddBends: (bends) => manager.addMultipleBends(bends),
+                    specs: specs,
+                  );
+                }),
+                const SizedBox(height: 12),
 
-              _buildPopupToolBtn("새들", AppGlyph.saddle, () {
-                Navigator.pop(ctx);
-                MobileSaddleBottomSheet.show(
-                  context,
-                  currentRotation: currentRot,
-                  onAddBend: (l, a, r) =>
-                      manager.addBend({'length': l, 'angle': a, 'rotation': r}),
-                  onAddBends: (bends) => manager.addMultipleBends(bends),
-                  specs: specs,
-                );
-              }),
-              const SizedBox(height: 12),
+                _buildPopupToolBtn("새들", AppGlyph.saddle, () {
+                  Navigator.pop(ctx);
+                  MobileSaddleBottomSheet.show(
+                    context,
+                    currentRotation: currentRot,
+                    onAddBend: (l, a, r) => manager.addBend({
+                      'length': l,
+                      'angle': a,
+                      'rotation': r,
+                    }),
+                    onAddBends: (bends) => manager.addMultipleBends(bends),
+                    specs: specs,
+                  );
+                }),
+                const SizedBox(height: 12),
 
-              _buildPopupToolBtn("킥", AppGlyph.kick, () {
-                Navigator.pop(ctx);
-                ConduitSpecialSheets.showKick(
-                  context,
-                  currentRotation: currentRot,
-                  onAddBends: manager.addMultipleBends,
-                  specs: specs,
-                );
-              }),
-              const SizedBox(height: 12),
+                _buildPopupToolBtn("킥", AppGlyph.kick, () {
+                  Navigator.pop(ctx);
+                  ConduitSpecialSheets.showKick(
+                    context,
+                    currentRotation: currentRot,
+                    onAddBends: manager.addMultipleBends,
+                    specs: specs,
+                  );
+                }),
+                const SizedBox(height: 12),
 
-              _buildPopupToolBtn("분할 90°", AppGlyph.conduitBend, () {
-                Navigator.pop(ctx);
-                ConduitSpecialSheets.showSegmented(
-                  context,
-                  currentRotation: currentRot,
-                  onAddBends: manager.addMultipleBends,
-                  specs: specs,
-                );
-              }),
-              const SizedBox(height: 12),
+                _buildPopupToolBtn("분할 90°", AppGlyph.conduitBend, () {
+                  Navigator.pop(ctx);
+                  ConduitSpecialSheets.showSegmented(
+                    context,
+                    currentRotation: currentRot,
+                    onAddBends: manager.addMultipleBends,
+                    specs: specs,
+                  );
+                }),
+                const SizedBox(height: 12),
 
-              _buildPopupToolBtn("백투백 90°", AppGlyph.uBend, () {
-                Navigator.pop(ctx);
-                final String sizeText =
-                    globalBenderSettings.value['conduitSize']?.toString() ?? '';
-                final int? sz = int.tryParse(
-                  RegExp(r'd+').firstMatch(sizeText)?.group(0) ?? '',
-                );
-                ConduitSpecialSheets.showBackToBack(
-                  context,
-                  currentRotation: currentRot,
-                  onAddBends: manager.addMultipleBends,
-                  specs: specs,
-                  conduitOd: sz == null ? null : kThickConduitOd[sz],
-                );
-              }),
-              const SizedBox(height: 12),
+                _buildPopupToolBtn("백투백 90°", AppGlyph.uBend, () {
+                  Navigator.pop(ctx);
+                  final String sizeText =
+                      globalBenderSettings.value['conduitSize']?.toString() ??
+                      '';
+                  final int? sz = int.tryParse(
+                    RegExp(r'd+').firstMatch(sizeText)?.group(0) ?? '',
+                  );
+                  ConduitSpecialSheets.showBackToBack(
+                    context,
+                    currentRotation: currentRot,
+                    onAddBends: manager.addMultipleBends,
+                    specs: specs,
+                    conduitOd: sz == null ? null : kThickConduitOd[sz],
+                  );
+                }),
+                const SizedBox(height: 12),
 
-              _buildPopupToolBtn("스터브업", AppGlyph.conduitBend, () {
-                Navigator.pop(ctx);
-                ConduitSpecialSheets.showStubUp(
-                  context,
-                  currentRotation: currentRot,
-                  onAddBends: manager.addMultipleBends,
-                  specs: specs,
-                );
-              }),
-              const SizedBox(height: 12),
+                _buildPopupToolBtn("스터브업", AppGlyph.conduitBend, () {
+                  Navigator.pop(ctx);
+                  ConduitSpecialSheets.showStubUp(
+                    context,
+                    currentRotation: currentRot,
+                    onAddBends: manager.addMultipleBends,
+                    specs: specs,
+                  );
+                }),
+                const SizedBox(height: 12),
 
-              _buildPopupToolBtn("평행·축소", AppGlyph.parallel, () {
-                Navigator.pop(ctx);
-                MobileParallelShrinkBottomSheet.show(
-                  context,
-                  currentAngle: 30.0,
-                );
-              }),
+                _buildPopupToolBtn("평행·축소", AppGlyph.parallel, () {
+                  Navigator.pop(ctx);
+                  MobileParallelShrinkBottomSheet.show(
+                    context,
+                    currentAngle: 30.0,
+                  );
+                }),
 
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              _buildPopupToolBtn("각도 역산", AppGlyph.protractor, () {
-                Navigator.pop(ctx);
-                AngleMatcherSheet.show(
-                  context,
-                  onUseInOffset: (rise, angle) {
-                    MobileBendDataManager()
-                      ..offsetHeight = rise
-                      ..offsetAngle = angle;
-                    MobileOffsetBottomSheet.show(
-                      context,
-                      currentRotation: currentRot,
-                      onAddMultipleBends: manager.addMultipleBends,
-                      specs: specs,
-                    );
-                  },
-                );
-              }),
+                _buildPopupToolBtn("각도 역산", AppGlyph.protractor, () {
+                  Navigator.pop(ctx);
+                  AngleMatcherSheet.show(
+                    context,
+                    onUseInOffset: (rise, angle) {
+                      MobileBendDataManager()
+                        ..offsetHeight = rise
+                        ..offsetAngle = angle;
+                      MobileOffsetBottomSheet.show(
+                        context,
+                        currentRotation: currentRot,
+                        onAddMultipleBends: manager.addMultipleBends,
+                        specs: specs,
+                      );
+                    },
+                  );
+                }),
 
-              SizedBox(height: MediaQuery.of(context).padding.bottom),
-            ],
-          ),
+                SizedBox(height: MediaQuery.of(context).padding.bottom),
+              ],
+            ),
           ),
         );
       },
