@@ -85,6 +85,10 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     setState(() => _selectedIndex = 0);
   }
 
+  void _goToHistoryTab() {
+    setState(() => _selectedIndex = 2);
+  }
+
   void _goToMarkingTab() {
     setState(() => _selectedIndex = 1);
   }
@@ -179,7 +183,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
       index: _selectedIndex,
       children: [
         ConduitInputTab(key: _inputKey), // 0. 입력
-        ConduitResultTab(key: _resultKey), // 1. 마킹
+        ConduitResultTab(key: _resultKey, onOpenArchive: _goToHistoryTab), // 1. 마킹
         NormalViewTheme(
           child: ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab),
         ), // 2

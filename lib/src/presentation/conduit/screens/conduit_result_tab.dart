@@ -35,7 +35,10 @@ Color get slate100 => fc.background;
 Color get pureWhite => fc.surface;
 
 class ConduitResultTab extends StatefulWidget {
-  const ConduitResultTab({super.key});
+  /// 저장 알림의 "보관함 보기"가 보관함 탭으로 옮겨 준다(없으면 단추가 안 붙는다).
+  final VoidCallback? onOpenArchive;
+
+  const ConduitResultTab({super.key, this.onOpenArchive});
 
   @override
   State<ConduitResultTab> createState() => _ConduitResultTabState();
@@ -195,6 +198,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                           bends: bendList,
                           totalCut: totalCut,
                           settings: currentSettings,
+                          onOpenArchive: widget.onOpenArchive,
                         ),
                       ),
                     if (markings.isNotEmpty)
