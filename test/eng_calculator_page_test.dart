@@ -1,5 +1,6 @@
 // 공학용 계산기 화면: 누름판으로 계산, FT 단추, 분수 표시, 설정, 오류, 좁은 폰.
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/eng_calculator_page.dart';
@@ -26,6 +27,7 @@ String? fraction(WidgetTester tester) {
 }
 
 void main() {
+  moreTests();
   testWidgets('숫자·연산자를 누르면 바로 결과가 뜬다(=  없이도)', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_2');
@@ -449,5 +451,123 @@ void main() {
     addTearDown(tester.view.reset);
     expect(phone, greaterThan(60));
     expect(tablet, greaterThan(60));
+  });
+}
+
+// ── 2026-10-05: 퍼센트·mod·Ans·복사·기록 ──
+void moreTests() {
+  Future<void> seq(WidgetTester tester, List<String> keys) async {
+    for (final k in keys) {
+      await tap(tester, k);
+    }
+  }
+
+  testWidgets('100−10%는 90(일반 계산기 방식)', (tester) async {
+    await pump(tester);
+    await seq(tester, [
+      'calc_1', 'calc_0', 'calc_0', 'calc_sub', 'calc_1', 'calc_0', 'calc_pct',
+    ]);
+    expect(result(tester), '90');
+  });
+
+  testWidgets('cos(90)은 0으로 보인다', (tester) async {
+    await pump(tester);
+    await seq(tester, [
+      'calc_cos', 'calc_9', 'calc_0', 'calc_rparen',
+    ]);
+    expect(result(tester), '0');
+  });
+
+  testWidgets('큰 정수는 자리를 다 보여 준다(123456789×987654321)', (tester) async {
+    await pump(tester);
+    await seq(tester, [
+      'calc_1', 'calc_2', 'calc_3', 'calc_4', 'calc_5', 'calc_6', 'calc_7',
+      'calc_8', 'calc_9', 'calc_mul', 'calc_9', 'calc_8', 'calc_7', 'calc_6',
+      'calc_5', 'calc_4', 'calc_3', 'calc_2', 'calc_1',
+    ]);
+    expect(result(tester), '121932631112635269');
+  });
+
+  testWidgets('mod 단추: 7 mod 3 = 1, 뒤에 안 쳤을 때는 오류 없이 앞 값', (tester) async {
+    await pump(tester);
+    await seq(tester, ['calc_7', 'calc_mod']);
+    expect(result(tester), '7');
+    await seq(tester, ['calc_3']);
+    expect(result(tester), '1');
+  });
+
+  testWidgets('Ans: = 뒤에 Ans×2', (tester) async {
+    await pump(tester);
+    await seq(tester, ['calc_2', 'calc_add', 'calc_3', 'calc_eq']);
+    await seq(tester, ['calc_ans', 'calc_mul', 'calc_2']);
+    expect(result(tester), '10');
+  });
+
+  testWidgets('Ans: 아직 =를 안 눌렀으면 안내 오류', (tester) async {
+    await pump(tester);
+    await seq(tester, ['calc_ans']);
+    expect(find.textContaining('직전 결과가 없습니다'), findsWidgets);
+  });
+
+  testWidgets('! 단추: 5! = 120', (tester) async {
+    await pump(tester);
+    await seq(tester, ['calc_5', 'calc_fact']);
+    expect(result(tester), '120');
+  });
+
+  testWidgets('기록은 앱을 다시 열어도 남고, 줄을 누르면 결과가 식에 들어가고, 지우기로 비운다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      kEngCalcHistoryKey: ['2+3 = 5'],
+    });
+    await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+    for (var i = 0; i < 4; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.text('2+3 = 5'), findsOneWidget);
+    await tap(tester, 'calc_history_item_0');
+    await tap(tester, 'calc_mul');
+    await tap(tester, 'calc_4');
+    expect(result(tester), '20');
+    await tap(tester, 'calc_history_clear');
+    expect(find.text('2+3 = 5'), findsNothing);
+  });
+
+  testWidgets('= 를 누르면 기록이 폰에 저장된다', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_eq');
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    final p = await SharedPreferences.getInstance();
+    expect(p.getStringList(kEngCalcHistoryKey), ['2+3 = 5']);
+  });
+
+  testWidgets('복사 단추: 결과를 클립보드에 넣고 알려 준다', (tester) async {
+    String? copied;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied = (call.arguments as Map)['text'] as String?;
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await pump(tester);
+    await tap(tester, 'calc_2');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_copy');
+    expect(copied, '5');
+    expect(find.textContaining('복사했습니다'), findsOneWidget);
   });
 }

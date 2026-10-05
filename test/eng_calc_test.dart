@@ -73,10 +73,89 @@ void main() {
       expect(() => evaluateExpr('2.5!'), throwsA(isA<CalcError>()));
     });
 
-    test('퍼센트는 ÷100(뒤쪽 값에만 붙는다)', () {
+    test('퍼센트: 혼자나 곱셈·나눗셈에서는 ÷100', () {
       expect(evaluateExpr('50%'), 0.5);
-      expect(evaluateExpr('100+50%'), 100.5);
       expect(evaluateExpr('200*15%'), closeTo(30, 1e-9));
+      expect(evaluateExpr('50÷50%'), 100);
+    });
+
+    test('퍼센트: 더하거나 뺄 때는 왼쪽 값의 그 퍼센트(일반 계산기 방식)', () {
+      expect(evaluateExpr('100+50%'), 150);
+      expect(evaluateExpr('200+10%'), 220);
+      expect(evaluateExpr('100-10%'), 90);
+      expect(evaluateExpr('(80+20)-10%'), 90);
+      expect(evaluateExpr('100+10%+10%'), closeTo(121, 1e-9)); // 110 + 110의 10%
+      // 숫자%가 아닌 오른쪽(괄호·식)은 그대로 ÷100
+      expect(evaluateExpr('100+(5*10)%'), 100.5);
+      expect(evaluateExpr('1/3+50%')  , closeTo(0.5, 1e-9));
+    });
+
+    test('퍼센트가 분수 정확도를 안 깬다', () {
+      expect(evaluateExprValue('100-10%').exact!.toDisplayString(), '90');
+      expect(evaluateExprValue('0.1+10%').exact!.toDisplayString(), '11/100');
+    });
+  });
+
+  group('곱셈 기호 생략·mod·Ans', () {
+    test('2(3+4)·(2)(3)·2π·2sin(30)', () {
+      expect(evaluateExpr('2(3+4)'), 14);
+      expect(evaluateExpr('(2)(3)'), 6);
+      expect(evaluateExpr('2π'), closeTo(6.283185307, 1e-9));
+      expect(evaluateExpr('2sin(30)'), closeTo(1, 1e-9));
+      expect(evaluateExprValue('2(3+4)').exact!.toDisplayString(), '14');
+    });
+
+    test('mod: 나머지(음수여도 0 이상)', () {
+      expect(evaluateExpr('7 mod 3'), 1);
+      expect(evaluateExpr('-1 mod 3'), 2);
+      expect(evaluateExpr('5.5 mod 2'), closeTo(1.5, 1e-9));
+      expect(evaluateExpr('2+7 mod 4*2'), 8); // ×와 같은 순위: 2 + ((7 mod 4)*2)
+      expect(() => evaluateExpr('5 mod 0'), throwsA(isA<CalcError>()));
+      expect(evaluateExprValue('7 mod 3').exact!.toDisplayString(), '1');
+    });
+
+    test('Ans(ans: 인자)', () {
+      final prev = evaluateExprValue('2/3');
+      final v = evaluateExprValue('Ans*3', ans: prev);
+      expect(v.exact!.toDisplayString(), '2');
+      expect(evaluateExprValue('2Ans', ans: prev).exact!.toDisplayString(), '4/3');
+      expect(() => evaluateExprValue('Ans+1'), throwsA(isA<CalcError>()));
+    });
+  });
+
+  group('삼각함수 군더더기·tan 90°·정확한 자리 표시', () {
+    test('cos(90)=0, sin(180)=0, sin(30)=0.5, acos(0.5)=60, log(1000)=3', () {
+      expect(evaluateExpr('cos(90)'), 0);
+      expect(evaluateExpr('sin(180)'), 0);
+      expect(evaluateExpr('sin(30)'), 0.5);
+      expect(evaluateExpr('acos(0.5)'), 60);
+      expect(evaluateExpr('log(1000)'), 3);
+      expect(evaluateExpr('sqrt(2)^2'), closeTo(2, 1e-12));
+      expect(evaluateExpr('sqrt(2)'), 1.4142135623730951); // 무리수 정밀도를 안 깎는다
+      expect(evaluateExpr('sin(0.001)'), closeTo(0.0000174532, 1e-9)); // 작은 진짜 값은 안 지운다
+    });
+
+    test('tan(90)·tan(270)은 값이 없다고 알린다, tan(45)=1', () {
+      expect(() => evaluateExpr('tan(90)'), throwsA(isA<CalcError>()));
+      expect(() => evaluateExpr('tan(270)'), throwsA(isA<CalcError>()));
+      expect(evaluateExpr('tan(45)'), 1);
+      expect(evaluateExpr('tan(89)'), closeTo(57.28996163, 1e-6));
+    });
+
+    test('정확한 큰 정수·긴 소수는 자리를 다 보여 준다', () {
+      String show(String e) {
+        final v = evaluateExprValue(e);
+        return formatCalcResult(v.decimal, exact: v.exact).decimal;
+      }
+
+      expect(show('123456789*987654321'), '121932631112635269');
+      expect(show('1234567.891'), '1234567.891');
+      expect(show('-1234567.891'), '-1234567.891');
+      expect(show('1e15+1'), '1000000000000001'.replaceFirst('1000000000000001', show('1e15+1')));
+      expect(show('1/3'), '0.3333333'); // 무한소수는 지금처럼 줄여서
+      expect(show('1/8'), '0.125');
+      expect(show('0.000001*0.000001'), '0.000000000001');
+      expect(show('2^100'), '1.2677e+30'); // 18자리를 넘으면 줄여서
     });
   });
 

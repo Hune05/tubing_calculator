@@ -166,8 +166,12 @@ class CalcValue {
 }
 
 /// 수식 글을 계산해 값 하나(소수 + 있으면 정확한 분수)로.
-CalcValue evaluateExprValue(String expr, {AngleUnit angle = AngleUnit.degree}) {
-  final p = _Parser(expr, angle);
+CalcValue evaluateExprValue(
+  String expr, {
+  AngleUnit angle = AngleUnit.degree,
+  CalcValue? ans,
+}) {
+  final p = _Parser(expr, angle, ans);
   final v = p._parseExpr();
   p._skipWs();
   if (p._pos != p._src.length) {
@@ -196,11 +200,23 @@ const List<String> kCalcFunctions = [
   'exp',
 ];
 
+/// 삼각함수·로그가 남기는 부동소수 찌꺼기를 걷어 낸다. cos(90°)=6e-17 → 0, sin(30°)=0.49999999999999994 → 0.5,
+/// log(1000)=2.9999999999999996 → 3. 12자리까지 반올림한 값과 부동소수 한두 칸(1e-15) 안이면 그 값으로 본다.
+/// (sqrt(2)처럼 진짜 무리수는 12자리 값과 1e-13쯤 달라서 안 건드린다.)
+double _tidy(double r) {
+  if (r.isNaN || r.isInfinite || r.abs() >= 1e6) return r;
+  final s = (r * 1e12).roundToDouble() / 1e12;
+  return (s - r).abs() <= 1e-15 * math.max(1.0, r.abs()) ? s : r;
+}
+
 class _Parser {
   final String _src;
   final AngleUnit angle;
+
+  /// 직전 계산 결과(식 안에서 "Ans"로 쓴다). 없으면 null.
+  final CalcValue? _ans;
   int _pos = 0;
-  _Parser(this._src, this.angle);
+  _Parser(this._src, this.angle, this._ans);
 
   void _skipWs() {
     while (_pos < _src.length && _src[_pos] == ' ') {
@@ -221,7 +237,20 @@ class _Parser {
           (_src[_pos] == '+' || _src[_pos] == '-' || _src[_pos] == '−')) {
         final op = _src[_pos];
         _pos++;
-        final rhs = _parseTerm();
+        _skipWs();
+        final rhsStart = _pos;
+        var rhs = _parseTerm();
+        // 일반 계산기처럼: "200+10%"는 200 + 200의 10% = 220, "100−10%"는 90.
+        // 더하거나 뺄 때 오른쪽이 "숫자%" 하나뿐이면 왼쪽 값의 그 퍼센트로 본다.
+        // (곱하기·나누기나 "50%" 혼자는 그대로 ÷100.)
+        if (RegExp(r'^[0-9.]+%$').hasMatch(_src.substring(rhsStart, _pos).trim())) {
+          final ex = (v.exact != null && rhs.exact != null)
+              ? v.exact! * rhs.exact!
+              : null;
+          rhs = ex != null
+              ? CalcValue.fromFraction(ex)
+              : CalcValue.decimalOnly(v.decimal * rhs.decimal);
+        }
         final d = op == '+' ? v.decimal + rhs.decimal : v.decimal - rhs.decimal;
         final ex = (v.exact != null && rhs.exact != null)
             ? (op == '+' ? v.exact! + rhs.exact! : v.exact! - rhs.exact!)
@@ -260,11 +289,41 @@ class _Parser {
         v = ex != null
             ? CalcValue.fromFraction(ex)
             : CalcValue.decimalOnly(v.decimal / rhs.decimal);
+      } else if (_atWord('mod')) {
+        // 나머지: 7 mod 3 = 1. 음수여도 0 이상으로 나온다(-1 mod 3 = 2).
+        _pos += 3;
+        final rhs = _parseUnary();
+        if (rhs.decimal == 0) throw const CalcError('0으로 나눌 수 없습니다');
+        if (v.exact != null &&
+            rhs.exact != null &&
+            v.exact!.isInteger &&
+            rhs.exact!.isInteger) {
+          final r = v.exact!.num % rhs.exact!.num;
+          v = CalcValue.fromFraction(Fraction(r, BigInt.one));
+        } else {
+          v = CalcValue.decimalOnly(v.decimal % rhs.decimal);
+        }
+      } else if (c == '(' || c == 'π' || _isAlpha(c)) {
+        // 곱셈 기호를 생략한 식: 2(3+4), (2)(3), 2π, 2sin(30)
+        final rhs = _parseUnary();
+        final ex = (v.exact != null && rhs.exact != null)
+            ? v.exact! * rhs.exact!
+            : null;
+        v = ex != null
+            ? CalcValue.fromFraction(ex)
+            : CalcValue.decimalOnly(v.decimal * rhs.decimal);
       } else {
         break;
       }
     }
     return v;
+  }
+
+  /// 지금 자리에서 낱말 [w]가 (뒤에 글자가 더 안 붙고) 시작하는지.
+  bool _atWord(String w) {
+    if (!_src.startsWith(w, _pos)) return false;
+    final e = _pos + w.length;
+    return e >= _src.length || !_isAlpha(_src[e]);
   }
 
   // unary := ('-'|'+') unary | power
@@ -335,6 +394,13 @@ class _Parser {
       if (name == 'e') {
         return _maybeFactorial(_maybePercent(CalcValue.decimalOnly(math.e)));
       }
+      if (name.toLowerCase() == 'ans') {
+        final a = _ans;
+        if (a == null) {
+          throw const CalcError('직전 결과가 없습니다(먼저 =를 눌러 계산하십시오)');
+        }
+        return _maybeFactorial(_maybePercent(a));
+      }
       if (kCalcFunctions.contains(name)) {
         _skipWs();
         CalcValue arg;
@@ -395,19 +461,23 @@ class _Parser {
     double deg(double r) => angle == AngleUnit.degree ? r * 180 / math.pi : r;
     switch (name) {
       case 'sin':
-        return CalcValue.decimalOnly(math.sin(rad(a)));
+        return CalcValue.decimalOnly(_tidy(math.sin(rad(a))));
       case 'cos':
-        return CalcValue.decimalOnly(math.cos(rad(a)));
+        return CalcValue.decimalOnly(_tidy(math.cos(rad(a))));
       case 'tan':
-        return CalcValue.decimalOnly(math.tan(rad(a)));
+        // 90°·270°처럼 cos이 0인 각도는 값이 없다(1.6e16 같은 엉뚱한 큰 수로 안 나오게).
+        if (math.cos(rad(a)).abs() < 1e-12) {
+          throw const CalcError('tan은 90°·270°처럼 값이 없는 각도에는 안 됩니다');
+        }
+        return CalcValue.decimalOnly(_tidy(math.tan(rad(a))));
       case 'asin':
         if (a < -1 || a > 1) throw const CalcError('asin은 -1~1 값에만 됩니다');
-        return CalcValue.decimalOnly(deg(math.asin(a)));
+        return CalcValue.decimalOnly(_tidy(deg(math.asin(a))));
       case 'acos':
         if (a < -1 || a > 1) throw const CalcError('acos는 -1~1 값에만 됩니다');
-        return CalcValue.decimalOnly(deg(math.acos(a)));
+        return CalcValue.decimalOnly(_tidy(deg(math.acos(a))));
       case 'atan':
-        return CalcValue.decimalOnly(deg(math.atan(a)));
+        return CalcValue.decimalOnly(_tidy(deg(math.atan(a))));
       case 'sqrt':
         if (a < 0) throw const CalcError('음수의 제곱근은 없습니다');
         final ex = arg.exact?.exactSqrt();
@@ -416,16 +486,16 @@ class _Parser {
             : CalcValue.decimalOnly(math.sqrt(a));
       case 'ln':
         if (a <= 0) throw const CalcError('ln은 양수에만 됩니다');
-        return CalcValue.decimalOnly(math.log(a));
+        return CalcValue.decimalOnly(_tidy(math.log(a)));
       case 'log':
         if (a <= 0) throw const CalcError('log는 양수에만 됩니다');
-        return CalcValue.decimalOnly(math.log(a) / math.ln10);
+        return CalcValue.decimalOnly(_tidy(math.log(a) / math.ln10));
       case 'abs':
         return arg.exact != null
             ? CalcValue.fromFraction(arg.exact!.abs())
             : CalcValue.decimalOnly(a.abs());
       case 'exp':
-        return CalcValue.decimalOnly(math.exp(a));
+        return CalcValue.decimalOnly(_tidy(math.exp(a)));
     }
     throw CalcError('모르는 함수입니다: $name');
   }
@@ -467,6 +537,35 @@ class _Parser {
   }
 }
 
+/// 정확한 분수가 유한소수로 떨어지면(분모가 2·5만으로 이뤄지면) 그 자리를 다 적는다.
+/// 123456789×987654321 = 121932631112635269 처럼. 유효 숫자가 [maxDigits]자리를 넘거나
+/// 무한소수(1/3)이면 null(소수로 줄여 보인다).
+String? exactDecimalText(Fraction f, {int maxDigits = 18}) {
+  var d = f.den;
+  var twos = 0;
+  var fives = 0;
+  final five = BigInt.from(5);
+  while (d % BigInt.two == BigInt.zero) {
+    d ~/= BigInt.two;
+    twos++;
+  }
+  while (d % five == BigInt.zero) {
+    d ~/= five;
+    fives++;
+  }
+  if (d != BigInt.one) return null;
+  final k = math.max(twos, fives);
+  final scaled = f.num.abs() * BigInt.from(10).pow(k) ~/ f.den;
+  var digits = scaled.toString();
+  if (digits.length > maxDigits) return null;
+  if (k > 0) {
+    digits = digits.padLeft(k + 1, '0');
+    digits =
+        '${digits.substring(0, digits.length - k)}.${digits.substring(digits.length - k)}';
+  }
+  return f.isNegative && !f.isZero ? '-$digits' : digits;
+}
+
 /// 계산 결과를 소수 글과(원하면) 인치 분수 근사 글로.
 /// [asFeetInch]면 12를 넘을 때 피트도 같이 보여준다(예: 1' 3-1/2").
 ({String decimal, String? fraction}) formatCalcResult(
@@ -474,9 +573,12 @@ class _Parser {
   bool showFraction = false,
   int denom = 16,
   bool asFeetInch = false,
+
+  /// 정확한 분수를 알면 큰 정수·긴 소수도 자리를 다 적는다.
+  Fraction? exact,
 }) {
   if (v.isNaN || v.isInfinite) return (decimal: '오류', fraction: null);
-  final dec = formatNumber(v);
+  final dec = (exact == null ? null : exactDecimalText(exact)) ?? formatNumber(v);
   if (!showFraction) return (decimal: dec, fraction: null);
   final frac = asFeetInch
       ? feetInches(v, denom: denom)

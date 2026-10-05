@@ -30,6 +30,7 @@ const String kEngCalcFractionKey = 'field_eng_calc_fraction_v1';
 const String kEngCalcFeetKey = 'field_eng_calc_feet_v1';
 const String kEngCalcDenomKey = 'field_eng_calc_denom_v1';
 const String kEngCalcAdvancedKey = 'field_eng_calc_advanced_v1';
+const String kEngCalcHistoryKey = 'field_eng_calc_history_v1';
 
 const List<int> kEngCalcDenoms = [8, 16, 32, 64];
 
@@ -73,6 +74,9 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   /// 지난 줄들이 위로 밀려 올라가 보이게(스크롤을 맨 아래로 붙인다).
   final List<String> _history = [];
   final ScrollController _historyScroll = ScrollController();
+
+  /// 직전 계산 결과(식 안에서 "Ans"로 쓴다). 앱을 다시 열면 비어 있다.
+  CalcValue? _lastAnswer;
 
   /// 결과를 소수 대신 정확한 분수로 보일지(S⇔D). 분수가 없으면(무리수 등) 소수로 보인다.
   bool _showExact = false;
@@ -119,8 +123,16 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       final feet = p.getBool(kEngCalcFeetKey);
       final denom = p.getInt(kEngCalcDenomKey);
       final advanced = p.getBool(kEngCalcAdvancedKey);
+      final saved = p.getStringList(kEngCalcHistoryKey);
       if (!mounted) return;
       setState(() {
+        // 지난 계산 기록(앱을 껐다 켜도 남는다). 지금 막 쌓인 줄이 있으면 그 앞에 붙인다.
+        if (saved != null && saved.isNotEmpty) {
+          _history.insertAll(0, saved);
+          if (_history.length > 50) {
+            _history.removeRange(0, _history.length - 50);
+          }
+        }
         if (angle == 'rad') _angle = AngleUnit.radian;
         if (frac != null) _showFraction = frac;
         if (feet != null) _asFeetInch = feet;
@@ -148,6 +160,13 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     } catch (_) {}
   }
 
+  Future<void> _saveHistory() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(kEngCalcHistoryKey, List<String>.of(_history));
+    } catch (_) {}
+  }
+
   void _toggleAdvanced() {
     HapticFeedback.selectionClick();
     setState(() => _advanced = !_advanced);
@@ -170,14 +189,16 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     // 식 계산기(eng_calc.dart)는 자판 하이픈(-)만 뺄셈으로 알아봐서 "5−3"을
     // 끝까지 못 읽고 막혔다(더하기는 둘 다 '+'라 안 걸렸다). 계산기에 넘기기
     // 전에 자판 하이픈으로 바꿔 준다.
-    final t = _stripTrailingOps(_expr).trim().replaceAll('−', '-');
+    final t = _stripTrailingOps(
+      _expr.replaceFirst(RegExp(r'\s*mod\s*$'), ''),
+    ).trim().replaceAll('−', '-');
     if (t.isEmpty) {
       _live = null;
       _error = null;
       return;
     }
     try {
-      _live = evaluateExprValue(t, angle: _angle);
+      _live = evaluateExprValue(t, angle: _angle, ans: _lastAnswer);
       _error = null;
     } catch (e) {
       _live = null;
@@ -188,7 +209,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   bool get _endsWithDigitOrClose {
     if (_expr.isEmpty) return false;
     final c = _expr[_expr.length - 1];
-    return RegExp(r'[0-9)π!%]').hasMatch(c);
+    return RegExp(r'[0-9)π!%se]').hasMatch(c);
   }
 
   /// 지금 치는 중인 분수를 "(whole+num/den)" 글자로 바꿔 [_expr]에 붙이고 지운다.
@@ -415,12 +436,14 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       if (_live != null) {
         final resultText = _showExact && _live!.exact != null
             ? _live!.exact!.toDisplayString()
-            : _fmtDecimal(_live!.decimal);
+            : _fmtDecimal(_live!);
         // "="를 다시 눌러도 식이 그대로면(예: 이미 계산된 값에 또 =) 기록에 안 쌓는다.
         if (exprBefore != resultText) {
           _history.add('$exprBefore = $resultText');
           if (_history.length > 50) _history.removeAt(0);
+          _saveHistory();
         }
+        _lastAnswer = _live;
         _expr = resultText;
         _justEvaluated = true;
       }
@@ -450,7 +473,67 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     });
   }
 
-  String _fmtDecimal(double v) => formatCalcResult(v).decimal;
+  String _fmtDecimal(CalcValue v) =>
+      formatCalcResult(v.decimal, exact: v.exact).decimal;
+
+  /// 기록 한 줄을 누르면 그 결과를 지금 식에 넣는다("2+3 = 5" → 5).
+  void _tapHistory(int i) {
+    final line = _history[i];
+    final at = line.lastIndexOf(' = ');
+    final value = at < 0 ? line : line.substring(at + 3);
+    HapticFeedback.selectionClick();
+    setState(() {
+      _commitFraction();
+      if (_justEvaluated) {
+        _expr = '';
+        _justEvaluated = false;
+      }
+      if (_endsWithDigitOrClose) _expr += '×';
+      _expr += value;
+      _recalc();
+    });
+  }
+
+  void _clearHistory() {
+    HapticFeedback.selectionClick();
+    setState(_history.clear);
+    _saveHistory();
+  }
+
+  /// 지금 큰 글씨로 보이는 결과를 클립보드에 복사한다.
+  Future<void> _copyResult() async {
+    final live = _live;
+    if (_error != null || live == null) return;
+    final text = _showExact && live.exact != null
+        ? live.exact!.toDisplayString(mixed: true)
+        : formatCalcResult(live.decimal, exact: live.exact).decimal;
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('복사했습니다: $text'),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  /// 나머지 연산 단추: " mod "를 붙인다.
+  void _tapMod() {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _commitFraction();
+      _justEvaluated = false;
+      if (_expr.isEmpty) return;
+      if (_expr.endsWith(' mod ')) return;
+      if (_opChars.contains(_expr[_expr.length - 1])) {
+        _expr = _expr.substring(0, _expr.length - 1);
+      }
+      _expr += ' mod ';
+      _recalc();
+    });
+  }
 
   // ── 화면 ──
 
@@ -463,6 +546,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         ? null
         : formatCalcResult(
             _live!.decimal,
+            exact: _live!.exact,
             showFraction: _showFraction,
             denom: _denom,
             asFeetInch: _asFeetInch,
@@ -486,6 +570,12 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           style: TextStyle(fontWeight: FontWeight.w800, color: _ink),
         ),
         actions: [
+          IconButton(
+            key: const Key('calc_copy'),
+            icon: const Icon(Icons.copy_outlined),
+            tooltip: '결과 복사',
+            onPressed: _copyResult,
+          ),
           IconButton(
             key: const Key('calc_unit_convert'),
             icon: const Icon(Icons.swap_horiz),
@@ -569,7 +659,31 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           // 줄들이 위로 밀려 올라간다(맨 아래에 최근 줄이 남게 스크롤한다). 기록이
           // 없으면(아직 한 번도 "="를 안 눌렀으면) 이 자리를 안 만들어, 지금 계산
           // 중인 식·결과가 전처럼 자리를 다 쓴다.
-          if (showHistory) Expanded(flex: 3, child: _historyList()),
+          if (showHistory)
+            Expanded(
+              flex: 3,
+              child: Stack(
+                children: [
+                  _historyList(),
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    child: GestureDetector(
+                      key: const Key('calc_history_clear'),
+                      onTap: _clearHistory,
+                      child: Text(
+                        '기록 지우기',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _sub,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             flex: showHistory ? 6 : 9,
             child: _currentEntry(big, result),
@@ -584,7 +698,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     controller: _historyScroll,
     padding: EdgeInsets.zero,
     itemCount: _history.length,
-    itemBuilder: (context, i) => Padding(
+    itemBuilder: (context, i) => GestureDetector(
+      key: Key('calc_history_item_$i'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _tapHistory(i),
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 2),
       child: Text(
         _history[i],
@@ -597,6 +715,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
           fontWeight: FontWeight.w600,
         ),
       ),
+    ),
     ),
   );
 
@@ -912,6 +1031,12 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         _op('^', key: 'calc_pow'),
         _util('S⇔D', _tapSD, key: 'calc_sd_key'),
       ],
+      [
+        _modKey(key: 'calc_mod'),
+        _const('Ans', key: 'calc_ans', fontSize: 15),
+        _postfix('!', key: 'calc_fact'),
+        _const('e', key: 'calc_e'),
+      ],
     ];
     final lowerRows = <List<Widget>>[
       [
@@ -961,7 +1086,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                     : Duration.zero,
                 curve: Curves.easeInOut,
                 builder: (context, t, _) {
-                  final rowH = box.maxHeight / (basicCount + 2 * t);
+                  final rowH = box.maxHeight / (basicCount + 3 * t);
                   Widget sized(List<Widget> keys, {double factor = 1}) =>
                       SizedBox(
                         height: rowH * factor,
@@ -1078,13 +1203,24 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         ),
       );
 
-  Widget _const(String c, {required String key}) => ElevatedButton(
+  Widget _const(String c, {required String key, double fontSize = 21}) =>
+      ElevatedButton(
+        key: Key(key),
+        style: _style(fc.background, _sub),
+        onPressed: () => _tapConst(c),
+        child: Text(
+          c,
+          style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
+        ),
+      );
+
+  Widget _modKey({required String key}) => ElevatedButton(
     key: Key(key),
-    style: _style(fc.background, _sub),
-    onPressed: () => _tapConst(c),
-    child: Text(
-      c,
-      style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w600),
+    style: _style(fc.brandSoft, _teal),
+    onPressed: _tapMod,
+    child: const Text(
+      'mod',
+      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
     ),
   );
 
