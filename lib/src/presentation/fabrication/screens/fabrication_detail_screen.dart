@@ -200,6 +200,7 @@ class _FabricationDetailScreenState extends State<FabricationDetailScreen> {
         tail: tail,
         startDir: startDir,
         totalCut: absoluteTotalCut,
+        now: FabQr.savedDateOf(currentData['date']),
       );
       if (qrLink.dense && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

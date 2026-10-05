@@ -20,9 +20,28 @@ class TubeHistoryDb {
     await DatabaseHelper.instance.insertHistory(row);
   };
 
+  /// 한 줄의 칸을 고친다(도면 정보 수정·시작 방향).
+  static Future<void> Function(int id, Map<String, dynamic> row) update = (id, row) async {
+    await DatabaseHelper.instance.updateHistory(id, row);
+  };
+
   /// 여러 줄의 p_to_p(프로젝트 이름 등이 든 JSON 글)를 한 번에 바꾼다. 키는 줄 번호.
   static Future<void> Function(Map<int, String> idToPToP) updatePToP = (m) =>
       DatabaseHelper.instance.updateHistoryPToPBatch(m);
+}
+
+/// 저장해 둔 p_to_p에 [changes]의 칸만 바꿔 넣는다. 나머지 칸(저장 때 장비 값·메모 등)은 그대로 둔다.
+/// 새 맵을 처음부터 만들어 덮어쓰면 바꾸지 않은 칸이 지워진다.
+Map<String, dynamic> historyPToPWith(Map<String, dynamic> existing, Map<String, dynamic> changes) => {...existing, ...changes};
+
+/// 저장 창의 "무엇을 했는지"(note)와 도면 보기의 "특이사항"(memo)은 같은 글로 본다.
+/// 둘 다 있고 다르면 줄을 바꿔 이어 붙인다.
+String mergeDrawingMemo(String note, String memo) {
+  final n = note.trim();
+  final m = memo.trim();
+  if (n.isEmpty) return m;
+  if (m.isEmpty || m == n) return n;
+  return '$n\n$m';
 }
 
 /// 저장한 줄의 p_to_p 글에 프로젝트 이름만 바꿔 넣는다(다른 값은 그대로).
@@ -80,7 +99,7 @@ class HistoryCardInfo {
       if (p is Map) {
         from = '${p['from'] ?? ''}';
         to = '${p['to'] ?? ''}';
-        note = '${p['note'] ?? ''}'.trim();
+        note = mergeDrawingMemo('${p['note'] ?? ''}', '${p['memo'] ?? ''}');
       }
     } catch (_) {}
 

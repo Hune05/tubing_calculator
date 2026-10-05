@@ -24,10 +24,10 @@ import 'package:share_plus/share_plus.dart';
 
 // 🚀 모바일 전용 뷰어 및 DB 헬퍼 임포트
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
-import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/history_card_info.dart';
 
 const Color makitaTeal = AppColors.brand;
 const Color slate900 = AppColors.text;
@@ -134,7 +134,7 @@ class _MobileFabricationDetailScreenState
       _fromTo = "${_pToP['from'] ?? '모름'} ➔ ${_pToP['to'] ?? '모름'}";
       _tailLength = double.tryParse(_pToP['tail']?.toString() ?? '0') ?? 0.0;
       _startDir = _pToP['start_dir']?.toString() ?? 'RIGHT';
-      _memoText = _pToP['memo']?.toString() ?? "";
+      _memoText = mergeDrawingMemo('${_pToP['note'] ?? ''}', '${_pToP['memo'] ?? ''}');
 
       _startFit =
           (_pToP['start_fit'] == true) || (_pToP['start_fit'] == 'true');
@@ -366,6 +366,7 @@ class _MobileFabricationDetailScreenState
         tail: _tailLength,
         startDir: _startDir,
         totalCut: _totalLength,
+        now: FabQr.savedDateOf(widget.itemData['date']),
       );
       if (qrLink.dense && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -832,22 +833,25 @@ class _MobileFabricationDetailScreenState
                                 FocusScope.of(context).unfocus();
 
                                 try {
-                                  Map<String, dynamic> newPtoP = {
-                                    "project": projCtrl.text,
-                                    "from": fromCtrl.text,
-                                    "to": toCtrl.text,
-                                    "start_fit": _startFit,
-                                    "end_fit": _endFit,
-                                    "tail": _tailLength,
-                                    "start_dir": _startDir,
-                                    "memo": memoCtrl.text,
-                                  };
-
-                                  await DatabaseHelper.instance
-                                      .updateHistory(widget.itemData['id'], {
-                                        'p_to_p': jsonEncode(newPtoP),
-                                        'pipe_size': selectedSize,
+                                  // 새 맵을 처음부터 만들면 저장 때 장비 값(specs)과 다른 칸이 지워진다.
+                                  // 특이사항은 저장 창의 "무엇을 했는지"(note)와 같은 글이라 둘 다 같게 적는다.
+                                  final memo = memoCtrl.text.trim();
+                                  final Map<String, dynamic> newPtoP =
+                                      historyPToPWith(_pToP, {
+                                        "project": projCtrl.text,
+                                        "from": fromCtrl.text,
+                                        "to": toCtrl.text,
+                                        "memo": memo,
+                                        "note": memo,
                                       });
+
+                                  await TubeHistoryDb.update(
+                                    widget.itemData['id'] as int,
+                                    {
+                                      'p_to_p': jsonEncode(newPtoP),
+                                      'pipe_size': selectedSize,
+                                    },
+                                  );
 
                                   // 부모 위젯 데이터 갱신
                                   setState(() {
@@ -1082,9 +1086,10 @@ class _MobileFabricationDetailScreenState
             // 🚀 [고침] 보관함에 저장해 둔 도면을 열면 제원이 안 넘어가서
             // 곡선부가 그려지지 않았다. 도면에 적힌 규격으로 관 굵기를 잡고,
             // 반경·피팅 깊이는 지금 제원을 쓴다(도면에 제원은 안 남아 있다).
-            bendRadius: MachineSpecs().radius,
+            bendRadius: _savedSpecs?['radius'] ?? MachineSpecs().radius,
             outerDiameter: pipeSizeToMm(_pipeSize),
-            fittingDepth: MachineSpecs().fittingDepth,
+            fittingDepth:
+                _savedSpecs?['fittingDepth'] ?? MachineSpecs().fittingDepth,
             initialStartDir: _startDir,
             useSavedDirection: false,
             startFit: _startFit,
@@ -1096,22 +1101,16 @@ class _MobileFabricationDetailScreenState
                 _startDir = newDir;
               });
               try {
-                Map<String, dynamic> newPtoP = {
-                  "project": _projectName,
-                  "from": _pToP['from'] ?? '',
-                  "to": _pToP['to'] ?? '',
-                  "start_fit": _startFit,
-                  "end_fit": _endFit,
-                  "tail": _tailLength,
+                // 방향만 바꾼다. 나머지 칸(저장 때 장비 값·메모)은 그대로 둔다.
+                final Map<String, dynamic> newPtoP = historyPToPWith(_pToP, {
                   "start_dir": newDir,
-                  "memo": _memoText,
-                };
-                String newPtoPJson = jsonEncode(newPtoP);
-                await DatabaseHelper.instance.updateHistory(
-                  widget.itemData['id'],
-                  {'p_to_p': newPtoPJson},
-                );
+                });
+                final String newPtoPJson = jsonEncode(newPtoP);
+                await TubeHistoryDb.update(widget.itemData['id'] as int, {
+                  'p_to_p': newPtoPJson,
+                });
                 widget.itemData['p_to_p'] = newPtoPJson;
+                _pToP = newPtoP;
               } catch (e) {
                 debugPrint("방향 저장 실패: $e");
               }

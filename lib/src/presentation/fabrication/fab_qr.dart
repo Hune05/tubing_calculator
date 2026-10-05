@@ -79,6 +79,14 @@ class FabQr {
     );
   }
 
+  /// 보관함 줄에 저장된 날짜("2026-10-05 15:14", 시각이 없던 옛 줄은 날짜만)를 시각으로. 읽을 수 없으면 null.
+  /// QR의 "저장 일시"는 PDF를 만든 때가 아니라 도면을 저장한 때여야 같은 도면이 늘 같은 QR이 된다.
+  static DateTime? savedDateOf(dynamic raw) {
+    final s = raw?.toString().trim() ?? '';
+    if (s.length < 10) return null;
+    return DateTime.tryParse(s.length >= 16 ? s.substring(0, 16).replaceFirst(' ', 'T') : s.substring(0, 10));
+  }
+
   /// PDF에 넣을 QR 주소와 종이에 적을 글(저장 일시·확인 번호)을 만든다.
   static FabQrLink build({
     required String project,
