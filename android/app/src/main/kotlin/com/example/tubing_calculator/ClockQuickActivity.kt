@@ -11,7 +11,6 @@ import android.text.InputFilter
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.Button
 import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
@@ -60,6 +59,12 @@ class ClockQuickActivity : Activity() {
         setContentView(root)
     }
 
+    /** 칩 바탕: 고르면 청록, 아니면 연한 청록. */
+    private fun chipBg(on: Boolean) = GradientDrawable().apply {
+        cornerRadius = dp(18).toFloat()
+        setColor(if (on) 0xFF007580.toInt() else 0xFFE0F1F2.toInt())
+    }
+
     private fun title(t: String) = TextView(this).apply {
         text = t
         textSize = 18f
@@ -70,17 +75,29 @@ class ClockQuickActivity : Activity() {
     private fun buttons(onSave: () -> Unit): LinearLayout {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.END
-            setPadding(0, dp(14), 0, 0)
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            setPadding(0, dp(18), 0, 0)
         }
-        row.addView(Button(this).apply {
+        row.addView(TextView(this).apply {
             text = "취소"
+            textSize = 16f
+            setTextColor(0xFF6B7280.toInt())
+            setPadding(dp(18), dp(10), dp(18), dp(10))
             setOnClickListener { finish() }
         })
-        row.addView(Button(this).apply {
+        row.addView(TextView(this).apply {
             text = "저장"
+            textSize = 16f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(dp(26), dp(10), dp(26), dp(10))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(22).toFloat()
+                setColor(0xFF007580.toInt())
+            }
             setOnClickListener { onSave() }
-        })
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
         return row
     }
 
@@ -105,10 +122,7 @@ class ClockQuickActivity : Activity() {
             val on = edit.text.toString().contains(tag)
             chips[tag]?.apply {
                 setTextColor(if (on) Color.WHITE else 0xFF007580.toInt())
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(18).toFloat()
-                    setColor(if (on) 0xFF007580.toInt() else 0xFFE0F1F2.toInt())
-                }
+                background = chipBg(on)
             }
         }
         for (tag in TAGS) {
@@ -201,10 +215,7 @@ class ClockQuickActivity : Activity() {
             for ((m, chip) in chips) {
                 val on = m == lengthMin
                 chip.setTextColor(if (on) Color.WHITE else 0xFF007580.toInt())
-                chip.background = GradientDrawable().apply {
-                    cornerRadius = dp(18).toFloat()
-                    setColor(if (on) 0xFF007580.toInt() else 0xFFE0F1F2.toInt())
-                }
+                chip.background = chipBg(on)
             }
         }
         val lenRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
@@ -247,8 +258,11 @@ class ClockQuickActivity : Activity() {
                     textSize = 16f
                     setTextColor(0xFF1F2933.toInt())
                 }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-                row.addView(Button(this).apply {
+                row.addView(TextView(this).apply {
                     text = "지우기"
+                    textSize = 15f
+                    setTextColor(0xFFE5195E.toInt())
+                    setPadding(dp(14), dp(8), dp(14), dp(8))
                     setOnClickListener {
                         ClockBreak.remove(this@ClockQuickActivity, it.id)
                         Toast.makeText(this@ClockQuickActivity, "휴게 알람을 지웠습니다.", Toast.LENGTH_SHORT).show()
