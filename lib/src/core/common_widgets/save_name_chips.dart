@@ -83,10 +83,14 @@ class SaveNameChips extends StatelessWidget {
   final List<String> names;
   final TextEditingController controller;
 
+  /// 칩을 눌러 이름이 들어간 뒤 부른다(바뀐 곳이 있는지 다시 따지는 창에서 쓴다).
+  final VoidCallback? onPicked;
+
   const SaveNameChips({
     super.key,
     required this.names,
     required this.controller,
+    this.onPicked,
   });
 
   @override
@@ -121,6 +125,7 @@ class SaveNameChips extends StatelessWidget {
                       text: n,
                       selection: TextSelection.collapsed(offset: n.length),
                     );
+                    onPicked?.call();
                   },
                 ),
             ],

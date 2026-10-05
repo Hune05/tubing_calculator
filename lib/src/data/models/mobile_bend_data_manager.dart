@@ -20,6 +20,29 @@ class MobileBendDataManager extends ChangeNotifier with BendListHistory {
 
   List<Map<String, dynamic>> bendList = [];
 
+  /// 보관함에서 불러온 도면 번호. 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있다.
+  /// 목록을 모두 지우거나, 불러오기를 ↶로 되돌리면 잊는다.
+  int? sourceHistoryId;
+  int _sourceDepth = 0;
+
+  /// 방금 `replaceAll`로 불러온 목록이 [id] 도면에서 왔다고 기억한다.
+  void setSource(int id) {
+    sourceHistoryId = id;
+    _sourceDepth = undoDepth;
+  }
+
+  void clearSource() => sourceHistoryId = null;
+
+  @override
+  bool undo() {
+    final ok = super.undo();
+    // 불러오기 자체를 되돌렸으면(그 전 목록으로 돌아갔으면) 그 도면은 더 이상 원본이 아니다.
+    if (ok && sourceHistoryId != null && undoDepth < _sourceDepth) {
+      sourceHistoryId = null;
+    }
+    return ok;
+  }
+
   String get pipeSize => _specs.pipeSize;
 
   bool get startFit => _specs.startFit;
@@ -234,6 +257,7 @@ class MobileBendDataManager extends ChangeNotifier with BendListHistory {
   }
 
   void clearBends() {
+    sourceHistoryId = null;
     if (bendList.isEmpty) return;
     recordHistory();
     bendList.clear();

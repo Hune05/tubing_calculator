@@ -32,6 +32,9 @@ class SmartSavePad extends StatefulWidget {
   /// 저장 알림의 "보관함 보기"가 보관함 탭으로 옮겨 준다(없으면 단추가 안 붙는다).
   final VoidCallback? onOpenArchive;
 
+  /// 보관함에서 불러와 고친 도면이면 그 도면("이 도면에 덮어쓰기"의 대상). 없으면 늘 새 도면으로 저장한다.
+  final HistoryOverwriteTarget? overwriteTarget;
+
   const SmartSavePad({
     super.key,
     required this.totalCut,
@@ -42,6 +45,7 @@ class SmartSavePad extends StatefulWidget {
     required this.startDir,
     this.onSaveCallback,
     this.onOpenArchive,
+    this.overwriteTarget,
   });
 
   @override
@@ -73,6 +77,9 @@ class _SmartSavePadState extends State<SmartSavePad> {
   // 저장이 끝나기 전에 또 눌러 두 건이 저장되는 것을 막는다.
   bool _saving = false;
 
+  // 불러온 도면이 있으면 덮어쓰기를 먼저 고른다("새 도면으로 저장"으로 바꿀 수 있다).
+  late bool _overwrite = widget.overwriteTarget != null;
+
   /// 마지막 작업 이름을 미리 채우고, 보관함에 이미 있는 작업 이름을 칩으로 보여 준다.
   Future<void> _loadNames() async {
     String last = '';
@@ -96,7 +103,9 @@ class _SmartSavePadState extends State<SmartSavePad> {
     setState(() {
       _recentNames = names;
       // 아직 아무것도 안 쳤을 때만 채운다(사용자가 먼저 치기 시작했으면 건드리지 않는다).
-      if (_projectController.text.isEmpty && last.trim().isNotEmpty) {
+      if (widget.overwriteTarget == null &&
+          _projectController.text.isEmpty &&
+          last.trim().isNotEmpty) {
         _projectController.value = TextEditingValue(
           text: last,
           selection: TextSelection(baseOffset: 0, extentOffset: last.length),
@@ -109,6 +118,15 @@ class _SmartSavePadState extends State<SmartSavePad> {
   void initState() {
     super.initState();
     _loadNames();
+    final target = widget.overwriteTarget;
+    if (target != null) {
+      _projectController.text = target.project == '프로젝트 미지정'
+          ? ''
+          : target.project;
+      _fromController.text = target.from == '모름' ? '' : target.from;
+      _toController.text = target.to == '모름' ? '' : target.to;
+      _noteController.text = target.note;
+    }
     // 🚀 [고침] 예전에는 늘 1/2"로 저장됐다. 설정의 관 크기를 먼저 고른다.
     final s = AppSettingsController();
     if (s.tubeOD > 0) {
@@ -122,6 +140,15 @@ class _SmartSavePadState extends State<SmartSavePad> {
             v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
         _selectedSize = s.isInch ? '${n(s.tubeOD)}"' : '${n(s.tubeOD)}mm';
         (s.isInch ? _inchSizes : _mmSizes).insert(0, _selectedSize);
+      }
+    }
+    if (target != null) {
+      final ps = '${target.row['pipe_size'] ?? ''}'.trim();
+      if (ps.isNotEmpty) {
+        if (!_inchSizes.contains(ps) && !_mmSizes.contains(ps)) {
+          (ps.endsWith('mm') ? _mmSizes : _inchSizes).insert(0, ps);
+        }
+        _selectedSize = ps;
       }
     }
   }
@@ -176,6 +203,28 @@ class _SmartSavePadState extends State<SmartSavePad> {
           borderSide: const BorderSide(color: makitaTeal, width: 1.5),
         ),
       ),
+    );
+  }
+
+  Widget _buildModeChip(Key key, String label, bool selected, VoidCallback onTap) {
+    return ChoiceChip(
+      key: key,
+      label: SizedBox(
+        width: double.infinity,
+        child: Text(label, textAlign: TextAlign.center),
+      ),
+      selected: selected,
+      selectedColor: makitaTeal,
+      backgroundColor: _slate100,
+      showCheckmark: false,
+      side: BorderSide.none,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      labelStyle: TextStyle(
+        color: selected ? _pureWhite : _slate600,
+        fontWeight: FontWeight.bold,
+        fontSize: 14,
+      ),
+      onSelected: (_) => onTap(),
     );
   }
 
@@ -234,6 +283,43 @@ class _SmartSavePadState extends State<SmartSavePad> {
                 endFit: widget.includeEnd,
               ),
             ),
+            if (widget.overwriteTarget != null) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildModeChip(
+                      const Key('save_mode_overwrite'),
+                      '이 도면에 덮어쓰기',
+                      _overwrite,
+                      () => setState(() => _overwrite = true),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildModeChip(
+                      const Key('save_mode_new'),
+                      '새 도면으로 저장',
+                      !_overwrite,
+                      () => setState(() => _overwrite = false),
+                    ),
+                  ),
+                ],
+              ),
+              if (_overwrite)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '덮어쓸 도면: ${widget.overwriteTarget!.title} · ${widget.overwriteTarget!.dateText}',
+                    key: const Key('save_overwrite_target'),
+                    style: const TextStyle(
+                      color: _slate600,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+            ],
             const SizedBox(height: 16),
             _buildFieldInput(
               "프로젝트 이름 (예: A동 보일러실)",
@@ -246,7 +332,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
               children: [
                 Expanded(
                   child: _buildFieldInput(
-                    "From (시작점)",
+                    "시작점",
                     _fromController,
                     icon: Icons.login,
                   ),
@@ -257,7 +343,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                 ),
                 Expanded(
                   child: _buildFieldInput(
-                    "To (도착점)",
+                    "도착점",
                     _toController,
                     icon: Icons.logout,
                     action: TextInputAction.done,
@@ -322,6 +408,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
                         final messenger = ScaffoldMessenger.of(context);
                         final navigator = Navigator.of(context);
                         final openArchive = widget.onOpenArchive;
+                        final target = widget.overwriteTarget;
+                        final overwriting = _overwrite && target != null;
                         try {
                           Map<String, dynamic> pToPData = {
                             "project": _projectController.text.isEmpty
@@ -345,14 +433,33 @@ class _SmartSavePadState extends State<SmartSavePad> {
                             ),
                           };
 
-                          // 1. 비동기 작업 대기 (DB 저장)
-                          await TubeHistoryDb.insert({
-                            'date': DateTime.now().toString().substring(0, 16),
-                            'p_to_p': jsonEncode(pToPData),
-                            'pipe_size': _selectedSize,
-                            'total_length': widget.totalCut,
-                            'bend_data': jsonEncode(widget.bendList),
-                          });
+                          final now = DateTime.now().toString().substring(0, 16);
+                          if (overwriting) {
+                            // 불러온 도면에 덮어쓴다. 저장해 둔 다른 칸은 그대로 두고 고친 칸만 바꾼다.
+                            final noteText = _noteController.text.trim();
+                            final merged = historyPToPWith(target.pToP, {
+                              ...pToPData,
+                              'project': (pToPData['project'] as String).trim(),
+                              'note': noteText,
+                              'memo': noteText,
+                            });
+                            await TubeHistoryDb.update(target.id, {
+                              'date': now,
+                              'p_to_p': jsonEncode(merged),
+                              'pipe_size': _selectedSize,
+                              'total_length': widget.totalCut,
+                              'bend_data': jsonEncode(widget.bendList),
+                            });
+                          } else {
+                            // 1. 비동기 작업 대기 (DB 저장)
+                            await TubeHistoryDb.insert({
+                              'date': now,
+                              'p_to_p': jsonEncode(pToPData),
+                              'pipe_size': _selectedSize,
+                              'total_length': widget.totalCut,
+                              'bend_data': jsonEncode(widget.bendList),
+                            });
+                          }
                         } catch (e) {
                           // 저장이 안 됐으면 창을 그대로 두고 다시 누를 수 있게 한다.
                           debugPrint('보관함 저장 실패: $e');
@@ -379,7 +486,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                         }
 
                         // 2. 콜백 실행 (동기 작업)
-                        if (widget.onSaveCallback != null) {
+                        if (!overwriting && widget.onSaveCallback != null) {
                           List<Map<String, dynamic>> usedFittings = [];
 
                           if (widget.includeStart) {
@@ -413,6 +520,29 @@ class _SmartSavePadState extends State<SmartSavePad> {
                         navigator.pop();
 
                         // 프로젝트에 연결해 저장할 때(콜백이 있을 때)만 프로젝트 자재에도 들어간다.
+                        if (overwriting) {
+                          // 덮어쓴 것은 바로 되돌릴 수 있게 이전 값을 들고 있는다.
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('도면을 덮어썼습니다: ${target.title}'),
+                              backgroundColor: makitaTeal,
+                              action: SnackBarAction(
+                                label: '되돌리기',
+                                textColor: Colors.white,
+                                onPressed: () {
+                                  TubeHistoryDb.update(target.id, {
+                                    'date': target.row['date'],
+                                    'p_to_p': target.row['p_to_p'],
+                                    'pipe_size': target.row['pipe_size'],
+                                    'total_length': target.row['total_length'],
+                                    'bend_data': target.row['bend_data'],
+                                  });
+                                },
+                              ),
+                            ),
+                          );
+                          return;
+                        }
                         messenger.showSnackBar(
                           SnackBar(
                             content: Text(
@@ -431,8 +561,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
                           ),
                         );
                       },
-                child: const Text(
-                  "저장",
+                child: Text(
+                  _overwrite && widget.overwriteTarget != null ? "덮어쓰기" : "저장",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,

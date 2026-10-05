@@ -55,6 +55,7 @@ void main() {
     MachineSpecs().resetForTest();
     updates = [];
     TubeHistoryDb.update = (id, row) async => updates.add((id, row));
+    TubeHistoryDb.load = () async => [];
   });
 
   Future<void> open(WidgetTester tester, Map<String, dynamic> item) async {
@@ -111,6 +112,36 @@ void main() {
     await tester.tap(find.text('수정 완료'));
     await tester.pumpAndSettle();
     expect(lastPToP()['start_dir'], 'LEFT');
+    expect(lastPToP()['specs'], _specs);
+  });
+
+  testWidgets('수정 창: 한글 라벨, 보관함에 있는 작업 이름이 칩으로 나오고 누르면 들어간다', (tester) async {
+    Map<String, dynamic> rowOf(String project) => {
+      'id': 1,
+      'p_to_p': jsonEncode({'project': project}),
+    };
+    TubeHistoryDb.load = () async => [rowOf('B동'), rowOf('A동'), rowOf('B동')];
+    await open(tester, _item());
+    await tester.tap(find.byTooltip('도면 정보 수정'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('작업 이름(프로젝트)'), findsOneWidget);
+    expect(find.text('시작점'), findsOneWidget);
+    expect(find.text('도착점'), findsOneWidget);
+    expect(find.text('특이사항(메모)'), findsOneWidget);
+    expect(find.textContaining('PROJECT'), findsNothing);
+    expect(find.textContaining('FROM'), findsNothing);
+    expect(find.widgetWithText(ChoiceChip, 'B동'), findsOneWidget); // 중복은 한 번만
+    expect(find.widgetWithText(ChoiceChip, 'A동'), findsOneWidget);
+
+    // 칩을 누르면 이름이 들어가고, 바뀐 곳이 생겨 "수정 완료"가 켜진다.
+    expect(find.text('닫기'), findsOneWidget);
+    await tester.tap(find.widgetWithText(ChoiceChip, 'B동'));
+    await tester.pumpAndSettle();
+    expect(find.text('수정 완료'), findsOneWidget);
+    await tester.tap(find.text('수정 완료'));
+    await tester.pumpAndSettle();
+    expect(lastPToP()['project'], 'B동');
     expect(lastPToP()['specs'], _specs);
   });
 

@@ -800,7 +800,10 @@ class _MobileResultTabState extends State<MobileResultTab>
     );
   }
 
-  void _handleSave(double totalCut, List<Map<String, dynamic>> saveList) {
+  Future<void> _handleSave(
+    double totalCut,
+    List<Map<String, dynamic>> saveList,
+  ) async {
     HapticFeedback.mediumImpact();
     final finalSaveData = List<Map<String, dynamic>>.from(
       saveList.map((e) => Map<String, dynamic>.from(e)),
@@ -813,6 +816,23 @@ class _MobileResultTabState extends State<MobileResultTab>
       // 🚀 아이소 진행 방향 저장 기능 추가 적용 완료
       finalSaveData[0]['start_dir'] = widget.startDir;
     }
+    // 보관함에서 불러와 고친 목록이면 그 도면을 찾아 "덮어쓰기"를 고를 수 있게 한다.
+    HistoryOverwriteTarget? target;
+    final manager = MobileBendDataManager();
+    final sourceId = manager.sourceHistoryId;
+    if (sourceId != null) {
+      try {
+        for (final row in await TubeHistoryDb.load()) {
+          if (row['id'] == sourceId) {
+            target = HistoryOverwriteTarget(row);
+            break;
+          }
+        }
+      } catch (_) {}
+      // 보관함에서 지워진 도면이면 원본 기억을 버린다.
+      if (target == null) manager.clearSource();
+    }
+    if (!mounted) return;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -826,6 +846,7 @@ class _MobileResultTabState extends State<MobileResultTab>
         startDir: widget.startDir,
         onSaveCallback: null,
         onOpenArchive: widget.onOpenArchive,
+        overwriteTarget: target,
       ),
     );
   }

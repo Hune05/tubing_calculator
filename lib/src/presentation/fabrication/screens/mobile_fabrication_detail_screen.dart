@@ -28,6 +28,7 @@ import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/history_card_info.dart';
+import 'package:tubing_calculator/src/core/common_widgets/save_name_chips.dart';
 
 const Color makitaTeal = AppColors.brand;
 const Color slate900 = AppColors.text;
@@ -227,7 +228,8 @@ class _MobileFabricationDetailScreenState
         content: AppDialog.message(
           "'$_fromTo'을(를) 불러오면 지금 입력 목록이 이 도면으로 바뀝니다.\n"
           "시작·끝 피팅과 꼬리 길이도 저장할 때 값으로 맞춥니다.\n"
-          "(입력 탭의 ↶로 목록을 되돌릴 수 있습니다)"
+          "(입력 탭의 ↶로 목록을 되돌릴 수 있습니다)\n"
+          "고쳐서 저장할 때 이 도면에 덮어쓸 수도 있습니다."
           "${_specsChanged ? "\n\n저장할 때 장비 값(${describeTubeSpecs(_savedSpecs!)})이 "
                     "지금 설정(${describeTubeSpecs(tubeSpecsSnapshot(MachineSpecs()))})과 "
                     "다릅니다. 계산기에서는 지금 설정으로 계산하므로 마킹·자를 길이가 달라집니다." : ""}",
@@ -244,6 +246,9 @@ class _MobileFabricationDetailScreenState
           'rotation': (b['rotation'] as num?)?.toDouble() ?? 0.0,
         },
     ]);
+    // 고친 뒤 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있게 어느 도면에서 왔는지 기억한다.
+    final id = widget.itemData['id'];
+    if (id is int) m.setSource(id);
     m.startFit = _startFit;
     m.endFit = _endFit;
     m.tail = _tailLength;
@@ -666,6 +671,20 @@ class _MobileFabricationDetailScreenState
     TextEditingController toCtrl = TextEditingController(text: initialTo);
     TextEditingController memoCtrl = TextEditingController(text: initialMemo);
 
+    // 보관함에 이미 있는 작업 이름(오타로 폴더가 갈라지지 않게 칩으로 고른다)
+    var knownNames = <String>[];
+    try {
+      final all = <String>[];
+      for (final row in await TubeHistoryDb.load()) {
+        try {
+          final p = jsonDecode(row['p_to_p']?.toString() ?? '{}')['project'];
+          if (p != null) all.add(p.toString());
+        } catch (_) {}
+      }
+      knownNames = recentDistinctNames(all, max: 8);
+    } catch (_) {}
+    if (!mounted) return;
+
     // 내부 헬퍼 위젯: 입력할 때마다 UI(버튼)를 업데이트하도록 onChanged 추가
     Widget buildTossTextField({
       required TextEditingController controller,
@@ -765,8 +784,13 @@ class _MobileFabricationDetailScreenState
                     const SizedBox(height: 24),
                     buildTossTextField(
                       controller: projCtrl,
-                      label: "프로젝트 명 (PROJECT)",
+                      label: "작업 이름(프로젝트)",
                       onChanged: onTextChanged,
+                    ),
+                    SaveNameChips(
+                      names: knownNames,
+                      controller: projCtrl,
+                      onPicked: () => setModalState(() {}),
                     ),
                     const SizedBox(height: 12),
                     Row(
@@ -774,7 +798,7 @@ class _MobileFabricationDetailScreenState
                         Expanded(
                           child: buildTossTextField(
                             controller: fromCtrl,
-                            label: "시작점 (FROM)",
+                            label: "시작점",
                             onChanged: onTextChanged,
                           ),
                         ),
@@ -782,7 +806,7 @@ class _MobileFabricationDetailScreenState
                         Expanded(
                           child: buildTossTextField(
                             controller: toCtrl,
-                            label: "도착점 (TO)",
+                            label: "도착점",
                             onChanged: onTextChanged,
                           ),
                         ),
@@ -791,7 +815,7 @@ class _MobileFabricationDetailScreenState
                     const SizedBox(height: 12),
                     buildTossTextField(
                       controller: memoCtrl,
-                      label: "특이사항 (MEMO)",
+                      label: "특이사항(메모)",
                       maxLines: 3,
                       textInputAction: TextInputAction.newline,
                       onChanged: onTextChanged,

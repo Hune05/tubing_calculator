@@ -56,6 +56,38 @@ String historyWithProject(String? pToPJson, String project) {
   return jsonEncode(map);
 }
 
+/// 계산기로 불러온 보관함 도면. 저장할 때 "이 도면에 덮어쓰기"의 대상이 된다.
+class HistoryOverwriteTarget {
+  /// 보관함 줄 전체(되돌리기에 쓴다).
+  final Map<String, dynamic> row;
+
+  /// 저장해 둔 p_to_p(프로젝트·시작·도착·메모·장비 값 등).
+  final Map<String, dynamic> pToP;
+
+  const HistoryOverwriteTarget._(this.row, this.pToP);
+
+  factory HistoryOverwriteTarget(Map<String, dynamic> row) {
+    Map<String, dynamic> p = {};
+    try {
+      final d = jsonDecode(row['p_to_p']?.toString() ?? '{}');
+      if (d is Map) p = Map<String, dynamic>.from(d);
+    } catch (_) {}
+    return HistoryOverwriteTarget._(Map<String, dynamic>.from(row), p);
+  }
+
+  int get id => row['id'] as int;
+
+  String get project => '${pToP['project'] ?? ''}'.trim();
+  String get from => '${pToP['from'] ?? ''}'.trim();
+  String get to => '${pToP['to'] ?? ''}'.trim();
+
+  /// 저장 창 메모(note)와 특이사항(memo)을 합친 글.
+  String get note => mergeDrawingMemo('${pToP['note'] ?? ''}', '${pToP['memo'] ?? ''}');
+
+  String get title => HistoryCardInfo.of(row).title;
+  String get dateText => HistoryCardInfo.of(row).dateText;
+}
+
 /// 보관함 카드에 보일 글.
 class HistoryCardInfo {
   /// 카드 제목: "A ➔ B". 시작·도착을 둘 다 모르면 "굽힘 3개 도면"처럼 도면 요약.
