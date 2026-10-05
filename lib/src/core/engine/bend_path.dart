@@ -58,6 +58,14 @@ vm.Vector3 directionForName(String name) {
   }
 }
 
+/// 방향 벡터가 여섯 축 중 하나이면 그 방향값, 비스듬하면 null. [directionForRotation]의 거꾸로.
+double? rotationForDirection(vm.Vector3 dir) {
+  for (final r in const [0.0, 90.0, 180.0, 270.0, 360.0, 450.0]) {
+    if ((directionForRotation(r) - dir.normalized()).length < 1e-6) return r;
+  }
+  return null;
+}
+
 /// 표에 있는 방향값인지(표에 없으면 모두 '우'로 떨어져 엉뚱한 형상이 된다).
 bool isKnownRotation(double rot) =>
     rot == 0.0 ||

@@ -5,6 +5,7 @@ import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/opposite_rotation.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/quick_kick_guide.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/sheet_direction_gate.dart' show BendRule;
 import 'package:tubing_calculator/src/presentation/conduit/conduit_special_calc.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_guides.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_ui.dart';
@@ -28,9 +29,10 @@ class ConduitSpecialSheets {
     required double currentRotation,
     required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
+    BendRule? canBendTo,
   }) => _open(
     context,
-    _KickSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs),
+    _KickSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs, canBendTo: canBendTo),
   );
 
   static void showSegmented(
@@ -38,9 +40,10 @@ class ConduitSpecialSheets {
     required double currentRotation,
     required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
+    BendRule? canBendTo,
   }) => _open(
     context,
-    _SegmentedSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs),
+    _SegmentedSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs, canBendTo: canBendTo),
   );
 
   static void showBackToBack(
@@ -49,6 +52,7 @@ class ConduitSpecialSheets {
     required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
     double? conduitOd,
+    BendRule? canBendTo,
   }) => _open(
     context,
     _BackToBackSheet(
@@ -56,6 +60,7 @@ class ConduitSpecialSheets {
       onAddBends: onAddBends,
       specs: specs,
       conduitOd: conduitOd,
+      canBendTo: canBendTo,
     ),
   );
 
@@ -64,9 +69,10 @@ class ConduitSpecialSheets {
     required double currentRotation,
     required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
+    BendRule? canBendTo,
   }) => _open(
     context,
-    _StubUpSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs),
+    _StubUpSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs, canBendTo: canBendTo),
   );
 }
 
@@ -98,12 +104,14 @@ abstract class _SheetState<T extends StatefulWidget> extends State<T> {
   }
 
   /// 방향을 안 골랐으면 경고 창, 지금 진행 방향과 나란하면 알림. 문제가 없으면 true.
-  bool checkDirection(double heading) {
+  bool checkDirection(double heading, {BendRule? rule}) {
     if (dir == null) {
       csShowDirectionWarning(context);
       return false;
     }
-    if (!_canBend(heading, dir!)) {
+    // 규칙(실제 경로 기준)이 있으면 그것으로, 없으면 진행 방향값(heading)으로 따진다.
+    final ok = rule != null ? rule(dir!) : _canBend(heading, dir!);
+    if (!ok) {
       csSnackMissing(context, _kCannotBend);
       return false;
     }
@@ -117,7 +125,10 @@ class _KickSheet extends StatefulWidget {
   final double currentRotation;
   final ConduitAddBends onAddBends;
   final BendSheetSpecs specs;
-  const _KickSheet({required this.currentRotation, required this.onAddBends, required this.specs});
+
+  /// 지금 진행 방향(실제 경로 기준)에서 그 방향으로 꺾을 수 있는지. 없으면 진행 방향값으로 따진다.
+  final BendRule? canBendTo;
+  const _KickSheet({required this.currentRotation, required this.onAddBends, required this.specs, this.canBendTo});
 
   @override
   State<_KickSheet> createState() => _KickSheetState();
@@ -129,7 +140,7 @@ class _KickSheetState extends _SheetState<_KickSheet> {
   late final _start = ctrl('0');
 
   void _apply(double? h, double? a) {
-    if (!checkDirection(widget.currentRotation)) return;
+    if (!checkDirection(widget.currentRotation, rule: widget.canBendTo)) return;
     final kick = (h != null && a != null) ? conduitKick(height: h, angle: a) : null;
     if (kick == null) {
       csSnackMissing(
@@ -231,7 +242,10 @@ class _SegmentedSheet extends StatefulWidget {
   final double currentRotation;
   final ConduitAddBends onAddBends;
   final BendSheetSpecs specs;
-  const _SegmentedSheet({required this.currentRotation, required this.onAddBends, required this.specs});
+
+  /// 지금 진행 방향(실제 경로 기준)에서 그 방향으로 꺾을 수 있는지. 없으면 진행 방향값으로 따진다.
+  final BendRule? canBendTo;
+  const _SegmentedSheet({required this.currentRotation, required this.onAddBends, required this.specs, this.canBendTo});
 
   @override
   State<_SegmentedSheet> createState() => _SegmentedSheetState();
@@ -243,7 +257,7 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
   int _n = 5;
 
   void _apply(double? r, double? corner) {
-    if (!checkDirection(widget.currentRotation)) return;
+    if (!checkDirection(widget.currentRotation, rule: widget.canBendTo)) return;
     final seg = r == null ? null : conduitSegmented(radius: r, bends: _n);
     if (seg == null) {
       csSnackMissing(context, '넣을 수 없습니다. 반경을 넣으십시오.');
@@ -362,12 +376,16 @@ class _BackToBackSheet extends StatefulWidget {
   final double currentRotation;
   final ConduitAddBends onAddBends;
   final BendSheetSpecs specs;
+
+  /// 지금 진행 방향(실제 경로 기준)에서 그 방향으로 꺾을 수 있는지. 없으면 진행 방향값으로 따진다.
+  final BendRule? canBendTo;
   final double? conduitOd;
   const _BackToBackSheet({
     required this.currentRotation,
     required this.onAddBends,
     required this.specs,
     this.conduitOd,
+    this.canBendTo,
   });
 
   @override
@@ -385,7 +403,7 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
       directionForRotation(widget.currentRotation).dot(directionForRotation(dir!)).abs() < 1e-6;
 
   void _apply(double? first, double? spacing) {
-    if (!checkDirection(widget.currentRotation)) return;
+    if (!checkDirection(widget.currentRotation, rule: widget.canBendTo)) return;
     if (!_perpendicular) {
       csSnackMissing(context, '넣을 수 없습니다. U자는 진행 방향에 수직인 방향으로 꺾어야 합니다.');
       return;
@@ -521,7 +539,10 @@ class _StubUpSheet extends StatefulWidget {
   final double currentRotation;
   final ConduitAddBends onAddBends;
   final BendSheetSpecs specs;
-  const _StubUpSheet({required this.currentRotation, required this.onAddBends, required this.specs});
+
+  /// 지금 진행 방향(실제 경로 기준)에서 그 방향으로 꺾을 수 있는지. 없으면 진행 방향값으로 따진다.
+  final BendRule? canBendTo;
+  const _StubUpSheet({required this.currentRotation, required this.onAddBends, required this.specs, this.canBendTo});
 
   @override
   State<_StubUpSheet> createState() => _StubUpSheetState();
@@ -531,7 +552,7 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
   late final _stub = ctrl();
 
   void _apply(double? s) {
-    if (!checkDirection(widget.currentRotation)) return;
+    if (!checkDirection(widget.currentRotation, rule: widget.canBendTo)) return;
     final list = (s == null) ? null : conduitStubBends(stub: s, rotation: dir!);
     if (list == null) {
       csSnackMissing(context, '넣을 수 없습니다. 스터브 길이를 넣으십시오.');

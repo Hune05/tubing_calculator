@@ -114,6 +114,25 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     return (rot) => canBendToward(current, directionForRotation(rot));
   }
 
+  /// 지금까지 넣은 줄을 걷고 난 진행 방향의 방향값(위·우·…). 비스듬하면 null.
+  /// 특수 벤딩 시트가 "지금 진행 방향"을 알아야 할 때 쓴다(백투백 90°의 둘째 방향 등).
+  /// 마지막 줄의 방향값은 오프셋·새들·킥 뒤에는 실제 진행 방향과 다르다.
+  double? _headingRotation(ConduitDataManager manager) {
+    final current = directionAfter(
+      [
+        for (final b in manager.bendList)
+          PathSegment(
+            length: (b['length'] as num?)?.toDouble() ?? 0.0,
+            angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+            rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+          ),
+      ],
+      radius: 1.0,
+      startDirection: directionForName(conduitStartDir.value),
+    );
+    return rotationForDirection(current);
+  }
+
   /// 못 꺾는 방향을 골라 추가하려 할 때 알리는 창.
   void _showCannotBend(double rot) {
     showDialog<void>(
@@ -1047,9 +1066,14 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     BuildContext context,
     ConduitDataManager manager,
   ) {
-    double currentRot = manager.bendList.isNotEmpty
-        ? (manager.bendList.last['rotation'] as num).toDouble()
-        : 90.0;
+    // 진행 방향: 실제 경로로 구한다(줄이 없으면 3D에서 고른 시작 방향). 비스듬하면 예전처럼
+    // 마지막 줄의 방향값(없으면 90)을 쓴다.
+    final rule = _bendRule(manager);
+    final double currentRot =
+        _headingRotation(manager) ??
+        (manager.bendList.isNotEmpty
+            ? (manager.bendList.last['rotation'] as num).toDouble()
+            : 90.0);
     // 🚀 [고침] 특수 벤딩들이 튜브 벤더 제원으로 셈하고 있었다.
     // 전선관 설정(CLR·테이크업·게인·수축량 스위치)을 넘긴다.
     final specs = BendSheetSpecs.conduit(globalBenderSettings.value);
@@ -1100,6 +1124,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   MobileOffsetBottomSheet.show(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: rule,
                     onAddMultipleBends: manager.addMultipleBends,
                     specs: specs,
                   );
@@ -1111,6 +1136,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   MobileRollingOffsetBottomSheet.show(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: rule,
                     onAddBend: (l, a, r) => manager.addBend({
                       'length': l,
                       'angle': a,
@@ -1127,6 +1153,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   MobileSaddleBottomSheet.show(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: rule,
                     onAddBend: (l, a, r) => manager.addBend({
                       'length': l,
                       'angle': a,
@@ -1143,6 +1170,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   ConduitSpecialSheets.showKick(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: rule,
                     onAddBends: manager.addMultipleBends,
                     specs: specs,
                   );
@@ -1154,6 +1182,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   ConduitSpecialSheets.showSegmented(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: rule,
                     onAddBends: manager.addMultipleBends,
                     specs: specs,
                   );
@@ -1171,6 +1200,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   ConduitSpecialSheets.showBackToBack(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: rule,
                     onAddBends: manager.addMultipleBends,
                     specs: specs,
                     conduitOd: sz == null ? null : kThickConduitOd[sz],
@@ -1183,6 +1213,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   ConduitSpecialSheets.showStubUp(
                     context,
                     currentRotation: currentRot,
+                    canBendTo: rule,
                     onAddBends: manager.addMultipleBends,
                     specs: specs,
                   );
@@ -1210,6 +1241,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       MobileOffsetBottomSheet.show(
                         context,
                         currentRotation: currentRot,
+                        canBendTo: rule,
                         onAddMultipleBends: manager.addMultipleBends,
                         specs: specs,
                       );
