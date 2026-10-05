@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'conduit_settings_page.dart' show globalBenderSettings;
+import 'conduit_settings_diff.dart';
+import '../widgets/conduit_drawing_edit_dialog.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/common_widgets/save_name_chips.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/history_card_info.dart';
@@ -39,6 +41,11 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
   // 폰에 저장된 도면(화면이 쓰는 모양으로 바꿔 둔다).
   List<Map<String, dynamic>> _savedDrawings = [];
   Map<String, ConduitDrawing> _byId = {};
+  final TextEditingController _search = TextEditingController();
+  String _query = '';
+
+  /// 접어 둔 작업(폴더). 검색 중에는 모두 펼친다.
+  final Set<String> _collapsed = {};
 
   @override
   void initState() {
@@ -50,6 +57,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
   @override
   void dispose() {
     conduitDrawingsRevision.removeListener(_reload);
+    _search.dispose();
     super.dispose();
   }
 
@@ -111,6 +119,55 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
           await setConduitFolders({for (final id in ids) id: folderName});
         } catch (e) {
           debugPrint('작업 이름 되돌리기 실패: $e');
+        }
+        if (mounted) await _reload();
+      },
+    );
+  }
+
+  /// 도면의 작업 이름·도면 이름·메모를 고친다. "되돌리기"로 이전 값을 되돌린다.
+  Future<void> _editDrawing(String id) async {
+    final d = _byId[id];
+    if (d == null) return;
+    final others = recentDistinctNames(
+      {for (final e in _savedDrawings) '${e['folderName'] ?? '미분류 도면'}'},
+      max: 8,
+    );
+    final info = await showConduitDrawingEditDialog(
+      context,
+      folderName: d.folderName,
+      title: d.title,
+      notes: d.notes,
+      otherFolders: others,
+    );
+    if (info == null || !mounted) return;
+    ConduitDrawing? before;
+    try {
+      before = await updateConduitDrawingInfo(
+        id: id,
+        folderName: info.folderName,
+        title: info.title,
+        notes: info.notes,
+      );
+    } catch (e) {
+      debugPrint('도면 정보 고치기 실패: $e');
+      if (mounted) {
+        showAppSnack(context, '고치지 못했습니다. 다시 시도하십시오.', kind: AppSnackKind.error);
+      }
+      return;
+    }
+    await _reload();
+    if (!mounted || before == null) return;
+    final prev = before;
+    showAppSnack(
+      context,
+      '도면 정보를 고쳤습니다',
+      kind: AppSnackKind.undo,
+      onUndo: () async {
+        try {
+          await replaceConduitDrawing(prev);
+        } catch (e) {
+          debugPrint('도면 정보 되돌리기 실패: $e');
         }
         if (mounted) await _reload();
       },
@@ -197,21 +254,35 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                     // 고친 뒤 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있게 어느 도면인지 기억한다.
                     ConduitDataManager().setSource(drawing.id);
                     widget.onLoaded?.call();
-                    // 도면을 저장할 때 규격과 지금 설정 규격이 다르면 마킹이 다르게 나온다.
-                    final String savedSize =
-                        drawing.settings['conduitSize']?.toString() ?? '';
-                    final String nowSize =
-                        globalBenderSettings.value['conduitSize']?.toString() ??
-                        '';
-                    if (savedSize.isNotEmpty &&
-                        nowSize.isNotEmpty &&
-                        savedSize != nowSize) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            "이 도면은 $savedSize로 저장한 것입니다. 지금 설정은 $nowSize라 마킹이 다르게 나옵니다.",
+                    // 저장 때 장비 설정과 지금 설정이 다르면 마킹이 다르게 나온다(알리기만 한다).
+                    final diffs = conduitSettingDiffs(
+                      drawing.settings,
+                      globalBenderSettings.value,
+                    );
+                    if (diffs.isNotEmpty) {
+                      showDialog<void>(
+                        context: context,
+                        builder: (dctx) => AppConfirmDialog(
+                          title: '장비 설정이 다릅니다',
+                          icon: const Icon(Icons.tune_rounded),
+                          cancelText: null,
+                          okKey: const Key('conduit_diff_ok'),
+                          onOk: () => Navigator.pop(dctx),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              for (final d in diffs)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 6),
+                                  child: AppConfirmDialog.message(d),
+                                ),
+                              const SizedBox(height: 6),
+                              AppConfirmDialog.message(
+                                '계산기에서는 지금 설정으로 계산하므로 마킹 자리가 저장 때와 달라집니다. 설정은 바꾸지 않았습니다.',
+                              ),
+                            ],
                           ),
-                          duration: const Duration(seconds: 5),
                         ),
                       );
                       return;
@@ -267,9 +338,17 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
       ];
     }
 
+    final q = _query.trim().toLowerCase();
+    final searching = q.isNotEmpty;
+    bool matches(Map<String, dynamic> e) =>
+        '${e['folderName']} ${e['title']} ${e['notes']} ${e['shape']}'
+            .toLowerCase()
+            .contains(q);
+
     // 1. 데이터를 폴더별로 그룹화 (Map 형태)
     Map<String, List<Map<String, dynamic>>> groupedData = {};
     for (var item in _savedDrawings) {
+      if (searching && !matches(item)) continue;
       String folder = item['folderName'] ?? '미분류 도면';
       if (!groupedData.containsKey(folder)) {
         groupedData[folder] = [];
@@ -277,21 +356,48 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
       groupedData[folder]!.add(item);
     }
 
+    if (groupedData.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text(
+              "'${_query.trim()}'에 맞는 도면이 없습니다",
+              key: const Key('conduit_search_empty'),
+              style: const TextStyle(color: slate600, fontSize: 15),
+            ),
+          ),
+        ),
+      ];
+    }
+
     List<Widget> slivers = [];
 
     // 2. 그룹화된 데이터를 바탕으로 UI 생성
     groupedData.forEach((folderName, items) {
+      final open = searching || !_collapsed.contains(folderName);
       // 폴더 타이틀 (섹션 헤더)
       slivers.add(
         SliverToBoxAdapter(
-          child: Padding(
+          child: InkWell(
+            key: ValueKey('conduit_folder_toggle_$folderName'),
+            onTap: searching
+                ? null
+                : () => setState(() {
+                    if (!_collapsed.remove(folderName)) _collapsed.add(folderName);
+                  }),
+            child: Padding(
             padding: const EdgeInsets.fromLTRB(24, 32, 24, 12),
             child: Row(
               children: [
                 Expanded(
                   child: Row(
                     children: [
-                      const Icon(Icons.folder_rounded, color: slate400, size: 22),
+                      Icon(
+                        open ? Icons.folder_open_rounded : Icons.folder_rounded,
+                        color: slate400,
+                        size: 22,
+                      ),
                       const SizedBox(width: 8),
                       Flexible(
                         child: Text(
@@ -339,9 +445,11 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
               ],
             ),
           ),
+          ),
         ),
       );
 
+      if (!open) return;
       // 해당 폴더 내의 카드 리스트
       slivers.add(
         SliverPadding(
@@ -372,9 +480,44 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
         ),
         slivers: [
           _buildTossStyleHeader(),
+          if (_savedDrawings.isNotEmpty) _buildSearchBox(),
           // 🚀 그룹화된 슬리버 리스트를 스프레드 연산자(...)로 펼쳐서 삽입
           ..._buildGroupedSlivers(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBox() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+        child: TextField(
+          key: const Key('conduit_search_field'),
+          controller: _search,
+          onChanged: (v) => setState(() => _query = v),
+          decoration: InputDecoration(
+            hintText: '작업 이름·도면 이름·메모 검색',
+            prefixIcon: const Icon(Icons.search_rounded, color: slate400),
+            suffixIcon: _query.isEmpty
+                ? null
+                : IconButton(
+                    key: const Key('conduit_search_clear'),
+                    icon: const Icon(Icons.close_rounded, color: slate400),
+                    onPressed: () {
+                      _search.clear();
+                      setState(() => _query = '');
+                    },
+                  ),
+            filled: true,
+            fillColor: pureWhite,
+            contentPadding: const EdgeInsets.symmetric(vertical: 14),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -511,6 +654,13 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                     ],
                   ],
                 ),
+              ),
+              IconButton(
+                key: ValueKey('conduit_edit_${item['id']}'),
+                tooltip: '도면 이름·메모 고치기',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.edit_outlined, color: slate600, size: 20),
+                onPressed: () => _editDrawing(item['id']),
               ),
             ],
           ),

@@ -39,14 +39,15 @@ class ConduitDrawing {
 
   int get segmentCount => bends.length;
 
-  ConduitDrawing copyWith({String? folderName}) => ConduitDrawing(
+  ConduitDrawing copyWith({String? folderName, String? title, String? notes}) =>
+      ConduitDrawing(
     id: id,
     folderName: folderName ?? this.folderName,
-    title: title,
+    title: title ?? this.title,
     date: date,
     totalCut: totalCut,
     bends: bends,
-    notes: notes,
+    notes: notes ?? this.notes,
     settings: settings,
   );
 
@@ -185,6 +186,29 @@ Future<void> setConduitFolders(Map<String, String> idToFolder) async {
       else
         d,
   ]);
+}
+
+/// 도면의 작업 이름·도면 이름·메모만 고친다(굽힘·장비 값·저장 시각은 그대로).
+/// 고치기 전의 도면을 돌려준다(되돌리기에 쓴다). 그 번호가 없으면 null.
+Future<ConduitDrawing?> updateConduitDrawingInfo({
+  required String id,
+  required String folderName,
+  required String title,
+  required String notes,
+}) async {
+  final all = await loadConduitDrawings();
+  ConduitDrawing? before;
+  for (final d in all) {
+    if (d.id == id) before = d;
+  }
+  if (before == null) return null;
+  final after = before.copyWith(
+    folderName: folderName.trim().isEmpty ? '미분류 도면' : folderName.trim(),
+    title: title.trim().isEmpty ? '이름 없는 도면' : title.trim(),
+    notes: notes.trim(),
+  );
+  await _write([for (final d in all) d.id == id ? after : d]);
+  return before;
 }
 
 /// 불러와 고친 도면에 덮어쓴다. 번호는 그대로, 저장 시각은 지금으로 바꾼다.
