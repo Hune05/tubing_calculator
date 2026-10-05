@@ -30,24 +30,34 @@ import java.util.Locale
  * 그보다 낮은 버전은 큰 모양만 쓴다. 크기는 dp, "이 크기 이상이면 이 모양" 기준이다.
  */
 object Adaptive {
+    /**
+     * 크기 단계는 작게(한 줄) → [mid](제목+한 줄/컴팩트) → 크게(카드) 세 단계다. [mid]가 없으면 두 단계.
+     * 시스템은 "위젯이 이 크기 이상이면 이 모양"으로 가장 큰 모양을 고른다.
+     */
     fun views(
         c: Context, id: Int, small: RemoteViews, large: RemoteViews, smallDp: SizeF, largeDp: SizeF,
-        smallRoot: Int, largeRoot: Int
+        smallRoot: Int, largeRoot: Int, mid: RemoteViews? = null, midDp: SizeF? = null, midRoot: Int = 0
     ): RemoteViews {
         // 위젯 하나마다 따로 저장한 설정(WidgetCfg): 배경 투명도, 모양(자동·한 줄·카드).
         if (WidgetCfg.bgOn(c, id)) {
             val bg = WidgetCfg.bgRes(WidgetCfg.alpha(c, id))
             small.setInt(smallRoot, "setBackgroundResource", bg)
             large.setInt(largeRoot, "setBackgroundResource", bg)
+            mid?.setInt(midRoot, "setBackgroundResource", bg)
         } else {
             small.setInt(smallRoot, "setBackgroundColor", 0)
             large.setInt(largeRoot, "setBackgroundColor", 0)
+            mid?.setInt(midRoot, "setBackgroundColor", 0)
         }
         return when (WidgetCfg.mode(c, id)) {
             WidgetCfg.MODE_SMALL -> small
             WidgetCfg.MODE_LARGE -> large
             else -> if (Build.VERSION.SDK_INT >= 31) {
-                RemoteViews(mapOf(smallDp to small, largeDp to large))
+                if (mid != null && midDp != null) {
+                    RemoteViews(mapOf(smallDp to small, midDp to mid, largeDp to large))
+                } else {
+                    RemoteViews(mapOf(smallDp to small, largeDp to large))
+                }
             } else {
                 large
             }
@@ -174,13 +184,15 @@ class QuickLaunchWidgetProvider : AppWidgetProvider() {
         fun build(c: Context, id: Int = 0): RemoteViews {
             val small = QuickSmallWidgetProvider.build(c)
             val large = buildLarge(c)
+            val mid = QuickSmallWidgetProvider.build(c, mid = true)
         if (!WidgetCfg.bgOn(c, id)) {
             WidgetCfg.applyPlain(small, intArrayOf(R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3), intArrayOf(R.id.quick_s_empty), intArrayOf(), intArrayOf(R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3))
+            WidgetCfg.applyPlain(mid, intArrayOf(R.id.quick_m_title, R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3), intArrayOf(R.id.quick_s_empty), intArrayOf(), intArrayOf(R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3))
             WidgetCfg.applyPlain(large, intArrayOf(R.id.widget_quick_title, R.id.quick_slot_1_text, R.id.quick_slot_2_text, R.id.quick_slot_3_text, R.id.quick_slot_4_text), intArrayOf(R.id.widget_quick_empty), intArrayOf(), intArrayOf(R.id.quick_slot_1, R.id.quick_slot_2, R.id.quick_slot_3, R.id.quick_slot_4))
         }
             return Adaptive.views(
-                c, id, small, large, SizeF(180f, 40f), SizeF(180f, 130f),
-                R.id.widget_quick_s_root, R.id.widget_quick_root
+                c, id, small, large, SizeF(110f, 40f), SizeF(180f, 150f),
+                R.id.widget_quick_s_root, R.id.widget_quick_root, mid, SizeF(150f, 72f), R.id.widget_quick_m_root
             )
         }
 
@@ -242,13 +254,15 @@ class SummaryWidgetProvider : AppWidgetProvider() {
         fun build(c: Context, id: Int = 0): RemoteViews {
             val small = SummarySmallWidgetProvider.build(c)
             val large = buildLarge(c)
+            val mid = SummarySmallWidgetProvider.build(c, mid = true)
         if (!WidgetCfg.bgOn(c, id)) {
             WidgetCfg.applyPlain(small, intArrayOf(R.id.summary_s_value_schedule, R.id.summary_s_value_reports, R.id.summary_s_value_stock, R.id.summary_s_value_attendance), intArrayOf(R.id.lbl_schedule, R.id.lbl_reports, R.id.lbl_stock, R.id.lbl_attendance), intArrayOf(), intArrayOf(R.id.sum_s_tile_1, R.id.sum_s_tile_2, R.id.sum_s_tile_3, R.id.sum_s_tile_4))
+            WidgetCfg.applyPlain(mid, intArrayOf(R.id.summary_m_title, R.id.summary_s_value_schedule, R.id.summary_s_value_reports, R.id.summary_s_value_stock, R.id.summary_s_value_attendance), intArrayOf(R.id.lbl_schedule, R.id.lbl_reports, R.id.lbl_stock, R.id.lbl_attendance), intArrayOf(), intArrayOf(R.id.sum_s_tile_1, R.id.sum_s_tile_2, R.id.sum_s_tile_3, R.id.sum_s_tile_4))
             WidgetCfg.applyPlain(large, intArrayOf(R.id.summary_title, R.id.summary_value_schedule, R.id.summary_value_reports, R.id.summary_value_stock, R.id.summary_value_attendance), intArrayOf(R.id.lbl_schedule, R.id.lbl_reports, R.id.lbl_stock, R.id.lbl_attendance, R.id.summary_updated), intArrayOf(), intArrayOf(R.id.sum_tile_1))
         }
             return Adaptive.views(
-                c, id, small, large, SizeF(180f, 40f), SizeF(180f, 110f),
-                R.id.widget_summary_s_root, R.id.widget_summary_root
+                c, id, small, large, SizeF(110f, 40f), SizeF(200f, 130f),
+                R.id.widget_summary_s_root, R.id.widget_summary_root, mid, SizeF(150f, 72f), R.id.widget_summary_m_root
             )
         }
 
@@ -293,7 +307,10 @@ class ClockWidgetProvider : AppWidgetProvider() {
         fun build(c: Context, id: Int = 0): RemoteViews {
             val small = ClockSmallWidgetProvider.build(c)
             val large = buildLarge(c)
+            val mid = buildLarge(c, compact = true)
             if (!WidgetCfg.bgOn(c, id)) {
+                WidgetCfg.applyPlain(mid, intArrayOf(R.id.clock_big, R.id.clock_timer), intArrayOf(R.id.clock_sub), intArrayOf(), intArrayOf())
+                for (b in intArrayOf(R.id.clock_btn_in, R.id.clock_btn_out, R.id.clock_btn_break, R.id.clock_btn_memo)) mid.setInt(b, "setBackgroundResource", R.drawable.widget_circle_plain)
                 WidgetCfg.applyPlain(small, intArrayOf(R.id.clock_s_text, R.id.clock_s_timer), intArrayOf(R.id.clock_s_sub), intArrayOf(), intArrayOf())
                 WidgetCfg.applyPlain(large, intArrayOf(R.id.clock_big, R.id.clock_timer, R.id.clock_memo), intArrayOf(R.id.clock_sub), intArrayOf(), intArrayOf())
                 // 배경이 없을 때 색 동그라미가 떠 보이지 않게 반투명 흰 테두리 동그라미로 바꾼다.
@@ -301,13 +318,14 @@ class ClockWidgetProvider : AppWidgetProvider() {
                 for (b in intArrayOf(R.id.clock_btn_in, R.id.clock_btn_out, R.id.clock_btn_break, R.id.clock_btn_memo)) large.setInt(b, "setBackgroundResource", R.drawable.widget_circle_plain)
             }
             return Adaptive.views(
-                c, id, small, large, SizeF(110f, 40f), SizeF(180f, 110f),
-                R.id.widget_clock_s_root, R.id.widget_clock_root
+                c, id, small, large, SizeF(60f, 40f), SizeF(200f, 120f),
+                R.id.widget_clock_s_root, R.id.widget_clock_root, mid, SizeF(200f, 66f), R.id.widget_clock_c_root
             )
         }
 
-        fun buildLarge(c: Context): RemoteViews {
-            val v = RemoteViews(c.packageName, R.layout.widget_clock)
+        /** [compact]면 칩·메모 없는 컴팩트 모양(중간 크기). */
+        fun buildLarge(c: Context, compact: Boolean = false): RemoteViews {
+            val v = RemoteViews(c.packageName, if (compact) R.layout.widget_clock_compact else R.layout.widget_clock)
             val s = FieldWidgetStore.clock(c)
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.KOREA).format(Date())
             val fresh = s != null && s.optString("date") == today
@@ -341,6 +359,14 @@ class ClockWidgetProvider : AppWidgetProvider() {
             v.setViewVisibility(R.id.clock_btn_memo, if (working) View.VISIBLE else View.GONE)
 
             // 아래 칩: 휴게시간·메모(근무 중이거나 퇴근한 뒤)
+            if (compact) {
+                v.setOnClickPendingIntent(R.id.widget_clock_c_root, FieldWidgetStore.openAppIntent(c, "attendance:open", 300))
+                v.setOnClickPendingIntent(R.id.clock_btn_in, FieldWidgetStore.punchIntent(c, "in", 301))
+                v.setOnClickPendingIntent(R.id.clock_btn_out, FieldWidgetStore.punchIntent(c, "out", 302))
+                v.setOnClickPendingIntent(R.id.clock_btn_break, FieldWidgetStore.quickWindowIntent(c, ClockQuickActivity.MODE_BREAK, 303))
+                v.setOnClickPendingIntent(R.id.clock_btn_memo, FieldWidgetStore.quickWindowIntent(c, ClockQuickActivity.MODE_MEMO, 304))
+                return v
+            }
             val brkText = ClockBreak.chipText(c)
             val memo = if (fresh) s!!.optString("memo") else ""
             val showBrk = working && brkText != null
@@ -423,8 +449,8 @@ class SummarySmallWidgetProvider {
             v.setTextViewText(value, if (n == null) "—" else n.toString())
         }
 
-        fun build(c: Context): RemoteViews {
-            val v = RemoteViews(c.packageName, R.layout.widget_summary_small)
+        fun build(c: Context, mid: Boolean = false): RemoteViews {
+            val v = RemoteViews(c.packageName, if (mid) R.layout.widget_summary_mid else R.layout.widget_summary_small)
             val s = FieldWidgetStore.summary(c)
             tile(v, R.id.summary_s_dot_schedule, R.id.summary_s_value_schedule, count(s, "schedule"))
             tile(v, R.id.summary_s_dot_reports, R.id.summary_s_value_reports, count(s, "reports"))
@@ -438,7 +464,7 @@ class SummarySmallWidgetProvider {
                 R.id.summary_s_value_attendance,
                 if (att.isEmpty()) "—" else if (att == "정상근무") "정상" else att
             )
-            v.setOnClickPendingIntent(R.id.widget_summary_s_root, FieldWidgetStore.openAppIntent(c, "summary", 330))
+            v.setOnClickPendingIntent(if (mid) R.id.widget_summary_m_root else R.id.widget_summary_s_root, FieldWidgetStore.openAppIntent(c, "summary", 330))
             return v
         }
     }
@@ -450,11 +476,11 @@ class QuickSmallWidgetProvider {
     companion object {
         private val SLOTS = intArrayOf(R.id.quick_s_slot_1, R.id.quick_s_slot_2, R.id.quick_s_slot_3)
 
-        fun build(c: Context): RemoteViews {
-            val v = RemoteViews(c.packageName, R.layout.widget_quick_small)
+        fun build(c: Context, mid: Boolean = false): RemoteViews {
+            val v = RemoteViews(c.packageName, if (mid) R.layout.widget_quick_mid else R.layout.widget_quick_small)
             val titles = FieldWidgetStore.quickTitles(c).take(SLOTS.size)
             v.setViewVisibility(R.id.quick_s_empty, if (titles.isEmpty()) View.VISIBLE else View.GONE)
-            v.setOnClickPendingIntent(R.id.widget_quick_s_root, FieldWidgetStore.openAppIntent(c, "open", 340))
+            v.setOnClickPendingIntent(if (mid) R.id.widget_quick_m_root else R.id.widget_quick_s_root, FieldWidgetStore.openAppIntent(c, "open", 340))
             for ((i, slot) in SLOTS.withIndex()) {
                 if (i < titles.size) {
                     v.setViewVisibility(slot, View.VISIBLE)
