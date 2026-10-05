@@ -123,14 +123,18 @@ class _MobileInputTabState extends State<MobileInputTab>
     final before = _editingIndex != null && _editingIndex! <= allBends.length
         ? allBends.sublist(0, _editingIndex!)
         : allBends;
-    final current = directionAfter([
-      for (final b in before)
-        PathSegment(
-          length: (b['length'] as num?)?.toDouble() ?? 0.0,
-          angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
-          rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
-        ),
-    ], radius: settings.bendRadius > 0 ? settings.bendRadius : 1.0);
+    final current = directionAfter(
+      [
+        for (final b in before)
+          PathSegment(
+            length: (b['length'] as num?)?.toDouble() ?? 0.0,
+            angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+            rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+          ),
+      ],
+      radius: settings.bendRadius > 0 ? settings.bendRadius : 1.0,
+      startDirection: directionForName(widget.startDir),
+    );
     return (rot) => canBendToward(current, directionForRotation(rot));
   }
 
@@ -183,14 +187,18 @@ class _MobileInputTabState extends State<MobileInputTab>
     // 예전에는 그냥 들어가서, 3D 그림은 안 꺾이는데 절단 길이에는 호가 더해지는
     // 어긋남이 생겼다(오프셋 뒤에 "우"로 90°를 붙이는 경우가 대표적이다).
     if (_selectedAngle > 0) {
-      final current = directionAfter([
-        for (final b in before)
-          PathSegment(
-            length: (b['length'] as num?)?.toDouble() ?? 0.0,
-            angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
-            rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
-          ),
-      ], radius: settings.bendRadius > 0 ? settings.bendRadius : 1.0);
+      final current = directionAfter(
+        [
+          for (final b in before)
+            PathSegment(
+              length: (b['length'] as num?)?.toDouble() ?? 0.0,
+              angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+              rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+            ),
+        ],
+        radius: settings.bendRadius > 0 ? settings.bendRadius : 1.0,
+        startDirection: directionForName(widget.startDir),
+      );
       if (!canBendToward(current, directionForRotation(finalRotation))) {
         final label = _directions.firstWhere(
           (d) => d['val'] == finalRotation,
@@ -1173,8 +1181,11 @@ class _MobileInputTabState extends State<MobileInputTab>
                                 // 목록이 바뀌어(↶ 등) 골라 둔 방향이 이제 못 꺾는 방향이면 선택을 푼다.
                                 final picked = _selectedRotation;
                                 if (picked != null && !canBend(picked)) {
-                                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                                    if (mounted && _selectedRotation == picked) {
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (mounted &&
+                                        _selectedRotation == picked) {
                                       setState(() => _selectedRotation = null);
                                     }
                                   });

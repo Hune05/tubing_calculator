@@ -25,6 +25,8 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_par
 import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart'
+    show conduitStartDir;
 
 Color get makitaTeal => fc.brand;
 Color get slate900 => fc.text;
@@ -97,14 +99,18 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     final before = _editingIndex != null && _editingIndex! <= all.length
         ? all.sublist(0, _editingIndex!)
         : all;
-    final current = directionAfter([
-      for (final b in before)
-        PathSegment(
-          length: (b['length'] as num?)?.toDouble() ?? 0.0,
-          angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
-          rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
-        ),
-    ], radius: 1.0);
+    final current = directionAfter(
+      [
+        for (final b in before)
+          PathSegment(
+            length: (b['length'] as num?)?.toDouble() ?? 0.0,
+            angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+            rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+          ),
+      ],
+      radius: 1.0,
+      startDirection: directionForName(conduitStartDir.value),
+    );
     return (rot) => canBendToward(current, directionForRotation(rot));
   }
 
@@ -153,8 +159,20 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     )['icon'];
   }
 
+  // 3D 화면에서 시작 방향을 바꾸면 "어느 방향으로 꺾을 수 있는지"도 바뀐다.
+  void _onStartDirChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    conduitStartDir.addListener(_onStartDirChanged);
+  }
+
   @override
   void dispose() {
+    conduitStartDir.removeListener(_onStartDirChanged);
     _lengthController.dispose();
     _customAngleController.dispose();
     super.dispose();

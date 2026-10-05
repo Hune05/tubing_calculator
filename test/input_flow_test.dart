@@ -7,6 +7,8 @@ import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart'
+    show conduitStartDir;
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_input_tab.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_input_tab.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
@@ -115,10 +117,12 @@ void main() {
   });
 
   group('입력 탭', () {
-    Future<void> pump(WidgetTester tester) async {
+    Future<void> pump(WidgetTester tester, {String startDir = 'RIGHT'}) async {
       phone(tester);
       await tester.pumpWidget(
-        const MaterialApp(home: Scaffold(body: MobileInputTab())),
+        MaterialApp(
+          home: Scaffold(body: MobileInputTab(startDir: startDir)),
+        ),
       );
       await tester.pumpAndSettle();
     }
@@ -152,6 +156,14 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('dir_0.0')));
       await tester.pump();
       expect(find.textContaining('방향을 선택하십시오'), findsNothing);
+    });
+
+    testWidgets('시작 방향이 UP이면 처음에는 위·아래가 흐리고 좌·우가 살아 있다', (tester) async {
+      await pump(tester, startDir: 'UP');
+      expect(opacityOf(tester, '0.0'), 0.38); // UP
+      expect(opacityOf(tester, '180.0'), 0.38); // DOWN
+      expect(opacityOf(tester, '90.0'), 1.0); // RIGHT
+      expect(opacityOf(tester, '270.0'), 1.0); // LEFT
     });
 
     testWidgets('위로 꺾은 뒤에는 위·아래가 흐리고 우가 살아난다', (tester) async {
@@ -352,6 +364,23 @@ void main() {
       expect(conduitOpacity(tester, '180.0'), 0.38); // DOWN
       expect(conduitOpacity(tester, '90.0'), 1.0); // RIGHT
       expect(find.textContaining('방향을 선택하십시오'), findsOneWidget); // 선택이 풀렸다
+    });
+
+    testWidgets('3D에서 고른 시작 방향(UP)을 따르고, 바꾸면 바로 다시 따진다', (tester) async {
+      addTearDown(() => conduitStartDir.value = 'RIGHT');
+      conduitStartDir.value = 'UP';
+      await pump(tester);
+      await tester.tap(find.text('90° 벤딩'));
+      await tester.pumpAndSettle();
+      expect(conduitOpacity(tester, '0.0'), 0.38); // UP
+      expect(conduitOpacity(tester, '180.0'), 0.38); // DOWN
+      expect(conduitOpacity(tester, '90.0'), 1.0); // RIGHT
+      expect(conduitOpacity(tester, '270.0'), 1.0); // LEFT
+
+      conduitStartDir.value = 'RIGHT';
+      await tester.pumpAndSettle();
+      expect(conduitOpacity(tester, '0.0'), 1.0);
+      expect(conduitOpacity(tester, '90.0'), 0.38);
     });
 
     testWidgets('살아 있는 방향으로는 그대로 추가된다', (tester) async {
