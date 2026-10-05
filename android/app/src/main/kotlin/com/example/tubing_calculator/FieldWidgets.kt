@@ -138,10 +138,7 @@ object FieldWidgetStore {
         if (clockIds.isNotEmpty()) {
             for (id in clockIds) mgr.updateAppWidget(id, ClockWidgetProvider.build(c, id))
         }
-        // 압력시험 타이머 세 가지(다이얼·큰 숫자·미니)
-        for (id in mgr.getAppWidgetIds(ComponentName(c, PressureDialWidgetProvider::class.java))) mgr.updateAppWidget(id, PressureDialWidgetProvider.build(c))
-        for (id in mgr.getAppWidgetIds(ComponentName(c, PressureDigitWidgetProvider::class.java))) mgr.updateAppWidget(id, PressureDigitWidgetProvider.build(c))
-        for (id in mgr.getAppWidgetIds(ComponentName(c, PressureMiniWidgetProvider::class.java))) mgr.updateAppWidget(id, PressureMiniWidgetProvider.build(c))
+        // 압력시험 타이머(앱 타이머형)
         for (id in mgr.getAppWidgetIds(ComponentName(c, PressureAppWidgetProvider::class.java))) mgr.updateAppWidget(id, PressureAppWidgetProvider.build(c))
     }
 

@@ -8,26 +8,20 @@ import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.BlurMaskFilter
-import android.graphics.Canvas
-import android.graphics.Paint
-import android.graphics.RectF
 import android.os.Build
 import android.os.SystemClock
+import android.util.SizeF
 import android.view.View
 import android.widget.RemoteViews
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.cos
-import kotlin.math.sin
 
 /**
- * 압력시험 타이머 위젯 세 가지(다이얼·큰 숫자·미니 링).
+ * 압력시험 타이머 위젯(앱 시험 기록 탭의 유지시간 타이머 모양).
  * 앱 "압력 시험 > 시험 기록" 탭이 돌리는 유지시간을 홈 화면에서 본다. 앱이 시작·완료 시각을 넘겨 주면
  * (MethodChannel field/widget의 pt) 남은 시간은 위젯이 스스로 센다(Chronometer, 앱이 꺼져 있어도).
- * 링·막대의 진행은 그림이라 유지 중에는 20초마다 다시 그린다(PressureRefreshReceiver). 완료 시각에도 한 번 그린다.
+ * 진행 막대는 유지 중에는 20초마다 다시 그린다(PressureRefreshReceiver). 완료 시각에도 한 번 그린다.
  * 알림은 앱이 따로 예약한 유지시간 알림이 울린다. 누르면 앱의 시험 기록 탭이 열린다(시작·종료 입력은 앱에서).
  */
 object PressureTimer {
@@ -43,12 +37,7 @@ object PressureTimer {
 
     private fun hasWidgets(c: Context): Boolean {
         val m = AppWidgetManager.getInstance(c)
-        return listOf(
-            PressureDialWidgetProvider::class.java,
-            PressureDigitWidgetProvider::class.java,
-            PressureMiniWidgetProvider::class.java,
-            PressureAppWidgetProvider::class.java
-        ).any { m.getAppWidgetIds(ComponentName(c, it)).isNotEmpty() }
+        return m.getAppWidgetIds(ComponentName(c, PressureAppWidgetProvider::class.java)).isNotEmpty()
     }
 
     /** 유지 중이면 다음 그리기(20초 뒤 또는 완료 시각 중 빠른 쪽)를 예약하고, 아니면 취소한다. */
@@ -136,151 +125,6 @@ internal class PtFace(
     }
 }
 
-/** 다이얼(눈금 + 남은 시간 호 + 바늘)을 그림으로 만든다. 투명 바탕이라 위젯의 어두운 바탕 위에 얹힌다. */
-internal object PtRing {
-    private const val ACCENT = 0xFF3B82F6.toInt()
-    private const val DONE = 0xFF34D399.toInt()
-    private const val GRAY = 0xFF6B7280.toInt()
-
-    fun draw(px: Int, fraction: Float, state: String): Bitmap {
-        val bmp = Bitmap.createBitmap(px, px, Bitmap.Config.ARGB_8888)
-        val cv = Canvas(bmp)
-        val r = px / 2f
-        val accent = when (state) { "done" -> DONE; "running" -> ACCENT; else -> GRAY }
-
-        // 눈금 60개(5개마다 길게)
-        val tick = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND; color = 0xFF8A9099.toInt() }
-        for (i in 0 until 60) {
-            val major = i % 5 == 0
-            val a = Math.toRadians(i * 6.0 - 90.0)
-            val outer = r * 0.97f
-            val inner = outer - r * (if (major) 0.09f else 0.045f)
-            tick.strokeWidth = px * (if (major) 0.013f else 0.007f)
-            cv.drawLine(r + cos(a).toFloat() * inner, r + sin(a).toFloat() * inner, r + cos(a).toFloat() * outer, r + sin(a).toFloat() * outer, tick)
-        }
-
-        val ar = r * 0.76f
-        val rect = RectF(r - ar, r - ar, r + ar, r + ar)
-        val sw = px * 0.075f
-
-        // 바탕 호(트랙)
-        val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = sw; color = 0xFF2B3138.toInt() }
-        cv.drawCircle(r, r, ar, track)
-
-        // 가운데 원판
-        val disc = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = 0xFF1C2127.toInt() }
-        cv.drawCircle(r, r, r * 0.60f, disc)
-        val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = px * 0.012f; color = 0xFF343C45.toInt() }
-        cv.drawCircle(r, r, r * 0.60f, rim)
-
-        if (fraction > 0.001f) {
-            val sweep = 360f * fraction
-            val glow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE; strokeWidth = sw * 1.5f; color = accent; alpha = 120
-                strokeCap = Paint.Cap.ROUND; maskFilter = BlurMaskFilter(px * 0.03f, BlurMaskFilter.Blur.NORMAL)
-            }
-            cv.drawArc(rect, -90f, sweep, false, glow)
-            val arc = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                style = Paint.Style.STROKE; strokeWidth = sw; color = accent; strokeCap = Paint.Cap.ROUND
-            }
-            cv.drawArc(rect, -90f, sweep, false, arc)
-
-            if (state == "running") {
-                // 남은 시간이 끝나는 자리를 가리키는 바늘
-                val a = Math.toRadians(-90.0 + sweep)
-                val needle = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND; color = 0xFF93C5FD.toInt(); strokeWidth = px * 0.014f }
-                cv.drawLine(r + cos(a).toFloat() * r * 0.50f, r + sin(a).toFloat() * r * 0.50f, r + cos(a).toFloat() * r * 0.98f, r + sin(a).toFloat() * r * 0.98f, needle)
-                val dot = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFFFFF.toInt() }
-                cv.drawCircle(r + cos(a).toFloat() * ar, r + sin(a).toFloat() * ar, sw * 0.28f, dot)
-            }
-        }
-        return bmp
-    }
-}
-
-private fun openIntent(c: Context, code: Int) = FieldWidgetStore.openAppIntent(c, "pressure:open", code)
-
-/** 가운데 시간 칸을 상태에 맞게 채운다: 유지 중이면 줄어드는 시계, 아니면 글. */
-private fun fillTime(v: RemoteViews, timerId: Int, textId: Int, f: PtFace) {
-    if (f.remainMs > 0L) {
-        v.setViewVisibility(timerId, View.VISIBLE)
-        v.setViewVisibility(textId, View.GONE)
-        v.setChronometerCountDown(timerId, true)
-        v.setChronometer(timerId, SystemClock.elapsedRealtime() + f.remainMs, null, true)
-    } else {
-        v.setViewVisibility(timerId, View.GONE)
-        v.setViewVisibility(textId, View.VISIBLE)
-        v.setTextViewText(textId, f.big)
-        v.setChronometer(timerId, SystemClock.elapsedRealtime(), null, false)
-    }
-}
-
-private fun density(c: Context) = c.resources.displayMetrics.density
-
-class PressureDialWidgetProvider : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        for (id in ids) manager.updateAppWidget(id, build(context))
-        PressureTimer.scheduleRefresh(context)
-    }
-
-    companion object {
-        fun build(c: Context): RemoteViews {
-            val v = RemoteViews(c.packageName, R.layout.widget_pt_dial)
-            val f = PtFace.of(c)
-            val px = (260 * density(c)).toInt().coerceIn(300, 720)
-            v.setImageViewBitmap(R.id.ptd_ring, PtRing.draw(px, f.fraction, f.state))
-            v.setTextViewText(R.id.ptd_line, f.line)
-            v.setTextViewText(R.id.ptd_label, f.label)
-            v.setTextViewText(R.id.ptd_sub, if (f.times2.isEmpty()) f.sub else f.times2)
-            fillTime(v, R.id.ptd_timer, R.id.ptd_text, f)
-            v.setOnClickPendingIntent(R.id.widget_ptd_root, openIntent(c, 370))
-            return v
-        }
-    }
-}
-
-class PressureDigitWidgetProvider : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        for (id in ids) manager.updateAppWidget(id, build(context))
-        PressureTimer.scheduleRefresh(context)
-    }
-
-    companion object {
-        fun build(c: Context): RemoteViews {
-            val v = RemoteViews(c.packageName, R.layout.widget_pt_digit)
-            val f = PtFace.of(c)
-            v.setTextViewText(R.id.ptb_line, f.line)
-            v.setTextViewText(R.id.ptb_sub, f.sub)
-            v.setTextViewText(R.id.ptb_label, if (f.state == "running") "남은 시간" else f.label)
-            fillTime(v, R.id.ptb_timer, R.id.ptb_text, f)
-            // 막대는 남은 비율(1000분율)
-            v.setProgressBar(R.id.ptb_bar, 1000, (f.fraction * 1000).toInt(), false)
-            v.setOnClickPendingIntent(R.id.widget_ptb_root, openIntent(c, 371))
-            return v
-        }
-    }
-}
-
-class PressureMiniWidgetProvider : AppWidgetProvider() {
-    override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
-        for (id in ids) manager.updateAppWidget(id, build(context))
-        PressureTimer.scheduleRefresh(context)
-    }
-
-    companion object {
-        fun build(c: Context): RemoteViews {
-            val v = RemoteViews(c.packageName, R.layout.widget_pt_mini)
-            val f = PtFace.of(c)
-            val px = (150 * density(c)).toInt().coerceIn(200, 480)
-            v.setImageViewBitmap(R.id.ptm_ring, PtRing.draw(px, f.fraction, f.state))
-            v.setTextViewText(R.id.ptm_label, if (f.dueMs > 0L && f.state != "ended") "~${PressureTimer.hm(f.dueMs)} 완료" else f.label)
-            fillTime(v, R.id.ptm_timer, R.id.ptm_text, f)
-            v.setOnClickPendingIntent(R.id.widget_ptm_root, openIntent(c, 372))
-            return v
-        }
-    }
-}
-
 /** 시:분:초 글(앱 유지시간 타이머의 경과 시간과 같은 모양). */
 private fun clockText(ms: Long): String {
     val t = (ms / 1000).coerceAtLeast(0L)
@@ -291,8 +135,9 @@ private fun clockText(ms: Long): String {
 }
 
 /**
- * 앱 "시험 기록" 탭의 유지시간 타이머(상태, 큰 경과 시간, 남은 시간)를 크게 옮긴 위젯.
- * 경과 시간은 위로 세고(Chronometer) 남은 시간은 아래로 센다. 끝나면 경과 시간이 멈춘 채 "유지시간 완료 (N분)"가 된다.
+ * 앱 "시험 기록" 탭의 유지시간 타이머(상태, 큰 경과 시간, 남은 시간, 시작·완료 예정)를 크게 옮긴 위젯.
+ * 경과 시간은 위로, 남은 시간은 아래로 센다(Chronometer). 상태 색: 유지 중 파랑, 완료 초록.
+ * 줄이면 한 줄(이름 + 남은 시간)로 바뀐다(안드로이드 12 이상).
  */
 class PressureAppWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -301,12 +146,50 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
+        private const val BLUE = 0xFF2563EB.toInt()
+        private const val GREEN = 0xFF16A34A.toInt()
+        private const val GRAY = 0xFF6B7280.toInt()
+
         fun build(c: Context): RemoteViews {
+            val large = buildLarge(c)
+            if (Build.VERSION.SDK_INT < 31) return large
+            return RemoteViews(mapOf(SizeF(180f, 40f) to buildSmall(c), SizeF(180f, 150f) to large))
+        }
+
+        private fun buildSmall(c: Context): RemoteViews {
+            val v = RemoteViews(c.packageName, R.layout.widget_pt_app_small)
+            val f = PtFace.of(c)
+            v.setTextViewText(R.id.pta_s_status, when (f.state) {
+                "running" -> "유지 중 · 시작 ${PressureTimer.hms(f.startMs)}"
+                "done" -> "유지시간 완료 (${f.holdText})"
+                "ended" -> "종료"
+                else -> "시작 전"
+            })
+            v.setTextViewText(R.id.pta_s_label, if (f.remainMs > 0L) "남은 시간" else f.label)
+            if (f.remainMs > 0L) {
+                v.setViewVisibility(R.id.pta_s_remain, View.VISIBLE)
+                v.setViewVisibility(R.id.pta_s_text, View.GONE)
+                v.setChronometerCountDown(R.id.pta_s_remain, true)
+                v.setChronometer(R.id.pta_s_remain, SystemClock.elapsedRealtime() + f.remainMs, null, true)
+            } else {
+                v.setViewVisibility(R.id.pta_s_remain, View.GONE)
+                v.setViewVisibility(R.id.pta_s_text, View.VISIBLE)
+                v.setTextViewText(R.id.pta_s_text, f.big)
+                v.setChronometer(R.id.pta_s_remain, SystemClock.elapsedRealtime(), null, false)
+                v.setTextColor(R.id.pta_s_text, if (f.state == "done") GREEN else GRAY)
+            }
+            v.setOnClickPendingIntent(R.id.widget_pta_s_root, FieldWidgetStore.openAppIntent(c, "pressure:open", 374))
+            return v
+        }
+
+        private fun buildLarge(c: Context): RemoteViews {
             val v = RemoteViews(c.packageName, R.layout.widget_pt_app)
             val f = PtFace.of(c)
             val now = System.currentTimeMillis()
+            val color = when (f.state) { "running" -> BLUE; "done" -> GREEN; else -> GRAY }
             v.setTextViewText(R.id.pta_line, f.line)
             v.setTextViewText(R.id.pta_status, when (f.state) { "running" -> "유지 중"; "done" -> "유지시간 완료"; "ended" -> "종료"; else -> "시작 전" })
+            v.setTextColor(R.id.pta_status, color)
 
             // 큰 경과 시간: 진행 중(완료 뒤에도 종료 전까지)은 계속 센다
             val counting = f.state == "running" || f.state == "done"
@@ -322,15 +205,22 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
                 v.setChronometer(R.id.pta_elapsed, SystemClock.elapsedRealtime(), null, false)
             }
 
+            // 진행 막대: 유지 중 파랑(경과 비율), 완료 초록(가득)
+            v.setViewVisibility(R.id.pta_bar, if (f.state == "running") View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.pta_bar_done, if (f.state == "done") View.VISIBLE else View.GONE)
+            if (f.state == "running") v.setProgressBar(R.id.pta_bar, 1000, ((1f - f.fraction) * 1000).toInt(), false)
+
             // 남은 시간: 유지 중이면 줄어드는 시계, 아니면 글
             if (f.remainMs > 0L) {
                 v.setTextViewText(R.id.pta_remain_label, "남은 시간")
+                v.setTextColor(R.id.pta_remain_label, BLUE)
                 v.setViewVisibility(R.id.pta_remain, View.VISIBLE)
                 v.setChronometerCountDown(R.id.pta_remain, true)
                 v.setChronometer(R.id.pta_remain, SystemClock.elapsedRealtime() + f.remainMs, null, true)
             } else {
                 v.setViewVisibility(R.id.pta_remain, View.GONE)
                 v.setChronometer(R.id.pta_remain, SystemClock.elapsedRealtime(), null, false)
+                v.setTextColor(R.id.pta_remain_label, color)
                 v.setTextViewText(
                     R.id.pta_remain_label,
                     when (f.state) {
