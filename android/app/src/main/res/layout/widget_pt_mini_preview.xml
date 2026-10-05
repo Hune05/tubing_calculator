@@ -8,14 +8,14 @@
 
     <TextView
         android:layout_width="match_parent"
-        android:layout_height="22dp"
-        android:background="@drawable/widget_header_blue"
+        android:layout_height="wrap_content"
+        android:paddingTop="6dp"
         android:ellipsize="end"
         android:gravity="center"
         android:maxLines="1"
         android:text="@string/widget_pt_label"
         android:textColor="#FFFFFFFF"
-        android:textSize="10sp"
+        android:textSize="13sp"
         android:textStyle="bold" />
 
     <FrameLayout
@@ -45,7 +45,7 @@
                 android:layout_height="wrap_content"
                 android:text="~10:45 완료"
                 android:textColor="#FF60A5FA"
-                android:textSize="9sp"
+                android:textSize="10sp"
                 android:textStyle="bold" />
 
             <TextView
