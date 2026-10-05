@@ -20,6 +20,10 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_num
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/mobile_fabrication_detail_screen.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
+import 'package:tubing_calculator/src/core/common_widgets/save_name_chips.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/history_card_info.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/history_folder_rename_dialog.dart';
 
 Color get makitaTeal => fc.brand;
 Color get slate900 => fc.text;
@@ -171,13 +175,22 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
 // ==========================================
 class MobileResultTab extends StatefulWidget {
   final String startDir;
-  const MobileResultTab({super.key, required this.startDir});
+
+  /// 저장 알림의 "보관함 보기"가 보관함 탭으로 옮겨 준다.
+  final VoidCallback? onOpenArchive;
+  const MobileResultTab({
+    super.key,
+    required this.startDir,
+    this.onOpenArchive,
+  });
   @override
   State<MobileResultTab> createState() => _MobileResultTabState();
 }
 
 class _MobileResultTabState extends State<MobileResultTab>
-    with AutomaticKeepAliveClientMixin, RecentCalcHistoryMixin<MobileResultTab> {
+    with
+        AutomaticKeepAliveClientMixin,
+        RecentCalcHistoryMixin<MobileResultTab> {
   @override
   bool get wantKeepAlive => true;
 
@@ -812,6 +825,7 @@ class _MobileResultTabState extends State<MobileResultTab>
         tailLength: _tailLength,
         startDir: widget.startDir,
         onSaveCallback: null,
+        onOpenArchive: widget.onOpenArchive,
       ),
     );
   }
@@ -967,19 +981,13 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     super.dispose();
   }
 
-  // 🚀 [수정] 날짜 문자열이 10자 미만이어도(빈 문자열 등) 크래시 나지 않도록 안전하게 자름
-  String _safeDatePrefix(dynamic date) {
-    final raw = date?.toString() ?? '';
-    return raw.length >= 10 ? raw.substring(0, 10) : raw;
-  }
-
   // 🚀 [수정] showFullLoader=false로 호출하면 이미 떠 있는 목록을 유지한 채 조용히 갱신한다.
   // (당겨서 새로고침 시 목록 전체가 스피너로 바뀌었다 사라지는 깜빡임 방지)
   Future<void> _refreshHistory({bool showFullLoader = true}) async {
     if (showFullLoader) {
       setState(() => _isLoading = true);
     }
-    final data = await DatabaseHelper.instance.getHistory();
+    final data = await TubeHistoryDb.load();
     if (!mounted) {
       return;
     }
@@ -1029,7 +1037,10 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
             var pData = jsonDecode(rawPtoP);
             fromTo = "${pData['from']} ➔ ${pData['to']}".toLowerCase();
           } catch (_) {}
-          return fromTo.contains(_searchQuery);
+          return fromTo.contains(_searchQuery) ||
+              HistoryCardInfo.of(
+                item,
+              ).note.toLowerCase().contains(_searchQuery);
         }).toList();
         if (folderMatches) {
           filteredGroupedHistory[folderName] = items;
@@ -1131,6 +1142,8 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                             title: _buildFolderTitle(
                               folderName,
                               folderItems.length,
+                              onMenu: () =>
+                                  _renameFolder(folderName, folderItems),
                             ),
                             children: [
                               for (final item in folderItems)
@@ -1148,40 +1161,55 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
   }
 
   /// 폴더 제목 줄(전선관 보관함과 같은 모양).
-  Widget _buildFolderTitle(String name, int count) {
+  Widget _buildFolderTitle(String name, int count, {VoidCallback? onMenu}) {
     return Row(
       children: [
-        Icon(Icons.folder_rounded, color: _slate400, size: 22),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: slate900,
-              letterSpacing: -0.5,
-            ),
+        Expanded(
+          child: Row(
+            children: [
+              Icon(Icons.folder_rounded, color: _slate400, size: 22),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: slate900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: slate200,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  "$count",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: slate600,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: slate200,
-            borderRadius: BorderRadius.circular(10),
+        // 작업 이름 바꾸기·합치기. 폴더 줄 전체를 누르면 펼쳐지므로 작은 단추를 따로 둔다.
+        if (onMenu != null)
+          IconButton(
+            key: ValueKey('tube_folder_menu_$name'),
+            tooltip: '작업 이름 바꾸기',
+            visualDensity: VisualDensity.compact,
+            icon: Icon(Icons.edit_outlined, color: slate600, size: 20),
+            onPressed: onMenu,
           ),
-          child: Text(
-            "$count",
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: slate600,
-            ),
-          ),
-        ),
       ],
     );
   }
@@ -1200,15 +1228,10 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
 
   /// 도면 카드(전선관 보관함 카드와 같은 모양).
   Widget _buildDrawingCardBody(Map<String, dynamic> item) {
-    String fromTo = "경로 모름";
-    String note = "";
-    try {
-      final pData = jsonDecode(item['p_to_p'] ?? '{}');
-      fromTo = "${pData['from']} ➔ ${pData['to']}";
-      note = (pData['note'] ?? '').toString();
-    } catch (_) {}
-    final int cut = (double.tryParse(item['total_length'].toString()) ?? 0.0)
-        .round();
+    final info = HistoryCardInfo.of(item);
+    final fromTo = info.title;
+    final note = info.note;
+    final int cut = info.cut;
 
     return GestureDetector(
       onTap: () => _openDetail(item),
@@ -1264,8 +1287,17 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        // 🚀 [수정] substring(0,10) 크래시 방지
-                        _safeDatePrefix(item['date']),
+                        info.dateText,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: slate600,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        info.shapeText,
+                        key: const Key('tube_card_shape'),
                         style: TextStyle(
                           fontSize: 13,
                           color: slate600,
@@ -1434,18 +1466,73 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
         return list.isEmpty;
       });
     });
-    String name = "도면";
-    try {
-      final pData = jsonDecode(item['p_to_p'] ?? '{}');
-      name = "${pData['from']} ➔ ${pData['to']}";
-    } catch (_) {}
-    await DatabaseHelper.instance.deleteHistory(id);
+    final name = HistoryCardInfo.of(item).title;
+    await TubeHistoryDb.delete(id as int);
     if (!mounted) return;
     showDeleteUndo(
       context,
       name,
       onUndo: () async {
-        await DatabaseHelper.instance.insertHistory(backup);
+        await TubeHistoryDb.insert(backup);
+        if (mounted) _refreshHistory(showFullLoader: false);
+      },
+    );
+  }
+
+  /// 폴더(작업 이름)의 이름을 바꾼다. 이미 있는 작업 이름으로 바꾸면 그 작업과 합쳐진다.
+  /// 줄마다 저장된 프로젝트 이름을 한 묶음으로 고치고, "되돌리기"로 이전 글을 되돌린다.
+  Future<void> _renameFolder(
+    String folderName,
+    List<Map<String, dynamic>> items,
+  ) async {
+    final others = recentDistinctNames(
+      _groupedHistory.keys.where((k) => k != folderName),
+      max: 8,
+    );
+    final newName = await showFolderRenameDialog(
+      context,
+      current: folderName == '미지정 프로젝트' ? '' : folderName,
+      others: others,
+    );
+    if (newName == null || !mounted) return;
+    final target = newName.trim();
+    if (target.isEmpty || target == folderName) return;
+    final merged = _groupedHistory.containsKey(target);
+    final before = {
+      for (final it in items)
+        it['id'] as int: (it['p_to_p'] ?? '{}').toString(),
+    };
+    final after = {
+      for (final it in items)
+        it['id'] as int: historyWithProject(it['p_to_p']?.toString(), target),
+    };
+    try {
+      await TubeHistoryDb.updatePToP(after);
+    } catch (e) {
+      debugPrint('작업 이름 바꾸기 실패: $e');
+      if (mounted) {
+        showAppSnack(
+          context,
+          '이름을 바꾸지 못했습니다. 다시 시도하십시오.',
+          kind: AppSnackKind.error,
+        );
+      }
+      return;
+    }
+    await _refreshHistory(showFullLoader: false);
+    if (!mounted) return;
+    showAppSnack(
+      context,
+      merged
+          ? '작업을 합쳤습니다: $target (${items.length}개)'
+          : '작업 이름을 바꿨습니다: $target (${items.length}개)',
+      kind: AppSnackKind.undo,
+      onUndo: () async {
+        try {
+          await TubeHistoryDb.updatePToP(before);
+        } catch (e) {
+          debugPrint('작업 이름 되돌리기 실패: $e');
+        }
         if (mounted) _refreshHistory(showFullLoader: false);
       },
     );

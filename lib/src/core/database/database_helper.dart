@@ -109,6 +109,23 @@ class DatabaseHelper {
     return n;
   }
 
+  /// 여러 줄의 p_to_p를 한 번에(작업 이름 바꾸기·합치기). 도중에 끊겨도 반쯤 바뀌지 않게 한 묶음으로 쓴다.
+  Future<void> updateHistoryPToPBatch(Map<int, String> idToPToP) async {
+    if (idToPToP.isEmpty) return;
+    final db = await instance.database;
+    await db.transaction((txn) async {
+      for (final e in idToPToP.entries) {
+        await txn.update(
+          'history',
+          {'p_to_p': e.value},
+          where: 'id = ?',
+          whereArgs: [e.key],
+        );
+      }
+    });
+    historyVersion.value++;
+  }
+
   Future<int> deleteHistory(int id) async {
     final db = await instance.database;
     final n = await db.delete('history', where: 'id = ?', whereArgs: [id]);

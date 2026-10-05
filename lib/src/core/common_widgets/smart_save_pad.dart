@@ -1,24 +1,15 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
-import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/data/tube_drawing_specs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/common_widgets/save_name_chips.dart';
-import 'package:tubing_calculator/src/presentation/history/screens/history_screen.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/history_card_info.dart';
 
 /// 마지막으로 저장한 작업(프로젝트) 이름. 다음 저장 때 미리 채운다.
 const String kTubeLastProjectKey = 'tube_last_project';
-
-/// 보관함(DB) 읽기·쓰기. 시험에서만 바꿔 끼운다.
-@visibleForTesting
-Future<List<Map<String, dynamic>>> Function() tubeHistoryLoader = () =>
-    DatabaseHelper.instance.getHistory();
-@visibleForTesting
-Future<int> Function(Map<String, dynamic> row) tubeHistorySaver = (row) =>
-    DatabaseHelper.instance.insertHistory(row);
 
 const Color makitaTeal = AppColors.brand;
 const Color _slate900 = AppColors.text;
@@ -38,6 +29,9 @@ class SmartSavePad extends StatefulWidget {
   final Function(double totalCut, List<Map<String, dynamic>> fittings)?
   onSaveCallback;
 
+  /// 저장 알림의 "보관함 보기"가 보관함 탭으로 옮겨 준다(없으면 단추가 안 붙는다).
+  final VoidCallback? onOpenArchive;
+
   const SmartSavePad({
     super.key,
     required this.totalCut,
@@ -47,6 +41,7 @@ class SmartSavePad extends StatefulWidget {
     required this.tailLength,
     required this.startDir,
     this.onSaveCallback,
+    this.onOpenArchive,
   });
 
   @override
@@ -87,7 +82,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
       last = prefs.getString(kTubeLastProjectKey) ?? '';
     } catch (_) {}
     try {
-      final rows = await tubeHistoryLoader();
+      final rows = await TubeHistoryDb.load();
       final all = <String>[];
       for (final row in rows) {
         try {
@@ -326,10 +321,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                         // 창이 닫힌 뒤에도 알림·이동에 쓸 수 있게 먼저 잡아 둔다.
                         final messenger = ScaffoldMessenger.of(context);
                         final navigator = Navigator.of(context);
-                        final rootNavigator = Navigator.of(
-                          context,
-                          rootNavigator: true,
-                        );
+                        final openArchive = widget.onOpenArchive;
                         try {
                           Map<String, dynamic> pToPData = {
                             "project": _projectController.text.isEmpty
@@ -354,7 +346,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                           };
 
                           // 1. 비동기 작업 대기 (DB 저장)
-                          await tubeHistorySaver({
+                          await TubeHistoryDb.insert({
                             'date': DateTime.now().toString().substring(0, 16),
                             'p_to_p': jsonEncode(pToPData),
                             'pipe_size': _selectedSize,
@@ -429,15 +421,13 @@ class _SmartSavePadState extends State<SmartSavePad> {
                                   : "보관함에 저장했습니다.",
                             ),
                             backgroundColor: makitaTeal,
-                            action: SnackBarAction(
-                              label: '보관함 보기',
-                              textColor: Colors.white,
-                              onPressed: () => rootNavigator.push(
-                                MaterialPageRoute(
-                                  builder: (_) => const HistoryScreen(),
-                                ),
-                              ),
-                            ),
+                            action: openArchive == null
+                                ? null
+                                : SnackBarAction(
+                                    label: '보관함 보기',
+                                    textColor: Colors.white,
+                                    onPressed: openArchive,
+                                  ),
                           ),
                         );
                       },

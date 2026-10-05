@@ -57,6 +57,12 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
 
   // 🚀 [추가] "현장" 탭에서 뒤로가기를 누르면 메인 메뉴로 바로 나가는 대신
   // "마킹" 탭으로 돌아온다 (전선관 계산기의 _goToMarkingTab과 동일한 패턴).
+  void _goToHistoryTab() {
+    setState(() {
+      _currentIndex = 2;
+    });
+  }
+
   void _goToMarkingTab() {
     setState(() {
       _currentIndex = 1;
@@ -205,7 +211,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
       index: _currentIndex,
       children: [
         MobileInputTab(startDir: _startDir),
-        MobileResultTab(startDir: _startDir),
+        MobileResultTab(startDir: _startDir, onOpenArchive: _goToHistoryTab),
         MobileHistoryTab(onLoaded: _onDrawingLoaded),
         _buildFieldTab(),
         MobileViewerTab(

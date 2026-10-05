@@ -9,6 +9,7 @@ import 'package:tubing_calculator/src/core/common_widgets/save_name_chips.dart';
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/history_card_info.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_save_dialog.dart';
 
 Map<String, dynamic> _row(String project) => {
@@ -16,7 +17,7 @@ Map<String, dynamic> _row(String project) => {
   'p_to_p': '{"project":"$project"}',
 };
 
-Widget _tubeHost(List<Map<String, dynamic>> bends) => MaterialApp(
+Widget _tubeHost(List<Map<String, dynamic>> bends, {VoidCallback? onOpenArchive}) => MaterialApp(
   home: Scaffold(
     body: Builder(
       builder: (context) => TextButton(
@@ -30,6 +31,7 @@ Widget _tubeHost(List<Map<String, dynamic>> bends) => MaterialApp(
             includeEnd: false,
             tailLength: 25,
             startDir: 'RIGHT',
+            onOpenArchive: onOpenArchive,
           ),
         ),
         child: const Text('열기'),
@@ -93,8 +95,8 @@ void main() {
         saved.add(row);
         return 1;
       };
-      tubeHistoryLoader = () async => [_row('B동'), _row('A동'), _row('B동')];
-      tubeHistorySaver = (row) => saver(row);
+      TubeHistoryDb.load = () async => [_row('B동'), _row('A동'), _row('B동')];
+      TubeHistoryDb.insert = (row) async => saver(row);
     });
 
     final bends = [
@@ -137,7 +139,8 @@ void main() {
     testWidgets('저장하면 이름을 기억하고, 알림에 보관함 보기 단추가 붙는다', (tester) async {
       await tester.binding.setSurfaceSize(const Size(420, 1400));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(_tubeHost(bends));
+      var opened = 0;
+      await tester.pumpWidget(_tubeHost(bends, onOpenArchive: () => opened++));
       await tester.tap(find.text('열기'));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -150,9 +153,23 @@ void main() {
       expect(saved.single['pipe_size'], isNotEmpty);
       expect(find.text('보관함에 저장했습니다.'), findsOneWidget);
       expect(find.text('보관함 보기'), findsOneWidget);
+      await tester.tap(find.text('보관함 보기'));
+      expect(opened, 1);
       expect(find.text('굽힘 1개 · 총 618mm · 꼬리 25mm · 피팅 시작'), findsNothing);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString(kTubeLastProjectKey), '신규 배관');
+    });
+
+    testWidgets('보관함 이동 방법이 없으면 보관함 보기 단추를 붙이지 않는다', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 1400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(_tubeHost(bends));
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      expect(find.text('보관함에 저장했습니다.'), findsOneWidget);
+      expect(find.text('보관함 보기'), findsNothing);
     });
 
     testWidgets('저장이 끝나기 전에 또 눌러도 한 건만 저장된다', (tester) async {
