@@ -61,6 +61,7 @@ Future<List<String>> pump(
 }
 
 void main() {
+  topBarTests();
   testWidgets('세로 화면: 이전·다음이 숫자 아래에 가로로 넓게 놓인다', (tester) async {
     final errors = await pump(tester, const Size(600, 1005));
     expect(errors, isEmpty);
@@ -138,5 +139,13 @@ void main() {
     await tester.tap(find.byKey(const Key('field_mode_toggle'))); // 줄자로
     await tester.pumpAndSettle();
     expect(calls.last, ['DeviceOrientation.landscapeRight', 'DeviceOrientation.landscapeLeft']);
+  });
+}
+
+void topBarTests() {
+  testWidgets('세로 800 안팎(A11)에서 위쪽 막대의 닫기가 화면 안에 들어온다', (tester) async {
+    await pump(tester, const Size(600, 1005)); // A11 세로(dp)
+    final close = tester.getRect(find.byKey(const Key('field_close')));
+    expect(close.right, lessThanOrEqualTo(600));
   });
 }

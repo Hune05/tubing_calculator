@@ -620,9 +620,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
   Widget _topBarContent(FieldMarkingData data, List<FieldStep> steps) {
     final int doneCount = _done.length;
+    final bool narrow =
+        MediaQuery.sizeOf(context).height > MediaQuery.sizeOf(context).width;
     return Container(
       height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.symmetric(horizontal: narrow ? 8 : 16),
       decoration: BoxDecoration(
         color: fc.surface,
         border: Border(bottom: BorderSide(color: _line)),
@@ -675,7 +677,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               onPressed: () => _showWarnings(data.warnings),
             ),
           ],
-          const SizedBox(width: 12),
+          SizedBox(width: narrow ? 6 : 12),
           if (_stepMode)
             Expanded(
               child: Row(
@@ -691,8 +693,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     // 넓으면 남는 폭을 다 쓰고, 좁은 폭(밀어 보기)에서도 60쯤은 보이게.
+                    // 세로 화면(폭 좁음)에서는 막대를 짧게 해 "닫기"까지 한 줄에 들어오게 한다.
                     child: SizedBox(
-                      width: 60,
+                      width: MediaQuery.sizeOf(context).height >
+                              MediaQuery.sizeOf(context).width
+                          ? 8
+                          : 60,
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(2),
                         child: LinearProgressIndicator(
@@ -711,7 +717,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             // Spacer와 같지만 좁은 폭(밀어 보기)에서 여유 16을 둔다 — 경고 칩이
             // 스스로 셈한 폭이 실제보다 2px 작아, 딱 맞추면 넘친다.
             const Expanded(child: SizedBox(width: 16)),
-          const SizedBox(width: 12),
+          SizedBox(width: narrow ? 6 : 12),
           // 🚀 [바꿈] 앱 아래 탭과 같은 모양: 아이콘 + 짧은 이름, 테두리 없음.
           // 켜진 것만 청록 바탕을 옅게 깐다. 보기(누적·간격·햇빛)와
           // 움직임(한 단계·닫기) 사이에 가는 선.
@@ -801,12 +807,15 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     required VoidCallback onTap,
   }) {
     final fg = selected ? _teal : _muted;
+    // 세로 화면(폭 좁음)에서는 단추를 좁혀 위쪽 막대가 한 줄에 다 들어오게 한다.
+    final bool narrow =
+        MediaQuery.sizeOf(context).height > MediaQuery.sizeOf(context).width;
     return Semantics(
       button: true,
       selected: selected,
       label: label,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3),
+        padding: EdgeInsets.symmetric(horizontal: narrow ? 1 : 3),
         child: Material(
           key: key,
           color: selected ? _teal.withValues(alpha: 0.10) : Colors.transparent,
@@ -815,7 +824,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           child: InkWell(
             onTap: onTap,
             child: SizedBox(
-              width: 54,
+              width: narrow ? 44 : 54,
               height: 46,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
