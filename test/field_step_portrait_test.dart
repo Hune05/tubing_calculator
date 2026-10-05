@@ -81,7 +81,7 @@ void main() {
     expect(angle.top, greaterThan(number.bottom - 4));
   });
 
-  testWidgets('세로 화면에서는 숫자가 가로 화면보다 크게 보인다', (tester) async {
+  testWidgets('세로 화면에서도 숫자 크기는 가로 화면과 같다(영역을 채우게 키우지 않는다)', (tester) async {
     await pump(tester, const Size(600, 1005));
     final portraitW = tester
         .getRect(find.byKey(const Key('field_step_number')))
@@ -90,7 +90,8 @@ void main() {
     final landscapeW = tester
         .getRect(find.byKey(const Key('field_step_number')))
         .width;
-    expect(portraitW, greaterThan(landscapeW));
+    expect(portraitW, closeTo(landscapeW, 1)); // 같은 크기
+    expect(portraitW, lessThan(500)); // 화면 폭(600)을 가득 채우지 않는다
   });
 
   testWidgets('좁은 세로(344×700)에서도 넘치지 않는다', (tester) async {

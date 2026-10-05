@@ -1301,6 +1301,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     // 세로 화면이면 숫자와 각도를 위아래로 쌓고, 이전·다음은 아래에 넓게 둔다.
     final bool portrait =
         MediaQuery.sizeOf(context).height > MediaQuery.sizeOf(context).width;
+    // 세로 화면의 글자 키움 배율. 영역을 가득 채우게 키웠더니, 1.25배로 줄여도 "너무 크다"고 해서
+    // 처음 크기(1.0, 가로 화면과 같은 크기)로 돌렸다. 바꾸려면 여기 숫자만.
+    const double boost = 1.0;
 
     Widget body;
     if (s.isCut) {
@@ -1322,7 +1325,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ),
             ],
           ),
-          _bigNumber(s.at, gap: fieldStepGap(data, s), inch: data.inch(s.at)),
+          _bigNumber(
+            s.at,
+            gap: fieldStepGap(data, s),
+            inch: data.inch(s.at),
+            boost: boost,
+          ),
           Text(
             _showGap ? '마지막 마킹에서 · 줄자 눈금 ${s.at.round()} mm' : '관 끝 0 기준 위치',
             style: TextStyle(fontSize: 14, color: _muted),
@@ -1364,7 +1372,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 ),
               ),
               const SizedBox(height: 4),
-              _bigNumber(m.position, gap: m.gap, inch: data.inch(m.position)),
+              _bigNumber(
+                m.position,
+                gap: m.gap,
+                inch: data.inch(m.position),
+                boost: boost,
+              ),
               Text(
                 _showGap
                     ? (m.number == 1
@@ -1409,7 +1422,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               Text(
                 '${_fmt(m.angle)}°',
                 style: TextStyle(
-                  fontSize: 56,
+                  fontSize: 56 * boost,
                   height: 1.05,
                   fontWeight: FontWeight.w800,
                   color: _red,
@@ -1492,21 +1505,16 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             // 닿으면 안 한 마킹이 ✓가 됐다). 이제 양옆 이전·다음 단추와 볼륨 단추로만 넘긴다.
             builder: (context, c) => SizedBox(
               key: const Key('field_step_area'),
-              // 세로 화면에서는 영역을 꽉 채워 폭·높이에 맞게 키워서 숫자가 크게 보이게 한다
-              // (느슨한 제약에서는 FittedBox가 키우지 못하므로 SizedBox.expand로 감싼다).
-              child: portrait
-                  ? Padding(
-                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 40),
-                      child: SizedBox.expand(
-                        child: FittedBox(fit: BoxFit.contain, child: body),
-                      ),
-                    )
-                  : Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: FittedBox(fit: BoxFit.scaleDown, child: body),
-                      ),
-                    ),
+              // 세로 화면에서도 글자는 원래 크기(화면에 안 들어가면 줄어든다).
+              // 아래 줄(다음 마킹까지·실측 기록)과 안 겹치게 아래 여백을 둔다.
+              child: Center(
+                child: Padding(
+                  padding: portrait
+                      ? const EdgeInsets.fromLTRB(8, 8, 8, 40)
+                      : const EdgeInsets.all(8),
+                  child: FittedBox(fit: BoxFit.scaleDown, child: body),
+                ),
+              ),
             ),
                 ),
               ),
@@ -1571,7 +1579,12 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
   /// 한 단계씩의 큰 숫자. 간격 보기면 앞 마킹에서 잰 값을 크게.
   /// 인치 설정이면 아래에 인치를 같이 적는다.
-  Widget _bigNumber(double v, {double? gap, String inch = ''}) {
+  Widget _bigNumber(
+    double v, {
+    double? gap,
+    String inch = '',
+    double boost = 1.0,
+  }) {
     final bool asGap = _showGap && gap != null;
     final text = asGap ? '+${gap.round()}' : v.round().toString();
     return Column(
@@ -1586,7 +1599,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               text,
               key: const Key('field_step_number'),
               style: TextStyle(
-                fontSize: _highContrast ? 120 : 96,
+                fontSize: (_highContrast ? 120 : 96) * boost,
                 height: 1.05,
                 fontWeight: FontWeight.w800,
                 color: _highContrast ? Colors.black : _ink,
@@ -1597,7 +1610,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             Text(
               'mm',
               style: TextStyle(
-                fontSize: _highContrast ? 26 : 22,
+                fontSize: (_highContrast ? 26 : 22) * boost,
                 fontWeight: FontWeight.w600,
                 color: _highContrast
                     ? fieldPick(
@@ -1615,7 +1628,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             asGap ? '+${_data.inch(gap)}' : inch,
             key: const Key('field_step_inch'),
             style: TextStyle(
-              fontSize: _highContrast ? 30 : 24,
+              fontSize: (_highContrast ? 30 : 24) * boost,
               fontWeight: FontWeight.w700,
               color: _teal,
             ),
