@@ -134,6 +134,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       if (!mounted) return;
       setState(() {
         _showGap = prefs.getBool(_gapKey) ?? false;
+        _sound = prefs.getBool(_soundKey) ?? false;
         final sc = prefs.getDouble(_scaleKey);
         if (sc != null) _scale = sc.clamp(_minScale, _maxScale);
       });
@@ -146,6 +147,13 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       await prefs.setBool(key, v);
     } catch (_) {}
   }
+
+  // 단계 넘길 때 "딸깍" 소리(진동은 늘 난다). 폰에 기억한다.
+  static const String _soundKey = 'field_step_sound';
+  bool _sound = false;
+
+  /// 이 도면에서 실측을 적은 단계(번호 → 실측 − 계산 mm). 도면이 바뀌면 비운다.
+  final Map<int, double> _measured = {};
 
   bool _stepMode = false;
   int _current = 0;
@@ -232,6 +240,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     final next = to.clamp(0, count - 1);
     if (next == _current) return;
     HapticFeedback.selectionClick();
+    if (_sound) SystemSound.play(SystemSoundType.click);
     setState(() {
       if (next > _current) {
         _done.add(_current);
@@ -396,14 +405,18 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   // ---------------- 실측 기록 ----------------
 
   /// 이 단계를 실제로 해 보고 잰 값을 "벤딩 실측 기록"에 남긴다(참고용, 마킹 값은 안 바뀐다).
-  Future<void> _recordMeasure(FieldStep s) async {
+  Future<void> _recordMeasure(FieldStep s, int index) async {
     final group = widget.measureGroup?.call() ?? '';
     final what = s.isCut
         ? '자르기'
         : '${_fmt(s.mark!.angle)}° ${s.mark!.number}번 마킹';
     final actual = await showDialog<double>(
       context: context,
-      builder: (ctx) => _MeasureDialog(what: what, calc: s.at),
+      builder: (ctx) => _MeasureDialog(
+        what: what,
+        calc: s.at,
+        group: group.isEmpty ? '현장' : group,
+      ),
     );
     if (actual == null || !mounted) return;
     final at = DateTime.now();
@@ -420,6 +433,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     if (!mounted) return;
     HapticFeedback.lightImpact();
     final diff = actual - s.at;
+    setState(() => _measured[index] = diff);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -432,10 +446,18 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
   Widget _measureButton(FieldStep s) => TextButton.icon(
     key: const Key('field_measure'),
-    onPressed: () => _recordMeasure(s),
-    icon: Icon(Icons.straighten_rounded, size: 18, color: _muted),
+    onPressed: () => _recordMeasure(s, _current),
+    icon: Icon(
+      _measured.containsKey(_current)
+          ? Icons.check_circle_rounded
+          : Icons.straighten_rounded,
+      size: 18,
+      color: _measured.containsKey(_current) ? _teal : _muted,
+    ),
     label: Text(
-      '실측 기록',
+      _measured.containsKey(_current)
+          ? '실측 ${signedMm(_measured[_current]!)} · 다시 기록'
+          : '실측 기록',
       style: TextStyle(
         fontSize: _small(13),
         fontWeight: FontWeight.w700,
@@ -487,6 +509,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           _current = 0;
           _done.clear();
           _selectedStep = null;
+          _measured.clear();
           _needsFollow = true;
         }
         if (_current >= steps.length) _current = 0;
@@ -720,6 +743,18 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 _highContrast ? FieldViewMode.normal : FieldViewMode.sunlight,
               );
               setState(() {});
+            },
+          ),
+          _toolButton(
+            key: const Key('field_sound_toggle'),
+            icon: _sound ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+            label: '소리',
+            selected: _sound,
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => _sound = !_sound);
+              _saveViewPref(_soundKey, _sound);
+              if (_sound) SystemSound.play(SystemSoundType.click);
             },
           ),
           Container(
@@ -1217,6 +1252,24 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                       ),
                     ],
                   ),
+                  if (_measured.containsKey(i)) ...[
+                    const SizedBox(width: 8),
+                    Column(
+                      key: Key('field_measured_$i'),
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.straighten_rounded, size: 14, color: _teal),
+                        Text(
+                          signedMm(_measured[i]!).replaceAll(' mm', ''),
+                          style: TextStyle(
+                            fontSize: _small(11),
+                            fontWeight: FontWeight.w800,
+                            color: _teal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1428,13 +1481,35 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             ),
                 ),
               ),
-              if (widget.measureGroup != null)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 2,
-                  child: Center(child: _measureButton(s)),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 2,
+                // 좁은 폭(세로 344)에서도 안 넘치게 폭에 맞춰 줄인다.
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_current + 1 < steps.length)
+                      Text(
+                        '${steps[_current + 1].isCut ? '자르기까지' : '다음 마킹까지'} '
+                        '${markGap(steps[_current + 1].at, s.at).round()} mm',
+                        key: const Key('field_next_gap'),
+                        style: TextStyle(
+                          fontSize: _small(15),
+                          fontWeight: FontWeight.w800,
+                          color: _teal,
+                        ),
+                      ),
+                    if (_current + 1 < steps.length &&
+                        widget.measureGroup != null)
+                      const SizedBox(width: 24),
+                    if (widget.measureGroup != null) _measureButton(s),
+                  ],
+                  ),
                 ),
+              ),
             ],
           ),
         ),
@@ -1644,7 +1719,14 @@ class _Line {
 class _MeasureDialog extends StatefulWidget {
   final String what;
   final double calc;
-  const _MeasureDialog({required this.what, required this.calc});
+
+  /// 같은 규격·장비의 지난 실측 통계를 찾는 묶음 이름.
+  final String group;
+  const _MeasureDialog({
+    required this.what,
+    required this.calc,
+    required this.group,
+  });
 
   @override
   State<_MeasureDialog> createState() => _MeasureDialogState();
@@ -1652,6 +1734,24 @@ class _MeasureDialog extends StatefulWidget {
 
 class _MeasureDialogState extends State<_MeasureDialog> {
   final TextEditingController _ctrl = TextEditingController();
+
+  /// 지난 실측 참고 글(없으면 null, 읽는 중이면 빈 글).
+  String? _reference;
+
+  @override
+  void initState() {
+    super.initState();
+    loadBendChecks().then((all) {
+      if (!mounted) return;
+      final st = statsFor(all, widget.group);
+      setState(() {
+        _reference = st == null
+            ? '이 규격·장비의 지난 실측 기록은 아직 없습니다'
+            : referenceText(st) +
+                  (st.n < kBendReliableCount ? ' · 건수가 적어 참고만' : '');
+      });
+    });
+  }
 
   @override
   void dispose() {
@@ -1668,6 +1768,14 @@ class _MeasureDialogState extends State<_MeasureDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('${widget.what} · 계산 ${widget.calc.round()} mm'),
+          if (_reference != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _reference!,
+              key: const Key('field_measure_reference'),
+              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             key: const Key('field_measure_input'),
