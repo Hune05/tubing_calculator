@@ -78,4 +78,53 @@ void main() {
     final h = searchKnowledge(all, '나사');
     expect(h.map((e) => e.entry.id), ['t', 'm']);
   });
+
+  group('말 바꿔 찾기(10-07)', () {
+    test('조사·말끝을 떼고 찾는다(그대로 맞는 말은 떼지 않는다)', () {
+      final all = _data();
+      expect(searchKnowledge(all, '절삭유가').map((h) => h.entry.id), ['b', 'c']);
+      expect(searchKnowledge(all, '나사가 찢어짐').first.entry.id, 'b');
+      expect(searchVariants('온도'), contains('온도'));
+      expect(searchVariants('진동이'), contains('진동'));
+      expect(searchVariants('나와요'), contains('나와'));
+    });
+
+    test('현장에서 쓰는 다른 말로도 찾는다(리크 → 누설, 모터 → 전동기, 메가 → 메거)', () {
+      const all = [
+        KnowledgeEntry(id: 'l', category: '압력', title: '누설 위치 찾기'),
+        KnowledgeEntry(id: 'm', category: '전기', title: '전동기 절연저항(메거)'),
+      ];
+      for (final q in ['리크', 'leak', '새요']) {
+        expect(searchKnowledge(all, q).map((h) => h.entry.id), ['l'], reason: q);
+      }
+      expect(searchKnowledge(all, '모터 메가').map((h) => h.entry.id), ['m']);
+    });
+
+    test('초성으로 찾는다(ㅈㅅㅇ → 절삭유)', () {
+      const all = [
+        KnowledgeEntry(id: 'x', category: 'a', title: '절삭유 보충'),
+        KnowledgeEntry(id: 'y', category: 'a', title: '날 교체'),
+      ];
+      expect(searchKnowledge(all, 'ㅈㅅㅇ').map((h) => h.entry.id), ['x']);
+    });
+
+    test('다 맞는 항목이 없으면 일부만 맞는 항목을 표시해 돌려준다', () {
+      final all = _data();
+      final h = searchKnowledge(all, '절삭유 펌프');
+      expect(h, isNotEmpty);
+      expect(h.every((e) => e.partial), isTrue);
+      expect(h.first.matched, 1);
+      expect(h.first.total, 2);
+      // 다 맞는 항목이 있으면 일부만 맞는 항목은 섞지 않는다.
+      expect(searchKnowledge(all, '절삭유 휨').map((e) => e.entry.id), ['c']);
+      // 낱말의 절반도 못 찾으면 안 보인다.
+      expect(searchKnowledge(all, '절삭유 펌프 모터 밸브'), isEmpty);
+    });
+
+    test('맞는 줄: 찾은 낱말이 든 첫 내용 줄', () {
+      final b = _data()[1];
+      final h = searchKnowledge([b], '보충');
+      expect(matchingLine(b, h.single.terms), '조치: 다이 교체, 절삭유 보충');
+    });
+  });
 }
