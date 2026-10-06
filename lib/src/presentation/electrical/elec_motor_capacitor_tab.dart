@@ -96,7 +96,7 @@ class _ElecMotorCapacitorTabState extends State<ElecMotorCapacitorTab>
     if (q != null) {
       lines.add('① 콘덴서 상한 Qc ≤ 0.9 × I0 × Un × √3 = 0.9 × ${fmt(i0!, 1)} × ${fmt(v! / 1000, 3)} × √3 = ${fmt(q, 2)} kvar');
       if (_estI0) {
-        lines.add('무부하 전류 추정 I0 ≈ 2 × In × (1 − cosφn) = 2 × ${fmt(inA!, 1)} × (1 − ${fmt(inPf!, 3)}) = ${fmt(i0, 1)} A (한 곳 자료의 근사식입니다. 측정한 무부하 전류나 제조사 값이 있으면 그 값을 쓰십시오)');
+        lines.add('무부하 전류 추정 I0 ≈ 2 × In × (1 − cosφn) = 2 × ${fmt(inA!, 1)} × (1 − ${fmt(inPf!, 3)}) = ${fmt(i0, 1)} A (원문 못 본 근사식입니다. 측정한 무부하 전류나 제조사 값이 있으면 그 값을 쓰십시오)');
       }
       lines.add('이 값을 넘으면 전동기를 끊은 뒤에도 콘덴서가 전동기를 발전기처럼 돌려 과전압(자기여자)이 생길 수 있습니다. 한도를 넘는 용량은 전동기와 따로 개폐하고 과전압 보호를 두십시오.');
       summary = '콘덴서 상한 ${fmt(q, 2)} kvar';
@@ -164,12 +164,12 @@ class _ElecMotorCapacitorTabState extends State<ElecMotorCapacitorTab>
       final perKw = c / kw!;
       lines.addAll([
         '① 운전 콘덴서 C = 2 × P ÷ (√3 × 2π × f × U²) = 2 × ${fmt(kw * 1000, 0)} ÷ (√3 × 2π × ${fmt(hz!, 0)} × ${fmt(v!, 0)}²) = ${fmt(c, 1)} μF (${fmt(perKw, 1)} μF/kW)',
-        '② 기동 콘덴서(기동할 때만 병렬 추가) ≈ 운전용의 ${fmt(kStartCapLow, 0)}~${fmt(kStartCapHigh, 0)}배 = ${fmt(c * kStartCapLow, 0)}~${fmt(c * kStartCapHigh, 0)} μF. 기동 후에는 반드시 분리합니다.',
+        '② 기동 콘덴서(기동할 때만 병렬 추가) ≈ 운전용의 ${fmt(kStartCapLow, 0)}~${fmt(kStartCapHigh, 0)}배 = ${fmt(c * kStartCapLow, 0)}~${fmt(c * kStartCapHigh, 0)} μF(2~3배는 원문 못 봄). 기동 후에는 반드시 분리합니다.',
         '③ 이때 낼 수 있는 출력 ≈ 정격의 ${fmt(kSteinmetzOutputLow * 100, 0)}~${fmt(kSteinmetzOutputHigh * 100, 0)} % = ${fmt(kw * kSteinmetzOutputLow, 2)}~${fmt(kw * kSteinmetzOutputHigh, 2)} kW (자료마다 60~80 %로 갈립니다)',
         '④ 콘덴서 정격전압은 400 V 이상(400~450 V급)으로 고릅니다.',
         '결선: 220/380 V급 전동기를 Δ 결선으로 하고 단상 전원을 단자 두 개에 넣습니다. 콘덴서는 한쪽 전원 단자와 세 번째 빈 단자 사이(한 권선과 병렬)에 답니다. 콘덴서를 어느 전원 단자 쪽에 다느냐로 회전 방향이 정해집니다.',
         '소형 전동기용입니다(자료마다 0.75 kW 이하 또는 2.2 kW 미만). 기동 토크는 정격의 20~50 % 정도라 가벼운 부하 기동에만 맞습니다.',
-        '식은 한 곳 자료이고 직접 검산한 값입니다. 230 V 50 Hz에서 약 70 μF/kW로 일반 자료와 맞습니다. 60 Hz 값은 같은 식으로 환산한 것이라 출처에서 직접 확인한 값이 아닙니다.',
+        '식의 원문(규격·제조사 원본)은 못 봤습니다(de.wikipedia 한 곳, 직접 검산). 230 V 50 Hz에서 약 70 μF/kW로 일반 자료와 맞습니다. 60 Hz 값은 같은 식으로 환산한 것이라 출처에서 직접 확인한 값이 아닙니다.',
       ]);
       if (kw >= 2.2) {
         lines.add('${fmt(kw, 1)} kW는 자료가 말하는 소형 한도(2.2 kW 미만)를 넘습니다. 단상 운전이 적합한지 제조사에 확인하십시오.');
@@ -201,9 +201,9 @@ class _ElecMotorCapacitorTabState extends State<ElecMotorCapacitorTab>
     if (r != null) {
       lines.addAll([
         '① 운전 콘덴서(영구 접속) 대략 범위 = ${fmt(kPscUfPerKwLow, 0)}~${fmt(kPscUfPerKwHigh, 0)} μF/kW × ${fmt(kw!, 2)} kW = ${fmt(r.$1, 0)}~${fmt(r.$2, 0)} μF',
-        '② 기동 콘덴서 ≈ 운전용의 ${fmt(kStartCapLow, 0)}~${fmt(kStartCapHigh, 0)}배 = ${fmt(r.$1 * kStartCapLow, 0)}~${fmt(r.$2 * kStartCapHigh, 0)} μF (원심 스위치로 기동 후 분리하는 콘덴서 기동형)',
+        '② 기동 콘덴서 ≈ 운전용의 ${fmt(kStartCapLow, 0)}~${fmt(kStartCapHigh, 0)}배 = ${fmt(r.$1 * kStartCapLow, 0)}~${fmt(r.$2 * kStartCapHigh, 0)} μF (원심 스위치로 기동 후 분리하는 콘덴서 기동형, 2~3배는 원문 못 봄)',
         '③ 콘덴서 정격전압은 220~230 V 전원에서 400 V 이상, 또는 전원 전압의 1.5배 이상으로 고릅니다.',
-        '값의 폭이 넓은 대략치입니다(자료마다 20~25, 25~30, 30~50 μF/kW). 반드시 전동기 명판이나 제조사가 정한 용량을 우선하십시오. 정격 운전 중 콘덴서에는 전원 전압보다 높은 전압이 걸립니다.',
+        '원문을 못 본 폭 넓은 대략치입니다(2차 자료마다 20~25, 25~30, 30~50 μF/kW). 반드시 전동기 명판이나 제조사가 정한 용량을 우선하십시오. 정격 운전 중 콘덴서에는 전원 전압보다 높은 전압이 걸립니다.',
       ]);
       summary = '운전 콘덴서 ${fmt(r.$1, 0)}~${fmt(r.$2, 0)} μF';
     }
@@ -253,9 +253,9 @@ class _ElecMotorCapacitorTabState extends State<ElecMotorCapacitorTab>
           lines: lines,
         ),
         elecBasis('mc2_basis', const [
-          '콘덴서 한도 Qc ≤ 0.9 × I0 × Un × √3와 도표 L24·L25: Schneider Electrical Installation Guide(2007) 장 L 원문으로 확인했습니다. 무부하 전류 추정식은 한 곳 자료입니다.',
-          '3상 모터 단상 운전 C = 2P ÷ (√3·ω·U²): 한 곳 자료이고 직접 검산했습니다. 230 V 50 Hz 약 70 μF/kW와 맞습니다. 60 Hz 값은 식 환산입니다.',
-          '단상 전동기 콘덴서 20~50 μF/kW와 기동 콘덴서 2~3배는 출처마다 폭이 넓은 대략치입니다. 명판 값을 우선합니다.',
+          '콘덴서 한도 Qc ≤ 0.9 × I0 × Un × √3와 도표 L24·L25: Schneider Electrical Installation Guide(2007) 장 L 원문으로 확인했습니다. 무부하 전류 추정식 I0 ≈ 2·In·(1 − cosφn)은 원문 못 봄(검색 요약뿐)입니다.',
+          '3상 모터 단상 운전 C = 2P ÷ (√3·ω·U²): 원문 못 봄(de.wikipedia 한 곳), 직접 검산했습니다. 230 V 50 Hz 약 70 μF/kW와 맞습니다. 60 Hz 값은 식 환산입니다.',
+          '단상 전동기 콘덴서 20~50 μF/kW와 기동 콘덴서 2~3배는 원문 못 봄, 2차 자료마다 폭이 넓은 대략치입니다. 명판 값을 우선합니다.',
           '출력 70~80 %, 기동 토크 20~50 %, 콘덴서 400~450 V급은 자료 여러 곳이 같은 범위입니다.',
           '한국 규정·교재의 μF/kW 표는 찾지 못했습니다. 전기안전·설계 기준이 따로 있으면 그 값을 따르십시오.',
         ]),

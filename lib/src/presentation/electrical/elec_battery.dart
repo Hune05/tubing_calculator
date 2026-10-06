@@ -1,6 +1,7 @@
 // 축전지 용량 산정(발전소 직류 전원)의 순수 계산. 화면 없음.
 // 구간 방식: 구간 s의 용량 = Σ (Ap − Ap-1) × K(단계 p 시작부터 구간 s 끝까지의 시간). 구간 용량의 최댓값이 기준이다.
-// SBA S 0601 방식은 최댓값 ÷ 보수율 L, IEEE 485 방식은 최댓값 × 온도 보정계수 × (1 + 설계 여유) × 노화계수.
+// SBA S 0601 방식은 최댓값 ÷ 보수율 L(SBA S 0601-1996 3.1·4.1), IEEE 485 방식은 최댓값 × 온도 보정계수 × (1 + 설계 여유) × 노화계수.
+// 방전 종지 전압은 SBA S 0601 4.3의 Vd = (Va + Vc) ÷ n 꼴로 본다: 셀 수 × 셀당 최저 전압 − 선로 전압강하 ≥ 부하 최저 허용 전압.
 // K 값(용량환산시간)은 제조사 방전 특성표에서 읽어 사용자가 넣는다. 표는 앱에 없다. 근거는 docs/전기_축전지_근거.md.
 
 enum BatteryMethod {
@@ -66,6 +67,7 @@ class BatteryInput {
     this.cellMin,
     this.cells,
     this.minBusVolts,
+    this.lineDropVolts,
   });
 
   final BatteryMethod method;
@@ -103,6 +105,9 @@ class BatteryInput {
 
   /// 부하가 허용하는 최저 모선 전압[V].
   final double? minBusVolts;
+
+  /// 축전지~부하 사이 선로 전압강하[V](SBA S 0601 4.3의 Vc). 비우면 0으로 본다.
+  final double? lineDropVolts;
 }
 
 class BatteryTerm {
@@ -147,6 +152,8 @@ class BatteryResult {
     this.chosenMarginPct,
     this.cellRatio,
     this.endVolts,
+    this.loadEndVolts,
+    this.cellMinNeeded,
     this.endVoltsPass,
   });
 
@@ -170,8 +177,16 @@ class BatteryResult {
   /// 모선 전압 ÷ 셀당 공칭 전압.
   final double? cellRatio;
 
-  /// 방전 종지 때 모선 전압 = 셀 수 × 셀당 최저 전압.
+  /// 방전 종지 때 축전지 단자 전압 = 셀 수 × 셀당 최저 전압.
   final double? endVolts;
+
+  /// 방전 종지 때 부하 쪽 전압 = 축전지 단자 전압 − 선로 전압강하.
+  final double? loadEndVolts;
+
+  /// SBA S 0601 4.3: 부하 최저 허용 전압을 지키는 셀당 최저 전압 Vd = (Va + Vc) ÷ n[V].
+  final double? cellMinNeeded;
+
+  /// 부하 쪽 전압이 부하 최저 허용 전압 이상이면 합격.
   final bool? endVoltsPass;
 
   bool get ok => errors.isEmpty && required != null;
@@ -222,6 +237,9 @@ BatteryResult calcBattery(BatteryInput i) {
   }
   if (i.minBusVolts != null && i.minBusVolts! <= 0) {
     errors.add('부하 최저 허용 전압(V)은 0보다 크게 넣으십시오.');
+  }
+  if (i.lineDropVolts != null && i.lineDropVolts! < 0) {
+    errors.add('축전지~부하 선로 전압강하(V)는 0 이상으로 넣으십시오. 없으면 비워 두십시오.');
   }
   if (i.cells != null && i.minBusVolts != null && i.cellMin == null) {
     errors.add('최저 모선 전압을 보려면 셀당 최저 전압(V)도 넣으십시오.');
@@ -281,10 +299,17 @@ BatteryResult calcBattery(BatteryInput i) {
     ratio = i.busVolts! / i.cellNominal!;
   }
   double? endV;
+  double? loadEndV;
+  double? vdNeeded;
   bool? endPass;
   if (i.cells != null && i.cellMin != null) {
+    final vc = i.lineDropVolts ?? 0;
     endV = i.cells! * i.cellMin!;
-    if (i.minBusVolts != null) endPass = endV + 1e-9 >= i.minBusVolts!;
+    loadEndV = endV - vc;
+    if (i.minBusVolts != null) {
+      endPass = loadEndV + 1e-9 >= i.minBusVolts!;
+      vdNeeded = (i.minBusVolts! + vc) / i.cells!;
+    }
   }
 
   return BatteryResult(
@@ -297,6 +322,8 @@ BatteryResult calcBattery(BatteryInput i) {
     chosenMarginPct: margin,
     cellRatio: ratio,
     endVolts: endV,
+    loadEndVolts: loadEndV,
+    cellMinNeeded: vdNeeded,
     endVoltsPass: endPass,
   );
 }

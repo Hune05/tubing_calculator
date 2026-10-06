@@ -152,10 +152,10 @@ double? capacitorKvarAtVoltage({
 class TransformerQ {
   const TransformerQ({required this.noLoadKvar, required this.leakKvar});
 
-  /// 무부하(여자) 무효전력 ≈ S × i0%.
+  /// 무부하(여자) 무효전력 ≈ S × i0%. Schneider EIG L장: 약 1.8 %로 무부하에서 전부하까지 거의 일정하다.
   final double noLoadKvar;
 
-  /// 부하 때 누설 리액턴스가 쓰는 무효전력 ≈ S × usc% × (부하율)².
+  /// 부하 때 누설 리액턴스가 쓰는 무효전력 ≈ S × usc% × (부하율)². 부하의 제곱에 비례한다(같은 자료).
   final double leakKvar;
   double get totalKvar => noLoadKvar + leakKvar;
 }
@@ -195,8 +195,8 @@ double? maxLengthForTrip({
   return rem / (rho * (1 / phaseMm2 + 1 / peMm2));
 }
 
-/// Schneider Electrical Installation Guide ch.L 그림 L22(2007판 L21): 20 kV 1차 유입 변압기가 쓰는 무효전력(kvar).
-/// 키는 정격 kVA, 값은 [무부하, 전부하(무부하분 포함)]. 원문 두 판이 일치한다.
+/// Schneider Electric Electrical Installation Guide L장 그림 L22(2007판 L21): 1차 20 kV 배전용 변압기가 쓰는 무효전력(kvar).
+/// 키는 정격 kVA, 값은 [무부하, 전부하(무부하분 포함)]. 현행 공식 위키 원문의 24개 값과 모두 일치한다.
 const Map<int, List<double>> kTransformerL22 = {
   100: [2.5, 6.1],
   160: [3.7, 9.6],

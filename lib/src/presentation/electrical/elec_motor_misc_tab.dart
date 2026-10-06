@@ -138,7 +138,7 @@ class _ElecMotorMiscTabState extends State<ElecMotorMiscTab>
         '① 권선 온도 T = (R2 ÷ R1) × (k + T1) − k = (${fmt(r2!, 4)} ÷ ${fmt(r1!, 4)}) × (${fmt(k, 1)} + ${fmt(t1!, 1)}) − ${fmt(k, 1)} = ${fmt(r.hotTempC, 1)} ℃',
         '② 온도 상승 ΔT = T − 주위 온도 = ${fmt(r.hotTempC, 1)} − ${fmt(t2!, 1)} = ${fmt(r.riseK, 1)} K',
         '저항은 정지한 직후 가능한 한 빨리 재야 합니다. 시간이 지나면 식어서 실제보다 낮게 나옵니다. 차가울 때 저항과 그때 온도(주위와 같아질 때까지 둔 상태)는 같은 단자 사이에서 재십시오.',
-        '상수 k = ${fmt(k, 1)}(${_al ? '알루미늄' : '구리'} 권선, 저항법, IEEE 112 원문). IEC 60034-1은 구리에 235를 쓰는 자료가 있어 0.5 K 안팎 차이가 납니다. 절연 등급 한계와 비교하려면 "절연 등급" 묶음을 쓰십시오.',
+        '상수 k = ${fmt(k, 1)}(${_al ? '알루미늄' : '구리'} 권선, 저항법, IEEE 112 원문). IEC 60034-1은 구리 235·알루미늄 225를 써서 구리는 0.5 K 안팎 차이가 납니다. 절연 등급 한계와 비교하려면 "절연 등급" 묶음을 쓰십시오.',
       ]);
       summary = '온도 상승 ${fmt(r.riseK, 1)} K · 권선 ${fmt(r.hotTempC, 1)} ℃';
     }
@@ -166,7 +166,9 @@ class _ElecMotorMiscTabState extends State<ElecMotorMiscTab>
     final rise = readNum(_irise), amb = readNum(_iamb);
     final r = (rise != null && amb != null) ? insulationCheck(cls: cls, riseK: rise, ambientC: amb) : null;
     final lines = <String>[
-      '등급 ${cls.name}: 최고 연속 사용 온도 ${fmt(cls.maxC, 0)} ℃(IEC 60085 표 1)${cls.riseK == null ? '' : ', 저항법 온도 상승 한계 ${fmt(cls.riseK!, 0)} K(IEC 60034-1, 주위 40 ℃·해발 1000 m 이하)'}',
+      '등급 ${cls.name}: 최고 연속 사용 온도 ${fmt(cls.maxC, 0)} ℃(IEC 60085 표 1)${cls.riseK == null ? '' : ', 저항법 온도 상승 한계 ${fmt(cls.riseK!, 0)} K(IEC 60034-1:2010 표 7, 주위 40 ℃·해발 1000 m 이하)'}',
+      if (cls.riseKSmall != null)
+        '600 W 미만 기계와 팬 없는 자냉식(IC40)·봉입 권선 기계는 한계가 ${fmt(cls.riseKSmall!, 0)} K입니다(같은 표 항목 1d·1e). 아래 비교는 일반 기계 값 ${fmt(cls.riseK!, 0)} K로 합니다.',
       if (cls.note.isNotEmpty) cls.note,
     ];
     String? summary;
@@ -185,7 +187,7 @@ class _ElecMotorMiscTabState extends State<ElecMotorMiscTab>
     }
     return (
       [
-        elecChipGroup('절연 등급', '전동기 명판의 INS.CL(절연 등급)입니다. 기본은 F입니다.', [
+        elecChipGroup('절연 등급', '전동기 명판의 INS.CL(절연 등급)입니다. 기본은 F입니다. A·E급은 IEC 60034-1:2010 온도 상승 표(표 7)에 없어 넣지 않았습니다.', [
           for (final c in kInsulation)
             calcChip('mm_cls_${c.name}', c.name, _cls == c.name, () => setState(() => _cls = c.name)),
         ]),
@@ -463,7 +465,7 @@ class _ElecMotorMiscTabState extends State<ElecMotorMiscTab>
         ),
         elecBasis('mm_basis', [
           '모두 정의식과 교재 일반식입니다. 표 값은 쓰지 않고, 효율·마찰계수·전압은 사용자가 넣습니다.',
-          '권선 온도 T = (R2 ÷ R1)(k + T1) − k, k 구리 234.5·알루미늄 225(IEEE 112-2004 원문). 절연 등급 온도는 IEC 60085 표 1 원문, 저항법 온도 상승 한계(A 60·E 75·B 80·F 105·H 125 K)는 2차 자료 일치(E는 독립 확인 부족)입니다.',
+          '권선 온도 T = (R2 ÷ R1)(k + T1) − k, k 구리 234.5·알루미늄 225(IEEE 112-2004 원문, IEC 60034-1은 구리 235). 절연 등급 온도는 IEC 60085 표 1 원문, 저항법 온도 상승 한계(B 80·F 105·H 125 K, 600 W 미만·IC40·봉입 권선은 85·110·130 K)는 IEC 60034-1:2010 표 7 원문입니다. A·E급은 그 표에 없어 뺐고, N급 한계는 확인하지 못했습니다.',
           '소프트스타터: 전동기 전류는 전압에 비례, 토크는 전압²에 비례. 전류 제한 300~400 %는 제조사 설정 범위의 관례입니다.',
           '제동 에너지 E = ½J(ω1² − ω2²). 일정 토크 감속이면 시작 순간 제동 전력은 평균의 2배입니다. 저항 허용값은 인버터 제조사 값을 따릅니다.',
           '직류 전동기: Ea = V − Ia·Ra, 발생 전력 Ea·Ia, 속도 N ∝ Ea ÷ Φ.',

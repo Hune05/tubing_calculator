@@ -36,7 +36,12 @@ void main() {
     // 예 B: 예 A + 240mm² 50m 한 가닥. 20°C 저항 0.0754 Ω/km → R = 3.77 mΩ, X = 0.096 × 0.05 = 4.8 mΩ.
     //  %임피던스법: Z = √(3.77² + (7.942 + 4.8)²) = 13.288 mΩ → Ik = 380 / (√3 × 0.013288) = 16,511 A
     //  IEC: Z = √(3.77² + (0.96563×7.942 + 4.8)²) = 12.51 mΩ → Ik″ = 399 / √3 / 0.01251 = 17,684 A
-    //  최소 단락(XLPE, 90°C 저항 3.77×(1+0.00393×70) = 4.807 mΩ, c 0.95): 3상 15,596 A, 2상 15,596×√3/2 = 13,507 A
+    //  최소 단락(IEC 909 = IS 13234 9.3.1 식 32: R = R20 × [1 + 0.004 × (θe − 20)], θe = 단락 종료 온도):
+    //   XLPE θe 250°C: R = 3.77 × (1 + 0.004 × 230) = 3.77 × 1.92 = 7.238 mΩ,
+    //   X = 0.96563 × 7.942 + 4.8 = 12.469 mΩ, Z = √(7.238² + 12.469²) = 14.418 mΩ
+    //   3상 = 0.95 × 380 ÷ (√3 × 0.014418) = 14,456 A, 2상 = 14,456 × √3/2 = 12,519 A
+    //   (예전 90°C·0.00393 값 15,596 A보다 작다. 보호 감도 확인에서 안전 쪽)
+    //   PVC θe 160°C: R = 3.77 × 1.56 = 5.881 mΩ, Z = 13.786 mΩ → 3상 15,118 A, 2상 13,093 A
     test('예 B: 케이블 한 구간, 최대·최소', () {
       final r = calcShortCircuit(
         const ScInput(
@@ -51,10 +56,32 @@ void main() {
       expect(r.ikMaxA, closeTo(17684, 4));
       expect(r.startIkMaxA[0], closeTo(30038, 3));
       expect(r.startIkMaxA[1], closeTo(17684, 4));
-      expect(r.ikMin3A, closeTo(15596, 4));
-      expect(r.ikMin2A, closeTo(13507, 4));
+      expect(r.ikMin3A, closeTo(14456, 4));
+      expect(r.ikMin2A, closeTo(12519, 4));
       expect(r.ikMin2A / r.ikMin3A, closeTo(0.8660254, 1e-6));
       expect(r.ikMaxA, greaterThan(r.ikMin3A));
+      final pvc = calcShortCircuit(
+        const ScInput(
+          kva: 1000,
+          volts: 380,
+          zPercent: 5.5,
+          segments: [ScSegment(sizeMm2: 240, lengthM: 50)],
+        ),
+      );
+      expect(pvc.ikMin3A, closeTo(15118, 4));
+      expect(pvc.ikMin2A, closeTo(13093, 4));
+      // 최대 단락은 절연과 상관없이 20°C 저항이라 같다.
+      expect(pvc.ikMaxA, closeTo(r.ikMaxA, 1e-9));
+    });
+
+    test('최소 단락 온도: 단락 종료 온도와 온도계수 0.004(IEC 909 식 32)', () {
+      expect(minScConductorTemp(Insulation.pvc70), 160);
+      expect(minScConductorTemp(Insulation.xlpe90), 250);
+      expect(kScMinAlpha, 0.004);
+      // 95mm²: 0.193 × (1 + 0.004 × 140) = 0.193 × 1.56 = 0.30108 Ω/km
+      expect(minScResistance(95, 160), closeTo(0.30108, 1e-9));
+      // 0.193 × (1 + 0.004 × 230) = 0.193 × 1.92 = 0.37056 Ω/km
+      expect(minScResistance(95, 250), closeTo(0.37056, 1e-9));
     });
 
     // 예 C: 상위 500MVA, 부하손 10kW, 구간1 95mm² 30m × 2가닥 병렬, 구간2 16mm² 20m. c = 1.05.
@@ -114,8 +141,11 @@ void main() {
       expect(two.ikMin3A, closeTo(one.ikMin3A, 1e-6));
     });
 
-    // 전동기: 200kW, 효율×역률 0.8, 배수 5, 380V → IrM = 200000 / (√3 × 380 × 0.8) = 379.9 A
-    //  변압기 2차(구간 0)에서 전동기 기여 = c × 배수 × IrM = 1.05 × 5 × 379.9 = 1,994.5 A
+    // 전동기: 200kW, 효율×역률 0.8, 배수 5, 380V → IrM = 200000 / (√3 × 380 × 0.8) = 379.84 A
+    //  |ZM| = 380 ÷ (√3 × 5 × 379.84) = 115.52 mΩ. RM/XM = 0.42(IEC 909 8.3.2.5):
+    //  XM = 115.52 ÷ √(1 + 0.42²) = 106.51 mΩ, RM = 0.42 × 106.51 = 44.73 mΩ (크기는 그대로 115.52 mΩ)
+    //  변압기 2차(구간 0)에서 전동기 기여 = c × 배수 × IrM = 1.05 × 5 × 379.84 = 1,994.1 A
+    //  피크: κ = 2.0(무한 전원·RT 0) × √2 × 30,038 + κM 1.3 × √2 × 1,994.1 = 84,960 + 3,666 = 88,626 A
     test('전동기 기여와 최소 단락에서 빠짐', () {
       final base = calcShortCircuit(
         const ScInput(kva: 1000, volts: 380, zPercent: 5.5),
@@ -135,6 +165,12 @@ void main() {
       expect(r.ikMaxA, closeTo(base.ikMaxA + r.ikMotorA, 1e-6));
       expect(r.ikMin3A, closeTo(base.ikMin3A, 1e-9));
       expect(r.ipA, greaterThan(base.ipA));
+      expect(r.ipA, closeTo(88626, 20));
+      final m = motorImpedance(0.11552);
+      expect(m.x, closeTo(0.106507, 1e-6));
+      expect(m.r, closeTo(0.044733, 1e-6));
+      expect(m.abs, closeTo(0.11552, 1e-12));
+      expect(kScMotorKappa, 1.3);
     });
 
     test('전동기 세 칸이 덜 차면 반영하지 않고 알림', () {
@@ -604,8 +640,14 @@ void main() {
       expect(flat(t), contains(flat('⑥ 전동기 기여: 정격전류 IrM')));
       expect(flat(t), contains(flat('= ${ka(calc.ikMotorA)} kA. 합계 Ik″ = ${ka(calc.ikNetA)} + ${ka(calc.ikMotorA)} = ${ka(calc.ikMaxA)} kA.')));
       expect(flat(t), contains(flat('= ${ka(calc.ipA)} kA (R/X =')));
+      // 전동기 RM/XM 0.42: |ZM| = 380 ÷ (√3 × 5 × 379.84) = 115.52 mΩ → XM 106.51, RM 44.73 mΩ.
+      expect(flat(t), contains(flat('RM/XM = 0.42(IEC 909 8.3.2.5 저압 전동기 묶음): XM = ZM ÷ √(1 + 0.42²) = 106.51 mΩ, RM = 0.42 × XM = 44.73 mΩ.')));
+      expect(flat(t), contains(flat('저압 전동기 묶음 κM = 1.3)')));
       await reveal(tester, find.byKey(const Key('ec_sc_min_result')));
       final min = textOf(tester, 'ec_sc_min_result');
+      // PVC(처음 값): θe 160°C → 1 + 0.004 × 140 = 1.56.
+      expect(flat(min), contains(flat('케이블 저항(IEC 909 9.3.1 식 32): R = R20 × [1 + 0.004 × (θe − 20)] = R20 × [1 + 0.004 × (160 − 20)] = R20 × 1.56.')));
+      expect(flat(min), contains(flat('PVC 단락 최종 온도 160°C(KEC 표 212.5-1)')));
       expect(flat(min), contains(flat('② 3상 최소 = c × Un ÷ (√3 × Z)')));
       expect(flat(min), contains(flat('= ${ka(calc.ikMin3A)} kA.')));
       expect(flat(min), contains(flat('③ 2상 최소 = 3상 × √3 ÷ 2 = ${ka(calc.ikMin3A)} × 0.866 = ${ka(calc.ikMin2A)} kA.')));
@@ -715,12 +757,16 @@ void main() {
       await finish(tester);
     });
 
-    testWidgets('근거 보기를 펴면 원문 대조 전 표시와 뺀 것이 있다', (tester) async {
+    testWidgets('근거 보기를 펴면 원문 대조한 것·못 본 것과 뺀 것이 있다', (tester) async {
       await pumpTab(tester);
       await reveal(tester, find.byKey(const Key('ec_sc_basis')));
       await tester.tap(find.text('근거 보기'));
       await tester.pumpAndSettle();
-      expect(find.textContaining('원문 대조 전'), findsOneWidget);
+      expect(find.textContaining('원문 대조 전'), findsNothing);
+      expect(find.textContaining('원문 대조함'), findsOneWidget);
+      expect(find.textContaining('IS 13234:1992'), findsOneWidget);
+      expect(find.textContaining('원문 못 봄(2016판 유료)'), findsOneWidget);
+      expect(find.textContaining('식 (13)'), findsOneWidget);
       expect(find.textContaining('계산에서 뺀 것'), findsOneWidget);
       expect(find.textContaining('지락(1선) 단락'), findsWidgets);
       await finish(tester);

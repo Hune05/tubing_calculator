@@ -1,10 +1,10 @@
 // 전동기 콘덴서·단상 운전·최대 토크 계산(10-03). 화면 없이 계산만 한다. 근거: docs/전동기_콘덴서_토크_근거.md.
 //
-// 확인 정도(2026-10-03 조사):
+// 확인 정도(2026-10-03 조사, 10-06 원문 재확인):
 // - 콘덴서 한도 Qc ≤ 0.9·I0·Un·√3: Schneider Electrical Installation Guide 2007 장 L 7.2 원문. 도표 L24·L25도 원문.
-// - 무부하 전류 추정 I0 ≈ 2·In·(1 − cosφn): 한 곳(Schneider 프랑스어판을 검색 요약 두 번으로 확인, 원문 도표 역산 일치).
-// - 3상 모터 단상 운전(Steinmetz) C = 2P ÷ (√3·ω·U²): 한 곳(de.wikipedia)이고 직접 검산했다. 60 Hz 값은 식 환산이다.
-// - 단상 전동기 µF/kW와 기동 콘덴서 배율은 20~50 µF/kW, 2~3배로 출처 간 폭이 넓다(명판 우선).
+// - 무부하 전류 추정 I0 ≈ 2·In·(1 − cosφn): 원문 못 봄(Schneider 프랑스어판이라는 검색 요약 두 번뿐, 원문 도표 역산과는 맞음).
+// - 3상 모터 단상 운전(Steinmetz) C = 2P ÷ (√3·ω·U²): 원문 못 봄(de.wikipedia 한 곳, 직접 검산). 60 Hz 값은 식 환산이다.
+// - 단상 전동기 µF/kW 20~50과 기동 콘덴서 2~3배: 원문 못 봄, 2차 자료끼리도 폭이 넓다(명판 우선).
 // - 최대 토크 표: NEMA MG-1 12.39(원문), IEC 60034-12 표 1 설계 N(원문). NEMA D·IEC 설계 H는 못 찾았다.
 library;
 
@@ -18,7 +18,7 @@ double? capacitorLimitKvar(double i0Amps, double volts) {
   return 0.9 * i0Amps * (volts / 1000) * math.sqrt(3);
 }
 
-/// 무부하 전류 추정 I0 ≈ 2 × In × (1 − cosφn). 한 곳 자료이므로 측정값·제조사 값이 있으면 그것을 쓴다.
+/// 무부하 전류 추정 I0 ≈ 2 × In × (1 − cosφn). 원문 못 본 근사식이므로 측정값·제조사 값이 있으면 그것을 쓴다.
 double? estimateNoLoadAmps(double ratedAmps, double ratedPf) {
   if (ratedAmps <= 0 || ratedPf <= 0 || ratedPf > 1) return null;
   return 2 * ratedAmps * (1 - ratedPf);
@@ -84,7 +84,8 @@ double capacitorKvarOf(double uf, double volts, double hz) =>
 // ─────────────── 3상 전동기 단상 운전(Steinmetz) ───────────────
 
 /// 운전 콘덴서 C[μF] = 2 × P ÷ (√3 × 2πf × U²). [kw]는 전동기 정격 출력, [volts]는 권선(= 단상 전원) 전압.
-/// Δ 결선 전동기에서 한 권선과 병렬로 단다. 230 V 50 Hz에서 약 70 μF/kW(DIN 48501 계열 자료)와 맞는 식이다.
+/// Δ 결선 전동기에서 한 권선과 병렬로 단다. 230 V 50 Hz에서 약 70 μF/kW(DIN 48501 계열 2차 자료)와 맞는 식이다.
+/// 식의 원문(규격·제조사 원본)은 못 봤다(de.wikipedia 한 곳).
 double? steinmetzRunMicroFarad(double kw, double volts, double hz) {
   if (kw <= 0 || volts <= 0 || hz <= 0) return null;
   return 2 * kw * 1000 / (math.sqrt(3) * 2 * math.pi * hz * volts * volts) * 1e6;
@@ -94,13 +95,13 @@ double? steinmetzRunMicroFarad(double kw, double volts, double hz) {
 const double kSteinmetzOutputLow = 0.7;
 const double kSteinmetzOutputHigh = 0.8;
 
-/// 기동 콘덴서 배율 범위(운전용의 2~3배, 시동 후 분리).
+/// 기동 콘덴서 배율 범위(운전용의 2~3배, 시동 후 분리). 원문 못 봄(2차 자료 일치).
 const double kStartCapLow = 2;
 const double kStartCapHigh = 3;
 
 // ─────────────── 단상 유도전동기 콘덴서 ───────────────
 
-/// 운전 콘덴서 대략 범위(μF/kW): 20~50(자료마다 폭이 크다). 명판·제조사 값을 우선한다.
+/// 운전 콘덴서 대략 범위(μF/kW): 20~50(원문 못 봄, 2차 자료마다 폭이 크다). 명판·제조사 값을 우선한다.
 const double kPscUfPerKwLow = 20;
 const double kPscUfPerKwHigh = 50;
 

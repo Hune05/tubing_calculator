@@ -93,6 +93,28 @@ void main() {
       expect(h.leakKvar, closeTo(15, 1e-12));
       expect(h.totalKvar, closeTo(30, 1e-12));
     });
+
+    test('Schneider EIG 그림 L22: 12개 용량 × 무부하·전부하 24개 값이 원문과 같다', () {
+      // 원문(공식 위키, 1차 20 kV 배전용 변압기) 값.
+      const src = {
+        100: [2.5, 6.1],
+        160: [3.7, 9.6],
+        250: [5.3, 14.7],
+        315: [6.3, 18.4],
+        400: [7.6, 22.9],
+        500: [9.5, 28.7],
+        630: [11.3, 35.7],
+        800: [20.0, 54.5],
+        1000: [23.9, 72.4],
+        1250: [27.4, 94.5],
+        1600: [31.9, 126.0],
+        2000: [37.8, 176.0],
+      };
+      expect(kTransformerL22.keys.toList(), src.keys.toList());
+      for (final e in src.entries) {
+        expect(kTransformerL22[e.key], e.value, reason: '${e.key} kVA');
+      }
+    });
   });
 
   group('자동 차단 기준 최대 길이', () {

@@ -1,6 +1,6 @@
 // 고장 진단 흐름 중 설비 종류와 상관없이 쓰는 것(10-03): 전압 이상, 접속부 발열(열화상), 조명, 변압기, 역률 콘덴서.
 // 판정에 쓰는 숫자는 근거 조사(2026-10-03)에서 두 곳 이상이 일치하거나 국제 규격·법령으로 확인한 것만 넣었다.
-// 근거가 약한 것은 화면 글에 "2차 자료"·"원문 대조 전"으로 적었다. 조명 불점등은 수치 기준이 없는 일반 점검 순서다.
+// 원문을 못 본 것은 화면 글에 "원문 못 봄"으로 적었다. 조명 불점등은 수치 기준이 없는 일반 점검 순서다.
 // 엔진은 troubleshoot_page.dart, 단계 클래스는 troubleshoot_flows.dart.
 library;
 
@@ -20,7 +20,8 @@ const int _tabLoadSum = 2, _tabCable = 3, _tabVd = 4, _tabPf = 8;
 // ── 전압이 이상하다 ───────────────────────────────────────────────────
 
 /// 전기사업법 시행규칙 별표 3의 공급 전압 허용 범위: 공칭 → (아래, 위) V.
-/// 220 V ±22 V는 2025-06 개정 값이다(전기신문과 법령 개정 표기가 일치, 별표 원문은 대조 전). 개정 전은 ±13 V였다.
+/// 별표 3 원문으로 확인했다. 220 V는 2025.6.13 개정(산업통상자원부령 제606호)에서 ±13 V가 ±22 V로 바뀌었다.
+/// 별표 머리의 "개정 2025. 10. 1."은 부처 이름이 바뀐 것이고 값은 같다.
 const Map<String, (double, double)> _kVoltRange = {
   '110': (104, 116),
   '220': (198, 242),
@@ -52,7 +53,7 @@ WizFlow voltageFlow() => WizFlow(
         final x = v['v'];
         if (x == null) return const WizJudge(['측정 전압을 넣으십시오.']);
         final lines = <String>[
-          '허용 범위 ${_n(r.$1, 0)}~${_n(r.$2, 0)} V (전기사업법 시행규칙 별표 3, 2025-06 개정 반영. 원문 대조 전)',
+          '허용 범위 ${_n(r.$1, 0)}~${_n(r.$2, 0)} V (전기사업법 시행규칙 별표 3, 2025.6.13 개정 반영)',
         ];
         var warn = false;
         String next;
@@ -72,7 +73,7 @@ WizFlow voltageFlow() => WizFlow(
         if (no != null && no > 0) {
           final drop = no - x;
           final pct = drop / no * 100;
-          lines.add('무부하 ${_n(no)} V → 부하 중 ${_n(x)} V: 선로·접속부에서 ${_n(drop)} V(${_n(pct, 1)} %) 떨어집니다. 저압 수전 한도는 동력 5 %, 조명 3 %입니다(KEC 232.3.9).');
+          lines.add('무부하 ${_n(no)} V → 부하 중 ${_n(x)} V: 선로·접속부에서 ${_n(drop)} V(${_n(pct, 1)} %) 떨어집니다. 저압 수전 한도는 조명 3 %, 기타 5 %입니다(KEC 표 232.3-1).');
           if (pct > 5) warn = true;
         }
         return WizJudge(lines, warn: warn, next: next);
@@ -153,7 +154,7 @@ WizFlow heatFlow() => WizFlow(
         WizField(
           'std',
           '판정 기준',
-          choices: [('neta', 'NETA·Infraspection 기준'), ('kesco', '한국전기안전공사 3상 비교 기준(2차 자료)')],
+          choices: [('neta', 'NETA 기준(FIST 4-13 표)'), ('gosi', '전기안전관리자 직무 고시 3상 비교 기준')],
           initial: 'neta',
         ),
       ],
@@ -162,7 +163,9 @@ WizFlow heatFlow() => WizFlow(
         if (dt == null) return const WizJudge(['온도 차이를 넣으십시오.']);
         final neta = (sel['std'] ?? 'neta') == 'neta';
         if (neta) {
-          // NETA MTS·Infraspection 표준 2008 §10, 미국 개척국 FIST 4-13 표(두 곳 일치): 비슷한 부품 간 ΔT.
+          // 비슷한 부품 간 ΔT: 미국 개척국 FIST 4-13(2011) 39쪽에 옮겨 실린 NETA MTS 표.
+          // FIST 표에는 우선순위 번호가 없고 3~4 K 사이가 비어 있다. 번호와 조치 글은 앱이 붙인 말이고,
+          // 3 K를 넘으면 다음 구간(4~15 K)으로 본다(안전 쪽).
           final String pr;
           final String act;
           var ok = false;
@@ -181,25 +184,29 @@ WizFlow heatFlow() => WizFlow(
             act = '중대한 결함: 즉시 수리';
           }
           return WizJudge(
-            ['비슷한 부품 사이 ΔT ${_n(dt)} K → $pr', '조치: $act (NETA MTS·FIST 4-13 표)'],
+            [
+              '비슷한 부품 사이 ΔT ${_n(dt)} K → $pr',
+              '조치: $act',
+              '구간 값은 FIST 4-13(2011) 39쪽에 실린 NETA MTS 표입니다. 표에는 우선순위 번호가 없고 3~4 K 사이가 비어 있어, 3 K를 넘으면 4~15 K 구간으로 봅니다. 번호와 조치 글은 앱에서 붙인 말입니다.',
+            ],
             warn: !ok,
             next: ok ? 'e_h_ok' : 'e_h_act',
           );
         }
         final String act;
         var ok = false;
-        if (dt < 5) {
-          act = '정상(5 K 미만)';
+        if (dt <= 5) {
+          act = '정상(5 K 이하)';
           ok = true;
         } else if (dt < 10) {
-          act = '요주의(5 K 이상 10 K 미만)';
+          act = '요주의(5 K 초과 10 K 미만)';
         } else {
           act = '이상(10 K 이상)';
         }
         return WizJudge(
           [
             '3상 사이 ΔT ${_n(dt)} K → $act',
-            '한국전기안전공사 3상 비교 판정을 옮긴 2차 자료 값입니다. NETA(15 K 초과가 즉시 수리)보다 엄격합니다.',
+            '전기안전관리자의 직무에 관한 고시 별지 제7호서식(열화상 3상 비교)의 판정입니다. NETA(15 K 초과가 즉시 수리)보다 엄격합니다.',
           ],
           warn: !ok,
           next: ok ? 'e_h_ok' : 'e_h_act',
@@ -215,7 +222,8 @@ WizFlow heatFlow() => WizFlow(
       (v, sel) {
         final dt = v['dt'];
         if (dt == null) return const WizJudge(['온도 차이를 넣으십시오.']);
-        // NETA MTS·Infraspection 표준 2008 §10, FIST 4-13: 주위 온도 대비 ΔT.
+        // 주위 온도 대비 ΔT: FIST 4-13(2011) 39쪽에 옮겨 실린 NETA MTS 표. 우선순위 번호와 조치 글은 앱이 붙인 말이고,
+        // 구간 사이(10~11 K 등)는 다음 구간으로 본다(안전 쪽).
         final String pr;
         final String act;
         var ok = false;
@@ -239,7 +247,8 @@ WizFlow heatFlow() => WizFlow(
         return WizJudge(
           [
             '주위 대비 ΔT ${_n(dt)} K → $pr',
-            '조치: $act (NETA MTS·FIST 4-13 표)',
+            '조치: $act',
+            '구간 값은 FIST 4-13(2011) 39쪽에 실린 NETA MTS 표입니다. 우선순위 번호와 조치 글은 앱에서 붙인 말입니다.',
             '부하 전류가 정격보다 낮을 때 잰 값이면 정격 부하에서는 더 높습니다.',
           ],
           warn: !ok,
@@ -416,7 +425,7 @@ WizFlow transformerFlow() => WizFlow(
           bad = bad || !ok;
         }
         if (!any) return const WizJudge(['한 가지 이상 넣으십시오.']);
-        lines.add('절연유 판정값(내압 30·20·15 kV, 산가 0.02·0.2·0.4)은 점검 자료 두 곳이 같은 2차 자료 값입니다. 원문 대조 전입니다.');
+        lines.add('절연유 판정값(내압 30·20·15 kV, 산가 0.02·0.2·0.4)은 점검 자료 두 곳이 같은 2차 자료 값입니다. 법령·고시에는 시험 항목만 있고 판정값은 없습니다. 판정값의 원문은 못 봤습니다.');
         return WizJudge(lines, warn: bad, next: bad ? 'e_x_bad' : 'e_x_ok');
       },
     ),
@@ -456,8 +465,14 @@ WizFlow capacitorFlow() => WizFlow(
       'c_meas',
       '정전용량을 잽니다',
       const [
+        WizField(
+          'size',
+          '콘덴서 용량',
+          choices: [('le100', '100 kvar 이하'), ('gt100', '100 kvar 초과')],
+          initial: 'le100',
+        ),
         WizField('rated', '정격 정전용량', unit: 'μF', hint: '명판 값(상당 한 상의 값)'),
-        WizField('cr', 'R상 측정값', unit: 'μF'),
+        WizField('cr', 'R상 측정값', unit: 'μF', hint: '삼상 콘덴서는 선간 단자 두 개씩 잰 값'),
         WizField('cs', 'S상 측정값', unit: 'μF'),
         WizField('ct', 'T상 측정값', unit: 'μF'),
       ],
@@ -466,21 +481,25 @@ WizFlow capacitorFlow() => WizFlow(
         if (rated == null || rated <= 0 || a == null || b == null || c == null) {
           return const WizJudge(['정격과 세 상의 측정값을 모두 넣으십시오.']);
         }
+        // IEC 60831-1 7.2(같은 내용의 IS 13340-1:2012로 확인): 100 kvar 이하 −5~+10 %, 초과 −5~+5 %.
+        final big = (sel['size'] ?? 'le100') == 'gt100';
+        final hi = big ? 5.0 : 10.0;
         final lines = <String>['측정 전에 반드시 방전합니다. 전원을 끊고 5분 이상 지난 뒤 단자를 단락해 잔류전하가 없는지 확인하십시오.'];
         var bad = false;
         for (final (name, x) in [('R', a), ('S', b), ('T', c)]) {
           final pct = x / rated * 100 - 100;
-          final ok = pct >= -5 && pct <= 10;
-          lines.add('$name상 ${_n(x)} μF: 정격 대비 ${pct >= 0 ? '+' : ''}${_n(pct)} % (허용 −5~+10 %) ${ok ? '정상' : '벗어남'}');
+          final ok = pct >= -5 && pct <= hi;
+          lines.add('$name상 ${_n(x)} μF: 정격 대비 ${pct >= 0 ? '+' : ''}${_n(pct)} % (허용 −5~+${_n(hi, 0)} %) ${ok ? '정상' : '벗어남'}');
           bad = bad || !ok;
         }
         final mx = [a, b, c].reduce((p, q) => p > q ? p : q);
         final mn = [a, b, c].reduce((p, q) => p < q ? p : q);
         final ratio = mx / mn * 100;
         final rok = ratio <= 108;
-        lines.add('세 상 최대 ÷ 최소 = ${_n(mx)} ÷ ${_n(mn)} = ${_n(ratio, 1)} % (108 % 이하) ${rok ? '정상' : '벗어남'}');
+        lines.add('세 값 최대 ÷ 최소 = ${_n(mx)} ÷ ${_n(mn)} = ${_n(ratio, 1)} % (108 % 이하) ${rok ? '정상' : '벗어남'}');
         bad = bad || !rok;
-        lines.add('허용 범위는 콘덴서 점검 자료와 전기안전관리규정 두 곳이 같은 2차 자료 값입니다. 원문 대조 전입니다.');
+        lines.add('허용 범위는 IEC 60831-1 7.2의 제작 시험 한도입니다(100 kvar 이하 −5~+10 %, 100 kvar 초과 −5~+5 %). 공장 출하 때의 한도라 현장 점검에서는 참고로 쓰십시오.');
+        lines.add('108 %는 삼상 콘덴서의 선간 단자 두 개씩 잰 정전용량의 최대 ÷ 최소 한도입니다(IEC 60831-1 7.2).');
         return WizJudge(lines, warn: bad, next: bad ? 'e_c_bad' : 'e_c_ok');
       },
     ),
@@ -504,7 +523,7 @@ WizFlow capacitorFlow() => WizFlow(
       ],
       actions: [
         '외관을 확인합니다. 팽창·누액이 있으면 교체합니다.',
-        '단자 온도가 75 ℃ 이상이면 접속부를 점검합니다(열화상).',
+        '단자 온도가 75 ℃ 이상이면 접속부를 점검합니다(열화상). 75 ℃는 점검 자료의 참고 값이고 원문은 못 봤습니다.',
         '교체를 검토하고, 고조파가 많은 설비면 직렬 리액터 등 대책을 설계 단계에서 검토합니다.',
       ],
       links: [('역률 개선 탭', _tabPf)],

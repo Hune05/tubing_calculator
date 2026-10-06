@@ -6,7 +6,7 @@ import 'dart:math' as math;
 
 // ─────────────── 권선 온도 상승(저항법) ───────────────
 
-/// 저항법 온도 계수: 구리 234.5, 알루미늄 225(IEEE 112 5.2.1).
+/// 저항법 온도 계수: 구리 234.5, 알루미늄 225(IEEE 112 5.2.1). IEC 60034-1은 구리 235, 알루미늄 225를 쓴다.
 double windingK(bool aluminum) => aluminum ? 225 : 234.5;
 
 class WindingTemp {
@@ -253,24 +253,38 @@ double? dcSpeedAfter({
 // ─────────────── 절연 등급 ───────────────
 
 /// 절연 등급(열적 등급) 하나. [maxC]는 IEC 60085 표 1의 최고 연속 사용 온도(원문 확인).
-/// [riseK]는 IEC 60034-1 저항법 온도 상승 한계(주위 40℃, 해발 1000 m 이하): 2차 자료 일치.
+/// [riseK]는 IEC 60034-1:2010 표 7 항목 1a~1c 저항법 온도 상승 한계(주위 40℃, 해발 1000 m 이하, 원문 확인).
+/// 600 W 미만 기계(1d)와 팬 없는 자냉식 IC40·봉입 권선 기계(1e)는 B 85·F 110·H 130 K다([riseKSmall]).
+/// A·E급은 IEC 60034-1:2010 표 7에 없어 목록에서 뺐다.
 class InsulationClass {
-  const InsulationClass(this.name, this.maxC, this.riseK, this.note);
+  const InsulationClass(this.name, this.maxC, this.riseK, this.note, {this.riseKSmall});
   final String name;
   final double maxC;
 
   /// 저항법 온도 상승 한계(K). 값을 확인하지 못했으면 null.
   final double? riseK;
+
+  /// 600 W 미만 기계·IC40 자냉식·봉입 권선 기계(IEC 60034-1:2010 표 7 1d·1e)의 한계(K). 없으면 null.
+  final double? riseKSmall;
   final String note;
 }
 
 const List<InsulationClass> kInsulation = [
-  InsulationClass('A', 105, 60, ''),
-  InsulationClass('E', 120, 75, '독립 확인이 부족한 값입니다.'),
-  InsulationClass('B', 130, 80, ''),
-  InsulationClass('F', 155, 105, '한 자료는 100 K로 적었습니다.'),
-  InsulationClass('H', 180, 125, ''),
-  InsulationClass('N', 200, null, '온도 상승 한계를 확인하지 못했습니다.'),
+  InsulationClass('B', 130, 80, '', riseKSmall: 85),
+  InsulationClass(
+    'F',
+    155,
+    105,
+    '100 K라고 적은 자료는 IEC 60034-1 표 7 항목 4c(저항이 작은 계자 권선)의 값입니다. 일반 교류 권선은 105 K입니다.',
+    riseKSmall: 110,
+  ),
+  InsulationClass('H', 180, 125, '', riseKSmall: 130),
+  InsulationClass(
+    'N',
+    200,
+    null,
+    '온도 상승 한계를 확인하지 못했습니다(IEC 60034-1:2010 표 7에 없고, 2017판에 200(N)급이 더해졌다는 것까지만 확인).',
+  ),
 ];
 
 /// 등급 이름으로 찾기. 없으면 null.

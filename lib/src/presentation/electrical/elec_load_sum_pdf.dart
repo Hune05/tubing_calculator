@@ -1,5 +1,5 @@
 // 부하 계산서(PDF, A4). 부하 표(번호·이름·설비용량·수용률·역률·최대수요 kW·kvar·kVA), 합계·부등률·여유·
-// 필요 kVA·2차 정격전류·선정 용량·부하율, 작성·검토·승인 서명 칸.
+// 필요 kVA·2차 정격전류·선정 용량·변압기 이용률, 작성·검토·승인 서명 칸.
 // 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
 
@@ -150,7 +150,7 @@ Future<Uint8List> buildLoadSumPdf(
       r.selectedKva == null ? '입력하지 않음' : '${fmt(r.selectedKva!, 1)} kVA',
       false,
     ),
-    ('부하율', r.loadPct == null ? '' : '${fmt(r.loadPct!, 1)} %', pass == false),
+    ('변압기 이용률', r.loadPct == null ? '' : '${fmt(r.loadPct!, 1)} %', pass == false),
   ];
 
   final doc = pw.Document(theme: fonts.theme);
@@ -253,7 +253,7 @@ Future<Uint8List> buildLoadSumPdf(
                       style: const pw.TextStyle(fontSize: 10, color: _label),
                     ),
                     pw.Text(
-                      pass ? '합격 (부하율 100% 이하)' : '불합격 (부하율 100% 초과)',
+                      pass ? '합격 (변압기 이용률 100% 이하)' : '불합격 (변압기 이용률 100% 초과)',
                       style: pw.TextStyle(
                         fontSize: 14,
                         fontWeight: pw.FontWeight.bold,
@@ -301,6 +301,7 @@ Future<Uint8List> buildLoadSumPdf(
         pw.Text(
           '최대수요 = 설비용량 × 수용률. 필요 변압기 용량 = 최대수요 kVA ÷ 부등률 × (1 + 여유). '
           '줄마다 유효전력 P와 무효전력 Q(= P × tanφ)를 더해 kVA를 구했습니다. '
+          '변압기 이용률 = 필요 용량 ÷ 선정 용량(평균 ÷ 최대인 부하율과는 다른 값). '
           '최종 선정은 설계 기준과 제조사 자료를 따릅니다.',
           style: const pw.TextStyle(fontSize: 8, color: _grey),
         ),

@@ -184,7 +184,7 @@ void main() {
     expect(find.byKey(const Key('ts_end_e_v_low')), findsOneWidget); // 220 V는 380 V 기준으로 낮음
   });
 
-  testWidgets('열화상: NETA 비슷한 부품 ΔT 구간, 안전공사 기준, 주위 대비', (tester) async {
+  testWidgets('열화상: NETA 비슷한 부품 ΔT 구간, 직무 고시 기준(5 K 이하 정상), 주위 대비', (tester) async {
     await _open(tester, 'heat');
     await _tap(tester, 'ts_opt_h0_0');
     await _type(tester, 'ts_in_h_sim_dt', '2');
@@ -196,11 +196,18 @@ void main() {
     expect(_all(tester), contains('우선순위 1 (15 K 초과)'));
     await _type(tester, 'ts_in_h_sim_dt', '0.5');
     expect(find.byKey(const Key('ts_end_e_h_ok')), findsOneWidget);
-    await _tap(tester, 'ts_sel_h_sim_std_kesco');
+    await _tap(tester, 'ts_sel_h_sim_std_gosi');
     await _type(tester, 'ts_in_h_sim_dt', '7');
-    expect(_all(tester), contains('요주의(5 K 이상 10 K 미만)'));
+    expect(_all(tester), contains('요주의(5 K 초과 10 K 미만)'));
+    expect(_all(tester), contains('별지 제7호서식'));
     await _type(tester, 'ts_in_h_sim_dt', '3');
     expect(find.byKey(const Key('ts_end_e_h_ok')), findsOneWidget);
+    // 고시는 "5 ℃ 이하 정상"이라 딱 5 K는 정상이다.
+    await _type(tester, 'ts_in_h_sim_dt', '5');
+    expect(_all(tester), contains('정상(5 K 이하)'));
+    expect(find.byKey(const Key('ts_end_e_h_ok')), findsOneWidget);
+    await _type(tester, 'ts_in_h_sim_dt', '10');
+    expect(_all(tester), contains('이상(10 K 이상)'));
     // 주위 대비
     await _tap(tester, 'ts_opt_h0_1');
     await _type(tester, 'ts_in_h_amb_dt', '30');
@@ -237,6 +244,14 @@ void main() {
     await _type(tester, 'ts_in_c_meas_cr', '90');
     expect(find.byKey(const Key('ts_end_e_c_bad')), findsOneWidget);
     expect(_all(tester), contains('−5~+10 %'));
+    // 100 kvar 초과는 −5~+5 %: +7 %면 벗어난다.
+    await _type(tester, 'ts_in_c_meas_cr', '100');
+    await _type(tester, 'ts_in_c_meas_cs', '100');
+    await _type(tester, 'ts_in_c_meas_ct', '107');
+    expect(find.byKey(const Key('ts_end_e_c_ok')), findsOneWidget);
+    await _tap(tester, 'ts_sel_c_meas_size_gt100');
+    expect(_all(tester), contains('허용 −5~+5 %'));
+    expect(find.byKey(const Key('ts_end_e_c_bad')), findsOneWidget);
   });
 
   testWidgets('조명: 증상 고르면 바로 점검 순서가 나온다', (tester) async {

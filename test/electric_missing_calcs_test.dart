@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/mi_tables.dart';
 import 'formula_flat.dart';
 
 Future<void> _open(WidgetTester tester, String tab) async {
@@ -39,6 +40,20 @@ String _all(WidgetTester tester) => tester
 void main() {
   setUpAll(expandFormulaCards);
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('미네랄 절연 표: 접촉 가능한 나선은 70 ℃ 표 × 0.9, PVC 피복·105 ℃는 표 그대로', () {
+    double? a(MiSheath s, MiMethod m, double mm2, int col) =>
+        miAmpacity(method: m, sheath: s, v750: true, mm2: mm2, col: col);
+    expect(a(MiSheath.t70, MiMethod.c, 16, 1), 86);
+    expect(a(MiSheath.t70bare, MiMethod.c, 16, 1), closeTo(77.4, 1e-9));
+    expect(a(MiSheath.t70bare, MiMethod.efg, 240, 4), closeTo(565 * 0.9, 1e-9));
+    expect(a(MiSheath.t105, MiMethod.c, 16, 1), 107);
+    // ГОСТ과 다른 두 칸은 앱 값을 둔다(IEC 원문 확인 전).
+    expect(a(MiSheath.t105, MiMethod.c, 16, 2), 119);
+    expect(a(MiSheath.t105, MiMethod.efg, 25, 0), 179);
+    expect(miRows(method: MiMethod.c, sheath: MiSheath.t70bare, v750: true),
+        same(miRows(method: MiMethod.c, sheath: MiSheath.t70, v750: true)));
+  });
 
   testWidgets('역률 구하기: 9.5 kW 380 V 18 A 삼상 → 0.802, kW·kVA 80/100 → 0.8', (tester) async {
     await _open(tester, 'ec_tab_basic');
@@ -132,6 +147,13 @@ void main() {
     expect(flat(t), contains(flat('= 25.2 kvar')));
     expect(flat(t), contains(flat('합계 = 36.54 kvar')));
     expect(t, contains('무부하 11.3 kvar, 전부하 35.7 kvar'));
+    expect(t, contains('Schneider Electric Electrical Installation Guide L장 그림 L22'));
+    // 원문은 "1차 20 kV 배전용 변압기"라고만 적는다(유입식이라고 하지 않는다).
+    final l22 = t.split('\n').where((l) => l.contains('그림 L22')).toList();
+    expect(l22, isNotEmpty);
+    for (final l in l22) {
+      expect(l, isNot(contains('유입')));
+    }
     await _type(tester, 'ec_tp_load', '50');
     t = _all(tester);
     expect(flat(t), contains(flat('= 6.3 kvar')));
@@ -152,6 +174,20 @@ void main() {
     await _tap(tester, 'ec_mi_500');
     t = _all(tester);
     expect(t, contains('표의 가장 큰 단면적(4 mm², 64 A)으로도 모자랍니다'));
+  });
+  testWidgets('미네랄 절연: 접촉 가능한 나선은 70 °C 표 × 0.9(표 B.52.6 주 2), 16 mm² 86 → 77.4 A', (tester) async {
+    await _open(tester, 'ec_tab_cable');
+    await _type(tester, 'ec_mi_amps', '100');
+    await _tap(tester, 'ec_mi_t70bare');
+    final t = _all(tester);
+    expect(flat(t), contains(flat('16 mm² : 86 × 0.9 = 77.4 A')));
+    // 25 mm² 112 × 0.9 = 100.8 A ≥ 100 A.
+    expect(t, contains('가장 작은 단면적: 25 mm² (허용 100.8 A)'));
+    expect(flat(t), contains(flat('허용전류 = 표 값 × 0.9 (표 B.52.6 주 2')));
+    expect(t, contains('외피 70 ℃(접촉 가능한 나선, 표 값 × 0.9)'));
+    // 원문 확인이 남은 두 칸을 적어 둔다.
+    expect(t, contains('110 A·170 A'));
+    expect(t, isNot(contains('원문 대조 전')));
   });
   testWidgets('미네랄 절연 선택은 위쪽 부하 전류를 넣어도 풀리지 않는다', (tester) async {
     await _open(tester, 'ec_tab_cable');

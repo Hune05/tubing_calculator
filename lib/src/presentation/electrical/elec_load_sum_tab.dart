@@ -598,7 +598,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
       warn = pass == false;
       summary =
           '최대수요 ${fmt(r.demandKw, 1)} kW · 필요 ${fmt(r.requiredKva, 1)} kVA'
-          '${pass == null ? '' : ' · 부하율 ${fmt(r.loadPct!, 1)}% ${pass ? '합격' : '불합격'}'}';
+          '${pass == null ? '' : ' · 변압기 이용률 ${fmt(r.loadPct!, 1)}% ${pass ? '합격' : '불합격'}'}';
       result = calcResult(solve: true, 
         key: const Key('els_result'),
         big: '${fmt(r.requiredKva, 1)} kVA',
@@ -623,14 +623,13 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
           else
             '필요 용량이 1000 kVA를 넘어 표준 용량 후보를 정하지 않았습니다. 제조사 표준품을 확인하십시오.',
           if (pass == null)
-            '선정 변압기 용량(kVA)을 넣으면 부하율과 합격/불합격을 판정합니다.'
+            '선정 변압기 용량(kVA)을 넣으면 변압기 이용률과 합격/불합격을 판정합니다.'
           else ...[
-            '⑤ 부하율 = 필요 용량 ÷ 선정 용량 × 100 = ${fmt(r.requiredKva, 1)} ÷ ${fmt(r.selectedKva!, 1)} × 100 = ${fmt(r.loadPct!, 1)}%: ${pass ? '합격(100% 이하)' : '불합격(100% 초과)'}',
+            '⑤ 변압기 이용률 = 필요 용량 ÷ 선정 용량 × 100 = ${fmt(r.requiredKva, 1)} ÷ ${fmt(r.selectedKva!, 1)} × 100 = ${fmt(r.loadPct!, 1)}%: ${pass ? '합격(100% 이하)' : '불합격(100% 초과)'}',
             if (r.marginPct > 0)
-              '여유를 뺀 부하율 = S ÷ 부등률 ÷ 선정 용량 × 100 = ${fmt(r.demandKva, 1)} ÷ ${fmt(r.diversity, 2)} ÷ ${fmt(r.selectedKva!, 1)} × 100 = ${fmt(r.loadPctNoMargin!, 1)}%',
+              '여유를 뺀 변압기 이용률 = S ÷ 부등률 ÷ 선정 용량 × 100 = ${fmt(r.demandKva, 1)} ÷ ${fmt(r.diversity, 2)} ÷ ${fmt(r.selectedKva!, 1)} × 100 = ${fmt(r.loadPctNoMargin!, 1)}%',
             if (!pass) '선정 용량이 필요 용량보다 작습니다. 더 큰 용량을 선정하십시오.',
           ],
-          '참고(원문 대조 전): 부하율 60~80%를 적정으로 보는 설명이 있습니다. 2차 자료입니다.',
         ],
       );
     }
@@ -718,7 +717,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         'els_selected',
         '선정 변압기 용량 (kVA, 선택)',
         _selected,
-        '실제로 선정한 변압기 용량입니다. 넣으면 부하율과 합격/불합격을 판정합니다.',
+        '실제로 선정한 변압기 용량입니다. 넣으면 변압기 이용률(필요 용량 ÷ 선정 용량)과 합격/불합격을 판정합니다.',
       ),
       const SizedBox(height: 4),
       result,
@@ -755,9 +754,10 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         '최대수요 kVA = √((ΣP)² + (ΣQ)²). 종합 역률 = ΣP ÷ 최대수요 kVA.',
         '필요 변압기 용량 [kVA] = 최대수요 kVA ÷ 부등률 × (1 + 여유). 역률이 한 값이면 Σ(설비용량×수용률) ÷ (부등률×역률)과 같습니다.',
         '2차 정격전류 [A] = 필요 용량[kVA] × 1000 ÷ (√3 × 2차 전압[V]). 단상이면 √3을 뺍니다.',
-        '부하율 = 필요 용량 ÷ 선정 용량. 100% 초과면 불합격입니다.',
-        '식과 용어(수용률·부등률)는 국내 전기 설계 자료의 통용 식입니다. 조항 원문 대조 전(2차 자료)입니다.',
-        '부하율 60~80% 적정이라는 설명도 2차 자료라 원문 대조 전입니다. 판정에는 쓰지 않았습니다.',
+        '변압기 이용률 = 필요 용량 ÷ 선정 용량. 100% 초과면 불합격입니다. 표준 용어인 부하율(평균 수요 ÷ 최대 수요, IEC 60050 IEV 691-10-02)과는 다른 값입니다.',
+        '수용률(부하설비 용량 합계에 대한 최대수요전력의 비율)은 건축물의 에너지절약설계기준 제5조 제12호 라목의 정의입니다.',
+        '부등률(각 부하 최대수요의 합 ÷ 합성 최대수요)은 IEC 60050 IEV 691-10-04의 정의입니다(691-10-03 동시율의 역수).',
+        '필요 변압기 용량 식은 규정 원문에 식으로 실려 있지 않습니다. 규정은 "수용률·여유율 등을 고려하여 산정"한다고만 적고, 이 식은 위 수용률·부등률 정의에 장래 증설 여유를 곱한 것입니다.',
         '표준 변압기 용량 목록은 KS 원문이나 제조사 카탈로그 두 곳으로 확인하지 못해 넣지 않았습니다. 선정 용량은 직접 입력합니다.',
         '수용률·부등률·역률의 기본값은 정하지 않았습니다. 설계 기준서나 부하 자료에 맞춰 직접 넣으십시오.',
       ]),

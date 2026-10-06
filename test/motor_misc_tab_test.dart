@@ -150,7 +150,11 @@ void insulationUiGroup() {
     await tester.pumpAndSettle();
     await _tap(tester, 'mm_sec_insul');
     var t = _all(tester);
-    expect(t, contains('등급 F: 최고 연속 사용 온도 155 ℃(IEC 60085 표 1), 저항법 온도 상승 한계 105 K'));
+    expect(t, contains('등급 F: 최고 연속 사용 온도 155 ℃(IEC 60085 표 1), 저항법 온도 상승 한계 105 K(IEC 60034-1:2010 표 7'));
+    expect(t, contains('한계가 110 K입니다(같은 표 항목 1d·1e)'));
+    expect(t, contains('항목 4c'));
+    expect(find.byKey(const Key('mm_cls_A')), findsNothing);
+    expect(find.byKey(const Key('mm_cls_E')), findsNothing);
     await _type(tester, 'mm_irise', '90');
     t = _all(tester);
     expect(flat(t), contains(flat('= 130 ℃')));

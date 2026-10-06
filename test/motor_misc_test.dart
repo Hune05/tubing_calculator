@@ -134,14 +134,21 @@ void main() {
 
 void insulationGroup() {
   group('절연 등급', () {
-    test('등급 온도: A 105, E 120, B 130, F 155, H 180, N 200 (IEC 60085 표 1)', () {
+    test('등급 온도: B 130, F 155, H 180, N 200 (IEC 60085 표 1). A·E는 IEC 60034-1:2010 표 7에 없어 뺐다', () {
       expect({for (final c in kInsulation) c.name: c.maxC}, {
-        'A': 105, 'E': 120, 'B': 130, 'F': 155, 'H': 180, 'N': 200,
+        'B': 130, 'F': 155, 'H': 180, 'N': 200,
+      });
+      expect(insulationByName('A'), isNull);
+      expect(insulationByName('E'), isNull);
+    });
+    test('온도 상승 한계(저항법, IEC 60034-1:2010 표 7 1a~1c): B 80, F 105, H 125, N 없음', () {
+      expect({for (final c in kInsulation) c.name: c.riseK}, {
+        'B': 80, 'F': 105, 'H': 125, 'N': null,
       });
     });
-    test('온도 상승 한계(저항법): A 60, E 75, B 80, F 105, H 125, N 없음', () {
-      expect({for (final c in kInsulation) c.name: c.riseK}, {
-        'A': 60, 'E': 75, 'B': 80, 'F': 105, 'H': 125, 'N': null,
+    test('600 W 미만·IC40·봉입 권선(표 7 1d·1e): B 85, F 110, H 130', () {
+      expect({for (final c in kInsulation) c.name: c.riseKSmall}, {
+        'B': 85, 'F': 110, 'H': 130, 'N': null,
       });
     });
     test('F급 상승 90 K, 주위 40℃ → 권선 130℃, 마진 25 K, 한계 여유 15 K, 수명 약 5.7배', () {

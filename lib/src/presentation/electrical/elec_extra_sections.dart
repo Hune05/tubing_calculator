@@ -58,7 +58,7 @@ class _TransformerPfSectionState extends State<TransformerPfSection>
       final t = kTransformerL22[s.round()];
       if (t != null && (s - s.round()).abs() < 1e-9) {
         lines.add(
-          '참고 표(Schneider EIG 그림 L22, 20 kV 1차 유입식): 무부하 ${fmt(t[0], 1)} kvar, 전부하 ${fmt(t[1], 1)} kvar(무부하분 포함)',
+          '참고 표(Schneider Electric Electrical Installation Guide L장 그림 L22, 1차 20 kV 배전용 변압기): 무부하 ${fmt(t[0], 1)} kvar, 전부하 ${fmt(t[1], 1)} kvar(무부하분 포함)',
         );
       }
     }
@@ -94,8 +94,9 @@ class _TransformerPfSectionState extends State<TransformerPfSection>
         ),
         const SizedBox(height: 6),
         Text(
-          '근거: Schneider Electric Installation Guide 6장 6.2절(무부하 약 1.8 %, 누설 S·usc·부하율²). '
-          '원문 한 곳 기준이며 한국 규정 원문과 대조 전입니다.',
+          '근거: Schneider Electric Electrical Installation Guide L장 "변압기가 흡수하는 무효전력의 보상"'
+          '(자화분 약 1.8 %로 거의 일정, 누설분은 부하율의 제곱에 비례)과 그림 L22(1차 20 kV 배전용 변압기 12개 용량, 원문 값과 일치). '
+          '한국 규정 원문과는 대조하지 않았습니다.',
           style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
         ),
       ],
@@ -142,25 +143,38 @@ class _MiCableSectionState extends State<MiCableSection>
     final cols = _method == MiMethod.c ? kMiColsC : kMiColsEfg;
     final col = _col.clamp(0, cols.length - 1);
     final rows = miRows(method: _method, sheath: _sheath, v750: _v750);
+    final f = _sheath.factor;
+    final bare = _sheath == MiSheath.t70bare;
+    // 접촉 가능한 나선은 표 값 × 0.9(표 B.52.6·B.52.8 주 2).
+    double amps(MiRow r) => r.amps[col] * f;
+    String ampsText(MiRow r) =>
+        bare ? '${r.amps[col]} × 0.9 = ${fmt(amps(r), 1)} A' : '${r.amps[col]} A';
     final need = readNum(_amps);
     MiRow? pick;
     if (need != null && need > 0) {
       for (final r in rows) {
-        if (r.amps[col] >= need) {
+        if (amps(r) >= need) {
           pick = r;
           break;
         }
       }
     }
+    final sheathText = switch (_sheath) {
+      MiSheath.t70 => '외피 70 ℃(PVC 피복)',
+      MiSheath.t70bare => '외피 70 ℃(접촉 가능한 나선, 표 값 × 0.9)',
+      MiSheath.t105 => '외피 105 ℃(접촉하지 않는 나선)',
+    };
     final lines = <String>[
       if (need != null && need > 0)
         pick != null
-            ? '필요 전류 ${_sig(need)} A 이상인 가장 작은 단면적: ${fmt(pick.mm2, 1)} mm² (허용 ${pick.amps[col]} A)'
-            : '표의 가장 큰 단면적(${fmt(rows.last.mm2, 0)} mm², ${rows.last.amps[col]} A)으로도 모자랍니다. 병렬이나 다른 방식을 검토하십시오.',
-      '${_v750 ? '750 V' : '500 V'} 케이블, ${_sheath == MiSheath.t70 ? '외피 70 ℃(PVC 피복 또는 접촉 가능한 나선)' : '외피 105 ℃(접촉하지 않는 나선)'}, ${_method == MiMethod.c ? '포설 방법 C' : '포설 방법 E·F·G'}, 열: ${cols[col]}',
-      for (final r in rows) '${fmt(r.mm2, 1)} mm² : ${r.amps[col]} A',
+            ? '필요 전류 ${_sig(need)} A 이상인 가장 작은 단면적: ${fmt(pick.mm2, 1)} mm² (허용 ${fmt(amps(pick), 1)} A)'
+            : '표의 가장 큰 단면적(${fmt(rows.last.mm2, 0)} mm², ${fmt(amps(rows.last), 1)} A)으로도 모자랍니다. 병렬이나 다른 방식을 검토하십시오.',
+      '${_v750 ? '750 V' : '500 V'} 케이블, $sheathText, ${_method == MiMethod.c ? '포설 방법 C' : '포설 방법 E·F·G'}, 열: ${cols[col]}',
+      if (bare)
+        '허용전류 = 표 값 × 0.9 (표 ${_method == MiMethod.c ? 'B.52.6' : 'B.52.8'} 주 2: 사람이 닿을 수 있는 나선)',
+      for (final r in rows) '${fmt(r.mm2, 1)} mm² : ${ampsText(r)}',
       '주위 온도 30 ℃ 기준 표 값입니다. 온도·묶음 보정은 이 표에 반영하지 않았습니다.',
-      '나도체(외피 없는 MI)는 접촉하지 않는 곳이면 105 ℃ 표를, 접촉할 수 있으면 70 ℃ 표를 쓰십시오.',
+      '나도체(외피 없는 MI)는 사람이 닿지 않는 곳이면 105 ℃ 표를, 닿을 수 있으면 70 ℃ 표에 0.9를 곱해 씁니다.',
     ];
 
     return Column(
@@ -169,13 +183,19 @@ class _MiCableSectionState extends State<MiCableSection>
         const SizedBox(height: 4),
         _group(
           '외피',
-          '손이 닿을 수 있는 곳이나 PVC 피복이면 70 ℃, 사람이 닿지 않고 가연물과도 떨어진 나선이면 105 ℃ 표를 씁니다.',
+          'PVC 피복이면 70 ℃ 표, 피복 없는 나선이 손에 닿을 수 있으면 70 ℃ 표 × 0.9, 사람이 닿지 않고 가연물과도 떨어진 나선이면 105 ℃ 표를 씁니다.',
           [
             calcChip(
               'ec_mi_t70',
-              '70 ℃ (PVC·접촉 가능)',
+              '70 ℃ PVC 피복',
               _sheath == MiSheath.t70,
               () => setState(() => _sheath = MiSheath.t70),
+            ),
+            calcChip(
+              'ec_mi_t70bare',
+              '70 ℃ 접촉 가능한 나선(×0.9)',
+              _sheath == MiSheath.t70bare,
+              () => setState(() => _sheath = MiSheath.t70bare),
             ),
             calcChip(
               'ec_mi_t105',
@@ -222,8 +242,9 @@ class _MiCableSectionState extends State<MiCableSection>
         ),
         const SizedBox(height: 6),
         Text(
-          '근거: IEC 60364-5-52 부속서 B 표 B.52.6~B.52.9(구리 도체·구리 외피). 원문 표는 확인하지 못했고 '
-          '두 곳의 2차 자료(TiSoft, 승위·Wrexham 제조사 자료)가 일치하는 값입니다. 2차 자료·원문 대조 전입니다.',
+          '근거: IEC 60364-5-52:2009 부속서 B 표 B.52.6~B.52.9(구리 도체·구리 외피). 같은 내용의 ГОСТ Р 50571.5.52-2011 표와 '
+          '288칸 중 286칸이 일치합니다. 외피 70 ℃·105 ℃ 구분은 KEC 표 232.5-1과도 같습니다.\n'
+          '$kMiUnconfirmedNote',
           style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
         ),
       ],

@@ -64,6 +64,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
   final _cellMin = TextEditingController();
   final _cells = TextEditingController();
   final _minBus = TextEditingController();
+  final _lineDrop = TextEditingController();
 
   List<(TextEditingController, String)> get _texts => [
     (_maint, 'maint'),
@@ -76,6 +77,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
     (_cellMin, 'cellMin'),
     (_cells, 'cells'),
     (_minBus, 'minBus'),
+    (_lineDrop, 'lineDrop'),
   ];
 
   Timer? _saveTimer;
@@ -388,11 +390,13 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
       cellMin: _read(_cellMin, '셀당 최저 전압', bad),
       cells: _read(_cells, '셀 수', bad),
       minBusVolts: _read(_minBus, '부하 최저 허용 전압', bad),
+      lineDropVolts: _read(_lineDrop, '선로 전압강하', bad),
     );
     final empty = !anyStep && bad.isEmpty;
     final r = calcBattery(input);
     final errors = [...bad, if (bad.isEmpty) ...r.errors];
     final sba = _method == BatteryMethod.sba;
+    final vc = input.lineDropVolts ?? 0;
 
     Widget result;
     String? summary;
@@ -448,12 +452,17 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
             '④ 셀 수 계산값: ${fmt(input.busVolts!, 1)} V ÷ ${fmt(input.cellNominal!, 2)} V = ${fmt(r.cellRatio!, 2)}셀'
                 '${r.cellRatio! == r.cellRatio!.roundToDouble() ? '' : ' (정수가 아니므로 제조사와 계통 기준으로 셀 수를 정하십시오)'}',
           if (r.endVolts != null)
-            '⑤ 방전 종지 모선 전압: ${fmt(input.cells!, 0)}셀 × ${fmt(input.cellMin!, 2)} V = ${fmt(r.endVolts!, 1)} V'
+            '${vc > 0 ? '⑤ 방전 종지 부하 쪽 전압 = 셀 수 × 셀당 최저 전압 − 선로 전압강하 = '
+                    '${fmt(input.cells!, 0)}셀 × ${fmt(input.cellMin!, 2)} V − ${fmt(vc, 2)} V = ${fmt(r.loadEndVolts!, 1)} V' : '⑤ 방전 종지 모선 전압 = 셀 수 × 셀당 최저 전압 = '
+                    '${fmt(input.cells!, 0)}셀 × ${fmt(input.cellMin!, 2)} V = ${fmt(r.endVolts!, 1)} V'}'
                 '${r.endVoltsPass == null
                     ? ''
                     : r.endVoltsPass!
                     ? ', 부하 최저 허용 ${fmt(input.minBusVolts!, 1)} V 이상이라 합격'
                     : ', 부하 최저 허용 ${fmt(input.minBusVolts!, 1)} V 미만이라 불합격'}',
+          if (r.cellMinNeeded != null)
+            'SBA S 0601 4.3: 셀당 최저 전압 Vd = (부하 최저 허용 전압 + 선로 전압강하) ÷ 셀 수 = '
+                '(${fmt(input.minBusVolts!, 1)} + ${fmt(vc, 2)}) ÷ ${fmt(input.cells!, 0)} = ${fmt(r.cellMinNeeded!, 3)} V 이상이어야 합니다.',
           '최종 선정은 제조사 방전 특성표와 설계 기준으로 확인하십시오.',
         ],
       );
@@ -464,7 +473,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
         '방식',
         'SBA S 0601: 최저 온도 기준 K를 쓰고 보수율 L로 나눕니다.\n'
             'IEEE 485: 25°C 기준 K를 쓰고 온도 보정계수, 설계 여유, 노화계수를 곱합니다.\n'
-            '두 방식은 온도와 노화를 반영하는 순서가 다르며, 같은 조건이면 결과가 같다고 소개하는 논문이 있습니다(2차 자료).',
+            '두 방식은 온도와 노화를 반영하는 순서가 다르며, 같은 조건이면 결과가 같다고 소개하는 논문이 있습니다(초록만 확인).',
         [
           for (final m in BatteryMethod.values)
             calcChip('eb_method_${m.name}', m.label, _method == m, () {
@@ -518,26 +527,27 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
           'eb_maint',
           '보수율 (L)',
           _maint,
-          '수명이 지나도 부하를 받치기 위한 비율입니다. 국내 자료에서 보통 0.8을 씁니다. 0 초과 1 이하로 넣으십시오.',
+          '수명이 지나도 부하를 받치기 위한 비율입니다. SBA S 0601-1996(4.1)은 0.8을 씁니다. 0 초과 1 이하로 넣으십시오.',
         )
       else ...[
         elecField(
           'eb_temp',
           '온도 보정계수',
           _temp,
-          '최저 전해액 온도가 25°C보다 낮을 때 곱합니다. 강의 자료 한 곳이 IEEE 485 표 1 값으로 소개한 것은 4.4°C 1.30, 10°C 1.19, 15.6°C 1.11, 21.1°C 1.04, 25°C 1.00입니다(원문 대조 전). 제조사 표가 있으면 그 값을 넣으십시오.',
+          '최저 전해액 온도가 25°C보다 낮을 때 곱합니다. IEEE 485 표 1 값은 4.4°C 1.30, 10°C 1.19, 15.6°C 1.11, 21.1°C 1.04, 25°C 1.00입니다(미국 국방부 TSEWG TP-4에 실린 표로 확인). '
+              '이 표는 비중 1.215 개방형(벤트형) 연축전지에만 씁니다. 제어밸브식(VRLA)과 니켈카드뮴 축전지는 제조사 값을 넣으십시오.',
         ),
         elecField(
           'eb_margin',
           '설계 여유 (%)',
           _margin,
-          '부하 증설 등에 두는 비율입니다. 자료마다 10~15%, 10~25%로 다르게 소개합니다. 설계 기준으로 정하고 없으면 0을 넣으십시오.',
+          '부하 증설 등에 두는 비율입니다. IEEE 485는 10~15%를 권합니다(TSEWG TP-4에 실린 설명으로 확인). 설계 기준으로 정하고 없으면 0을 넣으십시오.',
         ),
         elecField(
           'eb_aging',
           '노화계수',
           _aging,
-          '1.25는 수명 끝에 용량이 80%로 줄어도 부하를 받치기 위한 값입니다. IEEE 485를 소개한 자료 여러 곳이 같은 값을 적었습니다(2차 자료).',
+          '1.25는 수명 끝에 용량이 80%로 줄어도 부하를 받치기 위한 값입니다. IEEE 485의 값입니다(TSEWG TP-4에 실린 설명으로 확인).',
         ),
       ],
       elecField(
@@ -589,17 +599,25 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
         _minBus,
         '직류 부하가 견디는 최저 모선 전압입니다. 넣으면 방전 종지 전압과 비교해 합격/불합격을 판정합니다.',
       ),
+      elecField(
+        'eb_linedrop',
+        '축전지~부하 선로 전압강하 (V, 선택)',
+        _lineDrop,
+        '축전지 단자에서 부하까지 전선에서 떨어지는 전압입니다. 넣으면 셀 수 × 셀당 최저 전압에서 이 값을 빼고 부하 최저 허용 전압과 비교합니다(SBA S 0601 4.3). 비우면 0입니다.',
+      ),
       const SizedBox(height: 12),
       result,
       if (r.ok && errors.isEmpty) _sectionTable(r),
       elecBasis('eb_basis', [
         '식: 구간 s의 용량 = Σ (Ap − Ap-1) × K(단계 p 시작부터 구간 s 끝까지의 시간). 구간 용량의 최댓값을 씁니다.',
-        'SBA S 0601: C = (1 ÷ L) × [K1×I1 + K2×(I2 − I1) + K3×(I3 − I2) + …]. L은 보수율(보통 0.8), K는 방전 시간·최저 온도·최저 전압으로 정해집니다.',
-        'IEEE 485(KEPIC EEG 1200): 구간 최댓값 × 온도 보정계수 × 설계 여유 ÷ 노화 비율(0.8, 곱으로는 1.25). K는 25°C 기준입니다.',
+        'SBA S 0601-1996(3.1 용어, 4.1 용량 산출): C = (1 ÷ L) × [K1×I1 + K2×(I2 − I1) + K3×(I3 − I2) + …]. L은 보수율 0.8, K는 방전 시간·최저 온도·셀당 최저 전압으로 정하는 용량환산시간입니다. 일본재단 핸드북 부록-13에 실린 SBA S 0601 발췌로 확인했습니다.',
+        'SBA S 0601 4.3: 셀당 최저 전압 Vd = (부하 최저 허용 전압 Va + 축전지~부하 선로 전압강하 Vc) ÷ 셀 수 n. 화면은 셀 수 × 셀당 최저 전압 − Vc가 Va 이상이면 합격으로 봅니다.',
+        'IEEE 485: 구간 최댓값 × 온도 보정계수 × (1 + 설계 여유) × 노화계수 1.25(= ÷ 0.8). K는 25°C 기준입니다.',
+        'IEEE 485의 온도 보정 표(4.4°C 1.30, 10°C 1.19, 15.6°C 1.11, 21.1°C 1.04, 25°C 1.00), 노화계수 1.25, 설계 여유 10~15%는 미국 국방부 TSEWG TP-4(2008)에 실린 IEEE 485 표 1과 설명으로 확인했습니다. IEEE 485 본문은 보지 못했습니다.',
+        '온도 보정 표는 비중 1.215 개방형(벤트형) 연축전지 값입니다. 제어밸브식(VRLA)과 니켈카드뮴 축전지는 제조사 값을 씁니다.',
         '차이: K 구간을 잡는 방식과 온도 보정·노화를 반영하는 순서가 다릅니다. 두 방식은 같은 조건이면 같은 용량이라는 국내 논문이 있습니다(2022, 초록만 확인).',
         '검증: 강의 자료(오리건 주립대 ESE 471)의 IEEE 485 예제 구간 3의 합 37.91 Ah와 이 앱의 계산이 같습니다.',
-        '출처는 모두 원문 대조 전(2차 자료)입니다.',
-        '서로 다른 값: 설계 여유는 자료마다 10~15%, 10~25%로 다릅니다. 셀당 공칭 전압은 2.0V로 부르는 자료와 2.1V로 적은 강의 자료가 있습니다.',
+        '확인 못 한 것: 셀당 공칭 전압(연축전지 2.0V, 알칼리 1.2V)의 규격 근거, IEEE 485에 대응하는 KEPIC 번호(EEG 1200으로 소개됨). 셀당 공칭 전압은 2.0V로 부르는 자료와 2.1V로 적은 강의 자료가 있습니다.',
         '넣지 않은 것: K 표(제조사 자료), 리튬이온 축전지 식, 무작위 부하, SBA 증가형 식(K의 시간 기준을 확인하지 못함), 충전기 용량.',
       ]),
     ]);

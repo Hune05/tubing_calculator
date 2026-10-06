@@ -278,6 +278,7 @@ void main() {
       double? cellMin,
       double? cells,
       double? minBus,
+      double? lineDrop,
     }) => BatteryInput(
       method: BatteryMethod.sba,
       steps: const [BatteryStep(100, 30)],
@@ -289,6 +290,7 @@ void main() {
       cellMin: cellMin,
       cells: cells,
       minBusVolts: minBus,
+      lineDropVolts: lineDrop,
     );
 
     test('선정 용량 경계: 150은 합격, 149.9는 불합격', () {
@@ -315,6 +317,28 @@ void main() {
       expect(fail.endVoltsPass, isFalse);
       final none = calcBattery(input(cells: 60, cellMin: 1.75));
       expect(none.endVoltsPass, isNull);
+      expect(none.cellMinNeeded, isNull);
+      // 선로 전압강하를 비우면 0으로 본다.
+      expect(pass.loadEndVolts, closeTo(105, 1e-9));
+      expect(pass.cellMinNeeded, closeTo(1.75, 1e-12));
+    });
+
+    test('SBA S 0601 4.3: 선로 전압강하 2V를 빼면 60셀 × 1.75V − 2V = 103V, Vd = (Va + Vc) ÷ n', () {
+      // 최저 허용 103V: 103 ≥ 103 합격, Vd = (103 + 2) ÷ 60 = 1.75V.
+      final ok = calcBattery(input(cells: 60, cellMin: 1.75, minBus: 103, lineDrop: 2));
+      expect(ok.endVolts, closeTo(105, 1e-9));
+      expect(ok.loadEndVolts, closeTo(103, 1e-9));
+      expect(ok.endVoltsPass, isTrue);
+      expect(ok.cellMinNeeded, closeTo(1.75, 1e-12));
+      // 최저 허용 105V: 103 < 105 불합격, Vd = (105 + 2) ÷ 60 = 1.7833V > 1.75V.
+      final no = calcBattery(input(cells: 60, cellMin: 1.75, minBus: 105, lineDrop: 2));
+      expect(no.endVoltsPass, isFalse);
+      expect(no.cellMinNeeded, closeTo(107 / 60, 1e-12));
+      expect(no.cellMinNeeded! > 1.75, isTrue);
+      // 음수는 입력 확인.
+      final bad = calcBattery(input(cells: 60, cellMin: 1.75, lineDrop: -1));
+      expect(bad.ok, isFalse);
+      expect(bad.errors.single, contains('선로 전압강하'));
     });
 
     test('셀 수가 정수가 아니거나 0이면 입력 확인', () {
@@ -450,6 +474,15 @@ void main() {
       await put(tester, 'eb_minbus', '105');
       await tester.pumpAndSettle();
       expect(find.textContaining('105 V 이상이라 합격'), findsOneWidget);
+      expect(allFlat(tester), contains(flat('⑤ 방전 종지 모선 전압 = 셀 수 × 셀당 최저 전압 = 60셀 × 1.75 V = 105 V')));
+      // 선로 전압강하 2V를 넣으면 부하 쪽 103V로 불합격, Vd 식이 보인다.
+      await put(tester, 'eb_linedrop', '2');
+      await tester.pumpAndSettle();
+      expect(
+        allFlat(tester),
+        contains(flat('⑤ 방전 종지 부하 쪽 전압 = 셀 수 × 셀당 최저 전압 − 선로 전압강하 = 60셀 × 1.75 V − 2 V = 103 V, 부하 최저 허용 105 V 미만이라 불합격')),
+      );
+      expect(allFlat(tester), contains(flat('(105 + 2) ÷ 60 = 1.783 V 이상이어야 합니다.')));
     });
 
     testWidgets('입력값과 K 값이 저장되고 다시 열면 돌아온다', (tester) async {

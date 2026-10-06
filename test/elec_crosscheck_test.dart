@@ -553,24 +553,37 @@ RefSc refShortCircuit({
     return z;
   }
 
+  // 최소 단락 케이블: IEC 909:1988(= IS 13234:1992) 9.3.1 식 (32) R = [1 + 0.004 × (θe − 20)] × R20,
+  // θe = 단락 종료 온도(KEC 표 212.5-1 최종 온도: PVC 160°C, XLPE·EPR 250°C). 앱 함수를 쓰지 않고 표 값으로 직접 계산.
+  _Z cableMin(double thetaE) {
+    var z = const _Z(0, 0);
+    for (final g in segs) {
+      final r = refR20[g.size]! * (1 + 0.004 * (thetaE - 20));
+      z = z + _Z(r * g.len / 1000 / g.n, refX * g.len / 1000 / g.n);
+    }
+    return z;
+  }
+
   final tr = _Z(o.rt * o.kt, o.xt * o.kt);
   final up = net(cMax, upMax);
   final hasMotor = motorKw != null && effPf != null && mult != null;
   o.motorRated = hasMotor ? motorKw * 1000 / (math.sqrt(3) * v * effPf) : 0;
-  final xm = hasMotor ? v / (math.sqrt(3) * mult * o.motorRated) : 0.0;
+  // 저압 전동기 묶음(IEC 909 8.3.2.5): |ZM| = Un ÷ (√3·배수·IrM), RM/XM = 0.42, κM = 1.3.
+  final zmAbs = hasMotor ? v / (math.sqrt(3) * mult * o.motorRated) : 0.0;
+  final xmM = zmAbs / math.sqrt(1 + 0.42 * 0.42);
+  final zm = _Z(0.42 * xmM, xmM);
   double netAt(int k) =>
       cMax * v / (math.sqrt(3) * (up + tr + cable(k, 20)).abs);
   double motAt(int k) {
     if (!hasMotor) return 0;
-    final c = cable(k, 20);
-    return cMax * v / (math.sqrt(3) * _Z(c.r, c.x + xm).abs);
+    return cMax * v / (math.sqrt(3) * (zm + cable(k, 20)).abs);
   }
 
   double ipAt(int k) {
     final z = up + tr + cable(k, 20);
     final rx = z.x == 0 ? 0.0 : z.r / z.x;
     final kap = 1.02 + 0.98 * math.exp(-3 * rx);
-    return kap * math.sqrt2 * netAt(k) + 2.0 * math.sqrt2 * motAt(k);
+    return kap * math.sqrt2 * netAt(k) + 1.3 * math.sqrt2 * motAt(k);
   }
 
   for (var k = 0; k <= segs.length; k++) {
@@ -583,9 +596,9 @@ RefSc refShortCircuit({
   o.ikMax = o.ikNet + o.ikMotor;
   o.rx = zf.r / zf.x;
   o.kappa = 1.02 + 0.98 * math.exp(-3 * o.rx);
-  o.ip = o.kappa * math.sqrt2 * o.ikNet + 2.0 * math.sqrt2 * o.ikMotor;
-  final theta = pvc ? 70.0 : 90.0;
-  final zMin = net(0.95, upMin ?? upMax) + tr + cable(segs.length, theta);
+  o.ip = o.kappa * math.sqrt2 * o.ikNet + 1.3 * math.sqrt2 * o.ikMotor;
+  final thetaE = pvc ? 160.0 : 250.0;
+  final zMin = net(0.95, upMin ?? upMax) + tr + cableMin(thetaE);
   o.ikMin3 = 0.95 * v / (math.sqrt(3) * zMin.abs);
   o.ikMin2 = math.sqrt(3) / 2 * o.ikMin3;
   final zP = net(1.0, upMax) + _Z(o.rt, o.xt) + cable(segs.length, 20);
@@ -594,8 +607,7 @@ RefSc refShortCircuit({
   // 것으로 맞췄다. 이 부분은 근거 문서로 확인한 것이 아니다.
   var pctMot = 0.0;
   if (hasMotor) {
-    final cz = cable(segs.length, 20);
-    pctMot = v / (math.sqrt(3) * _Z(cz.r, cz.x + xm).abs);
+    pctMot = v / (math.sqrt(3) * (zm + cable(segs.length, 20)).abs);
   }
   o.ikPct = v / (math.sqrt(3) * zP.abs) + pctMot;
   return o;
@@ -1347,7 +1359,7 @@ void main() {
 
   // ───────────── 7. 부하 합산 ─────────────
   group('부하 합산', () {
-    test('부하 합산·변압기 부하율 무작위 1500조합', () {
+    test('부하 합산·변압기 이용률 무작위 1500조합', () {
       final t = Tally('부하 합산');
       final rnd = math.Random(99);
       for (var k = 0; k < 1500; k++) {
@@ -1388,8 +1400,8 @@ void main() {
           c.n('종합 역률', r.pf, sp / s);
           c.n('필요 kVA', r.requiredKva, req);
           c.n('2차 전류', r.ratedAmps, req * 1000 / (math.sqrt(3) * v));
-          c.n('부하율', r.loadPct, sel == null ? null : req / sel * 100);
-          c.n('부하율(여유 뺌)', r.loadPctNoMargin, sel == null ? null : s / div / sel * 100);
+          c.n('변압기 이용률', r.loadPct, sel == null ? null : req / sel * 100);
+          c.n('변압기 이용률(여유 뺌)', r.loadPctNoMargin, sel == null ? null : s / div / sel * 100);
           c.eq('판정', r.pass, sel == null ? null : req / sel * 100 <= 100 + 1e-9);
         });
       }
@@ -1412,8 +1424,9 @@ void main() {
       final b = refShortCircuit(kva: 1000, v: 380, zPct: 5.5, cMax: 1.05, pvc: false, segs: [b240]);
       expect(b.ikPct, closeTo(16511, 1));
       expect(b.ikMax, closeTo(17684, 1));
-      expect(b.ikMin3, closeTo(15596, 1));
-      expect(b.ikMin2, closeTo(13507, 1));
+      // 최소(XLPE θe 250°C, R = 3.77 × 1.92 = 7.238 mΩ, Z = 14.418 mΩ): 3상 14,456 A, 2상 12,519 A.
+      expect(b.ikMin3, closeTo(14456, 1));
+      expect(b.ikMin2, closeTo(12519, 1));
       final cc = refShortCircuit(
         kva: 1000,
         v: 380,
@@ -1598,8 +1611,29 @@ void main() {
       expect(r.pg2, closeTo(351, 0.01));
     });
 
-    test('PG1~PG4 무작위 2000조합', () {
-      final t = Tally('발전기 PG1~PG4');
+    test('PG3 원문 식: 부하 역률로 나눈다', () {
+      // 건축전기설비설계기준 제5장 3.1.2: PG3 = {(ΣPL − Pm) ÷ ηL + Pm × β × C × Pfm} × 1 ÷ cosθL
+      // (300 − 75) ÷ 0.85 = 264.70588, 75 × 7.2 × 0.65 × 0.4 = 140.4, 합 405.10588 ÷ 0.8 = 506.382 kVA
+      final r = calcGenerator(
+        const GenInput(
+          loadKw: 300,
+          demand: 1,
+          eff: 0.85,
+          pf: 0.8,
+          motorKw: 75,
+          beta: 7.2,
+          startC: 0.65,
+          xdPct: 25,
+          dvPct: 20,
+          startPf: 0.4,
+        ),
+      );
+      expect(r.pg3, closeTo(506.382, 0.01));
+      expect(r.governing, 'PG3');
+    });
+
+    test('PG1~PG3 무작위 2000조합', () {
+      final t = Tally('발전기 PG1~PG3');
       final rnd = math.Random(31);
       for (var k = 0; k < 2000; k++) {
         final load = _pick(rnd, [50.0, 120.0, 300.0, 750.0, 1500.0]);
@@ -1608,19 +1642,15 @@ void main() {
         final pf = _pick(rnd, [0.8, 0.85, 0.9]);
         final hasMotor = rnd.nextInt(4) != 0;
         final pm = hasMotor ? load * _pick(rnd, [0.1, 0.3, 0.5]) : null;
-        final beta = hasMotor ? _pick(rnd, [7.2, 6.0, 0.72]) : null;
+        final beta = hasMotor ? _pick(rnd, GenStartClass.values).beta : null;
         final cS = hasMotor ? _pick(rnd, GenStartKind.values.where((e) => e.c != null).toList()).c : null;
         final xd = hasMotor ? _pick(rnd, [20.0, 25.0]) : null;
         final dv = hasMotor ? _pick(rnd, [15.0, 20.0, 25.0]) : null;
         final hasPg3 = hasMotor && rnd.nextBool();
         final sPf = hasPg3 ? _pick(rnd, [0.3, 0.4, 0.5]) : null;
-        final gPf = hasPg3 ? _pick(rnd, [0.8, 0.9]) : null;
-        final hasH = rnd.nextInt(3) == 0;
-        final pc = hasH ? _pick(rnd, [20.0, 60.0, 200.0]) : null;
-        final hf = hasH ? _pick(rnd, [2.0, 2.5]) : null;
         final v = _pick(rnd, <double?>[null, 380, 440, 6600]);
         final chosen = _pick(rnd, <double?>[null, 200, 500, 1250, 2500]);
-        t.run('부하$load α$dem η$eff pf$pf Pm$pm β$beta C$cS Xd$xd ΔV$dv 기동pf$sPf 발전기pf$gPf Pc$pc×$hf ${v}V 선정$chosen', (c) {
+        t.run('부하$load α$dem η$eff pf$pf Pm$pm β$beta C$cS Xd$xd ΔV$dv 기동pf$sPf ${v}V 선정$chosen', (c) {
           final a = calcGenerator(
             GenInput(
               loadKw: load,
@@ -1633,23 +1663,19 @@ void main() {
               xdPct: xd,
               dvPct: dv,
               startPf: sPf,
-              genPf: gPf,
-              harmonicKva: pc,
-              harmonicFactor: hf,
               volts: v,
               chosenKva: chosen,
             ),
           );
           final pg1 = load * dem / (eff * pf);
           final pg2 = pm == null ? null : pm * beta! * cS! * (xd! / 100) * (1 - dv! / 100) / (dv / 100);
-          final pg3 = pm == null || sPf == null ? null : ((load - pm) / eff + pm * beta! * cS! * sPf) / gPf!;
-          final pg4 = pc == null ? null : pg1 + pc * hf!;
-          final req = [pg1, ?pg2, ?pg3, ?pg4].reduce(math.max);
+          // PG3는 원문대로 부하 종합 역률 pf로 나눈다.
+          final pg3 = pm == null || sPf == null ? null : ((load - pm) / eff + pm * beta! * cS! * sPf) / pf;
+          final req = [pg1, ?pg2, ?pg3].reduce(math.max);
           c.eq('오류 없음', a.errors.isEmpty, true);
           c.n('PG1', a.pg1, pg1);
           c.n('PG2', a.pg2, pg2);
           c.n('PG3', a.pg3, pg3);
-          c.n('PG4', a.pg4, pg4);
           c.n('필요', a.required, req);
           c.n('전류', a.currentA, v == null ? null : req * 1000 / (math.sqrt(3) * v));
           c.eq('선정 합격', a.chosenPass, chosen == null ? null : chosen >= req - 1e-9);
@@ -1699,7 +1725,9 @@ void main() {
         final req = method == BatteryMethod.sba ? base / l : base * tf * (1 + mar / 100) * aging;
         final chosen = _pick(rnd, <double?>[null, 50, 200, 800]);
         final cells = _pick(rnd, <double?>[null, 55, 60, 62]);
-        t.run('${n}단계 ${method.name} L$l 온도$tf 여유$mar 노화$aging 선정$chosen 셀$cells', (c) {
+        // SBA S 0601 4.3: Vd = (Va + Vc) ÷ n → 셀 수 × 셀당 최저 전압 − Vc ≥ Va면 합격.
+        final vc = _pick(rnd, <double?>[null, 0, 1.5, 5]);
+        t.run('${n}단계 ${method.name} L$l 온도$tf 여유$mar 노화$aging 선정$chosen 셀$cells 선로$vc', (c) {
           final a = calcBattery(
             BatteryInput(
               method: method,
@@ -1715,6 +1743,7 @@ void main() {
               cellMin: cells == null ? null : 1.75,
               cells: cells,
               minBusVolts: cells == null ? null : 105,
+              lineDropVolts: vc,
             ),
           );
           c.eq('오류 없음', a.errors.isEmpty, true);
@@ -1731,8 +1760,11 @@ void main() {
           c.n('여유%', a.chosenMarginPct, chosen == null ? null : (chosen / req - 1) * 100, abs: 1e-6);
           if (cells != null) {
             c.n('셀 수 계산', a.cellRatio, 125 / 2.0);
+            final drop = vc ?? 0;
             c.n('종지 전압', a.endVolts, cells * 1.75);
-            c.eq('종지 판정', a.endVoltsPass, cells * 1.75 >= 105 - 1e-9);
+            c.n('부하 쪽 전압', a.loadEndVolts, cells * 1.75 - drop);
+            c.n('Vd', a.cellMinNeeded, (105 + drop) / cells);
+            c.eq('종지 판정', a.endVoltsPass, 1.75 >= (105 + drop) / cells - 1e-9);
           }
         });
       }

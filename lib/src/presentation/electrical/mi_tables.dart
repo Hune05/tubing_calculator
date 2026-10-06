@@ -1,13 +1,27 @@
 // 미네랄 절연(MI) 케이블 허용전류(A), 구리 도체·구리 외피, 주위 온도 30 ℃.
-// IEC 60364-5-52:2009 표 B.52.6~B.52.9에 해당한다. 원문 표는 확인하지 못했고 두 곳의 자료
-// (TiSoft 도움말, 승위 BTTZ 카탈로그·Wrexham Mineral Cables 데이터시트)가 서로 일치하는 값만 옮겼다.
+// IEC 60364-5-52:2009 표 B.52.6~B.52.9. 같은 내용의 ГОСТ Р 50571.5.52-2011 표와 288칸 중 286칸이 일치한다.
+// 다른 두 칸(B.52.7 750 V 16 mm² 단심 평면 119, B.52.9 750 V 25 mm² 2도체 179)은 행 비율로 보아
+// ГОСТ 쪽 오기로 보고 앱 값을 두었으나 IEC 원문으로는 확인하지 못했다.
 // 근거: docs/전기계산기_근거.md "미네랄 절연 케이블".
 
 /// 포설 방법 묶음: C(벽·표면), E·F·G(공기 중 트레이·이격).
 enum MiMethod { c, efg }
 
-/// 외피 온도: 70 ℃(PVC 피복 또는 접촉 가능한 나선, 표 B.52.6·8), 105 ℃(접촉 불가 나선, 표 B.52.7·9).
-enum MiSheath { t70, t105 }
+/// 외피 온도: 70 ℃ PVC 피복(표 B.52.6·8), 70 ℃ 접촉 가능한 나선(같은 표 × 0.9, 표 주 2),
+/// 105 ℃ 접촉하지 않는 나선(표 B.52.7·9).
+enum MiSheath {
+  t70,
+  t70bare,
+  t105;
+
+  /// 표 값에 곱하는 계수. 접촉 가능한 나선은 표 B.52.6·B.52.8 주 2에 따라 0.9.
+  double get factor => this == MiSheath.t70bare ? 0.9 : 1.0;
+}
+
+/// 표 B.52.7·B.52.9에서 ГОСТ Р 50571.5.52-2011과 값이 달라 IEC 원문 확인이 남은 칸.
+const String kMiUnconfirmedNote =
+    '750 V 105 ℃ 표의 두 칸(벽·표면 16 mm² 단심 3본 평면 접촉 119 A, 공기 중 25 mm² 2도체 179 A)은 '
+    'ГОСТ Р 50571.5.52-2011 번역본에 110 A·170 A로 실려 있습니다. 행 비율로 보아 번역본 오기로 보고 앱 값을 두었으나 IEC 원문으로는 확인하지 못했습니다.';
 
 /// 열 이름. 방법 C는 앞의 3개만 쓴다.
 const List<String> kMiColsC = [
@@ -119,23 +133,23 @@ const _e105v750 = [
   MiRow(240, [697, 584, 617, 624, 704]),
 ];
 
+/// 표 그대로의 값(계수 곱하기 전). 접촉 가능한 나선도 70 ℃ 표를 돌려준다.
 List<MiRow> miRows({
   required MiMethod method,
   required MiSheath sheath,
   required bool v750,
 }) {
+  final t105 = sheath == MiSheath.t105;
   if (method == MiMethod.c) {
-    return sheath == MiSheath.t70
+    return !t105
         ? (v750 ? _c70v750 : _c70v500)
         : (v750 ? _c105v750 : _c105v500);
   }
-  return sheath == MiSheath.t70
-      ? (v750 ? _e70v750 : _e70v500)
-      : (v750 ? _e105v750 : _e105v500);
+  return !t105 ? (v750 ? _e70v750 : _e70v500) : (v750 ? _e105v750 : _e105v500);
 }
 
-/// 값 하나. 그 단면적이 없으면 null.
-int? miAmpacity({
+/// 값 하나(A, 계수 곱한 값). 그 단면적이 없으면 null.
+double? miAmpacity({
   required MiMethod method,
   required MiSheath sheath,
   required bool v750,
@@ -143,7 +157,9 @@ int? miAmpacity({
   required int col,
 }) {
   for (final r in miRows(method: method, sheath: sheath, v750: v750)) {
-    if (r.mm2 == mm2) return col < r.amps.length ? r.amps[col] : null;
+    if (r.mm2 == mm2) {
+      return col < r.amps.length ? r.amps[col] * sheath.factor : null;
+    }
   }
   return null;
 }

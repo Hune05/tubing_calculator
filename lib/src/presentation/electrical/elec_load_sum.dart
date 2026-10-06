@@ -1,6 +1,6 @@
 // 전기 설비 계산 "부하 합산" 탭의 계산과 저장 모양(화면 없이 시험할 수 있게 따로 둠).
 // 식: 최대수요전력 = 설비용량 × 수용률, 필요 변압기 용량 = 최대수요 kVA ÷ 부등률 × (1 + 여유).
-// 근거와 원문 대조 전 표시는 docs/전기_부하합산_근거.md.
+// 수용률·부등률 정의와 근거는 docs/전기_부하합산_근거.md. 선정 용량 대비 비율은 "변압기 이용률"이라 부른다(표준 용어 부하율과 다름).
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -81,7 +81,7 @@ class LoadSumInput {
   /// 3상이면 true, 단상이면 false.
   final bool three;
 
-  /// 선정한 변압기 용량(kVA). 비우면 부하율은 계산하지 않습니다.
+  /// 선정한 변압기 용량(kVA). 비우면 변압기 이용률은 계산하지 않습니다.
   final String selectedKva;
   final String site;
   final String memo;
@@ -190,10 +190,10 @@ class LoadSumResult {
   final double ratedAmps;
   final double? selectedKva;
 
-  /// 부하율 [%] = 필요 용량 ÷ 선정 용량 × 100(여유 포함).
+  /// 변압기 이용률 [%] = 필요 용량 ÷ 선정 용량 × 100(여유 포함). 표준 용어 부하율(평균 ÷ 최대, IEV 691-10-02)과 다른 값이다.
   final double? loadPct;
 
-  /// 여유를 빼고 부등률만 반영한 부하율 [%].
+  /// 여유를 빼고 부등률만 반영한 변압기 이용률 [%].
   final double? loadPctNoMargin;
 
   const LoadSumResult({

@@ -344,7 +344,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         warn: r.minUsesMaxUpstream,
         lines: [
           ..._minSteps(r, scIn),
-          'c = ${fmt(kScCMin, 2)}, 케이블 저항은 ${fmt(minScConductorTemp(_ins), 0)}°C 값, 전동기 기여 제외.',
+          'c = ${fmt(kScCMin, 2)}, 케이블 저항은 단락이 끝날 때 도체 온도 ${fmt(minScConductorTemp(_ins), 0)}°C 값(IEC 909 9.3.1 식 32), 전동기 기여 제외.',
           '지락(1선) 단락은 포함하지 않음. 영상 임피던스가 필요합니다.',
           '차단기 순시 설정값이 이 값보다 작아야 최소 단락에서도 순시로 차단합니다.',
         ],
@@ -611,13 +611,13 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         'ec_sc_mmult',
         '기여 배수 (기동전류/정격전류)',
         _mMult,
-        '전동기가 단락 때 내보내는 전류를 정격전류의 몇 배로 볼지 정합니다. 출처마다 값이 다릅니다: Schneider 설치 지침 3.5배, IEEE C37.13 저압 전동기 묶음 4배, Schneider 기술 자료 예 4.8배. 앱이 값을 채우지 않으니 설계 기준이나 명판의 기동전류 배수를 넣으십시오.',
+        '전동기가 단락 때 내보내는 전류를 정격전류의 몇 배로 볼지 정합니다. IEC 909(1988) 원문은 저압 전동기 묶음에 ${fmt(kScMotorMultipleGuide, 0)}배(ILR/IrM = 5)를 씁니다. 모르면 ${fmt(kScMotorMultipleGuide, 0)}를 넣으십시오. 명판의 기동전류 배수를 알면 그 값을 넣으십시오. 앱이 값을 채우지 않습니다.',
       ),
       ], subtitle: _mKw.text.trim().isEmpty ? '넣지 않음' : '${_mKw.text.trim()} kW'),
       elecSectionTitle('케이블 구간 (변압기 쪽부터 순서대로)'),
       elecChipGroup(
         '케이블 절연',
-        '최소 단락의 도체 온도(PVC 70°C, XLPE 90°C)와 열적 강도 k 값에 씁니다. 구리 도체만 지원합니다.',
+        '최소 단락의 도체 온도(단락이 끝날 때 온도: PVC 160°C, XLPE·EPR 250°C)와 열적 강도 k 값에 씁니다. 구리 도체만 지원합니다.',
         [
           calcChip('ec_sc_pvc', 'PVC', _ins == Insulation.pvc70, () {
             _set(() => _ins = Insulation.pvc70);
@@ -809,13 +809,20 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     if (r.motorsIncluded) {
       final mult = i.motorMultiple!;
       final zM = u / (s3 * mult * r.motorRatedA);
-      final zmc = math.sqrt(cabR * cabR + (zM + cabX) * (zM + cabX));
+      final m = motorImpedance(zM);
+      final mr = m.r + cabR;
+      final mx = m.x + cabX;
+      final zmc = math.sqrt(mr * mr + mx * mx);
+      final rxTxt = fmt(kScMotorRoverX, 2);
       out.add(
         '⑥ 전동기 기여: 정격전류 IrM = kW × 1000 ÷ (√3 × U × 효율×역률) = ${fmt(i.motorKw!, 1)} × 1000 ÷ (√3 × $uTxt × ${fmt(i.motorEffPf!, 3)}) = ${fmt(r.motorRatedA, 1)} A. '
         'ZM = U ÷ (√3 × 배수 × IrM) = $uTxt ÷ (√3 × ${fmt(mult, 2)} × ${fmt(r.motorRatedA, 1)}) = ${_mo(zM)} mΩ.',
       );
       out.add(
-        '전동기 기여 = c × Un ÷ (√3 × |ZM + 케이블|) = $cTxt × $uTxt ÷ (√3 × ${_mo(zmc)} mΩ) = ${_ka(r.ikMotorA)} kA. '
+        'RM/XM = $rxTxt(IEC 909 8.3.2.5 저압 전동기 묶음): XM = ZM ÷ √(1 + $rxTxt²) = ${_mo(m.x)} mΩ, RM = $rxTxt × XM = ${_mo(m.r)} mΩ.',
+      );
+      out.add(
+        '전동기 기여 = c × Un ÷ (√3 × |ZM + 케이블|) = $cTxt × $uTxt ÷ (√3 × √(${_mo(mr)}² + ${_mo(mx)}²) mΩ) = $cTxt × $uTxt ÷ (√3 × ${_mo(zmc)} mΩ) = ${_ka(r.ikMotorA)} kA. '
         '합계 Ik″ = ${_ka(r.ikNetA)} + ${_ka(r.ikMotorA)} = ${_ka(r.ikMaxA)} kA.',
       );
     }
@@ -829,7 +836,8 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     if (!r.motorsIncluded) {
       return '피크 전류 ip = κ × √2 × Ik″ = $kap × 1.414 × ${_ka(r.ikMaxA)} = ${_ka(r.ipA)} kA (κ = 1.02 + 0.98·e^(−3R/X), R/X = $rx).';
     }
-    return '피크 전류 ip = κ × √2 × Ik″(변압기·계통) + 2 × √2 × Ik″(전동기) = $kap × 1.414 × ${_ka(r.ikNetA)} + 2 × 1.414 × ${_ka(r.ikMotorA)} = ${_ka(r.ipA)} kA (R/X = $rx).';
+    final km = fmt(kScMotorKappa, 1);
+    return '피크 전류 ip = κ × √2 × Ik″(변압기·계통) + κM × √2 × Ik″(전동기) = $kap × 1.414 × ${_ka(r.ikNetA)} + $km × 1.414 × ${_ka(r.ikMotorA)} = ${_ka(r.ipA)} kA (R/X = $rx, 저압 전동기 묶음 κM = $km).';
   }
 
   /// 최소 단락 풀이: ① 합계 임피던스 ② 3상 ③ 2상.
@@ -843,16 +851,21 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     final minMva = i.upstreamMvaMin ?? i.upstreamMvaMax;
     final (_, qR, qX) = _network(minMva, kScCMin, u);
     final temp = minScConductorTemp(i.insulation);
+    final factor = 1 + kScMinAlpha * (temp - 20);
     var cabR = 0.0, cabX = 0.0;
     for (final s in i.segments) {
-      final z = s.z(temp);
+      final z = s.zMin(temp);
       cabR += z.r;
       cabX += z.x;
     }
     final totR = qR + rt * kT + cabR;
     final totX = qX + xt * kT + cabX;
     final totZ = math.sqrt(totR * totR + totX * totX);
+    final insName = i.insulation == Insulation.pvc70 ? 'PVC' : 'XLPE·EPR';
     return [
+      if (i.segments.isNotEmpty)
+        '케이블 저항(IEC 909 9.3.1 식 32): R = R20 × [1 + ${fmt(kScMinAlpha, 3)} × (θe − 20)] = R20 × [1 + ${fmt(kScMinAlpha, 3)} × (${fmt(temp, 0)} − 20)] = R20 × ${fmt(factor, 2)}. '
+            'θe는 단락이 끝날 때 도체 온도이며 $insName 단락 최종 온도 ${fmt(temp, 0)}°C(KEC 표 212.5-1)를 씁니다.',
       '① 합계(전원 c = $cTxt${minMva == null ? ', 무한 전원 0' : ''} + 변압기 × KT + 케이블 ${fmt(temp, 0)} ℃ 저항): '
           'R = ${_mo(qR)} + ${_mo(rt * kT)} + ${_mo(cabR)} = ${_mo(totR)} mΩ, '
           'X = ${_mo(qX)} + ${_mo(xt * kT)} + ${_mo(cabX)} = ${_mo(totX)} mΩ. '
@@ -966,16 +979,17 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     '방식: IEC 60909-0 등가 전압원법을 주로 쓰고 %임피던스법 값을 비교용으로 함께 표시합니다. Ik″ = c·Un / (√3·|Z|).',
     '전압 계수 c(저압 100V~1kV): 최대 단락 cmax 1.05(허용오차 +6%) 또는 1.10(+10%), 최소 단락 cmin 0.95.',
     '변압기: ZT = %Z/100 × U²/S. 부하손을 넣으면 RT = 부하손/S × U²/S, XT = √(ZT² − RT²). 보정계수 KT = 0.95·cmax / (1 + 0.6·xT), xT = XT ÷ (U²/S)를 ZT·RT·XT에 곱합니다.',
-    '상위 계통: Z = c·U²/S″k, X = 0.995 Z, R = 0.1 X (Schneider 설치 지침 2009). 넣지 않으면 무한 전원(0)입니다.',
-    '케이블: 구리 20°C 저항은 IEC 60228 표 값. 최대 단락은 20°C 그대로, 최소 단락은 절연체 최고 허용온도(PVC 70°C, XLPE 90°C)에서 온도계수 0.00393/°C로 올립니다. 리액턴스 0.096 Ω/km(60Hz).',
-    '전동기: 합계 정격전류 = kW×1000 ÷ (√3·U·효율×역률). 기여 = c·배수·정격전류이며 케이블 임피던스만큼 줄입니다. 최대 단락에만 더합니다. 임피던스는 리액턴스만으로 봅니다.',
-    '피크 전류: ip = κ·√2·Ik″, κ = 1.02 + 0.98·e^(−3R/X). R/X는 고장점까지 전체 합입니다. 전동기 분의 κ는 R/X를 몰라 최댓값 2.0을 썼습니다.',
+    '상위 계통: Z = c·U²/S″k, X = 0.995 Z, R = 0.1 X (IEC 909 8.3.2.1). 넣지 않으면 무한 전원(0)입니다.',
+    '케이블: 구리 20°C 저항은 IEC 60228 표 값. 최대 단락은 20°C 그대로(IEC 909 9.1.1.1). 최소 단락은 단락이 끝날 때 도체 온도 θe(PVC 160°C, XLPE·EPR 250°C, KEC 표 212.5-1의 최종 온도)에서 R = R20 × [1 + 0.004 × (θe − 20)]로 올립니다(IEC 909 9.3.1 식 32). 리액턴스 0.096 Ω/km(60Hz).',
+    '전동기: 합계 정격전류 = kW×1000 ÷ (√3·U·효율×역률). |ZM| = U ÷ (√3·배수·정격전류)이고 RM/XM = 0.42로 나눕니다. 기여는 c·U ÷ (√3·|ZM + 케이블|)이며 최대 단락에만 더합니다. 원문 배수는 5입니다(IEC 909 8.3.2.5).',
+    '피크 전류: ip = κ·√2·Ik″, κ = 1.02 + 0.98·e^(−3R/X)(IEC 909 9.1.1.2). R/X는 고장점까지 전체 합입니다. 전동기 분은 저압 전동기 묶음 κM = 1.3(IEC 909 8.3.2.5)입니다.',
     '%임피던스법(비교): c와 KT 없이 공칭 전압 그대로. Ik = Un / (√3·|Z|). 케이블 저항은 같은 20°C 표 값을 씁니다.',
-    '최소 단락 2상 = 3상 × √3/2. 최소 단락은 전동기 기여를 뺍니다.',
-    '열적 강도: S = Ik·√t / k, t = (k·S/Ik)². k는 구리 PVC 115(70→160°C, 300mm² 이하), XLPE·EPR 143(90→250°C). 5초 이하 단열 계산입니다.',
+    '최소 단락 2상 = 3상 × √3/2. 최소 단락은 전동기 기여를 뺍니다(IEC 909 9.3.1).',
+    '열적 강도: S = Ik·√t / k, t = (k·S/Ik)². k는 구리 PVC 115(70→160°C, 300mm² 이하), XLPE·EPR 143(90→250°C). 5초 이하 단열 계산입니다(KEC 표 212.5-1, 212.5.5 식 212.5-1).',
     '케이블 시작점의 전류로 검토합니다. 차단기가 순시 영역(0.1초 미만)에서 끊으면 제조사 통과 에너지(I²t) 곡선으로 확인하십시오. 통과 에너지를 넣으면 허용 (병렬 수)²·k²·S²와 비교합니다.',
-    '원문 대조 전(2차 자료): IEC 60909-0의 c 계수·KT·κ·전동기·최소 단락 온도와 IEC 60364-4-43 표 43A의 k는 원문을 못 봤습니다. Schneider 설치 지침 2009·기술 자료 158, pandapower 논문, 해설 자료 여러 곳이 맞는 값만 넣었습니다.',
-    '출처끼리 값이 다른 것: 전동기 기여 배수(3.5, 4, 4.8, 약 6)는 기본값을 넣지 않았습니다. 전동기를 무시해도 되는 기준(1% 또는 5%)도 자동 적용하지 않았습니다.',
+    '원문 대조함: IEC 909:1988(= IS 13234:1992, 무료 공개본)으로 κ 식(9.1.1.2), 상위 계통 Z·X·R(8.3.2.1), 최대 단락 20°C 저항(9.1.1.1), 최소 단락 전동기 제외와 식 32 온도계수 0.004·종료 온도(9.3.1), 저압 전동기 묶음 배수 5·RM/XM 0.42·κM 1.3(8.3.2.5)을 확인했습니다. k 115·143과 5초 상한은 KEC 2026(공고 제2025-227호) 표 212.5-1·식 212.5-1로 확인했습니다.',
+    '원문 못 봄(2016판 유료): IEC 60909-0:2016의 전압 계수 c(cmax 1.05·1.10, cmin 0.95)와 변압기 보정계수 KT = 0.95·cmax/(1 + 0.6·xT)는 2차 자료 값 그대로입니다. 1988판 표 I은 230/400V가 cmax 1.00·cmin 0.95, 그 밖의 저압이 cmax 1.05·cmin 1.00이라 지금 값과 다릅니다. 2026-07-23에 IEC 60909-0 3.0판이 나왔으나 보지 못했습니다.',
+    '전동기를 무시해도 되는 기준: IEC 909 식 (13)은 전동기 정격전류 합 ≤ 전동기를 뺀 Ik″의 1%입니다. 앱은 이 기준을 자동 적용하지 않고 세 칸이 다 차면 늘 더합니다.',
     '계산에서 뺀 것: 지락(1선) 단락, 발전기 근처 단락(Ib·Ik 감쇠), 차단기·부스바 임피던스, 아크 저항, 150mm² 이상 표피 효과, 병렬 가닥 상호 리액턴스, 300mm² 초과 PVC의 k, 알루미늄 도체, 상위 차단기 한류 효과.',
   ];
 }

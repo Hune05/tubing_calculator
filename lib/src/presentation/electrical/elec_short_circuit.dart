@@ -1,5 +1,6 @@
 // 단락 전류 계산(화면 없음). 근거와 출처: docs/전기_단락전류_근거.md.
 //
+// 원문 대조: IEC 909:1988(= IS 13234:1992 무료 공개본)과 KEC 2026. c와 KT는 2016판 원문을 못 봤다.
 // 주 방식은 IEC 60909 등가 전압원법(c 계수, 변압기 보정계수 KT), 비교용으로 %임피던스법(c와 KT 없이
 // 공칭 전압 그대로). 구리 도체, 3상 대칭 단락, 저압(1kV 이하), 발전기 근처 단락이 아닌 경우만 다룬다.
 // 최대 단락은 차단기 차단용량 선정용, 최소 단락은 보호 감도용이다. 지락(1선) 단락은 영상 임피던스가 필요해 뺐다.
@@ -10,28 +11,44 @@ import 'dart:math' as math;
 import 'elec_tables.dart';
 
 /// IEC 60909-0 저압(100V~1kV) 전압 계수: 최소 단락용 cmin, 최대 단락용 cmax(허용오차 +6%, +10%).
+/// 원문 못 봄: 2016판(유료) 값은 2차 자료 값이다. 1988판(IS 13234:1992 표 I)은 230/400V가 cmax 1.00·cmin 0.95,
+/// 그 밖의 저압이 cmax 1.05·cmin 1.00이라 지금 값과 다르다. docs/전기_단락전류_근거.md.
 const double kScCMin = 0.95;
 const double kScCMax6 = 1.05;
 const double kScCMax10 = 1.10;
 
-/// 상위 계통 임피던스 분해: X = 0.995 Z, R = 0.1 X (Schneider EIG 2009 G4).
+/// 상위 계통 임피던스 분해: X = 0.995 Z, R = 0.1 X (IEC 909:1988 = IS 13234:1992 8.3.2.1).
 const double kScNetX = 0.995;
 const double kScNetRoverX = 0.1;
 
-/// 전동기 피크 전류 κ. R/X를 모르므로 κ 식의 최댓값(R/X → 0)을 쓴다: 1.02 + 0.98 = 2.0(안전 쪽).
-const double kScMotorKappa = 2.0;
+/// 저압 전동기 묶음(IEC 909:1988 = IS 13234:1992 8.3.2.5·13장): ILR/IrM = 5(화면 권장값), RM/XM = 0.42, κM = 1.3.
+const double kScMotorRoverX = 0.42;
+const double kScMotorKappa = 1.3;
 
-/// 단열 계산이 성립하는 차단 시간 상한(초). IEC 60364-4-43, Schneider EIG 2009 G5.
+/// 원문 권장 기여 배수 ILR/IrM(저압 전동기 묶음). 칸을 자동으로 채우지는 않는다.
+const double kScMotorMultipleGuide = 5;
+
+/// 최소 단락 케이블 저항 온도계수(1/°C). IEC 909:1988 = IS 13234:1992 9.3.1 식 (32):
+/// R_L = [1 + 0.004/°C × (θe − 20°C)] × R_L20.
+const double kScMinAlpha = 0.004;
+
+/// 단열 계산이 성립하는 차단 시간 상한(초). KEC 212.5.5 식 212.5-1.
 const double kScAdiabaticMaxSec = 5;
 
 /// 이 시간보다 짧으면 차단기가 순시 영역에서 끊는 것으로 보고 제조사 통과 에너지(I²t) 확인을 권한다(초).
 const double kScShortSec = 0.1;
 
-/// 구리 도체 k(초기·최종 온도): PVC 300mm² 이하 115(70→160°C), XLPE·EPR 143(90→250°C).
+/// 구리 도체 k(초기·최종 온도): PVC 300mm² 이하 115(70→160°C), XLPE·EPR 143(90→250°C). KEC 표 212.5-1.
 double cableK(Insulation ins) => ins == Insulation.pvc70 ? 115 : 143;
 
-/// 최소 단락에서 케이블 저항을 잡는 도체 온도: 절연체 최고 허용온도.
-double minScConductorTemp(Insulation ins) => ins == Insulation.pvc70 ? 70 : 90;
+/// 최소 단락에서 케이블 저항을 잡는 도체 온도 θe: 단락이 끝날 때의 온도(IEC 909 9.3.1).
+/// 절연체의 단락 최종 온도(KEC 표 212.5-1: PVC 300mm² 이하 160°C, XLPE·EPR 250°C)를 쓴다.
+double minScConductorTemp(Insulation ins) =>
+    ins == Insulation.pvc70 ? 160 : 250;
+
+/// 최소 단락용 구리 저항(Ω/km): R20 × (1 + 0.004 × (θe − 20)).
+double minScResistance(double sizeMm2, double thetaE) =>
+    kCuR20[sizeMm2]! * (1 + kScMinAlpha * (thetaE - 20));
 
 /// 저항·리액턴스 한 쌍(Ω).
 class ScZ {
@@ -44,9 +61,10 @@ class ScZ {
 }
 
 /// 변압기 임피던스 보정계수 KT = 0.95·cmax / (1 + 0.6·xT). xT = XT / (U²/S) (정격 기준 리액턴스).
+/// 원문 못 봄(2016판 유료): pandapower 논문 식 (5)·ECalPro 문서 값.
 double transformerKt(double cMax, double xT) => 0.95 * cMax / (1 + 0.6 * xT);
 
-/// 피크 전류 계수 κ = 1.02 + 0.98·e^(−3R/X).
+/// 피크 전류 계수 κ = 1.02 + 0.98·e^(−3R/X) (IEC 909:1988 = IS 13234:1992 9.1.1.2).
 double peakKappa(double rOverX) => 1.02 + 0.98 * math.exp(-3 * rOverX);
 
 /// 케이블 구간 하나(편도 길이, 병렬 가닥 수).
@@ -65,6 +83,18 @@ class ScSegment {
     cuResistance(sizeMm2, tempC) * lengthM / 1000 / parallel,
     kReactanceOhmPerKm * lengthM / 1000 / parallel,
   );
+
+  /// 최소 단락용 임피던스: 저항은 단락 종료 온도 [thetaE]에서 온도계수 0.004로 올린다(IEC 909 식 32).
+  ScZ zMin(double thetaE) => ScZ(
+    minScResistance(sizeMm2, thetaE) * lengthM / 1000 / parallel,
+    kReactanceOhmPerKm * lengthM / 1000 / parallel,
+  );
+}
+
+/// 전동기 임피던스 |ZM| = Un ÷ (√3 × 배수 × IrM)를 RM/XM = 0.42로 나눈다.
+ScZ motorImpedance(double zMAbs) {
+  final x = zMAbs / math.sqrt(1 + kScMotorRoverX * kScMotorRoverX);
+  return ScZ(kScMotorRoverX * x, x);
 }
 
 /// 계산 입력. 선택 칸은 null이면 "넣지 않음"이다.
@@ -245,11 +275,11 @@ ScResult calcShortCircuit(ScInput i) {
   final n = i.segments.length;
   final notes = <String>[];
 
-  // 케이블 누적 임피던스: [k]는 앞 구간 k개까지 더한 값.
-  ScZ cum20(int k, double Function(ScSegment) temp) {
+  // 케이블 누적 임피던스(20°C): [k]는 앞 구간 k개까지 더한 값.
+  ScZ cum20(int k) {
     var z = const ScZ(0, 0);
     for (var j = 0; j < k; j++) {
-      z += i.segments[j].z(temp(i.segments[j]));
+      z += i.segments[j].z(20);
     }
     return z;
   }
@@ -262,14 +292,14 @@ ScResult calcShortCircuit(ScInput i) {
     return ScZ(kScNetRoverX * x, x);
   }
 
-  // 전동기.
+  // 전동기: |ZM| = Un ÷ (√3 × 배수 × IrM), RM/XM = 0.42(IEC 909 8.3.2.5).
   final motorsIncluded =
       _pos(i.motorKw) && _pos(i.motorEffPf) && _pos(i.motorMultiple);
   var motorRatedA = 0.0;
-  var zM = 0.0;
+  var zM = const ScZ(0, 0);
   if (motorsIncluded) {
     motorRatedA = i.motorKw! * 1000 / (s3 * u * i.motorEffPf!);
-    zM = u / (s3 * i.motorMultiple! * motorRatedA);
+    zM = motorImpedance(u / (s3 * i.motorMultiple! * motorRatedA));
   }
 
   // ── 최대 단락(IEC 60909): c = cmax, 케이블 저항 20°C, 전동기 포함.
@@ -278,16 +308,16 @@ ScResult calcShortCircuit(ScInput i) {
   final netMax = <double>[];
   final motMax = <double>[];
   for (var k = 0; k <= n; k++) {
-    final cab = cum20(k, (_) => 20);
+    final cab = cum20(k);
     netMax.add(cMax * u / (s3 * (srcMax + cab).abs));
-    motMax.add(motorsIncluded ? cMax * u / (s3 * (ScZ(0, zM) + cab).abs) : 0.0);
+    motMax.add(motorsIncluded ? cMax * u / (s3 * (zM + cab).abs) : 0.0);
   }
   final startMax = [for (var k = 0; k <= n; k++) netMax[k] + motMax[k]];
   final startIp = <double>[];
   var rOverX = 0.0;
   var kappa = 1.0;
   for (var k = 0; k <= n; k++) {
-    final z = srcMax + cum20(k, (_) => 20);
+    final z = srcMax + cum20(k);
     rOverX = z.r / z.x;
     kappa = peakKappa(rOverX);
     startIp.add(
@@ -297,14 +327,19 @@ ScResult calcShortCircuit(ScInput i) {
 
   // ── 비교: %임피던스법(c와 KT 없음, 공칭 전압 그대로).
   final srcPct = network(i.upstreamMvaMax, 1) + ScZ(rt, xt);
-  final cabF = cum20(n, (_) => 20);
+  final cabF = cum20(n);
   final pctNet = u / (s3 * (srcPct + cabF).abs);
-  final pctMot = motorsIncluded ? u / (s3 * (ScZ(0, zM) + cabF).abs) : 0.0;
+  final pctMot = motorsIncluded ? u / (s3 * (zM + cabF).abs) : 0.0;
 
-  // ── 최소 단락: c = cmin, 케이블 저항 절연체 최고 허용온도, 전동기 뺌, 상위 계통은 최소 용량.
+  // ── 최소 단락: c = cmin, 케이블 저항은 단락 종료 온도 θe에서 0.004/°C(IEC 909 식 32), 전동기 뺌,
+  // 상위 계통은 최소 용량.
   final minMva = i.upstreamMvaMin ?? i.upstreamMvaMax;
   final srcMin = network(minMva, kScCMin) + ScZ(rt, xt).scale(kT);
-  final cabMin = cum20(n, (_) => minScConductorTemp(i.insulation));
+  final thetaE = minScConductorTemp(i.insulation);
+  var cabMin = const ScZ(0, 0);
+  for (final s in i.segments) {
+    cabMin += s.zMin(thetaE);
+  }
   final min3 = kScCMin * u / (s3 * (srcMin + cabMin).abs);
   final min2 = min3 * s3 / 2;
 

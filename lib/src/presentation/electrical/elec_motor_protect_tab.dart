@@ -1,5 +1,6 @@
 // 전기 설비 계산: 전동기 보호 탭. 계산은 motor_protect.dart, 근거는 docs/전기_접지_전동기보호_근거.md.
-// 국내 열동 계전기 설정 비율과 EOCR 설정 배수는 출처마다 달라 범위와 "제조사 설명서 우선"으로 안내한다.
+// Y-Δ 계전기 위치는 Siemens 용어 그대로 "주 접촉기(line contactor) = 0.58배"로 적는다. "라인 쪽"이라고만 쓰면 반대로 읽힐 수 있다.
+// 국내 열동 계전기 120~125% 규칙과 "정격 125~150%" EOCR 설정은 출처 미확인으로 안내한다.
 import 'package:flutter/material.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
@@ -81,17 +82,17 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
       if (_method == StartMethod.starDelta)
         elecChipGroup(
           '계전기 위치 (Y-Δ)',
-          '델타 권선 안(상전류를 봄)에 두면 정격의 0.58배로 맞춥니다. 접촉기 라인 쪽에서 선전류를 보면 정격 그대로입니다(한 곳 자료, 제조사 설명서 확인).',
+          '주 접촉기(Siemens 원문의 \'line contactor\')에 붙은 계전기는 권선 전류를 보므로 정격의 0.58배로 맞춥니다. 모든 접촉기 앞 공통 전원 선로에 있으면 선전류를 보므로 정격 그대로입니다(이 경우는 원문 못 봄, 제조사 설명서 확인).',
           [
             calcChip(
               'emp_inside',
-              '델타 권선 안',
+              '주 접촉기(권선 전류) → 0.58×FLA',
               _place == RelayPlace.insideDelta,
               () => _set(() => _place = RelayPlace.insideDelta),
             ),
             calcChip(
               'emp_line',
-              '라인 쪽',
+              '공통 전원 선로(선전류) → FLA',
               _place == RelayPlace.line,
               () => _set(() => _place = RelayPlace.line),
             ),
@@ -162,23 +163,24 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
           caption:
               _method == StartMethod.starDelta &&
                   _place == RelayPlace.insideDelta
-              ? '과부하계전기 설정 (Y-Δ, 델타 권선 안: FLA ÷ √3)'
+              ? '과부하계전기 설정 (Y-Δ, 주 접촉기: FLA ÷ √3)'
               : '과부하계전기 설정전류',
           lines: [
             if (_method == StartMethod.starDelta &&
                 _place == RelayPlace.insideDelta)
-              '① 설정 = FLA ÷ √3 = ${fmt(fla, 1)} ÷ 1.732 = ${fmt(thr, 2)} A. 정격전류의 0.58배보다 높게 맞추지 마십시오(Siemens 설명서).'
+              '① 설정 = FLA ÷ √3 = ${fmt(fla, 1)} ÷ 1.732 = ${fmt(thr, 2)} A. 주 접촉기에는 권선 전류(선전류의 0.58배)가 흐르므로 계전기를 전동기 정격전류의 0.58배로 맞춥니다(Siemens Industrial Controls Catalog 2019 3장).'
             else
-              '① 설정 = 명판 정격전류 ${fmt(fla, 1)} A. 설정값은 트립 전류가 아니라 정격전류이고, 설정전류의 1.05배에서는 동작하지 않고 1.2배에서 동작합니다(IEC).',
+              '① 설정 = 명판 정격전류 ${fmt(fla, 1)} A. 설정값은 트립 전류가 아니라 정격전류입니다.${_method == StartMethod.starDelta ? ' 공통 전원 선로에 둔 경우는 원문을 못 봤습니다.' : ''}',
+            'IEC 60947-4-1 표 3: 주위 온도 보상형 열동 계전기는 설정전류의 1.05배에서 동작하지 않고 1.2배에서 동작합니다(+20 ℃ 기준). 비보상형 열동 계전기와 자기식(magnetic) 계전기는 1.0배 불동작, 1.2배 동작입니다(+40 ℃ 기준).',
             '② NEC 430.32 상한 = FLA × ${_sf ? "125" : "115"}% = ${fmt(fla, 1)} × ${_sf ? "1.25" : "1.15"} = ${fmt(necMax, 1)} A. 기동이 안 되어 설정을 올릴 때도 이 값을 초과하면 안 됩니다.',
             if (run != null && run > 0) ...[
               () {
                 final (lo, hi) = eocrRange(run);
-                return '③ 전자식(EOCR) 부하 설정 = 운전전류 × 110~125% = ${fmt(run, 1)} × 1.10 ~ ${fmt(run, 1)} × 1.25 = ${fmt(lo, 1)} ~ ${fmt(hi, 1)} A(삼화 매뉴얼). 다른 자료는 정격전류의 125~150%라 기준이 다르니 제조사 설명서를 따르십시오.';
+                return '③ 전자식(EOCR) 부하 설정 = 운전전류 × 110~125% = ${fmt(run, 1)} × 1.10 ~ ${fmt(run, 1)} × 1.25 = ${fmt(lo, 1)} ~ ${fmt(hi, 1)} A(삼화/Schneider EOCR-SS 카탈로그, 정밀하게 맞출 때는 103%). "정격 125~150%"라는 자료도 있으나 출처 미확인입니다. 쓰는 제품의 설명서를 따르십시오.';
               }(),
               'EOCR 기동지연(D-TIME)은 실측 기동시간 + 1초 정도, 과전류 지연(O-TIME)은 보통 4~6초입니다.',
             ],
-            '${run != null && run > 0 ? "④" : "③"} 트립 클래스 $_cls: 설정전류 7.2배에서 ${fmt(cLo, 0)}~${fmt(cHi, 0)}초에 동작합니다.',
+            '${run != null && run > 0 ? "④" : "③"} 트립 클래스 $_cls: 설정전류 7.2배에서 ${fmt(cLo, 0)}~${fmt(cHi, 0)}초에 동작합니다(IEC 60947-4-1 표 2).',
             if (may == true)
               '기동시간 ${fmt(startS!, 1)}초가 클래스 $_cls 상한 ${fmt(cHi, 0)}초 이상이라 기동 중 트립될 수 있습니다. 더 큰 클래스를 쓰거나 기동 방식을 바꾸십시오.'
             else if (may == false)
@@ -215,10 +217,11 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
       ),
       const SizedBox(height: 12),
       elecBasis('emp_basis', const [
-        'Y-Δ 델타 안 0.58배: Siemens RAJA+ 설명서와 교재 자료가 같습니다. 라인 쪽 위치는 검색 요약 한 곳이라 확인이 필요합니다.',
+        'Y-Δ 주 접촉기 0.58배: Siemens Industrial Controls Catalog 2019 3장(과부하계전기) 원문에 "주 접촉기(line contactor)에 붙인 과부하계전기는 전동기 전류의 0.58배로 설정"이라고 되어 있습니다. 공통 전원 선로 위치(정격 그대로)는 원문을 못 봤습니다.',
+        '1.05배 불동작·1.2배 동작은 IEC 60947-4-1 표 3의 주위 온도 보상형 열동 계전기 값(+20 ℃)입니다. 비보상형 열동 계전기와 자기식(magnetic) 계전기는 1.0배·1.2배(+40 ℃)입니다.',
         'NEC 430.32(125%·115%)와 NEC 430.52(175·250·300·800%)는 두 곳 이상이 같습니다. NEC는 미국 기준이라 국내 설계는 내선규정·KEC·제조사 선정표를 우선합니다.',
-        '트립 클래스 시간(10A 2~10, 10 4~10, 20 6~20, 30 9~30초)은 두 곳이 같습니다.',
-        '국내 과부하계전기 설정 "120~125%" 규칙과 EOCR 설정 배수(운전전류 110~125% 대 정격 125~150%)는 출처마다 달라 범위로만 표시했습니다. 제조사 설명서가 우선입니다.',
+        '트립 클래스 시간(10A 2~10, 10 4~10, 20 6~20, 30 9~30초, 설정전류 7.2배)은 IEC 60947-4-1 표 2와 같습니다.',
+        'EOCR 부하 설정 운전전류 110~125%는 삼화/Schneider EOCR-SS 카탈로그 원문입니다. "정격 125~150%"와 국내 과부하계전기 설정 "120~125%" 규칙은 출처 미확인입니다. 제조사 설명서가 우선입니다.',
         'LS ELECTRIC 전동기 회로 선정표(차단기·접촉기 짝)는 PDF 한글이 깨져 원본 대조 전이라 넣지 않았습니다.',
       ]),
     ]);

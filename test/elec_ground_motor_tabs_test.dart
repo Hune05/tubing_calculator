@@ -116,14 +116,22 @@ void main() {
     expect(allFlat(tester), contains(flat('= 6.9 × 1.5 = 10.35 kV')));
   });
 
-  testWidgets('전동기 보호 탭: 직입 설정 = 정격, Y-Δ 델타 안 = 0.58배', (tester) async {
+  testWidgets('전동기 보호 탭: 직입 설정 = 정격, Y-Δ 주 접촉기 = 0.58배', (tester) async {
     await _open(tester, 'ec_tab_motor');
     expect(find.text('40 A'), findsOneWidget);
     expect(allFlat(tester), contains(flat('NEC 430.32 상한 = FLA × 125% = 40 × 1.25 = 50 A')));
+    // 1.05/1.2배는 주위 온도 보상형 조건과 함께(IEC 60947-4-1 표 3)
+    expect(allFlat(tester), contains(flat('주위 온도 보상형 열동 계전기는 설정전류의 1.05배')));
+    expect(allFlat(tester), contains(flat('1.0배 불동작, 1.2배 동작입니다(+40 ℃ 기준)')));
     await _tap(tester, 'emp_yd');
     expect(find.text('23.1 A'), findsOneWidget); // 40 ÷ √3
+    // Siemens 'line contactor' = 주 접촉기(권선 전류). "라인 쪽"으로 반대로 읽히지 않게
+    expect(find.text('주 접촉기(권선 전류) → 0.58×FLA'), findsOneWidget);
+    expect(find.text('공통 전원 선로(선전류) → FLA'), findsOneWidget);
+    expect(allFlat(tester), isNot(contains(flat('0.58배보다 높게'))));
     await _tap(tester, 'emp_line');
     expect(find.text('40 A'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('공통 전원 선로에 둔 경우는 원문을 못 봤습니다')));
     await _tap(tester, 'emp_sf_n');
     expect(allFlat(tester), contains(flat('FLA × 115% = 40 × 1.15 = 46 A')));
   });
@@ -133,6 +141,9 @@ void main() {
     await _type(tester, 'emp_run', '30');
     expect(find.textContaining('33 ~ 37.5 A'), findsOneWidget);
     expect(allFlat(tester), contains(flat('= 30 × 1.10 ~ 30 × 1.25 = 33 ~ 37.5 A')));
+    expect(allFlat(tester), contains(flat('삼화/Schneider EOCR-SS 카탈로그')));
+    expect(allFlat(tester), contains(flat('출처 미확인')));
+    expect(allFlat(tester), contains(flat('(IEC 60947-4-1 표 2)')));
     // 기동시간 6초: 클래스 10(상한 10초) 안
     expect(find.textContaining('기동시간 6초는 클래스 10 상한 10초 이내입니다'), findsOneWidget);
     await _type(tester, 'emp_start', '12');

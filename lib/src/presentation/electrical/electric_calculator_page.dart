@@ -125,9 +125,9 @@ GroupLayout layoutFor(InstallMethod m, {bool stacked = true}) => switch (m) {
 bool isTray(InstallMethod m) => m == InstallMethod.c || m == InstallMethod.e;
 
 String supplyLabel(SupplyType t) => switch (t) {
-  SupplyType.lvOther => '저압 수전 · 동력 등 (5%)',
+  SupplyType.lvOther => '저압 수전 · 기타 (5%)',
   SupplyType.lvLighting => '저압 수전 · 조명 (3%)',
-  SupplyType.hvOther => '고압 이상 수전 · 동력 등 (전체 8%)',
+  SupplyType.hvOther => '고압 이상 수전 · 기타 (전체 8%)',
   SupplyType.hvLighting => '고압 이상 수전 · 조명 (전체 6%)',
 };
 
@@ -1687,7 +1687,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       _chipGroup(
         '병렬 가닥 수',
         '한 회로를 같은 굵기 케이블 여러 가닥으로 나눠 포설할 때 가닥 수입니다.\n'
-            'KEC 123: 병렬 전선은 구리 50sq 이상, 같은 도체·재료·길이·굵기를 쓰고 가닥마다 퓨즈를 달지 않습니다.\n'
+            'KEC 123의 6 가·라: 병렬 전선은 구리 50sq 이상, 같은 도체·재료·길이·굵기를 쓰고 가닥마다 퓨즈를 달지 않습니다.\n'
             '병렬 가닥도 서로 열을 주고받으므로 다조 포설 회로 수에 더해 계산합니다.\n'
             '4가닥 이상은 버스바 트렁킹 사용을 검토하십시오(KEC 232.3.2).',
         [
@@ -2030,7 +2030,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         '${sqText(size)} 허용전류 ${fmt(c.iz!, 1)}A = 표 값 ${fmt(c.base!)} × 온도 보정 ${fmt(c.tempFactor, 2)} '
             '× 다조 포설 보정 ${fmt(c.groupFactor, 2)}${c.parallel > 1 ? ' × ${c.parallel}가닥' : ''}',
       if (c.parallel > 1)
-        '병렬 ${c.parallel}가닥: 가닥마다 50sq 이상(KEC 123), 다조 포설은 병렬 가닥을 포함해 ${c.groupCount}가닥으로 계산',
+        '병렬 ${c.parallel}가닥: 가닥마다 50sq 이상(KEC 123의 6 가), 다조 포설은 병렬 가닥을 포함해 ${c.groupCount}가닥으로 계산',
       _standardLine(amb, c.groupCount),
       if (size != null) _peBasisLine,
       if (r != null) ..._motorBasis(r),

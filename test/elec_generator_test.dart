@@ -1,5 +1,7 @@
 // 발전기 용량(PG 방식) 순수 계산과 탭 화면 시험.
-// 손계산 근거: PG2 351 kVA는 KIEE 논문(2018) 예제(75kW, β 7.2, C 0.65, X″d 25%, ΔV 20%)와 같은 값이다.
+// 원문: 건축전기설비설계기준(국토교통부) 제5장 예비전원설비 3.1.1~3.1.2.
+// 손계산 근거: PG2 = 75 × 7.2(F 계급) × 0.65(리액터 65%) × 0.25 × (1 − 0.2) ÷ 0.2 = 351 kVA.
+// PG3는 원문대로 부하 종합 역률 cosθL로 나눈다(발전기 역률 칸은 없앴다). 기동 역률은 원문 불분명시 0.4.
 import 'dart:convert';
 import 'formula_flat.dart';
 
@@ -13,10 +15,8 @@ import 'package:tubing_calculator/src/presentation/electrical/elec_generator_tab
 GenInput _base({
   double? loadKw = 300,
   double? motorKw = 75,
-  double? startPf = 0.31,
-  double? genPf = 0.8,
-  double? harmonicKva,
-  double? harmonicFactor,
+  double? startPf = 0.4,
+  double? pf = 0.8,
   double? volts = 380,
   double? chosenKva,
   double? dvPct = 20,
@@ -25,16 +25,13 @@ GenInput _base({
   loadKw: loadKw,
   demand: 1,
   eff: 0.85,
-  pf: 0.8,
+  pf: pf,
   motorKw: motorKw,
   beta: beta,
   startC: 0.65,
   xdPct: 25,
   dvPct: dvPct,
   startPf: startPf,
-  genPf: genPf,
-  harmonicKva: harmonicKva,
-  harmonicFactor: harmonicFactor,
   volts: volts,
   chosenKva: chosenKva,
 );
@@ -81,11 +78,18 @@ void main() {
       expect(genPg2(75, 7.2, 0.65, 0.25, 0.2), closeTo(351, 1e-9));
     });
 
-    test('PG3: [(300−75)÷0.85 + 75×7.2×0.65×0.31] ÷ 0.8 = 466.895', () {
-      // 225 ÷ 0.85 = 264.70588, 351 × 0.31 = 108.81, 합 373.51588, ÷ 0.8
+    test('PG3: [(300−75)÷0.85 + 75×7.2×0.65×0.4] ÷ 0.8 = 506.382', () {
+      // 225 ÷ 0.85 = 264.70588, 351 × 0.4 = 140.4, 합 405.10588, ÷ 0.8(부하 역률) = 506.38235
       expect(
-        genPg3(300, 75, 0.85, 7.2, 0.65, 0.31, 0.8),
-        closeTo(466.8949, 1e-3),
+        genPg3(300, 75, 0.85, 7.2, 0.65, 0.4, 0.8),
+        closeTo(506.3824, 1e-3),
+      );
+    });
+
+    test('PG3: 부하 역률 0.9면 405.10588 ÷ 0.9 = 450.118', () {
+      expect(
+        genPg3(300, 75, 0.85, 7.2, 0.65, 0.4, 0.9),
+        closeTo(450.1176, 1e-3),
       );
     });
 
@@ -100,10 +104,19 @@ void main() {
       expect(r.ok, isTrue);
       expect(r.pg1, closeTo(441.176, 1e-3));
       expect(r.pg2, closeTo(351, 1e-9));
-      expect(r.pg3, closeTo(466.8949, 1e-3));
-      expect(r.required, closeTo(466.8949, 1e-3));
+      expect(r.pg3, closeTo(506.3824, 1e-3));
+      expect(r.required, closeTo(506.3824, 1e-3));
       expect(r.governing, 'PG3');
-      expect(r.currentA, closeTo(466894.9 / (1.7320508 * 380), 0.05));
+      // 506382.4 ÷ (√3 × 380) = 769.4 A
+      expect(r.currentA, closeTo(506382.4 / (1.7320508 * 380), 0.05));
+    });
+
+    test('PG3는 발전기 역률이 아니라 PG1과 같은 부하 종합 역률로 나눈다', () {
+      // 역률 0.9: PG1 = 300 ÷ (0.85 × 0.9) = 392.157, PG3 = 405.10588 ÷ 0.9 = 450.118
+      final r = calcGenerator(_base(pf: 0.9));
+      expect(r.pg1, closeTo(392.1569, 1e-3));
+      expect(r.pg3, closeTo(450.1176, 1e-3));
+      expect(r.governing, 'PG3');
     });
 
     test('전동기가 없으면 PG1만, 안내 글이 붙는다', () {
@@ -124,19 +137,34 @@ void main() {
     });
 
     test('전동기 기동이 크면 PG2가 최댓값', () {
-      final r = calcGenerator(_base(loadKw: 80, startPf: null, genPf: null));
+      // PG3 = [(80 − 75) ÷ 0.85 + 351 × 0.4] ÷ 0.8 = (5.88235 + 140.4) ÷ 0.8 = 182.853
+      final r = calcGenerator(_base(loadKw: 80));
       expect(r.pg1, closeTo(117.647, 1e-3));
       expect(r.pg2, closeTo(351, 1e-9));
+      expect(r.pg3, closeTo(182.8529, 1e-3));
       expect(r.governing, 'PG2');
       expect(r.required, closeTo(351, 1e-9));
     });
 
-    test('고조파: PG1 + 50 × 2 = PG1 + 100', () {
-      final r = calcGenerator(
-        _base(loadKw: 80, motorKw: null, harmonicKva: 50, harmonicFactor: 2),
-      );
-      expect(r.pg4, closeTo(80 / 0.68 + 100, 1e-6));
-      expect(r.governing, 'PG4');
+    test('기동 방식 계수 C와 기동 계급 β는 원문 표 값', () {
+      expect({for (final k in GenStartKind.values) k.name: k.c}, {
+        'direct': 1.0,
+        'starDelta': 0.67,
+        'reactor65': 0.65,
+        'reactor80': 0.80,
+        'condorfer50': 0.25,
+        'condorfer65': 0.42,
+        'condorfer80': 0.64,
+        'custom': null,
+      });
+      expect({for (final k in GenStartClass.values) k.label: k.beta}, {
+        'E': 6.35,
+        'F': 7.2,
+        'G': 8.0,
+        'H': 9.0,
+        'J': 10.1,
+        'K': 11.4,
+      });
     });
 
     test('허용 전압강하가 작을수록 PG2가 커진다', () {
@@ -200,11 +228,11 @@ void main() {
       expect(r.errors.single, contains('부하 합계보다 큽니다'));
     });
 
-    test('음수 전동기, 고조파 계수 빠짐, 선정 용량 0', () {
+    test('음수 전동기, 기동 역률 범위 밖, 선정 용량 0', () {
       expect(calcGenerator(_base(motorKw: -1)).errors, isNotEmpty);
       expect(
-        calcGenerator(_base(harmonicKva: 10)).errors.single,
-        contains('가산 계수'),
+        calcGenerator(_base(startPf: 1.2)).errors.single,
+        contains('기동 역률'),
       );
       expect(calcGenerator(_base(chosenKva: 0)).errors, isNotEmpty);
       expect(calcGenerator(_base(volts: 0)).errors, isNotEmpty);
@@ -243,7 +271,40 @@ void main() {
       expect(find.byKey(const Key('eg_sum')), findsOneWidget);
       expect(find.textContaining('필요 147 kVA (PG1)'), findsOneWidget);
       expect(find.textContaining('최종 용량은 제조사 검토로 확정합니다.'), findsOneWidget);
+      expect(find.textContaining('고조파(사이리스터) 부하가 있으면 PG 방식을 쓰지 않습니다'), findsOneWidget);
       expect(allFlat(tester), contains(flat('정격전류: 223 A')));
+    });
+
+    testWidgets('발전기 역률·고조파 칸은 없고 기동 역률은 원문 불분명시 값 40', (tester) async {
+      await pumpTab(tester);
+      expect(find.byKey(const Key('eg_genpf')), findsNothing);
+      expect(find.byKey(const Key('eg_harm')), findsNothing);
+      expect(find.byKey(const Key('eg_harmf')), findsNothing);
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('eg_startpf')))
+            .controller!
+            .text,
+        '40',
+      );
+    });
+
+    testWidgets('기동 계급 F를 누르면 β 7.2, 콘돌퍼 65%를 누르면 C 0.42', (tester) async {
+      await pumpTab(tester);
+      String text(String k) =>
+          tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+      await tester.ensureVisible(find.byKey(const Key('eg_beta_f')));
+      await tester.tap(find.byKey(const Key('eg_beta_f')));
+      await tester.pump();
+      expect(text('eg_beta'), '7.2');
+      await tester.ensureVisible(find.byKey(const Key('eg_start_condorfer65')));
+      await tester.tap(find.byKey(const Key('eg_start_condorfer65')));
+      await tester.pump();
+      expect(text('eg_c'), '0.42');
+      await tester.ensureVisible(find.byKey(const Key('eg_start_reactor80')));
+      await tester.tap(find.byKey(const Key('eg_start_reactor80')));
+      await tester.pump();
+      expect(text('eg_c'), '0.8');
     });
 
     testWidgets('전동기까지 넣으면 PG2 351이 최댓값이 된다', (tester) async {
@@ -260,7 +321,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('351 kVA'), findsOneWidget);
       expect(find.textContaining('PG2 기준'), findsOneWidget);
-      expect(find.textContaining('PG3는 기동 역률'), findsOneWidget);
+      // 기동 역률 기본 40%로 PG3도 계산한다: (5 ÷ 0.85 + 351 × 0.4) ÷ 0.8(부하 역률) = 182.853
+      expect(allFlat(tester), contains(flat('③ PG3 마지막 전동기 기동: 182.9 kVA = [(80 − 75) ÷ 0.85 + 75 × 7.2 × 0.65 × 0.4] ÷ 0.8')));
     });
 
     testWidgets('숫자가 아닌 글은 입력 확인으로 보인다', (tester) async {
@@ -316,7 +378,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('① PG1 정상 운전'), findsOneWidget);
       expect(allFlat(tester), contains(flat('② PG2 전동기 기동 전압강하: 351 kVA = 75 × 7.2 × 0.65 × 0.25 × (1 − 0.2) ÷ 0.2')));
-      expect(allFlat(tester), contains(flat('⑤ 가장 큰 값을 필요 용량으로 합니다: max(PG1 117.6, PG2 351) = 351 kVA (PG2)')));
+      expect(allFlat(tester), contains(flat('④ 가장 큰 값을 필요 용량으로 합니다: max(PG1 117.6, PG2 351, PG3 182.9) = 351 kVA (PG2)')));
       expect(allFlat(tester), contains(flat('정격전류: 533 A = 351 kVA × 1000 ÷ (√3 × 380 V)')));
     });
   });

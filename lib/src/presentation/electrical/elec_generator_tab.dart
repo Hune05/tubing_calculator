@@ -48,10 +48,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
   final _c = TextEditingController();
   final _xd = TextEditingController();
   final _dv = TextEditingController();
-  final _startPf = TextEditingController();
-  final _genPf = TextEditingController();
-  final _harm = TextEditingController();
-  final _harmF = TextEditingController();
+  // 원문은 기동 역률이 불분명하면 0.4를 쓴다.
+  final _startPf = TextEditingController(text: '40');
   final _volts = TextEditingController(text: '380');
   final _chosen = TextEditingController();
 
@@ -86,9 +84,6 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     (_xd, 'xd'),
     (_dv, 'dv'),
     (_startPf, 'startPf'),
-    (_genPf, 'genPf'),
-    (_harm, 'harm'),
-    (_harmF, 'harmF'),
     (_volts, 'volts'),
     (_chosen, 'chosen'),
     (_mode, 'mode'),
@@ -201,6 +196,14 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       if (k.c != null && v != null && (v - k.c!).abs() < 1e-9) return k;
     }
     return GenStartKind.custom;
+  }
+
+  GenStartClass? get _class {
+    final v = readNum(_beta);
+    for (final k in GenStartClass.values) {
+      if (v != null && (v - k.beta).abs() < 1e-9) return k;
+    }
+    return null;
   }
 
   /// 맨 위 방식 고르기.
@@ -557,9 +560,6 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       xdPct: _read(_xd, 'X″d', bad),
       dvPct: _read(_dv, '허용 전압강하', bad),
       startPf: _read(_startPf, '기동 역률', bad, pct: true),
-      genPf: _read(_genPf, '발전기 역률', bad, pct: true),
-      harmonicKva: _read(_harm, '고조파 부하', bad),
-      harmonicFactor: _read(_harmF, '고조파 가산 계수', bad),
       volts: _read(_volts, '발전기 전압', bad),
       chosenKva: _read(_chosen, '선정 용량', bad),
     );
@@ -608,16 +608,11 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
             '③ PG3 마지막 전동기 기동: ${fmt(r.pg3!, 1)} kVA = [(${fmt(input.loadKw!, 1)} − '
                 '${fmt(input.motorKw!, 1)}) ÷ ${fmt(input.eff!, 2)} + ${fmt(input.motorKw!, 1)} × '
                 '${fmt(input.beta!, 2)} × ${fmt(input.startC!, 2)} × ${fmt(input.startPf!, 2)}] '
-                '÷ ${fmt(input.genPf!, 2)}',
-          if (r.pg4 != null)
-            '④ PG4 고조파 가산: ${fmt(r.pg4!, 1)} kVA = PG1 + ${fmt(input.harmonicKva!, 1)} × '
-                '${fmt(input.harmonicFactor!, 2)} = ${fmt(r.pg1!, 1)} + ${fmt(input.harmonicKva!, 1)} × '
-                '${fmt(input.harmonicFactor!, 2)}',
-          '⑤ 가장 큰 값을 필요 용량으로 합니다: max(${[
+                '÷ ${fmt(input.pf!, 2)}',
+          '④ 가장 큰 값을 필요 용량으로 합니다: max(${[
             'PG1 ${fmt(r.pg1!, 1)}',
             if (r.pg2 != null) 'PG2 ${fmt(r.pg2!, 1)}',
             if (r.pg3 != null) 'PG3 ${fmt(r.pg3!, 1)}',
-            if (r.pg4 != null) 'PG4 ${fmt(r.pg4!, 1)}',
           ].join(', ')}) = ${fmt(req, 1)} kVA (${r.governing})',
           if (r.currentA != null)
             '정격전류: ${fmt(r.currentA!, 0)} A = ${fmt(req, 1)} kVA × 1000 ÷ (√3 × ${fmt(input.volts!, 0)} V)',
@@ -626,6 +621,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
                 ? '선정 ${fmt(input.chosenKva!, 0)} kVA: 합격 (여유 ${fmt(r.chosenMarginPct!, 1)}%)'
                 : '선정 ${fmt(input.chosenKva!, 0)} kVA: 불합격 (필요 ${fmt(req, 1)} kVA에 ${fmt(-r.chosenMarginPct!, 1)}% 부족)',
           ...r.notes,
+          '고조파(사이리스터) 부하가 있으면 PG 방식을 쓰지 않습니다(원문 3.1.2(1)). 위 "GP 방식"을 쓰십시오.',
           '최종 용량은 제조사 검토로 확정합니다.',
           '현행 기준(KDS 32 20 20:2024)은 GP 방식입니다. 새 설계는 위 "GP 방식"을 쓰십시오.',
         ],
@@ -651,13 +647,13 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         'eg_eff',
         '부하 종합 효율 (%)',
         _eff,
-        '85%로 쓰는 자료가 있습니다(2차 자료). 부하 자료가 있으면 그 값을 넣으십시오.',
+        '원문은 불분명하면 85%(0.85)를 씁니다. 부하 자료가 있으면 그 값을 넣으십시오.',
       ),
       elecField(
         'eg_pf',
         '부하 종합 역률 (%)',
         _pf,
-        '80%로 쓰는 자료가 있습니다(2차 자료). 부하 자료가 있으면 그 값을 넣으십시오.',
+        '원문은 불분명하면 80%(0.8)를 씁니다. PG1과 PG3에 같이 씁니다. 부하 자료가 있으면 그 값을 넣으십시오.',
       ),
       elecSectionTitle('가장 큰 전동기'),
       elecField(
@@ -668,8 +664,9 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       ),
       elecChipGroup(
         '기동 방식',
-        '기동 방식 계수 C: 직입 1.0, Y-Δ 0.67, 리액터 65% 0.65. 논문 표 한 곳에서 확인한 값이며 원문 대조 전(2차 자료)입니다.\n'
-            '소프트스타터·인버터는 제조사 자료로 계수를 직접 넣으십시오.',
+        '기동 방식 계수 C(원문 3.1.1(5) 표): 직입 1.0, Y-Δ 0.67, 리액터 65% 0.65, 리액터 80% 0.80, '
+            '콘돌퍼 50%·65%·80% 0.25·0.42·0.64.\n'
+            '소프트스타터·인버터는 원문 표에 없으니 제조사 자료로 계수를 직접 넣으십시오.',
         [
           for (final k in GenStartKind.values)
             calcChip('eg_start_${k.name}', k.label, _kind == k, () {
@@ -689,49 +686,46 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         _c,
         '위 기동 방식을 고르면 값이 채워집니다. 다른 방식은 제조사 자료 값을 직접 넣으십시오.',
       ),
+      elecChipGroup(
+        '기동 계급 (β)',
+        '원문 표의 기동 계급별 β(전동기 출력 1kW당 기동 입력 kVA, 범위 가운데 값): '
+            'E 6.35, F 7.2, G 8.0, H 9.0, J 10.1, K 11.4.\n'
+            '전동기 명판의 기동 계급(코드 문자)을 보고 고르십시오.',
+        [
+          for (final k in GenStartClass.values)
+            calcChip(
+              'eg_beta_${k.name}',
+              '${k.label} ${k.beta}',
+              _class == k,
+              () => setState(() => _beta.text = '${k.beta}'),
+            ),
+        ],
+      ),
       elecField(
         'eg_beta',
         '기동 kVA/kW (β)',
         _beta,
-        '전동기 출력 1kW당 기동 kVA입니다. KIEE 논문(2018) 예제는 7.2를 썼고 다른 정리 글에는 0.72로 적혀 서로 다릅니다. 제조사 자료로 확인하십시오.',
+        '전동기 출력 1kW당 기동 입력(kVA)입니다. 위 기동 계급을 고르면 채워집니다. 7.2는 F 계급 값입니다. 계급을 모르면 제조사 자료로 확인하십시오.',
       ),
       elecField(
         'eg_xd',
         '발전기 X″d (%)',
         _xd,
-        '발전기 명판이나 제조사 자료의 과도 리액턴스입니다. 20~25%로 소개하는 자료가 있으나 발전기마다 다릅니다.',
+        '발전기 명판이나 제조사 자료의 과도 리액턴스입니다. 원문은 보통 20~25%라고 적었습니다. 발전기마다 다르니 제조사 값을 넣으십시오.',
       ),
       elecField(
         'eg_dv',
         '허용 전압강하 ΔV (%)',
         _dv,
-        '전동기 기동 순간에 발전기 전압이 떨어져도 되는 비율입니다. 일반 25% 이하, 비상용 승강기가 있으면 20% 이하로 소개하는 자료가 있습니다(2차 자료). 설계 기준으로 확인하십시오.',
+        '전동기 기동 순간에 발전기 전압이 떨어져도 되는 비율입니다. 승강기가 있으면 20 %, 그 밖에는 25 %(원문 3.1.2(4)).',
       ),
       elecField(
         'eg_startpf',
-        '기동 역률 (%, PG3, 선택)',
+        '기동 역률 (%, PG3)',
         _startPf,
-        '전동기 기동 때의 역률입니다. 제조사 자료 값을 넣으십시오. 논문 표에는 전동기 용량별로 15~62%가 있습니다. 비우면 PG3를 계산하지 않습니다.',
+        '전동기 기동 때의 역률(Pfm)입니다. 원문은 불분명하면 40%(0.4)를 씁니다. 제조사 자료가 있으면 그 값을 넣으십시오. 비우면 PG3를 계산하지 않습니다.',
       ),
-      elecField(
-        'eg_genpf',
-        '발전기 역률 (%, PG3, 선택)',
-        _genPf,
-        '발전기 명판 역률입니다. 보통 80%입니다. 비우면 PG3를 계산하지 않습니다.',
-      ),
-      elecSectionTitle('고조파 부하와 결과'),
-      elecField(
-        'eg_harm',
-        '고조파 부하 (kVA, 선택)',
-        _harm,
-        'UPS·인버터·LED 등 정류기 부하의 입력 용량입니다. 없으면 비워 두십시오.',
-      ),
-      elecField(
-        'eg_harmf',
-        '고조파 가산 계수',
-        _harmF,
-        'PG1에 고조파 부하 × 계수를 더합니다. 2.0~2.5로 소개하는 정리 글이 한 곳 있으나 원문 대조 전입니다. 고조파 부하를 넣었으면 계수도 넣으십시오.',
-      ),
+      elecSectionTitle('결과'),
       elecField('eg_volts', '발전기 전압 (V)', _volts, '3상 선간전압입니다. 정격전류 계산에 씁니다.'),
       elecField(
         'eg_chosen',
@@ -742,15 +736,14 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       const SizedBox(height: 12),
       result,
       elecBasis('eg_basis', [
-        '방식: PG 방식. 필요 용량은 PG1, PG2, PG3, PG4 중 큰 값입니다.',
-        'PG1 = 부하 kW × 수용률 ÷ (효율 × 역률).',
+        '원문: 건축전기설비설계기준(국토교통부) 제5장 예비전원설비 3.1.1~3.1.2 PG 방식. 필요 용량은 PG1, PG2, PG3 중 큰 값입니다.',
+        'PG1 = 부하 kW × 수용률 ÷ (효율 × 역률). 효율·역률이 불분명하면 0.85·0.8을 씁니다.',
         'PG2 = 전동기 kW × β × C × X″d × (1 − ΔV) ÷ ΔV. 가장 큰 전동기를 기동할 때 허용 전압강하 조건입니다.',
-        'PG3 = [(부하 − 전동기) ÷ 효율 + 전동기 × β × C × 기동 역률] ÷ 발전기 역률. 마지막 전동기를 기동할 때 조건입니다.',
-        'PG4 = PG1 + 고조파 부하 × 가산 계수.',
-        '출처: KIEE 논문 2018(이종혁·김진오), 한양대 논문 2021, 발전기 용량 산정 정리 글(cq4l.com). 모두 원문 대조 전(2차 자료)입니다. 논문의 PG2 예제 351 kVA와 이 식의 결과가 같습니다.',
-        '서로 다른 값: β를 논문은 7.2, 정리 글은 0.72로 적었습니다. PG3의 역률 기호도 자료마다 다르게 적혀 있어 기동 역률 칸을 따로 두었습니다.',
-        '2021년 6월 개정 KDS 31 60 20은 GP 방식을 씁니다. 자료마다 식이 셋으로 갈려 원문 대조 전이라 넣지 않았습니다.',
-        '넣지 않은 것: GP 방식, 단상 부하 불평형 보정, 고도·온도 출력 감소, 연료·환기 조건.',
+        'PG3 = [(부하 − 전동기) ÷ 효율 + 전동기 × β × C × 기동 역률] ÷ 부하 역률. 마지막 전동기를 기동할 때 조건입니다. PG1과 같은 부하 종합 역률로 나눕니다. 기동 역률이 불분명하면 0.4를 씁니다.',
+        '원문은 사이리스터(고조파) 부하가 없을 때만 PG 방식을 씁니다(3.1.2(1)). 고조파 가산식은 원문에 없어 넣지 않았습니다.',
+        'C 표의 리액터 50%는 원문에 65%와 같은 0.65로 적혀 있어 오타로 보고 넣지 않았습니다.',
+        'β를 0.72로 적은 정리 글이 있으나 원문 값이 아닙니다. 7.2는 F 계급 값입니다.',
+        '넣지 않은 것: RG 방식, 단상 부하 불평형 보정, 고도·온도 출력 감소, 연료·환기 조건.',
       ]),
     ]);
   }

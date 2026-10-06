@@ -69,7 +69,7 @@ void main() {
       // 2번 40kW, 수용률 100%, 역률 100%: P=40, Q=0.
       // ΣP=90, ΣQ=37.5, S=√(8100+1406.25)=97.5 kVA, 종합 역률 90÷97.5=0.923077.
       // 필요 = 97.5 ÷ 1.2 × 1.2 = 97.5 kVA. I = 97500 ÷ (√3 × 440) = 127.94 A.
-      // 부하율 = 97.5 ÷ 150 = 65%.
+      // 변압기 이용률 = 97.5 ÷ 150 = 65%.
       final r = computeLoadSum(
         LoadSumInput(
           rows: [
@@ -645,13 +645,13 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     });
 
-    testWidgets('선정 용량: 부하율 합격, 100% 초과는 불합격', (tester) async {
+    testWidgets('선정 용량: 변압기 이용률 합격, 100% 초과는 불합격', (tester) async {
       await pumpTab(tester);
       await type(tester, 'els_kw_0', '100');
       await type(tester, 'els_pf_0', '90');
       await type(tester, 'els_df_0', '80');
       await type(tester, 'els_selected', '100');
-      expect(sum(tester), contains('부하율 88.9% 합격'));
+      expect(sum(tester), contains('변압기 이용률 88.9% 합격'));
       await type(tester, 'els_selected', '75');
       expect(sum(tester), contains('불합격'));
       expect(find.textContaining('선정 용량이 필요 용량보다 작습니다'), findsOneWidget);
@@ -666,7 +666,7 @@ void main() {
     });
 
     // 풀이 줄: 100 kW × 80% = 80 kW, Q = 80 × tan(acos 0.9) = 38.7 kvar, S = 88.9 kVA,
-    // 필요 = 88.9 ÷ 1.25 × 1.1 = 78.2 kVA, 전류 = 78.2 × 1000 ÷ (√3 × 380) = 118.8 A, 부하율 = 78.2 ÷ 100 = 78.2%.
+    // 필요 = 88.9 ÷ 1.25 × 1.1 = 78.2 kVA, 전류 = 78.2 × 1000 ÷ (√3 × 380) = 118.8 A, 변압기 이용률 = 78.2 ÷ 100 = 78.2%.
     testWidgets('결과 상자에 ①~⑤ 단계 풀이가 식과 숫자로 나온다', (tester) async {
       await pumpTab(tester);
       await type(tester, 'els_name_0', '모터');
@@ -681,8 +681,10 @@ void main() {
       expect(allFlat(tester), contains(flat('종합 역률 = ΣP ÷ S = 80 ÷ 88.9 = 90%')));
       expect(allFlat(tester), contains(flat('③ 필요 용량 = S ÷ 부등률 × (1 + 여유) = 88.9 ÷ 1.25 × (1 + 10%) = 78.2 kVA')));
       expect(allFlat(tester), contains(flat('78.2 × 1000 ÷ (√3 × 380 V) = 118.8 A (3상)')));
-      expect(allFlat(tester), contains(flat('⑤ 부하율 = 필요 용량 ÷ 선정 용량 × 100 = 78.2 ÷ 100 × 100 = 78.2%: 합격')));
-      expect(allFlat(tester), contains(flat('여유를 뺀 부하율 = S ÷ 부등률 ÷ 선정 용량 × 100 = 88.9 ÷ 1.25 ÷ 100 × 100 = 71.1%')));
+      expect(allFlat(tester), contains(flat('⑤ 변압기 이용률 = 필요 용량 ÷ 선정 용량 × 100 = 78.2 ÷ 100 × 100 = 78.2%: 합격')));
+      expect(allFlat(tester), contains(flat('여유를 뺀 변압기 이용률 = S ÷ 부등률 ÷ 선정 용량 × 100 = 88.9 ÷ 1.25 ÷ 100 × 100 = 71.1%')));
+      // 1차 자료에서 찾지 못한 "부하율 60~80% 적정" 문구는 없앴다.
+      expect(allFlat(tester), isNot(contains('60~80')));
       await tester.pump(const Duration(seconds: 1));
     });
 
