@@ -36,6 +36,9 @@ List<KnowledgeEntry> fieldReferenceKnowledge() => [
           builder: (_) => TubeReferencePage(initialTab: refSearchIndex[i].tab),
         ),
       ),
+      // 카드 제목 색인이라 내용 창에 보일 내용이 없다. 누르면 그 탭을 곧바로 연다.
+      direct: true,
+      openLabel: '현장 자료 열기',
     ),
 ];
 

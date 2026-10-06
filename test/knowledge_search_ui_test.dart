@@ -142,4 +142,41 @@ void main() {
     await t.pumpAndSettle();
     expect(opened, 11);
   });
+
+  test('보내기 글: 분류·제목·내용·출처', () {
+    const e = KnowledgeEntry(
+      id: 'z',
+      category: '장비 고장 조치',
+      title: '절삭유가 안 나옴',
+      lines: ['원인: 필터 막힘', '조치: 필터 청소'],
+      sourceLabel: '장비 사용법',
+    );
+    expect(
+      knowledgeShareText(e),
+      '[장비 고장 조치] 절삭유가 안 나옴\n원인: 필터 막힘\n조치: 필터 청소\n(출처: 필드 헬퍼 장비 사용법)',
+    );
+  });
+
+  testWidgets('내용 창의 보내기를 누르면 그 글을 보낸다', (t) async {
+    final sent = <String>[];
+    t.view.physicalSize = const Size(800, 2400);
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        home: KnowledgeSearchPage(
+          entries: _data,
+          askAi: _noAi,
+          share: (s) async => sent.add(s),
+        ),
+      ),
+    );
+    await t.enterText(find.byKey(const Key('ks_field')), '절삭유');
+    await t.pump();
+    await t.tap(find.byKey(const Key('ks_hit_a')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('ks_share')));
+    await t.pump();
+    expect(sent.single, startsWith('[장비 고장 조치] 나사 절삭기: 절삭유가 안 나옴'));
+  });
 }

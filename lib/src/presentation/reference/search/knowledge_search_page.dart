@@ -1,6 +1,7 @@
 // 자료 검색(10-03): 장비 고장 조치·계기 알람 코드·루프 이상값·축 정렬 지침·현장 자료를 한 곳에서 찾는다.
 // 증상·코드·장비 이름 어느 것으로 찾아도 되고, 고르면 내용을 바로 보여 준다.
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/field_view.dart';
@@ -8,6 +9,21 @@ import '../../../core/utils/ai_ask.dart';
 import '../page/reference_widgets.dart';
 import 'knowledge_base.dart';
 import 'knowledge_entry.dart';
+
+/// 내용 창의 "보내기" 글: 제목·내용 줄·출처(카톡 등으로 그대로 보낼 수 있게).
+String knowledgeShareText(KnowledgeEntry e) => [
+  '[${e.category}] ${e.title}',
+  ...e.lines,
+  if (e.sourceLabel.isNotEmpty) '(출처: 필드 헬퍼 ${e.sourceLabel})',
+].join('\n');
+
+/// 보내기 함수(시험에서 바꿔 끼운다).
+typedef KnowledgeShare = Future<void> Function(String text);
+
+Future<void> _shareText(String text) async {
+  // ignore: deprecated_member_use
+  await Share.share(text);
+}
 
 /// 최근 검색어 저장 칸(이 폰에만).
 const String kKnowledgeRecentKey = 'knowledge_recent_v1';
@@ -63,7 +79,11 @@ class KnowledgeSearchPage extends StatefulWidget {
     this.entries,
     this.initialQuery = '',
     this.askAi = callAiAsk,
+    this.share = _shareText,
   });
+
+  /// 내용 창 "보내기"(시험에서 바꿔 끼운다).
+  final KnowledgeShare share;
 
   /// "AI에게 물어보기" 서버 호출(시험에서 바꿔 끼운다).
   final AiAskCall askAi;
@@ -256,8 +276,18 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                       style: TextStyle(fontSize: 13, color: refTextSub),
                     ),
                   ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: const Key('ks_share'),
+                    onPressed: () => widget.share(knowledgeShareText(e)),
+                    icon: const Icon(Icons.share),
+                    label: const Text('보내기 (카톡·문자)'),
+                  ),
+                ),
                 if (e.open != null) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton.icon(
