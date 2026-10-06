@@ -222,6 +222,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
       backgroundColor: const Color(0xFFFFF1B8),
       color: refTextMain,
     );
+    final related = relatedKnowledge(_all, e);
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -300,6 +301,32 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                       label: Text(e.openLabel),
                     ),
                   ),
+                ],
+                if (related.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    '같은 장비·진단의 다른 자료',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: refTextSub,
+                    ),
+                  ),
+                  for (final o in related)
+                    ListTile(
+                      key: Key('ks_related_${o.id}'),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(
+                        o.title.substring(o.title.indexOf(':') + 1).trim(),
+                        style: TextStyle(fontSize: 15, color: refTextMain),
+                      ),
+                      trailing: Icon(Icons.chevron_right, color: refTextSub),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _showDetail(o);
+                      },
+                    ),
                 ],
               ],
             ),
@@ -471,6 +498,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
         key: const Key('ks_list'),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        // 일부만 맞으면 앱 자료에 딱 맞는 답이 없을 가능성이 커서 AI 카드를 안내 바로 아래에 둔다.
         itemCount: hits.length + (q.trim().length >= 2 ? 1 : 0) + (partial ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 8),
         itemBuilder: (_, idx) {
@@ -488,8 +516,10 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
               ),
             );
           }
-          final i = partial ? idx - 1 : idx;
-          if (i == hits.length) return _askAiCard(q, noHits: false);
+          final ai = q.trim().length >= 2;
+          if (partial && ai && idx == 1) return _askAiCard(q, noHits: false);
+          final i = idx - (partial ? 1 : 0) - (partial && ai ? 1 : 0);
+          if (!partial && i == hits.length) return _askAiCard(q, noHits: false);
           final hit = hits[i];
           final e = hit.entry;
           // 찾은 말이 든 줄을 먼저 보인다(없으면 첫 두 줄).

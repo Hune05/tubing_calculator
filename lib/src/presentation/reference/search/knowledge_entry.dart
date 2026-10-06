@@ -374,3 +374,19 @@ List<String> spellingSuggestions(
   }
   return out;
 }
+
+/// 같은 장비·같은 흐름의 다른 자료(제목의 ":" 앞이 같고 분류도 같은 항목, 최대 [max]개, 원래 순서).
+/// "DEWALT D28730 (고속절단기): 진동 심함"을 보면 같은 기계의 다른 고장 항목을 이어서 볼 수 있다.
+List<KnowledgeEntry> relatedKnowledge(
+  List<KnowledgeEntry> all,
+  KnowledgeEntry e, {
+  int max = 6,
+}) {
+  final cut = e.title.indexOf(':');
+  if (cut <= 0) return const [];
+  final head = e.title.substring(0, cut + 1);
+  return [
+    for (final o in all)
+      if (o.id != e.id && o.category == e.category && o.title.startsWith(head)) o,
+  ].take(max).toList();
+}

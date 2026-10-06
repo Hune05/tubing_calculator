@@ -189,4 +189,35 @@ void main() {
     await t.pump();
     expect(find.byKey(const Key('ks_hit_a')), findsOneWidget);
   });
+
+  testWidgets('같은 장비의 다른 자료를 내용 창 아래에서 바로 열 수 있다', (t) async {
+    const data = [
+      KnowledgeEntry(id: 'k1', category: '장비 고장 조치', title: '고속절단기: 진동 심함', lines: ['a']),
+      KnowledgeEntry(id: 'k2', category: '장비 고장 조치', title: '고속절단기: 절단석 끼임', lines: ['b']),
+      KnowledgeEntry(id: 'k3', category: '장비 고장 조치', title: '밴드쏘: 진동', lines: ['c']),
+    ];
+    expect(relatedKnowledge(data, data[0]).map((e) => e.id), ['k2']);
+    t.view.physicalSize = const Size(800, 2400);
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(const MaterialApp(home: KnowledgeSearchPage(entries: data, askAi: _noAi)));
+    await t.enterText(find.byKey(const Key('ks_field')), '진동');
+    await t.pump();
+    await t.tap(find.byKey(const Key('ks_hit_k1')));
+    await t.pumpAndSettle();
+    expect(find.text('같은 장비·진단의 다른 자료'), findsOneWidget);
+    await t.tap(find.byKey(const Key('ks_related_k2')));
+    await t.pumpAndSettle();
+    expect(find.text('b'), findsOneWidget);
+  });
+
+  testWidgets('일부만 맞으면 AI 카드가 안내 바로 아래에 온다', (t) async {
+    await _open(t);
+    await t.enterText(find.byKey(const Key('ks_field')), '절삭유 펌프');
+    await t.pump();
+    final notice = t.getTopLeft(find.byKey(const Key('ks_partial'))).dy;
+    final ai = t.getTopLeft(find.byKey(const Key('ks_ai_card'))).dy;
+    final hit = t.getTopLeft(find.byKey(const Key('ks_hit_a'))).dy;
+    expect(notice < ai && ai < hit, isTrue);
+  });
 }
