@@ -440,12 +440,15 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
             spacing: 6,
             runSpacing: 6,
             children: [
+              // 최근 검색어에 이미 있는 말은 빼고, 누를 수 있는 단추로 보이게 돋보기를 붙인다.
               for (final s in kKnowledgeSuggestions)
-                ActionChip(
-                  key: Key('ks_sug_$s'),
-                  label: Text(s),
-                  onPressed: () => setState(() => _c.text = s),
-                ),
+                if (!_recent.contains(s))
+                  ActionChip(
+                    key: Key('ks_sug_$s'),
+                    avatar: const Icon(Icons.search, size: 18),
+                    label: Text(s),
+                    onPressed: () => setState(() => _c.text = s),
+                  ),
             ],
           ),
           const SizedBox(height: 18),
