@@ -131,7 +131,7 @@ class _AcSolveSectionState extends State<AcSolveSection> with CalcFormParts<AcSo
         if (_solve == _Solve.voltage && !_fromKva)
           calcField('ec_as_pf_in', '역률 cosφ (%)', _pf, '85 또는 0.85처럼 넣으십시오.'),
         const SizedBox(height: 8),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_as_result'),
           big: big,
           caption: caption,
@@ -207,7 +207,7 @@ class _ImpedanceSectionState extends State<ImpedanceSection> with CalcFormParts<
         calcField('ec_zi_hz', '주파수 f (Hz)', _hz, '한국은 60 Hz입니다.'),
         calcField('ec_zi_v', '전압 V (V, 선택)', _v, '넣으면 전류를 구합니다.'),
         const SizedBox(height: 8),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_zi_result'),
           big: big,
           caption: '임피던스 Z',
@@ -268,7 +268,7 @@ class _CapVoltageSectionState extends State<CapVoltageSection> with CalcFormPart
         calcField('ec_cv_fn', '명판 주파수 (Hz)', _fn, '명판의 주파수입니다.'),
         calcField('ec_cv_f', '실제 주파수 (Hz)', _f, '한국은 60 Hz입니다.'),
         const SizedBox(height: 8),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_cv_result'),
           big: q == null ? '- kvar' : '${_sig(q)} kvar',
           caption: '실제 콘덴서 출력',

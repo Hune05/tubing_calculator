@@ -110,7 +110,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
   Widget build(BuildContext context) {
     super.build(context);
     final children = <Widget>[
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('mc_steps'),
         big: '점검 순서',
         caption: '전동기가 탔는지 볼 때',
@@ -190,7 +190,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
 
     if (ir1 == null || ir1 <= 0 || irT == null) {
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('mc_ir_result'),
           big: '— MΩ',
           caption: '1분값과 권선 온도를 넣으면 판정합니다',
@@ -208,7 +208,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
       final piMin = minPi(classA: _classA);
       irSummary.add('IR ${fmt(r40, 1)} MΩ ${ok ? "합격" : "불합격"}');
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('mc_ir_result'),
           big: '${fmt(r40, 1)} MΩ (40 ℃)',
           warn: !ok,
@@ -266,7 +266,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
         : unbalancePct(r1, r2, r3);
     if (unb == null) {
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('mc_r_result'),
           big: '— %',
           caption: '세 값을 넣으면 불평형을 계산합니다',
@@ -283,7 +283,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
           ? windingResistanceAt(ohms: avg, fromC: rT, toC: rRefT)
           : null;
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('mc_r_result'),
           big: '불평형 ${fmt(unb, 2)} %',
           warn: !ok,
@@ -323,7 +323,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
       final der = vUnb == null ? null : nemaDerating(vUnb);
       if (vUnb != null && vUnb > 1) bad = true;
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('mc_unb_result'),
           big: vUnb != null ? '전압 불평형 ${fmt(vUnb, 2)} %' : '전류 불평형 ${fmt(aUnb!, 1)} %',
           warn: vUnb != null && vUnb > 1,
@@ -350,7 +350,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
     }
 
     children.addAll([
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('mc_causes'),
         big: '권선 모양으로 보는 원인',
         caption: 'EASA 고장 분류(수리점 자료)',
@@ -364,7 +364,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
           '습기: 절연저항·PI가 낮습니다. 오염·습기 때문이면 청소·건조로 회복되기도 합니다. 해수에 잠긴 권선은 보통 재권선합니다.',
         ],
       ),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('mc_wiring'),
         big: '결선·회전 방향',
         caption: '단자 표기와 Y-Δ 결선',

@@ -1,6 +1,7 @@
 // 전기 계산기 2026-09-26 추가 화면 시험: 교류/직류 선택(110V 단상·125VDC), 직류 전선 선정,
 // 기초 계산 탭(옴·교류 전력·Y·Δ·전력량·도체 저항·주파수), 부스바 탭, 저장, 좁은 폰·큰 글씨.
 import 'dart:convert';
+import 'formula_flat.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -138,7 +139,7 @@ void main() {
       expect(r, contains('32.9 A'));
       expect(r, contains('정격전류(계산값, 직류)'));
       expect(r, isNot(contains('역률 값이 없어')));
-      expect(r, contains('I = P × 1000 ÷ (V × 효율)'));
+      expect(flat(r), contains(flat('I = P × 1000 ÷ (V × 효율)')));
       final b = await basisOf(tester, 'ec_load_basis');
       expect(b, contains('직류는 역률을 쓰지 않습니다'));
       // 히터 2.5kW → 20A
@@ -157,7 +158,7 @@ void main() {
       await type(tester, 'ec_conv_val', '40');
       var r = await resultOf(tester, 'ec_conv_result');
       expect(r, contains('5 kW'));
-      expect(r, contains('식: P = V × I ÷ 1000 (직류)'));
+      expect(flat(r), contains(flat('식: P = V × I ÷ 1000 (직류)')));
       await tapKey(tester, 'ec_conv_kva');
       expect(find.text('kW → 전류'), findsOneWidget);
       await type(tester, 'ec_conv_val', '10');
@@ -209,7 +210,7 @@ void main() {
       expect(b, contains('2가닥 통전(직류)'));
       expect(b, contains('single-phase AC or DC'));
       expect(b, contains('DC 250V를 2극, DC 500V를 3극'));
-      expect(b, contains('ΔU = 2 × I × L × R (직류'));
+      expect(flat(b), contains(flat('ΔU = 2 × I × L × R (직류')));
       expect(b, contains('교류 기준이라 직류에는 계산하지 않습니다'));
       expect(b, isNot(contains('정격전류의 250%')));
     });
@@ -241,7 +242,7 @@ void main() {
       var r = await resultOf(tester, 'ec_ohm_result');
       expect(r, contains('22 Ω · 2.2 kW'));
       expect(r, contains('전압·전류 두 값으로 계산'));
-      expect(r, contains('P = 2200 W (2.2 kW)'));
+      expect(flat(r), contains(flat('P = 2200 W (2.2 kW)')));
       expect(textIn(tester, const Key('ec_sum_basic')), '22 Ω · 2.2 kW');
       await type(tester, 'ec_ohm_r', '5');
       r = await resultOf(tester, 'ec_ohm_result');
@@ -268,8 +269,8 @@ void main() {
         await type(tester, 'ec_ac_i', '100');
         var r = await resultOf(tester, 'ec_ac_result');
         expect(r, contains('55.95 kW'));
-        expect(r, contains('무효전력 Q = 34.67 kvar'));
-        expect(r, contains('피상전력 S = 65.82 kVA'));
+        expect(flat(r), contains(flat('무효전력 Q = 34.67 kvar')));
+        expect(flat(r), contains(flat('피상전력 S = 65.82 kVA')));
         expect(r, contains('위상각 31.8°'));
         expect(
           textIn(tester, const Key('ec_sum_basic')),
@@ -285,8 +286,8 @@ void main() {
         await type(tester, 'ec_ac_pf', '80');
         r = await resultOf(tester, 'ec_ac_result');
         expect(r, contains('125 kVA'));
-        expect(r, contains('무효전력 Q = 75 kvar'));
-        expect(r, contains('전류 I = 189.9 A'));
+        expect(flat(r), contains(flat('무효전력 Q = 75 kvar')));
+        expect(flat(r), contains(flat('전류 I = 189.9 A')));
       },
     );
 
@@ -320,7 +321,7 @@ void main() {
       await type(tester, 'ec_en_kw', '5.5');
       var r = await resultOf(tester, 'ec_en_result');
       expect(r, contains('3960 kWh'));
-      expect(r, contains('하루 132 kWh × 30일'));
+      expect(flat(r), contains(flat('하루 132 kWh × 30일')));
       await type(tester, 'ec_en_price', '150');
       r = await resultOf(tester, 'ec_en_result');
       expect(r, contains('요금 약 594000원'));
@@ -366,7 +367,7 @@ void main() {
         await tapKey(tester, 'ec_bs_frequency');
         var r = await resultOf(tester, 'ec_hz_result');
         expect(r, contains('16.67 ms'));
-        expect(r, contains('각주파수 ω = 377 rad/s'));
+        expect(flat(r), contains(flat('각주파수 ω = 377 rad/s')));
         r = await resultOf(tester, 'ec_hz_speed_result');
         expect(r, contains('1800 rpm'));
         expect(
@@ -380,8 +381,8 @@ void main() {
         expect(r, contains('동기속도는 1.2배'));
         await type(tester, 'ec_hz_n', '1750');
         r = await resultOf(tester, 'ec_hz_speed_result');
-        expect(r, contains('슬립 s = (ns − n) ÷ ns = (1800 − 1750) ÷ 1800 = 2.78%'));
-        expect(r, contains('f = p × n ÷ 120 = 4 × 1750 ÷ 120 = 58.33 Hz'));
+        expect(flat(r), contains(flat('슬립 s = (ns − n) ÷ ns = (1800 − 1750) ÷ 1800 = 2.78%')));
+        expect(flat(r), contains(flat('f = p × n ÷ 120 = 4 × 1750 ÷ 120 = 58.33 Hz')));
         expect(
           textIn(tester, const Key('ec_sum_basic')),
           '60Hz · 4극 1800 rpm · 슬립 2.78%',
@@ -405,7 +406,7 @@ void main() {
         await type(tester, 'ec_hz_c', '100');
         r = await resultOf(tester, 'ec_hz_x_result');
         expect(r, contains('50.33 Hz'));
-        expect(r, contains('XC = 1 ÷ (2π × f × C) = 1 ÷ (2π × 60 × 0.0001) = 26.53 Ω (60Hz'));
+        expect(flat(r), contains(flat('XC = 1 ÷ (2π × f × C) = 1 ÷ (2π × 60 × 0.0001) = 26.53 Ω (60Hz')));
       },
     );
   });
@@ -420,7 +421,7 @@ void main() {
         expect(chipOn(tester, 'ec_bus_bare'), isTrue);
         var r = await resultOf(tester, 'ec_bus_result');
         expect(r, contains('715 A'));
-        expect(r, contains('전류 밀도 1.79 A/mm² = 허용전류 715 A ÷ 단면적 399 mm²'));
+        expect(flat(r), contains(flat('전류 밀도 1.79 A/mm² = 허용전류 715 A ÷ 단면적 399 mm²')));
         expect(r, contains('조건: DIN 43671, 옥내, 주위 35°C, 부스바 65°C'));
         expect(
           textIn(tester, const Key('ec_sum_bus')),
@@ -430,7 +431,7 @@ void main() {
         await tapKey(tester, 'ec_bus_n_2');
         r = await resultOf(tester, 'ec_bus_result');
         expect(r, contains('1470 A'));
-        expect(r, contains('40×10 × 2 허용전류 (교류, 도장)'));
+        expect(flat(r), contains(flat('40×10 × 2 허용전류 (교류, 도장)')));
         await tapKey(tester, 'ec_bus_dc');
         expect(await resultOf(tester, 'ec_bus_result'), contains('1530 A'));
         // 직류 4가닥은 DIN 표에 없다.
@@ -473,18 +474,18 @@ void main() {
         expect(find.byKey(const Key('ec_bus_size')), findsNothing);
         await type(tester, 'ec_bus_i', '1000');
         var r = await resultOf(tester, 'ec_bus_result');
-        expect(r, contains('1가닥: 100×5 (1080 A, 2.16 A/mm²)'));
-        expect(r, contains('2가닥: 60×5 × 2 (1150 A, 1.92 A/mm²)'));
-        expect(r, contains('3가닥: 20×10 × 3 (1180 A, 1.98 A/mm²)'));
-        expect(r, contains('4가닥: 50×5 × 4 (1920 A, 1.93 A/mm²)'));
+        expect(flat(r), contains(flat('1가닥: 100×5 (1080 A, 2.16 A/mm²)')));
+        expect(flat(r), contains(flat('2가닥: 60×5 × 2 (1150 A, 1.92 A/mm²)')));
+        expect(flat(r), contains(flat('3가닥: 20×10 × 3 (1180 A, 1.98 A/mm²)')));
+        expect(flat(r), contains(flat('4가닥: 50×5 × 4 (1920 A, 1.93 A/mm²)')));
         expect(
           textIn(tester, const Key('ec_sum_bus')),
           '1가닥 100×5 · 2가닥 60×5 · 3가닥 20×10',
         );
         await type(tester, 'ec_bus_margin', '25');
         r = await resultOf(tester, 'ec_bus_result');
-        expect(r, contains('1가닥: 100×10 (1490 A'));
-        expect(r, contains('선정 전류 1250 A = 부하 1000 A × 1.25'));
+        expect(flat(r), contains(flat('1가닥: 100×10 (1490 A')));
+        expect(flat(r), contains(flat('선정 전류 1250 A = 부하 1000 A × 1.25')));
         await type(tester, 'ec_bus_i', '99999');
         r = await resultOf(tester, 'ec_bus_result');
         expect(r, contains('검토 필요'));
@@ -500,18 +501,18 @@ void main() {
       await type(tester, 'ec_kw', '11');
       var r = await resultOf(tester, 'ec_load_result');
       // 식·대입·결과는 풀이 카드에 세 줄로 따로 나온다.
-      expect(r, contains('I = P × 1000 ÷ (√3 × V × 역률 × 효율)'));
-      expect(r, contains('11 × 1000 ÷ (√3 × 380 × 0.85 × 0.9)'));
+      expect(flat(r), contains(flat('I = P × 1000 ÷ (√3 × V × 역률 × 효율)')));
+      expect(flat(r), contains(flat('11 × 1000 ÷ (√3 × 380 × 0.85 × 0.9)')));
       expect(r, contains('21.8 A'));
-      expect(r, contains('설계전류 = 정격전류 × 여유'));
-      expect(r, contains('21.8 × 1.25'));
+      expect(flat(r), contains(flat('설계전류 = 정격전류 × 여유')));
+      expect(flat(r), contains(flat('21.8 × 1.25')));
       expect(r, contains('27.3 A'));
       expect(r, contains('50A 이하라 1.25배'));
       await tapKey(tester, 'ec_load_dc');
       await type(tester, 'ec_kw', '5');
       r = await resultOf(tester, 'ec_load_result');
-      expect(r, contains('I = P × 1000 ÷ (V × 효율)'));
-      expect(r, contains('5 × 1000 ÷ (125 × 0.9)'));
+      expect(flat(r), contains(flat('I = P × 1000 ÷ (V × 효율)')));
+      expect(flat(r), contains(flat('5 × 1000 ÷ (125 × 0.9)')));
       expect(r, contains('44.4 A'));
     });
 
@@ -519,12 +520,12 @@ void main() {
       await pumpPage(tester);
       await type(tester, 'ec_conv_val', '50');
       var r = await resultOf(tester, 'ec_conv_result');
-      expect(r, contains('S = √3 × 380 × 50 ÷ 1000 = 32.9 kVA'));
-      expect(r, contains('P = S × 역률 = 32.9 × 0.85 = 28 kW'));
+      expect(flat(r), contains(flat('S = √3 × 380 × 50 ÷ 1000 = 32.9 kVA')));
+      expect(flat(r), contains(flat('P = S × 역률 = 32.9 × 0.85 = 28 kW')));
       await tapKey(tester, 'ec_conv_kva');
       await type(tester, 'ec_conv_val', '100');
       r = await resultOf(tester, 'ec_conv_result');
-      expect(r, contains('I = 100 × 1000 ÷ (√3 × 380) = 151.9 A'));
+      expect(flat(r), contains(flat('I = 100 × 1000 ÷ (√3 × 380) = 151.9 A')));
     });
 
     testWidgets('전선 굵기 선정: ① 설계전류 → ② 차단기 → 허용전류 → 전압강하 → 굵기 결정', (
@@ -534,25 +535,14 @@ void main() {
       await type(tester, 'ec_kw', '11');
       await tapKey(tester, 'ec_to_cable');
       final r = await resultOf(tester, 'ec_cable_result');
-      expect(
-        r,
-        contains('① 설계전류 IB = 부하 전류 × 여유 = 21.8 × 1.25 = 27.3 A (전동기 여유)'),
-      );
-      expect(
-        r,
-        contains('② 차단기 In = 표준 정격 중 IB 27.3 A 이상인 가장 작은 값 = 30 A'),
-      );
-      expect(r, contains('2.5sq 허용전류 IZ = 표 값 × 온도 보정 × 다조 포설 보정 = 32 × 1 × 1 = 32 A'));
-      expect(r, contains('허용전류 기준 굵기: 보정 후 IZ ≥ In 30 A를 만족하는 가장 가는 굵기 = 2.5sq'));
-      expect(
-        r,
-        contains(
-          'ΔU = √3 × I × L × (R cosφ + X sinφ) = √3 × 21.8 × (50 ÷ 1000) × (9.448 × 0.85 + 0.096 × 0.53) = 15.26 V',
-        ),
-      );
-      expect(r, contains('전압강하율 = ΔU ÷ V × 100 = 15.26 ÷ 380 × 100 = 4.02 %'));
-      expect(r, contains('한도 = 5 % (편도 100 m 이하라 가산 없음). 4.02 % ≤ 5 %이므로 한도 이내입니다.'));
-      expect(r, contains('굵기 결정: 허용전류 기준 2.5sq, 전압강하 기준 2.5sq 중 굵은 쪽 = 2.5sq'));
+      expect(flat(r), contains(flat('① 설계전류 IB = 부하 전류 × 여유 = 21.8 × 1.25 = 27.3 A (전동기 여유)')));
+      expect(flat(r), contains(flat('② 차단기 In = 표준 정격 중 IB 27.3 A 이상인 가장 작은 값 = 30 A')));
+      expect(flat(r), contains(flat('2.5sq 허용전류 IZ = 표 값 × 온도 보정 × 다조 포설 보정 = 32 × 1 × 1 = 32 A')));
+      expect(flat(r), contains(flat('허용전류 기준 굵기: 보정 후 IZ ≥ In 30 A를 만족하는 가장 가는 굵기 = 2.5sq')));
+      expect(flat(r), contains(flat('ΔU = √3 × I × L × (R cosφ + X sinφ) = √3 × 21.8 × (50 ÷ 1000) × (9.448 × 0.85 + 0.096 × 0.53) = 15.26 V')));
+      expect(flat(r), contains(flat('전압강하율 = ΔU ÷ V × 100 = 15.26 ÷ 380 × 100 = 4.02 %')));
+      expect(flat(r), contains(flat('한도 = 5 % (편도 100 m 이하라 가산 없음). 4.02 % ≤ 5 %이므로 한도 이내입니다.')));
+      expect(flat(r), contains(flat('굵기 결정: 허용전류 기준 2.5sq, 전압강하 기준 2.5sq 중 굵은 쪽 = 2.5sq')));
     });
 
     testWidgets('전선 굵기 직류·병렬: 차단기 대신 IZ ≥ IB, 병렬 가닥 수를 곱한 허용전류', (tester) async {
@@ -563,14 +553,14 @@ void main() {
       await type(tester, 'ec_length', '300');
       var r = await resultOf(tester, 'ec_cable_result');
       expect(r, contains('직류는 차단기 정격을 정하지 않고 허용전류 IZ ≥ IB 110 A로 굵기를 정합니다'));
-      expect(r, contains('ΔU = 2 × I × L × R = 2 × 100 × (300 ÷ 1000) × 0.0961 = 5.77 V'));
+      expect(flat(r), contains(flat('ΔU = 2 × I × L × R = 2 × 100 × (300 ÷ 1000) × 0.0961 = 5.77 V')));
       await tapKey(tester, 'ec_cable_ac');
       await type(tester, 'ec_ib', '300');
       await type(tester, 'ec_length', '200');
       await tapKey(tester, 'ec_par_2');
       r = await resultOf(tester, 'ec_cable_result');
-      expect(r, contains('70sq 허용전류 IZ = 표 값 × 온도 보정 × 다조 포설 보정 × 2가닥 = 246 × 1 × 0.8 × 2 = 393.6 A'));
-      expect(r, contains('√3 × (300 ÷ 2) × (200 ÷ 1000)'));
+      expect(flat(r), contains(flat('70sq 허용전류 IZ = 표 값 × 온도 보정 × 다조 포설 보정 × 2가닥 = 246 × 1 × 0.8 × 2 = 393.6 A')));
+      expect(flat(r), contains(flat('√3 × (300 ÷ 2) × (200 ÷ 1000)')));
     });
 
     testWidgets('기존 회로 점검: IB ≤ In ≤ IZ 비교 줄과 전압강하 대입', (tester) async {
@@ -580,10 +570,10 @@ void main() {
       await tapKey(tester, 'ec_mode_check');
       await type(tester, 'ec_chk_breaker', '30');
       final r = await resultOf(tester, 'ec_cable_result');
-      expect(r, contains('① 설계전류 IB = 부하 전류 × 여유 = 21.8 × 1.25 = 27.3 A (전동기 여유)'));
-      expect(r, contains('② 2.5sq 허용전류 IZ = 표 값 × 온도 보정 × 다조 포설 보정 = 32 × 1 × 1 = 32 A'));
+      expect(flat(r), contains(flat('① 설계전류 IB = 부하 전류 × 여유 = 21.8 × 1.25 = 27.3 A (전동기 여유)')));
+      expect(flat(r), contains(flat('② 2.5sq 허용전류 IZ = 표 값 × 온도 보정 × 다조 포설 보정 = 32 × 1 × 1 = 32 A')));
       expect(r, contains('③ IB ≤ In ≤ IZ: 27.3 ≤ 30 ≤ 32 → 만족'));
-      expect(r, contains('전압강하율 = ΔU ÷ V × 100 = 15.26 ÷ 380 × 100 = 4.02 %'));
+      expect(flat(r), contains(flat('전압강하율 = ΔU ÷ V × 100 = 15.26 ÷ 380 × 100 = 4.02 %')));
     });
 
     testWidgets('AWG 선정: IZ = min(절연 열 × 보정, 단자 열), 전압강하 대입', (tester) async {
@@ -593,9 +583,9 @@ void main() {
       await type(tester, 'ec_ib', '40');
       await type(tester, 'ec_length', '60');
       final r = await resultOf(tester, 'ec_cable_result');
-      expect(r, contains('① 설계전류 IB = 부하 전류 × 1.25 = 40 × 1.25 = 50 A (NEC 430.22)'));
-      expect(r, contains('6 AWG 허용전류 IZ = min(90°C 열 값 × 온도 보정 × 가닥 감소, 단자 60°C 열 값) = min(75 × 1 × 1, 55) = min(75, 55) = 55 A'));
-      expect(r, contains('(R = 6 AWG 75°C 저항 Ω/km)'));
+      expect(flat(r), contains(flat('① 설계전류 IB = 부하 전류 × 1.25 = 40 × 1.25 = 50 A (NEC 430.22)')));
+      expect(flat(r), contains(flat('6 AWG 허용전류 IZ = min(90°C 열 값 × 온도 보정 × 가닥 감소, 단자 60°C 열 값) = min(75 × 1 × 1, 55) = min(75, 55) = 55 A')));
+      expect(flat(r), contains(flat('(R = 6 AWG 75°C 저항 Ω/km)')));
     });
 
     testWidgets('전압강하: R → ΔU → 전압강하율 → 한도(100 m 넘는 가산) → 최대 길이 → 기동', (
@@ -607,21 +597,21 @@ void main() {
       await type(tester, 'ec_vd_len', '150');
       await tapKey(tester, 'ec_vd_start');
       final r = await resultOf(tester, 'ec_vd_result');
-      expect(r, contains('R = R20 × (1 + 0.00393 × (θ − 20))'));
-      expect(r, contains('4.61 × (1 + 0.00393 × (90 − 20))'));
+      expect(flat(r), contains(flat('R = R20 × (1 + 0.00393 × (θ − 20))')));
+      expect(flat(r), contains(flat('4.61 × (1 + 0.00393 × (90 − 20))')));
       expect(r, contains('5.878 Ω/km'));
-      expect(r, contains('ΔU = √3 × I × L × (R cosφ + X sinφ)'));
-      expect(r, contains('√3 × 20 × (150 ÷ 1000) × (5.878 × 0.85 + 0.096 × 0.53)'));
+      expect(flat(r), contains(flat('ΔU = √3 × I × L × (R cosφ + X sinφ)')));
+      expect(flat(r), contains(flat('√3 × 20 × (150 ÷ 1000) × (5.878 × 0.85 + 0.096 × 0.53)')));
       expect(r, contains('26.23 V'));
-      expect(r, contains('전압강하율 = ΔU ÷ V × 100'));
-      expect(r, contains('26.23 ÷ 380 × 100'));
+      expect(flat(r), contains(flat('전압강하율 = ΔU ÷ V × 100')));
+      expect(flat(r), contains(flat('26.23 ÷ 380 × 100')));
       expect(r, contains('6.9 %'));
-      expect(r, contains('한도 = 5 % + (150 − 100) × 0.005 = 5.25 %. 6.9 % > 5.25 %이므로 한도 초과입니다.'));
-      expect(r, contains('L = (5 − 0.5) ÷ (0.04601 − 0.005) = 110 m'));
-      expect(r, contains('기동 전류 = 정격 전류 × 배수'));
-      expect(r, contains('20 × 6'));
+      expect(flat(r), contains(flat('한도 = 5 % + (150 − 100) × 0.005 = 5.25 %. 6.9 % > 5.25 %이므로 한도 초과입니다.')));
+      expect(flat(r), contains(flat('L = (5 − 0.5) ÷ (0.04601 − 0.005) = 110 m')));
+      expect(flat(r), contains(flat('기동 전류 = 정격 전류 × 배수')));
+      expect(flat(r), contains(flat('20 × 6')));
       expect(r, contains('120 A'));
-      expect(r, contains('√3 × 120 × (150 ÷ 1000) × (5.878 × 0.35 + 0.096 × 0.94)'));
+      expect(flat(r), contains(flat('√3 × 120 × (150 ÷ 1000) × (5.878 × 0.35 + 0.096 × 0.94)')));
       expect(r, contains('66.95 V'));
     });
 
@@ -633,15 +623,15 @@ void main() {
       await type(tester, 'ec_vd_i', '2');
       await type(tester, 'ec_vd_len', '50');
       var r = await resultOf(tester, 'ec_vd_result');
-      expect(r, contains('ΔU = 2 × I × L × R'));
-      expect(r, contains('2 × 2 × (50 ÷ 1000) × 23.079'));
+      expect(flat(r), contains(flat('ΔU = 2 × I × L × R')));
+      expect(flat(r), contains(flat('2 × 2 × (50 ÷ 1000) × 23.079')));
       expect(r, contains('4.62 V'));
       await tapKey(tester, 'ec_vd_ac');
       await tapKey(tester, 'ec_vd_unit_awg');
       await type(tester, 'ec_vd_i', '30');
       await type(tester, 'ec_vd_len', '80');
       r = await resultOf(tester, 'ec_vd_result');
-      expect(r, contains('① ΔU = √3 × I × L × (R cosφ + X sinφ) = √3 × 30 × (80 ÷ 1000) × (6.5 × 0.85 + 0.096 × 0.53) = 23.18 V'));
+      expect(flat(r), contains(flat('① ΔU = √3 × I × L × (R cosφ + X sinφ) = √3 × 30 × (80 ÷ 1000) × (6.5 × 0.85 + 0.096 × 0.53) = 23.18 V')));
     });
 
     testWidgets('역률 개선: tanφ → Qc → μF → 전류', (tester) async {
@@ -649,20 +639,20 @@ void main() {
       await openTab(tester, 'ec_tab_pf');
       await type(tester, 'ec_pc_kw', '100');
       final r = await resultOf(tester, 'ec_pf_result');
-      expect(r, contains('① tanφ = √(1 − 역률²) ÷ 역률: 개선 전 √(1 − 0.8²) ÷ 0.8 = 0.75, 목표 √(1 − 0.95²) ÷ 0.95 = 0.329'));
-      expect(r, contains('② 콘덴서 용량 Qc = P × (tanφ1 − tanφ2) = 100 × (0.75 − 0.329) = 42.1 kvar'));
-      expect(r, contains('③ 정전용량 C = Qc × 10⁹ ÷ (2π × 60 × V²) = 42.1 × 10⁹ ÷ (2π × 60 × 380²) = 774 μF'));
-      expect(r, contains('④ 콘덴서 전류 = Qc × 1000 ÷ (√3 × V) = 42.1 × 1000 ÷ (√3 × 380) = 64 A'));
+      expect(flat(r), contains(flat('① tanφ = √(1 − 역률²) ÷ 역률: 개선 전 √(1 − 0.8²) ÷ 0.8 = 0.75, 목표 √(1 − 0.95²) ÷ 0.95 = 0.329')));
+      expect(flat(r), contains(flat('② 콘덴서 용량 Qc = P × (tanφ1 − tanφ2) = 100 × (0.75 − 0.329) = 42.1 kvar')));
+      expect(flat(r), contains(flat('③ 정전용량 C = Qc × 10⁹ ÷ (2π × 60 × V²) = 42.1 × 10⁹ ÷ (2π × 60 × 380²) = 774 μF')));
+      expect(flat(r), contains(flat('④ 콘덴서 전류 = Qc × 1000 ÷ (√3 × V) = 42.1 × 1000 ÷ (√3 × 380) = 64 A')));
     });
 
     testWidgets('전선관: 전선 단면적 → 관 내 단면적 → 점유율 → 한도로 필요한 단면적', (tester) async {
       await pumpPage(tester);
       await openTab(tester, 'ec_tab_conduit');
       final r = await resultOf(tester, 'ec_cd_result');
-      expect(r, contains('① 전선 단면적 합 = π ÷ 4 × 외경² × 가닥 수 = π ÷ 4 × 4.1² × 3 = 39.6 mm²'));
-      expect(r, contains('② 관 내 단면적 = π ÷ 4 × 내경² = π ÷ 4 × 21.9² = 376.7 mm²'));
-      expect(r, contains('③ 점유율 = 전선 단면적 합 ÷ 관 내 단면적 × 100 = 39.6 ÷ 376.7 × 100 = 10.5 %'));
-      expect(r, contains('④ 한도 32 %를 지키려면 관 내 단면적 ≥ 39.6 ÷ (32 ÷ 100) = 123.8 mm²'));
+      expect(flat(r), contains(flat('① 전선 단면적 합 = π ÷ 4 × 외경² × 가닥 수 = π ÷ 4 × 4.1² × 3 = 39.6 mm²')));
+      expect(flat(r), contains(flat('② 관 내 단면적 = π ÷ 4 × 내경² = π ÷ 4 × 21.9² = 376.7 mm²')));
+      expect(flat(r), contains(flat('③ 점유율 = 전선 단면적 합 ÷ 관 내 단면적 × 100 = 39.6 ÷ 376.7 × 100 = 10.5 %')));
+      expect(flat(r), contains(flat('④ 한도 32 %를 지키려면 관 내 단면적 ≥ 39.6 ÷ (32 ÷ 100) = 123.8 mm²')));
     });
 
     testWidgets('부스바: 여유를 넣은 선정 전류 식', (tester) async {
@@ -671,7 +661,7 @@ void main() {
       await type(tester, 'ec_bus_i', '600');
       await type(tester, 'ec_bus_margin', '10');
       final r = await resultOf(tester, 'ec_bus_result');
-      expect(r, contains('선정 전류 = 부하 전류 × (1 + 여유 ÷ 100) = 600 × (1 + 10 ÷ 100) = 660 A'));
+      expect(flat(r), contains(flat('선정 전류 = 부하 전류 × (1 + 여유 ÷ 100) = 600 × (1 + 10 ÷ 100) = 660 A')));
     });
 
     testWidgets('기초 계산: 옴·교류 전력·Y·Δ·전력량·도체 저항·합성 저항·주파수 대입 줄', (tester) async {
@@ -680,38 +670,38 @@ void main() {
       await type(tester, 'ec_ohm_v', '220');
       await type(tester, 'ec_ohm_r', '22');
       var r = await resultOf(tester, 'ec_ohm_result');
-      expect(r, contains('I = V ÷ R = 220 ÷ 22 = 10 A'));
-      expect(r, contains('P = V² ÷ R = 220² ÷ 22 = 2200 W'));
+      expect(flat(r), contains(flat('I = V ÷ R = 220 ÷ 22 = 10 A')));
+      expect(flat(r), contains(flat('P = V² ÷ R = 220² ÷ 22 = 2200 W')));
       await tapKey(tester, 'ec_bs_acPower');
       await type(tester, 'ec_ac_i', '50');
       r = await resultOf(tester, 'ec_ac_result');
-      expect(r, contains('S = √3 × V × I ÷ 1000 = √3 × 380 × 50 ÷ 1000 = 32.91 kVA'));
-      expect(r, contains('P = S × cosφ = 32.91 × 0.85 = 27.97 kW'));
+      expect(flat(r), contains(flat('S = √3 × V × I ÷ 1000 = √3 × 380 × 50 ÷ 1000 = 32.91 kVA')));
+      expect(flat(r), contains(flat('P = S × cosφ = 32.91 × 0.85 = 27.97 kW')));
       await tapKey(tester, 'ec_bs_starDelta');
       await type(tester, 'ec_yd_v', '380');
       r = await resultOf(tester, 'ec_yd_result');
-      expect(r, contains('V상 = V선 ÷ √3 = 380 ÷ 1.732 = 219.4 V'));
+      expect(flat(r), contains(flat('V상 = V선 ÷ √3 = 380 ÷ 1.732 = 219.4 V')));
       await tapKey(tester, 'ec_bs_energy');
       await type(tester, 'ec_en_kw', '5.5');
       await type(tester, 'ec_en_price', '150');
       r = await resultOf(tester, 'ec_en_result');
-      expect(r, contains('전력량 = kW × 하루 사용 시간 × 일수 = 5.5 × 24 × 30 = 3960 kWh'));
-      expect(r, contains('요금 약 594000원 (= 3960 kWh × 단가 150원/kWh)'));
+      expect(flat(r), contains(flat('전력량 = kW × 하루 사용 시간 × 일수 = 5.5 × 24 × 30 = 3960 kWh')));
+      expect(flat(r), contains(flat('요금 약 594000원 (= 3960 kWh × 단가 150원/kWh)')));
       await tapKey(tester, 'ec_bs_resistance');
       await type(tester, 'ec_rs_a', '2.5');
       await type(tester, 'ec_rs_l', '100');
       await type(tester, 'ec_rs_r1', '10');
       await type(tester, 'ec_rs_r2', '20');
       r = await resultOf(tester, 'ec_rs_result');
-      expect(r, contains('R = 0.017241 × 100 ÷ 2.5 × (1 + 0.00393 × (20 − 20)) = 0.6896 Ω'));
+      expect(flat(r), contains(flat('R = 0.017241 × 100 ÷ 2.5 × (1 + 0.00393 × (20 − 20)) = 0.6896 Ω')));
       r = await resultOf(tester, 'ec_rs_sp_result');
-      expect(r, contains('직렬 R = 10 + 20 = 30 Ω'));
-      expect(r, contains('병렬 R = 1 ÷ (1/10 + 1/20) = 6.667 Ω'));
+      expect(flat(r), contains(flat('직렬 R = 10 + 20 = 30 Ω')));
+      expect(flat(r), contains(flat('병렬 R = 1 ÷ (1/10 + 1/20) = 6.667 Ω')));
       await tapKey(tester, 'ec_bs_frequency');
       r = await resultOf(tester, 'ec_hz_result');
-      expect(r, contains('T = 1 ÷ 60 = 16.67 ms, ω = 2π × 60 = 377 rad/s'));
+      expect(flat(r), contains(flat('T = 1 ÷ 60 = 16.67 ms, ω = 2π × 60 = 377 rad/s')));
       r = await resultOf(tester, 'ec_hz_speed_result');
-      expect(r, contains('ns = 120 × f ÷ p = 120 × 60 ÷ 4 = 1800 rpm'));
+      expect(flat(r), contains(flat('ns = 120 × f ÷ p = 120 × 60 ÷ 4 = 1800 rpm')));
     });
   });
 
@@ -788,7 +778,7 @@ void main() {
       await tapKey(tester, 'ec_vd_start');
       await reveal(tester, find.byKey(const Key('ec_vd_formula')));
       final t = textIn(tester, const Key('ec_vd_formula'));
-      expect(t, contains('ΔU = √3 × I × L × (R cosφ + X sinφ)'));
+      expect(flat(t), contains(flat('ΔU = √3 × I × L × (R cosφ + X sinφ)')));
       expect(t, contains('L 편도 길이(km)'));
       expect(tester.takeException(), isNull, reason: '전압강하 풀이');
     });

@@ -6,7 +6,7 @@ import 'package:tubing_calculator/src/presentation/electrical/electric_calculato
 
 Future<void> pumpPage(
   WidgetTester tester, {
-  Size size = const Size(390, 3000),
+  Size size = const Size(390, 6000),
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -32,7 +32,7 @@ Future<String> basisText(WidgetTester tester, String key) async {
     scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first,
   );
   await tester.ensureVisible(find.byKey(Key(key)));
-  await tester.tap(find.text('근거 보기'));
+  await tester.tap(find.descendant(of: find.byKey(Key(key)), matching: find.text('근거 보기')));
   await tester.pumpAndSettle();
   return textIn(tester, Key(key));
 }
@@ -63,7 +63,7 @@ void main() {
   });
 
   testWidgets('"최근 계산 기록"은 전동기·발전기 화면(발전기 용량)에서도 쌓인다', (tester) async {
-    tester.view.physicalSize = const Size(390, 3000);
+    tester.view.physicalSize = const Size(390, 6000);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(

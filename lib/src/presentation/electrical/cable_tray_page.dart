@@ -514,7 +514,7 @@ class _CableTrayPageState extends State<CableTrayPage>
     final how = oneRow ? '${trayTypeLabel(_type)}에 한 줄로 나란히' : '겹쳐 쌓음(묶음)';
     return [
       const SizedBox(height: 12),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('ct_derate'),
         big: '× ${f.toStringAsFixed(2)}',
         caption: '허용전류 보정 · 전력 회로 $n개 · $how',
@@ -551,7 +551,7 @@ class _CableTrayPageState extends State<CableTrayPage>
         '트레이 수평·수직 엘보의 반경입니다. 흔히 300·600·900mm(LH 시방서 300 이상, 제조사 300·600·900).',
         [for (final e in kTrayElbowRadii) calcChip('ct_el_${e.toInt()}', fmt(e), _elbow == e, () => _set(() => _elbow = e))],
       ),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('ct_bend'),
         big: 'R ${fmt(need, 0)} mm',
         caption: '최소 굽힘 반경 · 엘보 R${fmt(_elbow)} ${ok ? '합격' : '불합격'}',
@@ -602,7 +602,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       elecField('ct_traykg', '트레이 자중 (kg/m)', _trayKg, '트레이 1m 중량입니다. 제조사 카탈로그 값을 넣습니다(예: 대양엔지니어링 사다리형 300폭 H100 가로대 300mm, 2.6t 7.0kg/m. 한 곳 자료). 지지점 하중에만 들어가고, 허용 하중 판정은 케이블 하중으로 합니다. 비우면 0으로 봅니다.', onEdit: _saveSoon),
       if (trayMountSpans(_mount))
         elecField('ct_allow', '허용 하중 (kg/m)', _allow, '제조사 카탈로그에서 이 지지 간격의 등분포 허용(사용) 하중입니다. 케이블만의 하중 기준(트레이 자중 제외)이라 케이블 하중과 비교합니다. NEMA VE-1·IEC 61537 기준 값은 안전율(1.5 이상)이 이미 들어 있어 그대로 넣고, KS 정하중이나 파괴 하중만 있으면 1.5로 나눠 넣으십시오(KEC 232.41.2 1호 안전율 1.5).', onEdit: _saveSoon),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('ct_load'),
         big: '${fmt(l.totalKgM, 1)} kg/m',
         caption: !spans
@@ -665,7 +665,7 @@ class _CableTrayPageState extends State<CableTrayPage>
     String? summary;
     Widget result;
     if (check == null) {
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ct_result'),
         big: '— %',
         caption: '케이블 가닥 수를 넣으면 판정합니다',
@@ -679,7 +679,7 @@ class _CableTrayPageState extends State<CableTrayPage>
         best == null ? '맞는 폭 없음' : '권장 폭 ${fmt(best)}',
       ].join(' · ');
       final unit = check.byDia ? 'mm' : 'mm²';
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ct_result'),
         big: '${fmt(check.pct, 0)} %',
         caption: '${trayTypeLabel(_type)} 폭 ${fmt(_width)} × 깊이 ${fmt(_depth)}mm · ${ok ? '합격' : '불합격'}',

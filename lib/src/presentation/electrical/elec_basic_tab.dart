@@ -134,7 +134,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
         if (negative)
           _negativeResult('ec_ohm_result')
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_ohm_result'),
             big: out == null ? '—' : out.join(' · '),
             caption: r == null
@@ -223,7 +223,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
         if (negative)
           _negativeResult('ec_ac_result')
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_ac_result'),
             big: r == null
                 ? '—'
@@ -322,7 +322,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
         if (negative)
           _negativeResult('ec_yd_result')
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_yd_result'),
             big: big ?? '—',
             caption: r == null
@@ -411,7 +411,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
         if (negative)
           _negativeResult('ec_en_result')
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_en_result'),
             big: kwh == null ? '— kWh' : '${sig(kwh)} kWh',
             caption: kwh == null ? '전력(kW)을 넣으십시오' : '전력량',
@@ -499,7 +499,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
         if (negative)
           _negativeResult('ec_rs_result')
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_rs_result'),
             big: r == null ? '— Ω' : '${sig(r)} Ω',
             caption: r == null
@@ -523,7 +523,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
         _field('ec_rs_r2', '저항 R2 (Ω)', _rs2, '합성할 저항 값입니다.'),
         _field('ec_rs_r3', '저항 R3 (Ω, 선택)', _rs3, '세 개를 합성할 때 넣습니다.'),
         const SizedBox(height: 12),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_rs_sp_result'),
           big: spReady ? '${sig(seriesResistance(rs))} Ω' : '— Ω',
           caption: spReady ? '직렬 합성 저항' : '저항을 두 개 이상 넣으십시오',
@@ -588,7 +588,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
         if (negative)
           _negativeResult('ec_hz_result')
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_hz_result'),
             big: f == null ? '— ms' : '${sig(periodSec(f) * 1000)} ms',
             caption: f == null ? '주파수를 넣으십시오' : '주기 T',
@@ -614,7 +614,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
           '측정한 회전수나 명판의 정격 회전수입니다. 넣으면 슬립과 발전기 주파수를 계산합니다.',
         ),
         if (!negative)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_hz_speed_result'),
             big: ns == null ? '— rpm' : '${fmt(ns, 0)} rpm',
             caption: ns == null
@@ -642,7 +642,7 @@ extension _BasicTab on _ElectricCalculatorPageState {
         _field('ec_hz_l', '인덕턴스 L (mH)', _hzL, '코일·리액터의 인덕턴스(mH)입니다.'),
         _field('ec_hz_c', '정전용량 C (μF)', _hzC, '콘덴서의 정전용량(μF)입니다.'),
         if (!negative)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_hz_x_result'),
             big: henry != null && farad != null
                 ? '${sig(resonanceHz(henry, farad))} Hz'

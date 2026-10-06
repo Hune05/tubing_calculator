@@ -95,7 +95,7 @@ class _TransformerPfSectionState extends State<TransformerPfSection>
           '변압기 정격 용량에 대한 현재 부하의 비율입니다. 전부하는 100입니다.',
         ),
         const SizedBox(height: 8),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_tp_result'),
           big: q == null ? '- kvar' : '${_sig(q.totalKvar)} kvar',
           caption: '변압기가 쓰는 무효전력',
@@ -232,7 +232,7 @@ class _MiCableSectionState extends State<MiCableSection>
           '넣으면 이 전류를 견디는 가장 작은 단면적을 찾습니다. 설계전류를 넣으십시오.',
         ),
         const SizedBox(height: 8),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_mi_result'),
           big: pick == null ? '- mm²' : '${fmt(pick.mm2, 1)} mm²',
           caption: '미네랄 절연 케이블 허용전류',

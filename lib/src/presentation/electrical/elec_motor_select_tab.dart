@@ -275,7 +275,7 @@ class _ElecMotorSelectTabState extends State<ElecMotorSelectTab>
         ]),
         ...fields,
         const SizedBox(height: 6),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ms_result'),
           big: summary == null ? '-' : summary.split(' · ').first.split(' → ').first,
           caption: _secName(_sec),

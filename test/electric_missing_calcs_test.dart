@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
+import 'formula_flat.dart';
 
 Future<void> _open(WidgetTester tester, String tab) async {
   tester.view.physicalSize = const Size(800, 9000);
@@ -44,7 +45,7 @@ void main() {
     await _type(tester, 'ec_as_kw', '9.5');
     await _type(tester, 'ec_as_amps', '18');
     var t = _all(tester);
-    expect(t, contains('= 0.802'));
+    expect(flat(t), contains(flat('= 0.802')));
     expect(t, contains('80.2 %'));
     await _type(tester, 'ec_as_kw', '20');
     expect(_all(tester), contains('역률이 1을 넘습니다'));
@@ -52,8 +53,8 @@ void main() {
     await _type(tester, 'ec_as_kw', '80');
     await _type(tester, 'ec_as_kvav', '100');
     t = _all(tester);
-    expect(t, contains('= 0.8'));
-    expect(t, contains('무효전력 Q = √(S² − P²)'));
+    expect(flat(t), contains(flat('= 0.8')));
+    expect(flat(t), contains(flat('무효전력 Q = √(S² − P²)')));
   });
 
   testWidgets('전압 구하기: 10 kW, 18.2 A, 역률 85 % 삼상 → 373.2 V, kVA·전류 방식', (tester) async {
@@ -63,11 +64,11 @@ void main() {
     await _type(tester, 'ec_as_kw', '10');
     await _type(tester, 'ec_as_amps', '18.2');
     await _type(tester, 'ec_as_pf_in', '85');
-    expect(_all(tester), contains('= 373.2 V'));
+    expect(flat(_all(tester)), contains(flat('= 373.2 V')));
     await _tap(tester, 'ec_as_kva');
     await _type(tester, 'ec_as_kvav', '100');
     await _type(tester, 'ec_as_amps', '152');
-    expect(_all(tester), contains('= 379.8 V'));
+    expect(flat(_all(tester)), contains(flat('= 379.8 V')));
   });
 
   testWidgets('임피던스: R 30, XL 40, 220 V → 50 Ω, 역률 0.6, 4.4 A, L·C로도 구한다', (tester) async {
@@ -77,14 +78,14 @@ void main() {
     await _type(tester, 'ec_zi_xl', '40');
     await _type(tester, 'ec_zi_v', '220');
     var t = _all(tester);
-    expect(t, contains('= √(30² + 40²) = 50 Ω'));
-    expect(t, contains('= 0.6 (60 %)'));
-    expect(t, contains('= 4.4 A'));
+    expect(flat(t), contains(flat('= √(30² + 40²) = 50 Ω')));
+    expect(flat(t), contains(flat('= 0.6 (60 %)')));
+    expect(flat(t), contains(flat('= 4.4 A')));
     // L 100 mH → XL 37.7 Ω
     await _type(tester, 'ec_zi_xl', '');
     await _type(tester, 'ec_zi_l', '100');
     t = _all(tester);
-    expect(t, contains('= 37.7 Ω'));
+    expect(flat(t), contains(flat('= 37.7 Ω')));
     await _type(tester, 'ec_zi_c', '50');
     expect(_all(tester), contains('용량성'));
   });
@@ -94,8 +95,8 @@ void main() {
     await _type(tester, 'ec_ib', '100');
     final t = _all(tester);
     expect(t, contains('케이블 임피던스(한 가닥 50 m)'));
-    expect(t, contains('케이블 전력 손실 = 도체 수 × I² × R × L = 3 × 100² '));
-    expect(t, contains('도체 온도 ≈ Ta + (Tmax − Ta) × (I ÷ IZ)²'));
+    expect(flat(t), contains(flat('케이블 전력 손실 = 도체 수 × I² × R × L = 3 × 100² ')));
+    expect(flat(t), contains(flat('도체 온도 ≈ Ta + (Tmax − Ta) × (I ÷ IZ)²')));
     expect(t, contains('(근사식)'));
   });
 
@@ -106,9 +107,9 @@ void main() {
     await _type(tester, 'gr_spe', '2.5');
     final t = _all(tester);
     expect(t, contains('자동 차단되는 최대 케이블 길이'));
-    expect(t, contains('= 76.4 m'));
+    expect(flat(t), contains(flat('= 76.4 m')));
     await _type(tester, 'gr_ze', '0.4');
-    expect(_all(tester), contains('= 54.2 m'));
+    expect(flat(_all(tester)), contains(flat('= 54.2 m')));
   });
 
   testWidgets('역률 개선: 440 V 20 kvar 콘덴서를 380 V 60 Hz에 → 14.9 kvar (74.6 %)', (tester) async {
@@ -117,7 +118,7 @@ void main() {
     await _type(tester, 'ec_cv_vn', '440');
     await _type(tester, 'ec_cv_v', '380');
     final t = _all(tester);
-    expect(t, contains('= 14.92 kvar'));
+    expect(flat(t), contains(flat('= 14.92 kvar')));
     expect(t, contains('74.6 %'));
     await _type(tester, 'ec_cv_v', '500');
     expect(_all(tester), contains('110 %를 넘습니다'));
@@ -126,13 +127,13 @@ void main() {
     await _open(tester, 'ec_tab_pf');
     await _type(tester, 'ec_tp_kva', '630');
     var t = _all(tester);
-    expect(t, contains('= 11.34 kvar'));
-    expect(t, contains('= 25.2 kvar'));
-    expect(t, contains('합계 = 36.54 kvar'));
+    expect(flat(t), contains(flat('= 11.34 kvar')));
+    expect(flat(t), contains(flat('= 25.2 kvar')));
+    expect(flat(t), contains(flat('합계 = 36.54 kvar')));
     expect(t, contains('무부하 11.3 kvar, 전부하 35.7 kvar'));
     await _type(tester, 'ec_tp_load', '50');
     t = _all(tester);
-    expect(t, contains('= 6.3 kvar'));
+    expect(flat(t), contains(flat('= 6.3 kvar')));
   });
 
   testWidgets('미네랄 절연 케이블: 750 V 70 °C 벽 3도체 16 mm² = 86 A, 100 A → 25 mm²', (tester) async {

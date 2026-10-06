@@ -454,7 +454,7 @@ class _ElecMotorMiscTabState extends State<ElecMotorMiscTab>
         ]),
         ...fields,
         const SizedBox(height: 6),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('mm_result'),
           big: summary == null ? '-' : summary.split(' · ').first,
           caption: _secName(_sec),

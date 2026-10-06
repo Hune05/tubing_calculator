@@ -234,7 +234,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         ]);
         if (tableOnly == null) {
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '—',
               caption: '선도체 단면적을 넣으면 계산합니다',
@@ -251,7 +251,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               '보호도체 ${needStd == null ? "표 범위 밖" : "${fmt(needStd)} mm²"}';
           warn = needStd == null;
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: needStd == null ? '표 범위 밖' : '${fmt(needStd)} mm²',
               caption: ad == null
@@ -312,7 +312,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             calcChip('gr_lv', '저압', !_hv, () => _set(() => _hv = false)),
             calcChip('gr_hv', '고압 이상', _hv, () => _set(() => _hv = true)),
           ]),
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('gr_result'),
             big: g.mm2 == null ? '쓸 수 없음' : '${fmt(g.mm2!)} mm²',
             caption: '접지도체 최소 단면적 (KEC 142.3.1의 1 가)',
@@ -362,7 +362,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         ]);
         if (r == null) {
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '— Ω',
               caption: '지락전류를 넣으면 계산합니다',
@@ -372,7 +372,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         } else {
           summary = '중성점 접지저항 ${fmt(r, 2)} Ω 이하';
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '${fmt(r, 2)} Ω 이하',
               caption: 'KEC 142.5 변압기 중성점 접지저항',
@@ -412,7 +412,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         ]);
         if (r == null) {
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '— Ω',
               caption: '감도전류를 넣으면 계산합니다',
@@ -422,7 +422,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         } else {
           summary = 'TT 접지저항 ${fmt(r, 0)} Ω 이하';
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '${fmt(r, 0)} Ω 이하',
               caption: 'TT 계통 누전차단기 보호: R_A × IΔn ≤ 50 V (KEC 211.2.6의 3)',
@@ -490,7 +490,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         ]);
         if (one == null) {
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '— Ω',
               caption: '값을 넣으면 계산합니다',
@@ -500,7 +500,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         } else if (many == null) {
           warn = true;
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '${fmt(one, 1)} Ω (1본)',
               warn: true,
@@ -513,7 +513,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
           warn = ok == false;
           summary = '접지봉 $n본 ${fmt(many, 1)} Ω';
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '${fmt(many, 1)} Ω',
               warn: warn,
@@ -548,7 +548,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         );
         if (b == null) {
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '—',
               caption: '단면적을 넣으면 계산합니다',
@@ -558,7 +558,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         } else {
           summary = '보호등전위본딩 ${fmt(b, 1)} mm² 이상';
           children.add(
-            calcResult(
+            calcResult(solve: true, 
               key: const Key('gr_result'),
               big: '${fmt(b, 1)} mm² 이상 (규격 ${_std(b)})',
               caption: '보호등전위본딩 도체 최소 단면적 (구리)',
@@ -684,7 +684,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
     ]);
     if (zmax == null) {
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('gr_result'),
           big: '— Ω',
           caption: '대지전압과 보호장치 값을 넣으면 계산합니다',
@@ -706,7 +706,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
           : null;
       out('TN Zs ${fmt(zmax, 2)} Ω 이하', ok == false);
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('gr_result'),
           big: '${fmt(zmax, 2)} Ω 이하',
           warn: ok == false,
@@ -801,7 +801,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             _megger,
             '전선 상호 간과 전로-대지 사이 값 중 작은 것을 넣습니다.',
           ),
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('gr_result'),
             big: '${fmt(spec.minMOhm, 1)} MΩ 이상',
             warn: ok == false,
@@ -865,7 +865,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             _vmax,
             '설계 도서의 최대사용전압입니다. 공칭전압이 아닙니다.',
           ),
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('gr_result'),
             big: t == null ? '— kV' : '${fmt(t, 2)} kV',
             warn: t == null && vm != null,
@@ -896,7 +896,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             _machineV,
             '발전기·전동기 등입니다. 440 V 전동기는 0.44를 넣습니다.',
           ),
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('gr_result'),
             big: t == null ? '—' : volt(t),
             caption: '권선과 대지 사이 10분 (KEC 표 133-1)',

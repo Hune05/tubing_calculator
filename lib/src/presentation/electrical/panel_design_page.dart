@@ -149,7 +149,7 @@ class _LightingTabState extends State<_LightingTab>
             '시간이 지나 조도가 떨어지는 것(먼지·광속 감소)을 미리 반영하는 계수입니다. 설계 기준이나 제조사 값을 넣으십시오. 0.8 또는 80처럼 넣으십시오.'),
         const SizedBox(height: 6),
         if (error != null)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_light_result'),
             big: '확인',
             caption: '입력 오류',
@@ -157,14 +157,14 @@ class _LightingTabState extends State<_LightingTab>
             warn: true,
           )
         else if (r == null)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_light_result'),
             big: '-',
             caption: '필요한 등기구 수',
             lines: [if (missing.isNotEmpty) '${missing.join('·')}을(를) 넣으십시오.'],
           )
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_light_result'),
             big: '${r.count}개',
             caption: '필요한 등기구 수',
@@ -325,14 +325,14 @@ class _BalanceTabState extends State<_BalanceTab>
           ),
         ),
         if (r == null)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_bal_result'),
             big: '-',
             caption: '설비 불평형률',
             lines: const ['회로의 부하(VA)를 넣으십시오.'],
           )
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_bal_result'),
             big: '${fmt(r.unbalancePct, 1)} %',
             caption: '설비 불평형률',
@@ -567,7 +567,7 @@ class _FeederTabState extends State<_FeederTab>
           ),
         ),
         if (bad)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_feed_result'),
             big: '확인',
             caption: '입력 오류',
@@ -575,14 +575,14 @@ class _FeederTabState extends State<_FeederTab>
             warn: true,
           )
         else if (res == null)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_feed_result'),
             big: '-',
             caption: '총 전압강하',
             lines: const ['전압·역률과 구간의 길이·부하 전류를 넣으십시오.'],
           )
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_feed_result'),
             big: '${fmt(res.totalDropPct, 2)} %',
             caption: '총 전압강하 (${fmt(res.totalDropV, 1)} V)',
@@ -741,14 +741,14 @@ class _BranchTabState extends State<_BranchTab>
             '분기회로 정격 중 쓸 비율입니다. 정격 전부를 쓰면 100, 정격의 80% 이내로 쓰려면 80을 넣으십시오.'),
         const SizedBox(height: 6),
         if (r == null)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_branch_result'),
             big: '-',
             caption: '분기회로 수',
             lines: const ['표준부하, 바닥면적, 전압, 분기회로 정격, 이용률을 넣으십시오.'],
           )
         else
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('pd_branch_result'),
             big: '${r.count}개',
             caption: '분기회로 수',

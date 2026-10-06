@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
+import 'formula_flat.dart';
 
 Future<void> _open(WidgetTester tester, {int tab = 14}) async {
   tester.view.physicalSize = const Size(800, 7000);
@@ -56,7 +57,7 @@ void main() {
     await _type(tester, 'mf_amps', '18');
     // 9500 ÷ (√3 × 380 × 18) = 0.8019
     final t = _all(tester);
-    expect(t, contains('= 0.802 (80.2 %)'));
+    expect(flat(t), contains(flat('= 0.802 (80.2 %)')));
     expect(find.byKey(const Key('mf_eff')), findsNothing, reason: '입력 전력 기준이면 효율이 필요 없다');
     // 서로 안 맞는 값
     await _type(tester, 'mf_kw', '20');
@@ -83,9 +84,9 @@ void main() {
     await _type(tester, 'ms_margin', '15');
     final t = _all(tester);
     expect(t, contains('수동력'));
-    expect(t, contains('= 4.9 kW'));
-    expect(t, contains('= 7 kW'));
-    expect(t, contains('= 8.06 kW'));
+    expect(flat(t), contains(flat('= 4.9 kW')));
+    expect(flat(t), contains(flat('= 7 kW')));
+    expect(flat(t), contains(flat('= 8.06 kW')));
     expect(t, contains('올림: 11 kW'));
   });
 
@@ -97,8 +98,8 @@ void main() {
     await _type(tester, 'ms_eff', '65');
     final t = _all(tester);
     expect(t, contains('공기동력'));
-    expect(t, contains('= 2.4 kW'));
-    expect(t, contains('= 3.69 kW'));
+    expect(flat(t), contains(flat('= 2.4 kW')));
+    expect(flat(t), contains(flat('= 3.69 kW')));
   });
 
   testWidgets('상사법칙: 1800 → 1500 rpm, 동력 11 kW → 6.37 kW (57.9 %)', (tester) async {
@@ -109,9 +110,9 @@ void main() {
     await _type(tester, 'ms_p1', '11');
     await _type(tester, 'ms_q1', '100');
     final t = _all(tester);
-    expect(t, contains('r = N2 ÷ N1 = 1500 ÷ 1800 = 0.833'));
-    expect(t, contains('= 6.37 (57.9 %)'));
-    expect(t, contains('= 83.33'));
+    expect(flat(t), contains(flat('r = N2 ÷ N1 = 1500 ÷ 1800 = 0.833')));
+    expect(flat(t), contains(flat('= 6.37 (57.9 %)')));
+    expect(flat(t), contains(flat('= 83.33')));
   });
 
   testWidgets('가속 시간: 11 kW 1750 rpm, 전동기 150 %, 부하 50 %, J 0.2 + 부하 1.5 → 시간과 기동 불가 경고', (tester) async {
@@ -125,8 +126,8 @@ void main() {
     await _type(tester, 'ms_jl', '1.5');
     // T정격 60.0 N·m, 가속 토크 60.0 N·m(= 90 − 30), J 1.7, ω 183.26 → 1.7 × 183.26 ÷ 60.02 = 5.19 s
     var t = _all(tester);
-    expect(t, contains('가속 토크 Ta = 90'));
-    expect(t, contains('= 5.19 초'));
+    expect(flat(t), contains(flat('가속 토크 Ta = 90')));
+    expect(flat(t), contains(flat('= 5.19 초')));
     await _type(tester, 'ms_avgl', '160');
     expect(_all(tester), contains('기동(가속)하지 못합니다'));
   });

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/theme/field_view.dart';
+import 'formula_card.dart';
 
 mixin CalcFormParts<W extends StatefulWidget> on State<W> {
   Widget calcChip(String key, String label, bool sel, VoidCallback onTap) =>
@@ -197,7 +198,41 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
     required List<String> lines,
     bool warn = false,
     Widget? extra,
-  }) => Container(
+    bool solve = false,
+  }) => _calcResult(
+    key: key,
+    big: big,
+    caption: caption,
+    lines: lines,
+    warn: warn,
+    extra: extra,
+    solve: solve,
+  );
+
+  /// [solve]가 true면 결과 줄 중 "식 = 대입 = 결과" 꼴을 풀이 카드(식·대입·결과)로 옮긴다.
+  Widget _calcResult({
+    Key? key,
+    required String big,
+    required String caption,
+    required List<String> lines,
+    bool warn = false,
+    Widget? extra,
+    bool solve = false,
+  }) {
+    var shown = lines;
+    var card = extra;
+    if (solve && extra == null) {
+      final sp = splitFormulaLines(lines);
+      if (sp.rows.isNotEmpty) {
+        shown = sp.rest;
+        final k = key is ValueKey<String> ? key.value : null;
+        card = ElecFormulaCard(
+          rows: sp.rows,
+          symbols: k == null ? const [] : (kSymbolLegend[k] ?? const []),
+        );
+      }
+    }
+    return Container(
     key: key,
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -226,7 +261,7 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
             color: warn ? fc.danger : fc.brand,
           ),
         ),
-        for (final l in lines)
+        for (final l in shown)
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Text(
@@ -234,8 +269,9 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
               style: TextStyle(fontSize: 13, color: fc.text, height: 1.4),
             ),
           ),
-        ?extra,
+        ?card,
       ],
     ),
   );
+  }
 }

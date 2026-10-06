@@ -1,6 +1,7 @@
 // 축전지 용량 순수 계산과 탭 화면 시험.
 // 손계산 근거: 강의 자료(오리건 주립대 ESE 471, IEEE 485 예제)의 구간 3 합계 37.91 Ah와 최종 105.11 Ah 계산 순서.
 import 'dart:convert';
+import 'formula_flat.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -443,10 +444,7 @@ void main() {
       await put(tester, 'eb_minbus', '106');
       await tester.pumpAndSettle();
       expect(find.textContaining('합격 (여유 33.3%)'), findsOneWidget);
-      expect(
-        find.textContaining('셀 수 계산값: 125 V ÷ 2 V = 62.5셀'),
-        findsOneWidget,
-      );
+      expect(allFlat(tester), contains(flat('셀 수 계산값: 125 V ÷ 2 V = 62.5셀')));
       expect(
         find.textContaining('105 V, 부하 최저 허용 106 V 미만이라 불합격'),
         findsOneWidget,
@@ -494,15 +492,9 @@ void main() {
       await put(tester, 'eb_k_20', '0.8');
       await put(tester, 'eb_k_30', '1');
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('① 구간별 용량 = Σ (전류 변화 × K): 구간 1 25 Ah, 구간 2 26 Ah'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('② 구간 용량 최댓값: 구간 2 = 50 × 1 + (-30) × 0.8 = 26 Ah'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('③ 필요 용량 = 구간 최댓값 ÷ 보수율'), findsOneWidget);
+      expect(allFlat(tester), contains(flat('① 구간별 용량 = Σ (전류 변화 × K): 구간 1 25 Ah, 구간 2 26 Ah')));
+      expect(allFlat(tester), contains(flat('② 구간 용량 최댓값: 구간 2 = 50 × 1 + (-30) × 0.8 = 26 Ah')));
+      expect(allFlat(tester), contains(flat('③ 필요 용량 = 구간 최댓값 ÷ 보수율')));
     });
   });
 }

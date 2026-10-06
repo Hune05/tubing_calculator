@@ -1,6 +1,7 @@
 // 부하 합산(부하 계산서): 순수 계산(손계산 예제·경계값·오류 입력), 저장 모양, 화면, PDF.
 // 손계산은 각 시험 위에 식을 적었다.
 import 'dart:convert';
+import 'formula_flat.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -535,10 +536,7 @@ void main() {
       await type(tester, 'els_df_0', '80');
       expect(sum(tester), '최대수요 80 kW · 필요 88.9 kVA');
       expect(find.text('88.9 kVA'), findsOneWidget);
-      expect(
-        find.textContaining('(√3 × 380 V) = 135.1 A (3상)'),
-        findsOneWidget,
-      );
+      expect(allFlat(tester), contains(flat('(√3 × 380 V) = 135.1 A (3상)')));
 
       await tester.tap(find.byKey(const Key('els_add')));
       await tester.pump();
@@ -634,7 +632,7 @@ void main() {
       expect(find.textContaining('선정 용량이 필요 용량보다 작습니다'), findsOneWidget);
       await tester.tap(find.byKey(const Key('els_v_440')));
       await tester.pump();
-      expect(find.textContaining('(√3 × 440 V)'), findsOneWidget);
+      expect(allFlat(tester), contains(flat('(√3 × 440 V)')));
       await tester.pump(const Duration(seconds: 1));
     });
 
@@ -649,35 +647,13 @@ void main() {
       await type(tester, 'els_diversity', '1.25');
       await type(tester, 'els_margin', '10');
       await type(tester, 'els_selected', '100');
-      expect(
-        find.textContaining(
-          '1번 모터: P = 100 × 80% = 80 kW, Q = 80 × tan(acos 0.9) = 38.7 kvar',
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('S = √(ΣP² + ΣQ²) = √(80² + 38.7²) = 88.9 kVA'),
-        findsOneWidget,
-      );
-      expect(find.textContaining('종합 역률 = ΣP ÷ S = 80 ÷ 88.9 = 90%'), findsOneWidget);
-      expect(
-        find.textContaining(
-          '③ 필요 용량 = S ÷ 부등률 × (1 + 여유) = 88.9 ÷ 1.25 × (1 + 10%) = 78.2 kVA',
-        ),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('78.2 × 1000 ÷ (√3 × 380 V) = 118.8 A (3상)'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('⑤ 부하율 = 필요 용량 ÷ 선정 용량 × 100 = 78.2 ÷ 100 × 100 = 78.2%: 합격'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('여유를 뺀 부하율 = S ÷ 부등률 ÷ 선정 용량 × 100 = 88.9 ÷ 1.25 ÷ 100 × 100 = 71.1%'),
-        findsOneWidget,
-      );
+      expect(allFlat(tester), contains(flat('1번 모터: P = 100 × 80% = 80 kW, Q = 80 × tan(acos 0.9) = 38.7 kvar')));
+      expect(allFlat(tester), contains(flat('S = √(ΣP² + ΣQ²) = √(80² + 38.7²) = 88.9 kVA')));
+      expect(allFlat(tester), contains(flat('종합 역률 = ΣP ÷ S = 80 ÷ 88.9 = 90%')));
+      expect(allFlat(tester), contains(flat('③ 필요 용량 = S ÷ 부등률 × (1 + 여유) = 88.9 ÷ 1.25 × (1 + 10%) = 78.2 kVA')));
+      expect(allFlat(tester), contains(flat('78.2 × 1000 ÷ (√3 × 380 V) = 118.8 A (3상)')));
+      expect(allFlat(tester), contains(flat('⑤ 부하율 = 필요 용량 ÷ 선정 용량 × 100 = 78.2 ÷ 100 × 100 = 78.2%: 합격')));
+      expect(allFlat(tester), contains(flat('여유를 뺀 부하율 = S ÷ 부등률 ÷ 선정 용량 × 100 = 88.9 ÷ 1.25 ÷ 100 × 100 = 71.1%')));
       await tester.pump(const Duration(seconds: 1));
     });
 

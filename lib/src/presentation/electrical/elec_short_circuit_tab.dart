@@ -307,7 +307,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     if (allErrs.isNotEmpty) {
       warn = true;
       summary = '입력 확인';
-      mainCard = calcResult(
+      mainCard = calcResult(solve: true, 
         key: const Key('ec_sc_result'),
         big: '입력 확인',
         caption: '표시된 칸을 고치면 계산합니다',
@@ -315,7 +315,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         lines: allErrs,
       );
     } else if (res == null) {
-      mainCard = calcResult(
+      mainCard = calcResult(solve: true, 
         key: const Key('ec_sc_result'),
         big: '—',
         caption: '빈 칸을 채우면 계산합니다:${missing.join(', ')}',
@@ -326,7 +326,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       final diff = r.ikPercentZA == 0
           ? 0.0
           : (r.ikPercentZA - r.ikMaxA) / r.ikMaxA * 100;
-      mainCard = calcResult(
+      mainCard = calcResult(solve: true, 
         key: const Key('ec_sc_result'),
         big: '${_ka(r.ikMaxA)} kA',
         caption: 'Ik″ 최대 (3상 대칭 초기 단락전류, 고장점 = ${_posLabel(n, n)})',
@@ -337,7 +337,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
           _peakLine(r),
         ],
       );
-      final minCard = calcResult(
+      final minCard = calcResult(solve: true, 
         key: const Key('ec_sc_min_result'),
         big: '${_ka(r.ikMin2A)} kA',
         caption: 'Ik″ 최소 (2상 단락, 보호 감도용)',
@@ -354,7 +354,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       if (r.notes.isNotEmpty) {
         extra.add(const SizedBox(height: 10));
         extra.add(
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('ec_sc_notes'),
             big: '확인 ${r.notes.length}건',
             caption: '결과를 쓰기 전에 읽으십시오',
@@ -382,7 +382,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     if (bkErrs.isNotEmpty) {
       bkWarn = true;
       bkSummary = '차단용량 입력 확인';
-      bkCard = calcResult(
+      bkCard = calcResult(solve: true, 
         key: const Key('ec_sc_breaker_result'),
         big: '입력 확인',
         caption: '차단기 칸',
@@ -390,7 +390,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         lines: bkErrs,
       );
     } else if (rr == null || ratingKa == null) {
-      bkCard = calcResult(
+      bkCard = calcResult(solve: true, 
         key: const Key('ec_sc_breaker_result'),
         big: '—',
         caption: rr == null ? '위 단락전류를 먼저 계산하십시오' : '차단용량을 넣으면 합격/불합격을 판정합니다',
@@ -403,7 +403,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       final makeOk = makeKa == null ? null : makeKa >= ip / 1000;
       bkWarn = !ok || makeOk == false;
       bkSummary = '차단용량 ${ok ? '합격' : '불합격'}';
-      bkCard = calcResult(
+      bkCard = calcResult(solve: true, 
         key: const Key('ec_sc_breaker_result'),
         big: ok ? '합격' : '불합격',
         caption:
@@ -442,7 +442,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     if (cabErrs.isNotEmpty) {
       cabWarn = true;
       cabSummary = '케이블 입력 확인';
-      cabCard = calcResult(
+      cabCard = calcResult(solve: true, 
         key: const Key('ec_sc_cable_result'),
         big: '입력 확인',
         caption: '케이블 칸',
@@ -450,14 +450,14 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         lines: cabErrs,
       );
     } else if (n == 0) {
-      cabCard = calcResult(
+      cabCard = calcResult(solve: true, 
         key: const Key('ec_sc_cable_result'),
         big: '—',
         caption: '케이블 구간을 추가하면 그 구간의 열적 강도를 판정합니다',
         lines: const [],
       );
     } else if (rr == null || tSec == null) {
-      cabCard = calcResult(
+      cabCard = calcResult(solve: true, 
         key: const Key('ec_sc_cable_result'),
         big: '—',
         caption: rr == null ? '위 단락전류를 먼저 계산하십시오' : '차단 시간(초)을 넣으면 합격/불합격을 판정합니다',
@@ -480,7 +480,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       cabSummary = '케이블 ${cabWarn ? '불합격' : '합격'}';
       final insName = _ins == Insulation.pvc70 ? 'PVC' : 'XLPE·EPR';
       final temps = _ins == Insulation.pvc70 ? '70→160°C' : '90→250°C';
-      cabCard = calcResult(
+      cabCard = calcResult(solve: true, 
         key: const Key('ec_sc_cable_result'),
         big: cabWarn ? '불합격' : '합격',
         caption:

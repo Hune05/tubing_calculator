@@ -926,7 +926,7 @@ class _GroundBarPageState extends State<GroundBarPage>
           onEdit: _saveSoon,
         ),
         if (groups.isNotEmpty)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('gb_lug_result'),
             big: '러그 구멍 $bolts개 · 볼트 세트 $bolts',
             caption:
@@ -942,7 +942,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             ],
           ),
         if (groups.isNotEmpty)
-          calcResult(
+          calcResult(solve: true, 
             key: const Key('gb_lug_notes'),
             big: '러그 취부 방법',
             caption: '접지 러그를 접지바에 붙일 때',
@@ -982,7 +982,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         '접지바를 올려 볼트로 조일 판넬(또는 앵글) 두께입니다. 기본값 3은 임의 값이니 실제 두께를 넣으십시오.',
         onEdit: _saveSoon,
       ),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('gb_mount_result'),
         big: '취부 구멍 $only개 · 볼트 세트 $only',
         caption: '접지바를 ${p.hat ? "챙" : "탭"} 구멍으로 취부',
@@ -1001,7 +1001,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             '판넬 구멍은 ${p.hat ? "챙" : "탭"} 구멍과 같은 φ${fmt(_num(_mDia))}로 뚫거나, 판넬에 탭을 낼 때는 볼트 호칭에 맞는 드릴을 씁니다.',
         ],
       ),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('gb_mount_notes'),
         big: '접지바 취부 방법',
         caption: '${p.hat ? "챙 달린 모자 접지바" : "탭 접지바"}를 판넬에 설치할 때',
@@ -1432,7 +1432,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     ];
     if (p == null) {
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('gb_result'),
           big: '— mm',
           caption: '치수를 넣으면 계산합니다',
@@ -1444,7 +1444,7 @@ class _GroundBarPageState extends State<GroundBarPage>
       summary =
           '접지바 ${fmt(_num(_thick))}×${fmt(_num(_width))} · ${fmt(p.length, 1)}mm · 구멍 $total개';
       children.addAll([
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('gb_result'),
           big: '${fmt(p.length, 1)} mm',
           caption: '절단 길이 · 구멍 $total개 · 약 ${fmt(p.weightKg, 2)}kg',
@@ -1529,7 +1529,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         ..._mountSection(p),
         ..._sizeEditor(p),
         const SizedBox(height: 8),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('gb_notes'),
           big: '작업 순서',
           caption: '현장에서 만들 때',

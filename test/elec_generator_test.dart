@@ -1,6 +1,7 @@
 // 발전기 용량(PG 방식) 순수 계산과 탭 화면 시험.
 // 손계산 근거: PG2 351 kVA는 KIEE 논문(2018) 예제(75kW, β 7.2, C 0.65, X″d 25%, ΔV 20%)와 같은 값이다.
 import 'dart:convert';
+import 'formula_flat.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -283,18 +284,9 @@ void main() {
       await put('eg_dv', '20');
       await tester.pumpAndSettle();
       expect(find.textContaining('① PG1 정상 운전'), findsOneWidget);
-      expect(
-        find.textContaining('② PG2 전동기 기동 전압강하: 351 kVA = 75 × 7.2 × 0.65 × 0.25 × (1 − 0.2) ÷ 0.2'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('⑤ 가장 큰 값을 필요 용량으로 합니다: max(PG1 117.6, PG2 351) = 351 kVA (PG2)'),
-        findsOneWidget,
-      );
-      expect(
-        find.textContaining('정격전류: 533 A = 351 kVA × 1000 ÷ (√3 × 380 V)'),
-        findsOneWidget,
-      );
+      expect(allFlat(tester), contains(flat('② PG2 전동기 기동 전압강하: 351 kVA = 75 × 7.2 × 0.65 × 0.25 × (1 − 0.2) ÷ 0.2')));
+      expect(allFlat(tester), contains(flat('⑤ 가장 큰 값을 필요 용량으로 합니다: max(PG1 117.6, PG2 351) = 351 kVA (PG2)')));
+      expect(allFlat(tester), contains(flat('정격전류: 533 A = 351 kVA × 1000 ÷ (√3 × 380 V)')));
     });
   });
 }

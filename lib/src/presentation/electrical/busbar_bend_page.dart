@@ -714,7 +714,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
 
     if (p == null) {
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('bb_result'),
           big: '— mm',
           caption: '두께와 치수를 넣으면 계산합니다',
@@ -725,7 +725,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       summary =
           '${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)} · 절단 길이 ${fmt(p.cutLength, 1)}mm';
       children.addAll([
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('bb_result'),
           big: '${fmt(p.cutLength, 1)} mm',
           caption: '절단 길이 · 꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
@@ -777,7 +777,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         elecSectionTitle('마킹 (한쪽 끝에서)'),
         for (var i = 0; i < p.bends.length; i++) _markTile(p.bends[i], i),
         const SizedBox(height: 8),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('bb_notes'),
           big: '작업 순서',
           caption: '현장에서 꺾을 때',

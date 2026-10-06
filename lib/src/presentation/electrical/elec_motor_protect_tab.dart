@@ -140,7 +140,7 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
     var warn = false;
     if (fla == null || fla <= 0) {
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('emp_result'),
           big: '— A',
           caption: '정격전류를 넣으면 계산합니다',
@@ -155,7 +155,7 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
       warn = may == true;
       summary = '과부하계전기 설정 ${fmt(thr, 1)} A';
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('emp_result'),
           big: '${fmt(thr, 1)} A',
           warn: warn,
@@ -188,7 +188,7 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
       );
       final flc = fla;
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('emp_short'),
           big: '단락·전선',
           caption: 'FLC ${fmt(flc, 1)} A 기준(NEC 표 430.250 값을 쓰는 것이 원칙)',
@@ -202,7 +202,7 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
       );
     }
     children.addAll([
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('emp_notes'),
         big: '설정할 때 주의',
         caption: '확인된 항목만',

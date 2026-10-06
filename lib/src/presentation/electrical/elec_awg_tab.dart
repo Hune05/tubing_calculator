@@ -145,7 +145,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
       warn = r.$3;
       basis = r.$4;
     } else if (load == null) {
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ec_cable_result'),
         big: '—',
         caption: '부하 전류를 넣으면 굵기를 선정합니다',
@@ -173,7 +173,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
       final ocpd = s == null || _cableMotor
           ? null
           : necSmallConductorMaxOcpd(s);
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ec_cable_result'),
         big: s == null ? '검토 필요' : s.label,
         caption: s == null
@@ -474,7 +474,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
     lines.add(_necNote);
     lines.addAll(notes);
     final warn = fail || dropOver || iz == null;
-    final result = calcResult(
+    final result = calcResult(solve: true, 
       key: const Key('ec_cable_result'),
       big: iz == null ? '검토 필요' : '${fmt(iz, 1)} A',
       caption: iz == null
@@ -584,7 +584,7 @@ extension _AwgTab on _ElectricCalculatorPageState {
       if (negative)
         _negativeResult('ec_vd_result')
       else
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_vd_result'),
           big: pct == null ? '— %' : '${fmt(pct, 2)} %',
           caption: dv == null

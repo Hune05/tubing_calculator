@@ -732,7 +732,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     return false;
   }
 
-  Widget _negativeResult(String key) => calcResult(
+  Widget _negativeResult(String key) => calcResult(solve: true, 
     key: Key(key),
     big: '입력 확인',
     caption: _badMsg,
@@ -1188,7 +1188,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       if (negative)
         _negativeResult('ec_load_result')
       else
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_load_result'),
           big: i == null ? '— A' : '${fmt(i, 1)} A',
           caption: _dc ? '정격전류(계산값, 직류)' : '정격전류(계산값)',
@@ -1335,7 +1335,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           ? null
           : kvaFromCurrent(current: v, volts: _volts, phase: _phase);
       final eff = _pctOf(_eff, 0.9, '효율', []);
-      return calcResult(
+      return calcResult(solve: true, 
         key: const Key('ec_conv_result'),
         big: kva == null ? '— kVA' : '${fmt(kva, 1)} kVA',
         caption: '피상전력',
@@ -1354,7 +1354,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final a = v == null || v <= 0
         ? null
         : currentFromKva(kva: v, volts: _volts, phase: _phase);
-    return calcResult(
+    return calcResult(solve: true, 
       key: const Key('ec_conv_result'),
       big: a == null ? '— A' : '${fmt(a, 1)} A',
       caption: '정격전류',
@@ -1372,7 +1372,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (_conv == ConvMode.ampToPower) {
       final kw = ok ? _dcVolts * v / 1000 : null;
       final eff = _pctOf(_eff, 0.9, '효율', []);
-      return calcResult(
+      return calcResult(solve: true, 
         key: const Key('ec_conv_result'),
         big: kw == null ? '— kW' : '${fmt(kw, 2)} kW',
         caption: '전력(직류 ${_dcVolts.toInt()}V)',
@@ -1386,7 +1386,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       );
     }
     final a = ok ? v * 1000 / _dcVolts : null;
-    return calcResult(
+    return calcResult(solve: true, 
       key: const Key('ec_conv_result'),
       big: a == null ? '— A' : '${fmt(a, 1)} A',
       caption: '전류(직류 ${_dcVolts.toInt()}V)',
@@ -1521,7 +1521,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         );
       }
     } else if (load == null) {
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ec_cable_result'),
         big: '—',
         caption: '부하 전류를 넣으면 굵기를 선정합니다',
@@ -2037,7 +2037,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       if (c.dropChecked) _supplyTotalLine,
     ];
     final warn = size == null || dropOver;
-    final result = calcResult(
+    final result = calcResult(solve: true, 
       key: const Key('ec_cable_result'),
       big: size == null
           ? '검토 필요'
@@ -2224,7 +2224,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final warn = fail || dropOver || iz == null;
     final sizeT =
         '${sqText(k.size)}${k.parallel > 1 ? ' × ${k.parallel}가닥' : ''}';
-    final result = calcResult(
+    final result = calcResult(solve: true, 
       key: const Key('ec_cable_result'),
       big: iz == null ? '검토 필요' : '${fmt(iz, 1)} A',
       caption: iz == null
@@ -2567,7 +2567,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       if (negative)
         _negativeResult('ec_vd_result')
       else
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_vd_result'),
           big: pct == null ? '— %' : '${fmt(pct, 2)} %',
           caption: dv == null
@@ -2735,7 +2735,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       if (negative)
         _negativeResult('ec_pf_result')
       else
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('ec_pf_result'),
           big: q == null ? '— kvar' : '${fmt(q, 1)} kvar',
           caption: '필요한 콘덴서 용량',

@@ -516,7 +516,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
           ),
       ]),
       const SizedBox(height: 8),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('tr_result'),
         big: '가지 직선 ${trayNum(t.branch)} mm',
         caption:
@@ -597,7 +597,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     }
     widgets.addAll([
       const SizedBox(height: 8),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('tr_notes'),
         big: '작업 순서',
         caption: '기성 티로 할 때',
@@ -613,7 +613,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     final minR = readNum(_minR);
     final radOk = minR == null || minR <= 0 ? null : _elbowR >= minR - 1e-9;
     final widgets = <Widget>[
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('tr_result'),
         big: '엘보 ${e.elbows}개 · 직선 ${e.straights.length}개',
         caption: '기성 엘보 R${fmt(_elbowR)} · 직선 합 ${trayNum(e.straightTotal)}mm',
@@ -670,7 +670,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     }
     widgets.addAll([
       const SizedBox(height: 8),
-      calcResult(
+      calcResult(solve: true, 
         key: const Key('tr_notes'),
         big: '작업 순서',
         caption: '기성 엘보로 할 때',
@@ -1047,7 +1047,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       children.addAll(_elbowResult(e));
     } else if (r == null) {
       children.add(
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('tr_result'),
           big: '— mm',
           caption: '높이를 넣으면 계산합니다',
@@ -1063,7 +1063,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       summary =
           '${trayRouteKindLabel(_kind)} ${fmt(_angle)}° · 마킹 ${r.corners.length}곳 · ${trayNum(r.material)}mm';
       children.addAll([
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('tr_result'),
           big: '${trayNum(r.material)} mm',
           caption: '자르기 전 트레이 길이 ($_refEdge) · 마킹 ${r.corners.length}곳',
@@ -1130,7 +1130,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
         elecSectionTitle('마킹 (시작점에서, ${plan ? _refRail : '아랫변'} 기준)'),
         for (var i = 0; i < r.corners.length; i++) _markTile(r.corners[i], i),
         const SizedBox(height: 8),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('tr_notes'),
           big: '작업 순서',
           caption: '현장에서 잘라 꺾을 때',

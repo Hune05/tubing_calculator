@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
+import 'formula_flat.dart';
 
 Future<void> _open(WidgetTester tester) async {
   tester.view.physicalSize = const Size(800, 7000);
@@ -40,8 +41,8 @@ void main() {
     await _type(tester, 'mm_r1', '2.0');
     await _type(tester, 'mm_r2', '2.4');
     final t = _all(tester);
-    expect(t, contains('= 70.9 ℃'));
-    expect(t, contains('= 40.9 K'));
+    expect(flat(t), contains(flat('= 70.9 ℃')));
+    expect(flat(t), contains(flat('= 40.9 K')));
     await _tap(tester, 'mm_al');
     expect(_all(tester), contains('(225.0 + 20.0) − 225.0'.replaceAll('.0', '')));
   });
@@ -56,9 +57,9 @@ void main() {
     await _type(tester, 'mm_eprice', '120');
     await _type(tester, 'mm_eextra', '500000');
     final t = _all(tester);
-    expect(t, contains('= 55000 kWh'));
-    expect(t, contains('= 1774 kWh'));
-    expect(t, contains('= 2.35 년'));
+    expect(flat(t), contains(flat('= 55000 kWh')));
+    expect(flat(t), contains(flat('= 1774 kWh')));
+    expect(flat(t), contains(flat('= 2.35 년')));
   });
 
   testWidgets('감속기: 1750 rpm 11 kW, i 10, 95 % → 175 rpm, 570.2 N·m', (tester) async {
@@ -69,15 +70,15 @@ void main() {
     await _type(tester, 'mm_gratio', '10');
     await _type(tester, 'mm_geff', '95');
     var t = _all(tester);
-    expect(t, contains('= 175 rpm'));
-    expect(t, contains('= 570.2 N·m'));
+    expect(flat(t), contains(flat('= 175 rpm')));
+    expect(flat(t), contains(flat('= 570.2 N·m')));
     // 풀리 지름으로: 비 20 / 100 → i 5
     await _type(tester, 'mm_gratio', '');
     await _type(tester, 'mm_gd1', '100');
     await _type(tester, 'mm_gd2', '500');
     t = _all(tester);
-    expect(t, contains('= 500 ÷ 100 = 5'));
-    expect(t, contains('= 350 rpm'));
+    expect(flat(t), contains(flat('= 500 ÷ 100 = 5')));
+    expect(flat(t), contains(flat('= 350 rpm')));
   });
 
   testWidgets('권상·컨베이어 동력', (tester) async {
@@ -86,15 +87,15 @@ void main() {
     await _type(tester, 'mm_lm', '1000');
     await _type(tester, 'mm_lv', '0.5');
     await _type(tester, 'mm_leff', '85');
-    expect(_all(tester), contains('= 5.77 kW'));
+    expect(flat(_all(tester)), contains(flat('= 5.77 kW')));
     await _tap(tester, 'mm_conv');
     await _type(tester, 'mm_lm', '2000');
     await _type(tester, 'mm_lv', '1');
     await _type(tester, 'mm_lmu', '0.03');
     await _type(tester, 'mm_leff', '90');
-    expect(_all(tester), contains('= 0.65 kW'));
+    expect(flat(_all(tester)), contains(flat('= 0.65 kW')));
     await _type(tester, 'mm_lang', '10');
-    expect(_all(tester), contains('= 4.43 kW'));
+    expect(flat(_all(tester)), contains(flat('= 4.43 kW')));
   });
 
   testWidgets('소프트스타터: 22 A × 6배, 시작 전압 50 % → 66 A, 토크 25 %', (tester) async {
@@ -103,7 +104,7 @@ void main() {
     await _type(tester, 'mm_sia', '22');
     await _type(tester, 'mm_sv', '50');
     final t = _all(tester);
-    expect(t, contains('= 66 A'));
+    expect(flat(t), contains(flat('= 66 A')));
     expect(t, contains('0.25배'));
     await _type(tester, 'mm_sv', '150');
     expect(_all(tester), contains('0보다 크고 100 % 이하'));
@@ -117,9 +118,9 @@ void main() {
     await _type(tester, 'mm_bsec', '5');
     await _type(tester, 'mm_bvdc', '700');
     final t = _all(tester);
-    expect(t, contains('= 33584 J'));
-    expect(t, contains('= 6.72 kW'));
-    expect(t, contains('= 36.5 Ω'));
+    expect(flat(t), contains(flat('= 33584 J')));
+    expect(flat(t), contains(flat('= 6.72 kW')));
+    expect(flat(t), contains(flat('= 36.5 Ω')));
   });
 
   testWidgets('직류 전동기: 220 V 20 A 0.5 Ω 1500 rpm → Ea 210 V, 4.2 kW, 26.74 N·m', (tester) async {
@@ -130,9 +131,9 @@ void main() {
     await _type(tester, 'mm_dra', '0.5');
     await _type(tester, 'mm_drpm', '1500');
     final t = _all(tester);
-    expect(t, contains('= 210 V'));
-    expect(t, contains('= 4.2 kW'));
-    expect(t, contains('= 26.74 N·m'));
+    expect(flat(t), contains(flat('= 210 V')));
+    expect(flat(t), contains(flat('= 4.2 kW')));
+    expect(flat(t), contains(flat('= 26.74 N·m')));
     await _type(tester, 'mm_dra', '15');
     expect(_all(tester), contains('이상입니다'));
   });
@@ -151,9 +152,9 @@ void insulationUiGroup() {
     expect(t, contains('등급 F: 최고 연속 사용 온도 155 ℃(IEC 60085 표 1), 저항법 온도 상승 한계 105 K'));
     await _type(tester, 'mm_irise', '90');
     t = _all(tester);
-    expect(t, contains('= 130 ℃'));
-    expect(t, contains('= 25 K'));
-    expect(t, contains('= 15 K'));
+    expect(flat(t), contains(flat('= 130 ℃')));
+    expect(flat(t), contains(flat('= 25 K')));
+    expect(flat(t), contains(flat('= 15 K')));
     expect(t, contains('5.66배'));
     // B급으로 바꾸면 한계 초과
     await _tap(tester, 'mm_cls_B');

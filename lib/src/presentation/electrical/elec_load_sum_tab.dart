@@ -575,7 +575,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     if (r.errors.isNotEmpty) {
       warn = true;
       summary = '입력 확인: ${r.errors.length}건';
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('els_result'),
         big: '입력 확인',
         caption: '입력값에 문제가 있어 계산하지 않았습니다',
@@ -584,7 +584,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
       );
     } else if (r.noLines) {
       summary = '부하를 넣으십시오';
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('els_result'),
         big: '-',
         caption: '설비용량(kW)을 넣으면 계산합니다',
@@ -599,7 +599,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
       summary =
           '최대수요 ${fmt(r.demandKw, 1)} kW · 필요 ${fmt(r.requiredKva, 1)} kVA'
           '${pass == null ? '' : ' · 부하율 ${fmt(r.loadPct!, 1)}% ${pass ? '합격' : '불합격'}'}';
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('els_result'),
         big: '${fmt(r.requiredKva, 1)} kVA',
         caption: '필요 변압기 용량',

@@ -1,0 +1,412 @@
+// 계산 결과 상자 안의 "풀이" 카드: 식은 크게(나눗셈은 분수 모양으로), 숫자 대입은 그 아래, 결과는 굵게.
+// 계산 화면이 결과 줄에 "A = B × C = 1 × 2 = 2 kW"처럼 한 줄로 쓴 풀이를 splitFormulaLines가 식·대입·결과로 나눈다.
+import 'package:flutter/material.dart';
+
+import '../../core/theme/field_view.dart';
+
+/// 풀이 한 단계. 식 → 숫자 대입 → 결과를 따로 보여 준다.
+/// [formula]가 없으면 [text] 한 줄만 보인다(한도 판정처럼 식 모양이 아닌 설명).
+class FormulaRow {
+  const FormulaRow({
+    this.label,
+    this.formula,
+    this.sub,
+    this.result,
+    this.text,
+    this.note,
+  });
+
+  /// "정격전류"처럼 이 단계가 무엇인지.
+  final String? label;
+
+  /// "I = P ÷ (√3 × V × 역률 × 효율)".
+  final String? formula;
+
+  /// 식에 숫자를 넣은 모양("11 × 1000 ÷ (√3 × 380 × 0.85 × 0.9)").
+  final String? sub;
+
+  /// "21.8 A".
+  final String? result;
+
+  /// 식 모양이 아닌 한 줄 설명.
+  final String? text;
+
+  /// 결과 옆에 붙는 짧은 덧말("50A 이하라 1.25배").
+  final String? note;
+}
+
+/// [splitFormulaLines]의 결과: 카드로 간 줄과 결과 상자에 그대로 남는 줄.
+class FormulaSplit {
+  const FormulaSplit(this.rows, this.rest);
+  final List<FormulaRow> rows;
+  final List<String> rest;
+}
+
+/// 결과 상자 키별 기호 뜻. 풀이 카드 맨 아래에 붙는다(식에 나온 기호를 모르는 사람을 위해).
+const Map<String, List<String>> kSymbolLegend = {
+  'ec_ohm_result': ['V 전압(V)  ·  I 전류(A)  ·  R 저항(Ω)  ·  P 전력(W)'],
+  'ec_ac_result': [
+    'S 피상전력  ·  P 유효전력  ·  Q 무효전력  ·  cosφ 역률  ·  V 전압  ·  I 전류',
+  ],
+  'ec_yd_result': ['V선·I선 선간 전압·선전류  ·  V상·I상 상 전압·상전류'],
+  'ec_conv_result': ['S 피상전력(kVA)  ·  P 유효전력(kW)  ·  V 전압(V)  ·  I 전류(A)'],
+  'ec_cable_result': [
+    'IB 설계전류  ·  In 차단기 정격전류  ·  IZ 전선의 허용전류  ·  ΔU 전압강하',
+  ],
+  'ec_pf_result': [
+    'Qc 콘덴서 용량(kvar)  ·  tanφ 무효분÷유효분  ·  P 유효전력(kW)  ·  C 정전용량  ·  V 선간 전압',
+  ],
+  'ec_sc_result': [
+    'Ik″ 초기 단락전류  ·  c 전압 계수  ·  Un 정격 전압  ·  Z 단락점까지의 임피던스',
+  ],
+};
+
+// ───────────── 줄 나누기 ─────────────
+
+/// 괄호 밖(깊이 0)에서 [sep]로 자른다.
+List<String> _splitTop(String s, String sep) {
+  final out = <String>[];
+  var depth = 0;
+  var start = 0;
+  var i = 0;
+  while (i < s.length) {
+    final c = s[i];
+    if (c == '(') depth++;
+    if (c == ')') depth = depth > 0 ? depth - 1 : 0;
+    if (depth == 0 && s.startsWith(sep, i)) {
+      out.add(s.substring(start, i));
+      i += sep.length;
+      start = i;
+      continue;
+    }
+    i++;
+  }
+  out.add(s.substring(start));
+  return out;
+}
+
+final RegExp _sentence = RegExp(r'(\. |입니다|십시오|습니다|합니다|됩니다|\?)');
+final RegExp _operator = RegExp(r'[×÷√²Σ]| [+−/] ');
+final RegExp _numericResult = RegExp(
+  r'^[−-]?\d[\d.,]*\s*[^\s=×÷0-9]{0,9}(\s*\(.*\))?$',
+);
+
+/// 결과 줄 중 "식 = 대입 = 결과" 꼴을 찾아 풀이 행으로 바꾼다. 문장 같은 줄은 그대로 둔다.
+FormulaSplit splitFormulaLines(List<String> lines) {
+  final rows = <FormulaRow>[];
+  final rest = <String>[];
+  for (final raw in lines) {
+    final l = raw.trim();
+    if (l.startsWith('식:') || l.startsWith('식 :')) {
+      final body = l.substring(l.indexOf(':') + 1).trim();
+      for (final piece in _splitTop(body, ', ')) {
+        final p = piece.trim();
+        if (p.isEmpty) continue;
+        rows.add(FormulaRow(formula: p));
+      }
+      continue;
+    }
+    final parsed = _parseOne(l);
+    if (parsed == null) {
+      rest.add(raw);
+    } else {
+      rows.addAll(parsed);
+    }
+  }
+  return FormulaSplit(rows, rest);
+}
+
+List<FormulaRow>? _parseOne(String l) {
+  if (!l.contains(' = ') || _sentence.hasMatch(l)) return null;
+  if (!_operator.hasMatch(l)) return null;
+  var pieces = _splitTop(l, ', ');
+  if (pieces.length > 1 && !pieces.every((p) => p.contains(' = '))) {
+    pieces = [l];
+  }
+  final rows = <FormulaRow>[];
+  for (final p in pieces) {
+    final r = _parsePiece(p.trim());
+    if (r == null) return null;
+    rows.add(r);
+  }
+  return rows;
+}
+
+FormulaRow? _parsePiece(String p) {
+  final parts = _splitTop(p, ' = ');
+  if (parts.length < 2) return null;
+  final last = parts.last.trim();
+  final numeric = _numericResult.hasMatch(last);
+  if (!numeric) {
+    // 마지막이 숫자가 아니면 식만 이어진 줄(P = V × I = I² × R)이다.
+    return FormulaRow(formula: p);
+  }
+  if (parts.length == 2) {
+    // "A = 12 kW"는 식이 아니다. 앞쪽에 연산이 있어야 식으로 본다.
+    if (!_operator.hasMatch(parts.first)) return null;
+    return FormulaRow(formula: parts.first.trim(), result: last);
+  }
+  if (parts.length == 3) {
+    return FormulaRow(
+      formula: parts[0].trim(),
+      sub: parts[1].trim(),
+      result: last,
+    );
+  }
+  return FormulaRow(
+    formula: '${parts[0].trim()} = ${parts[1].trim()}',
+    sub: parts.sublist(2, parts.length - 1).map((e) => e.trim()).join(' = '),
+    result: last,
+  );
+}
+
+// ───────────── 분수 ─────────────
+
+class _Frac {
+  const _Frac(this.prefix, this.num, this.den, this.suffix);
+  final String prefix;
+  final String num;
+  final String den;
+  final String suffix;
+}
+
+String _stripParens(String s) {
+  var t = s.trim();
+  while (t.startsWith('(') && t.endsWith(')')) {
+    var depth = 0;
+    var wraps = true;
+    for (var i = 0; i < t.length; i++) {
+      if (t[i] == '(') depth++;
+      if (t[i] == ')') depth--;
+      if (depth == 0 && i < t.length - 1) {
+        wraps = false;
+        break;
+      }
+    }
+    if (!wraps) break;
+    t = t.substring(1, t.length - 1).trim();
+  }
+  return t;
+}
+
+/// 마지막 "= " 오른쪽에서 괄호 밖 "÷"가 하나뿐이면 분수로 나눈다. 아니면 null.
+_Frac? _splitFraction(String text) {
+  final eq = _splitTop(text, ' = ');
+  final head = eq.length > 1 ? '${eq.sublist(0, eq.length - 1).join(' = ')} = ' : '';
+  final rhs = eq.last;
+  final divs = _splitTop(rhs, ' ÷ ');
+  if (divs.length != 2) return null;
+  // 분자: ÷ 바로 앞의 항(괄호 밖 + − 뒤부터). 분모: ÷ 바로 뒤 피연산자 하나.
+  var left = divs[0];
+  var prefix = '';
+  for (final op in [' + ', ' − ', ' ± ', ' ≥ ', ' ≤ ', ' < ', ' > ']) {
+    final cut = _splitTop(left, op);
+    if (cut.length > 1) {
+      final tail = cut.last;
+      prefix = left.substring(0, left.length - tail.length);
+      left = tail;
+    }
+  }
+  final right = divs[1];
+  String den;
+  var suffix = '';
+  final r = right.trimLeft();
+  if (r.startsWith('(')) {
+    var depth = 0;
+    var end = r.length;
+    for (var i = 0; i < r.length; i++) {
+      if (r[i] == '(') depth++;
+      if (r[i] == ')') {
+        depth--;
+        if (depth == 0) {
+          end = i + 1;
+          break;
+        }
+      }
+    }
+    den = r.substring(0, end);
+    suffix = r.substring(end);
+  } else {
+    final sp = r.indexOf(' ');
+    den = sp < 0 ? r : r.substring(0, sp);
+    suffix = sp < 0 ? '' : r.substring(sp);
+  }
+  final n = _stripParens(left);
+  final d = _stripParens(den);
+  if (n.isEmpty || d.isEmpty) return null;
+  return _Frac('$head$prefix', n, d, suffix);
+}
+
+/// 식·대입 한 줄. 나눗셈이 하나뿐이면 분수 모양으로, 아니면 그냥 글자로 보인다.
+class MathText extends StatelessWidget {
+  const MathText(this.text, {super.key, required this.style, this.fit = false});
+
+  final String text;
+  final TextStyle style;
+
+  /// true면 폭이 모자랄 때 글자를 줄여 한 줄로 둔다.
+  final bool fit;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = text.length > 70 ? null : _splitFraction(text);
+    if (f == null) {
+      if (!fit) return Text(text, style: style);
+      return FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(text, maxLines: 1, style: style),
+      );
+    }
+    final bar = Container(
+      height: 1.6,
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      color: style.color ?? fc.text,
+    );
+    final frac = IntrinsicWidth(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(f.num, style: style),
+          bar,
+          Text(f.den, style: style),
+        ],
+      ),
+    );
+    final row = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (f.prefix.isNotEmpty) Text(f.prefix, style: style),
+        frac,
+        if (f.suffix.trim().isNotEmpty) Text(f.suffix, style: style),
+      ],
+    );
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerLeft,
+      child: row,
+    );
+  }
+}
+
+// ───────────── 카드 ─────────────
+
+/// 결과 상자 안에 들어가는 "풀이" 카드.
+/// [symbols]는 식에 나온 기호의 뜻("I 전류 (A)")이다.
+class ElecFormulaCard extends StatelessWidget {
+  const ElecFormulaCard({
+    super.key,
+    required this.rows,
+    this.symbols = const [],
+  });
+
+  final List<FormulaRow> rows;
+  final List<String> symbols;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: fc.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '풀이',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: fc.textSub,
+            ),
+          ),
+          for (final r in rows) _row(r),
+          if (symbols.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Divider(height: 1, color: fc.line),
+            const SizedBox(height: 8),
+            for (final s in symbols)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  s,
+                  style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _row(FormulaRow r) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (r.label != null)
+            Text(
+              r.label!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: fc.textSub,
+              ),
+            ),
+          if (r.text != null)
+            Text(
+              r.text!,
+              style: TextStyle(fontSize: 13, color: fc.text, height: 1.45),
+            ),
+          if (r.formula != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: MathText(
+                r.formula!,
+                fit: true,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: fc.text,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          if (r.sub != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: MathText(
+                r.sub!,
+                style: TextStyle(fontSize: 14, color: fc.text, height: 1.4),
+              ),
+            ),
+          if (r.result != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '= ${r.result!}',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: fc.brand,
+                ),
+              ),
+            ),
+          if (r.note != null)
+            Text(
+              r.note!,
+              style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
+            ),
+        ],
+      ),
+    );
+  }
+}

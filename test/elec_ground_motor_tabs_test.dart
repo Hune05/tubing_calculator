@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
+import 'formula_flat.dart';
 
 Future<void> _open(WidgetTester tester, String tabKey) async {
   tester.view.physicalSize = const Size(800, 9000);
@@ -50,7 +51,7 @@ void main() {
     // 10 kA, 0.5초, 케이블 안 PVC 구리 k 115 → 61.5 → 70
     await _type(tester, 'gr_fault', '10000');
     expect(find.text('70 mm²'), findsOneWidget);
-    expect(find.textContaining('= 61.5 mm² (규격 70 mm²)'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('= 61.5 mm² (규격 70 mm²)')));
     // 따로 포설로 바꾸면 k 143 → 49.5 → 표 25와 비교해 큰 값 50
     await _tap(tester, 'gr_sep_out');
     expect(find.text('50 mm²'), findsOneWidget);
@@ -93,49 +94,43 @@ void main() {
 
   testWidgets('접지 탭: 풀이 줄(표 규칙·필요 단면적·접지봉 대입·본딩 단계)', (tester) async {
     await _open(tester, 'ec_tab_ground');
-    expect(find.textContaining('S ÷ 2 = 50 ÷ 2 = 25 mm²'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('S ÷ 2 = 50 ÷ 2 = 25 mm²')));
     await _type(tester, 'gr_fault', '10000');
     expect(find.textContaining('③ 필요 단면적'), findsOneWidget);
     expect(find.textContaining('중 61.5 mm² → 규격 70 mm²'), findsOneWidget);
     await _tap(tester, 'gr_mode_rod');
-    expect(
-      find.textContaining('= 100 ÷ (2π × 2.4) × (ln(4 × 2.4 ÷ 0.0071) − 1) = 41.2 Ω'),
-      findsOneWidget,
-    );
+    expect(allFlat(tester), contains(flat('= 100 ÷ (2π × 2.4) × (ln(4 × 2.4 ÷ 0.0071) − 1) = 41.2 Ω')));
     await _type(tester, 'gr_n', '4');
-    expect(find.textContaining('1.2 × 1본 ÷ 4 = 1.2 × 41.2 ÷ 4 = 12.4 Ω'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('1.2 × 1본 ÷ 4 = 1.2 × 41.2 ÷ 4 = 12.4 Ω')));
     await _tap(tester, 'gr_mode_bonding');
-    expect(find.textContaining('① 보호도체 ÷ 2 = 16 ÷ 2 = 8 mm²'), findsOneWidget);
-    expect(find.textContaining('③ 25 mm² 상한: 작은 값 = min(25, 8) = 8 mm²'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('① 보호도체 ÷ 2 = 16 ÷ 2 = 8 mm²')));
+    expect(allFlat(tester), contains(flat('③ 25 mm² 상한: 작은 값 = min(25, 8) = 8 mm²')));
   });
 
   testWidgets('접지 탭: 고압 내력 계산식 대입', (tester) async {
     await _open(tester, 'ec_tab_ground');
     await _tap(tester, 'gr_mode_insulation');
     await _tap(tester, 'gr_ins_hv');
-    expect(find.textContaining('= 6.9 × 1.5 = 10.35 kV'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('= 6.9 × 1.5 = 10.35 kV')));
   });
 
   testWidgets('전동기 보호 탭: 직입 설정 = 정격, Y-Δ 델타 안 = 0.58배', (tester) async {
     await _open(tester, 'ec_tab_motor');
     expect(find.text('40 A'), findsOneWidget);
-    expect(
-      find.textContaining('NEC 430.32 상한 = FLA × 125% = 40 × 1.25 = 50 A'),
-      findsOneWidget,
-    );
+    expect(allFlat(tester), contains(flat('NEC 430.32 상한 = FLA × 125% = 40 × 1.25 = 50 A')));
     await _tap(tester, 'emp_yd');
     expect(find.text('23.1 A'), findsOneWidget); // 40 ÷ √3
     await _tap(tester, 'emp_line');
     expect(find.text('40 A'), findsOneWidget);
     await _tap(tester, 'emp_sf_n');
-    expect(find.textContaining('FLA × 115% = 40 × 1.15 = 46 A'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('FLA × 115% = 40 × 1.15 = 46 A')));
   });
 
   testWidgets('전동기 보호 탭: EOCR 범위, 트립 클래스, 단락 상한', (tester) async {
     await _open(tester, 'ec_tab_motor');
     await _type(tester, 'emp_run', '30');
     expect(find.textContaining('33 ~ 37.5 A'), findsOneWidget);
-    expect(find.textContaining('= 30 × 1.10 ~ 30 × 1.25 = 33 ~ 37.5 A'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('= 30 × 1.10 ~ 30 × 1.25 = 33 ~ 37.5 A')));
     // 기동시간 6초: 클래스 10(상한 10초) 안
     expect(find.textContaining('기동시간 6초는 클래스 10 상한 10초 이내입니다'), findsOneWidget);
     await _type(tester, 'emp_start', '12');
@@ -143,7 +138,7 @@ void main() {
     await _tap(tester, 'emp_cls_20');
     expect(find.textContaining('기동시간 12초는 클래스 20 상한 20초 이내입니다'), findsOneWidget);
     // 단락 상한: 40 A × 250% = 100 A
-    expect(find.textContaining('반한시 차단기 최대 = FLC × 250% = 40 × 2.5 = 100 A'), findsOneWidget);
-    expect(find.textContaining('FLC × 125% = 40 × 1.25 = 50 A'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('반한시 차단기 최대 = FLC × 250% = 40 × 2.5 = 100 A')));
+    expect(allFlat(tester), contains(flat('FLC × 125% = 40 × 1.25 = 50 A')));
   });
 }

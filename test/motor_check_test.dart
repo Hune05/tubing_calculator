@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
 import 'package:tubing_calculator/src/presentation/electrical/motor_check.dart';
+import 'formula_flat.dart';
 
 Future<void> _type(WidgetTester tester, String key, String text) async {
   await tester.ensureVisible(find.byKey(Key(key)));
@@ -80,7 +81,7 @@ void main() {
     await _type(tester, 'mc_ir1', '12');
     // 20 ℃ 12 MΩ → 40 ℃ 3 MΩ < 5 MΩ: 불합격
     expect(find.text('3 MΩ (40 ℃)'), findsOneWidget);
-    expect(find.textContaining('12 × 0.5^((40 − 20) ÷ 10) = 3 MΩ'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('12 × 0.5^((40 − 20) ÷ 10) = 3 MΩ')));
     expect(find.textContaining('불합격'), findsWidgets);
     expect(find.byKey(const Key('mc_sum')), findsOneWidget);
     expect(find.textContaining('소손·열화 의심'), findsOneWidget);
@@ -100,10 +101,7 @@ void main() {
     await _type(tester, 'mc_v2', '390');
     await _type(tester, 'mc_v3', '370');
     expect(find.textContaining('전압 불평형 2.63 %'), findsOneWidget);
-    expect(
-      find.textContaining('평균 = (380 + 390 + 370) ÷ 3 = 380 V, 차 10 ÷ 380 × 100 = 2.63 %'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('2 × 2.63² = 13.'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('평균 = (380 + 390 + 370) ÷ 3 = 380 V, 차 10 ÷ 380 × 100 = 2.63 %')));
+    expect(allFlat(tester), contains(flat('2 × 2.63² = 13.')));
   });
 }

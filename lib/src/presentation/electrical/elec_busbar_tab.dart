@@ -34,7 +34,7 @@ extension _BusbarTab on _ElectricCalculatorPageState {
       final amps = k.amps;
       final over = amps != null && need != null && need > amps + 1e-9;
       warn = amps == null || over;
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ec_bus_result'),
         big: amps == null ? '표 값 없음' : '$amps A',
         caption: '${_barsText(_busRow, _busBars)} 허용전류 ($_busKind)',
@@ -64,7 +64,7 @@ extension _BusbarTab on _ElectricCalculatorPageState {
         summary = '표 값 없음';
       }
     } else if (need == null) {
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ec_bus_result'),
         big: '—',
         caption: '부하 전류를 넣으면 규격을 선정합니다',
@@ -80,7 +80,7 @@ extension _BusbarTab on _ElectricCalculatorPageState {
         orElse: () => (0, null),
       );
       warn = first.$2 == null;
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ec_bus_result'),
         big: first.$2 == null ? '검토 필요' : _barsText(first.$2!.row, first.$1),
         caption: first.$2 == null

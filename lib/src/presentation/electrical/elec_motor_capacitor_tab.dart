@@ -245,7 +245,7 @@ class _ElecMotorCapacitorTabState extends State<ElecMotorCapacitorTab>
         ]),
         ...fields,
         const SizedBox(height: 6),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('mc2_result'),
           big: summary == null ? '-' : summary.split(' · ').first,
           caption: _secName(_sec),

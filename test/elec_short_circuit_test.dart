@@ -6,6 +6,7 @@ import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/electrical/elec_short_circuit.dart';
 import 'package:tubing_calculator/src/presentation/electrical/elec_short_circuit_tab.dart';
 import 'package:tubing_calculator/src/presentation/electrical/elec_tables.dart';
+import 'formula_flat.dart';
 
 void main() {
   group('순수 계산', () {
@@ -523,8 +524,8 @@ void main() {
       final t = textOf(tester, 'ec_sc_result');
       expect(t, contains('30.04 kA'));
       expect(t, contains('27.62 kA'));
-      expect(t, contains('c = 1.05'));
-      expect(t, contains('= 84.96 kA (κ = 1.02 + 0.98·e^(−3R/X), R/X = 0)'));
+      expect(flat(t), contains(flat('c = 1.05')));
+      expect(flat(t), contains(flat('= 84.96 kA (κ = 1.02 + 0.98·e^(−3R/X), R/X = 0)')));
       final sum = tester.widget<Text>(
         find.descendant(
           of: find.byKey(const Key('ec_sc_sum')),
@@ -549,21 +550,11 @@ void main() {
       await enter(tester, 'ec_sc_z', '5.5');
       final t = textOf(tester, 'ec_sc_result');
       expect(t, contains('① 전원: 상위 계통 단락용량을 넣지 않아 무한 전원'));
-      expect(
-        t,
-        contains(
-          '② 변압기: ZT = %Z ÷ 100 × U² ÷ S = 5.5 ÷ 100 × 380² ÷ (1000 × 1000) = 7.94 mΩ.',
-        ),
-      );
-      expect(t, contains('KT = 0.95 × cmax ÷ (1 + 0.6 × xT) = 0.95 × 1.05 ÷ (1 + 0.6 × 0.055) = 0.966'));
+      expect(flat(t), contains(flat('② 변압기: ZT = %Z ÷ 100 × U² ÷ S = 5.5 ÷ 100 × 380² ÷ (1000 × 1000) = 7.94 mΩ.')));
+      expect(flat(t), contains(flat('KT = 0.95 × cmax ÷ (1 + 0.6 × xT) = 0.95 × 1.05 ÷ (1 + 0.6 × 0.055) = 0.966')));
       expect(t, contains('③ 케이블 구간 없음'));
-      expect(t, contains('④ 합계: R = 0 + 0 + 0 = 0 mΩ, X = 0 + 7.67 + 0 = 7.67 mΩ.'));
-      expect(
-        t,
-        contains(
-          '⑤ Ik″ = c × Un ÷ (√3 × Z) = 1.05 × 380 ÷ (√3 × 7.67 mΩ) = 30.04 kA.',
-        ),
-      );
+      expect(flat(t), contains(flat('④ 합계: R = 0 + 0 + 0 = 0 mΩ, X = 0 + 7.67 + 0 = 7.67 mΩ.')));
+      expect(flat(t), contains(flat('⑤ Ik″ = c × Un ÷ (√3 × Z) = 1.05 × 380 ÷ (√3 × 7.67 mΩ) = 30.04 kA.')));
       await finish(tester);
     });
 
@@ -604,19 +595,19 @@ void main() {
       await tester.tap(find.byKey(const Key('ec_sc_seg_0_p2')));
       await tester.pump();
       final t = textOf(tester, 'ec_sc_result');
-      expect(t, contains('① 전원: Zq = c × U² ÷ S″k = 1.05 × 380² ÷ (500 × 10⁶) = 0.303 mΩ.'));
-      expect(t, contains('RT = 부하손 ÷ 용량 × U² ÷ S = 10 ÷ 1000 × 144.4 mΩ = 1.44 mΩ.'));
-      expect(t, contains('구간 1 (50 mm², 30 m, 2가닥): R = 0.387 × 30 ÷ 1000 ÷ 2 = 5.8 mΩ'));
-      expect(t, contains('⑤ Ik″ = c × Un ÷ (√3 × Z)'));
-      expect(t, contains('= ${ka(calc.ikNetA)} kA(변압기·계통분).'));
+      expect(flat(t), contains(flat('① 전원: Zq = c × U² ÷ S″k = 1.05 × 380² ÷ (500 × 10⁶) = 0.303 mΩ.')));
+      expect(flat(t), contains(flat('RT = 부하손 ÷ 용량 × U² ÷ S = 10 ÷ 1000 × 144.4 mΩ = 1.44 mΩ.')));
+      expect(flat(t), contains(flat('구간 1 (50 mm², 30 m, 2가닥): R = 0.387 × 30 ÷ 1000 ÷ 2 = 5.8 mΩ')));
+      expect(flat(t), contains(flat('⑤ Ik″ = c × Un ÷ (√3 × Z)')));
+      expect(flat(t), contains(flat('= ${ka(calc.ikNetA)} kA(변압기·계통분).')));
       expect(t, contains('⑥ 전동기 기여: 정격전류 IrM'));
-      expect(t, contains('= ${ka(calc.ikMotorA)} kA. 합계 Ik″ = ${ka(calc.ikNetA)} + ${ka(calc.ikMotorA)} = ${ka(calc.ikMaxA)} kA.'));
-      expect(t, contains('= ${ka(calc.ipA)} kA (R/X ='));
+      expect(flat(t), contains(flat('= ${ka(calc.ikMotorA)} kA. 합계 Ik″ = ${ka(calc.ikNetA)} + ${ka(calc.ikMotorA)} = ${ka(calc.ikMaxA)} kA.')));
+      expect(flat(t), contains(flat('= ${ka(calc.ipA)} kA (R/X =')));
       await reveal(tester, find.byKey(const Key('ec_sc_min_result')));
       final min = textOf(tester, 'ec_sc_min_result');
-      expect(min, contains('② 3상 최소 = c × Un ÷ (√3 × Z)'));
-      expect(min, contains('= ${ka(calc.ikMin3A)} kA.'));
-      expect(min, contains('③ 2상 최소 = 3상 × √3 ÷ 2 = ${ka(calc.ikMin3A)} × 0.866 = ${ka(calc.ikMin2A)} kA.'));
+      expect(flat(min), contains(flat('② 3상 최소 = c × Un ÷ (√3 × Z)')));
+      expect(flat(min), contains(flat('= ${ka(calc.ikMin3A)} kA.')));
+      expect(flat(min), contains(flat('③ 2상 최소 = 3상 × √3 ÷ 2 = ${ka(calc.ikMin3A)} × 0.866 = ${ka(calc.ikMin2A)} kA.')));
       await finish(tester);
     });
 
@@ -634,10 +625,10 @@ void main() {
       await enter(tester, 'ec_sc_i2t', '5000000');
       final c = textOf(tester, 'ec_sc_cable_result');
       // 직접 입력 10 kA = 10000 A, PVC k = 115, 50 mm²: S = 10000 × √1 ÷ 115 = 87 mm², t = (115 × 50 ÷ 10000)² = 0.331초.
-      expect(c, contains('② 필요한 최소 굵기 S = Ik × √t ÷ k = 10000 A × √1 ÷ 115 = 87 mm²'));
-      expect(c, contains('③ 이 전류에서 허용 최대 시간 t = (k × S ÷ Ik)² = (115 × 50 ÷ 10000)² = 0.331초.'));
+      expect(flat(c), contains(flat('② 필요한 최소 굵기 S = Ik × √t ÷ k = 10000 A × √1 ÷ 115 = 87 mm²')));
+      expect(flat(c), contains(flat('③ 이 전류에서 허용 최대 시간 t = (k × S ÷ Ik)² = (115 × 50 ÷ 10000)² = 0.331초.')));
       // 허용 = 1² × 115² × 50² = 33,062,500 A²s. 5,000,000 이하라 통과.
-      expect(c, contains('④ 허용 통과 에너지 = (병렬 수)² × k² × S² = 1² × 115² × 50² = 33062500 A²s.'));
+      expect(flat(c), contains(flat('④ 허용 통과 에너지 = (병렬 수)² × k² × S² = 1² × 115² × 50² = 33062500 A²s.')));
       await finish(tester);
     });
 

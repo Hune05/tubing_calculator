@@ -275,7 +275,7 @@ extension _ConduitTab on _ElectricCalculatorPageState {
     if (negative) {
       result = _negativeResult('ec_cd_result');
     } else if (wires.isEmpty) {
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ec_cd_result'),
         big: '— %',
         caption: '전선 가닥 수를 넣으면 점유율을 계산합니다',
@@ -292,7 +292,7 @@ extension _ConduitTab on _ElectricCalculatorPageState {
       };
       final mine = mins[_cdKind];
       warn = over;
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('ec_cd_result'),
         big: '${fmt(pct, 1)} %',
         caption:

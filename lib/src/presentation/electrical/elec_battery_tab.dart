@@ -398,7 +398,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
     String? summary;
     var warn = false;
     if (empty) {
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('eb_result'),
         big: '—',
         caption: '방전 단계의 전류와 시간, K 값을 넣으면 필요 용량을 계산합니다',
@@ -407,7 +407,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
     } else if (errors.isNotEmpty) {
       warn = true;
       summary = '입력 확인';
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('eb_result'),
         big: '입력 확인',
         caption: '다음 입력값을 고치십시오',
@@ -419,7 +419,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
       final fail = r.chosenPass == false || r.endVoltsPass == false;
       warn = fail;
       summary = '필요 ${fmt(req, 1)} Ah (${_method.label})';
-      result = calcResult(
+      result = calcResult(solve: true, 
         key: const Key('eb_result'),
         big: '${fmt(req, 1)} Ah',
         caption: '필요 축전지 용량 (${_method.label} 방식)',

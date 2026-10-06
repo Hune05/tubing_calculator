@@ -521,7 +521,7 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
         ]),
         ...fields,
         const SizedBox(height: 6),
-        calcResult(
+        calcResult(solve: true, 
           key: const Key('mf_result'),
           big: ok ? summary.split(' · ').first : '-',
           caption: _secName(_sec),
