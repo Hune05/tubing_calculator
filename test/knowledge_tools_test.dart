@@ -67,4 +67,26 @@ void main() {
     await t.pumpAndSettle();
     expect(find.byType(TroubleshootFlowPage), findsOneWidget);
   });
+
+  test('작은 장비 분류는 장비 사용 요령으로 묶고, 원래 분류 이름으로도 찾아진다', () {
+    const all = [
+      KnowledgeEntry(id: '1', category: '장비 펜스 직각', title: '펜스 맞추기'),
+      KnowledgeEntry(id: '2', category: '장비 고장 조치', title: 'a'),
+      KnowledgeEntry(id: '3', category: '계기 신호 이상', title: 'b'),
+    ];
+    final m = mergeSmallCategories(all);
+    expect(m.first.category, kEquipmentMiscCategory);
+    expect(searchKnowledge(m, '펜스 직각').single.entry.id, '1');
+    // 장비로 시작하지 않는 분류는 작아도 그대로
+    expect(m.last.category, '계기 신호 이상');
+  });
+
+  test('분류는 고장·알람·진단이 먼저 보인다', () {
+    resetKnowledgeBaseCache();
+    final cats = knowledgeCategories(knowledgeBase(), order: kKnowledgeCategoryOrder)
+        .map((c) => c.$1)
+        .toList();
+    expect(cats.take(4), ['장비 고장 조치', '계기 알람·고장 코드', '계기 신호 이상', '전기 고장 진단']);
+    expect(cats.length, lessThanOrEqualTo(20));
+  });
 }

@@ -41,7 +41,7 @@ void main() {
     // 제목에 있는 쪽이 앞
     final t = searchKnowledge(all, '나사');
     expect(t.first.entry.id, 'b');
-    expect(t.first.score, 3);
+    expect(t.first.score, 6);
   });
 
   test('분류로 좁히고, 검색어 없이 분류만 고르면 그 분류 전체', () {

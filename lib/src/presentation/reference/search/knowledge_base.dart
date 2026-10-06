@@ -42,7 +42,7 @@ List<KnowledgeEntry> fieldReferenceKnowledge() => [
 List<KnowledgeEntry>? _cache;
 
 /// 모든 검색 항목. 한 번 만들어 두고 다시 쓴다.
-List<KnowledgeEntry> knowledgeBase() => _cache ??= [
+List<KnowledgeEntry> knowledgeBase() => _cache ??= mergeSmallCategories([
   ...equipmentKnowledge(),
   ...gd402Knowledge(),
   ...loopKnowledge(),
@@ -54,6 +54,41 @@ List<KnowledgeEntry> knowledgeBase() => _cache ??= [
   ...signalKnowledge(),
   ...diagnosisKnowledge(),
   ...toolKnowledge(),
+]);
+
+/// 장비 사용법에서 온 분류 가운데 항목이 [kSmallCategoryMax]개 이하인 것("장비 펜스 직각" 1건 같은 것)은
+/// "[kEquipmentMiscCategory]" 하나로 묶는다. 원래 분류 이름은 찾기용 말로 남아 그 이름으로도 찾아진다.
+List<KnowledgeEntry> mergeSmallCategories(List<KnowledgeEntry> all) {
+  final counts = <String, int>{};
+  for (final e in all) {
+    counts[e.category] = (counts[e.category] ?? 0) + 1;
+  }
+  bool small(String c) =>
+      c.startsWith('장비 ') && (counts[c] ?? 0) <= kSmallCategoryMax;
+  return [
+    for (final e in all)
+      small(e.category) ? e.withCategory(kEquipmentMiscCategory) : e,
+  ];
+}
+
+const int kSmallCategoryMax = 6;
+const String kEquipmentMiscCategory = '장비 사용 요령';
+
+/// 분류를 보여 주는 순서: 급할 때 찾는 고장·알람·진단 자료를 먼저.
+const List<String> kKnowledgeCategoryOrder = [
+  '장비 고장 조치',
+  '계기 알람·고장 코드',
+  '계기 신호 이상',
+  '전기 고장 진단',
+  '압력시험 누설',
+  '접지·전동기 점검',
+  '전기 일반 기준',
+  '축 정렬 지침',
+  '계산기 바로가기',
+  '장비 안전 수칙',
+  '장비 점검·정비',
+  '장비 작업 순서',
+  '장비 사용 요령',
 ];
 
 /// 시험에서 쓴다: 모아 둔 목록을 지운다.

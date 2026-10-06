@@ -2026,7 +2026,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "자료 검색",
-                        subtitle: "증상·코드·장비 이름으로 고장 조치·알람 코드·현장 자료 찾기",
+                        subtitle: "증상·코드·장비 이름으로 고장 조치·알람 코드·고장 진단·계산기 찾기",
                         icon: AppGlyph.searchDocs,
                         iconColor: slate900,
                         onTap: () {

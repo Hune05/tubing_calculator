@@ -293,7 +293,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
   @override
   Widget build(BuildContext context) {
     final all = _all;
-    final cats = knowledgeCategories(all);
+    final cats = knowledgeCategories(all, order: kKnowledgeCategoryOrder);
     final q = _c.text;
     final searching = q.trim().isNotEmpty || _category != null;
     final hits = searching

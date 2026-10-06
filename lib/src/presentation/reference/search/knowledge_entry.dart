@@ -40,6 +40,18 @@ class KnowledgeEntry {
     this.open,
     this.priority = 0,
   });
+
+  /// 분류만 바꾼 사본.
+  KnowledgeEntry withCategory(String c) => KnowledgeEntry(
+    id: id,
+    category: c,
+    title: title,
+    lines: lines,
+    keywords: [...keywords, category],
+    sourceLabel: sourceLabel,
+    open: open,
+    priority: priority,
+  );
 }
 
 /// 비교용으로 다듬는다: 소문자, 글자·숫자·한글만 남김("ALM.07"·"alm 07"·"ALM07"이 같아진다).
@@ -161,24 +173,27 @@ class _Prepared {
 final Expando<_Prepared> _prepared = Expando<_Prepared>();
 _Prepared _prep(KnowledgeEntry e) => _prepared[e] ??= _Prepared(e);
 
-/// 낱말 하나가 항목에 맞는 점수(제목 3·찾기용 말 2·내용·분류 1, 못 찾으면 0)와 찾은 말.
+/// 낱말 하나가 항목에 맞는 점수와 찾은 말. 제목 6·찾기용 말 4·내용·분류 2(못 찾으면 0)이고,
+/// 같은 뜻 다른 말로 맞으면 1점 낮다("트립"이 그대로 든 항목이 "떨어"로 맞은 항목보다 먼저).
 (int, String?) _tokenScore(_Prepared p, String token, List<String> variants) {
   if (_allInitials(token)) {
-    if (p.titleInitials.contains(token)) return (3, null);
-    if (p.keysInitials.contains(token)) return (2, null);
+    if (p.titleInitials.contains(token)) return (6, null);
+    if (p.keysInitials.contains(token)) return (4, null);
     return (0, null);
   }
   // 같은 자리 안에서는 그대로 찾은 말이 먼저(뗀 말·다른 말은 그다음).
-  for (final (field, score) in [(p.title, 3), (p.keys, 2)]) {
+  // 낱말 그대로이거나 조사를 뗀 말(낱말의 앞부분)이면 제 점수, 같은 뜻 다른 말이면 1점 낮게.
+  int own(String v) => token.startsWith(v) ? 0 : 1;
+  for (final (field, score) in [(p.title, 6), (p.keys, 4)]) {
     for (final v in variants) {
       if (v.length >= 2 || v == token) {
-        if (field.contains(v)) return (score, v);
+        if (field.contains(v)) return (score - own(v), v);
       }
     }
   }
   for (final v in variants) {
     if (v.length >= 2 || v == token) {
-      if (p.body.contains(v) || p.cat.contains(v)) return (1, v);
+      if (p.body.contains(v) || p.cat.contains(v)) return (2 - own(v), v);
     }
   }
   return (0, null);
@@ -188,7 +203,7 @@ _Prepared _prep(KnowledgeEntry e) => _prepared[e] ??= _Prepared(e);
 /// - 낱말마다 그대로·조사 뗀 말·같은 뜻 다른 말·초성(ㅈㅅㅇ) 가운데 하나라도 맞으면 찾은 것으로 본다.
 /// - 모든 낱말을 찾은 항목만 돌려준다. 그런 항목이 하나도 없으면 두 글자 이상 낱말을 하나 이상,
 ///   낱말의 절반 이상 찾은 항목을 "일부만 맞음"([KnowledgeHit.partial])으로 돌려준다(찾은 낱말 수가 많은 순).
-/// - 검색어 전체가 제목에 그대로 있는 항목이 먼저, 다음으로 문제해결 자료(priority 1), 그 안에서 점수(제목 3·찾기용 말 2·내용 1, 낱말마다), 같으면 원래 순서.
+/// - 검색어 전체가 제목에 그대로 있는 항목이 먼저, 다음으로 문제해결 자료(priority 1), 그 안에서 점수(제목 6·찾기용 말 4·내용 2, 다른 말로 맞으면 1점 낮게, 낱말마다), 같으면 원래 순서.
 /// [category]를 주면 그 분류만. 검색어가 비면 빈 목록(분류만 고른 경우는 [category] 전체).
 List<KnowledgeHit> searchKnowledge(
   List<KnowledgeEntry> all,
@@ -271,11 +286,21 @@ String? matchingLine(KnowledgeEntry e, List<String> terms) {
   return null;
 }
 
-/// 분류 이름과 항목 수(항목이 있는 분류만, 처음 나온 순서).
-List<(String, int)> knowledgeCategories(List<KnowledgeEntry> all) {
+/// 분류 이름과 항목 수(항목이 있는 분류만). [order]에 든 분류가 그 순서로 먼저, 나머지는 처음 나온 순서.
+List<(String, int)> knowledgeCategories(
+  List<KnowledgeEntry> all, {
+  List<String> order = const [],
+}) {
   final counts = <String, int>{};
   for (final e in all) {
     counts[e.category] = (counts[e.category] ?? 0) + 1;
   }
-  return [for (final k in counts.entries) (k.key, k.value)];
+  final keys = counts.keys.toList();
+  int rank(String k) {
+    final i = order.indexOf(k);
+    return i < 0 ? order.length + keys.indexOf(k) : i;
+  }
+
+  keys.sort((a, b) => rank(a).compareTo(rank(b)));
+  return [for (final k in keys) (k, counts[k]!)];
 }
