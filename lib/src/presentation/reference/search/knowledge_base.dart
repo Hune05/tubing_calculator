@@ -8,6 +8,7 @@ import '../../alignment/alignment_guide_data.dart';
 import '../../instrument/gd402_guide_page.dart';
 import '../../instrument/meter_loop_guide_page.dart';
 import '../page/ref_machine_tab.dart';
+import '../page/ref_card_text.g.dart';
 import '../page/reference_search_index.dart';
 import '../page/tube_reference_page.dart';
 import 'knowledge_electrical.dart';
@@ -17,30 +18,84 @@ import 'knowledge_pressure.dart';
 import 'knowledge_signal.dart';
 import 'knowledge_tools.dart';
 
-/// 현장 자료 화면의 카드 제목 색인을 검색 항목으로(고르면 그 탭이 열린다).
-List<KnowledgeEntry> fieldReferenceKnowledge() => [
-  for (var i = 0; i < refSearchIndex.length; i++)
-    KnowledgeEntry(
-      id: 'ref.$i',
-      category: '현장 자료',
-      title: refSearchIndex[i].title,
-      lines: ['현장 자료 · ${refTabNames[refSearchIndex[i].tab]} 탭에 있습니다.'],
-      keywords: [
-        ...refSearchIndex[i].keywords,
-        refTabNames[refSearchIndex[i].tab],
-      ],
-      sourceLabel: '현장 자료 · ${refTabNames[refSearchIndex[i].tab]}',
-      open: (c) => Navigator.push(
-        c,
-        MaterialPageRoute<void>(
-          builder: (_) => TubeReferencePage(initialTab: refSearchIndex[i].tab),
-        ),
+/// 카드 제목 앞 번호("3. ")를 뗀다(색인 표 제목과 맞추려고).
+String _plainCardTitle(String t) => t.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+
+void _openRefTab(BuildContext c, int tab) => Navigator.push(
+  c,
+  MaterialPageRoute<void>(builder: (_) => TubeReferencePage(initialTab: tab)),
+);
+
+/// 현장 자료 카드를 검색 항목으로. 카드 본문은 ref_card_text.g.dart(현장 자료 탭을 그려 모은 글)에서,
+/// 찾기용 말은 색인 표(reference_search_index.dart)에서 가져온다. 고르면 내용을 보이고 그 탭을 열 수 있다.
+/// 본문이 없는 색인 항목(단위 환산 탭 등)은 전처럼 누르면 그 탭이 곧바로 열린다.
+List<KnowledgeEntry> fieldReferenceKnowledge() {
+  final out = <KnowledgeEntry>[];
+  // 색인 표 항목마다 같은 탭의 카드 하나를 고른다: 제목이 같으면 그 카드, 아니면 색인 제목에
+  // 카드 제목이 들어 있는 카드 가운데 제목이 가장 긴 것("앵글 이론 중량표" → "앵글", "부등변앵글"이 있으면 그쪽).
+  final cardOf = <int, int>{};
+  for (var i = 0; i < refSearchIndex.length; i++) {
+    final r = refSearchIndex[i];
+    final rt = normalizeForSearch(_plainCardTitle(r.title));
+    int? best;
+    var bestLen = -1;
+    for (var n = 0; n < kRefCardText.length; n++) {
+      final (tab, rawTitle, _) = kRefCardText[n];
+      if (tab != r.tab) continue;
+      final ct = normalizeForSearch(_plainCardTitle(rawTitle));
+      if (ct.isEmpty) continue;
+      final len = ct == rt ? 1 << 20 : (rt.contains(ct) ? ct.length : -1);
+      if (len > bestLen) {
+        best = n;
+        bestLen = len;
+      }
+    }
+    if (best != null) cardOf[i] = best;
+  }
+  for (var n = 0; n < kRefCardText.length; n++) {
+    final (tab, rawTitle, lines) = kRefCardText[n];
+    final title = _plainCardTitle(rawTitle);
+    final keys = <String>[refTabNames[tab]];
+    for (final e in cardOf.entries) {
+      if (e.value != n) continue;
+      final r = refSearchIndex[e.key];
+      keys
+        ..add(r.title)
+        ..addAll(r.keywords);
+    }
+    out.add(
+      KnowledgeEntry(
+        id: 'refcard.$tab.$n',
+        category: '현장 자료',
+        title: '${refTabNames[tab]}: $title',
+        lines: lines.isEmpty ? ['현장 자료 · ${refTabNames[tab]} 탭에 있습니다.'] : lines,
+        keywords: keys,
+        sourceLabel: '현장 자료 · ${refTabNames[tab]}',
+        open: (c) => _openRefTab(c, tab),
+        openLabel: '현장 자료 열기',
       ),
-      // 카드 제목 색인이라 내용 창에 보일 내용이 없다. 누르면 그 탭을 곧바로 연다.
-      direct: true,
-      openLabel: '현장 자료 열기',
-    ),
-];
+    );
+  }
+  for (var i = 0; i < refSearchIndex.length; i++) {
+    if (cardOf.containsKey(i)) continue;
+    final r = refSearchIndex[i];
+    out.add(
+      KnowledgeEntry(
+        id: 'ref.$i',
+        category: '현장 자료',
+        title: r.title,
+        lines: ['현장 자료 · ${refTabNames[r.tab]} 탭에 있습니다.'],
+        keywords: [...r.keywords, refTabNames[r.tab]],
+        sourceLabel: '현장 자료 · ${refTabNames[r.tab]}',
+        open: (c) => _openRefTab(c, r.tab),
+        // 본문이 없는 색인이라 내용 창에 보일 것이 없다. 누르면 그 탭을 곧바로 연다.
+        direct: true,
+        openLabel: '현장 자료 열기',
+      ),
+    );
+  }
+  return out;
+}
 
 List<KnowledgeEntry>? _cache;
 

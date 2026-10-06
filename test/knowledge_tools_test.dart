@@ -95,7 +95,10 @@ void main() {
     final all = knowledgeBase();
     expect(searchKnowledge(all, '킥').first.entry.id, 'tool.conduit');
     expect(searchKnowledge(all, '채널').first.entry.id, 'tool.steel');
-    expect(searchKnowledge(all, '앵글 규격').first.entry.id, 'tool.steel');
+    // 앵글 규격은 실제 규격 숫자가 든 현장 자료 카드가 먼저, 형강 컷팅 바로가기도 위쪽에 있다.
+    final angle = searchKnowledge(all, '앵글 규격');
+    expect(angle.first.entry.title, '형강: 앵글');
+    expect(angle.take(3).map((h) => h.entry.id), contains('tool.steel'));
     expect(searchKnowledge(all, '드릴 클러치'), isNotEmpty);
   });
 
@@ -108,5 +111,19 @@ void main() {
     final rel = relatedKnowledge(all, end);
     expect(rel, isNotEmpty);
     expect(rel.every((e) => e.id.startsWith('diag.trip.')), isTrue);
+  });
+
+  test('현장 자료 카드 본문으로도 찾고, 본문이 있으면 내용 창을 보인다', () {
+    resetKnowledgeBaseCache();
+    final all = knowledgeBase();
+    final hole = searchKnowledge(all, '홀쏘').first.entry;
+    expect(hole.title, startsWith('전선관: '));
+    expect(hole.direct, isFalse);
+    expect(hole.lines.length, greaterThan(1));
+    // 카드 제목에 없는 본문 숫자(NPT 나사 규격 카드 안의 말)로도 찾는다.
+    expect(searchKnowledge(all, 'NPT').first.entry.title, '튜브: NPT 나사 규격');
+    // 색인 표 항목이 카드에 붙어 중복 항목이 줄었다(본문 없는 단위 환산 등만 바로 열림으로 남음).
+    final ref = all.where((e) => e.category == '현장 자료').toList();
+    expect(ref.where((e) => e.direct).length, lessThan(12));
   });
 }

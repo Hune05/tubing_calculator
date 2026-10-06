@@ -144,6 +144,12 @@ Widget refTipBox(String text) {
   );
 }
 
+/// 자료 검색 색인을 만들 때(시험) 접는 카드를 모두 펴서 그린다. 앱에서는 늘 false.
+bool kRefExpandAll = false;
+
+/// 카드 표시 키: 자료 검색 색인을 만들 때 카드마다 글을 모으는 데 쓴다("refcard:제목").
+Key refCardKey(String title) => ValueKey('refcard:$title');
+
 /// 둥근 카드(제목·아이콘·내용).
 Widget refCard({
   required String title,
@@ -153,6 +159,7 @@ Widget refCard({
   required List<Widget> children,
 }) {
   return Container(
+    key: refCardKey(title),
     width: double.infinity,
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
@@ -221,6 +228,7 @@ Widget refExpandCard({
   bool initiallyExpanded = false,
 }) {
   return Container(
+    key: refCardKey(title),
     decoration: BoxDecoration(
       color: refWhite,
       borderRadius: BorderRadius.circular(20),
@@ -228,7 +236,7 @@ Widget refExpandCard({
     child: Theme(
       data: ThemeData(dividerColor: Colors.transparent),
       child: ExpansionTile(
-        initiallyExpanded: initiallyExpanded,
+        initiallyExpanded: initiallyExpanded || kRefExpandAll,
         tilePadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
         childrenPadding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
         leading: Container(
