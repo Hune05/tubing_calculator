@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/theme/app_icon_set.dart';
 import '../../../core/theme/field_view.dart';
 import '../../../core/utils/ai_ask.dart';
 import '../page/reference_widgets.dart';
@@ -163,6 +164,9 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
   void _askAi(String question) {
     final q = question.trim();
     if (q.length < 2) return;
+    // 물어본 말도 최근 검색어에 남긴다(다시 찾거나 다시 물을 때 쓰게).
+    _remember(q);
+    FocusManager.instance.primaryFocus?.unfocus();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -332,7 +336,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                         o.title.substring(o.title.indexOf(':') + 1).trim(),
                         style: TextStyle(fontSize: 15, color: refTextMain),
                       ),
-                      trailing: Icon(Icons.chevron_right, color: refTextSub),
+                      trailing: Icon(AppIcons.forward, color: refTextSub),
                       onTap: () {
                         Navigator.pop(ctx);
                         _showDetail(o);
