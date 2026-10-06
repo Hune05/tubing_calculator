@@ -315,13 +315,19 @@ class ElecFormulaCard extends StatelessWidget {
           if (r.formula != null)
             Padding(
               padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                r.formula!,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: fc.text,
-                  height: 1.35,
+              // 식은 중간에서 꺾이면 읽기 어려워, 폭이 모자라면 글자를 줄여 한 줄로 둔다.
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  r.formula!,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: fc.text,
+                    height: 1.35,
+                  ),
                 ),
               ),
             ),
