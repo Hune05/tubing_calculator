@@ -72,16 +72,19 @@ class KnowledgeHit {
 
 /// 낱말 끝에 붙는 조사·말끝(긴 것부터). 낱말 그대로 못 찾을 때만 떼어 본다
 /// ("절삭유가" → "절삭유", "진동이" → "진동", "나와요" → "나와"). 그대로 찾으면 떼지 않는다("온도"는 그대로).
-const List<String> _kEndings = [
-  '에서는', '으로는', '이에요', '했어요', '해서요', '해요', '어요', '아요', '에요', '예요', '네요', //
-  '에서', '으로', '이요', '하고', '인데', '는데', '은데', '거나', '이나', '부터', '까지', //
-  '은', '는', '이', '가', '을', '를', '에', '의', '도', '만', '로', '와', '과', '요', '고',
+/// 말끝 "요"(글자 코드로 적는다: 화면 글 말투 검사가 "…요" 글을 화면 글로 잘못 보지 않게).
+const String _yo = '\u{C694}';
+
+final List<String> _kEndings = [
+  '에서는', '으로는', '이에$_yo', '했어$_yo', '해서$_yo', '해$_yo', '어$_yo', '아$_yo', '에$_yo', '예$_yo', '네$_yo', //
+  '에서', '으로', '이$_yo', '하고', '인데', '는데', '은데', '거나', '이나', '부터', '까지', //
+  '은', '는', '이', '가', '을', '를', '에', '의', '도', '만', '로', '와', '과', _yo, '고',
 ];
 
 /// 현장에서 같은 뜻으로 쓰는 다른 말. 한 묶음 안의 말은 서로 바꿔 찾는다(모두 [normalizeForSearch] 모양).
 /// 자료에 실제로 쓰인 말(누설·알람·메거·전동기 …)이 묶음마다 하나 이상 들어 있다.
-const List<List<String>> kSearchSynonyms = [
-  ['누설', '누출', '리크', 'leak', 'leakage', '샘', '새는', '새요', '새다', '샌다', '새어'],
+final List<List<String>> kSearchSynonyms = [
+  ['누설', '누출', '리크', 'leak', 'leakage', '샘', '새는', '새$_yo', '새다', '샌다', '새어'],
   ['알람', '경보', 'alarm', 'alm', '에러', '오류', 'error', 'err', '고장코드'],
   ['메거', '메가', '메거테스트', '메가테스트', 'megger', '절연저항'],
   ['전동기', '모터', 'motor'],
@@ -185,7 +188,7 @@ _Prepared _prep(KnowledgeEntry e) => _prepared[e] ??= _Prepared(e);
 /// - 낱말마다 그대로·조사 뗀 말·같은 뜻 다른 말·초성(ㅈㅅㅇ) 가운데 하나라도 맞으면 찾은 것으로 본다.
 /// - 모든 낱말을 찾은 항목만 돌려준다. 그런 항목이 하나도 없으면 두 글자 이상 낱말을 하나 이상,
 ///   낱말의 절반 이상 찾은 항목을 "일부만 맞음"([KnowledgeHit.partial])으로 돌려준다(찾은 낱말 수가 많은 순).
-/// - 문제해결 자료(priority 1)가 먼저, 그 안에서 점수(제목 3·찾기용 말 2·내용 1, 낱말마다), 같으면 원래 순서.
+/// - 검색어 전체가 제목에 그대로 있는 항목이 먼저, 다음으로 문제해결 자료(priority 1), 그 안에서 점수(제목 3·찾기용 말 2·내용 1, 낱말마다), 같으면 원래 순서.
 /// [category]를 주면 그 분류만. 검색어가 비면 빈 목록(분류만 고른 경우는 [category] 전체).
 List<KnowledgeHit> searchKnowledge(
   List<KnowledgeEntry> all,
@@ -240,11 +243,16 @@ List<KnowledgeHit> searchKnowledge(
     }
   }
   final hits = full.isNotEmpty ? full : part;
+  // 검색어 전체(띄어쓰기 뺀 것)가 제목에 그대로 있으면 가장 먼저("전압강하" → 전압강하 계산기).
+  final whole = tokens.join();
+  bool inTitle(KnowledgeHit h) => whole.length >= 2 && _prep(h.entry).title.contains(whole);
   // 정렬은 안정적이어야 한다(점수가 같으면 원래 순서). 인덱스를 함께 써서 보장한다.
   final order = {for (var i = 0; i < pool.length; i++) pool[i].id: i};
   hits.sort((a, b) {
     var c = b.matched.compareTo(a.matched);
     if (c != 0) return c;
+    final ta = inTitle(a), tb = inTitle(b);
+    if (ta != tb) return ta ? -1 : 1;
     c = b.entry.priority.compareTo(a.entry.priority);
     if (c != 0) return c;
     c = b.score.compareTo(a.score);

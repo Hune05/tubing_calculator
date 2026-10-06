@@ -15,6 +15,7 @@ import 'knowledge_electrical_general.dart';
 import 'knowledge_entry.dart';
 import 'knowledge_pressure.dart';
 import 'knowledge_signal.dart';
+import 'knowledge_tools.dart';
 
 /// 현장 자료 화면의 카드 제목 색인을 검색 항목으로(고르면 그 탭이 열린다).
 List<KnowledgeEntry> fieldReferenceKnowledge() => [
@@ -51,6 +52,8 @@ List<KnowledgeEntry> knowledgeBase() => _cache ??= [
   ...electricalGeneralKnowledge(),
   ...pressureKnowledge(),
   ...signalKnowledge(),
+  ...diagnosisKnowledge(),
+  ...toolKnowledge(),
 ];
 
 /// 시험에서 쓴다: 모아 둔 목록을 지운다.
@@ -64,4 +67,6 @@ const List<String> kKnowledgeSuggestions = [
   '절삭유',
   '진동',
   '튜브 주름',
+  '차단기 트립',
+  '전압강하',
 ];
