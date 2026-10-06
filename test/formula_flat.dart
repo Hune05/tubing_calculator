@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tubing_calculator/src/presentation/common/formula_card.dart';
+import 'package:tubing_calculator/src/presentation/electrical/elec_form_parts.dart';
 
 /// 풀이 카드는 식·대입·결과를 따로 보여 주고 나눗셈은 분수로 그린다(위젯이 여러 개로 나뉨).
 /// 테스트는 글자만 이어 붙여 같은 내용인지 본다: 공백·줄바꿈·괄호·"="·"÷"·쉼표·"식:"과
@@ -16,4 +16,7 @@ String allFlat(WidgetTester tester) => flat(
 );
 
 /// 긴 풀이(4단계 이상)는 처음엔 접혀 있다. 단계별 글을 보는 테스트는 먼저 펼쳐 둔다.
-void expandFormulaCards() => ElecFormulaCard.openAll.value = true;
+void expandFormulaCards() {
+  ElecFormulaCard.openAll.value = true;
+  kElecFoldOpenAll = true;
+}

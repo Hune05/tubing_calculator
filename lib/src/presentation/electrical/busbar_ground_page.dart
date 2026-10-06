@@ -836,7 +836,6 @@ class _GroundBarPageState extends State<GroundBarPage>
     final groups = _lugGroups(p);
     final bolts = p.lugHoleList.length;
     return [
-      elecSectionTitle('접지 러그 구멍 (가운데에 추가)'),
       elecChipGroup(
         '러그 종류',
         '접지 러그를 달 구멍을 접지 구멍과 따로 부스바 가운데(길이·폭)에 추가로 뚫습니다. 1구멍: 러그당 구멍 하나. 2구멍: 러그 구멍 간격만큼 떨어진 구멍 둘(NEMA 2구멍 러그).',
@@ -974,7 +973,6 @@ class _GroundBarPageState extends State<GroundBarPage>
     final pts = _panel(p);
     final only = holes.length;
     return [
-      elecSectionTitle('접지바 취부 (${p.hat ? "챙으로 판넬에" : "탭으로"} 설치)'),
       elecField(
         'gb_panelt',
         '취부면(판넬) 두께 (mm)',
@@ -1028,7 +1026,6 @@ class _GroundBarPageState extends State<GroundBarPage>
     String name(GroundHole h) =>
         '${h.id.startsWith('g') ? '접지' : (h.id.startsWith('u') ? '' : _tabName)} ${h.label} · φ${fmt(h.dia)}${h.custom ? ' (바꿈)' : ''}';
     return [
-      elecSectionTitle('구멍 크기 바꾸기'),
       calcDropdown<String>(
         'gb_ov_sel',
         '구멍 고르기',
@@ -1512,23 +1509,44 @@ class _GroundBarPageState extends State<GroundBarPage>
           ),
         ),
         const SizedBox(height: 12),
-        if (p.bends.isNotEmpty) ...[
-          elecSectionTitle('꺾기 (왼쪽 끝에서)'),
-          for (var i = 0; i < p.bends.length; i++) _bendTile(p.bends[i], i, p),
-          const SizedBox(height: 4),
-        ],
-        if (p.holes > 0) ...[
-          elecSectionTitle('접지 구멍 위치 (왼쪽 끝에서 중심까지)'),
-          _holeBox(p),
-        ],
-        if (p.tabHoleList.isNotEmpty) ...[
-          elecSectionTitle('$_tabName 구멍 위치 (왼쪽 끝에서 중심까지)'),
-          _tabHoleBox(p),
-        ],
-        ..._lugSection(p),
-        ..._mountSection(p),
-        ..._sizeEditor(p),
+        // 길어진 화면을 줄이려고 위치 표와 덧붙이는 설정은 접어 둔다(눌러 펴기). 꺾기·구멍 위치가 작업의 핵심이라 펼쳐 둔다.
+        ...elecFold(
+          'gb_fold_bends',
+          '꺾기 (왼쪽 끝에서)',
+          [
+            for (var i = 0; i < p.bends.length; i++) _bendTile(p.bends[i], i, p),
+            const SizedBox(height: 4),
+          ],
+          open: true,
+          subtitle: p.bends.isEmpty ? null : '${p.bends.length}곳',
+        ),
+        ...elecFold(
+          'gb_fold_holes',
+          '접지 구멍 위치 (왼쪽 끝에서 중심까지)',
+          p.holes > 0 ? [_holeBox(p)] : const [],
+          open: true,
+          subtitle: '${p.holes}개',
+        ),
+        ...elecFold(
+          'gb_fold_tabholes',
+          '$_tabName 구멍 위치 (왼쪽 끝에서 중심까지)',
+          p.tabHoleList.isNotEmpty ? [_tabHoleBox(p)] : const [],
+          subtitle: '${p.tabHoleList.length}개',
+        ),
+        ...elecFold(
+          'gb_fold_lug',
+          '접지 러그 구멍 (가운데에 추가)',
+          _lugSection(p),
+          subtitle: p.lugHoleList.isEmpty ? '없음' : '${p.lugHoleList.length}개',
+        ),
+        ...elecFold(
+          'gb_fold_mount',
+          '접지바 취부 (${p.hat ? "챙으로 판넬에" : "탭으로"} 설치)',
+          _mountSection(p),
+        ),
+        ...elecFold('gb_fold_size', '구멍 크기 바꾸기', _sizeEditor(p)),
         const SizedBox(height: 8),
+        ...elecFold('gb_fold_notes', '작업 순서', [
         calcResult(solve: true, 
           key: const Key('gb_notes'),
           big: '작업 순서',
@@ -1546,6 +1564,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             '접촉면을 닦아 접지 러그를 붙입니다.',
           ],
         ),
+        ]),
       ]);
     }
     children.addAll([

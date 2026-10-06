@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/busbar_ground_page.dart';
+import 'formula_flat.dart';
 
 Future<void> _open(
   WidgetTester tester, {
@@ -26,6 +27,7 @@ Future<void> _type(WidgetTester tester, String key, String text) async {
 }
 
 void main() {
+  setUpAll(expandFormulaCards);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('기본값(구멍 10개, 피치 25.4, 끝 25): 길이 278.6', (tester) async {

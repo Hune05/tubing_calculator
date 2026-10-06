@@ -39,6 +39,9 @@ const Map<String, String> kElecTabLabels = {
   'gb_sum': '접지바 가공',
 };
 
+/// true면 [ElecTabParts.elecFold]의 모든 구역을 처음부터 펼친다(위젯 테스트 전용: 접힌 칸은 화면에 안 그려져 찾을 수 없다).
+bool kElecFoldOpenAll = false;
+
 /// 소수 [d]자리까지 쓰고 뒤의 0은 뗀다(12.50 → 12.5).
 String fmt(double v, [int d = 1]) {
   var s = v.toStringAsFixed(d);
@@ -200,6 +203,44 @@ mixin ElecTabParts<W extends StatefulWidget>
       ],
     ),
   );
+
+  /// 접었다 펴는 구역. 길어진 화면에서 덜 쓰는 구역을 접어 둔다.
+  /// [children]이 비면 아무것도 그리지 않는다. [subtitle]은 접힌 채로도 보이는 요약(예: "3곳").
+  List<Widget> elecFold(
+    String key,
+    String title,
+    List<Widget> children, {
+    bool open = false,
+    String? subtitle,
+  }) {
+    if (children.isEmpty) return const [];
+    return [
+      Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          key: Key(key),
+          initiallyExpanded: open || kElecFoldOpenAll,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 2),
+          childrenPadding: EdgeInsets.zero,
+          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+          iconColor: fc.brand,
+          collapsedIconColor: fc.textSub,
+          title: Text(
+            title,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              color: fc.text,
+            ),
+          ),
+          subtitle: subtitle == null
+              ? null
+              : Text(subtitle, style: TextStyle(fontSize: 13, color: fc.textSub)),
+          children: children,
+        ),
+      ),
+    ];
+  }
 
   Widget elecSectionTitle(String t) => Padding(
     padding: const EdgeInsets.fromLTRB(2, 8, 2, 8),
