@@ -124,43 +124,4 @@ void main() {
     await _type(tester, 'ec_cv_v', '500');
     expect(_all(tester), contains('110 %를 넘습니다'));
   });
-  testWidgets('변압기 역률 개선: 630 kVA 전부하 → 11.34 + 25.2 = 36.5 kvar, 표 L22 값도 보인다', (tester) async {
-    await _open(tester, 'ec_tab_pf');
-    await _type(tester, 'ec_tp_kva', '630');
-    var t = _all(tester);
-    expect(flat(t), contains(flat('= 11.34 kvar')));
-    expect(flat(t), contains(flat('= 25.2 kvar')));
-    expect(flat(t), contains(flat('합계 = 36.54 kvar')));
-    expect(t, contains('무부하 11.3 kvar, 전부하 35.7 kvar'));
-    await _type(tester, 'ec_tp_load', '50');
-    t = _all(tester);
-    expect(flat(t), contains(flat('= 6.3 kvar')));
-  });
-
-  testWidgets('미네랄 절연 케이블: 750 V 70 °C 벽 3도체 16 mm² = 86 A, 100 A → 25 mm²', (tester) async {
-    await _open(tester, 'ec_tab_cable');
-    await _type(tester, 'ec_mi_amps', '100');
-    var t = _all(tester);
-    expect(t, contains('가장 작은 단면적: 25 mm² (허용 112 A)'));
-    expect(t, contains('16 mm² : 86 A'));
-    await _tap(tester, 'ec_mi_t105');
-    await _tap(tester, 'ec_mi_efg');
-    await _tap(tester, 'ec_mi_col4');
-    t = _all(tester);
-    expect(t, contains('10 mm² : 120 A'));
-    expect(t, contains('가장 작은 단면적: 10 mm² (허용 120 A)'));
-    await _tap(tester, 'ec_mi_500');
-    t = _all(tester);
-    expect(t, contains('표의 가장 큰 단면적(4 mm², 64 A)으로도 모자랍니다'));
-  });
-  testWidgets('미네랄 절연 선택은 위쪽 부하 전류를 넣어도 풀리지 않는다', (tester) async {
-    await _open(tester, 'ec_tab_cable');
-    // 위쪽 칸에 먼저 넣고 MI 칩을 누른다(접힘 구역이 목록 밖으로 나가면 칩 상태가 사라지므로 순서를 바꿨다).
-    await _type(tester, 'ec_ib', '100');
-    await _tap(tester, 'ec_mi_t105');
-    await _tap(tester, 'ec_mi_efg');
-    final t = _all(tester);
-    expect(t, contains('외피 105 ℃'));
-    expect(t, contains('포설 방법 E·F·G'));
-  });
 }

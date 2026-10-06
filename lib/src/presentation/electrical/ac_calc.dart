@@ -147,34 +147,6 @@ double? capacitorKvarAtVoltage({
   return ratedKvar * r * r * (hz / ratedHz);
 }
 
-// ─────────────── 변압기 역률 개선 ───────────────
-
-class TransformerQ {
-  const TransformerQ({required this.noLoadKvar, required this.leakKvar});
-
-  /// 무부하(여자) 무효전력 ≈ S × i0%.
-  final double noLoadKvar;
-
-  /// 부하 때 누설 리액턴스가 쓰는 무효전력 ≈ S × usc% × (부하율)².
-  final double leakKvar;
-  double get totalKvar => noLoadKvar + leakKvar;
-}
-
-/// 변압기가 소비하는 무효전력 근사: Q ≈ S × (i0% + usc% × k²) ÷ 100. [kva] 정격 용량, [i0Pct] 무부하 전류(%),
-/// [uscPct] 단락 전압(%), [loadFactor] 부하율 k(0~1). 저항분은 무시한 근사식이다.
-TransformerQ? transformerReactive({
-  required double kva,
-  required double i0Pct,
-  required double uscPct,
-  required double loadFactor,
-}) {
-  if (kva <= 0 || i0Pct < 0 || uscPct < 0 || loadFactor < 0) return null;
-  return TransformerQ(
-    noLoadKvar: kva * i0Pct / 100,
-    leakKvar: kva * uscPct / 100 * loadFactor * loadFactor,
-  );
-}
-
 // ─────────────── 자동 차단 기준 최대 케이블 길이 ───────────────
 
 /// 단락(지락) 전류가 보호장치 동작전류 [iaA] 이상이 되는 최대 케이블 길이(m).
@@ -194,20 +166,3 @@ double? maxLengthForTrip({
   if (rem <= 0) return 0;
   return rem / (rho * (1 / phaseMm2 + 1 / peMm2));
 }
-
-/// Schneider Electrical Installation Guide ch.L 그림 L22(2007판 L21): 20 kV 1차 유입 변압기가 쓰는 무효전력(kvar).
-/// 키는 정격 kVA, 값은 [무부하, 전부하(무부하분 포함)]. 원문 두 판이 일치한다.
-const Map<int, List<double>> kTransformerL22 = {
-  100: [2.5, 6.1],
-  160: [3.7, 9.6],
-  250: [5.3, 14.7],
-  315: [6.3, 18.4],
-  400: [7.6, 22.9],
-  500: [9.5, 28.7],
-  630: [11.3, 35.7],
-  800: [20, 54.5],
-  1000: [23.9, 72.4],
-  1250: [27.4, 94.5],
-  1600: [31.9, 126],
-  2000: [37.8, 176],
-};

@@ -42,7 +42,6 @@ import 'elec_motor_misc_tab.dart';
 import 'elec_motor_select_tab.dart';
 import 'elec_motor_protect_tab.dart';
 import 'elec_ac_sections.dart';
-import 'elec_extra_sections.dart';
 import 'elec_form_parts.dart';
 import 'elec_generator_tab.dart';
 import 'elec_load_sum_tab.dart';
@@ -1714,13 +1713,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       const SizedBox(height: 12),
       result,
       if (basis.isNotEmpty) _basis('ec_cable_basis', basis),
-      const SizedBox(height: 8),
-      const ElecFold(
-        foldKey: 'ec_fold_mi',
-        title: '미네랄 절연(MI) 케이블·나도체 허용전류',
-        subtitle: '일반 케이블이 아닌 MI 케이블·나선일 때',
-        children: [MiCableSection(key: Key('ec_mi_section'))],
-      ),
     ]);
   }
 
@@ -2762,13 +2754,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         '전류: I = P ÷ (${_phase == Phase.three ? '√3 × ' : ''}V × 역률), 콘덴서 전류 = Qc ÷ (${_phase == Phase.three ? '√3 × ' : ''}V)',
       ]),
       const CapVoltageSection(key: Key('ec_cv_section')),
-      const SizedBox(height: 8),
-      const ElecFold(
-        foldKey: 'ec_fold_tp',
-        title: '변압기 역률 개선 (MV/LV)',
-        subtitle: '변압기 자체의 무효전력 보상',
-        children: [TransformerPfSection(key: Key('ec_tp_section'))],
-      ),
     ]);
   }
 

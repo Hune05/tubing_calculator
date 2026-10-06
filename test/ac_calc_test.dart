@@ -83,18 +83,6 @@ void main() {
     });
   });
 
-  group('변압기 무효전력', () {
-    test('1000 kVA, i0 1.5 %, usc 6 %: 무부하 15 kvar, 전부하 +60 → 75, 부하율 50 %면 15 + 15', () {
-      final f = transformerReactive(kva: 1000, i0Pct: 1.5, uscPct: 6, loadFactor: 1)!;
-      expect(f.noLoadKvar, closeTo(15, 1e-12));
-      expect(f.leakKvar, closeTo(60, 1e-12));
-      expect(f.totalKvar, closeTo(75, 1e-12));
-      final h = transformerReactive(kva: 1000, i0Pct: 1.5, uscPct: 6, loadFactor: 0.5)!;
-      expect(h.leakKvar, closeTo(15, 1e-12));
-      expect(h.totalKvar, closeTo(30, 1e-12));
-    });
-  });
-
   group('자동 차단 기준 최대 길이', () {
     test('U0 230, Ia 160 A, Ze 0, 상·PE 2.5 mm² → 약 79.9 m', () {
       final l = maxLengthForTrip(u0: 230, iaA: 160, phaseMm2: 2.5, peMm2: 2.5)!;

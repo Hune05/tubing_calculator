@@ -23,8 +23,6 @@ void main() {
   const folds = {
     5: ['ec_sc_fold_motor', 'ec_sc_fold_breaker', 'ec_sc_fold_cable'],
     2: ['els_fold_sheet', 'els_fold_saved'],
-    3: ['ec_fold_mi'],
-    8: ['ec_fold_tp'],
   };
 
   for (final e in folds.entries) {
@@ -58,12 +56,13 @@ void main() {
     expect(prefs.getBool('fold_v1_ec_sc_fold_motor'), isTrue);
   });
 
-  testWidgets('MI 구역의 칩 선택은 접었다 펴도, 목록 밖으로 스크롤했다 와도 남는다', (tester) async {
-    tester.view.physicalSize = const Size(390, 800);
+
+  testWidgets('편 구역은 목록 밖으로 스크롤했다 돌아와도 펼쳐진 채다', (tester) async {
+    tester.view.physicalSize = const Size(390, 700);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(
-      const MaterialApp(home: ElectricCalculatorPage(initialTab: 3)),
+      const MaterialApp(home: ElectricCalculatorPage(initialTab: 5)),
     );
     await tester.pumpAndSettle();
     final list = find
@@ -72,35 +71,20 @@ void main() {
         )
         .first;
     await tester.scrollUntilVisible(
-      find.byKey(const Key('ec_fold_mi')),
-      400,
-      scrollable: list,
-    );
-    await tester.tap(find.text('미네랄 절연(MI) 케이블·나도체 허용전류'));
-    await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(
-      find.byKey(const Key('ec_mi_t105')),
+      find.byKey(const Key('ec_sc_fold_cable')),
       300,
       scrollable: list,
     );
-    await tester.ensureVisible(find.byKey(const Key('ec_mi_t105')));
+    await tester.tap(find.text('케이블 단락 열적 강도 (I²t)'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('ec_mi_t105')));
-    await tester.pumpAndSettle();
-    bool on() => tester
-        .widget<ChoiceChip>(find.byKey(const Key('ec_mi_t105')))
-        .selected;
-    expect(on(), isTrue);
-    // 목록 맨 위까지 올렸다가 다시 내려온다.
-    await tester.drag(list, const Offset(0, 6000));
-    await tester.pumpAndSettle();
-    await tester.drag(list, const Offset(0, -6000));
+    expect(find.byKey(const Key('ec_sc_t')), findsOneWidget);
+    await tester.drag(list, const Offset(0, 8000));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.byKey(const Key('ec_mi_t105')),
+      find.byKey(const Key('ec_sc_t')),
       300,
       scrollable: list,
     );
-    expect(on(), isTrue, reason: '스크롤 뒤');
+    expect(find.byKey(const Key('ec_sc_t')), findsOneWidget);
   });
 }
