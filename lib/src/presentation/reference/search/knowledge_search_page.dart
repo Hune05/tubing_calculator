@@ -455,25 +455,39 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                   ),
             ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            '들어 있는 자료 (${all.length}건)',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: refTextMain,
+          const SizedBox(height: 10),
+          // 분류는 위 칩 줄에도 있어 목록은 접어 둔다(펴면 분류별 건수를 한눈에 본다).
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const Key('ks_catlist'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              title: Text(
+                '들어 있는 자료 (${all.length}건)',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: refTextMain,
+                ),
+              ),
+              subtitle: Text(
+                '분류 ${cats.length}개 · 눌러서 펴기',
+                style: TextStyle(fontSize: 13, color: refTextSub),
+              ),
+              children: [
+                for (final (name, n) in cats)
+                  ListTile(
+                    key: Key('ks_catrow_$name'),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: Text(name, style: TextStyle(color: refTextMain)),
+                    trailing: Text('$n건', style: TextStyle(color: refTextSub)),
+                    onTap: () => setState(() => _category = name),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          for (final (name, n) in cats)
-            ListTile(
-              key: Key('ks_catrow_$name'),
-              contentPadding: EdgeInsets.zero,
-              dense: true,
-              title: Text(name, style: TextStyle(color: refTextMain)),
-              trailing: Text('$n건', style: TextStyle(color: refTextSub)),
-              onTap: () => setState(() => _category = name),
-            ),
         ],
       );
     } else if (hits.isEmpty) {

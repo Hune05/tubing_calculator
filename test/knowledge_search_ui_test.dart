@@ -243,4 +243,15 @@ void main() {
     await t.pump();
     expect(sent.single, '질문: 볼펜 잉크\nAI 답변(앱 자료가 아니며 틀릴 수 있음):\n필터를 청소합니다.');
   });
+
+  testWidgets('첫 화면의 분류 목록은 접혀 있고, 펴서 누르면 그 분류만 보인다', (t) async {
+    await _open(t);
+    expect(find.byKey(const Key('ks_catrow_압력시험 누설')), findsNothing);
+    await t.tap(find.byKey(const Key('ks_catlist')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('ks_catrow_압력시험 누설')));
+    await t.pumpAndSettle();
+    expect(find.byKey(const Key('ks_hit_b')), findsOneWidget);
+    expect(find.byKey(const Key('ks_hit_a')), findsNothing);
+  });
 }
