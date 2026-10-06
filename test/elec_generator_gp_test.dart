@@ -237,7 +237,9 @@ void main() {
       expect(allFlat(tester), contains(flat('ΣPm = 30 + 45 = 75 kW')));
       expect(
         allFlat(tester),
-        contains(flat('PL: 전동기 1 (30 kW × c 6 = 기동용량 180, 가장 큼)')),
+        contains(
+          flat('PL 기동용량 = kW × c = 30 × 6 = 180 (전동기 1, 가장 큼, PL = 30 kW)'),
+        ),
       );
       expect(
         allFlat(tester),
@@ -389,6 +391,22 @@ void main() {
       final pf = tester.getRect(find.byKey(const Key('eg_row_pf_0')));
       expect(pf.right, lessThanOrEqualTo(344));
       expect(kw.width, greaterThan(60));
+    });
+
+    testWidgets('전동기만 넣으면 ΣP = 0 줄은 빼고 PL 고르기가 풀이 단계로 나온다', (tester) async {
+      await pumpTab(tester);
+      await type(tester, 'eg_m_kw_0', '30');
+      await type(tester, 'eg_m_c_0', '6');
+      await type(tester, 'eg_g_k', '1');
+      final all = allFlat(tester);
+      expect(all, isNot(contains(flat('전동기 이외 부하 합계'))));
+      expect(all, contains(flat('① 전동기 부하 합계 ΣPm = 30 kW')));
+      expect(
+        all,
+        contains(flat('② PL 기동용량 = kW × c = 30 × 6 = 180 (전동기 1, PL = 30 kW)')),
+      );
+      // 30 × 1.45 × 6 = 261
+      expect(find.textContaining('261 kVA'), findsWidgets);
     });
 
     testWidgets('PG 방식으로 바꾸면 옛 칸이 나오고, 방식은 다시 열어도 남는다', (tester) async {

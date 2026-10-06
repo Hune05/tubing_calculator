@@ -712,18 +712,31 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
                   ],
                 ),
                 const SizedBox(height: 8),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final s in GpStart.values)
-                      calcChip(
-                        'eg_m_start_${i}_${s.name}',
-                        '${s.label} ${fmt(s.c, 1)}',
-                        start == s,
-                        () => setState(() => r.c.text = fmt(s.c, 1)),
-                      ),
-                  ],
+                // 줄마다 칩 여섯 개가 태블릿에서 한 줄에 들어가게 이름을 짧게 쓰고 안쪽 여백을 줄인다.
+                // c 값은 옆 c 칸에 보인다.
+                ChipTheme(
+                  data: ChipTheme.of(context).copyWith(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 4,
+                    ),
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                  ),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final s in GpStart.values)
+                        calcChip(
+                          'eg_m_start_${i}_${s.name}',
+                          s.label
+                              .replaceFirst('리액터 탭', '리액터')
+                              .replaceFirst('(인버터)', ''),
+                          start == s,
+                          () => setState(() => r.c.text = fmt(s.c, 1)),
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -818,7 +831,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       final kCell = _kCell;
       // 단계 번호는 실제로 나오는 줄에만 차례로 붙인다(전동기가 없으면 건너뛰지 않게).
       var step = 0;
-      String mark() => '①②③④⑤⑥'[step++];
+      String mark() => '①②③④⑤⑥⑦'[step++];
       final motorParts = [
         for (final m in motors)
           if ((m.$1 ?? 0) > 0) m.$1!,
@@ -840,15 +853,17 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
               '부하 ${n + 1} ${_gpKindShort(input.loads[n].kind)} P = kW ÷ (효율 × 역률)${input.loads[n].kind.usesLambda ? ' × λ' : ''} = ${fmt(input.loads[n].kw!, 1)} ÷ (${fmt(input.loads[n].eff!, 2)} × ${fmt(input.loads[n].pf!, 2)})${input.loads[n].kind.usesLambda ? ' × ${fmt(lam, 2)}' : ''} = ${fmt(r.loadP[n], 1)} kVA',
           if (r.pUps > 0)
             'UPS P = 출력 ÷ 효율 × λ + 충전용량 = ${fmt(input.upsKva!, 1)} ÷ ${fmt(input.upsEff!, 2)} × ${fmt(lam, 2)} + ${fmt(r.upsCharge, 1)} = ${fmt(r.pUps, 1)} kVA',
-          parts.length > 1 && parts.length <= 6
-              ? '${mark()} 전동기 이외 부하 합계 ΣP = ${parts.map((p) => fmt(p, 1)).join(' + ')} = ${fmt(r.sumP, 1)} kVA'
-              : '${mark()} 전동기 이외 부하 합계 ΣP = ${fmt(r.sumP, 1)} kVA',
+          // 전동기만 넣었으면 ΣP = 0 줄은 빼고 GP 식에서만 0으로 보인다.
+          if (r.sumP > 0 || !hasMotor)
+            parts.length > 1 && parts.length <= 6
+                ? '${mark()} 전동기 이외 부하 합계 ΣP = ${parts.map((p) => fmt(p, 1)).join(' + ')} = ${fmt(r.sumP, 1)} kVA'
+                : '${mark()} 전동기 이외 부하 합계 ΣP = ${fmt(r.sumP, 1)} kVA',
           if (hasMotor)
             motorParts.length > 1 && motorParts.length <= 6
                 ? '${mark()} 전동기 부하 합계 ΣPm = ${motorParts.map((p) => fmt(p, 1)).join(' + ')} = ${fmt(motorSum, 1)} kW'
                 : '${mark()} 전동기 부하 합계 ΣPm = ${fmt(motorSum, 1)} kW',
           if (hasMotor && plIdx != null)
-            'PL: 전동기 ${plIdx + 1} (${fmt(motors[plIdx].$1!, 1)} kW × c ${fmt(motors[plIdx].$2!, 2)} = 기동용량 ${fmt(motors[plIdx].$1! * motors[plIdx].$2!, 1)}${motorParts.length > 1 ? ', 가장 큼' : ''})',
+            '${mark()} PL 기동용량 = kW × c = ${fmt(motors[plIdx].$1!, 1)} × ${fmt(motors[plIdx].$2!, 2)} = ${fmt(motors[plIdx].$1! * motors[plIdx].$2!, 1)} (전동기 ${plIdx + 1}${motorParts.length > 1 ? ', 가장 큼' : ''}, PL = ${fmt(motors[plIdx].$1!, 1)} kW)',
           if (hasMotor)
             '${mark()} 기동하지 않는 전동기 (ΣPm − PL) × a = (${fmt(input.motorsKw!, 1)} − ${fmt(input.largestKw ?? 0, 1)}) × ${fmt(input.a, 2)} = ${fmt(r.motorRest, 1)} kVA',
           if (hasMotor)
@@ -976,6 +991,9 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         '표 4.1-1은 2024 개정에서 2021판(KDS 31 60 20)의 오타 세 칸(19 %행 20·21 열, 16 %행 23 열)을 바로잡은 값입니다.',
         '2021판과 다른 점: 2024판은 VVVF 전동기를 ΣP에 넣고 ΣPm에서 뺍니다. λ는 모르면 2.5입니다(2021판은 저감장치가 있으면 1.25).',
         '발전기 용량은 화재 및 예고 없는 정전 때에도 소방·비상부하 가동에 지장이 없어야 합니다(4.1(6)③).',
+        '입력 방식(앱): 전동기 이외 부하는 줄마다 종류·kW·효율·역률을 넣어 원문 식 4.1-2·4.1-4·4.1-5로 줄마다 P를 구해 더합니다. 부하마다 효율·역률이 달라도 됩니다.',
+        'ΣPm은 전동기 줄 kW의 합입니다. PL은 원문 정의 "기동용량이 가장 큰 전동기"를 따라 기동용량 kW × c가 가장 큰 줄을 고릅니다(a는 모든 줄에 같아 비교에서 뺌, 같으면 앞 줄). 그래서 kW가 가장 큰 전동기와 다를 수 있습니다(예: 10 kW 직입 c 7 = 70 > 30 kW Y-Δ c 2 = 60).',
+        '동시에 기동하는 전동기는 원문대로 그 용량을 합해 PL로 보므로 한 줄로 합쳐 넣습니다.',
       ]),
     ]);
   }
