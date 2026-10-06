@@ -1,9 +1,12 @@
 // 전기 설비 계산의 탭들이 같이 쓰는 화면 부품(탭 몸통·숫자 칸·이름표 칩·근거 보기)과 숫자 글꼴.
 // 기존 탭은 electric_calculator_page.dart 안의 같은 모양 함수(_page·_field·_chipGroup·_basis)를 쓰고,
 // 파일로 나눈 새 탭(부하 합산·단락 전류·축전지)은 이 mixin을 쓴다.
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/app_components.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/common_widgets/text_fields_traversal.dart';
 import '../../core/theme/field_view.dart';
@@ -36,6 +39,7 @@ const Map<String, String> kElecTabLabels = {
   'pd_light_sum': '조명 광속법',
   'pd_bal_sum': '상 평형',
   'pd_feed_sum': '간선 전압강하',
+  'pd_branch_sum': '분기회로 수',
   'ct_sum': '케이블 트레이',
   'tr_sum': '트레이 가공',
   'bb_sum': '부스바 절곡',
@@ -68,6 +72,50 @@ double? readNum(TextEditingController c) =>
 
 mixin ElecTabParts<W extends StatefulWidget>
     on CalcFormParts<W>, RecentCalcHistoryMixin<W> {
+  /// "최근 계산 기록"을 눌러 그때 입력값으로 되돌릴 때 쓰는 입력 묶음(JSON으로 바꿀 수 있는 값만).
+  /// null이면 되돌리기 없이 결과만 기록한다. 저장 칸(초안)을 가진 탭은 그 모양을 그대로 돌려준다.
+  Map<String, Object?>? historySnapshot() => null;
+
+  /// [historySnapshot]으로 꺼낸 입력 묶음을 화면에 다시 넣는다(setState 안에서 부른다).
+  void applyHistorySnapshot(Map<String, dynamic> m) {}
+
+  /// 결과 요약을 기록에 쌓는다. 입력 묶음이 있으면 기록을 눌러 그때 입력값으로 되돌릴 수 있다.
+  void logElecHistory(String sumKey, String summary) {
+    final snap = historySnapshot();
+    // 지금 값을 글로 굳혀 둔다(나중에 칸 값이 바뀌어도 기록의 입력은 그대로).
+    final raw = snap == null ? null : jsonEncode(snap);
+    logCalc(
+      kElecTabLabels[sumKey] ?? sumKey,
+      summary,
+      onTap: raw == null ? null : () => restoreElecHistory(sumKey, raw),
+    );
+  }
+
+  /// 기록 하나를 눌렀을 때: 그 탭을 앞으로 띄우고 그때 입력값을 넣은 뒤, "원래대로"를 띄운다.
+  void restoreElecHistory(String sumKey, String raw) {
+    if (!mounted) return;
+    final before = historySnapshot();
+    final beforeRaw = before == null ? null : jsonEncode(before);
+    calcLog.openTab?.call(sumKey);
+    setState(() => applyHistorySnapshot(jsonDecode(raw) as Map<String, dynamic>));
+    showAppSnack(
+      context,
+      '그때 입력값으로 되돌렸습니다',
+      kind: AppSnackKind.undo,
+      undoLabel: '원래대로',
+      onUndo: beforeRaw == null
+          ? null
+          : () {
+              if (!mounted) return;
+              setState(
+                () => applyHistorySnapshot(
+                  jsonDecode(beforeRaw) as Map<String, dynamic>,
+                ),
+              );
+            },
+    );
+  }
+
   /// 탭 몸통: 위에 결과 요약 줄(고정), 아래 입력·결과 목록.
   /// 요약 줄이 있으면(=계산이 됨) "최근 계산 기록"에도 쌓는다.
   Widget elecPage(
@@ -76,9 +124,7 @@ mixin ElecTabParts<W extends StatefulWidget>
     String? summary,
     bool warn = false,
   }) {
-    if (summary != null) {
-      logCalc(kElecTabLabels[sumKey] ?? sumKey, summary);
-    }
+    if (summary != null) logElecHistory(sumKey, summary);
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       behavior: HitTestBehavior.translucent,

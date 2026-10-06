@@ -373,7 +373,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull, reason: '처음 화면');
       await type(tester, 'eg_row_kw_0', '1250.5');
-      await type(tester, 'eg_row_eff_0', '85');
+      await type(tester, 'eg_row_eff_0', '0.85');
       await type(tester, 'eg_row_pf_0', '80');
       await tester.ensureVisible(find.byKey(const Key('eg_add')));
       await tester.tap(find.byKey(const Key('eg_add')));
@@ -407,6 +407,19 @@ void main() {
       );
       // 30 × 1.45 × 6 = 261
       expect(find.textContaining('261 kVA'), findsWidgets);
+    });
+
+    testWidgets('부하 줄 효율·역률에 1 이하를 넣으면 계산에 쓰는 %를 칸 안에 보인다', (tester) async {
+      await pumpTab(tester);
+      await type(tester, 'eg_row_eff_0', '0.85');
+      await type(tester, 'eg_row_pf_0', '1');
+      String? sfx(String key) =>
+          tester.widget<TextField>(find.byKey(Key(key))).decoration!.suffixText;
+      expect(sfx('eg_row_eff_0'), '= 85%');
+      expect(sfx('eg_row_pf_0'), '= 100%');
+      await type(tester, 'eg_row_eff_0', '85');
+      expect(sfx('eg_row_eff_0'), isNull);
+      expect(sfx('eg_row_kw_0'), isNull);
     });
 
     testWidgets('PG 방식으로 바꾸면 옛 칸이 나오고, 방식은 다시 열어도 남는다', (tester) async {

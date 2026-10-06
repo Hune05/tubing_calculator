@@ -123,45 +123,55 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       final raw = p.getString(CableTrayRoutePage.draftKey);
       if (raw != null && mounted) {
         final m = jsonDecode(raw) as Map<String, dynamic>;
-        setState(() {
-          final k = TrayRouteKind.values.where((x) => x.name == m['k']);
-          if (k.isNotEmpty) _kind = k.first;
-          final rail = m['rail'],
-              w = m['w'],
-              a = m['a'],
-              n = m['n'],
-              st = m['st'];
-          if (rail is num && kTrayRailHeights.contains(rail.toDouble())) {
-            _rail = rail.toDouble();
-          }
-          if (w is num && kTrayWidths.contains(w.toDouble())) {
-            _width = w.toDouble();
-          }
-          if (m['ol'] is bool) _obsLeft = m['ol'] as bool;
-          if (a is num && kTrayRouteAngles.contains(a.toDouble())) {
-            _angle = a.toDouble();
-          }
-          if (n is int && n >= 1 && n <= 3) _pieces = n;
-          if (m['mk'] is bool) _elbowMode = m['mk'] as bool;
-          final er = m['er'];
-          if (er is num && kTrayElbowRadii.contains(er.toDouble())) {
-            _elbowR = er.toDouble();
-          }
-          if (st is num && kTrayStockLengths.contains(st.toDouble())) {
-            _stock = st.toDouble();
-          }
-          for (var i = 0; i < _fields.length; i++) {
-            final v = m[_fieldKeys[i]];
-            if (v is String) _fields[i].text = v;
-          }
-          // 처음 판(기본 100)으로 저장된 값은 대양 표에 맞는 125로
-          if (m['etv'] == null && _tangent.text.trim() == '100') {
-            _tangent.text = '125';
-          }
-        });
+        setState(() => _applyMap(m));
       }
     } catch (_) {}
     _draftReady = true;
+  }
+
+  // "최근 계산 기록"을 눌러 되돌릴 때 저장 칸과 같은 모양을 쓴다.
+  @override
+  Map<String, Object?>? historySnapshot() =>
+      jsonDecode(_draft()) as Map<String, dynamic>;
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) => _applyMap(m);
+
+  void _applyMap(Map<String, dynamic> m) {
+    final k = TrayRouteKind.values.where((x) => x.name == m['k']);
+    if (k.isNotEmpty) _kind = k.first;
+    final rail = m['rail'],
+        w = m['w'],
+        a = m['a'],
+        n = m['n'],
+        st = m['st'];
+    if (rail is num && kTrayRailHeights.contains(rail.toDouble())) {
+      _rail = rail.toDouble();
+    }
+    if (w is num && kTrayWidths.contains(w.toDouble())) {
+      _width = w.toDouble();
+    }
+    if (m['ol'] is bool) _obsLeft = m['ol'] as bool;
+    if (a is num && kTrayRouteAngles.contains(a.toDouble())) {
+      _angle = a.toDouble();
+    }
+    if (n is int && n >= 1 && n <= 3) _pieces = n;
+    if (m['mk'] is bool) _elbowMode = m['mk'] as bool;
+    final er = m['er'];
+    if (er is num && kTrayElbowRadii.contains(er.toDouble())) {
+      _elbowR = er.toDouble();
+    }
+    if (st is num && kTrayStockLengths.contains(st.toDouble())) {
+      _stock = st.toDouble();
+    }
+    for (var i = 0; i < _fields.length; i++) {
+      final v = m[_fieldKeys[i]];
+      if (v is String) _fields[i].text = v;
+    }
+    // 처음 판(기본 100)으로 저장된 값은 대양 표에 맞는 125로
+    if (m['etv'] == null && _tangent.text.trim() == '100') {
+      _tangent.text = '125';
+    }
   }
 
   void _saveSoon() {

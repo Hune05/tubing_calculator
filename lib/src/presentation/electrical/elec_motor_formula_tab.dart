@@ -111,6 +111,74 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
     super.dispose();
   }
 
+  /// "최근 계산 기록"으로 되돌릴 글 칸과 그 이름.
+  List<(TextEditingController, String)> get _texts => [
+    (_hz, 'hz'),
+    (_poles, 'poles'),
+    (_rpm, 'rpm'),
+    (_slipPct, 'slip'),
+    (_amps, 'amps'),
+    (_kw, 'kw'),
+    (_volts, 'volts'),
+    (_eff, 'eff'),
+    (_pf, 'pf'),
+    (_tkw, 'tkw'),
+    (_trpm, 'trpm'),
+    (_tnm, 'tnm'),
+    (_xkw, 'xkw'),
+    (_xrpm, 'xrpm'),
+    (_xmult, 'xmult'),
+    (_xvolt, 'xvolt'),
+    (_rated, 'rated'),
+    (_mult, 'mult'),
+    (_tap, 'tap'),
+    (_meas, 'meas'),
+    (_lrated, 'lrated'),
+    (_lpf, 'lpf'),
+    (_leff, 'leff'),
+  ];
+
+  /// 일곱 묶음의 입력을 모두 담는다(지금 안 보이는 묶음의 칸까지).
+  @override
+  Map<String, Object?> historySnapshot() => {
+    for (final (c, k) in _texts) k: c.text,
+    'sec': _sec.name,
+    'solve': _solve.name,
+    'pIn': _pIsInput,
+    'three': _three,
+    't2p': _torqueToPower,
+    'xIec': _xIec,
+    'xPoles': _xPoles,
+    'kind': _kind.name,
+    'flcNec': _flcNec,
+    'necHp': _necHp,
+    'ie3Kw': _ie3Kw,
+  };
+
+  /// 빠졌거나 모양이 다른 값, 표에 없는 출력은 지금 값을 그대로 둔다.
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+    _sec = _Sec.values.asNameMap()[m['sec']] ?? _sec;
+    _solve = _Solve.values.asNameMap()[m['solve']] ?? _solve;
+    if (m['pIn'] is bool) _pIsInput = m['pIn'] as bool;
+    if (m['three'] is bool) _three = m['three'] as bool;
+    if (m['t2p'] is bool) _torqueToPower = m['t2p'] as bool;
+    if (m['xIec'] is bool) _xIec = m['xIec'] as bool;
+    final xp = m['xPoles'];
+    if (xp is num && const [2, 4, 6, 8].contains(xp.toInt()) && xp == xp.toInt()) {
+      _xPoles = xp.toInt();
+    }
+    _kind = StartKind.values.asNameMap()[m['kind']] ?? _kind;
+    if (m['flcNec'] is bool) _flcNec = m['flcNec'] as bool;
+    final hp = m['necHp'];
+    if (hp is num) _necHp = necRow(hp.toDouble())?.hpValue ?? _necHp;
+    final kw = m['ie3Kw'];
+    if (kw is num) _ie3Kw = ie3Row(kw.toDouble())?.kw ?? _ie3Kw;
+  }
+
   /// 0~1 값. 1을 넘으면 %로 보고 100으로 나눈다(85 → 0.85).
   double? _ratio(TextEditingController c) {
     final v = readNum(c);

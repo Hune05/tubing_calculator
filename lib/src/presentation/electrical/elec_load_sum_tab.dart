@@ -167,6 +167,13 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     });
   }
 
+  // "최근 계산 기록"을 눌러 되돌릴 때 저장 칸과 같은 모양을 쓴다.
+  @override
+  Map<String, Object?>? historySnapshot() => _input().toJson();
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) => _apply(LoadSumInput.fromJson(m));
+
   // ─────────────── 자동 저장(입력값 남기기) ───────────────
 
   Future<void> _loadDraft() async {

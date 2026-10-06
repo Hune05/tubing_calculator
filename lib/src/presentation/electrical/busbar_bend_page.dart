@@ -155,6 +155,14 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   }
 
   /// 저장된 값을 화면 상태에 넣는다. setState 안에서 부른다.
+  // "최근 계산 기록"을 눌러 되돌릴 때 저장 칸과 같은 모양을 쓴다.
+  @override
+  Map<String, Object?>? historySnapshot() =>
+      jsonDecode(_draft()) as Map<String, dynamic>;
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) => _applyMap(m);
+
   void _applyMap(Map<String, dynamic> m) {
     {
       {

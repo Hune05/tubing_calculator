@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/app_components.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
@@ -266,6 +267,28 @@ const List<int> kElecGeneralTabs = [0, 1, 3, 4, 5, 11, 2, 8, 6, 7, 10];
 /// 전동기 점검(절연·권선 저항·불평형)·발전기 용량.
 const List<int> kElecMotorTabs = [14, 15, 16, 17, 12, 13, 9];
 
+/// 요약 줄 키 → 탭 안정 번호. "최근 계산 기록"을 눌러 되돌릴 때 그 탭으로 넘어가는 데 쓴다.
+const Map<String, int> kElecSumTab = {
+  'ec_sum_basic': 0,
+  'ec_sum_load': 1,
+  'els_sum': 2,
+  'ec_sum_cable': 3,
+  'ec_sum_vd': 4,
+  'ec_sc_sum': 5,
+  'ec_sum_cd': 6,
+  'ec_sum_bus': 7,
+  'ec_sum_pf': 8,
+  'eg_sum': 9,
+  'eb_sum': 10,
+  'gr_sum': 11,
+  'emp_sum': 12,
+  'mc_sum': 13,
+  'mf_sum': 14,
+  'ms_sum': 15,
+  'mc2_sum': 16,
+  'mm_sum': 17,
+};
+
 /// 번호가 속한 묶음. 12·13·9(전동기·발전기)면 전기기기, 나머지는 일반.
 ElecGroup elecGroupOf(int id) =>
     kElecMotorTabs.contains(id) ? ElecGroup.motor : ElecGroup.general;
@@ -509,6 +532,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   @override
   void initState() {
     super.initState();
+    // 기록을 눌러 되돌릴 때 그 기록의 탭으로 넘어간다(이 화면에 없는 탭이면 그대로).
+    calcLog.openTab = (key) {
+      final id = kElecSumTab[key];
+      if (id == null || !_order.contains(id)) return;
+      _tabs.animateTo(_pos(id));
+    };
     _loadDraft();
   }
 
@@ -655,6 +684,26 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     for (final (c, k) in _texts) {
       t(c, k);
     }
+  }
+
+  /// "최근 계산 기록" 하나를 눌렀을 때: 그 탭으로 넘어가 그때 입력값을 넣고 "원래대로"를 띄운다.
+  /// 이 화면의 탭들(기초 계산·부하 전류·전선 굵기·전압강하·전선관·부스바·역률)은 전압·상 같은 값을
+  /// 같이 쓰므로 그 탭들의 입력이 함께 그때 값으로 돌아간다.
+  void _restoreHistory(String sumKey, String raw) {
+    if (!mounted) return;
+    final before = jsonEncode(_draft());
+    calcLog.openTab?.call(sumKey);
+    setState(() => _applyDraft(jsonDecode(raw) as Map<String, dynamic>));
+    showAppSnack(
+      context,
+      '그때 입력값으로 되돌렸습니다',
+      kind: AppSnackKind.undo,
+      undoLabel: '원래대로',
+      onUndo: () {
+        if (!mounted) return;
+        setState(() => _applyDraft(jsonDecode(before) as Map<String, dynamic>));
+      },
+    );
   }
 
   /// 값이 바뀌었으면 잠시 뒤 저장한다(build 끝에서 부른다).
@@ -968,8 +1017,17 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     bool warn = false,
     DiagCase? diagnosis,
   }) {
-    if (summary != null) {
-      logCalc(kElecTabLabels[sumKey] ?? sumKey, summary);
+    // 이 화면은 그릴 때마다 모든 탭 몸통을 한꺼번에 만든다. 모든 탭이 기록을 부르면 마지막 탭(부스바)이
+    // 앞 탭의 기록을 밀어내므로(기록은 0.7초 기다렸다 마지막 것만 쌓음) 지금 보이는 탭만 기록한다.
+    final shown = !_tabs.indexIsChanging && kElecSumTab[sumKey] == _order[_tabs.index];
+    if (summary != null && shown) {
+      // 이 화면 탭들의 입력은 저장 칸 하나(_draft)로 묶여 있어 그 모양을 그대로 기록에 남긴다.
+      final raw = jsonEncode(_draft());
+      logCalc(
+        kElecTabLabels[sumKey] ?? sumKey,
+        summary,
+        onTap: () => _restoreHistory(sumKey, raw),
+      );
     }
     final showDiag = warn && diagnosis != null;
     return GestureDetector(

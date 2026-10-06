@@ -73,9 +73,27 @@ class _LightingTabState extends State<_LightingTab>
   final _u = TextEditingController();
   final _m = TextEditingController();
 
+  /// 칸과 "최근 계산 기록" 입력 묶음의 키.
+  List<(TextEditingController, String)> get _texts => [
+    (_lux, 'lux'), (_x, 'x'), (_y, 'y'), (_h, 'h'),
+    (_lm, 'lm'), (_w, 'w'), (_u, 'u'), (_m, 'm'),
+  ];
+
+  @override
+  Map<String, Object?>? historySnapshot() => {
+    for (final (c, k) in _texts) k: c.text,
+  };
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+  }
+
   @override
   void dispose() {
-    for (final c in [_lux, _x, _y, _h, _lm, _w, _u, _m]) {
+    for (final (c, _) in _texts) {
       c.dispose();
     }
     super.dispose();
@@ -227,6 +245,42 @@ class _BalanceTabState extends State<_BalanceTab>
   int _nextId = 0;
   late final List<_CircuitRow> _rows = [_CircuitRow(_nextId++)];
   final _volts = TextEditingController(text: '220');
+
+  @override
+  Map<String, Object?>? historySnapshot() => {
+    'v': _volts.text,
+    'rows': [
+      for (final r in _rows)
+        {'n': r.name.text, 'va': r.va.text, 'ph': r.phase.name, '3': r.three},
+    ],
+  };
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    if (m['v'] is String) _volts.text = m['v'] as String;
+    final list = m['rows'];
+    if (list is! List) return;
+    final rows = <_CircuitRow>[];
+    for (final e in list) {
+      if (e is! Map || rows.length >= _maxRows) continue;
+      final r = _CircuitRow(_nextId++);
+      if (e['n'] is String) r.name.text = e['n'] as String;
+      if (e['va'] is String) r.va.text = e['va'] as String;
+      r.phase = PanelPhase.values.firstWhere((p) => p.name == e['ph'], orElse: () => r.phase);
+      if (e['3'] is bool) r.three = e['3'] as bool;
+      rows.add(r);
+    }
+    if (rows.isEmpty) return;
+    final old = List.of(_rows);
+    _rows
+      ..clear()
+      ..addAll(rows);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final r in old) {
+        r.dispose();
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -464,6 +518,55 @@ class _FeederTabState extends State<_FeederTab>
   bool _lighting = true;
 
   @override
+  Map<String, Object?>? historySnapshot() => {
+    'phase': _phase.name,
+    'v': _volts.text,
+    'pf': _pf.text,
+    'size': _size,
+    'xlpe': _xlpe,
+    'light': _lighting,
+    'rows': [
+      for (final r in _rows) {'l': r.len.text, 'a': r.amps.text},
+    ],
+  };
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    _phase = Phase.values.firstWhere((p) => p.name == m['phase'], orElse: () => _phase);
+    if (m['v'] is String) _volts.text = m['v'] as String;
+    if (m['pf'] is String) _pf.text = m['pf'] as String;
+    // 굵기는 고르는 목록에 있는 값만 받는다(목록에 없으면 고르기 칸이 깨진다).
+    final size = m['size'];
+    if (size is num) {
+      for (final s in _kSizes) {
+        if ((s - size).abs() < 1e-9) _size = s;
+      }
+    }
+    if (m['xlpe'] is bool) _xlpe = m['xlpe'] as bool;
+    if (m['light'] is bool) _lighting = m['light'] as bool;
+    final list = m['rows'];
+    if (list is! List) return;
+    final rows = <_SegRow>[];
+    for (final e in list) {
+      if (e is! Map || rows.length >= _maxRows) continue;
+      final r = _SegRow(_nextId++);
+      if (e['l'] is String) r.len.text = e['l'] as String;
+      if (e['a'] is String) r.amps.text = e['a'] as String;
+      rows.add(r);
+    }
+    if (rows.isEmpty) return;
+    final old = List.of(_rows);
+    _rows
+      ..clear()
+      ..addAll(rows);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final r in old) {
+        r.dispose();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     for (final r in _rows) {
       r.dispose();
@@ -676,9 +779,27 @@ class _BranchTabState extends State<_BranchTab>
   final _amps = TextEditingController(text: '20');
   final _util = TextEditingController(text: '100');
 
+  /// 칸과 "최근 계산 기록" 입력 묶음의 키. 용도 칩은 표준부하 칸 값에서 정해지므로 따로 두지 않는다.
+  List<(TextEditingController, String)> get _texts => [
+    (_area, 'area'), (_density, 'dens'), (_extra, 'extra'),
+    (_volts, 'v'), (_amps, 'a'), (_util, 'util'),
+  ];
+
+  @override
+  Map<String, Object?>? historySnapshot() => {
+    for (final (c, k) in _texts) k: c.text,
+  };
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+  }
+
   @override
   void dispose() {
-    for (final c in [_area, _density, _extra, _volts, _amps, _util]) {
+    for (final (c, _) in _texts) {
       c.dispose();
     }
     super.dispose();

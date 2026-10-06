@@ -103,11 +103,41 @@ class _ElecMotorMiscTabState extends State<ElecMotorMiscTab>
   final _dra = TextEditingController();
   final _drpm = TextEditingController();
 
-  List<TextEditingController> get _all => [
-    _r1, _t1, _r2, _t2, _irise, _iamb, _ekw, _elf, _ehours, _eold, _enew, _eprice, _eextra,
-    _gin, _gkw, _gratio, _gd1, _gd2, _geff, _lm, _lv, _lmu, _lang, _leff,
-    _sia, _smult, _sv, _sload, _bj, _brpm1, _brpm2, _bsec, _bvdc, _dv, _dia, _dra, _drpm,
+  /// 칸과 "최근 계산 기록" 입력 묶음의 키.
+  List<(TextEditingController, String)> get _texts => [
+    (_r1, 'r1'), (_t1, 't1'), (_r2, 'r2'), (_t2, 't2'),
+    (_irise, 'irise'), (_iamb, 'iamb'),
+    (_ekw, 'ekw'), (_elf, 'elf'), (_ehours, 'ehours'), (_eold, 'eold'),
+    (_enew, 'enew'), (_eprice, 'eprice'), (_eextra, 'eextra'),
+    (_gin, 'gin'), (_gkw, 'gkw'), (_gratio, 'gratio'), (_gd1, 'gd1'), (_gd2, 'gd2'), (_geff, 'geff'),
+    (_lm, 'lm'), (_lv, 'lv'), (_lmu, 'lmu'), (_lang, 'lang'), (_leff, 'leff'),
+    (_sia, 'sia'), (_smult, 'smult'), (_sv, 'sv'), (_sload, 'sload'),
+    (_bj, 'bj'), (_brpm1, 'brpm1'), (_brpm2, 'brpm2'), (_bsec, 'bsec'), (_bvdc, 'bvdc'),
+    (_dv, 'dv'), (_dia, 'dia'), (_dra, 'dra'), (_drpm, 'drpm'),
   ];
+
+  List<TextEditingController> get _all => [for (final (c, _) in _texts) c];
+
+  @override
+  Map<String, Object?>? historySnapshot() => {
+    'sec': _sec.name,
+    for (final (c, k) in _texts) k: c.text,
+    'al': _al,
+    'cls': _cls,
+    'conv': _conv,
+  };
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+    _sec = _Sec.values.firstWhere((s) => s.name == m['sec'], orElse: () => _sec);
+    if (m['al'] is bool) _al = m['al'] as bool;
+    final cls = m['cls'];
+    if (cls is String && insulationByName(cls) != null) _cls = cls;
+    if (m['conv'] is bool) _conv = m['conv'] as bool;
+  }
 
   @override
   void dispose() {

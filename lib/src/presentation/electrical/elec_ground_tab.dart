@@ -127,6 +127,74 @@ class _ElecGroundTabState extends State<ElecGroundTab>
     super.dispose();
   }
 
+  /// "최근 계산 기록"으로 되돌릴 글 칸과 그 이름.
+  List<(TextEditingController, String)> get _texts => [
+    (_phase, 'phase'),
+    (_fault, 'fault'),
+    (_sec, 'sec'),
+    (_i1, 'i1'),
+    (_idn, 'idn'),
+    (_rho, 'rho'),
+    (_len, 'len'),
+    (_dia, 'dia'),
+    (_n, 'n'),
+    (_space, 'space'),
+    (_target, 'target'),
+    (_pe, 'pe'),
+    (_u0, 'u0'),
+    (_inRating, 'in'),
+    (_zs, 'zs'),
+    (_ze, 'ze'),
+    (_cableLen, 'cableLen'),
+    (_sPh, 'sPh'),
+    (_sPe, 'sPe'),
+    (_megger, 'megger'),
+    (_vmax, 'vmax'),
+    (_machineV, 'machineV'),
+  ];
+
+  /// 여덟 계산 항목의 입력을 모두 담는다(지금 안 보이는 항목의 칸까지).
+  @override
+  Map<String, Object?> historySnapshot() => {
+    for (final (c, k) in _texts) k: c.text,
+    'mode': _mode.name,
+    'mat': _mat.name,
+    'ins': _ins.name,
+    'sep': _separate,
+    'gMat': _gMat,
+    'hv': _hv,
+    'trip': _trip,
+    'dev': _dev.name,
+    'branch': _branch,
+    'insKind': _insKind,
+    'lv': _lv.name,
+    'hvKind': _hvKind.name,
+  };
+
+  /// 빠졌거나 모양이 다른 값은 지금 값을 그대로 둔다.
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+    _mode = _GMode.values.asNameMap()[m['mode']] ?? _mode;
+    _mat = GroundMaterial.values.asNameMap()[m['mat']] ?? _mat;
+    _ins = GroundInsulation.values.asNameMap()[m['ins']] ?? _ins;
+    if (m['sep'] is bool) _separate = m['sep'] as bool;
+    if (const ['cu', 'fe', 'al'].contains(m['gMat'])) _gMat = m['gMat'] as String;
+    if (m['hv'] is bool) _hv = m['hv'] as bool;
+    if (const ['normal', 'within2s', 'within1s'].contains(m['trip'])) {
+      _trip = m['trip'] as String;
+    }
+    _dev = ProtDevice.values.asNameMap()[m['dev']] ?? _dev;
+    if (m['branch'] is bool) _branch = m['branch'] as bool;
+    if (const ['lv', 'hv', 'machine'].contains(m['insKind'])) {
+      _insKind = m['insKind'] as String;
+    }
+    _lv = LvCircuit.values.asNameMap()[m['lv']] ?? _lv;
+    _hvKind = HvCircuit.values.asNameMap()[m['hvKind']] ?? _hvKind;
+  }
+
   void _set(VoidCallback f) => setState(f);
 
   double? _v(TextEditingController c) => readNum(c);

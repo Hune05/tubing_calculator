@@ -62,10 +62,52 @@ class _ElecMotorCapacitorTabState extends State<ElecMotorCapacitorTab>
   final _phz = TextEditingController(text: '60');
   final _have = TextEditingController();
 
-  List<TextEditingController> get _all => [
-    _volts, _i0, _inA, _inPf, _setting, _pf1, _pf2, _tkw,
-    _skw, _svolts, _shz, _pkw, _pvolts, _phz, _have,
+  /// 칸과 "최근 계산 기록" 입력 묶음의 키.
+  List<(TextEditingController, String)> get _texts => [
+    (_volts, 'volts'),
+    (_i0, 'i0'),
+    (_inA, 'inA'),
+    (_inPf, 'inPf'),
+    (_setting, 'set'),
+    (_pf1, 'pf1'),
+    (_pf2, 'pf2'),
+    (_tkw, 'tkw'),
+    (_skw, 'skw'),
+    (_svolts, 'svolts'),
+    (_shz, 'shz'),
+    (_pkw, 'pkw'),
+    (_pvolts, 'pvolts'),
+    (_phz, 'phz'),
+    (_have, 'have'),
   ];
+
+  List<TextEditingController> get _all => [for (final (c, _) in _texts) c];
+
+  @override
+  Map<String, Object?>? historySnapshot() => {
+    'sec': _sec.name,
+    for (final (c, k) in _texts) k: c.text,
+    'estI0': _estI0,
+    'rpm': _rpm,
+  };
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+    _sec = _Sec.values.firstWhere((s) => s.name == m['sec'], orElse: () => _sec);
+    if (m['estI0'] is bool) _estI0 = m['estI0'] as bool;
+    // 회전수는 고르지 않은 상태(null)도 값이다. 키가 없거나 표에 없는 값이면 그대로 둔다.
+    if (m.containsKey('rpm')) {
+      final r = m['rpm'];
+      if (r == null) {
+        _rpm = null;
+      } else if (r is num && const [3000, 1500, 1000, 750].contains(r.toInt())) {
+        _rpm = r.toInt();
+      }
+    }
+  }
 
   @override
   void dispose() {

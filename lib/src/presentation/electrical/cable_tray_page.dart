@@ -180,35 +180,48 @@ class _CableTrayPageState extends State<CableTrayPage>
       final raw = p.getString(CableTrayPage.draftKey);
       if (raw != null && mounted) {
         final m = jsonDecode(raw) as Map<String, dynamic>;
-        final t = TrayType.values.where((x) => x.name == m['t']);
-        final st = TrayStandard.values.where((x) => x.name == m['std']);
-        final rows = [for (final r in (m['rows'] as List? ?? const [])) ?_TrayRow.fromJson(r)];
-        setState(() {
-          if (t.isNotEmpty) _type = t.first;
-          if (st.isNotEmpty) _std = st.first;
-          if (m['w'] is num && kTrayWidths.contains((m['w'] as num).toDouble())) _width = (m['w'] as num).toDouble();
-          if (m['d'] is num && kTrayDepths.contains((m['d'] as num).toDouble())) _depth = (m['d'] as num).toDouble();
-          if (m['m'] is int) _marginPct = m['m'] as int;
-          if (m['sp'] is num && kTraySpans.contains((m['sp'] as num).toDouble())) _span = (m['sp'] as num).toDouble();
-          if (m['tk'] is String) _trayKg.text = m['tk'] as String;
-          final mt = TrayMount.values.where((x) => x.name == m['mt']);
-          if (mt.isNotEmpty) _mount = mt.first;
-          final br = BendRule.values.where((x) => x.name == m['br']);
-          if (br.isNotEmpty) _bendRule = br.first;
-          if (m['el'] is num && kTrayElbowRadii.contains((m['el'] as num).toDouble())) _elbow = (m['el'] as num).toDouble();
-          if (m['al'] is String) _allow.text = m['al'] as String;
-          if (rows.isNotEmpty) {
-            for (final r in _rows) {
-              r.dispose();
-            }
-            _rows
-              ..clear()
-              ..addAll(rows.take(_maxRows));
-          }
-        });
+        setState(() => _applyMap(m));
       }
     } catch (_) {}
     _draftReady = true;
+  }
+
+  // "최근 계산 기록"을 눌러 되돌릴 때 저장 칸과 같은 모양을 쓴다.
+  @override
+  Map<String, Object?>? historySnapshot() => jsonDecode(_draft()) as Map<String, dynamic>;
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) => _applyMap(m);
+
+  void _applyMap(Map<String, dynamic> m) {
+    final t = TrayType.values.where((x) => x.name == m['t']);
+    final st = TrayStandard.values.where((x) => x.name == m['std']);
+    final rows = [for (final r in (m['rows'] as List? ?? const [])) ?_TrayRow.fromJson(r)];
+    if (t.isNotEmpty) _type = t.first;
+    if (st.isNotEmpty) _std = st.first;
+    if (m['w'] is num && kTrayWidths.contains((m['w'] as num).toDouble())) _width = (m['w'] as num).toDouble();
+    if (m['d'] is num && kTrayDepths.contains((m['d'] as num).toDouble())) _depth = (m['d'] as num).toDouble();
+    if (m['m'] is int) _marginPct = m['m'] as int;
+    if (m['sp'] is num && kTraySpans.contains((m['sp'] as num).toDouble())) _span = (m['sp'] as num).toDouble();
+    if (m['tk'] is String) _trayKg.text = m['tk'] as String;
+    final mt = TrayMount.values.where((x) => x.name == m['mt']);
+    if (mt.isNotEmpty) _mount = mt.first;
+    final br = BendRule.values.where((x) => x.name == m['br']);
+    if (br.isNotEmpty) _bendRule = br.first;
+    if (m['el'] is num && kTrayElbowRadii.contains((m['el'] as num).toDouble())) _elbow = (m['el'] as num).toDouble();
+    if (m['al'] is String) _allow.text = m['al'] as String;
+    if (rows.isNotEmpty) {
+      // 화면이 아직 옛 칸을 쓰고 있으므로 다음 그림 뒤에 버린다.
+      final old = List.of(_rows);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        for (final r in old) {
+          r.dispose();
+        }
+      });
+      _rows
+        ..clear()
+        ..addAll(rows.take(_maxRows));
+    }
   }
 
   void _saveSoon() {

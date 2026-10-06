@@ -24,6 +24,10 @@ class RecentCalcEntry {
 /// 이 객체 하나를 만들어 각 탭 State에 나눠 주면 기록을 한 목록으로 합칠 수 있다.
 class RecentCalcLog {
   final List<RecentCalcEntry> entries = [];
+
+  /// 기록을 눌러 그때 입력값으로 되돌릴 때 그 기록의 탭을 앞으로 띄우는 일.
+  /// 탭이 여러 개인 화면(전기 설비 계산)이 정해 준다. 탭 이름 키(요약 줄 키)를 받는다.
+  void Function(String tabKey)? openTab;
   Timer? _debounce;
   String? _lastKey;
   VoidCallback? _onChange;
@@ -101,6 +105,9 @@ void showCalcHistorySheet(
   List<RecentCalcEntry> entries, {
   String title = '최근 계산 기록',
 }) {
+  // 칸에 초점이 남아 있으면 창을 닫을 때 그 칸으로 돌아가 키보드가 다시 올라와
+  // 되돌린 값과 "원래대로" 알림을 가린다. 창을 열기 전에 키보드를 닫는다.
+  FocusManager.instance.primaryFocus?.unfocus();
   showModalBottomSheet(
     context: context,
     backgroundColor: fc.surface,

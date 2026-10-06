@@ -71,10 +71,34 @@ class _ElecMotorSelectTabState extends State<ElecMotorSelectTab>
   final _jl = TextEditingController();
   final _lrpm = TextEditingController();
 
-  List<TextEditingController> get _all => [
-    _flow, _head, _density, _eff, _margin, _drive, _n1, _n2, _q1, _h1, _p1,
-    _mkw, _mrpm, _avgMotorPct, _avgLoadPct, _jm, _jl, _lrpm,
+  /// 칸과 "최근 계산 기록" 입력 묶음의 키.
+  List<(TextEditingController, String)> get _texts => [
+    (_flow, 'flow'), (_head, 'head'), (_density, 'rho'), (_eff, 'eff'),
+    (_margin, 'margin'), (_drive, 'drive'),
+    (_n1, 'n1'), (_n2, 'n2'), (_q1, 'q1'), (_h1, 'h1'), (_p1, 'p1'),
+    (_mkw, 'mkw'), (_mrpm, 'mrpm'), (_avgMotorPct, 'avgm'), (_avgLoadPct, 'avgl'),
+    (_jm, 'jm'), (_jl, 'jl'), (_lrpm, 'lrpm'),
   ];
+
+  List<TextEditingController> get _all => [for (final (c, _) in _texts) c];
+
+  @override
+  Map<String, Object?>? historySnapshot() => {
+    'sec': _sec.name,
+    for (final (c, k) in _texts) k: c.text,
+    'fan': _fan,
+    'gd2': _gd2,
+  };
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+    _sec = _Sec.values.firstWhere((s) => s.name == m['sec'], orElse: () => _sec);
+    if (m['fan'] is bool) _fan = m['fan'] as bool;
+    if (m['gd2'] is bool) _gd2 = m['gd2'] as bool;
+  }
 
   @override
   void dispose() {
@@ -129,7 +153,7 @@ class _ElecMotorSelectTabState extends State<ElecMotorSelectTab>
           '④ 카탈로그 정격으로 올림: ${fmt(up, 2)} kW (HD현대일렉트릭 IE3 4극 정격 목록 기준, 제조사 표준품으로 확인하십시오)'
         else
           '④ 소요 출력이 ${fmt(_kRatings.last, 0)} kW를 넘어 목록에서 정하지 않았습니다. 제조사 표준품을 확인하십시오.',
-        if (!_fan) '한국 간이식은 P[kW] = 0.163 × Q[m³/min] × H[m] × 비중 ÷ η입니다. 위 식과 같은 값입니다(0.163 = 9.807 ÷ 60).',
+        if (!_fan) '한국 간이식은 P[kW] = 0.163 × Q[m³/min] × H[m] × 비중 ÷ η. 위 식과 같은 값입니다(0.163 = 9.807 ÷ 60).',
       ]);
       summary = '소요 출력 ${fmt(r.motorKw, 2)} kW${up == null ? '' : ' → ${fmt(up, 2)} kW'}';
     }

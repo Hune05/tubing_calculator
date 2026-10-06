@@ -198,6 +198,14 @@ class _GroundBarPageState extends State<GroundBarPage>
   }
 
   /// 저장된 값(입력칸·칩)을 화면 상태에 넣는다. setState 안에서 부른다.
+  // "최근 계산 기록"을 눌러 되돌릴 때 저장 칸과 같은 모양을 쓴다.
+  @override
+  Map<String, Object?>? historySnapshot() =>
+      jsonDecode(_draft()) as Map<String, dynamic>;
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) => _applyMap(m);
+
   void _applyMap(Map<String, dynamic> m) {
     {
       {
@@ -420,7 +428,7 @@ class _GroundBarPageState extends State<GroundBarPage>
       if (p.minEdgeTab != null)
         one('$_tabName 구멍', p.minEdgeTab!, p.reqEdgeTab),
     ];
-    return '구멍 가장자리 ~ 꺾기 시작선 거리: ${parts.join(' · ')}. 필요 거리 = 2T + R(구멍 지름 25.4 이상은 2.5T + R, 일반 판금 규칙).';
+    return '구멍 가장자리 ~ 꺾기 시작선 거리: ${parts.join(' · ')}. 필요 거리 = 2 × T + R(구멍 지름 25.4 이상은 2.5 × T + R, 일반 판금 규칙).';
   }
 
   /// 탭·챙 구멍 수 설명: 어느 쪽에 몇 개인지 풀어 쓴다.

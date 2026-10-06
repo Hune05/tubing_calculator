@@ -119,6 +119,13 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
     for (final (c, k) in _texts) k: c.text,
   };
 
+  // "최근 계산 기록"을 눌러 되돌릴 때 저장 칸과 같은 모양을 쓴다.
+  @override
+  Map<String, Object?>? historySnapshot() => _draft();
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) => _applyDraft(m);
+
   Future<void> _loadDraft() async {
     try {
       final prefs = await SharedPreferences.getInstance();

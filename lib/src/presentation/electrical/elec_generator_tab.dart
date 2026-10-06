@@ -184,21 +184,30 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     super.dispose();
   }
 
+  /// 저장 칸 모양 그대로의 입력 묶음. "최근 계산 기록"을 눌러 되돌릴 때도 같은 모양을 쓴다.
+  @override
+  Map<String, Object?> historySnapshot() => {
+    for (final (c, k) in _texts) k: c.text,
+    'gRows': [for (final r in _gRows) r.toJson()],
+    'gMotorRows': [for (final r in _mRows) r.toJson()],
+  };
+
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+    _readRows(m);
+    _readMotors(m);
+  }
+
   Future<void> _loadDraft() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(ElecGeneratorTab.draftKey);
       if (raw != null && mounted) {
         final m = jsonDecode(raw);
-        if (m is Map<String, dynamic>) {
-          setState(() {
-            for (final (c, k) in _texts) {
-              if (m[k] is String) c.text = m[k] as String;
-            }
-            _readRows(m);
-            _readMotors(m);
-          });
-        }
+        if (m is Map<String, dynamic>) setState(() => applyHistorySnapshot(m));
       }
       _lastDraft = raw;
     } catch (_) {
@@ -209,11 +218,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
 
   void _scheduleSave() {
     if (!_draftReady) return;
-    final raw = jsonEncode({
-      for (final (c, k) in _texts) k: c.text,
-      'gRows': [for (final r in _gRows) r.toJson()],
-      'gMotorRows': [for (final r in _mRows) r.toJson()],
-    });
+    final raw = jsonEncode(historySnapshot());
     if (raw == _lastDraft || raw == _pendingDraft) return;
     _pendingDraft = raw;
     _saveTimer?.cancel();
@@ -511,6 +516,13 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       // 칸이 좁아 비었을 때 이름이 잘리지 않게 이름표를 늘 위에 둔다.
       floatingLabelBehavior: FloatingLabelBehavior.always,
       labelStyle: TextStyle(fontSize: 13, color: fc.textSub),
+      // 효율·역률 칸에 1 이하를 넣으면 계산에 쓰는 %를 숫자 뒤에 붙인다(다른 % 칸과 같게, 1 → "= 100%").
+      suffixText: ratioSuffixText(label, c.text),
+      suffixStyle: TextStyle(
+        fontSize: 13,
+        fontWeight: FontWeight.w700,
+        color: fc.textSub,
+      ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),

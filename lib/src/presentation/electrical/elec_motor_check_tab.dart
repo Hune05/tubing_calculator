@@ -76,6 +76,45 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
     super.dispose();
   }
 
+  /// "최근 계산 기록"으로 되돌릴 글 칸과 그 이름.
+  List<(TextEditingController, String)> get _texts => [
+    (_volt, 'volt'),
+    (_ir1, 'ir1'),
+    (_ir10, 'ir10'),
+    (_irTemp, 'irTemp'),
+    (_r1, 'r1'),
+    (_r2, 'r2'),
+    (_r3, 'r3'),
+    (_rTemp, 'rTemp'),
+    (_rRef, 'rRef'),
+    (_rRefTemp, 'rRefTemp'),
+    (_v1, 'v1'),
+    (_v2, 'v2'),
+    (_v3, 'v3'),
+    (_a1, 'a1'),
+    (_a2, 'a2'),
+    (_a3, 'a3'),
+  ];
+
+  @override
+  Map<String, Object?> historySnapshot() => {
+    for (final (c, k) in _texts) k: c.text,
+    'kind': _kind.name,
+    'corr': _corr.name,
+    'classA': _classA,
+  };
+
+  /// 빠졌거나 모양이 다른 값은 지금 값을 그대로 둔다.
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in _texts) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+    _kind = WindingKind.values.asNameMap()[m['kind']] ?? _kind;
+    _corr = IrCorrection.values.asNameMap()[m['corr']] ?? _corr;
+    if (m['classA'] is bool) _classA = m['classA'] as bool;
+  }
+
   void _set(VoidCallback f) => setState(f);
 
   /// 세 값의 불평형을 식 → 대입 → 결과로 적는다.

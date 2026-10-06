@@ -46,6 +46,30 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
     super.dispose();
   }
 
+  /// "최근 계산 기록"으로 되돌릴 입력 묶음.
+  @override
+  Map<String, Object?> historySnapshot() => {
+    'fla': _fla.text,
+    'run': _run.text,
+    'start': _start.text,
+    'method': _method.name,
+    'place': _place.name,
+    'sf': _sf,
+    'cls': _cls,
+  };
+
+  /// 빠졌거나 모양이 다른 값은 지금 값을 그대로 둔다.
+  @override
+  void applyHistorySnapshot(Map<String, dynamic> m) {
+    for (final (c, k) in [(_fla, 'fla'), (_run, 'run'), (_start, 'start')]) {
+      if (m[k] is String) c.text = m[k] as String;
+    }
+    _method = StartMethod.values.asNameMap()[m['method']] ?? _method;
+    _place = RelayPlace.values.asNameMap()[m['place']] ?? _place;
+    if (m['sf'] is bool) _sf = m['sf'] as bool;
+    if (kTripClass72.containsKey(m['cls'])) _cls = m['cls'] as String;
+  }
+
   void _set(VoidCallback f) => setState(f);
 
   @override
