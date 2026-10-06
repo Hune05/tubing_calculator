@@ -50,6 +50,7 @@ import 'package:tubing_calculator/src/presentation/fabrication/fab_qr.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/app_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/equipment_usage_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
+import 'package:tubing_calculator/src/presentation/reference/search/knowledge_records.dart';
 import 'package:tubing_calculator/src/presentation/reference/search/knowledge_search_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/mobile_cutting_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/short_pipe_cutting_page.dart';
@@ -2034,7 +2035,9 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const KnowledgeSearchPage(),
+                              builder: (context) => const KnowledgeSearchPage(
+                                recordSearch: searchMyRecords,
+                              ),
                             ),
                           );
                         },

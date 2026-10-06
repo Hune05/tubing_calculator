@@ -1,5 +1,7 @@
 // 자료 검색(10-03): 장비 고장 조치·계기 알람 코드·루프 이상값·축 정렬 지침·현장 자료를 한 곳에서 찾는다.
 // 증상·코드·장비 이름 어느 것으로 찾아도 되고, 고르면 내용을 바로 보여 준다.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -17,6 +19,9 @@ String knowledgeShareText(KnowledgeEntry e) => [
   ...e.lines,
   if (e.sourceLabel.isNotEmpty) '(출처: 필드 헬퍼 ${e.sourceLabel})',
 ].join('\n');
+
+/// 내 기록(프로젝트·작업 일지·이슈) 찾기. 찾은 것을 검색 항목 모양으로 돌려준다(누르면 그 기록이 열림).
+typedef KnowledgeRecordSearch = Future<List<KnowledgeEntry>> Function(String query);
 
 /// 보내기 함수(시험에서 바꿔 끼운다).
 typedef KnowledgeShare = Future<void> Function(String text);
@@ -88,7 +93,11 @@ class KnowledgeSearchPage extends StatefulWidget {
     this.initialQuery = '',
     this.askAi = callAiAsk,
     this.share = _shareText,
+    this.recordSearch,
   });
+
+  /// 내 기록도 함께 찾을 때 준다(없으면 앱 자료만 찾는다).
+  final KnowledgeRecordSearch? recordSearch;
 
   /// 내용 창 "보내기"(시험에서 바꿔 끼운다).
   final KnowledgeShare share;
@@ -110,6 +119,9 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
   );
   String? _category;
   List<String> _recent = const [];
+  List<KnowledgeEntry> _records = const [];
+  String _recordsFor = '';
+  Timer? _recTimer;
 
   List<KnowledgeEntry> get _all => widget.entries ?? knowledgeBase();
 
@@ -117,10 +129,14 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
   void initState() {
     super.initState();
     _loadRecent();
+    // 칸 글이 어떻게 바뀌든(입력·칩·최근 검색어) 내 기록도 다시 찾는다.
+    _c.addListener(_scheduleRecordSearch);
+    _scheduleRecordSearch();
   }
 
   @override
   void dispose() {
+    _recTimer?.cancel();
     _c.dispose();
     super.dispose();
   }
@@ -227,6 +243,92 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
         ],
       ),
     );
+  }
+
+  /// 결과 한 줄(앱 자료와 내 기록이 같은 모양).
+  Widget _hitTile(KnowledgeHit hit, TextStyle hi) {
+    final e = hit.entry;
+    // 찾은 말이 든 줄을 먼저 보인다(없으면 첫 두 줄).
+    final snippet = matchingLine(e, hit.terms) ?? e.lines.take(2).join('\n');
+    return Material(
+      color: refWhite,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        key: Key('ks_hit_${e.id}'),
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          if (e.direct && e.open != null) {
+            // 계산기 바로가기·내 기록은 내용 창 없이 곧바로 연다.
+            _remember(_c.text);
+            FocusManager.instance.primaryFocus?.unfocus();
+            e.open!(context);
+          } else {
+            _showDetail(e, terms: hit.terms);
+          }
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                e.direct ? '${e.category} · 누르면 바로 열림' : e.category,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                  color: refTextSub,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text.rich(
+                TextSpan(children: highlightSpans(e.title, hit.terms, hi)),
+                style: TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w800,
+                  color: refTextMain,
+                  height: 1.3,
+                ),
+              ),
+              if (snippet.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text.rich(
+                  TextSpan(children: highlightSpans(snippet, hit.terms, hi)),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 14, color: refTextSub, height: 1.4),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 내 기록 찾기: 검색어가 바뀌고 잠깐(0.3초) 멈추면 한 번 찾는다(폰에 있는 사본에서).
+  void _scheduleRecordSearch() {
+    final fn = widget.recordSearch;
+    if (fn == null) return;
+    final q = _c.text.trim();
+    _recTimer?.cancel();
+    if (q.length < 2) {
+      if (_records.isNotEmpty) setState(() => _records = const []);
+      _recordsFor = '';
+      return;
+    }
+    _recTimer = Timer(const Duration(milliseconds: 300), () async {
+      List<KnowledgeEntry> found;
+      try {
+        found = await fn(q);
+      } catch (_) {
+        found = const [];
+      }
+      if (!mounted || _c.text.trim() != q) return;
+      setState(() {
+        _records = found;
+        _recordsFor = q;
+      });
+    });
   }
 
   void _showDetail(KnowledgeEntry e, {List<String> terms = const []}) {
@@ -380,6 +482,10 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
       }
     }
     final partial = hits.isNotEmpty && hits.first.partial;
+    // 내 기록: 지금 검색어로 찾은 것만(분류를 고르면 앱 자료만 본다).
+    final recs = typed && _category == null && _recordsFor == q.trim()
+        ? _records
+        : const <KnowledgeEntry>[];
     final hi = TextStyle(
       fontWeight: FontWeight.w900,
       color: refTextMain,
@@ -490,7 +596,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
           ),
         ],
       );
-    } else if (hits.isEmpty) {
+    } else if (hits.isEmpty && recs.isEmpty) {
       body = ListView(
         key: const Key('ks_empty'),
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
@@ -526,95 +632,58 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
         ],
       );
     } else {
-      body = ListView.separated(
+      final ai = q.trim().length >= 2;
+      // 내 기록은 검색 낱말을 그대로 칠한다(다른 말 넓히기는 앱 자료에만 쓴다).
+      final qTerms = [
+        for (final t in q.trim().split(RegExp(r'\s+')))
+          if (normalizeForSearch(t).length >= 2) normalizeForSearch(t),
+      ];
+      Widget gap(Widget w) =>
+          Padding(padding: const EdgeInsets.only(bottom: 8), child: w);
+      Widget head(String text, Key key) => Padding(
+        key: key,
+        padding: const EdgeInsets.fromLTRB(2, 4, 2, 6),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: refTextSub,
+          ),
+        ),
+      );
+      body = ListView(
         key: const Key('ks_list'),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        // 일부만 맞으면 앱 자료에 딱 맞는 답이 없을 가능성이 커서 AI 카드를 안내 바로 아래에 둔다.
-        itemCount: hits.length + (q.trim().length >= 2 ? 1 : 0) + (partial ? 1 : 0),
-        separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (_, idx) {
-          if (partial && idx == 0) {
-            return Container(
-              key: const Key('ks_partial'),
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF7E6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                '검색어를 모두 담은 자료가 없어, 일부 낱말만 맞는 자료를 보여 드립니다. 낱말을 줄이거나 바꿔 찾아 보십시오.',
-                style: TextStyle(fontSize: 13.5, color: refTextMain, height: 1.45),
-              ),
-            );
-          }
-          final ai = q.trim().length >= 2;
-          if (partial && ai && idx == 1) return _askAiCard(q, noHits: false);
-          final i = idx - (partial ? 1 : 0) - (partial && ai ? 1 : 0);
-          if (!partial && i == hits.length) return _askAiCard(q, noHits: false);
-          final hit = hits[i];
-          final e = hit.entry;
-          // 찾은 말이 든 줄을 먼저 보인다(없으면 첫 두 줄).
-          final snippet =
-              matchingLine(e, hit.terms) ?? e.lines.take(2).join('\n');
-          return Material(
-            color: refWhite,
-            borderRadius: BorderRadius.circular(14),
-            child: InkWell(
-              key: Key('ks_hit_${e.id}'),
-              borderRadius: BorderRadius.circular(14),
-              onTap: () {
-                if (e.direct && e.open != null) {
-                  // 계산기 바로가기는 내용 창 없이 곧바로 연다.
-                  _remember(_c.text);
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  e.open!(context);
-                } else {
-                  _showDetail(e, terms: hit.terms);
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      e.direct ? '${e.category} · 누르면 바로 열림' : e.category,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                        color: refTextSub,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text.rich(
-                      TextSpan(children: highlightSpans(e.title, hit.terms, hi)),
-                      style: TextStyle(
-                        fontSize: 16.5,
-                        fontWeight: FontWeight.w800,
-                        color: refTextMain,
-                        height: 1.3,
-                      ),
-                    ),
-                    if (snippet.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text.rich(
-                        TextSpan(children: highlightSpans(snippet, hit.terms, hi)),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: refTextSub,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ],
+        children: [
+          if (partial) ...[
+            gap(
+              Container(
+                key: const Key('ks_partial'),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7E6),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '검색어를 모두 담은 자료가 없어, 일부 낱말만 맞는 자료를 보여 드립니다. 낱말을 줄이거나 바꿔 찾아 보십시오.',
+                  style: TextStyle(fontSize: 13.5, color: refTextMain, height: 1.45),
                 ),
               ),
             ),
-          );
-        },
+            // 일부만 맞으면 앱 자료에 딱 맞는 답이 없을 가능성이 커서 AI 카드를 안내 바로 아래에 둔다.
+            if (ai) gap(_askAiCard(q, noHits: false)),
+          ],
+          if (recs.isNotEmpty) ...[
+            head('내 기록에서 찾음 (${recs.length}건)', const Key('ks_rec_head')),
+            for (final r in recs) gap(_hitTile(KnowledgeHit(r, 0, terms: qTerms), hi)),
+            if (hits.isNotEmpty)
+              head('앱 자료 (${hits.length}건)', const Key('ks_app_head')),
+          ],
+          for (final h in hits) gap(_hitTile(h, hi)),
+          if (!partial && ai) _askAiCard(q, noHits: false),
+        ],
       );
     }
 

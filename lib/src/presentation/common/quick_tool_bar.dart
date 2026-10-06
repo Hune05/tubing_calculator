@@ -32,6 +32,7 @@ import '../calculator/screens/mobile_remote_page.dart';
 import '../conduit/screens/main_navigation_page.dart';
 import '../my_work_logs/pages/layout_board_project_list_page.dart';
 import '../reference/page/equipment_usage_page.dart';
+import '../reference/search/knowledge_records.dart';
 import '../reference/search/knowledge_search_page.dart';
 import '../steel_cutting/screens/mobile_steel_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/mobile_cutting_project_list_page.dart';
@@ -155,7 +156,7 @@ final List<QuickToolDef> kQuickTools = [
     'kbsearch',
     '자료 검색',
     AppGlyph.searchDocs,
-    (_) => const KnowledgeSearchPage(),
+    (_) => const KnowledgeSearchPage(recordSearch: searchMyRecords),
     subtitle: '증상·코드·장비 이름으로 고장 조치·알람 코드·고장 진단·계산기 찾기',
     group: '참고 자료',
   ),
