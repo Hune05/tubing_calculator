@@ -1,12 +1,61 @@
 // 자료 검색(10-03): 장비 고장 조치·계기 알람 코드·루프 이상값·축 정렬 지침·현장 자료를 한 곳에서 찾는다.
 // 증상·코드·장비 이름 어느 것으로 찾아도 되고, 고르면 내용을 바로 보여 준다.
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/field_view.dart';
 import '../../../core/utils/ai_ask.dart';
 import '../page/reference_widgets.dart';
 import 'knowledge_base.dart';
 import 'knowledge_entry.dart';
+
+/// 최근 검색어 저장 칸(이 폰에만).
+const String kKnowledgeRecentKey = 'knowledge_recent_v1';
+
+/// 최근 검색어를 몇 개까지 남기는지.
+const int kKnowledgeRecentMax = 8;
+
+/// [text]에서 찾은 말([terms], 다듬은 모양)이 나온 자리를 굵게 칠한다.
+/// 띄어쓰기·대소문자가 달라도("ALM.07" ↔ alm07) 글자 사이 공백·기호를 건너뛰며 맞춘다.
+List<TextSpan> highlightSpans(String text, List<String> terms, TextStyle hi) {
+  if (terms.isEmpty || text.isEmpty) return [TextSpan(text: text)];
+  // 글자마다 다듬은 글자(없으면 건너뜀)와 원래 위치를 함께 둔다.
+  final norm = StringBuffer();
+  final pos = <int>[];
+  for (var i = 0; i < text.length; i++) {
+    final ch = normalizeForSearch(text[i]);
+    if (ch.isEmpty) continue;
+    norm.write(ch);
+    pos.add(i);
+  }
+  final n = norm.toString();
+  // 한 글자가 두 글자로 바뀌는 드문 글자(대소문자 변환)가 있으면 자리가 어긋나므로 칠하지 않는다.
+  if (n.length != pos.length) return [TextSpan(text: text)];
+  final marks = List<bool>.filled(text.length, false);
+  for (final t in terms) {
+    if (t.isEmpty) continue;
+    var from = 0;
+    while (true) {
+      final at = n.indexOf(t, from);
+      if (at < 0) break;
+      for (var k = pos[at]; k <= pos[at + t.length - 1]; k++) {
+        marks[k] = true;
+      }
+      from = at + t.length;
+    }
+  }
+  final out = <TextSpan>[];
+  var start = 0;
+  for (var i = 1; i <= text.length; i++) {
+    if (i == text.length || marks[i] != marks[start]) {
+      out.add(
+        TextSpan(text: text.substring(start, i), style: marks[start] ? hi : null),
+      );
+      start = i;
+    }
+  }
+  return out;
+}
 
 class KnowledgeSearchPage extends StatefulWidget {
   const KnowledgeSearchPage({
@@ -32,13 +81,55 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
     text: widget.initialQuery,
   );
   String? _category;
+  List<String> _recent = const [];
 
   List<KnowledgeEntry> get _all => widget.entries ?? knowledgeBase();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecent();
+  }
 
   @override
   void dispose() {
     _c.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadRecent() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final list = p.getStringList(kKnowledgeRecentKey) ?? const <String>[];
+      if (mounted) setState(() => _recent = list);
+    } catch (_) {
+      // 못 읽어도 검색에는 지장이 없다.
+    }
+  }
+
+  /// 검색어를 최근 검색어 맨 앞에 남긴다(같은 말은 하나만, 최대 [kKnowledgeRecentMax]개).
+  /// 결과를 열어 보거나 검색 단추를 눌렀을 때만 남겨, 치다 만 글자는 쌓이지 않는다.
+  Future<void> _remember(String q) async {
+    final t = q.trim();
+    if (t.length < 2) return;
+    final next = [
+      t,
+      for (final r in _recent)
+        if (r != t) r,
+    ].take(kKnowledgeRecentMax).toList();
+    setState(() => _recent = next);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(kKnowledgeRecentKey, next);
+    } catch (_) {}
+  }
+
+  Future<void> _clearRecent() async {
+    setState(() => _recent = const []);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.remove(kKnowledgeRecentKey);
+    } catch (_) {}
   }
 
   /// 앱 자료에서 답을 못 찾았을 때 AI에게 묻는다. 답은 따로 표시한 시트에 보인다.
@@ -103,7 +194,14 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
     );
   }
 
-  void _showDetail(KnowledgeEntry e) {
+  void _showDetail(KnowledgeEntry e, {List<String> terms = const []}) {
+    _remember(_c.text);
+    FocusManager.instance.primaryFocus?.unfocus();
+    final hi = TextStyle(
+      fontWeight: FontWeight.w900,
+      backgroundColor: const Color(0xFFFFF1B8),
+      color: refTextMain,
+    );
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -128,8 +226,8 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                SelectableText(
-                  e.title,
+                SelectableText.rich(
+                  TextSpan(children: highlightSpans(e.title, terms, hi)),
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w900,
@@ -141,8 +239,8 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                 for (final l in e.lines)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: SelectableText(
-                      l,
+                    child: SelectableText.rich(
+                      TextSpan(children: highlightSpans(l, terms, hi)),
                       style: TextStyle(
                         fontSize: 16,
                         color: refTextMain,
@@ -201,6 +299,20 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
     final hits = searching
         ? searchKnowledge(all, q, category: _category)
         : const <KnowledgeHit>[];
+    // 검색어가 있으면 분류 칩에 그 분류의 결과 수를 보이고, 결과가 없는 분류는 숨긴다(고른 분류는 남김).
+    final typed = q.trim().isNotEmpty;
+    final hitCounts = <String, int>{};
+    if (typed) {
+      for (final h in searchKnowledge(all, q)) {
+        hitCounts[h.entry.category] = (hitCounts[h.entry.category] ?? 0) + 1;
+      }
+    }
+    final partial = hits.isNotEmpty && hits.first.partial;
+    final hi = TextStyle(
+      fontWeight: FontWeight.w900,
+      color: refTextMain,
+      backgroundColor: const Color(0xFFFFF1B8),
+    );
 
     Widget body;
     if (!searching) {
@@ -211,6 +323,41 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
             '증상·코드·장비 이름으로 찾으십시오. 고장 조치, 계기 알람 코드, 루프 이상값, 축 정렬 지침, 현장 자료를 한 곳에서 찾을 수 있습니다.',
             style: TextStyle(fontSize: 14, color: refTextSub, height: 1.5),
           ),
+          if (_recent.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '최근 검색어',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: refTextMain,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  key: const Key('ks_recent_clear'),
+                  onPressed: _clearRecent,
+                  child: const Text('모두 지우기'),
+                ),
+              ],
+            ),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final r in _recent)
+                  ActionChip(
+                    key: Key('ks_recent_$r'),
+                    avatar: const Icon(Icons.history, size: 18),
+                    label: Text(r),
+                    onPressed: () => setState(() => _c.text = r),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           Text(
             '자주 찾는 말',
@@ -274,19 +421,38 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
       body = ListView.separated(
         key: const Key('ks_list'),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-        itemCount: hits.length + (q.trim().length >= 2 ? 1 : 0),
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        itemCount: hits.length + (q.trim().length >= 2 ? 1 : 0) + (partial ? 1 : 0),
         separatorBuilder: (_, _) => const SizedBox(height: 8),
-        itemBuilder: (_, i) {
+        itemBuilder: (_, idx) {
+          if (partial && idx == 0) {
+            return Container(
+              key: const Key('ks_partial'),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7E6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '검색어를 모두 담은 자료가 없어, 일부 낱말만 맞는 자료를 보여 드립니다. 낱말을 줄이거나 바꿔 찾아 보십시오.',
+                style: TextStyle(fontSize: 13.5, color: refTextMain, height: 1.45),
+              ),
+            );
+          }
+          final i = partial ? idx - 1 : idx;
           if (i == hits.length) return _askAiCard(q, noHits: false);
-          final e = hits[i].entry;
-          final snippet = e.lines.take(2).join('\n');
+          final hit = hits[i];
+          final e = hit.entry;
+          // 찾은 말이 든 줄을 먼저 보인다(없으면 첫 두 줄).
+          final snippet =
+              matchingLine(e, hit.terms) ?? e.lines.take(2).join('\n');
           return Material(
             color: refWhite,
             borderRadius: BorderRadius.circular(14),
             child: InkWell(
               key: Key('ks_hit_${e.id}'),
               borderRadius: BorderRadius.circular(14),
-              onTap: () => _showDetail(e),
+              onTap: () => _showDetail(e, terms: hit.terms),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 child: Column(
@@ -301,8 +467,8 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      e.title,
+                    Text.rich(
+                      TextSpan(children: highlightSpans(e.title, hit.terms, hi)),
                       style: TextStyle(
                         fontSize: 16.5,
                         fontWeight: FontWeight.w800,
@@ -312,8 +478,8 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                     ),
                     if (snippet.isNotEmpty) ...[
                       const SizedBox(height: 4),
-                      Text(
-                        snippet,
+                      Text.rich(
+                        TextSpan(children: highlightSpans(snippet, hit.terms, hi)),
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -358,6 +524,10 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                 autofocus: widget.initialQuery.isEmpty,
                 textInputAction: TextInputAction.search,
                 onChanged: (_) => setState(() {}),
+                onSubmitted: (v) {
+                  _remember(v);
+                  FocusManager.instance.primaryFocus?.unfocus();
+                },
                 decoration: InputDecoration(
                   hintText: '증상·코드·장비 이름 (예: ALM.07, 나사, 절삭유)',
                   prefixIcon: const Icon(Icons.search),
@@ -390,8 +560,9 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                     const Key('ks_cat_all'),
                   ),
                   for (final (name, n) in cats)
+                    if (!typed || (hitCounts[name] ?? 0) > 0 || _category == name)
                     _chip(
-                      '$name $n',
+                      typed ? '$name ${hitCounts[name] ?? 0}' : '$name $n',
                       _category == name,
                       () => setState(
                         () => _category = _category == name ? null : name,
@@ -407,7 +578,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(18, 0, 18, 2),
                   child: Text(
-                    '${hits.length}건',
+                    partial ? '${hits.length}건 (일부만 맞음)' : '${hits.length}건',
                     key: const Key('ks_count'),
                     style: TextStyle(fontSize: 13, color: refTextSub),
                   ),
