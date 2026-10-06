@@ -138,8 +138,9 @@ void main() {
       expect(r, contains('32.9 A'));
       expect(r, contains('정격전류(계산값, 직류)'));
       expect(r, isNot(contains('역률 값이 없어')));
+      expect(r, contains('I = P × 1000 ÷ (V × 효율)'));
       final b = await basisOf(tester, 'ec_load_basis');
-      expect(b, contains('식: I = P ÷ (V × 효율) (직류, 역률 없음)'));
+      expect(b, contains('직류는 역률을 쓰지 않습니다'));
       // 히터 2.5kW → 20A
       await tapKey(tester, 'ec_lt_heater');
       await type(tester, 'ec_kw', '2.5');
@@ -498,20 +499,20 @@ void main() {
       await pumpPage(tester);
       await type(tester, 'ec_kw', '11');
       var r = await resultOf(tester, 'ec_load_result');
-      expect(
-        r,
-        contains(
-          '① 정격전류 I = P ÷ (√3 × V × 역률 × 효율) = 11 × 1000 ÷ (√3 × 380 × 0.85 × 0.9) = 21.8 A',
-        ),
-      );
-      expect(
-        r,
-        contains('② 설계전류 = 정격전류 × 여유 = 21.8 × 1.25 = 27.3 A (50A 이하라 1.25배)'),
-      );
+      // 식·대입·결과는 풀이 카드에 세 줄로 따로 나온다.
+      expect(r, contains('I = P × 1000 ÷ (√3 × V × 역률 × 효율)'));
+      expect(r, contains('11 × 1000 ÷ (√3 × 380 × 0.85 × 0.9)'));
+      expect(r, contains('21.8 A'));
+      expect(r, contains('설계전류 = 정격전류 × 여유'));
+      expect(r, contains('21.8 × 1.25'));
+      expect(r, contains('27.3 A'));
+      expect(r, contains('50A 이하라 1.25배'));
       await tapKey(tester, 'ec_load_dc');
       await type(tester, 'ec_kw', '5');
       r = await resultOf(tester, 'ec_load_result');
-      expect(r, contains('I = P ÷ (V × 효율) = 5 × 1000 ÷ (125 × 0.9) = 44.4 A'));
+      expect(r, contains('I = P × 1000 ÷ (V × 효율)'));
+      expect(r, contains('5 × 1000 ÷ (125 × 0.9)'));
+      expect(r, contains('44.4 A'));
     });
 
     testWidgets('전류 ↔ 전력 환산: 대입 줄', (tester) async {
@@ -606,16 +607,22 @@ void main() {
       await type(tester, 'ec_vd_len', '150');
       await tapKey(tester, 'ec_vd_start');
       final r = await resultOf(tester, 'ec_vd_result');
-      expect(
-        r,
-        contains('① 저항 R = R20 × (1 + 0.00393 × (θ − 20)) = 4.61 × (1 + 0.00393 × (90 − 20)) = 5.878 Ω/km'),
-      );
-      expect(r, contains('② ΔU = √3 × I × L × (R cosφ + X sinφ) = √3 × 20 × (150 ÷ 1000) × (5.878 × 0.85 + 0.096 × 0.53) = 26.23 V'));
-      expect(r, contains('③ 전압강하율 = ΔU ÷ V × 100 = 26.23 ÷ 380 × 100 = 6.9 %'));
-      expect(r, contains('④ 한도 = 5 % + (150 − 100) × 0.005 = 5.25 %. 6.9 % > 5.25 %이므로 한도 초과입니다.'));
+      expect(r, contains('R = R20 × (1 + 0.00393 × (θ − 20))'));
+      expect(r, contains('4.61 × (1 + 0.00393 × (90 − 20))'));
+      expect(r, contains('5.878 Ω/km'));
+      expect(r, contains('ΔU = √3 × I × L × (R cosφ + X sinφ)'));
+      expect(r, contains('√3 × 20 × (150 ÷ 1000) × (5.878 × 0.85 + 0.096 × 0.53)'));
+      expect(r, contains('26.23 V'));
+      expect(r, contains('전압강하율 = ΔU ÷ V × 100'));
+      expect(r, contains('26.23 ÷ 380 × 100'));
+      expect(r, contains('6.9 %'));
+      expect(r, contains('한도 = 5 % + (150 − 100) × 0.005 = 5.25 %. 6.9 % > 5.25 %이므로 한도 초과입니다.'));
       expect(r, contains('L = (5 − 0.5) ÷ (0.04601 − 0.005) = 110 m'));
-      expect(r, contains('기동 전류 = 정격 전류 × 배수 = 20 × 6 = 120 A'));
-      expect(r, contains('기동 시 ΔU = √3 × I × L × (R cosφ + X sinφ) = √3 × 120 × (150 ÷ 1000) × (5.878 × 0.35 + 0.096 × 0.94) = 66.95 V'));
+      expect(r, contains('기동 전류 = 정격 전류 × 배수'));
+      expect(r, contains('20 × 6'));
+      expect(r, contains('120 A'));
+      expect(r, contains('√3 × 120 × (150 ÷ 1000) × (5.878 × 0.35 + 0.096 × 0.94)'));
+      expect(r, contains('66.95 V'));
     });
 
     testWidgets('전압강하 직류·AWG: 리액턴스 없는 식, 저항표 값', (tester) async {
@@ -626,7 +633,9 @@ void main() {
       await type(tester, 'ec_vd_i', '2');
       await type(tester, 'ec_vd_len', '50');
       var r = await resultOf(tester, 'ec_vd_result');
-      expect(r, contains('ΔU = 2 × I × L × R = 2 × 2 × (50 ÷ 1000) × 23.079 = 4.62 V'));
+      expect(r, contains('ΔU = 2 × I × L × R'));
+      expect(r, contains('2 × 2 × (50 ÷ 1000) × 23.079'));
+      expect(r, contains('4.62 V'));
       await tapKey(tester, 'ec_vd_ac');
       await tapKey(tester, 'ec_vd_unit_awg');
       await type(tester, 'ec_vd_i', '30');
@@ -766,6 +775,24 @@ void main() {
   });
 
   group('좁은 폰(344)·큰 글씨', () {
+    testWidgets('풀이 카드: 부하 전류·전압강하(기동 포함)가 넘치지 않고 식이 따로 보인다', (tester) async {
+      await pumpNarrow(tester);
+      await type(tester, 'ec_kw', '11');
+      await reveal(tester, find.byKey(const Key('ec_load_formula')));
+      expect(find.byKey(const Key('ec_load_formula')), findsOneWidget);
+      expect(textIn(tester, const Key('ec_load_formula')), contains('풀이'));
+      expect(tester.takeException(), isNull, reason: '부하 전류 풀이');
+      await openTab(tester, 'ec_tab_vd');
+      await type(tester, 'ec_vd_i', '20');
+      await type(tester, 'ec_vd_len', '150');
+      await tapKey(tester, 'ec_vd_start');
+      await reveal(tester, find.byKey(const Key('ec_vd_formula')));
+      final t = textIn(tester, const Key('ec_vd_formula'));
+      expect(t, contains('ΔU = √3 × I × L × (R cosφ + X sinφ)'));
+      expect(t, contains('L 편도 길이(km)'));
+      expect(tester.takeException(), isNull, reason: '전압강하 풀이');
+    });
+
     testWidgets('탭 11개가 모두 열리고 넘치지 않는다', (tester) async {
       await pumpNarrow(tester);
       const tabs = [

@@ -196,6 +196,7 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
     required String caption,
     required List<String> lines,
     bool warn = false,
+    Widget? extra,
   }) => Container(
     key: key,
     padding: const EdgeInsets.all(16),
@@ -233,6 +234,7 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
               style: TextStyle(fontSize: 13, color: fc.text, height: 1.4),
             ),
           ),
+        ?extra,
       ],
     ),
   );

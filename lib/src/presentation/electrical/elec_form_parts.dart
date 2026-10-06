@@ -206,3 +206,152 @@ mixin ElecTabParts<W extends StatefulWidget>
     ),
   );
 }
+
+/// 풀이 한 단계. 식 → 숫자 대입 → 결과를 세 줄로 따로 보여 준다.
+/// [formula]가 없으면 [text] 한 줄만 보인다(한도 판정처럼 식 모양이 아닌 설명).
+class FormulaRow {
+  const FormulaRow({
+    this.label,
+    this.formula,
+    this.sub,
+    this.result,
+    this.text,
+    this.note,
+  });
+
+  /// "정격전류"처럼 이 단계가 무엇인지.
+  final String? label;
+
+  /// "I = P ÷ (√3 × V × 역률 × 효율)".
+  final String? formula;
+
+  /// 식에 숫자를 넣은 모양("11 × 1000 ÷ (√3 × 380 × 0.85 × 0.9)").
+  final String? sub;
+
+  /// "21.8 A".
+  final String? result;
+
+  /// 식 모양이 아닌 한 줄 설명.
+  final String? text;
+
+  /// 결과 옆에 붙는 짧은 덧말("50A 이하라 1.25배").
+  final String? note;
+}
+
+/// 결과 상자 안에 들어가는 "풀이" 카드: 식은 크게, 숫자 대입은 그 아래, 결과는 굵게.
+/// [symbols]는 식에 나온 기호의 뜻("I 전류 (A)")이다.
+class ElecFormulaCard extends StatelessWidget {
+  const ElecFormulaCard({
+    super.key,
+    required this.rows,
+    this.symbols = const [],
+  });
+
+  final List<FormulaRow> rows;
+  final List<String> symbols;
+
+  @override
+  Widget build(BuildContext context) {
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: fc.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '풀이',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: fc.textSub,
+            ),
+          ),
+          for (final r in rows) _row(r),
+          if (symbols.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Divider(height: 1, color: fc.line),
+            const SizedBox(height: 8),
+            for (final s in symbols)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  s,
+                  style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _row(FormulaRow r) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (r.label != null)
+            Text(
+              r.label!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: fc.textSub,
+              ),
+            ),
+          if (r.text != null)
+            Text(
+              r.text!,
+              style: TextStyle(fontSize: 13, color: fc.text, height: 1.45),
+            ),
+          if (r.formula != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                r.formula!,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: fc.text,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          if (r.sub != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                r.sub!,
+                style: TextStyle(fontSize: 14, color: fc.text, height: 1.4),
+              ),
+            ),
+          if (r.result != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                r.result!,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: fc.brand,
+                ),
+              ),
+            ),
+          if (r.note != null)
+            Text(
+              r.note!,
+              style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
+            ),
+        ],
+      ),
+    );
+  }
+}

@@ -169,20 +169,53 @@ String _dropSubLine({
   required double pf,
   required double dv,
 }) {
+  final p = _dropParts(
+    ph: ph,
+    currentText: currentText,
+    lengthM: lengthM,
+    r: r,
+    pf: pf,
+    dv: dv,
+  );
+  return '${p.$1} = ${p.$2} = ${p.$3}';
+}
+
+/// 같은 내용을 (식, 숫자 대입, 결과)로 나눠 돌려준다.
+(String, String, String) _dropParts({
+  required Phase ph,
+  required String currentText,
+  required double lengthM,
+  required double r,
+  required double pf,
+  required double dv,
+}) {
   final l = '(${fmt(lengthM, 2)} ÷ 1000)';
   final rt = fmt(r, r < 1 ? 4 : 3);
   if (ph == Phase.dc) {
-    return 'ΔU = 2 × I × L × R = 2 × $currentText × $l × $rt = ${fmt(dv, 2)} V';
+    return ('ΔU = 2 × I × L × R', '2 × $currentText × $l × $rt', '${fmt(dv, 2)} V');
   }
   final sin = math.sqrt(math.max(0, 1 - pf * pf));
   final k = ph == Phase.three ? '√3' : '2';
-  return 'ΔU = $k × I × L × (R cosφ + X sinφ) = $k × $currentText × $l × '
-      '($rt × ${fmt(pf, 2)} + ${fmt(kReactanceOhmPerKm, 3)} × ${fmt(sin, 2)}) = ${fmt(dv, 2)} V';
+  return (
+    'ΔU = $k × I × L × (R cosφ + X sinφ)',
+    '$k × $currentText × $l × '
+        '($rt × ${fmt(pf, 2)} + ${fmt(kReactanceOhmPerKm, 3)} × ${fmt(sin, 2)})',
+    '${fmt(dv, 2)} V',
+  );
 }
 
 /// 전압강하율 줄: ΔU ÷ V × 100.
 String _dropPctLine(double dv, double volts, double pct) =>
     '전압강하율 = ΔU ÷ V × 100 = ${fmt(dv, 2)} ÷ ${fmt(volts)} × 100 = ${fmt(pct, 2)} %';
+
+/// 전압강하율 행: ΔU ÷ V × 100.
+FormulaRow _dropPctRow(String label, double dv, double volts, double pct) =>
+    FormulaRow(
+      label: label,
+      formula: '전압강하율 = ΔU ÷ V × 100',
+      sub: '${fmt(dv, 2)} ÷ ${fmt(volts)} × 100',
+      result: '${fmt(pct, 2)} %',
+    );
 
 /// 전압강하 한도를 어떻게 정했는지와 판정 줄(KEC 232.3.9, 100 m 넘는 만큼 1 m당 0.005 % 가산, 최대 0.5 %).
 String _dropLimitLine(SupplyType supply, double lengthM, double total) {
@@ -1162,16 +1195,24 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           lines: [
             if (i != null && _motor)
               '차단기·전선은 ${fmt(i * margin, 1)} A (${_marginText(i)}) 기준',
-            if (i != null) ..._loadSteps(i, margin),
             ?_tableHint(),
             if (i != null) '명판 정격전류가 있으면 그 값을 우선 적용하십시오.',
             ...notes,
           ],
+          extra: i == null
+              ? null
+              : ElecFormulaCard(
+                  key: const Key('ec_load_formula'),
+                  rows: _loadSteps(i, margin),
+                  symbols: [
+                    'P 출력(kW)  ·  V ${_dc ? '직류 전압' : (_phase == Phase.three ? '선간 전압' : '전압')}(V)'
+                        '${_dc ? '' : '  ·  역률 cosφ'}  ·  효율 η',
+                    if (_motor) '여유: 연속 운전 전동기 설계전류에 곱하는 배수',
+                  ],
+                ),
         ),
       _basis('ec_load_basis', [
-        _dc
-            ? '식: I = P ÷ (V × 효율) (직류, 역률 없음)'
-            : '식: I = P ÷ (${_phase == Phase.three ? '√3 × ' : ''}V × 역률 × 효율)',
+        _dc ? '직류는 역률을 쓰지 않습니다.' : '교류는 역률과 효율을 모두 넣습니다.',
         if (_hp) '1 HP = 0.7457 kW',
         if (_motor)
           '전동기 여유: 정격전류 50A 이하 1.25배, 50A 초과 1.1배(LS ELECTRIC MCCB 선정 자료 A1-124, 구 내선규정 방식). '
@@ -1231,31 +1272,55 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   }
 
   /// 부하 전류 풀이: ① 출력 환산(HP) → ② 정격전류 → ③ 전동기 여유를 곱한 설계전류.
-  List<String> _loadSteps(double i, double margin) {
-    final st = _Steps();
+  List<FormulaRow> _loadSteps(double i, double margin) {
+    final st = <FormulaRow>[];
     final p = _num(_kw);
     if (p == null || p <= 0) return const [];
     final kw = _hp ? hpToKw(p) : p;
-    if (_hp) st.add('출력 P = ${fmt(p)} HP × 0.7457 = ${fmt(kw, 2)} kW');
+    if (_hp) {
+      st.add(
+        FormulaRow(
+          label: '출력 환산',
+          formula: 'P = HP × 0.7457',
+          sub: '${fmt(p)} × 0.7457',
+          result: '${fmt(kw, 2)} kW',
+        ),
+      );
+    }
     final eff = _pctOf(_eff, 0.9, '효율', []);
     if (_dc) {
       st.add(
-        '정격전류 I = P ÷ (V × 효율) = ${fmt(kw, 2)} × 1000 ÷ (${fmt(_dcVolts)} × ${fmt(eff, 2)}) = ${fmt(i, 1)} A',
+        FormulaRow(
+          label: '정격전류',
+          formula: 'I = P × 1000 ÷ (V × 효율)',
+          sub: '${fmt(kw, 2)} × 1000 ÷ (${fmt(_dcVolts)} × ${fmt(eff, 2)})',
+          result: '${fmt(i, 1)} A',
+        ),
       );
     } else {
       final pf = _pctOf(_pf, 0.85, '역률', []);
       final k = _phase == Phase.three ? '√3 × ' : '';
       st.add(
-        '정격전류 I = P ÷ (${k}V × 역률 × 효율) = ${fmt(kw, 2)} × 1000 ÷ ($k${fmt(_volts)} × ${fmt(pf, 2)} × ${fmt(eff, 2)}) = ${fmt(i, 1)} A',
+        FormulaRow(
+          label: '정격전류',
+          formula: 'I = P × 1000 ÷ (${k}V × 역률 × 효율)',
+          sub: '${fmt(kw, 2)} × 1000 ÷ ($k${fmt(_volts)} × ${fmt(pf, 2)} × ${fmt(eff, 2)})',
+          result: '${fmt(i, 1)} A',
+        ),
       );
     }
     if (_motor) {
       st.add(
-        '설계전류 = 정격전류 × 여유 = ${fmt(i, 1)} × ${fmt(margin, 2)} = ${fmt(i * margin, 1)} A '
-        '(${i > kMotorMarginSplitA ? '50A 초과라 1.1배' : '50A 이하라 1.25배'})',
+        FormulaRow(
+          label: '설계전류(차단기·전선 기준)',
+          formula: '설계전류 = 정격전류 × 여유',
+          sub: '${fmt(i, 1)} × ${fmt(margin, 2)}',
+          result: '${fmt(i * margin, 1)} A',
+          note: i > kMotorMarginSplitA ? '50A 초과라 1.1배' : '50A 이하라 1.25배',
+        ),
       );
     }
-    return st.lines;
+    return st;
   }
 
   Widget _convResult(bool negative) {
@@ -2294,8 +2359,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           '${fmt(pct, 2)}% · ${over ? '한도 ${fmt(limit, 2)}% 초과' : '한도 ${fmt(limit, 2)}% 이내'}';
       if (startOver) summary = '$summary · 기동 시 허용 전압강하 초과';
     }
-    // 풀이: ① 저항 → ② ΔU → ③ 전압강하율 → ④ 한도 → ⑤ 최대 길이 → (기동 시) 기동 전류·ΔU·전압강하율.
-    final st = _Steps();
+    // 풀이: 저항 → ΔU → 전압강하율 → 한도 → 최대 길이 → (기동 시) 기동 전류·ΔU·전압강하율. 식·대입·결과를 따로 보인다.
+    final st = <FormulaRow>[];
     if (dv != null && pct != null && len != null && i != null) {
       final temp = conductorTemp(ins);
       final al = _cond == Conductor.aluminum;
@@ -2303,21 +2368,26 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
       final rr = wireResistance(_vdSize, temp, _cond) ?? cuResistance(_vdSize, temp);
       final alpha = al ? '0.00403' : '0.00393';
       st.add(
-        '저항 R = R20 × (1 + $alpha × (θ − 20)) = ${fmt(r20, r20 < 1 ? 4 : 2)} × (1 + $alpha × (${fmt(temp)} − 20)) '
-        '= ${fmt(rr, rr < 1 ? 4 : 3)} Ω/km (${sqText(_vdSize)}, 도체 ${fmt(temp)}°C)',
-      );
-      st.add(
-        _dropSubLine(
-          ph: ph,
-          currentText: fmt(i, 2),
-          lengthM: len,
-          r: rr,
-          pf: pf,
-          dv: dv,
+        FormulaRow(
+          label: '① 도체 저항 (${sqText(_vdSize)}, 도체 ${fmt(temp)}°C)',
+          formula: 'R = R20 × (1 + $alpha × (θ − 20))',
+          sub: '${fmt(r20, r20 < 1 ? 4 : 2)} × (1 + $alpha × (${fmt(temp)} − 20))',
+          result: '${fmt(rr, rr < 1 ? 4 : 3)} Ω/km',
         ),
       );
-      st.add(_dropPctLine(dv, volts, pct));
-      st.add(_dropLimitLine(_supply, len, total!));
+      final dp = _dropParts(
+        ph: ph,
+        currentText: fmt(i, 2),
+        lengthM: len,
+        r: rr,
+        pf: pf,
+        dv: dv,
+      );
+      st.add(
+        FormulaRow(label: '② 전압강하', formula: dp.$1, sub: dp.$2, result: dp.$3),
+      );
+      st.add(_dropPctRow('③ 전압강하율', dv, volts, pct));
+      st.add(FormulaRow(label: '④ 한도', text: _dropLimitLine(_supply, len, total!)));
       if (maxLen != null) {
         final a =
             voltageDrop(
@@ -2331,17 +2401,42 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             ) /
             volts *
             100;
-        st.add(_maxLenLine(a, voltageDropLimit(_supply, 0), up, maxLen));
+        st.add(
+          FormulaRow(
+            label: '⑤ 최대 길이',
+            text: _maxLenLine(a, voltageDropLimit(_supply, 0), up, maxLen),
+          ),
+        );
       }
       if (startDv != null && startPct != null) {
         st.add(
-          '기동 전류 = 정격 전류 × 배수 = ${fmt(i, 2)} × ${fmt(startMult)} = ${fmt(i * startMult, 1)} A'
-          '${_vdStartMode == StartMode.starDelta ? ' (직입 배수 ${fmt(mult)}의 1/3)' : ''}',
+          FormulaRow(
+            label: '기동 시 전류',
+            formula: '기동 전류 = 정격 전류 × 배수',
+            sub: '${fmt(i, 2)} × ${fmt(startMult)}',
+            result: '${fmt(i * startMult, 1)} A',
+            note: _vdStartMode == StartMode.starDelta
+                ? '직입 배수 ${fmt(mult)}의 1/3'
+                : null,
+          ),
+        );
+        final sp = _dropParts(
+          ph: ph,
+          currentText: fmt(i * startMult, 1),
+          lengthM: len,
+          r: rr,
+          pf: startPf,
+          dv: startDv,
         );
         st.add(
-          '기동 시 ${_dropSubLine(ph: ph, currentText: fmt(i * startMult, 1), lengthM: len, r: rr, pf: startPf, dv: startDv)}',
+          FormulaRow(
+            label: '기동 시 전압강하',
+            formula: sp.$1,
+            sub: sp.$2,
+            result: sp.$3,
+          ),
         );
-        st.add('기동 시 ${_dropPctLine(startDv, volts, startPct)}');
+        st.add(_dropPctRow('기동 시 전압강하율', startDv, volts, startPct));
       }
     }
     DiagCase? diag;
@@ -2487,7 +2582,6 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                   ? '한도 ${fmt(limit, 2)}% 초과. 굵기를 올리거나 길이를 줄이십시오.'
                   : '한도 ${fmt(limit, 2)}% 이내입니다.',
             if (maxLen != null) '한도 이내 최대 편도 길이 약 ${fmt(maxLen, 0)} m',
-            ...st.lines,
             if (startDv != null)
               '기동 시(정격 ×${fmt(startMult)}, 역률 ${fmt(startPf, 2)}) ${fmt(startDv, 2)} V (${fmt(startPct!, 1)}%)',
             if (startTotal != null)
@@ -2509,6 +2603,18 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               '이 계산은 전압강하만 봅니다. 허용전류는 아래 단추나 전선 굵기 탭에서 확인하십시오.',
             ...notes,
           ],
+          extra: st.isEmpty
+              ? null
+              : ElecFormulaCard(
+                  key: const Key('ec_vd_formula'),
+                  rows: st,
+                  symbols: [
+                    'ΔU 전압강하(V)  ·  I 전류(A)  ·  L 편도 길이(km)',
+                    if (!_dc) 'R 도체 저항(Ω/km)  ·  X 리액턴스(Ω/km)  ·  cosφ 역률',
+                    if (_dc) 'R 도체 저항(Ω/km)  ·  V 회로 전압(V)',
+                    '2(단상·직류)는 왕복 두 가닥, √3(삼상)은 세 가닥의 합',
+                  ],
+                ),
         ),
       if (!negative && ok)
         Align(
@@ -2520,7 +2626,9 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
           ),
         ),
       _basis('ec_vd_basis', [
-        _vdFormula(ph, ins),
+        ph == Phase.dc
+            ? 'R은 ${fmt(conductorTemp(ins))}°C 저항(IEC 60228), 직류는 리액턴스가 없습니다.'
+            : 'R은 ${fmt(conductorTemp(ins))}°C 저항(IEC 60228), X = 0.096 Ω/km(60Hz, Schneider EIG)',
         if (_vdStart && !_dc)
           '기동: 정격전류 × ${fmt(startMult)}배(${_vdStartMode == StartMode.starDelta ? 'Y-Δ는 직입 배수 ${fmt(mult)}의 1/3' : '입력한 배수'}), '
               '역률 ${fmt(startPf, 2)}(직입 기본 0.35는 Schneider EIG 2009 그림 G27·G28)',
