@@ -1032,7 +1032,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     String guide, {
     VoidCallback? onEdit,
     bool signed = false,
-  }) => calcBox(
+  }) => ratioHinted(
+    label,
+    c,
+    calcBox(
     child: Row(
       children: [
         Expanded(flex: 5, child: calcLabel(label, guide)),
@@ -1065,6 +1068,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
         const SizedBox(width: 8),
       ],
     ),
+  ),
   );
 
   /// 이름표 + 칩 한 줄.

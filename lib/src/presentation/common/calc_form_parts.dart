@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/theme/field_view.dart';
 import 'formula_card.dart';
+import 'number_text.dart';
 
 mixin CalcFormParts<W extends StatefulWidget> on State<W> {
   Widget calcChip(String key, String label, bool sel, VoidCallback onTap) =>
@@ -105,7 +106,10 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
     String guide, {
     Widget? trailing,
     bool signed = false,
-  }) => calcBox(
+  }) => ratioHinted(
+    label,
+    c,
+    calcBox(
     child: Row(
       children: [
         Expanded(flex: 5, child: calcLabel(label, guide)),
@@ -135,7 +139,28 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
         if (trailing == null) const SizedBox(width: 8),
       ],
     ),
+  ),
   );
+
+  /// 효율·역률 칸에 1 이하를 넣으면 칸 아래에 "비율로 읽는다"는 안내를 붙인다.
+  Widget ratioHinted(String label, TextEditingController c, Widget box) {
+    final hint = ratioHintText(label, c.text);
+    if (hint == null) return box;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        box,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
+          child: Text(
+            hint,
+            key: const Key('ratio_hint'),
+            style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget calcSwitch(
     String label,

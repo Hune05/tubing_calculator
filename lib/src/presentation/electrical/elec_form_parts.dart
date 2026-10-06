@@ -117,7 +117,10 @@ mixin ElecTabParts<W extends StatefulWidget>
     String guide, {
     VoidCallback? onEdit,
     bool signed = false,
-  }) => calcBox(
+  }) => ratioHinted(
+    label,
+    c,
+    calcBox(
     child: Row(
       children: [
         Expanded(flex: 5, child: calcLabel(label, guide)),
@@ -150,6 +153,7 @@ mixin ElecTabParts<W extends StatefulWidget>
         const SizedBox(width: 8),
       ],
     ),
+  ),
   );
 
   /// 이름표 + 칩 한 줄.

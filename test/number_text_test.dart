@@ -30,4 +30,16 @@ void main() {
     expect(parseNumberText('abc'), isNull);
     expect(parseNumberText('1,2,3x'), isNull);
   });
+
+  test('효율·역률 칸에 1 이하를 넣으면 안내 글이 나온다', () {
+    expect(
+      ratioHintText('역률 (%)', '0.85'),
+      '0.85은 비율로 읽어 85%로 계산합니다. 퍼센트는 85처럼 넣으십시오.',
+    );
+    expect(ratioHintText('효율 (%)', '1'), contains('1은 비율로 읽어 100%'));
+    expect(ratioHintText('역률 (%)', '85'), isNull);
+    expect(ratioHintText('역률 (%)', ''), isNull);
+    // 이름에 효율·역률 같은 말이 없는 % 칸은 1이 1%일 수 있어 안내하지 않는다.
+    expect(ratioHintText('전원 쪽 전압강하 (%, 선택)', '0.5'), isNull);
+  });
 }

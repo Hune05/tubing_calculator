@@ -32,6 +32,7 @@ String _all(WidgetTester tester) => tester
     .join('\n');
 
 void main() {
+  setUpAll(expandFormulaCards);
   insulationUiGroup();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 

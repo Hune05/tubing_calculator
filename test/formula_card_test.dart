@@ -1,6 +1,7 @@
 // 풀이 카드: 결과 줄을 식·대입·결과로 나누는 규칙과 분수 그리기.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/common/formula_card.dart';
 
 void main() {
@@ -120,6 +121,49 @@ void main() {
       expect(e.value, isNotEmpty, reason: e.key);
       expect(e.value.every((s) => s.trim().isNotEmpty), isTrue, reason: e.key);
     }
+  });
+
+  testWidgets('긴 풀이(6단계 이상)는 앞 두 단계만 보이고 "나머지 보기"로 펼친다, 짧으면 그대로', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    ElecFormulaCard.openAll.value = false;
+    Widget card(int n) => MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: ElecFormulaCard(
+            rows: [
+              for (var i = 1; i <= n; i++)
+                FormulaRow(
+                  formula: 'A$i = B$i × C$i',
+                  sub: '$i × 2',
+                  result: '${i * 2} W',
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(card(5));
+    expect(find.text('= 10 W'), findsOneWidget);
+    expect(find.byKey(const Key('formula_card_more')), findsNothing);
+
+    await tester.pumpWidget(card(7));
+    await tester.pump();
+    expect(find.text('= 2 W'), findsOneWidget);
+    expect(find.text('= 4 W'), findsOneWidget);
+    expect(find.text('= 6 W'), findsNothing);
+    expect(find.text('나머지 5단계 보기'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('formula_card_more')));
+    await tester.pump();
+    expect(find.text('= 14 W'), findsOneWidget);
+    expect(find.byKey(const Key('formula_card_less')), findsOneWidget);
+    // 펼친 상태는 폰에 적혀 다음 카드도 펼쳐 둔다.
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('formula_card_open_v1'), isTrue);
+    await tester.ensureVisible(find.byKey(const Key('formula_card_less')));
+    await tester.tap(find.byKey(const Key('formula_card_less')));
+    await tester.pump();
+    expect(find.text('= 14 W'), findsNothing);
+    ElecFormulaCard.openAll.value = false;
   });
 
   testWidgets('카드는 결과 앞에 "="를 붙이고 기호 뜻을 맨 아래에 둔다', (tester) async {

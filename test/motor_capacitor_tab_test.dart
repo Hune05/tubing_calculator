@@ -32,6 +32,7 @@ String _all(WidgetTester tester) => tester
     .join('\n');
 
 void main() {
+  setUpAll(expandFormulaCards);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('콘덴서 한도: I0 10 A, 400 V → 6.24 kvar, 추정 I0, 계전기 보정, 도표 L24', (tester) async {

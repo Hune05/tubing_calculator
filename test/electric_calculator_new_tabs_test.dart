@@ -115,6 +115,7 @@ Future<String> basisOf(WidgetTester tester, String key) async {
 }
 
 void main() {
+  setUpAll(expandFormulaCards);
   setUp(legacyElectricDefaults);
 
   group('교류/직류', () {
@@ -765,6 +766,18 @@ void main() {
   });
 
   group('입력 읽기', () {
+    testWidgets('역률 칸에 0.85를 넣으면 칸 아래에 안내가 붙고, 85면 사라진다', (tester) async {
+      await pumpPage(tester);
+      await type(tester, 'ec_pf', '0.85');
+      expect(find.byKey(const Key('ratio_hint')), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.byKey(const Key('ratio_hint'))).data,
+        contains('0.85은 비율로 읽어 85%'),
+      );
+      await type(tester, 'ec_pf', '85');
+      expect(find.byKey(const Key('ratio_hint')), findsNothing);
+    });
+
     testWidgets('역률에 1 이하를 넣으면 비율로 읽었다고 알려 준다', (tester) async {
       await pumpPage(tester);
       await type(tester, 'ec_kw', '11');

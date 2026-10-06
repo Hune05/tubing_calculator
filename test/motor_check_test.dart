@@ -13,6 +13,7 @@ Future<void> _type(WidgetTester tester, String key, String text) async {
 }
 
 void main() {
+  setUpAll(expandFormulaCards);
   test('시험전압(IEEE 43 표 1)', () {
     expect(megTestVoltage(380), (500.0, 500.0));
     expect(megTestVoltage(440), (500.0, 500.0));

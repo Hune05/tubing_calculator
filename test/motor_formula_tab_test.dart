@@ -34,6 +34,7 @@ String _all(WidgetTester tester) => tester
     .join('\n');
 
 void main() {
+  setUpAll(expandFormulaCards);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('첫 탭이 전동기 공식이고, 60 Hz 4극은 동기속도 1800 rpm', (tester) async {

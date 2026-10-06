@@ -34,6 +34,7 @@ String _all(WidgetTester tester) => tester
     .join('\n');
 
 void main() {
+  setUpAll(expandFormulaCards);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('전압 구하기: 11 kW, 21.85 A, 효율 90, 역률 85 삼상 → 380 V', (tester) async {

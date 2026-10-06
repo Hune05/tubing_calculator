@@ -42,6 +42,7 @@ LoadRowInput row(
 }) => LoadRowInput(name: name, kw: kw, pf: pf, df: df);
 
 void main() {
+  setUpAll(expandFormulaCards);
   TestWidgetsFlutterBinding.ensureInitialized();
   group('계산: 손계산 예제', () {
     test('예제 1: 100kW, 수용률 80%, 역률 90% 한 줄', () {

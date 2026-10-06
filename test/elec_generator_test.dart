@@ -40,6 +40,7 @@ GenInput _base({
 );
 
 void main() {
+  setUpAll(expandFormulaCards);
   group('식 손계산', () {
     test('PG1: 100kW, 수용률 1, 효율 0.85, 역률 0.8 → 100 ÷ 0.68', () {
       expect(genPg1(100, 1, 0.85, 0.8), closeTo(147.0588, 1e-3));

@@ -24,3 +24,20 @@ double? parseNumberText(String text) {
   }
   return double.tryParse(s.replaceAll(',', ''));
 }
+
+/// 효율·역률처럼 "0.85도 85도 같은 뜻"으로 읽는 % 칸의 안내 글.
+/// 칸 이름에 그런 말이 있고 값이 0 초과 1 이하일 때만 돌려준다(그 밖의 % 칸은 1이 1%일 수 있어 안내하지 않는다).
+String? ratioHintText(String label, String text) {
+  const keys = ['효율', '역률', '수용률', '부하율', '조명률', 'cosφ'];
+  if (!label.contains('%') || !keys.any(label.contains)) return null;
+  final v = parseNumberText(text);
+  if (v == null || v <= 0 || v > 1) return null;
+  String t(double x) {
+    var s = x.toStringAsFixed(2);
+    if (s.contains('.')) {
+      s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+    }
+    return s;
+  }
+  return '${t(v)}은 비율로 읽어 ${t(v * 100)}%로 계산합니다. 퍼센트는 85처럼 넣으십시오.';
+}

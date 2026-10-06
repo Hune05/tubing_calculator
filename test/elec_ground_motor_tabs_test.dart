@@ -38,6 +38,7 @@ Future<void> _tap(WidgetTester tester, String key) async {
 }
 
 void main() {
+  setUpAll(expandFormulaCards);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   testWidgets('접지 탭: 보호도체 표 값과 단열 식, 규격으로 올림', (tester) async {

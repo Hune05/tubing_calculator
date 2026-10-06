@@ -26,6 +26,7 @@ const _osuK = {
 };
 
 void main() {
+  setUpAll(expandFormulaCards);
   group('시간 열쇠와 필요한 K 시간', () {
     test('battTimeKey', () {
       expect(battTimeKey(25), '25');

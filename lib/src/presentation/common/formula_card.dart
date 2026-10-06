@@ -1,6 +1,7 @@
 // 계산 결과 상자 안의 "풀이" 카드: 식은 크게(나눗셈은 분수 모양으로), 숫자 대입은 그 아래, 결과는 굵게.
 // 계산 화면이 결과 줄에 "A = B × C = 1 × 2 = 2 kW"처럼 한 줄로 쓴 풀이를 splitFormulaLines가 식·대입·결과로 나눈다.
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 
@@ -421,7 +422,7 @@ class MathText extends StatelessWidget {
 
 /// 결과 상자 안에 들어가는 "풀이" 카드.
 /// [symbols]는 식에 나온 기호의 뜻("I 전류 (A)")이다.
-class ElecFormulaCard extends StatelessWidget {
+class ElecFormulaCard extends StatefulWidget {
   const ElecFormulaCard({
     super.key,
     required this.rows,
@@ -431,45 +432,127 @@ class ElecFormulaCard extends StatelessWidget {
   final List<FormulaRow> rows;
   final List<String> symbols;
 
+  /// 이 단계 수를 넘는 긴 풀이는 처음엔 앞 두 단계만 보이고 "나머지 보기"로 펼친다.
+  static const int collapseOver = 5;
+  static const int collapsedShow = 2;
+
+  /// 긴 풀이를 펼쳐 둘지. 한 번 펼치면 다음에도 펼친 채 둔다(폰에 저장).
+  static final ValueNotifier<bool> openAll = ValueNotifier<bool>(false);
+  static bool _loaded = false;
+  static const String _prefKey = 'formula_card_open_v1';
+
+  static Future<void> _load() async {
+    if (_loaded) return;
+    _loaded = true;
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (p.getBool(_prefKey) == true) openAll.value = true;
+    } catch (_) {}
+  }
+
+  /// 펼침/접힘을 바꾸고 폰에 적는다.
+  static Future<void> setOpen(bool v) async {
+    openAll.value = v;
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool(_prefKey, v);
+    } catch (_) {}
+  }
+
+  @override
+  State<ElecFormulaCard> createState() => _ElecFormulaCardState();
+}
+
+class _ElecFormulaCardState extends State<ElecFormulaCard> {
+  @override
+  void initState() {
+    super.initState();
+    ElecFormulaCard._load();
+  }
+
+  Widget _toggle(String key, String label, bool open) => Align(
+    alignment: Alignment.centerLeft,
+    child: TextButton(
+      key: Key(key),
+      style: TextButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        minimumSize: const Size(0, 36),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      onPressed: () => ElecFormulaCard.setOpen(open),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+          color: fc.brand,
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
+    final rows = widget.rows;
+    final symbols = widget.symbols;
     if (rows.isEmpty) return const SizedBox.shrink();
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-      decoration: BoxDecoration(
-        color: fc.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: fc.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '풀이',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w800,
-              color: fc.textSub,
-            ),
+    return ValueListenableBuilder<bool>(
+      valueListenable: ElecFormulaCard.openAll,
+      builder: (context, open, _) {
+        final long = rows.length > ElecFormulaCard.collapseOver;
+        final collapsed = long && !open;
+        final shown = collapsed
+            ? rows.take(ElecFormulaCard.collapsedShow).toList()
+            : rows;
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(top: 12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: fc.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: fc.line),
           ),
-          for (final r in rows) _row(r),
-          if (symbols.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Divider(height: 1, color: fc.line),
-            const SizedBox(height: 8),
-            for (final s in symbols)
-              Padding(
-                padding: const EdgeInsets.only(top: 2),
-                child: Text(
-                  s,
-                  style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '풀이',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: fc.textSub,
                 ),
               ),
-          ],
-        ],
-      ),
+              for (final r in shown) _row(r),
+              if (collapsed)
+                _toggle(
+                  'formula_card_more',
+                  '나머지 ${rows.length - ElecFormulaCard.collapsedShow}단계 보기',
+                  true,
+                ),
+              if (long && open) _toggle('formula_card_less', '접기', false),
+              if (symbols.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Divider(height: 1, color: fc.line),
+                const SizedBox(height: 8),
+                for (final s in symbols)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      s,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: fc.textSub,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -510,9 +593,10 @@ class ElecFormulaCard extends StatelessWidget {
           if (r.sub != null)
             Padding(
               padding: const EdgeInsets.only(top: 4),
-              child: MathText(
-                r.sub!,
-                style: TextStyle(fontSize: 14, color: fc.text, height: 1.4),
+              // 숫자를 넣은 줄은 식보다 작은 한 줄 글자로 둔다(분수로 또 그리면 같은 모양이 두 번 크게 나온다).
+              child: Text(
+                '= ${r.sub!}',
+                style: TextStyle(fontSize: 13, color: fc.text, height: 1.4),
               ),
             ),
           if (r.result != null)

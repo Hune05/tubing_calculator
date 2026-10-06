@@ -9,6 +9,7 @@ import 'package:tubing_calculator/src/presentation/electrical/elec_tables.dart';
 import 'formula_flat.dart';
 
 void main() {
+  setUpAll(expandFormulaCards);
   group('순수 계산', () {
     // 예 A: 1000kVA, %Z 5.5, 380V, 무한 전원, 케이블 없음, 부하손 없음.
     //  In = 1000000 / (√3 × 380) = 1519.34 A
