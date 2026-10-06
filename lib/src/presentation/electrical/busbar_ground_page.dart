@@ -61,6 +61,10 @@ class _GroundBarPageState extends State<GroundBarPage>
         CalcFormParts<GroundBarPage>,
         RecentCalcHistoryMixin<GroundBarPage>,
         ElecTabParts<GroundBarPage> {
+  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  @override
+  String? get calcHistoryStorageKey => 'calc_history_ground_bar';
+
   bool _byLength = false; // false = 구멍 수로, true = 막대 길이로
   int _tabs = 0; // 끝 꺾기: 0 없음, 1 왼쪽 L, 2 오른쪽 L, 3 양쪽 L, 4 모자(챙 달림)
   int _mCount = 0; // 탭·챙 구멍 수(줄마다)

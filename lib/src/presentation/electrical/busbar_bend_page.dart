@@ -71,6 +71,10 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         CalcFormParts<BusbarBendPage>,
         RecentCalcHistoryMixin<BusbarBendPage>,
         ElecTabParts<BusbarBendPage> {
+  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  @override
+  String? get calcHistoryStorageKey => 'calc_history_busbar_bend';
+
   BusbarBendKind _kind = BusbarBendKind.l;
   BusbarBendPlane _plane = BusbarBendPlane.flat;
   BusbarDimRef _ref = BusbarDimRef.outside;

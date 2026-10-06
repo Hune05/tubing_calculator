@@ -325,6 +325,11 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     return i < 0 ? 0 : i;
   }
 
+  /// 최근 계산 기록을 폰에 남기는 칸(일반·전기기기 묶음마다 따로).
+  @override
+  String? get calcHistoryStorageKey =>
+      'calc_history_elec_${(widget.group ?? elecGroupOf(widget.initialTab)).name}';
+
   late final TabController _tabs = TabController(
     length: _order.length,
     vsync: this,
@@ -1020,13 +1025,16 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     // 이 화면은 그릴 때마다 모든 탭 몸통을 한꺼번에 만든다. 모든 탭이 기록을 부르면 마지막 탭(부스바)이
     // 앞 탭의 기록을 밀어내므로(기록은 0.7초 기다렸다 마지막 것만 쌓음) 지금 보이는 탭만 기록한다.
     final shown = !_tabs.indexIsChanging && kElecSumTab[sumKey] == _order[_tabs.index];
+    // 앱을 다시 연 뒤 기록을 눌러도 이 화면 탭에 되돌리게 등록한다.
+    calcLog.restorers[sumKey] ??= (raw) => _restoreHistory(sumKey, raw);
     if (summary != null && shown) {
       // 이 화면 탭들의 입력은 저장 칸 하나(_draft)로 묶여 있어 그 모양을 그대로 기록에 남긴다.
       final raw = jsonEncode(_draft());
       logCalc(
         kElecTabLabels[sumKey] ?? sumKey,
         summary,
-        onTap: () => _restoreHistory(sumKey, raw),
+        restoreKey: sumKey,
+        restoreData: raw,
       );
     }
     final showDiag = warn && diagnosis != null;

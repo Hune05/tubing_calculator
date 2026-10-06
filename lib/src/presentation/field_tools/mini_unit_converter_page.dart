@@ -38,6 +38,10 @@ class MiniUnitConverterPage extends StatefulWidget {
 
 class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
     with RecentCalcHistoryMixin<MiniUnitConverterPage> {
+  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  @override
+  String? get calcHistoryStorageKey => 'calc_history_mini_unit';
+
   late UnitCategory _cat = kMiniConvertCategories.first;
   late List<UnitDef> _units = _numericUnits(_cat);
   late UnitDef _from = _units[0];

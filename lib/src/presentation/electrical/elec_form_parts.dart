@@ -82,13 +82,35 @@ mixin ElecTabParts<W extends StatefulWidget>
   /// 결과 요약을 기록에 쌓는다. 입력 묶음이 있으면 기록을 눌러 그때 입력값으로 되돌릴 수 있다.
   void logElecHistory(String sumKey, String summary) {
     final snap = historySnapshot();
-    // 지금 값을 글로 굳혀 둔다(나중에 칸 값이 바뀌어도 기록의 입력은 그대로).
+    // 지금 값을 글로 굳혀 둔다(나중에 칸 값이 바뀌어도 기록의 입력은 그대로). 폰에도 이 글로 남는다.
     final raw = snap == null ? null : jsonEncode(snap);
     logCalc(
       kElecTabLabels[sumKey] ?? sumKey,
       summary,
-      onTap: raw == null ? null : () => restoreElecHistory(sumKey, raw),
+      restoreKey: raw == null ? null : sumKey,
+      restoreData: raw,
     );
+  }
+
+  /// 이 탭이 기록 되돌리기를 받는 일(탭 이름 키마다 하나). 앱을 다시 연 뒤 기록을 눌러도 이 탭에 넣는다.
+  final Map<String, void Function(String data)> _myRestorers = {};
+
+  void _registerRestorer(String sumKey) {
+    calcLog.restorers[sumKey] = _myRestorers.putIfAbsent(
+      sumKey,
+      () => (raw) => restoreElecHistory(sumKey, raw),
+    );
+  }
+
+  @override
+  void dispose() {
+    // 없어진 탭에 되돌리지 않게, 이 탭이 등록한 것만 뺀다(다시 그려진 탭이 등록한 것은 둔다).
+    for (final e in _myRestorers.entries) {
+      if (identical(calcLog.restorers[e.key], e.value)) {
+        calcLog.restorers.remove(e.key);
+      }
+    }
+    super.dispose();
   }
 
   /// 기록 하나를 눌렀을 때: 그 탭을 앞으로 띄우고 그때 입력값을 넣은 뒤, "원래대로"를 띄운다.
@@ -124,6 +146,7 @@ mixin ElecTabParts<W extends StatefulWidget>
     String? summary,
     bool warn = false,
   }) {
+    _registerRestorer(sumKey);
     if (summary != null) logElecHistory(sumKey, summary);
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),

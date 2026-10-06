@@ -90,6 +90,10 @@ class _FlowCalcPageState extends State<FlowCalcPage>
         WidgetsBindingObserver,
         _FlowDpTab,
         _FlowMeterCheckTab {
+  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  @override
+  String? get calcHistoryStorageKey => 'calc_history_flow';
+
   static const _draftKey = 'flow_calc_draft_v1';
 
   late final TabController _tabs = TabController(

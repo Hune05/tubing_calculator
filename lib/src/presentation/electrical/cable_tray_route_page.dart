@@ -37,6 +37,10 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
         CalcFormParts<CableTrayRoutePage>,
         RecentCalcHistoryMixin<CableTrayRoutePage>,
         ElecTabParts<CableTrayRoutePage> {
+  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  @override
+  String? get calcHistoryStorageKey => 'calc_history_tray_route';
+
   TrayRouteKind _kind = TrayRouteKind.over;
   double _rail = 100;
   double _width = 300; // 옆으로 꺾을 때 트레이 폭(측판 사이)

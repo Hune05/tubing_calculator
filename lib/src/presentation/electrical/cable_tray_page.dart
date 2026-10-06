@@ -121,6 +121,10 @@ class CableTrayPage extends StatefulWidget {
 
 class _CableTrayPageState extends State<CableTrayPage>
     with CalcFormParts<CableTrayPage>, RecentCalcHistoryMixin<CableTrayPage>, ElecTabParts<CableTrayPage> {
+  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  @override
+  String? get calcHistoryStorageKey => 'calc_history_cable_tray';
+
   static const int _maxRows = 12;
 
   TrayStandard _std = TrayStandard.kec;
