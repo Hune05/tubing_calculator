@@ -25,6 +25,13 @@ Future<void> _shareText(String text) async {
   await Share.share(text);
 }
 
+/// AI 답 "보내기" 글: 받는 사람도 AI 답인 것을 알 수 있게 앞에 표시한다.
+String aiAnswerShareText(String question, String answer) => [
+  '질문: $question',
+  'AI 답변(앱 자료가 아니며 틀릴 수 있음):',
+  answer,
+].join('\n');
+
 /// 최근 검색어 저장 칸(이 폰에만).
 const String kKnowledgeRecentKey = 'knowledge_recent_v1';
 
@@ -161,7 +168,11 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
       isScrollControlled: true,
       showDragHandle: true,
       backgroundColor: refWhite,
-      builder: (_) => _AiAnswerSheet(question: q, askAi: widget.askAi),
+      builder: (_) => _AiAnswerSheet(
+        question: q,
+        askAi: widget.askAi,
+        share: widget.share,
+      ),
     );
   }
 
@@ -683,10 +694,15 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
 /// AI 답 시트: 보내는 중 → 답(또는 실패). 위에 늘 "AI 답변·앱 자료 아님"을 표시하고,
 /// 안전과 관계된 질문이면 확인 경고를 더 크게 붙인다.
 class _AiAnswerSheet extends StatefulWidget {
-  const _AiAnswerSheet({required this.question, required this.askAi});
+  const _AiAnswerSheet({
+    required this.question,
+    required this.askAi,
+    required this.share,
+  });
 
   final String question;
   final AiAskCall askAi;
+  final KnowledgeShare share;
 
   @override
   State<_AiAnswerSheet> createState() => _AiAnswerSheetState();
@@ -823,6 +839,15 @@ class _AiAnswerSheetState extends State<_AiAnswerSheet> {
                         res.text!,
                         key: const Key('ks_ai_answer'),
                         style: TextStyle(fontSize: 16, color: refTextMain, height: 1.55),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        key: const Key('ks_ai_share'),
+                        onPressed: () => widget.share(
+                          aiAnswerShareText(widget.question, res.text!),
+                        ),
+                        icon: const Icon(Icons.share),
+                        label: const Text('보내기 (카톡·문자)'),
                       ),
                       if (res.remaining != null)
                         Padding(

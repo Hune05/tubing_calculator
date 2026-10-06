@@ -220,4 +220,27 @@ void main() {
     final hit = t.getTopLeft(find.byKey(const Key('ks_hit_a'))).dy;
     expect(notice < ai && ai < hit, isTrue);
   });
+
+  testWidgets('AI 답도 보낼 수 있고, 보내는 글 앞에 AI 답이라고 적는다', (t) async {
+    final sent = <String>[];
+    t.view.physicalSize = const Size(800, 2400);
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(
+      MaterialApp(
+        home: KnowledgeSearchPage(
+          entries: _data,
+          askAi: (q) async => const AiAskResult.ok('필터를 청소합니다.'),
+          share: (s) async => sent.add(s),
+        ),
+      ),
+    );
+    await t.enterText(find.byKey(const Key('ks_field')), '볼펜 잉크');
+    await t.pump();
+    await t.tap(find.byKey(const Key('ks_ask_ai')));
+    await t.pumpAndSettle();
+    await t.tap(find.byKey(const Key('ks_ai_share')));
+    await t.pump();
+    expect(sent.single, '질문: 볼펜 잉크\nAI 답변(앱 자료가 아니며 틀릴 수 있음):\n필터를 청소합니다.');
+  });
 }
