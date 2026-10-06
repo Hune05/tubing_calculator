@@ -558,7 +558,7 @@ void main() {
       await tester.ensureVisible(find.byKey(const Key('els_name_3')));
       await tester.pumpAndSettle();
       // 글 칸은 글자 고르기로 밀기를 먹으므로 줄 번호를 잡고 민다.
-      await tester.drag(find.text('4번'), const Offset(-500, 0));
+      await tester.drag(find.text('4번').first, const Offset(-500, 0));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('els_kw_3')), findsNothing);
       expect(find.text('줄 추가 (3/30)'), findsOneWidget);
@@ -630,6 +630,10 @@ void main() {
       await type(tester, 'els_selected', '75');
       expect(sum(tester), contains('불합격'));
       expect(find.textContaining('선정 용량이 필요 용량보다 작습니다'), findsOneWidget);
+      await tester.ensureVisible(find.byKey(const Key('els_v_440')));
+      // 위쪽에 고정된 요약 줄에 가리지 않게 목록을 조금 내린다.
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 200));
+      await tester.pump();
       await tester.tap(find.byKey(const Key('els_v_440')));
       await tester.pump();
       expect(allFlat(tester), contains(flat('(√3 × 440 V)')));

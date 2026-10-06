@@ -501,10 +501,10 @@ extension _AwgTab on _ElectricCalculatorPageState {
     return (result, summary, warn, basis);
   }
 
+  /// 근거 보기용 출처 줄. 식 자체는 결과 상자의 풀이 카드에 나오므로 여기엔 쓰지 않는다.
   String _awgVdFormula(Phase ph) => ph == Phase.dc
-      ? '식: ΔU = 2 × I × L × R (직류, 리액턴스 없음), R은 75°C 저항(NEC 9장 표 8, 구리 연선)'
-      : '식: ΔU = ${ph == Phase.three ? '√3' : '2'} × I × L × (R cosφ + X sinφ), '
-            'R은 75°C 저항(NEC 9장 표 8, 구리 연선), X = 0.096 Ω/km(60Hz, Schneider EIG)';
+      ? 'R은 75°C 저항(NEC 9장 표 8, 구리 연선), 직류는 리액턴스가 없습니다.'
+      : 'R은 75°C 저항(NEC 9장 표 8, 구리 연선), X = 0.096 Ω/km(60Hz, Schneider EIG)';
 
   // ③ 전압강하(AWG)
   Widget _awgVdTab() {

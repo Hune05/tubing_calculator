@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/record_sync.dart';
+import '../common/number_text.dart';
 
 /// 부하 줄 수 상한.
 const int kLoadSumMaxRows = 30;
@@ -224,7 +225,7 @@ class LoadSumResult {
 }
 
 double? _num(String s) {
-  final v = double.tryParse(s.trim().replaceAll(',', ''));
+  final v = parseNumberText(s);
   if (v == null || v.isNaN || v.isInfinite) return null;
   return v;
 }

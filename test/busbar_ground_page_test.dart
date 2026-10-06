@@ -266,7 +266,7 @@ void main() {
   });
 
   testWidgets('러그·판넬 칸 값이 저장 순서가 어긋나지 않고 다시 열면 그대로', (tester) async {
-    await _open(tester, height: 12000);
+    await _open(tester, height: 30000);
     await tester.tap(find.byKey(const Key('gb_tab_4')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('gb_mc_1')));
@@ -278,7 +278,7 @@ void main() {
     await _type(tester, 'gb_panelt', '4');
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
-    await _open(tester, height: 12000);
+    await _open(tester, height: 30000);
     String text(String k) =>
         tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
     expect(text('gb_lugdia'), '9');

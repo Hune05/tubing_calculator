@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../common/number_text.dart';
 export '../common/formula_card.dart';
+export '../common/number_text.dart';
 
 /// elecPage·_page의 sumKey → "최근 계산 기록"에 보일 한글 탭 이름(2026-09-29).
 const Map<String, String> kElecTabLabels = {
@@ -56,7 +58,7 @@ class ElecTransformerSeed {
 
 /// 칸의 글을 숫자로 읽는다. 비었거나 숫자가 아니면 null.
 double? readNum(TextEditingController c) =>
-    double.tryParse(c.text.trim().replaceAll(',', ''));
+    parseNumberText(c.text);
 
 mixin ElecTabParts<W extends StatefulWidget>
     on CalcFormParts<W>, RecentCalcHistoryMixin<W> {

@@ -51,7 +51,8 @@ void main() {
     // 10 kA, 0.5초, 케이블 안 PVC 구리 k 115 → 61.5 → 70
     await _type(tester, 'gr_fault', '10000');
     expect(find.text('70 mm²'), findsOneWidget);
-    expect(allFlat(tester), contains(flat('= 61.5 mm² (규격 70 mm²)')));
+    expect(allFlat(tester), contains(flat('= 61.5 mm²')));
+    expect(allFlat(tester), contains(flat('(규격 70 mm²)')));
     // 따로 포설로 바꾸면 k 143 → 49.5 → 표 25와 비교해 큰 값 50
     await _tap(tester, 'gr_sep_out');
     expect(find.text('50 mm²'), findsOneWidget);
@@ -81,7 +82,7 @@ void main() {
   testWidgets('접지 탭: 접지봉 41.2 Ω, 병렬과 목표 판정', (tester) async {
     await _open(tester, 'ec_tab_ground');
     await _tap(tester, 'gr_mode_rod');
-    expect(find.textContaining('1본: ρ/(2πl)'), findsOneWidget);
+    expect(allFlat(tester), contains(flat('1본: ρ/(2πl)')));
     expect(find.text('41.2 Ω'), findsOneWidget);
     await _type(tester, 'gr_n', '4');
     await _type(tester, 'gr_target', '10');

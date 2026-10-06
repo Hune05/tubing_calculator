@@ -445,10 +445,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.textContaining('합격 (여유 33.3%)'), findsOneWidget);
       expect(allFlat(tester), contains(flat('셀 수 계산값: 125 V ÷ 2 V = 62.5셀')));
-      expect(
-        find.textContaining('105 V, 부하 최저 허용 106 V 미만이라 불합격'),
-        findsOneWidget,
-      );
+      expect(allFlat(tester), contains(flat('105 V, 부하 최저 허용 106 V 미만이라 불합격')));
       await put(tester, 'eb_minbus', '105');
       await tester.pumpAndSettle();
       expect(find.textContaining('105 V 이상이라 합격'), findsOneWidget);

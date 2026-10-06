@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
+import 'formula_flat.dart';
 
 Future<void> _open(WidgetTester tester, int tab) async {
   tester.view.physicalSize = const Size(800, 7000);
@@ -38,7 +39,7 @@ void main() {
     await _type(tester, 'mc_volts', '400');
     await _type(tester, 'mc_i0', '10');
     var t = _all(tester);
-    expect(t, contains('= 6.24 kvar'));
+    expect(flat(t), contains(flat('= 6.24 kvar')));
     expect(t, contains('자기여자'));
     // 정격값으로 추정: 41 A, cosφ 85 → I0 12.3 A, 380 V → 0.9 × 12.3 × 0.38 × √3 = 7.29 kvar
     await _tap(tester, 'mc_i0_est');
@@ -46,13 +47,13 @@ void main() {
     await _type(tester, 'mc_inpf', '85');
     await _type(tester, 'mc_volts', '380');
     t = _all(tester);
-    expect(t, contains('= 12.3 A'));
-    expect(t, contains('= 7.29 kvar'));
+    expect(flat(t), contains(flat('= 12.3 A')));
+    expect(flat(t), contains(flat('= 7.29 kvar')));
     // 계전기 보정
     await _type(tester, 'mc_set', '40');
     await _type(tester, 'mc_pf1', '80');
     await _type(tester, 'mc_pf2', '95');
-    expect(_all(tester), contains('= 33.7 A로 낮춥니다'));
+    expect(flat(_all(tester)), contains(flat('= 33.7 A로 낮춥니다')));
     // 도표 L24·L25
     await _tap(tester, 'mc_rpm_1500');
     await _type(tester, 'mc_tkw', '22');
@@ -69,7 +70,7 @@ void main() {
     await _type(tester, 'mc_skw', '1.5');
     final t = _all(tester);
     // 1.5 × 63.28 = 94.9
-    expect(t, contains('= 94.9 μF (63.3 μF/kW)'));
+    expect(flat(t), contains(flat('= 94.9 μF (63.3 μF/kW)')));
     expect(t, contains('190~285 μF'));
     expect(t, contains('1.05~1.2 kW'));
     expect(t, isNot(contains('소형 한도(2.2 kW 미만)를 넘습니다')));
@@ -82,12 +83,12 @@ void main() {
     await _tap(tester, 'mc2_sec_single');
     await _type(tester, 'mc_pkw', '1.1');
     var t = _all(tester);
-    expect(t, contains('= 22~55 μF'));
+    expect(flat(t), contains(flat('= 22~55 μF')));
     expect(t, contains('명판이나 제조사가 정한 용량을 우선'));
     await _type(tester, 'mc_have', '100');
     t = _all(tester);
-    expect(t, contains('= 8.29 A'));
-    expect(t, contains('= 1.825 kvar'));
+    expect(flat(t), contains(flat('= 8.29 A')));
+    expect(flat(t), contains(flat('= 1.825 kvar')));
   });
 
   testWidgets('최대 토크: 11 kW 1750 rpm 배수 2.3 → 138 N·m, 90 % 전압 111.8 N·m, IEC·NEMA 최소값', (tester) async {

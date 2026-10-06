@@ -687,7 +687,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   // ─────────────── 입력 읽기 ───────────────
 
   double? _num(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', ''));
+      parseNumberText(c.text);
 
   /// % 칸 읽기. 비었거나 0이면 기본값과 알림 글.
   double _pctOf(
@@ -700,6 +700,12 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (v == null || v <= 0) {
       notes.add('$name 값이 없어 ${fmt(dflt * 100)}%로 계산했습니다.');
       return dflt;
+    }
+    if (v <= 1) {
+      // 1 이하는 비율로 읽는다(0.9 = 90%). 1%를 뜻하는 1과 헷갈리지 않게 알려 준다.
+      notes.add(
+        '$name ${fmt(v, 2)}은 비율로 읽어 ${fmt(v * 100)}%로 계산했습니다. 퍼센트는 85처럼 넣으십시오.',
+      );
     }
     return (v > 1 ? v / 100 : v).clamp(0.01, 1.0);
   }
@@ -1793,10 +1799,10 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     '전동기 여유 1.25배(50A 초과 1.1배): LS ELECTRIC MCCB 선정 자료 A1-124(구 내선규정 방식). NEC 430.22는 1.25배. KEC에는 없습니다.',
   ];
 
+  /// 근거 보기용 출처 줄. 식 자체는 결과 상자의 풀이 카드에 나오므로 여기엔 쓰지 않는다.
   String _vdFormula(Phase ph, Insulation ins) => ph == Phase.dc
-      ? '식: ΔU = 2 × I × L × R (직류, 리액턴스 없음), R은 ${fmt(conductorTemp(ins))}°C 저항(IEC 60228)'
-      : '식: ΔU = ${ph == Phase.three ? '√3' : '2'} × I × L × (R cosφ + X sinφ), '
-            'R은 ${fmt(conductorTemp(ins))}°C 저항(IEC 60228), X = 0.096 Ω/km(60Hz, Schneider EIG)';
+      ? 'R은 ${fmt(conductorTemp(ins))}°C 저항(IEC 60228), 직류는 리액턴스가 없습니다.'
+      : 'R은 ${fmt(conductorTemp(ins))}°C 저항(IEC 60228), X = 0.096 Ω/km(60Hz, Schneider EIG)';
 
   static const String _peBasisLine =
       'KEC 142.3.2 1 다: 케이블 밖에 따로 포설하는 보호도체는 기계적 보호가 있으면 구리 2.5mm², 없으면 4mm² 이상. '
@@ -2853,13 +2859,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
 
   /// 직접 입력한 교류 전압을 반영한다. 비우거나 숫자가 아니면 칩 값을 그대로 둔다.
   void _applyCustomVolts() {
-    final v = double.tryParse(_vCustom.text.trim().replaceAll(',', '.'));
+    final v = parseNumberText(_vCustom.text);
     if (v == null || v <= 0) return;
     _volts = v;
   }
 
   void _applyCustomDcVolts() {
-    final v = double.tryParse(_dcvCustom.text.trim().replaceAll(',', '.'));
+    final v = parseNumberText(_dcvCustom.text);
     if (v == null || v <= 0) return;
     _dcVolts = v;
   }

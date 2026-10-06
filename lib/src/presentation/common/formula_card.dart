@@ -59,6 +59,53 @@ const Map<String, List<String>> kSymbolLegend = {
   'ec_sc_result': [
     'Ik″ 초기 단락전류  ·  c 전압 계수  ·  Un 정격 전압  ·  Z 단락점까지의 임피던스',
   ],
+  'ec_sc_min_result': [
+    'Ik″ 초기 단락전류(최소는 2상 단락)  ·  c 전압 계수  ·  Z 단락점까지의 임피던스',
+  ],
+  'ec_sc_cable_result': [
+    'S 도체 단면적(mm²)  ·  Ik 단락전류(A)  ·  t 단락 지속시간(초)  ·  k 도체·절연 재질 계수',
+  ],
+  'ec_hz_result': ['T 주기  ·  f 주파수(Hz)  ·  ω 각주파수(rad/s)'],
+  'ec_hz_speed_result': [
+    'ns 동기속도(rpm)  ·  n 회전수(rpm)  ·  s 슬립  ·  p 극수  ·  f 주파수(Hz)',
+  ],
+  'ec_hz_x_result': [
+    'XL 유도 리액턴스  ·  XC 용량 리액턴스  ·  f0 공진 주파수  ·  L 인덕턴스  ·  C 정전용량',
+  ],
+  'ec_rs_result': [
+    'R 저항(Ω)  ·  ρ20 20℃ 고유저항  ·  L 길이  ·  A 단면적  ·  α 온도계수  ·  θ 도체 온도',
+  ],
+  'ec_rs_sp_result': ['R1·R2·R3 각 저항(Ω)'],
+  'ec_en_result': ['kWh 전력량  ·  kW 사용 전력'],
+  'ec_as_result': ['P 유효전력  ·  S 피상전력  ·  cosφ 역률  ·  V 전압  ·  I 전류'],
+  'ec_zi_result': [
+    'Z 임피던스(Ω)  ·  R 저항  ·  XL·XC 유도·용량 리액턴스  ·  V 전압  ·  I 전류',
+  ],
+  'ec_cv_result': [
+    'Qn 명판 출력  ·  Vn 명판 정격 전압  ·  V 실제 운전 전압  ·  f 주파수',
+  ],
+  'els_result': [
+    'P 유효전력(kW)  ·  Q 무효전력(kvar)  ·  S 피상전력(kVA)  ·  cosφ 역률  ·  Σ 합',
+  ],
+  'eg_result': [
+    'PG1 정상 운전  ·  PG2 가장 큰 전동기 기동 시 전압강하  ·  PG3 마지막 전동기 기동  ·  Pm 가장 큰 전동기 출력  ·  β 기동 kVA/kW  ·  C 시동방식 계수  ·  X″d 발전기 리액턴스  ·  ΔV 허용 전압강하',
+  ],
+  'eb_result': [
+    'K 용량 환산 시간(제조사 방전 특성표)  ·  A 단계 전류(A)  ·  L 보수율',
+  ],
+  'gr_result': [
+    'S 단면적(mm²)  ·  I 고장전류 실효값(A)  ·  t 차단시간(초)  ·  k 재질 계수  ·  RA 접지저항  ·  IΔn 누전차단기 정격 감도전류',
+  ],
+  'emp_result': ['FLC 전부하 전류(NEC 표 430.250 값)  ·  FLA 명판 정격전류'],
+  'mf_result': [
+    'Ns 동기속도  ·  N 회전수(rpm)  ·  f 주파수(Hz)  ·  s 슬립  ·  f2 회전자 전류 주파수  ·  η 효율  ·  T 토크(N·m)  ·  P 극수(속도 식) 또는 출력 kW(토크·전류 식)',
+  ],
+  'mm_result': [
+    'ΔT 온도 상승  ·  R1·R2 차가울 때·운전 직후 저항  ·  i 감속비  ·  η 효율  ·  m 질량  ·  v 속도  ·  μ 마찰 계수  ·  θ 경사각',
+  ],
+  'mc2_result': [
+    'C 정전용량(μF)  ·  f 주파수(Hz)  ·  V·U 전압  ·  P 전동기 출력(kW)  ·  I0 무부하 전류',
+  ],
 };
 
 // ───────────── 줄 나누기 ─────────────
@@ -85,11 +132,7 @@ List<String> _splitTop(String s, String sep) {
   return out;
 }
 
-final RegExp _sentence = RegExp(r'(\. |입니다|십시오|습니다|합니다|됩니다|\?)');
 final RegExp _operator = RegExp(r'[×÷√²Σ]| [+−/] ');
-final RegExp _numericResult = RegExp(
-  r'^[−-]?\d[\d.,]*\s*[^\s=×÷0-9]{0,9}(\s*\(.*\))?$',
-);
 
 /// 결과 줄 중 "식 = 대입 = 결과" 꼴을 찾아 풀이 행으로 바꾼다. 문장 같은 줄은 그대로 둔다.
 FormulaSplit splitFormulaLines(List<String> lines) {
@@ -106,7 +149,7 @@ FormulaSplit splitFormulaLines(List<String> lines) {
       }
       continue;
     }
-    final parsed = _parseOne(l);
+    final parsed = _parseLine(l);
     if (parsed == null) {
       rest.add(raw);
     } else {
@@ -116,8 +159,53 @@ FormulaSplit splitFormulaLines(List<String> lines) {
   return FormulaSplit(rows, rest);
 }
 
+/// 한 줄을 문장(". " 기준)으로 나눠, 식 꼴인 문장은 식 행으로, 아닌 문장은 설명 행으로 만든다.
+/// 식 꼴 문장이 하나도 없으면 null(줄을 결과 상자에 그대로 둔다).
+List<FormulaRow>? _parseLine(String l) {
+  final sentences = _splitTop(l, '. ')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .map((e) => e.endsWith('.') ? e.substring(0, e.length - 1) : e)
+      .toList();
+  final rows = <FormulaRow>[];
+  var any = false;
+  for (final s in sentences) {
+    final eq = _parseSentence(s);
+    if (eq != null) {
+      rows.addAll(eq);
+      any = true;
+    } else {
+      rows.add(FormulaRow(text: s));
+    }
+  }
+  return any ? rows : null;
+}
+
+/// 문장 하나. "이름: 식" 꼴이면 이름을 식 행의 이름표로 쓴다.
+List<FormulaRow>? _parseSentence(String s) {
+  final colon = _splitTop(s, ': ');
+  final label = colon.first.trim();
+  final labelled =
+      colon.length >= 2 && !label.contains('=') && !_operator.hasMatch(label);
+  if (!labelled) return _parseOne(s);
+  final eq = _parseOne(colon.sublist(1).join(': ').trim());
+  if (eq == null) return _parseOne(s);
+  final first = eq.first;
+  return [
+    FormulaRow(
+      label: label,
+      formula: first.formula,
+      sub: first.sub,
+      result: first.result,
+      text: first.text,
+      note: first.note,
+    ),
+    ...eq.skip(1),
+  ];
+}
+
 List<FormulaRow>? _parseOne(String l) {
-  if (!l.contains(' = ') || _sentence.hasMatch(l)) return null;
+  if (!l.contains(' = ')) return null;
   if (!_operator.hasMatch(l)) return null;
   var pieces = _splitTop(l, ', ');
   if (pieces.length > 1 && !pieces.every((p) => p.contains(' = '))) {
@@ -132,31 +220,66 @@ List<FormulaRow>? _parseOne(String l) {
   return rows;
 }
 
+/// 결과 조각을 (값, 덧말)로 나눈다. 값은 숫자로 시작해 짧은 단위까지, 뒤에 "(…)"나 ", …"가 붙으면 덧말.
+/// 숫자로 시작하지 않거나 다른 글이 붙으면 null(결과가 아님).
+({String value, String? note})? _resultParts(String last) {
+  final m = RegExp(
+    r'^([−-]?\d[\d.,]*\s*[^\s=×÷0-9(),]{0,9})(.*)$',
+  ).firstMatch(last);
+  if (m == null) return null;
+  final head = m.group(1)!.trim();
+  final rest = m.group(2)!.trim();
+  if (rest.isEmpty) return (value: head, note: null);
+  if (rest.startsWith('(') || rest.startsWith(',')) {
+    final note = rest.startsWith(',') ? rest.substring(1).trim() : rest;
+    return (value: head, note: note);
+  }
+  return null;
+}
+
 FormulaRow? _parsePiece(String p) {
   final parts = _splitTop(p, ' = ');
   if (parts.length < 2) return null;
-  final last = parts.last.trim();
-  final numeric = _numericResult.hasMatch(last);
-  if (!numeric) {
+  // 결과 끝의 "입니다" 같은 서술어는 뗀다("25 mm²입니다" → "25 mm²").
+  final last = parts.last
+      .trim()
+      .replaceFirst(RegExp(r'(입니다|합니다|됩니다|습니다)$'), '')
+      .trim();
+  final res = _resultParts(last);
+  if (res == null) {
     // 마지막이 숫자가 아니면 식만 이어진 줄(P = V × I = I² × R)이다.
     return FormulaRow(formula: p);
   }
   if (parts.length == 2) {
     // "A = 12 kW"는 식이 아니다. 앞쪽에 연산이 있어야 식으로 본다.
     if (!_operator.hasMatch(parts.first)) return null;
-    return FormulaRow(formula: parts.first.trim(), result: last);
+    return FormulaRow(
+      formula: parts.first.trim(),
+      result: res.value,
+      note: res.note,
+    );
   }
   if (parts.length == 3) {
+    // 앞이 기호 하나(R)뿐이면 식이 아니라 "R = 0 + 0 + 0"이 식이다.
+    if (!_operator.hasMatch(parts[0])) {
+      return FormulaRow(
+        formula: '${parts[0].trim()} = ${parts[1].trim()}',
+        result: res.value,
+        note: res.note,
+      );
+    }
     return FormulaRow(
       formula: parts[0].trim(),
       sub: parts[1].trim(),
-      result: last,
+      result: res.value,
+      note: res.note,
     );
   }
   return FormulaRow(
     formula: '${parts[0].trim()} = ${parts[1].trim()}',
     sub: parts.sublist(2, parts.length - 1).map((e) => e.trim()).join(' = '),
-    result: last,
+    result: res.value,
+    note: res.note,
   );
 }
 
@@ -233,7 +356,11 @@ _Frac? _splitFraction(String text) {
   }
   final n = _stripParens(left);
   final d = _stripParens(den);
-  if (n.isEmpty || d.isEmpty) return null;
+  if (n.isEmpty || d.isEmpty || n.length > 36 || d.length > 36) return null;
+  // 말(한글)이 낀 식은 분수로 그리면 읽기 어렵다. 기호·숫자만 분수로 그린다.
+  if (RegExp(r'[가-힣]').hasMatch(n) || RegExp(r'[가-힣]').hasMatch(d)) {
+    return null;
+  }
   return _Frac('$head$prefix', n, d, suffix);
 }
 
@@ -251,7 +378,7 @@ class MathText extends StatelessWidget {
   Widget build(BuildContext context) {
     final f = text.length > 70 ? null : _splitFraction(text);
     if (f == null) {
-      if (!fit) return Text(text, style: style);
+      if (!fit || text.length > 40) return Text(text, style: style);
       return FittedBox(
         fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,

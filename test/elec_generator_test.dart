@@ -212,7 +212,7 @@ void main() {
       expect(find.byKey(const Key('eg_sum')), findsOneWidget);
       expect(find.textContaining('필요 147 kVA (PG1)'), findsOneWidget);
       expect(find.textContaining('최종 용량은 제조사 검토로 확정합니다.'), findsOneWidget);
-      expect(find.textContaining('정격전류: 223 A'), findsOneWidget);
+      expect(allFlat(tester), contains(flat('정격전류: 223 A')));
     });
 
     testWidgets('전동기까지 넣으면 PG2 351이 최댓값이 된다', (tester) async {

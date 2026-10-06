@@ -708,7 +708,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         _vCustom,
         '칩에 없는 전압(예: 200, 208, 6600)을 넣습니다. 넣으면 칩보다 이 값을 씁니다.',
         onEdit: () {
-          final v = double.tryParse(_vCustom.text.trim().replaceAll(',', '.'));
+          final v = parseNumberText(_vCustom.text);
           if (v != null && v > 0) _volts = v;
         },
       ),

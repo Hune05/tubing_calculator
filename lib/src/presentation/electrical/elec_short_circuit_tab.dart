@@ -537,7 +537,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         _volts,
         '변압기 2차 정격전압이며 계통 공칭전압으로 씁니다. 아래 단추로 넣을 수 있습니다.',
       ),
-      if ((double.tryParse(_volts.text.trim().replaceAll(',', '.')) ?? 0) > 1000)
+      if ((parseNumberText(_volts.text) ?? 0) > 1000)
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(

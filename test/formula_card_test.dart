@@ -45,6 +45,34 @@ void main() {
       expect(r.rows[1].result, '28 kW');
     });
 
+    test('문장이 섞인 줄: 식 문장은 식 행, 나머지는 설명 행, 끝 마침표는 뗀다', () {
+      final r = splitFormulaLines([
+        '② 변압기: ZT = %Z ÷ 100 × U² ÷ S = 5 ÷ 100 × 380² ÷ 500000 = 14.44 mΩ. 변압기는 KT를 곱해 씁니다.',
+      ]);
+      expect(r.rest, isEmpty);
+      expect(r.rows, hasLength(2));
+      expect(r.rows[0].label, '② 변압기');
+      expect(r.rows[0].result, '14.44 mΩ');
+      expect(r.rows[1].text, '변압기는 KT를 곱해 씁니다');
+    });
+
+    test('식이 하나도 없는 문장 줄은 그대로 둔다', () {
+      final r = splitFormulaLines(['c = 1.05, KT = 0.968. 차단기 선정용입니다.']);
+      expect(r.rows, isEmpty);
+      expect(r.rest, hasLength(1));
+    });
+
+    test('결과 끝 서술어(입니다)는 뗀다', () {
+      final r = splitFormulaLines(['선도체 35 mm² 초과는 S ÷ 2 = 50 ÷ 2 = 25 mm²입니다']);
+      expect(r.rows.single.result, '25 mm²');
+    });
+
+    test('앞이 기호 하나뿐인 3조각은 "R = 0 + 0 + 0"이 식', () {
+      final r = splitFormulaLines(['R = 0 + 0 + 0 = 0 mΩ']);
+      expect(r.rows.single.formula, 'R = 0 + 0 + 0');
+      expect(r.rows.single.result, '0 mΩ');
+    });
+
     test('괄호 안 쉼표는 자르지 않는다', () {
       final r = splitFormulaLines(['식: ΔU = 2 × I × L × R (직류, 리액턴스 없음)']);
       expect(r.rows, hasLength(1));
@@ -70,6 +98,28 @@ void main() {
         .toList();
     // 분수: "I = ", 분자, 분모 / 한 줄: 통째
     expect(texts, ['I = ', 'P × 1000', '√3 × V', 'A ÷ B ÷ C']);
+  });
+
+  testWidgets('한글이 낀 식은 분수로 그리지 않는다', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: MathText('선도체 35 mm² 초과는 S ÷ 2', style: TextStyle(fontSize: 16)),
+        ),
+      ),
+    );
+    expect(
+      tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).toList(),
+      ['선도체 35 mm² 초과는 S ÷ 2'],
+    );
+  });
+
+  test('기호 뜻 목록은 모두 내용이 있다', () {
+    expect(kSymbolLegend, isNotEmpty);
+    for (final e in kSymbolLegend.entries) {
+      expect(e.value, isNotEmpty, reason: e.key);
+      expect(e.value.every((s) => s.trim().isNotEmpty), isTrue, reason: e.key);
+    }
   });
 
   testWidgets('카드는 결과 앞에 "="를 붙이고 기호 뜻을 맨 아래에 둔다', (tester) async {

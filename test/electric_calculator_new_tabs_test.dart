@@ -210,7 +210,7 @@ void main() {
       expect(b, contains('2가닥 통전(직류)'));
       expect(b, contains('single-phase AC or DC'));
       expect(b, contains('DC 250V를 2극, DC 500V를 3극'));
-      expect(flat(b), contains(flat('ΔU = 2 × I × L × R (직류')));
+      expect(flat(b), contains(flat('직류는 리액턴스가 없습니다')));
       expect(b, contains('교류 기준이라 직류에는 계산하지 않습니다'));
       expect(b, isNot(contains('정격전류의 250%')));
     });
@@ -761,6 +761,27 @@ void main() {
       await openTab(tester, 'ec_tab_vd');
       expect(chipOn(tester, 'ec_vd_dc'), isTrue);
       expect(chipOn(tester, 'ec_vd_dcv_24'), isTrue);
+    });
+  });
+
+  group('입력 읽기', () {
+    testWidgets('역률에 1 이하를 넣으면 비율로 읽었다고 알려 준다', (tester) async {
+      await pumpPage(tester);
+      await type(tester, 'ec_kw', '11');
+      await type(tester, 'ec_pf', '0.85');
+      final r = await resultOf(tester, 'ec_load_result');
+      expect(r, contains('비율로 읽어 85%로 계산했습니다'));
+      await type(tester, 'ec_pf', '85');
+      final r2 = await resultOf(tester, 'ec_load_result');
+      expect(r2, isNot(contains('비율로 읽어')));
+    });
+
+    testWidgets('전압 직접 입력의 쉼표 소수(1,5)와 천 단위(1,500)를 같은 규칙으로 읽는다', (tester) async {
+      await pumpPage(tester);
+      await type(tester, 'ec_kw', '1,5');
+      final r = await resultOf(tester, 'ec_load_result');
+      // 1,5 kW → 1.5 kW (15 kW가 아니다): 380 V 삼상 효율 90·역률 85 → 약 3 A
+      expect(r, contains('3 A'));
     });
   });
 

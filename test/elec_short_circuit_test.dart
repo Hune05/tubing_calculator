@@ -600,7 +600,7 @@ void main() {
       expect(flat(t), contains(flat('구간 1 (50 mm², 30 m, 2가닥): R = 0.387 × 30 ÷ 1000 ÷ 2 = 5.8 mΩ')));
       expect(flat(t), contains(flat('⑤ Ik″ = c × Un ÷ (√3 × Z)')));
       expect(flat(t), contains(flat('= ${ka(calc.ikNetA)} kA(변압기·계통분).')));
-      expect(t, contains('⑥ 전동기 기여: 정격전류 IrM'));
+      expect(flat(t), contains(flat('⑥ 전동기 기여: 정격전류 IrM')));
       expect(flat(t), contains(flat('= ${ka(calc.ikMotorA)} kA. 합계 Ik″ = ${ka(calc.ikNetA)} + ${ka(calc.ikMotorA)} = ${ka(calc.ikMaxA)} kA.')));
       expect(flat(t), contains(flat('= ${ka(calc.ipA)} kA (R/X =')));
       await reveal(tester, find.byKey(const Key('ec_sc_min_result')));
