@@ -244,11 +244,18 @@ void main() {
       await type(tester, 'eg_g_k', '1.1');
       // 100 ÷ 0.68 = 147.06, 30 ÷ 0.81 × 2.5 = 92.59, (147.06 + 92.59) × 1.1 = 263.6
       expect(find.textContaining('263.6 kVA'), findsWidgets);
-      expect(allFlat(tester), contains(flat('② GP = [ΣP + (ΣPm − PL) × a + PL × a × c] × k')));
+      expect(
+        allFlat(tester),
+        contains(flat('② GP = [ΣP + (ΣPm − PL) × a + PL × a × c] × k')),
+      );
       final all = allFlat(tester);
       expect(
         all,
-        contains(flat('부하 2 VVVF 전동기 P = 30 ÷ (0.9 × 0.9) × 2.5 = 92.6 kVA')),
+        contains(
+          flat(
+            '부하 2 VVVF 전동기 P = kW ÷ (효율 × 역률) × λ = 30 ÷ (0.9 × 0.9) × 2.5 = 92.6 kVA',
+          ),
+        ),
       );
       expect(all, contains(flat('k 1.10: 직접 입력한 값입니다.')));
     });
@@ -296,6 +303,44 @@ void main() {
         allFlat(tester),
         contains(flat('k 1.07: 표 4.1-1에서 허용 전압강하 17 %, x″d 22 % 칸을 고른 값입니다.')),
       );
+    });
+
+    testWidgets('좁은 폰(344)·큰 글씨(1.3)에서 부하 줄·k 표·결과가 넘치지 않는다', (tester) async {
+      tester.view.physicalSize = const Size(344, 6000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(1.3)),
+            child: child!,
+          ),
+          home: const FieldViewTheme(child: Scaffold(body: ElecGeneratorTab())),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '처음 화면');
+      await type(tester, 'eg_row_kw_0', '1250.5');
+      await type(tester, 'eg_row_eff_0', '85');
+      await type(tester, 'eg_row_pf_0', '80');
+      await tester.ensureVisible(find.byKey(const Key('eg_add')));
+      await tester.tap(find.byKey(const Key('eg_add')));
+      await tester.pump();
+      await tester.ensureVisible(find.byKey(const Key('eg_kind_1_harmonic')));
+      await tester.tap(find.byKey(const Key('eg_kind_1_harmonic')));
+      await type(tester, 'eg_row_kw_1', '30');
+      await type(tester, 'eg_g_lambda', '2.5');
+      await tester.ensureVisible(find.byKey(const Key('eg_k_15_25')));
+      await tester.tap(find.byKey(const Key('eg_k_15_25')));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '값을 넣은 뒤');
+      // 칩 세 개는 좁아도 한 줄 안에 들어가거나 줄을 바꿔 들어가고, 칸 이름표는 잘리지 않는다.
+      final kw = tester.getRect(find.byKey(const Key('eg_row_kw_0')));
+      final pf = tester.getRect(find.byKey(const Key('eg_row_pf_0')));
+      expect(pf.right, lessThanOrEqualTo(344));
+      expect(kw.width, greaterThan(60));
     });
 
     testWidgets('PG 방식으로 바꾸면 옛 칸이 나오고, 방식은 다시 열어도 남는다', (tester) async {

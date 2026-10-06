@@ -588,6 +588,8 @@ void main() {
       final t = textOf(tester, 'ec_sc_result');
       expect(t, contains('① 전원: 상위 계통 단락용량을 넣지 않아 무한 전원'));
       expect(flat(t), contains(flat('② 변압기: ZT = %Z ÷ 100 × U² ÷ S = 5.5 ÷ 100 × 380² ÷ (1000 × 1000) = 7.94 mΩ.')));
+      expect(flat(t), contains(flat('ZT 변압기 임피던스')));
+      expect(flat(t), contains(flat('%Z 변압기 퍼센트 임피던스(명판)')));
       expect(flat(t), contains(flat('KT = 0.95 × cmax ÷ (1 + 0.6 × xT) = 0.95 × 1.05 ÷ (1 + 0.6 × 0.055) = 0.966')));
       expect(t, contains('③ 케이블 구간 없음'));
       expect(flat(t), contains(flat('④ 합계: R = 0 + 0 + 0 = 0 mΩ, X = 0 + 7.67 + 0 = 7.67 mΩ.')));

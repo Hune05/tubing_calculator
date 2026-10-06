@@ -295,14 +295,19 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
               : cur != null && (cur - v).abs() < 1e-9);
       final child = Container(
         alignment: Alignment.center,
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
         color: sel ? fc.brand : null,
-        child: Text(
-          t,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: head || sel ? FontWeight.w800 : FontWeight.w500,
-            color: sel ? fc.onBrand : (head ? fc.textSub : fc.text),
+        // 좁은 폰·큰 글씨에서 칸 글자가 두 줄로 쪼개지지 않게 넘치면 줄여 넣는다.
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            t,
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: head || sel ? FontWeight.w800 : FontWeight.w500,
+              color: sel ? fc.onBrand : (head ? fc.textSub : fc.text),
+            ),
           ),
         ),
       );
@@ -336,6 +341,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
           ),
           clipBehavior: Clip.antiAlias,
           child: Table(
+            // 첫 열(ΔV·x″d 머리 칸)을 조금 넓힌다.
+            columnWidths: const {0: FlexColumnWidth(1.4)},
             border: TableBorder.symmetric(inside: BorderSide(color: fc.line)),
             children: [
               TableRow(
@@ -511,32 +518,30 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              // 이름표를 칩과 한 줄에 둔다. 좁은 폰에서 칩이 두 줄로 내려가도 이름표는 첫 줄 맨 앞에 남는다.
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  Text(
-                    '부하 ${i + 1}',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: fc.brand,
+                  Padding(
+                    padding: const EdgeInsets.only(right: 2),
+                    child: Text(
+                      '부하 ${i + 1}',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                        color: fc.brand,
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final k in GpLoadKind.values)
-                          calcChip(
-                            'eg_kind_${i}_${k.name}',
-                            _gpKindShort(k),
-                            r.kind == k,
-                            () => setState(() => r.kind = k),
-                          ),
-                      ],
+                  for (final k in GpLoadKind.values)
+                    calcChip(
+                      'eg_kind_${i}_${k.name}',
+                      _gpKindShort(k),
+                      r.kind == k,
+                      () => setState(() => r.kind = k),
                     ),
-                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -671,7 +676,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         lines: [
           for (var n = 0; n < input.loads.length; n++)
             if (r.loadP[n] > 0)
-              '부하 ${n + 1} ${_gpKindShort(input.loads[n].kind)} P = ${fmt(input.loads[n].kw!, 1)} ÷ (${fmt(input.loads[n].eff!, 2)} × ${fmt(input.loads[n].pf!, 2)})${input.loads[n].kind.usesLambda ? ' × ${fmt(lam, 2)}' : ''} = ${fmt(r.loadP[n], 1)} kVA',
+              '부하 ${n + 1} ${_gpKindShort(input.loads[n].kind)} P = kW ÷ (효율 × 역률)${input.loads[n].kind.usesLambda ? ' × λ' : ''} = ${fmt(input.loads[n].kw!, 1)} ÷ (${fmt(input.loads[n].eff!, 2)} × ${fmt(input.loads[n].pf!, 2)})${input.loads[n].kind.usesLambda ? ' × ${fmt(lam, 2)}' : ''} = ${fmt(r.loadP[n], 1)} kVA',
           if (r.pUps > 0)
             'UPS P = 출력 ÷ 효율 × λ + 충전용량 = ${fmt(input.upsKva!, 1)} ÷ ${fmt(input.upsEff!, 2)} × ${fmt(lam, 2)} + ${fmt(r.upsCharge, 1)} = ${fmt(r.pUps, 1)} kVA',
           parts.length > 1 && parts.length <= 6

@@ -51,17 +51,17 @@ const Map<String, List<String>> kSymbolLegend = {
   ],
   'ec_yd_result': ['V선·I선 선간 전압·선전류  ·  V상·I상 상 전압·상전류'],
   'ec_conv_result': ['S 피상전력(kVA)  ·  P 유효전력(kW)  ·  V 전압(V)  ·  I 전류(A)'],
-  'ec_cable_result': [
-    'IB 설계전류  ·  In 차단기 정격전류  ·  IZ 전선의 허용전류  ·  ΔU 전압강하',
-  ],
+  'ec_cable_result': ['IB 설계전류  ·  In 차단기 정격전류  ·  IZ 전선의 허용전류  ·  ΔU 전압강하'],
   'ec_pf_result': [
     'Qc 콘덴서 용량(kvar)  ·  tanφ 무효분÷유효분  ·  P 유효전력(kW)  ·  C 정전용량  ·  V 선간 전압',
   ],
   'ec_sc_result': [
     'Ik″ 초기 단락전류  ·  c 전압 계수  ·  Un 정격 전압  ·  Z 단락점까지의 임피던스',
+    'ZT 변압기 임피던스  ·  %Z 변압기 퍼센트 임피던스(명판)  ·  RT·XT 변압기 저항·리액턴스  ·  KT 변압기 보정계수  ·  xT 변압기 리액턴스(단위법)  ·  U 2차 선간 전압  ·  S 변압기 용량  ·  Zq 상위 계통 임피던스  ·  S″k 상위 계통 단락용량  ·  ZM 전동기 임피던스  ·  IrM 전동기 정격전류',
   ],
   'ec_sc_min_result': [
     'Ik″ 초기 단락전류(최소는 2상 단락)  ·  c 전압 계수  ·  Z 단락점까지의 임피던스',
+    'ZT 변압기 임피던스  ·  %Z 변압기 퍼센트 임피던스(명판)  ·  RT·XT 변압기 저항·리액턴스  ·  KT 변압기 보정계수  ·  xT 변압기 리액턴스(단위법)  ·  U 2차 선간 전압  ·  S 변압기 용량  ·  Zq 상위 계통 임피던스  ·  S″k 상위 계통 단락용량  ·  ZM 전동기 임피던스  ·  IrM 전동기 정격전류',
   ],
   'ec_sc_cable_result': [
     'S 도체 단면적(mm²)  ·  Ik 단락전류(A)  ·  t 단락 지속시간(초)  ·  k 도체·절연 재질 계수',
@@ -79,21 +79,18 @@ const Map<String, List<String>> kSymbolLegend = {
   'ec_rs_sp_result': ['R1·R2·R3 각 저항(Ω)'],
   'ec_en_result': ['kWh 전력량  ·  kW 사용 전력'],
   'ec_as_result': ['P 유효전력  ·  S 피상전력  ·  cosφ 역률  ·  V 전압  ·  I 전류'],
-  'ec_zi_result': [
-    'Z 임피던스(Ω)  ·  R 저항  ·  XL·XC 유도·용량 리액턴스  ·  V 전압  ·  I 전류',
-  ],
-  'ec_cv_result': [
-    'Qn 명판 출력  ·  Vn 명판 정격 전압  ·  V 실제 운전 전압  ·  f 주파수',
-  ],
+  'ec_zi_result': ['Z 임피던스(Ω)  ·  R 저항  ·  XL·XC 유도·용량 리액턴스  ·  V 전압  ·  I 전류'],
+  'ec_cv_result': ['Qn 명판 출력  ·  Vn 명판 정격 전압  ·  V 실제 운전 전압  ·  f 주파수'],
   'els_result': [
     'P 유효전력(kW)  ·  Q 무효전력(kvar)  ·  S 피상전력(kVA)  ·  cosφ 역률  ·  Σ 합',
   ],
   'eg_result': [
     'PG1 정상 운전  ·  PG2 가장 큰 전동기 기동 시 전압강하  ·  PG3 마지막 전동기 기동  ·  Pm 가장 큰 전동기 출력  ·  β 기동 kVA/kW  ·  C 시동방식 계수  ·  X″d 발전기 리액턴스  ·  ΔV 허용 전압강하',
   ],
-  'eb_result': [
-    'K 용량 환산 시간(제조사 방전 특성표)  ·  A 단계 전류(A)  ·  L 보수율',
+  'eg_gp_result': [
+    'GP 필요 발전기 용량  ·  P 부하 입력용량(kVA)  ·  ΣP 전동기 이외 부하 입력용량 합계  ·  ΣPm 전동기 부하 합계(VVVF 제외)  ·  PL 기동용량이 가장 큰 전동기(kW)  ·  a kW당 입력용량 계수  ·  c 기동계수  ·  k 허용전압강하 계수(표 4.1-1)  ·  λ THD 가중값',
   ],
+  'eb_result': ['K 용량 환산 시간(제조사 방전 특성표)  ·  A 단계 전류(A)  ·  L 보수율'],
   'gr_result': [
     'S 단면적(mm²)  ·  I 고장전류 실효값(A)  ·  t 차단시간(초)  ·  k 재질 계수  ·  RA 접지저항  ·  IΔn 누전차단기 정격 감도전류',
   ],
@@ -171,10 +168,13 @@ FormulaSplit splitFormulaLines(List<String> lines) {
     final l = raw.trim();
     if (l.startsWith('식:') || l.startsWith('식 :')) {
       final body = l.substring(l.indexOf(':') + 1).trim();
-      parts.add(([
-        for (final piece in _splitTop(body, ', '))
-          if (piece.trim().isNotEmpty) FormulaRow(formula: piece.trim()),
-      ], raw));
+      parts.add((
+        [
+          for (final piece in _splitTop(body, ', '))
+            if (piece.trim().isNotEmpty) FormulaRow(formula: piece.trim()),
+        ],
+        raw,
+      ));
       continue;
     }
     parts.add((_parseLine(l), raw));
@@ -353,7 +353,9 @@ String _stripParens(String s) {
 /// 마지막 "= " 오른쪽에서 괄호 밖 "÷"가 하나뿐이면 분수로 나눈다. 아니면 null.
 _Frac? _splitFraction(String text) {
   final eq = _splitTop(text, ' = ');
-  final head = eq.length > 1 ? '${eq.sublist(0, eq.length - 1).join(' = ')} = ' : '';
+  final head = eq.length > 1
+      ? '${eq.sublist(0, eq.length - 1).join(' = ')} = '
+      : '';
   final rhs = eq.last;
   final divs = _splitTop(rhs, ' ÷ ');
   if (divs.length != 2) return null;
