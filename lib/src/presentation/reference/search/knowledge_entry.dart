@@ -30,6 +30,12 @@ class KnowledgeEntry {
   /// 검색 결과에서 먼저 보일 정도(1이면 문제해결 자료: 고장 조치·알람 코드·증상). 기본 0.
   final int priority;
 
+  /// 상세 창의 여는 단추 이름.
+  final String openLabel;
+
+  /// 참이면 목록에서 누르는 즉시 [open]을 연다(내용 창 없이). 계산기 바로가기.
+  final bool direct;
+
   const KnowledgeEntry({
     required this.id,
     required this.category,
@@ -39,6 +45,8 @@ class KnowledgeEntry {
     this.sourceLabel = '',
     this.open,
     this.priority = 0,
+    this.openLabel = '원래 화면 열기',
+    this.direct = false,
   });
 
   /// 분류만 바꾼 사본.
@@ -51,6 +59,8 @@ class KnowledgeEntry {
     sourceLabel: sourceLabel,
     open: open,
     priority: priority,
+    openLabel: openLabel,
+    direct: direct,
   );
 }
 

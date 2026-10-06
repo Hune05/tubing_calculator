@@ -46,6 +46,7 @@ List<KnowledgeEntry> diagnosisKnowledge() {
         keywords: [f.title, ...questions],
         sourceLabel: '고장 진단',
         open: open,
+        openLabel: '고장 진단 시작',
         priority: 1,
       ),
     );
@@ -65,6 +66,7 @@ List<KnowledgeEntry> diagnosisKnowledge() {
           keywords: [f.title, for (final (name, _) in s.links) name],
           sourceLabel: '고장 진단 · ${f.title}',
           open: open,
+          openLabel: '고장 진단 시작',
           priority: 1,
         ),
       );
@@ -129,9 +131,11 @@ List<KnowledgeEntry> toolKnowledge() => [
       id: 'tool.$id',
       category: kToolCategory,
       title: title,
-      lines: [desc, '고르면 계산기가 바로 열립니다.'],
+      lines: [desc, '누르면 계산기가 바로 열립니다.'],
       keywords: keys,
       sourceLabel: title,
       open: (c) => _push(c, page()),
+      openLabel: '계산기 열기',
+      direct: true,
     ),
 ];

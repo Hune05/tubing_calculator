@@ -105,4 +105,41 @@ void main() {
     await t.pump();
     expect(find.byKey(const Key('ks_recent_절삭유')), findsNothing);
   });
+
+  testWidgets('바로가기는 누르면 내용 창 없이 곧바로 열리고, 일반 항목은 내용 창의 단추 이름을 쓴다', (t) async {
+    var opened = 0;
+    final data = [
+      KnowledgeEntry(
+        id: 'tool',
+        category: '계산기 바로가기',
+        title: '전압강하 계산기',
+        open: (_) => opened++,
+        direct: true,
+      ),
+      KnowledgeEntry(
+        id: 'diag',
+        category: '전기 고장 진단',
+        title: '전압강하 진단',
+        open: (_) => opened += 10,
+        openLabel: '고장 진단 시작',
+      ),
+    ];
+    t.view.physicalSize = const Size(800, 2400);
+    t.view.devicePixelRatio = 2;
+    addTearDown(t.view.reset);
+    await t.pumpWidget(MaterialApp(home: KnowledgeSearchPage(entries: data, askAi: _noAi)));
+    await t.enterText(find.byKey(const Key('ks_field')), '전압강하');
+    await t.pump();
+    expect(find.text('계산기 바로가기 · 누르면 바로 열림'), findsOneWidget);
+    await t.tap(find.byKey(const Key('ks_hit_tool')));
+    await t.pumpAndSettle();
+    expect(opened, 1);
+    expect(find.byKey(const Key('ks_sheet')), findsNothing);
+    await t.tap(find.byKey(const Key('ks_hit_diag')));
+    await t.pumpAndSettle();
+    expect(find.text('고장 진단 시작'), findsOneWidget);
+    await t.tap(find.text('고장 진단 시작'));
+    await t.pumpAndSettle();
+    expect(opened, 11);
+  });
 }

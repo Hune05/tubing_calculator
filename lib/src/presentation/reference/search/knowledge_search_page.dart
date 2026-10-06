@@ -267,7 +267,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                         e.open!(context);
                       },
                       icon: const Icon(Icons.open_in_new),
-                      label: const Text('원래 화면 열기'),
+                      label: Text(e.openLabel),
                     ),
                   ),
                 ],
@@ -452,14 +452,23 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
             child: InkWell(
               key: Key('ks_hit_${e.id}'),
               borderRadius: BorderRadius.circular(14),
-              onTap: () => _showDetail(e, terms: hit.terms),
+              onTap: () {
+                if (e.direct && e.open != null) {
+                  // 계산기 바로가기는 내용 창 없이 곧바로 연다.
+                  _remember(_c.text);
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  e.open!(context);
+                } else {
+                  _showDetail(e, terms: hit.terms);
+                }
+              },
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      e.category,
+                      e.direct ? '${e.category} · 누르면 바로 열림' : e.category,
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w800,
