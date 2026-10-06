@@ -100,7 +100,7 @@ const String _yo = '\u{C694}';
 final List<String> _kEndings = [
   '에서는', '으로는', '이에$_yo', '했어$_yo', '해서$_yo', '해$_yo', '어$_yo', '아$_yo', '에$_yo', '예$_yo', '네$_yo', //
   '에서', '으로', '이$_yo', '하고', '인데', '는데', '은데', '거나', '이나', '부터', '까지', //
-  '은', '는', '이', '가', '을', '를', '에', '의', '도', '만', '로', '와', '과', _yo, '고',
+  '은', '는', '이', '가', '을', '를', '에', '의', '도', '만', '로', '와', '과', _yo, '고', '옴',
 ];
 
 /// 현장에서 같은 뜻으로 쓰는 다른 말. 한 묶음 안의 말은 서로 바꿔 찾는다(모두 [normalizeForSearch] 모양).
@@ -121,6 +121,7 @@ final List<List<String>> kSearchSynonyms = [
   ['튜브', '튜빙', 'tube', 'tubing'],
   ['전선관', '컨듀잇', 'conduit'],
   ['접지', '어스', 'earth'],
+  ['클러치', '토크칼라'],
 ];
 
 final Map<String, List<String>> _synonymOf = {
@@ -313,4 +314,63 @@ List<(String, int)> knowledgeCategories(
 
   keys.sort((a, b) => rank(a).compareTo(rank(b)));
   return [for (final k in keys) (k, counts[k]!)];
+}
+
+final Expando<Map<String, int>> _vocab = Expando<Map<String, int>>();
+
+/// 자료에 쓰인 낱말(다듬은 모양, 두 글자 이상)과 나온 횟수. 목록마다 한 번만 만든다.
+Map<String, int> _vocabulary(List<KnowledgeEntry> all) => _vocab[all] ??= () {
+  final m = <String, int>{};
+  for (final e in all) {
+    for (final text in [e.title, ...e.keywords, ...e.lines]) {
+      for (final w in text.split(RegExp(r'[^0-9A-Za-z가-힣]+'))) {
+        final n = normalizeForSearch(w);
+        if (n.length >= 2) m[n] = (m[n] ?? 0) + 1;
+      }
+    }
+  }
+  return m;
+}();
+
+/// [a]와 [b]가 한 글자만 다른지(한 글자 바뀜·빠짐·더함).
+bool _oneEditApart(String a, String b) {
+  if (a == b) return false;
+  final la = a.length, lb = b.length;
+  if ((la - lb).abs() > 1) return false;
+  var i = 0;
+  while (i < la && i < lb && a[i] == b[i]) {
+    i++;
+  }
+  if (la == lb) return a.substring(i + 1) == b.substring(i + 1);
+  if (la > lb) return a.substring(i + 1) == b.substring(i);
+  return a.substring(i) == b.substring(i + 1);
+}
+
+/// 결과가 없을 때 "혹시 이 말을 찾으십니까?"에 쓸 검색어(최대 [max]개).
+/// 자료 어디에도 없는 세 글자 이상 낱말을, 자료에 쓰인 낱말 가운데 한 글자만 다른 말로 바꿔 본다
+/// ("절사유" → "절삭유"). 바꾼 검색어로 결과가 있을 때만 돌려주고, 자료에 많이 나온 말을 먼저.
+List<String> spellingSuggestions(
+  List<KnowledgeEntry> all,
+  String query, {
+  int max = 3,
+}) {
+  final words = query.trim().split(RegExp(r'\s+'));
+  final vocab = _vocabulary(all);
+  final out = <String>[];
+  for (var i = 0; i < words.length; i++) {
+    final t = normalizeForSearch(words[i]);
+    if (t.length < 3 || _allInitials(t)) continue;
+    if (searchKnowledge(all, words[i]).isNotEmpty) continue;
+    final cands = [
+      for (final e in vocab.entries)
+        if (_oneEditApart(t, e.key)) e,
+    ]..sort((a, b) => b.value.compareTo(a.value));
+    for (final c in cands) {
+      final next = [...words]..[i] = c.key;
+      final q = next.join(' ');
+      if (!out.contains(q) && searchKnowledge(all, q).isNotEmpty) out.add(q);
+      if (out.length >= max) return out;
+    }
+  }
+  return out;
 }

@@ -89,4 +89,13 @@ void main() {
     expect(cats.take(4), ['장비 고장 조치', '계기 알람·고장 코드', '계기 신호 이상', '전기 고장 진단']);
     expect(cats.length, lessThanOrEqualTo(20));
   });
+
+  test('배관·전선관·형강 바로가기: 킥·채널·앵글로도 찾는다', () {
+    resetKnowledgeBaseCache();
+    final all = knowledgeBase();
+    expect(searchKnowledge(all, '킥').first.entry.id, 'tool.conduit');
+    expect(searchKnowledge(all, '채널').first.entry.id, 'tool.steel');
+    expect(searchKnowledge(all, '앵글 규격').first.entry.id, 'tool.steel');
+    expect(searchKnowledge(all, '드릴 클러치'), isNotEmpty);
+  });
 }

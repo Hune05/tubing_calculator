@@ -4,7 +4,16 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../../alignment/alignment_guide_page.dart';
 import '../../alignment/alignment_page.dart';
+import '../../calculator/screens/mobile_calculator_page.dart';
+import '../../conduit/screens/main_navigation_page.dart';
+import '../../electrical/circuit_reading_page.dart';
+import '../../field_tools/eng_calculator_page.dart';
+import '../../field_tools/level_page.dart';
+import '../../field_tools/protractor_page.dart';
+import '../../steel_cutting/screens/mobile_steel_project_list_page.dart';
+import '../../unit_converter/unit_converter_page.dart';
 import '../../electrical/busbar_bend_page.dart';
 import '../../electrical/busbar_ground_page.dart';
 import '../../electrical/cable_tray_page.dart';
@@ -79,6 +88,17 @@ List<KnowledgeEntry> diagnosisKnowledge() {
 typedef _Tool = (String, String, String, List<String>, Widget Function());
 
 List<_Tool> _tools() => [
+  // 배관·전선관·형강(현장에서 가장 많이 여는 계산기)
+  ('tube', '튜브 벤딩 마킹', '튜브 치수를 넣으면 벤더에 그을 마킹 위치(오프셋·롤링 오프셋·새들·90°)', ['튜브', '벤딩', '마킹', '오프셋', '롤링', '새들', '게인', '테이크업', 'swagelok'], () => const MobileCalculatorPage()),
+  ('conduit', '전선관 벤딩 마킹', '전선관 오프셋·새들·킥·백투백·스터브업·분할 90° 마킹', ['전선관', '벤딩', '마킹', '오프셋', '새들', '킥', '백투백', '스터브업', '히키', 'emt'], () => const ConduitMainNavigation()),
+  ('steel', '형강 컷팅', '앵글·채널·H빔·각관·평철·스트럿 규격을 고르고 길이를 넣어 재단 계획', ['형강', '앵글', '채널', 'h빔', '각관', '평철', '스트럿', '재단', '컷팅', '규격', '잔재'], () => const MobileSteelProjectListPage()),
+  ('unit', '단위 환산', '길이·압력·온도·토크·인치 분수·배관 호칭 환산', ['단위', '환산', 'psi', 'bar', 'kpa', 'mpa', '인치', 'inch', 'mm', '피트', '토크', '온도'], () => const UnitConverterPage()),
+  ('engcalc', '공학용 계산기', '사칙연산·삼각함수·거듭제곱·인치 분수·피트', ['계산기', '삼각함수', 'sin', 'cos', 'tan', '분수'], () => const EngCalculatorPage()),
+  ('level', '수평계', '기포 수평계·배관 구배(%·mm/m)·영점 맞추기', ['수평', '구배', '기울기', '레벨'], () => const LevelPage()),
+  ('protractor', '각도기', '벤딩 각도 재기·화면 각도기', ['각도', '각도기', '벤딩각'], () => const ProtractorPage()),
+  ('circuit', '결선도·기동 회로', 'Y-Δ 결선, 직입·정역·Y-Δ 시퀀스를 눌러 보며 이해', ['결선', 'y델타', '스타델타', '기동회로', '시퀀스', '정역', '마그네트'], () => const CircuitReadingPage()),
+  ('alguide', '축 정렬 현장 지침', '배관 당김·용접 변형·소프트 풋 등 잘 안 맞을 때 조치', ['축정렬', '센터링', '소프트풋', '배관당김'], () => const AlignmentGuidePage()),
+  ('diag', '고장 진단', '증상을 고르고 질문에 답하면 원인·조치를 좁혀 가는 전기 고장 진단', ['고장', '진단', '트립', '누전', '전압', '과열'], () => const TroubleshootPage()),
   // 전기 설비 계산(탭 안정 번호는 electric_calculator_page.dart kElecSumTab과 같다)
   ('e0', '전기 설비 계산 · 기초 계산', '옴의 법칙·교류 전력·역률·임피던스·Y-Δ·전력량 요금·도체 저항·주파수', ['옴', '전력', 'kw', 'kva', '주파수', 'hz'], () => const ElectricCalculatorPage(initialTab: 0)),
   ('e1', '전기 설비 계산 · 부하 전류', 'kW·HP로 정격 전류와 설계 전류(×1.25) 구하기, 전류 ↔ 전력 환산', ['전류', '암페어', 'a', 'kw', 'hp', '마력'], () => const ElectricCalculatorPage(initialTab: 1)),
@@ -96,7 +116,7 @@ List<_Tool> _tools() => [
   ('e13', '전동기·발전기 계산 · 전동기 점검', '절연저항·권선 저항·전압·전류 불평형 판정', ['메거', '절연저항', '권선', '불평형'], () => const ElectricCalculatorPage(initialTab: 13)),
   ('e14', '전동기·발전기 계산 · 전동기 공식', '동기속도·슬립·전류·토크·기동 전류·부하율', ['rpm', '슬립', '토크', '극수', '기동전류'], () => const ElectricCalculatorPage(initialTab: 14)),
   ('e15', '전동기·발전기 계산 · 전동기 선정', '펌프·팬 동력, 상사법칙, 가속 시간', ['펌프', '팬', '동력', '양정', '상사법칙'], () => const ElectricCalculatorPage(initialTab: 15)),
-  ('e16', '전동기·발전기 계산 · 콘덴서·단상', '전동기 콘덴서 한도·단상 운전 콘덴서', ['콘덴서', '단상', '스타인메츠'], () => const ElectricCalculatorPage(initialTab: 16)),
+  ('e16', '전동기·발전기 계산 · 콘덴서·단상', '전동기 콘덴서 한도·단상 운전 콘덴서', ['콘덴서', '단상', '스타인메츠', '무부하전류', 'i0'], () => const ElectricCalculatorPage(initialTab: 16)),
   ('e17', '전동기·발전기 계산 · 전동기 구동·효율', '권선 온도 상승·효율 개선 절감·감속비·인버터', ['온도상승', '과열', '권선온도', '효율', '감속비', '인버터', 'vfd'], () => const ElectricCalculatorPage(initialTab: 17)),
   // 분전반·조명
   ('p0', '분전반·조명 계산 · 조명 광속법', '목표 조도·방 크기로 등기구 수와 배치', ['조명', '조도', 'lx', '럭스', '등기구'], () => const PanelDesignPage(initialTab: 0)),

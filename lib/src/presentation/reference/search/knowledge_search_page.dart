@@ -441,6 +441,25 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 15, color: refTextSub, height: 1.5),
           ),
+          for (final (i, sug) in spellingSuggestions(all, q).indexed) ...[
+            if (i == 0) ...[
+              const SizedBox(height: 14),
+              Text(
+                '혹시 이 말을 찾으십니까?',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: refTextSub),
+              ),
+              const SizedBox(height: 6),
+            ],
+            Center(
+              child: ActionChip(
+                key: Key('ks_spell_$sug'),
+                avatar: const Icon(Icons.spellcheck, size: 18),
+                label: Text(sug),
+                onPressed: () => setState(() => _c.text = sug),
+              ),
+            ),
+          ],
           if (q.trim().length >= 2) ...[
             const SizedBox(height: 18),
             _askAiCard(q, noHits: true),

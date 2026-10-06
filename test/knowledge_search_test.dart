@@ -127,4 +127,22 @@ void main() {
       expect(matchingLine(b, h.single.terms), '조치: 다이 교체, 절삭유 보충');
     });
   });
+
+  group('오타·단위(10-07)', () {
+    test('한 글자 틀린 말은 자료에 있는 말로 바꾼 검색어를 제안한다', () {
+      final all = _data();
+      expect(searchKnowledge(all, '절사유'), isEmpty);
+      expect(spellingSuggestions(all, '절사유'), contains('절삭유'));
+      // 결과가 있으면 제안하지 않고, 두 글자 이하도 제안하지 않는다.
+      expect(spellingSuggestions(all, '절삭유'), isEmpty);
+      expect(spellingSuggestions(all, '절사'), isEmpty);
+    });
+
+    test('옴은 떼고 숫자로 찾는다(250옴 → 250 Ω)', () {
+      const all = [
+        KnowledgeEntry(id: 'h', category: 'a', title: 'HART 통신', lines: ['루프 저항 250 Ω 이상']),
+      ];
+      expect(searchKnowledge(all, '250옴').single.entry.id, 'h');
+    });
+  });
 }

@@ -179,4 +179,14 @@ void main() {
     await t.pump();
     expect(sent.single, startsWith('[장비 고장 조치] 나사 절삭기: 절삭유가 안 나옴'));
   });
+
+  testWidgets('결과가 없으면 혹시 이 말을 찾으십니까 칩이 나오고 누르면 그 말로 찾는다', (t) async {
+    await _open(t);
+    await t.enterText(find.byKey(const Key('ks_field')), '절사유');
+    await t.pump();
+    expect(find.text('혹시 이 말을 찾으십니까?'), findsOneWidget);
+    await t.tap(find.byKey(const Key('ks_spell_절삭유')));
+    await t.pump();
+    expect(find.byKey(const Key('ks_hit_a')), findsOneWidget);
+  });
 }
