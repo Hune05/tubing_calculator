@@ -265,7 +265,12 @@ class ElecFold extends StatefulWidget {
   State<ElecFold> createState() => _ElecFoldState();
 }
 
-class _ElecFoldState extends State<ElecFold> {
+class _ElecFoldState extends State<ElecFold>
+    with AutomaticKeepAliveClientMixin {
+  /// 목록 밖으로 스크롤해도, 접어 둬도 안의 칩·입력 상태를 지우지 않는다.
+  @override
+  bool get wantKeepAlive => true;
+
   final ExpansibleController _ctl = ExpansibleController();
 
   @override
@@ -298,10 +303,12 @@ class _ElecFoldState extends State<ElecFold> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Theme(
       data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
       child: ExpansionTile(
         key: Key(widget.foldKey),
+        maintainState: true,
         controller: _ctl,
         initiallyExpanded: widget.open || kElecFoldOpenAll,
         onExpansionChanged: _save,

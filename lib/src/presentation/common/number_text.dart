@@ -25,11 +25,17 @@ double? parseNumberText(String text) {
   return double.tryParse(s.replaceAll(',', ''));
 }
 
-/// 효율·역률처럼 "0.85도 85도 같은 뜻"으로 읽는 % 칸의 안내 글.
-/// 칸 이름에 그런 말이 있고 값이 0 초과 1 이하일 때만 돌려준다(그 밖의 % 칸은 1이 1%일 수 있어 안내하지 않는다).
+/// % 칸에 1 이하를 넣었을 때 칸 아래에 붙이는 안내 글. 없으면 null.
+/// - 효율·역률·부하율·이용률처럼 0.85도 85도 같은 뜻으로 읽는 칸: "비율로 읽어 85%로 계산합니다".
+/// - 여유·슬립처럼 넣은 그대로 %로 읽는 칸: "0.2%로 계산됩니다. 비율이면 20처럼 넣으십시오".
+/// 칸 이름에 "%"가 있고 값이 0 초과 1 이하일 때만 보인다.
 String? ratioHintText(String label, String text) {
-  const keys = ['효율', '역률', '수용률', '부하율', '조명률', 'cosφ'];
-  if (!label.contains('%') || !keys.any(label.contains)) return null;
+  if (!label.contains('%')) return null;
+  const lenient = ['효율', '역률', '수용률', '부하율', '조명률', '이용률', '시작 전압', 'cosφ'];
+  const strict = ['여유', '슬립'];
+  final isLenient = lenient.any(label.contains);
+  final isStrict = !isLenient && strict.any(label.contains);
+  if (!isLenient && !isStrict) return null;
   final v = parseNumberText(text);
   if (v == null || v <= 0 || v > 1) return null;
   String t(double x) {
@@ -39,5 +45,8 @@ String? ratioHintText(String label, String text) {
     }
     return s;
   }
-  return '${t(v)}은 비율로 읽어 ${t(v * 100)}%로 계산합니다. 퍼센트는 85처럼 넣으십시오.';
+  if (isLenient) {
+    return '${t(v)}은 비율로 읽어 ${t(v * 100)}%로 계산합니다. 퍼센트는 85처럼 넣으십시오.';
+  }
+  return '이 칸은 %라서 ${t(v)}%로 계산됩니다. 비율이면 ${t(v * 100)}처럼 넣으십시오.';
 }

@@ -42,4 +42,14 @@ void main() {
     // 이름에 효율·역률 같은 말이 없는 % 칸은 1이 1%일 수 있어 안내하지 않는다.
     expect(ratioHintText('전원 쪽 전압강하 (%, 선택)', '0.5'), isNull);
   });
+
+  test('여유·슬립 칸은 넣은 그대로 %로 읽는다고 알린다', () {
+    expect(
+      ratioHintText('설계 여유 (%)', '0.2'),
+      '이 칸은 %라서 0.2%로 계산됩니다. 비율이면 20처럼 넣으십시오.',
+    );
+    expect(ratioHintText('여유율 (%, 선택)', '20'), isNull);
+    expect(ratioHintText('슬립 s (%, 선택)', '0.03'), contains('0.03%로 계산'));
+    expect(ratioHintText('이용률 (%)', '0.8'), contains('비율로 읽어 80%'));
+  });
 }

@@ -41,6 +41,33 @@ GenInput _base({
 
 void main() {
   setUpAll(expandFormulaCards);
+  group('비율을 넣은 것으로 보이는 % 칸', () {
+    test('허용 전압강하 ΔV에 0.2를 넣으면 0.2%로 계산하지 않고 입력 확인', () {
+      final r = calcGenerator(_base(dvPct: 0.2));
+      expect(r.errors, isNotEmpty);
+      expect(r.errors.single, contains('허용 전압강하 ΔV(%) 입력값이 0.2입니다'));
+      expect(r.errors.single, contains('비율이면 20처럼 넣으십시오'));
+      expect(calcGenerator(_base(dvPct: 20)).errors, isEmpty);
+    });
+
+    test('X″d에 0.25를 넣어도 같다', () {
+      final r = calcGenerator(
+        const GenInput(
+          loadKw: 300,
+          demand: 1,
+          eff: 0.85,
+          pf: 0.8,
+          motorKw: 75,
+          beta: 7.2,
+          startC: 0.65,
+          xdPct: 0.25,
+          dvPct: 20,
+        ),
+      );
+      expect(r.errors.single, contains('발전기 X″d(%) 입력값이 0.25입니다'));
+    });
+  });
+
   group('식 손계산', () {
     test('PG1: 100kW, 수용률 1, 효율 0.85, 역률 0.8 → 100 ÷ 0.68', () {
       expect(genPg1(100, 1, 0.85, 0.8), closeTo(147.0588, 1e-3));

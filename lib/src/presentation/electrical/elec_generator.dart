@@ -172,6 +172,12 @@ GenResult calcGenerator(GenInput i) {
     if (i.dvPct == null || i.dvPct! <= 0 || i.dvPct! >= 100) {
       errors.add('허용 전압강하 ΔV(%)를 0 초과 100 미만으로 넣으십시오.');
     }
+    // %로 읽는 칸에 0.25처럼 비율을 넣으면 0.25%로 계산돼 PG2가 크게 틀어진다. 고쳐 읽지 않고 알린다.
+    for (final (name, v) in [('발전기 X″d', i.xdPct), ('허용 전압강하 ΔV', i.dvPct)]) {
+      if (v != null && v > 0 && v < 1) {
+        errors.add('$name(%) 입력값이 $v입니다. 이 칸은 %라서 $v%로 계산됩니다. 비율이면 ${(v * 100).round()}처럼 넣으십시오.');
+      }
+    }
     if (pos(i.loadKw) && i.motorKw! > i.loadKw!) {
       errors.add('가장 큰 전동기(kW)가 부하 합계보다 큽니다.');
     }
