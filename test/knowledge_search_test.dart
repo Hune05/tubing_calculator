@@ -158,4 +158,10 @@ void main() {
     expect(searchKnowledge(all, '진동').map((h) => h.entry.id), ['v']);
     expect(searchKnowledge(all, '흔들림').map((h) => h.entry.id), containsAll(['v']));
   });
+
+  test('치는 도중 끝에 홀로 붙은 자음은 빼고 찾는다(절삭ㅇ → 절삭), 초성 검색은 그대로', () {
+    final all = _data();
+    expect(searchKnowledge(all, '절삭ㅇ').map((h) => h.entry.id), ['b', 'c']);
+    expect(searchVariants('ㅈㅅㅇ'), ['ㅈㅅㅇ']);
+  });
 }

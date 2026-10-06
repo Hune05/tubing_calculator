@@ -161,6 +161,12 @@ final Map<String, List<String>> _synonymOf = {
 /// 검색 낱말 하나를 찾을 때 쓰는 말들: 그대로 → 조사·말끝 뗀 것 → 같은 뜻 다른 말.
 List<String> searchVariants(String token) {
   final out = <String>[token];
+  // 한글을 치는 도중("절삭ㅇ")에는 끝에 자음 하나가 홀로 붙는다. 빼고도 찾아 결과가 깜빡이지 않게 한다.
+  if (token.length >= 3) {
+    final last = token.codeUnitAt(token.length - 1);
+    final head = token.substring(0, token.length - 1);
+    if (last >= 0x3131 && last <= 0x314E && !_allInitials(head)) out.add(head);
+  }
   for (final e in _kEndings) {
     if (token.length > e.length + 1 && token.endsWith(e)) {
       final s = token.substring(0, token.length - e.length);
