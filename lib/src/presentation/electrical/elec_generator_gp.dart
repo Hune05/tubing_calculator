@@ -55,6 +55,23 @@ const double kGpAStandard = 1.45;
 /// λ를 모를 때 원문이 쓰라는 값.
 const double kGpLambdaUnknown = 2.5;
 
+/// 전동기 줄 중 PL로 쓸 줄 번호. 원문 정의대로 기동용량(kW × c, a는 모든 줄에 같음)이 가장 큰 줄이다.
+/// 같으면 앞 줄. 용량과 c가 0보다 큰 줄이 없으면 null.
+int? gpLargestStartIndex(List<(double? kw, double? c)> motors) {
+  int? best;
+  var bestStart = 0.0;
+  for (var n = 0; n < motors.length; n++) {
+    final (kw, c) = motors[n];
+    if (kw == null || c == null || kw <= 0 || c <= 0) continue;
+    final s = kw * c;
+    if (best == null || s > bestStart + 1e-9) {
+      best = n;
+      bestStart = s;
+    }
+  }
+  return best;
+}
+
 /// 전동기 이외 부하 한 줄의 종류. 일반은 식 4.1-2, VVVF는 4.1-4, LED 등 고조파 부하는 4.1-5(λ를 곱함).
 enum GpLoadKind {
   general('일반', false),

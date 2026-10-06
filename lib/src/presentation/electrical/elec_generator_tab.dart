@@ -46,6 +46,24 @@ class _GpRowCtl {
   }
 }
 
+/// GP 방식 전동기 줄(용량 kW·기동계수 c). 동시에 기동하는 전동기는 한 줄로 합쳐 넣는다.
+class _GpMotorCtl {
+  _GpMotorCtl(this.id, {String kw = '', String c = ''})
+    : kw = TextEditingController(text: kw),
+      c = TextEditingController(text: c);
+
+  final int id;
+  final TextEditingController kw;
+  final TextEditingController c;
+
+  Map<String, String> toJson() => {'kw': kw.text, 'c': c.text};
+
+  void dispose() {
+    kw.dispose();
+    c.dispose();
+  }
+}
+
 /// GP 부하 줄 최대 수.
 const int _kGpMaxRows = 20;
 
@@ -107,9 +125,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
   final _gUpsEff = TextEditingController();
   final _gCharge = TextEditingController();
   final _gLambda = TextEditingController();
-  final _gMotors = TextEditingController();
-  final _gLargest = TextEditingController();
-  final _gC = TextEditingController();
+  // 전동기 줄. 저장 칸에는 'gMotorRows'로 남긴다.
+  final List<_GpMotorCtl> _mRows = [_GpMotorCtl(-1)];
   final _gK = TextEditingController();
   // 표 4.1-1에서 누른 칸(허용 전압강하 %, x″d %). k를 직접 고치면 결과에 '직접 입력한 값'으로 적는다.
   final _gKDv = TextEditingController();
@@ -134,10 +151,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     (_gUpsEff, 'gUpsEff'),
     (_gCharge, 'gCharge'),
     (_gLambda, 'gLambda'),
-    (_gMotors, 'gMotors'),
-    (_gLargest, 'gLargest'),
     (_gA, 'gA'),
-    (_gC, 'gC'),
     (_gK, 'gK'),
     (_gKDv, 'gKDv'),
     (_gKXd, 'gKXd'),
@@ -164,6 +178,9 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     for (final r in _gRows) {
       r.dispose();
     }
+    for (final r in _mRows) {
+      r.dispose();
+    }
     super.dispose();
   }
 
@@ -179,6 +196,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
               if (m[k] is String) c.text = m[k] as String;
             }
             _readRows(m);
+            _readMotors(m);
           });
         }
       }
@@ -194,6 +212,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     final raw = jsonEncode({
       for (final (c, k) in _texts) k: c.text,
       'gRows': [for (final r in _gRows) r.toJson()],
+      'gMotorRows': [for (final r in _mRows) r.toJson()],
     });
     if (raw == _lastDraft || raw == _pendingDraft) return;
     _pendingDraft = raw;
@@ -581,24 +600,162 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     return (dv, xd);
   }
 
-  GpStart? get _gpStart {
-    final v = readNum(_gC);
+  // ─────────────── GP 전동기 줄 ───────────────
+
+  /// 저장 칸의 전동기 줄을 읽는다. 예전 저장값(전동기 합계·가장 큰 전동기·c 한 칸)은
+  /// 가장 큰 전동기를 첫 줄로, 나머지 합을 둘째 줄(기동 방식은 비움, 고르라고 알림)로 옮긴다.
+  void _readMotors(Map<String, dynamic> m) {
+    final rows = <_GpMotorCtl>[];
+    final list = m['gMotorRows'];
+    if (list is List) {
+      for (final e in list) {
+        if (e is! Map || rows.length >= _kGpMaxRows) continue;
+        String s(String k) => e[k] is String ? e[k] as String : '';
+        rows.add(_GpMotorCtl(_nextRowId++, kw: s('kw'), c: s('c')));
+      }
+    } else {
+      String s(String k) => m[k] is String ? (m[k] as String).trim() : '';
+      final total = double.tryParse(s('gMotors'));
+      final largest = double.tryParse(s('gLargest'));
+      if (largest != null && largest > 0) {
+        rows.add(_GpMotorCtl(_nextRowId++, kw: s('gLargest'), c: s('gC')));
+      }
+      final rest = (total ?? 0) - (largest ?? 0);
+      if (rest > 1e-9) {
+        rows.add(_GpMotorCtl(_nextRowId++, kw: fmt(rest, 2)));
+      }
+    }
+    if (rows.isEmpty) return;
+    final old = List.of(_mRows);
+    _mRows
+      ..clear()
+      ..addAll(rows);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final r in old) {
+        r.dispose();
+      }
+    });
+  }
+
+  void _addMotor() {
+    if (_mRows.length >= _kGpMaxRows) return;
+    setState(() => _mRows.add(_GpMotorCtl(_nextRowId++)));
+  }
+
+  void _removeMotor(_GpMotorCtl r) {
+    final i = _mRows.indexOf(r);
+    if (i < 0 || _mRows.length <= 1) return;
+    final saved = r.toJson();
+    setState(() {
+      _mRows.removeAt(i);
+      WidgetsBinding.instance.addPostFrameCallback((_) => r.dispose());
+    });
+    showDeleteUndo(
+      context,
+      '전동기 ${i + 1}',
+      onUndo: () {
+        if (!mounted || _mRows.length >= _kGpMaxRows) return;
+        setState(
+          () => _mRows.insert(
+            i.clamp(0, _mRows.length),
+            _GpMotorCtl(_nextRowId++, kw: saved['kw']!, c: saved['c']!),
+          ),
+        );
+      },
+    );
+  }
+
+  /// c 칸 값에 맞는 기동 방식(원문 추천값과 같을 때만).
+  GpStart? _startOf(TextEditingController c) {
+    final v = readNum(c);
     for (final s in GpStart.values) {
       if (v != null && (v - s.c).abs() < 1e-9) return s;
     }
     return null;
   }
 
+  Widget _motorCard(int i, _GpMotorCtl r) {
+    final start = _startOf(r.c);
+    return KeyedSubtree(
+      key: ValueKey('eg_mbox_${r.id}'),
+      child: SwipeToDelete(
+        itemKey: ValueKey('eg_mswipe_${r.id}'),
+        radius: 14,
+        enabled: _mRows.length > 1,
+        onDelete: () => _removeMotor(r),
+        child: calcBox(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 8, right: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '전동기 ${i + 1}',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    color: fc.brand,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 4,
+                      child: _rowCell('eg_m_kw_$i', '용량 (kW)', r.kw),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      flex: 3,
+                      child: _rowCell('eg_m_c_$i', '기동계수 c', r.c),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final s in GpStart.values)
+                      calcChip(
+                        'eg_m_start_${i}_${s.name}',
+                        '${s.label} ${fmt(s.c, 1)}',
+                        start == s,
+                        () => setState(() => r.c.text = fmt(s.c, 1)),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _gpPage() {
     final bad = <String>[];
     final aVal = _read(_gA, 'a', bad);
-    final cVal = _read(_gC, '기동계수 c', bad);
-    final hasMotor = (readNum(_gMotors) ?? 0) > 0;
+    // 전동기 줄: 합계 ΣPm, PL은 기동용량(kW × c)이 가장 큰 줄.
+    final motors = <(double?, double?)>[];
+    for (var n = 0; n < _mRows.length; n++) {
+      final kw = _read(_mRows[n].kw, '전동기 ${n + 1} 용량', bad);
+      final c = _read(_mRows[n].c, '전동기 ${n + 1} 기동계수', bad);
+      if (kw != null && kw < 0) {
+        bad.add('전동기 ${n + 1}: 용량(kW)은 0 이상으로 넣으십시오.');
+      } else if (kw != null && kw > 0 && (c == null || c <= 0)) {
+        bad.add('전동기 ${n + 1}: 기동 방식을 고르거나 기동계수 c를 넣으십시오.');
+      }
+      motors.add((kw, c));
+    }
+    final motorSum = motors.fold<double>(
+      0,
+      (s, m) => s + ((m.$1 ?? 0) > 0 ? m.$1! : 0),
+    );
+    final hasMotor = motorSum > 0;
+    final plIdx = gpLargestStartIndex(motors);
     if (hasMotor && (aVal == null || aVal <= 0)) {
       bad.add('a를 0보다 크게 넣으십시오(고효율 1.38, 표준형 1.45).');
-    }
-    if (hasMotor && (cVal == null || cVal <= 0)) {
-      bad.add('기동계수 c를 고르거나 넣으십시오.');
     }
     final input = GpInput(
       loads: [
@@ -614,16 +771,16 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       upsEff: _read(_gUpsEff, 'UPS 효율', bad, pct: true),
       upsChargePct: _read(_gCharge, '축전지 충전용량', bad),
       lambda: _read(_gLambda, 'λ', bad),
-      motorsKw: _read(_gMotors, '전동기 합계', bad),
-      largestKw: _read(_gLargest, '가장 큰 전동기', bad),
+      motorsKw: hasMotor ? motorSum : null,
+      largestKw: plIdx == null ? null : motors[plIdx].$1,
       a: aVal ?? 0,
-      c: cVal ?? 0,
+      c: plIdx == null ? 0 : motors[plIdx].$2!,
       k: _read(_gK, 'k', bad),
     );
     final anyInput = [
       for (final r in _gRows) r.kw,
       _gUps,
-      _gMotors,
+      for (final m in _mRows) m.kw,
     ].any((c) => c.text.trim().isNotEmpty);
     final r = calcGp(input);
     final errors = [...bad, if (bad.isEmpty) ...r.errors];
@@ -661,7 +818,11 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       final kCell = _kCell;
       // 단계 번호는 실제로 나오는 줄에만 차례로 붙인다(전동기가 없으면 건너뛰지 않게).
       var step = 0;
-      String mark() => '①②③④⑤'[step++];
+      String mark() => '①②③④⑤⑥'[step++];
+      final motorParts = [
+        for (final m in motors)
+          if ((m.$1 ?? 0) > 0) m.$1!,
+      ];
       final parts = [
         for (final p in r.loadP)
           if (p > 0) p,
@@ -683,6 +844,12 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
               ? '${mark()} 전동기 이외 부하 합계 ΣP = ${parts.map((p) => fmt(p, 1)).join(' + ')} = ${fmt(r.sumP, 1)} kVA'
               : '${mark()} 전동기 이외 부하 합계 ΣP = ${fmt(r.sumP, 1)} kVA',
           if (hasMotor)
+            motorParts.length > 1 && motorParts.length <= 6
+                ? '${mark()} 전동기 부하 합계 ΣPm = ${motorParts.map((p) => fmt(p, 1)).join(' + ')} = ${fmt(motorSum, 1)} kW'
+                : '${mark()} 전동기 부하 합계 ΣPm = ${fmt(motorSum, 1)} kW',
+          if (hasMotor && plIdx != null)
+            'PL: 전동기 ${plIdx + 1} (${fmt(motors[plIdx].$1!, 1)} kW × c ${fmt(motors[plIdx].$2!, 2)} = 기동용량 ${fmt(motors[plIdx].$1! * motors[plIdx].$2!, 1)}${motorParts.length > 1 ? ', 가장 큼' : ''})',
+          if (hasMotor)
             '${mark()} 기동하지 않는 전동기 (ΣPm − PL) × a = (${fmt(input.motorsKw!, 1)} − ${fmt(input.largestKw ?? 0, 1)}) × ${fmt(input.a, 2)} = ${fmt(r.motorRest, 1)} kVA',
           if (hasMotor)
             '${mark()} 가장 큰 전동기 기동 PL × a × c = ${fmt(input.largestKw ?? 0, 1)} × ${fmt(input.a, 2)} × ${fmt(input.c, 2)} = ${fmt(r.motorStart, 1)} kVA',
@@ -701,7 +868,6 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       );
     }
 
-    final start = _gpStart;
     return elecPage(sumKey: 'eg_sum', summary: summary, warn: warn, [
       _modeChips(),
       elecSectionTitle('전동기 이외 부하 (ΣP)'),
@@ -746,18 +912,27 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
             '발전기로 들어가는 고조파 저감장치를 달면 기기별로 조정할 수 있습니다(KDS 32 20 20).',
       ),
       elecSectionTitle('전동기 부하'),
-      elecField(
-        'eg_g_motors',
-        '전동기 부하 합계 ΣPm (kW)',
-        _gMotors,
-        'VVVF(인버터) 제어 전동기는 빼고 넣습니다.',
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+        child: Text(
+          '전동기마다 용량과 기동 방식을 넣으면 합계 ΣPm을 더하고, 기동용량(kW × c)이 가장 큰 전동기를 PL로 고릅니다. '
+          '동시에 기동하는 전동기는 한 줄로 합쳐 넣습니다. VVVF(인버터) 제어 전동기는 여기 넣지 않고 위 부하에 넣습니다. '
+          '기동계수 c 원문 추천값: 직입 6(5~7), Y-Δ 2(2~3), VVVF 1.5(1~1.5), 리액터 탭 50 %·65 %·80 % = 3·3.9·4.8. '
+          '범위 안의 다른 값은 c 칸에 직접 넣습니다.',
+          style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.4),
+        ),
       ),
-      elecField(
-        'eg_g_largest',
-        '기동용량이 가장 큰 전동기 PL (kW)',
-        _gLargest,
-        '동시에 기동하는 전동기가 있으면 그 용량을 더해 넣습니다.',
+      for (var i = 0; i < _mRows.length; i++) _motorCard(i, _mRows[i]),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          key: const Key('eg_m_add'),
+          onPressed: _mRows.length >= _kGpMaxRows ? null : _addMotor,
+          icon: const Icon(Icons.add_rounded),
+          label: Text('전동기 추가 (${_mRows.length}/$_kGpMaxRows)'),
+        ),
       ),
+      const SizedBox(height: 12),
       elecChipGroup(
         'kW당 입력용량 계수 a',
         '원문 추천값: 고효율 1.38, 표준형 1.45. 전동기별 효율·역률로 입력용량을 환산해도 됩니다.',
@@ -777,27 +952,6 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         ],
       ),
       elecField('eg_g_a', 'a', _gA, '위 칩 대신 직접 넣을 수 있습니다.'),
-      elecChipGroup(
-        '기동 방식 (기동계수 c)',
-        '원문 추천값: 직입 6(5~7), Y-Δ 2(2~3), VVVF 1.5(1~1.5), 리액터 탭 50 %·65 %·80 % = 3·3.9·4.8.',
-        [
-          for (final s in GpStart.values)
-            calcChip(
-              'eg_c_${s.name}',
-              '${s.label} ${fmt(s.c, 1)}',
-              start == s,
-              () => setState(() => _gC.text = fmt(s.c, 1)),
-            ),
-        ],
-      ),
-      elecField(
-        'eg_g_c',
-        '기동계수 c',
-        _gC,
-        start?.range == null
-            ? '위 칩을 고르거나 직접 넣습니다.'
-            : '${start!.label}의 원문 범위는 ${start.range}입니다.',
-      ),
       elecSectionTitle('허용전압강하 계수 k'),
       _kTable(),
       elecField(

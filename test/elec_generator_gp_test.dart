@@ -42,6 +42,20 @@ void main() {
     });
   });
 
+  group('PL 고르기(기동용량 kW × c가 가장 큰 전동기)', () {
+    test('kW가 가장 큰 전동기가 아니어도 기동용량이 크면 PL', () {
+      // 10 kW 직입 c 7 → 70, 30 kW Y-Δ c 2 → 60
+      expect(gpLargestStartIndex([(10, 7), (30, 2)]), 0);
+      expect(gpLargestStartIndex([(10, 5), (30, 2)]), 1);
+    });
+
+    test('같으면 앞 줄, 빈 줄·c 없는 줄은 건너뛰고 없으면 null', () {
+      expect(gpLargestStartIndex([(20, 3), (30, 2)]), 0);
+      expect(gpLargestStartIndex([(null, null), (5, null), (5, 6)]), 2);
+      expect(gpLargestStartIndex([(null, null)]), isNull);
+    });
+  });
+
   group('식 4.1-1 손계산', () {
     // 일반 100 kW(효율 0.85·역률 0.8) → 147.06 kVA
     // UPS 50 kVA ÷ 0.9 × 2.5 + 충전 10 % 5 = 143.89 kVA
@@ -190,10 +204,19 @@ void main() {
       await type(tester, 'eg_row_kw_0', '100');
       await type(tester, 'eg_row_eff_0', '85');
       await type(tester, 'eg_row_pf_0', '80');
-      await type(tester, 'eg_g_motors', '75');
-      await type(tester, 'eg_g_largest', '30');
-      await tester.ensureVisible(find.byKey(const Key('eg_c_direct')));
-      await tester.tap(find.byKey(const Key('eg_c_direct')));
+      // 전동기 30 kW 직입, 45 kW Y-Δ: 기동용량 30 × 6 = 180 > 45 × 2 = 90이라 PL = 30
+      await type(tester, 'eg_m_kw_0', '30');
+      await tester.ensureVisible(find.byKey(const Key('eg_m_start_0_direct')));
+      await tester.tap(find.byKey(const Key('eg_m_start_0_direct')));
+      await tester.pump();
+      await tester.ensureVisible(find.byKey(const Key('eg_m_add')));
+      await tester.tap(find.byKey(const Key('eg_m_add')));
+      await tester.pump();
+      await type(tester, 'eg_m_kw_1', '45');
+      await tester.ensureVisible(
+        find.byKey(const Key('eg_m_start_1_starDelta')),
+      );
+      await tester.tap(find.byKey(const Key('eg_m_start_1_starDelta')));
       await tester.pump();
       await tester.ensureVisible(find.byKey(const Key('eg_k_20_25')));
       await tester.tap(find.byKey(const Key('eg_k_20_25')));
@@ -210,6 +233,11 @@ void main() {
       expect(
         allFlat(tester),
         contains(flat('PL × a × c = 30 × 1.45 × 6 = 261 kVA')),
+      );
+      expect(allFlat(tester), contains(flat('ΣPm = 30 + 45 = 75 kW')));
+      expect(
+        allFlat(tester),
+        contains(flat('PL: 전동기 1 (30 kW × c 6 = 기동용량 180, 가장 큼)')),
       );
       expect(
         allFlat(tester),
@@ -277,6 +305,26 @@ void main() {
             .widget<ChoiceChip>(find.byKey(const Key('eg_kind_1_harmonic')))
             .selected,
         isTrue,
+      );
+    });
+
+    testWidgets('예전 전동기 저장값(합계·가장 큰 전동기·c)은 줄 둘로 옮기고, 나머지 줄 기동 방식은 고르라고 알린다', (
+      tester,
+    ) async {
+      SharedPreferences.setMockInitialValues({
+        ElecGeneratorTab.draftKey:
+            '{"mode":"gp","gMotors":"75","gLargest":"30","gC":"6","gK":"1"}',
+      });
+      await pumpTab(tester);
+      String text(String key) =>
+          tester.widget<TextField>(find.byKey(Key(key))).controller!.text;
+      expect(text('eg_m_kw_0'), '30');
+      expect(text('eg_m_c_0'), '6');
+      expect(text('eg_m_kw_1'), '45');
+      expect(text('eg_m_c_1'), '');
+      expect(
+        allFlat(tester),
+        contains(flat('전동기 2: 기동 방식을 고르거나 기동계수 c를 넣으십시오.')),
       );
     });
 
