@@ -28,10 +28,14 @@ class DailyReportCalendarPage extends StatefulWidget {
   final String projectName;
   final List<Map<String, dynamic>> initialReports;
 
+  /// 처음 보여 줄 달. 비우면 이번 달(시험에서 달을 정할 때 쓴다).
+  final DateTime? initialMonth;
+
   const DailyReportCalendarPage({
     super.key,
     required this.projectName,
     required this.initialReports,
+    this.initialMonth,
   });
 
   @override
@@ -50,7 +54,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     _reports = widget.initialReports
         .map((e) => Map<String, dynamic>.from(e))
         .toList();
-    final now = DateTime.now();
+    final now = widget.initialMonth ?? DateTime.now();
     _viewedMonth = DateTime(now.year, now.month);
     // 근태(연차·월차·반차)가 공수 계산·태그에 반영되도록 최신 기록을 받아 온다.
     AttendanceCache.refresh().then((_) {
@@ -420,12 +424,18 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                         onPressed: () => _changeMonth(-1),
                         icon: const Icon(AppIcons.back),
                       ),
-                      Text(
-                        "${_viewedMonth.year}년 ${_viewedMonth.month}월",
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                          color: tossText,
+                      // 큰 글씨에서 10~12월(두 자리)이 화살표 사이에 안 들어가면 글자를 줄여 넣는다.
+                      Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "${_viewedMonth.year}년 ${_viewedMonth.month}월",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                              color: tossText,
+                            ),
+                          ),
                         ),
                       ),
                       IconButton(

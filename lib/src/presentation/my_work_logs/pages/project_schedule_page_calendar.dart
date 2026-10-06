@@ -135,12 +135,18 @@ extension _ProjectScheduleCalendar on _ProjectSchedulePageState {
                 }),
                 icon: const Icon(AppIcons.back),
               ),
-              Text(
-                "${_calendarMonth.year}년 ${_calendarMonth.month}월",
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  color: tossText,
+              // 큰 글씨에서 10~12월(두 자리)이 화살표 사이에 안 들어가면 글자를 줄여 넣는다.
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    "${_calendarMonth.year}년 ${_calendarMonth.month}월",
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      color: tossText,
+                    ),
+                  ),
                 ),
               ),
               IconButton(

@@ -261,6 +261,8 @@ void main() {
         initialReports: List.from(
           project()['daily_reports'] as List,
         ).cast<Map<String, dynamic>>(),
+        // 달 이름이 가장 긴 12월로 고정한다(오늘 날짜에 따라 1~9월엔 통과하고 10월부터 깨졌다).
+        initialMonth: DateTime(2026, 12),
       ),
     );
     expectNoOverflow(tester, '작업 일지 달력');

@@ -81,7 +81,7 @@ class _TrashPageState extends State<TrashPage> {
   }
 
   String _when(DateTime d) {
-    final n = DateTime.now();
+    final n = TrashStore.now();
     if (d.year == n.year && d.month == n.month && d.day == n.day) {
       return '오늘 ${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
     }
@@ -90,7 +90,7 @@ class _TrashPageState extends State<TrashPage> {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final now = TrashStore.now();
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
