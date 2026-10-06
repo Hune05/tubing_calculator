@@ -52,4 +52,10 @@ void main() {
     expect(ratioHintText('슬립 s (%, 선택)', '0.03'), contains('0.03%로 계산'));
     expect(ratioHintText('이용률 (%)', '0.8'), contains('비율로 읽어 80%'));
   });
+
+  test('칸 안 짧은 글: 비율로 읽는 칸은 "= 85%", 그대로 읽는 칸은 "= 0.2%"', () {
+    expect(ratioSuffixText('역률 (%)', '0.85'), '= 85%');
+    expect(ratioSuffixText('설계 여유 (%)', '0.2'), '= 0.2%');
+    expect(ratioSuffixText('역률 (%)', '85'), isNull);
+  });
 }

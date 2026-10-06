@@ -83,7 +83,9 @@ void main() {
     expect(find.byKey(const Key('ec_sum_vd_diag')), findsNothing, reason: '한도 이내면 단추 없음');
     await _type(tester, 'ec_vd_len', '150');
     expect(find.byKey(const Key('ec_sum_vd_diag')), findsOneWidget);
-    await _tap(tester, 'ec_sum_vd_diag');
+    // 요약 줄 오른쪽 단추라 목록을 밀 필요 없이 바로 누른다.
+    await tester.tap(find.byKey(const Key('ec_sum_vd_diag')));
+    await tester.pumpAndSettle();
     expect(find.text('전압강하 원인 확인'), findsOneWidget);
     final t = _all(tester);
     expect(t, contains('초과합니다'));
@@ -107,7 +109,8 @@ void main() {
     await _type(tester, 'ec_chk_breaker', '50');
     await _tap(tester, 'ec_cable_motor'); // 전동기 끔 → 불합격
     expect(find.byKey(const Key('ec_sum_cable_diag')), findsOneWidget);
-    await _tap(tester, 'ec_sum_cable_diag');
+    await tester.tap(find.byKey(const Key('ec_sum_cable_diag')));
+    await tester.pumpAndSettle();
     expect(find.text('기존 회로 원인 확인'), findsOneWidget);
     final t = _all(tester);
     expect(t, contains('차단기 In 50 A가 허용전류 IZ 32 A를 초과합니다'));

@@ -50,3 +50,15 @@ String? ratioHintText(String label, String text) {
   }
   return '이 칸은 %라서 ${t(v)}%로 계산됩니다. 비율이면 ${t(v * 100)}처럼 넣으십시오.';
 }
+
+/// % 칸에 1 이하를 넣었을 때 칸 안 숫자 뒤에 붙이는 짧은 글("= 70%"). 실제로 계산에 쓰는 %다.
+/// 칸 아래에 줄을 더하면 아래 칸이 밀려서, 칸 높이가 바뀌지 않게 숫자 뒤에 붙인다.
+String? ratioSuffixText(String label, String text) {
+  final long = ratioHintText(label, text);
+  if (long == null) return null;
+  final v = parseNumberText(text)!;
+  final lenient = long.contains('비율로 읽어');
+  var n = (lenient ? v * 100 : v).toStringAsFixed(2);
+  n = n.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
+  return '= $n%';
+}

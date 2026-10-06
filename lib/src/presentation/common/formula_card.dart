@@ -101,13 +101,41 @@ const Map<String, List<String>> kSymbolLegend = {
   'mf_result': [
     'Ns 동기속도  ·  N 회전수(rpm)  ·  f 주파수(Hz)  ·  s 슬립  ·  f2 회전자 전류 주파수  ·  η 효율  ·  T 토크(N·m)  ·  P 극수(속도 식) 또는 출력 kW(토크·전류 식)',
   ],
+  'mc_ir_result': [
+    'R40 40 ℃로 환산한 절연저항(MΩ)  ·  R 측정한 1분값(MΩ)  ·  T 측정 때 권선 온도(℃)',
+  ],
   'mm_result': [
     'ΔT 온도 상승  ·  R1·R2 차가울 때·운전 직후 저항  ·  i 감속비  ·  η 효율  ·  m 질량  ·  v 속도  ·  μ 마찰 계수  ·  θ 경사각',
   ],
   'mc2_result': [
-    'C 정전용량(μF)  ·  f 주파수(Hz)  ·  V·U 전압  ·  P 전동기 출력(kW)  ·  I0 무부하 전류',
+    'Qc 콘덴서 용량(kvar)  ·  Un 정격 전압(kV)  ·  C 정전용량(μF)  ·  f 주파수(Hz)  ·  V·U 전압  ·  P 전동기 출력(kW)  ·  I0 무부하 전류(A)',
   ],
 };
+
+/// 기호 뜻 목록에서 지금 풀이에 실제로 나온 기호만 남긴다(한 탭에 계산 항목이 여럿이면 다른 항목 기호가 섞여 보였다).
+/// 항목은 "기호 뜻" 꼴이고 "  ·  "로 이어져 있다. "V·U"처럼 기호가 여럿이면 하나라도 나오면 남긴다.
+List<String> legendFor(List<String> legend, List<FormulaRow> rows) {
+  final text = [
+    for (final r in rows) ...[r.formula ?? '', r.sub ?? '', r.text ?? ''],
+  ].join('\n');
+  bool appears(String sym) {
+    if (sym.isEmpty) return false;
+    final re = RegExp(
+      '(?<![A-Za-z0-9가-힣])${RegExp.escape(sym)}(?![A-Za-z0-9가-힣])',
+    );
+    return re.hasMatch(text);
+  }
+
+  final out = <String>[];
+  for (final line in legend) {
+    final kept = line.split('  ·  ').where((item) {
+      final sym = item.trim().split(' ').first;
+      return sym.split('·').any(appears);
+    }).toList();
+    if (kept.isNotEmpty) out.add(kept.join('  ·  '));
+  }
+  return out;
+}
 
 // ───────────── 줄 나누기 ─────────────
 
@@ -137,28 +165,37 @@ final RegExp _operator = RegExp(r'[×÷√²Σ]| [+−/] ');
 
 /// 결과 줄 중 "식 = 대입 = 결과" 꼴을 찾아 풀이 행으로 바꾼다. 문장 같은 줄은 그대로 둔다.
 FormulaSplit splitFormulaLines(List<String> lines) {
-  final rows = <FormulaRow>[];
-  final rest = <String>[];
+  // 줄마다 (풀이 행들 | 남는 줄)을 순서대로 모은다.
+  final parts = <(List<FormulaRow>?, String)>[];
   for (final raw in lines) {
     final l = raw.trim();
     if (l.startsWith('식:') || l.startsWith('식 :')) {
       final body = l.substring(l.indexOf(':') + 1).trim();
-      for (final piece in _splitTop(body, ', ')) {
-        final p = piece.trim();
-        if (p.isEmpty) continue;
-        rows.add(FormulaRow(formula: p));
-      }
+      parts.add(([
+        for (final piece in _splitTop(body, ', '))
+          if (piece.trim().isNotEmpty) FormulaRow(formula: piece.trim()),
+      ], raw));
       continue;
     }
-    final parsed = _parseLine(l);
-    if (parsed == null) {
-      rest.add(raw);
-    } else {
+    parts.add((_parseLine(l), raw));
+  }
+  final anyRow = parts.any((p) => p.$1 != null && p.$1!.isNotEmpty);
+  final rows = <FormulaRow>[];
+  final rest = <String>[];
+  for (final (parsed, raw) in parts) {
+    if (parsed != null) {
       rows.addAll(parsed);
+    } else if (anyRow && _stepMark.hasMatch(raw.trim())) {
+      // ① ② ③ 단계 번호가 붙은 줄은 식이 아니어도 카드로 옮겨, 단계가 결과 상자와 카드로 갈라지지 않게 한다.
+      rows.add(FormulaRow(text: raw.trim()));
+    } else {
+      rest.add(raw);
     }
   }
   return FormulaSplit(rows, rest);
 }
+
+final RegExp _stepMark = RegExp(r'^[①②③④⑤⑥⑦⑧⑨⑩]');
 
 /// 한 줄을 문장(". " 기준)으로 나눠, 식 꼴인 문장은 식 행으로, 아닌 문장은 설명 행으로 만든다.
 /// 식 꼴 문장이 하나도 없으면 null(줄을 결과 상자에 그대로 둔다).

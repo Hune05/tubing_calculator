@@ -766,16 +766,16 @@ void main() {
   });
 
   group('입력 읽기', () {
-    testWidgets('역률 칸에 0.85를 넣으면 칸 아래에 안내가 붙고, 85면 사라진다', (tester) async {
+    testWidgets('역률 칸에 0.85를 넣으면 칸 안에 "= 85%"가 붙고, 85면 사라진다', (tester) async {
       await pumpPage(tester);
       await type(tester, 'ec_pf', '0.85');
-      expect(find.byKey(const Key('ratio_hint')), findsOneWidget);
-      expect(
-        tester.widget<Text>(find.byKey(const Key('ratio_hint'))).data,
-        contains('0.85은 비율로 읽어 85%'),
-      );
+      // 칸 높이를 바꾸지 않게 칸 안 숫자 뒤에 "= 85%"를 붙인다.
+      InputDecoration dec() => tester
+          .widget<TextField>(find.byKey(const Key('ec_pf')))
+          .decoration!;
+      expect(dec().suffixText, '= 85%');
       await type(tester, 'ec_pf', '85');
-      expect(find.byKey(const Key('ratio_hint')), findsNothing);
+      expect(dec().suffixText, isNull);
     });
 
     testWidgets('역률에 1 이하를 넣으면 비율로 읽었다고 알려 준다', (tester) async {

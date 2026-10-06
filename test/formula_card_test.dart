@@ -74,6 +74,18 @@ void main() {
       expect(r.rows.single.result, '0 mΩ');
     });
 
+    test('단계 번호 줄은 식이 아니어도 카드로 옮겨 순서를 지킨다', () {
+      final r = splitFormulaLines([
+        '① 설정 = 명판 정격전류 40 A. 설정값은 트립 전류가 아닙니다.',
+        '② NEC 430.32 상한 = FLA × 125% = 40 × 1.25 = 50 A',
+        '③ 트립 클래스 10: 설정전류 7.2배에서 4~10초에 동작합니다.',
+        '기동시간 6초는 클래스 10 상한 10초 이내입니다.',
+      ]);
+      expect(r.rows.first.text, startsWith('①'));
+      expect(r.rows.last.text, startsWith('③'));
+      expect(r.rest, ['기동시간 6초는 클래스 10 상한 10초 이내입니다.']);
+    });
+
     test('괄호 안 쉼표는 자르지 않는다', () {
       final r = splitFormulaLines(['식: ΔU = 2 × I × L × R (직류, 리액턴스 없음)']);
       expect(r.rows, hasLength(1));
@@ -164,6 +176,15 @@ void main() {
     await tester.pump();
     expect(find.text('= 14 W'), findsNothing);
     ElecFormulaCard.openAll.value = false;
+  });
+
+  test('기호 뜻은 풀이에 나온 기호만 남긴다(I0는 I와 다르다)', () {
+    final legend = ['Qc 콘덴서 용량  ·  Un 정격 전압  ·  C 정전용량  ·  V·U 전압  ·  I0 무부하 전류  ·  I 전류'];
+    final rows = [
+      const FormulaRow(formula: 'Qc ≤ 0.9 × I0 × Un × √3', sub: '0.9 × 10 × 0.38 × √3', result: '5.92 kvar'),
+    ];
+    expect(legendFor(legend, rows), ['Qc 콘덴서 용량  ·  Un 정격 전압  ·  I0 무부하 전류']);
+    expect(legendFor(['X 리액턴스'], rows), isEmpty);
   });
 
   testWidgets('카드는 결과 앞에 "="를 붙이고 기호 뜻을 맨 아래에 둔다', (tester) async {

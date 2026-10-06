@@ -206,11 +206,12 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
       bad = bad || !ok;
       final pi = ir10 == null ? null : polarizationIndex(ir1, ir10);
       final piMin = minPi(classA: _classA);
-      irSummary.add('IR ${fmt(r40, 1)} MΩ ${ok ? "합격" : "불합격"}');
+      // 큰 글씨·요약·풀이가 같은 자릿수(소수 둘째)여야 1.3과 1.25처럼 달라 보이지 않는다.
+      irSummary.add('IR ${fmt(r40, 2)} MΩ ${ok ? "합격" : "불합격"}');
       children.add(
         calcResult(solve: true, 
           key: const Key('mc_ir_result'),
-          big: '${fmt(r40, 1)} MΩ (40 ℃)',
+          big: '${fmt(r40, 2)} MΩ (40 ℃)',
           warn: !ok,
           caption: '절연저항 40 ℃ 환산 1분값',
           lines: [
@@ -219,11 +220,11 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
             if (ir1 > 5000)
               '1분값이 5000 MΩ을 넘어 온도 보정을 하지 않습니다.'
             else if (_corr == IrCorrection.ieee43)
-              '40 ℃ 환산: ${fmt(ir1, 1)} × 0.5^((40 − ${fmt(irT)}) ÷ 10) = ${fmt(r40, 2)} MΩ'
+              '40 ℃ 환산: R40 = R × 0.5^((40 − T) ÷ 10) = ${fmt(ir1, 1)} × 0.5^((40 − ${fmt(irT)}) ÷ 10) = ${fmt(r40, 2)} MΩ'
             else if (irT <= 40)
               '합성수지 절연은 40 ℃ 이하에서 보정하지 않습니다: ${fmt(r40, 2)} MΩ'
             else
-              '40 ℃ 환산: ${fmt(ir1, 1)} × 2^((${fmt(irT)} − 40) ÷ 17) = ${fmt(r40, 2)} MΩ',
+              '40 ℃ 환산: R40 = R × 2^((T − 40) ÷ 17) = ${fmt(ir1, 1)} × 2^((${fmt(irT)} − 40) ÷ 17) = ${fmt(r40, 2)} MΩ',
             _kind == WindingKind.old
                 ? '최소 = 정격 kV + 1 = ${fmt((ratedV ?? 0) / 1000, 2)} + 1 = ${fmt(minIr, 1)} MΩ (IEEE 43 표 3, ${_kindLabel(_kind)})'
                 : '최소 ${fmt(minIr, 1)} MΩ (IEEE 43 표 3, ${_kindLabel(_kind)})',

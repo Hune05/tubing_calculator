@@ -78,39 +78,23 @@ mixin ElecTabParts<W extends StatefulWidget>
       logCalc(kElecTabLabels[sumKey] ?? sumKey, summary);
     }
     return GestureDetector(
-    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-    behavior: HitTestBehavior.translucent,
-    child: Column(
-      children: [
-        if (summary != null)
-          Container(
-            key: Key(sumKey),
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            decoration: BoxDecoration(
-              color: warn
-                  ? fieldSoft(Colors.red.shade50, (p) => p.danger)
-                  : fc.brandSoft,
-              border: Border(bottom: BorderSide(color: fc.line)),
-            ),
-            child: Text(
-              summary,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: warn ? fc.danger : fc.brand,
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: Column(
+        children: [
+          ElecSummaryBar(sumKey: sumKey, summary: summary, warn: warn),
+          Expanded(
+            child: FocusTraversalGroup(
+              policy: TextFieldsOnlyTraversalPolicy(),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+                children: children,
               ),
             ),
           ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-            children: children,
-          ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
   }
 
   /// 숫자 칸(calcField와 같은 모양, 키보드 "다음"으로 다음 칸).
@@ -144,10 +128,7 @@ mixin ElecTabParts<W extends StatefulWidget>
               fontWeight: FontWeight.w700,
               color: fc.text,
             ),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-            ),
+            decoration: ratioDecoration(label, c),
             onChanged: (_) {
               onEdit?.call();
               setState(() {});
@@ -334,5 +315,89 @@ class _ElecFoldState extends State<ElecFold>
         children: widget.children,
       ),
     );
+  }
+}
+
+/// 탭 맨 위 결과 요약 줄. 높이를 늘 같게 둬서, 값을 넣다가 결과가 생기거나 "입력 확인"으로 바뀌어도
+/// 아래 칸이 밀리지 않는다(입력 중 칸이 움직이면 엉뚱한 칸을 누르게 된다).
+/// 요약이 없을 때는 빈 줄(옅은 안내)만 두고 [sumKey] 키를 붙이지 않는다.
+class ElecSummaryBar extends StatelessWidget {
+  const ElecSummaryBar({
+    super.key,
+    required this.sumKey,
+    this.summary,
+    this.warn = false,
+    this.action,
+  });
+
+  final String sumKey;
+  final String? summary;
+  final bool warn;
+
+  /// 오른쪽 끝 단추(예: "원인 확인"). 목록 맨 위에 넣으면 칸이 밀리므로 여기에 둔다.
+  final Widget? action;
+
+  static const double height = 56;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = summary;
+    return Container(
+      key: s == null ? null : Key(sumKey),
+      height: height,
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+      alignment: Alignment.centerLeft,
+      decoration: BoxDecoration(
+        color: s == null
+            ? fc.surface
+            : (warn ? fieldSoft(Colors.red.shade50, (p) => p.danger) : fc.brandSoft),
+        border: Border(bottom: BorderSide(color: fc.line)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: s == null
+                ? Text(
+                    '값을 넣으면 결과가 여기에 나옵니다',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: fc.textSub),
+                  )
+                : Text(
+                    s,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: s.length > 26 ? 14 : 16,
+                      height: 1.2,
+                      fontWeight: FontWeight.w900,
+                      color: warn ? fc.danger : fc.brand,
+                    ),
+                  ),
+          ),
+          ?action,
+        ],
+      ),
+    );
+  }
+}
+
+/// 키보드 "다음"이 글자 칸끼리만 옮겨 가게 하는 순서 규칙.
+/// 기본 순서는 "?" 도움말·칩·스위치도 거쳐서, "다음"을 누르면 도움말 창이 열리거나 키보드가 닫혔다.
+class TextFieldsOnlyTraversalPolicy extends ReadingOrderTraversalPolicy {
+  TextFieldsOnlyTraversalPolicy();
+
+  static bool _isText(FocusNode n) =>
+      n.context?.findAncestorStateOfType<EditableTextState>() != null;
+
+  @override
+  Iterable<FocusNode> sortDescendants(
+    Iterable<FocusNode> descendants,
+    FocusNode currentNode,
+  ) {
+    final texts = descendants.where(_isText).toList();
+    if (texts.isEmpty) return super.sortDescendants(descendants, currentNode);
+    return super.sortDescendants(texts, currentNode);
   }
 }

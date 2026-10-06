@@ -971,39 +971,19 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (summary != null) {
       logCalc(kElecTabLabels[sumKey] ?? sumKey, summary);
     }
+    final showDiag = warn && diagnosis != null;
     return GestureDetector(
-    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-    behavior: HitTestBehavior.translucent,
-    child: Column(
-      children: [
-        if (summary != null)
-          Container(
-            key: Key(sumKey),
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            decoration: BoxDecoration(
-              color: warn
-                  ? fieldSoft(Colors.red.shade50, (p) => p.danger)
-                  : fc.brandSoft,
-              border: Border(bottom: BorderSide(color: fc.line)),
-            ),
-            child: Text(
-              summary,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w900,
-                color: warn ? fc.danger : fc.brand,
-              ),
-            ),
-          ),
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-            children: [
-              if (warn && diagnosis != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: FilledButton.icon(
+      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+      behavior: HitTestBehavior.translucent,
+      child: Column(
+        children: [
+          ElecSummaryBar(
+            sumKey: sumKey,
+            summary: summary,
+            warn: warn,
+            // 원인 확인 단추를 목록 맨 위에 넣으면 값을 넣는 중에 칸이 밀려서 요약 줄 오른쪽에 둔다.
+            action: showDiag
+                ? TextButton.icon(
                     key: Key('${sumKey}_diag'),
                     onPressed: () => Navigator.push(
                       context,
@@ -1011,17 +991,26 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
                         builder: (_) => DiagnosisPage(diag: diagnosis),
                       ),
                     ),
-                    icon: const Icon(Icons.manage_search),
-                    label: const Text('원인 확인'),
-                  ),
-                ),
-              ...children,
-            ],
+                    icon: const Icon(Icons.manage_search, size: 18),
+                    label: const Text(
+                      '원인 확인',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  )
+                : null,
           ),
-        ),
-      ],
-    ),
-  );
+          Expanded(
+            child: FocusTraversalGroup(
+              policy: TextFieldsOnlyTraversalPolicy(),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+                children: children,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// 숫자 칸(calcField와 같은 모양, 키보드 "다음"으로 다음 칸).
@@ -1055,10 +1044,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               fontWeight: FontWeight.w700,
               color: fc.text,
             ),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-            ),
+            decoration: ratioDecoration(label, c),
             onChanged: (_) {
               onEdit?.call();
               setState(() {});

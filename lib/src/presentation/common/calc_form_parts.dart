@@ -128,10 +128,7 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
               fontWeight: FontWeight.w700,
               color: fc.text,
             ),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-            ),
+            decoration: ratioDecoration(label, c),
             onChanged: (_) => setState(() {}),
           ),
         ),
@@ -142,25 +139,24 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
   ),
   );
 
-  /// 효율·역률 칸에 1 이하를 넣으면 칸 아래에 "비율로 읽는다"는 안내를 붙인다.
-  Widget ratioHinted(String label, TextEditingController c, Widget box) {
-    final hint = ratioHintText(label, c.text);
-    if (hint == null) return box;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        box,
-        Padding(
-          padding: const EdgeInsets.fromLTRB(6, 0, 6, 10),
-          child: Text(
-            hint,
-            key: const Key('ratio_hint'),
-            style: TextStyle(fontSize: 12, color: fc.textSub, height: 1.4),
-          ),
-        ),
-      ],
+  /// 예전에 칸 아래에 붙이던 안내(지금은 칸 안 [ratioDecoration]으로 옮김). 칸 높이를 바꾸지 않는다.
+  Widget ratioHinted(String label, TextEditingController c, Widget box) => box;
+
+  /// 숫자 칸 꾸밈. 효율·역률 같은 % 칸에 1 이하를 넣으면 숫자 뒤에 실제로 계산에 쓰는 %("= 70%")를 붙인다.
+  InputDecoration ratioDecoration(String label, TextEditingController c) {
+    final sfx = ratioSuffixText(label, c.text);
+    return InputDecoration(
+      isDense: true,
+      border: InputBorder.none,
+      suffixText: sfx,
+      suffixStyle: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: fc.textSub,
+      ),
     );
   }
+
 
   Widget calcSwitch(
     String label,
@@ -253,7 +249,9 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
         final k = key is ValueKey<String> ? key.value : null;
         card = ElecFormulaCard(
           rows: sp.rows,
-          symbols: k == null ? const [] : (kSymbolLegend[k] ?? const []),
+          symbols: k == null
+              ? const []
+              : legendFor(kSymbolLegend[k] ?? const [], sp.rows),
         );
       }
     }
