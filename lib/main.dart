@@ -16,6 +16,7 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:tubing_calculator/src/core/utils/error_log.dart';
 import 'package:tubing_calculator/src/core/utils/startup_guard.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_frame.dart';
+import 'package:tubing_calculator/src/core/common_widgets/text_fields_traversal.dart';
 
 // 🚀 Hive 로컬 DB 연동
 import 'package:hive_flutter/hive_flutter.dart';
@@ -404,13 +405,17 @@ class _MyAppState extends State<MyApp> {
       // 딥링크 받는 위젯은 화면(route) 밖에 둔다. home에 두면 로딩 화면이 홈으로 바뀔 때
       // 같이 버려져 그 뒤로는 QR 링크가 안 열렸다.
       // 현장 보기(햇빛·야간)를 바꾸면 FieldViewHost가 화면을 모두 다시 그린다.
-      builder: (context, child) => FieldViewHost(
-        child: AppFrame(
-          child: DeepLinkHandler(
-            // 빠른 도구 막대: 모든 화면에서 옆 손잡이로 계산기 같은 도구를 바로 연다.
-            child: GlobalQuickToolBar(
-              navigatorKey: appNavigatorKey,
-              child: child ?? const SizedBox(),
+      // 키보드 "다음"은 글자 칸끼리만 옮겨 간다("?" 도움말·칩을 건너뜀). 모든 화면에 걸린다.
+      builder: (context, child) => FocusTraversalGroup(
+        policy: TextFieldsOnlyTraversalPolicy(),
+        child: FieldViewHost(
+          child: AppFrame(
+            child: DeepLinkHandler(
+              // 빠른 도구 막대: 모든 화면에서 옆 손잡이로 계산기 같은 도구를 바로 연다.
+              child: GlobalQuickToolBar(
+                navigatorKey: appNavigatorKey,
+                child: child ?? const SizedBox(),
+              ),
             ),
           ),
         ),

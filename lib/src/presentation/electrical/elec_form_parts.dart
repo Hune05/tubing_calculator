@@ -5,11 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
+import '../../core/common_widgets/text_fields_traversal.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../common/number_text.dart';
 export '../common/formula_card.dart';
 export '../common/number_text.dart';
+export '../../core/common_widgets/text_fields_traversal.dart';
 
 /// elecPage·_page의 sumKey → "최근 계산 기록"에 보일 한글 탭 이름(2026-09-29).
 const Map<String, String> kElecTabLabels = {
@@ -105,6 +107,7 @@ mixin ElecTabParts<W extends StatefulWidget>
     String guide, {
     VoidCallback? onEdit,
     bool signed = false,
+    bool ratioHint = true,
   }) => ratioHinted(
     label,
     c,
@@ -128,7 +131,8 @@ mixin ElecTabParts<W extends StatefulWidget>
               fontWeight: FontWeight.w700,
               color: fc.text,
             ),
-            decoration: ratioDecoration(label, c),
+            // 칸이 0.9를 90%로 읽지 않는 탭(부하 합산)은 "= 90%"를 붙이지 않는다.
+            decoration: ratioDecoration(ratioHint ? label : '', c),
             onChanged: (_) {
               onEdit?.call();
               setState(() {});
@@ -383,21 +387,3 @@ class ElecSummaryBar extends StatelessWidget {
   }
 }
 
-/// 키보드 "다음"이 글자 칸끼리만 옮겨 가게 하는 순서 규칙.
-/// 기본 순서는 "?" 도움말·칩·스위치도 거쳐서, "다음"을 누르면 도움말 창이 열리거나 키보드가 닫혔다.
-class TextFieldsOnlyTraversalPolicy extends ReadingOrderTraversalPolicy {
-  TextFieldsOnlyTraversalPolicy();
-
-  static bool _isText(FocusNode n) =>
-      n.context?.findAncestorStateOfType<EditableTextState>() != null;
-
-  @override
-  Iterable<FocusNode> sortDescendants(
-    Iterable<FocusNode> descendants,
-    FocusNode currentNode,
-  ) {
-    final texts = descendants.where(_isText).toList();
-    if (texts.isEmpty) return super.sortDescendants(descendants, currentNode);
-    return super.sortDescendants(texts, currentNode);
-  }
-}

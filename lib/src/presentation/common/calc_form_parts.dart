@@ -123,6 +123,8 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
               decimal: true,
               signed: signed,
             ),
+            // 키보드 "다음"으로 다음 칸(앱 전체 순서 규칙이 "?" 도움말은 건너뛴다).
+            textInputAction: TextInputAction.next,
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w700,

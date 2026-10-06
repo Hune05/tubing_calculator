@@ -649,12 +649,14 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         '기본 역률 (%)',
         _defPf,
         '줄의 역률 칸을 비워 두면 이 값을 씁니다. 부하마다 다르면 줄에 직접 넣으십시오. 0 초과 100 이하입니다.',
+        ratioHint: false,
       ),
       elecField(
         'els_def_df',
         '기본 수용률 (%)',
         _defDf,
         '줄의 수용률 칸을 비워 두면 이 값을 씁니다. 설비용량 중 동시에 쓰는 비율입니다. 0 초과 100 이하입니다.',
+        ratioHint: false,
       ),
       for (var i = 0; i < _rows.length; i++) _rowCard(i, _rows[i]),
       if (_rows.length > 1)

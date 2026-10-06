@@ -799,6 +799,22 @@ void main() {
   });
 
   group('좁은 폰(344)·큰 글씨', () {
+    testWidgets('요약 줄: 긴 요약 + 원인 확인 단추, 칸 안 "= 87.5%"가 넘치지 않는다', (tester) async {
+      await pumpNarrow(tester);
+      await type(tester, 'ec_eff', '0.875');
+      expect(tester.takeException(), isNull, reason: '효율 칸 안 글');
+      await openTab(tester, 'ec_tab_vd');
+      await type(tester, 'ec_vd_i', '20');
+      await type(tester, 'ec_vd_len', '150');
+      await tapKey(tester, 'ec_vd_start');
+      expect(find.byKey(const Key('ec_sum_vd_diag')), findsOneWidget);
+      expect(tester.takeException(), isNull, reason: '요약 줄');
+      // 단추가 화면 안에 있고 누를 만한 크기다.
+      final r = tester.getRect(find.byKey(const Key('ec_sum_vd_diag')));
+      expect(r.right, lessThanOrEqualTo(344));
+      expect(r.height, greaterThanOrEqualTo(32));
+    });
+
     testWidgets('풀이 카드: 부하 전류·전압강하(기동 포함)가 넘치지 않고 식이 따로 보인다', (tester) async {
       await pumpNarrow(tester);
       await type(tester, 'ec_kw', '11');
