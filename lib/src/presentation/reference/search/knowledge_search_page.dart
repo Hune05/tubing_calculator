@@ -422,7 +422,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                 if (related.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Text(
-                    '같은 장비·진단의 다른 자료',
+                    '같은 묶음의 다른 자료',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w800,

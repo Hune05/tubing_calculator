@@ -205,7 +205,7 @@ void main() {
     await t.pump();
     await t.tap(find.byKey(const Key('ks_hit_k1')));
     await t.pumpAndSettle();
-    expect(find.text('같은 장비·진단의 다른 자료'), findsOneWidget);
+    expect(find.text('같은 묶음의 다른 자료'), findsOneWidget);
     await t.tap(find.byKey(const Key('ks_related_k2')));
     await t.pumpAndSettle();
     expect(find.text('b'), findsOneWidget);
