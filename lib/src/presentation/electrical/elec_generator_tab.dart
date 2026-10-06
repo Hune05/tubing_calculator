@@ -607,7 +607,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
           if (r.pg3 != null)
             '③ PG3 마지막 전동기 기동: ${fmt(r.pg3!, 1)} kVA = [(${fmt(input.loadKw!, 1)} − '
                 '${fmt(input.motorKw!, 1)}) ÷ ${fmt(input.eff!, 2)} + ${fmt(input.motorKw!, 1)} × '
-                '${fmt(input.beta!, 2)} × ${fmt(input.startC!, 2)} × ${fmt(input.startPf!, 2)}] '
+                '${fmt(input.beta!, 2)} × ${fmt(input.startC!, 2)} × ${fmt(r.startPfUsed!, 2)}] '
                 '÷ ${fmt(input.pf!, 2)}',
           '④ 가장 큰 값을 필요 용량으로 합니다: max(${[
             'PG1 ${fmt(r.pg1!, 1)}',

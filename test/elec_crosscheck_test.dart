@@ -1670,7 +1670,8 @@ void main() {
           final pg1 = load * dem / (eff * pf);
           final pg2 = pm == null ? null : pm * beta! * cS! * (xd! / 100) * (1 - dv! / 100) / (dv / 100);
           // PG3는 원문대로 부하 종합 역률 pf로 나눈다.
-          final pg3 = pm == null || sPf == null ? null : ((load - pm) / eff + pm * beta! * cS! * sPf) / pf;
+          // 기동 역률을 비우면 원문 기본값 0.4(건축전기설비설계기준 3.1.2(5))로 계산한다.
+          final pg3 = pm == null ? null : ((load - pm) / eff + pm * beta! * cS! * (sPf ?? 0.4)) / pf;
           final req = [pg1, ?pg2, ?pg3].reduce(math.max);
           c.eq('오류 없음', a.errors.isEmpty, true);
           c.n('PG1', a.pg1, pg1);

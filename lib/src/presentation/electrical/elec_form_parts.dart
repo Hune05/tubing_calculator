@@ -258,6 +258,9 @@ class _ElecFoldState extends State<ElecFold>
 
   final ExpansibleController _ctl = ExpansibleController();
 
+  /// 지금 펼쳐져 있는지. 접힌 구역 안 칸은 화면에 안 보이므로 키보드 "다음"이 들어가지 않게 막는다.
+  late bool _isOpen = widget.open || kElecFoldOpenAll;
+
   @override
   void initState() {
     super.initState();
@@ -271,6 +274,7 @@ class _ElecFoldState extends State<ElecFold>
       final saved = p.getBool(ElecFold.prefKey(widget.foldKey));
       if (!mounted) return;
       if (saved == null || saved == widget.open) return;
+      setState(() => _isOpen = saved);
       if (saved) {
         _ctl.expand();
       } else {
@@ -296,7 +300,10 @@ class _ElecFoldState extends State<ElecFold>
         maintainState: true,
         controller: _ctl,
         initiallyExpanded: widget.open || kElecFoldOpenAll,
-        onExpansionChanged: _save,
+        onExpansionChanged: (v) {
+          setState(() => _isOpen = v);
+          _save(v);
+        },
         tilePadding: const EdgeInsets.symmetric(horizontal: 2),
         childrenPadding: EdgeInsets.zero,
         expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
@@ -316,7 +323,15 @@ class _ElecFoldState extends State<ElecFold>
                 widget.subtitle!,
                 style: TextStyle(fontSize: 13, color: fc.textSub),
               ),
-        children: widget.children,
+        children: [
+          ExcludeFocus(
+            excluding: !_isOpen,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: widget.children,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -90,4 +90,33 @@ void main() {
     );
     expect(tester.getTopLeft(pf).dy, y0);
   });
+
+  testWidgets('마지막 칸에서 "다음"을 누르면 맨 위로 돌아가지 않고 키보드를 닫는다', (tester) async {
+    await _open(tester, const ElectricCalculatorPage(initialTab: 1), h: 4000);
+    final last = find.byKey(const Key('ec_conv_val'));
+    await tester.ensureVisible(last);
+    await tester.tap(last);
+    await tester.pump();
+    expect(_focused(tester, 'ec_conv_val'), isTrue);
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pumpAndSettle();
+    expect(_focused(tester, 'ec_conv_val'), isFalse);
+    expect(_focused(tester, 'ec_kw'), isFalse, reason: '맨 위 칸으로 돌아가지 않는다');
+  });
+
+  testWidgets('접힌 구역 안 칸(전동기 기여)으로는 "다음"이 들어가지 않는다', (tester) async {
+    await _open(tester, const ElectricCalculatorPage(initialTab: 5), h: 4000);
+    final f = find.byKey(const Key('ec_sc_up_min'));
+    await tester.ensureVisible(f);
+    await tester.tap(f);
+    await tester.pump();
+    await tester.testTextInput.receiveAction(TextInputAction.next);
+    await tester.pumpAndSettle();
+    // 지금 초점이 간 칸의 이름(키)을 찾는다. 접힌 전동기 기여 칸(ec_sc_mkw 등)이면 안 된다.
+    final ctx = FocusManager.instance.primaryFocus?.context;
+    final field = ctx?.findAncestorWidgetOfExactType<TextField>();
+    final k = (field?.key as ValueKey<String>?)?.value;
+    // 아래쪽 칸이 모두 접힌 구역 안이라 여기서는 키보드가 닫힌다(초점 없음).
+    expect(k == null || !k.startsWith('ec_sc_m'), isTrue, reason: '접힌 구역 안 칸($k)');
+  });
 }

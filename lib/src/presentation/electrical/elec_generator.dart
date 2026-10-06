@@ -90,6 +90,9 @@ class GenInput {
   final double? chosenKva;
 }
 
+/// 기동 역률을 모를 때 원문이 쓰라는 값(건축전기설비설계기준 제5장 3.1.2(5) "불분명시 0.4 적용").
+const double kGenStartPfDefault = 0.4;
+
 class GenResult {
   const GenResult({
     required this.errors,
@@ -102,7 +105,11 @@ class GenResult {
     this.notes = const [],
     this.chosenPass,
     this.chosenMarginPct,
+    this.startPfUsed,
   });
+
+  /// PG3에 실제로 쓴 기동 역률(비웠으면 원문 기본값 0.4).
+  final double? startPfUsed;
 
   /// "입력 확인" 사유. 하나라도 있으면 값은 없다.
   final List<String> errors;
@@ -204,6 +211,7 @@ GenResult calcGenerator(GenInput i) {
   final pg1 = genPg1(i.loadKw!, i.demand!, i.eff!, i.pf!);
   double? pg2;
   double? pg3;
+  double? startPf;
   if (hasMotor) {
     pg2 = genPg2(
       i.motorKw!,
@@ -212,19 +220,20 @@ GenResult calcGenerator(GenInput i) {
       i.xdPct! / 100,
       i.dvPct! / 100,
     );
-    if (i.startPf != null) {
-      pg3 = genPg3(
-        i.loadKw!,
-        i.motorKw!,
-        i.eff!,
-        i.beta!,
-        i.startC!,
-        i.startPf!,
-        i.pf!,
-      );
-    } else {
-      notes.add('PG3는 기동 역률을 넣어야 계산합니다. 지금은 뺐습니다.');
+    // 기동 역률을 비우면(예전 저장값 등) PG3를 빼지 않고 원문 기본값 0.4로 계산하고 알린다.
+    startPf = i.startPf ?? kGenStartPfDefault;
+    if (i.startPf == null) {
+      notes.add('기동 역률을 비워 원문 기본값 40 %(불분명시 0.4)로 PG3를 계산했습니다. 제조사 값이 있으면 넣으십시오.');
     }
+    pg3 = genPg3(
+      i.loadKw!,
+      i.motorKw!,
+      i.eff!,
+      i.beta!,
+      i.startC!,
+      startPf,
+      i.pf!,
+    );
   } else {
     notes.add('가장 큰 전동기를 넣지 않아 PG2와 PG3는 계산하지 않았습니다.');
   }
@@ -260,5 +269,6 @@ GenResult calcGenerator(GenInput i) {
     notes: notes,
     chosenPass: pass,
     chosenMarginPct: margin,
+    startPfUsed: startPf,
   );
 }

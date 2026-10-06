@@ -128,12 +128,12 @@ void main() {
       expect(r.notes.single, contains('PG2와 PG3'));
     });
 
-    test('기동 역률을 비우면 PG3만 빠지고 안내가 붙는다', () {
+    test('기동 역률을 비우면 원문 기본값 0.4로 PG3를 계산하고 알린다(예전 저장값이 빈 칸인 경우)', () {
       final r = calcGenerator(_base(startPf: null));
-      expect(r.pg3, isNull);
-      expect(r.pg2, isNotNull);
-      expect(r.governing, 'PG1');
-      expect(r.notes.single, contains('PG3'));
+      final same = calcGenerator(_base(startPf: 0.4));
+      expect(r.pg3, closeTo(same.pg3!, 1e-9));
+      expect(r.startPfUsed, 0.4);
+      expect(r.notes.single, contains('원문 기본값 40 %'));
     });
 
     test('전동기 기동이 크면 PG2가 최댓값', () {

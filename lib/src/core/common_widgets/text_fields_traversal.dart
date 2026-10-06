@@ -21,4 +21,24 @@ class TextFieldsOnlyTraversalPolicy extends ReadingOrderTraversalPolicy {
     if (texts.isEmpty) return super.sortDescendants(descendants, currentNode);
     return super.sortDescendants(texts, currentNode);
   }
+
+  /// 마지막 글자 칸에서 "다음"을 누르면 맨 위 칸으로 돌아가지 않고 키보드를 닫는다
+  /// (돌아가면 화면이 맨 위로 튄다). 단추 등에서 Tab으로 옮길 때는 원래대로다.
+  @override
+  bool next(FocusNode currentNode) {
+    if (_isText(currentNode)) {
+      final scope = currentNode.nearestScope;
+      if (scope != null) {
+        final sorted = sortDescendants(
+          scope.traversalDescendants,
+          currentNode,
+        ).toList();
+        if (sorted.isNotEmpty && identical(sorted.last, currentNode)) {
+          currentNode.unfocus();
+          return false;
+        }
+      }
+    }
+    return super.next(currentNode);
+  }
 }
