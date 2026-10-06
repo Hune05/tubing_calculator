@@ -145,4 +145,17 @@ void main() {
       expect(searchKnowledge(all, '250옴').single.entry.id, 'h');
     });
   });
+
+  test('입말은 정식 말로 찾되, 정식 말로 칠 때 입말까지 넓히지 않는다', () {
+    const all = [
+      KnowledgeEntry(id: 't', category: 'a', title: '차단기가 트립한다'),
+      KnowledgeEntry(id: 'p', category: 'a', title: '압력이 떨어지는데 누설이 아닐 때'),
+      KnowledgeEntry(id: 'v', category: 'a', title: '고속절단기 진동 심함'),
+      KnowledgeEntry(id: 'g', category: 'a', title: '접지저항 값이 흔들릴 때'),
+    ];
+    expect(searchKnowledge(all, '트립').map((h) => h.entry.id), ['t']);
+    expect(searchKnowledge(all, '차단기가 떨어져요').map((h) => h.entry.id), ['t']);
+    expect(searchKnowledge(all, '진동').map((h) => h.entry.id), ['v']);
+    expect(searchKnowledge(all, '흔들림').map((h) => h.entry.id), containsAll(['v']));
+  });
 }
