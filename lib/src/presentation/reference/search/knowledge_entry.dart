@@ -167,6 +167,12 @@ List<String> searchVariants(String token) {
     final head = token.substring(0, token.length - 1);
     if (last >= 0x3131 && last <= 0x314E && !_allInitials(head)) out.add(head);
   }
+  // "K타입"·"Ktype"은 자료에 "K형"으로 적혀 있다.
+  for (final t in ['타입', 'type']) {
+    if (token.length > t.length && token.endsWith(t)) {
+      out.add('${token.substring(0, token.length - t.length)}형');
+    }
+  }
   for (final e in _kEndings) {
     if (token.length > e.length + 1 && token.endsWith(e)) {
       final s = token.substring(0, token.length - e.length);

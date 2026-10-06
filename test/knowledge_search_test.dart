@@ -164,4 +164,10 @@ void main() {
     expect(searchKnowledge(all, '절삭ㅇ').map((h) => h.entry.id), ['b', 'c']);
     expect(searchVariants('ㅈㅅㅇ'), ['ㅈㅅㅇ']);
   });
+
+  test('K타입·Ktype은 K형으로도 찾는다', () {
+    const all = [KnowledgeEntry(id: 'k', category: 'a', title: '열전대 K형 기전력')];
+    expect(searchKnowledge(all, 'K타입').single.entry.id, 'k');
+    expect(searchKnowledge(all, 'Ktype').single.entry.id, 'k');
+  });
 }
