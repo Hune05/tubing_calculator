@@ -367,6 +367,13 @@ void main() {
             .text,
         '190',
       );
+      // 길이 칸 키보드 '다음'은 수량 칸으로 간다.
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('steel_length_field')))
+            .textInputAction,
+        TextInputAction.next,
+      );
       await tester.tap(find.byKey(const Key('qty_plus')));
       await tester.tap(find.byKey(const Key('qty_plus')));
       await tester.pump();

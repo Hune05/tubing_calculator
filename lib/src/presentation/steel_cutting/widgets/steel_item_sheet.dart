@@ -549,6 +549,8 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                         isNumber: true,
                         suffix: "mm",
                         fieldKey: const Key('steel_length_field'),
+                        // 길이를 넣고 키보드 '다음'으로 수량 칸에 간다.
+                        action: TextInputAction.next,
                         errorText: parseLengthInput(_lengthCtrl.text).unreadable
                             ? "숫자로 읽을 수 없습니다"
                             : null,
@@ -882,6 +884,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     String? suffix,
     Key? fieldKey,
     String? errorText,
+    TextInputAction? action,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -898,6 +901,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
         TextField(
           key: fieldKey,
           controller: controller,
+          textInputAction: action,
           keyboardType: isNumber
               ? const TextInputType.numberWithOptions(decimal: true)
               : TextInputType.text,
