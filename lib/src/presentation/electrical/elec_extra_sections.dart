@@ -65,16 +65,7 @@ class _TransformerPfSectionState extends State<TransformerPfSection>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 16),
-        Text(
-          '변압기 역률 개선 (MV/LV)',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-            color: fc.text,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         calcField('ec_tp_kva', '변압기 용량 S (kVA)', _kva, '변압기 명판 정격 용량입니다.'),
         calcField(
           'ec_tp_i0',
@@ -175,16 +166,7 @@ class _MiCableSectionState extends State<MiCableSection>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 16),
-        Text(
-          '미네랄 절연(MI) 케이블·나도체 허용전류',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w900,
-            color: fc.text,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
         _group(
           '외피',
           '손이 닿을 수 있는 곳이나 PVC 피복이면 70 ℃, 사람이 닿지 않고 가연물과도 떨어진 나선이면 105 ℃ 표를 씁니다.',

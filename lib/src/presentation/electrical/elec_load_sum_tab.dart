@@ -760,7 +760,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         '수용률·부등률·역률의 기본값은 정하지 않았습니다. 설계 기준서나 부하 자료에 맞춰 직접 넣으십시오.',
       ]),
       const SizedBox(height: 8),
-      elecSectionTitle('계산서'),
+      ...elecFold('els_fold_sheet', '계산서', [
       _textBox('els_site', '현장·프로젝트 (계산서에 적힘)', _site),
       _textBox('els_memo', '메모 (계산서에 적힘)', _memo),
       Align(
@@ -789,8 +789,9 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
             style: TextStyle(fontSize: 12, color: fc.textSub),
           ),
         ),
+      ], subtitle: _site.text.trim().isEmpty ? 'PDF로 만들기' : _site.text.trim()),
       const SizedBox(height: 12),
-      elecSectionTitle('저장한 계산서'),
+      ...elecFold('els_fold_saved', '저장한 계산서', [
       _textBox('els_save_name', '저장 이름', _saveName),
       Align(
         alignment: Alignment.centerLeft,
@@ -803,6 +804,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
       ),
       const SizedBox(height: 8),
       _savedList(),
+      ], subtitle: _sheets.isEmpty ? '없음' : '${_sheets.length}개'),
     ]);
   }
 }

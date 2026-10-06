@@ -777,6 +777,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         elecSectionTitle('마킹 (한쪽 끝에서)'),
         for (var i = 0; i < p.bends.length; i++) _markTile(p.bends[i], i),
         const SizedBox(height: 8),
+        ...elecFold('bb_fold_notes', '작업 순서', [
         calcResult(solve: true, 
           key: const Key('bb_notes'),
           big: '작업 순서',
@@ -789,6 +790,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
             '꺾은 뒤 스프링백이 있으니 목표 각도보다 조금 더 꺾고 되돌리며 맞춥니다.',
           ],
         ),
+        ], subtitle: '자르기 → 시작선 → 시험 조각 → 꺾기'),
       ]);
     }
     children.addAll([

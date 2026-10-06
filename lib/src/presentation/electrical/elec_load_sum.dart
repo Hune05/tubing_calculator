@@ -236,6 +236,16 @@ String _fmtN(double v) {
   return s;
 }
 
+/// 역률·수용률 칸은 %로 읽는다(90, 80). 0.9·0.8처럼 비율을 넣은 것으로 보이면 알리는 글, 아니면 null.
+/// 고쳐 읽지 않고 입력 확인으로 돌려주는 것이 이 탭의 규칙이다(0.9를 0.9%로 계산하면 결과가 수천 kVA로 틀어진다).
+String? loadSumRatioMistake(String name, double v) {
+  final tooLow = name.contains('역률') ? v < 10 : v < 1;
+  if (!tooLow) return null;
+  final guess = _fmtN(v * 100);
+  return '$name(%) 입력값이 ${_fmtN(v)}입니다. 이 칸은 %라서 ${_fmtN(v)}%로 계산됩니다. '
+      '비율이면 $guess처럼 넣으십시오.';
+}
+
 /// 부하 합산 계산. 잘못된 칸은 자르거나 고쳐 쓰지 않고 [LoadSumResult.errors]로 돌려준다.
 LoadSumResult computeLoadSum(LoadSumInput input) {
   final errors = <String>[];
@@ -255,6 +265,11 @@ LoadSumResult computeLoadSum(LoadSumInput input) {
     }
     if (v <= 0 || v > 100) {
       errors.add('$label: 0 초과 100 이하로 넣으십시오(입력값 ${_fmtN(v)}%).');
+      return null;
+    }
+    final m = loadSumRatioMistake(label, v);
+    if (m != null) {
+      errors.add(m);
       return null;
     }
     return v;
@@ -306,6 +321,12 @@ LoadSumResult computeLoadSum(LoadSumInput input) {
       }
       if (v <= 0 || v > 100) {
         errors.add('$label: $name(%)은 0 초과 100 이하로 넣으십시오(입력값 ${_fmtN(v)}).');
+        bad = true;
+        return null;
+      }
+      final m = loadSumRatioMistake('$label $name', v);
+      if (m != null) {
+        errors.add(m);
         bad = true;
         return null;
       }

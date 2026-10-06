@@ -537,9 +537,7 @@ class _CableTrayPageState extends State<CableTrayPage>
     final ok = _elbow >= need - 1e-9;
     final fit = elbowFor(need);
     final f = bendFactor(worst, _bendRule);
-    return [
-      const SizedBox(height: 16),
-      elecSectionTitle('최소 굽힘 반경'),
+    return elecFold('ct_fold_bend', '최소 굽힘 반경', [
       elecChipGroup(
         '굽힘 반경 기준',
         '국내 시방서: 다심 외경의 6배, 단심 8배(서울시 SMCS·KRCCS·나라장터 시방서 등). 차폐 제어·AMS 케이블은 국내 규정이 없어 제조사 값 12배를 씁니다. '
@@ -568,7 +566,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           '반경은 케이블 안쪽 면 기준으로 보는 것이 보통입니다(ICEA). 국내 시방서는 기준점을 적지 않았습니다.',
         ],
       ),
-    ];
+    ], subtitle: '필요 R ${fmt(need, 0)} mm · 엘보 R${fmt(_elbow)} ${ok ? '합격' : '불합격'}');
   }
 
   /// 하중: 케이블 무게 + 트레이 자중을 지지 간격별 허용 하중과 견준다.
@@ -584,9 +582,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       margin: _marginPct / 100,
     );
     final ok = l.ok;
-    return [
-      const SizedBox(height: 16),
-      elecSectionTitle('하중'),
+    return elecFold('ct_fold_load', '하중', [
       elecChipGroup(
         '설치 방법',
         '매달기·브래킷·받침대 위는 지지점 사이가 떠 있어 지지 간격과 허용 하중을 계산합니다. 바닥에 직접 설치하면 바닥이 받쳐 주므로 이 계산은 하지 않고 1m당 중량만 계산합니다.',
@@ -628,7 +624,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           cableWeightSource,
         ],
       ),
-    ];
+    ], subtitle: '${fmt(l.totalKgM, 1)} kg/m${ok == null ? '' : ' · ${ok ? '합격' : '불합격'}'}');
   }
 
   /// 카톡으로 보내는 글.

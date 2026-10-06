@@ -1130,12 +1130,14 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
         elecSectionTitle('마킹 (시작점에서, ${plan ? _refRail : '아랫변'} 기준)'),
         for (var i = 0; i < r.corners.length; i++) _markTile(r.corners[i], i),
         const SizedBox(height: 8),
-        calcResult(solve: true, 
-          key: const Key('tr_notes'),
-          big: '작업 순서',
-          caption: '현장에서 잘라 꺾을 때',
-          lines: plan ? kTrayFieldBendPlanNotes : kTrayFieldBendNotes,
-        ),
+        ...elecFold('tr_fold_notes', '작업 순서', [
+          calcResult(solve: true, 
+            key: const Key('tr_notes'),
+            big: '작업 순서',
+            caption: '현장에서 잘라 꺾을 때',
+            lines: plan ? kTrayFieldBendPlanNotes : kTrayFieldBendNotes,
+          ),
+        ], subtitle: '현장에서 잘라 꺾을 때'),
       ]);
     }
     children.addAll([

@@ -161,7 +161,31 @@ void main() {
       expect(one(df: '0').errors.single, contains('0 초과 100 이하'));
       expect(one(pf: '100.01').errors.single, contains('역률'));
       expect(one(pf: '0').errors.single, contains('0 초과 100 이하'));
-      expect(one(df: '0.01').ok, isTrue);
+      expect(one(df: '1').ok, isTrue);
+      expect(one(pf: '10').ok, isTrue);
+    });
+
+    test('0.9·0.8처럼 비율을 넣은 것으로 보이면 %로 계산하지 않고 입력 확인(역률 10% 미만, 수용률 1% 미만)', () {
+      final pf = one(pf: '0.9');
+      expect(pf.ok, isFalse);
+      expect(pf.errors.single, contains('비율이면 90처럼 넣으십시오'));
+      final df = one(df: '0.8');
+      expect(df.ok, isFalse);
+      expect(df.errors.single, contains('비율이면 80처럼 넣으십시오'));
+      expect(one(df: '0.01').ok, isFalse);
+      // 기본 역률 칸도 같다.
+      final d = computeLoadSum(
+        LoadSumInput(
+          rows: [row('10')],
+          defaultPf: '0.9',
+          defaultDf: '80',
+          diversity: '1.0',
+          margin: '0',
+          selectedKva: '',
+        ),
+      );
+      expect(d.ok, isFalse);
+      expect(d.errors.first, contains('기본 역률'));
     });
 
     test('부등률 1은 되고 1 미만은 입력 확인, 비우면 1', () {

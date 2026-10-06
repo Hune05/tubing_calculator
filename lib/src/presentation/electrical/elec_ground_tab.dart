@@ -172,7 +172,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
             _phase,
             '보호도체와 같은 재질의 선도체 단면적입니다. 표 142.3-1로 보호도체 최소를 구합니다.',
           ),
-          elecSectionTitle('고장전류로 구하기 (선택)'),
+          ...elecFold('gr_fold_fault', '고장전류로 구하기 (선택)', [
           elecField(
             'gr_fault',
             '예상 고장전류 (A, 실효값)',
@@ -231,6 +231,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               ),
             ],
           ),
+          ], subtitle: i != null && t != null ? '${fmt(i, 0)} A · ${fmt(t, 2)}초' : '비움 (표 값만)'),
         ]);
         if (tableOnly == null) {
           children.add(
@@ -671,7 +672,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         _zs,
         '루프 임피던스 측정기로 측정한 값입니다. 넣으면 합격/불합격을 판정합니다.',
       ),
-      elecSectionTitle('케이블로 대략 구하기 (선택)'),
+      ...elecFold('gr_fold_cable', '케이블로 대략 구하기 (선택)', [
       elecField(
         'gr_ze',
         '전원 쪽 임피던스 Ze (Ω)',
@@ -681,6 +682,7 @@ class _ElecGroundTabState extends State<ElecGroundTab>
       elecField('gr_cablelen', '케이블 편도 길이 (m)', _cableLen, ''),
       elecField('gr_sph', '상도체 단면적 (mm²)', _sPh, ''),
       elecField('gr_spe', '보호도체 단면적 (mm²)', _sPe, ''),
+      ], subtitle: _cableLen.text.trim().isEmpty ? '비움' : '${_cableLen.text.trim()} m'),
     ]);
     if (zmax == null) {
       children.add(

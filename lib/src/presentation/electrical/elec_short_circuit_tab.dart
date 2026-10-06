@@ -594,7 +594,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         _upMin,
         '최소 단락 계산에 씁니다. 비우면 위 최대용 값을 씁니다. 실제 최소값은 더 작을 수 있습니다.',
       ),
-      elecSectionTitle('저압 전동기 기여 (선택)'),
+      ...elecFold('ec_sc_fold_motor', '저압 전동기 기여 (선택)', [
       elecField(
         'ec_sc_mkw',
         '전동기 합계 kW',
@@ -613,6 +613,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         _mMult,
         '전동기가 단락 때 내보내는 전류를 정격전류의 몇 배로 볼지 정합니다. 출처마다 값이 다릅니다: Schneider 설치 지침 3.5배, IEEE C37.13 저압 전동기 묶음 4배, Schneider 기술 자료 예 4.8배. 앱이 값을 채우지 않으니 설계 기준이나 명판의 기동전류 배수를 넣으십시오.',
       ),
+      ], subtitle: _mKw.text.trim().isEmpty ? '넣지 않음' : '${_mKw.text.trim()} kW'),
       elecSectionTitle('케이블 구간 (변압기 쪽부터 순서대로)'),
       elecChipGroup(
         '케이블 절연',
@@ -635,7 +636,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       const SizedBox(height: 8),
       mainCard,
       ...extra,
-      elecSectionTitle('차단기 차단용량 확인'),
+      ...elecFold('ec_sc_fold_breaker', '차단기 차단용량 확인', [
       elecChipGroup(
         '차단용량 종류',
         'Icu: 극한 차단용량. Ics: 운전 차단용량. 제조사 표에서 어느 값을 넣는지 고르십시오.',
@@ -670,7 +671,8 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         '차단기 정격 투입용량(피크값 kA)입니다. 넣으면 피크 전류와 비교합니다.',
       ),
       bkCard,
-      elecSectionTitle('케이블 단락 열적 강도 (I²t)'),
+      ], subtitle: _rating.text.trim().isEmpty ? '차단용량을 넣으면 판정' : '${_rating.text.trim()} kA'),
+      ...elecFold('ec_sc_fold_cable', '케이블 단락 열적 강도 (I²t)', [
       if (n > 0)
         elecChipGroup('검토할 구간', '케이블 시작점의 단락전류를 씁니다. 시작점이 전류가 가장 큽니다.', [
           for (var i = 0; i < n; i++)
@@ -697,6 +699,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
         '한류형 차단기가 순시로 끊을 때 제조사 통과 에너지 곡선에서 확인한 값입니다. 넣으면 케이블 허용값과 비교합니다.',
       ),
       cabCard,
+      ], subtitle: _t.text.trim().isEmpty ? '차단 시간을 넣으면 판정' : 't ${_t.text.trim()}초'),
       const SizedBox(height: 10),
       Text(
         '최종 선정은 상위 계통 실제 자료와 차단기 제조사 자료로 확인하십시오.',

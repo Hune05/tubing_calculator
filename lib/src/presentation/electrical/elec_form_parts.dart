@@ -2,6 +2,7 @@
 // 기존 탭은 electric_calculator_page.dart 안의 같은 모양 함수(_page·_field·_chipGroup·_basis)를 쓰고,
 // 파일로 나눈 새 탭(부하 합산·단락 전류·축전지)은 이 mixin을 쓴다.
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
@@ -205,7 +206,8 @@ mixin ElecTabParts<W extends StatefulWidget>
   );
 
   /// 접었다 펴는 구역. 길어진 화면에서 덜 쓰는 구역을 접어 둔다.
-  /// [children]이 비면 아무것도 그리지 않는다. [subtitle]은 접힌 채로도 보이는 요약(예: "3곳").
+  /// [children]이 비면 아무것도 그리지 않는다. [subtitle]은 접힌 채로도 보이는 요약(예: "3곳", "필요 120 · 적합").
+  /// 사용자가 펴거나 접은 상태는 구역 이름([key])별로 폰에 적어 다음에도 그대로 둔다. 적은 게 없으면 [open]이 처음 상태다.
   List<Widget> elecFold(
     String key,
     String title,
@@ -215,29 +217,13 @@ mixin ElecTabParts<W extends StatefulWidget>
   }) {
     if (children.isEmpty) return const [];
     return [
-      Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          key: Key(key),
-          initiallyExpanded: open || kElecFoldOpenAll,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 2),
-          childrenPadding: EdgeInsets.zero,
-          expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-          iconColor: fc.brand,
-          collapsedIconColor: fc.textSub,
-          title: Text(
-            title,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w900,
-              color: fc.text,
-            ),
-          ),
-          subtitle: subtitle == null
-              ? null
-              : Text(subtitle, style: TextStyle(fontSize: 13, color: fc.textSub)),
-          children: children,
-        ),
+      ElecFold(
+        key: ValueKey('fold#$key'),
+        foldKey: key,
+        title: title,
+        open: open,
+        subtitle: subtitle,
+        children: children,
       ),
     ];
   }
@@ -255,3 +241,91 @@ mixin ElecTabParts<W extends StatefulWidget>
   );
 }
 
+
+/// [ElecTabParts.elecFold]가 그리는 접었다 펴는 구역. 펴고 접은 상태를 폰에 기억한다.
+class ElecFold extends StatefulWidget {
+  const ElecFold({
+    super.key,
+    required this.foldKey,
+    required this.title,
+    required this.children,
+    this.open = false,
+    this.subtitle,
+  });
+
+  final String foldKey;
+  final String title;
+  final List<Widget> children;
+  final bool open;
+  final String? subtitle;
+
+  static String prefKey(String k) => 'fold_v1_$k';
+
+  @override
+  State<ElecFold> createState() => _ElecFoldState();
+}
+
+class _ElecFoldState extends State<ElecFold> {
+  final ExpansibleController _ctl = ExpansibleController();
+
+  @override
+  void initState() {
+    super.initState();
+    if (!kElecFoldOpenAll) _restore();
+  }
+
+  /// 저장된 상태가 처음 상태와 다르면 맞춘다(저장이 없으면 그대로).
+  Future<void> _restore() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final saved = p.getBool(ElecFold.prefKey(widget.foldKey));
+      if (!mounted) return;
+      if (saved == null || saved == widget.open) return;
+      if (saved) {
+        _ctl.expand();
+      } else {
+        _ctl.collapse();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _save(bool v) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool(ElecFold.prefKey(widget.foldKey), v);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        key: Key(widget.foldKey),
+        controller: _ctl,
+        initiallyExpanded: widget.open || kElecFoldOpenAll,
+        onExpansionChanged: _save,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 2),
+        childrenPadding: EdgeInsets.zero,
+        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
+        iconColor: fc.brand,
+        collapsedIconColor: fc.textSub,
+        title: Text(
+          widget.title,
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+            color: fc.text,
+          ),
+        ),
+        subtitle: widget.subtitle == null
+            ? null
+            : Text(
+                widget.subtitle!,
+                style: TextStyle(fontSize: 13, color: fc.textSub),
+              ),
+        children: widget.children,
+      ),
+    );
+  }
+}

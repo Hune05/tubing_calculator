@@ -35,4 +35,37 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('gb_notes')), findsOneWidget);
   });
+
+  testWidgets('펴고 접은 상태를 폰에 적어 다시 열어도 그대로 둔다', (tester) async {
+    await _open(tester);
+    await tester.tap(find.byKey(const Key('gb_tab_1')));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    // 접힌 "작업 순서"를 펴면 적힌다.
+    await tester.ensureVisible(find.byKey(const Key('gb_fold_notes')));
+    await tester.tap(find.byKey(const Key('gb_fold_notes')));
+    await tester.pumpAndSettle();
+    var prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('fold_v1_gb_fold_notes'), isTrue);
+    // 펼쳐 둔 "접지 구멍 위치"를 접으면 그것도 적힌다.
+    await tester.ensureVisible(find.byKey(const Key('gb_fold_holes')));
+    await tester.tap(find.text('접지 구멍 위치 (왼쪽 끝에서 중심까지)'));
+    await tester.pumpAndSettle();
+    prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool('fold_v1_gb_fold_holes'), isFalse);
+
+    // 화면을 닫았다 다시 열면 적힌 대로(작업 순서 펼침, 접지 구멍 위치 접힘).
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    await _open(tester);
+    await tester.tap(find.byKey(const Key('gb_tab_1')));
+    await tester.pumpAndSettle();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -1500));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('gb_fold_notes')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gb_notes')), findsOneWidget);
+    expect(find.textContaining('첫 구멍'), findsNothing);
+  });
 }

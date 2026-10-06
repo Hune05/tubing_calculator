@@ -155,9 +155,10 @@ void main() {
   });
   testWidgets('미네랄 절연 선택은 위쪽 부하 전류를 넣어도 풀리지 않는다', (tester) async {
     await _open(tester, 'ec_tab_cable');
+    // 위쪽 칸에 먼저 넣고 MI 칩을 누른다(접힘 구역이 목록 밖으로 나가면 칩 상태가 사라지므로 순서를 바꿨다).
+    await _type(tester, 'ec_ib', '100');
     await _tap(tester, 'ec_mi_t105');
     await _tap(tester, 'ec_mi_efg');
-    await _type(tester, 'ec_ib', '100');
     final t = _all(tester);
     expect(t, contains('외피 105 ℃'));
     expect(t, contains('포설 방법 E·F·G'));
