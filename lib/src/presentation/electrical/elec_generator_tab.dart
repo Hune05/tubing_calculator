@@ -7,11 +7,54 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
+import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import 'elec_form_parts.dart';
 import 'elec_generator.dart';
 import 'elec_generator_gp.dart';
+
+/// GP 방식 전동기 이외 부하 줄(종류·kW·효율·역률).
+class _GpRowCtl {
+  _GpRowCtl(
+    this.id, {
+    this.kind = GpLoadKind.general,
+    String kw = '',
+    String eff = '',
+    String pf = '',
+  }) : kw = TextEditingController(text: kw),
+       eff = TextEditingController(text: eff),
+       pf = TextEditingController(text: pf);
+
+  final int id;
+  GpLoadKind kind;
+  final TextEditingController kw;
+  final TextEditingController eff;
+  final TextEditingController pf;
+
+  Map<String, String> toJson() => {
+    'kind': kind.name,
+    'kw': kw.text,
+    'eff': eff.text,
+    'pf': pf.text,
+  };
+
+  void dispose() {
+    kw.dispose();
+    eff.dispose();
+    pf.dispose();
+  }
+}
+
+/// GP 부하 줄 최대 수.
+const int _kGpMaxRows = 20;
+
+/// 줄 칩에 쓰는 짧은 이름.
+String _gpKindShort(GpLoadKind k) => switch (k) {
+  GpLoadKind.general => '일반',
+  GpLoadKind.vvvf => 'VVVF 전동기',
+  GpLoadKind.harmonic => 'LED 등',
+};
 
 class ElecGeneratorTab extends StatefulWidget {
   const ElecGeneratorTab({super.key, this.history});
@@ -57,12 +100,9 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
   final _mode = TextEditingController(text: 'gp');
   bool get _gp => _mode.text != 'pg';
 
-  // GP 방식 칸
-  final _gGeneral = TextEditingController();
-  final _gVvvf = TextEditingController();
-  final _gLed = TextEditingController();
-  final _gEff = TextEditingController();
-  final _gPf = TextEditingController();
+  // GP 방식 칸. 전동기 이외 부하는 줄 목록이고 저장 칸에는 'gRows'로 남긴다.
+  final List<_GpRowCtl> _gRows = [_GpRowCtl(0)];
+  int _nextRowId = 1;
   final _gUps = TextEditingController();
   final _gUpsEff = TextEditingController();
   final _gCharge = TextEditingController();
@@ -71,6 +111,9 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
   final _gLargest = TextEditingController();
   final _gC = TextEditingController();
   final _gK = TextEditingController();
+  // 표 4.1-1에서 누른 칸(허용 전압강하 %, x″d %). k를 직접 고치면 결과에 '직접 입력한 값'으로 적는다.
+  final _gKDv = TextEditingController();
+  final _gKXd = TextEditingController();
   final _gA = TextEditingController(text: '1.45');
 
   List<(TextEditingController, String)> get _texts => [
@@ -87,11 +130,6 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     (_volts, 'volts'),
     (_chosen, 'chosen'),
     (_mode, 'mode'),
-    (_gGeneral, 'gGeneral'),
-    (_gVvvf, 'gVvvf'),
-    (_gLed, 'gLed'),
-    (_gEff, 'gEff'),
-    (_gPf, 'gPf'),
     (_gUps, 'gUps'),
     (_gUpsEff, 'gUpsEff'),
     (_gCharge, 'gCharge'),
@@ -101,6 +139,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     (_gA, 'gA'),
     (_gC, 'gC'),
     (_gK, 'gK'),
+    (_gKDv, 'gKDv'),
+    (_gKXd, 'gKXd'),
   ];
 
   Timer? _saveTimer;
@@ -121,6 +161,9 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     for (final (c, _) in _texts) {
       c.dispose();
     }
+    for (final r in _gRows) {
+      r.dispose();
+    }
     super.dispose();
   }
 
@@ -135,6 +178,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
             for (final (c, k) in _texts) {
               if (m[k] is String) c.text = m[k] as String;
             }
+            _readRows(m);
           });
         }
       }
@@ -147,7 +191,10 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
 
   void _scheduleSave() {
     if (!_draftReady) return;
-    final raw = jsonEncode({for (final (c, k) in _texts) k: c.text});
+    final raw = jsonEncode({
+      for (final (c, k) in _texts) k: c.text,
+      'gRows': [for (final r in _gRows) r.toJson()],
+    });
     if (raw == _lastDraft || raw == _pendingDraft) return;
     _pendingDraft = raw;
     _saveTimer?.cancel();
@@ -231,8 +278,21 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
   /// 표 4.1-1을 그대로 보여 주고 칸을 누르면 k로 쓴다.
   Widget _kTable() {
     final cur = readNum(_gK);
-    Widget cell(String t, {bool head = false, double? v, String? key}) {
-      final sel = v != null && cur != null && (cur - v).abs() < 1e-9;
+    final picked = _kCell;
+    Widget cell(
+      String t, {
+      bool head = false,
+      double? v,
+      String? key,
+      int? dv,
+      int? xd,
+    }) {
+      // 누른 칸이 있으면 그 칸만, 없으면(직접 넣은 k) 같은 값인 칸을 칠한다(표에 같은 값이 여러 칸 있다).
+      final sel =
+          v != null &&
+          (picked != null
+              ? picked == (dv, xd)
+              : cur != null && (cur - v).abs() < 1e-9);
       final child = Container(
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -249,7 +309,11 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       if (v == null) return child;
       return InkWell(
         key: key == null ? null : Key(key),
-        onTap: () => setState(() => _gK.text = v.toStringAsFixed(2)),
+        onTap: () => setState(() {
+          _gK.text = v.toStringAsFixed(2);
+          _gKDv.text = dv == null ? '' : '$dv';
+          _gKXd.text = xd == null ? '' : '$xd';
+        }),
         child: child,
       );
     }
@@ -289,6 +353,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
                         kGpKTable[r][c].toStringAsFixed(2),
                         v: kGpKTable[r][c],
                         key: 'eg_k_${kGpDvPcts[r]}_${kGpXdPcts[c]}',
+                        dv: kGpDvPcts[r],
+                        xd: kGpXdPcts[c],
                       ),
                   ],
                 ),
@@ -298,6 +364,216 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         const SizedBox(height: 8),
       ],
     );
+  }
+
+  // ─────────────── GP 부하 줄 ───────────────
+
+  /// 저장 칸의 줄 목록을 읽는다. 예전 저장값(일반·VVVF·LED 칸 + 같이 쓰는 효율·역률)은 줄로 옮긴다.
+  void _readRows(Map<String, dynamic> m) {
+    final list = m['gRows'];
+    final rows = <_GpRowCtl>[];
+    if (list is List) {
+      for (final e in list) {
+        if (e is! Map || rows.length >= _kGpMaxRows) continue;
+        String s(String k) => e[k] is String ? e[k] as String : '';
+        final kind = GpLoadKind.values.firstWhere(
+          (k) => k.name == e['kind'],
+          orElse: () => GpLoadKind.general,
+        );
+        rows.add(
+          _GpRowCtl(
+            _nextRowId++,
+            kind: kind,
+            kw: s('kw'),
+            eff: s('eff'),
+            pf: s('pf'),
+          ),
+        );
+      }
+    } else {
+      String s(String k) => m[k] is String ? (m[k] as String).trim() : '';
+      for (final (key, kind) in [
+        ('gGeneral', GpLoadKind.general),
+        ('gVvvf', GpLoadKind.vvvf),
+        ('gLed', GpLoadKind.harmonic),
+      ]) {
+        if (s(key).isEmpty) continue;
+        rows.add(
+          _GpRowCtl(
+            _nextRowId++,
+            kind: kind,
+            kw: s(key),
+            eff: s('gEff'),
+            pf: s('gPf'),
+          ),
+        );
+      }
+    }
+    if (rows.isEmpty) return;
+    final old = List.of(_gRows);
+    _gRows
+      ..clear()
+      ..addAll(rows);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final r in old) {
+        r.dispose();
+      }
+    });
+  }
+
+  /// 줄을 더한다. 효율·역률은 바로 위 줄 값을 그대로 가져와 같은 값이면 다시 안 넣게 한다.
+  void _addRow() {
+    if (_gRows.length >= _kGpMaxRows) return;
+    final last = _gRows.isEmpty ? null : _gRows.last;
+    setState(
+      () => _gRows.add(
+        _GpRowCtl(
+          _nextRowId++,
+          eff: last?.eff.text ?? '',
+          pf: last?.pf.text ?? '',
+        ),
+      ),
+    );
+  }
+
+  /// 밀어서 지운 줄을 곧바로 빼고, "되돌리기"를 누르면 같은 값으로 같은 자리에 다시 넣는다.
+  /// 마지막 한 줄은 밀리지 않는다.
+  void _removeRow(_GpRowCtl r) {
+    final i = _gRows.indexOf(r);
+    if (i < 0 || _gRows.length <= 1) return;
+    final saved = r.toJson();
+    final kind = r.kind;
+    setState(() {
+      _gRows.removeAt(i);
+      WidgetsBinding.instance.addPostFrameCallback((_) => r.dispose());
+    });
+    showDeleteUndo(
+      context,
+      '부하 ${i + 1}',
+      onUndo: () {
+        if (!mounted || _gRows.length >= _kGpMaxRows) return;
+        setState(
+          () => _gRows.insert(
+            i.clamp(0, _gRows.length),
+            _GpRowCtl(
+              _nextRowId++,
+              kind: kind,
+              kw: saved['kw']!,
+              eff: saved['eff']!,
+              pf: saved['pf']!,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _rowCell(
+    String key,
+    String label,
+    TextEditingController c,
+  ) => TextField(
+    key: Key(key),
+    controller: c,
+    textAlign: TextAlign.right,
+    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+    textInputAction: TextInputAction.next,
+    style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: fc.text),
+    decoration: InputDecoration(
+      isDense: true,
+      labelText: label,
+      // 칸이 좁아 비었을 때 이름이 잘리지 않게 이름표를 늘 위에 둔다.
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      labelStyle: TextStyle(fontSize: 13, color: fc.textSub),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: fc.line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide(color: fc.brand, width: 1.5),
+      ),
+    ),
+    onChanged: (_) => setState(() {}),
+  );
+
+  Widget _rowCard(int i, _GpRowCtl r) => KeyedSubtree(
+    key: ValueKey('eg_rowbox_${r.id}'),
+    child: SwipeToDelete(
+      itemKey: ValueKey('eg_swipe_${r.id}'),
+      radius: 14,
+      enabled: _gRows.length > 1,
+      onDelete: () => _removeRow(r),
+      child: calcBox(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 6, bottom: 8, right: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    '부하 ${i + 1}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: fc.brand,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        for (final k in GpLoadKind.values)
+                          calcChip(
+                            'eg_kind_${i}_${k.name}',
+                            _gpKindShort(k),
+                            r.kind == k,
+                            () => setState(() => r.kind = k),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: _rowCell('eg_row_kw_$i', '용량 (kW)', r.kw),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    flex: 4,
+                    child: _rowCell('eg_row_eff_$i', '효율 (%)', r.eff),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    flex: 4,
+                    child: _rowCell('eg_row_pf_$i', '역률 (%)', r.pf),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  /// 고른 k가 표 4.1-1의 어느 칸인지(칸을 눌러 고르고 그 뒤 k를 고치지 않았을 때만).
+  (int, int)? get _kCell {
+    final dv = int.tryParse(_gKDv.text.trim());
+    final xd = int.tryParse(_gKXd.text.trim());
+    final k = readNum(_gK);
+    if (dv == null || xd == null || k == null) return null;
+    final t = gpKFromTable(dv, xd);
+    if (t == null || (t - k).abs() > 1e-9) return null;
+    return (dv, xd);
   }
 
   GpStart? get _gpStart {
@@ -320,11 +596,15 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       bad.add('기동계수 c를 고르거나 넣으십시오.');
     }
     final input = GpInput(
-      generalKw: _read(_gGeneral, '일반 부하', bad),
-      vvvfKw: _read(_gVvvf, 'VVVF 전동기', bad),
-      ledKw: _read(_gLed, 'LED 등', bad),
-      eff: _read(_gEff, '부하 효율', bad, pct: true),
-      pf: _read(_gPf, '부하 역률', bad, pct: true),
+      loads: [
+        for (var n = 0; n < _gRows.length; n++)
+          GpLoad(
+            kind: _gRows[n].kind,
+            kw: _read(_gRows[n].kw, '부하 ${n + 1} 용량', bad),
+            eff: _read(_gRows[n].eff, '부하 ${n + 1} 효율', bad, pct: true),
+            pf: _read(_gRows[n].pf, '부하 ${n + 1} 역률', bad, pct: true),
+          ),
+      ],
       upsKva: _read(_gUps, 'UPS 출력', bad),
       upsEff: _read(_gUpsEff, 'UPS 효율', bad, pct: true),
       upsChargePct: _read(_gCharge, '축전지 충전용량', bad),
@@ -336,9 +616,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       k: _read(_gK, 'k', bad),
     );
     final anyInput = [
-      _gGeneral,
-      _gVvvf,
-      _gLed,
+      for (final r in _gRows) r.kw,
       _gUps,
       _gMotors,
     ].any((c) => c.text.trim().isNotEmpty);
@@ -374,8 +652,16 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       final pass = chosen == null ? null : chosen + 1e-9 >= gp;
       warn = pass == false;
       summary = '필요 ${fmt(gp, 0)} kVA (GP 방식)';
-      final ep = (input.eff ?? 0) * (input.pf ?? 0);
       final lam = input.lambda ?? 1;
+      final kCell = _kCell;
+      // 단계 번호는 실제로 나오는 줄에만 차례로 붙인다(전동기가 없으면 건너뛰지 않게).
+      var step = 0;
+      String mark() => '①②③④⑤'[step++];
+      final parts = [
+        for (final p in r.loadP)
+          if (p > 0) p,
+        if (r.pUps > 0) r.pUps,
+      ];
       result = calcResult(
         solve: true,
         key: const Key('eg_gp_result'),
@@ -383,20 +669,22 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         caption: '필요 발전기 용량 GP (KDS 32 20 20 식 4.1-1)',
         warn: warn,
         lines: [
-          if (r.pGeneral > 0)
-            '① 일반 부하 P = 부하용량 ÷ (효율 × 역률) = ${fmt(input.generalKw!, 1)} ÷ (${fmt(input.eff!, 2)} × ${fmt(input.pf!, 2)}) = ${fmt(r.pGeneral, 1)} kVA',
-          if (r.pVvvf > 0)
-            '② VVVF 전동기 P = 용량 ÷ (효율 × 역률) × λ = ${fmt(input.vvvfKw!, 1)} ÷ ${fmt(ep, 3)} × ${fmt(lam, 2)} = ${fmt(r.pVvvf, 1)} kVA',
-          if (r.pLed > 0)
-            '③ LED 등 P = 부하용량 ÷ (효율 × 역률) × λ = ${fmt(input.ledKw!, 1)} ÷ ${fmt(ep, 3)} × ${fmt(lam, 2)} = ${fmt(r.pLed, 1)} kVA',
+          for (var n = 0; n < input.loads.length; n++)
+            if (r.loadP[n] > 0)
+              '부하 ${n + 1} ${_gpKindShort(input.loads[n].kind)} P = ${fmt(input.loads[n].kw!, 1)} ÷ (${fmt(input.loads[n].eff!, 2)} × ${fmt(input.loads[n].pf!, 2)})${input.loads[n].kind.usesLambda ? ' × ${fmt(lam, 2)}' : ''} = ${fmt(r.loadP[n], 1)} kVA',
           if (r.pUps > 0)
-            '④ UPS P = 출력 ÷ 효율 × λ + 충전용량 = ${fmt(input.upsKva!, 1)} ÷ ${fmt(input.upsEff!, 2)} × ${fmt(lam, 2)} + ${fmt(r.upsCharge, 1)} = ${fmt(r.pUps, 1)} kVA',
-          '⑤ 전동기 이외 부하 합계 ΣP = ${fmt(r.sumP, 1)} kVA',
+            'UPS P = 출력 ÷ 효율 × λ + 충전용량 = ${fmt(input.upsKva!, 1)} ÷ ${fmt(input.upsEff!, 2)} × ${fmt(lam, 2)} + ${fmt(r.upsCharge, 1)} = ${fmt(r.pUps, 1)} kVA',
+          parts.length > 1 && parts.length <= 6
+              ? '${mark()} 전동기 이외 부하 합계 ΣP = ${parts.map((p) => fmt(p, 1)).join(' + ')} = ${fmt(r.sumP, 1)} kVA'
+              : '${mark()} 전동기 이외 부하 합계 ΣP = ${fmt(r.sumP, 1)} kVA',
           if (hasMotor)
-            '⑥ 기동하지 않는 전동기 (ΣPm − PL) × a = (${fmt(input.motorsKw!, 1)} − ${fmt(input.largestKw ?? 0, 1)}) × ${fmt(input.a, 2)} = ${fmt(r.motorRest, 1)} kVA',
+            '${mark()} 기동하지 않는 전동기 (ΣPm − PL) × a = (${fmt(input.motorsKw!, 1)} − ${fmt(input.largestKw ?? 0, 1)}) × ${fmt(input.a, 2)} = ${fmt(r.motorRest, 1)} kVA',
           if (hasMotor)
-            '⑦ 가장 큰 전동기 기동 PL × a × c = ${fmt(input.largestKw ?? 0, 1)} × ${fmt(input.a, 2)} × ${fmt(input.c, 2)} = ${fmt(r.motorStart, 1)} kVA',
-          '⑧ GP = [ΣP + (ΣPm − PL) × a + PL × a × c] × k = (${fmt(r.sumP, 1)} + ${fmt(r.motorRest, 1)} + ${fmt(r.motorStart, 1)}) × ${fmt(input.k!, 2)} = ${fmt(gp, 1)} kVA',
+            '${mark()} 가장 큰 전동기 기동 PL × a × c = ${fmt(input.largestKw ?? 0, 1)} × ${fmt(input.a, 2)} × ${fmt(input.c, 2)} = ${fmt(r.motorStart, 1)} kVA',
+          '${mark()} GP = [ΣP + (ΣPm − PL) × a + PL × a × c] × k = (${fmt(r.sumP, 1)} + ${fmt(r.motorRest, 1)} + ${fmt(r.motorStart, 1)}) × ${input.k!.toStringAsFixed(2)} = ${fmt(gp, 1)} kVA',
+          kCell == null
+              ? 'k ${input.k!.toStringAsFixed(2)}: 직접 입력한 값입니다.'
+              : 'k ${input.k!.toStringAsFixed(2)}: 표 4.1-1에서 허용 전압강하 ${kCell.$1} %, x″d ${kCell.$2} % 칸을 고른 값입니다.',
           if (volts != null && volts > 0)
             '정격전류 = ${fmt(gp, 1)} × 1000 ÷ (√3 × ${fmt(volts, 0)}) = ${fmt(genRatedCurrent(gp, volts), 0)} A',
           if (pass != null)
@@ -412,36 +700,26 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     return elecPage(sumKey: 'eg_sum', summary: summary, warn: warn, [
       _modeChips(),
       elecSectionTitle('전동기 이외 부하 (ΣP)'),
-      elecField(
-        'eg_g_general',
-        '일반 부하 용량 (kW)',
-        _gGeneral,
-        '고조파 발생 부하를 뺀 전동기 이외 부하의 용량 합계입니다. 입력용량 P = kW ÷ (효율 × 역률)(식 4.1-2).',
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+        child: Text(
+          '부하마다 종류·용량·효율·역률을 넣습니다. 일반은 P = kW ÷ (효율 × 역률)(식 4.1-2), '
+          'VVVF(인버터) 전동기와 LED 등 고조파 부하는 여기에 λ를 곱합니다(식 4.1-4·4.1-5). '
+          'VVVF 전동기는 아래 전동기 부하에 넣지 않습니다. 줄을 옆으로 밀면 지웁니다.',
+          style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.4),
+        ),
       ),
-      elecField(
-        'eg_g_vvvf',
-        'VVVF(인버터) 전동기 용량 (kW)',
-        _gVvvf,
-        '인버터 제어 전동기는 전동기 부하가 아니라 ΣP에 넣습니다. P = 용량 ÷ (효율 × 역률) × λ(식 4.1-4).',
+      for (var i = 0; i < _gRows.length; i++) _rowCard(i, _gRows[i]),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          key: const Key('eg_add'),
+          onPressed: _gRows.length >= _kGpMaxRows ? null : _addRow,
+          icon: const Icon(Icons.add_rounded),
+          label: Text('부하 추가 (${_gRows.length}/$_kGpMaxRows)'),
+        ),
       ),
-      elecField(
-        'eg_g_led',
-        'LED 램프 등 고조파 부하 (kW)',
-        _gLed,
-        'P = 부하용량 ÷ (효율 × 역률) × λ(식 4.1-5).',
-      ),
-      elecField(
-        'eg_g_eff',
-        '부하 효율 (%)',
-        _gEff,
-        '위 세 부하에 같이 쓰는 효율입니다. 부하마다 크게 다르면 효율이 같은 것끼리 나눠 계산하십시오. 원문에 기본값은 없습니다.',
-      ),
-      elecField(
-        'eg_g_pf',
-        '부하 역률 (%)',
-        _gPf,
-        '위 세 부하에 같이 쓰는 역률입니다. 원문에 기본값은 없습니다.',
-      ),
+      const SizedBox(height: 12),
       elecField(
         'eg_g_ups',
         'UPS 출력 (kVA)',
@@ -571,7 +849,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     String? summary;
     var warn = false;
     if (empty) {
-      result = calcResult(solve: true, 
+      result = calcResult(
+        solve: true,
         key: const Key('eg_result'),
         big: '—',
         caption: '부하 합계를 넣으면 필요 발전기 용량을 계산합니다',
@@ -580,7 +859,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     } else if (errors.isNotEmpty) {
       warn = true;
       summary = '입력 확인';
-      result = calcResult(solve: true, 
+      result = calcResult(
+        solve: true,
         key: const Key('eg_result'),
         big: '입력 확인',
         caption: '다음 입력값을 고치십시오',
@@ -592,7 +872,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       final fail = r.chosenPass == false;
       warn = fail;
       summary = '필요 ${fmt(req, 0)} kVA (${r.governing})';
-      result = calcResult(solve: true, 
+      result = calcResult(
+        solve: true,
         key: const Key('eg_result'),
         big: '${fmt(req, 1)} kVA',
         caption: '필요 발전기 용량 (${r.governing} 기준)',
@@ -609,11 +890,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
                 '${fmt(input.motorKw!, 1)}) ÷ ${fmt(input.eff!, 2)} + ${fmt(input.motorKw!, 1)} × '
                 '${fmt(input.beta!, 2)} × ${fmt(input.startC!, 2)} × ${fmt(r.startPfUsed!, 2)}] '
                 '÷ ${fmt(input.pf!, 2)}',
-          '④ 가장 큰 값을 필요 용량으로 합니다: max(${[
-            'PG1 ${fmt(r.pg1!, 1)}',
-            if (r.pg2 != null) 'PG2 ${fmt(r.pg2!, 1)}',
-            if (r.pg3 != null) 'PG3 ${fmt(r.pg3!, 1)}',
-          ].join(', ')}) = ${fmt(req, 1)} kVA (${r.governing})',
+          '④ 가장 큰 값을 필요 용량으로 합니다: max(${['PG1 ${fmt(r.pg1!, 1)}', if (r.pg2 != null) 'PG2 ${fmt(r.pg2!, 1)}', if (r.pg3 != null) 'PG3 ${fmt(r.pg3!, 1)}'].join(', ')}) = ${fmt(req, 1)} kVA (${r.governing})',
           if (r.currentA != null)
             '정격전류: ${fmt(r.currentA!, 0)} A = ${fmt(req, 1)} kVA × 1000 ÷ (√3 × ${fmt(input.volts!, 0)} V)',
           if (r.chosenPass != null)

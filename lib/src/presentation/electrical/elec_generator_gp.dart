@@ -55,13 +55,31 @@ const double kGpAStandard = 1.45;
 /// λ를 모를 때 원문이 쓰라는 값.
 const double kGpLambdaUnknown = 2.5;
 
+/// 전동기 이외 부하 한 줄의 종류. 일반은 식 4.1-2, VVVF는 4.1-4, LED 등 고조파 부하는 4.1-5(λ를 곱함).
+enum GpLoadKind {
+  general('일반', false),
+  vvvf('VVVF(인버터) 전동기', true),
+  harmonic('LED 등 고조파 부하', true);
+
+  const GpLoadKind(this.label, this.usesLambda);
+  final String label;
+  final bool usesLambda;
+}
+
+/// 전동기 이외 부하 한 줄(부하마다 효율·역률이 다를 수 있어 줄마다 넣는다).
+class GpLoad {
+  const GpLoad({required this.kind, this.kw, this.eff, this.pf});
+  final GpLoadKind kind;
+  final double? kw;
+
+  /// 0~1.
+  final double? eff;
+  final double? pf;
+}
+
 class GpInput {
   const GpInput({
-    this.generalKw,
-    this.vvvfKw,
-    this.ledKw,
-    this.eff,
-    this.pf,
+    this.loads = const [],
     this.upsKva,
     this.upsEff,
     this.upsChargePct,
@@ -73,18 +91,8 @@ class GpInput {
     this.k,
   });
 
-  /// 일반 부하(고조파 발생 부하 제외) 용량 합계 kW.
-  final double? generalKw;
-
-  /// VVVF(인버터) 제어 전동기 용량 합계 kW.
-  final double? vvvfKw;
-
-  /// LED 램프 등 고조파 발생 부하 kW.
-  final double? ledKw;
-
-  /// 위 세 부하의 효율·역률(0~1). 부하마다 다르면 부하별로 따로 계산해 넣어야 한다.
-  final double? eff;
-  final double? pf;
+  /// 전동기 이외 부하 줄(UPS 제외).
+  final List<GpLoad> loads;
 
   /// UPS 출력 kVA, UPS 효율(0~1), 축전지 충전용량(UPS 용량의 %).
   final double? upsKva;
@@ -117,7 +125,11 @@ class GpResult {
     this.motorRest = 0,
     this.motorStart = 0,
     this.gp,
+    this.loadP = const [],
   });
+
+  /// 부하 줄마다의 입력용량 P(kVA). kW가 비었거나 0인 줄은 0.
+  final List<double> loadP;
 
   final List<String> errors;
   final double pGeneral;
@@ -146,19 +158,27 @@ GpResult calcGp(GpInput i) {
   double nz(double? v) => v ?? 0;
 
   for (final (name, v) in [
-    ('일반 부하', i.generalKw),
-    ('VVVF 전동기', i.vvvfKw),
-    ('LED 등 고조파 부하', i.ledKw),
     ('UPS 출력', i.upsKva),
     ('전동기 합계', i.motorsKw),
     ('가장 큰 전동기', i.largestKw),
   ]) {
     if (v != null && v < 0) errors.add('$name은(는) 0 이상으로 넣으십시오.');
   }
-  final needEffPf = nz(i.generalKw) > 0 || nz(i.vvvfKw) > 0 || nz(i.ledKw) > 0;
-  if (needEffPf) {
-    if (!frac(i.eff)) errors.add('부하 효율을 0 초과 100% 이하로 넣으십시오.');
-    if (!frac(i.pf)) errors.add('부하 역률을 0 초과 100% 이하로 넣으십시오.');
+  var anyLoad = false;
+  var needLambdaLoad = false;
+  for (var n = 0; n < i.loads.length; n++) {
+    final l = i.loads[n];
+    final kw = l.kw;
+    if (kw == null || kw == 0) continue;
+    final no = '부하 ${n + 1}';
+    if (kw < 0) {
+      errors.add('$no: 용량(kW)은 0 이상으로 넣으십시오.');
+      continue;
+    }
+    anyLoad = true;
+    if (l.kind.usesLambda) needLambdaLoad = true;
+    if (!frac(l.eff)) errors.add('$no: 효율을 0 초과 100% 이하로 넣으십시오.');
+    if (!frac(l.pf)) errors.add('$no: 역률을 0 초과 100% 이하로 넣으십시오.');
   }
   final hasUps = nz(i.upsKva) > 0;
   if (hasUps && !frac(i.upsEff)) {
@@ -167,7 +187,7 @@ GpResult calcGp(GpInput i) {
   if (i.upsChargePct != null && i.upsChargePct! < 0) {
     errors.add('축전지 충전용량(%)은 0 이상으로 넣으십시오.');
   }
-  final needLambda = hasUps || nz(i.vvvfKw) > 0 || nz(i.ledKw) > 0;
+  final needLambda = hasUps || needLambdaLoad;
   if (needLambda && (i.lambda == null || i.lambda! <= 0)) {
     errors.add('고조파 발생 부하가 있으면 THD 가중값 λ를 넣으십시오(모르면 2.5).');
   }
@@ -179,16 +199,31 @@ GpResult calcGp(GpInput i) {
   if (i.k == null || i.k! <= 0) {
     errors.add('허용전압강하 계수 k를 정하십시오(표 4.1-1, 불명확하면 1.07~1.13).');
   }
-  if (!needEffPf && !hasUps && pm <= 0) {
+  if (!anyLoad && !hasUps && pm <= 0) {
     errors.add('부하를 하나 이상 넣으십시오.');
   }
   if (errors.isNotEmpty) return GpResult(errors: errors);
 
   final lam = i.lambda ?? 1;
-  final effPf = needEffPf ? i.eff! * i.pf! : 1.0;
-  final pGeneral = nz(i.generalKw) / effPf;
-  final pVvvf = nz(i.vvvfKw) / effPf * lam;
-  final pLed = nz(i.ledKw) / effPf * lam;
+  final loadP = <double>[];
+  var pGeneral = 0.0, pVvvf = 0.0, pLed = 0.0;
+  for (final l in i.loads) {
+    final kw = nz(l.kw);
+    if (kw <= 0) {
+      loadP.add(0);
+      continue;
+    }
+    final p = kw / (l.eff! * l.pf!) * (l.kind.usesLambda ? lam : 1);
+    loadP.add(p);
+    switch (l.kind) {
+      case GpLoadKind.general:
+        pGeneral += p;
+      case GpLoadKind.vvvf:
+        pVvvf += p;
+      case GpLoadKind.harmonic:
+        pLed += p;
+    }
+  }
   final charge = hasUps ? i.upsKva! * nz(i.upsChargePct) / 100 : 0.0;
   final pUps = hasUps ? i.upsKva! / i.upsEff! * lam + charge : 0.0;
   final sumP = pGeneral + pVvvf + pLed + pUps;
@@ -206,5 +241,6 @@ GpResult calcGp(GpInput i) {
     motorRest: rest,
     motorStart: start,
     gp: gp,
+    loadP: loadP,
   );
 }

@@ -29,10 +29,16 @@ Future<String> basisText(WidgetTester tester, String key) async {
   await tester.scrollUntilVisible(
     find.byKey(Key(key)),
     300,
-    scrollable: find.byWidgetPredicate((w) => w is Scrollable && w.axisDirection == AxisDirection.down).first,
+    scrollable: find
+        .byWidgetPredicate(
+          (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+        )
+        .first,
   );
   await tester.ensureVisible(find.byKey(Key(key)));
-  await tester.tap(find.descendant(of: find.byKey(Key(key)), matching: find.text('근거 보기')));
+  await tester.tap(
+    find.descendant(of: find.byKey(Key(key)), matching: find.text('근거 보기')),
+  );
   await tester.pumpAndSettle();
   return textIn(tester, Key(key));
 }
@@ -70,10 +76,10 @@ void main() {
       const MaterialApp(home: ElectricCalculatorPage(initialTab: 9)),
     );
     await tester.pumpAndSettle();
-    // 기본은 GP 방식: 일반 부하 칸에 넣는다.
-    await tester.enterText(find.byKey(const Key('eg_g_general')), '100');
-    await tester.enterText(find.byKey(const Key('eg_g_eff')), '85');
-    await tester.enterText(find.byKey(const Key('eg_g_pf')), '80');
+    // 기본은 GP 방식: 첫 부하 줄에 넣는다.
+    await tester.enterText(find.byKey(const Key('eg_row_kw_0')), '100');
+    await tester.enterText(find.byKey(const Key('eg_row_eff_0')), '85');
+    await tester.enterText(find.byKey(const Key('eg_row_pf_0')), '80');
     await tester.enterText(find.byKey(const Key('eg_g_k')), '1.1');
     await tester.pump(const Duration(milliseconds: 800));
     await tester.tap(find.byKey(const Key('calc_history_button')));

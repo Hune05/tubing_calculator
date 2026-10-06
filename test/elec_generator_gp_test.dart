@@ -50,9 +50,9 @@ void main() {
     test('일반 + UPS + 전동기 직입, k 1.00', () {
       final r = calcGp(
         const GpInput(
-          generalKw: 100,
-          eff: 0.85,
-          pf: 0.8,
+          loads: [
+            GpLoad(kind: GpLoadKind.general, kw: 100, eff: 0.85, pf: 0.8),
+          ],
           upsKva: 50,
           upsEff: 0.9,
           upsChargePct: 10,
@@ -76,10 +76,10 @@ void main() {
     test('VVVF·LED는 λ를 곱해 ΣP에 넣고, k를 곱한다', () {
       final r = calcGp(
         const GpInput(
-          vvvfKw: 30,
-          ledKw: 10,
-          eff: 0.9,
-          pf: 0.9,
+          loads: [
+            GpLoad(kind: GpLoadKind.vvvf, kw: 30, eff: 0.9, pf: 0.9),
+            GpLoad(kind: GpLoadKind.harmonic, kw: 10, eff: 0.9, pf: 0.9),
+          ],
           lambda: 2.5,
           a: 1.38,
           c: 0,
@@ -90,19 +90,67 @@ void main() {
       expect(r.pVvvf, closeTo(92.5926, 1e-3));
       expect(r.pLed, closeTo(30.8642, 1e-3));
       expect(r.gp, closeTo(139.506, 1e-2));
+      expect(r.loadP, [closeTo(92.5926, 1e-3), closeTo(30.8642, 1e-3)]);
+    });
+
+    test('부하마다 효율·역률이 달라도 줄마다 따로 나눠 더한다', () {
+      final r = calcGp(
+        const GpInput(
+          loads: [
+            GpLoad(kind: GpLoadKind.general, kw: 100, eff: 0.85, pf: 0.8),
+            GpLoad(kind: GpLoadKind.general, kw: 20, eff: 0.95, pf: 1),
+            GpLoad(kind: GpLoadKind.general),
+          ],
+          a: 1.45,
+          c: 6,
+          k: 1,
+        ),
+      );
+      // 100 ÷ 0.68 = 147.06, 20 ÷ 0.95 = 21.05, 빈 줄은 0
+      expect(r.errors, isEmpty);
+      expect(r.loadP[1], closeTo(21.0526, 1e-3));
+      expect(r.loadP[2], 0);
+      expect(r.gp, closeTo(168.111, 1e-2));
+    });
+
+    test('용량이 있는 줄에 효율·역률이 없으면 줄 번호로 알린다', () {
+      final r = calcGp(
+        const GpInput(
+          loads: [
+            GpLoad(kind: GpLoadKind.general, kw: 10, eff: 0.9, pf: 0.9),
+            GpLoad(kind: GpLoadKind.general, kw: 5, eff: 0.9),
+          ],
+          a: 1.45,
+          c: 6,
+          k: 1,
+        ),
+      );
+      expect(r.errors, ['부하 2: 역률을 0 초과 100% 이하로 넣으십시오.']);
     });
 
     test('입력 확인: λ 없음, PL > ΣPm, k 없음, 부하 없음', () {
       expect(
-        calcGp(const GpInput(upsKva: 10, upsEff: 0.9, a: 1.45, c: 6, k: 1)).errors,
+        calcGp(
+          const GpInput(upsKva: 10, upsEff: 0.9, a: 1.45, c: 6, k: 1),
+        ).errors,
         contains(contains('λ')),
       );
       expect(
-        calcGp(const GpInput(motorsKw: 10, largestKw: 20, a: 1.45, c: 6, k: 1)).errors,
+        calcGp(
+          const GpInput(motorsKw: 10, largestKw: 20, a: 1.45, c: 6, k: 1),
+        ).errors,
         contains(contains('PL')),
       );
       expect(
-        calcGp(const GpInput(generalKw: 10, eff: 0.9, pf: 0.9, a: 1.45, c: 6)).errors,
+        calcGp(
+          const GpInput(
+            loads: [
+              GpLoad(kind: GpLoadKind.general, kw: 10, eff: 0.9, pf: 0.9),
+            ],
+            a: 1.45,
+            c: 6,
+          ),
+        ).errors,
         contains(contains('k')),
       );
       expect(
@@ -139,9 +187,9 @@ void main() {
         tester.widget<ChoiceChip>(find.byKey(const Key('eg_mode_gp'))).selected,
         isTrue,
       );
-      await type(tester, 'eg_g_general', '100');
-      await type(tester, 'eg_g_eff', '85');
-      await type(tester, 'eg_g_pf', '80');
+      await type(tester, 'eg_row_kw_0', '100');
+      await type(tester, 'eg_row_eff_0', '85');
+      await type(tester, 'eg_row_pf_0', '80');
       await type(tester, 'eg_g_motors', '75');
       await type(tester, 'eg_g_largest', '30');
       await tester.ensureVisible(find.byKey(const Key('eg_c_direct')));
@@ -151,12 +199,103 @@ void main() {
       await tester.tap(find.byKey(const Key('eg_k_20_25')));
       await tester.pump();
       expect(
-        tester.widget<TextField>(find.byKey(const Key('eg_g_k'))).controller!.text,
+        tester
+            .widget<TextField>(find.byKey(const Key('eg_g_k')))
+            .controller!
+            .text,
         '1.00',
       );
       // 147.06 + 65.25 + 261 = 473.31 kVA
       expect(find.text('473.3 kVA'), findsOneWidget);
-      expect(allFlat(tester), contains(flat('PL × a × c = 30 × 1.45 × 6 = 261 kVA')));
+      expect(
+        allFlat(tester),
+        contains(flat('PL × a × c = 30 × 1.45 × 6 = 261 kVA')),
+      );
+      expect(
+        allFlat(tester),
+        contains(flat('k 1.00: 표 4.1-1에서 허용 전압강하 20 %, x″d 25 % 칸을 고른 값입니다.')),
+      );
+    });
+
+    testWidgets('부하 줄마다 효율·역률이 다르게 들어가고, 줄 추가는 위 줄 효율·역률을 가져온다', (
+      tester,
+    ) async {
+      await pumpTab(tester);
+      await type(tester, 'eg_row_kw_0', '100');
+      await type(tester, 'eg_row_eff_0', '85');
+      await type(tester, 'eg_row_pf_0', '80');
+      await tester.ensureVisible(find.byKey(const Key('eg_add')));
+      await tester.tap(find.byKey(const Key('eg_add')));
+      await tester.pump();
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('eg_row_eff_1')))
+            .controller!
+            .text,
+        '85',
+      );
+      await tester.ensureVisible(find.byKey(const Key('eg_kind_1_vvvf')));
+      await tester.tap(find.byKey(const Key('eg_kind_1_vvvf')));
+      await tester.pump();
+      await type(tester, 'eg_row_kw_1', '30');
+      await type(tester, 'eg_row_eff_1', '90');
+      await type(tester, 'eg_row_pf_1', '90');
+      await type(tester, 'eg_g_lambda', '2.5');
+      await type(tester, 'eg_g_k', '1.1');
+      // 100 ÷ 0.68 = 147.06, 30 ÷ 0.81 × 2.5 = 92.59, (147.06 + 92.59) × 1.1 = 263.6
+      expect(find.textContaining('263.6 kVA'), findsWidgets);
+      expect(allFlat(tester), contains(flat('② GP = [ΣP + (ΣPm − PL) × a + PL × a × c] × k')));
+      final all = allFlat(tester);
+      expect(
+        all,
+        contains(flat('부하 2 VVVF 전동기 P = 30 ÷ (0.9 × 0.9) × 2.5 = 92.6 kVA')),
+      );
+      expect(all, contains(flat('k 1.10: 직접 입력한 값입니다.')));
+    });
+
+    testWidgets('예전 저장값(일반·VVVF·LED 칸 + 같이 쓰는 효율·역률)은 줄로 옮긴다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        ElecGeneratorTab.draftKey:
+            '{"mode":"gp","gGeneral":"100","gLed":"10","gEff":"85","gPf":"80"}',
+      });
+      await pumpTab(tester);
+      String text(String key) =>
+          tester.widget<TextField>(find.byKey(Key(key))).controller!.text;
+      expect(text('eg_row_kw_0'), '100');
+      expect(text('eg_row_eff_0'), '85');
+      expect(text('eg_row_kw_1'), '10');
+      expect(text('eg_row_pf_1'), '80');
+      expect(
+        tester
+            .widget<ChoiceChip>(find.byKey(const Key('eg_kind_1_harmonic')))
+            .selected,
+        isTrue,
+      );
+    });
+
+    testWidgets('줄 목록과 표에서 누른 k 칸은 다시 열어도 남는다', (tester) async {
+      await pumpTab(tester);
+      await type(tester, 'eg_row_kw_0', '50');
+      await type(tester, 'eg_row_eff_0', '90');
+      await type(tester, 'eg_row_pf_0', '90');
+      await tester.ensureVisible(find.byKey(const Key('eg_kind_0_harmonic')));
+      await tester.tap(find.byKey(const Key('eg_kind_0_harmonic')));
+      await tester.ensureVisible(find.byKey(const Key('eg_k_17_22')));
+      await tester.tap(find.byKey(const Key('eg_k_17_22')));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpWidget(const SizedBox());
+      await pumpTab(tester);
+      expect(
+        tester
+            .widget<ChoiceChip>(find.byKey(const Key('eg_kind_0_harmonic')))
+            .selected,
+        isTrue,
+      );
+      await type(tester, 'eg_g_lambda', '2.5');
+      expect(
+        allFlat(tester),
+        contains(flat('k 1.07: 표 4.1-1에서 허용 전압강하 17 %, x″d 22 % 칸을 고른 값입니다.')),
+      );
     });
 
     testWidgets('PG 방식으로 바꾸면 옛 칸이 나오고, 방식은 다시 열어도 남는다', (tester) async {
@@ -164,7 +303,7 @@ void main() {
       await tester.tap(find.byKey(const Key('eg_mode_pg')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('eg_load')), findsOneWidget);
-      expect(find.byKey(const Key('eg_g_general')), findsNothing);
+      expect(find.byKey(const Key('eg_row_kw_0')), findsNothing);
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpWidget(const SizedBox());
       await pumpTab(tester);
