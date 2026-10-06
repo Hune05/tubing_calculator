@@ -48,6 +48,8 @@ void main() {
       const FieldViewTheme(child: Scaffold(body: ElecGeneratorTab())),
       h: 2400,
     );
+    await tester.tap(find.byKey(const Key('eg_mode_pg')));
+    await tester.pumpAndSettle();
     final dv = find.byKey(const Key('eg_dv'));
     await tester.ensureVisible(dv);
     await tester.pumpAndSettle();

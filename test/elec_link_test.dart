@@ -129,6 +129,8 @@ void main() {
   testWidgets('발전기: 효율·역률을 %로 넣는다(85, 80). 0.85 꼴도 그대로 받는다', (tester) async {
     await pumpPage(tester, group: ElecGroup.motor);
     await openTab(tester, 'ec_tab_gen');
+    await tester.tap(find.byKey(const Key('eg_mode_pg')));
+    await tester.pumpAndSettle();
     expect(fieldText(tester, 'eg_eff'), '85');
     expect(fieldText(tester, 'eg_pf'), '80');
     expect(fieldText(tester, 'eg_demand'), '100');

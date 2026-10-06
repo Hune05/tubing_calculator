@@ -1,4 +1,5 @@
-// 전기 설비 계산: 발전기 용량 탭(비상발전기 PG 방식). 계산은 elec_generator.dart, 근거는 docs/전기_발전기_근거.md.
+// 전기 설비 계산: 발전기 용량 탭. 현행 GP 방식(KDS 32 20 20:2024, elec_generator_gp.dart)과
+// 옛 PG 방식(건축전기설비설계기준, elec_generator.dart)을 고른다. 근거는 docs/전기_발전기_근거.md.
 import 'dart:async';
 import 'dart:convert';
 
@@ -6,9 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
+import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import 'elec_form_parts.dart';
 import 'elec_generator.dart';
+import 'elec_generator_gp.dart';
 
 class ElecGeneratorTab extends StatefulWidget {
   const ElecGeneratorTab({super.key, this.history});
@@ -52,6 +55,26 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
   final _volts = TextEditingController(text: '380');
   final _chosen = TextEditingController();
 
+  // 방식: 'gp'(현행) / 'pg'(옛 기준). 저장 칸에 함께 남기려고 글 칸으로 둔다.
+  final _mode = TextEditingController(text: 'gp');
+  bool get _gp => _mode.text != 'pg';
+
+  // GP 방식 칸
+  final _gGeneral = TextEditingController();
+  final _gVvvf = TextEditingController();
+  final _gLed = TextEditingController();
+  final _gEff = TextEditingController();
+  final _gPf = TextEditingController();
+  final _gUps = TextEditingController();
+  final _gUpsEff = TextEditingController();
+  final _gCharge = TextEditingController();
+  final _gLambda = TextEditingController();
+  final _gMotors = TextEditingController();
+  final _gLargest = TextEditingController();
+  final _gC = TextEditingController();
+  final _gK = TextEditingController();
+  final _gA = TextEditingController(text: '1.45');
+
   List<(TextEditingController, String)> get _texts => [
     (_load, 'load'),
     (_demand, 'demand'),
@@ -68,6 +91,21 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     (_harmF, 'harmF'),
     (_volts, 'volts'),
     (_chosen, 'chosen'),
+    (_mode, 'mode'),
+    (_gGeneral, 'gGeneral'),
+    (_gVvvf, 'gVvvf'),
+    (_gLed, 'gLed'),
+    (_gEff, 'gEff'),
+    (_gPf, 'gPf'),
+    (_gUps, 'gUps'),
+    (_gUpsEff, 'gUpsEff'),
+    (_gCharge, 'gCharge'),
+    (_gLambda, 'gLambda'),
+    (_gMotors, 'gMotors'),
+    (_gLargest, 'gLargest'),
+    (_gA, 'gA'),
+    (_gC, 'gC'),
+    (_gK, 'gK'),
   ];
 
   Timer? _saveTimer;
@@ -165,10 +203,348 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     return GenStartKind.custom;
   }
 
+  /// 맨 위 방식 고르기.
+  Widget _modeChips() => elecChipGroup(
+    '산정 방식',
+    'GP 방식: 현행 국가건설기준 KDS 32 20 20:2024(예비전원설비) 식 4.1-1입니다. 새 설계는 이것을 씁니다.\n'
+        'PG 방식: 옛 건축전기설비설계기준(국토교통부)의 식입니다. 원문은 사이리스터(고조파) 부하가 없을 때만 쓰라고 합니다. '
+        '이미 시행 중인 설계는 발주기관이 인정하면 종전 기준을 쓸 수 있습니다.',
+    [
+      calcChip(
+        'eg_mode_gp',
+        'GP 방식 (현행)',
+        _gp,
+        () => setState(() => _mode.text = 'gp'),
+      ),
+      calcChip(
+        'eg_mode_pg',
+        'PG 방식 (옛 기준)',
+        !_gp,
+        () => setState(() => _mode.text = 'pg'),
+      ),
+    ],
+  );
+
+  /// 표 4.1-1을 그대로 보여 주고 칸을 누르면 k로 쓴다.
+  Widget _kTable() {
+    final cur = readNum(_gK);
+    Widget cell(String t, {bool head = false, double? v, String? key}) {
+      final sel = v != null && cur != null && (cur - v).abs() < 1e-9;
+      final child = Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        color: sel ? fc.brand : null,
+        child: Text(
+          t,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: head || sel ? FontWeight.w800 : FontWeight.w500,
+            color: sel ? fc.onBrand : (head ? fc.textSub : fc.text),
+          ),
+        ),
+      );
+      if (v == null) return child;
+      return InkWell(
+        key: key == null ? null : Key(key),
+        onTap: () => setState(() => _gK.text = v.toStringAsFixed(2)),
+        child: child,
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        calcLabel(
+          '표 4.1-1 허용전압강하 계수 k',
+          '가로는 발전기 x″d(%), 세로는 허용 전압강하율(%)입니다. 칸을 누르면 그 값을 k로 씁니다. '
+              '원문에는 표 사이 값을 구하는 규칙이 없습니다. 명확하지 않으면 원문대로 1.07~1.13을 넣으십시오.',
+        ),
+        const SizedBox(height: 4),
+        Container(
+          key: const Key('eg_k_table'),
+          decoration: BoxDecoration(
+            color: fc.surface,
+            border: Border.all(color: fc.line),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Table(
+            border: TableBorder.symmetric(inside: BorderSide(color: fc.line)),
+            children: [
+              TableRow(
+                children: [
+                  cell('ΔV·x″d', head: true),
+                  for (final x in kGpXdPcts) cell('$x', head: true),
+                ],
+              ),
+              for (var r = 0; r < kGpDvPcts.length; r++)
+                TableRow(
+                  children: [
+                    cell('${kGpDvPcts[r]}', head: true),
+                    for (var c = 0; c < kGpXdPcts.length; c++)
+                      cell(
+                        kGpKTable[r][c].toStringAsFixed(2),
+                        v: kGpKTable[r][c],
+                        key: 'eg_k_${kGpDvPcts[r]}_${kGpXdPcts[c]}',
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  GpStart? get _gpStart {
+    final v = readNum(_gC);
+    for (final s in GpStart.values) {
+      if (v != null && (v - s.c).abs() < 1e-9) return s;
+    }
+    return null;
+  }
+
+  Widget _gpPage() {
+    final bad = <String>[];
+    final aVal = _read(_gA, 'a', bad);
+    final cVal = _read(_gC, '기동계수 c', bad);
+    final hasMotor = (readNum(_gMotors) ?? 0) > 0;
+    if (hasMotor && (aVal == null || aVal <= 0)) {
+      bad.add('a를 0보다 크게 넣으십시오(고효율 1.38, 표준형 1.45).');
+    }
+    if (hasMotor && (cVal == null || cVal <= 0)) {
+      bad.add('기동계수 c를 고르거나 넣으십시오.');
+    }
+    final input = GpInput(
+      generalKw: _read(_gGeneral, '일반 부하', bad),
+      vvvfKw: _read(_gVvvf, 'VVVF 전동기', bad),
+      ledKw: _read(_gLed, 'LED 등', bad),
+      eff: _read(_gEff, '부하 효율', bad, pct: true),
+      pf: _read(_gPf, '부하 역률', bad, pct: true),
+      upsKva: _read(_gUps, 'UPS 출력', bad),
+      upsEff: _read(_gUpsEff, 'UPS 효율', bad, pct: true),
+      upsChargePct: _read(_gCharge, '축전지 충전용량', bad),
+      lambda: _read(_gLambda, 'λ', bad),
+      motorsKw: _read(_gMotors, '전동기 합계', bad),
+      largestKw: _read(_gLargest, '가장 큰 전동기', bad),
+      a: aVal ?? 0,
+      c: cVal ?? 0,
+      k: _read(_gK, 'k', bad),
+    );
+    final anyInput = [
+      _gGeneral,
+      _gVvvf,
+      _gLed,
+      _gUps,
+      _gMotors,
+    ].any((c) => c.text.trim().isNotEmpty);
+    final r = calcGp(input);
+    final errors = [...bad, if (bad.isEmpty) ...r.errors];
+
+    Widget result;
+    String? summary;
+    var warn = false;
+    if (!anyInput) {
+      result = calcResult(
+        solve: true,
+        key: const Key('eg_gp_result'),
+        big: '—',
+        caption: '부하를 넣으면 필요 발전기 용량을 계산합니다',
+        lines: const [],
+      );
+    } else if (errors.isNotEmpty) {
+      warn = true;
+      summary = '입력 확인';
+      result = calcResult(
+        solve: true,
+        key: const Key('eg_gp_result'),
+        big: '입력 확인',
+        caption: '다음 입력값을 고치십시오',
+        warn: true,
+        lines: errors,
+      );
+    } else {
+      final gp = r.gp!;
+      final chosen = readNum(_chosen);
+      final volts = readNum(_volts);
+      final pass = chosen == null ? null : chosen + 1e-9 >= gp;
+      warn = pass == false;
+      summary = '필요 ${fmt(gp, 0)} kVA (GP 방식)';
+      final ep = (input.eff ?? 0) * (input.pf ?? 0);
+      final lam = input.lambda ?? 1;
+      result = calcResult(
+        solve: true,
+        key: const Key('eg_gp_result'),
+        big: '${fmt(gp, 1)} kVA',
+        caption: '필요 발전기 용량 GP (KDS 32 20 20 식 4.1-1)',
+        warn: warn,
+        lines: [
+          if (r.pGeneral > 0)
+            '① 일반 부하 P = 부하용량 ÷ (효율 × 역률) = ${fmt(input.generalKw!, 1)} ÷ (${fmt(input.eff!, 2)} × ${fmt(input.pf!, 2)}) = ${fmt(r.pGeneral, 1)} kVA',
+          if (r.pVvvf > 0)
+            '② VVVF 전동기 P = 용량 ÷ (효율 × 역률) × λ = ${fmt(input.vvvfKw!, 1)} ÷ ${fmt(ep, 3)} × ${fmt(lam, 2)} = ${fmt(r.pVvvf, 1)} kVA',
+          if (r.pLed > 0)
+            '③ LED 등 P = 부하용량 ÷ (효율 × 역률) × λ = ${fmt(input.ledKw!, 1)} ÷ ${fmt(ep, 3)} × ${fmt(lam, 2)} = ${fmt(r.pLed, 1)} kVA',
+          if (r.pUps > 0)
+            '④ UPS P = 출력 ÷ 효율 × λ + 충전용량 = ${fmt(input.upsKva!, 1)} ÷ ${fmt(input.upsEff!, 2)} × ${fmt(lam, 2)} + ${fmt(r.upsCharge, 1)} = ${fmt(r.pUps, 1)} kVA',
+          '⑤ 전동기 이외 부하 합계 ΣP = ${fmt(r.sumP, 1)} kVA',
+          if (hasMotor)
+            '⑥ 기동하지 않는 전동기 (ΣPm − PL) × a = (${fmt(input.motorsKw!, 1)} − ${fmt(input.largestKw ?? 0, 1)}) × ${fmt(input.a, 2)} = ${fmt(r.motorRest, 1)} kVA',
+          if (hasMotor)
+            '⑦ 가장 큰 전동기 기동 PL × a × c = ${fmt(input.largestKw ?? 0, 1)} × ${fmt(input.a, 2)} × ${fmt(input.c, 2)} = ${fmt(r.motorStart, 1)} kVA',
+          '⑧ GP = [ΣP + (ΣPm − PL) × a + PL × a × c] × k = (${fmt(r.sumP, 1)} + ${fmt(r.motorRest, 1)} + ${fmt(r.motorStart, 1)}) × ${fmt(input.k!, 2)} = ${fmt(gp, 1)} kVA',
+          if (volts != null && volts > 0)
+            '정격전류 = ${fmt(gp, 1)} × 1000 ÷ (√3 × ${fmt(volts, 0)}) = ${fmt(genRatedCurrent(gp, volts), 0)} A',
+          if (pass != null)
+            pass
+                ? '선정 ${fmt(chosen!, 0)} kVA: 합격 (여유 ${fmt((chosen / gp - 1) * 100, 1)}%)'
+                : '선정 ${fmt(chosen!, 0)} kVA: 불합격 (필요 ${fmt(gp, 1)} kVA)',
+          '발전기 용량은 NFPC 103 제12조(스프링클러설비) 기준도 충족해야 하고, 관계 법령의 부하 용량·공급시간을 검토해 정합니다(KDS 32 20 20 4.1(6)①②).',
+        ],
+      );
+    }
+
+    final start = _gpStart;
+    return elecPage(sumKey: 'eg_sum', summary: summary, warn: warn, [
+      _modeChips(),
+      elecSectionTitle('전동기 이외 부하 (ΣP)'),
+      elecField(
+        'eg_g_general',
+        '일반 부하 용량 (kW)',
+        _gGeneral,
+        '고조파 발생 부하를 뺀 전동기 이외 부하의 용량 합계입니다. 입력용량 P = kW ÷ (효율 × 역률)(식 4.1-2).',
+      ),
+      elecField(
+        'eg_g_vvvf',
+        'VVVF(인버터) 전동기 용량 (kW)',
+        _gVvvf,
+        '인버터 제어 전동기는 전동기 부하가 아니라 ΣP에 넣습니다. P = 용량 ÷ (효율 × 역률) × λ(식 4.1-4).',
+      ),
+      elecField(
+        'eg_g_led',
+        'LED 램프 등 고조파 부하 (kW)',
+        _gLed,
+        'P = 부하용량 ÷ (효율 × 역률) × λ(식 4.1-5).',
+      ),
+      elecField(
+        'eg_g_eff',
+        '부하 효율 (%)',
+        _gEff,
+        '위 세 부하에 같이 쓰는 효율입니다. 부하마다 크게 다르면 효율이 같은 것끼리 나눠 계산하십시오. 원문에 기본값은 없습니다.',
+      ),
+      elecField(
+        'eg_g_pf',
+        '부하 역률 (%)',
+        _gPf,
+        '위 세 부하에 같이 쓰는 역률입니다. 원문에 기본값은 없습니다.',
+      ),
+      elecField(
+        'eg_g_ups',
+        'UPS 출력 (kVA)',
+        _gUps,
+        'P = UPS 출력 ÷ UPS 효율 × λ + 축전지 충전용량(식 4.1-3).',
+      ),
+      elecField('eg_g_upseff', 'UPS 효율 (%)', _gUpsEff, 'UPS 명판의 효율입니다.'),
+      elecField(
+        'eg_g_charge',
+        '축전지 충전용량 (UPS 용량의 %)',
+        _gCharge,
+        '원문은 UPS 용량의 6~10 %를 적용합니다.',
+      ),
+      elecField(
+        'eg_g_lambda',
+        'THD 가중값 λ',
+        _gLambda,
+        'KS C IEC 61000-3-6 표 6을 참고합니다. 고조파 발생 기기의 특성을 모르면 2.5를 적용하고, '
+            '발전기로 들어가는 고조파 저감장치를 달면 기기별로 조정할 수 있습니다(KDS 32 20 20).',
+      ),
+      elecSectionTitle('전동기 부하'),
+      elecField(
+        'eg_g_motors',
+        '전동기 부하 합계 ΣPm (kW)',
+        _gMotors,
+        'VVVF(인버터) 제어 전동기는 빼고 넣습니다.',
+      ),
+      elecField(
+        'eg_g_largest',
+        '기동용량이 가장 큰 전동기 PL (kW)',
+        _gLargest,
+        '동시에 기동하는 전동기가 있으면 그 용량을 더해 넣습니다.',
+      ),
+      elecChipGroup(
+        'kW당 입력용량 계수 a',
+        '원문 추천값: 고효율 1.38, 표준형 1.45. 전동기별 효율·역률로 입력용량을 환산해도 됩니다.',
+        [
+          calcChip(
+            'eg_a_high',
+            '고효율 1.38',
+            readNum(_gA) == kGpAHighEff,
+            () => setState(() => _gA.text = '1.38'),
+          ),
+          calcChip(
+            'eg_a_std',
+            '표준형 1.45',
+            readNum(_gA) == kGpAStandard,
+            () => setState(() => _gA.text = '1.45'),
+          ),
+        ],
+      ),
+      elecField('eg_g_a', 'a', _gA, '위 칩 대신 직접 넣을 수 있습니다.'),
+      elecChipGroup(
+        '기동 방식 (기동계수 c)',
+        '원문 추천값: 직입 6(5~7), Y-Δ 2(2~3), VVVF 1.5(1~1.5), 리액터 탭 50 %·65 %·80 % = 3·3.9·4.8.',
+        [
+          for (final s in GpStart.values)
+            calcChip(
+              'eg_c_${s.name}',
+              '${s.label} ${fmt(s.c, 1)}',
+              start == s,
+              () => setState(() => _gC.text = fmt(s.c, 1)),
+            ),
+        ],
+      ),
+      elecField(
+        'eg_g_c',
+        '기동계수 c',
+        _gC,
+        start?.range == null
+            ? '위 칩을 고르거나 직접 넣습니다.'
+            : '${start!.label}의 원문 범위는 ${start.range}입니다.',
+      ),
+      elecSectionTitle('허용전압강하 계수 k'),
+      _kTable(),
+      elecField(
+        'eg_g_k',
+        'k',
+        _gK,
+        '표에서 고르거나 직접 넣습니다. 명확하지 않으면 1.07~1.13(원문).',
+      ),
+      elecSectionTitle('결과'),
+      elecField('eg_volts', '발전기 전압 (V)', _volts, '3상 선간전압입니다. 정격전류 계산에 씁니다.'),
+      elecField(
+        'eg_chosen',
+        '선정 용량 (kVA, 선택)',
+        _chosen,
+        '제조사 표준 용량 중 고른 값을 넣으면 합격/불합격을 판정합니다.',
+      ),
+      const SizedBox(height: 12),
+      result,
+      elecBasis('eg_gp_basis', [
+        '원문: 국가건설기준 KDS 32 20 20:2024 예비전원설비 4.1(6)④ 식 4.1-1~4.1-5와 표 4.1-1(국토교통부고시 제2026-93호 첨부, 2024-08-22 개정).',
+        'GP ≥ [ΣP + (ΣPm − PL) × a + (PL × a × c)] × k',
+        '표 4.1-1은 2024 개정에서 2021판(KDS 31 60 20)의 오타 세 칸(19 %행 20·21 열, 16 %행 23 열)을 바로잡은 값입니다.',
+        '2021판과 다른 점: 2024판은 VVVF 전동기를 ΣP에 넣고 ΣPm에서 뺍니다. λ는 모르면 2.5입니다(2021판은 저감장치가 있으면 1.25).',
+        '발전기 용량은 화재 및 예고 없는 정전 때에도 소방·비상부하 가동에 지장이 없어야 합니다(4.1(6)③).',
+      ]),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     _scheduleSave();
+    if (_gp) return _gpPage();
     final bad = <String>[];
     final input = GenInput(
       loadKw: _read(_load, '부하 합계', bad),
@@ -251,12 +627,13 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
                 : '선정 ${fmt(input.chosenKva!, 0)} kVA: 불합격 (필요 ${fmt(req, 1)} kVA에 ${fmt(-r.chosenMarginPct!, 1)}% 부족)',
           ...r.notes,
           '최종 용량은 제조사 검토로 확정합니다.',
-          '2021년 개정 KDS 31 60 20의 GP 방식은 자료마다 식이 달라 넣지 않았습니다. 새 설계는 기준 원문으로 확인하십시오.',
+          '현행 기준(KDS 32 20 20:2024)은 GP 방식입니다. 새 설계는 위 "GP 방식"을 쓰십시오.',
         ],
       );
     }
 
     return elecPage(sumKey: 'eg_sum', summary: summary, warn: warn, [
+      _modeChips(),
       elecSectionTitle('부하'),
       elecField(
         'eg_load',

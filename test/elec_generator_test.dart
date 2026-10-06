@@ -222,6 +222,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      // 이 묶음은 옛 PG 방식 시험이다(기본은 현행 GP 방식).
+      await tester.tap(find.byKey(const Key('eg_mode_pg')));
+      await tester.pumpAndSettle();
     }
 
     setUp(() => SharedPreferences.setMockInitialValues({}));

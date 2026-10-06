@@ -70,11 +70,17 @@ void main() {
       const MaterialApp(home: ElectricCalculatorPage(initialTab: 9)),
     );
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('eg_load')), '100');
+    // 기본은 GP 방식: 일반 부하 칸에 넣는다.
+    await tester.enterText(find.byKey(const Key('eg_g_general')), '100');
+    await tester.enterText(find.byKey(const Key('eg_g_eff')), '85');
+    await tester.enterText(find.byKey(const Key('eg_g_pf')), '80');
+    await tester.enterText(find.byKey(const Key('eg_g_k')), '1.1');
     await tester.pump(const Duration(milliseconds: 800));
     await tester.tap(find.byKey(const Key('calc_history_button')));
     await tester.pumpAndSettle();
-    expect(find.text('발전기 용량'), findsOneWidget);
+    // 기록 창에 탭 이름과 GP 결과 요약이 쌓인다(탭 막대에도 같은 이름이 있다).
+    expect(find.text('발전기 용량'), findsWidgets);
+    expect(find.textContaining('(GP 방식)'), findsWidgets);
   });
 
   testWidgets('380V 삼상 11kW 효율 90 역률 85 → 21.8A, 1.25배 27.3A를 전선 탭으로', (
