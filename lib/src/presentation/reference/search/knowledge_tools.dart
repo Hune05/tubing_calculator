@@ -47,7 +47,7 @@ List<KnowledgeEntry> diagnosisKnowledge() {
       KnowledgeEntry(
         id: 'diag.${f.id}',
         category: kDiagCategory,
-        title: '고장 진단: ${f.title}',
+        title: '고장 진단 · ${f.title}',
         lines: [
           f.subtitle,
           '질문에 답하고 측정값을 넣으면 원인을 좁혀 갑니다. 질문: ${questions.take(4).join(' / ')}',

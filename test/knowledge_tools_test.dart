@@ -98,4 +98,15 @@ void main() {
     expect(searchKnowledge(all, '앵글 규격').first.entry.id, 'tool.steel');
     expect(searchKnowledge(all, '드릴 클러치'), isNotEmpty);
   });
+
+  test('같은 진단의 다른 판정은 이어 보이고, 진단 시작 항목끼리는 묶이지 않는다', () {
+    resetKnowledgeBaseCache();
+    final all = knowledgeBase();
+    final start = all.firstWhere((e) => e.id == 'diag.trip');
+    expect(relatedKnowledge(all, start), isEmpty);
+    final end = all.firstWhere((e) => e.id.startsWith('diag.trip.'));
+    final rel = relatedKnowledge(all, end);
+    expect(rel, isNotEmpty);
+    expect(rel.every((e) => e.id.startsWith('diag.trip.')), isTrue);
+  });
 }
