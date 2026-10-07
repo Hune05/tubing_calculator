@@ -149,18 +149,35 @@ int indexOfItem(List list, Map item) {
 void replaceItemList(
   Map<String, dynamic> project,
   String key,
-  List<Map<String, dynamic>> newList,
-) {
+  List<Map<String, dynamic>> newList, {
+  Set<String>? openedIds,
+}) {
   final keep = <String>{
     for (final m in newList)
       if (_idOf(m) != null) _idOf(m)!,
   };
+  // [openedIds]: 화면을 열 때 있던 항목. 그 사이 합치기로 들어온 다른 기기 항목은 화면이 몰랐던
+  // 것이라 지운 것으로 적지 않고 그대로 둔다(10-07: 모든 기기에서 영구 삭제됐다).
+  final extra = <Map<String, dynamic>>[];
   for (final m in (project[key] as List?) ?? const []) {
     final id = _idOf(m);
-    if (id != null && !keep.contains(id)) markItemDeleted(project, id);
+    if (id == null || keep.contains(id)) continue;
+    if (openedIds == null || openedIds.contains(id)) {
+      markItemDeleted(project, id);
+    } else if (m is Map) {
+      extra.add(Map<String, dynamic>.from(m));
+    }
   }
-  project[key] = newList;
+  project[key] = key == 'daily_reports'
+      ? [...extra, ...newList]
+      : [...newList, ...extra];
 }
+
+/// 목록 칸의 항목 아이디들([replaceItemList]의 openedIds로 넘긴다).
+Set<String> itemIdsOf(Map<String, dynamic> project, String key) => {
+  for (final m in (project[key] as List?) ?? const [])
+    if (_idOf(m) != null) _idOf(m)!,
+};
 
 /// 일지·이슈에 누가 언제 썼는지 남긴다. 새로 만들 때는 author·createdAtBy, 고칠 때는 updatedBy.
 /// [who]가 비어 있으면 이름은 안 적고 시각만 적는다.

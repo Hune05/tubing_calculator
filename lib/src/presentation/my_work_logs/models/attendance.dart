@@ -224,7 +224,9 @@ Future<Map<String, AttendanceRecord>> loadAttendanceMonth(
 String attendanceTypeOf(Map<String, dynamic> report) {
   final iso = report['dateISO']?.toString();
   if (iso == null || iso.isEmpty) return kAttendanceNormal;
-  return AttendanceCache.byDate[iso] ?? kAttendanceNormal;
+  // 시각이 붙은 dateISO("2026-10-07T14:23…")도 날짜 부분으로 찾는다(10-07: 근태가 공수에 안 빠졌다).
+  final day = iso.length >= 10 ? iso.substring(0, 10) : iso;
+  return AttendanceCache.byDate[day] ?? kAttendanceNormal;
 }
 
 /// 근태 기록은 로그인한 "나"의 것이다. 그래서 보고서 인원(나를 포함한 투입 인원)에서 내 몫만 뺀다.

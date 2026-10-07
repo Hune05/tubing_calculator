@@ -163,7 +163,28 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     );
   }
 
-  void _onFreshProjects(List<Map<String, dynamic>> projects) {
+  void _onFreshProjects(List<Map<String, dynamic>> incoming) {
+    // 같은 프로젝트는 이미 들고 있는 Map을 그대로 두고 내용만 합친다(10-07: 새 Map으로 통째로
+    // 바꿔서, 그 사이 연 화면이 옛 Map을 고치면 목록·미작성 판단에서 사라진 것처럼 보이고
+    // 지우기·완료 처리가 안 먹었다).
+    final byId = {
+      for (final l in _workLogs)
+        if (l['id'] != null) l['id'].toString(): l,
+    };
+    final projects = <Map<String, dynamic>>[
+      for (final p in incoming)
+        if (byId[p['id']?.toString()] case final old?)
+          (() {
+            // 바깥 칸(상태 등)은 방금 받은 것, 목록 칸은 항목마다 더 새것(폰에서 막 고친 것도 남는다).
+            final merged = mergeProjectDocs(local: p, server: old);
+            old
+              ..clear()
+              ..addAll(merged);
+            return old;
+          })()
+        else
+          p,
+    ];
     // 🚀 [단계 구조 이전] 단계(phases)가 없던 기존 프로젝트를, 등록된 일정
     // 종류/날짜를 기준으로 새 구조로 옮겨 한 번만 저장한다.
     for (final p in projects) {
@@ -655,6 +676,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   }
 
   Future<void> _openReportCalendarFor(Map<String, dynamic> log) async {
+    final opened = itemIdsOf(log, 'daily_reports');
     final updated = await Navigator.push<List<Map<String, dynamic>>>(
       context,
       WorkRoute(
@@ -672,7 +694,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         log['daily_reports'] ?? [],
       );
       setState(() {
-        replaceItemList(log, 'daily_reports', updated);
+        replaceItemList(log, 'daily_reports', updated, openedIds: opened);
         for (final r in updated) {
           // 달력은 복사본으로 고치므로 내용으로 비교한다(안 고친 일지는 건드리지 않는다).
           if (!before.any((b) => sameReportValue(b, r))) {
@@ -940,6 +962,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     String? phaseId,
     bool add = false,
   }) async {
+    final opened = itemIdsOf(log, 'schedules');
     final updated = await Navigator.push<List<Map<String, dynamic>>>(
       context,
       WorkRoute(
@@ -959,7 +982,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (updated != null) {
       setState(() {
         // 지운 일정은 지운 것으로 적어 둔다(다음 저장 때 되살아나지 않게).
-        replaceItemList(log, 'schedules', updated);
+        replaceItemList(log, 'schedules', updated, openedIds: opened);
       });
       _saveProject(log);
     }

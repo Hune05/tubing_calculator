@@ -45,7 +45,14 @@ extension _DailyReportDraft on _DailyReportPageState {
   Future<void> _saveDraft() async {
     if (_submitted || widget.draftKey == null) return;
     final json = _draftJson();
-    if (json == null) return;
+    // 다 지웠으면 예전 임시 저장도 지운다(10-07: 지운 내용을 다음에 "이어서 쓰기"로 물었다).
+    if (json == null) {
+      if (_lastDraft.isNotEmpty) {
+        _lastDraft = '';
+        await _clearDraft();
+      }
+      return;
+    }
     // savedAt은 매번 달라지므로 그 값을 빼고 비교해 바뀐 게 있을 때만 쓴다.
     final cmp = json.replaceFirst(RegExp(r'"savedAt":"[^"]*",'), '');
     if (cmp == _lastDraft) return;

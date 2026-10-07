@@ -63,7 +63,10 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
     final note = (r['note']?.toString() ?? '').trim();
     final body = (note.isEmpty || note == '특이사항 없음') ? types : _firstLine(note);
     lines.add('  · ${_md(d)} $body');
-    for (final id in reportIds(r, 'completedScheduleIds')) {
+    // '기록만 남기기'를 고른 일지는 일정을 완료로 바꾸지 않았으니 완료한 일정에 넣지 않는다(10-07).
+    for (final id in r['scheduleNoApply'] == true
+        ? const <String>[]
+        : reportIds(r, 'completedScheduleIds')) {
       final t = scheduleTitle[id];
       if (t != null && t.isNotEmpty) done.add(t);
     }
@@ -161,14 +164,18 @@ String _openIssueText(Map<String, dynamic> log) {
 
 // 금주 한눈에 보는 요약: 작업일수·투입, 완료한 일정, 이슈 신규/처리.
 List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
-  int days = 0, doneSchedules = 0, created = 0, resolved = 0;
+  int days = 0, created = 0, resolved = 0;
+  // 여러 장에 같은 일정이 있어도 한 번만 센다(10-07).
+  final doneIds = <String>{};
   double manDays = 0;
   for (final log in logs) {
     for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
       if (!w.contains(reportDateOf(r))) continue;
       days++;
       manDays += manDaysOf(Map<String, dynamic>.from(r));
-      doneSchedules += reportIds(r, 'completedScheduleIds').length;
+      if (r['scheduleNoApply'] != true) {
+        doneIds.addAll(reportIds(r, 'completedScheduleIds'));
+      }
     }
     for (final p in _weeklyIssues(log)) {
       if (p['created_at'] != null && w.contains(asDate(p['created_at']))) {
@@ -183,7 +190,7 @@ List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
   }
   return [
     '  · 작업 $days일(작업 일지 기준) · 투입 ${formatManDays(manDays)}인·일',
-    '  · 완료한 일정 $doneSchedules건',
+    '  · 완료한 일정 ${doneIds.length}건',
     '  · 이슈 신규 $created건 · 처리 $resolved건',
     // 프로젝트가 여러 개면 한 줄씩 현황(카톡 텍스트로 보낼 때 한눈에 보이게).
     if (logs.length > 1)

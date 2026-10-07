@@ -123,11 +123,12 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
     return "계획 ${avg(plans)}일 → 실제 ${avg(actuals)}일 · 투입 ${avg(man)}인·일";
   }
 
+  // 근태(내 연차 등)를 뺀 공수로 센다(10-07: 같은 화면의 단계별 값과 숫자가 달랐다).
   static int _manDays(Map<String, dynamic> log) =>
-      (log['daily_reports'] as List? ?? []).whereType<Map>().fold<int>(
+      (log['daily_reports'] as List? ?? []).whereType<Map>().fold<double>(
         0,
-        (a, r) => a + ((r['worker_count'] as num?)?.toInt() ?? 1),
-      );
+        (a, r) => a + manDaysOf(Map<String, dynamic>.from(r)),
+      ).round();
 
   @override
   Widget build(BuildContext context) {
