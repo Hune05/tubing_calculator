@@ -15,6 +15,8 @@ library;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_merge.dart'
+    show currentWorkerName;
 
 /// "정상근무"는 화면 목록·요약에 따로 표시하지 않는다(대부분의 날이라 강조할
 /// 필요가 없다 - 표시가 있으면 오히려 눈에 덜 띈다).
@@ -275,9 +277,14 @@ double myAbsenceShare(String type) {
 /// 이 보고서 하루의 공수(인·일) = 투입 인원 − 내 근태 몫(0 아래로는 안 내려감).
 /// 2026-09-26 사용자 지적으로 고침: 예전에는 내가 연차면 그날 작업조 전체가 0, 반차면 전체가
 /// 절반이 되어 일한 사람들의 공수가 사라졌다. 이제 3명 중 내가 연차면 2, 반차면 2.5, 반반차면 2.75.
-double manDaysOf(Map<String, dynamic> report) {
+/// 근태는 "나"의 것이라, 다른 사람이 쓴 일지(공용 프로젝트)에서는 빼지 않는다
+/// (10-08: 내가 연차인 날 동료가 쓴 일지의 공수까지 1씩 빠졌다). 작성자가 비었으면 내 것으로 본다.
+double manDaysOf(Map<String, dynamic> report, {String? me}) {
   final workers = (report['worker_count'] as num?)?.toInt() ?? 1;
-  final off = myAbsenceShare(attendanceTypeOf(report));
+  final author = report['author']?.toString().trim() ?? '';
+  final who = (me ?? currentWorkerName.value).trim();
+  final mine = author.isEmpty || who.isEmpty || author == who;
+  final off = mine ? myAbsenceShare(attendanceTypeOf(report)) : 0.0;
   final v = workers - off;
   return v < 0 ? 0 : v;
 }

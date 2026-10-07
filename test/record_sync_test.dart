@@ -105,6 +105,17 @@ void main() {
       expect(recordSyncText(s), contains('서버에 저장되어 있습니다'));
     });
 
+    test('다른 사람이 같은 폰에 로그인해도 앞사람 기록을 자기 이름으로 올리지 않는다(10-08)', () async {
+      await CalRecordStore.put(cal('a'));
+      await RecordSync.idle();
+      expect(server.doc('calibration_records', 'a')!['owner'], '차재훈');
+      // 다른 사람(B)으로 바뀐 뒤 목록을 연다
+      recordOwner = () async => const RecordOwner('김동료', 'uid-b');
+      await CalRecordStore.sync.syncNow();
+      await RecordSync.idle();
+      expect(server.doc('calibration_records', 'a')!['owner'], '차재훈');
+    });
+
     test('지우기는 지움 표시로 올라가고 다른 폰에서도 지워진다', () async {
       await CalRecordStore.put(cal('a'));
       await CalRecordStore.put(cal('b', tag: 'FT-1'));

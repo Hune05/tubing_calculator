@@ -20,6 +20,13 @@ void main() {
       expect(manDaysOf({'dateISO': '2026-09-01'}), 0); // 인원 안 적으면 1명(나)
     });
 
+    test('다른 사람이 쓴 일지(공용 프로젝트)에서는 내 연차를 빼지 않는다(10-08)', () {
+      AttendanceCache.byDate = {'2026-09-01': '연차'};
+      final r = {'worker_count': 3, 'dateISO': '2026-09-01', 'author': '김동료'};
+      expect(manDaysOf(r, me: '홍길동'), 3);
+      expect(manDaysOf({...r, 'author': '홍길동'}, me: '홍길동'), 2);
+    });
+
     test('반차: 내 몫 0.5만 뺀다', () {
       AttendanceCache.byDate = {'2026-09-01': '반차'};
       expect(manDaysOf({'worker_count': 3, 'dateISO': '2026-09-01'}), 2.5);

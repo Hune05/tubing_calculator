@@ -414,7 +414,9 @@ class RecordSync {
       if (m == null) {
         meta[id] = {'e': _now(), 'p': true};
       } else if (m['p'] != true) {
-        meta[id] = {...m, 'p': true};
+        // 이미 올라갔던 기록인데 지금 사람의 서버 목록에 없다 = 다른 사람(앞서 이 폰을 쓴 사람)의 기록.
+        // 지금 이름으로 다시 올리면 그 사람 기록을 빼앗는다(10-08). 올리지 않고 폰에만 둔다.
+        continue;
       }
       toPush.add(id);
     }
