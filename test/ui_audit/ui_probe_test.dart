@@ -31,7 +31,6 @@ import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_setti
 import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigation_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/level_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/protractor_page.dart';
-import 'package:tubing_calculator/src/presentation/menu/page/menu_screen.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/app_status_page.dart';
@@ -71,7 +70,6 @@ const tabletCfgs = [
 
 final screens = <String, (Widget Function(), List<Cfg>)>{
   '폰 홈': (() => const MobileMenuPage(currentWorker: '홍길동'), phoneCfgs),
-  'PC 홈': (() => const MenuScreen(), tabletCfgs),
   '튜브 계산기(탭 틀)': (() => const MobileCalculatorPage(), phoneCfgs),
   '튜브 입력 탭': (() => const Scaffold(body: MobileInputTab()), phoneCfgs),
   '튜브 마킹 탭': (
