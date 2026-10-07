@@ -72,7 +72,7 @@ extension _DailyReportDraft on _DailyReportPageState {
       final m = Map<String, dynamic>.from(jsonDecode(raw) as Map);
       final saved = DateTime.tryParse(m['savedAt']?.toString() ?? '');
       if (saved == null ||
-          DateTime.now().difference(saved) > const Duration(days: 2)) {
+          DateTime.now().difference(saved) > kReportDraftKeep) {
         await _clearDraft();
         return;
       }

@@ -523,7 +523,11 @@ ReportDoc mergeReportDocs(List<ReportDoc> docs) => ReportDoc(
   ],
 );
 
-// 2일이 지난 작업 일지 임시 저장을 지운다(앱 시작 시 호출).
+/// 쓰다 만 일지 임시 저장을 남겨 두는 기간. 10-07: 2일이라 금요일에 쓰다 만 일지가 월요일에
+/// 말없이 지워졌다. 주말·연휴를 넘겨도 남게 7일로.
+const Duration kReportDraftKeep = Duration(days: 7);
+
+// [kReportDraftKeep]이 지난 작업 일지 임시 저장을 지운다(앱 시작 시 호출).
 Future<void> cleanOldDrafts() async {
   try {
     final p = await SharedPreferences.getInstance();
@@ -536,7 +540,7 @@ Future<void> cleanOldDrafts() async {
         );
       } catch (_) {}
       if (saved == null ||
-          DateTime.now().difference(saved) > const Duration(days: 2)) {
+          DateTime.now().difference(saved) > kReportDraftKeep) {
         await p.remove(k);
       }
     }
