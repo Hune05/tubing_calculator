@@ -70,6 +70,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
 
   // 🚀 [추가] 튜브처럼 카드를 눌러 고친다.
   int? _editingIndex;
+  late int _seenLoad = (widget.manager ?? ConduitDataManager()).loadCount;
 
   // 방향 칸 순서도 튜브 계산기와 같게 둔다(UP·FRONT·LEFT / RIGHT·DOWN·BACK).
   final List<Map<String, dynamic>> _directions = [
@@ -210,6 +211,16 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       builder: (context, child) {
         final manager = widget.manager ?? ConduitDataManager();
         final bendList = manager.bendList;
+        // 줄을 고치던 중에 보관함에서 도면을 불러왔으면 수정 모드를 끈다
+        // (그대로 두면 "수정"이 불러온 도면의 같은 번호 줄을 옛 값으로 덮는다).
+        if (manager.loadCount != _seenLoad) {
+          _seenLoad = manager.loadCount;
+          if (_editingIndex != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _editingIndex != null) _cancelEdit();
+            });
+          }
+        }
 
         // 🚀 [수정] 폴더블 대응으로 넓은 화면에서 마킹 탭과 나란히 붙여
         // 보여줄 수 있도록, 자체 Scaffold 대신 배경색만 칠하는 ColoredBox로

@@ -46,4 +46,26 @@ void main() {
     expect(find.text('수정'), findsNothing);
     expect(find.text('추가'), findsOneWidget);
   });
+  testWidgets('줄을 고치던 중에 보관함에서 도면을 불러오면 수정 모드가 꺼진다', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ConduitInputTab())),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.tap(find.text('길이: 400.0mm'));
+    await tester.pump();
+    expect(find.text('수정'), findsOneWidget);
+    // 보관함에서 다른 도면을 불러온다(입력 탭은 그대로 살아 있다).
+    ConduitDataManager().replaceAll([
+      {'length': 100.0, 'angle': 0.0, 'rotation': 0.0},
+      {'length': 200.0, 'angle': 45.0, 'rotation': 0.0},
+      {'length': 250.0, 'angle': 0.0, 'rotation': 0.0},
+    ]);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('수정'), findsNothing);
+    expect(find.text('추가'), findsOneWidget);
+    expect(ConduitDataManager().bendList[2]['length'], 250.0);
+  });
 }

@@ -57,6 +57,7 @@ class _MobileInputTabState extends State<MobileInputTab>
   double _selectedAngle = 90.0;
   double? _selectedRotation;
   int? _editingIndex;
+  int _seenLoad = MobileBendDataManager().loadCount;
 
   final List<Map<String, dynamic>> _directions = [
     {"label": "UP (위)", "val": 0.0, "icon": Icons.arrow_upward},
@@ -728,6 +729,16 @@ class _MobileInputTabState extends State<MobileInputTab>
       listenable: MobileBendDataManager(),
       builder: (context, child) {
         final bendList = MobileBendDataManager().bendList;
+        // 줄을 고치던 중에 보관함에서 도면을 불러왔으면 수정 모드를 끈다
+        // (그대로 두면 "수정"이 불러온 도면의 같은 번호 줄을 옛 값으로 덮는다).
+        if (MobileBendDataManager().loadCount != _seenLoad) {
+          _seenLoad = MobileBendDataManager().loadCount;
+          if (_editingIndex != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _editingIndex != null) _cancelEdit();
+            });
+          }
+        }
 
         return Column(
           children: [

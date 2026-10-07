@@ -164,4 +164,27 @@ void main() {
       expect(find.byIcon(Icons.drag_indicator_rounded), findsNWidgets(2));
     });
   });
+  testWidgets('튜브: 줄을 고치던 중에 보관함에서 도면을 불러오면 수정 모드가 꺼진다', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final m = MobileBendDataManager();
+    m.bendList
+      ..clear()
+      ..addAll([
+        {'length': 150.0, 'angle': 0.0, 'rotation': 0.0},
+        {'length': 300.0, 'angle': 90.0, 'rotation': 0.0},
+      ]);
+    await pump(tester, const MobileInputTab());
+    await tester.tap(find.textContaining('300').first);
+    await tester.pump();
+    expect(find.text('수정'), findsOneWidget);
+    m.replaceAll([
+      {'length': 100.0, 'angle': 0.0, 'rotation': 0.0},
+      {'length': 500.0, 'angle': 45.0, 'rotation': 0.0},
+    ]);
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('수정'), findsNothing);
+    expect(m.bendList[1]['length'], 500.0);
+    await tester.binding.setSurfaceSize(null);
+  });
 }

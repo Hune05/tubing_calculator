@@ -100,8 +100,13 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
     _updateAndSave();
   }
 
+  /// 목록을 통째로 바꾼(불러온) 횟수. 입력 탭이 줄을 고치던 중이면 수정 모드를 끄는 데 쓴다
+  /// (불러온 도면의 같은 번호 줄이 옛 값으로 덮이지 않게, 10-07).
+  int loadCount = 0;
+
   /// 보관함에서 불러온 목록으로 통째로 바꾼다(↶로 되돌릴 수 있다).
   void replaceAll(List<Map<String, dynamic>> bends) {
+    loadCount++;
     recordHistory();
     bendList = [for (final b in bends) Map<String, dynamic>.from(b)];
     _updateAndSave();
