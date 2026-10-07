@@ -55,6 +55,14 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
   // 처리 후 사진(처리 전/후 비교용)
   List<String> _afterImages = [];
   bool _changed = false;
+  late String _noteAtOpen;
+  late List<String> _imagesAtOpen;
+
+  /// 처리 완료를 누르지 않은 채 처리 메모·처리 후 사진을 넣었는지(나가면 사라진다).
+  bool get _unsavedResolution =>
+      _punch['is_completed'] != true &&
+      (_resolutionCtrl.text.trim() != _noteAtOpen.trim() ||
+          _afterImages.join('|') != _imagesAtOpen.join('|'));
 
   @override
   void initState() {
@@ -66,6 +74,23 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     _afterImages = ((_punch['resolution_images'] as List?) ?? [])
         .map((e) => e.toString())
         .toList();
+    _noteAtOpen = _resolutionCtrl.text;
+    _imagesAtOpen = List<String>.from(_afterImages);
+  }
+
+  /// 나가기 전: 처리 메모·사진을 넣고 처리 완료를 안 눌렀으면 한 번 묻는다(10-07: 묻지 않고 사라졌다).
+  /// 고친 것이 있으면 돌려준다.
+  Future<void> _leave() async {
+    if (_unsavedResolution &&
+        !await confirmDelete(
+          context,
+          title: "처리 내용을 버리시겠습니까?",
+          message: "'처리 완료'를 누르지 않고 나가면 쓴 처리 메모와 사진이 사라집니다.",
+          confirmLabel: "버리기",
+        )) {
+      return;
+    }
+    if (mounted) Navigator.pop(context, _changed ? _punch : null);
   }
 
   Map<String, dynamic>? get _linkedSchedule {
@@ -247,10 +272,10 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     return PopScope(
       // 폰 뒤로 가기(제스처)로 나가도 고친 것을 돌려준다. 예전엔 위 화살표로만 돌려줘서
       // "처리 완료로 저장" 뒤 뒤로 가기를 누르면 처리 내용·사진이 사라졌다.
-      canPop: !_changed,
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        Navigator.pop(context, _punch);
+        _leave();
       },
       child: Scaffold(
         backgroundColor: AppColors.background,
@@ -259,7 +284,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
           scrolledUnderElevation: 0,
           leading: IconButton(
             icon: const Icon(AppIcons.back, color: tossText, size: 20),
-            onPressed: () => Navigator.pop(context, _changed ? _punch : null),
+            onPressed: _leave,
           ),
           title: const Text(
             "이슈 상세",
