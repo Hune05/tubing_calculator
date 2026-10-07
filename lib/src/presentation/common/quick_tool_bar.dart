@@ -156,7 +156,7 @@ final List<QuickToolDef> kQuickTools = [
     'kbsearch',
     '자료 검색',
     AppGlyph.searchDocs,
-    (_) => const KnowledgeSearchPage(recordSearch: searchMyRecords),
+    (_) => KnowledgeSearchPage(recordSearch: myRecordSearcher()),
     subtitle: '증상·코드·장비 이름으로 고장 조치·알람 코드·고장 진단·계산기 찾기',
     group: '참고 자료',
   ),

@@ -2027,7 +2027,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "자료 검색",
-                        subtitle: "증상·코드·장비 이름으로 고장 조치·알람 코드·고장 진단·계산기 찾기",
+                        subtitle: "증상·코드·장비 이름으로 고장 조치·알람 코드·고장 진단·계산기·내 기록 찾기",
                         icon: AppGlyph.searchDocs,
                         iconColor: slate900,
                         onTap: () {
@@ -2035,8 +2035,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const KnowledgeSearchPage(
-                                recordSearch: searchMyRecords,
+                              builder: (context) => KnowledgeSearchPage(
+                                recordSearch: myRecordSearcher(),
                               ),
                             ),
                           );
@@ -2108,6 +2108,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   ) async {
     final hits = searchRecords(q, await logs, allMaterialCatalog());
     return [
+      // 메뉴 검색과 자료 검색을 잇는 줄: 같은 말로 고장 조치·현장 자료·압력시험 기록·장비까지 찾는다.
+      FeatureItem(
+        title: "자료 검색에서 '$q' 찾기",
+        subtitle: '고장 조치·현장 자료·압력시험 기록·장비 대장까지',
+        icon: AppIcons.search,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => KnowledgeSearchPage(
+              initialQuery: q,
+              recordSearch: myRecordSearcher(),
+            ),
+          ),
+        ),
+      ),
       for (final r in hits)
         FeatureItem(
           title: r.title,
