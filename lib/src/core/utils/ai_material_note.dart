@@ -39,6 +39,15 @@ class MaterialNoteItem {
 
   static const Object _keep = Object();
 
+  /// 폰에 임시로 남길 때([fromMap]으로 다시 읽는다).
+  Map<String, Object?> toMap() => {
+    'name': name,
+    'spec': spec,
+    'qty': qty,
+    'unit': unit,
+    'unsure': unsure,
+  };
+
   static MaterialNoteItem? fromMap(Object? m) {
     if (m is! Map) return null;
     final name = (m['name'] ?? '').toString().trim();

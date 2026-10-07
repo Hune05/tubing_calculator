@@ -125,6 +125,25 @@ void main() {
       expect(shared, '[자재 요청] 9/30 (수)\n1. 튜브 6mm SS316  50m\n2. 너트 M8');
     });
 
+    testWidgets('정리하던 목록은 화면을 닫았다 열어도 남는다(AI를 다시 부르지 않는다)', (tester) async {
+      var calls = 0;
+      Future<MaterialNoteResult> parse(Uint8List b) async {
+        calls++;
+        return const MaterialNoteResult.ok([_tube, _noQty], remaining: 19);
+      }
+
+      await tester.pumpWidget(host(parse: parse));
+      await tester.tap(find.byKey(const Key('mr_camera')));
+      await tester.pumpAndSettle();
+      expect(find.text('튜브 6mm SS316'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(host(parse: parse));
+      await tester.pumpAndSettle();
+      expect(find.text('튜브 6mm SS316'), findsOneWidget);
+      expect(find.text('정리하던 목록을 이어서 보입니다.'), findsOneWidget);
+      expect(calls, 1);
+    });
+
     testWidgets('줄을 고치면 확인 표시가 사라지고 글에 반영된다', (tester) async {
       await tester.pumpWidget(host());
       await tester.tap(find.byKey(const Key('mr_gallery')));

@@ -1,5 +1,6 @@
 // 자재 요청 정리: 손으로 쓴 자재 요청 메모를 사진으로 찍으면 목록으로 정리해 주고,
 // 확인·고친 뒤 카톡 등으로 글로 보낸다. 저장·발주는 하지 않는다(글을 만드는 도구).
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -13,6 +14,10 @@ import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'material_request_logic.dart';
 
 const String kMaterialRequestSiteKey = 'material_request_site_v1';
+
+/// 정리하던 목록(AI가 읽고 사람이 고친 것)을 폰에 남기는 칸. 10-07: 뒤로 가거나 앱을 닫으면
+/// 목록이 사라져, 하루 횟수가 정해진 AI 읽기를 다시 해야 했다. 목록을 다 지우면 같이 지운다.
+const String kMaterialRequestDraftKey = 'material_request_draft_v1';
 
 Future<Uint8List?> _pickPhoto(ImageSource source) async {
   final x = await ImagePicker().pickImage(
@@ -64,6 +69,39 @@ class _MaterialRequestPageState extends State<MaterialRequestPage> {
     super.initState();
     _matcher = CatalogMatcher(widget.catalog ?? allMaterialCatalog());
     _loadSite();
+    _loadDraft();
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString(kMaterialRequestDraftKey);
+      if (raw == null || !mounted || _items.isNotEmpty) return;
+      final items = [
+        for (final m in jsonDecode(raw) as List)
+          ?MaterialNoteItem.fromMap(m),
+      ];
+      if (items.isEmpty) return;
+      setState(() {
+        _setItems(items);
+        _read = true;
+      });
+      _toast('정리하던 목록을 이어서 보입니다.');
+    } catch (_) {}
+  }
+
+  Future<void> _saveDraft() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (_items.isEmpty) {
+        await p.remove(kMaterialRequestDraftKey);
+      } else {
+        await p.setString(
+          kMaterialRequestDraftKey,
+          jsonEncode([for (final it in _items) it.toMap()]),
+        );
+      }
+    } catch (_) {}
   }
 
   @override
@@ -92,6 +130,7 @@ class _MaterialRequestPageState extends State<MaterialRequestPage> {
   void _setItems(List<MaterialNoteItem> items) {
     _items = items;
     _suggest = [for (final it in items) _matcher.match(it)];
+    _saveDraft();
   }
 
   void _toast(String msg) {
