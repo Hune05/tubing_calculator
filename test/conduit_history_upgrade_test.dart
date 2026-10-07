@@ -262,6 +262,9 @@ void main() {
       expect(list.length, 2);
       expect(list.map((d) => d.title).toSet(), {'원본 도면', '벤드 1개 · 618mm'});
       expect(find.text('보관함에 저장했습니다.'), findsOneWidget);
+      // 다음 저장의 덮어쓰기 대상은 방금 새로 저장한 도면(원본이 아니다).
+      final fresh = list.firstWhere((d) => d.title == '벤드 1개 · 618mm');
+      expect(ConduitDataManager().sourceDrawingId, fresh.id);
     });
 
     testWidgets('원본이 보관함에서 지워졌으면 기억을 버리고 새로 저장한다', (tester) async {

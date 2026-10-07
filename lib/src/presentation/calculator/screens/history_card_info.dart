@@ -16,9 +16,9 @@ class TubeHistoryDb {
     await DatabaseHelper.instance.deleteHistory(id);
   };
 
-  static Future<void> Function(Map<String, dynamic> row) insert = (row) async {
-    await DatabaseHelper.instance.insertHistory(row);
-  };
+  /// 새 줄을 넣고 그 번호를 돌려준다(시험의 가짜는 null을 돌려줘도 된다).
+  static Future<int?> Function(Map<String, dynamic> row) insert = (row) =>
+      DatabaseHelper.instance.insertHistory(row);
 
   /// 한 줄의 칸을 고친다(도면 정보 수정·시작 방향).
   static Future<void> Function(int id, Map<String, dynamic> row) update = (id, row) async {

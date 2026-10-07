@@ -42,6 +42,13 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
 
   void clearSource() => sourceDrawingId = null;
 
+  /// 불러온 도면을 고쳐 "새 도면으로 저장"했으면, 그 뒤의 원본은 새로 저장한 도면이다.
+  /// (예전에는 처음 불러온 도면을 계속 기억해, 다시 저장할 때 기본 선택이 그 원본 덮어쓰기였다. 10-07)
+  /// 불러온 도면이 없던 목록은 그대로 둔다(새 도면은 저장할 때마다 새로 쌓는 것이 예전 동작).
+  void moveSourceTo(String id) {
+    if (sourceDrawingId != null) sourceDrawingId = id;
+  }
+
   @override
   bool undo() {
     final ok = super.undo();

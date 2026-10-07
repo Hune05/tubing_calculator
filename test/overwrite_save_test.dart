@@ -61,7 +61,10 @@ void main() {
     inserts = [];
     TubeHistoryDb.load = () async => [_row()];
     TubeHistoryDb.update = (id, row) async => updates.add((id, row));
-    TubeHistoryDb.insert = (row) async => inserts.add(row);
+    TubeHistoryDb.insert = (row) async {
+      inserts.add(row);
+      return 99;
+    };
   });
 
   group('불러온 도면 기억', () {
@@ -210,6 +213,8 @@ void main() {
     });
 
     testWidgets('"새 도면으로 저장"을 고르면 덮어쓰지 않고 새 줄을 더한다', (tester) async {
+      MobileBendDataManager().setSource(7);
+      addTearDown(MobileBendDataManager().clearSource);
       await open(tester, target: target());
       await tester.tap(find.byKey(const Key('save_mode_new')));
       await tester.pumpAndSettle();
@@ -220,6 +225,8 @@ void main() {
       expect(updates, isEmpty);
       expect(inserts.length, 1);
       expect(find.text('보관함에 저장했습니다.'), findsOneWidget);
+      // 다음 저장의 덮어쓰기 대상은 방금 새로 저장한 도면(처음 불러온 7번 원본이 아니다).
+      expect(MobileBendDataManager().sourceHistoryId, 99);
     });
 
     testWidgets('덮어쓰기가 실패하면 알리고 창을 그대로 둔다', (tester) async {

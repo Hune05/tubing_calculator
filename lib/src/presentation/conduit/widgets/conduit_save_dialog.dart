@@ -88,7 +88,7 @@ Future<bool> showConduitSaveDialog(
     }
     // 덮어쓸 도면이 그새 지워졌거나 새 도면으로 저장을 골랐으면 새 줄로 넣는다.
     if (before == null) {
-      await saveConduitDrawing(
+      final saved = await saveConduitDrawing(
         folderName: result.folder,
         title: result.title,
         totalCut: totalCut,
@@ -96,6 +96,8 @@ Future<bool> showConduitSaveDialog(
         notes: result.notes,
         settings: settings,
       );
+      // 다음 저장의 덮어쓰기 대상은 방금 새로 저장한 도면(처음 불러온 원본이 아니다).
+      manager.moveSourceTo(saved.id);
     }
   } catch (e) {
     debugPrint('전선관 보관함 저장 실패: $e');

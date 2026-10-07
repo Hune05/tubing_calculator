@@ -113,8 +113,10 @@ void main() {
       ];
       TubeHistoryDb.delete = (id) async =>
           rows.removeWhere((r) => r['id'] == id);
-      TubeHistoryDb.insert = (row) async =>
-          rows.insert(0, Map<String, dynamic>.from(row));
+      TubeHistoryDb.insert = (row) async {
+        rows.insert(0, Map<String, dynamic>.from(row));
+        return null;
+      };
       TubeHistoryDb.updatePToP = (m) async {
         updates.add(Map.of(m));
         for (final r in rows) {

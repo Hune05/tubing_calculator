@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/data/tube_drawing_specs.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/common_widgets/save_name_chips.dart';
@@ -452,13 +453,15 @@ class _SmartSavePadState extends State<SmartSavePad> {
                             });
                           } else {
                             // 1. 비동기 작업 대기 (DB 저장)
-                            await TubeHistoryDb.insert({
+                            final newId = await TubeHistoryDb.insert({
                               'date': now,
                               'p_to_p': jsonEncode(pToPData),
                               'pipe_size': _selectedSize,
                               'total_length': widget.totalCut,
                               'bend_data': jsonEncode(widget.bendList),
                             });
+                            // 다음 저장의 덮어쓰기 대상은 방금 새로 저장한 도면(처음 불러온 원본이 아니다).
+                            if (newId != null) MobileBendDataManager().moveSourceTo(newId);
                           }
                         } catch (e) {
                           // 저장이 안 됐으면 창을 그대로 두고 다시 누를 수 있게 한다.
