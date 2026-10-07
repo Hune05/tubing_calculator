@@ -12,7 +12,6 @@ import 'package:tubing_calculator/src/presentation/equipment/equipment_reminders
     show rescheduleEquipmentReminders;
 import 'package:tubing_calculator/src/presentation/equipment/equipment_store.dart';
 import 'package:tubing_calculator/src/presentation/bend_check/bend_check_page.dart';
-import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/inventory/material_catalog.dart'
     show allMaterialCatalog;
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
@@ -2093,25 +2092,23 @@ class _MobileMenuPageState extends State<MobileMenuPage>
   }
 
   /// 메뉴 기능을 이름·설명으로 찾는 창(초성도 된다). 누르면 그 메뉴를 그대로 연다.
-  // 검색 창 하나를 여는 동안 프로젝트 목록은 폰에 있는 것을 한 번만 읽어 쓴다.
-  Future<List<Map<String, dynamic>>> _readLogsForSearch() async {
-    try {
-      return await WorkProjectRepository().fetchCachedProjects();
-    } catch (_) {
-      return const [];
-    }
-  }
-
+  // 검색 창 하나를 여는 동안 내 기록(프로젝트·압력시험·장비)은 폰에 있는 것을 한 번만 읽어 쓴다.
+  // 찾는 범위는 자료 검색의 "내 기록"과 같고, 여기에는 자재가 더 붙는다.
   Future<List<FeatureItem>> _recordResults(
     String q,
-    Future<List<Map<String, dynamic>>> logs,
+    Future<MyRecords> mine,
   ) async {
-    final hits = searchRecords(q, await logs, allMaterialCatalog());
+    final data = await mine;
+    final hits = searchRecords(q, data.$1, allMaterialCatalog());
+    final others = [
+      ...ptRecordsToKnowledge(q, data.$2).take(8),
+      ...equipmentToKnowledge(q, data.$3).take(8),
+    ];
     return [
       // 메뉴 검색과 자료 검색을 잇는 줄: 같은 말로 고장 조치·현장 자료·압력시험 기록·장비까지 찾는다.
       FeatureItem(
         title: "자료 검색에서 '$q' 찾기",
-        subtitle: '고장 조치·현장 자료·압력시험 기록·장비 대장까지',
+        subtitle: '고장 조치·알람 코드·현장 자료·계산기까지',
         icon: AppIcons.search,
         onTap: () => Navigator.push(
           context,
@@ -2157,12 +2154,20 @@ class _MobileMenuPageState extends State<MobileMenuPage>
             );
           },
         ),
+      // 압력시험 기록은 누르면 기록서, 장비는 장비 화면.
+      for (final e in others)
+        FeatureItem(
+          title: e.title,
+          subtitle: [e.category.replaceFirst('내 기록 · ', ''), if (e.lines.isNotEmpty) e.lines.first].join(' · '),
+          icon: e.category.endsWith('압력시험') ? AppIcons.openFile : AppIcons.check,
+          onTap: () => e.open?.call(context),
+        ),
     ];
   }
 
   void _openMenuSearch() {
     HapticFeedback.selectionClick();
-    final logs = _readLogsForSearch();
+    final logs = loadMyRecords();
     showFeatureSearchSheet(
       context,
       title: '메뉴 검색',

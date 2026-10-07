@@ -20,6 +20,9 @@ String knowledgeShareText(KnowledgeEntry e) => [
   if (e.sourceLabel.isNotEmpty) '(출처: 필드 헬퍼 ${e.sourceLabel})',
 ].join('\n');
 
+/// 내 기록은 처음에 이만큼만 보이고 "더 보기"로 나머지를 펼친다.
+const int kRecordShown = 5;
+
 /// 내 기록(프로젝트·작업 일지·이슈) 찾기. 찾은 것을 검색 항목 모양으로 돌려준다(누르면 그 기록이 열림).
 typedef KnowledgeRecordSearch = Future<List<KnowledgeEntry>> Function(String query);
 
@@ -120,6 +123,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
   String? _category;
   List<String> _recent = const [];
   List<KnowledgeEntry> _records = const [];
+  bool _recMore = false; // 내 기록을 다 펼쳤는지(검색어가 바뀌면 다시 접힌다)
   String _recordsFor = '';
   Timer? _recTimer;
 
@@ -327,6 +331,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
       setState(() {
         _records = found;
         _recordsFor = q;
+        _recMore = false;
       });
     });
   }
@@ -679,7 +684,23 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
           ],
           if (recs.isNotEmpty) ...[
             head('내 기록에서 찾음 (${recs.length}건)', const Key('ks_rec_head')),
-            for (final r in recs) gap(_hitTile(KnowledgeHit(r, 0, terms: qTerms), hi)),
+            // 많이 걸리면(현장 이름 등) 앱 자료가 밀려나지 않게 몇 건만 보이고 나머지는 펼친다.
+            for (final r in (_recMore ? recs : recs.take(kRecordShown)))
+              gap(_hitTile(KnowledgeHit(r, 0, terms: qTerms), hi)),
+            if (!_recMore && recs.length > kRecordShown)
+              gap(
+                Center(
+                  child: TextButton.icon(
+                    key: const Key('ks_rec_more'),
+                    onPressed: () => setState(() => _recMore = true),
+                    icon: const Icon(Icons.expand_more),
+                    label: Text(
+                      '내 기록 ${recs.length - kRecordShown}건 더 보기',
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+              ),
             if (hits.isNotEmpty)
               head('앱 자료 (${hits.length}건)', const Key('ks_app_head')),
           ],

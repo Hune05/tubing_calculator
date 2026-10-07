@@ -17,9 +17,9 @@ import '../../pressure_test/test_record.dart';
 import '../../pressure_test/test_record_pdf.dart';
 import 'knowledge_entry.dart';
 
-/// 한 종류에서 보일 최대 건수(너무 많으면 앱 자료가 밀려난다).
-const int kRecordMaxPt = 8;
-const int kRecordMaxEquip = 8;
+/// 한 종류에서 찾을 최대 건수. 화면에는 몇 건만 보이고 "더 보기"로 펼친다(knowledge_search_page).
+const int kRecordMaxPt = 30;
+const int kRecordMaxEquip = 30;
 
 /// 띄어쓰기·대소문자·줄표 같은 기호는 무시한다(GN101로 쳐도 GN-101이 나오게).
 String _norm(String s) => s.replaceAll(RegExp(r'[\s\-_./·,()]+'), '').toLowerCase();

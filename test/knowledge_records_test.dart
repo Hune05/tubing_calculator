@@ -128,4 +128,22 @@ void main() {
     // 루마: 프로젝트 이름과 압력시험 현장
     expect(a.map((e) => e.category), containsAll(['내 기록 · 프로젝트', '내 기록 · 압력시험']));
   });
+
+  testWidgets('내 기록이 많이 걸리면 5건만 보이고 "더 보기"로 나머지를 펼친다', (t) async {
+    final many = [
+      for (var i = 0; i < 9; i++)
+        PtRecord(id: 'm$i', date: DateTime(2026, 10, 1), line: 'GN-$i', site: '루마'),
+    ];
+    await open(t, (q) async => ptRecordsToKnowledge(q, many));
+    await t.enterText(find.byKey(const Key('ks_field')), '루마');
+    await t.pump(const Duration(milliseconds: 400));
+    await t.pump();
+    expect(find.text('내 기록에서 찾음 (9건)'), findsOneWidget);
+    expect(find.byKey(const Key('ks_hit_pt.m4')), findsOneWidget);
+    expect(find.byKey(const Key('ks_hit_pt.m5')), findsNothing);
+    await t.tap(find.byKey(const Key('ks_rec_more')));
+    await t.pump();
+    expect(find.byKey(const Key('ks_hit_pt.m8')), findsOneWidget);
+    expect(find.byKey(const Key('ks_rec_more')), findsNothing);
+  });
 }
