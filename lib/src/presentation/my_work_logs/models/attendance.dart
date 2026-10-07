@@ -160,13 +160,45 @@ String _docId(DateTime d, String uid) => '${uid}__${dateKey(d)}';
 Future<bool> saveAttendance(AttendanceRecord r) async {
   final uid = currentUid();
   if (uid == null) return false;
+  final key = dateKey(r.date);
+  final data = attendanceWriteData(r, _knownRecords[key], uid);
   sendQuietly(
-    () =>
-        _collection().doc(_docId(r.date, uid)).set({...r.toJson(), 'uid': uid}),
+    () => _collection()
+        .doc(_docId(r.date, uid))
+        .set(data, SetOptions(merge: true)),
     what: '근태 서버 저장',
   );
-  AttendanceCache.byDate[dateKey(r.date)] = r.type;
+  _knownRecords[key] = r;
+  AttendanceCache.byDate[key] = r.type;
   return true;
+}
+
+/// 이 폰이 읽었거나 저장한 기록(날짜 키). 저장할 때 "이 폰이 알던 값"과 비교한다.
+final Map<String, AttendanceRecord> _knownRecords = {};
+
+/// 근태 한 날을 서버에 쓸 값. 문서를 통째로 바꾸지 않고(merge) 칸별로 쓴다(10-08):
+/// 값이 있는 칸은 쓰고, 이 폰이 알던 값을 비운 칸은 지우고, 이 폰이 모르는 칸은 건드리지 않는다.
+/// (통신이 없을 때 다른 기기에서 적은 메모·퇴근·휴게가 아직 안 내려왔으면 통째 쓰기가 지웠다.)
+Map<String, dynamic> attendanceWriteData(
+  AttendanceRecord r,
+  AttendanceRecord? before,
+  String uid,
+) {
+  final memo = r.memo?.trim();
+  final out = <String, dynamic>{'date': dateKey(r.date), 'type': r.type, 'uid': uid};
+  void put(String k, Object? v, Object? old) {
+    if (v != null) {
+      out[k] = v;
+    } else if (old != null) {
+      out[k] = FieldValue.delete();
+    }
+  }
+
+  put('checkIn', r.checkIn, before?.checkIn);
+  put('checkOut', r.checkOut, before?.checkOut);
+  put('breakMin', r.breakMin, before?.breakMin);
+  put('memo', memo == null || memo.isEmpty ? null : memo, before?.memo);
+  return out;
 }
 
 /// 하루치 근태 기록을 지운다(정상근무로 되돌리는 것과 같다). 로그인하지 않았으면 false.
@@ -178,6 +210,7 @@ Future<bool> deleteAttendance(DateTime date) async {
     what: '근태 서버 지우기',
   );
   AttendanceCache.byDate.remove(dateKey(date));
+  _knownRecords.remove(dateKey(date));
   return true;
 }
 
@@ -203,6 +236,7 @@ Future<Map<String, AttendanceRecord>?> loadAttendanceRange(
       if (d == null) continue;
       map[dateKey(d)] = AttendanceRecord.fromJson(data, d);
     }
+    _knownRecords.addAll(map);
     return map;
   } catch (_) {
     return null;
