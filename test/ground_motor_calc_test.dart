@@ -108,6 +108,9 @@ void main() {
       expect(rodsParallel(r, 2, spacingM: 12), closeTo(r / 2, 1e-9));
       expect(rodsParallel(r, 2, spacingM: 0.5), isNull);
       expect(rodsParallel(r, 1, spacingM: 2), r);
+      // 1본은 간격과 상관없다(숨은 간격 칸이 0.5여도).
+      expect(rodsParallel(r, 1, spacingM: 0.5), r);
+      expect(rodsParallel(r, 1, spacingM: 0), r);
       expect(rodResistance(rho: 100, lengthM: 0, diaMm: 14), isNull);
     });
   });

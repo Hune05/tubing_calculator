@@ -520,12 +520,18 @@ class _ElecGroundTabState extends State<ElecGroundTab>
         });
       case _GMode.rod:
         final rho = _v(_rho), l = _v(_len), d = _v(_dia);
-        final n = int.tryParse(_n.text.trim()) ?? 1;
+        // 봉 개수는 1 이상의 정수만(예전에는 "2.0"을 말없이 1본으로, "0"을 간격 오류로 보였다).
+        final nRaw = _v(_n);
+        final nBad =
+            nRaw != null && (nRaw < 1 || nRaw != nRaw.roundToDouble());
+        final n = nRaw == null || nBad ? 1 : nRaw.round();
         final sp = _v(_space) ?? 0;
         final one = rho != null && l != null && d != null
             ? rodResistance(rho: rho, lengthM: l, diaMm: d)
             : null;
-        final many = one == null ? null : rodsParallel(one, n, spacingM: sp);
+        final many = one == null || nBad
+            ? null
+            : rodsParallel(one, n, spacingM: sp);
         final target = _v(_target);
         children.addAll([
           elecField(
@@ -576,8 +582,10 @@ class _ElecGroundTabState extends State<ElecGroundTab>
               key: const Key('gr_result'),
               big: '${fmt(one, 1)} Ω (1본)',
               warn: true,
-              caption: '봉 사이 간격이 1 m 미만이라 병렬 식을 쓸 수 없습니다',
-              lines: const ['봉 간격을 1 m 이상으로 하십시오.'],
+              caption: nBad
+                  ? '봉 개수는 1 이상의 정수로 넣으십시오'
+                  : '봉 사이 간격이 1 m 미만이라 병렬 식을 쓸 수 없습니다',
+              lines: nBad ? const [] : const ['봉 간격을 1 m 이상으로 하십시오.'],
             ),
           );
         } else {

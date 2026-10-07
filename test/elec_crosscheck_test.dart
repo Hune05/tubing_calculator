@@ -1829,7 +1829,8 @@ void main() {
             for (final nn in [1, 2, 4, 8]) {
               for (final sp in [0.5, 1.0, 3.0, 10.0, 10.5, 20.0]) {
                 // 문서: R_n = K·R₁/n, K = 1.2(간격 1~10m), 1.0(10m 초과), 1m 미만 불가.
-                final ref = sp < 1 ? null : (nn == 1 ? r1 : (sp > 10 ? 1.0 : 1.2) * r1 / nn);
+                // 1본은 간격과 상관없이 R₁(10-07: 병렬 식이 아니라 간격 조건이 없다).
+                final ref = nn == 1 ? r1 : (sp < 1 ? null : (sp > 10 ? 1.0 : 1.2) * r1 / nn);
                 t.run('봉 병렬 ρ$rho l$l d$d ${nn}본 ${sp}m', (c) => c.n('Ω', gc.rodsParallel(r1, nn, spacingM: sp), ref));
               }
             }

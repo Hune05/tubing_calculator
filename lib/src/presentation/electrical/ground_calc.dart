@@ -142,8 +142,10 @@ double? rodResistance({
 /// 봉 [n]본 병렬: R_n = K·R₁ / n(같은 봉). 간격 1~10 m이면 K = 1.2, 10 m를 넘으면 1.0.
 /// 간격이 1 m 미만이면 이 식을 쓸 수 없어 null.
 double? rodsParallel(double single, int n, {required double spacingM}) {
-  if (n < 1 || spacingM < 1) return null;
+  if (n < 1) return null;
+  // 1본은 간격과 상관없다(10-07: 간격 검사가 먼저라, 2본에서 1본으로 돌리면 숨은 간격 칸 때문에 오류가 났다).
   if (n == 1) return single;
+  if (spacingM < 1) return null;
   final k = spacingM > 10 ? 1.0 : 1.2;
   return k * single / n;
 }
