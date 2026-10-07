@@ -565,6 +565,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     Map<String, dynamic> report,
   ) async {
     // 확정된 작업 일지는 사유를 남기고 확정을 풀어야 수정할 수 있다.
+    // 확정 풀기는 수정 화면에서 고쳐 돌아왔을 때만 적용한다(10-07: 먼저 저장해서, 아무것도 안 고치고
+    // 나와도 확정이 풀린 채 남았다).
+    List<dynamic>? unlockHist;
     if (report['locked'] == true) {
       final reasonCtrl = TextEditingController();
       final ok = await showDialog<bool>(
@@ -597,26 +600,22 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         ),
       );
       if (ok != true) return;
-      final hist = List<dynamic>.from(report['unlockHistory'] as List? ?? [])
+      unlockHist = List<dynamic>.from(report['unlockHistory'] as List? ?? [])
         ..add({
           'reason': reasonCtrl.text.trim().isEmpty
               ? '사유 미입력'
               : reasonCtrl.text.trim(),
           'at': DateTime.now(),
         });
-      setState(() {
-        report['locked'] = false;
-        report.remove('lockedAt');
-        report['unlockHistory'] = hist;
-      });
-      _saveProject(log);
     }
     if (!mounted) return;
     final updated = await Navigator.push<Map<String, dynamic>>(
       context,
       WorkRoute(
         builder: (context) => DailyReportPage(
-          existingData: report,
+          existingData: unlockHist == null
+              ? report
+              : ({...report, 'locked': false}..remove('lockedAt')),
           relatedIssueCandidates: _issueCandidatesFor(log),
           floorPlanImagePath: log['floor_plan_image_path'],
           phases: phasesOf(log),
@@ -630,7 +629,11 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       setState(() {
         final list = (log['daily_reports'] ??= <dynamic>[]) as List;
         final idx = indexOfItem(list, report);
-        if (report['unlockHistory'] != null) {
+        if (unlockHist != null) {
+          updated['locked'] = false;
+          updated.remove('lockedAt');
+          updated['unlockHistory'] = unlockHist;
+        } else if (report['unlockHistory'] != null) {
           updated['unlockHistory'] = report['unlockHistory'];
         }
         // 아이디·작성자는 원래 것을 잇고, 누가 고쳤는지 남긴다.
