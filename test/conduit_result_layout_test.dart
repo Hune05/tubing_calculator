@@ -71,10 +71,16 @@ void main() {
       ..addAll(rows);
     await pumpResult(tester, 600);
     addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pump(const Duration(milliseconds: 800)); // 기록은 값이 잠깐 머문 뒤 쌓인다
     await tester.tap(find.byKey(const Key('conduit_recent_marks')));
     await tester.pumpAndSettle();
     expect(find.text('최근 마킹 기록'), findsOneWidget);
     expect(find.textContaining('총 절단'), findsWidgets);
+    // 이틀 남는 기록이라 어느 규격 계산인지 제목에 붙는다.
+    expect(find.textContaining('마킹 계산 · EMT'), findsWidgets);
+    // 폰에 남는다(앱을 다시 열어도 보임).
+    final p = await SharedPreferences.getInstance();
+    expect(p.getString('calc_history_conduit_marking'), contains('총 절단'));
   });
 
   testWidgets('아주 큰 길이도 320 폭 카드 안에 들어간다', (tester) async {

@@ -471,11 +471,13 @@ class _MobileResultTabState extends State<MobileResultTab>
                     : '$n ${angle.toStringAsFixed(0)}° ${point.toStringAsFixed(0)}mm';
               })
               .join(', ');
+          // 기록이 이틀 남으므로 어느 규격 계산인지 제목에 붙인다(규격이 바뀌면 따로 쌓인다).
+          final size = dataManager.pipeSize.trim();
           logCalc(
-            '마킹 계산',
+            size.isEmpty ? '마킹 계산' : '마킹 계산 · 튜브 $size',
             '총 절단 ${totalCut.toStringAsFixed(0)}mm · $markText',
             dedupeKey:
-                '${totalCut.toStringAsFixed(1)}|${displayMarks.map((m) => '${m['marking_point']}_${m['angle']}').join(',')}',
+                '$size|${totalCut.toStringAsFixed(1)}|${displayMarks.map((m) => '${m['marking_point']}_${m['angle']}').join(',')}',
           );
         }
 

@@ -84,10 +84,16 @@ void main() {
 
   testWidgets('"최근 마킹값 보기"를 누르면 방금 계산한 마킹값이 뜬다', (tester) async {
     await pumpTab(tester, const Size(400, 2000));
+    await tester.pump(const Duration(milliseconds: 800)); // 기록은 값이 잠깐 머문 뒤 쌓인다
     await tester.tap(find.byKey(const Key('tube_recent_marks')));
     await tester.pumpAndSettle();
     expect(find.text('최근 마킹 기록'), findsOneWidget);
     expect(find.textContaining('총 절단'), findsWidgets);
+    // 이틀 남는 기록이라 어느 규격 계산인지 제목에 붙는다.
+    expect(find.textContaining('마킹 계산 · 튜브'), findsWidgets);
+    // 폰에 남는다(앱을 다시 열어도 보임).
+    final p = await SharedPreferences.getInstance();
+    expect(p.getString('calc_history_tube_marking'), contains('총 절단'));
   });
 
   testWidgets('피팅 시작·종료 단추를 누르면 켜지고 총 길이가 늘어난다', (tester) async {
