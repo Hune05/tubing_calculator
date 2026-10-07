@@ -42,6 +42,10 @@ void main() {
       final r = optimizeCutting(pieces: [5800], stockLength: 6000);
       expect(r.keepableScraps(), isEmpty); // 기본 300
       expect(r.keepableScraps(minLength: 150), [200]);
+      // 최소 길이를 0으로 해도 딱 맞게 쓴 본(0mm)은 잔재가 아니다(10-07).
+      final exact = optimizeCutting(pieces: [6000], stockLength: 6000);
+      expect(exact.keepableScraps(minLength: 0), isEmpty);
+      expect(r.keepableScraps(minLength: 0), [200]);
     });
 
     test('이름표는 같은 길이끼리 하나씩, 표·CSV에 붙는다', () {

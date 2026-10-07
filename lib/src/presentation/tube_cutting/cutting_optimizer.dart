@@ -62,7 +62,8 @@ class CuttingOptimizationResult {
     final out = <double>[];
     for (final b in [...bars, ...leftoverBars]) {
       final r = b.remainderWithKerf(kerf);
-      if (r >= minLength) out.add(r.floorToDouble());
+      // 1mm도 안 남는 본(딱 맞게 쓴 본)은 잔재가 아니다(최소 길이가 0이어도).
+      if (r >= 1 && r >= minLength) out.add(r.floorToDouble());
     }
     return out;
   }

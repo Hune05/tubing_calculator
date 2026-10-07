@@ -16,6 +16,7 @@ import '../cutting_theme.dart';
 import '../../../core/common_widgets/swipe_to_delete.dart';
 import 'leftover_log_page.dart';
 import 'package:tubing_calculator/src/core/utils/number_input.dart';
+import 'package:tubing_calculator/src/presentation/common/number_text.dart';
 
 // 🚀 [형강 컷팅 신규 기능 대비 리팩터링] 원래 이 "재단 계획" 시트는
 // CuttingMainScreen 안에 300줄 가까이 박혀 있어서, 튜브 라인이 아니라
@@ -1510,10 +1511,16 @@ Widget _smallNumField({
   keyboardType: const TextInputType.numberWithOptions(decimal: true),
   // 🚀 [고침] 키보드 "완료"를 눌러야만 반영돼, 칸 밖을 누르고 나오면 보이는 값과
   // 계산 값이 달랐다. 고칠 때마다 반영한다.
-  onChanged: (t) =>
-      onSubmitted((double.tryParse(t.trim()) ?? 0).clamp(0, 5000)),
-  onSubmitted: (t) =>
-      onSubmitted((double.tryParse(t.trim()) ?? 0).clamp(0, 5000)),
+  // 칸을 비우거나 못 읽는 글(새 값을 치려고 지운 중 등)은 반영하지 않는다. 예전에는 0으로 저장돼
+  // "잔재 최소 길이"가 0이 되고, 그 뒤 0mm·몇 mm 토막까지 잔재로 저장됐다(10-07).
+  onChanged: (t) {
+    final v = parseNumberText(t);
+    if (v != null) onSubmitted(v.clamp(0, 5000).toDouble());
+  },
+  onSubmitted: (t) {
+    final v = parseNumberText(t);
+    if (v != null) onSubmitted(v.clamp(0, 5000).toDouble());
+  },
   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
   decoration: InputDecoration(
     isDense: true,
