@@ -126,9 +126,15 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   static const String _kStockDeductedField = 'stockDeducted';
   BarsBySpec _stockDeducted = {};
 
-  String get _linesSig => _resultLines().map((l) => l.key).join('|');
+  // 잔재 저장 표시는 "무게 큰 것부터" 정렬과 상관없는 줄 모양으로 본다
+  // (10-07: 정렬만 바꿔도 표시가 풀려 잔재를 또 저장할 수 있었다). 예전 판의 정렬된 모양도 알아본다.
+  String get _linesSig => buildSteelResultLines(_items, _setMultiplier)
+      .map((l) => l.key)
+      .join('|');
   bool get _leftoversSaved =>
-      _leftoverSavedSig.isNotEmpty && _leftoverSavedSig == _linesSig;
+      _leftoverSavedSig.isNotEmpty &&
+      (_leftoverSavedSig == _linesSig ||
+          _leftoverSavedSig == _resultLines().map((l) => l.key).join('|'));
 
   @override
   void initState() {

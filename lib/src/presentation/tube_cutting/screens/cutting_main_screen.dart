@@ -371,21 +371,35 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 줄 모양이 지금과 같을 때만 "이미 뺀 것"으로 본다(잔재 저장과 같은 방식).
   BarsBySpec _stockDeducted = {};
   String _stockDeductedSig = '';
-  BarsBySpec get _stockDeductedNow =>
-      _stockDeductedSig.isNotEmpty && _stockDeductedSig == _linesSig
-      ? _stockDeducted
-      : const {};
+  // 10-07: 뺀 기록은 결과 줄 모양과 상관없이 이 작업에 묶어 둔다. 예전에는 "같은 길이 묶기"를
+  // 끄거나 세트 수만 바꿔도 줄 모양이 달라져 같은 원자재를 또 뺄 수 있었고, 먼저 뺀 것은 되돌릴
+  // 길도 없어졌다. 재단 계획 창은 필요한 본에서 이미 뺀 본을 뺀 나머지만 빼게 한다(barsStillToDeduct).
+  BarsBySpec get _stockDeductedNow => _stockDeducted;
 
   String get _linesSig => _resultLines().map((l) => l.key).join('|');
+
+  /// 잔재 저장 표시에 쓰는 "자를 조각" 모양: 규격별 길이를 정렬해 이은 글.
+  /// 결과 탭의 묶기·순서와 상관없다(10-07: 묶기만 바꿔도 잔재를 또 저장할 수 있었다).
+  String get _piecesSig {
+    final g = _collectRequiredPiecesByTubeSize();
+    final keys = g.keys.toList()..sort();
+    return [
+      for (final k in keys)
+        '$k:${([...g[k]!]..sort()).map((v) => v.toStringAsFixed(1)).join(',')}',
+    ].join('|');
+  }
+
+  // 예전 판에서 저장한 표시(결과 줄 모양)도 그대로 알아본다.
   bool get _leftoversSaved =>
-      _leftoverSavedSig.isNotEmpty && _leftoverSavedSig == _linesSig;
+      _leftoverSavedSig.isNotEmpty &&
+      (_leftoverSavedSig == _piecesSig || _leftoverSavedSig == _linesSig);
 
   void _onLeftoversSaved() {
     if (!mounted) return;
     setState(() {
       _doneBeforeLeftoverSave = {..._doneKeys};
       _doneKeys.addAll(_resultLines().map((l) => l.key));
-      _leftoverSavedSig = _linesSig;
+      _leftoverSavedSig = _piecesSig;
     });
     _saveDraftState();
   }
@@ -2561,8 +2575,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       _TubeStockChoice.skip => "",
       _ =>
         widget.onSaveCallback != null &&
-                (snapshot.stockSig.isEmpty ||
-                    snapshot.stockSig != snapshot.linesSig)
+                snapshot.stockBars.isEmpty
             ? "\n튜브 재고는 재단 계획 창의 '재고에서 빼기'로 뺍니다."
             : "",
     };

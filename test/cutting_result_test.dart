@@ -498,6 +498,21 @@ Union Cross 1/2" × 2''');
       await tester.tapAt(const Offset(180, 20));
       await tester.pumpAndSettle();
       expect(find.textContaining('모두 잘랐습니다'), findsOneWidget);
+
+      // '같은 길이 합산'을 꺼도(결과 줄 모양만 바뀜) 잔재를 또 저장할 수 없다(10-07).
+      final sw = find.descendant(
+        of: find.ancestor(of: find.text('같은 길이 합산'), matching: find.byType(Row)).first,
+        matching: find.byType(Switch),
+      );
+      await tester.ensureVisible(sw);
+      await tester.tap(sw);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('result_btn_optimize')));
+      await tester.pumpAndSettle();
+      expect(find.text('자른 뒤 잔재 저장'), findsNothing);
+      expect(find.text('저장했습니다'), findsOneWidget);
+      await tester.tapAt(const Offset(180, 20));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('간섭·못 읽는 구간은 목록에서 빼고 이유를 알려 준다', (tester) async {
