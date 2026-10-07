@@ -331,8 +331,16 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   Future<void> _onSpecsChanged() async {
     // 이 조합으로 넣어 둔 제원이 있으면 그것부터 꺼낸다.
     final found = await _applySavedSpecSet();
-    if (found || !mounted) return;
-    _fillFromStandardSpecs();
+    if (!mounted) return;
+    if (!found) {
+      _fillFromStandardSpecs();
+      return;
+    }
+    // 저장본의 AUTO 칸은 저장 당시 숫자다. 제원표가 바뀌었으면(예: 548bc5d 1/2" 게인 20→16.3)
+    // 새 표 값을 쓴다(10-07). 표에 이 조합이 없으면 저장본 숫자를 그대로 둔다.
+    if (SettingsController.getStandardSpecs(_benderBrand, _currentOD) != null) {
+      _fillFromStandardSpecs();
+    }
   }
 
   void _fillFromStandardSpecs() {
@@ -445,6 +453,27 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     final c = AppSettingsController();
     c.gain = v;
     c.autoGain = false;
+    // 이 규격의 제원 저장본에도 게인만 바꿔 적는다(10-07: 저장본은 옛 게인이라, 계산기를 다시 열면
+    // 옛 게인으로 돌아가고 폰 저장소에도 다시 적혔다). 다른 칸은 저장본 그대로.
+    final prev = await loadMachineSpecSet(_specKey);
+    if (prev != null) {
+      await saveMachineSpecSet(
+        _specKey,
+        MachineSpecSet(
+          bendRadius: prev.bendRadius,
+          takeUp: prev.takeUp,
+          gain: v,
+          springback: prev.springback,
+          minStraight: prev.minStraight,
+          benderOffset: prev.benderOffset,
+          fittingDepth: prev.fittingDepth,
+          markThickness: prev.markThickness,
+          offsetShrink: prev.offsetShrink,
+          cutMargin: prev.cutMargin,
+          autoFields: {...prev.autoFields}..remove('gain'),
+        ),
+      );
+    }
     await c.save();
     MobileBendDataManager().updateMachineSpecs(gain90: v);
     final saved = _savedValues;
@@ -697,7 +726,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               onTap: () {
                 final bool isAuto = !auto;
                 setState(() => _autoStates[key!] = isAuto);
-                if (isAuto) _onSpecsChanged();
+                // AUTO로 바꾸면 제원표 값만 채운다. 저장본을 다시 꺼내면 AUTO/MAN 표시까지
+                // 저장본으로 덮여 곧바로 MAN으로 돌아가고, 저장 안 한 다른 칸도 덮였다(10-07).
+                if (isAuto) _fillFromStandardSpecs();
               },
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
@@ -1534,6 +1565,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _buildSwitchRow("화면 꺼짐 방지", _keepScreenOn, (val) {
           setState(() => _keepScreenOn = val);
           AppSettingsController().setKeepScreenOn(val);
+          // 누르는 즉시 저장되므로 "저장하지 않은 값"으로 보지 않는다(10-07: 저장 단추가 주황으로 떴다).
+          _savedValues?['screenOn'] = '$val';
         }),
       ]),
     ];

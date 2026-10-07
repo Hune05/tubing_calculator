@@ -149,6 +149,8 @@ class AppSettingsController extends ChangeNotifier {
   void _syncMachineSpecs({bool persist = true}) {
     MachineSpecs().update(
       persist: persist,
+      // 규격 이름도 같이(10-07: 외경을 바꿔 저장해도 마킹 기록 제목이 옛 규격으로 붙었다).
+      pipeSize: isInch ? '$tubeOD"' : '${tubeOD}mm',
       radius: bendRadius,
       takeUp90: takeUp,
       gain90: gain,
@@ -241,6 +243,8 @@ class AppSettingsController extends ChangeNotifier {
       warnShoeInterference: warnShoeInterference,
     );
     notifyListeners();
+    // 다른 기기에도 바로 올린다(10-07: 다음 설정 저장 때까지 안 올라갔다).
+    SettingsCloudSync.instance.backup();
   }
 
   void _applyWakelock() {
