@@ -43,9 +43,7 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/pages/weekly_rep
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_edit_page.dart';
 import 'package:tubing_calculator/src/presentation/profile/pages/mobile_profile_page.dart';
-import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
 import 'package:tubing_calculator/src/presentation/reference/page/tube_reference_page.dart';
-import 'package:tubing_calculator/src/presentation/settings/screens/settings_screen.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_cutting_detail_screen.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
@@ -145,8 +143,6 @@ final screens = <String, (Widget Function(), List<Cfg>)>{
   '프로필': (() => const MobileProfilePage(currentWorker: '홍길동'), phoneCfgs),
   '프로필 수정': (() => const MobileProfileEditPage(initialName: '홍길동'), phoneCfgs),
   '재고 로그인': (() => const MobileInventoryLoginScreen(), phoneCfgs),
-  'PC 프로젝트 관리': (() => const ProjectManagementPage(), tabletCfgs),
-  'PC 설정': (() => const SettingsScreen(), tabletCfgs),
 };
 
 class Finding {

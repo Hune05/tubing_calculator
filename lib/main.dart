@@ -34,12 +34,6 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/shared_d
     show openSharedDrawing;
 
 // 💡 프로젝트 화면 임포트들
-import 'package:tubing_calculator/src/presentation/calculator/widgets/main_calculator_screen.dart';
-import 'package:tubing_calculator/src/presentation/settings/screens/settings_screen.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/marking_page.dart';
-import 'package:tubing_calculator/src/presentation/inventory/pages/inventory_page.dart';
-import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
-import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_project_list_screen.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/mobile_steel_project_list_page.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminders.dart'
@@ -446,16 +440,8 @@ class _MyAppState extends State<MyApp> {
       ),
       home: const MobileLoadingScreen(),
       routes: {
-        // 🚀 [수정] 폴더블 대응: MenuScreen을 바로 고정하지 않고
-        // HomeMenuRouter를 거쳐서, 그 순간의 화면 크기(펼침/접힘)에 맞는
-        // 홈 화면이 실시간으로 나오게 한다.
+        // 옛 태블릿(PC) 화면 경로는 10-08에 지웠다. 홈은 HomeMenuRouter(폰 메뉴 하나).
         '/menu': (context) => const HomeMenuRouter(),
-        '/calculator': (context) => const MainCalculatorScreen(),
-        '/marking': (context) => const MarkingPage(startDir: 'RIGHT'),
-        '/settings': (context) => const SettingsScreen(),
-        '/inventory': (context) => const InventoryPage(),
-        '/projects': (context) => const ProjectManagementPage(),
-        '/cutting': (context) => const CuttingProjectListScreen(),
         '/steel-cutting': (context) => const MobileSteelProjectListPage(),
         '/my-schedule': (context) => const MobileMyScheduleScreen(),
       },

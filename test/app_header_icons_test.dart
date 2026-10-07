@@ -3,11 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:tubing_calculator/src/core/common_widgets/app_header.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
-import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 
 /// lib 아래 dart 파일의 AppBar(...) 덩어리들.
 Iterable<(String, String)> appBars() sync* {
@@ -85,33 +82,4 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byIcon(AppIcons.back), findsOneWidget);
   });
-
-  testWidgets('흰 머리 + 모드 칩: 좁아도 넘치지 않는다', (tester) async {
-    tester.view.physicalSize = const Size(320, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildAppTheme(),
-        home: Builder(
-          builder: (context) => Scaffold(
-            appBar: appHeader(
-              context,
-              title: '아주 긴 제목이 들어가는 마킹 가이드 화면',
-              mode: ModeChip(label: '전동', color: Colors.orange.shade800),
-              actions: [
-                IconButton(onPressed: () {}, icon: const Icon(AppIcons.search)),
-                IconButton(onPressed: () {}, icon: const Icon(AppIcons.more)),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-    expect(tester.takeException(), isNull);
-    expect(find.text('전동'), findsOneWidget);
-    final bar = tester.widget<AppBar>(find.byType(AppBar));
-    expect(bar.backgroundColor, AppColors.surface);
-  });
-
 }

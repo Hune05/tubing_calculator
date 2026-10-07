@@ -5,7 +5,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/daily_report_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/punch_list_page.dart';
-import 'package:tubing_calculator/src/presentation/settings/screens/settings_screen.dart';
 
 import 'helpers_text.dart';
 
@@ -95,37 +94,6 @@ void main() {
       await tester.tap(find.text('취소'));
       await tester.pumpAndSettle();
       expect(atHome(), isFalse);
-    });
-  });
-
-  group('PC 설정', () {
-    setUp(() {
-      TestWidgetsFlutterBinding.ensureInitialized();
-      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMessageHandler(
-            'dev.flutter.pigeon.wakelock_plus_platform_interface.WakelockPlusApi.toggle',
-            (_) async =>
-                const StandardMessageCodec().encodeMessage(<Object?>[]),
-          );
-    });
-
-    testWidgets('적용하지 않고 나가면 묻고, 적용하고 나가기를 고를 수 있다', (tester) async {
-      await openFrom(tester, const SettingsScreen());
-      await back(tester);
-      expect(atHome(), isTrue); // 안 바꿨으면 그냥
-
-      await tester.tap(find.text('열기'));
-      await tester.pumpAndSettle();
-      final inch = find.text('inch').first;
-      await tester.ensureVisible(inch);
-      await tester.tap(inch);
-      await tester.pumpAndSettle();
-      await back(tester);
-      // 예전: 묻지 않고 닫혀 고친 설정이 사라졌다.
-      expect(find.text('적용하지 않은 설정이 있습니다'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('settings_apply_leave')));
-      await tester.pumpAndSettle();
-      expect(atHome(), isTrue);
     });
   });
 }
