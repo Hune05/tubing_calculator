@@ -49,6 +49,11 @@ class _AiPolishButtonState extends State<AiPolishButton> {
       builder: (_) => _CompareSheet(original: original, polished: res.text!, remaining: res.remaining),
     );
     if (accepted == true && mounted) {
+      // 기다리는 사이 글을 더 썼으면 통째로 바꾸지 않는다(10-08: 더 쓴 글이 사라졌다).
+      if (widget.controller.text.trim() != original) {
+        _toast('다듬는 사이 글이 바뀌어 바꾸지 않았습니다. 다시 다듬어 주십시오.');
+        return;
+      }
       widget.controller.text = res.text!;
       widget.controller.selection = TextSelection.collapsed(offset: res.text!.length);
       widget.onChanged?.call();

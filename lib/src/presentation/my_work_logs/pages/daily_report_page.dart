@@ -819,7 +819,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
     if (_overtimeStart == null || _overtimeEnd == null) return null;
     int startMin = _overtimeStart!.hour * 60 + _overtimeStart!.minute;
     int endMin = _overtimeEnd!.hour * 60 + _overtimeEnd!.minute;
-    if (endMin <= startMin) endMin += 24 * 60; // 자정 넘김
+    // 시작과 끝이 같으면 0시간이 아니라 계산하지 않는다(10-08: 24시간으로 집계됐다, 근태와 같게).
+    if (endMin == startMin) return null;
+    if (endMin < startMin) endMin += 24 * 60; // 자정 넘김
     return (endMin - startMin) / 60.0;
   }
 

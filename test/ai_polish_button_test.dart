@@ -38,6 +38,20 @@ void main() {
     expect(c.text, '센서 3개소 결선 완료');
   });
 
+  testWidgets('다듬는 사이 글을 더 썼으면 바꾸기를 눌러도 덮지 않는다(10-08)', (tester) async {
+    final c = TextEditingController(text: '센서3 결선');
+    await tester.pumpWidget(_host(c, (t) async {
+      c.text = '센서3 결선, 내일 루프 시험'; // 기다리는 사이 더 씀
+      return const AiPolishResult.ok('센서 3개소 결선 완료', remaining: 29);
+    }));
+    await tester.tap(find.text('AI로 다듬기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('바꾸기'));
+    await tester.pumpAndSettle();
+    expect(c.text, '센서3 결선, 내일 루프 시험');
+    expect(find.textContaining('글이 바뀌어'), findsOneWidget);
+  });
+
   testWidgets('실패하면 글은 그대로, 안내만 뜬다', (tester) async {
     final c = TextEditingController(text: '튜브 연결');
     await tester.pumpWidget(_host(c, (t) async => const AiPolishResult.fail('AI가 지금 응답하지 않습니다')));
