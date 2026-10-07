@@ -119,7 +119,13 @@ mixin ElecTabParts<W extends StatefulWidget>
     final before = historySnapshot();
     final beforeRaw = before == null ? null : jsonEncode(before);
     calcLog.openTab?.call(sumKey);
-    setState(() => applyHistorySnapshot(jsonDecode(raw) as Map<String, dynamic>));
+    try {
+      setState(() => applyHistorySnapshot(jsonDecode(raw) as Map<String, dynamic>));
+    } catch (_) {
+      // 옛 기록을 반쯤 넣다 멈추면 칸이 뒤섞이니 누르기 전 값으로 되돌려 놓고 알린다.
+      if (before != null) setState(() => applyHistorySnapshot(before));
+      rethrow;
+    }
     showAppSnack(
       context,
       '그때 입력값으로 되돌렸습니다',

@@ -1,4 +1,4 @@
-// 최근 계산 기록을 폰에 하루 동안 남기고, 앱을 다시 연 뒤에도 눌러 되돌리기(10-07).
+// 최근 계산 기록을 폰에 이틀 동안 남기고, 앱을 다시 연 뒤에도 눌러 되돌리기(10-07).
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -73,19 +73,55 @@ void main() {
     expect(_text(t, 'eg_g_k'), '1');
   });
 
-  test('하루가 지난 기록은 읽지 않는다', () async {
+  test('이틀이 지난 기록은 읽지 않는다', () async {
     final at = DateTime(2026, 10, 7, 9);
     SharedPreferences.setMockInitialValues({
       'k': jsonEncode([
         {'t': '부하 전류', 's': '새 기록', 'at': at.subtract(const Duration(hours: 2)).toIso8601String()},
-        {'t': '부하 전류', 's': '옛 기록', 'at': at.subtract(const Duration(hours: 30)).toIso8601String()},
+        {'t': '부하 전류', 's': '어제 기록', 'at': at.subtract(const Duration(hours: 30)).toIso8601String()},
+        {'t': '부하 전류', 's': '옛 기록', 'at': at.subtract(const Duration(hours: 50)).toIso8601String()},
       ]),
     });
     RecentCalcLog.now = () => at;
     final log = RecentCalcLog();
     await log.attachStorage('k');
-    expect(log.entries.map((e) => e.subtitle), ['새 기록']);
+    expect(log.entries.map((e) => e.subtitle), ['새 기록', '어제 기록']);
     // 되돌릴 입력값이 없는 기록은 누를 수 없다.
-    expect(log.entries.single.onTap, isNull);
+    expect(log.entries.first.onTap, isNull);
+  });
+
+  testWidgets('되돌리기 실패는 알림으로: 옛 입력값을 못 읽거나 탭이 끝내 준비되지 않을 때', (t) async {
+    {
+      final msgs = <String>[];
+      final log = RecentCalcLog()..onRestoreFail = msgs.add;
+      log.restorers['a'] = (raw) => (jsonDecode(raw) as Map<String, dynamic>)['x'] as String;
+      log.restore('a', '[1, 2]');
+      expect(msgs, [RecentCalcLog.kBadData]);
+      log.restore('없는 탭', '{}');
+      await t.pump(const Duration(seconds: 3));
+      expect(msgs.last, RecentCalcLog.kNotReady);
+    }
+  });
+
+  testWidgets('앱이 바뀌어 못 읽는 옛 기록을 누르면 오류 화면 대신 알림이 뜨고 칸은 그대로다', (t) async {
+    await _open(t, 1);
+    await _type(t, 'ec_kw', '11');
+    await _close(t);
+    final p = await SharedPreferences.getInstance();
+    final key = p.getKeys().firstWhere((k) => k.startsWith('calc_history_elec'));
+    final list = jsonDecode(p.getString(key)!) as List;
+    for (final m in list) {
+      (m as Map)['d'] = '[1, 2]';
+    }
+    await p.setString(key, jsonEncode(list));
+    await _open(t, 1);
+    await _type(t, 'ec_kw', '7');
+    await t.tap(find.byKey(const Key('calc_history_button')));
+    await t.pumpAndSettle();
+    await t.tap(find.textContaining('19.7 A').last);
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    expect(find.text(RecentCalcLog.kBadData), findsOneWidget);
+    expect(_text(t, 'ec_kw'), '7');
   });
 }

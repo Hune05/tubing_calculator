@@ -113,7 +113,7 @@ class FormulaDetailPage extends StatefulWidget {
 
 class _FormulaDetailPageState extends State<FormulaDetailPage>
     with CalcFormParts<FormulaDetailPage>, RecentCalcHistoryMixin<FormulaDetailPage> {
-  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  /// 최근 계산 기록을 폰에 이틀 동안 남기는 칸.
   @override
   String? get calcHistoryStorageKey => 'calc_history_formula_${widget.def.id}';
 

@@ -61,7 +61,7 @@ class _LightingTabState extends State<_LightingTab>
         RecentCalcHistoryMixin<_LightingTab>,
         ElecTabParts<_LightingTab>,
         AutomaticKeepAliveClientMixin<_LightingTab> {
-  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  /// 최근 계산 기록을 폰에 이틀 동안 남기는 칸.
   @override
   String? get calcHistoryStorageKey => 'calc_history_panel_light';
 
@@ -242,7 +242,7 @@ class _BalanceTabState extends State<_BalanceTab>
         RecentCalcHistoryMixin<_BalanceTab>,
         ElecTabParts<_BalanceTab>,
         AutomaticKeepAliveClientMixin<_BalanceTab> {
-  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  /// 최근 계산 기록을 폰에 이틀 동안 남기는 칸.
   @override
   String? get calcHistoryStorageKey => 'calc_history_panel_balance';
 
@@ -512,7 +512,7 @@ class _FeederTabState extends State<_FeederTab>
         RecentCalcHistoryMixin<_FeederTab>,
         ElecTabParts<_FeederTab>,
         AutomaticKeepAliveClientMixin<_FeederTab> {
-  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  /// 최근 계산 기록을 폰에 이틀 동안 남기는 칸.
   @override
   String? get calcHistoryStorageKey => 'calc_history_panel_feeder';
 
@@ -781,7 +781,7 @@ class _BranchTabState extends State<_BranchTab>
         RecentCalcHistoryMixin<_BranchTab>,
         ElecTabParts<_BranchTab>,
         AutomaticKeepAliveClientMixin<_BranchTab> {
-  /// 최근 계산 기록을 폰에 하루 동안 남기는 칸.
+  /// 최근 계산 기록을 폰에 이틀 동안 남기는 칸.
   @override
   String? get calcHistoryStorageKey => 'calc_history_panel_branch';
 

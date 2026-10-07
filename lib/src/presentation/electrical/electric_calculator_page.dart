@@ -698,7 +698,13 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     if (!mounted) return;
     final before = jsonEncode(_draft());
     calcLog.openTab?.call(sumKey);
-    setState(() => _applyDraft(jsonDecode(raw) as Map<String, dynamic>));
+    try {
+      setState(() => _applyDraft(jsonDecode(raw) as Map<String, dynamic>));
+    } catch (_) {
+      // 옛 기록을 반쯤 넣다 멈추면 칸이 뒤섞이니 누르기 전 값으로 되돌려 놓고 알린다.
+      setState(() => _applyDraft(jsonDecode(before) as Map<String, dynamic>));
+      rethrow;
+    }
     showAppSnack(
       context,
       '그때 입력값으로 되돌렸습니다',

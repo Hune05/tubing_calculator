@@ -1,6 +1,6 @@
 // 계산기 화면에서 쓰는 "최근 계산 기록" 버튼·시트 — 리모컨 화면의 "최근 전송 기록"과 같은 방식
 // (2026-09-29 사용자 요청). 저장 버튼 없이 계산할 때마다 자동으로 쌓인다. 저장 칸을 정한 화면은
-// 폰에 하루 동안 남겨 앱을 다시 열어도 보이고 눌러 되돌릴 수 있다(10-07). "저장한 기록"과는 다른 가벼운 목록.
+// 폰에 이틀 동안 남겨 앱을 다시 열어도 보이고 눌러 되돌릴 수 있다(10-07). "저장한 기록"과는 다른 가벼운 목록.
 import 'dart:async';
 import 'dart:convert';
 
@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/field_view.dart';
+import 'app_components.dart';
 
 class RecentCalcEntry {
   final String title;
@@ -36,8 +37,8 @@ class RecentCalcEntry {
   };
 }
 
-/// 폰에 남긴 기록을 얼마 동안 두는지. 오전에 계산한 것을 오후에 되돌려 볼 수 있게 하루.
-const Duration kCalcHistoryKeep = Duration(hours: 24);
+/// 폰에 남긴 기록을 얼마 동안 두는지. 어제 계산한 것을 다음 날 현장에서 되돌려 볼 수 있게 이틀(10-07).
+const Duration kCalcHistoryKeep = Duration(hours: 48);
 
 /// 기록 쌓기 그 자체(디바운스·중복 방지·최대 개수). 보통은 [RecentCalcHistoryMixin]이
 /// 화면마다 하나씩 따로 갖지만, 탭이 여러 화면 파일로 나뉜 계산기(전기 설비 계산처럼)는
@@ -52,6 +53,15 @@ class RecentCalcLog {
 
   /// 탭 이름 키 → 그 탭에 입력값을 다시 넣는 일. 탭 State가 그려질 때 스스로 등록한다.
   final Map<String, void Function(String data)> restorers = {};
+
+  /// 되돌리지 못했을 때 알리는 일(그 화면이 알림을 띄운다). 시험에서도 바꿔 끼운다.
+  void Function(String message)? onRestoreFail;
+
+  /// 탭이 준비되지 않아 되돌리지 못했을 때.
+  static const String kNotReady = '그 계산 화면이 준비되지 않아 되돌리지 못했습니다. 다시 눌러 보십시오';
+
+  /// 앱이 바뀌어 옛 기록의 입력값을 읽을 수 없을 때.
+  static const String kBadData = '앱이 바뀌기 전 기록이라 되돌릴 수 없습니다';
 
   Timer? _debounce;
   String? _lastKey;
@@ -105,23 +115,31 @@ class RecentCalcLog {
   );
 
   /// 기록 하나를 되돌린다: 그 탭을 앞으로 띄우고, 그 탭이 준비되면(앱을 다시 연 뒤에는 탭이 아직
-  /// 그려지지 않았을 수 있다) 입력값을 넣는다. 조금 기다려도 준비되지 않으면 그만둔다.
+  /// 그려지지 않았을 수 있다) 입력값을 넣는다. 조금 기다려도 준비되지 않거나, 앱이 바뀌어 옛 입력값을
+  /// 읽지 못하면 그만두고 [onRestoreFail]로 알린다(빨간 오류 화면 대신).
   void restore(String key, String data, {int tries = 30}) {
     openTab?.call(key);
     void attempt(int left) {
       final r = restorers[key];
       if (r != null) {
-        r(data);
+        try {
+          r(data);
+        } catch (_) {
+          onRestoreFail?.call(kBadData);
+        }
         return;
       }
-      if (left <= 0) return;
+      if (left <= 0) {
+        onRestoreFail?.call(kNotReady);
+        return;
+      }
       Timer(const Duration(milliseconds: 50), () => attempt(left - 1));
     }
 
     attempt(tries);
   }
 
-  /// 폰 저장 칸 [key]에 기록을 남기고, 남아 있던 기록(하루 안)을 읽어 붙인다.
+  /// 폰 저장 칸 [key]에 기록을 남기고, 남아 있던 기록(이틀 안)을 읽어 붙인다.
   Future<void> attachStorage(String key) async {
     if (_storageKey == key) return;
     _storageKey = key;
@@ -175,7 +193,7 @@ class RecentCalcLog {
 /// 계산기 State에 섞어 쓰는 믹스인. 자동 기록 쌓기(디바운스)와 버튼 위젯을 준다.
 /// 여러 State가 기록 하나를 같이 쓰려면 [calcLog]를 override해서 밖에서 만든
 /// [RecentCalcLog]를 돌려주면 된다(기본은 이 State만 쓰는 것 하나를 스스로 만든다).
-/// [calcHistoryStorageKey]를 정하면 이 State가 가진 기록을 폰에 남긴다(하루).
+/// [calcHistoryStorageKey]를 정하면 이 State가 가진 기록을 폰에 남긴다(이틀).
 mixin RecentCalcHistoryMixin<W extends StatefulWidget> on State<W> {
   final RecentCalcLog _ownLog = RecentCalcLog();
   RecentCalcLog get calcLog => _ownLog;
@@ -198,6 +216,11 @@ mixin RecentCalcHistoryMixin<W extends StatefulWidget> on State<W> {
     if (k != null && identical(calcLog, _ownLog)) {
       _ownLog._onChange = _redraw;
       _ownLog.attachStorage(k);
+    }
+    if (identical(calcLog, _ownLog)) {
+      _ownLog.onRestoreFail = (m) {
+        if (mounted) showAppSnack(context, m, kind: AppSnackKind.error);
+      };
     }
   }
 
