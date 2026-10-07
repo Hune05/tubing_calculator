@@ -136,13 +136,14 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           actions: [
-            if (_list?.isNotEmpty ?? false)
+            // 걸러 놓았으면 보이는 기록만 내보낸다(건수를 단추에 적어 무엇이 나가는지 보인다).
+            if (_shown.isNotEmpty)
               TextButton(
                 key: const Key('pr_csv'),
                 onPressed: _exportCsv,
-                child: const Text(
-                  'CSV 내보내기',
-                  style: TextStyle(fontWeight: FontWeight.w800),
+                child: Text(
+                  _filtering ? 'CSV 내보내기 ${_shown.length}건' : 'CSV 내보내기',
+                  style: const TextStyle(fontWeight: FontWeight.w800),
                 ),
               ),
           ],
@@ -152,10 +153,15 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
     ),
   );
 
+  bool get _filtering => _search.text.trim().isNotEmpty || _pass != null;
+
+  /// 지금 목록에 보이는 기록(검색어·판정 칩으로 거른 것).
+  List<PtRecord> get _shown => filterPtRecords(_list ?? const [], _search.text, _pass);
+
   /// 엑셀에서 여는 CSV 파일을 만들어 공유 창을 연다(보내기는 사용자가 고른다).
   Future<void> _exportCsv() async {
-    final l = _list;
-    if (l == null || l.isEmpty) return;
+    final l = _shown;
+    if (l.isEmpty) return;
     final d = DateTime.now();
     final name =
         'pt_records_${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.csv';
@@ -188,8 +194,8 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
         ),
       );
     }
-    final shown = filterPtRecords(l, _search.text, _pass);
-    final filtering = _search.text.trim().isNotEmpty || _pass != null;
+    final shown = _shown;
+    final filtering = _filtering;
     final head = <Widget>[
       _syncLine(),
       _filterBar(),

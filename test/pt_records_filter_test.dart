@@ -46,6 +46,8 @@ void main() {
     expect(find.byKey(const Key('pr_item_a')), findsNothing);
     expect(find.byKey(const Key('pr_item_b')), findsOneWidget);
     expect(find.text('1건 / 전체 2건'), findsOneWidget);
+    // CSV는 보이는 기록만 내보낸다(단추에 건수).
+    expect(find.text('CSV 내보내기 1건'), findsOneWidget);
 
     await t.tap(find.byKey(const Key('pr_search_clear')));
     await t.pump();
@@ -54,8 +56,10 @@ void main() {
     await t.tap(find.byKey(const Key('pr_pass_ok')));
     await t.pump();
     expect(find.text('맞는 기록이 없습니다.'), findsOneWidget);
+    expect(find.byKey(const Key('pr_csv')), findsNothing);
     await t.tap(find.byKey(const Key('pr_pass_all')));
     await t.pump();
     expect(find.byKey(const Key('pr_item_b')), findsOneWidget);
+    expect(find.text('CSV 내보내기'), findsOneWidget);
   });
 }
