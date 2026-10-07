@@ -405,13 +405,21 @@ class _MyNotificationsTabState extends State<MyNotificationsTab> {
     super.dispose();
   }
 
+  int _loadSeq = 0;
+  final Set<String> _dismissedNow = {};
+
+  // 마지막으로 부른 읽기만 반영하고, 읽는 사이 밀어 지운 줄은 빼고 넣는다
+  // (10-08: 저장 대기 수가 바뀌어 겹쳐 돈 읽기가 늦게 끝나면 방금 지운 알림이 되살아났다).
   Future<void> _load() async {
+    final seq = ++_loadSeq;
     final items = await _activeMyNotifications(widget.currentWorker);
-    if (mounted) setState(() => _items = items);
+    if (!mounted || seq != _loadSeq) return;
+    setState(() => _items = [for (final e in items) if (!_dismissedNow.contains(e.id)) e]);
   }
 
   Future<void> _dismiss(_AutoItem item) async {
     final now = DateTime.now();
+    _dismissedNow.add(item.id);
     // 밀어 지운 줄은 곧바로 목록에서 뺀다(기록을 저장한 뒤 빼면, 그새 화면을 닫았을 때
     // 닫힌 화면에 setState를 불러 오류가 났다, 10-07).
     setState(() => _items?.removeWhere((e) => e.id == item.id));
@@ -434,6 +442,7 @@ class _MyNotificationsTabState extends State<MyNotificationsTab> {
           label: '되돌리기',
           onPressed: () async {
             await _removeLastArchiveEntry(item.id, now);
+            _dismissedNow.remove(item.id);
             _load();
           },
         ),

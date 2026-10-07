@@ -277,9 +277,12 @@ extension _DailyReportSubmit on _DailyReportPageState {
     };
 
     if (!mounted) return;
-    _submitted = true;
+    // 임시 저장은 여기서 지우지 않고 마지막 내용으로 한 번 더 남긴다. 부른 화면이 폰에 쓰기를
+    // 넘긴 뒤에 지운다(10-08: 먼저 지워, 서버 읽기를 기다리는 몇 초 사이 앱이 꺼지면 일지가 사라졌다).
     _draftTimer?.cancel();
-    await _clearDraft();
+    _lastDraft = '';
+    await _saveDraft();
+    _submitted = true;
     if (!mounted) return;
     Navigator.pop(context, newReport);
   }

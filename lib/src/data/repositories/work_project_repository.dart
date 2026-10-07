@@ -108,9 +108,11 @@ class WorkProjectRepository {
   // 바뀐 기존 프로젝트든 동일하게 이걸로 덮어쓴다) - 기존 _saveData()가
   // "지금 메모리에 있는 걸 그대로 다시 쓴다"던 방식과 동일한 개념을
   // 프로젝트 단위로 축소한 것.
+  /// [onWritten]: 폰 Firestore에 쓰기를 넘긴 순간 부른다(통신이 없어도 그때부터 폰에 남는다).
   Future<void> upsertProject(
     Map<String, dynamic> project, {
     bool merge = true,
+    void Function()? onWritten,
   }) async {
     final String id =
         project['id']?.toString() ??
@@ -127,7 +129,7 @@ class WorkProjectRepository {
       kind: kPendingKindSave,
     );
     try {
-      await _mergeAndSet(project, data, id, merge: merge);
+      await _mergeAndSet(project, data, id, merge: merge, onWritten: onWritten);
     } finally {
       pendingWrites.value--;
       pendingLog.end(token);
@@ -139,6 +141,7 @@ class WorkProjectRepository {
     Map<String, dynamic> data,
     String id, {
     required bool merge,
+    void Function()? onWritten,
   }) async {
     if (merge) {
       // 저장 직전에 서버 것을 읽어 아이디로 합친다(다른 폰이 그 사이 넣은 일지·이슈가
@@ -165,7 +168,9 @@ class WorkProjectRepository {
         }
       }
     }
-    await _col.doc(id).set(data);
+    final write = _col.doc(id).set(data);
+    onWritten?.call();
+    await write;
   }
 
   // 프로젝트 일정 하나의 완료 표시만 바꾼다. 저장하기 직전에 문서를 다시 읽어 schedules 칸만

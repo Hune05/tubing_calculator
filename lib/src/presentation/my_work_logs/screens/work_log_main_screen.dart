@@ -252,9 +252,16 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   /// 작업 일지를 저장하고 결과를 알린다.
   /// 🚀 [고침] 저장해도 "저장했습니다"가 없어, 통신이 없으면 폰에만 있는지도 몰랐다.
   /// 몇 초 안에 서버에 닿으면 "저장했습니다", 아니면 폰에 두었다가 올린다고 알린다.
-  void _saveReportWithNotice(Map<String, dynamic> log) {
+  void _saveReportWithNotice(Map<String, dynamic> log, {String? clearDraftKey}) {
     final done = _repo
-        .upsertProject(log)
+        .upsertProject(
+          log,
+          onWritten: clearDraftKey == null
+              ? null
+              : () => SharedPreferences.getInstance()
+                    .then((p) => p.remove(clearDraftKey))
+                    .catchError((_) => false),
+        )
         .then<bool?>(
           (_) => true,
           onError: (Object e) {
@@ -1120,6 +1127,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       ),
     );
     if (updated != null) {
+      // 대시보드 목록이 붙인 화면용 칸은 빼고 넣는다(10-08: '_projectRef'가 프로젝트 자신을 품어
+      // 순환이 생기고, 그 프로젝트 저장·자동 백업이 계속 실패했다).
+      stripIssueDisplayKeys(updated);
       setState(() {
         final list = (log['punch_lists'] ??= <dynamic>[]) as List;
         final idx = indexOfItem(list, punch);
@@ -1366,7 +1376,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         ((log['daily_reports'] ??= <dynamic>[]) as List).insert(0, newReport);
         applyReportEffects(log, newReport);
       });
-      _saveReportWithNotice(log);
+      _saveReportWithNotice(log, clearDraftKey: 'report_draft_${log['id']}');
       _uploadReportPhotosFor(log, newReport);
     }
   }
@@ -1988,3 +1998,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     );
   }
 }
+
+/// 대시보드 "미해결 이슈" 목록이 이슈 사본에 붙이는 화면용 칸(프로젝트 참조·이름)을 뺀다.
+/// 이 칸을 그대로 프로젝트에 넣으면 프로젝트가 자기 자신을 품어 저장이 실패한다(10-08).
+void stripIssueDisplayKeys(Map<String, dynamic> issue) =>
+    issue.removeWhere((k, _) => k == '_projectRef' || k == '_projectName');

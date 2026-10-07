@@ -89,5 +89,8 @@ void main() {
     // 예전: 날짜는 늘 오늘이었다.
     expect(result?['date'], mmdd(day));
     expect(result?['dateISO'], iso(day));
+    // 저장을 눌러도 임시 저장은 남는다. 부른 화면이 폰에 쓰기를 넘긴 뒤에 지운다(10-08).
+    final p = await SharedPreferences.getInstance();
+    expect(p.getString('draft_t'), contains('어제 못 쓴 일지'));
   });
 }
