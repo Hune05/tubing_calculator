@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_firestore_helper.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_result_logic.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_stock_deduct.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 
 import 'helpers_text.dart';
@@ -397,6 +398,18 @@ void main() {
     final added = mergeMaterialsUsage([], 0, extra);
     expect(added.firstWhere((m) => m['db_name'] == '튜브 1/2"')['qty_mm'], 12000);
     expect(added, hasLength(2));
+    expect(subtractMaterialsUsage(added, 0, extra), isEmpty);
+  });
+
+  test('나중에 뺄 튜브는 계획 본수로 뺀다(4000 3본은 6000 재고에서도 3본, 10-08)', () {
+    final extra = pendingTubeEntries(
+      {'튜브 1/2"': 12000},
+      barsBySpec: {'튜브 1/2"': 3},
+    );
+    final added = mergeMaterialsUsage([], 0, extra);
+    final takes = stockTakesFromMaterials(added, barLengthByName: {'튜브 1/2"': 6000});
+    expect(takes.single.qty, 3);
+    // 되돌리면 본수도 빠진다
     expect(subtractMaterialsUsage(added, 0, extra), isEmpty);
   });
 }

@@ -113,6 +113,25 @@ Future<int> addCatalogItemsToInventory(
       }
     }
     if (snap?.exists ?? false) continue;
+    // 있는지 확인하지 못했으면(통신 없음·폰 사본 없음) 수량·위치를 쓰지 않고 합쳐 쓴다
+    // (10-08: 이미 있는 자재를 없는 것으로 보고 통째로 써, 통신이 되면 재고가 0으로 덮였다).
+    if (snap == null) {
+      batch.set(
+        ref,
+        {
+          'name': item.name,
+          'category': item.category,
+          'spec': item.spec,
+          'kind': item.kind,
+          'unit': item.unit,
+          'catalogId': item.id,
+          ...owner,
+        },
+        SetOptions(merge: true),
+      );
+      added++;
+      continue;
+    }
     batch.set(ref, {
       'name': item.name,
       'category': item.category,

@@ -366,6 +366,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 🚀 [고침] 예전에는 이것이 없어서, 잔재를 저장하고 창을 다시 열면 방금
   // 나온 잔재를 쓰는 계획으로 바뀌고 같은 컷팅을 또 저장할 수 있었다.
   String _leftoverSavedSig = '';
+  // 잔재를 저장한 순간 계획의 새 원자재 본(규격 → 본 길이들). 저장 뒤엔 잔재 목록이 바뀌어
+  // 다시 계산하면 본수가 늘어, 이미 뺀 튜브를 또 빼라고 물었다(10-08).
+  Map<String, List<double>>? _barsAtLeftoverSave;
 
   // 재단 계획 창에서 재고에서 뺀 새 원자재(규격별 본마다 길이)와, 그때의 결과 줄 모양.
   // 줄 모양이 지금과 같을 때만 "이미 뺀 것"으로 본다(잔재 저장과 같은 방식).
@@ -412,6 +415,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         ..addAll(_doneBeforeLeftoverSave ?? const <String>{});
       _doneBeforeLeftoverSave = null;
       _leftoverSavedSig = '';
+      _barsAtLeftoverSave = null;
     });
     _saveDraftState();
   }
@@ -427,6 +431,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       onLeftoversSaved: _onLeftoversSaved,
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
+      onLeftoversSavedBars: (m) => _barsAtLeftoverSave = m,
       leftoverLogSource: '라인 컷팅 · ${widget.project.name}',
       jobLogName: '라인 컷팅 · ${widget.project.name}',
       kerf: _bladeKerf,
@@ -914,6 +919,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         'groupSameLengths': _groupSameLengths,
         'doneKeys': _doneKeys.toList(),
         'leftoverSavedSig': _leftoverSavedSig,
+        if (_barsAtLeftoverSave != null)
+          'leftoverSavedBars': {
+            for (final e in _barsAtLeftoverSave!.entries) e.key: e.value,
+          },
         'stockDeductedSig': _stockDeductedSig,
         'stockDeducted': encodeDeductedBars(_stockDeducted),
         'tubeSpec': _tubeSpec,
@@ -964,6 +973,16 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             );
           _lengthUnit = stateData['lengthUnit'] ?? "mm";
           _leftoverSavedSig = (stateData['leftoverSavedSig'] as String?) ?? '';
+          final lb = stateData['leftoverSavedBars'];
+          _barsAtLeftoverSave = lb is Map
+              ? {
+                  for (final e in lb.entries)
+                    '${e.key}': [
+                      for (final v in (e.value as List? ?? const []))
+                        if (v is num) v.toDouble(),
+                    ],
+                }
+              : null;
           _stockDeductedSig = (stateData['stockDeductedSig'] as String?) ?? '';
           _stockDeducted = decodeDeductedBars(
             (stateData['stockDeducted'] as String?) ?? '',
@@ -2391,7 +2410,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           return;
         }
         if (tubeChoice == _TubeStockChoice.later) {
-          plan = plan.withExtra(pendingTubeEntries(left));
+          plan = plan.withExtra(
+            pendingTubeEntries(left, barsBySpec: _lastUndeductedBars),
+          );
         }
       }
     }
@@ -2425,12 +2446,29 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   }
 
   /// 재단 계획에서 새 원자재로 나올 튜브 중 아직 재고에서 안 뺀 것(규격 → 길이 합 mm).
+  // 마지막으로 센 "아직 안 뺀 튜브"의 규격별 본수(나중에 빼기로 남길 때 같이 적는다).
+  Map<String, int> _lastUndeductedBars = const {};
+
   Future<Map<String, double>> _undeductedTubeMm() async {
+    _lastUndeductedBars = const {};
     try {
       final leftovers = await loadLeftovers();
       final mixLengths = await loadMixLengths();
       final planSettings = await loadCutPlanSettings();
       final need = <String, List<double>>{};
+      final atSave = _barsAtLeftoverSave;
+      if (_leftoversSaved && atSave != null) {
+        // 잔재를 이미 저장했으면 그때의 계획 본수로 센다.
+        final left = barsStillToDeduct(atSave, _stockDeductedNow);
+        _lastUndeductedBars = {
+          for (final e in left.entries)
+            if (e.value.isNotEmpty) e.key: e.value.length,
+        };
+        return {
+          for (final e in left.entries)
+            if (e.value.isNotEmpty) e.key: e.value.fold(0.0, (a, b) => a + b),
+        };
+      }
       for (final e in _collectRequiredPiecesByTubeSize().entries) {
         final groupLeftovers = [
           for (final l in leftovers)
@@ -2454,6 +2492,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         need[e.key] = [for (final b in r.bars) b.stockLength];
       }
       final left = barsStillToDeduct(need, _stockDeductedNow);
+      _lastUndeductedBars = {
+        for (final e in left.entries)
+          if (e.value.isNotEmpty) e.key: e.value.length,
+      };
       return {
         for (final e in left.entries)
           if (e.value.isNotEmpty) e.key: e.value.fold(0.0, (a, b) => a + b),
@@ -2561,6 +2603,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       // 기록까지 저장했으면 새 작업이다. 같은 길이를 다시 넣어도 잔재를
       // 저장하고 재고에서 뺄 수 있게 한다.
       _leftoverSavedSig = '';
+      _barsAtLeftoverSave = null;
       _stockDeductedSig = '';
       _stockDeducted = {};
       _calculate();

@@ -40,7 +40,8 @@ List<Map<String, dynamic>> mergeMaterialsUsage(
       .map((m) => Map<String, dynamic>.from(m as Map))
       .toList();
 
-  void addTube(String size, double mm) {
+  // [bars]: 재단 계획의 새 원자재 본수(있으면). 차감 때 길이를 한 본 길이로 나누지 않고 본수를 쓴다.
+  void addTube(String size, double mm, {int bars = 0}) {
     if (mm <= 0) return;
     final name = tubeMaterialName(size);
     var idx = materials.indexWhere(
@@ -52,12 +53,18 @@ List<Map<String, dynamic>> mergeMaterialsUsage(
     }
     if (idx >= 0) {
       materials[idx]['qty_mm'] = (materials[idx]['qty_mm'] as num? ?? 0) + mm;
+      if (bars > 0) {
+        materials[idx]['qty_bars'] = (materials[idx]['qty_bars'] as num? ?? 0) + bars;
+        materials[idx]['qty_bars_mm'] = (materials[idx]['qty_bars_mm'] as num? ?? 0) + mm;
+      }
     } else {
       materials.add({
         'db_name': name,
         'type': 'TUBE',
         'spec': size,
         'qty_mm': mm,
+        if (bars > 0) 'qty_bars': bars,
+        if (bars > 0) 'qty_bars_mm': mm,
       });
     }
   }
@@ -74,6 +81,7 @@ List<Map<String, dynamic>> mergeMaterialsUsage(
       addTube(
         (newFit['spec'] ?? '').toString(),
         (newFit['qty_mm'] as num? ?? 0).toDouble(),
+        bars: (newFit['qty_bars'] as num? ?? 0).toInt(),
       );
       continue;
     }
@@ -112,7 +120,7 @@ List<Map<String, dynamic>> subtractMaterialsUsage(
       .map((m) => Map<String, dynamic>.from(m as Map))
       .toList();
 
-  void takeTube(String size, double mm) {
+  void takeTube(String size, double mm, {int bars = 0}) {
     if (mm <= 0) return;
     final name = tubeMaterialName(size);
     var idx = materials.indexWhere(
@@ -126,6 +134,17 @@ List<Map<String, dynamic>> subtractMaterialsUsage(
       materials.removeAt(idx);
     } else {
       materials[idx]['qty_mm'] = left;
+      if (bars > 0) {
+        final b = (materials[idx]['qty_bars'] as num? ?? 0) - bars;
+        final bm = (materials[idx]['qty_bars_mm'] as num? ?? 0) - mm;
+        if (b <= 0) {
+          materials[idx].remove('qty_bars');
+          materials[idx].remove('qty_bars_mm');
+        } else {
+          materials[idx]['qty_bars'] = b;
+          materials[idx]['qty_bars_mm'] = bm < 0 ? 0 : bm;
+        }
+      }
     }
   }
 
@@ -140,6 +159,7 @@ List<Map<String, dynamic>> subtractMaterialsUsage(
       takeTube(
         (fit['spec'] ?? '').toString(),
         (fit['qty_mm'] as num? ?? 0).toDouble(),
+        bars: (fit['qty_bars'] as num? ?? 0).toInt(),
       );
       continue;
     }
@@ -160,10 +180,16 @@ List<Map<String, dynamic>> subtractMaterialsUsage(
 /// "출고 대기"에 남길 줄로 만든다. 저장할 때 부속과 같이 넘기면 [mergeMaterialsUsage]가
 /// 튜브 길이로 쌓고, 목록의 "재고 차감"이 한 본 길이로 나눠 뺀다.
 /// [mmBySpec]의 키는 재단 계획 규격 이름("튜브 1/2\"", 모르면 "").
-List<Map<String, dynamic>> pendingTubeEntries(Map<String, double> mmBySpec) => [
+/// [barsBySpec]: 규격별 새 원자재 본수(10-08: 길이 합만 남겨, 계획 기준 길이와 재고 한 본 길이가 다르면
+/// 목록에서 뺄 때 본수가 틀렸다. 4000 3본 = 12000 → 6000 재고에서 2본만 빠졌다).
+List<Map<String, dynamic>> pendingTubeEntries(
+  Map<String, double> mmBySpec, {
+  Map<String, int> barsBySpec = const {},
+}) => [
   for (final e in mmBySpec.entries)
     if (e.value > 0)
       {
+        if ((barsBySpec[e.key] ?? 0) > 0) 'qty_bars': barsBySpec[e.key],
         'type': 'TUBE',
         'spec': e.key.startsWith('튜브 ') ? e.key.substring(3) : e.key,
         'db_name': tubeMaterialName(
@@ -250,10 +276,18 @@ Future<void> undoCuttingSession({
       .collection(kCuttingProjectsCollection)
       .doc(projectId);
 
-  final snap = await docRef.get();
+  // 통신이 없어도 멈추지 않게 읽고(폰 사본), 합계 되돌리기와 기록 지우기를 한 묶음으로 쓴다
+  // (10-08: 합계 쓰기를 기다리느라 기록 지우기가 실행되지 않아, 통신 전에 앱을 닫으면 기록만 남았다).
+  DocumentSnapshot<Map<String, dynamic>> snap;
+  try {
+    snap = await docRef.get().timeout(const Duration(seconds: 5));
+  } catch (_) {
+    snap = await docRef.get(const GetOptions(source: Source.cache));
+  }
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
+  final batch = FirebaseFirestore.instance.batch();
   // 저장할 때 부속만 더했으므로(튜브는 재단 계획에서 뺀다) 부속만 뺀다.
-  await docRef.update({
+  batch.update(docRef, {
     'totalTubeUsed': project.totalTubeUsed,
     'cutCount': project.cutCount,
     'usedFittings': project.usedFittings,
@@ -265,16 +299,25 @@ Future<void> undoCuttingSession({
 
   if (cutRecords.isNotEmpty) {
     final savedAt = cutRecords.first.timestamp.toIso8601String();
-    final recordsRef = docRef.collection(kCutRecordsSubcollection);
-    final made = await recordsRef.where('timestamp', isEqualTo: savedAt).get();
-    if (made.docs.isNotEmpty) {
-      final batch = FirebaseFirestore.instance.batch();
-      for (final d in made.docs) {
-        batch.delete(d.reference);
-      }
-      await batch.commit();
+    final q = docRef
+        .collection(kCutRecordsSubcollection)
+        .where('timestamp', isEqualTo: savedAt);
+    // 방금 저장한 기록은 폰 사본에 있다. 없으면 서버를 5초까지.
+    QuerySnapshot<Map<String, dynamic>>? made;
+    try {
+      made = await q.get(const GetOptions(source: Source.cache));
+    } catch (_) {}
+    if (made == null || made.docs.isEmpty) {
+      try {
+        made = await q.get().timeout(const Duration(seconds: 5));
+      } catch (_) {}
+    }
+    for (final d in made?.docs ?? const []) {
+      batch.delete(d.reference);
     }
   }
+  // 폰에 먼저 쓰이므로 서버 답은 8초까지만 기다린다.
+  await batch.commit().timeout(const Duration(seconds: 8), onTimeout: () {});
 }
 
 /// 프로젝트 삭제 시 컷팅 기록(cut_records) 서브컬렉션도 함께 정리한다.

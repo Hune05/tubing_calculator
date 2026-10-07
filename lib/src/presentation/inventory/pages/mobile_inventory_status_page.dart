@@ -585,7 +585,8 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
         final doc = filteredDocs[index];
         final data = doc.data() as Map<String, dynamic>;
 
-        int qty = data['qty'] ?? 0;
+        // 소수(12.0)로 적힌 수량도 죽지 않게 읽는다(10-08).
+        int qty = (data['qty'] as num?)?.toInt() ?? 0;
         String itemName = data['name'] ?? "이름 없음";
         String unit = data['unit'] ?? "EA";
         bool canCheckout = qty > 0;

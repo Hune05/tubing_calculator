@@ -127,7 +127,11 @@ List<StockTake> stockTakesFromMaterials(
       qty = _ceilDiv(mm, 1000);
       unit = 'm';
     } else {
-      qty = _ceilDiv(mm, _pick(barLengthByName, name) ?? kTubeBarMm);
+      // 재단 계획 본수로 남긴 몫은 본수 그대로, 나머지(예전 길이 기록)만 한 본 길이로 나눈다(10-08).
+      final bars = ((m['qty_bars'] as num?) ?? 0).round();
+      final barsMm = ((m['qty_bars_mm'] as num?) ?? 0).round();
+      final rest = mm - barsMm;
+      qty = bars + (rest > 0 ? _ceilDiv(rest, _pick(barLengthByName, name) ?? kTubeBarMm) : 0);
       unit = stockUnit.isEmpty ? '본' : stockUnit;
     }
     if (qty <= 0) continue;

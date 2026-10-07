@@ -47,6 +47,9 @@ Future<void> showCuttingOptimizationSheet(
   String? mixPrefsKey,
   // "잘랐습니다(잔재 저장)"를 눌러 저장이 끝난 뒤 부른다(호출한 화면이 결과의 "잘랐음" 표시를 맞추는 데 쓴다).
   VoidCallback? onLeftoversSaved,
+  // 잔재를 저장한 순간 계획의 새 원자재 본(규격 → 본 길이들). 저장 뒤 잔재 목록이 바뀌어 다시 계산하면
+  // 본수가 달라지므로, 호출한 화면이 "아직 안 뺀 튜브"를 셀 때 이 값을 쓴다(10-08).
+  ValueChanged<Map<String, List<double>>>? onLeftoversSavedBars,
   // 같은 창에서 방금 한 저장을 "되돌리기"로 취소했을 때 부른다(호출한 화면이 잘랐음 표시를 원래대로 돌리는 데 쓴다).
   VoidCallback? onLeftoversSaveUndone,
   // 이 결과의 잔재를 이미 저장했으면 true — 저장 버튼 자리에 "저장했습니다"를 보여 같은 컷팅을 두 번 저장하지 않게 한다.
@@ -604,6 +607,8 @@ Future<void> showCuttingOptimizationSheet(
               // 통신이 느릴 때 두 번 누르면 잔재가 두 번 빠지고 두 번 더해졌다.
               if (leftoversSaving || leftoversSaved) return;
               leftoversSaving = true;
+              // 오류가 나도 단추가 다시 눌리게 한다(10-08: 권한 오류 등에서 영영 안 눌렸다).
+              try {
               // 계획에서 쓴 잔재를 목록의 잔재 한 개씩에 맞춘다(이름표로 그것만 뺀다).
               final used = pickLeftovers(leftovers, [
                 for (final e in results.entries)
@@ -631,6 +636,10 @@ Future<void> showCuttingOptimizationSheet(
                 used: used,
                 added: added,
               );
+              onLeftoversSavedBars?.call({
+                for (final e in results.entries)
+                  e.key: [for (final b in e.value.bars) b.stockLength],
+              });
               onLeftoversSaved?.call();
               leftoversSaving = false;
               setSheetState(() => leftoversSaved = true);
@@ -639,6 +648,13 @@ Future<void> showCuttingOptimizationSheet(
                   ctx,
                   "잔재를 저장했습니다. 이번에 쓴 잔재 ${used.length}개는 빼고, 새 잔재 ${added.length}개를 더했습니다.",
                 );
+              }
+              } catch (e) {
+                if (ctx.mounted) {
+                  showCuttingSnack(ctx, "잔재를 저장하지 못했습니다: $e", isError: true);
+                }
+              } finally {
+                leftoversSaving = false;
               }
             },
             onUndo: lastSaved == null
