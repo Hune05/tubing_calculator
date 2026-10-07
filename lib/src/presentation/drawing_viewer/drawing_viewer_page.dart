@@ -125,8 +125,10 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
       final n = (p.getString('user_real_name') ?? '').trim();
       if (mounted) _author = n == '로그인 필요' ? '' : n;
     });
+    // 연 시각을 들고 있는 도면에도 넣는다(10-07: 표시 저장이 옛 열람 시각을 다시 써 목록 순서가 밀렸다).
+    _doc = _doc.copyWith(openedAt: _now);
     if (widget.saveMarks == null) {
-      DrawingStore.put(_doc.copyWith(openedAt: _now));
+      DrawingStore.put(_doc);
     }
     _loadPage();
   }
@@ -392,9 +394,12 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
     await _persist();
   }
 
+  bool get _pageHasMarks => _marks.any((m) => m.page == _page);
+
+  /// 이 쪽의 마지막 표시만 지운다(10-07: 이 쪽에 표시가 없으면 다른 쪽 표시를 알림 없이 지웠다).
   void _undo() {
-    if (_marks.isEmpty) return;
-    final mine = _marks.lastWhere((m) => m.page == _page, orElse: () => _marks.last);
+    if (!_pageHasMarks) return;
+    final mine = _marks.lastWhere((m) => m.page == _page);
     setState(() => _marks = [for (final x in _marks) if (x.id != mine.id) x]);
     _persist();
   }
@@ -713,7 +718,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
                       ],
                     ),
                   ),
-                  IconButton(key: const Key('dv_undo'), tooltip: null, icon: const Icon(LucideIcons.undo2), onPressed: _marks.isEmpty ? null : _undo),
+                  IconButton(key: const Key('dv_undo'), tooltip: null, icon: const Icon(LucideIcons.undo2), onPressed: _pageHasMarks ? _undo : null),
                 ],
               ),
             ),

@@ -93,10 +93,21 @@ class DrawingStore {
     }
   }
 
-  static Future<void> saveMarks(DrawingDoc doc, List<DrawingMark> marks) async {
-    final f = File('${(await dirOf(doc.id)).path}/marks.json');
-    await f.writeAsString(jsonEncode([for (final m in marks) m.toJson()]));
-    await put(doc.copyWith(openIssues: openIssueCount(marks)));
+  static Future<void> _marksQueue = Future.value();
+
+  /// 표시 저장은 차례로 하고, 임시 파일에 다 쓴 뒤 바꿔 넣는다(10-07: 겹쳐 쓰거나 쓰는 중 꺼지면
+  /// marks.json이 깨져 읽기가 빈 목록이 되고, 다음 저장이 그 도면의 표시를 모두 지웠다).
+  static Future<void> saveMarks(DrawingDoc doc, List<DrawingMark> marks) {
+    final body = jsonEncode([for (final m in marks) m.toJson()]);
+    final next = _marksQueue.catchError((_) {}).then((_) async {
+      final path = '${(await dirOf(doc.id)).path}/marks.json';
+      final tmp = File('$path.tmp');
+      await tmp.writeAsString(body, flush: true);
+      await tmp.rename(path);
+      await put(doc.copyWith(openIssues: openIssueCount(marks)));
+    });
+    _marksQueue = next;
+    return next;
   }
 
   // ── 가져오기 ──

@@ -45,7 +45,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
             MobileScanner(
               onDetect: (capture) {
                 // 🚀 1. 이미 한 번 읽어서 자물쇠가 잠겼다면 무시하고 리턴!
-                if (_isScanned) return;
+                if (_isScanned || capture.barcodes.isEmpty) return;
 
                 final barcode = capture.barcodes.first;
                 if (barcode.rawValue != null) {

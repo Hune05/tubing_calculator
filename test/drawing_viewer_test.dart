@@ -336,6 +336,24 @@ void main() {
       expect(find.text('ISO-P-0101 · REV C'), findsOneWidget);
     });
 
+    testWidgets('표시가 없는 쪽에서는 되돌리기가 꺼져 다른 쪽 표시를 지우지 않는다(10-07)', (tester) async {
+      final m = DrawingMark(id: 'p1', page: 0, kind: MarkKind.wrong, color: MarkColor.red, points: const [(0.3, 0.3)], text: '문제', no: 1, createdAt: at);
+      await open(tester, marks: [m]);
+      await tester.tap(find.byKey(const Key('dv_next')));
+      await tester.pumpAndSettle();
+      final undo = tester.widget<IconButton>(find.byKey(const Key('dv_undo')));
+      expect(undo.onPressed, isNull);
+      await tester.tap(find.byKey(const Key('dv_undo')));
+      await tester.pumpAndSettle();
+      expect(saved.map((e) => e.id), ['p1']);
+      // 1쪽으로 돌아가면 그 쪽 표시는 되돌릴 수 있다.
+      await tester.tap(find.byKey(const Key('dv_prev')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('dv_undo')));
+      await tester.pumpAndSettle();
+      expect(saved, isEmpty);
+    });
+
     testWidgets('색을 고르면 그 색으로 놓는다(초록 = 삭제)', (tester) async {
       await open(tester);
       await tester.tap(find.byKey(const Key('dv_tool_arrow')));

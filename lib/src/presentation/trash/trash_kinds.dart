@@ -232,10 +232,15 @@ Future<void> restoreTrash(TrashEntry e) async {
 }
 
 /// 완전히 지울 때 남은 파일을 치운다(도면 폴더). 그 밖에는 할 일이 없다.
+/// 파일을 못 지워도(잠김·권한) 넘어간다(10-07: 오류가 나면 완전 삭제·비우기가 목록을 못 비우고 멈췄다).
 Future<void> purgeTrashFiles(TrashEntry e) async {
   if (e.kind != TrashKind.drawing) return;
-  final dir = await _drawingTrashDir('${e.data['id']}');
-  if (await dir.exists()) await dir.delete(recursive: true);
+  try {
+    final dir = await _drawingTrashDir('${e.data['id']}');
+    if (await dir.exists()) await dir.delete(recursive: true);
+  } catch (err) {
+    debugPrint('휴지통 파일 지우기 실패: $err');
+  }
 }
 
 /// 휴지통에서 하나를 완전히 지운다.
