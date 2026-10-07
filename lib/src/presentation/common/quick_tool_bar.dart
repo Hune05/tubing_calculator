@@ -28,7 +28,7 @@ import '../reference/page/tube_reference_page.dart';
 import '../safety/safety_check_page.dart';
 import '../unit_converter/unit_converter_page.dart';
 import '../calculator/screens/mobile_calculator_page.dart';
-import '../calculator/screens/mobile_remote_page.dart';
+import '../calculator/screens/quick_bend_calc_page.dart';
 import '../conduit/screens/main_navigation_page.dart';
 import '../my_work_logs/pages/layout_board_project_list_page.dart';
 import '../reference/page/equipment_usage_page.dart';
@@ -145,11 +145,12 @@ final List<QuickToolDef> kQuickTools = [
     group: '현장 도구',
   ),
   QuickToolDef(
+    // 예전 "벤딩 리모컨" 자리(빠른 실행에 넣어 둔 것이 그대로 이어지게 id는 그대로 둔다).
     'remote',
-    '벤딩 리모컨',
-    AppGlyph.remote,
-    (_) => const MobileRemotePage(),
-    subtitle: '수치 전송용 리모컨 (스마트폰 권장)',
+    '벤딩 간단 계산',
+    AppGlyph.offset,
+    (_) => const QuickBendCalcPage(),
+    subtitle: '오프셋·롤링 오프셋·킥 값을 바로 셈',
     group: '현장 도구',
   ),
   QuickToolDef(

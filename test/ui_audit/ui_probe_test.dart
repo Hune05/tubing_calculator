@@ -24,7 +24,7 @@ import 'package:tubing_calculator/src/data/models/cutting_project_model.dart';
 import 'package:tubing_calculator/src/data/models/steel_cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_input_tab.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/quick_bend_calc_page.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_result_tabs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_settings_tab.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
@@ -86,7 +86,7 @@ final screens = <String, (Widget Function(), List<Cfg>)>{
   '튜브 설정 탭': (() => const Scaffold(body: MobileSettingsTab()), phoneCfgs),
   '전선관 계산기': (() => const ConduitMainNavigation(), phoneCfgs),
   '전선관 설정': (() => const ConduitSettingsPage(), phoneCfgs),
-  '리모컨': (() => const MobileRemotePage(), phoneCfgs),
+  '벤딩 간단 계산': (() => const QuickBendCalcPage(), phoneCfgs),
   '수평계': (
     () => LevelPage(
       source: () => Stream<TiltSample>.value((x: 0.0, y: 9.81, z: 0.0)),

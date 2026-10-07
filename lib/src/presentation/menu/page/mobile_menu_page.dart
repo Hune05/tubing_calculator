@@ -42,7 +42,7 @@ import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/main_navigation_page.dart';
 
 // 🚀 1. 현장 작업 페이지들 임포트
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/quick_bend_calc_page.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_calculator_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/qr_scanner_page.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/fab_qr.dart';
@@ -1914,15 +1914,15 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       ),
                       _buildMenuButton(
                         context: context,
-                        title: "벤딩 리모컨",
-                        subtitle: "수치 전송용 리모컨 (스마트폰 권장)",
-                        icon: AppGlyph.remote,
+                        title: "벤딩 간단 계산",
+                        subtitle: "오프셋·롤링 오프셋·킥 값을 바로 셈",
+                        icon: AppGlyph.offset,
                         onTap: () {
                           HapticFeedback.lightImpact();
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const MobileRemotePage(),
+                              builder: (context) => const QuickBendCalcPage(),
                             ),
                           );
                         },

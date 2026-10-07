@@ -8,7 +8,6 @@ import 'package:tubing_calculator/src/core/common_widgets/app_header.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_remote_page.dart';
 
 /// lib 아래 dart 파일의 AppBar(...) 덩어리들.
 Iterable<(String, String)> appBars() sync* {
@@ -115,22 +114,4 @@ void main() {
     expect(bar.backgroundColor, AppColors.surface);
   });
 
-  testWidgets('리모컨 머리: 모드 색 띠 대신 흰 머리, 모드 이름은 진한 글씨', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    tester.view.physicalSize = const Size(412, 900);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      MaterialApp(theme: buildAppTheme(), home: const MobileRemotePage()),
-    );
-    await tester.pump(const Duration(milliseconds: 300));
-    final header = tester.widget<Container>(
-      find.byKey(const Key('remote_header')),
-    );
-    expect((header.decoration as BoxDecoration).color, AppColors.surface);
-    final name = tester.widget<Text>(find.text('직관 (Straight)'));
-    expect(name.style?.color, AppColors.text);
-    await tester.pumpWidget(const SizedBox());
-    await tester.pump(const Duration(seconds: 1));
-  });
 }
