@@ -525,6 +525,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pr_act_load')));
     await tester.pumpAndSettle();
+    // 화면에 방금 한 시험(P-2002)이 있으니 덮기 전에 묻는다. 취소하면 그대로.
+    expect(find.text('기록 불러오기'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(textIn(tester, const Key('pt_r_editing')), contains('P-2002'));
+    await tapKey(tester, 'pt_r_records');
+    await tester.tap(find.byKey(Key('pr_item_${saved.id}')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pr_act_load')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('pt_r_confirm_ok')));
+    await tester.pumpAndSettle();
     expect(find.text('P-1001 기록을 불러왔습니다.'), findsOneWidget);
     expect(textIn(tester, const Key('pt_r_editing')), contains('P-1001'));
     expect(textOf(tester, 'pt_r_status'), '종료');

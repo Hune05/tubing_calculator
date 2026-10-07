@@ -537,6 +537,21 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       context,
     ).push<PtRecord>(MaterialPageRoute(builder: (_) => const PtRecordsPage()));
     if (r == null || !mounted) return;
+    // 지금 하던 시험이 있으면 덮기 전에 묻는다(예전에는 묻지 않고 시작 시각·측정 기록을 덮고 알림도 껐다, 10-07).
+    if (_rStart != null ||
+        _rReads.isNotEmpty ||
+        _rEditing != null ||
+        _rLine.text.trim().isNotEmpty) {
+      final running = _rRunning;
+      if (!await _rConfirm(
+        '기록 불러오기',
+        '지금 화면의 시작 시간·측정 기록·라인 번호를 지우고 저장한 기록을 불러오시겠습니까?'
+            '${running ? ' 진행 중인 시험의 유지시간 알림도 취소합니다.' : ''}',
+        '불러오기',
+      )) {
+        return;
+      }
+    }
     await _cancelAlarm();
     if (!mounted) return;
     setState(() {
