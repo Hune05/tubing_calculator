@@ -238,6 +238,7 @@ class MobileMyScheduleScreen extends StatefulWidget {
 }
 
 class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
+  bool _openingEditor = false;
   String _currentWorker = kNoWorkerName;
   _ViewMode _viewMode = _ViewMode.month;
   DateTime? _tlStart;
@@ -631,9 +632,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final docRef = FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
         .doc(item.personalDocId);
-    final doc = await docRef.get();
-    final data = doc.data();
-    if (!doc.exists || data == null) return;
+    final doc = await readPersonalScheduleDoc(docRef);
+    final data = doc?.data();
+    if (doc == null || !doc.exists || data == null) return;
     final fields = movedScheduleFields(data, newStartDay);
     if (fields.isEmpty) return;
     final before = scheduleDateFields(data);
@@ -3143,10 +3144,15 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   }
 
   Future<List<PersonalDoc>> _fetchMyPersonalDocs() async {
-    final snap = await FirebaseFirestore.instance
+    final q = FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
-        .where('owner', isEqualTo: _currentWorker)
-        .get();
+        .where('owner', isEqualTo: _currentWorker);
+    QuerySnapshot<Map<String, dynamic>> snap;
+    try {
+      snap = await q.get().timeout(const Duration(seconds: 6));
+    } catch (_) {
+      snap = await q.get(const GetOptions(source: Source.cache));
+    }
     return [for (final d in snap.docs) (id: d.id, data: d.data())];
   }
 
@@ -4536,12 +4542,14 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 color: Colors.grey,
               ),
               onPressed: () {
-                FirebaseFirestore.instance
-                    .collection(kPersonalSchedulesCollection)
-                    .doc(item.personalDocId)
-                    .get()
-                    .then((doc) {
-                      if (doc.exists && mounted) {
+                if (_openingEditor) return; // 읽는 동안 다시 눌러 창이 겹쳐 열리던 것(10-08)
+                _openingEditor = true;
+                readPersonalScheduleDoc(
+                  FirebaseFirestore.instance
+                      .collection(kPersonalSchedulesCollection)
+                      .doc(item.personalDocId),
+                ).whenComplete(() => _openingEditor = false).then((doc) {
+                      if (doc != null && doc.exists && mounted) {
                         _showAddPersonalSheet(
                           docId: doc.id,
                           existing: doc.data(),
@@ -4979,10 +4987,16 @@ Future<List<WidgetAgendaItem>?> fetchWidgetAgenda(
 
     final repo = WorkProjectRepository();
     final projects = await repo.fetchAllProjects();
-    final personalSnap = await FirebaseFirestore.instance
+    // 통신이 약하면 위젯 목록 만들기가 끝없이 기다렸다(10-08). 6초 뒤 폰 사본으로.
+    final personalQ = FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
-        .where('owner', isEqualTo: currentWorker)
-        .get();
+        .where('owner', isEqualTo: currentWorker);
+    QuerySnapshot<Map<String, dynamic>> personalSnap;
+    try {
+      personalSnap = await personalQ.get().timeout(const Duration(seconds: 6));
+    } catch (_) {
+      personalSnap = await personalQ.get(const GetOptions(source: Source.cache));
+    }
 
     for (var off = 0; off < days; off++) {
       final day = DateTime(today.year, today.month, today.day + off);
@@ -5070,3 +5084,19 @@ Widget _sheetUndoHost(WidgetBuilder builder) => ScaffoldMessenger(
     body: Builder(builder: builder),
   ),
 );
+
+/// 개인 일정 문서 하나를 읽는다. 폰 사본을 먼저 보고, 없으면 서버를 5초까지 기다린다
+/// (10-08: 날짜 옮기기·고치기 단추가 통신이 약하면 응답 없이 기다렸다). 못 읽으면 null.
+Future<DocumentSnapshot<Map<String, dynamic>>?> readPersonalScheduleDoc(
+  DocumentReference<Map<String, dynamic>> ref,
+) async {
+  try {
+    final c = await ref.get(const GetOptions(source: Source.cache));
+    if (c.exists) return c;
+  } catch (_) {}
+  try {
+    return await ref.get().timeout(const Duration(seconds: 5));
+  } catch (_) {
+    return null;
+  }
+}
