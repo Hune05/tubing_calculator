@@ -403,6 +403,26 @@ bool migrateProjectToPhases(Map<String, dynamic> log) {
 List<String> reportIds(Map report, String key) =>
     (report[key] as List? ?? []).map((e) => e.toString()).toList();
 
+/// 두 값이 내용까지 같은지(Map·List는 안쪽까지 본다). 일지 달력처럼 복사본으로 고쳐 온 목록에서
+/// 실제로 바뀐 일지만 고르는 데 쓴다(Map은 == 가 같은 객체인지만 봐서 전부 "바뀜"으로 잡혔다, 10-07).
+bool sameReportValue(Object? a, Object? b) {
+  if (a is Map && b is Map) {
+    if (a.length != b.length) return false;
+    for (final k in a.keys) {
+      if (!b.containsKey(k) || !sameReportValue(a[k], b[k])) return false;
+    }
+    return true;
+  }
+  if (a is List && b is List) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!sameReportValue(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  return a == b;
+}
+
 // 작업 일지에서 "오늘 완료"로 체크한 세부 일정/단계를 프로젝트에 반영한다.
 // 이미 완료된 것은 그대로 두고, 체크 해제해도 되돌리지 않는다(멱등).
 // 바뀐 게 있으면 true.

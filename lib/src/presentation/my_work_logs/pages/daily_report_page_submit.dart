@@ -108,7 +108,9 @@ extension _DailyReportSubmit on _DailyReportPageState {
     }
 
     // 끝낸 일정으로 체크한 미완료 일정이 있으면, 프로젝트 일정도 완료로 바꿀지 묻는다.
-    bool scheduleNoApply = false;
+    // 고친 일지는 예전 선택("기록만 남기기")을 이어 간다. 일정 목록 없이 여는 곳(일지 달력)에서
+    // 고쳐도 그 선택이 풀려 일정이 완료로 바뀌지 않게(10-07).
+    bool scheduleNoApply = widget.existingData?['scheduleNoApply'] == true;
     final newlyDone = widget.pendingSchedules
         .where(
           (s) =>

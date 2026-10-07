@@ -671,7 +671,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       setState(() {
         replaceItemList(log, 'daily_reports', updated);
         for (final r in updated) {
-          if (!before.contains(r)) {
+          // 달력은 복사본으로 고치므로 내용으로 비교한다(안 고친 일지는 건드리지 않는다).
+          if (!before.any((b) => sameReportValue(b, r))) {
             stampAuthor(r, currentWorkerName.value, created: false);
             applyReportEffects(log, r);
           }
