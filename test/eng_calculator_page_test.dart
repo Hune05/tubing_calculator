@@ -116,6 +116,34 @@ void main() {
     expect(result(tester), '16');
   });
 
+  testWidgets('= 뒤에 이어서 계산하면 반올림 전 값으로 한다(1÷3=×3= → 1, 10-07)', (tester) async {
+    await pump(tester);
+    for (final k in ['calc_1', 'calc_div', 'calc_3', 'calc_eq', 'calc_mul', 'calc_3', 'calc_eq']) {
+      await tap(tester, k);
+    }
+    expect(result(tester), '1');
+  });
+
+  testWidgets('기록의 분수 결과는 괄호로 감싸 붙인다(2÷(1/3) = 6, 10-07)', (tester) async {
+    await pump(tester);
+    for (final k in ['calc_1', 'calc_div', 'calc_3', 'calc_sd', 'calc_eq', 'calc_ac']) {
+      await tap(tester, k);
+    }
+    for (final k in ['calc_2', 'calc_div']) {
+      await tap(tester, k);
+    }
+    await tester.tap(find.byKey(const Key('calc_history_item_0')));
+    await tester.pump();
+    expect(result(tester), '6');
+  });
+
+  testWidgets('π 뒤에 숫자를 치면 곱하기로 잇는다(π2 = 6.28…, 10-07)', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_pi');
+    await tap(tester, 'calc_2');
+    expect(result(tester), startsWith('6.283'));
+  });
+
   testWidgets('= 뒤에 숫자를 누르면 새로 시작한다', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_5');

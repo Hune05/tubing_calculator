@@ -904,7 +904,8 @@ int? parseAwg(String s) {
       .replaceAll('awg', '')
       .replaceAll('#', '')
       .trim();
-  final m = RegExp(r'^(\d)/0$').firstMatch(t);
+  // 0/0은 없는 규격이라 받지 않는다(10-07: AWG 1로 읽었다).
+  final m = RegExp(r'^([1-9])/0$').firstMatch(t);
   if (m != null) return 1 - int.parse(m.group(1)!);
   if (RegExp(r'^0+$').hasMatch(t)) return 1 - t.length;
   final n = int.tryParse(t);

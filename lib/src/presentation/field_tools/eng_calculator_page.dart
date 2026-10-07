@@ -77,6 +77,9 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
 
   /// 직전 계산 결과(식 안에서 "Ans"로 쓴다). 앱을 다시 열면 비어 있다.
   CalcValue? _lastAnswer;
+  // = 뒤 식 칸에 남긴 결과 글자. 식이 이 글자로 시작하면 계산은 반올림 안 된 [_lastAnswer]로 한다
+  // (10-07: 1÷3= 다음 ×3= 이 0.9999999, √2= 다음 ^2= 가 2.000001로 나왔다).
+  String? _ansText;
 
   /// 결과를 소수 대신 정확한 분수로 보일지(S⇔D). 분수가 없으면(무리수 등) 소수로 보인다.
   bool _showExact = false;
@@ -204,8 +207,12 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     // 식 계산기(eng_calc.dart)는 자판 하이픈(-)만 뺄셈으로 알아봐서 "5−3"을
     // 끝까지 못 읽고 막혔다(더하기는 둘 다 '+'라 안 걸렸다). 계산기에 넘기기
     // 전에 자판 하이픈으로 바꿔 준다.
+    final ansText = _ansText;
+    final src = ansText != null && _lastAnswer != null && _expr.startsWith(ansText)
+        ? 'Ans${_expr.substring(ansText.length)}'
+        : _expr;
     final t = _stripTrailingOps(
-      _expr.replaceFirst(RegExp(r'\s*mod\s*$'), ''),
+      src.replaceFirst(RegExp(r'\s*mod\s*$'), ''),
     ).trim().replaceAll('−', '-');
     if (t.isEmpty) {
       _live = null;
@@ -252,6 +259,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
+        _ansText = null;
       }
       // 방금 친 숫자 토막이 있으면 그걸 자연수 부분으로 가져온다(예: "3" 다음 a/b → 3 _/_).
       final m = RegExp(r'(\d+(?:\.\d+)?)$').firstMatch(_expr);
@@ -317,7 +325,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
+        _ansText = null;
       }
+      // π·e·Ans·)·!·% 뒤의 숫자는 곱하기로 잇는다(10-07: "π2"가 식 오류였다).
+      if (_expr.isNotEmpty && RegExp(r'[)πse!%]').hasMatch(_expr[_expr.length - 1])) _expr += '×';
       _expr += d;
       _recalc();
     });
@@ -350,6 +361,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
+        _ansText = null;
       }
       if (_endsWithDigitOrClose) _expr += '×';
       _expr += '$name(';
@@ -364,6 +376,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
+        _ansText = null;
       }
       if (_endsWithDigitOrClose) _expr += '×';
       _expr += c;
@@ -378,6 +391,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
+        _ansText = null;
       }
       if (p == '(' && _endsWithDigitOrClose) _expr += '×';
       _expr += p;
@@ -416,6 +430,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       _live = null;
       _error = null;
       _justEvaluated = false;
+      _ansText = null;
       _frac = null;
       _showExact = false;
     });
@@ -425,6 +440,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     HapticFeedback.selectionClick();
     setState(() {
       _justEvaluated = false;
+      _ansText = null; // 결과 글자를 지우기 시작하면 친 글자 그대로 계산한다
       final f = _frac;
       if (f != null) {
         switch (f.active) {
@@ -463,6 +479,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         }
         _lastAnswer = _live;
         _expr = resultText;
+        _ansText = resultText;
         _justEvaluated = true;
       }
     });
@@ -505,9 +522,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
+        _ansText = null;
       }
       if (_endsWithDigitOrClose) _expr += '×';
-      _expr += value;
+      // 분수·음수·지수 표기는 괄호로 감싸 붙인다(10-07: "2÷" 뒤에 1/3을 넣으면 2÷1/3 = 0.667이 나왔다).
+      _expr += RegExp(r'^\d+(\.\d+)?$').hasMatch(value) ? value : '($value)';
       _recalc();
     });
   }

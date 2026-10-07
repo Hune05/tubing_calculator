@@ -199,7 +199,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
 
   double _num(TextEditingController c) {
     final v = readNum(c);
-    return v == null || v < 0 ? 0 : v;
+    return v == null || v < 0 || !v.isFinite ? 0 : v; // Infinity를 붙여 넣으면 숫자 글에서 꺼졌다(10-07)
   }
 
   // ── 계산 ──

@@ -1,6 +1,7 @@
 // 공식 계산: 목록에서 고르면 칸마다 이름·단위·도움말이 있고, 다 넣으면 바로 결과가 뜬다.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/formula_calc_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/formula_defs.dart';
 
@@ -149,6 +150,19 @@ void main() {
     await tester.pump();
     expect(find.text('50 V'), findsOneWidget);
     expect(find.text('전압'), findsOneWidget);
+  });
+
+  testWidgets('치자마자 뒤로 가도 마지막 입력이 남는다(10-07)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await pump(tester);
+    await tester.tap(find.byKey(const Key('formula_ohm_v')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('formula_in_i')), '12');
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    final p = await SharedPreferences.getInstance();
+    expect(p.getString('formula_draft_ohm_v'), contains('"i":"12"'));
   });
 
   testWidgets('"?" 도움말을 누르면 이 칸에 뭘 넣는지 알려준다', (tester) async {

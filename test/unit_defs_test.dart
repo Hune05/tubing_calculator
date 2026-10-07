@@ -214,6 +214,7 @@ void main() {
       expect(parseAwg('10'), 10);
       expect(parseAwg('1/0'), 0);
       expect(parseAwg('4/0'), -3);
+      expect(parseAwg('0/0'), isNull); // 없는 규격(10-07)
       expect(parseAwg('00'), -1);
       expect(parseAwg('AWG 14'), 14);
       expect(parseAwg('x'), isNull);

@@ -58,6 +58,17 @@ void main() {
     expect(find.textContaining('비스듬한 곧은 길이'), findsOneWidget);
   });
 
+  testWidgets('L 꺾기 다리가 반경보다 짧으면 못 꺾는다고 알린다(10-07)', (tester) async {
+    await _open(tester);
+    expect(find.textContaining('다리가 짧아'), findsNothing);
+    await _type(tester, 'bb_t', '10');
+    await _type(tester, 'bb_r', '10');
+    await _type(tester, 'bb_ia', '15');
+    expect(find.textContaining('다리가 짧아'), findsOneWidget);
+    await _type(tester, 'bb_ia', '100');
+    expect(find.textContaining('다리가 짧아'), findsNothing);
+  });
+
   testWidgets('눕혀 꺾기 안쪽 반경이 두께보다 작으면 CDA 최소 반경 경고', (tester) async {
     await _open(tester);
     await _type(tester, 'bb_r', '2');

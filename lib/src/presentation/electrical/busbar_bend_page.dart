@@ -414,6 +414,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     notes: [
       ?_radiusWarn,
       ..._springLines(p.bends.map((b) => b.turn)),
+      if ((_z == null || _z!.feasible) && _busbarTooShort(p)) kBusbarShortLegMsg,
       if (_z != null && !_z!.feasible)
         '이 높이는 반경 때문에 꺾을 수 없습니다. 최소 높이 ${fmt(_z!.minHeight, 1)}mm.',
       if (_plane == BusbarBendPlane.edge)
@@ -442,6 +443,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     }
     final warn = _radiusWarn;
     if (warn != null) b.write('\n※ $warn');
+    if ((_z == null || _z!.feasible) && _busbarTooShort(p)) b.write('\n※ $kBusbarShortLegMsg');
     if (_z != null && !_z!.feasible) {
       b.write('\n※ 이 높이는 반경 때문에 꺾을 수 없습니다. 최소 ${fmt(_z!.minHeight, 1)}mm');
     }
@@ -736,13 +738,16 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     } else {
       summary =
           '${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)} · 절단 길이 ${fmt(p.cutLength, 1)}mm';
+      // 다리가 짧으면 직선 구간이 음수가 돼 시작선이 부스바 밖에 찍힌다(10-07: 경고 없이 보였다).
+      final short = !bad && _busbarTooShort(p);
       children.addAll([
         calcResult(solve: true, 
           key: const Key('bb_result'),
           big: '${fmt(p.cutLength, 1)} mm',
           caption: '절단 길이 · 꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
-          warn: warn != null || bad,
+          warn: warn != null || bad || short,
           lines: [
+            if (short) kBusbarShortLegMsg,
             if (bad)
               '이 높이는 반경 때문에 꺾을 수 없습니다. 이 각도·반경에서 최소 높이 ${fmt(z.minHeight, 1)}mm. 각도를 줄이거나 높이를 키우십시오.',
             ?warn,
@@ -858,3 +863,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     );
   }
 }
+
+const kBusbarShortLegMsg = '다리가 짧아 이 반경으로는 꺾을 수 없습니다(직선 구간이 0보다 짧음). 다리를 늘리거나 반경을 줄이십시오.';
+
+bool _busbarTooShort(BusbarBendPlan p) => p.straights.any((s) => s < -0.05);

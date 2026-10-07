@@ -172,19 +172,22 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
 
   void _saveDraftSoon() {
     _draftTimer?.cancel();
-    _draftTimer = Timer(const Duration(milliseconds: 400), () async {
-      try {
-        final p = await SharedPreferences.getInstance();
-        await p.setString(
-          _draftKey,
-          jsonEncode({for (final e in _ctrl.entries) e.key: e.value.text}),
-        );
-      } catch (_) {}
-    });
+    _draftTimer = Timer(const Duration(milliseconds: 400), () => _writeDraft(_draftText()));
+  }
+
+  String _draftText() => jsonEncode({for (final e in _ctrl.entries) e.key: e.value.text});
+
+  Future<void> _writeDraft(String text) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString(_draftKey, text);
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    // 0.4초 안에 나가도 마지막 입력을 남긴다(10-07: 타이머만 끄고 저장을 빠뜨렸다).
+    if (_draftTimer?.isActive ?? false) _writeDraft(_draftText());
     _draftTimer?.cancel();
     for (final c in _ctrl.values) {
       c.removeListener(_saveDraftSoon);

@@ -83,6 +83,8 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
     final v = _fromValue;
     if (v == null) return '—';
     final base = _from.toBase(v);
+    // 절대영도보다 낮은 온도처럼 있을 수 없는 값은 비운다(10-07, 큰 단위 환산 화면과 같게).
+    if (_cat.belowMin(base)) return '—';
     final r = _to.fromBase(base);
     if (r.isNaN || r.isInfinite) return '—';
     return formatNumber(r);

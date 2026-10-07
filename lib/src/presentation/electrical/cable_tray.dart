@@ -214,6 +214,7 @@ class TrayCheck {
 
 /// 숫자 글: 100 이상은 반올림해 천 단위 쉼표(9,030), 그 아래는 소수 한 자리(뒤 0은 뗌).
 String trayNum(double v) {
+  if (!v.isFinite) return '-';
   if (v.abs() >= 100) {
     final t = v.round().abs().toString();
     final b = StringBuffer(v < 0 ? '-' : '');
