@@ -88,14 +88,14 @@ void main() {
       expect(r.every((d) => d.hour == 9), true);
     });
 
-    test('회차가 너무 많아지지 않는다(최대 400개)', () {
+    test('회차가 너무 많아지지 않는다(최대 2000개, 앱 범위 4년의 매일 반복은 다 들어감)', () {
       final r = recurrenceDates(
         DateTime(1990, 1, 1),
         'weekly',
         rangeStart: DateTime(1990, 1, 1),
         rangeEnd: DateTime(2100, 1, 1),
       );
-      expect(r.length, 400);
+      expect(r.length, 2000);
     });
   });
 

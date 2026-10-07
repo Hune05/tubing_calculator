@@ -171,6 +171,22 @@ void main() {
     expect(_text(tester, 'att_clock_title'), '오늘 출근 전');
   });
 
+  testWidgets('오늘 기록을 지웠다 되돌리면 출근 카드도 돌아와 [출근]이 덮어쓰지 않는다(10-07)', (tester) async {
+    final store = _Store([AttendanceRecord(date: wed, checkIn: '08:00', memo: '태안 3호기')]);
+    await _mount(tester, store, now: DateTime(2026, 10, 14, 9));
+    expect(_text(tester, 'att_clock_title'), '08:00 출근 · 근무 중');
+    await tester.tap(find.text('14일 (수)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('att_delete')));
+    await tester.pumpAndSettle();
+    expect(_text(tester, 'att_clock_title'), '오늘 출근 전');
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    expect(store.data['2026-10-14']?.memo, '태안 3호기');
+    expect(_text(tester, 'att_clock_title'), '08:00 출근 · 근무 중');
+    expect(find.byKey(const Key('att_clock_in')), findsNothing);
+  });
+
   testWidgets('퇴근을 되돌리면 출근만 있는 기록으로 돌아온다', (tester) async {
     final store = _Store([AttendanceRecord(date: wed, checkIn: '08:00')]);
     await _mount(tester, store, now: DateTime(2026, 10, 14, 17));

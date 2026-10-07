@@ -229,6 +229,39 @@ void main() {
       expect(all.single.intervalMonths, 6);
     });
 
+    testWidgets('저장을 빨리 두 번 눌러도 한 대만 생긴다(10-07)', (tester) async {
+      await _open(tester, EquipmentEditPage(now: _clock));
+      await tester.enterText(find.byKey(const Key('equip_name')), '토크 렌치');
+      await tester.tap(find.byKey(const Key('equip_save')));
+      await tester.tap(find.byKey(const Key('equip_save')), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect((await EquipmentStore.load()).length, 1);
+    });
+
+    testWidgets('주기를 바꾸면 전에 직접 정한 다음 기한은 버린다(10-07)', (tester) async {
+      final e = _e('a', last: DateTime(2026, 9, 1)).copyWith(dueOverride: DateTime(2027, 3, 1));
+      await _seed([e]);
+      await _open(tester, EquipmentEditPage(existing: e, now: _clock));
+      await tester.tap(find.byKey(const Key('equip_interval_6')));
+      await tester.pump();
+      await tester.ensureVisible(find.byKey(const Key('equip_save')));
+      await tester.tap(find.byKey(const Key('equip_save')));
+      await tester.pumpAndSettle();
+      final got = (await EquipmentStore.load()).single;
+      expect(got.dueOverride, isNull);
+      expect(got.nextDue, DateTime(2027, 3, 1)); // 9/1 + 6개월
+    });
+
+    testWidgets('주기·점검일을 그대로 두면 직접 정한 기한은 남는다', (tester) async {
+      final e = _e('a', last: DateTime(2026, 9, 1)).copyWith(dueOverride: DateTime(2026, 12, 24));
+      await _seed([e]);
+      await _open(tester, EquipmentEditPage(existing: e, now: _clock));
+      await tester.ensureVisible(find.byKey(const Key('equip_save')));
+      await tester.tap(find.byKey(const Key('equip_save')));
+      await tester.pumpAndSettle();
+      expect((await EquipmentStore.load()).single.dueOverride, DateTime(2026, 12, 24));
+    });
+
     testWidgets('같은 관리번호는 막는다', (tester) async {
       await _seed([_e('1', name: '먼저', assetNo: 'PG-1')]);
       await _open(tester, EquipmentEditPage(now: _clock));

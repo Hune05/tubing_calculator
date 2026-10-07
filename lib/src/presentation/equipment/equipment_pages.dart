@@ -573,12 +573,26 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
       context: context,
       initialDate: _lastDone ?? now,
       firstDate: DateTime(2000),
-      lastDate: DateTime(now.year + 1, 12, 31),
+      // 점검 기록 창은 10년 뒤까지 고를 수 있어, 그 날짜도 범위 안에 들게 한다(10-07).
+      lastDate: DateTime(now.year + 10, 12, 31),
     );
     if (d != null) setState(() => _lastDone = d);
   }
 
+  bool _saving = false;
+
+  // 저장 중에 다시 누르면 같은 장비가 두 대 생기고 목록 화면까지 닫혔다(10-07).
   Future<void> _save() async {
+    if (_saving) return;
+    _saving = true;
+    try {
+      await _saveOnce();
+    } finally {
+      _saving = false;
+    }
+  }
+
+  Future<void> _saveOnce() async {
     final name = _name.text.trim();
     if (name.isEmpty) {
       setState(() => _error = '장비 이름을 적어 주십시오');
@@ -608,6 +622,12 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
       location: _location.text.trim(),
       intervalMonths: _interval,
       lastDone: _lastDone,
+      // 마지막 점검일·주기를 바꾸면 전에 직접 정한 다음 기한은 버린다(10-07: 화면은 새 기한을 보여 주고
+      // 저장 뒤 목록·알림은 옛 날짜에 머물렀다).
+      dueOverride: widget.existing != null &&
+              (widget.existing!.intervalMonths != _interval || widget.existing!.lastDone != _lastDone)
+          ? null
+          : widget.existing?.dueOverride,
       note: _note.text.trim(),
       specs: [
         for (final r in _specs)
@@ -616,7 +636,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
     );
     await EquipmentStore.put(saved);
     rescheduleEquipmentReminders(await EquipmentStore.load());
-    if (mounted) Navigator.pop(context, saved);
+    if (mounted && ModalRoute.of(context)?.isCurrent == true) Navigator.pop(context, saved);
   }
 
   @override

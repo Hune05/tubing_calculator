@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 // 🚀 내 일정 관리의 순수한 계산(반복 일정 날짜, 알림 시간, 겹침, 오늘 요약).
 // 화면 코드와 떼어 놓아서 test/my_schedule_logic_test.dart 가 규칙을 지킨다.
 
@@ -74,6 +76,22 @@ bool occurrenceAllowed(
   return !exceptions.contains(occurrenceKey(d));
 }
 
+/// [from] 앞에 있는 것이 확실한 회차 수(그만큼 건너뛰고 센다). 조금 모자라게 잡는다.
+int _occurrencesBefore(DateTime base, String recurrence, DateTime from) {
+  if (!from.isAfter(base)) return 0;
+  final days = from.difference(base).inDays;
+  final n0 = switch (recurrence) {
+    'daily' => days - 1,
+    'weekdays' => days * 5 ~/ 7 - 3,
+    'weekly' => days ~/ 7 - 1,
+    'biweekly' => days ~/ 14 - 1,
+    'monthly' => (from.year - base.year) * 12 + from.month - base.month - 1,
+    'yearly' => from.year - base.year - 1,
+    _ => 0,
+  };
+  return n0 < 0 ? 0 : n0;
+}
+
 /// 반복 일정의 회차 날짜들. [rangeStart]~[rangeEnd] 안에 있는 회차만 돌려주고,
 /// 반복이 없으면 [base] 하나만 돌려준다. [until] 뒤와 [exceptions](뺀 회차)는 뺀다.
 List<DateTime> recurrenceDates(
@@ -81,29 +99,18 @@ List<DateTime> recurrenceDates(
   String recurrence, {
   required DateTime rangeStart,
   required DateTime rangeEnd,
-  int maxCount = 400,
+  int? maxCount,
   DateTime? until,
   Set<String> exceptions = const {},
 }) {
   if (!isRecurring(recurrence)) return [base];
   final out = <DateTime>[];
   // 범위 앞의 회차는 세지 않고 건너뛴다(오래된 반복 일정도 [maxCount]가 범위 안에서만 쓰이게).
-  var n0 = 0;
-  if (rangeStart.isAfter(base)) {
-    final days = rangeStart.difference(base).inDays;
-    n0 = switch (recurrence) {
-      'daily' => days - 1,
-      'weekdays' => days * 5 ~/ 7 - 3,
-      'weekly' => days ~/ 7 - 1,
-      'biweekly' => days ~/ 14 - 1,
-      'monthly' =>
-        (rangeStart.year - base.year) * 12 + rangeStart.month - base.month - 1,
-      'yearly' => rangeStart.year - base.year - 1,
-      _ => 0,
-    };
-    if (n0 < 0) n0 = 0;
-  }
-  for (var n = n0; n < n0 + maxCount; n++) {
+  final n0 = _occurrencesBefore(base, recurrence, rangeStart);
+  // 회차는 하루에 하나 이하라 범위 날수+여유면 넉넉하다(10-07: 400개로 끊어, 범위 앞쪽에서 시작한
+  // 매일·평일 반복이 1년쯤 뒤부터 달력·목록에서 사라졌다).
+  final limit = maxCount ?? math.min(rangeEnd.difference(rangeStart).inDays.abs() + 40, 2000);
+  for (var n = n0; n < n0 + limit; n++) {
     final d = nthOccurrence(base, recurrence, n);
     if (d.isAfter(rangeEnd)) break;
     if (until != null &&
@@ -317,7 +324,9 @@ DateTime? reminderTime({
   }
   // 회차(일정 날짜)를 먼저 구하고 거기서 뺀다. 알림 시각에 말일 맞추기를 걸면
   // 1일 일정의 하루 전 알림이 28일로 가는 것처럼 날짜가 틀어진다.
-  for (var n = 0; n < 1200; n++) {
+  // 지금보다 앞선 회차는 건너뛰고 센다(10-07: 처음부터 1200개만 봐서 3년 넘은 매일 반복은 알림이 끊겼다).
+  final n0 = _occurrencesBefore(start, recurrence, now.add(before));
+  for (var n = n0; n < n0 + 1200; n++) {
     final occ = nthOccurrence(start, recurrence, n);
     if (until != null &&
         DateTime(

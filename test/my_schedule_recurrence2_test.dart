@@ -253,4 +253,31 @@ void main() {
       );
     });
   });
+
+  group('오래된 반복(10-07)', () {
+    test('1년 넘게 이어진 매일·평일 반복도 범위 끝까지 회차가 나온다', () {
+      final start = DateTime(2025, 6, 1, 8);
+      for (final rec in ['daily', 'weekdays']) {
+        final out = recurrenceDates(
+          start,
+          rec,
+          rangeStart: DateTime(2025, 1, 1),
+          rangeEnd: DateTime(2028, 12, 31, 23, 59),
+        );
+        expect(out.any((d) => d.year == 2026 && d.month == 10 && d.day == 7), true, reason: rec);
+        expect(out.last.year, 2028, reason: rec);
+      }
+    });
+
+    test('3년 넘은 매일 반복도 다음 알림이 잡힌다', () {
+      final r = reminderTime(
+        base: DateTime(2022, 1, 1, 9),
+        minutesBefore: 30,
+        recurrence: 'daily',
+        hasTime: true,
+        now: DateTime(2026, 10, 7, 10),
+      );
+      expect(r, DateTime(2026, 10, 8, 8, 30));
+    });
+  });
 }

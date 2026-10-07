@@ -474,9 +474,15 @@ class _AttendancePageState extends State<AttendancePage>
       _toast("로그인하지 않아 되돌리지 못했습니다. 로그인한 뒤 다시 하십시오.");
       return;
     }
+    // 출근 카드·위젯 쪽 사본도 같이 고친다(10-07: 목록만 돌아오고 출근 카드는 "출근 전"이라
+    // [출근]을 누르면 되살린 기록을 새 기록으로 덮었다).
     final key = dateKey(old.date);
     AttendanceCache.byDate[key] = old.type;
-    setState(() => _records[key] = old);
+    setState(() {
+      _records[key] = old;
+      _clockRecs[key] = old;
+    });
+    if (_isClockDay(old.date)) _syncOutside();
   }
 
   LeaveBalance? _leave() {
