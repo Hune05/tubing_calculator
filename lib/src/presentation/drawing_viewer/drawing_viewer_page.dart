@@ -444,15 +444,57 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
     });
   }
 
+  bool _exporting = false;
+
+  /// 쪽이 많으면 오래 걸려, 만드는 동안 몇 쪽째인지 띄우고 다시 누르지 못하게 한다
+  /// (10-07: 아무 표시 없이 멈춘 것처럼 보였고, 다시 누르면 내보내기가 겹쳐 돌았다).
   Future<void> _export() async {
+    if (_exporting) return;
+    _exporting = true;
+    final done = ValueNotifier<int>(0);
+    final rootNav = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          key: const Key('dv_export_busy'),
+          content: Row(
+            children: [
+              const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: done,
+                  builder: (_, n, _) => Text('PDF를 만드는 중입니다 (${math.min(n + 1, _doc.pages)} / ${_doc.pages}쪽)'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    var busyOpen = true;
+    void closeBusy() {
+      if (!busyOpen) return;
+      busyOpen = false;
+      rootNav.pop();
+    }
+
     try {
       final bytes = await buildMarkedPdf(
         doc: _doc,
         marks: _marks,
-        pagePath: (p) => (widget.pagePath ?? DrawingStore.ensurePage)(_doc, p),
+        pagePath: (p) async {
+          final path = await (widget.pagePath ?? DrawingStore.ensurePage)(_doc, p);
+          done.value = p + 1;
+          return path;
+        },
         now: _now,
         author: _author,
       );
+      closeBusy();
       if (!mounted) return;
       final base = (_doc.drawingNo.isNotEmpty ? _doc.drawingNo : _doc.displayName).replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
       final fileName = '${base}_확인.pdf';
@@ -474,7 +516,11 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
         ),
       );
     } catch (e) {
+      closeBusy();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF를 만들지 못했습니다: $e')));
+    } finally {
+      closeBusy();
+      _exporting = false;
     }
   }
 

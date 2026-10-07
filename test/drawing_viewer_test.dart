@@ -354,6 +354,27 @@ void main() {
       expect(saved, isEmpty);
     });
 
+    testWidgets('표시한 PDF 만들기가 실패해도 진행 창이 닫히고 다시 누를 수 있다(10-07)', (tester) async {
+      final m = DrawingMark(id: 'p1', page: 0, kind: MarkKind.wrong, color: MarkColor.red, points: const [(0.3, 0.3)], text: '문제', no: 1, createdAt: at);
+      await open(tester, marks: [m]);
+      for (var i = 0; i < 2; i++) {
+        await tester.tap(find.byKey(const Key('dv_issues')));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const Key('dv_export')));
+        await tester.pump();
+        expect(find.byKey(const Key('dv_export_busy')), findsOneWidget);
+        // 파일 읽기는 진짜 시간이 흘러야 끝난다.
+        for (var k = 0; k < 20 && find.byKey(const Key('dv_export_busy')).evaluate().isNotEmpty; k++) {
+          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+          await tester.pump(const Duration(milliseconds: 300));
+        }
+        expect(find.byKey(const Key('dv_export_busy')), findsNothing);
+        expect(find.textContaining('PDF를 만들지 못했습니다'), findsOneWidget);
+        ScaffoldMessenger.of(tester.element(find.byKey(const Key('dv_canvas')))).removeCurrentSnackBar();
+        await tester.pumpAndSettle();
+      }
+    });
+
     testWidgets('색을 고르면 그 색으로 놓는다(초록 = 삭제)', (tester) async {
       await open(tester);
       await tester.tap(find.byKey(const Key('dv_tool_arrow')));
