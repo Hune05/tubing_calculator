@@ -51,7 +51,6 @@ import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_c
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
-import 'package:tubing_calculator/src/presentation/history/screens/history_screen.dart';
 
 class Cfg {
   final String name;
@@ -150,7 +149,6 @@ final screens = <String, (Widget Function(), List<Cfg>)>{
   '재고 로그인': (() => const MobileInventoryLoginScreen(), phoneCfgs),
   'PC 프로젝트 관리': (() => const ProjectManagementPage(), tabletCfgs),
   'PC 설정': (() => const SettingsScreen(), tabletCfgs),
-  'PC 보관함': (() => const HistoryScreen(), tabletCfgs),
 };
 
 class Finding {

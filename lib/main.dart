@@ -37,7 +37,6 @@ import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/shared_d
 import 'package:tubing_calculator/src/presentation/calculator/widgets/main_calculator_screen.dart';
 import 'package:tubing_calculator/src/presentation/settings/screens/settings_screen.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/marking_page.dart';
-import 'package:tubing_calculator/src/presentation/history/screens/history_screen.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/inventory_page.dart';
 import 'package:tubing_calculator/src/presentation/project/project_management_page.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_project_list_screen.dart';
@@ -454,7 +453,6 @@ class _MyAppState extends State<MyApp> {
         '/calculator': (context) => const MainCalculatorScreen(),
         '/marking': (context) => const MarkingPage(startDir: 'RIGHT'),
         '/settings': (context) => const SettingsScreen(),
-        '/history': (context) => const HistoryScreen(),
         '/inventory': (context) => const InventoryPage(),
         '/projects': (context) => const ProjectManagementPage(),
         '/cutting': (context) => const CuttingProjectListScreen(),

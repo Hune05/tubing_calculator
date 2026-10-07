@@ -134,15 +134,6 @@ class MenuScreen extends StatelessWidget {
                 Expanded(
                   child: _buildOutlineBigActionButton(
                     context,
-                    // 💡 [교체] 폴더 안에 도면이 있는 느낌의 얇은 선 아이콘
-                    icon: Icons.collections_bookmark_outlined,
-                    title: '보관함',
-                    onTap: () => Navigator.pushNamed(context, '/history'),
-                  ),
-                ),
-                Expanded(
-                  child: _buildOutlineBigActionButton(
-                    context,
                     // 💡 [교체] 톱니바퀴 안에 조절 장치가 있는 느낌의 얇은 선 아이콘
                     icon: Icons.settings_suggest_outlined,
                     title: '기기 설정',
@@ -266,14 +257,6 @@ class MenuScreen extends StatelessWidget {
           subtitle: '최종 컷팅 길이 확인',
           iconColor: makitaTeal,
           onTap: () => Navigator.pushNamed(context, '/marking'),
-        ),
-        _buildGridCard(
-          context,
-          icon: Icons.folder_special_outlined,
-          title: '도면 보관함',
-          subtitle: '이전 도면 및 내역',
-          iconColor: makitaTeal,
-          onTap: () => Navigator.pushNamed(context, '/history'),
         ),
         _buildGridCard(
           context,
