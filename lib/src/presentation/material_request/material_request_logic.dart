@@ -60,8 +60,9 @@ class CatalogMatcher {
   /// 적은 하나만 돌려준다(동점이면 애매하니 null). 이미 카탈로그 이름 그대로면 null.
   CatalogItem? match(MaterialNoteItem it) {
     final tokens = [
-      ...it.name.split(RegExp(r's+')),
-      ...it.spec.split(RegExp(r's+')),
+      // 빈칸으로 자른다(10-07: r's+'라 소문자 s에서 잘려 단어 순서가 다르면 제안이 안 나왔다).
+      ...it.name.split(RegExp(r'\s+')),
+      ...it.spec.split(RegExp(r'\s+')),
     ].map(_norm).where((t) => t.isNotEmpty).toList();
     if (tokens.isEmpty) return null;
     final total = tokens.fold<int>(0, (a, t) => a + t.length);

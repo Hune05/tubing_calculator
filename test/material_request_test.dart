@@ -50,6 +50,11 @@ void main() {
       expect(c?.id, 'a');
     });
 
+    test('단어 순서가 달라도 맞춘다(전선관 후강 → 후강 전선관 22mm)', () {
+      final c = m.match(const MaterialNoteItem(name: '전선관 후강', spec: '22mm', qty: 3));
+      expect(c?.id, 'a');
+    });
+
     test('여러 개에 똑같이 맞으면(애매) 제안하지 않는다', () {
       expect(m.match(const MaterialNoteItem(name: '엘보', qty: 3)), isNull);
     });
