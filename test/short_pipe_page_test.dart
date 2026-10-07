@@ -44,6 +44,14 @@ void main() {
     expect(allText(tester), contains('24개'));
   });
 
+  testWidgets('개수를 "1,000"처럼 써도 읽는다(10-08: 그 줄이 말없이 빠졌다)', (tester) async {
+    await open(tester);
+    await enter(tester, 'sp_len_0', '250');
+    await enter(tester, 'sp_qty_0', '1,000');
+    expect(find.byKey(const Key('sp_bar_0')), findsOneWidget);
+    expect(allText(tester), contains('1000개'));
+  });
+
   testWidgets('톱날 3mm로 바꾸면 두 본이 필요하다', (tester) async {
     await open(tester);
     await enter(tester, 'sp_len_0', '250');

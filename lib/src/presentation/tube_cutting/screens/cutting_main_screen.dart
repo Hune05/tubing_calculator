@@ -279,6 +279,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       context,
       "${before.length}줄의 잘랐음 표시를 지웠습니다.",
       onUndo: () {
+        // 화면을 떠난 뒤 누르면 아무것도 안 한다(10-08: dispose 뒤 setState 오류).
+        if (!mounted) return;
         setState(() => _doneKeys.addAll(before));
         _saveDraftState();
       },
@@ -1077,7 +1079,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       context,
       "구간을 복제했습니다.",
       onUndo: () {
-        if (insertAt >= _points.length) return;
+        if (!mounted || insertAt >= _points.length) return;
         setState(() {
           _points[insertAt].dispose();
           _points.removeAt(insertAt);
@@ -1103,6 +1105,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       context,
       "구간을 삭제했습니다.",
       onUndo: () {
+        if (!mounted) return;
         setState(() {
           final restored = CutPoint(fitting: removedFitting);
           restored.c2cController.text = removedText;

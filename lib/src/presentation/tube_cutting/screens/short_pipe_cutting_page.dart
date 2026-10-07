@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/utils/number_input.dart';
 import '../cutting_action_bar.dart';
 import '../cutting_math.dart' show fmtMm, parseLengthInput;
 import '../cutting_optimizer.dart';
@@ -146,7 +147,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
     for (final r in _rows) {
       final len = _d(r.length);
       // 개수는 9999까지(10-07: 10만 같은 값을 넣으면 칠 때마다 수 초씩 멈췄다. 형강과 같은 한계).
-      final q0 = int.tryParse(r.qty.text.trim());
+      final q0 = parseIntInput(r.qty.text); // "1,000"도 읽는다(10-08: 말없이 빠졌다)
       final q = q0?.clamp(-1, 9999);
       if (len == null && (q == null || q <= 0)) continue; // 빈 줄
       rows.add(ShortPipeRow(len ?? 0, q == null || q < 0 ? 0 : q));
