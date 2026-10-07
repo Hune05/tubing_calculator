@@ -18,6 +18,24 @@ import '../trash/trash_kinds.dart';
 
 String _date(DateTime d) => '${ptDay(d)} ${ptHm(d)}';
 
+/// 띄어쓰기·대소문자·줄표 같은 기호는 무시한다(GN101로 쳐도 GN-101이 나오게).
+String _norm(String s) => s.replaceAll(RegExp(r'[\s\-_./·,()]+'), '').toLowerCase();
+
+/// 기록 목록 거르기: 검색어(라인·시험 번호·현장·계통·P&ID·구간·시험자·메모)와 판정(null이면 전체).
+/// 판정이 안 난 기록(값 부족)은 합격·불합격 어느 쪽에도 들지 않는다.
+List<PtRecord> filterPtRecords(List<PtRecord> list, String query, bool? pass) {
+  final q = _norm(query);
+  return [
+    for (final r in list)
+      if ((pass == null || r.verdict.pass == pass) &&
+          (q.isEmpty ||
+              _norm(
+                [r.line, r.testNo, r.site, r.system, r.pid, r.section, r.tester, r.memo].join(' '),
+              ).contains(q)))
+        r,
+  ];
+}
+
 class PtRecordsPage extends StatefulWidget {
   const PtRecordsPage({super.key});
 
@@ -28,6 +46,14 @@ class PtRecordsPage extends StatefulWidget {
 class _PtRecordsPageState extends State<PtRecordsPage> {
   List<PtRecord>? _list;
   RecordSyncStatus? _sync;
+  final _search = TextEditingController();
+  bool? _pass; // 판정 거르기: null 전체, true 합격, false 불합격
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -162,11 +188,96 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
         ),
       );
     }
+    final shown = filterPtRecords(l, _search.text, _pass);
+    final filtering = _search.text.trim().isNotEmpty || _pass != null;
+    final head = <Widget>[
+      _syncLine(),
+      _filterBar(),
+      if (filtering)
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 0, 4, 0),
+          child: Text(
+            shown.isEmpty ? '맞는 기록이 없습니다.' : '${shown.length}건 / 전체 ${l.length}건',
+            key: const Key('pr_count'),
+            style: TextStyle(fontSize: 13, color: fc.textSub),
+          ),
+        ),
+    ];
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      itemCount: l.length + 1,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      itemCount: head.length + shown.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (_, i) => i == 0 ? _syncLine() : _tile(l[i - 1]),
+      itemBuilder: (_, i) => i < head.length ? head[i] : _tile(shown[i - head.length]),
+    );
+  }
+
+  /// 검색 칸과 판정 칩(전체·합격·불합격). 기록이 쌓이면 목록을 끝까지 내려가지 않고 찾는다.
+  Widget _filterBar() {
+    Widget chip(String label, bool? v) {
+      final on = _pass == v;
+      return Padding(
+        padding: const EdgeInsets.only(right: 8),
+        child: ChoiceChip(
+          key: Key('pr_pass_${v == null ? 'all' : (v ? 'ok' : 'ng')}'),
+          label: Text(label),
+          selected: on,
+          showCheckmark: false,
+          selectedColor: fc.brand,
+          backgroundColor: fc.surface,
+          side: BorderSide(color: on ? fc.brand : fc.line),
+          labelStyle: TextStyle(
+            fontWeight: FontWeight.w700,
+            color: on ? Colors.white : fc.text,
+          ),
+          onSelected: (_) => setState(() => _pass = v),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          key: const Key('pr_search'),
+          controller: _search,
+          onChanged: (_) => setState(() {}),
+          textInputAction: TextInputAction.search,
+          style: TextStyle(color: fc.text),
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.search, color: fc.textSub),
+            suffixIcon: _search.text.isEmpty
+                ? null
+                : IconButton(
+                    key: const Key('pr_search_clear'),
+                    icon: Icon(Icons.close, color: fc.textSub),
+                    tooltip: '지우기',
+                    onPressed: () => setState(_search.clear),
+                  ),
+            hintText: '라인·시험 번호·현장·시험자',
+            hintStyle: TextStyle(color: fc.textSub),
+            filled: true,
+            fillColor: fc.surface,
+            isDense: true,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: fc.line),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: fc.line),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            chip('전체', null),
+            chip('합격', true),
+            chip('불합격', false),
+          ],
+        ),
+      ],
     );
   }
 

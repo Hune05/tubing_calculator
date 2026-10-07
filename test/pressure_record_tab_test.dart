@@ -517,7 +517,8 @@ void main() {
     await tapKey(tester, 'pt_r_records');
     expect(find.text('P-1001'), findsOneWidget);
     expect(find.text('P-2002'), findsOneWidget);
-    expect(find.text('합격'), findsOneWidget);
+    // 판정 칩(합격·불합격)과 겹치지 않게 기록 줄 안에서 본다.
+    expect(find.descendant(of: find.byKey(Key('pr_item_${saved.id}')), matching: find.text('합격')), findsOneWidget);
     expect(find.text('판정 없음'), findsOneWidget);
     await tester.tap(find.byKey(Key('pr_item_${saved.id}')));
     await tester.pumpAndSettle();
