@@ -359,11 +359,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       kWeatherRefreshEvery,
       (_) => _refreshWeatherIfShown(),
     );
-    _loadTodayScheduleCount();
-    _loadMissingReports();
-    _loadLowStock();
+    _reloadBadges();
     _loadQuickLaunchSettings();
-    _loadTodayAttendanceForWidget();
     HomeWidgetSync.pendingAction.addListener(_onWidgetAction);
     WidgetsBinding.instance.addPostFrameCallback((_) => _onWidgetAction());
     // 격주·평일·반복 끝이 있는 일정 알림은 한 번씩만 잡혀 있어서 다음 회차를 다시 잡아야
@@ -474,6 +471,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       HomeWidgetSync.pendingAction.value = null;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
+        // 이미 열린 압력시험 화면이 있으면 하나 더 열지 않고 그 화면의 시험 기록 탭으로.
+        if (PressureTestPage.revealOpen(kPtRecordTabIndex)) return;
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -522,6 +521,28 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         (_weatherFailed || _weatherIsOld)) {
       _fetchDetailedWeather(quiet: !_weatherFailed);
     }
+    // 홈 배지(오늘 일정·일지 안 씀·재고 부족)와 오늘 요약 위젯: 날짜가 바뀌었거나 10분이 지났으면
+    // 다시 센다(10-07: 하룻밤 두었다 열면 오늘 날짜에 어제 개수가 보였다).
+    if (state == AppLifecycleState.resumed) {
+      final now = DateTime.now();
+      final last = _badgesAt;
+      if (last == null ||
+          last.day != now.day ||
+          now.difference(last) > const Duration(minutes: 10)) {
+        _reloadBadges();
+      }
+    }
+  }
+
+  DateTime? _badgesAt;
+
+  void _reloadBadges() {
+    _badgesAt = DateTime.now();
+    _loadTodayScheduleCount();
+    _loadMissingReports();
+    _loadLowStock();
+    _loadEquipmentDue();
+    _loadTodayAttendanceForWidget();
   }
 
   bool get _weatherIsOld => weatherIsOld(_weatherAt, DateTime.now());

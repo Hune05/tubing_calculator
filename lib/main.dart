@@ -112,14 +112,41 @@ Route<void>? routeForNotification(String? payload, Map<String, dynamic> data) {
   return null;
 }
 
+/// 홈이 뜬 뒤에(늦어도 [maxWait] 뒤에) [f]를 부른다. 앱이 꺼진 상태에서 알림을 눌러 켜면 로딩 화면이
+/// 1.5초 뒤 맨 위 화면을 홈으로 바꾸는데, 그 전에 알림 화면을 올리면 알림 화면이 홈으로 덮였다(10-07).
+void _afterHomeReady(void Function() f, {Duration maxWait = const Duration(seconds: 12)}) {
+  if (SharedDrawingInbox.homeReady.value) {
+    f();
+    return;
+  }
+  var done = false;
+  late VoidCallback l;
+  void run() {
+    if (done) return;
+    done = true;
+    SharedDrawingInbox.homeReady.removeListener(l);
+    f();
+  }
+
+  l = () {
+    if (SharedDrawingInbox.homeReady.value) run();
+  };
+  SharedDrawingInbox.homeReady.addListener(l);
+  Future.delayed(maxWait, run);
+}
+
 void _openRouteWhenReady(Route<void> route, [int left = 10]) {
+  _afterHomeReady(() => _pushWhenNavReady(route, left));
+}
+
+void _pushWhenNavReady(Route<void> route, int left) {
   final nav = appNavigatorKey.currentState;
   if (nav != null) {
     nav.push(route);
   } else if (left > 0) {
     Future.delayed(
       const Duration(milliseconds: 500),
-      () => _openRouteWhenReady(route, left - 1),
+      () => _pushWhenNavReady(route, left - 1),
     );
   }
 }
@@ -162,7 +189,7 @@ void _handleNotificationPayload(String? payload) {
     }
   }
 
-  tryOpen(10);
+  _afterHomeReady(() => tryOpen(10));
 }
 
 // 🚀 [백그라운드 핸들러]
@@ -288,11 +315,9 @@ class _MyAppState extends State<MyApp> {
     // 홈 메뉴가 뜨면(로딩 화면이 홈으로 바뀌면서 먼저 띄운 창을 덮지 않게) 가져간다.
     SharedDrawingInbox.listen(_checkSharedDrawing);
     SharedDrawingInbox.homeReady.addListener(_checkSharedDrawing);
-    // 홈 화면 위젯을 눌러 열렸을 때: 열려 있던 화면을 닫고 홈으로 돌아가면, 홈 메뉴가 그 동작(빠른 실행 열기)을 한다.
-    HomeWidgetSync.init(
-      onReceived: () =>
-          appNavigatorKey.currentState?.popUntil((r) => r.isFirst),
-    );
+    // 홈 화면 위젯·위젯 알림을 눌러 열렸을 때: 홈 메뉴가 그 동작을 지금 화면 위에 연다.
+    // 10-07: 예전에는 열려 있던 화면을 모두 닫아(popUntil), 쓰던 일지 같은 입력이 묻지도 않고 사라졌다.
+    HomeWidgetSync.init(onReceived: () {});
   }
 
   bool _sharedDrawingBusy = false;
