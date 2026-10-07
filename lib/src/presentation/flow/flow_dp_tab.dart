@@ -63,7 +63,7 @@ mixin _FlowDpTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
   }
 
   double? _n(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', ''));
+      parseNumberText(c.text);
 
   String get _qu => _mQunit.text.trim();
 

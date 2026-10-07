@@ -10,6 +10,7 @@ import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../unit_converter/unit_defs.dart' show formatNumber;
 import 'formula_defs.dart';
+import '../common/number_text.dart';
 
 class FormulaCalcPage extends StatelessWidget {
   const FormulaCalcPage({super.key});
@@ -145,7 +146,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
     super.dispose();
   }
 
-  double? _num(TextEditingController c) => double.tryParse(c.text.trim());
+  double? _num(TextEditingController c) => parseNumberText(c.text);
 
   @override
   Widget build(BuildContext context) {

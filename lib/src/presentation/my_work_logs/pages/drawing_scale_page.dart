@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../models/drawing_scale.dart';
 import '../widgets/korean_text.dart';
 import '../widgets/layout_board_ui.dart';
+import '../../common/number_text.dart';
 
 // 🚀 축척 맞추기: 배경 사진(카톡으로 받은 도면 등)에서 판 왼쪽 위·오른쪽 아래 모서리를 찍고
 // 실제 가로·세로(mm)를 넣으면, 사진이 배치도에 실제 크기로 깔린다. 폰 안에서만 셈한다(통신 없음).
@@ -124,7 +125,7 @@ class _DrawingScalePageState extends State<DrawingScalePage> {
   }
 
   double? _num(TextEditingController c) =>
-      double.tryParse(c.text.replaceAll(',', '').trim());
+      parseNumberText(c.text);
 
   Rect? get _result {
     final img = _image;

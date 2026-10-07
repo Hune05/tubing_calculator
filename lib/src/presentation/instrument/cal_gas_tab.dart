@@ -12,6 +12,7 @@ import '../common/calc_form_parts.dart';
 import '../pressure_test/pressure_units.dart';
 import 'cal_gas.dart';
 import 'gd402_guide_page.dart';
+import '../common/number_text.dart';
 
 const String kCalGasDraftKey = 'cal_gas_draft_v1';
 
@@ -162,7 +163,7 @@ class _CalGasTabState extends State<CalGasTab>
   }
 
   double? _n(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', ''));
+      parseNumberText(c.text);
 
   double? _bar(TextEditingController c) {
     final v = _n(c);

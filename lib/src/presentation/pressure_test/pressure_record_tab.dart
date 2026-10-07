@@ -1197,10 +1197,11 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
   }
 
   void _ok() {
-    final pt = _pc.text.trim().replaceAll(',', '');
-    final tt = _tc.text.trim().replaceAll(',', '');
-    final pv = double.tryParse(pt);
-    final tv = tt.isEmpty ? null : double.tryParse(tt);
+    // 쉼표는 앱 공용 규칙으로 읽는다(7,5 → 7.5). 예전에는 쉼표를 지워 7,5 bar가 75 bar가 됐다(10-07).
+    final pt = _pc.text.trim();
+    final tt = _tc.text.trim();
+    final pv = parseNumberText(pt);
+    final tv = tt.isEmpty ? null : parseNumberText(tt);
     setState(() {
       _pErr = pv == null ? '압력을 넣으십시오' : null;
       _tErr = tt.isNotEmpty && (tv == null || tv <= -273.15)

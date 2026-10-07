@@ -21,6 +21,7 @@ import '../unit_converter/unit_defs.dart' show kPipeSizes, PipeSize;
 import 'flow_calc.dart';
 import 'flow_data.dart';
 import 'flow_meter_check.dart';
+import '../common/number_text.dart';
 
 part 'flow_dp_tab.dart';
 part 'flow_meter_check_tab.dart';
@@ -288,7 +289,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
   }
 
   double? _num(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', ''));
+      parseNumberText(c.text);
 
   // ─────────────── 입력에서 나오는 값 ───────────────
 

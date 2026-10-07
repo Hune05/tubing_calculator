@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../unit_converter/unit_defs.dart';
+import '../common/number_text.dart';
 
 /// 이 화면에서 고를 수 있는 분류(현장에서 자주 쓰는 것 위주).
 final List<UnitCategory> kMiniConvertCategories = [
@@ -76,7 +77,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
   List<UnitDef> _numericUnits(UnitCategory c) =>
       c.units.where((u) => !u.textInput).toList();
 
-  double? get _fromValue => double.tryParse(_ctrl.text.trim());
+  double? get _fromValue => parseNumberText(_ctrl.text);
 
   String get _resultText {
     final v = _fromValue;

@@ -11,6 +11,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../common/number_text.dart';
 
 /// 구리 부스바 k의 말이 되는 범위(Rittal·PayaPress 0.33~0.5, 여유를 두어 넓게 봄).
 const double kBenderKMin = 0.2, kBenderKMax = 0.7;
@@ -276,7 +277,7 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
   }
 
   double? _v(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', ''));
+      parseNumberText(c.text);
 
   double? get _k {
     final t = _v(_t), r = _v(_r), a = _v(_a), b = _v(_b), f = _v(_flat);

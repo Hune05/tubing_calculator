@@ -44,7 +44,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
   }
 
   double? _mcn(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', ''));
+      parseNumberText(c.text);
 
   String get _mcu => _mcUnit.text.trim();
 

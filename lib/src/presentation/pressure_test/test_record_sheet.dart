@@ -11,6 +11,7 @@ import '../../core/theme/field_view.dart';
 import 'pressure_calc.dart';
 import 'pressure_units.dart';
 import 'test_record.dart';
+import '../common/number_text.dart';
 
 /// 저장 창에서 돌려주는 값. [asNew]: 새 기록으로(아니면 불러온 기록을 고침).
 class PtSaveResult {
@@ -162,7 +163,7 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
     if (t.isEmpty) return null;
     // 미리 채운 글 그대로면 저장된 kPa를 그대로(반올림 누적 방지).
     if (t == _reliefText) return widget.reliefKpa;
-    final v = double.tryParse(t.replaceAll(',', ''));
+    final v = parseNumberText(t);
     return v == null ? null : v * widget.unit.kpa;
   }
 

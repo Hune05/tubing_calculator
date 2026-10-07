@@ -30,6 +30,7 @@ import 'test_record_pdf.dart';
 import 'test_record_sheet.dart';
 import 'test_records_page.dart';
 import 'tube_rating.dart';
+import '../common/number_text.dart';
 
 part 'pressure_record_tab.dart';
 
@@ -371,7 +372,7 @@ class _PressureTestPageState extends State<PressureTestPage>
   }
 
   double? _num(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', ''));
+      parseNumberText(c.text);
 
   double? _kpaIn(TextEditingController c, PUnit unit) {
     final e = _exact[c];

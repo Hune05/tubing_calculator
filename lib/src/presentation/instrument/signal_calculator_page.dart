@@ -21,6 +21,7 @@ import 'meter_loop_guide_page.dart';
 import 'signal_calc.dart';
 import 'switch_check.dart';
 import 'temp_sensor.dart';
+import '../common/number_text.dart';
 
 String _fmt(double v, [int d = 3]) {
   // 0.125가 0.12로 내려가지 않게(이진 소수 오차) 반올림 전에 아주 작게 밀어 준다.
@@ -377,7 +378,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   }
 
   double? _num(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', ''));
+      parseNumberText(c.text);
 
   String get _u => _unit.text.trim();
   String _pv(double v) => _u.isEmpty ? _fmt(v) : '${_fmt(v)} $_u';
