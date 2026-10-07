@@ -15,6 +15,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/data/ownership.dart' show currentUid;
+import 'package:tubing_calculator/src/presentation/notification/pages/mobile_notification_page.dart'
+    show announcementIsRead;
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart'
     show showDeleteUndo;
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -335,8 +338,11 @@ class _NewsHeaderBadgeIconState extends State<NewsHeaderBadgeIcon> {
         if (_hasIdentity && snapshot.hasData) {
           hasUnread = snapshot.data!.docs.any((d) {
             final data = d.data() as Map<String, dynamic>;
-            final readBy = (data['readBy'] as List?) ?? [];
-            return !readBy.contains(widget.currentWorker);
+            return !announcementIsRead(
+              data,
+              widget.currentWorker,
+              uid: currentUid(),
+            );
           });
         }
         final showDot = hasUnread || _hasActiveAuto;

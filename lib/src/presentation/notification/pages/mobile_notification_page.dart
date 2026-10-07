@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/data/ownership.dart' show currentUid;
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -38,14 +39,27 @@ class MobileNotificationPage extends StatefulWidget {
   State<MobileNotificationPage> createState() => _MobileNotificationPageState();
 }
 
+/// 공지 읽음 표시에 적는 값: 이름과 사용자 번호("uid:…")를 같이 적는다(10-08: 이름만 적어,
+/// 이름을 바꾸면 공지가 모두 안 읽음으로 돌아갔다). 예전 공지의 이름 표시도 그대로 읽는다.
+List<String> announcementReadMarks(String worker, {String? uid}) => [
+  worker,
+  if (uid != null && uid.isNotEmpty) 'uid:$uid',
+];
+
+/// 이 사람이 읽은 공지인지(이름이나 사용자 번호 중 하나라도 있으면 읽음).
+bool announcementIsRead(Map<String, dynamic> data, String worker, {String? uid}) {
+  final readBy = data['readBy'];
+  if (readBy is! List) return false;
+  return announcementReadMarks(worker, uid: uid).any(readBy.contains);
+}
+
 class _MobileNotificationPageState extends State<MobileNotificationPage> {
   bool get _hasIdentity =>
       widget.currentWorker.isNotEmpty && widget.currentWorker != "로그인 필요";
 
   bool _isRead(Map<String, dynamic> data) {
     if (!_hasIdentity) return true;
-    final readBy = (data['readBy'] as List?) ?? [];
-    return readBy.contains(widget.currentWorker);
+    return announcementIsRead(data, widget.currentWorker, uid: currentUid());
   }
 
   Future<void> _markAsRead(
@@ -55,7 +69,9 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
     if (!_hasIdentity || _isRead(data)) return;
     // 기다리지 않고, 관리자가 막 지운 공지라 실패해도 조용히 넘어간다(10-07).
     ref.update({
-      'readBy': FieldValue.arrayUnion([widget.currentWorker]),
+      'readBy': FieldValue.arrayUnion(
+        announcementReadMarks(widget.currentWorker, uid: currentUid()),
+      ),
     }).catchError((_) {});
   }
 
@@ -69,7 +85,9 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
     final batch = FirebaseFirestore.instance.batch();
     for (final d in unread) {
       batch.update(d.reference, {
-        'readBy': FieldValue.arrayUnion([widget.currentWorker]),
+        'readBy': FieldValue.arrayUnion(
+          announcementReadMarks(widget.currentWorker, uid: currentUid()),
+        ),
       });
     }
     batch.commit().catchError((_) {});
