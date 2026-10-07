@@ -259,6 +259,8 @@ extension _InventoryDialogsExt on _InventoryPageState {
   }) {
     final TextEditingController qtyCtrl = TextEditingController();
     String returnStatus = "정상";
+    // 통신이 느릴 때 두 번 누르면 프로젝트 재고가 두 번 빠지고 창고 재고가 두 번 늘었다(10-07).
+    bool busy = false;
 
     showDialog(
       context: context,
@@ -392,6 +394,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
                 ),
               ),
               onPressed: () async {
+                if (busy) return;
                 int qty = int.tryParse(qtyCtrl.text) ?? 0;
                 int currentProjQty = (pItem['qty'] as num?)?.toInt() ?? 0;
 
@@ -399,6 +402,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
                   return;
                 }
 
+                busy = true;
                 try {
                   String targetMatName = pItem['material_name'];
                   if (returnStatus != "정상" &&
@@ -487,6 +491,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
                     });
                   }
                 } catch (e) {
+                  busy = false;
                   debugPrint("Error: $e");
                 }
               },
@@ -889,6 +894,8 @@ extension _InventoryDialogsExt on _InventoryPageState {
     required Map<String, dynamic> item,
   }) {
     final TextEditingController physicalQtyCtrl = TextEditingController();
+    // 두 번 누르면 차이가 두 번 더해졌다(장부 10, 실사 8 → 6). 10-07.
+    bool busy = false;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -996,6 +1003,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
               ),
             ),
             onPressed: () async {
+              if (busy) return;
               int physicalQty = int.tryParse(physicalQtyCtrl.text) ?? -1;
               if (physicalQty < 0) return;
 
@@ -1007,6 +1015,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
                 return;
               }
 
+              busy = true;
               try {
                 // 통째로 덮어쓰지 않고 차이만 더하고 뺀다(창을 띄운 사이 컷팅 차감이
                 // 있어도 지워지지 않게). 재고와 기록은 한 번에 쓴다.
@@ -1032,6 +1041,7 @@ extension _InventoryDialogsExt on _InventoryPageState {
                   Navigator.pop(ctx);
                 }
               } catch (e) {
+                busy = false;
                 debugPrint("Error: $e");
               }
             },
