@@ -498,7 +498,9 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
           Text(
-            '증상·코드·장비 이름으로 찾으십시오. 장비 고장 조치, 계기 알람 코드, 루프 이상값, 축 정렬 지침, 전기 고장 진단, 현장 자료와 계산기 바로가기를 한 곳에서 찾을 수 있습니다. 리크·모터·메가처럼 현장 말이나 초성(ㅈㅅㅇ)으로 찾아도 됩니다.',
+            '증상·코드·장비 이름으로 찾으십시오. 장비 고장 조치, 계기 알람 코드, 루프 이상값, 축 정렬 지침, 전기 고장 진단, 현장 자료와 계산기 바로가기'
+            '${widget.recordSearch == null ? '' : ', 내 기록(일지·이슈·압력시험·장비 대장)'}'
+            '까지 한 곳에서 찾을 수 있습니다. 리크·모터·메가처럼 현장 말이나 초성(ㅈㅅㅇ)으로 찾아도 됩니다.',
             style: TextStyle(fontSize: 14, color: refTextSub, height: 1.5),
           ),
           if (_recent.isNotEmpty) ...[
