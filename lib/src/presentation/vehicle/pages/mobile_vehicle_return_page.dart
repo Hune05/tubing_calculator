@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -441,22 +443,25 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      // 🚀 Firestore 업데이트
-      await FirebaseFirestore.instance
-          .collection('vehicles')
-          .doc(widget.vehicle['id'])
-          .update({
-            'status': '사용 가능',
-            'currentUser': null,
-            'destination': null,
-            'returnTime': null,
-            'useType': "단기/일반",
-            'currentMileage': finalMileage,
-            'parkingLocation': finalParking,
-            'keyLocation': finalKey,
-          });
-
-      await FirebaseFirestore.instance.collection('vehicle_logs').add({
+      // 차량 상태와 반납 기록을 한 번에 쓰고 기다리지 않는다(10-07). 예전에는 서버 응답을 기다려
+      // 통신이 없으면 "저장 중"이 끝나지 않았고, 그사이 나가면 반납 기록이 아예 안 쓰였다.
+      // 폰에 먼저 쓰이고 통신되면 올라간다.
+      final db = FirebaseFirestore.instance;
+      final batch = db.batch();
+      batch.update(
+        db.collection('vehicles').doc(widget.vehicle['id']),
+        {
+          'status': '사용 가능',
+          'currentUser': null,
+          'destination': null,
+          'returnTime': null,
+          'useType': "단기/일반",
+          'currentMileage': finalMileage,
+          'parkingLocation': finalParking,
+          'keyLocation': finalKey,
+        },
+      );
+      batch.set(db.collection('vehicle_logs').doc(), {
         'userId': widget.currentUser,
         'type': widget.vehicle['type'],
         'number': widget.vehicle['number'],
@@ -469,6 +474,11 @@ class _MobileVehicleReturnPageState extends State<MobileVehicleReturnPage> {
         'status': '반납',
         'createdAt': FieldValue.serverTimestamp(),
       });
+      unawaited(
+        batch.commit().catchError((Object e) {
+          debugPrint('차량 반납 저장 실패: $e');
+        }),
+      );
 
       if (mounted) {
         Navigator.pop(context);
