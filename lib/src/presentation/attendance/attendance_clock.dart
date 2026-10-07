@@ -13,7 +13,8 @@ import '../my_work_logs/models/attendance.dart';
 import 'attendance_calc.dart';
 
 /// 밤샘 근무로 보는 최대 시간(출근 뒤 이 시간 안이면 어제 기록에 퇴근을 찍는다).
-const int kMaxOvernightMinutes = 16 * 60;
+/// 10-08: 16시간 → 12시간. 어제 18:00 출근하고 퇴근을 잊으면 다음 날 08:00에 [출근]이 없었다.
+const int kMaxOvernightMinutes = 12 * 60;
 
 /// "HH:mm"(분 단위로 자른다).
 String clockText(DateTime t) =>
@@ -44,7 +45,16 @@ class ClockStatus {
   /// 근무 중일 때 출근 뒤 지난 분(아니면 null).
   final int? elapsedMin;
 
-  const ClockStatus(this.phase, this.day, this.record, [this.elapsedMin]);
+  /// 어제 출근만 찍고 퇴근을 안 찍었는데 밤샘으로 보지 않은 경우(오늘 카드에 안내).
+  final bool yesterdayOpen;
+
+  const ClockStatus(
+    this.phase,
+    this.day,
+    this.record, [
+    this.elapsedMin,
+    this.yesterdayOpen = false,
+  ]);
 }
 
 bool _open(AttendanceRecord? r) =>
@@ -61,7 +71,11 @@ ClockStatus clockStatus({
 }) {
   final d = _day(now);
   final y = DateTime(d.year, d.month, d.day - 1);
-  if (_open(yesterday)) {
+  // 오늘 출근을 이미 찍었으면 오늘이 먼저다.
+  final todayStarted = minutesOfDay(today?.checkIn) != null;
+  var yOpen = false;
+  if (_open(yesterday) && !todayStarted) {
+    yOpen = true;
     final m = minutesOfDay(yesterday!.checkIn)!;
     final start = DateTime(y.year, y.month, y.day, m ~/ 60, m % 60);
     final elapsed = now.difference(start).inMinutes;
@@ -75,7 +89,7 @@ ClockStatus clockStatus({
   }
   final inM = minutesOfDay(today?.checkIn);
   if (today == null || inM == null) {
-    return ClockStatus(ClockPhase.ready, d, today);
+    return ClockStatus(ClockPhase.ready, d, today, null, yOpen);
   }
   if (today.checkOut == null) {
     final start = DateTime(d.year, d.month, d.day, inM ~/ 60, inM % 60);
@@ -204,7 +218,9 @@ String encodeClockWidgetPayload(
   switch (st.phase) {
     case ClockPhase.ready:
       big = '00:00';
-      sub = lastCheckOutText(records, now) ?? '오늘 출근 전';
+      sub = st.yesterdayOpen
+          ? '어제 퇴근을 안 찍었습니다'
+          : lastCheckOutText(records, now) ?? '오늘 출근 전';
     case ClockPhase.working:
       big = '';
       sub =

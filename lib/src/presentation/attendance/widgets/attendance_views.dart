@@ -82,8 +82,9 @@ class AttendanceClockCard extends StatelessWidget {
       switch (st.phase) {
         case ClockPhase.ready:
           title = "오늘 출근 전";
-          sub =
-              "${today.month}월 ${today.day}일 ${kWeekdayKo[today.weekday - 1]}요일";
+          sub = st.yesterdayOpen
+              ? "어제 퇴근을 안 찍었습니다. 아래 어제 줄을 눌러 적으십시오"
+              : "${today.month}월 ${today.day}일 ${kWeekdayKo[today.weekday - 1]}요일";
           action = _clockButton(
             key: const Key('att_clock_in'),
             label: "출근",

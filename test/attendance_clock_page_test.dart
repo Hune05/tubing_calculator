@@ -222,6 +222,28 @@ void main() {
     expect(store.saved.single.checkOut, '06:30');
   });
 
+  testWidgets('어제 출근하고 12시간 넘게 지났으면 오늘 [출근]을 보이고 어제 퇴근 안내를 띄운다(10-08)', (tester) async {
+    final store = _Store([
+      AttendanceRecord(date: DateTime(2026, 10, 13), checkIn: '18:00'),
+    ]);
+    await _mount(tester, store, now: DateTime(2026, 10, 14, 8));
+    expect(_text(tester, 'att_clock_title'), '오늘 출근 전');
+    expect(_text(tester, 'att_clock_sub'), contains('어제 퇴근을 안 찍었습니다'));
+    await tester.tap(find.byKey(const Key('att_clock_in')));
+    await tester.pumpAndSettle();
+    expect(store.saved.single.date, wed);
+    expect(store.data['2026-10-13']!.checkOut, isNull); // 어제 기록은 그대로
+  });
+
+  testWidgets('오늘 출근을 이미 찍었으면 어제 밤샘보다 오늘이 먼저다(10-08)', (tester) async {
+    final store = _Store([
+      AttendanceRecord(date: DateTime(2026, 10, 13), checkIn: '22:00'),
+      AttendanceRecord(date: wed, checkIn: '07:00'),
+    ]);
+    await _mount(tester, store, now: DateTime(2026, 10, 14, 7, 30));
+    expect(_text(tester, 'att_clock_title'), '07:00 출근 · 근무 중');
+  });
+
   testWidgets('연차인 날은 단추 없이 고치기만 보인다', (tester) async {
     final store = _Store([AttendanceRecord(date: wed, type: '연차')]);
     await _mount(tester, store, now: DateTime(2026, 10, 14, 8));
