@@ -434,6 +434,12 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
       csSnackMissing(context, '넣을 수 없습니다. 두 다리 사이 거리가 관 바깥지름보다 작아 만들 수 없습니다.');
       return;
     }
+    // 마킹이 관 끝 안쪽에 찍히면 꺾을 수 없으니 넣지 않는다(10-08).
+    final off = widget.specs.markOffset(90);
+    if (first - off <= 0) {
+      csSnackMissing(context, '넣을 수 없습니다. 첫 다리가 테이크업(${csFmt(off)}mm)보다 짧아 꺾을 수 없습니다. ${csFmt(off)}mm보다 길게 넣으십시오.');
+      return;
+    }
     widget.onAddBends(list);
     csSnackAdded(
       context,
@@ -517,6 +523,14 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
                       value: '${csFmt(first - widget.specs.markOffset(90))} mm',
                       note: '(첫 다리 ${csFmt(first)} − 테이크업)',
                     ),
+                  if (first != null && first > 0 && first - widget.specs.markOffset(90) <= 0)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        '첫 다리가 테이크업보다 짧아 꺾을 수 없습니다.',
+                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                    ),
                   if (dir != null && !_perpendicular)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
@@ -567,10 +581,16 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
       csSnackMissing(context, '넣을 수 없습니다. 스터브 길이를 넣으십시오.');
       return;
     }
+    // 마킹이 관 끝 안쪽에 찍히면 꺾을 수 없으니 넣지 않는다(10-08: 경고만 뜨고 목록에 들어갔다).
+    final off = widget.specs.markOffset(90);
+    if (s! - off <= 0) {
+      csSnackMissing(context, '넣을 수 없습니다. 스터브가 테이크업(${csFmt(off)}mm)보다 짧아 꺾을 수 없습니다. ${csFmt(off)}mm보다 길게 넣으십시오.');
+      return;
+    }
     widget.onAddBends(list);
     csSnackAdded(
       context,
-      '1번 마킹이 ${csFmt(s! - widget.specs.markOffset(90), 0)}mm 자리에 찍힙니다.',
+      '1번 마킹이 ${csFmt(s - off, 0)}mm 자리에 찍힙니다.',
     );
     Navigator.pop(context);
   }
@@ -616,7 +636,7 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
-                        '스터브가 테이크업보다 짧아 마킹이 관 끝 안쪽에 찍힙니다.',
+                        '스터브가 테이크업보다 짧아 꺾을 수 없습니다.',
                         style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
                       ),
                     ),

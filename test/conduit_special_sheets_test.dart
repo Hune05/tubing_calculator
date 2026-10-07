@@ -236,6 +236,32 @@ void main() {
     ]);
   });
 
+  testWidgets('스터브·첫 다리가 테이크업보다 짧으면 목록에 넣지 않는다(10-08)', (tester) async {
+    final added = await open(
+      tester,
+      (c, add) => ConduitSpecialSheets.showStubUp(c, currentRotation: 90, onAddBends: add, specs: specs),
+    );
+    await type(tester, 'cs_stub', '100'); // 테이크업 152.4
+    expect(find.textContaining('꺾을 수 없습니다'), findsOneWidget);
+    await tapKey(tester, 'cs_dir_0');
+    await tapKey(tester, 'cs_add');
+    expect(added, isEmpty);
+    expect(find.textContaining('152.4mm보다 길게'), findsOneWidget);
+  });
+
+  testWidgets('백투백: 첫 다리가 테이크업보다 짧으면 목록에 넣지 않는다(10-08)', (tester) async {
+    final added = await open(
+      tester,
+      (c, add) => ConduitSpecialSheets.showBackToBack(c, currentRotation: 90, onAddBends: add, specs: specs, conduitOd: 26.5),
+    );
+    await type(tester, 'cs_first', '100');
+    await type(tester, 'cs_dist', '300');
+    await tapKey(tester, 'cs_dir_0');
+    await tapKey(tester, 'cs_add');
+    expect(added, isEmpty);
+    expect(find.textContaining('152.4mm보다 길게'), findsOneWidget);
+  });
+
   for (final (name, opener) in <(String, Opener)>[
     ('킥', (c, add) => ConduitSpecialSheets.showKick(c, currentRotation: 90, onAddBends: add, specs: specs)),
     ('분할 90°', (c, add) => ConduitSpecialSheets.showSegmented(c, currentRotation: 90, onAddBends: add, specs: specs)),
