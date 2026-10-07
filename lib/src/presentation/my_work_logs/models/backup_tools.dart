@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -287,7 +288,15 @@ Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
     try {
       final proj = Map<String, dynamic>.from(_dec(raw) as Map);
       if (proj['id'] == null) continue;
-      await repo.upsertProject(proj);
+      // 10-07: 확인 창 말대로 "백업 내용으로 바꾼다"(merge: false). 예전에는 합치기라 지웠던 일지·이슈는
+      // 돌아오지 않았다. 서버 응답도 기다리지 않는다(통신이 없으면 복원이 끝나지 않았다) —
+      // 폰에 먼저 쓰이고 통신되면 올라간다.
+      unawaited(
+        repo.upsertProject(proj, merge: false).catchError((Object e) {
+          debugPrint('복원 실패(건너뜀): $e');
+          recordError('백업 복원', e);
+        }),
+      );
       ok++;
     } catch (e) {
       debugPrint('복원 실패(건너뜀): $e');
@@ -297,10 +306,13 @@ Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
   for (final raw in (b.raw['layouts'] as List? ?? [])) {
     try {
       if (raw is! Map || raw['id'] is! String || raw['data'] is! Map) continue;
-      await FirebaseFirestore.instance
-          .collection(_kLayoutsCollectionName)
-          .doc(raw['id'] as String)
-          .set(Map<String, dynamic>.from(_dec(raw['data']) as Map));
+      unawaited(
+        FirebaseFirestore.instance
+            .collection(_kLayoutsCollectionName)
+            .doc(raw['id'] as String)
+            .set(Map<String, dynamic>.from(_dec(raw['data']) as Map))
+            .catchError((Object e) => recordError('배치도 복원', e)),
+      );
       layoutsOk++;
     } catch (e) {
       recordError('배치도 복원', e);
@@ -311,10 +323,13 @@ Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
       if (raw is! Map || raw['id'] is! String || raw['data'] is! Map) continue;
       final id = raw['id'] as String;
       final data = Map<String, dynamic>.from(_dec(raw['data']) as Map);
-      await FirebaseFirestore.instance
-          .collection(_kPersonalSchedulesName)
-          .doc(id)
-          .set(data);
+      unawaited(
+        FirebaseFirestore.instance
+            .collection(_kPersonalSchedulesName)
+            .doc(id)
+            .set(data)
+            .catchError((Object e) => recordError('내 일정 복원', e)),
+      );
       await schedulePersonalReminder(id, data);
       schedulesOk++;
     } catch (e) {
