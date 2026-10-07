@@ -84,7 +84,11 @@ DateTimeComponents? repeatComponentsFor({
           ? DateTimeComponents.dayOfMonthAndTime
           : null;
     case 'yearly':
-      return DateTimeComponents.dateAndTime;
+      // 2/29 일정이나, 알림이 다른 달로 넘어가면(3/1 일정의 하루 전) 윤년에 날짜가 하루 어긋나
+      // 한 번씩만 잡고 앱을 열 때 다시 잡는다(10-08: 윤년에 "하루 전" 알림이 이틀 전에 울렸다).
+      final remind = start.subtract(Duration(minutes: minutesBefore));
+      final leapSafe = !(start.month == 2 && start.day == 29) && remind.month == start.month;
+      return leapSafe ? DateTimeComponents.dateAndTime : null;
   }
   return null;
 }

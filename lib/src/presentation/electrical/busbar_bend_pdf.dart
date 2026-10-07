@@ -381,9 +381,27 @@ String bendFileName(String title, DateTime d) {
   return 'busbar_bend_${t}_${d.year}${d.month.toString().padLeft(2, '0')}${d.day.toString().padLeft(2, '0')}.pdf';
 }
 
-Future<void> openBendPdf(BuildContext context, BendPdfInput input) async {
+bool _bendPdfBusy = false;
+
+/// 만드는 중에 다시 누르면 겹쳐 돌고, 실패하면 아무 반응이 없었다(10-08). 한 번만 돌고 실패는 알린다.
+Future<void> openBendPdf(
+  BuildContext context,
+  BendPdfInput input, {
+  Future<Uint8List> Function(BendPdfInput input, DateTime date)? build,
+}) async {
+  if (_bendPdfBusy) return;
+  _bendPdfBusy = true;
   final now = DateTime.now();
-  final bytes = await buildBendPdf(input, date: now);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  Uint8List bytes;
+  try {
+    bytes = await (build ?? (i, d) => buildBendPdf(i, date: d))(input, now);
+  } catch (e) {
+    messenger?.showSnackBar(const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')));
+    return;
+  } finally {
+    _bendPdfBusy = false;
+  }
   final fileName = bendFileName(input.title, now);
   if (!context.mounted) return;
   await Navigator.of(context).push(

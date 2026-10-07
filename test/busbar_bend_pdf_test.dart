@@ -63,6 +63,27 @@ void main() {
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });
 
+  testWidgets('지시서 만들기가 실패하면 알리고, 다시 누를 수 있다(10-08)', (tester) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (c) {
+      ctx = c;
+      return const SizedBox();
+    }))));
+    final z = busbarZ(d: 5, r: 5, k: 0.4, a: 50, c: 50, h: 40, deg: 45);
+    final input = BendPdfInput(title: '시험', plan: z.plan, thickness: 5, rho: 7, summary: const [], notes: const []);
+    var calls = 0;
+    Future<Uint8List> fail(BendPdfInput i, DateTime d) async {
+      calls++;
+      throw StateError('글꼴 없음');
+    }
+
+    await openBendPdf(ctx, input, build: fail);
+    await tester.pump();
+    expect(find.text('지시서를 만들지 못했습니다. 다시 해 보십시오.'), findsOneWidget);
+    await openBendPdf(ctx, input, build: fail);
+    expect(calls, 2);
+  });
+
   test('파일 이름', () {
     expect(
       bendFileName('1호기 모선', DateTime(2026, 10, 3)),
