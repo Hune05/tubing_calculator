@@ -144,6 +144,10 @@ class PtVerdict {
   final double? allowKpa;
   final bool leakOk;
 
+  /// 시험압력과 시작 압력. 둘 다 있으면 시작 압력이 시험압력에 이르렀는지 본다.
+  final double? testKpa;
+  final double? startKpa;
+
   const PtVerdict({
     required this.medium,
     required this.started,
@@ -156,7 +160,18 @@ class PtVerdict {
     this.hydroDeltaC,
     this.allowKpa,
     required this.leakOk,
+    this.testKpa,
+    this.startKpa,
   });
+
+  /// 시작 압력이 시험압력 이상인지. 둘 중 하나라도 없으면 null.
+  /// 10-07: 예전에는 시험압력에 못 미치는 압력(오타·덜 올림)으로 유지해도 합격이 나왔다.
+  /// 계산 오차만 봐 주고(0.1%), 그보다 낮으면 불합격.
+  bool? get startOk {
+    final t = testKpa, p = startKpa;
+    if (t == null || p == null || t <= 0) return null;
+    return p >= t * (1 - 1e-3);
+  }
 
   bool get tempCorrected => correctedDropKpa != null;
 
@@ -175,7 +190,7 @@ class PtVerdict {
   /// 누설·물맺힘 없음을 확인하지 않았으면 합격으로 하지 않는다(판정 없음).
   bool? get pass {
     if (!started || !ended) return null;
-    if (!holdMet || dropOk == false) return false;
+    if (!holdMet || dropOk == false || startOk == false) return false;
     if (!leakOk) return null;
     return true;
   }
@@ -187,6 +202,8 @@ class PtVerdict {
     return [
       if (!holdMet)
         '경과 시간 ${ptFmt(elapsedMin!, 1)}분: 유지시간 ${ptFmt(requiredMin, 1)}분 미만',
+      if (startOk == false)
+        '시작 압력 ${ptPressure(startKpa!, u)}: 시험압력 ${ptPressure(testKpa!, u)} 미만',
       if (dropOk == false)
         '압력강하 ${ptDrop(judgedDropKpa!, u)}: 허용 압력강하 ${ptPressure(allowKpa!, u)} 초과',
       if (!leakOk) '누설·물맺힘 없음(육안 확인)을 확인하지 않았습니다.',
@@ -228,6 +245,7 @@ PtVerdict judgePressureTest({
   required double holdMin,
   double? allowKpa,
   bool leakOk = false,
+  double? testKpa,
   double? odMm,
   double? wallMm,
   PipeMaterial material = PipeMaterial.carbon,
@@ -249,6 +267,8 @@ PtVerdict judgePressureTest({
       requiredMin: holdMin,
       allowKpa: allow,
       leakOk: leakOk,
+      testKpa: testKpa,
+      startKpa: start?.kpa,
     );
   }
   final p1 = start.kpa, p2 = end.kpa;
@@ -289,6 +309,8 @@ PtVerdict judgePressureTest({
     hydroDeltaC: hydroDt,
     allowKpa: allow,
     leakOk: leakOk,
+    testKpa: testKpa,
+    startKpa: p1,
   );
 }
 
@@ -386,6 +408,7 @@ class PtRecord {
     holdMin: holdMin,
     allowKpa: allowKpa,
     leakOk: leakOk,
+    testKpa: testKpa,
     odMm: odMm,
     wallMm: wallMm,
     material: material,

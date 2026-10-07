@@ -110,6 +110,28 @@ void main() {
       expect(v.reasons(PUnit.bar), ['경과 시간 8분: 유지시간 10분 미만']);
     });
 
+    test('시작 압력이 시험압력에 못 미치면 불합격(1.5 bar로 15 bar 시험을 한 경우)', () {
+      final v = judgePressureTest(
+        medium: TestMedium.hydro,
+        readings: reads(p1: 150, p2: 150),
+        holdMin: 10,
+        leakOk: true,
+        testKpa: 1500,
+      );
+      expect(v.startOk, isFalse);
+      expect(v.pass, isFalse);
+      expect(v.reasons(PUnit.bar), ['시작 압력 1.5 bar: 시험압력 15 bar 미만']);
+      // 시험압력에 이르렀으면 합격, 시험압력을 모르면 예전처럼 보지 않는다.
+      expect(
+        judgePressureTest(medium: TestMedium.hydro, readings: reads(p1: 1500, p2: 1500), holdMin: 10, leakOk: true, testKpa: 1500).pass,
+        isTrue,
+      );
+      expect(
+        judgePressureTest(medium: TestMedium.hydro, readings: reads(p1: 150, p2: 150), holdMin: 10, leakOk: true).pass,
+        isTrue,
+      );
+    });
+
     test('허용 압력강하 초과면 불합격(온도 보정한 강하로)', () {
       final v = judgePressureTest(
         medium: TestMedium.pneumatic,

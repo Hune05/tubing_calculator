@@ -158,6 +158,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     holdMin: _requiredHold,
     allowKpa: _pg._kpa(_rAllow),
     leakOk: _rLeakOk,
+    testKpa: _recordTestKpa(),
     odMm: _rOdMm,
     wallMm: _rWallMm,
     material: _rMaterial,

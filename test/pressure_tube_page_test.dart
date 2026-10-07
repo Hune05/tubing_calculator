@@ -494,6 +494,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pr_act_load')));
     await tester.pumpAndSettle();
+    // 화면에 하던 시험이 있으면 덮기 전에 묻는다(10-07).
+    if (find.byKey(const Key('pt_r_confirm_ok')).evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(const Key('pt_r_confirm_ok')));
+      await tester.pumpAndSettle();
+    }
     expect(textOf(tester, 'pt_r_info_tube'), contains('1/2" × 0.049"'));
     await openTab(tester, 'pt_tab_plan');
     expect(chipOn(tester, 'pt_kind_tube'), isTrue);
@@ -518,6 +523,11 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('pr_act_load')));
     await tester.pumpAndSettle();
+    // 화면에 하던 시험이 있으면 덮기 전에 묻는다(10-07).
+    if (find.byKey(const Key('pt_r_confirm_ok')).evaluate().isNotEmpty) {
+      await tester.tap(find.byKey(const Key('pt_r_confirm_ok')));
+      await tester.pumpAndSettle();
+    }
     expect(find.byKey(const Key('pt_r_info_tube')), findsNothing);
     expect(fieldText(tester, 'pt_r_od'), '60.5');
     await openTab(tester, 'pt_tab_plan');
