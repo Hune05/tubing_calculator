@@ -303,7 +303,13 @@ enum GaugeFit {
 /// 범위 글("0~25 bar", "0-2.5 MPa", "25")에서 눈금 최대를 kPa로 읽는다. 읽을 수 없으면 null.
 /// 단위 글자(bar·MPa·kPa·psi·kgf)가 있으면 그 앞의 숫자를, 없으면 마지막 숫자를 쓰고 [defaultUnit]으로 본다.
 double? gaugeMaxKpa(String text, PUnit defaultUnit) {
-  final t = text.toLowerCase();
+  // 10-07: 천 단위 쉼표("0~1,000 psi"→000으로 읽음), 소수 쉼표("0~2,5 bar"→5), 국내 표기
+  // "kg/cm2"(단위를 못 찾고 cm2의 2를 썼음)를 먼저 고른 꼴로 바꾼다.
+  final t = text
+      .toLowerCase()
+      .replaceAll(RegExp(r'kgf?\s*/\s*cm\s*(2|²)?'), 'kgf')
+      .replaceAll(RegExp(r'(?<=\d),(?=\d{3}(?!\d))'), '')
+      .replaceAllMapped(RegExp(r'(\d),(\d)'), (m) => '${m[1]}.${m[2]}');
   final withUnit = RegExp(
     r'(\d+(?:\.\d+)?)\s*(mpa|kpa|bar|psi|kgf)',
   ).allMatches(t).toList();

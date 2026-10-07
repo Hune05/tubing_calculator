@@ -453,4 +453,12 @@ void main() {
       expect(exact.cylinders, 3);
     });
   });
+
+  test('압력계 눈금 글: 천 단위 쉼표·소수 쉼표·kg/cm2(10-07)', () {
+    expect(gaugeMaxKpa('0~1,000 psi', PUnit.bar), closeTo(1000 * PUnit.psi.kpa, 1e-6));
+    expect(gaugeMaxKpa('0~2,5 bar', PUnit.bar), closeTo(250, 1e-9));
+    expect(gaugeMaxKpa('0~10 kg/cm2', PUnit.bar), closeTo(10 * PUnit.kgfcm2.kpa, 1e-9));
+    expect(gaugeMaxKpa('0~10 kgf/cm²', PUnit.bar), closeTo(10 * PUnit.kgfcm2.kpa, 1e-9));
+    expect(gaugeMaxKpa('0~25 bar', PUnit.psi), closeTo(2500, 1e-9)); // 예전 것 그대로
+  });
 }
