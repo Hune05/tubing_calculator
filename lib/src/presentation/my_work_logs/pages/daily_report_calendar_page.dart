@@ -146,18 +146,17 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
   }
 
   // 🚀 [신규] 최근 6개월(실제 현재 달 기준, 달력에서 이동 중인 달과는
-  // 무관) 벤딩 포인트 합계를 월별로 모아 추이를 보여준다. 연도 정보가
-  // 없는 한계는 달력 뷰와 동일 - 월 숫자만으로 묶는다.
+  // 무관) 벤딩 포인트 합계를 월별로 모아 추이를 보여준다. 연도까지 본다(10-07: 월 숫자만 봐서
+  // 1년 넘은 프로젝트는 작년 같은 달 포인트가 섞였다).
   List<MapEntry<int, int>> get _monthlyPointsTrend {
     final now = DateTime.now();
     final List<MapEntry<int, int>> result = [];
     for (int i = 5; i >= 0; i--) {
       final monthDate = DateTime(now.year, now.month - i);
-      final String prefix = monthDate.month.toString().padLeft(2, '0');
       int total = 0;
       for (final r in _reports) {
-        final String date = r['date']?.toString() ?? '';
-        if (date.startsWith('$prefix/')) {
+        final d = reportDateOf(r);
+        if (d.year == monthDate.year && d.month == monthDate.month) {
           total += (r['points'] as num?)?.toInt() ?? 0;
         }
       }

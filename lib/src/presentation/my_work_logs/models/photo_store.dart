@@ -345,8 +345,8 @@ Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
       changed = true;
     }
   }
-  // 이슈 처리 후 사진
-  for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
+  // 이슈 처리 후 사진(복사본을 돈다: 올리는 사이 새 이슈가 들어오면 목록이 바뀌어 중단됐다, 10-07)
+  for (final p in List.of(log['punch_lists'] as List? ?? []).whereType<Map>()) {
     final paths = <String>[
       for (final e in (p['resolution_images'] as List? ?? [])) e.toString(),
     ];
