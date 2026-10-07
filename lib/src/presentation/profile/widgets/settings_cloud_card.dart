@@ -76,7 +76,7 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
 
   Future<void> _upload() async {
     setState(() => _busy = true);
-    final ok = await _sync.backup();
+    final ok = await _sync.backup(all: true);
     if (!mounted) return;
     setState(() => _busy = false);
     _snack(ok ? "계산기 설정을 서버에 올렸습니다." : "올리지 못했습니다. 구글 로그인과 통신을 확인하십시오.");

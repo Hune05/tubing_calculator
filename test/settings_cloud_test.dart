@@ -321,6 +321,46 @@ void main() {
       );
     });
 
+    test('다른 칸을 저장해도 다른 기기가 먼저 고친 게인을 옛 값으로 덮지 않는다(고친 칸만 올린다)', () async {
+      // 폰·태블릿 모두 gain 12, kerf 2로 맞춰 둔 상태
+      usePhone({'gain': 12.0, 'cutting_blade_kerf': 2.0});
+      await sync.backup();
+      final phone0 = await snap();
+      usePhone({'gain': 12.0, 'cutting_blade_kerf': 2.0});
+      await sync.pullIfNewer();
+      final tablet0 = await snap();
+
+      // 폰에서 게인을 고쳐 올린다.
+      SharedPreferences.setMockInitialValues({...phone0, 'gain': 15.0});
+      await sync.backup();
+      final phone1 = await snap();
+
+      // 태블릿은 아직 옛 게인(12)인 채로 톱날 손실만 고쳐 저장한다.
+      SharedPreferences.setMockInitialValues({...tablet0, 'cutting_blade_kerf': 3.0});
+      await sync.backup();
+      final saved = store.docs['uid-A']!['settings'] as Map;
+      expect(saved['gain'], 15.0); // 폰이 고친 게인이 그대로
+      expect(saved['cutting_blade_kerf'], 3.0);
+
+      // 폰이 다시 받아도 게인은 15, 톱날 손실은 3
+      usePhone(phone1);
+      await sync.pullIfNewer();
+      final p = await SharedPreferences.getInstance();
+      expect(p.getDouble('gain'), 15.0);
+      expect(p.getDouble('cutting_blade_kerf'), 3.0);
+    });
+
+    test('설정 화면의 올리기 단추(all)는 전부 올린다', () async {
+      usePhone({'gain': 12.0, 'bendRadius': 38.1});
+      await sync.backup();
+      store.docs['uid-A']!['settings'].remove('bendRadius');
+      SharedPreferences.setMockInitialValues({...await snap()});
+      await sync.backup(); // 바뀐 칸이 없어 올리지 않는다
+      expect((store.docs['uid-A']!['settings'] as Map).containsKey('bendRadius'), isFalse);
+      await sync.backup(all: true);
+      expect(store.docs['uid-A']!['settings']['bendRadius'], 38.1);
+    });
+
     test('화면 구성(폰·태블릿)은 기기마다 다르게 둔다: 올리는 칸에 없다', () {
       expect(kCloudSettingKeys.any((k) => k.contains('screen')), isFalse);
       expect(kCloudSettingKeys.any((k) => k.contains('layout')), isFalse);

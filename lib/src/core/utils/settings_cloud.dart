@@ -4,6 +4,7 @@
 // 폰을 바꿨을 때 되살리는 용도다. 통신이 없는 현장에서도 멈추지 않게, 올리기는
 // 기다리지 않고(서버가 통신될 때 알아서 보낸다) 불러오기는 짧게만 기다린다.
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' show Random;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -67,6 +68,12 @@ Map<String, Object> collectLocalSettings(SharedPreferences prefs) {
     if (v is bool || v is int || v is double || v is String) out[k] = v!;
   }
   return out;
+}
+
+/// 같은 값인지 비교할 모양으로 맞춘다(서버는 30.0을 30으로 돌려줄 수 있다).
+Object? _normCloudValue(String k, Object? v) {
+  if (v is num) return kCloudIntKeys.contains(k) ? v.toInt() : v.toDouble();
+  return v;
 }
 
 /// 서버에서 받은 설정을 폰에 쓴다. 모르는 칸·모양이 다른 값은 건너뛴다.
@@ -159,6 +166,34 @@ class SettingsCloudSync {
   /// 마지막으로 올리거나 받은 서버 설정의 "올린 시각(ms)". 이보다 새로운 것이 서버에 있으면 받는다.
   static const String _seenKey = 'settings_cloud_seen_at';
 
+  /// 이 기기가 아는 "서버에 있는 설정 값"(마지막으로 올렸거나 받은 값). 올릴 때는 이것과 다른 칸만 올린다.
+  /// 10-07: 예전에는 설정 하나만 바꿔도 이 기기의 설정 전체를 올려, 다른 기기에서 먼저 고친
+  /// 게인·반경이 이 기기의 옛 값으로 덮였다가 다시 내려왔다(마킹 값이 틀어짐).
+  static const String _baseKey = 'settings_cloud_base_v1';
+
+  Map<String, Object?>? _readBase(SharedPreferences prefs) {
+    final raw = prefs.getString(_baseKey);
+    if (raw == null) return null;
+    try {
+      final m = jsonDecode(raw);
+      return m is Map ? Map<String, Object?>.from(m) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _writeBase(SharedPreferences prefs, Map<String, Object?> base) =>
+      prefs.setString(_baseKey, jsonEncode(base));
+
+  /// 서버 문서의 설정 칸을 "서버에 있는 값"으로 기억한다(앞서 기억한 칸 위에 덮는다).
+  Future<void> _rememberServer(SharedPreferences prefs, Map settings) async {
+    final base = _readBase(prefs) ?? <String, Object?>{};
+    for (final k in kCloudSettingKeys) {
+      if (settings.containsKey(k)) base[k] = _normCloudValue(k, settings[k]);
+    }
+    await _writeBase(prefs, base);
+  }
+
   /// 시각을 바꿔 끼운다(테스트).
   int Function() clock = () => DateTime.now().millisecondsSinceEpoch;
 
@@ -190,13 +225,28 @@ class SettingsCloudSync {
 
   /// 폰 설정을 서버에 올린다. 설정 저장 뒤에 부른다(기다리지 않아도 된다).
   /// 통신이 없으면 Firestore가 들고 있다가 통신될 때 보낸다.
-  Future<bool> backup() async {
+  ///
+  /// 서버에 있다고 아는 값과 **다른 칸만** 올린다(다른 기기가 고친 칸을 이 기기의 옛 값으로 덮지 않게).
+  /// 서버 값을 아직 모르는 기기(처음 쓰는 기기)와 [all](설정 화면의 "올리기" 단추)은 전부 올린다.
+  Future<bool> backup({bool all = false}) async {
     final uid = uidProvider();
     if (uid == null) return false;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final data = collectLocalSettings(prefs);
-      if (data.isEmpty) return false;
+      final local = collectLocalSettings(prefs);
+      if (local.isEmpty) return false;
+      final base = all ? null : _readBase(prefs);
+      final data = base == null
+          ? local
+          : {
+              for (final e in local.entries)
+                if (base[e.key] != _normCloudValue(e.key, e.value)) e.key: e.value,
+            };
+      if (data.isEmpty) {
+        // 서버와 같다: 올릴 것이 없다.
+        await prefs.setBool(_dirtyKey, false);
+        return true;
+      }
       // 누가 언제 올렸는지 같이 적는다(다른 기기가 새것인지 가리는 데 쓴다).
       final editedAt = clock();
       final device = await _deviceId(prefs);
@@ -216,6 +266,7 @@ class SettingsCloudSync {
           .timeout(const Duration(seconds: 5), onTimeout: () => false);
       if (done) {
         await prefs.setBool(_dirtyKey, false);
+        await _rememberServer(prefs, data);
         await _markSynced(prefs);
       }
       return done;
@@ -246,6 +297,7 @@ class SettingsCloudSync {
         Map<String, dynamic>.from(settings),
         onlyMissing: !overwrite,
       );
+      await _rememberServer(prefs, settings);
       // 서버 문서의 올린 시각까지 봤다고 적는다(뒤이은 자동 받기가 방금 받은 것을 또 받지 않게).
       final at = settings[kCloudEditedAtKey];
       if (at is num) await prefs.setInt(_seenKey, at.toInt());
@@ -277,6 +329,8 @@ class SettingsCloudSync {
           .timeout(const Duration(seconds: 5), onTimeout: () => null);
       final settings = doc?['settings'];
       if (settings is! Map) return 0;
+      // 서버 값을 처음 알게 되면 기억해 둔다(앱을 고친 뒤 처음 켤 때: 이후 고친 칸만 올라간다).
+      if (_readBase(prefs) == null) await _rememberServer(prefs, settings);
       final writer = settings[kCloudWriterKey];
       final at = settings[kCloudEditedAtKey];
       if (writer is! String || at is! num) return 0;
@@ -288,6 +342,7 @@ class SettingsCloudSync {
         prefs,
         Map<String, dynamic>.from(settings),
       );
+      await _rememberServer(prefs, settings);
       // 받을 칸이 하나도 없어도 "이 시각까지 봤다"고 적는다(같은 문서를 되풀이해 읽지 않게).
       await prefs.setInt(_seenKey, at.toInt());
       if (n > 0) await _markSynced(prefs);
