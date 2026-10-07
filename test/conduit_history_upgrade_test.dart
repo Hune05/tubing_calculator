@@ -1,5 +1,6 @@
 // 전선관 보관함: 폴더(작업 이름) 바꾸기·합치기, 불러와 고친 도면 덮어쓰기, 카드의 굽힘 요약.
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
@@ -380,6 +381,35 @@ void main() {
       await tester.tap(find.text('불러오기'));
       await tester.pumpAndSettle();
       expect(ConduitDataManager().sourceDrawingId, a.id);
+    });
+
+    testWidgets('저장 때 시작 방향·커플링 체결을 남기고, 불러오면 되살린다', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(420, 2400));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      addTearDown(() {
+        conduitStartDir.value = 'RIGHT';
+        conduitUseCoupling.value = false;
+      });
+      final d = (await tester.runAsync(
+        () => saveConduitDrawing(
+          folderName: 'C구역',
+          title: '위로 시작',
+          totalCut: 400,
+          bends: [b(200, 90), b(200, 0)],
+          settings: const {'start_dir': 'UP', 'use_coupling': true},
+        ),
+      ))!;
+      expect(d.settings['start_dir'], 'UP');
+      conduitStartDir.value = 'RIGHT';
+      conduitUseCoupling.value = false;
+      await tester.pumpWidget(const MaterialApp(home: ConduitHistoryTab()));
+      await settle(tester);
+      await tester.tap(find.text('계산기로 불러오기').first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('불러오기'));
+      await tester.pumpAndSettle();
+      expect(conduitStartDir.value, 'UP');
+      expect(conduitUseCoupling.value, isTrue);
     });
   });
 }

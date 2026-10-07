@@ -2,6 +2,7 @@
 library;
 
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -35,6 +36,12 @@ Future<bool> showConduitSaveDialog(
   required Map<String, dynamic> settings,
   VoidCallback? onOpenArchive,
 }) async {
+  // 시작 방향·커플링 체결도 도면과 함께 남긴다(불러오면 되살린다).
+  settings = {
+    ...settings,
+    kConduitDrawingStartDirKey: conduitStartDir.value,
+    kConduitDrawingCouplingKey: conduitUseCoupling.value,
+  };
   String lastFolder = '';
   try {
     final prefs = await SharedPreferences.getInstance();

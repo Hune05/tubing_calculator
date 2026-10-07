@@ -120,6 +120,10 @@ String _now() {
   return '${d.year}-${two(d.month)}-${two(d.day)} ${two(d.hour)}:${two(d.minute)}';
 }
 
+/// 도면 설정 칸에 함께 남기는 시작 방향(UP·RIGHT…)과 커플링 체결 여부.
+const String kConduitDrawingStartDirKey = 'start_dir';
+const String kConduitDrawingCouplingKey = 'use_coupling';
+
 /// 지금 목록을 보관함에 넣는다. 넣은 도면을 돌려준다.
 Future<ConduitDrawing> saveConduitDrawing({
   required String folderName,
@@ -156,6 +160,9 @@ Future<ConduitDrawing> saveConduitDrawing({
         'gain',
         'clr',
         'setback',
+        // 10-07: 시작 방향·커플링 체결도 같이 남긴다(불러올 때 판정·총 길이가 저장 때와 같게).
+        kConduitDrawingStartDirKey,
+        kConduitDrawingCouplingKey,
       ])
         if (settings[k] != null) k: settings[k],
     },
@@ -253,6 +260,9 @@ Future<ConduitDrawing?> overwriteConduitDrawing({
         'gain',
         'clr',
         'setback',
+        // 10-07: 시작 방향·커플링 체결도 같이 남긴다(불러올 때 판정·총 길이가 저장 때와 같게).
+        kConduitDrawingStartDirKey,
+        kConduitDrawingCouplingKey,
       ])
         if (settings[k] != null) k: settings[k],
     },

@@ -1,3 +1,5 @@
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:flutter/material.dart';
@@ -287,6 +289,16 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                     ConduitDataManager().replaceAll(drawing.bends);
                     // 고친 뒤 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있게 어느 도면인지 기억한다.
                     ConduitDataManager().setSource(drawing.id);
+                    // 저장 때 시작 방향·커플링 체결도 되살린다(예전 도면은 없으면 그대로).
+                    final dir = drawing.settings[kConduitDrawingStartDirKey];
+                    if (dir is String && dir.isNotEmpty) {
+                      conduitStartDir.value = dir;
+                      SharedPreferences.getInstance().then(
+                        (p) => p.setString('conduit_saved_start_dir', dir),
+                      );
+                    }
+                    final cp = drawing.settings[kConduitDrawingCouplingKey];
+                    if (cp is bool) conduitUseCoupling.value = cp;
                     widget.onLoaded?.call();
                     // 저장 때 장비 설정과 지금 설정이 다르면 마킹이 다르게 나온다(알리기만 한다).
                     final diffs = conduitSettingDiffs(
