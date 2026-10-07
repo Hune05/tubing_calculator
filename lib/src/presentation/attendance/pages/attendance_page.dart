@@ -209,7 +209,12 @@ class _AttendancePageState extends State<AttendancePage>
     final st = _clockStatus();
     if (st == null) return;
     HomeWidgetSync.push(
-      clockJson: encodeClockWidgetPayload(st, _now(), records: _clockRecs),
+      clockJson: encodeClockWidgetPayload(
+        st,
+        _now(),
+        records: _clockRecs,
+        options: _settings.calcOptions,
+      ),
     );
     syncClockOutReminder(
       enabled: _settings.clockOutReminder,

@@ -1328,6 +1328,14 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                           endDate = picked.add(
                                             Duration(days: span < 0 ? 0 : span),
                                           );
+                                          // 시작일을 반복 종료일 뒤로 옮기면 종료일을 비운다(10-07: 회차가 0개라
+                                          // 저장해도 어디에도 안 보였고, 종료일 달력은 범위 오류였다).
+                                          final u = recurrenceUntil;
+                                          if (u != null &&
+                                              DateTime(u.year, u.month, u.day)
+                                                  .isBefore(DateTime(picked.year, picked.month, picked.day))) {
+                                            recurrenceUntil = null;
+                                          }
                                         });
                                       }
                                     },
@@ -1608,10 +1616,14 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                         final picked = await showDatePicker(
                                           context: context,
                                           initialDate:
-                                              recurrenceUntil ??
-                                              baseDate.add(
-                                                const Duration(days: 30),
-                                              ),
+                                              recurrenceUntil != null &&
+                                                  !recurrenceUntil!.isBefore(
+                                                    DateTime(baseDate.year, baseDate.month, baseDate.day),
+                                                  )
+                                              ? recurrenceUntil!
+                                              : baseDate.add(
+                                                  const Duration(days: 30),
+                                                ),
                                           firstDate: DateTime(
                                             baseDate.year,
                                             baseDate.month,
@@ -1991,9 +2003,13 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                           : {...d, 'recurrenceUntil': until},
                                     );
                                   }
+                                  // "모든 회차" 고치기는 뺀 회차 목록을 data에 안 담으므로 원래 문서 값과
+                                  // 합쳐 예약한다(10-07: 빼 둔 회차 알림이 다시 울렸다).
                                   await _scheduleOrCancelReminder(
                                     targetDocId,
-                                    data,
+                                    scope == 'all' && existing != null
+                                        ? {...existing, ...data}
+                                        : data,
                                   );
                                   if (ctx.mounted) Navigator.pop(ctx);
                                 },

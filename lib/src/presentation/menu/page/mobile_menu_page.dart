@@ -62,6 +62,7 @@ import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_invent
 import 'package:tubing_calculator/src/presentation/inventory/pages/low_stock_count.dart';
 import 'package:tubing_calculator/src/presentation/material_request/material_request_page.dart';
 import 'package:tubing_calculator/src/presentation/attendance/attendance_clock.dart';
+import 'package:tubing_calculator/src/presentation/attendance/attendance_settings.dart';
 import 'package:tubing_calculator/src/presentation/attendance/pages/attendance_page.dart';
 
 // 🚀 3. 프로필 및 소통 페이지 임포트
@@ -398,13 +399,20 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       today,
     );
     if (!mounted || recs == null) return;
+    final settings = await AttendanceSettings.load();
+    if (!mounted) return;
     final st = clockStatus(
       now: now,
       today: recs[dateKey(today)],
       yesterday: recs[dateKey(y)],
     );
     HomeWidgetSync.push(
-      clockJson: encodeClockWidgetPayload(st, now, records: recs),
+      clockJson: encodeClockWidgetPayload(
+        st,
+        now,
+        records: recs,
+        options: settings.calcOptions,
+      ),
     );
   }
 

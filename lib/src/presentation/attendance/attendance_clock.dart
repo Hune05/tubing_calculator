@@ -10,6 +10,7 @@ library;
 import 'dart:convert';
 
 import '../my_work_logs/models/attendance.dart';
+import 'attendance_calc.dart';
 
 /// 밤샘 근무로 보는 최대 시간(출근 뒤 이 시간 안이면 어제 기록에 퇴근을 찍는다).
 const int kMaxOvernightMinutes = 16 * 60;
@@ -181,6 +182,7 @@ String encodeClockWidgetPayload(
   ClockStatus st,
   DateTime now, {
   Map<String, AttendanceRecord>? records,
+  AttendanceCalcOptions? options,
 }) {
   final r = st.record;
   // 근무 중이면 출근 시각(epoch ms)도 넘겨, 위젯이 스스로 흐른 시간을 센다.
@@ -209,7 +211,13 @@ String encodeClockWidgetPayload(
           '${r?.checkIn ?? '--:--'} 출근${st.day.isBefore(_day(now)) ? ' (어제)' : ''}';
     case ClockPhase.done:
       final stay = stayMinutesOf(r?.checkIn, r?.checkOut);
-      big = stay == null ? '--:--' : _hMm(stay - (r?.breakMin ?? 0));
+      // 휴게를 비워 둔 날은 앱처럼 기본 휴게를 뺀다(10-07: 위젯만 9:00, 앱은 8:00으로 달랐다).
+      final w = r != null && options != null ? computeDay(r, options) : null;
+      big = w != null
+          ? _hMm(w.work)
+          : stay == null
+          ? '--:--'
+          : _hMm(stay - (r?.breakMin ?? 0));
       sub = '${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}';
     case ClockPhase.off:
       big = '쉬는 날';

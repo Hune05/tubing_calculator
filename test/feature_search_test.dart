@@ -212,6 +212,40 @@ void main() {
       expect(searchFeatures('강하', flat).single.title, '압력강하');
     });
 
+    testWidgets('풀어서 찾을 때 이름이 같은 기능이 둘 나와도 키가 겹치지 않는다(10-07)', (tester) async {
+      tester.view.physicalSize = const Size(400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (ctx) => Scaffold(
+              body: ElevatedButton(
+                key: const Key('open'),
+                onPressed: () => showFeatureSearchSheet(
+                  ctx,
+                  title: '전체',
+                  grid: true,
+                  items: [
+                    folder(['단위 환산', '압력강하']),
+                    _it('단위 환산', '길이·압력'),
+                  ],
+                ),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('open')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('feature_search_field')), '단위');
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.byKey(const Key('feature_단위 환산')), findsOneWidget);
+      expect(find.byKey(const Key('feature_단위 환산#1')), findsOneWidget);
+    });
+
     testWidgets('격자에는 폴더 하나, 누르면 안의 기능이 열리고 누르면 실행', (tester) async {
       tester.view.physicalSize = const Size(400, 900);
       tester.view.devicePixelRatio = 1;

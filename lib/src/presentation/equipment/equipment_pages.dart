@@ -131,9 +131,15 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
     if (syncFirst) {
       // 다른 폰에서 올린 것을 받아 온다(통신이 없으면 조용히 넘어간다).
       try {
+        final before = {for (final e in list) e.id};
         await EquipmentStore.sync.syncNow();
         list = await EquipmentStore.load();
         if (mounted) setState(() => _all = list);
+        // 다른 폰에서 지운 장비의 알림도 끈다(10-07: 남은 장비만 돌며 꺼서 지운 장비 알림이 계속 울렸다).
+        final now = {for (final e in list) e.id};
+        for (final id in before.difference(now)) {
+          await cancelEquipmentReminders(id);
+        }
       } catch (_) {}
     }
     rescheduleEquipmentReminders(list);

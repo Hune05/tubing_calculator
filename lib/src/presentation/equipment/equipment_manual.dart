@@ -94,9 +94,10 @@ class _ManualSheetState extends State<_ManualSheet> {
       nav.pop();
       await nav.push(MaterialPageRoute<void>(builder: (_) => DrawingViewerPage(doc: doc)));
     } on DxfError catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = '열지 못했습니다: $e');
+      // 가져오는 사이 창을 닫았으면 그냥 넘어간다(10-07: 닫힌 창에 setState 오류).
+      if (mounted) setState(() => _error = '열지 못했습니다: $e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }

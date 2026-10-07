@@ -53,9 +53,10 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
     Map<String, dynamic> data,
   ) async {
     if (!_hasIdentity || _isRead(data)) return;
-    await ref.update({
+    // 기다리지 않고, 관리자가 막 지운 공지라 실패해도 조용히 넘어간다(10-07).
+    ref.update({
       'readBy': FieldValue.arrayUnion([widget.currentWorker]),
-    });
+    }).catchError((_) {});
   }
 
   Future<void> _markAllRead(List<QueryDocumentSnapshot> docs) async {
@@ -71,7 +72,7 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
         'readBy': FieldValue.arrayUnion([widget.currentWorker]),
       });
     }
-    await batch.commit();
+    batch.commit().catchError((_) {});
   }
 
   ({IconData icon, Color color}) _iconMeta(String title) {
@@ -299,8 +300,9 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
 
   Widget _buildNotificationTile(QueryDocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    final title = data['title'] ?? '알림';
-    final content = data['content'] ?? '';
+    // 글자가 아닌 값이 들어 있어도 줄이 오류 화면이 되지 않게(10-07, 상세 창과 같게).
+    final title = (data['title'] ?? '알림').toString();
+    final content = (data['content'] ?? '').toString();
     final createdAt = data['createdAt'] as Timestamp?;
     final bool isRead = _isRead(data);
     final meta = _iconMeta(title);

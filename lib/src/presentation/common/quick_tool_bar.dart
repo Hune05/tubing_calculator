@@ -848,10 +848,15 @@ class _QuickBarSuppressState extends State<QuickBarSuppress> {
   void _apply(bool want) {
     if (want == _counted) return;
     _counted = want;
-    _setLater(
-      QuickBarGate.suppressed,
-      QuickBarGate.suppressed.value + (want ? 1 : -1),
-    );
+    // 더할 값은 실제로 바꿀 때 읽는다(10-07: 같은 프레임에 둘이 생기면 둘 다 0+1로 적어 하나를 잃었다).
+    final d = want ? 1 : -1;
+    final n = QuickBarGate.suppressed;
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) => n.value += d);
+    } else {
+      n.value += d;
+    }
   }
 
   @override

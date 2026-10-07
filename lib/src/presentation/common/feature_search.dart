@@ -311,7 +311,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
     );
   }
 
-  Widget _tile(FeatureItem it, double w, {VoidCallback? onPick}) {
+  Widget _tile(FeatureItem it, double w, {VoidCallback? onPick, int dup = 0}) {
     final color = it.color ?? fc.text;
     final kids = it.children;
     final isFolder = kids != null;
@@ -319,7 +319,8 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
       width: w,
       child: InkWell(
         key: Key(
-          isFolder ? 'feature_folder_${it.title}' : 'feature_${it.title}',
+          (isFolder ? 'feature_folder_${it.title}' : 'feature_${it.title}') +
+              (dup > 0 ? '#$dup' : ''),
         ),
         borderRadius: BorderRadius.circular(12),
         onTap: onPick ?? (isFolder ? () => _openFolder(it) : () => _pick(it)),
@@ -400,15 +401,27 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
       final w = (c.maxWidth - 32) / cols;
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Wrap(children: [for (final it in list) _tile(it, w)]),
+        child: Wrap(
+          children: [for (final (it, n) in _numbered(list)) _tile(it, w, dup: n)],
+        ),
       );
     },
   );
 
-  Widget _row(FeatureItem it) {
+  /// 같은 이름이 한 목록에 둘 나오면(폴더를 풀어 찾을 때) 두 번째부터 키에 번호를 붙인다
+  /// (10-07: "단위 환산"·"전선 굵기"가 둘씩 나와 같은 키 오류가 났다).
+  static List<(FeatureItem, int)> _numbered(List<FeatureItem> list) {
+    final seen = <String, int>{};
+    return [
+      for (final it in list)
+        (it, seen.update(it.title, (v) => v + 1, ifAbsent: () => 0)),
+    ];
+  }
+
+  Widget _row(FeatureItem it, {int dup = 0}) {
     final color = it.color ?? fc.text;
     return InkWell(
-      key: Key('feature_${it.title}'),
+      key: Key('feature_${it.title}${dup > 0 ? '#$dup' : ''}'),
       onTap: () => _pick(it),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -492,15 +505,15 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
       }
     } else if (!searching) {
       String? last;
-      for (final it in found) {
+      for (final (it, n) in _numbered(found)) {
         if (it.group != null && it.group != last) {
           last = it.group;
           children.add(header(it.group!));
         }
-        children.add(_row(it));
+        children.add(_row(it, dup: n));
       }
     } else {
-      children.addAll(found.map(_row));
+      children.addAll([for (final (it, n) in _numbered(found)) _row(it, dup: n)]);
     }
     final elsewhere = widget.searchElsewhere;
     if (elsewhere != null && q.trim().runes.length >= 2) {

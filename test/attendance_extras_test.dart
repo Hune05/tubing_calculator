@@ -301,6 +301,18 @@ void main() {
       expect(r['text'], '오늘 출근 전');
     });
 
+    test('위젯 값: 퇴근한 날 근무 시간은 앱처럼 기본 휴게를 뺀다(10-07)', () {
+      final now = DateTime(2026, 10, 14, 18);
+      final w = jsonDecode(
+        encodeClockWidgetPayload(
+          clockStatus(now: now, today: _rec(day, inT: '08:00', outT: '17:00')),
+          now,
+          options: const AttendanceCalcOptions(),
+        ),
+      ) as Map<String, dynamic>;
+      expect(w['big'], '8:00');
+    });
+
     test('위젯 값: 근무 중일 때만 출근 시각(since)을 넘긴다', () {
       final now = DateTime(2026, 10, 14, 9);
       final w =
