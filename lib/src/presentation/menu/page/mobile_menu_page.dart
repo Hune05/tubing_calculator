@@ -2105,21 +2105,6 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       ...equipmentToKnowledge(q, data.$3).take(8),
     ];
     return [
-      // 메뉴 검색과 자료 검색을 잇는 줄: 같은 말로 고장 조치·현장 자료·압력시험 기록·장비까지 찾는다.
-      FeatureItem(
-        title: "자료 검색에서 '$q' 찾기",
-        subtitle: '고장 조치·알람 코드·현장 자료·계산기까지',
-        icon: AppIcons.search,
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => KnowledgeSearchPage(
-              initialQuery: q,
-              recordSearch: myRecordSearcher(),
-            ),
-          ),
-        ),
-      ),
       for (final r in hits)
         FeatureItem(
           title: r.title,
@@ -2172,6 +2157,21 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       context,
       title: '메뉴 검색',
       moreResults: (q) => _recordResults(q, logs),
+      // 메뉴 검색과 자료 검색을 잇는 줄: 기록 머리글 위에 따로 둔다(자료 검색은 기록이 아니다).
+      searchElsewhere: (q) => FeatureItem(
+        title: "자료 검색에서 '$q' 찾기",
+        subtitle: '고장 조치·알람 코드·현장 자료·계산기까지',
+        icon: AppIcons.search,
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => KnowledgeSearchPage(
+              initialQuery: q,
+              recordSearch: myRecordSearcher(),
+            ),
+          ),
+        ),
+      ),
       items: [
         for (final e in _menuEntries)
           FeatureItem(

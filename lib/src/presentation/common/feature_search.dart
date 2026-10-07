@@ -127,6 +127,7 @@ Future<void> showFeatureSearchSheet(
   bool grid = false,
   Future<List<FeatureItem>> Function(String query)? moreResults,
   String moreTitle = '기록에서 찾기',
+  FeatureItem Function(String query)? searchElsewhere,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -144,6 +145,7 @@ Future<void> showFeatureSearchSheet(
         grid: grid,
         moreResults: moreResults,
         moreTitle: moreTitle,
+        searchElsewhere: searchElsewhere,
       ),
     ),
   );
@@ -160,7 +162,12 @@ class FeatureSearchSheet extends StatefulWidget {
   /// 덧붙인다(일지·이슈·프로젝트·자재 같은 자료 찾기). 실패하면 조용히 없는 것으로 친다.
   final Future<List<FeatureItem>> Function(String query)? moreResults;
   final String moreTitle;
+
+  /// 있으면 두 글자 이상 넣었을 때 기능 결과 바로 아래(기록 머리글 위)에 한 줄 붙는다.
+  /// 같은 검색어로 다른 검색 화면을 여는 줄(예: 자료 검색에서 찾기).
+  final FeatureItem Function(String query)? searchElsewhere;
   const FeatureSearchSheet({
+    this.searchElsewhere,
     this.grid = false,
     super.key,
     required this.title,
@@ -494,6 +501,10 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
       }
     } else {
       children.addAll(found.map(_row));
+    }
+    final elsewhere = widget.searchElsewhere;
+    if (elsewhere != null && q.trim().runes.length >= 2) {
+      children.add(_row(elsewhere(q.trim())));
     }
     if (searching && _more.isNotEmpty) {
       children.add(header(widget.moreTitle));

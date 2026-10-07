@@ -153,5 +153,36 @@ void main() {
       expect(find.text('공학용 계산기'), findsOneWidget);
       expect(find.text('기록에서 찾기'), findsNothing);
     });
+
+    testWidgets('다른 검색 화면으로 잇는 줄은 두 글자부터, 기록 머리글 위에 붙는다(기록이 없어도)', (tester) async {
+      Future<List<FeatureItem>> more(String q) async =>
+          q == '공학' ? [FeatureItem(title: '루마 일지', subtitle: '작업 일지', onTap: () {})] : const [];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FeatureSearchSheet(
+              title: '메뉴 검색',
+              items: [FeatureItem(title: '공학용 계산기', subtitle: '', onTap: () {})],
+              moreResults: more,
+              searchElsewhere: (q) => FeatureItem(title: "자료 검색에서 '$q' 찾기", subtitle: '', onTap: () {}),
+            ),
+          ),
+        ),
+      );
+      await tester.enterText(find.byKey(const Key('feature_search_field')), '공');
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.textContaining('자료 검색에서'), findsNothing);
+      await tester.enterText(find.byKey(const Key('feature_search_field')), '공학');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      final link = tester.getTopLeft(find.text("자료 검색에서 '공학' 찾기")).dy;
+      final head = tester.getTopLeft(find.text('기록에서 찾기')).dy;
+      expect(link < head, isTrue);
+      await tester.enterText(find.byKey(const Key('feature_search_field')), '없는말');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(find.text("자료 검색에서 '없는말' 찾기"), findsOneWidget);
+      expect(find.text('기록에서 찾기'), findsNothing);
+    });
   });
 }
