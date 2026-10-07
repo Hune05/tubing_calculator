@@ -4898,10 +4898,17 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
       }
     }
 
-    final personalSnap = await FirebaseFirestore.instance
+    // 통신이 불안정하면 오래 걸려 '내 알림'이 계속 돌고, 실패하면 0건으로 보였다(10-07).
+    // 6초까지만 기다리고 폰 사본으로 센다.
+    final personalQuery = FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
-        .where('owner', isEqualTo: currentWorker)
-        .get();
+        .where('owner', isEqualTo: currentWorker);
+    QuerySnapshot<Map<String, dynamic>> personalSnap;
+    try {
+      personalSnap = await personalQuery.get().timeout(const Duration(seconds: 6));
+    } catch (_) {
+      personalSnap = await personalQuery.get(const GetOptions(source: Source.cache));
+    }
     for (final doc in personalSnap.docs) {
       final data = doc.data();
       if (data['dateTime'] == null) continue;
