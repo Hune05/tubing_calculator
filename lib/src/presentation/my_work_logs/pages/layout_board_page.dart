@@ -1422,6 +1422,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   static const int _maxUndoSteps = 30;
 
   Map<String, dynamic> _captureUndoState() => {
+    // 외함 크기·축척 맞추기도 되돌린다(10-07: 부품만 돌아오고 판 크기·배경 자리는 그대로였다).
+    'panelW': _panelWidth,
+    'panelH': _panelHeight,
+    'bgRect': _backgroundRect,
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
     if (_isSkid) 'routes': _routes.map((r) => r.toJson()).toList(),
@@ -1440,6 +1444,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   void _restoreUndoState(Map<String, dynamic> snap) {
+    final pw = snap['panelW'], ph = snap['panelH'];
+    if (pw is double && ph is double) {
+      _panelWidth = pw;
+      _panelHeight = ph;
+    }
+    if (snap.containsKey('bgRect')) _backgroundRect = snap['bgRect'] as Rect?;
     _placedItems
       ..clear()
       ..addAll(
@@ -1584,7 +1594,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _dropOrphanViewDims();
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_draftPrefsKey, jsonEncode(_buildSnapshotJson()));
+      // 저장해 둔 도면은 도면마다 따로 둔다(10-07: 한 칸뿐이라, 저장한 도면을 열기만 하고 나가도
+      // 저장 안 한 새 도면 임시 저장을 덮었고, 저장한 뒤에도 "저장하지 않고 나간 작업"이 거짓으로 떴다).
+      // "이어하기"는 새 도면 칸(_draftPrefsKey)만 묻는다.
+      final id = _currentProjectId;
+      await prefs.setString(
+        id == null ? _draftPrefsKey : '${_draftPrefsKey}_$id',
+        jsonEncode(_buildSnapshotJson()),
+      );
     } catch (_) {
       // 로컬 임시 저장은 실패해도 사용자 작업 흐름을 막을 필요는 없다.
     }
@@ -1595,6 +1612,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_draftPrefsKey);
       await prefs.remove(_legacyTabletDraftPrefsKey);
+      final id = _currentProjectId;
+      if (id != null) await prefs.remove('${_draftPrefsKey}_$id');
     } catch (_) {}
   }
 
@@ -1633,7 +1652,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
     final p = await fetch(_backgroundImagePath, _backgroundImageUrl);
     if (p != null && mounted) setState(() => _backgroundImagePath = p);
-    for (final e in _plateStore.entries) {
+    // 복사본을 돈다(10-07: 받는 사이 탭을 바꾸면 목록이 바뀌어 오류가 났다).
+    for (final e in _plateStore.entries.toList()) {
       final q = await fetch(
         e.value['backgroundImagePath'] as String?,
         e.value['backgroundImageUrl'] as String?,
@@ -2744,15 +2764,21 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       final plates = _allPlates();
       // 배경 사진은 폰 안 경로라 다른 폰에서 안 보였다. 아직 안 올린 것은 올리고 주소를
       // 같이 저장한다(통신 없으면 이번엔 건너뛰고 다음 저장 때 다시).
-      for (final e in plates.entries) {
-        final path = e.value['backgroundImagePath'] as String?;
-        final url = e.value['backgroundImageUrl'] as String?;
-        if (path == null || (url != null && url.isNotEmpty)) continue;
-        final up = await uploadLayoutBackground(docRef.id, path);
-        if (up == null) continue;
-        e.value['backgroundImageUrl'] = up;
-        if (e.key == _plateId) _backgroundImageUrl = up;
-      }
+      // 판마다 차례로 20초씩 기다리면 통신이 없을 때 판 4개에 1분 넘게 묶였다(10-07).
+      // 같이 올리고 8초까지만 기다린다. 못 올린 것은 다음 저장 때 다시.
+      await Future.wait([
+        for (final e in plates.entries)
+          if (e.value['backgroundImagePath'] is String &&
+              ((e.value['backgroundImageUrl'] as String?) ?? '').isEmpty)
+            uploadLayoutBackground(
+              docRef.id,
+              e.value['backgroundImagePath'] as String,
+            ).timeout(const Duration(seconds: 8), onTimeout: () => null).then((up) {
+              if (up == null) return;
+              e.value['backgroundImageUrl'] = up;
+              if (e.key == _plateId) _backgroundImageUrl = up;
+            }),
+      ]);
       final main = plates[kPlateMain]!;
       final fields = {
         ...layoutSaveFields(
@@ -10871,18 +10897,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           ),
         ),
         const SizedBox(height: 8),
-        TextField(
-          controller:
-              controller ??
-              (TextEditingController(text: value)
-                ..selection = TextSelection.collapsed(offset: value.length)),
-          keyboardType: TextInputType.number,
-          onSubmitted: onChanged,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: tossText,
-          ),
+        // 칸을 떠나면(다른 칸을 누르면) 바로 넣는다. 예전에는 키보드 "완료"를 눌러야만 들어가서,
+        // 다른 칸을 누르면 친 값이 버려지고 X·Y 칸은 다시 그릴 때 친 글자가 사라졌다(10-07).
+        _InspectorNumberField(
+          value: controller?.text ?? value,
+          controller: controller,
+          onCommit: onChanged,
           decoration: InputDecoration(
             filled: true,
             fillColor: tossBg,
@@ -10915,11 +10935,15 @@ class _InspectorNumberField extends StatefulWidget {
   final void Function(String) onCommit;
   final InputDecoration decoration;
 
+  /// 바깥에서 읽는 칸(창의 "확인"이 이 글을 읽는 경우)이면 그 컨트롤러를 그대로 쓴다.
+  final TextEditingController? controller;
+
   const _InspectorNumberField({
     super.key,
     required this.value,
     required this.onCommit,
     required this.decoration,
+    this.controller,
   });
 
   @override
@@ -10927,9 +10951,9 @@ class _InspectorNumberField extends StatefulWidget {
 }
 
 class _InspectorNumberFieldState extends State<_InspectorNumberField> {
-  late final TextEditingController _ctrl = TextEditingController(
-    text: widget.value,
-  );
+  late final TextEditingController _ctrl =
+      widget.controller ?? TextEditingController(text: widget.value);
+  late String _committed = widget.value;
   final FocusNode _focus = FocusNode();
 
   @override
@@ -10959,22 +10983,26 @@ class _InspectorNumberFieldState extends State<_InspectorNumberField> {
   void didUpdateWidget(covariant _InspectorNumberField oldWidget) {
     super.didUpdateWidget(oldWidget);
     // 치는 중이 아닐 때만 바깥 값(끌어서 옮긴 위치, 되돌리기 등)을 따라간다.
-    if (!_focus.hasFocus && _ctrl.text != widget.value) {
+    if (!_focus.hasFocus && widget.controller == null && _ctrl.text != widget.value) {
       _ctrl.text = widget.value;
     }
+    if (!_focus.hasFocus) _committed = _ctrl.text;
   }
 
   void _commit() {
     if (_ctrl.text.trim().isEmpty) {
-      _ctrl.text = widget.value;
+      _ctrl.text = _committed;
       return;
     }
-    if (_ctrl.text != widget.value) widget.onCommit(_ctrl.text);
+    if (_ctrl.text != _committed) {
+      _committed = _ctrl.text;
+      widget.onCommit(_ctrl.text);
+    }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    if (widget.controller == null) _ctrl.dispose();
     _focus.dispose();
     super.dispose();
   }
