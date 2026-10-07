@@ -21,7 +21,7 @@ import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_action_bar.dart';
 import '../../tube_cutting/cutting_diagram_pdf.dart' show keepTogether;
 import '../../tube_cutting/cutting_leftovers.dart';
-import '../../tube_cutting/cutting_math.dart' show fmtMm, safeFileName;
+import '../../tube_cutting/cutting_math.dart' show fmtMm, parseLengthInput, safeFileName;
 import '../../tube_cutting/cutting_optimizer.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_stock_deduct.dart';
@@ -644,13 +644,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     final idx = _items.indexWhere((e) => e.id == id);
     if (idx < 0) return;
     final item = _items[idx];
-    try {
-      await _persistItems();
-      await _logChange('EDIT', item);
-    } catch (e) {
-      if (!mounted) return;
-      showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
-    }
+    // 서버 쓰기는 기다리지 않는다(10-07: 통신이 없으면 기록 남기기가 연결될 때까지 미뤄졌다).
+    _saveItems();
+    unawaited(_logChange('EDIT', item));
   }
 
   // ── 규격 묶음 작업(머리글의 ⋮ 메뉴) ──
@@ -1563,8 +1559,23 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   Future<void> _editLength(SteelCutItem item) async {
     HapticFeedback.selectionClick();
     final ctrl = TextEditingController(text: fmtMm(item.length));
+    // 쉼표·천 단위도 읽고, 못 읽거나 0 이하면 창을 닫지 않고 까닭을 보인다
+    // (10-07: "1200,5"는 알림 없이 버려졌고 "NaN"·"Infinity"는 그대로 저장됐다).
+    final err = ValueNotifier<String?>(null);
+    void submit(BuildContext ctx) {
+      final p = parseLengthInput(ctrl.text);
+      final val = p.value;
+      if (val == null) {
+        err.value = '숫자로 적어 주십시오.';
+      } else if (val <= 0) {
+        err.value = '0보다 큰 길이를 적어 주십시오.';
+      } else {
+        Navigator.pop(ctx, val);
+      }
+    }
+
     void bump(double d) {
-      final cur = double.tryParse(ctrl.text.trim()) ?? 0;
+      final cur = parseLengthInput(ctrl.text).value ?? 0;
       final next = cur + d;
       ctrl.text = fmtMm(next < 0 ? 0 : next);
       ctrl.selection = TextSelection.collapsed(offset: ctrl.text.length);
@@ -1600,7 +1611,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
             const SizedBox(height: 12),
-            TextField(
+            ValueListenableBuilder<String?>(
+              valueListenable: err,
+              builder: (_, e, _) => TextField(
               key: const Key('steel_len_field'),
               controller: ctrl,
               autofocus: true,
@@ -1614,6 +1627,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               ),
               decoration: InputDecoration(
                 suffixText: 'mm',
+                errorText: e,
                 filled: true,
                 fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(
@@ -1621,7 +1635,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                   borderSide: BorderSide.none,
                 ),
               ),
-              onSubmitted: (s) => Navigator.pop(ctx, double.tryParse(s.trim())),
+              onChanged: (_) => err.value = null,
+              onSubmitted: (_) => submit(ctx),
+            ),
             ),
             const SizedBox(height: 10),
             Row(
@@ -1670,8 +1686,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
             style: ElevatedButton.styleFrom(
               backgroundColor: CuttingColors.primary,
             ),
-            onPressed: () =>
-                Navigator.pop(ctx, double.tryParse(ctrl.text.trim())),
+            onPressed: () => submit(ctx),
             child: const Text(
               "저장",
               style: TextStyle(color: CuttingColors.surface),
@@ -1698,14 +1713,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       final idx = _items.indexWhere((e) => e.id == item.id);
       if (idx >= 0) _items[idx] = updated;
     });
-    try {
-      await _persistItems();
-      await _logChange('EDIT', updated);
-    } catch (e) {
-      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
-      return;
-    }
-    if (!mounted) return;
+    // 서버 쓰기는 기다리지 않는다(10-07: 통신이 없으면 고쳤다는 알림이 끝내 안 떴다).
+    _saveItems();
+    unawaited(_logChange('EDIT', updated));
     showCuttingSnack(context, "길이를 ${fmtMm(v)}mm로 고쳤습니다.");
   }
 
@@ -2087,13 +2097,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     );
     if (saved != true || !mounted) return;
     setState(() => _items = applyShapeOrder(_items, shape, work));
-    try {
-      await _persistItems();
-    } catch (e) {
-      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
-      return;
-    }
-    if (!mounted) return;
+    _saveItems(); // 기다리지 않는다(통신 없을 때 알림이 안 뜨던 것, 10-07)
     showCuttingSnack(context, "'$shape' 순서를 바꿨습니다.");
   }
 

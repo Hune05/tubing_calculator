@@ -261,7 +261,8 @@ CuttingOptimizationResult optimizeCutting({
     stockLength: stockLength,
     kerf: kerf,
     oversizedPieces: oversized,
-    savedBars: ffd.length - bars.length,
+    // 통째로 쓰는 조각(wholeBar)은 두 방법 모두 같은 본수라 빼고 센다(10-07: 넣고 세어 음수가 돼 다른 규격의 아낀 수를 깎았다).
+    savedBars: ffd.length - bestBins.length,
   );
 }
 

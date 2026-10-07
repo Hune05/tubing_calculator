@@ -2094,6 +2094,22 @@ void main() {
       );
     });
 
+    testWidgets('길이 고치기: 쉼표 소수는 읽고, 못 읽는 값은 창을 닫지 않는다(10-07)', (tester) async {
+      await open(tester, proj());
+      await tester.longPress(find.byKey(const Key('steel_item_a')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('steel_len_field')), 'NaN');
+      await tester.tap(find.byKey(const Key('steel_len_save')));
+      await tester.pumpAndSettle();
+      expect(find.text('길이 고치기'), findsOneWidget);
+      expect(find.text('숫자로 적어 주십시오.'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('steel_len_field')), '1200,5');
+      await tester.tap(find.byKey(const Key('steel_len_save')));
+      await tester.pumpAndSettle();
+      expect(find.text('길이 고치기'), findsNothing);
+      expect(find.text('1200.5 mm'), findsOneWidget);
+    });
+
     testWidgets('카드를 길게 누르면 길이만 고친다', (tester) async {
       await open(tester, proj());
       await tester.longPress(find.byKey(const Key('steel_item_a')));

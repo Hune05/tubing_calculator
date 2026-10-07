@@ -159,6 +159,12 @@ void main() {
       expect(a.savedBars, 0);
     });
 
+    test('통째로 쓰는 조각이 있어도 아낀 본수가 음수가 되지 않는다(10-07)', () {
+      final r = optimizeCutting(pieces: [5999, 3000, 3000], stockLength: 6000, kerf: 3);
+      expect(r.barCount, 3);
+      expect(r.savedBars, 0);
+    });
+
     test('아무 입력이나 넣어도 항상 가능한 배치이고 이론상 최소보다 크게 나쁘지 않다', () {
       final rnd = Random(7);
       for (var t = 0; t < 200; t++) {
