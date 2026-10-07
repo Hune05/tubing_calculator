@@ -1673,17 +1673,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       return downloadLayoutBackground(url);
     }
 
+    // 받은 사진은 받기 시작할 때의 판에 넣는다. 받는 사이 탭을 바꿨으면 그 판은 지금 칸이 아니라
+    // 보관 칸에 있다(10-08: 중판 배경이 지금 보는 측판에 깔려 다음 저장 때 측판 배경으로 올라갔다).
+    void put(String plateId, String path) {
+      if (!mounted) return;
+      setState(() {
+        if (plateId == _plateId) {
+          _backgroundImagePath = path;
+        } else {
+          _plateStore[plateId]?['backgroundImagePath'] = path;
+        }
+      });
+    }
+
+    final first = _plateId;
     final p = await fetch(_backgroundImagePath, _backgroundImageUrl);
-    if (p != null && mounted) setState(() => _backgroundImagePath = p);
+    if (p != null) put(first, p);
     // 복사본을 돈다(10-07: 받는 사이 탭을 바꾸면 목록이 바뀌어 오류가 났다).
     for (final e in _plateStore.entries.toList()) {
       final q = await fetch(
         e.value['backgroundImagePath'] as String?,
         e.value['backgroundImageUrl'] as String?,
       );
-      if (q != null && mounted) {
-        setState(() => e.value['backgroundImagePath'] = q);
-      }
+      if (q != null) put(e.key, q);
     }
   }
 
@@ -2037,7 +2049,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       RenderRepaintBoundary boundary =
           _captureKey.currentContext!.findRenderObject()
               as RenderRepaintBoundary;
-      ui.Image image = await boundary.toImage(pixelRatio: 3.0);
+      // 큰 판은 3배로 찍으면 기기 그림 한계(8192px)를 넘어 실패하거나 메모리가 넘친다(10-08).
+      ui.Image image = await boundary.toImage(
+        pixelRatio: layoutCapturePixelRatio(boundary.size),
+      );
       ByteData? byteData = await image.toByteData(
         format: ui.ImageByteFormat.png,
       );
@@ -11320,3 +11335,10 @@ Widget _sheetUndoHost(WidgetBuilder builder) => ScaffoldMessenger(
     body: Builder(builder: builder),
   ),
 );
+
+/// 도면 캡처 배율: 기본 3배, 긴 변이 6000px를 넘지 않게 줄인다(기기 그림 한계 8192px 아래).
+double layoutCapturePixelRatio(Size logical) {
+  final longest = math.max(logical.width, logical.height);
+  if (longest <= 0) return 3.0;
+  return math.max(0.5, math.min(3.0, 6000 / longest));
+}

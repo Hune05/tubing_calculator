@@ -43,6 +43,12 @@ void main() {
   const size = Size(300, 300);
   dimensionTests();
 
+  test('큰 판 캡처 배율은 긴 변 6000px 안으로 줄인다(10-08)', () {
+    expect(mob.layoutCapturePixelRatio(const Size(800, 600)), 3.0);
+    expect(mob.layoutCapturePixelRatio(const Size(6000, 1200)), 1.0);
+    expect(mob.layoutCapturePixelRatio(const Size(6000, 1200)) * 6000, lessThanOrEqualTo(8192));
+  });
+
   test('치수 숫자는 반올림한다(299.9999…가 299로 보이지 않는다, 10-08)', () {
     expect(cadDimensionLabel('센터', 299.99999999), '센터 300 mm');
     expect(cadDimensionLabel('', 101.6), ' 102 mm');

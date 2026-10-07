@@ -46,6 +46,21 @@ void main() {
     expect(r.warnings(), isEmpty);
   });
 
+  test('시작 부품을 지워도 경로는 마지막 자리에 남는다(0,0으로 튀지 않는다, 10-08)', () {
+    final r = ConduitRoute(
+      id: 'r',
+      name: 'A',
+      startItemId: 'jb',
+      startDir: 90,
+      bends: [
+        {'length': 1000, 'angle': 0, 'rotation': 0},
+      ],
+    );
+    expect(r.startPoint([jb()]), vm.Vector3(100, 200, 800));
+    // JB를 지운 뒤
+    expect(r.startPoint(const []), vm.Vector3(100, 200, 800));
+  });
+
   test('오프셋으로 위로 100 비켜 가면 다시 같은 방향으로, 높이만 100 올라간다', () {
     final r = ConduitRoute(
       id: 'r',

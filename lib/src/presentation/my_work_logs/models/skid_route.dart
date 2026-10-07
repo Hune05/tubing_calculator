@@ -180,11 +180,12 @@ class ConduitRoute {
   vm.Vector3 startPoint(List<PlacedItem> planItems) {
     for (final it in planItems) {
       if (it.id == startItemId) {
-        return vm.Vector3(
-          it.position.dx + it.width / 2,
-          it.position.dy + it.height / 2,
-          it.elevation ?? z,
-        );
+        // 찾은 자리를 x·y·z에도 적어 둔다. 시작 부품을 지워도 경로가 도면 모서리(0,0)로 튀지 않고
+        // 마지막 자리에 남는다(10-08).
+        x = it.position.dx + it.width / 2;
+        y = it.position.dy + it.height / 2;
+        z = it.elevation ?? z;
+        return vm.Vector3(x, y, z);
       }
     }
     return vm.Vector3(x, y, z);
