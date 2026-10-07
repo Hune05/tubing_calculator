@@ -2487,17 +2487,25 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                         validItems.isEmpty) {
                                       return;
                                     }
-                                    await FirebaseFirestore.instance
-                                        .collection(
-                                          kScheduleTemplatesCollection,
-                                        )
-                                        .add({
-                                          'name': nameCtrl.text.trim(),
-                                          'owner': _currentWorker,
-                                          'items': validItems,
-                                          'createdAt':
-                                              FieldValue.serverTimestamp(),
-                                        });
+                                    // 기다리지 않는다: 통신이 없으면 창이 안 닫히고, 누를 때마다
+                                    // 같은 템플릿이 하나씩 더 생겼다(10-07). 폰에 먼저 쓰이고 통신되면 올라간다.
+                                    unawaited(
+                                      FirebaseFirestore.instance
+                                          .collection(
+                                            kScheduleTemplatesCollection,
+                                          )
+                                          .add({
+                                            'name': nameCtrl.text.trim(),
+                                            'owner': _currentWorker,
+                                            'items': validItems,
+                                            'createdAt':
+                                                FieldValue.serverTimestamp(),
+                                          })
+                                          .then(
+                                            (_) {},
+                                            onError: _scheduleSaveFailed,
+                                          ),
+                                    );
                                     if (ctx.mounted) Navigator.pop(ctx);
                                   },
                                   style: ElevatedButton.styleFrom(
@@ -3220,16 +3228,32 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         ),
       );
       if (go != true) return;
+      // 한 건씩 서버 응답을 기다리면 통신이 없을 때 첫 건에서 멈췄다(10-07). 묶음으로 보내고
+      // 기다리지 않는다(폰에 먼저 쓰이고 통신되면 올라간다). 알림은 바로 잡는다.
+      final col = FirebaseFirestore.instance.collection(
+        kPersonalSchedulesCollection,
+      );
       var n = 0;
+      var batch = FirebaseFirestore.instance.batch();
+      var inBatch = 0;
+      final toRemind = <(String, Map<String, dynamic>)>[];
       for (final d in backup.items) {
         final data = dataForRestore(d.data, _currentWorker)
           ..['updatedAt'] = FieldValue.serverTimestamp();
-        await FirebaseFirestore.instance
-            .collection(kPersonalSchedulesCollection)
-            .doc(d.id)
-            .set(data);
-        await _scheduleOrCancelReminder(d.id, data);
+        batch.set(col.doc(d.id), data);
+        toRemind.add((d.id, data));
         n++;
+        if (++inBatch == 400) {
+          unawaited(batch.commit().catchError(_scheduleSaveFailed));
+          batch = FirebaseFirestore.instance.batch();
+          inBatch = 0;
+        }
+      }
+      if (inBatch > 0) {
+        unawaited(batch.commit().catchError(_scheduleSaveFailed));
+      }
+      for (final (id, data) in toRemind) {
+        await _scheduleOrCancelReminder(id, data);
       }
       _toast("일정 $n건을 가져왔습니다.");
     } on FormatException catch (e) {
