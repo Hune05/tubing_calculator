@@ -86,6 +86,19 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('적던 다이얼 값은 화면을 나갔다 와도 남아 결과가 그대로 나온다(10-08)', (tester) async {
+    await _open(tester);
+    await _type(tester, 'rpm', '1800');
+    await _fillReverse(tester);
+    expect(find.text('불합격: 평행 어긋남 초과'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+    await _open(tester);
+    expect(tester.widget<TextField>(find.byKey(const Key('align_a180'))).controller!.text, '-0.20');
+    expect(find.text('불합격: 평행 어긋남 초과'), findsOneWidget);
+  });
+
   testWidgets('허용 기준은 처음 0.05 mm, 고치면 판정이 바뀌고 다음에 열어도 남는다', (tester) async {
     await _open(tester);
     await _type(tester, 'rpm', '1800');

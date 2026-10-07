@@ -21,6 +21,8 @@ const List<String> kDefaultSafetyItems = [
 const String kSafetyItemsKey = 'safety_items_v1';
 const String kSafetyRecordsKey = 'safety_checks_v1';
 const String kSafetySiteKey = 'safety_last_site_v1';
+/// 적던 점검(오늘 것만 되살림, 10-08).
+const String kSafetyDraftKey = 'safety_draft_v1';
 const int kSafetyRecordCap = 100;
 
 enum SafetyAnswer { none, yes, na }

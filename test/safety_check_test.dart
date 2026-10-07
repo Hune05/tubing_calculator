@@ -141,6 +141,19 @@ void main() {
       expect(tester.widget<ChoiceChip>(yes).selected, false);
     });
 
+    testWidgets('적던 체크·작업 내용은 화면을 나갔다 와도 남는다(10-08)', (tester) async {
+      await open(tester);
+      await tester.tap(find.byKey(const Key('safety_yes_작업허가서 확인')));
+      await tester.pump();
+      await tester.enterText(find.byKey(const Key('safety_work')), '배관 용접');
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 100));
+      await open(tester);
+      expect(tester.widget<ChoiceChip>(find.byKey(const Key('safety_yes_작업허가서 확인'))).selected, true);
+      expect(find.text('배관 용접'), findsOneWidget);
+    });
+
     testWidgets('미확인이 있으면 물어보고, 그대로 하면 저장·전송된다', (tester) async {
       await open(tester);
       await tester.enterText(find.byKey(const Key('safety_work')), '결선');

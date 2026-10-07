@@ -1,4 +1,7 @@
 // 작업 전 안전 점검: 작업을 시작하기 전에 항목을 하나씩 확인하고, 기록으로 남겨 카톡으로 보낸다.
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,6 +36,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
   List<String> _items = [];
   final Map<String, SafetyAnswer> _answers = {};
   bool _loaded = false;
+  Timer? _draftTimer;
 
   DateTime get _now => (widget.now ?? DateTime.now)();
 
@@ -40,10 +44,66 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
   void initState() {
     super.initState();
     _load();
+    for (final c in [_work, _people, _risks]) {
+      c.addListener(_saveDraftSoon);
+    }
+  }
+
+  // ── 적던 내용 임시 저장(10-08: 뒤로 가기·앱 꺼짐에 체크·글이 모두 사라졌다) ──
+  // 오늘 적던 것만 되살린다(안전 점검은 그날 작업 전에 하는 것).
+  String get _today {
+    final n = _now;
+    return '${n.year}-${n.month}-${n.day}';
+  }
+
+  String _draftText() => jsonEncode({
+    'day': _today,
+    'work': _work.text,
+    'people': _people.text,
+    'risks': _risks.text,
+    'answers': {for (final e in _answers.entries) e.key: e.value.name},
+  });
+
+  void _saveDraftSoon() {
+    if (!_loaded) return;
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 400), () => _writeDraft(_draftText()));
+  }
+
+  static Future<void> _writeDraft(String? text) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (text == null) {
+        await p.remove(kSafetyDraftKey);
+      } else {
+        await p.setString(kSafetyDraftKey, text);
+      }
+    } catch (_) {}
+  }
+
+  void _applyDraft(String? raw) {
+    if (raw == null) return;
+    try {
+      final m = jsonDecode(raw) as Map;
+      if (m['day'] != _today) return;
+      _work.text = '${m['work'] ?? ''}';
+      _people.text = '${m['people'] ?? ''}';
+      _risks.text = '${m['risks'] ?? ''}';
+      final a = m['answers'];
+      if (a is Map) {
+        a.forEach((k, v) {
+          for (final s in SafetyAnswer.values) {
+            if (s.name == v && s != SafetyAnswer.none) _answers['$k'] = s;
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   @override
   void dispose() {
+    if (_draftTimer?.isActive ?? false) _writeDraft(_draftText());
+    _draftTimer?.cancel();
     _site.dispose();
     _work.dispose();
     _people.dispose();
@@ -54,13 +114,18 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
   Future<void> _load() async {
     final items = await loadSafetyItems();
     String site = '';
+    String? draft;
     try {
-      site = (await SharedPreferences.getInstance()).getString(kSafetySiteKey) ?? '';
+      final p = await SharedPreferences.getInstance();
+      site = p.getString(kSafetySiteKey) ?? '';
+      draft = p.getString(kSafetyDraftKey);
     } catch (_) {}
     if (!mounted) return;
     setState(() {
       _items = items;
       _site.text = site;
+      _applyDraft(draft);
+      _answers.removeWhere((k, _) => !items.contains(k));
       _loaded = true;
     });
   }
@@ -77,6 +142,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
         _answers[label] = a;
       }
     });
+    _saveDraftSoon();
   }
 
   SafetyRecord _record() {
@@ -144,6 +210,8 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
       _people.clear();
       _risks.clear();
     });
+    _draftTimer?.cancel();
+    await _writeDraft(null);
     _toast(send ? '저장하고 보냈습니다' : '저장했습니다');
   }
 

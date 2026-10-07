@@ -1,4 +1,7 @@
 // 축 정렬 계산기: 모터·펌프 커플링 센터링. 다이얼 게이지 읽음값으로 앞발·뒷발에 넣고 뺄 심 두께와 좌우 이동량을 구한다.
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -48,12 +51,52 @@ class _AlignmentPageState extends State<AlignmentPage> {
 
   DateTime get _now => (widget.now ?? DateTime.now)();
 
-  TextEditingController _f(String key) => _c.putIfAbsent(key, () => TextEditingController());
+  TextEditingController _f(String key) =>
+      _c.putIfAbsent(key, () => TextEditingController()..addListener(_saveDraftSoon));
+
+  // ── 적던 다이얼 값 임시 저장(10-08: 뒤로 가기·앱 꺼짐에 읽은 값이 모두 사라졌다) ──
+  static const String _draftKey = 'align_draft_v1';
+  Timer? _draftTimer;
+  bool _draftLoaded = false;
+
+  void _saveDraftSoon() {
+    if (!_draftLoaded) return;
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 400), () => _writeDraft(jsonEncode(_inputs())));
+  }
+
+  static Future<void> _writeDraft(String text) async {
+    try {
+      await (await SharedPreferences.getInstance()).setString(_draftKey, text);
+    } catch (_) {}
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString(_draftKey);
+      if (raw != null && mounted) {
+        final m = jsonDecode(raw) as Map;
+        setState(() {
+          m.forEach((k, v) {
+            if (k == 'method') {
+              for (final x in AlignMethod.values) {
+                if (x.name == v) _method = x;
+              }
+            } else {
+              _f('$k').text = '$v';
+            }
+          });
+        });
+      }
+    } catch (_) {}
+    _draftLoaded = true;
+  }
 
   @override
   void initState() {
     super.initState();
     _loadTol();
+    _loadDraft();
     AlignSessionStore.load().then((v) {
       if (mounted && v.isNotEmpty) setState(() => _rounds = v);
     });
@@ -61,6 +104,8 @@ class _AlignmentPageState extends State<AlignmentPage> {
 
   @override
   void dispose() {
+    if (_draftTimer?.isActive ?? false) _writeDraft(jsonEncode(_inputs()));
+    _draftTimer?.cancel();
     for (final c in _c.values) {
       c.dispose();
     }
@@ -255,7 +300,10 @@ class _AlignmentPageState extends State<AlignmentPage> {
               ButtonSegment(value: AlignMethod.rimFace, label: Text('림·페이스')),
             ],
             selected: {_method},
-            onSelectionChanged: (s) => setState(() => _method = s.first),
+            onSelectionChanged: (s) {
+              setState(() => _method = s.first);
+              _saveDraftSoon();
+            },
           ),
           const SizedBox(height: 12),
           _methodCard(),
