@@ -1468,6 +1468,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     if (planItems is List && _plateStore[kPlateMain] != null) {
       _plateStore[kPlateMain]!['items'] = List.of(planItems);
     }
+    // 도면 전체를 담은 기록이면 종류·측판 켜짐도 돌리고, 그때 없던 판은 뺀다.
+    if (snap['whole'] == true) {
+      if (snap['kind'] is String) _kind = snap['kind'] as String;
+      if (snap['sidePlatesOn'] is bool) _sidePlatesOn = snap['sidePlatesOn'] as bool;
+      if (snap['showHiddenParts'] is bool) {
+        _showHiddenParts = snap['showHiddenParts'] as bool;
+      }
+      final keep = (snap['plates'] as Map?)?.keys.map((k) => k.toString()).toSet() ?? {};
+      _plateStore.removeWhere((id, _) => id != _plateId && !keep.contains(id));
+    }
     // 도면 전체 지우기를 되돌릴 때: 다른 탭 것도 돌려놓는다.
     final plates = snap['plates'];
     if (plates is Map) {
@@ -1893,6 +1903,24 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       return true;
     }
     return (a.elevation ?? 0) != (b.elevation ?? 0);
+  }
+
+  /// 도면 전체(다른 판·경로·도면 종류·측판 켜짐)를 되돌리기에 쌓는다. 되돌리면 다른 판도 이때로 바뀐다.
+  void _pushWholeUndo() {
+    _undoStack.add({
+      ..._captureUndoState(),
+      'routes': _routes.map((r) => r.toJson()).toList(),
+      'plates': {
+        for (final e in _plateStore.entries)
+          if (e.key != _plateId) e.key: Map<String, dynamic>.from(e.value),
+      },
+      'whole': true,
+      'kind': _kind,
+      'sidePlatesOn': _sidePlatesOn,
+      'showHiddenParts': _showHiddenParts,
+    });
+    if (_undoStack.length > _maxUndoSteps) _undoStack.removeAt(0);
+    _redoStack.clear();
   }
 
   // 모든 탭(판)·경로·치수선을 지운다. 되돌리기 기록에 다른 탭 것도 같이 담아 두어
@@ -3097,13 +3125,30 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
+  /// 시험용: 템플릿 적용·되돌리기·판 부품 수.
+  @visibleForTesting
+  void debugApplyTemplate(Map<String, dynamic> data) => _applyTemplate(data);
+  @visibleForTesting
+  void debugUndo() => _undo();
+  @visibleForTesting
+  int debugPlateItemCount(String id) =>
+      id == _plateId ? _placedItems.length : ((_plateStore[id]?['items'] as List?)?.length ?? 0);
+
   void _applyTemplate(Map<String, dynamic> data) {
     void doApply() {
-      _pushUndo();
+      final whole = data.containsKey('kind');
+      if (whole) {
+        // 측판·경로까지 갈아 끼우는 템플릿: 중판으로 간 뒤, 다른 판·도면 종류까지 담아 되돌리기에 쌓는다.
+        // 10-07: 예전에는 판을 바꾸기 전에 쌓은 기록이 측판 기록과 함께 지워지거나, 되돌려도 측판·종류가
+        // 돌아오지 않아 측판 부품이 영영 없어졌다.
+        if (_plateId != kPlateMain) setState(() => _switchPlate(kPlateMain));
+        _pushWholeUndo();
+      } else {
+        _pushUndo();
+      }
       setState(() {
         // 측판·경로가 담긴 템플릿(kind 칸이 있는 것)은 중판으로 가서 전부 갈아 끼운다.
-        if (data.containsKey('kind')) {
-          if (_plateId != kPlateMain) _switchPlate(kPlateMain);
+        if (whole) {
           _applySidePlateFields(data);
         }
         _panelWidth = (data['panelWidth'] as num?)?.toDouble() ?? _panelWidth;
