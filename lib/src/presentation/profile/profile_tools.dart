@@ -296,10 +296,19 @@ class ProfileStore {
   Future<void> copyDoc(String oldName, String newName) async {
     if (isGuest(oldName) || oldName == newName) return;
     try {
-      final snap = await _users
-          .doc(oldName)
-          .get()
-          .timeout(const Duration(seconds: 5));
+      // 통신이 없으면 폰 사본에서 읽는다(10-07: 서버 읽기가 실패하면 그대로 끝나, 사진·팀·연락처가
+      // 새 이름 문서로 옮겨지지 않았다).
+      DocumentSnapshot<Map<String, dynamic>> snap;
+      try {
+        snap = await _users
+            .doc(oldName)
+            .get()
+            .timeout(const Duration(seconds: 5));
+      } catch (_) {
+        snap = await _users
+            .doc(oldName)
+            .get(const GetOptions(source: Source.cache));
+      }
       final data = snap.data();
       if (data == null || data.isEmpty) return;
       await _users

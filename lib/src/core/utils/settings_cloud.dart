@@ -146,7 +146,9 @@ class SettingsCloudSync {
   /// 지금 로그인한 구글 계정. 테스트에서 바꿔 끼운다.
   String? Function() uidProvider = () {
     try {
-      return FirebaseAuth.instance.currentUser?.uid;
+      // 구글 계정만(익명 로그인은 앱을 다시 깔면 잃는 이름표라 "서버 보관"이 아니다, 10-07).
+      final u = FirebaseAuth.instance.currentUser;
+      return u == null || u.isAnonymous ? null : u.uid;
     } catch (_) {
       return null; // Firebase가 안 켜진 곳(테스트 등)
     }

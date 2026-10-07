@@ -20,6 +20,8 @@ class MobileLoadingScreen extends StatefulWidget {
 
 class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     with SingleTickerProviderStateMixin {
+  static bool _tokenListening = false;
+
   late AnimationController _animController;
   final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
   // 설치된 앱 버전(pubspec). 예전엔 "v2.0"이라 글자로 박혀 있어 실제 버전과 달랐다.
@@ -48,6 +50,9 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
     Future.delayed(const Duration(seconds: 8), () => _goOnce(_fallbackName));
 
     // 🔥 토큰이 앱 사용 중 자동으로 갱신될 때를 대비한 리스너
+    // 앱이 켜 있는 동안 한 번만 듣는다(10-07: 로딩 화면이 다시 열릴 때마다 듣기가 하나씩 늘었다).
+    if (_tokenListening) return;
+    _tokenListening = true;
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) async {
       final prefs = await SharedPreferences.getInstance();
       String? savedName = prefs.getString('user_real_name');

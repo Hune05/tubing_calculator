@@ -549,7 +549,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         final String? photoUrl = p.photoUrl;
         final bool hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
         final user = FirebaseAuth.instance.currentUser;
-        final bool isVerified = user != null;
+        // 앱을 켤 때 익명으로도 로그인하므로 익명은 구글 계정으로 보지 않는다(10-07).
+        final bool isVerified = user != null && !user.isAnonymous;
 
         return Column(
           children: [

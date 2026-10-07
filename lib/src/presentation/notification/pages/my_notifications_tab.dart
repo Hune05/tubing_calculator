@@ -404,6 +404,9 @@ class _MyNotificationsTabState extends State<MyNotificationsTab> {
 
   Future<void> _dismiss(_AutoItem item) async {
     final now = DateTime.now();
+    // 밀어 지운 줄은 곧바로 목록에서 뺀다(기록을 저장한 뒤 빼면, 그새 화면을 닫았을 때
+    // 닫힌 화면에 setState를 불러 오류가 났다, 10-07).
+    setState(() => _items?.removeWhere((e) => e.id == item.id));
     await _appendArchive(
       _ArchiveEntry(
         id: item.id,
@@ -412,7 +415,6 @@ class _MyNotificationsTabState extends State<MyNotificationsTab> {
         dismissedAt: now,
       ),
     );
-    setState(() => _items?.removeWhere((e) => e.id == item.id));
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     messenger?.hideCurrentSnackBar();

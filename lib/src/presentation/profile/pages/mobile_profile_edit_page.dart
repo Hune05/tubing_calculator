@@ -260,7 +260,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
                           _buildReadOnlyField(
                             label: "로그인",
                             value: loginMethodLabel(
-                              googleLinked: user != null,
+                              googleLinked: user != null && !user.isAnonymous,
                               email: user?.email,
                             ),
                           ),
