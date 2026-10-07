@@ -105,6 +105,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
 
   final Map<String, ItemData> _localEdits = {};
 
+  /// 서버에 올리는 중(그동안 올리기 단추를 끈다. 10-07: 두 번 누르면 같은 증감이 두 번 들어갔다).
+  bool _syncing = false;
+
   /// 지난 재고조사 뒤로 자재가 얼마나 드나들었는지(자재 이름별).
   Map<String, UsageSinceCount> _usage = const {};
   final Map<String, Map<String, dynamic>> _newLocalItems = {};
@@ -655,7 +658,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           height: 60,
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: n == 0 ? null : _syncToServer,
+            onPressed: n == 0 || _syncing ? null : _syncToServer,
             style: ElevatedButton.styleFrom(
               backgroundColor: makitaTeal,
               disabledBackgroundColor: slate100,

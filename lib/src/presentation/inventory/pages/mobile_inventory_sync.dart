@@ -157,6 +157,20 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
   }
 
   Future<void> _syncToServer() async {
+    if (_syncing) return;
+    setState(() => _syncing = true);
+    try {
+      await _syncToServerOnce();
+    } finally {
+      if (mounted) {
+        setState(() => _syncing = false);
+      } else {
+        _syncing = false;
+      }
+    }
+  }
+
+  Future<void> _syncToServerOnce() async {
     FocusScope.of(context).unfocus();
     if (!_validateSync()) return;
 

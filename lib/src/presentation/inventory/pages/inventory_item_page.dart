@@ -413,11 +413,15 @@ class _Body extends StatelessWidget {
 
     final text = ctrl.text.trim();
     try {
-      await _ref.update({
-        field: isNumber ? (parseIntInput(text) ?? 0) : text,
-        'lastUpdated': FieldValue.serverTimestamp(),
-      });
+      // 제조사는 먼저 기억해 둔다. 서버 쓰기는 8초만 기다린다(10-07: 통신이 없으면 '고쳤습니다'가
+      // 안 뜨고 제조사도 기억되지 않았다. 같은 화면의 수량 고치기와 같게).
       if (field == 'maker') await rememberMaker(text);
+      await _ref
+          .update({
+            field: isNumber ? (parseIntInput(text) ?? 0) : text,
+            'lastUpdated': FieldValue.serverTimestamp(),
+          })
+          .timeout(const Duration(seconds: 8), onTimeout: () {});
       if (!context.mounted) return;
       showCuttingSnack(context, "고쳤습니다.");
     } catch (_) {
@@ -450,7 +454,7 @@ class _Body extends StatelessWidget {
                 uid: currentStockUid(),
                 name: workerName,
               ),
-      );
+      ).timeout(const Duration(seconds: 8), onTimeout: () {});
       if (!context.mounted) return;
       showCuttingSnack(context, toShared ? "공용 재고로 돌렸습니다." : "내 재고로 가져왔습니다.");
     } catch (_) {

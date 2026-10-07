@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../material_catalog.dart';
@@ -51,13 +53,16 @@ Future<int> seedMissingCatalog() async {
     batch.set(_catalog.doc(item.id), item.toMap());
     n++;
     if (n % 400 == 0) {
-      await batch.commit();
+      await batch.commit().timeout(_seedWait, onTimeout: () {});
       batch = FirebaseFirestore.instance.batch();
     }
   }
-  await batch.commit();
+  await batch.commit().timeout(_seedWait, onTimeout: () {});
   return missing.length;
 }
+
+// 기본 목록 채우기가 통신이 끊겨 끝나지 않아도 목록 화면이 멈추지 않게(폰에 먼저 쓰인다, 10-07).
+const Duration _seedWait = Duration(seconds: 8);
 
 Future<void> saveCatalogItem(CatalogItem item) async {
   await _catalog.doc(item.id).set(item.toMap(), SetOptions(merge: true));
@@ -86,6 +91,9 @@ Future<int> addCatalogItemsToInventory(
   );
   // 개인 재고는 사람마다 문서가 따로라 문서 이름에 주인을 붙인다.
   final ownerTail = owner.isEmpty ? '' : '_u${owner[kStockOwnerUid]}';
+  // 10-07: 한 건씩 서버를 기다리면 통신이 없을 때 첫 자재에서 멈추거나(쓰기), 실패했다(읽기).
+  // 있는지는 서버(5초) → 폰 사본 순으로 보고, 쓰기는 한 번에 모아 기다리지 않는다.
+  final batch = FirebaseFirestore.instance.batch();
   var added = 0;
   for (final item in items) {
     final docId =
@@ -94,9 +102,18 @@ Future<int> addCatalogItemsToInventory(
             : 'cat_${item.id}_${_slug(maker)}') +
         ownerTail;
     final ref = _inventory.doc(docId);
-    final snap = await ref.get();
-    if (snap.exists) continue;
-    await ref.set({
+    DocumentSnapshot<Map<String, dynamic>>? snap;
+    try {
+      snap = await ref.get().timeout(const Duration(seconds: 5));
+    } catch (_) {
+      try {
+        snap = await ref.get(const GetOptions(source: Source.cache));
+      } catch (_) {
+        snap = null; // 폰 사본에도 없으면 없는 것으로 본다(문서 이름이 같아 두 번 넣어도 늘지 않는다)
+      }
+    }
+    if (snap?.exists ?? false) continue;
+    batch.set(ref, {
       'name': item.name,
       'category': item.category,
       'spec': item.spec,
@@ -114,8 +131,7 @@ Future<int> addCatalogItemsToInventory(
       'createdAt': FieldValue.serverTimestamp(),
     });
     // 누가 언제 재고에 넣었는지 자재 기록에도 남긴다(수량은 0이라 재고는 안 움직인다).
-    try {
-      await FirebaseFirestore.instance.collection('inventory_logs').add({
+    batch.set(FirebaseFirestore.instance.collection('inventory_logs').doc(), {
         'material_name': item.name,
         'item_id': docId,
         'action': '자재 등록',
@@ -127,8 +143,12 @@ Future<int> addCatalogItemsToInventory(
         'device': 'Mobile',
         'timestamp': FieldValue.serverTimestamp(),
       });
-    } catch (_) {}
     added++;
+  }
+  if (added > 0) {
+    unawaited(batch.commit().catchError((Object e) {
+      debugPrint('재고에 넣기 실패: ');
+    }));
   }
   return added;
 }

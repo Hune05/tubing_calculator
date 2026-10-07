@@ -95,6 +95,19 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
             );
           }
 
+          // 읽기 오류는 '기록 없음'과 따로 보인다(10-07).
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text(
+                '기록을 불러오지 못했습니다',
+                style: TextStyle(
+                  color: slate600,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
+          }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
             return const Center(
               child: Text(

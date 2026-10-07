@@ -18,6 +18,7 @@ class OcrService {
   static Future<Map<String, String>?> scanAndClassify(
     BuildContext context,
   ) async {
+    var spinner = false; // 로딩 창을 띄웠는지(띄운 것만 닫는다)
     try {
       // 1. 카메라로 사진 촬영
       final XFile? image = await _picker.pickImage(
@@ -48,6 +49,7 @@ class OcrService {
       if (croppedFile == null) return null;
 
       if (!context.mounted) return null;
+      spinner = true;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -65,6 +67,7 @@ class OcrService {
       // BuildContext 동기화 경고 해결
       if (!context.mounted) return null;
       Navigator.pop(context);
+      spinner = false;
 
       if (recognizedText.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -89,7 +92,10 @@ class OcrService {
       }
 
       String heatNo = "";
-      RegExp heatRegex = RegExp(r'(?:HEAT|LOT|H/N|HT|NO)\.?[\s:]*([A-Z0-9]+)');
+      // 단어로 떨어진 표시만, 값에는 숫자가 있어야 한다(10-07: "NOMINAL"·"WEIGHT 5KG"에 걸렸다).
+      RegExp heatRegex = RegExp(
+        r'\b(?:HEAT|LOT|H/N|HT|NO)\b\.?[\s:]*([A-Z]*\d[A-Z0-9]*)',
+      );
       var match = heatRegex.firstMatch(raw);
       if (match != null) {
         heatNo = match.group(1) ?? "";
@@ -112,8 +118,14 @@ class OcrService {
 
       return {"name": finalName, "material": material, "heatNo": heatNo};
     } catch (e) {
-      if (context.mounted && Navigator.canPop(context)) {
+      // 로딩 창을 띄운 경우만 닫는다(10-07: 카메라 권한 거부처럼 사진 찍기 전 오류에서도 닫아,
+      // 부른 창·화면이 닫혀 적던 내용이 사라졌다).
+      if (context.mounted && spinner && Navigator.canPop(context)) {
         Navigator.pop(context);
+      } else if (context.mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('카메라를 열지 못했습니다. 카메라 권한을 확인하십시오.')),
+        );
       }
       debugPrint("OCR 스캔 에러: $e");
       return null;
@@ -124,6 +136,7 @@ class OcrService {
   /// 🚀 기능 2: 단일 항목 단순 스캔 (히트넘버 등 개별 입력용)
   /// ---------------------------------------------------------
   static Future<String?> scanLabelText(BuildContext context) async {
+    var spinner = false; // 로딩 창을 띄웠는지(띄운 것만 닫는다)
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
@@ -155,6 +168,7 @@ class OcrService {
       if (croppedFile == null) return null;
 
       if (!context.mounted) return null;
+      spinner = true;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -171,6 +185,7 @@ class OcrService {
       // BuildContext 동기화 경고 해결
       if (!context.mounted) return null;
       Navigator.pop(context);
+      spinner = false;
 
       if (recognizedText.text.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -200,8 +215,14 @@ class OcrService {
 
       return finalResult;
     } catch (e) {
-      if (context.mounted && Navigator.canPop(context)) {
+      // 로딩 창을 띄운 경우만 닫는다(10-07: 카메라 권한 거부처럼 사진 찍기 전 오류에서도 닫아,
+      // 부른 창·화면이 닫혀 적던 내용이 사라졌다).
+      if (context.mounted && spinner && Navigator.canPop(context)) {
         Navigator.pop(context);
+      } else if (context.mounted) {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          const SnackBar(content: Text('카메라를 열지 못했습니다. 카메라 권한을 확인하십시오.')),
+        );
       }
       debugPrint("OCR 스캔 에러: $e");
       return null;
