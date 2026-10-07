@@ -462,16 +462,9 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final design = _pg._kpa(_pg._design);
     final allow = _pg._kpa(_rAllow);
     final recId = keep ? ed.id : _now().microsecondsSinceEpoch.toString();
-    // 새로 찍은 사진(로컬 경로)만 올리고, 실패하면(통신 없음 등) 로컬 경로를
-    // 그대로 둔다 — 다음에 이 기록을 고쳐 저장할 때 다시 시도한다.
-    final photos = [
-      for (final p in res.photos)
-        if (isRemotePhoto(p))
-          p
-        else
-          await uploadPhoto(recId, p, folder: 'pressure_test_photos') ?? p,
-    ];
-    if (!mounted) return;
+    // 기록은 사진을 폰 경로 그대로 먼저 저장하고, 사진 올리기는 뒤에서 한다(_uploadPtPhotos).
+    // 예전에는 사진을 다 올린 뒤에야 저장해, 통신이 없으면 한참 반응이 없고 그사이 나가면 기록이 사라졌다(10-07).
+    final photos = res.photos;
     final rec = PtRecord(
       id: recId,
       date: DateTime(
@@ -518,6 +511,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       tubeMat: _pg._tube ? _pg._tubeMat.name : '',
     );
     await PtRecordStore.put(rec);
+    unawaited(_uploadPtPhotos(rec));
     if (!mounted) return;
     setState(() {
       _rEditing = rec;
@@ -530,6 +524,33 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
         onPressed: () => openPtRecordPdf(context, rec),
       ),
     );
+  }
+
+  /// 저장한 기록의 사진 중 폰에만 있는 것을 올리고, 올라간 것은 주소로 바꿔 다시 저장한다.
+  /// 실패한 사진(통신 없음 등)은 폰 경로를 그대로 둔다 — 다음에 이 기록을 고쳐 저장할 때 다시 시도한다.
+  /// 그사이 이 기록이 고쳐지거나 지워졌으면 덮지 않는다.
+  Future<void> _uploadPtPhotos(PtRecord rec) async {
+    if (rec.photos.every(isRemotePhoto)) return;
+    try {
+      final up = [
+        for (final p in rec.photos)
+          if (isRemotePhoto(p))
+            p
+          else
+            await uploadPhoto(rec.id, p, folder: 'pressure_test_photos') ?? p,
+      ];
+      bool same(List<String> a, List<String> b) =>
+          a.length == b.length &&
+          [for (var i = 0; i < a.length; i++) a[i] == b[i]].every((x) => x);
+      if (same(up, rec.photos)) return;
+      final now = (await PtRecordStore.load()).where((r) => r.id == rec.id);
+      if (now.isEmpty || !same(now.first.photos, rec.photos)) return;
+      final updated = PtRecord.fromJson({...now.first.toJson(), 'photos': up});
+      await PtRecordStore.put(updated);
+      if (mounted && _rEditing?.id == rec.id) setState(() => _rEditing = updated);
+    } catch (e) {
+      debugPrint('압력시험 사진 올리기 실패: $e');
+    }
   }
 
   Future<void> _openRecords() async {
