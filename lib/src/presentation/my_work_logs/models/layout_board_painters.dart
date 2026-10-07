@@ -243,6 +243,9 @@ class GridPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+/// 치수 숫자 글. 잘라 버리면 부동소수 오차로 300이 299로 보여 반올림한다(10-08).
+String cadDimensionLabel(String prefix, double distance) => "$prefix ${distance.round()} mm";
+
 /// 치수 숫자 칸이 선 옆 가운데(제자리)에 들어가는지. [drawCadDimensionLine]과 같은 셈.
 bool cadLabelFitsOnLine(
   Offset start,
@@ -255,7 +258,7 @@ bool cadLabelFitsOnLine(
   if (len == 0) return true;
   final tp = TextPainter(
     text: TextSpan(
-      text: "$prefix ${distance.toInt()} mm",
+      text: cadDimensionLabel(prefix, distance),
       style: TextStyle(fontSize: 10 * scale, fontWeight: FontWeight.w800),
     ),
     textDirection: TextDirection.ltr,
@@ -306,7 +309,7 @@ Rect? drawCadDimensionLine(
   final mid = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
 
   final textSpan = TextSpan(
-    text: "$prefix ${distance.toInt()} mm",
+    text: cadDimensionLabel(prefix, distance),
     style: TextStyle(
       color: color,
       fontSize: 10 * scale,

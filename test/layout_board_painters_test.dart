@@ -3,6 +3,8 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/layout_board_painters.dart'
+    show cadDimensionLabel;
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart'
     as mob;
 // 폰·태블릿 화면을 하나로 합친 뒤에도 예전 비교 테스트를 그대로 두려고 같은 파일을 두 이름으로 읽는다.
@@ -40,6 +42,11 @@ int hash(List<int> b) {
 void main() {
   const size = Size(300, 300);
   dimensionTests();
+
+  test('치수 숫자는 반올림한다(299.9999…가 299로 보이지 않는다, 10-08)', () {
+    expect(cadDimensionLabel('센터', 299.99999999), '센터 300 mm');
+    expect(cadDimensionLabel('', 101.6), ' 102 mm');
+  });
 
   test('치수 숫자 배율: 줄여 보면 화면에서 11px 아래로 안 작아지고, 확대하면 원래 크기', () {
     // 스키드(2400mm)를 폰 화면에 맞추면 0.13배 안팎: 10mm 글씨가 화면 1.3px였다.

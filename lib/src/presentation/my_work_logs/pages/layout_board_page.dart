@@ -38,6 +38,7 @@ import '../models/drawing_scale.dart';
 import 'package:vector_math/vector_math_64.dart' as vm;
 import '../models/layout_board_owner.dart';
 import '../models/layout_board_painters.dart';
+import 'package:tubing_calculator/src/presentation/common/number_text.dart';
 import '../widgets/layout_board_ui.dart';
 import '../../../core/common_widgets/swipe_to_delete.dart';
 export '../models/layout_board_painters.dart';
@@ -1017,7 +1018,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     if (id == _plateId) return;
     _dropOrphanViewDims();
     _plateStore[_plateId] = _captureActivePlate();
-    _plateUndo[_plateId] = [List.of(_undoStack), List.of(_redoStack)];
+    // 스키드의 경로·평면 부품은 판끼리 같이 쓴다. 다른 탭으로 넘어가면 이 판 기록에서 그 몫을 뺀다
+    // (10-08: 돌아와 ↶를 누르면 다른 탭에서 놓은 JB·고친 경로까지 지웠다). 이 판 부품만 되돌린다.
+    List<Map<String, dynamic>> plateOnly(List<Map<String, dynamic>> l) => [
+      for (final s in l)
+        if (s['whole'] == true) s else (Map<String, dynamic>.from(s)..remove('routes')..remove('planItems')),
+    ];
+    _plateUndo[_plateId] = _isSkid
+        ? [plateOnly(_undoStack), plateOnly(_redoStack)]
+        : [List.of(_undoStack), List.of(_redoStack)];
     final target = _plateStore.remove(id) ?? _newSidePlate(id);
     // 스키드 정면·측면 판 폭은 늘 평면 크기에서(스키드 크기를 바꿔도 따라오게).
     if (_isSkid && id != kPlateMain) {
@@ -1259,7 +1268,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 onPressed: () {
                   Navigator.pop(ctx);
                   setState(() {
-                    final d = double.tryParse(depthCtrl.text.trim());
+                    final d = parseNumberText(depthCtrl.text);
                     _cabinetDepth = d == null || d <= 0 ? null : d;
                     for (final id in const [kPlateLeft, kPlateRight]) {
                       final base = id == _plateId
@@ -1268,7 +1277,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       _plateStore[id] = {
                         ...base,
                         for (final k in const ['bottomOffset', 'gap'])
-                          k: double.tryParse(ctrls['$id.$k']!.text.trim()) ?? 0,
+                          k: parseNumberText(ctrls['$id.$k']!.text) ?? 0,
                       };
                     }
                   });
@@ -1425,7 +1434,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     // 외함 크기·축척 맞추기도 되돌린다(10-07: 부품만 돌아오고 판 크기·배경 자리는 그대로였다).
     'panelW': _panelWidth,
     'panelH': _panelHeight,
-    'bgRect': _backgroundRect,
+    // Rect는 JSON으로 못 바꿔 숫자 목록으로 담는다(10-08: 축척 맞춘 도면에서 ↶가 오류만 내고 듣지 않았다).
+    'bgRect': _backgroundRect == null ? null : drawingRectToJson(_backgroundRect!),
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
     if (_isSkid) 'routes': _routes.map((r) => r.toJson()).toList(),
@@ -1449,7 +1459,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       _panelWidth = pw;
       _panelHeight = ph;
     }
-    if (snap.containsKey('bgRect')) _backgroundRect = snap['bgRect'] as Rect?;
+    if (snap.containsKey('bgRect')) {
+      final b = snap['bgRect'];
+      _backgroundRect = b is Rect ? b : drawingRectFromJson(b);
+    }
     _placedItems
       ..clear()
       ..addAll(
@@ -1739,13 +1752,67 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     }
   }
 
+  /// 저장해 둔 도면을 고치다 앱이 꺼졌으면(도면별 임시 저장이 서버 판과 다르면) 이어할지 묻는다
+  /// (10-08: 도면별 임시 저장을 적기만 하고 읽지 않아, 다시 열면 서버 판으로만 열려 고친 것이 사라졌다).
+  /// 이어하면 임시 저장 내용을 펴고(서버 판 기준은 그대로라 저장 때 바뀐 것으로 잡힌다), 아니면 지운다.
+  Future<void> _offerProjectDraft(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final key = '${_draftPrefsKey}_$id';
+      final raw = prefs.getString(key);
+      if (raw == null || !mounted) return;
+      final draft = jsonDecode(raw) as Map<String, dynamic>;
+      Map<String, dynamic> norm(Map<String, dynamic> m) =>
+          Map<String, dynamic>.from(m)..remove('projectId');
+      if (jsonEncode(norm(draft)) == jsonEncode(norm(_buildSnapshotJson()))) {
+        await prefs.remove(key);
+        return;
+      }
+      final resume =
+          widget.resumeDraft ??
+          await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) => AlertDialog(
+              title: const Text('저장하지 않은 고침이 있습니다'),
+              content: Text(keepWords('이 도면을 고치다 저장하지 않고 나간 내용이 있습니다. 이어서 하시겠습니까?')),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('저장된 도면으로'),
+                ),
+                TextButton(
+                  key: const Key('layout_project_draft_resume'),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('이어하기'),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+      if (!mounted) return;
+      if (resume) {
+        draft['projectId'] = id;
+        setState(() => _applySnapshotJson(draft));
+      } else {
+        await prefs.remove(key);
+      }
+    } catch (_) {
+      // 임시 저장이 깨져 있으면 서버 판 그대로 둔다.
+    }
+  }
+
   Future<void> _loadProject(String id) async {
     setState(() => _isLoadingProject = true);
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('layouts')
-          .doc(id)
-          .get();
+      // 통신이 약하면 끝없이 기다렸다(10-08). 8초 뒤 폰 사본으로.
+      final ref = FirebaseFirestore.instance.collection('layouts').doc(id);
+      DocumentSnapshot<Map<String, dynamic>> doc;
+      try {
+        doc = await ref.get().timeout(const Duration(seconds: 8));
+      } catch (_) {
+        doc = await ref.get(const GetOptions(source: Source.cache));
+      }
       if (!mounted) return;
       if (!doc.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1762,6 +1829,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         _applySnapshotJson(data);
         _captureSavedBaseline(data);
       });
+      await _offerProjectDraft(id);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2029,7 +2097,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       final endpoints = computeDimensionEndpoints(dim);
       if (endpoints.distance < dim.minGapMm!) {
         violations.add(
-          "#${i + 1}: 현재 ${endpoints.distance.toInt()}mm (기준 ${dim.minGapMm!.toInt()}mm 이상)",
+          "#${i + 1}: 현재 ${endpoints.distance.round()}mm (기준 ${dim.minGapMm!.toInt()}mm 이상)",
         );
       }
     }
@@ -2399,25 +2467,29 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               List<PlacedItem>,
             )
           >[];
-      for (final id in plateIds) {
-        if (id != _plateId) {
-          setState(() => _switchPlate(id));
-          await WidgetsBinding.instance.endOfFrame;
-          await WidgetsBinding.instance.endOfFrame;
+      // 찍다 실패해도 원래 보던 판으로 돌아온다(10-08: 다른 판에 머물렀다).
+      try {
+        for (final id in plateIds) {
+          if (id != _plateId) {
+            setState(() => _switchPlate(id));
+            await WidgetsBinding.instance.endOfFrame;
+            await WidgetsBinding.instance.endOfFrame;
+          }
+          final bytes = await _capturePng();
+          if (bytes == null) throw Exception("도면 캡처 실패");
+          shots.add((
+            id,
+            bytes,
+            _panelWidth,
+            _panelHeight,
+            List.of(_dimensions),
+            List.of(_placedItems),
+          ));
         }
-        final bytes = await _capturePng();
-        if (bytes == null) throw Exception("도면 캡처 실패");
-        shots.add((
-          id,
-          bytes,
-          _panelWidth,
-          _panelHeight,
-          List.of(_dimensions),
-          List.of(_placedItems),
-        ));
-      }
-      if (_plateId != startPlate && mounted) {
-        setState(() => _switchPlate(startPlate));
+      } finally {
+        if (_plateId != startPlate && mounted) {
+          setState(() => _switchPlate(startPlate));
+        }
       }
 
       // 한글 글꼴을 넣는다(예전엔 기본 글꼴이라 한글 프로젝트 이름·메모가 네모로 나왔다).
@@ -2737,7 +2809,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               _pdfCell(
                                 dim.type == DimensionType.center ? "센터" : "측면",
                               ),
-                              _pdfCell(endpoints.distance.toInt().toString()),
+                              _pdfCell(endpoints.distance.round().toString()),
                               _pdfCell(dim.note ?? ""),
                             ],
                           );
@@ -2753,7 +2825,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       }
 
       final output = await getTemporaryDirectory();
-      final file = File("${output.path}/${projectName}_Layout.pdf");
+      // 이름의 / 같은 글자는 파일 이름에 못 쓴다(10-08: "A동/1층"이면 PDF를 만들지 못했다).
+      final safeName = projectName.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_');
+      final file = File("${output.path}/${safeName}_Layout.pdf");
       await file.writeAsBytes(await pdf.save());
 
       if (!mounted) return;
@@ -2940,7 +3014,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       'panelHeight': main['panelHeight'],
                       'items': main['items'],
                       'dimensions': main['dimensions'],
-                      ..._sidePlateFields(plates),
+                      // 측판 배경 사진(폰 경로·서버 주소·자리)은 템플릿에 넣지 않는다(10-08: 남의 배경이 따라갔다).
+                      ..._sidePlateFields({
+                        for (final e in plates.entries)
+                          e.key: {
+                            for (final kv in e.value.entries)
+                              if (!kv.key.startsWith('background')) kv.key: kv.value,
+                          },
+                      }),
                       'createdAt': FieldValue.serverTimestamp(),
                     });
                 if (!mounted) return;
@@ -3130,6 +3211,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   void debugApplyTemplate(Map<String, dynamic> data) => _applyTemplate(data);
   @visibleForTesting
   void debugUndo() => _undo();
+  @visibleForTesting
+  Rect? get debugBackgroundRect => _backgroundRect;
+  @visibleForTesting
+  void debugSetBackgroundRect(Rect? r) => setState(() => _backgroundRect = r);
+  @visibleForTesting
+  void debugPushUndo() => _pushUndo();
+  @visibleForTesting
+  Future<void> debugOfferProjectDraft(String id) => _offerProjectDraft(id);
   @visibleForTesting
   int debugPlateItemCount(String id) =>
       id == _plateId ? _placedItems.length : ((_plateStore[id]?['items'] as List?)?.length ?? 0);
@@ -3968,7 +4057,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   children: [
                     _buildBottomSheetHandle(),
                     Text(
-                      "치수선 - ${endpoints.distance.toInt()} mm",
+                      "치수선 - ${endpoints.distance.round()} mm",
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -4073,7 +4162,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                               ),
                             ),
                             onChanged: (v) {
-                              final parsed = double.tryParse(v);
+                              final parsed = parseNumberText(v);
                               setState(() {
                                 dim.minGapMm = parsed;
                                 _dimensionsVersion++;
@@ -5222,7 +5311,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             widthCtrl.text,
                             (val) {
                               setState(() {
-                                item.width = (double.tryParse(val) ?? 80.0)
+                                item.width = (parseNumberText(val) ?? item.width)
                                     .clamp(1.0, 100000.0);
                                 item.position = Offset(
                                   item.position.dx.clamp(
@@ -5243,7 +5332,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             heightCtrl.text,
                             (val) {
                               setState(() {
-                                item.height = (double.tryParse(val) ?? 80.0)
+                                item.height = (parseNumberText(val) ?? item.height)
                                     .clamp(1.0, 100000.0);
                                 item.position = Offset(
                                   item.position.dx,
@@ -5294,7 +5383,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             item.position.dx.toInt().toString(),
                             (val) {
                               setState(() {
-                                double newX = double.tryParse(val) ?? 0;
+                                double newX = parseNumberText(val) ?? item.position.dx;
                                 item.position = Offset(
                                   newX.clamp(
                                     0.0,
@@ -5314,7 +5403,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             item.position.dy.toInt().toString(),
                             (val) {
                               setState(() {
-                                double newY = double.tryParse(val) ?? 0;
+                                double newY = parseNumberText(val) ?? item.position.dy;
                                 item.position = Offset(
                                   item.position.dx,
                                   newY.clamp(
@@ -5723,6 +5812,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                 setState(() {
                                   _backgroundImagePath = null;
                                   _backgroundRect = null;
+                                  // 서버 주소도 지운다(10-08: 남아 있어 다시 열면 배경이 다시 받아져 깔렸다).
+                                  _backgroundImageUrl = null;
                                 });
                               },
                               icon: const Icon(
@@ -6243,8 +6334,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      final double? w = double.tryParse(widthCtrl.text.trim());
-                      final double? h = double.tryParse(heightCtrl.text.trim());
+                      final double? w = parseNumberText(widthCtrl.text);
+                      final double? h = parseNumberText(heightCtrl.text);
                       // 0이나 글자를 넣으면 화면이 깨졌다(NaN). 막고 알린다.
                       if (w == null ||
                           h == null ||
@@ -7995,7 +8086,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       (val) {
                         _pushUndo();
                         setState(() {
-                          item.width = (double.tryParse(val) ?? 80.0).clamp(
+                          item.width = (parseNumberText(val) ?? item.width).clamp(
                             1.0,
                             100000.0,
                           );
@@ -8019,7 +8110,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       (val) {
                         _pushUndo();
                         setState(() {
-                          item.height = (double.tryParse(val) ?? 80.0).clamp(
+                          item.height = (parseNumberText(val) ?? item.height).clamp(
                             1.0,
                             100000.0,
                           );
@@ -8065,7 +8156,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       (val) {
                         _pushUndo();
                         setState(() {
-                          final double newX = double.tryParse(val) ?? 0;
+                          final double newX = parseNumberText(val) ?? item.position.dx;
                           item.position = Offset(
                             newX.clamp(
                               0.0,
@@ -8086,7 +8177,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                       (val) {
                         _pushUndo();
                         setState(() {
-                          final double newY = double.tryParse(val) ?? 0;
+                          final double newY = parseNumberText(val) ?? item.position.dy;
                           item.position = Offset(
                             item.position.dx,
                             newY.clamp(
@@ -8395,7 +8486,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       ? ""
       : (d == d.roundToDouble() ? d.toInt().toString() : d.toString());
   double? _parseDepth(String v) {
-    final d = double.tryParse(v.trim());
+    // "1,200"·"12,5"도 읽는다(10-08: 높이가 지워져 바닥에 놓였다).
+    final d = parseNumberText(v);
     return d == null || d <= 0 ? null : d;
   }
 

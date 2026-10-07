@@ -29,6 +29,48 @@ Map<String, dynamic> _withLeft(int n) => {
 };
 
 void main() {
+  testWidgets('배경 자리(축척)가 있어도 되돌리기가 오류 없이 듣는다(10-08)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+    });
+    tester.view.physicalSize = const Size(1600, 2400);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: LayoutBoardPage()));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    final dynamic st = tester.state(find.byType(LayoutBoardPage));
+    st.debugSetBackgroundRect(const Rect.fromLTWH(0, 0, 400, 300));
+    st.debugPushUndo();
+    st.debugSetBackgroundRect(const Rect.fromLTWH(10, 10, 500, 400));
+    st.debugUndo();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(st.debugBackgroundRect, const Rect.fromLTWH(0, 0, 400, 300));
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('저장한 도면을 고치다 꺼졌으면 다시 열 때 도면별 임시 저장을 이어한다(10-08)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+      'layout_board_draft_v1_P1': jsonEncode(_withLeft(2)..['projectId'] = 'P1'),
+    });
+    tester.view.physicalSize = const Size(1600, 2400);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: LayoutBoardPage(resumeDraft: true)));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+    final dynamic st = tester.state(find.byType(LayoutBoardPage));
+    expect(st.debugPlateItemCount('left'), 0);
+    await st.debugOfferProjectDraft('P1');
+    await tester.pumpAndSettle();
+    expect(st.debugPlateItemCount('left'), 2);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('측판 부품이 있는 도면에 템플릿을 적용했다가 되돌리면 측판 부품이 돌아온다', (tester) async {
     SharedPreferences.setMockInitialValues({
       'layout_board_onboarding_shown_v1': true,

@@ -247,6 +247,60 @@ void main() {
     expect((back['x'] as num).toDouble(), 1000);
     expect((back['elev'] as num).toDouble(), 600);
   });
+  testWidgets('정면에서 끈 뒤 평면 탭에서 옮기고 돌아와 되돌려도 평면에서 한 것은 남는다(10-08)', (tester) async {
+    await openSkid(
+      tester,
+      prefs: {
+        'layout_board_draft_v1': jsonEncode({
+          'kind': kLayoutKindSkid,
+          'panelWidth': 2400,
+          'panelHeight': 1200,
+          'items': [
+            PlacedItem(
+              id: 'jb1',
+              name: '정션박스 400×300',
+              position: const Offset(1000, 450),
+              width: 400,
+              height: 300,
+              shape: SkidShape.jb,
+              elevation: 600,
+            ).toJson(),
+          ],
+        }),
+      },
+    );
+    Map<String, dynamic> planItem() {
+      final state = tester.state(find.byType(LayoutBoardPage)) as dynamic;
+      final plates = state.debugPlates() as Map<String, Map<String, dynamic>>;
+      return Map<String, dynamic>.from((plates[kPlateMain]!['items'] as List).single as Map);
+    }
+
+    Future<void> drag(Finder f, Offset step) async {
+      final g = await tester.startGesture(tester.getCenter(f));
+      for (int i = 0; i < 10; i++) {
+        await g.moveBy(step);
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await g.up();
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
+    await tester.pumpAndSettle();
+    await drag(find.byKey(const ValueKey('view_jb1')), const Offset(6, -4));
+    await tester.tap(find.byKey(const ValueKey('plate_tab_main')));
+    await tester.pumpAndSettle();
+    await drag(find.byKey(const ValueKey('jb1')), const Offset(0, 5));
+    final afterPlan = planItem();
+    await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(AppIcons.undo).first);
+    await tester.pumpAndSettle();
+    final now = planItem();
+    expect(now['x'], afterPlan['x']);
+    expect(now['y'], afterPlan['y']);
+  });
+
   test('면별 차례·가려짐: 가까운 것이 나중(위), 뒤에 가려진 것은 가려진 정도가 크다, 좌·우측면은 앞뒤가 반대', () {
     PlacedItem jb(String id, double x, double y) => PlacedItem(
       id: id,
