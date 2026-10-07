@@ -2159,7 +2159,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         FeatureItem(
           title: e.title,
           subtitle: [e.category.replaceFirst('내 기록 · ', ''), if (e.lines.isNotEmpty) e.lines.first].join(' · '),
-          icon: e.category.endsWith('압력시험') ? AppIcons.openFile : AppIcons.check,
+          icon: e.category.endsWith('압력시험') ? AppIcons.pdf : AppIcons.qr,
           onTap: () => e.open?.call(context),
         ),
     ];
