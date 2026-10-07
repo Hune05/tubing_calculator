@@ -530,8 +530,26 @@ String calRecordFileName(CalRecord r) {
 }
 
 /// 성적서를 만들어 미리보기로 보여 준다. 공유는 미리보기의 버튼을 눌러야만 된다.
-Future<void> openCalRecordPdf(BuildContext context, CalRecord r) async {
-  final bytes = await buildCalRecordPdf(r);
+bool _calPdfBusy = false;
+
+/// 만드는 몇 초 사이 다시 누르면 미리보기가 두 장 뜨고, 실패하면 반응이 없었다(10-08). 한 번만 돌고 실패는 알린다.
+Future<void> openCalRecordPdf(
+  BuildContext context,
+  CalRecord r, {
+  Future<Uint8List> Function(CalRecord r)? build,
+}) async {
+  if (_calPdfBusy) return;
+  _calPdfBusy = true;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  Uint8List bytes;
+  try {
+    bytes = await (build ?? buildCalRecordPdf)(r);
+  } catch (_) {
+    messenger?.showSnackBar(const SnackBar(content: Text('성적서를 만들지 못했습니다. 다시 해 보십시오.')));
+    return;
+  } finally {
+    _calPdfBusy = false;
+  }
   final fileName = calRecordFileName(r);
   if (!context.mounted) return;
   await Navigator.of(context).push(

@@ -1410,6 +1410,15 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       MaterialPageRoute(builder: (_) => const CalRecordsPage()),
     );
     if (r == null || !mounted) return;
+    // 입력 중인 값이 있으면 먼저 묻는다(10-08: 저장 안 한 측정값을 말없이 덮었다, 압력시험과 같게).
+    if ((_anyInput || _swAnyInput) &&
+        !await _confirm(
+          '기록 불러오기',
+          '지금 입력한 값을 지우고 이 기록을 불러오시겠습니까? 저장하지 않은 값은 사라집니다.',
+          '불러오기',
+        )) {
+      return;
+    }
     String t(double? v) => v == null ? '' : _fmt(v, 6);
     if (r.isSwitch) {
       _loadSwitch(r);

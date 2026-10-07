@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../common/number_text.dart';
 import 'electric_calculator_page.dart';
 import 'troubleshoot_flows.dart';
 
@@ -254,7 +255,8 @@ class _TroubleshootFlowPageState extends State<TroubleshootFlowPage>
               );
             } else {
               final c = _c(id, f);
-              final v = double.tryParse(c.text.trim().replaceAll(',', '.'));
+              // 공용 규칙으로 읽는다(10-08: "1,200" A가 1.2 A로 읽혀 판정이 뒤집혔다).
+              final v = parseNumberText(c.text);
               vals[f.key] = v;
               if (v == null && !f.optional) ready = false;
               fieldsW.add(

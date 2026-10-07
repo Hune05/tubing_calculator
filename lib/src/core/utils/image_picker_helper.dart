@@ -180,7 +180,15 @@ class ImagePickerHelper {
           IOSUiSettings(title: title),
         ],
       );
-      return cropped?.path;
+      if (cropped == null) return null;
+      // 자른 파일은 앱 캐시 폴더에 생겨 폰이 캐시를 비우면 사라진다. 문서 폴더로 옮겨 그 경로를 쓴다(10-08).
+      final kept = await keepPhoto(cropped.path);
+      if (kept != cropped.path) {
+        try {
+          await File(cropped.path).delete();
+        } catch (_) {}
+      }
+      return kept;
     } catch (e) {
       debugPrint('사진 자르기 실패: $e');
       return null;

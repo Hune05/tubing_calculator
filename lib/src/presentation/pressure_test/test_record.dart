@@ -201,7 +201,7 @@ class PtVerdict {
     if (!ended) return const ['종료하지 않았습니다. 종료 압력을 기록하면 판정합니다.'];
     return [
       if (!holdMet)
-        '경과 시간 ${ptFmt(elapsedMin!, 1)}분: 유지시간 ${ptFmt(requiredMin, 1)}분 미만',
+        '경과 시간 ${ptFmt((elapsedMin! * 10).floorToDouble() / 10, 1)}분: 유지시간 ${ptFmt(requiredMin, 1)}분 미만',
       if (startOk == false)
         '시작 압력 ${ptPressure(startKpa!, u)}: 시험압력 ${ptPressure(testKpa!, u)} 미만',
       if (dropOk == false)

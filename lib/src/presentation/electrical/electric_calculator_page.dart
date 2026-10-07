@@ -338,6 +338,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
 
   // 공통
   double _volts = 380;
+  // 칩에서 고른 전압(직접 입력 칸을 비우면 이 값으로 돌아간다).
+  double _chipVolts = 380;
   final _vCustom = TextEditingController(); // 칩에 없는 교류 전압 직접 입력
   final _dcvCustom = TextEditingController(); // 칩에 없는 직류 전압 직접 입력
   Phase _phase = Phase.three;
@@ -345,6 +347,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   // 교류/직류: 부하 전류·전선 굵기·전압강하·부스바 탭이 같이 쓴다.
   bool _dc = false;
   double _dcVolts = kDcVoltsDefault;
+  double _chipDcVolts = kDcVoltsDefault;
   // 굵기 단위 SQ/AWG: 전선 굵기·전압강하 탭이 같이 쓴다(AWG는 elec_awg_tab.dart).
   bool _awg = false;
   NecColumn _awgCol = NecColumn.c90;
@@ -630,6 +633,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final v = n('v', _volts);
     if (v > 0) {
       _volts = v;
+      if (kAcVolts.contains(v)) _chipVolts = v;
       // 표준 전압이면 직접 입력 칸을 비운다(10-07: 옛 값 6600이 남아 칸과 계산이 달랐다).
       _vCustom.text = kAcVolts.contains(v) ? '' : fmt(v, v == v.roundToDouble() ? 0 : 1);
     }
@@ -649,6 +653,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final par = n('par', 1).round();
     _parallel = par.clamp(1, 4);
     _cond = en(Conductor.values, 'cond', _cond);
+    // 전압강하 탭 종류를 먼저 읽고 판단한다(10-08: 바뀌기 전 값을 보고 알루미늄 기록을 구리로 바꿨다).
+    _vdKind = en(WireKind.values, 'vdKind', _vdKind);
     if (_kind == WireKind.panel || _vdKind == WireKind.panel) _cond = Conductor.copper;
     final chk = n('chkSize', _chkSize);
     _chkSize = _cableSizes.contains(chk) ? chk : _chkSize;
@@ -657,6 +663,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final dcv = n('dcV', n('vdDcV', _dcVolts));
     if (dcv > 0) {
       _dcVolts = dcv;
+      if (kDcVolts.contains(dcv)) _chipDcVolts = dcv;
       _dcvCustom.text = kDcVolts.contains(dcv) ? '' : fmt(dcv, dcv == dcv.roundToDouble() ? 0 : 1);
     }
     final vds = n('vdSize', _vdSize);
@@ -2873,6 +2880,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
             calcChip('ec_v_${v.toInt()}', '${v.toInt()}V', _volts == v, () {
               setState(() {
                 _volts = v;
+                _chipVolts = v;
                 _vCustom.clear();
                 _phase = v <= 220 ? Phase.single : Phase.three;
               });
@@ -2933,15 +2941,18 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
   );
 
   /// 직접 입력한 교류 전압을 반영한다. 비우거나 숫자가 아니면 칩 값을 그대로 둔다.
+  /// 비우거나 숫자가 아니면 칩에서 고른 전압으로 돌아간다(10-08: 지운 값으로 계속 계산했다).
   void _applyCustomVolts() {
     final v = parseNumberText(_vCustom.text);
-    if (v == null || v <= 0) return;
-    _volts = v;
+    _volts = (v == null || v <= 0) ? _chipVolts : v;
   }
 
   void _applyCustomDcVolts() {
     final v = parseNumberText(_dcvCustom.text);
-    if (v == null || v <= 0) return;
+    if (v == null || v <= 0) {
+      _dcVolts = _chipDcVolts;
+      return;
+    }
     _dcVolts = v;
   }
 
@@ -3021,6 +3032,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               _dcVolts == v,
               () => setState(() {
                 _dcVolts = v;
+                _chipDcVolts = v;
                 _dcvCustom.clear();
               }),
             ),

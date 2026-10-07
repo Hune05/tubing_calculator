@@ -82,6 +82,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
   final _memo = TextEditingController();
   final _saveName = TextEditingController();
   double _volts = 380;
+  double _chipVolts = 380; // 칩에서 고른 전압(직접 입력 칸을 비우면 이 값으로)
   bool _three = true;
   final _vCustom = TextEditingController(); // 칩에 없는 2차 전압 직접 입력
   List<LoadSheet> _sheets = [];
@@ -155,6 +156,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     _site.text = i.site;
     _memo.text = i.memo;
     _volts = i.volts;
+    if (kLoadSumVolts.contains(i.volts)) _chipVolts = i.volts;
     _three = i.three;
     _vCustom.text = kLoadSumVolts.contains(i.volts)
         ? ''
@@ -703,6 +705,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
           calcChip('els_v_${v.round()}', '${v.round()} V', _volts == v, () {
             setState(() {
               _volts = v;
+              _chipVolts = v;
               _vCustom.clear();
             });
           }),
@@ -717,7 +720,8 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
         '칩에 없는 전압(예: 200, 208, 6600)을 넣습니다. 넣으면 칩보다 이 값을 씁니다.',
         onEdit: () {
           final v = parseNumberText(_vCustom.text);
-          if (v != null && v > 0) _volts = v;
+          // 비우면 칩 전압으로 돌아간다(10-08: 지운 값으로 계속 계산했다).
+          _volts = (v != null && v > 0) ? v : _chipVolts;
         },
       ),
       elecField(

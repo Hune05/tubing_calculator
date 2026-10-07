@@ -293,6 +293,37 @@ void main() {
     );
   });
 
+  testWidgets('입력 중에 기록을 불러오면 먼저 묻고, 취소하면 입력이 그대로다(10-08)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await CalRecordStore.put(
+      CalRecord(
+        id: 'y',
+        date: DateTime(2026, 9, 26),
+        tag: 'PT-7',
+        lrv: 0,
+        urv: 10,
+        found: const [CalEntry(reading: 4)],
+      ),
+    );
+    await pumpPage(tester);
+    await openTab(tester, 'sg_tab_cal');
+    await tester.enterText(find.byKey(const Key('sc_read_2')), '12.1');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sc_records')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cr_item_y')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('cr_act_load')));
+    await tester.pumpAndSettle();
+    expect(find.text('기록 불러오기'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('sc_read_2'))).controller!.text,
+      '12.1',
+    );
+  });
+
   testWidgets('저장한 기록은 밀어서 지우고 되돌릴 수 있다', (tester) async {
     SharedPreferences.setMockInitialValues({});
     await CalRecordStore.put(

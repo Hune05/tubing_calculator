@@ -89,6 +89,18 @@ void main() {
     expect(find.textContaining('(GP 방식)'), findsWidgets);
   });
 
+  testWidgets('직접 입력 전압을 지우면 칩 전압(380V)으로 돌아가 계산한다(10-08)', (tester) async {
+    await pumpPage(tester);
+    await tester.enterText(find.byKey(const Key('ec_kw')), '11');
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('ec_v_custom')), '6600');
+    await tester.pump();
+    expect(textIn(tester, const Key('ec_load_result')), isNot(contains('21.8 A')));
+    await tester.enterText(find.byKey(const Key('ec_v_custom')), '');
+    await tester.pump();
+    expect(textIn(tester, const Key('ec_load_result')), contains('21.8 A'));
+  });
+
   testWidgets('380V 삼상 11kW 효율 90 역률 85 → 21.8A, 1.25배 27.3A를 전선 탭으로', (
     tester,
   ) async {
