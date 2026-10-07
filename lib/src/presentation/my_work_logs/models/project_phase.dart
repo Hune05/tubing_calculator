@@ -147,6 +147,7 @@ int resolveOpenIssues(
     if (p is! Map || p['is_completed'] == true) continue;
     p['is_completed'] = true;
     p['resolved_at'] = now ?? DateTime.now();
+    touchItem(p);
     if ((p['resolution_note']?.toString() ?? '').trim().isEmpty) {
       p['resolution_note'] = note;
     }
@@ -192,6 +193,13 @@ void setIssueWeeklyExcluded(Map p, bool excluded) {
   } else {
     p.remove('weeklyExclude');
   }
+  touchItem(p);
+}
+
+/// 항목(일정·단계·이슈)을 고친 시각을 찍는다. 두 기기 것을 합칠 때 더 새것이 이기게
+/// (10-07: 일정 완료·단계 완료·이슈 처리 등에서 안 찍어, 다른 기기의 옛 사본이 저장하면 되돌아갔다).
+void touchItem(Map item) {
+  item['updatedAt'] = DateTime.now().toIso8601String();
 }
 
 // 이슈의 처리 기한이 지난 일수(기한이 없거나 안 지났거나 이미 처리했으면 0).
@@ -438,6 +446,7 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
           doneSchedules.contains(s['id']?.toString()) &&
           s['isCompleted'] != true) {
         s['isCompleted'] = true;
+        touchItem(s);
         changed = true;
       }
     }
@@ -450,6 +459,7 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
           resolveIssues.contains(p['id']?.toString()) &&
           p['is_completed'] != true) {
         p['is_completed'] = true;
+        touchItem(p);
         p['resolved_at'] = DateTime.now();
         if ((p['resolution_note']?.toString() ?? '').trim().isEmpty) {
           p['resolution_note'] = '작업 일지(${report['date']})에서 처리 완료';
@@ -464,6 +474,7 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
           donePhases.contains(p['id']?.toString()) &&
           p['isCompleted'] != true) {
         p['isCompleted'] = true;
+        touchItem(p);
         changed = true;
       }
     }

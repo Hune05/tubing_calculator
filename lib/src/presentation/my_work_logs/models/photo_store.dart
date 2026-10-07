@@ -342,6 +342,8 @@ Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
     if (c) {
       p['image_paths'] = out;
       p['image_path'] = out.first;
+      // 주소로 바뀐 것이 다른 기기의 옛(폰 경로) 사본에 지지 않게 고친 시각을 찍는다(10-07).
+      p['updatedAt'] = DateTime.now().toIso8601String();
       changed = true;
     }
   }
@@ -364,6 +366,7 @@ Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
     }
     if (c) {
       p['resolution_images'] = out;
+      p['updatedAt'] = DateTime.now().toIso8601String();
       changed = true;
     }
   }
@@ -411,6 +414,7 @@ Future<bool> uploadReportPhotos(String projectId, Map report) async {
     report['image_path'] = newPaths.isNotEmpty ? newPaths.first : null;
     report['image_tags'] = newTags;
     report['image_captions'] = newCaps;
+    report['updatedAt'] = DateTime.now().toIso8601String();
   }
   return changed;
 }

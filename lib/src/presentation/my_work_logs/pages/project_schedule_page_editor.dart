@@ -483,6 +483,8 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                         ),
                         onPressed: () {
                           Navigator.pop(context, {
+                            // 고친 시각(두 기기 합칠 때 더 새것이 이기게, 10-07).
+                            'updatedAt': DateTime.now().toIso8601String(),
                             'id':
                                 existing?['id'] ??
                                 DateTime.now().millisecondsSinceEpoch

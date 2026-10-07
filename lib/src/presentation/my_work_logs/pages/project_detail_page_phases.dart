@@ -235,6 +235,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                     onChanged: (v) {
                       final list = phasesOf(log);
                       list[index]['isCompleted'] = v == true;
+                      touchItem(list[index]);
                       setPhases(log, list);
                       _changed();
                     },

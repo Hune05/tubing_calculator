@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
+import '../models/project_phase.dart' show touchItem;
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
@@ -237,6 +238,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
 
     setState(() {
       item['isCompleted'] = willComplete;
+      touchItem(item);
       if (!willComplete) {
         // 다시 미완료로 되돌리면 결과도 초기화한다 - 재검사를 의미하므로.
         item['inspectionResult'] = null;
