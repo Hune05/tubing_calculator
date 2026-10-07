@@ -219,6 +219,8 @@ void main() {
       await tester.tap(find.byKey(const Key('equip_cat_tool')));
       await tester.tap(find.byKey(const Key('equip_interval_6')));
       await tester.pump();
+      // 주기만 고르고 점검일이 없으면 기한·알림이 안 생긴다고 알려 준다.
+      expect(find.byKey(const Key('equip_due_hint')), findsOneWidget);
       await tester.tap(find.byKey(const Key('equip_save')));
       await tester.pumpAndSettle();
       final all = await EquipmentStore.load();

@@ -718,6 +718,16 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                 key: const Key('equip_due_preview'),
                 style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.brand),
               ),
+            )
+          // 주기만 정하고 점검일을 안 고르면 기한·7일 전 알림이 생기지 않는다(10-07: 알려 주지 않았다).
+          else if (_interval > 0 && _lastDone == null)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                '마지막 점검일을 고르면 다음 점검 기한과 7일 전 알림이 생깁니다.',
+                key: Key('equip_due_hint'),
+                style: TextStyle(color: AppColors.textSub, fontSize: 13),
+              ),
             ),
           const SizedBox(height: 16),
           Row(
