@@ -22,8 +22,13 @@ mixin BendListHistory on ChangeNotifier {
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
 
-  /// 몇 단계 쌓였는지(지운 줄 "되돌리기" 알림이 그새 다른 일이 없었는지 볼 때).
-  int get undoDepth => _undo.length;
+  /// 50단계를 넘어 맨 앞에서 버린 단계 수. [undoDepth]를 버려도 줄지 않는 "위치"로 만든다.
+  int _dropped = 0;
+
+  /// 지금 위치(쌓인 단계 수 + 버린 단계 수). 지운 줄 "되돌리기" 알림이 그새 다른 일이 없었는지,
+  /// 불러온 도면 위치보다 앞으로 되돌렸는지 볼 때 쓴다. 10-07: 예전에는 쌓인 단계 수라 50단계가
+  /// 찬 뒤로는 늘 50이어서, 다른 줄이 사라지거나 원본 기억이 잘못 지워졌다.
+  int get undoDepth => _dropped + _undo.length;
 
   static List<Map<String, dynamic>> _copy(List<Map<String, dynamic>> l) => [
     for (final m in l) Map<String, dynamic>.from(m),
@@ -33,7 +38,10 @@ mixin BendListHistory on ChangeNotifier {
   @protected
   void recordHistory() {
     _undo.add(_copy(historyTarget));
-    if (_undo.length > maxSteps) _undo.removeAt(0);
+    if (_undo.length > maxSteps) {
+      _undo.removeAt(0);
+      _dropped++;
+    }
     _redo.clear();
   }
 

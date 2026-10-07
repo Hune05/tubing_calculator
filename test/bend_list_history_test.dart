@@ -93,6 +93,22 @@ void main() {
         expect(lens(list()), [100]);
       });
 
+      test('50단계가 찬 뒤에도 위치(undoDepth)는 계속 늘고, 불러온 도면 기억이 잘못 지워지지 않는다', () {
+        for (var i = 0; i < 55; i++) {
+          m().addBend(b(i.toDouble(), 0));
+        }
+        final d0 = get().undoDepth;
+        m().addBend(b(999, 0));
+        expect(get().undoDepth, d0 + 1); // 예전: 50에 멈춰 같은 값이었다
+        m().replaceAll([b(1, 0), b(2, 0)]);
+        m().setSource(name == '튜브' ? 7 : 'id7');
+        m().addBend(b(3, 0));
+        get().undo(); // 한 줄 넣은 것만 되돌림 → 불러온 도면은 그대로 원본
+        expect(name == '튜브' ? m().sourceHistoryId : m().sourceDrawingId, isNotNull);
+        get().undo(); // 불러오기 자체를 되돌림 → 잊는다
+        expect(name == '튜브' ? m().sourceHistoryId : m().sourceDrawingId, isNull);
+      });
+
       test('50단계까지만 기억한다', () {
         for (var i = 0; i < 60; i++) {
           m().addBend(b(i.toDouble(), 0));
