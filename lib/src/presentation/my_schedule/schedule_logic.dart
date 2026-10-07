@@ -637,3 +637,11 @@ bool canSaveAsWorker(String worker) {
   final w = worker.trim();
   return w.isNotEmpty && w != kNoWorkerName;
 }
+
+/// 반복 일정 문서에 회차 하나를 뺀 모양(서버에 arrayUnion으로 보낸 것과 같은 결과). 알림을 바로 다시 잡는 데 쓴다.
+Map<String, dynamic> withOccurrenceSkipped(Map<String, dynamic> data, String key) {
+  final raw = data['recurrenceExceptions'];
+  final list = [if (raw is List) ...raw.map((e) => e.toString())];
+  if (!list.contains(key)) list.add(key);
+  return {...data, 'recurrenceExceptions': list};
+}

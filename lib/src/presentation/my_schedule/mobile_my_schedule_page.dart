@@ -778,22 +778,30 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     if (isRecurring(recurrence) && occurrence != null) {
       final scope = await _askRecurrenceScope(context, forDelete: true);
       if (scope == null) return;
+      // 쓰기는 기다리지 않는다(통신이 없으면 서버가 받을 때까지 끝나지 않아, 그 뒤 알림 다시 잡기가
+      // 통신이 돌아올 때까지 미뤄져 지운 회차의 알림이 울렸다, 10-07). 알림은 바뀐 값으로 바로 잡는다.
       if (scope == 'one') {
-        await col.doc(docId).update({
-          'recurrenceExceptions': FieldValue.arrayUnion([
-            occurrenceKey(occurrence),
-          ]),
-        });
-        await _rescheduleDoc(docId);
+        final key = occurrenceKey(occurrence);
+        unawaited(
+          col
+              .doc(docId)
+              .update({
+                'recurrenceExceptions': FieldValue.arrayUnion([key]),
+              })
+              .catchError(_scheduleSaveFailed),
+        );
+        await _rescheduleDocWith(docId, (d) => withOccurrenceSkipped(d, key));
         return;
       }
       if (scope == 'following') {
-        await col.doc(docId).update({
-          'recurrenceUntil': untilBeforeOccurrence(
-            occurrence,
-          ).toIso8601String(),
-        });
-        await _rescheduleDoc(docId);
+        final until = untilBeforeOccurrence(occurrence).toIso8601String();
+        unawaited(
+          col
+              .doc(docId)
+              .update({'recurrenceUntil': until})
+              .catchError(_scheduleSaveFailed),
+        );
+        await _rescheduleDocWith(docId, (d) => {...d, 'recurrenceUntil': until});
         return;
       }
     }
@@ -810,15 +818,24 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     await col.doc(docId).delete();
   }
 
-  /// 옛 문서를 끊거나 회차를 뺀 뒤 그 문서의 알림을 다시 잡는다(끊긴 뒤 회차는 안 울리게).
-  Future<void> _rescheduleDoc(String docId) async {
+  /// 회차를 빼거나 끊는 쓰기를 보낸 뒤, 그 바뀐 값([change])으로 알림을 바로 다시 잡는다.
+  /// 문서는 폰 사본에서 먼저 읽는다(통신이 없어도 멈추지 않게).
+  Future<void> _rescheduleDocWith(
+    String docId,
+    Map<String, dynamic> Function(Map<String, dynamic> data) change,
+  ) async {
     try {
-      final doc = await FirebaseFirestore.instance
+      final ref = FirebaseFirestore.instance
           .collection(kPersonalSchedulesCollection)
-          .doc(docId)
-          .get();
-      final data = doc.data();
-      if (data != null) await schedulePersonalReminder(docId, data);
+          .doc(docId);
+      DocumentSnapshot<Map<String, dynamic>> snap;
+      try {
+        snap = await ref.get(const GetOptions(source: Source.cache));
+      } catch (_) {
+        snap = await ref.get().timeout(const Duration(seconds: 5));
+      }
+      final data = snap.data();
+      if (data != null) await schedulePersonalReminder(docId, change(data));
     } catch (e) {
       debugPrint('알림 다시 잡기 실패: $e');
     }
@@ -1946,6 +1963,10 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                           .set(data)
                                           .catchError(_scheduleSaveFailed),
                                     );
+                                    final key = occurrenceKey(occurrence!);
+                                    final until = untilBeforeOccurrence(
+                                      occurrence,
+                                    ).toIso8601String();
                                     unawaited(
                                       col
                                           .doc(docId)
@@ -1954,20 +1975,20 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                                 ? {
                                                     'recurrenceExceptions':
                                                         FieldValue.arrayUnion([
-                                                          occurrenceKey(
-                                                            occurrence!,
-                                                          ),
+                                                          key,
                                                         ]),
                                                   }
-                                                : {
-                                                    'recurrenceUntil':
-                                                        untilBeforeOccurrence(
-                                                          occurrence!,
-                                                        ).toIso8601String(),
-                                                  },
+                                                : {'recurrenceUntil': until},
                                           )
-                                          .then((_) => _rescheduleDoc(docId))
                                           .catchError(_scheduleSaveFailed),
+                                    );
+                                    // 옛 문서 알림은 쓰기를 기다리지 않고 바뀐 값으로 바로 다시 잡는다
+                                    // (통신이 없으면 옛 시각 알림과 새 문서 알림이 둘 다 울렸다, 10-07).
+                                    await _rescheduleDocWith(
+                                      docId,
+                                      (d) => scope == 'one'
+                                          ? withOccurrenceSkipped(d, key)
+                                          : {...d, 'recurrenceUntil': until},
                                     );
                                   }
                                   await _scheduleOrCancelReminder(

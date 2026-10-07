@@ -1,6 +1,7 @@
 // 다른 기기에서 만든·고친·지운 일정의 알림 맞추기(10-07). 알림 예약은 기기마다 따로라,
 // 예전에는 태블릿에서 만든 일정의 알림이 폰에서 울리지 않고 지운 일정의 알림은 계속 울렸다.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tubing_calculator/src/presentation/my_schedule/schedule_logic.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminders.dart';
 
 Map<String, dynamic> _doc(String title, {String at = '2026-10-20T09:00:00', List<int> rem = const [30]}) => {
@@ -43,5 +44,13 @@ void main() {
     expect(personalReminderSig(_doc('점검 2')), isNot(base));
     expect(personalReminderSig(_doc('점검', rem: [10])), isNot(base));
     expect(personalReminderSig({..._doc('점검'), 'memo': '메모만 바꿈'}), base);
+  });
+
+  test('회차 하나 빼기: 서버에 보낸 것과 같은 모양으로 바로 알림을 다시 잡는다(통신 없어도)', () {
+    final d = {..._doc('매주 점검'), 'recurrence': 'weekly', 'recurrenceExceptions': ['2026-10-27']};
+    final skipped = withOccurrenceSkipped(d, '2026-11-03');
+    expect(readExceptions(skipped), {'2026-10-27', '2026-11-03'});
+    expect(withOccurrenceSkipped(skipped, '2026-11-03')['recurrenceExceptions'], hasLength(2));
+    expect(personalReminderSig(skipped), isNot(personalReminderSig(d)));
   });
 }
