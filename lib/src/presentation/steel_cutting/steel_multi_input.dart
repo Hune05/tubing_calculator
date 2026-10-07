@@ -27,6 +27,10 @@ class MultiLengthParse {
 // 한 토막 길이의 위쪽 한계(mm). 이보다 길면 잘못 적은 값으로 본다.
 const double kMaxMultiLengthMm = 100000;
 
+// 한 토막 길이의 아래쪽 한계(mm). 쉼표로 나누므로 "1,500x2"를 쓰면 1과 500으로 쪼개진다(10-07).
+// 형강을 10mm 미만으로 자를 일은 없으니, 그런 값은 못 읽은 것으로 보여 다시 적게 한다.
+const double kMinMultiLengthMm = 10;
+
 final RegExp _multiToken = RegExp(
   r'^(\d+(?:\.\d+)?)\s*(?:mm)?\s*(?:[xX×*]\s*(\d+)\s*(?:개|ea|EA)?)?$',
 );
@@ -48,7 +52,7 @@ MultiLengthParse parseMultiLengths(String text) {
     if (len == null ||
         qty == null ||
         !len.isFinite ||
-        len <= 0 ||
+        len < kMinMultiLengthMm ||
         len > kMaxMultiLengthMm ||
         qty <= 0 ||
         qty > 9999) {

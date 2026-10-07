@@ -145,7 +145,9 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
     final rows = <ShortPipeRow>[];
     for (final r in _rows) {
       final len = _d(r.length);
-      final q = int.tryParse(r.qty.text.trim());
+      // 개수는 9999까지(10-07: 10만 같은 값을 넣으면 칠 때마다 수 초씩 멈췄다. 형강과 같은 한계).
+      final q0 = int.tryParse(r.qty.text.trim());
+      final q = q0?.clamp(-1, 9999);
       if (len == null && (q == null || q <= 0)) continue; // 빈 줄
       rows.add(ShortPipeRow(len ?? 0, q == null || q < 0 ? 0 : q));
     }

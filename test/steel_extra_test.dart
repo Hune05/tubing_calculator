@@ -1432,6 +1432,10 @@ void main() {
       expect(p.entries.map((e) => (e.length, e.qty)), [(1200.5, 2)]);
       expect(p.bad, ['abc', '0x3', '500x0', '600 x']);
       expect(parseMultiLengths('  ').isEmpty, true);
+      // 천 단위 쉼표로 쪼개진 '1' 같은 값은 못 읽은 것으로 보인다(10-07).
+      final c = parseMultiLengths('1,500x2');
+      expect(c.bad, contains('1'));
+      expect(c.entries.single.length, 500);
       expect(multiPreviewText(parseMultiLengths('')), '');
     });
 
