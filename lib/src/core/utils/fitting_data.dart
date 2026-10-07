@@ -55,7 +55,7 @@ class FittingData {
 
   static double getInsertionDepth(String brand, String od) {
     final brandData = _fittingData[brand] ?? _fittingData["Swagelok"]!;
-    return brandData[od] ?? 0.0;
+    return brandData[od] ?? brandData[_inchKeyForMm(od, brandData.keys)] ?? 0.0;
   }
 
   // ==========================================
@@ -222,6 +222,19 @@ class FittingData {
   };
 
   static BenderSpec? getBenderSpec(String brand, String od) {
-    return _swagelokBenderData[od];
+    return _swagelokBenderData[od] ??
+        _swagelokBenderData[_inchKeyForMm(od, _swagelokBenderData.keys)];
+  }
+
+  /// mm로 적은 외경이 인치 규격과 같은 관이면(12.7 mm = 1/2") 그 인치 키. 없으면 null.
+  /// 10-07: mm 단위 기본 외경 12.7이 표에 없어 AUTO 칸(반경·게인·피팅 깊이)이 모두 빈칸·0이었다.
+  static String? _inchKeyForMm(String od, Iterable<String> keys) {
+    final mm = double.tryParse(od);
+    if (mm == null || mm <= 2) return null;
+    for (final k in keys) {
+      final inch = double.tryParse(k);
+      if (inch != null && inch < 2 && (inch * 25.4 - mm).abs() < 0.05) return k;
+    }
+    return null;
   }
 }

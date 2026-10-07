@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
+import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
 import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_settings_tab.dart';
@@ -72,5 +73,14 @@ void main() {
     await AppSettingsController().load();
     await openTab(tester);
     expect(MachineSpecs().gain90, isNot(20.0));
+  });
+
+  test('mm로 적은 12.7(=1/2")도 제원표를 찾는다(AUTO 칸이 비지 않게)', () {
+    final mm = FittingData.getBenderSpec('Swagelok', '12.7');
+    final inch = FittingData.getBenderSpec('Swagelok', '0.5');
+    expect(mm, isNotNull);
+    expect(mm!.bendRadius, inch!.bendRadius);
+    expect(FittingData.getInsertionDepth('Swagelok', '12.7'), FittingData.getInsertionDepth('Swagelok', '0.5'));
+    expect(FittingData.getBenderSpec('Swagelok', '13.3'), isNull);
   });
 }

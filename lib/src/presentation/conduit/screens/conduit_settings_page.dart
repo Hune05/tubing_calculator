@@ -487,6 +487,26 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
 
   Future<void> _saveSettings() async {
     HapticFeedback.mediumImpact();
+    // CLR·테이크업·게인 칸이 비었거나 못 읽는 글이면 지금 쓰던 값을 칸에 다시 넣고 그 값으로 저장한다.
+    // 10-07: 예전에는 화면은 빈칸인데 계산에는 Greenlee 22mm 값(114.3·152.4·81.2)이 들어갔다.
+    final prev = globalBenderSettings.value;
+    var refilled = false;
+    for (final (c, k, d) in [
+      (_clrController, 'clr', 114.3),
+      (_takeUpController, 'takeUp', 152.4),
+      (_gainController, 'gain', 81.2),
+    ]) {
+      if (double.tryParse(c.text.trim()) == null) {
+        final v = (prev[k] as num?)?.toDouble() ?? d;
+        c.text = v == v.roundToDouble() ? v.toStringAsFixed(1) : v.toString();
+        refilled = true;
+      }
+    }
+    if (refilled && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('빈 칸(CLR·테이크업·게인)은 쓰던 값을 다시 넣어 저장했습니다.')),
+      );
+    }
     // 이 조합으로 넣은 제원을 기억해 둔다(규격을 바꿨다 돌아와도 그대로 나온다).
     // 규격을 바꾸기 전에 고쳐 둔 다른 조합도 같이 저장한다. 서버에 올리기 전에
     // 먼저 적어야 올라가는 설정에 같이 실린다.
