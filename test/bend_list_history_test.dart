@@ -188,4 +188,19 @@ void main() {
       expect(m.canUndo, isFalse);
     });
   });
+
+  test('불러온 원본 도면 번호는 폰에 남아 앱을 다시 켜도 덮어쓰기를 고를 수 있다(튜브)', () async {
+    SharedPreferences.setMockInitialValues({});
+    final m = MobileBendDataManager();
+    m.setSource(42);
+    await Future<void>.delayed(Duration.zero);
+    final p = await SharedPreferences.getInstance();
+    expect(p.getInt('mobile_source_history_id'), 42);
+    m.sourceHistoryId = null; // 앱을 껐다 켠 것처럼
+    await m.loadSavedSettings();
+    expect(m.sourceHistoryId, 42);
+    m.clearSource();
+    await Future<void>.delayed(Duration.zero);
+    expect(p.containsKey('mobile_source_history_id'), isFalse);
+  });
 }
