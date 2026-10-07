@@ -11,6 +11,7 @@ import 'package:tubing_calculator/src/presentation/pressure_test/pressure_calc.d
 import 'package:tubing_calculator/src/presentation/pressure_test/pressure_test_page.dart';
 import 'package:tubing_calculator/src/presentation/pressure_test/pressure_units.dart';
 import 'package:tubing_calculator/src/presentation/pressure_test/test_record.dart';
+import 'package:tubing_calculator/src/presentation/pressure_test/test_record_pdf.dart';
 import 'package:tubing_calculator/src/presentation/pressure_test/test_record_sheet.dart';
 import 'package:tubing_calculator/src/presentation/pressure_test/test_records_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
@@ -789,6 +790,35 @@ void main() {
     expect(find.text('되돌리기'), findsOneWidget);
   });
 
+  testWidgets('기록서를 만드는 동안 두 번 불러도 미리보기는 하나만 열리고, 만드는 중 표시는 닫힌다', (tester) async {
+    pdfPreviewBuilder = (bytes, name) => Text('미리보기 $name');
+    late BuildContext ctx;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (c) {
+            ctx = c;
+            return const Scaffold();
+          },
+        ),
+      ),
+    );
+    final r = PtRecord(id: 'w', date: DateTime(2026, 9, 26), line: 'P-8');
+    await tester.runAsync(() async {
+      final a = openPtRecordPdf(ctx, r);
+      final b = openPtRecordPdf(ctx, r); // 만드는 중이라 무시된다
+      for (var i = 0; i < 40 && find.textContaining('미리보기 pt_').evaluate().isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        await tester.pump();
+      }
+      await b;
+      a.ignore();
+    });
+    await tester.pumpAndSettle();
+    expect(find.textContaining('미리보기 pt_P-8'), findsOneWidget);
+    expect(find.byKey(const Key('pt_pdf_busy')), findsNothing);
+  });
+
   testWidgets('기록서 보기는 미리보기로 열린다(공유는 단추를 눌러야만)', (tester) async {
     await PtRecordStore.put(
       PtRecord(id: 'q', date: DateTime(2026, 9, 26), line: 'P-7'),
@@ -813,6 +843,7 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(find.text('미리보기 pt_P-7_20260926.pdf true'), findsOneWidget);
+    expect(find.byKey(const Key('pt_pdf_busy')), findsNothing);
     expect(find.text('압력시험 기록서 미리보기'), findsOneWidget);
     expect(find.byKey(const Key('pdf_preview_share')), findsOneWidget);
   });

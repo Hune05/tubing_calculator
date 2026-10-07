@@ -429,8 +429,43 @@ String ptRecordFileName(PtRecord r) {
 }
 
 /// 기록서를 만들어 미리보기로 보여 준다. 공유는 미리보기의 버튼을 눌러야만 된다.
+/// 기록서를 만드는 중이면 true(그동안 다시 눌러도 하나만 만든다).
+bool _ptPdfBusy = false;
+
 Future<void> openPtRecordPdf(BuildContext context, PtRecord r) async {
-  final bytes = await buildPtRecordPdf(r);
+  if (_ptPdfBusy) return;
+  _ptPdfBusy = true;
+  // 사진이 붙은 기록은 만드는 데 시간이 걸려, 그동안 화면이 그대로면 여러 번 누르게 된다.
+  // 만드는 동안 표시를 띄우고(뒤로 가기로 닫히지 않음), 다 되면 닫고 미리보기를 연다.
+  final rootNav = Navigator.of(context, rootNavigator: true);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => const PopScope(
+      canPop: false,
+      child: AlertDialog(
+        key: Key('pt_pdf_busy'),
+        content: Row(
+          children: [
+            SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+            SizedBox(width: 16),
+            Expanded(child: Text('기록서를 만드는 중입니다')),
+          ],
+        ),
+      ),
+    ),
+  );
+  Uint8List bytes;
+  try {
+    bytes = await buildPtRecordPdf(r);
+  } catch (_) {
+    messenger?.showSnackBar(const SnackBar(content: Text('기록서를 만들지 못했습니다.')));
+    return;
+  } finally {
+    _ptPdfBusy = false;
+    rootNav.pop();
+  }
   final fileName = ptRecordFileName(r);
   if (!context.mounted) return;
   await Navigator.of(context).push(
