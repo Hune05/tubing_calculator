@@ -185,7 +185,7 @@ void main() {
       expect(r.weeks.single.over52, isTrue);
     });
 
-    test('합계가 52시간 안이어도 하루 초과 합이 12시간을 넘으면 알린다', () {
+    test('합계가 52시간 안이면 하루 초과 합이 12시간을 넘어도 알리지 않는다(주 40시간 초과분 기준, 10-08)', () {
       final recs = _map([
         for (var d = 7; d <= 9; d++)
           _r('2026-09-0$d', '06:00', '21:00'), // 14시간 × 3 = 42시간, 하루 초과 18시간
@@ -197,8 +197,8 @@ void main() {
         _o,
       );
       expect(r.weeks.single.work, 2520);
-      expect(r.weeks.single.limitOver, 1080);
-      expect(r.weeks.single.over52, isTrue);
+      expect(r.weeks.single.limitOver, 120); // 42 − 40시간
+      expect(r.weeks.single.over52, isFalse);
     });
 
     test('휴일근로는 주 40시간 가산 계산에 넣지 않고 52시간 한도에는 넣는다', () {

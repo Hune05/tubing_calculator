@@ -224,7 +224,6 @@ DateTime mondayOf(DateTime d) {
   var weekBase = 0; // 이번 주 min(평일 근로, 8시간) 합
   var weekWork = 0;
   var weekOver = 0;
-  var weekDailyAll = 0; // 휴일 포함 하루 8시간 초과 합
   for (
     var d = start;
     !d.isAfter(end);
@@ -234,7 +233,6 @@ DateTime mondayOf(DateTime d) {
       weekBase = 0;
       weekWork = 0;
       weekOver = 0;
-      weekDailyAll = 0;
     }
     final rec = records[dateKey(d)];
     final w = rec == null ? null : computeDay(rec, o);
@@ -246,7 +244,6 @@ DateTime mondayOf(DateTime d) {
       weekly = math.max(0, weekBase - 2400) - math.max(0, before - 2400);
       weekWork += w.work;
       weekOver += w.dailyOver + weekly;
-      weekDailyAll += math.max(0, w.work - 480);
     }
     days.add(DayResult(d, rec, w, weekly));
     if (d.weekday == DateTime.sunday) {
@@ -255,7 +252,9 @@ DateTime mondayOf(DateTime d) {
           DateTime(d.year, d.month, d.day - 6),
           weekWork,
           weekOver,
-          math.max(weekWork - 2400, weekDailyAll),
+          // 1주 근로(휴일 포함) 중 40시간 넘은 시간만 본다(대법원 2023. 12. 7. 2020도15393,
+          // 고용노동부 2024. 1. 행정해석 변경). 하루 8시간 초과분 합은 기준에서 뺐다(10-08).
+          math.max(0, weekWork - 2400),
         ),
       );
     }
