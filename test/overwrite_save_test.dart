@@ -172,6 +172,8 @@ void main() {
             .selected,
         isTrue,
       );
+      // 지금 설정 규격과 다르면 알린다(마킹 값은 지금 설정으로 셈한 것).
+      expect(find.byKey(const Key('save_size_mismatch')), findsOneWidget);
     });
 
     testWidgets('덮어쓰면 그 줄만 고치고 다른 칸은 남기며, 되돌리기로 이전 값이 돌아온다', (tester) async {

@@ -866,7 +866,10 @@ class _MobileFabricationDetailScreenState
                                   final memo = memoCtrl.text.trim();
                                   final Map<String, dynamic> newPtoP =
                                       historyPToPWith(_pToP, {
-                                        "project": projCtrl.text,
+                                        // 비우면 그 뒤 PDF의 QR이 안 열려서 "프로젝트 미지정"으로(10-07).
+                                        "project": projCtrl.text.trim().isEmpty
+                                            ? '프로젝트 미지정'
+                                            : projCtrl.text.trim(),
                                         "from": fromCtrl.text,
                                         "to": toCtrl.text,
                                         "memo": memo,

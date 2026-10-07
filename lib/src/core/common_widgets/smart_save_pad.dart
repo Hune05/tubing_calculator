@@ -56,6 +56,9 @@ class SmartSavePad extends StatefulWidget {
 class _SmartSavePadState extends State<SmartSavePad> {
   String _selectedSize = '1/2"';
 
+  /// 지금 설정(장비 제원)의 관 크기 칩. 덮어쓸 원본 규격과 다르면 알린다.
+  String? _settingsSize;
+
   final TextEditingController _projectController = TextEditingController();
   final TextEditingController _fromController = TextEditingController();
   final TextEditingController _toController = TextEditingController();
@@ -143,6 +146,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
         (s.isInch ? _inchSizes : _mmSizes).insert(0, _selectedSize);
       }
     }
+    _settingsSize = _selectedSize;
     if (target != null) {
       final ps = '${target.row['pipe_size'] ?? ''}'.trim();
       if (ps.isNotEmpty) {
@@ -390,6 +394,23 @@ class _SmartSavePadState extends State<SmartSavePad> {
               runSpacing: 6.0,
               children: _mmSizes.map((size) => _buildSizeChip(size)).toList(),
             ),
+            // 10-07: 덮어쓸 때 규격 칩은 원본 도면 규격이지만, 함께 저장되는 장비 값·총 길이는 지금 설정이다.
+            // 둘이 다르면 알린다(골라 둔 규격과 마킹 값이 어긋나지 않게).
+            if (widget.overwriteTarget != null &&
+                _settingsSize != null &&
+                _selectedSize != _settingsSize)
+              Padding(
+                key: const Key('save_size_mismatch'),
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  '고른 규격($_selectedSize)과 지금 설정($_settingsSize)이 다릅니다. 마킹 값은 지금 설정으로 셈한 것입니다.',
+                  style: const TextStyle(
+                    color: Color(0xFFB45309),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -440,7 +461,11 @@ class _SmartSavePadState extends State<SmartSavePad> {
                             final noteText = _noteController.text.trim();
                             final merged = historyPToPWith(target.pToP, {
                               ...pToPData,
-                              'project': (pToPData['project'] as String).trim(),
+                              // 비우면 QR이 안 열려서 "프로젝트 미지정"으로(10-07).
+                              'project':
+                                  (pToPData['project'] as String).trim().isEmpty
+                                  ? '프로젝트 미지정'
+                                  : (pToPData['project'] as String).trim(),
                               'note': noteText,
                               'memo': noteText,
                             });

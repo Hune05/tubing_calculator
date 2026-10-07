@@ -133,6 +133,17 @@ void main() {
     expect(lastPToP()['start_dir'], 'LEFT'); // 방향이 옛 값으로 돌아가지 않는다
   });
 
+  testWidgets('작업 이름을 비우고 저장하면 "프로젝트 미지정"으로(QR이 열리게)', (tester) async {
+    await open(tester, _item());
+    await tester.tap(find.byTooltip('도면 정보 수정'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'A동'), '');
+    await tester.pump();
+    await tester.tap(find.text('수정 완료'));
+    await tester.pumpAndSettle();
+    expect(lastPToP()['project'], '프로젝트 미지정');
+  });
+
   testWidgets('수정 창: 한글 라벨, 보관함에 있는 작업 이름이 칩으로 나오고 누르면 들어간다', (tester) async {
     Map<String, dynamic> rowOf(String project) => {
       'id': 1,
