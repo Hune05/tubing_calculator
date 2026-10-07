@@ -194,6 +194,10 @@ class _MobileResultTabState extends State<MobileResultTab>
   @override
   bool get wantKeepAlive => true;
 
+  /// 최근 마킹 기록을 폰에 이틀 동안 남기는 칸(보기만 — 마킹 값은 그때 계산 결과 글 그대로).
+  @override
+  String? get calcHistoryStorageKey => 'calc_history_tube_marking';
+
   bool _includeStartFitting = false;
   bool _includeEndFitting = false;
   double _tailLength = 0.0;

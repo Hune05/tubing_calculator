@@ -208,6 +208,38 @@ mixin RecentCalcHistoryMixin<W extends StatefulWidget> on State<W> {
   /// 폰에 남길 저장 칸 이름. null이면 화면을 나가면 사라진다.
   String? get calcHistoryStorageKey => null;
 
+  /// 화면 하나짜리 계산기의 되돌리기: 지금 입력값을 글(JSON)로 돌려주면 기록마다 함께 남고,
+  /// 기록을 누르면 [calcRestoreApply]로 그 값을 넣은 뒤 "원래대로"를 띄운다. null이면 되돌리기 없음.
+  String? calcRestoreSnapshot() => null;
+
+  /// [calcRestoreSnapshot]이 만든 글을 칸에 다시 넣는다(setState 안에서 불린다).
+  void calcRestoreApply(String raw) {}
+
+  static const String _selfKey = '_self';
+
+  void _restoreSelf(String raw) {
+    if (!mounted) return;
+    final before = calcRestoreSnapshot();
+    try {
+      setState(() => calcRestoreApply(raw));
+    } catch (_) {
+      // 옛 기록을 반쯤 넣다 멈추면 칸이 뒤섞이니 누르기 전 값으로 되돌려 놓고 알린다.
+      if (before != null) setState(() => calcRestoreApply(before));
+      rethrow;
+    }
+    showAppSnack(
+      context,
+      '그때 입력값으로 되돌렸습니다',
+      kind: AppSnackKind.undo,
+      undoLabel: '원래대로',
+      onUndo: before == null
+          ? null
+          : () {
+              if (mounted) setState(() => calcRestoreApply(before));
+            },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -218,6 +250,7 @@ mixin RecentCalcHistoryMixin<W extends StatefulWidget> on State<W> {
       _ownLog.attachStorage(k);
     }
     if (identical(calcLog, _ownLog)) {
+      _ownLog.restorers[_selfKey] = _restoreSelf;
       _ownLog.onRestoreFail = (m) {
         if (mounted) showAppSnack(context, m, kind: AppSnackKind.error);
       };
@@ -233,6 +266,13 @@ mixin RecentCalcHistoryMixin<W extends StatefulWidget> on State<W> {
     String? restoreData,
   }) {
     calcLog._onChange = _redraw;
+    if (restoreKey == null && identical(calcLog, _ownLog)) {
+      final snap = calcRestoreSnapshot();
+      if (snap != null) {
+        restoreKey = _selfKey;
+        restoreData = snap;
+      }
+    }
     calcLog.log(
       title,
       subtitle,

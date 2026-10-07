@@ -7,6 +7,8 @@
 //
 // 분류 고르기는 칩을 여러 줄로 늘어놓지 않고 슬라이더 한 줄로(자리를 덜 차지하게).
 // 색은 강한 브랜드 색 대신 회색 계열(무채색)만 쓴다.
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -47,6 +49,29 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
   late UnitDef _from = _units[0];
   late UnitDef _to = _units.length > 1 ? _units[1] : _units[0];
   final _ctrl = TextEditingController(text: '1');
+
+  /// 기록을 누르면 그때 분류·단위·값으로 되돌린다.
+  @override
+  String? calcRestoreSnapshot() => jsonEncode({
+    'c': _cat.id,
+    'f': _from.id,
+    't': _to.id,
+    'v': _ctrl.text,
+  });
+
+  @override
+  void calcRestoreApply(String raw) {
+    final m = jsonDecode(raw) as Map<String, dynamic>;
+    final cat = kMiniConvertCategories.firstWhere((c) => c.id == m['c']);
+    final units = _numericUnits(cat);
+    final from = units.firstWhere((u) => u.id == m['f']);
+    final to = units.firstWhere((u) => u.id == m['t']);
+    _cat = cat;
+    _units = units;
+    _from = from;
+    _to = to;
+    _ctrl.text = m['v'] as String;
+  }
 
   List<UnitDef> _numericUnits(UnitCategory c) =>
       c.units.where((u) => !u.textInput).toList();

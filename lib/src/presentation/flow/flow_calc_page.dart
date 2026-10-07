@@ -96,6 +96,18 @@ class _FlowCalcPageState extends State<FlowCalcPage>
 
   static const _draftKey = 'flow_calc_draft_v1';
 
+  /// 기록을 누르면 그때 탭과 입력값(네 탭 전부)으로 되돌린다.
+  @override
+  String? calcRestoreSnapshot() => jsonEncode({'tab': _tabs.index, 'd': _draftJson()});
+
+  @override
+  void calcRestoreApply(String raw) {
+    final m = jsonDecode(raw) as Map<String, dynamic>;
+    _applyDraft(m['d'] as String);
+    final tab = m['tab'];
+    if (tab is int && tab >= 0 && tab < _tabs.length) _tabs.index = tab;
+  }
+
   late final TabController _tabs = TabController(
     length: 4,
     vsync: this,

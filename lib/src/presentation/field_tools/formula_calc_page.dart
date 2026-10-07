@@ -1,5 +1,7 @@
 // 공식 계산 목록·상세 화면. 공식을 고르면 칸마다 이름·단위·"?" 도움말이 있는 입력
 // 칸이 뜨고, 다 넣으면 바로 결과가 나온다(formula_defs.dart의 공식들).
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
@@ -120,6 +122,20 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
   late final Map<String, TextEditingController> _ctrl = {
     for (final v in widget.def.inputs) v.key: TextEditingController(),
   };
+
+  /// 기록을 누르면 그때 입력값으로 되돌린다.
+  @override
+  String? calcRestoreSnapshot() =>
+      jsonEncode({for (final e in _ctrl.entries) e.key: e.value.text});
+
+  @override
+  void calcRestoreApply(String raw) {
+    final m = jsonDecode(raw) as Map<String, dynamic>;
+    for (final e in _ctrl.entries) {
+      final v = m[e.key];
+      if (v is String) e.value.text = v;
+    }
+  }
 
   @override
   void dispose() {

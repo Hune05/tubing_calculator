@@ -49,6 +49,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   @override
   bool get wantKeepAlive => true;
 
+  /// 최근 마킹 기록을 폰에 이틀 동안 남기는 칸(보기만 — 마킹 값은 그때 계산 결과 글 그대로).
+  @override
+  String? get calcHistoryStorageKey => 'calc_history_conduit_marking';
+
   // 커플링 체결 여부와 시작 방향은 현장 탭과 같이 쓴다(conduit_field_data.dart).
   bool get _useCoupling => conduitUseCoupling.value;
   set _useCoupling(bool v) => conduitUseCoupling.value = v;
