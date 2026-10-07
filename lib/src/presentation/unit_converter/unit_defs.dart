@@ -838,10 +838,12 @@ double? parseInches(String input) {
     r'^(?:(\d+)(?:\s*-\s*|\s+))?(\d+)\s*/\s*(\d+)$',
   ).firstMatch(s);
   if (m == null) return null;
-  final d = int.parse(m.group(3)!);
-  if (d == 0) return null;
-  final whole = m.group(1) == null ? 0 : int.parse(m.group(1)!);
-  return total + whole + int.parse(m.group(2)!) / d;
+  // 아주 긴 숫자는 int.parse가 예외를 낸다(10-07: 저장된 글이면 화면을 열 때마다 났다) — 못 읽음으로.
+  final d = int.tryParse(m.group(3)!);
+  final n = int.tryParse(m.group(2)!);
+  final whole = m.group(1) == null ? 0 : int.tryParse(m.group(1)!);
+  if (d == null || n == null || whole == null || d == 0) return null;
+  return total + whole + n / d;
 }
 
 /// 인치를 가장 가까운 1/[denom]" 분수로. [errMm]은 (실제 − 분수)mm — 양수면 실제가 더 길다.

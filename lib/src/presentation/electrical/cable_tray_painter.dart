@@ -33,9 +33,12 @@ TrayLayout layoutTray(List<TrayCable> cables, double width, double depth, {requi
   final items = <(double d, int row)>[];
   var total = 0;
   for (var i = 0; i < cables.length; i++) {
-    for (var k = 0; k < cables[i].count; k++) {
-      total++;
-      if (items.length < kTrayDrawMax) items.add((cables[i].od, i));
+    // 가닥 수만큼 돌지 않는다(10-07: 오타로 1억을 넣으면 칠 때마다 1억 번씩 돌아 화면이 멈췄다).
+    final c = cables[i].count;
+    if (c > 0) total += c;
+    final draw = math.min(math.max(c, 0), kTrayDrawMax - items.length);
+    for (var k = 0; k < draw; k++) {
+      items.add((cables[i].od, i));
     }
   }
   items.sort((a, b) => b.$1.compareTo(a.$1));

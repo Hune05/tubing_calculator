@@ -67,4 +67,16 @@ void main() {
     await _type(t, 'formula_in_pf', '150');
     expect(_texts(t, 'formula_result'), contains('0~1(또는 0~100%)로 넣으십시오'));
   });
+
+  testWidgets('공식 계산: 넣은 값은 화면을 닫았다 열어도 남는다', (t) async {
+    final def = kFormulas.firstWhere((f) => f.id == 'ohm_v');
+    await _open(t, FormulaDetailPage(def: def));
+    await _type(t, 'formula_in_i', '2');
+    await _type(t, 'formula_in_r', '50');
+    await t.pump(const Duration(milliseconds: 600));
+    await t.pumpWidget(const SizedBox());
+    await _open(t, FormulaDetailPage(def: def));
+    expect(t.widget<TextField>(find.byKey(const Key('formula_in_i'))).controller!.text, '2');
+    expect(_texts(t, 'formula_result'), contains('100'));
+  });
 }

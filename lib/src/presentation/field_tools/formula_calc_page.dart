@@ -1,8 +1,10 @@
 // 공식 계산 목록·상세 화면. 공식을 고르면 칸마다 이름·단위·"?" 도움말이 있는 입력
 // 칸이 뜨고, 다 넣으면 바로 결과가 나온다(formula_defs.dart의 공식들).
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/app_icon_set.dart';
@@ -138,9 +140,54 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
     }
   }
 
+  // 넣은 값은 공식마다 폰에 남겨 다시 열면 되살린다(10-07: 뒤로 가면 모두 사라졌다. 유량·전기 화면처럼).
+  String get _draftKey => 'formula_draft_${widget.def.id}';
+  Timer? _draftTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDraft();
+    for (final c in _ctrl.values) {
+      c.addListener(_saveDraftSoon);
+    }
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString(_draftKey);
+      if (raw == null || !mounted) return;
+      final m = jsonDecode(raw) as Map<String, dynamic>;
+      // 그새 칸에 뭔가 넣었으면 덮지 않는다.
+      if (_ctrl.values.any((c) => c.text.isNotEmpty)) return;
+      setState(() {
+        for (final e in _ctrl.entries) {
+          final v = m[e.key];
+          if (v is String) e.value.text = v;
+        }
+      });
+    } catch (_) {}
+  }
+
+  void _saveDraftSoon() {
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 400), () async {
+      try {
+        final p = await SharedPreferences.getInstance();
+        await p.setString(
+          _draftKey,
+          jsonEncode({for (final e in _ctrl.entries) e.key: e.value.text}),
+        );
+      } catch (_) {}
+    });
+  }
+
   @override
   void dispose() {
+    _draftTimer?.cancel();
     for (final c in _ctrl.values) {
+      c.removeListener(_saveDraftSoon);
       c.dispose();
     }
     super.dispose();

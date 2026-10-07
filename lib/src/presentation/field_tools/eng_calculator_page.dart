@@ -278,7 +278,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     final num = f.num.isEmpty ? '0' : f.num;
     final den = f.den.isEmpty ? '1' : f.den;
     final saved = _expr;
-    _expr = '$saved+($whole+$num/$den)';
+    // 확정할 때(_commitFraction)와 같은 식으로 잇는다(10-07: 미리보기는 +, 확정은 ×라
+    // '(2+3)' 뒤 1/2이 미리보기 5.5, = 결과 2.5로 달랐다).
+    final join = _endsWithDigitOrClose ? '×' : '';
+    _expr = '$saved$join($whole+$num/$den)';
     _recalc();
     _expr = saved;
   }
