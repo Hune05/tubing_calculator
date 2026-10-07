@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -118,6 +120,7 @@ Future<void> schedulePersonalReminder(
   DateTime? nowForTest,
 }) async {
   await cancelPersonalReminders(docId);
+  await _rememberSig(docId, data);
 
   final String recurrence = (data['recurrence'] as String?) ?? 'none';
   // 날짜 칸이 없거나 글이 아니면(가져온 자료·옛 자료) 그 일정만 건너뛴다. 예전엔 여기서
@@ -260,34 +263,118 @@ bool needsOneShotReschedule(Map<String, dynamic> data) {
 
 Future<List<({String id, Map<String, dynamic> data})>> _personalDocs(
   String worker,
-) async {
+) async => (await _personalDocsWithSource(worker)).docs;
+
+Future<({List<({String id, Map<String, dynamic> data})> docs, bool fromCache})>
+_personalDocsWithSource(String worker) async {
   final snap = await FirebaseFirestore.instance
       .collection(kPersonalSchedulesCollectionName)
       .where('owner', isEqualTo: worker)
       .get();
-  return [for (final d in snap.docs) (id: d.id, data: d.data())];
+  return (
+    docs: [for (final d in snap.docs) (id: d.id, data: d.data())],
+    fromCache: snap.metadata.isFromCache,
+  );
 }
 
-// 폰의 되풀이 예약으로 못 맞춰 한 번씩만 잡아 둔 반복 일정(날짜가 밀리는 매달, 격주·평일,
-// 반복 끝·뺀 회차가 있는 것)을 다시 예약한다. 앱을 켤 때(폰 홈)와 내 일정 화면을 열 때
-// 부른다. 다시 예약한 수를 돌려준다.
-Future<int> rescheduleDriftingMonthlyReminders() async {
+// ── 다른 기기에서 바뀐 일정 알림 맞추기(10-07) ──
+// 알림 예약은 기기마다 따로다. 예전에는 태블릿에서 만든·고친·지운 일정의 알림이 폰에 잡히거나
+// 취소되지 않았다(폰은 한 번씩만 잡는 반복 일정만 다시 잡았다). 이 기기가 예약할 때 알림에 쓰인
+// 칸들의 모양(sig)을 적어 두고, 앱을 켤 때 서버(통신 없으면 폰 사본) 일정과 견주어
+// 달라진 것은 다시 잡고, 없어진 것은 취소한다.
+const String kPersonalReminderSigsKey = 'personal_reminder_sigs_v1';
+
+/// 알림에 쓰이는 칸들의 모양. 이것이 바뀌면 알림을 다시 잡아야 한다.
+String personalReminderSig(Map<String, dynamic> data) => [
+  data['dateTime']?.toString() ?? '',
+  data['hasTime'] != false,
+  (data['recurrence'] as String?) ?? 'none',
+  readReminders(data).join(','),
+  readUntil(data)?.toIso8601String() ?? '',
+  (readExceptions(data).toList()..sort()).join(','),
+  (data['title']?.toString() ?? '').trim(),
+].join('|');
+
+/// 맞추기 계획: 다시 잡을 일정과 취소할 일정. [canCancel]이 false면(폰 사본이 비어 무엇이 지워졌는지
+/// 모를 때) 취소하지 않는다.
+({List<String> toSchedule, List<String> toCancel}) planPersonalReminderSync({
+  required List<({String id, Map<String, dynamic> data})> docs,
+  required Map<String, String> sigs,
+  required bool canCancel,
+}) {
+  final ids = {for (final d in docs) d.id};
+  return (
+    toSchedule: [
+      for (final d in docs)
+        if (needsOneShotReschedule(d.data) ||
+            sigs[d.id] != personalReminderSig(d.data))
+          d.id,
+    ],
+    toCancel: canCancel
+        ? [for (final id in sigs.keys) if (!ids.contains(id)) id]
+        : const [],
+  );
+}
+
+Future<Map<String, String>> _readSigs(SharedPreferences p) async {
+  try {
+    final raw = p.getString(kPersonalReminderSigsKey);
+    if (raw == null) return {};
+    return Map<String, String>.from(jsonDecode(raw) as Map);
+  } catch (_) {
+    return {};
+  }
+}
+
+Future<void> _rememberSig(String docId, Map<String, dynamic> data) async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    final sigs = await _readSigs(p);
+    sigs[docId] = personalReminderSig(data);
+    await p.setString(kPersonalReminderSigsKey, jsonEncode(sigs));
+  } catch (_) {}
+}
+
+/// 앱을 켤 때·내 일정 화면을 열 때 부른다. 다른 기기에서 만든·고친 일정은 알림을 잡고, 지운 일정은
+/// 알림을 취소한다. 한 번씩만 잡아 둔 반복 일정도 다음 회차로 다시 잡는다. 다시 잡은 수를 돌려준다.
+Future<int> syncPersonalReminders() async {
   try {
     final p = await SharedPreferences.getInstance();
     final worker = p.getString('user_real_name');
     if (worker == null || worker.isEmpty) return 0;
+    final src = await _personalDocsWithSource(worker);
+    final plan = planPersonalReminderSync(
+      docs: src.docs,
+      sigs: await _readSigs(p),
+      canCancel: src.docs.isNotEmpty || !src.fromCache,
+    );
     var n = 0;
-    for (final d in await _personalDocs(worker)) {
-      if (!needsOneShotReschedule(d.data)) continue;
-      await schedulePersonalReminder(d.id, d.data);
-      n++;
+    for (final d in src.docs) {
+      if (!plan.toSchedule.contains(d.id)) continue;
+      try {
+        await schedulePersonalReminder(d.id, d.data);
+        n++;
+      } catch (e) {
+        debugPrint('일정 ${d.id} 알림 맞추기 실패: $e');
+      }
+    }
+    if (plan.toCancel.isNotEmpty) {
+      for (final id in plan.toCancel) {
+        await cancelPersonalReminders(id);
+      }
+      final sigs = await _readSigs(p);
+      plan.toCancel.forEach(sigs.remove);
+      await p.setString(kPersonalReminderSigsKey, jsonEncode(sigs));
     }
     return n;
   } catch (e) {
-    debugPrint('반복 알림 다시 예약 실패: $e');
+    debugPrint('일정 알림 맞추기 실패: $e');
     return 0;
   }
 }
+
+// 예전 이름. 앱을 켤 때(폰 홈)와 내 일정 화면을 열 때 부른다 — 지금은 다른 기기에서 바뀐 일정까지 맞춘다.
+Future<int> rescheduleDriftingMonthlyReminders() => syncPersonalReminders();
 
 // 내 개인 일정 알림을 전부 다시 예약한다. 다시 예약한 일정 수를 돌려준다.
 Future<int> rescheduleAllPersonalReminders() async {
