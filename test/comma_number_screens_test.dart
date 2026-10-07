@@ -52,4 +52,19 @@ void main() {
     await _type(t, 'unit_from_value', '1,5');
     expect(t.widget<Text>(find.byKey(const Key('unit_to_value'))).data, '0.15');
   });
+
+  testWidgets('공식 계산: 역률 칸에 85를 넣으면 85%(0.85)로 읽고, 150은 입력 확인', (t) async {
+    await _open(t, FormulaDetailPage(def: kFormulas.firstWhere((f) => f.id == 'power_3ph')));
+    await _type(t, 'formula_in_v', '380');
+    await _type(t, 'formula_in_i', '10');
+    await _type(t, 'formula_in_pf', '0.85');
+    final ratio = _texts(t, 'formula_result');
+    await _type(t, 'formula_in_pf', '85');
+    final pct = _texts(t, 'formula_result');
+    // 줄글(85%로 읽었다는 안내)만 더 붙고 결과 숫자는 같다(약 5,594 W).
+    expect(pct, startsWith(ratio.split(' ').first));
+    expect(pct, contains('85%(0.85)로 계산했습니다'));
+    await _type(t, 'formula_in_pf', '150');
+    expect(_texts(t, 'formula_result'), contains('0~1(또는 0~100%)로 넣으십시오'));
+  });
 }

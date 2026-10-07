@@ -153,17 +153,27 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
     final def = widget.def;
     final values = <String, double>{};
     var complete = true;
+    String? error;
+    final pctNotes = <String>[];
     for (final v in def.inputs) {
-      final n = _num(_ctrl[v.key]!);
+      var n = _num(_ctrl[v.key]!);
       if (n == null) {
         complete = false;
-      } else {
-        values[v.key] = n;
+        continue;
       }
+      // 역률·효율 칸: 1을 넘으면 %로 넣은 것으로 보고 ÷100, 0 이하나 100 초과는 입력 확인.
+      if (v.ratio) {
+        if (n <= 0 || n > 100) {
+          error ??= '${v.label}은 0~1(또는 0~100%)로 넣으십시오.';
+        } else if (n > 1) {
+          pctNotes.add('${v.label} ${formatNumber(n)}를 ${formatNumber(n)}%(${formatNumber(n / 100)})로 계산했습니다.');
+          n = n / 100;
+        }
+      }
+      values[v.key] = n;
     }
     double? result;
-    String? error;
-    if (complete) {
+    if (complete && error == null) {
       try {
         result = def.compute(values);
         if (result.isNaN || result.isInfinite) {
@@ -270,7 +280,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
                   big:
                       '${formatNumber(result)}${def.resultUnit.isEmpty ? '' : ' ${def.resultUnit}'}',
                   caption: def.resultLabel,
-                  lines: const [],
+                  lines: pctNotes,
                 )
               else
                 calcResult(big: '—', caption: '위 칸에 값을 모두 넣으십시오', lines: const []),

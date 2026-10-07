@@ -26,11 +26,15 @@ class FormulaVar {
   final String label; // "전류 (I)"
   final String unit; // "A"
   final String hint; // 이 칸에 뭘 넣는지
+
+  /// 역률·효율처럼 0~1 비율인 칸. 85처럼 %로 넣어도 0.85로 읽는다(10-07: 예전에는 85배 결과가 나왔다).
+  final bool ratio;
   const FormulaVar({
     required this.key,
     required this.label,
     required this.unit,
     required this.hint,
+    this.ratio = false,
   });
 }
 
@@ -163,6 +167,7 @@ final List<FormulaDef> kFormulas = [
         label: '역률 (cosθ)',
         unit: '',
         hint: '부하 역률입니다(0~1). 모르면 1을 넣으면 최대치가 나옵니다.',
+        ratio: true,
       ),
     ],
     resultLabel: '전력',
@@ -454,6 +459,7 @@ final List<FormulaDef> kFormulas = [
         label: '펌프 효율 (η)',
         unit: '',
         hint: '펌프 효율입니다(0~1). 명판·자료표값, 모르면 0.7 안팎으로 어림합니다.',
+        ratio: true,
       ),
     ],
     resultLabel: '축동력',
@@ -504,6 +510,7 @@ final List<FormulaDef> kFormulas = [
         label: '역률 (cosθ)',
         unit: '',
         hint: '부하 역률입니다(0~1).',
+        ratio: true,
       ),
     ],
     resultLabel: '유효전력',
@@ -552,12 +559,14 @@ final List<FormulaDef> kFormulas = [
         label: '지금 역률 (cosθ1)',
         unit: '',
         hint: '콘덴서를 달기 전 지금 역률입니다(0~1).',
+        ratio: true,
       ),
       FormulaVar(
         key: 'pf2',
         label: '목표 역률 (cosθ2)',
         unit: '',
         hint: '올리고 싶은 목표 역률입니다(0~1, 예: 0.95).',
+        ratio: true,
       ),
     ],
     resultLabel: '콘덴서 용량',
