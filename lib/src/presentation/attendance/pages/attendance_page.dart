@@ -78,7 +78,8 @@ class AttendancePage extends StatefulWidget {
   State<AttendancePage> createState() => _AttendancePageState();
 }
 
-class _AttendancePageState extends State<AttendancePage> {
+class _AttendancePageState extends State<AttendancePage>
+    with WidgetsBindingObserver {
   /// 출근·퇴근에 찍을 지금 시각. today를 시험으로 정해 줬으면 그 날짜에 지금의 시·분을 붙인다.
   DateTime _now() {
     final f = widget.nowProvider;
@@ -90,7 +91,10 @@ class _AttendancePageState extends State<AttendancePage> {
         : DateTime(t.year, t.month, t.day, real.hour, real.minute);
   }
 
-  late final DateTime _today = dayOnly(_now());
+  // 늘 지금 날짜로 본다. 예전에는 화면을 열 때 한 번만 정해, 화면을 켜 둔 채 날이 바뀌면
+  // 어제 기록을 "오늘"로 보고 퇴근 07:00이 어제에 들어가 23시간 근무로 저장됐다(10-07).
+  DateTime get _today => dayOnly(_now());
+  late DateTime _shownDay; // 화면이 마지막으로 읽은 날
   late DateTime _viewedMonth = DateTime(_today.year, _today.month);
   Map<String, AttendanceRecord> _records = {};
   AttendanceSettings _settings = const AttendanceSettings();
@@ -113,7 +117,24 @@ class _AttendancePageState extends State<AttendancePage> {
   @override
   void initState() {
     super.initState();
+    _shownDay = _today;
+    WidgetsBinding.instance.addObserver(this);
     _init();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// 앱으로 돌아왔을 때 날짜가 바뀌었으면 출근·퇴근 기록을 다시 읽는다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    if (_today == _shownDay) return;
+    _shownDay = _today;
+    _loadClock();
   }
 
   Future<void> _init() async {

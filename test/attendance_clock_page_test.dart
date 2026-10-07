@@ -103,6 +103,38 @@ void main() {
     expect(find.text('출근 07:52 저장했습니다.'), findsOneWidget);
   });
 
+  testWidgets('화면을 켜 둔 채 날이 바뀌면 오늘을 새 날로 본다(어제 기록에 퇴근을 찍지 않는다)', (tester) async {
+    final tue = DateTime(2026, 10, 13);
+    final store = _Store([AttendanceRecord(date: tue, checkIn: '08:00', checkOut: '17:00')]);
+    var now = DateTime(2026, 10, 13, 18);
+    tester.view.physicalSize = const Size(412, 2400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AttendancePage(
+          nowProvider: () => now,
+          loadRange: store.load,
+          saveRecord: store.save,
+          deleteRecord: store.delete,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_text(tester, 'att_clock_title'), '08:00 ~ 17:00');
+    // 다음 날 아침 앱으로 돌아온다.
+    now = DateTime(2026, 10, 14, 7);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(_text(tester, 'att_clock_title'), '오늘 출근 전');
+    await tester.tap(find.byKey(const Key('att_clock_in')));
+    await tester.pumpAndSettle();
+    expect(store.saved.single.date, wed);
+    expect(store.saved.single.checkIn, '07:00');
+    expect(store.data['2026-10-13']!.checkOut, '17:00'); // 어제 기록은 그대로
+  });
+
   testWidgets('퇴근 단추는 퇴근만 채우고, 근로 시간을 알려 준다', (tester) async {
     final store = _Store([
       AttendanceRecord(date: wed, checkIn: '08:00', memo: '태안 3호기'),
