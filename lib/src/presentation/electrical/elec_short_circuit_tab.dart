@@ -808,18 +808,17 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       'X = ${_mo(qX)} + ${_mo(xt * kT)} + ${_mo(cabX)} = ${_mo(totX)} mΩ. '
       'Z = √(R² + X²) = √(${_mo(totR)}² + ${_mo(totX)}²) = ${_mo(totZ)} mΩ.',
     );
+    // 전동기가 있으면 이 값은 "전동기를 뺀 Ik″"이다(합계는 ⑥에서 모선 기준으로 다시 셈).
+    final netOnlyA = i.cMax * u / (s3 * totZ);
     out.add(
-      '⑤ Ik″ = c × Un ÷ (√3 × Z) = $cTxt × $uTxt ÷ (√3 × ${_mo(totZ)} mΩ) = ${_ka(r.ikNetA)} kA'
-      '${r.motorsIncluded ? '(변압기·계통분)' : ''}.',
+      '⑤ Ik″ = c × Un ÷ (√3 × Z) = $cTxt × $uTxt ÷ (√3 × ${_mo(totZ)} mΩ) = ${_ka(r.motorsIncluded ? netOnlyA : r.ikNetA)} kA'
+      '${r.motorsIncluded ? '(전동기를 뺀 값)' : ''}.',
     );
 
     if (r.motorsIncluded) {
       final mult = i.motorMultiple!;
       final zM = u / (s3 * mult * r.motorRatedA);
       final m = motorImpedance(zM);
-      final mr = m.r + cabR;
-      final mx = m.x + cabX;
-      final zmc = math.sqrt(mr * mr + mx * mx);
       final rxTxt = fmt(kScMotorRoverX, 2);
       out.add(
         '⑥ 전동기 기여: 정격전류 IrM = kW × 1000 ÷ (√3 × U × 효율×역률) = ${fmt(i.motorKw!, 1)} × 1000 ÷ (√3 × $uTxt × ${fmt(i.motorEffPf!, 3)}) = ${fmt(r.motorRatedA, 1)} A. '
@@ -828,10 +827,19 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
       out.add(
         'RM/XM = $rxTxt(IEC 909 8.3.2.5 저압 전동기 묶음): XM = ZM ÷ √(1 + $rxTxt²) = ${_mo(m.x)} mΩ, RM = $rxTxt × XM = ${_mo(m.r)} mΩ.',
       );
-      out.add(
-        '전동기 기여 = c × Un ÷ (√3 × |ZM + 케이블|) = $cTxt × $uTxt ÷ (√3 × √(${_mo(mr)}² + ${_mo(mx)}²) mΩ) = $cTxt × $uTxt ÷ (√3 × ${_mo(zmc)} mΩ) = ${_ka(r.ikMotorA)} kA. '
-        '합계 Ik″ = ${_ka(r.ikNetA)} + ${_ka(r.ikMotorA)} = ${_ka(r.ikMaxA)} kA.',
-      );
+      if (i.segments.isEmpty) {
+        out.add(
+          '모선 단락: 전동기 기여 = c × Un ÷ (√3 × |ZM|) = ${_ka(r.ikMotorA)} kA. '
+          '합계 Ik″ = 변압기·계통분 ${_ka(r.ikNetA)} + 전동기분 ${_ka(r.ikMotorA)} = ${_ka(r.ikMaxA)} kA(IEC 909, 두 몫의 합).',
+        );
+      } else {
+        // 10-07: 예전에는 전동기에도 케이블을 따로 더해 합쳐서 케이블 끝 값이 컸다.
+        out.add(
+          '케이블 끝 단락: 변압기·계통과 전동기는 같은 모선에서 같은 케이블을 지나므로, 두 전원을 모선에서 하나로 묶은 '
+          '등가 임피던스(모선 단락전류가 두 몫의 합이 되게 맞춤)에 케이블을 더해 합계를 구하고, 모선에서의 비율대로 나눕니다(IEC 909 등가 전압원법). '
+          '합계 Ik″ = ${_ka(r.ikMaxA)} kA = 변압기·계통분 ${_ka(r.ikNetA)} + 전동기분 ${_ka(r.ikMotorA)} kA.',
+        );
+      }
     }
     return out;
   }
@@ -988,7 +996,7 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
     '변압기: ZT = %Z/100 × U²/S. 부하손을 넣으면 RT = 부하손/S × U²/S, XT = √(ZT² − RT²). 보정계수 KT = 0.95·cmax / (1 + 0.6·xT), xT = XT ÷ (U²/S)를 ZT·RT·XT에 곱합니다.',
     '상위 계통: Z = c·U²/S″k, X = 0.995 Z, R = 0.1 X (IEC 909 8.3.2.1). 넣지 않으면 무한 전원(0)입니다.',
     '케이블: 구리 20°C 저항은 IEC 60228 표 값. 최대 단락은 20°C 그대로(IEC 909 9.1.1.1). 최소 단락은 단락이 끝날 때 도체 온도 θe(PVC 160°C, XLPE·EPR 250°C, KEC 표 212.5-1의 최종 온도)에서 R = R20 × [1 + 0.004 × (θe − 20)]로 올립니다(IEC 909 9.3.1 식 32). 리액턴스 0.096 Ω/km(60Hz).',
-    '전동기: 합계 정격전류 = kW×1000 ÷ (√3·U·효율×역률). |ZM| = U ÷ (√3·배수·정격전류)이고 RM/XM = 0.42로 나눕니다. 기여는 c·U ÷ (√3·|ZM + 케이블|)이며 최대 단락에만 더합니다. 원문 배수는 5입니다(IEC 909 8.3.2.5).',
+    '전동기: 합계 정격전류 = kW×1000 ÷ (√3·U·효율×역률). |ZM| = U ÷ (√3·배수·정격전류)이고 RM/XM = 0.42로 나눕니다. 모선에서는 두 몫의 크기를 더하고, 케이블 끝은 두 전원을 모선에서 묶은 등가 임피던스에 케이블을 더해 구합니다(케이블을 전원마다 따로 더하지 않음). 최대 단락에만 넣습니다. 원문 배수는 5입니다(IEC 909 8.3.2.5).',
     '피크 전류: ip = κ·√2·Ik″, κ = 1.02 + 0.98·e^(−3R/X)(IEC 909 9.1.1.2). R/X는 고장점까지 전체 합입니다. 전동기 분은 저압 전동기 묶음 κM = 1.3(IEC 909 8.3.2.5)입니다.',
     '%임피던스법(비교): c와 KT 없이 공칭 전압 그대로. Ik = Un / (√3·|Z|). 케이블 저항은 같은 20°C 표 값을 씁니다.',
     '최소 단락 2상 = 3상 × √3/2. 최소 단락은 전동기 기여를 뺍니다(IEC 909 9.3.1).',

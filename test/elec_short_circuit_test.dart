@@ -173,6 +173,30 @@ void main() {
       expect(kScMotorKappa, 1.3);
     });
 
+    test('케이블 끝에서는 전동기에 케이블을 따로 더하지 않는다(10-07: 3.8 kA가 6.4 kA로 나왔다)', () {
+      final r = calcShortCircuit(
+        const ScInput(
+          kva: 1000,
+          volts: 380,
+          zPercent: 6,
+          pcuKw: 10,
+          motorKw: 500,
+          motorEffPf: 0.8,
+          motorMultiple: 5,
+          segments: [ScSegment(sizeMm2: 16, lengthM: 50)],
+        ),
+      );
+      expect(r.ikMaxA, lessThan(4500));
+      expect(r.ikMaxA, greaterThan(3500));
+      expect(r.ikNetA + r.ikMotorA, closeTo(r.ikMaxA, 1e-6));
+      // 모선(케이블 없음)에서는 예전처럼 두 몫의 합.
+      final bus = calcShortCircuit(
+        const ScInput(kva: 1000, volts: 380, zPercent: 6, pcuKw: 10, motorKw: 500, motorEffPf: 0.8, motorMultiple: 5),
+      );
+      final noMotor = calcShortCircuit(const ScInput(kva: 1000, volts: 380, zPercent: 6, pcuKw: 10));
+      expect(bus.ikNetA, closeTo(noMotor.ikMaxA, 1e-6));
+    });
+
     test('전동기 세 칸이 덜 차면 반영하지 않고 알림', () {
       final r = calcShortCircuit(
         const ScInput(
@@ -638,9 +662,10 @@ void main() {
       expect(flat(t), contains(flat('RT = 부하손 ÷ 용량 × U² ÷ S = 10 ÷ 1000 × 144.4 mΩ = 1.44 mΩ.')));
       expect(flat(t), contains(flat('구간 1 (50 mm², 30 m, 2가닥): R = 0.387 × 30 ÷ 1000 ÷ 2 = 5.8 mΩ')));
       expect(flat(t), contains(flat('⑤ Ik″ = c × Un ÷ (√3 × Z)')));
-      expect(flat(t), contains(flat('= ${ka(calc.ikNetA)} kA(변압기·계통분).')));
+      // 전동기가 있으면 ⑤는 전동기를 뺀 값, 합계는 ⑥에서 모선 기준으로(10-07).
+      expect(flat(t), contains(flat('kA(전동기를 뺀 값).')));
       expect(flat(t), contains(flat('⑥ 전동기 기여: 정격전류 IrM')));
-      expect(flat(t), contains(flat('= ${ka(calc.ikMotorA)} kA. 합계 Ik″ = ${ka(calc.ikNetA)} + ${ka(calc.ikMotorA)} = ${ka(calc.ikMaxA)} kA.')));
+      expect(flat(t), contains(flat('합계 Ik″ = ${ka(calc.ikMaxA)} kA = 변압기·계통분 ${ka(calc.ikNetA)} + 전동기분 ${ka(calc.ikMotorA)} kA.')));
       expect(flat(t), contains(flat('= ${ka(calc.ipA)} kA (R/X =')));
       // 전동기 RM/XM 0.42: |ZM| = 380 ÷ (√3 × 5 × 379.84) = 115.52 mΩ → XM 106.51, RM 44.73 mΩ.
       expect(flat(t), contains(flat('RM/XM = 0.42(IEC 909 8.3.2.5 저압 전동기 묶음): XM = ZM ÷ √(1 + 0.42²) = 106.51 mΩ, RM = 0.42 × XM = 44.73 mΩ.')));

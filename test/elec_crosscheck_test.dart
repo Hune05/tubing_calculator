@@ -503,6 +503,24 @@ class _Z {
   final double x;
   _Z operator +(_Z o) => _Z(r + o.r, x + o.x);
   double get abs => math.sqrt(r * r + x * x);
+  _Z operator *(_Z o) => _Z(r * o.r - x * o.x, r * o.x + x * o.r);
+  _Z operator /(_Z o) {
+    final d = o.r * o.r + o.x * o.x;
+    return _Z((r * o.r + x * o.x) / d, (x * o.r - r * o.x) / d);
+  }
+
+  _Z times(double k) => _Z(r * k, x * k);
+}
+
+/// 같은 모선의 두 전원이 케이블을 같이 지날 때(10-07 기준 바꿈): 모선에서는 두 몫 크기의 합,
+/// 케이블 끝은 병렬 등가 임피던스(크기를 모선 합계에 맞춤) + 케이블. (합계, 계통 몫, 전동기 몫)
+(double, double, double) _shared(double cU, _Z src, _Z mot, _Z cab) {
+  final s3 = math.sqrt(3);
+  final a = cU / (s3 * src.abs), b = cU / (s3 * mot.abs);
+  final par = (src * mot) / (src + mot);
+  final eq = par.times((cU / (s3 * (a + b))) / par.abs);
+  final t = cU / (s3 * (eq + cab).abs);
+  return (t, t * a / (a + b), t * b / (a + b));
 }
 
 typedef Seg = ({double size, double len, int n});
@@ -572,11 +590,12 @@ RefSc refShortCircuit({
   final zmAbs = hasMotor ? v / (math.sqrt(3) * mult * o.motorRated) : 0.0;
   final xmM = zmAbs / math.sqrt(1 + 0.42 * 0.42);
   final zm = _Z(0.42 * xmM, xmM);
-  double netAt(int k) =>
-      cMax * v / (math.sqrt(3) * (up + tr + cable(k, 20)).abs);
+  double netAt(int k) => hasMotor
+      ? _shared(cMax * v, up + tr, zm, cable(k, 20)).$2
+      : cMax * v / (math.sqrt(3) * (up + tr + cable(k, 20)).abs);
   double motAt(int k) {
     if (!hasMotor) return 0;
-    return cMax * v / (math.sqrt(3) * (zm + cable(k, 20)).abs);
+    return _shared(cMax * v, up + tr, zm, cable(k, 20)).$3;
   }
 
   double ipAt(int k) {
@@ -605,11 +624,9 @@ RefSc refShortCircuit({
   // 문서에는 %임피던스법에 전동기 기여를 넣는지 적혀 있지 않다. 처음에는 빼고 짰다가 앱(ScResult 주석
   // "같은 조건을 %임피던스법으로")과 704조합이 달라 (c)로 보고, 같은 조건 = 전동기 기여도 c 없이(c = 1) 더하는
   // 것으로 맞췄다. 이 부분은 근거 문서로 확인한 것이 아니다.
-  var pctMot = 0.0;
-  if (hasMotor) {
-    pctMot = v / (math.sqrt(3) * (zm + cable(segs.length, 20)).abs);
-  }
-  o.ikPct = v / (math.sqrt(3) * zP.abs) + pctMot;
+  o.ikPct = hasMotor
+      ? _shared(v, net(1.0, upMax) + _Z(o.rt, o.xt), zm, cable(segs.length, 20)).$1
+      : v / (math.sqrt(3) * zP.abs);
   return o;
 }
 

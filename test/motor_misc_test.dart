@@ -109,6 +109,10 @@ void main() {
       expect(b.maxOhm!, closeTo(36.5, 0.05));
     });
     test('속도를 올리는 입력은 null, 직류 전압 없으면 저항 없음', () {
+      // 0 rpm이 아닌 회전수까지 감속: 최대 = 평균 × 2ω1/(ω1+ω2)(10-07: 늘 2배였다).
+      final h = brakeEnergy(j: 1, rpm1: 1800, rpm2: 900, seconds: 2, vdc: 750)!;
+      expect(h.peakKw, closeTo(8.88, 0.01));
+      expect(h.maxOhm!, closeTo(63.3, 0.1));
       expect(brakeEnergy(j: 2, rpm1: 1000, rpm2: 1500, seconds: 5), isNull);
       expect(brakeEnergy(j: 2, rpm1: 1000, rpm2: 0, seconds: 5)!.maxOhm, isNull);
     });

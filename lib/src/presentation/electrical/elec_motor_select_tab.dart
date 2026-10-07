@@ -225,7 +225,15 @@ class _ElecMotorSelectTabState extends State<ElecMotorSelectTab>
     final lines = <String>[];
     String? summary;
     var warn = false;
-    if (kw != null && rpm != null && mp != null && lp != null && jmIn != null) {
+    final badInput = (kw != null && kw <= 0) ||
+        (rpm != null && rpm <= 0) ||
+        (lrpmIn != null && lrpmIn <= 0);
+    if (badInput) {
+      // 0이나 음수면 Infinity·NaN이 찍히고 엉뚱하게 "기동 불가"가 나왔다(10-07).
+      lines.add('정격 출력·회전수(부하 축 회전수 포함)는 0보다 커야 합니다. 입력을 확인하십시오.');
+      warn = true;
+      summary = '입력 확인';
+    } else if (kw != null && rpm != null && mp != null && lp != null && jmIn != null) {
       final tr = kw * 1000 * 60 / (2 * math.pi * rpm);
       final jm = _gd2 ? gd2ToJ(jmIn) : jmIn;
       final jlRaw = jlIn == null ? 0.0 : (_gd2 ? gd2ToJ(jlIn) : jlIn);
@@ -273,11 +281,12 @@ class _ElecMotorSelectTabState extends State<ElecMotorSelectTab>
     );
   }
 
-  /// 정격 토크의 배수. 10 이상이면 %로 보고 100으로 나눈다(150 → 1.5), 그보다 작으면 배수 그대로.
+  /// 정격 토크의 배수. 3을 넘으면 %로 보고 100으로 나눈다(150 → 1.5, 8 → 0.08), 3 이하는 배수 그대로.
+  /// 10-07: 예전에는 10 이상만 %로 봐서, 부하 토크 8 %를 8배로 읽어 "기동 불가"가 나왔다.
   double? _pct(TextEditingController c) {
     final v = readNum(c);
     if (v == null || v < 0) return null;
-    return v >= 10 ? v / 100 : v;
+    return v > 3 ? v / 100 : v;
   }
 
   @override

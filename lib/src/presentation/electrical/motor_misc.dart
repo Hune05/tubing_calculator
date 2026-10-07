@@ -197,7 +197,9 @@ BrakeResult? brakeEnergy({
   final w2 = 2 * math.pi * rpm2 / 60;
   final e = 0.5 * j * (w1 * w1 - w2 * w2);
   final avg = e / seconds / 1000;
-  final peak = 2 * avg;
+  // 일정 토크 감속: 최대(시작 순간) = T·ω1, 평균 = T·(ω1+ω2)/2 → 최대 = 평균 × 2ω1/(ω1+ω2).
+  // 0 rpm까지 세울 때만 "평균의 2배"다(10-07: 늘 2배로 해서 1800→900 rpm이면 최대가 크게 나왔다).
+  final peak = avg * 2 * w1 / (w1 + w2);
   return BrakeResult(
     energyJ: e,
     avgKw: avg,

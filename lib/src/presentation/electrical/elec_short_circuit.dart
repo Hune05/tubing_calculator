@@ -58,6 +58,33 @@ class ScZ {
   ScZ operator +(ScZ o) => ScZ(r + o.r, x + o.x);
   ScZ scale(double k) => ScZ(r * k, x * k);
   double get abs => math.sqrt(r * r + x * x);
+  ScZ operator *(ScZ o) => ScZ(r * o.r - x * o.x, r * o.x + x * o.r);
+  ScZ operator /(ScZ o) {
+    final d = o.r * o.r + o.x * o.x;
+    return ScZ((r * o.r + x * o.x) / d, (x * o.r - r * o.x) / d);
+  }
+}
+
+/// 같은 모선에 붙은 두 전원(계통·변압기 [src]와 전동기 [motor])이 케이블 [cab]을 같이 지나 고장점에
+/// 흘리는 전류. 모선에서는 IEC 909처럼 두 몫의 크기를 더하고(Ik" = Ik"Q·T + Ik"M), 케이블 끝은 두 전원을
+/// 모선에서 하나로 묶은 등가 임피던스에 케이블을 더해 구한다(모선 값과 이어지게 등가 임피던스 크기를 맞춤).
+/// (합계, 계통 몫, 전동기 몫). 몫은 모선에서의 비율대로 나눈다.
+/// 10-07: 예전에는 전원마다 케이블을 따로 더해 합쳐서, 케이블 끝 단락전류가 크게 나왔다(예: 약 3.8 → 6.4 kA).
+(double, double, double) scSharedCable(
+  double cU,
+  ScZ src,
+  ScZ motor,
+  ScZ cab,
+) {
+  final s3 = math.sqrt(3);
+  final netBus = cU / (s3 * src.abs);
+  final motBus = cU / (s3 * motor.abs);
+  final busSum = netBus + motBus;
+  // 두 전원을 병렬로 묶은 임피던스의 방향(R/X)은 그대로, 크기는 모선 합계 전류에 맞춘다.
+  final par = (src * motor) / (src + motor);
+  final zEq = par.scale((cU / (s3 * busSum)) / par.abs);
+  final total = cU / (s3 * (zEq + cab).abs);
+  return (total, total * netBus / busSum, total * motBus / busSum);
 }
 
 /// 변압기 임피던스 보정계수 KT = 0.95·cmax / (1 + 0.6·xT). xT = XT / (U²/S) (정격 기준 리액턴스).
@@ -307,12 +334,21 @@ ScResult calcShortCircuit(ScInput i) {
   final srcMax = network(i.upstreamMvaMax, cMax) + ScZ(rt, xt).scale(kT);
   final netMax = <double>[];
   final motMax = <double>[];
+  final startMax = <double>[];
   for (var k = 0; k <= n; k++) {
     final cab = cum20(k);
-    netMax.add(cMax * u / (s3 * (srcMax + cab).abs));
-    motMax.add(motorsIncluded ? cMax * u / (s3 * (zM + cab).abs) : 0.0);
+    if (motorsIncluded) {
+      final (t, a, b) = scSharedCable(cMax * u, srcMax, zM, cab);
+      startMax.add(t);
+      netMax.add(a);
+      motMax.add(b);
+    } else {
+      final t = cMax * u / (s3 * (srcMax + cab).abs);
+      startMax.add(t);
+      netMax.add(t);
+      motMax.add(0.0);
+    }
   }
-  final startMax = [for (var k = 0; k <= n; k++) netMax[k] + motMax[k]];
   final startIp = <double>[];
   var rOverX = 0.0;
   var kappa = 1.0;
@@ -328,8 +364,9 @@ ScResult calcShortCircuit(ScInput i) {
   // ── 비교: %임피던스법(c와 KT 없음, 공칭 전압 그대로).
   final srcPct = network(i.upstreamMvaMax, 1) + ScZ(rt, xt);
   final cabF = cum20(n);
-  final pctNet = u / (s3 * (srcPct + cabF).abs);
-  final pctMot = motorsIncluded ? u / (s3 * (zM + cabF).abs) : 0.0;
+  final pctTotal = motorsIncluded
+      ? scSharedCable(u, srcPct, zM, cabF).$1
+      : u / (s3 * (srcPct + cabF).abs);
 
   // ── 최소 단락: c = cmin, 케이블 저항은 단락 종료 온도 θe에서 0.004/°C(IEC 909 식 32), 전동기 뺌,
   // 상위 계통은 최소 용량.
@@ -386,7 +423,7 @@ ScResult calcShortCircuit(ScInput i) {
     ikMaxA: startMax[n],
     ikNetA: netMax[n],
     ikMotorA: motMax[n],
-    ikPercentZA: pctNet + pctMot,
+    ikPercentZA: pctTotal,
     kappa: kappa,
     rOverX: rOverX,
     ipA: startIp[n],
