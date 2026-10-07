@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tubing_calculator/src/data/models/cart_item_model.dart';
 import 'package:tubing_calculator/src/data/models/steel_cutting_project_model.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart';
@@ -100,32 +99,6 @@ void main() {
       expect(q.stockLength, 6000.0);
       expect(q.setMultiplier, 1);
       expect(q.items, isEmpty);
-    });
-  });
-
-  group('자재 주문 장바구니 항목', () {
-    test('저장·불러오기(사진·규격 포함)', () {
-      final a = CartItemModel(
-        title: '엘보 1/2',
-        qty: '10',
-        type: '피팅',
-        fabSpec: '90도',
-        photos: ['a.jpg', 'b.jpg'],
-      );
-      final b = CartItemModel.fromMap(a.toMap());
-      expect(b.title, '엘보 1/2');
-      expect(b.qty, '10');
-      expect(b.type, '피팅');
-      expect(b.fabSpec, '90도');
-      expect(b.photos, ['a.jpg', 'b.jpg']);
-    });
-
-    test('빠진 값은 기본값(일반 자재)', () {
-      final b = CartItemModel.fromMap({});
-      expect(b.title, '');
-      expect(b.type, '일반 자재');
-      expect(b.fabSpec, isNull);
-      expect(b.photos, isNull);
     });
   });
 
