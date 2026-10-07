@@ -630,7 +630,8 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final v = n('v', _volts);
     if (v > 0) {
       _volts = v;
-      if (!kAcVolts.contains(v)) _vCustom.text = fmt(v, v == v.roundToDouble() ? 0 : 1);
+      // 표준 전압이면 직접 입력 칸을 비운다(10-07: 옛 값 6600이 남아 칸과 계산이 달랐다).
+      _vCustom.text = kAcVolts.contains(v) ? '' : fmt(v, v == v.roundToDouble() ? 0 : 1);
     }
     _phase = en([Phase.single, Phase.three], 'ph', _phase);
     _supply = en(SupplyType.values, 'sup', _supply);
@@ -656,7 +657,7 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     final dcv = n('dcV', n('vdDcV', _dcVolts));
     if (dcv > 0) {
       _dcVolts = dcv;
-      if (!kDcVolts.contains(dcv)) _dcvCustom.text = fmt(dcv, dcv == dcv.roundToDouble() ? 0 : 1);
+      _dcvCustom.text = kDcVolts.contains(dcv) ? '' : fmt(dcv, dcv == dcv.roundToDouble() ? 0 : 1);
     }
     final vds = n('vdSize', _vdSize);
     if (_vdSizes.contains(vds)) _vdSize = vds;

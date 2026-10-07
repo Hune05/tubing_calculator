@@ -124,4 +124,15 @@ void main() {
     expect(find.text(RecentCalcLog.kBadData), findsOneWidget);
     expect(_text(t, 'ec_kw'), '7');
   });
+
+  testWidgets('표준 전압(380V) 때 기록으로 되돌리면 직접 입력 전압 칸의 옛 값이 지워진다', (t) async {
+    await _open(t, 1);
+    await _type(t, 'ec_kw', '11');
+    await _type(t, 'ec_v_custom', '6600');
+    await t.tap(find.byKey(const Key('calc_history_button')));
+    await t.pumpAndSettle();
+    await t.tap(find.textContaining('19.7 A').last);
+    await t.pumpAndSettle();
+    expect(_text(t, 'ec_v_custom'), '');
+  });
 }
