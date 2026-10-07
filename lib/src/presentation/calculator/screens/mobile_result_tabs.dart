@@ -1170,7 +1170,11 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                               folderName,
                               folderItems.length,
                               onMenu: () =>
-                                  _renameFolder(folderName, folderItems),
+                                  _renameFolder(
+                                    folderName,
+                                    // 검색 중이어도 폴더의 도면 전부를 옮긴다(10-08: 걸린 것만 옮겨 작업이 둘로 갈라졌다).
+                                    _groupedHistory[folderName] ?? folderItems,
+                                  ),
                             ),
                             children: [
                               for (final item in folderItems)

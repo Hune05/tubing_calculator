@@ -119,9 +119,15 @@ Future<List<BendCheck>> loadBendChecks() async {
     if (s == null || s.isEmpty) return [];
     final list = jsonDecode(s);
     if (list is! List) return [];
-    return [
-      for (final e in list) ?BendCheck.fromJson(e),
-    ]..sort((a, b) => b.at.compareTo(a.at));
+    // 한 건이 깨져도 나머지는 읽는다(10-08: 빈 목록이 되면 다음 저장이 기록 전체를 덮었다).
+    final out = <BendCheck>[];
+    for (final e in list) {
+      try {
+        final c = BendCheck.fromJson(e);
+        if (c != null) out.add(c);
+      } catch (_) {}
+    }
+    return out..sort((a, b) => b.at.compareTo(a.at));
   } catch (_) {
     return [];
   }

@@ -264,26 +264,7 @@ class _MobileFabricationDetailScreenState
     Navigator.of(context).pop({'loaded': true, 'startDir': _startDir});
   }
 
-  String _getDirectionText(double rot) {
-    if (rot == 0.0) return "UP";
-    if (rot == 90.0) return "RIGHT";
-    if (rot == 180.0) return "DOWN";
-    if (rot == 270.0) return "LEFT";
-    if (rot == 360.0) return "FRONT";
-    if (rot == 450.0) return "BACK";
-    return "${rot.toInt()}°";
-  }
-
-  String _getDirectionTextShort(double rot) {
-    double normalizedRot = rot % 360.0;
-    if (normalizedRot < 0) normalizedRot += 360.0;
-    if (normalizedRot == 0.0) return "0° (유지)";
-    if (normalizedRot <= 180.0) {
-      return "CW ${normalizedRot.round()}°";
-    } else {
-      return "CCW ${(360.0 - normalizedRot).round()}°";
-    }
-  }
+  String _getDirectionText(double rot) => fabDirectionLabel(rot);
 
   IconData _getDirectionIcon(double rot) {
     if (rot == 0.0) return Icons.arrow_upward;
@@ -578,10 +559,10 @@ class _MobileFabricationDetailScreenState
                   String length = "${(bend['length'] ?? 0).toDouble().round()}";
                   String angle = isStraight
                       ? "-"
-                      : "${(double.tryParse(bend['angle']?.toString() ?? '0') ?? 0).round()}°";
+                      : "${fabAngleText(double.tryParse(bend['angle']?.toString() ?? '0') ?? 0)}°";
                   String direction = isStraight
                       ? "-"
-                      : _getDirectionTextShort(
+                      : fabDirectionLabel(
                           (bend['rotation'] ?? 0.0).toDouble(),
                         );
                   String marking = isStraight
@@ -657,7 +638,7 @@ class _MobileFabricationDetailScreenState
         );
       }
     } finally {
-      setState(() => _isExporting = false);
+      if (mounted) setState(() => _isExporting = false);
     }
   }
 
@@ -1228,8 +1209,8 @@ class _MobileFabricationDetailScreenState
           title: isStraight
               ? "직관 연장 마킹"
               : hasSpringback
-              ? "${angle.round()}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
-              : "${angle.round()}° 벤딩",
+              ? "${fabAngleText(angle)}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
+              : "${fabAngleText(angle)}° 벤딩",
           dirIcon: _getDirectionIcon(rotation),
           dirText: _getDirectionText(rotation),
           selected: isSelected,
@@ -1257,3 +1238,19 @@ class _MobileFabricationDetailScreenState
     );
   }
 }
+
+/// 저장된 방향 값(0·90·180·270·360·450)을 화면 카드와 같은 말로. PDF도 이것을 쓴다
+/// (10-08: PDF만 360으로 나눈 나머지를 써서 FRONT가 "0° (유지)", BACK이 "CW 90°"로 찍혔다).
+String fabDirectionLabel(double rot) {
+  if (rot == 0.0) return "UP";
+  if (rot == 90.0) return "RIGHT";
+  if (rot == 180.0) return "DOWN";
+  if (rot == 270.0) return "LEFT";
+  if (rot == 360.0) return "FRONT";
+  if (rot == 450.0) return "BACK";
+  return "${rot.toInt()}°";
+}
+
+/// 각도 글: 정수면 정수, 아니면 소수 한 자리(10-08: 22.5°가 "23°"로 보였다, 마킹 탭과 같게).
+String fabAngleText(double a) =>
+    a == a.roundToDouble() ? "${a.round()}" : a.toStringAsFixed(1);

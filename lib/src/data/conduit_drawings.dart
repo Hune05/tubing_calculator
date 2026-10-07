@@ -97,7 +97,16 @@ Future<List<ConduitDrawing>> loadConduitDrawings() async {
     if (raw == null || raw.isEmpty) return [];
     final decoded = jsonDecode(raw);
     if (decoded is! List) return [];
-    final list = [for (final j in decoded) ?ConduitDrawing.fromJson(j)];
+    // 한 건이 깨져도 나머지는 읽는다(10-08: 통째로 빈 목록이 되면 다음 저장이 보관함 전체를 덮었다).
+    final list = <ConduitDrawing>[];
+    for (final j in decoded) {
+      try {
+        final d = ConduitDrawing.fromJson(j);
+        if (d != null) list.add(d);
+      } catch (e) {
+        debugPrint('전선관 보관함 한 건 건너뜀: $e');
+      }
+    }
     list.sort((a, b) => b.id.compareTo(a.id));
     return list;
   } catch (e) {

@@ -360,6 +360,7 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
     super.initState();
     _startDir = widget.initialStartDir;
     _loadSavedDirection();
+    loadConduitStartDir(); // 커플링 체결도 함께 되살린다(마킹 탭을 안 열어도 현장 탭이 맞게)
   }
 
   Future<void> _loadSavedDirection() async {

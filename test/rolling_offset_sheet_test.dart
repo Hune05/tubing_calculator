@@ -162,6 +162,24 @@ void main() {
     expect(find.byKey(const Key('rolling_missing')), findsOneWidget);
   });
 
+  testWidgets('각도를 90° 이상(120°)으로 넣으면 목록에 넣지 않고 알린다(10-08)', (tester) async {
+    final one = <(double, double, double)>[];
+    final many = <List<Map<String, double>>>[];
+    await openSheet(tester, one: (l, a, r) => one.add((l, a, r)), many: many.add);
+    final angle = find.byWidgetPredicate(
+      (w) => w is TextField && w.controller?.text == '45',
+    );
+    tester.widget<TextField>(angle.first).controller!.text = '120';
+    await tester.pump();
+    await tester.ensureVisible(find.text('목록에 넣기'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('목록에 넣기'));
+    await tester.pump();
+    expect(one, isEmpty);
+    expect(many, isEmpty);
+    expect(find.text('넣을 수 없습니다. 각도는 90°보다 작아야 합니다.'), findsOneWidget);
+  });
+
   testWidgets('입력 칸을 누르면 그림이 그 값을 강조한다(칸 ↔ 그림 연동)', (tester) async {
     await openSheet(tester, one: (l, a, r) {});
     RollingFocus? focus() =>

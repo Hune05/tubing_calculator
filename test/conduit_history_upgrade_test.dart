@@ -347,6 +347,31 @@ void main() {
       expect((await folders(tester)).toSet(), {'A구역', 'B구역'});
     });
 
+    testWidgets('검색 중에 작업 이름을 바꿔도 그 폴더의 도면이 모두 옮겨진다(10-08)', (tester) async {
+      await openTab(tester);
+      await tester.runAsync(
+        () => saveConduitDrawing(
+          folderName: 'A구역',
+          title: '둘째 도면',
+          totalCut: 500,
+          bends: [b(250, 90), b(250, 0)],
+        ),
+      );
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(const MaterialApp(home: ConduitHistoryTab()));
+      await settle(tester);
+      await tester.enterText(find.byType(TextField).first, '첫 도면');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('conduit_folder_menu_A구역')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('folder_rename_field')), '신규구역');
+      await tester.tap(find.byKey(const Key('folder_rename_ok')));
+      await settle(tester);
+      final all = await folders(tester);
+      expect(all.where((f) => f == 'A구역'), isEmpty);
+      expect(all.where((f) => f == '신규구역').length, 2);
+    });
+
     testWidgets('이미 있는 이름으로 바꾸면 합쳐진다(칩으로 고른다)', (tester) async {
       await openTab(tester);
       await tester.tap(find.byKey(const ValueKey('conduit_folder_menu_A구역')));

@@ -17,13 +17,31 @@ final ValueNotifier<bool> conduitUseCoupling = ValueNotifier(false);
 /// 3D(아이소) 탭에서 고른 시작 방향. 관끼리 닿는지 볼 때 쓴다.
 final ValueNotifier<String> conduitStartDir = ValueNotifier('RIGHT');
 
+/// 커플링 체결을 폰에 남기는 키(10-08: 앱을 다시 켜면 "미체결"로 돌아가 총 절단 길이가 짧게 나왔다).
+const String kConduitCouplingKey = 'conduit_use_coupling_v1';
+bool _couplingHooked = false;
+
 Future<void> loadConduitStartDir() async {
   try {
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('conduit_saved_start_dir');
     if (saved != null) conduitStartDir.value = saved;
+    if (!_couplingHooked) {
+      final c = prefs.getBool(kConduitCouplingKey);
+      if (c != null) conduitUseCoupling.value = c;
+      // 읽은 뒤부터 바뀔 때마다 남긴다(읽기 전 기본값으로 덮지 않게).
+      _couplingHooked = true;
+      conduitUseCoupling.addListener(() {
+        SharedPreferences.getInstance()
+            .then((p) => p.setBool(kConduitCouplingKey, conduitUseCoupling.value))
+            .catchError((_) => false);
+      });
+    }
   } catch (_) {}
 }
+
+@visibleForTesting
+void resetConduitCouplingHookForTest() => _couplingHooked = false;
 
 /// 현장 탭이 다시 그려야 할 때 알려 주는 것들.
 Listenable conduitFieldListenable() => Listenable.merge([

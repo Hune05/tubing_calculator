@@ -156,6 +156,16 @@ class _MobileRollingOffsetBottomSheetState
     double rollAngle,
     double advance,
   ) {
+    // 오프셋 창처럼 90° 미만만 받는다(10-08: 120°·175°도 목록에 들어가 절단 길이가 이상하게 나왔다).
+    if (finalBendAngle >= 90) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("넣을 수 없습니다. 각도는 90°보다 작아야 합니다."),
+          backgroundColor: Colors.deepOrange,
+        ),
+      );
+      return;
+    }
     if (_selectedRotation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

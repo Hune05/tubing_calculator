@@ -490,7 +490,14 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                   tooltip: '작업 이름 바꾸기',
                   visualDensity: VisualDensity.compact,
                   icon: const Icon(Icons.edit_outlined, color: slate600, size: 20),
-                  onPressed: () => _renameFolder(folderName, items),
+                  onPressed: () => _renameFolder(
+                    folderName,
+                    // 검색 중이어도 폴더의 도면 전부를 옮긴다(10-08).
+                    [
+                      for (final e in _savedDrawings)
+                        if ('${e['folderName'] ?? '미분류 도면'}' == folderName) e,
+                    ],
+                  ),
                 ),
               ],
             ),
