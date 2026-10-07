@@ -149,14 +149,16 @@ class _AutoItem {
 /// 대기 → 오늘 일정 → 작업 일지 미작성 순서.
 Future<List<_AutoItem>> _buildCandidates(String currentWorker) async {
   final pending = WorkProjectRepository.pendingWrites.value;
-  int todayCount = 0;
-  int? missing;
-  try {
-    todayCount = await fetchTodayScheduleCount(currentWorker);
-  } catch (_) {}
-  try {
-    missing = await fetchMissingReportCount();
-  } catch (_) {}
+  // 둘을 함께 센다(10-07: 차례로 기다려 통신이 약하면 18초쯤 돌았다).
+  final todayF = fetchTodayScheduleCount(
+    currentWorker,
+  ).then<int>((v) => v, onError: (_) => 0);
+  final missingF = fetchMissingReportCount().then<int?>(
+    (v) => v,
+    onError: (_) => null,
+  );
+  final int todayCount = await todayF;
+  final int? missing = await missingF;
 
   // 최근에 안전 점검을 써 온 사람이 오늘은 아직 안 했으면 알린다(안 쓰는 사람에게는 알리지 않는다).
   bool safetyMissing = false;

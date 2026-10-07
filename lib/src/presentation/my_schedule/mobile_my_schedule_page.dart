@@ -572,14 +572,17 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           totalDays: item.spanTotal,
           wholeDone: item.legacyWholeDone,
         );
+        // 서버가 거절하면(다른 기기에서 지운 일정 등) 알린다(10-07: 조용히 묻혔다).
         await docRef.update({
           for (final c in changes)
             FieldPath(c.path): c.value ?? FieldValue.delete(),
           // 예전 방식으로 전체가 끝나 있던 일정의 하루를 풀 때는 전체 완료 표시를 푼다.
           if (item.isCompleted && item.legacyWholeDone) 'isCompleted': false,
-        });
+        }).catchError(_scheduleSaveFailed);
       } else if (item.recurrence == 'none') {
-        await docRef.update({'isCompleted': !item.isCompleted});
+        await docRef
+            .update({'isCompleted': !item.isCompleted})
+            .catchError(_scheduleSaveFailed);
       } else {
         // 키에 점이 들어 있어서 칸 목록(FieldPath)으로 넘긴다. 완료를 풀 때는 예전 중첩 모양도 지운다.
         await docRef.update({
@@ -587,7 +590,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           if (item.isCompleted)
             FieldPath(legacyOccurrenceFieldPath(item.date)):
                 FieldValue.delete(),
-        });
+        }).catchError(_scheduleSaveFailed);
       }
     } else {
       if (item.projectId == null || item.scheduleId == null) return;
@@ -815,7 +818,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     );
     if (!confirmed) return;
     await cancelPersonalReminders(docId);
-    await col.doc(docId).delete();
+    await col.doc(docId).delete().catchError(_scheduleSaveFailed);
   }
 
   /// 회차를 빼거나 끊는 쓰기를 보낸 뒤, 그 바뀐 값([change])으로 알림을 바로 다시 잡는다.

@@ -86,10 +86,14 @@ Future<bool> toggleSharedDoc(
   String? name,
 }) async {
   final toShared = !isSharedDoc(data);
-  await ref.update(
-    toShared
-        ? {kOwnerUid: '', kOwnerName: ''}
-        : ownerFieldsFor(shared: false, uid: currentUid(), name: name),
-  );
+  // 통신이 없으면 쓰기는 폰에 남아 나중에 올라가므로 5초만 기다린다
+  // (10-07: 연결될 때까지 기다려 "공용으로 돌렸습니다" 알림이 끝내 안 떴다).
+  await ref
+      .update(
+        toShared
+            ? {kOwnerUid: '', kOwnerName: ''}
+            : ownerFieldsFor(shared: false, uid: currentUid(), name: name),
+      )
+      .timeout(const Duration(seconds: 5), onTimeout: () {});
   return toShared;
 }
