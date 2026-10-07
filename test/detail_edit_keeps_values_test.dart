@@ -115,6 +115,24 @@ void main() {
     expect(lastPToP()['specs'], _specs);
   });
 
+  testWidgets('폰의 DB 줄(읽기 전용)로 열어도 방향 돌리기·정보 수정이 된다', (tester) async {
+    // sqflite가 돌려주는 줄은 값을 넣으면 예외가 난다. 예전에는 실기기에서 "저장하지 못했습니다"가 떴다.
+    await open(tester, Map<String, dynamic>.unmodifiable(_item()));
+    final viz = tester.widget<MobilePipeVisualizer>(find.byType(MobilePipeVisualizer));
+    viz.onStartDirChanged!('LEFT');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('도면 정보 수정'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'A동'), 'B동');
+    await tester.pump();
+    await tester.tap(find.text('수정 완료'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('도면 정보를 수정했습니다.'), findsOneWidget);
+    expect(lastPToP()['project'], 'B동');
+    expect(lastPToP()['start_dir'], 'LEFT'); // 방향이 옛 값으로 돌아가지 않는다
+  });
+
   testWidgets('수정 창: 한글 라벨, 보관함에 있는 작업 이름이 칩으로 나오고 누르면 들어간다', (tester) async {
     Map<String, dynamic> rowOf(String project) => {
       'id': 1,

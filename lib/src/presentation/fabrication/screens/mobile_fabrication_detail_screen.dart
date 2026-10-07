@@ -50,6 +50,10 @@ class MobileFabricationDetailScreen extends StatefulWidget {
 
 class _MobileFabricationDetailScreenState
     extends State<MobileFabricationDetailScreen> {
+  /// 보관함 줄을 고쳐 쓸 수 있게 복사해 둔다. 폰의 DB(sqflite)가 돌려주는 줄은 읽기 전용이라
+  /// 바로 고치면 예외가 나서 "도면 정보 수정"·"시작 방향 바꾸기"가 실기기에서 실패했다(10-07).
+  late final Map<String, dynamic> _item = Map<String, dynamic>.from(widget.itemData);
+
   Map<String, dynamic> _pToP = {};
   List<Map<String, dynamic>> _bendList = [];
   double _totalLength = 0.0;
@@ -91,9 +95,9 @@ class _MobileFabricationDetailScreenState
 
   void _parseData() {
     try {
-      _pToP = jsonDecode(widget.itemData['p_to_p']?.toString() ?? '{}');
+      _pToP = jsonDecode(_item['p_to_p']?.toString() ?? '{}');
       List<dynamic> rawBends = jsonDecode(
-        widget.itemData['bend_data']?.toString() ?? '[]',
+        _item['bend_data']?.toString() ?? '[]',
       );
 
       _bendList = List<Map<String, dynamic>>.from(rawBends);
@@ -107,7 +111,7 @@ class _MobileFabricationDetailScreenState
       }
 
       double dbTotal =
-          double.tryParse(widget.itemData['total_length']?.toString() ?? '0') ??
+          double.tryParse(_item['total_length']?.toString() ?? '0') ??
           0.0;
 
       double pToPTotal =
@@ -130,7 +134,7 @@ class _MobileFabricationDetailScreenState
       if (bendListTotal > maxTotal) maxTotal = bendListTotal;
       _totalLength = maxTotal;
 
-      _pipeSize = widget.itemData['pipe_size']?.toString() ?? 'Unknown';
+      _pipeSize = _item['pipe_size']?.toString() ?? 'Unknown';
       _projectName = _pToP['project']?.toString() ?? '미지정 프로젝트';
       _fromTo = "${_pToP['from'] ?? '모름'} ➔ ${_pToP['to'] ?? '모름'}";
       _tailLength = double.tryParse(_pToP['tail']?.toString() ?? '0') ?? 0.0;
@@ -247,7 +251,7 @@ class _MobileFabricationDetailScreenState
         },
     ]);
     // 고친 뒤 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있게 어느 도면에서 왔는지 기억한다.
-    final id = widget.itemData['id'];
+    final id = _item['id'];
     if (id is int) m.setSource(id);
     m.startFit = _startFit;
     m.endFit = _endFit;
@@ -371,7 +375,7 @@ class _MobileFabricationDetailScreenState
         tail: _tailLength,
         startDir: _startDir,
         totalCut: _totalLength,
-        now: FabQr.savedDateOf(widget.itemData['date']),
+        now: FabQr.savedDateOf(_item['date']),
       );
       if (qrLink.dense && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -870,7 +874,7 @@ class _MobileFabricationDetailScreenState
                                       });
 
                                   await TubeHistoryDb.update(
-                                    widget.itemData['id'] as int,
+                                    _item['id'] as int,
                                     {
                                       'p_to_p': jsonEncode(newPtoP),
                                       'pipe_size': selectedSize,
@@ -879,10 +883,10 @@ class _MobileFabricationDetailScreenState
 
                                   // 부모 위젯 데이터 갱신
                                   setState(() {
-                                    widget.itemData['p_to_p'] = jsonEncode(
+                                    _item['p_to_p'] = jsonEncode(
                                       newPtoP,
                                     );
-                                    widget.itemData['pipe_size'] = selectedSize;
+                                    _item['pipe_size'] = selectedSize;
                                     _parseData();
                                   });
 
@@ -1130,10 +1134,10 @@ class _MobileFabricationDetailScreenState
                   "start_dir": newDir,
                 });
                 final String newPtoPJson = jsonEncode(newPtoP);
-                await TubeHistoryDb.update(widget.itemData['id'] as int, {
+                await TubeHistoryDb.update(_item['id'] as int, {
                   'p_to_p': newPtoPJson,
                 });
-                widget.itemData['p_to_p'] = newPtoPJson;
+                _item['p_to_p'] = newPtoPJson;
                 _pToP = newPtoP;
               } catch (e) {
                 debugPrint("방향 저장 실패: $e");
