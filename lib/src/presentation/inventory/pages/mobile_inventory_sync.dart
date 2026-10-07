@@ -320,7 +320,10 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
               if (data.department.isNotEmpty) {
                 updates['department'] = data.department; // ★ 추가
               }
-              updates['minQty'] = data.minQty; // ★ 추가 (최소 수량 변경 사항 반영)
+              // 셀 때 값에서 바꿨을 때만 보낸다(다른 기기에서 바꾼 최소 수량을 덮지 않게).
+              if (data.minQtyChanged) {
+                updates['minQty'] = data.minQty;
+              }
             } catch (_) {}
 
             batch.update(existingDocRef, updates);

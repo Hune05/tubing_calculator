@@ -122,16 +122,18 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     item.qty = (docData['qty'] as num?)?.toInt() ?? 0;
     // 세기 시작한 때의 장부 수량. 문서를 못 찾았으면(빈 칸) 모른다고 둔다.
     item.bookQty = (docData['qty'] as num?)?.toInt();
-    try {
-      item.heatNo = docData['heatNo'] ?? '';
-      item.maker = docData['maker'] ?? '';
-      item.location = docData['location'] ?? '';
-      item.material = docData['material'] ?? '';
-      item.spec = docData['spec'] ?? docData['size'] ?? '';
-      item.projectName = docData['projectName'] ?? '';
-      item.department = docData['department'] ?? '';
-      item.minQty = docData['minQty'] ?? docData['min_qty'] ?? 0;
-    } catch (_) {}
+    // 칸마다 따로 읽는다(한 칸이 다른 형이면 예전에는 나머지까지 빈 값·0으로 남았다, 10-07).
+    String text(String k) => docData[k]?.toString() ?? '';
+    item.heatNo = text('heatNo');
+    item.maker = text('maker');
+    item.location = text('location');
+    item.material = text('material');
+    item.spec = text('spec').isNotEmpty ? text('spec') : text('size');
+    item.projectName = text('projectName');
+    item.department = text('department');
+    final mq = docData['minQty'] ?? docData['min_qty'];
+    item.minQty = mq is num ? mq.toInt() : (int.tryParse('${mq ?? ''}') ?? 0);
+    item.bookMinQty = item.minQty;
     return item;
   }
 
