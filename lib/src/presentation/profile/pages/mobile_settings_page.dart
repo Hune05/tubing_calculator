@@ -58,7 +58,9 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
       );
       await signInOrLinkGoogle(credential);
       final got = await restoreCalculatorSettings();
-      if (got == 0) await SettingsCloudSync.instance.backup();
+      if (got == 0 && SettingsCloudSync.instance.lastRestoreServerMissing) {
+        await SettingsCloudSync.instance.backup();
+      }
       if (mounted) setState(() {});
       return true;
     } catch (e) {

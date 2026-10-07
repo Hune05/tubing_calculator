@@ -76,7 +76,9 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
 
       // 폰에 없는 설정 칸은 서버 것으로 채우고, 받을 것이 없으면 폰 설정을 올려 둔다.
       final got = await restoreCalculatorSettings();
-      if (got == 0) SettingsCloudSync.instance.backup();
+      if (got == 0 && SettingsCloudSync.instance.lastRestoreServerMissing) {
+        SettingsCloudSync.instance.backup();
+      }
 
       if (!mounted) return;
       await _showNameConfirmDialog(account.displayName ?? "");

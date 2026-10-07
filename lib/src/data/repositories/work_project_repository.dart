@@ -26,6 +26,8 @@ List<Map<String, dynamic>>? scheduleListWithCompleted(
   final idx = list.indexWhere((s) => s['id']?.toString() == scheduleId);
   if (idx < 0) return null;
   list[idx]['isCompleted'] = done;
+  // 고친 시각도 찍는다(10-08: 안 찍어, 다른 기기의 옛 사본이 저장하면 완료가 되돌아갔다).
+  list[idx]['updatedAt'] = DateTime.now().toIso8601String();
   return list;
 }
 
@@ -182,7 +184,13 @@ class WorkProjectRepository {
     bool done,
   ) async {
     final ref = _col.doc(projectId);
-    final snap = await ref.get();
+    // 통신이 약하면 끝없이 기다렸다(10-08). 6초 뒤 폰 사본으로.
+    DocumentSnapshot<Map<String, dynamic>> snap;
+    try {
+      snap = await ref.get().timeout(const Duration(seconds: 6));
+    } catch (_) {
+      snap = await ref.get(const GetOptions(source: Source.cache));
+    }
     final updated = scheduleListWithCompleted(
       snap.data()?['schedules'],
       scheduleId,

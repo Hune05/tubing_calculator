@@ -106,9 +106,10 @@ extension _DailyReportDraft on _DailyReportPageState {
       );
       if (resume == true) {
         _applyDraft(m);
-      } else {
+      } else if (resume == false) {
         await _clearDraft();
       }
+      // 바깥을 눌러 닫으면(null) 지우지 않고 다음에 다시 묻는다(10-08: "새로 시작"처럼 지웠다).
     } catch (_) {}
   }
 

@@ -284,16 +284,29 @@ class SettingsCloudSync {
   ///
   /// 이미 화면에 읽어 둔 설정은 그대로이므로, 1 이상이면 부른 쪽에서 다시 읽게 한다
   /// (안 그러면 다음 저장 때 옛 값으로 덮인다).
+  /// 마지막 [restore]에서 서버를 읽었는데 설정 문서가 없었는지(못 읽었으면 false).
+  /// 로그인 직후 "서버에 없을 때만" 이 기기 설정을 올리는 데 쓴다(10-08: 받을 칸이 0이기만 하면 올려,
+  /// 이 기기의 옛 게인·반경이 다른 기기에서 고친 새 값을 덮었다).
+  bool lastRestoreServerMissing = false;
+
   Future<int> restore({bool overwrite = false}) async {
+    lastRestoreServerMissing = false;
     final uid = uidProvider();
     if (uid == null) return 0;
     try {
       final prefs = await SharedPreferences.getInstance();
+      var timedOut = false;
       final doc = await store
           .read(uid)
-          .timeout(const Duration(seconds: 5), onTimeout: () => null);
+          .timeout(const Duration(seconds: 5), onTimeout: () {
+            timedOut = true;
+            return null;
+          });
       final settings = doc?['settings'];
-      if (settings is! Map) return 0;
+      if (settings is! Map) {
+        lastRestoreServerMissing = !timedOut;
+        return 0;
+      }
       final n = await applyCloudSettings(
         prefs,
         Map<String, dynamic>.from(settings),

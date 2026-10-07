@@ -105,6 +105,18 @@ void main() {
     expect(prefs.getDouble('bendRadius'), 30.0);
   });
 
+  test('서버에 설정 문서가 있으면 받을 칸이 0이어도 "없음"으로 보지 않는다(로그인 뒤 옛 값을 올리지 않게, 10-08)', () async {
+    store.docs['uid-A'] = {
+      'settings': {'bendRadius': 50.0},
+    };
+    SharedPreferences.setMockInitialValues({'bendRadius': 38.1});
+    expect(await sync.restore(), 0);
+    expect(sync.lastRestoreServerMissing, isFalse);
+    store.docs.remove('uid-A');
+    expect(await sync.restore(), 0);
+    expect(sync.lastRestoreServerMissing, isTrue);
+  });
+
   test('폰에 있는 칸은 그대로 두고, 없는 칸만 서버 것으로 채운다', () async {
     store.docs['uid-A'] = {
       'settings': {'bendRadius': 50.0, 'gain': 12.0},

@@ -1369,16 +1369,21 @@ class _DailyReportPageState extends State<DailyReportPage> {
                     children: [
                       Expanded(
                         child: TextField(
+                          key: const Key('report_points'),
                           controller: _pointCtrl,
                           keyboardType: TextInputType.number,
+                          // 개수라 숫자만 받는다(10-08: "12.5"·"1,200"이 말없이 0으로 저장됐다).
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           decoration: _dec(label: "벤딩 완료 (pt)"),
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
+                          key: const Key('report_wiring_points'),
                           controller: _wiringPointCtrl,
                           keyboardType: TextInputType.number,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                           decoration: _dec(label: "결선 완료 (개소)"),
                         ),
                       ),

@@ -44,6 +44,42 @@ void main() {
     expect(missing.map((e) => e['name']), ['작년에만 씀']);
   });
 
+  testWidgets('"이어서 쓰기" 창을 바깥을 눌러 닫으면 임시 저장을 지우지 않는다(10-08)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'draft_k': jsonEncode({
+        'savedAt': DateTime.now().toIso8601String(),
+        'note': '쓰던 일지',
+      }),
+    });
+    tester.view.physicalSize = const Size(1440, 3200);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(home: DailyReportPage(draftKey: 'draft_k')),
+    );
+    await tester.pumpAndSettle();
+    expect(findText('이어서 쓰기'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10)); // 창 바깥
+    await tester.pumpAndSettle();
+    final p = await SharedPreferences.getInstance();
+    expect(p.getString('draft_k'), contains('쓰던 일지'));
+  });
+
+  testWidgets('포인트 칸은 숫자만 받는다("1,200" → 1200, 10-08)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1440, 3200);
+    tester.view.devicePixelRatio = 2.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: DailyReportPage()));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('report_points')), '1,200');
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('report_points'))).controller!.text,
+      '1200',
+    );
+  });
+
   testWidgets('이어 쓴 임시 저장은 고른 날짜(지난 날)로 저장된다', (tester) async {
     final day = DateTime.now().subtract(const Duration(days: 3));
     SharedPreferences.setMockInitialValues({

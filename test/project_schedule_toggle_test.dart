@@ -12,6 +12,9 @@ void main() {
     expect(r[0]['isCompleted'], true);
     expect(r[1]['title'], '다른 폰에서 넣은 일정');
     expect(r[1]['isCompleted'], false);
+    // 고친 일정에만 고친 시각을 찍는다(합칠 때 다른 기기의 옛 사본에 지지 않게, 10-08).
+    expect(r[0]['updatedAt'], isNotNull);
+    expect(r[1].containsKey('updatedAt'), isFalse);
     // 원래 목록은 건드리지 않는다.
     expect(fresh[0]['isCompleted'], false);
   });
