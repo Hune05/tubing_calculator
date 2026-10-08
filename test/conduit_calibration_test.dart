@@ -104,7 +104,7 @@ void main() {
       expect(prefs.getString(kConduitSettingsPrefsKey), contains('"gain":78.0'));
     });
 
-    testWidgets('유압(램) 화면에는 단추가 없다(테이크업·게인을 안 쓴다)', (tester) async {
+    testWidgets('유압(램) 화면에는 "게인 잡기" 단추가 있고 셋백 칸은 없다(10-09 슈 가운데 맞춤)', (tester) async {
       globalBenderSettings.value = {
         ...globalBenderSettings.value,
         'benderType': 'ram',
@@ -112,7 +112,23 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(420, 2600));
       await tester.pumpWidget(const MaterialApp(home: ConduitSettingsPage()));
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('conduit_calibrate')), findsNothing);
+      expect(find.byKey(const Key('conduit_calibrate')), findsOneWidget);
+      expect(find.text("시험 벤딩으로 게인 잡기"), findsOneWidget);
+      expect(find.textContaining("셋백 (Setback)"), findsNothing);
+    });
+
+    test('유압 시험 벤딩: 게인 = 두 다리 − 자른 길이, 슈 가운데까지 = 스텁 − 마킹', () {
+      // 반경 93짜리 원호를 슈 가운데에서 90°로 꺾은 관(가운데 기준): 게인 = 93·(2 − π/2) = 39.9,
+      // 꺾이는 점은 마킹에서 게인/2 = 19.96 뒤.
+      const g = 93 * (2 - 3.141592653589793 / 2);
+      final r = ramCalibration(cut: 1000, mark: 400, stub: 400 + g / 2, otherLeg: 1000 - 400 + g / 2)!;
+      expect(r.gain, closeTo(g, 1e-9));
+      expect(r.centerOffset, closeTo(g / 2, 1e-9));
+      expect(r.diff.abs(), lessThan(1e-9));
+      // 마킹을 슈 가운데가 아닌 곳에 맞췄으면 차이가 드러난다.
+      final off = ramCalibration(cut: 1000, mark: 330, stub: 400 + g / 2, otherLeg: 600 + g / 2)!;
+      expect(off.diff, closeTo(70, 1e-9));
+      expect(ramCalibration(cut: 0, mark: 1, stub: 1, otherLeg: 1), isNull);
     });
   });
 }

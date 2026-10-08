@@ -103,7 +103,8 @@ void main() {
       'setback': 40.0,
     });
     final ramMap = {for (final (k, v) in ram) k: v};
-    expect(ramMap.containsKey('셋백(90°)'), isTrue);
+    // 10-09: 유압은 슈 가운데 맞춤(꺾이는 점 − 게인/2).
+    expect(ramMap['슈 가운데(90°)'], '40.6 mm'); // 게인 81.2 ÷ 2
     expect(ramMap.containsKey('테이크업(90°)'), isFalse);
   });
 

@@ -98,11 +98,11 @@ void main() {
       expect(BendSheetSpecs.conduit(s).addGeometricShrink, isTrue);
     });
 
-    test('유압(램)은 셋백 설정값을 쓴다', () {
-      final s = conduitSettings(benderType: 'ram', setback: 40.0);
+    test('유압(램)은 슈 가운데 맞춤: 꺾이는 점 − 게인/2(셋백 칸은 안 씀, 10-09)', () {
+      final s = conduitSettings(benderType: 'ram', setback: 175.0);
       final specs = BendSheetSpecs.conduit(s);
-      expect(specs.markOffset(90), closeTo(40.0, 1e-9));
-      expect(specs.markOffset(45), closeTo(40.0 * 0.41421356, 1e-6));
+      expect(specs.markOffset(90), closeTo(81.2 / 2, 1e-9));
+      expect(specs.markOffset(45), closeTo(conduitGainForAngle(45, 81.2) / 2, 1e-9));
       final m = calculateConduitMarkings(
         bends([
           [300, 0, 0],

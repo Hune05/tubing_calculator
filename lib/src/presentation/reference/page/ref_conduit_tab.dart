@@ -121,17 +121,21 @@ class RefConduitTab extends StatelessWidget {
 
         refExpandCard(
           title: "3. 유압식 벤더 제원 (앱 값)",
-          subtitle: "90° 램 이동 거리 · 셋백 · CLR",
+          subtitle: "90° 램 이동 거리 · CLR · 슈 가운데 마킹",
           icon: Icons.precision_manufacturing,
           iconColor: Colors.indigo,
           children: [
             refDataRow("램 이동", "90°로 꺾을 때 램이 나가는 거리입니다. 다른 각도는 이 값으로 계산해 보여 줍니다."),
-            refDataRow("셋백", "꺾이는 점에서 슈 가운데 표시까지 빼는 거리입니다."),
+            refDataRow(
+              "마킹",
+              "가운데서 미는 방식이라 마킹을 슈 가운데에 맞춥니다. 슈 가운데가 닿는 자리는 굽은 부분의 한가운데라, 꺾이는 점에서 그 각도 게인의 절반만큼 앞에 마킹합니다(90° 게인 40이면 20mm 앞).",
+            ),
+            refDataRow("게인", "벤더마다 다르니 전선관 설정의 \"시험 벤딩으로 게인 잡기\"로 한 번 재서 넣습니다."),
             const SizedBox(height: 8),
             _specTables(
               'ram',
-              const ['ramTravel', 'setback', 'clr'],
-              const ["램 이동\n(mm)", "셋백\n(mm)", "CLR\n(mm)"],
+              const ['ramTravel', 'clr'],
+              const ["램 이동\n(mm)", "CLR\n(mm)"],
             ),
           ],
         ),

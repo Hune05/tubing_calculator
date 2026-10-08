@@ -38,10 +38,19 @@ double conduitGainForAngle(double angle, double gain90) {
 double _num(Map<String, dynamic> s, String key, double fallback) =>
     (s[key] as num?)?.toDouble() ?? fallback;
 
+/// 유압(가운데 미는 방식): 꺾이는 점에서 슈 가운데 마킹까지 = 그 각도 게인 ÷ 2.
+double ramShoeCenterOffset(double angle, double gain90) =>
+    conduitGainForAngle(angle, gain90) / 2.0;
+
 /// 꺾이는 점에서 마킹(화살표를 맞출 자리)까지의 거리.
 ///
 /// - 수동·시카고: 테이크업. 표에는 90° 값만 있으니 각도에 맞게 줄인다.
-/// - 유압(램): 셋백 설정값. 90°가 기준이고 다른 각도는 tan(θ/2) 비율로 줄인다.
+/// - 유압(램): 가운데서 미는 방식이라 마킹을 슈 가운데에 맞춘다. 슈 가운데가 닿는 자리는
+///   굽은 부분(호)의 한가운데라, 꺾이는 점에서 그 각도 게인의 절반만큼 앞이다
+///   (셋백 R·tan(θ/2) − 호의 절반 R·θ/2 = 게인/2, 관 등 기준으로 재도 같다).
+///   10-09 사용자: "슈의 가운데에 맞추고", 실측 게인 40·슈 반경 93(93×0.4292 = 39.9).
+///   예전에는 '셋백' 칸(표 22mm 175, 사용자는 반경 93을 넣음)만큼 앞에 찍어 90°에서
+///   73mm 앞에 마킹했다. 셋백 칸은 이제 셈에 쓰지 않는다.
 ///
 /// 오프셋·새들 계산기가 첫 구간 길이를 잡을 때도 이 값을 더해야
 /// "1번 마킹 = 시작 거리"가 된다. 🚀 [고침] 예전에는 그 계산기들이 튜브
@@ -51,10 +60,7 @@ double conduitMarkOffset(double angle, Map<String, dynamic> settings) {
   if (angle <= 0) return 0.0;
   final String benderType = settings['benderType'] ?? 'hand';
   if (benderType == 'ram') {
-    final double setback90 = _num(settings, 'setback', 0.0);
-    if (setback90 <= 0) return 0.0;
-    if ((angle - 90.0).abs() < 0.1) return setback90;
-    return setback90 * math.tan(angle * math.pi / 360.0);
+    return ramShoeCenterOffset(angle, _num(settings, 'gain', 0.0));
   }
   return scaleTakeUp(
     _num(settings, 'takeUp', 0.0),
@@ -76,7 +82,7 @@ List<Map<String, dynamic>> calculateConduitMarkings(
   final double springbackVal = _num(settings, 'springback', 3.0);
   final double baseRamTravel = _num(settings, 'ramTravel', 0.0);
   final double degPerNotch = _num(settings, 'degPerNotch', 2.5);
-  final String offsetName = benderType == 'ram' ? '셋백' : '테이크업';
+  final String offsetName = benderType == 'ram' ? '슈 가운데' : '테이크업';
 
   final markings = <Map<String, dynamic>>[];
 
@@ -264,4 +270,20 @@ double conduitCouplingAllowance(Map<String, dynamic> settings) =>
   final gain = stub + otherLeg - cut;
   if (takeUp <= 0 || gain < 0) return null;
   return (takeUp: takeUp, gain: gain);
+}
+
+/// 유압(슈 가운데 맞춤) 시험 벤딩: 게인 = 두 다리 합 − 자른 길이,
+/// 꺾이는 점 → 슈 가운데 = 스텁 − 마킹 자리. 슈 가운데 셈([ramShoeCenterOffset])이
+/// 맞으면 두 번째 값이 게인의 절반과 같다([diff] = 잰 값 − 게인/2). 못 잡으면 null.
+({double gain, double centerOffset, double diff})? ramCalibration({
+  required double cut,
+  required double mark,
+  required double stub,
+  required double otherLeg,
+}) {
+  if (cut <= 0 || mark <= 0 || stub <= 0 || otherLeg <= 0) return null;
+  final gain = stub + otherLeg - cut;
+  final centerOffset = stub - mark;
+  if (gain < 0 || centerOffset < 0) return null;
+  return (gain: gain, centerOffset: centerOffset, diff: centerOffset - gain / 2);
 }

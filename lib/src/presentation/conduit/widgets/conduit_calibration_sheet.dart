@@ -21,14 +21,18 @@ class ConduitCalibrationSheet extends StatefulWidget {
   final double currentTakeUp;
   final double currentGain;
 
-  /// 값을 잡았을 때 부른다(90° 테이크업, 90° 게인).
+  /// 값을 잡았을 때 부른다(90° 테이크업, 90° 게인). 유압이면 테이크업은 0.
   final void Function(double takeUp, double gain) onApply;
+
+  /// 유압(가운데 미는 방식, 마킹을 슈 가운데에 맞춤): 게인만 잡고 슈 가운데 셈이 맞는지 보여 준다.
+  final bool ramCenter;
 
   const ConduitCalibrationSheet({
     super.key,
     required this.currentTakeUp,
     required this.currentGain,
     required this.onApply,
+    this.ramCenter = false,
   });
 
   static void show(
@@ -36,6 +40,7 @@ class ConduitCalibrationSheet extends StatefulWidget {
     required double currentTakeUp,
     required double currentGain,
     required void Function(double takeUp, double gain) onApply,
+    bool ramCenter = false,
   }) {
     showModalBottomSheet(
       context: context,
@@ -45,6 +50,7 @@ class ConduitCalibrationSheet extends StatefulWidget {
         currentTakeUp: currentTakeUp,
         currentGain: currentGain,
         onApply: onApply,
+        ramCenter: ramCenter,
       ),
     );
   }
@@ -78,16 +84,28 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
     otherLeg: _v(_other),
   );
 
+  ({double gain, double centerOffset, double diff})? get _ram => ramCalibration(
+    cut: _v(_cut),
+    mark: _v(_mark),
+    stub: _v(_stub),
+    otherLeg: _v(_other),
+  );
+
   /// 지금 값과 너무 다르면 잘못 쟀을 수 있다.
   bool _farFrom(double v, double current) =>
       current > 0 && (v - current).abs() > current * 0.2;
 
   @override
   Widget build(BuildContext context) {
-    final r = _result;
+    final bool ram = widget.ramCenter;
+    final rr = ram ? _ram : null;
+    // 유압이면 게인만 쓴다(테이크업 자리는 슈 가운데까지 거리로 보여 주기만 한다).
+    final r = ram
+        ? (rr == null ? null : (takeUp: rr.centerOffset, gain: rr.gain))
+        : _result;
     final bool suspicious =
         r != null &&
-        (_farFrom(r.takeUp, widget.currentTakeUp) ||
+        ((!ram && _farFrom(r.takeUp, widget.currentTakeUp)) ||
             _farFrom(r.gain, widget.currentGain));
     return Padding(
       padding: EdgeInsets.only(
@@ -115,8 +133,8 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                 ),
               ),
               const SizedBox(height: 16),
-              const Text(
-                "시험 벤딩으로 테이크업·게인 잡기",
+              Text(
+                ram ? "시험 벤딩으로 게인 잡기 (유압)" : "시험 벤딩으로 테이크업·게인 잡기",
                 style: TextStyle(
                   color: _slate900,
                   fontSize: 18,
@@ -124,16 +142,24 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                 ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                "한 토막 잘라 마킹하고 90°로 한 번 꺾은 뒤, 양쪽 끝에서 꺾인 관 "
-                "바깥면(등)까지 측정해 넣으십시오. 이 벤더의 테이크업과 게인을 "
-                "한 번에 잡습니다.",
+              Text(
+                ram
+                    ? "한 토막 잘라 마킹하고 그 마킹을 슈 가운데에 맞춰 90°로 한 번 꺾은 뒤, "
+                          "양쪽 끝에서 꺾인 관 바깥면(등)까지 측정해 넣으십시오. 이 벤더의 게인을 잡고, "
+                          "슈 가운데 셈(꺾이는 점에서 게인의 절반 앞)이 맞는지 같이 봅니다."
+                    : "한 토막 잘라 마킹하고 90°로 한 번 꺾은 뒤, 양쪽 끝에서 꺾인 관 "
+                          "바깥면(등)까지 측정해 넣으십시오. 이 벤더의 테이크업과 게인을 "
+                          "한 번에 잡습니다.",
                 style: TextStyle(color: _slate600, fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 16),
               _field(_cut, "자른 길이 (mm)", "꺾기 전 토막 길이"),
               const SizedBox(height: 10),
-              _field(_mark, "마킹 자리 (mm)", "관 끝에서 벤더 화살표를 맞춘 자리"),
+              _field(
+                _mark,
+                "마킹 자리 (mm)",
+                ram ? "관 끝에서 슈 가운데에 맞춘 자리" : "관 끝에서 벤더 화살표를 맞춘 자리",
+              ),
               const SizedBox(height: 10),
               _field(_stub, "짧은 쪽 다리 (mm)", "그 관 끝에서 꺾인 관 바깥면까지(스텁 높이)"),
               const SizedBox(height: 10),
@@ -160,13 +186,41 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                         key: const Key('conduit_calib_result'),
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _resultRow(
-                            "테이크업 (90°)",
-                            r.takeUp,
-                            widget.currentTakeUp,
-                          ),
-                          const SizedBox(height: 8),
+                          if (!ram) ...[
+                            _resultRow(
+                              "테이크업 (90°)",
+                              r.takeUp,
+                              widget.currentTakeUp,
+                            ),
+                            const SizedBox(height: 8),
+                          ],
                           _resultRow("게인 (90°)", r.gain, widget.currentGain),
+                          if (rr != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              "꺾이는 점 → 슈 가운데: ${rr.centerOffset.toStringAsFixed(1)} mm "
+                              "(게인 ÷ 2 = ${(rr.gain / 2).toStringAsFixed(1)} mm)",
+                              key: const Key('conduit_calib_center'),
+                              style: const TextStyle(
+                                color: _slate600,
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (rr.diff.abs() > 5) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                "슈 가운데 셈과 ${rr.diff.abs().toStringAsFixed(0)} mm 다릅니다. 마킹을 슈 가운데에 맞췄는지, "
+                                "다리를 관 바깥면까지 쟀는지 확인하십시오. 계속 다르면 알려 주십시오.",
+                                key: const Key('conduit_calib_center_warn'),
+                                style: const TextStyle(
+                                  color: _amber,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ],
                           if (suspicious) ...[
                             const SizedBox(height: 10),
                             const Text(
@@ -198,7 +252,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                       ? null
                       : () {
                           widget.onApply(
-                            double.parse(r.takeUp.toStringAsFixed(1)),
+                            ram ? 0 : double.parse(r.takeUp.toStringAsFixed(1)),
                             double.parse(r.gain.toStringAsFixed(1)),
                           );
                           Navigator.pop(context);

@@ -10,7 +10,6 @@ const _labels = <(String, String)>[
   ('takeUp', '테이크업'),
   ('gain', '게인'),
   ('clr', 'CLR'),
-  ('setback', '셋백'),
 ];
 
 String _show(String key, Object? v) {

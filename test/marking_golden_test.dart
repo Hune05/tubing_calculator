@@ -29,7 +29,7 @@ Map<String, dynamic> tubeRun(List<List<double>> rows) {
 }
 
 /// 전선관: Greenlee 22mm EMT 표 값(테이크업 152.4, 게인 82.5, CLR 114.3),
-/// 유압은 셋백 40, 스프링백 3°.
+/// 유압은 슈 가운데 맞춤(꺾이는 점 − 게인/2, 10-09), 스프링백 3°.
 Map<String, dynamic> conduitSettings(String type) => {
   'benderType': type,
   'takeUp': 152.4,
@@ -191,7 +191,7 @@ void main() {
       final s = conduitSettings('ram');
       final m = calculateConduitMarkings(list, s);
       expect(m.map((x) => x['mark'] as double).toList(), [
-        for (final v in [260.000, 617.500]) closeTo(v, tol),
+        for (final v in [258.750, 617.500]) closeTo(v, tol),
       ]);
       expect(conduitTotalCut(list, s), closeTo(617.500, tol));
     });
@@ -229,7 +229,7 @@ void main() {
       final s = conduitSettings('ram');
       final m = calculateConduitMarkings(list, s);
       expect(m.map((x) => x['mark'] as double).toList(), [
-        for (final v in [260.000, 577.500, 835.000]) closeTo(v, tol),
+        for (final v in [258.750, 576.250, 835.000]) closeTo(v, tol),
       ]);
       expect(conduitTotalCut(list, s), closeTo(835.000, tol));
     });
@@ -268,7 +268,7 @@ void main() {
       final s = conduitSettings('ram');
       final m = calculateConduitMarkings(list, s);
       expect(m.map((x) => x['mark'] as double).toList(), [
-        for (final v in [189.282, 386.918, 695.272]) closeTo(v, tol),
+        for (final v in [198.818, 396.454, 695.272]) closeTo(v, tol),
       ]);
       expect(conduitTotalCut(list, s), closeTo(695.272, tol));
     });
@@ -307,7 +307,7 @@ void main() {
       final s = conduitSettings('ram');
       final m = calculateConduitMarkings(list, s);
       expect(m.map((x) => x['mark'] as double).toList(), [
-        for (final v in [233.431, 366.561, 674.858]) closeTo(v, tol),
+        for (final v in [245.865, 378.994, 674.858]) closeTo(v, tol),
       ]);
       expect(conduitTotalCut(list, s), closeTo(674.858, tol));
     });
@@ -348,7 +348,7 @@ void main() {
       final s = conduitSettings('ram');
       final m = calculateConduitMarkings(list, s);
       expect(m.map((x) => x['mark'] as double).toList(), [
-        for (final v in [292.044, 413.146, 544.187, 851.159]) closeTo(v, tol),
+        for (final v in [299.507, 425.579, 551.651, 851.159]) closeTo(v, tol),
       ]);
       expect(conduitTotalCut(list, s), closeTo(851.159, tol));
     });
@@ -386,7 +386,7 @@ void main() {
       final s = conduitSettings('ram');
       final m = calculateConduitMarkings(list, s);
       expect(m.map((x) => x['mark'] as double).toList(), [
-        for (final v in [389.282, 897.636]) closeTo(v, tol),
+        for (final v in [398.818, 897.636]) closeTo(v, tol),
       ]);
       expect(conduitTotalCut(list, s), closeTo(897.636, tol));
     });
@@ -424,7 +424,7 @@ void main() {
       final s = conduitSettings('ram');
       final m = calculateConduitMarkings(list, s);
       expect(m.map((x) => x['mark'] as double).toList(), [
-        for (final v in [260.000, 427.500, 685.000]) closeTo(v, tol),
+        for (final v in [258.750, 426.250, 685.000]) closeTo(v, tol),
       ]);
       expect(conduitTotalCut(list, s), closeTo(685.000, tol));
     });
@@ -465,7 +465,7 @@ void main() {
       final s = conduitSettings('ram');
       final m = calculateConduitMarkings(list, s);
       expect(m.map((x) => x['mark'] as double).toList(), [
-        for (final v in [150.000, 214.886, 409.387, 616.001]) closeTo(v, tol),
+        for (final v in [150.000, 221.900, 416.401, 616.001]) closeTo(v, tol),
       ]);
       expect(conduitTotalCut(list, s), closeTo(616.001, tol));
     });

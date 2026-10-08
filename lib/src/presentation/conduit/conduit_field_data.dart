@@ -131,7 +131,7 @@ List<(String, String)> conduitMarkingSheetSpecs(Map<String, dynamic> s) {
     ('벤더', '${types[type] ?? type} · ${s['manufacturer'] ?? ''}'),
     ('규격', '${s['conduitType'] ?? ''} ${s['conduitSize'] ?? ''}'),
     if (type == 'ram')
-      ('셋백(90°)', '${n(d('setback'))} mm')
+      ('슈 가운데(90°)', '${n(ramShoeCenterOffset(90, d('gain')))} mm')
     else
       ('테이크업(90°)', '${n(d('takeUp'))} mm'),
     ('게인(90°)', '${n(d('gain'))} mm'),

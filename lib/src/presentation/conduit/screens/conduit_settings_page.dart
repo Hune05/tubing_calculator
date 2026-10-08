@@ -953,7 +953,8 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   }
 
   /// 90°로 한 번 꺾어 잰 값으로 테이크업·게인을 잡는 단추(수동·시카고).
-  Widget _buildCalibrateButton() {
+  /// [ram]: 유압(슈 가운데 맞춤)은 게인만 잡는다.
+  Widget _buildCalibrateButton({bool ram = false}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Align(
@@ -971,16 +972,17 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             context,
             currentTakeUp: double.tryParse(_takeUpController.text) ?? 0,
             currentGain: double.tryParse(_gainController.text) ?? 0,
+            ramCenter: ram,
             onApply: (takeUp, gain) {
               setState(() {
-                _takeUpController.text = takeUp.toString();
+                if (!ram) _takeUpController.text = takeUp.toString();
                 _gainController.text = gain.toString();
               });
               _saveSettings();
             },
           ),
           icon: const Icon(Icons.straighten, size: 18),
-          label: const Text("시험 벤딩으로 테이크업·게인 잡기"),
+          label: Text(ram ? "시험 벤딩으로 게인 잡기" : "시험 벤딩으로 테이크업·게인 잡기"),
         ),
       ),
     );
@@ -1086,22 +1088,21 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             helpText:
                 "90°로 꺾을 때 램이 나가는 거리입니다. 다른 각도는 이 값으로 계산해 보여 주므로, 최대 스트로크 한계가 아닙니다.",
           ),
-          _buildInputRow(
-            "셋백 (Setback)",
-            _setbackController,
-            suffix: unit,
-            helpText: "꺾이는 점에서 이만큼 떨어진 자리에 마킹을 찍습니다(벤드마다 뺍니다).",
-          ),
+          // 10-09: 유압은 가운데서 미는 방식이라 마킹을 슈 가운데에 맞춘다. 마킹 자리는
+          // 꺾이는 점에서 게인의 절반 앞이라 따로 넣는 '셋백' 칸을 뺐다(예전 칸은 반경을
+          // 넣게 되어 90°에서 70mm 넘게 앞에 마킹했다).
           // 🚀 [고침] 게인은 셈에 들어가는데 유압·시카고 화면에는 칸이 없어
           // 보지도 고치지도 못했다.
           _buildInputRow(
             "벤딩 게인 (Gain)",
             _gainController,
             suffix: unit,
-            helpText: kGainHelp,
+            helpText:
+                "$kGainHelp\n유압은 마킹을 슈 가운데에 맞추므로, 꺾이는 점에서 이 게인의 절반만큼 앞에 마킹합니다(90° 게인 40이면 20mm 앞).",
           ),
           _buildInputRow("슈 중심선 반경 (CLR)", _clrController, suffix: unit),
         ]),
+        _buildCalibrateButton(ram: true),
         ..._buildCommonCorrection(unit),
       ],
     );

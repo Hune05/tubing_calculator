@@ -323,8 +323,12 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       title: "총 절단 길이 (유압식)",
       icon: AppGlyph.benderRam,
       themeColor: ramBlue,
-      deductionLabel: "설정된 셋백(Setback)",
-      deductionValue: settings['setback'] ?? 0.0,
+      // 10-09: 유압은 마킹을 슈 가운데에 맞춘다 — 꺾이는 점에서 게인의 절반 앞.
+      deductionLabel: "슈 가운데까지 (90°, 게인 ÷ 2)",
+      deductionValue: ramShoeCenterOffset(
+        90,
+        (settings['gain'] as num?)?.toDouble() ?? 0.0,
+      ),
       couplingAllowance: conduitCouplingAllowance(settings),
     );
   }
