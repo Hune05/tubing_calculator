@@ -19,7 +19,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/models/steel_cutting_project_model.dart';
 import '../../../data/models/steel_shape_db.dart';
 import '../../tube_cutting/cutting_action_bar.dart';
-import '../../tube_cutting/cutting_diagram_pdf.dart' show keepTogether;
+import '../../tube_cutting/cutting_diagram_pdf.dart'
+    show keepTogether, keepTogetherLoose;
 import '../../tube_cutting/cutting_leftovers.dart';
 import '../../tube_cutting/cutting_math.dart' show fmtMm, parseLengthInput, safeFileName;
 import '../../tube_cutting/cutting_optimizer.dart';
@@ -923,7 +924,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
 
   // 지시서 PDF: 자를 길이 표(1개 길이 × 개수 = 합계) + 규격별 원자재 배치. 잔재와 여러 길이 섞어 쓰기
   // 설정도 재단 계획 화면과 같게 반영한다.
-  Future<void> _exportInstructionSheet() async {
+  Future<void> _exportInstructionSheet({bool loose = false}) async {
     final lines = _resultLines();
     if (lines.isEmpty) {
       showCuttingSnack(
@@ -934,6 +935,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       return;
     }
 
+    keepTogetherLoose = loose;
+    final List<int> bytes;
     try {
       final pdfFonts = await loadKoreanPdfFonts();
       final koreanFont = pdfFonts.regular;
@@ -987,6 +990,19 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                   ? "-"
                   : "약 ${fmtKg(steelWeightKg(l.spec, l.totalMm)!)}",
             l.detail,
+          ]);
+        }
+        // 규격이 둘 이상이면 규격마다 소계 줄(10-09: 주석과 달리 빠져 있었다. 카톡 글에는 있다).
+        if (subs.length > 1) {
+          final w = sub.weightKg;
+          rows.add([
+            "${sub.shape} 소계",
+            "",
+            "${sub.pieces}",
+            if (showHow) "",
+            fmtMm(sub.mm),
+            if (weightKnown) w == null ? "-" : "약 ${fmtKg(w)}",
+            "",
           ]);
         }
       }
@@ -1132,23 +1148,32 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         ),
       );
 
-      final bytes = await pdf.save();
-      if (!mounted) return;
-      final fileName = "${safeFileName(widget.project.name)}_형강컷팅지시서.pdf";
-      // 바로 공유하지 않고 미리보기를 먼저 보여 준다. 공유는 미리보기의 버튼으로.
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SteelPdfPreviewPage(
-            bytes: bytes,
-            fileName: fileName,
-            onShare: () => _sharePdf(bytes, fileName),
-          ),
-        ),
-      );
+      bytes = await pdf.save();
     } catch (e) {
+      // 묶은 덩어리가 한 쪽보다 커서 실패했을 수 있다: 묶지 않고 한 번 더(10-09).
+      if (!loose) {
+        keepTogetherLoose = false;
+        return _exportInstructionSheet(loose: true);
+      }
       if (!mounted) return;
       showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+      return;
+    } finally {
+      keepTogetherLoose = false;
     }
+    if (!mounted) return;
+    final pdfBytes = Uint8List.fromList(bytes);
+    final fileName = "${safeFileName(widget.project.name)}_형강컷팅지시서.pdf";
+    // 바로 공유하지 않고 미리보기를 먼저 보여 준다. 공유는 미리보기의 버튼으로.
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => SteelPdfPreviewPage(
+          bytes: pdfBytes,
+          fileName: fileName,
+          onShare: () => _sharePdf(pdfBytes, fileName),
+        ),
+      ),
+    );
   }
 
   // 🚀 [튜브 컷팅에 준한 페이지 구성] 튜브 컷팅(cutting_main_screen.dart)의

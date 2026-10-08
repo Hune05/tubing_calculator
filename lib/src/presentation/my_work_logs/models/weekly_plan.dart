@@ -141,7 +141,8 @@ List<String> _plannedLines(
     final s = phaseStart(p), e = phaseEnd(p);
     if (s == null || e == null) continue;
     if (w.overlaps(s, e)) {
-      lines.add('  ▸ 단계: ${p['name']} (${_md(s)}~${_md(e)})');
+      // "▸"는 PDF 글꼴에 없어 네모로 나왔다(10-09).
+      lines.add('  - 단계: ${p['name']} (${_md(s)}~${_md(e)})');
     }
   }
   return lines;

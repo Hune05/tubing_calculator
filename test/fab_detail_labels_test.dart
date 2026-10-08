@@ -16,4 +16,12 @@ void main() {
     expect(fabAngleText(22.5), '22.5');
     expect(fabAngleText(90), '90');
   });
+
+  test("PDF 각도 칸에 스프링백을 얹은 꺾을 각도를 같이 적는다(10-09)", () {
+    expect(fabAngleCell(90, 93), "90° (실제 93.0°)");
+    expect(fabAngleCell(22.5, 24.5), "22.5° (실제 24.5°)");
+    expect(fabAngleCell(45, 45), "45°");
+    expect(fabAngleCell(45, null), "45°");
+  });
 }
+

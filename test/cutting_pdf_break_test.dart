@@ -70,6 +70,27 @@ void main() {
       expect(keepTogether([pw.Text('a'), pw.Text('b')], rows: 15).length, 2);
     });
 
+    test('행은 적어도 키가 큰 표는 묶으면 만들지 못하고, 묶지 않기(loose)로 다시 만들면 된다(10-09)', () async {
+      // 5행인데 행마다 이름표가 많아 한 쪽보다 큰 표(지시서 5본 × 15조각과 같은 꼴).
+      pw.Widget tallTable() => pw.TableHelper.fromTextArray(
+        headers: ['BAR', 'LABELS'],
+        data: [
+          for (var i = 0; i < 5; i++)
+            ['B$i', List.filled(14, 'PT1->PT2 380').join('\n')],
+        ],
+      );
+      await expectLater(
+        make(() => [...keepTogether([pw.Text('TITLE'), tallTable()], rows: 5)]),
+        throwsA(anything),
+      );
+      keepTogetherLoose = true;
+      addTearDown(() => keepTogetherLoose = false);
+      final bytes = await make(
+        () => [...keepTogether([pw.Text('TITLE'), tallTable()], rows: 5)],
+      );
+      expect(pageCount(bytes) >= 2, true);
+    });
+
     test('아주 큰 표(묶으면 쪽을 넘는)도 오류 없이 만들어진다', () async {
       final bytes = await make(
         () => [

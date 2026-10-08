@@ -1,6 +1,7 @@
 // 벤딩 마킹지(PDF) 검사.
 import 'dart:convert';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
@@ -105,4 +106,35 @@ void main() {
     expect(ramMap.containsKey('셋백(90°)'), isTrue);
     expect(ramMap.containsKey('테이크업(90°)'), isFalse);
   });
+
+  testWidgets("계산이 실패한 마킹지는 \"입력한 배관이 없습니다\" 대신 그 까닭을 알린다(10-09)", (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => openMarkingSheet(
+                context,
+                title: "전선관 벤딩 마킹지",
+                fileBase: "t",
+                data: const FieldMarkingData(
+                  totalCut: 0,
+                  marks: [],
+                  error: "자를 길이가 0보다 작습니다.",
+                ),
+                specs: const [],
+                inputs: const [],
+              ),
+              child: const Text("열기"),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text("열기"));
+    await tester.pump();
+    expect(find.text("자를 길이가 0보다 작습니다."), findsOneWidget);
+    expect(find.text("입력한 배관이 없습니다."), findsNothing);
+  });
 }
+

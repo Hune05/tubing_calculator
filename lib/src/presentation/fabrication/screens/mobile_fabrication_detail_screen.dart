@@ -557,9 +557,14 @@ class _MobileFabricationDetailScreenState
                       ? "-"
                       : "${bend['display_mark_num']}";
                   String length = "${(bend['length'] ?? 0).toDouble().round()}";
+                  // 스프링백을 얹은 꺾을 각도도 같이 적는다(10-09: 화면 카드에는 "실제 93.0°"가
+                  // 나오는데 작업자에게 보내는 PDF에는 90°만 있어 덜 꺾을 수 있었다).
                   String angle = isStraight
                       ? "-"
-                      : "${fabAngleText(double.tryParse(bend['angle']?.toString() ?? '0') ?? 0)}°";
+                      : fabAngleCell(
+                          double.tryParse(bend['angle']?.toString() ?? '0') ?? 0,
+                          (bend['target_angle'] as num?)?.toDouble(),
+                        );
                   String direction = isStraight
                       ? "-"
                       : fabDirectionLabel(
@@ -1254,3 +1259,10 @@ String fabDirectionLabel(double rot) {
 /// 각도 글: 정수면 정수, 아니면 소수 한 자리(10-08: 22.5°가 "23°"로 보였다, 마킹 탭과 같게).
 String fabAngleText(double a) =>
     a == a.roundToDouble() ? "${a.round()}" : a.toStringAsFixed(1);
+
+/// PDF 각도 칸: 스프링백으로 꺾을 각도가 다르면 "90° (실제 93.0°)".
+String fabAngleCell(double angle, double? target) {
+  final base = "${fabAngleText(angle)}°";
+  if (target == null || (target - angle).abs() <= 0.05) return base;
+  return "$base (실제 ${target.toStringAsFixed(1)}°)";
+}

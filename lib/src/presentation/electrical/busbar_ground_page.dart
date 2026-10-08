@@ -424,9 +424,10 @@ class _GroundBarPageState extends State<GroundBarPage>
       '${i + 1}. ${_bendName(i, p)} 꺾기 시작선 ${fmt(b.start, 1)} · 끝선 ${fmt(b.end, 1)}mm';
 
   /// 구멍 가장자리 ~ 꺾기 시작선 거리(구멍 종류별). 꺾을 때 구멍이 늘어나는지 가늠하는 값.
+  // 10-09: 모자랄 때 "✗"는 PDF 글꼴에 없어 네모로 나와 "부족"으로 쓴다.
   String _edgeLine(GroundBarPlan p) {
     String one(String name, double d, double req) =>
-        '$name ${fmt(d, 1)}mm (필요 ${fmt(req, 1)}mm 이상 ${d >= req - 1e-9 ? "✓" : "✗"})';
+        '$name ${fmt(d, 1)}mm (필요 ${fmt(req, 1)}mm 이상 ${d >= req - 1e-9 ? "✓" : "부족"})';
     final parts = [
       if (p.minEdgeBody != null) one('접지·러그 구멍', p.minEdgeBody!, p.reqEdgeBody),
       if (p.minEdgeTab != null)

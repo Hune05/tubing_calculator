@@ -2828,14 +2828,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         // 🚀 [신규] 치수선이 있으면 도면 사진 뒤에 번호별 치수 목록표를
         // 추가 페이지로 붙여서, 도면이 복잡해도 사진 속 번호 배지와
         // 대조해가며 확인할 수 있게 한다.
+        // 10-09: 한 장(pw.Page)에 넣어서 치수가 A4 세로 26개·가로 17개를 넘으면 표가 통째로
+        // 빠지고 제목만 남았다. 부품 목록처럼 여러 장으로 이어지게(MultiPage) 한다.
         if (plateDims.isNotEmpty) {
           pdf.addPage(
-            pw.Page(
+            pw.MultiPage(
               pageFormat: pageFmt,
               build: (pw.Context context) {
-                return pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
+                return [
                     pw.Text(
                       "치수 목록표",
                       style: pw.TextStyle(
@@ -2884,8 +2884,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         }),
                       ],
                     ),
-                  ],
-                );
+                ];
               },
             ),
           );

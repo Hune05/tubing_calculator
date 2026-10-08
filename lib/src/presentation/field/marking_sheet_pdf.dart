@@ -63,8 +63,9 @@ Future<Uint8List> buildMarkingSheetPdf({
       footer: (ctx) => pw.Row(
         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
         children: [
+          // 10-09: 전선관 마킹지에도 "튜브 벤딩 마킹"이 찍혔다. 제목("… 마킹지")을 따른다.
           pw.Text(
-            'FIELD HELPER · 튜브 벤딩 마킹',
+            'FIELD HELPER · ${title.replaceAll('마킹지', '마킹')}',
             style: const pw.TextStyle(fontSize: 8, color: _grey),
           ),
           pw.Text(
@@ -515,9 +516,10 @@ Future<void> openMarkingSheet(
   required List<Map<String, dynamic>> inputs,
 }) async {
   if (data.isEmpty) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('입력한 배관이 없습니다.')));
+    // 10-09: 계산이 실패해도(자를 길이 이상 등) "입력한 배관이 없습니다"라고 했다. 까닭이 있으면 그것을.
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(data.error ?? '입력한 배관이 없습니다.')),
+    );
     return;
   }
   final bytes = await buildMarkingSheetPdf(

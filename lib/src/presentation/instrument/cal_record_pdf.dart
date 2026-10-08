@@ -303,14 +303,7 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
             color: s.pass == false ? _red : _ink,
           ),
         ),
-        if (s.rows.any((e) => e?.wrongSide ?? false))
-          pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 2),
-            child: pw.Text(
-              '복귀점이 동작점 반대쪽입니다. 다시 측정하십시오.',
-              style: const pw.TextStyle(fontSize: 9, color: _red),
-            ),
-          ),
+        // 10-09: 같은 줄이 두 번 들어가 있었다.
         if (s.rows.any((e) => e?.wrongSide ?? false))
           pw.Padding(
             padding: const pw.EdgeInsets.only(top: 2),

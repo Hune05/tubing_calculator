@@ -591,7 +591,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 🚀 [4번 강화, 신규] 컷팅 지시서를 PDF로 만들어 공유한다. 예전엔 이
   // 계산기에 내보내기/공유 기능이 아예 없어서, 화면을 캡처하거나 손으로
   // 옮겨 적어야 현장에 지시서를 들고 나갈 수 있었다.
-  Future<void> _exportCuttingList() async {
+  Future<void> _exportCuttingList({bool loose = false}) async {
     final List<int> visibleIndices = [];
     for (int i = 0; i < _points.length - 1; i++) {
       if (_points[i].c2cController.text.isEmpty) continue;
@@ -603,6 +603,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       return;
     }
 
+    keepTogetherLoose = loose;
     try {
       final pdfFonts = await loadKoreanPdfFonts();
       final koreanFont = pdfFonts.regular;
@@ -860,8 +861,15 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       ], text: "${widget.project.name} 컷팅 지시서입니다.");
     } catch (e) {
       debugPrint('컷팅 지시서 내보내기 실패: $e');
+      // 묶은 덩어리가 한 쪽보다 커서 실패했을 수 있다: 묶지 않고 한 번 더(10-09).
+      if (!loose) {
+        keepTogetherLoose = false;
+        return _exportCuttingList(loose: true);
+      }
       if (!mounted) return;
       showCuttingSnack(context, "내보내지 못했습니다.", isError: true);
+    } finally {
+      keepTogetherLoose = false;
     }
   }
 

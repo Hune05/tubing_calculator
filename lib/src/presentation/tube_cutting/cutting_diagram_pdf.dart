@@ -11,12 +11,18 @@ import 'cutting_math.dart';
 // 제목·요약·표를 한 덩어리로 묶는다. 묶은 덩어리는 쪽에 다 들어가지 않으면 통째로 다음 쪽으로 넘어가서,
 // 표 머리만 앞 쪽 맨 아래에 남고 행이 다음 쪽으로 넘어가는 일이 없다. 행이 [maxRows]개보다 많은 표는 한 쪽을
 // 넘을 수 있어서 묶지 않고 그대로 둔다(묶으면 쪽 수 초과 오류가 난다).
+///
+/// 10-09: 행 수만 보고 묶어서, 행마다 이름표가 많아 키가 큰 표(5본 × 15조각)는 한 쪽을 넘어
+/// 지시서를 아예 만들지 못했다. 만들다 실패하면 [keepTogetherLoose]를 켜고 한 번 더 만든다
+/// (그때는 묶지 않는다).
+bool keepTogetherLoose = false;
+
 List<pw.Widget> keepTogether(
   List<pw.Widget> children, {
   required int rows,
   int maxRows = 14,
 }) {
-  if (children.isEmpty || rows > maxRows) return children;
+  if (keepTogetherLoose || children.isEmpty || rows > maxRows) return children;
   // Column·Container는 쪽 경계에서 표를 따라 같이 갈라진다. Inseparable(canSpan 기본 false)은 통째로 한 쪽에
   // 두고, 남은 자리가 모자라면 다음 쪽으로 넘긴다.
   return [
