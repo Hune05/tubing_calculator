@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import 'schedule_widget.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -3147,12 +3148,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final q = FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
         .where('owner', isEqualTo: _currentWorker);
-    QuerySnapshot<Map<String, dynamic>> snap;
-    try {
-      snap = await q.get().timeout(const Duration(seconds: 6));
-    } catch (_) {
-      snap = await q.get(const GetOptions(source: Source.cache));
-    }
+    final snap = await readQueryQuick(q, wait: const Duration(seconds: 6));
     return [for (final d in snap.docs) (id: d.id, data: d.data())];
   }
 
@@ -4930,12 +4926,7 @@ Future<int> fetchTodayScheduleCount(String currentWorker) async {
     final personalQuery = FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
         .where('owner', isEqualTo: currentWorker);
-    QuerySnapshot<Map<String, dynamic>> personalSnap;
-    try {
-      personalSnap = await personalQuery.get().timeout(const Duration(seconds: 6));
-    } catch (_) {
-      personalSnap = await personalQuery.get(const GetOptions(source: Source.cache));
-    }
+    final personalSnap = await readQueryQuick(personalQuery, wait: const Duration(seconds: 6));
     for (final doc in personalSnap.docs) {
       final data = doc.data();
       if (data['dateTime'] == null) continue;
@@ -4991,12 +4982,7 @@ Future<List<WidgetAgendaItem>?> fetchWidgetAgenda(
     final personalQ = FirebaseFirestore.instance
         .collection(kPersonalSchedulesCollection)
         .where('owner', isEqualTo: currentWorker);
-    QuerySnapshot<Map<String, dynamic>> personalSnap;
-    try {
-      personalSnap = await personalQ.get().timeout(const Duration(seconds: 6));
-    } catch (_) {
-      personalSnap = await personalQ.get(const GetOptions(source: Source.cache));
-    }
+    final personalSnap = await readQueryQuick(personalQ, wait: const Duration(seconds: 6));
 
     for (var off = 0; off < days; off++) {
       final day = DateTime(today.year, today.month, today.day + off);

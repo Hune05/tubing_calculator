@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:async';
@@ -1819,12 +1820,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     try {
       // 통신이 약하면 끝없이 기다렸다(10-08). 8초 뒤 폰 사본으로.
       final ref = FirebaseFirestore.instance.collection('layouts').doc(id);
-      DocumentSnapshot<Map<String, dynamic>> doc;
-      try {
-        doc = await ref.get().timeout(const Duration(seconds: 8));
-      } catch (_) {
-        doc = await ref.get(const GetOptions(source: Source.cache));
-      }
+      final doc = await readDocQuick(ref, wait: const Duration(seconds: 8));
       if (!mounted) return;
       if (!doc.exists) {
         ScaffoldMessenger.of(context).showSnackBar(

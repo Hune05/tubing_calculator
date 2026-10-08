@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -134,12 +135,7 @@ class FirestoreLeftoverStore implements LeftoverStore {
   Future<List<Leftover>> _read(
     DocumentReference<Map<String, dynamic>> d,
   ) async {
-    DocumentSnapshot<Map<String, dynamic>> snap;
-    try {
-      snap = await d.get().timeout(const Duration(seconds: 8));
-    } catch (_) {
-      snap = await d.get(const GetOptions(source: Source.cache));
-    }
+    final snap = await readDocQuick(d, wait: const Duration(seconds: 8));
     final raw = (snap.data()?['items'] as List?) ?? const [];
     final list = <Leftover>[
       for (final e in raw)

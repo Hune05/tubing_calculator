@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import 'package:tubing_calculator/src/data/pending_write_log.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 import 'dart:async';
@@ -185,12 +186,7 @@ class WorkProjectRepository {
   ) async {
     final ref = _col.doc(projectId);
     // 통신이 약하면 끝없이 기다렸다(10-08). 6초 뒤 폰 사본으로.
-    DocumentSnapshot<Map<String, dynamic>> snap;
-    try {
-      snap = await ref.get().timeout(const Duration(seconds: 6));
-    } catch (_) {
-      snap = await ref.get(const GetOptions(source: Source.cache));
-    }
+    final snap = await readDocQuick(ref, wait: const Duration(seconds: 6));
     final updated = scheduleListWithCompleted(
       snap.data()?['schedules'],
       scheduleId,

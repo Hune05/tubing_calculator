@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/material.dart';
@@ -237,12 +238,7 @@ Future<void> saveCuttingSession({
       .collection(kCuttingProjectsCollection)
       .doc(projectId);
 
-  DocumentSnapshot<Map<String, dynamic>> snap;
-  try {
-    snap = await docRef.get().timeout(const Duration(seconds: 5));
-  } catch (_) {
-    snap = await docRef.get(const GetOptions(source: Source.cache));
-  }
+  final snap = await readDocQuick(docRef, wait: const Duration(seconds: 5));
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
   final mergedMaterials = materialsAfterSession(
     existingMaterials,
@@ -326,12 +322,7 @@ Future<void> undoCuttingSession({
 
   // 통신이 없어도 멈추지 않게 읽고(폰 사본), 합계 되돌리기와 기록 지우기를 한 묶음으로 쓴다
   // (10-08: 합계 쓰기를 기다리느라 기록 지우기가 실행되지 않아, 통신 전에 앱을 닫으면 기록만 남았다).
-  DocumentSnapshot<Map<String, dynamic>> snap;
-  try {
-    snap = await docRef.get().timeout(const Duration(seconds: 5));
-  } catch (_) {
-    snap = await docRef.get(const GetOptions(source: Source.cache));
-  }
+  final snap = await readDocQuick(docRef, wait: const Duration(seconds: 5));
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
   final batch = FirebaseFirestore.instance.batch();
   // 저장할 때 부속만 더했으므로(튜브는 재단 계획에서 뺀다) 부속만 뺀다.

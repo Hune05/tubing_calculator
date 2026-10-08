@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
 import 'package:flutter/services.dart';
@@ -144,12 +145,7 @@ class _LayoutBoardProjectListPageState
     HapticFeedback.mediumImpact();
     try {
       final ref = FirebaseFirestore.instance.collection(kLayoutsCollection).doc(docId);
-      DocumentSnapshot<Map<String, dynamic>> snap;
-      try {
-        snap = await ref.get().timeout(const Duration(seconds: 5));
-      } catch (_) {
-        snap = await ref.get(const GetOptions(source: Source.cache));
-      }
+      final snap = await readDocQuick(ref, wait: const Duration(seconds: 5));
       final data = snap.data();
       if (data == null) return;
       final String rawName = (data['projectName'] as String?) ?? "";
