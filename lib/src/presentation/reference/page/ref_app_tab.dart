@@ -19,7 +19,7 @@ class RefAppTab extends StatelessWidget {
 
         refCard(
           title: "튜브 벤딩 마킹",
-          subtitle: "설정 → 입력 → 마킹 가이드 → 마킹지·리모컨",
+          subtitle: "설정 → 입력 → 마킹 가이드 → 마킹지",
           icon: LucideIcons.ruler,
           iconColor: refTeal,
           children: [

@@ -33,7 +33,7 @@ class FieldViewModePicker extends StatelessWidget {
           ),
           const SizedBox(height: AppSpace.xs),
           Text(
-            '계산기·현장 탭·수평계·각도기·리모컨 화면의 색입니다.',
+            '계산기·현장 탭·수평계·각도기 화면의 색입니다.',
             style: AppText.sub.copyWith(color: p.textSub),
           ),
           const SizedBox(height: AppSpace.sm),
