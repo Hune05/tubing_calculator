@@ -4,6 +4,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/formula_calc_page.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/formula_defs.dart';
+import 'package:tubing_calculator/src/presentation/unit_converter/unit_defs.dart'
+    show formatNumber, formatNumberGrouped;
 
 void main() {
   test('공식마다 이름·식·입력 칸이 있다(빈 목록 없음)', () {
@@ -279,8 +281,8 @@ void main() {
     await tester.pump();
     await tester.enterText(find.byKey(const Key('formula_in_a')), '0.01');
     await tester.pump();
-    // 100 bar = 10000000 Pa, × 0.01 m² = 100000 N
-    expect(find.textContaining('100000 N'), findsOneWidget);
+    // 100 bar = 10000000 Pa, × 0.01 m² = 100000 N(쉼표 넣어 보임)
+    expect(find.textContaining('100,000 N'), findsOneWidget);
     await tester.tap(find.byKey(const Key('formula_result_unit')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('kN').last);
@@ -297,6 +299,15 @@ void main() {
     await tester.pumpWidget(MaterialApp(home: FormulaDetailPage(def: def)));
     await tester.pumpAndSettle();
     expect(find.text('Pa'), findsOneWidget);
-    expect(find.textContaining('10000 N'), findsOneWidget);
+    expect(find.textContaining('10,000 N'), findsOneWidget);
+  });
+
+  test("결과 숫자는 천 단위 쉼표로 보인다(10-08)", () {
+    expect(formatNumberGrouped(100000), "100,000");
+    expect(formatNumberGrouped(6581.79), "6,581.79");
+    expect(formatNumberGrouped(-1234567), "-1,234,567");
+    expect(formatNumberGrouped(999), "999");
+    expect(formatNumberGrouped(0.00012), "0.00012");
+    expect(formatNumberGrouped(1e13), formatNumber(1e13)); // 지수 표기는 그대로
   });
 }

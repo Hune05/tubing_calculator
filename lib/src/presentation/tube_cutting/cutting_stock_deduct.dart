@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/utils/quick_firestore.dart';
 import '../inventory/pages/inventory_owner.dart';
 
 // 컷팅에서 쓴 자재를 창고 재고에서 뺄 때의 셈. 화면과 떼어 놓아서 검사할 수 있게 한다.
@@ -223,7 +224,9 @@ String stockTakeLines(
 /// 창고 재고에서 한 본 길이와 세는 단위를 한 번에 읽어 온다.
 Future<StockInfo> loadStockInfo() async {
   try {
-    final snap = await FirebaseFirestore.instance.collection('inventory').get();
+    final snap = await readQueryQuick(
+      FirebaseFirestore.instance.collection('inventory'),
+    );
     final bars = <String, int>{};
     final units = <String, String>{};
     final qty = <String, int>{};
@@ -340,7 +343,7 @@ Future<void> undoStockTakes(
     } catch (_) {}
   }
 
-  final all = await db.collection('inventory').get();
+  final all = await readQueryQuick(db.collection('inventory'));
   // 내 재고 → 공용 차례로 쓰고, 남의 개인 재고는 건드리지 않는다.
   final uid = currentStockUid();
   final byName = materialLookup(
@@ -415,7 +418,7 @@ Future<StockDeductResult> deductStockTakes(
   // 이름마다 따로 물어보면 통신이 없을 때 폰에 안 받아진 자재를 "재고에 없다"고
   // 잘못 알려 준다. 재고 목록을 한 번에 받아서 맞춰 보고, 폰에 있던 것으로
   // 맞춘 것인지(offline) 같이 돌려준다.
-  final all = await db.collection('inventory').get();
+  final all = await readQueryQuick(db.collection('inventory'));
   final offline = all.metadata.isFromCache;
 
   // 내 재고 → 공용 차례로 쓰고, 남의 개인 재고는 건드리지 않는다.

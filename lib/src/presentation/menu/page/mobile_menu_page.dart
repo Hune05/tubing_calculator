@@ -2238,13 +2238,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                'Field Helper',
-                style: TextStyle(
-                  fontFamily: 'Pacifico',
-                  fontSize: 26,
-                  color: slate900, // 청록보다 검은색이 낫다는 의견(2026-09-28)
-                  height: 1.1,
+              // 좁은 폰·큰 글씨에서는 글씨를 줄여 맞춘다(10-08: 320 폭이나 글씨 1.3배에서
+              // 이름이 오른쪽 단추(검색·새소식·더보기)를 화면 밖으로 밀어냈다).
+              const Flexible(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Field Helper',
+                    maxLines: 1,
+                    style: TextStyle(
+                      fontFamily: 'Pacifico',
+                      fontSize: 26,
+                      color: slate900, // 청록보다 검은색이 낫다는 의견(2026-09-28)
+                      height: 1.1,
+                    ),
+                  ),
                 ),
               ),
               Row(

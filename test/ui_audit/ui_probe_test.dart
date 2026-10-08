@@ -48,6 +48,26 @@ import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_c
 import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_leftovers.dart';
 import 'package:tubing_calculator/src/presentation/tube_cutting/screens/cutting_main_screen.dart';
 import 'package:tubing_calculator/src/presentation/inventory/pages/mobile_inventory_login.dart';
+import 'package:tubing_calculator/src/presentation/electrical/electric_calculator_page.dart';
+import 'package:tubing_calculator/src/presentation/instrument/signal_calculator_page.dart';
+import 'package:tubing_calculator/src/presentation/pressure_test/pressure_test_page.dart';
+import 'package:tubing_calculator/src/presentation/flow/flow_calc_page.dart';
+import 'package:tubing_calculator/src/presentation/alignment/alignment_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/busbar_bend_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/busbar_ground_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/cable_tray_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/cable_tray_route_page.dart';
+import 'package:tubing_calculator/src/presentation/unit_converter/unit_converter_page.dart';
+import 'package:tubing_calculator/src/presentation/field_tools/eng_calculator_page.dart';
+import 'package:tubing_calculator/src/presentation/field_tools/formula_calc_page.dart';
+import 'package:tubing_calculator/src/presentation/field_tools/formula_defs.dart';
+import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/troubleshoot_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/panel_design_page.dart';
+import 'package:tubing_calculator/src/presentation/electrical/circuit_reading_page.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/screens/short_pipe_cutting_page.dart';
+import 'package:tubing_calculator/src/presentation/bend_check/bend_check_page.dart';
+import 'package:tubing_calculator/src/presentation/instrument/meter_loop_guide_page.dart';
 
 class Cfg {
   final String name;
@@ -143,6 +163,34 @@ final screens = <String, (Widget Function(), List<Cfg>)>{
   '프로필': (() => const MobileProfilePage(currentWorker: '홍길동'), phoneCfgs),
   '프로필 수정': (() => const MobileProfileEditPage(initialName: '홍길동'), phoneCfgs),
   '재고 로그인': (() => const MobileInventoryLoginScreen(), phoneCfgs),
+  // 10-08 추가: 전기·계기·압력시험·유량·축 정렬·부스바·트레이·단위·공식 등 새 화면.
+  for (final id in [...kElecGeneralTabs, ...kElecMotorTabs])
+    '전기 계산 탭$id': (() => ElectricCalculatorPage(initialTab: id), phoneCfgs),
+  for (var t = 0; t < 5; t++)
+    '계기 계산 탭$t': (() => SignalCalculatorPage(initialTab: t), phoneCfgs),
+  for (var t = 0; t < 4; t++)
+    '압력시험 탭$t': (() => PressureTestPage(initialTab: t), phoneCfgs),
+  for (var t = 0; t < 4; t++)
+    '유량 계산 탭$t': (() => FlowCalcPage(initialTab: t), phoneCfgs),
+  for (var t = 0; t < 4; t++)
+    '분전반 탭$t': (() => PanelDesignPage(initialTab: t), phoneCfgs),
+  for (var t = 0; t < 4; t++)
+    '회로 읽기 탭$t': (() => CircuitReadingPage(initialTab: t), phoneCfgs),
+  '축 정렬': (() => const AlignmentPage(), phoneCfgs),
+  '부스바 절곡': (() => const BusbarBendPage(), phoneCfgs),
+  '접지바': (() => const GroundBarPage(), phoneCfgs),
+  '케이블 트레이': (() => const CableTrayPage(), phoneCfgs),
+  '트레이 형상': (() => const CableTrayRoutePage(), phoneCfgs),
+  '단위 계산기': (() => const UnitConverterPage(), phoneCfgs),
+  '공학용 계산기': (() => const EngCalculatorPage(), phoneCfgs),
+  '공식 목록': (() => const FormulaCalcPage(), phoneCfgs),
+  for (final f in kFormulas)
+    '공식 ${f.id}':(() => FormulaDetailPage(def: f), [phoneCfgs[1]]),
+  '안전 점검': (() => const SafetyCheckPage(), phoneCfgs),
+  '고장 진단': (() => const TroubleshootPage(), phoneCfgs),
+  '단관 컷팅': (() => const ShortPipeCuttingPage(), phoneCfgs),
+  '벤딩 실측': (() => const BendCheckPage(), phoneCfgs),
+  '계기 루프 안내': (() => const MeterLoopGuidePage(), phoneCfgs),
 };
 
 class Finding {

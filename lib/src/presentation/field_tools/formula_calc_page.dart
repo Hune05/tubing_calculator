@@ -10,7 +10,7 @@ import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
-import '../unit_converter/unit_defs.dart' show formatNumber;
+import '../unit_converter/unit_defs.dart' show formatNumber, formatNumberGrouped;
 import 'formula_defs.dart';
 import '../common/number_text.dart';
 
@@ -317,12 +317,12 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
       final inputsText = def.inputs
           .map(
             (v) =>
-                '${v.label} ${formatNumber(entered[v.key]!)}${_units[v.key]!.label}',
+                '${v.label} ${formatNumberGrouped(entered[v.key]!)}${_units[v.key]!.label}',
           )
           .join(', ');
       logCalc(
         def.name,
-        '$inputsText → ${formatNumber(shown)}$resultUnitText',
+        '$inputsText → ${formatNumberGrouped(shown)}$resultUnitText',
       );
     }
     return FieldViewTheme(
@@ -416,7 +416,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
               else if (shown != null)
                 calcResult(
                   key: const Key('formula_result'),
-                  big: '${formatNumber(shown)}$resultUnitText',
+                  big: '${formatNumberGrouped(shown)}$resultUnitText',
                   caption: def.resultLabel,
                   lines: pctNotes,
                 )

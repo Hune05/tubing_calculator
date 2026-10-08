@@ -1059,3 +1059,21 @@ OdRow? nearestOd(double mm, List<OdRow> table) {
   final tol = math.max(1.0, best.od * 0.05);
   return (best.od - mm).abs() <= tol ? best : null;
 }
+
+/// 보기 전용: [formatNumber]에 천 단위 쉼표를 넣는다(100000 → 100,000). 입력 칸에 다시
+/// 넣는 글에는 쓰지 않는다(쉼표 하나는 소수점으로 읽는 칸이 있다). 지수 표기는 그대로.
+String formatNumberGrouped(double v) {
+  final s = formatNumber(v);
+  if (s.contains('e')) return s;
+  final neg = s.startsWith('-');
+  final body = neg ? s.substring(1) : s;
+  final dot = body.indexOf('.');
+  final intPart = dot < 0 ? body : body.substring(0, dot);
+  final frac = dot < 0 ? '' : body.substring(dot);
+  final b = StringBuffer();
+  for (var i = 0; i < intPart.length; i++) {
+    if (i > 0 && (intPart.length - i) % 3 == 0) b.write(',');
+    b.write(intPart[i]);
+  }
+  return '${neg ? '-' : ''}$b$frac';
+}
