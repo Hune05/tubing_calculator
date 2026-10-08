@@ -173,6 +173,7 @@ BendCheck conduitBendCheck(
     radius: _num(settings, 'clr', 0.0),
     startDir: startDir,
     outerDiameter: conduitDrawOuterDiameterMm(settings),
+    warnZeroRadius: false,
   );
 }
 

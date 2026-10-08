@@ -11,6 +11,7 @@ import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_rolling_offset_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/rolling_offset_guide.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 
 BendSheetSpecs tubeSpecs(double r) =>
     BendSheetSpecs(radius: r, gain90: 0, markOffset: (a) => bendSetback(r, a));
@@ -207,4 +208,59 @@ void main() {
     expect(focus(), RollingFocus.bend);
     expect(tester.takeException(), isNull);
   });
+
+  // 10-09: 시트에 보이는 "1번 → 2번 마킹 간격"이 마킹 탭(엔진·전선관 마킹)과 같아야 한다.
+  // 예전 시트는 빗변 − R·tan(θ/2)로 R38.1·45°에서 125.6을 보였다(마킹 탭 139.8).
+  test("시트 마킹 간격 = 튜브 마킹 탭의 1번→2번 간격(반경·실측 게인)", () {
+    for (final (r, g90) in [(38.1, 0.0), (38.1, 12.0), (100.0, 0.0), (57.2, 24.5)]) {
+      for (final ang in [22.5, 30.0, 45.0, 60.0]) {
+        final specs = BendSheetSpecs(
+          radius: r,
+          gain90: g90,
+          markOffset: (a) => bendSetback(r, a),
+        );
+        final tr = 100 / math.sin(ang * math.pi / 180);
+        final bends = rollingOffsetBends(
+          specs: specs,
+          startDistance: 200,
+          travel: tr,
+          angle: ang,
+          advance: 100 / math.tan(ang * math.pi / 180),
+          rotation: 0,
+        );
+        final res = TubeBendingEngine(radius: r, userGain90: g90).calculate([
+          for (final (l, a, rot) in bends)
+            BendInstruction(length: l, angle: a, rotation: rot),
+        ], 0);
+        final steps = res["steps"] as List<StepResult>;
+        final gap = steps[1].markingPoint - steps[0].markingPoint;
+        // 목록 줄은 0.1로 반올림해 넣으므로 그만큼만 허용.
+        expect(specs.markGap(tr, ang), closeTo(gap, 0.1), reason: "R$r g$g90 $ang°");
+      }
+    }
+    // 보고된 예: R38.1, 진짜 오프셋 100, 45° → 139.8.
+    final s = BendSheetSpecs(radius: 38.1, gain90: 0, markOffset: (a) => bendSetback(38.1, a));
+    expect(s.markGap(100 / math.sin(math.pi / 4), 45), closeTo(139.8, 0.05));
+  });
+
+  test("시트 마킹 간격 = 전선관 마킹의 1번→2번 간격(표 게인 비율)", () {
+    final settings = <String, dynamic>{
+      "benderType": "hand",
+      "takeUp": 152.4,
+      "gain": 82.5,
+      "clr": 114.3,
+      "applySpringback": false,
+    };
+    final specs = BendSheetSpecs.conduit(settings);
+    for (final ang in [10.0, 22.5, 30.0, 45.0, 60.0]) {
+      final tr = 100 / math.sin(ang * math.pi / 180);
+      final marks = calculateConduitMarkings([
+        {"length": 300.0, "angle": ang},
+        {"length": tr, "angle": ang},
+      ], settings);
+      final gap = (marks[1]["mark"] as num) - (marks[0]["mark"] as num);
+      expect(specs.markGap(tr, ang), closeTo(gap, 0.01), reason: "$ang°");
+    }
+  });
 }
+

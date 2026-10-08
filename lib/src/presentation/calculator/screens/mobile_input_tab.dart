@@ -233,6 +233,8 @@ class _MobileInputTabState extends State<MobileInputTab>
       tubeOdMm: settings.isInch ? settings.tubeOD * 25.4 : settings.tubeOD,
       minStraight: settings.minStraight,
       warnShoeInterference: settings.warnShoeInterference,
+      // 앞뒤 벤드 셋백을 빼고 곧은 부분으로 본다(10-09).
+      radius: settings.bendRadius,
     );
     final double minFittingStraight = lengthCheck.minFittingStraight;
     final bool isShoeInterference = lengthCheck.shoeInterference;
@@ -258,7 +260,9 @@ class _MobileInputTabState extends State<MobileInputTab>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AppDialog.message(
-                lengthCheck.merged
+                lengthCheck.setbackRemoved
+                    ? "앞뒤 벤드를 빼면 곧은 부분이 ${lengthCheck.straight.toStringAsFixed(1)}mm뿐이라 현장에서 문제가 생길 수 있습니다."
+                    : lengthCheck.merged
                     ? "앞 직관과 이어서 곧은 길이가 ${lengthCheck.run.toStringAsFixed(1)}mm뿐이라 현장에서 문제가 생길 수 있습니다."
                     : "입력하신 길이(${length.toStringAsFixed(1)}mm)가 너무 짧아 현장에서 문제가 생길 수 있습니다.",
               ),

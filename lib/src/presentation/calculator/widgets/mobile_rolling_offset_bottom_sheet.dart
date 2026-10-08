@@ -352,18 +352,19 @@ class _MobileRollingOffsetBottomSheetState
       }
     }
 
-    // 🚀 [추가] 테이크오프(Take-off) 및 최종 마킹 거리 계산 로직
-    double takeOff = 0;
+    // 1번 → 2번 마킹 간격은 마킹 탭과 같은 셈(빗변 − 앞 벤드 게인)으로 보인다.
+    // 🚀 [고침 10-09] 예전에는 "빗변 − R·tan(θ/2)"를 "실제 마킹 간격"으로 보여 마킹 탭과
+    // 달랐다(R38.1, 진짜 오프셋 100, 45°: 125.6 / 마킹 탭 139.8). 목록에 넣는 값은 원래 맞았다.
+    final sheetSpecs = _specs;
+    double gapGain = 0;
     double markingDistance = 0;
-
-    if (_bendRadius > 0 && finalBendAngle > 0) {
-      // 공식: R * tan(각도/2)
-      takeOff =
-          _bendRadius * math.tan((finalBendAngle / 2.0) * (math.pi / 180.0));
-      if (finalTravel > 0) {
-        // 실제 마킹 거리 = 도면상 빗변 - 공제량
-        markingDistance = finalTravel - takeOff;
-      }
+    final bool showGap = sheetSpecs != null &&
+        finalTravel > 0 &&
+        finalBendAngle > 0 &&
+        finalBendAngle < 90;
+    if (showGap) {
+      gapGain = sheetSpecs.gainAt(finalBendAngle);
+      markingDistance = sheetSpecs.markGap(finalTravel, finalBendAngle);
     }
 
     return Padding(
@@ -596,7 +597,7 @@ class _MobileRollingOffsetBottomSheetState
                     const SizedBox(height: 16),
 
                     // 🚀 2. [신규] 현장 실무용 오차 보정 마킹 데이터 영역
-                    if (_bendRadius > 0 && finalTravel > 0) ...[
+                    if (showGap) ...[
                       const Row(
                         children: [
                           Icon(
@@ -607,7 +608,7 @@ class _MobileRollingOffsetBottomSheetState
                           SizedBox(width: 6),
                           Flexible(
                             child: Text(
-                              "현장 마킹 제원 (설정 R값 적용)",
+                              "현장 마킹 (마킹 탭과 같은 셈)",
                               style: TextStyle(
                                 color: Colors.deepOrange,
                                 fontWeight: FontWeight.bold,
@@ -636,7 +637,7 @@ class _MobileRollingOffsetBottomSheetState
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  "공제량 (Take-off)",
+                                  "앞 벤드 게인",
                                   style: TextStyle(
                                     color: Colors.deepOrange.shade800,
                                     fontSize: 11,
@@ -645,7 +646,7 @@ class _MobileRollingOffsetBottomSheetState
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  "- ${takeOff.toStringAsFixed(1)} mm",
+                                  "- ${gapGain.toStringAsFixed(1)} mm",
                                   style: const TextStyle(
                                     color: Colors.redAccent,
                                     fontSize: 15,
@@ -659,7 +660,7 @@ class _MobileRollingOffsetBottomSheetState
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  "실제 마킹 간격",
+                                  "1번 → 2번 마킹 간격",
                                   style: TextStyle(
                                     color: Colors.deepOrange.shade800,
                                     fontSize: 11,

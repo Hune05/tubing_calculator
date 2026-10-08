@@ -357,9 +357,14 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     }
 
     double roundedTravel = double.parse(travel3Pt.toStringAsFixed(1));
+    // 옆 벤드(센터 각의 절반)와 가운데 벤드 사이 곧은 부분으로 본다(10-09: 예전에는 빗변으로 비교).
+    final double straight3 =
+        roundedTravel -
+        bendSetback(_machineRadius, a3 / 2) -
+        bendSetback(_machineRadius, a3);
 
     // 🚀 [추가] 슈 간섭 경고 (Soft Warning)
-    if (_warnShoeInterference && roundedTravel < _minStraight) {
+    if (_warnShoeInterference && _minStraight > 0 && straight3 < _minStraight) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -379,7 +384,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           ),
           content: Text(
             "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
-            "• 계산된 빗변: ${roundedTravel}mm\n\n"
+            "• 벤드 사이 곧은 부분: ${straight3.toStringAsFixed(1)}mm (빗변 ${roundedTravel}mm − 양쪽 셋백)\n\n"
             "길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 넣으시겠습니까?",
             style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
           ),
@@ -501,9 +506,14 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     double roundedTravel = double.parse(travel4Pt.toStringAsFixed(1));
     double roundedW = double.parse(w.toStringAsFixed(1));
 
+    // 벤드 사이 곧은 부분으로 본다(10-09: 예전에는 빗변·폭 그대로 비교).
+    final double sb4 = bendSetback(_machineRadius, a4);
+    final double travelStraight4 = roundedTravel - 2 * sb4;
+    final double wStraight4 = roundedW - 2 * sb4;
     // 🚀 [추가] 슈 간섭 경고 (Soft Warning) 4포인트는 넓이(W)도 짧으면 안물립니다.
     if (_warnShoeInterference &&
-        (roundedTravel < _minStraight || roundedW < _minStraight)) {
+        _minStraight > 0 &&
+        (travelStraight4 < _minStraight || wStraight4 < _minStraight)) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -523,8 +533,8 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           ),
           content: Text(
             "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
-            "• 계산된 빗변: ${roundedTravel}mm\n"
-            "• 상단 폭(W): ${roundedW}mm\n\n"
+            "• 빗변 곧은 부분: ${travelStraight4.toStringAsFixed(1)}mm (빗변 ${roundedTravel}mm − 양쪽 셋백)\n"
+            "• 상단 폭 곧은 부분: ${wStraight4.toStringAsFixed(1)}mm (폭 ${roundedW}mm − 양쪽 셋백)\n\n"
             "구간 길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 넣으시겠습니까?",
             style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
           ),

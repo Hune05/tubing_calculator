@@ -113,15 +113,21 @@ class _MobileQuickKickBottomSheetState
       travel = h / math.sin(rad);
       run = h / math.tan(rad);
 
-      // R값이 존재하면 실제 마킹 위치(공제량)를 계산합니다.
+      // 킥은 한 번만 꺾으므로 "마킹 간격"이 아니라 벤드 뒤 곧은 부분(빗변 − 셋백)이다
+      // (10-09: 예전에는 "실제 마킹 간격"이라 적혀 두 마킹 사이로 오해할 수 있었다).
       if (bendRadius > 0) {
         takeOff = bendRadius * math.tan((a / 2.0) * (math.pi / 180.0));
         markingDistance = travel - takeOff;
       }
     }
 
+    // 벤드 뒤 곧은 부분(빗변 − 셋백)으로 본다(10-09: 예전에는 빗변 그대로 비교).
+    final double kickStraight = bendRadius > 0 ? markingDistance : travel;
     bool isTooShort =
-        _warnShoeInterference && travel > 0 && travel < _minStraight;
+        _warnShoeInterference &&
+        _minStraight > 0 &&
+        travel > 0 &&
+        kickStraight < _minStraight;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -294,7 +300,7 @@ class _MobileQuickKickBottomSheetState
                     ),
                     SizedBox(width: 6),
                     Text(
-                      "현장 마킹 제원 (설정 R값 적용)",
+                      "설정 R값으로 본 길이",
                       style: TextStyle(
                         color: Colors.deepOrange,
                         fontWeight: FontWeight.bold,
@@ -320,7 +326,7 @@ class _MobileQuickKickBottomSheetState
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "공제량 (Take-off)",
+                            "셋백 (R·tan(θ/2))",
                             style: TextStyle(
                               color: Colors.deepOrange.shade800,
                               fontSize: 11,
@@ -343,7 +349,7 @@ class _MobileQuickKickBottomSheetState
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            "실제 마킹 간격",
+                            "벤드 뒤 곧은 부분",
                             style: TextStyle(
                               color: Colors.deepOrange.shade800,
                               fontSize: 11,
@@ -387,7 +393,7 @@ class _MobileQuickKickBottomSheetState
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          "계산된 빗변(${travel.toStringAsFixed(1)}mm)이 최소 물림 길이($_minStraight mm)보다 짧아 벤더기에 안 물릴 수 있습니다.",
+                          "벤드 뒤 곧은 부분(${kickStraight.toStringAsFixed(1)}mm)이 최소 물림 길이($_minStraight mm)보다 짧아 벤더기에 안 물릴 수 있습니다.",
                           style: TextStyle(
                             color: Colors.red.shade900,
                             fontSize: 12,

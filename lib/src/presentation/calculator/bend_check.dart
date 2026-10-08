@@ -58,6 +58,8 @@ BendCheck checkBends(
   double tail = 0.0,
   double outerDiameter = 0.0,
   List<String> engineWarnings = const [],
+  // 전선관은 마킹을 테이크업·게인 표로 셈하고 CLR은 형상 점검에만 쓰므로 끈다.
+  bool warnZeroRadius = true,
 }) {
   final input = <PathSegment>[
     for (final raw in bendList)
@@ -71,6 +73,13 @@ BendCheck checkBends(
   if (input.isEmpty) {
     return BendCheck(warnings: List<String>.from(engineWarnings));
   }
+  // 🚀 [추가 10-09] 반경이 0이면 셋백 없이 셈해서 마킹·절단 길이가 맞지 않는데 아무 말이
+  // 없었다(마킹 300·700, 절단 900). 다른 점검은 그대로 하고 이 경고를 맨 위에 둔다.
+  final String? zeroRadius =
+      warnZeroRadius && radius <= 0 && input.any((s) => s.angle > 0)
+      ? '벤더 반경(R)이 0입니다. 설정 탭에서 반경을 넣으십시오. '
+            '지금 마킹·절단 길이는 벤드를 빼지 않고 셈한 것이라 맞지 않습니다.'
+      : null;
 
   // 직관을 다음 구간에 합친다(마지막 직관은 꼬리라 그대로 둔다).
   final segs = <PathSegment>[];
@@ -124,6 +133,7 @@ BendCheck checkBends(
   final pathWarnings = [for (final w in path.warnings) renumber(w)];
   return BendCheck(
     warnings: [
+      ?zeroRadius,
       ...kept,
       ?_shortEndStraight(input, radius),
       // 공간 기하가 본 것(짧은 구간·못 꺾는 방향·쓸 수 없는 방향값).

@@ -8,11 +8,19 @@
 ///   있다)에서만 본다.
 /// - 인치로 저장된 규격(0.5)을 mm 표에 그대로 대서 1/2" 튜브에 1/4" 기준(21mm)을
 ///   쓰고 있었다. mm로 바꿔서 댄다.
+/// - 🚀 [고침 10-09] 꺾이는 점 사이 길이로 비교해서, 앞뒤 벤드의 셋백을 빼면 곧은 부분이
+///   10mm뿐이어도 경고가 없었다(R38.1 90° 두 번 사이 80mm → 곧은 부분 3.8mm).
+///   [radius]를 주면 앞 벤드·이 벤드의 셋백을 빼고 본다.
 library;
 
+import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
+
 class SegmentLengthCheck {
-  /// 앞에 이어진 직관까지 합친 곧은 길이.
+  /// 앞에 이어진 직관까지 합친 길이(꺾이는 점 기준).
   final double run;
+
+  /// [run]에서 앞 벤드·이 벤드의 셋백을 뺀 곧은 부분(벤더·너트가 실제로 물리는 길이).
+  final double straight;
 
   /// 벤더에 물릴 길이가 모자란가.
   final bool shoeInterference;
@@ -26,10 +34,14 @@ class SegmentLengthCheck {
   /// 앞 직관과 합쳐서 봤는가(창 문구에 쓴다).
   bool get merged => run > inputLength + 1e-9;
 
+  /// 셋백을 빼고 봤는가(창 문구에 쓴다).
+  bool get setbackRemoved => straight < run - 1e-9;
+
   final double inputLength;
 
   const SegmentLengthCheck({
     required this.run,
+    required this.straight,
     required this.inputLength,
     required this.shoeInterference,
     required this.leakRisk,
@@ -49,6 +61,7 @@ double minFittingStraightMm(double odMm) {
 }
 
 /// [existing]은 지금 목록('length'·'angle'), [length]·[angle]은 새로 넣을 구간.
+/// [radius]가 0이면 셋백을 빼지 않는다(예전 셈).
 SegmentLengthCheck checkSegmentLength({
   required List<dynamic> existing,
   required double length,
@@ -56,28 +69,37 @@ SegmentLengthCheck checkSegmentLength({
   required double tubeOdMm,
   required double minStraight,
   required bool warnShoeInterference,
+  double radius = 0.0,
 }) {
   double val(dynamic m, String k) =>
       m is Map ? ((m[k] as num?)?.toDouble() ?? 0.0) : 0.0;
 
-  // 바로 앞에 이어진 직관(0°)들의 길이.
+  // 바로 앞에 이어진 직관(0°)들의 길이와, 그 앞 마지막 벤드의 각.
   double trailingStraight = 0.0;
+  double prevBendAngle = 0.0;
   for (int i = existing.length - 1; i >= 0; i--) {
-    if (val(existing[i], 'angle') > 0) break;
+    final a = val(existing[i], 'angle');
+    if (a > 0) {
+      prevBendAngle = a;
+      break;
+    }
     trailingStraight += val(existing[i], 'length');
   }
   final run = length + trailingStraight;
+  final straight =
+      run - bendSetback(radius, prevBendAngle) - bendSetback(radius, angle);
 
-  final bool hasBendBefore = existing.any((b) => val(b, 'angle') > 0);
+  final bool hasBendBefore = prevBendAngle > 0;
   // 관 끝에 닿는 구간: 앞에 벤드가 없으면 시작 끝, 벤드 뒤 직관이면 끝이 될 수 있다.
   final bool atPipeEnd = !hasBendBefore || angle <= 0;
 
   final minFitting = minFittingStraightMm(tubeOdMm);
   return SegmentLengthCheck(
     run: run,
+    straight: straight,
     inputLength: length,
-    shoeInterference: warnShoeInterference && run < minStraight,
-    leakRisk: atPipeEnd && run < minFitting,
+    shoeInterference: warnShoeInterference && straight < minStraight,
+    leakRisk: atPipeEnd && straight < minFitting,
     minFittingStraight: minFitting,
   );
 }

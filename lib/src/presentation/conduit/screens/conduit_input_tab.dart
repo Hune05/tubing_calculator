@@ -897,8 +897,13 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // 10-09: 표 테이크업·게인이 관 등(바깥면) 기준이라 90° 다리는 등까지 재야
+                        // 마킹이 맞는다(중심선까지 재면 22mm에서 벤드마다 약 12mm 어긋난다).
                         Text(
-                          "길이 (mm)",
+                          _selectedAngle == 90.0
+                              ? "길이 (mm) · 관 등(바깥면)까지"
+                              : "길이 (mm)",
+                          key: const Key('conduit_length_label'),
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: slate600,

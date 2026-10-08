@@ -100,4 +100,52 @@ void main() {
     expect(c.shoeInterference, isFalse);
     expect(c.leakRisk, isTrue);
   });
+
+  group("반경을 주면 앞뒤 셋백을 빼고 본다(10-09)", () {
+    SegmentLengthCheck withR(List<Map<String, dynamic>> ex, double len, double ang) =>
+        checkSegmentLength(
+          existing: ex,
+          length: len,
+          angle: ang,
+          tubeOdMm: 12.7,
+          minStraight: 30,
+          warnShoeInterference: true,
+          radius: 38.1,
+        );
+
+    test("R38.1 90° 두 번 사이 80mm: 곧은 부분 3.8mm라 물림 경고(예전에는 80 ≥ 30이라 통과)", () {
+      final c = withR(bends([[300, 90, 0]]), 80, 90);
+      expect(c.straight, closeTo(3.8, 0.05));
+      expect(c.shoeInterference, isTrue);
+      expect(c.setbackRemoved, isTrue);
+      expect(c.leakRisk, isFalse); // 중간 구간은 누설을 안 본다
+    });
+
+    test("45° 두 번 사이 빗변 42.4: 곧은 부분 10.9mm라 경고", () {
+      final c = withR(bends([[300, 45, 0]]), 42.4, 45);
+      expect(c.straight, closeTo(10.8, 0.1));
+      expect(c.shoeInterference, isTrue);
+    });
+
+    test("첫 구간 50mm 뒤 90°: 곧은 끝 11.9mm라 물림·누설 둘 다", () {
+      final c = withR(const [], 50, 90);
+      expect(c.straight, closeTo(11.9, 0.05));
+      expect(c.shoeInterference, isTrue);
+      expect(c.leakRisk, isTrue);
+    });
+
+    test("90° 뒤 꼬리 직관 60mm: 앞 셋백만 빼서 21.9mm, 누설 경고", () {
+      final c = withR(bends([[300, 90, 0]]), 60, 0);
+      expect(c.straight, closeTo(21.9, 0.05));
+      expect(c.leakRisk, isTrue);
+    });
+
+    test("넉넉하면 경고 없음, 반경 0이면 예전과 같다", () {
+      expect(withR(bends([[300, 90, 0]]), 200, 90).hasWarning, isFalse);
+      final old = check(bends([[300, 90, 0]]), 80, 90);
+      expect(old.straight, 80);
+      expect(old.hasWarning, isFalse);
+    });
+  });
 }
+

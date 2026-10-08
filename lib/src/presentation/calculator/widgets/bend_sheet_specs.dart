@@ -68,6 +68,19 @@ class BendSheetSpecs {
     double geometricShrink,
   ) => firstMark(startDistance, geometricShrink) + markOffset(angle);
 
+  /// [angle]로 한 번 꺾을 때 줄어드는 길이(게인). 마킹 화면이 다음 마킹에서 빼는 값과 같다.
+  /// 튜브는 엔진([effectiveGain]: 실측 게인이 있으면 환산, 없으면 반경), 전선관은
+  /// [conduitGainForAngle](90° 표 게인을 각도 비율로, 표 게인이 0이면 0).
+  double gainAt(double angle) => isConduit
+      ? conduitGainForAngle(angle, gain90)
+      : effectiveGain(radius: radius, angleDeg: angle, measuredGain90: gain90);
+
+  /// 같은 각도로 두 번 꺾을 때 두 마킹 사이 거리. 꺾이는 점 사이가 [travel]이면
+  /// 마킹 화면은 앞 벤드 게인만큼 줄여 긋는다(튜브·전선관 같음).
+  /// 🚀 [고침 10-09] 롤링 오프셋 시트가 "빗변 − R·tan(θ/2)"를 "실제 마킹 간격"으로 보여서
+  /// 마킹 탭과 달랐다(R38.1, 진짜 오프셋 100, 45°: 시트 125.6 / 마킹 탭 139.8).
+  double markGap(double travel, double angle) => travel - gainAt(angle);
+
   /// 이 벤더로 넣을 수 있는 가장 큰 각. 전선관 벤더(수동·시카고·유압)는 90°까지다.
   /// 🚀 [고침 2026-09-27] 전선관 게인은 90° 표 값을 각도 비율로 늘리는 식이라 90°를
   /// 넘으면 값이 폭주했다(22mm EMT 150°에 절단 −331mm).

@@ -308,12 +308,18 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       roundedShrink,
     );
     double secondSegmentLength = roundedTravel;
+    // 두 벤드 사이는 벤더에 물리는 곧은 부분(빗변 − 양쪽 셋백)으로 본다(10-09: 예전에는
+    // 빗변으로 비교해 곧은 부분이 10.9mm여도 빗변 42.4 > 30이면 경고가 없었다).
+    // 1구간은 앞에 무엇이 있는지 이 창이 모르므로 예전처럼 본다.
+    final double sb = bendSetback(_machineRadius, roundedAngle);
+    final double secondStraight = secondSegmentLength - 2 * sb;
 
     // 🚀 [추가] 슈 간섭 경고 (Soft Warning)
     // 설정 스위치가 켜져있고 && 1구간이나 2구간이 최소물림길이보다 짧을 때 발동
     if (_warnShoeInterference &&
+        _minStraight > 0 &&
         ((firstSegmentLength < _minStraight && firstSegmentLength > 0) ||
-            secondSegmentLength < _minStraight)) {
+            secondStraight < _minStraight)) {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -334,7 +340,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
           content: Text(
             "현재 설정된 장비의 최소 물림 길이는 ${_minStraight}mm 입니다.\n\n"
             "• 1구간(시작~1번): ${firstSegmentLength.toStringAsFixed(1)}mm\n"
-            "• 2구간(빗변): ${secondSegmentLength.toStringAsFixed(1)}mm\n\n"
+            "• 2구간 곧은 부분(빗변 ${secondSegmentLength.toStringAsFixed(1)} − 양쪽 셋백): ${secondStraight.toStringAsFixed(1)}mm\n\n"
             "길이가 너무 짧아 벤더기에 물리지 않을 수 있습니다. 그래도 넣으시겠습니까?",
             style: const TextStyle(color: slate900, fontSize: 14, height: 1.5),
           ),

@@ -100,4 +100,36 @@ void main() {
     expect(rolls.keys, contains(2));
     expect(rolls.keys, isNot(contains(1)));
   });
+
+  test("반경 0이면 \"반경을 넣으십시오\"를 맨 위에(10-09: 예전에는 말없이 셋백 0으로 셈했다)", () {
+    final c = checkBends(
+      [
+        {"length": 300.0, "angle": 90.0, "rotation": 0.0},
+        {"length": 700.0, "angle": 0.0, "rotation": 0.0},
+      ],
+      radius: 0,
+      startDir: "RIGHT",
+    );
+    expect(c.warnings.first, contains("반경(R)이 0"));
+    // 직관만 있으면 반경이 없어도 말하지 않는다.
+    final straightOnly = checkBends(
+      [
+        {"length": 300.0, "angle": 0.0, "rotation": 0.0},
+      ],
+      radius: 0,
+      startDir: "RIGHT",
+    );
+    expect(straightOnly.warnings, isEmpty);
+    // 전선관은 CLR이 형상 점검에만 쓰이므로 끈다.
+    final off = checkBends(
+      [
+        {"length": 300.0, "angle": 90.0, "rotation": 0.0},
+      ],
+      radius: 0,
+      startDir: "RIGHT",
+      warnZeroRadius: false,
+    );
+    expect(off.warnings.where((w) => w.contains("반경(R)이 0")), isEmpty);
+  });
 }
+
