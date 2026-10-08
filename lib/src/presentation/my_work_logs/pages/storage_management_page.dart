@@ -17,6 +17,7 @@ import '../models/photo_store.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/confirm_delete.dart';
 import 'app_status_page.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 const Color _teal = AppColors.brand;
 const Color _text = AppColors.text;
@@ -133,7 +134,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       // ignore: deprecated_member_use
       await Share.shareXFiles([XFile(f.path)], text: '내 프로젝트 백업');
     } catch (e) {
-      _toast("백업 실패: $e");
+      _toast(failText("백업 실패", e));
     }
   }
 
@@ -152,7 +153,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     } on FormatException catch (e) {
       _toast(e.message);
     } catch (e) {
-      _toast("복원 실패: $e");
+      _toast(failText("복원 실패", e));
     }
   }
 
@@ -266,7 +267,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
       _toast(e.message);
     } catch (e) {
       if (mounted) setState(() => _cloudBusy = false);
-      _toast("불러오기 실패: $e");
+      _toast(failText("불러오기 실패", e));
     }
   }
 

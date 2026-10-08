@@ -16,6 +16,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_loading_screen.dart';
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
+import 'package:tubing_calculator/src/presentation/profile/google_link.dart';
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
 import 'package:tubing_calculator/src/presentation/profile/widgets/profile_menu_widgets.dart';
 import 'package:tubing_calculator/src/presentation/profile/widgets/profile_photo.dart';
@@ -33,8 +34,6 @@ const Color slate100 = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
 const Color red500 = Color(0xFFF04452);
 
-const String _kGoogleServerClientId =
-    '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com';
 
 class MobileProfilePage extends StatefulWidget {
   final String currentWorker;
@@ -66,7 +65,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
   Future<void> _handleGoogleSignIn() async {
     setState(() => _isLoggingIn = true);
     try {
-      await _googleSignIn.initialize(serverClientId: _kGoogleServerClientId);
+      await ensureGoogleSignInReady();
       // authenticate()는 취소·실패면 예외를 던지고 null을 주지 않는다.
       final GoogleSignInAccount account = await _googleSignIn.authenticate();
       final OAuthCredential credential = GoogleAuthProvider.credential(

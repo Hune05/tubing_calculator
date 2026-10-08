@@ -302,7 +302,8 @@ class _MyAppState extends State<MyApp> {
       _requestNotificationPermission();
       _setupForegroundMessageListener();
       _setupBackgroundAndTerminatedMessageListener();
-      _handleFCMToken();
+      // 알림 토큰은 로딩 화면에서 이름 문서에 올린다(ProfileStore.saveToken). 10-09: 여기서
+      // 토큰을 로그에 찍던 것은 뺐다(통신 없을 때 getToken 오류가 앱 오류 기록에 쌓였다).
     }
     // 카톡 등에서 공유로 받은 도면: 앱이 떠 있을 때 새로 들어오면, 그리고 앱을 켠 뒤
     // 홈 메뉴가 뜨면(로딩 화면이 홈으로 바뀌면서 먼저 띄운 창을 덮지 않게) 가져간다.
@@ -345,23 +346,15 @@ class _MyAppState extends State<MyApp> {
     }
   }
 
-  void _handleFCMToken() async {
-    String? token = await FirebaseMessaging.instance.getToken();
-    debugPrint("=====================================");
-    debugPrint("🔥 내 기기 FCM 토큰: $token");
-    debugPrint("=====================================");
-
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-      debugPrint("🔄 FCM 토큰 갱신됨: $newToken");
-    });
-  }
-
   void _requestNotificationPermission() async {
     // 🚀 [고침] 알림 권한은 앱을 켤 때 묻지 않고, 알림을 켜는 순간에 묻는다
     // (reminder_tools.dart ensureNotificationPermission).
     FirebaseMessaging messaging = FirebaseMessaging.instance;
     // 발주 기능은 지웠다. 예전에 구독한 폰도 발주 알림 주제에서 빠진다.
-    await messaging.unsubscribeFromTopic("field_orders");
+    // 통신이 없으면 실패하는데, 다음에 켤 때 다시 하면 되니 조용히 넘어간다.
+    try {
+      await messaging.unsubscribeFromTopic("field_orders");
+    } catch (_) {}
   }
 
   void _setupForegroundMessageListener() {

@@ -2,6 +2,8 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../approval/member_approval.dart' show kAdminEmail;
+import '../../profile/google_link.dart' show ensureGoogleSignInReady;
 // 🚀 사용자님의 모바일 자재 관리 페이지를 임포트합니다!
 import 'mobile_inventory_page.dart';
 
@@ -16,12 +18,26 @@ class MobileInventoryLoginScreen extends StatefulWidget {
 // 한 번 본인 계정으로 확인된 폰이라는 표시. 발전소처럼 통신이 없는 곳에서는
 // 구글에 물어볼 수 없으므로, 전에 확인된 폰이면 그대로 들여보낸다.
 const String kInventoryAdminOkPrefsKey = 'inventory_admin_ok_v1';
+// 확인된 구글 계정 이름(통신 없을 때 자재 기록에 적을 이름).
+const String kInventoryAdminNamePrefsKey = 'inventory_admin_name_v1';
+
+/// 본인 계정으로 확인된 폰이라고 적어 둔다.
+/// 10-09: 예전에는 앱 전체가 쓰는 사용자 이름(user_real_name)을 구글 표시 이름으로 덮어써서,
+/// 프로필에서 이름을 바꾼 사람이 자재 관리를 한 번 열면 다음에 켤 때 옛 이름으로 돌아가
+/// 일정·프로필이 안 보였다. 이제 자재 관리용 칸에만 적는다.
+Future<void> rememberInventoryAdmin(SharedPreferences prefs, String? displayName) async {
+  await prefs.setBool(kInventoryAdminOkPrefsKey, true);
+  await prefs.setString(kInventoryAdminNamePrefsKey, displayName ?? "관리자");
+}
+
+/// 통신이 없을 때 자재 기록에 적을 이름.
+String inventoryAdminOfflineName(SharedPreferences? prefs) =>
+    prefs?.getString(kInventoryAdminNamePrefsKey) ??
+    prefs?.getString('user_real_name') ??
+    "관리자";
 
 class _MobileInventoryLoginScreenState
     extends State<MobileInventoryLoginScreen> {
-  // 🚀 최고 관리자(마스터) 이메일 (DB 등록 여부와 상관없이 무조건 프리패스)
-  final String _masterEmail = "a01020020271@gmail.com";
-
   @override
   void initState() {
     super.initState();
@@ -38,10 +54,7 @@ class _MobileInventoryLoginScreenState
 
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn.instance;
-      await googleSignIn.initialize(
-        serverClientId:
-            '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
-      );
+      await ensureGoogleSignInReady();
 
       // 통신이 없으면 응답이 오지 않는다. 오래 기다리지 않고 넘어간다.
       // (예전에는 여기서 "관리자 권한 확인 중…" 화면에 갇혀 있었다.)
@@ -60,11 +73,10 @@ class _MobileInventoryLoginScreenState
       // 등록된 다른 이메일도 통과시키던 로직을 제거했다. 개인용으로는
       // 본인 계정 하나만 통과하면 되고, 다른 이메일을 관리자로 추가하는
       // 화면(mobile_admin_management_page.dart)도 함께 삭제했다.
-      if (user.email == _masterEmail) {
+      if (user.email == kAdminEmail) {
         // 다음번에 통신이 없어도 들어올 수 있게, 확인된 폰이라고 적어 둔다.
         try {
-          await prefs?.setBool(kInventoryAdminOkPrefsKey, true);
-          await prefs?.setString('user_real_name', user.displayName ?? "관리자");
+          if (prefs != null) await rememberInventoryAdmin(prefs, user.displayName);
         } catch (_) {}
         if (!mounted) return;
         // ✨ 권한 통과! 모바일 마스터 페이지로 이동하면서 닉네임을 넘겨줌
@@ -94,7 +106,7 @@ class _MobileInventoryLoginScreenState
       _showErrorAndPop("$why 통신되는 곳에서 한 번 여십시오.");
       return;
     }
-    final name = prefs?.getString('user_real_name') ?? "관리자";
+    final name = inventoryAdminOfflineName(prefs);
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(

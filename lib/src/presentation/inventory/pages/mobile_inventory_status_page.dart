@@ -77,6 +77,9 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
+  // 10-09: 검색칸에 글자를 칠 때마다 화면을 다시 그리며 서버 구독을 새로 맺던 것을 한 번만 맺게.
+  late final Stream<QuerySnapshot> _inventoryStream =
+      _inventoryDb.snapshots(includeMetadataChanges: true);
 
   // 칩에 보이는 글은 한글, 자재에 저장된 분류는 영문 아이디다
   // (material_catalog.dart에 둘을 짝지어 뒀다).
@@ -305,7 +308,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
           child: _selectedCategory == kLeftoverCategory
               ? _buildLeftoverList()
               : StreamBuilder<QuerySnapshot>(
-                  stream: _inventoryDb.snapshots(includeMetadataChanges: true),
+                  stream: _inventoryStream,
                   builder: (context, snapshot) {
                     if (snapshot.hasError) {
                       return const Center(

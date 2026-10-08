@@ -11,6 +11,7 @@ import '../models/attendance.dart';
 import '../models/project_phase.dart';
 import '../models/report_csv.dart';
 import '../models/report_tools.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 const Color _teal = AppColors.brand;
 const Color _text = AppColors.text;
@@ -351,7 +352,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(keepWords("내보내기 실패: $e"))),
+                    SnackBar(content: Text(keepWords(failText("내보내기 실패", e)))),
                   );
                 }
               }

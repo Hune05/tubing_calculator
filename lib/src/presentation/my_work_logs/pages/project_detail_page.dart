@@ -30,6 +30,7 @@ import 'report_search_page.dart' show ProjectPhotosPage;
 import 'project_stats_page.dart';
 import '../../calculator/widgets/app_dialog.dart' show confirmDeleteDialog;
 import '../../../core/common_widgets/swipe_to_delete.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 part 'project_detail_page_overview.dart';
 part 'project_detail_page_phases.dart';
@@ -901,7 +902,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(keepWords("PDF를 만들지 못했습니다: $e")),
+                                    content: Text(keepWords(failText("PDF를 만들지 못했습니다", e))),
                                   ),
                                 );
                               }
@@ -947,7 +948,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(keepWords("엑셀 파일을 만들지 못했습니다: $e"))),
+          SnackBar(content: Text(keepWords(failText("엑셀 파일을 만들지 못했습니다", e)))),
         );
       }
     }
@@ -1313,7 +1314,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("PDF를 만들지 못했습니다: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
       }
     }
   }
@@ -1363,7 +1364,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("내보내기 실패: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords(failText("내보내기 실패", e)))));
       }
     }
   }

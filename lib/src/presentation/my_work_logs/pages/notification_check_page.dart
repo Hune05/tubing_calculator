@@ -7,6 +7,7 @@ import '../models/report_tools.dart';
 import '../../my_schedule/korean_holidays.dart' show holidayTableNotice;
 import '../../my_schedule/schedule_reminders.dart';
 import '../widgets/korean_text.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 const Color _teal = AppColors.brand;
 const Color _text = AppColors.text;
@@ -299,7 +300,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         setState(() => _msg = "${_hm(s.plan.minutes)} 알림을 다시 예약했습니다.");
       }
     } catch (e) {
-      if (mounted) setState(() => _msg = "다시 예약하지 못했습니다: $e");
+      if (mounted) setState(() => _msg = failText("다시 예약하지 못했습니다", e));
     }
     await _refresh();
   }
@@ -310,7 +311,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
           () => rescheduleWeeklyOnly(widget.logs))();
       if (mounted) setState(() => _msg = "주간 보고 알림을 다시 예약했습니다.");
     } catch (e) {
-      if (mounted) setState(() => _msg = "다시 예약하지 못했습니다: $e");
+      if (mounted) setState(() => _msg = failText("다시 예약하지 못했습니다", e));
     }
     await _refresh();
   }
@@ -469,7 +470,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         );
       }
     } catch (e) {
-      if (mounted) setState(() => _msg = "테스트 알림 실패: $e");
+      if (mounted) setState(() => _msg = failText("테스트 알림 실패", e));
     }
   }
 
@@ -480,7 +481,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               rescheduleAllPersonalReminders)();
       if (mounted) setState(() => _msg = "개인 일정 알림 $n개를 다시 예약했습니다.");
     } catch (e) {
-      if (mounted) setState(() => _msg = "개인 일정 알림을 다시 예약하지 못했습니다: $e");
+      if (mounted) setState(() => _msg = failText("개인 일정 알림을 다시 예약하지 못했습니다", e));
     }
     await _refresh();
   }
@@ -621,7 +622,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
         );
       }
     } catch (e) {
-      if (mounted) setState(() => _msg = "예약 알림 테스트 실패: $e");
+      if (mounted) setState(() => _msg = failText("예약 알림 테스트 실패", e));
     }
   }
 

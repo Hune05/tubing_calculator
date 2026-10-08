@@ -39,6 +39,7 @@ import '../steel_shape_icons.dart';
 import '../widgets/steel_item_sheet.dart';
 import 'steel_cutting_history_page.dart';
 import 'steel_pdf_preview_page.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 // 🚀 [형강 컷팅 신규] 찬넬/앵글처럼 피팅 없이 그냥 "규격 - 길이 - 수량"만
 // 있는 단순 절단 작업 전용 화면. 튜브 컷팅와 달리 라인(구간)을
@@ -500,7 +501,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     try {
       await _docRef.update({'stockLength': v});
     } catch (e) {
-      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+      if (mounted) showCuttingSnack(context, failText("저장하지 못했습니다", e), isError: true);
     }
   }
 
@@ -509,7 +510,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     try {
       await _docRef.update({'setMultiplier': v});
     } catch (e) {
-      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+      if (mounted) showCuttingSnack(context, failText("저장하지 못했습니다", e), isError: true);
     }
   }
 
@@ -918,7 +919,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       ], text: "${widget.project.name} 형강 컷팅 지시서입니다.");
     } catch (e) {
       if (!mounted) return;
-      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+      showCuttingSnack(context, failText("내보내기 실패", e), isError: true);
     }
   }
 
@@ -1156,7 +1157,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         return _exportInstructionSheet(loose: true);
       }
       if (!mounted) return;
-      showCuttingSnack(context, "내보내기 실패: $e", isError: true);
+      showCuttingSnack(context, failText("내보내기 실패", e), isError: true);
       return;
     } finally {
       keepTogetherLoose = false;
@@ -1747,7 +1748,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 끝까지 기다리지 않는 자리에서 쓰는 저장(실패하면 알려만 준다).
   void _saveItems() {
     _persistItems().catchError((e) {
-      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+      if (mounted) showCuttingSnack(context, failText("저장하지 못했습니다", e), isError: true);
     });
   }
 
@@ -2233,7 +2234,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     try {
       await _persistStockLength(v);
     } catch (e) {
-      if (mounted) showCuttingSnack(context, "저장하지 못했습니다: $e", isError: true);
+      if (mounted) showCuttingSnack(context, failText("저장하지 못했습니다", e), isError: true);
       return;
     }
     if (!mounted) return;
@@ -2479,7 +2480,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       showCuttingSnack(context, "카카오톡을 찾지 못해 공유창으로 보냈습니다.");
     } catch (e) {
       if (!mounted) return;
-      showCuttingSnack(context, "보내기 실패: $e", isError: true);
+      showCuttingSnack(context, failText("보내기 실패", e), isError: true);
     }
   }
 

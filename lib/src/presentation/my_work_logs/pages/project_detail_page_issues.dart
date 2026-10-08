@@ -111,7 +111,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(keepWords("PDF를 만들지 못했습니다: $e")),
+                                  content: Text(keepWords(failText("PDF를 만들지 못했습니다", e))),
                                 ),
                               );
                             }
@@ -296,7 +296,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("이미지 만들기 실패: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords(failText("이미지 만들기 실패", e)))));
       }
     }
   }
@@ -381,7 +381,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
         message = "줄일 만한 큰 사진이 없습니다.";
       }
     } catch (e) {
-      message = "사진을 정리하지 못했습니다: $e";
+      message = failText("사진을 정리하지 못했습니다", e);
     }
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop();

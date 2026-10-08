@@ -49,6 +49,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
 
   final CollectionReference _inventoryDb = FirebaseFirestore.instance
       .collection('inventory');
+  // 10-09: 검색칸에 글자를 칠 때마다 화면을 다시 그리며 서버 구독을 새로 맺던 것을 한 번만 맺게.
+  late final Stream<QuerySnapshot> _inventoryStream =
+      _inventoryDb.snapshots(includeMetadataChanges: true);
   final CollectionReference _logsDb = FirebaseFirestore.instance.collection(
     'inventory_logs',
   );
@@ -388,7 +391,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
 
   Widget _auditList() {
     return StreamBuilder<QuerySnapshot>(
-      stream: _inventoryDb.snapshots(includeMetadataChanges: true),
+      stream: _inventoryStream,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(

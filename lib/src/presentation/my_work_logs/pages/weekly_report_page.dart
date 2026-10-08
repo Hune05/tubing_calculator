@@ -15,6 +15,7 @@ import '../screens/work_log_main_screen.dart';
 import '../widgets/work_theme.dart';
 import '../models/weekly_plan.dart';
 import '../models/attendance.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 const Color _teal = AppColors.brand;
 const Color _text = AppColors.text;
@@ -636,7 +637,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("PDF를 만들지 못했습니다: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
       }
     } finally {
       if (mounted) setState(() => _pdfBusy = false);

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 // 카카오 로컬 API로 장소를 이름으로 찾는다("중부발전" → 이름 + 주소 + 좌표).
 //
@@ -94,6 +95,6 @@ Future<List<KakaoPlace>> searchKakaoPlaces(
   } on TimeoutException {
     throw const KakaoSearchException("통신이 느려 장소를 찾지 못했습니다. 다시 해 보십시오.");
   } catch (e) {
-    throw KakaoSearchException("장소를 찾지 못했습니다: $e");
+    throw KakaoSearchException(failText("장소를 찾지 못했습니다", e));
   }
 }

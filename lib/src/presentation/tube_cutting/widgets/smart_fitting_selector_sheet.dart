@@ -52,6 +52,22 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   // 사용자가 부속을 재서 이 폰에 기억해 둔 공제값(실측). 카탈로그 값 대신 쓴다.
   FittingOverrides _overrides = {};
 
+  // 10-09: 검색칸에 글자를 칠 때마다 서버 구독을 새로 맺던 것을 제조사·규격이 바뀔 때만 맺게.
+  Stream<QuerySnapshot>? _fitStream;
+  String? _fitStreamKey;
+  Stream<QuerySnapshot> _fittingsStream() {
+    final key = '${widget.maker}|$selectedSize';
+    if (_fitStream == null || _fitStreamKey != key) {
+      _fitStreamKey = key;
+      _fitStream = FirebaseFirestore.instance
+          .collection('fittings')
+          .where('maker', isEqualTo: widget.maker)
+          .where('tubeOD', isEqualTo: selectedSize)
+          .snapshots();
+    }
+    return _fitStream!;
+  }
+
   final List<String> allSizes = [
     "1/4",
     "3/8",
@@ -738,11 +754,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                     // 🚀 group/category는 더 이상 서버 쿼리로 나누지 않고
                     // maker+tubeOD만 가져온 뒤 검색어/분류칩은 클라이언트에서
                     // 필터링한다 (한 규격당 데이터 양이 적어 충분히 가볍다).
-                    stream: FirebaseFirestore.instance
-                        .collection('fittings')
-                        .where('maker', isEqualTo: widget.maker)
-                        .where('tubeOD', isEqualTo: selectedSize)
-                        .snapshots(),
+                    stream: _fittingsStream(),
                     builder: (context, snapshot) {
                       // 서버 목록이 비었거나 통신이 없으면 앱 안 부속표를 쓴다(통신 없는 현장).
                       final bool serverOk =

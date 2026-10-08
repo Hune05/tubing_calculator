@@ -18,6 +18,7 @@ import 'equipment_pdf.dart';
 import 'equipment_reminders.dart';
 import 'equipment_store.dart';
 import '../trash/trash_kinds.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -203,7 +204,7 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
           await _preview(bytes, 'QR라벨_${dateLabel(now)}.pdf', 'QR 라벨');
       }
     } catch (e) {
-      _toast('만들지 못했습니다: $e');
+      _toast(failText('만들지 못했습니다', e));
     }
   }
 

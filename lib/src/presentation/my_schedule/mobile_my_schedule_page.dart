@@ -36,6 +36,7 @@ import '../profile/pages/mobile_profile_page.dart' show MobileProfilePage;
 import 'schedule_reminders.dart';
 import '../my_work_logs/models/reminder_tools.dart'
     show ensureNotificationPermission;
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 // 🚀 [신규] "내 일정 관리" - 마키타 틸 팔레트로 앱 전체와 통일.
 const Color scheduleTeal = AppColors.brand;
@@ -3188,7 +3189,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       // ignore: deprecated_member_use
       await Share.shareXFiles([XFile(file.path)], text: '내 일정 백업');
     } catch (e) {
-      _toast("내보내기 실패: $e");
+      _toast(failText("내보내기 실패", e));
     }
   }
 
@@ -3211,7 +3212,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         XFile(file.path, mimeType: 'text/calendar'),
       ], text: '내 일정 (캘린더 파일)');
     } catch (e) {
-      _toast("내보내기 실패: $e");
+      _toast(failText("내보내기 실패", e));
     }
   }
 
@@ -3300,7 +3301,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     } on FormatException catch (e) {
       _toast(e.message);
     } catch (e) {
-      _toast("가져오기 실패: $e");
+      _toast(failText("가져오기 실패", e));
     }
   }
 
@@ -3760,7 +3761,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text("지도를 열지 못했습니다: $e")));
+        ).showSnackBar(SnackBar(content: Text(failText("지도를 열지 못했습니다", e))));
       }
     }
   }

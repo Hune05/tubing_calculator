@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tubing_calculator/src/presentation/profile/widgets/settings_cloud_card.dart';
 import 'package:firebase_messaging/firebase_messaging.dart'; // 🔥 추가됨
 import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.dart';
+import 'package:tubing_calculator/src/presentation/profile/google_link.dart';
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
 
 class MobileLoadingScreen extends StatefulWidget {
@@ -99,10 +100,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
       }
 
       // 3. 저장된 이름이 없다면 구글 '자동 로그인(Silent)'만 시도
-      await _googleSignIn.initialize(
-        serverClientId:
-            '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com',
-      );
+      await ensureGoogleSignInReady();
 
       // 통신이 없으면 응답이 오지 않으므로 오래 기다리지 않는다.
       final GoogleSignInAccount? account = await (_googleSignIn

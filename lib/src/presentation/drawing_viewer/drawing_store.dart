@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:printing/printing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 import 'drawing_models.dart';
 import 'dxf_reader.dart';
@@ -167,7 +168,7 @@ class DrawingStore {
         await dir.delete(recursive: true);
       } catch (_) {}
       if (e is DxfError) rethrow;
-      throw DxfError('도면을 열지 못했습니다: $e');
+      throw DxfError(failText('도면을 열지 못했습니다', e));
     }
   }
 

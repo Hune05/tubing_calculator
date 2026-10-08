@@ -9,6 +9,7 @@ import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/layout_board_owner.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
 import 'package:tubing_calculator/src/presentation/trash/trash_kinds.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 const String kLayoutsCollection = 'layouts';
 
@@ -176,7 +177,7 @@ class _LayoutBoardProjectListPageState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(keepWords("복제하지 못했습니다: $e")),
+            content: Text(keepWords(failText("복제하지 못했습니다", e))),
             backgroundColor: warningRed,
           ),
         );

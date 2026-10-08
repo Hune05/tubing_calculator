@@ -14,6 +14,7 @@ import 'drawing_store.dart';
 import 'drawing_viewer_page.dart';
 import 'dxf_reader.dart';
 import '../trash/trash_kinds.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 /// 파일을 보관함에 넣고 바로 연다(카톡 공유·파일 고르기 공용). DWG·모르는 형식은 안내만 한다.
 Future<void> importAndOpenDrawing(BuildContext context, String path, {String? name}) async {
@@ -53,7 +54,7 @@ Future<void> importAndOpenDrawing(BuildContext context, String path, {String? na
     messenger?.showSnackBar(SnackBar(content: Text(e.message), duration: const Duration(seconds: 6)));
   } catch (e) {
     nav.pop();
-    messenger?.showSnackBar(SnackBar(content: Text('도면을 열지 못했습니다: $e')));
+    messenger?.showSnackBar(SnackBar(content: Text(failText('도면을 열지 못했습니다', e))));
   }
 }
 

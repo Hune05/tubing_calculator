@@ -17,6 +17,7 @@ import '../../../core/common_widgets/swipe_to_delete.dart';
 import 'leftover_log_page.dart';
 import 'package:tubing_calculator/src/core/utils/number_input.dart';
 import 'package:tubing_calculator/src/presentation/common/number_text.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 // 🚀 [형강 컷팅 신규 기능 대비 리팩터링] 원래 이 "재단 계획" 시트는
 // CuttingMainScreen 안에 300줄 가까이 박혀 있어서, 튜브 라인이 아니라
@@ -651,7 +652,7 @@ Future<void> showCuttingOptimizationSheet(
               }
               } catch (e) {
                 if (ctx.mounted) {
-                  showCuttingSnack(ctx, "잔재를 저장하지 못했습니다: $e", isError: true);
+                  showCuttingSnack(ctx, failText("잔재를 저장하지 못했습니다", e), isError: true);
                 }
               } finally {
                 leftoversSaving = false;

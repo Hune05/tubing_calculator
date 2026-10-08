@@ -11,6 +11,7 @@ import '../drawing_viewer/drawing_models.dart';
 import '../drawing_viewer/drawing_store.dart';
 import '../drawing_viewer/drawing_viewer_page.dart';
 import '../drawing_viewer/dxf_reader.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 /// 제조사가 설명서를 올려 둔 곳(내려받기 주소). 모델 열쇠 → 주소.
 const Map<String, String> kOfficialManualUrls = {
@@ -97,7 +98,7 @@ class _ManualSheetState extends State<_ManualSheet> {
       if (mounted) setState(() => _error = e.message);
     } catch (e) {
       // 가져오는 사이 창을 닫았으면 그냥 넘어간다(10-07: 닫힌 창에 setState 오류).
-      if (mounted) setState(() => _error = '열지 못했습니다: $e');
+      if (mounted) setState(() => _error = failText('열지 못했습니다', e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }

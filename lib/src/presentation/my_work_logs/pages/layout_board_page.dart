@@ -42,6 +42,7 @@ import '../models/layout_board_painters.dart';
 import 'package:tubing_calculator/src/presentation/common/number_text.dart';
 import '../widgets/layout_board_ui.dart';
 import '../../../core/common_widgets/swipe_to_delete.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 export '../models/layout_board_painters.dart';
 export '../models/layout_board_models.dart';
 export '../models/instrument_shape_painter.dart';
@@ -295,7 +296,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(keepWords("사진 돌리기 실패: $e"))));
+      ).showSnackBar(SnackBar(content: Text(keepWords(failText("사진 돌리기 실패", e)))));
     }
   }
 
@@ -1843,7 +1844,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(keepWords("불러오기 실패: $e")),
+          content: Text(keepWords(failText("불러오기 실패", e))),
           backgroundColor: warningRed,
         ),
       );
@@ -2078,7 +2079,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(keepWords("사진 저장 실패: $e")),
+          content: Text(keepWords(failText("사진 저장 실패", e))),
           backgroundColor: warningRed,
         ),
       );
@@ -2904,7 +2905,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(keepWords("PDF를 만들지 못했습니다: $e"))));
+      ).showSnackBar(SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
     } finally {
       _pdfCapture = false;
       if (mounted) setState(() => _isSaving = false);
@@ -3118,7 +3119,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(keepWords("템플릿 저장 실패: $e")),
+                    content: Text(keepWords(failText("템플릿 저장 실패", e))),
                     backgroundColor: warningRed,
                   ),
                 );
@@ -3397,6 +3398,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 다른 배치도의 모듈 중 원하는 것만 골라 지금 도면으로 복사해 온다.
   // 1단계: 가져올 원본 도면 선택 → 2단계: 그 안의 모듈 체크박스 선택.
   void _showImportModulesFlow() {
+    // 10-09: 시트가 다시 그려질 때마다(키보드·화면 회전) 배치도 전체를 다시 받지 않게 한 번만 받는다.
+    final sources = _loadImportSources();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -3429,13 +3432,22 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 ),
                 Flexible(
                   child: FutureBuilder<List<QueryDocumentSnapshot>>(
-                    future: _loadImportSources(),
+                    future: sources,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
                         return const Padding(
                           padding: EdgeInsets.all(24),
                           child: Center(
                             child: CircularProgressIndicator(color: tossBlue),
+                          ),
+                        );
+                      }
+                      if (snapshot.hasError) {
+                        return Padding(
+                          padding: EdgeInsets.all(24),
+                          child: Text(
+                            keepWords("도면 목록을 불러오지 못했습니다. 통신을 확인하십시오."),
+                            style: TextStyle(color: tossSubText, fontSize: 15),
                           ),
                         );
                       }

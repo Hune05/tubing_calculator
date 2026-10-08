@@ -19,6 +19,7 @@ import 'drawing_export.dart';
 import 'drawing_mark_painter.dart';
 import 'drawing_models.dart';
 import 'drawing_store.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -149,7 +150,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
       if (!mounted) return;
       setState(() {
         _pageBusy = false;
-        _pageError = '$e';
+        _pageError = loggedReason('도면 쪽 그리기', e);
       });
     }
   }
@@ -517,7 +518,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
       );
     } catch (e) {
       closeBusy();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('PDF를 만들지 못했습니다: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failText('PDF를 만들지 못했습니다', e))));
     } finally {
       closeBusy();
       _exporting = false;

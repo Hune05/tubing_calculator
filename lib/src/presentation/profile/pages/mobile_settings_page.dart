@@ -16,12 +16,11 @@ import '../../../data/repositories/work_project_repository.dart';
 import '../../menu/page/mobile_menu_page.dart';
 import '../../my_work_logs/pages/notification_check_page.dart';
 import '../../my_work_logs/pages/storage_management_page.dart';
+import '../google_link.dart';
 import '../profile_tools.dart';
 import '../widgets/profile_menu_widgets.dart';
 import '../widgets/settings_cloud_card.dart';
 
-const String _kGoogleServerClientId =
-    '289974993415-lhibiid49ncmb5hev53hnasj7vhkvki3.apps.googleusercontent.com';
 
 class MobileSettingsPage extends StatefulWidget {
   final String currentWorker;
@@ -51,7 +50,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
 
   Future<bool> _linkGoogleAccount() async {
     try {
-      await _googleSignIn.initialize(serverClientId: _kGoogleServerClientId);
+      await ensureGoogleSignInReady();
       final GoogleSignInAccount account = await _googleSignIn.authenticate();
       final credential = GoogleAuthProvider.credential(
         idToken: account.authentication.idToken,

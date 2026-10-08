@@ -39,6 +39,7 @@ import '../pages/daily_report_calendar_page.dart';
 import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart';
 import 'package:tubing_calculator/src/presentation/trash/trash_kinds.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
+import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 part 'work_log_main_screen_banners.dart';
 part 'work_log_main_screen_dashboard.dart';
@@ -957,7 +958,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("내보내기 실패: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords(failText("내보내기 실패", e)))));
       }
     }
   }
@@ -1241,7 +1242,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("PDF를 만들지 못했습니다: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
       }
     }
   }
@@ -1426,7 +1427,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(keepWords("이미지 만들기 실패: $e"))));
+        ).showSnackBar(SnackBar(content: Text(keepWords(failText("이미지 만들기 실패", e)))));
       }
     }
   }
