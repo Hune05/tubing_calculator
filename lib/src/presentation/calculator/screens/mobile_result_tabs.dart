@@ -218,9 +218,7 @@ class _MobileResultTabState extends State<MobileResultTab>
         _includeStartFitting = dataManager.startFit;
         _includeEndFitting = dataManager.endFit;
         _tailLength = dataManager.tail;
-        _tailController.text = _tailLength > 0
-            ? _tailLength.round().toString()
-            : "0";
+        _tailController.text = _tailLength > 0 ? _tailText(_tailLength) : "0";
       });
     }
   }
@@ -690,7 +688,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                 ),
               ),
               Text(
-                "${_tailLength.round()} mm",
+                "${_tailText(_tailLength)} mm",
                 style: cardValueStyle.copyWith(color: slate900),
               ),
               Icon(AppIcons.forward, size: 18, color: slate600),
@@ -857,16 +855,20 @@ class _MobileResultTabState extends State<MobileResultTab>
     );
   }
 
+  /// 꼬리 길이 글: 정수면 정수, 아니면 소수 한 자리(10-08: 25.4가 25로 보이고 25로 저장됐다).
+  static String _tailText(double v) =>
+      v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(1);
+
   void _showTailPad() async {
-    _tailController.text = _tailLength > 0
-        ? _tailLength.round().toString()
-        : "";
+    final shown = _tailLength > 0 ? _tailText(_tailLength) : "";
+    _tailController.text = shown;
     await MakitaNumpad.show(
       context,
       controller: _tailController,
       title: "꼬리 길이 (마지막 꺾임점에서 관 끝까지, mm)",
     );
-    if (!mounted) {
+    // 닫기(X)·바깥 누르기면 숫자판이 열 때 글로 되돌린다. 글이 그대로면 아무것도 바꾸지 않는다.
+    if (!mounted || _tailController.text == shown) {
       return;
     }
     double val = double.tryParse(_tailController.text) ?? 0.0;

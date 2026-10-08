@@ -206,6 +206,8 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
     try {
       WriteBatch batch = FirebaseFirestore.instance.batch();
       bool fromCache = false;
+      // 센 사이 다른 기기에서 지운 자재(올리지 못한 것). 결과에 따로 알린다(10-08).
+      var missing = 0;
 
       for (var entry in _localEdits.entries) {
         String docId = entry.key;
@@ -299,27 +301,8 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
             // 🚀 기존 자재: 상세정보가 수정되었다면 전송 (증발 문제 해결 지점)
             try {
-              if (data.material.isNotEmpty) {
-                updates['material'] = data.material;
-              }
-              if (data.heatNo.isNotEmpty) {
-                updates['heatNo'] = data.heatNo;
-              }
-              if (data.maker.isNotEmpty) {
-                updates['maker'] = data.maker;
-              }
-              if (data.location.isNotEmpty) {
-                updates['location'] = data.location;
-              }
-              if (data.spec.isNotEmpty) {
-                updates['spec'] = data.spec; // ★ 추가
-              }
-              if (data.projectName.isNotEmpty) {
-                updates['projectName'] = data.projectName; // ★ 추가
-              }
-              if (data.department.isNotEmpty) {
-                updates['department'] = data.department; // ★ 추가
-              }
+              // 값이 있는 칸과, 셀 때 있던 값을 비운 칸(지움)을 보낸다(10-08: 비운 칸은 안 보내 서버 값이 남았다).
+              updates.addAll(data.textUpdates());
               // 셀 때 값에서 바꿨을 때만 보낸다(다른 기기에서 바꾼 최소 수량을 덮지 않게).
               if (data.minQtyChanged) {
                 updates['minQty'] = data.minQty;
@@ -343,6 +326,8 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
                 'timestamp': FieldValue.serverTimestamp(),
               });
             }
+          } else {
+            missing++;
           }
         }
       }
@@ -373,9 +358,11 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
       HapticFeedback.mediumImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text(
-            "서버에 올렸습니다. PC에서도 바로 보입니다.",
-            style: TextStyle(fontWeight: FontWeight.bold),
+          content: Text(
+            missing > 0
+                ? "서버에 올렸습니다. 다만 그사이 다른 기기에서 지운 자재 $missing개는 올리지 못했습니다."
+                : "서버에 올렸습니다. PC에서도 바로 보입니다.",
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           backgroundColor: Colors.green.shade700,
         ),

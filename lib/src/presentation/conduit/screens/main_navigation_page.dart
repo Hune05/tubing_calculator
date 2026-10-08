@@ -172,6 +172,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
   /// 현장 탭(가로 줄자 화면). 튜브와 같은 화면을 쓴다.
   Widget _buildFieldTab() => FieldMarkingScreen(
     key: _fieldKey,
+    progressKey: 'field_progress_conduit_v1',
     listenable: conduitFieldListenable(),
     compute: computeConduitFieldData,
     onCloseTab: _goToMarkingTab,

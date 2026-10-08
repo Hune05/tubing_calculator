@@ -224,6 +224,28 @@ void main() {
       expect(find.byIcon(Icons.check_rounded), findsNothing);
     });
 
+    testWidgets('진행 기록은 화면마다 정한 칸에 남는다(튜브·전선관이 서로 덮지 않게, 10-08)', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await tester.binding.setSurfaceSize(const Size(882, 344));
+      await tester.pumpWidget(
+        MaterialApp(
+          home: FieldMarkingScreen(
+            listenable: ValueNotifier(0),
+            compute: () => sample(),
+            progressKey: 'field_progress_conduit_v1',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('field_mode_toggle')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      final p = await SharedPreferences.getInstance();
+      expect(p.getString('field_progress_conduit_v1'), isNotNull);
+      expect(p.getString('field_progress_v1'), isNull);
+    });
+
     testWidgets('경고가 있으면 위에 "확인"이 뜨고 누르면 내용이 나온다', (tester) async {
       final data = FieldMarkingData(
         totalCut: 616,

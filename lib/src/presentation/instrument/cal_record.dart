@@ -769,18 +769,31 @@ class CalRecordStore {
     try {
       final list = jsonDecode(raw) as List;
       final out = <CalRecord>[];
+      var broken = false;
       for (final e in list) {
         try {
           out.add(CalRecord.fromJson(Map<String, dynamic>.from(e as Map)));
         } catch (_) {
           // 망가진 한 건은 건너뛴다
+          broken = true;
         }
       }
+      if (broken) await _keepBroken(p, raw);
       out.sort((a, b) => b.date.compareTo(a.date));
       return out;
     } catch (_) {
+      await _keepBroken(p, raw);
       return [];
     }
+  }
+
+  /// 읽지 못한 원문을 따로 남긴다. 다음 저장이 남은 것만 다시 써서, 깨진 기록은 영영 사라졌다(10-08).
+  /// 남긴 원문은 고쳐 되살릴 때 쓴다(같은 원문이면 다시 쓰지 않는다).
+  static Future<void> _keepBroken(SharedPreferences p, String raw) async {
+    try {
+      final k = '${key}_broken';
+      if (p.getString(k) != raw) await p.setString(k, raw);
+    } catch (_) {}
   }
 
   static Future<void> _write(List<CalRecord> list) async {

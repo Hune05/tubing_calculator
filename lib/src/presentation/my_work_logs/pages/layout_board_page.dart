@@ -1841,6 +1841,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         _applySnapshotJson(data);
         _captureSavedBaseline(data);
       });
+      _lastSaveToken = data['saveToken'] as String?;
       await _offerProjectDraft(id);
     } catch (e) {
       if (!mounted) return;
@@ -2175,15 +2176,61 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 마지막으로 저장된 버전과 비교해서 뭐가 옮겨지고 추가/삭제됐는지
   // 보여주고 확인시킨다. 처음 저장하는 새 프로젝트는 비교 대상이
   // 없으니 그냥 통과시킨다.
+  /// 내가 이 도면을 열거나 저장한 때의 저장 표시. 서버 것이 다르면 그 사이 다른 기기가 저장한 것이다.
+  String? _lastSaveToken;
+
   Future<bool> _confirmChangesBeforeSave() async {
     if (_currentProjectId == null) return true;
     try {
+      // 통신이 약하면 끝없이 기다렸다(10-08). 5초 안에 못 읽으면 견주지 않고 저장한다.
       final doc = await FirebaseFirestore.instance
           .collection('layouts')
           .doc(_currentProjectId)
-          .get();
+          .get()
+          .timeout(const Duration(seconds: 5));
       final data = doc.data();
       if (data == null) return true;
+
+      // 이 도면을 연 뒤 다른 기기가 저장했으면 먼저 묻는다(10-08: 나중에 저장한 쪽이 통째로 덮어
+      // 다른 기기에서 고친 것이 사라졌다).
+      final serverToken = data['saveToken'] as String?;
+      if (serverToken != null && serverToken != _lastSaveToken && mounted) {
+        final pick = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            key: const Key('layout_conflict'),
+            title: const Text('다른 기기에서 고친 도면입니다'),
+            content: Text(
+              keepWords(
+                '이 도면을 연 뒤 다른 기기에서 고쳐 저장했습니다. 지금 저장하면 그 고침이 사라집니다.\n'
+                '"서버 판 다시 열기"를 고르면 지금 고친 것은 임시 저장에 남아, 다시 열 때 이어할지 묻습니다.',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                key: const Key('layout_conflict_reload'),
+                onPressed: () => Navigator.pop(ctx, 'reload'),
+                child: const Text('서버 판 다시 열기'),
+              ),
+              TextButton(
+                key: const Key('layout_conflict_overwrite'),
+                onPressed: () => Navigator.pop(ctx, 'overwrite'),
+                child: const Text('덮어쓰기', style: TextStyle(color: warningRed)),
+              ),
+            ],
+          ),
+        );
+        if (pick == null || !mounted) return false;
+        if (pick == 'reload') {
+          await _saveDraftToPrefs();
+          await _loadProject(_currentProjectId!);
+          return false;
+        }
+      }
 
       // 모든 탭(중판·측판·평면·정면)의 부품을 견준다(예전엔 지금 탭과 서버 중판만 견줘
       // 측판에서 저장하면 엉뚱한 추가·삭제 목록이 떴다).
@@ -2218,8 +2265,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         if (!currentById.containsKey(entry.key)) removed.add(entry.value.name);
       }
 
-      final int savedDimCount = (data['dimensions'] as List?)?.length ?? 0;
-      final int dimDelta = _dimensions.length - savedDimCount;
+      // 모든 판의 치수선을 견준다(10-08: 지금 판과 서버 중판만 견줘 측판에서 저장하면 틀리게 나왔다).
+      int dimsOf(Map p) => (p['dimensions'] as List?)?.length ?? 0;
+      final int savedDimCount = dimsOf(data) +
+          [
+            for (final p in ((data['sidePlates'] as Map?) ?? const {}).values)
+              if (p is Map) dimsOf(p),
+          ].fold(0, (a, b) => a + b);
+      final int dimDelta =
+          _allPlates().values.fold<int>(0, (a, p) => a + dimsOf(p)) - savedDimCount;
 
       if (added.isEmpty && removed.isEmpty && moved.isEmpty && dimDelta == 0) {
         return true; // 변경 사항 없음
@@ -2879,6 +2933,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 .doc(_currentProjectId);
       _dropOrphanViewDims();
       final plates = _allPlates();
+      // 저장하는 사이(배경 올리기 최대 8초) 고친 것이 있는지 견주려고 시작 모양을 적어 둔다.
+      final startSnap = jsonEncode(_buildSnapshotJson());
       // 배경 사진은 폰 안 경로라 다른 폰에서 안 보였다. 아직 안 올린 것은 올리고 주소를
       // 같이 저장한다(통신 없으면 이번엔 건너뛰고 다음 저장 때 다시).
       // 판마다 차례로 20초씩 기다리면 통신이 없을 때 판 4개에 1분 넘게 묶였다(10-07).
@@ -2897,6 +2953,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             }),
       ]);
       final main = plates[kPlateMain]!;
+      final saveToken = newLayoutId();
       final fields = {
         ...layoutSaveFields(
           projectId: docRef.id,
@@ -2919,6 +2976,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         if (isNew) ...layoutOwnerFields(owner),
         if (isNew) 'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+        'saveToken': saveToken,
       };
       // 예전엔 merge 저장이라 지운 경로·측판이 서버에 남았다. 있는 문서는 칸을 통째로 바꾼다.
       // 통신이 없으면 폰에 적히고 나중에 올라가므로 10초 넘으면 그냥 진행한다.
@@ -2934,8 +2992,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       }
       _currentProjectId = docRef.id;
       _projectName = projectName;
+      _lastSaveToken = saveToken;
       _captureSavedBaseline(fields);
-      await _clearDraftPrefs();
+      // 저장하는 사이 고친 것이 있으면 임시 저장을 지우지 않고 남긴다(10-08: 서버에는 고치기 전 판이
+      // 올라가고 임시 저장까지 지워, 그 뒤 앱이 꺼지면 고친 것이 사라졌다).
+      if (jsonEncode(_buildSnapshotJson()) == startSnap) {
+        await _clearDraftPrefs();
+      } else {
+        await _saveDraftToPrefs();
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

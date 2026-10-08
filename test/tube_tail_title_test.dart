@@ -28,4 +28,29 @@ void main() {
     expect(find.text('꼬리 길이 (마지막 꺾임점에서 관 끝까지, mm)'), findsOneWidget);
     expect(find.textContaining('절단 여유'), findsNothing);
   });
+
+  testWidgets('꼬리 25.4를 숫자판으로 열었다 바깥을 눌러 닫아도 25.4 그대로다(10-08)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    MachineSpecs().resetForTest();
+    MachineSpecs().update(radius: 38.1);
+    MobileBendDataManager().bendList
+      ..clear()
+      ..add({'length': 500.0, 'angle': 90.0, 'rotation': 0.0});
+    MobileBendDataManager().tail = 25.4;
+    await tester.binding.setSurfaceSize(const Size(400, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: MobileResultTab(startDir: 'RIGHT')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('25.4 mm'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('tube_tail')));
+    await tester.pumpAndSettle();
+    await tester.tapAt(const Offset(200, 20)); // 숫자판 바깥
+    await tester.pumpAndSettle();
+    expect(MobileBendDataManager().tail, 25.4);
+    expect(find.text('25.4 mm'), findsOneWidget);
+  });
 }

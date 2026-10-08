@@ -134,6 +134,15 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
     final mq = docData['minQty'] ?? docData['min_qty'];
     item.minQty = mq is num ? mq.toInt() : (int.tryParse('${mq ?? ''}') ?? 0);
     item.bookMinQty = item.minQty;
+    item.bookText = {
+      'material': item.material,
+      'heatNo': item.heatNo,
+      'maker': item.maker,
+      'location': item.location,
+      'spec': item.spec,
+      'projectName': item.projectName,
+      'department': item.department,
+    };
     return item;
   }
 

@@ -240,6 +240,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => FieldMarkingScreen(
+                                  progressKey: 'field_progress_conduit_v1',
                                   listenable: conduitFieldListenable(),
                                   compute: computeConduitFieldData,
                                 ),

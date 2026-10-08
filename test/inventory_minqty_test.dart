@@ -10,4 +10,13 @@ void main() {
     expect(d.minQtyChanged, isTrue);
     expect(ItemData(minQty: 0).minQtyChanged, isTrue); // 셀 때 값을 모르면 예전처럼 보낸다
   });
+
+  test('셀 때 있던 위치를 비우면 빈 값으로 보내고, 원래 빈 칸은 안 보낸다(10-08)', () {
+    final d = ItemData(location: '', maker: '세진')
+      ..bookText = {'location': 'A-3', 'maker': '세진', 'heatNo': ''};
+    final u = d.textUpdates();
+    expect(u['location'], '');
+    expect(u['maker'], '세진');
+    expect(u.containsKey('heatNo'), isFalse);
+  });
 }

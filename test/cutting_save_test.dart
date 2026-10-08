@@ -431,4 +431,20 @@ void main() {
     // 되돌리면 본수도 빠진다
     expect(subtractMaterialsUsage(added, 0, extra), isEmpty);
   });
+
+  test('재고에서 뺀 만큼만 사용량에서 빼고, 그사이 다른 기기가 더한 몫은 남긴다(10-08)', () {
+    final before = [
+      {'db_name': '엘보', 'type': 'FITTING', 'qty_ea': 4},
+      {'db_name': '튜브 1/2"', 'type': 'TUBE', 'qty_mm': 6000},
+    ];
+    final now = [
+      {'db_name': '엘보', 'type': 'FITTING', 'qty_ea': 6}, // 다른 기기가 2개 더함
+      {'db_name': '튜브 1/2"', 'type': 'TUBE', 'qty_mm': 6000},
+      {'db_name': '티', 'type': 'FITTING', 'qty_ea': 1}, // 새 줄
+    ];
+    final out = materialsAfterDeduct(now, before);
+    expect(out.firstWhere((m) => m['db_name'] == '엘보')['qty_ea'], 2);
+    expect(out.any((m) => m['db_name'] == '튜브 1/2"'), isFalse);
+    expect(out.any((m) => m['db_name'] == '티'), isTrue);
+  });
 }

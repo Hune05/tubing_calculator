@@ -64,6 +64,9 @@ class FieldMarkingScreen extends StatefulWidget {
   /// 없으면 한 단계씩 화면의 "실측 기록" 단추를 안 보인다.
   final String Function()? measureGroup;
 
+  /// 진행 기록을 남길 칸 이름. 튜브와 전선관이 같은 칸을 써서 오가면 진행이 처음으로 돌아갔다(10-08).
+  final String progressKey;
+
   const FieldMarkingScreen({
     super.key,
     required this.listenable,
@@ -71,6 +74,7 @@ class FieldMarkingScreen extends StatefulWidget {
     this.onCloseTab,
     this.isActive = true,
     this.measureGroup,
+    this.progressKey = 'field_progress_v1',
   });
 
   @override
@@ -138,7 +142,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       setState(() {
         _showGap = prefs.getBool(_gapKey) ?? false;
         _sound = prefs.getBool(_soundKey) ?? false;
-        final raw = prefs.getString(_progressKey);
+        final raw = prefs.getString(widget.progressKey);
         if (raw != null && raw.isNotEmpty) {
           try {
             final j = jsonDecode(raw);
@@ -166,7 +170,6 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   }
 
   // 한 단계씩 진행(어디까지 했는지·실측)을 같은 도면이면 앱을 나갔다 와도 이어 한다.
-  static const String _progressKey = 'field_progress_v1';
   Map<String, dynamic>? _savedProgress;
 
   // 단계 넘길 때 "딸깍" 소리(진동은 늘 난다). 폰에 기억한다.
@@ -290,7 +293,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     _savedProgress = p;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_progressKey, jsonEncode(p));
+      await prefs.setString(widget.progressKey, jsonEncode(p));
     } catch (_) {}
   }
 

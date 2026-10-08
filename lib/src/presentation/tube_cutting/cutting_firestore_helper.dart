@@ -267,6 +267,44 @@ Future<void> saveCuttingSession({
   await batch.commit();
 }
 
+/// [current] 사용량에서 이번에 재고에서 뺀 줄들([deducted], 뺄 때 읽은 값)만큼을 뺀다.
+/// 그사이 늘어난 몫은 남는다. 다 빠진 줄은 지운다.
+List<Map<String, dynamic>> materialsAfterDeduct(
+  List<dynamic> current,
+  List<dynamic> deducted,
+) {
+  String nameOf(Map m) => (m['db_name'] ?? m['name'] ?? '').toString().trim();
+  final took = <String, Map>{
+    for (final d in deducted)
+      if (d is Map) nameOf(d): d,
+  };
+  final out = <Map<String, dynamic>>[];
+  for (final raw in current) {
+    if (raw is! Map) continue;
+    final m = Map<String, dynamic>.from(raw);
+    final t = took[nameOf(m)];
+    if (t == null) {
+      out.add(m);
+      continue;
+    }
+    var left = false;
+    for (final k in const ['qty_ea', 'qty_mm', 'qty_bars', 'qty_bars_mm']) {
+      final now = (m[k] as num?) ?? 0;
+      final v = now - ((t[k] as num?) ?? 0);
+      if (m.containsKey(k)) {
+        if (v > 1e-6) {
+          m[k] = v;
+          if (k == 'qty_ea' || k == 'qty_mm') left = true;
+        } else {
+          m.remove(k);
+        }
+      }
+    }
+    if (left) out.add(m);
+  }
+  return out;
+}
+
 /// 한 번 저장으로 늘어나는 절단 횟수(구간 × 세트). 화면의 recordUsage와 같은 셈.
 int cutCountOf(List<CutRecord> records) =>
     records.fold(0, (n, r) => n + r.multiplier);
@@ -439,17 +477,26 @@ Future<void> deductCuttingProjectInventory({
     );
 
     // 뺀 것만 지운다. 못 찾은 것은 남겨 둬서, 자재를 넣은 뒤 다시 뺄 수 있게 한다.
+    // 확인 창이 떠 있는 사이 다른 기기가 저장해 늘어난 사용량은 남기도록, 지금 서버 것을 다시 읽어
+    // 이번에 뺀 만큼만 뺀다(10-08: 처음 읽은 목록으로 통째로 써서 그 몫이 사라졌다).
     final leftNames = {for (final m in result.missing) m.name};
+    List<dynamic> fresh = materials;
+    try {
+      fresh = ((await docRef.get().timeout(const Duration(seconds: 5))).data()?['materials'] as List?) ?? materials;
+    } catch (_) {}
     await docRef
         .update({
-          'materials': [
-            for (final raw in materials)
-              if (raw is Map &&
-                  leftNames.contains(
-                    (raw['db_name'] ?? raw['name'] ?? '').toString().trim(),
-                  ))
-                raw,
-          ],
+          'materials': materialsAfterDeduct(
+            fresh,
+            [
+              for (final raw in materials)
+                if (raw is Map &&
+                    !leftNames.contains(
+                      (raw['db_name'] ?? raw['name'] ?? '').toString().trim(),
+                    ))
+                  raw,
+            ],
+          ),
         })
         .timeout(const Duration(seconds: 8), onTimeout: () {});
 

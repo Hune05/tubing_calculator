@@ -18,6 +18,26 @@ class ItemData {
   /// 10-07: 늘 보내서, 그사이 다른 기기에서 바꾼 최소 수량이 되돌아갔다.
   int? bookMinQty;
 
+  /// 세기 시작할 때 서버의 글 칸(위치·제조사 등). 칸을 비워 지운 것도 올리려고 견준다(10-08).
+  Map<String, String> bookText = const {};
+
+  /// 올릴 글 칸: 값이 있으면 그 값, 셀 때 있던 값을 비웠으면 빈 글(지움), 원래 비어 있었으면 안 보냄.
+  Map<String, String> textUpdates() {
+    final now = {
+      'material': material,
+      'heatNo': heatNo,
+      'maker': maker,
+      'location': location,
+      'spec': spec,
+      'projectName': projectName,
+      'department': department,
+    };
+    return {
+      for (final e in now.entries)
+        if (e.value.isNotEmpty || (bookText[e.key] ?? '').isNotEmpty) e.key: e.value,
+    };
+  }
+
   ItemData({
     this.qty = 0,
     this.heatNo = "",
