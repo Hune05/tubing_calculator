@@ -54,10 +54,34 @@ async function sendMulticast(tokens, title, body, open = "work_logs") {
 //   - 주인이 없거나 빈 글(예전 프로젝트, "공용으로 돌리기"): 예전처럼 모두(+담당자)
 // ============================================================================
 const { tokensFor, collectRecipients } = require("./recipients");
+const { canUseAi, rejectedUids } = require("./access");
+const { mergeFlags, flagRecorder } = require("./flag_merge");
 
 async function loadRecipients() {
     const usersSnap = await admin.firestore().collection('users').get();
-    return collectRecipients(usersSnap.docs.map((d) => ({ name: d.id, data: d.data() })));
+    // 10-09: 사용 승인에서 거절된 사람은 알림에서 뺀다. 못 읽으면 예전처럼 모두에게.
+    let blocked = new Set();
+    try {
+        const members = await admin.firestore().collection('app_members').get();
+        blocked = rejectedUids(members.docs.map((d) => ({ id: d.id, data: d.data() })));
+    } catch (e) {
+        console.error("❌ 사용 승인 목록 조회 실패(거절된 사람 빼기 건너뜀):", e);
+    }
+    return collectRecipients(
+        usersSnap.docs.map((d) => ({ name: d.id, data: d.data() })),
+        blocked,
+    );
+}
+
+// 알림 보낸 표시를 최신 목록에 그 항목만 넣는다(flag_merge.js 설명).
+async function saveFlags(ref, field, updates) {
+    if (updates.size === 0) return;
+    await admin.firestore().runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists) return;
+        const next = mergeFlags(snap.get(field), updates);
+        if (next) tx.update(ref, { [field]: next });
+    });
 }
 
 exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => {
@@ -90,7 +114,7 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
         if (schedules.length === 0) continue;
 
         const projectName = data.name || '프로젝트';
-        let mutated = false;
+        const flags = flagRecorder();
         const tokens = tokensFor(recipients, data, null);
         if (tokens.length === 0) continue;
 
@@ -120,8 +144,7 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
 
                     const sent = await sendMulticast(tokens, "🚚 자재 요청 확인 필요", body);
                     if (sent) {
-                        schedule.lastOverdueReminderDate = today;
-                        mutated = true;
+                        flags.mark(schedule, { lastOverdueReminderDate: today });
                     }
                 } catch (innerError) {
                     console.error(
@@ -153,8 +176,7 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
                         `[${projectName}] ${label} 예정일이 ${daysLate}일 지났습니다.`,
                     );
                     if (sent) {
-                        schedule.lastOverdueReminderDate = today;
-                        mutated = true;
+                        flags.mark(schedule, { lastOverdueReminderDate: today });
                     }
                 } else if (diffMs >= 0) {
                     // 🚀 [추가] 며칠 전부터 미리 알림받도록 설정했으면(예:
@@ -176,8 +198,7 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
                                 `[${projectName}] ${label} - ${daysLeft > 0 ? `D-${daysLeft}` : "오늘"} 예정입니다.`,
                             );
                             if (sent) {
-                                schedule.lastLeadReminderDate = today;
-                                mutated = true;
+                                flags.mark(schedule, { lastLeadReminderDate: today });
                             }
                         }
                     } else if (
@@ -191,8 +212,7 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
                             `[${projectName}] ${label} 예정 시간이 다가옵니다.`,
                         );
                         if (sent) {
-                            schedule.reminderSent = true;
-                            mutated = true;
+                            flags.mark(schedule, { reminderSent: true });
                         }
                     }
                 }
@@ -204,9 +224,9 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
             }
         }
 
-        if (mutated) {
+        if (flags.updates.size > 0) {
             try {
-                await doc.ref.update({ schedules });
+                await saveFlags(doc.ref, 'schedules', flags.updates);
             } catch (updateError) {
                 console.error(`❌ (일정) 알림 플래그 저장 실패 (프로젝트: ${doc.id}):`, updateError);
             }
@@ -271,7 +291,7 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
 
         const schedules = Array.isArray(data.schedules) ? data.schedules : [];
         const projectName = data.name || '프로젝트';
-        let mutated = false;
+        const flags = flagRecorder();
 
         for (const punch of punchLists) {
             if (punch.is_completed) continue;
@@ -338,8 +358,7 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
                     body,
                 );
                 if (sent) {
-                    punch.lastPunchReminderAt = admin.firestore.Timestamp.fromMillis(now);
-                    mutated = true;
+                    flags.mark(punch, { lastPunchReminderAt: admin.firestore.Timestamp.fromMillis(now) });
                 }
             } catch (innerError) {
                 console.error(
@@ -349,9 +368,9 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
             }
         }
 
-        if (mutated) {
+        if (flags.updates.size > 0) {
             try {
-                await doc.ref.update({ punch_lists: punchLists });
+                await saveFlags(doc.ref, 'punch_lists', flags.updates);
             } catch (updateError) {
                 console.error(`❌ (이슈) 알림 플래그 저장 실패 (프로젝트: ${doc.id}):`, updateError);
             }
@@ -545,8 +564,26 @@ function requireUid(request) {
     return uid;
 }
 
-exports.polishDailyNote = onCall({ ...AI_OPTIONS, timeoutSeconds: 30 }, async (request) => {
+// 10-09 사용자 결정: 로그인만 확인하던 것을 승인된 사람·관리자만으로(access.js 설명).
+async function requireApproved(request) {
     const uid = requireUid(request);
+    const token = request.auth.token || {};
+    let member = null;
+    try {
+        const snap = await admin.firestore().collection("app_members").doc(uid).get();
+        member = snap.exists ? snap.data() : null;
+    } catch (e) {
+        console.error("❌ (AI) 사용 승인 확인 실패:", e);
+        throw new HttpsError("unavailable", "사용 승인을 확인하지 못했습니다");
+    }
+    if (!canUseAi(token, member)) {
+        throw new HttpsError("permission-denied", "사용 승인을 받은 사람만 쓸 수 있습니다");
+    }
+    return uid;
+}
+
+exports.polishDailyNote = onCall({ ...AI_OPTIONS, timeoutSeconds: 30 }, async (request) => {
+    const uid = await requireApproved(request);
     const checked = aiPolish.validateInput(request.data && request.data.text);
     if (checked.error) throw new HttpsError("invalid-argument", checked.error);
     const usage = await takeDailyUse("ai_usage", uid, aiPolish.DAILY_LIMIT);
@@ -564,7 +601,7 @@ exports.polishDailyNote = onCall({ ...AI_OPTIONS, timeoutSeconds: 30 }, async (r
 
 // 자료 검색에서 앱 자료로 답을 못 찾았을 때 "AI에게 물어보기". 질문 글만 받고, 하루 횟수 상한이 있다.
 exports.askFieldQuestion = onCall({ ...AI_OPTIONS, timeoutSeconds: 40 }, async (request) => {
-    const uid = requireUid(request);
+    const uid = await requireApproved(request);
     const checked = aiAsk.validateQuestion(request.data && request.data.question);
     if (checked.error) throw new HttpsError("invalid-argument", checked.error);
     const usage = await takeDailyUse("ai_usage_ask", uid, aiAsk.DAILY_LIMIT);
@@ -581,7 +618,7 @@ exports.askFieldQuestion = onCall({ ...AI_OPTIONS, timeoutSeconds: 40 }, async (
 });
 
 exports.parseMaterialNote = onCall({ ...AI_OPTIONS, timeoutSeconds: 60, memory: "512MiB" }, async (request) => {
-    const uid = requireUid(request);
+    const uid = await requireApproved(request);
     const d = request.data || {};
     const checked = aiMaterial.validateImage(d.image);
     if (checked.error) throw new HttpsError("invalid-argument", checked.error);

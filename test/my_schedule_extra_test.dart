@@ -338,6 +338,26 @@ void main() {
       expect(out.containsKey('updatedAt'), false);
       expect(out['title'], 't');
     });
+
+    test('남이 보낸 일정은 사본 번호로 가져와 보낸 사람 일정을 덮지 않는다(10-09 사용자 결정)', () {
+      final mine = (id: 'a1', data: <String, dynamic>{'owner': '홍길동', 'title': '내 것'});
+      final theirs = (id: 'b1', data: <String, dynamic>{'owner': '김동료', 'title': '받은 것'});
+      final noOwner = (id: 'c1', data: <String, dynamic>{'title': '주인 없음'});
+      expect(importDocId(mine, '홍길동'), 'a1');
+      expect(importDocId(noOwner, '홍길동'), 'c1');
+      final copy = importDocId(theirs, '홍길동');
+      expect(copy, isNot('b1'));
+      // 같은 파일을 또 가져오면 같은 사본 번호(겹치지 않음), 이름의 / 는 번호에 못 쓴다.
+      expect(importDocId(theirs, '홍길동'), copy);
+      expect(importDocId(theirs, 'a/b').contains('/'), isFalse);
+
+      final b = PersonalBackup([mine, theirs], 0, null);
+      // 내 목록에 b1(보낸 사람 번호)이 있어도 덮어쓰기로 세지 않고, 사본이 이미 있으면 덮어쓰기.
+      final p1 = planPersonalRestore(b, {'b1'}, me: '홍길동');
+      expect(p1.added, ['내 것', '받은 것']);
+      final p2 = planPersonalRestore(b, {'a1', copy}, me: '홍길동');
+      expect(p2.overwritten, ['내 것', '받은 것']);
+    });
   });
 
   group('한국 공휴일 표', () {

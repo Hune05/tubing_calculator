@@ -177,6 +177,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
             "${plan.added.isEmpty ? '' : '새로 들어오는 프로젝트 ${plan.added.length}건 (${names(plan.added)})\n'}"
             "${plan.overwritten.isEmpty ? '' : '덮어쓰는 프로젝트 ${plan.overwritten.length}건 (${names(plan.overwritten)})\n'}"
             "${plan.untouched == 0 ? '' : '백업에 없는 지금 프로젝트 ${plan.untouched}건은 그대로 둡니다.\n'}"
+            "${prev.layouts == 0 ? '' : '배치도는 서버에 없는 것만 되살리고, 있는 것은 덮지 않습니다.\n'}"
             "\n덮어쓰는 프로젝트는 지금 내용이 백업 내용으로 바뀝니다. 계속하시겠습니까?",
           ),
         ),
@@ -194,13 +195,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
     );
     if (go != true) return;
     final r = await restoreBackupAll(prev);
-    _toast(
-      "복원했습니다. 프로젝트 ${r.projects}건"
-      "${r.layouts > 0 ? ', 배치도 ${r.layouts}개' : ''}"
-      "${r.schedules > 0 ? ', 내 일정 ${r.schedules}건' : ''}"
-      "${r.tubeDrawings > 0 ? ', 튜브 도면 ${r.tubeDrawings}개' : ''}"
-      "${r.conduitDrawings > 0 ? ', 전선관 도면 ${r.conduitDrawings}개' : ''}",
-    );
+    _toast(restoreResultText(r));
     widget.onRestored?.call();
   }
 
@@ -254,6 +249,10 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
                 ListTile(
                   leading: const Icon(Icons.cloud_download_outlined),
                   title: Text(_fmtBackupName(list[i].name)),
+                  // 이름별 폴더 전 맨 위 폴더 것은 다른 사람 백업일 수 있다.
+                  subtitle: isSharedFolderBackup(list[i])
+                      ? const Text("예전 공용 폴더 · 다른 사람 것일 수 있음")
+                      : null,
                   onTap: () => Navigator.pop(ctx, i),
                 ),
             ],

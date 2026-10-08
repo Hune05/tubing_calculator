@@ -13,6 +13,7 @@ void main() {
     expect(aiPolishErrorMessage('resource-exhausted', '오늘 30번까지'), '오늘 30번까지');
     expect(aiPolishErrorMessage('unavailable', null), contains('응답'));
     expect(aiPolishErrorMessage('x', null), contains('처리하지 못했습니다'));
+    expect(aiPolishErrorMessage('permission-denied', null), contains('사용 승인'));
   });
 
   testWidgets('바꾸기를 눌러야만 글이 바뀐다', (tester) async {

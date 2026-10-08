@@ -3234,7 +3234,10 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         return;
       }
       final existing = {for (final d in await _fetchMyPersonalDocs()) d.id};
-      final plan = planPersonalRestore(backup, existing);
+      final plan = planPersonalRestore(backup, existing, me: _currentWorker);
+      final copies = backup.items
+          .where((d) => importDocId(d, _currentWorker) != d.id)
+          .length;
       if (!mounted) return;
       String names(List<String> l) => l.length <= 3
           ? l.join(', ')
@@ -3253,6 +3256,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           content: Text(
             "${plan.added.isEmpty ? '' : '새로 들어오는 일정 ${plan.added.length}건 (${names(plan.added)})\n'}"
             "${plan.overwritten.isEmpty ? '' : '덮어쓰는 일정 ${plan.overwritten.length}건 (${names(plan.overwritten)})\n'}"
+            "${copies == 0 ? '' : '다른 사람이 보낸 일정 $copies건은 내 일정으로 복사합니다(보낸 사람 일정은 그대로).\n'}"
             "${backup.skipped == 0 ? '' : '읽을 수 없어 건너뛰는 항목 ${backup.skipped}건\n'}"
             "\n덮어쓰는 일정은 지금 내용이 백업 내용으로 바뀝니다. 계속하시겠습니까?",
             style: const TextStyle(color: scheduleSubText),
@@ -3282,8 +3286,10 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       for (final d in backup.items) {
         final data = dataForRestore(d.data, _currentWorker)
           ..['updatedAt'] = FieldValue.serverTimestamp();
-        batch.set(col.doc(d.id), data);
-        toRemind.add((d.id, data));
+        // 남이 보낸 일정은 사본 번호로(보낸 사람 일정을 덮지 않게).
+        final id = importDocId(d, _currentWorker);
+        batch.set(col.doc(id), data);
+        toRemind.add((id, data));
         n++;
         if (++inBatch == 400) {
           unawaited(batch.commit().catchError(_scheduleSaveFailed));

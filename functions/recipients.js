@@ -1,13 +1,15 @@
 // 알림을 받을 폰 고르기(점검 27번). 서버 없이 시험할 수 있게 따로 둔다.
 
 // users 문서들(이름, 내용)에서 토큰 모음을 만든다.
-function collectRecipients(userDocs) {
+// [blockedUids]: 사용 승인에서 거절된 uid(10-09: 거절된 사람도 알림을 받았다).
+function collectRecipients(userDocs, blockedUids = new Set()) {
     const all = [];
     const byUid = new Map();
     const byName = new Map();
     for (const { name, data } of userDocs) {
         const t = data.fcmToken;
         if (!t) continue;
+        if (data.uid && blockedUids.has(data.uid)) continue;
         all.push(t);
         if (data.uid) {
             if (!byUid.has(data.uid)) byUid.set(data.uid, []);

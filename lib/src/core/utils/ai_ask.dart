@@ -43,6 +43,9 @@ Future<AiAskResult> callAiAsk(String question) async {
 /// 서버 오류 코드를 사용자에게 보일 말로.
 String aiAskErrorMessage(String code, String? serverMessage) {
   switch (code) {
+    case 'permission-denied':
+      // 10-09: 서버가 사용 승인을 받은 사람·관리자만 받는다.
+      return '사용 승인을 받은 뒤에 쓸 수 있습니다(관리자에게 승인을 요청하십시오)';
     case 'unauthenticated':
       return '로그인한 뒤에 쓸 수 있습니다';
     case 'resource-exhausted':

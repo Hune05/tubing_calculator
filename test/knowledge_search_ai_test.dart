@@ -47,6 +47,7 @@ void main() {
 
   test('서버 오류 코드 → 알림 글', () {
     expect(aiAskErrorMessage('unauthenticated', null), contains('로그인'));
+    expect(aiAskErrorMessage('permission-denied', null), contains('사용 승인'));
     expect(aiAskErrorMessage('resource-exhausted', '오늘 이 기능은 20번까지입니다'), '오늘 이 기능은 20번까지입니다');
     expect(aiAskErrorMessage('unavailable', null), contains('응답하지'));
     expect(aiAskErrorMessage('xxx', null), contains('처리하지'));

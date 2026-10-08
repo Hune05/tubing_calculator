@@ -14,6 +14,8 @@ import '../../../core/utils/quick_firestore.dart';
 import '../../../data/ownership.dart';
 import '../../my_schedule/schedule_reminders.dart'
     show schedulePersonalReminder;
+import 'layout_board_models.dart' show LayoutOwner, layoutVisibleTo;
+import 'layout_board_owner.dart';
 import 'phase_templates.dart';
 import '../../../core/database/database_helper.dart';
 import '../../../data/conduit_drawings.dart';
@@ -47,9 +49,36 @@ dynamic _dec(dynamic v) {
   return v;
 }
 
-// 작업 배치도(layouts 컬렉션 전체)와 내 개인 일정(로그인한 사람의 것)도 백업에 함께 담는다.
+// 작업 배치도(내 목록에 보이는 것)와 내 개인 일정(로그인한 사람의 것)도 백업에 함께 담는다.
 const String _kLayoutsCollectionName = 'layouts';
 const String _kPersonalSchedulesName = 'personal_schedules';
+
+/// 백업에 담을 배치도: 배치도 목록 화면과 같은 규칙으로 내 것과 주인 칸 없는 예전 것만.
+/// 10-09 사용자 결정: 예전에는 layouts 전체(남의 배치도까지)를 담았다.
+bool layoutBelongsInBackup(Map<String, dynamic> data, LayoutOwner me) =>
+    layoutVisibleTo(data, me);
+
+/// 백업 속 배치도를 되돌릴 계획.
+/// 10-09 사용자 결정: 내 목록에 보이는 것만, 서버에 이미 있는 것은 덮지 않고 없는 것만 넣는다.
+/// 예전에는 모두 덮어써서 다른 기기에서 고친 배치도가 옛 내용으로 돌아가고 남의 배치도도 덮었다.
+({List<({String id, Map<String, dynamic> data})> write, int kept, int others})
+planLayoutRestore(List<dynamic> raw, Set<String> existingIds, LayoutOwner me) {
+  final write = <({String id, Map<String, dynamic> data})>[];
+  var kept = 0, others = 0;
+  for (final r in raw) {
+    if (r is! Map || r['id'] is! String || r['data'] is! Map) continue;
+    final id = r['id'] as String;
+    final data = Map<String, dynamic>.from(_dec(r['data']) as Map);
+    if (!layoutBelongsInBackup(data, me)) {
+      others++;
+    } else if (existingIds.contains(id)) {
+      kept++;
+    } else {
+      write.add((id: id, data: data));
+    }
+  }
+  return (write: write, kept: kept, others: others);
+}
 
 Future<({List<dynamic> layouts, List<dynamic> schedules, bool failed})>
 _collectExtras() async {
@@ -57,10 +86,12 @@ _collectExtras() async {
   final schedules = <dynamic>[];
   bool failed = false;
   try {
+    final me = await loadLayoutOwner();
     final snap = await FirebaseFirestore.instance
         .collection(_kLayoutsCollectionName)
         .get();
     for (final d in snap.docs) {
+      if (!layoutBelongsInBackup(d.data(), me)) continue;
       layouts.add({'id': d.id, 'data': _enc(d.data())});
     }
   } catch (e) {
@@ -233,14 +264,32 @@ class RestoreResult {
   final int schedules;
   final int tubeDrawings;
   final int conduitDrawings;
+  // 배치도: 서버에 이미 있어 그대로 둔 것, 남의 것이라 뺀 것, 통신이 없어 되돌리지 못했는지.
+  final int layoutsKept;
+  final int layoutsOthers;
+  final bool layoutsUnchecked;
   const RestoreResult(
     this.projects,
     this.layouts,
     this.schedules, {
     this.tubeDrawings = 0,
     this.conduitDrawings = 0,
+    this.layoutsKept = 0,
+    this.layoutsOthers = 0,
+    this.layoutsUnchecked = false,
   });
 }
+
+/// 복원을 마친 뒤 보일 글.
+String restoreResultText(RestoreResult r) =>
+    "복원했습니다. 프로젝트 ${r.projects}건"
+    "${r.layouts > 0 ? ', 배치도 ${r.layouts}개' : ''}"
+    "${r.schedules > 0 ? ', 내 일정 ${r.schedules}건' : ''}"
+    "${r.tubeDrawings > 0 ? ', 튜브 도면 ${r.tubeDrawings}개' : ''}"
+    "${r.conduitDrawings > 0 ? ', 전선관 도면 ${r.conduitDrawings}개' : ''}"
+    "${r.layoutsKept > 0 ? '. 서버에 있는 배치도 ${r.layoutsKept}개는 그대로 두었습니다' : ''}"
+    "${r.layoutsOthers > 0 ? '. 다른 사람 배치도 ${r.layoutsOthers}개는 뺐습니다' : ''}"
+    "${r.layoutsUnchecked ? '. 통신이 없어 배치도는 되돌리지 않았습니다(통신되는 곳에서 다시 복원하십시오)' : ''}.";
 
 // 파일 내용을 읽어 검증만 한다(저장하지 않음). 형식이 다르면 예외.
 BackupPreview parseBackup(String text) {
@@ -305,19 +354,40 @@ Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
       recordError('백업 복원', e);
     }
   }
-  for (final raw in (b.raw['layouts'] as List? ?? [])) {
+  int layoutsKept = 0, layoutsOthers = 0;
+  bool layoutsUnchecked = false;
+  final rawLayouts = b.raw['layouts'] as List? ?? const [];
+  if (rawLayouts.isNotEmpty) {
     try {
-      if (raw is! Map || raw['id'] is! String || raw['data'] is! Map) continue;
-      unawaited(
-        FirebaseFirestore.instance
-            .collection(_kLayoutsCollectionName)
-            .doc(raw['id'] as String)
-            .set(Map<String, dynamic>.from(_dec(raw['data']) as Map))
-            .catchError((Object e) => recordError('배치도 복원', e)),
+      // 서버에 이미 있는지 알아야 덮지 않는다. 폰 사본만 읽혔으면(통신 없음) 서버에 있는 것을
+      // 모를 수 있으니 배치도는 되돌리지 않는다.
+      final snap = await readQueryQuick(
+        FirebaseFirestore.instance.collection(_kLayoutsCollectionName),
       );
-      layoutsOk++;
+      if (snap.metadata.isFromCache) {
+        layoutsUnchecked = true;
+      } else {
+        final plan = planLayoutRestore(
+          rawLayouts,
+          {for (final d in snap.docs) d.id},
+          await loadLayoutOwner(),
+        );
+        layoutsKept = plan.kept;
+        layoutsOthers = plan.others;
+        for (final l in plan.write) {
+          unawaited(
+            FirebaseFirestore.instance
+                .collection(_kLayoutsCollectionName)
+                .doc(l.id)
+                .set(l.data)
+                .catchError((Object e) => recordError('배치도 복원', e)),
+          );
+          layoutsOk++;
+        }
+      }
     } catch (e) {
       recordError('배치도 복원', e);
+      layoutsUnchecked = true;
     }
   }
   for (final raw in (b.raw['personalSchedules'] as List? ?? [])) {
@@ -368,6 +438,9 @@ Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
     schedulesOk,
     tubeDrawings: drawings.tube,
     conduitDrawings: drawings.conduit,
+    layoutsKept: layoutsKept,
+    layoutsOthers: layoutsOthers,
+    layoutsUnchecked: layoutsUnchecked,
   );
 }
 
@@ -384,9 +457,23 @@ Future<Reference> _cloudUserDir() async {
   final name = (await SharedPreferences.getInstance())
       .getString('user_real_name')
       ?.trim();
-  if (name == null || name.isEmpty || name == '로그인 필요') return root;
-  return root.child(name.replaceAll(RegExp(r'[/\\#?\[\]]'), '_'));
+  return root.child(cloudBackupFolderName(name, currentUid()));
 }
+
+/// 클라우드 백업 폴더 이름. 이름이 있으면 이름, 없으면 uid, 둘 다 없으면 '_no_name'.
+/// 10-09: 이름이 없는 사람은 맨 위 공용 폴더에 올리고 "최근 5개"만 남기며 지워서, 이름별 폴더가
+/// 생기기 전에 올라간 다른 사람의 옛 백업까지 지웠다. 이제 맨 위 폴더에는 쓰지 않는다.
+String cloudBackupFolderName(String? name, String? uid) {
+  final n = name?.trim() ?? '';
+  if (n.isNotEmpty && n != '로그인 필요') {
+    return n.replaceAll(RegExp(r'[/\\#?\[\]]'), '_');
+  }
+  final u = uid?.trim() ?? '';
+  return u.isEmpty ? '_no_name' : 'uid_$u';
+}
+
+/// 맨 위 공용 폴더(이름별 폴더 전) 백업인지. 다른 사람 것일 수 있어 목록에 따로 적는다.
+bool isSharedFolderBackup(Reference r) => r.parent?.fullPath == _kCloudDir;
 
 Future<bool> autoBackupEnabled() async =>
     (await SharedPreferences.getInstance()).getBool(_kAutoOn) ?? true;
