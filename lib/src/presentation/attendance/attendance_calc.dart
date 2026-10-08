@@ -98,8 +98,11 @@ CompanyOvertime? companyOvertime(AttendanceRecord r, AttendanceCalcOptions o) {
   if (start == null || stay == null) return null;
   final sm = minutesOfDay(o.workStart)!;
   final em = minutesOfDay(o.workEnd)!;
-  final earlyRaw = math.max(0, sm - start);
-  final lateRaw = math.max(0, start + stay - em);
+  // 소정 시간 밖에서 실제로 일한 몫만 센다(10-08: 연장을 퇴근 − 소정 퇴근으로만 셈해, 소정 퇴근 뒤에
+  // 출근한 야간 작업 22:00~06:00이 13시간 연장으로 나왔다). 보통 날(소정 안에서 출근)은 그대로다.
+  final int end = start + stay;
+  final int earlyRaw = math.max(0, math.min(end, sm) - start);
+  final int lateRaw = math.max(0, end - math.max(start, em));
   int floorUnit(int v) =>
       (v ~/ kCompanyOvertimeUnitMin) * kCompanyOvertimeUnitMin;
   return CompanyOvertime(
@@ -150,7 +153,7 @@ DayWork? computeDay(AttendanceRecord r, AttendanceCalcOptions o) {
   final start = minutesOfDay(r.checkIn);
   final stay = stayMinutesOf(r.checkIn, r.checkOut);
   if (start == null || stay == null) return null;
-  final end = start + stay; // 출근한 날 0시부터 분(자정 넘기면 1440 이상)
+  final int end = start + stay; // 출근한 날 0시부터 분(자정 넘기면 1440 이상)
   final brk = breakMinutesFor(r, stay, o);
   final work = stay - brk;
 

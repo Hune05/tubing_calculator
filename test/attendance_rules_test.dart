@@ -225,6 +225,18 @@ void main() {
       expect(c.isZero, isTrue); // 늦은 출근은 조출이 아니다
     });
 
+    test('소정 퇴근 뒤에 출근한 야간 작업은 일한 시간만 연장이다(10-08)', () {
+      // 22:00~06:00: 예전에는 퇴근(다음 날 06:00) − 17:00 = 13시간으로 셈했다.
+      var c = companyOvertime(rec('22:00', '06:00'), o)!;
+      expect((c.early, c.late), (0, 480));
+      // 22:29~22:30(1분)은 연장 0(예전 5시간).
+      c = companyOvertime(rec('22:29', '22:30'), o)!;
+      expect((c.late, c.lateDrop), (0, 1));
+      // 새벽 02:00~06:00은 소정 출근 전 4시간만 조출(예전 6시간).
+      c = companyOvertime(rec('02:00', '06:00'), o)!;
+      expect((c.early, c.late), (240, 0));
+    });
+
     test('일찍 출근해도 17:00 전은 연장이 아니다(조출만)', () {
       final c = companyOvertime(rec('07:00', '17:00'), o)!;
       expect((c.early, c.late), (60, 0));
