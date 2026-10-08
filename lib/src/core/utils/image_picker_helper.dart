@@ -147,6 +147,9 @@ class ImagePickerHelper {
       final XFile? image = await _picker.pickImage(
         source: source,
         imageQuality: 70,
+        // 현장 증빙 사진(도장)은 긴 변 2560px면 충분하다. 원본 그대로 줄이고 도장 찍느라 몇 초 걸렸다(10-08).
+        maxWidth: stampSite ? 2560 : null,
+        maxHeight: stampSite ? 2560 : null,
       );
       if (image == null) return [];
       var path = image.path;

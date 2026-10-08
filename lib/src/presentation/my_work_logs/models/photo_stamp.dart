@@ -21,7 +21,14 @@ import '../../../core/theme/app_tokens.dart';
 
 /// 이미 허용된 위치 권한으로 "시/구" 수준 이름을 얻는다. 권한이 없거나, 위치
 /// 서비스가 꺼졌거나, 알아내지 못하면 null(도장에서 그 줄만 뺀다).
+// 지역 이름은 몇 분 동안 같으니 한 번 받은 것을 다시 쓴다(사진마다 인터넷을 묻지 않게).
+String? _lastPlace;
+DateTime? _lastPlaceAt;
+const Duration _placeKeep = Duration(minutes: 10);
+
 Future<String?> quickSiteLocationLabel() async {
+  final at = _lastPlaceAt;
+  if (at != null && DateTime.now().difference(at) < _placeKeep) return _lastPlace;
   try {
     final perm = await Geolocator.checkPermission();
     final allowed =
@@ -31,7 +38,12 @@ Future<String?> quickSiteLocationLabel() async {
     if (!await Geolocator.isLocationServiceEnabled()) return null;
     final pos = await Geolocator.getLastKnownPosition();
     if (pos == null) return null;
-    final places = await placemarkFromCoordinates(pos.latitude, pos.longitude);
+    // 좌표 → 지역 이름은 인터넷으로 묻는다. 통신이 없는 현장에서 몇 초씩 기다려 사진이
+    // 늦게 붙었다(10-08). 2초만 기다리고 못 받으면 위치 없이 찍는다.
+    final places = await placemarkFromCoordinates(
+      pos.latitude,
+      pos.longitude,
+    ).timeout(const Duration(seconds: 2));
     if (places.isEmpty) return null;
     final p = places.first;
     final city = (p.locality?.isNotEmpty ?? false)
@@ -41,11 +53,16 @@ Future<String?> quickSiteLocationLabel() async {
         ? p.subLocality!
         : (p.subAdministrativeArea ?? '');
     final parts = {city, district}.where((s) => s.isNotEmpty).toList();
-    return parts.isEmpty ? null : parts.join(' ');
+    _lastPlace = parts.isEmpty ? null : parts.join(' ');
+    _lastPlaceAt = DateTime.now();
+    return _lastPlace;
   } catch (_) {
     return null;
   }
 }
+
+/// 도장 찍을 때 사진 긴 변 한도. 원본(4000px)을 그대로 그리고 PNG로 만들면 몇 초 걸렸다(10-08).
+const int kStampMaxSide = 2560;
 
 /// 도장에 넣을 줄들(빈 줄은 뺀다). 화면과 떼어 놓아서 검사할 수 있게.
 List<String> photoStampLines({
@@ -65,7 +82,15 @@ List<String> photoStampLines({
 Future<String> stampPhoto(String srcPath, {required String siteName}) async {
   try {
     final bytes = await File(srcPath).readAsBytes();
-    final codec = await ui.instantiateImageCodec(bytes);
+    final codec = await ui.instantiateImageCodecWithSize(
+      await ui.ImmutableBuffer.fromUint8List(bytes),
+      getTargetSize: (int w, int h) {
+        final longest = w > h ? w : h;
+        if (longest <= kStampMaxSide) return ui.TargetImageSize(width: w, height: h);
+        final k = kStampMaxSide / longest;
+        return ui.TargetImageSize(width: (w * k).round(), height: (h * k).round());
+      },
+    );
     final frame = await codec.getNextFrame();
     final img = frame.image;
     final w = img.width.toDouble();
