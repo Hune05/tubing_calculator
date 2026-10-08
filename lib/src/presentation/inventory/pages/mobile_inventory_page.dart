@@ -112,6 +112,9 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
   Map<String, UsageSinceCount> _usage = const {};
   final Map<String, Map<String, dynamic>> _newLocalItems = {};
 
+  /// 서버에 있는 자재 이름(새 자재 등록 때 같은 이름을 막는 데 쓴다, 10-09).
+  List<String> _serverNames = const [];
+
   /// 지운 자재. 서버 목록이 따라올 때까지 화면에서 먼저 뺀다(10-02).
   final Set<String> _deletedIds = {};
   final List<Map<String, dynamic>> _historyLogs = [];
@@ -403,6 +406,11 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
         final pending = snapshot.data!.docs
             .where((d) => d.metadata.hasPendingWrites)
             .length;
+        _serverNames = [
+          for (final d in snapshot.data!.docs)
+            if (!_deletedIds.contains(d.id))
+              ((d.data() as Map<String, dynamic>)['name'] ?? '').toString(),
+        ];
 
         // 서버에 있는 자재 + 이 화면에서 새로 적은 자재를 한 목록으로 합친다.
         final dbDocs =

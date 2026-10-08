@@ -78,18 +78,7 @@ class OcrService {
 
       String raw = recognizedText.text.toUpperCase();
 
-      String material = "";
-      if (raw.contains("316L")) {
-        material = "SS316L";
-      } else if (raw.contains("304")) {
-        material = "SS304";
-      } else if (raw.contains("MONEL")) {
-        material = "MONEL";
-      } else if (raw.contains("CARBON")) {
-        material = "CARBON";
-      } else if (raw.contains("TEFLON")) {
-        material = "TEFLON";
-      }
+      final String material = detectLabelMaterial(raw);
 
       String heatNo = "";
       // 단어로 떨어진 표시만, 값에는 숫자가 있어야 한다(10-07: "NOMINAL"·"WEIGHT 5KG"에 걸렸다).
@@ -232,4 +221,20 @@ class OcrService {
   static void dispose() {
     _textRecognizer.close();
   }
+}
+
+/// 라벨 글에서 재질을 고른다(대문자로 바꾼 글). 못 알아보면 빈 글.
+/// 10-09: "316L"만 찾아 "TP316"·"SS316"은 빈칸이 됐고, 숫자 중간의 304("HEAT 23041", 길이 "3048")도
+/// SS304로 읽었다. 316·304는 앞뒤에 숫자가 붙지 않은 것만 본다.
+String detectLabelMaterial(String raw) {
+  final up = raw.toUpperCase();
+  bool grade(String g) => RegExp('(?<![0-9])$g(?![0-9])').hasMatch(up);
+  if (RegExp(r'(?<![0-9])316\s?L(?![A-Z])').hasMatch(up)) return "SS316L";
+  if (grade("316")) return "SS316";
+  if (RegExp(r'(?<![0-9])304\s?L(?![A-Z])').hasMatch(up)) return "SS304L";
+  if (grade("304")) return "SS304";
+  if (up.contains("MONEL")) return "MONEL";
+  if (up.contains("CARBON")) return "CARBON";
+  if (up.contains("TEFLON")) return "TEFLON";
+  return "";
 }

@@ -355,6 +355,14 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                     }).toList();
 
                     if (filteredDocs.isEmpty) {
+                      // 바코드로 찾았는데 0건이면 여기서 알리고 표시를 끈다(10-09: 목록을 안 그려
+                      // 표시가 남아, 나중에 검색어를 고쳐 1건이 되는 순간 그 자재가 저절로 열렸다).
+                      if (_openAfterScan) {
+                        _openAfterScan = false;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) _snackScanNone();
+                        });
+                      }
                       return Column(
                         children: [
                           PendingWritesBanner(count: pending),
@@ -531,7 +539,20 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
     setState(() {
       _searchQuery = code.toLowerCase();
       _openAfterScan = true;
+      // 분류 칩·부족만 보기가 걸려 있으면 다른 분류의 자재를 못 찾는다(10-09).
+      _selectedCategory = "ALL";
+      _shortOnly = false;
     });
+  }
+
+  void _snackScanNone() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          '이 바코드와 맞는 자재를 찾지 못했습니다. 새 자재는 재고조사·자재 등록 메뉴에서 등록하십시오.',
+        ),
+      ),
+    );
   }
 
   Widget _inventoryList(
@@ -556,13 +577,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
               ),
             );
           case ScanFindOutcome.none:
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  '이 바코드와 맞는 자재를 찾지 못했습니다. 새 자재는 재고조사·자재 등록 메뉴에서 등록하십시오.',
-                ),
-              ),
-            );
+            _snackScanNone();
           case ScanFindOutcome.many:
             break;
         }

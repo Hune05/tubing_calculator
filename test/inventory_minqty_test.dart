@@ -19,4 +19,13 @@ void main() {
     expect(u['maker'], '세진');
     expect(u.containsKey('heatNo'), isFalse);
   });
+
+  test("새 자재 등록: 같은 이름(빈칸·따옴표·대소문자 차이 무시)이면 막는다(10-09)", () {
+    final names = ["[HY-LOK] 1/2\" Tube SS316L", "볼트 M10"];
+    expect(findDuplicateMaterialName("[hy-lok]  1/2” tube ss316l", names), names.first);
+    expect(findDuplicateMaterialName("볼트 M10", names), "볼트 M10");
+    expect(findDuplicateMaterialName("볼트 M12", names), isNull);
+    expect(findDuplicateMaterialName("  ", names), isNull);
+  });
 }
+

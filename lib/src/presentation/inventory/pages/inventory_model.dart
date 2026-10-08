@@ -1,3 +1,5 @@
+import '../../tube_cutting/cutting_stock_deduct.dart' show normalizeMaterialName;
+
 class ItemData {
   int qty;
   String heatNo;
@@ -54,4 +56,15 @@ class ItemData {
 
   /// 재고조사를 올릴 때 최소 수량도 보낼지(셀 때 값에서 바꿨거나, 셀 때 값을 모를 때).
   bool get minQtyChanged => bookMinQty == null || minQty != bookMinQty;
+}
+
+/// [name]과 같은 자재 이름이 [existing]에 있으면 그 이름을, 없으면 null.
+/// 빈칸·따옴표 모양·대소문자 차이는 같은 이름으로 본다(재고 차감과 같은 규칙).
+String? findDuplicateMaterialName(String name, Iterable<String> existing) {
+  final key = normalizeMaterialName(name);
+  if (key.isEmpty) return null;
+  for (final e in existing) {
+    if (normalizeMaterialName(e) == key) return e;
+  }
+  return null;
 }

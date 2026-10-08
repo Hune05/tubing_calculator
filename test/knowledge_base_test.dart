@@ -105,4 +105,22 @@ void main() {
     expect(find.byKey(const Key('ks_hit_x2')), findsOneWidget);
     expect(find.byKey(const Key('ks_hit_x1')), findsNothing);
   });
+
+  test("분수·단위 기호로 찾기, 제목이 같으면 맨 위(10-09)", () {
+    final all = knowledgeBase();
+    // "1/2"가 "12"로 다듬어져 "제1·2·3종"이 1위였다.
+    final half = searchKnowledge(all, "1/2");
+    expect(half, isNotEmpty);
+    expect(half.any((h) => h.entry.title.contains("종별")), isFalse);
+    expect(normalizeForSearch("1/2\" 튜브"), "1⁄2튜브");
+    expect(normalizeForSearch("kg/cm²"), "kgcm"); // 숫자 사이가 아닌 "/"는 전처럼 뗀다
+    // "MΩ"가 "m" 한 글자가 되어 수백 건이 걸렸다.
+    final mohm = searchKnowledge(all, "MΩ");
+    expect(mohm.length, lessThan(30));
+    expect(mohm.first.entry.title, contains("MΩ"));
+    // 제목을 그대로 치면 그 바로가기가 맨 위.
+    expect(searchKnowledge(all, "단위 환산").first.entry.title, "단위 환산");
+    expect(searchKnowledge(all, "고장 진단").first.entry.title, "고장 진단");
+  });
 }
+

@@ -65,8 +65,12 @@ class KnowledgeEntry {
 }
 
 /// 비교용으로 다듬는다: 소문자, 글자·숫자·한글만 남김("ALM.07"·"alm 07"·"ALM07"이 같아진다).
-String normalizeForSearch(String s) =>
-    s.toLowerCase().replaceAll(RegExp(r'[^0-9a-z가-힣ㄱ-ㅎ]'), '');
+/// 10-09: 숫자 사이 "/"(분수 1/2·3/4)와 Ω·μ·Δ는 남긴다. 예전에는 "1/2"가 "12"가 되어 "제1·2·3종"이
+/// 1위로 나왔고, "MΩ"는 "m", "ΔT"는 "t" 한 글자가 되어 수백 건이 걸렸다.
+String normalizeForSearch(String s) => s
+    .toLowerCase()
+    .replaceAll(RegExp(r'(?<=[0-9])/(?=[0-9])'), '⁄')
+    .replaceAll(RegExp('[^0-9a-z가-힣ㄱ-ㅎ⁄ωδμµ]'), '');
 
 /// 검색 결과 한 줄(항목과 점수).
 class KnowledgeHit {
@@ -313,11 +317,15 @@ List<KnowledgeHit> searchKnowledge(
   // 검색어 전체(띄어쓰기 뺀 것)가 제목에 그대로 있으면 가장 먼저("전압강하" → 전압강하 계산기).
   final whole = tokens.join();
   bool inTitle(KnowledgeHit h) => whole.length >= 2 && _prep(h.entry).title.contains(whole);
+  // 제목이 검색어와 똑같으면 그보다도 먼저(10-09: "단위 환산"을 치면 계산기 바로가기가 9건 중 9번째였다).
+  bool sameTitle(KnowledgeHit h) => whole.length >= 2 && _prep(h.entry).title == whole;
   // 정렬은 안정적이어야 한다(점수가 같으면 원래 순서). 인덱스를 함께 써서 보장한다.
   final order = {for (var i = 0; i < pool.length; i++) pool[i].id: i};
   hits.sort((a, b) {
     var c = b.matched.compareTo(a.matched);
     if (c != 0) return c;
+    final sa = sameTitle(a), sb = sameTitle(b);
+    if (sa != sb) return sa ? -1 : 1;
     final ta = inTitle(a), tb = inTitle(b);
     if (ta != tb) return ta ? -1 : 1;
     c = b.entry.priority.compareTo(a.entry.priority);

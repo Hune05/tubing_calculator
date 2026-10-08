@@ -466,6 +466,26 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                 .replaceAll(RegExp(r'\s+'), ' ')
                                 .trim();
 
+                            // 같은 이름(빈칸·따옴표·대소문자 차이는 같게 본다)이 이미 있으면 막는다.
+                            // 10-09: 같은 QR을 두 번 찍어 추가하면 자재가 둘로 늘었고, 그 뒤 바코드로
+                            // 찾기가 2건이 되어 자동으로 열리지 않았다.
+                            final dup = findDuplicateMaterialName(finalName, [
+                              ..._serverNames,
+                              for (final m in _newLocalItems.values)
+                                (m['name'] ?? '').toString(),
+                            ]);
+                            if (dup != null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    "같은 이름의 자재가 이미 있습니다: $dup. 목록에서 그 자재의 수량을 고치십시오.",
+                                  ),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                              return;
+                            }
+
                             if (finalName.isNotEmpty) {
                               setState(() {
                                 String tempId =
