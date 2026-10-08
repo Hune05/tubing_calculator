@@ -137,12 +137,19 @@ class _LayoutBoardProjectListPageState
   // 기존에 저장해둔 배치도를 그대로 복제해서 이름만 바꿔 시작할 수 있게.
   // 복제본은 새로 만드는 배치도라서 만든 사람을 "나"로 적는다.
   Future<void> _duplicateProject(String docId) async {
+    // 통신이 약하면 끝없이 기다리고, 다시 누르면 사본이 여럿 생겼다(10-08). 읽기는 폰 사본으로 넘어가고
+    // 쓰기는 폰에 적힌 뒤 8초까지만 기다린다.
+    if (_duplicating) return;
+    _duplicating = true;
     HapticFeedback.mediumImpact();
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection(kLayoutsCollection)
-          .doc(docId)
-          .get();
+      final ref = FirebaseFirestore.instance.collection(kLayoutsCollection).doc(docId);
+      DocumentSnapshot<Map<String, dynamic>> snap;
+      try {
+        snap = await ref.get().timeout(const Duration(seconds: 5));
+      } catch (_) {
+        snap = await ref.get(const GetOptions(source: Source.cache));
+      }
       final data = snap.data();
       if (data == null) return;
       final String rawName = (data['projectName'] as String?) ?? "";
@@ -160,7 +167,7 @@ class _LayoutBoardProjectListPageState
         'projectName': "$baseName (복사본)",
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-      });
+      }).timeout(const Duration(seconds: 8), onTimeout: () {});
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -178,8 +185,12 @@ class _LayoutBoardProjectListPageState
           ),
         );
       }
+    } finally {
+      _duplicating = false;
     }
   }
+
+  bool _duplicating = false;
 
   void _showItemActions(String docId, String name) {
     showModalBottomSheet(

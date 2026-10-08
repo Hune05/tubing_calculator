@@ -137,10 +137,20 @@ Future<String?> downloadLayoutBackground(String url) async {
     if (!await dir.exists()) await dir.create(recursive: true);
     final dst = File('${dir.path}/bg_${url.hashCode.toRadixString(16)}.jpg');
     if (await dst.exists()) return dst.path;
-    await FirebaseStorage.instance
-        .refFromURL(url)
-        .writeToFile(dst)
-        .timeout(const Duration(seconds: 30));
+    // 임시 이름으로 받고 다 받은 뒤 바꾼다(10-08: 30초 제한으로 끊긴 반쪽 파일을 다음에도 썼다).
+    final part = File('${dst.path}.part');
+    try {
+      await FirebaseStorage.instance
+          .refFromURL(url)
+          .writeToFile(part)
+          .timeout(const Duration(seconds: 30));
+      await part.rename(dst.path);
+    } catch (e) {
+      try {
+        if (await part.exists()) await part.delete();
+      } catch (_) {}
+      rethrow;
+    }
     return dst.path;
   } catch (e) {
     debugPrint('배경 사진 받기 실패: $e');

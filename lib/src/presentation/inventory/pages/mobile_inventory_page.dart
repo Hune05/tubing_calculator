@@ -644,8 +644,11 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
       _localEdits.remove(docId);
     });
     try {
-      await _inventoryDb.doc(docId).delete();
-      await recordMobileLog(itemName: itemName, action: '완전 삭제', qty: qty);
+      // 폰에 먼저 적히므로 8초까지만 기다리고, 기록은 지우기와 따로 바로 보낸다
+      // (10-08: 통신이 없으면 지우기를 기다리느라 기록이 안 남고 알림도 안 떴다).
+      final del = _inventoryDb.doc(docId).delete();
+      unawaited(recordMobileLog(itemName: itemName, action: '완전 삭제', qty: qty).catchError((_) {}));
+      await del.timeout(const Duration(seconds: 8), onTimeout: () {});
       if (!mounted) return;
       showCuttingSnack(context, "삭제했습니다: $itemName");
     } catch (_) {

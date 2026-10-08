@@ -65,7 +65,11 @@ Future<int> seedMissingCatalog() async {
 const Duration _seedWait = Duration(seconds: 8);
 
 Future<void> saveCatalogItem(CatalogItem item) async {
-  await _catalog.doc(item.id).set(item.toMap(), SetOptions(merge: true));
+  // 폰에 먼저 적히므로 8초까지만 기다린다(10-08: 통신이 없으면 "고쳤습니다"가 영영 안 떴다).
+  await _catalog
+      .doc(item.id)
+      .set(item.toMap(), SetOptions(merge: true))
+      .timeout(_seedWait, onTimeout: () {});
 }
 
 Future<void> deleteCatalogItem(String id) async {

@@ -2179,6 +2179,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   /// 내가 이 도면을 열거나 저장한 때의 저장 표시. 서버 것이 다르면 그 사이 다른 기기가 저장한 것이다.
   String? _lastSaveToken;
 
+  /// 저장 중인 템플릿 문서 이름(통신이 없어 기다리는 사이 다시 눌러도 사본이 생기지 않게).
+  String? _templateDocId;
+
   Future<bool> _confirmChangesBeforeSave() async {
     if (_currentProjectId == null) return true;
     try {
@@ -3086,9 +3089,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 _dropOrphanViewDims();
                 final plates = _allPlates();
                 final main = plates[kPlateMain]!;
+                // 통신이 없으면 add가 끝나지 않아 알림이 영영 안 떴다. 문서 이름을 먼저 정하고(다시 눌러도
+                // 같은 이름이면 하나만 남게) 폰에 적힌 뒤 8초까지만 기다린다(10-08).
                 await FirebaseFirestore.instance
                     .collection('layout_templates')
-                    .add({
+                    .doc(_templateDocId ??= newLayoutId())
+                    .set({
                       'name': name,
                       'panelWidth': main['panelWidth'],
                       'panelHeight': main['panelHeight'],
@@ -3103,7 +3109,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                           },
                       }),
                       'createdAt': FieldValue.serverTimestamp(),
-                    });
+                    })
+                    .timeout(const Duration(seconds: 8), onTimeout: () {});
+                _templateDocId = null;
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
