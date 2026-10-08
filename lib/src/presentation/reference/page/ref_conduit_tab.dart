@@ -373,7 +373,8 @@ class RefConduitTab extends StatelessWidget {
 
         refCard(
           title: "12. 볼트 머리·렌치(스패너) 사이즈",
-          subtitle: "ISO 미터 육각머리·육각소켓(렌치볼트) 표준값. 유볼트·전산볼트 체결에 씁니다",
+          // 10-09: M10·12·14의 17·19·22는 KS·DIN 값(ISO 4032는 16·18·21).
+          subtitle: "KS·DIN 미터 육각머리·육각소켓(렌치볼트) 값(국내 현장 기준, ISO 4032는 M10·12·14가 16·18·21). 유볼트·전산볼트 체결에 씁니다",
           icon: LucideIcons.wrench,
           iconColor: Colors.brown,
           children: [
@@ -450,9 +451,10 @@ class RefConduitTab extends StatelessWidget {
           icon: LucideIcons.alertTriangle,
           iconColor: Colors.redAccent,
           children: [
+            // 10-09: 360°는 미국 NEC 규칙이라 앱의 내선규정 표("직각 굴곡 3개소 초과 금지")와 엇갈렸다.
             refDataRow(
-              "한 관에 360° 이내",
-              "박스와 박스 사이 꺾임 각도 합이 360°(90° 넷)를 넘지 않게 합니다. 넘으면 선을 못 넣습니다.",
+              "박스 사이 굴곡 제한",
+              "내선규정: 박스와 박스 사이 직각 굴곡 3개소를 넘으면 풀박스를 둡니다. (미국 NEC는 꺾임 합 360° 이내.) 넘으면 선을 못 넣습니다.",
             ),
             refGap(),
             refDataRow(

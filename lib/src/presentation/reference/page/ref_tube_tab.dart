@@ -399,7 +399,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
           iconColor: Colors.blueGrey,
           children: [
             refTable(
-              headers: ["호칭", "나사 외경\n(mm)", "산 수\n(TPI)", "테프론\n감는 횟수"],
+              headers: ["호칭", "나사 외경\n(mm)", "산 수\n(TPI)", "테프론 감는\n횟수(현장 관행)"],
               rows: const [
                 ['1/8"', "10.3", "27", "2~3 바퀴"],
                 ['1/4"', "13.7", "18", "3~4 바퀴"],
@@ -409,7 +409,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
                 ['1"', "33.4", "11.5", "6~7 바퀴"],
               ],
               footer:
-                  "※ 테프론은 끝에서 두 번째 산부터, 조이는 방향(시계 방향)으로 감습니다. 첫 산에 감기면 배관 안으로 들어갑니다.",
+                  "※ 테프론은 끝에서 두 번째 산부터, 조이는 방향(시계 방향)으로 감습니다. 첫 산에 감기면 배관 안으로 들어갑니다. 제조사(Swagelok)는 2~3바퀴를 권장 — 너무 많이 감으면 암나사가 깨지거나 테이프 조각이 관 안으로 들어갑니다.",
             ),
           ],
         ),

@@ -82,12 +82,8 @@ class RefSteelTab extends StatelessWidget {
                       _kg(steelKgPerM(it.label), 6),
                     ],
                 ],
-                footer:
-                    SteelShapeDB.byCategory(
-                      c.id,
-                    ).any((i) => steelKgPerM(i.label) == null)
-                    ? "※ '—'는 이름만으로 중량을 못 구하는 규격입니다(형강 컷팅도 중량 합계에서 뺍니다)."
-                    : null,
+                // 10-09 자료 점검: H형강은 필렛(모서리 둥글림)을 빼고 단면적을 셈해 KS·JIS 표보다 2~3% 가볍다.
+                footer: _steelFooter(c.id),
               ),
             ],
           ),
@@ -136,4 +132,15 @@ class RefSteelTab extends StatelessWidget {
     'BEAM' => "H형강 춤×폭×웨브×플랜지",
     _ => null,
   };
+}
+
+/// 형강 중량표 아래 글. 없으면 null.
+String? _steelFooter(String categoryId) {
+  final notes = [
+    if (SteelShapeDB.byCategory(categoryId).any((i) => steelKgPerM(i.label) == null))
+      "※ '—'는 이름만으로 중량을 못 구하는 규격입니다(형강 컷팅도 중량 합계에서 뺍니다).",
+    if (categoryId == 'BEAM')
+      "※ 필렛(모서리 둥글림)을 빼고 계산한 값이라 KS 표 단위중량보다 약 2~3% 가볍습니다. 운반·양중 하중은 KS 표 값으로 확인하십시오.",
+  ];
+  return notes.isEmpty ? null : notes.join("\n");
 }
