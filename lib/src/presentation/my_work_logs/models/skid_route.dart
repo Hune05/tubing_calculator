@@ -266,6 +266,12 @@ double skidVerticalSize(PlacedItem it) {
   if (SkidShape.isFitting(it.shape) && it.depth != null && it.depth! > 0) {
     return it.depth!;
   }
+  // 형강은 놓을 때 적어 둔 단면 높이(깊이 칸)를 먼저 쓴다. 예전에 놓은 것은 칸이 없어 이름에서 읽는다
+  // (10-08: 이름을 "2번 H형강"으로 고치면 높이가 2mm가 됐다).
+  const steel = {SkidShape.beam, SkidShape.channel, SkidShape.angle, SkidShape.strut, SkidShape.square};
+  if (steel.contains(it.shape) && it.depth != null && it.depth! > 0) {
+    return it.depth!;
+  }
   final nums = RegExp(
     r'(\d+(?:\.\d+)?)',
   ).allMatches(it.name).map((m) => double.parse(m.group(1)!)).toList();

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/skid_iso_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/skid_route_editor_page.dart';
@@ -44,6 +45,22 @@ void main() {
     expect(p[2].x, closeTo(1100, 1e-6));
     expect(p[2].z, closeTo(1300, 1e-6));
     expect(r.warnings(), isEmpty);
+  });
+
+  test('형강은 놓을 때 적어 둔 단면 높이를 써서 이름을 고쳐도 높이가 그대로다(10-08)', () {
+    final preset = kSkidSteelPresets['H형강']!.firstWhere((p) => p.name.startsWith('H형강 150'));
+    expect(preset.depth, 150);
+    final it = PlacedItem(
+      id: 'h',
+      name: '2번 H형강',
+      position: Offset.zero,
+      width: 1000,
+      height: preset.height,
+      shape: preset.shape,
+      depth: preset.depth,
+    );
+    expect(skidVerticalSize(it), 150);
+    expect(steelSectionHeight('SQUARE', '각파이프 50x100x3.2'), 100);
   });
 
   test('시작 부품을 지워도 경로는 마지막 자리에 남는다(0,0으로 튀지 않는다, 10-08)', () {

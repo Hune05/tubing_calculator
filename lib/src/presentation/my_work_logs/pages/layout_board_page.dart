@@ -3233,6 +3233,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   @visibleForTesting
   void debugPushUndo() => _pushUndo();
   @visibleForTesting
+  void debugShowPanelSettings() => _showPanelSettingsSheet();
+  @visibleForTesting
   Future<void> debugOfferProjectDraft(String id) => _offerProjectDraft(id);
   @visibleForTesting
   int debugPlateItemCount(String id) =>
@@ -5531,6 +5533,18 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       targetName: _scaleTargetName,
     );
     if (r == null || !mounted) return;
+    // 스키드 정면·측면은 폭이 평면 크기를 따른다. 폭을 바꿔 맞추면 탭을 오갈 때 어긋나므로 막는다(10-08).
+    if (_isSkid && _plateId != kPlateMain && (r.widthMm - _panelWidth).abs() > 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            keepWords("정면·측면 판 폭은 평면 크기(${_panelWidth.round()}mm)를 따릅니다. 가로는 그대로 두고 높이만 맞추십시오."),
+          ),
+          backgroundColor: warningRed,
+        ),
+      );
+      return;
+    }
     // 외함 크기 설정과 같게: 되돌리기 한 단계, 판 밖으로 나간 부품은 안으로, 벽 치수는 지운다.
     _pushUndo();
     setState(() {
@@ -6300,7 +6314,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 const SizedBox(height: 4),
                 Text(
                   keepWords(
-                    _isSkid
+                    _isSkid && _plateId != kPlateMain
+                        ? "정면·측면 판은 높이만 바꿉니다. 폭은 평면 탭에서 스키드 크기로 바꾸십시오."
+                        : _isSkid
                         ? "스키드 평면(길이 × 폭)을 mm로 넣으십시오. 정면·측면 판 폭도 따라 바뀝니다."
                         : "중판(캐비닛) 실제 크기를 mm로 넣으십시오.",
                   ),
@@ -6310,11 +6326,19 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 Row(
                   children: [
                     Expanded(
-                      child: _buildCoordinateInput(
-                        "가로 (W) mm",
-                        widthCtrl.text,
-                        (val) {},
-                        controller: widthCtrl,
+                      // 스키드 정면·측면의 폭은 평면 크기에서 오므로 잠근다(10-08 사용자 결정:
+                      // 바꿔도 탭을 오가면 평면 크기로 돌아가고 벽 치수만 지워졌다).
+                      child: IgnorePointer(
+                        ignoring: _isSkid && _plateId != kPlateMain,
+                        child: Opacity(
+                          opacity: _isSkid && _plateId != kPlateMain ? 0.45 : 1,
+                          child: _buildCoordinateInput(
+                            "가로 (W) mm",
+                            widthCtrl.text,
+                            (val) {},
+                            controller: widthCtrl,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -6349,7 +6373,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () {
-                      final double? w = parseNumberText(widthCtrl.text);
+                      final double? w = _isSkid && _plateId != kPlateMain
+                          ? _panelWidth
+                          : parseNumberText(widthCtrl.text);
                       final double? h = parseNumberText(heightCtrl.text);
                       // 0이나 글자를 넣으면 화면이 깨졌다(NaN). 막고 알린다.
                       if (w == null ||

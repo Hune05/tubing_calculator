@@ -73,6 +73,16 @@ double? steelPlanWidth(String category, String label) {
   }
 }
 
+/// 형강 단면 높이(세로 크기). H형강·찬넬·앵글·스트럿은 첫째 숫자, 각파이프는 둘째.
+/// 놓을 때 부품의 깊이 칸에 적어 두어, 이름을 고쳐도 높이가 바뀌지 않게 한다(10-08 사용자 결정).
+double? steelSectionHeight(String category, String label) {
+  final nums = RegExp(
+    r'(\d+(?:\.\d+)?)',
+  ).allMatches(label).map((m) => double.parse(m.group(1)!)).toList();
+  if (nums.isEmpty) return null;
+  return category == 'SQUARE' && nums.length > 1 ? nums[1] : nums[0];
+}
+
 List<ModulePreset> _steel(
   String category,
   List<SteelShapeItem> items,
@@ -85,6 +95,7 @@ List<ModulePreset> _steel(
         _kMemberLength,
         steelPlanWidth(category, it.label)!,
         shape: shape,
+        depth: steelSectionHeight(category, it.label),
       ),
 ];
 

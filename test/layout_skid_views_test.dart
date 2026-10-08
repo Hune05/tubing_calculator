@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/layout_board_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/skid_route_editor_page.dart';
 
+import 'helpers_text.dart';
+
 void main() {
   test('전선관 부속: 곤질레다 LB·LL·LR·LT·LC·LX와 커플링·유니온, 규격 16~54', () {
     expect(kSkidFittingPresets.keys, [
@@ -247,6 +249,20 @@ void main() {
     expect((back['x'] as num).toDouble(), 1000);
     expect((back['elev'] as num).toDouble(), 600);
   });
+  testWidgets('정면 탭의 도면 크기 설정은 폭을 잠그고 높이만 바꾼다고 알린다(10-08)', (tester) async {
+    await openSkid(tester);
+    await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
+    await tester.pumpAndSettle();
+    final dynamic st = tester.state(find.byType(LayoutBoardPage));
+    st.debugShowPanelSettings();
+    await tester.pumpAndSettle();
+    expect(findTextContaining('정면·측면 판은 높이만 바꿉니다'), findsOneWidget);
+    expect(
+      find.ancestor(of: find.text('가로 (W) mm'), matching: find.byWidgetPredicate((w) => w is IgnorePointer && w.ignoring)),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('정면에서 끈 뒤 평면 탭에서 옮기고 돌아와 되돌려도 평면에서 한 것은 남는다(10-08)', (tester) async {
     await openSkid(
       tester,
