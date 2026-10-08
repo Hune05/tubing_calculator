@@ -126,10 +126,35 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
     for (final v in widget.def.inputs) v.key: TextEditingController(),
   };
 
+  /// 칸마다 고른 단위(처음은 현장에서 흔한 단위, 예: 압력 bar)와 결과 단위.
+  late final Map<String, FormulaUnit> _units = {
+    for (final v in widget.def.inputs) v.key: formulaUnitChoices(v.unit).first,
+  };
+  late FormulaUnit _resultUnit = formulaUnitChoices(widget.def.resultUnit).first;
+
+  static const _unitsKey = '__units';
+  static const _resultUnitKey = '__result';
+
+  Map<String, String> _unitLabels() => {
+    for (final e in _units.entries) e.key: e.value.label,
+    _resultUnitKey: _resultUnit.label,
+  };
+
+  /// 저장된 단위 이름을 되살린다. 단위가 안 적힌 옛 값은 그때 받던 기준 단위(Pa·m³/s 등)로 넣은 것.
+  void _applyUnits(Object? raw) {
+    final m = raw is Map ? raw : const {};
+    for (final v in widget.def.inputs) {
+      _units[v.key] = formulaUnitByLabel(v.unit, m[v.key]?.toString());
+    }
+    _resultUnit = formulaUnitByLabel(
+      widget.def.resultUnit,
+      m[_resultUnitKey]?.toString(),
+    );
+  }
+
   /// 기록을 누르면 그때 입력값으로 되돌린다.
   @override
-  String? calcRestoreSnapshot() =>
-      jsonEncode({for (final e in _ctrl.entries) e.key: e.value.text});
+  String? calcRestoreSnapshot() => _draftText();
 
   @override
   void calcRestoreApply(String raw) {
@@ -138,6 +163,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
       final v = m[e.key];
       if (v is String) e.value.text = v;
     }
+    _applyUnits(m[_unitsKey]);
   }
 
   // 넣은 값은 공식마다 폰에 남겨 다시 열면 되살린다(10-07: 뒤로 가면 모두 사라졌다. 유량·전기 화면처럼).
@@ -166,6 +192,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
           final v = m[e.key];
           if (v is String) e.value.text = v;
         }
+        _applyUnits(m[_unitsKey]);
       });
     } catch (_) {}
   }
@@ -175,7 +202,54 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
     _draftTimer = Timer(const Duration(milliseconds: 400), () => _writeDraft(_draftText()));
   }
 
-  String _draftText() => jsonEncode({for (final e in _ctrl.entries) e.key: e.value.text});
+  String _draftText() => jsonEncode({
+    for (final e in _ctrl.entries) e.key: e.value.text,
+    _unitsKey: _unitLabels(),
+  });
+
+  /// 단위 이름을 누르면 고르는 목록. 넣은 숫자는 그대로 두고 단위만 바꾼다.
+  Widget _unitButton(
+    Key key,
+    String baseUnit,
+    FormulaUnit current,
+    ValueChanged<FormulaUnit> onPick,
+  ) {
+    final choices = formulaUnitChoices(baseUnit);
+    final label = Text(
+      current.label,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
+        color: choices.length > 1 ? fc.brand : fc.textSub,
+      ),
+    );
+    if (choices.length < 2) {
+      return Padding(padding: const EdgeInsets.only(left: 6), child: label);
+    }
+    return PopupMenuButton<FormulaUnit>(
+      key: key,
+      tooltip: '단위 바꾸기',
+      initialValue: current,
+      onSelected: (u) {
+        setState(() => onPick(u));
+        _saveDraftSoon();
+      },
+      itemBuilder: (_) => [
+        for (final u in choices)
+          PopupMenuItem(value: u, child: Text(u.label)),
+      ],
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(6, 8, 0, 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            label,
+            Icon(Icons.arrow_drop_down, size: 20, color: fc.brand),
+          ],
+        ),
+      ),
+    );
+  }
 
   Future<void> _writeDraft(String text) async {
     try {
@@ -205,6 +279,7 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
     var complete = true;
     String? error;
     final pctNotes = <String>[];
+    final entered = <String, double>{};
     for (final v in def.inputs) {
       var n = _num(_ctrl[v.key]!);
       if (n == null) {
@@ -220,7 +295,8 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
           n = n / 100;
         }
       }
-      values[v.key] = n;
+      entered[v.key] = n;
+      values[v.key] = n * _units[v.key]!.factor;
     }
     double? result;
     if (complete && error == null) {
@@ -234,17 +310,19 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
         error = '계산할 수 없습니다.';
       }
     }
-    if (result != null) {
+    // 결과는 고른 결과 단위로 바꿔 보인다.
+    final shown = result == null ? null : result / _resultUnit.factor;
+    final resultUnitText = _resultUnit.label.isEmpty ? '' : ' ${_resultUnit.label}';
+    if (shown != null) {
       final inputsText = def.inputs
           .map(
             (v) =>
-                '${v.label} ${formatNumber(values[v.key]!)}${v.unit}',
+                '${v.label} ${formatNumber(entered[v.key]!)}${_units[v.key]!.label}',
           )
           .join(', ');
       logCalc(
         def.name,
-        '$inputsText → ${formatNumber(result)}'
-        '${def.resultUnit.isEmpty ? '' : ' ${def.resultUnit}'}',
+        '$inputsText → ${formatNumber(shown)}$resultUnitText',
       );
     }
     return FieldViewTheme(
@@ -303,19 +381,30 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
                   signed: true,
                   trailing: v.unit.isEmpty
                       ? null
-                      : Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: Text(
-                            v.unit,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: fc.textSub,
-                            ),
-                          ),
+                      : _unitButton(
+                          Key('formula_unit_${v.key}'),
+                          v.unit,
+                          _units[v.key]!,
+                          (u) => _units[v.key] = u,
                         ),
                 ),
               const SizedBox(height: 8),
+              if (formulaUnitChoices(def.resultUnit).length > 1)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      '결과 단위',
+                      style: TextStyle(fontSize: 13, color: fc.textSub),
+                    ),
+                    _unitButton(
+                      const Key('formula_result_unit'),
+                      def.resultUnit,
+                      _resultUnit,
+                      (u) => _resultUnit = u,
+                    ),
+                  ],
+                ),
               if (error != null)
                 calcResult(
                   key: const Key('formula_result'),
@@ -324,11 +413,10 @@ class _FormulaDetailPageState extends State<FormulaDetailPage>
                   lines: const [],
                   warn: true,
                 )
-              else if (result != null)
+              else if (shown != null)
                 calcResult(
                   key: const Key('formula_result'),
-                  big:
-                      '${formatNumber(result)}${def.resultUnit.isEmpty ? '' : ' ${def.resultUnit}'}',
+                  big: '${formatNumber(shown)}$resultUnitText',
                   caption: def.resultLabel,
                   lines: pctNotes,
                 )

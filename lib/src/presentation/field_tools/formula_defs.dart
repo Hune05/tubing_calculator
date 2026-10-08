@@ -2,7 +2,8 @@
 // 위주, 2026-09-27 사용자 요청 — 전문대 전기 수준까지라 가장 많이 쓰는 공식 중심으로,
 // 부족한 지식을 자료 모음으로 채우고 싶다고 함). 공식 하나마다 "무엇을 구하는지"를 하나로
 // 고정해 두어(옴의 법칙도 전압·전류·저항 셋을 따로 둔다), 칸마다 무슨 값을 넣어야 하는지
-// 이름·단위·도움말로 알려준다. 값은 모두 SI 단위(볼트·암페어·옴·와트·미터·초 등)로 받는다.
+// 이름·단위·도움말로 알려준다. 계산은 SI 단위로 하고, 칸·결과의 단위는 [kFormulaUnitChoices]에서
+// 골라 바꿔 넣는다(10-08).
 //
 // 근거: 옴의 법칙·전력·임피던스·변압기·전동기 공식은 전기 기초 공식(교과서 수준, 유도
 // 과정 docs 없음 — 상수 없는 정의식이라 원문 대조가 필요 없다). 레이놀즈수·연속방정식·
@@ -59,6 +60,66 @@ class FormulaDef {
     required this.formulaText,
     required this.compute,
   });
+}
+
+/// 칸·결과에서 고를 수 있는 단위 하나. [factor]는 이 단위 1이 공식 기준 단위로 얼마인지
+/// (예: 공식이 Pa로 받을 때 bar는 100000).
+class FormulaUnit {
+  final String label;
+  final double factor;
+  const FormulaUnit(this.label, this.factor);
+}
+
+/// 공식 기준 단위 → 현장에서 쓰는 단위들(10-08: 예전에는 Pa·m³/s·F만 받아 bar·L/min·μF를
+/// 손으로 곱해 넣어야 했다). 목록 첫째가 처음 보이는 단위이고, 기준 단위는 꼭 들어 있다.
+const Map<String, List<FormulaUnit>> kFormulaUnitChoices = {
+  'Pa': [
+    FormulaUnit('bar', 1e5),
+    FormulaUnit('kPa', 1e3),
+    FormulaUnit('MPa', 1e6),
+    FormulaUnit('kgf/cm²', 98066.5),
+    FormulaUnit('psi', 6894.757293168),
+    FormulaUnit('Pa', 1),
+  ],
+  'm': [FormulaUnit('m', 1), FormulaUnit('mm', 1e-3)],
+  'm²': [
+    FormulaUnit('m²', 1),
+    FormulaUnit('cm²', 1e-4),
+    FormulaUnit('mm²', 1e-6),
+  ],
+  'm³': [FormulaUnit('m³', 1), FormulaUnit('L', 1e-3)],
+  'm³/s': [
+    FormulaUnit('m³/s', 1),
+    FormulaUnit('m³/h', 1 / 3600),
+    FormulaUnit('L/min', 1 / 60000),
+  ],
+  'W': [FormulaUnit('W', 1), FormulaUnit('kW', 1e3)],
+  'kW': [FormulaUnit('kW', 1), FormulaUnit('W', 1e-3)],
+  'VA': [FormulaUnit('VA', 1), FormulaUnit('kVA', 1e3)],
+  'var': [FormulaUnit('var', 1), FormulaUnit('kvar', 1e3)],
+  'F': [
+    FormulaUnit('F', 1),
+    FormulaUnit('μF', 1e-6),
+    FormulaUnit('nF', 1e-9),
+  ],
+  'H': [FormulaUnit('H', 1), FormulaUnit('mH', 1e-3)],
+  'Ω': [FormulaUnit('Ω', 1), FormulaUnit('kΩ', 1e3)],
+  'N': [FormulaUnit('N', 1), FormulaUnit('kN', 1e3), FormulaUnit('kgf', 9.80665)],
+  'Pa·s': [FormulaUnit('Pa·s', 1), FormulaUnit('cP', 1e-3)],
+  'J': [FormulaUnit('J', 1), FormulaUnit('kJ', 1e3), FormulaUnit('kWh', 3.6e6)],
+};
+
+/// [unit]에서 고를 수 있는 단위들. 고를 것이 없으면 그 단위 하나.
+List<FormulaUnit> formulaUnitChoices(String unit) =>
+    kFormulaUnitChoices[unit] ?? [FormulaUnit(unit, 1)];
+
+/// 저장된 단위 이름 → 단위. 모르는 이름이면 기준 단위(옛 임시 저장값은 기준 단위로 넣은 것).
+FormulaUnit formulaUnitByLabel(String unit, String? label) {
+  final list = formulaUnitChoices(unit);
+  for (final u in list) {
+    if (u.label == label) return u;
+  }
+  return list.firstWhere((u) => u.factor == 1, orElse: () => list.first);
 }
 
 const _i = FormulaVar(
@@ -191,7 +252,7 @@ final List<FormulaDef> kFormulas = [
         key: 'l',
         label: '인덕턴스 (L)',
         unit: 'H',
-        hint: '코일의 인덕턴스입니다(헨리). mH면 0.001을 곱해 넣으십시오.',
+        hint: '코일의 인덕턴스입니다. 단위를 눌러 mH로 바꿀 수 있습니다.',
       ),
     ],
     resultLabel: '유도 리액턴스',
@@ -215,7 +276,7 @@ final List<FormulaDef> kFormulas = [
         key: 'c',
         label: '정전용량 (C)',
         unit: 'F',
-        hint: '콘덴서 용량입니다(패럿). μF면 0.000001을 곱해 넣으십시오.',
+        hint: '콘덴서 용량입니다. 단위를 눌러 μF로 바꿀 수 있습니다.',
       ),
     ],
     resultLabel: '용량 리액턴스',
@@ -292,7 +353,7 @@ final List<FormulaDef> kFormulas = [
         key: 'd',
         label: '내경 (D)',
         unit: 'm',
-        hint: '관 내경입니다(mm면 0.001을 곱해 넣으십시오).',
+        hint: '관 내경입니다. 단위를 눌러 mm로 바꿀 수 있습니다.',
       ),
     ],
     resultLabel: '유속',
@@ -479,7 +540,7 @@ final List<FormulaDef> kFormulas = [
         key: 'p',
         label: '유효전력 (P)',
         unit: 'W',
-        hint: '실제 일을 하는 전력입니다(모터·히터가 소비, 계기로는 kW).',
+        hint: '실제 일을 하는 전력입니다(모터·히터가 소비). 계기 값이 kW면 단위를 kW로 바꾸십시오.',
       ),
       FormulaVar(
         key: 'q',
@@ -528,7 +589,7 @@ final List<FormulaDef> kFormulas = [
         key: 'p',
         label: '유효전력 (P)',
         unit: 'W',
-        hint: '전력계(kW)로 측정한 유효전력입니다.',
+        hint: '전력계로 측정한 유효전력입니다. kW면 단위를 kW로 바꾸십시오.',
       ),
       FormulaVar(
         key: 's',
@@ -552,7 +613,7 @@ final List<FormulaDef> kFormulas = [
         key: 'p',
         label: '유효전력 (P)',
         unit: 'W',
-        hint: '부하의 유효전력(kW)입니다.',
+        hint: '부하의 유효전력입니다. kW면 단위를 kW로 바꾸십시오.',
       ),
       FormulaVar(
         key: 'pf1',
@@ -809,7 +870,7 @@ final List<FormulaDef> kFormulas = [
         key: 'p',
         label: '압력 (P)',
         unit: 'Pa',
-        hint: '실린더에 걸리는 압력입니다(bar면 ×100000 해서 Pa로 넣으십시오).',
+        hint: '실린더에 걸리는 압력입니다.',
       ),
       FormulaVar(
         key: 'a',
@@ -833,7 +894,7 @@ final List<FormulaDef> kFormulas = [
         key: 'q',
         label: '유량 (Q)',
         unit: 'm³/s',
-        hint: '펌프가 실린더로 보내는 유량입니다(L/min이면 ÷60000 해서 넣으십시오).',
+        hint: '펌프가 실린더로 보내는 유량입니다.',
       ),
       FormulaVar(
         key: 'a',
@@ -857,13 +918,13 @@ final List<FormulaDef> kFormulas = [
         key: 'p',
         label: '압력 (P)',
         unit: 'Pa',
-        hint: '작동 압력입니다(bar면 ×100000 해서 넣으십시오).',
+        hint: '작동 압력입니다.',
       ),
       FormulaVar(
         key: 'q',
         label: '유량 (Q)',
         unit: 'm³/s',
-        hint: '유압유 유량입니다(L/min이면 ÷60000 해서 넣으십시오).',
+        hint: '유압유 유량입니다.',
       ),
     ],
     resultLabel: '동력',
@@ -941,13 +1002,13 @@ final List<FormulaDef> kFormulas = [
         key: 'pg',
         label: '게이지압 (Pgauge)',
         unit: 'Pa',
-        hint: '압력계에 보이는 값입니다(bar면 ×100000 해서 넣으십시오).',
+        hint: '압력계에 보이는 값입니다.',
       ),
       FormulaVar(
         key: 'patm',
         label: '대기압 (Patm)',
         unit: 'Pa',
-        hint: '모르면 표준대기압 101325를 넣으십시오.',
+        hint: '모르면 표준대기압(1.01325 bar, 101.325 kPa)을 넣으십시오.',
       ),
     ],
     resultLabel: '절대압',

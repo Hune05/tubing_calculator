@@ -251,4 +251,52 @@ void main() {
     }
     expect(errors, isEmpty);
   });
+
+  test('단위 목록마다 공식 기준 단위(배수 1)가 들어 있다(10-08)', () {
+    for (final e in kFormulaUnitChoices.entries) {
+      expect(e.value.any((u) => u.factor == 1), isTrue, reason: e.key);
+      expect(e.value.map((u) => u.label).toSet().length, e.value.length,
+          reason: e.key);
+    }
+    // 옛 임시 저장값(단위 없음)은 기준 단위로 읽는다.
+    expect(formulaUnitByLabel('Pa', null).label, 'Pa');
+    expect(formulaUnitByLabel('Pa', 'bar').factor, 1e5);
+  });
+
+  testWidgets('압력을 bar로 넣고 결과를 kN으로 본다(10-08: 예전엔 Pa만 받았다)',
+      (tester) async {
+    await pump(tester);
+    await tester.scrollUntilVisible(
+      find.byKey(const Key('formula_cylinder_force')),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.byKey(const Key('formula_cylinder_force')));
+    await tester.pumpAndSettle();
+    // 압력 칸은 처음부터 bar.
+    expect(find.text('bar'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('formula_in_p')), '100');
+    await tester.pump();
+    await tester.enterText(find.byKey(const Key('formula_in_a')), '0.01');
+    await tester.pump();
+    // 100 bar = 10000000 Pa, × 0.01 m² = 100000 N
+    expect(find.textContaining('100000 N'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('formula_result_unit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('kN').last);
+    await tester.pumpAndSettle();
+    expect(find.textContaining('100 kN'), findsOneWidget);
+  });
+
+  testWidgets('단위 없이 남은 옛 임시 저장값은 그때 단위(Pa)로 되살린다(10-08)',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'formula_draft_cylinder_force': '{"p":"1000000","a":"0.01"}',
+    });
+    final def = kFormulas.firstWhere((f) => f.id == 'cylinder_force');
+    await tester.pumpWidget(MaterialApp(home: FormulaDetailPage(def: def)));
+    await tester.pumpAndSettle();
+    expect(find.text('Pa'), findsOneWidget);
+    expect(find.textContaining('10000 N'), findsOneWidget);
+  });
 }
