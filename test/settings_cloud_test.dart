@@ -362,6 +362,48 @@ void main() {
       expect(p.getDouble('cutting_blade_kerf'), 3.0);
     });
 
+    test('다른 기기가 먼저 고친 게인을 받기 전에 이 기기가 다른 칸을 올려도, 다음에 그 게인을 받는다(10-09)', () async {
+      usePhone({'gain': 12.0, 'bendRadius': 38.1});
+      await sync.backup();
+      final phone0 = await snap();
+      usePhone({'gain': 12.0, 'bendRadius': 38.1});
+      await sync.pullIfNewer();
+      final tablet0 = await snap();
+
+      // 태블릿이 게인을 고쳐 올린다.
+      SharedPreferences.setMockInitialValues({...tablet0, 'gain': 15.0});
+      await sync.backup();
+      // 폰은 아직 안 받은 채로 반경을 고쳐 올린다(서버의 "마지막으로 올린 기기"가 폰이 된다).
+      SharedPreferences.setMockInitialValues({...phone0, 'bendRadius': 40.0});
+      await sync.backup();
+      expect(store.docs['uid-A']!['settings']['gain'], 15.0);
+      // 예전에는 "내가 마지막으로 올렸다"며 받지 않아 폰이 게인 12로 계속 마킹했다.
+      expect(await sync.pullIfNewer(), 1);
+      final p = await SharedPreferences.getInstance();
+      expect(p.getDouble('gain'), 15.0);
+      expect(p.getDouble('bendRadius'), 40.0);
+      expect(await sync.pullIfNewer(), 0);
+    });
+
+    test('로그인 때 폰에 그대로 둔 옛 값은 다음 저장 때 서버를 덮지 않고, 다음 받기에서 서버 값으로 맞춰진다(10-09)', () async {
+      // 다른 기기가 올린 서버 설정(게인 15)
+      usePhone({'gain': 15.0});
+      await sync.backup();
+      // 손님으로 쓰던 태블릿: 옛 게인 12가 폰에 있다. 로그인하면 폰 값은 그대로 둔다.
+      usePhone({'gain': 12.0});
+      expect(await sync.restore(), 0);
+      expect((await SharedPreferences.getInstance()).getDouble('gain'), 12.0);
+      // 컷팅 톱날 손실만 고쳐 저장해도 옛 게인은 올라가지 않는다(예전에는 15를 12로 덮었다).
+      SharedPreferences.setMockInitialValues({...await snap(), 'cutting_blade_kerf': 3.0});
+      await sync.backup();
+      final saved = store.docs['uid-A']!['settings'] as Map;
+      expect(saved['gain'], 15.0);
+      expect(saved['cutting_blade_kerf'], 3.0);
+      // 다음 자동 받기에서 서버 게인으로 맞춰진다.
+      expect(await sync.pullIfNewer(), 1);
+      expect((await SharedPreferences.getInstance()).getDouble('gain'), 15.0);
+    });
+
     test('설정 화면의 올리기 단추(all)는 전부 올린다', () async {
       usePhone({'gain': 12.0, 'bendRadius': 38.1});
       await sync.backup();

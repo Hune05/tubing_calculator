@@ -110,4 +110,52 @@ void main() {
     expect(find.text('홈 화면'), findsOneWidget);
     await tester.pump(const Duration(seconds: 31));
   });
+
+  testWidgets("대기 화면에서 구글 계정으로 로그인하면 다시 확인해 승인된 계정이면 홈(10-09)", (tester) async {
+    var status = MemberStatus.pending;
+    var logins = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemberGate(
+          name: "홍길동",
+          cached: () async => const MemberCheck(MemberStatus.unknown, true),
+          check: (_) async => MemberCheck(status, true),
+          googleLogin: () async {
+            logins++;
+            status = MemberStatus.approved; // 이미 승인된 구글 계정으로 바뀜
+          },
+          child: const Scaffold(body: Text("홈 화면")),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.byKey(const Key("member_google_login")), findsOneWidget);
+    await tester.tap(find.byKey(const Key("member_google_login")));
+    await tester.pump();
+    await tester.pump();
+    expect(logins, 1);
+    expect(find.text("홈 화면"), findsOneWidget);
+  });
+
+  testWidgets("구글 로그인이 실패하면 알리고 대기 화면에 남는다", (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MemberGate(
+          name: "홍길동",
+          cached: () async => const MemberCheck(MemberStatus.unknown, true),
+          check: (_) async => const MemberCheck(MemberStatus.pending, true),
+          googleLogin: () async => throw Exception("통신 없음"),
+          child: const Scaffold(body: Text("홈 화면")),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.byKey(const Key("member_google_login")));
+    await tester.pump();
+    await tester.pump();
+    expect(find.textContaining("구글 계정으로 로그인하지 못했습니다"), findsOneWidget);
+    expect(find.byKey(const Key("member_waiting")), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+  });
 }
+

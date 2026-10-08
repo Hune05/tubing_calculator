@@ -307,12 +307,27 @@ class SettingsCloudSync {
         lastRestoreServerMissing = !timedOut;
         return 0;
       }
+      // 폰에 이미 있어 그대로 둔 칸(onlyMissing)은 받기 전에 적어 둔다.
+      final kept = <String, Object?>{
+        if (!overwrite)
+          for (final k in kCloudSettingKeys)
+            if (prefs.containsKey(k) && settings.containsKey(k))
+              k: _normCloudValue(k, prefs.get(k)),
+      };
       final n = await applyCloudSettings(
         prefs,
         Map<String, dynamic>.from(settings),
         onlyMissing: !overwrite,
       );
       await _rememberServer(prefs, settings);
+      // 그대로 둔 칸은 "서버에 있는 값"을 폰 값으로 적어, 다음 저장 때 이 기기의 옛 값이 서버를
+      // 덮지 않게 한다(10-09: 서버 값을 적어 두어 다른 칸만 저장해도 옛 게인·반경이 올라갔다).
+      // 서버 값과 다르면 다음 자동 받기(pullIfNewer)가 서버 값으로 맞춘다(10-08 뜻: 서버가 먼저).
+      if (kept.isNotEmpty) {
+        final base = _readBase(prefs) ?? <String, Object?>{};
+        base.addAll(kept);
+        await _writeBase(prefs, base);
+      }
       // 서버 문서의 올린 시각까지 봤다고 적는다(뒤이은 자동 받기가 방금 받은 것을 또 받지 않게).
       final at = settings[kCloudEditedAtKey];
       if (at is num) await prefs.setInt(_seenKey, at.toInt());
@@ -328,8 +343,9 @@ class SettingsCloudSync {
   /// (폰에서 고친 벤딩 제원이 태블릿에도 반영된다). 받은 칸 수를 돌려준다(못 받았으면 0).
   ///
   /// - 이 기기에서 고쳤는데 아직 못 올린 설정이 있으면(통신 없음) 서버 것으로 덮지 않고 그 설정을 올린다.
-  /// - 서버에 "올린 기기·시각" 표시가 없는 예전 문서는 받지 않는다(예전처럼 새로 깔았을 때만 채운다).
-  /// - 이 기기가 마지막으로 올린 것이면 받지 않는다.
+  /// - 이 기기가 아는 서버 값(base)이 있으면 그것과 달라진 칸만 받는다(다른 기기가 고친 칸, 10-09).
+  /// - base가 없을 때(처음)만: 서버에 "올린 기기·시각" 표시가 없는 예전 문서는 받지 않고,
+  ///   이 기기가 마지막으로 올린 것이면 받지 않는다.
   Future<int> pullIfNewer() async {
     final uid = uidProvider();
     if (uid == null) return 0;
@@ -344,8 +360,29 @@ class SettingsCloudSync {
           .timeout(const Duration(seconds: 5), onTimeout: () => null);
       final settings = doc?['settings'];
       if (settings is! Map) return 0;
+      final base = _readBase(prefs);
+      if (base != null) {
+        // 이 기기가 아는 서버 값(base)과 달라진 칸만 받는다(다른 기기가 고친 칸).
+        // 10-09: 예전에는 "마지막으로 올린 기기가 나"면 받지 않아, 다른 기기가 먼저 고친 게인을
+        // 받기 전에 이 기기가 다른 칸을 올리면 그 게인을 영영 못 받았다. 기기마다 시계가 달라
+        // 올린 시각 비교가 어긋나는 일도 없어진다.
+        final changed = <String, dynamic>{
+          for (final k in kCloudSettingKeys)
+            if (settings.containsKey(k) &&
+                _normCloudValue(k, settings[k]) != base[k])
+              k: settings[k],
+        };
+        final n = changed.isEmpty
+            ? 0
+            : await applyCloudSettings(prefs, changed);
+        await _rememberServer(prefs, settings);
+        final at = settings[kCloudEditedAtKey];
+        if (at is num) await prefs.setInt(_seenKey, at.toInt());
+        if (n > 0) await _markSynced(prefs);
+        return n;
+      }
       // 서버 값을 처음 알게 되면 기억해 둔다(앱을 고친 뒤 처음 켤 때: 이후 고친 칸만 올라간다).
-      if (_readBase(prefs) == null) await _rememberServer(prefs, settings);
+      await _rememberServer(prefs, settings);
       final writer = settings[kCloudWriterKey];
       final at = settings[kCloudEditedAtKey];
       if (writer is! String || at is! num) return 0;

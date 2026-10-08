@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 
 /// 벤더 제원 한 벌. 반경·게인·테이크업·피팅 깊이·벤더 오프셋·스프링백·
 /// 톱날 손실과, 꼬리 길이·시작/끝 피팅 여부를 여기 하나에 둔다.
@@ -39,9 +40,9 @@ class MachineSpecs extends ChangeNotifier {
   double get cutMargin => _cutMargin;
 
   set pipeSize(String v) => _set(() => _pipeSize = v);
-  set startFit(bool v) => _set(() => _startFit = v);
-  set endFit(bool v) => _set(() => _endFit = v);
-  set tail(double v) => _set(() => _tail = v);
+  set startFit(bool v) => _setShared(() => _startFit = v);
+  set endFit(bool v) => _setShared(() => _endFit = v);
+  set tail(double v) => _setShared(() => _tail = v);
   set fittingDepth(double v) => _set(() => _fittingDepth = v);
   set takeUp90(double v) => _set(() => _takeUp90 = v);
   set gain90(double v) => _set(() => _gain90 = v);
@@ -54,6 +55,14 @@ class MachineSpecs extends ChangeNotifier {
     change();
     save();
     notifyListeners();
+  }
+
+  /// 마킹 탭의 시작·끝 피팅과 꼬리는 서버 설정 칸이라 저장한 뒤 올린다.
+  /// 10-09: 폰에만 적혀, 다른 기기가 다른 칸을 올린 뒤 받으면 서버의 옛 값으로 되돌아왔다.
+  void _setShared(VoidCallback change) {
+    change();
+    notifyListeners();
+    save().then((_) => SettingsCloudSync.instance.backup());
   }
 
   /// 여러 값을 한 번에 바꾼다(한 번만 저장하고 한 번만 알린다).

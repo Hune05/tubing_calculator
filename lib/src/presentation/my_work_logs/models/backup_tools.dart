@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../data/repositories/work_project_repository.dart';
 import '../../../core/utils/error_log.dart';
+import '../../../core/utils/quick_firestore.dart';
+import '../../../data/ownership.dart';
 import '../../my_schedule/schedule_reminders.dart'
     show schedulePersonalReminder;
 import 'phase_templates.dart';
@@ -354,10 +356,9 @@ Future<RestoreResult> restoreBackupAll(BackupPreview b) async {
         ...favs,
       }.toList();
       await p.setStringList('fav_materials_v1', merged);
-      await FirebaseFirestore.instance
-          .collection('my_project_settings')
-          .doc('fav_materials')
-          .set({'items': merged});
+      // 10-09: 통신이 없으면 이 쓰기에서 복원이 끝나지 않아 도면 복원·완료 알림까지 못 갔다.
+      // 쓰는 곳도 예전 공용 문서가 아니라 내 설정 문서로(일지 화면 즐겨찾기와 같은 곳).
+      await writeQuick(mySettingsDoc('fav_materials').set({'items': merged}));
     } catch (_) {}
   }
   final drawings = await restoreDrawings(b.raw);
@@ -399,36 +400,55 @@ Future<DateTime?> lastAutoBackup() async {
 }
 
 // 올리기에 성공하면 true.
+// 10-09: 통신이 없으면 putFile이 끝나지 않아 다시 시도(90초마다)가 겹쳐 쌓이고, 통신이 돌아오면
+// 거의 같은 백업이 몰려 올라가 "최근 5개"의 옛 백업을 밀어냈다. 실패 때는 임시 파일도 남았다.
+// 이제 2분 넘으면 그만두고(올리기 취소), 임시 파일은 늘 지운다.
 Future<bool> uploadCloudBackup(List<Map<String, dynamic>> projects) async {
+  File? file;
   try {
-    final file = await createBackupFile(projects);
+    file = await createBackupFile(projects);
     final d = DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     final name =
         '${d.year}${two(d.month)}${two(d.day)}_${two(d.hour)}${two(d.minute)}.json';
     final dir = await _cloudUserDir();
-    await dir.child(name).putFile(file);
+    final task = dir.child(name).putFile(file);
+    try {
+      await task.timeout(const Duration(minutes: 2));
+    } on TimeoutException {
+      try {
+        await task.cancel();
+      } catch (_) {}
+      rethrow;
+    }
     await (await SharedPreferences.getInstance()).setString(
       _kAutoLast,
       d.toIso8601String(),
     );
-    final all = (await dir.listAll()).items
-      ..sort((a, b) => b.name.compareTo(a.name));
-    for (final old in all.skip(5)) {
-      try {
-        await old.delete();
-      } catch (_) {}
-    }
+    // 오래된 것 지우기는 실패해도 백업은 된 것이다.
     try {
-      await file.delete();
+      final all = (await dir.listAll().timeout(const Duration(seconds: 20))).items
+        ..sort((a, b) => b.name.compareTo(a.name));
+      for (final old in all.skip(5)) {
+        try {
+          await old.delete();
+        } catch (_) {}
+      }
     } catch (_) {}
     return true;
   } catch (e) {
     debugPrint('클라우드 백업 실패: $e');
     recordError('클라우드 백업', e);
     return false;
+  } finally {
+    try {
+      if (file != null && await file.exists()) await file.delete();
+    } catch (_) {}
   }
 }
+
+// 자동 백업이 하나 도는 동안 또 시작하지 않는다(다시 시도 타이머와 화면 열기가 겹친다).
+bool _autoBackupRunning = false;
 
 // 백업이 필요 없거나 꺼져 있으면 null, 성공 true, 실패 false.
 Future<bool?> autoBackupIfDue(List<Map<String, dynamic>> projects) async {
@@ -444,7 +464,13 @@ Future<bool?> autoBackupIfDue(List<Map<String, dynamic>> projects) async {
       DateTime.now().difference(last) < const Duration(days: 7)) {
     return null;
   }
-  return uploadCloudBackup(projects);
+  if (_autoBackupRunning) return null;
+  _autoBackupRunning = true;
+  try {
+    return await uploadCloudBackup(projects);
+  } finally {
+    _autoBackupRunning = false;
+  }
 }
 
 // 내 폴더 것과, 폴더를 나누기 전(맨 위 폴더) 것을 같이 보여 준다.
