@@ -2,6 +2,7 @@
 // 공용 부품. 틀(머리 줄·그림·입력 칸·6축 방향·결과 상자·경고 창)을 오프셋 시트(mobile_offset_bottom_sheet.dart)와
 // 똑같이 맞춰 두었다. 모양을 바꿀 때는 오프셋 시트와 함께 바꾼다.
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showSheetSnack;
 import 'package:lucide_icons/lucide_icons.dart';
 
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -608,17 +609,9 @@ void csShowDirectionWarning(BuildContext context) => showDialog(
 );
 
 /// 값이 모자라 못 넣을 때 알림(오프셋 시트의 주황 알림 줄).
-void csSnackMissing(BuildContext context, String msg) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        key: const Key('cs_missing'),
-        content: Text(msg),
-        backgroundColor: Colors.deepOrange,
-      ),
-    );
-}
+// 시트 안에서 보이게(10-09: 시트 밑 화면에 떠 가려졌다).
+void csSnackMissing(BuildContext context, String msg) =>
+    showSheetSnack(context, msg, key: const Key('cs_missing'));
 
 /// 목록에 넣은 뒤 알림(오프셋 시트와 같은 청록 알림 줄).
 void csSnackAdded(BuildContext context, String msg) {

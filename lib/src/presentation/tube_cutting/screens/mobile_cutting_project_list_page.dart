@@ -13,6 +13,7 @@ import 'package:tubing_calculator/src/presentation/tube_cutting/cutting_theme.da
 import 'package:tubing_calculator/src/core/utils/db_seeder.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import '../../trash/trash_kinds.dart';
+import '../../approval/member_approval.dart' show isAdminUser;
 
 // 🚀 [신규] 컷팅 계산기용 프로젝트 목록 - 모바일 전용, Firestore 기반.
 // 예전엔 (1) 데스크톱 ProjectManagementPage 안에서만 열 수 있었고 데이터도
@@ -508,6 +509,8 @@ class _MobileCuttingProjectListPageState
           ),
           iconTheme: const IconThemeData(color: CuttingColors.textPrimary),
           actions: [
+            // 공용 부속표(fittings)를 지우고 다시 올리므로 관리자에게만(10-09: 모두에게 보였다).
+            if (isAdminUser())
             IconButton(
               tooltip: "부속 목록 새로고침 (개발자용)",
               icon: Icon(

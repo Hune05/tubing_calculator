@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showSheetSnack;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
@@ -158,21 +159,12 @@ class _MobileRollingOffsetBottomSheetState
   ) {
     // 오프셋 창처럼 90° 미만만 받는다(10-08: 120°·175°도 목록에 들어가 절단 길이가 이상하게 나왔다).
     if (finalBendAngle >= 90) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("넣을 수 없습니다. 각도는 90°보다 작아야 합니다."),
-          backgroundColor: Colors.deepOrange,
-        ),
-      );
+      // 시트 안에서 보이게(10-09: 시트 밑 화면에 떠 가려졌다).
+      showSheetSnack(context, "넣을 수 없습니다. 각도는 90°보다 작아야 합니다.");
       return;
     }
     if (_selectedRotation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("꺾는 방향(6축)을 먼저 선택해 주십시오."),
-          backgroundColor: Colors.deepOrange,
-        ),
-      );
+      showSheetSnack(context, "꺾는 방향(6축)을 먼저 고르십시오.");
       return;
     }
     if (finalTravel > 0 && finalBendAngle > 0) {
@@ -219,19 +211,13 @@ class _MobileRollingOffsetBottomSheetState
       Navigator.pop(context);
     } else {
       // 🚀 [고침] 값이 모자라면 말없이 아무 일도 안 했다.
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            key: const Key('rolling_missing'),
-            content: Text(
-              _isReverseMode
-                  ? "넣을 수 없습니다. 빗변을 True Offset보다 길게 넣으십시오."
-                  : "넣을 수 없습니다. Rise·Roll 값과 벤딩 각도를 넣으십시오.",
-            ),
-            backgroundColor: Colors.deepOrange,
-          ),
-        );
+      showSheetSnack(
+        context,
+        _isReverseMode
+            ? "넣을 수 없습니다. 빗변을 True Offset보다 길게 넣으십시오."
+            : "넣을 수 없습니다. Rise·Roll 값과 벤딩 각도를 넣으십시오.",
+        key: const Key('rolling_missing'),
+      );
     }
   }
 

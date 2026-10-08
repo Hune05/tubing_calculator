@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showSheetSnack;
 
 import '../../../core/engine/bend_geometry.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -281,17 +282,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   }
 
   // 🚀 3-Point 새들 계산 적용 및 경고
-  void _snackMissing(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          key: const Key('saddle_missing'),
-          content: Text(msg),
-          backgroundColor: Colors.deepOrange,
-        ),
-      );
-  }
+  // 시트 안에서 보이게(10-09: 시트 밑 화면에 떠 가려졌다).
+  void _snackMissing(String msg) =>
+      showSheetSnack(context, msg, key: const Key('saddle_missing'));
 
   void _apply3Point(double travel3Pt, double a3, double shrink) {
     if (_selectedRotation == null) {

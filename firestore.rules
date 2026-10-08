@@ -74,7 +74,7 @@ service cloud.firestore {
     function specialColls() {
       return ownedColls().concat(['users', 'inventory', 'cutting_leftovers',
                                   'my_project_settings', 'reference_content',
-                                  'app_members', 'app_config']);
+                                  'app_members', 'app_config', 'fittings']);
     }
 
     // 사용자 문서에 주인 uid가 아직 안 적혔는지.
@@ -148,6 +148,12 @@ service cloud.firestore {
         || (signedIn() && uid == me()
             && request.resource.data.status == resource.data.status);
       allow delete: if isAdmin();
+    }
+
+    // 공용 부속표: 승인된 사람은 읽고, 지우고 다시 올리기는 관리자만(10-09).
+    match /fittings/{id} {
+      allow read: if approved();
+      allow write: if isAdmin();
     }
 
     // 앱 설정(승인제 켜기 등): 로그인하면 읽고, 관리자만 쓴다.

@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showSheetSnack;
 
 import '../../../core/engine/bend_geometry.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -234,17 +235,9 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
     return "넣을 수 없습니다. 높이와 빗변을 넣으십시오.";
   }
 
-  void _snackMissing(String msg) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          key: const Key('offset_missing'),
-          content: Text(msg),
-          backgroundColor: Colors.deepOrange,
-        ),
-      );
-  }
+  // 시트 안에서 보이게(10-09: 시트 밑 화면에 떠 가려졌다).
+  void _snackMissing(String msg) =>
+      showSheetSnack(context, msg, key: const Key('offset_missing'));
 
   // 🚀 핵심 로직: 1번 마킹과 2번 마킹 검사 후 실행
   void _applyBending(double angle, double travel, double shrink) {

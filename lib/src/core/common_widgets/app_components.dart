@@ -7,6 +7,8 @@
 // 모양이 한꺼번에 맞춰진다. 나머지 창·알림은 화면을 고칠 때마다 옮긴다.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_tokens.dart';
@@ -415,6 +417,122 @@ void showAppSnack(
               onPressed: onUndo,
             )
           : null,
+    ),
+  );
+}
+
+/// 아래 시트(모달) 안에서 띄우는 알림. [showAppSnack]은 시트 밑 화면에 떠서 시트에 가려
+/// "넣을 수 없습니다"를 못 보고 단추가 안 먹는 줄 알았다(10-09, 계산기 시트들). 이것은 화면 맨 위
+/// 겹(Overlay)에 띄워 시트 위로 보인다. 같은 때 하나만 보이고, [duration] 뒤 저절로 사라진다.
+OverlayEntry? _sheetToast;
+
+void showSheetSnack(
+  BuildContext context,
+  String message, {
+  AppSnackKind kind = AppSnackKind.error,
+  Duration duration = kAppSnackDuration,
+  Key? key,
+}) {
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) {
+    showAppSnack(context, message, kind: kind);
+    return;
+  }
+  final old = _sheetToast;
+  if (old != null && old.mounted) old.remove();
+  final (Color bg, IconData icon) = switch (kind) {
+    AppSnackKind.success => (kAppSnackSuccess, Icons.check_circle_outline_rounded),
+    AppSnackKind.error => (AppColors.danger, Icons.error_outline_rounded),
+    AppSnackKind.undo => (AppColors.text, Icons.undo_rounded),
+  };
+  late final OverlayEntry entry;
+  void close() {
+    if (_sheetToast == entry) _sheetToast = null;
+    if (entry.mounted) entry.remove();
+  }
+
+  entry = OverlayEntry(
+    builder: (ctx) => Positioned(
+      left: 16,
+      right: 16,
+      top: MediaQuery.of(ctx).padding.top + 12,
+      child: _SheetSnackBody(
+        key: key ?? const Key('sheet_snack'),
+        message: message,
+        background: bg,
+        icon: icon,
+        duration: duration,
+        onDone: close,
+      ),
+    ),
+  );
+  _sheetToast = entry;
+  overlay.insert(entry);
+}
+
+/// [showSheetSnack]의 알림 줄. 시간 재기는 이 줄이 들고 있다가 없어질 때 같이 끈다.
+class _SheetSnackBody extends StatefulWidget {
+  final String message;
+  final Color background;
+  final IconData icon;
+  final Duration duration;
+  final VoidCallback onDone;
+  const _SheetSnackBody({
+    super.key,
+    required this.message,
+    required this.background,
+    required this.icon,
+    required this.duration,
+    required this.onDone,
+  });
+
+  @override
+  State<_SheetSnackBody> createState() => _SheetSnackBodyState();
+}
+
+class _SheetSnackBodyState extends State<_SheetSnackBody> {
+  Timer? _life;
+
+  @override
+  void initState() {
+    super.initState();
+    _life = Timer(widget.duration, widget.onDone);
+  }
+
+  @override
+  void dispose() {
+    _life?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: widget.background,
+    elevation: 6,
+    borderRadius: BorderRadius.circular(AppRadius.medium),
+    child: InkWell(
+      borderRadius: BorderRadius.circular(AppRadius.medium),
+      onTap: widget.onDone,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(widget.icon, color: AppColors.onBrand, size: 20),
+            const SizedBox(width: AppSpace.md),
+            Expanded(
+              child: Text(
+                widget.message,
+                style: const TextStyle(
+                  fontFamily: kAppFontFamily,
+                  color: AppColors.onBrand,
+                  fontSize: 15,
+                  fontWeight: AppText.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     ),
   );
 }

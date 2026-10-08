@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
@@ -42,25 +43,27 @@ class PhotoImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isRemotePhoto(path)) {
-      return Image.network(
-        path,
+      // 한 번 본 사진은 폰에 남겨 통신이 없어도 보인다(10-09: Image.network라 발전소처럼 통신이 없으면
+      // 찍은 그 폰에서도 깨진 그림만 나왔다). 작은 칸은 그 크기로 줄여 메모리에 둔다.
+      final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+      return CachedNetworkImage(
+        imageUrl: path,
         width: width,
         height: height,
         fit: fit,
-        errorBuilder: (_, _, _) => _broken(),
-        loadingBuilder: (ctx, child, prog) => prog == null
-            ? child
-            : Container(
-                width: width,
-                height: height,
-                color: AppColors.background,
-                alignment: Alignment.center,
-                child: const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
+        memCacheWidth: width == null ? null : (width! * dpr).round(),
+        errorWidget: (_, _, _) => _broken(),
+        placeholder: (_, _) => Container(
+          width: width,
+          height: height,
+          color: AppColors.background,
+          alignment: Alignment.center,
+          child: const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
       );
     }
     return Image.file(
@@ -73,8 +76,9 @@ class PhotoImage extends StatelessWidget {
   }
 }
 
-ImageProvider photoProvider(String path) =>
-    isRemotePhoto(path) ? NetworkImage(path) : FileImage(File(path));
+ImageProvider photoProvider(String path) => isRemotePhoto(path)
+    ? CachedNetworkImageProvider(path)
+    : FileImage(File(path));
 
 // 업로드 전 긴 변 1600px, 품질 75로 줄인다(현장 사진 수 MB → 수백 KB). 도면/스케치
 // 같은 PNG는 형식을 유지한다. 실패하면 원본을 그대로 올린다.
