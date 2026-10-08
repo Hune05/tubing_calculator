@@ -498,13 +498,17 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
   }
 
   Widget _buildQuickPickSection() {
+    // 칩은 저장해 둔 공제값이 아니라 지금 부속표 값으로 쓴다. 저장한 라인을 되살릴 때(restoreFittingFromPoint)와
+    // 같은 표를 써야, 같은 부속이 칩으로 고를 때와 다시 열 때 다른 절단 길이가 나오지 않는다(10-08).
     final favs = [
       for (final f in _favorites)
-        if (f.maker == widget.maker) withOverride(f, _overrides),
+        if (f.maker == widget.maker)
+          withOverride(builtInFittingById(f.id) ?? f, _overrides),
     ];
     final recents = [
       for (final f in _recents)
-        if (f.maker == widget.maker) withOverride(f, _overrides),
+        if (f.maker == widget.maker)
+          withOverride(builtInFittingById(f.id) ?? f, _overrides),
     ];
     if (_searchQuery.isNotEmpty || (favs.isEmpty && recents.isEmpty)) {
       return const SizedBox.shrink();

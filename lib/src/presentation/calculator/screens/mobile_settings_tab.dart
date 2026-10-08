@@ -328,11 +328,21 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   String _trimZero(double v) =>
       v == v.roundToDouble() ? v.toStringAsFixed(1) : v.toString();
 
-  Future<void> _onSpecsChanged() async {
+  /// [userChanged]: 사용자가 규격·벤더를 바꿔서 부른 것(앱을 켤 때 부른 것과 구분).
+  Future<void> _onSpecsChanged({bool userChanged = false}) async {
     // 이 조합으로 넣어 둔 제원이 있으면 그것부터 꺼낸다.
     final found = await _applySavedSpecSet();
     if (!mounted) return;
     if (!found) {
+      // 처음 고르는 조합은 제원표 값(AUTO)으로 시작한다(10-08: 앞 규격에서 MAN으로 넣은 게인·반경이
+      // 새 규격에 그대로 남았다). 앱을 켤 때는 예전부터 쓰던 MAN 값을 그대로 둔다.
+      if (userChanged) {
+        setState(() {
+          for (final k in _autoStates.keys.toList()) {
+            _autoStates[k] = true;
+          }
+        });
+      }
       _fillFromStandardSpecs();
       return;
     }
@@ -1294,6 +1304,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           String targetOD = _isInch ? "0.5" : "12.7";
           _currentOD = targetOD;
         });
+        // 단위만 바꾼 것(같은 관)이라 MAN 값은 그대로 둔다.
         _onSpecsChanged();
       },
       child: Container(
@@ -1327,7 +1338,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           items: _odList,
           onChanged: (val) {
             setState(() => _currentOD = val!);
-            _onSpecsChanged();
+            _onSpecsChanged(userChanged: true);
           },
           displayMapper: (item) =>
               SettingsController.getDisplayOD(item, _isInch),
@@ -1359,7 +1370,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           items: const ["Twin Ferrule", "Bite Type", "Flare"],
           onChanged: (val) {
             setState(() => _fittingType = val!);
-            _onSpecsChanged();
+            _onSpecsChanged(userChanged: true);
           },
           helperText: "※ 삽입 깊이 기준",
         ),
@@ -1405,7 +1416,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           ],
           onChanged: (val) {
             setState(() => _benderBrand = val!);
-            _onSpecsChanged();
+            _onSpecsChanged(userChanged: true);
           },
           helperText: "※ 브랜드별 가이드",
         ),
@@ -1418,7 +1429,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           items: const ["수동 (Hand)", "전동 (Electric)"],
           onChanged: (val) {
             setState(() => _benderType = val!);
-            _onSpecsChanged();
+            _onSpecsChanged(userChanged: true);
           },
           helperText: "※ 수동/전동 가이드",
         ),

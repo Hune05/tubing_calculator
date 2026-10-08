@@ -687,14 +687,8 @@ class _RecentLogs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('inventory_logs')
-          .where('material_name', isEqualTo: itemName)
-          // 정렬 없이 20건을 자르면 옛 기록이 나오고 오늘 것이 빠질 수 있다.
-          .orderBy('timestamp', descending: true)
-          .limit(20)
-          .snapshots(),
+    return StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+      stream: itemLogsStream(itemName),
       builder: (context, snap) {
         if (snap.hasError) {
           return const Padding(
@@ -703,7 +697,7 @@ class _RecentLogs extends StatelessWidget {
           );
         }
         if (!snap.hasData) return const SizedBox(height: 8);
-        final docs = snap.data!.docs.toList()
+        final docs = snap.data!.toList()
           ..sort((a, b) {
             final ta = a.data()['timestamp'] as Timestamp?;
             final tb = b.data()['timestamp'] as Timestamp?;
@@ -769,5 +763,28 @@ class _RecentLogs extends StatelessWidget {
     if (t == null) return '';
     final d = t.toDate();
     return "${d.month}/${d.day}";
+  }
+}
+
+/// 자재 하나의 최근 기록. 이름으로 거르고 시각 순으로 자르려면 서버에 복합 색인이 있어야 해서,
+/// 색인이 없으면(failed-precondition) 정렬 없이 넉넉히 받아 폰에서 정렬한다
+/// (10-08: 색인이 없으면 "기록을 불러오지 못했습니다"만 떴다. 색인은 firestore.indexes.json).
+Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> itemLogsStream(
+  String itemName, {
+  FirebaseFirestore? db,
+}) async* {
+  final q = (db ?? FirebaseFirestore.instance)
+      .collection('inventory_logs')
+      .where('material_name', isEqualTo: itemName);
+  try {
+    // 정렬 없이 20건을 자르면 옛 기록이 나오고 오늘 것이 빠질 수 있다.
+    await for (final s in q.orderBy('timestamp', descending: true).limit(20).snapshots()) {
+      yield s.docs;
+    }
+  } on FirebaseException catch (e) {
+    if (e.code != 'failed-precondition') rethrow;
+    await for (final s in q.limit(300).snapshots()) {
+      yield s.docs;
+    }
   }
 }

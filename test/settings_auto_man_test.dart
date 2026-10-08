@@ -75,6 +75,32 @@ void main() {
     expect(MachineSpecs().gain90, isNot(20.0));
   });
 
+  testWidgets('저장본 없는 규격으로 바꾸면 앞 규격의 MAN 게인이 남지 않고 표 값(AUTO)으로 시작한다(10-08)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'isInch': true,
+      'tubeOD': 0.5,
+      'gain': 21.5,
+      'auto_gain': false,
+    });
+    MachineSpecs().resetForTest();
+    await AppSettingsController().load();
+    await openTab(tester);
+    final chip = find.byKey(const ValueKey('auto_gain'));
+    await tester.ensureVisible(chip);
+    expect(find.descendant(of: chip, matching: find.text('MAN')), findsOneWidget);
+    // 외경을 3/8"로 바꾼다.
+    final dd = find.byWidgetPredicate((w) => w is DropdownButton<String> && w.value == '0.5');
+    await tester.ensureVisible(dd.first);
+    await tester.tap(dd.first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('3/8"').last);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    await tester.ensureVisible(chip);
+    expect(find.descendant(of: chip, matching: find.text('AUTO')), findsOneWidget);
+  });
+
   test('mm로 적은 12.7(=1/2")도 제원표를 찾는다(AUTO 칸이 비지 않게)', () {
     final mm = FittingData.getBenderSpec('Swagelok', '12.7');
     final inch = FittingData.getBenderSpec('Swagelok', '0.5');
