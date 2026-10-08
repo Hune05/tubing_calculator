@@ -150,6 +150,9 @@ class SwitchRow {
 
   /// 판정: 동작점·복귀점·데드밴드 가운데 판정한 것이 모두 합격이면 합격. 판정한 것이 없으면 null.
   bool? get pass {
+    // 복귀점이 동작점 반대쪽이면 정상 스위치에서 나올 수 없는 값이라 불합격으로 본다
+    // (10-08 사용자 결정: 데드밴드만 맞으면 합격으로 성적서에 나갔다).
+    if (wrongSide) return false;
     final v = [tripPass, resetPass, dbRangePass].whereType<bool>();
     if (v.isEmpty) return null;
     return v.every((e) => e);

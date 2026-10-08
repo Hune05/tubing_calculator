@@ -43,6 +43,18 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('계산', () {
+    test('복귀점이 동작점 반대쪽이면 데드밴드가 맞아도 불합격(10-08)', () {
+      final s = evaluateSwitch(
+        spec: const SwitchSpec(setpoint: 5, tol: 0.1, dbSet: 0.5),
+        repeats: const [SwitchRepeat(trip: 5.0, reset: 5.5)],
+        range: (0, 10),
+      );
+      final r = s.rows.single!;
+      expect(r.wrongSide, isTrue);
+      expect(r.resetPass, isTrue); // 데드밴드 크기만 보면 맞다
+      expect(r.pass, isFalse);
+    });
+
     test('상승 동작: 오차·범위 %·데드밴드·반복성·평균, 반복 2가 허용오차 초과', () {
       final s = evaluateSwitch(
         spec: const SwitchSpec(setpoint: 5, tol: 0.1),
@@ -168,14 +180,14 @@ void main() {
       );
     });
 
-    test('복귀점이 동작 방향과 반대쪽이면 표시(판정에는 넣지 않음)', () {
+    test('복귀점이 동작 방향과 반대쪽이면 표시하고 불합격(10-08 사용자 결정, 예전엔 판정에 안 넣음)', () {
       final up = evaluateSwitch(
         spec: const SwitchSpec(setpoint: 5, tol: 0.1),
         repeats: const [SwitchRepeat(trip: 5, reset: 5.4)],
       );
       expect(up.rows[0]!.wrongSide, isTrue);
       expect(up.rows[0]!.deadband, closeTo(0.4, 1e-9));
-      expect(up.pass, isTrue);
+      expect(up.pass, isFalse);
       final down = evaluateSwitch(
         spec: const SwitchSpec(setpoint: 2, dir: SwitchDir.falling, tol: 0.1),
         repeats: const [

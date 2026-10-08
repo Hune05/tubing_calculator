@@ -169,6 +169,20 @@ void main() {
     CuttingProject proj() =>
         CuttingProject(id: 'p1', name: '루마', createdAt: DateTime(2026, 9, 20));
 
+    testWidgets('앞 작업에서 뺀 튜브가 있으면 새 작업 전에 묻고, "그대로 두기"면 기록만 비운다(10-08)', (tester) async {
+      await open(tester, proj());
+      final dynamic st = tester.state(find.byType(CuttingMainScreen));
+      st.debugStockDeducted = <String, List<double>>{'튜브 1/2"': [6000.0, 6000.0]};
+      final f = st.debugSettleDeducted() as Future<bool>;
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('cut_deducted_ask')), findsOneWidget);
+      expect(find.textContaining('튜브 2본'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('cut_deducted_keep')));
+      await tester.pumpAndSettle();
+      expect(await f, isTrue);
+      expect((st.debugStockDeducted as Map).isEmpty, isTrue);
+    });
+
     testWidgets('저장하기를 누르면 확인 창이 먼저 뜨고 취소하면 그대로다', (tester) async {
       final p = proj();
       await open(tester, p);

@@ -502,6 +502,56 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     }
   }
 
+  @visibleForTesting
+  set debugStockDeducted(BarsBySpec v) => _stockDeducted = v;
+  @visibleForTesting
+  BarsBySpec get debugStockDeducted => _stockDeducted;
+  @visibleForTesting
+  Future<bool> debugSettleDeducted() => _settleDeductedBeforeNewWork();
+
+  /// 앞 작업에서 재고에서 뺀 튜브가 있으면 새 작업(템플릿)으로 바꾸기 전에 어떻게 할지 묻는다
+  /// (10-08 사용자 결정: 묻지 않으면 새 작업이 그 본을 "이미 뺀 것"으로 보고 덜 뺐다).
+  /// 계속해도 되면 true.
+  Future<bool> _settleDeductedBeforeNewWork() async {
+    final bars = _stockDeducted;
+    if (bars.isEmpty || !mounted) return true;
+    final n = bars.values.fold<int>(0, (a, l) => a + l.length);
+    final pick = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        key: const Key('cut_deducted_ask'),
+        title: const Text('앞 작업에서 뺀 튜브가 있습니다'),
+        content: Text(
+          '앞 작업에서 재고에서 뺀 튜브 $n본이 있습니다. 새 작업으로 바꾸기 전에 어떻게 할지 고르십시오.\n\n'
+          '· 재고에 도로 넣기: 실제로 자르지 않았을 때\n'
+          '· 그대로 두기: 잘랐으니 재고는 빠진 채로 두고 새 작업으로 시작',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            key: const Key('cut_deducted_keep'),
+            onPressed: () => Navigator.pop(ctx, 'keep'),
+            child: const Text('그대로 두기'),
+          ),
+          TextButton(
+            key: const Key('cut_deducted_return'),
+            onPressed: () => Navigator.pop(ctx, 'return'),
+            child: const Text('재고에 도로 넣기'),
+          ),
+        ],
+      ),
+    );
+    if (pick == null || !mounted) return false;
+    if (pick == 'return' && !await _undoTubeStock(bars)) return false;
+    _stockDeducted = {};
+    _stockDeductedSig = '';
+    _saveDraftState();
+    return true;
+  }
+
   /// 재단 계획 창의 "되돌리기". 이제까지 뺀 튜브를 도로 넣는다.
   Future<bool> _undoTubeStock(BarsBySpec bars) async {
     final stock = await loadStockInfo();
@@ -1224,6 +1274,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   ) async {
     final pointsData = (data['points'] as List?) ?? [];
     if (pointsData.isEmpty) return;
+    if (!await _settleDeductedBeforeNewWork() || !mounted) return;
 
     final bool hasExistingInput = _points.any(
       (p) => p.fitting.id != 'none' || p.c2cController.text.isNotEmpty,
