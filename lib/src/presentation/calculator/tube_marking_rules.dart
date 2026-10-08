@@ -52,6 +52,28 @@ double straightAfterLastBend(List<StepResult> steps, double pureCutLength) {
   );
 }
 
+/// 끝 피팅이 켜져 있고 꼬리가 없는데 목록이 벤드로 끝나면 알린다(없으면 null).
+///
+/// 그때 [tubeFittedLengths]는 끝 피팅 깊이를 마지막 줄(벤드까지 길이)에 더해서, 그 벤드가
+/// 피팅 깊이만큼 늦게 찍힌다(R38.1·깊이 23·롤링 오프셋으로 끝낸 목록: 2번 마킹 375 → 398).
+/// 마지막 줄이 직관이면 거기에 더하는 것이 맞으므로 셈은 그대로 두고 알리기만 한다
+/// (10-09 사용자 결정 "나": 경고만).
+String? endFitOnBendWarning(
+  List<Map<String, dynamic>> bendList, {
+  required bool endFit,
+  required double fittingDepth,
+  required double tail,
+}) {
+  if (!endFit || tail > 0 || fittingDepth <= 0 || bendList.isEmpty) return null;
+  final last = (bendList.last['angle'] as num?)?.toDouble() ?? 0.0;
+  if (last <= 0) return null;
+  return '목록이 벤드로 끝나는데 끝 피팅이 켜져 있습니다. 피팅 깊이 '
+      // 마킹 탭 머리·카드와 같게 반올림해 보인다(22.9 → 23).
+      '${fittingDepth.round()}mm가 '
+      '마지막 벤드 앞 구간에 더해져 ${bendList.length}번 구간 벤드가 그만큼 늦게 찍힙니다. '
+      '끝에 직관(0°)을 넣거나 꼬리 길이를 넣으십시오.';
+}
+
 /// 엔진 오류를 화면에 보일 글로. 'Invalid argument(s): ' 머리말을 뗀다.
 /// 🚀 [고침] 마킹 탭은 이 머리말을 떼지 않고 그대로 보여 줬다.
 String tubeEngineErrorText(Object e) =>

@@ -166,7 +166,16 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
   return FieldMarkingData(
     totalCut: totalCut,
     marks: marks,
-    warnings: check.warnings,
+    warnings: [
+      // 벤드로 끝나는 목록에 끝 피팅(10-09).
+      ?endFitOnBendWarning(
+        bendList,
+        endFit: dataManager.endFit,
+        fittingDepth: dataManager.fittingDepth,
+        tail: dataManager.tail,
+      ),
+      ...check.warnings,
+    ],
   );
 }
 
@@ -451,7 +460,16 @@ class _MobileResultTabState extends State<MobileResultTab>
 
         // 🚀 [추가] 만들 수 없는 형상(앞뒤 셋백보다 짧은 구간)이면 값 대신
         // 먼저 알려 준다. 예전에는 조용히 이상한 마킹이 나왔다.
-        final List<String> warnings = check.warnings;
+        final List<String> warnings = [
+          // 벤드로 끝나는 목록에 끝 피팅(10-09).
+          ?endFitOnBendWarning(
+            bendList,
+            endFit: _includeEndFitting,
+            fittingDepth: fittingDepth,
+            tail: _tailLength,
+          ),
+          ...check.warnings,
+        ];
 
         // "최근 마킹값 보기" — 저장하지 않아도 방금 계산한 마킹값을 다시 볼 수 있게
         // 자동으로 쌓는다(2026-09-29, 리모컨 "최근 전송 기록"과 같은 방식).

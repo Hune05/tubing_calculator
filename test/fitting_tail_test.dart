@@ -88,4 +88,34 @@ void main() {
       );
     }
   });
+
+  group("벤드로 끝나는 목록에 끝 피팅이면 알린다(10-09)", () {
+    final rolling = <Map<String, dynamic>>[
+      {"length": 15.8, "angle": 45.0, "rotation": 0.0},
+      {"length": 353.6, "angle": 45.0, "rotation": 180.0},
+    ];
+    test("끝 피팅·꼬리 0·벤드로 끝남 → 경고(피팅 깊이와 구간 번호)", () {
+      final w = endFitOnBendWarning(rolling, endFit: true, fittingDepth: 23, tail: 0);
+      expect(w, isNotNull);
+      expect(w, contains("23mm"));
+      expect(w, contains("2번 구간"));
+      // 마킹 탭 머리(깊이 23mm)와 같게 반올림(태블릿 설정 22.9).
+      expect(endFitOnBendWarning(rolling, endFit: true, fittingDepth: 22.9, tail: 0), contains("피팅 깊이 23mm"));
+      // 이때 셈은 그대로 마지막 줄에 더한다(경고만, 마킹은 안 바꿈).
+      final f = tubeFittedLengths(rolling, startFit: false, endFit: true, fittingDepth: 23, tail: 0);
+      expect(f.lengths.last, closeTo(376.6, 1e-9));
+    });
+    test("직관으로 끝나거나, 꼬리가 있거나, 끝 피팅이 꺼져 있으면 말하지 않는다", () {
+      final withStraight = [
+        ...rolling,
+        <String, dynamic>{"length": 100.0, "angle": 0.0, "rotation": 0.0},
+      ];
+      expect(endFitOnBendWarning(withStraight, endFit: true, fittingDepth: 23, tail: 0), isNull);
+      expect(endFitOnBendWarning(rolling, endFit: true, fittingDepth: 23, tail: 200), isNull);
+      expect(endFitOnBendWarning(rolling, endFit: false, fittingDepth: 23, tail: 0), isNull);
+      expect(endFitOnBendWarning(rolling, endFit: true, fittingDepth: 0, tail: 0), isNull);
+      expect(endFitOnBendWarning(const [], endFit: true, fittingDepth: 23, tail: 0), isNull);
+    });
+  });
 }
+
