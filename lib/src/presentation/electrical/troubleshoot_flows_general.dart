@@ -471,6 +471,14 @@ WizFlow capacitorFlow() => WizFlow(
           choices: [('le100', '100 kvar 이하'), ('gt100', '100 kvar 초과')],
           initial: 'le100',
         ),
+        // 10-09 자료 점검: 정격(한 상)과 선간 측정값을 바로 비교해 정상 콘덴서도 Δ면 +50 %, Y면 −50 %로
+        // 불합격이 났다. 결선을 골라 선간 값을 한 상 값으로 바꿔 비교한다(108 % 비교는 선간 값 그대로).
+        WizField(
+          'conn',
+          '내부 결선',
+          choices: [('delta', 'Δ 결선(저압 대부분)'), ('wye', 'Y 결선')],
+          initial: 'delta',
+        ),
         WizField('rated', '정격 정전용량', unit: 'μF', hint: '명판 값(상당 한 상의 값)'),
         WizField('cr', 'R상 측정값', unit: 'μF', hint: '삼상 콘덴서는 선간 단자 두 개씩 잰 값'),
         WizField('cs', 'S상 측정값', unit: 'μF'),
@@ -486,12 +494,17 @@ WizFlow capacitorFlow() => WizFlow(
         final hi = big ? 5.0 : 10.0;
         final lines = <String>['측정 전에 반드시 방전합니다. 전원을 끊고 5분 이상 지난 뒤 단자를 단락해 잔류전하가 없는지 확인하십시오.'];
         var bad = false;
+        final wye = (sel['conn'] ?? 'delta') == 'wye';
         for (final (name, x) in [('R', a), ('S', b), ('T', c)]) {
-          final pct = x / rated * 100 - 100;
+          final ph = capacitorPhaseFromLineLine(x, wye: wye);
+          final pct = ph / rated * 100 - 100;
           final ok = pct >= -5 && pct <= hi;
-          lines.add('$name상 ${_n(x)} μF: 정격 대비 ${pct >= 0 ? '+' : ''}${_n(pct)} % (허용 −5~+${_n(hi, 0)} %) ${ok ? '정상' : '벗어남'}');
+          lines.add('$name상(선간) ${_n(x)} μF → 한 상 ${_n(ph)} μF: 정격 대비 ${pct >= 0 ? '+' : ''}${_n(pct)} % (허용 −5~+${_n(hi, 0)} %) ${ok ? '정상' : '벗어남'}');
           bad = bad || !ok;
         }
+        lines.add(wye
+            ? 'Y 결선: 선간 두 단자 사이는 한 상 두 개가 직렬이라 한 상 = 선간 × 2'
+            : 'Δ 결선: 선간 두 단자 사이는 한 상 + (나머지 두 상 직렬)이라 한 상 = 선간 ÷ 1.5');
         final mx = [a, b, c].reduce((p, q) => p > q ? p : q);
         final mn = [a, b, c].reduce((p, q) => p < q ? p : q);
         final ratio = mx / mn * 100;
@@ -539,3 +552,8 @@ List<WizFlow> generalFlows() => [
   transformerFlow(),
   capacitorFlow(),
 ];
+
+/// 삼상 콘덴서를 선간 두 단자로 잰 값을 한 상 값으로 바꾼다(세 상이 비슷할 때).
+/// Δ: 선간 = C + C/2 = 1.5C, Y: 선간 = C/2.
+double capacitorPhaseFromLineLine(double lineLine, {required bool wye}) =>
+    wye ? lineLine * 2 : lineLine / 1.5;

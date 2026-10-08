@@ -347,12 +347,14 @@ class _RefTubeTabState extends State<RefTubeTab> {
         // 8. 허용 압력
         refCard(
           title: "8. 튜브 두께별 최대 허용 압력",
-          subtitle: "SUS 316L 심리스 튜브, 상온 기준(제조사 표 참고값)",
+          // 10-09 자료 점검: 1" 0.049T(1,800 psi)는 Swagelok 표에 없는 칸이었고, 가스 비권장 칸 안내가
+          // 없었다(수소 라인). bar는 반올림이 들쭉날쭉해 5 bar 단위 내림으로 맞췄다.
+          subtitle: "SUS 316(316/316L 이중 인증) 심리스, 상온, ASME B31.3 기준 — Swagelok MS-13-151 표",
           icon: LucideIcons.gauge,
           iconColor: Colors.redAccent,
           children: [
-            refDataRow("0.035T (0.89mm)", "가장 흔한 일반 저·중압용"),
-            refDataRow("0.049T (1.24mm) 이상", "수소·고압 가스 등 특수 라인용"),
+            refDataRow("0.035T (0.89mm)", "일반 저·중압 액체·공기 라인. 1/2\" 0.035T는 가스 비권장(액체 전용)"),
+            refDataRow("0.049T (1.24mm) 이상", "수소·고압 가스 라인. 가스는 제조사 표의 가스 비권장(음영) 칸을 피할 것"),
             const SizedBox(height: 12),
             refTable(
               headers: [
@@ -365,25 +367,25 @@ class _RefTubeTabState extends State<RefTubeTab> {
                 [
                   '1/4"',
                   "5,100 psi\n(350 bar)",
-                  "7,500 psi\n(510 bar)",
+                  "7,500 psi\n(515 bar)",
                   "10,200 psi\n(700 bar)",
                 ],
                 [
                   '3/8"',
-                  "3,300 psi\n(220 bar)",
+                  "3,300 psi\n(225 bar)",
                   "4,800 psi\n(330 bar)",
-                  "6,500 psi\n(440 bar)",
+                  "6,500 psi\n(445 bar)",
                 ],
                 [
                   '1/2"',
-                  "2,600 psi\n(170 bar)",
-                  "3,700 psi\n(250 bar)",
+                  "2,600 psi\n(175 bar)\n※ 액체 전용",
+                  "3,700 psi\n(255 bar)",
                   "5,100 psi\n(350 bar)",
                 ],
                 ['3/4"', "—", "2,400 psi\n(165 bar)", "3,300 psi\n(225 bar)"],
-                ['1"', "—", "1,800 psi\n(120 bar)", "2,400 psi\n(165 bar)"],
+                ['1"', "—", "—", "2,400 psi\n(165 bar)"],
               ],
-              footer: "※ 같은 두께면 굵을수록 견디는 압력이 낮습니다. 라인 압력은 도면·사양서로 확인하십시오.",
+              footer: "※ 같은 두께면 굵을수록 견디는 압력이 낮습니다. bar는 5 bar 단위 내림(안전 쪽). — 칸은 제조사 표에 없는 조합(쓰지 말 것). 316L 단독 인증 관은 약 17% 낮음. 가스 라인은 제조사 표의 음영(가스 비권장) 칸 확인. 라인 압력은 도면·사양서로 확인하십시오.",
             ),
           ],
         ),

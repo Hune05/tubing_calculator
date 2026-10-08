@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/protection_calc.dart';
 import 'package:tubing_calculator/src/presentation/electrical/troubleshoot_flows.dart';
+import 'package:tubing_calculator/src/presentation/electrical/troubleshoot_flows_general.dart';
 import 'package:tubing_calculator/src/presentation/electrical/troubleshoot_page.dart';
 
 Future<void> _open(WidgetTester tester, String flowId) async {
@@ -236,18 +237,19 @@ void main() {
   testWidgets('역률 콘덴서: −5~+10 %와 세 상 최대÷최소 108 %', (tester) async {
     await _open(tester, 'capacitor');
     await _type(tester, 'ts_in_c_meas_rated', '100');
-    await _type(tester, 'ts_in_c_meas_cr', '98');
-    await _type(tester, 'ts_in_c_meas_cs', '101');
-    await _type(tester, 'ts_in_c_meas_ct', '105');
+    // Δ 결선(기본): 선간 값 = 한 상 × 1.5(10-09). 한 상 98·101·105 μF → 선간 147·151.5·157.5.
+    await _type(tester, 'ts_in_c_meas_cr', '147');
+    await _type(tester, 'ts_in_c_meas_cs', '151.5');
+    await _type(tester, 'ts_in_c_meas_ct', '157.5');
     expect(find.byKey(const Key('ts_end_e_c_ok')), findsOneWidget);
     expect(_all(tester), contains('107.1 %'));
-    await _type(tester, 'ts_in_c_meas_cr', '90');
+    await _type(tester, 'ts_in_c_meas_cr', '135'); // 한 상 90
     expect(find.byKey(const Key('ts_end_e_c_bad')), findsOneWidget);
     expect(_all(tester), contains('−5~+10 %'));
     // 100 kvar 초과는 −5~+5 %: +7 %면 벗어난다.
-    await _type(tester, 'ts_in_c_meas_cr', '100');
-    await _type(tester, 'ts_in_c_meas_cs', '100');
-    await _type(tester, 'ts_in_c_meas_ct', '107');
+    await _type(tester, 'ts_in_c_meas_cr', '150');
+    await _type(tester, 'ts_in_c_meas_cs', '150');
+    await _type(tester, 'ts_in_c_meas_ct', '160.5');
     expect(find.byKey(const Key('ts_end_e_c_ok')), findsOneWidget);
     await _tap(tester, 'ts_sel_c_meas_size_gt100');
     expect(_all(tester), contains('허용 −5~+5 %'));
@@ -262,4 +264,28 @@ void main() {
     expect(find.byKey(const Key('ts_end_e_l_none')), findsOneWidget);
     expect(find.byKey(const Key('ts_end_e_l_single')), findsNothing);
   });
+
+  test("콘덴서: 선간 측정값을 한 상 값으로 바꿔 정격과 비교한다(10-09)", () {
+    // 정격 한 상 100 μF. Δ 결선이면 선간 150, Y 결선이면 선간 50이 정상.
+    expect(capacitorPhaseFromLineLine(150, wye: false), closeTo(100, 1e-9));
+    expect(capacitorPhaseFromLineLine(50, wye: true), closeTo(100, 1e-9));
+    final step = capacitorFlow().steps["c_meas"] as WizMeasure;
+    final delta = step.judge(
+      {"rated": 100, "cr": 150, "cs": 151, "ct": 149},
+      {"size": "le100", "conn": "delta"},
+    );
+    expect(delta.warn, isFalse, reason: delta.lines.join(" / "));
+    final wye = step.judge(
+      {"rated": 100, "cr": 50, "cs": 50.5, "ct": 49.5},
+      {"size": "le100", "conn": "wye"},
+    );
+    expect(wye.warn, isFalse, reason: wye.lines.join(" / "));
+    // 한 상이 20 % 줄면 잡는다.
+    final low = step.judge(
+      {"rated": 100, "cr": 120, "cs": 150, "ct": 150},
+      {"size": "le100", "conn": "delta"},
+    );
+    expect(low.warn, isTrue);
+  });
 }
+
