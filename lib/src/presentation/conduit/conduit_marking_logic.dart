@@ -234,10 +234,8 @@ double conduitTotalCut(
     sum += len;
     if (angle > 0) gains += conduitGainForAngle(angle, gain90);
   }
-  return sum -
-      gains +
-      _num(settings, 'bladeKerf', 0.0) +
-      (useCoupling ? conduitCouplingAllowance(settings) : 0.0);
+  // 10-09 사용자 결정: 톱날 두께(bladeKerf)는 더하지 않는다(자르는 자리는 순수 길이).
+  return sum - gains + (useCoupling ? conduitCouplingAllowance(settings) : 0.0);
 }
 
 /// 커플링 체결 때 자를 길이에 더하는 끝 여유(기본 50mm).

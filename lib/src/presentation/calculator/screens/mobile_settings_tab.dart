@@ -8,6 +8,7 @@ import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart'
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/presentation/settings/controllers/settings_controller.dart';
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
+import 'package:tubing_calculator/src/presentation/calculator/tube_auto_gain.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/korean_text.dart';
 
@@ -106,8 +107,24 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   void initState() {
     super.initState();
     _currentOD = "12.7";
+    _rController.addListener(_followRadiusWithAutoGain);
     _loadData();
     AppSettingsController().addListener(_onControllerChanged);
+  }
+
+  /// 반경 칸이 바뀌면(MAN으로 넣을 때) 게인이 AUTO면 그 반경에 맞춘다(tube_auto_gain.dart).
+  void _followRadiusWithAutoGain() {
+    if (_autoStates['gain'] != true) return;
+    final specs = SettingsController.getStandardSpecs(_benderBrand, _currentOD);
+    if (specs == null) return;
+    final r = double.tryParse(_rController.text);
+    if (r == null || r <= 0) return;
+    final t = autoGainText(
+      tableGain: specs.gain,
+      tableRadius: specs.bendRadius,
+      radius: r,
+    );
+    if (_gainController.text != t) _gainController.text = t;
   }
 
   // 🚀 [수정] SettingsManager/SharedPreferences를 직접 부르는 대신,
@@ -366,7 +383,14 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _takeUpController.text = specs != null ? specs.takeUp.toString() : "";
       }
       if (_autoStates['gain'] == true) {
-        _gainController.text = specs != null ? specs.gain.toString() : "";
+        // 10-09: 반경을 MAN으로 바꿨으면 게인 AUTO도 그 반경을 따라간다(tube_auto_gain.dart).
+        _gainController.text = specs != null
+            ? autoGainText(
+                tableGain: specs.gain,
+                tableRadius: specs.bendRadius,
+                radius: double.tryParse(_rController.text) ?? specs.bendRadius,
+              )
+            : "";
       }
       if (_autoStates['minStraight'] == true) {
         _minStraightController.text = specs != null
@@ -1543,7 +1567,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         _buildNumpadInputWithHelp(
           "톱날 손실(커프) [mm]",
           "톱날 손실(커프) 보정",
-          "쇠톱이나 절단기로 파이프를 자를 때 톱날 두께만큼 소재가 갈려 없어집니다.\n원자재에서 여러 구간을 잘라 쓸 때 이만큼을 더 확보해두어야 마지막 구간 길이가 부족해지지 않습니다.",
+          "쇠톱이나 절단기로 파이프를 자를 때 톱날 두께만큼 소재가 갈려 없어집니다.\n톱날은 버리는 쪽을 먹으므로 총 절단 길이·자르는 자리에는 더하지 않습니다. 원자재에서 여러 구간을 잘라 쓸 때 이만큼을 더 확보해 두십시오.",
           _cutMarginController,
           helperText: "※ 절단면당 손실량",
         ),

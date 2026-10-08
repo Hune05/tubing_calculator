@@ -120,7 +120,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           startDir: conduitStartDir.value,
         );
 
-        // 총 절단 길이 = 구간 길이 합 − 각도별 게인 합 + 톱날 두께
+        // 총 절단 길이 = 구간 길이 합 − 각도별 게인 합(+ 커플링 끝 여유). 톱날 두께는 더하지 않는다.
         // (+ 커플링 체결이면 끝 여유). 현장 탭과 같은 셈.
         final double totalCut = conduitTotalCut(
           bendList,

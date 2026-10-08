@@ -8,7 +8,9 @@ import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
 import 'package:tubing_calculator/src/core/utils/fitting_data.dart';
 import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_settings_tab.dart';
+import 'package:tubing_calculator/src/presentation/calculator/tube_auto_gain.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -108,5 +110,54 @@ void main() {
     expect(mm!.bendRadius, inch!.bendRadius);
     expect(FittingData.getInsertionDepth('Swagelok', '12.7'), FittingData.getInsertionDepth('Swagelok', '0.5'));
     expect(FittingData.getBenderSpec('Swagelok', '13.3'), isNull);
+  });
+
+  // 10-09 사용자 결정: AUTO 게인은 표 반경으로 셈한 값이라 반경을 MAN으로 바꾸면 따라간다.
+  test('AUTO 게인은 반경 비율로 따라가고, 표 반경이면 표 값 그대로', () {
+    expect(autoGainForRadius(tableGain: 16.3, tableRadius: 38.1, radius: 38.1), 16.3);
+    expect(autoGainText(tableGain: 16.3, tableRadius: 38.1, radius: 38.1), '16.3');
+    expect(autoGainForRadius(tableGain: 16.3, tableRadius: 38.1, radius: 50), closeTo(21.39, 0.01));
+    expect(autoGainText(tableGain: 16.3, tableRadius: 38.1, radius: 50), '21.4');
+    // 기하 게인(2R − πR/2)과 거의 같다(표 값이 그 셈이다).
+    expect(autoGainForRadius(tableGain: 16.3, tableRadius: 38.1, radius: 50),
+        closeTo(geometricGain(50, 90), 0.1));
+    expect(autoGainForRadius(tableGain: 16.3, tableRadius: 38.1, radius: 0), 16.3);
+  });
+
+  testWidgets('반경 MAN 50 + 게인 AUTO면 엔진에 가는 게인이 21.4(옛 16.3이 남지 않는다)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'isInch': true,
+      'tubeOD': 0.5,
+      kMachineSpecSetsPrefsKey: jsonEncode({
+        key: {
+          'bendRadius': 50.0,
+          'gain': 16.3, // 예전에는 반경을 바꿔도 이 값이 남았다
+          'auto': ['takeUp', 'gain', 'minStraight', 'offset', 'fittingDepth'],
+        },
+      }),
+    });
+    MachineSpecs().resetForTest();
+    await AppSettingsController().load();
+    await openTab(tester);
+    expect(MachineSpecs().radius, 50.0);
+    expect(MachineSpecs().gain90, 21.4);
+  });
+
+  testWidgets('반경 MAN에서 게인을 MAN으로 넣은 값은 반경을 따라가지 않는다(실측값 우선)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'isInch': true,
+      'tubeOD': 0.5,
+      kMachineSpecSetsPrefsKey: jsonEncode({
+        key: {
+          'bendRadius': 50.0,
+          'gain': 18.0,
+          'auto': ['takeUp', 'minStraight', 'offset', 'fittingDepth'],
+        },
+      }),
+    });
+    MachineSpecs().resetForTest();
+    await AppSettingsController().load();
+    await openTab(tester);
+    expect(MachineSpecs().gain90, 18.0);
   });
 }

@@ -160,9 +160,10 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
     }
   }
 
-  // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다. 여기서는 톱날 손실만 더한다.
-  final double totalCut =
-      (result['totalCutLength'] as double) + dataManager.cutMargin;
+  // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다.
+  // 10-09 사용자 결정: 톱날 손실은 더하지 않는다(자르는 자리는 순수 길이 — 더하면 관이 톱날
+  // 두께만큼 길어진다. 톱날은 버리는 쪽을 먹는다. 튜브 컷팅 화면과 같다).
+  final double totalCut = result['totalCutLength'] as double;
   return FieldMarkingData(
     totalCut: totalCut,
     marks: marks,
@@ -447,12 +448,9 @@ class _MobileResultTabState extends State<MobileResultTab>
           }
         }
 
-        // 🚀 [설정값 추가] 톱날 손실(커프) 보정 - 전선관 계산기의 bladeKerf와
-        // 동일하게, 원자재 절단 시 톱날 두께만큼 없어지는 길이를 더해준다.
-        double totalCut = bendList.isEmpty
-            ? 0.0
-            : pureCutLength + dataManager.cutMargin;
-        // 마지막 벤드가 끝난 뒤 관 끝까지 곧은 길이(톱날 손실은 빼고).
+        // 10-09 사용자 결정: 톱날 손실은 자를 길이에 더하지 않는다(현장 탭과 같은 값).
+        double totalCut = bendList.isEmpty ? 0.0 : pureCutLength;
+        // 마지막 벤드가 끝난 뒤 관 끝까지 곧은 길이.
         double diffAfterLastMark = straightAfterLastBend(steps, pureCutLength);
         if (diffAfterLastMark < 0) {
           diffAfterLastMark = 0;

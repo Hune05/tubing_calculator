@@ -1024,7 +1024,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           "톱날 두께",
           _bladeKerfController,
           suffix: unit,
-          helpText: "자를 때 톱날에 먹히는 두께입니다. 총 절단 길이에 더합니다.",
+          helpText: "자를 때 톱날에 먹히는 두께입니다. 톱날은 버리는 쪽을 먹으므로 총 절단 길이·자르는 자리에는 더하지 않습니다(원자재 여러 개를 자를 때 참고).",
         ),
       ]),
     ];
