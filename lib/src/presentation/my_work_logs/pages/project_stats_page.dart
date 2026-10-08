@@ -153,16 +153,20 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
   _Summary _summarize() {
     final reports = _reports;
     final s = _Summary();
-    s.days = reports.length;
+    // 작업일수는 날짜 수, 공수는 내 근태를 날짜당 한 번만 뺀다(10-08: 일지 건수로 세어 여러 프로젝트면
+    // 작업일수가 부풀고, 연차인 날은 프로젝트마다 1씩 빠졌다).
+    final byDay = manDaysByDay([for (final (_, r) in reports) r]);
+    s.days = byDay.length;
     for (final (_, r) in reports) {
-      final w = manDaysOf(Map<String, dynamic>.from(r));
-      s.manDays += w;
       s.otHours += _num(r['overtime_hours']);
       s.pt += _num(r['points']);
       s.wiring += _num(r['wiring_points']);
-      final d = reportDateOf(r);
+    }
+    for (final e in byDay.entries) {
+      s.manDays += e.value;
+      final d = e.key;
       final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
-      s.monthMan[key] = (s.monthMan[key] ?? 0) + w;
+      s.monthMan[key] = (s.monthMan[key] ?? 0) + e.value;
     }
     s.months = s.monthMan.keys.toList()..sort();
 
@@ -170,14 +174,12 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
       final log = _logs.first;
       for (final p in phasesOf(log)) {
         final id = p['id'].toString();
-        int d = 0;
-        double m = 0;
-        for (final (_, r) in reports) {
-          if (reportIds(r, 'workedPhaseIds').contains(id)) {
-            d++;
-            m += manDaysOf(Map<String, dynamic>.from(r));
-          }
-        }
+        final worked = [
+          for (final (_, r) in reports)
+            if (reportIds(r, 'workedPhaseIds').contains(id)) r,
+        ];
+        final d = workDaysOf(worked);
+        final m = totalManDays(worked);
         final st = phaseStart(p), e = phaseEnd(p);
         final planned = (st != null && e != null)
             ? e.difference(st).inDays + 1
@@ -195,10 +197,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
     } else {
       for (final log in _logs) {
         final rs = reports.where((e) => identical(e.$1, log)).map((e) => e.$2);
-        final m = rs.fold<double>(
-          0,
-          (a, r) => a + manDaysOf(Map<String, dynamic>.from(r)),
-        );
+        final m = totalManDays(rs);
         s.rows.add(
           _Row(
             log['name']?.toString() ?? '이름 없음',

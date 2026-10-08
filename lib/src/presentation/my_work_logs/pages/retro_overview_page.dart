@@ -125,10 +125,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
 
   // 근태(내 연차 등)를 뺀 공수로 센다(10-07: 같은 화면의 단계별 값과 숫자가 달랐다).
   static int _manDays(Map<String, dynamic> log) =>
-      (log['daily_reports'] as List? ?? []).whereType<Map>().fold<double>(
-        0,
-        (a, r) => a + manDaysOf(Map<String, dynamic>.from(r)),
-      ).round();
+      totalManDays((log['daily_reports'] as List? ?? []).whereType<Map>()).round();
 
   @override
   Widget build(BuildContext context) {

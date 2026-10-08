@@ -237,7 +237,12 @@ Future<void> saveCuttingSession({
       .collection(kCuttingProjectsCollection)
       .doc(projectId);
 
-  final snap = await docRef.get();
+  DocumentSnapshot<Map<String, dynamic>> snap;
+  try {
+    snap = await docRef.get().timeout(const Duration(seconds: 5));
+  } catch (_) {
+    snap = await docRef.get(const GetOptions(source: Source.cache));
+  }
   final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
   final mergedMaterials = materialsAfterSession(
     existingMaterials,
@@ -247,10 +252,11 @@ Future<void> saveCuttingSession({
   // 합계·사용량과 컷팅 기록을 한 묶음으로 쓴다. 예전엔 합계 쓰기가 서버 답을 기다린 뒤에야
   // 기록을 적어서, 통신 없이 앱을 닫으면 합계는 올라가고 기록은 없었다(지울 수도 없었다).
   final batch = FirebaseFirestore.instance.batch();
+  // 누적 합계는 이번에 늘어난 만큼만 더한다(10-08: 화면이 들고 있던 값을 통째로 써서, 폰·태블릿이
+  // 같은 작업을 저장하면 다른 기기가 더한 몫이 사라졌다).
   batch.update(docRef, {
-    'totalTubeUsed': project.totalTubeUsed,
-    'cutCount': project.cutCount,
-    'usedFittings': project.usedFittings,
+    'totalTubeUsed': FieldValue.increment(totalTubeLength),
+    'cutCount': FieldValue.increment(cutCountOf(cutRecords)),
     'lastCutAt': DateTime.now().toIso8601String(),
     'materials': mergedMaterials,
   });
@@ -260,6 +266,10 @@ Future<void> saveCuttingSession({
   }
   await batch.commit();
 }
+
+/// 한 번 저장으로 늘어나는 절단 횟수(구간 × 세트). 화면의 recordUsage와 같은 셈.
+int cutCountOf(List<CutRecord> records) =>
+    records.fold(0, (n, r) => n + r.multiplier);
 
 /// [saveCuttingSession]으로 저장한 것을 되돌린다("저장" 직후 실행 취소).
 /// 호출하기 전에 [project]의 메모리 값(누적 길이·횟수)은 이미 뺀 상태여야 한다 — 저장할 때와
@@ -288,9 +298,8 @@ Future<void> undoCuttingSession({
   final batch = FirebaseFirestore.instance.batch();
   // 저장할 때 부속만 더했으므로(튜브는 재단 계획에서 뺀다) 부속만 뺀다.
   batch.update(docRef, {
-    'totalTubeUsed': project.totalTubeUsed,
-    'cutCount': project.cutCount,
-    'usedFittings': project.usedFittings,
+    'totalTubeUsed': FieldValue.increment(-totalTubeLength),
+    'cutCount': FieldValue.increment(-cutCountOf(cutRecords)),
     'materials': subtractMaterialsUsage(existingMaterials, 0, fittingsList),
     // 되돌린 뒤 누적이 0이면 "마지막 작업" 날짜도 지운다(저장한 적이 없는 것으로 돌아간다).
     if (project.cutCount <= 0 && project.totalTubeUsed <= 1e-6)

@@ -27,6 +27,17 @@ void main() {
       expect(manDaysOf({...r, 'author': '홍길동'}, me: '홍길동'), 2);
     });
 
+    test('같은 날 일지가 두 장(두 프로젝트)이어도 내 연차는 한 번만 빼고, 작업일수는 1일(10-08)', () {
+      AttendanceCache.byDate = {'2026-09-01': '연차'};
+      final rs = [
+        {'worker_count': 3, 'dateISO': '2026-09-01'},
+        {'worker_count': 2, 'dateISO': '2026-09-01'},
+        {'worker_count': 2, 'dateISO': '2026-09-02'},
+      ];
+      expect(totalManDays(rs, me: '홍길동'), 3 + 2 - 1 + 2);
+      expect(workDaysOf(rs), 2);
+    });
+
     test('반차: 내 몫 0.5만 뺀다', () {
       AttendanceCache.byDate = {'2026-09-01': '반차'};
       expect(manDaysOf({'worker_count': 3, 'dateISO': '2026-09-01'}), 2.5);

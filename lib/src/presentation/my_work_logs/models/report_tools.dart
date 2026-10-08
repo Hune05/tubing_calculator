@@ -248,7 +248,8 @@ ReportDoc buildReportDoc(
   };
   final dayLines = <String>[];
   final Map<String, int> phaseDays = {};
-  double manDays = 0;
+  // 내 근태는 날짜당 한 번만 뺀다(10-08).
+  final double manDays = totalManDays(reports);
   final completedTitles = <String>[];
   final scheduleTitle = {
     for (final s in schedulesOf(log))
@@ -257,7 +258,6 @@ ReportDoc buildReportDoc(
   for (final r in reports) {
     final types = workTypesOf(r['work_type']).join('·');
     final workers = (r['worker_count'] as num?)?.toInt() ?? 1;
-    manDays += manDaysOf(Map<String, dynamic>.from(r));
     final pt = (r['points'] as num?)?.toInt() ?? 0;
     final wp = (r['wiring_points'] as num?)?.toInt() ?? 0;
     final tag = attendanceTag(Map<String, dynamic>.from(r));
@@ -297,7 +297,7 @@ ReportDoc buildReportDoc(
   final sections = <ReportSection>[
     ReportSection('진행 현황', overview),
     ReportSection(
-      '작업 내역 (${reports.length}일, 투입 ${formatManDays(manDays)}인·일)',
+      '작업 내역 (${workDaysOf(reports)}일, 투입 ${formatManDays(manDays)}인·일)',
       dayLines.isEmpty ? ['이 기간에 작성된 작업 일지가 없습니다.'] : dayLines,
     ),
   ];

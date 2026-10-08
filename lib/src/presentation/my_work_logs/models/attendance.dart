@@ -17,6 +17,8 @@ import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_merge.dart'
     show currentWorkerName;
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/report_tools.dart'
+    show reportDateOf;
 
 /// "정상근무"는 화면 목록·요약에 따로 표시하지 않는다(대부분의 날이라 강조할
 /// 필요가 없다 - 표시가 있으면 오히려 눈에 덜 띈다).
@@ -289,9 +291,33 @@ double manDaysOf(Map<String, dynamic> report, {String? me}) {
   return v < 0 ? 0 : v;
 }
 
-/// 여러 보고서의 공수 합.
-double totalManDays(Iterable<Map<String, dynamic>> reports) =>
-    reports.fold(0.0, (total, r) => total + manDaysOf(r));
+/// 날짜별 공수(10-08 사용자 결정): 같은 날 일지가 여러 장이어도(프로젝트 여럿·작업조 둘) 내 근태 몫은
+/// 그날 한 번만 뺀다. 예전에는 연차인 날 두 프로젝트에 일지가 있으면 1씩 두 번 빠졌다.
+Map<DateTime, double> manDaysByDay(Iterable<Map> reports, {String? me}) {
+  final who = (me ?? currentWorkerName.value).trim();
+  final workers = <DateTime, double>{};
+  final off = <DateTime, double>{};
+  for (final raw in reports) {
+    final r = Map<String, dynamic>.from(raw);
+    final d = reportDateOf(r);
+    workers[d] = (workers[d] ?? 0) + ((r['worker_count'] as num?)?.toInt() ?? 1);
+    final author = r['author']?.toString().trim() ?? '';
+    final mine = author.isEmpty || who.isEmpty || author == who;
+    if (mine) off[d] = myAbsenceShare(attendanceTypeOf(r));
+  }
+  return {
+    for (final e in workers.entries)
+      e.key: (e.value - (off[e.key] ?? 0)) < 0 ? 0 : e.value - (off[e.key] ?? 0),
+  };
+}
+
+/// 여러 보고서의 공수 합(내 근태는 날짜당 한 번만 뺀다).
+double totalManDays(Iterable<Map> reports, {String? me}) =>
+    manDaysByDay(reports, me: me).values.fold(0.0, (a, b) => a + b);
+
+/// 작업일수: 일지가 있는 날짜 수(10-08 사용자 결정: 하루에 두 장이어도 1일).
+int workDaysOf(Iterable<Map> reports) =>
+    {for (final r in reports) reportDateOf(r)}.length;
 
 /// 화면에 보일 공수 숫자: 정수면 "3", 아니면 "3.5"(소수 첫째 자리까지만).
 String formatManDays(num v) {

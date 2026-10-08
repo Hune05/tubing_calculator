@@ -187,13 +187,14 @@ List<pw.Widget> _photoRows(List<(Uint8List, String)> items) {
 // 프로젝트 완료 시 마무리 보고서: 전체 기간 보고서에 총 통계와 결과 정리를 더한다.
 ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
   DateTime? first;
-  int days = 0, points = 0, wiring = 0;
-  double manDays = 0;
+  int points = 0, wiring = 0;
+  // 작업일수는 날짜 수, 공수는 내 근태를 날짜당 한 번만 뺀다(10-08).
+  final allReports = (log['daily_reports'] as List? ?? []).whereType<Map>().toList();
+  final days = workDaysOf(allReports);
+  final manDays = totalManDays(allReports);
   for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
     final d = reportDateOf(r);
     if (first == null || d.isBefore(first)) first = d;
-    days++;
-    manDays += manDaysOf(Map<String, dynamic>.from(r));
     points += (r['points'] as num?)?.toInt() ?? 0;
     wiring += (r['wiring_points'] as num?)?.toInt() ?? 0;
   }

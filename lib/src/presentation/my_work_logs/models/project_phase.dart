@@ -488,16 +488,12 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
   Map<String, dynamic> log,
   String phaseId,
 ) {
-  int days = 0;
-  double manDays = 0;
-  for (final r in (log['daily_reports'] as List? ?? [])) {
-    if (r is! Map) continue;
-    if (reportIds(r, 'workedPhaseIds').contains(phaseId)) {
-      days++;
-      manDays += manDaysOf(Map<String, dynamic>.from(r));
-    }
-  }
-  return (days: days, manDays: manDays);
+  // 날짜 수·날짜당 한 번 뺀 공수로 센다(10-08).
+  final worked = [
+    for (final r in (log['daily_reports'] as List? ?? []))
+      if (r is Map && reportIds(r, 'workedPhaseIds').contains(phaseId)) r,
+  ];
+  return (days: workDaysOf(worked), manDays: totalManDays(worked));
 }
 
 bool isMaterialSchedule(Map s) => s['type'] == '자재 요청' || s['type'] == '입고일';

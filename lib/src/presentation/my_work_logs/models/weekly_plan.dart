@@ -50,14 +50,14 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
     return w.contains(reportDateOf(r));
   }).toList()..sort((a, b) => reportDateOf(a).compareTo(reportDateOf(b)));
 
-  double manDays = 0;
+  // 내 근태는 날짜당 한 번만 뺀다(10-08).
+  final double manDays = totalManDays(reports);
   final done = <String>[];
   final scheduleTitle = {
     for (final s in schedulesOf(log))
       s['id'].toString(): (s['title'] ?? s['type'] ?? '').toString(),
   };
   for (final r in reports) {
-    manDays += manDaysOf(Map<String, dynamic>.from(r));
     final d = reportDateOf(r);
     final types = workTypesOf(r['work_type']).join('·');
     final note = (r['note']?.toString() ?? '').trim();
@@ -72,7 +72,7 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
     }
   }
   if (reports.isNotEmpty) {
-    lines.add('  → 작업 ${reports.length}일 · 투입 ${formatManDays(manDays)}인·일');
+    lines.add('  → 작업 ${workDaysOf(reports)}일 · 투입 ${formatManDays(manDays)}인·일');
   }
   if (done.isNotEmpty) lines.add('  ✓ 완료한 일정: ${done.toSet().join(', ')}');
 
@@ -164,15 +164,14 @@ String _openIssueText(Map<String, dynamic> log) {
 
 // 금주 한눈에 보는 요약: 작업일수·투입, 완료한 일정, 이슈 신규/처리.
 List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
-  int days = 0, created = 0, resolved = 0;
+  int created = 0, resolved = 0;
+  final weekReports = <Map>[];
   // 여러 장에 같은 일정이 있어도 한 번만 센다(10-07).
   final doneIds = <String>{};
-  double manDays = 0;
   for (final log in logs) {
     for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
       if (!w.contains(reportDateOf(r))) continue;
-      days++;
-      manDays += manDaysOf(Map<String, dynamic>.from(r));
+      weekReports.add(r);
       if (r['scheduleNoApply'] != true) {
         doneIds.addAll(reportIds(r, 'completedScheduleIds'));
       }
@@ -188,8 +187,10 @@ List<String> _summaryLines(List<Map<String, dynamic>> logs, WeekRange w) {
       }
     }
   }
+  // 여러 프로젝트에 같은 날 일지가 있어도 내 근태는 한 번만 뺀다(10-08).
+  final manDays = totalManDays(weekReports);
   return [
-    '  · 작업 $days일(작업 일지 기준) · 투입 ${formatManDays(manDays)}인·일',
+    '  · 작업 ${workDaysOf(weekReports)}일(작업 일지 기준) · 투입 ${formatManDays(manDays)}인·일',
     '  · 완료한 일정 ${doneIds.length}건',
     '  · 이슈 신규 $created건 · 처리 $resolved건',
     // 프로젝트가 여러 개면 한 줄씩 현황(카톡 텍스트로 보낼 때 한눈에 보이게).
