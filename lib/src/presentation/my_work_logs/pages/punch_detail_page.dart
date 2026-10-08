@@ -246,7 +246,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     });
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(SnackBar(content: Text(keepWords("처리 완료로 저장했습니다."))));
+    ).showSnackBar(SnackBar(content: Text(keepWords("처리 완료로 바꿨습니다. 이 화면을 나가면 저장됩니다."))));
   }
 
   void _reopen() {

@@ -280,4 +280,11 @@ void main() {
       expect(r, DateTime(2026, 10, 8, 8, 30));
     });
   });
+
+  test('자정을 넘는 일정(22:00~다음 날 02:00)도 끝 시각을 읽고 "22:00~02:00"으로 보인다(10-08)', () {
+    final start = DateTime(2026, 10, 8, 22);
+    final end = readEndTime({'endTime': DateTime(2026, 10, 9, 2).toIso8601String()}, start);
+    expect(end, DateTime(2026, 10, 9, 2));
+    expect(formatTimeRange(start, end), '22:00~02:00');
+  });
 }

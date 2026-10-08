@@ -130,6 +130,22 @@ void main() {
     expect(number(tester), '1301');
   });
 
+  testWidgets('실측 칸에 못 읽는 값을 넣으면 창을 닫지 않고 까닭을 보인다(10-08)', (tester) async {
+    addTearDown(tester.view.reset);
+    await open(tester, dataA);
+    await tester.tap(find.byKey(const Key('field_mode_toggle')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('field_measure')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('field_measure_input')), '1.234.5');
+    await tester.tap(find.byKey(const Key('field_measure_save')));
+    await tester.pump();
+    expect(find.text('0보다 큰 숫자로 넣으십시오.'), findsOneWidget);
+    expect(find.byKey(const Key('field_measure_input')), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('실측 저장 알림의 되돌리기: 기록과 실측 표시가 사라진다', (tester) async {
     addTearDown(tester.view.reset);
     await open(tester, dataA);

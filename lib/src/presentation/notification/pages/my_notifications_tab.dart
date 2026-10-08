@@ -300,6 +300,14 @@ class NewsHeaderBadgeIcon extends StatefulWidget {
 }
 
 class _NewsHeaderBadgeIconState extends State<NewsHeaderBadgeIcon> {
+  // 한 번만 맺는다(10-08: 홈을 다시 그릴 때마다 구독을 새로 맺었다).
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _announcements =
+      FirebaseFirestore.instance
+          .collection('announcements')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .snapshots();
+
   bool _hasActiveAuto = false;
 
   bool get _hasIdentity =>
@@ -326,13 +334,7 @@ class _NewsHeaderBadgeIconState extends State<NewsHeaderBadgeIcon> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
-      stream: _hasIdentity
-          ? FirebaseFirestore.instance
-                .collection('announcements')
-                .orderBy('createdAt', descending: true)
-                .limit(50)
-                .snapshots()
-          : null,
+      stream: _hasIdentity ? _announcements : null,
       builder: (context, snapshot) {
         var hasUnread = false;
         if (_hasIdentity && snapshot.hasData) {

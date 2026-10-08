@@ -240,6 +240,21 @@ class MobileMyScheduleScreen extends StatefulWidget {
 
 class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   bool _openingEditor = false;
+
+  // 개인 일정 구독은 사람이 바뀔 때만 새로 맺는다(10-08: 날짜를 누를 때마다 다시 맺어 서버 읽기가 늘고
+  // 목록이 잠깐 비었다).
+  Stream<QuerySnapshot<Map<String, dynamic>>>? _personalStream;
+  String? _personalStreamFor;
+  Stream<QuerySnapshot<Map<String, dynamic>>> _personalSchedulesStream() {
+    if (_personalStream == null || _personalStreamFor != _currentWorker) {
+      _personalStreamFor = _currentWorker;
+      _personalStream = FirebaseFirestore.instance
+          .collection(kPersonalSchedulesCollection)
+          .where('owner', isEqualTo: _currentWorker)
+          .snapshots(includeMetadataChanges: true);
+    }
+    return _personalStream!;
+  }
   String _currentWorker = kNoWorkerName;
   _ViewMode _viewMode = _ViewMode.month;
   DateTime? _tlStart;
@@ -1810,11 +1825,16 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       endTime!.hour,
                                       endTime!.minute,
                                     );
-                                    if (!combinedEnd.isAfter(combined)) {
+                                    // 끝이 시작보다 이르면 다음 날 그 시각으로 본다(10-08: 22:00~02:00 같은
+                                    // 야간 일정을 넣을 수 없었다). 같으면 막는다.
+                                    if (combinedEnd.isAtSameMomentAs(combined)) {
                                       setSheetState(
-                                        () => timeError = "끝나는 시간이 시작보다 앞입니다.",
+                                        () => timeError = "끝나는 시간이 시작과 같습니다.",
                                       );
                                       return;
+                                    }
+                                    if (combinedEnd.isBefore(combined)) {
+                                      combinedEnd = combinedEnd.add(const Duration(days: 1));
                                     }
                                   }
                                   // 반복 일정의 회차에서 열었으면 어디까지 고칠지 묻는다.
@@ -4639,10 +4659,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             // (D-C) 가운데 빙글이 대신 카드 모양 자리.
             ? const LoadingList(key: Key('schedule_loading'))
             : StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection(kPersonalSchedulesCollection)
-                    .where('owner', isEqualTo: _currentWorker)
-                    .snapshots(includeMetadataChanges: true),
+                stream: _personalSchedulesStream(),
                 builder: (context, snapshot) {
                   final List<_AgendaItem> personalItems = [];
                   // 통신 없는 곳에서 만든 일정이 아직 서버로 못 올라갔으면 알려 준다.

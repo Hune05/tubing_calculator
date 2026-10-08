@@ -1327,7 +1327,8 @@ class _MobileMenuPageState extends State<MobileMenuPage>
             if (rainSum > 0 && firstRain != null && lastRain != null) {
               _rainExpected = true;
               _rainStart = "${firstRain.hour}";
-              _rainEnd = "${lastRain.hour}";
+              // 예보는 3시간 묶음이라 마지막 묶음이 끝나는 때가 그치는 시각이다(10-08: 3시간 이르게 보였다).
+              _rainEnd = "${lastRain.add(const Duration(hours: 3)).hour}";
               _totalRain = rainSum;
             } else {
               _rainExpected = false;

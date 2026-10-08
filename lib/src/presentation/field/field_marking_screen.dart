@@ -11,6 +11,7 @@ library;
 
 import 'dart:convert';
 
+import 'package:tubing_calculator/src/presentation/common/number_text.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/field_view_picker.dart';
@@ -2017,6 +2018,7 @@ class _MeasureDialog extends StatefulWidget {
 }
 
 class _MeasureDialogState extends State<_MeasureDialog> {
+  String? _measureErr;
   final TextEditingController _ctrl = TextEditingController();
 
   /// 지난 실측 참고 글(없으면 null, 읽는 중이면 빈 글).
@@ -2066,10 +2068,14 @@ class _MeasureDialogState extends State<_MeasureDialog> {
             controller: _ctrl,
             autofocus: true,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: '실제로 잰 값 (mm)',
               suffixText: 'mm',
+              errorText: _measureErr,
             ),
+            onChanged: (_) {
+              if (_measureErr != null) setState(() => _measureErr = null);
+            },
           ),
         ],
       ),
@@ -2081,8 +2087,12 @@ class _MeasureDialogState extends State<_MeasureDialog> {
         TextButton(
           key: const Key('field_measure_save'),
           onPressed: () {
-            final v = double.tryParse(_ctrl.text.trim().replaceAll(',', '.'));
-            if (v == null) return;
+            // "1,234.5"도 읽고, 못 읽으면 까닭을 보인다(10-08: 아무 반응이 없었다).
+            final v = parseNumberText(_ctrl.text);
+            if (v == null || !v.isFinite || v <= 0) {
+              setState(() => _measureErr = '0보다 큰 숫자로 넣으십시오.');
+              return;
+            }
             Navigator.pop(context, v);
           },
           child: const Text('저장'),

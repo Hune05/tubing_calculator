@@ -20,33 +20,62 @@ String icsEscape(String s) => s
     .replaceAll(';', '\\;');
 
 /// 반복 종류 → RRULE. 반복이 없으면 null.
-String? icsRrule(String recurrence, {DateTime? until}) {
+/// [start]가 있으면 앱과 같은 날로 맞춘다(10-08): 매달 29~31일은 그 날이 없는 달에 말일로
+/// (예전엔 다른 달력 앱이 그 달을 건너뛰었다), 매년 2/29는 평년에 2/28로.
+/// [allDay]면 UNTIL을 날짜로, 아니면 UTC 시각으로 적는다(시작이 TZID일 때의 규칙).
+String? icsRrule(
+  String recurrence, {
+  DateTime? until,
+  DateTime? start,
+  bool allDay = false,
+}) {
+  final day = start?.day ?? 1;
   String? base = switch (recurrence) {
     'daily' => 'FREQ=DAILY',
     'weekdays' => 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR',
     'weekly' => 'FREQ=WEEKLY',
     'biweekly' => 'FREQ=WEEKLY;INTERVAL=2',
+    'monthly' when day > 28 =>
+      'FREQ=MONTHLY;BYMONTHDAY=${[for (var d = 28; d <= day; d++) d].join(',')};BYSETPOS=-1',
     'monthly' => 'FREQ=MONTHLY',
+    'yearly' when start != null && start.month == 2 && start.day == 29 =>
+      'FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1',
     'yearly' => 'FREQ=YEARLY',
     _ => null,
   };
   if (base == null) return null;
   if (until != null) {
-    base = '$base;UNTIL=${icsDate(until)}T235959';
+    if (allDay) {
+      base = '$base;UNTIL=${icsDate(until)}';
+    } else {
+      // 한국 시각 그날 23:59:59 → UTC(9시간 앞).
+      final u = DateTime.utc(until.year, until.month, until.day, 23, 59, 59)
+          .subtract(const Duration(hours: 9));
+      base = '$base;UNTIL=${icsDateTime(u).substring(0, 13)}${_two(u.second)}Z';
+    }
   }
   return base;
 }
 
-/// 75자마다 줄을 접는다(형식 규칙).
+/// 75바이트(UTF-8)마다 줄을 접는다(형식 규칙). 한글·이모지를 글자 중간에서 자르지 않는다
+/// (10-08: 글자 수로 세어 한 줄이 225바이트까지 되고, 이모지가 반으로 쪼개질 수 있었다).
 String _fold(String line) {
-  if (line.length <= 75) return line;
   final buf = StringBuffer();
-  var i = 0;
-  while (i < line.length) {
-    final end = (i + 75).clamp(0, line.length);
-    if (i > 0) buf.write('\r\n ');
-    buf.write(line.substring(i, end));
-    i = end;
+  var bytes = 0;
+  for (final rune in line.runes) {
+    final n = rune < 0x80
+        ? 1
+        : rune < 0x800
+        ? 2
+        : rune < 0x10000
+        ? 3
+        : 4;
+    if (bytes + n > 75) {
+      buf.write('\r\n ');
+      bytes = 1; // 이어지는 줄 앞 빈칸
+    }
+    buf.write(String.fromCharCode(rune));
+    bytes += n;
   }
   return buf.toString();
 }
@@ -67,7 +96,17 @@ List<String> icsEventLines(String id, Map<String, dynamic> d) {
     'SUMMARY:${icsEscape(title)}',
   ];
   if (hasTime) {
-    final end = readEndTime(d, base) ?? base.add(const Duration(hours: 1));
+    var end = readEndTime(d, base) ?? base.add(const Duration(hours: 1));
+    // 시간이 있는 여러 날 일정은 마지막 날 그 시각까지(10-08: 첫날 1시간짜리로 나갔다).
+    final rawEnd = d['endDate'] is String
+        ? DateTime.tryParse(d['endDate'] as String)
+        : null;
+    if (rawEnd != null &&
+        DateTime(rawEnd.year, rawEnd.month, rawEnd.day)
+            .isAfter(DateTime(base.year, base.month, base.day))) {
+      final e = DateTime(rawEnd.year, rawEnd.month, rawEnd.day, end.hour, end.minute);
+      if (e.isAfter(base)) end = e;
+    }
     lines.add('DTSTART;TZID=Asia/Seoul:${icsDateTime(base)}');
     lines.add('DTEND;TZID=Asia/Seoul:${icsDateTime(end)}');
   } else {
@@ -81,7 +120,12 @@ List<String> icsEventLines(String id, Map<String, dynamic> d) {
       'DTEND;VALUE=DATE:${icsDate(DateTime(last.year, last.month, last.day + 1))}',
     );
   }
-  final rrule = icsRrule(recurrence, until: readUntil(d));
+  final rrule = icsRrule(
+    recurrence,
+    until: readUntil(d),
+    start: base,
+    allDay: !hasTime,
+  );
   if (rrule != null) lines.add('RRULE:$rrule');
   for (final ex in readExceptions(d)) {
     final exd = DateTime.tryParse(ex);

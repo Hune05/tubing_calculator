@@ -54,6 +54,14 @@ bool announcementIsRead(Map<String, dynamic> data, String worker, {String? uid})
 }
 
 class _MobileNotificationPageState extends State<MobileNotificationPage> {
+  // 한 번만 맺는다(10-08: 다시 그릴 때마다 구독을 새로 맺어 로딩 원이 깜빡였다).
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _announcements =
+      FirebaseFirestore.instance
+          .collection('announcements')
+          .orderBy('createdAt', descending: true)
+          .limit(50)
+          .snapshots();
+
   bool get _hasIdentity =>
       widget.currentWorker.isNotEmpty && widget.currentWorker != "로그인 필요";
 
@@ -216,11 +224,7 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
   Widget _buildBody(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       // 🔥 최근 알림 내역을 불러옵니다.
-      stream: FirebaseFirestore.instance
-          .collection('announcements')
-          .orderBy('createdAt', descending: true)
-          .limit(50)
-          .snapshots(),
+      stream: _announcements,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(

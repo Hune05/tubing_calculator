@@ -1,3 +1,4 @@
+import 'dart:convert';
 // 내 일정 → .ics 파일 글.
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_ics.dart';
@@ -56,7 +57,22 @@ void main() {
     expect(icsRrule('biweekly'), 'FREQ=WEEKLY;INTERVAL=2');
     expect(
       icsRrule('weekly', until: DateTime(2026, 10, 7)),
-      'FREQ=WEEKLY;UNTIL=20261007T235959',
+      // 시각 일정은 UTC로(한국 23:59:59 = 14:59:59Z, 10-08)
+      'FREQ=WEEKLY;UNTIL=20261007T145959Z',
+    );
+    expect(
+      icsRrule('weekly', until: DateTime(2026, 10, 7), allDay: true),
+      'FREQ=WEEKLY;UNTIL=20261007',
+    );
+    // 31일 매달은 그 날이 없는 달에 말일로, 2/29 매년은 평년에 2/28로(앱과 같게).
+    expect(
+      icsRrule('monthly', start: DateTime(2026, 1, 31)),
+      'FREQ=MONTHLY;BYMONTHDAY=28,29,30,31;BYSETPOS=-1',
+    );
+    expect(icsRrule('monthly', start: DateTime(2026, 1, 15)), 'FREQ=MONTHLY');
+    expect(
+      icsRrule('yearly', start: DateTime(2028, 2, 29)),
+      'FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=28,29;BYSETPOS=-1',
     );
     final lines = icsEventLines('x', {
       'title': '회의',
@@ -77,5 +93,28 @@ void main() {
     expect(s.endsWith('END:VCALENDAR\r\n'), isTrue);
     expect('BEGIN:VEVENT'.allMatches(s).length, 1);
     expect(s.split('\r\n').every((l) => l.length <= 75), isTrue);
+  });
+
+  test('시간이 있는 여러 날 일정은 마지막 날 그 시각까지 나간다(10-08)', () {
+    final lines = icsEventLines('m', {
+      'title': '정비',
+      'dateTime': DateTime(2026, 10, 8, 9).toIso8601String(),
+      'endTime': DateTime(2026, 10, 8, 18).toIso8601String(),
+      'endDate': DateTime(2026, 10, 10).toIso8601String(),
+    });
+    expect(lines, contains('DTEND;TZID=Asia/Seoul:20261010T180000'));
+  });
+
+  test('줄 접기는 75바이트 단위, 한글을 자르지 않는다(10-08)', () {
+    final ics = buildIcs([
+      (id: 'k', data: {
+        'title': '가' * 60,
+        'dateTime': DateTime(2026, 10, 8, 9).toIso8601String(),
+      }),
+    ]);
+    for (final line in ics.split('\r\n')) {
+      expect(utf8.encode(line).length, lessThanOrEqualTo(75), reason: line);
+    }
+    expect(ics.replaceAll('\r\n ', ''), contains('SUMMARY:${'가' * 60}'));
   });
 }
