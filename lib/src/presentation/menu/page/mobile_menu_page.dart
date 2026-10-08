@@ -103,6 +103,8 @@ import '../../electrical/circuit_reading_page.dart';
 import '../../electrical/panel_design_page.dart';
 import '../../electrical/troubleshoot_page.dart';
 import '../../electrical/cable_tray_route_page.dart';
+import '../../approval/member_approval.dart' show isAdminUser;
+import '../../approval/member_approval_page.dart';
 
 // 색의 뜻(D-B): 앱의 주 색 하나(청록). 예전에는 이 화면만 파랑이었다.
 const Color tossBlue = AppColors.brand;
@@ -2316,6 +2318,14 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             builder: (context) => const TrashPage(),
                           ),
                         );
+                      } else if (v == 'approval') {
+                        HapticFeedback.lightImpact();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const MemberApprovalPage(),
+                          ),
+                        );
                       } else if (v == 'quick_edit') {
                         // 전체 메뉴를 보고 있었어도 빠른 실행으로 바꾸고
                         // 바로 편집 모드까지 켠다(2026-09-28).
@@ -2326,12 +2336,15 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                         });
                       }
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(value: 'profile', child: Text("내 프로필")),
-                      PopupMenuItem(value: 'settings', child: Text("설정")),
-                      PopupMenuItem(value: 'app_usage', child: Text("앱 사용법")),
-                      PopupMenuItem(value: 'trash', child: Text("휴지통")),
-                      PopupMenuItem(
+                    itemBuilder: (_) => [
+                      const PopupMenuItem(value: 'profile', child: Text("내 프로필")),
+                      const PopupMenuItem(value: 'settings', child: Text("설정")),
+                      const PopupMenuItem(value: 'app_usage', child: Text("앱 사용법")),
+                      const PopupMenuItem(value: 'trash', child: Text("휴지통")),
+                      // 관리자 계정에만 보인다(승인제, 10-08).
+                      if (isAdminUser())
+                        const PopupMenuItem(value: 'approval', child: Text("사용 승인")),
+                      const PopupMenuItem(
                         value: 'quick_edit',
                         child: Text("빠른 실행 편집"),
                       ),

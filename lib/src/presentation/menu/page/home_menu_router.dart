@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/presentation/menu/page/mobile_menu_page.dart';
+import 'package:tubing_calculator/src/presentation/approval/member_gate.dart';
 
 /// 🚀 [신규] 폴더블(Z Fold4 등) 대응 - 앱을 쓰는 도중 화면을 펴거나 접어도
 /// 그 순간의 화면 크기에 맞는 홈 화면을 실시간으로 보여준다.
@@ -24,8 +25,12 @@ class HomeMenuRouter extends StatelessWidget {
       (_) => SharedDrawingInbox.markHomeReady(),
     );
     // 2026-09-29: 화면 크기와 상관없이 폭 제한 없이 화면 전체를 쓰는 폰 메뉴 하나만 쓴다.
+    // 승인제(10-08): 이름이 있으면 홈 앞에서 승인 상태를 본다(꺼져 있으면 그냥 홈).
     if (currentWorker != "로그인 필요") {
-      return MobileMenuPage(currentWorker: currentWorker);
+      return MemberGate(
+        name: currentWorker,
+        child: MobileMenuPage(currentWorker: currentWorker),
+      );
     }
     // 이름 없이 열렸으면(/menu 경로) 폰에 적어 둔 이름을 쓴다. 예전엔 로그인이 풀린 것처럼 보였다.
     return FutureBuilder<String?>(
@@ -37,8 +42,12 @@ class HomeMenuRouter extends StatelessWidget {
           return const Scaffold(body: SizedBox.shrink());
         }
         final name = snap.data;
-        return MobileMenuPage(
-          currentWorker: name == null || name.isEmpty ? currentWorker : name,
+        if (name == null || name.isEmpty) {
+          return MobileMenuPage(currentWorker: currentWorker);
+        }
+        return MemberGate(
+          name: name,
+          child: MobileMenuPage(currentWorker: name),
         );
       },
     );

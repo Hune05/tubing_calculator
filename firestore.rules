@@ -1,6 +1,13 @@
 rules_version = '2';
 
-// Firestore 권한 규칙 (2026-09-24).
+// Firestore 권한 규칙 (2026-09-24, 승인제 10-08).
+//
+// ⚠️ 승인제(10-08) 올리는 순서 — 순서를 어기면 지금 쓰는 사람이 모두 막힌다
+//   1) 승인 기능이 든 앱(빌드 2103 이후)을 모두 깔고 한 번씩 연다 → app_members에 "대기"로 올라온다.
+//   2) 관리자가 앱 ⋮ → 사용 승인에서 전부 승인한다.
+//   3) 그다음 이 규칙을 콘솔 → Firestore → 규칙에 붙여 넣어 게시한다.
+//   4) 필요하면 "승인제 켜기"로 앱 화면도 막는다(규칙만으로도 서버 자료는 막힌다).
+//   관리자는 isAdmin()의 이메일 하나(앱 kAdminEmail과 같은 값).
 //
 // ⚠️ 올리기 전에 먼저 확인할 것
 //   이 규칙은 "로그인한 사람만" 읽고 쓰게 한다. "이름만 넣고 시작"한 사람은 익명 로그인으로
@@ -34,6 +41,20 @@ service cloud.firestore {
       return request.auth.uid;
     }
 
+    // 관리자(앱 member_approval.dart의 kAdminEmail과 같은 계정).
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email == 'a01020020271@gmail.com'
+        && request.auth.token.email_verified == true;
+    }
+
+    // 승인된 사람(app_members/{uid}.status == approved)이거나 관리자.
+    function approved() {
+      return isAdmin()
+        || (signedIn()
+            && get(/databases/$(database)/documents/app_members/$(request.auth.uid)).data.status == 'approved');
+    }
+
     // 주인 칸이 없거나 비었으면 공용.
     function noOwner(data) {
       return !('ownerUid' in data) || data.ownerUid == null || data.ownerUid == '';
@@ -52,7 +73,8 @@ service cloud.firestore {
     // 위에서 따로 규칙을 정한 모음(나머지 규칙에서 뺀다).
     function specialColls() {
       return ownedColls().concat(['users', 'inventory', 'cutting_leftovers',
-                                  'my_project_settings', 'reference_content']);
+                                  'my_project_settings', 'reference_content',
+                                  'app_members', 'app_config']);
     }
 
     // 사용자 문서에 주인 uid가 아직 안 적혔는지.
@@ -61,22 +83,22 @@ service cloud.firestore {
     }
 
     match /users/{name} {
-      allow read: if signedIn();
-      allow create: if signedIn()
+      allow read: if approved();
+      allow create: if approved()
         && (nameFree(request.resource.data) || request.resource.data.uid == me());
-      allow update: if signedIn()
+      allow update: if approved()
         && (nameFree(resource.data) || resource.data.uid == me())
         && (nameFree(request.resource.data) || request.resource.data.uid == me());
-      allow delete: if signedIn()
+      allow delete: if approved()
         && !nameFree(resource.data) && resource.data.uid == me();
     }
 
     match /inventory/{id} {
-      allow read: if signedIn();
-      allow create: if signedIn() && ownerOk(request.resource.data);
-      allow update: if signedIn()
+      allow read: if approved();
+      allow create: if approved() && ownerOk(request.resource.data);
+      allow update: if approved()
         && ownerOk(resource.data) && ownerOk(request.resource.data);
-      allow delete: if signedIn() && ownerOk(resource.data);
+      allow delete: if approved() && ownerOk(resource.data);
     }
 
     // 프로젝트·컷팅 작업·라인 틀·단계 틀(점검 25·26번)은 재고와 같다: 주인이 있으면 그
@@ -84,37 +106,54 @@ service cloud.firestore {
     // 그 밖의 모음은 로그인한 사람이면 읽고 쓴다. 따로 정한 모음(users·inventory·잔재·설정)은
     // 여기서 빼 둬야 그 규칙이 먹힌다(규칙은 하나라도 허락하면 통과).
     match /{coll}/{id} {
-      allow read: if signedIn()
+      allow read: if approved()
         && (coll in ownedColls() || !(coll in specialColls()));
-      allow create: if signedIn()
+      allow create: if approved()
         && ((coll in ownedColls() && ownerOk(request.resource.data))
             || !(coll in specialColls()));
-      allow update: if signedIn()
+      allow update: if approved()
         && ((coll in ownedColls() && ownerOk(resource.data)
              && ownerOk(request.resource.data))
             || !(coll in specialColls()));
-      allow delete: if signedIn()
+      allow delete: if approved()
         && ((coll in ownedColls() && ownerOk(resource.data))
             || !(coll in specialColls()));
     }
 
     // 잔재: 사람마다 current__{uid}, 예전 공용 문서는 current(점검 26번).
     match /cutting_leftovers/{doc} {
-      allow read: if signedIn();
-      allow write: if signedIn() && (doc == 'current' || doc == 'current__' + me());
+      allow read: if approved();
+      allow write: if approved() && (doc == 'current' || doc == 'current__' + me());
     }
 
     // 사람마다 두는 설정(이름__{uid}). 이름만인 문서는 예전에 같이 쓰던 것(점검 25번).
     match /my_project_settings/{doc} {
-      allow read: if signedIn();
-      allow write: if signedIn()
+      allow read: if approved();
+      allow write: if approved()
         && (!doc.matches('.*__.*') || doc.matches('.*__' + me()));
     }
 
     // 근태 기록(문서 이름 {uid}__{yyyy-MM-dd}) - 프로젝트와 무관하게 사람 기준이라
     // 자기 것만 읽고 쓴다(필드 헬퍼 4번).
     match /attendance_records/{doc} {
-      allow read, write: if signedIn() && doc.split('__')[0] == me();
+      allow read, write: if approved() && doc.split('__')[0] == me();
+    }
+
+    // 사용 승인(10-08): 내 문서는 내가 "대기"로만 만들고, 상태는 관리자만 바꾼다.
+    match /app_members/{uid} {
+      allow read: if isAdmin() || (signedIn() && uid == me());
+      allow create: if isAdmin()
+        || (signedIn() && uid == me() && request.resource.data.status == 'pending');
+      allow update: if isAdmin()
+        || (signedIn() && uid == me()
+            && request.resource.data.status == resource.data.status);
+      allow delete: if isAdmin();
+    }
+
+    // 앱 설정(승인제 켜기 등): 로그인하면 읽고, 관리자만 쓴다.
+    match /app_config/{doc} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
 
     // 현장 자료(전기 기준 KEC 요약·새 개정 공고). 서버 함수(checkKecNotice)만 쓰고,
@@ -126,7 +165,7 @@ service cloud.firestore {
 
     // 하위 모음(컷팅 기록·형강 변경 기록 등)은 로그인한 사람이면 읽고 쓴다.
     match /{coll}/{id}/{sub}/{rest=**} {
-      allow read, write: if signedIn() && !(coll in ['users', 'inventory']);
+      allow read, write: if approved() && !(coll in ['users', 'inventory']);
     }
   }
 }
