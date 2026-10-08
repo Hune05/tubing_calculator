@@ -19,7 +19,8 @@ import java.util.Locale
  * 휴게 알람: "10:00 ~ 10:15"처럼 쉬는 시간대를 정해 두면 시작할 때와 끝날 때 폰이 알려 준다.
  * 출퇴근 위젯의 [휴게] 단추가 여는 창(ClockQuickActivity)에서 정한다.
  * 근태 기록(휴게시간)은 바꾸지 않는다: 근로시간 계산에서 법정 휴게를 대신하면 오히려 틀어질 수 있어서,
- * 이것은 알림과 위젯 칩 표시만 한다. 폰을 껐다 켜면 예약은 사라진다.
+ * 이것은 알림과 위젯 칩 표시만 한다. 폰을 껐다 켜면 예약이 사라지므로 다시 켤 때 [rescheduleAll]로
+ * 다시 건다(FieldDaily, 10-09).
  */
 object ClockBreak {
     const val CHANNEL_ID = "attendance_break_channel"
@@ -100,6 +101,15 @@ object ClockBreak {
         save(c, cur + item)
         FieldWidgetStore.refreshAll(c)
         return null
+    }
+
+    /** 저장해 둔 남은 휴게 알람을 다시 건다(폰을 다시 켜면 예약이 사라진다). */
+    fun rescheduleAll(c: Context) {
+        val now = System.currentTimeMillis()
+        for (item in list(c)) {
+            if (item.start > now) setAlarm(c, item.start, pending(c, item.id * 2, "start", item, item.id))
+            setAlarm(c, item.end, pending(c, item.id * 2 + 1, "end", item, item.id))
+        }
     }
 
     fun remove(c: Context, id: Int) {

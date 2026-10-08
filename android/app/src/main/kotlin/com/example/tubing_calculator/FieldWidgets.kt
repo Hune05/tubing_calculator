@@ -153,6 +153,8 @@ object FieldWidgetStore {
         for (id in mgr.getAppWidgetIds(ComponentName(c, ScheduleWidgetProvider::class.java))) mgr.updateAppWidget(id, ScheduleWidgetProvider.build(c, id))
         // 압력시험 타이머(앱 타이머형)
         for (id in mgr.getAppWidgetIds(ComponentName(c, PressureAppWidgetProvider::class.java))) mgr.updateAppWidget(id, PressureAppWidgetProvider.build(c))
+        // 날짜가 바뀌면 다시 그리도록 다음 자정을 예약해 둔다(10-09).
+        FieldDaily.scheduleNextDay(c)
     }
 
     /** 위젯을 누르면 앱을 열면서 [action]을 넘긴다. [code]는 위젯 눌림마다 달라야 한다. */
