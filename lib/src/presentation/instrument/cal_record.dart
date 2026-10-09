@@ -470,6 +470,26 @@ List<CalPointDef> _pointsFromJson(Object? v) {
 String calVerdictText(bool? pass) =>
     pass == null ? '판정 없음' : (pass ? '합격' : '불합격');
 
+/// 교정일 [date]에서 [months]달 뒤 차기 교정일. 그 달에 그 날이 없으면 그 달 마지막 날
+/// (8차, 10-09: 8/31 + 6개월이 2/31 → 3/3으로 넘어갔다).
+DateTime calNextDue(DateTime date, int months) {
+  final total = date.month - 1 + months;
+  final y = date.year + total ~/ 12;
+  final m = total % 12 + 1;
+  final last = DateTime(y, m + 1, 0).day;
+  return DateTime(y, m, date.day > last ? last : date.day);
+}
+
+/// 저장된 차기 교정일이 교정일에서 [choices] 중 몇 달 뒤인지. 어느 것과도 맞지 않으면 null(직접 정한 날 등).
+int? calDueMonthsOf(DateTime date, DateTime due, Iterable<int> choices) {
+  for (final m in choices) {
+    if (m <= 0) continue;
+    final d = calNextDue(date, m);
+    if (d.year == due.year && d.month == due.month && d.day == due.day) return m;
+  }
+  return null;
+}
+
 String calDay(DateTime d) =>
     '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 

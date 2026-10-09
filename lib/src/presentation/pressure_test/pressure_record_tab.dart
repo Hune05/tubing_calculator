@@ -882,7 +882,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     if (plan != null) {
       test = actualGiven
           ? '시험압력: ${_pg._p(plan.usedKpa)} (실제 시험압력)'
-          : '시험압력: ${_pg._p(plan.minKpa)} 이상 (최소 시험압력)';
+          : '시험압력: ${_pg._pUp(plan.minKpa)} 이상 (최소 시험압력)';
     } else {
       test = actualGiven ? '시험압력: ${_pg._p(actual)} (실제 시험압력)' : '시험압력: 없음';
     }

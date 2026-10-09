@@ -202,7 +202,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
   double? _parse(UnitDef u, String t) {
     if (u.id == 'in_frac' || u.id == 'ft_in') {
       final inch = parseInches(t);
-      return inch == null ? null : u.toBase(inch);
+      return inch == null || !inch.isFinite ? null : u.toBase(inch);
     }
     final v = parseNumber(t);
     return v == null ? null : u.toBase(v);

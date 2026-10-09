@@ -259,4 +259,14 @@ void main() {
     // 50% 점 조정 전: 입력값 5, 측정값 12.1, 오차 0.625
     expect(lines[1], contains(',5,12.1,0.625,'));
   });
+
+  test('차기 교정일: 월말은 그 달 마지막 날로, 저장된 날이 칸과 안 맞으면 그대로 둔다(8차)', () {
+    expect(calNextDue(DateTime(2026, 8, 31), 6), DateTime(2027, 2, 28));
+    expect(calNextDue(DateTime(2027, 8, 31), 6), DateTime(2028, 2, 29));
+    expect(calNextDue(DateTime(2026, 1, 15), 12), DateTime(2027, 1, 15));
+    expect(calNextDue(DateTime(2026, 10, 31), 24), DateTime(2028, 10, 31));
+    expect(calDueMonthsOf(DateTime(2026, 8, 31), DateTime(2027, 2, 28), [0, 6, 12, 24]), 6);
+    // 예전 셈으로 저장된 3/3은 어느 칸과도 맞지 않는다(고치기에서 그 날짜를 그대로 둔다).
+    expect(calDueMonthsOf(DateTime(2026, 8, 31), DateTime(2027, 3, 3), [0, 6, 12, 24]), isNull);
+  });
 }

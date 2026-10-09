@@ -2664,18 +2664,24 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
   late int _dueMonths = _initialDue();
   bool _tagError = false;
 
+  /// 고치기로 열었을 때 고를 칸. 저장된 차기 교정일이 고를 칸과 맞지 않으면(예전에 월말이 넘어가 저장된
+  /// 3/3 등) [_keepDue]로 그 날짜를 그대로 둔다(8차, 10-09: "없음"으로 열려 저장하면 지워졌다).
   int _initialDue() {
     final e = widget.editing;
     if (e?.nextDue == null) return 0;
-    final m =
-        (e!.nextDue!.year - e.date.year) * 12 +
-        (e.nextDue!.month - e.date.month);
-    return _dueChoices.any((c) => c.$2 == m) ? m : 0;
+    return calDueMonthsOf(e!.date, e.nextDue!, [
+          for (final c in _dueChoices) c.$2,
+        ]) ??
+        _keepDue;
   }
 
-  DateTime? get _nextDue => _dueMonths == 0
-      ? null
-      : DateTime(_calDate.year, _calDate.month + _dueMonths, _calDate.day);
+  static const int _keepDue = -1;
+
+  DateTime? get _nextDue => switch (_dueMonths) {
+    0 => null,
+    _keepDue => widget.editing?.nextDue,
+    final m => calNextDue(_calDate, m),
+  };
 
   /// 불러온 기록의 태그를 바꾸면 다른 계기로 보고 "새로 저장"을 기본으로.
   bool get _tagChanged =>
@@ -2840,6 +2846,13 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
                     label: Text(label),
                     selected: _dueMonths == m,
                     onSelected: (_) => setState(() => _dueMonths = m),
+                  ),
+                if (_initialDue() == _keepDue)
+                  ChoiceChip(
+                    key: const Key('cs_due_keep'),
+                    label: Text('저장된 날짜(${calDay(widget.editing!.nextDue!)})'),
+                    selected: _dueMonths == _keepDue,
+                    onSelected: (_) => setState(() => _dueMonths = _keepDue),
                   ),
               ],
             ),

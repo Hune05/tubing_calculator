@@ -780,7 +780,9 @@ double? parseNumber(String s) {
     }
   }
   if (!_plainNumber.hasMatch(t)) return null;
-  return double.tryParse(t);
+  final v = double.tryParse(t);
+  // 아주 긴 숫자는 무한대로 읽혀 화면이 오류 상자로 바뀌었다(8차, 10-09). 못 읽는 수로 본다.
+  return v != null && v.isFinite ? v : null;
 }
 
 /// 아직 치는 중인 숫자("-", ".", "-.")라 못 읽어도 알리지 않는다.
@@ -848,6 +850,8 @@ double? parseInches(String input) {
 
 /// 인치를 가장 가까운 1/[denom]" 분수로. [errMm]은 (실제 − 분수)mm — 양수면 실제가 더 길다.
 ({String text, double errMm}) inchFraction(double inches, {int denom = 16}) {
+  // 무한대·너무 큰 값은 분수로 나눌 수 없다(무한대는 정수로 바꾸다 오류가 났다, 8차).
+  if (!inches.isFinite || inches.abs() * denom > 1e15) return (text: '', errMm: 0);
   final neg = inches < 0;
   final a = inches.abs();
   final n = (a * denom).round();
@@ -869,6 +873,7 @@ double? parseInches(String input) {
 
 /// 인치를 피트·인치 분수로(예: 4' 1-3/8").
 String feetInches(double inches, {int denom = 16}) {
+  if (!inches.isFinite || inches.abs() * denom > 1e15) return '';
   final neg = inches < 0;
   final n = (inches.abs() * denom).round(); // 1/denom 인치 단위로 반올림
   final ft = n ~/ (12 * denom);

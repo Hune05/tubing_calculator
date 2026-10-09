@@ -480,4 +480,16 @@ void main() {
     );
     expect(chip.selected, isTrue);
   });
+
+  testWidgets('아주 긴 숫자(무한대)를 넣어도 화면이 깨지지 않고 못 읽는 숫자로 알린다(8차)', (tester) async {
+    await pumpPage(tester);
+    await type(tester, 'uc_field_mm', '9' * 400);
+    expect(tester.takeException(), isNull);
+    expect(textOf(tester, 'uc_field_in_frac'), '');
+    await type(tester, 'uc_field_in_frac', '9' * 400);
+    expect(tester.takeException(), isNull);
+    // 아주 큰(유한한) 값도 분수 칸이 엉뚱한 값을 내지 않는다.
+    expect(inchFraction(1e300).text, '');
+    expect(feetInches(double.infinity), '');
+  });
 }

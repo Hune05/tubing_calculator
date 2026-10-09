@@ -421,4 +421,28 @@ void main() {
     expect(near.before, 0);
     expect(near.branch, 0);
   });
+
+  test('나눠 꺾기에서 마디 간격이 V컷 폭보다 좁으면 겹친다고 알린다(8차)', () {
+    // 90°를 3번(30°씩), 측판 100 → V컷 폭 2×100×tan15° = 53.6mm
+    final tight = trayRoute(
+      kind: TrayRouteKind.up,
+      rise: 400,
+      angle: 90,
+      rail: 100,
+      toFace: 1000,
+      pieces: 3,
+      pitch: 30,
+    );
+    expect(tight.problems.any((p) => p.contains('V컷이 서로 겹칩니다')), isTrue);
+    final ok = trayRoute(
+      kind: TrayRouteKind.up,
+      rise: 400,
+      angle: 90,
+      rail: 100,
+      toFace: 1000,
+      pieces: 3,
+      pitch: 60,
+    );
+    expect(ok.problems.any((p) => p.contains('V컷이 서로 겹칩니다')), isFalse);
+  });
 }

@@ -6,7 +6,7 @@
 // 끼워 넣고 이어서 계산한다. 계산 결과가 사칙연산·정수 거듭제곱만 거쳤으면 "S⇔D"로
 // 소수↔정확한 분수를 바꿔 볼 수 있다(무리수 함수를 거치면 분수가 없어 소수만 나온다).
 //
-// 피트·인치: 따로 칸을 두지 않고 "FT" 단추가 지금까지 친 수를 "×12+"로 바꿔 준다
+// 피트·인치: 따로 칸을 두지 않고 "FT" 단추가 지금까지 친 수를 "(N×12+"로 바꿔 준다(다음 연산자·=에서 닫힘)
 // (3' 3-1/2" → 3 FT 3 + 1/2 로 눌러 39.5가 나온다). 결과 아래에 가장 가까운 인치
 // 분수(예: ≈ 3' 3-1/2")도 같이 보여 준다(설정에서 켜고 끈다).
 import 'package:flutter/material.dart';
@@ -212,7 +212,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         ? 'Ans${_expr.substring(ansText.length)}'
         : _expr;
     final t = _stripTrailingOps(
-      src.replaceFirst(RegExp(r'\s*mod\s*$'), ''),
+      closeFeetGroup(src.replaceFirst(RegExp(r'\s*mod\s*$'), '')),
     ).trim().replaceAll('−', '-');
     if (t.isEmpty) {
       _live = null;
@@ -235,26 +235,32 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   }
 
   /// 지금 치는 중인 분수를 "(whole+num/den)" 글자로 바꿔 [_expr]에 붙이고 지운다.
-  /// 분모가 비었거나 0이면 분수 없이 그냥 (whole+num)으로 붙인다(계산이 막히지 않게).
-  void _commitFraction() {
+  /// 분모가 비었거나 0이면 붙이지 않고 까닭을 띄운 뒤 false(부른 쪽은 하던 일을 멈춘다).
+  /// 8차(10-09): 예전에는 분모 없이 (whole+num)으로 붙여 "3 1/□"이 4가 됐고, 분모 0도 말없이 넘어갔다.
+  bool _commitFraction() {
     final f = _frac;
-    if (f == null) return;
+    if (f == null) return true;
+    if (f.den.isEmpty || RegExp(r'^0*$').hasMatch(f.den)) {
+      _live = null;
+      _error = f.den.isEmpty ? '분모를 넣으십시오' : '0으로 나눌 수 없습니다';
+      f.active = _FracField.den;
+      return false;
+    }
     final whole = f.whole.isEmpty ? null : f.whole;
     final num = f.num.isEmpty ? '0' : f.num;
-    final den = f.den.isEmpty || f.den == '0' ? null : f.den;
-    final body = den == null
-        ? (whole == null ? num : '($whole+$num)')
-        : (whole == null ? '($num/$den)' : '($whole+$num/$den)');
+    final den = f.den;
+    final body = whole == null ? '($num/$den)' : '($whole+$num/$den)';
     if (_endsWithDigitOrClose) _expr += '×';
     _expr += body;
     _frac = null;
+    return true;
   }
 
   void _tapFracKey() {
     HapticFeedback.selectionClick();
     setState(() {
       if (_frac != null) {
-        _commitFraction(); // 이미 치던 분수가 있으면 마무리하고 새로 시작.
+        if (!_commitFraction()) return; // 이미 치던 분수가 있으면 마무리하고 새로 시작.
       }
       if (_justEvaluated) {
         _expr = '';
@@ -338,12 +344,13 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     HapticFeedback.selectionClick();
     setState(() {
       _justEvaluated = false;
-      _commitFraction();
+      if (!_commitFraction()) return;
       if (_expr.isEmpty) {
         if (opDisplay == '−') _expr = '-'; // 맨 앞 빼기는 음수 부호로.
         _recalc();
         return;
       }
+      _expr = closeFeetGroup(_expr);
       // 연산자를 연달아 누르면 마지막 것을 바꾼다(오타 고치기 편하게).
       if (_opChars.contains(_expr[_expr.length - 1])) {
         _expr = _expr.substring(0, _expr.length - 1) + opDisplay;
@@ -357,7 +364,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void _tapFn(String name) {
     HapticFeedback.selectionClick();
     setState(() {
-      _commitFraction();
+      if (!_commitFraction()) return;
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
@@ -372,7 +379,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void _tapConst(String c) {
     HapticFeedback.selectionClick();
     setState(() {
-      _commitFraction();
+      if (!_commitFraction()) return;
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
@@ -387,7 +394,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void _tapParen(String p) {
     HapticFeedback.selectionClick();
     setState(() {
-      _commitFraction();
+      if (!_commitFraction()) return;
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
@@ -402,7 +409,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void _tapPostfix(String s) {
     HapticFeedback.selectionClick();
     setState(() {
-      _commitFraction();
+      if (!_commitFraction()) return;
       _justEvaluated = false;
       if (_expr.isEmpty) return;
       _expr += s;
@@ -410,15 +417,19 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     });
   }
 
-  /// 피트: 지금까지 친 수(맨 뒤 숫자 토막)를 "×12+"로 바꾼다.
-  /// 예: "3" 다음 FT → "3×12+", 이어서 "3+1/2" → 3'-3 1/2"(39.5)와 같은 값.
+  /// 피트: 지금까지 친 수(맨 뒤 숫자 토막)를 "(N×12+"로 바꾸고, 이어 치는 인치까지 한 묶음으로 둔다.
+  /// 다음 연산자나 =를 누르면 묶음을 닫는다. 예: 3 FT 3 → (3×12+3) = 39.
+  /// 8차(10-09): 예전에는 "×12+"만 붙여 뒤에 빼기·나누기가 오면 인치만 따로 셈했다
+  /// (20′ − 3′6″ → 20×12+0−3×12+6 = 210, 맞는 값 198).
   void _tapFeet() {
     HapticFeedback.selectionClick();
     setState(() {
-      _commitFraction();
+      if (!_commitFraction()) return;
       _justEvaluated = false;
-      if (_expr.isEmpty || !RegExp(r'[0-9]$').hasMatch(_expr)) return;
-      _expr += '×12+';
+      final m = RegExp(r'(\d+(?:\.\d+)?)$').firstMatch(_expr);
+      if (m == null) return;
+      final n = m.group(1)!;
+      _expr = '${_expr.substring(0, _expr.length - n.length)}($n×12+';
       _recalc();
     });
   }
@@ -464,7 +475,8 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void _tapEquals() {
     HapticFeedback.mediumImpact();
     setState(() {
-      _commitFraction();
+      if (!_commitFraction()) return;
+      _expr = closeFeetGroup(_expr);
       final exprBefore = _expr;
       _recalc();
       if (_live != null) {
@@ -518,7 +530,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     final value = at < 0 ? line : line.substring(at + 3);
     HapticFeedback.selectionClick();
     setState(() {
-      _commitFraction();
+      if (!_commitFraction()) return;
       if (_justEvaluated) {
         _expr = '';
         _justEvaluated = false;
@@ -560,7 +572,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void _tapMod() {
     HapticFeedback.selectionClick();
     setState(() {
-      _commitFraction();
+      if (!_commitFraction()) return;
       _justEvaluated = false;
       if (_expr.isEmpty) return;
       if (_expr.endsWith(' mod ')) return;
@@ -1347,4 +1359,24 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       style: TextStyle(fontSize: 23, fontWeight: FontWeight.w700),
     ),
   );
+}
+
+/// 맨 안쪽의 닫히지 않은 괄호가 피트 묶음 "(N×12+…"이면 닫은 식을 돌려준다(인치를 안 쳤으면 0인치).
+/// 묶음이 아니거나 인치를 치는 중(연산자로 끝남)이면 그대로(8차, 10-09).
+String closeFeetGroup(String s) {
+  final open = <int>[];
+  for (var i = 0; i < s.length; i++) {
+    if (s[i] == '(') {
+      open.add(i);
+    } else if (s[i] == ')' && open.isNotEmpty) {
+      open.removeLast();
+    }
+  }
+  if (open.isEmpty) return s;
+  if (!RegExp(r'^\(\d+(?:\.\d+)?×12\+').hasMatch(s.substring(open.last))) {
+    return s;
+  }
+  if (s.endsWith('+')) return '${s}0)';
+  if (RegExp(r'[0-9)]$').hasMatch(s)) return '$s)';
+  return s;
 }

@@ -506,3 +506,20 @@ CableWithstand? cableWithstand({
         : letThroughA2s <= allowed + 1e-6,
   );
 }
+
+/// 구간 [removed](0부터)를 지운 뒤의 차단기 위치(-1은 끝)와 검토할 구간 번호(8차, 10-09).
+/// 예전에는 번호를 그대로 둬서, 앞 구간을 지우면 차단기가 한 칸 뒤 자리로 옮겨져 판정됐다.
+/// 차단기가 지운 구간 끝에 있었으면 그 앞 자리로, 검토하던 구간을 지웠으면 첫 구간으로 돌린다.
+({int bkPos, int cabSeg}) scPositionsAfterRemove(
+  int bkPos,
+  int cabSeg,
+  int removed,
+) {
+  final bk = bkPos > removed ? bkPos - 1 : bkPos;
+  final cab = cabSeg > removed
+      ? cabSeg - 1
+      : cabSeg == removed
+      ? 0
+      : cabSeg;
+  return (bkPos: bk, cabSeg: cab);
+}

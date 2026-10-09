@@ -916,6 +916,10 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
               calcToggle('ec_sc_seg_${i}_del', '지우기', () {
                 _set(() {
                   _rows.removeAt(i).len.dispose();
+                  // 차단기 위치·검토 구간은 번호라 지운 구간 뒤는 한 칸씩 당긴다(8차).
+                  final moved = scPositionsAfterRemove(_bkPos, _cabSeg, i);
+                  _bkPos = moved.bkPos;
+                  _cabSeg = moved.cabSeg;
                 });
               }),
             ],

@@ -153,7 +153,7 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
       '허용 압력강하',
       v.allowKpa == null
           ? '없음(압력강하는 판정하지 않음)'
-          : '${p(v.allowKpa)}${v.dropOk == null ? '' : (v.dropOk! ? ' 이내' : ' 초과')}',
+          : '${ptPressureDown(v.allowKpa!, u)}${v.dropOk == null ? '' : (v.dropOk! ? ' 이내' : ' 초과')}',
       v.dropOk == false,
     ),
     (

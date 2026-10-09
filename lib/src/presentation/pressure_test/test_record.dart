@@ -205,7 +205,7 @@ class PtVerdict {
       if (startOk == false)
         '시작 압력 ${ptPressure(startKpa!, u)}: 시험압력 ${ptPressure(testKpa!, u)} 미만',
       if (dropOk == false)
-        '압력강하 ${ptDrop(judgedDropKpa!, u)}: 허용 압력강하 ${ptPressure(allowKpa!, u)} 초과',
+        '압력강하 ${ptDrop(judgedDropKpa!, u)}: 허용 압력강하 ${ptPressureDown(allowKpa!, u)} 초과',
       if (!leakOk) '누설·물맺힘 없음(육안 확인)을 확인하지 않았습니다.',
     ];
   }
@@ -229,7 +229,7 @@ class PtVerdict {
       if (allowKpa == null)
         '허용 압력강하를 넣으면 압력강하도 판정합니다.'
       else if (dropOk != null)
-        '허용 압력강하 ${ptPressure(allowKpa!, u)}: ${dropOk! ? '이내' : '초과'}',
+        '허용 압력강하 ${ptPressureDown(allowKpa!, u)}: ${dropOk! ? '이내' : '초과'}',
     ];
   }
 }

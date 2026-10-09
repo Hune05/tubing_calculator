@@ -186,4 +186,35 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ss_saved_empty')), findsOneWidget);
   });
+
+  testWidgets('지시서 만들기가 실패하면 알리고, 다시 누를 수 있다(8차)', (tester) async {
+    late BuildContext ctx;
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (c) {
+      ctx = c;
+      return const SizedBox();
+    }))));
+    final p = groundBar(t: 6, w: 50, holeDia: 11.1, pitch: 25.4, endDist: 25, count: 3);
+    final input = GroundPdfInput(
+      title: '시험',
+      plan: p,
+      thickness: 6,
+      width: 50,
+      rho: 8.4,
+      summary: const [],
+      bendRows: const [],
+      sections: const [],
+      notes: const [],
+    );
+    var calls = 0;
+    Future<Uint8List> fail(GroundPdfInput i, DateTime d) async {
+      calls++;
+      throw StateError('글꼴 없음');
+    }
+
+    await openGroundBarPdf(ctx, input, build: fail);
+    await tester.pump();
+    expect(find.text('지시서를 만들지 못했습니다. 다시 해 보십시오.'), findsOneWidget);
+    await openGroundBarPdf(ctx, input, build: fail);
+    expect(calls, 2);
+  });
 }

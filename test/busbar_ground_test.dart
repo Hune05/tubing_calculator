@@ -212,6 +212,23 @@ void main() {
     expect(p.ok, isFalse);
   });
 
+  test('탭이 꺾기에 다 들어가 평평한 길이가 0이면 탭 구멍을 말없이 빼지 않고 알린다(8차)', () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+      tabLeft: 12, // 안쪽 반경 6 + 두께 6 = 꺾기 자리 12 → 평평한 길이 0
+      tabHoleCount: 1,
+      tabHoleDia: 11.1,
+      tabHolePitch: 25.4,
+    );
+    expect(p.tabHoleList, isEmpty);
+    expect(p.problems.any((w) => w.contains("평평한 길이가 없어 탭 구멍을 뚫지 않았습니다")), isTrue);
+  });
+
   test('챙 길이를 왼쪽·오른쪽 따로: 길이와 꺾기 선이 각각 맞다', () {
     final a = groundBar(
       t: 6,

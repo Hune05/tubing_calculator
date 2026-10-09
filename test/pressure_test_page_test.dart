@@ -124,11 +124,12 @@ void main() {
     var r = textIn(tester, const Key('pt_plan_result'));
     // 20m × 9.81kPa = 196.2kPa = 1.96bar
     expect(r, contains('최고점 압력: 13.04 bar (물 높이 20m = 1.96 bar)'));
-    expect(r, contains('압력계에서 16.96 bar 이상이어야 합니다'));
+    // 15 + 1.9613 = 16.9613 bar: '이상'은 올려 보인다(16.96으로 맞추면 최고점이 최소 미만, 8차).
+    expect(r, contains('압력계에서 16.97 bar 이상이어야 합니다'));
     await tester.enterText(find.byKey(const Key('pt_actual')), '16');
     await tester.pump();
     r = textIn(tester, const Key('pt_plan_result'));
-    expect(r, contains('최고점 압력이 최소 시험압력 미만입니다. 압력계에서 16.96 bar 이상으로 올리십시오.'));
+    expect(r, contains('최고점 압력이 최소 시험압력 미만입니다. 압력계에서 16.97 bar 이상으로 올리십시오.'));
     await tester.enterText(find.byKey(const Key('pt_actual')), '17');
     await tester.pump();
     r = textIn(tester, const Key('pt_plan_result'));

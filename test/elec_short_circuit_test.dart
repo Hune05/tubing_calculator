@@ -799,4 +799,19 @@ void main() {
       await finish(tester);
     });
   });
+
+  test('앞 구간을 지우면 차단기 위치·검토 구간이 같은 자리를 따라간다(8차)', () {
+    // 구간 3개, 차단기는 구간 2 끝(자리 2), 검토는 구간 3(번호 2). 구간 1을 지운다.
+    var r = scPositionsAfterRemove(2, 2, 0);
+    expect(r.bkPos, 1);
+    expect(r.cabSeg, 1);
+    // 끝(-1)은 그대로, 지운 구간보다 앞 자리도 그대로.
+    r = scPositionsAfterRemove(-1, 0, 2);
+    expect(r.bkPos, -1);
+    expect(r.cabSeg, 0);
+    // 검토하던 구간을 지우면 첫 구간으로.
+    r = scPositionsAfterRemove(0, 1, 1);
+    expect(r.bkPos, 0);
+    expect(r.cabSeg, 0);
+  });
 }

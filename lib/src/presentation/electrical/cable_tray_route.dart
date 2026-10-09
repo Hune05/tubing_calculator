@@ -231,6 +231,21 @@ TrayRoute trayRoute({
     }
   }
   if (points.last.$1 != x || points.last.$2 != y) points.add((x, y));
+  // 같은 변(위로 꺾기는 윗변)에 이어 낸 V컷 사이가 V컷 폭보다 좁으면 서로 겹친다(8차, 10-09: 나눠 꺾기에서
+  // 마디 간격을 V컷 폭보다 좁게 넣어도 말이 없었다). 아래로 꺾기는 V컷 폭만큼 띄워 재므로 겹치지 않는다.
+  for (var i = 1; i < corners.length; i++) {
+    final c0 = corners[i - 1], c1 = corners[i];
+    if ((c0.turn > 0) != (c1.turn > 0)) continue;
+    final gap = c1.mark - c0.mark;
+    final need = (c0.notch + c1.notch) / 2;
+    if (gap < need - 1e-6) {
+      problems.add(
+        'V컷이 서로 겹칩니다: 꺾는 곳 사이 ${gap.toStringAsFixed(0)}mm가 V컷 폭 ${need.toStringAsFixed(0)}mm보다 좁습니다. '
+        '마디 간격을 늘리십시오.',
+      );
+      break;
+    }
+  }
   return TrayRoute(
     kind: kind,
     rail: rail,

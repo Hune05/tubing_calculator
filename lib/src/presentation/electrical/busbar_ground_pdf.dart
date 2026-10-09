@@ -471,12 +471,28 @@ String groundBarFileName(String title, DateTime date) {
 }
 
 /// 지시서를 만들어 미리보기로 보여 준다. 공유는 미리보기의 버튼을 눌러야만 된다.
+// 지시서를 만드는 중인가(두 번 눌러 두 번 만들지 않게). 절곡 지시서와 같은 방식(8차, 10-09).
+bool _groundPdfBusy = false;
+
 Future<void> openGroundBarPdf(
   BuildContext context,
-  GroundPdfInput input,
-) async {
+  GroundPdfInput input, {
+  Future<Uint8List> Function(GroundPdfInput input, DateTime date)? build,
+}) async {
+  if (_groundPdfBusy) return;
+  _groundPdfBusy = true;
   final now = DateTime.now();
-  final bytes = await buildGroundBarPdf(input, date: now);
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  Uint8List bytes;
+  try {
+    bytes = await (build ?? (i, d) => buildGroundBarPdf(i, date: d))(input, now);
+  } catch (e) {
+    // 예전에는 실패해도 아무 말이 없었다.
+    messenger?.showSnackBar(const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')));
+    return;
+  } finally {
+    _groundPdfBusy = false;
+  }
   final fileName = groundBarFileName(input.title, now);
   if (!context.mounted) return;
   await Navigator.of(context).push(

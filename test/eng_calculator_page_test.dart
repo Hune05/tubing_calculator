@@ -166,6 +166,37 @@ void main() {
     expect(fraction(tester), "≈ 3' 3-3/8\"");
   });
 
+  testWidgets('FT 묶음: 20피트 − 3피트 6인치 = 198인치(인치가 빼기에서 떨어지지 않게, 8차)', (tester) async {
+    await pump(tester);
+    for (final k in ['calc_2', 'calc_0', 'calc_ft', 'calc_sub', 'calc_3', 'calc_ft', 'calc_6']) {
+      await tap(tester, k);
+    }
+    expect(result(tester), '198');
+    await tap(tester, 'calc_eq');
+    expect(result(tester), '198');
+    // 피트 뒤 나누기: 3′6″ ÷ 2 = 21
+    await tap(tester, 'calc_ac');
+    for (final k in ['calc_3', 'calc_ft', 'calc_6', 'calc_div', 'calc_2']) {
+      await tap(tester, k);
+    }
+    expect(result(tester), '21');
+  });
+
+  testWidgets('분모를 안 넣고 연산자를 누르면 붙이지 않고 분모를 넣으라고 한다(8차)', (tester) async {
+    await pump(tester);
+    await tap(tester, 'calc_3');
+    await tap(tester, 'calc_frac_key');
+    await tap(tester, 'calc_1');
+    await tap(tester, 'calc_add');
+    expect(result(tester), '분모를 넣으십시오');
+    // 분모 칸으로 옮겨 가 있어 바로 칠 수 있다.
+    await tap(tester, 'calc_2');
+    expect(result(tester), '3.5');
+    await tap(tester, 'calc_add');
+    await tap(tester, 'calc_1');
+    expect(result(tester), '4.5');
+  });
+
   testWidgets('분수 표시는 기본으로 켜져 있고, 설정에서 끌 수 있다', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_3');

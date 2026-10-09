@@ -372,8 +372,16 @@ GroundBarPlan groundBar({
         ? tabHolePitch / 2
         : 0.0;
     if (nRowsT == 2 && tabRowGap <= 0) warn('취부 구멍 두 줄은 줄 간격이 있어야 합니다.');
-    void side(String letter, String name, double flat, bool left) {
-      if (flat <= 0) return;
+    void side(String letter, String name, bool on, double flat, bool left) {
+      if (!on) return;
+      // 8차(10-09): 탭이 꺾기에 다 들어가 평평한 길이가 없으면 말없이 구멍 0개였다.
+      // (탭이 꺾기보다 짧으면 위에서 이미 "너무 짧습니다"를 알렸다.)
+      if (flat <= 0) {
+        if (flat > -1e-9) {
+          warn('$name 탭에 평평한 길이가 없어 탭 구멍을 뚫지 않았습니다. 탭을 늘리십시오.');
+        }
+        return;
+      }
       final group = (tabHoleCount - 1) * tabHolePitch + stT;
       final start = (flat - group) / 2;
       for (var row = 0; row < nRowsT; row++) {
@@ -403,18 +411,8 @@ GroundBarPlan groundBar({
       }
     }
 
-    side(
-      'L',
-      '왼쪽',
-      (hat || tabLeft > 0) && tabSides & 1 != 0 ? flatL : 0,
-      true,
-    );
-    side(
-      'R',
-      '오른쪽',
-      (hat || tabRight > 0) && tabSides & 2 != 0 ? flatR : 0,
-      false,
-    );
+    side('L', '왼쪽', (hat || tabLeft > 0) && tabSides & 1 != 0, flatL, true);
+    side('R', '오른쪽', (hat || tabRight > 0) && tabSides & 2 != 0, flatR, false);
     if (tabHoleCount > 1 && tabHolePitch <= tabHoleDia) {
       warn('탭 구멍 피치가 구멍 지름 이하라 구멍이 서로 겹칩니다.');
     }

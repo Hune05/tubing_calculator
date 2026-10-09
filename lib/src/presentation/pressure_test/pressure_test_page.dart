@@ -403,19 +403,21 @@ class _PressureTestPageState extends State<PressureTestPage>
     });
   }
 
-  String _p(double kpa) => '${_fmt(kpa / _unit.kpa)} ${_unit.label}';
-  String _pAll(double kpa) => [
+  String _p(double kpa) => ptPressure(kpa, _unit);
+  // 최소 시험압력처럼 "이상"인 값은 올리고, 최대·허용치("이하"·"이내")는 내려 보인다(8차).
+  String _pUp(double kpa) => ptPressureUp(kpa, _unit);
+  String _pDown(double kpa) => ptPressureDown(kpa, _unit);
+  String _numUp(double kpa) {
+    final v = kpa / _unit.kpa;
+    return ptFmtUp(v, ptDecimalsFor(v, _unit));
+  }
+  String _pAllUp(double kpa) => [
     for (final u in PUnit.values)
-      if (u != _unit) '${_fmt(kpa / u.kpa)} ${u.label}',
+      if (u != _unit) ptPressureUp(kpa, u),
   ].join(' · ');
 
   /// 압력 변화: 내려가면 "X bar", 올라가면 "X bar 상승".
-  String _drop(double kpa) {
-    final shown = _fmt(kpa.abs() / _unit.kpa);
-    return kpa < 0 && shown != '0'
-        ? '$shown ${_unit.label} 상승'
-        : '$shown ${_unit.label}';
-  }
+  String _drop(double kpa) => ptDrop(kpa, _unit);
 
   @override
   Widget build(BuildContext context) => FieldViewTheme(
@@ -653,8 +655,8 @@ class _PressureTestPageState extends State<PressureTestPage>
         calcResult(
           key: const Key('pt_plan_result'),
           big: plan.maxKpa == null
-              ? '${_p(plan.minKpa)} 이상'
-              : '${_fmt(plan.minKpa / _unit.kpa)} ~ ${_p(plan.maxKpa!)}',
+              ? '${_pUp(plan.minKpa)} 이상'
+              : '${_numUp(plan.minKpa)} ~ ${_pDown(plan.maxKpa!)}',
           caption:
               '${_code == PipingCode.b313 ? 'B31.3' : 'B31.1'} ${hydro ? '수압' : '공압'} 시험압력',
           warn: inRange == false || (actualGiven && highOk == false),
@@ -664,17 +666,17 @@ class _PressureTestPageState extends State<PressureTestPage>
               plan.usedKpa < plan.minKpa
                   ? '실제 시험압력 ${_p(plan.usedKpa)}: 최소 시험압력 미만'
                   : '실제 시험압력 ${_p(plan.usedKpa)}: 최대 시험압력 초과',
-            '다른 단위: ${_pAll(plan.minKpa)}',
+            '다른 단위: ${_pAllUp(plan.minKpa)}',
             '유지시간: ${_fmt(plan.holdMin, 0)}분 이상',
             if (plan.prelimKpa != null)
               plan.prelimOptional
-                  ? '예비 점검(선택): ${_p(plan.prelimKpa!)} 이하'
+                  ? '예비 점검(선택): ${_pDown(plan.prelimKpa!)} 이하'
                   : '예비 점검: ${_p(plan.prelimKpa!)}',
             if (plan.stepKpa.isNotEmpty)
               '단계 압력(½PT 뒤 PT/10씩): ${plan.stepKpa.map((k) => _fmt(k / _unit.kpa)).join(' → ')} ${_unit.label}',
             if (plan.examKpa != null) '누설 확인 압력: ${_p(plan.examKpa!)}',
             if (plan.reliefMaxKpa != null)
-              '안전밸브 설정압력: ${_p(plan.reliefMaxKpa!)} 이하 (시험압력 ${_p(plan.usedKpa)} 기준)',
+              '안전밸브 설정압력: ${_pDown(plan.reliefMaxKpa!)} 이하 (시험압력 ${_p(plan.usedKpa)} 기준)',
             if (plan.reliefRecKpa != null)
               '안전밸브 권장 설정압력: ${_p(plan.reliefRecKpa!)} (시험압력 ${_p(plan.usedKpa)}의 1⅓배, '
                   '137.1.4·137.4.5 한도를 넘지 않는 범위에서)',
@@ -683,11 +685,11 @@ class _PressureTestPageState extends State<PressureTestPage>
             if (headKpa != null) ...[
               '최고점 압력: ${_p(plan.usedKpa - headKpa)} (물 높이 ${_fmt(h!, 1)}m = ${_p(headKpa)})',
               if (!actualGiven)
-                '최고점까지 최소 시험압력이 되려면 압력계에서 ${_p(plan.minKpa + headKpa)} 이상이어야 합니다.'
+                '최고점까지 최소 시험압력이 되려면 압력계에서 ${_pUp(plan.minKpa + headKpa)} 이상이어야 합니다.'
               else if (highOk == true)
                 '최고점 압력이 최소 시험압력 이상입니다.'
               else
-                '최고점 압력이 최소 시험압력 미만입니다. 압력계에서 ${_p(plan.minKpa + headKpa)} 이상으로 올리십시오.',
+                '최고점 압력이 최소 시험압력 미만입니다. 압력계에서 ${_pUp(plan.minKpa + headKpa)} 이상으로 올리십시오.',
             ],
           ],
         ),
@@ -921,7 +923,7 @@ class _PressureTestPageState extends State<PressureTestPage>
                   : '시험압력 ${_p(plan.usedKpa)}: 튜브 항복 압력 ${_p(r.yieldKpa)} 이내 '
                         '(345.2.1(a), 최소 항복강도 ${_fmt(_tubeMat.syKsi, 0)} ksi)',
             if (b313 && !hydro) ...[
-              '공압 최대 시험압력: ${_p(math.min(plan.maxKpa ?? r.yield90Kpa, r.yield90Kpa))} '
+              '공압 최대 시험압력: ${_pDown(math.min(plan.maxKpa ?? r.yield90Kpa, r.yield90Kpa))} '
                   '(1.33P와 튜브 항복 압력의 90% ${_p(r.yield90Kpa)} 중 작은 것, 345.5.4)',
               testOver
                   ? '시험압력 ${_p(plan.usedKpa)}: 튜브 항복 압력의 90% 초과'
@@ -1105,8 +1107,8 @@ class _PressureTestPageState extends State<PressureTestPage>
           caption: '온도를 보정한 실제 압력강하',
           warn: pass == false,
           lines: [
-            if (pass == true) '허용 압력강하 ${_p(allow!)} 이내: 합격',
-            if (pass == false) '허용 압력강하 ${_p(allow!)} 초과: 불합격',
+            if (pass == true) '허용 압력강하 ${_pDown(allow!)} 이내: 합격',
+            if (pass == false) '허용 압력강하 ${_pDown(allow!)} 초과: 불합격',
             '측정값 차이 ${_drop(r.rawDropKpa)}, 온도 영향 ${_drop(r.tempEffectKpa)}',
             if (r.leakMbarLs != null && r.leakMbarLs! > 0)
               '누설률 ${_fmt(r.leakMbarLs!, 4)} mbar·L/s (${_fmt(r.leakSccm!, 2)} mL/min, 20°C·1기압 기준)',
