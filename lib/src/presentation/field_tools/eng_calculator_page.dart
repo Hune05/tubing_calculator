@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import 'eng_calc.dart';
+import 'eng_tools_page.dart';
 import 'formula_calc_page.dart';
 import 'mini_unit_converter_page.dart';
 
@@ -101,6 +102,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void initState() {
     super.initState();
     _loadSettings();
+    _loadMemory();
     // 앱 전체는 세로로 잠겨 있지만(AndroidManifest), 이 화면은 가로도 허용한다
     // (강제로 돌리지는 않는다 — 협대 화면이 돼도 원형 단추·Expanded 배치가
     // 알아서 줄어들게 되어 있다).
@@ -443,6 +445,145 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     });
   }
 
+  // ── 메모리 칸 A·B·C(10-09) ──
+  // 중간 결과를 담아 두었다가 식에 넣는다. 비어 있는 칸을 누르면 지금 값을 넣고, 찬 칸을 누르면
+  // 그 값을 식에 넣는다. 길게 누르면 담기·비우기. 폰에 남는다(앱을 껐다 켜도 그대로).
+  static const String _kMemKey = 'eng_calc_memory_v1';
+  static const List<String> _memNames = ['A', 'B', 'C'];
+  final List<double?> _mem = [null, null, null];
+
+  Future<void> _loadMemory() async {
+    try {
+      final l = (await SharedPreferences.getInstance()).getStringList(_kMemKey);
+      if (l == null || !mounted) return;
+      setState(() {
+        for (var i = 0; i < _mem.length && i < l.length; i++) {
+          _mem[i] = double.tryParse(l[i]);
+        }
+      });
+    } catch (_) {}
+  }
+
+  void _saveMemory() {
+    SharedPreferences.getInstance()
+        .then((p) => p.setStringList(_kMemKey, [for (final v in _mem) v?.toString() ?? '']))
+        .catchError((_) => false);
+  }
+
+  /// 지금 보이는 값(계산 중인 식의 값, 없으면 직전 결과).
+  double? get _currentValue => _live?.decimal ?? _lastAnswer?.decimal;
+
+  void _memToast(String m) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(m), duration: const Duration(seconds: 2)));
+  }
+
+  void _memStore(int i) {
+    final v = _currentValue;
+    if (v == null || !v.isFinite) {
+      _memToast('담을 값이 없습니다. 먼저 계산하십시오.');
+      return;
+    }
+    HapticFeedback.selectionClick();
+    setState(() => _mem[i] = v);
+    _saveMemory();
+    _memToast('${_memNames[i]}에 ${_fmtDecimal(CalcValue.decimalOnly(v))}을 담았습니다.');
+  }
+
+  void _tapMemory(int i) {
+    final v = _mem[i];
+    if (v == null) {
+      _memStore(i);
+      return;
+    }
+    _tapConst(memExprText(v));
+  }
+
+  Future<void> _memoryMenu(int i) async {
+    HapticFeedback.mediumImpact();
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: fc.surface,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const Key('calc_mem_store'),
+              leading: const Icon(Icons.download_rounded),
+              title: Text('지금 값을 ${_memNames[i]}에 담기'),
+              onTap: () => Navigator.pop(ctx, 'store'),
+            ),
+            if (_mem[i] != null)
+              ListTile(
+                key: const Key('calc_mem_clear'),
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: Text('${_memNames[i]} 비우기'),
+                onTap: () => Navigator.pop(ctx, 'clear'),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (pick == 'store') _memStore(i);
+    if (pick == 'clear') {
+      setState(() => _mem[i] = null);
+      _saveMemory();
+    }
+  }
+
+  Widget _memoryRow() => Padding(
+    key: const Key('calc_memory_row'),
+    padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
+    child: Row(
+      children: [
+        for (var i = 0; i < _mem.length; i++)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Material(
+                color: _mem[i] == null ? fc.background : fc.brandSoft,
+                borderRadius: BorderRadius.circular(12),
+                child: InkWell(
+                  key: Key('calc_mem_${_memNames[i]}'),
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: () => _tapMemory(i),
+                  onLongPress: () => _memoryMenu(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    child: Row(
+                      children: [
+                        Text(
+                          _memNames[i],
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _teal),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            _mem[i] == null ? '담기' : _fmtDecimal(CalcValue.decimalOnly(_mem[i]!)),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: _mem[i] == null ? _sub : _ink,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+
   void _tapAC() {
     HapticFeedback.mediumImpact();
     setState(() {
@@ -644,6 +785,16 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
             ),
           ),
           IconButton(
+            key: const Key('calc_tools'),
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.architecture),
+            tooltip: '현장 도구',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const EngToolsPage()),
+            ),
+          ),
+          IconButton(
             key: const Key('calc_formulas'),
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.menu_book_outlined),
@@ -693,6 +844,8 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                       child: Column(
                         children: [
                           const Divider(height: 1),
+                          // 가로로 눕혀 키가 낮으면(약 640dp 미만) 자판 자리가 모자라 메모리 줄은 뺀다.
+                          if (MediaQuery.sizeOf(context).height >= 640) _memoryRow(),
                           Expanded(child: _keypad()),
                         ],
                       ),
@@ -1388,4 +1541,14 @@ String closeFeetGroup(String s) {
   if (s.endsWith('+')) return '${s}0)';
   if (RegExp(r'[0-9)]$').hasMatch(s)) return '$s)';
   return s;
+}
+
+/// 메모리 칸 값을 식에 넣을 글: 반올림하지 않은 값(소수 10자리까지), 음수는 괄호로 감싼다.
+String memExprText(double v) {
+  if (v == 0) return '0';
+  var t = v.abs() >= 1e-6 && v.abs() < 1e15
+      ? v.toStringAsFixed(10).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')
+      : v.toString();
+  if (t == '-0') t = '0';
+  return v < 0 ? '(${t.replaceFirst('-', '−')})' : t;
 }
