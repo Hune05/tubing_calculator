@@ -57,7 +57,18 @@ class _LineBoardPageState extends State<LineBoardPage> {
     setState(() {});
   }
 
-  void _toggle(Map<String, dynamic> line, String stage) {
+  /// 지금 목록에서 아이디로 찾는다. 프로젝트 저장이 서버 것과 합치며 목록을 새 사본으로 바꾸므로,
+  /// 화면을 그릴 때 잡아 둔 줄을 고치면 그 고침이 사라졌다(10-10 태블릿에서 두 번째 체크부터 안 됨).
+  Map<String, dynamic>? _byId(Object? id) {
+    for (final e in _items) {
+      if (e['id'] == id) return e;
+    }
+    return null;
+  }
+
+  void _toggle(Object? id, String stage) {
+    final line = _byId(id);
+    if (line == null) return;
     HapticFeedback.selectionClick();
     setLineStage(
       line,
@@ -138,9 +149,11 @@ class _LineBoardPageState extends State<LineBoardPage> {
     );
   }
 
-  Future<void> _edit(Map<String, dynamic> line) async {
-    final name = TextEditingController(text: '${line['name'] ?? ''}');
-    final note = TextEditingController(text: '${line['note'] ?? ''}');
+  Future<void> _edit(Object? id) async {
+    final start = _byId(id);
+    if (start == null) return;
+    final name = TextEditingController(text: '${start['name'] ?? ''}');
+    final note = TextEditingController(text: '${start['note'] ?? ''}');
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -174,7 +187,8 @@ class _LineBoardPageState extends State<LineBoardPage> {
     );
     if (ok != true || !mounted) return;
     final n = name.text.trim();
-    if (n.isEmpty) return;
+    final line = _byId(id);
+    if (n.isEmpty || line == null) return;
     final other = findLine(_log, n);
     if (other != null && other['id'] != line['id']) {
       showAppSnack(context, '같은 라인 번호가 이미 있습니다.', kind: AppSnackKind.error);
@@ -186,9 +200,10 @@ class _LineBoardPageState extends State<LineBoardPage> {
     _save();
   }
 
-  void _delete(Map<String, dynamic> line) {
+  void _delete(Object? id) {
+    final line = _byId(id);
+    if (line == null) return;
     final i = _items.indexOf(line);
-    if (i < 0) return;
     _items.removeAt(i);
     markItemDeleted(_log, line['id']?.toString());
     _save();
@@ -290,7 +305,7 @@ class _LineBoardPageState extends State<LineBoardPage> {
       message: stage,
       child: InkResponse(
         key: Key('line_dot_${line['name']}_$stage'),
-        onTap: () => _toggle(line, stage),
+        onTap: () => _toggle(line['id'], stage),
         radius: 22,
         child: Container(
           width: 30,
@@ -475,12 +490,12 @@ class _LineBoardPageState extends State<LineBoardPage> {
             for (final l in shown)
               SwipeToDelete(
                 itemKey: ValueKey('line_${l['id']}'),
-                onDelete: () => _delete(l),
+                onDelete: () => _delete(l['id']),
                 child: Card(
                   elevation: 0,
                   margin: EdgeInsets.zero,
                   child: InkWell(
-                    onLongPress: () => _edit(l),
+                    onLongPress: () => _edit(l['id']),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
                       child: Row(

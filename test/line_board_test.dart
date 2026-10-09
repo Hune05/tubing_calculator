@@ -228,6 +228,45 @@ void main() {
     });
   });
 
+  testWidgets('저장이 목록을 새 사본으로 바꿔도(서버와 합침) 이어서 누른 체크가 남는다(10-10 태블릿)', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(1080, 2400);
+    tester.view.devicePixelRatio = 2.6;
+    addTearDown(tester.view.reset);
+    final log = <String, dynamic>{
+      'id': 'p',
+      'name': 'TEST',
+      kLineItemsKey: [_line('L1', '1F-PT-101')],
+    };
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LineBoardPage(
+          log: log,
+          // 프로젝트 저장(upsertProject)처럼 서버를 읽은 뒤(화면을 다시 그린 뒤) 목록을 합친 새 사본으로 바꾼다.
+          onChanged: () => Future<void>.delayed(
+            const Duration(milliseconds: 10),
+            () => log[kLineItemsKey] = [
+              for (final e in log[kLineItemsKey] as List)
+                mergeLineItem(e as Map, e),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    for (final s in ['컷팅·벤딩', '설치', '서포트']) {
+      await tester.tap(find.byKey(Key('line_dot_1F-PT-101_$s')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20)); // 목록이 바뀜(다시 그리지 않음)
+    }
+    final l = lineItemsOf(log).single;
+    expect(lineStageDone(l, '컷팅·벤딩'), isTrue);
+    expect(lineStageDone(l, '설치'), isTrue);
+    expect(lineStageDone(l, '서포트'), isTrue);
+  });
+
   test('단계 줄임 이름', () {
     expect(lineStageShort('컷팅·벤딩'), '컷벤');
     expect(lineStageShort('루프 체크'), '루프');
