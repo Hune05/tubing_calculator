@@ -135,6 +135,7 @@ List<(String, String)> conduitMarkingSheetSpecs(Map<String, dynamic> s) {
     else
       ('테이크업(90°)', '${n(d('takeUp'))} mm'),
     ('게인(90°)', '${n(d('gain'))} mm'),
+    ('치수 기준', conduitCenterRef(s) ? '관 중심' : '관 등(바깥면)'),
     ('CLR', '${n(d('clr'))} mm'),
     ('스프링백', (s['applySpringback'] ?? true) ? '${n(d('springback'))}°' : '안 씀'),
     (

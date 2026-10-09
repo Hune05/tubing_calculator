@@ -169,6 +169,7 @@ Future<ConduitDrawing> saveConduitDrawing({
         'gain',
         'clr',
         'setback',
+        'measureRef', // 10-09: 치수 기준(관 중심/관 등)
         // 10-07: 시작 방향·커플링 체결도 같이 남긴다(불러올 때 판정·총 길이가 저장 때와 같게).
         kConduitDrawingStartDirKey,
         kConduitDrawingCouplingKey,
@@ -269,6 +270,7 @@ Future<ConduitDrawing?> overwriteConduitDrawing({
         'gain',
         'clr',
         'setback',
+        'measureRef', // 10-09: 치수 기준(관 중심/관 등)
         // 10-07: 시작 방향·커플링 체결도 같이 남긴다(불러올 때 판정·총 길이가 저장 때와 같게).
         kConduitDrawingStartDirKey,
         kConduitDrawingCouplingKey,

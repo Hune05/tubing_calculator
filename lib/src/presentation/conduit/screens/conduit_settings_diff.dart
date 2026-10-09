@@ -10,6 +10,7 @@ const _labels = <(String, String)>[
   ('takeUp', '테이크업'),
   ('gain', '게인'),
   ('clr', 'CLR'),
+  ('measureRef', '치수 기준'),
 ];
 
 String _show(String key, Object? v) {
@@ -21,6 +22,7 @@ String _show(String key, Object? v) {
       _ => '$v',
     };
   }
+  if (key == 'measureRef') return v == 'center' ? '관 중심' : '관 등';
   if (v is num) {
     final r = (v * 10).round() / 10;
     return r == r.roundToDouble() ? r.toStringAsFixed(0) : r.toString();

@@ -42,6 +42,56 @@ double _num(Map<String, dynamic> s, String key, double fallback) =>
 double ramShoeCenterOffset(double angle, double gain90) =>
     conduitGainForAngle(angle, gain90) / 2.0;
 
+// ───────── 치수 기준(관 중심 / 관 등) ─────────
+// 10-09 사용자: 길이를 늘 가상의 중심선(관 중심)으로 재는데 앱 칸은 "관 등까지"라 매번 바깥지름
+// 절반(22mm 후강 13)을 빼거나 더해야 했다. 셈 식은 기준과 상관없이 같고, 길이·게인·테이크업이
+// 같은 기준이면 된다. 그래서 기준을 고르게 하고, 입력 칸·시험 벤딩 안내를 그 기준으로 말한다.
+// 제조사 표 값(관 등 기준)은 표에서 채울 때만 바깥지름만큼 바꿔 넣는다(이미 넣은 값은 그대로).
+
+const String kConduitMeasureRefKey = 'measureRef';
+const String kConduitRefCenter = 'center';
+const String kConduitRefBack = 'back';
+
+/// 길이를 관 중심(가상의 중심선)으로 재는지. 없으면 예전처럼 관 등.
+bool conduitCenterRef(Map<String, dynamic> s) =>
+    s[kConduitMeasureRefKey] == kConduitRefCenter;
+
+/// 입력 칸·안내에 쓰는 말.
+String conduitRefPhrase(Map<String, dynamic> s) =>
+    conduitCenterRef(s) ? '관 중심(가상 중심선)' : '관 등(바깥면)';
+
+/// EMT 바깥지름(mm). ANSI C80.3 — 앱의 EMT 규격 이름(16~54)은 제조사 표처럼 1/2"~2"에 맞춘다.
+const Map<int, double> kEmtOd = {
+  16: 17.9,
+  22: 23.4,
+  28: 29.5,
+  36: 38.4,
+  42: 44.2,
+  54: 55.8,
+};
+
+/// 고른 전선관의 바깥지름. 모르면 null.
+double? conduitOuterDiameter(String? conduitType, String? conduitSize) {
+  final m = RegExp(r'(\d+)').firstMatch(conduitSize ?? '');
+  if (m == null) return null;
+  final n = int.parse(m.group(1)!);
+  return (conduitType ?? '').toUpperCase().contains('EMT')
+      ? kEmtOd[n]
+      : kThickConduitOd[n];
+}
+
+/// 관 등 기준 제조사 표 값(90° 테이크업·게인)을 고른 기준으로. 관 중심이면 90°에서
+/// 꺾이는 점이 다리마다 바깥지름 절반 안쪽으로 오므로 테이크업 − D/2, 게인 − D.
+({double takeUp, double gain}) conduitTableValuesForRef({
+  required double takeUp,
+  required double gain,
+  required double? od,
+  required bool center,
+}) {
+  if (!center || od == null || od <= 0) return (takeUp: takeUp, gain: gain);
+  return (takeUp: takeUp - od / 2, gain: gain - od);
+}
+
 /// 꺾이는 점에서 마킹(화살표를 맞출 자리)까지의 거리.
 ///
 /// - 수동·시카고: 테이크업. 표에는 90° 값만 있으니 각도에 맞게 줄인다.

@@ -15,6 +15,7 @@ import 'package:tubing_calculator/src/data/models/bender_spec_data.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_calibration_sheet.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/bender_setup_guide_page.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/korean_text.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 
 const Color makitaTeal = AppColors.brand;
 const Color slate900 = AppColors.text;
@@ -49,6 +50,8 @@ final ValueNotifier<Map<String, dynamic>> globalBenderSettings = ValueNotifier({
   'bladeKerf': 0.0,
   'referenceMark': '화살표 (일반)',
   'bendRadiusWarning': true,
+  // 10-09: 길이를 재는 기준. 'back' 관 등(바깥면, 예전 그대로) / 'center' 관 중심(가상 중심선).
+  'measureRef': 'back',
 });
 
 const String kConduitSettingsPrefsKey = 'conduit_bender_settings_v1';
@@ -110,6 +113,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   late bool _applySpringback;
   late bool _keepScreenOn;
   late bool _bendRadiusWarning;
+  late String _measureRef;
 
   late String _referenceMark;
   late double _degPerNotch;
@@ -159,6 +163,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       _degPerNotch = s['degPerNotch'];
       _referenceMark = s['referenceMark'];
       _bendRadiusWarning = s['bendRadiusWarning'];
+      _measureRef = (s[kConduitMeasureRefKey] as String?) ?? kConduitRefBack;
       _springbackController.text = s['springback'].toString();
       _clrController.text = s['clr'].toString();
       _takeUpController.text = s['takeUp'].toString();
@@ -196,6 +201,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     _degPerNotch = s['degPerNotch'];
     _referenceMark = s['referenceMark'];
     _bendRadiusWarning = s['bendRadiusWarning'];
+    _measureRef = (s[kConduitMeasureRefKey] as String?) ?? kConduitRefBack;
 
     _springbackController = TextEditingController(
       text: s['springback'].toString(),
@@ -479,10 +485,30 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             );
           }
         }
+        _fitTableValuesToRef(spec);
       }
     } catch (e) {
       debugPrint("제원 데이터 없음: $e");
     }
+  }
+
+  /// 10-09: 표에서 채운 값을 고른 치수 기준에 맞춘다. 제조사 테이크업·게인 표는 관 등 기준이고,
+  /// CLR로 셈한 게인(유압·시카고)은 관 중심 기준이다. 바깥지름을 모르면 그대로 둔다.
+  void _fitTableValuesToRef(Map<String, dynamic> spec) {
+    final od = conduitOuterDiameter(_conduitType, _conduitSize);
+    if (od == null) return;
+    final center = _measureRef == kConduitRefCenter;
+    String f(double v) => v.toStringAsFixed(1);
+    final t = double.tryParse(_takeUpController.text);
+    final g = double.tryParse(_gainController.text);
+    if (spec.containsKey('takeUp') && t != null && center) {
+      _takeUpController.text = f(t - od / 2);
+    }
+    if (g == null) return;
+    final gainFromTable = _selectedTypeId == 'hand' && spec.containsKey('gain');
+    final gainFromClr = _selectedTypeId != 'hand' && spec.containsKey('clr');
+    if (gainFromTable && center) _gainController.text = f(g - od);
+    if (gainFromClr && !center) _gainController.text = f(g + od);
   }
 
   Future<void> _saveSettings() async {
@@ -545,6 +571,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       'bladeKerf': double.tryParse(_bladeKerfController.text) ?? 0.0,
       'referenceMark': _referenceMark,
       'bendRadiusWarning': _bendRadiusWarning,
+      kConduitMeasureRefKey: _measureRef,
     };
     _lastSeenSettings = newSettings; // 내가 쓴 값이니 다시 읽지 않는다
     globalBenderSettings.value = newSettings;
@@ -973,6 +1000,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             currentTakeUp: double.tryParse(_takeUpController.text) ?? 0,
             currentGain: double.tryParse(_gainController.text) ?? 0,
             ramCenter: ram,
+            centerRef: _measureRef == kConduitRefCenter,
             onApply: (takeUp, gain) {
               setState(() {
                 if (!ram) _takeUpController.text = takeUp.toString();
@@ -996,6 +1024,25 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     return [
       _buildSectionTitle("공통 보정"),
       _buildSettingsCard([
+        // 10-09: 길이를 관 중심으로 재면 앱이 그 기준으로 말하고 셈한다(바깥지름 절반을 손으로 빼지 않게).
+        _buildDropdownRow(
+          "치수 기준",
+          const ["관 중심 (가상 중심선)", "관 등 (바깥면)"],
+          _measureRef == kConduitRefCenter ? "관 중심 (가상 중심선)" : "관 등 (바깥면)",
+          helpText:
+              "도면·줄자로 길이를 어디까지 재는지입니다. 입력 길이와 시험 벤딩의 다리 길이를 모두 이 기준으로 잽니다. "
+              "게인·테이크업도 같은 기준으로 잰 값이어야 합니다. 제조사 표 값은 관 등 기준이라, 관 중심을 고르면 표에서 채울 때 "
+              "바깥지름만큼 바꿔 넣습니다. 기준을 바꿔도 이미 넣어 둔 게인·테이크업은 그대로입니다(어느 기준으로 잰 값인지 확인하십시오).",
+          (v) {
+            if (v != null) {
+              setState(
+                () => _measureRef = v.startsWith("관 중심")
+                    ? kConduitRefCenter
+                    : kConduitRefBack,
+              );
+            }
+          },
+        ),
         _buildSwitchRow(
           "스프링백 보정",
           _applySpringback,

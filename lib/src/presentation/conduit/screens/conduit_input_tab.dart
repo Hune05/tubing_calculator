@@ -4,6 +4,7 @@ import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart' show conduitCenterRef;
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_sheets.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
     show kThickConduitOd;
@@ -897,10 +898,13 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // 10-09: 표 테이크업·게인이 관 등(바깥면) 기준이라 90° 다리는 등까지 재야
-                        // 마킹이 맞는다(중심선까지 재면 22mm에서 벤드마다 약 12mm 어긋난다).
+                        // 10-09: 길이는 설정의 치수 기준(관 중심 / 관 등)으로 잰다. 표 테이크업·게인이
+                        // 관 등 기준이라 예전에는 90° 다리를 등까지 재야 했다(중심선까지 재면 22mm에서
+                        // 벤드마다 약 12mm 어긋났다). 관 중심을 고르면 표 값을 그 기준으로 바꿔 쓴다.
                         Text(
-                          _selectedAngle == 90.0
+                          conduitCenterRef(globalBenderSettings.value)
+                              ? "길이 (mm) · 관 중심 기준"
+                              : _selectedAngle == 90.0
                               ? "길이 (mm) · 관 등(바깥면)까지"
                               : "길이 (mm)",
                           key: const Key('conduit_length_label'),

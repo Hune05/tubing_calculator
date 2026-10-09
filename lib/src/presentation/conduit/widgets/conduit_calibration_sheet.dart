@@ -27,12 +27,16 @@ class ConduitCalibrationSheet extends StatefulWidget {
   /// 유압(가운데 미는 방식, 마킹을 슈 가운데에 맞춤): 게인만 잡고 슈 가운데 셈이 맞는지 보여 준다.
   final bool ramCenter;
 
+  /// 치수 기준이 관 중심이면 다리를 관 중심(가상 중심선)까지 잰다(10-09).
+  final bool centerRef;
+
   const ConduitCalibrationSheet({
     super.key,
     required this.currentTakeUp,
     required this.currentGain,
     required this.onApply,
     this.ramCenter = false,
+    this.centerRef = false,
   });
 
   static void show(
@@ -41,6 +45,7 @@ class ConduitCalibrationSheet extends StatefulWidget {
     required double currentGain,
     required void Function(double takeUp, double gain) onApply,
     bool ramCenter = false,
+    bool centerRef = false,
   }) {
     showModalBottomSheet(
       context: context,
@@ -51,6 +56,7 @@ class ConduitCalibrationSheet extends StatefulWidget {
         currentGain: currentGain,
         onApply: onApply,
         ramCenter: ramCenter,
+        centerRef: centerRef,
       ),
     );
   }
@@ -98,6 +104,8 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
   @override
   Widget build(BuildContext context) {
     final bool ram = widget.ramCenter;
+    // 다리를 재는 자리(치수 기준).
+    final String to = widget.centerRef ? "관 중심(가상 중심선)" : "관 바깥면(등)";
     final rr = ram ? _ram : null;
     // 유압이면 게인만 쓴다(테이크업 자리는 슈 가운데까지 거리로 보여 주기만 한다).
     final r = ram
@@ -145,10 +153,10 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
               Text(
                 ram
                     ? "한 토막 잘라 마킹하고 그 마킹을 슈 가운데에 맞춰 90°로 한 번 꺾은 뒤, "
-                          "양쪽 끝에서 꺾인 관 바깥면(등)까지 측정해 넣으십시오. 이 벤더의 게인을 잡고, "
+                          "양쪽 끝에서 꺾인 $to까지 측정해 넣으십시오. 이 벤더의 게인을 잡고, "
                           "슈 가운데 셈(꺾이는 점에서 게인의 절반 앞)이 맞는지 같이 봅니다."
-                    : "한 토막 잘라 마킹하고 90°로 한 번 꺾은 뒤, 양쪽 끝에서 꺾인 관 "
-                          "바깥면(등)까지 측정해 넣으십시오. 이 벤더의 테이크업과 게인을 "
+                    : "한 토막 잘라 마킹하고 90°로 한 번 꺾은 뒤, 양쪽 끝에서 꺾인 "
+                          "$to까지 측정해 넣으십시오. 이 벤더의 테이크업과 게인을 "
                           "한 번에 잡습니다.",
                 style: TextStyle(color: _slate600, fontSize: 13, height: 1.4),
               ),
@@ -161,9 +169,9 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                 ram ? "관 끝에서 슈 가운데에 맞춘 자리" : "관 끝에서 벤더 화살표를 맞춘 자리",
               ),
               const SizedBox(height: 10),
-              _field(_stub, "짧은 쪽 다리 (mm)", "그 관 끝에서 꺾인 관 바깥면까지(스텁 높이)"),
+              _field(_stub, "짧은 쪽 다리 (mm)", "그 관 끝에서 꺾인 $to까지(스텁 높이)"),
               const SizedBox(height: 10),
-              _field(_other, "긴 쪽 다리 (mm)", "반대쪽 끝에서 꺾인 관 바깥면까지"),
+              _field(_other, "긴 쪽 다리 (mm)", "반대쪽 끝에서 꺾인 $to까지"),
               const SizedBox(height: 18),
               Container(
                 width: double.infinity,
@@ -211,7 +219,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                               const SizedBox(height: 6),
                               Text(
                                 "슈 가운데 셈과 ${rr.diff.abs().toStringAsFixed(0)} mm 다릅니다. 마킹을 슈 가운데에 맞췄는지, "
-                                "다리를 관 바깥면까지 쟀는지 확인하십시오. 계속 다르면 알려 주십시오.",
+                                "다리를 $to까지 쟀는지 확인하십시오. 계속 다르면 알려 주십시오.",
                                 key: const Key('conduit_calib_center_warn'),
                                 style: const TextStyle(
                                   color: _amber,
@@ -224,7 +232,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                           if (suspicious) ...[
                             const SizedBox(height: 10),
                             const Text(
-                              "지금 값과 20% 넘게 다릅니다. 측정 위치(바깥면·화살표)를 다시 확인하십시오.",
+                              "지금 값과 20% 넘게 다릅니다. 다리를 잰 자리와 마킹 자리를 다시 확인하십시오.",
                               style: TextStyle(
                                 color: _amber,
                                 fontSize: 12,
