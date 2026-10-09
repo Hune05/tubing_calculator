@@ -1133,9 +1133,17 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 중간에 구간을 하나 끼워넣으려면 그 뒤 구간들을 전부 다시 만들어야
   // 했다. 카드 사이의 "여기에 추가" 버튼으로 원하는 위치에 바로
   // 끼워넣을 수 있게 한다.
-  void _insertPointAt(int index) {
+  //
+  // 10-09: 예전에는 "구간 추가"가 지금 구간의 끝 부속 앞에 점을 끼워 넣어, 지금 구간이 새 점에서
+  // 끝나고 끝 부속은 3번으로 밀렸다(새 구간이 2번 자리에 들어간 것처럼 보였다). 이제는 [k]번 부속
+  // 뒤에 새 빈 구간을 붙인다: 앞 구간(…→k)은 그대로, 새 구간 k→새 점은 비어 있고, k에서 나가던
+  // 원래 구간의 길이는 새 점→다음 부속으로 옮겨 그대로 남는다. 끝 부속 뒤면 맨 끝에 붙는다.
+  void _addSegmentAfter(int k) {
     setState(() {
-      _points.insert(index, CutPoint(fitting: SmartFittingDB.getById("none")));
+      final added = CutPoint(fitting: SmartFittingDB.getById("none"));
+      added.c2cController.text = _points[k].c2cController.text;
+      _points[k].c2cController.text = '';
+      _points.insert(k + 1, added);
       _calculate();
     });
   }
@@ -3156,10 +3164,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                         onDelete: () => _removePoint(index),
                         child: _buildFittingCard(index),
                       ),
-                      if (index < _points.length - 1) ...[
+                      // 이 부속 뒤에 새 구간을 붙인다(첫 부속 뒤는 첫 구간이 이미 있다).
+                      if (index >= 1) _buildInsertHereButton(index),
+                      if (index < _points.length - 1)
                         _buildLengthInputCard(index),
-                        _buildInsertHereButton(index + 1),
-                      ],
                     ],
                   ),
                 );
@@ -3175,8 +3183,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   // 너무 흐려 눈에 잘 안 띄었다. 좌우 구분선 사이에 놓인 알약(pill)
   // 버튼 형태로 바꿔서, 잔잔하되 "여기 누르면 뭔가 생긴다"는 게 한눈에
   // 보이게 했다.
-  Widget _buildInsertHereButton(int insertIndex) {
+  /// [afterPoint]번 부속 뒤에 새 구간을 붙이는 단추.
+  Widget _buildInsertHereButton(int afterPoint) {
     return Padding(
+      key: Key('cut_add_after_$afterPoint'),
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
@@ -3184,7 +3194,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           InkWell(
             onTap: () {
               HapticFeedback.selectionClick();
-              _insertPointAt(insertIndex);
+              _addSegmentAfter(afterPoint);
             },
             borderRadius: BorderRadius.circular(20),
             child: Container(
