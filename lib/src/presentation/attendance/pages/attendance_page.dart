@@ -8,6 +8,7 @@
 // 저장·지우기는 서버 응답을 기다리지 않는다(통신 없는 현장에서 창이 멈추던 문제).
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
     show AppSnackKind, showAppSnack;
+import 'package:tubing_calculator/src/core/common_widgets/min_height_scroll.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart'
     show showDeleteUndo;
 import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
@@ -186,7 +187,11 @@ class _AttendancePageState extends State<AttendancePage>
       _scrollToToday = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final ctx = _todayKey.currentContext;
-        if (ctx != null) Scrollable.ensureVisible(ctx, alignment: 0.3);
+        // 목록 안에서만 옮긴다(가로로 눕혀 바깥까지 스크롤되면 출근 카드가 가려졌다, 10-09).
+        final ro = ctx?.findRenderObject();
+        if (ctx != null && ro != null) {
+          Scrollable.of(ctx).position.ensureVisible(ro, alignment: 0.3);
+        }
       });
     }
   }
@@ -581,7 +586,9 @@ class _AttendancePageState extends State<AttendancePage>
     if (reminderOn) {
       await ensureNotificationPermission();
       if (!await areNotificationsAllowed() && mounted) {
-        _toast("폰에서 이 앱의 알림이 꺼져 있어 퇴근 알림이 울리지 않습니다. 폰 설정 → 애플리케이션 → 알림에서 켜십시오.");
+        _toast(
+          "폰에서 이 앱의 알림이 꺼져 있어 퇴근 알림이 울리지 않습니다. 폰 설정 → 애플리케이션 → 알림에서 켜십시오.",
+        );
       }
     }
     // 계산기 설정과 같은 서버 문서에 올린다(구글 로그인이 없거나 통신이 없으면 조용히 건너뛴다).
@@ -810,122 +817,127 @@ class _AttendancePageState extends State<AttendancePage>
           ),
         ],
       ),
-      body: Column(
-        children: [
-          _monthBar(),
-          AttendanceClockCard(
-            status: clock,
-            loadFailed: _clockFailed,
-            today: _today,
-            onPunchIn: _punchIn,
-            onPunchOut: _punchOut,
-            onEdit: () => _openDay(_today),
-            onRetry: () {
-              setState(() => _clockFailed = false);
-              _loadClock();
-            },
-          ),
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                // 한 달이 많아야 31줄이라 한꺼번에 그린다. 그래야 오늘 줄로
-                // 옮길 수 있다(ListView.builder는 안 보이는 줄을 만들지 않는다).
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.only(top: 4, bottom: 16),
-                    child: Column(
-                      children: [
-                        if (_loadFailed)
-                          Container(
-                            key: const Key('att_load_failed'),
-                            margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                            padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-                            decoration: BoxDecoration(
-                              color: AppColors.danger.withValues(alpha: 0.08),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              children: [
-                                const Expanded(
-                                  child: Text(
-                                    "기록을 읽지 못했습니다. 이 달이 비어 보여도 기록이 지워진 것은 아닙니다.",
-                                    style: TextStyle(
-                                      color: AppColors.danger,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
+      // 가로로 눕힌 폰처럼 낮으면 달 머리·출근 카드까지 통째로 스크롤한다(10-09).
+      body: MinHeightScroll(
+        minHeight: 460,
+        child: Column(
+          children: [
+            _monthBar(),
+            AttendanceClockCard(
+              status: clock,
+              loadFailed: _clockFailed,
+              today: _today,
+              onPunchIn: _punchIn,
+              onPunchOut: _punchOut,
+              onEdit: () => _openDay(_today),
+              onRetry: () {
+                setState(() => _clockFailed = false);
+                _loadClock();
+              },
+            ),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  // 한 달이 많아야 31줄이라 한꺼번에 그린다. 그래야 오늘 줄로
+                  // 옮길 수 있다(ListView.builder는 안 보이는 줄을 만들지 않는다).
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.only(top: 4, bottom: 16),
+                      child: Column(
+                        children: [
+                          if (_loadFailed)
+                            Container(
+                              key: const Key('att_load_failed'),
+                              margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                              padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+                              decoration: BoxDecoration(
+                                color: AppColors.danger.withValues(alpha: 0.08),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Expanded(
+                                    child: Text(
+                                      "기록을 읽지 못했습니다. 이 달이 비어 보여도 기록이 지워진 것은 아닙니다.",
+                                      style: TextStyle(
+                                        color: AppColors.danger,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                TextButton(
-                                  onPressed: () {
-                                    _load();
-                                    if (_clockFailed) {
-                                      setState(() => _clockFailed = false);
-                                      _loadClock();
-                                    }
-                                  },
-                                  child: const Text("다시 읽기"),
-                                ),
-                              ],
+                                  TextButton(
+                                    onPressed: () {
+                                      _load();
+                                      if (_clockFailed) {
+                                        setState(() => _clockFailed = false);
+                                        _loadClock();
+                                      }
+                                    },
+                                    child: const Text("다시 읽기"),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        AttendanceSummaryCard(
-                          month: _viewedMonth,
-                          summary: summary,
-                          settings: _settings,
-                          missingCheckOut: missing,
-                          onOpenYear: _openYear,
-                        ),
-                        AttendanceLeaveCard(
-                          balance: _leave(),
-                          hasHireDate: _settings.hireDate != null,
-                          onOpenSettings: _openSettings,
-                          onOpenHistory: _leave() == null
-                              ? null
-                              : _openLeaveHistory,
-                        ),
-                        if (_settings.calendarView)
-                          AttendanceMonthCalendar(
+                          AttendanceSummaryCard(
                             month: _viewedMonth,
-                            today: _today,
-                            records: _records,
-                            works: works,
-                            options: opts,
-                            onTapDay: _openDay,
-                          )
-                        else
-                          for (var i = 0; i < daysInMonth; i++)
-                            Builder(
-                              builder: (_) {
-                                final day = DateTime(
-                                  _viewedMonth.year,
-                                  _viewedMonth.month,
-                                  i + 1,
-                                );
-                                final key = dateKey(day);
-                                final isToday = dayOnly(day) == _today;
-                                return AttendanceDayRow(
-                                  key: isToday ? _todayKey : null,
-                                  day: day,
-                                  record: _records[key],
-                                  work: works[key],
-                                  isToday: isToday,
-                                  isRest: isRestDay(day, opts),
-                                  onTap: () => _openDay(day),
-                                  missingCheckOut:
-                                      isMissingCheckOut(
-                                        _records[key],
-                                        _today,
-                                      ) &&
-                                      (workingDay == null ||
-                                          dayOnly(workingDay) != dayOnly(day)),
-                                );
-                              },
-                            ),
-                      ],
+                            summary: summary,
+                            settings: _settings,
+                            missingCheckOut: missing,
+                            onOpenYear: _openYear,
+                          ),
+                          AttendanceLeaveCard(
+                            balance: _leave(),
+                            hasHireDate: _settings.hireDate != null,
+                            onOpenSettings: _openSettings,
+                            onOpenHistory: _leave() == null
+                                ? null
+                                : _openLeaveHistory,
+                          ),
+                          if (_settings.calendarView)
+                            AttendanceMonthCalendar(
+                              month: _viewedMonth,
+                              today: _today,
+                              records: _records,
+                              works: works,
+                              options: opts,
+                              onTapDay: _openDay,
+                            )
+                          else
+                            for (var i = 0; i < daysInMonth; i++)
+                              Builder(
+                                builder: (_) {
+                                  final day = DateTime(
+                                    _viewedMonth.year,
+                                    _viewedMonth.month,
+                                    i + 1,
+                                  );
+                                  final key = dateKey(day);
+                                  final isToday = dayOnly(day) == _today;
+                                  return AttendanceDayRow(
+                                    key: isToday ? _todayKey : null,
+                                    day: day,
+                                    record: _records[key],
+                                    work: works[key],
+                                    isToday: isToday,
+                                    isRest: isRestDay(day, opts),
+                                    onTap: () => _openDay(day),
+                                    missingCheckOut:
+                                        isMissingCheckOut(
+                                          _records[key],
+                                          _today,
+                                        ) &&
+                                        (workingDay == null ||
+                                            dayOnly(workingDay) !=
+                                                dayOnly(day)),
+                                  );
+                                },
+                              ),
+                        ],
+                      ),
                     ),
-                  ),
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -210,7 +210,8 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     // 끝까지 못 읽고 막혔다(더하기는 둘 다 '+'라 안 걸렸다). 계산기에 넘기기
     // 전에 자판 하이픈으로 바꿔 준다.
     final ansText = _ansText;
-    final src = ansText != null && _lastAnswer != null && _expr.startsWith(ansText)
+    final src =
+        ansText != null && _lastAnswer != null && _expr.startsWith(ansText)
         ? 'Ans${_expr.substring(ansText.length)}'
         : _expr;
     final t = _stripTrailingOps(
@@ -336,7 +337,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         _ansText = null;
       }
       // π·e·Ans·)·!·% 뒤의 숫자는 곱하기로 잇는다(10-07: "π2"가 식 오류였다).
-      if (_expr.isNotEmpty && RegExp(r'[)πse!%]').hasMatch(_expr[_expr.length - 1])) _expr += '×';
+      if (_expr.isNotEmpty &&
+          RegExp(r'[)πse!%]').hasMatch(_expr[_expr.length - 1])) {
+        _expr += '×';
+      }
       _expr += d;
       _recalc();
     });
@@ -466,7 +470,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
 
   void _saveMemory() {
     SharedPreferences.getInstance()
-        .then((p) => p.setStringList(_kMemKey, [for (final v in _mem) v?.toString() ?? '']))
+        .then(
+          (p) => p.setStringList(_kMemKey, [
+            for (final v in _mem) v?.toString() ?? '',
+          ]),
+        )
         .catchError((_) => false);
   }
 
@@ -476,7 +484,9 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   void _memToast(String m) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(m), duration: const Duration(seconds: 2)));
+      ..showSnackBar(
+        SnackBar(content: Text(m), duration: const Duration(seconds: 2)),
+      );
   }
 
   void _memStore(int i) {
@@ -488,7 +498,9 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     HapticFeedback.selectionClick();
     setState(() => _mem[i] = v);
     _saveMemory();
-    _memToast('${_memNames[i]}에 ${_fmtDecimal(CalcValue.decimalOnly(v))}을 담았습니다.');
+    _memToast(
+      '${_memNames[i]}에 ${_fmtDecimal(CalcValue.decimalOnly(v))}을 담았습니다.',
+    );
   }
 
   void _tapMemory(int i) {
@@ -552,17 +564,26 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                   onTap: () => _tapMemory(i),
                   onLongPress: () => _memoryMenu(i),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     child: Row(
                       children: [
                         Text(
                           _memNames[i],
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: _teal),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w900,
+                            color: _teal,
+                          ),
                         ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            _mem[i] == null ? '담기' : _fmtDecimal(CalcValue.decimalOnly(_mem[i]!)),
+                            _mem[i] == null
+                                ? '담기'
+                                : _fmtDecimal(CalcValue.decimalOnly(_mem[i]!)),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.right,
@@ -817,54 +838,215 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         // 답답해서(사용자 의견) 그 일체형 자판은 없앴다. 대신 어느 화면이든
         // 폰 계산기 폭(480dp)·자판 높이(560dp)로 못박아 가운데·아래에 두고,
         // 기본↔공학 전환은 부드러운 애니메이션으로만 보완한다.
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: _kCalcMaxWidth),
-            child: Column(
-              children: [
-                // 계산 값 창을 화면 높이에 맞춰 키운다(태블릿처럼 위아래로 긴 화면일수록
-                // 결과가 커 보이게). 키패드 쪽에 자리를 더 줘서 단추가 갤럭시 계산기처럼
-                // 여유 있게 보이게 한다.
-                Expanded(flex: 3, child: _display(big, result)),
-                // 태블릿처럼 세로로 아주 긴 화면에서 이 칸을 그대로 Expanded로
-                // 두면 단추가 풍선처럼 커져 어색해 보였다(삼성 기본 계산기
-                // 참고: 자판은 늘 화면 아래에 편한 크기로 붙고, 남는 자리는
-                // 위쪽 표시 칸 쪽 빈 공간이 된다). 자판 높이를 폰 화면과
-                // 비슷한 값으로 못박고, 남는 자리는 위 표시 칸 쪽으로 가게
-                // 아래에 붙인다(폰처럼 자판이 이 칸을 넘치지 않을 땐 전과
-                // 똑같다).
-                Expanded(
-                  flex: 6,
-                  child: Align(
-                    alignment: Alignment.bottomCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxHeight: _kKeypadMaxHeight,
+        child: _isLandscape(context)
+            ? _landscapeBody(big, result)
+            : Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _kCalcMaxWidth),
+                  child: Column(
+                    children: [
+                      // 계산 값 창을 화면 높이에 맞춰 키운다(태블릿처럼 위아래로 긴 화면일수록
+                      // 결과가 커 보이게). 키패드 쪽에 자리를 더 줘서 단추가 갤럭시 계산기처럼
+                      // 여유 있게 보이게 한다.
+                      Expanded(flex: 3, child: _display(big, result)),
+                      // 태블릿처럼 세로로 아주 긴 화면에서 이 칸을 그대로 Expanded로
+                      // 두면 단추가 풍선처럼 커져 어색해 보였다(삼성 기본 계산기
+                      // 참고: 자판은 늘 화면 아래에 편한 크기로 붙고, 남는 자리는
+                      // 위쪽 표시 칸 쪽 빈 공간이 된다). 자판 높이를 폰 화면과
+                      // 비슷한 값으로 못박고, 남는 자리는 위 표시 칸 쪽으로 가게
+                      // 아래에 붙인다(폰처럼 자판이 이 칸을 넘치지 않을 땐 전과
+                      // 똑같다).
+                      Expanded(
+                        flex: 6,
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxHeight: _kKeypadMaxHeight,
+                            ),
+                            child: Column(
+                              children: [
+                                const Divider(height: 1),
+                                // 가로로 눕혀 키가 낮으면(약 640dp 미만) 자판 자리가 모자라 메모리 줄은 뺀다.
+                                if (MediaQuery.sizeOf(context).height >= 640)
+                                  _memoryRow(),
+                                Expanded(child: _keypad()),
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
-                      child: Column(
-                        children: [
-                          const Divider(height: 1),
-                          // 가로로 눕혀 키가 낮으면(약 640dp 미만) 자판 자리가 모자라 메모리 줄은 뺀다.
-                          if (MediaQuery.sizeOf(context).height >= 640) _memoryRow(),
-                          Expanded(child: _keypad()),
-                        ],
-                      ),
-                    ),
+                    ],
                   ),
                 ),
+              ),
+      ),
+    );
+  }
+
+  /// 표시창이 아주 낮아 식 글을 한 줄·작게 쓰는지(그릴 때 정한다).
+  bool _compactExpr = false;
+
+  /// 가로로 눕혔는지(폭이 높이보다 크다).
+  bool _isLandscape(BuildContext context) {
+    final s = MediaQuery.sizeOf(context);
+    return s.width > s.height;
+  }
+
+  /// 가로 화면(10-09): 위에 표시창, 아래에 8칸 × 5줄 넓은 자판(삼성 계산기 가로처럼).
+  /// 세로 자판을 그대로 두면 단추가 줄 높이에 맞춘 원이라 콩알만 해졌다. 가로에서는 공학 단추를
+  /// 늘 왼쪽에 보이고(전환 단추 없음), 메모리 A·B·C도 자판 맨 아래 줄에 둔다.
+  Widget _landscapeBody(
+    String big,
+    ({String decimal, String? fraction})? result,
+  ) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 1100),
+      child: Column(
+        children: [
+          Expanded(flex: 2, child: _display(big, result)),
+          const Divider(height: 1),
+          Expanded(flex: 7, child: _landscapeKeypad()),
+        ],
+      ),
+    ),
+  );
+
+  Widget _landscapeKeypad() {
+    Widget grid(List<List<Widget>> rows) => Column(
+      children: [
+        for (final r in rows)
+          Expanded(
+            child: Row(
+              children: [
+                for (final k in r)
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(3),
+                      child: SizedBox.expand(child: k),
+                    ),
+                  ),
               ],
             ),
+          ),
+      ],
+    );
+
+    final left = <List<Widget>>[
+      [
+        _util('AC', _tapAC, key: 'calc_ac'),
+        _util('(', () => _tapParen('('), key: 'calc_lparen'),
+        _util(')', () => _tapParen(')'), key: 'calc_rparen'),
+        _util('', _tapBack, key: 'calc_back', icon: Icons.backspace_outlined),
+      ],
+      [
+        _fn('sin', key: 'calc_sin'),
+        _fn('cos', key: 'calc_cos'),
+        _fn('tan', key: 'calc_tan'),
+        _fn('√', fnName: 'sqrt', key: 'calc_sqrt'),
+      ],
+      [
+        _fn('ln', key: 'calc_ln'),
+        _fn('log', key: 'calc_log'),
+        _op('^', key: 'calc_pow'),
+        _postfix('!', key: 'calc_fact'),
+      ],
+      [
+        _const('e', key: 'calc_e'),
+        _modKey(key: 'calc_mod'),
+        _const('Ans', key: 'calc_ans', fontSize: 15),
+        _util('S⇔D', _tapSD, key: 'calc_sd_key'),
+      ],
+      [for (var i = 0; i < _mem.length; i++) _memKey(i), const SizedBox()],
+    ];
+    final right = <List<Widget>>[
+      [
+        _digit('7', key: 'calc_7'),
+        _digit('8', key: 'calc_8'),
+        _digit('9', key: 'calc_9'),
+        _op('÷', key: 'calc_div'),
+      ],
+      [
+        _digit('4', key: 'calc_4'),
+        _digit('5', key: 'calc_5'),
+        _digit('6', key: 'calc_6'),
+        _op('×', key: 'calc_mul'),
+      ],
+      [
+        _digit('1', key: 'calc_1'),
+        _digit('2', key: 'calc_2'),
+        _digit('3', key: 'calc_3'),
+        _op('−', key: 'calc_sub'),
+      ],
+      [
+        _const('π', key: 'calc_pi'),
+        _digit('0', key: 'calc_0'),
+        _digit('.', key: 'calc_dot'),
+        _op('+', key: 'calc_add'),
+      ],
+      [
+        _fracKey(key: 'calc_frac_key'),
+        _feet(key: 'calc_ft'),
+        _postfix('%', key: 'calc_pct'),
+        _equals(key: 'calc_eq'),
+      ],
+    ];
+    return Padding(
+      key: const Key('calc_landscape_keypad'),
+      padding: const EdgeInsets.fromLTRB(6, 4, 6, 6),
+      child: Row(
+        children: [
+          Expanded(child: grid(left)),
+          const SizedBox(width: 10),
+          Expanded(child: grid(right)),
+        ],
+      ),
+    );
+  }
+
+  /// 가로 자판 맨 아래 줄의 메모리 단추(세로의 메모리 줄과 같은 일: 누르면 담기·넣기, 길게 누르면 메뉴).
+  Widget _memKey(int i) {
+    final v = _mem[i];
+    return ElevatedButton(
+      key: Key('calc_mem_${_memNames[i]}'),
+      style: _style(v == null ? fc.background : fc.brandSoft, _teal),
+      onPressed: () => _tapMemory(i),
+      onLongPress: () => _memoryMenu(i),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Text(
+            v == null
+                ? '${_memNames[i]} 담기'
+                : '${_memNames[i]} ${_fmtDecimal(CalcValue.decimalOnly(v))}',
+            maxLines: 1,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
           ),
         ),
       ),
     );
   }
 
-  Widget _display(String big, ({String decimal, String? fraction})? result) {
-    final showHistory = _history.isNotEmpty;
+  Widget _display(String big, ({String decimal, String? fraction})? result) =>
+      LayoutBuilder(
+        // 가로로 눕힌 작은 폰처럼 표시창이 아주 낮으면(110 미만) 기록 줄을 빼고 여백·식 글을 줄인다.
+        builder: (context, box) =>
+            _displayBody(big, result, compact: box.maxHeight < 110),
+      );
+
+  Widget _displayBody(
+    String big,
+    ({String decimal, String? fraction})? result, {
+    required bool compact,
+  }) {
+    final showHistory = _history.isNotEmpty && !compact;
+    _compactExpr = compact;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(16, 4, 16, 4)
+          : const EdgeInsets.fromLTRB(16, 10, 16, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -916,19 +1098,19 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       behavior: HitTestBehavior.opaque,
       onTap: () => _tapHistory(i),
       child: Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: Text(
-        _history[i],
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.right,
-        style: TextStyle(
-          fontSize: 15,
-          color: _sub,
-          fontWeight: FontWeight.w600,
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Text(
+          _history[i],
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.right,
+          style: TextStyle(
+            fontSize: 15,
+            color: _sub,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
-    ),
     ),
   );
 
@@ -959,11 +1141,11 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
             child: Text(
               _expr.isEmpty && _frac == null ? '0' : _expr,
               key: const Key('calc_expr'),
-              maxLines: 2,
+              maxLines: _compactExpr ? 1 : 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.right,
               style: TextStyle(
-                fontSize: 20,
+                fontSize: _compactExpr ? 15 : 20,
                 color: _sub,
                 fontWeight: FontWeight.w600,
               ),
@@ -1547,7 +1729,10 @@ String closeFeetGroup(String s) {
 String memExprText(double v) {
   if (v == 0) return '0';
   var t = v.abs() >= 1e-6 && v.abs() < 1e15
-      ? v.toStringAsFixed(10).replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '')
+      ? v
+            .toStringAsFixed(10)
+            .replaceFirst(RegExp(r'0+$'), '')
+            .replaceFirst(RegExp(r'\.$'), '')
       : v.toString();
   if (t == '-0') t = '0';
   return v < 0 ? '(${t.replaceFirst('-', '−')})' : t;

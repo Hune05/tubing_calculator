@@ -129,13 +129,24 @@ void main() {
       expect(find.byKey(const Key('tool_bolt_circle')), findsOneWidget);
     });
 
-    testWidgets('가로로 눕혀 키가 낮으면 메모리 줄을 빼 자판 자리를 남긴다', (tester) async {
-      tester.view.physicalSize = const Size(1000, 560);
+    testWidgets('가로 화면은 넓은 가로 자판(공학 단추·메모리 포함)으로 바뀐다', (tester) async {
+      tester.view.physicalSize = const Size(640, 340);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
       await tester.pump();
       expect(find.byKey(const Key('calc_memory_row')), findsNothing);
+      // 가로 자판: 공학 단추가 늘 보이고, 메모리는 자판 맨 아래 줄에 있다.
+      expect(find.byKey(const Key('calc_landscape_keypad')), findsOneWidget);
+      expect(find.byKey(const Key('calc_sin')), findsOneWidget);
+      expect(find.byKey(const Key('calc_mem_A')), findsOneWidget);
+      for (final k in ['calc_7', 'calc_mul', 'calc_6', 'calc_eq']) {
+        await tester.tap(find.byKey(Key(k)));
+        await tester.pump();
+      }
+      expect(tester.widget<Text>(find.byKey(const Key('calc_display_result'))).data, '42');
+      // 단추가 콩알만 하지 않다(가로 640×340 작은 폰에서도 높이 30 이상).
+      expect(tester.getSize(find.byKey(const Key('calc_7'))).height, greaterThan(30));
     });
   });
 }

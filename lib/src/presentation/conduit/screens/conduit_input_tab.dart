@@ -7,7 +7,8 @@ import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart'
     show conduitCenterRef, conduitTotalCut, conduitBendCheck;
 import 'package:tubing_calculator/src/presentation/calculator/widgets/input_cut_summary.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_input_tab.dart' show fmtSegLength;
+import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_input_tab.dart'
+    show fmtSegLength;
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_sheets.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
     show kThickConduitOd;
@@ -233,22 +234,29 @@ class _ConduitInputTabState extends State<ConduitInputTab>
           color: slate100,
           child: SafeArea(
             bottom: false,
-            child: Column(
-              children: [
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildHeader(bendList.length, manager),
-                      Expanded(
-                        child: bendList.isEmpty
-                            ? _buildEmptyState()
-                            : _buildReorderableList(manager),
-                      ),
-                    ],
+            // 가로에서는 왼쪽 목록·오른쪽 입력판(10-09).
+            child: LayoutBuilder(
+              builder: (context, box) => Flex(
+                direction: bendInputLandscape(box)
+                    ? Axis.horizontal
+                    : Axis.vertical,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _buildHeader(bendList.length, manager),
+                        Expanded(
+                          child: bendList.isEmpty
+                              ? _buildEmptyState()
+                              : _buildReorderableList(manager),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                _buildInputPanel(context, manager),
-              ],
+                  _buildInputPanel(context, manager, box),
+                ],
+              ),
             ),
           ),
         );
@@ -629,8 +637,14 @@ class _ConduitInputTabState extends State<ConduitInputTab>
   // 하단 영역 위젯 (입력 폼)
   // ==========================================
 
-  Widget _buildInputPanel(BuildContext context, ConduitDataManager manager) {
+  Widget _buildInputPanel(
+    BuildContext context,
+    ConduitDataManager manager,
+    BoxConstraints box,
+  ) {
+    final land = bendInputLandscape(box);
     return Container(
+      width: land ? bendInputPanelWidth(box) : null,
       padding: EdgeInsets.fromLTRB(
         20,
         20,
@@ -639,17 +653,19 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       ),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: bendInputPanelRadius(land),
         boxShadow: [
           BoxShadow(
             color: slate900.withValues(alpha: 0.1),
             blurRadius: 20,
-            offset: const Offset(0, -5),
+            offset: land ? const Offset(-5, 0) : const Offset(0, -5),
           ),
         ],
       ),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: inputPanelMaxHeight(context)),
+        constraints: BoxConstraints(
+          maxHeight: land ? double.infinity : inputPanelMaxHeight(context),
+        ),
         child: SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
           child: Column(
@@ -1266,7 +1282,9 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                     canBendTo: rule,
                     onAddBends: manager.addMultipleBends,
                     specs: specs,
-                    conduitOd: (sz == null || !thick) ? null : kThickConduitOd[sz],
+                    conduitOd: (sz == null || !thick)
+                        ? null
+                        : kThickConduitOd[sz],
                   );
                 }),
                 const SizedBox(height: 12),

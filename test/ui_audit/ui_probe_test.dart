@@ -2,6 +2,7 @@
 // 화면 밖 단추·너무 작은 단추·겹친 글자를 찾아 적는다. 찾기만 하고 실패시키지는 않는다.
 // 평소 테스트에서는 건너뛴다. 돌릴 때:
 //   UI_AUDIT=1 UI_AUDIT_OUT=결과.json UI_AUDIT_SHOTS=사진폴더 flutter test test/ui_audit/ui_probe_test.dart
+// 가로 화면만 볼 때는 UI_AUDIT_LANDSCAPE=1을 더한다(작은 폰 640×340·큰 폰 900×400·태블릿 1000×560).
 // (서버·센서가 없는 화면은 서버 오류로 "실패"가 찍히지만 점검 결과는 남는다.)
 import 'dart:convert';
 import 'dart:io';
@@ -81,6 +82,14 @@ const phoneCfgs = [
   Cfg('보통폰 360 글씨1.3', Size(360, 760), 1.3),
   Cfg('큰폰 412', Size(412, 915), 1.0),
 ];
+// UI_AUDIT_LANDSCAPE=1 이면 모든 화면을 가로 크기로만 본다(10-09 가로 모드 점검).
+const landscapeCfgs = [
+  Cfg('작은폰 가로 640', Size(640, 340), 1.0),
+  Cfg('큰폰 가로 900 글씨1.3', Size(900, 400), 1.3),
+  Cfg('탭 가로 1000', Size(1000, 560), 1.0),
+];
+final bool kLandscapeAudit = Platform.environment['UI_AUDIT_LANDSCAPE'] == '1';
+
 const tabletCfgs = [
   Cfg('PC 가로 1280', Size(1280, 800), 1.0),
   Cfg('PC 세로 800', Size(800, 1280), 1.0),
@@ -502,7 +511,15 @@ void main() {
     await font('NotoSansKR', 'assets/fonts/NotoSansKR-VariableFont_wght.ttf');
     await font(
       'MaterialIcons',
+      'C:/src/flutter/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+    );
+    await font(
+      'MaterialIcons',
       '/opt/flutter-sdk/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
+    );
+    await font(
+      'packages/lucide_icons/Lucide',
+      'C:/Users/gnsl5/AppData/Local/Pub/Cache/hosted/pub.dev/lucide_icons-0.257.0/assets/lucide.ttf',
     );
     final home = Platform.environment['HOME'];
     await font(
@@ -527,7 +544,7 @@ void main() {
   );
 
   for (final e in screens.entries) {
-    for (final cfg in e.value.$2) {
+    for (final cfg in kLandscapeAudit ? landscapeCfgs : e.value.$2) {
       testWidgets('${e.key} · ${cfg.name}', skip: !kAuditOn, (tester) async {
         try {
           await audit(tester, e.key, cfg);

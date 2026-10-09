@@ -24,7 +24,8 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_qui
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_u_bend_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/input_cut_summary.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
-import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_result_tabs.dart' show computeTubeFieldData;
+import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_result_tabs.dart'
+    show computeTubeFieldData;
 
 Color get makitaTeal => fc.brand;
 Color get slate900 => fc.text;
@@ -771,556 +772,223 @@ class _MobileInputTabState extends State<MobileInputTab>
           }
         }
 
-        return Column(
-          children: [
-            Expanded(
-              flex: 4,
-              child: Container(
-                color: slate100,
-                child: Column(
-                  children: [
-                    // 전선관 입력 탭과 같은 머리.
-                    _buildHeader(bendList.length),
-                    Expanded(
-                      child: bendList.isEmpty
-                          // (D-C) 전선관 입력 탭과 같은 빈 화면.
-                          ? const EmptyState(
-                              icon: Icons.add_road_rounded,
-                              title: "설계된 배관이 없습니다",
-                              message: "아래에서 수치와 방향을 넣고\n추가를 누르십시오.",
-                            )
-                          : ReorderableListView.builder(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              physics: const BouncingScrollPhysics(),
-                              itemCount: bendList.length,
-                              // 🚀 [추가] 전선관처럼 꾹 눌러 끌어서 순서를 바꾼다.
-                              onReorder: _reorderSegment,
-                              itemBuilder: (context, index) {
-                                final item = bendList[index];
-                                bool isStraight =
-                                    (item['angle'] as num?)?.toDouble() == 0.0;
-                                double rotValue =
-                                    (item['rotation'] as num?)?.toDouble() ??
-                                    0.0;
-                                // "UP (위)" → "UP" (전선관 카드와 같은 표시).
-                                String dirLabel =
-                                    (_directions.firstWhere(
-                                              (d) => d['val'] == rotValue,
-                                              orElse: () => {"label": "N/A"},
-                                            )['label']
-                                            as String)
-                                        .split(' (')
-                                        .first;
-                                IconData dirIcon = _directions.firstWhere(
-                                  (d) => d['val'] == rotValue,
-                                  orElse: () => {"icon": Icons.help},
-                                )['icon'];
-                                bool isEditingThis = _editingIndex == index;
-
-                                // 🚀 [바꿈] X 단추 대신 왼쪽으로 밀어서 지운다.
-                                return Dismissible(
-                                  key: ObjectKey(item),
-                                  direction: DismissDirection.endToStart,
-                                  background: swipeDeleteBackground(
-                                    radius: 16,
-                                    bottomMargin: 12,
+        // 가로에서는 왼쪽 목록·오른쪽 입력판(10-09).
+        return LayoutBuilder(
+          builder: (context, box) {
+            final land = bendInputLandscape(box);
+            return Flex(
+              direction: land ? Axis.horizontal : Axis.vertical,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: Container(
+                    color: slate100,
+                    child: Column(
+                      children: [
+                        // 전선관 입력 탭과 같은 머리.
+                        _buildHeader(bendList.length),
+                        Expanded(
+                          child: bendList.isEmpty
+                              // (D-C) 전선관 입력 탭과 같은 빈 화면.
+                              ? const EmptyState(
+                                  icon: Icons.add_road_rounded,
+                                  title: "설계된 배관이 없습니다",
+                                  message: "아래에서 수치와 방향을 넣고\n추가를 누르십시오.",
+                                )
+                              : ReorderableListView.builder(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
                                   ),
-                                  onDismissed: (_) => _removeSegment(index),
-                                  child: Container(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    decoration: BoxDecoration(
-                                      color: isEditingThis
-                                          ? fieldSoft(
-                                              Colors.orange.shade50,
-                                              (p) => p.caution,
-                                            )
-                                          : pureWhite,
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: isEditingThis
-                                          ? Border.all(
-                                              color: fieldPick(
-                                                Colors.orange.shade400,
-                                                sunlight: fc.caution,
-                                                night: fc.caution,
-                                              ),
-                                              width: 2,
-                                            )
-                                          : null,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: slate900.withValues(
-                                            alpha: 0.02,
-                                          ),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ListTile(
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 12,
-                                            vertical: 4,
-                                          ),
-                                      onTap: () {
-                                        HapticFeedback.lightImpact();
-                                        setState(() {
-                                          _editingIndex = index;
-                                          final double l =
-                                              (item['length'] as num?)
-                                                  ?.toDouble() ??
-                                              0.0;
-                                          _editOriginalLength = l;
-                                          _lengthController.text =
-                                              fmtSegLength(l);
+                                  physics: const BouncingScrollPhysics(),
+                                  itemCount: bendList.length,
+                                  // 🚀 [추가] 전선관처럼 꾹 눌러 끌어서 순서를 바꾼다.
+                                  onReorder: _reorderSegment,
+                                  itemBuilder: (context, index) {
+                                    final item = bendList[index];
+                                    bool isStraight =
+                                        (item['angle'] as num?)?.toDouble() ==
+                                        0.0;
+                                    double rotValue =
+                                        (item['rotation'] as num?)
+                                            ?.toDouble() ??
+                                        0.0;
+                                    // "UP (위)" → "UP" (전선관 카드와 같은 표시).
+                                    String dirLabel =
+                                        (_directions.firstWhere(
+                                                  (d) => d['val'] == rotValue,
+                                                  orElse: () => {
+                                                    "label": "N/A",
+                                                  },
+                                                )['label']
+                                                as String)
+                                            .split(' (')
+                                            .first;
+                                    IconData dirIcon = _directions.firstWhere(
+                                      (d) => d['val'] == rotValue,
+                                      orElse: () => {"icon": Icons.help},
+                                    )['icon'];
+                                    bool isEditingThis = _editingIndex == index;
 
-                                          double editedAngle =
-                                              (item['angle'] as num?)
-                                                  ?.toDouble() ??
-                                              90.0;
-                                          if (editedAngle == 90.0) {
-                                            _bendType = "90";
-                                            _selectedAngle = 90.0;
-                                          } else if (editedAngle == 0.0) {
-                                            _bendType = "0";
-                                            _selectedAngle = 0.0;
-                                          } else {
-                                            _bendType = "custom";
-                                            _selectedAngle = editedAngle;
-                                            _customAngleController.text =
-                                                editedAngle.toString();
-                                          }
-
-                                          _selectedRotation =
-                                              _selectedAngle == 0.0
-                                              ? null
-                                              : (item['rotation'] as num?)
-                                                    ?.toDouble();
-                                        });
-                                      },
-                                      leading: ReorderableDragStartListener(
-                                        index: index,
-                                        child: Icon(
-                                          Icons.drag_indicator_rounded,
-                                          color: slate600.withValues(
-                                            alpha: 0.3,
-                                          ),
-                                        ),
+                                    // 🚀 [바꿈] X 단추 대신 왼쪽으로 밀어서 지운다.
+                                    return Dismissible(
+                                      key: ObjectKey(item),
+                                      direction: DismissDirection.endToStart,
+                                      background: swipeDeleteBackground(
+                                        radius: 16,
+                                        bottomMargin: 12,
                                       ),
-                                      title: Row(
-                                        children: [
-                                          CircleAvatar(
-                                            backgroundColor: isStraight
-                                                ? slate100
-                                                : makitaTeal.withValues(
-                                                    alpha: 0.1,
-                                                  ),
-                                            child: isStraight
-                                                ? AppIcon(
-                                                    AppGlyph.straightPipe,
-                                                    color: slate600,
-                                                    size: 20,
-                                                  )
-                                                : Icon(
-                                                    dirIcon,
-                                                    color: makitaTeal,
-                                                    size: 20,
-                                                  ),
+                                      onDismissed: (_) => _removeSegment(index),
+                                      child: Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 12,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isEditingThis
+                                              ? fieldSoft(
+                                                  Colors.orange.shade50,
+                                                  (p) => p.caution,
+                                                )
+                                              : pureWhite,
+                                          borderRadius: BorderRadius.circular(
+                                            16,
                                           ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  isStraight
-                                                      ? "직관 연장"
-                                                      : "${(item['angle'] as num?)?.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}° 벤딩",
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w900,
-                                                    fontSize: 15,
-                                                    color: slate900,
+                                          border: isEditingThis
+                                              ? Border.all(
+                                                  color: fieldPick(
+                                                    Colors.orange.shade400,
+                                                    sunlight: fc.caution,
+                                                    night: fc.caution,
                                                   ),
-                                                ),
-                                                Wrap(
-                                                  spacing: 8,
-                                                  runSpacing: 2,
+                                                  width: 2,
+                                                )
+                                              : null,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: slate900.withValues(
+                                                alpha: 0.02,
+                                              ),
+                                              blurRadius: 8,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: ListTile(
+                                          contentPadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 12,
+                                                vertical: 4,
+                                              ),
+                                          onTap: () {
+                                            HapticFeedback.lightImpact();
+                                            setState(() {
+                                              _editingIndex = index;
+                                              final double l =
+                                                  (item['length'] as num?)
+                                                      ?.toDouble() ??
+                                                  0.0;
+                                              _editOriginalLength = l;
+                                              _lengthController.text =
+                                                  fmtSegLength(l);
+
+                                              double editedAngle =
+                                                  (item['angle'] as num?)
+                                                      ?.toDouble() ??
+                                                  90.0;
+                                              if (editedAngle == 90.0) {
+                                                _bendType = "90";
+                                                _selectedAngle = 90.0;
+                                              } else if (editedAngle == 0.0) {
+                                                _bendType = "0";
+                                                _selectedAngle = 0.0;
+                                              } else {
+                                                _bendType = "custom";
+                                                _selectedAngle = editedAngle;
+                                                _customAngleController.text =
+                                                    editedAngle.toString();
+                                              }
+
+                                              _selectedRotation =
+                                                  _selectedAngle == 0.0
+                                                  ? null
+                                                  : (item['rotation'] as num?)
+                                                        ?.toDouble();
+                                            });
+                                          },
+                                          leading: ReorderableDragStartListener(
+                                            index: index,
+                                            child: Icon(
+                                              Icons.drag_indicator_rounded,
+                                              color: slate600.withValues(
+                                                alpha: 0.3,
+                                              ),
+                                            ),
+                                          ),
+                                          title: Row(
+                                            children: [
+                                              CircleAvatar(
+                                                backgroundColor: isStraight
+                                                    ? slate100
+                                                    : makitaTeal.withValues(
+                                                        alpha: 0.1,
+                                                      ),
+                                                child: isStraight
+                                                    ? AppIcon(
+                                                        AppGlyph.straightPipe,
+                                                        color: slate600,
+                                                        size: 20,
+                                                      )
+                                                    : Icon(
+                                                        dirIcon,
+                                                        color: makitaTeal,
+                                                        size: 20,
+                                                      ),
+                                              ),
+                                              const SizedBox(width: 16),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
                                                   children: [
                                                     Text(
-                                                      "길이: ${fmtSegLength((item['length'] as num?)?.toDouble() ?? 0)}mm",
+                                                      isStraight
+                                                          ? "직관 연장"
+                                                          : "${(item['angle'] as num?)?.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}° 벤딩",
                                                       style: TextStyle(
                                                         fontWeight:
-                                                            FontWeight.bold,
-                                                        fontSize: 13,
-                                                        color: makitaTeal,
+                                                            FontWeight.w900,
+                                                        fontSize: 15,
+                                                        color: slate900,
                                                       ),
                                                     ),
-                                                    if (!isStraight)
-                                                      Text(
-                                                        "방향: $dirLabel",
-                                                        style: TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                          fontSize: 13,
-                                                          color: slate600,
+                                                    Wrap(
+                                                      spacing: 8,
+                                                      runSpacing: 2,
+                                                      children: [
+                                                        Text(
+                                                          "길이: ${fmtSegLength((item['length'] as num?)?.toDouble() ?? 0)}mm",
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            fontSize: 13,
+                                                            color: makitaTeal,
+                                                          ),
                                                         ),
-                                                      ),
-                                                  ],
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                color: pureWhite,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                top: false,
-                // 🚀 [고침] 입력판에 스크롤이 없어 가로 화면에서 80px 잘렸다.
-                // 화면 높이에 맞춰 넘치면 안에서 스크롤한다.
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: inputPanelMaxHeight(context),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                "배관 형태",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: slate600,
-                                  fontSize: 13,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SegmentedButton<String>(
-                                  showSelectedIcon: false,
-                                  segments: const [
-                                    ButtonSegment(
-                                      value: "90",
-                                      label: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          "90° 벤딩",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    ButtonSegment(
-                                      value: "custom",
-                                      label: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          "직관+각도",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    ButtonSegment(
-                                      value: "0",
-                                      label: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Text(
-                                          "0° 직관",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  selected: {_bendType},
-                                  onSelectionChanged:
-                                      (Set<String> newSelection) {
-                                        setState(() {
-                                          _bendType = newSelection.first;
-                                          if (_bendType == "90") {
-                                            _selectedAngle = 90.0;
-                                          } else if (_bendType == "0") {
-                                            _selectedAngle = 0.0;
-                                            _selectedRotation = null;
-                                          } else {
-                                            _selectedAngle = _customAngle();
-                                          }
-                                        });
-                                      },
-                                  style: ButtonStyle(
-                                    backgroundColor:
-                                        WidgetStateProperty.resolveWith<Color>(
-                                          (states) =>
-                                              states.contains(
-                                                WidgetState.selected,
-                                              )
-                                              ? makitaTeal
-                                              : fieldPick(
-                                                  Colors.grey.shade100,
-                                                  sunlight: fc.fill,
-                                                  night: fc.fill,
-                                                ),
-                                        ),
-                                    foregroundColor:
-                                        WidgetStateProperty.resolveWith<Color>(
-                                          (states) =>
-                                              states.contains(
-                                                WidgetState.selected,
-                                              )
-                                              ? pureWhite
-                                              : slate600,
-                                        ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_bendType == "custom") ...[
-                            const SizedBox(height: 12),
-                            InkWell(
-                              onTap: () async {
-                                await MakitaNumpad.show(
-                                  context,
-                                  controller: _customAngleController,
-                                  title: "벤딩 각도 입력 (°)",
-                                );
-                                if (!context.mounted) return;
-                                final double typed =
-                                    double.tryParse(
-                                      _customAngleController.text,
-                                    ) ??
-                                    0.0;
-                                setState(() {
-                                  // 음수·상한 초과는 묶는다. 칸 글자도 같이 바꿔서
-                                  // 보이는 값과 셈에 쓰는 값이 같게 한다.
-                                  _selectedAngle = _customAngle();
-                                  if (_selectedAngle == 0.0) {
-                                    _selectedRotation = null;
-                                  }
-                                });
-                                if (typed > kTubeMaxAngle) {
-                                  _showAngleLimitNotice();
-                                }
-                              },
-                              child: AbsorbPointer(
-                                child: TextField(
-                                  controller: _customAngleController,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
-                                    color: fieldPick(
-                                      Colors.deepOrange,
-                                      sunlight: fc.caution,
-                                      night: fc.caution,
-                                    ),
-                                    fontFamily: 'monospace',
-                                  ),
-                                  decoration: InputDecoration(
-                                    hintText: "원하는 각도를 입력하십시오 (예: 45)",
-                                    filled: true,
-                                    fillColor: fieldSoft(
-                                      Colors.orange.shade50,
-                                      (p) => p.caution,
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 12,
-                                    ),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                      borderSide: BorderSide(
-                                        color: fieldPick(
-                                          Colors.orange.shade200,
-                                          sunlight: fc.caution,
-                                          night: fc.caution.withValues(
-                                            alpha: 0.5,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    suffixIcon: Icon(
-                                      AppIcons.edit,
-                                      color: fieldPick(
-                                        Colors.deepOrange,
-                                        sunlight: fc.caution,
-                                        night: fc.caution,
-                                      ),
-                                      size: 18,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          if (_selectedAngle > 0) ...[
-                            Row(
-                              children: [
-                                Text(
-                                  "진행 방향 (6축)",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: _selectedRotation == null
-                                        ? fieldPick(
-                                            Colors.redAccent,
-                                            sunlight: fc.danger,
-                                            night: fc.danger,
-                                          )
-                                        : slate600,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                                // 🚀 [고침] 11px 옅은 빨강이라 잘 안 보였다.
-                                if (_selectedRotation == null)
-                                  Flexible(
-                                    child: Text(
-                                      " *방향을 선택하십시오",
-                                      style: TextStyle(
-                                        color: fieldPick(
-                                          Colors.red.shade700,
-                                          sunlight: fc.danger,
-                                          night: fc.danger,
-                                        ),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Builder(
-                              builder: (context) {
-                                final canBend = _bendRule();
-                                // 목록이 바뀌어(↶ 등) 골라 둔 방향이 이제 못 꺾는 방향이면 선택을 푼다.
-                                final picked = _selectedRotation;
-                                if (picked != null && !canBend(picked)) {
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    if (mounted &&
-                                        _selectedRotation == picked) {
-                                      setState(() => _selectedRotation = null);
-                                    }
-                                  });
-                                }
-                                return GridView.builder(
-                                  shrinkWrap: true,
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                        crossAxisCount: 3,
-                                        // 칸 높이를 폭에 비례로 잡으면 가로 화면에서 칸이 커져 281px 넘쳤다.
-                                        mainAxisExtent: 40,
-                                        crossAxisSpacing: 8,
-                                        mainAxisSpacing: 8,
-                                      ),
-                                  itemCount: _directions.length,
-                                  itemBuilder: (context, index) {
-                                    final dir = _directions[index];
-                                    bool isSelected =
-                                        _selectedRotation == dir['val'];
-                                    // 관이 이미 그 축으로 가고 있으면 꺾을 평면이 없어 못 꺾는다(입력 점검과 같은 규칙).
-                                    final bool allowed = canBend(
-                                      dir['val'] as double,
-                                    );
-                                    return Opacity(
-                                      key: ValueKey('dir_${dir['val']}'),
-                                      opacity: allowed ? 1.0 : 0.38,
-                                      child: InkWell(
-                                        onTap: allowed
-                                            ? () => setState(
-                                                () => _selectedRotation =
-                                                    dir['val'],
-                                              )
-                                            : () => showAppSnack(
-                                                context,
-                                                "'${dir['label'].split(' ')[0]}' 쪽으로는 지금 꺾을 수 없습니다. "
-                                                "관이 이미 그 쪽이나 반대쪽으로 가고 있습니다.",
-                                                kind: AppSnackKind.error,
-                                              ),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? makitaTeal.withValues(
-                                                    alpha: 0.1,
-                                                  )
-                                                : fieldPick(
-                                                    Colors.grey.shade50,
-                                                    sunlight: fc.fill,
-                                                    night: fc.fill,
-                                                  ),
-                                            border: Border.all(
-                                              color: isSelected
-                                                  ? makitaTeal
-                                                  : fieldPick(
-                                                      Colors.grey.shade300,
-                                                      sunlight: fc.line,
-                                                      night: fc.line,
+                                                        if (!isStraight)
+                                                          Text(
+                                                            "방향: $dirLabel",
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              fontSize: 13,
+                                                              color: slate600,
+                                                            ),
+                                                          ),
+                                                      ],
                                                     ),
-                                              width: isSelected ? 2 : 1,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                          ),
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              Icon(
-                                                dir['icon'],
-                                                size: 16,
-                                                color: isSelected
-                                                    ? makitaTeal
-                                                    : slate600,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                dir['label'].split(' ')[0],
-                                                style: TextStyle(
-                                                  color: isSelected
-                                                      ? makitaTeal
-                                                      : slate900,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
+                                                  ],
                                                 ),
                                               ),
                                             ],
@@ -1329,168 +997,536 @@ class _MobileInputTabState extends State<MobileInputTab>
                                       ),
                                     );
                                   },
-                                );
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                          ],
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Container(
+                  width: land ? bendInputPanelWidth(box) : null,
+                  decoration: BoxDecoration(
+                    color: pureWhite,
+                    borderRadius: bendInputPanelRadius(land),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                        offset: land
+                            ? const Offset(-4, 0)
+                            : const Offset(0, -4),
+                      ),
+                    ],
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    // 🚀 [고침] 입력판에 스크롤이 없어 가로 화면에서 80px 잘렸다.
+                    // 화면 높이에 맞춰 넘치면 안에서 스크롤한다.
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: land
+                            ? double.infinity
+                            : inputPanelMaxHeight(context),
+                      ),
+                      child: SingleChildScrollView(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "길이 (mm)",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: slate600,
-                                        fontSize: 13,
-                                      ),
+                              Row(
+                                children: [
+                                  Text(
+                                    "배관 형태",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: slate600,
+                                      fontSize: 13,
                                     ),
-                                    const SizedBox(height: 8),
-                                    InkWell(
-                                      onTap: () async {
-                                        final added = await MakitaNumpad.show(
-                                          context,
-                                          controller: _lengthController,
-                                          title: "배관 길이 (mm)",
-                                          // 각도와 방향이 정해졌을 때만 숫자판에서 바로 넣을 수 있다.
-                                          addLabel: _readyToAdd
-                                              ? (_editingIndex != null
-                                                    ? "수정"
-                                                    : "추가")
-                                              : null,
-                                        );
-                                        if (!mounted) return;
-                                        setState(() {});
-                                        if (added) _addSegment();
-                                      },
-                                      child: AbsorbPointer(
-                                        child: TextField(
-                                          controller: _lengthController,
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w900,
-                                            color: makitaTeal,
-                                            fontFamily: 'monospace',
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: "0",
-                                            filled: true,
-                                            fillColor: fieldPick(
-                                              Colors.grey.shade100,
-                                              sunlight: fc.fill,
-                                              night: fc.fill,
-                                            ),
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                  vertical: 12,
-                                                ),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(8),
-                                              borderSide: BorderSide(
-                                                color: fieldPick(
-                                                  Colors.grey.shade300,
-                                                  sunlight: fc.line,
-                                                  night: fc.line,
-                                                ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: SegmentedButton<String>(
+                                      showSelectedIcon: false,
+                                      segments: const [
+                                        ButtonSegment(
+                                          value: "90",
+                                          label: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              "90° 벤딩",
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
                                               ),
-                                            ),
-                                            suffixIcon: Icon(
-                                              AppIcons.edit,
-                                              color: slate600,
-                                              size: 18,
                                             ),
                                           ),
                                         ),
+                                        ButtonSegment(
+                                          value: "custom",
+                                          label: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              "직관+각도",
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        ButtonSegment(
+                                          value: "0",
+                                          label: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              "0° 직관",
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      selected: {_bendType},
+                                      onSelectionChanged:
+                                          (Set<String> newSelection) {
+                                            setState(() {
+                                              _bendType = newSelection.first;
+                                              if (_bendType == "90") {
+                                                _selectedAngle = 90.0;
+                                              } else if (_bendType == "0") {
+                                                _selectedAngle = 0.0;
+                                                _selectedRotation = null;
+                                              } else {
+                                                _selectedAngle = _customAngle();
+                                              }
+                                            });
+                                          },
+                                      style: ButtonStyle(
+                                        backgroundColor:
+                                            WidgetStateProperty.resolveWith<
+                                              Color
+                                            >(
+                                              (states) =>
+                                                  states.contains(
+                                                    WidgetState.selected,
+                                                  )
+                                                  ? makitaTeal
+                                                  : fieldPick(
+                                                      Colors.grey.shade100,
+                                                      sunlight: fc.fill,
+                                                      night: fc.fill,
+                                                    ),
+                                            ),
+                                        foregroundColor:
+                                            WidgetStateProperty.resolveWith<
+                                              Color
+                                            >(
+                                              (states) =>
+                                                  states.contains(
+                                                    WidgetState.selected,
+                                                  )
+                                                  ? pureWhite
+                                                  : slate600,
+                                            ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              if (_editingIndex != null) ...[
-                                SizedBox(
-                                  height: 52,
-                                  child: OutlinedButton(
-                                    onPressed: _cancelEdit,
-                                    style: OutlinedButton.styleFrom(
-                                      side: BorderSide(
-                                        color: slate600,
-                                        width: 1.5,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                      ),
-                                    ),
-                                    child: Icon(
-                                      AppIcons.close,
-                                      color: slate600,
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
-                              ],
-                              SizedBox(
-                                height: 52,
-                                child: ElevatedButton.icon(
-                                  onPressed: _addSegment,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _editingIndex != null
-                                        ? fieldPick(
-                                            Colors.orange.shade600,
+                                ],
+                              ),
+                              if (_bendType == "custom") ...[
+                                const SizedBox(height: 12),
+                                InkWell(
+                                  onTap: () async {
+                                    await MakitaNumpad.show(
+                                      context,
+                                      controller: _customAngleController,
+                                      title: "벤딩 각도 입력 (°)",
+                                    );
+                                    if (!context.mounted) return;
+                                    final double typed =
+                                        double.tryParse(
+                                          _customAngleController.text,
+                                        ) ??
+                                        0.0;
+                                    setState(() {
+                                      // 음수·상한 초과는 묶는다. 칸 글자도 같이 바꿔서
+                                      // 보이는 값과 셈에 쓰는 값이 같게 한다.
+                                      _selectedAngle = _customAngle();
+                                      if (_selectedAngle == 0.0) {
+                                        _selectedRotation = null;
+                                      }
+                                    });
+                                    if (typed > kTubeMaxAngle) {
+                                      _showAngleLimitNotice();
+                                    }
+                                  },
+                                  child: AbsorbPointer(
+                                    child: TextField(
+                                      controller: _customAngleController,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        color: fieldPick(
+                                          Colors.deepOrange,
+                                          sunlight: fc.caution,
+                                          night: fc.caution,
+                                        ),
+                                        fontFamily: 'monospace',
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: "원하는 각도를 입력하십시오 (예: 45)",
+                                        filled: true,
+                                        fillColor: fieldSoft(
+                                          Colors.orange.shade50,
+                                          (p) => p.caution,
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 16,
+                                              vertical: 12,
+                                            ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          borderSide: BorderSide(
+                                            color: fieldPick(
+                                              Colors.orange.shade200,
+                                              sunlight: fc.caution,
+                                              night: fc.caution.withValues(
+                                                alpha: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        suffixIcon: Icon(
+                                          AppIcons.edit,
+                                          color: fieldPick(
+                                            Colors.deepOrange,
                                             sunlight: fc.caution,
                                             night: fc.caution,
-                                          )
-                                        : makitaTeal,
-                                    foregroundColor: pureWhite,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                    ),
-                                  ),
-                                  icon: Icon(
-                                    _editingIndex != null
-                                        ? Icons.check
-                                        : Icons.add_circle,
-                                  ),
-                                  label: Text(
-                                    _editingIndex != null ? "수정" : "추가",
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
+                                          ),
+                                          size: 18,
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
+                              ],
+                              const SizedBox(height: 16),
+                              if (_selectedAngle > 0) ...[
+                                Row(
+                                  children: [
+                                    Text(
+                                      "진행 방향 (6축)",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: _selectedRotation == null
+                                            ? fieldPick(
+                                                Colors.redAccent,
+                                                sunlight: fc.danger,
+                                                night: fc.danger,
+                                              )
+                                            : slate600,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    // 🚀 [고침] 11px 옅은 빨강이라 잘 안 보였다.
+                                    if (_selectedRotation == null)
+                                      Flexible(
+                                        child: Text(
+                                          " *방향을 선택하십시오",
+                                          style: TextStyle(
+                                            color: fieldPick(
+                                              Colors.red.shade700,
+                                              sunlight: fc.danger,
+                                              night: fc.danger,
+                                            ),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Builder(
+                                  builder: (context) {
+                                    final canBend = _bendRule();
+                                    // 목록이 바뀌어(↶ 등) 골라 둔 방향이 이제 못 꺾는 방향이면 선택을 푼다.
+                                    final picked = _selectedRotation;
+                                    if (picked != null && !canBend(picked)) {
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (mounted &&
+                                                _selectedRotation == picked) {
+                                              setState(
+                                                () => _selectedRotation = null,
+                                              );
+                                            }
+                                          });
+                                    }
+                                    return GridView.builder(
+                                      shrinkWrap: true,
+                                      physics:
+                                          const NeverScrollableScrollPhysics(),
+                                      gridDelegate:
+                                          const SliverGridDelegateWithFixedCrossAxisCount(
+                                            crossAxisCount: 3,
+                                            // 칸 높이를 폭에 비례로 잡으면 가로 화면에서 칸이 커져 281px 넘쳤다.
+                                            mainAxisExtent: 40,
+                                            crossAxisSpacing: 8,
+                                            mainAxisSpacing: 8,
+                                          ),
+                                      itemCount: _directions.length,
+                                      itemBuilder: (context, index) {
+                                        final dir = _directions[index];
+                                        bool isSelected =
+                                            _selectedRotation == dir['val'];
+                                        // 관이 이미 그 축으로 가고 있으면 꺾을 평면이 없어 못 꺾는다(입력 점검과 같은 규칙).
+                                        final bool allowed = canBend(
+                                          dir['val'] as double,
+                                        );
+                                        return Opacity(
+                                          key: ValueKey('dir_${dir['val']}'),
+                                          opacity: allowed ? 1.0 : 0.38,
+                                          child: InkWell(
+                                            onTap: allowed
+                                                ? () => setState(
+                                                    () => _selectedRotation =
+                                                        dir['val'],
+                                                  )
+                                                : () => showAppSnack(
+                                                    context,
+                                                    "'${dir['label'].split(' ')[0]}' 쪽으로는 지금 꺾을 수 없습니다. "
+                                                    "관이 이미 그 쪽이나 반대쪽으로 가고 있습니다.",
+                                                    kind: AppSnackKind.error,
+                                                  ),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: isSelected
+                                                    ? makitaTeal.withValues(
+                                                        alpha: 0.1,
+                                                      )
+                                                    : fieldPick(
+                                                        Colors.grey.shade50,
+                                                        sunlight: fc.fill,
+                                                        night: fc.fill,
+                                                      ),
+                                                border: Border.all(
+                                                  color: isSelected
+                                                      ? makitaTeal
+                                                      : fieldPick(
+                                                          Colors.grey.shade300,
+                                                          sunlight: fc.line,
+                                                          night: fc.line,
+                                                        ),
+                                                  width: isSelected ? 2 : 1,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Row(
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    dir['icon'],
+                                                    size: 16,
+                                                    color: isSelected
+                                                        ? makitaTeal
+                                                        : slate600,
+                                                  ),
+                                                  const SizedBox(width: 4),
+                                                  Text(
+                                                    dir['label'].split(' ')[0],
+                                                    style: TextStyle(
+                                                      color: isSelected
+                                                          ? makitaTeal
+                                                          : slate900,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          "길이 (mm)",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: slate600,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        InkWell(
+                                          onTap: () async {
+                                            final added = await MakitaNumpad.show(
+                                              context,
+                                              controller: _lengthController,
+                                              title: "배관 길이 (mm)",
+                                              // 각도와 방향이 정해졌을 때만 숫자판에서 바로 넣을 수 있다.
+                                              addLabel: _readyToAdd
+                                                  ? (_editingIndex != null
+                                                        ? "수정"
+                                                        : "추가")
+                                                  : null,
+                                            );
+                                            if (!mounted) return;
+                                            setState(() {});
+                                            if (added) _addSegment();
+                                          },
+                                          child: AbsorbPointer(
+                                            child: TextField(
+                                              controller: _lengthController,
+                                              style: TextStyle(
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w900,
+                                                color: makitaTeal,
+                                                fontFamily: 'monospace',
+                                              ),
+                                              decoration: InputDecoration(
+                                                hintText: "0",
+                                                filled: true,
+                                                fillColor: fieldPick(
+                                                  Colors.grey.shade100,
+                                                  sunlight: fc.fill,
+                                                  night: fc.fill,
+                                                ),
+                                                contentPadding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 16,
+                                                      vertical: 12,
+                                                    ),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  borderSide: BorderSide(
+                                                    color: fieldPick(
+                                                      Colors.grey.shade300,
+                                                      sunlight: fc.line,
+                                                      night: fc.line,
+                                                    ),
+                                                  ),
+                                                ),
+                                                suffixIcon: Icon(
+                                                  AppIcons.edit,
+                                                  color: slate600,
+                                                  size: 18,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  if (_editingIndex != null) ...[
+                                    SizedBox(
+                                      height: 52,
+                                      child: OutlinedButton(
+                                        onPressed: _cancelEdit,
+                                        style: OutlinedButton.styleFrom(
+                                          side: BorderSide(
+                                            color: slate600,
+                                            width: 1.5,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          AppIcons.close,
+                                          color: slate600,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  SizedBox(
+                                    height: 52,
+                                    child: ElevatedButton.icon(
+                                      onPressed: _addSegment,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _editingIndex != null
+                                            ? fieldPick(
+                                                Colors.orange.shade600,
+                                                sunlight: fc.caution,
+                                                night: fc.caution,
+                                              )
+                                            : makitaTeal,
+                                        foregroundColor: pureWhite,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                        ),
+                                      ),
+                                      icon: Icon(
+                                        _editingIndex != null
+                                            ? Icons.check
+                                            : Icons.add_circle,
+                                      ),
+                                      label: Text(
+                                        _editingIndex != null ? "수정" : "추가",
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              if (_editingIndex == null) ...[
+                                const SizedBox(height: 16),
+                                AppButton.secondary(
+                                  label: "특수 벤딩 툴 (오프셋/새들 등)",
+                                  icon: Icons.build_circle_outlined,
+                                  expand: true,
+                                  onPressed: _showSpecialBendingMenu,
+                                ),
+                              ],
                             ],
                           ),
-                          if (_editingIndex == null) ...[
-                            const SizedBox(height: 16),
-                            AppButton.secondary(
-                              label: "특수 벤딩 툴 (오프셋/새들 등)",
-                              icon: Icons.build_circle_outlined,
-                              expand: true,
-                              onPressed: _showSpecialBendingMenu,
-                            ),
-                          ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         );
       },
     );

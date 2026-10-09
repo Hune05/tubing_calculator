@@ -6,8 +6,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/eng_calculator_page.dart';
 
+/// 시험 기본 화면(800×600)은 가로라 가로 자판이 뜬다. 크기를 따로 정하지 않은 시험은 세로 폰으로 본다.
+void portraitIfDefault(WidgetTester tester) {
+  if (tester.view.physicalSize != const Size(2400, 1800)) return;
+  tester.view.physicalSize = const Size(412, 915);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
+
 Future<void> pump(WidgetTester tester) async {
   SharedPreferences.setMockInitialValues({});
+  portraitIfDefault(tester);
   await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
   await tester.pump();
   await tester.pump();
@@ -118,7 +127,15 @@ void main() {
 
   testWidgets('= 뒤에 이어서 계산하면 반올림 전 값으로 한다(1÷3=×3= → 1, 10-07)', (tester) async {
     await pump(tester);
-    for (final k in ['calc_1', 'calc_div', 'calc_3', 'calc_eq', 'calc_mul', 'calc_3', 'calc_eq']) {
+    for (final k in [
+      'calc_1',
+      'calc_div',
+      'calc_3',
+      'calc_eq',
+      'calc_mul',
+      'calc_3',
+      'calc_eq',
+    ]) {
       await tap(tester, k);
     }
     expect(result(tester), '1');
@@ -126,7 +143,14 @@ void main() {
 
   testWidgets('기록의 분수 결과는 괄호로 감싸 붙인다(2÷(1/3) = 6, 10-07)', (tester) async {
     await pump(tester);
-    for (final k in ['calc_1', 'calc_div', 'calc_3', 'calc_sd', 'calc_eq', 'calc_ac']) {
+    for (final k in [
+      'calc_1',
+      'calc_div',
+      'calc_3',
+      'calc_sd',
+      'calc_eq',
+      'calc_ac',
+    ]) {
       await tap(tester, k);
     }
     for (final k in ['calc_2', 'calc_div']) {
@@ -166,9 +190,19 @@ void main() {
     expect(fraction(tester), "≈ 3' 3-3/8\"");
   });
 
-  testWidgets('FT 묶음: 20피트 − 3피트 6인치 = 198인치(인치가 빼기에서 떨어지지 않게, 8차)', (tester) async {
+  testWidgets('FT 묶음: 20피트 − 3피트 6인치 = 198인치(인치가 빼기에서 떨어지지 않게, 8차)', (
+    tester,
+  ) async {
     await pump(tester);
-    for (final k in ['calc_2', 'calc_0', 'calc_ft', 'calc_sub', 'calc_3', 'calc_ft', 'calc_6']) {
+    for (final k in [
+      'calc_2',
+      'calc_0',
+      'calc_ft',
+      'calc_sub',
+      'calc_3',
+      'calc_ft',
+      'calc_6',
+    ]) {
       await tap(tester, k);
     }
     expect(result(tester), '198');
@@ -182,7 +216,9 @@ void main() {
     expect(result(tester), '21');
   });
 
-  testWidgets('곱하기 뒤 빼기는 음수 부호: 3 × − 2 = −6, 연산자를 바꾸면 둘 다 바뀐다(8차)', (tester) async {
+  testWidgets('곱하기 뒤 빼기는 음수 부호: 3 × − 2 = −6, 연산자를 바꾸면 둘 다 바뀐다(8차)', (
+    tester,
+  ) async {
     await pump(tester);
     for (final k in ['calc_3', 'calc_mul', 'calc_sub', 'calc_2']) {
       await tap(tester, k);
@@ -396,6 +432,7 @@ void main() {
     SharedPreferences.setMockInitialValues({
       'field_eng_calc_advanced_v1': false,
     });
+    portraitIfDefault(tester);
     await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('calc_sin')), findsNothing);
@@ -509,6 +546,7 @@ void main() {
       SharedPreferences.setMockInitialValues({});
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
+      portraitIfDefault(tester);
       await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
       await tester.pump();
       await tap(tester, 'calc_1');
@@ -541,25 +579,45 @@ void moreTests() {
   testWidgets('100−10%는 90(일반 계산기 방식)', (tester) async {
     await pump(tester);
     await seq(tester, [
-      'calc_1', 'calc_0', 'calc_0', 'calc_sub', 'calc_1', 'calc_0', 'calc_pct',
+      'calc_1',
+      'calc_0',
+      'calc_0',
+      'calc_sub',
+      'calc_1',
+      'calc_0',
+      'calc_pct',
     ]);
     expect(result(tester), '90');
   });
 
   testWidgets('cos(90)은 0으로 보인다', (tester) async {
     await pump(tester);
-    await seq(tester, [
-      'calc_cos', 'calc_9', 'calc_0', 'calc_rparen',
-    ]);
+    await seq(tester, ['calc_cos', 'calc_9', 'calc_0', 'calc_rparen']);
     expect(result(tester), '0');
   });
 
   testWidgets('큰 정수는 자리를 다 보여 준다(123456789×987654321)', (tester) async {
     await pump(tester);
     await seq(tester, [
-      'calc_1', 'calc_2', 'calc_3', 'calc_4', 'calc_5', 'calc_6', 'calc_7',
-      'calc_8', 'calc_9', 'calc_mul', 'calc_9', 'calc_8', 'calc_7', 'calc_6',
-      'calc_5', 'calc_4', 'calc_3', 'calc_2', 'calc_1',
+      'calc_1',
+      'calc_2',
+      'calc_3',
+      'calc_4',
+      'calc_5',
+      'calc_6',
+      'calc_7',
+      'calc_8',
+      'calc_9',
+      'calc_mul',
+      'calc_9',
+      'calc_8',
+      'calc_7',
+      'calc_6',
+      'calc_5',
+      'calc_4',
+      'calc_3',
+      'calc_2',
+      'calc_1',
     ]);
     expect(result(tester), '121932631112635269');
   });
@@ -595,6 +653,7 @@ void moreTests() {
     SharedPreferences.setMockInitialValues({
       kEngCalcHistoryKey: ['2+3 = 5'],
     });
+    portraitIfDefault(tester);
     await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
     for (var i = 0; i < 4; i++) {
       await tester.pump(const Duration(milliseconds: 50));
@@ -655,6 +714,7 @@ void titleTests() {
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(347, 770);
     addTearDown(tester.view.reset);
+    portraitIfDefault(tester);
     await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
     await tester.pump();
     await tester.pump();
@@ -670,9 +730,25 @@ void modeStabilityTests() {
     await pump(tester);
     expect(find.byKey(const Key('calc_sin')), findsOneWidget);
     for (final k in [
-      'calc_1', 'calc_2', 'calc_3', 'calc_4', 'calc_5', 'calc_6', 'calc_7',
-      'calc_8', 'calc_9', 'calc_mul', 'calc_9', 'calc_8', 'calc_7', 'calc_6',
-      'calc_5', 'calc_4', 'calc_3', 'calc_2', 'calc_1',
+      'calc_1',
+      'calc_2',
+      'calc_3',
+      'calc_4',
+      'calc_5',
+      'calc_6',
+      'calc_7',
+      'calc_8',
+      'calc_9',
+      'calc_mul',
+      'calc_9',
+      'calc_8',
+      'calc_7',
+      'calc_6',
+      'calc_5',
+      'calc_4',
+      'calc_3',
+      'calc_2',
+      'calc_1',
     ]) {
       await tap(tester, k);
     }
@@ -682,6 +758,7 @@ void modeStabilityTests() {
 
   testWidgets('저장된 모드가 기본이면 기본으로 시작하고 눌러도 그대로다', (tester) async {
     SharedPreferences.setMockInitialValues({kEngCalcAdvancedKey: false});
+    portraitIfDefault(tester);
     await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -713,6 +790,7 @@ void ansAndCopyTests() {
     SharedPreferences.setMockInitialValues({
       kEngCalcHistoryKey: ['1+1 = 2', '2+3 = 5'],
     });
+    portraitIfDefault(tester);
     await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
     for (var i = 0; i < 4; i++) {
       await tester.pump(const Duration(milliseconds: 50));
@@ -727,6 +805,7 @@ void ansAndCopyTests() {
     SharedPreferences.setMockInitialValues({
       kEngCalcHistoryKey: ['7/2 = 7/2'],
     });
+    portraitIfDefault(tester);
     await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
     for (var i = 0; i < 4; i++) {
       await tester.pump(const Duration(milliseconds: 50));

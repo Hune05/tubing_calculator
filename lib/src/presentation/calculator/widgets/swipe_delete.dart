@@ -44,9 +44,21 @@ int? indexAfterRemove(int? editing, int removed) {
   return editing > removed ? editing - 1 : editing;
 }
 
-/// 입력판이 차지할 수 있는 가장 큰 높이. 가로 화면에서는 목록이 보이도록 30%,
-/// 세로 화면에서는 60%. 넘치면 입력판 안에서 스크롤한다.
-double inputPanelMaxHeight(BuildContext context) {
-  final size = MediaQuery.sizeOf(context);
-  return size.height * (size.width > size.height ? 0.3 : 0.6);
-}
+/// 세로 배치에서 입력판이 차지할 수 있는 가장 큰 높이(화면의 60%). 넘치면 입력판 안에서 스크롤한다.
+/// 가로 배치에서는 입력판이 오른쪽에 전체 높이로 서므로 쓰지 않는다([bendInputLandscape]).
+double inputPanelMaxHeight(BuildContext context) =>
+    MediaQuery.sizeOf(context).height * 0.6;
+
+/// 튜브·전선관 입력 탭을 가로 배치(왼쪽 목록, 오른쪽 입력판)로 그리는지(10-09). 탭이 받은 자리로
+/// 정한다(화면 나누기에서도 맞게). 예전에는 가로에서도 입력판을 아래에 두고 높이 30%만 줘서
+/// 숫자·방향 칸이 잘렸다.
+bool bendInputLandscape(BoxConstraints box) => box.maxWidth > box.maxHeight;
+
+/// 가로 배치에서 오른쪽 입력판 폭.
+double bendInputPanelWidth(BoxConstraints box) =>
+    (box.maxWidth * 0.48).clamp(300.0, 560.0);
+
+/// 입력판 모서리: 세로는 위쪽, 가로는 왼쪽을 둥글게.
+BorderRadius bendInputPanelRadius(bool landscape) => landscape
+    ? const BorderRadius.horizontal(left: Radius.circular(24))
+    : const BorderRadius.vertical(top: Radius.circular(24));

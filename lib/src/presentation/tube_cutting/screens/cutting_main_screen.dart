@@ -1,4 +1,5 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
+import 'package:tubing_calculator/src/core/common_widgets/min_height_scroll.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:flutter/material.dart';
@@ -2840,11 +2841,15 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ),
           ],
         ),
-        body: Column(
-          children: [
-            _buildMakerHeader(),
-            _buildNarrowBody(),
-          ],
+        // 가로로 눕힌 폰처럼 낮으면 화면 전체를 한 번에 스크롤한다(10-09: 입력 탭이 넘쳤다).
+        body: MinHeightScroll(
+          minHeight: 520,
+          child: Column(
+            children: [
+              _buildMakerHeader(),
+              _buildNarrowBody(),
+            ],
+          ),
         ),
       ),
     );
