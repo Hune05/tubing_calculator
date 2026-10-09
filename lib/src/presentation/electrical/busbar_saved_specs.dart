@@ -2,6 +2,7 @@
 // 저장은 SharedPreferences(이 기기만). 접지바 화면은 같은 모양을 자체 구현해 둔 것이 따로 있다.
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -199,7 +200,7 @@ Future<void> openSavedSpecs(
                           onTap: () {
                             onLoad(e['data'] as Map<String, dynamic>);
                             Navigator.pop(ctx);
-                            ScaffoldMessenger.of(context).showSnackBar(
+                            showSnackOnce(ScaffoldMessenger.of(context),
                               SnackBar(
                                 content: Text(
                                   '"${e['name']}"을 불러왔습니다. 필요한 칸만 고쳐 쓰십시오.',

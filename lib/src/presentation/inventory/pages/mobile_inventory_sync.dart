@@ -14,7 +14,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
   }
 
   void _showErrorSnackBar(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           msg,
@@ -193,7 +193,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
 
     setState(() => _historyLogs.insert(0, newRecord));
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       const SnackBar(
         content: Text(
           "서버로 올리고 있습니다.",
@@ -355,7 +355,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
       });
 
       HapticFeedback.mediumImpact();
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
             missing > 0

@@ -1,5 +1,6 @@
 // lib/src/presentation/inventory/pages/mobile_inventory_ocr.dart
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -70,7 +71,7 @@ class OcrService {
       spinner = false;
 
       if (recognizedText.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정하십시오.")),
         );
         return null;
@@ -112,7 +113,7 @@ class OcrService {
       if (context.mounted && spinner && Navigator.canPop(context)) {
         Navigator.pop(context);
       } else if (context.mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        showSnackOnce(ScaffoldMessenger.maybeOf(context),
           const SnackBar(content: Text('카메라를 열지 못했습니다. 카메라 권한을 확인하십시오.')),
         );
       }
@@ -177,7 +178,7 @@ class OcrService {
       spinner = false;
 
       if (recognizedText.text.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           const SnackBar(content: Text("인식된 글자가 없습니다. 범위를 다시 지정하십시오.")),
         );
         return null;
@@ -209,7 +210,7 @@ class OcrService {
       if (context.mounted && spinner && Navigator.canPop(context)) {
         Navigator.pop(context);
       } else if (context.mounted) {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        showSnackOnce(ScaffoldMessenger.maybeOf(context),
           const SnackBar(content: Text('카메라를 열지 못했습니다. 카메라 권한을 확인하십시오.')),
         );
       }

@@ -3,6 +3,7 @@
 //
 // 사용자 문서는 users/{이름}이라 이름 바꾸기는 [ProfileStore.renameUser] 한 갈래로만 한다.
 // 바꾼 뒤에는 홈을 새 이름으로 다시 연다(예전엔 앱을 껐다 켜기 전까지 홈이 옛 이름이었다).
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -290,7 +291,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
 
   void _showSnackBar(String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: isError ? red500 : slate900,

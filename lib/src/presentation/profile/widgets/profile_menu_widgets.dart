@@ -1,4 +1,5 @@
 // 프로필·설정 화면이 같이 쓰는 카드형 메뉴 줄과 알림 막대.
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -98,7 +99,7 @@ void showProfileSnack(
   String msg, {
   bool isError = false,
 }) {
-  ScaffoldMessenger.of(context).showSnackBar(
+  showSnackOnce(ScaffoldMessenger.of(context),
     SnackBar(
       content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
       backgroundColor: isError ? profileRed500 : profileSlate900,

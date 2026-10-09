@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
@@ -564,7 +565,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     });
     // 10-09: 예전 판에서 넣은 90° 넘는 줄은 수정 단추가 말없이 꺼져 있었다 → 까닭을 알린다.
     if (angle > kConduitMaxAngle) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
             "이 줄은 ${_fmtAngle(angle)}°라 이대로는 고칠 수 없습니다. 각도를 ${kConduitMaxAngle.toInt()}° 이하로 바꾸십시오.",

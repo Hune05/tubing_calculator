@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -338,7 +339,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                       return;
                     }
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    showSnackOnce(ScaffoldMessenger.of(context),
                       SnackBar(
                         content: const Text(
                           "도면을 불러왔습니다. 입력 탭의 ↶로 되돌릴 수 있습니다.",

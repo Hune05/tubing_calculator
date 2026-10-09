@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
@@ -251,7 +252,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     _repo.upsertProject(log).catchError((e) {
       debugPrint('프로젝트 저장 실패: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           const SnackBar(content: Text("저장하지 못했습니다. 통신을 확인하고 다시 해 보십시오.")),
         );
       }
@@ -966,9 +967,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (fmt == 'pdf') await shareReportPdf(doc);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(keepWords(failText("내보내기 실패", e)))));
+        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("내보내기 실패", e)))));
       }
     }
   }
@@ -1040,9 +1039,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   /// 하나면 바로 작성, 여럿이면 고르게 하고, 다 썼으면 알린다.
   Future<void> _writeTodayReport(List<Map<String, dynamic>> missing) async {
     if (missing.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("오늘 작업 일지를 모두 썼습니다.")));
+      showSnackOnce(ScaffoldMessenger.of(context), const SnackBar(content: Text("오늘 작업 일지를 모두 썼습니다.")));
       return;
     }
     if (missing.length == 1) {
@@ -1242,7 +1239,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       recordFinalReportShare(log, r.status);
       _saveProject(log);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(
             content: Text(keepWords(pdfShareNotice(r.status, '마무리 보고서'))),
           ),
@@ -1250,9 +1247,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
+        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
       }
     }
   }
@@ -1351,7 +1346,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       });
       _saveProject(log);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(content: Text(toShared ? "공용으로 돌렸습니다." : "내 것으로 가져왔습니다.")),
         );
       }
@@ -1435,9 +1430,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       await Share.shareXFiles([XFile(f.path)], text: '오늘의 전체 현황');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(keepWords(failText("이미지 만들기 실패", e)))));
+        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("이미지 만들기 실패", e)))));
       }
     }
   }

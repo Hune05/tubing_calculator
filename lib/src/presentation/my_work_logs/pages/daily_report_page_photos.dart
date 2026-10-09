@@ -117,7 +117,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
     final path = _attachedImages[index];
     if (_attachedImages.length >= 10) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(content: Text(keepWords("사진은 최대 10장까지 첨부할 수 있습니다."))),
         );
       }

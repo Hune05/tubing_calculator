@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -116,7 +117,7 @@ class _MobileInventoryLoginScreenState
   }
 
   void _showErrorAndPop(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           message,

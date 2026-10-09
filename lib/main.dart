@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/presentation/equipment/equipment_model.dart' show LedgerView;
 import 'package:tubing_calculator/src/presentation/equipment/equipment_pages.dart' show EquipmentLedgerPage;
@@ -338,9 +339,7 @@ class _MyAppState extends State<MyApp> {
       final ctx = appNavigatorKey.currentContext;
       if (ctx == null || !ctx.mounted) return;
       if (path == null) {
-        ScaffoldMessenger.maybeOf(
-          ctx,
-        )?.showSnackBar(const SnackBar(content: Text("받은 PDF를 열 수 없습니다.")));
+        showSnackOnce(ScaffoldMessenger.maybeOf(ctx), const SnackBar(content: Text("받은 PDF를 열 수 없습니다.")));
         return;
       }
       unawaited(openSharedDrawing(ctx, path, originalPath: d.path, originalName: d.name.isEmpty ? null : d.name));

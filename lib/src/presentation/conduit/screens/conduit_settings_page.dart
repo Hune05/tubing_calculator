@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:convert';
 import 'dart:math' as math;
@@ -555,7 +556,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       }
     }
     if (refilled && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         const SnackBar(content: Text('빈 칸(CLR·테이크업·게인)은 쓰던 값을 다시 넣어 저장했습니다.')),
       );
     }
@@ -602,7 +603,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     _lastSeenSettings = newSettings; // 내가 쓴 값이니 다시 읽지 않는다
     globalBenderSettings.value = newSettings;
     if (mounted) setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           otherCount > 0

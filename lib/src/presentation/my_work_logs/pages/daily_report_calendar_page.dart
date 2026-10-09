@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
@@ -261,7 +262,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
   Future<void> _openReport(Map<String, dynamic> report) async {
     // 확정된 일지는 여기서 고치면 확정 표시·기록이 없어진다. 일지 탭의 "확정 풀고 고치기"로.
     if (report['locked'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(content: Text(keepWords("확정된 일지입니다. 일지 탭에서 확정을 풀고 고치십시오."))),
       );
       return;
@@ -336,7 +337,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
     buffer.writeln("연장/야간 근무: $overtimeDays일");
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(keepWords("이번 달 작업 일지 요약을 클립보드에 복사했습니다.")),
         backgroundColor: tossBlue,
@@ -499,7 +500,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                   borderRadius: BorderRadius.circular(10),
                   onTap: hasReport
                       ? () => _openDay(key, dayReports)
-                      : () => ScaffoldMessenger.of(context).showSnackBar(
+                      : () => showSnackOnce(ScaffoldMessenger.of(context),
                           SnackBar(
                             content: Text(keepWords("이 날짜의 작업 일지가 없습니다.")),
                           ),

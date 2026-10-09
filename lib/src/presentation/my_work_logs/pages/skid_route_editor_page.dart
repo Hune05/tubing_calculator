@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:math' as math;
 
@@ -137,7 +138,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
     );
     if (!ok || !mounted) return;
     ConduitDataManager().replaceAll(_route.bends);
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           keepWords(

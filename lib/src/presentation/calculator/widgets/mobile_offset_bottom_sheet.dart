@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
@@ -214,7 +215,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
       {'length': travel, 'angle': angle, 'rotation': r2},
     ]);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(_addedMessage(startDistance, shrink)),
         backgroundColor: makitaTeal,

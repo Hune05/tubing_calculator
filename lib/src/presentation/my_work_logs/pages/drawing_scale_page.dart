@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
 import 'dart:math' as math;
@@ -158,7 +159,7 @@ class _DrawingScalePageState extends State<DrawingScalePage> {
   void _apply() {
     final r = _result;
     if (r == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("왼쪽 위를 먼저, 오른쪽 아래를 나중에 찍었는지 확인하십시오.")),
         ),

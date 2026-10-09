@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/utils/ai_polish.dart';
@@ -25,7 +26,7 @@ class _AiPolishButtonState extends State<AiPolishButton> {
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(msg)));
   }
 
   Future<void> _run() async {

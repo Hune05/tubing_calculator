@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import '../../my_work_logs/widgets/ai_polish_button.dart';
 import '../fab_qr.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -313,7 +314,7 @@ class _MobileFabricationDetailScreenState
 
   Future<void> _exportToPDFAndShare() async {
     if (_bendList.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         const SnackBar(
           content: Text("공유할 내용이 없습니다."),
           backgroundColor: slate600,
@@ -363,7 +364,7 @@ class _MobileFabricationDetailScreenState
         now: FabQr.savedDateOf(_item['date']),
       );
       if (qrLink.dense && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           const SnackBar(
             content: Text("벤딩이 많아 QR이 촘촘합니다. 인쇄한 뒤 앱으로 읽히는지 확인하십시오."),
           ),
@@ -639,7 +640,7 @@ class _MobileFabricationDetailScreenState
     } catch (e) {
       debugPrint("PDF 생성 실패: $e");
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           const SnackBar(
             content: Text("PDF를 만들지 못했습니다."),
             backgroundColor: Colors.red,
@@ -888,7 +889,7 @@ class _MobileFabricationDetailScreenState
                                   Navigator.pop(context);
 
                                   // 3. 미리 빼둔 messenger로 알림 띄우기 (에러 안 남!)
-                                  messenger.showSnackBar(
+                                  showSnackOnce(messenger,
                                     SnackBar(
                                       content: const Text(
                                         "도면 정보를 수정했습니다.",
@@ -907,7 +908,7 @@ class _MobileFabricationDetailScreenState
                                 } catch (e) {
                                   debugPrint("저장 에러: $e");
                                   setModalState(() => isSaving = false);
-                                  messenger.showSnackBar(
+                                  showSnackOnce(messenger,
                                     const SnackBar(
                                       content: Text("저장하지 못했습니다."),
                                       backgroundColor: Colors.red,

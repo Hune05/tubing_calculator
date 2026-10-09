@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
@@ -492,7 +493,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                           // 저장이 안 됐으면 창을 그대로 두고 다시 누를 수 있게 한다.
                           debugPrint('보관함 저장 실패: $e');
                           if (mounted) setState(() => _saving = false);
-                          messenger.showSnackBar(
+                          showSnackOnce(messenger,
                             SnackBar(
                               content: const Text('저장하지 못했습니다. 다시 시도하십시오.'),
                               backgroundColor: Colors.redAccent.shade400,
@@ -550,7 +551,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                         // 프로젝트에 연결해 저장할 때(콜백이 있을 때)만 프로젝트 자재에도 들어간다.
                         if (overwriting) {
                           // 덮어쓴 것은 바로 되돌릴 수 있게 이전 값을 들고 있는다.
-                          messenger.showSnackBar(
+                          showSnackOnce(messenger,
                             SnackBar(
                               content: Text('도면을 덮어썼습니다: ${target.title}'),
                               backgroundColor: makitaTeal,
@@ -571,7 +572,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                           );
                           return;
                         }
-                        messenger.showSnackBar(
+                        showSnackOnce(messenger,
                           SnackBar(
                             content: Text(
                               widget.onSaveCallback != null

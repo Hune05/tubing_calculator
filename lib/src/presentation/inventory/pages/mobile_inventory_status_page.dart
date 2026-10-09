@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
@@ -579,7 +580,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
   }
 
   void _snackScanNone() {
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       const SnackBar(
         content: Text(
           '이 바코드와 맞는 자재를 찾지 못했습니다. 새 자재는 재고조사·자재 등록 메뉴에서 등록하십시오.',

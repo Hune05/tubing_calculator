@@ -448,7 +448,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                 int.tryParse(minQtyController.text.trim()) ?? 0;
 
                             if (name.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              showSnackOnce(ScaffoldMessenger.of(context),
                                 const SnackBar(
                                   content: Text("자재명을 입력하십시오."),
                                   backgroundColor: Colors.redAccent,
@@ -475,7 +475,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                 (m['name'] ?? '').toString(),
                             ]);
                             if (dup != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              showSnackOnce(ScaffoldMessenger.of(context),
                                 SnackBar(
                                   content: Text(
                                     "같은 이름의 자재가 이미 있습니다: $dup. 목록에서 그 자재의 수량을 고치십시오.",

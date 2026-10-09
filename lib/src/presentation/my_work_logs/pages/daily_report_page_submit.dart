@@ -82,7 +82,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
         _selectedIssueIds.isEmpty &&
         _completedScheduleIds.isEmpty &&
         _usedMaterialIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("작업 내용, 사진, 또는 처리한 이슈/일정을 하나 이상 입력해야 합니다.")),
           backgroundColor: Colors.red,

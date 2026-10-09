@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:convert';
 import '../widgets/korean_text.dart';
@@ -125,7 +126,7 @@ class _StorageManagementPageState extends State<StorageManagementPage> {
 
   void _toast(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(m)));
   }
 
   Future<void> _backup() async {

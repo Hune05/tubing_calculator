@@ -8,6 +8,7 @@
 library;
 
 import 'dart:async';
+import 'snack_once.dart';
 
 import 'package:flutter/material.dart';
 
@@ -382,8 +383,9 @@ void showAppSnack(
     AppSnackKind.error => (AppColors.danger, Icons.error_outline_rounded),
     AppSnackKind.undo => (AppColors.text, Icons.undo_rounded),
   };
-  if (hasUndo) messenger.clearSnackBars();
-  messenger.showSnackBar(
+  // 줄 세우지 않는다: 같은 알림은 다시 안 띄우고, 다른 알림은 앞 것을 바꾼다(snack_once.dart, 10-09).
+  showSnackOnce(
+    messenger,
     SnackBar(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(
@@ -418,6 +420,7 @@ void showAppSnack(
             )
           : null,
     ),
+    key: '${kind.name}|$message',
   );
 }
 

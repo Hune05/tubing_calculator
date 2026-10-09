@@ -172,7 +172,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                 // 2) 마무리 보고서(PDF)
                 await _offerFinalReport();
                 if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
+                showSnackOnce(ScaffoldMessenger.of(context),
                   SnackBar(
                     content: Text(keepWords("프로젝트를 완료 처리했습니다.")),
                     persist: false,

@@ -5,6 +5,7 @@
 // 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -554,7 +555,7 @@ Future<void> openCalRecordPdf(
   try {
     bytes = await (build ?? buildCalRecordPdf)(r);
   } catch (_) {
-    messenger?.showSnackBar(const SnackBar(content: Text('성적서를 만들지 못했습니다. 다시 해 보십시오.')));
+    showSnackOnce(messenger, const SnackBar(content: Text('성적서를 만들지 못했습니다. 다시 해 보십시오.')));
     return;
   } finally {
     _calPdfBusy = false;

@@ -1,6 +1,7 @@
 // 전선관 특수 벤딩 시트(킥·분할 90°·백투백 90°·스터브업)가 오프셋·새들·롤링 오프셋 시트와 같은 모양이 되게 하는
 // 공용 부품. 틀(머리 줄·그림·입력 칸·6축 방향·결과 상자·경고 창)을 오프셋 시트(mobile_offset_bottom_sheet.dart)와
 // 똑같이 맞춰 두었다. 모양을 바꿀 때는 오프셋 시트와 함께 바꾼다.
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showSheetSnack;
 import 'package:lucide_icons/lucide_icons.dart';
@@ -616,7 +617,7 @@ void csSnackMissing(BuildContext context, String msg) =>
 
 /// 목록에 넣은 뒤 알림(오프셋 시트와 같은 청록 알림 줄).
 void csSnackAdded(BuildContext context, String msg) {
-  ScaffoldMessenger.of(context).showSnackBar(
+  showSnackOnce(ScaffoldMessenger.of(context),
     SnackBar(content: Text(msg), backgroundColor: csTeal),
   );
 }

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
@@ -680,7 +681,7 @@ class _MobileQuickUBendBottomSheetState
     widget.onAddMultipleBends!(segs);
     if (wasEmpty) dm.startFit = _isStartFitting;
     dm.endFit = _isReturnFitting;
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       const SnackBar(
         content: Text("U자를 넣었습니다. 한 번에 180°로 꺾으면 1번 마킹만 씁니다."),
         backgroundColor: makitaTeal,

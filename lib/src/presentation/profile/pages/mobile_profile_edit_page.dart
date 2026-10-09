@@ -1,5 +1,6 @@
 // 상세 프로필: 사진·이름·팀·직급·연락처. 이름을 바꾸면 프로필 화면과 같은 갈래
 // ([ProfileStore.renameUser])로 옮기고 홈을 새 이름으로 다시 연다.
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -121,7 +122,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(renamed ? '이름을 바꾸고 프로필을 저장했습니다.' : '프로필을 저장했습니다.'),
         behavior: SnackBarBehavior.floating,

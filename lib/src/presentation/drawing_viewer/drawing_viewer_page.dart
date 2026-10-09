@@ -1,5 +1,6 @@
 // 도면 보기 화면: 두 손가락으로 확대·이동, 두 번 눌러 맞춤, 쪽 넘기기. 도구로 확인·틀림·질문·문제 핀·
 // 개정 구름·화살표·네모·펜·글을 올리고, 문제 목록에서 해결 표시·카톡 보내기·PDF 내보내기를 한다.
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:io';
 import 'dart:math' as math;
 
@@ -518,7 +519,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
       );
     } catch (e) {
       closeBusy();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failText('PDF를 만들지 못했습니다', e))));
+      if (mounted) showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(failText('PDF를 만들지 못했습니다', e))));
     } finally {
       closeBusy();
       _exporting = false;

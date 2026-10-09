@@ -1,4 +1,5 @@
 // 프로필 사진 고르기: 갤러리·카메라·지우기. 프로필 화면과 상세 프로필이 같이 쓴다.
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
     show showAppConfirm;
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -157,7 +158,7 @@ Future<ProfilePhotoChange?> changeProfilePhoto(
 }
 
 void _snack(BuildContext context, String msg, {bool error = false}) {
-  ScaffoldMessenger.of(context).showSnackBar(
+  showSnackOnce(ScaffoldMessenger.of(context),
     SnackBar(
       content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold)),
       backgroundColor: error ? _red : _slate900,

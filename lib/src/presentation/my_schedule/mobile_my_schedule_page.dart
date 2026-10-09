@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import 'schedule_widget.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -2353,9 +2354,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     // 폰에 먼저 적히므로 기다리지 않고 알리고, 실패하면 따로 알린다.
     unawaited(batch.commit().catchError(_scheduleSaveFailed));
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("일정 ${items.length}건을 추가했습니다.")));
+      showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text("일정 ${items.length}건을 추가했습니다.")));
     }
   }
 
@@ -2363,7 +2362,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
   void _scheduleSaveFailed(Object e) {
     debugPrint('일정 저장 실패: $e');
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       const SnackBar(content: Text("일정을 저장하지 못했습니다. 통신을 확인하고 다시 해 보십시오.")),
     );
   }
@@ -3167,7 +3166,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     if (canSaveAsWorker(_currentWorker)) return true;
     // 🚀 [고침] 막기만 하고 이름을 넣으러 가는 길이 없었다.
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: const Text("이름이 없어 저장할 수 없습니다. 이름을 먼저 넣으십시오."),
           duration: const Duration(seconds: 6),
@@ -3190,7 +3189,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
 
   void _toast(String m) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
+    showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(m)));
   }
 
   Future<List<PersonalDoc>> _fetchMyPersonalDocs() async {
@@ -3772,9 +3771,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     final String q = lat != null && lng != null ? "$lat,$lng" : place.trim();
     if (q.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("장소를 먼저 적으십시오.")));
+        showSnackOnce(ScaffoldMessenger.of(context), const SnackBar(content: Text("장소를 먼저 적으십시오.")));
       }
       return;
     }
@@ -3787,15 +3784,11 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         mode: LaunchMode.externalApplication,
       );
       if (!ok && mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("지도를 열지 못했습니다.")));
+        showSnackOnce(ScaffoldMessenger.of(context), const SnackBar(content: Text("지도를 열지 못했습니다.")));
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(failText("지도를 열지 못했습니다", e))));
+        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(failText("지도를 열지 못했습니다", e))));
       }
     }
   }

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import '../widgets/ai_polish_button.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
@@ -901,7 +902,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                               );
                             } catch (e) {
                               if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
+                                showSnackOnce(ScaffoldMessenger.of(context),
                                   SnackBar(
                                     content: Text(keepWords(failText("PDF를 만들지 못했습니다", e))),
                                   ),
@@ -932,7 +933,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final rows = reportsInRange(log, from, to);
     if (rows.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(content: Text(keepWords("이 기간에는 작성한 작업 일지가 없습니다."))),
         );
       }
@@ -948,7 +949,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       await Share.shareXFiles([XFile(file.path)], text: '${log['name']} 작업 일지 (엑셀)');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(content: Text(keepWords(failText("엑셀 파일을 만들지 못했습니다", e)))),
         );
       }
@@ -1141,9 +1142,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
   Future<void> _lockReports(List<Map> reps) async {
     final targets = reps.where((r) => r['locked'] != true).toList();
     if (targets.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(keepWords("확정할 작업 일지가 없습니다."))));
+      showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords("확정할 작업 일지가 없습니다."))));
       return;
     }
     final ok = await showDialog<bool>(
@@ -1209,7 +1208,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     final done = resolveOpenIssues(log);
     widget.actions.save();
     setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(content: Text(keepWords("이슈 $done건을 처리 완료로 바꿨습니다."))),
     );
   }
@@ -1264,7 +1263,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     setState(() {});
     if (mounted) {
       final m = (log['reportReminderMinutes'] as num?)?.toInt();
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
             m == null ? "기본 시간으로 알림을 보내겠습니다." : "${hm(m)}에 알림을 보내겠습니다.",
@@ -1305,7 +1304,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       widget.actions.save();
       if (mounted) setState(() {});
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(
             content: Text(keepWords(pdfShareNotice(r.status, '마무리 보고서'))),
           ),
@@ -1313,9 +1312,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
+        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
       }
     }
   }
@@ -1363,9 +1360,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       if (fmt == 'pdfp') await shareReportPdf(doc, withPhotos: true);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(keepWords(failText("내보내기 실패", e)))));
+        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("내보내기 실패", e)))));
       }
     }
   }

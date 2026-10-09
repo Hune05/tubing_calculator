@@ -1,5 +1,6 @@
 // 전기 설비 계산 "부하 합산" 탭: 부하 목록으로 최대수요전력·필요 변압기 용량·2차 정격전류를 계산하고,
 // 부하 계산서(PDF)로 내보내며, 이름 붙여 폰에만 저장한다. 계산은 elec_load_sum.dart, 근거는 docs/전기_부하합산_근거.md.
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:async';
 import 'dart:convert';
 
@@ -250,9 +251,7 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     if (mounted) setState(() => _sync = s);
   }
 
-  void _toast(String t) => ScaffoldMessenger.maybeOf(
-    context,
-  )?.showSnackBar(SnackBar(content: Text(t)));
+  void _toast(String t) => showSnackOnce(ScaffoldMessenger.maybeOf(context), SnackBar(content: Text(t)));
 
   Future<bool> _confirm(String text, String okLabel) async {
     final ok = await showDialog<bool>(

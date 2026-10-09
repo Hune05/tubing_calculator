@@ -1,6 +1,7 @@
 // 장비 설명서 붙이기: 제조사가 배포한 설명서 PDF를 한 번 골라 두면 이 폰에 보관하고(도면 보기 보관함),
 // 장비 관리 대장·장비 사용법 어디서든 같은 설명서를 연다. 통신 없이 열린다.
 // 설명서 내용은 앱이 옮겨 적지 않는다 — 제조사 원본 파일을 그대로 보관해 연다.
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -132,7 +133,7 @@ class _ManualSheetState extends State<_ManualSheet> {
                     key: const Key('manual_copy'),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: url));
-                      ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('주소를 복사했습니다. 인터넷 창에 붙여 넣어 받으십시오.')));
+                      showSnackOnce(ScaffoldMessenger.maybeOf(context), const SnackBar(content: Text('주소를 복사했습니다. 인터넷 창에 붙여 넣어 받으십시오.')));
                     },
                     child: const Text('복사'),
                   ),

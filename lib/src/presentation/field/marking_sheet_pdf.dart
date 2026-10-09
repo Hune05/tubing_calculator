@@ -4,6 +4,7 @@
 /// 제원·줄자 띠 그림·마킹표·입력 목록·경고를 한 장에 담는다.
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -535,7 +536,7 @@ Future<void> openMarkingSheet(
 }) async {
   if (data.isEmpty) {
     // 10-09: 계산이 실패해도(자를 길이 이상 등) "입력한 배관이 없습니다"라고 했다. 까닭이 있으면 그것을.
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(content: Text(data.error ?? '입력한 배관이 없습니다.')),
     );
     return;

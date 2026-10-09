@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:speech_to_text/speech_to_text.dart';
@@ -34,7 +35,7 @@ class _VoiceInputButtonState extends State<VoiceInputButton> {
 
   void _toast(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(msg)));
   }
 
   Future<void> _toggle() async {

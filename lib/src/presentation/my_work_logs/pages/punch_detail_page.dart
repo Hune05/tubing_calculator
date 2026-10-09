@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import '../widgets/ai_polish_button.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -135,9 +136,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
 
   Future<void> _addAfterPhotos() async {
     if (_afterImages.length >= 6) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("사진은 6장까지 넣을 수 있습니다.")));
+      showSnackOnce(ScaffoldMessenger.of(context), const SnackBar(content: Text("사진은 6장까지 넣을 수 있습니다.")));
       return;
     }
     final paths = await ImagePickerHelper.pickImages(
@@ -244,9 +243,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
           : _resolutionCtrl.text.trim();
       _changed = true;
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(keepWords("처리 완료로 바꿨습니다. 이 화면을 나가면 저장됩니다."))));
+    showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords("처리 완료로 바꿨습니다. 이 화면을 나가면 저장됩니다."))));
   }
 
   void _reopen() {
@@ -255,9 +252,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
       _punch['resolved_at'] = null;
       _changed = true;
     });
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(keepWords("미해결로 되돌렸습니다."))));
+    showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords("미해결로 되돌렸습니다."))));
   }
 
   @override

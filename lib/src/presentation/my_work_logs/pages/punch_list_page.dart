@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import '../widgets/ai_polish_button.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -213,7 +214,7 @@ class _PunchListPageState extends State<PunchListPage> {
     String textValue = _punchCtrl.text.trim();
 
     if (textValue.isEmpty && _attachedImages.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("결함 내용을 적거나 사진을 1장 이상 첨부하십시오.")),
           backgroundColor: warningRed,

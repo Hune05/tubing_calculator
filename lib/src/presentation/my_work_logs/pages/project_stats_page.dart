@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:io';
@@ -351,7 +352,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                 if (v == 'pdf') await _exportPdf(s);
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  showSnackOnce(ScaffoldMessenger.of(context),
                     SnackBar(content: Text(keepWords(failText("내보내기 실패", e)))),
                   );
                 }

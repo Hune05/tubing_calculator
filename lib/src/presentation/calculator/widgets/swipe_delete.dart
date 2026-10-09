@@ -4,6 +4,7 @@
 /// 때를 위해 잠깐 "되돌리기"를 띄운다.
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:flutter/material.dart';
 
 // 빨간 바탕은 앱 공통 밀어서 지우기와 같은 것을 쓴다.
@@ -18,7 +19,7 @@ void showDeletedSnackBar(
   final messenger = ScaffoldMessenger.maybeOf(context);
   if (messenger == null) return;
   messenger.hideCurrentSnackBar();
-  messenger.showSnackBar(
+  showSnackOnce(messenger,
     SnackBar(
       content: Text('$number번 줄을 지웠습니다.'),
       duration: const Duration(seconds: 4),

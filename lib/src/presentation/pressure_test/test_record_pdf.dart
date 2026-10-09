@@ -3,6 +3,7 @@
 // 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -460,7 +461,7 @@ Future<void> openPtRecordPdf(BuildContext context, PtRecord r) async {
   try {
     bytes = await buildPtRecordPdf(r);
   } catch (_) {
-    messenger?.showSnackBar(const SnackBar(content: Text('기록서를 만들지 못했습니다.')));
+    showSnackOnce(messenger, const SnackBar(content: Text('기록서를 만들지 못했습니다.')));
     return;
   } finally {
     _ptPdfBusy = false;

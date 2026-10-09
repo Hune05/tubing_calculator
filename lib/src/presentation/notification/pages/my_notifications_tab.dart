@@ -9,6 +9,7 @@
 /// 만들었다.)
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -436,7 +437,7 @@ class _MyNotificationsTabState extends State<MyNotificationsTab> {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.maybeOf(context);
     messenger?.hideCurrentSnackBar();
-    messenger?.showSnackBar(
+    showSnackOnce(messenger,
       SnackBar(
         content: Text('"${item.title}" 알림을 지웠습니다.'),
         duration: const Duration(seconds: 4),

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import '../widgets/work_theme.dart';
@@ -473,7 +474,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         }
       });
     }
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(content: Text(keepWords("${_dateLabelOf(prev)} 작업 일지로 채웠습니다."))),
     );
   }

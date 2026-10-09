@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async' show FutureOr;
@@ -645,9 +646,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       await shareReportPdf(doc, withPhotos: _photos);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
+        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
       }
     } finally {
       if (mounted) setState(() => _pdfBusy = false);

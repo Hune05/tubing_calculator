@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
@@ -231,7 +232,7 @@ class _MobileRollingOffsetBottomSheetState
         }
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
             "$firstMarkNote${rollAngle > 0.5 ? "꺾기 전에 관을 ${rollAngle.toStringAsFixed(0)}° 굴려서 잡으십시오." : ""}",

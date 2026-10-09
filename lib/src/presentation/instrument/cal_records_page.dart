@@ -1,6 +1,7 @@
 // 저장한 교정 기록 목록(폰 저장 + 서버, 열 때 서버 것과 합침). 누르면 성적서 보기·계산기로 불러오기·지우기. CSV 내보내기(엑셀용).
 // 지우기는 줄을 왼쪽으로 밀거나 누른 창의 "지우기" — 지운 뒤 "되돌리기"를 띄운다(10-02).
 // 불러오기를 고르면 그 기록을 돌려주며 닫는다(Navigator.pop(record)).
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -167,9 +168,7 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
       await Share.shareXFiles(files, text: '교정 기록 ${l.length}건');
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('CSV 파일을 만들지 못했습니다.')));
+      showSnackOnce(ScaffoldMessenger.of(context), const SnackBar(content: Text('CSV 파일을 만들지 못했습니다.')));
     }
   }
 

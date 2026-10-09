@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
@@ -262,7 +263,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       (roundedTravel, sideAngle, _selectedRotation!),
     ]);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           _conduitCenter
@@ -445,7 +446,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       (roundedTravel, a4, _selectedRotation!),
     ]);
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(_addedMessage(startDistance4, roundedShrink)),
         backgroundColor: makitaTeal,

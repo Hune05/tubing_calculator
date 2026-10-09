@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
@@ -66,7 +67,7 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
 
   void _snack(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
+    showSnackOnce(ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(msg, style: const TextStyle(color: _white)),
         backgroundColor: _teal,

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:convert';
 import '../widgets/korean_text.dart';
@@ -146,9 +147,7 @@ class _ReportStylePageState extends State<ReportStylePage> {
     _s.sig2 = _sig2.text.trim().isEmpty ? '확인자' : _sig2.text.trim();
     await saveReportStyle(_s);
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(keepWords("보고서 양식을 저장했습니다."))));
+    showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords("보고서 양식을 저장했습니다."))));
     Navigator.pop(context);
   }
 

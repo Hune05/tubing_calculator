@@ -109,7 +109,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                             );
                           } catch (e) {
                             if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              showSnackOnce(ScaffoldMessenger.of(context),
                                 SnackBar(
                                   content: Text(keepWords(failText("PDF를 만들지 못했습니다", e))),
                                 ),
@@ -166,7 +166,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       ),
     );
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("'$name' 템플릿을 저장했습니다. 단계 만들기에서 불러올 수 있습니다.")),
         ),
@@ -294,9 +294,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       ], text: "${log['name'] ?? '프로젝트'} 현황");
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(keepWords(failText("이미지 만들기 실패", e)))));
+        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("이미지 만들기 실패", e)))));
       }
     }
   }
@@ -386,9 +384,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop();
       setState(() {});
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(message)));
     }
   }
 
@@ -405,7 +401,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     if (n.isEmpty) return;
     final ok = await launchUrl(Uri(scheme: sms ? 'sms' : 'tel', path: n));
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(content: Text(sms ? "문자 앱을 열 수 없습니다." : "전화 앱을 열 수 없습니다.")),
       );
     }
@@ -416,7 +412,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     if (e.isEmpty) return;
     final ok = await launchUrl(Uri(scheme: 'mailto', path: e));
     if (!ok && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         const SnackBar(content: Text("메일 앱을 열 수 없습니다.")),
       );
     }
@@ -500,7 +496,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                           });
                         } on PlatformException catch (e) {
                           if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          showSnackOnce(ScaffoldMessenger.of(context),
                             SnackBar(
                               content: Text(
                                 e.code == 'denied'
@@ -511,7 +507,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                           );
                         } catch (_) {
                           if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          showSnackOnce(ScaffoldMessenger.of(context),
                             const SnackBar(
                               content: Text("폰 연락처를 열 수 없습니다."),
                             ),

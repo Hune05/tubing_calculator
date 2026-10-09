@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/field_view_picker.dart';
@@ -281,7 +282,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     );
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
             _isElectric ? "전동 장비 설정을 저장했습니다." : "수동 장비 설정을 저장했습니다.",
@@ -523,7 +524,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     }
     if (mounted) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         const SnackBar(
           content: Text("게인만 저장했습니다. 다른 바꾼 값은 아직 저장하지 않았습니다."),
           behavior: SnackBarBehavior.floating,

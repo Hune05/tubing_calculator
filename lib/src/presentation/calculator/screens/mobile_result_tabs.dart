@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -1552,7 +1553,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     if (!mounted) return;
     if (result is Map && result['loaded'] == true) {
       widget.onLoaded?.call(result['startDir']?.toString() ?? 'RIGHT');
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           backgroundColor: makitaTeal,
           behavior: SnackBarBehavior.floating,

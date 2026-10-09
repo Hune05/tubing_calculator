@@ -1,6 +1,7 @@
 /// 전선관 마킹 탭의 "보관함에 저장" 창.
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
 import 'package:flutter/material.dart';
@@ -108,7 +109,7 @@ Future<bool> showConduitSaveDialog(
     }
   } catch (e) {
     debugPrint('전선관 보관함 저장 실패: $e');
-    messenger.showSnackBar(
+    showSnackOnce(messenger,
       SnackBar(
         backgroundColor: Colors.redAccent.shade400,
         behavior: SnackBarBehavior.floating,
@@ -130,7 +131,7 @@ Future<bool> showConduitSaveDialog(
   if (overwritten != null) {
     // 덮어쓴 것은 바로 되돌릴 수 있게 이전 도면을 들고 있는다.
     final name = result.title.trim().isEmpty ? '이름 없는 도면' : result.title.trim();
-    messenger.showSnackBar(
+    showSnackOnce(messenger,
       SnackBar(
         backgroundColor: AppColors.brand,
         behavior: SnackBarBehavior.floating,
@@ -153,7 +154,7 @@ Future<bool> showConduitSaveDialog(
     );
     return true;
   }
-  messenger.showSnackBar(
+  showSnackOnce(messenger,
     SnackBar(
       backgroundColor: AppColors.brand,
       behavior: SnackBarBehavior.floating,

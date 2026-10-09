@@ -1,5 +1,6 @@
 // 하루·한 주 정리 화면(10-09 고도화 4번): 근태, 작업 일지, 안전 점검, 압력시험, 교정을 한 장으로 보고
 // 글(카톡)이나 PDF로 보낸다. "내 프로젝트" 오른쪽 위 더보기 → "하루·한 주 정리".
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_icon_set.dart';
@@ -119,7 +120,7 @@ class _WorkSummaryPageState extends State<WorkSummaryPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(
             content: Text(failText(pdf ? "PDF를 만들지 못했습니다" : "보내지 못했습니다", e)),
           ),

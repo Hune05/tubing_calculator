@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -172,9 +173,7 @@ class _AppStatusPageState extends State<AppStatusPage> {
   Future<void> _copyErrors() async {
     await Clipboard.setData(ClipboardData(text: errorsAsText(_errors)));
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(keepWords("오류 기록을 복사했습니다."))));
+    showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords("오류 기록을 복사했습니다."))));
   }
 
   Future<void> _clearErrors() async {

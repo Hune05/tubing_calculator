@@ -1,4 +1,5 @@
 // 도면 보관함: 가져온 도면·사진 목록(최근에 연 것부터). 파일·사진·카톡 공유로 가져온다. 통신 없이 폰에 보관.
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -51,10 +52,10 @@ Future<void> importAndOpenDrawing(BuildContext context, String path, {String? na
     await nav.push(MaterialPageRoute<void>(builder: (_) => DrawingViewerPage(doc: doc)));
   } on DxfError catch (e) {
     nav.pop();
-    messenger?.showSnackBar(SnackBar(content: Text(e.message), duration: const Duration(seconds: 6)));
+    showSnackOnce(messenger, SnackBar(content: Text(e.message), duration: const Duration(seconds: 6)));
   } catch (e) {
     nav.pop();
-    messenger?.showSnackBar(SnackBar(content: Text(failText('도면을 열지 못했습니다', e))));
+    showSnackOnce(messenger, SnackBar(content: Text(failText('도면을 열지 못했습니다', e))));
   }
 }
 
@@ -117,7 +118,7 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
     });
     final done = trashDrawing(d);
     done.then((_) {}, onError: (Object _) {
-      if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('도면을 지우지 못했습니다.')));
+      if (mounted) showSnackOnce(ScaffoldMessenger.maybeOf(context), const SnackBar(content: Text('도면을 지우지 못했습니다.')));
       _reload();
     });
     showTrashUndo(context, d.displayName, done, onRestored: _reload);

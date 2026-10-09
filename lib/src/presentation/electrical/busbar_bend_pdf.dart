@@ -2,6 +2,7 @@
 // 작성·검토·승인 칸. 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다.
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -397,7 +398,7 @@ Future<void> openBendPdf(
   try {
     bytes = await (build ?? (i, d) => buildBendPdf(i, date: d))(input, now);
   } catch (e) {
-    messenger?.showSnackBar(const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')));
+    showSnackOnce(messenger, const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')));
     return;
   } finally {
     _bendPdfBusy = false;

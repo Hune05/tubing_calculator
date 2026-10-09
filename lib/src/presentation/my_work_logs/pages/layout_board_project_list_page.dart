@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
@@ -166,7 +167,7 @@ class _LayoutBoardProjectListPageState
         'updatedAt': FieldValue.serverTimestamp(),
       }).timeout(const Duration(seconds: 8), onTimeout: () {});
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(
             content: Text(keepWords("배치도를 복제했습니다.")),
             backgroundColor: tossBlue,
@@ -175,7 +176,7 @@ class _LayoutBoardProjectListPageState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        showSnackOnce(ScaffoldMessenger.of(context),
           SnackBar(
             content: Text(keepWords(failText("복제하지 못했습니다", e))),
             backgroundColor: warningRed,
@@ -258,7 +259,7 @@ class _LayoutBoardProjectListPageState
     onTrashFailed(done, () {
       if (!mounted) return;
       setState(() => _hiddenIds.remove(docId));
-      ScaffoldMessenger.of(context).showSnackBar(
+      showSnackOnce(ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("삭제하지 못했습니다. 통신을 확인하십시오.")),
           backgroundColor: warningRed,

@@ -3,6 +3,7 @@
 // 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
 
+import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -488,7 +489,7 @@ Future<void> openGroundBarPdf(
     bytes = await (build ?? (i, d) => buildGroundBarPdf(i, date: d))(input, now);
   } catch (e) {
     // 예전에는 실패해도 아무 말이 없었다.
-    messenger?.showSnackBar(const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')));
+    showSnackOnce(messenger, const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')));
     return;
   } finally {
     _groundPdfBusy = false;
