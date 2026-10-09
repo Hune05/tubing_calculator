@@ -300,6 +300,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     benderBrand: _benderBrand,
     benderType: _benderType,
     tubeSize: _currentOD,
+    tubeMaterial: _tubeMaterial,
   );
 
   /// 지금 화면에 들어 있는 제원을 묶음으로 만든다.
@@ -324,6 +325,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
   /// 🚀 [고침] 예전에는 규격이나 벤더를 바꾸면 손으로 맞춰 둔 값이 날아가고
   /// 제원표 값으로 덮였다. 그 조합으로 돌아오면 넣어 뒀던 값이 그대로 나온다.
   Future<bool> _applySavedSpecSet() async {
+    // 10-09: 재질 없는 예전 묶음을 지금 재질로 옮긴다(처음 한 번만 실제로 옮긴다).
+    await migrateMachineSpecSetsToMaterial(_tubeMaterial);
     final saved = await loadMachineSpecSet(_specKey);
     if (saved == null || !mounted) return false;
     setState(() {
@@ -746,6 +749,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     TextEditingController controller, {
     String? key,
     String? helperText,
+    bool allowNegative = false,
   }) {
     final (name, unit) = _splitUnit(label);
     final bool? auto = key != null ? _autoStates[key] : null;
@@ -793,6 +797,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     context,
                     controller: controller,
                     title: label,
+                    allowNegative: allowNegative,
                   ),
             child: AbsorbPointer(
               child: SizedBox(
@@ -1386,10 +1391,15 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           label: "튜브 재질",
           helpTitle: "튜브 재질",
           helpContent:
-              "재질마다 스프링백이 다릅니다. 스프링백 값을 정할 때 참고합니다.",
+              "재질마다 스프링백·게인이 다릅니다. 반경·게인 등 제원은 재질별로 따로 기억합니다(처음 고르는 재질은 표 값으로 시작).",
           value: _tubeMaterial,
           items: const ["SUS", "Copper", "Carbon", "Aluminum"],
-          onChanged: (val) => setState(() => _tubeMaterial = val!),
+          onChanged: (val) {
+            if (val == null || val == _tubeMaterial) return;
+            setState(() => _tubeMaterial = val);
+            // 10-09: 재질이 바뀌면 그 재질로 적어 둔 제원을 꺼낸다(SUS 실측 게인이 구리에 남지 않게).
+            _onSpecsChanged(userChanged: true);
+          },
           helperText: "※ 재질별 특성",
         ),
         _buildDropdownWithAdvancedHelper(
@@ -1506,6 +1516,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             _benderOffsetController,
             key: 'offset',
             helperText: "※ 클램프 끝 ~ 다이 0점",
+            // 10-09: 앞으로 당기는 보정도 넣을 수 있게(숫자판에 ± 단추).
+            allowNegative: true,
           ),
         ])
       else
@@ -1549,6 +1561,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             _benderOffsetController,
             key: 'offset',
             helperText: "※ 다이 0점과 실제 시작점",
+            allowNegative: true,
           ),
           _buildNumpadInputWithHelp(
             "스프링백 [°]",

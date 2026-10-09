@@ -22,6 +22,9 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_par
 // 🚀 퀵 킥 및 퀵 U-Bend 바텀시트 임포트 추가
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_kick_bottom_sheet.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_quick_u_bend_bottom_sheet.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/input_cut_summary.dart';
+import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_result_tabs.dart' show computeTubeFieldData;
 
 Color get makitaTeal => fc.brand;
 Color get slate900 => fc.text;
@@ -609,13 +612,21 @@ class _MobileInputTabState extends State<MobileInputTab>
                   ),
                 ),
                 SizedBox(height: 4),
-                Text(
-                  "총 조립 구간",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
+                // 10-09: 총 절단 길이·경고 수(마킹 탭과 같은 셈).
+                ListenableBuilder(
+                  // 설정(반경·게인·꼬리·피팅)이 바뀌어도 다시 셈한다.
+                  listenable: MachineSpecs(),
+                  builder: (context, _) {
+                    final d = count > 0
+                        ? computeTubeFieldData(startDir: widget.startDir)
+                        : null;
+                    return InputCutSummary(
+                      totalCut: d?.totalCut ?? 0,
+                      warnings: d?.warnings.length ?? 0,
+                      textColor: slate600,
+                      valueColor: makitaTeal,
+                    );
+                  },
                 ),
               ],
             ),

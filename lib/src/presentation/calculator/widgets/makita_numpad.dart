@@ -24,6 +24,9 @@ class MakitaNumpad extends StatefulWidget {
   final VoidCallback? onAdd;
   final String addLabel;
 
+  /// 음수도 받는지(10-09: 기준선 오프셋처럼 앞으로 당기는 값). 켜면 "00" 자리에 "±" 단추.
+  final bool allowNegative;
+
   const MakitaNumpad({
     super.key,
     required this.controller,
@@ -32,6 +35,7 @@ class MakitaNumpad extends StatefulWidget {
     this.onAdd,
     this.addLabel = "추가",
     this.title = "수치 입력",
+    this.allowNegative = false,
   });
 
   /// 숫자판 창. "적용"을 눌러야 새 값이 남는다.
@@ -46,6 +50,7 @@ class MakitaNumpad extends StatefulWidget {
     required TextEditingController controller,
     required String title,
     String? addLabel,
+    bool allowNegative = false,
   }) async {
     final original = controller.text;
     var applied = false;
@@ -76,6 +81,7 @@ class MakitaNumpad extends StatefulWidget {
             },
             onCancel: () => Navigator.pop(context),
             addLabel: addLabel ?? "추가",
+            allowNegative: allowNegative,
             onAdd: addLabel == null
                 ? null
                 : () {
@@ -114,6 +120,12 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
     setState(() {
       if (value == 'C') {
         widget.controller.text = '';
+        _isFirstPress = false;
+      } else if (value == '±') {
+        // 부호만 바꾼다(친 숫자는 그대로, 다음 숫자는 뒤에 붙는다).
+        final text = widget.controller.text;
+        widget.controller.text =
+            text.startsWith('-') ? text.substring(1) : '-$text';
         _isFirstPress = false;
       } else if (value == 'DEL') {
         final text = widget.controller.text;
@@ -380,7 +392,9 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                 Expanded(
                   child: Row(
                     children: [
-                      _buildButton('00'),
+                      widget.allowNegative
+                          ? _buildButton('±', textColor: _p.textSub, isAction: true)
+                          : _buildButton('00'),
                       _buildButton('0'),
                       if (widget.onAdd == null)
                         _buildButton(

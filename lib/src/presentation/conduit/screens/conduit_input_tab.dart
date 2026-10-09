@@ -4,7 +4,9 @@ import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
-import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart' show conduitCenterRef;
+import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart'
+    show conduitCenterRef, conduitTotalCut, conduitBendCheck;
+import 'package:tubing_calculator/src/presentation/calculator/widgets/input_cut_summary.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_input_tab.dart' show fmtSegLength;
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_sheets.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
@@ -28,7 +30,7 @@ import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_dele
 import 'package:tubing_calculator/src/presentation/calculator/widgets/undo_redo_buttons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart'
-    show conduitStartDir;
+    show conduitStartDir, conduitUseCoupling;
 
 Color get makitaTeal => fc.brand;
 Color get slate900 => fc.text;
@@ -279,13 +281,36 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                   ),
                 ),
                 SizedBox(height: 4),
-                Text(
-                  "총 조립 구간",
-                  style: TextStyle(
-                    color: slate600,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
-                  ),
+                // 10-09: 총 절단 길이·경고 수(마킹 탭과 같은 셈, 커플링 체결이면 끝 여유 포함).
+                ListenableBuilder(
+                  // 설정·커플링·시작 방향이 바뀌어도 다시 셈한다.
+                  listenable: Listenable.merge([
+                    globalBenderSettings,
+                    conduitUseCoupling,
+                    conduitStartDir,
+                  ]),
+                  builder: (context, _) {
+                    final s = globalBenderSettings.value;
+                    final list = manager.bendList;
+                    return InputCutSummary(
+                      totalCut: list.isEmpty
+                          ? 0
+                          : conduitTotalCut(
+                              list,
+                              s,
+                              useCoupling: conduitUseCoupling.value,
+                            ),
+                      warnings: list.isEmpty
+                          ? 0
+                          : conduitBendCheck(
+                              list,
+                              s,
+                              startDir: conduitStartDir.value,
+                            ).warnings.length,
+                      textColor: slate600,
+                      valueColor: makitaTeal,
+                    );
+                  },
                 ),
               ],
             ),

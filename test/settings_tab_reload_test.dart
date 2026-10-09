@@ -34,7 +34,7 @@ void main() {
     await tester.pumpWidget(
       const MaterialApp(home: Scaffold(body: MobileSettingsTab())),
     );
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 20; i++) { // 10-09: 재질 묶음 옮기기 단계가 늘어 넉넉히
       await tester.pump(const Duration(milliseconds: 50));
     }
     expect(find.text('12.0'), findsWidgets);
@@ -42,7 +42,7 @@ void main() {
     // 서버에서 받은 설정이 폰 저장소에 들어간 뒤 컨트롤러가 다시 읽히는 순서(settings_cloud_card.dart)
     SharedPreferences.setMockInitialValues(prefsWithGain(33.0));
     await tester.runAsync(() => AppSettingsController().load());
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 20; i++) { // 10-09: 재질 묶음 옮기기 단계가 늘어 넉넉히
       await tester.pump(const Duration(milliseconds: 50));
     }
     expect(find.text('33.0'), findsWidgets);

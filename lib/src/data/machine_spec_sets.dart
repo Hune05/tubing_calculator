@@ -83,14 +83,46 @@ class MachineSpecSet {
       cutMargin > 0;
 }
 
-/// 제원 묶음을 찾을 이름표. 벤더 브랜드 · 장비 타입 · 규격.
+/// 제원 묶음을 찾을 이름표. 벤더 브랜드 · 장비 타입 · 규격 · 재질.
+/// 10-09: 재질을 붙였다(SUS와 구리는 게인·스프링백이 달라 따로 기억한다). 재질이 비면 예전 꼴.
 String machineSpecKey({
   required String benderBrand,
   required String benderType,
   required String tubeSize,
+  String tubeMaterial = '',
 }) {
-  String n(String v) => v.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
-  return '${n(benderBrand)}|${n(benderType)}|${n(tubeSize)}';
+  final base = '${_n(benderBrand)}|${_n(benderType)}|${_n(tubeSize)}';
+  final m = _n(tubeMaterial);
+  return m.isEmpty ? base : '$base|$m';
+}
+
+String _n(String v) => v.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+
+/// 재질 칸이 없는 예전 이름표(브랜드|타입|규격)를 [material]을 붙인 이름표로 옮긴다.
+/// 예전 묶음은 그때 쓰던 재질 값이라, 앱을 켤 때의 재질로 한 번 옮긴다(이미 있으면 덮지 않는다).
+Future<void> migrateMachineSpecSetsToMaterial(String material) async {
+  final m = _n(material);
+  if (m.isEmpty) return;
+  try {
+    final all = await loadMachineSpecSets();
+    final old = {
+      for (final e in all.entries)
+        if (e.key.split('|').length == 3) e.key: e.value,
+    };
+    if (old.isEmpty) return;
+    final out = <String, MachineSpecSet>{
+      for (final e in all.entries)
+        if (e.key.split('|').length != 3) e.key: e.value,
+    };
+    for (final e in old.entries) {
+      out.putIfAbsent('${e.key}|$m', () => e.value);
+    }
+    final p = await SharedPreferences.getInstance();
+    await p.setString(
+      kMachineSpecSetsPrefsKey,
+      jsonEncode({for (final e in out.entries) e.key: e.value.toJson()}),
+    );
+  } catch (_) {}
 }
 
 const String kMachineSpecSetsPrefsKey = 'machine_spec_sets_v1';
