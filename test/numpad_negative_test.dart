@@ -52,4 +52,12 @@ void main() {
     expect(find.text('00'), findsOneWidget);
     expect(find.text('±'), findsNothing);
   });
+  testWidgets('열자마자 ±를 누르면 원래 값에 이어 붙지 않고 "-"부터 시작한다(8차)', (tester) async {
+    final ctrl = await open(tester, neg: true); // 칸은 "0"
+    await tester.tap(find.text('±'));
+    await tester.tap(find.text('1'));
+    await tester.tap(find.text('5'));
+    await tester.pump();
+    expect(ctrl.text, '-15');
+  });
 }

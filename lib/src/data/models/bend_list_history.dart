@@ -49,11 +49,16 @@ mixin BendListHistory on ChangeNotifier {
   ];
 
   /// 목록을 바꾸기 직전에 부른다. [withExtras]면 같이 되돌릴 값도 담는다.
+  /// [onlyKeys]를 주면 그 칸만 담는다(8차: 전체 지우기는 덮어쓰기 대상만 — 그사이 손으로 바꾼
+  /// 꼬리·방향까지 되돌리면 안 된다).
   @protected
-  void recordHistory({bool withExtras = false}) {
-    final extras = (withExtras || _extrasNext)
+  void recordHistory({bool withExtras = false, Set<String>? onlyKeys}) {
+    Map<String, dynamic>? extras = (withExtras || _extrasNext)
         ? Map<String, dynamic>.from(captureHistoryExtras())
         : null;
+    if (extras != null && onlyKeys != null) {
+      extras.removeWhere((k, _) => !onlyKeys.contains(k));
+    }
     _extrasNext = false;
     _undo.add((list: _copy(historyTarget), extras: extras));
     if (_undo.length > maxSteps) {
@@ -68,7 +73,7 @@ mixin BendListHistory on ChangeNotifier {
     final step = _undo.removeLast();
     _redo.add((
       list: _copy(historyTarget),
-      extras: step.extras == null ? null : Map<String, dynamic>.from(captureHistoryExtras()),
+      extras: _sameKeys(step.extras),
     ));
     historyTarget = step.list;
     if (step.extras != null) restoreHistoryExtras(step.extras!);
@@ -82,13 +87,23 @@ mixin BendListHistory on ChangeNotifier {
     final step = _redo.removeLast();
     _undo.add((
       list: _copy(historyTarget),
-      extras: step.extras == null ? null : Map<String, dynamic>.from(captureHistoryExtras()),
+      extras: _sameKeys(step.extras),
     ));
     historyTarget = step.list;
     if (step.extras != null) restoreHistoryExtras(step.extras!);
     persistHistoryTarget();
     notifyListeners();
     return true;
+  }
+
+  /// 되돌릴 단계가 담은 칸과 같은 칸만 지금 값으로 담는다(다시 하기용).
+  Map<String, dynamic>? _sameKeys(Map<String, dynamic>? like) {
+    if (like == null) return null;
+    final now = captureHistoryExtras();
+    return {
+      for (final k in like.keys)
+        if (now.containsKey(k)) k: now[k],
+    };
   }
 
   void clearHistory() {

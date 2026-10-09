@@ -51,7 +51,10 @@ class PhotoImage extends StatelessWidget {
         width: width,
         height: height,
         fit: fit,
-        memCacheWidth: width == null ? null : (width! * dpr).round(),
+        // 10-09: 크게 보기는 폭이 무한대라 (∞ × dpr).round()가 예외를 던져 화면이 깨졌다.
+        memCacheWidth: (width == null || !width!.isFinite)
+            ? null
+            : (width! * dpr).round(),
         errorWidget: (_, _, _) => _broken(),
         placeholder: (_, _) => Container(
           width: width,

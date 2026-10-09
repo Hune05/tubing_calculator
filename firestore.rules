@@ -76,7 +76,10 @@ service cloud.firestore {
     function specialColls() {
       return ownedColls().concat(['users', 'inventory', 'cutting_leftovers',
                                   'my_project_settings', 'reference_content',
-                                  'app_members', 'app_config', 'fittings'])
+                                  'app_members', 'app_config', 'fittings',
+                                  // 8차(10-09): 아래 따로 정한 규칙이 있는데 여기 없어서 나머지 규칙이
+                                  // 승인된 누구에게나 읽기·쓰기를 허락했다(남의 근태·공지 고치기).
+                                  'attendance_records', 'announcements'])
                          .concat(aiUsageColls());
     }
 
@@ -143,8 +146,21 @@ service cloud.firestore {
 
     // 근태 기록(문서 이름 {uid}__{yyyy-MM-dd}) - 프로젝트와 무관하게 사람 기준이라
     // 자기 것만 읽고 쓴다(필드 헬퍼 4번).
+    // 목록 읽기(where uid == 나)는 문서 이름을 못 보므로 uid 칸으로 본다(앱·위젯 쿼리가 uid로 거른다).
     match /attendance_records/{doc} {
-      allow read, write: if approved() && doc.split('__')[0] == me();
+      allow get: if approved() && doc.split('__')[0] == me();
+      allow list: if approved() && resource.data.uid == me();
+      allow create, update: if approved() && doc.split('__')[0] == me()
+        && request.resource.data.uid == me();
+      allow delete: if approved() && doc.split('__')[0] == me();
+    }
+
+    // 공지(8차): 승인된 사람은 읽고 "읽음 표시(readBy)"만 고친다. 쓰기·지우기는 관리자만.
+    match /announcements/{id} {
+      allow read: if approved();
+      allow update: if approved()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy']);
+      allow create, delete: if isAdmin();
     }
 
     // 사용 승인(10-08): 내 문서는 내가 "대기"로만 만들고, 상태는 관리자만 바꾼다.

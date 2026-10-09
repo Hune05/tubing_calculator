@@ -326,4 +326,35 @@ void main() {
     expect(find.textContaining('1번 마킹 자리'), findsOneWidget);
     expect(find.textContaining('이 값 + 축소값'), findsNothing);
   });
+  testWidgets('앞 줄이 있으면 시작 거리 칸이 "앞 꺾이는 점에서"라고 말한다(8차)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => MobileRollingOffsetBottomSheet.show(
+                context,
+                currentRotation: 0,
+                specs: BendSheetSpecs.conduit({
+                  'benderType': 'hand',
+                  'takeUp': 152.4,
+                  'gain': 82.5,
+                  'clr': 114.3,
+                  'applyShrink': true,
+                }, listEmpty: false),
+                onAddBend: (l, a, r) {},
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('앞 꺾이는 점에서 시작 거리'), findsOneWidget);
+  });
 }

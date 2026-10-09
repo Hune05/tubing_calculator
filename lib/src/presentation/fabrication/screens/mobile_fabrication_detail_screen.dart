@@ -250,6 +250,8 @@ class _MobileFabricationDetailScreenState
           'rotation': (b['rotation'] as num?)?.toDouble() ?? 0.0,
           // 10-09: U벤드 표시도 살린다(빠지면 마킹 카드의 "U자 시작" 안내가 사라졌다).
           if (b['uBend'] is num) 'uBend': (b['uBend'] as num).toDouble(),
+          // 8차: 롤링 오프셋 굴림 각도도(빠지면 "N° 굴려 잡으십시오" 안내가 사라졌다).
+          if (b['rollHint'] is num) 'rollHint': (b['rollHint'] as num).toDouble(),
         },
     ]);
     // 고친 뒤 저장할 때 "이 도면에 덮어쓰기"를 고를 수 있게 어느 도면에서 왔는지 기억한다.

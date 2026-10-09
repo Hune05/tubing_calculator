@@ -114,4 +114,16 @@ void main() {
     expect(c.undo(), isTrue);
     expect(c.sourceDrawingId, 'd1');
   });
+  test('전체 지우기를 ↶ 해도 그사이 바꾼 꼬리는 되돌리지 않는다(8차)', () {
+    final m = MobileBendDataManager();
+    m.replaceAll([
+      {'length': 500.0, 'angle': 90.0, 'rotation': 0.0},
+    ]);
+    m.setSource(9);
+    m.clearBends();
+    m.tail = 50;
+    expect(m.undo(), isTrue);
+    expect(MachineSpecs().tail, 50);
+    expect(m.sourceHistoryId, 9);
+  });
 }

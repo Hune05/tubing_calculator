@@ -42,4 +42,13 @@ void main() {
     expect(off.bends.map((b) => b.position), data.bends.map((b) => b.position));
     c.warnShoeInterference = true;
   });
+  test('퀵 U벤드 두 번째 줄(곧은 부분 0)은 최소 물림 경고를 띄우지 않는다(8차)', () {
+    const r = 38.1;
+    final w = minGripWarnings([
+      {'length': 300.0, 'angle': 90.0, 'rotation': 0.0, 'uBend': 1.0},
+      {'length': 2 * r, 'angle': 90.0, 'rotation': 0.0, 'uBend': 2.0},
+      {'length': 300.0, 'angle': 0.0, 'rotation': 0.0},
+    ], radius: r, minStraight: 30);
+    expect(w, isEmpty);
+  });
 }

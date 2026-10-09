@@ -168,8 +168,8 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
       clearSource();
       return;
     }
-    // 지우기 전 불러온 도면도 담아 ↶ 때 되살린다(10-09).
-    recordHistory(withExtras: true);
+    // 지우기 전 불러온 도면만 담아 ↶ 때 되살린다(10-09, 8차: 방향·커플링은 담지 않는다).
+    recordHistory(withExtras: true, onlyKeys: const {'sourceId', 'sourceDepth'});
     clearSource();
     bendList.clear();
     _updateAndSave();

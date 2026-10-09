@@ -320,8 +320,8 @@ class MobileBendDataManager extends ChangeNotifier with BendListHistory {
       clearSource();
       return;
     }
-    // 지우기 전 불러온 도면 번호도 담아 ↶ 때 되살린다(10-09).
-    recordHistory(withExtras: true);
+    // 지우기 전 불러온 도면 번호만 담아 ↶ 때 되살린다(10-09, 8차: 꼬리·피팅은 담지 않는다).
+    recordHistory(withExtras: true, onlyKeys: const {'sourceId', 'sourceDepth'});
     clearSource();
     bendList.clear();
     _saveCurrentState();

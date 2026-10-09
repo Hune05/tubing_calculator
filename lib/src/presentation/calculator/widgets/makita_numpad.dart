@@ -123,7 +123,8 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
         _isFirstPress = false;
       } else if (value == '±') {
         // 부호만 바꾼다(친 숫자는 그대로, 다음 숫자는 뒤에 붙는다).
-        final text = widget.controller.text;
+        // 8차: 숫자판을 열자마자 ±를 누르면 원래 값("0.0")에 이어 붙어 "-0.015"가 됐다 → 칸을 "-"로 비운다.
+        final text = _isFirstPress ? '' : widget.controller.text;
         widget.controller.text =
             text.startsWith('-') ? text.substring(1) : '-$text';
         _isFirstPress = false;

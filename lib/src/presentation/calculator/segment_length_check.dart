@@ -120,6 +120,13 @@ List<String> minGripWarnings(
     final angle = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
     if (angle <= 0) continue;
     bendNo++;
+    // 10-09 8차: 퀵 U벤드 두 번째 줄(길이 2R·곧은 부분 0)은 한 번에 180°로 꺾으면 물릴 필요가
+    // 없다(예전에는 "곧은 부분 0.0mm가 최소 물림보다 짧다"가 떴다).
+    final bool uSecond =
+        (bendList[i]['uBend'] as num?)?.toInt() == 2 &&
+        i > 0 &&
+        (bendList[i - 1]['uBend'] as num?)?.toInt() == 1;
+    if (uSecond) continue;
     final c = checkSegmentLength(
       existing: bendList.sublist(0, i),
       length: (bendList[i]['length'] as num?)?.toDouble() ?? 0.0,
