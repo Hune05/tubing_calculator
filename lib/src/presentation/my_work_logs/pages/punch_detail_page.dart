@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/background_photos.dart';
 import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import '../widgets/ai_polish_button.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -55,6 +56,9 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
   late TextEditingController _resolutionCtrl;
   // 처리 후 사진(처리 전/후 비교용)
   List<String> _afterImages = [];
+
+  /// 고른 뒤 도장·보관을 뒤에서 하는 사진(작업 일지와 같다, 10-09).
+  final BackgroundPhotos _photoJobs = BackgroundPhotos();
   bool _changed = false;
   late String _noteAtOpen;
   late List<String> _imagesAtOpen;
@@ -139,13 +143,19 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
       showSnackOnce(ScaffoldMessenger.of(context), const SnackBar(content: Text("사진은 6장까지 넣을 수 있습니다.")));
       return;
     }
-    final paths = await ImagePickerHelper.pickImages(
+    // 고르자마자 사진 칸에 먼저 보이고 도장 찍기·보관은 뒤에서 한다(10-09).
+    final picked = await ImagePickerHelper.pickRawImages(
       context,
       maxCount: 6 - _afterImages.length,
       stampSite: true,
+    );
+    if (picked.isEmpty || !mounted) return;
+    _photoJobs.addAll(
+      _afterImages,
+      picked,
+      update: (fn) => mounted ? setState(fn) : fn(),
       siteLabel: widget.projectName,
     );
-    if (paths.isNotEmpty) setState(() => _afterImages.addAll(paths));
   }
 
   Widget _afterThumbs({required bool editable}) {
@@ -197,6 +207,8 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                       child: PhotoImage(_afterImages[i], width: 84, height: 84),
                     ),
                   ),
+                  if (_photoJobs.busy(_afterImages[i]))
+                    PhotoBusyOverlay(key: Key('after_photo_busy_$i')),
                   if (editable)
                     Positioned(
                       top: 4,
@@ -233,7 +245,10 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     );
   }
 
-  void _markResolved() {
+  void _markResolved() async {
+    // 뒤에서 정리 중인 처리 후 사진이 있으면 끝날 때까지 기다린다(임시 경로가 저장되지 않게).
+    await _photoJobs.waitAll();
+    if (!mounted) return;
     setState(() {
       _punch['is_completed'] = true;
       _punch['resolution_images'] = List<String>.from(_afterImages);

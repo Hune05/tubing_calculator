@@ -1,5 +1,5 @@
+import 'package:tubing_calculator/src/core/utils/background_photos.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showAppSnack;
-import 'dart:io';
 import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -175,8 +175,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
   bool _isAsBuilt = false;
   List<String> _attachedImages = [];
 
-  /// 고른 뒤 도장·보관을 뒤에서 하는 사진(임시 경로 → 마무리 작업). 끝나면 목록의 경로를 바꾼다(10-09).
-  final Map<String, Future<String>> _photoJobs = {};
+  /// 고른 뒤 도장·보관을 뒤에서 하는 사진. 끝나면 목록의 경로를 바꾼다(10-09).
+  final BackgroundPhotos _photoJobs = BackgroundPhotos();
   late bool _isEdit;
 
   // 🚀 [추가] 오늘 처리한 이슈 태그
@@ -880,41 +880,19 @@ class _DailyReportPageState extends State<DailyReportPage> {
       stampSite: true,
     );
     if (picked.isEmpty || !mounted) return;
-    setState(() => _attachedImages.addAll([for (final p in picked) p.rawPath]));
-    for (final p in picked) {
-      final job = ImagePickerHelper.finishPhoto(
-        p,
-        stampSite: true,
-        siteLabel: widget.projectName,
-      );
-      _photoJobs[p.rawPath] = job;
-      job.then((done) {
-        _photoJobs.remove(p.rawPath);
-        final i = _attachedImages.indexOf(p.rawPath);
-        if (i < 0) {
-          // 정리하는 사이 지운 사진: 옮겨 둔 파일도 지운다.
-          if (done != p.rawPath) File(done).delete().ignore();
-          return;
-        }
-        if (mounted) {
-          setState(() => _attachedImages[i] = done);
-        } else {
-          _attachedImages[i] = done;
-        }
-      });
-    }
+    _photoJobs.addAll(
+      _attachedImages,
+      picked,
+      update: (fn) => mounted ? setState(fn) : fn(),
+      siteLabel: widget.projectName,
+    );
   }
 
   /// 저장하기 전에 뒤에서 정리 중인 사진이 다 끝나기를 기다린다(임시 경로가 저장되지 않게).
-  Future<void> _waitPhotoJobs() async {
-    while (_photoJobs.isNotEmpty) {
-      await Future.wait(_photoJobs.values.toList());
-      await Future<void>.delayed(Duration.zero);
-    }
-  }
+  Future<void> _waitPhotoJobs() => _photoJobs.waitAll();
 
   /// 아직 정리 중인 사진인지(고치기·표시하기를 잠깐 막는다).
-  bool _photoBusy(String path) => _photoJobs.containsKey(path);
+  bool _photoBusy(String path) => _photoJobs.busy(path);
 
   Widget _buildIssueChip(Map<String, dynamic> issue) {
     final String id = issue['id']?.toString() ?? '';

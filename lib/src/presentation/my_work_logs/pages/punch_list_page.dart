@@ -1,3 +1,5 @@
+import 'package:tubing_calculator/src/core/utils/background_photos.dart';
+import '../models/photo_store.dart' show PhotoImage;
 import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import '../widgets/ai_polish_button.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -5,7 +7,6 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import '../widgets/work_theme.dart';
 import '../widgets/korean_text.dart';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../widgets/voice_input_button.dart';
 import '../models/project_merge.dart' show currentWorkerName;
@@ -48,6 +49,9 @@ class _PunchListPageState extends State<PunchListPage> {
   final TextEditingController _locationCtrl = TextEditingController();
   final TextEditingController _punchCtrl = TextEditingController();
   final List<String> _attachedImages = [];
+
+  /// 고른 뒤 도장·보관을 뒤에서 하는 사진(작업 일지와 같다, 10-09).
+  final BackgroundPhotos _photoJobs = BackgroundPhotos();
 
   // 상태값
   String _selectedDefect = '치수/각도 불량';
@@ -199,17 +203,26 @@ class _PunchListPageState extends State<PunchListPage> {
   void _handleAddImage() async {
     if (_attachedImages.length >= 10) return;
     FocusScope.of(context).unfocus();
-    // 갤러리에서 여러 장을 한 번에 고를 수 있다(카메라는 1장).
-    final paths = await ImagePickerHelper.pickImages(
+    // 갤러리에서 여러 장을 한 번에 고를 수 있다(카메라는 1장). 고르자마자 사진 칸에 먼저 보이고
+    // 도장 찍기·보관은 뒤에서 한다(10-09: 다 끝날 때까지 몇 초 동안 아무 표시가 없었다).
+    final picked = await ImagePickerHelper.pickRawImages(
       context,
       maxCount: 10 - _attachedImages.length,
       stampSite: true,
+    );
+    if (picked.isEmpty || !mounted) return;
+    _photoJobs.addAll(
+      _attachedImages,
+      picked,
+      update: (fn) => mounted ? setState(fn) : fn(),
       siteLabel: widget.projectName,
     );
-    if (paths.isNotEmpty) setState(() => _attachedImages.addAll(paths));
   }
 
-  void _submit() {
+  void _submit() async {
+    // 뒤에서 정리 중인 사진이 있으면 끝날 때까지 기다린다(임시 경로가 저장되지 않게).
+    await _photoJobs.waitAll();
+    if (!mounted) return;
     String locValue = _locationCtrl.text.trim();
     String textValue = _punchCtrl.text.trim();
 
@@ -718,14 +731,18 @@ class _PunchListPageState extends State<PunchListPage> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: Image.file(
-                                  File(entry.value),
+                                // 작은 칸 크기로만 펼친다(PhotoImage, 10-09).
+                                child: PhotoImage(
+                                  entry.value,
                                   width: 80,
                                   height: 80,
-                                  fit: BoxFit.cover,
                                 ),
                               ),
                             ),
+                            if (_photoJobs.busy(entry.value))
+                              PhotoBusyOverlay(
+                                key: Key('punch_photo_busy_${entry.key}'),
+                              ),
                             InkWell(
                               onTap: () async {
                                 if (!await confirmDelete(

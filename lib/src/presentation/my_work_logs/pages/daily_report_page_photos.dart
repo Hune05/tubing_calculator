@@ -171,27 +171,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
             ),
           ),
           // 도장 찍기·보관 중(사진은 먼저 보이고, 끝나면 이 표시가 사라진다).
-          if (_photoBusy(path))
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Container(
-                  key: Key('photo_busy_$index'),
-                  decoration: BoxDecoration(
-                    color: Colors.black26,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          if (_photoBusy(path)) PhotoBusyOverlay(key: Key('photo_busy_$index')),
           Positioned(
             top: 4,
             right: 4,
