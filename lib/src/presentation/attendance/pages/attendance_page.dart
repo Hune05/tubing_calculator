@@ -18,6 +18,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/attendance.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/models/reminder_tools.dart'
+    show ensureNotificationPermission, areNotificationsAllowed;
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/project_phase.dart'
     show dayOnly;
 
@@ -571,8 +573,17 @@ class _AttendancePageState extends State<AttendancePage>
       ),
     );
     if (s == null || !mounted) return;
+    final reminderOn = s.clockOutReminder && !_settings.clockOutReminder;
     setState(() => _settings = s);
     await s.save();
+    // 퇴근 알림을 켰을 때 알림 권한을 묻고, 꺼져 있으면 알린다(8차, 10-09: 묻는 곳이 없어 안드로이드 13
+    // 이상에서 퇴근 알림이 조용히 안 떴다).
+    if (reminderOn) {
+      await ensureNotificationPermission();
+      if (!await areNotificationsAllowed() && mounted) {
+        _toast("폰에서 이 앱의 알림이 꺼져 있어 퇴근 알림이 울리지 않습니다. 폰 설정 → 애플리케이션 → 알림에서 켜십시오.");
+      }
+    }
     // 계산기 설정과 같은 서버 문서에 올린다(구글 로그인이 없거나 통신이 없으면 조용히 건너뛴다).
     SettingsCloudSync.instance.backup();
     _syncOutside();

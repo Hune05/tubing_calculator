@@ -154,6 +154,10 @@ class _ElecGroundTabState extends State<ElecGroundTab>
   ];
 
   /// 여덟 계산 항목의 입력을 모두 담는다(지금 안 보이는 항목의 칸까지).
+  // 화면을 나갔다 와도 입력이 남는다(8차).
+  @override
+  String? get elecDraftKey => 'elec_draft_ground_v1';
+
   @override
   Map<String, Object?> historySnapshot() => {
     for (final (c, k) in _texts) k: c.text,

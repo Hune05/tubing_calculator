@@ -54,7 +54,15 @@ abstract class HoldAlarm {
 
   /// 폰 설정의 "알람 및 리마인더" 허용 화면을 연다. 돌아와서 허용돼 있으면 true.
   Future<bool> requestExact() async => true;
+
+  /// 이 앱의 알림이 켜져 있는지. 알 수 없으면 true.
+  Future<bool> notificationsAllowed() async => true;
 }
+
+/// 알림이 꺼져 있을 때 타이머 아래에 띄우는 글(8차, 10-09: 꺼져 있어도 "울립니다"라고 했다).
+const String kPtNotifOffText =
+    '폰에서 이 앱의 알림이 꺼져 있어 완료 알림이 울리지 않습니다. 폰 설정 → 애플리케이션 → 알림에서 켜십시오. '
+    '화면이나 앱을 나가도 시간은 계속 계산됩니다.';
 
 /// 정확한 알람이 꺼져 있을 때 타이머 아래에 띄우는 글.
 const String kPtExactOffText = '정확한 알람이 꺼져 있어 알림이 몇 분 늦을 수 있습니다.';
@@ -171,6 +179,16 @@ class PluginHoldAlarm extends HoldAlarm {
       final a = _android;
       if (a == null) return true;
       return await a.canScheduleExactNotifications() ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  @override
+  Future<bool> notificationsAllowed() async {
+    if (kIsWeb) return true;
+    try {
+      return await _android?.areNotificationsEnabled() ?? true;
     } catch (_) {
       return true;
     }

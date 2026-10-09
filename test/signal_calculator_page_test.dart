@@ -522,6 +522,24 @@ void main() {
     expect(r, contains('최대 루프 저항 548Ω (21mA 기준)'));
   });
 
+  testWidgets('저장 창: 적은 것이 있으면 바깥을 눌러 닫기 전에 묻는다(8차)', (tester) async {
+    await pumpPage(tester);
+    await openTab(tester, 'sg_tab_cal');
+    await tester.enterText(find.byKey(const Key('sc_read_2')), '12.0');
+    await tester.pump();
+    await tester.tap(find.byKey(const Key('sc_save')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('cs_tag')), 'PT-7');
+    await tester.pump();
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
+    expect(find.text('버리기'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('cs_tag')), findsOneWidget);
+    expect(await CalRecordStore.load(), isEmpty);
+  });
+
   testWidgets('저장 창: 차기 교정일 1년, 주위 조건, 표준기 저장. 태그를 바꾸면 새로 저장이 기본', (
     tester,
   ) async {

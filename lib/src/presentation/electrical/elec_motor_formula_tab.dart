@@ -139,6 +139,10 @@ class _ElecMotorFormulaTabState extends State<ElecMotorFormulaTab>
   ];
 
   /// 일곱 묶음의 입력을 모두 담는다(지금 안 보이는 묶음의 칸까지).
+  // 화면을 나갔다 와도 입력이 남는다(8차).
+  @override
+  String? get elecDraftKey => 'elec_draft_motor_formula_v1';
+
   @override
   Map<String, Object?> historySnapshot() => {
     for (final (c, k) in _texts) k: c.text,

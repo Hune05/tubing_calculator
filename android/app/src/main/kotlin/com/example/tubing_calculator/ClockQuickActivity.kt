@@ -1,6 +1,10 @@
 package com.example.tubing_calculator
 
+import android.Manifest
 import android.app.Activity
+import android.app.NotificationManager
+import android.content.pm.PackageManager
+import android.os.Build
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -35,7 +39,13 @@ class ClockQuickActivity : Activity() {
         const val MEMO_MAX = 40
         val TAGS = listOf("현장 작업", "출장", "교육", "회의", "대기", "정비", "이동")
         val BREAK_LENGTHS = intArrayOf(10, 15, 20, 30, 60)
+        private const val REQ_NOTIF = 41
+        private const val NOTIF_OFF =
+            "폰에서 이 앱의 알림이 꺼져 있어 휴게 알람이 울리지 않습니다. 폰 설정 → 애플리케이션 → 알림에서 켜십시오."
     }
+
+    // 알림 권한을 묻는 동안 기다리는 "정했습니다" 글(답을 받은 뒤 띄우고 닫는다).
+    private var pendingDoneMsg: String? = null
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
@@ -286,10 +296,29 @@ class ClockQuickActivity : Activity() {
             if (err != null) {
                 Toast.makeText(this, err, Toast.LENGTH_LONG).show()
             } else {
-                Toast.makeText(this, "휴게 알람을 정했습니다: ${preview.text}", Toast.LENGTH_LONG).show()
-                finish()
+                val msg = "휴게 알람을 정했습니다: ${preview.text}"
+                // 8차(10-09): 알림 권한을 묻는 곳이 없어 안드로이드 13 이상에서 휴게 알람이 조용히 안 울렸다.
+                if (Build.VERSION.SDK_INT >= 33 &&
+                    checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    pendingDoneMsg = msg
+                    requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQ_NOTIF)
+                } else {
+                    val on = getSystemService(NotificationManager::class.java)?.areNotificationsEnabled() ?: true
+                    Toast.makeText(this, if (on) msg else NOTIF_OFF, Toast.LENGTH_LONG).show()
+                    finish()
+                }
             }
         })
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQ_NOTIF) return
+        val ok = grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED
+        Toast.makeText(this, if (ok) (pendingDoneMsg ?: "휴게 알람을 정했습니다.") else NOTIF_OFF, Toast.LENGTH_LONG).show()
+        pendingDoneMsg = null
+        finish()
     }
 
     private fun save(memo: String?, brk: Int?) {

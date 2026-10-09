@@ -661,6 +661,61 @@ void main() {
     expect(got!.fluid, PtFluid.water);
   });
 
+  testWidgets('저장 창: 적은 것이 있으면 바깥을 눌러 닫기 전에 묻는다(8차)', (tester) async {
+    PtSaveResult? got;
+    var closed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async {
+                got = await showModalBottomSheet<PtSaveResult>(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) => PtSaveSheet(
+                    editing: null,
+                    unit: PUnit.bar,
+                    medium: TestMedium.hydro,
+                    line: 'P-1',
+                    date: DateTime(2026, 9, 26),
+                    tester: '홍',
+                  ),
+                );
+                closed = true;
+              },
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    // 아무것도 안 고쳤으면 바로 닫힌다.
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(closed, isTrue);
+    closed = false;
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('ps_line')), 'P-9');
+    await tester.pump();
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.text('버리기'), findsOneWidget); // 버리시겠습니까? 창
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(closed, isFalse);
+    expect(find.byKey(const Key('ps_line')), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('버리기'));
+    await tester.pumpAndSettle();
+    expect(closed, isTrue);
+    expect(got, isNull);
+  });
+
   testWidgets('저장 창: "자체 검사"를 고르면 입회자 3칸이 부서 1칸으로 바뀐다', (tester) async {
     tester.view.physicalSize = const Size(390, 2400);
     tester.view.devicePixelRatio = 1;

@@ -22,6 +22,7 @@ import 'signal_calc.dart';
 import 'switch_check.dart';
 import 'temp_sensor.dart';
 import '../common/number_text.dart';
+import '../my_work_logs/widgets/confirm_delete.dart';
 
 String _fmt(double v, [int d = 3]) {
   // 0.125가 0.12로 내려가지 않게(이진 소수 오차) 반올림 전에 아주 작게 밀어 준다.
@@ -1310,6 +1311,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     final res = await showModalBottomSheet<_SaveResult>(
       context: context,
       isScrollControlled: true,
+      // 끌어내려 닫기는 "버리시겠습니까?"를 거치지 않아 막는다(바깥 누르기·뒤로는 묻는다, 8차).
+      enableDrag: false,
       backgroundColor: fc.surface,
       builder: (_) => _CalSaveSheet(
         editing: ed,
@@ -2688,6 +2691,20 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
       widget.editing != null && _tag.text.trim() != widget.editing!.tag;
 
   @override
+  void initState() {
+    super.initState();
+    _openSig = _sig();
+  }
+
+  /// 처음 연 때의 모양(바꾼 것이 있는지 견준다).
+  late final String _openSig;
+  String _sig() => [
+    for (final c in [_tag, _inst, _model, _ref, _worker, _ambient, _memo]) c.text,
+    _calDate.toIso8601String(),
+    '$_dueMonths',
+  ].join('\u0001');
+
+  @override
   void dispose() {
     for (final c in [_tag, _inst, _model, _ref, _worker, _ambient, _memo]) {
       c.dispose();
@@ -2754,7 +2771,26 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+    // 8차(10-09): 바깥을 누르거나 뒤로 가면 묻지 않고 닫혀 적은 태그·계기·메모가 사라졌다.
+    // 바뀐 것이 있으면 한 번 묻는다(저장 단추는 그대로 닫는다).
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) async {
+      if (didPop) return;
+      final leave =
+          _sig() == _openSig ||
+          await confirmDelete(
+            context,
+            title: '적은 것을 버리시겠습니까?',
+            message: '저장하지 않고 닫으면 적은 내용이 사라집니다.',
+            confirmLabel: '버리기',
+          );
+      if (leave && context.mounted) Navigator.pop(context);
+    },
+    child: _buildSheet(context),
+  );
+
+  Widget _buildSheet(BuildContext context) {
     final ed = widget.editing;
     // 새 기록이거나 태그를 바꿨으면 "새로 저장"이 기본 단추.
     final primaryNew = ed == null || _tagChanged;

@@ -1,6 +1,7 @@
 // 전기 설비 계산의 탭들이 같이 쓰는 화면 부품(탭 몸통·숫자 칸·이름표 칩·근거 보기)과 숫자 글꼴.
 // 기존 탭은 electric_calculator_page.dart 안의 같은 모양 함수(_page·_field·_chipGroup·_basis)를 쓰고,
 // 파일로 나눈 새 탭(부하 합산·단락 전류·축전지)은 이 mixin을 쓴다.
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -79,6 +80,72 @@ mixin ElecTabParts<W extends StatefulWidget>
   /// [historySnapshot]으로 꺼낸 입력 묶음을 화면에 다시 넣는다(setState 안에서 부른다).
   void applyHistorySnapshot(Map<String, dynamic> m) {}
 
+  /// 입력을 폰에 남길 저장 칸 이름. null이면 남기지 않는다(따로 저장하는 탭·칸이 적은 탭).
+  /// 정하면 화면을 나갔다 와도 그때 입력이 다시 채워진다([historySnapshot] 모양 그대로).
+  /// 8차(10-09): 접지·전동기 탭은 측정값을 여러 칸 적는데 화면을 나가면 다 사라졌다.
+  String? get elecDraftKey => null;
+
+  String? _draftSaved; // 마지막으로 남긴 글
+  bool _draftLoaded = false; // 읽기 전에는 남기지 않는다(빈 칸으로 덮지 않게)
+  Timer? _draftTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    final key = elecDraftKey;
+    if (key == null) return;
+    // 탭이 제 칸을 다 만든 뒤(첫 그림 뒤) 읽는다.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadElecDraft(key));
+  }
+
+  Future<void> _loadElecDraft(String key) async {
+    if (!mounted) return;
+    final open = historySnapshot();
+    final openRaw = open == null ? null : jsonEncode(open);
+    try {
+      final raw = (await SharedPreferences.getInstance()).getString(key);
+      if (!mounted) return;
+      _draftSaved = raw;
+      final now = historySnapshot();
+      // 읽는 사이 고쳤으면 덮지 않는다.
+      if (raw != null && now != null && jsonEncode(now) == openRaw) {
+        setState(
+          () => applyHistorySnapshot(jsonDecode(raw) as Map<String, dynamic>),
+        );
+      }
+    } catch (_) {
+      // 못 읽어도 빈 칸으로 쓴다.
+    }
+    _draftLoaded = true;
+  }
+
+  void _scheduleElecDraft() {
+    if (elecDraftKey == null || !_draftLoaded) return;
+    _draftTimer?.cancel();
+    _draftTimer = Timer(const Duration(milliseconds: 500), _flushElecDraft);
+  }
+
+  void _flushElecDraft() {
+    final key = elecDraftKey;
+    if (key == null || !_draftLoaded) return;
+    final snap = historySnapshot();
+    if (snap == null) return;
+    final raw = jsonEncode(snap);
+    if (raw == _draftSaved) return;
+    _draftSaved = raw;
+    SharedPreferences.getInstance()
+        .then((p) => p.setString(key, raw))
+        .catchError((_) => false);
+  }
+
+  @override
+  void deactivate() {
+    // 칸을 치우기 전(dispose 전)에 마지막 입력을 남긴다.
+    _draftTimer?.cancel();
+    _flushElecDraft();
+    super.deactivate();
+  }
+
   /// 결과 요약을 기록에 쌓는다. 입력 묶음이 있으면 기록을 눌러 그때 입력값으로 되돌릴 수 있다.
   void logElecHistory(String sumKey, String summary) {
     final snap = historySnapshot();
@@ -104,6 +171,7 @@ mixin ElecTabParts<W extends StatefulWidget>
 
   @override
   void dispose() {
+    _draftTimer?.cancel();
     // 없어진 탭에 되돌리지 않게, 이 탭이 등록한 것만 뺀다(다시 그려진 탭이 등록한 것은 둔다).
     for (final e in _myRestorers.entries) {
       if (identical(calcLog.restorers[e.key], e.value)) {
@@ -154,6 +222,7 @@ mixin ElecTabParts<W extends StatefulWidget>
   }) {
     _registerRestorer(sumKey);
     if (summary != null) logElecHistory(sumKey, summary);
+    _scheduleElecDraft();
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       behavior: HitTestBehavior.translucent,

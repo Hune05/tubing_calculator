@@ -47,6 +47,10 @@ class _ElecMotorProtectTabState extends State<ElecMotorProtectTab>
   }
 
   /// "최근 계산 기록"으로 되돌릴 입력 묶음.
+  // 화면을 나갔다 와도 입력이 남는다(8차).
+  @override
+  String? get elecDraftKey => 'elec_draft_motor_protect_v1';
+
   @override
   Map<String, Object?> historySnapshot() => {
     'fla': _fla.text,

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/utils/image_picker_helper.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_store.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/fullscreen_photo_viewer.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/confirm_delete.dart';
 
 import '../../core/theme/field_view.dart';
 import 'pressure_calc.dart';
@@ -148,7 +149,19 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
   void initState() {
     super.initState();
     _photos.addAll(_ed?.photos ?? const []);
+    _openSig = _sig();
   }
+
+  /// 처음 연 때의 모양(바꾼 것이 있는지 견준다).
+  late final String _openSig;
+  String _sig() => [
+    for (final c in _all) c.text,
+    _date.toIso8601String(),
+    '$_fluid',
+    '$_selfInspection',
+    ..._photos,
+  ].join('\u0001');
+  bool get _dirty => _sig() != _openSig;
 
   @override
   void dispose() {
@@ -449,7 +462,26 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+    // 8차(10-09): 바깥을 누르거나 뒤로 가면 묻지 않고 닫혀 적은 것·붙인 사진이 사라졌다.
+    // 바뀐 것이 있으면 한 번 묻는다(저장 단추는 그대로 닫는다).
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) async {
+      if (didPop) return;
+      final leave =
+          !_dirty ||
+          await confirmDelete(
+            context,
+            title: '적은 것을 버리시겠습니까?',
+            message: '저장하지 않고 닫으면 적은 내용과 붙인 사진이 사라집니다.',
+            confirmLabel: '버리기',
+          );
+      if (leave && context.mounted) Navigator.pop(context);
+    },
+    child: _buildSheet(context),
+  );
+
+  Widget _buildSheet(BuildContext context) {
     final ed = _ed;
     // 새 기록이거나 라인 번호를 바꿨으면 "새로 저장"이 기본 단추.
     final primaryNew = ed == null || _lineChanged;

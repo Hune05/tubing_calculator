@@ -82,6 +82,10 @@ class _ElecMotorSelectTabState extends State<ElecMotorSelectTab>
 
   List<TextEditingController> get _all => [for (final (c, _) in _texts) c];
 
+  // 화면을 나갔다 와도 입력이 남는다(8차).
+  @override
+  String? get elecDraftKey => 'elec_draft_motor_select_v1';
+
   @override
   Map<String, Object?>? historySnapshot() => {
     'sec': _sec.name,

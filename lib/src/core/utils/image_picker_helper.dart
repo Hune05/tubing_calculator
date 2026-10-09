@@ -156,7 +156,14 @@ class ImagePickerHelper {
       if (stampSite && ReportStyle.current.photoStamp) {
         path = await stampPhoto(path, siteName: siteLabel ?? '');
       }
-      return [await keepPhoto(path)];
+      final kept = await keepPhoto(path);
+      // 도장 찍은 임시 파일은 사진 폴더로 옮겼으면 지운다(8차).
+      if (path != image.path && kept != path) {
+        try {
+          await File(path).delete();
+        } catch (_) {}
+      }
+      return [kept];
     }
     final images = await _picker.pickMultiImage(imageQuality: 70);
     return [for (final e in images.take(maxCount)) await keepPhoto(e.path)];

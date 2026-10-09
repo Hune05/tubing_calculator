@@ -105,4 +105,29 @@ void main() {
     expect(allFlat(tester), contains(flat('평균 = (380 + 390 + 370) ÷ 3 = 380 V, 차 10 ÷ 380 × 100 = 2.63 %')));
     expect(allFlat(tester), contains(flat('2 × 2.63² = 13.')));
   });
+
+  testWidgets('전동기 점검 탭: 화면을 나갔다 와도 적은 측정값이 남는다(8차)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    tester.view.physicalSize = const Size(800, 12000);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(home: ElectricCalculatorPage(initialTab: 13)),
+    );
+    await tester.pumpAndSettle();
+    await _type(tester, 'mc_ir1', '12');
+    await tester.pump(const Duration(seconds: 1));
+    // 화면을 닫는다.
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(
+      const MaterialApp(home: ElectricCalculatorPage(initialTab: 13)),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('mc_ir1')));
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('mc_ir1'))).controller!.text,
+      '12',
+    );
+  });
 }

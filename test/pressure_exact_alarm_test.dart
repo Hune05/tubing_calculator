@@ -13,7 +13,11 @@ class FakeAlarm extends HoldAlarm {
   var requests = 0;
   bool exact;
   bool grant; // "설정 열기"에서 허용하는지
-  FakeAlarm({this.exact = false, this.grant = true});
+  bool notif; // 이 앱 알림이 켜져 있는지
+  FakeAlarm({this.exact = false, this.grant = true, this.notif = true});
+
+  @override
+  Future<bool> notificationsAllowed() async => notif;
 
   @override
   Future<void> schedule(
@@ -204,6 +208,17 @@ void main() {
     await tester.ensureVisible(find.byKey(const Key('pt_r_exact_open')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    await finish(tester);
+  });
+
+  testWidgets('앱 알림이 꺼져 있으면 "울립니다" 대신 꺼져 있다고 알린다(8차)', (tester) async {
+    bigView(tester);
+    alarm = FakeAlarm(exact: true, notif: false);
+    await pumpRecordTab(tester);
+    await tapKey(tester, 'pt_r_start');
+    await reading(tester, '11', '20');
+    expect(find.text(kPtNotifOffText), findsOneWidget);
+    expect(find.textContaining('완료 시간에 폰 알림이 울립니다'), findsNothing);
     await finish(tester);
   });
 }

@@ -6,6 +6,7 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:tubing_calculator/main.dart' show flutterLocalNotificationsPlugin;
 
+import '../my_work_logs/models/reminder_tools.dart' show ensureNotificationPermission;
 import '../my_work_logs/models/report_tools.dart' show reminderScheduleMode;
 import 'equipment_model.dart';
 
@@ -92,7 +93,13 @@ Future<void> cancelEquipmentReminders(String equipmentId) async {
 }
 
 /// 대장 전체의 알림을 다시 잡는다. 예약이 안 돼도(권한·기기 문제) 앱은 그대로 동작한다.
-Future<int> rescheduleEquipmentReminders(List<Equipment> all, {DateTime? now}) async {
+/// [askPermission]이면 잡을 알림이 있을 때 알림 권한을 처음 한 번 묻는다(장비를 저장할 때. 8차, 10-09:
+/// 권한을 묻는 곳이 없어 안드로이드 13 이상에서 점검 기한 알림이 조용히 안 떴다).
+Future<int> rescheduleEquipmentReminders(
+  List<Equipment> all, {
+  DateTime? now,
+  bool askPermission = false,
+}) async {
   var n = 0;
   try {
     for (final e in all) {
@@ -100,6 +107,7 @@ Future<int> rescheduleEquipmentReminders(List<Equipment> all, {DateTime? now}) a
     }
     final plan = planEquipmentReminders(all, now ?? DateTime.now());
     if (plan.isEmpty) return 0;
+    if (askPermission) await ensureNotificationPermission();
     _ensureTz();
     await _ensureChannel();
     final mode = await reminderScheduleMode();

@@ -642,7 +642,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
       ],
     );
     await EquipmentStore.put(saved);
-    rescheduleEquipmentReminders(await EquipmentStore.load());
+    rescheduleEquipmentReminders(await EquipmentStore.load(), askPermission: true);
     if (mounted && ModalRoute.of(context)?.isCurrent == true) Navigator.pop(context, saved);
   }
 

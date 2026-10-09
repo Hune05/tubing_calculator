@@ -96,6 +96,10 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
     (_a3, 'a3'),
   ];
 
+  // 화면을 나갔다 와도 입력이 남는다(8차).
+  @override
+  String? get elecDraftKey => 'elec_draft_motor_check_v1';
+
   @override
   Map<String, Object?> historySnapshot() => {
     for (final (c, k) in _texts) k: c.text,

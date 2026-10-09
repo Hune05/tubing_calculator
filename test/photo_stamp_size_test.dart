@@ -13,6 +13,8 @@ class _FakePaths extends Fake with MockPlatformInterfaceMixin implements PathPro
   final String dir;
   @override
   Future<String?> getApplicationDocumentsPath() async => dir;
+  @override
+  Future<String?> getTemporaryPath() async => dir;
 }
 
 void main() {

@@ -37,6 +37,9 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   /// 임시 저장을 읽기 전에 "사용자가 고침"으로 잡히지 않게 한다.
   final ValueNotifier<bool?> _rExact = ValueNotifier(null);
 
+  /// 이 앱의 알림이 켜져 있는지(null: 아직 모름). 시작해서 알림을 예약한 뒤(권한을 물은 뒤)와 돌아올 때 본다.
+  final ValueNotifier<bool?> _rNotif = ValueNotifier(null);
+
   HoldAlarm get _alarm => widget.holdAlarm ?? const PluginHoldAlarm();
   DateTime _now() => (widget.now ?? DateTime.now)();
 
@@ -59,13 +62,22 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     _rAlarmTimer?.cancel();
     _rAlarmTimer = null;
     _rExact.dispose();
+    _rNotif.dispose();
   }
 
   // ── 정확한 알람 ──
   // 꺼져 있으면 안드로이드가 알림을 묶어 보내 몇 분 늦는다(폰 시험 09-26: 5분 30초 늦음).
   // 타이머 아래에 알리고 "설정 열기"로 허용 화면을 연다. 돌아와서 켜졌으면 알림을 다시 예약한다.
 
-  Future<void> _checkExact() async => _applyExact(await _alarm.canExact());
+  Future<void> _checkExact() async {
+    await _applyExact(await _alarm.canExact());
+    await _checkNotif();
+  }
+
+  Future<void> _checkNotif() async {
+    final ok = await _alarm.notificationsAllowed();
+    if (mounted) _rNotif.value = ok;
+  }
 
   /// 폰 설정에서 돌아왔을 때(페이지가 부른다).
   void _recordResumed() => _checkExact();
@@ -210,6 +222,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     if (key == _rScheduledKey) return;
     _rScheduledKey = key;
     await _alarm.schedule(due, title: kPtHoldTitle, body: body);
+    await _checkNotif();
   }
 
   Future<void> _cancelAlarm() async {
@@ -444,6 +457,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final res = await showModalBottomSheet<PtSaveResult>(
       context: context,
       isScrollControlled: true,
+      // 끌어내려 닫기는 "버리시겠습니까?"를 거치지 않아 막는다(바깥 누르기·뒤로는 묻는다, 8차).
+      enableDrag: false,
       backgroundColor: fc.surface,
       builder: (_) => PtSaveSheet(
         editing: ed,
@@ -950,9 +965,14 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
               Expanded(child: _bigButton('pt_r_end', '종료', _endHold)),
             ],
           ),
-          _line(
-            '완료 시간에 폰 알림이 울립니다. 화면이나 앱을 나가도 시간은 계속 계산됩니다.',
-            color: fc.textSub,
+          ValueListenableBuilder<bool?>(
+            valueListenable: _rNotif,
+            builder: (_, on, _) => on == false
+                ? _line(kPtNotifOffText, color: fc.danger)
+                : _line(
+                    '완료 시간에 폰 알림이 울립니다. 화면이나 앱을 나가도 시간은 계속 계산됩니다.',
+                    color: fc.textSub,
+                  ),
           ),
         ] else
           _line('종료했습니다. 다음 시험은 "새로 시작"을 누르십시오.', color: fc.textSub),

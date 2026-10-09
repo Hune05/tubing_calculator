@@ -86,19 +86,38 @@ String? currentUid() {
 /// "이름만 넣고 시작"한 사람도 uid가 있어야 배치도·재고의 "내 것"이 생긴다.
 /// 통신이 없거나 Firebase 콘솔에서 익명 로그인이 꺼져 있으면 null을 주고 예전처럼
 /// 이름만으로 쓴다(앱은 그대로 돈다). 다음에 앱을 열 때 다시 시도한다.
+///
+/// 8차(10-09): 앱을 처음 열 때 여러 곳이 동시에 부르면 익명 계정이 둘 생겨, 먼저 만든 uid로 올라간
+/// 사용 승인 신청·"내 것"이 주인을 잃었다. 진행 중인 로그인이 있으면 새로 만들지 않고 그것을 기다린다
+/// (4초 제한으로 먼저 돌아와도, 그 로그인이 끝날 때까지는 다시 만들지 않는다).
 Future<String?> ensureSignedIn() async {
   final have = currentUid();
   if (have != null) return have;
   try {
-    final cred = await FirebaseAuth.instance.signInAnonymously().timeout(
-      const Duration(seconds: 4),
-    );
-    return cred.user?.uid;
+    var running = _anonSignIn;
+    if (running == null) {
+      final started = (debugAnonSignIn ?? _signInAnonymously)();
+      _anonSignIn = running = started;
+      started.then((_) {}, onError: (_) {}).whenComplete(() {
+        if (identical(_anonSignIn, started)) _anonSignIn = null;
+      });
+    }
+    return await running.timeout(const Duration(seconds: 4));
   } catch (e) {
     debugPrint("익명 로그인 건너뜀: $e");
     return null;
   }
 }
+
+Future<String?>? _anonSignIn;
+
+Future<String?> _signInAnonymously() => FirebaseAuth.instance
+    .signInAnonymously()
+    .then((c) => c.user?.uid);
+
+/// 시험에서 익명 로그인 대신 부른다.
+@visibleForTesting
+Future<String?> Function()? debugAnonSignIn;
 
 /// 지금 계정이 익명(이름만 넣고 시작)인지.
 bool isAnonymousUser() {

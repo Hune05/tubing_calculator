@@ -1,4 +1,5 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -110,6 +111,28 @@ Future<File> _compressed(File src) async {
   }
 }
 
+/// [file]을 [ref]에 올린다. [wait]가 지나면 올리기를 취소한다(8차, 10-09: 시간 제한으로 먼저 돌아와도
+/// 올리기는 뒤에서 계속돼, 다음 시도가 같은 사진을 또 올려 서버에 사본이 쌓였다).
+/// 줄이느라 만든 임시 파일은 끝나면 지운다.
+Future<void> _putFileOrCancel(Reference ref, File src, Duration wait) async {
+  final file = await _compressed(src);
+  final task = ref.putFile(file);
+  try {
+    await task.timeout(wait);
+  } on TimeoutException {
+    try {
+      await task.cancel();
+    } catch (_) {}
+    rethrow;
+  } finally {
+    if (file.path != src.path) {
+      try {
+        await file.delete();
+      } catch (_) {}
+    }
+  }
+}
+
 // 로컬 경로 사진을 올리고 URL을 돌려준다. 실패하면 null(로컬 경로 유지).
 /// 배치도 배경 사진을 서버에 올린다(폰 안 경로라 다른 폰에서 안 보이던 것).
 /// 통신 없음·실패면 null — 다음 저장 때 다시 시도한다.
@@ -125,9 +148,7 @@ Future<String?> uploadLayoutBackground(
         .child('layout_backgrounds')
         .child(layoutId)
         .child('${DateTime.now().microsecondsSinceEpoch}.jpg');
-    await ref
-        .putFile(await _compressed(file))
-        .timeout(const Duration(seconds: 20));
+    await _putFileOrCancel(ref, file, const Duration(seconds: 20));
     return await ref.getDownloadURL().timeout(const Duration(seconds: 8));
   } catch (e) {
     debugPrint('배경 사진 올리기 실패: $e');
@@ -181,9 +202,7 @@ Future<String?> uploadPhoto(
         .child(projectId)
         .child(name);
     // 통신이 없으면 끝나지 않아 그 프로젝트가 다시 시도에서 빠졌다(배경 사진과 같게 제한).
-    await ref
-        .putFile(await _compressed(file))
-        .timeout(const Duration(seconds: 20));
+    await _putFileOrCancel(ref, file, const Duration(seconds: 20));
     return await ref.getDownloadURL().timeout(const Duration(seconds: 8));
   } catch (e) {
     debugPrint('사진 업로드 실패: $e');
@@ -252,7 +271,10 @@ optimizeProjectPhotos(
       final ref = FirebaseStorage.instance.refFromURL(url);
       final size = (await ref.getMetadata()).size ?? 0;
       if (size >= 400 * 1024) {
-        final bytes = await ref.getData(25 * 1024 * 1024);
+        // 통신이 없으면 끝나지 않아 "사진 정리" 진행 창이 멈췄다(8차). 한 장마다 시간을 정한다.
+        final bytes = await ref
+            .getData(25 * 1024 * 1024)
+            .timeout(const Duration(seconds: 30));
         if (bytes != null) {
           final dir = await getTemporaryDirectory();
           final ext = ref.name.toLowerCase().endsWith('.png') ? '.png' : '.jpg';
@@ -260,19 +282,27 @@ optimizeProjectPhotos(
             '${dir.path}/dl_${DateTime.now().microsecondsSinceEpoch}$ext',
           );
           await tmp.writeAsBytes(bytes);
-          final small = await _compressed(tmp);
-          final newSize = await small.length();
-          if (newSize < size * 0.8) {
-            final name = '${DateTime.now().microsecondsSinceEpoch}_opt$ext';
-            final nref = FirebaseStorage.instance
-                .ref()
-                .child('project_photos')
-                .child(pid)
-                .child(name);
-            await nref.putFile(small);
-            repl[url] = await nref.getDownloadURL();
-            oldRefs.add(ref);
-            saved += size - newSize;
+          try {
+            final small = await _compressed(tmp);
+            final newSize = await small.length();
+            if (newSize < size * 0.8) {
+              final name = '${DateTime.now().microsecondsSinceEpoch}_opt$ext';
+              final nref = FirebaseStorage.instance
+                  .ref()
+                  .child('project_photos')
+                  .child(pid)
+                  .child(name);
+              await _putFileOrCancel(nref, small, const Duration(seconds: 30));
+              repl[url] = await nref.getDownloadURL().timeout(
+                const Duration(seconds: 8),
+              );
+              oldRefs.add(ref);
+              saved += size - newSize;
+            }
+          } finally {
+            try {
+              await tmp.delete();
+            } catch (_) {}
           }
         }
       }

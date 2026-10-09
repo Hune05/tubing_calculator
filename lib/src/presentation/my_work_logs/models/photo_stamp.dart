@@ -9,9 +9,11 @@
 // 않는다. 위치 권한을 새로 묻지 않는다(사진 한 장 찍을 때마다 위치를 물으면 현장에서
 // 성가시다) — 이미 허용돼 있을 때만, 마지막으로 알던 위치를 쓴다.
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:intl/intl.dart';
@@ -146,11 +148,29 @@ Future<String> stampPhoto(String srcPath, {required String siteName}) async {
     final data = await out.toByteData(format: ui.ImageByteFormat.png);
     if (data == null) return srcPath;
 
-    final dir = await getApplicationDocumentsDirectory();
+    // 8차(10-09): PNG로 두면 2560px 사진 한 장이 수 MB라 보관·올리기가 무거웠다. JPEG로 바꾼다(안 되면 PNG).
+    Uint8List bytesOut = data.buffer.asUint8List();
+    var ext = 'png';
+    try {
+      final jpg = await FlutterImageCompress.compressWithList(
+        bytesOut,
+        quality: 88,
+        minWidth: img.width,
+        minHeight: img.height,
+        format: CompressFormat.jpeg,
+      );
+      if (jpg.isNotEmpty) {
+        bytesOut = jpg;
+        ext = 'jpg';
+      }
+    } catch (_) {}
+
+    // 임시 폴더에 둔다. 부른 쪽이 사진 폴더로 옮긴 뒤 지운다(예전에는 문서 폴더에 그대로 쌓였다).
+    final dir = await getTemporaryDirectory();
     final file = File(
-      '${dir.path}/stamp_${DateTime.now().microsecondsSinceEpoch}.png',
+      '${dir.path}/stamp_${DateTime.now().microsecondsSinceEpoch}.$ext',
     );
-    await file.writeAsBytes(data.buffer.asUint8List());
+    await file.writeAsBytes(bytesOut);
     return file.path;
   } catch (_) {
     return srcPath;
