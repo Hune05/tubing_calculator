@@ -123,7 +123,9 @@ Future<int> importInventoryCsv(
   final ok = await showAppConfirm(
     context,
     title: '엑셀(CSV)에서 가져오시겠습니까?',
-    message: '${inventoryImportSummary(plan)}\n\n수량이 바뀐 자재는 재고조사 기록으로 남습니다.',
+    message: plan.qtyChanged > 0
+        ? '${inventoryImportSummary(plan)}\n\n수량이 바뀐 자재는 재고조사 기록으로 남습니다.'
+        : inventoryImportSummary(plan),
     okText: '가져오기',
     okKey: const Key('inv_csv_import_ok'),
     icon: const Icon(Icons.upload_file_rounded),
