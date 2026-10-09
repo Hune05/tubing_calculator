@@ -381,7 +381,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                           _selectedCategory == "ALL" ||
                           data['category'] == _selectedCategory;
                       String target =
-                          "${data['name']} ${inventorySpecOf(data)} ${data['location']}"
+                          "${data['name']} ${inventorySpecOf(data)} ${data['maker'] ?? ''} ${data['location']}"
                               .toLowerCase();
                       if (_shortOnly && !isShortStock(data)) return false;
                       return categoryMatch && target.contains(_searchQuery);

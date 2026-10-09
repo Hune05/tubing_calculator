@@ -7,12 +7,17 @@ String inventorySpecOf(Map<String, dynamic> data) {
   return spec;
 }
 
-/// 목록 한 줄에 붙는 "규격  |  보관 위치". 빈 칸은 아예 빼서
+/// 목록 한 줄에 붙는 "규격  |  제조사  |  보관 위치". 빈 칸은 아예 빼서
 /// "-  |  H-2 자재렉"처럼 허전하게 보이지 않게 한다.
+/// 제조사는 이름에 이미 들어 있으면 빼고([HY-LOK] … 에 HY-LOK을 또 붙이지 않게), 아니면 붙인다
+/// (10-09: 같은 이름·다른 제조사 자재가 목록에서 똑같아 보였다).
 String inventorySpecAndPlace(Map<String, dynamic> data) {
   final parts = <String>[];
   final spec = inventorySpecOf(data);
   if (spec.isNotEmpty) parts.add(spec);
+  final maker = (data['maker'] ?? '').toString().trim();
+  final name = (data['name'] ?? '').toString().toLowerCase();
+  if (maker.isNotEmpty && !name.contains(maker.toLowerCase())) parts.add(maker);
   final place = (data['location'] ?? '').toString().trim();
   if (place.isNotEmpty) parts.add(place);
   if (parts.isEmpty) return '규격·위치 미기재';

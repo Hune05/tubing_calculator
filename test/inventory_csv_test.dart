@@ -65,7 +65,7 @@ void main() {
     expect(u.fields, {'location': 'B창고'});
     final text = inventoryImportSummary(plan);
     expect(text, contains('고칠 자재 1건(수량 바뀜 1건)'));
-    expect(text, contains('[HY-LOK] 3/8" Union: 10 → 16EA'));
+    expect(text, contains('[HY-LOK] 3/8" Union (하이록): 10 → 16EA'));
   });
 
   test('"내보낼 때 수량"이 없으면 적힌 수량으로 맞춘다, 칸이 없는 글은 안 고친다', () {
@@ -142,5 +142,19 @@ void main() {
     final plan = planInventoryImport(parseInventoryCsv(csv), server, null);
     expect(plan.isEmpty, isTrue);
     expect(plan.unchanged, 1);
+  });
+
+  test('확인창: 같은 이름 새 자재 두 줄은 제조사로 가려 보인다', () {
+    const csv =
+        '아이디,이름,제조사,수량,단위\n'
+        ',찬넬 25x25x1.6,TEST-A,5,본\n'
+        ',찬넬 25x25x1.6,TEST-B,5,본\n'
+        ',제조사 없는 자재,,1,EA\n';
+    final text = inventoryImportSummary(
+      planInventoryImport(parseInventoryCsv(csv), const {}, 'me'),
+    );
+    expect(text, contains('• 찬넬 25x25x1.6 (TEST-A) 5본'));
+    expect(text, contains('• 찬넬 25x25x1.6 (TEST-B) 5본'));
+    expect(text, contains('• 제조사 없는 자재 1EA'));
   });
 }

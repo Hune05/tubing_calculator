@@ -977,8 +977,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     final takes = stockTakesForBars(bars, unitByName: stock.unitByName);
     if (takes.isEmpty) return false;
 
+    // 뺄 때 고른 재고(같은 이름·다른 제조사)로 넣는다. 확인창에도 어느 재고인지 보인다(10-09).
+    final picks = await loadStockPicks('steel:${widget.project.id}');
+    final where = await loadPickedStockLabels(takes, picks);
     final lines = [
-      for (final t in takes) "${t.name} ${t.qty}${t.unit}",
+      for (final t in takes)
+        "${t.name} ${t.qty}${t.unit}${where[t.name] == null ? '' : ' → ${where[t.name]}'}",
     ].join('\n');
     if (!mounted) return false;
     final ok = await showCuttingConfirmDialog(
@@ -995,8 +999,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         takes,
         projectName: '형강 컷팅 · ${widget.project.name}',
         projectId: widget.project.id,
-        // 뺄 때 고른 재고로 도로 넣는다.
-        picks: await loadStockPicks('steel:${widget.project.id}'),
+        picks: picks,
       );
       if (!mounted) return true;
       showCuttingSnack(context, "재고에 도로 넣었습니다.");

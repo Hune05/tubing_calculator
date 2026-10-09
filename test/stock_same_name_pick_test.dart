@@ -198,4 +198,19 @@ void main() {
     expect(got, isNotNull);
     expect(got!.ids, isEmpty);
   });
+
+  test('되돌리기 확인창 이름표: 고른 재고가 있을 때만, 지워졌으면 빠진다', () {
+    final picks = {normalizeMaterialName(_union): 'a'};
+    expect(pickedStockLabels(_takes, picks, _docs, 'me'), {_union: '삼화 · A창고'});
+    expect(pickedStockLabels(_takes, const {}, _docs, 'me'), isEmpty);
+    expect(
+      pickedStockLabels(
+        _takes,
+        {normalizeMaterialName(_union): 'gone'},
+        _docs,
+        'me',
+      ),
+      isEmpty,
+    );
+  });
 }

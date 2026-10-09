@@ -119,4 +119,78 @@ void main() {
       expect(u.note, '');
     });
   });
+
+  group('문서 아이디로 센다(10-09)', () {
+    test('같은 이름·다른 자재의 기록이 섞이지 않는다', () {
+      final all = usageSinceLastCount([
+        {
+          'material_name': '찬넬',
+          'item_id': 'B',
+          'type': 'IN',
+          'action': '차감 되돌림',
+          'qty': 1,
+        },
+        {
+          'material_name': '찬넬',
+          'item_id': 'B',
+          'type': 'OUT',
+          'action': '형강 재단',
+          'qty': 1,
+        },
+        {
+          'material_name': '찬넬',
+          'item_id': 'A',
+          'type': 'INIT',
+          'action': '자재 등록',
+          'qty': 5,
+        },
+      ]);
+      final b = usageForItem(all, docId: 'B', name: '찬넬', nameShared: true);
+      expect(b!.out, 1);
+      expect(b.inQty, 1);
+      expect(
+        usageForItem(all, docId: 'A', name: '찬넬', nameShared: true),
+        isNull,
+      );
+    });
+
+    test('아이디 없는 옛 기록은 이름이 하나일 때만 더하고, 아이디 재고조사 뒤로는 안 센다', () {
+      final all = usageSinceLastCount([
+        {
+          'material_name': '유니온',
+          'item_id': 'U',
+          'type': 'OUT',
+          'action': '컷팅 사용',
+          'qty': 2,
+        },
+        {'material_name': '유니온', 'type': 'OUT', 'action': '컷팅 사용', 'qty': 3},
+      ]);
+      expect(usageForItem(all, docId: 'U', name: '유니온')!.out, 5);
+      expect(
+        usageForItem(all, docId: 'U', name: '유니온', nameShared: true)!.out,
+        2,
+      );
+
+      final audited = usageSinceLastCount([
+        {
+          'material_name': '유니온',
+          'item_id': 'U',
+          'type': 'OUT',
+          'action': '컷팅 사용',
+          'qty': 2,
+        },
+        {
+          'material_name': '유니온',
+          'item_id': 'U',
+          'type': 'AUDIT',
+          'action': '재고 실사',
+          'qty': 1,
+        },
+        {'material_name': '유니온', 'type': 'OUT', 'action': '컷팅 사용', 'qty': 3},
+      ]);
+      final u = usageForItem(audited, docId: 'U', name: '유니온')!;
+      expect(u.out, 2);
+      expect(u.hasLastCount, isTrue);
+    });
+  });
 }

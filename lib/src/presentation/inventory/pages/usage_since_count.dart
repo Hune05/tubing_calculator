@@ -41,6 +41,8 @@ class UsageSinceCount {
 ///
 /// [logsNewestFirst]는 최근 것부터 온 기록(화면이 받는 그대로).
 /// 자재마다 최근 것부터 세다가 '실사'(재고조사) 기록을 만나면 거기서 멈춘다.
+/// 기록에 자재 문서 아이디(item_id)가 있으면 'id:아이디'로, 없으면(09-23 전 옛 기록) 이름으로 묶는다
+/// (10-09: 이름으로만 묶어 같은 이름·다른 제조사 자재의 드나듦이 서로 섞였다). 화면은 [usageForItem]으로 읽는다.
 Map<String, UsageSinceCount> usageSinceLastCount(
   List<Map<String, dynamic>> logsNewestFirst,
 ) {
@@ -50,9 +52,11 @@ Map<String, UsageSinceCount> usageSinceLastCount(
   final seen = <String>{};
 
   for (final log in logsNewestFirst) {
-    final name = (log['material_name'] ?? log['itemName'] ?? '')
+    final itemId = (log['item_id'] ?? '').toString().trim();
+    final material = (log['material_name'] ?? log['itemName'] ?? '')
         .toString()
         .trim();
+    final name = itemId.isNotEmpty ? 'id:$itemId' : material;
     if (name.isEmpty) continue;
     seen.add(name);
     if (stopped.contains(name)) continue;
@@ -87,4 +91,26 @@ Map<String, UsageSinceCount> usageSinceLastCount(
           hasLastCount: stopped.contains(name),
         ),
   };
+}
+
+/// 자재 하나(문서 [docId], 이름 [name])의 드나듦. 아이디로 남은 기록을 세고, 아이디 없는 옛 기록은
+/// 이름이 겹치지 않을 때만([nameShared]가 false) 더한다(겹치면 어느 자재 것인지 모른다).
+/// 아이디 기록에 재고조사가 있으면 그보다 오래된 옛 기록은 세지 않는다.
+UsageSinceCount? usageForItem(
+  Map<String, UsageSinceCount> all, {
+  required String docId,
+  required String name,
+  bool nameShared = false,
+}) {
+  final byId = docId.isEmpty ? null : all['id:$docId'];
+  final byName = nameShared || (byId?.hasLastCount ?? false)
+      ? null
+      : all[name.trim()];
+  if (byId == null) return byName;
+  if (byName == null) return byId;
+  return UsageSinceCount(
+    out: byId.out + byName.out,
+    inQty: byId.inQty + byName.inQty,
+    hasLastCount: byName.hasLastCount,
+  );
 }

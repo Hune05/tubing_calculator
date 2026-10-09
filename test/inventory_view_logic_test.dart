@@ -56,4 +56,24 @@ void main() {
       expect(compareLeftoverRow('찬넬', 2000, '찬넬', 500) < 0, isTrue);
     });
   });
+
+  test('목록 줄에 제조사가 붙는다(이름에 이미 있으면 안 붙인다)', () {
+    expect(
+      inventorySpecAndPlace({
+        'name': '찬넬 25x25x1.6',
+        'maker': 'TEST-B',
+        'location': '시험',
+      }),
+      'TEST-B  |  시험',
+    );
+    expect(
+      inventorySpecAndPlace({
+        'name': '[HY-LOK] 3/8" Union',
+        'spec': '3/8"',
+        'maker': 'HY-LOK',
+        'location': 'H-2 자재렉',
+      }),
+      '3/8"  |  H-2 자재렉',
+    );
+  });
 }

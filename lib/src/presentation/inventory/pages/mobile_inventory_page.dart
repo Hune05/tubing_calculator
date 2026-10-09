@@ -499,7 +499,24 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
         final card = InventoryItemCard(
           itemName: itemName,
           data: displayData,
-          usedNote: _usage[itemName.trim()]?.note ?? '',
+          // 문서 아이디로 센다(같은 이름·다른 제조사 자재가 섞이지 않게, 10-09).
+          usedNote:
+              usageForItem(
+                _usage,
+                docId: isLocalNew ? '' : docId,
+                name: itemName,
+                nameShared: dbDocs
+                        .where(
+                          (d) =>
+                              ((d.data() as Map<String, dynamic>?)?['name'] ?? '')
+                                  .toString()
+                                  .trim() ==
+                              itemName.trim(),
+                        )
+                        .length >
+                    1,
+              )?.note ??
+              '',
           categoryIndex: 0,
           themeColor: makitaTeal,
           onUpdateQuantity: (delta) {

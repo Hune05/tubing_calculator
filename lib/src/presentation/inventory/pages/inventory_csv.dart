@@ -221,9 +221,13 @@ class InventoryImportUpdate {
   final int qtyBefore;
   final int qtyAfter;
   final String unit;
+
+  /// 제조사(같은 이름 자재를 확인창에서 가려 보이려고).
+  final String maker;
   const InventoryImportUpdate({
     required this.id,
     required this.name,
+    this.maker = '',
     this.fields = const {},
     this.qtyDelta = 0,
     this.qtyBefore = 0,
@@ -326,6 +330,7 @@ InventoryImportPlan planInventoryImport(
         qtyBefore: server0,
         qtyAfter: after,
         unit: (fields['unit'] as String?) ?? _s(d['unit']),
+        maker: (fields['maker'] as String?) ?? _s(d['maker']),
       ),
     );
   }
@@ -336,6 +341,10 @@ InventoryImportPlan planInventoryImport(
     problems: problems,
   );
 }
+
+/// 확인창 줄의 자재 이름: 제조사가 있으면 "이름 (제조사)"(같은 이름 두 줄이 똑같아 보이지 않게, 10-09).
+String _withMaker(String name, String maker) =>
+    maker.trim().isEmpty ? name : '$name (${maker.trim()})';
 
 /// 확인창 글: 몇 건을 고치고 넣는지, 수량이 바뀌는 자재, 넘긴 줄.
 String inventoryImportSummary(InventoryImportPlan p, {int max = 8}) {
@@ -351,7 +360,9 @@ String inventoryImportSummary(InventoryImportPlan p, {int max = 8}) {
   if (moved.isNotEmpty) {
     b.write('\n\n수량이 바뀌는 자재');
     for (final u in moved.take(max)) {
-      b.write('\n• ${u.name}: ${u.qtyBefore} → ${u.qtyAfter}${u.unit}');
+      b.write(
+        '\n• ${_withMaker(u.name, u.maker)}: ${u.qtyBefore} → ${u.qtyAfter}${u.unit}',
+      );
     }
     if (moved.length > max) b.write('\n… 외 ${moved.length - max}건');
   }
@@ -359,7 +370,7 @@ String inventoryImportSummary(InventoryImportPlan p, {int max = 8}) {
     b.write('\n\n새로 넣을 자재');
     for (final r in p.creates.take(max)) {
       b.write(
-        '\n• ${r.name} ${r.qty ?? 0}${r.text['unit']?.isNotEmpty == true ? r.text['unit'] : 'EA'}',
+        '\n• ${_withMaker(r.name, r.text['maker'] ?? '')} ${r.qty ?? 0}${r.text['unit']?.isNotEmpty == true ? r.text['unit'] : 'EA'}',
       );
     }
     if (p.creates.length > max) b.write('\n… 외 ${p.creates.length - max}건');

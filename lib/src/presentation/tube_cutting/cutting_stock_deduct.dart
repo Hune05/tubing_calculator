@@ -442,6 +442,48 @@ Future<void> saveStockPicks(String jobKey, Map<String, String> picks) async {
   } catch (_) {}
 }
 
+/// 고른 재고(작업에 기억한 것)의 이름표(뺄 자재 이름 → "TEST-B · 시험"). 되돌리기 확인창에 쓴다.
+/// [docs]는 (문서 id, 문서 내용). 고른 것이 없거나 지워졌으면 그 자재는 빠진다.
+Map<String, String> pickedStockLabels(
+  List<StockTake> takes,
+  Map<String, String> picks,
+  Iterable<(String, Map<String, dynamic>)> docs,
+  String? uid,
+) {
+  if (picks.isEmpty) return const {};
+  final byId = {for (final (id, d) in docs) id: d};
+  final out = <String, String>{};
+  for (final t in takes) {
+    final id = pickedStockId(picks, t.name, (id) => byId[id], uid);
+    if (id == null) continue;
+    final d = byId[id]!;
+    out[t.name] = StockChoice(
+      id: id,
+      maker: (d['maker'] ?? '').toString().trim(),
+      location: (d['location'] ?? '').toString().trim(),
+    ).short;
+  }
+  return out;
+}
+
+/// [pickedStockLabels]를 재고를 읽어서. 고른 것이 없으면 읽지 않는다. 못 읽으면 빈 것.
+Future<Map<String, String>> loadPickedStockLabels(
+  List<StockTake> takes,
+  Map<String, String> picks,
+) async {
+  if (picks.isEmpty) return const {};
+  try {
+    final snap = await readQueryQuick(
+      FirebaseFirestore.instance.collection('inventory'),
+    );
+    return pickedStockLabels(takes, picks, [
+      for (final d in snap.docs) (d.id, d.data()),
+    ], currentStockUid());
+  } catch (_) {
+    return const {};
+  }
+}
+
 /// 재고를 읽어 [sameNameStockChoices]. 못 읽으면 빈 것(묻지 않고 예전처럼 뺀다).
 Future<Map<String, List<StockChoice>>> loadSameNameChoices(
   List<StockTake> takes,
