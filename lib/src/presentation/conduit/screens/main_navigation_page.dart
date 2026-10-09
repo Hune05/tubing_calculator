@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart' show calcNavCompact;
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -42,6 +43,9 @@ class ConduitMainNavigation extends StatefulWidget {
 }
 
 class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
+  /// 가로로 눕힌 폰처럼 높이가 낮으면 아래 탭 막대를 얇게(10-09).
+  bool _compactNav = false;
+
   // 폰에 적어 둔 전선관 설정을 다 읽었는지.
   bool _settingsLoaded = false;
 
@@ -101,6 +105,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
 
   Widget _buildPage(BuildContext context) {
     final bool isFieldTab = _selectedIndex == 3; // '현장'(가로) 탭
+    _compactNav = calcNavCompact(context);
 
     return Scaffold(
       backgroundColor: slate100,
@@ -119,15 +124,15 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                     offset: const Offset(0, -5),
                   ),
                 ],
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
+                borderRadius: BorderRadius.vertical(
+                  top: Radius.circular(_compactNav ? 16 : 24),
                 ),
               ),
               child: SafeArea(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(
+                  padding: EdgeInsets.symmetric(
                     horizontal: 4,
-                    vertical: 8,
+                    vertical: _compactNav ? 0 : 8,
                   ),
                   child: BottomNavigationBar(
                     backgroundColor: Colors.transparent,
@@ -214,7 +219,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
   ) {
     return BottomNavigationBarItem(
       icon: Padding(
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: EdgeInsets.only(bottom: _compactNav ? 0 : 4),
         child: AppIcon(glyph, size: 24, filled: _selectedIndex == index),
       ),
       label: label,
@@ -229,7 +234,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
   ) {
     return BottomNavigationBarItem(
       icon: Padding(
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: EdgeInsets.only(bottom: _compactNav ? 0 : 4),
         child: Icon(
           _selectedIndex == index ? activeIcon : inactiveIcon,
           size: 24,

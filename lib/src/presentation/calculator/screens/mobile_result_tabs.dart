@@ -650,14 +650,18 @@ class _MobileResultTabState extends State<MobileResultTab>
                 ),
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                  sliver: SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = displayMarks[index];
-                      if (item['is_hidden'] == true) {
-                        return const SizedBox.shrink();
-                      }
-                      return _buildMarkingCard(item);
-                    }, childCount: displayMarks.length),
+                  // 가로로 넓으면 두 줄로 나란히(10-09). 숨긴 줄은 미리 뺀다(빈 칸이 생기지 않게).
+                  sliver: Builder(
+                    builder: (context) {
+                      final shown = [
+                        for (final m in displayMarks)
+                          if (m['is_hidden'] != true) m,
+                      ];
+                      return markCardSliver(
+                        count: shown.length,
+                        build: (i) => _buildMarkingCard(shown[i]),
+                      );
+                    },
                   ),
                 ),
               ],
@@ -1499,37 +1503,40 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
   }
 
   Widget _buildEmptyState() {
+    // 가로로 눕힌 폰처럼 높이가 낮으면 넘치지 않게 스크롤한다(10-09).
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(shape: BoxShape.circle, color: pureWhite),
-            child: Icon(Icons.folder_off_rounded, size: 48, color: slate200),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            _searchQuery.isNotEmpty ? "검색 결과가 없습니다" : "보관된 도면이 없습니다",
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
-              color: slate900,
-              letterSpacing: -0.5,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: pureWhite),
+              child: Icon(Icons.folder_off_rounded, size: 48, color: slate200),
             ),
-          ),
-          if (_searchQuery.isEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 24),
             Text(
-              "마킹 탭에서 작업 결과를 저장해 보십시오.",
+              _searchQuery.isNotEmpty ? "검색 결과가 없습니다" : "보관된 도면이 없습니다",
               style: TextStyle(
-                color: slate600,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                color: slate900,
+                letterSpacing: -0.5,
               ),
             ),
+            if (_searchQuery.isEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                "마킹 탭에서 작업 결과를 저장해 보십시오.",
+                style: TextStyle(
+                  color: slate600,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

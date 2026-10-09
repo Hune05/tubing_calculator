@@ -54,6 +54,10 @@ double inputPanelMaxHeight(BuildContext context) =>
 /// 숫자·방향 칸이 잘렸다.
 bool bendInputLandscape(BoxConstraints box) => box.maxWidth > box.maxHeight;
 
+/// 아래 탭 막대를 얇게 쓸지(10-09): 폰을 가로로 눕혀 화면 높이가 낮으면 위아래 여백을 뺀다.
+bool calcNavCompact(BuildContext context) =>
+    MediaQuery.sizeOf(context).height < 500;
+
 /// 가로 배치에서 오른쪽 입력판 폭.
 double bendInputPanelWidth(BoxConstraints box) =>
     (box.maxWidth * 0.48).clamp(300.0, 560.0);

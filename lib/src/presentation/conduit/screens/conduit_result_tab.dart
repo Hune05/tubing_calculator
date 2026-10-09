@@ -5,6 +5,7 @@ import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart' show markCardSliver;
 
 // 🚀 매니저 임포트: 전선관 전용 매니저
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
@@ -271,11 +272,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                     ? SliverFillRemaining(child: _buildEmptyState())
                     : SliverPadding(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-                        sliver: SliverList(
-                          delegate: SliverChildBuilderDelegate((
-                            context,
-                            index,
-                          ) {
+                        // 가로로 넓으면 두 줄로 나란히(10-09).
+                        sliver: markCardSliver(
+                          count: markings.length,
+                          build: (index) {
                             var item = markings[index];
                             if (item['benderType'] == 'ram') {
                               return _buildRamMarkingCard(index, item);
@@ -284,7 +284,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                             } else {
                               return _buildHandMarkingCard(index, item);
                             }
-                          }, childCount: markings.length),
+                          },
                         ),
                       ),
               ],

@@ -410,3 +410,39 @@ const TextStyle cardValueStyle = TextStyle(
   fontWeight: FontWeight.w900,
   color: _slate900,
 );
+
+/// 마킹 카드를 이 넓이(논리 픽셀) 이상이면 두 줄로 나란히 놓는다(가로 화면·태블릿 가로).
+const double kMarkCardTwoColumnWidth = 700;
+
+/// 마킹 카드 목록(10-09 가로 화면): 넓으면 두 줄로 나란히, 좁으면 한 줄.
+/// 읽는 순서는 왼쪽→오른쪽, 위→아래(1 | 2, 3 | 4). [build]는 0부터 [count]-1까지 부른다.
+Widget markCardSliver({
+  required int count,
+  required Widget Function(int index) build,
+}) => SliverLayoutBuilder(
+  builder: (context, c) {
+    if (c.crossAxisExtent < kMarkCardTwoColumnWidth) {
+      return SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (_, i) => build(i),
+          childCount: count,
+        ),
+      );
+    }
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((_, r) {
+        final a = r * 2;
+        final b = a + 1;
+        return Row(
+          key: ValueKey('mark_row_$r'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: build(a)),
+            const SizedBox(width: 12),
+            Expanded(child: b < count ? build(b) : const SizedBox.shrink()),
+          ],
+        );
+      }, childCount: (count + 1) ~/ 2),
+    );
+  },
+);

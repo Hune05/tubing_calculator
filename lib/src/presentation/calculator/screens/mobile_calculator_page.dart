@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart' show calcNavCompact;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -30,6 +31,9 @@ class MobileCalculatorPage extends StatefulWidget {
 }
 
 class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
+  /// 가로로 눕힌 폰처럼 높이가 낮으면 아래 탭 막대를 얇게(10-09).
+  bool _compactNav = false;
+
   // 🚀 스와이프를 없앴으므로 PageController는 완전히 삭제합니다.
   int _currentIndex = 0;
   String _startDir = "RIGHT";
@@ -97,6 +101,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     // 이 탭일 때만 둘 다 숨긴다.
     final bool isFieldTab = _currentIndex == 3; // '현장' 탭
 
+    _compactNav = calcNavCompact(context);
     // 머리 막대가 없어져 위쪽이 밝으므로 시계·배터리 글자를 어둡게.
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -126,15 +131,15 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
                       offset: const Offset(0, -5),
                     ),
                   ],
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
+                  borderRadius: BorderRadius.vertical(
+                    top: Radius.circular(_compactNav ? 16 : 24),
                   ),
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(
+                    padding: EdgeInsets.symmetric(
                       horizontal: 4,
-                      vertical: 8,
+                      vertical: _compactNav ? 0 : 8,
                     ),
                     child: BottomNavigationBar(
                       elevation: 0,
@@ -184,7 +189,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
   ) {
     return BottomNavigationBarItem(
       icon: Padding(
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: EdgeInsets.only(bottom: _compactNav ? 0 : 4),
         child: AppIcon(glyph, size: 24, filled: _currentIndex == index),
       ),
       label: label,
@@ -199,7 +204,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
   ) {
     return BottomNavigationBarItem(
       icon: Padding(
-        padding: const EdgeInsets.only(bottom: 4),
+        padding: EdgeInsets.only(bottom: _compactNav ? 0 : 4),
         child: Icon(
           _currentIndex == index ? activeIcon : inactiveIcon,
           size: 24,

@@ -1150,100 +1150,107 @@ class _MobileFabricationDetailScreenState
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
-      itemCount: displayMarks.length + (_showSpecsNote ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (_showSpecsNote) {
-          if (index == 0) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    _specsChanged
-                        ? Icons.warning_amber_rounded
-                        : Icons.info_outline_rounded,
-                    size: 14,
-                    color: _specsChanged ? _amber700 : slate600,
-                  ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    child: Text(
+    // 가로로 넓으면 두 줄로 나란히(10-09).
+    Widget card(int index) {
+      final item = displayMarks[index];
+      final bool isStraight = item['is_straight'] == true;
+      final int mark = (item['marking_point'] as num?)?.round() ?? 0;
+      final int incremental =
+          (item['incremental_mark'] as num?)?.round() ?? 0;
+      final int length = (item['length'] as num?)?.round() ?? 0;
+      final int markNum =
+          (item['mark_num'] as num?)?.toInt() ??
+          (item['display_mark_num'] as num?)?.toInt() ??
+          0;
+      final double rotation = (item['rotation'] as num?)?.toDouble() ?? 0.0;
+      final double angle =
+          double.tryParse(item['angle']?.toString() ?? '0') ?? 0.0;
+      final double target =
+          (item['target_angle'] as num?)?.toDouble() ?? angle;
+      final bool hasSpringback = (target - angle).abs() > 0.05;
+
+      final int realIndex = _bendList.indexOf(item);
+      final bool isSelected = _selectedSegmentIndex == realIndex;
+
+      return StepMarkCard(
+        isStraight: isStraight,
+        markNum: markNum,
+        mark: mark,
+        title: isStraight
+            ? "직관 연장 마킹"
+            : hasSpringback
+            ? "${fabAngleText(angle)}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
+            : "${fabAngleText(angle)}° 벤딩",
+        dirIcon: _getDirectionIcon(rotation),
+        dirText: _getDirectionText(rotation),
+        selected: isSelected,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          setState(() {
+            _selectedSegmentIndex = isSelected ? null : realIndex;
+          });
+        },
+        notes: [
+          if (isStraight)
+            (Icons.info_outline_rounded, "직관 +$length mm", stepNoteGrey)
+          else ...[
+            if (markNum > 1)
+              (
+                Icons.info_outline_rounded,
+                "앞 마킹과의 거리 +$incremental mm",
+                stepNoteTeal,
+              ),
+            (Icons.info_outline_rounded, "배관 $length mm", stepNoteGrey),
+          ],
+        ],
+      );
+    }
+
+    return CustomScrollView(
+      slivers: [
+        if (_showSpecsNote)
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            sliver: SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
                       _specsChanged
-                          ? "저장할 때 장비 값(${describeTubeSpecs(_savedSpecs!)})으로 "
-                                "계산한 마킹입니다. 지금 설정"
-                                "(${describeTubeSpecs(tubeSpecsSnapshot(MachineSpecs()))})과 "
-                                "다릅니다."
-                          : "지금 장비 설정(반경 ${MachineSpecs().radius.round()}mm)으로 "
-                                "계산한 마킹입니다.",
-                      style: TextStyle(
-                        color: _specsChanged ? _amber700 : slate600,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
+                          ? Icons.warning_amber_rounded
+                          : Icons.info_outline_rounded,
+                      size: 14,
+                      color: _specsChanged ? _amber700 : slate600,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        _specsChanged
+                            ? "저장할 때 장비 값(${describeTubeSpecs(_savedSpecs!)})으로 "
+                                  "계산한 마킹입니다. 지금 설정"
+                                  "(${describeTubeSpecs(tubeSpecsSnapshot(MachineSpecs()))})과 "
+                                  "다릅니다."
+                            : "지금 장비 설정(반경 ${MachineSpecs().radius.round()}mm)으로 "
+                                  "계산한 마킹입니다.",
+                        style: TextStyle(
+                          color: _specsChanged ? _amber700 : slate600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            );
-          }
-          index -= 1;
-        }
-        final item = displayMarks[index];
-        final bool isStraight = item['is_straight'] == true;
-        final int mark = (item['marking_point'] as num?)?.round() ?? 0;
-        final int incremental =
-            (item['incremental_mark'] as num?)?.round() ?? 0;
-        final int length = (item['length'] as num?)?.round() ?? 0;
-        final int markNum =
-            (item['mark_num'] as num?)?.toInt() ??
-            (item['display_mark_num'] as num?)?.toInt() ??
-            0;
-        final double rotation = (item['rotation'] as num?)?.toDouble() ?? 0.0;
-        final double angle =
-            double.tryParse(item['angle']?.toString() ?? '0') ?? 0.0;
-        final double target =
-            (item['target_angle'] as num?)?.toDouble() ?? angle;
-        final bool hasSpringback = (target - angle).abs() > 0.05;
-
-        final int realIndex = _bendList.indexOf(item);
-        final bool isSelected = _selectedSegmentIndex == realIndex;
-
-        return StepMarkCard(
-          isStraight: isStraight,
-          markNum: markNum,
-          mark: mark,
-          title: isStraight
-              ? "직관 연장 마킹"
-              : hasSpringback
-              ? "${fabAngleText(angle)}° 벤딩 (실제 ${target.toStringAsFixed(1)}°)"
-              : "${fabAngleText(angle)}° 벤딩",
-          dirIcon: _getDirectionIcon(rotation),
-          dirText: _getDirectionText(rotation),
-          selected: isSelected,
-          onTap: () {
-            HapticFeedback.lightImpact();
-            setState(() {
-              _selectedSegmentIndex = isSelected ? null : realIndex;
-            });
-          },
-          notes: [
-            if (isStraight)
-              (Icons.info_outline_rounded, "직관 +$length mm", stepNoteGrey)
-            else ...[
-              if (markNum > 1)
-                (
-                  Icons.info_outline_rounded,
-                  "앞 마킹과의 거리 +$incremental mm",
-                  stepNoteTeal,
+                  ],
                 ),
-              (Icons.info_outline_rounded, "배관 $length mm", stepNoteGrey),
-            ],
-          ],
-        );
-      },
+              ),
+            ),
+          ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, _showSpecsNote ? 0 : 12, 16, 40),
+          sliver: markCardSliver(count: displayMarks.length, build: card),
+        ),
+      ],
     );
   }
 }

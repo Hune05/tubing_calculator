@@ -797,42 +797,45 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
   }
 
   Widget _buildEmptyState() {
+    // 가로로 눕힌 폰처럼 높이가 낮으면 넘치지 않게 스크롤한다(10-09).
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              color: pureWhite,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: pureWhite,
+              ),
+              child: const Icon(
+                Icons.folder_off_rounded,
+                size: 48,
+                color: slate200,
+              ),
             ),
-            child: const Icon(
-              Icons.folder_off_rounded,
-              size: 48,
-              color: slate200,
+            const SizedBox(height: 24),
+            const Text(
+              "보관된 도면이 없습니다",
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 20,
+                color: slate900,
+                letterSpacing: -0.5,
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            "보관된 도면이 없습니다",
-            style: TextStyle(
-              fontWeight: FontWeight.w800,
-              fontSize: 20,
-              color: slate900,
-              letterSpacing: -0.5,
+            const SizedBox(height: 8),
+            const Text(
+              "마킹 탭에서 작업 결과를 저장해 보십시오.",
+              style: TextStyle(
+                color: slate600,
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            "마킹 탭에서 작업 결과를 저장해 보십시오.",
-            style: TextStyle(
-              color: slate600,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
