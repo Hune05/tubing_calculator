@@ -20,6 +20,7 @@ const Map<String, String> kFormulaCategoryIntro = {
   '전기': '옴의 법칙부터 전동기·변압기까지, 현장에서 가장 자주 쓰는 전기 공식입니다.',
   '유량': '배관 속 유체(물·기름·공기)의 유량·유속·압력손실을 구하는 공식입니다.',
   '유공압': '유압·공압 실린더의 힘·속도·동력과 기체 법칙(보일·게이지압)입니다.',
+  '배관': '수압시험 물 채움량, 배관 무게, 열팽창 길이, 구배 낙차, 원통 탱크 부피입니다.',
 };
 
 class FormulaVar {
@@ -82,6 +83,10 @@ const Map<String, List<FormulaUnit>> kFormulaUnitChoices = {
     FormulaUnit('Pa', 1),
   ],
   'm': [FormulaUnit('m', 1), FormulaUnit('mm', 1e-3)],
+  // 배관 지름·두께처럼 mm로 받는 칸(10-09).
+  'mm': [FormulaUnit('mm', 1), FormulaUnit('m', 1e3), FormulaUnit('in', 25.4)],
+  'L': [FormulaUnit('L', 1), FormulaUnit('m³', 1e3)],
+  'kg': [FormulaUnit('kg', 1), FormulaUnit('t', 1e3)],
   'm²': [
     FormulaUnit('m²', 1),
     FormulaUnit('cm²', 1e-4),
@@ -1014,5 +1019,133 @@ final List<FormulaDef> kFormulas = [
     resultLabel: '절대압',
     resultUnit: 'Pa',
     compute: (v) => v['pg']! + v['patm']!,
+  ),
+  // ─────────────── 배관(10-09) ───────────────
+  // 근거: 원통 부피(π/4·D²·L), 관 단면적(π·(OD−t)·t)에 밀도를 곱한 무게, 선팽창(ΔL = α·L·ΔT)은
+  // 교과서 정의식이다. 탄소강 1 m 무게 0.02466 × t × (OD − t)는 π × 7850 × 10⁻⁶을 줄인 값으로
+  // 강관 규격 표(예: 2" Sch40 60.3 × 3.91 → 5.44 kg/m)와 맞는다. 선팽창계수는 0~100 °C 근처의
+  // 대략값이라 도움말에 "약"으로 적었다.
+  FormulaDef(
+    id: 'pipe_water_volume',
+    category: '배관',
+    name: '배관 물 채움량(수압시험)',
+    description:
+        '수압시험 때 배관 안을 채울 물의 양입니다. 탱크·기기·호스에 들어가는 물은 따로 더하십시오.',
+    formulaText: 'V = π/4 × (OD − 2t)² × L',
+    inputs: const [
+      FormulaVar(
+        key: 'od',
+        label: '바깥지름 (OD)',
+        unit: 'mm',
+        hint: '예: 2" 배관 60.3 mm, 1/2" 튜브 12.7 mm',
+      ),
+      FormulaVar(key: 't', label: '두께 (t)', unit: 'mm', hint: '벽 두께(스케줄 두께)입니다.'),
+      FormulaVar(
+        key: 'l',
+        label: '길이 (L)',
+        unit: 'm',
+        hint: '물을 채울 배관 길이를 모두 더한 값입니다.',
+      ),
+    ],
+    resultLabel: '물 채움량',
+    resultUnit: 'L',
+    compute: (v) {
+      final id = v['od']! - 2 * v['t']!;
+      if (id <= 0) return double.nan;
+      return math.pi / 4 * id * id * v['l']! / 1000;
+    },
+  ),
+  FormulaDef(
+    id: 'pipe_weight',
+    category: '배관',
+    name: '배관 무게',
+    description:
+        '빈 배관 무게입니다. 탄소강이면 1 m당 0.02466 × t × (OD − t) kg과 같습니다. 물을 채운 무게는 "배관 물 채움량"의 L만큼 kg을 더하십시오.',
+    formulaText: 'W = π × (OD − t) × t × ρ × L',
+    inputs: const [
+      FormulaVar(key: 'od', label: '바깥지름 (OD)', unit: 'mm', hint: ''),
+      FormulaVar(key: 't', label: '두께 (t)', unit: 'mm', hint: '벽 두께(스케줄 두께)입니다.'),
+      FormulaVar(key: 'l', label: '길이 (L)', unit: 'm', hint: ''),
+      FormulaVar(
+        key: 'rho',
+        label: '밀도 (ρ)',
+        unit: 'kg/m³',
+        hint: '탄소강 7850, 스테인리스 약 7930, 동 약 8940입니다.',
+      ),
+    ],
+    resultLabel: '무게',
+    resultUnit: 'kg',
+    compute: (v) {
+      final t = v['t']!;
+      final mid = v['od']! - t;
+      if (t <= 0 || mid <= 0) return double.nan;
+      return math.pi * mid * t * 1e-6 * v['rho']! * v['l']!;
+    },
+  ),
+  FormulaDef(
+    id: 'pipe_thermal_expansion',
+    category: '배관',
+    name: '배관 열팽창 길이',
+    description:
+        '온도가 바뀔 때 배관이 늘어나거나 줄어드는 길이입니다. 신축 이음·루프를 정할 때 씁니다.',
+    formulaText: 'ΔL = α × L × ΔT',
+    inputs: const [
+      FormulaVar(
+        key: 'alpha',
+        label: '선팽창계수 (α)',
+        unit: '×10⁻⁶/°C',
+        hint: '탄소강 약 11.7, 스테인리스(304) 약 17.3, 동 약 16.5, 알루미늄 약 23입니다. 온도에 따라 조금씩 다릅니다.',
+      ),
+      FormulaVar(key: 'l', label: '길이 (L)', unit: 'm', hint: '고정점 사이 길이입니다.'),
+      FormulaVar(
+        key: 'dt',
+        label: '온도 차 (ΔT)',
+        unit: '°C',
+        hint: '설치할 때와 운전할 때의 온도 차입니다. 식을 때는 −로 넣으십시오.',
+      ),
+    ],
+    resultLabel: '늘어나는 길이',
+    resultUnit: 'mm',
+    compute: (v) => v['alpha']! * 1e-6 * v['l']! * 1000 * v['dt']!,
+  ),
+  FormulaDef(
+    id: 'pipe_slope_drop',
+    category: '배관',
+    name: '구배 낙차',
+    description:
+        '길이와 구배(%)로 양 끝의 높이 차를 구합니다. 배수관·응축수 배관 구배를 맞출 때 씁니다.',
+    formulaText: 'h = L × i / 100',
+    inputs: const [
+      FormulaVar(key: 'l', label: '길이 (L)', unit: 'm', hint: ''),
+      FormulaVar(
+        key: 'slope',
+        label: '구배 (i)',
+        unit: '%',
+        hint: '1%는 1 m에 10 mm입니다. 1/100 구배는 1%입니다.',
+      ),
+    ],
+    resultLabel: '높이 차',
+    resultUnit: 'mm',
+    compute: (v) => v['l']! * 1000 * v['slope']! / 100,
+  ),
+  FormulaDef(
+    id: 'tank_cylinder_volume',
+    category: '배관',
+    name: '원통 탱크 부피',
+    description:
+        '원통 부분만의 부피입니다(가득 찼을 때). 접시 모양 끝판(경판) 부분은 빠집니다.',
+    formulaText: 'V = π/4 × D² × H',
+    inputs: const [
+      FormulaVar(key: 'd', label: '안지름 (D)', unit: 'm', hint: ''),
+      FormulaVar(
+        key: 'h',
+        label: '높이·길이 (H)',
+        unit: 'm',
+        hint: '세운 탱크는 높이, 눕힌 탱크는 몸통 길이입니다.',
+      ),
+    ],
+    resultLabel: '부피',
+    resultUnit: 'L',
+    compute: (v) => math.pi / 4 * v['d']! * v['d']! * v['h']! * 1000,
   ),
 ];

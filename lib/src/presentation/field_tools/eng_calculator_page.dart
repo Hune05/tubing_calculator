@@ -65,7 +65,44 @@ class EngCalculatorPage extends StatefulWidget {
 }
 
 class _EngCalculatorPageState extends State<EngCalculatorPage> {
-  String _expr = '';
+  /// 식 전체(화면에 보이는 글).
+  String _full = '';
+
+  /// 식 가운데를 고칠 자리(10-09: 식 글을 눌러 정한다). null이면 맨 끝(예전처럼).
+  int? _cursor;
+
+  /// 고칠 자리 앞쪽 식. 단추들은 모두 이 글 끝에 붙이거나 끝을 지우므로, 자리를 옮기면
+  /// 그 자리에서 넣고 지운다(뒤쪽 글은 그대로 붙어 있다).
+  String get _expr {
+    final c = _cursor;
+    return c == null || c >= _full.length ? _full : _full.substring(0, c);
+  }
+
+  set _expr(String v) {
+    final c = _cursor;
+    if (c == null || c >= _full.length) {
+      _full = v;
+      _cursor = null;
+    } else {
+      final tail = _full.substring(c);
+      // 가운데에 넣은 것이 ")·π·e·!·%·Ans"로 끝나고 뒤가 숫자면 곱하기로 잇는다(끝에서 칠 때
+      // π 뒤 숫자에 ×를 붙이는 것과 같다, "(1/2)3"은 식 오류). 지울 때는 붙이지 않는다.
+      final join =
+          v.length > c &&
+              RegExp(r'[)πse!%]$').hasMatch(v) &&
+              RegExp(r'^[0-9.]').hasMatch(tail)
+          ? '×'
+          : '';
+      _full = v + join + tail;
+      _cursor = v.length + join.length;
+    }
+  }
+
+  /// 식 글 칸(읽기 전용 입력 칸: 눌러서 고칠 자리만 정한다, 자판은 안 뜬다).
+  final TextEditingController _exprCtrl = TextEditingController();
+  final FocusNode _exprFocus = FocusNode();
+  bool _syncingExpr = false;
+
   CalcValue? _live;
   String? _error;
   bool _justEvaluated = false;
@@ -103,6 +140,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     super.initState();
     _loadSettings();
     _loadMemory();
+    _exprCtrl.addListener(_onExprTap);
     // 앱 전체는 세로로 잠겨 있지만(AndroidManifest), 이 화면은 가로도 허용한다
     // (강제로 돌리지는 않는다 — 협대 화면이 돼도 원형 단추·Expanded 배치가
     // 알아서 줄어들게 되어 있다).
@@ -116,6 +154,9 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   @override
   void dispose() {
     _historyScroll.dispose();
+    _exprCtrl.removeListener(_onExprTap);
+    _exprCtrl.dispose();
+    _exprFocus.dispose();
     SystemChrome.setPreferredOrientations(const []).catchError((_) {});
     super.dispose();
   }
@@ -211,9 +252,9 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     // 전에 자판 하이픈으로 바꿔 준다.
     final ansText = _ansText;
     final src =
-        ansText != null && _lastAnswer != null && _expr.startsWith(ansText)
-        ? 'Ans${_expr.substring(ansText.length)}'
-        : _expr;
+        ansText != null && _lastAnswer != null && _full.startsWith(ansText)
+        ? 'Ans${_full.substring(ansText.length)}'
+        : _full;
     final t = _stripTrailingOps(
       closeFeetGroup(src.replaceFirst(RegExp(r'\s*mod\s*$'), '')),
     ).trim().replaceAll('−', '-');
@@ -607,8 +648,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
 
   void _tapAC() {
     HapticFeedback.mediumImpact();
+    _exprFocus.unfocus();
     setState(() {
-      _expr = '';
+      _cursor = null;
+      _full = '';
       _live = null;
       _error = null;
       _justEvaluated = false;
@@ -647,6 +690,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     HapticFeedback.mediumImpact();
     setState(() {
       if (!_commitFraction()) return;
+      _cursor = null; // 계산은 식 전체로, 결과 뒤에는 다시 맨 끝에서 친다
       _expr = closeFeetGroup(_expr);
       final exprBefore = _expr;
       _recalc();
@@ -664,6 +708,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         _expr = resultText;
         _ansText = resultText;
         _justEvaluated = true;
+        _exprFocus.unfocus();
       }
     });
     _scrollHistoryToEnd();
@@ -712,6 +757,125 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       _expr += RegExp(r'^\d+(\.\d+)?$').hasMatch(value) ? value : '($value)';
       _recalc();
     });
+  }
+
+  /// 기록 한 줄을 길게 누르면(10-09): 그 식을 다시 불러와 고치거나, 결과만 넣는다.
+  Future<void> _historyMenu(int i) async {
+    final line = _history[i];
+    final at = line.lastIndexOf(' = ');
+    if (at < 0) return;
+    final expr = line.substring(0, at);
+    final value = line.substring(at + 3);
+    HapticFeedback.mediumImpact();
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: fc.surface,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const Key('calc_hist_load'),
+              leading: const Icon(Icons.edit_note_rounded),
+              title: const Text('식 불러와 고치기'),
+              subtitle: Text(
+                expr,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => Navigator.pop(ctx, 'load'),
+            ),
+            ListTile(
+              key: const Key('calc_hist_value'),
+              leading: const Icon(Icons.input_rounded),
+              title: const Text('결과만 넣기'),
+              subtitle: Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () => Navigator.pop(ctx, 'value'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (pick == 'value') _tapHistory(i);
+    if (pick == 'load') _loadHistoryExpr(expr);
+  }
+
+  /// 기록의 식을 지금 식 자리에 그대로 불러온다(지금 치던 식은 바뀐다). 고칠 자리는 맨 끝.
+  void _loadHistoryExpr(String expr) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _frac = null;
+      _cursor = null;
+      _full = expr;
+      _justEvaluated = false;
+      _ansText = null;
+      _showExact = false;
+      _recalc();
+    });
+  }
+
+  /// 식 글을 눌러 고칠 자리를 옮겼다(자판으로 바꾼 것은 [_syncExprField]가 맞춘다).
+  void _onExprTap() {
+    if (_syncingExpr) return;
+    final sel = _exprCtrl.selection;
+    if (!sel.isValid || _exprCtrl.text != _full) return;
+    final off = sel.extentOffset;
+    final next = off >= _full.length ? null : off;
+    if (next == _cursor && !_justEvaluated) return;
+    setState(() {
+      _cursor = next;
+      // 결과 글자를 눌러 고치기 시작하면 새 식으로 지우지 않고 그 글자를 고친다.
+      _justEvaluated = false;
+      _ansText = null;
+    });
+  }
+
+  /// 식 글 칸을 지금 식·자리에 맞춘다(그릴 때마다).
+  void _syncExprField() {
+    final off = (_cursor ?? _full.length).clamp(0, _full.length);
+    if (_exprCtrl.text == _full &&
+        _exprCtrl.selection == TextSelection.collapsed(offset: off)) {
+      return;
+    }
+    _syncingExpr = true;
+    _exprCtrl.value = TextEditingValue(
+      text: _full,
+      selection: TextSelection.collapsed(offset: off),
+    );
+    _syncingExpr = false;
+  }
+
+  /// 식 글: 눌러서 고칠 자리를 정한다(자판은 안 뜬다). 길면 고칠 자리가 보이게 넘긴다.
+  Widget _exprField() {
+    _syncExprField();
+    final style = TextStyle(
+      fontSize: _compactExpr ? 15 : 20,
+      color: _sub,
+      fontWeight: FontWeight.w600,
+    );
+    return TextField(
+      key: const Key('calc_expr'),
+      controller: _exprCtrl,
+      focusNode: _exprFocus,
+      readOnly: true,
+      showCursor: true,
+      keyboardType: TextInputType.none,
+      contextMenuBuilder: (context, editable) => const SizedBox.shrink(),
+      textAlign: TextAlign.right,
+      minLines: 1,
+      maxLines: _compactExpr ? 1 : 2,
+      cursorColor: _teal,
+      style: style,
+      decoration: InputDecoration.collapsed(
+        hintText: _frac == null ? '0' : '',
+        hintStyle: style,
+      ),
+    );
   }
 
   void _clearHistory() {
@@ -774,7 +938,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
     final big = _error != null
         ? _error!
         : _live == null
-        ? (_expr.isEmpty && _frac == null ? '0' : '')
+        ? (_full.isEmpty && _frac == null ? '0' : '')
         : (_showExact && _live!.exact != null
               ? _live!.exact!.toDisplayString(mixed: true)
               : result!.decimal);
@@ -1108,6 +1272,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
       key: Key('calc_history_item_$i'),
       behavior: HitTestBehavior.opaque,
       onTap: () => _tapHistory(i),
+      onLongPress: () => _historyMenu(i),
       child: Padding(
         padding: const EdgeInsets.only(bottom: 2),
         child: Text(
@@ -1148,20 +1313,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         mainAxisAlignment: MainAxisAlignment.end,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Flexible(
-            child: Text(
-              _expr.isEmpty && _frac == null ? '0' : _expr,
-              key: const Key('calc_expr'),
-              maxLines: _compactExpr ? 1 : 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: _compactExpr ? 15 : 20,
-                color: _sub,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
+          Flexible(child: _exprField()),
           if (_frac != null) _fracTile(_frac!),
         ],
       ),

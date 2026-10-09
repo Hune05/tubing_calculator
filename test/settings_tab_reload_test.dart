@@ -22,10 +22,10 @@ Map<String, Object> prefsWithGain(double gain) => {
   'auto_fittingDepth': false,
 };
 
-/// 값이 보일 때까지 기다린다(최대 약 5초). 10-09 8차: 정해진 횟수만 기다리면 전체 시험을 함께 돌릴 때
+/// 값이 보일 때까지 기다린다(최대 약 10초, 10-09 고도화: 전체 시험 중 5초로도 한 번 모자랐다). 10-09 8차: 정해진 횟수만 기다리면 전체 시험을 함께 돌릴 때
 /// 폰 저장소 읽기(재질 묶음 옮기기 포함)가 늦어 가끔 실패했다.
 Future<void> settle(WidgetTester tester, bool Function() done) async {
-  for (var i = 0; i < 100 && !done(); i++) {
+  for (var i = 0; i < 200 && !done(); i++) {
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
     await tester.pump(const Duration(milliseconds: 50));
   }
