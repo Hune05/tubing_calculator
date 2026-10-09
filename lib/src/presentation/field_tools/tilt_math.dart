@@ -96,6 +96,8 @@ double slopeIn(double deg, SlopeUnit u) {
 /// 화면에 보일 글. 도는 소수 한 자리, 퍼센트는 두 자리, mm/m는 한 자리.
 /// [decimals]를 끄면 한 자리씩 줄인다(도·mm/m는 정수, 퍼센트는 한 자리).
 String formatSlope(double deg, SlopeUnit u, {bool decimals = true}) {
+  // 거의 세운 상태는 %·mm/m가 끝없이 커져 수천조 %가 보였다(8차, 10-09). "수직"으로 보인다.
+  if (u != SlopeUnit.degree && deg.abs() >= 89.5) return '수직';
   final v = slopeIn(deg, u);
   final digits = (u == SlopeUnit.percent ? 2 : 1) - (decimals ? 0 : 1);
   final s = v.abs().toStringAsFixed(digits);

@@ -369,4 +369,14 @@ void main() {
     expect(moved.completed.keys, [occurrenceKey(DateTime(2026, 10, 15))]);
     expect(carryOverAfterSplit(null, DateTime(2026, 10, 14), DateTime(2026, 10, 14)).exceptions, isEmpty);
   });
+
+  test('첫 회차에서 끊으면 옛 문서에 남는 회차가 없다(8차)', () {
+    final start = DateTime(2026, 10, 5, 9); // 월요일
+    expect(splitLeavesNothing(start, 'weekly', DateTime(2026, 10, 5)), isTrue);
+    expect(splitLeavesNothing(start, 'weekly', DateTime(2026, 10, 12)), isFalse);
+    // 평일 반복을 토요일에 시작하면 첫 회차는 월요일
+    final sat = DateTime(2026, 10, 10, 9);
+    expect(splitLeavesNothing(sat, 'weekdays', DateTime(2026, 10, 12)), isTrue);
+    expect(splitLeavesNothing(sat, 'weekdays', DateTime(2026, 10, 13)), isFalse);
+  });
 }

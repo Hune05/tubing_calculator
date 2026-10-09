@@ -193,6 +193,10 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="high_importance_channel" />
+        <!-- 앱이 꺼져 있을 때 온 서버 알림의 작은 아이콘(색 아이콘은 흰 네모로 보였다, 8차). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_notify" />
     </application>
     
     <queries>

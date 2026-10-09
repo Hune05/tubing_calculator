@@ -169,6 +169,20 @@ bool recurrenceOccursOn(
 DateTime untilBeforeOccurrence(DateTime occurrence) =>
     DateTime(occurrence.year, occurrence.month, occurrence.day - 1);
 
+/// [occurrence] 앞에서 끊으면 옛 문서에 회차가 하나도 안 남는지(첫 회차에서 "이후 모두").
+/// 8차(10-09): 첫 회차에서 "이후 모두"를 고치거나 지우면 회차 없는 빈 문서가 그대로 남았다.
+/// 그때는 문서 하나를 통째로 고치거나 지운다.
+bool splitLeavesNothing(
+  DateTime seriesStart,
+  String recurrence,
+  DateTime occurrence,
+) {
+  final first = nthOccurrence(seriesStart, recurrence, 0);
+  return !DateTime(first.year, first.month, first.day).isBefore(
+    DateTime(occurrence.year, occurrence.month, occurrence.day),
+  );
+}
+
 /// 문서의 알림 목록(분 단위, 시작 전이면 양수). 새 자료는 'reminders' 목록, 예전 자료는
 /// 'reminderMinutesBefore' 하나. 종일 일정의 예전 값은 쓰지 않는다(예전엔 종일엔 알림이 없었다).
 List<int> readReminders(Map<String, dynamic> data) {

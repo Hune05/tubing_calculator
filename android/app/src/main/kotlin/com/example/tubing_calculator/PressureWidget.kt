@@ -51,11 +51,14 @@ object PressureTimer {
         if (due <= now) return
         val next = if (hasWidgets(c)) minOf(due, now + TICK_MS) else due
         val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
+        // 8차(10-09): 20초마다 폰을 깨웠다(RTC_WAKEUP). 위젯 다시 그리기는 화면이 켜져 있을 때만 쓸모가
+        // 있으니 깨우지 않는 알람으로 둔다. 꺼져 있는 동안 지난 것은 화면을 켜면 바로 온다.
+        // 완료 알림은 앱이 따로 예약한 알림이 울린다(이것과 상관없다).
         try {
-            if (exact) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pi(c))
-            else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pi(c))
+            if (exact) am.setExact(AlarmManager.RTC, next, pi(c))
+            else am.setWindow(AlarmManager.RTC, next, 5_000L, pi(c))
         } catch (e: SecurityException) {
-            am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, pi(c))
+            am.setWindow(AlarmManager.RTC, next, 5_000L, pi(c))
         }
     }
 

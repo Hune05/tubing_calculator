@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/utils/db_seeder.dart';
 import '../../data/models/fitting_item.dart';
 import '../../data/models/smart_fitting_db.dart';
+import '../common/number_text.dart';
 
 const String kFittingOverridesPrefsKey = 'cutting_fitting_overrides_v1';
 
@@ -97,7 +98,7 @@ FittingItem withOverride(FittingItem item, FittingOverrides overrides) {
 
 /// 잰 값으로 쓸 수 있는 글인지(0 이상, 너무 크지 않은 유한한 숫자). 아니면 null.
 double? parseMeasuredDeduction(String text) {
-  final v = double.tryParse(text.trim().replaceAll(',', '.'));
+  final v = parseNumberText(text);
   if (v == null || !v.isFinite || v < 0 || v > 500) return null;
   return v;
 }

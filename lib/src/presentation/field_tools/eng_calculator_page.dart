@@ -351,9 +351,18 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
         return;
       }
       _expr = closeFeetGroup(_expr);
-      // 연산자를 연달아 누르면 마지막 것을 바꾼다(오타 고치기 편하게).
-      if (_opChars.contains(_expr[_expr.length - 1])) {
-        _expr = _expr.substring(0, _expr.length - 1) + opDisplay;
+      final last = _expr[_expr.length - 1];
+      if (opDisplay == '−' && (last == '×' || last == '÷' || last == '^')) {
+        // 곱하기·나누기·거듭제곱 뒤 빼기는 음수 부호다(8차, 10-09: 예전에는 ×를 −로 바꿔 3×−2가 3−2가 됐다).
+        _expr += '−';
+      } else if (_opChars.contains(last)) {
+        // 연산자를 연달아 누르면 마지막 것을 바꾼다(오타 고치기 편하게). "×−"처럼 음수 부호까지 붙어
+        // 있으면 둘 다 바꾼다. 맨 앞 음수 부호만 남았으면 그대로 둔다.
+        var t = _expr;
+        while (t.length > 1 && _opChars.contains(t[t.length - 1])) {
+          t = t.substring(0, t.length - 1);
+        }
+        _expr = _opChars.contains(t) ? t : t + opDisplay;
       } else {
         _expr += opDisplay;
       }

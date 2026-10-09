@@ -182,6 +182,19 @@ void main() {
     expect(result(tester), '21');
   });
 
+  testWidgets('곱하기 뒤 빼기는 음수 부호: 3 × − 2 = −6, 연산자를 바꾸면 둘 다 바뀐다(8차)', (tester) async {
+    await pump(tester);
+    for (final k in ['calc_3', 'calc_mul', 'calc_sub', 'calc_2']) {
+      await tap(tester, k);
+    }
+    expect(result(tester), '-6');
+    await tap(tester, 'calc_ac');
+    for (final k in ['calc_3', 'calc_mul', 'calc_sub', 'calc_add', 'calc_2']) {
+      await tap(tester, k);
+    }
+    expect(result(tester), '5');
+  });
+
   testWidgets('분모를 안 넣고 연산자를 누르면 붙이지 않고 분모를 넣으라고 한다(8차)', (tester) async {
     await pump(tester);
     await tap(tester, 'calc_3');

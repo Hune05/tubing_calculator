@@ -187,7 +187,11 @@ class DrawingStore {
 
   static Future<void> _renderPdfPage(Uint8List bytes, int page, double dpi, String outPath) async {
     await for (final r in Printing.raster(bytes, pages: [page], dpi: dpi)) {
-      await File(outPath).writeAsBytes(await r.toPng());
+      // 임시 이름으로 다 쓴 뒤 바꾼다(8차, 10-09: 쓰는 중에 앱이 꺼지면 반쪽 그림이 남아, 다음에 열 때
+      // "있는 쪽"으로 보고 깨진 그림을 그대로 썼다).
+      final part = File('$outPath.part');
+      await part.writeAsBytes(await r.toPng(), flush: true);
+      await part.rename(outPath);
       return;
     }
     throw const DxfError('PDF 쪽을 그리지 못했습니다.');

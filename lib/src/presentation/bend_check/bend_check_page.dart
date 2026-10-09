@@ -9,6 +9,7 @@ import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'bend_check_model.dart';
 import '../trash/trash_kinds.dart';
+import '../common/number_text.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -61,7 +62,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
   }
 
   double? _num(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', '.'));
+      parseNumberText(c.text);
 
   void _toast(String m) {
     if (!mounted) return;

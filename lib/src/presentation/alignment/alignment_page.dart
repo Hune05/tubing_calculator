@@ -20,6 +20,7 @@ import 'alignment_render.dart';
 import 'alignment_record.dart';
 import 'alignment_session.dart';
 import '../trash/trash_kinds.dart';
+import '../common/number_text.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -114,20 +115,18 @@ class _AlignmentPageState extends State<AlignmentPage> {
     super.dispose();
   }
 
-  /// 숫자로 읽는다(쉼표 소수점도 허용). 비었거나 숫자가 아니면 null.
-  double? _n(String key) {
-    final t = _f(key).text.trim().replaceAll(',', '.');
-    if (t.isEmpty) return null;
-    return double.tryParse(t);
-  }
+  /// 숫자로 읽는다(쉼표 소수점·천 단위 쉼표 모두 공용 규칙으로). 비었거나 숫자가 아니면 null.
+  /// 8차(10-09): 쉼표를 늘 소수점으로 바꿔 "3,600"이 3.6으로 읽혔다.
+  double? _n(String key) => parseNumberText(_f(key).text);
 
   double _opt(String key) => _n(key) ?? 0;
 
-  int get _rpm => int.tryParse(_f('rpm').text.trim()) ?? 1800;
+  // "3,600"을 못 읽어 1800 rpm 허용치로 판정했다(8차).
+  int get _rpm => parseNumberText(_f('rpm').text)?.round() ?? 1800;
 
   AlignTolerance get _tol {
-    final o = double.tryParse(_tolO.text.trim().replaceAll(',', '.'));
-    final g = double.tryParse(_tolA.text.trim().replaceAll(',', '.'));
+    final o = parseNumberText(_tolO.text);
+    final g = parseNumberText(_tolA.text);
     return AlignTolerance(o != null && o > 0 ? o : _tolStart.offset, g != null && g > 0 ? g : _tolStart.angle100);
   }
 
@@ -1190,7 +1189,7 @@ class _DoneSheetState extends State<_DoneSheet> {
     super.dispose();
   }
 
-  double _v(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.').replaceAll('−', '-')) ?? 0;
+  double _v(TextEditingController c) => parseNumberText(c.text) ?? 0;
 
   Widget _num(String key, String label, TextEditingController c) => Expanded(
     child: Padding(

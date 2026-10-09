@@ -1,4 +1,6 @@
 // 작업 전 안전 점검: 글 만들기·저장 구조, 화면에서 체크→저장→기록→다시 보내기.
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -205,6 +207,36 @@ void main() {
         SafetyAnswer.yes,
         SafetyAnswer.na,
       ]);
+    });
+
+    testWidgets('카톡으로 보내는 사이 저장을 또 눌러도 한 번만 저장된다(8차)', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kSafetyItemsKey: ['가'],
+      });
+      var n = 0;
+      final sharing = Completer<void>();
+      tester.view.physicalSize = const Size(600, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SafetyCheckPage(
+            share: (t) => sharing.future, // 카톡 창이 떠 있는 동안
+            // 누를 때마다 다른 시각(아이디가 달라 두 번 저장되면 두 줄이 된다).
+            now: () => _at.add(Duration(seconds: n++)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('safety_yes_가')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('safety_send')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('safety_save')));
+      await tester.pumpAndSettle();
+      sharing.complete();
+      await tester.pumpAndSettle();
+      expect((await loadSafetyRecords()).length, 1);
     });
 
     testWidgets('항목 고치기: 더하고 지운다', (tester) async {

@@ -69,4 +69,21 @@ void main() {
     expect(find.text('최근 계산 기록'), findsOneWidget);
     expect(find.textContaining('1000 mm'), findsWidgets);
   });
+
+  testWidgets('기록을 눌러 되돌리면 커서가 글 끝에 있다(8차)', (tester) async {
+    await pump(tester);
+    await tester.enterText(find.byKey(const Key('unit_from_value')), '1000');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.enterText(find.byKey(const Key('unit_from_value')), '5');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.byKey(const Key('calc_history_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('1000 mm').first);
+    await tester.pumpAndSettle();
+    final c = tester.widget<TextField>(find.byKey(const Key('unit_from_value'))).controller!;
+    expect(c.text, '1000');
+    expect(c.selection.baseOffset, 4);
+  });
 }

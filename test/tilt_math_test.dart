@@ -139,4 +139,11 @@ void main() {
       expect(armsBetween(150, 20), 130);
     });
   });
+
+  test('거의 세우면 %·mm/m 대신 수직(8차)', () {
+    expect(formatSlope(90, SlopeUnit.percent), '수직');
+    expect(formatSlope(-89.7, SlopeUnit.mmPerM), '수직');
+    expect(formatSlope(90, SlopeUnit.degree), '90.0°');
+    expect(formatSlope(45, SlopeUnit.percent), '100.00%');
+  });
 }

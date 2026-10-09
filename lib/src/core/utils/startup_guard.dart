@@ -36,7 +36,7 @@ Future<void> startupStep(
 /// 폰 알림 준비 설정. 윈도우·리눅스 설정도 넣는다(없으면 그 PC에서 오류).
 InitializationSettings notificationInitSettings() =>
     const InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      android: AndroidInitializationSettings('@drawable/ic_stat_notify'),
       iOS: DarwinInitializationSettings(
         requestSoundPermission: true,
         requestBadgePermission: true,

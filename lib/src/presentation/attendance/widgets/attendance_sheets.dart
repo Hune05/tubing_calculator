@@ -11,6 +11,7 @@ import '../../my_schedule/korean_holidays.dart';
 import '../../my_work_logs/models/attendance.dart';
 import '../attendance_calc.dart';
 import '../attendance_settings.dart';
+import '../../common/number_text.dart';
 
 const Color _text = AppColors.text;
 const Color _sub = AppColors.textSub;
@@ -568,7 +569,7 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
     final k = _periodKey;
     if (k != null) {
       final m = Map<String, double>.from(s.leaveOverrides);
-      final v = double.tryParse(_grant.text.trim().replaceAll(',', '.'));
+      final v = parseNumberText(_grant.text);
       if (v == null || v < 0 || v > 60) {
         m.remove(k);
       } else {

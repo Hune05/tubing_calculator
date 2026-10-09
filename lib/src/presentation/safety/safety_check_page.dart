@@ -197,7 +197,20 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
     } catch (_) {}
   }
 
+  // 저장 중인가(8차, 10-09: 저장·보내기를 빠르게 두 번 누르면 같은 점검이 두 번 저장됐다).
+  bool _saving = false;
+
   Future<void> _save({bool send = false}) async {
+    if (_saving) return;
+    _saving = true;
+    try {
+      await _saveNow(send: send);
+    } finally {
+      _saving = false;
+    }
+  }
+
+  Future<void> _saveNow({required bool send}) async {
     final r = _record();
     if (!await _confirmUnanswered(r) || !mounted) return;
     await addSafetyRecord(r);

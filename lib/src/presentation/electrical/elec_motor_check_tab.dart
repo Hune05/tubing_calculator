@@ -323,7 +323,7 @@ class _ElecMotorCheckTabState extends State<ElecMotorCheckTab>
       final ok = unb <= limit;
       bad = bad || !ok;
       irSummary.add('권선 불평형 ${fmt(unb, 2)} %');
-      final atRef = rRef != null && rT != null && rRefT != null
+      final atRef = rRef != null && rRef > 0 && rT != null && rRefT != null
           ? windingResistanceAt(ohms: avg, fromC: rT, toC: rRefT)
           : null;
       children.add(

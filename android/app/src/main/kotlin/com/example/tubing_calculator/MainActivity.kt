@@ -118,7 +118,7 @@ class MainActivity : FlutterActivity() {
         }
         readWidgetAction(intent)?.let { pendingWidgetAction = it }
         // 앱이 꺼져 있을 때 공유로 열린 경우.
-        readSharedDrawing(intent)?.let { pendingDrawing = it }
+        readSharedDrawing(intent)
     }
 
     private fun startContactPick(result: MethodChannel.Result) {
@@ -236,9 +236,7 @@ class MainActivity : FlutterActivity() {
             widgetChannel?.invokeMethod("received", null)
             return
         }
-        val d = readSharedDrawing(intent) ?: return
-        pendingDrawing = d
-        drawingChannel?.invokeMethod("received", null)
+        readSharedDrawing(intent)
     }
 
     private fun readWidgetAction(intent: Intent?): String? {
@@ -256,20 +254,25 @@ class MainActivity : FlutterActivity() {
         null
     } ?: uri.lastPathSegment
 
-    private fun readSharedDrawing(intent: Intent?): Map<String, String>? {
+    /**
+     * 공유·열기로 받은 도면 파일을 앱 폴더로 복사한 뒤 화면에 알린다.
+     * 8차(10-09): 예전에는 화면 스레드에서 복사해 큰 PDF는 몇 초 멈추고 "응답 없음"이 뜰 수 있었다.
+     * 이제 복사는 뒤에서 하고, 끝나면 "received"를 보낸다(그 전에 화면이 가져가려 하면 아직 없음).
+     */
+    private fun readSharedDrawing(intent: Intent?) {
         val action = intent?.action
-        if (action != Intent.ACTION_SEND && action != Intent.ACTION_VIEW) return null
+        if (action != Intent.ACTION_SEND && action != Intent.ACTION_VIEW) return
         val uri: Uri = (if (action == Intent.ACTION_VIEW) {
             val d = intent.data
             // 딥링크(tubingapp:// 등)는 여기서 다루지 않는다
-            if (d == null || (d.scheme != "content" && d.scheme != "file")) return null
+            if (d == null || (d.scheme != "content" && d.scheme != "file")) return
             d
         } else if (Build.VERSION.SDK_INT >= 33) {
             intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
         } else {
             @Suppress("DEPRECATION")
             intent.getParcelableExtra(Intent.EXTRA_STREAM) as? Uri
-        }) ?: return null
+        }) ?: return
         // 화면을 다시 만들 때 같은 공유를 두 번 받지 않게 한 번 읽으면 지운다.
         intent.action = null
         val mime = intent.type ?: contentResolver.getType(uri) ?: ""
@@ -283,17 +286,32 @@ class MainActivity : FlutterActivity() {
             mime.contains("dwg") || mime.contains("autocad") || mime.contains("acad") -> "dwg"
             mime.contains("png") -> "png"
             mime.startsWith("image/") -> "jpg"
-            else -> return null
+            else -> return
         }
-        return try {
-            val dir = File(filesDir, "shared_drawings").apply { mkdirs() }
-            val out = File(dir, "drawing_${System.currentTimeMillis()}.$ext")
-            val input = contentResolver.openInputStream(uri) ?: return null
-            input.use { src -> out.outputStream().use { src.copyTo(it) } }
-            mapOf("path" to out.absolutePath, "mime" to mime, "name" to shownName)
-        } catch (e: Exception) {
-            null
-        }
+        val app = applicationContext
+        Thread {
+            val got: Map<String, String>? = try {
+                val dir = File(app.filesDir, "shared_drawings").apply { mkdirs() }
+                val out = File(dir, "drawing_${System.currentTimeMillis()}.$ext")
+                val part = File(out.path + ".part")
+                val input = app.contentResolver.openInputStream(uri)
+                if (input == null) {
+                    null
+                } else {
+                    input.use { src -> part.outputStream().use { src.copyTo(it) } }
+                    if (part.renameTo(out)) mapOf("path" to out.absolutePath, "mime" to mime, "name" to shownName)
+                    else null
+                }
+            } catch (e: Exception) {
+                null
+            }
+            if (got != null) {
+                runOnUiThread {
+                    pendingDrawing = got
+                    drawingChannel?.invokeMethod("received", null)
+                }
+            }
+        }.start()
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {

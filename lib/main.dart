@@ -372,7 +372,7 @@ class _MyAppState extends State<MyApp> {
               channel.id,
               channel.name,
               channelDescription: channel.description,
-              icon: '@mipmap/ic_launcher',
+              icon: '@drawable/ic_stat_notify', // 흰 선 아이콘(색 아이콘은 흰 네모로 보였다)
               importance: Importance.high,
               priority: Priority.high,
             ),

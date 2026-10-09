@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 알림 줄 작은 아이콘(8차, 10-09): 색 있는 런처 아이콘을 쓰면 안드로이드가 흰 네모로 그렸다.
+     앱 로고(app_logo.dart)의 파이프 엘보를 흰 선 하나로 그린다. 알림 아이콘은 흰색과 투명만 쓴다. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M6,4 L6,14.4 Q6,18 9.6,18 L20,18" />
+</vector>

@@ -9,6 +9,7 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/sheet_direction_gate.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
+import 'package:tubing_calculator/src/presentation/common/number_text.dart';
 
 const Color csTeal = AppColors.brand;
 const Color csInk = AppColors.text;
@@ -31,8 +32,8 @@ String csFmt(double v, [int d = 1]) {
   return s.contains('.') ? s.replaceFirst(RegExp(r'\.?0+$'), '') : s;
 }
 
-double? csRead(TextEditingController c) =>
-    double.tryParse(c.text.trim().replaceAll(',', '.'));
+// 앱 공용 숫자 읽기(8차, 10-09: 쉼표를 늘 소수점으로 바꿔 '1,500'이 1.5로 읽혔다. '1,5'는 그대로 1.5).
+double? csRead(TextEditingController c) => parseNumberText(c.text);
 
 /// 오프셋 시트와 같은 바깥 틀: 흰 바탕 둥근 위쪽, 머리 줄(계산기 아이콘 + 제목 + 닫기), 그림, 내용.
 class CsFrame extends StatelessWidget {

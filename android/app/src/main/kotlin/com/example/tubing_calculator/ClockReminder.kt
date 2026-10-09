@@ -109,7 +109,7 @@ object ClockReminder {
             @Suppress("DEPRECATION")
             Notification.Builder(c)
         }
-        b.setSmallIcon(R.mipmap.ic_launcher)
+        b.setSmallIcon(R.drawable.ic_stat_notify)
             .setContentTitle("퇴근 시각이 지났습니다")
             .setContentText("퇴근을 아직 안 찍었습니다. 눌러서 퇴근을 찍으십시오.")
             .setContentIntent(open)

@@ -47,6 +47,11 @@ object FieldDaily {
             if (ClockReminder.stillWorking(c)) ClockReminder.scheduleFromSettings(c)
         } catch (e: Exception) {
         }
+        // 8차(10-09): 폰을 다시 켜면 압력시험 위젯의 다시 그리기 예약이 사라져 막대가 멈췄다.
+        try {
+            PressureTimer.scheduleRefresh(c)
+        } catch (e: Exception) {
+        }
         FieldWidgetStore.refreshAll(c)
         scheduleNextDay(c)
     }

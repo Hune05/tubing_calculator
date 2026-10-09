@@ -791,6 +791,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
     String docId, {
     String recurrence = 'none',
     DateTime? occurrence,
+    DateTime? seriesStart,
   }) async {
     final col = FirebaseFirestore.instance.collection(
       kPersonalSchedulesCollection,
@@ -814,7 +815,10 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         await _rescheduleDocWith(docId, (d) => withOccurrenceSkipped(d, key));
         return;
       }
-      if (scope == 'following') {
+      // 첫 회차에서 "이후 모두"는 전체 지우기와 같다(빈 문서를 남기지 않게, 아래에서 한 번 묻고 지운다).
+      final wholeSeries = seriesStart != null &&
+          splitLeavesNothing(seriesStart, recurrence, occurrence);
+      if (scope == 'following' && !wholeSeries) {
         final until = untilBeforeOccurrence(occurrence).toIso8601String();
         unawaited(
           col
@@ -1770,6 +1774,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       docId,
                                       recurrence: oldRecurrence,
                                       occurrence: occurrence,
+                                      seriesStart: seriesBase,
                                     );
                                   },
                                   icon: const Icon(
@@ -1849,6 +1854,16 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     );
                                     if (s == null) return;
                                     scope = s;
+                                    // 첫 회차에서 "이후 모두"는 전체 고치기와 같다(빈 옛 문서를 남기지 않게).
+                                    if (scope == 'following' &&
+                                        seriesBase != null &&
+                                        splitLeavesNothing(
+                                          seriesBase,
+                                          oldRecurrence,
+                                          occurrence,
+                                        )) {
+                                      scope = 'all';
+                                    }
                                     // 모든 회차를 고칠 때 날짜를 안 바꿨으면 시작일은 그대로 둔다
                                     // (회차 날짜로 바꾸면 앞 회차가 사라진다).
                                     final bool dateChanged =

@@ -71,7 +71,12 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
     _units = units;
     _from = from;
     _to = to;
-    _ctrl.text = m['v'] as String;
+    // 커서를 글 끝에 둔다(8차, 10-09: text만 바꾸면 커서가 맨 앞으로 가 이어 친 숫자가 앞에 붙었다).
+    final v = m['v'] as String;
+    _ctrl.value = TextEditingValue(
+      text: v,
+      selection: TextSelection.collapsed(offset: v.length),
+    );
   }
 
   List<UnitDef> _numericUnits(UnitCategory c) =>

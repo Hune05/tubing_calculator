@@ -135,7 +135,7 @@ object ClockBreak {
         val isStart = kind == "start"
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(c, CHANNEL_ID)
         else @Suppress("DEPRECATION") Notification.Builder(c)
-        b.setSmallIcon(R.mipmap.ic_launcher)
+        b.setSmallIcon(R.drawable.ic_stat_notify)
             .setContentTitle(if (isStart) "휴게 시작" else "휴게 끝")
             .setContentText(if (isStart) "${fmt(start)} ~ ${fmt(end)}" else "${fmt(end)} 휴게 시간이 끝났습니다.")
             .setAutoCancel(true)

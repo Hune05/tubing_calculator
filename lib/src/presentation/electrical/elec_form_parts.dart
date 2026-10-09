@@ -50,8 +50,10 @@ const Map<String, String> kElecTabLabels = {
 /// true면 [ElecTabParts.elecFold]의 모든 구역을 처음부터 펼친다(위젯 테스트 전용: 접힌 칸은 화면에 안 그려져 찾을 수 없다).
 bool kElecFoldOpenAll = false;
 
-/// 소수 [d]자리까지 쓰고 뒤의 0은 뗀다(12.50 → 12.5).
+/// 소수 [d]자리까지 쓰고 뒤의 0은 뗀다(12.50 → 12.5). 셀 수 없는 값(0으로 나눔 등)은 "—"
+/// (8차, 10-09: 기준 저항 0을 넣으면 "Infinity %"가 그대로 보였다).
 String fmt(double v, [int d = 1]) {
+  if (!v.isFinite) return '—';
   var s = v.toStringAsFixed(d);
   if (s.contains('.')) {
     s = s.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
