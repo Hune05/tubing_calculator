@@ -4,6 +4,7 @@
 // 상태, 5점 환산표) → 온도 센서(Pt100·Pt1000·열전대 환산, 냉접점 보상, 5점 표) → 교정 가스(수소 순도계 교정 가스
 // 용기 남은 양·교정 횟수, cal_gas_tab.dart) → 루프 전압(전원·저항·계기 최소 동작 전압, 확인 전류). 칸마다 "?" 안내.
 // 계산은 signal_calc.dart·temp_sensor.dart·switch_check.dart, 기록은 cal_record.dart, 근거는 docs/4-20mA계산기_근거.md.
+import '../my_work_logs/models/line_auto_check.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -1338,10 +1339,20 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         ? _switchRecord(id, date, res)
         : _transmitterRecord(id, date, res, range!);
     await CalRecordStore.put(rec);
+    // 프로젝트에 붙여 합격이면 라인 진행 보드의 루프 체크(교정) 단계를 체크한다(10-10).
+    final finalPass = rec.adjusted ? rec.leftPass : rec.foundPass;
+    final lineNote = finalPass == true
+        ? await autoCheckLineStage(
+            projectId: rec.projectId,
+            name: rec.tag,
+            pressure: false,
+            who: rec.worker,
+          )
+        : null;
     if (!mounted) return;
     setState(() => _editing = rec);
     _snack(
-      '${rec.tag} 기록을 저장했습니다.',
+      '${rec.tag} 기록을 저장했습니다.${lineNote == null ? '' : ' · $lineNote'}',
       action: SnackBarAction(
         label: '성적서 보기',
         onPressed: () => openCalRecordPdf(context, rec),

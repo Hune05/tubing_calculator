@@ -3,6 +3,7 @@
 //
 // 예전엔 저장이 문서를 통째로 덮어써서, 두 폰이 같은 프로젝트를 열고 있으면 한쪽이 넣은
 // 일지·이슈가 다른 쪽 저장에 지워졌다. 이제 저장 직전에 서버 것을 읽어 아이디로 합친다.
+import 'line_progress.dart';
 import 'package:flutter/foundation.dart';
 
 /// 지금 이 폰을 쓰는 사람 이름(내 프로젝트 화면이 열릴 때 넣는다). 일지·이슈에 작성자로 남기고
@@ -15,6 +16,7 @@ const List<String> kMergedListKeys = [
   'punch_lists',
   'schedules',
   'phases',
+  kLineItemsKey, // 라인 진행(10-10): 같은 라인은 단계마다 나중 체크로 합친다
 ];
 
 /// 지운 항목 아이디를 적어 두는 칸(합칠 때 서버에 남은 것이 되살아나지 않게). 최대 500개.
@@ -104,6 +106,12 @@ Map<String, dynamic> mergeProjectDocs({
           merged.add(s);
         }
         byId[id] = s;
+        continue;
+      }
+      if (key == kLineItemsKey && mine is Map && s is Map) {
+        final m = mergeLineItem(mine, s);
+        merged[merged.indexOf(mine)] = m;
+        byId[id] = m;
         continue;
       }
       final sAt = _updatedAt(s);

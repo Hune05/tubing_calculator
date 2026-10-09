@@ -74,6 +74,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
           _buildPhaseStrip(phases),
           const SizedBox(height: 22),
         ],
+        _buildLineCard(),
         ..._buildMaterialCard(),
         _sectionTitle("금주 · 지연 일정 (${upcoming.length})"),
         const SizedBox(height: 8),
@@ -288,6 +289,72 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                   color: tossText,
                 ),
               ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // 라인 진행 보드(10-10): 라인마다 컷팅·벤딩부터 루프 체크까지. 없으면 넣으라는 한 줄.
+  Widget _buildLineCard() {
+    final p = lineProgress(log);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: InkWell(
+        key: const Key('project_line_board'),
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _run(
+          () => Navigator.push<void>(
+            context,
+            WorkRoute(
+              builder: (_) =>
+                  LineBoardPage(log: log, onChanged: widget.actions.save),
+            ),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: pureWhite,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(
+                    Icons.linear_scale_rounded,
+                    size: 20,
+                    color: AppColors.brand,
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      "라인 진행",
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: tossText,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    p.total == 0 ? "라인 넣기" : "${p.complete}/${p.total} 다 마침",
+                    style: const TextStyle(fontSize: 13, color: tossSubText),
+                  ),
+                  const Icon(AppIcons.forward, size: 18, color: tossSubText),
+                ],
+              ),
+              if (p.total > 0) ...[
+                const SizedBox(height: 10),
+                LinearProgressIndicator(
+                  value: p.complete / p.total,
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ],
             ],
           ),
         ),

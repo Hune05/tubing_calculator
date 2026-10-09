@@ -532,13 +532,22 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     );
     await PtRecordStore.put(rec);
     unawaited(_uploadPtPhotos(rec));
+    // 프로젝트에 붙여 합격이면 라인 진행 보드의 압력시험 단계를 체크한다(10-10).
+    final lineNote = rec.verdict.pass == true
+        ? await autoCheckLineStage(
+            projectId: rec.projectId,
+            name: rec.line,
+            pressure: true,
+            who: rec.tester,
+          )
+        : null;
     if (!mounted) return;
     setState(() {
       _rEditing = rec;
       _rLine.text = rec.line;
     });
     _rSnack(
-      '${rec.line} 기록을 저장했습니다.',
+      '${rec.line} 기록을 저장했습니다.${lineNote == null ? '' : ' · $lineNote'}',
       action: SnackBarAction(
         label: '기록서 보기',
         onPressed: () => openPtRecordPdf(context, rec),
