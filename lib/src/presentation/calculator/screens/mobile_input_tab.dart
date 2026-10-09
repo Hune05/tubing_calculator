@@ -334,7 +334,10 @@ class _MobileInputTabState extends State<MobileInputTab>
       final Map<String, dynamic> old = _editingIndex! < list.length
           ? list[_editingIndex!]
           : const {};
-      MobileBendDataManager().updateBend(_editingIndex!, {...old, ...newBend});
+      final merged = {...old, ...newBend};
+      // 10-09: 각도를 바꾸면 U벤드가 아니다("U자 시작: 한 번에 180°…" 안내가 남았다).
+      if ((old['angle'] as num?)?.toDouble() != angle) merged.remove('uBend');
+      MobileBendDataManager().updateBend(_editingIndex!, merged);
       setState(() => _editingIndex = null);
     } else {
       MobileBendDataManager().addBend(newBend);

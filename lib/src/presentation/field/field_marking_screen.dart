@@ -1541,6 +1541,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             s.at,
             gap: fieldStepGap(data, s),
             inch: data.inch(s.at),
+            inchGap: data.inchGap(s.at, fieldStepPrevious(data, s)),
             boost: boost,
           ),
           Text(
@@ -1588,6 +1589,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 m.position,
                 gap: m.gap,
                 inch: data.inch(m.position),
+                inchGap: data.inchGap(m.position, data.previousOf(m)),
                 boost: boost,
               ),
               Text(
@@ -1811,6 +1813,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     double v, {
     double? gap,
     String inch = '',
+    String inchGap = '',
     double boost = 1.0,
   }) {
     final bool asGap = _showGap && gap != null;
@@ -1853,7 +1856,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         ),
         if (inch.isNotEmpty)
           Text(
-            asGap ? '+${_data.inch(gap)}' : inch,
+            asGap ? '+${inchGap.isNotEmpty ? inchGap : _data.inch(gap)}' : inch,
             key: const Key('field_step_inch'),
             style: TextStyle(
               fontSize: (_highContrast ? 30 : 24) * boost,

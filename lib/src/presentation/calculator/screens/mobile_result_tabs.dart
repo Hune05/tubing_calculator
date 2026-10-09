@@ -402,6 +402,9 @@ class _MobileResultTabState extends State<MobileResultTab>
         List<Map<String, dynamic>> displayMarks = [];
         int markNumber = 1;
         double accumulatedIncremental = 0.0;
+        // 10-09: "앞 마킹과의 거리"를 현장 탭·마킹지와 같은 셈(반올림한 마킹끼리 빼기)으로.
+        // 예전에는 차이를 반올림해 현장 탭과 1mm 다를 수 있었다.
+        double prevBendMark = 0.0;
 
         for (int i = 0; i < bendList.length; i++) {
           double angleValue = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
@@ -452,10 +455,12 @@ class _MobileResultTabState extends State<MobileResultTab>
               'marking_point': currentMark,
               'incremental_mark':
                   steps[i].incrementalMark + accumulatedIncremental,
+              'gap_display': markGap(currentMark, prevBendMark),
               'applied_fit': appliedFit,
               'target_angle': steps[i].targetAngle,
               'roll_deg': rolls[i] ?? 0.0,
             });
+            prevBendMark = currentMark;
             markNumber++;
             accumulatedIncremental = 0.0;
           }
@@ -661,7 +666,8 @@ class _MobileResultTabState extends State<MobileResultTab>
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // 좁은 폰·글자 크게에서 넘치지 않게 양쪽을 줄일 수 있게 한다.
-            Flexible(child: CardLabelValue("반경(R)", "${radius.round()} mm")),
+            // 마킹지와 같게 소수 한 자리까지(38.1 → 예전에는 38로 보였다, 10-09).
+            Flexible(child: CardLabelValue("반경(R)", "${radius == radius.roundToDouble() ? radius.round() : radius.toStringAsFixed(1)} mm")),
             Container(width: 1, height: 24, color: slate200),
             Flexible(
               child: Column(
@@ -736,7 +742,8 @@ class _MobileResultTabState extends State<MobileResultTab>
   /// 같은 번호). 직관은 회색 띠.
   Widget _buildMarkingCard(Map<String, dynamic> item) {
     final bool isStraight = item['is_straight'] == true;
-    final int incremental = (item['incremental_mark'] as num?)?.round() ?? 0;
+    final int incremental =
+        ((item['gap_display'] ?? item['incremental_mark']) as num?)?.round() ?? 0;
     final int length = (item['length'] as num?)?.round() ?? 0;
     final double appliedFit = (item['applied_fit'] as num?)?.toDouble() ?? 0.0;
     final String fitText = appliedFit > 0 ? " (+피팅 ${appliedFit.round()})" : "";

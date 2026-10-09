@@ -387,7 +387,11 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           ? _buildExtraInfoBox(
               icon: AppGlyph.benderChicago,
               label: "기어/노치 진행:",
-              valueText: notches > 0 ? "$notches 칸 이동" : "설정에서 값을 넣으십시오",
+              // 10-09: 칸 수는 스프링백을 얹은 각도로 셈한다(사용법의 "한두 칸 더"와 겹치지 않게 적는다).
+              // 0칸은 각이 한 칸보다 작을 때도 나온다(예전 안내 "설정에서 값을 넣으십시오"는 틀렸다).
+              valueText: notches > 0
+                  ? "$notches 칸 이동${(globalBenderSettings.value['applySpringback'] ?? true) == true ? ' (스프링백 포함)' : ''}"
+                  : "한 칸보다 작은 각입니다(설정의 칸당 각도 확인)",
               themeColor: chicagoPurple,
             )
           : null,
@@ -579,6 +583,8 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     double mark = (item['mark'] as num).toDouble();
     String note = item['note']?.toString() ?? '';
     bool isStraight = angle == 0.0;
+    // 10-09: 번호는 벤드에만(현장 탭·마킹지의 "N번 마킹"과 같은 번호). 예전에는 직관 줄까지 셌다.
+    final int markNo = (item['markNo'] as num?)?.toInt() ?? (index + 1);
     // 앞 마킹보다 뒤로 간 벤드. 그 사이 곧은 부분이 벤더에 물릴 만큼 없다.
     final bool isShort = item['short'] == true;
     final Color noteColor = isShort
@@ -617,25 +623,26 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    "STEP",
+                    isStraight ? "직관" : "STEP",
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: isStraight ? 13 : 10,
                       fontWeight: FontWeight.w900,
                       color: isStraight
-                          ? slate400
+                          ? slate600
                           : pureWhite.withValues(alpha: 0.7),
                       letterSpacing: 1,
                     ),
                   ),
-                  Text(
-                    "${index + 1}",
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: isStraight ? slate600 : pureWhite,
-                      height: 1.1,
+                  if (!isStraight)
+                    Text(
+                      "$markNo",
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: pureWhite,
+                        height: 1.1,
+                      ),
                     ),
-                  ),
                 ],
               ),
             ),

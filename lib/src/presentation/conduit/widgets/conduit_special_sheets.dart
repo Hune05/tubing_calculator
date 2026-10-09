@@ -177,7 +177,7 @@ class _KickSheetState extends _SheetState<_KickSheet> {
     ]);
     csSnackAdded(
       context,
-      '1번 마킹이 ${start.toStringAsFixed(0)}mm 자리에 찍힙니다. 축소값 ${csFmt(kick.shrink)}mm만큼 직진 거리가 줄어듭니다.',
+      '${widget.specs.firstMarkNotice(start)} 축소값 ${csFmt(kick.shrink)}mm만큼 직진 거리가 줄어듭니다.',
     );
     Navigator.pop(context);
   }
@@ -204,7 +204,7 @@ class _KickSheetState extends _SheetState<_KickSheet> {
       children: [
         CsInfoBox(
           title: '장애물 앞 시작 거리 (선택)',
-          note: '1번 마킹이 이 거리에 찍힙니다.',
+          note: widget.specs.listEmpty ? '1번 마킹이 이 거리에 찍힙니다.' : '앞 꺾이는 점에서 잰 거리입니다.',
           field: CsField(fieldKey: const Key('cs_start'), ctrl: _start, hint: '거리 mm'),
         ),
         const SizedBox(height: 16),
@@ -310,7 +310,7 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
     widget.onAddBends(list);
     csSnackAdded(
       context,
-      '$_n줄을 넣었습니다. 1번 마킹이 ${csFmt(first - widget.specs.markOffset(seg.angle), 0)}mm 자리에 찍힙니다.',
+      '$_n줄을 넣었습니다. ${widget.specs.firstMarkNotice(firstMark)}',
     );
     Navigator.pop(context);
   }
@@ -338,7 +338,7 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
         CsInfoBox(
           title: '직각 모서리까지 거리',
           // 10-09: 어디까지 재는지 적음(관 등까지 재면 바깥지름 절반만큼 어긋난다).
-          note: '관 끝에서 가상의 직각 모서리까지입니다. 모서리는 두 관의 가운데 선이 만나는 자리로 잽니다(관 등까지 재면 관 굵기 절반만큼 어긋납니다). 첫 꺾이는 점은 모서리보다 조금 앞에 옵니다.',
+          note: '${widget.specs.startRef}에서 가상의 직각 모서리까지입니다. 모서리는 두 관의 가운데 선이 만나는 자리로 잽니다(관 등까지 재면 관 굵기 절반만큼 어긋납니다). 첫 꺾이는 점은 모서리보다 조금 앞에 옵니다.',
           field: CsField(fieldKey: const Key('cs_corner'), ctrl: _corner, hint: '거리 mm'),
         ),
         const SizedBox(height: 16),
@@ -474,7 +474,7 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
     widget.onAddBends(list);
     csSnackAdded(
       context,
-      '2줄을 넣었습니다. 1번 마킹이 ${csFmt(first - widget.specs.markOffset(90), 0)}mm 자리에 찍힙니다.',
+      '2줄을 넣었습니다. ${widget.specs.firstMarkNotice(first - widget.specs.markOffset(90))}',
     );
     Navigator.pop(context);
   }
@@ -501,7 +501,7 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
       children: [
         CsInfoBox(
           title: '첫 다리 길이',
-          note: '관 끝에서 첫 꺾이는 점까지입니다. 1번 마킹은 여기서 테이크업을 뺀 자리입니다.',
+          note: '${widget.specs.startRef}에서 첫 꺾이는 점까지입니다. 1번 마킹은 여기서 벤더 차감값(테이크업, 유압은 게인의 절반)을 뺀 자리입니다.',
           field: CsField(fieldKey: const Key('cs_first'), ctrl: _first, hint: '길이 mm'),
         ),
         const SizedBox(height: 16),
@@ -621,7 +621,7 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
     widget.onAddBends(list);
     csSnackAdded(
       context,
-      '1번 마킹이 ${csFmt(s - off, 0)}mm 자리에 찍힙니다.',
+      widget.specs.firstMarkNotice(s - off),
     );
     Navigator.pop(context);
   }
@@ -642,7 +642,7 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
       children: [
         CsInfoBox(
           title: '스터브 길이',
-          note: '관 끝에서 꺾이는 점까지입니다. 1번 마킹은 여기서 테이크업을 뺀 자리입니다.',
+          note: '${widget.specs.startRef}에서 꺾이는 점까지입니다. 1번 마킹은 여기서 벤더 차감값(테이크업, 유압은 게인의 절반)을 뺀 자리입니다.',
           field: CsField(fieldKey: const Key('cs_stub'), ctrl: _stub, hint: '길이 mm'),
         ),
         const SizedBox(height: 24),

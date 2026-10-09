@@ -1057,7 +1057,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           "1번 마킹에 축소값 더하기",
           _applyShrink,
           helpText:
-              "켜면 오프셋·새들 계산기의 1번 마킹을 \"시작 거리 + 축소값\" 자리에 찍습니다(현장 계산법). 끄면 시작 거리 그대로 찍습니다.",
+              "켜면 오프셋·새들 계산기의 1번 마킹을 \"시작 거리 + 축소값\" 자리에 찍습니다(현장 계산법). 끄면 시작 거리 그대로 찍습니다. 계산기로 줄을 넣을 때 쓰는 값이라, 바꿔도 이미 넣은 줄은 그대로입니다.",
           (v) {
             setState(() => _applyShrink = v);
           },

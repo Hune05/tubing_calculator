@@ -118,6 +118,10 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
   String _addedMessage(double startDistance, double shrink) {
     final double add = _shrinkToAdd(shrink);
     final double mark = startDistance + add;
+    // 10-09: 앞 줄이 있으면 첫 줄 길이는 앞 꺾이는 점에서 잰 것이라 줄자 자리를 말하지 않는다.
+    if (_specs?.listEmpty == false) {
+      return "넣었습니다. 앞 줄에 이어 붙였습니다. 줄자 자리는 마킹 탭에서 확인하십시오.";
+    }
     if (mark <= 0) {
       return "넣었습니다. 축소값 ${shrink.toStringAsFixed(1)}mm만큼 직진 거리가 줄어듭니다.";
     }
@@ -276,6 +280,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
     final double mark = firstLen - (_specs?.markOffset(sideAngle) ?? 0.0);
     if (center <= 0) {
       return "넣었습니다. 장애물 중심 거리를 넣지 않아 1번 마킹을 관 끝(0)에 두었습니다.";
+    }
+    if (_specs?.listEmpty == false) {
+      return "넣었습니다. 앞 줄에 이어 붙였습니다. 줄자 자리는 마킹 탭에서 확인하십시오.";
     }
     return "1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍히고, 가운데 벤드가 장애물 중심 "
         "${center.toStringAsFixed(0)}mm 위에 옵니다.";
@@ -865,7 +872,9 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         Row(children: [Expanded(child: _buildInputRow(_heightCtrl, "높이 mm"))]),
         const SizedBox(height: 20),
         Text(
-          _conduitCenter ? "관 끝에서 장애물 중심까지 (선택)" : "장애물 앞 시작 거리 (선택)",
+          _conduitCenter
+              ? "${_specs?.startRef ?? '관 끝'}에서 장애물 중심까지 (선택)"
+              : "장애물 앞 시작 거리 (선택)",
           style: const TextStyle(
             color: slate600,
             fontSize: 13,
@@ -1328,6 +1337,8 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             ),
           ),
 
+          // 10-09: 튜브 반지름 안내라 전선관(가운데 맞춤 새들)에서는 뺀다.
+          if (_specs?.isConduit != true) ...[
           const SizedBox(height: 12),
 
           Container(
@@ -1377,6 +1388,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               ],
             ),
           ),
+          ],
 
           const SizedBox(height: 16),
 

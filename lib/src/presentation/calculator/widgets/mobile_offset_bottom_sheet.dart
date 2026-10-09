@@ -98,6 +98,10 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
   String _addedMessage(double startDistance, double shrink) {
     final double add = _shrinkToAdd(shrink);
     final double mark = startDistance + add;
+    // 10-09: 앞 줄이 있으면 첫 줄 길이는 앞 꺾이는 점에서 잰 것이라 줄자 자리를 말하지 않는다.
+    if (_specs?.listEmpty == false) {
+      return "넣었습니다. 앞 줄에 이어 붙였습니다. 줄자 자리는 마킹 탭에서 확인하십시오.";
+    }
     if (mark <= 0) {
       return "넣었습니다. 축소값 ${shrink.toStringAsFixed(1)}mm만큼 직진 거리가 줄어듭니다.";
     }

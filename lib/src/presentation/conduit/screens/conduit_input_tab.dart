@@ -528,6 +528,16 @@ class _ConduitInputTabState extends State<ConduitInputTab>
           ? len.toStringAsFixed(0)
           : len.toString();
     });
+    // 10-09: 예전 판에서 넣은 90° 넘는 줄은 수정 단추가 말없이 꺼져 있었다 → 까닭을 알린다.
+    if (angle > kConduitMaxAngle) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "이 줄은 ${_fmtAngle(angle)}°라 이대로는 고칠 수 없습니다. 각도를 ${kConduitMaxAngle.toInt()}° 이하로 바꾸십시오.",
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _confirmClear(ConduitDataManager manager) async {
@@ -1096,7 +1106,10 @@ class _ConduitInputTabState extends State<ConduitInputTab>
             : 90.0);
     // 🚀 [고침] 특수 벤딩들이 튜브 벤더 제원으로 셈하고 있었다.
     // 전선관 설정(CLR·테이크업·게인·수축량 스위치)을 넘긴다.
-    final specs = BendSheetSpecs.conduit(globalBenderSettings.value);
+    final specs = BendSheetSpecs.conduit(
+      globalBenderSettings.value,
+      listEmpty: manager.bendList.isEmpty,
+    );
 
     showModalBottomSheet(
       context: context,

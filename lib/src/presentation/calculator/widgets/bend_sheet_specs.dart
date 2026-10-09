@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/data/machine_specs.dart';
+import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 
 class BendSheetSpecs {
@@ -40,6 +41,11 @@ class BendSheetSpecs {
 
   final bool isConduit;
 
+  /// 목록이 비었는지(10-09). 비었으면 첫 줄 길이는 관 끝에서, 아니면 앞 꺾이는 점에서 잰다.
+  /// 시트의 "관 끝에서 …" 칸 이름과 "1번 마킹이 N mm 자리" 알림은 비었을 때만 맞아서
+  /// 앞 줄이 있으면 말을 바꾼다.
+  final bool listEmpty;
+
   const BendSheetSpecs({
     required this.radius,
     required this.gain90,
@@ -49,7 +55,16 @@ class BendSheetSpecs {
     this.extraShrink = 0.0,
     this.addGeometricShrink = false,
     this.isConduit = false,
+    this.listEmpty = true,
   });
+
+  /// 첫 줄 길이를 재기 시작하는 곳.
+  String get startRef => listEmpty ? '관 끝' : '앞 꺾이는 점';
+
+  /// 넣은 뒤 알림. 목록이 비었을 때만 줄자 자리를 말하고, 아니면 마킹 탭을 보라고 한다.
+  String firstMarkNotice(double mark, {String suffix = ''}) => listEmpty
+      ? '1번 마킹이 ${mark.toStringAsFixed(0)}mm 자리에 찍힙니다$suffix.'
+      : '앞 줄에 이어 붙였습니다. 줄자 자리는 마킹 탭에서 확인하십시오.';
 
   /// 1번 마킹에 더할 축소값.
   double shrinkToAdd(double geometricShrink) =>
@@ -133,11 +148,15 @@ class BendSheetSpecs {
       addGeometricShrink: false,
       markOffset: (angle) => bendSetback(radius, angle),
       isConduit: false,
+      listEmpty: MobileBendDataManager().bendList.isEmpty,
     );
   }
 
   /// 전선관 계산기용. 전선관 설정(globalBenderSettings)에서 만든다.
-  factory BendSheetSpecs.conduit(Map<String, dynamic> settings) {
+  factory BendSheetSpecs.conduit(
+    Map<String, dynamic> settings, {
+    bool listEmpty = true,
+  }) {
     final Map<String, dynamic> s = Map<String, dynamic>.from(settings);
     return BendSheetSpecs(
       radius: (s['clr'] as num?)?.toDouble() ?? 0.0,
@@ -148,6 +167,7 @@ class BendSheetSpecs {
       addGeometricShrink: s['applyShrink'] ?? true,
       markOffset: (angle) => conduitMarkOffset(angle, s),
       isConduit: true,
+      listEmpty: listEmpty,
     );
   }
 }

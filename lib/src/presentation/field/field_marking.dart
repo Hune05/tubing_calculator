@@ -97,6 +97,26 @@ class FieldMarkingData {
   String inch(double mm) =>
       formatInch(mm, inchMode, denominator: inchDenominator);
 
+  /// 인치 간격: 누적 인치(반올림한 값)끼리 뺀 것(10-09). 예전에는 mm 정수 간격을 따로 반올림해
+  /// 누적 칸과 벤드마다 1/16"씩 어긋났다(100.4·200.6mm: 누적 차 3 15/16"인데 간격 4").
+  String inchGap(double position, double previous) {
+    if (inchMode == FieldInchMode.none) return '';
+    if (inchMode == FieldInchMode.decimal) {
+      double r(double mm) => (mm / 25.4 * 100).round() / 100;
+      return formatInch((r(position) - r(previous)) * 25.4, inchMode);
+    }
+    final d = inchDenominator <= 0 ? 16 : inchDenominator;
+    double r(double mm) => (mm / 25.4 * d).round() / d;
+    return formatInch((r(position) - r(previous)) * 25.4, inchMode, denominator: d);
+  }
+
+  /// [m] 앞 마킹 자리(첫 벤드는 관 끝 0).
+  double previousOf(FieldMark m) {
+    final b = bends;
+    final i = b.indexOf(m);
+    return i <= 0 ? 0.0 : b[i - 1].position;
+  }
+
   static const empty = FieldMarkingData(totalCut: 0, marks: []);
 
   bool get isEmpty => marks.isEmpty;
@@ -132,6 +152,13 @@ double markGap(double position, double previous) =>
     (position.round() - previous.round()).toDouble();
 
 /// 앞 마킹에서 이 단계까지(자르기는 마지막 벤드 마킹에서).
+/// 이 단계 앞 마킹 자리(자르기는 마지막 벤드).
+double fieldStepPrevious(FieldMarkingData data, FieldStep step) {
+  if (!step.isCut) return data.previousOf(step.mark!);
+  final bends = data.bends;
+  return bends.isEmpty ? 0.0 : bends.last.position;
+}
+
 double fieldStepGap(FieldMarkingData data, FieldStep step) {
   if (!step.isCut) return step.mark!.gap;
   final bends = data.bends;

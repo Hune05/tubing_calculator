@@ -1295,7 +1295,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
 
   Widget _buildUnitToggle() {
     return _row(
-      const Text("측정 단위", style: _rowLabelStyle),
+      // 10-09: 외경·두께 칸만 이 단위로 보이고 길이는 늘 mm라 이름을 맞춘다.
+      const Text("외경·두께 단위", style: _rowLabelStyle),
       Container(
         decoration: BoxDecoration(
           color: slate100,
@@ -1434,7 +1435,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           label: "벤더 브랜드",
           helpTitle: "벤더 브랜드",
           helpContent:
-              "사용 중인 벤더 기기의 브랜드입니다.\n브랜드마다 기계의 크기와 반경(Radius)이 다르기 때문에, 이를 선택하면 [AUTO] 모드에서 자동으로 맞는 값을 불러옵니다.",
+              "사용 중인 벤더 기기의 브랜드입니다(제원 묶음 이름표에 씁니다).\n지금 [AUTO] 값은 Swagelok 표 하나뿐이라 다른 브랜드를 골라도 같은 값이 들어갑니다. 다른 브랜드 벤더는 반경을 MAN으로 넣거나 \"시험 벤딩으로 게인 잡기\"로 잡으십시오.",
           value: _benderBrand,
           items: const [
             "Swagelok",

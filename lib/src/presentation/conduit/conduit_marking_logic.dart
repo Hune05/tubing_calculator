@@ -15,6 +15,7 @@ import 'dart:math' as math;
 
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
+import 'package:tubing_calculator/src/presentation/field/field_marking.dart' show markGap;
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
     show kThickConduitOd;
 
@@ -143,6 +144,11 @@ List<Map<String, dynamic>> calculateConduitMarkings(
   double developed = 0.0;
   double prevMark = 0.0;
   double prevGain = 0.0;
+  // 10-09: 벤드 번호와 "앞 마킹 +N"을 현장 탭·마킹지와 같게 — 번호는 벤드만 1번부터, 간격은
+  // 앞 벤드 마킹(첫 벤드는 관 끝)에서 반올림한 마킹끼리 뺀 값. 예전에는 직관 줄까지 STEP 번호를
+  // 매기고, 직관 끝 마킹부터 차이를 반올림해 현장 탭과 번호·1mm가 달랐다.
+  double prevBendMark = 0.0;
+  int bendNo = 0;
 
   for (int i = 0; i < bendList.length; i++) {
     final bend = bendList[i];
@@ -174,8 +180,8 @@ List<Map<String, dynamic>> calculateConduitMarkings(
     } else if (angle == 0.0) {
       note = '직관 연장 (앞 마킹 +${gap.round()}mm)';
     } else {
-      note = '앞 마킹 +${gap.round()}mm';
-      if (prevGain > 0) note += ' (앞 벤드 게인 -${prevGain.round()}mm)';
+      note = '앞 마킹 +${markGap(mark, prevBendMark).round()}mm';
+      if (prevGain >= 0.5) note += ' (앞 벤드 게인 -${prevGain.round()}mm)';
     }
 
     // 90°를 넘는 벤드(예전 판에서 저장한 목록)는 게인 셈이 맞지 않는다.
@@ -191,7 +197,10 @@ List<Map<String, dynamic>> calculateConduitMarkings(
       'benderType': benderType,
       'targetAngle': targetAngle,
       'short': !isFirst && gap < 0,
+      // 벤드 번호(현장 탭·마킹지의 "N번 마킹"). 직관은 0.
+      'markNo': angle > 0 ? ++bendNo : 0,
     };
+    if (angle > 0) prevBendMark = mark;
 
     if (benderType == 'ram') {
       // 🚀 [보정] 유압 실린더 비선형 삼각함수 이동 거리 연산: Stroke ∝ sin(θ / 2)
