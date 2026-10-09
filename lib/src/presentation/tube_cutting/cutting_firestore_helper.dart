@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/models/cutting_project_model.dart';
 import 'cutting_stock_deduct.dart';
+import 'stock_pick_dialog.dart';
 import 'cutting_theme.dart';
 
 // 🚀 [신규] 모바일/데스크톱 컷팅 작업 목록 화면이 공통으로 쓰는 Firestore
@@ -459,9 +460,18 @@ Future<void> _deductCuttingProjectInventory({
     barLengthByName: stock.barLengthByName,
     unitByName: stock.unitByName,
   );
+  // 이름이 같은 재고(제조사만 다른 것)가 여럿이면 어느 것에서 뺄지 먼저 묻는다(10-09).
+  if (!context.mounted) return;
+  final picks = await askSameNameStock(
+    context,
+    takes,
+    jobKey: 'line:$projectId',
+  );
+  if (picks == null) return;
+  final qty = picks.applyQty(stock.qtyByName);
   // 🚀 [고침] 예전에는 불출로 이미 나가 있는지도 같이 봤다. 불출을 없애서
   // 겹칠 일이 없어졌다(재고 수량은 재고조사에서 맞춘다).
-  final warning = shortStockWarning(takes, stock.qtyByName);
+  final warning = shortStockWarning(takes, qty);
 
   if (!context.mounted) return;
   final confirmed = await showCuttingConfirmDialog(
@@ -469,9 +479,9 @@ Future<void> _deductCuttingProjectInventory({
     title: "재고에서 빼시겠습니까?",
     message: warning.isEmpty
         ? "'$projectName'에서 쓴 자재를 창고 재고에서 뺍니다.\n\n"
-              "${stockTakeLines(takes, stock.qtyByName)}"
+              "${stockTakeLines(takes, qty, picked: picks.labels)}"
         : "'$projectName'에서 쓴 자재를 창고 재고에서 뺍니다.\n\n"
-              "${stockTakeLines(takes, stock.qtyByName)}\n\n$warning",
+              "${stockTakeLines(takes, qty, picked: picks.labels)}\n\n$warning",
     confirmLabel: "빼기",
     icon: AppGlyph.stockOut,
   );
@@ -498,6 +508,7 @@ Future<void> _deductCuttingProjectInventory({
       projectName: '라인 컷팅 · $projectName',
       worker: who,
       projectId: projectId,
+      picks: picks.ids,
     );
 
     // 뺀 것만 지운다. 못 찾은 것은 남겨 둬서, 자재를 넣은 뒤 다시 뺄 수 있게 한다.

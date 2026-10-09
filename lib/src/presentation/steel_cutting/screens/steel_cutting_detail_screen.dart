@@ -27,6 +27,7 @@ import '../../tube_cutting/cutting_math.dart' show fmtMm, parseLengthInput, safe
 import '../../tube_cutting/cutting_optimizer.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_stock_deduct.dart';
+import '../../tube_cutting/stock_pick_dialog.dart';
 import '../../tube_cutting/cutting_plan_settings.dart';
 import '../../tube_cutting/cutting_plan_rows.dart';
 import '../../tube_cutting/cutting_result_logic.dart';
@@ -925,11 +926,19 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   Future<BarsBySpec?> _deductStock(BarsBySpec bars) async {
     final stock = await loadStockInfo();
     final takes = stockTakesForBars(bars, unitByName: stock.unitByName);
-    if (takes.isEmpty) return null;
+    if (takes.isEmpty || !mounted) return null;
+    // 이름이 같은 재고(제조사만 다른 것)가 여럿이면 어느 것에서 뺄지 먼저 묻는다(10-09).
+    final picks = await askSameNameStock(
+      context,
+      takes,
+      jobKey: 'steel:${widget.project.id}',
+    );
+    if (picks == null) return null;
+    final qty = picks.applyQty(stock.qtyByName);
 
-    final lines = stockTakeLines(takes, stock.qtyByName);
+    final lines = stockTakeLines(takes, qty, picked: picks.labels);
     // 창고에 모자란 자재를 알려 준다.
-    final warning = shortStockWarning(takes, stock.qtyByName);
+    final warning = shortStockWarning(takes, qty);
     if (!mounted) return null;
     final ok = await showCuttingConfirmDialog(
       context,
@@ -948,6 +957,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         projectName: '형강 컷팅 · ${widget.project.name}',
         action: '형강 재단',
         projectId: widget.project.id,
+        picks: picks.ids,
       );
       if (mounted) {
         await showStockDeductResult(context, result);
@@ -985,6 +995,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         takes,
         projectName: '형강 컷팅 · ${widget.project.name}',
         projectId: widget.project.id,
+        // 뺄 때 고른 재고로 도로 넣는다.
+        picks: await loadStockPicks('steel:${widget.project.id}'),
       );
       if (!mounted) return true;
       showCuttingSnack(context, "재고에 도로 넣었습니다.");

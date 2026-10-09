@@ -39,6 +39,7 @@ import '../cutting_plan_settings.dart';
 import '../cutting_firestore_helper.dart'
     show tubeMaterialName, pendingTubeEntries;
 import '../cutting_stock_deduct.dart';
+import '../stock_pick_dialog.dart';
 import '../cutting_theme.dart';
 import '../../inventory/pages/mobile_inventory_ocr.dart';
 import '../cutting_fitting_favorites.dart';
@@ -471,9 +472,17 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       nameOf: _tubeStockName,
       unitByName: stock.unitByName,
     );
-    if (takes.isEmpty) return null;
-    final lines = stockTakeLines(takes, stock.qtyByName);
-    final warning = shortStockWarning(takes, stock.qtyByName);
+    if (takes.isEmpty || !mounted) return null;
+    // 이름이 같은 재고(제조사만 다른 것)가 여럿이면 어느 것에서 뺄지 먼저 묻는다(10-09).
+    final picks = await askSameNameStock(
+      context,
+      takes,
+      jobKey: 'line:${widget.project.id}',
+    );
+    if (picks == null) return null;
+    final qty = picks.applyQty(stock.qtyByName);
+    final lines = stockTakeLines(takes, qty, picked: picks.labels);
+    final warning = shortStockWarning(takes, qty);
     if (!mounted) return null;
     final ok = await showCuttingConfirmDialog(
       context,
@@ -491,6 +500,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         projectName: '라인 컷팅 · ${widget.project.name}',
         action: '튜브 재단',
         projectId: widget.project.id,
+        picks: picks.ids,
       );
       if (mounted) {
         await showStockDeductResult(context, result);
@@ -581,6 +591,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         takes,
         projectName: '라인 컷팅 · ${widget.project.name}',
         projectId: widget.project.id,
+        // 뺄 때 고른 재고로 도로 넣는다.
+        picks: await loadStockPicks('line:${widget.project.id}'),
       );
       if (mounted) showCuttingSnack(context, "재고에 도로 넣었습니다.");
       return true;

@@ -4,12 +4,14 @@ import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import '../../tube_cutting/cutting_leftovers.dart';
 import '../../tube_cutting/cutting_pending_banner.dart';
 import '../../tube_cutting/cutting_theme.dart' show showCuttingSnack;
 import '../../tube_cutting/widgets/leftover_log_page.dart';
 import '../material_catalog.dart';
 import 'barcode_scan.dart';
+import 'inventory_csv_actions.dart';
 import 'inventory_item_page.dart';
 import 'inventory_owner.dart';
 import 'inventory_view_logic.dart';
@@ -143,7 +145,35 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                 );
               },
             ),
-            const SizedBox(width: 8),
+            // 엑셀(CSV)로 내보내 PC에서 고치고 다시 가져온다(10-09).
+            PopupMenuButton<String>(
+              key: const Key('inv_more'),
+              tooltip: '더보기',
+              icon: const Icon(AppIcons.more, size: 24),
+              onSelected: (v) {
+                if (v == 'export') exportInventoryCsv(context, uid: _uid);
+                if (v == 'import') {
+                  importInventoryCsv(
+                    context,
+                    worker: widget.workerName,
+                    uid: _uid,
+                  );
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  key: Key('inv_csv_export'),
+                  value: 'export',
+                  child: Text('엑셀(CSV)로 내보내기'),
+                ),
+                PopupMenuItem(
+                  key: Key('inv_csv_import'),
+                  value: 'import',
+                  child: Text('엑셀(CSV)에서 가져오기'),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
           ],
         ),
         // 🚀 [고침] 혼자 쓰는 앱이라 불출·반납은 같은 일을 두 번 하게 만들었다.

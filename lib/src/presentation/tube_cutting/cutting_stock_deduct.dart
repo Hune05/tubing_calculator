@@ -210,11 +210,13 @@ String stockTakeLines(
   List<StockTake> takes,
   Map<String, int> stockQty, {
   int max = 12,
+  Map<String, String> picked = const {},
 }) {
   final lookup = materialLookup(stockQty.keys, (k) => k);
   final lines = <String>[
     for (final t in takes.take(max))
       "• ${t.name} ${t.qty}${t.unit}"
+          "${picked[t.name] == null ? '' : ' → ${picked[t.name]}'}"
           "${stockQty.isNotEmpty && findMaterial(lookup, t.name) == null ? ' (재고에 없음)' : ''}",
   ];
   if (takes.length > max) lines.add("… 외 ${takes.length - max}건");
@@ -323,6 +325,139 @@ class StockDeductResult {
   }
 }
 
+// ── 이름이 같은 재고가 여럿일 때(10-09) ──
+// 카탈로그에서 제조사를 달리해 넣으면 이름이 같은 재고가 둘 생긴다(문서 id만 다르다).
+// 예전에는 아무 쪽에서나 빠졌다. 같은 차례(내 것끼리·공용끼리)에 둘 이상이면 빼기 전에
+// 어느 것에서 뺄지 묻고, 고른 것을 작업마다 폰에 기억한다(되돌리기도 같은 재고로).
+
+/// 고를 수 있는 재고 하나.
+class StockChoice {
+  final String id;
+  final String maker;
+  final String location;
+  final int qty;
+  final String unit;
+  final bool mine;
+  const StockChoice({
+    required this.id,
+    this.maker = '',
+    this.location = '',
+    this.qty = 0,
+    this.unit = '',
+    this.mine = false,
+  });
+
+  /// 짧은 이름표(확인창 줄에 붙인다): "삼화 · A창고"
+  String get short => [
+    maker.isEmpty ? '제조사 없음' : maker,
+    if (location.isNotEmpty) location,
+  ].join(' · ');
+}
+
+/// 뺄 자재 가운데 이름이 같은 재고가 같은 차례에 둘 이상인 것. 뺄 자재 이름 → 고를 재고(수량 많은 차례).
+/// [docs]는 (문서 id, 문서 내용). 남의 개인 재고는 뺀다.
+Map<String, List<StockChoice>> sameNameStockChoices(
+  List<StockTake> takes,
+  Iterable<(String, Map<String, dynamic>)> docs,
+  String? uid,
+) {
+  final byKey = <String, List<(int, StockChoice)>>{};
+  for (final (id, data) in docs) {
+    final name = (data['name'] as String?)?.trim() ?? '';
+    if (name.isEmpty) continue;
+    final r = stockPreference(data, uid);
+    if (r == null) continue;
+    byKey.putIfAbsent(normalizeMaterialName(name), () => []).add((
+      r,
+      StockChoice(
+        id: id,
+        maker: (data['maker'] ?? '').toString().trim(),
+        location: (data['location'] ?? '').toString().trim(),
+        qty: (data['qty'] as num?)?.toInt() ?? 0,
+        unit: (data['unit'] ?? '').toString().trim(),
+        mine: r == 0,
+      ),
+    ));
+  }
+  final out = <String, List<StockChoice>>{};
+  for (final t in takes) {
+    if (out.containsKey(t.name)) continue;
+    final list = byKey[normalizeMaterialName(t.name)];
+    if (list == null || list.length < 2) continue;
+    final best = list.map((e) => e.$1).reduce((a, b) => a < b ? a : b);
+    final same = [
+      for (final e in list)
+        if (e.$1 == best) e.$2,
+    ];
+    if (same.length < 2) continue;
+    same.sort((a, b) => b.qty.compareTo(a.qty));
+    out[t.name] = same;
+  }
+  return out;
+}
+
+/// 고른 재고(다듬은 이름 → 문서 id)가 아직 쓸 수 있으면 그 id. 지워졌거나 남의 개인 재고면 null(예전 규칙으로 찾는다).
+/// [dataOf]는 id로 지금 재고 문서 내용을 찾는다(없으면 null).
+String? pickedStockId(
+  Map<String, String> picks,
+  String name,
+  Map<String, dynamic>? Function(String id) dataOf,
+  String? uid,
+) {
+  if (picks.isEmpty) return null;
+  final id = picks[normalizeMaterialName(name)];
+  if (id == null) return null;
+  final data = dataOf(id);
+  if (data == null || stockPreference(data, uid) == null) return null;
+  return id;
+}
+
+/// 작업마다 고른 재고를 기억하는 폰 저장 칸: {작업: {다듬은 이름: 문서 id}}.
+const String kStockPicksKey = 'stock_picks_v1';
+
+Future<Map<String, String>> loadStockPicks(String jobKey) async {
+  try {
+    final p = await SharedPreferences.getInstance();
+    final all = jsonDecode(p.getString(kStockPicksKey) ?? '{}');
+    final m = all is Map ? all[jobKey] : null;
+    if (m is! Map) return {};
+    return {for (final e in m.entries) e.key.toString(): e.value.toString()};
+  } catch (_) {
+    return {};
+  }
+}
+
+Future<void> saveStockPicks(String jobKey, Map<String, String> picks) async {
+  if (picks.isEmpty) return;
+  try {
+    final p = await SharedPreferences.getInstance();
+    final raw = jsonDecode(p.getString(kStockPicksKey) ?? '{}');
+    final all = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    final mine = all[jobKey] is Map
+        ? Map<String, dynamic>.from(all[jobKey] as Map)
+        : <String, dynamic>{};
+    mine.addAll(picks);
+    all[jobKey] = mine;
+    await p.setString(kStockPicksKey, jsonEncode(all));
+  } catch (_) {}
+}
+
+/// 재고를 읽어 [sameNameStockChoices]. 못 읽으면 빈 것(묻지 않고 예전처럼 뺀다).
+Future<Map<String, List<StockChoice>>> loadSameNameChoices(
+  List<StockTake> takes,
+) async {
+  try {
+    final snap = await readQueryQuick(
+      FirebaseFirestore.instance.collection('inventory'),
+    );
+    return sameNameStockChoices(takes, [
+      for (final d in snap.docs) (d.id, d.data()),
+    ], currentStockUid());
+  } catch (_) {
+    return const {};
+  }
+}
+
 /// 방금 뺀 것을 도로 넣는다(잘못 눌렀을 때).
 /// 기록에는 반납으로 남겨서, 무엇이 왜 돌아왔는지 자재 기록에 보인다.
 Future<void> undoStockTakes(
@@ -332,6 +467,7 @@ Future<void> undoStockTakes(
   String device = 'Mobile',
   String action = '차감 되돌림',
   String projectId = '',
+  Map<String, String> picks = const {},
 }) async {
   final db = FirebaseFirestore.instance;
 
@@ -351,12 +487,14 @@ Future<void> undoStockTakes(
     (d) => (d.data()['name'] as String?) ?? '',
     rank: (d) => stockPreference(d.data(), uid),
   );
+  final byId = {for (final d in all.docs) d.id: d};
 
   final batch = db.batch();
   var any = false;
   for (final take in takes) {
     if (take.qty <= 0) continue;
-    final doc = findMaterial(byName, take.name);
+    final pid = pickedStockId(picks, take.name, (id) => byId[id]?.data(), uid);
+    final doc = (pid == null ? null : byId[pid]) ?? findMaterial(byName, take.name);
     if (doc == null) continue;
     batch.update(db.collection('inventory').doc(doc.id), {
       'qty': FieldValue.increment(take.qty),
@@ -400,6 +538,7 @@ Future<StockDeductResult> deductStockTakes(
   String device = 'Mobile',
   String action = '컷팅 사용',
   String projectId = '',
+  Map<String, String> picks = const {},
 }) async {
   final db = FirebaseFirestore.instance;
 
@@ -428,11 +567,13 @@ Future<StockDeductResult> deductStockTakes(
     (d) => (d.data()['name'] as String?) ?? '',
     rank: (d) => stockPreference(d.data(), uid),
   );
+  final byId = {for (final d in all.docs) d.id: d};
 
   final batch = db.batch();
   for (final take in takes) {
     if (take.qty <= 0 || take.name.trim().isEmpty) continue;
-    final doc = findMaterial(byName, take.name);
+    final pid = pickedStockId(picks, take.name, (id) => byId[id]?.data(), uid);
+    final doc = (pid == null ? null : byId[pid]) ?? findMaterial(byName, take.name);
     if (doc == null) {
       missing.add(take);
       continue;
