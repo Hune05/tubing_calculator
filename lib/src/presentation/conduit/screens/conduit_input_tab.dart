@@ -5,6 +5,7 @@ import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart' show conduitCenterRef;
+import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_input_tab.dart' show fmtSegLength;
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_sheets.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
     show kThickConduitOd;
@@ -464,7 +465,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       runSpacing: 2,
                       children: [
                         Text(
-                          "길이: ${item['length']}mm",
+                          "길이: ${fmtSegLength((item['length'] as num?)?.toDouble() ?? 0)}mm",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,

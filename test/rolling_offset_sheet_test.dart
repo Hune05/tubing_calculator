@@ -25,6 +25,7 @@ double firstMark(List<(double, double, double)> bends, double r) {
 }
 
 void main() {
+  setUp(resetRollingSheetMemory);
   // 높이 100, 굴림 0, 45°: 빗변 141.42, 전진 100.
   final travel = 100 / math.sin(math.pi / 4);
   const advance = 100.0;

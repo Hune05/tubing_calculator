@@ -146,8 +146,18 @@ class _MobileInputTabState extends State<MobileInputTab>
     return _selectedAngle == 0.0 || _selectedRotation != null;
   }
 
+  /// 고치기 시작할 때의 길이(칸에는 다듬어 보이므로 손대지 않았으면 이 값을 쓴다).
+  double? _editOriginalLength;
+
   void _addSegment() {
     double length = double.tryParse(_lengthController.text) ?? 0.0;
+    // 10-09: 고칠 때 칸에는 소수 한 자리로 보이므로, 손대지 않았으면 원래 값(141.42135…)을 그대로 둔다.
+    final double? editOriginal = _editOriginalLength;
+    if (_editingIndex != null &&
+        editOriginal != null &&
+        _lengthController.text == fmtSegLength(editOriginal)) {
+      length = editOriginal;
+    }
 
     if (length <= 0.0) {
       showAppSnack(context, "정확한 길이를 입력해 주십시오.", kind: AppSnackKind.error);
@@ -848,8 +858,13 @@ class _MobileInputTabState extends State<MobileInputTab>
                                         HapticFeedback.lightImpact();
                                         setState(() {
                                           _editingIndex = index;
+                                          final double l =
+                                              (item['length'] as num?)
+                                                  ?.toDouble() ??
+                                              0.0;
+                                          _editOriginalLength = l;
                                           _lengthController.text =
-                                              item['length'].toString();
+                                              fmtSegLength(l);
 
                                           double editedAngle =
                                               (item['angle'] as num?)
@@ -925,7 +940,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                   runSpacing: 2,
                                                   children: [
                                                     Text(
-                                                      "길이: ${item['length']}mm",
+                                                      "길이: ${fmtSegLength((item['length'] as num?)?.toDouble() ?? 0)}mm",
                                                       style: TextStyle(
                                                         fontWeight:
                                                             FontWeight.bold,
@@ -1469,4 +1484,11 @@ class _MobileInputTabState extends State<MobileInputTab>
       },
     );
   }
+}
+
+/// 입력 카드·고치기 칸에 보일 길이(10-09: 오프셋 시트로 넣은 줄이 "141.4213562373095mm"로 보였다).
+/// 정수면 정수로, 아니면 소수 한 자리로.
+String fmtSegLength(double v) {
+  final r = (v * 10).round() / 10;
+  return r == r.roundToDouble() ? r.toStringAsFixed(0) : r.toStringAsFixed(1);
 }

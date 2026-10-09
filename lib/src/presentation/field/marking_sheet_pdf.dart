@@ -196,10 +196,24 @@ pw.Widget _specBox(List<(String, String)> specs) {
   );
 }
 
+/// 줄자 띠의 벤드 번호 원을 몇째 줄에 둘지(0·1). 10-09: 6m 관에서 약 160mm 안쪽으로 붙은 벤드는
+/// 번호 원(14pt)이 겹쳐 읽을 수 없었다 → 앞 원과 [minGap]보다 가까우면 둘째 줄로 내린다.
+List<int> tapeNumberRows(List<double> xs, {double minGap = 15}) {
+  final rows = <int>[];
+  final last = <double>[double.negativeInfinity, double.negativeInfinity];
+  for (final x in xs) {
+    final r = x - last[0] >= minGap ? 0 : (x - last[1] >= minGap ? 1 : 0);
+    rows.add(r);
+    last[r] = x;
+  }
+  return rows;
+}
+
 /// 관 한 토막을 줄자처럼: 벤드 마킹은 빨간 선·번호, 자르는 자리는 검은 선.
 pw.Widget _tapeStrip(FieldMarkingData data) {
-  const double h = 64;
-  const double barTop = 22; // 위에서
+  const double h = 78;
+  const double rowH = 16; // 번호 원 줄 간격(둘째 줄은 이만큼 아래)
+  const double barTop = 36; // 위에서
   const double barH = 12;
   final double total = [
     data.totalCut,
@@ -213,6 +227,8 @@ pw.Widget _tapeStrip(FieldMarkingData data) {
       double x(double mm) => (mm / total).clamp(0.0, 1.0) * (w - 16) + 8;
 
       final labels = <pw.Widget>[];
+      final bends = data.bends;
+      final rows = tapeNumberRows([for (final m in bends) x(m.position)]);
       for (double mm = 0; mm <= total + 0.1; mm += step) {
         labels.add(
           pw.Positioned(
@@ -229,11 +245,11 @@ pw.Widget _tapeStrip(FieldMarkingData data) {
           ),
         );
       }
-      for (final m in data.bends) {
+      for (final (i, m) in bends.indexed) {
         labels.add(
           pw.Positioned(
             left: x(m.position) - 7,
-            top: 2,
+            top: 2 + rows[i] * rowH,
             child: pw.Container(
               width: 14,
               height: 14,
@@ -314,12 +330,14 @@ pw.Widget _tapeStrip(FieldMarkingData data) {
                   }
                   // 직관 끝(회색), 벤드(빨강), 자르기(검정)
                   for (final m in data.marks) {
+                    final int bi = m.isBend ? bends.indexOf(m) : -1;
+                    final double from = bi >= 0 ? 16 + rows[bi] * rowH : barTop - 2;
                     g
                       ..setStrokeColor(m.isBend ? _red : _line)
                       ..setLineWidth(m.isBend ? 1.4 : 0.8)
                       ..drawLine(
                         x(m.position),
-                        y(m.isBend ? 16 : barTop - 2),
+                        y(from),
                         x(m.position),
                         y(barTop + barH),
                       )

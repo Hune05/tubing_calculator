@@ -19,6 +19,9 @@ class RecentCalcEntry {
   /// 되돌리기용: 기록이 나온 탭의 이름 키와 그때 입력값(JSON 글). 폰에 저장했다가 다시 열어도 되돌린다.
   final String? restoreKey;
   final String? restoreData;
+
+  /// 이어 붙이는 입력의 열쇠(폰에 저장하지 않는다). [RecentCalcLog.log]의 growKey 설명.
+  final String? growKey;
   const RecentCalcEntry({
     required this.title,
     required this.subtitle,
@@ -26,6 +29,7 @@ class RecentCalcEntry {
     this.onTap,
     this.restoreKey,
     this.restoreData,
+    this.growKey,
   });
 
   Map<String, Object?> toJson() => {
@@ -82,16 +86,27 @@ class RecentCalcLog {
     VoidCallback? onTap,
     String? restoreKey,
     String? restoreData,
+    String? growKey,
   }) {
     final key = dedupeKey ?? '$title|$subtitle';
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 700), () {
       if (key == _lastKey) return;
       _lastKey = key;
-      entries.insert(
-        0,
-        _entry(title, subtitle, now(), onTap, restoreKey, restoreData),
-      );
+      final entry = _entry(title, subtitle, now(), onTap, restoreKey, restoreData, growKey);
+      // 10-09: 입력하는 도중의 목록(줄을 하나씩 넣을 때마다)이 따로 쌓여 20개 한도를 금방 채웠다.
+      // 방금 기록과 제목이 같고 그 목록에 줄을 이어 붙인 것이면(growKey가 앞부분으로 시작) 바꿔 끼운다.
+      final first = entries.isEmpty ? null : entries.first;
+      if (first != null &&
+          growKey != null &&
+          first.growKey != null &&
+          first.title == title &&
+          growKey.startsWith(first.growKey!) &&
+          now().difference(first.time) < const Duration(minutes: 30)) {
+        entries[0] = entry;
+      } else {
+        entries.insert(0, entry);
+      }
       if (entries.length > _maxEntries) entries.removeLast();
       _onChange?.call();
       _save();
@@ -104,10 +119,12 @@ class RecentCalcLog {
     DateTime at,
     VoidCallback? onTap,
     String? k,
-    String? d,
-  ) => RecentCalcEntry(
+    String? d, [
+    String? growKey,
+  ]) => RecentCalcEntry(
     title: title,
     subtitle: subtitle,
+    growKey: growKey,
     time: at,
     restoreKey: k,
     restoreData: d,
@@ -264,6 +281,7 @@ mixin RecentCalcHistoryMixin<W extends StatefulWidget> on State<W> {
     VoidCallback? onTap,
     String? restoreKey,
     String? restoreData,
+    String? growKey,
   }) {
     calcLog._onChange = _redraw;
     if (restoreKey == null && identical(calcLog, _ownLog)) {
@@ -280,6 +298,7 @@ mixin RecentCalcHistoryMixin<W extends StatefulWidget> on State<W> {
       onTap: onTap,
       restoreKey: restoreKey,
       restoreData: restoreData,
+      growKey: growKey,
     );
   }
 
@@ -415,5 +434,12 @@ void showCalcHistorySheet(
   );
 }
 
-String _fmtTime(DateTime t) =>
-    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+/// 기록 시각. 이틀 남는 기록이라 오늘이 아니면 날짜도 붙인다(10-09).
+String _fmtTime(DateTime t) {
+  final hm = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  final n = RecentCalcLog.now();
+  if (t.year == n.year && t.month == n.month && t.day == n.day) return hm;
+  final y = n.subtract(const Duration(days: 1));
+  if (t.year == y.year && t.month == y.month && t.day == y.day) return '어제 $hm';
+  return '${t.month}/${t.day} $hm';
+}

@@ -34,6 +34,13 @@ List<(double, double, double)> rollingOffsetBends({
   ];
 }
 
+/// 10-09: 롤링 시트에 넣었던 값을 앱이 켜져 있는 동안 기억한다(오프셋·새들처럼 — 예전에는 열 때마다 150/200/45로).
+final Map<String, String> _rollingRemembered = {};
+
+/// 시험에서 기억을 비운다.
+@visibleForTesting
+void resetRollingSheetMemory() => _rollingRemembered.clear();
+
 const Color makitaTeal = AppColors.brand;
 const Color slate900 = AppColors.text;
 const Color slate600 = AppColors.textSub;
@@ -119,10 +126,20 @@ class _MobileRollingOffsetBottomSheetState
   void initState() {
     super.initState();
     _loadSettings(); // 🚀 초기화 시 설정값 불러오기
-    _riseCtrl.addListener(() => setState(() {}));
-    _rollCtrl.addListener(() => setState(() {}));
-    _travelCtrl.addListener(() => setState(() {}));
-    _angleCtrl.addListener(() => setState(() {}));
+    for (final (k, c) in [
+      ('rise', _riseCtrl),
+      ('roll', _rollCtrl),
+      ('travel', _travelCtrl),
+      ('angle', _angleCtrl),
+      ('start', _startCtrl),
+    ]) {
+      final v = _rollingRemembered[k];
+      if (v != null) c.text = v;
+      c.addListener(() {
+        _rollingRemembered[k] = c.text;
+        setState(() {});
+      });
+    }
   }
 
   // 🚀 설정 파일에서 벤더 R값 끌어오는 함수
@@ -529,7 +546,7 @@ class _MobileRollingOffsetBottomSheetState
                         30.0,
                         45.0,
                         60.0,
-                        90.0,
+                        // 10-09: 90°는 롤링 오프셋에 못 넣어(90° 미만만) 늘 거절됐다 → 뺐다.
                       ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
                     ],
                   ),

@@ -511,6 +511,32 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     if (gainFromClr && !center) _gainController.text = f(g + od);
   }
 
+  /// 화면 값이 저장된 설정(globalBenderSettings)과 다른지(10-09).
+  bool get _hasUnsaved {
+    final s = globalBenderSettings.value;
+    bool sameNum(TextEditingController c, String k) {
+      final v = double.tryParse(c.text.trim());
+      final o = (s[k] as num?)?.toDouble();
+      if (o == null) return true; // 예전 설정에 없던 칸은 비교하지 않는다
+      if (v == null) return c.text.trim().isEmpty;
+      return (v - o).abs() < 1e-6;
+    }
+    return s['benderType'] != _selectedTypeId ||
+        s['manufacturer'] != _manufacturer ||
+        s['conduitType'] != _conduitType ||
+        s['conduitSize'] != _conduitSize ||
+        (s['applySpringback'] ?? true) != _applySpringback ||
+        (s['applyShrink'] ?? true) != _applyShrink ||
+        (s[kConduitMeasureRefKey] ?? kConduitRefBack) != _measureRef ||
+        !sameNum(_clrController, 'clr') ||
+        !sameNum(_takeUpController, 'takeUp') ||
+        !sameNum(_gainController, 'gain') ||
+        !sameNum(_ramTravelController, 'ramTravel') ||
+        !sameNum(_springbackController, 'springback') ||
+        !sameNum(_couplingAllowanceController, 'couplingAllowance') ||
+        !sameNum(_bladeKerfController, 'bladeKerf');
+  }
+
   Future<void> _saveSettings() async {
     HapticFeedback.mediumImpact();
     // CLR·테이크업·게인 칸이 비었거나 못 읽는 글이면 지금 쓰던 값을 칸에 다시 넣고 그 값으로 저장한다.
@@ -708,7 +734,38 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             color: pureWhite,
             border: Border(top: BorderSide(color: slate200, width: 1)),
           ),
-          child: ElevatedButton(
+          // 10-09: 값을 바꾸고 저장을 안 누르면 마킹은 옛 설정으로 셈하고, 나가면 말없이 사라졌다.
+          child: AnimatedBuilder(
+            animation: Listenable.merge([
+              _clrController,
+              _takeUpController,
+              _gainController,
+              _ramTravelController,
+              _springbackController,
+              _couplingAllowanceController,
+              _bladeKerfController,
+              _notchSpacingController,
+            ]),
+            builder: (context, child) => Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_hasUnsaved)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      "저장하지 않은 값이 있습니다. 마킹은 저장한 설정으로 셈합니다.",
+                      key: const Key('conduit_settings_unsaved'),
+                      style: TextStyle(
+                        color: AppColors.caution,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                child!,
+              ],
+            ),
+            child: ElevatedButton(
             onPressed: _saveSettings,
             style: ElevatedButton.styleFrom(
               backgroundColor: makitaTeal,
@@ -726,6 +783,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
                 color: pureWhite,
               ),
             ),
+          ),
           ),
         ),
       ),

@@ -144,7 +144,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                 final mark = (m['mark'] as num).toDouble();
                 return angle == 0.0
                     ? '직관 ${mark.toStringAsFixed(0)}mm'
-                    : '${angle.toStringAsFixed(0)}° ${mark.toStringAsFixed(0)}mm';
+                    : '${_fmtAngle(angle)}° ${mark.toStringAsFixed(0)}mm';
               })
               .join(', ');
           // 기록이 이틀 남으므로 어느 규격 계산인지 제목에 붙인다(규격이 바뀌면 따로 쌓인다).
@@ -157,6 +157,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
             '총 절단 ${totalCut.toStringAsFixed(0)}mm · $markText',
             dedupeKey:
                 '$size|${totalCut.toStringAsFixed(1)}|${markings.map((m) => '${m['mark']}_${m['angle']}').join(',')}',
+            // 줄을 이어 넣는 동안은 한 기록을 바꿔 끼운다(10-09).
+            growKey: bendList
+                .map((b) => '${b['length']}_${b['angle']}_${b['rotation']};')
+                .join(),
           );
         }
 

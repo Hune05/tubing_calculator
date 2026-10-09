@@ -35,7 +35,7 @@ void main() {
     expect(ConduitDataManager().bendList, hasLength(3));
 
     // 줄을 눌러 고치는 중에 지우면 고치기도 끝난다.
-    await tester.tap(find.text('길이: 400.0mm'));
+    await tester.tap(find.text('길이: 400mm'));
     await tester.pump();
     expect(find.text('수정'), findsOneWidget);
     await tester.tap(find.byIcon(Icons.delete_sweep_rounded));
@@ -53,7 +53,7 @@ void main() {
       const MaterialApp(home: Scaffold(body: ConduitInputTab())),
     );
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.tap(find.text('길이: 400.0mm'));
+    await tester.tap(find.text('길이: 400mm'));
     await tester.pump();
     expect(find.text('수정'), findsOneWidget);
     // 보관함에서 다른 도면을 불러온다(입력 탭은 그대로 살아 있다).

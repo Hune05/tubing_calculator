@@ -187,6 +187,14 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
   );
 }
 
+/// 22.5°처럼 반 각도는 소수로(10-09: 최근 기록에 23°로 적혔다).
+String _fmtDeg(double a) =>
+    a == a.roundToDouble() ? a.toStringAsFixed(0) : a.toStringAsFixed(1);
+
+/// 입력 줄 열쇠(최근 기록을 이어 붙일 때 앞부분 비교).
+String _rowsKey(List<Map<String, dynamic>> rows) =>
+    rows.map((b) => '${b['length']}_${b['angle']}_${b['rotation']};').join();
+
 /// 롤링 오프셋이 첫 줄에 남긴 굴림 각도(없으면 null).
 double? _rollHint(Map<String, dynamic> row) {
   final v = (row['rollHint'] as num?)?.toDouble();
@@ -511,7 +519,7 @@ class _MobileResultTabState extends State<MobileResultTab>
                 final point = (m['marking_point'] as num?)?.toDouble() ?? 0.0;
                 return angle == 0.0
                     ? '$n ${point.toStringAsFixed(0)}mm'
-                    : '$n ${angle.toStringAsFixed(0)}° ${point.toStringAsFixed(0)}mm';
+                    : '$n ${_fmtDeg(angle)}° ${point.toStringAsFixed(0)}mm';
               })
               .join(', ');
           // 기록이 이틀 남으므로 어느 규격 계산인지 제목에 붙인다(규격이 바뀌면 따로 쌓인다).
@@ -521,6 +529,8 @@ class _MobileResultTabState extends State<MobileResultTab>
             '총 절단 ${totalCut.toStringAsFixed(0)}mm · $markText',
             dedupeKey:
                 '$size|${totalCut.toStringAsFixed(1)}|${displayMarks.map((m) => '${m['marking_point']}_${m['angle']}').join(',')}',
+            // 줄을 이어 넣는 동안은 한 기록을 바꿔 끼운다(10-09).
+            growKey: _rowsKey(bendList),
           );
         }
 
