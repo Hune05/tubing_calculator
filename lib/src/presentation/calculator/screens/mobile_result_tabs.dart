@@ -18,6 +18,7 @@ import 'package:tubing_calculator/src/presentation/field/marking_sheet_pdf.dart'
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad.dart';
+import 'package:tubing_calculator/src/presentation/tube_cutting/bend_to_cutting.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_pipe_visualizer.dart';
 import 'package:tubing_calculator/src/core/database/database_helper.dart';
 import 'package:tubing_calculator/src/presentation/fabrication/screens/mobile_fabrication_detail_screen.dart';
@@ -568,6 +569,18 @@ class _MobileResultTabState extends State<MobileResultTab>
                         context,
                         calcHistory,
                         title: '최근 마킹 기록',
+                      ),
+                    ),
+                  // 계산한 자를 길이를 라인 컷팅 작업에 바로 넣는다(10-09, 경고가 없을 때만).
+                  if (hasRealTubeRow(bendList) && warnings.isEmpty && totalCut > 0)
+                    IconButton(
+                      key: const Key('tube_send_cutting'),
+                      icon: Icon(Icons.content_cut_rounded, color: slate900),
+                      tooltip: "컷팅 작업에 넣기",
+                      onPressed: () => showSendToCuttingSheet(
+                        context,
+                        cut: totalCut,
+                        tubeSize: dataManager.pipeSize,
                       ),
                     ),
                   if (hasRealTubeRow(bendList))

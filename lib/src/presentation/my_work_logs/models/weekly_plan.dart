@@ -42,7 +42,14 @@ String _firstLine(String s) {
 }
 
 // 한 프로젝트의 한 주 실적(작업 일지 기반). 금주는 오늘까지 쓴 것만 잡힌다.
-List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
+/// 프로젝트에 붙인 압력시험·교정 기록 한 줄(주간 보고 실적에 넣는다, 10-09). [text] 예: "압력시험 L-101 합격".
+typedef WeeklyTestLine = ({DateTime date, String text});
+
+List<String> _actualLines(
+  Map<String, dynamic> log,
+  WeekRange w, [
+  Map<String, List<WeeklyTestLine>> tests = const {},
+]) {
   final lines = <String>[];
   final reports = (log['daily_reports'] as List? ?? []).whereType<Map>().where((
     r,
@@ -75,6 +82,14 @@ List<String> _actualLines(Map<String, dynamic> log, WeekRange w) {
     lines.add('  → 작업 ${workDaysOf(reports)}일 · 투입 ${formatManDays(manDays)}인·일');
   }
   if (done.isNotEmpty) lines.add('  ✓ 완료한 일정: ${done.toSet().join(', ')}');
+  // 그 주에 한 압력시험·교정(프로젝트에 붙인 것만).
+  final weekTests = [
+    for (final t in tests[log['id']?.toString() ?? ''] ?? const <WeeklyTestLine>[])
+      if (w.contains(t.date)) t,
+  ]..sort((a, b) => a.date.compareTo(b.date));
+  if (weekTests.isNotEmpty) {
+    lines.add('  ✓ 시험·교정: ${weekTests.map((t) => '${_md(t.date)} ${t.text}').join(', ')}');
+  }
 
   // 이슈: 그 주에 처리된 것 / 새로 등록된 것
   final punches = _weeklyIssues(log);
@@ -210,6 +225,7 @@ List<String> _sectionLines(
   required bool planned,
   required DateTime today,
   bool showProgress = false,
+  Map<String, List<WeeklyTestLine>> tests = const {},
 }) {
   final out = <String>[];
   for (final log in logs) {
@@ -227,7 +243,7 @@ List<String> _sectionLines(
     }
     final block = <String>[
       ?prog,
-      if (actual) ..._actualLines(log, w),
+      if (actual) ..._actualLines(log, w, tests),
       if (planned) ..._plannedLines(log, w, today),
     ];
     if (block.isEmpty) continue;
@@ -243,6 +259,8 @@ ReportDoc buildWeeklyPlanDoc(
   bool includePhotos = false,
   bool perProject = false,
   DateTime? asOf, // 기준일(없으면 오늘). 과거 주를 다시 볼 때 쓴다.
+  // 프로젝트 아이디 → 붙인 압력시험·교정 기록(10-09). 실적 칸에 "시험·교정" 줄로 들어간다.
+  Map<String, List<WeeklyTestLine>> tests = const {},
 }) {
   final now0 = dayOnly(DateTime.now());
   final today = dayOnly(asOf ?? now0);
@@ -281,6 +299,7 @@ ReportDoc buildWeeklyPlanDoc(
       _sectionLines(
         targets,
         weeks[0],
+        tests: tests,
         actual: true,
         planned: false,
         today: today,
@@ -292,6 +311,7 @@ ReportDoc buildWeeklyPlanDoc(
       _sectionLines(
         targets,
         weeks[1],
+        tests: tests,
         actual: true,
         planned: true,
         today: today,
@@ -304,6 +324,7 @@ ReportDoc buildWeeklyPlanDoc(
       _sectionLines(
         targets,
         weeks[2],
+        tests: tests,
         actual: false,
         planned: true,
         today: today,
@@ -327,6 +348,7 @@ ReportDoc buildWeeklyPlanDoc(
         final lines = _sectionLines(
           [t],
           w,
+          tests: tests,
           actual: actual,
           planned: planned,
           today: today,

@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import '../models/attendance.dart';
 import '../models/project_phase.dart';
 import '../widgets/work_log_card.dart';
+import '../widgets/linked_records_section.dart';
 import '../models/report_csv.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';

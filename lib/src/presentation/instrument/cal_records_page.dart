@@ -32,7 +32,11 @@ String _pv(double v, String unit) {
 }
 
 class CalRecordsPage extends StatefulWidget {
-  const CalRecordsPage({super.key});
+  const CalRecordsPage({super.key, this.projectId, this.projectName = ''});
+
+  /// 주면 그 프로젝트에 붙인 기록만 보인다(프로젝트 개요에서 열 때, 10-09).
+  final String? projectId;
+  final String projectName;
 
   @override
   State<CalRecordsPage> createState() => _CalRecordsPageState();
@@ -51,7 +55,7 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
 
   Future<void> _reload() async {
     final l = await CalRecordStore.load();
-    if (mounted) setState(() => _list = l);
+    if (mounted) setState(() => _list = _scope(l));
   }
 
   /// 서버의 내 기록을 받아 합치고, 폰에만 있는 것을 올린다. 통신이 없으면 폰 것만 보인다.
@@ -63,7 +67,7 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
     if (mounted) {
       setState(() {
         _sync = s;
-        _list = l;
+        _list = _scope(l);
       });
     }
   }
@@ -106,6 +110,10 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
     );
   }
 
+  List<CalRecord> _scope(List<CalRecord> l) => widget.projectId == null
+      ? l
+      : [for (final r in l) if (r.projectId == widget.projectId) r];
+
   @override
   Widget build(BuildContext context) => FieldViewTheme(
     child: Builder(
@@ -117,7 +125,7 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            '교정 기록',
+            widget.projectId == null ? '교정 기록' : '교정 기록 · ${widget.projectName}',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           actions: [

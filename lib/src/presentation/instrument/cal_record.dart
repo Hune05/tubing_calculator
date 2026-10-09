@@ -311,6 +311,9 @@ class CalRecord {
   final SwitchSpec? sw;
   final List<SwitchRepeat> swFound;
   final List<SwitchRepeat> swLeft;
+  // 붙인 내 프로젝트(10-09). 비면 안 붙임. 프로젝트 개요에 이 기록이 같이 보인다.
+  final String projectId;
+  final String projectName;
 
   const CalRecord({
     required this.id,
@@ -323,6 +326,8 @@ class CalRecord {
     this.worker = '',
     this.ambient = '',
     this.memo = '',
+    this.projectId = '',
+    this.projectName = '',
     required this.lrv,
     required this.urv,
     this.unit = '',
@@ -387,6 +392,8 @@ class CalRecord {
     'worker': worker,
     'ambient': ambient,
     'memo': memo,
+    if (projectId.isNotEmpty) 'projectId': projectId,
+    if (projectId.isNotEmpty) 'projectName': projectName,
     'lrv': lrv,
     'urv': urv,
     'unit': unit,
@@ -418,6 +425,8 @@ class CalRecord {
     worker: j['worker'] as String? ?? '',
     ambient: j['ambient'] as String? ?? '',
     memo: j['memo'] as String? ?? '',
+    projectId: j['projectId'] as String? ?? '',
+    projectName: j['projectName'] as String? ?? '',
     lrv: (j['lrv'] as num).toDouble(),
     urv: (j['urv'] as num).toDouble(),
     unit: j['unit'] as String? ?? '',

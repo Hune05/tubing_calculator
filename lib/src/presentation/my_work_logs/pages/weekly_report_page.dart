@@ -15,6 +15,7 @@ import '../screens/work_log_main_screen.dart';
 import '../widgets/work_theme.dart';
 import '../models/weekly_plan.dart';
 import '../models/attendance.dart';
+import '../widgets/linked_records_section.dart' show loadWeeklyTests;
 import 'package:tubing_calculator/src/core/utils/error_text.dart';
 
 const Color _teal = AppColors.brand;
@@ -52,7 +53,9 @@ Future<void> openWeeklyReportFromNotification(
       ),
     );
     // 설정에서 켠 경우: 화면을 열자마자 PDF를 만들어 공유창까지 연다.
-    if (autoPdf) await shareReportPdf(buildWeeklyPlanDoc(logs));
+    if (autoPdf) {
+      await shareReportPdf(buildWeeklyPlanDoc(logs, tests: await loadWeeklyTests()));
+    }
   } catch (_) {}
 }
 
@@ -111,7 +114,13 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     AttendanceCache.refresh().then((_) {
       if (mounted) setState(() {});
     });
+    // 프로젝트에 붙인 압력시험·교정 기록을 실적에 넣는다(10-09).
+    loadWeeklyTests().then((t) {
+      if (mounted) setState(() => _tests = t);
+    });
   }
+
+  Map<String, List<WeeklyTestLine>> _tests = const {};
 
   // 진행률 카드 정렬은 다음에 열어도 그대로 유지한다.
   static const _kSortPref = 'weekly_overview_sort';
@@ -166,6 +175,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
     includePhotos: _photos,
     perProject: _split && _projectId == null,
     asOf: _asOf,
+    tests: _tests,
   );
 
   Future<void> _pickDate() async {

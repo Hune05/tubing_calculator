@@ -7,6 +7,7 @@ import 'package:tubing_calculator/src/core/utils/image_picker_helper.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/photo_store.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/fullscreen_photo_viewer.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/confirm_delete.dart';
+import 'package:tubing_calculator/src/presentation/my_work_logs/widgets/project_link_field.dart';
 
 import '../../core/theme/field_view.dart';
 import 'pressure_calc.dart';
@@ -29,6 +30,9 @@ class PtSaveResult {
   final String witnessContractor, witnessSupervisor, witnessOwner;
   final List<String> photos;
   final String memo;
+
+  /// 붙인 내 프로젝트(10-09). 비면 안 붙임.
+  final ProjectLink project;
   const PtSaveResult({
     required this.asNew,
     required this.date,
@@ -50,6 +54,7 @@ class PtSaveResult {
     required this.witnessOwner,
     required this.photos,
     required this.memo,
+    this.project = kNoProjectLink,
   });
 }
 
@@ -93,6 +98,8 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
   late final _line = TextEditingController(text: widget.line);
   late final _testNo = TextEditingController(text: _ed?.testNo ?? '');
   late final _site = TextEditingController(text: _ed?.site ?? '');
+  // 붙일 프로젝트: 고치는 기록이면 그 기록의 것, 새 기록이면 마지막에 고른 것.
+  ProjectLink _project = kNoProjectLink;
   late final _system = TextEditingController(text: _ed?.system ?? '');
   late final _pid = TextEditingController(text: _ed?.pid ?? '');
   late final _section = TextEditingController(text: _ed?.section ?? '');
@@ -149,6 +156,14 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
   void initState() {
     super.initState();
     _photos.addAll(_ed?.photos ?? const []);
+    final ed = _ed;
+    if (ed != null) {
+      _project = (id: ed.projectId, name: ed.projectName);
+    } else {
+      loadLastProjectLink().then((p) {
+        if (mounted && _project.id.isEmpty) setState(() => _project = p);
+      });
+    }
     _openSig = _sig();
   }
 
@@ -204,6 +219,7 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
         date: _date,
         testNo: _testNo.text.trim(),
         site: _site.text.trim(),
+        project: _project,
         system: _system.text.trim(),
         line: _line.text.trim(),
         pid: _pid.text.trim(),
@@ -520,6 +536,14 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
               onChanged: (_) => setState(() {}),
             ),
             _field('ps_testno', '시험 번호', _testNo, hint: '예: HT-001'),
+            ProjectLinkField(
+              value: _project,
+              onChanged: (p) => setState(() {
+                _project = p;
+                // 현장 칸이 비었으면 프로젝트 이름을 넣어 준다(기록서에 그대로 나간다).
+                if (p.id.isNotEmpty && _site.text.trim().isEmpty) _site.text = p.name;
+              }),
+            ),
             _field('ps_site', '현장·프로젝트', _site),
             _field('ps_system', '계통', _system, hint: '예: 급수 계통'),
             _field('ps_pid', 'P&ID·아이소 번호', _pid),

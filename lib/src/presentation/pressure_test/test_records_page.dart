@@ -37,7 +37,11 @@ List<PtRecord> filterPtRecords(List<PtRecord> list, String query, bool? pass) {
 }
 
 class PtRecordsPage extends StatefulWidget {
-  const PtRecordsPage({super.key});
+  const PtRecordsPage({super.key, this.projectId, this.projectName = ''});
+
+  /// 주면 그 프로젝트에 붙인 기록만 보인다(프로젝트 개요에서 열 때, 10-09).
+  final String? projectId;
+  final String projectName;
 
   @override
   State<PtRecordsPage> createState() => _PtRecordsPageState();
@@ -64,7 +68,7 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
 
   Future<void> _reload() async {
     final l = await PtRecordStore.load();
-    if (mounted) setState(() => _list = l);
+    if (mounted) setState(() => _list = _scope(l));
   }
 
   /// 서버의 내 기록을 받아 합치고, 폰에만 있는 것을 올린다. 통신이 없으면 폰 것만 보인다.
@@ -76,7 +80,7 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
     if (mounted) {
       setState(() {
         _sync = s;
-        _list = l;
+        _list = _scope(l);
       });
     }
   }
@@ -121,6 +125,10 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
 
   String _name(PtRecord r) => r.line.isEmpty ? '(라인 번호 없음)' : r.line;
 
+  List<PtRecord> _scope(List<PtRecord> l) => widget.projectId == null
+      ? l
+      : [for (final r in l) if (r.projectId == widget.projectId) r];
+
   @override
   Widget build(BuildContext context) => FieldViewTheme(
     child: Builder(
@@ -132,7 +140,7 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
           surfaceTintColor: Colors.transparent,
           elevation: 0,
           title: Text(
-            '압력시험 기록',
+            widget.projectId == null ? '압력시험 기록' : '압력시험 기록 · ${widget.projectName}',
             style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
           ),
           actions: [

@@ -359,6 +359,9 @@ class PtRecord {
   final String tubeId; // 튜브 규격 번호(tube_rating.dart). 배관·이전 기록은 ''
   final String tubeSpec; // 튜브 규격 글(기록서·CSV에 그대로)
   final String tubeMat; // 튜브 재질(TubeMaterial 이름)
+  // 붙인 내 프로젝트(10-09). 비면 안 붙임. 프로젝트 개요에 이 기록이 같이 보인다.
+  final String projectId;
+  final String projectName;
 
   const PtRecord({
     required this.id,
@@ -398,6 +401,8 @@ class PtRecord {
     this.tubeId = '',
     this.tubeSpec = '',
     this.tubeMat = '',
+    this.projectId = '',
+    this.projectName = '',
   });
 
   PtVerdict get verdict => judgePressureTest(
@@ -473,6 +478,8 @@ class PtRecord {
     'wO': witnessOwner,
     'photos': photos,
     'memo': memo,
+    if (projectId.isNotEmpty) 'projectId': projectId,
+    if (projectId.isNotEmpty) 'projectName': projectName,
     'od': odMm,
     'wall': wallMm,
     'mat': material.name,
@@ -531,6 +538,8 @@ class PtRecord {
             if (p.toString().isNotEmpty) p.toString(),
       ],
       memo: _s(j['memo']),
+      projectId: _s(j['projectId']),
+      projectName: _s(j['projectName']),
       odMm: _d(j['od']),
       wallMm: _d(j['wall']),
       material: pick(PipeMaterial.values, j['mat'], PipeMaterial.carbon),

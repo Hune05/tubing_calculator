@@ -481,6 +481,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     // 기록은 사진을 폰 경로 그대로 먼저 저장하고, 사진 올리기는 뒤에서 한다(_uploadPtPhotos).
     // 예전에는 사진을 다 올린 뒤에야 저장해, 통신이 없으면 한참 반응이 없고 그사이 나가면 기록이 사라졌다(10-07).
     final photos = res.photos;
+    // 다음 기록도 같은 프로젝트를 기본으로(10-09).
+    saveLastProjectLink(res.project);
     final rec = PtRecord(
       id: recId,
       date: DateTime(
@@ -492,6 +494,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       ),
       testNo: res.testNo,
       site: res.site,
+      projectId: res.project.id,
+      projectName: res.project.name,
       system: res.system,
       line: res.line,
       pid: res.pid,

@@ -117,7 +117,13 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                   onTap: () => _run(() => widget.actions.openPunch(p)),
                 ),
               ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 22),
+        // 저장 창에서 이 프로젝트에 붙인 압력시험·교정 기록(10-09). 없으면 안 그린다.
+        LinkedRecordsSection(
+          projectId: log['id']?.toString() ?? '',
+          projectName: log['name']?.toString() ?? '',
+        ),
+        const SizedBox(height: 6),
         Center(
           child: TextButton.icon(
             onPressed: () async {

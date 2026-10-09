@@ -23,6 +23,7 @@ import 'switch_check.dart';
 import 'temp_sensor.dart';
 import '../common/number_text.dart';
 import '../my_work_logs/widgets/confirm_delete.dart';
+import '../my_work_logs/widgets/project_link_field.dart';
 
 String _fmt(double v, [int d = 3]) {
   // 0.125가 0.12로 내려가지 않게(이진 소수 오차) 반올림 전에 아주 작게 밀어 준다.
@@ -1321,6 +1322,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       ),
     );
     if (res == null || !mounted) return;
+    // 다음 기록도 같은 프로젝트를 기본으로(10-09).
+    saveLastProjectLink(res.project);
     final now = DateTime.now();
     final keep = !res.asNew && ed != null;
     final id = keep ? ed.id : now.microsecondsSinceEpoch.toString();
@@ -1362,6 +1365,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       worker: res.worker,
       ambient: res.ambient,
       memo: res.memo,
+      projectId: res.project.id,
+      projectName: res.project.name,
       lrv: range?.$1 ?? l0,
       urv: range?.$2 ?? l0,
       unit: _u,
@@ -1393,6 +1398,8 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       worker: res.worker,
       ambient: res.ambient,
       memo: res.memo,
+      projectId: res.project.id,
+      projectName: res.project.name,
       lrv: l,
       urv: u,
       unit: _u,
@@ -2614,6 +2621,9 @@ class _SaveResult {
   final DateTime calDate;
   final DateTime? nextDue;
   final String tag, instrument, model, refStd, worker, ambient, memo;
+
+  /// 붙인 내 프로젝트(10-09). 비면 안 붙임.
+  final ProjectLink project;
   const _SaveResult({
     required this.asNew,
     required this.calDate,
@@ -2625,6 +2635,7 @@ class _SaveResult {
     required this.worker,
     required this.ambient,
     required this.memo,
+    this.project = kNoProjectLink,
   });
 }
 
@@ -2663,6 +2674,8 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
     text: widget.editing?.ambient ?? '',
   );
   late final _memo = TextEditingController(text: widget.editing?.memo ?? '');
+  // 붙일 프로젝트: 고치는 기록이면 그 기록의 것, 새 기록이면 마지막에 고른 것.
+  ProjectLink _project = kNoProjectLink;
   late DateTime _calDate = widget.editing?.date ?? DateTime.now();
   late int _dueMonths = _initialDue();
   bool _tagError = false;
@@ -2693,6 +2706,14 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
   @override
   void initState() {
     super.initState();
+    final ed = widget.editing;
+    if (ed != null) {
+      _project = (id: ed.projectId, name: ed.projectName);
+    } else {
+      loadLastProjectLink().then((p) {
+        if (mounted && _project.id.isEmpty) setState(() => _project = p);
+      });
+    }
     _openSig = _sig();
   }
 
@@ -2730,6 +2751,7 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
         worker: _worker.text.trim(),
         ambient: _ambient.text.trim(),
         memo: _memo.text.trim(),
+        project: _project,
       ),
     );
   }
@@ -2828,6 +2850,10 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
               hint: '예: PT-101',
               error: _tagError,
               onChanged: (_) => setState(() {}),
+            ),
+            ProjectLinkField(
+              value: _project,
+              onChanged: (p) => setState(() => _project = p),
             ),
             _field('cs_inst', '계기', _inst, hint: '예: 급수 펌프 토출 압력 전송기'),
             _field('cs_model', '제조사·모델', _model, hint: '예: Rosemount 3051'),
