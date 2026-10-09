@@ -70,11 +70,19 @@ class PhotoImage extends StatelessWidget {
         ),
       );
     }
+    // 작은 칸은 그 크기(넉넉히 2배)로만 펼친다(10-09: 사진 칸 88px에 원본 4000px를 통째로 펼쳐
+    // 여러 장이면 버벅였다). 크게 보기처럼 폭이 정해지지 않으면 원본 그대로.
+    final dpr = MediaQuery.maybeDevicePixelRatioOf(context) ?? 2.0;
+    final box = [width, height].whereType<double>().where((v) => v.isFinite);
+    final cache = box.isEmpty
+        ? null
+        : (box.reduce((a, b) => a > b ? a : b) * dpr * 2).round();
     return Image.file(
       File(path),
       width: width,
       height: height,
       fit: fit,
+      cacheWidth: cache,
       errorBuilder: (_, _, _) => _broken(),
     );
   }

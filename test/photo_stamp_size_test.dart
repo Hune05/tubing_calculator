@@ -1,4 +1,4 @@
-// 현장 사진 도장: 큰 사진은 긴 변 2560px로 줄여 찍는다(10-08: 원본 그대로라 사진이 4~5초 늦게 붙었다).
+// 현장 사진 도장: 큰 사진은 긴 변 kStampMaxSide(10-09부터 1600px, 전에는 2560)로 줄여 찍는다(10-08: 원본 그대로라 사진이 4~5초 늦게 붙었다).
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -18,7 +18,7 @@ class _FakePaths extends Fake with MockPlatformInterfaceMixin implements PathPro
 }
 
 void main() {
-  testWidgets('4000×3000 사진에 도장을 찍으면 2560×1920이 된다', (tester) async {
+  testWidgets('4000×3000 사진에 도장을 찍으면 1600×1200이 된다', (tester) async {
     final tmp = Directory.systemTemp.createTempSync('stamp');
     addTearDown(() => tmp.deleteSync(recursive: true));
     PathProviderPlatform.instance = _FakePaths(tmp.path);
@@ -33,7 +33,7 @@ void main() {
       final codec = await ui.instantiateImageCodec(File(out).readAsBytesSync());
       final f = await codec.getNextFrame();
       expect(f.image.width, kStampMaxSide);
-      expect(f.image.height, 1920);
+      expect(f.image.height, 1200);
     });
   });
 }

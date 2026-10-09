@@ -4,6 +4,7 @@ part of 'daily_report_page.dart';
 // 🚀 photos 부분(화면 클래스에서 옮겨 온 메서드들, 동작은 그대로).
 extension _DailyReportPhotos on _DailyReportPageState {
   Future<void> _editPhoto(int index) async {
+    if (_photoNotReady(index)) return;
     final path = _attachedImages[index];
     final ctrl = TextEditingController(text: _imageCaptions[path] ?? '');
     final action = await showModalBottomSheet<String>(
@@ -114,6 +115,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
 
   /// 사진 위에 화살표·글자 등을 넣은 사본을 원래 사진 바로 뒤에 붙인다(원본은 그대로).
   Future<void> _annotatePhoto(int index, {String? caption}) async {
+    if (_photoNotReady(index)) return;
     final path = _attachedImages[index];
     if (_attachedImages.length >= 10) {
       if (mounted) {
@@ -139,6 +141,15 @@ extension _DailyReportPhotos on _DailyReportPageState {
     }
   }
 
+  /// 아직 도장·보관 중인 사진이면 잠깐 기다리라고 알리고 true(10-09).
+  bool _photoNotReady(int index) {
+    if (index >= _attachedImages.length || !_photoBusy(_attachedImages[index])) {
+      return false;
+    }
+    showAppSnack(context, "사진을 정리하는 중입니다. 잠시 뒤에 다시 누르십시오.");
+    return true;
+  }
+
   Widget _photoThumb(int index, String path) {
     final tag = _imageTags[path];
     return Padding(
@@ -159,6 +170,28 @@ extension _DailyReportPhotos on _DailyReportPageState {
               child: PhotoImage(path, width: 88, height: 88),
             ),
           ),
+          // 도장 찍기·보관 중(사진은 먼저 보이고, 끝나면 이 표시가 사라진다).
+          if (_photoBusy(path))
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  key: Key('photo_busy_$index'),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
           Positioned(
             top: 4,
             right: 4,

@@ -1,4 +1,5 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -13,8 +14,24 @@ const Color slate600 = AppColors.textSub;
 const Color slate900 = AppColors.text;
 const Color pureWhite = Color(0xFFFFFFFF);
 
+/// 고르기만 한 사진(도장·보관 전). [ImagePickerHelper.finishPhoto]로 마무리한다(10-09).
+class PickedPhoto {
+  /// image_picker가 준 임시 경로(바로 화면에 보일 수 있다).
+  final String rawPath;
+
+  /// 카메라로 막 찍은 사진(도장은 이것에만).
+  final bool fromCamera;
+  const PickedPhoto(this.rawPath, {this.fromCamera = false});
+}
+
 class ImagePickerHelper {
   static final ImagePicker _picker = ImagePicker();
+
+  /// 시험에서 사진 고르기·마무리를 바꿔 넣는다.
+  @visibleForTesting
+  static Future<List<PickedPhoto>> Function(int maxCount)? debugPickRaw;
+  @visibleForTesting
+  static Future<String> Function(PickedPhoto p)? debugFinish;
 
   /// 고른 사진은 캐시 폴더에 오는데, 서버에 올리기 전에 폰이 캐시를 비우면 사진이 사라지고
   /// 일지에는 없는 경로만 남았다. 앱 문서 폴더로 옮겨 둔다(못 옮기면 원래 경로).
@@ -100,7 +117,28 @@ class ImagePickerHelper {
     bool stampSite = false,
     String? siteLabel,
   }) async {
+    final picked = await pickRawImages(
+      context,
+      maxCount: maxCount,
+      stampSite: stampSite,
+    );
+    return [
+      for (final p in picked)
+        await finishPhoto(p, stampSite: stampSite, siteLabel: siteLabel),
+    ];
+  }
+
+  /// 사진을 고르기만 한다(도장·보관은 [finishPhoto]). 작업 일지처럼 고르자마자 화면에 먼저
+  /// 보이고 마무리는 뒤에서 하려는 곳이 쓴다(10-09: 다 끝날 때까지 몇 초 동안 아무 표시가 없었다).
+  /// 현장 사진([stampSite])은 고를 때부터 긴 변 [kStampMaxSide]로 줄인다(서버에 올릴 때 크기).
+  static Future<List<PickedPhoto>> pickRawImages(
+    BuildContext context, {
+    int maxCount = 10,
+    bool stampSite = false,
+  }) async {
     if (maxCount <= 0) return [];
+    final fake = debugPickRaw;
+    if (fake != null) return fake(maxCount);
     final ImageSource? source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: pureWhite,
@@ -143,30 +181,50 @@ class ImagePickerHelper {
       ),
     );
     if (source == null) return [];
+    final side = stampSite ? kStampMaxSide.toDouble() : null;
     if (source == ImageSource.camera) {
+      // 도장에 넣을 위치 이름을 카메라를 여는 동안 미리 묻는다(찍고 나서 최대 2초 기다리던 것, 10-09).
+      if (stampSite && ReportStyle.current.photoStamp) {
+        unawaited(quickSiteLocationLabel());
+      }
       final XFile? image = await _picker.pickImage(
         source: source,
         imageQuality: 70,
-        // 현장 증빙 사진(도장)은 긴 변 2560px면 충분하다. 원본 그대로 줄이고 도장 찍느라 몇 초 걸렸다(10-08).
-        maxWidth: stampSite ? 2560 : null,
-        maxHeight: stampSite ? 2560 : null,
+        maxWidth: side,
+        maxHeight: side,
       );
-      if (image == null) return [];
-      var path = image.path;
-      if (stampSite && ReportStyle.current.photoStamp) {
-        path = await stampPhoto(path, siteName: siteLabel ?? '');
-      }
-      final kept = await keepPhoto(path);
-      // 도장 찍은 임시 파일은 사진 폴더로 옮겼으면 지운다(8차).
-      if (path != image.path && kept != path) {
-        try {
-          await File(path).delete();
-        } catch (_) {}
-      }
-      return [kept];
+      return image == null ? [] : [PickedPhoto(image.path, fromCamera: true)];
     }
-    final images = await _picker.pickMultiImage(imageQuality: 70);
-    return [for (final e in images.take(maxCount)) await keepPhoto(e.path)];
+    // 갤러리 사진도 현장 사진이면 고를 때 줄인다(10-09: 원본 크기 그대로 다시 저장해 장수만큼 느렸다).
+    final images = await _picker.pickMultiImage(
+      imageQuality: 70,
+      maxWidth: side,
+      maxHeight: side,
+    );
+    return [for (final e in images.take(maxCount)) PickedPhoto(e.path)];
+  }
+
+  /// 고른 사진을 마무리한다: 카메라 사진이고 도장이 켜져 있으면 도장을 찍고, 앱 사진 폴더로 옮긴다.
+  /// 마무리한 경로(실패하면 받은 경로).
+  static Future<String> finishPhoto(
+    PickedPhoto p, {
+    bool stampSite = false,
+    String? siteLabel,
+  }) async {
+    final fake = debugFinish;
+    if (fake != null) return fake(p);
+    var path = p.rawPath;
+    if (p.fromCamera && stampSite && ReportStyle.current.photoStamp) {
+      path = await stampPhoto(path, siteName: siteLabel ?? '');
+    }
+    final kept = await keepPhoto(path);
+    // 도장 찍은 임시 파일은 사진 폴더로 옮겼으면 지운다(8차).
+    if (path != p.rawPath && kept != path) {
+      try {
+        await File(path).delete();
+      } catch (_) {}
+    }
+    return kept;
   }
 
   /// 제출용 사진(압력계 눈금처럼 특정 부분을 확대해 붙여야 할 때)을 자르는 화면을

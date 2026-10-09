@@ -1,3 +1,5 @@
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showAppSnack;
+import 'dart:io';
 import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -172,6 +174,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
   bool _isAsBuilt = false;
   List<String> _attachedImages = [];
+
+  /// 고른 뒤 도장·보관을 뒤에서 하는 사진(임시 경로 → 마무리 작업). 끝나면 목록의 경로를 바꾼다(10-09).
+  final Map<String, Future<String>> _photoJobs = {};
   late bool _isEdit;
 
   // 🚀 [추가] 오늘 처리한 이슈 태그
@@ -867,14 +872,49 @@ class _DailyReportPageState extends State<DailyReportPage> {
   void _handleAddImage() async {
     if (_attachedImages.length >= 10) return;
     FocusScope.of(context).unfocus();
-    final paths = await ImagePickerHelper.pickImages(
+    // 고르자마자 사진 칸에 먼저 넣고, 도장 찍기·보관은 뒤에서 한다(10-09: 다 끝날 때까지 몇 초 동안
+    // 아무 표시가 없어 늦게 붙는 것처럼 보였다). 끝나면 그 자리를 마무리한 사진으로 바꾼다.
+    final picked = await ImagePickerHelper.pickRawImages(
       context,
       maxCount: 10 - _attachedImages.length,
       stampSite: true,
-      siteLabel: widget.projectName,
     );
-    if (paths.isNotEmpty) setState(() => _attachedImages.addAll(paths));
+    if (picked.isEmpty || !mounted) return;
+    setState(() => _attachedImages.addAll([for (final p in picked) p.rawPath]));
+    for (final p in picked) {
+      final job = ImagePickerHelper.finishPhoto(
+        p,
+        stampSite: true,
+        siteLabel: widget.projectName,
+      );
+      _photoJobs[p.rawPath] = job;
+      job.then((done) {
+        _photoJobs.remove(p.rawPath);
+        final i = _attachedImages.indexOf(p.rawPath);
+        if (i < 0) {
+          // 정리하는 사이 지운 사진: 옮겨 둔 파일도 지운다.
+          if (done != p.rawPath) File(done).delete().ignore();
+          return;
+        }
+        if (mounted) {
+          setState(() => _attachedImages[i] = done);
+        } else {
+          _attachedImages[i] = done;
+        }
+      });
+    }
   }
+
+  /// 저장하기 전에 뒤에서 정리 중인 사진이 다 끝나기를 기다린다(임시 경로가 저장되지 않게).
+  Future<void> _waitPhotoJobs() async {
+    while (_photoJobs.isNotEmpty) {
+      await Future.wait(_photoJobs.values.toList());
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  /// 아직 정리 중인 사진인지(고치기·표시하기를 잠깐 막는다).
+  bool _photoBusy(String path) => _photoJobs.containsKey(path);
 
   Widget _buildIssueChip(Map<String, dynamic> issue) {
     final String id = issue['id']?.toString() ?? '';

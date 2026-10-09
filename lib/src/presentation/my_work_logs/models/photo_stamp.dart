@@ -28,9 +28,20 @@ String? _lastPlace;
 DateTime? _lastPlaceAt;
 const Duration _placeKeep = Duration(minutes: 10);
 
-Future<String?> quickSiteLocationLabel() async {
+/// 지금 묻고 있는 위치 이름(카메라를 열 때 미리 묻기 시작하고, 도장 찍을 때 같은 물음을 기다린다, 10-09).
+Future<String?>? _placeInFlight;
+
+Future<String?> quickSiteLocationLabel() {
   final at = _lastPlaceAt;
-  if (at != null && DateTime.now().difference(at) < _placeKeep) return _lastPlace;
+  if (at != null && DateTime.now().difference(at) < _placeKeep) {
+    return Future.value(_lastPlace);
+  }
+  return _placeInFlight ??= _lookupPlace().whenComplete(
+    () => _placeInFlight = null,
+  );
+}
+
+Future<String?> _lookupPlace() async {
   try {
     final perm = await Geolocator.checkPermission();
     final allowed =
@@ -64,7 +75,8 @@ Future<String?> quickSiteLocationLabel() async {
 }
 
 /// 도장 찍을 때 사진 긴 변 한도. 원본(4000px)을 그대로 그리고 PNG로 만들면 몇 초 걸렸다(10-08).
-const int kStampMaxSide = 2560;
+/// 10-09: 2560 → 1600. 서버에 올릴 때도 1600px로 줄이므로(photo_store.dart) 더 크게 찍어 봐야 헛일이었다.
+const int kStampMaxSide = 1600;
 
 /// 도장에 넣을 줄들(빈 줄은 뺀다). 화면과 떼어 놓아서 검사할 수 있게.
 List<String> photoStampLines({

@@ -70,6 +70,9 @@ extension _DailyReportSubmit on _DailyReportPageState {
   }
 
   void _submit() async {
+    // 뒤에서 도장·보관 중인 사진이 있으면 끝날 때까지 기다린다(10-09).
+    await _waitPhotoJobs();
+    if (!mounted) return;
     String ptText = _pointCtrl.text.trim();
     String wpText = _wiringPointCtrl.text.trim();
     String ntText = _noteCtrl.text.trim();
