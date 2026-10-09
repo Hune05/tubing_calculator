@@ -148,5 +148,20 @@ void main() {
       // 단추가 콩알만 하지 않다(가로 640×340 작은 폰에서도 높이 30 이상).
       expect(tester.getSize(find.byKey(const Key('calc_7'))).height, greaterThan(30));
     });
+
+    testWidgets('태블릿 가로(1007×560)에서는 지난 계산 기록 줄도 보인다', (tester) async {
+      tester.view.physicalSize = const Size(1007, 560);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(const MaterialApp(home: EngCalculatorPage()));
+      await tester.pump();
+      for (final k in ['calc_7', 'calc_mul', 'calc_6', 'calc_eq']) {
+        await tester.tap(find.byKey(Key(k)));
+        await tester.pump();
+      }
+      expect(find.byKey(const Key('calc_landscape_keypad')), findsOneWidget);
+      expect(find.byKey(const Key('calc_history')), findsOneWidget);
+      expect(find.textContaining('= 42'), findsOneWidget);
+    });
   });
 }

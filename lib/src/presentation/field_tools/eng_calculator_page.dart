@@ -902,12 +902,18 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
   ) => Center(
     child: ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 1100),
-      child: Column(
-        children: [
-          Expanded(flex: 2, child: _display(big, result)),
-          const Divider(height: 1),
-          Expanded(flex: 7, child: _landscapeKeypad()),
-        ],
+      child: LayoutBuilder(
+        // 태블릿처럼 높이가 넉넉하면(420 이상) 표시창을 조금 키워 기록 줄도 보이게 한다.
+        builder: (context, box) => Column(
+          children: [
+            Expanded(
+              flex: box.maxHeight >= 420 ? 3 : 2,
+              child: _display(big, result),
+            ),
+            const Divider(height: 1),
+            Expanded(flex: 7, child: _landscapeKeypad()),
+          ],
+        ),
       ),
     ),
   );
@@ -1030,17 +1036,22 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
 
   Widget _display(String big, ({String decimal, String? fraction})? result) =>
       LayoutBuilder(
-        // 가로로 눕힌 작은 폰처럼 표시창이 아주 낮으면(110 미만) 기록 줄을 빼고 여백·식 글을 줄인다.
-        builder: (context, box) =>
-            _displayBody(big, result, compact: box.maxHeight < 110),
+        // 가로로 눕힌 폰처럼 표시창이 낮으면(110 미만) 여백·식 글을 줄이고, 아주 낮으면(80 미만) 기록 줄도 뺀다.
+        builder: (context, box) => _displayBody(
+          big,
+          result,
+          compact: box.maxHeight < 110,
+          noHistory: box.maxHeight < 80,
+        ),
       );
 
   Widget _displayBody(
     String big,
     ({String decimal, String? fraction})? result, {
     required bool compact,
+    bool noHistory = false,
   }) {
-    final showHistory = _history.isNotEmpty && !compact;
+    final showHistory = _history.isNotEmpty && !noHistory;
     _compactExpr = compact;
     return Container(
       width: double.infinity,
