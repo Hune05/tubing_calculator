@@ -39,6 +39,7 @@ extension _DailyReportDraft on _DailyReportPageState {
       'issues': _selectedIssueIds.toList(),
       'pinDx': _pinDx,
       'pinDy': _pinDy,
+      'pinOnImage': _pinOnImage,
       'weather': _weather,
       'weatherAuto': _weatherAuto,
     });
@@ -168,6 +169,7 @@ extension _DailyReportDraft on _DailyReportPageState {
         ..addAll(_strList(m['issues']));
       _pinDx = (m['pinDx'] as num?)?.toDouble();
       _pinDy = (m['pinDy'] as num?)?.toDouble();
+      _pinOnImage = m['pinOnImage'] == true;
       if (m.containsKey('weather')) {
         _weather = m['weather']?.toString() ?? '';
         _weatherAuto = m['weatherAuto'] == true;

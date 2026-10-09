@@ -265,6 +265,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
       // 🚀 [추가] 도면 위 작업 위치 핀.
       "locationPinDx": _pinDx,
       "locationPinDy": _pinDy,
+      kPinOnImageKey: _pinDx != null && _pinOnImage,
       "image_tags": {
         for (final p in _attachedImages)
           if (_imageTags[p] != null) p: _imageTags[p]!,

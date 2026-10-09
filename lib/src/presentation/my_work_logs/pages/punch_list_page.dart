@@ -15,6 +15,7 @@ import '../../../core/utils/image_picker_helper.dart'; // 🚀 경로 확인 필
 import '../widgets/photo_detail_modal.dart';
 import '../widgets/confirm_delete.dart';
 import 'floor_plan_pin_page.dart';
+import '../models/plan_pin.dart' show kPinOnImageKey;
 import '../../my_schedule/schedule_logic.dart' show clampPickerInitial;
 
 const Color tossText = AppColors.text;
@@ -100,6 +101,8 @@ class _PunchListPageState extends State<PunchListPage> {
   String? _floorPlanImagePath;
   double? _pinDx;
   double? _pinDy;
+  // 핀이 도면 그림 기준인지(10-10, plan_pin.dart).
+  bool _pinOnImage = false;
   // 이번 등록에서 도면을 새로 고른 경우, 프로젝트에 저장해야 하므로
   // 별도로 기억해둔다 (기존에 있던 도면을 그대로 쓴 경우는 null).
   String? _newFloorPlanPath;
@@ -177,6 +180,7 @@ class _PunchListPageState extends State<PunchListPage> {
       _newFloorPlanPath = path;
       _pinDx = null;
       _pinDy = null;
+      _pinOnImage = false;
     });
     if (!mounted) return;
     await _openPinPicker();
@@ -191,6 +195,7 @@ class _PunchListPageState extends State<PunchListPage> {
           imagePath: _floorPlanImagePath!,
           initialDx: _pinDx,
           initialDy: _pinDy,
+          initialOnImage: _pinOnImage,
         ),
       ),
     );
@@ -198,6 +203,7 @@ class _PunchListPageState extends State<PunchListPage> {
       setState(() {
         _pinDx = result.dx;
         _pinDy = result.dy;
+        _pinOnImage = true;
       });
     }
   }
@@ -253,6 +259,7 @@ class _PunchListPageState extends State<PunchListPage> {
       // 🚀 [추가] 도면 위 위치 핀 (프로젝트 도면 기준 0~1 비율 좌표).
       "locationPinDx": _pinDx,
       "locationPinDy": _pinDy,
+      kPinOnImageKey: _pinDx != null && _pinOnImage,
       // 🚀 이번에 새로 고른 도면이면 프로젝트에 저장해야 한다는 신호.
       // work_log_main_screen.dart에서 이 키를 보고 처리한 뒤 제거한다.
       if (_newFloorPlanPath != null) "__newFloorPlanPath": _newFloorPlanPath,
@@ -459,6 +466,7 @@ class _PunchListPageState extends State<PunchListPage> {
                       imagePath: _floorPlanImagePath!,
                       dx: _pinDx,
                       dy: _pinDy,
+                      onImage: _pinOnImage,
                       onTap: _openPinPicker,
                     ),
                     const SizedBox(height: 8),

@@ -1,21 +1,24 @@
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:flutter/material.dart';
-import '../models/photo_store.dart';
+import '../models/plan_pin.dart';
 
 // 🚀 [신규] 카카오톡 등으로 받은 실제 도면/배치도 사진 위에 이슈 발생
-// 위치를 탭 한 번으로 찍는 화면. 좌표는 이미지 표시 영역 기준 0~1
-// 비율(dx, dy)로 저장해서, 나중에 다른 크기로 그려도(썸네일/상세화면)
-// 같은 상대 위치에 정확히 표시된다.
+// 위치를 탭 한 번으로 찍는 화면. 좌표는 도면 그림 기준 0~1 비율(dx, dy)로
+// 돌려준다(10-10: 예전에는 화면 몸통 기준이라 미리보기·PDF와 어긋났다 —
+// plan_pin.dart). 부른 쪽은 [kPinOnImageKey]: true를 같이 저장한다.
 class FloorPlanPinPage extends StatefulWidget {
   final String imagePath;
   final double? initialDx;
   final double? initialDy;
+  // 처음 핀이 도면 그림 기준인지(예전 핀은 false — 이 화면 크기로 바꿔 보인다).
+  final bool initialOnImage;
 
   const FloorPlanPinPage({
     super.key,
     required this.imagePath,
     this.initialDx,
     this.initialDy,
+    this.initialOnImage = false,
   });
 
   @override
@@ -23,14 +26,27 @@ class FloorPlanPinPage extends StatefulWidget {
 }
 
 class _FloorPlanPinPageState extends State<FloorPlanPinPage> {
-  Offset? _fraction; // 0~1 비율 좌표
+  Offset? _fraction; // 도면 그림 기준 0~1
+  Size? _image;
+  bool _initDone = false;
 
   @override
   void initState() {
     super.initState();
-    if (widget.initialDx != null && widget.initialDy != null) {
-      _fraction = Offset(widget.initialDx!, widget.initialDy!);
-    }
+    planImageSize(widget.imagePath).then((s) {
+      if (mounted) setState(() => _image = s);
+    });
+  }
+
+  // 처음 핀: 그림 기준이면 그대로, 예전 핀이면 이 화면 몸통 크기로 바꾼다.
+  void _initFraction(Size box) {
+    if (_initDone || _image == null) return;
+    _initDone = true;
+    final dx = widget.initialDx, dy = widget.initialDy;
+    if (dx == null || dy == null) return;
+    _fraction = widget.initialOnImage
+        ? Offset(dx, dy)
+        : legacyPinToImage(Offset(dx, dy), _image!, box);
   }
 
   @override
@@ -59,35 +75,38 @@ class _FloorPlanPinPageState extends State<FloorPlanPinPage> {
         ),
         body: LayoutBuilder(
           builder: (context, constraints) {
+            final box = Size(constraints.maxWidth, constraints.maxHeight);
+            _initFraction(box);
+            final image = _image;
             return SizedBox(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
+              width: box.width,
+              height: box.height,
               child: GestureDetector(
-                onTapUp: (details) {
-                  final RenderBox box = context.findRenderObject() as RenderBox;
-                  final local = box.globalToLocal(details.globalPosition);
-                  final double dx = (local.dx / box.size.width).clamp(0.0, 1.0);
-                  final double dy = (local.dy / box.size.height).clamp(
-                    0.0,
-                    1.0,
-                  );
-                  setState(() => _fraction = Offset(dx, dy));
-                },
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    PhotoImage(widget.imagePath, fit: BoxFit.contain),
+                key: const Key('floor_plan_pin_area'),
+                // 도면 크기를 읽기 전에는 찍지 않는다(어느 자리인지 알 수 없다).
+                onTapUp: image == null
+                    ? null
+                    : (details) {
+                        final RenderBox rb =
+                            context.findRenderObject() as RenderBox;
+                        final local = rb.globalToLocal(details.globalPosition);
+                        setState(
+                          () => _fraction = boxPointToImage(local, image, box),
+                        );
+                      },
+                child: PlanPinsView(
+                  imagePath: widget.imagePath,
+                  imageSize: image,
+                  pins: [
                     if (_fraction != null)
-                      Align(
-                        alignment: Alignment(
-                          _fraction!.dx * 2 - 1,
-                          _fraction!.dy * 2 - 1,
-                        ),
-                        child: const Icon(
+                      PlanPin(
+                        _fraction!,
+                        const Icon(
                           Icons.location_on,
                           color: Colors.redAccent,
                           size: 40,
                         ),
+                        markerSize: const Size(40, 40),
                       ),
                   ],
                 ),
@@ -106,6 +125,8 @@ class FloorPlanThumbnail extends StatelessWidget {
   final String imagePath;
   final double? dx;
   final double? dy;
+  // 핀이 도면 그림 기준인지([kPinOnImageKey]). 예전 핀은 false.
+  final bool onImage;
   final double height;
   final VoidCallback? onTap;
 
@@ -114,6 +135,7 @@ class FloorPlanThumbnail extends StatelessWidget {
     required this.imagePath,
     this.dx,
     this.dy,
+    this.onImage = false,
     this.height = 150,
     this.onTap,
   });
@@ -128,20 +150,33 @@ class FloorPlanThumbnail extends StatelessWidget {
         child: SizedBox(
           width: double.infinity,
           height: height,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              PhotoImage(imagePath, fit: BoxFit.contain),
-              if (dx != null && dy != null)
-                Align(
-                  alignment: Alignment(dx! * 2 - 1, dy! * 2 - 1),
-                  child: const Icon(
-                    Icons.location_on,
-                    color: Colors.redAccent,
-                    size: 28,
-                  ),
-                ),
-            ],
+          child: FutureBuilder<Size?>(
+            future: planImageSize(imagePath),
+            builder: (_, snap) {
+              final image = snap.data;
+              final pin = (dx == null || dy == null)
+                  ? null
+                  : pinOnImageOf({
+                      'locationPinDx': dx,
+                      'locationPinDy': dy,
+                      kPinOnImageKey: onImage,
+                    }, image);
+              return PlanPinsView(
+                imagePath: imagePath,
+                imageSize: image,
+                pins: [
+                  if (pin != null)
+                    PlanPin(
+                      pin,
+                      const Icon(
+                        Icons.location_on,
+                        color: Colors.redAccent,
+                        size: 28,
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ),
       ),

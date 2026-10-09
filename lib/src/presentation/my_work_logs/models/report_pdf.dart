@@ -11,6 +11,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'photo_store.dart';
+import 'plan_pin.dart' show legacyPinBox, legacyPinToImage;
 import 'report_style.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -347,7 +348,15 @@ Future<Uint8List> buildReportPdfBytes(
           continue;
         }
       }
-      pinBoxes.add((c.$1, c.$3 / c.$2, pin.dx, pin.dy, pin.label));
+      // 예전 핀(화면 몸통 기준)은 그림 기준으로 바꿔 찍는다(10-10).
+      final at = pin.onImage
+          ? ui.Offset(pin.dx, pin.dy)
+          : legacyPinToImage(
+              ui.Offset(pin.dx, pin.dy),
+              ui.Size(c.$2.toDouble(), c.$3.toDouble()),
+              legacyPinBox(),
+            );
+      pinBoxes.add((c.$1, c.$3 / c.$2, at.dx, at.dy, pin.label));
     }
   }
   final cmp = <(Uint8List, Uint8List, String)>[];

@@ -112,7 +112,9 @@ class ReportPin {
   final double dx;
   final double dy;
   final String label;
-  ReportPin(this.planPath, this.dx, this.dy, this.label);
+  // 핀이 도면 그림 기준인지(10-10). 예전 핀은 PDF에서 그림 기준으로 바꿔 찍는다(plan_pin.dart).
+  final bool onImage;
+  ReportPin(this.planPath, this.dx, this.dy, this.label, {this.onImage = false});
 }
 
 class ReportDoc {
@@ -402,6 +404,7 @@ ReportDoc buildReportDoc(
               (r['locationPinDx'] as num).toDouble(),
               (r['locationPinDy'] as num).toDouble(),
               '${r['date']} 작업 위치',
+              onImage: r['locationPinOnImage'] == true,
             ),
     ],
   );
@@ -480,6 +483,7 @@ ReportDoc buildIssueReportDoc(
           (p['locationPinDx'] as num).toDouble(),
           (p['locationPinDy'] as num).toDouble(),
           '$loc · $short',
+          onImage: p['locationPinOnImage'] == true,
         ),
       );
     }

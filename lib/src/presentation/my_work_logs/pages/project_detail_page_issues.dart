@@ -19,6 +19,27 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
               style: OutlinedButton.styleFrom(foregroundColor: tossText),
             ),
           ),
+        // 이슈를 도면에서 보기(10-10): 도면이 있고 위치를 찍은 이슈가 있을 때.
+        if (IssuePlanPage.hasPins(log)) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const Key('issue_plan_open_button'),
+            onPressed: () => _run(
+              () => Navigator.push<void>(
+                context,
+                WorkRoute(
+                  builder: (_) => IssuePlanPage(
+                    log: log,
+                    onOpenPunch: (p) => widget.actions.openPunch(p),
+                  ),
+                ),
+              ),
+            ),
+            icon: const Icon(Icons.map_outlined, size: 18),
+            label: const Text("도면에서 보기"),
+            style: OutlinedButton.styleFrom(foregroundColor: tossText),
+          ),
+        ],
         const SizedBox(height: 16),
         if (punches.isEmpty)
           _emptyText("등록된 이슈가 없습니다.")

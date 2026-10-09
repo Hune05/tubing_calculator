@@ -22,6 +22,7 @@ import '../widgets/photo_detail_modal.dart';
 import '../widgets/confirm_delete.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'floor_plan_pin_page.dart';
+import '../models/plan_pin.dart' show kPinOnImageKey;
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
@@ -312,6 +313,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
   // 🚀 [추가] 도면 위 작업 위치 핀
   double? _pinDx;
   double? _pinDy;
+  // 핀이 도면 그림 기준인지(10-10, plan_pin.dart). 예전 일지 핀은 false.
+  bool _pinOnImage = false;
 
   static String _mmdd(DateTime d) =>
       "${d.month.toString().padLeft(2, '0')}/${d.day.toString().padLeft(2, '0')}";
@@ -413,6 +416,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       );
       _pinDx = (widget.existingData!['locationPinDx'] as num?)?.toDouble();
       _pinDy = (widget.existingData!['locationPinDy'] as num?)?.toDouble();
+      _pinOnImage = widget.existingData![kPinOnImageKey] == true;
 
       List<dynamic> existingPaths =
           widget.existingData!['image_paths'] ??
@@ -971,6 +975,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
           imagePath: widget.floorPlanImagePath!,
           initialDx: _pinDx,
           initialDy: _pinDy,
+          initialOnImage: _pinOnImage,
         ),
       ),
     );
@@ -978,6 +983,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       setState(() {
         _pinDx = result.dx;
         _pinDy = result.dy;
+        _pinOnImage = true;
       });
     }
   }
@@ -1893,6 +1899,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                     imagePath: widget.floorPlanImagePath!,
                     dx: _pinDx,
                     dy: _pinDy,
+                    onImage: _pinOnImage,
                     onTap: _openPinPicker,
                   ),
                   TextButton.icon(

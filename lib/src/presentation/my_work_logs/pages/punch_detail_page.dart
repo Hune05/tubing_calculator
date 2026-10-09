@@ -407,6 +407,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                       imagePath: widget.floorPlanImagePath!,
                       dx: (_punch['locationPinDx'] as num).toDouble(),
                       dy: (_punch['locationPinDy'] as num).toDouble(),
+                      onImage: _punch['locationPinOnImage'] == true,
                       height: 140,
                     ),
                   ],
