@@ -103,7 +103,11 @@ FieldMarkingData computeConduitFieldData() {
           targetAngle: (m['targetAngle'] as num?)?.toDouble(),
           rotation: (m['rotation'] as num).toDouble(),
           gap: markGap(pos, prevBend),
-          roll: check.rollByIndex[i],
+          // 롤링 오프셋이 남긴 굴림 각도도(10-09).
+          roll: check.rollByIndex[i] ??
+              (((bendList[i]['rollHint'] as num?)?.toDouble() ?? 0) > 0.5
+                  ? (bendList[i]['rollHint'] as num).toDouble()
+                  : null),
         ),
       );
       prevBend = pos;

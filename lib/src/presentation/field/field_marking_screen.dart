@@ -213,6 +213,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     if (want) {
       _volumeChannel.setMethodCallHandler((call) async {
         if (call.method != 'volume' || !mounted) return;
+        // 10-09: 실측 기록·처음부터 같은 창이 떠 있으면 뒤에서 단계를 넘기지 않는다
+        // (예전에는 실측 값을 넣는 동안 볼륨을 누르면 뒤 단계가 넘어가고 ✓가 남았다).
+        if (ModalRoute.of(context)?.isCurrent == false) return;
         if (call.arguments == 'up') {
           _next(_stepCount);
         } else {

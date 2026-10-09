@@ -253,12 +253,20 @@ class MobileBendDataManager extends ChangeNotifier with BendListHistory {
     'startFit': _specs.startFit,
     'endFit': _specs.endFit,
     'tail': _specs.tail,
+    // 불러온 도면 번호(덮어쓰기 대상)도 같이(10-09: 전체 지우기를 ↶로 살려도 잊혀 저장하면 하나 더 생겼다).
+    'sourceId': sourceHistoryId,
+    'sourceDepth': _sourceDepth,
   };
   @override
   void restoreHistoryExtras(Map<String, dynamic> extras) {
     if (extras['startFit'] is bool) _specs.startFit = extras['startFit'] as bool;
     if (extras['endFit'] is bool) _specs.endFit = extras['endFit'] as bool;
     if (extras['tail'] is num) _specs.tail = (extras['tail'] as num).toDouble();
+    if (extras.containsKey('sourceId')) {
+      sourceHistoryId = extras['sourceId'] as int?;
+      if (extras['sourceDepth'] is int) _sourceDepth = extras['sourceDepth'] as int;
+      _persistSource();
+    }
   }
 
   void addBend(Map<String, dynamic> bend) {
@@ -308,9 +316,13 @@ class MobileBendDataManager extends ChangeNotifier with BendListHistory {
   }
 
   void clearBends() {
+    if (bendList.isEmpty) {
+      clearSource();
+      return;
+    }
+    // 지우기 전 불러온 도면 번호도 담아 ↶ 때 되살린다(10-09).
+    recordHistory(withExtras: true);
     clearSource();
-    if (bendList.isEmpty) return;
-    recordHistory();
     bendList.clear();
     _saveCurrentState();
     notifyListeners();

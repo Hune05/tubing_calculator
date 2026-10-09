@@ -369,6 +369,31 @@ void main() {
       );
     });
 
+    testWidgets('창(실측 기록 등)이 떠 있으면 볼륨 단추로 뒤 단계를 넘기지 않는다(10-09)', (tester) async {
+      const channel = MethodChannel('field/volume_keys');
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, (call) async => null);
+      await pumpScreen(tester, sample(), isActive: true);
+      await tester.tap(find.byKey(const Key('field_mode_toggle')));
+      await tester.pumpAndSettle();
+      final before = tester.widget<Text>(find.byKey(const Key('field_step_number'))).data;
+      showDialog<void>(
+        context: tester.element(find.byKey(const Key('field_step_number'))),
+        builder: (_) => const AlertDialog(content: Text('실측 값')),
+      );
+      await tester.pumpAndSettle();
+      await tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+        'field/volume_keys',
+        const StandardMethodCodec().encodeMethodCall(MethodCall('volume', 'up')),
+        (_) {},
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('field_step_number'), skipOffstage: false)).data,
+        before,
+      );
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null);
+    });
+
     testWidgets('빈 목록이면 안내가 나온다', (tester) async {
       final errors = await pumpScreen(tester, FieldMarkingData.empty);
       expect(errors, isEmpty);

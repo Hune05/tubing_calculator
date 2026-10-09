@@ -89,4 +89,29 @@ void main() {
     expect(conduitStartDir.value, 'UP');
     expect(conduitUseCoupling.value, isTrue);
   });
+
+  test('전체 지우기를 ↶로 살리면 불러온 도면(덮어쓰기 대상)도 돌아온다(튜브·전선관)', () {
+    final m = MobileBendDataManager();
+    m.replaceAll([
+      {'length': 500.0, 'angle': 90.0, 'rotation': 0.0},
+    ]);
+    m.setSource(7);
+    m.clearBends();
+    expect(m.sourceHistoryId, isNull);
+    expect(m.undo(), isTrue);
+    expect(m.bendList.single['length'], 500.0);
+    expect(m.sourceHistoryId, 7);
+
+    installConduitHistoryExtras();
+    final c = ConduitDataManager();
+    c.clearHistory();
+    c.replaceAll([
+      {'length': 400.0, 'angle': 90.0},
+    ]);
+    c.setSource('d1');
+    c.clearBends();
+    expect(c.sourceDrawingId, isNull);
+    expect(c.undo(), isTrue);
+    expect(c.sourceDrawingId, 'd1');
+  });
 }

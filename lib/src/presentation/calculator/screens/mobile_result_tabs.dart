@@ -152,7 +152,8 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
           targetAngle: steps[i].targetAngle,
           rotation: (bendList[i]['rotation'] as num?)?.toDouble() ?? 0.0,
           gap: markGap(pos, prevBend),
-          roll: check.rollByIndex[i],
+          // 앞 벤드와 다른 평면이면 형상 점검 값, 아니면 롤링 오프셋이 남긴 굴림 각도(10-09).
+          roll: check.rollByIndex[i] ?? _rollHint(bendList[i]),
         ),
       );
       prevBend = pos;
@@ -184,6 +185,12 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
       ..._tubeMinGripWarnings(bendList, dataManager.radius),
     ],
   );
+}
+
+/// 롤링 오프셋이 첫 줄에 남긴 굴림 각도(없으면 null).
+double? _rollHint(Map<String, dynamic> row) {
+  final v = (row['rollHint'] as num?)?.toDouble();
+  return (v != null && v > 0.5) ? v : null;
 }
 
 /// 최소 물림 경고(설정에서 "슈 간섭 경고"를 끄면 보지 않는다).
@@ -458,7 +465,7 @@ class _MobileResultTabState extends State<MobileResultTab>
               'gap_display': markGap(currentMark, prevBendMark),
               'applied_fit': appliedFit,
               'target_angle': steps[i].targetAngle,
-              'roll_deg': rolls[i] ?? 0.0,
+              'roll_deg': rolls[i] ?? _rollHint(bendList[i]) ?? 0.0,
             });
             prevBendMark = currentMark;
             markNumber++;
@@ -781,7 +788,9 @@ class _MobileResultTabState extends State<MobileResultTab>
           if (rollDeg > 0.5)
             (
               AppIcons.warning,
-              "앞 벤드에서 ${rollDeg.round()}° 굴려 물리십시오",
+              markNum <= 1
+                  ? "꺾기 전에 관을 ${rollDeg.round()}° 굴려 잡으십시오"
+                  : "앞 벤드에서 ${rollDeg.round()}° 굴려 물리십시오",
               stepNoteAmber,
             ),
           if (uBend == 1)

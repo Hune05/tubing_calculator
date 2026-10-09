@@ -11,24 +11,32 @@ double numpadHeightFor(double screenHeight) => (screenHeight * 0.44).clamp(380.0
 class MakitaNumpadGlass extends StatefulWidget {
   final TextEditingController controller;
   final VoidCallback? onApply;
+
+  /// 머리의 X. 없으면 [onApply]와 같다.
+  final VoidCallback? onCancel;
   final String title;
 
   const MakitaNumpadGlass({
     super.key,
     required this.controller,
     this.onApply,
+    this.onCancel,
     this.title = "수치 입력",
   });
 
-  static void show(
+  /// 10-09: "적용"을 눌러야 새 값이 남는다. X·바깥 누르기·뒤로 가기로 닫으면 열 때 값으로 되돌린다
+  /// (입력 탭 숫자판 makita_numpad.dart와 같게 — 예전에는 친 값이 남고 오프셋·새들은 기억값으로도 저장됐다).
+  static Future<void> show(
     BuildContext context, {
     required TextEditingController controller,
     required String title,
-  }) {
+  }) async {
+    final String original = controller.text;
+    var applied = false;
     // 숫자판은 화면 아래에 붙인다. 이 숫자판을 쓰는 화면은 모두 위쪽에 그림 설명(애니메이션)이 있고,
     // 값을 고르는 동안 그 그림이 보여야 한다(2026-10-04: 가운데에 뜨면 그림 대부분을 가렸다).
     // 높이는 화면의 44%까지(작은 폰에서도 그림 아래로), 뒤 화면은 거의 안 어둡게 둔다.
-    showDialog(
+    await showDialog<void>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.10),
       builder: (context) => Dialog(
@@ -54,13 +62,18 @@ class MakitaNumpadGlass extends StatefulWidget {
               child: MakitaNumpadGlass(
                 controller: controller,
                 title: title,
-                onApply: () => Navigator.pop(context),
+                onApply: () {
+                  applied = true;
+                  Navigator.pop(context);
+                },
+                onCancel: () => Navigator.pop(context),
               ),
             ),
           ),
         ),
       ),
     );
+    if (!applied && controller.text != original) controller.text = original;
   }
 
   @override
@@ -187,7 +200,7 @@ class _MakitaNumpadGlassState extends State<MakitaNumpadGlass> {
               ),
               if (widget.onApply != null)
                 GestureDetector(
-                  onTap: widget.onApply,
+                  onTap: widget.onCancel ?? widget.onApply,
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(

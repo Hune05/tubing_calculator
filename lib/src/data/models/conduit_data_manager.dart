@@ -99,9 +99,21 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
   static Map<String, dynamic> Function() extrasReader = () => const {};
   static void Function(Map<String, dynamic>) extrasWriter = (_) {};
   @override
-  Map<String, dynamic> captureHistoryExtras() => extrasReader();
+  Map<String, dynamic> captureHistoryExtras() => {
+    ...extrasReader(),
+    // 불러온 도면(덮어쓰기 대상)도 같이(10-09).
+    'sourceId': sourceDrawingId,
+    'sourceDepth': _sourceDepth,
+  };
   @override
-  void restoreHistoryExtras(Map<String, dynamic> extras) => extrasWriter(extras);
+  void restoreHistoryExtras(Map<String, dynamic> extras) {
+    if (extras.containsKey('sourceId')) {
+      sourceDrawingId = extras['sourceId'] as String?;
+      if (extras['sourceDepth'] is int) _sourceDepth = extras['sourceDepth'] as int;
+      _persistSource();
+    }
+    extrasWriter(extras);
+  }
 
   // --- 기존 기능들 ---
   void addBend(Map<String, dynamic> bend) {
@@ -152,9 +164,13 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
   }
 
   void clearBends() {
+    if (bendList.isEmpty) {
+      clearSource();
+      return;
+    }
+    // 지우기 전 불러온 도면도 담아 ↶ 때 되살린다(10-09).
+    recordHistory(withExtras: true);
     clearSource();
-    if (bendList.isEmpty) return;
-    recordHistory();
     bendList.clear();
     _updateAndSave();
   }

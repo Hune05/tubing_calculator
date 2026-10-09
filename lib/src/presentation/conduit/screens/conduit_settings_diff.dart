@@ -11,6 +11,7 @@ const _labels = <(String, String)>[
   ('gain', '게인'),
   ('clr', 'CLR'),
   ('measureRef', '치수 기준'),
+  ('springback', '스프링백(°)'),
 ];
 
 String _show(String key, Object? v) {

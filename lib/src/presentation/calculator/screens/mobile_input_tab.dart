@@ -336,7 +336,10 @@ class _MobileInputTabState extends State<MobileInputTab>
           : const {};
       final merged = {...old, ...newBend};
       // 10-09: 각도를 바꾸면 U벤드가 아니다("U자 시작: 한 번에 180°…" 안내가 남았다).
-      if ((old['angle'] as num?)?.toDouble() != angle) merged.remove('uBend');
+      if ((old['angle'] as num?)?.toDouble() != angle) {
+        merged.remove('uBend');
+        merged.remove('rollHint'); // 롤링 오프셋 굴림 각도도 그 각도 기준이다
+      }
       MobileBendDataManager().updateBend(_editingIndex!, merged);
       setState(() => _editingIndex = null);
     } else {

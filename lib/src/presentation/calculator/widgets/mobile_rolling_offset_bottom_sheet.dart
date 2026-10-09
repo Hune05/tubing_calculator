@@ -195,9 +195,16 @@ class _MobileRollingOffsetBottomSheetState
           : "넣었습니다. ";
       final many = widget.onAddBends;
       if (many != null) {
+        // 10-09: 굴림 각도를 첫 줄에 남긴다(예전에는 넣은 직후 4초 알림에만 나와 마킹 카드·현장 탭·
+        // 마킹지 어디에도 없었다 — 두 벤드가 한 평면이라 형상 점검으로는 굴림이 안 잡힌다).
         many([
-          for (final (length, angle, rotation) in bends)
-            {'length': length, 'angle': angle, 'rotation': rotation},
+          for (final (i, (length, angle, rotation)) in bends.indexed)
+            {
+              'length': length,
+              'angle': angle,
+              'rotation': rotation,
+              if (i == 0 && rollAngle > 0.5) 'rollHint': rollAngle,
+            },
         ]);
       } else {
         for (final (length, angle, rotation) in bends) {
