@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/record_sync_line.dart';
 import '../../core/common_widgets/swipe_to_delete.dart';
+import '../../data/record_sync.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
@@ -577,16 +579,41 @@ class SafetyHistoryPage extends StatefulWidget {
 
 class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
   List<SafetyRecord>? _records;
+  RecordSyncStatus? _sync;
 
   @override
   void initState() {
     super.initState();
     _reload();
+    _syncWithServer();
   }
 
   Future<void> _reload() async {
     final r = await loadSafetyRecords();
     if (mounted) setState(() => _records = r);
+  }
+
+  /// 서버의 내 점검 기록을 받아 합치고, 폰에만 있는 것을 올린다. 통신이 없으면 폰 것만 보인다.
+  Future<void> _syncWithServer() async {
+    try {
+      final s0 = await safetyRecordSync.status();
+      if (mounted) setState(() => _sync = s0);
+      final s = await safetyRecordSync.syncNow();
+      final r = await loadSafetyRecords();
+      if (mounted) {
+        setState(() {
+          _sync = s;
+          _records = r;
+        });
+      }
+    } catch (_) {}
+  }
+
+  /// 지운 것·되살린 것이 서버에 올라간 뒤 상태 줄을 고친다.
+  Future<void> _refreshSync() async {
+    await RecordSync.idle();
+    final s = await safetyRecordSync.status();
+    if (mounted) setState(() => _sync = s);
   }
 
   Future<void> _open(SafetyRecord r) async {
@@ -646,8 +673,10 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
     setState(() => _records = [...l]..removeWhere((e) => e.id == r.id));
     final title = [safetyTimeLabel(r.at), if (r.site.isNotEmpty) r.site].join(' ');
     final done = trashSafetyRecord(r, title: title);
+    done.then((_) => _refreshSync(), onError: (_) {});
     showTrashUndo(context, title, done, onRestored: () async {
         await _reload();
+        _refreshSync();
       });
   }
 
@@ -659,13 +688,17 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
       appBar: AppBar(title: const Text('지난 점검 기록')),
       body: list == null
           ? const Center(child: CircularProgressIndicator())
-          : list.isEmpty
-          ? const Center(
-              child: Text('저장한 점검 기록이 없습니다', style: AppText.sub),
-            )
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                RecordSyncLine(_sync, key: const Key('safety_sync')),
+                if (list.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 80),
+                    child: Center(
+                      child: Text('저장한 점검 기록이 없습니다', style: AppText.sub),
+                    ),
+                  ),
                 for (final r in list)
                   SwipeToDelete(
                     itemKey: ValueKey('safety_record_swipe_${r.id}'),

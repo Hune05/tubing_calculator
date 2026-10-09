@@ -3,7 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../core/common_widgets/record_sync_line.dart';
 import '../../core/common_widgets/swipe_to_delete.dart';
+import '../../data/record_sync.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
@@ -33,6 +35,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
   final _note = TextEditingController();
   List<BendCheck> _all = [];
   bool _loaded = false;
+  RecordSyncStatus? _sync;
 
   DateTime get _now => (widget.now ?? DateTime.now)();
 
@@ -40,6 +43,25 @@ class _BendCheckPageState extends State<BendCheckPage> {
   void initState() {
     super.initState();
     _reload();
+    _syncWithServer();
+  }
+
+  /// 서버의 내 실측 기록을 받아 합치고, 폰에만 있는 것을 올린다. 통신이 없으면 폰 것만 보인다.
+  Future<void> _syncWithServer() async {
+    try {
+      final s0 = await bendCheckSync.status();
+      if (mounted) setState(() => _sync = s0);
+      final s = await bendCheckSync.syncNow();
+      if (mounted) setState(() => _sync = s);
+      await _reload();
+    } catch (_) {}
+  }
+
+  /// 저장·지운 것이 서버에 올라간 뒤 상태 줄을 고친다.
+  Future<void> _refreshSync() async {
+    await RecordSync.idle();
+    final s = await bendCheckSync.status();
+    if (mounted) setState(() => _sync = s);
   }
 
   @override
@@ -100,6 +122,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
       c.clear();
     }
     await _reload();
+    _refreshSync();
     _toast('저장했습니다');
   }
 
@@ -108,12 +131,14 @@ class _BendCheckPageState extends State<BendCheckPage> {
     setState(() => _all = [..._all]..removeWhere((e) => e.id == c.id));
     final title = '${c.at.month}/${c.at.day} ${c.group}';
     final done = trashBendCheck(c, title: title);
+    done.then((_) => _refreshSync(), onError: (_) {});
     showTrashUndo(
       context,
       title,
       done,
       onRestored: () async {
         await _reload();
+        _refreshSync();
       },
     );
   }
@@ -274,6 +299,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
                 const SizedBox(height: 20),
                 const Text('지난 기록', style: AppText.title),
                 const SizedBox(height: 8),
+                RecordSyncLine(_sync, key: const Key('bendcheck_sync')),
                 if (_all.isEmpty)
                   const Text('아직 기록이 없습니다', style: AppText.sub)
                 else

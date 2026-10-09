@@ -5,6 +5,8 @@ import 'dart:math' as math;
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/record_sync.dart';
+
 const String kBendChecksKey = 'bend_checks_v1';
 const int kBendCheckCap = 300;
 
@@ -146,12 +148,22 @@ Future<void> _write(List<BendCheck> all) async {
 Future<void> addBendCheck(BendCheck c) async {
   final all = await loadBendChecks();
   await _write([c, ...all.where((e) => e.id != c.id)]);
+  await bendCheckSync.saved(c.id);
 }
 
 Future<void> deleteBendCheck(String id) async {
   final all = await loadBendChecks();
   await _write([for (final e in all) if (e.id != id) e]);
+  await bendCheckSync.removed(id);
 }
+
+/// 실측 기록을 서버(bend_check_records)에도 올린다(10-09 고도화 2번). 폰을 잃거나 바꿔도 남는다.
+/// 개수 상한으로 폰에서 밀려난 옛 기록은 서버에 그대로 둔다(지운 것이 아니다).
+final RecordSync bendCheckSync = RecordSync(
+  key: kBendChecksKey,
+  collection: 'bend_check_records',
+  isValid: (j) => BendCheck.fromJson(j) != null,
+);
 
 /// 공유용 글(묶음별로 통계와 기록).
 String buildBendCheckText(List<BendCheck> all, {String? group}) {

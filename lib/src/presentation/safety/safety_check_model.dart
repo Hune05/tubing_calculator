@@ -4,6 +4,8 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../data/record_sync.dart';
+
 /// 처음 나오는 점검 항목(발전소 계장·배관·전기 작업 기준). 쓰는 사람이 화면에서 고칠 수 있다.
 const List<String> kDefaultSafetyItems = [
   '작업허가서 확인',
@@ -191,9 +193,19 @@ Future<void> writeSafetyRecords(List<SafetyRecord> all) async {
 Future<void> addSafetyRecord(SafetyRecord r) async {
   final all = await loadSafetyRecords();
   await writeSafetyRecords([r, ...all.where((e) => e.id != r.id)]);
+  await safetyRecordSync.saved(r.id);
 }
 
 Future<void> deleteSafetyRecord(String id) async {
   final all = await loadSafetyRecords();
   await writeSafetyRecords([for (final e in all) if (e.id != id) e]);
+  await safetyRecordSync.removed(id);
 }
+
+/// 점검 기록을 서버(safety_records)에도 올린다(10-09 고도화 2번). 폰을 잃거나 바꿔도 남는다.
+/// 개수 상한으로 폰에서 밀려난 옛 기록은 서버에 그대로 둔다(지운 것이 아니다).
+final RecordSync safetyRecordSync = RecordSync(
+  key: kSafetyRecordsKey,
+  collection: 'safety_records',
+  isValid: (j) => SafetyRecord.fromJson(j) != null,
+);
