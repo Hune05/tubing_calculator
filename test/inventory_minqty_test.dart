@@ -16,8 +16,16 @@ void main() {
       ..bookText = {'location': 'A-3', 'maker': '세진', 'heatNo': ''};
     final u = d.textUpdates();
     expect(u['location'], '');
-    expect(u['maker'], '세진');
+    expect(u.containsKey('maker'), isFalse); // 셀 때 값 그대로면 안 보낸다(8차)
     expect(u.containsKey('heatNo'), isFalse);
+  });
+
+  test('손대지 않은 글 칸은 보내지 않아 다른 기기에서 바꾼 값을 덮지 않는다(8차)', () {
+    final d = ItemData(location: 'A-3', maker: '세진', heatNo: 'H-1')
+      ..bookText = {'location': 'A-3', 'maker': '세진', 'heatNo': ''};
+    expect(d.textUpdates(), {'heatNo': 'H-1'});
+    // 셀 때 값을 모르면(새로 만든 줄 등) 값이 있는 칸을 보낸다.
+    expect(ItemData(location: 'B-1').textUpdates(), {'location': 'B-1'});
   });
 
   test("새 자재 등록: 같은 이름(빈칸·따옴표·대소문자 차이 무시)이면 막는다(10-09)", () {

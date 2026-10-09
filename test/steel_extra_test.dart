@@ -624,6 +624,20 @@ void main() {
       expect(find.text('재고에서 뺐습니다'), findsOneWidget);
     });
 
+    testWidgets('잔재를 저장한 결과면 다시 열어도 저장 때 본수로 센다(쓴 잔재가 빠져 본수가 늘지 않게, 8차)', (tester) async {
+      // 저장할 때는 잔재로 잘라 새 원자재가 0본이었다. 다시 열면 그 잔재가 목록에 없어 1본이 나온다.
+      SharedPreferences.setMockInitialValues({
+        'steel_leftover_saved_sp3': 'steel:앵글 40x40x3:500.0:2',
+        'steel_leftover_bars_sp3': '{}',
+      });
+      await open(tester);
+      await tester.tap(find.byKey(const Key('steel_btn_optimize')));
+      await tester.pumpAndSettle();
+      // 뺄 본이 없으면 단추가 꺼져 있다.
+      final b = tester.widget<OutlinedButton>(find.byKey(const Key('stock_deduct')));
+      expect(b.onPressed, isNull);
+    });
+
     testWidgets('이미 뺐으면 되돌리기 단추가 같이 보인다', (tester) async {
       SharedPreferences.setMockInitialValues({
         'steel_stock_deducted_sp3': '앵글 40x40x3=1',

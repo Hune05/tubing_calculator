@@ -347,4 +347,26 @@ void main() {
       expect(r, isEmpty);
     });
   });
+
+  test('이후 모두로 끊으면 이 회차부터 뺀 회차·완료 표시를 새 문서로 넘긴다(8차)', () {
+    final old = <String, dynamic>{
+      'recurrenceExceptions': [
+        occurrenceKey(DateTime(2026, 10, 7)), // 끊는 날 전: 옛 문서에 남는다
+        occurrenceKey(DateTime(2026, 10, 21)),
+      ],
+      'completedOccurrences': {
+        occurrenceKey(DateTime(2026, 10, 7)): true,
+        occurrenceKey(DateTime(2026, 10, 14)): true,
+        occurrenceKey(DateTime(2026, 10, 28)): false,
+      },
+    };
+    final c = carryOverAfterSplit(old, DateTime(2026, 10, 14), DateTime(2026, 10, 14, 9));
+    expect(c.exceptions, [occurrenceKey(DateTime(2026, 10, 21))]);
+    expect(c.completed, {occurrenceKey(DateTime(2026, 10, 14)): true});
+    // 이 회차를 하루 뒤로 옮겼으면 같이 하루씩 옮긴다.
+    final moved = carryOverAfterSplit(old, DateTime(2026, 10, 14), DateTime(2026, 10, 15));
+    expect(moved.exceptions, [occurrenceKey(DateTime(2026, 10, 22))]);
+    expect(moved.completed.keys, [occurrenceKey(DateTime(2026, 10, 15))]);
+    expect(carryOverAfterSplit(null, DateTime(2026, 10, 14), DateTime(2026, 10, 14)).exceptions, isEmpty);
+  });
 }

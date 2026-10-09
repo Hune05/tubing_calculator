@@ -16,4 +16,21 @@ void main() {
     expect(recordProgressSnapshot(log, now), false);
     expect(progressDeltaSince({'phases': []}, 7, now), isNull);
   });
+
+  test('일지를 열 때 진행률만 바뀌면 그 칸만 쓴다(문서 통째로 다시 쓰지 않음, 8차)', () {
+    final now = DateTime(2026, 10, 9);
+    final log = <String, dynamic>{
+      'id': 'p1',
+      'phasesMigrated': true,
+      'phases': [
+        {'id': 'a', 'name': 'A', 'isCompleted': true},
+      ],
+    };
+    expect(prepareProjectOnOpen(log, now), ProjectOpenWrite.progressOnly);
+    expect((log['progressHistory'] as Map)['2026-10-09'], 100);
+    expect(prepareProjectOnOpen(log, now), ProjectOpenWrite.none);
+    // 단계가 없던 옛 프로젝트는 이전 때문에 통째로 쓴다.
+    final old = <String, dynamic>{'id': 'p2', 'schedules': []};
+    expect(prepareProjectOnOpen(old, now), ProjectOpenWrite.whole);
+  });
 }

@@ -23,7 +23,9 @@ class ItemData {
   /// 세기 시작할 때 서버의 글 칸(위치·제조사 등). 칸을 비워 지운 것도 올리려고 견준다(10-08).
   Map<String, String> bookText = const {};
 
-  /// 올릴 글 칸: 값이 있으면 그 값, 셀 때 있던 값을 비웠으면 빈 글(지움), 원래 비어 있었으면 안 보냄.
+  /// 올릴 글 칸: 셀 때 값에서 바꾼 칸만 보낸다(비운 칸은 빈 글로 지움).
+  /// 8차(10-09): 값이 있으면 늘 보내서, 그사이 다른 기기에서 바꾼 위치·제조사가 셀 때 값으로 되돌아갔다.
+  /// 셀 때 값을 모르면([bookText]가 비었으면) 예전처럼 값이 있는 칸을 보낸다.
   Map<String, String> textUpdates() {
     final now = {
       'material': material,
@@ -34,9 +36,15 @@ class ItemData {
       'projectName': projectName,
       'department': department,
     };
+    if (bookText.isEmpty) {
+      return {
+        for (final e in now.entries)
+          if (e.value.isNotEmpty) e.key: e.value,
+      };
+    }
     return {
       for (final e in now.entries)
-        if (e.value.isNotEmpty || (bookText[e.key] ?? '').isNotEmpty) e.key: e.value,
+        if (e.value != (bookText[e.key] ?? '')) e.key: e.value,
     };
   }
 

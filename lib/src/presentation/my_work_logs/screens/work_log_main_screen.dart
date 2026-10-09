@@ -189,9 +189,18 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     // 🚀 [단계 구조 이전] 단계(phases)가 없던 기존 프로젝트를, 등록된 일정
     // 종류/날짜를 기준으로 새 구조로 옮겨 한 번만 저장한다.
     for (final p in projects) {
-      final migrated = migrateProjectToPhases(p);
-      final snapped = recordProgressSnapshot(p);
-      if (migrated || snapped) _repo.upsertProject(p);
+      switch (prepareProjectOnOpen(p)) {
+        case ProjectOpenWrite.whole:
+          _repo.upsertProject(p);
+        case ProjectOpenWrite.progressOnly:
+          // 8차: 진행률 칸만 쓴다(문서 통째로 다시 쓰면 다른 기기 것을 지울 수 있다).
+          _repo.updateProgressHistory(
+            (p['id'] ?? '').toString(),
+            Map<String, dynamic>.from(p['progressHistory'] as Map),
+          );
+        case ProjectOpenWrite.none:
+          break;
+      }
     }
     if (!mounted) return;
     setState(() {

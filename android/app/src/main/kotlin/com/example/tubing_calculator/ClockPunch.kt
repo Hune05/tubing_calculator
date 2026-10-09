@@ -24,7 +24,10 @@ import java.util.concurrent.TimeoutException
  * 앱(Dart)이 하는 일과 같은 규칙을 따른다(attendance_clock.dart, 근태 화면의 _punchIn·_punchOut):
  * - 서버 모음 attendance_records, 문서 이름 "{uid}__{yyyy-MM-dd}", 칸 date·type·checkIn·checkOut·uid.
  * - 이미 찍었으면 덮지 않고 알리기만 한다. 연차·월차·결근인 날은 찍지 않는다.
- * - 밤샘: 어제 15시 이후에 출근했고 16시간이 안 지났으면 [퇴근]은 어제 기록에 찍는다.
+ * - 밤샘: 오늘 출근을 아직 안 찍었고, 어제 15시 이후에 출근해 12시간이 안 지났으면 [퇴근]은 어제 기록에 찍는다
+ *   (10-09 8차: 앱은 10-08에 16 → 12시간·오늘 먼저로 바꿨는데 위젯은 그대로라, 어제 18시 출근하고 퇴근을
+ *   잊은 다음 날 08시 위젯 [출근]이 "이미 어제 출근"으로 막히고, 오늘 출근을 앱에서 찍은 뒤 위젯 [퇴근]이
+ *   어제 기록에 찍혔다).
  * - 기록을 읽지 못하면(통신 없음 + 폰에 사본 없음) 찍지 않는다. 모르는 채 찍으면 있던 기록을 덮을 수 있다.
  * 저장은 칸 하나씩 합쳐 쓴다(merge): 메모·휴게 같은 다른 칸은 그대로 둔다.
  * 통신이 없으면 Firestore가 폰에 먼저 적고 통신될 때 올린다. 앱의 퇴근 알림 예약은 앱을 다시 열 때 맞춘다.
@@ -56,7 +59,7 @@ object ClockPunch {
     private const val COLLECTION = "attendance_records"
     private val OFF_TYPES = setOf("연차", "월차", "결근")
     private const val OVERNIGHT_START_MIN = 15 * 60
-    private const val OVERNIGHT_MAX_MIN = 16 * 60
+    private const val OVERNIGHT_MAX_MIN = 12 * 60 // 앱 attendance_clock.dart kMaxOvernightMinutes와 같게
 
     private class Rec(val type: String, val checkIn: String?, val checkOut: String?, val breakMin: Int? = null, val memo: String? = null)
 
@@ -97,6 +100,20 @@ object ClockPunch {
 
     private fun isOpen(r: Rec?): Boolean =
         r != null && r.type !in OFF_TYPES && minutesOf(r.checkIn) != null && r.checkOut == null
+
+    /** 밤샘 근무 중인가: 오늘 출근 전이고, 어제 15시 이후 출근해 퇴근을 안 찍었으며 12시간이 안 지났다. */
+    private fun isOvernight(y: Rec?, t: Rec?, yest: Calendar, now: Calendar): Boolean {
+        if (!isOpen(y) || minutesOf(t?.checkIn) != null) return false
+        val m = minutesOf(y!!.checkIn)!!
+        val start = (yest.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, m / 60)
+            set(Calendar.MINUTE, m % 60)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val elapsed = (now.timeInMillis - start.timeInMillis) / 60000
+        return m >= OVERNIGHT_START_MIN && elapsed in 0..OVERNIGHT_MAX_MIN.toLong()
+    }
 
     /** 어제 이후 두 날의 기록을 읽는다(서버 → 안 되면 폰 사본). 둘 다 안 되면 null. */
     private fun load(uid: String, from: String, to: String): Map<String, Rec>? {
@@ -171,19 +188,7 @@ object ClockPunch {
         val y = recs[yestKey]
         val t = recs[todayKey]
 
-        // 밤샘 근무 중인가: 어제 15시 이후에 출근했고 퇴근을 안 찍었으며 16시간이 안 지났다.
-        var overnight = false
-        if (isOpen(y)) {
-            val m = minutesOf(y!!.checkIn)!!
-            val start = (yest.clone() as Calendar).apply {
-                set(Calendar.HOUR_OF_DAY, m / 60)
-                set(Calendar.MINUTE, m % 60)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            val elapsed = (now.timeInMillis - start.timeInMillis) / 60000
-            overnight = m >= OVERNIGHT_START_MIN && elapsed in 0..OVERNIGHT_MAX_MIN.toLong()
-        }
+        val overnight = isOvernight(y, t, yest, now)
 
         val nowText = hhmm(now)
         if (kind == "in") {
@@ -253,18 +258,7 @@ object ClockPunch {
             ?: return "기록을 읽지 못해 저장하지 않았습니다. 앱에서 확인하세요."
         val y = recs[yestKey]
         val t = recs[todayKey]
-        var overnight = false
-        if (isOpen(y)) {
-            val m = minutesOf(y!!.checkIn)!!
-            val start = (yest.clone() as Calendar).apply {
-                set(Calendar.HOUR_OF_DAY, m / 60)
-                set(Calendar.MINUTE, m % 60)
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }
-            val elapsed = (now.timeInMillis - start.timeInMillis) / 60000
-            overnight = m >= OVERNIGHT_START_MIN && elapsed in 0..OVERNIGHT_MAX_MIN.toLong()
-        }
+        val overnight = isOvernight(y, t, yest, now)
         val targetKey = if (overnight) yestKey else todayKey
         val target = if (overnight) y else t
         if (target == null || minutesOf(target.checkIn) == null) {

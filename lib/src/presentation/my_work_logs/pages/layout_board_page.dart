@@ -1414,6 +1414,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         'items',
         'dimensions',
         'backgroundImagePath',
+        // 8차(10-09): 주소가 빠져, 임시 저장에서 이어 한 뒤 저장하면 서버 문서의 배경 주소가 지워졌다
+        // (폰에 파일이 없으면 다른 폰은 물론 이 폰에서도 배경이 사라졌다).
+        'backgroundImageUrl',
         'backgroundOpacity',
         'backgroundRect',
         'backgroundBrightness',
@@ -1422,6 +1425,23 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         k: main[k],
       ..._sidePlateFields(plates),
     };
+  }
+
+  /// 저장하는 사이 고친 것이 있는지 견줄 때 쓰는 모양. 배경 주소는 저장하면서 올려 받은 것이라
+  /// 고침으로 치지 않는다(치면 배경을 처음 올린 저장마다 임시 저장이 남았다).
+  String _editFingerprint() {
+    final m = _buildSnapshotJson()..remove('backgroundImageUrl');
+    final side = m['sidePlates'];
+    if (side is Map) {
+      m['sidePlates'] = {
+        for (final e in side.entries)
+          e.key: e.value is Map
+              ? (Map<String, dynamic>.from(e.value as Map)
+                  ..remove('backgroundImageUrl'))
+              : e.value,
+      };
+    }
+    return jsonEncode(m);
   }
 
   // 🚀 [신규] 실행 취소/다시 실행. 모듈 배치/이동/삭제/회전/치수 추가·
@@ -2933,7 +2953,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       _dropOrphanViewDims();
       final plates = _allPlates();
       // 저장하는 사이(배경 올리기 최대 8초) 고친 것이 있는지 견주려고 시작 모양을 적어 둔다.
-      final startSnap = jsonEncode(_buildSnapshotJson());
+      final startSnap = _editFingerprint();
       // 배경 사진은 폰 안 경로라 다른 폰에서 안 보였다. 아직 안 올린 것은 올리고 주소를
       // 같이 저장한다(통신 없으면 이번엔 건너뛰고 다음 저장 때 다시).
       // 판마다 차례로 20초씩 기다리면 통신이 없을 때 판 4개에 1분 넘게 묶였다(10-07).
@@ -2995,9 +3015,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       _captureSavedBaseline(fields);
       // 저장하는 사이 고친 것이 있으면 임시 저장을 지우지 않고 남긴다(10-08: 서버에는 고치기 전 판이
       // 올라가고 임시 저장까지 지워, 그 뒤 앱이 꺼지면 고친 것이 사라졌다).
-      if (jsonEncode(_buildSnapshotJson()) == startSnap) {
+      if (_editFingerprint() == startSnap) {
         await _clearDraftPrefs();
       } else {
+        // 새 도면이었으면 "새 도면" 칸의 임시 저장은 지운다(남기면 다음 새 도면에서 이어하기로
+        // 떠, 이어 저장하면 같은 도면이 하나 더 생겼다). 고친 것은 이 도면 칸에 남긴다.
+        if (isNew) {
+          try {
+            await (await SharedPreferences.getInstance()).remove(_draftPrefsKey);
+          } catch (_) {}
+        }
         await _saveDraftToPrefs();
       }
       if (!mounted) return;

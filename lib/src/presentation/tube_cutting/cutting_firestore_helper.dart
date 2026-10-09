@@ -393,11 +393,43 @@ Future<void> reconcileProjectAfterRecordDelete({
 /// 모바일/데스크톱 컷팅 작업 목록에서도 쓸 수 있게 뺀 공용 함수. 프로젝트
 /// 문서에 누적된 materials(아직 차감 안 한 사용량)를 인벤토리에서 빼고,
 /// 성공하면 materials를 비워서 다음 차감 때 중복으로 빠지지 않게 한다.
+/// 지금 재고 빼기를 하고 있는 작업(8차, 10-09: 읽는 사이 메뉴를 다시 열어 한 번 더 누르면 같은 사용량을
+/// 두 번 뺐다). 끝나면 지운다.
+final Set<String> _deductingProjects = {};
+
+/// 시험용: 재고 빼기가 진행 중인 작업으로 표시하거나 푼다.
+@visibleForTesting
+Set<String> get deductingCuttingProjects => _deductingProjects;
+
 Future<void> deductCuttingProjectInventory({
   required BuildContext context,
   required String projectId,
   required String projectName,
   String worker = '',
+}) async {
+  if (!_deductingProjects.add(projectId)) {
+    if (context.mounted) {
+      showCuttingSnack(context, "재고에서 빼는 중입니다. 끝난 뒤 다시 확인하십시오.");
+    }
+    return;
+  }
+  try {
+    await _deductCuttingProjectInventory(
+      context: context,
+      projectId: projectId,
+      projectName: projectName,
+      worker: worker,
+    );
+  } finally {
+    _deductingProjects.remove(projectId);
+  }
+}
+
+Future<void> _deductCuttingProjectInventory({
+  required BuildContext context,
+  required String projectId,
+  required String projectName,
+  required String worker,
 }) async {
   final db = FirebaseFirestore.instance;
   // 누가 차감했는지 기록에 남기려고, 안 넘겨 주면 폰에 적힌 이름을 쓴다.
@@ -409,7 +441,8 @@ Future<void> deductCuttingProjectInventory({
     } catch (_) {}
   }
   final docRef = db.collection(kCuttingProjectsCollection).doc(projectId);
-  final snap = await docRef.get();
+  // 통신이 없으면 서버를 끝없이 기다렸다. 잠깐 읽고 안 되면 폰 사본.
+  final snap = await readDocQuick(docRef);
   final materials = (snap.data()?['materials'] as List?) ?? [];
 
   if (materials.isEmpty) {

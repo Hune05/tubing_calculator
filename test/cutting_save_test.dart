@@ -196,6 +196,35 @@ void main() {
       expect(find.textContaining('1500.0 mm'), findsWidgets);
     });
 
+    testWidgets('저장하기를 빠르게 두 번 눌러도 확인 창은 하나, 한 번만 저장된다(8차)', (tester) async {
+      final p = proj();
+      var saves = 0;
+      // 바깥에 저장하는 화면은 저장 전에 재고를 읽느라 기다린다(그 사이 한 번 더 누를 수 있다).
+      await open(
+        tester,
+        p,
+        askTube: true,
+        onSave: (t, f, [r = const <CutRecord>[]]) => saves++,
+        onUndo: (t, f, r) {},
+      );
+      // 현장에서는 재고를 읽는 몇 초 사이에 한 번 더 누를 수 있다. 시험에서는 읽기가 바로 끝나므로
+      // 저장 흐름을 바로 두 번 부른다.
+      final dynamic st = tester.state(find.byType(CuttingMainScreen));
+      st.debugSaveRecord();
+      st.debugSaveRecord();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('tube_stock_ask')), findsOneWidget);
+      // 두 번째 누름이 따로 흐름을 열면 재고 묻는 창 위에 저장 확인 창이 또 뜬다.
+      expect(find.text('저장하시겠습니까?'), findsNothing);
+      await tester.tap(find.byKey(const Key('tube_stock_skip')));
+      await tester.pumpAndSettle();
+      expect(find.text('저장하시겠습니까?'), findsOneWidget);
+      await tester.tap(find.text('저장'));
+      await tester.pumpAndSettle();
+      expect(find.text('저장하시겠습니까?'), findsNothing);
+      expect(saves, 1);
+    });
+
     testWidgets('저장하면 누적에 더해지고 입력이 비워지고 실행 취소가 나온다', (tester) async {
       final p = proj();
       await open(tester, p);

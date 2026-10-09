@@ -51,6 +51,10 @@ Future<void> showCuttingOptimizationSheet(
   // 잔재를 저장한 순간 계획의 새 원자재 본(규격 → 본 길이들). 저장 뒤 잔재 목록이 바뀌어 다시 계산하면
   // 본수가 달라지므로, 호출한 화면이 "아직 안 뺀 튜브"를 셀 때 이 값을 쓴다(10-08).
   ValueChanged<Map<String, List<double>>>? onLeftoversSavedBars,
+  // 이 결과의 잔재를 저장했을 때의 새 원자재 본(위에서 돌려준 값). 저장 뒤 다시 열면 쓴 잔재가 목록에서
+  // 빠져 다시 계산한 본수가 늘어, 이미 뺀 원자재를 또 빼라고 했다(8차, 10-09). 저장한 결과 그대로면
+  // 재고 빼기는 이 본수로 센다.
+  BarsBySpec? barsAtLeftoverSave,
   // 같은 창에서 방금 한 저장을 "되돌리기"로 취소했을 때 부른다(호출한 화면이 잘랐음 표시를 원래대로 돌리는 데 쓴다).
   VoidCallback? onLeftoversSaveUndone,
   // 이 결과의 잔재를 이미 저장했으면 true — 저장 버튼 자리에 "저장했습니다"를 보여 같은 컷팅을 두 번 저장하지 않게 한다.
@@ -268,11 +272,17 @@ Future<void> showCuttingOptimizationSheet(
         }
 
         // 규격별 새 원자재(본마다 길이). 재고에서 뺄 때 쓴다. 잔재에서 자른 것은 들어가지 않는다.
-        final BarsBySpec needBars = {
-          for (final e in results.entries)
-            if (e.value.barCount > 0)
-              e.key: [for (final b in e.value.bars) b.stockLength],
-        };
+        final BarsBySpec needBars =
+            (leftoversSaved && lastSaved == null && barsAtLeftoverSave != null)
+            ? {
+                for (final e in barsAtLeftoverSave.entries)
+                  if (e.value.isNotEmpty) e.key: [...e.value],
+              }
+            : {
+                for (final e in results.entries)
+                  if (e.value.barCount > 0)
+                    e.key: [for (final b in e.value.bars) b.stockLength],
+              };
         final BarsBySpec toDeduct = barsStillToDeduct(needBars, deducted);
 
         final int totalBarCount = results.values.fold(

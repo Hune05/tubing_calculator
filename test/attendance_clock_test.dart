@@ -1,4 +1,6 @@
 // 근태 출근·퇴근 단추 판단과 여러 날 기록 계산 시험(화면 없이).
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/attendance/attendance_bulk.dart';
 import 'package:tubing_calculator/src/presentation/attendance/attendance_clock.dart';
@@ -284,5 +286,18 @@ void main() {
       expect(latestRecordBefore(m, DateTime(2026, 10, 20)), isNull);
       expect(latestRecordBefore(m, DateTime(2026, 10, 2)), isNull);
     });
+  });
+
+  test('위젯(ClockPunch.kt)도 앱과 같은 밤샘 규칙(12시간·오늘 출근 먼저)을 쓴다(8차)', () {
+    final kt = File(
+      'android/app/src/main/kotlin/com/example/tubing_calculator/ClockPunch.kt',
+    ).readAsStringSync();
+    expect(
+      kt,
+      contains('OVERNIGHT_MAX_MIN = ${kMaxOvernightMinutes ~/ 60} * 60'),
+    );
+    // 오늘 출근을 찍었으면 어제 밤샘으로 보지 않는다.
+    expect(kt, contains('minutesOf(t?.checkIn) != null) return false'));
+    expect(kt, isNot(contains('16 * 60')));
   });
 }

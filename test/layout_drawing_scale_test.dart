@@ -191,6 +191,41 @@ void main() {
     expect(saved['backgroundRect'], [-300, -150, 3000, 1800]);
     await tester.runAsync(() => File(path).delete());
   });
+  testWidgets('임시 저장에서 이어 해도 배경 도면 주소가 남는다(8차)', (tester) async {
+    final String path = (await tester.runAsync(() async {
+      final f = File(
+        '${Directory.systemTemp.path}/layout_url_test_${DateTime.now().microsecondsSinceEpoch}.png',
+      );
+      await f.writeAsBytes(const [0x89, 0x50, 0x4E, 0x47]);
+      return f.path;
+    }))!;
+    const url = 'https://example.invalid/layout_bg.png';
+    SharedPreferences.setMockInitialValues({
+      'layout_board_onboarding_shown_v1': true,
+      'layout_board_draft_v1': jsonEncode({
+        'panelWidth': 2400,
+        'panelHeight': 1200,
+        'items': [],
+        'backgroundImagePath': path,
+        'backgroundImageUrl': url,
+      }),
+    });
+    tester.view.physicalSize = const Size(390, 844) * 2;
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      const MaterialApp(home: LayoutBoardPage(resumeDraft: true)),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+    final prefs = await SharedPreferences.getInstance();
+    final saved = jsonDecode(prefs.getString('layout_board_draft_v1')!) as Map;
+    expect(saved['backgroundImageUrl'], url);
+    await tester.runAsync(() => File(path).delete());
+  });
   testWidgets('받은 도면 창: 이어서 하던 배치도는 임시 저장이 있을 때만, 고르면 그 배치도가 열린다', (
     tester,
   ) async {

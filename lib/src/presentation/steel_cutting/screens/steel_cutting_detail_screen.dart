@@ -33,6 +33,8 @@ import '../../tube_cutting/cutting_result_view.dart';
 import '../../tube_cutting/cutting_theme.dart';
 import '../../tube_cutting/widgets/cutting_optimization_sheet.dart';
 import '../steel_group_ops.dart';
+import '../steel_item_merge.dart';
+import 'package:tubing_calculator/src/core/utils/quick_firestore.dart';
 import '../steel_result_logic.dart';
 import '../steel_weight.dart';
 import '../steel_shape_icons.dart';
@@ -60,6 +62,10 @@ class SteelCuttingDetailScreen extends StatefulWidget {
 class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     with SingleTickerProviderStateMixin {
   late List<SteelCutItem> _items;
+  // 이 화면이 마지막으로 서버와 맞춘 항목 목록과 지운 아이디(저장 때 합치는 기준, 8차).
+  late List<SteelCutItem> _baseItems;
+  List<String> _knownDeletedIds = const [];
+  Future<void> _persistChain = Future.value();
   late double _stockLength;
   late int _setMultiplier;
   double _bladeKerf = 0.0;
@@ -120,6 +126,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   // 잔재를 저장한 때의 결과 줄 모양(줄 열쇠를 이은 글). 지금 줄과 같으면 "이 결과의 잔재는 이미 저장함".
   String get _leftoverKey => 'steel_leftover_saved_${widget.project.id}';
   String _leftoverSavedSig = '';
+  // 잔재를 저장한 때의 새 원자재 본(규격 → 본 길이들). 다시 열어 다시 계산하면 쓴 잔재가 빠져 본수가 늘어
+  // 이미 뺀 원자재를 또 빼라고 했다(8차, 10-09).
+  String get _leftoverBarsKey => 'steel_leftover_bars_${widget.project.id}';
+  BarsBySpec? _barsAtLeftoverSave;
   // 재고에서 뺀 원자재(규격별 본마다 길이)를 적어 둔다. 재단 계획 창을 닫았다
   // 다시 열어도 같은 본을 두 번 빼지 않게 막는다.
   // 🚀 [고침] 예전에는 폰(SharedPreferences)에만 적어서 다른 폰·PC에서 같은 작업을
@@ -143,6 +153,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _items = List.of(widget.project.items);
+    _baseItems = List.of(widget.project.items);
     _stockLength = widget.project.stockLength;
     _setMultiplier = widget.project.setMultiplier;
     _loadBladeKerf();
@@ -235,11 +246,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       final p = await SharedPreferences.getInstance();
       final saved = p.getStringList(_doneKey) ?? const <String>[];
       final sig = p.getString(_leftoverKey) ?? '';
+      final rawBars = p.getString(_leftoverBarsKey);
       final legacyDeducted = p.getString(_stockDeductKey) ?? '';
       if (!mounted) return;
       setState(() {
         _doneKeys.addAll(saved);
         _leftoverSavedSig = sig;
+        _barsAtLeftoverSave =
+            rawBars == null ? null : decodeDeductedBars(rawBars);
         _stockDeducted = decodeDeductedBars(legacyDeducted);
       });
       unawaited(_loadStockDeducted());
@@ -283,7 +297,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     final before = _doneKeys.length;
     _doneKeys.removeWhere((k) => !live.contains(k));
     if (_doneKeys.length != before) {
-      setState(() {});
+      if (mounted) setState(() {});
       _saveDone();
     }
   }
@@ -410,7 +424,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context,
       "${before.length}줄의 잘랐음 표시를 지웠습니다.",
       onUndo: () {
-        setState(() {
+        _apply(() {
           _doneKeys.addAll(before);
           _resultFolded.addAll(beforeFolded);
         });
@@ -443,11 +457,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         t.cancel();
       }
       _qtyTimers.clear();
-      try {
-        _docRef
-            .update({'items': _items.map((e) => e.toMap()).toList()})
-            .catchError((_) {});
-      } catch (_) {}
+      _persistItems().catchError((_) {});
     }
     _tabController.dispose();
     super.dispose();
@@ -492,9 +502,80 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       .collection(kSteelCuttingProjectsCollection)
       .doc(widget.project.id);
 
-  Future<void> _persistItems() async {
+  /// 항목을 저장한다. 저장 직전에 서버(폰 사본) 목록을 읽어 아이디로 합친다(8차, 10-09: 열 때 받은
+  /// 목록을 통째로 써서 그 사이 다른 기기에서 넣은 줄이 사라졌다). 차례로 하나씩 한다.
+  /// 돌려주는 Future는 서버 답까지 기다린다(통신이 없으면 안 끝난다) — 기다리지 않는 자리는 [_saveItems].
+  Future<void> _persistItems() {
+    final done = Completer<void>();
+    _persistChain = _persistChain.then((_) async {
+      try {
+        final r = await _mergeAndWriteItems();
+        r.write.then((_) => done.complete(), onError: done.completeError);
+      } catch (e) {
+        done.completeError(e);
+      }
+    });
+    return done.future;
+  }
+
+  // 쓰기는 기다리지 않고 넘긴다(통신이 없으면 끝나지 않아 다음 저장이 줄에 묶인다).
+  Future<({Future<void> write})> _mergeAndWriteItems() async {
     _pruneDone();
-    await _docRef.update({'items': _items.map((e) => e.toMap()).toList()});
+    final ref = _docRef;
+    // 화면이 문서를 듣고 있어 폰 사본이 늘 새것이다. 사본이 없을 때만 서버를 잠깐 읽는다.
+    Map<String, dynamic>? data;
+    try {
+      data = (await ref.get(const GetOptions(source: Source.cache))).data();
+    } catch (_) {
+      try {
+        data = (await readDocQuick(ref, wait: const Duration(seconds: 3)))
+            .data();
+      } catch (_) {}
+    }
+    final rawItems = data?['items'];
+    final server = rawItems is List
+        ? [
+            for (final m in rawItems)
+              if (m is Map) SteelCutItem.fromMap(Map<String, dynamic>.from(m)),
+          ]
+        : _baseItems;
+    final rawDeleted = data?[kSteelDeletedIdsField];
+    final serverDeleted = rawDeleted is List
+        ? rawDeleted.map((e) => e.toString()).toList()
+        : _knownDeletedIds;
+    final merged = mergeSteelItems(
+      base: _baseItems,
+      local: _items,
+      server: server,
+      serverDeletedIds: serverDeleted,
+    );
+    if (!sameSteelItems(merged.items, _items)) {
+      // 다른 기기에서 넣거나 고친 것이 바로 보이게.
+      _apply(() => _items = List.of(merged.items));
+    }
+    _baseItems = List.of(merged.items);
+    _knownDeletedIds = merged.deletedIds;
+    return (
+      write: ref.update({
+        'items': merged.items.map((e) => e.toMap()).toList(),
+        kSteelDeletedIdsField: merged.deletedIds,
+      }),
+    );
+  }
+
+  /// 화면이 닫힌 뒤에도(실행 취소 알림은 화면을 나가도 남는다) 바꾸기만 하고 오류 없이 지나가게.
+  void _apply(VoidCallback change) {
+    if (mounted) {
+      setState(change);
+    } else {
+      change();
+    }
+  }
+
+  /// 실행 취소로 항목을 되돌리고 저장한다(8차: 화면을 나간 뒤 누르면 setState 오류로 저장이 안 됐다).
+  void _undoItems(VoidCallback change) {
+    _apply(change);
+    _saveItems();
   }
 
   Future<void> _persistStockLength(double v) async {
@@ -611,8 +692,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context,
       "'${item.shapeLabel}' 항목을 복제했습니다.",
       onUndo: () {
-        setState(() => _items.removeWhere((e) => e.id == copy.id));
-        _saveItems();
+        _undoItems(() => _items.removeWhere((e) => e.id == copy.id));
       },
     );
   }
@@ -676,8 +756,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context,
       "'$shape' ${changed.length}건을 '${to.label}'(으)로 바꿨습니다.",
       onUndo: () {
-        setState(() => _items = before);
-        _saveItems();
+        _undoItems(() => _items = before);
       },
     );
   }
@@ -702,8 +781,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context,
       "'$shape' ${copies.length}건을 '${to.label}'에 복제했습니다.",
       onUndo: () {
-        setState(() => _items.removeWhere((e) => ids.contains(e.id)));
-        _saveItems();
+        _undoItems(() => _items.removeWhere((e) => ids.contains(e.id)));
       },
     );
   }
@@ -725,8 +803,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context,
       "${r.removed.length + r.kept.length}건을 ${r.kept.length}건으로 합쳤습니다.",
       onUndo: () {
-        setState(() => _items = before);
-        _saveItems();
+        _undoItems(() => _items = before);
       },
     );
   }
@@ -740,8 +817,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context,
       "'${item.shapeLabel}' ${item.length.toStringAsFixed(0)}mm 항목을 삭제했습니다.",
       onUndo: () {
-        setState(() => _items.insert(index.clamp(0, _items.length), item));
-        _saveItems();
+        _undoItems(() => _items.insert(index.clamp(0, _items.length), item));
       },
     );
   }
@@ -772,8 +848,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         ..clear()
         ..addAll(_doneBeforeSave ?? const <String>{});
       _leftoverSavedSig = '';
+      _barsAtLeftoverSave = null;
       _doneBeforeSave = null;
     });
+    SharedPreferences.getInstance()
+        .then((p) => p.remove(_leftoverBarsKey))
+        .catchError((_) => false);
     _pruneDone();
     _saveDone();
     SharedPreferences.getInstance()
@@ -815,6 +895,13 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       onLeftoversSaved: _onLeftoversSaved,
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
+      onLeftoversSavedBars: (m) {
+        _barsAtLeftoverSave = m;
+        SharedPreferences.getInstance()
+            .then((p) => p.setString(_leftoverBarsKey, encodeDeductedBars(m)))
+            .catchError((_) => false);
+      },
+      barsAtLeftoverSave: _leftoversSaved ? _barsAtLeftoverSave : null,
       deductedBars: _stockDeducted,
       onUndoDeductStock: _undoDeductStock,
       onStockDeducted: _saveStockDeducted,
@@ -1903,8 +1990,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         context,
         "'$shape' ${targets.length}건을 지웠습니다.",
         onUndo: () {
-          setState(() => _items = before);
-          _saveItems();
+          _undoItems(() => _items = before);
         },
       );
       return;
@@ -1938,8 +2024,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context,
       "${targets.length}건을 '${to.label}' 규격으로 바꿨습니다.",
       onUndo: () {
-        setState(() => _items = before);
-        _saveItems();
+        _undoItems(() => _items = before);
       },
     );
   }

@@ -434,6 +434,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       onLeftoversSaveUndone: _onLeftoversSaveUndone,
       leftoversAlreadySaved: _leftoversSaved,
       onLeftoversSavedBars: (m) => _barsAtLeftoverSave = m,
+      barsAtLeftoverSave: _leftoversSaved ? _barsAtLeftoverSave : null,
       leftoverLogSource: '라인 컷팅 · ${widget.project.name}',
       jobLogName: '라인 컷팅 · ${widget.project.name}',
       kerf: _bladeKerf,
@@ -508,6 +509,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
   BarsBySpec get debugStockDeducted => _stockDeducted;
   @visibleForTesting
   Future<bool> debugSettleDeducted() => _settleDeductedBeforeNewWork();
+  @visibleForTesting
+  Future<void> debugSaveRecord() => _saveRecord();
 
   /// 앞 작업에서 재고에서 뺀 튜브가 있으면 새 작업(템플릿)으로 바꾸기 전에 어떻게 할지 묻는다
   /// (10-08 사용자 결정: 묻지 않으면 새 작업이 그 본을 "이미 뺀 것"으로 보고 덜 뺐다).
@@ -2426,8 +2429,22 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     );
   }
 
+  // 저장 확인 흐름이 진행 중인가(8차, 10-09: 재고를 세는 사이 저장을 한 번 더 누르면 확인 창이 두 개 떠
+  // 같은 기록이 두 번 저장되고 사용량도 두 번 올라갔다).
+  bool _saveFlowBusy = false;
+
   // "저장하기": 먼저 무엇이 저장되는지 확인을 받고, 승인하면 저장한다.
   Future<void> _saveRecord() async {
+    if (_saveFlowBusy) return;
+    _saveFlowBusy = true;
+    try {
+      await _saveRecordFlow();
+    } finally {
+      _saveFlowBusy = false;
+    }
+  }
+
+  Future<void> _saveRecordFlow() async {
     if (_points.any(
       (p) => p.c2cController.text.isNotEmpty && p.calculatedCut < 0,
     )) {

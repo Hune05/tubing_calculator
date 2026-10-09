@@ -128,13 +128,20 @@ class _AttendancePageState extends State<AttendancePage>
     super.dispose();
   }
 
-  /// 앱으로 돌아왔을 때 날짜가 바뀌었으면 출근·퇴근 기록을 다시 읽는다.
+  /// 앱으로 돌아오면 출근·퇴근 기록을 다시 읽는다. 날짜가 같아도 읽는다(8차, 10-09: 화면을 켜 둔 채
+  /// 홈 위젯 [출근]·[퇴근]을 누르고 돌아오면 카드가 옛 상태라, 다시 [출근]을 누르면 위젯이 찍은 시각을 덮었다).
+  /// 이번 달을 보고 있으면 목록도 다시 읽는다.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;
-    if (_today == _shownDay) return;
+    final dayChanged = _today != _shownDay;
     _shownDay = _today;
     _loadClock();
+    if (!dayChanged &&
+        _viewedMonth == DateTime(_today.year, _today.month) &&
+        !_loading) {
+      _load(quiet: true);
+    }
   }
 
   Future<void> _init() async {
@@ -151,9 +158,10 @@ class _AttendancePageState extends State<AttendancePage>
     }
   }
 
-  Future<void> _load() async {
+  /// [quiet]이면 돌고 있는 표시 없이 다시 읽고, 못 읽으면 보던 것을 그대로 둔다(앱으로 돌아왔을 때).
+  Future<void> _load({bool quiet = false}) async {
     final seq = ++_loadSeq;
-    setState(() => _loading = true);
+    if (!quiet) setState(() => _loading = true);
     final first = DateTime(_viewedMonth.year, _viewedMonth.month, 1);
     final last = DateTime(_viewedMonth.year, _viewedMonth.month + 1, 0);
     // 첫 주 월요일~마지막 주 일요일(주 40시간·52시간을 정확히 세려고).
@@ -166,12 +174,13 @@ class _AttendancePageState extends State<AttendancePage>
       m = null;
     }
     if (!mounted || seq != _loadSeq) return;
+    if (quiet && m == null) return;
     setState(() {
       _records = m ?? {};
       _loadFailed = m == null;
       _loading = false;
     });
-    if (_scrollToToday && !_settings.calendarView) {
+    if (!quiet && _scrollToToday && !_settings.calendarView) {
       _scrollToToday = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final ctx = _todayKey.currentContext;
@@ -287,9 +296,35 @@ class _AttendancePageState extends State<AttendancePage>
       ..showSnackBar(SnackBar(content: Text(msg)));
   }
 
+  /// 이 날 기록을 제대로 읽었는가. 못 읽은 채 고치면 빈 창에서 저장돼 있던 출퇴근·메모를 지운다.
+  bool _dayLoaded(DateTime day) {
+    final d = dayOnly(day);
+    final first = DateTime(_viewedMonth.year, _viewedMonth.month, 1);
+    final last = DateTime(_viewedMonth.year, _viewedMonth.month + 1, 0);
+    final from = mondayOf(first);
+    final to = DateTime(last.year, last.month, last.day + (7 - last.weekday));
+    final inMonth = !d.isBefore(from) && !d.isAfter(to);
+    if (inMonth && !_loading && !_loadFailed) return true;
+    return _isClockDay(d) && _clockLoaded && !_clockFailed;
+  }
+
+  /// 하루 창에 펼 기록. 오늘·어제는 출근 카드 쪽(따로 읽음)을 먼저 본다(8차: 지난달을 보는 중에
+  /// 출근 카드 "고치기"를 누르면 목록에 오늘이 없어 빈 창이 떴고, 저장하면 오늘 출근 시각이 지워졌다).
+  AttendanceRecord? _recordFor(DateTime day) {
+    final key = dateKey(day);
+    if (_isClockDay(day) && _clockLoaded && !_clockFailed) {
+      return _clockRecs[key] ?? _records[key];
+    }
+    return _records[key];
+  }
+
   Future<void> _openDay(DateTime day) async {
     HapticFeedback.selectionClick();
     final key = dateKey(day);
+    if (!_dayLoaded(day)) {
+      _toast("기록을 읽지 못해 고칠 수 없습니다. 다시 읽은 뒤 고치십시오.");
+      return;
+    }
     final result = await showModalBottomSheet<AttendanceSheetResult>(
       context: context,
       isScrollControlled: true,
@@ -299,14 +334,14 @@ class _AttendancePageState extends State<AttendancePage>
       ),
       builder: (_) => AttendanceEditSheet(
         day: day,
-        existing: _records[key],
+        existing: _recordFor(day),
         options: _settings.calcOptions,
         previous: latestRecordBefore({..._clockRecs, ..._records}, day),
       ),
     );
     if (result == null || !mounted) return;
     if (result.delete) {
-      final old = _records[key];
+      final old = _recordFor(day);
       final ok = await (widget.deleteRecord ?? deleteAttendance)(day);
       if (!mounted) return;
       if (!ok) {

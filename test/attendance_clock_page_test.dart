@@ -383,4 +383,48 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('att_copy_prev')), findsNothing);
   });
+
+  testWidgets('지난달을 보는 중에 오늘 카드 고치기를 열어도 오늘 기록이 펴져 지워지지 않는다(8차)', (tester) async {
+    final store = _Store([
+      AttendanceRecord(date: wed, checkIn: '08:00', checkOut: '17:00', memo: '배관'),
+    ]);
+    await _mount(tester, store, now: DateTime(2026, 10, 14, 18));
+    await tester.tap(find.byKey(const Key('att_prev_month')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('att_clock_edit')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('att_save')));
+    await tester.pumpAndSettle();
+    final r = store.data['2026-10-14']!;
+    expect(r.checkIn, '08:00');
+    expect(r.checkOut, '17:00');
+    expect(r.memo, '배관');
+  });
+
+  testWidgets('기록을 못 읽은 달에서는 하루 창을 열지 않는다(빈 창 저장으로 지우지 않게, 8차)', (tester) async {
+    final store = _Store([AttendanceRecord(date: wed, checkIn: '08:00', checkOut: '17:00')]);
+    await _mount(tester, store, now: DateTime(2026, 10, 14, 18));
+    store.failLoad = true;
+    await tester.tap(find.byKey(const Key('att_prev_month')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('att_load_failed')), findsOneWidget);
+    // 지난달 날짜 줄은 못 읽었으니 창이 안 뜬다.
+    await tester.tap(find.textContaining('15일 (').first);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('att_save')), findsNothing);
+    expect(find.text('기록을 읽지 못해 고칠 수 없습니다. 다시 읽은 뒤 고치십시오.'), findsOneWidget);
+  });
+
+  testWidgets('앱으로 돌아오면 같은 날이어도 다시 읽어 위젯이 찍은 출근을 보인다(8차)', (tester) async {
+    final store = _Store([]);
+    await _mount(tester, store, now: DateTime(2026, 10, 14, 8));
+    expect(_text(tester, 'att_clock_title'), '오늘 출근 전');
+    // 화면을 켜 둔 채 홈 위젯 [출근]으로 찍었다.
+    store.data['2026-10-14'] = AttendanceRecord(date: wed, checkIn: '07:50');
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(_text(tester, 'att_clock_title'), '07:50 출근 · 근무 중');
+    expect(find.byKey(const Key('att_clock_in')), findsNothing);
+  });
 }

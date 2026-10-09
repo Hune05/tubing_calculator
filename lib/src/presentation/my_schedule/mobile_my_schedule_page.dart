@@ -1995,6 +1995,19 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     if (scope == 'one') {
                                       data['recurrence'] = 'none';
                                       data['recurrenceUntil'] = null;
+                                    } else {
+                                      // 이후 모두: 이 회차부터 뺀 회차·완료 표시는 새 문서로 넘긴다(8차).
+                                      final carried = carryOverAfterSplit(
+                                        existing,
+                                        occurrence!,
+                                        combined,
+                                      );
+                                      if (carried.exceptions.isNotEmpty) {
+                                        data['recurrenceExceptions'] =
+                                            carried.exceptions;
+                                      }
+                                      data['completedOccurrences'] =
+                                          carried.completed;
                                     }
                                     unawaited(
                                       ref

@@ -207,6 +207,18 @@ class WorkProjectRepository {
     }
   }
 
+  /// 진행률 기록(progressHistory) 칸만 고친다(8차, 10-09). 예전에는 작업 일지를 열 때마다 바뀐 모든
+  /// 프로젝트를 문서 통째로 다시 써서(set), 통신 없을 때는 폰 사본끼리만 합쳐진 문서가 나중에
+  /// 올라가 다른 기기가 넣은 이슈·일지·일정을 지웠다. 이 칸 하나만 쓰면 다른 칸은 건드리지 않는다.
+  /// 기다리지 않는다(통신 없으면 폰에 적혀 있다가 올라간다). 문서가 없으면 조용히 넘어간다.
+  void updateProgressHistory(String id, Map<String, dynamic> history) {
+    if (id.isEmpty) return;
+    _col
+        .doc(id)
+        .update({'progressHistory': history})
+        .catchError((Object e) => debugPrint('진행률 기록 저장 실패(건너뜀): $e'));
+  }
+
   Future<void> deleteProject(String id) async {
     await _col.doc(id).delete();
   }

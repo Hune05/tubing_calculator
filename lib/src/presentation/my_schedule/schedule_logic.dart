@@ -647,6 +647,42 @@ bool canSaveAsWorker(String worker) {
   return w.isNotEmpty && w != kNoWorkerName;
 }
 
+/// 반복 일정을 [occurrence] 회차에서 끊고 "이후 모두"를 새 문서로 만들 때 옛 문서([old])에서 넘겨줄
+/// 뺀 회차와 완료 표시(8차, 10-09: 새 문서를 빈 채로 만들어 지운 회차·완료 표시가 되살아났다).
+/// [occurrence] 날부터의 것만 넘기고, 이 회차 날짜를 [newStart]로 옮겼으면 같은 날 수만큼 옮긴다.
+({List<String> exceptions, Map<String, bool> completed}) carryOverAfterSplit(
+  Map<String, dynamic>? old,
+  DateTime occurrence,
+  DateTime newStart,
+) {
+  final from = _dayOnly(occurrence);
+  final shift = _dayOnly(newStart).difference(from).inDays;
+  String? moved(Object? k) {
+    final d = DateTime.tryParse(k.toString());
+    if (d == null || _dayOnly(d).isBefore(from)) return null;
+    return occurrenceKey(DateTime(d.year, d.month, d.day + shift));
+  }
+
+  final exceptions = <String>[];
+  final rawEx = old?['recurrenceExceptions'];
+  if (rawEx is List) {
+    for (final k in rawEx) {
+      final m = moved(k);
+      if (m != null && !exceptions.contains(m)) exceptions.add(m);
+    }
+  }
+  final completed = <String, bool>{};
+  final rawDone = old?['completedOccurrences'];
+  if (rawDone is Map) {
+    rawDone.forEach((k, v) {
+      if (v != true) return;
+      final m = moved(k);
+      if (m != null) completed[m] = true;
+    });
+  }
+  return (exceptions: exceptions, completed: completed);
+}
+
 /// 반복 일정 문서에 회차 하나를 뺀 모양(서버에 arrayUnion으로 보낸 것과 같은 결과). 알림을 바로 다시 잡는 데 쓴다.
 Map<String, dynamic> withOccurrenceSkipped(Map<String, dynamic> data, String key) {
   final raw = data['recurrenceExceptions'];

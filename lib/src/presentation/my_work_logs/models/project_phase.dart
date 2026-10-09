@@ -240,6 +240,24 @@ bool recordProgressSnapshot(Map<String, dynamic> log, [DateTime? now]) {
   return true;
 }
 
+/// 작업 일지를 열 때 프로젝트 하나를 어떻게 저장해야 하는지(8차, 10-09).
+enum ProjectOpenWrite { none, whole, progressOnly }
+
+/// 단계 구조로 옮기고 오늘 진행률을 적은 뒤, 무엇을 써야 하는지 돌려준다.
+/// 단계 이전은 문서 여러 칸이 바뀌니 통째로(whole), 진행률만 바뀌었으면 그 칸만(progressOnly).
+/// 예전에는 진행률만 바뀌어도 문서를 통째로 다시 써서, 통신 없을 때 폰 사본이 나중에 올라가
+/// 다른 기기가 넣은 이슈·일지·일정을 지웠다.
+ProjectOpenWrite prepareProjectOnOpen(
+  Map<String, dynamic> log, [
+  DateTime? now,
+]) {
+  final migrated = migrateProjectToPhases(log);
+  final snapped = recordProgressSnapshot(log, now);
+  if (migrated) return ProjectOpenWrite.whole;
+  if (snapped) return ProjectOpenWrite.progressOnly;
+  return ProjectOpenWrite.none;
+}
+
 // 지금 진행률 - `days`일 전(그 이전 중 가장 가까운 기록) 진행률, %p. 기록이 없으면 null.
 int? progressDeltaSince(Map<String, dynamic> log, int days, [DateTime? now]) {
   final today = dayOnly(now ?? DateTime.now());
