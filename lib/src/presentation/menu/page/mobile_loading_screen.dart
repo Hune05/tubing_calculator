@@ -12,6 +12,10 @@ import 'package:tubing_calculator/src/presentation/menu/page/home_menu_router.da
 import 'package:tubing_calculator/src/presentation/profile/google_link.dart';
 import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart';
 
+/// 로고를 최소한 보이는 시간과 메뉴로 넘어갈 때 서서히 바뀌는 시간(10-09: 1.5초·0.8초에서 줄임).
+const Duration kLoadingMinShow = Duration(milliseconds: 400);
+const Duration kLoadingFadeOut = Duration(milliseconds: 300);
+
 class MobileLoadingScreen extends StatefulWidget {
   const MobileLoadingScreen({super.key});
 
@@ -83,8 +87,8 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
 
   Future<void> _checkLoginStatusAndRoute() async {
     try {
-      // 1. 스플래시 화면(로고)을 최소 1.5초간 보여주기 위함
-      await Future.delayed(const Duration(milliseconds: 1500));
+      // 1. 로고를 잠깐(0.4초) 보인다. 10-09: 1.5초를 무조건 기다려 켤 때마다 느렸다(사용자 결정).
+      await Future.delayed(kLoadingMinShow);
 
       // 2. 기기에 저장된 오프라인 이름이 있는지 최우선 확인
       final prefs = await SharedPreferences.getInstance();
@@ -150,7 +154,7 @@ class _MobileLoadingScreenState extends State<MobileLoadingScreen>
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
-        transitionDuration: const Duration(milliseconds: 800),
+        transitionDuration: kLoadingFadeOut,
       ),
     );
   }

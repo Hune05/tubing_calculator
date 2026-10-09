@@ -15,11 +15,10 @@ import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 import 'package:tubing_calculator/src/core/utils/error_log.dart';
 import 'package:tubing_calculator/src/core/utils/startup_guard.dart';
+import 'package:tubing_calculator/src/data/repositories/work_project_repository.dart'
+    show openLegacyHiveIfNeeded;
 import 'package:tubing_calculator/src/core/common_widgets/app_frame.dart';
 import 'package:tubing_calculator/src/core/common_widgets/text_fields_traversal.dart';
-
-// 🚀 Hive 로컬 DB 연동
-import 'package:hive_flutter/hive_flutter.dart';
 
 // 🔥 파이어베이스 & FCM 연동
 import 'package:firebase_core/firebase_core.dart';
@@ -266,8 +265,12 @@ void main() async {
     return false;
   };
 
-  await Hive.initFlutter();
-  await Hive.openBox('projectsBox');
+  // 옛 Hive 상자: 서버로 옮기기가 끝난 폰은 열지 않고, 파일이 깨져도 앱은 켜진다(10-09).
+  await startupStep(
+    '옛 저장소',
+    openLegacyHiveIfNeeded,
+    timeout: const Duration(seconds: 3),
+  );
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (pushMessagingSupported()) {

@@ -66,6 +66,11 @@ android {
 
     buildTypes {
         release {
+            // 64비트 폰용만(10-09, 사용자 결정): 32비트 폰·PC 에뮬레이터용 부품을 빼서 약 27MB 줄인다.
+            // 아주 오래된 32비트 폰에는 설치되지 않는다. 디버그 빌드는 그대로(에뮬레이터용).
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
             signingConfig = if (hasReleaseKey) {
                 signingConfigs.getByName("release")
             } else {

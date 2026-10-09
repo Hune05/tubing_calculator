@@ -45,6 +45,18 @@ List<Map<String, dynamic>>? scheduleListWithCompleted(
 // `id`(생성 시간 epoch millis 문자열)를 그대로 사용), 무언가 바뀌면
 // 그 프로젝트 문서 하나만 다시 쓴다 - 화면은 여전히 Map을 그대로
 // 주고받고, 저장 시점만 비동기(Firestore)로 바뀐 셈이다.
+
+/// 옛 Hive 상자(projectsBox)의 일지 자료를 서버로 다 옮겼다는 폰 표시.
+const String kHiveProjectsMigratedFlag = 'hive_projects_migrated_v1';
+
+/// 앱을 켤 때 옛 Hive 상자를 연다. 옮기기가 끝난 폰은 열지 않는다(10-09: 쓰지 않는 파일을 켤 때마다 열었고,
+/// 그 파일이 깨져 열다 오류가 나면 앱이 아예 켜지지 않았다. main에서 startupStep으로 감싸 실패해도 넘어간다).
+Future<void> openLegacyHiveIfNeeded() async {
+  final prefs = await SharedPreferences.getInstance();
+  if (prefs.getBool(kHiveProjectsMigratedFlag) == true) return;
+  await Hive.initFlutter();
+  await Hive.openBox('projectsBox');
+}
 class WorkProjectRepository {
   // 처음 쓸 때 가져온다(테스트에서 이 저장소를 흉내 낸 것을 만들 때 Firebase가 없어도 되게).
   late final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -229,7 +241,7 @@ class WorkProjectRepository {
   // 다시 실행하지 않는다. Hive 데이터는 안전하게 그대로 남겨두고
   // (삭제하지 않음) 그냥 더 이상 읽지 않을 뿐이라, 뭔가 잘못돼도
   // 원본은 남아있다.
-  static const String _migratedFlag = 'hive_projects_migrated_v1';
+  static const String _migratedFlag = kHiveProjectsMigratedFlag;
 
   Future<void> _migrateFromHiveIfNeeded() async {
     try {
