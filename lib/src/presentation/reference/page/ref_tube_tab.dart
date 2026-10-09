@@ -9,6 +9,7 @@ import '../../../core/engine/bend_geometry.dart';
 import '../../../core/utils/fitting_data.dart';
 import '../../../data/models/smart_fitting_db.dart';
 import '../../calculator/segment_length_check.dart';
+import '../flange_bolt_data.dart';
 import 'reference_widgets.dart';
 
 /// 규격 이름 · 자료 키 · 외경(mm).
@@ -58,6 +59,9 @@ class RefTubeTab extends StatefulWidget {
 
 class _RefTubeTabState extends State<RefTubeTab> {
   String _sizeKey = '0.375';
+  // 11. 플랜지 볼트: 고른 클래스와 볼트 수(10-10).
+  int _flangeClass = 150;
+  int _flangeBolts = 8;
 
   _TubeSize get _size =>
       [..._inchSizes, ..._metricSizes].firstWhere((s) => s.key == _sizeKey);
@@ -454,6 +458,75 @@ class _RefTubeTabState extends State<RefTubeTab> {
             refDataRow(
               "내 값 측정",
               "잔재 300mm에 100mm 간격 마킹 → 90° 벤딩 → 실제 늘어난 값을 측정해 설정의 게인에 넣습니다.",
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // 11. 배관 플랜지 볼트(10-10)
+        refCard(
+          title: "11. 배관 플랜지 볼트 · 조임 순서",
+          subtitle: "ASME B16.5 볼트 수·지름 · ASME PCC-1 별 모양(Legacy) 조임 순서",
+          icon: LucideIcons.settings,
+          iconColor: Colors.blueGrey,
+          children: [
+            refChips(
+              items: const ['Class 150', 'Class 300', 'Class 600'],
+              selected: 'Class $_flangeClass',
+              onSelected: (v) =>
+                  setState(() => _flangeClass = int.parse(v.split(' ').last)),
+            ),
+            const SizedBox(height: 12),
+            refTable(
+              headers: const ['호칭', '볼트 수', '지름', '볼트 원 (mm)'],
+              flex: const [3, 2, 2, 3],
+              rows: [
+                for (final r in kFlangeBolts[_flangeClass]!)
+                  [
+                    '${r.nps} (${r.a})',
+                    '${r.bolts}',
+                    r.dia,
+                    r.circleMm.toStringAsFixed(1),
+                  ],
+              ],
+              footer:
+                  "볼트 원 = 볼트 구멍 가운데를 잇는 원의 지름(PCD). 스터드 길이는 가스켓·면 모양에 따라 달라 표에 없습니다.",
+            ),
+            const SizedBox(height: 16),
+            refSectionTitle("조임 순서 (별 모양)"),
+            refChips(
+              items: [
+                for (final n in kFlangeTightenOrder.keys) '$n개',
+              ],
+              selected: '$_flangeBolts개',
+              onSelected: (v) => setState(
+                () => _flangeBolts = int.parse(v.replaceAll('개', '')),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              flangeOrderText(_flangeBolts),
+              key: const Key('flange_order_text'),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            refDataRow(
+              "번호 매기기",
+              "12시 방향 볼트가 1번, 시계 방향으로 2, 3 … 같이 일하는 사람 모두 같은 번호를 씁니다.",
+            ),
+            refGap(),
+            refStep(1, "손으로 너트를 붙인 뒤 가볍게 조임(목표 토크 20% 넘지 않게), 플랜지 틈이 둘레를 따라 고른지 확인"),
+            refStep(2, "1회차: 목표 토크의 20~30%로 위 순서대로"),
+            refStep(3, "2회차: 50~70%로 같은 순서"),
+            refStep(4, "3회차: 100%로 같은 순서"),
+            refStep(5, "마무리: 100%로 시계 방향 차례로 돌며 너트가 더 안 돌 때까지"),
+            const SizedBox(height: 8),
+            refWarnBox(
+              "토크 값은 가스켓 종류·볼트 재질·윤활에 따라 달라 이 표에 없습니다. 회사 절차서나 가스켓 제조사 값을 따르십시오.",
             ),
           ],
         ),
