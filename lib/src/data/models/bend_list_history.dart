@@ -6,11 +6,25 @@ library;
 
 import 'package:flutter/foundation.dart';
 
+/// 되돌리기 한 단계: 목록과, 같이 되돌릴 값(꼬리·피팅·방향 등, 없으면 null).
+typedef _Step = ({List<Map<String, dynamic>> list, Map<String, dynamic>? extras});
+
 mixin BendListHistory on ChangeNotifier {
   static const int maxSteps = 50;
 
-  final List<List<Map<String, dynamic>>> _undo = [];
-  final List<List<Map<String, dynamic>>> _redo = [];
+  final List<_Step> _undo = [];
+  final List<_Step> _redo = [];
+
+  /// 목록 말고 같이 되돌릴 값을 읽는다/되살린다. 10-09: 보관함 불러오기·U벤드는 꼬리·피팅·방향도
+  /// 바꾸는데 ↶가 목록만 되돌려, 옛 목록이 불러온 도면의 꼬리·피팅으로 셈해졌다.
+  /// 평소 목록 고치기에는 담지 않는다(그사이 손으로 바꾼 꼬리를 되돌리면 안 된다).
+  Map<String, dynamic> captureHistoryExtras() => const {};
+  void restoreHistoryExtras(Map<String, dynamic> extras) {}
+
+  bool _extrasNext = false;
+
+  /// 다음 한 번의 기록에 같이 되돌릴 값도 담는다(목록을 바꾸는 다른 함수를 거칠 때).
+  void captureExtrasInNextRecord() => _extrasNext = true;
 
   /// 관리자가 들고 있는 목록.
   List<Map<String, dynamic>> get historyTarget;
@@ -34,10 +48,14 @@ mixin BendListHistory on ChangeNotifier {
     for (final m in l) Map<String, dynamic>.from(m),
   ];
 
-  /// 목록을 바꾸기 직전에 부른다.
+  /// 목록을 바꾸기 직전에 부른다. [withExtras]면 같이 되돌릴 값도 담는다.
   @protected
-  void recordHistory() {
-    _undo.add(_copy(historyTarget));
+  void recordHistory({bool withExtras = false}) {
+    final extras = (withExtras || _extrasNext)
+        ? Map<String, dynamic>.from(captureHistoryExtras())
+        : null;
+    _extrasNext = false;
+    _undo.add((list: _copy(historyTarget), extras: extras));
     if (_undo.length > maxSteps) {
       _undo.removeAt(0);
       _dropped++;
@@ -47,8 +65,13 @@ mixin BendListHistory on ChangeNotifier {
 
   bool undo() {
     if (_undo.isEmpty) return false;
-    _redo.add(_copy(historyTarget));
-    historyTarget = _undo.removeLast();
+    final step = _undo.removeLast();
+    _redo.add((
+      list: _copy(historyTarget),
+      extras: step.extras == null ? null : Map<String, dynamic>.from(captureHistoryExtras()),
+    ));
+    historyTarget = step.list;
+    if (step.extras != null) restoreHistoryExtras(step.extras!);
     persistHistoryTarget();
     notifyListeners();
     return true;
@@ -56,8 +79,13 @@ mixin BendListHistory on ChangeNotifier {
 
   bool redo() {
     if (_redo.isEmpty) return false;
-    _undo.add(_copy(historyTarget));
-    historyTarget = _redo.removeLast();
+    final step = _redo.removeLast();
+    _undo.add((
+      list: _copy(historyTarget),
+      extras: step.extras == null ? null : Map<String, dynamic>.from(captureHistoryExtras()),
+    ));
+    historyTarget = step.list;
+    if (step.extras != null) restoreHistoryExtras(step.extras!);
     persistHistoryTarget();
     notifyListeners();
     return true;

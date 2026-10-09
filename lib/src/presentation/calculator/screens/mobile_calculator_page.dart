@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -45,6 +46,21 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
     // 바로 적용된다. 이미 로드되어 있으면 ensureLoaded()는 아무 것도
     // 하지 않으므로 여러 곳에서 불러도 안전하다.
     AppSettingsController().ensureLoaded();
+    _loadSavedStartDir();
+  }
+
+  /// 10-09: 저장해 둔 시작 방향을 페이지가 처음부터 쓴다. 예전에는 아이소 그림이 만들어질 때만
+  /// 읽어서, 목록이 빈 채로 켜면 "우"로 시작했다가 첫 줄을 넣은 뒤에야 저장값으로 바뀌어
+  /// 넣을 때 막히지 않던 방향이 "꺾을 수 없음"이 되었다(전선관 화면은 처음부터 읽는다).
+  Future<void> _loadSavedStartDir() async {
+    try {
+      final saved = (await SharedPreferences.getInstance()).getString(
+        'mobile_saved_start_dir',
+      );
+      if (saved != null && saved.isNotEmpty && mounted && saved != _startDir) {
+        setState(() => _startDir = saved);
+      }
+    } catch (_) {}
   }
 
   // 🚀 하단 탭바 터치 시 애니메이션 없이 즉각적으로 인덱스만 변경합니다.

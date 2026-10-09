@@ -1193,6 +1193,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                     canBendTo: rule,
                     onAddBends: manager.addMultipleBends,
                     specs: specs,
+                    listEmpty: manager.bendList.isEmpty,
                   );
                 }),
                 const SizedBox(height: 12),

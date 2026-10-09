@@ -186,6 +186,13 @@ class _MobileRollingOffsetBottomSheetState
         advance: advance,
         rotation: _selectedRotation!,
       );
+      // 넣은 뒤 1번 마킹 자리를 알린다(축소값이 더해지면 그 값까지).
+      final double start = double.tryParse(_startCtrl.text) ?? 0.0;
+      final double addShrink = specs.shrinkToAdd(finalTravel - advance);
+      final String firstMarkNote = start > 0
+          ? "넣었습니다. 1번 마킹이 ${(start + addShrink).toStringAsFixed(0)}mm 자리에 찍힙니다"
+                "${addShrink > 0 ? "(시작 ${start.toStringAsFixed(0)} + 축소값 ${addShrink.toStringAsFixed(1)})" : ""}. "
+          : "넣었습니다. ";
       final many = widget.onAddBends;
       if (many != null) {
         many([
@@ -201,9 +208,7 @@ class _MobileRollingOffsetBottomSheetState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            rollAngle > 0.5
-                ? "넣었습니다. 꺾기 전에 관을 ${rollAngle.toStringAsFixed(0)}° 굴려서 잡으십시오."
-                : "넣었습니다.",
+            "$firstMarkNote${rollAngle > 0.5 ? "꺾기 전에 관을 ${rollAngle.toStringAsFixed(0)}° 굴려서 잡으십시오." : ""}",
           ),
           backgroundColor: makitaTeal,
         ),
@@ -478,7 +483,11 @@ class _MobileRollingOffsetBottomSheetState
               const SizedBox(height: 12),
               _buildCompactInputRow(
                 _startCtrl,
-                "시작 거리 (1번 마킹 자리, mm)",
+                // 10-09: 전선관에서 "1번 마킹에 축소값 더하기"가 켜져 있으면 1번 마킹은 이 값 + 축소값이다
+                // (예전 이름은 늘 "1번 마킹 자리"라 시작 300에 마킹이 403.6에 찍혀도 알 수 없었다).
+                (_specs?.addGeometricShrink ?? false)
+                    ? "시작 거리 (mm) · 1번 마킹 = 이 값 + 축소값"
+                    : "시작 거리 (1번 마킹 자리, mm)",
                 RollingFocus.start,
               ),
               const SizedBox(height: 12),

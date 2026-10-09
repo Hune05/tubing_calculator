@@ -216,6 +216,9 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         if (g != null) c.gain = g;
         if (t != null) c.takeUp = t;
         if (f != null) c.fittingDepth = f;
+        // 10-09: 최소 물림도 넘긴다(저장 안 한 폰은 화면엔 AUTO 30인데 경고는 기본값 50으로 봤다).
+        final ms = double.tryParse(_minStraightController.text);
+        if (ms != null && ms > 0) c.minStraight = ms;
         setState(_markSaved);
       });
     }
@@ -1321,15 +1324,18 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         // 단위 해석만 바뀌는 심각한 치수 오류가 날 수 있었음).
         _convertLengthControllers(newIsInch);
 
+        // 10-09: 같은 관의 다른 단위 값으로 바꾼다(0.5" ↔ 12.7mm). 같은 인치 관이 없는 mm 관(10mm 등)은
+        // 그 단위 기본 규격(1/2")으로 새로 고른 것으로 보고 MAN 값을 표 값(AUTO)으로 되돌린다.
+        final String? same = SettingsController.sameTubeOdInOtherUnit(
+          _currentOD,
+          toInch: newIsInch,
+        );
         setState(() {
           _isInch = newIsInch;
-          // 🚀 [수정] mm 기본값이 "12.0"이 아니라 "12.7"이어야
-          // 최초 로드 시 기본값(1/2" = 12.7mm)과 일치함
-          String targetOD = _isInch ? "0.5" : "12.7";
-          _currentOD = targetOD;
+          _currentOD = same ?? (newIsInch ? "0.5" : "12.7");
         });
-        // 단위만 바꾼 것(같은 관)이라 MAN 값은 그대로 둔다.
-        _onSpecsChanged();
+        // 같은 관이면 MAN 값은 그대로 둔다.
+        _onSpecsChanged(userChanged: same == null);
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

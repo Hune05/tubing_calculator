@@ -17,6 +17,25 @@ final ValueNotifier<bool> conduitUseCoupling = ValueNotifier(false);
 /// 3D(아이소) 탭에서 고른 시작 방향. 관끼리 닿는지 볼 때 쓴다.
 final ValueNotifier<String> conduitStartDir = ValueNotifier('RIGHT');
 
+/// 보관함 불러오기를 ↶로 되돌릴 때 시작 방향·커플링 체결도 같이 되돌리게 목록 관리자에 넣는다(10-09).
+void installConduitHistoryExtras() {
+  ConduitDataManager.extrasReader = () => {
+    'startDir': conduitStartDir.value,
+    'coupling': conduitUseCoupling.value,
+  };
+  ConduitDataManager.extrasWriter = (e) {
+    final d = e['startDir'];
+    if (d is String && d.isNotEmpty) {
+      conduitStartDir.value = d;
+      SharedPreferences.getInstance()
+          .then((p) => p.setString('conduit_saved_start_dir', d))
+          .catchError((_) => true);
+    }
+    final c = e['coupling'];
+    if (c is bool) conduitUseCoupling.value = c;
+  };
+}
+
 /// 커플링 체결을 폰에 남기는 키(10-08: 앱을 다시 켜면 "미체결"로 돌아가 총 절단 길이가 짧게 나왔다).
 const String kConduitCouplingKey = 'conduit_use_coupling_v1';
 bool _couplingHooked = false;

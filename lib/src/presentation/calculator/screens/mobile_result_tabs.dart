@@ -10,6 +10,7 @@ import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart'
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
+import 'package:tubing_calculator/src/presentation/calculator/segment_length_check.dart' show minGripWarnings;
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
 import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
@@ -163,7 +164,10 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
   // 꼬리는 엔진이 마지막 셋백을 빼고 더해 준다.
   // 10-09 사용자 결정: 톱날 손실은 더하지 않는다(자르는 자리는 순수 길이 — 더하면 관이 톱날
   // 두께만큼 길어진다. 톱날은 버리는 쪽을 먹는다. 튜브 컷팅 화면과 같다).
-  final double totalCut = result['totalCutLength'] as double;
+  // 10-09 사용자 결정: 기준선(장비 원점) 오프셋은 마킹 자리만 옮기고 관 길이는 늘리지 않는다
+  // (엔진은 그 값을 시작 자리로 받아 자를 길이에도 더한다 — 엔진은 그대로 두고 여기서 뺀다).
+  final double totalCut =
+      (result['totalCutLength'] as double) - dataManager.benderOffset;
   return FieldMarkingData(
     totalCut: totalCut,
     marks: marks,
@@ -176,8 +180,17 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
         tail: dataManager.tail,
       ),
       ...check.warnings,
+      // 규격을 바꾸거나 불러온 뒤에도 최소 물림을 본다(10-09, 알리기만).
+      ..._tubeMinGripWarnings(bendList, dataManager.radius),
     ],
   );
+}
+
+/// 최소 물림 경고(설정에서 "슈 간섭 경고"를 끄면 보지 않는다).
+List<String> _tubeMinGripWarnings(List<Map<String, dynamic>> bendList, double radius) {
+  final s = AppSettingsController();
+  if (!s.warnShoeInterference) return const [];
+  return minGripWarnings(bendList, radius: radius, minStraight: s.minStraight);
 }
 
 // ==========================================
@@ -449,7 +462,10 @@ class _MobileResultTabState extends State<MobileResultTab>
         }
 
         // 10-09 사용자 결정: 톱날 손실은 자를 길이에 더하지 않는다(현장 탭과 같은 값).
-        double totalCut = bendList.isEmpty ? 0.0 : pureCutLength;
+        // 기준선 오프셋은 마킹만 옮기고 자를 길이에는 넣지 않는다(10-09, 현장 탭과 같은 값).
+        double totalCut = bendList.isEmpty
+            ? 0.0
+            : pureCutLength - dataManager.benderOffset;
         // 마지막 벤드가 끝난 뒤 관 끝까지 곧은 길이.
         double diffAfterLastMark = straightAfterLastBend(steps, pureCutLength);
         if (diffAfterLastMark < 0) {
@@ -467,6 +483,7 @@ class _MobileResultTabState extends State<MobileResultTab>
             tail: _tailLength,
           ),
           ...check.warnings,
+          ..._tubeMinGripWarnings(bendList, radius),
         ];
 
         // "최근 마킹값 보기" — 저장하지 않아도 방금 계산한 마킹값을 다시 볼 수 있게

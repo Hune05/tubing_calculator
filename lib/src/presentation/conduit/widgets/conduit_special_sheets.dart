@@ -30,9 +30,16 @@ class ConduitSpecialSheets {
     required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
     BendRule? canBendTo,
+    bool listEmpty = false,
   }) => _open(
     context,
-    _KickSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs, canBendTo: canBendTo),
+    _KickSheet(
+      currentRotation: currentRotation,
+      onAddBends: onAddBends,
+      specs: specs,
+      canBendTo: canBendTo,
+      listEmpty: listEmpty,
+    ),
   );
 
   static void showSegmented(
@@ -128,7 +135,16 @@ class _KickSheet extends StatefulWidget {
 
   /// 지금 진행 방향(실제 경로 기준)에서 그 방향으로 꺾을 수 있는지. 없으면 진행 방향값으로 따진다.
   final BendRule? canBendTo;
-  const _KickSheet({required this.currentRotation, required this.onAddBends, required this.specs, this.canBendTo});
+
+  /// 목록이 비었는지(시작 거리 0이면 1번 마킹이 관 끝에 찍힌다).
+  final bool listEmpty;
+  const _KickSheet({
+    required this.currentRotation,
+    required this.onAddBends,
+    required this.specs,
+    this.canBendTo,
+    this.listEmpty = false,
+  });
 
   @override
   State<_KickSheet> createState() => _KickSheetState();
@@ -150,6 +166,11 @@ class _KickSheetState extends _SheetState<_KickSheet> {
       return;
     }
     final double start = csRead(_start) ?? 0;
+    // 10-09: 목록이 비었는데 시작 거리가 0이면 1번 마킹이 관 끝에 찍혀 꺾을 수 없다(백투백·스터브업처럼 막는다).
+    if (start <= 0 && widget.listEmpty) {
+      csSnackMissing(context, '넣을 수 없습니다. 시작 거리가 0이면 1번 마킹이 관 끝에 찍혀 꺾을 수 없습니다. 시작 거리를 넣으십시오.');
+      return;
+    }
     final double len = _r1(widget.specs.firstLength(start, a!, 0));
     widget.onAddBends([
       {'length': len, 'angle': _r1(a), 'rotation': dir},
@@ -276,8 +297,17 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
       csSnackMissing(context, '넣을 수 없습니다. 반경이 모서리 거리에 비해 너무 큽니다. 반경을 줄이거나 거리를 늘리십시오.');
       return;
     }
-    widget.onAddBends(list);
     final double first = (list.first['length'] as num).toDouble();
+    // 10-09: 1번 마킹이 관 끝이나 그 앞에 찍히면 꺾을 수 없으니 넣지 않는다(백투백과 같다).
+    final double firstMark = first - widget.specs.markOffset(seg.angle);
+    if (firstMark <= 0) {
+      csSnackMissing(
+        context,
+        '넣을 수 없습니다. 1번 마킹이 관 끝보다 앞(${csFmt(firstMark, 0)}mm)에 찍혀 꺾을 수 없습니다. 모서리 거리를 늘리거나 반경을 줄이십시오.',
+      );
+      return;
+    }
+    widget.onAddBends(list);
     csSnackAdded(
       context,
       '$_n줄을 넣었습니다. 1번 마킹이 ${csFmt(first - widget.specs.markOffset(seg.angle), 0)}mm 자리에 찍힙니다.',

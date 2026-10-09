@@ -103,3 +103,39 @@ SegmentLengthCheck checkSegmentLength({
     minFittingStraight: minFitting,
   );
 }
+
+/// 목록 전체에서 벤드 앞 곧은 부분이 벤더 최소 물림보다 짧은 곳(10-09).
+/// 예전에는 입력 탭에서 줄을 넣을 때만 봐서, 규격을 바꾸거나(3/8" → 1/2" 반경이 커짐)
+/// 보관함에서 불러오거나 앞 줄 각도를 고친 뒤에는 마킹·현장 탭에 아무 경고가 없었다.
+/// 마킹 값은 바꾸지 않고 알리기만 한다. [minStraight]가 0 이하면 보지 않는다.
+List<String> minGripWarnings(
+  List<Map<String, dynamic>> bendList, {
+  required double radius,
+  required double minStraight,
+}) {
+  if (minStraight <= 0) return const [];
+  final out = <String>[];
+  var bendNo = 0;
+  for (var i = 0; i < bendList.length; i++) {
+    final angle = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
+    if (angle <= 0) continue;
+    bendNo++;
+    final c = checkSegmentLength(
+      existing: bendList.sublist(0, i),
+      length: (bendList[i]['length'] as num?)?.toDouble() ?? 0.0,
+      angle: angle,
+      tubeOdMm: 0,
+      minStraight: minStraight,
+      warnShoeInterference: true,
+      radius: radius,
+    );
+    // 곧은 부분이 0보다 작으면 형상 점검(짧은 구간)이 이미 알린다.
+    if (c.straight >= 0 && c.straight < minStraight) {
+      out.add(
+        '$bendNo번 벤드 앞 곧은 부분 ${c.straight.toStringAsFixed(1)}mm가 최소 물림 '
+        '${minStraight.toStringAsFixed(0)}mm보다 짧습니다. 벤더에 물리지 않을 수 있습니다.',
+      );
+    }
+  }
+  return out;
+}

@@ -94,6 +94,15 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
   @override
   void persistHistoryTarget() => _saveData();
 
+  /// 불러오기를 되돌릴 때 같이 되돌릴 값(시작 방향·커플링 체결). 그 값은 화면 쪽에 있어서
+  /// 전선관 화면이 읽고 쓰는 함수를 넣어 둔다(main_navigation_page).
+  static Map<String, dynamic> Function() extrasReader = () => const {};
+  static void Function(Map<String, dynamic>) extrasWriter = (_) {};
+  @override
+  Map<String, dynamic> captureHistoryExtras() => extrasReader();
+  @override
+  void restoreHistoryExtras(Map<String, dynamic> extras) => extrasWriter(extras);
+
   // --- 기존 기능들 ---
   void addBend(Map<String, dynamic> bend) {
     recordHistory();
@@ -129,7 +138,8 @@ class ConduitDataManager extends ChangeNotifier with BendListHistory {
   /// 보관함에서 불러온 목록으로 통째로 바꾼다(↶로 되돌릴 수 있다).
   void replaceAll(List<Map<String, dynamic>> bends) {
     loadCount++;
-    recordHistory();
+    // 불러오면 시작 방향·커플링도 그 도면 값으로 바뀐다 → ↶ 때 같이 되돌린다(10-09).
+    recordHistory(withExtras: true);
     bendList = [for (final b in bends) Map<String, dynamic>.from(b)];
     _updateAndSave();
   }

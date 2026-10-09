@@ -55,6 +55,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     loadGlobalBenderSettings().whenComplete(() {
       if (mounted) setState(() => _settingsLoaded = true);
     });
+    installConduitHistoryExtras();
   }
 
   // 🚀 [수정] 폴더블 대응. 예전엔 PageView+PageController로 탭을

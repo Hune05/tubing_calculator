@@ -70,9 +70,11 @@ class _MobileQuickUBendBottomSheetState
   // U자가 튀어나가는 방향(0 위 · 90 우 · 180 아래 · 270 좌 · 360 앞 · 450 뒤).
   double? _turn;
 
-  // 피팅 삽입 여부 토글 상태
-  bool _isStartFitting = true;
-  bool _isReturnFitting = false;
+  // 피팅 삽입 여부 토글 상태. 10-09: 지금 설정에서 시작한다(예전에는 늘 켬/끔으로 시작해
+  // 끝 피팅을 켠 목록에 U자를 넣으면 끝 피팅이 말없이 꺼져 총 절단이 피팅 깊이만큼 짧아졌다).
+  // 시작 피팅은 목록이 비었을 때만 이 U자에 붙는다.
+  late bool _isStartFitting = MobileBendDataManager().startFit;
+  late bool _isReturnFitting = MobileBendDataManager().endFit;
 
   final TextEditingController _startStraightCtrl = TextEditingController();
   final TextEditingController _returnStraightCtrl = TextEditingController();
@@ -671,9 +673,13 @@ class _MobileQuickUBendBottomSheetState
     // 마킹 카드가 U자 안내를 붙이도록 표시해 둔다.
     segs[0]['uBend'] = 1.0;
     segs[1]['uBend'] = 2.0;
+    // 피팅을 바꾸면 ↶ 때 같이 되돌린다(목록을 넣기 전 값으로).
+    final bool fitChanges =
+        (wasEmpty && dm.startFit != _isStartFitting) || dm.endFit != _isReturnFitting;
+    if (fitChanges) dm.captureExtrasInNextRecord();
+    widget.onAddMultipleBends!(segs);
     if (wasEmpty) dm.startFit = _isStartFitting;
     dm.endFit = _isReturnFitting;
-    widget.onAddMultipleBends!(segs);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text("U자를 넣었습니다. 한 번에 180°로 꺾으면 1번 마킹만 씁니다."),

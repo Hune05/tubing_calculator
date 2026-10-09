@@ -262,5 +262,67 @@ void main() {
       expect(specs.markGap(tr, ang), closeTo(gap, 0.01), reason: "$ang°");
     }
   });
-}
 
+  testWidgets('전선관(축소값 더하기 켬)이면 시작 거리 칸이 "1번 마킹 = 이 값 + 축소값"이라고 말한다(10-09)', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    Future<void> openWith(BendSheetSpecs specs) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => MobileRollingOffsetBottomSheet.show(
+                  context,
+                  currentRotation: 0,
+                  specs: specs,
+                  onAddBend: (l, a, r) {},
+                ),
+                child: const Text('열기'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('열기'));
+      await tester.pumpAndSettle();
+    }
+
+    await openWith(BendSheetSpecs.conduit({
+      'benderType': 'hand',
+      'takeUp': 152.4,
+      'gain': 82.5,
+      'clr': 114.3,
+      'applyShrink': true,
+    }));
+    expect(find.textContaining('1번 마킹 = 이 값 + 축소값'), findsOneWidget);
+  });
+
+  testWidgets('튜브(축소값을 따로 더하지 않음)는 예전처럼 "1번 마킹 자리"', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.binding.setSurfaceSize(const Size(800, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => MobileRollingOffsetBottomSheet.show(
+                context,
+                currentRotation: 0,
+                specs: tubeSpecs(38.1),
+                onAddBend: (l, a, r) {},
+              ),
+              child: const Text('열기'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('열기'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('1번 마킹 자리'), findsOneWidget);
+    expect(find.textContaining('이 값 + 축소값'), findsNothing);
+  });
+}

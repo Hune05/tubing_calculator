@@ -254,7 +254,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     if (widget.onCloseTab != null) {
       widget.onCloseTab!();
     } else {
-      Navigator.of(context).maybePop();
+      // 10-09: 따로 띄운 화면(전선관 "가로 도면 보기")은 PopScope가 뒤로를 막으므로 maybePop은
+      // 다시 막혀 여기로 돌아와 끝없이 돌았다(앱 멈춤). 막는 것을 넘어 바로 닫는다.
+      Navigator.of(context).pop();
     }
   }
 
@@ -1430,7 +1432,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: isSel ? _teal.withValues(alpha: 0.06) : Colors.white,
+                // 10-09: 흰 바탕 고정이라 야간 보기(밝은 글씨)에서 숫자가 안 보였다 → 보기 색 바탕.
+                color: isSel ? _teal.withValues(alpha: 0.06) : _stripBg,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
                   color: isSel ? _teal : (s.isCut ? _ink : _line),
@@ -2163,9 +2166,11 @@ class _TapePainter extends CustomPainter {
         ..color = const Color(0x33000000),
     );
 
-    // 눈금: 10mm 짧게, 50mm 중간, 100mm 길게 + 숫자
+    // 눈금: 10mm 짧게, 50mm 중간, 100mm 길게 + 숫자.
+    // 10-09: 줄자 바탕은 늘 노란색이라 눈금·숫자도 늘 진한 색(예전에는 보기 색 글씨라 야간에 안 보였다).
+    const Color tapeInk = Color(0xFF1E293B);
     final tick = Paint()
-      ..color = _ink
+      ..color = tapeInk
       ..strokeWidth = 1;
     final tp = TextPainter(textDirection: TextDirection.ltr);
     for (int mm = 0; mm <= maxMm.floor(); mm += 10) {
@@ -2185,8 +2190,8 @@ class _TapePainter extends CustomPainter {
       if (mm % 100 == 0) {
         tp.text = TextSpan(
           text: '$mm',
-          style: TextStyle(
-            color: _ink,
+          style: const TextStyle(
+            color: tapeInk,
             fontSize: 12,
             fontWeight: FontWeight.w700,
           ),

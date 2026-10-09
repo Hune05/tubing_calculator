@@ -224,13 +224,48 @@ BendCheck conduitBendCheck(
   Map<String, dynamic> settings, {
   String startDir = 'RIGHT',
 }) {
-  return checkBends(
+  final base = checkBends(
     bendList,
     radius: _num(settings, 'clr', 0.0),
     startDir: startDir,
     outerDiameter: conduitDrawOuterDiameterMm(settings),
     warnZeroRadius: false,
   );
+  final extra = conduitMarkWarnings(bendList, settings);
+  if (extra.isEmpty) return base;
+  return BendCheck(
+    warnings: [...extra, ...base.warnings],
+    rollByIndex: base.rollByIndex,
+  );
+}
+
+/// 마킹 자리로 보는 경고(10-09). 형상 점검(checkBends)은 CLR로만 봐서 못 잡던 것:
+/// - 벤드 마킹이 관 끝(0)이나 그보다 앞에 찍힘(22mm 수동 90°에 길이 120이면 −32mm) — 꺾을 수 없다.
+/// - 90°를 넘는 벤드(예전 판에서 저장한 목록) — 게인 셈이 맞지 않는다(예전에는 마킹 카드 메모에만 있었다).
+List<String> conduitMarkWarnings(
+  List<Map<String, dynamic>> bendList,
+  Map<String, dynamic> settings,
+) {
+  if (bendList.isEmpty) return const [];
+  final marks = calculateConduitMarkings(bendList, settings);
+  final out = <String>[];
+  var bendNo = 0;
+  for (var i = 0; i < marks.length; i++) {
+    final angle = (marks[i]['angle'] as num?)?.toDouble() ?? 0.0;
+    if (angle <= 0) continue;
+    bendNo++;
+    final mark = (marks[i]['mark'] as num).toDouble();
+    if (mark <= 0.05) {
+      out.add(
+        '$bendNo번 마킹이 관 끝${mark.abs() < 0.5 ? '' : '보다 ${mark.abs().round()}mm 앞'}에 찍힙니다. '
+        '이대로는 꺾을 수 없습니다. 앞 길이를 늘리십시오.',
+      );
+    }
+    if (angle > 90.0 + 1e-9) {
+      out.add('$bendNo번 벤드가 ${angle.round()}°입니다. 90°를 넘는 벤드는 게인·마킹 값이 맞지 않습니다. 90° 이하로 나누십시오.');
+    }
+  }
+  return out;
 }
 
 /// 3D 그림·관끼리 닿음 점검에 쓸 관 바깥지름(mm).

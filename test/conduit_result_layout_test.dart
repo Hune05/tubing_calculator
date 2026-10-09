@@ -66,9 +66,14 @@ void main() {
   });
 
   testWidgets('"최근 마킹값 보기"를 누르면 방금 계산한 마킹값이 뜬다', (tester) async {
+    // 경고가 없는 목록만 기록에 쌓인다(10-09: 90°를 넘는 옛 줄은 이제 경고 띠에 뜬다).
     ConduitDataManager().bendList
       ..clear()
-      ..addAll(rows);
+      ..addAll([
+        {'length': 1000.0, 'angle': 90.0, 'rotation': 0.0},
+        {'length': 500.0, 'angle': 22.5, 'rotation': 360.0},
+        {'length': 800.0, 'angle': 0.0, 'rotation': 0.0},
+      ]);
     await pumpResult(tester, 600);
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pump(const Duration(milliseconds: 800)); // 기록은 값이 잠깐 머문 뒤 쌓인다

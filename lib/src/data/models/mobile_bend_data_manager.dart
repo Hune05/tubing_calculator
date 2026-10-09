@@ -247,6 +247,20 @@ class MobileBendDataManager extends ChangeNotifier with BendListHistory {
   @override
   void persistHistoryTarget() => _saveCurrentState();
 
+  // 불러오기·U벤드를 되돌릴 때 같이 되돌릴 값(시작·끝 피팅, 꼬리).
+  @override
+  Map<String, dynamic> captureHistoryExtras() => {
+    'startFit': _specs.startFit,
+    'endFit': _specs.endFit,
+    'tail': _specs.tail,
+  };
+  @override
+  void restoreHistoryExtras(Map<String, dynamic> extras) {
+    if (extras['startFit'] is bool) _specs.startFit = extras['startFit'] as bool;
+    if (extras['endFit'] is bool) _specs.endFit = extras['endFit'] as bool;
+    if (extras['tail'] is num) _specs.tail = (extras['tail'] as num).toDouble();
+  }
+
   void addBend(Map<String, dynamic> bend) {
     recordHistory();
     bendList.add(Map<String, dynamic>.from(bend));
@@ -286,7 +300,8 @@ class MobileBendDataManager extends ChangeNotifier with BendListHistory {
   /// 보관함에서 불러온 목록으로 통째로 바꾼다(↶로 되돌릴 수 있다).
   void replaceAll(List<Map<String, dynamic>> bends) {
     loadCount++;
-    recordHistory();
+    // 불러오면 꼬리·피팅도 그 도면 값으로 바뀐다 → ↶ 때 같이 되돌린다(10-09).
+    recordHistory(withExtras: true);
     bendList = [for (final b in bends) Map<String, dynamic>.from(b)];
     _saveCurrentState();
     notifyListeners();

@@ -34,6 +34,28 @@ class SettingsController {
     }
   }
 
+  /// 단위(mm/inch)만 바꿀 때 같은 관의 다른 단위 외경 글(10-09). 예전에는 늘 1/2"·12.7로 바꿔,
+  /// 10mm 관을 보다가 inch를 눌렀다 돌아오면 12.7이 되고 앞 관의 MAN 값이 남았다.
+  /// - inch → mm: 0.5 → "12.7"(목록에 같은 값이 있으면 그 글).
+  /// - mm → inch: 같은 인치 관(12.7 → "0.5")이 있을 때만. 없으면(10mm 관) null.
+  static String? sameTubeOdInOtherUnit(String od, {required bool toInch}) {
+    final v = double.tryParse(od);
+    if (v == null || v <= 0) return null;
+    if (toInch) {
+      for (final k in getOdList(true)) {
+        if ((double.parse(k) * 25.4 - v).abs() < 0.05) return k;
+      }
+      return null;
+    }
+    final mm = v * 25.4;
+    for (final k in getOdList(false)) {
+      if ((double.parse(k) - mm).abs() < 0.05) return k;
+    }
+    final r = (mm * 100 + 1e-6).round() / 100; // 9.525 → 9.53
+    final t = r.toStringAsFixed(2);
+    return t.endsWith('0') ? r.toStringAsFixed(1) : t;
+  }
+
   /// OD 목록에 지금 값([current])이 없으면(12.7 같은 인치 관을 mm로 볼 때) 끼워 넣는다.
   /// 예전엔 목록 첫 값(3.0)으로 떨어져 그대로 저장되어, 관 굵기가 3mm가 됐다.
   /// 폰 설정 탭·태블릿 설정 화면이 같이 쓴다.
