@@ -97,6 +97,45 @@ pw.Widget _cell(String text, {bool head = false, int maxLines = 2}) =>
       ),
     );
 
+/// 표 한 줄(왼쪽 머리 칸 + 값). [grow]면 남는 높이를 다 쓰고 글을 위에서부터 놓는다(내용 줄).
+pw.Widget _infoRow(String head, String value, {bool grow = false}) {
+  final row = pw.Row(
+    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+    children: [
+      pw.Container(
+        width: 36,
+        color: _head,
+        alignment: pw.Alignment.center,
+        child: pw.Text(
+          head,
+          style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold),
+        ),
+      ),
+      pw.Container(width: 0.5, color: _line),
+      pw.Expanded(
+        child: pw.Container(
+          padding: const pw.EdgeInsets.symmetric(horizontal: 5, vertical: 4),
+          alignment: grow ? pw.Alignment.topLeft : pw.Alignment.centerLeft,
+          child: pw.Text(
+            value,
+            maxLines: grow ? 12 : 1,
+            style: const pw.TextStyle(fontSize: 9.5),
+          ),
+        ),
+      ),
+    ],
+  );
+  return pw.Container(
+    height: grow ? null : 22,
+    decoration: grow
+        ? null
+        : const pw.BoxDecoration(
+            border: pw.Border(bottom: pw.BorderSide(color: _line, width: 0.5)),
+          ),
+    child: row,
+  );
+}
+
 pw.Widget _block(int no, PhotoSheetItem it, Uint8List? img) {
   return pw.Container(
     decoration: pw.BoxDecoration(border: pw.Border.all(color: _line, width: 0.7)),
@@ -121,32 +160,17 @@ pw.Widget _block(int no, PhotoSheetItem it, Uint8List? img) {
           ),
         ),
         pw.Container(width: 0.7, color: _line),
+        // 표가 칸 높이를 다 채우고 내용 줄이 남는 높이를 갖는다(10-10 태블릿: 표가 아래에 붙고 위가 비었다).
         pw.Expanded(
           flex: 38,
-          child: pw.Table(
-            border: pw.TableBorder(
-              horizontalInside: pw.BorderSide(color: _line, width: 0.5),
-              verticalInside: pw.BorderSide(color: _line, width: 0.5),
-            ),
-            columnWidths: const {
-              0: pw.FixedColumnWidth(36),
-              1: pw.FlexColumnWidth(),
-            },
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
-              pw.TableRow(children: [_cell('번호', head: true), _cell('$no')]),
-              pw.TableRow(
-                children: [_cell('일자', head: true), _cell(_ymd(it.date))],
-              ),
-              pw.TableRow(
-                children: [_cell('공종', head: true), _cell(it.workType)],
-              ),
-              pw.TableRow(children: [_cell('구분', head: true), _cell(it.tag)]),
-              pw.TableRow(
-                children: [
-                  _cell('내용', head: true),
-                  _cell(it.content, maxLines: 7),
-                ],
-              ),
+              _infoRow('번호', '$no'),
+              _infoRow('일자', _ymd(it.date)),
+              _infoRow('공종', it.workType),
+              _infoRow('구분', it.tag),
+              pw.Expanded(child: _infoRow('내용', it.content, grow: true)),
             ],
           ),
         ),
