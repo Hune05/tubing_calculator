@@ -24,6 +24,7 @@ import '../pages/report_style_page.dart';
 import '../pages/report_search_page.dart';
 import '../pages/project_stats_page.dart';
 import '../pages/weekly_report_page.dart';
+import '../pages/work_summary_page.dart';
 import '../pages/notification_check_page.dart';
 import '../widgets/reminder_problem_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -1734,6 +1735,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             onSelected: (v) {
               if (v == 'reminder') _showReminderSettings();
               if (v == 'weekly') _openWeeklyReport();
+              if (v == 'summary') {
+                Navigator.push(
+                  context,
+                  WorkRoute(builder: (_) => WorkSummaryPage(logs: _workLogs)),
+                );
+              }
               if (v == 'guide') _showGuideSheet();
               if (v == 'notif') _openNotifCheck();
               if (v == 'overview') _shareOverviewImage();
@@ -1757,6 +1764,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'weekly', child: Text("주간 보고")),
+              PopupMenuItem(value: 'summary', child: Text("하루·한 주 정리")),
               PopupMenuItem(value: 'reminder', child: Text("작업 일지·주간 알림 설정")),
               PopupMenuItem(value: 'overview', child: Text("전체 현황 이미지 공유")),
               PopupMenuItem(value: 'style', child: Text("보고서 양식 설정")),
