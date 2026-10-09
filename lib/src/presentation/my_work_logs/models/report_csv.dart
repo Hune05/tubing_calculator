@@ -5,7 +5,7 @@ import 'report_tools.dart';
 
 /// 머리줄(엑셀에서 한글이 깨지지 않게 맨 앞에 BOM을 둔다).
 const String kReportCsvHeader =
-    '﻿프로젝트,날짜,근태,작업유형,인원,연장시간,벤딩pt,결선개소,작업단계,특이사항';
+    '﻿프로젝트,날짜,날씨,근태,작업유형,인원,연장시간,벤딩pt,결선개소,작업단계,특이사항';
 
 String _q(String s) => '"${s.replaceAll('"', '""').replaceAll('\n', ' ')}"';
 
@@ -24,6 +24,7 @@ String buildReportsCsv(Iterable<(Map<String, dynamic>, Map)> reports) {
       [
         _q(l['name']?.toString() ?? ''),
         _date(reportDateOf(r)),
+        _q(r['weather']?.toString() ?? ''),
         _q(attendanceTypeOf(Map<String, dynamic>.from(r))),
         _q(types),
         r['worker_count'] ?? 1,

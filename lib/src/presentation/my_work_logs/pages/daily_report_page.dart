@@ -30,6 +30,7 @@ import 'photo_annotate_page.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_model.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
 import 'package:tubing_calculator/src/core/utils/send_quietly.dart';
+import 'package:tubing_calculator/src/core/utils/weather_note.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 
 part 'daily_report_page_draft.dart';
@@ -155,6 +156,110 @@ class _DailyReportPageState extends State<DailyReportPage> {
     );
   }
 
+  // 날씨(10-10): 새 일지는 홈 화면이 그날 받은 날씨로 채운다. 통신이 없어 못 받았으면 비어 있고
+  // 손으로 적을 수 있다. [_weatherAuto]는 자동으로 넣은 값인지(날짜를 바꾸면 다시 맞춘다).
+  String _weather = '';
+  bool _weatherAuto = false;
+
+  Future<void> _fillWeather() async {
+    if (_isEdit) return;
+    final w = await loadLastWeather();
+    if (!mounted || _isEdit) return;
+    if (_weather.isNotEmpty && !_weatherAuto) return; // 손으로 적은 값은 두기
+    final line = weatherLineForDay(w, _reportDay);
+    setState(() {
+      _weather = line ?? '';
+      _weatherAuto = line != null;
+    });
+  }
+
+  Future<void> _editWeather() async {
+    final ctrl = TextEditingController(text: _weather);
+    final out = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('날씨'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              children: [
+                for (final d in const ['맑음', '흐림', '비', '눈'])
+                  ActionChip(
+                    label: Text(d),
+                    onPressed: () => ctrl.text = d,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('report_weather_field'),
+              controller: ctrl,
+              decoration: const InputDecoration(hintText: '예: 흐림 16°C'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ''),
+            child: const Text('비우기'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (out == null || !mounted) return;
+    setState(() {
+      _weather = out;
+      _weatherAuto = false;
+    });
+  }
+
+  Widget _weatherRow() {
+    final has = _weather.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        key: const Key('report_weather_line'),
+        borderRadius: BorderRadius.circular(12),
+        onTap: _editWeather,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: tossInputBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.wb_cloudy_outlined, size: 20, color: makitaTeal),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  has ? '날씨  $_weather' : '날씨를 못 받았습니다. 눌러서 적으십시오.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: has ? tossText : tossSubText,
+                  ),
+                ),
+              ),
+              const Icon(Icons.edit_outlined, size: 18, color: tossSubText),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // 🚀 [변경] 하루에 여러 작업을 같이 하는 경우가 많아 복수 선택으로 변경.
   final Set<String> _selectedWorkTypes = {'신규 설치'};
   final List<String> _workTypes = [
@@ -226,7 +331,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
       lastDate: today,
       helpText: "작업 일지 날짜",
     );
-    if (picked != null && mounted) setState(() => _reportDay = dayOnly(picked));
+    if (picked != null && mounted) {
+      setState(() => _reportDay = dayOnly(picked));
+      _fillWeather(); // 지난 날짜면 오늘 날씨를 빼고, 오늘로 돌아오면 다시 넣는다
+    }
   }
 
   // 🚀 [추가] 지난 날짜의 일지를 아무 때나 함부로 고칠 수 없도록, 오늘
@@ -240,6 +348,11 @@ class _DailyReportPageState extends State<DailyReportPage> {
     super.initState();
     _isEdit = widget.existingData != null;
     _loadSafetyToday();
+    if (_isEdit) {
+      _weather = (widget.existingData!['weather'] ?? '').toString();
+    } else {
+      _fillWeather();
+    }
 
     _pointCtrl = TextEditingController(
       text: _isEdit ? widget.existingData!['points'].toString() : "",
@@ -1283,6 +1396,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
 
             // 안전 점검을 써 본 적이 있는 사람에게만 오늘 점검 여부를 보여 준다.
             if (_safetyShow) _safetyLine(),
+            _weatherRow(),
 
             // ── 오늘 작업 (핵심) ──
             _card(

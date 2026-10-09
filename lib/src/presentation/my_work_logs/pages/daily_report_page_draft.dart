@@ -39,6 +39,8 @@ extension _DailyReportDraft on _DailyReportPageState {
       'issues': _selectedIssueIds.toList(),
       'pinDx': _pinDx,
       'pinDy': _pinDy,
+      'weather': _weather,
+      'weatherAuto': _weatherAuto,
     });
   }
 
@@ -166,6 +168,12 @@ extension _DailyReportDraft on _DailyReportPageState {
         ..addAll(_strList(m['issues']));
       _pinDx = (m['pinDx'] as num?)?.toDouble();
       _pinDy = (m['pinDy'] as num?)?.toDouble();
+      if (m.containsKey('weather')) {
+        _weather = m['weather']?.toString() ?? '';
+        _weatherAuto = m['weatherAuto'] == true;
+      }
     });
+    // 어제 쓰던 임시 저장이면 그날 자동으로 넣은 날씨가 오늘 일지에 남지 않게 다시 맞춘다.
+    if (_weatherAuto) _fillWeather();
   }
 }

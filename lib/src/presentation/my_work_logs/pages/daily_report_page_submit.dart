@@ -237,6 +237,8 @@ extension _DailyReportSubmit on _DailyReportPageState {
           : _reportDay.toIso8601String().substring(0, 10),
       "work_type": _selectedWorkTypes.toList(),
       "worker_count": _workerCount,
+      // 날씨(10-10, 비어 있으면 빈칸).
+      "weather": _weather.trim(),
       "is_overtime": _isOvertime,
       // 🚀 [추가] 연장/야간 작업 시간대 - 껐으면 기록도 지운다.
       "overtime_start": _isOvertime && _overtimeStart != null

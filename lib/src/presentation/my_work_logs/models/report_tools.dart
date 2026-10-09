@@ -270,6 +270,8 @@ ReportDoc buildReportDoc(
     dayLines.add(
       '· ${r['date']}${r['locked'] == true ? ' [확정]' : ''}  $types / $workers명${extra.isEmpty ? '' : ' / ${extra.join(' ')}'}',
     );
+    final weather = (r['weather']?.toString() ?? '').trim();
+    if (weather.isNotEmpty) dayLines.add('   날씨: $weather');
     final note = (r['note']?.toString() ?? '').trim();
     if (note.isNotEmpty && note != '특이사항 없음') {
       for (final l in note.split('\n')) {

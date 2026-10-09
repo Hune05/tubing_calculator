@@ -1,4 +1,5 @@
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_widget.dart';
+import 'package:tubing_calculator/src/core/utils/weather_note.dart';
 import 'package:tubing_calculator/src/presentation/common/feature_search.dart';
 import 'package:tubing_calculator/src/presentation/common/record_search.dart';
 import 'package:tubing_calculator/src/presentation/safety/safety_check_page.dart';
@@ -1340,6 +1341,16 @@ class _MobileMenuPageState extends State<MobileMenuPage>
             _weatherAt = DateTime.now();
           });
         }
+        // 작업 일지 날씨 칸이 읽는다(10-10).
+        saveLastWeather(
+          WeatherNote(
+            desc: desc,
+            temp: temp,
+            pm: pm,
+            place: resolvedCity ?? '',
+            at: DateTime.now(),
+          ),
+        );
       } else {
         _setFallback(quiet: quiet);
       }
