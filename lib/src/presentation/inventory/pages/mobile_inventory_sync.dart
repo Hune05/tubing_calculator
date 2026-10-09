@@ -227,7 +227,6 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
             'qty': data.qty,
             'status': '정상',
             'is_dead_stock': false,
-            'is_reorder_needed': false,
             'unit': 'EA',
             // 재고조사에서 새로 넣은 자재는 내 개인 재고(로그인 안 했으면 공용).
             ...stockOwnerFields(

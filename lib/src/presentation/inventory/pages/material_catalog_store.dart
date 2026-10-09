@@ -148,7 +148,6 @@ Future<int> addCatalogItemsToInventory(
       'minQty': 0,
       'status': '정상',
       'is_dead_stock': false,
-      'is_reorder_needed': false,
       'catalogId': item.id,
       ...owner,
       'createdAt': FieldValue.serverTimestamp(),

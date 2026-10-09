@@ -444,7 +444,6 @@ Future<int> applyInventoryImport(
       'minQty': r.minQty ?? 0,
       'status': '정상',
       'is_dead_stock': false,
-      'is_reorder_needed': false,
       // 새로 넣는 자재는 내 개인 재고(로그인 안 했으면 공용), 다른 화면과 같다.
       ...stockOwnerFields(shared: false, uid: uid, name: worker),
       'createdAt': FieldValue.serverTimestamp(),
