@@ -224,6 +224,160 @@ List<Map<String, dynamic>> materialsAfterSession(
   List<Map<String, dynamic>> fittingsList,
 ) => mergeMaterialsUsage(existing, 0, fittingsList);
 
+/// 아직 재고에서 안 뺀 사용량을 "늘어난 만큼 더하기"로 쌓는 칸(10-10). 예전에는 목록(materials)을
+/// 읽어 더한 뒤 통째로 다시 써서, 폰·태블릿이 같은 작업을 저장하면(한쪽이 통신 없이 저장했다가
+/// 나중에 올라가면 더 잘) 다른 기기가 더한 부속이 사라졌다. 이제 자재마다 늘어난 수량만 더한다.
+/// 예전 목록은 그대로 두고 읽을 때 합친다(재고에서 빼면 비워진다).
+const String kUsageField = 'usage';
+
+const List<String> _usageQtyKeys = [
+  'qty_ea',
+  'qty_mm',
+  'qty_bars',
+  'qty_bars_mm',
+];
+
+String _rowName(Map m) => (m['db_name'] ?? m['name'] ?? '').toString().trim();
+
+/// 사용량 칸에서 자재 하나를 가리키는 키. 이름에 / " . 같은 글자가 있어 그대로 못 쓰니
+/// 영문·숫자·한글만 두고 나머지는 _코드_로 바꾼다(다른 이름이 같은 키가 되지 않는다).
+String usageKeyOf(String name) {
+  final b = StringBuffer();
+  for (final r in name.runes) {
+    final plain =
+        (r >= 0x30 && r <= 0x39) ||
+        (r >= 0x41 && r <= 0x5A) ||
+        (r >= 0x61 && r <= 0x7A) ||
+        (r >= 0xAC00 && r <= 0xD7A3);
+    b.write(plain ? String.fromCharCode(r) : '_${r.toRadixString(16)}_');
+  }
+  return b.toString();
+}
+
+/// 사용량 칸에 적힌 그대로(이름 → 줄). 다 빠져 0이 된 줄도 들어 있다.
+Map<String, Map<String, dynamic>> _usageByName(Map<String, dynamic>? data) {
+  final u = data?[kUsageField];
+  final out = <String, Map<String, dynamic>>{};
+  if (u is! Map) return out;
+  for (final v in u.values) {
+    if (v is! Map) continue;
+    final name = _rowName(v);
+    if (name.isNotEmpty) out[name] = Map<String, dynamic>.from(v);
+  }
+  return out;
+}
+
+/// 사용량 칸의 줄들(다 빠진 수량은 지우고, 개수·길이가 남은 줄만).
+List<Map<String, dynamic>> usageRowsOf(Map<String, dynamic>? data) {
+  final out = <Map<String, dynamic>>[];
+  for (final m in _usageByName(data).values) {
+    for (final k in _usageQtyKeys) {
+      if (((m[k] as num?) ?? 0) <= 1e-6) m.remove(k);
+    }
+    if (m.containsKey('qty_ea') || m.containsKey('qty_mm')) out.add(m);
+  }
+  return out;
+}
+
+/// 작업의 "아직 재고에서 안 뺀 사용량": 예전 목록(materials)과 사용량 칸(usage)을 이름별로 합친 것.
+/// 재고 빼기·목록 화면은 이것을 읽는다.
+List<Map<String, dynamic>> materialsOf(Map<String, dynamic>? data) {
+  final out = <Map<String, dynamic>>[
+    for (final raw in (data?['materials'] as List?) ?? const [])
+      if (raw is Map) Map<String, dynamic>.from(raw),
+  ];
+  for (final u in usageRowsOf(data)) {
+    final i = out.indexWhere((m) => _rowName(m) == _rowName(u));
+    if (i < 0) {
+      out.add(u);
+      continue;
+    }
+    for (final k in _usageQtyKeys) {
+      final add = (u[k] as num?) ?? 0;
+      if (add > 0) out[i][k] = ((out[i][k] as num?) ?? 0) + add;
+    }
+  }
+  return out;
+}
+
+/// [rows]의 수량을 사용량 칸에 더할(sign이 -1이면 뺄) 값: 키 → {설명 칸, 수량 차이}.
+/// 더할 때만 이름·규격 같은 설명 칸을 같이 적는다.
+Map<String, Map<String, Object>> usageDeltas(
+  List<Map<String, dynamic>> rows, {
+  int sign = 1,
+}) {
+  final out = <String, Map<String, Object>>{};
+  for (final r in rows) {
+    final name = _rowName(r);
+    if (name.isEmpty) continue;
+    final d = out.putIfAbsent(usageKeyOf(name), () => {});
+    if (sign > 0) {
+      d['db_name'] = name;
+      for (final f in const ['type', 'spec', 'maker', 'name']) {
+        final v = r[f];
+        if (v != null) d[f] = v;
+      }
+    }
+    for (final k in _usageQtyKeys) {
+      final q = (r[k] as num?) ?? 0;
+      if (q != 0) d[k] = ((d[k] as num?) ?? 0) + sign * q;
+    }
+  }
+  return out;
+}
+
+/// [usageDeltas]를 문서 update 내용으로(수량은 FieldValue.increment, 다른 기기가 더한 몫을 지우지 않는다).
+Map<Object, Object?> usageUpdate(Map<String, Map<String, Object>> deltas) => {
+  for (final e in deltas.entries)
+    for (final f in e.value.entries)
+      FieldPath([kUsageField, e.key, f.key]): _usageQtyKeys.contains(f.key)
+          ? FieldValue.increment(f.value as num)
+          : f.value,
+};
+
+/// 저장 한 번에 사용량 칸에 더할 줄들(부속, 그리고 "나중에 목록에서 빼기"로 남긴 튜브).
+List<Map<String, dynamic>> sessionUsageRows(
+  List<Map<String, dynamic>> fittingsList,
+) => materialsAfterSession(const [], fittingsList);
+
+/// "저장" 실행 취소 때 사용량 칸에서 뺄 줄: 이번에 더한 만큼, 단 지금 남은 값까지만
+/// (그사이 재고에서 빼서 줄었으면 남은 만큼만 빼서 음수가 되지 않게).
+List<Map<String, dynamic>> undoUsageRows(
+  Map<String, dynamic>? data,
+  List<Map<String, dynamic>> fittingsList,
+) {
+  final now = _usageByName(data);
+  final out = <Map<String, dynamic>>[];
+  for (final r in sessionUsageRows(fittingsList)) {
+    final cur = now[_rowName(r)];
+    if (cur == null) continue;
+    final take = <String, dynamic>{'db_name': _rowName(r)};
+    for (final k in _usageQtyKeys) {
+      final want = (r[k] as num?) ?? 0;
+      final left = (cur[k] as num?) ?? 0;
+      final t = want < left ? want : left;
+      if (t > 0) take[k] = t;
+    }
+    if (take.length > 1) out.add(take);
+  }
+  return out;
+}
+
+/// 재고에서 뺀 뒤 사용량을 줄일 몫을 예전 목록 쪽과 사용량 칸 쪽으로 나눈다.
+/// [data]는 뺄 때 읽은 작업 문서, [leftNames]는 재고에 없어 못 뺀 이름(남겨 둔다).
+({List<Map<String, dynamic>> legacy, List<Map<String, dynamic>> usage})
+deductedParts(Map<String, dynamic>? data, Set<String> leftNames) => (
+  legacy: [
+    for (final raw in (data?['materials'] as List?) ?? const [])
+      if (raw is Map && !leftNames.contains(_rowName(raw)))
+        Map<String, dynamic>.from(raw),
+  ],
+  usage: [
+    for (final u in usageRowsOf(data))
+      if (!leftNames.contains(_rowName(u))) u,
+  ],
+);
+
 /// CuttingMainScreen의 onSaveCallback에서 호출한다. 프로젝트 누적치
 /// (totalTubeUsed/cutCount/usedFittings/lastCutAt)를 갱신하고, 재고 차감에
 /// 쓸 materials를 누적하고, 이번 "완료"로 생성된 CutRecord들을 서브컬렉션에
@@ -239,23 +393,17 @@ Future<void> saveCuttingSession({
       .collection(kCuttingProjectsCollection)
       .doc(projectId);
 
-  final snap = await readDocQuick(docRef, wait: const Duration(seconds: 5));
-  final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
-  final mergedMaterials = materialsAfterSession(
-    existingMaterials,
-    fittingsList,
-  );
-
   // 합계·사용량과 컷팅 기록을 한 묶음으로 쓴다. 예전엔 합계 쓰기가 서버 답을 기다린 뒤에야
   // 기록을 적어서, 통신 없이 앱을 닫으면 합계는 올라가고 기록은 없었다(지울 수도 없었다).
   final batch = FirebaseFirestore.instance.batch();
   // 누적 합계는 이번에 늘어난 만큼만 더한다(10-08: 화면이 들고 있던 값을 통째로 써서, 폰·태블릿이
-  // 같은 작업을 저장하면 다른 기기가 더한 몫이 사라졌다).
+  // 같은 작업을 저장하면 다른 기기가 더한 몫이 사라졌다). 자재 사용량도 같다(10-10, [kUsageField]).
+  // 그래서 문서를 먼저 읽지 않는다(통신이 없을 때 읽느라 기다리던 5초도 없어졌다).
   batch.update(docRef, {
     'totalTubeUsed': FieldValue.increment(totalTubeLength),
     'cutCount': FieldValue.increment(cutCountOf(cutRecords)),
     'lastCutAt': DateTime.now().toIso8601String(),
-    'materials': mergedMaterials,
+    ...usageUpdate(usageDeltas(sessionUsageRows(fittingsList))),
   });
   final recordsRef = docRef.collection(kCutRecordsSubcollection);
   for (final record in cutRecords) {
@@ -324,13 +472,14 @@ Future<void> undoCuttingSession({
   // 통신이 없어도 멈추지 않게 읽고(폰 사본), 합계 되돌리기와 기록 지우기를 한 묶음으로 쓴다
   // (10-08: 합계 쓰기를 기다리느라 기록 지우기가 실행되지 않아, 통신 전에 앱을 닫으면 기록만 남았다).
   final snap = await readDocQuick(docRef, wait: const Duration(seconds: 5));
-  final existingMaterials = (snap.data()?['materials'] as List?) ?? [];
   final batch = FirebaseFirestore.instance.batch();
-  // 저장할 때 부속만 더했으므로(튜브는 재단 계획에서 뺀다) 부속만 뺀다.
+  // 저장할 때 사용량 칸에 더한 만큼만 뺀다(남은 값까지만, 다른 기기가 더한 몫은 남는다).
   batch.update(docRef, {
     'totalTubeUsed': FieldValue.increment(-totalTubeLength),
     'cutCount': FieldValue.increment(-cutCountOf(cutRecords)),
-    'materials': subtractMaterialsUsage(existingMaterials, 0, fittingsList),
+    ...usageUpdate(
+      usageDeltas(undoUsageRows(snap.data(), fittingsList), sign: -1),
+    ),
     // 되돌린 뒤 누적이 0이면 "마지막 작업" 날짜도 지운다(저장한 적이 없는 것으로 돌아간다).
     if (project.cutCount <= 0 && project.totalTubeUsed <= 1e-6)
       'lastCutAt': FieldValue.delete(),
@@ -444,7 +593,7 @@ Future<void> _deductCuttingProjectInventory({
   final docRef = db.collection(kCuttingProjectsCollection).doc(projectId);
   // 통신이 없으면 서버를 끝없이 기다렸다. 잠깐 읽고 안 되면 폰 사본.
   final snap = await readDocQuick(docRef);
-  final materials = (snap.data()?['materials'] as List?) ?? [];
+  final materials = materialsOf(snap.data());
 
   if (materials.isEmpty) {
     if (context.mounted) {
@@ -512,28 +661,26 @@ Future<void> _deductCuttingProjectInventory({
     );
 
     // 뺀 것만 지운다. 못 찾은 것은 남겨 둬서, 자재를 넣은 뒤 다시 뺄 수 있게 한다.
-    // 확인 창이 떠 있는 사이 다른 기기가 저장해 늘어난 사용량은 남기도록, 지금 서버 것을 다시 읽어
-    // 이번에 뺀 만큼만 뺀다(10-08: 처음 읽은 목록으로 통째로 써서 그 몫이 사라졌다).
+    // 확인 창이 떠 있는 사이 다른 기기가 저장해 늘어난 사용량은 남긴다: 사용량 칸은 이번에 뺀 만큼만
+    // 빼기(10-10), 예전 목록은 지금 서버 것을 다시 읽어 이번에 뺀 만큼만 뺀다(10-08).
     final leftNames = {for (final m in result.missing) m.name};
-    List<dynamic> fresh = materials;
-    try {
-      fresh = ((await docRef.get().timeout(const Duration(seconds: 5))).data()?['materials'] as List?) ?? materials;
-    } catch (_) {}
-    await docRef
-        .update({
-          'materials': materialsAfterDeduct(
-            fresh,
-            [
-              for (final raw in materials)
-                if (raw is Map &&
-                    !leftNames.contains(
-                      (raw['db_name'] ?? raw['name'] ?? '').toString().trim(),
-                    ))
-                  raw,
-            ],
-          ),
-        })
-        .timeout(const Duration(seconds: 8), onTimeout: () {});
+    final parts = deductedParts(snap.data(), leftNames);
+    final update = <Object, Object?>{
+      ...usageUpdate(usageDeltas(parts.usage, sign: -1)),
+    };
+    if (parts.legacy.isNotEmpty) {
+      final atRead = (snap.data()?['materials'] as List?) ?? const [];
+      List<dynamic> fresh = atRead;
+      try {
+        fresh = ((await docRef.get().timeout(const Duration(seconds: 5))).data()?['materials'] as List?) ?? atRead;
+      } catch (_) {}
+      update['materials'] = materialsAfterDeduct(fresh, parts.legacy);
+    }
+    if (update.isNotEmpty) {
+      await docRef
+          .update(update)
+          .timeout(const Duration(seconds: 8), onTimeout: () {});
+    }
 
     if (context.mounted) Navigator.pop(context);
     if (context.mounted) await showStockDeductResult(context, result);

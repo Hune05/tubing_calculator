@@ -605,8 +605,8 @@ class _MobileCuttingProjectListPageState
                 final lastCutAt = data['lastCutAt'] is String
                     ? DateTime.tryParse(data['lastCutAt'] as String)
                     : null;
-                final pendingMaterials =
-                    (data['materials'] as List?)?.length ?? 0;
+                // 예전 목록과 사용량 칸을 합쳐 센다(10-10).
+                final pendingMaterials = materialsOf(data).length;
 
                 // 🚀 [10-02] 왼쪽으로 밀어서도 지운다. 휴지통으로 가니 묻지 않고 되돌리기를 띄운다.
                 return SwipeToDelete(
