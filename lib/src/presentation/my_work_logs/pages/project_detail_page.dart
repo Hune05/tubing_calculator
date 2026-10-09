@@ -15,6 +15,8 @@ import '../models/project_phase.dart';
 import '../widgets/work_log_card.dart';
 import '../widgets/linked_records_section.dart';
 import '../models/report_csv.dart';
+import '../models/photo_sheet_pdf.dart';
+import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -919,6 +921,21 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                       ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  // 사진대지(10-10): 한 쪽에 사진 3장, 사진마다 일자·공종·구분·내용 표.
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      key: const Key('report_export_photo_sheet'),
+                      onPressed: () async {
+                        final r = range();
+                        Navigator.pop(ctx);
+                        await _sharePhotoSheet(r.$1, r.$2);
+                      },
+                      icon: const Icon(Icons.photo_library_outlined, size: 18),
+                      label: const Text("사진대지 PDF"),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -927,6 +944,91 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       ),
     );
   }
+
+  /// 고른 기간 작업 일지 사진으로 사진대지 PDF를 만들어 미리 보이고, 미리보기에서 공유한다.
+  Future<void> _sharePhotoSheet(DateTime from, DateTime to) async {
+    final items = photoSheetItems(log, from, to);
+    if (items.isEmpty) {
+      showSnackOnce(ScaffoldMessenger.of(context),
+        SnackBar(content: Text(keepWords("이 기간 작업 일지에는 사진이 없습니다."))),
+      );
+      return;
+    }
+    final total = items.length > kPhotoSheetMax ? kPhotoSheetMax : items.length;
+    final progress = ValueNotifier<int>(0);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ValueListenableBuilder<int>(
+                  valueListenable: progress,
+                  builder: (_, n, _) => Text("사진대지를 만드는 중 ($n/$total장)"),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    Uint8List? bytes;
+    Object? error;
+    try {
+      bytes = await buildPhotoSheetPdf(
+        project: log['name']?.toString() ?? '',
+        period: from.year == 2000 ? '전체' : '${_ymdDot(from)} ~ ${_ymdDot(to)}',
+        items: items,
+        onProgress: (n, _) => progress.value = n,
+      );
+    } catch (e) {
+      error = e;
+    }
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    progress.dispose();
+    if (bytes == null) {
+      showSnackOnce(ScaffoldMessenger.of(context),
+        SnackBar(content: Text(keepWords(failText("사진대지를 만들지 못했습니다", error ?? "")))),
+      );
+      return;
+    }
+    if (items.length > kPhotoSheetMax) {
+      showSnackOnce(ScaffoldMessenger.of(context),
+        SnackBar(content: Text(keepWords("사진이 많아 앞의 $kPhotoSheetMax장만 넣었습니다. 기간을 나눠 만드십시오."))),
+      );
+    }
+    final fileName = photoSheetFileName(log['name']?.toString() ?? '', from.year == 2000 ? items.first.date : from, to);
+    final pdf = bytes;
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => SteelPdfPreviewPage(
+          bytes: pdf,
+          fileName: fileName,
+          title: '사진대지 미리보기',
+          onShare: () async {
+            final dir = await reportPdfDir();
+            final file = File('${dir.path}/$fileName');
+            await file.writeAsBytes(pdf);
+            // ignore: deprecated_member_use
+            await Share.shareXFiles([XFile(file.path)], text: '${log['name']} 사진대지');
+          },
+        ),
+      ),
+    );
+  }
+
+  static String _ymdDot(DateTime d) =>
+      '${d.year}.${d.month.toString().padLeft(2, '0')}.${d.day.toString().padLeft(2, '0')}';
 
   /// 고른 기간의 일지를 엑셀에서 열 수 있는 CSV 파일로 만들어 공유한다.
   Future<void> _shareReportsCsv(DateTime from, DateTime to) async {
