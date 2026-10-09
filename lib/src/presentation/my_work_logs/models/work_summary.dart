@@ -160,7 +160,7 @@ ReportDoc buildWorkSummaryDoc({
                 '  · ${safetyTimeLabel(r.at)}'
                     '${r.site.isEmpty ? '' : ' ${r.site}'}'
                     '${r.work.isEmpty ? '' : ' · ${r.work}'}'
-                    ' · ${r.unanswered == 0 ? '항목 모두 확인' : '미확인 ${r.unanswered}개'}',
+                    ' · ${safetyResultLabel(r)}',
             ],
     ),
     ReportSection(

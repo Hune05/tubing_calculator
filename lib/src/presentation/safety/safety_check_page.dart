@@ -13,6 +13,7 @@ import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'safety_check_model.dart';
+import 'safety_issue_link.dart';
 import '../trash/trash_kinds.dart';
 
 // 카카오톡으로 바로 보내고, 카카오톡이 없으면 일반 공유창으로 보낸다.
@@ -173,7 +174,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('확인하지 않은 항목이 있습니다'),
-        content: Text('${r.unanswered}개 항목이 아직 "확인"이나 "해당 없음"이 아닙니다. 그대로 저장하시겠습니까?'),
+        content: Text('${r.unanswered}개 항목을 아직 고르지 않았습니다("확인"·"해당 없음"·"조치 필요"). 그대로 저장하시겠습니까?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -228,6 +229,10 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
     _draftTimer?.cancel();
     await _writeDraft(null);
     _toast(send ? '저장하고 보냈습니다' : '저장했습니다');
+    // "조치 필요" 항목이 있으면 프로젝트 이슈로 올릴지 묻는다(10-10).
+    if (mounted && safetyFixLabels(r).isNotEmpty) {
+      await offerSafetyIssues(context, r);
+    }
   }
 
   Future<void> _editItems() async {
@@ -393,6 +398,8 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
                 chip('확인', SafetyAnswer.yes, AppColors.ok),
                 const SizedBox(width: 8),
                 chip('해당 없음', SafetyAnswer.na, AppColors.textSub),
+                const SizedBox(width: 8),
+                chip('조치 필요', SafetyAnswer.fix, AppColors.danger),
               ],
             ),
           ],
@@ -637,6 +644,18 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (safetyFixLabels(r).isNotEmpty) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    key: const Key('safety_history_issue'),
+                    onPressed: () => Navigator.pop(ctx, 'issue'),
+                    icon: const Icon(Icons.report_problem_outlined, size: 18),
+                    label: Text('조치 필요 ${safetyFixLabels(r).length}건 이슈로 올리기'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               Row(
                 children: [
                   OutlinedButton(
@@ -661,6 +680,8 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
     );
     if (action == 'send') {
       await widget.share(buildSafetyCheckText(r));
+    } else if (action == 'issue') {
+      if (mounted) await offerSafetyIssues(context, r);
     } else if (action == 'delete') {
       _delete(r);
     }
@@ -717,9 +738,7 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
                         subtitle: Text(
                           [
                             if (r.work.isNotEmpty) r.work,
-                            r.unanswered == 0
-                                ? '항목 모두 확인'
-                                : '미확인 ${r.unanswered}개',
+                            safetyResultLabel(r),
                           ].join(' · '),
                         ),
                         trailing: const Icon(AppIcons.forward),

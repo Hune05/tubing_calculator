@@ -27,7 +27,8 @@ const String kSafetySiteKey = 'safety_last_site_v1';
 const String kSafetyDraftKey = 'safety_draft_v1';
 const int kSafetyRecordCap = 100;
 
-enum SafetyAnswer { none, yes, na }
+/// fix = 조치 필요(10-10): 저장한 뒤 프로젝트 이슈로 올릴 수 있다(safety_issue_link.dart).
+enum SafetyAnswer { none, yes, na, fix }
 
 class SafetyLine {
   final String label;
@@ -64,6 +65,7 @@ class SafetyRecord {
   });
 
   int get unanswered => lines.where((l) => l.answer == SafetyAnswer.none).length;
+  int get fixCount => lines.where((l) => l.answer == SafetyAnswer.fix).length;
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -113,10 +115,12 @@ String buildSafetyCheckText(SafetyRecord r) {
       SafetyAnswer.yes => '✔',
       SafetyAnswer.na => '-',
       SafetyAnswer.none => '□',
+      SafetyAnswer.fix => '✖',
     };
     final tail = switch (l.answer) {
       SafetyAnswer.na => ' (해당 없음)',
       SafetyAnswer.none => ' (미확인)',
+      SafetyAnswer.fix => ' (조치 필요)',
       SafetyAnswer.yes => '',
     };
     b.write('\n$mark ${l.label}$tail');
@@ -141,6 +145,13 @@ bool safetyUsedRecently(List<SafetyRecord> all, DateTime now, {int days = 14}) {
   final from = DateTime(now.year, now.month, now.day).subtract(Duration(days: days));
   return all.any((r) => !r.at.isBefore(from));
 }
+
+/// 점검 결과 한 마디: "항목 모두 확인" / "조치 필요 N개" / "미확인 N개"(목록·정리에 쓴다).
+String safetyResultLabel(SafetyRecord r) => [
+  if (r.fixCount > 0) '조치 필요 ${r.fixCount}개',
+  if (r.unanswered > 0) '미확인 ${r.unanswered}개',
+  if (r.fixCount == 0 && r.unanswered == 0) '항목 모두 확인',
+].join(' · ');
 
 /// "8:05" 같은 시각 글.
 String safetyTimeLabel(DateTime t) =>
