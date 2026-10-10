@@ -28,6 +28,7 @@ import 'plate_corner_dialog.dart';
 import 'plate_dxf.dart';
 import 'plate_hole_editor.dart';
 import 'plate_painter.dart';
+import 'plate_ui.dart';
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -118,9 +119,7 @@ class _PlatePageState extends State<PlatePage>
   Map<String, (double, double)> _bendTable = {};
   List<double> _dies = const [];
 
-  // 위 붙박이 그림(접을 수 있음)과, 그림에서 치수를 누르면 갈 칸
-  bool _previewOpen = true;
-  static const _previewKey = 'plate_preview_open_v1';
+  // 그림에서 치수를 누르면 갈 칸
   // 판 가운데 십자선 켜고 끄기(기억, 구멍 탭·지시서 그림도 따른다)
   bool _showCenter = true;
   static const _centerKey = 'plate_center_lines_v1';
@@ -195,8 +194,6 @@ class _PlatePageState extends State<PlatePage>
     });
     SharedPreferences.getInstance()
         .then((p) {
-          final v = p.getBool(_previewKey);
-          if (v != null && mounted) setState(() => _previewOpen = v);
           final c = p.getBool(_centerKey);
           if (c != null && mounted) setState(() => _showCenter = c);
         })
@@ -655,16 +652,19 @@ class _PlatePageState extends State<PlatePage>
   }
 
   // ── 탭(10-10 사용자: "벤딩 페이지처럼 순차적으로 다 나누어, 한 페이지에 때려 박지 말고", "탭으로 다 분리") ──
-  // 모양 → (꺾기) → 구멍 → 결과 → 3D → 보내기. 탭마다 아래 "다음" 단추로 차례대로 넘어간다.
+  // 모양 → (꺾기) → 구멍 → 결과 → 보내기. 10-10 화면 정리(사용자: "각 페이지 구성이 정리된 게 아니고 대충 뿌려 놓은 것"):
+  // 탭마다 같은 자리의 위 그림 칸(판·전개도 / 옆모습 / 3D를 오른쪽 위에서 고름) + 아래 흰 작업판(제목 줄 · 묶음 · 맨 아래 이전/다음).
 
   int _tab = 0;
+
+  /// 위 그림 칸 보기: 'flat' 판(전개도), 'side' 옆모습(꺾는 판만), '3d'.
+  String _view = 'flat';
 
   List<(String, String)> get _tabs => [
     ('shape', '모양'),
     if (_bend) ('bend', '꺾기'),
     ('holes', '구멍'),
     ('result', '결과'),
-    ('view3d', '3D'),
     ('send', '보내기'),
   ];
 
@@ -678,202 +678,409 @@ class _PlatePageState extends State<PlatePage>
   /// 예전 이름(그림에서 판을 누르면 구멍 탭으로).
   void _openEditor() => _goTab('holes');
 
-  /// "다음: …" 단추(작게, 오른쪽). 탭 줄과 길이 겹쳐 자리만 차지하지 않게(10-10 손봄).
-  Widget _nextButton(String id, String label) => Padding(
-    padding: const EdgeInsets.only(top: 12),
-    child: Align(
-      alignment: Alignment.centerRight,
-      child: FilledButton(
-        key: Key('pl_next_$id'),
-        style: FilledButton.styleFrom(
-          backgroundColor: fc.brand,
-          foregroundColor: fc.onBrand,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        ),
-        onPressed: () => _goTab(id),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '다음: $label',
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(width: 4),
-            const Icon(AppIcons.forward, size: 16),
-          ],
-        ),
-      ),
-    ),
-  );
-
-  String _nextAfter(String id) {
-    final t = _tabs;
-    final i = t.indexWhere((e) => e.$1 == id);
-    return i >= 0 && i + 1 < t.length ? t[i + 1].$1 : id;
-  }
-
   String _labelOf(String id) => _tabs.firstWhere((t) => t.$1 == id).$2;
 
-  Widget _next(String from) {
-    final to = _nextAfter(from);
-    return _nextButton(to, _labelOf(to));
+  /// 맨 아래 고정 줄: 이전 · 다음(마지막 탭은 이전만).
+  Widget _footer(String id) {
+    final t = _tabs;
+    final i = t.indexWhere((e) => e.$1 == id);
+    final prev = i > 0 ? t[i - 1].$1 : null;
+    final next = i >= 0 && i + 1 < t.length ? t[i + 1].$1 : null;
+    return PlateFooter(
+      backKey: prev == null ? null : 'pl_prev_$prev',
+      onBack: prev == null ? null : () => _goTab(prev),
+      nextKey: next == null ? null : 'pl_next_$next',
+      nextLabel: next == null ? null : _labelOf(next),
+      onNext: next == null ? null : () => _goTab(next),
+    );
   }
 
-  // ① 모양: 위 그림 + 재질·두께·치수·귀·수량
-  Widget _shapeTab(PlatePlan? p) {
+  Widget _f(
+    String key,
+    String? label,
+    TextEditingController c, {
+    FocusNode? focus,
+    String? unit = 'mm',
+    String? hint,
+  }) => PlateNumField(
+    fieldKey: key,
+    label: label,
+    controller: c,
+    focus: focus,
+    unit: unit,
+    hint: hint,
+    onChanged: (_) => setState(_saveSoon),
+  );
+
+  // ── 위 그림 칸 ──
+
+  String _viewOf(PlatePlan p) =>
+      _view == 'side' && p.bendPlan == null ? 'flat' : _view;
+
+  Widget _canvas(PlatePlan? p) {
+    if (p == null) {
+      return Center(
+        child: Text(
+          '두께와 치수를 넣으면 그림이 나옵니다.',
+          style: TextStyle(color: fc.textSub, fontWeight: FontWeight.w700),
+        ),
+      );
+    }
+    switch (_viewOf(p)) {
+      case '3d':
+        return Plate3dView(plan: p, t: _num(_t));
+      case 'side':
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(12, 52, 12, 30),
+          child: CustomPaint(
+            key: const Key('pl_side'),
+            painter: BusbarShapePainter(
+              plan: p.bendPlan!,
+              rho: p.rUsed + p.kUsed * _num(_t),
+              thickness: _num(_t),
+              text: fc.text,
+              sub: fc.textSub,
+              line: fc.line,
+              metal: kPlateSteelShade,
+            ),
+            child: const SizedBox.expand(),
+          ),
+        );
+      default:
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(6, 46, 6, 26),
+          child: LayoutBuilder(
+            builder: (context, box) => GestureDetector(
+              key: const Key('pl_view'),
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (d) => _tapPreview(p, box.biggest, d.localPosition),
+              child: CustomPaint(
+                painter: PlatePainter(
+                  plan: p,
+                  text: fc.text,
+                  sub: fc.textSub,
+                  bg: fc.background,
+                  showCenter: _showCenter,
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+        );
+    }
+  }
+
+  List<Widget> _canvasTools(PlatePlan? p) {
+    if (p == null) return const [];
+    final mode = _viewOf(p);
+    void pick(String v) => setState(() => _view = v);
+    return [
+      PlateViewSwitch([
+        PlateOption(
+          'pl_vm_flat',
+          _bend ? '전개도' : '판',
+          mode == 'flat',
+          () => pick('flat'),
+        ),
+        if (p.bendPlan != null)
+          PlateOption('pl_vm_side', '옆모습', mode == 'side', () => pick('side')),
+        PlateOption('pl_vm_3d', '3D', mode == '3d', () => pick('3d')),
+      ]),
+      if (mode == 'flat')
+        PlateCanvasButton(
+          key: const Key('pl_center'),
+          label: '가운데선',
+          selected: _showCenter,
+          onTap: _toggleCenter,
+        ),
+    ];
+  }
+
+  String? _canvasHint(PlatePlan? p) {
+    if (p == null) return null;
+    return switch (_viewOf(p)) {
+      'flat' => _previewHint(),
+      'side' => '옆에서 본 실제 비율 · 번호는 꺾기 번호',
+      _ => null,
+    };
+  }
+
+  // ① 모양: 모양 · 재질·두께 · 치수 · 네 귀 · 수량·이름
+  Widget _shapePanel(PlatePlan? p) {
     final shapes = _bend ? kPlateBendShapes : kPlateCutShapes;
     final bent = plateShapeBends(_shape);
-    return Column(
+    return PlatePanel(
+      title: '모양',
+      status: p == null
+          ? '두께와 치수를 넣으십시오.'
+          : '${plateShapeName(_shape)} · ${_dimsText()}',
+      statusKey: const Key('pl_shape_status'),
+      actions: [
+        plateHelpButton(context, 'pl_help_shape', '모양 탭', _shapeHelp()),
+      ],
+      controller: _scroll,
+      footer: _footer('shape'),
       children: [
-        _previewHeader(p),
-        Expanded(
-          child: elecList(controller: _scroll, [
-            elecField(
-              'pl_job',
-              '작업 이름 (선택)',
-              _job,
-              '지시서 PDF·DXF 파일 이름과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
-              onEdit: _saveSoon,
-            ),
-            elecSectionTitle('모양'),
-            elecChipGroup(_bend ? '꺾을 모양' : '자를 모양', _shapeGuide(), [
-              for (final (s, name) in shapes)
-                calcChip(
-                  'pl_shape_${s.name}',
-                  name,
-                  _shape == s,
-                  () => _set(() => _shape = s),
-                ),
-            ]),
-            elecSectionTitle('재질·두께'),
-            elecChipGroup('재질', '무게 계산에만 씁니다.', [
-              for (final m in PlateMaterial.values)
-                calcChip(
-                  'pl_mat_${m.name}',
-                  kPlateMaterials[m]!.$1,
-                  _mat == m,
-                  () => _set(() => _mat = m),
-                ),
-            ]),
-            elecField(
-              'pl_t',
-              '두께 (mm)',
-              _t,
-              '철판 두께입니다.',
-              onEdit: () => setState(_saveSoon),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
+        PlateSection(_bend ? '꺾을 모양' : '자를 모양', [
+          PlateSegments([
+            for (final (s, name) in shapes)
+              PlateOption(
+                'pl_shape_${s.name}',
+                name,
+                _shape == s,
+                () => _set(() => _shape = s),
+              ),
+          ]),
+        ], first: true),
+        PlateSection('재질·두께', [
+          PlateSegments([
+            for (final m in PlateMaterial.values)
+              PlateOption(
+                'pl_mat_${m.name}',
+                kPlateMaterials[m]!.$1,
+                _mat == m,
+                () => _set(() => _mat = m),
+              ),
+          ]),
+          plateRow(
+            [
+              PlateSegments([
                 for (final v in const ['2', '3', '4', '6'])
-                  calcChip(
+                  PlateOption(
                     'pl_t_$v',
                     '${v}t',
                     _t.text.trim() == v,
                     () => _setThickness(v),
                   ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            elecSectionTitle(bent ? '치수 (바깥, mm)' : '치수 (mm)'),
-            ..._dimFields(),
-            elecField(
-              'pl_qty',
-              '수량 (장)',
-              _qty,
-              '같은 것을 몇 장 만드는지입니다.',
-              onEdit: _saveSoon,
-            ),
-            _next('shape'),
-          ]),
-        ),
+              ]),
+              _f('pl_t', null, _t),
+            ],
+            flex: const [3, 2],
+          ),
+        ]),
+        PlateSection(bent ? '치수 (바깥 치수)' : '치수', _dimRows()),
+        if (_shape == PlateShape.flat) PlateSection('네 귀', _cornerRows()),
+        PlateSection('수량·이름', [
+          plateRow(
+            [
+              _f('pl_qty', '수량', _qty, unit: '장'),
+              PlateNumField(
+                fieldKey: 'pl_job',
+                label: '작업 이름 (선택)',
+                controller: _job,
+                unit: null,
+                text: true,
+                hint: '지시서·파일 이름',
+                onChanged: (_) => _saveSoon(),
+              ),
+            ],
+            flex: const [2, 5],
+          ),
+        ]),
       ],
     );
   }
 
-  // ② 꺾기(절곡만): 안쪽 반경·공제값, 저장한 공제값, 꺾은 모양, 꺾기선
-  Widget _bendTab(PlatePlan? p) => elecList([
-    elecSectionTitle('꺾기 조건'),
-    elecField(
-      'pl_r',
-      '안쪽 반경 (mm, 비우면 두께)',
-      _r,
-      '절곡기 금형의 꺾는 안쪽 반경입니다.',
-      onEdit: () => setState(_saveSoon),
-    ),
-    elecField(
-      'pl_bd',
-      '90° 공제값 (mm, 비우면 일반값)',
-      _bd,
-      '업체가 알려 준 공제값(바깥 치수 두 개 합 − 전개 길이)입니다. 넣으면 이 값이 나오게 맞춥니다.',
-      onEdit: () => setState(_saveSoon),
-    ),
-    if (p != null)
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          '지금: ${_bendCond(p)}',
-          key: const Key('pl_bendcond'),
-          style: TextStyle(color: fc.textSub, height: 1.35),
-        ),
-      ),
-    elecChipGroup(
-      '저장한 공제값',
-      _bendTable.isEmpty
-          ? '저장한 값이 없습니다. 업체 값을 넣고 "이 두께 값 저장"을 누르면 두께를 고를 때 채워집니다.'
-          : _bendTable.entries
-                .map(
-                  (e) =>
-                      '${e.key}t: R${fmt(e.value.$1)} · 공제 ${fmt(e.value.$2)}',
-                )
-                .join(' / '),
-      [
-        calcChip('pl_bd_save', '이 두께 값 저장', false, () {
-          if (p == null) return;
-          _set(() => _bendTable[_tKey] = (p.rUsed, p.bd90Used));
-          _saveBendTable();
-        }),
-        if (_bendTable.containsKey(_tKey))
-          calcChip('pl_bd_forget', '이 두께 저장 지우기', false, () {
-            _set(() => _bendTable.remove(_tKey));
-            _saveBendTable();
-          }),
+  List<String> _shapeHelp() => [
+    _shapeGuide(),
+    ...switch (_shape) {
+      PlateShape.flat => [
+        '가로 · 세로: 판 크기입니다.',
+        '네 귀: 단추를 누르면 네 귀에 같이 줍니다. 귀마다 다르게 하려면 위 그림에서 그 귀를 누르십시오. R은 둥글게, C는 귀에서 양쪽 변으로 같은 길이만큼 45°로 잘라 내고, 따내기는 귀에서 가로 × 세로 사각을 잘라 냅니다.',
       ],
-    ),
-    if (p != null && p.bendPlan != null) ...[
-      elecSectionTitle('꺾은 모양'),
-      _sideView(p, const Key('pl_side_bend')),
-      const SizedBox(height: 8),
-      calcResult(
-        key: const Key('pl_bends'),
-        big: '꺾기 ${p.bends.length}곳',
-        caption: '꺾기선 자리(왼쪽 끝에서)와 방향',
-        lines: [for (var n = 0; n < p.bends.length; n++) _bendLine(p, n)],
-      ),
-    ],
-    _next('bend'),
-  ]);
+      PlateShape.rib => [
+        '가로 변 · 세로 변: 직각을 낀 두 변 길이입니다.',
+        '모서리 따내기: ㄱ자 안쪽 모서리 용접 비드를 피하려고 직각 모서리를 45°로 따내는 길이입니다. 0이면 없습니다.',
+      ],
+      PlateShape.free => [
+        '꼭짓점: 판 외곽 꼭짓점을 차례로 한 줄에 하나씩(가로,세로) 넣습니다. 예) 0,0 다음 줄 200,0. 마지막 점은 첫 점으로 저절로 이어집니다.',
+        '귀 처리는 줄 끝에 붙입니다: ,r10(R10) · ,c5(C5 모따기) · ,n20x15(따내기: 앞 변 쪽 20 × 다음 변 쪽 15). 위 그림에서 꼭짓점을 눌러도 됩니다.',
+      ],
+      PlateShape.l => [
+        '1면: 판 끝에서 2면 바깥면까지. 2면: 판 끝에서 1면 바깥면까지.',
+        '폭: 꺾는 선 방향 길이. 각도: 90이면 직각입니다.',
+      ],
+      PlateShape.u => [
+        '1면 · 3면: 판 끝에서 2면 바깥면까지. 2면: 양쪽 면 바깥면 사이.',
+        '폭: 꺾는 선 방향 길이입니다.',
+      ],
+      PlateShape.z => [
+        '1면 · 3면: 판 끝에서 세운 면 바깥면까지. 높이: 1면 아랫면에서 3면 윗면까지(바깥).',
+        '폭: 꺾는 선 방향 길이입니다.',
+      ],
+      PlateShape.hat => [
+        '발: 다리 바깥면에서 발 끝까지(양쪽 같음). 높이: 발 바닥면에서 윗면까지(바깥). 윗면: 양쪽 다리 바깥면 사이.',
+        '폭: 꺾는 선 방향 길이입니다.',
+      ],
+    },
+    if (_bend) '꺾음 치수는 모두 바깥 치수입니다. 꺾는 반경·공제값은 "꺾기" 탭에서 정합니다.',
+    '두께: 2t·3t·4t·6t를 누르거나 칸에 직접 넣습니다.${_bend ? ' 두께를 바꾸면 저장한 그 두께의 반경·공제값을 채웁니다.' : ''}',
+    '재질은 무게 계산에만 씁니다.',
+    '위 그림: 치수를 누르면 그 칸으로, 판을 누르면 구멍 탭으로 갑니다. 오른쪽 위에서 ${_bend ? '옆모습·' : ''}3D로 바꿔 볼 수 있습니다.',
+    '작업 이름은 지시서 PDF·DXF 파일 이름과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
+  ];
 
-  Widget _sideView(PlatePlan p, Key key) => _box(
-    key,
-    170,
-    BusbarShapePainter(
-      plan: p.bendPlan!,
-      rho: p.rUsed + p.kUsed * _num(_t),
-      thickness: _num(_t),
-      text: fc.text,
-      sub: fc.textSub,
-      line: fc.line,
-      metal: kPlateSteelShade,
-    ),
+  List<Widget> _dimRows() {
+    const gap = SizedBox.shrink();
+    return switch (_shape) {
+      PlateShape.flat => [
+        plateRow([
+          _f('pl_len', '가로', _len, focus: _lenFocus),
+          _f('pl_wid', '세로', _wid, focus: _widFocus),
+        ]),
+      ],
+      PlateShape.rib => [
+        plateRow([
+          _f('pl_ra', '가로 변', _ribA, focus: _raFocus),
+          _f('pl_rb', '세로 변', _ribB, focus: _rbFocus),
+          _f('pl_rc', '모서리 따내기', _ribC, hint: '0 = 없음'),
+        ]),
+      ],
+      PlateShape.free => [
+        Text(
+          '꼭짓점 (가로,세로 한 줄에 하나 · 귀는 줄 끝에 ,r10 ,c5 ,n20x15)',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: fc.textSub,
+          ),
+        ),
+        TextField(
+          key: const Key('pl_points'),
+          controller: _points,
+          maxLines: 7,
+          minLines: 4,
+          keyboardType: TextInputType.multiline,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: fc.text,
+            height: 1.35,
+          ),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: fc.fill,
+            contentPadding: const EdgeInsets.all(12),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(color: fc.brand, width: 1.6),
+            ),
+          ),
+          onChanged: (_) => setState(_saveSoon),
+        ),
+      ],
+      PlateShape.l => [
+        plateRow([_f('pl_l1', '1면', _l1), _f('pl_l2', '2면', _l2)]),
+        plateRow([
+          _f('pl_wid', '폭', _wid),
+          _f('pl_ang', '꺾는 각도', _angle, unit: '°'),
+        ]),
+      ],
+      PlateShape.u => [
+        plateRow([
+          _f('pl_l1', '1면', _l1),
+          _f('pl_l2', '2면', _l2),
+          _f('pl_l3', '3면', _l3),
+        ]),
+        plateRow([_f('pl_wid', '폭', _wid), gap, gap]),
+      ],
+      PlateShape.z => [
+        plateRow([
+          _f('pl_l1', '1면', _l1),
+          _f('pl_l2', '높이', _l2),
+          _f('pl_l3', '3면', _l3),
+        ]),
+        plateRow([_f('pl_wid', '폭', _wid), gap, gap]),
+      ],
+      PlateShape.hat => [
+        plateRow([
+          _f('pl_l1', '발', _l1),
+          _f('pl_l2', '높이', _l2),
+          _f('pl_l3', '윗면', _l3),
+        ]),
+        plateRow([_f('pl_wid', '폭', _wid), gap, gap]),
+      ],
+    };
+  }
+
+  // ② 꺾기(절곡만): 반경·공제값 · 저장한 공제값 · 꺾기선
+  Widget _bendPanel(PlatePlan? p) => PlatePanel(
+    title: '꺾기',
+    status: p == null ? null : '지금: ${_bendCond(p)}',
+    statusKey: const Key('pl_bendcond'),
+    actions: [
+      plateHelpButton(context, 'pl_help_bend', '꺾기 탭', [
+        '안쪽 반경: 절곡기 금형의 꺾는 안쪽 반경입니다. 비우면 두께와 같게 봅니다.',
+        '90° 공제값: 업체가 알려 준 공제값(바깥 치수 두 개 합 − 전개 길이)입니다. 넣으면 이 값이 나오게 k를 맞춥니다. 비우면 일반값(k 0.33)을 씁니다.',
+        kPlateBasis[3],
+        kPlateBasis[4],
+        kPlateBasis[7],
+      ]),
+    ],
+    footer: _footer('bend'),
+    children: [
+      PlateSection('꺾기 조건', [
+        plateRow([
+          _f('pl_r', '안쪽 반경', _r, hint: '비우면 ${fmt(_num(_t))}'),
+          _f('pl_bd', '90° 공제값', _bd, hint: '비우면 일반값'),
+        ]),
+      ], first: true),
+      PlateSection('저장한 공제값 (두께별)', [
+        if (_bendTable.isEmpty)
+          Text(
+            '저장한 값이 없습니다. 업체 값을 넣고 "이 두께 값 저장"을 누르면 두께를 고를 때 채워집니다.',
+            style: TextStyle(fontSize: 13.5, color: fc.textSub, height: 1.4),
+          )
+        else
+          PlateLines([
+            for (final e in _bendTable.entries)
+              '${e.key}t: 안쪽 반경 ${fmt(e.value.$1)} · 공제값 ${fmt(e.value.$2)}',
+          ], bullet: false),
+        plateActions([
+          PlateActionButton(
+            key: const Key('pl_bd_save'),
+            icon: AppIcons.save,
+            label: '이 두께 값 저장',
+            onTap: () {
+              if (p == null) return;
+              _set(() => _bendTable[_tKey] = (p.rUsed, p.bd90Used));
+              _saveBendTable();
+            },
+          ),
+          if (_bendTable.containsKey(_tKey))
+            PlateActionButton(
+              key: const Key('pl_bd_forget'),
+              icon: AppIcons.delete,
+              label: '이 두께 저장 지우기',
+              danger: true,
+              onTap: () {
+                _set(() => _bendTable.remove(_tKey));
+                _saveBendTable();
+              },
+            ),
+        ]),
+      ]),
+      if (p != null && p.bends.isNotEmpty)
+        PlateSection('꺾기선 (왼쪽 끝에서)', [
+          KeyedSubtree(
+            key: const Key('pl_bends'),
+            child: PlateLines([
+              for (var n = 0; n < p.bends.length; n++) _bendLine(p, n),
+            ], bullet: false),
+          ),
+        ]),
+    ],
   );
 
-  // ③ 구멍: 구멍 배치 편집을 탭 안에 그대로
+  // ③ 구멍: 구멍 배치 편집(그림 칸·작업판을 같은 틀로 스스로 그린다)
   Widget _holesTab() => PlateHoleEditorPage(
     embedded: true,
     showCenter: _showCenter,
-    footer: _next('holes'),
+    footer: _footer('holes'),
     input: _input(),
     holes: List.of(_holes),
     rotQ: _rotQ,
@@ -886,142 +1093,168 @@ class _PlatePageState extends State<PlatePage>
     }),
   );
 
-  // ④ 결과: 큰 그림, 무게, 꺾기선, 꺾은 모양, 구멍 자리
-  Widget _resultTab(PlatePlan? p, bool warn) {
+  // ④ 결과: 무게 · 크기 · 확인할 것 · 꺾기선 · 구멍 자리
+  Widget _resultPanel(PlatePlan? p, bool warn) {
+    final help = plateHelpButton(context, 'pl_help_result', '결과 탭', [
+      kPlateBasis[9],
+      kPlateBasis[5],
+      kPlateBasis[6],
+      kPlateBasis[10],
+    ]);
     if (p == null) {
-      return elecList([
-        calcResult(
-          key: const Key('pl_result'),
-          big: '— mm',
-          caption: '두께와 치수를 넣으면 계산합니다',
-          lines: const [],
-        ),
-      ]);
+      return PlatePanel(
+        title: '결과',
+        status: '두께와 치수를 넣으면 계산합니다.',
+        actions: [help],
+        footer: _footer('result'),
+        children: const [],
+      );
     }
     final bent = plateShapeBends(_shape);
-    return elecList([
-      calcLabel(
-        _bend ? '전개도' : '판 모양',
-        '실제 비율입니다. 파란 쇄선은 판 가운데, 주황 점선은 꺾기선(번호·방향·각도)입니다.',
-      ),
-      const SizedBox(height: 4),
-      _box(
-        const Key('pl_view_big'),
-        320,
-        PlatePainter(
-          plan: p,
-          text: fc.text,
-          sub: fc.textSub,
-          bg: fc.surface,
-          showCenter: _showCenter,
-        ),
-      ),
-      const SizedBox(height: 12),
-      calcResult(
-        key: const Key('pl_result'),
-        big: '장당 약 ${fmt(p.kgEach, 2)}kg',
-        caption:
-            '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}t · $_qtyN장 합계 약 ${fmt(p.kgTotal, 1)}kg${p.holes.isNotEmpty ? ' · 구멍 ${p.holes.length}개' : ''}',
-        warn: warn,
-        lines: [
-          ...p.problems,
-          ...p.notes,
-          if (p.bends.isNotEmpty) _bendCond(p),
-          for (var n = 0; n < p.bends.length; n++) _bendLine(p, n),
-        ],
-      ),
-      if (p.bendPlan != null) ...[
-        const SizedBox(height: 12),
-        calcLabel('꺾은 모양', '옆에서 본 실제 비율입니다. 번호는 꺾기 번호와 같습니다.'),
-        const SizedBox(height: 4),
-        _sideView(p, const Key('pl_side')),
-      ],
-      const SizedBox(height: 12),
-      elecSectionTitle('구멍 자리'),
-      Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          _holeSummary(),
-          key: const Key('pl_hole_summary'),
-          style: TextStyle(
-            color: _holes.isEmpty ? fc.textSub : fc.text,
-            fontWeight: FontWeight.w700,
-            height: 1.35,
+    return PlatePanel(
+      title: '결과',
+      status:
+          '${_bend ? '전개' : '판'} ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)} mm',
+      actions: [help],
+      footer: _footer('result'),
+      children: [
+        PlateSection('무게', [
+          KeyedSubtree(
+            key: const Key('pl_result'),
+            child: PlateBigValue(
+              value: '장당 약 ${fmt(p.kgEach, 2)}kg',
+              caption:
+                  '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}t · $_qtyN장 합계 약 ${fmt(p.kgTotal, 1)}kg',
+              warn: warn,
+            ),
           ),
-        ),
-      ),
-      if (p.holes.isNotEmpty)
-        calcResult(
-          key: const Key('pl_holes'),
-          big: '구멍 ${p.holes.length}개',
-          caption: bent ? '면 기준 → 전개도 자리(가로 · 세로)' : '판 왼쪽 아래에서 가로 · 세로',
-          lines: [for (final h in p.holes) _holeLine(p, h)],
-        ),
-      _next('result'),
-    ]);
-  }
-
-  // ⑤ 보내기: DXF·지시서 PDF·카톡, 주문 메모, 근거
-  Widget _sendTab(PlatePlan? p) {
-    Widget item(String id, IconData icon, String title, String sub) => Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: fc.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(color: fc.line),
-        ),
-        child: ListTile(
-          key: Key('pl_send_$id'),
-          enabled: p != null,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 6,
-          ),
-          leading: Icon(icon, color: fc.brand, size: 28),
-          title: Text(
-            title,
-            style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
-          ),
-          subtitle: Text(sub, style: TextStyle(color: fc.textSub)),
-          trailing: Icon(AppIcons.forward, color: fc.textFaint),
-          onTap: p == null ? null : () => _send(id, p),
-        ),
-      ),
-    );
-    return elecList([
-      elecSectionTitle('업체에 보내기'),
-      item(
-        'dxf',
-        Icons.architecture_outlined,
-        'DXF 파일',
-        '레이저 업체 절단 프로그램용 · CUT·BEND·DIM 층',
-      ),
-      item(
-        'pdf',
-        Icons.picture_as_pdf_outlined,
-        '가공 지시서 PDF',
-        '그림·치수·구멍 표·서명 칸',
-      ),
-      item('kakao', Icons.chat_bubble_outline, '카톡 글', '치수·무게·꺾기를 글로 보냅니다'),
-      if (p != null) ...[
-        const SizedBox(height: 8),
-        calcResult(
-          key: const Key('pl_order'),
-          big: '주문 메모',
-          caption: 'DXF와 같이 알려 줄 것',
-          lines: [
-            '재질·두께·수량: ${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}t · $_qtyN장.',
-            'CUT 층만 자르고 BEND 층(꺾기선)·DIM 층(판 가운데 중심선)은 자르지 않는다고 알립니다.',
-            if (p.bends.isNotEmpty)
-              '꺾기 ${p.bends.length}곳: 방향은 DXF를 위에서 본 쪽 기준(NOTE 층 UP/DOWN), 안쪽 반경 ${fmt(p.rUsed)}mm. 업체 공제값이 다르면 그 값을 받아 "꺾기" 탭에 넣고 다시 보냅니다.',
-            '구멍 둘레·외곽 버(찌꺼기)는 받은 뒤 갈아 냅니다. 녹 방지 도장은 현장 기준을 따릅니다.',
+        ], first: true),
+        if (p.problems.isNotEmpty || p.notes.isNotEmpty)
+          PlateSection('확인할 것', [
+            if (p.problems.isNotEmpty) PlateLines(p.problems, color: fc.danger),
+            if (p.notes.isNotEmpty) PlateLines(p.notes, color: fc.caution),
+          ]),
+        PlateSection('모양', [
+          PlateInfoRow(plateShapeName(_shape), _dimsText()),
+          if (p.bends.isNotEmpty) PlateInfoRow('꺾기 조건', _bendCond(p)),
+        ]),
+        if (p.bends.isNotEmpty)
+          PlateSection('꺾기선 (왼쪽 끝에서)', [
+            PlateLines([
+              for (var n = 0; n < p.bends.length; n++) _bendLine(p, n),
+            ], bullet: false),
+          ]),
+        PlateSection(
+          bent ? '구멍 자리 (면 기준 → 전개도)' : '구멍 자리 (판 왼쪽 아래에서 가로 · 세로)',
+          [
+            Text(
+              _holeSummary(),
+              key: const Key('pl_hole_summary'),
+              style: TextStyle(
+                fontSize: 14,
+                color: _holes.isEmpty ? fc.textSub : fc.text,
+                fontWeight: FontWeight.w800,
+                height: 1.35,
+              ),
+            ),
+            if (p.holes.isNotEmpty)
+              KeyedSubtree(
+                key: const Key('pl_holes'),
+                child: PlateLines([
+                  for (final h in p.holes) _holeLine(p, h),
+                ], bullet: false),
+              ),
           ],
         ),
       ],
-      const SizedBox(height: 12),
-      elecBasis('pl_basis', kPlateBasis),
-    ]);
+    );
+  }
+
+  // ⑤ 보내기: DXF·지시서 PDF·카톡, 주문할 때 알릴 것, 근거
+  Widget _sendPanel(PlatePlan? p) {
+    Widget item(String id, IconData icon, String title, String sub) => ListTile(
+      key: Key('pl_send_$id'),
+      enabled: p != null,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+      leading: Icon(icon, color: fc.brand, size: 26),
+      title: Text(
+        title,
+        style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
+      ),
+      subtitle: Text(sub, style: TextStyle(color: fc.textSub)),
+      trailing: Icon(AppIcons.forward, color: fc.textFaint),
+      onTap: p == null ? null : () => _send(id, p),
+    );
+    return PlatePanel(
+      title: '보내기',
+      status: p == null
+          ? '두께와 치수를 넣으면 보낼 수 있습니다.'
+          : '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}t · $_qtyN장 · 레이저 업체에 보낼 파일과 글',
+      actions: [
+        plateHelpButton(context, 'pl_help_send', '보내기 탭', [
+          kPlateBasis[8],
+          '가공 지시서 PDF: 그림·치수·구멍 표·서명 칸이 들어갑니다.',
+          '카톡 글: 치수·무게·꺾기·구멍 자리를 글로 보냅니다.',
+        ]),
+      ],
+      footer: _footer('send'),
+      children: [
+        PlateSection('파일·글', [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: fc.line),
+            ),
+            child: Column(
+              children: [
+                item(
+                  'dxf',
+                  Icons.architecture_outlined,
+                  'DXF 파일',
+                  '레이저 업체 절단 프로그램용 · CUT·BEND·DIM 층',
+                ),
+                Divider(height: 1, color: fc.line),
+                item(
+                  'pdf',
+                  Icons.picture_as_pdf_outlined,
+                  '가공 지시서 PDF',
+                  '그림·치수·구멍 표·서명 칸',
+                ),
+                Divider(height: 1, color: fc.line),
+                item(
+                  'kakao',
+                  Icons.chat_bubble_outline,
+                  '카톡 글',
+                  '치수·무게·꺾기를 글로 보냅니다',
+                ),
+              ],
+            ),
+          ),
+        ], first: true),
+        if (p != null)
+          PlateSection('주문할 때 같이 알릴 것', [
+            KeyedSubtree(
+              key: const Key('pl_order'),
+              child: PlateLines([
+                '재질·두께·수량: ${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}t · $_qtyN장.',
+                'CUT 층만 자르고 BEND 층(꺾기선)·DIM 층(판 가운데 중심선)은 자르지 않는다고 알립니다.',
+                if (p.bends.isNotEmpty)
+                  '꺾기 ${p.bends.length}곳: 방향은 DXF를 위에서 본 쪽 기준(NOTE 층 UP/DOWN), 안쪽 반경 ${fmt(p.rUsed)}mm. 업체 공제값이 다르면 그 값을 받아 "꺾기" 탭에 넣고 다시 보냅니다.',
+                '구멍 둘레·외곽 버(찌꺼기)는 받은 뒤 갈아 냅니다. 녹 방지 도장은 현장 기준을 따릅니다.',
+              ]),
+            ),
+          ]),
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: fc.line)),
+            ),
+            child: elecBasis('pl_basis', kPlateBasis),
+          ),
+        ),
+      ],
+    );
   }
 
   Future<void> _send(String id, PlatePlan p) async {
@@ -1051,7 +1284,6 @@ class _PlatePageState extends State<PlatePage>
         'bend' => AppIcon(AppGlyph.plateBend, size: 24, filled: on),
         'holes' => const Icon(Icons.adjust, size: 24),
         'result' => AppIcon(AppGlyph.navMarking, size: 24, filled: on),
-        'view3d' => const Icon(Icons.view_in_ar, size: 24),
         _ => const Icon(AppIcons.send, size: 22),
       };
       return BottomNavigationBarItem(
@@ -1067,22 +1299,13 @@ class _PlatePageState extends State<PlatePage>
     return Container(
       decoration: BoxDecoration(
         color: fc.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(compact ? 16 : 24),
-        ),
+        border: Border(top: BorderSide(color: fc.line)),
       ),
       child: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: 4,
-            vertical: compact ? 0 : 8,
+            vertical: compact ? 0 : 4,
           ),
           child: BottomNavigationBar(
             backgroundColor: Colors.transparent,
@@ -1127,6 +1350,12 @@ class _PlatePageState extends State<PlatePage>
     }
     final tabs = _tabs;
     final idx = _tab.clamp(0, tabs.length - 1);
+    final id = tabs[idx].$1;
+    // 구멍 탭이 아닌 탭들은 위 그림 칸을 같이 쓰고 아래 작업판만 바뀐다.
+    final others = [
+      for (final t in tabs)
+        if (t.$1 != 'holes') t.$1,
+    ];
 
     // 뒤로 갈 때 바로 남긴다(첫 화면 "이어서" 줄이 방금 것을 읽게)
     return PopScope(
@@ -1186,33 +1415,39 @@ class _PlatePageState extends State<PlatePage>
               warn: warn,
               showBar: false,
               body: IndexedStack(
-                index: idx,
+                index: id == 'holes' ? 1 : 0,
                 children: [
-                  for (final (id, _) in tabs)
-                    KeyedSubtree(
-                      key: ValueKey('pl_body_$id'),
-                      child: switch (id) {
-                        'shape' => _shapeTab(p),
-                        'bend' => _bendTab(p),
-                        'holes' => _holesTab(),
-                        'result' => _resultTab(p, warn),
-                        'view3d' =>
-                          p == null
-                              ? elecList([
-                                  calcResult(
-                                    big: '— mm',
-                                    caption: '두께와 치수를 넣으면 입체로 보입니다',
-                                    lines: const [],
-                                  ),
-                                ])
-                              : Plate3dView(
-                                  plan: p,
-                                  t: _num(_t),
-                                  footer: _next('view3d'),
-                                ),
-                        _ => _sendTab(p),
-                      },
+                  PlateWorkspace(
+                    canvasShare: switch (id) {
+                      'shape' || 'bend' => 0.36,
+                      _ => 0.46,
+                    },
+                    canvas: KeyedSubtree(
+                      key: const ValueKey('pl_canvas'),
+                      child: _canvas(p),
                     ),
+                    tools: _canvasTools(p),
+                    hint: _canvasHint(p),
+                    panel: IndexedStack(
+                      index: others.contains(id) ? others.indexOf(id) : 0,
+                      children: [
+                        for (final o in others)
+                          KeyedSubtree(
+                            key: ValueKey('pl_body_$o'),
+                            child: switch (o) {
+                              'shape' => _shapePanel(p),
+                              'bend' => _bendPanel(p),
+                              'result' => _resultPanel(p, warn),
+                              _ => _sendPanel(p),
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                  KeyedSubtree(
+                    key: const ValueKey('pl_body_holes'),
+                    child: _holesTab(),
+                  ),
                 ],
               ),
             ),
@@ -1223,7 +1458,7 @@ class _PlatePageState extends State<PlatePage>
     );
   }
 
-  // ── 위 붙박이 그림 ──
+  // ── 위 그림 ──
 
   void _toggleCenter() {
     setState(() => _showCenter = !_showCenter);
@@ -1233,118 +1468,12 @@ class _PlatePageState extends State<PlatePage>
         .catchError((_) => false);
   }
 
-  void _setPreviewOpen(bool v) {
-    setState(() => _previewOpen = v);
-    SharedPreferences.getInstance()
-        .then((p) => p.setBool(_previewKey, v))
-        .catchError((_) => false);
-  }
-
   String _previewHint() => switch (_shape) {
-    PlateShape.flat => '파란 쇄선은 판 가운데 · 귀를 누르면 귀 처리 · 치수를 누르면 그 칸 · 판을 누르면 구멍',
-    PlateShape.free => '파란 쇄선은 판 가운데 · 꼭짓점을 누르면 귀 처리 · 판을 누르면 구멍',
-    PlateShape.rib => '파란 쇄선은 판 가운데 · 치수를 누르면 그 칸 · 판을 누르면 구멍',
-    _ => '파란 쇄선은 판 가운데 · 주황 점선은 꺾기선 · 판을 누르면 구멍',
+    PlateShape.flat => '귀·치수를 누르면 고치고, 판을 누르면 구멍',
+    PlateShape.free => '꼭짓점을 누르면 귀 처리, 판을 누르면 구멍',
+    PlateShape.rib => '치수를 누르면 그 칸, 판을 누르면 구멍',
+    _ => '주황 점선은 꺾기선 · 판을 누르면 구멍',
   };
-
-  /// 요약 줄 아래 붙박이 판 그림. 키보드가 떠 있으면 낮게.
-  Widget _previewHeader(PlatePlan? p) {
-    final kb = MediaQuery.viewInsetsOf(context).bottom > 0;
-    final h = MediaQuery.sizeOf(context).height;
-    final boxH = kb
-        ? (h * 0.16).clamp(100.0, 160.0)
-        : (h * 0.24).clamp(150.0, 260.0);
-    final open = _previewOpen && p != null;
-    return Container(
-      decoration: BoxDecoration(
-        color: fc.surface,
-        border: Border(bottom: BorderSide(color: fc.line)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (open)
-            SizedBox(
-              height: boxH,
-              child: LayoutBuilder(
-                builder: (context, box) => GestureDetector(
-                  key: const Key('pl_view'),
-                  behavior: HitTestBehavior.opaque,
-                  onTapUp: (d) => _tapPreview(p, box.biggest, d.localPosition),
-                  child: CustomPaint(
-                    painter: PlatePainter(
-                      plan: p,
-                      text: fc.text,
-                      sub: fc.textSub,
-                      bg: fc.surface,
-                      showCenter: _showCenter,
-                    ),
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-              ),
-            ),
-          InkWell(
-            key: const Key('pl_preview_toggle'),
-            onTap: p == null ? null : () => _setPreviewOpen(!_previewOpen),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 6, 10, 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      p == null
-                          ? '두께와 치수를 넣으면 그림이 나옵니다.'
-                          : (_previewOpen ? _previewHint() : '그림 보기'),
-                      style: TextStyle(fontSize: 13, color: fc.textSub),
-                    ),
-                  ),
-                  if (p != null && _previewOpen)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: InkWell(
-                        key: const Key('pl_center'),
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: _toggleCenter,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _showCenter
-                                ? kPlateCenter.withValues(alpha: 0.12)
-                                : null,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: _showCenter ? kPlateCenter : fc.line,
-                            ),
-                          ),
-                          child: Text(
-                            '가운데선',
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              color: _showCenter ? kPlateCenter : fc.textSub,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  if (p != null)
-                    Icon(
-                      _previewOpen ? Icons.expand_less : Icons.expand_more,
-                      size: 20,
-                      color: fc.textSub,
-                    ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   /// 그림을 눌렀을 때: 귀(평판)·꼭짓점(자유) → 귀 처리, 치수 숫자 → 그 칸, 판 안 → 구멍 넣기·고치기.
   void _tapPreview(PlatePlan p, Size size, Offset at) {
@@ -1496,152 +1625,62 @@ class _PlatePageState extends State<PlatePage>
     );
   }
 
-  List<Widget> _cornerFields() {
+  List<Widget> _cornerRows() {
     final same = _cornersSame;
     final kind = same ? _corners[0].kind : null;
-    Widget size(String key, String label, TextEditingController c, String g) =>
-        elecField(key, label, c, g, onEdit: _setCornerSize);
+    Widget size(String key, String label, TextEditingController c) =>
+        PlateNumField(
+          fieldKey: key,
+          label: label,
+          controller: c,
+          onChanged: (_) => _setCornerSize(),
+        );
+    const gap = SizedBox.shrink();
     return [
-      elecChipGroup('네 귀', '네 귀에 같이 줍니다. 귀마다 다르게 하려면 위 그림에서 그 귀를 누르십시오.', [
-        calcChip(
+      PlateSegments([
+        PlateOption(
           'pl_ck_none',
           '직각',
           kind == PlateCornerKind.none,
           () => _setAllCorners(PlateCornerKind.none),
         ),
-        calcChip(
+        PlateOption(
           'pl_ck_round',
           'R 둥글게',
           kind == PlateCornerKind.round,
           () => _setAllCorners(PlateCornerKind.round),
         ),
-        calcChip(
+        PlateOption(
           'pl_ck_chamfer',
           'C 모따기',
           kind == PlateCornerKind.chamfer,
           () => _setAllCorners(PlateCornerKind.chamfer),
         ),
-        calcChip(
+        PlateOption(
           'pl_ck_notch',
           '따내기',
           kind == PlateCornerKind.notch,
           () => _setAllCorners(PlateCornerKind.notch),
         ),
       ]),
-      if (!same)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            '귀마다 다릅니다:${_cornersText().replaceFirst(' · ', ' ')}. 칩을 누르면 네 귀가 같아집니다.',
-            key: const Key('pl_corner_mixed'),
-            style: TextStyle(color: fc.textSub, height: 1.35),
-          ),
-        ),
-      if (_rotQ % 4 != 0 && !_corners.every((c) => c.isNone))
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            '판을 돌려 놓았습니다. 귀 이름은 돌리기 전(가로 ${fmt(_num(_len))} × 세로 ${fmt(_num(_wid))}) 기준입니다.',
-            style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
-          ),
-        ),
       if (kind == PlateCornerKind.round)
-        size('pl_ca', 'R (mm)', _ca, '귀를 둥글게 자르는 반경입니다.'),
+        plateRow([size('pl_ca', 'R', _ca), gap]),
       if (kind == PlateCornerKind.chamfer)
-        size('pl_ca', 'C (mm)', _ca, '귀에서 양쪽 변으로 이 길이만큼 45°로 잘라 냅니다.'),
-      if (kind == PlateCornerKind.notch) ...[
-        size('pl_ca', '따내기 가로 (mm)', _ca, '귀에서 가로 변을 따라 잘라 내는 길이입니다.'),
-        size('pl_cb', '따내기 세로 (mm)', _cb, '귀에서 세로 변을 따라 잘라 내는 길이입니다.'),
-      ],
+        plateRow([size('pl_ca', 'C', _ca), gap]),
+      if (kind == PlateCornerKind.notch)
+        plateRow([size('pl_ca', '따내기 가로', _ca), size('pl_cb', '따내기 세로', _cb)]),
+      Text(
+        same
+            ? '네 귀에 같이 줍니다. 귀마다 다르게 하려면 위 그림에서 그 귀를 누르십시오.'
+            : '귀마다 다릅니다:${_cornersText().replaceFirst(' · ', ' ')}. 단추를 누르면 네 귀가 같아집니다.',
+        key: same ? null : const Key('pl_corner_mixed'),
+        style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+      ),
+      if (_rotQ % 4 != 0 && !_corners.every((c) => c.isNone))
+        Text(
+          '판을 돌려 놓았습니다. 귀 이름은 돌리기 전(가로 ${fmt(_num(_len))} × 세로 ${fmt(_num(_wid))}) 기준입니다.',
+          style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+        ),
     ];
   }
-
-  List<Widget> _dimFields() {
-    Widget f(
-      String key,
-      String label,
-      TextEditingController c,
-      String guide, [
-      FocusNode? focus,
-    ]) => elecField(key, label, c, guide, onEdit: _saveSoon, focus: focus);
-    return switch (_shape) {
-      PlateShape.flat => [
-        f('pl_len', '가로 (mm)', _len, '판 가로 길이입니다.', _lenFocus),
-        f('pl_wid', '세로 (mm)', _wid, '판 세로 길이입니다.', _widFocus),
-        ..._cornerFields(),
-      ],
-      PlateShape.rib => [
-        f('pl_ra', '가로 변 (mm)', _ribA, '직각을 낀 아래 변 길이입니다.', _raFocus),
-        f('pl_rb', '세로 변 (mm)', _ribB, '직각을 낀 세운 변 길이입니다.', _rbFocus),
-        f(
-          'pl_rc',
-          '모서리 따내기 (mm, 0이면 없음)',
-          _ribC,
-          'ㄱ자 안쪽 모서리 용접 비드를 피하려고 직각 모서리를 45°로 따내는 길이입니다.',
-        ),
-      ],
-      PlateShape.free => [
-        calcLabel(
-          '꼭짓점 (가로,세로 한 줄에 하나)',
-          '판 외곽 꼭짓점을 차례로 넣습니다. 예) 0,0 다음 줄 200,0. 마지막 점은 첫 점으로 저절로 이어집니다. 귀 처리는 줄 끝에 붙입니다: ,r10(R10) · ,c5(C5 모따기) · ,n20x15(따내기: 앞 변 쪽 20 × 다음 변 쪽 15).',
-        ),
-        const SizedBox(height: 4),
-        calcBox(
-          child: TextField(
-            key: const Key('pl_points'),
-            controller: _points,
-            maxLines: 7,
-            minLines: 4,
-            keyboardType: TextInputType.multiline,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: fc.text,
-            ),
-            decoration: const InputDecoration(border: InputBorder.none),
-            onChanged: (_) => setState(_saveSoon),
-          ),
-        ),
-        const SizedBox(height: 8),
-      ],
-      PlateShape.l => [
-        f('pl_l1', '1면 (mm)', _l1, '판 끝에서 2면 바깥면까지입니다.'),
-        f('pl_l2', '2면 (mm)', _l2, '판 끝에서 1면 바깥면까지입니다.'),
-        f('pl_wid', '폭 (mm)', _wid, '꺾는 선 방향 길이입니다.'),
-        f('pl_ang', '꺾는 각도 (°)', _angle, '90이면 직각입니다.'),
-      ],
-      PlateShape.u => [
-        f('pl_l1', '1면 (mm)', _l1, '판 끝에서 2면 바깥면까지입니다.'),
-        f('pl_l2', '2면 (mm)', _l2, '양쪽 면 바깥면 사이입니다.'),
-        f('pl_l3', '3면 (mm)', _l3, '판 끝에서 2면 바깥면까지입니다.'),
-        f('pl_wid', '폭 (mm)', _wid, '꺾는 선 방향 길이입니다.'),
-      ],
-      PlateShape.z => [
-        f('pl_l1', '1면 (mm)', _l1, '판 끝에서 세운 면 바깥면까지입니다.'),
-        f('pl_l2', '높이 (mm)', _l2, '1면 아랫면에서 3면 윗면까지(바깥)입니다.'),
-        f('pl_l3', '3면 (mm)', _l3, '판 끝에서 세운 면 바깥면까지입니다.'),
-        f('pl_wid', '폭 (mm)', _wid, '꺾는 선 방향 길이입니다.'),
-      ],
-      PlateShape.hat => [
-        f('pl_l1', '발 (mm)', _l1, '다리 바깥면에서 발 끝까지입니다(양쪽 같음).'),
-        f('pl_l2', '높이 (mm)', _l2, '발 바닥면에서 윗면까지입니다(바깥).'),
-        f('pl_l3', '윗면 (mm)', _l3, '양쪽 다리 바깥면 사이입니다.'),
-        f('pl_wid', '폭 (mm)', _wid, '꺾는 선 방향 길이입니다.'),
-      ],
-    };
-  }
-
-  Widget _box(Key key, double height, CustomPainter painter) => Container(
-    key: key,
-    height: height,
-    decoration: BoxDecoration(
-      color: fc.surface,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: fc.line),
-    ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: CustomPaint(painter: painter, child: const SizedBox.expand()),
-    ),
-  );
 }

@@ -1,0 +1,918 @@
+// 철판 가공 화면들의 공통 틀(10-10, 사용자: "각 페이지 구성이 정리된 게 아니고 대충 뿌려 놓은 것").
+// 탭마다 같은 자리의 위 그림 칸 + 아래 흰 작업판(제목 줄 · 묶음별 칸 · 맨 아래 이전/다음).
+// 작업판 모양은 벤딩 입력판(conduit_input_tab의 아래 입력판)과 같다: 흰 바탕, 위 모서리 둥글게, 위로 그림자.
+// 고르는 것은 붙은 단추 줄(PlateSegments), 숫자는 이름이 위에 붙은 작은 칸(PlateNumField)을 한 줄에 나란히.
+library;
+
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../core/common_widgets/text_fields_traversal.dart';
+import '../../core/theme/app_icon_set.dart';
+import '../../core/theme/field_view.dart';
+
+/// 위 그림 칸 + 아래 작업판. 가로로 넓은 화면이면 그림 왼쪽·작업판 오른쪽.
+class PlateWorkspace extends StatelessWidget {
+  const PlateWorkspace({
+    super.key,
+    required this.canvas,
+    required this.panel,
+    this.canvasShare = 0.42,
+    this.tools = const [],
+    this.hint,
+    this.overlay = const [],
+  });
+
+  final Widget canvas;
+  final Widget panel;
+
+  /// 세로 화면에서 그림 칸이 차지하는 몫(키보드가 뜨면 줄인다).
+  final double canvasShare;
+
+  /// 그림 오른쪽 위 작은 단추들.
+  final List<Widget> tools;
+
+  /// 그림 왼쪽 아래 옅은 한 줄.
+  final String? hint;
+
+  /// 그림 위에 더 얹는 것(Positioned).
+  final List<Widget> overlay;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final wide = box.maxWidth >= 720 && box.maxWidth > box.maxHeight * 1.15;
+      final kb = MediaQuery.viewInsetsOf(context).bottom > 0;
+      final area = ColoredBox(
+        color: fc.background,
+        child: Stack(
+          children: [
+            Positioned.fill(child: canvas),
+            if (hint != null)
+              Positioned(
+                left: 14,
+                right: 14,
+                bottom: 10,
+                child: IgnorePointer(
+                  child: Text(
+                    hint!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 12, color: fc.textSub),
+                  ),
+                ),
+              ),
+            if (tools.isNotEmpty)
+              Positioned(
+                top: 10,
+                right: 10,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var i = 0; i < tools.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 6),
+                      tools[i],
+                    ],
+                  ],
+                ),
+              ),
+            ...overlay,
+          ],
+        ),
+      );
+      if (wide) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: area),
+            SizedBox(
+              width: math.min(460, box.maxWidth * 0.46),
+              child: _PlateSheet(wide: true, child: panel),
+            ),
+          ],
+        );
+      }
+      final share = kb ? math.min(canvasShare, 0.26) : canvasShare;
+      final h = (box.maxHeight * share).clamp(
+        math.min(110.0, box.maxHeight * 0.4),
+        box.maxHeight * 0.72,
+      );
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(height: h.toDouble(), child: area),
+          Expanded(child: _PlateSheet(wide: false, child: panel)),
+        ],
+      );
+    },
+  );
+}
+
+class _PlateSheet extends StatelessWidget {
+  const _PlateSheet({required this.wide, required this.child});
+  final bool wide;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = wide
+        ? const BorderRadius.horizontal(left: Radius.circular(20))
+        : const BorderRadius.vertical(top: Radius.circular(20));
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: fc.surface,
+        borderRadius: r,
+        boxShadow: [
+          BoxShadow(
+            color: fc.text.withValues(alpha: 0.10),
+            blurRadius: 20,
+            offset: wide ? const Offset(-5, 0) : const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: ClipRRect(borderRadius: r, child: child),
+    );
+  }
+}
+
+/// 작업판 안: 제목 줄(제목 + 지금 상태 한 줄 + 오른쪽 단추) · 묶음들(스크롤) · 맨 아래 고정 줄.
+class PlatePanel extends StatelessWidget {
+  const PlatePanel({
+    super.key,
+    required this.title,
+    this.status,
+    this.statusKey,
+    this.statusColor,
+    this.below = const [],
+    this.actions = const [],
+    required this.children,
+    this.footer,
+    this.controller,
+  });
+
+  final String title;
+
+  /// 제목 아래 한 줄(지금 상태·고른 것).
+  final String? status;
+  final Key? statusKey;
+  final Color? statusColor;
+
+  /// 상태 줄 아래 알림(빨강·노랑 글 등). 스크롤되지 않게 제목 줄에 붙인다.
+  final List<Widget> below;
+
+  /// 제목 줄 오른쪽(도움말 등).
+  final List<Widget> actions;
+
+  /// 묶음([PlateSection])들.
+  final List<Widget> children;
+
+  /// 맨 아래 고정 줄(이전·다음).
+  final Widget? footer;
+  final ScrollController? controller;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 14, 10, 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                      color: fc.text,
+                    ),
+                  ),
+                  if (status != null && status!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        status!,
+                        key: statusKey,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: statusColor ?? fc.textSub,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  for (final b in below)
+                    Padding(padding: const EdgeInsets.only(top: 3), child: b),
+                ],
+              ),
+            ),
+            ...actions,
+          ],
+        ),
+      ),
+      Expanded(
+        child: FocusTraversalGroup(
+          policy: TextFieldsOnlyTraversalPolicy(),
+          child: ListView(
+            controller: controller,
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            children: children,
+          ),
+        ),
+      ),
+      if (footer != null)
+        Container(
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: fc.line)),
+          ),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          child: footer,
+        ),
+    ],
+  );
+}
+
+/// 묶음 하나: 작은 제목 + 칸들. 첫 묶음이 아니면 위에 가는 선.
+class PlateSection extends StatelessWidget {
+  const PlateSection(
+    this.title,
+    this.children, {
+    super.key,
+    this.trailing,
+    this.first = false,
+  });
+
+  final String title;
+  final List<Widget> children;
+  final Widget? trailing;
+  final bool first;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: EdgeInsets.only(top: first ? 6 : 14),
+    padding: EdgeInsets.only(top: first ? 0 : 14),
+    decoration: first
+        ? null
+        : BoxDecoration(
+            border: Border(top: BorderSide(color: fc.line)),
+          ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: fc.textSub,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
+            ?trailing,
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < children.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          children[i],
+        ],
+      ],
+    ),
+  );
+}
+
+/// 붙은 단추 줄의 한 칸.
+class PlateOption {
+  final String key;
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  const PlateOption(this.key, this.label, this.selected, this.onTap);
+}
+
+/// 고르기 단추 줄. 4개까지는 한 줄에 붙여(같은 폭), 더 많으면 알약 모양으로 줄 바꿈.
+class PlateSegments extends StatelessWidget {
+  const PlateSegments(this.items, {super.key, this.joined});
+  final List<PlateOption> items;
+
+  /// null이면 4개까지 붙임.
+  final bool? joined;
+
+  @override
+  Widget build(BuildContext context) {
+    final join = joined ?? items.length <= 4;
+    if (!join) {
+      return Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final it in items)
+            PlateSegButton(
+              key: Key(it.key),
+              label: it.label,
+              selected: it.selected,
+              onTap: it.onTap,
+              pill: true,
+            ),
+        ],
+      );
+    }
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: fc.fill,
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: Row(
+        children: [
+          for (final it in items)
+            Expanded(
+              child: PlateSegButton(
+                key: Key(it.key),
+                label: it.label,
+                selected: it.selected,
+                onTap: it.onTap,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 단추 줄 한 칸(시험에서 [selected]를 읽는다).
+class PlateSegButton extends StatelessWidget {
+  const PlateSegButton({
+    super.key,
+    required this.label,
+    required this.selected,
+    this.onTap,
+    this.pill = false,
+    this.compact = false,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback? onTap;
+  final bool pill;
+
+  /// 그림 위 작은 줄(글 크기만큼).
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? fc.onBrand : (onTap == null ? fc.textFaint : fc.text);
+    final text = Text(
+      label,
+      maxLines: 1,
+      style: TextStyle(
+        fontSize: compact ? 13 : 14,
+        fontWeight: FontWeight.w800,
+        color: fg,
+      ),
+    );
+    return Material(
+      color: selected ? fc.brand : (pill ? fc.fill : Colors.transparent),
+      borderRadius: BorderRadius.circular(pill ? 10 : 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(pill ? 10 : 8),
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onTap!();
+              },
+        child: pill || compact
+            ? Padding(
+                padding: compact
+                    ? const EdgeInsets.symmetric(horizontal: 11, vertical: 6)
+                    : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: text,
+              )
+            : Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: FittedBox(fit: BoxFit.scaleDown, child: text),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+/// 이름이 위에 붙은 작은 숫자 칸(단위는 칸 안 오른쪽). [text]면 글 칸.
+class PlateNumField extends StatelessWidget {
+  const PlateNumField({
+    super.key,
+    required this.fieldKey,
+    required this.label,
+    required this.controller,
+    this.unit = 'mm',
+    this.hint,
+    this.focus,
+    this.onChanged,
+    this.text = false,
+  });
+
+  final String fieldKey;
+
+  /// null이면 이름 줄 없이 칸만(옆 단추 줄과 높이를 맞출 때).
+  final String? label;
+  final TextEditingController controller;
+  final String? unit;
+  final String? hint;
+  final FocusNode? focus;
+  final ValueChanged<String>? onChanged;
+  final bool text;
+
+  @override
+  Widget build(BuildContext context) {
+    OutlineInputBorder b(Color c, double w) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: c, width: w),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (label != null) ...[
+          Text(
+            label!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: fc.textSub,
+            ),
+          ),
+          const SizedBox(height: 4),
+        ],
+        TextField(
+          key: Key(fieldKey),
+          controller: controller,
+          focusNode: focus,
+          keyboardType: text
+              ? TextInputType.text
+              : const TextInputType.numberWithOptions(decimal: true),
+          textInputAction: TextInputAction.next,
+          textAlign: text ? TextAlign.start : TextAlign.right,
+          style: TextStyle(
+            fontSize: text ? 16 : 18,
+            fontWeight: text ? FontWeight.w700 : FontWeight.w800,
+            color: fc.text,
+          ),
+          decoration: InputDecoration(
+            isDense: true,
+            filled: true,
+            fillColor: fc.fill,
+            hintText: hint,
+            hintStyle: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: fc.textFaint,
+            ),
+            suffixText: unit,
+            suffixStyle: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: fc.textSub,
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: label == null ? 12 : 13,
+            ),
+            border: b(Colors.transparent, 0),
+            enabledBorder: b(Colors.transparent, 0),
+            focusedBorder: b(fc.brand, 1.6),
+          ),
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+}
+
+/// 칸 여러 개를 한 줄에 같은 폭으로. [flex]로 폭 비율을 바꿀 수 있다.
+Widget plateRow(List<Widget> children, {List<int>? flex}) => Row(
+  crossAxisAlignment: CrossAxisAlignment.end,
+  children: [
+    for (var i = 0; i < children.length; i++) ...[
+      if (i > 0) const SizedBox(width: 10),
+      Expanded(flex: flex?[i] ?? 1, child: children[i]),
+    ],
+  ],
+);
+
+/// 맨 아래 고정 줄: 왼쪽 "이전", 오른쪽 "다음: …"(또는 [main]).
+class PlateFooter extends StatelessWidget {
+  const PlateFooter({
+    super.key,
+    this.backKey,
+    this.backLabel,
+    this.onBack,
+    this.nextKey,
+    this.nextLabel,
+    this.onNext,
+    this.main,
+  });
+
+  final String? backKey, backLabel;
+  final VoidCallback? onBack;
+  final String? nextKey, nextLabel;
+  final VoidCallback? onNext;
+  final Widget? main;
+
+  @override
+  Widget build(BuildContext context) {
+    final right =
+        main ??
+        (onNext == null
+            ? null
+            : FilledButton(
+                key: nextKey == null ? null : Key(nextKey!),
+                style: FilledButton.styleFrom(
+                  backgroundColor: fc.brand,
+                  foregroundColor: fc.onBrand,
+                  minimumSize: const Size(0, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onPressed: onNext,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '다음: ${nextLabel ?? ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(AppIcons.forward, size: 18),
+                  ],
+                ),
+              ));
+    return Row(
+      children: [
+        if (onBack != null)
+          OutlinedButton(
+            key: backKey == null ? null : Key(backKey!),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: fc.text,
+              side: BorderSide(color: fc.line),
+              minimumSize: const Size(0, 48),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            onPressed: onBack,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(AppIcons.back, size: 18),
+                const SizedBox(width: 2),
+                Text(
+                  backLabel ?? '이전',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        if (onBack != null && right != null) const SizedBox(width: 10),
+        if (right != null) Expanded(child: right) else const Spacer(),
+      ],
+    );
+  }
+}
+
+/// 그림 위 작은 단추(글 또는 아이콘). [selected]면 진한 바탕.
+class PlateCanvasButton extends StatelessWidget {
+  const PlateCanvasButton({
+    super.key,
+    this.icon,
+    this.label,
+    this.selected = false,
+    this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData? icon;
+  final String? label;
+  final bool selected;
+  final String? tooltip;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? fc.onBrand : (onTap == null ? fc.textFaint : fc.text);
+    Widget w = Material(
+      color: selected ? fc.brand : fc.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: selected ? fc.brand : fc.line),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: label == null ? 8 : 11,
+            vertical: 8,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) Icon(icon, size: 18, color: fg),
+              if (icon != null && label != null) const SizedBox(width: 4),
+              if (label != null)
+                Text(
+                  label!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: fg,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (tooltip != null) w = Tooltip(message: tooltip!, child: w);
+    return w;
+  }
+}
+
+/// 그림 보기 바꾸기(판·전개도·옆모습·3D): 붙은 작은 단추 줄.
+class PlateViewSwitch extends StatelessWidget {
+  const PlateViewSwitch(this.items, {super.key});
+  final List<PlateOption> items;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(3),
+    decoration: BoxDecoration(
+      color: fc.surface,
+      borderRadius: BorderRadius.circular(11),
+      border: Border.all(color: fc.line),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final it in items)
+          PlateSegButton(
+            key: Key(it.key),
+            label: it.label,
+            selected: it.selected,
+            onTap: it.onTap,
+            compact: true,
+          ),
+      ],
+    ),
+  );
+}
+
+/// 작업판 안 단추(테두리). [danger]면 빨간 글.
+class PlateActionButton extends StatelessWidget {
+  const PlateActionButton({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.danger = false,
+    this.primary = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool danger;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10),
+    );
+    final child = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ],
+    );
+    if (primary) {
+      return FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: fc.brand,
+          foregroundColor: fc.onBrand,
+          minimumSize: const Size(0, 44),
+          shape: shape,
+        ),
+        onPressed: onTap,
+        child: child,
+      );
+    }
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: danger ? fc.danger : fc.text,
+        side: BorderSide(
+          color: danger ? fc.danger.withValues(alpha: 0.5) : fc.line,
+        ),
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        shape: shape,
+      ),
+      onPressed: onTap,
+      child: child,
+    );
+  }
+}
+
+/// 단추 여러 개를 줄 바꿈으로.
+Widget plateActions(List<Widget> buttons) =>
+    Wrap(spacing: 8, runSpacing: 8, children: buttons);
+
+/// 큰 값 한 줄(결과 탭 무게 등) + 아래 작은 글.
+class PlateBigValue extends StatelessWidget {
+  const PlateBigValue({
+    super.key,
+    required this.value,
+    this.caption,
+    this.warn = false,
+  });
+
+  final String value;
+  final String? caption;
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        value,
+        style: TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w900,
+          color: warn ? fc.danger : fc.brand,
+          height: 1.1,
+        ),
+      ),
+      if (caption != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            caption!,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+              color: fc.textSub,
+              height: 1.35,
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+/// 이름 | 값 한 줄(결과 표).
+class PlateInfoRow extends StatelessWidget {
+  const PlateInfoRow(this.name, this.value, {super.key, this.color});
+  final String name;
+  final String value;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      SizedBox(
+        width: 84,
+        child: Text(
+          name,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: fc.textSub,
+            height: 1.35,
+          ),
+        ),
+      ),
+      Expanded(
+        child: Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: color ?? fc.text,
+            height: 1.35,
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+/// 줄 글 여러 개(알림·목록). [color]가 없으면 보통 글.
+class PlateLines extends StatelessWidget {
+  const PlateLines(this.lines, {super.key, this.color, this.bullet = true});
+  final List<String> lines;
+  final Color? color;
+  final bool bullet;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      for (final l in lines)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Text(
+            bullet ? '· $l' : l,
+            style: TextStyle(
+              fontSize: 13.5,
+              color: color ?? fc.text,
+              height: 1.4,
+            ),
+          ),
+        ),
+    ],
+  );
+}
+
+/// 제목 줄 "?" — 이 탭에서 하는 일 설명을 아래 창으로.
+Widget plateHelpButton(
+  BuildContext context,
+  String key,
+  String title,
+  List<String> lines,
+) => IconButton(
+  key: Key(key),
+  tooltip: '설명',
+  icon: Icon(AppIcons.help, color: fc.textSub),
+  onPressed: () => showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: fc.surface,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.7,
+        ),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: fc.text,
+              ),
+            ),
+            const SizedBox(height: 10),
+            for (final l in lines)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  '· $l',
+                  style: TextStyle(fontSize: 14, color: fc.text, height: 1.45),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  ),
+);

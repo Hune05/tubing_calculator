@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_page.dart';
+import 'package:tubing_calculator/src/presentation/steel_plate/plate_ui.dart';
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -75,7 +76,7 @@ void main() {
     // 10-10: 편집 화면은 철판 가공의 "구멍" 탭 안에 있다
     await tester.tap(find.byKey(const Key('pl_tab_holes')));
     await tester.pumpAndSettle();
-    expect(find.text('구멍 배치'), findsOneWidget);
+    expect(find.byKey(const Key('ed_canvas')), findsOneWidget);
   }
 
   testWidgets('누르면 놓고, 끌면 모눈에 맞춰 옮긴다', (tester) async {
@@ -137,8 +138,10 @@ void main() {
     // 탭을 옮겨 다녀와도 편집 기록(되돌리기)은 남는다
     await tester.tap(find.byKey(const Key('pl_tab_holes')));
     await tester.pumpAndSettle();
-    final undo = tester.widget<IconButton>(find.byKey(const Key('ed_undo')));
-    expect(undo.onPressed, isNotNull);
+    final undo = tester.widget<PlateCanvasButton>(
+      find.byKey(const Key('ed_undo')),
+    );
+    expect(undo.onTap, isNotNull);
   });
 
   testWidgets('되돌리기·다시 하기, 지우기 알림으로 되돌리기', (tester) async {
@@ -207,7 +210,8 @@ void main() {
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('판 90° 돌림'), findsOneWidget);
     await see(tester, find.textContaining(' 100 × 200 mm'));
-    expect(find.textContaining(' 100 × 200 mm'), findsOneWidget);
+    // 위 요약 줄과 결과 탭 상태 줄 둘 다
+    expect(find.textContaining(' 100 × 200 mm'), findsWidgets);
     // (40, 20) → (80, 40)
     await see(tester, find.byKey(const Key('pl_holes')));
     expect(find.textContaining('구멍 1 φ13.5: 전개도 80 · 40'), findsOneWidget);

@@ -15,6 +15,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/swipe_to_delete.dart' show showDeleteUndo;
+import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../calculator/widgets/app_dialog.dart';
@@ -22,6 +23,7 @@ import '../electrical/busbar_punch_dies.dart' show punchDieLabel;
 import 'plate_calc.dart';
 import 'plate_hole_sheet.dart';
 import 'plate_painter.dart';
+import 'plate_ui.dart';
 
 class PlateHoleEditorPage extends StatefulWidget {
   const PlateHoleEditorPage({
@@ -661,87 +663,66 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     final p = _plan;
     final bad = p.holes.where((h) => h.bad).length;
     final hasSlot = _sel.any((i) => i < p.holes.length && p.holes[i].slot > 0);
+    // 그림 오른쪽 위: 되돌리기 · 다시 하기 · 판 전체 보기
     final tools = [
-      IconButton(
+      PlateCanvasButton(
         key: const Key('ed_undo'),
         tooltip: '되돌리기',
-        onPressed: _undo.isEmpty ? null : _undoOnce,
-        icon: const Icon(Icons.undo),
+        icon: AppIcons.undo,
+        onTap: _undo.isEmpty ? null : _undoOnce,
       ),
-      IconButton(
+      PlateCanvasButton(
         key: const Key('ed_redo'),
         tooltip: '다시 하기',
-        onPressed: _redo.isEmpty ? null : _redoOnce,
-        icon: const Icon(Icons.redo),
+        icon: AppIcons.redo,
+        onTap: _redo.isEmpty ? null : _redoOnce,
       ),
-      IconButton(
+      PlateCanvasButton(
         key: const Key('ed_fit'),
         tooltip: '판 전체 보기',
-        onPressed: () => setState(() {
+        icon: Icons.fit_screen_outlined,
+        onTap: () => setState(() {
           _zoom = 1;
           _pan = Offset.zero;
         }),
-        icon: const Icon(Icons.fit_screen_outlined),
       ),
     ];
     // 색(fc)은 현장 보기 테마 안에서 읽어야 하므로 바로 만들지 않고 함수로
-    Widget body() => Column(
-      children: [
-        if (widget.embedded)
-          Container(
-            height: 44,
-            padding: const EdgeInsets.only(left: 16),
-            color: fc.surface,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '구멍 배치',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      color: fc.text,
-                    ),
-                  ),
+    Widget body() => PlateWorkspace(
+      canvasShare: 0.56,
+      tools: tools,
+      canvas: LayoutBuilder(
+        builder: (context, box) {
+          _size = box.biggest;
+          return Listener(
+            onPointerDown: (e) => _downAt = e.localPosition,
+            child: GestureDetector(
+              key: const Key('ed_canvas'),
+              behavior: HitTestBehavior.opaque,
+              // 처음 손가락을 댄 자리를 시작점으로(끌 때 구멍이 손가락보다 뒤처지지 않게, 고르기도 그 자리에서)
+              dragStartBehavior: DragStartBehavior.down,
+              onTapUp: _onTap,
+              onScaleStart: _onScaleStart,
+              onScaleUpdate: _onScaleUpdate,
+              onScaleEnd: _onScaleEnd,
+              child: CustomPaint(
+                painter: _EditorPainter(
+                  plan: p,
+                  toScreen: (mm) => _toScreen(p, mm),
+                  scale: _s(p),
+                  grid: _grid,
+                  selected: _sel.toSet(),
+                  guideX: _guideX,
+                  guideY: _guideY,
+                  showCenter: widget.showCenter,
                 ),
-                ...tools,
-              ],
+                child: const SizedBox.expand(),
+              ),
             ),
-          ),
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, box) {
-              _size = box.biggest;
-              return Listener(
-                onPointerDown: (e) => _downAt = e.localPosition,
-                child: GestureDetector(
-                  key: const Key('ed_canvas'),
-                  behavior: HitTestBehavior.opaque,
-                  // 처음 손가락을 댄 자리를 시작점으로(끌 때 구멍이 손가락보다 뒤처지지 않게, 고르기도 그 자리에서)
-                  dragStartBehavior: DragStartBehavior.down,
-                  onTapUp: _onTap,
-                  onScaleStart: _onScaleStart,
-                  onScaleUpdate: _onScaleUpdate,
-                  onScaleEnd: _onScaleEnd,
-                  child: CustomPaint(
-                    painter: _EditorPainter(
-                      plan: p,
-                      toScreen: (mm) => _toScreen(p, mm),
-                      scale: _s(p),
-                      grid: _grid,
-                      selected: _sel.toSet(),
-                      guideX: _guideX,
-                      guideY: _guideY,
-                      showCenter: widget.showCenter,
-                    ),
-                    child: const SizedBox.expand(),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-        _panel(p, bad, hasSlot),
-      ],
+          );
+        },
+      ),
+      panel: _panel(p, bad, hasSlot),
     );
     if (widget.embedded) return body();
     return FieldViewTheme(
@@ -757,7 +738,6 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
               '구멍 배치 편집',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
-            actions: tools,
           ),
           body: body(),
         ),
@@ -765,217 +745,221 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     );
   }
 
-  // 아래 칸은 높이를 못박는다(고르기·놓기를 바꿀 때 칸 높이가 달라져 판 그림이 들썩이지 않게).
-  Widget _panel(PlatePlan p, int bad, bool hasSlot) => Container(
-    width: double.infinity,
-    height: MediaQuery.of(context).size.height * 0.36,
-    decoration: BoxDecoration(
-      color: fc.surface,
-      border: Border(top: BorderSide(color: fc.line)),
-    ),
-    child: SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+  // 아래 작업판: 판을 누르면(고르기·놓기) · 놓을 구멍 · 고른 구멍 · 모눈·한꺼번에 넣기·판 돌리기(접힘)
+  Widget _panel(PlatePlan p, int bad, bool hasSlot) {
+    Widget act(
+      String key,
+      IconData icon,
+      String label,
+      VoidCallback onTap, {
+      bool danger = false,
+    }) => PlateActionButton(
+      key: Key(key),
+      icon: icon,
+      label: label,
+      onTap: onTap,
+      danger: danger,
+    );
+    return PlatePanel(
+      title: '구멍',
+      status: _status(p),
+      statusKey: const Key('ed_status'),
+      statusColor: fc.text,
+      below: [
+        if (bad > 0)
           Text(
-            _status(p),
-            key: const Key('ed_status'),
-            style: TextStyle(
-              color: fc.text,
-              fontWeight: FontWeight.w700,
-              height: 1.35,
-            ),
+            '빨간 테두리 구멍 $bad개는 만들 수 없습니다(판 밖·꺾이는 부분·겹침). 노란 테두리는 꺾기선·판 끝에 가깝습니다.',
+            key: const Key('ed_bad'),
+            style: TextStyle(fontSize: 13, color: fc.danger, height: 1.35),
           ),
-          if (bad > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                '빨간 테두리 구멍 $bad개는 만들 수 없습니다(판 밖·꺾이는 부분·겹침). 노란 테두리는 꺾기선·판 끝에 가깝습니다.',
-                key: const Key('ed_bad'),
-                style: TextStyle(color: fc.danger, height: 1.35),
-              ),
+      ],
+      actions: [
+        plateHelpButton(context, 'ed_help', '구멍 탭', [
+          '판을 누르면: "고르기·옮기기"는 구멍을 눌러 고르고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다. "구멍 놓기"는 판을 누른 자리에 고른 크기의 구멍을 놓습니다.',
+          '구멍을 끌면 모눈·다른 구멍·판 가운데에 맞춰 안내선이 나옵니다.',
+          '고른 구멍: 자리·크기 고치기, 복제, 지우기, 대칭 복사. 여러 개 고르면 줄 맞추기·같은 간격·묶음 돌리기도 됩니다.',
+          '빨간 테두리 구멍은 만들 수 없고(판 밖·꺾이는 부분·겹침), 노란 테두리는 꺾기선·판 끝에 가깝습니다.',
+          if (_bent)
+            '꺾는 판은 꺾이는 부분을 빗금으로 막아 두었습니다. 구멍 자리는 면 기준으로 남겨 면 치수를 바꿔도 따라갑니다.',
+        ]),
+      ],
+      footer: widget.footer,
+      children: [
+        PlateSection('판을 누르면', [
+          PlateSegments([
+            PlateOption(
+              'ed_mode_sel',
+              '고르기·옮기기',
+              !_place,
+              () => setState(() => _place = false),
             ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              calcChip(
-                'ed_mode_sel',
-                '고르기·옮기기',
-                !_place,
-                () => setState(() => _place = false),
-              ),
-              calcChip(
-                'ed_mode_place',
-                '구멍 놓기',
-                _place,
-                () => setState(() => _place = true),
-              ),
-              calcChip(
-                'ed_multi',
-                '여러 개 고르기',
-                _multi,
-                () => setState(() => _multi = !_multi),
-              ),
-              calcChip(
-                'ed_all',
-                '모두 고르기',
-                false,
-                () => setState(() {
-                  _multi = true;
-                  _sel
-                    ..clear()
-                    ..addAll([for (var i = 0; i < _holes.length; i++) i]);
-                }),
-              ),
-            ],
-          ),
-          if (_place) ...[
-            const SizedBox(height: 8),
-            Text('놓을 구멍', style: TextStyle(color: fc.textSub)),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final d in widget.dies)
-                  calcChip(
-                    'ed_tdia_${(d * 100).round()}',
-                    punchDieLabel(d),
-                    _tDia == d,
-                    () => setState(() => _tDia = d),
-                  ),
-                for (final (key, label, len) in const [
-                  ('ed_tslot_0', '둥근 구멍', 0.0),
-                  ('ed_tslot_30', '장공 30', 30.0),
-                  ('ed_tslot_40', '장공 40', 40.0),
-                ])
-                  calcChip(
-                    key,
-                    label,
-                    _tSlot == len,
-                    () => setState(() => _tSlot = len),
-                  ),
-                if (_tSlot > 0)
-                  for (final a in const [0.0, 45.0, 90.0])
-                    calcChip(
-                      'ed_tang_${a.round()}',
-                      a == 0 ? '가로' : (a == 90 ? '세로' : '45°'),
-                      _tAngle == a,
-                      () => setState(() => _tAngle = a),
-                    ),
-              ],
+            PlateOption(
+              'ed_mode_place',
+              '구멍 놓기',
+              _place,
+              () => setState(() => _place = true),
             ),
-          ],
-          if (_sel.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text('고른 구멍', style: TextStyle(color: fc.textSub)),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                if (_sel.length == 1)
-                  calcChip('ed_edit', '자리·크기 고치기', false, _editOne),
-                calcChip('ed_dup', '복제', false, _duplicate),
-                calcChip('ed_del', '지우기', false, _delete),
-                if (hasSlot) ...[
-                  calcChip('ed_spin_m15', '장공 −15°', false, () => _spin(-15)),
-                  calcChip('ed_spin_p15', '장공 +15°', false, () => _spin(15)),
-                  calcChip('ed_spin_90', '장공 90°', false, () => _spin(90)),
-                ],
-                if (_sel.length > 1) ...[
-                  calcChip(
-                    'ed_grot_90',
-                    '묶음 90° 돌리기',
-                    false,
-                    () => _rotateGroup(90),
+          ]),
+          PlateSegments(joined: false, [
+            PlateOption(
+              'ed_multi',
+              '여러 개 고르기',
+              _multi,
+              () => setState(() => _multi = !_multi),
+            ),
+            PlateOption(
+              'ed_all',
+              '모두 고르기',
+              false,
+              () => setState(() {
+                _multi = true;
+                _sel
+                  ..clear()
+                  ..addAll([for (var i = 0; i < _holes.length; i++) i]);
+              }),
+            ),
+          ]),
+        ], first: true),
+        if (_place)
+          PlateSection('놓을 구멍', [
+            PlateSegments(joined: false, [
+              for (final d in widget.dies)
+                PlateOption(
+                  'ed_tdia_${(d * 100).round()}',
+                  punchDieLabel(d),
+                  _tDia == d,
+                  () => setState(() => _tDia = d),
+                ),
+            ]),
+            PlateSegments([
+              for (final (key, label, len) in const [
+                ('ed_tslot_0', '둥근 구멍', 0.0),
+                ('ed_tslot_30', '장공 30', 30.0),
+                ('ed_tslot_40', '장공 40', 40.0),
+              ])
+                PlateOption(
+                  key,
+                  label,
+                  _tSlot == len,
+                  () => setState(() => _tSlot = len),
+                ),
+            ]),
+            if (_tSlot > 0)
+              PlateSegments([
+                for (final a in const [0.0, 45.0, 90.0])
+                  PlateOption(
+                    'ed_tang_${a.round()}',
+                    a == 0 ? '장공 가로' : (a == 90 ? '장공 세로' : '45°'),
+                    _tAngle == a,
+                    () => setState(() => _tAngle = a),
                   ),
-                  calcChip(
-                    'ed_grot_m90',
-                    '묶음 −90°',
-                    false,
-                    () => _rotateGroup(-90),
-                  ),
-                  calcChip(
-                    'ed_align_h',
-                    '가로 줄 맞추기',
-                    false,
-                    () => _alignRow(true),
-                  ),
-                  calcChip(
-                    'ed_align_v',
-                    '세로 줄 맞추기',
-                    false,
-                    () => _alignRow(false),
-                  ),
-                ],
-                if (_sel.length > 2) ...[
-                  calcChip(
+              ]),
+          ]),
+        if (_sel.isNotEmpty)
+          PlateSection(_sel.length == 1 ? '고른 구멍' : '고른 구멍 ${_sel.length}개', [
+            plateActions([
+              if (_sel.length == 1)
+                act('ed_edit', Icons.tune, '자리·크기 고치기', _editOne),
+              act('ed_dup', AppIcons.copy, '복제', _duplicate),
+              act('ed_del', AppIcons.delete, '지우기', _delete, danger: true),
+            ]),
+            plateActions([
+              act('ed_mirror_lr', Icons.flip, '좌우 대칭 복사', () => _mirror(true)),
+              act(
+                'ed_mirror_ud',
+                Icons.swap_vert,
+                '상하 대칭 복사',
+                () => _mirror(false),
+              ),
+            ]),
+            if (hasSlot)
+              plateActions([
+                act(
+                  'ed_spin_m15',
+                  Icons.rotate_left,
+                  '장공 −15°',
+                  () => _spin(-15),
+                ),
+                act(
+                  'ed_spin_p15',
+                  Icons.rotate_right,
+                  '장공 +15°',
+                  () => _spin(15),
+                ),
+                act(
+                  'ed_spin_90',
+                  Icons.rotate_90_degrees_cw_outlined,
+                  '장공 90°',
+                  () => _spin(90),
+                ),
+              ]),
+            if (_sel.length > 1)
+              plateActions([
+                act(
+                  'ed_align_h',
+                  Icons.align_vertical_center,
+                  '가로 줄 맞추기',
+                  () => _alignRow(true),
+                ),
+                act(
+                  'ed_align_v',
+                  Icons.align_horizontal_center,
+                  '세로 줄 맞추기',
+                  () => _alignRow(false),
+                ),
+                if (_sel.length > 2)
+                  act(
                     'ed_dist_h',
+                    Icons.horizontal_distribute,
                     '가로 같은 간격',
-                    false,
                     () => _distribute(true),
                   ),
-                  calcChip(
+                if (_sel.length > 2)
+                  act(
                     'ed_dist_v',
+                    Icons.vertical_distribute,
                     '세로 같은 간격',
-                    false,
                     () => _distribute(false),
                   ),
-                ],
-                calcChip(
-                  'ed_mirror_lr',
-                  '좌우 대칭 복사',
-                  false,
-                  () => _mirror(true),
+                act(
+                  'ed_grot_90',
+                  Icons.rotate_left,
+                  '묶음 90° 돌리기',
+                  () => _rotateGroup(90),
                 ),
-                calcChip(
-                  'ed_mirror_ud',
-                  '상하 대칭 복사',
-                  false,
-                  () => _mirror(false),
+                act(
+                  'ed_grot_m90',
+                  Icons.rotate_right,
+                  '묶음 −90°',
+                  () => _rotateGroup(-90),
                 ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 4),
-          TextButton.icon(
-            key: const Key('ed_more'),
-            style: TextButton.styleFrom(foregroundColor: fc.textSub),
-            onPressed: () => setState(() => _more = !_more),
-            icon: Icon(_more ? Icons.expand_less : Icons.expand_more),
-            label: Text(_more ? '접기' : '더 보기 (모눈·한꺼번에 넣기·판 돌리기)'),
-          ),
-          if (_more) ...[
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
+              ]),
+          ]),
+        PlateSection(
+          '모눈 · 한꺼번에 넣기 · 판 돌리기',
+          [
+            if (_more) ...[
+              PlateSegments([
                 for (final g in const [0.0, 1.0, 5.0, 10.0])
-                  calcChip(
+                  PlateOption(
                     'ed_grid_${g.round()}',
                     g == 0 ? '모눈 끔' : '모눈 ${_f(g)}',
                     _grid == g,
                     () => _setGrid(g),
                   ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text('한꺼번에 넣기', style: TextStyle(color: fc.textSub)),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                calcChip('ed_add_row', '줄로 넣기', false, () => _addGroup()),
+              ]),
+              plateActions([
+                act(
+                  'ed_add_row',
+                  Icons.view_week_outlined,
+                  '줄로 넣기',
+                  () => _addGroup(),
+                ),
                 if (widget.input.shape == PlateShape.flat)
-                  calcChip(
+                  act(
                     'ed_add_corners',
+                    Icons.crop_free,
                     '네 귀 구멍',
-                    false,
                     () => _addGroup(
                       preset: const PlateHoleGroup(
                         dia: 13.5,
@@ -985,10 +969,10 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                       ),
                     ),
                   ),
-                calcChip(
+                act(
                   'ed_add_slot',
+                  Icons.horizontal_rule,
                   '장공 넣기',
-                  false,
                   () => _addGroup(
                     preset: const PlateHoleGroup(
                       dia: 13.5,
@@ -998,35 +982,46 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                     ),
                   ),
                 ),
-                calcChip('ed_pcd', '원형 배치(PCD)', false, _pcd),
-                if (_holes.isNotEmpty)
-                  calcChip('ed_clear', '모두 지우기', false, _clearAll),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [
+                act('ed_pcd', Icons.radio_button_unchecked, '원형 배치(PCD)', _pcd),
                 if (!_bent)
-                  calcChip(
+                  act(
                     'ed_rot',
+                    Icons.rotate_90_degrees_ccw_outlined,
                     '판 90° 돌리기',
-                    false,
                     () => _change(() {
                       _rot = (_rot + 1) % 4;
                       _zoom = 1;
                       _pan = Offset.zero;
                     }),
                   ),
-              ],
-            ),
+                if (_holes.isNotEmpty)
+                  act(
+                    'ed_clear',
+                    AppIcons.delete,
+                    '모두 지우기',
+                    _clearAll,
+                    danger: true,
+                  ),
+              ]),
+            ],
           ],
-          ?widget.footer,
-        ],
-      ),
-    ),
-  );
+          trailing: TextButton.icon(
+            key: const Key('ed_more'),
+            style: TextButton.styleFrom(
+              foregroundColor: fc.brand,
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: () => setState(() => _more = !_more),
+            icon: Icon(_more ? Icons.expand_less : Icons.expand_more, size: 18),
+            label: Text(
+              _more ? '접기' : '펴기',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// 숫자 칸 여러 개를 받는 창. 입력칸은 창이 다 닫힌 뒤 치운다(닫히는 동안 쓰이므로).

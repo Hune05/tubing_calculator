@@ -1,6 +1,7 @@
 // 철판 입체(3D) 보기(10-10): plate_3d.dart가 만든 면들을 돌려 가며 본다. 한 손가락으로 끌면 돌아가고,
 // 두 손가락으로 확대·이동, 두 번 누르면 처음 모습. 입체·위·앞·옆 칩. 먼 면부터 그리고(화가 순서),
 // 뒤를 향한 면은 빼며, 빛 방향에 따라 면 밝기를 달리한다. 보기 전용(고치는 것은 다른 탭에서).
+// 10-10 화면 정리: 따로 탭이 아니라 철판 화면 위 그림 칸 안에서 "3D"를 고르면 이것이 나온다(크기 글·칩은 그림 왼쪽 아래).
 library;
 
 import 'dart:math' as math;
@@ -9,23 +10,15 @@ import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' as vm;
 
 import '../../core/theme/field_view.dart';
-import '../common/calc_form_parts.dart';
 import 'plate_3d.dart';
 import 'plate_calc.dart';
+import 'plate_ui.dart';
 
 class Plate3dView extends StatefulWidget {
-  const Plate3dView({
-    super.key,
-    required this.plan,
-    required this.t,
-    this.footer,
-  });
+  const Plate3dView({super.key, required this.plan, required this.t});
 
   final PlatePlan plan;
   final double t;
-
-  /// 아래에 붙이는 것(예: "다음: 보내기").
-  final Widget? footer;
 
   @override
   State<Plate3dView> createState() => _Plate3dViewState();
@@ -37,7 +30,10 @@ const _iso = (-0.65, 0.55);
 /// 끄는 1px당 도는 각(라디안).
 const _turn = 0.006;
 
-class _Plate3dViewState extends State<Plate3dView> with CalcFormParts {
+/// 칩 네 방향(입체·위·앞·옆): 화면 맞춤 크기를 이 넷에서 정한다.
+const _presets = [_iso, (0.0, math.pi / 2), (0.0, 0.0), (-math.pi / 2, 0.0)];
+
+class _Plate3dViewState extends State<Plate3dView> {
   double _yaw = _iso.$1, _pitch = _iso.$2;
   double _zoom = 1, _zoom0 = 1;
   Offset _pan = Offset.zero;
@@ -65,13 +61,13 @@ class _Plate3dViewState extends State<Plate3dView> with CalcFormParts {
   bool _is(double yaw, double pitch) =>
       (_yaw - yaw).abs() < 1e-3 && (_pitch - pitch).abs() < 1e-3;
 
-  // 다른 탭 칩과 같은 모양(고르면 진한 바탕·흰 글)
-  Widget _chip(String key, String label, double yaw, double pitch) => calcChip(
-    key,
-    label,
-    _is(yaw, pitch) && _zoom == 1 && _pan == Offset.zero,
-    () => _view(yaw, pitch),
-  );
+  PlateOption _seg(String key, String label, double yaw, double pitch) =>
+      PlateOption(
+        key,
+        label,
+        _is(yaw, pitch) && _zoom == 1 && _pan == Offset.zero,
+        () => _view(yaw, pitch),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -81,9 +77,9 @@ class _Plate3dViewState extends State<Plate3dView> with CalcFormParts {
         : plate3dBounds(faces);
     final size =
         '${_f(hi.x - lo.x)} × ${_f(hi.y - lo.y)} × ${_f(hi.z - lo.z)} mm (두께 ${_f(widget.t)})';
-    return Column(
+    return Stack(
       children: [
-        Expanded(
+        Positioned.fill(
           child: GestureDetector(
             key: const Key('p3_canvas'),
             behavior: HitTestBehavior.opaque,
@@ -102,61 +98,44 @@ class _Plate3dViewState extends State<Plate3dView> with CalcFormParts {
                 );
               }
             }),
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: _Plate3dPainter(
-                      faces: faces,
-                      yaw: _yaw,
-                      pitch: _pitch,
-                      zoom: _zoom,
-                      pan: _pan,
-                      colors: fc,
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 12,
-                  top: 10,
-                  right: 12,
-                  child: Text(
-                    '$size\n끌어서 돌리기 · 두 손가락 확대·이동 · 두 번 누르면 처음',
-                    key: const Key('p3_info'),
-                    style: TextStyle(
-                      color: fc.textSub,
-                      fontSize: 12.5,
-                      height: 1.4,
-                    ),
-                  ),
-                ),
-              ],
+            child: CustomPaint(
+              painter: _Plate3dPainter(
+                faces: faces,
+                yaw: _yaw,
+                pitch: _pitch,
+                zoom: _zoom,
+                pan: _pan,
+                colors: fc,
+              ),
             ),
           ),
         ),
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: fc.surface,
-            border: Border(top: BorderSide(color: fc.line)),
-          ),
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  _chip('p3_iso', '입체', _iso.$1, _iso.$2),
-                  _chip('p3_top', '위', 0, math.pi / 2),
-                  _chip('p3_front', '앞', 0, 0),
-                  _chip('p3_side', '옆', -math.pi / 2, 0),
-                ],
+        Positioned(
+          left: 12,
+          right: 12,
+          bottom: 52,
+          child: IgnorePointer(
+            child: Text(
+              '$size\n끌어서 돌리기 · 두 손가락 확대·이동 · 두 번 누르면 처음',
+              key: const Key('p3_info'),
+              style: TextStyle(
+                color: fc.textSub,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.4,
               ),
-              ?widget.footer,
-            ],
+            ),
           ),
+        ),
+        Positioned(
+          left: 10,
+          bottom: 10,
+          child: PlateViewSwitch([
+            _seg('p3_iso', '입체', _iso.$1, _iso.$2),
+            _seg('p3_top', '위', 0, math.pi / 2),
+            _seg('p3_front', '앞', 0, 0),
+            _seg('p3_side', '옆', -math.pi / 2, 0),
+          ]),
         ),
       ],
     );
@@ -195,16 +174,32 @@ class _Plate3dPainter extends CustomPainter {
       return vm.Vector3(x1, y1 * cp - z1 * sp, y1 * sp + z1 * cp);
     }
 
-    // 화면에 맞추기: 감싸는 공(상자 대각선) 기준이라 돌려도 크기가 그대로다
+    // 화면에 맞추기: 입체·위·앞·옆 네 방향에서 본 크기 중 가장 큰 것에 맞춘다
+    // (지금 방향으로 맞추면 돌릴 때마다 커졌다 작아졌다 하고, 감싸는 공으로 맞추면 평판이 작게 보인다)
     final (lo, hi) = plate3dBounds(faces);
-    final rad = math.max((hi - lo).length / 2, 1e-6);
-    final c = rot((lo + hi) * 0.5);
-    const margin = 24.0;
+    final mid0 = (lo + hi) * 0.5;
+    var bw = 1e-6, bh = 1e-6;
+    for (final (y0, p0) in _presets) {
+      final cy0 = math.cos(y0), sy0 = math.sin(y0);
+      final cp0 = math.cos(p0), sp0 = math.sin(p0);
+      for (final f in faces) {
+        for (final q in f.loop) {
+          final v = q - mid0;
+          final x1 = v.x * cy0 - v.y * sy0, y1 = v.x * sy0 + v.y * cy0;
+          bw = math.max(bw, 2 * x1.abs());
+          bh = math.max(bh, 2 * (y1 * sp0 + v.z * cp0).abs());
+        }
+      }
+    }
+    final c = rot(mid0);
+    const margin = 20.0;
     final s =
-        math.min(size.width - 2 * margin, size.height - 2 * margin - 40) /
-        (2 * rad) *
+        math.min(
+          (size.width - 2 * margin) / bw,
+          (size.height - 2 * margin - 70) / bh,
+        ) *
         zoom;
-    final mid = Offset(size.width / 2, size.height / 2 + 20) + pan;
+    final mid = Offset(size.width / 2, size.height / 2 - 20) + pan;
     Offset scr(vm.Vector3 r) => mid + Offset((r.x - c.x) * s, (c.z - r.z) * s);
 
     // 빛: 보는 쪽 왼쪽 위에서

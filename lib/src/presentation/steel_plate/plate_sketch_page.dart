@@ -30,6 +30,7 @@ import 'plate_hole_editor.dart' show PlateNumbersDialog;
 import 'plate_page.dart';
 import 'plate_painter.dart' show plateDrawCenterLines;
 import 'plate_sketch_model.dart';
+import 'plate_ui.dart';
 
 Future<Uint8List?> _pickPhoto(ImageSource source) async {
   final x = await ImagePicker().pickImage(
@@ -1007,7 +1008,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
               : '치수 탭에서 변 하나에 길이를 넣으십시오.';
         }
         final b = s.bounds!;
-        return '보낼 준비: ${_f(b.width)} × ${_f(b.height)} mm · 꼭짓점 ${s.n}개 · 구멍 ${s.holes.length}개${s.thickness != null ? ' · ${_f(s.thickness!)}t' : ''}';
+        return '보낼 준비: ${_f(b.width)} × ${_f(b.height)} mm';
     }
   }
 
@@ -1041,7 +1042,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                   onPressed: _undo.isEmpty
                       ? null
                       : () => _restore(_undo, _redo),
-                  icon: const Icon(Icons.undo),
+                  icon: const Icon(AppIcons.undo),
                 ),
                 IconButton(
                   key: const Key('sk_redo'),
@@ -1049,132 +1050,116 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                   onPressed: _redo.isEmpty
                       ? null
                       : () => _restore(_redo, _undo),
-                  icon: const Icon(Icons.redo),
-                ),
-                IconButton(
-                  key: const Key('sk_fit'),
-                  tooltip: '전체 보기',
-                  onPressed: () => setState(_fit),
-                  icon: const Icon(Icons.fit_screen_outlined),
+                  icon: const Icon(AppIcons.redo),
                 ),
               ],
             ),
-            body: Column(
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, box) {
-                      _size = box.biggest;
-                      return Stack(
-                        children: [
-                          Positioned.fill(
-                            child: Listener(
-                              onPointerDown: (e) => _downAt = e.localPosition,
-                              child: GestureDetector(
-                                key: const Key('sk_canvas'),
-                                behavior: HitTestBehavior.opaque,
-                                dragStartBehavior: DragStartBehavior.down,
-                                onTapUp: _onTap,
-                                onLongPressStart: _onLongPress,
-                                onScaleStart: _onScaleStart,
-                                onScaleUpdate: _onScaleUpdate,
-                                onScaleEnd: _onScaleEnd,
-                                child: CustomPaint(
-                                  painter: _SketchPainter(
-                                    sketch: _s,
-                                    image: _s.photoAligned && _showPhoto
-                                        ? _img
-                                        : null,
-                                    toScreen: _toScreen,
-                                    scale: _scale,
-                                    selPt: _selPt,
-                                    selHole: _selHole,
-                                    ink: _ink,
-                                    showCenter: _showCenter,
-                                    paper: _paper,
-                                    hint: _tabId == 'draw'
-                                        ? '여기에 판 모양을 손가락으로 그으십시오'
-                                        : (_tabId == 'photo'
-                                              ? '사진을 찍거나 고르면 여기에 나옵니다'
-                                              : '그리기 탭에서 판 모양을 그리십시오'),
-                                    colors: fc,
-                                  ),
-                                  child: const SizedBox.expand(),
-                                ),
-                              ),
-                            ),
-                          ),
-                          // AI가 읽은 그림 옆에 사진을 작게(눌러 크게) — 화면을 옮기지 않고 비교
-                          if (hasPhoto && !_s.photoAligned)
-                            Positioned(
-                              left: 10,
-                              top: 10,
-                              child: GestureDetector(
-                                key: const Key('sk_thumb'),
-                                onTap: _viewPhoto,
-                                child: Container(
-                                  width: 84,
-                                  height: 84,
-                                  decoration: BoxDecoration(
-                                    color: fc.surface,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: fc.line,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  clipBehavior: Clip.antiAlias,
-                                  child: Image.memory(
-                                    _photo!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => Icon(
-                                      Icons.image_outlined,
-                                      color: fc.textSub,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          if (_s.closed)
-                            Positioned(
-                              right: 10,
-                              top: 10,
-                              child: calcChip(
-                                'sk_center',
-                                '가운데선',
-                                _showCenter,
-                                () {
-                                  setState(() => _showCenter = !_showCenter);
-                                  final v = _showCenter;
-                                  SharedPreferences.getInstance()
-                                      .then(
-                                        (p) => p.setBool(
-                                          'plate_center_lines_v1',
-                                          v,
-                                        ),
-                                      )
-                                      .catchError((_) => false);
-                                },
-                              ),
-                            ),
-                          if (_img != null && _s.photoAligned)
-                            Positioned(
-                              left: 10,
-                              top: 10,
-                              child: calcChip(
-                                'sk_show_photo',
-                                '사진',
-                                _showPhoto,
-                                () => setState(() => _showPhoto = !_showPhoto),
-                              ),
-                            ),
-                        ],
-                      );
+            // 10-10 화면 정리: 철판 가공 화면과 같은 틀(위 그림 칸 + 아래 흰 작업판 + 맨 아래 이전/다음)
+            body: PlateWorkspace(
+              canvasShare: switch (_tabId) {
+                'draw' || 'holes' => 0.6,
+                'dims' => 0.5,
+                _ => 0.55,
+              },
+              tools: [
+                if (_s.closed)
+                  PlateCanvasButton(
+                    key: const Key('sk_center'),
+                    label: '가운데선',
+                    selected: _showCenter,
+                    onTap: () {
+                      setState(() => _showCenter = !_showCenter);
+                      final v = _showCenter;
+                      SharedPreferences.getInstance()
+                          .then((p) => p.setBool('plate_center_lines_v1', v))
+                          .catchError((_) => false);
                     },
                   ),
+                PlateCanvasButton(
+                  key: const Key('sk_fit'),
+                  tooltip: '전체 보기',
+                  icon: Icons.fit_screen_outlined,
+                  onTap: () => setState(_fit),
                 ),
-                _panel(problems),
               ],
+              overlay: [
+                // AI가 읽은 그림 옆에 사진을 작게(눌러 크게) — 화면을 옮기지 않고 비교
+                if (hasPhoto && !_s.photoAligned)
+                  Positioned(
+                    left: 10,
+                    top: 10,
+                    child: GestureDetector(
+                      key: const Key('sk_thumb'),
+                      onTap: _viewPhoto,
+                      child: Container(
+                        width: 84,
+                        height: 84,
+                        decoration: BoxDecoration(
+                          color: fc.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: fc.line, width: 2),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Image.memory(
+                          _photo!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              Icon(Icons.image_outlined, color: fc.textSub),
+                        ),
+                      ),
+                    ),
+                  ),
+                if (_img != null && _s.photoAligned)
+                  Positioned(
+                    left: 10,
+                    top: 10,
+                    child: PlateCanvasButton(
+                      key: const Key('sk_show_photo'),
+                      label: '사진',
+                      selected: _showPhoto,
+                      onTap: () => setState(() => _showPhoto = !_showPhoto),
+                    ),
+                  ),
+              ],
+              canvas: LayoutBuilder(
+                builder: (context, box) {
+                  _size = box.biggest;
+                  return Listener(
+                    onPointerDown: (e) => _downAt = e.localPosition,
+                    child: GestureDetector(
+                      key: const Key('sk_canvas'),
+                      behavior: HitTestBehavior.opaque,
+                      dragStartBehavior: DragStartBehavior.down,
+                      onTapUp: _onTap,
+                      onLongPressStart: _onLongPress,
+                      onScaleStart: _onScaleStart,
+                      onScaleUpdate: _onScaleUpdate,
+                      onScaleEnd: _onScaleEnd,
+                      child: CustomPaint(
+                        painter: _SketchPainter(
+                          sketch: _s,
+                          image: _s.photoAligned && _showPhoto ? _img : null,
+                          toScreen: _toScreen,
+                          scale: _scale,
+                          selPt: _selPt,
+                          selHole: _selHole,
+                          ink: _ink,
+                          showCenter: _showCenter,
+                          paper: _paper,
+                          hint: _tabId == 'draw'
+                              ? '여기에 판 모양을 손가락으로 그으십시오'
+                              : (_tabId == 'photo'
+                                    ? '사진을 찍거나 고르면 여기에 나옵니다'
+                                    : '그리기 탭에서 판 모양을 그리십시오'),
+                          colors: fc,
+                        ),
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                  );
+                },
+              ),
+              panel: _panel(problems),
             ),
             bottomNavigationBar: _navBar(),
           ),
@@ -1207,22 +1192,13 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     return Container(
       decoration: BoxDecoration(
         color: fc.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(compact ? 16 : 24),
-        ),
+        border: Border(top: BorderSide(color: fc.line)),
       ),
       child: SafeArea(
         child: Padding(
           padding: EdgeInsets.symmetric(
             horizontal: 4,
-            vertical: compact ? 0 : 8,
+            vertical: compact ? 0 : 4,
           ),
           child: BottomNavigationBar(
             backgroundColor: Colors.transparent,
@@ -1254,334 +1230,338 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   }
 
   Widget _btn(String key, IconData icon, String label, VoidCallback? onTap) =>
-      OutlinedButton.icon(
-        key: Key(key),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: fc.text,
-          side: BorderSide(color: fc.line),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        ),
-        onPressed: onTap,
-        icon: Icon(icon, size: 18),
-        label: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
-      );
+      PlateActionButton(key: Key(key), icon: icon, label: label, onTap: onTap);
 
-  Widget _primary(
-    String key,
-    IconData icon,
-    String label,
-    VoidCallback? onTap,
-  ) => SizedBox(
-    width: double.infinity,
-    child: FilledButton.icon(
-      key: Key(key),
-      style: FilledButton.styleFrom(
-        backgroundColor: fc.brand,
-        foregroundColor: fc.onBrand,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-      ),
-      onPressed: onTap,
-      icon: Icon(icon, size: 18),
-      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
-    ),
-  );
-
-  /// "다음: …" 단추(작게, 오른쪽 — 탭 줄과 길이 겹쳐 자리만 차지하지 않게).
-  Widget _next() {
-    final i = _tab + 1;
-    if (i >= _tabs.length) return const SizedBox.shrink();
-    final (id, label) = _tabs[i];
-    return Align(
-      alignment: Alignment.centerRight,
-      child: FilledButton(
-        key: Key('sk_next_$id'),
-        style: FilledButton.styleFrom(
-          backgroundColor: fc.brand,
-          foregroundColor: fc.onBrand,
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        ),
-        onPressed: () => _goTab(id),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '다음: $label',
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(width: 4),
-            const Icon(AppIcons.forward, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// 탭마다 할 수 있는 것만(아래 칸 높이는 못박아 그림이 들썩이지 않게).
-  Widget _panel(List<String> problems) {
-    final s = _s;
-    final hasPhoto = _photo != null;
-    final List<Widget> actions;
-    Widget? bottom = _next();
-    switch (_tabId) {
-      case 'photo':
-        actions = [
-          _btn(
-            'sk_camera',
-            Icons.photo_camera_outlined,
-            '사진 찍기',
-            _busy ? null : () => _pick(ImageSource.camera),
-          ),
-          _btn(
-            'sk_gallery',
-            Icons.photo_library_outlined,
-            '사진 고르기',
-            _busy ? null : () => _pick(ImageSource.gallery),
-          ),
-          if (hasPhoto)
-            FilledButton.icon(
-              key: const Key('sk_ai'),
+  /// 맨 아래 고정 줄: 이전 · 다음(보내기 탭은 "레이저 절단으로 보내기").
+  Widget _footer() {
+    final prev = _tab > 0 ? _tabs[_tab - 1] : null;
+    final next = _tab + 1 < _tabs.length ? _tabs[_tab + 1] : null;
+    return PlateFooter(
+      backKey: prev == null ? null : 'sk_prev_${prev.$1}',
+      onBack: prev == null ? null : () => _goTab(prev.$1),
+      nextKey: next == null ? null : 'sk_next_${next.$1}',
+      nextLabel: next?.$2,
+      onNext: next == null ? null : () => _goTab(next.$1),
+      main: _tabId == 'send'
+          ? FilledButton.icon(
+              key: const Key('sk_send'),
               style: FilledButton.styleFrom(
                 backgroundColor: fc.brand,
                 foregroundColor: fc.onBrand,
+                minimumSize: const Size(0, 48),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              onPressed: _busy ? null : _readAi,
-              icon: _busy
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: fc.onBrand,
-                      ),
-                    )
-                  : const Icon(Icons.auto_awesome_outlined, size: 18),
-              label: Text(
-                _busy
-                    ? '읽는 중'
-                    : (s.n > 0 && !s.photoAligned ? 'AI로 다시 읽기' : 'AI로 읽기'),
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              onPressed: _send,
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: const Text(
+                '레이저 절단으로 보내기',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
               ),
-            ),
-          if (hasPhoto)
-            _btn('sk_photo_view', Icons.image_outlined, '사진 크게 보기', _viewPhoto),
-          if (hasPhoto && !s.photoAligned && s.n > 0)
-            _btn('sk_trace', Icons.touch_app_outlined, '사진 위에 직접 따라 그리기', () {
-              _startTrace();
-              _goTab('draw');
-            }),
+            )
+          : null,
+    );
+  }
+
+  List<String> _help() => switch (_tabId) {
+    'photo' => [
+      '종이에 그린 그림을 찍거나 고른 뒤 "AI로 읽기"를 누르면 모양·치수·구멍을 읽어 옵니다(하루 20번).',
+      'AI가 못 읽으면 "사진 위에 직접 따라 그리기"로 사진 위에서 귀퉁이를 찍습니다.',
+    ],
+    'draw' => [
+      '빈 칸에서 손가락으로 판 모양을 한 번에 그으면 모양으로 바꿉니다. 삐뚤게 그려도 가로·세로로 바로잡고, 거의 대칭이면 좌우 대칭으로 맞춥니다.',
+      '귀퉁이를 차례로 눌러 찍어도 됩니다. 1번 점을 누르면 닫힙니다.',
+      '점은 끌어 고치고, 변을 길게 누르면 점을 더합니다. 점을 누르면 귀 처리(R·C·따내기)와 지우기가 나옵니다.',
+    ],
+    'dims' => [
+      '그림의 변 숫자나 아래 목록을 눌러 길이(mm)를 넣습니다. 처음 넣는 길이로 크기가 정해집니다.',
+      '방금 넣은 값이 이기고, 맞춰야 하는 다른 변이 따라 바뀝니다. ✓는 넣은 값(잠김), !는 따라 바뀐 값입니다.',
+    ],
+    'holes' => [
+      '판 안을 누르면 고른 지름의 구멍을 놓습니다(5mm 칸에 붙음).',
+      '손가락으로 동그라미를 그어도 구멍이 되고, 길쭉하게 그으면 장공이 됩니다.',
+      '구멍을 누르면 고르고, 자리·크기를 고치거나 지울 수 있습니다.',
+    ],
+    _ => [
+      '"레이저 절단으로 보내기"를 누르면 레이저 절단 화면의 자유 모양으로 옮겨 갑니다.',
+      '그 화면에 있던 입력은 덮이고, 알림에서 되돌릴 수 있습니다.',
+    ],
+  };
+
+  /// 탭마다 할 수 있는 것만(그림 칸 몫은 탭마다 못박아 그림이 들썩이지 않게).
+  Widget _panel(List<String> problems) {
+    final s = _s;
+    final hasPhoto = _photo != null;
+    final List<Widget> sections;
+    switch (_tabId) {
+      case 'photo':
+        sections = [
+          PlateSection('종이 그림 사진', [
+            plateRow([
+              _btn(
+                'sk_camera',
+                Icons.photo_camera_outlined,
+                '사진 찍기',
+                _busy ? null : () => _pick(ImageSource.camera),
+              ),
+              _btn(
+                'sk_gallery',
+                Icons.photo_library_outlined,
+                '사진 고르기',
+                _busy ? null : () => _pick(ImageSource.gallery),
+              ),
+            ]),
+            if (hasPhoto)
+              FilledButton.icon(
+                key: const Key('sk_ai'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: fc.brand,
+                  foregroundColor: fc.onBrand,
+                  minimumSize: const Size(0, 46),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                onPressed: _busy ? null : _readAi,
+                icon: _busy
+                    ? SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: fc.onBrand,
+                        ),
+                      )
+                    : const Icon(Icons.auto_awesome_outlined, size: 18),
+                label: Text(
+                  _busy
+                      ? '읽는 중'
+                      : (s.n > 0 && !s.photoAligned ? 'AI로 다시 읽기' : 'AI로 읽기'),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            if (hasPhoto)
+              plateActions([
+                _btn(
+                  'sk_photo_view',
+                  Icons.image_outlined,
+                  '사진 크게 보기',
+                  _viewPhoto,
+                ),
+                if (!s.photoAligned && s.n > 0)
+                  _btn(
+                    'sk_trace',
+                    Icons.touch_app_outlined,
+                    '사진 위에 직접 따라 그리기',
+                    () {
+                      _startTrace();
+                      _goTab('draw');
+                    },
+                  ),
+              ]),
+          ], first: true),
         ];
       case 'draw':
         final sel = _selPt;
-        actions = sel != null && sel < s.n
-            ? [
+        final shapeActs = [
+          if (!s.closed && s.n >= 3)
+            _btn('sk_close', Icons.check_circle_outline, '모양 닫기', _closeShape),
+          if (s.n >= 2)
+            _btn('sk_square', Icons.square_foot, '직각 맞추기', _squareUp),
+          if (_canMirror) _btn('sk_mirror', Icons.flip, '좌우 대칭', _mirror),
+        ];
+        sections = [
+          if (sel != null && sel < s.n)
+            PlateSection('꼭짓점 ${sel + 1}', [
+              plateActions([
                 _btn(
                   'sk_corner',
                   Icons.rounded_corner,
                   '귀 처리',
                   () => _editCorner(sel),
                 ),
-                _btn(
-                  'sk_del',
-                  Icons.delete_outline,
-                  '꼭짓점 지우기',
-                  () => _change(() {
+                PlateActionButton(
+                  key: const Key('sk_del'),
+                  icon: AppIcons.delete,
+                  label: '꼭짓점 지우기',
+                  danger: true,
+                  onTap: () => _change(() {
                     _s.removePoint(sel);
                     _selPt = null;
                   }),
                 ),
-              ]
-            : [
-                if (!s.closed && s.n >= 3)
-                  _btn(
-                    'sk_close',
-                    Icons.check_circle_outline,
-                    '모양 닫기',
-                    _closeShape,
-                  ),
-                if (s.n >= 2)
-                  _btn('sk_square', Icons.square_foot, '직각 맞추기', _squareUp),
-                if (_canMirror) _btn('sk_mirror', Icons.flip, '좌우 대칭', _mirror),
-              ];
+              ]),
+            ], first: true)
+          else if (shapeActs.isNotEmpty)
+            PlateSection('모양 다듬기', [plateActions(shapeActs)], first: true),
+          if (s.n > 0 || s.holes.isNotEmpty)
+            PlateSection('지우기', [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: PlateActionButton(
+                  key: const Key('sk_clear'),
+                  icon: Icons.layers_clear_outlined,
+                  label: '그림 지우기',
+                  danger: true,
+                  onTap: _confirmClear,
+                ),
+              ),
+            ], first: sel == null && shapeActs.isEmpty),
+        ];
       case 'dims':
-        actions = [
+        sections = [
           if (s.closed)
-            Column(
-              key: const Key('sk_edges'),
-              children: [
-                for (var i = 0; i < s.edgeCount; i++)
-                  InkWell(
-                    key: Key('sk_edge_$i'),
-                    onTap: () => _editEdge(i),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 8,
-                        horizontal: 4,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '변 ${i + 1}→${(i + 1) % s.n + 1}',
-                              style: TextStyle(
-                                color: fc.textSub,
-                                fontWeight: FontWeight.w700,
+            PlateSection('변 길이 (누르면 고침)', [
+              Column(
+                key: const Key('sk_edges'),
+                children: [
+                  for (var i = 0; i < s.edgeCount; i++) ...[
+                    if (i > 0) Divider(height: 1, color: fc.line),
+                    InkWell(
+                      key: Key('sk_edge_$i'),
+                      onTap: () => _editEdge(i),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 11,
+                          horizontal: 2,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '변 ${i + 1}→${(i + 1) % s.n + 1}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: fc.textSub,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ),
-                          Text(
-                            s.scaled
-                                ? '${_f(s.edgeLen(i))} mm${s.edgeMatches(i) == null ? '' : (s.edgeMatches(i)! ? ' ✓' : ' !')}'
-                                : '길이 넣기',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w800,
-                              color: s.edgeMatches(i) == false
-                                  ? fc.danger
-                                  : (s.edgeMatches(i) == true
-                                        ? fc.ok
-                                        : fc.text),
+                            Text(
+                              s.scaled
+                                  ? '${_f(s.edgeLen(i))} mm${s.edgeMatches(i) == null ? '' : (s.edgeMatches(i)! ? ' ✓' : ' !')}'
+                                  : '길이 넣기',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: s.edgeMatches(i) == false
+                                    ? fc.danger
+                                    : (s.edgeMatches(i) == true
+                                          ? fc.ok
+                                          : fc.text),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Icon(AppIcons.forward, size: 16, color: fc.textFaint),
-                        ],
+                            const SizedBox(width: 4),
+                            Icon(
+                              AppIcons.forward,
+                              size: 16,
+                              color: fc.textFaint,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-              ],
-            ),
+                  ],
+                ],
+              ),
+            ], first: true),
         ];
       case 'holes':
         final selH = _selHole;
-        actions = [
-          for (final d in const [9.0, 11.0, 13.5, 17.5, 22.0])
-            calcChip(
-              'sk_dia_${(d * 10).round()}',
-              'φ${_f(d)}',
-              _tDia == d,
-              () => setState(() => _tDia = d),
-            ),
-          if (selH != null && selH < s.holes.length) ...[
-            _btn(
-              'sk_hole_edit',
-              Icons.tune,
-              '자리·크기 고치기',
-              () => _editHole(selH),
-            ),
-            _btn(
-              'sk_hole_del',
-              Icons.delete_outline,
-              '구멍 지우기',
-              () => _change(() {
-                _s.holes.removeAt(selH);
-                _selHole = null;
-              }),
-            ),
-          ],
+        sections = [
+          PlateSection('구멍 지름', [
+            PlateSegments(joined: false, [
+              for (final d in const [9.0, 11.0, 13.5, 17.5, 22.0])
+                PlateOption(
+                  'sk_dia_${(d * 10).round()}',
+                  'φ${_f(d)}',
+                  _tDia == d,
+                  () => setState(() => _tDia = d),
+                ),
+            ]),
+          ], first: true),
+          if (selH != null && selH < s.holes.length)
+            PlateSection('구멍 ${selH + 1}', [
+              plateActions([
+                _btn(
+                  'sk_hole_edit',
+                  Icons.tune,
+                  '자리·크기 고치기',
+                  () => _editHole(selH),
+                ),
+                PlateActionButton(
+                  key: const Key('sk_hole_del'),
+                  icon: AppIcons.delete,
+                  label: '구멍 지우기',
+                  danger: true,
+                  onTap: () => _change(() {
+                    _s.holes.removeAt(selH);
+                    _selHole = null;
+                  }),
+                ),
+              ]),
+            ]),
         ];
       default:
-        actions = const [];
-        bottom = _primary(
-          'sk_send',
-          Icons.arrow_forward,
-          '레이저 절단으로 보내기',
-          _send,
-        );
+        final b = s.toPlateMap() == null ? null : s.bounds;
+        sections = [
+          if (b != null)
+            PlateSection('보낼 모양', [
+              PlateInfoRow('크기', '${_f(b.width)} × ${_f(b.height)} mm'),
+              PlateInfoRow('꼭짓점', '${s.n}개'),
+              PlateInfoRow('구멍', '${s.holes.length}개'),
+              if (s.thickness != null)
+                PlateInfoRow('두께', '${_f(s.thickness!)}t'),
+            ], first: true),
+        ];
     }
-    return Container(
-      width: double.infinity,
-      height: _tabId == 'dims'
-          ? (MediaQuery.of(context).size.height * 0.3).clamp(240.0, 420.0)
-          : (MediaQuery.of(context).size.height * 0.2).clamp(190.0, 300.0),
-      decoration: BoxDecoration(
-        color: fc.surface,
-        border: Border(top: BorderSide(color: fc.line)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _status(),
-                    key: const Key('sk_status'),
-                    style: TextStyle(
-                      color: fc.text,
-                      fontWeight: FontWeight.w700,
-                      height: 1.35,
-                    ),
-                  ),
-                  if (_notice != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        _notice!,
-                        key: const Key('sk_notice'),
-                        style: TextStyle(
-                          color: _noticeBad ? fc.danger : fc.ok,
-                          fontWeight: FontWeight.w800,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  if (_aiError != null && _tabId == 'photo')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        '$_aiError. "다음: 그리기"에서 사진 위에 직접 따라 그릴 수 있습니다.',
-                        key: const Key('sk_ai_error'),
-                        style: TextStyle(color: fc.danger, height: 1.35),
-                      ),
-                    ),
-                  if (s.unclear.isNotEmpty &&
-                      (_tabId == 'photo' || _tabId == 'dims'))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        'AI가 짐작한 곳: ${s.unclear.join(' / ')}',
-                        key: const Key('sk_unclear'),
-                        style: TextStyle(color: fc.caution, height: 1.35),
-                      ),
-                    ),
-                  if (_tabId == 'dims' || _tabId == 'send')
-                    for (final p in problems.take(2))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          p,
-                          style: TextStyle(color: fc.danger, height: 1.35),
-                        ),
-                      ),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 6, runSpacing: 6, children: actions),
-                ],
-              ),
+    return PlatePanel(
+      title: _tabs[_tab].$2,
+      status: _status(),
+      statusKey: const Key('sk_status'),
+      statusColor: fc.text,
+      below: [
+        if (_notice != null)
+          Text(
+            _notice!,
+            key: const Key('sk_notice'),
+            style: TextStyle(
+              fontSize: 13.5,
+              color: _noticeBad ? fc.danger : fc.ok,
+              fontWeight: FontWeight.w800,
+              height: 1.35,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: Row(
-              children: [
-                if (_tabId == 'draw' && (s.n > 0 || s.holes.isNotEmpty))
-                  TextButton.icon(
-                    key: const Key('sk_clear'),
-                    style: TextButton.styleFrom(foregroundColor: fc.danger),
-                    onPressed: _confirmClear,
-                    icon: const Icon(Icons.layers_clear_outlined, size: 18),
-                    label: const Text(
-                      '그림 지우기',
-                      style: TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                Expanded(child: bottom),
-              ],
-            ),
+        if (_aiError != null && _tabId == 'photo')
+          Text(
+            '$_aiError. "다음: 그리기"에서 사진 위에 직접 따라 그릴 수 있습니다.',
+            key: const Key('sk_ai_error'),
+            style: TextStyle(fontSize: 13.5, color: fc.danger, height: 1.35),
           ),
-        ],
-      ),
+        if (s.unclear.isNotEmpty && (_tabId == 'photo' || _tabId == 'dims'))
+          Text(
+            'AI가 짐작한 곳: ${s.unclear.join(' / ')}',
+            key: const Key('sk_unclear'),
+            style: TextStyle(fontSize: 13.5, color: fc.caution, height: 1.35),
+          ),
+        if (_tabId == 'dims' || _tabId == 'send')
+          for (final p in problems.take(2))
+            Text(
+              p,
+              style: TextStyle(fontSize: 13.5, color: fc.danger, height: 1.35),
+            ),
+      ],
+      actions: [
+        plateHelpButton(
+          context,
+          'sk_help_$_tabId',
+          '${_tabs[_tab].$2} 탭',
+          _help(),
+        ),
+      ],
+      footer: _footer(),
+      children: sections,
     );
   }
 }
