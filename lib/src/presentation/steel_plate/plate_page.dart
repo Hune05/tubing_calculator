@@ -20,7 +20,6 @@ import '../calculator/widgets/swipe_delete.dart' show calcNavCompact;
 import '../common/app_icons.dart';
 import '../common/calc_form_parts.dart';
 import '../electrical/busbar_bend_painter.dart' show BusbarShapePainter;
-import '../electrical/busbar_punch_dies.dart';
 import '../electrical/busbar_saved_specs.dart';
 import '../electrical/elec_form_parts.dart';
 import '../drawing_viewer/dxf_reader.dart' show dxfDecode;
@@ -33,6 +32,7 @@ import 'plate_dxf.dart';
 import 'plate_dxf_import.dart';
 import 'plate_hole_editor.dart';
 import 'plate_painter.dart';
+import 'plate_settings.dart';
 import 'plate_shape_card.dart';
 import 'plate_ui.dart';
 
@@ -80,19 +80,6 @@ const List<(PlateShape, String)> kPlateBendShapes = [
   (PlateShape.hat, '모자'),
 ];
 
-/// 재질별 두께 단추(흔히 쓰는 두께, mm). 업체 재고·실제 두께는 확인해야 한다(10-10 상용 앱 비교).
-const Map<PlateMaterial, List<String>> kPlateThicknesses = {
-  PlateMaterial.steel: ['1.6', '2.3', '3.2', '4.5', '6', '9'],
-  PlateMaterial.stainless: ['1', '1.5', '2', '3', '4', '5'],
-  PlateMaterial.aluminum: ['1', '1.5', '2', '3', '4', '5'],
-};
-
-/// 원판(자재 판) 크기(이름, 가로, 세로 mm).
-const List<(String, String, double, double)> kPlateSheets = [
-  ('48', '4×8 (1219×2438)', 1219, 2438),
-  ('510', '5×10 (1524×3048)', 1524, 3048),
-];
-
 String plateShapeName(PlateShape s) =>
     [...kPlateCutShapes, ...kPlateBendShapes].firstWhere((e) => e.$1 == s).$2;
 
@@ -127,7 +114,7 @@ class PlatePage extends StatefulWidget {
       bend ? 'steel_plate_bend_draft_v1' : 'steel_plate_cut_draft_v1';
   static String savedKeyOf(bool bend) =>
       bend ? 'steel_plate_bend_saved_v1' : 'steel_plate_cut_saved_v1';
-  static const bendTableKey = 'plate_bend_table_v1';
+  static const bendTableKey = kPlateBendTableKey;
 
   @override
   State<PlatePage> createState() => _PlatePageState();
@@ -152,12 +139,15 @@ class _PlatePageState extends State<PlatePage>
   final _ca = TextEditingController(text: '10');
   final _cb = TextEditingController(text: '10');
   Map<String, (double, double)> _bendTable = {};
-  List<double> _dies = const [];
+
+  /// 철판 가공 설정(자주 쓰는 홀 지름·두께 단추·원판·간격) — 설정 화면에서 바꾼다.
+  PlateSettings _cfg = PlateSettings.defaults;
+  double _grid = 5;
 
   // 그림에서 치수를 누르면 갈 칸
   // 판 가운데 십자선 켜고 끄기(기억, 구멍 탭·지시서 그림도 따른다)
   bool _showCenter = true;
-  static const _centerKey = 'plate_center_lines_v1';
+  static const _centerKey = kPlateCenterKey;
   final _scroll = ScrollController();
 
   // 좌표 입력의 가로·세로(10-10 사용자: "판 크기 선택 못 하냐"): 넣으면 모양 전체와 홀 위치를 그 크기로 늘이거나 줄인다.
@@ -189,11 +179,6 @@ class _PlatePageState extends State<PlatePage>
   // 원형·링 외경·내경
   final _cd = TextEditingController(text: '150');
   final _ci = TextEditingController(text: '60');
-  // 원판 배치: 원판(48·510·custom), 직접 넣는 원판 가로·세로, 부품 간격
-  String _sheet = '48';
-  final _sw = TextEditingController(text: '1219');
-  final _sh = TextEditingController(text: '2438');
-  final _gap = TextEditingController(text: '5');
 
   Timer? _saveTimer;
   bool _draftReady = false;
@@ -216,9 +201,6 @@ class _PlatePageState extends State<PlatePage>
     _qty,
     _cd,
     _ci,
-    _sw,
-    _sh,
-    _gap,
   ];
   static const _fieldKeys = [
     'jn',
@@ -238,9 +220,6 @@ class _PlatePageState extends State<PlatePage>
     'n',
     'cd',
     'ci',
-    'sheetW',
-    'sheetH',
-    'gap',
   ];
 
   @override
@@ -255,16 +234,7 @@ class _PlatePageState extends State<PlatePage>
       });
     }
     _loadDraft();
-    _loadBendTable();
-    readPunchDies().then((d) {
-      if (mounted && d.isNotEmpty) setState(() => _dies = d);
-    });
-    SharedPreferences.getInstance()
-        .then((p) {
-          final c = p.getBool(_centerKey);
-          if (c != null && mounted) setState(() => _showCenter = c);
-        })
-        .catchError((_) {});
+    _loadSettings();
   }
 
   @override
@@ -294,7 +264,6 @@ class _PlatePageState extends State<PlatePage>
     'holes': [for (final h in _holes) h.toJson()],
     'rot': _rotQ,
     'corners': [for (final c in _corners) c.toJson()],
-    'sheet': _sheet,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
     // 첫 화면 "이어서" 줄에 쓰는 글(읽을 때는 안 쓴다)
     'lbl': _label(),
@@ -323,8 +292,6 @@ class _PlatePageState extends State<PlatePage>
     if (plateShapeBends(_shape) != _bend) {
       _shape = _bend ? PlateShape.l : PlateShape.flat;
     }
-    final sheet = m['sheet'];
-    if (sheet is String) _sheet = sheet;
     final rot = m['rot'];
     _rotQ = rot is int && rot >= 0 && rot <= 3 ? rot : 0;
     for (var i = 0; i < _fields.length; i++) {
@@ -419,34 +386,35 @@ class _PlatePageState extends State<PlatePage>
     );
   }
 
-  Future<void> _loadBendTable() async {
+  /// 설정·업체 공제값·그리드·센터선을 읽는다(처음과 설정 화면에서 돌아올 때).
+  Future<void> _loadSettings() async {
+    final cfg = await PlateSettings.load();
+    final bd = await readPlateBendTable();
+    double? grid;
+    bool? center;
     try {
       final p = await SharedPreferences.getInstance();
-      final raw = p.getString(PlatePage.bendTableKey);
-      if (raw == null) return;
-      final m = jsonDecode(raw);
-      if (m is! Map) return;
-      final out = <String, (double, double)>{};
-      m.forEach((k, v) {
-        if (k is String && v is Map && v['r'] is num && v['bd'] is num) {
-          out[k] = ((v['r'] as num).toDouble(), (v['bd'] as num).toDouble());
-        }
-      });
-      if (mounted) setState(() => _bendTable = out);
+      grid = p.getDouble(kPlateGridKey);
+      center = p.getBool(_centerKey);
     } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _cfg = cfg;
+      _bendTable = bd;
+      if (grid != null) _grid = grid;
+      if (center != null) _showCenter = center;
+    });
   }
 
-  Future<void> _saveBendTable() async {
-    try {
-      final p = await SharedPreferences.getInstance();
-      await p.setString(
-        PlatePage.bendTableKey,
-        jsonEncode({
-          for (final e in _bendTable.entries)
-            e.key: {'r': e.value.$1, 'bd': e.value.$2},
-        }),
-      );
-    } catch (_) {}
+  Future<void> _saveBendTable() => writePlateBendTable(_bendTable);
+
+  Future<void> _openSettings() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PlateSettingsPage()),
+    );
+    if (mounted) await _loadSettings();
   }
 
   void _saveSoon() {
@@ -590,13 +558,7 @@ class _PlatePageState extends State<PlatePage>
   String _cutText(PlatePlan p) =>
       '절단 길이 약 ${(p.cutLength / 1000).toStringAsFixed(2)} m · 피어싱 ${p.pierces}곳';
 
-  /// 원판 크기(가로, 세로). 직접이면 칸 값.
-  (double, double) get _sheetSize {
-    for (final (id, _, w, h) in kPlateSheets) {
-      if (id == _sheet) return (w, h);
-    }
-    return (_num(_sw), _num(_sh));
-  }
+  (double, double) get _sheetSize => _cfg.sheetSize;
 
   PlateNest _nest(PlatePlan p) {
     final (w, h) = _sheetSize;
@@ -605,18 +567,13 @@ class _PlatePageState extends State<PlatePage>
       sheetH: h,
       w: p.flatLength,
       h: p.flatWidth,
-      gap: _num(_gap),
+      gap: _cfg.gap,
+      margin: _cfg.margin,
       partArea: p.areaMm2,
     );
   }
 
-  String _sheetName() {
-    for (final (id, name, _, _) in kPlateSheets) {
-      if (id == _sheet) return name;
-    }
-    final (w, h) = _sheetSize;
-    return '${fmt(w)}×${fmt(h)}';
-  }
+  String _sheetName() => _cfg.sheetName;
 
   /// 평판 귀 처리 글: " · 네 귀 R10" 또는 " · 왼쪽 아래 R10 · 오른쪽 위 C5". 다 직각이면 빈 글.
   String _cornersText() {
@@ -1041,7 +998,7 @@ class _PlatePageState extends State<PlatePage>
               ),
           ]),
           PlateSegments(joined: false, [
-            for (final v in kPlateThicknesses[_mat]!)
+            for (final v in _cfg.thick[_mat] ?? const <String>[])
               PlateOption(
                 'pl_t_$v',
                 '${v}T',
@@ -1115,7 +1072,7 @@ class _PlatePageState extends State<PlatePage>
     },
     if (_bend) '절곡 치수는 모두 바깥 치수입니다. 내R·공제값은 "절곡" 탭에서 정합니다.',
     '두께: 2T·3T·4T·6T를 누르거나 칸에 직접 넣습니다.${_bend ? ' 두께를 바꾸면 저장한 그 두께의 반경·공제값을 채웁니다.' : ''}',
-    '재질은 중량 계산에 씁니다. 두께 단추는 재질별로 흔히 쓰는 두께이며, 업체 재고와 실제 두께는 확인하십시오. 없는 두께는 칸에 직접 넣습니다.',
+    '재질은 중량 계산에 씁니다. 두께 단추는 설정에서 재질별로 바꿉니다(처음 값은 흔히 쓰는 두께, 업체 재고 확인). 없는 두께는 칸에 직접 넣습니다.',
     if (!_bend)
       'DXF 불러오기: 레이저 업체용 DXF를 읽어 좌표 입력(원이면 원형·링)으로 바꿉니다. 둥근 코너는 코너 R, 원은 홀, 장공은 장공으로 읽고, 다른 안쪽 따냄은 읽지 못합니다. CUT 층이 있으면 그 층만 읽습니다.',
     '위 그림: 치수를 누르면 그 칸으로, 판을 누르면 홀 탭으로 갑니다. 오른쪽 위에서 ${_bend ? '측면도·' : ''}3D로 바꿔 볼 수 있습니다.',
@@ -1261,17 +1218,14 @@ class _PlatePageState extends State<PlatePage>
           _f('pl_bd', '90° 공제값', _bd, hint: '비우면 일반값'),
         ]),
       ], first: true),
-      PlateSection('저장한 공제값 (두께별)', [
-        if (_bendTable.isEmpty)
-          Text(
-            '저장한 값이 없습니다. 업체 값을 넣고 "이 두께 값 저장"을 누르면 두께를 고를 때 채워집니다.',
-            style: TextStyle(fontSize: 13.5, color: fc.textSub, height: 1.4),
-          )
-        else
-          PlateLines([
-            for (final e in _bendTable.entries)
-              '${e.key}T: 내R ${fmt(e.value.$1)} · 공제값 ${fmt(e.value.$2)}',
-          ], bullet: false),
+      PlateSection('업체 공제값 저장', [
+        Text(
+          _bendTable.containsKey(_tKey)
+              ? '${_tKey}T 저장 값: 내R ${fmt(_bendTable[_tKey]!.$1)} · 공제값 ${fmt(_bendTable[_tKey]!.$2)} (두께를 고르면 채워집니다)'
+              : '업체 값을 넣고 "이 두께 값 저장"을 누르면 다음에 ${_tKey}T를 고를 때 채워집니다. 저장한 값 ${_bendTable.length}개.',
+          key: const Key('pl_bd_info'),
+          style: TextStyle(fontSize: 13.5, color: fc.textSub, height: 1.4),
+        ),
         plateActions([
           PlateActionButton(
             key: const Key('pl_bd_save'),
@@ -1283,17 +1237,12 @@ class _PlatePageState extends State<PlatePage>
               _saveBendTable();
             },
           ),
-          if (_bendTable.containsKey(_tKey))
-            PlateActionButton(
-              key: const Key('pl_bd_forget'),
-              icon: AppIcons.delete,
-              label: '이 두께 저장 지우기',
-              danger: true,
-              onTap: () {
-                _set(() => _bendTable.remove(_tKey));
-                _saveBendTable();
-              },
-            ),
+          PlateActionButton(
+            key: const Key('pl_bd_settings'),
+            icon: AppIcons.settings,
+            label: '저장한 값 고치기·지우기 (설정)',
+            onTap: _openSettings,
+          ),
         ]),
       ]),
       if (p != null && p.bends.isNotEmpty)
@@ -1316,7 +1265,9 @@ class _PlatePageState extends State<PlatePage>
     input: _input(),
     holes: List.of(_holes),
     rotQ: _rotQ,
-    dies: _dies.isEmpty ? kDefaultPunchDies : _dies,
+    dies: _cfg.dias,
+    defaultDia: _cfg.defaultDia,
+    grid: _grid,
     onChanged: (h, r) => _set(() {
       _holes
         ..clear()
@@ -1330,7 +1281,7 @@ class _PlatePageState extends State<PlatePage>
     final help = plateHelpButton(context, 'pl_help_result', '결과 탭', [
       kPlateBasis[9],
       '절단 길이 = 외곽 둘레 + 홀·장공·내경 둘레. 피어싱 = 외곽 1 + 안쪽 따냄마다 1. 레이저 가공비는 보통 재질·두께와 절단 길이·피어싱 수로 매깁니다(업체마다 다름).',
-      '원판 배치: 부품을 감싸는 사각 기준으로 원판에 줄 맞춰 놓아 셉니다(가장자리 여유 10mm, 바로·돌려 놓기·남는 띠 돌려 채우기). ㄱ·삼각·좌표 모양은 업체 네스팅이 더 많이 나올 수 있습니다.',
+      '원판 배치: 부품을 감싸는 사각 기준으로 원판에 줄 맞춰 놓아 셉니다(바로·돌려 놓기·남는 띠 돌려 채우기). 원판 크기·부품 간격·가장자리 여유는 설정에서 바꿉니다. ㄱ·삼각·좌표 모양은 업체 네스팅이 더 많이 나올 수 있습니다.',
       kPlateBasis[5],
       kPlateBasis[6],
       kPlateBasis[10],
@@ -1517,51 +1468,52 @@ class _PlatePageState extends State<PlatePage>
   Widget _nestSection(PlatePlan p) {
     final n = _nest(p);
     final need = n.count == 0 ? 0 : (_qtyN / n.count).ceil();
-    return PlateSection('원판 배치', [
-      PlateSegments([
-        for (final (id, name, _, _) in kPlateSheets)
-          PlateOption(
-            'pl_sheet_$id',
-            name,
-            _sheet == id,
-            () => _set(() => _sheet = id),
-          ),
-        PlateOption(
-          'pl_sheet_custom',
-          '직접',
-          _sheet == 'custom',
-          () => _set(() => _sheet = 'custom'),
+    return PlateSection(
+      '원판 배치',
+      [
+        PlateInfoRow(
+          '원판',
+          '${_cfg.sheetName} · 간격 ${fmt(_cfg.gap)} · 여유 ${fmt(_cfg.margin)}',
         ),
-      ]),
-      if (_sheet == 'custom')
-        plateRow([_f('pl_sw', '원판 가로', _sw), _f('pl_sh', '원판 세로', _sh)]),
-      plateRow([_f('pl_gap', '부품 간격', _gap), const SizedBox.shrink()]),
-      KeyedSubtree(
-        key: const Key('pl_nest'),
-        child: PlateInfoRow(
-          '한 장에',
-          n.count == 0
-              ? '부품이 원판보다 큽니다'
-              : '${n.count}개 · 사용률 ${(n.usage * 100).toStringAsFixed(0)}% · 수량 $_qtyN장에 원판 $need장',
-          color: n.count == 0 ? fc.danger : null,
+        KeyedSubtree(
+          key: const Key('pl_nest'),
+          child: PlateInfoRow(
+            '한 장에',
+            n.count == 0
+                ? '부품이 원판보다 큽니다'
+                : '${n.count}개 · 사용률 ${(n.usage * 100).toStringAsFixed(0)}% · 수량 $_qtyN장에 원판 $need장',
+            color: n.count == 0 ? fc.danger : null,
+          ),
+        ),
+        if (n.count > 0)
+          SizedBox(
+            height: 150,
+            child: CustomPaint(
+              key: const Key('pl_nest_view'),
+              painter: _NestPainter(
+                sheet: _sheetSize,
+                parts: n.parts,
+                sheetColor: fc.fill,
+                partColor: kPlateFill,
+                edge: fc.textSub,
+              ),
+              child: const SizedBox.expand(),
+            ),
+          ),
+      ],
+      trailing: TextButton(
+        key: const Key('pl_nest_settings'),
+        style: TextButton.styleFrom(
+          foregroundColor: fc.brand,
+          visualDensity: VisualDensity.compact,
+        ),
+        onPressed: _openSettings,
+        child: const Text(
+          '원판 바꾸기',
+          style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      if (n.count > 0)
-        SizedBox(
-          height: 150,
-          child: CustomPaint(
-            key: const Key('pl_nest_view'),
-            painter: _NestPainter(
-              sheet: _sheetSize,
-              parts: n.parts,
-              sheetColor: fc.fill,
-              partColor: kPlateFill,
-              edge: fc.textSub,
-            ),
-            child: const SizedBox.expand(),
-          ),
-        ),
-    ]);
+    );
   }
 
   /// DXF 불러오기(레이저 절단만): 파일을 골라 좌표 입력·원형·링으로. 알림에서 되돌릴 수 있다.
@@ -1750,6 +1702,12 @@ class _PlatePageState extends State<PlatePage>
                 ],
               ),
               actions: [
+                IconButton(
+                  key: const Key('pl_settings'),
+                  tooltip: '설정',
+                  icon: Icon(AppIcons.settings, color: fc.text),
+                  onPressed: _openSettings,
+                ),
                 IconButton(
                   key: const Key('pl_saved'),
                   tooltip: '저장한 규격',

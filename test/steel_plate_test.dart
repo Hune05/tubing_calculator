@@ -847,7 +847,8 @@ void main() {
       expect(find.text('왼쪽 아래 코너'), findsOneWidget);
       await tester.tap(find.byKey(const Key('cd_kind_notch')));
       await tester.pumpAndSettle();
-      expect(find.text('따내기 가로 (mm)'), findsOneWidget);
+      expect(find.text('따내기 가로'), findsOneWidget);
+      expect(find.byKey(const Key('cd_preview')), findsOneWidget);
       await tester.enterText(find.byKey(const Key('cd_a')), '30');
       await tester.enterText(find.byKey(const Key('cd_b')), '15');
       await tester.tap(find.byKey(const Key('cd_ok')));
@@ -1023,8 +1024,9 @@ void main() {
       await open(tester, dxf: (s) async => dxf = s);
       // 구멍 탭(편집 화면) 안의 "줄로 넣기"
       await tab(tester, 'holes');
-      await tap(tester, 'ed_more'); // 한꺼번에 넣기는 "더 보기" 안
+      // 숫자로 넣기 → 홀 입력 창(하나), 면 2면
       await tap(tester, 'ed_add_row');
+      expect(find.byKey(const Key('hi_preview')), findsOneWidget);
       await tester.tap(find.byKey(const Key('hs_face_1')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('hs_x')), '30');

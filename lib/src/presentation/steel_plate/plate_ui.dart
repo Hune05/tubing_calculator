@@ -423,8 +423,10 @@ class PlateNumField extends StatelessWidget {
     this.focus,
     this.onChanged,
     this.text = false,
+    this.autofocus = false,
   });
 
+  final bool autofocus;
   final String fieldKey;
 
   /// null이면 이름 줄 없이 칸만(옆 단추 줄과 높이를 맞출 때).
@@ -463,6 +465,7 @@ class PlateNumField extends StatelessWidget {
           key: Key(fieldKey),
           controller: controller,
           focusNode: focus,
+          autofocus: autofocus,
           keyboardType: text
               ? TextInputType.text
               : const TextInputType.numberWithOptions(decimal: true),
@@ -916,3 +919,191 @@ Widget plateHelpButton(
     ),
   ),
 );
+
+/// 가공 입력 창(아래에서 올라옴)을 띄운다(10-10 입력 창 정리: 홀·코너·변 길이 창이 같은 틀).
+Future<T?> showPlateSheet<T>(BuildContext context, WidgetBuilder builder) =>
+    showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: fc.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: builder,
+    );
+
+/// 가공 입력 창 틀: 손잡이 · 제목 줄(닫기) · 미리보기 그림 · 묶음(스크롤) · 안 되는 이유 · 맨 아래 취소/확인.
+class PlateSheetFrame extends StatelessWidget {
+  const PlateSheetFrame({
+    super.key,
+    required this.title,
+    this.preview,
+    this.previewHeight = 170,
+    this.info,
+    required this.children,
+    required this.okText,
+    this.okKey,
+    required this.onOk,
+    this.error,
+    this.extra,
+  });
+
+  final String title;
+  final Widget? preview;
+  final double previewHeight;
+
+  /// 미리보기 아래 한 줄(예: "새 홀 6개 · 판 밖 1개").
+  final Widget? info;
+  final List<Widget> children;
+  final String okText;
+  final Key? okKey;
+
+  /// null이면 확인 단추를 끈다([error]에 이유).
+  final VoidCallback? onOk;
+  final String? error;
+
+  /// 취소 왼쪽에 더 두는 것(예: 잠금 풀기).
+  final Widget? extra;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return Padding(
+      padding: EdgeInsets.only(bottom: mq.viewInsets.bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: mq.size.height * 0.92),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 8),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: fc.line,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 6, 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: fc.text,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    key: const Key('ps_close'),
+                    tooltip: '닫기',
+                    icon: Icon(AppIcons.close, color: fc.textSub),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+            ),
+            if (preview != null)
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                height: previewHeight,
+                decoration: BoxDecoration(
+                  color: fc.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: preview,
+              ),
+            if (info != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: info,
+              ),
+            // 입력 칸은 한 번에 다 만든다(화면 밖 칸도 있어야 다음 칸으로 넘어가고 값을 읽는다)
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: children,
+                ),
+              ),
+            ),
+            if (error != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+                child: Text(
+                  error!,
+                  key: const Key('ps_error'),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: fc.danger,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            Container(
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: fc.line)),
+              ),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Row(
+                children: [
+                  if (extra != null) ...[extra!, const SizedBox(width: 8)],
+                  OutlinedButton(
+                    key: const Key('ps_cancel'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: fc.text,
+                      side: BorderSide(color: fc.line),
+                      minimumSize: const Size(0, 48),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text(
+                      '취소',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      key: okKey,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: fc.brand,
+                        foregroundColor: fc.onBrand,
+                        disabledBackgroundColor: fc.fill,
+                        minimumSize: const Size(0, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onPressed: onOk,
+                      child: Text(
+                        okText,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

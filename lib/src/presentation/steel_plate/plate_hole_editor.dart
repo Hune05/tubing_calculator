@@ -18,10 +18,10 @@ import '../../core/common_widgets/swipe_to_delete.dart' show showDeleteUndo;
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
-import '../calculator/widgets/app_dialog.dart';
 import '../electrical/busbar_punch_dies.dart' show punchDieLabel;
 import 'plate_calc.dart';
-import 'plate_hole_sheet.dart';
+import 'plate_hole_input.dart';
+import 'plate_settings.dart' show kPlateGridKey;
 import 'plate_painter.dart';
 import 'plate_ui.dart';
 
@@ -36,7 +36,13 @@ class PlateHoleEditorPage extends StatefulWidget {
     this.embedded = false,
     this.footer,
     this.showCenter = true,
+    this.defaultDia = 13.5,
+    this.grid,
   });
+
+  /// 홀 추가 기본 지름·그리드(철판 가공 설정). [grid]가 null이면 저장해 둔 값.
+  final double defaultDia;
+  final double? grid;
 
   /// 판 가운데 십자 중심선(철판 가공 화면의 켜고 끄기를 따른다).
   final bool showCenter;
@@ -54,7 +60,7 @@ class PlateHoleEditorPage extends StatefulWidget {
   final List<double> dies;
   final void Function(List<PlateHoleSpec> holes, int rotQ) onChanged;
 
-  static const gridKey = 'plate_editor_grid_v1';
+  static const gridKey = kPlateGridKey;
 
   @override
   State<PlateHoleEditorPage> createState() => _PlateHoleEditorPageState();
@@ -76,9 +82,10 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
   final List<int> _sel = []; // 선택한 홀(고른 차례)
   bool _multi = false;
   bool _place = false;
-  double _grid = 5;
-  bool _more = false; // 자주 안 쓰는 것(그리드·한꺼번에 넣기·판 돌리기) 펼침
-  late double _tDia = widget.dies.contains(13.5) ? 13.5 : widget.dies.first;
+  late double _grid = widget.grid ?? 5;
+  late double _tDia = widget.defaultDia > 0
+      ? widget.defaultDia
+      : (widget.dies.isEmpty ? 13.5 : widget.dies.first);
   double _tSlot = 0;
   double _tAngle = 0;
 
@@ -111,6 +118,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     super.didUpdateWidget(old);
     String sig(List<PlateHoleSpec> l, int r) =>
         jsonEncode([r, for (final h in l) h.toJson()]);
+    if (widget.grid != null && widget.grid != old.grid) _grid = widget.grid!;
     if (sig(widget.holes, widget.rotQ) != sig(_holes, _rot)) {
       _holes
         ..clear()
@@ -125,12 +133,14 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
   @override
   void initState() {
     super.initState();
-    SharedPreferences.getInstance()
-        .then((p) {
-          final g = p.getDouble(PlateHoleEditorPage.gridKey);
-          if (g != null && mounted) setState(() => _grid = g);
-        })
-        .catchError((_) {});
+    if (widget.grid == null) {
+      SharedPreferences.getInstance()
+          .then((p) {
+            final g = p.getDouble(PlateHoleEditorPage.gridKey);
+            if (g != null && mounted) setState(() => _grid = g);
+          })
+          .catchError((_) {});
+    }
   }
 
   // ── 좌표 ──
@@ -411,27 +421,65 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     showDeleteUndo(context, '홀 $n개', onUndo: _undoOnce);
   }
 
-  /// 줄·네 귀·장공 틀로 한꺼번에 넣기(예전 철판 가공 화면에 있던 칩을 여기로 옮김).
-  Future<void> _addGroup({PlateHoleGroup? preset}) async {
-    final g = await showPlateHoleSheet(
+  /// 홀 입력 창에 넘길 판 정보(화면 자리). [except] 홀은 "있던 홀"에서 뺀다(고칠 때).
+  PlateHoleCanvas _canvasOf(PlatePlan p, {int? except}) => PlateHoleCanvas(
+    outline: plateOutlinePoints(p.outline),
+    cutouts: [for (final c in p.cutouts) (c.c, c.dia)],
+    existing: [
+      for (var i = 0; i < p.holes.length; i++)
+        if (i != except)
+          PlateHoleDraft(
+            p.holes[i].c,
+            p.holes[i].dia,
+            slot: p.holes[i].slot,
+            angle: p.holes[i].angle,
+          ),
+    ],
+    minX: p.minX,
+    minY: p.minY,
+    maxX: p.maxX,
+    maxY: p.maxY,
+    bendSpans: [for (final b in p.bends) (b.start, b.end)],
+    faces: p.isBent ? p.faceNames : const [],
+    faceBase: p.faceBase,
+  );
+
+  List<PlateHolePattern> get _patterns => [
+    PlateHolePattern.single,
+    PlateHolePattern.row,
+    PlateHolePattern.grid,
+    if (widget.input.shape == PlateShape.flat) PlateHolePattern.corners,
+    PlateHolePattern.pcd,
+  ];
+
+  /// 숫자로 홀 넣기(하나·줄·격자·네 코너·원형 배치): 새 홀 입력 창. 넣은 홀은 골라 둔다.
+  Future<void> _addHoles(PlateHolePattern pattern, {bool slot = false}) async {
+    final p = _plan;
+    final r = await showPlateHoleInput(
       context,
-      preset: preset,
-      shape: widget.input.shape,
-      dies: widget.dies,
-      background: fc.surface,
-      text: fc.text,
-      sub: fc.textSub,
-      chip: (key, label, sel, onTap) => calcChip(key, label, sel, onTap),
+      title: '홀 넣기',
+      canvas: _canvasOf(p),
+      dias: widget.dies,
+      defaultDia: _tDia,
+      pattern: pattern,
+      patterns: _patterns,
+      slot: slot,
     );
-    if (g == null || !mounted) return;
-    // 저장 자리는 돌리기 전 판 기준이다.
-    final base = platePlan(widget.input.withHoles(const [], rotQ: 0));
-    final adds = g.expand(
-      minX: base.minX,
-      minY: base.minY,
-      maxX: base.maxX,
-      maxY: base.maxY,
-    );
+    if (r == null || !mounted) return;
+    final adds = [
+      for (final d in r.holes)
+        _specAt(
+          p,
+          d.c,
+          PlateHoleSpec(
+            u: 0,
+            v: 0,
+            dia: d.dia,
+            slot: d.slot > d.dia ? d.slot : 0,
+          ),
+          dispAngle: d.angle,
+        ),
+    ];
     _change(() {
       final start = _holes.length;
       _holes.addAll(adds);
@@ -558,82 +606,33 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     _change(() => next.forEach((i, s) => _holes[i] = s));
   }
 
-  // ── 창: 자리·크기, 원형 배치 ──
+  // ── 창: 위치·크기 수정 ──
 
   Future<void> _editOne() async {
     if (_sel.length != 1) return;
     final p = _plan;
     final i = _sel.first;
     final h = p.holes[i];
-    final r = await _numbersDialog(
-      title: '홀 ${i + 1} 자리·크기',
-      fields: [
-        ('왼쪽 끝에서 (mm)', h.c.dx - p.minX),
-        ('아래 끝에서 (mm)', h.c.dy - p.minY),
-        ('지름 (mm)', h.dia),
-        ('장공 길이 (mm, 0이면 원형 홀)', h.slot),
-        ('장공 각도 (°, 0 = 가로)', ((h.angle % 360) + 360) % 360),
-      ],
+    final r = await showPlateHoleInput(
+      context,
+      title: '홀 ${h.label} 수정',
+      canvas: _canvasOf(p, except: i),
+      dias: widget.dies,
+      defaultDia: h.dia,
+      patterns: const [PlateHolePattern.single],
+      edit: PlateHoleDraft(h.c, h.dia, slot: h.slot, angle: h.angle),
+      face: h.face,
+      okText: '적용',
     );
-    if (r == null || r[2] <= 0) return;
+    if (r == null || r.holes.isEmpty || !mounted) return;
+    final d = r.holes.first;
     final spec = _specAt(
       p,
-      Offset(p.minX + r[0], p.minY + r[1]),
-      _holes[i].copyWith(dia: r[2], slot: r[3] > r[2] ? r[3] : 0),
-      dispAngle: r[4],
+      d.c,
+      _holes[i].copyWith(dia: d.dia, slot: d.slot > d.dia ? d.slot : 0),
+      dispAngle: d.angle,
     );
     _change(() => _holes[i] = spec);
-  }
-
-  Future<void> _pcd() async {
-    final p = _plan;
-    final r = await _numbersDialog(
-      title: '원형 배치 (PCD)',
-      fields: [
-        ('중심: 왼쪽 끝에서 (mm)', (p.maxX - p.minX) / 2),
-        ('중심: 아래 끝에서 (mm)', (p.maxY - p.minY) / 2),
-        ('원 지름 PCD (mm)', math.min(p.maxX - p.minX, p.maxY - p.minY) * 0.6),
-        ('홀 수', 4),
-        ('첫 홀 각도 (°, 0 = 오른쪽)', 45),
-        ('홀 지름 (mm)', _tDia),
-      ],
-    );
-    if (r == null || r[2] <= 0 || r[5] <= 0) return;
-    final list = platePcd(
-      cu: p.minX + r[0],
-      cv: p.minY + r[1],
-      pcd: r[2],
-      count: r[3].round().clamp(1, 72),
-      startDeg: r[4],
-      dia: r[5],
-    );
-    // platePcd는 화면 자리로 만든 것이라 저장 자리로 바꿔 넣는다.
-    final adds = [
-      for (final s in list)
-        _specAt(p, Offset(s.u, s.v), PlateHoleSpec(u: 0, v: 0, dia: s.dia)),
-    ];
-    _change(() {
-      final start = _holes.length;
-      _holes.addAll(adds);
-      _sel
-        ..clear()
-        ..addAll([for (var k = 0; k < adds.length; k++) start + k]);
-    });
-  }
-
-  Future<List<double>?> _numbersDialog({
-    required String title,
-    required List<(String, double)> fields,
-  }) => showDialog<List<double>>(
-    context: context,
-    builder: (_) => PlateNumbersDialog(title: title, fields: fields),
-  );
-
-  void _setGrid(double g) {
-    setState(() => _grid = g);
-    SharedPreferences.getInstance()
-        .then((p) => p.setDouble(PlateHoleEditorPage.gridKey, g))
-        .catchError((_) => false);
   }
 
   // ── 화면 ──
@@ -775,12 +774,13 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       ],
       actions: [
         plateHelpButton(context, 'ed_help', '홀 탭', [
-          '판을 누르면: "선택·이동"는 홀을 눌러 선택하고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다. "홀 추가"는 판을 누른 자리에 고른 크기의 홀을 놓습니다.',
-          '홀을 끌면 그리드·다른 홀·센터선에 맞춰 안내선이 나옵니다.',
+          '판을 누르면: "선택·이동"은 홀을 눌러 선택하고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다. "홀 추가"는 판을 누른 자리에 고른 크기의 홀을 놓습니다.',
+          '홀을 끌면 그리드·다른 홀·센터선에 맞춰 안내선이 나옵니다. 그리드 간격은 설정에서 바꿉니다.',
+          '숫자로 넣기: 하나·줄·격자·네 코너·원형 배치를 창에서 그림을 보며 넣습니다. 위치는 왼쪽 아래 기준이나 센터 기준으로 잽니다.',
           '선택한 홀: 위치·크기 수정, 복사, 지우기, 대칭 복사. 여러 개 고르면 줄 맞추기·같은 간격·묶음 회전도 됩니다.',
           '빨간 테두리 홀은 만들 수 없고(판 밖·절곡부·겹침), 노란 테두리는 절곡선·판 끝에 가깝습니다.',
           if (_bent)
-            '절곡 판은 절곡부을 빗금으로 막아 두었습니다. 홀 위치는 면 기준으로 남겨 면 치수를 바꿔도 따라갑니다.',
+            '절곡 판은 절곡부를 빗금으로 막아 두었습니다. 홀 위치는 면 기준으로 남겨 면 치수를 바꿔도 따라갑니다.',
         ]),
       ],
       footer: widget.footer,
@@ -820,6 +820,29 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
             ),
           ]),
         ], first: true),
+        PlateSection('숫자로 넣기', [
+          plateActions([
+            act(
+              'ed_add_row',
+              Icons.add_circle_outline,
+              '홀 넣기 (하나·줄·격자)',
+              () => _addHoles(PlateHolePattern.single),
+            ),
+            if (widget.input.shape == PlateShape.flat)
+              act(
+                'ed_add_corners',
+                Icons.crop_free,
+                '네 코너',
+                () => _addHoles(PlateHolePattern.corners),
+              ),
+            act(
+              'ed_pcd',
+              Icons.radio_button_unchecked,
+              '원형 배치(PCD)',
+              () => _addHoles(PlateHolePattern.pcd),
+            ),
+          ]),
+        ]),
         if (_place)
           PlateSection('추가할 홀', [
             PlateSegments(joined: false, [
@@ -935,157 +958,33 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                 ),
               ]),
           ]),
-        PlateSection(
-          '그리드 · 한꺼번에 넣기 · 90° 회전',
-          [
-            if (_more) ...[
-              PlateSegments([
-                for (final g in const [0.0, 1.0, 5.0, 10.0])
-                  PlateOption(
-                    'ed_grid_${g.round()}',
-                    g == 0 ? '그리드 끔' : '그리드 ${_f(g)}',
-                    _grid == g,
-                    () => _setGrid(g),
-                  ),
-              ]),
-              plateActions([
+        if (!_bent || _holes.isNotEmpty)
+          PlateSection('판', [
+            plateActions([
+              if (!_bent)
                 act(
-                  'ed_add_row',
-                  Icons.view_week_outlined,
-                  '줄로 넣기',
-                  () => _addGroup(),
+                  'ed_rot',
+                  Icons.rotate_90_degrees_ccw_outlined,
+                  '판 90° 회전',
+                  () => _change(() {
+                    _rot = (_rot + 1) % 4;
+                    _zoom = 1;
+                    _pan = Offset.zero;
+                  }),
                 ),
-                if (widget.input.shape == PlateShape.flat)
-                  act(
-                    'ed_add_corners',
-                    Icons.crop_free,
-                    '네 코너 홀',
-                    () => _addGroup(
-                      preset: const PlateHoleGroup(
-                        dia: 13.5,
-                        corners: true,
-                        x: 20,
-                        y: 20,
-                      ),
-                    ),
-                  ),
+              if (_holes.isNotEmpty)
                 act(
-                  'ed_add_slot',
-                  Icons.horizontal_rule,
-                  '장공 넣기',
-                  () => _addGroup(
-                    preset: const PlateHoleGroup(
-                      dia: 13.5,
-                      slot: 30,
-                      x: 25,
-                      y: 25,
-                    ),
-                  ),
+                  'ed_clear',
+                  AppIcons.delete,
+                  '홀 모두 지우기',
+                  _clearAll,
+                  danger: true,
                 ),
-                act('ed_pcd', Icons.radio_button_unchecked, '원형 배치(PCD)', _pcd),
-                if (!_bent)
-                  act(
-                    'ed_rot',
-                    Icons.rotate_90_degrees_ccw_outlined,
-                    '90° 회전',
-                    () => _change(() {
-                      _rot = (_rot + 1) % 4;
-                      _zoom = 1;
-                      _pan = Offset.zero;
-                    }),
-                  ),
-                if (_holes.isNotEmpty)
-                  act(
-                    'ed_clear',
-                    AppIcons.delete,
-                    '모두 지우기',
-                    _clearAll,
-                    danger: true,
-                  ),
-              ]),
-            ],
-          ],
-          trailing: TextButton.icon(
-            key: const Key('ed_more'),
-            style: TextButton.styleFrom(
-              foregroundColor: fc.brand,
-              visualDensity: VisualDensity.compact,
-            ),
-            onPressed: () => setState(() => _more = !_more),
-            icon: Icon(_more ? Icons.expand_less : Icons.expand_more, size: 18),
-            label: Text(
-              _more ? '접기' : '펴기',
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-          ),
-        ),
+            ]),
+          ]),
       ],
     );
   }
-}
-
-/// 숫자 칸 여러 개를 받는 창. 입력칸은 창이 다 닫힌 뒤 치운다(닫히는 동안 쓰이므로).
-class PlateNumbersDialog extends StatefulWidget {
-  const PlateNumbersDialog({
-    super.key,
-    required this.title,
-    required this.fields,
-  });
-  final String title;
-  final List<(String, double)> fields;
-
-  @override
-  State<PlateNumbersDialog> createState() => PlateNumbersDialogState();
-}
-
-class PlateNumbersDialogState extends State<PlateNumbersDialog> {
-  late final List<TextEditingController> _c = [
-    for (final (_, v) in widget.fields)
-      TextEditingController(text: v.isFinite ? _f(v, 2) : ''),
-  ];
-
-  @override
-  void dispose() {
-    for (final c in _c) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  // 앱 공용 창 모양(AppDialog: 흰 바탕·굵은 제목·회색 취소·청록 확인)과 입력칸 모양을 쓴다.
-  @override
-  Widget build(BuildContext context) => AppDialog(
-    title: widget.title,
-    okText: '적용',
-    okKey: const Key('ed_num_ok'),
-    onCancel: () => Navigator.pop(context),
-    onOk: () => Navigator.pop(context, [
-      for (var k = 0; k < _c.length; k++)
-        double.tryParse(_c[k].text.trim().replaceAll(',', '.')) ??
-            widget.fields[k].$2,
-    ]),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var k = 0; k < widget.fields.length; k++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: TextField(
-                key: Key('ed_num_$k'),
-                controller: _c[k],
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                  signed: true,
-                ),
-                style: appFieldTextStyle,
-                decoration: appFieldDecoration(widget.fields[k].$1),
-              ),
-            ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _EditorPainter extends CustomPainter {

@@ -26,9 +26,10 @@ import '../common/app_icons.dart';
 import '../common/calc_form_parts.dart';
 import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
-import 'plate_hole_editor.dart' show PlateNumbersDialog;
+import 'plate_hole_input.dart';
 import 'plate_page.dart';
 import 'plate_painter.dart' show plateDrawCenterLines;
+import 'plate_settings.dart';
 import 'plate_sketch_model.dart';
 import 'plate_ui.dart';
 
@@ -118,6 +119,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   ui.Image? _img;
   int? _selPt, _selHole;
   double _tDia = 13.5;
+
+  /// 철판 가공 설정(자주 쓰는 홀 지름·기본 지름).
+  PlateSettings _cfg = PlateSettings.defaults;
   bool _showPhoto = true;
   bool _busy = false;
   String? _aiError;
@@ -155,6 +159,14 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   void initState() {
     super.initState();
     _load();
+    PlateSettings.load().then((c) {
+      if (mounted) {
+        setState(() {
+          _cfg = c;
+          _tDia = c.defaultDia;
+        });
+      }
+    });
   }
 
   @override
@@ -755,9 +767,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
 
   Future<void> _editEdge(int i) async {
     final j = (i + 1) % _s.n;
-    final r = await showDialog<_LenResult>(
-      context: context,
-      builder: (_) => _LengthDialog(
+    final r = await showPlateSheet<_LenResult>(
+      context,
+      (_) => _LengthDialog(
         title: '변 ${i + 1}→${j + 1} 길이',
         initial: _s.scaled ? _s.edgeLen(i) : null,
         locked: _s.isLocked(i),
@@ -814,28 +826,46 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     }
     final b = _s.bounds ?? Rect.zero;
     final h = _s.holes[k];
-    final r = await showDialog<List<double>>(
-      context: context,
-      builder: (_) => PlateNumbersDialog(
-        title: '홀 ${k + 1}',
-        fields: [
-          ('가로 자리 (판 왼쪽 끝에서, mm)', double.parse(_f(h.u - b.left))),
-          ('세로 자리 (판 아래 끝에서, mm)', double.parse(_f(h.v - b.top))),
-          ('지름 (mm)', h.dia),
-          ('장공 길이 (mm, 원형 홀은 0)', h.slot),
-          ('장공 각도 (°, 가로 0)', h.angle),
+    final r = await showPlateHoleInput(
+      context,
+      title: '홀 ${k + 1} 수정',
+      canvas: PlateHoleCanvas(
+        outline: List.of(_s.pts),
+        existing: [
+          for (var i = 0; i < _s.holes.length; i++)
+            if (i != k)
+              PlateHoleDraft(
+                Offset(_s.holes[i].u, _s.holes[i].v),
+                _s.holes[i].dia,
+                slot: _s.holes[i].slot,
+                angle: _s.holes[i].angle,
+              ),
         ],
+        minX: b.left,
+        minY: b.top,
+        maxX: b.right,
+        maxY: b.bottom,
       ),
+      dias: _cfg.dias,
+      defaultDia: h.dia,
+      patterns: const [PlateHolePattern.single],
+      edit: PlateHoleDraft(
+        Offset(h.u, h.v),
+        h.dia,
+        slot: h.slot,
+        angle: h.angle,
+      ),
+      okText: '적용',
     );
-    if (r == null || !mounted) return;
-    if (!r[2].isFinite || r[2] <= 0) return;
+    if (r == null || r.holes.isEmpty || !mounted) return;
+    final d = r.holes.first;
     _change(
       () => _s.holes[k] = PlateHoleSpec(
-        u: b.left + (r[0].isFinite ? r[0] : h.u - b.left),
-        v: b.top + (r[1].isFinite ? r[1] : h.v - b.top),
-        dia: r[2],
-        slot: r[3].isFinite && r[3] > r[2] ? r[3] : 0,
-        angle: r[4].isFinite ? r[4] : 0,
+        u: d.c.dx,
+        v: d.c.dy,
+        dia: d.dia,
+        slot: d.slot > d.dia ? d.slot : 0,
+        angle: d.slot > d.dia ? d.angle : 0,
       ),
     );
   }
@@ -1472,7 +1502,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         sections = [
           PlateSection('홀 지름', [
             PlateSegments(joined: false, [
-              for (final d in const [9.0, 11.0, 13.5, 17.5, 22.0])
+              for (final d in _cfg.dias)
                 PlateOption(
                   'sk_dia_${(d * 10).round()}',
                   'φ${_f(d)}',
@@ -1599,44 +1629,58 @@ class _LengthDialogState extends State<_LengthDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AppDialog(
-    title: widget.title,
-    okText: '넣기',
-    okKey: const Key('sk_len_ok'),
-    onCancel: () => Navigator.pop(context),
-    onOk: () => Navigator.pop(
-      context,
-      _LenResult(mm: double.tryParse(_c.text.trim().replaceAll(',', '.'))),
-    ),
-    content: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final v = double.tryParse(_c.text.trim().replaceAll(',', '.'));
+    return PlateSheetFrame(
+      title: widget.title,
+      okText: '넣기',
+      okKey: const Key('sk_len_ok'),
+      error: _c.text.trim().isEmpty || (v != null && v > 0)
+          ? null
+          : '길이를 mm로 넣으십시오.',
+      // 누르는 순간 칸 값을 읽는다(넣고 바로 눌러도)
+      onOk: () {
+        final mm = double.tryParse(_c.text.trim().replaceAll(',', '.'));
+        if (mm == null || mm <= 0) {
+          setState(() {});
+          return;
+        }
+        Navigator.pop(context, _LenResult(mm: mm));
+      },
+      extra: widget.locked
+          ? TextButton(
+              key: const Key('sk_len_unlock'),
+              style: TextButton.styleFrom(foregroundColor: fc.danger),
+              onPressed: () =>
+                  Navigator.pop(context, const _LenResult(unlock: true)),
+              child: const Text(
+                '잠금 풀기',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            )
+          : null,
       children: [
-        TextField(
-          key: const Key('sk_len'),
-          controller: _c,
-          autofocus: true,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          style: appFieldTextStyle,
-          decoration: appFieldDecoration('길이 (mm)'),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          widget.locked
-              ? '넣은 치수라 잠겨 있습니다. 다른 변을 고쳐도 되도록 이 길이는 그대로 둡니다.'
-              : '넣으면 잠깁니다. 같은 방향의 다른 변이 차이를 받습니다(잠기지 않은 변 먼저).',
-          style: TextStyle(color: fc.textSub, fontSize: 13, height: 1.35),
-        ),
-        if (widget.locked)
-          TextButton(
-            key: const Key('sk_len_unlock'),
-            onPressed: () =>
-                Navigator.pop(context, const _LenResult(unlock: true)),
-            child: const Text('잠금 풀기'),
+        PlateSection('길이', [
+          plateRow([
+            PlateNumField(
+              fieldKey: 'sk_len',
+              label: null,
+              controller: _c,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox.shrink(),
+          ]),
+          Text(
+            widget.locked
+                ? '넣은 치수라 잠겨 있습니다. 다른 변을 고쳐도 이 길이는 그대로 둡니다. 풀려면 "잠금 풀기".'
+                : '넣으면 잠깁니다. 같은 방향의 다른 변이 차이를 받습니다(잠기지 않은 변 먼저).',
+            style: TextStyle(color: fc.textSub, fontSize: 13, height: 1.35),
           ),
+        ], first: true),
       ],
-    ),
-  );
+    );
+  }
 }
 
 class _SketchPainter extends CustomPainter {

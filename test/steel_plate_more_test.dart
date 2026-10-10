@@ -208,7 +208,7 @@ void main() {
       );
     });
 
-    testWidgets('원판 배치: 4×8 기본, 5×10·직접(칸), 수량에 원판 몇 장', (tester) async {
+    testWidgets('원판 배치: 4×8 기본, 5×10·직접은 설정 화면에서, 수량에 원판 몇 장', (tester) async {
       await open(tester);
       await tester.enterText(find.byKey(const Key('pl_qty')), '300');
       await tester.pumpAndSettle();
@@ -233,7 +233,13 @@ void main() {
       expect(nest(), contains('${n48.count}개'));
       expect(nest(), contains('수량 300장에 원판 ${(300 / n48.count).ceil()}장'));
       expect(find.byKey(const Key('pl_nest_view')), findsOneWidget);
-      await tap(tester, 'pl_sheet_510');
+      // 원판 바꾸기는 설정 화면에서(작업 화면에는 결과만)
+      expect(find.byKey(const Key('pl_sheet_510')), findsNothing);
+      await tap(tester, 'pl_nest_settings');
+      expect(find.text('철판 가공 설정'), findsOneWidget);
+      await tap(tester, 'ps_sheet_510');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       final n510 = plateNest(
         sheetW: 1524,
         sheetH: 3048,
@@ -242,8 +248,11 @@ void main() {
         partArea: 20000,
       );
       expect(nest(), contains('${n510.count}개'));
-      await tap(tester, 'pl_sheet_custom');
-      await tester.enterText(find.byKey(const Key('pl_sw')), '90');
+      await tap(tester, 'pl_nest_settings');
+      await tap(tester, 'ps_sheet_custom');
+      await tester.enterText(find.byKey(const Key('ps_sw')), '90');
+      await tester.pumpAndSettle();
+      await tester.pageBack();
       await tester.pumpAndSettle();
       expect(nest(), contains('부품이 원판보다 큽니다'));
     });
@@ -277,6 +286,114 @@ void main() {
       await open(tester, pickDxf: () async => '0\nEOF');
       await tap(tester, 'pl_dxf_import');
       expect(find.textContaining('도형을 찾지 못했습니다'), findsOneWidget);
+    });
+
+    testWidgets('홀 입력 창: 격자 6개, 센터 기준으로 바꾸면 같은 자리, 지름 비우면 넣기 꺼짐·이유', (
+      tester,
+    ) async {
+      await open(tester);
+      await tester.tap(find.byKey(const Key('pl_tab_holes')));
+      await tester.pumpAndSettle();
+      await tap(tester, 'ed_add_row');
+      await tap(tester, 'hp_grid');
+      await tester.enterText(find.byKey(const Key('hs_nx')), '3');
+      await tester.pumpAndSettle();
+      expect(find.text('넣기 (6개)'), findsOneWidget);
+      String text(String k) =>
+          tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+      // 왼쪽 아래 25·25 → 센터 기준: 200×100 판 센터(100, 50)에서 −75·−25
+      await tap(tester, 'hi_ref_center');
+      expect(text('hs_x'), '-75');
+      expect(text('hs_y'), '-25');
+      // 판 밖으로 나가는 홀은 빨강으로 센다(가로 피치 100 → 25·125·225)
+      await tester.enterText(find.byKey(const Key('hs_px')), '100');
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<Text>(find.byKey(const Key('hi_info'))).data,
+        contains('판 밖·절곡부 2개'),
+      );
+      await tester.enterText(find.byKey(const Key('hs_px')), '50');
+      // 지름을 비우면 넣기 꺼짐 + 이유
+      await tester.enterText(find.byKey(const Key('hs_dia')), '');
+      await tester.pumpAndSettle();
+      expect(find.text('홀 지름을 넣으십시오.'), findsOneWidget);
+      expect(
+        tester.widget<FilledButton>(find.byKey(const Key('hs_ok'))).onPressed,
+        isNull,
+      );
+      await tap(tester, 'hs_die_1100');
+      await tester.tap(find.byKey(const Key('hs_ok')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pl_tab_result')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('홀 6개 · φ11 6'), findsOneWidget);
+      expect(find.textContaining('홀 1 φ11: 전개도 25 · 25'), findsOneWidget);
+      expect(find.textContaining('홀 6 φ11: 전개도 125 · 75'), findsOneWidget);
+    });
+
+    testWidgets('홀 고치기: 같은 창(하나), 장공·세로로 바꾸기', (tester) async {
+      await open(tester);
+      await tester.tap(find.byKey(const Key('pl_tab_holes')));
+      await tester.pumpAndSettle();
+      await tap(tester, 'ed_add_row');
+      await tester.tap(find.byKey(const Key('hs_ok')));
+      await tester.pumpAndSettle();
+      // 넣은 홀이 골라져 있다 → 위치·크기 수정
+      await tap(tester, 'ed_edit');
+      expect(find.text('홀 1 수정'), findsOneWidget);
+      expect(find.byKey(const Key('hp_single')), findsNothing); // 놓는 방법 고르기 없음
+      await tap(tester, 'hs_slot');
+      await tap(tester, 'hs_sloty');
+      await tester.enterText(find.byKey(const Key('hs_x')), '60');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('hs_ok')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pl_tab_result')));
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('홀 1 장공 13.5×30(세로): 전개도 60 · 25'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('설정: 두께 단추·자주 쓰는 지름을 바꾸면 작업 화면에 바로, 공제값 넣고 지우기', (
+      tester,
+    ) async {
+      await open(tester);
+      await tap(tester, 'pl_settings');
+      await tester.enterText(
+        find.byKey(const Key('ps_thick_steel')),
+        '3, 4.5, 3',
+      );
+      await tester.enterText(find.byKey(const Key('ps_dias')), '10, 22');
+      await tester.enterText(find.byKey(const Key('ps_bt')), '3');
+      await tester.enterText(find.byKey(const Key('ps_br')), '3');
+      await tester.enterText(find.byKey(const Key('ps_bdv')), '6');
+      await tester.pumpAndSettle();
+      await tap(tester, 'ps_bd_add');
+      expect(find.byKey(const Key('ps_bd_3')), findsOneWidget);
+      await tap(tester, 'ps_bd_del_3');
+      expect(find.byKey(const Key('ps_bd_3')), findsNothing);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      // 두께 단추: 3T·4.5T만(같은 값 하나)
+      expect(find.byKey(const Key('pl_t_3')), findsOneWidget);
+      expect(find.byKey(const Key('pl_t_4.5')), findsOneWidget);
+      expect(find.byKey(const Key('pl_t_1.6')), findsNothing);
+      expect(
+        tester.widget<PlateSegButton>(find.byKey(const Key('pl_t_3'))).selected,
+        isTrue,
+      );
+      // 홀 창 지름 단추도 설정 값
+      await tester.tap(find.byKey(const Key('pl_tab_holes')));
+      await tester.pumpAndSettle();
+      await tap(tester, 'ed_add_row');
+      expect(find.byKey(const Key('hs_die_1000')), findsOneWidget);
+      expect(find.byKey(const Key('hs_die_2200')), findsOneWidget);
+      expect(find.byKey(const Key('hs_die_1350')), findsNothing);
+      // 작업 화면 홀 탭에 그리드 단추는 없다(설정에서)
+      await tap(tester, 'ps_cancel');
+      expect(find.byKey(const Key('ed_grid_5')), findsNothing);
     });
   });
 }
