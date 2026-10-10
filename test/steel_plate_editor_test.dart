@@ -46,6 +46,20 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// 결과 표 한 줄을 "칸 | 칸" 글로.
+  Future<String> row(WidgetTester tester, String key) async {
+    await see(tester, find.byKey(Key(key)));
+    return tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(Text),
+          ),
+        )
+        .map((t) => t.data)
+        .join(' | ');
+  }
+
   Future<void> tap(WidgetTester tester, String key) async {
     await see(tester, find.byKey(Key(key)));
     await tester.pumpAndSettle();
@@ -132,9 +146,9 @@ void main() {
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('홀 4개 · φ13.5 4'), findsOneWidget);
     await see(tester, find.byKey(const Key('pl_holes')));
-    expect(find.textContaining('홀 2 φ13.5: 전개도 70 · 30'), findsOneWidget);
-    expect(find.textContaining('홀 3 φ13.5: 전개도 160 · 30'), findsOneWidget);
-    expect(find.textContaining('홀 4 φ13.5: 전개도 130 · 30'), findsOneWidget);
+    expect(await row(tester, 'pl_hole_row_2'), '2 | φ13.5 | 70 | 30');
+    expect(await row(tester, 'pl_hole_row_3'), '3 | φ13.5 | 160 | 30');
+    expect(await row(tester, 'pl_hole_row_4'), '4 | φ13.5 | 130 | 30');
     // 탭을 옮겨 다녀와도 편집 기록(되돌리기)은 남는다
     await tester.tap(find.byKey(const Key('pl_tab_holes')));
     await tester.pumpAndSettle();
@@ -199,8 +213,8 @@ void main() {
     await see(tester, find.byKey(const Key('pl_holes')));
     final x = 130 + 30 * math.cos(math.pi / 4);
     expect(
-      find.textContaining('홀 2 φ13.5: 전개도 ${x.toStringAsFixed(1)}'),
-      findsOneWidget,
+      await row(tester, 'pl_hole_row_2'),
+      startsWith('2 | φ13.5 | ${x.toStringAsFixed(1)} | '),
     );
   });
 
@@ -215,11 +229,10 @@ void main() {
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('판 90° 회전'), findsOneWidget);
     await see(tester, find.textContaining(' 100 × 200 mm'));
-    // 위 요약 줄과 결과 탭 상태 줄 둘 다
-    expect(find.textContaining(' 100 × 200 mm'), findsWidgets);
+    // 위 요약 줄(결과 탭에는 크기를 되풀이하지 않는다)
+    expect(find.textContaining(' 100 × 200 mm'), findsOneWidget);
     // (40, 20) → (80, 40)
-    await see(tester, find.byKey(const Key('pl_holes')));
-    expect(find.textContaining('홀 1 φ13.5: 전개도 80 · 40'), findsOneWidget);
+    expect(await row(tester, 'pl_hole_row_1'), '1 | φ13.5 | 80 | 40');
   });
 
   testWidgets('예전 저장(홀 묶음: 네 코너)은 하나하나로 풀어 옮긴다', (tester) async {
@@ -252,7 +265,6 @@ void main() {
     await tester.pumpAndSettle();
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('홀 4개 · φ13.5 4'), findsOneWidget);
-    await see(tester, find.byKey(const Key('pl_holes')));
-    expect(find.textContaining('홀 3 φ13.5: 전개도 180 · 80'), findsOneWidget);
+    expect(await row(tester, 'pl_hole_row_3'), '3 | φ13.5 | 180 | 80');
   });
 }

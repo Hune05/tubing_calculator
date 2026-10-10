@@ -17,8 +17,11 @@ class PlateShapeCard extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.width = 92,
   });
 
+  /// 카드 폭(모양 수에 맞춰 한 줄에 들어가게 부른 쪽이 정한다).
+  final double width;
   final PlateShape shape;
   final String label;
   final bool selected;
@@ -26,8 +29,8 @@ class PlateShapeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => SizedBox(
-    width: 92,
-    height: 84,
+    width: width,
+    height: width < 76 ? 76 : 84,
     child: Material(
       color: selected ? fc.brandSoft : fc.fill,
       shape: RoundedRectangleBorder(
@@ -44,7 +47,9 @@ class PlateShapeCard extends StatelessWidget {
           onTap();
         },
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(6, 8, 6, 6),
+          padding: width < 76
+              ? const EdgeInsets.fromLTRB(3, 7, 3, 5)
+              : const EdgeInsets.fromLTRB(6, 8, 6, 6),
           child: Column(
             children: [
               Expanded(
@@ -66,7 +71,7 @@ class PlateShapeCard extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: width < 76 ? 12 : 13,
                   fontWeight: FontWeight.w800,
                   color: selected ? fc.brand : fc.text,
                 ),

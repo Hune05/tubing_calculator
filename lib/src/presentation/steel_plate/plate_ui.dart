@@ -1,5 +1,5 @@
 // 철판 가공 화면들의 공통 틀(10-10, 사용자: "각 페이지 구성이 정리된 게 아니고 대충 뿌려 놓은 것").
-// 탭마다 같은 자리의 위 그림 칸 + 아래 흰 작업판(제목 줄 · 묶음별 칸 · 맨 아래 이전/다음).
+// 탭마다 같은 자리의 위 그림 칸 + 아래 흰 작업판(제목 줄 · 묶음별 칸, 필요하면 맨 아래 고정 단추).
 // 작업판 모양은 벤딩 입력판(conduit_input_tab의 아래 입력판)과 같다: 흰 바탕, 위 모서리 둥글게, 위로 그림자.
 // 고르는 것은 붙은 단추 줄(PlateSegments), 숫자는 이름이 위에 붙은 작은 칸(PlateNumField)을 한 줄에 나란히.
 library;
@@ -297,7 +297,16 @@ class PlateOption {
   final String label;
   final bool selected;
   final VoidCallback? onTap;
-  const PlateOption(this.key, this.label, this.selected, this.onTap);
+
+  /// 이름 아래 작은 글(예: 지름 단추의 볼트 "M12").
+  final String? sub;
+  const PlateOption(
+    this.key,
+    this.label,
+    this.selected,
+    this.onTap, {
+    this.sub,
+  });
 }
 
 /// 고르기 단추 줄. 4개까지는 한 줄에 붙여(같은 폭), 더 많으면 알약 모양으로 줄 바꿈.
@@ -320,6 +329,7 @@ class PlateSegments extends StatelessWidget {
             PlateSegButton(
               key: Key(it.key),
               label: it.label,
+              sub: it.sub,
               selected: it.selected,
               onTap: it.onTap,
               pill: true,
@@ -328,7 +338,7 @@ class PlateSegments extends StatelessWidget {
       );
     }
     return Container(
-      height: 44,
+      height: items.any((it) => it.sub != null) ? 54 : 44,
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: fc.fill,
@@ -341,6 +351,7 @@ class PlateSegments extends StatelessWidget {
               child: PlateSegButton(
                 key: Key(it.key),
                 label: it.label,
+                sub: it.sub,
                 selected: it.selected,
                 onTap: it.onTap,
               ),
@@ -360,9 +371,11 @@ class PlateSegButton extends StatelessWidget {
     this.onTap,
     this.pill = false,
     this.compact = false,
+    this.sub,
   });
 
   final String label;
+  final String? sub;
   final bool selected;
   final VoidCallback? onTap;
   final bool pill;
@@ -373,15 +386,43 @@ class PlateSegButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = selected ? fc.onBrand : (onTap == null ? fc.textFaint : fc.text);
-    final text = Text(
-      label,
-      maxLines: 1,
-      style: TextStyle(
-        fontSize: compact ? 13 : 14,
-        fontWeight: FontWeight.w800,
-        color: fg,
-      ),
-    );
+    final Widget text = sub == null
+        ? Text(
+            label,
+            maxLines: 1,
+            style: TextStyle(
+              fontSize: compact ? 13 : 14,
+              fontWeight: FontWeight.w800,
+              color: fg,
+            ),
+          )
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: fg,
+                  height: 1.15,
+                ),
+              ),
+              Text(
+                sub!,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: selected
+                      ? fc.onBrand.withValues(alpha: 0.85)
+                      : fc.textSub,
+                  height: 1.15,
+                ),
+              ),
+            ],
+          );
     return Material(
       color: selected ? fc.brand : (pill ? fc.fill : Colors.transparent),
       borderRadius: BorderRadius.circular(pill ? 10 : 8),
@@ -397,7 +438,10 @@ class PlateSegButton extends StatelessWidget {
             ? Padding(
                 padding: compact
                     ? const EdgeInsets.symmetric(horizontal: 11, vertical: 6)
-                    : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    : EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: sub == null ? 10 : 6,
+                      ),
                 child: text,
               )
             : Center(
@@ -424,8 +468,15 @@ class PlateNumField extends StatelessWidget {
     this.onChanged,
     this.text = false,
     this.autofocus = false,
+    this.highlight = false,
+    this.readOnly = false,
   });
 
+  /// 지금 쓰는 값이라 테두리를 진하게(두께 단추에 없는 값을 넣었을 때 등).
+  final bool highlight;
+
+  /// 고칠 수 없는 칸(계산해서 보여 주는 값).
+  final bool readOnly;
   final bool autofocus;
   final String fieldKey;
 
@@ -466,6 +517,8 @@ class PlateNumField extends StatelessWidget {
           controller: controller,
           focusNode: focus,
           autofocus: autofocus,
+          readOnly: readOnly,
+          canRequestFocus: !readOnly,
           keyboardType: text
               ? TextInputType.text
               : const TextInputType.numberWithOptions(decimal: true),
@@ -474,12 +527,12 @@ class PlateNumField extends StatelessWidget {
           style: TextStyle(
             fontSize: text ? 16 : 18,
             fontWeight: text ? FontWeight.w700 : FontWeight.w800,
-            color: fc.text,
+            color: readOnly ? fc.textSub : fc.text,
           ),
           decoration: InputDecoration(
             isDense: true,
             filled: true,
-            fillColor: fc.fill,
+            fillColor: readOnly ? fc.background : fc.fill,
             hintText: hint,
             hintStyle: TextStyle(
               fontSize: 14,
@@ -497,8 +550,10 @@ class PlateNumField extends StatelessWidget {
               vertical: label == null ? 12 : 13,
             ),
             border: b(Colors.transparent, 0),
-            enabledBorder: b(Colors.transparent, 0),
-            focusedBorder: b(fc.brand, 1.6),
+            enabledBorder: highlight
+                ? b(fc.brand, 1.6)
+                : (readOnly ? b(fc.line, 1) : b(Colors.transparent, 0)),
+            focusedBorder: readOnly ? b(fc.line, 1) : b(fc.brand, 1.6),
           ),
           onChanged: onChanged,
         ),
@@ -517,6 +572,226 @@ Widget plateRow(List<Widget> children, {List<int>? flex}) => Row(
     ],
   ],
 );
+
+/// 칸 여러 개를 폭에 맞춰 놓는다(10-11, 사용자 지적 "폭이 혼자 한 줄"): 칸마다 [minCell] 이상이면 한 줄,
+/// 아니면 두 줄로 반씩 나눈다(4개 → 2 × 2, 3개 → 한 줄 유지).
+class PlateFieldGrid extends StatelessWidget {
+  const PlateFieldGrid(this.children, {super.key, this.minCell = 96});
+  final List<Widget> children;
+  final double minCell;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final n = children.length;
+      final one = (box.maxWidth - 10 * (n - 1)) / n >= minCell;
+      if (one || n < 4) return plateRow(children);
+      final half = (n / 2).ceil();
+      final a = children.sublist(0, half), b = children.sublist(half);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          plateRow(a),
+          const SizedBox(height: 10),
+          plateRow([
+            ...b,
+            for (var i = b.length; i < a.length; i++) const SizedBox.shrink(),
+          ]),
+        ],
+      );
+    },
+  );
+}
+
+/// 표(결과·절곡선·홀 위치): 머리 줄 + 줄마다 칸. 숫자 칸은 오른쪽 정렬.
+class PlateTable extends StatelessWidget {
+  const PlateTable({
+    super.key,
+    required this.headers,
+    required this.rows,
+    this.flex,
+    this.numeric,
+    this.rowKeys,
+  });
+
+  final List<String> headers;
+  final List<List<String>> rows;
+  final List<int>? flex;
+
+  /// 줄마다 열쇠(시험에서 줄을 찾는다).
+  final List<Key>? rowKeys;
+
+  /// 칸마다 숫자(오른쪽 정렬)인가.
+  final List<bool>? numeric;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget cell(String s, int i, {bool head = false}) => Expanded(
+      flex: flex?[i] ?? 1,
+      child: Text(
+        s,
+        textAlign: (numeric?[i] ?? false) ? TextAlign.right : TextAlign.left,
+        style: TextStyle(
+          fontSize: head ? 12 : 14,
+          fontWeight: head ? FontWeight.w700 : FontWeight.w800,
+          color: head ? fc.textSub : fc.text,
+          height: 1.3,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+    Widget line(List<String> cs, {bool head = false, Key? key}) => Padding(
+      key: key,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < cs.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            cell(cs[i], i, head: head),
+          ],
+        ],
+      ),
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: fc.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: fc.fill,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(10),
+              ),
+            ),
+            child: line(headers, head: true),
+          ),
+          for (var r = 0; r < rows.length; r++) ...[
+            if (r > 0) Divider(height: 1, color: fc.line),
+            line(
+              rows[r],
+              key: rowKeys != null && r < rowKeys!.length ? rowKeys![r] : null,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 계산해서 보여 주는 값 칸(고칠 수 없음). [PlateNumField]와 같은 높이·모양에 옅은 바탕.
+class PlateValueField extends StatelessWidget {
+  const PlateValueField({
+    super.key,
+    required this.label,
+    required this.value,
+    this.unit,
+  });
+
+  final String label;
+  final String value;
+  final String? unit;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          color: fc.textSub,
+        ),
+      ),
+      const SizedBox(height: 4),
+      Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: fc.background,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: fc.line),
+        ),
+        alignment: Alignment.centerRight,
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: fc.text,
+                ),
+              ),
+              if (unit != null) ...[
+                const SizedBox(width: 4),
+                Text(
+                  unit!,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: fc.textSub,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    ],
+  );
+}
+
+/// 위 막대 단추(아이콘 + 아래 작은 이름, 10-11 사용자 지적 "아이콘만 있어 뭔지 모름").
+class PlateBarAction extends StatelessWidget {
+  const PlateBarAction({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => InkResponse(
+    onTap: onTap,
+    radius: 28,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 22, color: fc.text),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: fc.textSub,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 
 /// 맨 아래 고정 줄: 왼쪽 "이전", 오른쪽 "다음: …"(또는 [main]).
 class PlateFooter extends StatelessWidget {

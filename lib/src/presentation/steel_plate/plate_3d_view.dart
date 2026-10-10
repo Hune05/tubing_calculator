@@ -217,18 +217,27 @@ class _Plate3dPainter extends CustomPainter {
     }
     items.sort((a, b) => b.$1.compareTo(a.$1)); // 먼 것부터
 
+    final night = FieldColors.isNight;
     final edge = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 0.8
-      ..color = const Color(0xFF3E4C55).withValues(alpha: 0.55);
+      ..color = (night ? const Color(0xFFAEBCC6) : const Color(0xFF3E4C55))
+          .withValues(alpha: night ? 0.4 : 0.55);
     for (final (_, f, n, pts) in items) {
       // 빛 쪽을 향할수록 밝게(빛 벡터는 면에서 빛 쪽)
       final lit = 0.45 + 0.55 * math.max(0.0, n.dot(light));
-      final base = switch (f.kind) {
-        0 => const Color(0xFFB4C2CB),
-        1 => const Color(0xFF9AA9B3),
-        _ => const Color(0xFF66747E),
-      };
+      // 야간 보기는 어두운 철 색(밤에 눈부심 줄임, 10-11)
+      final base = night
+          ? switch (f.kind) {
+              0 => const Color(0xFF6E7C86),
+              1 => const Color(0xFF5E6C76),
+              _ => const Color(0xFF46525B),
+            }
+          : switch (f.kind) {
+              0 => const Color(0xFFB4C2CB),
+              1 => const Color(0xFF9AA9B3),
+              _ => const Color(0xFF66747E),
+            };
       final col = Color.lerp(
         const Color(0xFF26323A),
         base,

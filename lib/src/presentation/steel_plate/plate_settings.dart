@@ -215,7 +215,17 @@ Future<void> writePlateBendTable(Map<String, (double, double)> t) async {
 
 /// 설정 화면. 바뀌면 바로 저장하고, 닫을 때 true를 돌려준다(부른 쪽이 다시 읽는다).
 class PlateSettingsPage extends StatefulWidget {
-  const PlateSettingsPage({super.key});
+  const PlateSettingsPage({
+    super.key,
+    this.bendPrefill,
+    this.focusBend = false,
+  });
+
+  /// 절곡 탭 "업체 값 저장"에서 열 때: 넣기 칸에 미리 채울 (두께 글, 내R, 90° 공제값).
+  final (String, double, double)? bendPrefill;
+
+  /// 열자마자 업체 공제값 칸으로 내려간다.
+  final bool focusBend;
 
   @override
   State<PlateSettingsPage> createState() => _PlateSettingsPageState();
@@ -240,6 +250,8 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
   final _bt = TextEditingController();
   final _br = TextEditingController();
   final _bdv = TextEditingController();
+  final _bendKey = GlobalKey();
+  bool _prefilled = false;
 
   @override
   void initState() {
@@ -271,8 +283,26 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
       _sh.text = _f(s.sheetH);
       _gap.text = _f(s.gap);
       _margin.text = _f(s.margin);
+      final pre = widget.bendPrefill;
+      if (pre != null) {
+        _bt.text = pre.$1;
+        _br.text = _f(pre.$2);
+        _bdv.text = _f(pre.$3);
+        _prefilled = true;
+      }
       _ready = true;
     });
+    if (widget.focusBend) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final c = _bendKey.currentContext;
+        if (c != null && c.mounted) {
+          Scrollable.ensureVisible(
+            c,
+            duration: const Duration(milliseconds: 250),
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -329,8 +359,10 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
       _bt.clear();
       _br.clear();
       _bdv.clear();
+      _prefilled = false;
     });
     writePlateBendTable(_bd);
+    showAppSnack(context, '${_f(t)}T 업체 값을 저장했습니다. 그 두께를 고르면 이 값을 씁니다.');
   }
 
   Widget _num(
@@ -431,18 +463,20 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
                     ]),
                     PlateSection('원판 배치', [
                       PlateSegments([
-                        for (final (id, name, _, _) in kPlateSheets)
+                        for (final (id, name, w, h) in kPlateSheets)
                           PlateOption(
                             'ps_sheet_$id',
-                            name,
+                            name.split(' (').first,
                             _s.sheet == id,
                             () => _update(_s.copyWith(sheet: id)),
+                            sub: '${_f(w)}×${_f(h)}',
                           ),
                         PlateOption(
                           'ps_sheet_custom',
                           '직접',
                           _s.sheet == 'custom',
                           () => _update(_s.copyWith(sheet: 'custom')),
+                          sub: '가로×세로',
                         ),
                       ]),
                       if (_s.sheet == 'custom')
@@ -516,10 +550,10 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
                         ),
                       ]),
                     ]),
-                    PlateSection('업체 공제값 (두께별)', [
+                    PlateSection(key: _bendKey, '업체 공제값 (두께별)', [
                       if (_bd.isEmpty)
                         Text(
-                          '저장한 값이 없습니다. 절곡 탭에서 업체 값을 넣고 "이 두께 값 저장"을 누르거나 아래에서 넣습니다.',
+                          '저장한 값이 없습니다. 아래에 두께·내R·90° 공제값을 넣고 "공제값 넣기"를 누르십시오. 저장한 두께를 고르면 절곡 탭이 이 값을 씁니다.',
                           style: TextStyle(
                             fontSize: 13.5,
                             color: fc.textSub,
@@ -553,6 +587,17 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
                               ),
                             ],
                           ),
+                      if (_prefilled)
+                        Text(
+                          '절곡 탭에서 넣은 값을 채워 두었습니다. 맞으면 "공제값 넣기"를 누르십시오.',
+                          key: const Key('ps_bd_prefilled'),
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: fc.brand,
+                            fontWeight: FontWeight.w700,
+                            height: 1.35,
+                          ),
+                        ),
                       plateRow([
                         _num('ps_bt', '두께', _bt, (_) {}, unit: 'T'),
                         _num('ps_br', '내R', _br, (_) {}),

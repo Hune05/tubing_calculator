@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/field_view.dart';
 import 'plate_calc.dart';
 
 const Color kPlateFill = Color(0xFFC9D3DA);
@@ -16,6 +17,25 @@ const Color kPlateBend = Color(0xFFE08A1E);
 
 /// 꺾은 모양(옆모습) 철 색: 밝은 쪽, 어두운 쪽.
 const List<Color> kPlateSteelShade = [Color(0xFFCBD5DC), Color(0xFF6F7E88)];
+
+/// 판 색 묶음(10-11): 야간 보기에서는 어두운 철 색으로(어두운 화면 한가운데 밝은 판이 눈부셨다).
+/// 가공 도면 PDF는 늘 [light].
+class PlateTone {
+  final Color fill, edge;
+
+  /// 입체(측면도·3D) 철 색: 밝은 쪽, 어두운 쪽.
+  final List<Color> shade;
+  const PlateTone(this.fill, this.edge, this.shade);
+
+  static const light = PlateTone(kPlateFill, kPlateEdge, kPlateSteelShade);
+  static const night = PlateTone(Color(0xFF4A5761), Color(0xFFAEBCC6), [
+    Color(0xFF66747E),
+    Color(0xFF3B464E),
+  ]);
+
+  /// 지금 화면 보기 방식의 색.
+  static PlateTone get now => FieldColors.isNight ? night : light;
+}
 
 String _f(double v) {
   var s = v.toStringAsFixed(1);
@@ -40,12 +60,14 @@ class PlatePainterLayout {
     PlatePlan p,
     Size size, {
     double fontScale = 1,
+    bool holeDims = false,
   }) {
     final bw = math.max(p.maxX - p.minX, 1.0);
     final bh = math.max(p.maxY - p.minY, 1.0);
+    final hd = holeDims && p.holes.isNotEmpty;
     final ml = 58.0 * fontScale, mt = 44.0 * fontScale;
-    final mr = 16.0 * fontScale;
-    final mb = (p.bends.isEmpty ? 16.0 : 44.0) * fontScale;
+    final mr = (hd ? 54.0 : 16.0) * fontScale;
+    final mb = ((p.bends.isEmpty ? 16.0 : 44.0) + (hd ? 30.0 : 0)) * fontScale;
     final s = math.min(
       (size.width - ml - mr) / bw,
       (size.height - mt - mb) / bh,
@@ -85,7 +107,15 @@ class PlatePainter extends CustomPainter {
     this.fontScale = 1,
     this.showCenter = true,
     this.showIssues = true,
+    this.holeDims = false,
+    this.tone = PlateTone.light,
   });
+
+  /// 홀 위치 치수(10-11): 판 왼쪽 끝·아래 끝에서 잰 홀 가운데 자리를 아래·오른쪽 줄에 단다(좌표 치수).
+  final bool holeDims;
+
+  /// 판 색(야간 보기는 어두운 철 색).
+  final PlateTone tone;
 
   /// 만들 수 없는 홀은 빨강, 확인할 홀은 노랑 테두리(가공 도면 PDF에서는 끈다).
   final bool showIssues;
@@ -96,7 +126,12 @@ class PlatePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = plan;
-    final lay = PlatePainterLayout.of(p, size, fontScale: fontScale);
+    final lay = PlatePainterLayout.of(
+      p,
+      size,
+      fontScale: fontScale,
+      holeDims: holeDims,
+    );
     if (lay == null) return;
     final s = lay.s;
     // 전개도 (x, y위) → 화면 (x, y아래)
@@ -109,19 +144,19 @@ class PlatePainter extends CustomPainter {
         path.lineTo(m(q).dx, m(q).dy);
       }
       path.close();
-      canvas.drawPath(path, Paint()..color = kPlateFill);
+      canvas.drawPath(path, Paint()..color = tone.fill);
       canvas.drawPath(
         path,
         Paint()
-          ..color = kPlateEdge
+          ..color = tone.edge
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.4 * fontScale,
       );
     }
 
-    // 구멍·장공
+    // 구멍·장공(뚫린 곳이라 바탕색)
     final holeEdge = Paint()
-      ..color = kPlateEdge
+      ..color = tone.edge
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.1 * fontScale;
     for (final h in p.cutouts) {
@@ -141,7 +176,7 @@ class PlatePainter extends CustomPainter {
         h,
         m(h.c),
         s,
-        fill: Colors.white,
+        fill: bg,
         edge: !showIssues
             ? null
             : (h.bad
@@ -264,7 +299,97 @@ class PlatePainter extends CustomPainter {
       );
       hDim(prev, right.dx, by, _f(p.maxX - prevMm));
     }
+    if (holeDims && p.holes.isNotEmpty) {
+      _holeDims(
+        canvas,
+        lay,
+        right.dy + (p.bends.isEmpty ? 24 : 52) * fontScale,
+        right.dx + 20 * fontScale,
+      );
+    }
   }
+
+  /// 홀 좌표 치수: 아래 줄(판 왼쪽 끝에서 가로), 오른쪽 줄(판 아래 끝에서 세로). 같은 자리는 한 번만,
+  /// 글이 겹치면 글만 뺀다(눈금은 남김, 값은 홀 표에). 홀에서 줄까지 옅은 점선.
+  void _holeDims(Canvas canvas, PlatePainterLayout lay, double by, double rx) {
+    final p = plan;
+    final fsz = fontScale;
+    double r1(double v) => (v * 10).roundToDouble() / 10;
+    final xs = {for (final h in p.holes) r1(h.c.dx - p.minX)}.toList()..sort();
+    final ys = {for (final h in p.holes) r1(h.c.dy - p.minY)}.toList()..sort();
+    final line = Paint()
+      ..color = sub
+      ..strokeWidth = 1 * fsz;
+    final faint = Paint()
+      ..color = sub.withValues(alpha: 0.35)
+      ..strokeWidth = 0.8 * fsz;
+    void dashed(Offset a, Offset b) {
+      final d = b - a, len = d.distance;
+      if (len < 1) return;
+      final u = d / len;
+      for (var t = 0.0; t < len; t += 7 * fsz) {
+        canvas.drawLine(a + u * t, a + u * math.min(t + 3.5 * fsz, len), faint);
+      }
+    }
+
+    final tl = lay.topLeft, br = lay.bottomRight;
+    // 홀 → 줄 점선
+    for (final h in p.holes) {
+      final c = lay.toScreen(h.c);
+      dashed(Offset(c.dx, c.dy + 4 * fsz), Offset(c.dx, by));
+      dashed(Offset(c.dx + 4 * fsz, c.dy), Offset(rx, c.dy));
+    }
+    // 아래 줄(가로)
+    final xEnd = lay.toScreen(Offset(p.minX + xs.last, 0)).dx;
+    canvas.drawLine(Offset(tl.dx, by), Offset(math.max(xEnd, tl.dx), by), line);
+    var rowRight = -double.infinity;
+    void xLabel(double mm, double x) {
+      canvas.drawLine(Offset(x, by - 4 * fsz), Offset(x, by + 4 * fsz), line);
+      final tp = _tp(_f(mm), sub, bold: true);
+      final left = x - tp.width / 2;
+      if (left > rowRight + 3 * fsz) {
+        tp.paint(canvas, Offset(left, by + 5 * fsz));
+        rowRight = left + tp.width;
+      }
+    }
+
+    xLabel(0, tl.dx);
+    for (final x in xs) {
+      if (x.abs() < 0.05) continue;
+      xLabel(x, lay.toScreen(Offset(p.minX + x, 0)).dx);
+    }
+    // 오른쪽 줄(세로)
+    final yTop = lay.toScreen(Offset(0, p.minY + ys.last)).dy;
+    canvas.drawLine(Offset(rx, br.dy), Offset(rx, math.min(yTop, br.dy)), line);
+    var lastTop = double.infinity;
+    void yLabel(double mm, double y) {
+      canvas.drawLine(Offset(rx - 4 * fsz, y), Offset(rx + 4 * fsz, y), line);
+      final tp = _tp(_f(mm), sub, bold: true);
+      final top = y - tp.height / 2;
+      if (top + tp.height + 1 * fsz < lastTop) {
+        tp.paint(canvas, Offset(rx + 6 * fsz, top));
+        lastTop = top;
+      }
+    }
+
+    yLabel(0, br.dy);
+    for (final y in ys) {
+      if (y.abs() < 0.05) continue;
+      yLabel(y, lay.toScreen(Offset(0, p.minY + y)).dy);
+    }
+  }
+
+  TextPainter _tp(String s, Color color, {bool bold = false}) => TextPainter(
+    text: TextSpan(
+      text: s,
+      style: TextStyle(
+        fontSize: 10.5 * fontScale,
+        fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
+        color: color,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
 
   void _text(
     Canvas canvas,
@@ -307,7 +432,9 @@ class PlatePainter extends CustomPainter {
       old.sub != sub ||
       old.bg != bg ||
       old.fontScale != fontScale ||
-      old.showCenter != showCenter;
+      old.showCenter != showCenter ||
+      old.holeDims != holeDims ||
+      old.tone != tone;
 }
 
 /// 구멍 하나 그리기: 둥근 구멍은 원, 장공은 [PlateHole.angle]만큼 돈 긴 구멍(화면은 y가 아래라 각을 뒤집는다).

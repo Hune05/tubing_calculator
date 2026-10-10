@@ -19,7 +19,6 @@ import '../../core/theme/field_view.dart';
 import '../calculator/widgets/swipe_delete.dart' show calcNavCompact;
 import '../common/app_icons.dart';
 import '../common/calc_form_parts.dart';
-import '../electrical/busbar_bend_painter.dart' show BusbarShapePainter;
 import '../electrical/busbar_saved_specs.dart';
 import '../electrical/elec_form_parts.dart';
 import '../drawing_viewer/dxf_reader.dart' show dxfDecode;
@@ -34,6 +33,7 @@ import 'plate_hole_editor.dart';
 import 'plate_painter.dart';
 import 'plate_settings.dart';
 import 'plate_shape_card.dart';
+import 'plate_side_painter.dart';
 import 'plate_ui.dart';
 
 Future<String?> _pickDxfText() async {
@@ -55,7 +55,7 @@ const List<String> kPlateBasis = [
   '가공: "레이저 절단"은 평판·삼각 리브·좌표 입력을 자르기만 하고, "절단 + 절곡"은 ㄱ·ㄷ·Z·모자로 절곡합니다. 절곡은 전개도(펴 놓은 모양)를 자른 뒤 절곡선에서 접습니다. 둘은 철판 가공 첫 화면에서 따로 들어가고 입력도 따로 남습니다.',
   '평판 코너: R은 둥글게, C는 코너에서 양쪽 변으로 같은 길이만큼 45°로 잘라 내고, 따내기는 코너에서 가로 × 세로 사각을 잘라 냅니다. 좌표 입력은 꼭짓점 줄 끝에 ,r10 · ,c5 · ,n20x15처럼 붙입니다. 코너 처리가 옆 변보다 크면 알립니다.',
   '절곡 치수는 모두 바깥 치수입니다. 전개 길이 = 바깥 치수 합 − 절곡마다 공제값. 공제값(90°) = 2 × (내R + 두께) − π/2 × (내R + K값 × 두께). K값을 모르면 일반값 0.33을 쓰고, 업체가 알려 준 공제값을 넣으면 그 값이 나오게 K값을 맞춥니다. 절곡 계산은 부스바 가공과 같은 식입니다.',
-  '내R은 비우면 두께와 같게 봅니다. 레이저 업체·절곡기 금형마다 공제값이 다르니 처음 주문 때 업체 값으로 맞추고 "이 두께 값 저장"으로 남겨 두십시오.',
+  '내R은 일반값이면 두께와 같게 봅니다. 레이저 업체·절곡기 금형마다 공제값이 다르니 처음 주문 때 업체 값을 받아 절곡 탭 "직접 넣기"로 넣고 "업체 값 저장"으로 설정에 남겨 두십시오. 다음부터 그 두께를 고르면 업체 값을 씁니다.',
   '절곡선은 절곡부의 가운데 선입니다. "UP"은 DXF·전개도를 위에서 본 쪽으로 접는다는 뜻입니다. 모자는 발 → 다리 → 윗면 → 다리 → 발 차례로 UP·DOWN·DOWN·UP 절곡합니다.',
   '홀 위치: 평판·리브·좌표 입력은 판의 왼쪽 아래 모서리에서 잰 (가로, 세로)입니다. 그림·가공 도면·DXF에는 센터선(파란 쇄선, 그림 위 "센터선"으로 켜고 끔, DXF는 CL)을 긋습니다. 홀 탭에서 홀을 고르면 판 끝과 센터에서 몇 mm인지 나옵니다. 절곡 판은 면마다 잽니다: 가로는 그 면 시작(첫 면은 판 끝, 다른 면은 앞 면 바깥면)에서, 세로는 아래 가장자리에서. 전개도 자리로 바꿔 DXF에 넣습니다.',
   '홀은 절곡선에서 2 × 두께 + 내R 이상 떼라고 알립니다(일반 판금 규칙). 홀이 절곡부에 걸리거나 판 밖으로 나오거나 서로 겹치면 만들 수 없다고 알립니다.',
@@ -139,6 +139,9 @@ class _PlatePageState extends State<PlatePage>
   final _ca = TextEditingController(text: '10');
   final _cb = TextEditingController(text: '10');
   Map<String, (double, double)> _bendTable = {};
+
+  /// 절곡 공제값 기준(10-11): 'auto' 일반값(내R = 두께, K 0.33) · 'saved' 설정에 저장한 이 두께 업체 값 · 'manual' 직접 넣기.
+  String _bm = 'auto';
 
   /// 철판 가공 설정(자주 쓰는 홀 지름·두께 단추·원판·간격) — 설정 화면에서 바꾼다.
   PlateSettings _cfg = PlateSettings.defaults;
@@ -264,6 +267,7 @@ class _PlatePageState extends State<PlatePage>
     'holes': [for (final h in _holes) h.toJson()],
     'rot': _rotQ,
     'corners': [for (final c in _corners) c.toJson()],
+    'bm': _bm,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
     // 첫 화면 "이어서" 줄에 쓰는 글(읽을 때는 안 쓴다)
     'lbl': _label(),
@@ -298,6 +302,13 @@ class _PlatePageState extends State<PlatePage>
       final v = m[_fieldKeys[i]];
       if (v is String) _fields[i].text = v;
     }
+    // 절곡 기준: 없으면(10-11 전 저장) 칸이 비었으면 일반값, 아니면 직접
+    final bm = m['bm'];
+    _bm = bm is String && const ['auto', 'saved', 'manual'].contains(bm)
+        ? bm
+        : (_r.text.trim().isEmpty && _bd.text.trim().isEmpty
+              ? 'auto'
+              : 'manual');
     final cs = m['corners'];
     if (cs is List && cs.length == 4) {
       _corners = [for (final c in cs) PlateCorner.fromJson(c)];
@@ -387,7 +398,8 @@ class _PlatePageState extends State<PlatePage>
   }
 
   /// 설정·업체 공제값·그리드·센터선을 읽는다(처음과 설정 화면에서 돌아올 때).
-  Future<void> _loadSettings() async {
+  /// 설정에서 돌아오면 업체 값이 바뀌었을 수 있어 절곡 기준을 다시 맞춘다(직접 넣은 값은 그대로, 같은 값이 저장됐으면 업체 값으로).
+  Future<void> _loadSettings({bool fromSettings = false}) async {
     final cfg = await PlateSettings.load();
     final bd = await readPlateBendTable();
     double? grid;
@@ -403,18 +415,32 @@ class _PlatePageState extends State<PlatePage>
       _bendTable = bd;
       if (grid != null) _grid = grid;
       if (center != null) _showCenter = center;
+      final s = _bendTable[_tKey];
+      if (_bm == 'saved' || (fromSettings && _bm == 'auto')) {
+        _applyBendSource();
+      } else if (fromSettings &&
+          s != null &&
+          readNum(_r) == s.$1 &&
+          readNum(_bd) == s.$2) {
+        _bm = 'saved';
+      }
     });
+    _saveSoon();
   }
 
-  Future<void> _saveBendTable() => writePlateBendTable(_bendTable);
-
-  Future<void> _openSettings() async {
+  /// 설정 화면. [bend]면 업체 공제값 칸으로 가고, 직접 넣은 값이 있으면 그 값을 넣기 칸에 채워 둔다.
+  Future<void> _openSettings({bool bend = false, PlatePlan? p}) async {
     FocusManager.instance.primaryFocus?.unfocus();
+    final pre = bend && _bm == 'manual' && p != null
+        ? (_tKey, p.rUsed, double.parse(p.bd90Used.toStringAsFixed(2)))
+        : null;
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const PlateSettingsPage()),
+      MaterialPageRoute(
+        builder: (_) => PlateSettingsPage(bendPrefill: pre, focusBend: bend),
+      ),
     );
-    if (mounted) await _loadSettings();
+    if (mounted) await _loadSettings(fromSettings: true);
   }
 
   void _saveSoon() {
@@ -494,13 +520,40 @@ class _PlatePageState extends State<PlatePage>
 
   String get _tKey => fmt(_num(_t));
 
-  /// 두께를 바꾸면 저장한 그 두께의 반경·공제값을 채운다(없으면 비움 = 일반값).
+  /// 두께 단추: 그 두께의 업체 값이 있으면 채우고(업체 값), 없으면 비운다(일반값).
   void _setThickness(String v) => _set(() {
     _t.text = v;
+    _applyBendSource();
+  });
+
+  /// 지금 두께에 맞춰 절곡 기준을 다시: 업체 값이 있으면 업체 값, 없으면 일반값.
+  /// [keepManual]이면 직접 넣은 값은 건드리지 않는다(두께 칸에 직접 칠 때).
+  void _applyBendSource({bool keepManual = false}) {
+    if (keepManual && _bm == 'manual') return;
     final saved = _bendTable[_tKey];
     _r.text = saved == null ? '' : fmt(saved.$1);
     _bd.text = saved == null ? '' : fmt(saved.$2);
+    _bm = saved == null ? 'auto' : 'saved';
+  }
+
+  void _setBendMode(String m, PlatePlan? p) => _set(() {
+    switch (m) {
+      case 'auto':
+        _r.text = '';
+        _bd.text = '';
+      case 'saved':
+        final s = _bendTable[_tKey];
+        if (s == null) return;
+        _r.text = fmt(s.$1);
+        _bd.text = fmt(s.$2);
+      case 'manual':
+        if (_r.text.trim().isEmpty) _r.text = fmt(p?.rUsed ?? _num(_t));
+    }
+    _bm = m;
   });
+
+  /// 중량 글: 1kg 밑은 소수 셋째 자리까지(작은 판이 "0.3"으로 뭉개지던 것, 10-11).
+  String _kg(double v) => fmt(v, v < 1 ? 3 : (v < 10 ? 2 : 1));
 
   PlateInput _input() {
     final vs = parsePlateVertices(_points.text);
@@ -601,7 +654,7 @@ class _PlatePageState extends State<PlatePage>
   }
 
   String _bendCond(PlatePlan p) =>
-      '내R ${fmt(p.rUsed)} · 공제값(90°) ${fmt(p.bd90Used, 2)}mm · K값 ${p.kUsed.toStringAsFixed(2)}${readNum(_bd) == null ? '(일반값)' : '(넣은 공제값)'}';
+      '내R ${fmt(p.rUsed)} · 공제값(90°) ${fmt(p.bd90Used, 2)}mm · K값 ${p.kUsed.toStringAsFixed(2)}${readNum(_bd) == null ? '(일반값)' : (_bm == 'saved' ? '(업체 값)' : '(넣은 공제값)')}';
 
   String _shareText(PlatePlan p) {
     final b = StringBuffer(
@@ -612,7 +665,7 @@ class _PlatePageState extends State<PlatePage>
       '\n치수: ${_dimsText()} (mm${plateShapeBends(_shape) ? ', 바깥 치수' : ''})',
     );
     b.write(
-      '\n${_bend ? '전개' : '판'} 크기: ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)}mm · 개당 약 ${fmt(p.kgEach, 2)}kg',
+      '\n${_bend ? '전개' : '판'} 크기: ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)}mm · 개당 약 ${_kg(p.kgEach)}kg',
     );
     b.write('\n${_cutText(p)} (1개)');
     if (p.bends.isNotEmpty) {
@@ -643,25 +696,24 @@ class _PlatePageState extends State<PlatePage>
         fontScale: 2.2,
         showCenter: _showCenter,
         showIssues: false,
+        holeDims: true,
       ),
     );
     final more = <(String, Uint8List)>[];
     if (p.bendPlan != null) {
-      final t = _num(_t);
       more.add((
-        '측면도',
+        '측면도 (바깥 치수, mm)',
         await renderPainterPng(
-          BusbarShapePainter(
-            plan: p.bendPlan!,
-            rho: p.rUsed + p.kUsed * t,
-            thickness: t,
+          PlateSidePainter.of(
+            p,
+            t: _num(_t),
             text: const Color(0xFF1F2933),
             sub: const Color(0xFF55636D),
-            line: const Color(0xFFD1D5DB),
-            metal: kPlateSteelShade,
+            bg: Colors.white,
+            fontScale: 1.8,
           ),
           width: 1200,
-          height: 600,
+          height: 700,
         ),
       ));
     }
@@ -679,10 +731,7 @@ class _PlatePageState extends State<PlatePage>
           _bend ? '전개 크기' : '판 크기',
           '${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)} mm',
         ),
-        (
-          '수량',
-          '$_qtyN장 · 개당 약 ${fmt(p.kgEach, 2)}kg · 모두 약 ${fmt(p.kgTotal, 1)}kg',
-        ),
+        ('수량', '$_qtyN장 · 개당 약 ${_kg(p.kgEach)}kg · 모두 약 ${_kg(p.kgTotal)}kg'),
         ('가공비 기준', '${_cutText(p)} (1개)'),
         () {
           final n = _nest(p);
@@ -785,12 +834,15 @@ class _PlatePageState extends State<PlatePage>
 
   // ── 탭(10-10 사용자: "벤딩 페이지처럼 순차적으로 다 나누어, 한 페이지에 때려 박지 말고", "탭으로 다 분리") ──
   // 모양 → (꺾기) → 구멍 → 결과 → 보내기. 10-10 화면 정리(사용자: "각 페이지 구성이 정리된 게 아니고 대충 뿌려 놓은 것"):
-  // 탭마다 같은 자리의 위 그림 칸(판·전개도 / 옆모습 / 3D를 오른쪽 위에서 고름) + 아래 흰 작업판(제목 줄 · 묶음 · 맨 아래 이전/다음).
+  // 탭마다 같은 자리의 위 그림 칸(판·전개도 / 측면도 / 3D를 오른쪽 위에서 고름) + 아래 흰 작업판(제목 줄 · 묶음).
+  // 10-11: 맨 아래 이전/다음 줄은 아래 탭 줄과 겹쳐 뺐다(탭 줄로만 옮겨 다닌다).
 
   int _tab = 0;
 
-  /// 위 그림 칸 보기: 'flat' 판(전개도), 'side' 옆모습(꺾는 판만), '3d'.
+  /// 위 그림 칸 보기(탭을 옮겨도 그대로): 'flat' 판(전개도), 'side' 측면도(절곡 판만), '3d'.
+  /// 한 번도 고르지 않았으면 절곡 탭만 측면도로 보인다(10-11).
   String _view = 'flat';
+  bool _viewPicked = false;
 
   List<(String, String)> get _tabs => [
     ('shape', '모양'),
@@ -809,23 +861,6 @@ class _PlatePageState extends State<PlatePage>
 
   /// 예전 이름(그림에서 판을 누르면 구멍 탭으로).
   void _openEditor() => _goTab('holes');
-
-  String _labelOf(String id) => _tabs.firstWhere((t) => t.$1 == id).$2;
-
-  /// 맨 아래 고정 줄: 이전 · 다음(마지막 탭은 이전만).
-  Widget _footer(String id) {
-    final t = _tabs;
-    final i = t.indexWhere((e) => e.$1 == id);
-    final prev = i > 0 ? t[i - 1].$1 : null;
-    final next = i >= 0 && i + 1 < t.length ? t[i + 1].$1 : null;
-    return PlateFooter(
-      backKey: prev == null ? null : 'pl_prev_$prev',
-      onBack: prev == null ? null : () => _goTab(prev),
-      nextKey: next == null ? null : 'pl_next_$next',
-      nextLabel: next == null ? null : _labelOf(next),
-      onNext: next == null ? null : () => _goTab(next),
-    );
-  }
 
   Widget _f(
     String key,
@@ -846,10 +881,15 @@ class _PlatePageState extends State<PlatePage>
 
   // ── 위 그림 칸 ──
 
-  String _viewOf(PlatePlan p) =>
-      _view == 'side' && p.bendPlan == null ? 'flat' : _view;
+  String _viewOf(PlatePlan p, String id) {
+    final v = !_viewPicked && id == 'bend' ? 'side' : _view;
+    return v == 'side' && p.bendPlan == null ? 'flat' : v;
+  }
 
-  Widget _canvas(PlatePlan? p) {
+  /// 결과·보내기 탭 판 그림에는 홀 위치 치수를 단다(10-11).
+  bool _holeDimsOn(String id) => id == 'result' || id == 'send';
+
+  Widget _canvas(PlatePlan? p, String id) {
     if (p == null) {
       return Center(
         child: Text(
@@ -858,54 +898,66 @@ class _PlatePageState extends State<PlatePage>
         ),
       );
     }
-    switch (_viewOf(p)) {
+    final tone = PlateTone.now;
+    switch (_viewOf(p, id)) {
       case '3d':
         return Plate3dView(plan: p, t: _num(_t));
       case 'side':
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 52, 12, 30),
-          child: CustomPaint(
-            key: const Key('pl_side'),
-            painter: BusbarShapePainter(
-              plan: p.bendPlan!,
-              rho: p.rUsed + p.kUsed * _num(_t),
-              thickness: _num(_t),
-              text: fc.text,
-              sub: fc.textSub,
-              line: fc.line,
-              metal: kPlateSteelShade,
-            ),
-            child: const SizedBox.expand(),
+        return CustomPaint(
+          key: const Key('pl_side'),
+          painter: PlateSidePainter.of(
+            p,
+            t: _num(_t),
+            text: fc.text,
+            sub: fc.textSub,
+            bg: fc.background,
+            tone: tone,
+            topInset: 46,
           ),
+          child: const SizedBox.expand(),
         );
       default:
         return Padding(
           padding: const EdgeInsets.fromLTRB(6, 46, 6, 26),
           child: LayoutBuilder(
-            builder: (context, box) => GestureDetector(
-              key: const Key('pl_view'),
-              behavior: HitTestBehavior.opaque,
-              onTapUp: (d) => _tapPreview(p, box.biggest, d.localPosition),
-              child: CustomPaint(
-                painter: PlatePainter(
-                  plan: p,
-                  text: fc.text,
-                  sub: fc.textSub,
-                  bg: fc.background,
-                  showCenter: _showCenter,
+            builder: (context, box) {
+              // 그림 칸이 낮으면(휴대폰 세로) 홀 치수를 빼서 판이 작아지지 않게(홀 자리는 아래 표에)
+              final dims = _holeDimsOn(id) && box.maxHeight >= 260;
+              return GestureDetector(
+                key: const Key('pl_view'),
+                behavior: HitTestBehavior.opaque,
+                onTapUp: (d) => _tapPreview(
+                  p,
+                  box.biggest,
+                  d.localPosition,
+                  holeDims: dims,
                 ),
-                child: const SizedBox.expand(),
-              ),
-            ),
+                child: CustomPaint(
+                  painter: PlatePainter(
+                    plan: p,
+                    text: fc.text,
+                    sub: fc.textSub,
+                    bg: fc.background,
+                    showCenter: _showCenter,
+                    holeDims: dims,
+                    tone: tone,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              );
+            },
           ),
         );
     }
   }
 
-  List<Widget> _canvasTools(PlatePlan? p) {
+  List<Widget> _canvasTools(PlatePlan? p, String id) {
     if (p == null) return const [];
-    final mode = _viewOf(p);
-    void pick(String v) => setState(() => _view = v);
+    final mode = _viewOf(p, id);
+    void pick(String v) => setState(() {
+      _view = v;
+      _viewPicked = true;
+    });
     return [
       PlateViewSwitch([
         PlateOption(
@@ -928,48 +980,96 @@ class _PlatePageState extends State<PlatePage>
     ];
   }
 
-  String? _canvasHint(PlatePlan? p) {
+  String? _canvasHint(PlatePlan? p, String id) {
     if (p == null) return null;
-    return switch (_viewOf(p)) {
+    return switch (_viewOf(p, id)) {
       'flat' => _previewHint(),
+      'side' => '바깥 치수 (mm) · 번호는 절곡 차례',
       _ => null,
     };
+  }
+
+  /// 모양 그림 카드: 폭에 맞춰 한 줄(휴대폰에서 한 장만 둘째 줄로 떨어지던 것, 10-11).
+  Widget _shapeCards(List<(PlateShape, String)> shapes) => LayoutBuilder(
+    builder: (context, box) {
+      final n = shapes.length;
+      const gap = 8.0;
+      final cols = (box.maxWidth - gap * (n - 1)) / n >= 60
+          ? n
+          : (n / 2).ceil();
+      final w = math.min((box.maxWidth - gap * (cols - 1)) / cols, 112.0);
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [
+          for (final (s, name) in shapes)
+            PlateShapeCard(
+              key: Key('pl_shape_${s.name}'),
+              shape: s,
+              label: name,
+              width: w,
+              selected: _shape == s,
+              onTap: () => _set(() => _shape = s),
+            ),
+        ],
+      );
+    },
+  );
+
+  /// 두께: 단추(설정의 재질별 두께) 줄 끝에 작은 칸. 단추에 없는 두께를 넣으면 칸 테두리가 진해진다(10-11).
+  Widget _thicknessRow() {
+    final opts = _cfg.thick[_mat] ?? const <String>[];
+    final cur = _t.text.trim();
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final v in opts)
+          PlateSegButton(
+            key: Key('pl_t_$v'),
+            label: '${v}T',
+            selected: cur == v,
+            onTap: () => _setThickness(v),
+            pill: true,
+          ),
+        SizedBox(
+          width: 104,
+          child: PlateNumField(
+            fieldKey: 'pl_t',
+            label: null,
+            controller: _t,
+            unit: 'T',
+            hint: '직접',
+            highlight: cur.isNotEmpty && !opts.contains(cur),
+            onChanged: (_) => _set(() {
+              if (_bend) _applyBendSource(keepManual: true);
+            }),
+          ),
+        ),
+      ],
+    );
   }
 
   // ① 모양: 모양 · 재질·두께 · 치수 · 네 귀 · 수량·이름
   Widget _shapePanel(PlatePlan? p) {
     final shapes = _bend ? kPlateBendShapes : kPlateCutShapes;
     final bent = plateShapeBends(_shape);
+    final bad = p != null && p.problems.isNotEmpty;
     return PlatePanel(
       title: '모양',
-      status: p == null
-          ? '두께와 치수를 넣으십시오.'
-          : '${plateShapeName(_shape)} · ${_dimsText()}',
+      // 고른 값은 아래 칸에 다 보이므로 상태 줄은 안 되는 이유만
+      status: p == null ? '두께와 치수를 넣으십시오.' : (bad ? p.problems.first : null),
       statusKey: const Key('pl_shape_status'),
+      statusColor: bad ? fc.danger : null,
       actions: [
         plateHelpButton(context, 'pl_help_shape', '모양 탭', _shapeHelp()),
       ],
       controller: _scroll,
-      footer: _footer('shape'),
       children: [
         PlateSection(
           _bend ? '절곡 모양' : '자를 모양',
-          [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final (s, name) in shapes)
-                  PlateShapeCard(
-                    key: Key('pl_shape_${s.name}'),
-                    shape: s,
-                    label: name,
-                    selected: _shape == s,
-                    onTap: () => _set(() => _shape = s),
-                  ),
-              ],
-            ),
-          ],
+          [_shapeCards(shapes)],
           first: true,
           trailing: _bend
               ? null
@@ -987,6 +1087,8 @@ class _PlatePageState extends State<PlatePage>
                   ),
                 ),
         ),
+        PlateSection(bent ? '치수 (바깥 치수)' : '치수', _dimRows()),
+        if (_shape == PlateShape.flat) PlateSection('네 코너', _cornerRows()),
         PlateSection('재질·두께', [
           PlateSegments([
             for (final m in PlateMaterial.values)
@@ -997,19 +1099,8 @@ class _PlatePageState extends State<PlatePage>
                 () => _set(() => _mat = m),
               ),
           ]),
-          PlateSegments(joined: false, [
-            for (final v in _cfg.thick[_mat] ?? const <String>[])
-              PlateOption(
-                'pl_t_$v',
-                '${v}T',
-                _t.text.trim() == v,
-                () => _setThickness(v),
-              ),
-          ]),
-          plateRow([_f('pl_t', '두께 (직접)', _t), const SizedBox.shrink()]),
+          _thicknessRow(),
         ]),
-        PlateSection(bent ? '치수 (바깥 치수)' : '치수', _dimRows()),
-        if (_shape == PlateShape.flat) PlateSection('네 코너', _cornerRows()),
         PlateSection('수량·이름', [
           plateRow(
             [
@@ -1071,7 +1162,7 @@ class _PlatePageState extends State<PlatePage>
       ],
     },
     if (_bend) '절곡 치수는 모두 바깥 치수입니다. 내R·공제값은 "절곡" 탭에서 정합니다.',
-    '두께: 2T·3T·4T·6T를 누르거나 칸에 직접 넣습니다.${_bend ? ' 두께를 바꾸면 저장한 그 두께의 반경·공제값을 채웁니다.' : ''}',
+    '두께: 단추를 누르거나 단추 줄 끝 칸에 직접 넣습니다. 단추에 없는 두께를 넣으면 칸 테두리가 진해집니다.${_bend ? ' 그 두께의 업체 값을 설정에 저장해 두었으면 절곡 탭이 업체 값으로 바뀝니다.' : ''}',
     '재질은 중량 계산에 씁니다. 두께 단추는 설정에서 재질별로 바꿉니다(처음 값은 흔히 쓰는 두께, 업체 재고 확인). 없는 두께는 칸에 직접 넣습니다.',
     if (!_bend)
       'DXF 불러오기: 레이저 업체용 DXF를 읽어 좌표 입력(원이면 원형·링)으로 바꿉니다. 둥근 코너는 코너 R, 원은 홀, 장공은 장공으로 읽고, 다른 안쪽 따냄은 읽지 못합니다. CUT 층이 있으면 그 층만 읽습니다.',
@@ -1163,105 +1254,204 @@ class _PlatePageState extends State<PlatePage>
         ),
       ],
       PlateShape.l => [
-        plateRow([_f('pl_l1', '1면', _l1), _f('pl_l2', '2면', _l2)]),
-        plateRow([
+        PlateFieldGrid([
+          _f('pl_l1', '1면', _l1),
+          _f('pl_l2', '2면', _l2),
           _f('pl_wid', '폭', _wid),
           _f('pl_ang', '절곡 각도', _angle, unit: '°'),
         ]),
       ],
       PlateShape.u => [
-        plateRow([
+        PlateFieldGrid([
           _f('pl_l1', '1면', _l1),
           _f('pl_l2', '2면', _l2),
           _f('pl_l3', '3면', _l3),
+          _f('pl_wid', '폭', _wid),
         ]),
-        plateRow([_f('pl_wid', '폭', _wid), gap, gap]),
       ],
       PlateShape.z => [
-        plateRow([
+        PlateFieldGrid([
           _f('pl_l1', '1면', _l1),
           _f('pl_l2', '높이', _l2),
           _f('pl_l3', '3면', _l3),
+          _f('pl_wid', '폭', _wid),
         ]),
-        plateRow([_f('pl_wid', '폭', _wid), gap, gap]),
       ],
       PlateShape.hat => [
-        plateRow([
+        PlateFieldGrid([
           _f('pl_l1', '발', _l1),
           _f('pl_l2', '높이', _l2),
           _f('pl_l3', '윗면', _l3),
+          _f('pl_wid', '폭', _wid),
         ]),
-        plateRow([_f('pl_wid', '폭', _wid), gap, gap]),
       ],
     };
   }
 
-  // ② 꺾기(절곡만): 반경·공제값 · 저장한 공제값 · 꺾기선
-  Widget _bendPanel(PlatePlan? p) => PlatePanel(
-    title: '절곡',
-    status: p == null ? null : '지금: ${_bendCond(p)}',
-    statusKey: const Key('pl_bendcond'),
-    actions: [
-      plateHelpButton(context, 'pl_help_bend', '절곡 탭', [
-        '내R: 절곡기 금형의 내R입니다. 비우면 두께와 같게 봅니다.',
-        '90° 공제값: 업체가 알려 준 공제값(바깥 치수 두 개 합 − 전개 길이)입니다. 넣으면 이 값이 나오게 K값을 맞춥니다. 비우면 일반값(K값 0.33)을 씁니다.',
-        kPlateBasis[3],
-        kPlateBasis[4],
-        kPlateBasis[7],
-      ]),
-    ],
-    footer: _footer('bend'),
-    children: [
-      PlateSection('절곡 조건', [
-        plateRow([
-          _f('pl_r', '내R', _r, hint: '비우면 ${fmt(_num(_t))}'),
-          _f('pl_bd', '90° 공제값', _bd, hint: '비우면 일반값'),
+  // ② 절곡(절곡만): 공제값 기준(일반값·업체 값·직접) · 쓰는 값 · 절곡선 표. 업체 값 저장·관리는 설정 화면(10-11).
+  Widget _bendPanel(PlatePlan? p) {
+    final saved = _bendTable[_tKey];
+    final manual = _bm == 'manual';
+    String v(double? x, [int d = 1]) => x == null ? '-' : fmt(x, d);
+    return PlatePanel(
+      title: '절곡',
+      status: p == null ? '두께와 치수를 넣으십시오.' : null,
+      statusKey: const Key('pl_bendcond'),
+      actions: [
+        plateHelpButton(context, 'pl_help_bend', '절곡 탭', [
+          '일반값: 내R은 두께와 같게, K값 0.33으로 공제값을 계산합니다.',
+          '업체 값: 설정에 저장해 둔 이 두께의 업체 내R·공제값입니다. 두께를 고르면 저절로 바뀝니다.',
+          '직접 넣기: 업체가 알려 준 내R·90° 공제값(바깥 치수 두 개 합 − 전개 길이)을 넣습니다. 공제값을 넣으면 그 값이 나오게 K값을 맞추고, 비우면 일반값입니다. "업체 값 저장"을 누르면 설정에 남깁니다.',
+          kPlateBasis[4],
+          kPlateBasis[7],
         ]),
-      ], first: true),
-      PlateSection('업체 공제값 저장', [
-        Text(
-          _bendTable.containsKey(_tKey)
-              ? '${_tKey}T 저장 값: 내R ${fmt(_bendTable[_tKey]!.$1)} · 공제값 ${fmt(_bendTable[_tKey]!.$2)} (두께를 고르면 채워집니다)'
-              : '업체 값을 넣고 "이 두께 값 저장"을 누르면 다음에 ${_tKey}T를 고를 때 채워집니다. 저장한 값 ${_bendTable.length}개.',
-          key: const Key('pl_bd_info'),
-          style: TextStyle(fontSize: 13.5, color: fc.textSub, height: 1.4),
+      ],
+      children: [
+        PlateSection(
+          '공제값 기준',
+          [
+            PlateSegments([
+              PlateOption(
+                'pl_bm_auto',
+                '일반값',
+                _bm == 'auto',
+                () => _setBendMode('auto', p),
+              ),
+              if (saved != null)
+                PlateOption(
+                  'pl_bm_saved',
+                  '업체 값 ${_tKey}T',
+                  _bm == 'saved',
+                  () => _setBendMode('saved', p),
+                ),
+              PlateOption(
+                'pl_bm_manual',
+                '직접 넣기',
+                manual,
+                () => _setBendMode('manual', p),
+              ),
+            ]),
+            plateRow(
+              manual
+                  ? [
+                      _f('pl_r', '내R', _r, hint: fmt(_num(_t))),
+                      _f(
+                        'pl_bd',
+                        '90° 공제값',
+                        _bd,
+                        hint: p == null ? null : fmt(p.bd90Used, 2),
+                      ),
+                      PlateValueField(
+                        key: const Key('pl_k'),
+                        label: 'K값',
+                        value: p == null ? '-' : p.kUsed.toStringAsFixed(2),
+                      ),
+                    ]
+                  : [
+                      PlateValueField(
+                        key: const Key('pl_r_view'),
+                        label: '내R',
+                        value: v(p?.rUsed),
+                        unit: 'mm',
+                      ),
+                      PlateValueField(
+                        key: const Key('pl_bd_view'),
+                        label: '90° 공제값',
+                        value: v(p?.bd90Used, 2),
+                        unit: 'mm',
+                      ),
+                      PlateValueField(
+                        key: const Key('pl_k'),
+                        label: 'K값',
+                        value: p == null ? '-' : p.kUsed.toStringAsFixed(2),
+                      ),
+                    ],
+            ),
+            Text(
+              switch (_bm) {
+                'saved' => '설정에 저장한 ${_tKey}T 업체 값입니다. 고치거나 지우려면 "업체 값 관리".',
+                'manual' =>
+                  '업체가 알려 준 값을 넣습니다. 다음에도 쓰려면 "업체 값 저장"을 눌러 설정에 남기십시오.',
+                _ =>
+                  saved == null
+                      ? '내R = 두께, K값 0.33으로 계산합니다. 업체 값을 받았으면 "직접 넣기".'
+                      : '내R = 두께, K값 0.33으로 계산합니다.',
+              },
+              key: const Key('pl_bd_info'),
+              style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+            ),
+          ],
+          first: true,
+          trailing: TextButton(
+            key: const Key('pl_bd_manage'),
+            style: TextButton.styleFrom(
+              foregroundColor: fc.brand,
+              visualDensity: VisualDensity.compact,
+            ),
+            onPressed: () => _openSettings(bend: true, p: p),
+            child: Text(
+              manual ? '업체 값 저장' : '업체 값 관리',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
         ),
-        plateActions([
-          PlateActionButton(
-            key: const Key('pl_bd_save'),
-            icon: AppIcons.save,
-            label: '이 두께 값 저장',
-            onTap: () {
-              if (p == null) return;
-              _set(() => _bendTable[_tKey] = (p.rUsed, p.bd90Used));
-              _saveBendTable();
-            },
-          ),
-          PlateActionButton(
-            key: const Key('pl_bd_settings'),
-            icon: AppIcons.settings,
-            label: '저장한 값 고치기·지우기 (설정)',
-            onTap: _openSettings,
-          ),
-        ]),
-      ]),
-      if (p != null && p.bends.isNotEmpty)
-        PlateSection('절곡선 (왼쪽 끝에서)', [
-          KeyedSubtree(
-            key: const Key('pl_bends'),
-            child: PlateLines([
-              for (var n = 0; n < p.bends.length; n++) _bendLine(p, n),
-            ], bullet: false),
-          ),
-        ]),
+        if (p != null && p.bends.isNotEmpty)
+          PlateSection('절곡선 (전개도 왼쪽 끝에서, mm)', [
+            KeyedSubtree(key: const Key('pl_bends'), child: _bendsTable(p)),
+          ]),
+      ],
+    );
+  }
+
+  /// 절곡선 표: 번호 · 절곡선(가운데) · 절곡부(시작 ~ 끝) · 방향·각도.
+  Widget _bendsTable(PlatePlan p) => PlateTable(
+    headers: const ['번호', '절곡선', '절곡부', '방향'],
+    flex: const [2, 3, 5, 4],
+    numeric: const [false, true, true, false],
+    rowKeys: [
+      for (var n = 0; n < p.bends.length; n++) Key('pl_bend_row_${n + 1}'),
+    ],
+    rows: [
+      for (var n = 0; n < p.bends.length; n++)
+        [
+          '${n + 1}',
+          fmt(p.bends[n].center, 1),
+          '${fmt(p.bends[n].start, 1)} ~ ${fmt(p.bends[n].end, 1)}',
+          '${p.bends[n].turn >= 0 ? 'UP' : 'DOWN'} ${fmt(p.bends[n].turn.abs())}°',
+        ],
     ],
   );
+
+  /// 홀 위치 표: 판(전개도) 왼쪽 아래에서 가로·세로. 절곡 판은 면 기준 자리도.
+  Widget _holesTable(PlatePlan p) {
+    final bent = p.isBent;
+    return PlateTable(
+      headers: bent
+          ? const ['번호', '모양', '면 기준', '가로', '세로']
+          : const ['번호', '모양', '가로', '세로'],
+      flex: bent ? const [2, 5, 5, 3, 3] : const [2, 6, 3, 3],
+      numeric: bent
+          ? const [false, false, false, true, true]
+          : const [false, false, true, true],
+      rowKeys: [for (final h in p.holes) Key('pl_hole_row_${h.label}')],
+      rows: [
+        for (final h in p.holes)
+          [
+            h.label,
+            plateHoleKind(h),
+            if (bent)
+              '${p.faceNames[h.face.clamp(0, p.faceNames.length - 1)]} ${fmt(h.u, 1)} · ${fmt(h.v, 1)}',
+            fmt(h.c.dx - p.minX, 1),
+            fmt(h.c.dy - p.minY, 1),
+          ],
+      ],
+    );
+  }
 
   // ③ 구멍: 구멍 배치 편집(그림 칸·작업판을 같은 틀로 스스로 그린다)
   Widget _holesTab() => PlateHoleEditorPage(
     embedded: true,
     showCenter: _showCenter,
-    footer: _footer('holes'),
     input: _input(),
     holes: List.of(_holes),
     rotQ: _rotQ,
@@ -1291,25 +1481,21 @@ class _PlatePageState extends State<PlatePage>
         title: '결과',
         status: '두께와 치수를 넣으면 계산합니다.',
         actions: [help],
-        footer: _footer('result'),
         children: const [],
       );
     }
     final bent = plateShapeBends(_shape);
     return PlatePanel(
       title: '결과',
-      status:
-          '${_bend ? '전개' : '판'} ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)} mm',
       actions: [help],
-      footer: _footer('result'),
       children: [
         PlateSection('중량', [
           KeyedSubtree(
             key: const Key('pl_result'),
             child: PlateBigValue(
-              value: '개당 약 ${fmt(p.kgEach, 2)}kg',
+              value: '개당 약 ${_kg(p.kgEach)}kg',
               caption:
-                  '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T · $_qtyN장 합계 약 ${fmt(p.kgTotal, 1)}kg',
+                  '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T · $_qtyN장 합계 약 ${_kg(p.kgTotal)}kg',
               warn: warn,
             ),
           ),
@@ -1342,18 +1528,15 @@ class _PlatePageState extends State<PlatePage>
                 style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
               ),
           ]),
-        PlateSection('모양', [
-          PlateInfoRow(plateShapeName(_shape), _dimsText()),
-          if (p.bends.isNotEmpty) PlateInfoRow('절곡 조건', _bendCond(p)),
-        ]),
         if (p.bends.isNotEmpty)
-          PlateSection('절곡선 (왼쪽 끝에서)', [
-            PlateLines([
-              for (var n = 0; n < p.bends.length; n++) _bendLine(p, n),
-            ], bullet: false),
+          PlateSection('절곡선 (전개도 왼쪽 끝에서, mm)', [
+            _bendsTable(p),
+            Text(
+              _bendCond(p),
+              style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+            ),
           ]),
-        _nestSection(p),
-        PlateSection(bent ? '홀 위치 (면 기준 → 전개도)' : '홀 위치 (판 왼쪽 아래에서 가로 · 세로)', [
+        PlateSection(bent ? '홀 위치 (전개도 왼쪽 아래에서, mm)' : '홀 위치 (판 왼쪽 아래에서, mm)', [
           Text(
             _holeSummary(),
             key: const Key('pl_hole_summary'),
@@ -1365,13 +1548,9 @@ class _PlatePageState extends State<PlatePage>
             ),
           ),
           if (p.holes.isNotEmpty)
-            KeyedSubtree(
-              key: const Key('pl_holes'),
-              child: PlateLines([
-                for (final h in p.holes) _holeLine(p, h),
-              ], bullet: false),
-            ),
+            KeyedSubtree(key: const Key('pl_holes'), child: _holesTable(p)),
         ]),
+        _nestSection(p),
       ],
     );
   }
@@ -1393,9 +1572,7 @@ class _PlatePageState extends State<PlatePage>
     );
     return PlatePanel(
       title: '보내기',
-      status: p == null
-          ? '두께와 치수를 넣으면 보낼 수 있습니다.'
-          : '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T · $_qtyN장 · 레이저 업체에 보낼 파일과 글',
+      status: p == null ? '두께와 치수를 넣으면 보낼 수 있습니다.' : '레이저 업체에 보낼 파일과 글',
       actions: [
         plateHelpButton(context, 'pl_help_send', '보내기 탭', [
           kPlateBasis[8],
@@ -1403,7 +1580,6 @@ class _PlatePageState extends State<PlatePage>
           '카톡 글: 치수·중량·절곡·홀 위치를 글로 보냅니다.',
         ]),
       ],
-      footer: _footer('send'),
       children: [
         PlateSection('파일·글', [
           DecoratedBox(
@@ -1494,7 +1670,7 @@ class _PlatePageState extends State<PlatePage>
                 sheet: _sheetSize,
                 parts: n.parts,
                 sheetColor: fc.fill,
-                partColor: kPlateFill,
+                partColor: PlateTone.now.fill,
                 edge: fc.textSub,
               ),
               child: const SizedBox.expand(),
@@ -1701,20 +1877,45 @@ class _PlatePageState extends State<PlatePage>
                     ),
                 ],
               ),
+              // 아이콘만 있어 뭔지 몰랐다(10-11): 자주 쓰는 "저장"은 이름 붙은 단추, 나머지는 더 보기 메뉴(이름 있음)
               actions: [
-                IconButton(
-                  key: const Key('pl_settings'),
-                  tooltip: '설정',
-                  icon: Icon(AppIcons.settings, color: fc.text),
-                  onPressed: _openSettings,
-                ),
-                IconButton(
+                PlateBarAction(
                   key: const Key('pl_saved'),
-                  tooltip: '저장한 규격',
-                  icon: Icon(Icons.bookmarks_outlined, color: fc.text),
-                  onPressed: _openSaved,
+                  icon: Icons.bookmarks_outlined,
+                  label: '저장',
+                  onTap: _openSaved,
                 ),
-                calcHistoryButton(),
+                PopupMenuButton<String>(
+                  key: const Key('pl_more'),
+                  tooltip: '더 보기',
+                  icon: Icon(Icons.more_vert, color: fc.text),
+                  color: fc.surface,
+                  onSelected: (v) {
+                    if (v == 'history') {
+                      showCalcHistorySheet(
+                        context,
+                        calcHistory,
+                        title: '최근 계산 기록',
+                      );
+                    } else if (v == 'settings') {
+                      _openSettings();
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    _menuItem(
+                      'pl_history',
+                      'history',
+                      Icons.history_rounded,
+                      '최근 계산 기록',
+                    ),
+                    _menuItem(
+                      'pl_settings',
+                      'settings',
+                      AppIcons.settings,
+                      '철판 가공 설정',
+                    ),
+                  ],
+                ),
               ],
             ),
             body: elecPageFrame(
@@ -1727,15 +1928,15 @@ class _PlatePageState extends State<PlatePage>
                 children: [
                   PlateWorkspace(
                     canvasShare: switch (id) {
-                      'shape' || 'bend' => 0.36,
-                      _ => 0.46,
+                      'bend' => 0.4,
+                      _ => 0.36,
                     },
                     canvas: KeyedSubtree(
                       key: const ValueKey('pl_canvas'),
-                      child: _canvas(p),
+                      child: _canvas(p, id),
                     ),
-                    tools: _canvasTools(p),
-                    hint: _canvasHint(p),
+                    tools: _canvasTools(p, id),
+                    hint: _canvasHint(p, id),
                     panel: IndexedStack(
                       index: others.contains(id) ? others.indexOf(id) : 0,
                       children: [
@@ -1766,6 +1967,26 @@ class _PlatePageState extends State<PlatePage>
     );
   }
 
+  PopupMenuItem<String> _menuItem(
+    String key,
+    String value,
+    IconData icon,
+    String label,
+  ) => PopupMenuItem<String>(
+    key: Key(key),
+    value: value,
+    child: Row(
+      children: [
+        Icon(icon, size: 20, color: fc.textSub),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: TextStyle(fontWeight: FontWeight.w700, color: fc.text),
+        ),
+      ],
+    ),
+  );
+
   // ── 위 그림 ──
 
   void _toggleCenter() {
@@ -1785,8 +2006,8 @@ class _PlatePageState extends State<PlatePage>
   };
 
   /// 그림을 눌렀을 때: 귀(평판)·꼭짓점(자유) → 귀 처리, 치수 숫자 → 그 칸, 판 안 → 구멍 넣기·고치기.
-  void _tapPreview(PlatePlan p, Size size, Offset at) {
-    final lay = PlatePainterLayout.of(p, size);
+  void _tapPreview(PlatePlan p, Size size, Offset at, {bool holeDims = false}) {
+    final lay = PlatePainterLayout.of(p, size, holeDims: holeDims);
     if (lay == null) return;
     if (_shape == PlateShape.flat || _shape == PlateShape.free) {
       final w = _num(_len), h = _num(_wid);

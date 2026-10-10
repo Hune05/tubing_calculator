@@ -706,6 +706,25 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// 결과 표 한 줄을 "칸 | 칸" 글로(보이게 굴린 뒤 읽는다).
+    Future<String> row(WidgetTester tester, String key) async {
+      await tester.scrollUntilVisible(
+        find.byKey(Key(key)),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      return tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byType(Text),
+            ),
+          )
+          .map((t) => t.data)
+          .join(' | ');
+    }
+
     /// 보내기 탭 → dxf·pdf·kakao.
     Future<void> send(WidgetTester tester, String what) async {
       await tab(tester, 'send');
@@ -724,13 +743,16 @@ void main() {
       expect(find.byKey(const Key('pl_view')), findsOneWidget);
       expect(find.byKey(const Key('pl_shape_flat')), findsNothing);
       expect(find.byKey(const Key('pl_side')), findsNothing); // 옆모습은 고를 때
-      // 맨 아래 "다음" 단추로 차례대로: 모양 → 꺾기(첫 탭은 "이전"이 없다)
-      expect(find.byKey(const Key('pl_prev_shape')), findsNothing);
-      await tap(tester, 'pl_next_bend');
+      // 맨 아래 이전/다음 줄은 없다(아래 탭 줄과 겹쳤다, 10-11)
+      expect(find.byKey(const Key('pl_next_bend')), findsNothing);
+      await tab(tester, 'bend');
       expect(find.byKey(const Key('pl_bends')), findsOneWidget);
-      expect(find.textContaining('절곡 1: 왼쪽 끝에서 47.1mm'), findsOneWidget);
-      await tap(tester, 'pl_prev_shape');
+      expect(await row(tester, 'pl_bend_row_1'), startsWith('1 | 47.1 | '));
+      // 절곡 탭은 처음에 측면도
+      expect(find.byKey(const Key('pl_side')), findsOneWidget);
+      await tab(tester, 'shape');
       expect(find.byKey(const Key('pl_shape_hat')), findsOneWidget);
+      expect(find.byKey(const Key('pl_side')), findsNothing);
       await tab(tester, 'result');
       // 위 그림 칸은 탭마다 같은 자리: 전개도 · 옆모습 · 3D
       expect(find.byKey(const Key('pl_view')), findsOneWidget);
@@ -752,7 +774,7 @@ void main() {
       expect(sum(tester), '철판 평판 · 3T · 200 × 100 mm');
       // 레이저 절단은 꺾기 탭이 없다
       expect(find.byKey(const Key('pl_tab_bend')), findsNothing);
-      expect(find.byKey(const Key('pl_next_holes')), findsOneWidget);
+      expect(find.byKey(const Key('pl_next_holes')), findsNothing);
       expect(find.byKey(const Key('pl_shape_hat')), findsNothing);
       await tap(tester, 'pl_shape_rib');
       expect(sum(tester), endsWith(' 100 × 100 mm'));
@@ -815,8 +837,8 @@ void main() {
       await tab(tester, 'send');
       expect(find.byKey(const Key('p3_canvas')), findsOneWidget);
       expect(find.byKey(const Key('pl_send_dxf')), findsOneWidget);
-      // 마지막 탭은 "이전"만
-      expect(find.byKey(const Key('pl_prev_result')), findsOneWidget);
+      // 이전/다음 줄은 없다(탭 줄로 옮긴다)
+      expect(find.byKey(const Key('pl_prev_result')), findsNothing);
       await tap(tester, 'pl_vm_flat');
       expect(find.byKey(const Key('pl_view')), findsOneWidget);
     });
@@ -991,7 +1013,7 @@ void main() {
       await tester.pumpAndSettle();
       await tab(tester, 'result');
       // 홀(30, 35) → (60, 70), 지름은 그대로
-      expect(find.textContaining('홀 1 φ17: 전개도 60 · 70'), findsOneWidget);
+      expect(await row(tester, 'pl_hole_row_1'), '1 | φ17 | 60 | 70');
     });
 
     testWidgets('스케치에서 넘겨 받은 모양을 덮고, 알림으로 되돌린다', (tester) async {
@@ -1035,7 +1057,10 @@ void main() {
       await tester.pumpAndSettle();
       await tab(tester, 'result');
       expect(find.textContaining('홀 1개 · φ13.5 1'), findsOneWidget);
-      expect(find.textContaining('홀 1 φ13.5: 2면 30·50 → 전개도'), findsOneWidget);
+      expect(
+        await row(tester, 'pl_hole_row_1'),
+        startsWith('1 | φ13.5 | 2면 30 · 50 | '),
+      );
       await send(tester, 'dxf');
       expect(dxf, contains('CIRCLE'));
       expect(dxf, contains('BEND 1 UP 90 R3'));
@@ -1045,23 +1070,43 @@ void main() {
       expect(find.textContaining('홀 1개 · φ13.5 1'), findsOneWidget);
     });
 
-    testWidgets('업체 공제값을 두께별로 저장하고 두께를 고르면 채운다', (tester) async {
+    testWidgets('업체 공제값: 직접 넣기 → 업체 값 저장(설정) → 두께를 고르면 업체 값', (tester) async {
       await open(tester);
       await tap(tester, 'pl_t_4.5');
       await tab(tester, 'bend');
+      bool on(String k) =>
+          tester.widget<PlateSegButton>(find.byKey(Key(k))).selected;
+      // 처음은 일반값(값은 보기만, 칸이 아님)
+      expect(on('pl_bm_auto'), isTrue);
+      expect(find.byKey(const Key('pl_bd')), findsNothing);
+      expect(find.byKey(const Key('pl_bm_saved')), findsNothing);
+      await tap(tester, 'pl_bm_manual');
       await tester.enterText(find.byKey(const Key('pl_bd')), '7');
       await tester.pumpAndSettle();
       expect(sum(tester), endsWith('전개 93 × 100 mm'));
-      await tap(tester, 'pl_bd_save');
+      // 업체 값 저장 → 설정 화면, 넣기 칸에 지금 값이 채워져 있다
+      await tap(tester, 'pl_bd_manage');
+      expect(find.text('철판 가공 설정'), findsOneWidget);
+      expect(find.byKey(const Key('ps_bd_prefilled')), findsOneWidget);
+      String text(String k) =>
+          tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+      expect(text('ps_bt'), '4.5');
+      expect(text('ps_bdv'), '7');
+      await tap(tester, 'ps_bd_add');
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      // 같은 값이 저장됐으니 업체 값으로
+      expect(on('pl_bm_saved'), isTrue);
       await tab(tester, 'shape');
       await tap(tester, 'pl_t_3.2');
-      String text(String k) => tester
-          .widget<TextField>(find.byKey(Key(k), skipOffstage: false))
-          .controller!
-          .text;
-      expect(text('pl_bd'), '');
+      await tab(tester, 'bend');
+      expect(on('pl_bm_auto'), isTrue);
+      expect(find.byKey(const Key('pl_bm_saved')), findsNothing);
+      await tab(tester, 'shape');
       await tap(tester, 'pl_t_4.5');
-      expect(text('pl_bd'), '7');
+      await tab(tester, 'bend');
+      expect(on('pl_bm_saved'), isTrue);
+      expect(sum(tester), endsWith('전개 93 × 100 mm'));
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString(PlatePage.bendTableKey), contains('"4.5"'));
     });

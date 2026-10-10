@@ -11,10 +11,18 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/field_view.dart';
 import '../electrical/busbar_punch_dies.dart' show punchDieLabel;
+import 'plate_painter.dart' show PlateTone;
 import 'plate_ui.dart';
 
 /// 놓는 방법.
 enum PlateHolePattern { single, row, grid, corners, pcd }
+
+/// 지름 단추 이름을 두 줄로: "φ13.5 (M12)" → ("φ13.5", "M12"). 볼트 이름이 없으면 둘째는 null.
+(String, String?) plateDieLabel2(double d) {
+  final s = punchDieLabel(d);
+  final m = RegExp(r'^(.*?)\s*\((.+)\)$').firstMatch(s);
+  return m == null ? (s, null) : (m.group(1)!, m.group(2));
+}
 
 const Map<PlateHolePattern, String> kPlateHolePatternNames = {
   PlateHolePattern.single: '하나',
@@ -436,6 +444,18 @@ class _PlateHoleInputSheetState extends State<PlateHoleInputSheet> {
               );
             },
       children: [
+        if (widget.patterns.length > 1)
+          PlateSection('놓는 방법', [
+            PlateSegments(joined: widget.patterns.length <= 5 ? true : false, [
+              for (final p in widget.patterns)
+                PlateOption(
+                  'hp_${p.name}',
+                  kPlateHolePatternNames[p]!,
+                  _pat == p,
+                  () => _pick(p),
+                ),
+            ]),
+          ], first: true),
         PlateSection('홀', [
           PlateSegments([
             PlateOption(
@@ -458,15 +478,17 @@ class _PlateHoleInputSheetState extends State<PlateHoleInputSheet> {
             else
               const SizedBox.shrink(),
           ]),
-          PlateSegments(joined: false, [
-            for (final d in widget.dias)
-              PlateOption(
-                'hs_die_${(d * 100).round()}',
-                punchDieLabel(d),
-                _v(_dia) == d,
-                () => setState(() => _dia.text = _f(d)),
-              ),
-          ]),
+          if (widget.dias.isNotEmpty)
+            PlateSegments(joined: widget.dias.length <= 5, [
+              for (final d in widget.dias)
+                PlateOption(
+                  'hs_die_${(d * 100).round()}',
+                  plateDieLabel2(d).$1,
+                  _v(_dia) == d,
+                  () => setState(() => _dia.text = _f(d)),
+                  sub: plateDieLabel2(d).$2,
+                ),
+            ]),
           if (_slot) ...[
             PlateSegments([
               PlateOption(
@@ -500,7 +522,7 @@ class _PlateHoleInputSheetState extends State<PlateHoleInputSheet> {
                 const SizedBox.shrink(),
               ]),
           ],
-        ], first: true),
+        ], first: widget.patterns.length <= 1),
         if (cv.bent && cv.faces.isNotEmpty)
           PlateSection('홀이 있는 면', [
             PlateSegments(joined: cv.faces.length <= 4 ? null : false, [
@@ -510,18 +532,6 @@ class _PlateHoleInputSheetState extends State<PlateHoleInputSheet> {
                   cv.faces[k],
                   _face == k,
                   () => setState(() => _face = k),
-                ),
-            ]),
-          ]),
-        if (widget.patterns.length > 1)
-          PlateSection('놓는 방법', [
-            PlateSegments(joined: widget.patterns.length <= 4 ? null : false, [
-              for (final p in widget.patterns)
-                PlateOption(
-                  'hp_${p.name}',
-                  kPlateHolePatternNames[p]!,
-                  _pat == p,
-                  () => _pick(p),
                 ),
             ]),
           ]),
@@ -615,6 +625,7 @@ class _HolePreviewPainter extends CustomPainter {
   final bool Function(PlateHoleDraft) bad;
   final Offset origin;
   final FieldPalette colors;
+  final PlateTone tone = PlateTone.now;
 
   @override
   void paint(Canvas c, Size size) {
@@ -636,11 +647,11 @@ class _HolePreviewPainter extends CustomPainter {
     if (cv.outline.length >= 3) {
       final path = Path()
         ..addPolygon([for (final p in cv.outline) sc(p)], true);
-      c.drawPath(path, Paint()..color = const Color(0xFFC9D3DA));
+      c.drawPath(path, Paint()..color = tone.fill);
       c.drawPath(
         path,
         Paint()
-          ..color = const Color(0xFF4B5A64)
+          ..color = tone.edge
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2,
       );
@@ -651,7 +662,7 @@ class _HolePreviewPainter extends CustomPainter {
         sc(cc),
         d / 2 * s,
         Paint()
-          ..color = const Color(0xFF4B5A64)
+          ..color = tone.edge
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.2,
       );
@@ -683,9 +694,9 @@ class _HolePreviewPainter extends CustomPainter {
       c.restore();
     }
 
-    final white = Paint()..color = Colors.white;
+    final white = Paint()..color = colors.background;
     final gray = Paint()
-      ..color = const Color(0xFF4B5A64)
+      ..color = tone.edge
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (final h in cv.existing) {

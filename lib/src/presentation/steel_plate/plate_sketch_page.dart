@@ -192,8 +192,8 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     if (!mounted) return;
     setState(() {
       _ready = true;
-      // 빈 그림이면 사진 탭부터, 그린 것이 있으면 그리기 탭에서 이어서
-      _tab = _s.n == 0 && _s.holes.isEmpty ? 0 : 1;
+      // 빈 그림이면 사진 탭부터, 그린 것이 있으면 그리기 탭에서 이어서(읽는 사이 탭을 골랐으면 그대로)
+      if (!_tabPicked) _tab = _s.n == 0 && _s.holes.isEmpty ? 0 : 1;
       _fit();
     });
   }
@@ -522,9 +522,13 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   int _tab = 0;
   String get _tabId => _tabs[_tab].$1;
 
+  /// 사람이 탭을 골랐는가(처음 읽기가 끝나도 탭을 바꾸지 않는다).
+  bool _tabPicked = false;
+
   void _goTab(String id) {
     final i = _tabs.indexWhere((t) => t.$1 == id);
     if (i < 0) return;
+    _tabPicked = true;
     setState(() {
       _tab = i;
       _selPt = null;
@@ -904,7 +908,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     ];
     _say(
       '${prefix.isEmpty ? '모양을 닫았습니다' : '$prefix꼭짓점 ${_s.n}개로 바꿨습니다'}${fixes.isEmpty ? '' : '(${fixes.join(' · ')})'}. '
-      '"다음: 치수"에서 변 길이를 넣으십시오.${sym ? ' 대칭이 아니면 되돌리기를 누르십시오.' : ''}',
+      '"치수" 탭에서 변 길이를 넣으십시오.${sym ? ' 대칭이 아니면 되돌리기를 누르십시오.' : ''}',
     );
   }
 
@@ -1084,7 +1088,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                 ),
               ],
             ),
-            // 10-10 화면 정리: 철판 가공 화면과 같은 틀(위 그림 칸 + 아래 흰 작업판 + 맨 아래 이전/다음)
+            // 10-10 화면 정리: 철판 가공 화면과 같은 틀(위 그림 칸 + 아래 흰 작업판, 탭은 맨 아래 탭 줄)
             body: PlateWorkspace(
               canvasShare: switch (_tabId) {
                 'draw' || 'holes' => 0.6,
@@ -1262,16 +1266,10 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   Widget _btn(String key, IconData icon, String label, VoidCallback? onTap) =>
       PlateActionButton(key: Key(key), icon: icon, label: label, onTap: onTap);
 
-  /// 맨 아래 고정 줄: 이전 · 다음(보내기 탭은 "레이저 절단으로 보내기").
-  Widget _footer() {
-    final prev = _tab > 0 ? _tabs[_tab - 1] : null;
-    final next = _tab + 1 < _tabs.length ? _tabs[_tab + 1] : null;
+  /// 맨 아래 고정 줄: 보내기 탭의 "레이저 절단으로 보내기"만(이전·다음은 아래 탭 줄과 겹쳐 뺐다, 10-11).
+  Widget? _footer() {
+    if (_tabId != 'send') return null;
     return PlateFooter(
-      backKey: prev == null ? null : 'sk_prev_${prev.$1}',
-      onBack: prev == null ? null : () => _goTab(prev.$1),
-      nextKey: next == null ? null : 'sk_next_${next.$1}',
-      nextLabel: next?.$2,
-      onNext: next == null ? null : () => _goTab(next.$1),
       main: _tabId == 'send'
           ? FilledButton.icon(
               key: const Key('sk_send'),
@@ -1565,7 +1563,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
           ),
         if (_aiError != null && _tabId == 'photo')
           Text(
-            '$_aiError. "다음: 그리기"에서 사진 위에 직접 따라 그릴 수 있습니다.',
+            '$_aiError. "그리기" 탭에서 사진 위에 직접 따라 그릴 수 있습니다.',
             key: const Key('sk_ai_error'),
             style: TextStyle(fontSize: 13.5, color: fc.danger, height: 1.35),
           ),

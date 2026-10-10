@@ -47,7 +47,7 @@ class PlateHoleEditorPage extends StatefulWidget {
   /// 판 가운데 십자 중심선(철판 가공 화면의 켜고 끄기를 따른다).
   final bool showCenter;
 
-  /// 탭 안에 있을 때 아래 칸 맨 밑에 붙이는 것(예: "다음: 결과" 단추).
+  /// 탭 안에 있을 때 아래 칸 맨 밑에 붙이는 것(없으면 안 붙인다).
   final Widget? footer;
 
   /// 철판 가공 화면의 "구멍" 탭 안에 넣을 때(제목 줄 없이, 되돌리기·다시·전체 보기는 그림 위 작은 줄).
@@ -690,6 +690,32 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     Widget body() => PlateWorkspace(
       canvasShare: 0.56,
       tools: tools,
+      overlay: [
+        Positioned(
+          right: 12,
+          bottom: 12,
+          child: FilledButton.icon(
+            key: const Key('ed_fab_add'),
+            style: FilledButton.styleFrom(
+              backgroundColor: fc.brand,
+              foregroundColor: fc.onBrand,
+              elevation: 3,
+              shadowColor: fc.text.withValues(alpha: 0.3),
+              minimumSize: const Size(0, 46),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            onPressed: () => _addHoles(PlateHolePattern.single),
+            icon: const Icon(Icons.add, size: 20),
+            label: const Text(
+              '홀 넣기',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
+      ],
       canvas: LayoutBuilder(
         builder: (context, box) {
           _size = box.biggest;
@@ -776,7 +802,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
         plateHelpButton(context, 'ed_help', '홀 탭', [
           '판을 누르면: "선택·이동"은 홀을 눌러 선택하고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다. "홀 추가"는 판을 누른 자리에 고른 크기의 홀을 놓습니다.',
           '홀을 끌면 그리드·다른 홀·센터선에 맞춰 안내선이 나옵니다. 그리드 간격은 설정에서 바꿉니다.',
-          '숫자로 넣기: 하나·줄·격자·네 코너·원형 배치를 창에서 그림을 보며 넣습니다. 위치는 왼쪽 아래 기준이나 센터 기준으로 잽니다.',
+          '숫자로 넣기(그림 오른쪽 아래 "홀 넣기"도 같음): 하나·줄·격자·네 코너·원형 배치를 창에서 그림을 보며 넣습니다. 위치는 왼쪽 아래 기준이나 센터 기준으로 잽니다.',
           '선택한 홀: 위치·크기 수정, 복사, 지우기, 대칭 복사. 여러 개 고르면 줄 맞추기·같은 간격·묶음 회전도 됩니다.',
           '빨간 테두리 홀은 만들 수 없고(판 밖·절곡부·겹침), 노란 테두리는 절곡선·판 끝에 가깝습니다.',
           if (_bent)
@@ -1005,6 +1031,7 @@ class _EditorPainter extends CustomPainter {
     this.showCenter = true,
   });
   final bool showCenter;
+  final PlateTone tone = PlateTone.now;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1035,14 +1062,11 @@ class _EditorPainter extends CustomPainter {
         path.lineTo(s.dx, s.dy);
       }
       path.close();
-      canvas.drawPath(
-        path,
-        Paint()..color = kPlateFill.withValues(alpha: 0.75),
-      );
+      canvas.drawPath(path, Paint()..color = tone.fill.withValues(alpha: 0.75));
       canvas.drawPath(
         path,
         Paint()
-          ..color = kPlateEdge
+          ..color = tone.edge
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.5,
       );
@@ -1078,7 +1102,7 @@ class _EditorPainter extends CustomPainter {
     }
     // 구멍
     final edge = Paint()
-      ..color = kPlateEdge
+      ..color = tone.edge
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
     for (final h in p.cutouts) {
@@ -1101,7 +1125,7 @@ class _EditorPainter extends CustomPainter {
         h,
         c,
         scale,
-        fill: sel ? fc.brandSoft : Colors.white,
+        fill: sel ? fc.brandSoft : fc.background,
         edge: h.bad
             ? fc.danger
             : (sel ? fc.brand : (h.caution ? fc.caution : null)),

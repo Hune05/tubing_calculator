@@ -155,6 +155,33 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// 위 "더 보기" 메뉴의 철판 가공 설정.
+    Future<void> openSettings(WidgetTester tester) async {
+      await tester.tap(find.byKey(const Key('pl_more')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('pl_settings')));
+      await tester.pumpAndSettle();
+    }
+
+    /// 결과 표 한 줄을 "칸 | 칸" 글로(보이게 굴린 뒤 읽는다).
+    Future<String> row(WidgetTester tester, String key) async {
+      await tester.scrollUntilVisible(
+        find.byKey(Key(key)),
+        200,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.pumpAndSettle();
+      return tester
+          .widgetList<Text>(
+            find.descendant(
+              of: find.byKey(Key(key)),
+              matching: find.byType(Text),
+            ),
+          )
+          .map((t) => t.data)
+          .join(' | ');
+    }
+
     String sum(WidgetTester tester) => tester
         .widget<Text>(
           find.descendant(
@@ -327,8 +354,8 @@ void main() {
       await tester.tap(find.byKey(const Key('pl_tab_result')));
       await tester.pumpAndSettle();
       expect(find.textContaining('홀 6개 · φ11 6'), findsOneWidget);
-      expect(find.textContaining('홀 1 φ11: 전개도 25 · 25'), findsOneWidget);
-      expect(find.textContaining('홀 6 φ11: 전개도 125 · 75'), findsOneWidget);
+      expect(await row(tester, 'pl_hole_row_1'), '1 | φ11 | 25 | 25');
+      expect(await row(tester, 'pl_hole_row_6'), '6 | φ11 | 125 | 75');
     });
 
     testWidgets('홀 고치기: 같은 창(하나), 장공·세로로 바꾸기', (tester) async {
@@ -351,8 +378,8 @@ void main() {
       await tester.tap(find.byKey(const Key('pl_tab_result')));
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('홀 1 장공 13.5×30(세로): 전개도 60 · 25'),
-        findsOneWidget,
+        await row(tester, 'pl_hole_row_1'),
+        '1 | 장공 13.5×30(세로) | 60 | 25',
       );
     });
 
@@ -360,7 +387,7 @@ void main() {
       tester,
     ) async {
       await open(tester);
-      await tap(tester, 'pl_settings');
+      await openSettings(tester);
       await tester.enterText(
         find.byKey(const Key('ps_thick_steel')),
         '3, 4.5, 3',

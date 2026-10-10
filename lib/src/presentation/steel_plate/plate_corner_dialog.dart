@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/field_view.dart';
 import 'plate_calc.dart';
+import 'plate_painter.dart' show PlateTone;
 import 'plate_ui.dart';
 
 String _f(double v) {
@@ -201,11 +202,12 @@ class _CornerPreviewPainter extends CustomPainter {
         path.addPolygon([p(0, 0), p(side, 0), p(side, side), p(0, side)], true);
     }
     path.close();
-    canvas.drawPath(path, Paint()..color = const Color(0xFFC9D3DA));
+    final tone = PlateTone.now;
+    canvas.drawPath(path, Paint()..color = tone.fill);
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFF4B5A64)
+        ..color = tone.edge
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6,
     );

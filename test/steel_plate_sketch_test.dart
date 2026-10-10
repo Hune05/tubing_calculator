@@ -605,19 +605,21 @@ void main() {
       return pts;
     }
 
-    testWidgets('탭 차례: 사진 → 그리기 → 치수 → 홀 → 보내기, "다음" 단추로 넘어간다', (tester) async {
+    testWidgets('탭 차례: 사진 → 그리기 → 치수 → 홀 → 보내기, 아래 탭 줄로 넘어간다', (tester) async {
       await open(tester);
       for (final id in ['photo', 'draw', 'dims', 'holes', 'send']) {
         expect(find.byKey(Key('sk_tab_$id')), findsOneWidget);
       }
       // 빈 그림이면 사진 탭부터
       expect(status(tester), startsWith('종이 스케치가 있으면 사진을 찍거나 고르십시오'));
-      await tap(tester, 'sk_next_draw');
+      // 이전/다음 줄은 없다(10-11)
+      expect(find.byKey(const Key('sk_next_draw')), findsNothing);
+      await tab(tester, 'draw');
       expect(status(tester), startsWith('판 모양을 손가락으로 그으십시오'));
-      await tap(tester, 'sk_next_dims');
+      await tab(tester, 'dims');
       expect(status(tester), '그리기 탭에서 모양을 먼저 닫으십시오.');
-      await tap(tester, 'sk_next_holes');
-      await tap(tester, 'sk_next_send');
+      await tab(tester, 'holes');
+      await tab(tester, 'send');
       expect(status(tester), startsWith('그리기 탭에서 판 모양을 먼저 그리십시오'));
       expect(find.byKey(const Key('sk_send')), findsOneWidget);
     });
@@ -627,7 +629,7 @@ void main() {
       final pts = await drawRect(tester);
       expect(
         find.text(
-          '모양을 닫았습니다(가로·세로 4곳 세움 · 좌우 대칭). "다음: 치수"에서 변 길이를 넣으십시오. 대칭이 아니면 되돌리기를 누르십시오.',
+          '모양을 닫았습니다(가로·세로 4곳 세움 · 좌우 대칭). "치수" 탭에서 변 길이를 넣으십시오. 대칭이 아니면 되돌리기를 누르십시오.',
         ),
         findsOneWidget,
       );
@@ -797,10 +799,10 @@ void main() {
       await tap(tester, 'sk_camera');
       await tap(tester, 'sk_ai');
       expect(
-        find.text('통신이 되는지 확인해 주십시오. "다음: 그리기"에서 사진 위에 직접 따라 그릴 수 있습니다.'),
+        find.text('통신이 되는지 확인해 주십시오. "그리기" 탭에서 사진 위에 직접 따라 그릴 수 있습니다.'),
         findsOneWidget,
       );
-      await tap(tester, 'sk_next_draw');
+      await tab(tester, 'draw');
       final r = tester.getRect(find.byKey(const Key('sk_canvas')));
       await tester.tapAt(r.center);
       await tester.pumpAndSettle();
