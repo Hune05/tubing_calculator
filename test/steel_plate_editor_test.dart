@@ -175,6 +175,7 @@ void main() {
     expect(status(tester), contains('장공 13.5×30(15°)'));
     await tap(tester, 'ed_spin_90');
     expect(status(tester), contains('장공 13.5×30(105°)'));
+    await tap(tester, 'ed_more'); // 원형 배치는 "더 보기" 안
     await tap(tester, 'ed_pcd');
     // 가운데 100·50, PCD 60, 4개, 45°, φ13.5 기본값 → 원 지름만 고침
     await tester.enterText(find.byKey(const Key('ed_num_2')), '60');
@@ -199,6 +200,7 @@ void main() {
     await tap(tester, 'ed_mode_place');
     await tester.tapAt(scr(tester, 40, 20));
     await tester.pumpAndSettle();
+    await tap(tester, 'ed_more'); // 판 돌리기는 "더 보기" 안
     await tap(tester, 'ed_rot');
     await tester.tap(find.byKey(const Key('pl_tab_result')));
     await tester.pumpAndSettle();

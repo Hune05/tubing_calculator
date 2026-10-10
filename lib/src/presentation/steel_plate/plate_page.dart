@@ -39,7 +39,7 @@ const List<String> kPlateBasis = [
   '꺾음 치수는 모두 바깥 치수입니다. 전개 길이 = 바깥 치수 합 − 꺾는 곳마다 공제값. 공제값(90°) = 2 × (안쪽 반경 + 두께) − π/2 × (안쪽 반경 + k × 두께). k를 모르면 일반값 0.33을 쓰고, 업체가 알려 준 공제값을 넣으면 그 값이 나오게 k를 맞춥니다. 꺾기 계산은 부스바 가공과 같은 식입니다.',
   '안쪽 반경은 비우면 두께와 같게 봅니다. 레이저 업체·절곡기 금형마다 공제값이 다르니 처음 주문 때 업체 값으로 맞추고 "이 두께 값 저장"으로 남겨 두십시오.',
   '꺾기선은 꺾는 부분의 가운데 선입니다. "위로"는 DXF·전개도를 위에서 본 쪽으로 꺾는다는 뜻입니다. 모자는 발 → 다리 → 윗면 → 다리 → 발 차례로 위로·아래로·아래로·위로 꺾습니다.',
-  '구멍 자리: 평판·리브·자유 모양은 판의 왼쪽 아래 모서리에서 잰 (가로, 세로)입니다. 그림·지시서·DXF에는 판 가운데 십자 중심선(빨간 쇄선, DXF는 CL)을 긋습니다. 구멍 탭에서 구멍을 고르면 판 끝과 판 가운데에서 몇 mm인지 나옵니다. 꺾음은 면마다 잽니다: 가로는 그 면 시작(첫 면은 판 끝, 다른 면은 앞 면 바깥면)에서, 세로는 아래 가장자리에서. 전개도 자리로 바꿔 DXF에 넣습니다.',
+  '구멍 자리: 평판·리브·자유 모양은 판의 왼쪽 아래 모서리에서 잰 (가로, 세로)입니다. 그림·지시서·DXF에는 판 가운데 십자 중심선(파란 쇄선, 그림 위 "가운데선"으로 켜고 끔, DXF는 CL)을 긋습니다. 구멍 탭에서 구멍을 고르면 판 끝과 판 가운데에서 몇 mm인지 나옵니다. 꺾음은 면마다 잽니다: 가로는 그 면 시작(첫 면은 판 끝, 다른 면은 앞 면 바깥면)에서, 세로는 아래 가장자리에서. 전개도 자리로 바꿔 DXF에 넣습니다.',
   '구멍은 꺾기선에서 2 × 두께 + 안쪽 반경 이상 떼라고 알립니다(일반 판금 규칙). 구멍이 꺾이는 부분에 걸리거나 판 밖으로 나오거나 서로 겹치면 만들 수 없다고 알립니다.',
   '짧은 면: 바깥 치수가 두께의 5배보다 짧으면 절곡기 V홈(보통 두께의 6~8배)에 걸치지 못할 수 있다고 알립니다. 업체 금형에 따라 다릅니다.',
   'DXF: AutoCAD R12 형식, 단위 mm. CUT 층(외곽·구멍·장공), BEND 층(꺾기선), NOTE 층(꺾는 방향 영문 글), DIM 층(판 가운데 중심선 CL). 대부분의 레이저 업체 프로그램이 읽습니다.',
@@ -120,6 +120,9 @@ class _PlatePageState extends State<PlatePage>
   // 위 붙박이 그림(접을 수 있음)과, 그림에서 치수를 누르면 갈 칸
   bool _previewOpen = true;
   static const _previewKey = 'plate_preview_open_v1';
+  // 판 가운데 십자선 켜고 끄기(기억, 구멍 탭·지시서 그림도 따른다)
+  bool _showCenter = true;
+  static const _centerKey = 'plate_center_lines_v1';
   final _scroll = ScrollController();
   final _lenFocus = FocusNode(), _widFocus = FocusNode();
   final _raFocus = FocusNode(), _rbFocus = FocusNode();
@@ -193,6 +196,8 @@ class _PlatePageState extends State<PlatePage>
         .then((p) {
           final v = p.getBool(_previewKey);
           if (v != null && mounted) setState(() => _previewOpen = v);
+          final c = p.getBool(_centerKey);
+          if (c != null && mounted) setState(() => _showCenter = c);
         })
         .catchError((_) {});
   }
@@ -517,6 +522,7 @@ class _PlatePageState extends State<PlatePage>
         sub: const Color(0xFF55636D),
         bg: Colors.white,
         fontScale: 2.2,
+        showCenter: _showCenter,
       ),
     );
     final more = <(String, Uint8List)>[];
@@ -670,22 +676,29 @@ class _PlatePageState extends State<PlatePage>
   /// 예전 이름(그림에서 판을 누르면 구멍 탭으로).
   void _openEditor() => _goTab('holes');
 
+  /// "다음: …" 단추(작게, 오른쪽). 탭 줄과 길이 겹쳐 자리만 차지하지 않게(10-10 손봄).
   Widget _nextButton(String id, String label) => Padding(
     padding: const EdgeInsets.only(top: 12),
-    child: SizedBox(
-      width: double.infinity,
-      child: FilledButton.icon(
+    child: Align(
+      alignment: Alignment.centerRight,
+      child: FilledButton(
         key: Key('pl_next_$id'),
         style: FilledButton.styleFrom(
           backgroundColor: fc.brand,
           foregroundColor: fc.onBrand,
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
         ),
         onPressed: () => _goTab(id),
-        icon: const Icon(AppIcons.forward, size: 18),
-        label: Text(
-          '다음: $label',
-          style: const TextStyle(fontWeight: FontWeight.w800),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '다음: $label',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(width: 4),
+            const Icon(AppIcons.forward, size: 16),
+          ],
         ),
       ),
     ),
@@ -857,6 +870,7 @@ class _PlatePageState extends State<PlatePage>
   // ③ 구멍: 구멍 배치 편집을 탭 안에 그대로
   Widget _holesTab() => PlateHoleEditorPage(
     embedded: true,
+    showCenter: _showCenter,
     footer: _next('holes'),
     input: _input(),
     holes: List.of(_holes),
@@ -886,13 +900,19 @@ class _PlatePageState extends State<PlatePage>
     return elecList([
       calcLabel(
         _bend ? '전개도' : '판 모양',
-        '실제 비율입니다. 빨간 쇄선은 판 가운데, 주황 점선은 꺾기선(번호·방향·각도)입니다.',
+        '실제 비율입니다. 파란 쇄선은 판 가운데, 주황 점선은 꺾기선(번호·방향·각도)입니다.',
       ),
       const SizedBox(height: 4),
       _box(
         const Key('pl_view_big'),
         320,
-        PlatePainter(plan: p, text: fc.text, sub: fc.textSub, bg: fc.surface),
+        PlatePainter(
+          plan: p,
+          text: fc.text,
+          sub: fc.textSub,
+          bg: fc.surface,
+          showCenter: _showCenter,
+        ),
       ),
       const SizedBox(height: 12),
       calcResult(
@@ -1119,9 +1139,33 @@ class _PlatePageState extends State<PlatePage>
               foregroundColor: fc.text,
               surfaceTintColor: Colors.transparent,
               elevation: 0,
-              title: Text(
-                _bend ? '절단 + 절곡' : '레이저 절단',
-                style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
+              // 요약은 제목 아래 작은 글로(요약 줄을 따로 두지 않아 휴대폰에서 한 줄 아낌)
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _bend ? '절단 + 절곡' : '레이저 절단',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: fc.text,
+                    ),
+                  ),
+                  if (summary != null)
+                    KeyedSubtree(
+                      key: const Key('pl_sum'),
+                      child: Text(
+                        summary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: warn ? fc.danger : fc.brand,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               actions: [
                 IconButton(
@@ -1137,6 +1181,7 @@ class _PlatePageState extends State<PlatePage>
               sumKey: 'pl_sum',
               summary: summary,
               warn: warn,
+              showBar: false,
               body: IndexedStack(
                 index: idx,
                 children: [
@@ -1163,6 +1208,14 @@ class _PlatePageState extends State<PlatePage>
 
   // ── 위 붙박이 그림 ──
 
+  void _toggleCenter() {
+    setState(() => _showCenter = !_showCenter);
+    final v = _showCenter;
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_centerKey, v))
+        .catchError((_) => false);
+  }
+
   void _setPreviewOpen(bool v) {
     setState(() => _previewOpen = v);
     SharedPreferences.getInstance()
@@ -1171,10 +1224,10 @@ class _PlatePageState extends State<PlatePage>
   }
 
   String _previewHint() => switch (_shape) {
-    PlateShape.flat => '빨간 쇄선은 판 가운데 · 귀를 누르면 귀 처리 · 치수를 누르면 그 칸 · 판을 누르면 구멍',
-    PlateShape.free => '빨간 쇄선은 판 가운데 · 꼭짓점을 누르면 귀 처리 · 판을 누르면 구멍',
-    PlateShape.rib => '빨간 쇄선은 판 가운데 · 치수를 누르면 그 칸 · 판을 누르면 구멍',
-    _ => '빨간 쇄선은 판 가운데 · 주황 점선은 꺾기선 · 판을 누르면 구멍',
+    PlateShape.flat => '파란 쇄선은 판 가운데 · 귀를 누르면 귀 처리 · 치수를 누르면 그 칸 · 판을 누르면 구멍',
+    PlateShape.free => '파란 쇄선은 판 가운데 · 꼭짓점을 누르면 귀 처리 · 판을 누르면 구멍',
+    PlateShape.rib => '파란 쇄선은 판 가운데 · 치수를 누르면 그 칸 · 판을 누르면 구멍',
+    _ => '파란 쇄선은 판 가운데 · 주황 점선은 꺾기선 · 판을 누르면 구멍',
   };
 
   /// 요약 줄 아래 붙박이 판 그림. 키보드가 떠 있으면 낮게.
@@ -1207,6 +1260,7 @@ class _PlatePageState extends State<PlatePage>
                       text: fc.text,
                       sub: fc.textSub,
                       bg: fc.surface,
+                      showCenter: _showCenter,
                     ),
                     child: const SizedBox.expand(),
                   ),
@@ -1228,6 +1282,38 @@ class _PlatePageState extends State<PlatePage>
                       style: TextStyle(fontSize: 13, color: fc.textSub),
                     ),
                   ),
+                  if (p != null && _previewOpen)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: InkWell(
+                        key: const Key('pl_center'),
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: _toggleCenter,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _showCenter
+                                ? kPlateCenter.withValues(alpha: 0.12)
+                                : null,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: _showCenter ? kPlateCenter : fc.line,
+                            ),
+                          ),
+                          child: Text(
+                            '가운데선',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: _showCenter ? kPlateCenter : fc.textSub,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   if (p != null)
                     Icon(
                       _previewOpen ? Icons.expand_less : Icons.expand_more,

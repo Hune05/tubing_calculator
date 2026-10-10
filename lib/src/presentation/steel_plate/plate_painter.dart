@@ -83,7 +83,11 @@ class PlatePainter extends CustomPainter {
     required this.sub,
     required this.bg,
     this.fontScale = 1,
+    this.showCenter = true,
   });
+
+  /// 판 가운데 십자 중심선(켜고 끄기).
+  final bool showCenter;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -130,16 +134,20 @@ class PlatePainter extends CustomPainter {
     }
 
     // 판 가운데 십자 중심선
-    plateDrawCenterLines(
-      canvas,
-      toScreen: m,
-      minX: p.minX,
-      minY: p.minY,
-      maxX: p.maxX,
-      maxY: p.maxY,
-      fontScale: fontScale,
-      ext: 8,
-    );
+    if (showCenter) {
+      final cx = (p.minX + p.maxX) / 2;
+      plateDrawCenterLines(
+        canvas,
+        toScreen: m,
+        minX: p.minX,
+        minY: p.minY,
+        maxX: p.maxX,
+        maxY: p.maxY,
+        fontScale: fontScale,
+        ext: 8,
+        faintVertical: p.bends.any((b) => (b.center - cx).abs() < 1),
+      );
+    }
 
     // 꺾기선: 점선 + 위에 번호·방향
     final bendPaint = Paint()
@@ -279,7 +287,8 @@ class PlatePainter extends CustomPainter {
       old.text != text ||
       old.sub != sub ||
       old.bg != bg ||
-      old.fontScale != fontScale;
+      old.fontScale != fontScale ||
+      old.showCenter != showCenter;
 }
 
 /// 구멍 하나 그리기: 둥근 구멍은 원, 장공은 [PlateHole.angle]만큼 돈 긴 구멍(화면은 y가 아래라 각을 뒤집는다).
@@ -339,11 +348,12 @@ Future<Uint8List> renderPainterPng(
   return bd!.buffer.asUint8List();
 }
 
-/// 판 가운데 십자 중심선 색(빨강 계열, 꺾기선 주황·치수 회색과 구별).
-const Color kPlateCenter = Color(0xFFD64545);
+/// 판 가운데 십자 중심선 색(옅은 파랑: 빨강은 앱에서 "잘못됨" 색이라 경고처럼 보였다, 10-10 손봄).
+const Color kPlateCenter = Color(0xFF4A7BD0);
 
 /// 판 가운데 십자 중심선(10-10 사용자: "센터가 어디인지 안 보여서"): 판을 감싸는 사각의 가운데를 지나는
-/// 가로·세로 1점 쇄선(긴 선·점)을 판 밖으로 [ext]점 더 내고, 끝에 "C"를 단다.
+/// 가로·세로 1점 쇄선(긴 선·점)을 판 밖으로 [ext]점 더 내고, 오른쪽 끝에만 "C"를 단다(위쪽은 전체 치수와 겹쳐 뺌).
+/// [faintVertical]이면 세로선을 옅게(꺾기선과 같은 자리일 때).
 void plateDrawCenterLines(
   Canvas canvas, {
   required Offset Function(Offset mm) toScreen,
@@ -354,12 +364,13 @@ void plateDrawCenterLines(
   Color color = kPlateCenter,
   double fontScale = 1,
   double ext = 10,
+  bool faintVertical = false,
 }) {
   final cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-  final paint = Paint()
-    ..color = color
-    ..strokeWidth = 1.1 * fontScale;
-  void dashDot(Offset a, Offset b) {
+  Paint pen(double a) => Paint()
+    ..color = color.withValues(alpha: a)
+    ..strokeWidth = 0.9 * fontScale;
+  void dashDot(Offset a, Offset b, Paint paint) {
     final d = b - a, len = d.distance;
     if (len < 1) return;
     final u = d / len;
@@ -380,19 +391,18 @@ void plateDrawCenterLines(
   final r = toScreen(Offset(maxX, cy)) + Offset(e, 0);
   final t = toScreen(Offset(cx, maxY)) - Offset(0, e);
   final b = toScreen(Offset(cx, minY)) + Offset(0, e);
-  dashDot(l, r);
-  dashDot(t, b);
+  dashDot(l, r, pen(0.8));
+  dashDot(t, b, pen(faintVertical ? 0.3 : 0.8));
   final tp = TextPainter(
     text: TextSpan(
       text: 'C',
       style: TextStyle(
-        fontSize: 11 * fontScale,
-        fontWeight: FontWeight.w900,
+        fontSize: 10.5 * fontScale,
+        fontWeight: FontWeight.w800,
         color: color,
       ),
     ),
     textDirection: TextDirection.ltr,
   )..layout();
   tp.paint(canvas, r + Offset(2, -tp.height / 2));
-  tp.paint(canvas, t + Offset(-tp.width / 2, -tp.height - 1));
 }

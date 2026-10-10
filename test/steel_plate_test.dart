@@ -9,9 +9,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/electrical/busbar_bend_painter.dart';
+import 'package:tubing_calculator/src/presentation/electrical/elec_form_parts.dart'
+    show ElecSummaryBar;
 import 'package:tubing_calculator/src/presentation/steel_bracket/bracket_pdf.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_calc.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_dxf.dart';
+import 'package:tubing_calculator/src/presentation/steel_plate/plate_hole_editor.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_painter.dart';
 import 'formula_flat.dart';
@@ -808,6 +811,7 @@ void main() {
       await open(tester, dxf: (s) async => dxf = s);
       // 구멍 탭(편집 화면) 안의 "줄로 넣기"
       await tab(tester, 'holes');
+      await tap(tester, 'ed_more'); // 한꺼번에 넣기는 "더 보기" 안
       await tap(tester, 'ed_add_row');
       await tester.tap(find.byKey(const Key('hs_face_1')));
       await tester.pumpAndSettle();
@@ -846,6 +850,36 @@ void main() {
       expect(text('pl_bd'), '7');
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString(PlatePage.bendTableKey), contains('"4"'));
+    });
+
+    testWidgets('가운데선 켜고 끄기(기억, 구멍 탭도 따름), 요약은 제목 아래', (tester) async {
+      await open(tester, bend: false);
+      // 요약 줄을 따로 두지 않고 제목 아래 작은 글로
+      expect(find.byType(ElecSummaryBar), findsNothing);
+      expect(sum(tester), '철판 평판 · 3t · 200 × 100 mm');
+      PlatePainter painter() =>
+          tester
+                  .widget<CustomPaint>(
+                    find.descendant(
+                      of: find.byKey(const Key('pl_view')),
+                      matching: find.byType(CustomPaint),
+                    ),
+                  )
+                  .painter!
+              as PlatePainter;
+      expect(painter().showCenter, isTrue);
+      await tap(tester, 'pl_center');
+      expect(painter().showCenter, isFalse);
+      await tab(tester, 'holes');
+      expect(
+        tester
+            .widget<PlateHoleEditorPage>(find.byType(PlateHoleEditorPage))
+            .showCenter,
+        isFalse,
+      );
+      await close(tester);
+      await open(tester, bend: false);
+      expect(painter().showCenter, isFalse);
     });
 
     testWidgets('보내기 탭 → 카톡 글, 키보드가 뜨면 아래 탭 줄을 숨긴다', (tester) async {

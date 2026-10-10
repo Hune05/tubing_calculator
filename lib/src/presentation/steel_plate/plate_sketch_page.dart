@@ -122,6 +122,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   String? _aiError;
   bool _ready = false;
 
+  // 판 가운데 십자선 켜고 끄기(철판 가공 화면과 같은 저장 칸)
+  bool _showCenter = true;
+
   // 알림은 아래 칸 안에 적는다(떠 있는 알림이 "레이저 절단으로 보내기"를 가려 눌리지 않았다).
   String? _notice;
   bool _noticeBad = false;
@@ -166,6 +169,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   Future<void> _load() async {
     try {
       final p = await SharedPreferences.getInstance();
+      _showCenter = p.getBool('plate_center_lines_v1') ?? true;
       final raw = p.getString(PlateSketchPage.draftKey);
       final s = raw == null ? null : PlateSketch.fromJson(jsonDecode(raw));
       if (s != null) _s = s;
@@ -230,7 +234,11 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       _selPt = null;
       _selHole = null;
       _notice = null;
-      if (refit) _fit();
+      if (refit) {
+        _fit();
+      } else {
+        _fitIfOut();
+      }
     });
     _saveSoon();
   }
@@ -407,13 +415,33 @@ class _PlateSketchPageState extends State<PlateSketchPage>
 
   // ── 좌표 ──
 
-  void _fit() {
-    var r = _s.frame;
+  /// 흰 종이 자리: 사진이 겹쳐 있으면 사진(과 그림), 아니면 그림 둘레를 조금 넉넉히(그림이 없으면 처음 종이).
+  /// 10-10: 치수를 넣어 판이 커지면 그림이 처음 종이 밖으로 나가 회색 바탕 위에 걸렸다.
+  Rect get _paper {
     final b = _s.bounds;
-    if (b != null) r = r.expandToInclude(b);
-    _view = r;
+    if (_s.photoAligned && _img != null) {
+      return b == null ? _s.frame : _s.frame.expandToInclude(b);
+    }
+    if (b == null || _s.n < 2) return _s.frame;
+    final m = math.max(math.max(b.width, b.height) * 0.08, 1e-6);
+    return _s.scaled ? b.inflate(m) : _s.frame.expandToInclude(b.inflate(m));
+  }
+
+  void _fit() {
+    _view = _paper;
     _zoom = 1;
     _pan = Offset.zero;
+  }
+
+  /// 그림이 화면 밖으로 나가면 다시 맞춘다(치수를 넣어 판이 커졌을 때 등).
+  void _fitIfOut() {
+    final b = _s.bounds;
+    if (b == null || _size.isEmpty) return;
+    final vis = Rect.fromPoints(
+      _toModel(Offset.zero),
+      _toModel(Offset(_size.width, _size.height)),
+    ).deflate(12 / _scale);
+    if (!vis.contains(b.topLeft) || !vis.contains(b.bottomRight)) _fit();
   }
 
   double get _base {
@@ -758,6 +786,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     _redo.clear();
     setState(() {
       _notice = null;
+      if (!first) _fitIfOut();
       if (first) {
         // 화면이 그대로 보이게 보기 자리도 같은 비율로
         _view = Rect.fromLTRB(
@@ -865,6 +894,33 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     );
   }
 
+  /// 좌우 대칭으로 맞출 수 있고 실제로 바뀌는 것이 있는지(없으면 단추를 숨긴다).
+  bool get _canMirror {
+    if (!_s.closed) return false;
+    final c = _s.copy();
+    if (!c.symmetrize()) return false;
+    for (var k = 0; k < c.n; k++) {
+      if ((c.pts[k] - _s.pts[k]).distance > 0.05) return true;
+    }
+    return false;
+  }
+
+  Future<void> _confirmClear() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AppDialog(
+        title: '그림 지우기',
+        content: AppDialog.message('그린 모양·치수·구멍을 모두 지웁니다(되돌리기로 살릴 수 있습니다).'),
+        okText: '지우기',
+        okKey: const Key('sk_clear_ok'),
+        destructive: true,
+        onCancel: () => Navigator.pop(c, false),
+        onOk: () => Navigator.pop(c, true),
+      ),
+    );
+    if (ok == true && mounted) _clearSketch();
+  }
+
   void _mirror() {
     final before = jsonEncode(_s.toJson());
     var ok = false;
@@ -914,54 +970,44 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     final s = _s;
     switch (_tabId) {
       case 'photo':
-        if (_photo == null) {
-          return '종이에 그린 그림이 있으면 사진을 찍거나 고르십시오. 없으면 "다음: 그리기"에서 바로 그립니다.';
-        }
-        if (s.n > 0 && !s.photoAligned) {
-          return 'AI가 읽은 그림입니다. "다음"으로 넘어가 모양·치수를 확인하십시오.';
-        }
-        return '"AI로 읽기"를 누르면 외곽·구멍·치수를 읽습니다. 직접 하려면 "다음: 그리기"에서 사진 위에 따라 그립니다.';
+        if (_photo == null) return '종이 그림이 있으면 사진을 찍거나 고르십시오.';
+        if (s.n > 0 && !s.photoAligned) return 'AI가 읽었습니다. 치수 탭에서 확인하십시오.';
+        return '"AI로 읽기"를 누르거나, 그리기 탭에서 사진 위에 따라 그리십시오.';
       case 'draw':
         final k = _selPt;
-        if (k != null && k < s.n) {
-          return '꼭짓점 ${k + 1}: ${s.corners[k].label}. 끌어 옮기거나 귀 처리·지우기를 누릅니다.';
-        }
-        if (s.n == 0) {
-          return '판 모양을 손가락으로 한 번에 그으십시오(귀퉁이를 차례로 눌러도 됩니다).';
-        }
+        if (k != null && k < s.n) return '꼭짓점 ${k + 1} · ${s.corners[k].label}';
+        if (s.n == 0) return '판 모양을 손가락으로 그으십시오.';
         if (!s.closed) {
           return s.n < 3
-              ? '꼭짓점 ${s.n}개. 다음 귀퉁이를 누릅니다.'
-              : '꼭짓점 ${s.n}개. 다음 귀퉁이를 누르고, 다 찍었으면 1번 점을 눌러 닫습니다.';
+              ? '꼭짓점 ${s.n}개 · 다음 귀퉁이를 누르십시오.'
+              : '꼭짓점 ${s.n}개 · 1번 점을 누르면 닫힙니다.';
         }
-        return '모양을 닫았습니다(꼭짓점 ${s.n}개). 꼭짓점을 끌어 고치거나 변을 길게 눌러 꼭짓점을 더합니다.';
+        return '꼭짓점 ${s.n}개 · 점을 끌어 고치고, 변을 길게 눌러 점을 더합니다.';
       case 'dims':
-        if (!s.closed) return '먼저 그리기 탭에서 모양을 닫으십시오.';
-        if (!s.scaled) {
-          return '변 이름(변 1…)을 눌러 길이(mm)를 넣습니다. 처음 넣는 치수로 전체 크기가 정해집니다.';
-        }
+        if (!s.closed) return '그리기 탭에서 모양을 먼저 닫으십시오.';
+        if (!s.scaled) return '변을 눌러 길이(mm)를 넣으십시오. 처음 넣는 길이로 크기가 정해집니다.';
         final locked = [
           for (var i = 0; i < s.edgeCount; i++)
             if (s.isLocked(i)) i,
         ].length;
-        return '변의 숫자를 눌러 길이를 넣습니다. 넣은 치수 $locked곳(✓ 잠김, ! 바뀜).';
+        return '넣은 치수 $locked곳 · ✓ 잠김, ! 바뀜';
       case 'holes':
-        if (!s.closed) return '먼저 그리기 탭에서 모양을 닫으십시오.';
+        if (!s.closed) return '그리기 탭에서 모양을 먼저 닫으십시오.';
         final hk = _selHole;
         if (hk != null && hk < s.holes.length) {
           final h = s.holes[hk];
-          return '구멍 ${hk + 1}: φ${_f(h.dia)}${h.slot > h.dia ? ' 장공 ${_f(h.slot)}' : ''}. 끌어 옮기거나 고치기·지우기를 누릅니다.';
+          return '구멍 ${hk + 1} · φ${_f(h.dia)}${h.slot > h.dia ? ' 장공 ${_f(h.slot)}' : ''}';
         }
-        return '판 안을 누르면 φ${_f(_tDia)} 구멍을 놓습니다${s.scaled ? '(5mm 칸에 붙음)' : ''}. 동그라미를 그리면 구멍, 길쭉하게 그리면 장공. 구멍 ${s.holes.length}개.';
+        return '판 안을 누르면 φ${_f(_tDia)} 구멍 · 동그라미는 구멍, 길쭉하면 장공 · 구멍 ${s.holes.length}개';
       default:
         final m = s.toPlateMap();
         if (m == null) {
           return s.n < 3
-              ? '아직 모양이 없습니다. 그리기 탭에서 판 모양을 그리십시오.'
-              : '치수 탭에서 변 하나에 길이를 넣어야 크기가 정해집니다.';
+              ? '그리기 탭에서 판 모양을 먼저 그리십시오.'
+              : '치수 탭에서 변 하나에 길이를 넣으십시오.';
         }
         final b = s.bounds!;
-        return '보낼 준비가 됐습니다: ${_f(b.width)} × ${_f(b.height)} mm · 꼭짓점 ${s.n}개 · 구멍 ${s.holes.length}개${s.thickness != null ? ' · ${_f(s.thickness!)}t' : ''}. 레이저 절단 화면(자유 모양)으로 넘깁니다.';
+        return '보낼 준비: ${_f(b.width)} × ${_f(b.height)} mm · 꼭짓점 ${s.n}개 · 구멍 ${s.holes.length}개${s.thickness != null ? ' · ${_f(s.thickness!)}t' : ''}';
     }
   }
 
@@ -1044,6 +1090,8 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                                     selPt: _selPt,
                                     selHole: _selHole,
                                     ink: _ink,
+                                    showCenter: _showCenter,
+                                    paper: _paper,
                                     hint: _tabId == 'draw'
                                         ? '여기에 판 모양을 손가락으로 그으십시오'
                                         : (_tabId == 'photo'
@@ -1085,6 +1133,28 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                                     ),
                                   ),
                                 ),
+                              ),
+                            ),
+                          if (_s.closed)
+                            Positioned(
+                              right: 10,
+                              top: 10,
+                              child: calcChip(
+                                'sk_center',
+                                '가운데선',
+                                _showCenter,
+                                () {
+                                  setState(() => _showCenter = !_showCenter);
+                                  final v = _showCenter;
+                                  SharedPreferences.getInstance()
+                                      .then(
+                                        (p) => p.setBool(
+                                          'plate_center_lines_v1',
+                                          v,
+                                        ),
+                                      )
+                                      .catchError((_) => false);
+                                },
                               ),
                             ),
                           if (_img != null && _s.photoAligned)
@@ -1216,16 +1286,33 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     ),
   );
 
-  /// "다음: …" 단추(차례대로 넘어가기).
+  /// "다음: …" 단추(작게, 오른쪽 — 탭 줄과 길이 겹쳐 자리만 차지하지 않게).
   Widget _next() {
     final i = _tab + 1;
     if (i >= _tabs.length) return const SizedBox.shrink();
     final (id, label) = _tabs[i];
-    return _primary(
-      'sk_next_$id',
-      AppIcons.forward,
-      '다음: $label',
-      () => _goTab(id),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: FilledButton(
+        key: Key('sk_next_$id'),
+        style: FilledButton.styleFrom(
+          backgroundColor: fc.brand,
+          foregroundColor: fc.onBrand,
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+        ),
+        onPressed: () => _goTab(id),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '다음: $label',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(width: 4),
+            const Icon(AppIcons.forward, size: 16),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1313,14 +1400,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                   ),
                 if (s.n >= 2)
                   _btn('sk_square', Icons.square_foot, '직각 맞추기', _squareUp),
-                if (s.closed) _btn('sk_mirror', Icons.flip, '좌우 대칭', _mirror),
-                if (s.n > 0 || s.holes.isNotEmpty)
-                  _btn(
-                    'sk_clear',
-                    Icons.layers_clear_outlined,
-                    '그림 지우기',
-                    _clearSketch,
-                  ),
+                if (_canMirror) _btn('sk_mirror', Icons.flip, '좌우 대칭', _mirror),
               ];
       case 'dims':
         actions = [
@@ -1409,7 +1489,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     }
     return Container(
       width: double.infinity,
-      height: MediaQuery.of(context).size.height * 0.32,
+      height: _tabId == 'dims'
+          ? (MediaQuery.of(context).size.height * 0.3).clamp(240.0, 420.0)
+          : (MediaQuery.of(context).size.height * 0.2).clamp(190.0, 300.0),
       decoration: BoxDecoration(
         color: fc.surface,
         border: Border(top: BorderSide(color: fc.line)),
@@ -1481,7 +1563,22 @@ class _PlateSketchPageState extends State<PlateSketchPage>
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: bottom,
+            child: Row(
+              children: [
+                if (_tabId == 'draw' && (s.n > 0 || s.holes.isNotEmpty))
+                  TextButton.icon(
+                    key: const Key('sk_clear'),
+                    style: TextButton.styleFrom(foregroundColor: fc.danger),
+                    onPressed: _confirmClear,
+                    icon: const Icon(Icons.layers_clear_outlined, size: 18),
+                    label: const Text(
+                      '그림 지우기',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                Expanded(child: bottom),
+              ],
+            ),
           ),
         ],
       ),
@@ -1573,7 +1670,14 @@ class _SketchPainter extends CustomPainter {
     required this.colors,
     this.ink,
     this.hint = '',
+    this.showCenter = true,
+    this.paper,
   });
+
+  final bool showCenter;
+
+  /// 흰 종이 자리(그림 단위). 없으면 [PlateSketch.frame].
+  final Rect? paper;
 
   final List<Offset>? ink;
 
@@ -1606,10 +1710,15 @@ class _SketchPainter extends CustomPainter {
           ..filterQuality = FilterQuality.medium
           ..color = const Color.fromRGBO(0, 0, 0, 0.8),
       );
-    } else if (s.photoAligned) {
-      canvas.drawRect(frRect, Paint()..color = c.surface);
+    } else {
+      final pp = paper ?? fr;
+      final pr = Rect.fromPoints(
+        toScreen(Offset(pp.left, pp.bottom)),
+        toScreen(Offset(pp.right, pp.top)),
+      );
+      canvas.drawRect(pr, Paint()..color = c.surface);
       canvas.drawRect(
-        frRect,
+        pr,
         Paint()
           ..style = PaintingStyle.stroke
           ..color = c.line,
@@ -1693,6 +1802,20 @@ class _SketchPainter extends CustomPainter {
       }
     }
 
+    // 판 가운데 십자 중심선(닫은 뒤, 변 길이 글 밑으로 지나가게 먼저 그린다)
+    final bb = s.bounds;
+    if (showCenter && s.closed && bb != null) {
+      plateDrawCenterLines(
+        canvas,
+        toScreen: toScreen,
+        minX: bb.left,
+        minY: bb.top,
+        maxX: bb.right,
+        maxY: bb.bottom,
+        ext: 44, // 변 이름표(변 가운데 바깥 16점) 너머로
+      );
+    }
+
     // 변 길이(누르면 길이 창)
     for (var i = 0; i < s.edgeCount; i++) {
       final at = sketchLabelAt(s, i, toScreen);
@@ -1754,19 +1877,6 @@ class _SketchPainter extends CustomPainter {
       );
     }
 
-    final bb = s.bounds;
-    // 판 가운데 십자 중심선(닫은 뒤)
-    if (s.closed && bb != null) {
-      plateDrawCenterLines(
-        canvas,
-        toScreen: toScreen,
-        minX: bb.left,
-        minY: bb.top,
-        maxX: bb.right,
-        maxY: bb.bottom,
-        ext: 44, // 변 이름표(변 가운데 바깥 16점) 너머로
-      );
-    }
     // 긋는 중인 선
     final k0 = ink;
     if (k0 != null && k0.length >= 2) {

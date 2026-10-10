@@ -33,7 +33,11 @@ class PlateHoleEditorPage extends StatefulWidget {
     required this.onChanged,
     this.embedded = false,
     this.footer,
+    this.showCenter = true,
   });
+
+  /// 판 가운데 십자 중심선(철판 가공 화면의 켜고 끄기를 따른다).
+  final bool showCenter;
 
   /// 탭 안에 있을 때 아래 칸 맨 밑에 붙이는 것(예: "다음: 결과" 단추).
   final Widget? footer;
@@ -71,6 +75,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
   bool _multi = false;
   bool _place = false;
   double _grid = 5;
+  bool _more = false; // 자주 안 쓰는 것(모눈·한꺼번에 넣기·판 돌리기) 펼침
   late double _tDia = widget.dies.contains(13.5) ? 13.5 : widget.dies.first;
   double _tSlot = 0;
   double _tAngle = 0;
@@ -726,6 +731,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                       selected: _sel.toSet(),
                       guideX: _guideX,
                       guideY: _guideY,
+                      showCenter: widget.showCenter,
                     ),
                     child: const SizedBox.expand(),
                   ),
@@ -863,20 +869,6 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
               ],
             ),
           ],
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final g in const [0.0, 1.0, 5.0, 10.0])
-                calcChip(
-                  'ed_grid_${g.round()}',
-                  g == 0 ? '모눈 끔' : '모눈 ${_f(g)}',
-                  _grid == g,
-                  () => _setGrid(g),
-                ),
-            ],
-          ),
           if (_sel.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text('고른 구멍', style: TextStyle(color: fc.textSub)),
@@ -949,64 +941,87 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
               ],
             ),
           ],
-          const SizedBox(height: 10),
-          Text('한꺼번에 넣기', style: TextStyle(color: fc.textSub)),
           const SizedBox(height: 4),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              calcChip('ed_add_row', '줄로 넣기', false, () => _addGroup()),
-              if (widget.input.shape == PlateShape.flat)
+          TextButton.icon(
+            key: const Key('ed_more'),
+            style: TextButton.styleFrom(foregroundColor: fc.textSub),
+            onPressed: () => setState(() => _more = !_more),
+            icon: Icon(_more ? Icons.expand_less : Icons.expand_more),
+            label: Text(_more ? '접기' : '더 보기 (모눈·한꺼번에 넣기·판 돌리기)'),
+          ),
+          if (_more) ...[
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final g in const [0.0, 1.0, 5.0, 10.0])
+                  calcChip(
+                    'ed_grid_${g.round()}',
+                    g == 0 ? '모눈 끔' : '모눈 ${_f(g)}',
+                    _grid == g,
+                    () => _setGrid(g),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text('한꺼번에 넣기', style: TextStyle(color: fc.textSub)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                calcChip('ed_add_row', '줄로 넣기', false, () => _addGroup()),
+                if (widget.input.shape == PlateShape.flat)
+                  calcChip(
+                    'ed_add_corners',
+                    '네 귀 구멍',
+                    false,
+                    () => _addGroup(
+                      preset: const PlateHoleGroup(
+                        dia: 13.5,
+                        corners: true,
+                        x: 20,
+                        y: 20,
+                      ),
+                    ),
+                  ),
                 calcChip(
-                  'ed_add_corners',
-                  '네 귀 구멍',
+                  'ed_add_slot',
+                  '장공 넣기',
                   false,
                   () => _addGroup(
                     preset: const PlateHoleGroup(
                       dia: 13.5,
-                      corners: true,
-                      x: 20,
-                      y: 20,
+                      slot: 30,
+                      x: 25,
+                      y: 25,
                     ),
                   ),
                 ),
-              calcChip(
-                'ed_add_slot',
-                '장공 넣기',
-                false,
-                () => _addGroup(
-                  preset: const PlateHoleGroup(
-                    dia: 13.5,
-                    slot: 30,
-                    x: 25,
-                    y: 25,
+                calcChip('ed_pcd', '원형 배치(PCD)', false, _pcd),
+                if (_holes.isNotEmpty)
+                  calcChip('ed_clear', '모두 지우기', false, _clearAll),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (!_bent)
+                  calcChip(
+                    'ed_rot',
+                    '판 90° 돌리기',
+                    false,
+                    () => _change(() {
+                      _rot = (_rot + 1) % 4;
+                      _zoom = 1;
+                      _pan = Offset.zero;
+                    }),
                   ),
-                ),
-              ),
-              calcChip('ed_pcd', '원형 배치(PCD)', false, _pcd),
-              if (_holes.isNotEmpty)
-                calcChip('ed_clear', '모두 지우기', false, _clearAll),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              if (!_bent)
-                calcChip(
-                  'ed_rot',
-                  '판 90° 돌리기',
-                  false,
-                  () => _change(() {
-                    _rot = (_rot + 1) % 4;
-                    _zoom = 1;
-                    _pan = Offset.zero;
-                  }),
-                ),
-            ],
-          ),
+              ],
+            ),
+          ],
           ?widget.footer,
         ],
       ),
@@ -1093,7 +1108,9 @@ class _EditorPainter extends CustomPainter {
     required this.selected,
     required this.guideX,
     required this.guideY,
+    this.showCenter = true,
   });
+  final bool showCenter;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1196,16 +1213,21 @@ class _EditorPainter extends CustomPainter {
         );
       }
     }
-    // 판 가운데 십자 중심선
-    plateDrawCenterLines(
-      canvas,
-      toScreen: toScreen,
-      minX: p.minX,
-      minY: p.minY,
-      maxX: p.maxX,
-      maxY: p.maxY,
-      ext: 14,
-    );
+    // 판 가운데 십자 중심선(꺾기선과 같은 자리면 세로선 옅게)
+    if (showCenter) {
+      plateDrawCenterLines(
+        canvas,
+        toScreen: toScreen,
+        minX: p.minX,
+        minY: p.minY,
+        maxX: p.maxX,
+        maxY: p.maxY,
+        ext: 14,
+        faintVertical: p.bends.any(
+          (b) => (b.center - (p.minX + p.maxX) / 2).abs() < 1,
+        ),
+      );
+    }
     // 고른 구멍 하나: 왼쪽·아래 끝까지 치수
     if (selected.length == 1 && selected.first < p.holes.length) {
       final h = p.holes[selected.first];

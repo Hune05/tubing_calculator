@@ -70,8 +70,7 @@ class ElecTransformerSeed {
 }
 
 /// 칸의 글을 숫자로 읽는다. 비었거나 숫자가 아니면 null.
-double? readNum(TextEditingController c) =>
-    parseNumberText(c.text);
+double? readNum(TextEditingController c) => parseNumberText(c.text);
 
 mixin ElecTabParts<W extends StatefulWidget>
     on CalcFormParts<W>, RecentCalcHistoryMixin<W> {
@@ -167,7 +166,8 @@ mixin ElecTabParts<W extends StatefulWidget>
   void _registerRestorer(String sumKey) {
     calcLog.restorers[sumKey] = _myRestorers.putIfAbsent(
       sumKey,
-      () => (raw) => restoreElecHistory(sumKey, raw),
+      () =>
+          (raw) => restoreElecHistory(sumKey, raw),
     );
   }
 
@@ -190,7 +190,9 @@ mixin ElecTabParts<W extends StatefulWidget>
     final beforeRaw = before == null ? null : jsonEncode(before);
     calcLog.openTab?.call(sumKey);
     try {
-      setState(() => applyHistorySnapshot(jsonDecode(raw) as Map<String, dynamic>));
+      setState(
+        () => applyHistorySnapshot(jsonDecode(raw) as Map<String, dynamic>),
+      );
     } catch (_) {
       // 옛 기록을 반쯤 넣다 멈추면 칸이 뒤섞이니 누르기 전 값으로 되돌려 놓고 알린다.
       if (before != null) setState(() => applyHistorySnapshot(before));
@@ -248,6 +250,7 @@ mixin ElecTabParts<W extends StatefulWidget>
       );
 
   /// [elecPage]의 틀만: 요약 줄 + [body](예: 탭 여러 개를 담은 IndexedStack). 기록·입력 남기기도 같이 한다.
+  /// [showBar]가 false면 요약 줄은 그리지 않는다(화면이 제목 줄 아래에 따로 보일 때).
   Widget elecPageFrame({
     required String sumKey,
     String? summary,
@@ -255,6 +258,7 @@ mixin ElecTabParts<W extends StatefulWidget>
     Widget? header,
     Widget? footer,
     required Widget body,
+    bool showBar = true,
   }) {
     _registerRestorer(sumKey);
     if (summary != null) logElecHistory(sumKey, summary);
@@ -264,7 +268,8 @@ mixin ElecTabParts<W extends StatefulWidget>
       behavior: HitTestBehavior.translucent,
       child: Column(
         children: [
-          ElecSummaryBar(sumKey: sumKey, summary: summary, warn: warn),
+          if (showBar)
+            ElecSummaryBar(sumKey: sumKey, summary: summary, warn: warn),
           ?header,
           Expanded(child: body),
           ?footer,
@@ -287,38 +292,38 @@ mixin ElecTabParts<W extends StatefulWidget>
     label,
     c,
     calcBox(
-    child: Row(
-      children: [
-        Expanded(flex: 5, child: calcLabel(label, guide)),
-        Expanded(
-          flex: 4,
-          child: TextField(
-            key: Key(key),
-            controller: c,
-            focusNode: focus,
-            textAlign: TextAlign.right,
-            keyboardType: TextInputType.numberWithOptions(
-              decimal: true,
-              signed: signed,
+      child: Row(
+        children: [
+          Expanded(flex: 5, child: calcLabel(label, guide)),
+          Expanded(
+            flex: 4,
+            child: TextField(
+              key: Key(key),
+              controller: c,
+              focusNode: focus,
+              textAlign: TextAlign.right,
+              keyboardType: TextInputType.numberWithOptions(
+                decimal: true,
+                signed: signed,
+              ),
+              textInputAction: TextInputAction.next,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: fc.text,
+              ),
+              // 칸이 0.9를 90%로 읽지 않는 탭(부하 합산)은 "= 90%"를 붙이지 않는다.
+              decoration: ratioDecoration(ratioHint ? label : '', c),
+              onChanged: (_) {
+                onEdit?.call();
+                setState(() {});
+              },
             ),
-            textInputAction: TextInputAction.next,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: fc.text,
-            ),
-            // 칸이 0.9를 90%로 읽지 않는 탭(부하 합산)은 "= 90%"를 붙이지 않는다.
-            decoration: ratioDecoration(ratioHint ? label : '', c),
-            onChanged: (_) {
-              onEdit?.call();
-              setState(() {});
-            },
           ),
-        ),
-        const SizedBox(width: 8),
-      ],
+          const SizedBox(width: 8),
+        ],
+      ),
     ),
-  ),
   );
 
   /// 이름표 + 칩 한 줄.
@@ -401,7 +406,6 @@ mixin ElecTabParts<W extends StatefulWidget>
     ),
   );
 }
-
 
 /// [ElecTabParts.elecFold]가 그리는 접었다 펴는 구역. 펴고 접은 상태를 폰에 기억한다.
 class ElecFold extends StatefulWidget {
@@ -546,7 +550,9 @@ class ElecSummaryBar extends StatelessWidget {
       decoration: BoxDecoration(
         color: s == null
             ? fc.surface
-            : (warn ? fieldSoft(Colors.red.shade50, (p) => p.danger) : fc.brandSoft),
+            : (warn
+                  ? fieldSoft(Colors.red.shade50, (p) => p.danger)
+                  : fc.brandSoft),
         border: Border(bottom: BorderSide(color: fc.line)),
       ),
       child: Row(
@@ -577,4 +583,3 @@ class ElecSummaryBar extends StatelessWidget {
     );
   }
 }
-
