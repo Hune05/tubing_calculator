@@ -479,31 +479,34 @@ void main() {
       expect(d.first.armX, 6.75);
     });
 
-    test('DXF: DIM 층에 십자 중심선·치수선·글(세로 치수는 90° 돌림), 자르는 CUT 층은 그대로', () {
-      final p = platePlan(
-        const PlateInput(
-          shape: PlateShape.flat,
-          t: 3,
-          length: 200,
-          width: 100,
-          holes: [
-            PlateHoleSpec(u: 20, v: 20, dia: 13.5),
-            PlateHoleSpec(u: 180, v: 20, dia: 13.5),
-            PlateHoleSpec(u: 20, v: 80, dia: 13.5),
-          ],
-        ),
-      );
-      final dxf = plateDxf(p, thickness: 3);
-      final dimLines = RegExp(r'LINE\n8\nDIM\n').allMatches(dxf).length;
-      // 십자 3개 × 2 + 왼쪽 치수 2 + 아래 치수 2
-      expect(dimLines, 10);
-      final texts = RegExp(
-        r'TEXT\n8\nDIM\n[^]*?\n1\n([^\n]+)\n',
-      ).allMatches(dxf).map((m) => m.group(1)).toList();
-      expect(texts, ['20', '20', '180', '80']);
-      expect(dxf, contains('\n50\n90\n'));
-      expect(RegExp(r'CIRCLE\n8\nCUT\n').allMatches(dxf).length, 3);
-    });
+    test(
+      'DXF: DIM 층에 판 가운데 중심선(CL)·구멍 십자·치수선·글(세로 치수는 90° 돌림), CUT 층은 그대로',
+      () {
+        final p = platePlan(
+          const PlateInput(
+            shape: PlateShape.flat,
+            t: 3,
+            length: 200,
+            width: 100,
+            holes: [
+              PlateHoleSpec(u: 20, v: 20, dia: 13.5),
+              PlateHoleSpec(u: 180, v: 20, dia: 13.5),
+              PlateHoleSpec(u: 20, v: 80, dia: 13.5),
+            ],
+          ),
+        );
+        final dxf = plateDxf(p, thickness: 3);
+        final dimLines = RegExp(r'LINE\n8\nDIM\n').allMatches(dxf).length;
+        // 판 가운데 중심선 2 + 구멍 십자 3개 × 2 + 왼쪽 치수 2 + 아래 치수 2
+        expect(dimLines, 12);
+        final texts = RegExp(
+          r'TEXT\n8\nDIM\n[^]*?\n1\n([^\n]+)\n',
+        ).allMatches(dxf).map((m) => m.group(1)).toList();
+        expect(texts, ['CL', '20', '20', '180', '80']);
+        expect(dxf, contains('\n50\n90\n'));
+        expect(RegExp(r'CIRCLE\n8\nCUT\n').allMatches(dxf).length, 3);
+      },
+    );
 
     testWidgets('그림·PDF용 PNG에 십자 치수를 그려도 그대로 그려진다', (tester) async {
       final p = platePlan(
@@ -591,24 +594,40 @@ void main() {
     }
 
     /// 맨 아래 "업체에 보내기" → dxf·pdf·kakao.
+    /// 아래 탭 고르기(shape·bend·holes·result·send).
+    Future<void> tab(WidgetTester tester, String id) async {
+      await tester.tap(find.byKey(Key('pl_tab_$id')));
+      await tester.pumpAndSettle();
+    }
+
+    /// 보내기 탭 → dxf·pdf·kakao.
     Future<void> send(WidgetTester tester, String what) async {
-      await tester.tap(find.byKey(const Key('pl_send')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(Key('pl_send_$what')));
-      await tester.pumpAndSettle();
+      await tab(tester, 'send');
+      await tap(tester, 'pl_send_$what');
     }
 
     testWidgets('절곡 화면은 ㄱ자부터, 레이저 절단 화면은 평판부터, 입력은 따로 남는다', (tester) async {
       await open(tester);
       expect(find.text('절단 + 절곡'), findsOneWidget);
       expect(sum(tester), '철판 ㄱ자 · 3t · 전개 94.3 × 100 mm');
+      // 탭: 모양 · 꺾기 · 구멍 · 결과 · 보내기(절곡), 처음은 모양 탭
+      for (final id in ['shape', 'bend', 'holes', 'result', 'send']) {
+        expect(find.byKey(Key('pl_tab_$id')), findsOneWidget);
+      }
       expect(find.byKey(const Key('pl_view')), findsOneWidget);
-      expect(find.byKey(const Key('pl_side')), findsOneWidget);
-      expect(find.textContaining('꺾기 1: 왼쪽 끝에서 47.1mm'), findsOneWidget);
       expect(find.byKey(const Key('pl_shape_flat')), findsNothing);
+      expect(find.byKey(const Key('pl_side')), findsNothing); // 결과 탭에
+      // "다음" 단추로 차례대로: 모양 → 꺾기
+      await tap(tester, 'pl_next_bend');
+      expect(find.byKey(const Key('pl_side_bend')), findsOneWidget);
+      expect(find.textContaining('꺾기 1: 왼쪽 끝에서 47.1mm'), findsOneWidget);
+      await tab(tester, 'result');
+      expect(find.byKey(const Key('pl_side')), findsOneWidget);
+      expect(find.byKey(const Key('pl_view_big')), findsOneWidget);
       // 결과 칸은 무게 위주(크기는 요약 줄에만)
       expect(find.textContaining('장당 약'), findsOneWidget);
       expect(find.text('94.3 × 100 mm'), findsNothing);
+      await tab(tester, 'shape');
       await tap(tester, 'pl_shape_hat');
       // 발 50 · 높이 50 · 윗면 50 → 250 − 4 × 공제
       final hat = '${(250 - 4 * bd3).toStringAsFixed(1)} × 100 mm';
@@ -618,7 +637,9 @@ void main() {
       await open(tester, bend: false);
       expect(find.text('레이저 절단'), findsOneWidget);
       expect(sum(tester), '철판 평판 · 3t · 200 × 100 mm');
-      expect(find.byKey(const Key('pl_side')), findsNothing);
+      // 레이저 절단은 꺾기 탭이 없다
+      expect(find.byKey(const Key('pl_tab_bend')), findsNothing);
+      expect(find.byKey(const Key('pl_next_holes')), findsOneWidget);
       expect(find.byKey(const Key('pl_shape_hat')), findsNothing);
       await tap(tester, 'pl_shape_rib');
       expect(sum(tester), endsWith(' 100 × 100 mm'));
@@ -708,12 +729,12 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(focused('pl_wid'), isTrue);
-      // 판 가운데 → 구멍 편집
+      // 판 가운데 → 구멍 탭(편집 화면이 탭 안에)
       await tester.tapAt(onView(tester, p, const Offset(100, 50)));
       await tester.pumpAndSettle();
-      expect(find.text('구멍 배치 편집'), findsOneWidget);
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+      expect(find.text('구멍 배치'), findsOneWidget);
+      expect(find.byKey(const Key('ed_canvas')), findsOneWidget);
+      await tab(tester, 'shape');
       // 그림 접기·펴기(기억)
       await tap(tester, 'pl_preview_toggle');
       expect(find.byKey(const Key('pl_view')), findsNothing);
@@ -794,7 +815,10 @@ void main() {
       );
       expect(find.textContaining('손그림에서 옮겨 왔습니다'), findsOneWidget);
       expect(sum(tester), '철판 자유 모양 · 4t · 150 × 80 mm');
-      expect(find.textContaining('구멍 1개 · φ11 1'), findsOneWidget);
+      expect(
+        find.textContaining('구멍 1개 · φ11 1', skipOffstage: false),
+        findsOneWidget,
+      );
       await tester.tap(find.text('되돌리기'));
       await tester.pumpAndSettle();
       expect(sum(tester), endsWith(' 200 × 100 mm'));
@@ -805,9 +829,8 @@ void main() {
     ) async {
       String? dxf;
       await open(tester, dxf: (s) async => dxf = s);
-      // 예전 칩(줄로 넣기·네 귀 구멍·장공 넣기)은 편집 화면 안으로 옮겼다
-      expect(find.byKey(const Key('pl_hole_add')), findsNothing);
-      await tap(tester, 'pl_hole_edit');
+      // 구멍 탭(편집 화면) 안의 "줄로 넣기"
+      await tab(tester, 'holes');
       await tap(tester, 'ed_add_row');
       await tester.tap(find.byKey(const Key('hs_face_1')));
       await tester.pumpAndSettle();
@@ -815,8 +838,7 @@ void main() {
       await tester.enterText(find.byKey(const Key('hs_y')), '50');
       await tester.tap(find.byKey(const Key('hs_ok')));
       await tester.pumpAndSettle();
-      await tester.pageBack();
-      await tester.pumpAndSettle();
+      await tab(tester, 'result');
       expect(find.textContaining('구멍 1개 · φ13.5 1'), findsOneWidget);
       expect(find.textContaining('구멍 1 φ13.5: 2면 30·50 → 전개도'), findsOneWidget);
       await send(tester, 'dxf');
@@ -824,19 +846,24 @@ void main() {
       expect(dxf, contains('BEND 1 UP 90 R3'));
       await close(tester);
       await open(tester);
+      await tab(tester, 'result');
       expect(find.textContaining('구멍 1개 · φ13.5 1'), findsOneWidget);
     });
 
     testWidgets('업체 공제값을 두께별로 저장하고 두께를 고르면 채운다', (tester) async {
       await open(tester);
       await tap(tester, 'pl_t_4');
+      await tab(tester, 'bend');
       await tester.enterText(find.byKey(const Key('pl_bd')), '7');
       await tester.pumpAndSettle();
       expect(sum(tester), endsWith('전개 93 × 100 mm'));
       await tap(tester, 'pl_bd_save');
+      await tab(tester, 'shape');
       await tap(tester, 'pl_t_3');
-      String text(String k) =>
-          tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+      String text(String k) => tester
+          .widget<TextField>(find.byKey(Key(k), skipOffstage: false))
+          .controller!
+          .text;
       expect(text('pl_bd'), '');
       await tap(tester, 'pl_t_4');
       expect(text('pl_bd'), '7');
@@ -844,7 +871,7 @@ void main() {
       expect(prefs.getString(PlatePage.bendTableKey), contains('"4"'));
     });
 
-    testWidgets('업체에 보내기 → 카톡 글, 키보드가 뜨면 단추를 숨긴다', (tester) async {
+    testWidgets('보내기 탭 → 카톡 글, 키보드가 뜨면 아래 탭 줄을 숨긴다', (tester) async {
       String? sent;
       await open(tester, share: (s) async => sent = s);
       await send(tester, 'kakao');
@@ -854,7 +881,7 @@ void main() {
       tester.view.viewInsets = const FakeViewPadding(bottom: 600);
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
-      expect(find.byKey(const Key('pl_send')), findsNothing);
+      expect(find.byKey(const Key('pl_tab_send')), findsNothing);
     });
 
     testWidgets('전개도·꺾은 모양 PNG와 PDF', (tester) async {

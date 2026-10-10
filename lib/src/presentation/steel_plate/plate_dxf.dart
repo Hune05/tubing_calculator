@@ -1,6 +1,6 @@
 // 철판 가공 DXF(10-10): 레이저 업체에 보내는 전개도 파일. AutoCAD R12(AC1009) 글 형식, 단위 mm.
 //  · 층(레이어): CUT = 외곽·구멍·장공(자를 선), BEND = 꺾기선(가운데 선, 자르지 않음), NOTE = 꺾는 방향 글(영문),
-//    DIM = 구멍 십자 중심선과 판 왼쪽·아래 끝에서의 치수(자르지 않음, 10-10 사용자: "치수선이 십자로").
+//    DIM = 판 가운데 십자 중심선(CL), 구멍 십자 중심선과 판 왼쪽·아래 끝에서의 치수(자르지 않음, 10-10).
 //  · 글은 업체 프로그램에서 깨지지 않게 영문·숫자만 쓴다("BEND 1 UP 90 R3").
 library;
 
@@ -120,6 +120,11 @@ String plateDxf(PlatePlan p, {required double thickness}) {
     d.arc('CUT', c2.dx, c2.dy, r, _norm(base - 90), _norm(base + 90));
     d.arc('CUT', c1.dx, c1.dy, r, _norm(base + 90), _norm(base + 270));
   }
+  // 판 가운데 십자 중심선(DIM 층): 판 밖으로 5mm씩
+  final cx = (p.minX + p.maxX) / 2, cy = (p.minY + p.maxY) / 2;
+  d.line('DIM', p.minX - 5, cy, p.maxX + 5, cy);
+  d.line('DIM', cx, p.minY - 5, cx, p.maxY + 5);
+  d.text('DIM', p.maxX + 6, cy - 1.75, 3.5, 'CL');
   // 구멍 십자 치수(DIM 층, 자르지 않음): 중심선은 구멍 밖으로 3mm, 치수선 위에 글(높이 3.5)
   const th = 3.5;
   for (final dm in plateHoleDims([

@@ -72,8 +72,10 @@ void main() {
   Future<void> openFlatEditor(WidgetTester tester) async {
     await openPage(tester);
     // 레이저 절단 화면은 평판 200 × 100부터
-    await tap(tester, 'pl_hole_edit');
-    expect(find.text('구멍 배치 편집'), findsOneWidget);
+    // 10-10: 편집 화면은 철판 가공의 "구멍" 탭 안에 있다
+    await tester.tap(find.byKey(const Key('pl_tab_holes')));
+    await tester.pumpAndSettle();
+    expect(find.text('구멍 배치'), findsOneWidget);
   }
 
   testWidgets('누르면 놓고, 끌면 모눈에 맞춰 옮긴다', (tester) async {
@@ -99,8 +101,8 @@ void main() {
     await tester.tapAt(scr(tester, 100, 90));
     await tester.pumpAndSettle();
     expect(status(tester), startsWith('구멍을 눌러 고르고'));
-    // 뒤로 가면 철판 가공 화면에 바로 들어가 있다
-    await tester.pageBack();
+    // 결과 탭에 바로 들어가 있다
+    await tester.tap(find.byKey(const Key('pl_tab_result')));
     await tester.pumpAndSettle();
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('구멍 2개 · φ13.5 2'), findsOneWidget);
@@ -124,7 +126,7 @@ void main() {
     expect(status(tester), '구멍 2개 고름');
     await tap(tester, 'ed_align_h'); // 첫째(40, 30)의 높이로
     await tap(tester, 'ed_mirror_lr'); // 판 가운데(100) 기준 → 160, 130
-    await tester.pageBack();
+    await tester.tap(find.byKey(const Key('pl_tab_result')));
     await tester.pumpAndSettle();
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('구멍 4개 · φ13.5 4'), findsOneWidget);
@@ -132,10 +134,11 @@ void main() {
     expect(find.textContaining('구멍 2 φ13.5: 전개도 70 · 30'), findsOneWidget);
     expect(find.textContaining('구멍 3 φ13.5: 전개도 160 · 30'), findsOneWidget);
     expect(find.textContaining('구멍 4 φ13.5: 전개도 130 · 30'), findsOneWidget);
-    // 다시 들어가 되돌리기는 이번 편집 안에서만(새로 들어오면 비어 있다)
-    await tap(tester, 'pl_hole_edit');
+    // 탭을 옮겨 다녀와도 편집 기록(되돌리기)은 남는다
+    await tester.tap(find.byKey(const Key('pl_tab_holes')));
+    await tester.pumpAndSettle();
     final undo = tester.widget<IconButton>(find.byKey(const Key('ed_undo')));
-    expect(undo.onPressed, isNull);
+    expect(undo.onPressed, isNotNull);
   });
 
   testWidgets('되돌리기·다시 하기, 지우기 알림으로 되돌리기', (tester) async {
@@ -155,7 +158,7 @@ void main() {
     expect(find.text('삭제했습니다: 구멍 1개'), findsOneWidget);
     await tester.tap(find.text('되돌리기'));
     await tester.pumpAndSettle();
-    await tester.pageBack();
+    await tester.tap(find.byKey(const Key('pl_tab_result')));
     await tester.pumpAndSettle();
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('구멍 1개 · φ13.5 1'), findsOneWidget);
@@ -179,7 +182,7 @@ void main() {
     await tester.tap(find.byKey(const Key('ed_num_ok')));
     await tester.pumpAndSettle();
     expect(status(tester), '구멍 4개 고름');
-    await tester.pageBack();
+    await tester.tap(find.byKey(const Key('pl_tab_result')));
     await tester.pumpAndSettle();
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('구멍 5개 · '), findsOneWidget);
@@ -197,7 +200,7 @@ void main() {
     await tester.tapAt(scr(tester, 40, 20));
     await tester.pumpAndSettle();
     await tap(tester, 'ed_rot');
-    await tester.pageBack();
+    await tester.tap(find.byKey(const Key('pl_tab_result')));
     await tester.pumpAndSettle();
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('판 90° 돌림'), findsOneWidget);
@@ -234,6 +237,8 @@ void main() {
       }),
     });
     await openPage(tester);
+    await tester.tap(find.byKey(const Key('pl_tab_result')));
+    await tester.pumpAndSettle();
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('구멍 4개 · φ13.5 4'), findsOneWidget);
     await see(tester, find.byKey(const Key('pl_holes')));

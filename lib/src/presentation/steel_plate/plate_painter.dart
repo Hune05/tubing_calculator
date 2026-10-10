@@ -129,6 +129,18 @@ class PlatePainter extends CustomPainter {
       );
     }
 
+    // 판 가운데 십자 중심선
+    plateDrawCenterLines(
+      canvas,
+      toScreen: m,
+      minX: p.minX,
+      minY: p.minY,
+      maxX: p.maxX,
+      maxY: p.maxY,
+      fontScale: fontScale,
+      ext: 8,
+    );
+
     // 구멍 십자 치수(판 왼쪽·아래 끝에서 구멍 가운데까지)
     plateDrawHoleDims(
       canvas,
@@ -428,3 +440,61 @@ void plateDrawHoleDims(
 /// 계산된 구멍들의 십자 치수(같은 줄은 하나로).
 List<PlateHoleDim> plateHoleDimsOf(List<PlateHole> holes) =>
     plateHoleDims([for (final h in holes) (h.c, h.halfX, h.halfY)]);
+
+/// 판 가운데 십자 중심선 색(빨강 계열, 꺾기선 주황·치수 회색과 구별).
+const Color kPlateCenter = Color(0xFFD64545);
+
+/// 판 가운데 십자 중심선(10-10 사용자: "센터가 어디인지 안 보여서"): 판을 감싸는 사각의 가운데를 지나는
+/// 가로·세로 1점 쇄선(긴 선·점)을 판 밖으로 [ext]점 더 내고, 끝에 "C"를 단다.
+void plateDrawCenterLines(
+  Canvas canvas, {
+  required Offset Function(Offset mm) toScreen,
+  required double minX,
+  required double minY,
+  required double maxX,
+  required double maxY,
+  Color color = kPlateCenter,
+  double fontScale = 1,
+  double ext = 10,
+}) {
+  final cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+  final paint = Paint()
+    ..color = color
+    ..strokeWidth = 1.1 * fontScale;
+  void dashDot(Offset a, Offset b) {
+    final d = b - a, len = d.distance;
+    if (len < 1) return;
+    final u = d / len;
+    final long = 12.0 * fontScale, gap = 3.0 * fontScale, dot = 2.0 * fontScale;
+    var t = 0.0;
+    while (t < len) {
+      canvas.drawLine(a + u * t, a + u * math.min(t + long, len), paint);
+      t += long + gap;
+      if (t < len) {
+        canvas.drawLine(a + u * t, a + u * math.min(t + dot, len), paint);
+      }
+      t += dot + gap;
+    }
+  }
+
+  final e = ext * fontScale;
+  final l = toScreen(Offset(minX, cy)) - Offset(e, 0);
+  final r = toScreen(Offset(maxX, cy)) + Offset(e, 0);
+  final t = toScreen(Offset(cx, maxY)) - Offset(0, e);
+  final b = toScreen(Offset(cx, minY)) + Offset(0, e);
+  dashDot(l, r);
+  dashDot(t, b);
+  final tp = TextPainter(
+    text: TextSpan(
+      text: 'C',
+      style: TextStyle(
+        fontSize: 11 * fontScale,
+        fontWeight: FontWeight.w900,
+        color: color,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+  )..layout();
+  tp.paint(canvas, r + Offset(2, -tp.height / 2));
+  tp.paint(canvas, t + Offset(-tp.width / 2, -tp.height - 1));
+}

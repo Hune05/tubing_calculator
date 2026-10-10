@@ -6,6 +6,7 @@
 // 바뀔 때마다 [PlateHoleEditorPage.onChanged]로 철판 가공 화면에 바로 넘긴다(따로 "저장" 단추 없음).
 library;
 
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart' show DragStartBehavior;
@@ -30,7 +31,11 @@ class PlateHoleEditorPage extends StatefulWidget {
     required this.rotQ,
     required this.dies,
     required this.onChanged,
+    this.embedded = false,
   });
+
+  /// 철판 가공 화면의 "구멍" 탭 안에 넣을 때(제목 줄 없이, 되돌리기·다시·전체 보기는 그림 위 작은 줄).
+  final bool embedded;
 
   /// 판 치수(구멍·돌림은 아래 값을 쓴다).
   final PlateInput input;
@@ -88,6 +93,23 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
   bool get _bent => plateShapeBends(widget.input.shape);
 
   PlatePlan get _plan => platePlan(widget.input.withHoles(_holes, rotQ: _rot));
+
+  /// 탭 안에 있을 때 다른 탭에서 구멍이 바뀌면(저장한 규격 불러오기 등) 따라간다.
+  @override
+  void didUpdateWidget(covariant PlateHoleEditorPage old) {
+    super.didUpdateWidget(old);
+    String sig(List<PlateHoleSpec> l, int r) =>
+        jsonEncode([r, for (final h in l) h.toJson()]);
+    if (sig(widget.holes, widget.rotQ) != sig(_holes, _rot)) {
+      _holes
+        ..clear()
+        ..addAll(widget.holes);
+      _rot = widget.rotQ;
+      _sel.clear();
+      _undo.clear();
+      _redo.clear();
+    }
+  }
 
   @override
   void initState() {
@@ -611,7 +633,12 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       final face = p.isBent
           ? ' · ${p.faceNames[h.face]} ${_f(h.u)} · ${_f(h.v)}'
           : '';
-      return '구멍 ${h.label} ${plateHoleKind(h)}: 왼쪽 ${_f(h.c.dx - p.minX)} · 아래 ${_f(h.c.dy - p.minY)} · 오른쪽 ${_f(p.maxX - h.c.dx)} · 위 ${_f(p.maxY - h.c.dy)}$face';
+      // 판 가운데(빨간 쇄선)에서: 오른쪽·위가 +
+      final gx = h.c.dx - (p.minX + p.maxX) / 2;
+      final gy = h.c.dy - (p.minY + p.maxY) / 2;
+      String sg(double v) =>
+          v.abs() < 0.05 ? '0' : '${v > 0 ? '+' : '−'}${_f(v.abs())}';
+      return '구멍 ${h.label} ${plateHoleKind(h)}: 왼쪽 ${_f(h.c.dx - p.minX)} · 아래 ${_f(h.c.dy - p.minY)} · 오른쪽 ${_f(p.maxX - h.c.dx)} · 위 ${_f(p.maxY - h.c.dy)} · 가운데에서 가로 ${sg(gx)} · 세로 ${sg(gy)}$face';
     }
     if (_sel.length > 1) return '구멍 ${_sel.length}개 고름';
     if (_place) {
@@ -625,6 +652,88 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     final p = _plan;
     final bad = p.holes.where((h) => h.bad).length;
     final hasSlot = _sel.any((i) => i < p.holes.length && p.holes[i].slot > 0);
+    final tools = [
+      IconButton(
+        key: const Key('ed_undo'),
+        tooltip: '되돌리기',
+        onPressed: _undo.isEmpty ? null : _undoOnce,
+        icon: const Icon(Icons.undo),
+      ),
+      IconButton(
+        key: const Key('ed_redo'),
+        tooltip: '다시 하기',
+        onPressed: _redo.isEmpty ? null : _redoOnce,
+        icon: const Icon(Icons.redo),
+      ),
+      IconButton(
+        key: const Key('ed_fit'),
+        tooltip: '판 전체 보기',
+        onPressed: () => setState(() {
+          _zoom = 1;
+          _pan = Offset.zero;
+        }),
+        icon: const Icon(Icons.fit_screen_outlined),
+      ),
+    ];
+    // 색(fc)은 현장 보기 테마 안에서 읽어야 하므로 바로 만들지 않고 함수로
+    Widget body() => Column(
+      children: [
+        if (widget.embedded)
+          Container(
+            height: 44,
+            padding: const EdgeInsets.only(left: 16),
+            color: fc.surface,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '구멍 배치',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: fc.text,
+                    ),
+                  ),
+                ),
+                ...tools,
+              ],
+            ),
+          ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, box) {
+              _size = box.biggest;
+              return Listener(
+                onPointerDown: (e) => _downAt = e.localPosition,
+                child: GestureDetector(
+                  key: const Key('ed_canvas'),
+                  behavior: HitTestBehavior.opaque,
+                  // 처음 손가락을 댄 자리를 시작점으로(끌 때 구멍이 손가락보다 뒤처지지 않게, 고르기도 그 자리에서)
+                  dragStartBehavior: DragStartBehavior.down,
+                  onTapUp: _onTap,
+                  onScaleStart: _onScaleStart,
+                  onScaleUpdate: _onScaleUpdate,
+                  onScaleEnd: _onScaleEnd,
+                  child: CustomPaint(
+                    painter: _EditorPainter(
+                      plan: p,
+                      toScreen: (mm) => _toScreen(p, mm),
+                      scale: _s(p),
+                      grid: _grid,
+                      selected: _sel.toSet(),
+                      guideX: _guideX,
+                      guideY: _guideY,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        _panel(p, bad, hasSlot),
+      ],
+    );
+    if (widget.embedded) return body();
     return FieldViewTheme(
       child: Builder(
         builder: (context) => Scaffold(
@@ -638,67 +747,9 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
               '구멍 배치 편집',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
-            actions: [
-              IconButton(
-                key: const Key('ed_undo'),
-                tooltip: '되돌리기',
-                onPressed: _undo.isEmpty ? null : _undoOnce,
-                icon: const Icon(Icons.undo),
-              ),
-              IconButton(
-                key: const Key('ed_redo'),
-                tooltip: '다시 하기',
-                onPressed: _redo.isEmpty ? null : _redoOnce,
-                icon: const Icon(Icons.redo),
-              ),
-              IconButton(
-                key: const Key('ed_fit'),
-                tooltip: '판 전체 보기',
-                onPressed: () => setState(() {
-                  _zoom = 1;
-                  _pan = Offset.zero;
-                }),
-                icon: const Icon(Icons.fit_screen_outlined),
-              ),
-            ],
+            actions: tools,
           ),
-          body: Column(
-            children: [
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, box) {
-                    _size = box.biggest;
-                    return Listener(
-                      onPointerDown: (e) => _downAt = e.localPosition,
-                      child: GestureDetector(
-                        key: const Key('ed_canvas'),
-                        behavior: HitTestBehavior.opaque,
-                        // 처음 손가락을 댄 자리를 시작점으로(끌 때 구멍이 손가락보다 뒤처지지 않게, 고르기도 그 자리에서)
-                        dragStartBehavior: DragStartBehavior.down,
-                        onTapUp: _onTap,
-                        onScaleStart: _onScaleStart,
-                        onScaleUpdate: _onScaleUpdate,
-                        onScaleEnd: _onScaleEnd,
-                        child: CustomPaint(
-                          painter: _EditorPainter(
-                            plan: p,
-                            toScreen: (mm) => _toScreen(p, mm),
-                            scale: _s(p),
-                            grid: _grid,
-                            selected: _sel.toSet(),
-                            guideX: _guideX,
-                            guideY: _guideY,
-                          ),
-                          child: const SizedBox.expand(),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              _panel(p, bad, hasSlot),
-            ],
-          ),
+          body: body(),
         ),
       ),
     );
@@ -1140,6 +1191,16 @@ class _EditorPainter extends CustomPainter {
         );
       }
     }
+    // 판 가운데 십자 중심선
+    plateDrawCenterLines(
+      canvas,
+      toScreen: toScreen,
+      minX: p.minX,
+      minY: p.minY,
+      maxX: p.maxX,
+      maxY: p.maxY,
+      ext: 14,
+    );
     // 모든 구멍 십자 치수(고른 구멍 하나는 십자만, 치수는 아래에서 진하게 따로)
     final all = plateHoleDimsOf(p.holes);
     plateDrawHoleDims(

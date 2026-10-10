@@ -226,6 +226,36 @@ mixin ElecTabParts<W extends StatefulWidget>
     Widget? footer,
     ScrollController? controller,
   }) {
+    return elecPageFrame(
+      sumKey: sumKey,
+      summary: summary,
+      warn: warn,
+      header: header,
+      footer: footer,
+      body: elecList(children, controller: controller),
+    );
+  }
+
+  /// 입력·결과 목록(칸 사이 "다음"은 입력칸만).
+  Widget elecList(List<Widget> children, {ScrollController? controller}) =>
+      FocusTraversalGroup(
+        policy: TextFieldsOnlyTraversalPolicy(),
+        child: ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+          children: children,
+        ),
+      );
+
+  /// [elecPage]의 틀만: 요약 줄 + [body](예: 탭 여러 개를 담은 IndexedStack). 기록·입력 남기기도 같이 한다.
+  Widget elecPageFrame({
+    required String sumKey,
+    String? summary,
+    bool warn = false,
+    Widget? header,
+    Widget? footer,
+    required Widget body,
+  }) {
     _registerRestorer(sumKey);
     if (summary != null) logElecHistory(sumKey, summary);
     _scheduleElecDraft();
@@ -236,16 +266,7 @@ mixin ElecTabParts<W extends StatefulWidget>
         children: [
           ElecSummaryBar(sumKey: sumKey, summary: summary, warn: warn),
           ?header,
-          Expanded(
-            child: FocusTraversalGroup(
-              policy: TextFieldsOnlyTraversalPolicy(),
-              child: ListView(
-                controller: controller,
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
-                children: children,
-              ),
-            ),
-          ),
+          Expanded(child: body),
           ?footer,
         ],
       ),

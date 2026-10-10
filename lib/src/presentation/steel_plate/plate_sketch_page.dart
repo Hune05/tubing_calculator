@@ -25,7 +25,7 @@ import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
 import 'plate_hole_editor.dart' show PlateNumbersDialog;
 import 'plate_page.dart';
-import 'plate_painter.dart' show plateDrawHoleDims;
+import 'plate_painter.dart' show plateDrawCenterLines, plateDrawHoleDims;
 import 'plate_sketch_model.dart';
 
 Future<Uint8List?> _pickPhoto(ImageSource source) async {
@@ -1580,8 +1580,20 @@ class _SketchPainter extends CustomPainter {
       );
     }
 
-    // 구멍 십자 치수(mm가 정해진 뒤): 판 왼쪽·아래 끝에서 구멍 가운데까지
     final bb = s.bounds;
+    // 판 가운데 십자 중심선(닫은 뒤)
+    if (s.closed && bb != null) {
+      plateDrawCenterLines(
+        canvas,
+        toScreen: toScreen,
+        minX: bb.left,
+        minY: bb.top,
+        maxX: bb.right,
+        maxY: bb.bottom,
+        ext: 14,
+      );
+    }
+    // 구멍 십자 치수(mm가 정해진 뒤): 판 왼쪽·아래 끝에서 구멍 가운데까지
     if (s.scaled && bb != null && s.holes.isNotEmpty) {
       plateDrawHoleDims(
         canvas,
