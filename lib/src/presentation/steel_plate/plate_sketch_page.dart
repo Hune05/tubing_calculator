@@ -141,6 +141,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   int? _dragPt, _dragHole;
   Offset _dragFrom = Offset.zero;
 
+  /// 손가락으로 긋는 중인 선(그림 단위). 빈 칸이면 외곽, 닫힌 판 안이면 구멍 그림.
+  List<Offset>? _ink;
+
   @override
   void initState() {
     super.initState();
@@ -565,10 +568,24 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       });
       return;
     }
+    // 빈 칸이면 외곽을, 닫힌 판 안이면 구멍을 손가락으로 긋는다(화면 옮기기는 판 밖이나 두 손가락)
+    if (_s.n == 0 || (_s.closed && sketchContains(_s.pts, m))) {
+      _ink = [m];
+      return;
+    }
     _panning = true;
   }
 
   void _onScaleUpdate(ScaleUpdateDetails d) {
+    final ink = _ink;
+    if (ink != null) {
+      if (d.pointerCount >= 2) {
+        setState(() => _ink = null); // 두 손가락이면 긋기를 그만두고 확대·이동
+      } else {
+        setState(() => ink.add(_toModel(d.localFocalPoint)));
+        return;
+      }
+    }
     if (d.pointerCount >= 2 || _pinching) {
       _pinching = true;
       final m = _toModelWith(_focal0, _zoom0, _pan0);
@@ -599,12 +616,86 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   }
 
   void _onScaleEnd(ScaleEndDetails d) {
+    final ink = _ink;
+    _ink = null;
+    if (ink != null) {
+      _panning = false;
+      _pinching = false;
+      // 다른 손가락이 아직 닿아 있으면(확대하려는 것) 그은 것은 버린다
+      d.pointerCount == 0 ? _commitInk(ink) : setState(() {});
+      return;
+    }
     final dragged = _dragPt != null || _dragHole != null;
     _dragPt = null;
     _dragHole = null;
     _panning = false;
     _pinching = false;
     if (dragged) _saveSoon();
+  }
+
+  /// 그은 선을 모양으로: 빈 칸이면 외곽 꼭짓점, 판 안의 작은 고리면 구멍·장공.
+  void _commitInk(List<Offset> ink) {
+    final sc = _scale;
+    var len = 0.0;
+    for (var i = 1; i < ink.length; i++) {
+      len += (ink[i] - ink[i - 1]).distance;
+    }
+    if (len * sc < 40) {
+      setState(() {}); // 너무 짧게 그음(손이 스친 것)
+      return;
+    }
+    if (_s.n == 0) {
+      final r = sketchStrokeToPolygon(ink, tol: 14 / sc, closeTol: 44 / sc);
+      if (r.pts.length < 2) {
+        setState(() {});
+        return;
+      }
+      _push();
+      var k = 0;
+      setState(() {
+        for (final p in r.closed ? sketchNormalizeLoop(r.pts) : r.pts) {
+          _s.addPoint(p);
+        }
+        if (r.closed) _s.close();
+        k = _s.squareUp(tolDeg: 12);
+        _selPt = null;
+        _selHole = null;
+      });
+      _saveSoon();
+      _say(
+        r.closed
+            ? '그은 선을 꼭짓점 ${_s.n}개로 바꿨습니다${k > 0 ? '(가로·세로 $k곳 세움)' : ''}. 변 이름을 눌러 길이를 넣으십시오.'
+            : '그은 선을 꼭짓점 ${_s.n}개로 바꿨습니다. 끝이 시작점과 떨어져 있어 아직 열려 있습니다. 다음 귀퉁이를 누르거나 1번 점을 눌러 닫습니다.',
+      );
+      return;
+    }
+    final b = _s.bounds!;
+    final loop = sketchLoopShape(ink, closeTol: 44 / sc);
+    if (loop == null || loop.major > 0.6 * math.min(b.width, b.height)) {
+      setState(() {});
+      _say('판 안에 작은 동그라미를 그리면 구멍이 됩니다. 화면을 옮기려면 판 밖을 끌거나 두 손가락으로 움직이십시오.');
+      return;
+    }
+    final slot = _s.scaled && loop.minor / loop.major < 0.6;
+    // 손가락 동그라미 크기는 대충이라 지름은 고른 펀치 지름으로(구멍을 눌러 고친다). 장공 길이만 그린 대로.
+    final dia = _tDia;
+    final slotLen = slot
+        ? math.max(dia * 1.5, (loop.major / 5).round() * 5.0)
+        : 0.0;
+    final ang = slot
+        ? ((loop.angleDeg / 15).round() * 15 % 180).toDouble()
+        : 0.0;
+    final c = _snapHole(loop.c);
+    _change(
+      () => _s.holes.add(
+        PlateHoleSpec(u: c.dx, v: c.dy, dia: dia, slot: slotLen, angle: ang),
+      ),
+    );
+    _say(
+      slot
+          ? '그린 고리를 장공 ${_f(dia)}×${_f(slotLen)}로 바꿨습니다. 구멍을 눌러 크기를 고칠 수 있습니다.'
+          : '그린 동그라미를 φ${_f(dia)} 구멍으로 바꿨습니다. 구멍을 눌러 크기를 고칠 수 있습니다.',
+    );
   }
 
   // ── 치수·구멍·귀 처리 창 ──
@@ -754,8 +845,8 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     final s = _s;
     if (s.n == 0 && !_placingHole) {
       return _photo == null
-          ? '사진을 찍거나 고르십시오. 사진 없이 빈 칸에 판 귀퉁이를 차례로 눌러 그려도 됩니다.'
-          : '"AI로 읽기"를 눌러 보십시오. 직접 하려면 사진 속 판 귀퉁이를 한 방향으로 돌며 차례로 누릅니다.';
+          ? '빈 칸에 판 모양을 손가락으로 그으십시오(귀퉁이를 차례로 눌러도 됩니다). 종이에 그린 것이 있으면 사진으로 찍어 AI로 읽습니다.'
+          : '"AI로 읽기"를 눌러 보십시오. 직접 하려면 사진 속 판 외곽을 손가락으로 따라 긋거나 귀퉁이를 차례로 누릅니다.';
     }
     final k = _selPt;
     if (k != null && k < s.n) {
@@ -783,7 +874,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       for (var i = 0; i < s.edgeCount; i++)
         if (s.isLocked(i)) i,
     ].length;
-    return '변의 숫자를 눌러 길이를 넣습니다. 넣은 치수 $locked곳(✓ 잠김, ! 바뀜). 점을 더하려면 변을 길게 누릅니다.';
+    return '변의 숫자를 눌러 길이를 넣습니다. 넣은 치수 $locked곳(✓ 잠김, ! 바뀜). 판 안에 동그라미를 그리면 구멍, 변을 길게 누르면 꼭짓점이 더해집니다.';
   }
 
   // ── 화면 ──
@@ -890,6 +981,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                                     scale: _scale,
                                     selPt: _selPt,
                                     selHole: _selHole,
+                                    ink: _ink,
                                     colors: fc,
                                   ),
                                   child: const SizedBox.expand(),
@@ -1135,7 +1227,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                           _placingHole,
                           () => setState(() => _placingHole = !_placingHole),
                         ),
-                        if (_placingHole)
+                        if (_placingHole || s.closed)
                           for (final d in const [9.0, 11.0, 13.5, 17.5, 22.0])
                             calcChip(
                               'sk_dia_${(d * 10).round()}',
@@ -1265,8 +1357,10 @@ class _SketchPainter extends CustomPainter {
     required this.selPt,
     required this.selHole,
     required this.colors,
+    this.ink,
   });
 
+  final List<Offset>? ink;
   final PlateSketch sketch;
   final ui.Image? image;
   final Offset Function(Offset) toScreen;
@@ -1309,6 +1403,22 @@ class _SketchPainter extends CustomPainter {
       ..strokeWidth = 2.6
       ..strokeJoin = StrokeJoin.round
       ..color = c.brand;
+
+    // 빈 종이 안내
+    if (s.n == 0 && img == null && (ink == null || ink!.isEmpty)) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: '여기에 판 모양을 손가락으로 그으십시오',
+          style: TextStyle(
+            color: c.textFaint,
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: frRect.width - 24);
+      tp.paint(canvas, frRect.center - Offset(tp.width / 2, tp.height / 2));
+    }
     final thin = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2
@@ -1423,6 +1533,25 @@ class _SketchPainter extends CustomPainter {
         cen - const Offset(0, 4),
         cen + const Offset(0, 4),
         cross,
+      );
+    }
+
+    // 긋는 중인 선
+    final k0 = ink;
+    if (k0 != null && k0.length >= 2) {
+      final path = Path()..moveTo(toScreen(k0[0]).dx, toScreen(k0[0]).dy);
+      for (final p in k0.skip(1)) {
+        final q = toScreen(p);
+        path.lineTo(q.dx, q.dy);
+      }
+      canvas.drawPath(
+        path,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round
+          ..color = c.caution,
       );
     }
 

@@ -2,6 +2,7 @@
 // 같은 방향의 잠기지 않은 변이 차이를 받고, 없으면 바꾸지 않고 차이를 알림), 직각 맞추기, 닫기,
 // 꼭짓점 끼우기·지우기와 넣은 치수 따라가기, AI 결과 옮기기, 레이저 절단으로 넘길 자료, 저장·읽기,
 // 화면(모드 없이: 빈 칸에 찍고 1번 점으로 닫고 변을 눌러 치수, 구멍 놓기 5mm 칸, AI 읽기 성공·실패), 첫 화면.
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -271,6 +272,154 @@ void main() {
       expect(r.remaining, 7);
       expect(readPlateSketch({'readable': true, 'outline': []}).ok, isFalse);
     });
+
+    /// 손으로 그은 것처럼: 꼭짓점 사이를 4씩 걸으며 옆으로 조금 흔들리고, 귀는 조금 둥글게(짧게 빗겨) 돈다.
+    List<Offset> handStroke(
+      List<Offset> poly, {
+      bool close = true,
+      double jitter = 2,
+      double cut = 8,
+    }) {
+      final pts = <Offset>[];
+      final n = poly.length;
+      final path = <Offset>[];
+      for (var i = 0; i < n; i++) {
+        final a = poly[(i - 1 + n) % n], b = poly[i], c = poly[(i + 1) % n];
+        if (!close && (i == 0 || i == n - 1)) {
+          path.add(b);
+          continue;
+        }
+        final u = (a - b) / (a - b).distance, v = (c - b) / (c - b).distance;
+        path
+          ..add(b + u * cut)
+          ..add(b + v * cut);
+      }
+      // 닫힌 것은 첫 변 가운데에서 시작해 한 바퀴 돌고 시작점 조금 옆에서 끝낸다
+      final seq = close
+          ? [
+              (path[0] + path.last) / 2,
+              ...path,
+              (path[0] + path.last) / 2 + const Offset(3, 4),
+            ]
+          : path;
+      var k = 0;
+      for (var i = 1; i < seq.length; i++) {
+        final a = seq[i - 1], b = seq[i];
+        final d = b - a, len = d.distance;
+        if (len < 1e-9) continue;
+        final nrm = Offset(-d.dy, d.dx) / len;
+        for (var t = 0.0; t < len; t += 4) {
+          pts.add(a + d * (t / len) + nrm * (math.sin(k++ * 1.7) * jitter));
+        }
+      }
+      pts.add(seq.last);
+      return pts;
+    }
+
+    bool near(List<Offset> got, Offset want, double tol) =>
+        got.any((p) => (p - want).distance <= tol);
+
+    test('그은 사각: 둥글게 돈 귀를 뾰족하게, 닫힘, 꼭짓점 넷', () {
+      const rect = [
+        Offset(0, 0),
+        Offset(240, 0),
+        Offset(240, 120),
+        Offset(0, 120),
+      ];
+      final r = sketchStrokeToPolygon(handStroke(rect), tol: 14, closeTol: 44);
+      expect(r.closed, isTrue);
+      expect(r.pts.length, 4);
+      for (final c in rect) {
+        expect(near(r.pts, c, 6), isTrue, reason: '$c ← ${r.pts}');
+      }
+      // 닫힌 그림으로 만들고 직각 맞추기까지 하면 가로·세로가 정확
+      final s = PlateSketch(pts: r.pts, closed: true);
+      s.squareUp(tolDeg: 12);
+      for (var i = 0; i < 4; i++) {
+        final v = s.edgeVec(i);
+        expect(v.dx.abs() < 1e-9 || v.dy.abs() < 1e-9, isTrue);
+      }
+    });
+
+    test('그은 ㄱ자는 꼭짓점 여섯, 끝을 떼어 두면 열린 채로', () {
+      const l = [
+        Offset(0, 0),
+        Offset(300, 0),
+        Offset(300, 80),
+        Offset(150, 80),
+        Offset(150, 180),
+        Offset(0, 180),
+      ];
+      final r = sketchStrokeToPolygon(handStroke(l), tol: 14, closeTol: 44);
+      expect(r.closed, isTrue);
+      expect(r.pts.length, 6);
+      for (final c in l) {
+        expect(near(r.pts, c, 6), isTrue, reason: '$c ← ${r.pts}');
+      }
+      const open = [Offset(0, 0), Offset(200, 0), Offset(200, 150)];
+      final o = sketchStrokeToPolygon(
+        handStroke(open, close: false),
+        tol: 14,
+        closeTol: 44,
+      );
+      expect(o.closed, isFalse);
+      expect(o.pts.length, 3);
+      // 너무 짧거나 점 하나면 빈 것
+      expect(
+        sketchStrokeToPolygon(const [Offset(1, 1)], tol: 14, closeTol: 44).pts,
+        isEmpty,
+      );
+    });
+
+    test('판 안에 그린 고리: 동그라미는 지름, 길쭉하면 장공 방향', () {
+      List<Offset> ellipse(Offset c, double a, double b, double deg) => [
+        for (var k = 0; k <= 48; k++)
+          () {
+            final t = k / 48 * 2 * math.pi;
+            final r = deg * math.pi / 180;
+            final x = a * math.cos(t), y = b * math.sin(t);
+            return c +
+                Offset(
+                  x * math.cos(r) - y * math.sin(r),
+                  x * math.sin(r) + y * math.cos(r),
+                ) +
+                Offset(math.sin(k * 2.3) * 0.6, math.cos(k * 1.9) * 0.6);
+          }(),
+      ];
+      final round = sketchLoopShape(
+        ellipse(const Offset(100, 50), 20, 20, 0),
+        closeTol: 10,
+      )!;
+      expect((round.c - const Offset(100, 50)).distance, lessThan(2));
+      expect(round.major, closeTo(40, 3));
+      expect(round.minor / round.major, greaterThan(0.85));
+      final slot = sketchLoopShape(
+        ellipse(const Offset(60, 60), 30, 8, 90),
+        closeTol: 10,
+      )!;
+      expect(slot.minor / slot.major, lessThan(0.4));
+      expect(slot.angleDeg, closeTo(90, 3));
+      // 고리가 아닌 선(끝이 멀다)은 null
+      expect(
+        sketchLoopShape([
+          for (var i = 0; i < 20; i++) Offset(i * 5.0, 0),
+        ], closeTol: 10),
+        isNull,
+      );
+      // 시계 방향·중간 귀부터여도 반시계·왼쪽 아래부터로
+      expect(
+        sketchNormalizeLoop(const [
+          Offset(10, 10),
+          Offset(10, 0),
+          Offset(0, 0),
+          Offset(0, 10),
+        ]),
+        const [Offset(0, 0), Offset(10, 0), Offset(10, 10), Offset(0, 10)],
+      );
+      const sq = [Offset(0, 0), Offset(10, 0), Offset(10, 10), Offset(0, 10)];
+      expect(sketchContains(sq, const Offset(5, 5)), isTrue);
+      expect(sketchContains(sq, const Offset(15, 5)), isFalse);
+    });
   });
 
   group('화면', () {
@@ -343,9 +492,80 @@ void main() {
       return pts;
     }
 
+    /// 화면 점들을 따라 한 손가락으로 긋는다.
+    Future<void> stroke(WidgetTester tester, List<Offset> pts) async {
+      final g = await tester.startGesture(pts.first);
+      for (final p in pts.skip(1)) {
+        await g.moveTo(p);
+        await tester.pump(const Duration(milliseconds: 8));
+      }
+      await g.up();
+      await tester.pumpAndSettle();
+    }
+
+    /// 화면 위 사각 외곽(가운데 기준)을 손으로 긋듯: 아래 변 가운데에서 시작해 한 바퀴.
+    List<Offset> rectPath(Offset c, double w, double h) {
+      final corners = [
+        c + Offset(w / 2, h / 2),
+        c + Offset(w / 2, -h / 2),
+        c + Offset(-w / 2, -h / 2),
+        c + Offset(-w / 2, h / 2),
+        c + Offset(2, h / 2 + 2),
+      ];
+      final out = <Offset>[c + Offset(0, h / 2)];
+      var k = 0;
+      for (final t in corners) {
+        final a = out.last, d = t - a;
+        final n = (d.distance / 6).ceil();
+        for (var i = 1; i <= n; i++) {
+          out.add(a + d * (i / n) + Offset(0, math.sin(k++ * 1.3) * 1.5));
+        }
+      }
+      return out;
+    }
+
+    testWidgets('손가락으로 그어 그리기: 외곽 → 치수 → 판 안 동그라미는 구멍', (tester) async {
+      await open(tester);
+      expect(status(tester), startsWith('빈 칸에 판 모양을 손가락으로 그으십시오'));
+      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
+      await stroke(tester, rectPath(r.center, 240, 140));
+      expect(find.textContaining('그은 선을 꼭짓점 4개로 바꿨습니다'), findsOneWidget);
+      expect(status(tester), startsWith('변 이름(변 1…)을 눌러'));
+      // 아래 변 300
+      await tester.tapAt(r.center + const Offset(0, 70));
+      await tester.pumpAndSettle();
+      await enterLength(tester, '300');
+      // 판 안에 작은 동그라미 → 구멍(5mm 칸)
+      final c = r.center + const Offset(-60, 20);
+      await stroke(tester, [
+        for (var k = 0; k <= 24; k++)
+          c +
+              Offset(
+                    math.cos(k / 24 * 2 * math.pi),
+                    math.sin(k / 24 * 2 * math.pi),
+                  ) *
+                  24,
+      ]);
+      expect(find.textContaining('구멍으로 바꿨습니다'), findsOneWidget);
+      await tap(tester, 'sk_send');
+      // 그은 시작 자리와 상관없이 왼쪽 아래 귀부터 반시계로
+      expect(sent!['pts'], startsWith('0,0\n300,0\n'));
+      expect((sent!['pts'] as String).split('\n').length, 4);
+      final h = PlateHoleSpec.fromJson((sent!['holes'] as List).single)!;
+      expect(h.dia, 13.5); // 그린 크기가 아니라 고른 펀치 지름
+      expect(h.u % 5, closeTo(0, 1e-6));
+      // 판 안에서 길게 그은 선(고리가 아님)은 구멍이 안 되고 안내만
+      await stroke(tester, [
+        for (var k = 0; k <= 20; k++) r.center + Offset(-80 + k * 8.0, -20),
+      ]);
+      expect(find.textContaining('판 안에 작은 동그라미를 그리면 구멍이 됩니다'), findsOneWidget);
+      await tap(tester, 'sk_send');
+      expect((sent!['holes'] as List).length, 1);
+    });
+
     testWidgets('모드 없이: 찍고 → 1번 점으로 닫고 → 직각 → 변을 눌러 치수 → 보내기', (tester) async {
       await open(tester);
-      expect(status(tester), startsWith('사진을 찍거나 고르십시오'));
+      expect(status(tester), startsWith('빈 칸에 판 모양을 손가락으로 그으십시오'));
       final pts = await drawRect(tester);
       expect(
         find.text('모양을 닫았습니다. 변 이름(변 1…)을 눌러 길이(mm)를 넣으십시오.'),

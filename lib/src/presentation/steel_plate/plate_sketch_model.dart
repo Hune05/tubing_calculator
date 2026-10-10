@@ -479,3 +479,255 @@ double _segDist(Offset p, Offset a, Offset b) {
   final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / l2).clamp(0.0, 1.0);
   return (p - (a + ab * t)).distance;
 }
+
+// ── 손가락으로 그은 선(10-10, 사용자: "손그림을 앱에서 바로 못 그리나") ──
+// 빈 칸에 그은 외곽선은 꺾인 곳만 남겨 꼭짓점으로, 판 안에 그은 작은 고리는 구멍·장공으로 바꾼다.
+
+//// 꺾은선 줄이기(Ramer–Douglas–Peucker): 남길 점의 번호(처음·끝 포함).
+List<int> _rdpIdx(List<Offset> p, int i0, int i1, double eps) {
+  if (i1 - i0 < 2) return [i0, i1];
+  var idx = -1;
+  var dmax = 0.0;
+  for (var i = i0 + 1; i < i1; i++) {
+    final d = _segDist(p[i], p[i0], p[i1]);
+    if (d > dmax) {
+      dmax = d;
+      idx = i;
+    }
+  }
+  if (dmax <= eps) return [i0, i1];
+  final a = _rdpIdx(p, i0, idx, eps);
+  final b = _rdpIdx(p, idx, i1, eps);
+  return [...a.sublist(0, a.length - 1), ...b];
+}
+
+/// 점들에 가장 잘 맞는 직선(가운데·방향). 방향은 [hint] 쪽으로 맞춘다.
+(Offset, Offset) _fitLine(List<Offset> pts, Offset hint) {
+  var c = Offset.zero;
+  for (final p in pts) {
+    c += p;
+  }
+  c = c / pts.length.toDouble();
+  if (pts.length < 2) return (c, hint);
+  var sxx = 0.0, syy = 0.0, sxy = 0.0;
+  for (final p in pts) {
+    final d = p - c;
+    sxx += d.dx * d.dx;
+    syy += d.dy * d.dy;
+    sxy += d.dx * d.dy;
+  }
+  final ang = 0.5 * math.atan2(2 * sxy, sxx - syy);
+  var dir = Offset(math.cos(ang), math.sin(ang));
+  if (dir.dx * hint.dx + dir.dy * hint.dy < 0) dir = -dir;
+  return (c, dir);
+}
+
+/// 두 직선(점 a·방향 u, 점 b·방향 v)이 만나는 점. 거의 나란하면(약 3° 안) null.
+Offset? _cross(Offset a, Offset u, Offset b, Offset v) {
+  final den = u.dx * v.dy - u.dy * v.dx;
+  if (den.abs() < 0.05) return null;
+  final t = ((b - a).dx * v.dy - (b - a).dy * v.dx) / den;
+  return a + u * t;
+}
+
+double _dirDiffDeg(Offset u, Offset v) {
+  final cos = (u.dx * v.dx + u.dy * v.dy).clamp(-1.0, 1.0);
+  return math.acos(cos) * 180 / math.pi;
+}
+
+/// 손가락으로 그은 외곽선 → 꼭짓점. 꺾인 곳을 찾아(RDP, [tol]) 변마다 직선을 맞추고, 이웃 직선이 만나는 점을
+/// 귀로 삼는다(손으로 둥글게 돈 귀도 뾰족한 귀로). 거의 곧게 이어지는 변([minTurnDeg] 안)은 하나로 합친다.
+/// 끝이 시작에서 [closeTol] 안이면 닫는다.
+({List<Offset> pts, bool closed}) sketchStrokeToPolygon(
+  List<Offset> stroke, {
+  required double tol,
+  required double closeTol,
+  double minTurnDeg = 20,
+}) {
+  final s = <Offset>[];
+  for (final p in stroke) {
+    if (s.isEmpty || (p - s.last).distance >= tol / 4) s.add(p);
+  }
+  if (s.length < 2) return (pts: const [], closed: false);
+  var len = 0.0;
+  for (var i = 1; i < s.length; i++) {
+    len += (s[i] - s[i - 1]).distance;
+  }
+  final closed =
+      s.length >= 6 &&
+      (s.last - s.first).distance <= closeTol &&
+      len > closeTol * 4;
+  // 닫힌 것은 가운데에서 가장 먼 점(귀일 가능성이 큼)에서 다시 시작해 한 바퀴(끝 = 시작)
+  var ring = s;
+  if (closed) {
+    var c = Offset.zero;
+    for (final p in s) {
+      c += p;
+    }
+    c = c / s.length.toDouble();
+    var k = 0;
+    for (var i = 1; i < s.length; i++) {
+      if ((s[i] - c).distance > (s[k] - c).distance) k = i;
+    }
+    ring = [...s.sublist(k), ...s.sublist(0, k), s[k]];
+  }
+  final idx = _rdpIdx(ring, 0, ring.length - 1, tol);
+  final minSeg = closed ? 3 : 1;
+  // 짧은 변(둥글게 돈 귀 자리)은 안쪽 꼭짓점 하나를 빼서 없앤다(직선 맞추기가 귀를 되살린다)
+  var changed = true;
+  while (changed && idx.length - 1 > minSeg) {
+    changed = false;
+    for (var j = 0; j < idx.length - 1; j++) {
+      if ((ring[idx[j + 1]] - ring[idx[j]]).distance >= tol * 2) continue;
+      final drop = j + 1 < idx.length - 1 ? j + 1 : j;
+      if (drop == 0 || drop == idx.length - 1) continue;
+      idx.removeAt(drop);
+      changed = true;
+      break;
+    }
+  }
+  // 변마다 직선 맞추기(귀 근처 점은 빼고)
+  List<(Offset, Offset)> fit() => [
+    for (var j = 0; j < idx.length - 1; j++)
+      () {
+        final a = ring[idx[j]], b = ring[idx[j + 1]];
+        final margin = math.min(tol * 1.5, (b - a).distance / 4);
+        final mid = [
+          for (var i = idx[j]; i <= idx[j + 1]; i++)
+            if ((ring[i] - a).distance > margin &&
+                (ring[i] - b).distance > margin)
+              ring[i],
+        ];
+        final d = b - a;
+        return _fitLine(
+          mid.length >= 2 ? mid : [a, b],
+          d.distance < 1e-9 ? const Offset(1, 0) : d / d.distance,
+        );
+      }(),
+  ];
+  var lines = fit();
+  // 거의 곧게 이어지는 두 변은 하나로
+  changed = true;
+  while (changed && lines.length > minSeg) {
+    changed = false;
+    for (var j = 1; j < lines.length; j++) {
+      if (_dirDiffDeg(lines[j - 1].$2, lines[j].$2) >= minTurnDeg) continue;
+      idx.removeAt(j);
+      lines = fit();
+      changed = true;
+      break;
+    }
+  }
+  // 귀 = 이웃 직선이 만나는 점(못 만나거나 너무 멀면 그 자리 점)
+  final out = <Offset>[];
+  final n = lines.length;
+  Offset corner(int j, (Offset, Offset) a, (Offset, Offset) b) {
+    final x = _cross(a.$1, a.$2, b.$1, b.$2);
+    final raw = ring[idx[j]];
+    return x != null && (x - raw).distance <= tol * 4 ? x : raw;
+  }
+
+  if (closed) {
+    for (var j = 0; j < n; j++) {
+      out.add(corner(j, lines[(j - 1 + n) % n], lines[j]));
+    }
+    // 첫 변과 마지막 변이 곧게 이어지면 그 사이 귀(시작점)는 귀가 아니다
+    if (out.length > 3 &&
+        _dirDiffDeg(lines.last.$2, lines.first.$2) < minTurnDeg) {
+      out.removeAt(0);
+    }
+  } else {
+    Offset proj(Offset p, (Offset, Offset) l) {
+      final d = p - l.$1;
+      return l.$1 + l.$2 * (d.dx * l.$2.dx + d.dy * l.$2.dy);
+    }
+
+    out.add(proj(ring.first, lines.first));
+    for (var j = 1; j < n; j++) {
+      out.add(corner(j, lines[j - 1], lines[j]));
+    }
+    out.add(proj(ring.last, lines.last));
+  }
+  if (closed && out.length < 3) return (pts: out, closed: false);
+  return (pts: out, closed: closed);
+}
+
+// 그은 선이 작은 고리(구멍 그림)면 가운데·긴 쪽·짧은 쪽 길이·긴 쪽 방향(°), 아니면 null.
+({Offset c, double major, double minor, double angleDeg})? sketchLoopShape(
+  List<Offset> stroke, {
+  required double closeTol,
+}) {
+  if (stroke.length < 8) return null;
+  var r = Rect.fromPoints(stroke.first, stroke.first);
+  var c = Offset.zero;
+  for (final p in stroke) {
+    r = r.expandToInclude(Rect.fromPoints(p, p));
+    c += p;
+  }
+  c = c / stroke.length.toDouble();
+  final ext = math.max(r.width, r.height);
+  if (ext < 1e-9) return null;
+  if ((stroke.last - stroke.first).distance > math.max(closeTol, ext * 0.35)) {
+    return null;
+  }
+  var sxx = 0.0, syy = 0.0, sxy = 0.0;
+  for (final p in stroke) {
+    final d = p - c;
+    sxx += d.dx * d.dx;
+    syy += d.dy * d.dy;
+    sxy += d.dx * d.dy;
+  }
+  final ang = 0.5 * math.atan2(2 * sxy, sxx - syy);
+  final u = Offset(math.cos(ang), math.sin(ang));
+  final v = Offset(-u.dy, u.dx);
+  var u0 = double.infinity, u1 = -double.infinity;
+  var v0 = double.infinity, v1 = -double.infinity;
+  for (final p in stroke) {
+    final d = p - c;
+    final pu = d.dx * u.dx + d.dy * u.dy, pv = d.dx * v.dx + d.dy * v.dy;
+    u0 = math.min(u0, pu);
+    u1 = math.max(u1, pu);
+    v0 = math.min(v0, pv);
+    v1 = math.max(v1, pv);
+  }
+  final center = c + u * ((u0 + u1) / 2) + v * ((v0 + v1) / 2);
+  var major = u1 - u0, minor = v1 - v0, deg = ang * 180 / math.pi;
+  if (minor > major) {
+    final t = major;
+    major = minor;
+    minor = t;
+    deg += 90;
+  }
+  deg = ((deg % 180) + 180) % 180;
+  return (c: center, major: major, minor: minor, angleDeg: deg);
+}
+
+/// 점이 닫힌 꼭짓점 다각형 안에 있는지(꼭짓점 셋 이상).
+bool sketchContains(List<Offset> pts, Offset p) {
+  if (pts.length < 3) return false;
+  var inside = false;
+  for (var i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    final a = pts[i], b = pts[j];
+    if ((a.dy > p.dy) != (b.dy > p.dy) &&
+        p.dx < (b.dx - a.dx) * (p.dy - a.dy) / (b.dy - a.dy) + a.dx) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+/// 닫힌 꼭짓점 차례를 앱 약속대로: 반시계 방향, 왼쪽 아래 귀부터(그은 시작 자리와 상관없이 번호가 같게).
+List<Offset> sketchNormalizeLoop(List<Offset> pts) {
+  if (pts.length < 3) return List.of(pts);
+  var area2 = 0.0;
+  for (var i = 0; i < pts.length; i++) {
+    final a = pts[i], b = pts[(i + 1) % pts.length];
+    area2 += a.dx * b.dy - b.dx * a.dy;
+  }
+  final ccw = area2 >= 0 ? List.of(pts) : pts.reversed.toList();
+  var k = 0;
+  for (var i = 1; i < ccw.length; i++) {
+    if (ccw[i].dx + ccw[i].dy < ccw[k].dx + ccw[k].dy - 1e-9) k = i;
+  }
+  return [...ccw.sublist(k), ...ccw.sublist(0, k)];
+}
