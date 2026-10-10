@@ -78,25 +78,16 @@ class PlatePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.1 * fontScale;
     for (final h in p.holes) {
-      final c = m(h.c);
-      if (h.slot <= 0) {
-        final r = math.max(h.dia / 2 * s, 2.5 * fontScale);
-        canvas.drawCircle(c, r, Paint()..color = Colors.white);
-        canvas.drawCircle(c, r, holeEdge);
-      } else {
-        final w = h.slotAlongX ? h.slot * s : h.dia * s;
-        final hh = h.slotAlongX ? h.dia * s : h.slot * s;
-        final rr = RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: c,
-            width: math.max(w, 5),
-            height: math.max(hh, 5),
-          ),
-          Radius.circular(math.max(h.dia / 2 * s, 2.5)),
-        );
-        canvas.drawRRect(rr, Paint()..color = Colors.white);
-        canvas.drawRRect(rr, holeEdge);
-      }
+      plateDrawHole(
+        canvas,
+        h,
+        m(h.c),
+        s,
+        fill: Colors.white,
+        edge: h.bad ? const Color(0xFFD64545) : null,
+        edgePaint: holeEdge,
+        minR: 2.5 * fontScale,
+      );
     }
 
     // 꺾기선: 점선 + 위에 번호·방향
@@ -238,6 +229,45 @@ class PlatePainter extends CustomPainter {
       old.sub != sub ||
       old.bg != bg ||
       old.fontScale != fontScale;
+}
+
+/// 구멍 하나 그리기: 둥근 구멍은 원, 장공은 [PlateHole.angle]만큼 돈 긴 구멍(화면은 y가 아래라 각을 뒤집는다).
+void plateDrawHole(
+  Canvas canvas,
+  PlateHole h,
+  Offset c,
+  double s, {
+  required Color fill,
+  Color? edge,
+  required Paint edgePaint,
+  double minR = 2.5,
+}) {
+  final paint = edge == null
+      ? edgePaint
+      : (Paint()
+          ..color = edge
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = edgePaint.strokeWidth * 1.6);
+  final r = math.max(h.dia / 2 * s, minR);
+  if (h.slot <= 0) {
+    canvas.drawCircle(c, r, Paint()..color = fill);
+    canvas.drawCircle(c, r, paint);
+    return;
+  }
+  canvas.save();
+  canvas.translate(c.dx, c.dy);
+  canvas.rotate(-h.angle * math.pi / 180);
+  final rr = RRect.fromRectAndRadius(
+    Rect.fromCenter(
+      center: Offset.zero,
+      width: math.max(h.slot * s, 2 * r),
+      height: 2 * r,
+    ),
+    Radius.circular(r),
+  );
+  canvas.drawRRect(rr, Paint()..color = fill);
+  canvas.drawRRect(rr, paint);
+  canvas.restore();
 }
 
 /// 아무 그림이나 흰 바탕 PNG로(지시서 PDF에 넣는다).

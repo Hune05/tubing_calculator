@@ -23,7 +23,7 @@ PlatePlan _bent(
   List<double> legs, {
   double? bd,
   double angle = 90,
-  List<PlateHoleGroup> holes = const [],
+  List<PlateHoleSpec> holes = const [],
 }) => platePlan(
   PlateInput(
     shape: s,
@@ -78,7 +78,7 @@ void main() {
       final p = _bent(
         PlateShape.l,
         [50, 80],
-        holes: const [PlateHoleGroup(face: 1, dia: 13.5, x: 30, y: 50)],
+        holes: const [PlateHoleSpec(face: 1, dia: 13.5, u: 30, v: 50)],
       );
       final h = p.holes.single;
       expect(h.c.dx, closeTo(p.bends.single.end + 24, 1e-9));
@@ -87,15 +87,15 @@ void main() {
       final inBend = _bent(
         PlateShape.l,
         [50, 80],
-        holes: const [PlateHoleGroup(face: 1, dia: 13.5, x: 10, y: 50)],
+        holes: const [PlateHoleSpec(face: 1, dia: 13.5, u: 10, v: 50)],
       );
-      expect(inBend.problems.join(), contains('꺾이는 부분에 걸리는 구멍: 1-1'));
+      expect(inBend.problems.join(), contains('꺾이는 부분에 걸리는 구멍: 1.'));
       final near = _bent(
         PlateShape.l,
         [50, 80],
-        holes: const [PlateHoleGroup(face: 1, dia: 13.5, x: 17, y: 50)],
+        holes: const [PlateHoleSpec(face: 1, dia: 13.5, u: 17, v: 50)],
       );
-      expect(near.notes.join(), contains('보다 가까운 구멍: 1-1'));
+      expect(near.notes.join(), contains('보다 가까운 구멍: 1.'));
       expect(near.ok, isTrue);
     });
 
@@ -105,14 +105,20 @@ void main() {
     });
 
     test('평판: 모서리 R·네 귀 구멍·넓이·무게', () {
+      final corners = const PlateHoleGroup(
+        dia: 13.5,
+        corners: true,
+        x: 20,
+        y: 20,
+      ).expand(maxX: 200, maxY: 100);
       final p = platePlan(
-        const PlateInput(
+        PlateInput(
           shape: PlateShape.flat,
           t: 3,
           length: 200,
           width: 100,
           cornerR: 10,
-          holes: [PlateHoleGroup(dia: 13.5, corners: true, x: 20, y: 20)],
+          holes: corners,
         ),
       );
       expect(p.holes.map((h) => h.c), const [
@@ -137,14 +143,15 @@ void main() {
           length: 200,
           width: 100,
           holes: [
-            PlateHoleGroup(dia: 13.5, x: 195, y: 50), // 판 밖으로
-            PlateHoleGroup(dia: 13.5, count: 2, x: 50, y: 50, pitch: 10), // 겹침
-            PlateHoleGroup(dia: 11, slot: 30, x: 120, y: 50), // 장공
+            PlateHoleSpec(dia: 13.5, u: 195, v: 50), // 판 밖으로
+            PlateHoleSpec(dia: 13.5, u: 50, v: 50), // 겹침
+            PlateHoleSpec(dia: 13.5, u: 60, v: 50),
+            PlateHoleSpec(dia: 11, slot: 30, u: 120, v: 50), // 장공
           ],
         ),
       );
-      expect(p.problems.join(), contains('판 밖으로 나오는 구멍: 1-1'));
-      expect(p.problems.join(), contains('구멍 묶음 2의 피치가 구멍 크기 이하'));
+      expect(p.problems.join(), contains('판 밖으로 나오는 구멍: 1.'));
+      expect(p.problems.join(), contains('서로 겹치는 구멍: 2·3.'));
       final slot = p.holes.last;
       expect(slot.slot, 30);
       expect(slot.halfX, 15);
@@ -178,20 +185,126 @@ void main() {
       expect(few.problems.join(), contains('3개 이상'));
     });
 
+    test("구멍 틀 풀기(줄·네 귀)와 원형 배치(PCD)", () {
+      final row = const PlateHoleGroup(
+        dia: 11,
+        count: 3,
+        x: 20,
+        y: 30,
+        pitch: 50,
+      ).expand();
+      expect(row.map((h) => (h.u, h.v)), [
+        (20.0, 30.0),
+        (70.0, 30.0),
+        (120.0, 30.0),
+      ]);
+      final col = const PlateHoleGroup(
+        dia: 11,
+        count: 2,
+        x: 20,
+        y: 30,
+        pitch: 40,
+        rowAlongX: false,
+        slot: 30,
+        slotAlongX: false,
+      ).expand();
+      expect(col.map((h) => (h.u, h.v, h.angle, h.slot)), [
+        (20.0, 30.0, 90.0, 30.0),
+        (20.0, 70.0, 90.0, 30.0),
+      ]);
+      final pcd = platePcd(
+        cu: 100,
+        cv: 100,
+        pcd: 100,
+        count: 4,
+        startDeg: 45,
+        dia: 13.5,
+      );
+      expect(pcd.length, 4);
+      expect(pcd.first.u, closeTo(100 + 50 * math.cos(math.pi / 4), 1e-9));
+      expect(pcd[2].v, closeTo(100 - 50 * math.sin(math.pi / 4), 1e-9));
+    });
+
+    test("기운 장공: 감싸는 폭·겹침·판 밖을 실제 모양으로 본다", () {
+      final p = platePlan(
+        const PlateInput(
+          shape: PlateShape.flat,
+          t: 3,
+          length: 200,
+          width: 100,
+          holes: [
+            PlateHoleSpec(dia: 10, slot: 40, angle: 45, u: 100, v: 50),
+            // 장공 끝에서 대각선으로 떨어진 구멍: 상자로는 겹치지만 실제로는 안 겹친다
+            PlateHoleSpec(dia: 10, u: 112, v: 38),
+          ],
+        ),
+      );
+      final s = p.holes.first;
+      expect(s.halfX, closeTo(15 * math.sqrt1_2 + 5, 1e-9));
+      expect(p.problems, isEmpty);
+      final touch = platePlan(
+        const PlateInput(
+          shape: PlateShape.flat,
+          t: 3,
+          length: 200,
+          width: 100,
+          holes: [
+            PlateHoleSpec(dia: 10, slot: 40, angle: 45, u: 100, v: 50),
+            PlateHoleSpec(dia: 10, u: 112, v: 112 - 50.0),
+          ],
+        ),
+      );
+      expect(touch.problems.join(), contains("서로 겹치는 구멍: 1·2."));
+    });
+
+    test("판 90° 돌리기: 외곽·구멍이 같이 돌고 저장 자리는 그대로", () {
+      const base = PlateInput(
+        shape: PlateShape.flat,
+        t: 3,
+        length: 200,
+        width: 100,
+        holes: [PlateHoleSpec(dia: 10, slot: 30, u: 40, v: 20)],
+      );
+      final p = platePlan(base.withHoles(base.holes, rotQ: 1));
+      expect(p.flatLength, closeTo(100, 1e-9));
+      expect(p.flatWidth, closeTo(200, 1e-9));
+      final h = p.holes.single;
+      // (40, 20)을 반시계 90° → (−20, 40), 옮김 (100, 0) → (80, 40)
+      expect(h.c.dx, closeTo(80, 1e-9));
+      expect(h.c.dy, closeTo(40, 1e-9));
+      expect(h.angle, 90);
+      expect((h.u, h.v), (40.0, 20.0));
+      expect(p.toBase(h.c).dx, closeTo(40, 1e-9));
+      expect(p.toBase(h.c).dy, closeTo(20, 1e-9));
+      expect(p.ok, isTrue);
+    });
+
+    test("꺾음: 전개도 자리 → 면 자리(면에 붙어 따라감)", () {
+      final p = _bent(PlateShape.l, [50, 80]);
+      final (f, u, v) = p.specAt(Offset(p.bends.single.end + 24, 40));
+      expect(f, 1);
+      expect(u, closeTo(30, 1e-9));
+      expect(v, 40);
+      expect(p.specAt(const Offset(10, 40)).$1, 0);
+      // 2면 치수를 바꿔도 같은 면 자리 그대로
+      final longer = _bent(
+        PlateShape.l,
+        [70, 80],
+        holes: const [PlateHoleSpec(face: 1, dia: 11, u: 30, v: 40)],
+      );
+      expect(
+        longer.holes.single.c.dx,
+        closeTo(longer.bends.single.end + 24, 1e-9),
+      );
+    });
+
     test('DXF: 층·외곽·구멍·장공·꺾기선·글', () {
       final p = _bent(
         PlateShape.l,
         [50, 80],
         holes: const [
-          PlateHoleGroup(face: 1, dia: 13.5, x: 40, y: 50),
-          PlateHoleGroup(
-            face: 0,
-            dia: 11,
-            slot: 30,
-            x: 20,
-            y: 50,
-            slotAlongX: false,
-          ),
+          PlateHoleSpec(face: 1, dia: 13.5, u: 40, v: 50),
+          PlateHoleSpec(face: 0, dia: 11, slot: 30, u: 20, v: 50, angle: 90),
         ],
       );
       final dxf = plateDxf(p, thickness: 3);
@@ -276,15 +389,15 @@ void main() {
       await tester.enterText(find.byKey(const Key('hs_y')), '50');
       await tester.tap(find.byKey(const Key('hs_ok')));
       await tester.pumpAndSettle();
-      expect(find.text('구멍 묶음 1'), findsOneWidget);
-      expect(find.textContaining('1-1 φ13.5: 2면 30·50 → 전개도'), findsOneWidget);
+      expect(find.textContaining('구멍 1개 · φ13.5 1'), findsOneWidget);
+      expect(find.textContaining('구멍 1 φ13.5: 2면 30·50 → 전개도'), findsOneWidget);
       await tap(tester, 'pl_dxf');
       expect(dxf, contains('CIRCLE'));
       expect(dxf, contains('BEND 1 UP 90 R3'));
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
       await open(tester);
-      expect(find.text('구멍 묶음 1'), findsOneWidget);
+      expect(find.textContaining('구멍 1개 · φ13.5 1'), findsOneWidget);
     });
 
     testWidgets('업체 공제값을 두께별로 저장하고 두께를 고르면 채운다', (tester) async {
@@ -317,7 +430,7 @@ void main() {
       final p = _bent(
         PlateShape.hat,
         [30, 40, 60],
-        holes: const [PlateHoleGroup(face: 0, dia: 11, x: 15, y: 50)],
+        holes: const [PlateHoleSpec(face: 0, dia: 11, u: 15, v: 50)],
       );
       late Uint8List pdf;
       await tester.runAsync(() async {

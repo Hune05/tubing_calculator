@@ -1,0 +1,242 @@
+// 철판 구멍 배치 편집(10-10): 판을 눌러 놓기, 끌어 옮기기(모눈 맞춤), 여러 개 고르기·줄 맞추기·대칭 복사,
+// 되돌리기·다시 하기, 원형 배치, 장공 돌리기, 판 90° 돌리기, 지우기(되돌리기), 예전 저장(구멍 묶음) 옮기기.
+import 'dart:convert';
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tubing_calculator/src/presentation/steel_plate/plate_page.dart';
+
+void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  Future<void> openPage(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1700);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(MaterialApp(home: PlatePage(share: (_) async {})));
+    await tester.pumpAndSettle();
+  }
+
+  /// 철판 가공 화면(목록)은 보이는 곳 둘레만 그린다. 찾는 것이 아직 안 그려졌으면 위로 먼저, 그다음 아래로 굴려 찾는다.
+  Future<void> see(WidgetTester tester, Finder f) async {
+    Finder off() => find.byElementPredicate(
+      (e) => f.evaluate().contains(e),
+      skipOffstage: false,
+    );
+    if (f.evaluate().isEmpty) {
+      for (final dy in const [400.0, -400.0]) {
+        for (var k = 0; k < 25 && f.evaluate().isEmpty; k++) {
+          final sc = find.byType(Scrollable).first;
+          final pos = tester.state<ScrollableState>(sc).position;
+          if ((dy > 0 && pos.pixels <= pos.minScrollExtent) ||
+              (dy < 0 && pos.pixels >= pos.maxScrollExtent)) {
+            break;
+          }
+          await tester.drag(sc, Offset(0, dy));
+          await tester.pumpAndSettle();
+        }
+        if (f.evaluate().isNotEmpty) break;
+      }
+    }
+    off();
+    await tester.ensureVisible(f.first);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tap(WidgetTester tester, String key) async {
+    await see(tester, find.byKey(Key(key)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(Key(key)));
+    await tester.pumpAndSettle();
+  }
+
+  /// 평판 200 × 100 편집 화면에서 mm 자리 → 화면 점.
+  Offset scr(
+    WidgetTester tester,
+    double x,
+    double y, {
+    double w = 200,
+    double h = 100,
+  }) {
+    final r = tester.getRect(find.byKey(const Key('ed_canvas')));
+    final s = math.min((r.width - 80) / w, (r.height - 80) / h);
+    return r.topLeft +
+        Offset(r.width / 2 + (x - w / 2) * s, r.height / 2 - (y - h / 2) * s);
+  }
+
+  String status(WidgetTester tester) =>
+      tester.widget<Text>(find.byKey(const Key('ed_status'))).data!;
+
+  Future<void> openFlatEditor(WidgetTester tester) async {
+    await openPage(tester);
+    await tap(tester, 'pl_cut'); // 평판 200 × 100
+    await tap(tester, 'pl_hole_edit');
+    expect(find.text('구멍 배치 편집'), findsOneWidget);
+  }
+
+  testWidgets('누르면 놓고, 끌면 모눈에 맞춰 옮긴다', (tester) async {
+    await openFlatEditor(tester);
+    await tap(tester, 'ed_mode_place');
+    await tester.tapAt(scr(tester, 40, 30));
+    await tester.pumpAndSettle();
+    expect(
+      status(tester),
+      startsWith('구멍 1 φ13.5: 왼쪽 40 · 아래 30 · 오른쪽 160 · 위 70'),
+    );
+    await tester.tapAt(scr(tester, 161, 71)); // 모눈 5에 붙어 160 · 70
+    await tester.pumpAndSettle();
+    expect(status(tester), startsWith('구멍 2 φ13.5: 왼쪽 160 · 아래 70'));
+    await tap(tester, 'ed_mode_sel');
+    // 구멍 1을 오른쪽으로 20mm 끌기
+    final from = scr(tester, 40, 30);
+    final to = scr(tester, 60, 30);
+    await tester.dragFrom(from, to - from);
+    await tester.pumpAndSettle();
+    expect(status(tester), startsWith('구멍 1 φ13.5: 왼쪽 60 · 아래 30'));
+    // 빈 곳을 누르면 고르기가 풀린다
+    await tester.tapAt(scr(tester, 100, 90));
+    await tester.pumpAndSettle();
+    expect(status(tester), startsWith('구멍을 눌러 고르고'));
+    // 뒤로 가면 철판 가공 화면에 바로 들어가 있다
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await see(tester, find.byKey(const Key("pl_hole_summary")));
+    expect(find.textContaining('구멍 2개 · φ13.5 2'), findsOneWidget);
+  });
+
+  testWidgets('여러 개 고르기: 가로 줄 맞추기·좌우 대칭 복사, 되돌리기·다시 하기', (tester) async {
+    await openFlatEditor(tester);
+    await tap(tester, 'ed_mode_place');
+    await tester.tapAt(scr(tester, 40, 30));
+    await tester.tapAt(scr(tester, 70, 60));
+    await tester.pumpAndSettle();
+    await tap(tester, 'ed_mode_sel');
+    await tap(tester, 'ed_multi');
+    // 방금 놓은 구멍이 골라져 있으니 빈 곳을 눌러 풀고 시작
+    await tester.tapAt(scr(tester, 100, 90));
+    await tester.pumpAndSettle();
+    await tester.tapAt(scr(tester, 40, 30));
+    await tester.pumpAndSettle();
+    await tester.tapAt(scr(tester, 70, 60));
+    await tester.pumpAndSettle();
+    expect(status(tester), '구멍 2개 고름');
+    await tap(tester, 'ed_align_h'); // 첫째(40, 30)의 높이로
+    await tap(tester, 'ed_mirror_lr'); // 판 가운데(100) 기준 → 160, 130
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await see(tester, find.byKey(const Key("pl_hole_summary")));
+    expect(find.textContaining('구멍 4개 · φ13.5 4'), findsOneWidget);
+    await see(tester, find.byKey(const Key('pl_holes')));
+    expect(find.textContaining('구멍 2 φ13.5: 전개도 70 · 30'), findsOneWidget);
+    expect(find.textContaining('구멍 3 φ13.5: 전개도 160 · 30'), findsOneWidget);
+    expect(find.textContaining('구멍 4 φ13.5: 전개도 130 · 30'), findsOneWidget);
+    // 다시 들어가 되돌리기는 이번 편집 안에서만(새로 들어오면 비어 있다)
+    await tap(tester, 'pl_hole_edit');
+    final undo = tester.widget<IconButton>(find.byKey(const Key('ed_undo')));
+    expect(undo.onPressed, isNull);
+  });
+
+  testWidgets('되돌리기·다시 하기, 지우기 알림으로 되돌리기', (tester) async {
+    await openFlatEditor(tester);
+    await tap(tester, 'ed_mode_place');
+    await tester.tapAt(scr(tester, 40, 30));
+    await tester.pumpAndSettle();
+    await tap(tester, 'ed_undo');
+    expect(status(tester), startsWith('판을 누르면'));
+    await tap(tester, 'ed_redo');
+    expect(status(tester), startsWith('판을 누르면')); // 고르기는 풀려 있다
+    await tap(tester, 'ed_mode_sel');
+    await tester.tapAt(scr(tester, 40, 30));
+    await tester.pumpAndSettle();
+    expect(status(tester), startsWith('구멍 1 φ13.5'));
+    await tap(tester, 'ed_del');
+    expect(find.text('삭제했습니다: 구멍 1개'), findsOneWidget);
+    await tester.tap(find.text('되돌리기'));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await see(tester, find.byKey(const Key("pl_hole_summary")));
+    expect(find.textContaining('구멍 1개 · φ13.5 1'), findsOneWidget);
+  });
+
+  testWidgets('장공을 놓고 15°씩 돌리기, 원형 배치(PCD)', (tester) async {
+    await openFlatEditor(tester);
+    await tap(tester, 'ed_mode_place');
+    await tap(tester, 'ed_tslot_30');
+    await tester.tapAt(scr(tester, 40, 50));
+    await tester.pumpAndSettle();
+    expect(status(tester), contains('장공 13.5×30(가로)'));
+    await tap(tester, 'ed_spin_p15');
+    expect(status(tester), contains('장공 13.5×30(15°)'));
+    await tap(tester, 'ed_spin_90');
+    expect(status(tester), contains('장공 13.5×30(105°)'));
+    await tap(tester, 'ed_pcd');
+    // 가운데 100·50, PCD 60, 4개, 45°, φ13.5 기본값 → 원 지름만 고침
+    await tester.enterText(find.byKey(const Key('ed_num_2')), '60');
+    await tester.enterText(find.byKey(const Key('ed_num_0')), '130');
+    await tester.tap(find.byKey(const Key('ed_num_ok')));
+    await tester.pumpAndSettle();
+    expect(status(tester), '구멍 4개 고름');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await see(tester, find.byKey(const Key("pl_hole_summary")));
+    expect(find.textContaining('구멍 5개 · '), findsOneWidget);
+    await see(tester, find.byKey(const Key('pl_holes')));
+    final x = 130 + 30 * math.cos(math.pi / 4);
+    expect(
+      find.textContaining('구멍 2 φ13.5: 전개도 ${x.toStringAsFixed(1)}'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('판 90° 돌리기: 판과 구멍이 같이 돌고 요약에 나온다', (tester) async {
+    await openFlatEditor(tester);
+    await tap(tester, 'ed_mode_place');
+    await tester.tapAt(scr(tester, 40, 20));
+    await tester.pumpAndSettle();
+    await tap(tester, 'ed_rot');
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await see(tester, find.byKey(const Key("pl_hole_summary")));
+    expect(find.textContaining('판 90° 돌림'), findsOneWidget);
+    await see(tester, find.text('100 × 200 mm'));
+    expect(find.text('100 × 200 mm'), findsOneWidget);
+    // (40, 20) → (80, 40)
+    await see(tester, find.byKey(const Key('pl_holes')));
+    expect(find.textContaining('구멍 1 φ13.5: 전개도 80 · 40'), findsOneWidget);
+  });
+
+  testWidgets('예전 저장(구멍 묶음: 네 귀)은 하나하나로 풀어 옮긴다', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      PlatePage.draftKey: jsonEncode({
+        'bend': false,
+        'sh': 'flat',
+        'mat': 'steel',
+        't': '3',
+        'len': '200',
+        'wid': '100',
+        'holes': [
+          {
+            'f': 0,
+            'd': 13.5,
+            's': 0,
+            'sx': true,
+            'c': true,
+            'n': 1,
+            'x': 20,
+            'y': 20,
+            'p': 0,
+            'rx': true,
+          },
+        ],
+      }),
+    });
+    await openPage(tester);
+    await see(tester, find.byKey(const Key("pl_hole_summary")));
+    expect(find.textContaining('구멍 4개 · φ13.5 4'), findsOneWidget);
+    await see(tester, find.byKey(const Key('pl_holes')));
+    expect(find.textContaining('구멍 3 φ13.5: 전개도 180 · 80'), findsOneWidget);
+  });
+}

@@ -101,17 +101,15 @@ String plateDxf(PlatePlan p, {required double thickness}) {
       d.circle('CUT', h.c.dx, h.c.dy, h.dia / 2);
       continue;
     }
-    // 장공: 두 반원 + 두 직선
-    final r = h.dia / 2, half = (h.slot - h.dia) / 2;
-    final ux = h.slotAlongX ? 1.0 : 0.0, uy = h.slotAlongX ? 0.0 : 1.0;
-    final c1x = h.c.dx - ux * half, c1y = h.c.dy - uy * half;
-    final c2x = h.c.dx + ux * half, c2y = h.c.dy + uy * half;
-    final nx = -uy * r, ny = ux * r;
-    d.line('CUT', c1x + nx, c1y + ny, c2x + nx, c2y + ny);
-    d.line('CUT', c1x - nx, c1y - ny, c2x - nx, c2y - ny);
-    final base = math.atan2(uy, ux) * 180 / math.pi;
-    d.arc('CUT', c2x, c2y, r, _norm(base - 90), _norm(base + 90));
-    d.arc('CUT', c1x, c1y, r, _norm(base + 90), _norm(base + 270));
+    // 장공: 두 반원 + 두 직선(각도 [PlateHole.angle]만큼 돈 방향)
+    final r = h.r, base = h.angle;
+    final a = base * math.pi / 180;
+    final nx = -math.sin(a) * r, ny = math.cos(a) * r;
+    final c1 = h.p1, c2 = h.p2;
+    d.line('CUT', c1.dx + nx, c1.dy + ny, c2.dx + nx, c2.dy + ny);
+    d.line('CUT', c1.dx - nx, c1.dy - ny, c2.dx - nx, c2.dy - ny);
+    d.arc('CUT', c2.dx, c2.dy, r, _norm(base - 90), _norm(base + 90));
+    d.arc('CUT', c1.dx, c1.dy, r, _norm(base + 90), _norm(base + 270));
   }
   var n = 0;
   for (final b in p.bends) {

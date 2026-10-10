@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
-import '../../core/common_widgets/swipe_to_delete.dart';
+import '../../core/common_widgets/swipe_to_delete.dart' show showDeleteUndo;
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../electrical/busbar_bend_painter.dart' show BusbarShapePainter;
@@ -20,6 +20,7 @@ import '../steel_bracket/bracket_pdf.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'plate_calc.dart';
 import 'plate_dxf.dart';
+import 'plate_hole_editor.dart';
 import 'plate_painter.dart';
 
 Future<void> _defaultShare(String text) async {
@@ -82,7 +83,8 @@ class _PlatePageState extends State<PlatePage>
   bool _bend = true;
   PlateShape _shape = PlateShape.l;
   PlateMaterial _mat = PlateMaterial.steel;
-  final List<PlateHoleGroup> _holes = [];
+  final List<PlateHoleSpec> _holes = [];
+  int _rotQ = 0; // 판을 반시계로 90° 돌린 횟수(평판·리브·자유)
   Map<String, (double, double)> _bendTable = {};
   List<double> _dies = const [];
 
@@ -170,6 +172,7 @@ class _PlatePageState extends State<PlatePage>
     'sh': _shape.name,
     'mat': _mat.name,
     'holes': [for (final h in _holes) h.toJson()],
+    'rot': _rotQ,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
   });
 
@@ -190,15 +193,35 @@ class _PlatePageState extends State<PlatePage>
     if (plateShapeBends(_shape) != _bend) {
       _shape = _bend ? PlateShape.l : PlateShape.flat;
     }
-    final hs = m['holes'];
-    if (hs is List) {
-      _holes
-        ..clear()
-        ..addAll(hs.map(PlateHoleGroup.fromJson).whereType<PlateHoleGroup>());
-    }
+    final rot = m['rot'];
+    _rotQ = rot is int && rot >= 0 && rot <= 3 ? rot : 0;
     for (var i = 0; i < _fields.length; i++) {
       final v = m[_fieldKeys[i]];
       if (v is String) _fields[i].text = v;
+    }
+    final hs = m['holes'];
+    if (hs is List) {
+      _holes.clear();
+      // 10-10 전 저장은 구멍 묶음(줄·네 귀)이었다 → 하나하나로 풀어 옮긴다(네 귀는 지금 판 크기로).
+      final base = platePlan(_input().withHoles(const [], rotQ: 0));
+      for (final o in hs) {
+        final s = PlateHoleSpec.fromJson(o);
+        if (s != null) {
+          _holes.add(s);
+          continue;
+        }
+        final g = PlateHoleGroup.fromJson(o);
+        if (g != null) {
+          _holes.addAll(
+            g.expand(
+              minX: base.minX,
+              minY: base.minY,
+              maxX: base.maxX,
+              maxY: base.maxY,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -293,6 +316,7 @@ class _PlatePageState extends State<PlatePage>
     ribC: _num(_ribC),
     points: parsePlatePoints(_points.text),
     holes: List.of(_holes),
+    rotQ: _rotQ,
     qty: _num(_qty).round().clamp(1, 9999),
   );
 
@@ -322,13 +346,10 @@ class _PlatePageState extends State<PlatePage>
   }
 
   String _holeLine(PlatePlan p, PlateHole h) {
-    final kind = h.slot > 0
-        ? '장공 ${fmt(h.dia)}×${fmt(h.slot)}(${h.slotAlongX ? '가로' : '세로'})'
-        : 'φ${fmt(h.dia)}';
-    final face = plateShapeBends(_shape)
+    final face = p.isBent
         ? '${p.faceNames[h.face.clamp(0, p.faceNames.length - 1)]} ${fmt(h.u, 1)}·${fmt(h.v, 1)} → '
         : '';
-    return '${h.label} $kind: $face전개도 ${fmt(h.c.dx, 1)} · ${fmt(h.c.dy, 1)}';
+    return '구멍 ${h.label} ${plateHoleKind(h)}: $face전개도 ${fmt(h.c.dx - p.minX, 1)} · ${fmt(h.c.dy - p.minY, 1)}';
   }
 
   String _bendCond(PlatePlan p) =>
@@ -439,9 +460,7 @@ class _PlatePageState extends State<PlatePage>
               for (final h in p.holes)
                 [
                   h.label,
-                  h.slot > 0
-                      ? '장공 ${fmt(h.dia)}×${fmt(h.slot)}'
-                      : 'φ${fmt(h.dia)}',
+                  plateHoleKind(h),
                   fmt(h.c.dx, 1),
                   fmt(h.c.dy, 1),
                   plateShapeBends(_shape)
@@ -477,7 +496,7 @@ class _PlatePageState extends State<PlatePage>
     current: () => jsonDecode(_draft()) as Map<String, dynamic>,
     summaryOf: (m) {
       final sh = PlateShape.values.where((s) => s.name == m['sh']);
-      return '${sh.isEmpty ? '' : plateShapeName(sh.first)} · ${m['t'] ?? ''}t · 구멍 묶음 ${m['holes'] is List ? (m['holes'] as List).length : 0}';
+      return '${sh.isEmpty ? '' : plateShapeName(sh.first)} · ${m['t'] ?? ''}t · 구멍 ${m['holes'] is List ? (m['holes'] as List).length : 0}개';
     },
     defaultName: _job.text.trim().isNotEmpty
         ? _job.text.trim()
@@ -488,29 +507,29 @@ class _PlatePageState extends State<PlatePage>
     textSub: fc.textSub,
   );
 
-  // ── 구멍 묶음 ──
+  // ── 구멍 ──
 
-  String _groupText(PlateHoleGroup g) {
-    final kind = g.slot > g.dia
-        ? '장공 ${fmt(g.dia)}×${fmt(g.slot)}(${g.slotAlongX ? '가로' : '세로'})'
-        : 'φ${fmt(g.dia)}';
-    final faces = plateFaceNames(_shape);
-    final face = plateShapeBends(_shape)
-        ? '${faces[g.face.clamp(0, faces.length - 1)]} · '
-        : '';
-    if (g.corners) {
-      return '$face네 귀 $kind · 가장자리에서 ${fmt(g.x)} / ${fmt(g.y)}';
+  /// 구멍 요약: "구멍 6개 · φ13.5 4 · 장공 11×30 2".
+  String _holeSummary() {
+    if (_holes.isEmpty) {
+      return '구멍이 없습니다. "구멍 배치 편집"에서 판을 눌러 놓거나 아래에서 한꺼번에 넣습니다.';
     }
-    return '$face$kind × ${g.count} · 첫 구멍 ${fmt(g.x)}, ${fmt(g.y)}${g.count > 1 ? ' · ${g.rowAlongX ? '가로' : '세로'} ${fmt(g.pitch)} 간격' : ''}';
+    final kinds = <String, int>{};
+    for (final h in _holes) {
+      final k = h.isSlot ? '장공 ${fmt(h.dia)}×${fmt(h.slot)}' : 'φ${fmt(h.dia)}';
+      kinds[k] = (kinds[k] ?? 0) + 1;
+    }
+    return '구멍 ${_holes.length}개 · ${kinds.entries.map((e) => '${e.key} ${e.value}').join(' · ')}${_rotQ != 0 ? ' · 판 ${_rotQ * 90}° 돌림' : ''}';
   }
 
-  Future<void> _editHole({int? index, PlateHoleGroup? preset}) async {
+  /// 줄·네 귀·장공 틀로 여러 개를 한꺼번에 넣는다(하나하나로 풀어 넣음).
+  Future<void> _addGroup({PlateHoleGroup? preset}) async {
     final g = await showModalBottomSheet<PlateHoleGroup>(
       context: context,
       isScrollControlled: true,
       backgroundColor: fc.surface,
       builder: (_) => _HoleSheet(
-        initial: index != null ? _holes[index] : preset,
+        initial: preset,
         bent: plateShapeBends(_shape),
         flat: _shape == PlateShape.flat,
         faces: plateFaceNames(_shape),
@@ -522,55 +541,51 @@ class _PlatePageState extends State<PlatePage>
       ),
     );
     if (g == null || !mounted) return;
-    _set(() {
-      if (index != null) {
-        _holes[index] = g;
-      } else {
-        _holes.add(g);
-      }
-    });
-  }
-
-  List<Widget> _holeList() => [
-    for (var n = 0; n < _holes.length; n++)
-      SwipeToDelete(
-        key: ValueKey('pl_hole_$n${_holes[n].hashCode}'),
-        itemKey: ValueKey('pl_hole_item_$n${_holes[n].hashCode}'),
-        onDelete: () {
-          final removed = _holes[n];
-          final at = n;
-          _set(() => _holes.removeAt(n));
-          showDeleteUndo(
-            context,
-            '구멍 묶음 ${at + 1}',
-            onUndo: () =>
-                _set(() => _holes.insert(at.clamp(0, _holes.length), removed)),
-          );
-        },
-        child: Material(
-          color: fc.surface,
-          borderRadius: BorderRadius.circular(12),
-          child: ListTile(
-            key: Key('pl_hole_$n'),
-            dense: true,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(color: fc.line),
-            ),
-            title: Text(
-              '구멍 묶음 ${n + 1}',
-              style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
-            ),
-            subtitle: Text(
-              _groupText(_holes[n]),
-              style: TextStyle(color: fc.textSub),
-            ),
-            trailing: Icon(Icons.edit_outlined, color: fc.textSub),
-            onTap: () => _editHole(index: n),
-          ),
+    final base = platePlan(_input().withHoles(const [], rotQ: 0));
+    _set(
+      () => _holes.addAll(
+        g.expand(
+          minX: base.minX,
+          minY: base.minY,
+          maxX: base.maxX,
+          maxY: base.maxY,
         ),
       ),
-  ];
+    );
+  }
+
+  void _clearHoles() {
+    final before = List.of(_holes);
+    _set(_holes.clear);
+    showDeleteUndo(
+      context,
+      '구멍 ${before.length}개',
+      onUndo: () => _set(
+        () => _holes
+          ..clear()
+          ..addAll(before),
+      ),
+    );
+  }
+
+  Future<void> _openEditor() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlateHoleEditorPage(
+          input: _input(),
+          holes: List.of(_holes),
+          rotQ: _rotQ,
+          dies: _dies.isEmpty ? kDefaultPunchDies : _dies,
+          onChanged: (h, r) => _set(() {
+            _holes
+              ..clear()
+              ..addAll(h);
+            _rotQ = r;
+          }),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -656,26 +671,47 @@ class _PlatePageState extends State<PlatePage>
         onEdit: _saveSoon,
       ),
       elecSectionTitle('구멍·장공'),
-      if (_holes.isEmpty)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            '구멍이 없습니다. 아래에서 넣습니다.',
-            style: TextStyle(color: fc.textSub),
+      Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          _holeSummary(),
+          key: const Key('pl_hole_summary'),
+          style: TextStyle(
+            color: _holes.isEmpty ? fc.textSub : fc.text,
+            fontWeight: FontWeight.w700,
+            height: 1.35,
           ),
         ),
-      ..._holeList(),
+      ),
+      SizedBox(
+        width: double.infinity,
+        child: FilledButton.icon(
+          key: const Key('pl_hole_edit'),
+          style: FilledButton.styleFrom(
+            backgroundColor: fc.brand,
+            foregroundColor: fc.onBrand,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          onPressed: _openEditor,
+          icon: const Icon(Icons.open_with),
+          label: const Text(
+            '구멍 배치 편집 (놓기·옮기기·돌리기)',
+            style: TextStyle(fontWeight: FontWeight.w800),
+          ),
+        ),
+      ),
+      const SizedBox(height: 8),
       Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
-          calcChip('pl_hole_add', '구멍 넣기', false, () => _editHole()),
+          calcChip('pl_hole_add', '줄로 넣기', false, () => _addGroup()),
           if (_shape == PlateShape.flat)
             calcChip(
               'pl_hole_corners',
               '네 귀 구멍',
               false,
-              () => _editHole(
+              () => _addGroup(
                 preset: const PlateHoleGroup(
                   dia: 13.5,
                   corners: true,
@@ -688,10 +724,12 @@ class _PlatePageState extends State<PlatePage>
             'pl_hole_slot',
             '장공 넣기',
             false,
-            () => _editHole(
+            () => _addGroup(
               preset: const PlateHoleGroup(dia: 13.5, slot: 30, x: 25, y: 25),
             ),
           ),
+          if (_holes.isNotEmpty)
+            calcChip('pl_hole_clear', '구멍 모두 지우기', false, _clearHoles),
         ],
       ),
       const SizedBox(height: 8),
