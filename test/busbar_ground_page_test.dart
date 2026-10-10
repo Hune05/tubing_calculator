@@ -38,25 +38,27 @@ void main() {
   setUpAll(expandFormulaCards);
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('기본값(일자, 구멍 φ11 10개, 피치 25, 끝 25): 길이 275', (tester) async {
+  testWidgets('기본값(일자, 양 끝 취부 구멍 1개, 접지 구멍 φ11 10개, 피치 25): 길이 375', (
+    tester,
+  ) async {
     await _open(tester);
-    // 50 + 9 × 25 = 275
-    expect(find.text('275 mm'), findsOneWidget);
-    expect(find.text('첫 구멍 25 → 피치 25 × 9칸 → 마지막 구멍 250'), findsOneWidget);
+    // 양 끝 (취부 25 + 50) × 2 + 9 × 25 = 375
+    expect(find.text('375 mm'), findsOneWidget);
+    expect(find.text('첫 구멍 75 → 피치 25 × 9칸 → 마지막 구멍 300'), findsOneWidget);
     expect(find.text('1~5번'), findsOneWidget);
     expect(find.text('6~10번'), findsOneWidget);
-    expect(find.text('25   50   75   100   125'), findsOneWidget);
+    expect(find.text('75   100   125   150   175'), findsOneWidget);
     expect(find.byKey(const Key('gb_view')), findsOneWidget);
     // 겉에 보이는 모양 칩은 일자·모자뿐(L자는 "자세히" 안)
     expect(find.text('일자'), findsOneWidget);
     expect(find.text('모자'), findsWidgets);
   });
 
-  testWidgets('막대 길이로: 500mm에는 구멍 19개', (tester) async {
+  testWidgets('막대 길이로: 500mm에는 구멍 15개', (tester) async {
     await _open(tester);
     await _tap(tester, 'gb_by_len');
-    // (500 − 50) ÷ 25 = 18칸 → 19개
-    expect(find.textContaining('구멍 19개'), findsWidgets);
+    // (500 − 75 × 2) ÷ 25 = 14칸 → 15개
+    expect(find.textContaining('구멍 15개'), findsWidgets);
   });
 
   testWidgets('피치가 구멍 지름 이하이면 겹침 알림, 피치 칩은 칸을 채운다', (tester) async {
@@ -79,7 +81,7 @@ void main() {
     await _type(tester, 'gb_n', '4');
     await _tap(tester, 'gb_share');
     expect(sent, startsWith('[접지바] 구리 6×50mm · 구멍 φ11 4개 피치 25'));
-    expect(sent, contains('절단 길이: 125mm'));
+    expect(sent, contains('절단 길이: 225mm'));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
     await _open(tester);
@@ -153,8 +155,8 @@ void main() {
     await _tap(tester, 'gb_rm_1');
     expect(find.byKey(const Key('gb_gap')), findsOneWidget);
     expect(find.byKey(const Key('gb_shift')), findsNothing);
-    // 폭 50, 간격 20 → A줄 15 · B줄 35, 길이 변화 없음 275
-    expect(find.text('275 mm'), findsOneWidget);
+    // 폭 50, 간격 20 → A줄 15 · B줄 35, 길이 변화 없음 375
+    expect(find.text('375 mm'), findsOneWidget);
     expect(find.textContaining('두 줄 대칭'), findsWidgets);
     expect(find.text('A1~5'), findsOneWidget);
     expect(find.text('B1~5'), findsOneWidget);
@@ -162,7 +164,7 @@ void main() {
     expect(find.text('켜 둔 것: 두 줄 대칭'), findsOneWidget);
     await _tap(tester, 'gb_rm_2');
     expect(find.byKey(const Key('gb_shift')), findsOneWidget);
-    expect(find.text('287.5 mm'), findsOneWidget); // 275 + 12.5
+    expect(find.text('387.5 mm'), findsOneWidget); // 375 + 12.5
     await _tap(tester, 'gb_share');
     expect(sent, contains('구멍 φ11 10개 × 2줄'));
     expect(sent, contains('B줄은 길이 방향으로 12.5mm 옮김'));
@@ -241,10 +243,9 @@ void main() {
     expect(find.text('러그 구멍 2개 · 볼트 세트 2'), findsOneWidget);
     expect(find.textContaining('접지 구멍은 왼쪽 끝으로 몰았고'), findsOneWidget);
     expect(find.textContaining('볼트 M12 2개'), findsWidgets);
-    // 25 + 9 × 25 + 25 + 44.45 + 25 = 344.45
-    expect(find.textContaining(RegExp(r'^344.[45] mm$')), findsOneWidget);
+    // 75 + 9 × 25 + 25 + 44.45 + 75 = 444.45
+    expect(find.textContaining(RegExp(r'^444.[45] mm$')), findsOneWidget);
     expect(find.byKey(const Key('gb_lug_notes')), findsOneWidget);
-    expect(find.text('켜 둔 것: 러그 2구멍'), findsOneWidget);
     // 가운데 균등으로 바꾸면 한 줄 접지 구멍과 겹칠 수 있다
     await _tap(tester, 'gb_pack_off');
     expect(find.textContaining('접지 구멍과 겹칩니다'), findsOneWidget);
@@ -267,6 +268,7 @@ void main() {
   testWidgets('판넬 취부: 모자 발 구멍으로 판넬 구멍 자리와 볼트 세트, 판넬 두께', (tester) async {
     String? sent;
     await _open(tester, share: (t) async => sent = t);
+    await _tap(tester, 'gb_mc_0');
     expect(find.byKey(const Key('gb_mount_result')), findsNothing);
     await _type(tester, 'gb_n', '3');
     await _tap(tester, 'gb_tab_4');
@@ -312,7 +314,10 @@ void main() {
     expect(text('gb_hole'), '13.5');
     // 내 금형 넣기: 10, 12.5, 20
     await _tap(tester, 'gb_hd_edit');
-    await tester.enterText(find.byKey(const Key('gb_dies_field')), '20, 10 12.5');
+    await tester.enterText(
+      find.byKey(const Key('gb_dies_field')),
+      '20, 10 12.5',
+    );
     await _tap(tester, 'gb_dies_ok');
     expect(find.byKey(const Key('gb_hd_900')), findsNothing);
     expect(find.byKey(const Key('gb_hd_1000')), findsOneWidget);
@@ -332,6 +337,48 @@ void main() {
     await _tap(tester, 'gb_dies_ok');
     expect(find.byKey(const Key('gb_hd_900')), findsOneWidget);
     expect(find.byKey(const Key('gb_hd_1250')), findsNothing);
+  });
+
+  testWidgets('일자 취부 구멍(10-10): 양 끝에 따로, 판넬 간격, 거리 바꾸기·겹침·한쪽만·없음', (
+    tester,
+  ) async {
+    String? sent;
+    await _open(tester, share: (t) async => sent = t);
+    // 기본: 끝 하나에 1개, 끝에서 25, 첫 접지 구멍까지 50
+    expect(
+      find.textContaining('취부 구멍 φ11: 왼쪽 끝 1개 + 오른쪽 끝 1개(합계 2개)'),
+      findsOneWidget,
+    );
+    expect(find.text('25'), findsWidgets); // 취부 구멍 위치 표: 왼쪽 25
+    expect(find.text('350'), findsOneWidget); // 오른쪽 375 − 25
+    // 판넬 구멍 가로 간격 = 350 − 25
+    expect(
+      find.textContaining('판넬 구멍 가로 간격 325mm(양 끝 취부 구멍 중심 사이)'),
+      findsOneWidget,
+    );
+    expect(find.text('취부 구멍 2개 · 볼트 세트 2'), findsOneWidget);
+    expect(find.textContaining('그립) 9mm = 부스바 6 + 판넬 3'), findsOneWidget);
+    await _tap(tester, 'gb_share');
+    expect(sent, contains('취부 구멍 φ11 (왼쪽 끝에서 중심): 왼쪽 1 25 · 오른쪽 1 350'));
+    // 첫 접지 구멍까지 30 → 길이 335, 너무 가까우면 겹침
+    await _type(tester, 'gb_mgap', '30');
+    expect(find.text('335 mm'), findsOneWidget);
+    await _type(tester, 'gb_mgap', '8');
+    expect(find.textContaining('취부 구멍이 접지 구멍과 겹칩니다'), findsOneWidget);
+    await _type(tester, 'gb_mgap', '50');
+    // 왼쪽만: 오른쪽은 끝 여유 25 → 75 + 225 + 25 = 325
+    await _tap(tester, 'gb_tsd_1');
+    expect(find.text('325 mm'), findsOneWidget);
+    expect(find.text('켜 둔 것: 취부 구멍 왼쪽만'), findsOneWidget);
+    await _tap(tester, 'gb_tsd_3');
+    // 없음: 예전처럼 끝 여유만 → 275
+    await _tap(tester, 'gb_mc_0');
+    expect(find.text('275 mm'), findsOneWidget);
+    expect(find.byKey(const Key('gb_mend')), findsNothing);
+    // 모자 → 일자로 돌아오면 다시 1개
+    await _tap(tester, 'gb_tab_4');
+    await _tap(tester, 'gb_tab_0');
+    expect(find.text('375 mm'), findsOneWidget);
   });
 
   test('금형 글 읽기·칩 이름', () {

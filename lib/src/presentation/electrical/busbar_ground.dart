@@ -13,6 +13,8 @@
 //     - 모자: 발 F(끝에서 다리 바깥면까지, 왼쪽·오른쪽 따로) · 높이 H(발 바닥면에서 윗면까지) · 윗면에 구멍 줄.
 //       곧은 길이 = 발 F − (r + t), 다리 H − 2(r + t). 꺾기 4곳(위로·아래로·아래로·위로).
 //  · 탭·발에도 구멍(취부)을 뚫는다. 평평한 길이 가운데에 모아 놓는다.
+//  · 일자(꺾지 않음)는 양 끝에 취부 구멍을 따로 뚫는다(10-10): 끝에서 첫 취부 구멍까지 a, 마지막 취부 구멍에서
+//    첫 접지 구멍까지 b. 그 쪽 접지 구멍은 끝 여유 대신 a + (취부 구멍 묶음) + b에서 시작한다.
 //  · 구멍마다 크기를 따로 줄 수 있다(overrides: 구멍 번호 → 지름).
 //  · 무게는 구리 밀도 8.9 g/cm³로 구멍 뺀 부피를 곱한 근사값이다.
 library;
@@ -184,6 +186,8 @@ String _f(double v) {
 /// [rows] 1 또는 2, [rowGap] 두 줄 사이 간격, [staggered] 두 줄을 엇갈리게(비대칭), [shift] 엇갈림 거리(null이면 반 피치).
 /// [tabHoleCount]개(줄마다) 구멍(지름 [tabHoleDia], 피치 [tabHolePitch])을 탭·발 평평한 길이 가운데에 뚫는다.
 /// [tabSides]는 구멍을 뚫을 쪽(1 왼쪽, 2 오른쪽, 3 양쪽).
+/// 꺾지 않은 일자에서는 [tabHoleCount]가 양 끝 취부 구멍 수다: 끝에서 [mountEnd]에 첫 취부 구멍,
+/// 마지막 취부 구멍에서 [mountGap] 띄워 첫 접지 구멍.
 /// 접지 러그 구멍: [lugHoles] 1·2구멍 러그, [lugSpacing] 2구멍 러그의 구멍 간격, [lugCount] 러그 수,
 /// [lugPitch] 러그 사이 중심 간격, [lugHoleDia] 러그 구멍 지름. 구멍은 곧은 구간 가운데·폭 가운데에 따로 뚫는다.
 /// [packGround]이면 한 줄 접지 구멍을 왼쪽(뒤) 끝에서부터 촘촘히 놓고, 러그 구멍 묶음은 그 뒤 남는 자리 가운데에 같은 줄로 둔다.
@@ -215,6 +219,8 @@ GroundBarPlan groundBar({
   double tabRowGap = 0,
   bool tabStaggered = false,
   int tabSides = 3,
+  double mountEnd = 25,
+  double mountGap = 50,
   int lugHoles = 0,
   double lugSpacing = 0,
   int lugCount = 0,
@@ -223,7 +229,8 @@ GroundBarPlan groundBar({
   bool packGround = false,
   Map<String, double> overrides = const {},
 }) {
-  final tabName = hat ? '발' : '탭';
+  final bentEnds = hat || tabLeft > 0 || tabRight > 0;
+  final tabName = hat ? '발' : (bentEnds ? '탭' : '취부');
   final notes = <String>[];
   double minUp(double v, String name) {
     if (v <= 0 || v >= kGroundMinSpacing) return v;
@@ -298,6 +305,24 @@ GroundBarPlan groundBar({
     }
   }
 
+  // 탭·발·취부 구멍 줄(접지 구멍과 따로)
+  final nRowsT = tabRows == 2 ? 2 : 1;
+  final rowYT = nRowsT == 1
+      ? [w / 2]
+      : [w / 2 - tabRowGap / 2, w / 2 + tabRowGap / 2];
+  final stT = nRowsT == 2 && tabStaggered && tabHoleCount > 1
+      ? tabHolePitch / 2
+      : 0.0;
+
+  // 일자 양 끝 취부 구멍: 그 쪽 접지 구멍은 끝 여유 대신 끝 → 취부 구멍 → 간격 다음에서 시작한다.
+  final straightMount = !bentEnds && tabHoleCount > 0 && tabHoleDia > 0;
+  final mountL = straightMount && tabSides & 1 != 0;
+  final mountR = straightMount && tabSides & 2 != 0;
+  final mountLead =
+      mountEnd + (tabHoleCount - 1) * tabHolePitch + stT + mountGap;
+  final leadL = mountL ? mountLead : endDist;
+  final leadR = mountR ? mountLead : endDist;
+
   // 접지 구멍 줄 길이 계산
   final lugOn = lugHoles > 0 && lugCount > 0 && lugHoleDia > 0;
   final packed = packGround && lugOn;
@@ -313,16 +338,16 @@ GroundBarPlan groundBar({
     run = n < 1
         ? 0
         : packed
-        ? endDist + (n - 1) * pitch + st + pitch + lugGroupW + endDist
-        : 2 * endDist + (n - 1) * pitch + st;
+        ? leadL + (n - 1) * pitch + st + pitch + lugGroupW + leadR
+        : leadL + (n - 1) * pitch + st + leadR;
     len = run + spanL + spanR;
   } else if (length != null) {
     len = length;
     run = len - spanL - spanR;
     final fixed = packed ? st + pitch + lugGroupW : st;
-    n = run < 2 * endDist + fixed || pitch <= 0
+    n = run < leadL + leadR + fixed || pitch <= 0
         ? 0
-        : ((run - 2 * endDist - fixed) / pitch + 1e-9).floor() + 1;
+        : ((run - leadL - leadR - fixed) / pitch + 1e-9).floor() + 1;
   }
   if (n > kGroundMaxHoles) {
     warn('구멍이 한 줄에 $kGroundMaxHoles개를 초과해 계산하지 않습니다.');
@@ -330,13 +355,13 @@ GroundBarPlan groundBar({
   }
   if (n < 1) warn('구멍이 들어갈 자리가 없습니다. 길이나 구멍 수를 늘리십시오.');
   if (holeDia >= w) warn('구멍 지름이 부스바 폭보다 크거나 같습니다.');
-  if (endDist < holeDia / 2) {
+  if ((!mountL || !mountR) && endDist < holeDia / 2) {
     warn('끝 여유가 구멍 반지름보다 작아 구멍이 끝 면을 뚫습니다.');
   }
   if (nRows == 2 && rowGap <= 0) warn('두 줄은 줄 간격이 있어야 합니다.');
-  final holeRun = n < 1 ? 0.0 : 2 * endDist + (n - 1) * pitch + st;
+  final holeRun = n < 1 ? 0.0 : leadL + (n - 1) * pitch + st + leadR;
   final rest = n < 1 || packed ? 0.0 : run - holeRun;
-  final first = spanL + endDist + rest / 2;
+  final first = spanL + leadL + rest / 2;
 
   double dOf(String id) => overrides[id] ?? holeDia;
   final ground = <GroundHole>[];
@@ -361,17 +386,31 @@ GroundBarPlan groundBar({
   }
 
   // 탭·발 구멍: 평평한 길이 가운데에 모은다. 줄마다 tabHoleCount개. 줄 수·줄 간격은 접지 구멍과 따로.
-  final nRowsT = tabRows == 2 ? 2 : 1;
-  final rowYT = nRowsT == 1
-      ? [w / 2]
-      : [w / 2 - tabRowGap / 2, w / 2 + tabRowGap / 2];
+  // 일자 취부 구멍: 양 끝에서 mountEnd부터 피치 간격으로.
   final tabs = <GroundHole>[];
-  final hasTabs = hat || tabLeft > 0 || tabRight > 0;
-  if (hasTabs && tabHoleCount > 0 && tabHoleDia > 0) {
-    final stT = nRowsT == 2 && tabStaggered && tabHoleCount > 1
-        ? tabHolePitch / 2
-        : 0.0;
+  if ((bentEnds || straightMount) && tabHoleCount > 0 && tabHoleDia > 0) {
     if (nRowsT == 2 && tabRowGap <= 0) warn('취부 구멍 두 줄은 줄 간격이 있어야 합니다.');
+    void endSide(String letter, String name, bool on, bool left) {
+      if (!on) return;
+      for (var row = 0; row < nRowsT; row++) {
+        final rl = row == 0 ? 'A' : 'B';
+        for (var i = 0; i < tabHoleCount; i++) {
+          final off = mountEnd + (row == 1 ? stT : 0) + i * tabHolePitch;
+          final id = 't$letter-$rl${i + 1}';
+          tabs.add(
+            GroundHole(
+              id: id,
+              label: nRowsT == 1 ? '$name ${i + 1}' : '$name $rl${i + 1}',
+              x: left ? off : len - off,
+              y: rowYT[row],
+              dia: overrides[id] ?? tabHoleDia,
+              custom: overrides.containsKey(id),
+            ),
+          );
+        }
+      }
+    }
+
     void side(String letter, String name, bool on, double flat, bool left) {
       if (!on) return;
       // 8차(10-09): 탭이 꺾기에 다 들어가 평평한 길이가 없으면 말없이 구멍 0개였다.
@@ -413,8 +452,22 @@ GroundBarPlan groundBar({
       }
     }
 
-    side('L', '왼쪽', (hat || tabLeft > 0) && tabSides & 1 != 0, flatL, true);
-    side('R', '오른쪽', (hat || tabRight > 0) && tabSides & 2 != 0, flatR, false);
+    if (straightMount) {
+      endSide('L', '왼쪽', mountL, true);
+      endSide('R', '오른쪽', mountR, false);
+      if (tabs.any((h) => h.dia / 2 > mountEnd + 1e-9)) {
+        warn('끝에서 취부 구멍까지 ${_f(mountEnd)}mm가 구멍 반지름보다 작아 구멍이 끝 면을 뚫습니다.');
+      }
+    } else {
+      side('L', '왼쪽', (hat || tabLeft > 0) && tabSides & 1 != 0, flatL, true);
+      side(
+        'R',
+        '오른쪽',
+        (hat || tabRight > 0) && tabSides & 2 != 0,
+        flatR,
+        false,
+      );
+    }
     if (tabHoleCount > 1 && tabHolePitch <= tabHoleDia) {
       warn('$tabName 구멍 피치가 구멍 지름 이하라 구멍이 서로 겹칩니다.');
     }
@@ -425,8 +478,8 @@ GroundBarPlan groundBar({
   if (lugHoles > 0 && lugCount > 0 && lugHoleDia > 0) {
     // 묶은 경우: 마지막 접지 구멍 뒤 남는 자리(마지막 구멍 + 피치 ~ 끝 여유 앞)의 가운데
     final cx = packed
-        ? ((spanL + endDist + (n - 1) * pitch + st + pitch) +
-                  (len - spanR - endDist)) /
+        ? ((spanL + leadL + (n - 1) * pitch + st + pitch) +
+                  (len - spanR - leadR)) /
               2
         : (spanL + (len - spanR)) / 2;
     for (var k = 0; k < lugCount; k++) {
@@ -502,6 +555,21 @@ GroundBarPlan groundBar({
 
   overlap(ground);
   overlap(tabs);
+  // 일자 취부 구멍과 접지 구멍(같은 면이라 겹칠 수 있다)
+  if (straightMount) {
+    final clash = <String>[];
+    for (final m in tabs) {
+      for (final g in ground) {
+        final dx = m.x - g.x, dy = m.y - g.y;
+        if (math.sqrt(dx * dx + dy * dy) <= (m.dia + g.dia) / 2 - 1e-9) {
+          clash.add('${m.label}-${g.label}');
+        }
+      }
+    }
+    if (clash.isNotEmpty) {
+      warn('취부 구멍이 접지 구멍과 겹칩니다(${names(clash)}). 취부 구멍에서 첫 접지 구멍까지 거리를 늘리십시오.');
+    }
+  }
   // 러그 구멍끼리, 러그 구멍과 접지 구멍
   final lugClash = <String>[];
   for (var i = 0; i < lugs.length; i++) {
@@ -583,7 +651,7 @@ GroundBarPlan groundBar({
     }
   }
   double? edgeTab;
-  for (final h in tabs) {
+  for (final h in bentEnds ? tabs : const <GroundHole>[]) {
     // 10-10: 이름표('왼쪽 1')가 아니라 번호(tL-)로 쪽을 가린다. 이름표 글이 바뀌어도 쪽을 잘못 읽지 않게.
     final left = h.id.startsWith('tL-');
     final off = left ? h.x : len - h.x;
@@ -621,8 +689,10 @@ GroundBarPlan groundBar({
   }
   if (n > 0) {
     final endGap = <double>[
-      if (spanL == 0) endDist - holeDia / 2,
-      if (spanR == 0) endDist - holeDia / 2,
+      if (spanL == 0)
+        mountL ? mountEnd - tabHoleDia / 2 : endDist - holeDia / 2,
+      if (spanR == 0)
+        mountR ? mountEnd - tabHoleDia / 2 : endDist - holeDia / 2,
     ];
     final endMin = endGap.isEmpty ? null : endGap.reduce(math.min);
     if (endMin != null && endMin < 2 * t - 1e-9) {

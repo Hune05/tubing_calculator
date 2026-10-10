@@ -24,6 +24,16 @@ void main() {
     expect(tile('gb_fold_more').initiallyExpanded, isFalse);
     expect(find.byKey(const Key('gb_rm_1')), findsNothing);
     expect(find.byKey(const Key('gb_tab_1')), findsNothing);
+    // 러그 종류와 일자 취부 구멍 칸은 겉에 있다(10-10)
+    expect(find.byKey(const Key('gb_lug_1')), findsOneWidget);
+    expect(find.byKey(const Key('gb_mend')), findsOneWidget);
+    expect(find.byKey(const Key('gb_mgap')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('gb_lug_2')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('gb_lugdia')), findsOneWidget);
+    expect(find.byKey(const Key('gb_lugsp')), findsNothing); // 간격은 자세히 안
+    await tester.tap(find.byKey(const Key('gb_lug_0')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('gb_tab_4')));
     await tester.pumpAndSettle();
     await tester.drag(find.byType(Scrollable).first, const Offset(0, -1500));

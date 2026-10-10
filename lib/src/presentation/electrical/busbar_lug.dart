@@ -42,15 +42,21 @@ class PanelHole {
 }
 
 /// 모자 모양으로 꺾은 접지바를 판넬에 올렸을 때 발 구멍 자리(판넬 구멍 뚫는 위치).
-/// 발 길이는 다리 바깥면에서 발 끝까지(바깥 치수). 모자가 아니거나 발 구멍이 없으면 빈 목록.
+/// 발 길이는 다리 바깥면에서 발 끝까지(바깥 치수). 일자(꺾기 없음)는 양 끝 취부 구멍 자리를 그대로(10-10).
+/// 끝 L자이거나 취부 구멍이 없으면 빈 목록.
 List<PanelHole> panelPattern(
   GroundBarPlan p, {
   required double flangeLeft,
   required double flangeRight,
 }) {
-  if (!p.hat || p.tabHoleList.isEmpty) return const [];
+  final straight = !p.hat && p.flatTabL == 0 && p.flatTabR == 0;
+  if (p.tabHoleList.isEmpty || (!p.hat && !straight)) return const [];
   final raw = <(GroundHole, double)>[];
   for (final h in p.tabHoleList) {
+    if (!p.hat) {
+      raw.add((h, h.x));
+      continue;
+    }
     final left = h.id.startsWith('tL-');
     // 왼쪽 다리 바깥면을 0으로, 오른쪽은 윗면 바깥 폭만큼 더 간 자리
     final x = left

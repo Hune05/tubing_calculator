@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/electrical/busbar_ground.dart';
+import 'package:tubing_calculator/src/presentation/electrical/busbar_lug.dart';
 
 void main() {
   test('구멍 수로: 길이 = 2e + (n−1)p, 위치는 e부터 피치씩', () {
@@ -226,7 +227,10 @@ void main() {
       tabHolePitch: 25.4,
     );
     expect(p.tabHoleList, isEmpty);
-    expect(p.problems.any((w) => w.contains("평평한 길이가 없어 탭 구멍을 뚫지 않았습니다")), isTrue);
+    expect(
+      p.problems.any((w) => w.contains("평평한 길이가 없어 탭 구멍을 뚫지 않았습니다")),
+      isTrue,
+    );
   });
 
   test('챙 길이를 왼쪽·오른쪽 따로: 길이와 꺾기 선이 각각 맞다', () {
@@ -578,5 +582,99 @@ void main() {
       count: 3,
     );
     expect(fine.notes, isEmpty);
+  });
+
+  // 10-10: 일자 양 끝 취부 구멍. 끝에서 25에 취부 구멍, 거기서 50 띄워 첫 접지 구멍.
+  test("일자 취부 구멍: 양 끝에 따로, 접지 구멍은 그 안쪽부터, 길이가 늘어난다", () {
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11,
+      pitch: 25,
+      endDist: 25,
+      count: 10,
+      tabHoleCount: 1,
+      tabHoleDia: 11,
+      mountEnd: 25,
+      mountGap: 50,
+    );
+    expect(p.ok, isTrue);
+    expect(p.length, closeTo(375, 1e-9));
+    expect(p.positions.first, closeTo(75, 1e-9));
+    expect(p.tabHoleList.map((h) => h.id), ["tL-A1", "tR-A1"]);
+    expect(p.tabHoleList.map((h) => h.x), [25, 350]);
+    expect(p.bends, isEmpty);
+    expect(p.minEdgeTab, isNull); // 꺾지 않으니 꺾기선 거리 없음
+    // 판넬 자리: 막대 위치 그대로(왼쪽 구멍 0)
+    final pts = panelPattern(p, flangeLeft: 0, flangeRight: 0);
+    expect(pts.map((h) => h.x), [0, 325]);
+  });
+
+  test("일자 취부 구멍: 2개씩·한쪽만·막대 길이로·겹침", () {
+    final two = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11,
+      pitch: 25,
+      endDist: 25,
+      count: 4,
+      tabHoleCount: 2,
+      tabHoleDia: 11,
+      tabHolePitch: 30,
+      mountEnd: 20,
+      mountGap: 40,
+    );
+    // 20 + 30 + 40 = 90씩, 90 × 2 + 3 × 25 = 255
+    expect(two.length, closeTo(255, 1e-9));
+    expect(two.tabHoleList.map((h) => h.x), [20, 50, 235, 205]);
+    final left = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11,
+      pitch: 25,
+      endDist: 25,
+      count: 4,
+      tabHoleCount: 1,
+      tabHoleDia: 11,
+      tabSides: 1,
+    );
+    expect(left.length, closeTo(75 + 75 + 25, 1e-9));
+    expect(left.tabHoleList.single.id, "tL-A1");
+    final byLen = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11,
+      pitch: 25,
+      endDist: 25,
+      length: 500,
+      tabHoleCount: 1,
+      tabHoleDia: 11,
+    );
+    expect(byLen.holes, 15); // (500 − 150) ÷ 25 + 1
+    expect(byLen.tabHoleList.map((h) => h.x), [25, 475]);
+    final clash = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11,
+      pitch: 25,
+      endDist: 25,
+      count: 4,
+      tabHoleCount: 1,
+      tabHoleDia: 11,
+      mountGap: 8,
+    );
+    expect(clash.problems.join(), contains("취부 구멍이 접지 구멍과 겹칩니다"));
+    final edge = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11,
+      pitch: 25,
+      endDist: 25,
+      count: 4,
+      tabHoleCount: 1,
+      tabHoleDia: 11,
+      mountEnd: 4,
+    );
+    expect(edge.problems.join(), contains("끝에서 취부 구멍까지 4mm가 구멍 반지름보다 작아"));
   });
 }
