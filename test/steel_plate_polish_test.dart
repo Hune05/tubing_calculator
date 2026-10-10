@@ -236,6 +236,20 @@ void main() {
       expect(field().highlight, isFalse);
     });
 
+    testWidgets('위 요약 줄은 고른 재질 이름(알루미늄을 골라도 철판으로 나오던 것)', (tester) async {
+      await open(tester);
+      await tap(tester, 'pl_mat_aluminum');
+      final sum = tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const Key('pl_sum')),
+              matching: find.byType(Text),
+            ),
+          )
+          .data!;
+      expect(sum, startsWith('알루미늄 ㄱ자 · 3T'));
+    });
+
     testWidgets('Z자 치수 4칸: 넓으면 한 줄, 휴대폰은 2 × 2(폭이 혼자 남지 않음)', (tester) async {
       await open(tester);
       await tap(tester, 'pl_shape_z');

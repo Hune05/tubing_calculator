@@ -2274,7 +2274,8 @@ class _PlatePageState extends State<PlatePage>
       final size = '${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)} mm';
       // 크기는 위 요약 줄에(결과 탭 큰 글은 무게)
       summary =
-          '철판 ${plateShapeName(_shape)} · ${fmt(_num(_t))}T · ${_bend ? '전개 ' : ''}$size';
+          // 재질 이름(철판·SUS·알루미늄) — 알루미늄을 골라도 "철판"으로 나오던 것(10-11 실기기)
+          '${kPlateMaterials[_mat]!.$1} ${plateShapeName(_shape)} · ${fmt(_num(_t))}T · ${_bend ? '전개 ' : ''}$size';
     }
     final tabs = _tabs;
     final idx = _tab.clamp(0, tabs.length - 1);

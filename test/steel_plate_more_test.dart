@@ -226,7 +226,7 @@ void main() {
       expect(find.byKey(const Key('pl_t_1.5')), findsOneWidget);
       expect(find.byKey(const Key('pl_t_3.2')), findsNothing);
       await tap(tester, 'pl_t_1.5');
-      expect(sum(tester), '철판 평판 · 1.5T · 200 × 100 mm');
+      expect(sum(tester), 'SUS 평판 · 1.5T · 200 × 100 mm');
       expect(
         tester
             .widget<PlateSegButton>(find.byKey(const Key('pl_t_1.5')))
