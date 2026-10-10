@@ -459,56 +459,33 @@ void main() {
     });
   });
 
-  group('구멍 십자 치수', () {
-    test('같은 가로줄은 아래 치수 하나, 같은 세로줄은 왼쪽 치수 하나', () {
-      final d = plateHoleDims(const [
-        (Offset(20, 20), 6.75, 6.75),
-        (Offset(180, 20), 6.75, 6.75),
-        (Offset(20, 80), 6.75, 6.75),
-        (Offset(100, 50), 6.75, 6.75),
-      ]);
-      expect(
-        [for (final x in d) (x.left, x.bottom)],
-        [
-          (true, true), // 왼쪽 아래 구멍: 둘 다
-          (true, false), // 같은 가로줄 → 아래 치수는 왼쪽 구멍이
-          (false, true), // 같은 세로줄 → 왼쪽 치수는 아래 구멍이
-          (true, true),
-        ],
+  group('판 가운데 십자선', () {
+    test('DXF: DIM 층에 판 가운데 중심선 둘과 CL 글, 구멍 치수는 없음, CUT 층은 그대로', () {
+      final p = platePlan(
+        const PlateInput(
+          shape: PlateShape.flat,
+          t: 3,
+          length: 200,
+          width: 100,
+          holes: [
+            PlateHoleSpec(u: 20, v: 20, dia: 13.5),
+            PlateHoleSpec(u: 180, v: 20, dia: 13.5),
+            PlateHoleSpec(u: 20, v: 80, dia: 13.5),
+          ],
+        ),
       );
-      expect(d.first.armX, 6.75);
+      final dxf = plateDxf(p, thickness: 3);
+      expect(RegExp(r'LINE\n8\nDIM\n').allMatches(dxf).length, 2);
+      // 가로 중심선: (−5, 50) → (205, 50)
+      expect(dxf, contains('LINE\n8\nDIM\n10\n-5\n20\n50\n'));
+      final texts = RegExp(
+        r'TEXT\n8\nDIM\n[^]*?\n1\n([^\n]+)\n',
+      ).allMatches(dxf).map((m) => m.group(1)).toList();
+      expect(texts, ['CL']);
+      expect(RegExp(r'CIRCLE\n8\nCUT\n').allMatches(dxf).length, 3);
     });
 
-    test(
-      'DXF: DIM 층에 판 가운데 중심선(CL)·구멍 십자·치수선·글(세로 치수는 90° 돌림), CUT 층은 그대로',
-      () {
-        final p = platePlan(
-          const PlateInput(
-            shape: PlateShape.flat,
-            t: 3,
-            length: 200,
-            width: 100,
-            holes: [
-              PlateHoleSpec(u: 20, v: 20, dia: 13.5),
-              PlateHoleSpec(u: 180, v: 20, dia: 13.5),
-              PlateHoleSpec(u: 20, v: 80, dia: 13.5),
-            ],
-          ),
-        );
-        final dxf = plateDxf(p, thickness: 3);
-        final dimLines = RegExp(r'LINE\n8\nDIM\n').allMatches(dxf).length;
-        // 판 가운데 중심선 2 + 구멍 십자 3개 × 2 + 왼쪽 치수 2 + 아래 치수 2
-        expect(dimLines, 12);
-        final texts = RegExp(
-          r'TEXT\n8\nDIM\n[^]*?\n1\n([^\n]+)\n',
-        ).allMatches(dxf).map((m) => m.group(1)).toList();
-        expect(texts, ['CL', '20', '20', '180', '80']);
-        expect(dxf, contains('\n50\n90\n'));
-        expect(RegExp(r'CIRCLE\n8\nCUT\n').allMatches(dxf).length, 3);
-      },
-    );
-
-    testWidgets('그림·PDF용 PNG에 십자 치수를 그려도 그대로 그려진다', (tester) async {
+    testWidgets('그림·PDF용 PNG에 판 가운데 십자선을 그려도 그대로 그려진다', (tester) async {
       final p = platePlan(
         const PlateInput(
           shape: PlateShape.flat,

@@ -1,6 +1,6 @@
 // 철판 가공 DXF(10-10): 레이저 업체에 보내는 전개도 파일. AutoCAD R12(AC1009) 글 형식, 단위 mm.
 //  · 층(레이어): CUT = 외곽·구멍·장공(자를 선), BEND = 꺾기선(가운데 선, 자르지 않음), NOTE = 꺾는 방향 글(영문),
-//    DIM = 판 가운데 십자 중심선(CL), 구멍 십자 중심선과 판 왼쪽·아래 끝에서의 치수(자르지 않음, 10-10).
+//    DIM = 판 가운데 십자 중심선(CL, 자르지 않음, 10-10).
 //  · 글은 업체 프로그램에서 깨지지 않게 영문·숫자만 쓴다("BEND 1 UP 90 R3").
 library;
 
@@ -125,24 +125,6 @@ String plateDxf(PlatePlan p, {required double thickness}) {
   d.line('DIM', p.minX - 5, cy, p.maxX + 5, cy);
   d.line('DIM', cx, p.minY - 5, cx, p.maxY + 5);
   d.text('DIM', p.maxX + 6, cy - 1.75, 3.5, 'CL');
-  // 구멍 십자 치수(DIM 층, 자르지 않음): 중심선은 구멍 밖으로 3mm, 치수선 위에 글(높이 3.5)
-  const th = 3.5;
-  for (final dm in plateHoleDims([
-    for (final h in p.holes) (h.c, h.halfX, h.halfY),
-  ])) {
-    final c = dm.c;
-    d.line('DIM', c.dx - dm.armX - 3, c.dy, c.dx + dm.armX + 3, c.dy);
-    d.line('DIM', c.dx, c.dy - dm.armY - 3, c.dx, c.dy + dm.armY + 3);
-    final dx = c.dx - p.minX, dy = c.dy - p.minY;
-    if (dm.left && dx > 0.05) {
-      d.line('DIM', p.minX, c.dy, c.dx, c.dy);
-      d.text('DIM', p.minX + dx / 2 - th, c.dy + 1, th, _n(dx));
-    }
-    if (dm.bottom && dy > 0.05) {
-      d.line('DIM', c.dx, p.minY, c.dx, c.dy);
-      d.text('DIM', c.dx - 1, p.minY + dy / 2 - th, th, _n(dy), rot: 90);
-    }
-  }
   var n = 0;
   for (final b in p.bends) {
     n++;
