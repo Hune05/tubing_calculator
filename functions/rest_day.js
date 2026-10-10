@@ -1,5 +1,5 @@
 // 쉬는 날(10-10 사용자 결정: 토요일·일요일·공휴일). 이날은 작업 일보·작업 지연(일정 초과·임박)·
-// 이슈 반복 알림을 보내지 않는다(휴일에는 일을 안 하는 일이 많다). 이슈는 긴급이거나 기한이 임박·초과한 것만 보낸다.
+// 이슈 반복 알림을 보내지 않는다(휴일에는 일을 안 하는 일이 많다). 이슈는 긴급이거나 기한이 임박한 것만 보낸다.
 // 공휴일 표는 앱(lib/src/presentation/my_schedule/korean_holidays.dart)과 같아야 한다 — 앱 시험(rest_day_test.dart)이
 // 이 파일의 날짜를 읽어 맞춰 본다. 해가 바뀌기 전에 둘 다 다음 해를 넣을 것.
 // node rest_day.test.js 로 돌린다.
@@ -65,9 +65,11 @@ function isRestDayKst(date) {
     return weekday === 0 || weekday === 6 || KOREAN_HOLIDAYS.has(ymd);
 }
 
-/** 쉬는 날에도 보낼 이슈 알림인지: 긴급이거나, 연결된 검사일정·처리 기한이 24시간 안이거나 지났을 때. */
-function punchAllowedOnRestDay(priority, deadlineUrgent) {
-    return priority === "긴급" || deadlineUrgent === true;
+/** 쉬는 날에도 보낼 이슈 알림인지: 긴급이거나, 연결된 검사일정·처리 기한이 앞으로 24시간 안일 때.
+ *  [msLeft]는 기한까지 남은 밀리초(기한이 없으면 null). 기한이 이미 지난 것(작업 지연)은 쉬는 날 보내지 않는다. */
+function punchAllowedOnRestDay(priority, msLeft) {
+    if (priority === "긴급") return true;
+    return typeof msLeft === "number" && msLeft > 0 && msLeft < 24 * 60 * 60 * 1000;
 }
 
 module.exports = { KOREAN_HOLIDAYS, kstDay, isRestDayKst, punchAllowedOnRestDay };

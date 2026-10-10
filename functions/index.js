@@ -328,7 +328,7 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
                 const isDeadlineUrgent = deadline
                     ? (deadline.getTime() - now) < PUNCH_DEADLINE_URGENT_HOURS * 60 * 60 * 1000
                     : false;
-                if (restDay && !punchAllowedOnRestDay(punch.priority, isDeadlineUrgent)) continue;
+                if (restDay && !punchAllowedOnRestDay(punch.priority, deadline ? deadline.getTime() - now : null)) continue;
                 const intervalHours = isDeadlineUrgent
                     ? PUNCH_DEADLINE_URGENT_INTERVAL_HOURS
                     : (PUNCH_REMINDER_INTERVAL_HOURS[punch.priority] || PUNCH_REMINDER_INTERVAL_HOURS["보통"]);
