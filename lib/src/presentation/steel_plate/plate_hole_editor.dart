@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/common_widgets/swipe_to_delete.dart' show showDeleteUndo;
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../calculator/widgets/app_dialog.dart';
 import '../electrical/busbar_punch_dies.dart' show punchDieLabel;
 import 'plate_calc.dart';
 import 'plate_painter.dart';
@@ -662,10 +663,10 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     );
   }
 
+  // 아래 칸은 높이를 못박는다(고르기·놓기를 바꿀 때 칸 높이가 달라져 판 그림이 들썩이지 않게).
   Widget _panel(PlatePlan p, int bad, bool hasSlot) => Container(
-    constraints: BoxConstraints(
-      maxHeight: MediaQuery.of(context).size.height * 0.42,
-    ),
+    width: double.infinity,
+    height: MediaQuery.of(context).size.height * 0.36,
     decoration: BoxDecoration(
       color: fc.surface,
       border: Border(top: BorderSide(color: fc.line)),
@@ -900,41 +901,39 @@ class _NumbersDialogState extends State<_NumbersDialog> {
     super.dispose();
   }
 
+  // 앱 공용 창 모양(AppDialog: 흰 바탕·굵은 제목·회색 취소·청록 확인)과 입력칸 모양을 쓴다.
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.title),
+  Widget build(BuildContext context) => AppDialog(
+    title: widget.title,
+    okText: '적용',
+    okKey: const Key('ed_num_ok'),
+    onCancel: () => Navigator.pop(context),
+    onOk: () => Navigator.pop(context, [
+      for (var k = 0; k < _c.length; k++)
+        double.tryParse(_c[k].text.trim().replaceAll(',', '.')) ??
+            widget.fields[k].$2,
+    ]),
     content: SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (var k = 0; k < widget.fields.length; k++)
-            TextField(
-              key: Key('ed_num_$k'),
-              controller: _c[k],
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-                signed: true,
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: TextField(
+                key: Key('ed_num_$k'),
+                controller: _c[k],
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                  signed: true,
+                ),
+                style: appFieldTextStyle,
+                decoration: appFieldDecoration(widget.fields[k].$1),
               ),
-              decoration: InputDecoration(labelText: widget.fields[k].$1),
             ),
         ],
       ),
     ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('취소'),
-      ),
-      TextButton(
-        key: const Key('ed_num_ok'),
-        onPressed: () => Navigator.pop(context, [
-          for (var k = 0; k < _c.length; k++)
-            double.tryParse(_c[k].text.trim().replaceAll(',', '.')) ??
-                widget.fields[k].$2,
-        ]),
-        child: const Text('적용'),
-      ),
-    ],
   );
 }
 
