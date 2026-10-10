@@ -600,7 +600,7 @@ GroundBarPlan groundBar({
   final reqTab = reqFor(tabs);
   if (edgeTab != null && edgeTab < reqTab - 1e-9) {
     notes.add(
-      '$tabName 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeTab)}mm로 필요 거리 ${_f(reqTab)}mm(2T + R)보다 가깝습니다. 꺾을 때 구멍이 늘어날 수 있으니 $tabName 길이를 ${_f(reqTab - edgeTab)}mm 이상 늘리거나 구멍 지름을 줄이거나 시험 조각으로 확인하십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
+      '$tabName 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeTab)}mm로 필요 거리 ${_f(reqTab)}mm(2T + R)보다 가깝습니다. 꺾을 때 구멍이 늘어날 수 있으니 $tabName 길이를 ${_f(reqTab - edgeTab)}mm 이상 늘리거나 구멍 지름을 줄이거나 자투리로 한 번 꺾어 확인하십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
     );
   }
   if (edgeBody != null && edgeBody < reqBody - 1e-9) {
