@@ -386,6 +386,7 @@ class _PlatePageState extends State<PlatePage>
             text: const Color(0xFF1F2933),
             sub: const Color(0xFF55636D),
             line: const Color(0xFFD1D5DB),
+            metal: kPlateSteelShade,
           ),
           width: 1200,
           height: 600,
@@ -516,6 +517,8 @@ class _PlatePageState extends State<PlatePage>
         dies: _dies.isEmpty ? kDefaultPunchDies : _dies,
         text: fc.text,
         sub: fc.textSub,
+        // 칩 모양은 화면의 다른 칩과 같게(선택하면 브랜드 색 바탕에 흰 글씨)
+        chip: (key, label, sel, onTap) => calcChip(key, label, sel, onTap),
       ),
     );
     if (g == null || !mounted) return;
@@ -804,6 +807,7 @@ class _PlatePageState extends State<PlatePage>
               text: fc.text,
               sub: fc.textSub,
               line: fc.line,
+              metal: kPlateSteelShade,
             ),
           ),
         ],
@@ -1009,12 +1013,15 @@ class _HoleSheet extends StatefulWidget {
     required this.dies,
     required this.text,
     required this.sub,
+    required this.chip,
   });
   final PlateHoleGroup? initial;
   final bool bent, flat;
   final List<String> faces;
   final List<double> dies;
   final Color text, sub;
+  final Widget Function(String key, String label, bool sel, VoidCallback onTap)
+  chip;
 
   @override
   State<_HoleSheet> createState() => _HoleSheetState();
@@ -1056,12 +1063,7 @@ class _HoleSheetState extends State<_HoleSheet> {
       double.tryParse(c.text.trim().replaceAll(',', '.'));
 
   Widget _chip(String key, String label, bool sel, VoidCallback onTap) =>
-      ChoiceChip(
-        key: Key(key),
-        label: Text(label),
-        selected: sel,
-        onSelected: (_) => setState(onTap),
-      );
+      widget.chip(key, label, sel, () => setState(onTap));
 
   Widget _field(String key, String label, TextEditingController c) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
@@ -1121,10 +1123,11 @@ class _HoleSheetState extends State<_HoleSheet> {
                 runSpacing: 6,
                 children: [
                   for (final d in widget.dies)
-                    ActionChip(
-                      key: Key('hs_die_${(d * 100).round()}'),
-                      label: Text(punchDieLabel(d)),
-                      onPressed: () => setState(() => _dia.text = fmtSheet(d)),
+                    _chip(
+                      'hs_die_${(d * 100).round()}',
+                      punchDieLabel(d),
+                      double.tryParse(_dia.text.trim()) == d,
+                      () => _dia.text = fmtSheet(d),
                     ),
                 ],
               ),

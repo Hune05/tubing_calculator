@@ -53,11 +53,15 @@ class BusbarShapePainter extends CustomPainter {
     required this.text,
     required this.sub,
     required this.line,
+    this.metal = const [_copperLight, _copperDark],
   });
 
   final BusbarBendPlan plan;
   final double rho, thickness, startHeadingDeg;
   final Color text, sub, line;
+
+  /// 판 색(밝은 쪽, 어두운 쪽). 기본은 구리. 철판 가공은 철 색을 넘긴다(10-10).
+  final List<Color> metal;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -96,10 +100,10 @@ class BusbarShapePainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..shader = const LinearGradient(
+        ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [_copperLight, _copperDark],
+          colors: metal,
         ).createShader(Offset.zero & size)
         ..style = PaintingStyle.stroke
         ..strokeWidth = bar

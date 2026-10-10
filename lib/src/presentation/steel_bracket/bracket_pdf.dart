@@ -152,17 +152,25 @@ Future<Uint8List> buildBracketPdf(
         for (final (caption, png) in [
           (input.drawingCaption, input.drawingPng),
           ...input.moreDrawings,
-        ]) ...[
-          sectionTitle(caption),
-          pw.Container(
-            height: 300,
-            alignment: pw.Alignment.center,
-            decoration: pw.BoxDecoration(
-              border: pw.Border.all(color: _line, width: 0.6),
+        ])
+          // 제목과 그림을 한 덩어리로(제목만 앞 쪽 끝에 남고 그림이 다음 쪽으로 가지 않게).
+          // pw.Container는 안의 Column을 따라 쪽이 나뉘므로 Inseparable로 묶는다.
+          pw.Inseparable(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                sectionTitle(caption),
+                pw.Container(
+                  height: 300,
+                  alignment: pw.Alignment.center,
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: _line, width: 0.6),
+                  ),
+                  child: pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.contain),
+                ),
+              ],
             ),
-            child: pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.contain),
           ),
-        ],
         for (final sec in input.sections) ...[
           sectionTitle(sec.title),
           for (final l in sec.lines)

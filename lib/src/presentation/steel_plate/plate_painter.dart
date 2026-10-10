@@ -14,6 +14,9 @@ const Color kPlateFill = Color(0xFFC9D3DA);
 const Color kPlateEdge = Color(0xFF4B5A64);
 const Color kPlateBend = Color(0xFFE08A1E);
 
+/// 꺾은 모양(옆모습) 철 색: 밝은 쪽, 어두운 쪽.
+const List<Color> kPlateSteelShade = [Color(0xFFCBD5DC), Color(0xFF6F7E88)];
+
 String _f(double v) {
   var s = v.toStringAsFixed(1);
   if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
