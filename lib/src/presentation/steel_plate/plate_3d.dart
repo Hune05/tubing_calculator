@@ -53,6 +53,19 @@ List<Offset> plateHoleLoop(PlateHole h, {int seg = 24}) {
   return out;
 }
 
+/// 점이 다각형 안에 있는가(판 밖에 잘못 놓인 구멍은 입체에서 뺀다).
+bool _inside(List<Offset> poly, Offset q) {
+  var c = false;
+  for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    final a = poly[i], b = poly[j];
+    if ((a.dy > q.dy) != (b.dy > q.dy) &&
+        q.dx < (b.dx - a.dx) * (q.dy - a.dy) / (b.dy - a.dy) + a.dx) {
+      c = !c;
+    }
+  }
+  return c;
+}
+
 double _area2(List<Offset> p) {
   var s = 0.0;
   for (var i = 0; i < p.length; i++) {
@@ -152,11 +165,16 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
     if (out.length < 3) return faces;
     if (_area2(out) < 0) out = out.reversed.toList();
     vm.Vector3 v(Offset q, double z) => vm.Vector3(q.dx, q.dy, z);
+    // 판 밖에 놓인 구멍(빨간 테두리)은 뚫을 판이 없으니 뺀다(허공에 구멍 벽이 뜨고 크기가 커지던 것)
+    final loops = [
+      for (var k = 0; k < p.holes.length; k++)
+        if (_inside(out, p.holes[k].c)) holeLoops[k],
+    ];
     final holesTop = [
-      for (final l in holeLoops) [for (final q in l) v(q, h)],
+      for (final l in loops) [for (final q in l) v(q, h)],
     ];
     final holesBot = [
-      for (final l in holeLoops) [for (final q in l) v(q, -h)],
+      for (final l in loops) [for (final q in l) v(q, -h)],
     ];
     faces.add(
       Plate3dFace(
@@ -181,7 +199,7 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
         Plate3dFace([v(a, -h), v(b, -h), v(b, h), v(a, h)], n, kind: 1),
       );
     }
-    for (final l0 in holeLoops) {
+    for (final l0 in loops) {
       final l = _area2(l0) < 0 ? l0.reversed.toList() : l0;
       for (var i = 0; i < l.length; i++) {
         final a = l[i], b = l[(i + 1) % l.length];
@@ -215,7 +233,11 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
     if (g.turn == 0) {
       final hs = [
         for (var k = 0; k < p.holes.length; k++)
-          if (p.holes[k].c.dx > g.x0 && p.holes[k].c.dx < g.x1) holeLoops[k],
+          if (p.holes[k].c.dx > g.x0 &&
+              p.holes[k].c.dx < g.x1 &&
+              p.holes[k].c.dy > y0 &&
+              p.holes[k].c.dy < y1)
+            holeLoops[k],
       ];
       for (final s in [1.0, -1.0]) {
         final loop = [
@@ -287,7 +309,8 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
   }
   // 구멍 벽(곧은 면에 있는 구멍만)
   for (var k = 0; k < p.holes.length; k++) {
-    final cx = p.holes[k].c.dx;
+    final cx = p.holes[k].c.dx, cy = p.holes[k].c.dy;
+    if (cy <= y0 || cy >= y1) continue; // 판 밖
     if (!path.segs.any((g) => g.turn == 0 && cx > g.x0 && cx < g.x1)) continue;
     final l0 = holeLoops[k];
     final l = _area2(l0) < 0 ? l0.reversed.toList() : l0;

@@ -800,7 +800,6 @@ class _PlatePageState extends State<PlatePage>
     if (p == null) return null;
     return switch (_viewOf(p)) {
       'flat' => _previewHint(),
-      'side' => '옆에서 본 실제 비율 · 번호는 꺾기 번호',
       _ => null,
     };
   }

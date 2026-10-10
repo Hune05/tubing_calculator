@@ -593,6 +593,45 @@ void main() {
       expect(hhi.x - hlo.x, closeTo(30 + 60 + 30 - 2 * 3, 1e-6));
     });
 
+    test('판 밖에 놓인 구멍은 입체에서 뺀다(허공에 구멍 벽이 뜨거나 크기가 커지지 않게)', () {
+      final p = platePlan(
+        const PlateInput(
+          shape: PlateShape.flat,
+          t: 3,
+          length: 200,
+          width: 100,
+          holes: [
+            PlateHoleSpec(u: 100, v: 50, dia: 17),
+            PlateHoleSpec(u: 100, v: -37.5, dia: 17.5),
+          ],
+        ),
+      );
+      final f = plate3dMesh(p, t: 3);
+      expect(
+        f.where((x) => x.kind == 0).every((x) => x.holes.length == 1),
+        isTrue,
+      );
+      expect(
+        f.where((x) => x.kind == 2).length,
+        plateHoleLoop(p.holes[0]).length,
+      );
+      final (lo, hi) = plate3dBounds(f);
+      expect(hi.y - lo.y, closeTo(100, 1e-9));
+      // 꺾은 판도 폭 밖 구멍은 뺀다
+      final l = _bent(
+        PlateShape.l,
+        [50, 80],
+        holes: const [
+          PlateHoleSpec(face: 1, dia: 13.5, u: 30, v: 50),
+          PlateHoleSpec(face: 1, dia: 13.5, u: 30, v: 140),
+        ],
+      );
+      final fl = plate3dMesh(l, t: 3);
+      expect(fl.where((x) => x.kind == 2), hasLength(24));
+      final (llo, lhi) = plate3dBounds(fl);
+      expect(lhi.y - llo.y, closeTo(100, 1e-6));
+    });
+
     test('모든 면의 바깥 방향은 단위 길이, 꺾는 자리는 15° 안팎 토막', () {
       final p = _bent(PlateShape.z, [50, 50, 50]);
       final f = plate3dMesh(p, t: 3);
