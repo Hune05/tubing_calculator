@@ -100,6 +100,7 @@ import '../../trash/trash_page.dart';
 import '../../electrical/cable_tray_page.dart';
 import '../../electrical/busbar_bend_page.dart';
 import '../../electrical/busbar_ground_page.dart';
+import '../../steel_bracket/bracket_page.dart';
 import '../../electrical/circuit_reading_page.dart';
 import '../../electrical/panel_design_page.dart';
 import '../../electrical/troubleshoot_page.dart';
@@ -1857,6 +1858,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             MaterialPageRoute(
                               builder: (context) =>
                                   const MobileSteelProjectListPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "형강 브라켓",
+                        subtitle: "ㄱ자·삼각·문형·T자 제작도 · 자를 길이 · 구멍",
+                        icon: AppGlyph.bracket,
+                        iconColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const BracketPage(),
                             ),
                           );
                         },

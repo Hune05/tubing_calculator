@@ -43,6 +43,7 @@ import 'app_icons.dart';
 import '../electrical/cable_tray_page.dart';
 import '../electrical/busbar_bend_page.dart';
 import '../electrical/busbar_ground_page.dart';
+import '../steel_bracket/bracket_page.dart';
 import '../electrical/circuit_reading_page.dart';
 import '../electrical/panel_design_page.dart';
 import '../electrical/troubleshoot_page.dart';
@@ -311,6 +312,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.steel,
     (_) => const MobileSteelProjectListPage(),
     subtitle: '규격·길이만 넣어 재단 계획·지시서 출력',
+    group: '가공·배치',
+  ),
+  QuickToolDef(
+    'bracket',
+    '형강 브라켓',
+    AppGlyph.bracket,
+    (_) => const BracketPage(),
+    subtitle: 'ㄱ자·삼각·문형·T자 제작도 · 자를 길이 · 구멍',
     group: '가공·배치',
   ),
   QuickToolDef(

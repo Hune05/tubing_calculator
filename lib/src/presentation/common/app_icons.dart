@@ -29,6 +29,9 @@ enum AppGlyph {
   /// 형강 컷팅: 찬넬(ㄷ)과 앵글(ㄴ) 단면.
   steel,
 
+  /// 형강 브라켓: 벽(왼쪽 선)에 붙은 ㄱ자 브라켓과 비스듬한 가새.
+  bracket,
+
   /// 작업 배치도: 중판에 레일 두 줄과 부품.
   layout,
 
@@ -1154,7 +1157,13 @@ class _AppIconPainter extends CustomPainter {
       case AppGlyph.trayRoute:
         // 바닥 선, 가운데 장애물 상자, 그 위로 넘어가는 트레이 띠(위로·아래로 꺾기).
         l(2, 20.5, 22, 20.5);
-        final box = RRect.fromLTRBR(9, 14.5, 15, 20.5, const Radius.circular(1));
+        final box = RRect.fromLTRBR(
+          9,
+          14.5,
+          15,
+          20.5,
+          const Radius.circular(1),
+        );
         canvas.drawRRect(box, soft);
         canvas.drawRRect(box, line);
         final route = Path()
@@ -1192,6 +1201,19 @@ class _AppIconPainter extends CustomPainter {
         );
         l(2.5, 20.5, 21.5, 20.5);
 
+      case AppGlyph.bracket:
+        // 벽 선, ㄱ자(기둥 + 가로대), 가새.
+        l(2.5, 3, 2.5, 21);
+        final lb = poly([
+          4.5, 4.5, 21, 4.5, 21, 8, 8, 8, //
+          8, 20.5, 4.5, 20.5,
+        ]);
+        canvas.drawPath(lb, soft);
+        canvas.drawPath(lb, line);
+        final br = poly([15.2, 8, 18.6, 8, 8, 18.6, 8, 15.2]);
+        canvas.drawPath(br, soft);
+        canvas.drawPath(br, line);
+
       case AppGlyph.groundBar:
         // 평강 띠에 구멍 넷과 바닥 선.
         final gb = RRect.fromLTRBR(
@@ -1222,7 +1244,13 @@ class _AppIconPainter extends CustomPainter {
 
       case AppGlyph.motor:
         // 몸통(둥근 직사각형), 핀 세 줄, 오른쪽 축, 아래 받침, 몸통 안 원(회전자).
-        final body = RRect.fromLTRBR(3.5, 6, 16.5, 17, const Radius.circular(2.4));
+        final body = RRect.fromLTRBR(
+          3.5,
+          6,
+          16.5,
+          17,
+          const Radius.circular(2.4),
+        );
         canvas.drawRRect(body, soft);
         canvas.drawRRect(body, line);
         for (final x in [6.5, 9.5, 12.5]) {
@@ -1235,7 +1263,13 @@ class _AppIconPainter extends CustomPainter {
 
       case AppGlyph.panelBoard:
         // 분전반 함(문)과 안쪽에 차단기 레버 두 줄, 아래 인입선.
-        final box = RRect.fromLTRBR(4.5, 3, 19.5, 17.5, const Radius.circular(1.6));
+        final box = RRect.fromLTRBR(
+          4.5,
+          3,
+          19.5,
+          17.5,
+          const Radius.circular(1.6),
+        );
         canvas.drawRRect(box, soft);
         canvas.drawRRect(box, line);
         for (final y in [7.5, 12.5]) {
