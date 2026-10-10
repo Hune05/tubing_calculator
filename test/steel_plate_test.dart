@@ -3,7 +3,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' show Offset;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -12,6 +11,7 @@ import 'package:tubing_calculator/src/presentation/electrical/busbar_bend_painte
 import 'package:tubing_calculator/src/presentation/electrical/elec_form_parts.dart'
     show ElecSummaryBar;
 import 'package:tubing_calculator/src/presentation/steel_bracket/bracket_pdf.dart';
+import 'package:tubing_calculator/src/presentation/steel_plate/plate_3d.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_calc.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_dxf.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_hole_editor.dart';
@@ -518,6 +518,92 @@ void main() {
     });
   });
 
+  group('입체(3D) 모양', () {
+    test('평판: 위아래 면에 구멍 자리, 둘레 옆면, 구멍마다 벽, 크기 = 판 × 두께', () {
+      final p = platePlan(
+        const PlateInput(
+          shape: PlateShape.flat,
+          t: 3,
+          length: 200,
+          width: 100,
+          holes: [
+            PlateHoleSpec(u: 50, v: 50, dia: 13.5),
+            PlateHoleSpec(u: 140, v: 50, dia: 11, slot: 30),
+          ],
+        ),
+      );
+      final f = plate3dMesh(p, t: 3);
+      final big = f.where((x) => x.kind == 0).toList();
+      expect(big, hasLength(2));
+      expect(big.every((x) => x.holes.length == 2), isTrue);
+      expect(f.where((x) => x.kind == 1), hasLength(4));
+      expect(
+        f.where((x) => x.kind == 2).length,
+        plateHoleLoop(p.holes[0]).length + plateHoleLoop(p.holes[1]).length,
+      );
+      final (lo, hi) = plate3dBounds(f);
+      expect(hi.x - lo.x, closeTo(200, 1e-9));
+      expect(hi.y - lo.y, closeTo(100, 1e-9));
+      expect(hi.z - lo.z, closeTo(3, 1e-9));
+      // 장공 둘레는 장공 길이만큼
+      final slot = plateHoleLoop(p.holes[1]);
+      final xs = slot.map((q) => q.dx);
+      expect(xs.reduce(math.max) - xs.reduce(math.min), closeTo(30, 1e-9));
+    });
+
+    test('꺾은 판: 바깥 치수대로 접히고, 면 구멍은 바깥면에서 잰 자리에', () {
+      // ㄱ자 50·80: 가로 50, 높이 80, 폭 100
+      final l = _bent(
+        PlateShape.l,
+        [50, 80],
+        holes: const [PlateHoleSpec(face: 1, dia: 13.5, u: 30, v: 50)],
+      );
+      final fl = plate3dMesh(l, t: 3);
+      final (lo, hi) = plate3dBounds(fl);
+      expect(hi.x - lo.x, closeTo(50, 1e-6));
+      expect(hi.z - lo.z, closeTo(80, 1e-6));
+      expect(hi.y - lo.y, closeTo(100, 1e-6));
+      // 구멍: 세운 면(2면) 앞뒤에 뚫리고 벽이 있다. 높이 = 바깥면(바닥)에서 30
+      final withHole = fl.where((x) => x.kind == 0 && x.holes.isNotEmpty);
+      expect(withHole, hasLength(2));
+      final pts = [for (final x in withHole) ...x.holes.single];
+      final cz = pts.map((q) => q.z).reduce((a, b) => a + b) / pts.length;
+      final cy = pts.map((q) => q.y).reduce((a, b) => a + b) / pts.length;
+      expect(cz - lo.z, closeTo(30, 0.01));
+      expect(cy, closeTo(50, 0.01));
+      expect(fl.where((x) => x.kind == 2), hasLength(24));
+      // 세운 면의 큰 면은 옆(±x)을 향한다
+      for (final x in withHole) {
+        expect(x.normal.x.abs(), closeTo(1, 1e-9));
+      }
+
+      // ㄷ자 50·100·50: 가로 50, 높이 100
+      final (ulo, uhi) = plate3dBounds(
+        plate3dMesh(_bent(PlateShape.u, [50, 100, 50]), t: 3),
+      );
+      expect(uhi.x - ulo.x, closeTo(50, 1e-6));
+      expect(uhi.z - ulo.z, closeTo(100, 1e-6));
+
+      // 모자 발 30·높이 40·윗면 60: 높이 40, 가로 = 발 둘 + 윗면 − 다리 두께 둘
+      final (hlo, hhi) = plate3dBounds(
+        plate3dMesh(_bent(PlateShape.hat, [30, 40, 60]), t: 3),
+      );
+      expect(hhi.z - hlo.z, closeTo(40, 1e-6));
+      expect(hhi.x - hlo.x, closeTo(30 + 60 + 30 - 2 * 3, 1e-6));
+    });
+
+    test('모든 면의 바깥 방향은 단위 길이, 꺾는 자리는 15° 안팎 토막', () {
+      final p = _bent(PlateShape.z, [50, 50, 50]);
+      final f = plate3dMesh(p, t: 3);
+      for (final x in f) {
+        expect(x.normal.length, closeTo(1, 1e-9));
+        expect(x.loop.length, greaterThanOrEqualTo(3));
+      }
+      // 곧은 면 3개 × 앞뒤 + 꺾는 자리 2곳 × 6토막 × 앞뒤
+      expect(f.where((x) => x.kind == 0), hasLength(3 * 2 + 2 * 6 * 2));
+    });
+  });
+
   group('화면', () {
     setUpAll(expandFormulaCards);
     setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -590,8 +676,8 @@ void main() {
       await open(tester);
       expect(find.text('절단 + 절곡'), findsOneWidget);
       expect(sum(tester), '철판 ㄱ자 · 3t · 전개 94.3 × 100 mm');
-      // 탭: 모양 · 꺾기 · 구멍 · 결과 · 보내기(절곡), 처음은 모양 탭
-      for (final id in ['shape', 'bend', 'holes', 'result', 'send']) {
+      // 탭: 모양 · 꺾기 · 구멍 · 결과 · 3D · 보내기(절곡), 처음은 모양 탭
+      for (final id in ['shape', 'bend', 'holes', 'result', 'view3d', 'send']) {
         expect(find.byKey(Key('pl_tab_$id')), findsOneWidget);
       }
       expect(find.byKey(const Key('pl_view')), findsOneWidget);
@@ -630,6 +716,50 @@ void main() {
       await close(tester);
       await open(tester, bend: false);
       expect(sum(tester), endsWith(' 100 × 100 mm'));
+    });
+
+    testWidgets('3D 탭: 크기 글, 끌면 돌아가고 칩·두 번 누르기로 보기 방향, 다음은 보내기', (
+      tester,
+    ) async {
+      await open(tester);
+      await tab(tester, 'result');
+      expect(find.byKey(const Key('pl_next_view3d')), findsOneWidget);
+      await tap(tester, 'pl_next_view3d');
+      expect(find.byKey(const Key('p3_canvas')), findsOneWidget);
+      // ㄱ자 50·50, 폭 100, 3t
+      expect(
+        tester.widget<Text>(find.byKey(const Key('p3_info'))).data,
+        startsWith('50 × 100 × 50 mm (두께 3)'),
+      );
+      bool on(String k) =>
+          tester.widget<ChoiceChip>(find.byKey(Key(k))).selected;
+      expect(on('p3_iso'), isTrue);
+      await tester.drag(
+        find.byKey(const Key('p3_canvas')),
+        const Offset(80, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(on('p3_iso'), isFalse);
+      await tap(tester, 'p3_top');
+      expect(on('p3_top'), isTrue);
+      expect(on('p3_iso'), isFalse);
+      // 두 번 누르면 처음 모습
+      final c = tester.getCenter(find.byKey(const Key('p3_canvas')));
+      await tester.tapAt(c);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(c);
+      await tester.pumpAndSettle();
+      expect(on('p3_iso'), isTrue);
+      // 모양을 바꾸면 3D도 따라 바뀐다
+      await tab(tester, 'shape');
+      await tap(tester, 'pl_shape_hat');
+      await tab(tester, 'view3d');
+      expect(
+        tester.widget<Text>(find.byKey(const Key('p3_info'))).data,
+        startsWith('144 × 100 × 50 mm'), // 발 50 둘 + 윗면 50 − 다리 두께 둘
+      );
+      await tap(tester, 'pl_next_send');
+      expect(find.byKey(const Key('pl_send_dxf')), findsOneWidget);
     });
 
     testWidgets('네 귀는 한 줄로 같이, 귀 하나는 그림에서 눌러 따로', (tester) async {

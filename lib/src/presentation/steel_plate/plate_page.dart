@@ -22,6 +22,7 @@ import '../electrical/busbar_saved_specs.dart';
 import '../electrical/elec_form_parts.dart';
 import '../steel_bracket/bracket_pdf.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
+import 'plate_3d_view.dart';
 import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
 import 'plate_dxf.dart';
@@ -654,7 +655,7 @@ class _PlatePageState extends State<PlatePage>
   }
 
   // ── 탭(10-10 사용자: "벤딩 페이지처럼 순차적으로 다 나누어, 한 페이지에 때려 박지 말고", "탭으로 다 분리") ──
-  // 모양 → (꺾기) → 구멍 → 결과 → 보내기. 탭마다 아래 "다음" 단추로 차례대로 넘어간다.
+  // 모양 → (꺾기) → 구멍 → 결과 → 3D → 보내기. 탭마다 아래 "다음" 단추로 차례대로 넘어간다.
 
   int _tab = 0;
 
@@ -663,6 +664,7 @@ class _PlatePageState extends State<PlatePage>
     if (_bend) ('bend', '꺾기'),
     ('holes', '구멍'),
     ('result', '결과'),
+    ('view3d', '3D'),
     ('send', '보내기'),
   ];
 
@@ -1049,6 +1051,7 @@ class _PlatePageState extends State<PlatePage>
         'bend' => AppIcon(AppGlyph.plateBend, size: 24, filled: on),
         'holes' => const Icon(Icons.adjust, size: 24),
         'result' => AppIcon(AppGlyph.navMarking, size: 24, filled: on),
+        'view3d' => const Icon(Icons.view_in_ar, size: 24),
         _ => const Icon(AppIcons.send, size: 22),
       };
       return BottomNavigationBarItem(
@@ -1193,6 +1196,20 @@ class _PlatePageState extends State<PlatePage>
                         'bend' => _bendTab(p),
                         'holes' => _holesTab(),
                         'result' => _resultTab(p, warn),
+                        'view3d' =>
+                          p == null
+                              ? elecList([
+                                  calcResult(
+                                    big: '— mm',
+                                    caption: '두께와 치수를 넣으면 입체로 보입니다',
+                                    lines: const [],
+                                  ),
+                                ])
+                              : Plate3dView(
+                                  plan: p,
+                                  t: _num(_t),
+                                  footer: _next('view3d'),
+                                ),
                         _ => _sendTab(p),
                       },
                     ),
