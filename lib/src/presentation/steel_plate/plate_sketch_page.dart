@@ -748,7 +748,8 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     if (first) {
       _say('이 치수로 전체 크기를 맞췄습니다. 나머지 변의 숫자도 눌러 넣으십시오.');
     } else if (res.note != null) {
-      _say(res.note!, bad: true);
+      // 같이 바뀐 변은 알림, 기울어진 변은 주의
+      _say(res.note!, bad: res.note!.contains('기울기'));
     }
   }
 
@@ -1332,8 +1333,8 @@ class _LengthDialogState extends State<_LengthDialog> {
         const SizedBox(height: 8),
         Text(
           widget.locked
-              ? '넣은 치수라 잠겨 있습니다. 다른 변을 고쳐도 이 길이는 그대로입니다.'
-              : '넣으면 잠깁니다. 같은 방향의 잠기지 않은 변이 차이를 받습니다.',
+              ? '넣은 치수라 잠겨 있습니다. 다른 변을 고쳐도 되도록 이 길이는 그대로 둡니다.'
+              : '넣으면 잠깁니다. 같은 방향의 다른 변이 차이를 받습니다(잠기지 않은 변 먼저).',
           style: TextStyle(color: fc.textSub, fontSize: 13, height: 1.35),
         ),
         if (widget.locked)

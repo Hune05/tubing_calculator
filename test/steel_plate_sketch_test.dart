@@ -57,7 +57,7 @@ void main() {
       expect(s.closed, isFalse); // 점이 셋 안 되면 다시 열림
     });
 
-    test('처음 치수는 축척, 그다음은 잠금: 맞은편 변이 받고 직사각형 그대로', () {
+    test('처음 치수는 축척, 그다음은 방금 넣은 값이 이김: 맞은편 변이 받고 직사각형 그대로', () {
       final s = traced()..squareUp();
       final h = s.edgeLen(1);
       s.holes.add(PlateHoleSpec(u: 150, v: 150, dia: 13.5));
@@ -84,17 +84,52 @@ void main() {
       );
       expect(s.edgeMatches(0), isTrue);
       expect(s.edgeMatches(2), isNull);
-      // 위 변도 넣어 잠근 뒤 아래를 다르게 넣으면: 맞출 가로 변이 없다 → 바꾸지 않고 차이를 알림
+      // 위 변도 넣어 잠근 뒤 아래를 다르게 넣으면: 방금 넣은 값이 이기고 잠긴 위 변이 따라 바뀜(알림)
       expect(s.setEdge(2, 200).ok, isTrue);
       final r = s.setEdge(0, 220);
-      expect(r.ok, isFalse);
-      expect(r.note, contains('가로 변이 모두 잠겨 있어 맞출 곳이 없습니다(20mm 차이)'));
-      expect(s.edgeLen(0), closeTo(200, 1e-9));
-      // 위 변 잠금을 풀면 그 변이 받는다
-      s.unlock(2);
-      expect(s.setEdge(0, 220).ok, isTrue);
+      expect(r.ok, isTrue);
+      expect(r.note, '같이 바뀐 변: 3→4 (200 → 220).');
+      expect(s.edgeLen(0), closeTo(220, 1e-9));
       expect(s.edgeLen(2), closeTo(220, 1e-9));
+      expect(s.dimOf(2), closeTo(220, 1e-9)); // 넣은 값도 새 길이로(✓ 그대로)
+      expect(s.edgeMatches(2), isTrue);
       expect(s.edgeLen(1), closeTo(120, 1e-9));
+      // 저절로 맞춰진 변(잠기지 않음)이 있으면 그 변이 먼저 받는다
+      s.unlock(2);
+      expect(s.setEdge(0, 240).note, isNull);
+      expect(s.edgeLen(2), closeTo(240, 1e-9));
+      // ㄱ자: 넣은 넷이 다 잠겨 있어도 어느 변이든 고쳐진다(같은 방향의 잠긴 변이 따라 바뀜)
+      final l = PlateSketch(
+        pts: const [
+          Offset(0, 0),
+          Offset(300, 0),
+          Offset(300, 80),
+          Offset(150, 80),
+          Offset(150, 180),
+          Offset(0, 180),
+        ],
+        scaled: true,
+        closed: true,
+      );
+      for (final (k, mm) in const [
+        (0, 300.0),
+        (1, 80.0),
+        (2, 150.0),
+        (3, 100.0),
+        (4, 150.0),
+        (5, 180.0),
+      ]) {
+        expect(l.setEdge(k, mm).ok, isTrue);
+      }
+      final top = l.setEdge(4, 170); // 위 170 → 아래가 320으로
+      expect(top.ok, isTrue);
+      expect(top.note, contains('같이 바뀐 변: 1→2 (300 → 320)'));
+      final left = l.setEdge(5, 200); // 왼쪽 200 → 오른쪽 세로(80)가 100으로
+      expect(left.ok, isTrue);
+      expect(
+        l.toPlateMap()!['pts'],
+        ['0,0', '320,0', '320,100', '170,100', '170,200', '0,200'].join('\n'),
+      );
       // 길이 0·없는 변은 못 넣는다
       expect(s.setEdge(0, 0).ok, isFalse);
       expect(s.setEdge(9, 10).ok, isFalse);
@@ -127,7 +162,7 @@ void main() {
       );
     });
 
-    test('기운 변: 가로 몫·세로 몫을 가로·세로 변이 받고, 없으면 한 변이 기운다고 알림', () {
+    test('기운 변: 가로 몫·세로 몫을 가로·세로 변이 받고, 가로·세로 변이 없으면 한 변이 기운다고 알림', () {
       // 오른쪽 위 귀를 빗긴 오각형(빗변 3번)
       final s = PlateSketch(
         pts: const [
@@ -145,21 +180,13 @@ void main() {
       expect(r.note, isNull);
       expect(s.edgeVec(0).dy, closeTo(0, 1e-9));
       expect(s.edgeVec(4).dx, closeTo(0, 1e-9));
-      // 세로 변 둘(1·4)을 잠그면 세로 몫을 받을 변이 없어 다른 변이 기운다
+      // 가로·세로 변이 없는 모양(삼각)은 다른 변 하나가 기운다고 알림
       final t = PlateSketch(
-        pts: const [
-          Offset(0, 0),
-          Offset(200, 0),
-          Offset(200, 60),
-          Offset(160, 100),
-          Offset(0, 100),
-        ],
+        pts: const [Offset(0, 0), Offset(100, 30), Offset(30, 100)],
         scaled: true,
         closed: true,
       );
-      t.setEdge(1, 60);
-      t.setEdge(4, 100);
-      final r2 = t.setEdge(2, 50 * 1.4142135623730951);
+      final r2 = t.setEdge(0, t.edgeLen(0) + 10);
       expect(r2.ok, isTrue);
       expect(r2.note, contains('기울기가 바뀌었습니다'));
     });

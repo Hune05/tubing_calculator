@@ -168,13 +168,20 @@ class PlateSketch {
   static bool _isV(Offset v) =>
       v.distance > 1e-9 && (v.dx / v.distance).abs() < _axisTol;
 
-  /// 변 [i] 다음부터 돌며 [want]에 맞는 잠기지 않은 변 하나([i] 빼고).
-  int? _nextFree(int i, bool Function(Offset v) want) {
-    for (var s = 1; s < edgeCount; s++) {
-      final k = (i + s) % edgeCount;
-      if (!isLocked(k) && want(edgeVec(k))) return k;
-    }
-    return null;
+  /// 변 [i]의 차이를 받을 수 있는 변들: [want]에 맞는 것 중 잠기지 않은 변 먼저, 그다음 잠긴 변
+  /// (각각 [i] 다음부터 도는 차례).
+  List<int> _candidates(int i, bool Function(Offset v) want) => [
+    for (final locked in const [false, true])
+      for (var s = 1; s < edgeCount; s++)
+        if (isLocked((i + s) % edgeCount) == locked &&
+            want(edgeVec((i + s) % edgeCount)))
+          (i + s) % edgeCount,
+  ];
+
+  /// 변 k가 [d]만큼 줄어도(벡터 − d) 0.5mm 넘게 남고 뒤집히지 않는지.
+  bool _canAbsorb(int k, Offset d) {
+    final v = edgeVec(k), nv = v - d;
+    return nv.distance >= 0.5 && v.dx * nv.dx + v.dy * nv.dy > 0;
   }
 
   /// 꼭짓점 i+1 … k(돌아서)를 [d]만큼 옮긴다: 변 i는 d만큼 늘고 변 k는 d만큼 준다(나머지 변은 그대로).
@@ -187,15 +194,27 @@ class PlateSketch {
     }
   }
 
-  /// 변 [i]의 길이를 [mm]로 넣고 잠근다. 처음 넣는 치수면 전체 크기(축척)를 정한다.
-  /// 그다음부터는 넣은(잠긴) 길이와 가로·세로를 지키며, 같은 방향의 잠기지 않은 변 하나가 차이를 받는다
-  /// (평면도 앱의 치수 잠금과 같은 방식). 받을 변이 없으면 바꾸지 않고 [note]로 차이를 알린다.
+  String _edgeName(int k) => '${k + 1}→${(k + 1) % n + 1}';
+
+  /// 변 [i]의 길이를 [mm]로 넣고 잠근다(방금 넣은 값이 이긴다, 10-10 사용자 결정).
+  /// 처음 넣는 치수면 전체 크기(축척)를 정한다. 그다음부터는 같은 방향의 잠기지 않은 변이 차이를 받고,
+  /// 없으면 가장 가까운 같은 방향의 잠긴 변이 따라 바뀐다(그 변의 넣은 값도 새 길이로, [note]로 알림).
+  /// 가로·세로가 지켜져 직각이 안 풀린다. 받는 변이 뒤집히거나 0이 되면 바꾸지 않는다.
   /// 닫기 전에는 그 변 뒤 꼭짓점들을 같이 옮긴다.
   ({bool ok, String? note}) setEdge(int i, double mm) {
     if (i >= edgeCount || mm <= 0) return (ok: false, note: null);
     final cur = edgeLen(i);
     if (cur < 1e-9) return (ok: false, note: null);
+    final changedLocked = <String>[];
     String? note;
+    // 받은 변이 잠긴 변이면 그 값도 새 길이로 바꾸고 알릴 글을 모은다
+    void absorbed(int k, double before) {
+      if (!isLocked(k)) return;
+      final after = edgeLen(k);
+      dims[ids[k]] = after;
+      changedLocked.add('${_edgeName(k)} (${_f(before)} → ${_f(after)})');
+    }
+
     if (!scaled) {
       scaleAll(mm / cur);
       scaled = true;
@@ -207,40 +226,61 @@ class PlateSketch {
           pts[k] += delta;
         }
       } else if (delta.distance > 1e-9) {
+        int? pick(bool Function(Offset v) want, Offset d) {
+          for (final k in _candidates(i, want)) {
+            if (_canAbsorb(k, d)) return k;
+          }
+          return null;
+        }
+
         if (_isH(v) || _isV(v)) {
-          final h = _isH(v);
-          final k = _nextFree(i, h ? _isH : _isV);
+          final k = pick(_isH(v) ? _isH : _isV, delta);
           if (k == null) {
-            final dir = h ? '가로' : '세로';
             return (
               ok: false,
-              note:
-                  '$dir 변이 모두 잠겨 있어 맞출 곳이 없습니다(${_f((mm - cur).abs())}mm 차이). 잠긴 $dir 치수 하나를 고치거나 잠금을 푸십시오.',
+              note: '그 길이로는 같은 방향 변이 0보다 짧아져 모양이 뒤집힙니다. 다른 변 길이를 먼저 고치십시오.',
             );
           }
+          final before = edgeLen(k);
           _shiftBetween(i, k, delta);
+          absorbed(k, before);
         } else {
           // 기운 변: 가로 몫은 가로 변이, 세로 몫은 세로 변이 받는다
-          final kx = delta.dx.abs() > 1e-9 ? _nextFree(i, _isH) : -1;
-          final ky = delta.dy.abs() > 1e-9 ? _nextFree(i, _isV) : -1;
+          final dx = Offset(delta.dx, 0), dy = Offset(0, delta.dy);
+          final kx = dx.distance > 1e-9 ? pick(_isH, dx) : -1;
+          final ky = dy.distance > 1e-9 ? pick(_isV, dy) : -1;
           if (kx != null && ky != null) {
-            if (kx >= 0) _shiftBetween(i, kx, Offset(delta.dx, 0));
-            if (ky >= 0) _shiftBetween(i, ky, Offset(0, delta.dy));
+            if (kx >= 0) {
+              final b = edgeLen(kx);
+              _shiftBetween(i, kx, dx);
+              absorbed(kx, b);
+            }
+            if (ky >= 0) {
+              final b = edgeLen(ky);
+              _shiftBetween(i, ky, dy);
+              absorbed(ky, b);
+            }
           } else {
-            final k = _nextFree(i, (_) => true);
+            final k = pick((_) => true, delta);
             if (k == null) {
               return (
                 ok: false,
-                note: '다른 변이 모두 잠겨 있어 이 길이로 맞출 수 없습니다. 잠긴 치수 하나를 푸십시오.',
+                note: '그 길이로는 다른 변이 0보다 짧아져 모양이 뒤집힙니다. 다른 변 길이를 먼저 고치십시오.',
               );
             }
+            final b = edgeLen(k);
             _shiftBetween(i, k, delta);
-            note = '맞출 가로·세로 변이 없어 변 ${k + 1} 기울기가 바뀌었습니다.';
+            absorbed(k, b);
+            note = '맞출 가로·세로 변이 없어 변 ${_edgeName(k)} 기울기가 바뀌었습니다.';
           }
         }
       }
     }
     dims[ids[i]] = mm;
+    if (changedLocked.isNotEmpty) {
+      final t = '같이 바뀐 변: ${changedLocked.join(', ')}.';
+      note = note == null ? t : '$note $t';
+    }
     return (ok: true, note: note);
   }
 
