@@ -1,5 +1,6 @@
-// 접지바 가공(10-03): 구리 평강에 볼트 구멍을 한 줄 또는 두 줄로 뚫고, 끝을 L자 탭이나 챙 달린
-// 모자 모양으로 꺾어 접지바를 만들 때 자르는 길이와 구멍·꺾기 위치. 화면 없이 계산만 한다.
+// 접지바 가공(10-03): 구리 평강에 볼트 구멍을 한 줄 또는 두 줄로 뚫고, 일자로 쓰거나 모자 모양(윗면·다리·발)
+// 또는 끝 L자로 꺾어 접지바를 만들 때 자르는 길이와 구멍·꺾기 위치. 화면 없이 계산만 한다.
+// 10-10: 모자 부분 이름을 현장 말로 바꿈(챙 → 발, 몸체 → 윗면).
 //  · 구멍 줄은 폭 가운데(한 줄) 또는 가운데에서 위아래로 줄 간격의 반씩(두 줄). 위치는 왼쪽 끝에서 구멍
 //    중심까지(길이 방향 x), 막대 한쪽(A줄 쪽) 가장자리에서 구멍 중심까지(폭 방향 y).
 //  · 두 줄은 대칭(두 줄 구멍이 같은 x에 마주 봄)이거나 비대칭(엇갈림: B줄을 길이 방향으로 shift만큼 옮김,
@@ -9,9 +10,9 @@
 //  · 끝 여유 e는 곧은 구간 끝에서 첫 구멍 중심까지다. 끝이 꺾여 있으면 꺾기 끝선에서 잰다.
 //  · 꺾기는 눕혀 꺾기(두께 방향) 90°로 busbar_bend.dart와 같은 식이다. 치수는 모두 바깥 치수.
 //     - L 탭: 끝에서 바깥 모서리까지 A. 곧은 길이 = A − (r + t).
-//     - 모자: 챙 F(끝에서 다리 바깥면까지, 왼쪽·오른쪽 따로) · 높이 H(챙 바닥면에서 윗면까지) · 몸체는 구멍 줄.
-//       곧은 길이 = 챙 F − (r + t), 다리 H − 2(r + t). 꺾기 4곳(위로·아래로·아래로·위로).
-//  · 탭(챙)에도 같은 줄 수로 구멍을 뚫는다. 탭의 평평한 길이 가운데에 모아 놓는다.
+//     - 모자: 발 F(끝에서 다리 바깥면까지, 왼쪽·오른쪽 따로) · 높이 H(발 바닥면에서 윗면까지) · 윗면에 구멍 줄.
+//       곧은 길이 = 발 F − (r + t), 다리 H − 2(r + t). 꺾기 4곳(위로·아래로·아래로·위로).
+//  · 탭·발에도 구멍(취부)을 뚫는다. 평평한 길이 가운데에 모아 놓는다.
 //  · 구멍마다 크기를 따로 줄 수 있다(overrides: 구멍 번호 → 지름).
 //  · 무게는 구리 밀도 8.9 g/cm³로 구멍 뺀 부피를 곱한 근사값이다.
 library;
@@ -23,11 +24,10 @@ import 'busbar_bend.dart';
 /// 구리 밀도(kg/mm³): 8.9 g/cm³.
 const double kCopperKgPerMm3 = 8.9e-6;
 
-/// 구멍 지름 칩(mm). NEMA 접지바 7/16"(3/8" 볼트용), 통신 접지바 5/16"(1/4" 볼트용).
-const List<double> kGroundHoleDias = [7.9, 11.1];
+// 구멍 지름 칩은 busbar_punch_dies.dart(내 펀치 금형, 비우면 볼트 틈새 구멍 9·11·13.5·17.5).
 
-/// 구멍 피치 칩(mm). 5/8"(통신 5/16" 구멍 줄), 3/4"·1"(NEMA 2구멍 러그), 1-3/4"(NEMA 러그 패드).
-const List<double> kGroundPitches = [15.875, 19.05, 25.4, 44.45];
+/// 구멍 피치 칩(mm). 10-10: 현장에서 줄자로 바로 재는 값으로(옛 칩은 NEMA 인치 값). 규격 값은 아니다.
+const List<double> kGroundPitches = [20, 25, 30, 40, 50];
 
 /// 구멍 사이 최소 간격(mm, 구멍 중심 사이): 구멍 피치·줄 간격이 이보다 작으면 이 값으로 계산한다.
 const double kGroundMinSpacing = 12;
@@ -37,7 +37,7 @@ const int kGroundMaxHoles = 60;
 
 /// 구멍 하나.
 class GroundHole {
-  /// 번호(바꾸기 키): 접지 구멍 'gA3', 탭·챙 구멍 'tL-A1'·'tR-B2'.
+  /// 번호(바꾸기 키): 접지 구멍 'gA3', 탭·발 구멍 'tL-A1'·'tR-B2'(왼쪽·오른쪽은 이 번호로 가린다).
   final String id;
 
   /// 화면에 보이는 이름: '3번', 'A3', '왼쪽 1', '오른쪽 B2'.
@@ -73,13 +73,13 @@ class GroundBarPlan {
   /// A줄·B줄 접지 구멍의 왼쪽 끝에서 중심까지 거리(mm). B줄은 한 줄이면 비어 있음.
   final List<double> positions, positionsB;
 
-  /// 접지 구멍 전부(A줄 다음 B줄)와 탭·챙 구멍 전부(왼쪽 다음 오른쪽).
+  /// 접지 구멍 전부(A줄 다음 B줄)와 탭·발 구멍 전부(왼쪽 다음 오른쪽).
   final List<GroundHole> groundHoles, tabHoleList;
 
   /// 접지 러그 구멍(접지 구멍과 따로 추가하는 구멍, 부스바 가운데). 러그 번호별로 이어서.
   final List<GroundHole> lugHoleList;
 
-  /// 탭·챙 구멍 줄 수와 줄 위치(폭 방향). 접지 구멍과 따로 정한다.
+  /// 탭·발 구멍 줄 수와 줄 위치(폭 방향). 접지 구멍과 따로 정한다.
   final int tabRows;
   final List<double> tabRowY;
 
@@ -105,17 +105,17 @@ class GroundBarPlan {
   final BusbarBendPlan? bendPlan;
   final double startHeading;
 
-  /// 탭·챙 한 곳의 곧은(평평한) 길이(mm): 왼쪽·오른쪽. 없으면 0.
+  /// 탭·발 한 곳의 곧은(평평한) 길이(mm): 왼쪽·오른쪽. 없으면 0.
   final double flatTabL, flatTabR;
 
-  /// 모자 모양인지, 그때의 몸체 바깥 폭(다리 바깥면 사이, mm).
+  /// 모자 모양인지, 그때의 윗면 바깥 폭(다리 바깥면 사이, mm).
   final bool hat;
   final double hatWidth;
 
-  /// 실제로 계산에 쓴 구멍 피치(최소 간격으로 올린 뒤 값)와 탭·챙 구멍 피치.
+  /// 실제로 계산에 쓴 구멍 피치(최소 간격으로 올린 뒤 값)와 탭·발 구멍 피치.
   final double pitchUsed, tabPitchUsed;
 
-  /// 구멍 가장자리에서 가장 가까운 꺾기 시작선까지 거리(mm): 몸체(접지·러그 구멍)와 탭·챙 구멍. 꺾기가 없으면 null.
+  /// 구멍 가장자리에서 가장 가까운 꺾기 시작선까지 거리(mm): 윗면(접지·러그 구멍)과 탭·발 구멍. 꺾기가 없으면 null.
   final double? minEdgeBody, minEdgeTab;
 
   /// 위 두 거리에 필요한 최소 거리(mm): 구멍 지름 25.4 미만 2T + R, 이상 2.5T + R(일반 판금 규칙).
@@ -180,12 +180,12 @@ String _f(double v) {
 /// [t]·[w] 두께·폭, [holeDia] 접지 구멍 기본 지름, [pitch] 구멍 피치, [endDist] 끝 여유.
 /// [count]를 주면 한 줄 구멍 수로, [length]를 주면 막대 길이(자르는 길이)로 정한다(둘 다 있으면 [count]).
 /// [tabLeft]·[tabRight]는 끝 L 탭의 바깥 길이(0이면 꺾지 않음), [r]·[k]는 꺾기 안쪽 반경·중립선 계수.
-/// [hat]이면 챙 달린 모자 모양: [hatFlange] 왼쪽 챙, [hatFlangeRight] 오른쪽 챙(null이면 같음), [hatHeight] 높이.
+/// [hat]이면 모자 모양: [hatFlange] 왼쪽 발, [hatFlangeRight] 오른쪽 발(null이면 같음), [hatHeight] 높이.
 /// [rows] 1 또는 2, [rowGap] 두 줄 사이 간격, [staggered] 두 줄을 엇갈리게(비대칭), [shift] 엇갈림 거리(null이면 반 피치).
-/// [tabHoleCount]개(줄마다) 구멍(지름 [tabHoleDia], 피치 [tabHolePitch])을 탭·챙 평평한 길이 가운데에 뚫는다.
+/// [tabHoleCount]개(줄마다) 구멍(지름 [tabHoleDia], 피치 [tabHolePitch])을 탭·발 평평한 길이 가운데에 뚫는다.
+/// [tabSides]는 구멍을 뚫을 쪽(1 왼쪽, 2 오른쪽, 3 양쪽).
 /// 접지 러그 구멍: [lugHoles] 1·2구멍 러그, [lugSpacing] 2구멍 러그의 구멍 간격, [lugCount] 러그 수,
 /// [lugPitch] 러그 사이 중심 간격, [lugHoleDia] 러그 구멍 지름. 구멍은 곧은 구간 가운데·폭 가운데에 따로 뚫는다.
-/// [packGround]이면 한 줄 접지 구멍을 왼쪽(뒤) 끝에서부터 촘촘히 놓고, 러그 구멍 묶음은 그 뒤 남는 자리 가운데에 같은 줄로 둔다.
 /// [packGround]이면 한 줄 접지 구멍을 왼쪽(뒤) 끝에서부터 촘촘히 놓고, 러그 구멍 묶음은 그 뒤 남는 자리 가운데에 같은 줄로 둔다.
 /// [overrides]로 구멍마다 지름을 따로 준다(키는 [GroundHole.id]).
 GroundBarPlan groundBar({
@@ -223,7 +223,7 @@ GroundBarPlan groundBar({
   bool packGround = false,
   Map<String, double> overrides = const {},
 }) {
-  final tabName = hat ? '챙' : '탭';
+  final tabName = hat ? '발' : '탭';
   final notes = <String>[];
   double minUp(double v, String name) {
     if (v <= 0 || v >= kGroundMinSpacing) return v;
@@ -255,16 +255,16 @@ GroundBarPlan groundBar({
   final yB = w / 2 + rowGap / 2;
   final rowY = nRows == 1 ? [yA] : [yA, yB];
 
-  // 탭·챙 한 곳: 평평한 길이와 막대 길이를 차지하는 양
+  // 탭·발 한 곳: 평평한 길이와 막대 길이를 차지하는 양
   var flatL = 0.0, flatR = 0.0, spanL = 0.0, spanR = 0.0;
   if (hat) {
     final fl = hatFlange, fr = hatFlangeRight ?? hatFlange;
     if (fl < os) {
-      warn('왼쪽 챙 ${_f(fl)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 짧습니다. 최소 ${_f(os)}mm.');
+      warn('왼쪽 발 ${_f(fl)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 짧습니다. 최소 ${_f(os)}mm.');
     }
     if (fr < os) {
       warn(
-        '오른쪽 챙 ${_f(fr)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 짧습니다. 최소 ${_f(os)}mm.',
+        '오른쪽 발 ${_f(fr)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 짧습니다. 최소 ${_f(os)}mm.',
       );
     }
     if (hatHeight < 2 * os) {
@@ -360,7 +360,7 @@ GroundBarPlan groundBar({
     }
   }
 
-  // 탭·챙 구멍: 평평한 길이 가운데에 모은다. 줄마다 tabHoleCount개. 줄 수·줄 간격은 접지 구멍과 따로.
+  // 탭·발 구멍: 평평한 길이 가운데에 모은다. 줄마다 tabHoleCount개. 줄 수·줄 간격은 접지 구멍과 따로.
   final nRowsT = tabRows == 2 ? 2 : 1;
   final rowYT = nRowsT == 1
       ? [w / 2]
@@ -378,7 +378,9 @@ GroundBarPlan groundBar({
       // (탭이 꺾기보다 짧으면 위에서 이미 "너무 짧습니다"를 알렸다.)
       if (flat <= 0) {
         if (flat > -1e-9) {
-          warn('$name 탭에 평평한 길이가 없어 탭 구멍을 뚫지 않았습니다. 탭을 늘리십시오.');
+          warn(
+            '$name $tabName에 평평한 길이가 없어 $tabName 구멍을 뚫지 않았습니다. $tabName을 늘리십시오.',
+          );
         }
         return;
       }
@@ -405,7 +407,7 @@ GroundBarPlan groundBar({
         final off = left ? h.x : len - h.x;
         if (off - h.dia / 2 < -1e-9 || off + h.dia / 2 > flat + 1e-9) {
           warn(
-            '탭 구멍이 평평한 길이 ${_f(flat)}mm에 들어가지 않습니다. 탭을 늘리거나 구멍 수·피치를 줄이십시오.',
+            '$tabName 구멍이 평평한 길이 ${_f(flat)}mm에 들어가지 않습니다. $tabName을 늘리거나 구멍 수·피치를 줄이십시오.',
           );
         }
       }
@@ -414,7 +416,7 @@ GroundBarPlan groundBar({
     side('L', '왼쪽', (hat || tabLeft > 0) && tabSides & 1 != 0, flatL, true);
     side('R', '오른쪽', (hat || tabRight > 0) && tabSides & 2 != 0, flatR, false);
     if (tabHoleCount > 1 && tabHolePitch <= tabHoleDia) {
-      warn('탭 구멍 피치가 구멍 지름 이하라 구멍이 서로 겹칩니다.');
+      warn('$tabName 구멍 피치가 구멍 지름 이하라 구멍이 서로 겹칩니다.');
     }
   }
 
@@ -567,7 +569,7 @@ GroundBarPlan groundBar({
       4 *
       t;
   final kg = math.max(0.0, t * w * len - holeVol) * kCopperKgPerMm3;
-  // 구멍 가장자리 ~ 꺾기 시작선 거리(꺾는 쪽만): 몸체 구멍은 곧은 구간 양 끝, 탭·챙 구멍은 각 평평한 길이 끝.
+  // 구멍 가장자리 ~ 꺾기 시작선 거리(꺾는 쪽만): 윗면 구멍은 곧은 구간 양 끝, 탭·발 구멍은 각 평평한 길이 끝.
   double? edgeBody;
   for (final h in [...ground, ...lugs]) {
     final r = h.dia / 2;
@@ -582,7 +584,8 @@ GroundBarPlan groundBar({
   }
   double? edgeTab;
   for (final h in tabs) {
-    final left = h.label.startsWith('왼쪽');
+    // 10-10: 이름표('왼쪽 1')가 아니라 번호(tL-)로 쪽을 가린다. 이름표 글이 바뀌어도 쪽을 잘못 읽지 않게.
+    final left = h.id.startsWith('tL-');
     final off = left ? h.x : len - h.x;
     final d = (left ? flatL : flatR) - off - h.dia / 2;
     edgeTab = edgeTab == null ? d : math.min(edgeTab, d);

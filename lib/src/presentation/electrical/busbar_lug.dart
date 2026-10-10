@@ -8,6 +8,7 @@ import 'busbar_ground.dart';
 const List<double> kLugSpacings = [19.05, 25.4, 44.45];
 
 /// 구멍 지름에 맞는 볼트(KS B ISO 273 보통급 틈새 구멍·NEMA 접지바 구멍). 모르면 null.
+/// 10-10: 0.15mm 안에서 가장 가까운 값으로 고른다(11은 M10, 11.1은 3/8" 또는 M10).
 String? lugBoltFor(double holeDia) {
   const table = <(double, String)>[
     (6.6, 'M6'),
@@ -17,14 +18,21 @@ String? lugBoltFor(double holeDia) {
     (11, 'M10'),
     (13.5, 'M12'),
     (17.5, 'M16'),
+    (22, 'M20'),
   ];
+  String? best;
+  var bestGap = double.infinity;
   for (final (d, name) in table) {
-    if ((d - holeDia).abs() <= 0.15) return name;
+    final gap = (d - holeDia).abs();
+    if (gap <= 0.15 + 1e-9 && gap < bestGap) {
+      best = name;
+      bestGap = gap;
+    }
   }
-  return null;
+  return best;
 }
 
-/// 챙 구멍으로 접지바를 판넬에 취부할 때 판넬에 뚫을 자리 하나.
+/// 발 구멍으로 접지바를 판넬에 취부할 때 판넬에 뚫을 자리 하나.
 class PanelHole {
   final GroundHole hole;
 
@@ -33,8 +41,8 @@ class PanelHole {
   const PanelHole(this.hole, this.x, this.y);
 }
 
-/// 모자 모양으로 꺾은 접지바를 판넬에 올렸을 때 챙 구멍 자리(판넬 구멍 뚫는 위치).
-/// 챙 길이는 다리 바깥면에서 챙 끝까지(바깥 치수). 모자가 아니거나 챙 구멍이 없으면 빈 목록.
+/// 모자 모양으로 꺾은 접지바를 판넬에 올렸을 때 발 구멍 자리(판넬 구멍 뚫는 위치).
+/// 발 길이는 다리 바깥면에서 발 끝까지(바깥 치수). 모자가 아니거나 발 구멍이 없으면 빈 목록.
 List<PanelHole> panelPattern(
   GroundBarPlan p, {
   required double flangeLeft,
@@ -43,8 +51,8 @@ List<PanelHole> panelPattern(
   if (!p.hat || p.tabHoleList.isEmpty) return const [];
   final raw = <(GroundHole, double)>[];
   for (final h in p.tabHoleList) {
-    final left = h.label.startsWith('왼쪽');
-    // 왼쪽 다리 바깥면을 0으로, 오른쪽은 몸체 바깥 폭만큼 더 간 자리
+    final left = h.id.startsWith('tL-');
+    // 왼쪽 다리 바깥면을 0으로, 오른쪽은 윗면 바깥 폭만큼 더 간 자리
     final x = left
         ? -(flangeLeft - h.x)
         : p.hatWidth + (flangeRight - (p.length - h.x));

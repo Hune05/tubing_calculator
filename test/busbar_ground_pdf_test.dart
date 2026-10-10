@@ -56,7 +56,7 @@ void main() {
         rho: 8.4,
         summary: const [('재료', '구리 평강 6 × 50 mm')],
         bendRows: const [
-          ['1', '왼쪽 챙 → 다리', '28', '41.2'],
+          ['1', '왼쪽 발 → 다리', '28', '41.2'],
         ],
         sections: const [
           GroundPdfSection('접지 구멍', ['첫 구멍 25']),
@@ -160,7 +160,7 @@ void main() {
     await tester.tap(find.byKey(const Key('ss_save_ok')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ss_saved_8×60 시험')), findsOneWidget);
-    expect(find.textContaining('8×60 · 곧은 막대'), findsOneWidget);
+    expect(find.textContaining('8×60 · 일자'), findsOneWidget);
     // 바깥을 눌러 시트를 닫고 값을 바꾼 뒤 불러온다
     Navigator.of(
       tester.element(find.byKey(const Key('ss_saved_8×60 시험'))),

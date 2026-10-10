@@ -1,5 +1,7 @@
-// 접지바 가공(10-03): 구리 평강에 구멍을 한 줄·두 줄로 뚫고 끝을 L 탭·챙 달린 모자로 꺾어
+// 접지바 가공(10-03): 구리 평강에 구멍을 뚫고 일자로 쓰거나 모자(윗면·다리·발)로 꺾어
 // 접지바를 만들 때 절단 길이와 구멍·꺾기 위치. 계산은 busbar_ground.dart.
+// 10-10: 현장 절곡·펀칭기로 바로 만드는 것에 맞춤. 겉에는 일자·모자와 꼭 넣을 칸만 두고,
+// 두 줄 구멍·끝 L자·러그·구멍 크기 바꾸기·꺾기 보정은 "자세히"에 접어 둔다(켜 둔 값은 그대로 계산에 들어간다).
 import 'dart:async';
 import 'dart:convert';
 
@@ -18,6 +20,7 @@ import 'busbar_ground.dart';
 import 'busbar_ground_painter.dart';
 import 'busbar_ground_pdf.dart';
 import 'busbar_lug.dart';
+import 'busbar_punch_dies.dart';
 import 'busbar_saved_specs.dart';
 import 'elec_form_parts.dart';
 
@@ -27,19 +30,20 @@ Future<void> _defaultShare(String text) async {
 }
 
 const List<String> kGroundBarBasis = [
-  '구멍 줄: 한 줄은 폭 가운데, 두 줄은 가운데에서 줄 간격의 반씩 위아래입니다. 구멍 중심 피치가 같습니다. 구멍 수(한 줄)로 정하면 길이 = 2 × 끝 여유 + (구멍 수 − 1) × 피치. 길이로 정하면 들어가는 만큼 뚫고 남는 길이는 양 끝에 똑같이 나눕니다.',
-  '두 줄: 대칭은 두 줄 구멍이 같은 자리에 마주 보고, 비대칭(엇갈림)은 B줄을 길이 방향으로 옮깁니다(비우면 반 피치). 엇갈린 만큼 구멍 줄이 길어집니다. 탭·챙 구멍도 같은 줄 수로 뚫고, 엇갈림은 탭 피치의 반입니다.',
-  '구멍 크기: 구멍마다 지름을 따로 정할 수 있습니다. 바꾼 구멍은 위에서 본 그림에 주황 테두리로 보입니다. 폭 밖으로 나오거나 이웃 구멍과 겹치면 알립니다.',
-  '구멍 지름 7/16"(약 11.1mm)는 NEMA 접지바(3/8" 볼트용)에서 제조사 자료 세 곳이 같습니다. 5/16"(약 7.9mm)는 통신 접지바(1/4" 볼트용)입니다.',
-  '구멍 피치 3/4"(19.05)·1"(25.4)는 NEMA 2구멍 러그, 1-3/4"(44.45)는 NEMA 러그 패드, 5/8"(15.875)는 통신 접지바(BICSI·EIA/TIA 607) 구멍 줄입니다. 쓸 러그·터미널의 구멍 간격에 맞추십시오.',
-  '끝 여유와 두 줄 줄 간격은 정해진 규격 값을 찾지 못했습니다. 기본 25mm·20mm는 임의 값이니 설계도나 러그 크기에 맞추십시오. 구멍이 끝 면을 뚫거나 서로 겹치는 경우만 알립니다.',
+  '모양: 일자는 꺾지 않고 그대로 판넬에 댑니다. 모자는 윗면(접지 구멍 줄) 양쪽을 다리로 90° 내리고 다리 끝을 바깥으로 다시 꺾어 발을 만듭니다(꺾기 4곳). 발 구멍으로 판넬에 바로 취부합니다. 끝만 L자로 꺾는 모양은 "자세히"에 있습니다.',
+  '모자 치수는 모두 바깥 치수입니다. 발 길이는 다리 바깥면에서 발 끝까지, 높이는 발 바닥면에서 윗면까지입니다. 절단 길이 = 왼쪽 발 + 오른쪽 발 + 2 × 높이 + 윗면 바깥 폭 − 4 × 굽힘 공제입니다.',
+  '구멍 줄: 한 줄은 폭 가운데입니다. 구멍 수로 정하면 길이 = 2 × 끝 여유 + (구멍 수 − 1) × 피치. 막대 길이로 정하면 들어가는 만큼 뚫고 남는 길이는 양 끝에 똑같이 나눕니다.',
+  '구멍 지름 칩은 볼트 틈새 구멍(KS B ISO 273 보통급) M8 9 · M10 11 · M12 13.5 · M16 17.5mm입니다. "내 금형"에 기계 펀치 금형 지름을 저장하면 그 값이 칩으로 나옵니다.',
+  '구멍 피치 칩(20~50mm)과 끝 여유 기본 25mm는 고르기 쉽게 둔 값이고 규격 값이 아닙니다. 쓸 러그 구멍 간격과 설계도에 맞추십시오. 구멍이 끝 면을 뚫거나 서로 겹치는 경우만 알립니다.',
+  '꺾기: 두께 방향(눕혀 꺾기) 90°, 부스바 가공과 같은 식(중립선 반경 r + k·t)입니다. 안쪽 반경은 기계 금형 반경을 넣고, 비우면 두께 1배로 계산합니다. 최소 안쪽 반경은 CDA 한 곳 자료(두께 10mm 이하 1배)입니다. k 기본 0.4는 범위(0.33~0.5)의 가운데 값이라 처음 만드는 치수는 자투리로 한 번 꺾어 보고 맞추십시오.',
+  '구멍 가장자리 ~ 꺾기 시작선 거리는 2 × 두께 + 안쪽 반경 이상이어야 꺾을 때 구멍이 덜 늘어납니다(일반 판금 규칙). 기본 발 길이 60mm는 두께 6mm·구멍 11mm 하나일 때 이 거리를 넘깁니다.',
+  '발·탭 구멍(취부)은 평평한 길이(끝에서 꺾기 시작선까지) 가운데에 모아 뚫습니다.',
   '중량은 구리 밀도 8.9 g/cm³로 구멍을 뺀 부피에 곱한 근사값입니다.',
-  '끝 L 꺾기: 두께 방향(눕혀 꺾기) 90°, 부스바 가공와 같은 식(중립선 반경 r + k·t)입니다. 탭 길이는 바깥 치수, 최소 안쪽 반경은 CDA 한 곳 자료(두께 10mm 이하 1배)입니다. k 기본 0.4는 범위(0.33~0.5)의 가운데 값이니 시험 조각으로 맞추십시오.',
-  '모자(챙 달림): 몸체 양쪽 다리를 90°로 내리고 다리 끝을 바깥으로 다시 꺾어 바닥에 대는 챙을 만듭니다. 치수는 모두 바깥 치수(챙 길이는 다리 바깥면까지, 높이는 챙 바닥면에서 윗면까지)이고 절단 길이 = 왼쪽 챙 + 오른쪽 챙 + 2 × 높이 + 몸체 폭 − 4 × 굽힘 공제입니다. 챙은 왼쪽·오른쪽 길이를 따로 줄 수 있습니다.',
-  '탭·챙(취부) 구멍은 평평한 길이(끝에서 꺾기 시작선까지) 가운데에 모아 뚫습니다. 줄 수·줄 간격·뚫을 챙(왼쪽·오른쪽·양쪽)은 접지 구멍과 따로 정합니다.',
-  '접지 러그 구멍: 접지 구멍을 쓰지 않고 부스바 가운데(길이 방향 곧은 구간 가운데, 폭 가운데)에 따로 추가로 뚫습니다. 러그 1구멍은 구멍 하나, 2구멍은 러그 구멍 간격만큼 떨어진 구멍 둘이고, 러그가 여럿이면 러그 사이 간격으로 가운데에서 양쪽으로 놓습니다. 접지 구멍 한 줄과 같은 높이라 겹치면 알리니 접지 구멍을 두 줄(줄 간격은 러그 구멍 지름보다 넉넉히)로 하십시오. 볼트 세트 = 볼트 + 너트 + 평와셔 2 + 스프링 와셔 1(구멍 하나). 볼트 규격은 NEMA 접지바 7/16" 구멍 = 3/8" 볼트, 5/16" 구멍 = 1/4" 볼트, 그 밖에는 ISO 273 보통급 틈새 구멍(M6 6.6·M8 9·M10 11·M12 13.5·M16 17.5)으로 추정합니다. 조임 토크와 산화방지제 종류는 러그·볼트 제조사 값을 따르며 이 앱은 값을 정하지 않습니다.',
-  '구멍 사이 최소 간격: 구멍 피치·줄 간격(접지·취부)은 12mm보다 작게 넣어도 12mm로 올려 계산하고 알립니다(구멍 중심 사이 기준).',
-  '접지바 취부: 모자 접지바를 챙 구멍으로 판넬에 설치할 때 판넬 구멍 가로 간격(왼쪽 구멍 0 기준)과 볼트 세트를 계산합니다. 판넬 두께 기본 3mm는 임의 값입니다.',
+  '자세히: 두 줄 구멍, 끝 L자 꺾기, 오른쪽 발 길이 따로, 발 구멍 줄·뚫을 쪽, 접지 러그 구멍, 구멍 크기 바꾸기, 중립선 계수 k·벤더 보정이 있습니다. 접어 둬도 켜 둔 값은 계산에 들어가고 "자세히" 제목 아래에 보입니다.',
+  '두 줄: 대칭은 두 줄 구멍이 같은 자리에 마주 보고, 비대칭(엇갈림)은 B줄을 길이 방향으로 옮깁니다(비우면 반 피치). 엇갈린 만큼 구멍 줄이 길어집니다. 두 줄 줄 간격 기본 20mm는 임의 값입니다.',
+  '접지 러그 구멍: 접지 구멍을 쓰지 않고 부스바 가운데에 따로 뚫습니다. 러그 1구멍은 구멍 하나, 2구멍은 러그 구멍 간격만큼 떨어진 구멍 둘입니다(NEMA 2구멍 러그 간격 3/4"·1"·1-3/4"). 볼트 세트 = 볼트 + 너트 + 평와셔 2 + 스프링 와셔 1(구멍 하나). 조임 토크와 산화방지제는 러그·볼트 제조사 값을 따르며 이 앱은 값을 정하지 않습니다.',
+  '구멍 사이 최소 간격: 구멍 피치·줄 간격은 12mm보다 작게 넣어도 12mm로 올려 계산하고 알립니다(구멍 중심 사이 기준).',
+  '판넬 취부: 모자 접지바를 발 구멍으로 판넬에 설치할 때 판넬 구멍 가로 간격(왼쪽 구멍 0 기준)과 볼트 세트를 계산합니다. 판넬 두께 기본 3mm는 임의 값입니다.',
   '스프링백: 벤더 프로필을 고르면 스프링백 비율로 기계에서 꺾을 각도를 알려 줍니다. 프로필이 없으면 보정하지 않습니다.',
   '넣지 않은 것: 3줄 이상, 모서리 둥글림, 구멍 면취.',
 ];
@@ -66,11 +70,12 @@ class _GroundBarPageState extends State<GroundBarPage>
   String? get calcHistoryStorageKey => 'calc_history_ground_bar';
 
   bool _byLength = false; // false = 구멍 수로, true = 막대 길이로
-  int _tabs = 0; // 끝 꺾기: 0 없음, 1 왼쪽 L, 2 오른쪽 L, 3 양쪽 L, 4 모자(챙 달림)
-  int _mCount = 0; // 탭·챙 구멍 수(줄마다)
+  int _tabs = 0; // 모양: 0 일자, 4 모자(윗면·다리·발). "자세히"의 끝 L자: 1 왼쪽, 2 오른쪽, 3 양쪽
+  int _mCount = 0; // 발·탭 구멍 수(줄마다)
   int _rowMode = 0; // 0 한 줄, 1 두 줄 대칭, 2 두 줄 비대칭(엇갈림)
-  int _tabRowMode = 0; // 탭·챙 구멍 줄(접지 구멍과 따로)
-  int _tabSides = 3; // 취부 구멍을 뚫을 챙: 1 왼쪽, 2 오른쪽, 3 양쪽
+  int _tabRowMode = 0; // 발·탭 구멍 줄(접지 구멍과 따로)
+  int _tabSides = 3; // 발·탭 구멍을 뚫을 쪽: 1 왼쪽, 2 오른쪽, 3 양쪽(모자·양쪽 L일 때만 씀)
+  List<double> _dies = const []; // 내 펀치 금형 지름(비면 기본 칩)
   int _lug = 0; // 접지 러그: 0 없음, 1 1구멍, 2 2구멍
   bool _packGround = true; // 접지 구멍을 왼쪽(뒤)으로 몰고 러그 구멍은 그 뒤 가운데에
   double _k = 0.4;
@@ -80,26 +85,27 @@ class _GroundBarPageState extends State<GroundBarPage>
   String? _selHole;
   final _thick = TextEditingController(text: '6');
   final _width = TextEditingController(text: '50');
-  final _hole = TextEditingController(text: '11.1');
-  final _pitch = TextEditingController(text: '25.4');
+  final _hole = TextEditingController(text: '11');
+  final _pitch = TextEditingController(text: '25');
   final _end = TextEditingController(text: '25');
   final _count = TextEditingController(text: '10');
   final _length = TextEditingController(text: '500');
-  final _tabL = TextEditingController(text: '50');
-  final _tabR = TextEditingController(text: '50');
+  // 10-10: 탭·발 기본 60. 50·40이면 기본 취부 구멍 하나가 꺾기 시작선에 너무 가까웠다(2T + R 미달).
+  final _tabL = TextEditingController(text: '60');
+  final _tabR = TextEditingController(text: '60');
   final _radius = TextEditingController(); // 비우면 두께 1배
   final _hatH = TextEditingController(text: '40');
-  final _hatF = TextEditingController(text: '40');
-  final _hatFR = TextEditingController(); // 비우면 왼쪽 챙과 같음
-  final _mDia = TextEditingController(text: '11.1');
-  final _mPitch = TextEditingController(text: '25.4');
+  final _hatF = TextEditingController(text: '60');
+  final _hatFR = TextEditingController(); // 비우면 왼쪽 발과 같음
+  final _mDia = TextEditingController(text: '11');
+  final _mPitch = TextEditingController(text: '25');
   final _gap = TextEditingController(text: '20');
   final _shift = TextEditingController(); // 비우면 반 피치
   final _ovDia = TextEditingController();
   final _tabGap = TextEditingController(text: '20');
   final _lugSpacing = TextEditingController(text: '25.4');
   final _panelT = TextEditingController(text: '3'); // 취부면(판넬) 두께
-  final _lugDia = TextEditingController(text: '11.1'); // 러그 구멍 지름
+  final _lugDia = TextEditingController(text: '11'); // 러그 구멍 지름
   final _jobName = TextEditingController(); // 작업 이름(지시서·저장 이름)
   final _lugPad = TextEditingController(text: '5');
 
@@ -161,6 +167,20 @@ class _GroundBarPageState extends State<GroundBarPage>
   void initState() {
     super.initState();
     _loadDraft();
+    _loadDies();
+  }
+
+  Future<void> _loadDies() async {
+    final d = await readPunchDies();
+    if (mounted && d.isNotEmpty) setState(() => _dies = d);
+  }
+
+  /// 구멍 지름 칩: 저장한 내 금형, 없으면 기본(볼트 틈새 구멍).
+  List<double> get _dieChips => _dies.isEmpty ? kDefaultPunchDies : _dies;
+
+  Future<void> _editDies() async {
+    final r = await openPunchDies(context, _dies);
+    if (r != null && mounted) setState(() => _dies = r);
   }
 
   @override
@@ -287,7 +307,7 @@ class _GroundBarPageState extends State<GroundBarPage>
       2 => '오른쪽 L',
       3 => '양쪽 L',
       4 => '모자',
-      _ => '곧은 막대',
+      _ => '일자',
     };
     final lug = switch (data['lg']) {
       1 => ' · 러그 1구멍',
@@ -378,7 +398,9 @@ class _GroundBarPageState extends State<GroundBarPage>
       tabRows: _tabRowMode == 0 ? 1 : 2,
       tabRowGap: _num(_tabGap),
       tabStaggered: _tabRowMode == 2,
-      tabSides: _tabSides,
+      // 10-10: 뚫을 쪽 칩은 모자·양쪽 L일 때만 보인다. 다른 모양에서 숨은 값(왼쪽만 등)이 들어가
+      // 오른쪽 L 탭 구멍이 말없이 0개가 됐다.
+      tabSides: _tabs == 3 || _tabs == 4 ? _tabSides : 3,
       lugHoles: _lug,
       lugSpacing: _num(_lugSpacing),
       lugCount: _lug == 0 ? 0 : 1,
@@ -394,10 +416,10 @@ class _GroundBarPageState extends State<GroundBarPage>
     if (_tabs == 0) return null;
     final min = busbarMinRadius(_num(_thick));
     if (_r + 1e-9 >= min) return null;
-    return 'L 꺾기 안쪽 반경 ${fmt(_r)}mm가 최소 반경 ${fmt(min)}mm(CDA, 두께 ${fmt(_num(_thick))}mm 기준)보다 작습니다. 모서리가 갈라질 수 있습니다.';
+    return '꺾기 안쪽 반경 ${fmt(_r)}mm가 최소 반경 ${fmt(min)}mm(CDA, 두께 ${fmt(_num(_thick))}mm 기준)보다 작습니다. 모서리가 갈라질 수 있습니다.';
   }
 
-  String get _tabName => _tabs == 4 ? '챙' : '탭';
+  String get _tabName => _tabs == 4 ? '발' : '탭';
 
   /// 구멍 위치 한 줄 규칙: 첫 구멍·피치·마지막 구멍(A줄).
   String _ruleText(GroundBarPlan p) =>
@@ -412,7 +434,7 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   String _bendName(int i, GroundBarPlan p) {
     if (p.hat) {
-      return const ['왼쪽 챙 → 다리', '왼쪽 다리 → 몸체', '몸체 → 오른쪽 다리', '오른쪽 다리 → 챙'][i];
+      return const ['왼쪽 발 → 다리', '왼쪽 다리 → 윗면', '윗면 → 오른쪽 다리', '오른쪽 다리 → 발'][i];
     }
     final side = p.bends.length == 2
         ? (i == 0 ? '왼쪽' : '오른쪽')
@@ -436,14 +458,11 @@ class _GroundBarPageState extends State<GroundBarPage>
     return '구멍 가장자리 ~ 꺾기 시작선 거리: ${parts.join(' · ')}. 필요 거리 = 2 × T + R(구멍 지름 25.4 이상은 2.5 × T + R, 일반 판금 규칙).';
   }
 
-  /// 탭·챙 구멍 수 설명: 어느 쪽에 몇 개인지 풀어 쓴다.
+  /// 발·탭 구멍 수 설명: 어느 쪽에 몇 개인지 풀어 쓴다(쪽은 구멍 번호 tL-·tR-로 가린다).
   String _tabHoleSummary(GroundBarPlan p) {
-    final l = p.tabHoleList.where((h) => h.label.startsWith('왼쪽')).length;
-    final r = p.tabHoleList.where((h) => h.label.startsWith('오른쪽')).length;
-    final flat =
-        p.flatTabL > 0 && p.tabHoleList.any((h) => h.label.startsWith('왼쪽'))
-        ? p.flatTabL
-        : p.flatTabR;
+    final l = p.tabHoleList.where((h) => h.id.startsWith('tL-')).length;
+    final r = p.tabHoleList.where((h) => h.id.startsWith('tR-')).length;
+    final flat = p.flatTabL > 0 && l > 0 ? p.flatTabL : p.flatTabR;
     final parts = [
       if (l > 0) '왼쪽 $_tabName $l개',
       if (r > 0) '오른쪽 $_tabName $r개',
@@ -470,8 +489,8 @@ class _GroundBarPageState extends State<GroundBarPage>
       2 => '오른쪽 끝 L 꺾기 (탭 ${fmt(_num(_tabR))}mm)',
       3 => '양쪽 끝 L 꺾기 (탭 ${fmt(_num(_tabL))} / ${fmt(_num(_tabR))}mm)',
       4 =>
-        '모자(챙 달림): 높이 ${fmt(_num(_hatH))}, 챙 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))}mm',
-      _ => '곧은 막대(꺾지 않음)',
+        '모자: 높이 ${fmt(_num(_hatH))}, 발 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))}mm',
+      _ => '일자 (꺾지 않음)',
     };
     final custom = [
       ...p.groundHoles,
@@ -480,7 +499,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     ].where((h) => h.custom).toList();
     final summary = <(String, String)>[
       ('재료', '구리 평강 ${fmt(t)} × ${fmt(w)} mm'),
-      ('끝 모양', shape),
+      ('모양', shape),
       ('절단 길이', '${fmt(p.length, 1)} mm (약 ${fmt(p.weightKg, 2)} kg)'),
       (
         '접지 구멍',
@@ -575,7 +594,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     b.write('\n${_rowText(p)}');
     if (p.bends.isNotEmpty) {
       final tab = _tabs == 4
-          ? '모자 높이 ${fmt(_num(_hatH))} · 챙 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))}'
+          ? '모자 높이 ${fmt(_num(_hatH))} · 발 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))}'
           : _tabs == 3
           ? '탭 양쪽 ${fmt(_num(_tabL))} / ${fmt(_num(_tabR))}'
           : '탭 ${fmt(_num(_tabs == 1 ? _tabL : _tabR))}';
@@ -725,11 +744,11 @@ class _GroundBarPageState extends State<GroundBarPage>
         ),
       );
 
-  /// 탭·챙 구멍: 왼쪽·오른쪽, 줄마다.
+  /// 발·탭 구멍: 왼쪽·오른쪽, 줄마다.
   Widget _tabHoleBox(GroundBarPlan p) {
     final rows = <Widget>[];
-    for (final side in const ['왼쪽', '오른쪽']) {
-      final hs = p.tabHoleList.where((h) => h.label.startsWith(side)).toList();
+    for (final (side, tag) in const [('왼쪽', 'tL-'), ('오른쪽', 'tR-')]) {
+      final hs = p.tabHoleList.where((h) => h.id.startsWith(tag)).toList();
       if (hs.isEmpty) continue;
       if (p.tabRows == 1) {
         rows.add(
@@ -740,7 +759,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         );
       } else {
         for (final rl in const ['A', 'B']) {
-          final rh = hs.where((h) => h.label.contains(' $rl')).toList();
+          final rh = hs.where((h) => h.id.startsWith('$tag$rl')).toList();
           rows.add(
             _valueRow('$side $rl', [
               for (final h in rh)
@@ -844,10 +863,8 @@ class _GroundBarPageState extends State<GroundBarPage>
     ];
   }
 
-  List<Widget> _lugSection(GroundBarPlan p) {
-    if (p.holes == 0) return const [];
-    final groups = _lugGroups(p);
-    final bolts = p.lugHoleList.length;
+  /// 러그 입력("자세히" 안): 러그 종류·구멍 지름·간격·놓는 방법·패드 두께.
+  List<Widget> _lugInputs() {
     return [
       elecChipGroup(
         '러그 종류',
@@ -862,7 +879,9 @@ class _GroundBarPageState extends State<GroundBarPage>
               _set(() {
                 if (_lug == 0 && i != 0) {
                   // 외부 접지 러그는 크다: 처음 켤 때 큰 러그 기본값(M12 구멍, 1-3/4" 간격)
-                  if (_lugDia.text.trim() == '11.1') _lugDia.text = '13.5';
+                  if (const ['11', '11.1'].contains(_lugDia.text.trim())) {
+                    _lugDia.text = '13.5';
+                  }
                   if (_lugSpacing.text.trim() == '25.4') {
                     _lugSpacing.text = '44.45';
                   }
@@ -880,16 +899,7 @@ class _GroundBarPageState extends State<GroundBarPage>
           '러그 볼트가 지나는 구멍 지름입니다. ${_lug == 2 ? "2구멍 러그의 구멍 둘 모두" : "1구멍 러그의 구멍"}에 적용됩니다. 접지 구멍과 다르게 줄 수 있고, 구멍마다 따로 바꾸려면 아래 "구멍 크기 바꾸기"를 씁니다.',
           onEdit: _saveSoon,
         ),
-        _presetChips(
-          'gb_lugd_',
-          _lugDia,
-          const [11.1, 13.5, 17.5],
-          (v) => switch (v) {
-            11.1 => 'φ11.1 (3/8")',
-            13.5 => 'φ13.5 (M12)',
-            _ => 'φ17.5 (M16)',
-          },
-        ),
+        _dieChipRow('gb_lugd_', _lugDia),
         const SizedBox(height: 8),
         if (_lug == 2) ...[
           elecField(
@@ -937,46 +947,66 @@ class _GroundBarPageState extends State<GroundBarPage>
           '러그 볼트 자리(패드)의 두께입니다. 러그 규격서 값을 넣으십시오. 기본값 5는 임의 값입니다.',
           onEdit: _saveSoon,
         ),
-        if (groups.isNotEmpty)
-          calcResult(solve: true, 
-            key: const Key('gb_lug_result'),
-            big: '러그 구멍 $bolts개 · 볼트 세트 $bolts',
-            caption:
-                '접지 러그 ${groups.length}개 · 폭 가운데 ${fmt(p.lugHoleList.first.y, 1)}mm · 접지 구멍과 따로',
-            warn: !p.ok,
-            lines: [
-              for (final e in groups.entries) _lugLine(e.key, e.value),
-              _packGround
-                  ? '접지 구멍은 왼쪽 끝으로 몰았고, 러그 구멍은 접지 구멍과 따로 남는 자리 가운데에 같은 줄로 추가했습니다(펼친 막대 왼쪽 끝 기준 거리).'
-                  : '러그 구멍은 접지 구멍을 쓰지 않고 부스바 가운데에 추가한 구멍입니다(펼친 막대 왼쪽 끝 기준 거리).',
-              '볼트 세트 $bolts개 = ${_lugParts(bolts).join(' · ')}',
-              '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + _num(_thick), 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(_num(_thick), 1)}. 볼트 길이는 여기에 평와셔 2장·스프링 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다(와셔·너트 두께는 제품마다 다릅니다).',
-            ],
-          ),
-        if (groups.isNotEmpty)
-          calcResult(solve: true, 
-            key: const Key('gb_lug_notes'),
-            big: '러그 취부 방법',
-            caption: '접지 러그를 접지바에 붙일 때',
-            lines: const [
-              '러그 패드와 부스바 접촉면의 도장·산화막을 닦아 냅니다(구리는 광이 날 때까지, 도장 부스바는 접촉 자리만 벗깁니다).',
-              '접촉면에 산화방지제(컴파운드)를 얇게 바르고 러그 패드를 부스바에 평평하게 댑니다.',
-              '볼트는 평와셔를 끼워 러그 쪽에서 넣고, 반대쪽에서 평와셔 → 스프링 와셔 → 너트 순으로 체결합니다. 너트를 한쪽에 몰면 러그가 틀어지니 2구멍 러그는 두 볼트를 번갈아 조입니다.',
-              '조임 토크는 러그·볼트 제조사 값이나 사내 기준을 따릅니다(이 앱은 값을 정하지 않습니다). 규정 토크로 조인 뒤 표시선(페인트 마킹)을 긋습니다.',
-              '체결 후 러그가 헐겁지 않은지, 케이블 중량이 볼트에 걸리지 않는지 확인합니다.',
-            ],
-          ),
       ],
     ];
   }
 
-  // ── 접지바 취부(챙·탭 구멍으로 설치) ──
+  /// 러그 결과(결과 쪽 접는 칸): 구멍 위치·볼트 세트·붙이는 방법. 러그를 안 켜면 빈 목록.
+  List<Widget> _lugResults(GroundBarPlan p) {
+    final groups = _lugGroups(p);
+    if (p.holes == 0 || groups.isEmpty) return const [];
+    final bolts = p.lugHoleList.length;
+    return [
+      calcResult(
+        solve: true,
+        key: const Key('gb_lug_result'),
+        big: '러그 구멍 $bolts개 · 볼트 세트 $bolts',
+        caption:
+            '접지 러그 ${groups.length}개 · 폭 가운데 ${fmt(p.lugHoleList.first.y, 1)}mm · 접지 구멍과 따로',
+        warn: !p.ok,
+        lines: [
+          for (final e in groups.entries) _lugLine(e.key, e.value),
+          _packGround
+              ? '접지 구멍은 왼쪽 끝으로 몰았고, 러그 구멍은 접지 구멍과 따로 남는 자리 가운데에 같은 줄로 추가했습니다(펼친 막대 왼쪽 끝 기준 거리).'
+              : '러그 구멍은 접지 구멍을 쓰지 않고 부스바 가운데에 추가한 구멍입니다(펼친 막대 왼쪽 끝 기준 거리).',
+          '볼트 세트 $bolts개 = ${_lugParts(bolts).join(' · ')}',
+          '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + _num(_thick), 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(_num(_thick), 1)}. 볼트 길이는 여기에 평와셔 2장·스프링 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다(와셔·너트 두께는 제품마다 다릅니다).',
+        ],
+      ),
+      calcResult(
+        solve: true,
+        key: const Key('gb_lug_notes'),
+        big: '러그 취부 방법',
+        caption: '접지 러그를 접지바에 붙일 때',
+        lines: const [
+          '러그 패드와 부스바 접촉면의 도장·산화막을 닦아 냅니다(구리는 광이 날 때까지, 도장 부스바는 접촉 자리만 벗깁니다).',
+          '접촉면에 산화방지제(컴파운드)를 얇게 바르고 러그 패드를 부스바에 평평하게 댑니다.',
+          '볼트는 평와셔를 끼워 러그 쪽에서 넣고, 반대쪽에서 평와셔 → 스프링 와셔 → 너트 순으로 체결합니다. 너트를 한쪽에 몰면 러그가 틀어지니 2구멍 러그는 두 볼트를 번갈아 조입니다.',
+          '조임 토크는 러그·볼트 제조사 값이나 사내 기준을 따릅니다(이 앱은 값을 정하지 않습니다). 규정 토크로 조인 뒤 표시선(페인트 마킹)을 긋습니다.',
+          '체결 후 러그가 헐겁지 않은지, 케이블 중량이 볼트에 걸리지 않는지 확인합니다.',
+        ],
+      ),
+    ];
+  }
+
+  // ── 접지바 취부(발·탭 구멍으로 설치) ──
 
   List<PanelHole> _panel(GroundBarPlan p) => panelPattern(
     p,
     flangeLeft: _num(_hatF),
     flangeRight: readNum(_hatFR) ?? _num(_hatF),
   );
+
+  /// 결과 한 줄: 모자 양쪽 발에 구멍이 있으면 판넬에 마킹할 가로 간격(왼쪽 끝 구멍 ~ 오른쪽 끝 구멍).
+  String? _panelSpanLine(GroundBarPlan p) {
+    final pts = _panel(p);
+    if (pts.length < 2 ||
+        !pts.any((h) => h.hole.id.startsWith('tL-')) ||
+        !pts.any((h) => h.hole.id.startsWith('tR-'))) {
+      return null;
+    }
+    return '판넬 구멍 가로 간격 ${fmt(pts.last.x - pts.first.x, 1)}mm(양쪽 발 끝 구멍 중심 사이). 볼트 세트·판넬 두께는 아래 "판넬 취부"에 있습니다.';
+  }
 
   List<Widget> _mountSection(GroundBarPlan p) {
     if (p.tabHoleList.isEmpty) return const [];
@@ -993,10 +1023,11 @@ class _GroundBarPageState extends State<GroundBarPage>
         '접지바를 올려 볼트로 조일 판넬(또는 앵글) 두께입니다. 기본값 3은 임의 값이니 실제 두께를 넣으십시오.',
         onEdit: _saveSoon,
       ),
-      calcResult(solve: true, 
+      calcResult(
+        solve: true,
         key: const Key('gb_mount_result'),
         big: '취부 구멍 $only개 · 볼트 세트 $only',
-        caption: '접지바를 ${p.hat ? "챙" : "탭"} 구멍으로 취부',
+        caption: '접지바를 ${p.hat ? "발" : "탭"} 구멍으로 취부',
         lines: [
           if (pts.isNotEmpty) ...[
             '판넬에 뚫을 구멍 자리(가장 왼쪽 구멍 = 0, 막대 A쪽 가장자리 기준 세로):',
@@ -1007,22 +1038,23 @@ class _GroundBarPageState extends State<GroundBarPage>
           ] else
             '탭 구멍은 접지바를 꺾기 전 위치입니다. 꺾은 뒤 탭이 닿는 면의 구멍 자리는 현장에서 탭을 대고 마킹합니다.',
           '볼트 세트 $only개 = 볼트 ${bolt ?? "구멍에 맞는 규격"} $only개 · 너트 $only개 · 평와셔 ${only * 2}개 · 스프링 와셔 $only개 (판넬에 탭이 있으면 너트는 뺍니다)',
-          '볼트가 지나는 두께(그립) ${fmt(grip, 1)}mm = ${p.hat ? "챙" : "탭"}(부스바) ${fmt(_num(_thick), 1)} + 판넬 ${fmt(_num(_panelT), 1)}. 볼트 길이는 여기에 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다.',
+          '볼트가 지나는 두께(그립) ${fmt(grip, 1)}mm = ${p.hat ? "발" : "탭"}(부스바) ${fmt(_num(_thick), 1)} + 판넬 ${fmt(_num(_panelT), 1)}. 볼트 길이는 여기에 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다.',
           if (_mDia.text.trim().isNotEmpty)
-            '판넬 구멍은 ${p.hat ? "챙" : "탭"} 구멍과 같은 φ${fmt(_num(_mDia))}로 뚫거나, 판넬에 탭을 낼 때는 볼트 호칭에 맞는 드릴을 씁니다.',
+            '판넬 구멍은 ${p.hat ? "발" : "탭"} 구멍과 같은 φ${fmt(_num(_mDia))}로 뚫거나, 판넬에 탭을 낼 때는 볼트 호칭에 맞는 드릴을 씁니다.',
         ],
       ),
-      calcResult(solve: true, 
+      calcResult(
+        solve: true,
         key: const Key('gb_mount_notes'),
         big: '접지바 취부 방법',
-        caption: '${p.hat ? "챙 달린 모자 접지바" : "탭 접지바"}를 판넬에 설치할 때',
+        caption: '${p.hat ? "모자 접지바" : "탭 접지바"}를 판넬에 설치할 때',
         lines: [
           '판넬 마킹: 위 가로 간격으로 판넬에 구멍 자리를 긋고, 접지바를 대어 구멍이 맞는지 확인한 뒤 뚫습니다.',
           '접촉면 처리: 접지바 바닥과 판넬 접촉 자리의 도장·산화막을 벗겨 금속면을 드러내고 산화방지제를 얇게 바릅니다(구리와 도금 강판이 닿는 곳은 접촉 부식에 주의).',
-          '체결: 볼트에 평와셔를 끼워 ${p.hat ? "챙" : "탭"}과 판넬을 지나게 한 뒤 반대쪽에서 평와셔 → 스프링 와셔 → 너트 순으로 조입니다. 양쪽 챙 볼트를 번갈아 조여 접지바가 비틀리지 않게 합니다.',
+          '체결: 볼트에 평와셔를 끼워 ${p.hat ? "발" : "탭"}과 판넬을 지나게 한 뒤 반대쪽에서 평와셔 → 스프링 와셔 → 너트 순으로 조입니다. 양쪽 ${p.hat ? "발" : "탭"} 볼트를 번갈아 조여 접지바가 비틀리지 않게 합니다.',
           '조임 토크는 볼트·접지바 제조사 값이나 사내 기준을 따릅니다(이 앱은 값을 정하지 않습니다). 조인 뒤 표시선을 긋습니다.',
           '절연 접지바(판넬과 따로 접지해야 하는 것)는 판넬과 닿는 곳에 절연 받침을 끼우고 절연 볼트 세트를 씁니다. 판넬 접지로 쓰는 일반 접지바는 금속 접촉으로 취부합니다.',
-          '취부 뒤 접지바 위에 접지 러그를 붙이고(위 "접지 러그 구멍") 러그·접지바·판넬 접촉 저항을 점검합니다.',
+          '취부 뒤 접지 러그를 붙이고 러그·접지바·판넬 접촉 저항을 점검합니다.',
         ],
       ),
     ];
@@ -1046,7 +1078,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         [for (final h in all) h.id],
         (id) => name(all.firstWhere((h) => h.id == id)),
         (id) => _set(() => _selHole = id),
-        '크기를 따로 줄 구멍을 고릅니다. 접지 구멍은 번호(두 줄이면 A·B줄), 탭·챙 구멍은 왼쪽·오른쪽 번호입니다.',
+        '크기를 따로 줄 구멍을 고릅니다. 접지 구멍은 번호(두 줄이면 A·B줄), $_tabName 구멍은 왼쪽·오른쪽 번호입니다.',
       ),
       elecField(
         'gb_ovdia',
@@ -1123,6 +1155,206 @@ class _GroundBarPageState extends State<GroundBarPage>
     ],
   );
 
+  /// 구멍 지름 칩 줄: 내 펀치 금형(없으면 볼트 틈새 구멍) + 금형 고치기.
+  Widget _dieChipRow(String keyPrefix, TextEditingController c) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: [
+      for (final v in _dieChips)
+        calcChip(
+          '$keyPrefix${(v * 100).round()}',
+          punchDieLabel(v),
+          readNum(c) == v,
+          () => _set(() => c.text = fmt(v, 3)),
+        ),
+      calcChip(
+        '${keyPrefix}edit',
+        _dies.isEmpty ? '내 금형 넣기' : '내 금형 고치기',
+        false,
+        _editDies,
+      ),
+    ],
+  );
+
+  /// "자세히" 제목 아래 요약: 켜 둔 것이 있으면 무엇인지 보여 준다(접어 둬도 계산에 들어가므로).
+  String _moreSummary(GroundBarPlan? p) {
+    final custom = p?.customCount ?? 0;
+    final on = <String>[
+      if (_tabs >= 1 && _tabs <= 3) const ['', '왼쪽 L', '오른쪽 L', '양쪽 L'][_tabs],
+      if (_tabs == 4 && (readNum(_hatFR) ?? 0) > 0) '오른쪽 발 따로',
+      if (_rowMode == 1) '두 줄 대칭' else if (_rowMode == 2) '두 줄 엇갈림',
+      if (_tabs != 0 && _mCount > 0 && _tabRowMode != 0) '$_tabName 구멍 두 줄',
+      if ((_tabs == 3 || _tabs == 4) && _mCount > 0 && _tabSides != 3)
+        '$_tabName 구멍 ${_tabSides == 1 ? "왼쪽만" : "오른쪽만"}',
+      if (_lug != 0) '러그 $_lug구멍',
+      if (custom > 0) '크기 바꾼 구멍 $custom개',
+      if (_tabs != 0 && _profileName != null)
+        '벤더 $_profileName'
+      else if (_tabs != 0 && _k != 0.4)
+        'k ${fmt(_k, 2)}',
+    ];
+    return on.isEmpty
+        ? '두 줄 구멍 · 끝 L자 · 러그 · 구멍 크기 · 꺾기 보정'
+        : '켜 둔 것: ${on.join(' · ')}';
+  }
+
+  /// "자세히"(접는 칸) 안 입력: 자주 안 쓰는 모양·구멍 배치·러그·구멍 크기·꺾기 보정·내 금형.
+  List<Widget> _moreInputs(GroundBarPlan? p) => [
+    elecSectionTitle('끝 L자'),
+    elecChipGroup(
+      '끝만 L자로 꺾기',
+      '막대 끝을 L자로 90° 세웁니다(눕혀 꺾기). 탭 길이는 바깥 치수입니다. 일자·모자로 돌아가려면 위 "모양"에서 고릅니다.',
+      [
+        for (final (i, label) in const [(1, '왼쪽 L'), (2, '오른쪽 L'), (3, '양쪽 L')])
+          calcChip('gb_tab_$i', label, _tabs == i, () => _set(() => _tabs = i)),
+      ],
+    ),
+    if (_tabs == 4)
+      elecField(
+        'gb_hatfr',
+        '오른쪽 발 길이 (mm, 비우면 왼쪽과 같음)',
+        _hatFR,
+        '오른쪽 다리 바깥면에서 발 끝까지 길이입니다. 비우면 위 발 길이와 같습니다.',
+        onEdit: _saveSoon,
+      ),
+    elecSectionTitle('구멍 줄'),
+    elecChipGroup(
+      '접지 구멍 줄',
+      '한 줄: 폭 가운데. 두 줄 대칭: 두 줄 구멍이 같은 자리에 마주 봅니다. 두 줄 비대칭: 두 줄이 엇갈립니다(B줄을 길이 방향으로 옮김).',
+      [
+        for (final (i, label) in const [
+          (0, '한 줄'),
+          (1, '두 줄 · 대칭'),
+          (2, '두 줄 · 비대칭'),
+        ])
+          calcChip(
+            'gb_rm_$i',
+            label,
+            _rowMode == i,
+            () => _set(() => _rowMode = i),
+          ),
+      ],
+    ),
+    if (_twoRows)
+      elecField(
+        'gb_gap',
+        '줄 간격 (mm)',
+        _gap,
+        '두 줄 구멍 중심 사이 거리입니다. 폭 가운데에서 위아래로 반씩 놓습니다.',
+        onEdit: _saveSoon,
+      ),
+    if (_rowMode == 2)
+      elecField(
+        'gb_shift',
+        'B줄 엇갈림 (mm, 비우면 반 피치)',
+        _shift,
+        'B줄을 A줄보다 길이 방향으로 옮기는 거리입니다. 비우면 피치의 반입니다.',
+        onEdit: _saveSoon,
+      ),
+    if (_tabs != 0 && _mCount > 0)
+      elecChipGroup(
+        '$_tabName 구멍 줄 (접지 구멍과 따로)',
+        '$_tabName 구멍을 몇 줄로 뚫을지 정합니다. 한 줄이면 $_tabName 하나에 위 "구멍 수"만큼입니다. 두 줄이면 그 두 배입니다(대칭은 마주 보고, 비대칭은 엇갈림).',
+        [
+          for (final (i, label) in const [
+            (0, '한 줄'),
+            (1, '두 줄 · 대칭'),
+            (2, '두 줄 · 비대칭'),
+          ])
+            calcChip(
+              'gb_trm_$i',
+              label,
+              _tabRowMode == i,
+              () => _set(() => _tabRowMode = i),
+            ),
+        ],
+      ),
+    if (_tabs != 0 && _mCount > 0 && _tabRowMode != 0)
+      elecField(
+        'gb_tabgap',
+        '$_tabName 구멍 줄 간격 (mm)',
+        _tabGap,
+        '$_tabName 두 줄 구멍 중심 사이 거리입니다. 폭 가운데에서 위아래로 반씩입니다.',
+        onEdit: _saveSoon,
+      ),
+    if ((_tabs == 3 || _tabs == 4) && _mCount > 0)
+      elecChipGroup(
+        '$_tabName 구멍을 뚫을 쪽',
+        '양쪽: 왼쪽·오른쪽 $_tabName 모두. 한쪽만 뚫으려면 그쪽을 고릅니다.',
+        [
+          for (final (i, label) in const [(3, '양쪽'), (1, '왼쪽만'), (2, '오른쪽만')])
+            calcChip(
+              'gb_tsd_$i',
+              label,
+              _tabSides == i,
+              () => _set(() => _tabSides = i),
+            ),
+        ],
+      ),
+    elecSectionTitle('접지 러그 구멍'),
+    ..._lugInputs(),
+    if (p != null &&
+        p.groundHoles.length + p.tabHoleList.length + p.lugHoleList.length >
+            0) ...[
+      elecSectionTitle('구멍 하나만 크기 바꾸기'),
+      ..._sizeEditor(p),
+    ],
+    if (_tabs != 0) ...[
+      elecSectionTitle('꺾기 보정'),
+      elecChipGroup(
+        '중립선 계수 k',
+        '꺾을 때 길이가 변하지 않는 선 위치입니다. 구리 부스바 범위 0.33~0.5. 자투리를 꺾어 맞춥니다.',
+        [
+          for (final k in kBusbarK)
+            calcChip(
+              'gb_kf_${(k * 100).round()}',
+              fmt(k, 2),
+              _k == k,
+              () => _set(() => _k = k),
+            ),
+          if (!kBusbarK.contains(_k))
+            calcChip('gb_kf_custom', fmt(_k, 3), true, () {}),
+        ],
+      ),
+      elecChipGroup(
+        '벤더 프로필',
+        '자투리(시험 조각)를 꺾어 잰 값으로 k와 스프링백을 구해 기계별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 들어갑니다.',
+        [
+          calcChip(
+            'gb_profile',
+            _profileName == null ? '프로필 고르기·만들기' : '적용: $_profileName',
+            _profileName != null,
+            _openProfiles,
+          ),
+          if (_profileName != null)
+            calcChip(
+              'gb_profile_off',
+              '해제',
+              false,
+              () => _set(() {
+                _profileName = null;
+                _spring = 1.0;
+              }),
+            ),
+        ],
+      ),
+    ],
+    elecSectionTitle('내 펀치 금형'),
+    elecChipGroup(
+      '구멍 지름 칩',
+      '기계에 있는 펀치 금형 지름을 저장하면 구멍 지름 칩이 그 값으로 나옵니다. 지금: ${_dieChips.map((d) => fmt(d)).join(' · ')}${_dies.isEmpty ? '(기본)' : ''}',
+      [
+        calcChip(
+          'gb_dies_more',
+          _dies.isEmpty ? '내 금형 넣기' : '내 금형 고치기',
+          false,
+          _editDies,
+        ),
+      ],
+    ),
+    const SizedBox(height: 4),
+  ];
+
   Widget _drawing(Key key, double height, CustomPainter painter) => Container(
     key: key,
     height: height,
@@ -1142,6 +1374,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     final p = _plan();
     final warn = p != null && !p.ok;
     String? summary;
+    final lShape = _tabs >= 1 && _tabs <= 3;
     final children = <Widget>[
       elecField(
         'gb_job',
@@ -1150,9 +1383,103 @@ class _GroundBarPageState extends State<GroundBarPage>
         '지시서 PDF 제목과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
         onEdit: _saveSoon,
       ),
+      elecSectionTitle('부스바'),
+      elecField('gb_t', '두께 (mm)', _thick, '구리 부스바 두께입니다.', onEdit: _saveSoon),
+      elecField('gb_w', '폭 (mm)', _width, '구리 부스바 폭입니다.', onEdit: _saveSoon),
+      elecSectionTitle('모양'),
+      elecChipGroup(
+        '모양',
+        '일자: 꺾지 않고 판넬에 바로 댑니다. 모자: 윗면(접지 구멍 줄) 양쪽을 다리로 내리고 다리 끝을 바깥으로 꺾어 발을 만듭니다(꺾기 4곳). 발 구멍으로 판넬에 취부합니다. 끝만 L자로 꺾는 모양은 아래 "자세히"에 있습니다.',
+        [
+          calcChip('gb_tab_0', '일자', _tabs == 0, () => _set(() => _tabs = 0)),
+          calcChip(
+            'gb_tab_4',
+            '모자',
+            _tabs == 4,
+            () => _set(() {
+              // 모자는 발 구멍으로 바로 취부하니 처음 고를 때 발 구멍 1개를 켜 둔다.
+              if (_tabs != 4 && _mCount == 0) _mCount = 1;
+              _tabs = 4;
+            }),
+          ),
+          if (lShape)
+            calcChip(
+              'gb_tab_lnow',
+              const ['', '왼쪽 L', '오른쪽 L', '양쪽 L'][_tabs],
+              true,
+              () {},
+            ),
+        ],
+      ),
+      if (_tabs == 4) ...[
+        elecField(
+          'gb_hath',
+          '모자 높이 (mm)',
+          _hatH,
+          '발 바닥면(판넬에 닿는 면)에서 윗면까지 높이입니다(바깥 치수).',
+          onEdit: _saveSoon,
+        ),
+        elecField(
+          'gb_hatf',
+          '발 길이 (mm)',
+          _hatF,
+          '다리 바깥면에서 발 끝까지 길이입니다. 오른쪽 발을 다르게 하려면 "자세히"에서 넣습니다.',
+          onEdit: _saveSoon,
+        ),
+      ],
+      if (_tabs == 1 || _tabs == 3)
+        elecField(
+          'gb_tabl',
+          '왼쪽 탭 길이 (mm)',
+          _tabL,
+          '왼쪽 끝에서 꺾인 바깥 모서리까지 길이(바깥 치수)입니다.',
+          onEdit: _saveSoon,
+        ),
+      if (_tabs == 2 || _tabs == 3)
+        elecField(
+          'gb_tabr',
+          '오른쪽 탭 길이 (mm)',
+          _tabR,
+          '오른쪽 끝에서 꺾인 바깥 모서리까지 길이(바깥 치수)입니다.',
+          onEdit: _saveSoon,
+        ),
+      if (_tabs != 0)
+        elecField(
+          'gb_r',
+          '꺾기 안쪽 반경 (mm, 비우면 ${fmt(_num(_thick))})',
+          _radius,
+          '기계 금형으로 꺾을 때 안쪽 반경입니다. 비우면 두께 1배로 계산합니다.',
+          onEdit: _saveSoon,
+        ),
+      elecSectionTitle(_tabs == 4 ? '접지 구멍 (윗면)' : '접지 구멍'),
+      elecField(
+        'gb_hole',
+        '구멍 지름 (mm)',
+        _hole,
+        '볼트가 지나는 구멍 지름입니다. 칩은 볼트 틈새 구멍(M8 9 · M10 11 · M12 13.5 · M16 17.5)이고, "내 금형"에 기계 펀치 금형 지름을 저장하면 그 값으로 바뀝니다.',
+        onEdit: _saveSoon,
+      ),
+      _dieChipRow('gb_hd_', _hole),
+      const SizedBox(height: 8),
+      elecField(
+        'gb_pitch',
+        '구멍 피치 (mm)',
+        _pitch,
+        '구멍 중심 사이 거리입니다. 쓸 러그의 구멍 간격에 맞춥니다.',
+        onEdit: _saveSoon,
+      ),
+      _presetChips('gb_pp_', _pitch, kGroundPitches, (v) => fmt(v)),
+      const SizedBox(height: 8),
+      elecField(
+        'gb_end',
+        '끝 여유 (mm)',
+        _end,
+        '곧은 구간 끝(꺾었으면 꺾기 끝선)에서 첫 구멍 중심까지입니다. 기본 25는 임의 값입니다.',
+        onEdit: _saveSoon,
+      ),
       elecChipGroup(
         '계산 기준',
-        '구멍 수: 한 줄 구멍 수와 피치로 절단 길이를 계산합니다. 막대 길이: 가지고 있는 막대 길이에 구멍이 몇 개 들어가는지 계산합니다.',
+        '구멍 수: 구멍 수와 피치로 절단 길이를 계산합니다. 막대 길이: 가지고 있는 막대 길이에 구멍이 몇 개 들어가는지 계산합니다.',
         [
           calcChip(
             'gb_by_count',
@@ -1168,83 +1495,6 @@ class _GroundBarPageState extends State<GroundBarPage>
           ),
         ],
       ),
-      elecSectionTitle('부스바'),
-      elecField('gb_t', '두께 (mm)', _thick, '구리 부스바 두께입니다.', onEdit: _saveSoon),
-      elecField('gb_w', '폭 (mm)', _width, '구리 부스바 폭입니다.', onEdit: _saveSoon),
-      elecSectionTitle('구멍'),
-      elecChipGroup(
-        '구멍 줄',
-        '한 줄: 폭 가운데. 두 줄 대칭: 두 줄 구멍이 같은 자리에 마주 봅니다. 두 줄 비대칭: 두 줄이 엇갈립니다(B줄을 길이 방향으로 옮김).',
-        [
-          for (final (i, label) in const [
-            (0, '한 줄'),
-            (1, '두 줄 · 대칭'),
-            (2, '두 줄 · 비대칭'),
-          ])
-            calcChip(
-              'gb_rm_$i',
-              label,
-              _rowMode == i,
-              () => _set(() => _rowMode = i),
-            ),
-        ],
-      ),
-      if (_twoRows)
-        elecField(
-          'gb_gap',
-          '줄 간격 (mm)',
-          _gap,
-          '두 줄 구멍 중심 사이 거리입니다. 폭 가운데에서 위아래로 반씩 놓습니다.',
-          onEdit: _saveSoon,
-        ),
-      if (_rowMode == 2)
-        elecField(
-          'gb_shift',
-          'B줄 엇갈림 (mm, 비우면 반 피치)',
-          _shift,
-          'B줄을 A줄보다 길이 방향으로 옮기는 거리입니다. 비우면 피치의 반입니다.',
-          onEdit: _saveSoon,
-        ),
-      elecField(
-        'gb_hole',
-        '구멍 지름 (mm)',
-        _hole,
-        '볼트가 지나는 구멍 지름입니다. 7/16"(11.1)는 NEMA 접지바 3/8" 볼트용입니다. 구멍마다 따로 바꾸려면 아래 "구멍 크기 바꾸기"를 씁니다.',
-        onEdit: _saveSoon,
-      ),
-      _presetChips(
-        'gb_hd_',
-        _hole,
-        kGroundHoleDias,
-        (v) => v == 7.9 ? 'φ7.9 (5/16")' : 'φ11.1 (7/16")',
-      ),
-      const SizedBox(height: 8),
-      elecField(
-        'gb_pitch',
-        '구멍 피치 (mm)',
-        _pitch,
-        '구멍 중심 사이 거리입니다. 쓸 러그의 구멍 간격에 맞춥니다.',
-        onEdit: _saveSoon,
-      ),
-      _presetChips(
-        'gb_pp_',
-        _pitch,
-        kGroundPitches,
-        (v) => switch (v) {
-          15.875 => '5/8" (15.9)',
-          19.05 => '3/4" (19)',
-          25.4 => '1" (25.4)',
-          _ => '1-3/4" (44.5)',
-        },
-      ),
-      const SizedBox(height: 8),
-      elecField(
-        'gb_end',
-        '끝 여유 (mm)',
-        _end,
-        '곧은 구간 끝에서 첫 구멍 중심까지입니다. 정해진 규격 값이 없어 기본값은 임의 값입니다.',
-        onEdit: _saveSoon,
-      ),
       if (_byLength)
         elecField(
           'gb_len',
@@ -1258,73 +1508,14 @@ class _GroundBarPageState extends State<GroundBarPage>
           'gb_n',
           '구멍 수 (한 줄, 개)',
           _count,
-          '한 줄에 뚫을 구멍 개수입니다. 두 줄이면 줄마다 이 개수입니다.',
+          '한 줄에 뚫을 구멍 개수입니다. 두 줄(자세히)이면 줄마다 이 개수입니다.',
           onEdit: _saveSoon,
         ),
-      elecSectionTitle('끝 꺾기'),
-      elecChipGroup(
-        '끝 모양',
-        'L 탭: 막대 끝을 L자로 꺾어 세웁니다. 모자: 몸체(구멍 줄) 양쪽 다리를 90°로 내리고 다리 끝을 바깥으로 다시 꺾어 바닥에 대는 챙을 만듭니다(꺾기 4곳, 챙에 취부 구멍). 모두 두께 방향(눕혀 꺾기) 90°이고 치수는 바깥 치수입니다. 끝 여유는 꺾기 끝선에서 첫 구멍 중심까지입니다.',
-        [
-          for (final (i, label) in const [
-            (0, '없음'),
-            (1, '왼쪽 L'),
-            (2, '오른쪽 L'),
-            (3, '양쪽 L'),
-            (4, '모자 (챙 달림)'),
-          ])
-            calcChip(
-              'gb_tab_$i',
-              label,
-              _tabs == i,
-              () => _set(() => _tabs = i),
-            ),
-        ],
-      ),
-      if (_tabs & 1 != 0)
-        elecField(
-          'gb_tabl',
-          '왼쪽 탭 길이 (mm)',
-          _tabL,
-          '왼쪽 끝에서 꺾인 바깥 모서리까지 길이(바깥 치수)입니다.',
-          onEdit: _saveSoon,
-        ),
-      if (_tabs & 2 != 0)
-        elecField(
-          'gb_tabr',
-          '오른쪽 탭 길이 (mm)',
-          _tabR,
-          '오른쪽 끝에서 꺾인 바깥 모서리까지 길이(바깥 치수)입니다.',
-          onEdit: _saveSoon,
-        ),
-      if (_tabs == 4)
-        elecField(
-          'gb_hath',
-          '모자 높이 (mm)',
-          _hatH,
-          '챙 바닥면(취부면)에서 몸체 윗면까지 높이입니다(바깥 치수).',
-          onEdit: _saveSoon,
-        ),
-      if (_tabs == 4)
-        elecField(
-          'gb_hatf',
-          '왼쪽 챙 길이 (mm)',
-          _hatF,
-          '왼쪽 다리 바깥면에서 챙 끝까지 길이입니다.',
-          onEdit: _saveSoon,
-        ),
-      if (_tabs == 4)
-        elecField(
-          'gb_hatfr',
-          '오른쪽 챙 길이 (mm, 비우면 왼쪽과 같음)',
-          _hatFR,
-          '오른쪽 다리 바깥면에서 챙 끝까지 길이입니다. 비우면 왼쪽 챙과 같습니다.',
-          onEdit: _saveSoon,
-        ),
-      if (_tabs != 0)
+      if (_tabs != 0) ...[
+        elecSectionTitle(_tabs == 4 ? '발 구멍 (취부)' : '탭 구멍'),
         elecChipGroup(
-          _tabs == 4 ? '챙 구멍 수 (취부용, 줄마다)' : '탭 구멍 수 (줄마다)',
-          '탭·챙의 평평한 길이 가운데에 모아 뚫습니다. 줄 수는 위 "구멍 줄"을 따릅니다. 0이면 뚫지 않습니다.',
+          '$_tabName 하나에 뚫을 구멍 수',
+          '$_tabName의 평평한 길이 가운데에 모아 뚫습니다. 0이면 뚫지 않습니다. 두 줄로 뚫으면(자세히) 줄마다 이 개수입니다.',
           [
             for (final n in const [0, 1, 2, 3])
               calcChip(
@@ -1335,114 +1526,39 @@ class _GroundBarPageState extends State<GroundBarPage>
               ),
           ],
         ),
-      if (_tabs != 0 && _mCount > 0)
-        elecField(
-          'gb_mdia',
-          '$_tabName 구멍 지름 (mm)',
-          _mDia,
-          '취부·접지 러그 볼트가 지나는 구멍 지름입니다.',
-          onEdit: _saveSoon,
-        ),
-      if (_tabs != 0 && _mCount > 1)
-        elecField(
-          'gb_mpitch',
-          '$_tabName 구멍 피치 (mm)',
-          _mPitch,
-          '탭·챙 구멍 중심 사이 거리입니다.',
-          onEdit: _saveSoon,
-        ),
-      if (_tabs != 0 && _mCount > 0)
-        elecChipGroup(
-          '$_tabName 구멍 줄 (접지 구멍과 따로)',
-          '$_tabName 구멍을 몇 줄로 뚫을지 정합니다. 한 줄이면 각 $_tabName에 위 "구멍 수"만큼입니다. 두 줄이면 그 두 배입니다(대칭은 마주 보고, 비대칭은 엇갈림).',
-          [
-            for (final (i, label) in const [
-              (0, '한 줄'),
-              (1, '두 줄 · 대칭'),
-              (2, '두 줄 · 비대칭'),
-            ])
-              calcChip(
-                'gb_trm_$i',
-                label,
-                _tabRowMode == i,
-                () => _set(() => _tabRowMode = i),
-              ),
-          ],
-        ),
-      if (_tabs != 0 && _mCount > 0 && _tabRowMode != 0)
-        elecField(
-          'gb_tabgap',
-          '$_tabName 구멍 줄 간격 (mm)',
-          _tabGap,
-          '$_tabName 두 줄 구멍 중심 사이 거리입니다. 폭 가운데에서 위아래로 반씩입니다.',
-          onEdit: _saveSoon,
-        ),
-      if ((_tabs == 3 || _tabs == 4) && _mCount > 0)
-        elecChipGroup(
-          '$_tabName 구멍을 뚫을 곳',
-          '양쪽: 왼쪽·오른쪽 $_tabName 모두. 한쪽만 뚫으려면 그쪽을 고릅니다.',
-          [
-            for (final (i, label) in const [(3, '양쪽'), (1, '왼쪽만'), (2, '오른쪽만')])
-              calcChip(
-                'gb_tsd_$i',
-                label,
-                _tabSides == i,
-                () => _set(() => _tabSides = i),
-              ),
-          ],
-        ),
-      if (_tabs != 0)
-        elecField(
-          'gb_r',
-          '꺾기 안쪽 반경 (mm, 비우면 ${fmt(_num(_thick))})',
-          _radius,
-          '꺾는 곳 안쪽 반경입니다. 비우면 두께 1배로 계산합니다.',
-          onEdit: _saveSoon,
-        ),
-      if (_tabs != 0)
-        elecChipGroup(
-          '중립선 계수 k',
-          '꺾을 때 길이가 변하지 않는 선 위치입니다. 구리 부스바 범위 0.33~0.5. 시험 조각으로 맞춥니다.',
-          [
-            for (final k in kBusbarK)
-              calcChip(
-                'gb_kf_${(k * 100).round()}',
-                fmt(k, 2),
-                _k == k,
-                () => _set(() => _k = k),
-              ),
-            if (!kBusbarK.contains(_k))
-              calcChip('gb_kf_custom', fmt(_k, 3), true, () {}),
-          ],
-        ),
-      if (_tabs != 0)
-        elecChipGroup(
-          '벤더 프로필',
-          '시험 조각을 꺾어 측정한 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 들어갑니다.',
-          [
-            calcChip(
-              'gb_profile',
-              _profileName == null ? '프로필 고르기·만들기' : '적용: $_profileName',
-              _profileName != null,
-              _openProfiles,
-            ),
-            if (_profileName != null)
-              calcChip(
-                'gb_profile_off',
-                '해제',
-                false,
-                () => _set(() {
-                  _profileName = null;
-                  _spring = 1.0;
-                }),
-              ),
-          ],
-        ),
+        if (_mCount > 0) ...[
+          elecField(
+            'gb_mdia',
+            '$_tabName 구멍 지름 (mm)',
+            _mDia,
+            '판넬에 취부할 볼트가 지나는 구멍 지름입니다.',
+            onEdit: _saveSoon,
+          ),
+          _dieChipRow('gb_md_', _mDia),
+          const SizedBox(height: 8),
+        ],
+        if (_mCount > 1)
+          elecField(
+            'gb_mpitch',
+            '$_tabName 구멍 피치 (mm)',
+            _mPitch,
+            '$_tabName 구멍 중심 사이 거리입니다.',
+            onEdit: _saveSoon,
+          ),
+      ],
+      const SizedBox(height: 4),
+      ...elecFold(
+        'gb_fold_more',
+        '자세히',
+        _moreInputs(p),
+        subtitle: _moreSummary(p),
+      ),
       const SizedBox(height: 8),
     ];
     if (p == null) {
       children.add(
-        calcResult(solve: true, 
+        calcResult(
+          solve: true,
           key: const Key('gb_result'),
           big: '— mm',
           caption: '치수를 넣으면 계산합니다',
@@ -1454,7 +1570,8 @@ class _GroundBarPageState extends State<GroundBarPage>
       summary =
           '접지바 ${fmt(_num(_thick))}×${fmt(_num(_width))} · ${fmt(p.length, 1)}mm · 구멍 $total개';
       children.addAll([
-        calcResult(solve: true, 
+        calcResult(
+          solve: true,
           key: const Key('gb_result'),
           big: '${fmt(p.length, 1)} mm',
           caption: '절단 길이 · 구멍 $total개 · 약 ${fmt(p.weightKg, 2)}kg',
@@ -1472,10 +1589,11 @@ class _GroundBarPageState extends State<GroundBarPage>
             else if (p.holes > 0 && _packGround && p.lugHoleList.isNotEmpty)
               '접지 구멍 ${p.holes}개를 왼쪽 끝에서부터 놓고, 오른쪽 남는 자리에 러그 구멍을 가운데로 두었습니다.',
             if (p.hat)
-              '모자: 높이 ${fmt(_num(_hatH))} · 챙 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))} · 몸체 바깥 폭 ${fmt(p.hatWidth, 1)}mm. 꺾기 4곳, 접지 구멍 줄은 몸체 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.'
+              '모자: 높이 ${fmt(_num(_hatH))} · 발 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))} · 윗면 바깥 폭 ${fmt(p.hatWidth, 1)}mm. 꺾기 4곳, 접지 구멍 줄은 윗면 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.'
             else if (p.bends.isNotEmpty)
               'L 꺾기 ${p.bends.length}곳. 구멍 줄은 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.',
             if (p.tabHoleList.isNotEmpty) _tabHoleSummary(p),
+            ?_panelSpanLine(p),
             if (p.minEdgeBody != null || p.minEdgeTab != null) _edgeLine(p),
             if (p.lugHoleList.isNotEmpty)
               '접지 러그 구멍 ${p.lugHoleList.length}개를 접지 구멍과 따로 부스바 가운데(폭 ${fmt(p.lugHoleList.first.y, 1)}mm)에 추가했습니다.',
@@ -1527,7 +1645,8 @@ class _GroundBarPageState extends State<GroundBarPage>
           'gb_fold_bends',
           '꺾기 (왼쪽 끝에서)',
           [
-            for (var i = 0; i < p.bends.length; i++) _bendTile(p.bends[i], i, p),
+            for (var i = 0; i < p.bends.length; i++)
+              _bendTile(p.bends[i], i, p),
             const SizedBox(height: 4),
           ],
           open: true,
@@ -1544,39 +1663,41 @@ class _GroundBarPageState extends State<GroundBarPage>
           'gb_fold_tabholes',
           '$_tabName 구멍 위치 (왼쪽 끝에서 중심까지)',
           p.tabHoleList.isNotEmpty ? [_tabHoleBox(p)] : const [],
+          open: true,
           subtitle: '${p.tabHoleList.length}개',
+        ),
+        ...elecFold(
+          'gb_fold_mount',
+          '판넬 취부 (${p.hat ? "발" : "탭"} 구멍으로 설치)',
+          _mountSection(p),
         ),
         ...elecFold(
           'gb_fold_lug',
           '접지 러그 구멍 (가운데에 추가)',
-          _lugSection(p),
-          subtitle: p.lugHoleList.isEmpty ? '없음' : '${p.lugHoleList.length}개',
+          _lugResults(p),
+          subtitle: '${p.lugHoleList.length}개',
         ),
-        ...elecFold(
-          'gb_fold_mount',
-          '접지바 취부 (${p.hat ? "챙으로 판넬에" : "탭으로"} 설치)',
-          _mountSection(p),
-        ),
-        ...elecFold('gb_fold_size', '구멍 크기 바꾸기', _sizeEditor(p)),
         const SizedBox(height: 8),
         ...elecFold('gb_fold_notes', '작업 순서', [
-        calcResult(solve: true, 
-          key: const Key('gb_notes'),
-          big: '작업 순서',
-          caption: '현장에서 만들 때',
-          lines: [
-            '구리 막대를 절단 길이로 자릅니다. 절단면 버를 갈아 냅니다.',
-            '폭 방향 줄 위치를 긋고, 왼쪽 끝에서 구멍 위치를 측정해 센터 펀치를 칩니다.',
-            '작은 드릴로 먼저 뚫은 뒤 구멍 지름으로 넓힙니다. 크기를 바꾼 구멍은 그 지름으로 뚫습니다. 구리는 절삭유를 씁니다.',
-            '구멍 둘레 버를 정리합니다.',
-            if (_tabs != 0 && _mCount > 0) '$_tabName 구멍도 같은 방법으로 뚫습니다.',
-            if (_tabs == 4)
-              '구멍을 다 뚫은 뒤 꺾기 시작선 4곳을 차례로 꺾습니다. 가운데에서 바깥으로: 다리 두 곳을 먼저 내리고 챙을 바깥으로 꺾으면 벤더에 걸리지 않습니다.'
-            else if (_tabs != 0)
-              '구멍을 다 뚫은 뒤 꺾기 시작선에 맞춰 탭을 90°로 꺾습니다(구멍 뚫기를 먼저 해야 평평한 채로 작업합니다).',
-            '접촉면을 닦아 접지 러그를 붙입니다.',
-          ],
-        ),
+          calcResult(
+            solve: true,
+            key: const Key('gb_notes'),
+            big: '작업 순서',
+            caption: '현장에서 만들 때',
+            lines: [
+              '구리 막대를 절단 길이로 자릅니다. 절단면 버를 갈아 냅니다.',
+              '왼쪽 끝을 기준으로 구멍 중심${_tabs != 0 ? "과 꺾기 시작선" : ""}을 마킹합니다. 줄자는 왼쪽 끝에 한 번 대고 표의 누적 치수로 찍습니다.',
+              '기계에 구멍 지름과 같은 펀치 금형을 끼우고 마킹 중심에 맞춰 뚫습니다. 맞는 금형이 없는 크기는 드릴로 뚫습니다.',
+              '구멍 둘레 버를 정리합니다.',
+              if (_tabs != 0 && _mCount > 0) '$_tabName 구멍도 같은 방법으로 뚫습니다.',
+              if (_tabs == 4)
+                '구멍을 다 뚫은 뒤 꺾기 시작선 4곳을 차례로 꺾습니다. 가운데에서 바깥으로: 다리 두 곳을 먼저 내리고 발을 바깥으로 꺾으면 벤더에 걸리지 않습니다.'
+              else if (_tabs != 0)
+                '구멍을 다 뚫은 뒤 꺾기 시작선에 맞춰 탭을 90°로 꺾습니다(구멍을 먼저 뚫어야 평평한 채로 작업합니다).',
+              if (_tabs != 0) '처음 만드는 치수는 자투리로 한 번 꺾어 보고 길이를 맞춥니다.',
+              '접촉면을 닦아 접지 러그를 붙입니다.',
+            ],
+          ),
         ]),
       ]);
     }
