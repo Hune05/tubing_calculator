@@ -32,15 +32,97 @@ void main() {
       return s;
     }
 
-    test('직각 맞추기: 변 길이는 그대로 두고 가로·세로로 세운다', () {
+    test('바로잡기: 비뚤게 찍은 사각을 가로·세로로, 변은 두 끝의 가운데에', () {
       final s = traced();
-      final l0 = s.edgeLen(0);
-      expect(s.squareUp(), 4);
-      expect(s.pts[1].dy, closeTo(100, 1e-9));
-      expect(s.edgeLen(0), closeTo(l0, 1e-9));
-      expect(s.pts[2].dx, closeTo(s.pts[1].dx, 1e-9));
-      expect(s.pts[3].dy, closeTo(s.pts[2].dy, 1e-9));
-      expect(s.pts[3].dx, closeTo(s.pts[0].dx, 1e-9)); // 닫는 변도 세로
+      final o = s.orthogonalize();
+      expect(o.squared, 4);
+      expect(o.removed, 0);
+      // 아래 변 높이 = (100 + 104) / 2, 오른쪽 변 = (500 + 497) / 2 …
+      expect(s.pts[0], const Offset(101, 102));
+      expect(s.pts[1], const Offset(498.5, 102));
+      expect(s.pts[2], const Offset(498.5, 298.5));
+      expect(s.pts[3], const Offset(101, 298.5));
+      for (var i = 0; i < 4; i++) {
+        final v = s.edgeVec(i);
+        expect(v.dx == 0 || v.dy == 0, isTrue);
+      }
+    });
+
+    test('바로잡기·좌우 대칭: 사용자 그림(凸, 왼쪽 위 12° 기움·턱 한쪽으로 쏠림)', () {
+      // 10-10 태블릿 손그림(아래 150 넣음)을 mm로 옮긴 것
+      final s = PlateSketch(
+        pts: const [
+          Offset(0, 0),
+          Offset(150, 0),
+          Offset(150, 57.8),
+          Offset(70.2, 57.8),
+          Offset(70.2, 89.4),
+          Offset(44, 89.4),
+          Offset(44, 53.9),
+          Offset(0, 63.1),
+        ],
+        scaled: true,
+        closed: true,
+      );
+      final o = s.orthogonalize();
+      expect(o.removed, 0);
+      // 기운 7→8 변이 가로로(높이는 두 끝의 가운데 58.5)
+      expect(s.edgeVec(6).dy, closeTo(0, 1e-9));
+      expect(s.pts[7].dy, closeTo(58.5, 1e-9));
+      expect(s.symmetrize(tolFrac: 0.1), isTrue);
+      // 대칭: 아래 폭 150 그대로, 턱(폭 26.2)이 판 가운데로, 양쪽 어깨 높이 같게
+      final b = s.bounds!;
+      final mid = (b.left + b.right) / 2;
+      expect(s.edgeLen(0), closeTo(150, 1e-9));
+      expect(s.edgeLen(4), closeTo(26.2, 1e-6));
+      expect((s.pts[4].dx + s.pts[5].dx) / 2, closeTo(mid, 1e-9));
+      expect(s.pts[2].dy, closeTo(s.pts[7].dy, 1e-9));
+      expect(s.pts[3].dy, closeTo(s.pts[6].dy, 1e-9));
+      // ㄱ자는 좌우 짝이 안 맞아 대칭으로 바꾸지 않는다
+      final l = PlateSketch(
+        pts: const [
+          Offset(0, 0),
+          Offset(300, 0),
+          Offset(300, 80),
+          Offset(150, 80),
+          Offset(150, 180),
+          Offset(0, 180),
+        ],
+        closed: true,
+      );
+      expect(l.symmetrize(), isFalse);
+      expect(l.pts[3], const Offset(150, 80));
+    });
+
+    test('바로잡기: 손 떨림 짧은 변은 없애고 같은 방향 변은 합치며, 45° 변은 그대로', () {
+      final s = PlateSketch(
+        pts: const [
+          Offset(0, 0),
+          Offset(100, 2), // 거의 가로
+          Offset(198, 0), // 같은 방향으로 이어짐 → 합침
+          Offset(200, 100),
+          Offset(203, 101), // 3짜리 떨림 → 없앰
+          Offset(0, 98),
+        ],
+        closed: true,
+      );
+      final o = s.orthogonalize();
+      expect(s.n, 4);
+      expect(o.removed, 2);
+      final t = PlateSketch(
+        pts: const [
+          Offset(0, 0),
+          Offset(100, 0),
+          Offset(100, 60),
+          Offset(40, 120),
+          Offset(0, 120),
+        ],
+        closed: true,
+      );
+      t.orthogonalize();
+      expect(t.n, 5);
+      final v = t.edgeVec(2); // 빗변은 빗변으로
+      expect(v.dx.abs() > 30 && v.dy.abs() > 30, isTrue);
     });
 
     test('닫기 전에는 찍은 차례대로 이은 변만, 1번 점으로 닫으면 닫는 변이 생긴다', () {
@@ -50,7 +132,7 @@ void main() {
       }
       expect(s.closed, isFalse);
       expect(s.edgeCount, 2);
-      expect(s.squareUp(), 0); // 이미 바름
+      expect(s.orthogonalize().squared, 0); // 이미 바름
       expect(s.close(), isTrue);
       expect(s.edgeCount, 3);
       s.removePoint(2);
@@ -58,7 +140,7 @@ void main() {
     });
 
     test('처음 치수는 축척, 그다음은 방금 넣은 값이 이김: 맞은편 변이 받고 직사각형 그대로', () {
-      final s = traced()..squareUp();
+      final s = traced()..orthogonalize();
       final h = s.edgeLen(1);
       s.holes.add(PlateHoleSpec(u: 150, v: 150, dia: 13.5));
       expect(s.scaled, isFalse);
@@ -192,7 +274,7 @@ void main() {
     });
 
     test('꼭짓점을 끼우거나 지우면 바뀐 변의 넣은 치수만 빠진다', () {
-      final s = traced()..squareUp();
+      final s = traced()..orthogonalize();
       s.setEdge(0, 200);
       s.setEdge(1, 100);
       s.setEdge(2, 200);
@@ -361,7 +443,7 @@ void main() {
       }
       // 닫힌 그림으로 만들고 직각 맞추기까지 하면 가로·세로가 정확
       final s = PlateSketch(pts: r.pts, closed: true);
-      s.squareUp(tolDeg: 12);
+      s.orthogonalize();
       for (var i = 0; i < 4; i++) {
         final v = s.edgeVec(i);
         expect(v.dx.abs() < 1e-9 || v.dy.abs() < 1e-9, isTrue);
@@ -595,7 +677,9 @@ void main() {
       expect(status(tester), startsWith('빈 칸에 판 모양을 손가락으로 그으십시오'));
       final pts = await drawRect(tester);
       expect(
-        find.text('모양을 닫았습니다. 변 이름(변 1…)을 눌러 길이(mm)를 넣으십시오.'),
+        find.text(
+          '모양을 닫았습니다(가로·세로 4곳 세움 · 좌우 대칭). 변 이름을 눌러 길이를 넣으십시오. 대칭이 아니면 되돌리기를 누르십시오.',
+        ),
         findsOneWidget,
       );
       // 닫은 뒤에는 빈 곳을 눌러도 점이 안 생긴다
@@ -604,7 +688,13 @@ void main() {
       await tester.pumpAndSettle();
       expect(status(tester), startsWith('변 이름(변 1…)을 눌러 길이(mm)를 넣습니다'));
       await tap(tester, 'sk_square');
-      expect(find.text('변 4개를 가로·세로로 바로 세웠습니다'), findsOneWidget);
+      // 닫을 때 이미 바로잡았으므로 직각 맞추기는 할 것이 없다
+      expect(
+        find.text('바로 세울 변이 없습니다(가로·세로에서 35° 넘게 기운 변은 그대로 둡니다)'),
+        findsOneWidget,
+      );
+      await tap(tester, 'sk_mirror');
+      expect(find.textContaining('좌우 대칭으로 맞췄습니다'), findsOneWidget);
       // 치수 없이 보내면 알림만
       await tap(tester, 'sk_send');
       expect(find.text('변 하나에 치수를 넣어야 크기가 정해집니다'), findsOneWidget);

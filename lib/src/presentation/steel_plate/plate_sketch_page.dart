@@ -476,15 +476,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     final v = _s.hitPoint(m, _tol);
     if (v != null) {
       if (!_s.closed && v == 0 && _s.n >= 3) {
-        _change(() {
-          _s.close();
-          _selPt = null;
-        });
-        _say(
-          _s.scaled
-              ? '모양을 닫았습니다. 변의 숫자를 눌러 길이를 고칩니다.'
-              : '모양을 닫았습니다. 변 이름(변 1…)을 눌러 길이(mm)를 넣으십시오.',
-        );
+        _closeShape();
         return;
       }
       setState(() {
@@ -656,16 +648,18 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         for (final p in r.closed ? sketchNormalizeLoop(r.pts) : r.pts) {
           _s.addPoint(p);
         }
-        if (r.closed) _s.close();
-        k = _s.squareUp(tolDeg: 12);
         _selPt = null;
         _selHole = null;
       });
+      if (r.closed) {
+        // 닫혔으면 바로잡기(가로·세로, 대칭)까지 하고 알린다
+        _closeShape(prefix: '그은 선을 ', push: false);
+        return;
+      }
+      setState(() => k = _s.orthogonalize().squared);
       _saveSoon();
       _say(
-        r.closed
-            ? '그은 선을 꼭짓점 ${_s.n}개로 바꿨습니다${k > 0 ? '(가로·세로 $k곳 세움)' : ''}. ${_s.scaled ? '변의 숫자' : '변 이름'}을 눌러 길이를 넣으십시오.'
-            : '그은 선을 꼭짓점 ${_s.n}개로 바꿨습니다. 끝이 시작점과 떨어져 있어 아직 열려 있습니다. 다음 귀퉁이를 누르거나 1번 점을 눌러 닫습니다.',
+        '그은 선을 꼭짓점 ${_s.n}개로 바꿨습니다${k > 0 ? '(가로·세로 $k곳 세움)' : ''}. 끝이 시작점과 떨어져 있어 아직 열려 있습니다. 다음 귀퉁이를 누르거나 1번 점을 눌러 닫습니다.',
       );
       return;
     }
@@ -796,19 +790,63 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     _change(() => _s.corners[k] = c);
   }
 
+  /// 모양 닫기 + 처음 그림 바로잡기(10-10 사용자: "삐뚤어지게 그려져도 일단 수직 수평으로", "좌우대칭"):
+  /// 가로·세로에서 35° 안 변은 세우고 손 떨림 변은 없애고, 거의 좌우 대칭이면 똑같이 맞춘다(되돌리기로 원래대로).
+  void _closeShape({String prefix = '', bool push = true}) {
+    if (push) _push();
+    var sq = 0, rm = 0;
+    var sym = false;
+    setState(() {
+      _notice = null;
+      _s.close();
+      final o = _s.orthogonalize();
+      sq = o.squared;
+      rm = o.removed;
+      sym = _s.symmetrize(tolFrac: 0.1);
+      _selPt = null;
+      _selHole = null;
+    });
+    _saveSoon();
+    final fixes = [
+      if (sq > 0) '가로·세로 $sq곳 세움',
+      if (rm > 0) '짧은 변 $rm개 정리',
+      if (sym) '좌우 대칭',
+    ];
+    _say(
+      '${prefix.isEmpty ? '모양을 닫았습니다' : '$prefix꼭짓점 ${_s.n}개로 바꿨습니다'}${fixes.isEmpty ? '' : '(${fixes.join(' · ')})'}. '
+      '${_s.scaled ? '변의 숫자' : '변 이름'}을 눌러 길이를 넣으십시오.${sym ? ' 대칭이 아니면 되돌리기를 누르십시오.' : ''}',
+    );
+  }
+
   void _squareUp() {
     if (_s.n < 2) return;
     final before = jsonEncode(_s.toJson());
-    var k = 0;
-    setState(() => k = _s.squareUp());
-    if (k == 0) {
-      _say('바로 세울 변이 없습니다(가로·세로에서 10° 넘게 기운 변은 그대로 둡니다)');
+    var o = (squared: 0, removed: 0);
+    setState(() => o = _s.orthogonalize());
+    if (o.squared == 0 && o.removed == 0) {
+      _say('바로 세울 변이 없습니다(가로·세로에서 35° 넘게 기운 변은 그대로 둡니다)');
       return;
     }
     _undo.add(before);
     _redo.clear();
     _saveSoon();
-    _say('변 $k개를 가로·세로로 바로 세웠습니다');
+    _say(
+      '변 ${o.squared}개를 가로·세로로 세웠습니다${o.removed > 0 ? '(짧은 변 ${o.removed}개 정리)' : ''}',
+    );
+  }
+
+  void _mirror() {
+    final before = jsonEncode(_s.toJson());
+    var ok = false;
+    setState(() => ok = _s.symmetrize());
+    if (!ok) {
+      _say('좌우 짝이 맞지 않아 대칭으로 맞출 수 없습니다(꼭짓점 수·높이가 양쪽이 달라 보입니다)', bad: true);
+      return;
+    }
+    _undo.add(before);
+    _redo.clear();
+    _saveSoon();
+    _say('좌우 대칭으로 맞췄습니다(가운데 세로선 기준, 짝끼리 폭·높이 평균). 되돌리기로 원래대로 돌릴 수 있습니다.');
   }
 
   void _send() {
@@ -935,6 +973,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                     'trace' => _startTrace(),
                     'photo' => _viewPhoto(),
                     'square' => _squareUp(),
+                    'mirror' => _mirror(),
                     'clear' => _clearSketch(),
                     _ => null,
                   },
@@ -946,6 +985,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                       _menu('trace', '사진 위에 직접 따라 찍기'),
                     if (hasPhoto) _menu('photo', '사진 크게 보기'),
                     if (_s.n >= 2) _menu('square', '직각 맞추기'),
+                    if (_s.closed) _menu('mirror', '좌우 대칭'),
                     if (_s.n > 0 || _s.holes.isNotEmpty)
                       _menu('clear', '그림 지우기'),
                   ],
@@ -1220,7 +1260,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                             'sk_close',
                             Icons.check_circle_outline,
                             '모양 닫기',
-                            () => _change(() => _s.close()),
+                            _closeShape,
                           ),
                         calcChip(
                           'sk_hole_add',
@@ -1243,6 +1283,8 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                             '직각 맞추기',
                             _squareUp,
                           ),
+                        if (!_placingHole && s.closed)
+                          _btn('sk_mirror', Icons.flip, '좌우 대칭', _mirror),
                       ],
                     ],
                   ),

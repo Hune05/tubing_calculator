@@ -284,43 +284,138 @@ class PlateSketch {
     return (ok: true, note: note);
   }
 
-  /// 손으로 찍어 조금 비뚤어진 변을 가로·세로로 바로 세운다([tolDeg]도 안). 길이는 그대로 두고
-  /// 뒤 꼭짓점들을 같이 옮긴다. 닫는 변은 마지막 꼭짓점만 옮긴다. 바로 세운 변 수를 돌려준다.
-  int squareUp({double tolDeg = 10}) {
-    if (n < 2) return 0;
-    final tol = math.sin(tolDeg * math.pi / 180);
-    var fixed = 0;
-    for (var i = 0; i < n - 1; i++) {
-      final a = pts[i], b = pts[i + 1];
-      final v = b - a, len = v.distance;
-      if (len < 1e-9) continue;
-      Offset? nb;
-      if ((v.dy / len).abs() <= tol && v.dy.abs() > 1e-9) {
-        nb = a + Offset(v.dx.sign * len, 0);
-      } else if ((v.dx / len).abs() <= tol && v.dx.abs() > 1e-9) {
-        nb = a + Offset(0, v.dy.sign * len);
+  /// 변 하나의 방향: 0 가로, 1 세로, 2 기운 변(가로·세로에서 [tolDeg] 넘게 벗어남).
+  static int _axisClass(Offset v, double tolDeg) {
+    if (v.distance < 1e-9) return 2;
+    final t = math.tan(tolDeg * math.pi / 180);
+    if (v.dy.abs() <= v.dx.abs() * t) return 0;
+    if (v.dx.abs() <= v.dy.abs() * t) return 1;
+    return 2;
+  }
+
+  /// 처음 그림 바로잡기(10-10 사용자: "삐뚤어지게 그려져도 일단 수직 수평으로"): 가로·세로에서 [tolDeg](기본 35°)
+  /// 안인 변을 모두 가로·세로로 세운다. 모양 크기의 [minFrac]보다 짧은 변(손 떨림)은 없애고, 같은 방향으로 이어지는
+  /// 변은 하나로 합친다. 가로 변은 두 끝 높이의 가운데, 세로 변은 두 끝 가로 자리의 가운데에 놓고 귀를 그 교차점으로
+  /// 다시 잡으므로 닫는 변도 정확히 맞는다. 45° 가까운 변은 그대로 둔다.
+  ({int squared, int removed}) orthogonalize({
+    double tolDeg = 35,
+    double minFrac = 0.05,
+  }) {
+    if (n < 2) return (squared: 0, removed: 0);
+    final b = bounds!;
+    final size = math.max(b.width, b.height);
+    final n0 = n;
+    // 짧은 변 없애기·같은 방향 변 합치기(바뀌지 않을 때까지)
+    var changed = true;
+    while (changed && n > (closed ? 3 : 2)) {
+      changed = false;
+      for (var i = 0; i < edgeCount && !changed; i++) {
+        final j = (i + 1) % n;
+        if ((pts[j] - pts[i]).distance >= size * minFrac) continue;
+        // 열린 선의 끝점은 지우지 않는다
+        if (!closed && j == n - 1) {
+          if (i == 0) continue;
+          pts[j] = (pts[i] + pts[j]) / 2;
+          removePoint(i);
+        } else {
+          pts[i] = (pts[i] + pts[j]) / 2;
+          removePoint(j);
+        }
+        changed = true;
       }
-      if (nb == null) continue;
-      final delta = nb - b;
-      for (var k = i + 1; k < n; k++) {
-        pts[k] += delta;
-      }
-      fixed++;
-    }
-    if (closed && n >= 3) {
-      final a = pts[n - 1], b = pts[0];
-      final v = b - a, len = v.distance;
-      if (len > 1e-9) {
-        if ((v.dy / len).abs() <= tol && v.dy.abs() > 1e-9) {
-          pts[n - 1] = Offset(a.dx, b.dy);
-          fixed++;
-        } else if ((v.dx / len).abs() <= tol && v.dx.abs() > 1e-9) {
-          pts[n - 1] = Offset(b.dx, a.dy);
-          fixed++;
+      for (var k = 0; k < n && !changed; k++) {
+        if (!closed && (k == 0 || k == n - 1)) continue;
+        final ca = _axisClass(edgeVec((k - 1 + n) % n), tolDeg);
+        final cc = _axisClass(edgeVec(k), tolDeg);
+        if (ca != 2 && ca == cc) {
+          removePoint(k);
+          changed = true;
         }
       }
     }
-    return fixed;
+    // 가로 변은 높이, 세로 변은 가로 자리를 정하고 귀를 다시 잡는다
+    final ys = <int, double>{}, xs = <int, double>{};
+    var squared = 0;
+    for (var i = 0; i < edgeCount; i++) {
+      final a = pts[i], c = pts[(i + 1) % n];
+      switch (_axisClass(c - a, tolDeg)) {
+        case 0:
+          ys[i] = (a.dy + c.dy) / 2;
+          if ((a.dy - c.dy).abs() > 1e-9) squared++;
+        case 1:
+          xs[i] = (a.dx + c.dx) / 2;
+          if ((a.dx - c.dx).abs() > 1e-9) squared++;
+      }
+    }
+    for (var k = 0; k < n; k++) {
+      var x = pts[k].dx, y = pts[k].dy;
+      for (final e in [
+        if (closed || k > 0) (k - 1 + n) % n,
+        if (closed || k < n - 1) k,
+      ]) {
+        x = xs[e] ?? x;
+        y = ys[e] ?? y;
+      }
+      pts[k] = Offset(x, y);
+    }
+    return (squared: squared, removed: n0 - n);
+  }
+
+  /// 좌우 대칭으로 맞추기(10-10 사용자: "좌우대칭"). 닫힌 모양에서 꼭짓점을 거울 짝(차례를 거꾸로 돌아 만나는 짝)으로
+  /// 묶고, 짝마다 가로 폭의 반과 높이를 평균 내어 세로 가운데 선에 대해 똑같게 놓는다(전체 폭·각 턱 폭은 평균 그대로).
+  /// 짝의 높이 차이나 가운데 선에서 벗어난 정도가 모양 폭·높이의 [tolFrac]보다 크면(대칭으로 그린 게 아님) 바꾸지 않고 false.
+  bool symmetrize({double tolFrac = 0.2}) {
+    if (!closed || n < 3) return false;
+    final b = bounds!;
+    final w = math.max(b.width, 1e-9), h = math.max(b.height, 1e-9);
+    int? bestM;
+    var bestErr = double.infinity;
+    var bestAxis = 0.0;
+    for (var m = 0; m < n; m++) {
+      // k ↔ (m − k) 짝
+      var axis = 0.0;
+      for (var k = 0; k < n; k++) {
+        axis += (pts[k].dx + pts[(m - k + n) % n].dx) / 2;
+      }
+      axis /= n;
+      var err = 0.0;
+      var ok = true;
+      for (var k = 0; k < n; k++) {
+        final p = pts[k], q = pts[(m - k + n) % n];
+        final ex = ((p.dx + q.dx) / 2 - axis).abs() / w;
+        final ey = (p.dy - q.dy).abs() / h;
+        // 짝은 가운데 선 양쪽에 있어야 한다(같은 점과 짝이면 가운데 선 위)
+        if (ex > tolFrac || ey > tolFrac) {
+          ok = false;
+          break;
+        }
+        err += ex + ey;
+      }
+      if (ok && err < bestErr) {
+        bestErr = err;
+        bestM = m;
+        bestAxis = axis;
+      }
+    }
+    final m = bestM;
+    if (m == null) return false;
+    final out = List.of(pts);
+    for (var k = 0; k < n; k++) {
+      final j = (m - k + n) % n;
+      final p = pts[k], q = pts[j];
+      final y = (p.dy + q.dy) / 2;
+      if (j == k) {
+        out[k] = Offset(bestAxis, y);
+        continue;
+      }
+      final half = ((p.dx - bestAxis).abs() + (q.dx - bestAxis).abs()) / 2;
+      final side = p.dx < q.dx ? -1.0 : 1.0;
+      out[k] = Offset(bestAxis + side * half, y);
+    }
+    for (var k = 0; k < n; k++) {
+      pts[k] = out[k];
+    }
+    return true;
   }
 
   // ── 찾기 ──
