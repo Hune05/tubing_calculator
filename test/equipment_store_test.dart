@@ -111,11 +111,11 @@ void main() {
 
   group('기한 알림 계획', () {
     test('7일 전·당일 오전 9시, 지난 시각은 뺀다', () {
-      final e = _e('a', name: '게이지', assetNo: 'PG-1', last: DateTime(2025, 10, 31)); // 기한 2026-10-31
+      final e = _e('a', name: '게이지', assetNo: 'PG-1', last: DateTime(2025, 10, 28)); // 기한 2026-10-28(수)
       final plan = planEquipmentReminders([e], _now);
       expect(plan.map((r) => r.when), [
-        DateTime(2026, 10, 24, 9),
-        DateTime(2026, 10, 31, 9),
+        DateTime(2026, 10, 21, 9),
+        DateTime(2026, 10, 28, 9),
       ]);
       expect(plan.first.body, contains('PG-1 게이지'));
       expect(plan.first.body, contains('7일 남았습니다'));
@@ -123,11 +123,27 @@ void main() {
     });
 
     test('이미 지난 알림은 잡지 않는다', () {
-      // 기한 10/5: 7일 전(9/28)은 지났고 당일(10/5)만 남는다.
-      final e = _e('a', last: DateTime(2025, 10, 5));
+      // 기한 10/7(수): 7일 전(9/30 9시)은 지났고 당일(10/7)만 남는다.
+      final e = _e('a', last: DateTime(2025, 10, 7));
       final plan = planEquipmentReminders([e], _now);
       expect(plan.length, 1);
-      expect(plan.single.when, DateTime(2026, 10, 5, 9));
+      expect(plan.single.when, DateTime(2026, 10, 7, 9));
+    });
+
+    test('기한·7일 전이 토·일·공휴일이면 앞 근무일 오전에, 남은 날을 바로 적는다(10-10)', () {
+      // 기한 10/31(토): 7일 전 10/24(토) → 10/23(금), 당일 → 10/30(금)
+      final e = _e('a', name: '게이지', last: DateTime(2025, 10, 31));
+      final plan = planEquipmentReminders([e], _now);
+      expect(plan.map((r) => r.when), [
+        DateTime(2026, 10, 23, 9),
+        DateTime(2026, 10, 30, 9),
+      ]);
+      expect(plan.first.body, contains('8일 남았습니다'));
+      expect(plan.last.body, contains('1일 남았습니다'));
+      // 기한 10/5(대체공휴일 월) → 10/2(금) 당일 알림 대신 3일 남았다고
+      final h = planEquipmentReminders([_e('b', last: DateTime(2025, 10, 5))], _now);
+      expect(h.single.when, DateTime(2026, 10, 2, 9));
+      expect(h.single.body, contains('3일 남았습니다'));
     });
 
     test('기한이 없거나 폐기한 장비는 잡지 않는다', () {

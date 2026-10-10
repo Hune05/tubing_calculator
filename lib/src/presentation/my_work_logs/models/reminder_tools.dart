@@ -8,6 +8,8 @@ import 'package:timezone/data/latest.dart' as tzdata;
 
 import 'package:tubing_calculator/main.dart'
     show flutterLocalNotificationsPlugin;
+import '../../../core/utils/rest_day.dart';
+import 'attendance.dart' show loadAttendanceRange;
 
 // 🚀 작업 일지·주간 보고 알림(예약, 상태 확인, 확인된 알림 기록).
 // ───────────────────────── 작업 일지 알림 ─────────────────────────
@@ -51,13 +53,24 @@ class DailyReminderPlan {
 const int _kDailyBaseId = 918300; // 918300 ~ 918307을 작업 일지 알림에 쓴다
 const int _kMaxDailyGroups = 8;
 
+// 근무일마다 하루씩 따로 예약하는 수(10-10). 예전에는 "매일 같은 시각" 반복이라 토·일·공휴일에도 울렸다.
+// 이제 다음 근무일(918300~)과 그 뒤 근무일들(918400~, 묶음마다 10칸)을 따로 잡고, 앱을 켤 때마다 다시 맞춘다.
+const int kWorkdaySeriesDays = 10;
+const int _kDailyExtraBase = 918400; // 918400 ~ 918479
+const int _kMorningExtraBase = 918480; // 918480 ~ 918489
+
+int _dailyExtraId(int group, int k) =>
+    _kDailyExtraBase + group * kWorkdaySeriesDays + k;
+
 // 프로젝트별 알림 시간(reportReminderMinutes, 없으면 기본 시간)으로 묶어 예약 계획을 만든다.
 // 시간이 8종류를 넘으면 넘치는 프로젝트는 마지막 묶음에 합친다(알림이 빠지지 않게).
 List<DailyReminderPlan> planDailyReminders(
   List<Map<String, dynamic>> active,
   int defaultMinutes,
-  DateTime now,
-) {
+  DateTime now, {
+  // 오늘이 쉬는 날인데 출근을 찍었는지(특근이면 오늘도 알린다, 10-10).
+  bool workedToday = false,
+}) {
   int minutesOf(Map<String, dynamic> l) {
     final v = (l['reportReminderMinutes'] as num?)?.toInt();
     return (v != null && v >= 0 && v < 1440) ? v : defaultMinutes;
@@ -83,8 +96,11 @@ List<DailyReminderPlan> planDailyReminders(
     // 이 묶음에서 오늘 작업 일지를 아직 안 쓴 곳. 전부 썼거나 시간이 지났으면 내일부터.
     final missing = projectsMissingReport(g, todayStr);
     var at = DateTime(now.year, now.month, now.day, m ~/ 60, m % 60);
-    final skipToday = missing.isEmpty || !at.isAfter(now);
-    if (skipToday) at = at.add(const Duration(days: 1));
+    final restToday = isRestDay(now) && !workedToday;
+    final skipToday = missing.isEmpty || !at.isAfter(now) || restToday;
+    if (skipToday) at = DateTime(at.year, at.month, at.day + 1, at.hour, at.minute);
+    // 토·일·공휴일은 건너뛰고 다음 근무일에 알린다(10-10).
+    if (skipToday) at = workdaySeries(at, 1).firstOrNull ?? at;
     plans.add(
       DailyReminderPlan(
         m,
@@ -168,8 +184,12 @@ Future<String?> loadLastSyncLabel() async {
 Future<void> _cancelDailyReminders({Set<int> keep = const {}}) async {
   await flutterLocalNotificationsPlugin.cancel(id: _kReminderId); // 예전 버전 알림
   for (var i = 0; i < _kMaxDailyGroups; i++) {
-    if (keep.contains(_kDailyBaseId + i)) continue;
-    await flutterLocalNotificationsPlugin.cancel(id: _kDailyBaseId + i);
+    if (!keep.contains(_kDailyBaseId + i)) {
+      await flutterLocalNotificationsPlugin.cancel(id: _kDailyBaseId + i);
+    }
+    for (var k = 0; k < kWorkdaySeriesDays; k++) {
+      await flutterLocalNotificationsPlugin.cancel(id: _dailyExtraId(i, k));
+    }
   }
 }
 
@@ -252,6 +272,10 @@ Future<void> _syncWeeklyReminder(
   var at = DateTime(now.year, now.month, now.day, minutes ~/ 60, minutes % 60);
   while (at.weekday != DateTime.friday || !at.isAfter(now)) {
     at = at.add(const Duration(days: 1));
+  }
+  // 그 금요일이 공휴일이면 다음 주 금요일부터(10-10).
+  while (isKoreanHolidayDay(at)) {
+    at = DateTime(at.year, at.month, at.day + 7, at.hour, at.minute);
   }
   await flutterLocalNotificationsPlugin.zonedSchedule(
     id: _kWeeklyId,
@@ -374,37 +398,54 @@ Future<void> _syncMorningSummary(
   required bool keepIfInWindow,
 }) async {
   final pref = await loadMorningSummary();
+  for (var k = 0; k < kWorkdaySeriesDays; k++) {
+    await flutterLocalNotificationsPlugin.cancel(id: _kMorningExtraBase + k);
+  }
   if (!pref.enabled) {
     await flutterLocalNotificationsPlugin.cancel(id: kMorningSummaryId);
     return;
   }
-  if (keepIfInWindow && inDeliveryWindow(now, pref.minutes)) return;
-  await flutterLocalNotificationsPlugin.cancel(id: kMorningSummaryId);
-  var at = DateTime(
+  // 근무일에만(10-10): 다음 근무일 하나(kMorningSummaryId)와 그 뒤 근무일들을 따로 잡는다.
+  final keep = keepIfInWindow && inDeliveryWindow(now, pref.minutes);
+  var first = DateTime(
     now.year,
     now.month,
     now.day,
     pref.minutes ~/ 60,
     pref.minutes % 60,
   );
-  if (!at.isAfter(now)) at = at.add(const Duration(days: 1));
-  await flutterLocalNotificationsPlugin.zonedSchedule(
-    id: kMorningSummaryId,
-    title: '오늘 할 일',
-    body: kMorningSummaryBody,
-    scheduledDate: tz.TZDateTime.from(at, tz.local),
-    notificationDetails: const NotificationDetails(
-      android: AndroidNotificationDetails(
-        _kReminderChannel,
-        '작업 일지 알림',
-        channelDescription: '작업 일지 작성 알림',
-        importance: Importance.high,
-        priority: Priority.high,
-      ),
-    ),
-    androidScheduleMode: await reminderScheduleMode(),
-    matchDateTimeComponents: DateTimeComponents.time,
-  );
+  if (!first.isAfter(now)) {
+    first = DateTime(first.year, first.month, first.day + 1, first.hour, first.minute);
+  }
+  final days = workdaySeries(first, kWorkdaySeriesDays);
+  if (days.isEmpty) return;
+  final mode = await reminderScheduleMode();
+  Future<void> one(int id, DateTime at) =>
+      flutterLocalNotificationsPlugin.zonedSchedule(
+        id: id,
+        title: '오늘 할 일',
+        body: kMorningSummaryBody,
+        scheduledDate: tz.TZDateTime.from(at, tz.local),
+        notificationDetails: const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _kReminderChannel,
+            '작업 일지 알림',
+            channelDescription: '작업 일지 작성 알림',
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+        androidScheduleMode: mode,
+      );
+  // 오늘 것이 곧 울릴 예정으로 남아 있으면 그대로 두고, 뒤 근무일만 잡는다.
+  final rest = keep ? days : days.skip(1).toList();
+  if (!keep) {
+    await flutterLocalNotificationsPlugin.cancel(id: kMorningSummaryId);
+    await one(kMorningSummaryId, days.first);
+  }
+  for (var k = 0; k < rest.length && k < kWorkdaySeriesDays; k++) {
+    await one(_kMorningExtraBase + k, rest[k]);
+  }
 }
 
 // 정확한 시간 알림(정확한 알람)을 폰이 허용했는지. 허용돼 있으면 정해진 시간에 맞춰 울리고,
@@ -547,11 +588,21 @@ Future<void> syncReportReminder(
     try {
       pending = await pendingReminderIds();
     } catch (_) {}
+    // 쉬는 날이면 오늘 출근을 찍었는지 본다(특근이면 오늘도 알린다, 10-10).
+    final workedToday =
+        pref.enabled && active.isNotEmpty && isRestDay(now)
+        ? await workedOnDay(now)
+        : false;
 
     // 프로젝트마다 알림 시간이 다를 수 있어, 같은 시간끼리 묶어 알림을 한 개씩 예약한다.
     final plans = (!pref.enabled || active.isEmpty)
         ? <DailyReminderPlan>[]
-        : planDailyReminders(active, pref.minutes, now);
+        : planDailyReminders(
+            active,
+            pref.minutes,
+            now,
+            workedToday: workedToday,
+          );
     // 도착 창 안에서 이미 예약돼 있는 알림은 그대로 둔다(다시 예약하면 오늘 알림이 사라진다).
     // 그 사이 오늘 작업 일지를 다 써서 보낼 이유가 없어졌다면 지운다.
     final todayStr =
@@ -597,9 +648,9 @@ Future<void> syncReportReminder(
         ?.createNotificationChannel(channel);
     var scheduledCount = 0;
     for (var i = 0; i < plans.length; i++) {
-      if (keep.contains(_kDailyBaseId + i)) continue;
-      await _scheduleDailyPlan(plans[i], i);
-      scheduledCount++;
+      final kept = keep.contains(_kDailyBaseId + i);
+      await _scheduleDailyPlan(plans[i], i, primary: !kept, now: now);
+      if (!kept) scheduledCount++;
     }
     await _recordSync(now, scheduledCount, keep.length);
   } catch (e) {
@@ -608,25 +659,95 @@ Future<void> syncReportReminder(
   }
 }
 
-Future<void> _scheduleDailyPlan(DailyReminderPlan plan, int index) async {
-  await flutterLocalNotificationsPlugin.zonedSchedule(
-    id: _kDailyBaseId + index,
-    title: '작업 일지',
-    body: dailyReminderBody(plan.count, name: plan.name),
-    payload: kDailyReportPayload,
-    scheduledDate: tz.TZDateTime.from(plan.at, tz.local),
-    notificationDetails: const NotificationDetails(
-      android: AndroidNotificationDetails(
-        _kReminderChannel,
-        '작업 일지 알림',
-        channelDescription: '작업 일지 작성 알림',
-        importance: Importance.high,
-        priority: Priority.high,
-      ),
+/// 다음 근무일 알림([primary], 918300+묶음)과 그 뒤 근무일들([dailyExtraTimes])을 하루씩 따로 잡는다(10-10).
+/// [primary]가 false면(곧 울릴 오늘 알림을 그대로 두는 경우) 뒤 근무일들만.
+Future<void> _scheduleDailyPlan(
+  DailyReminderPlan plan,
+  int index, {
+  bool primary = true,
+  DateTime? now,
+}) async {
+  const details = NotificationDetails(
+    android: AndroidNotificationDetails(
+      _kReminderChannel,
+      '작업 일지 알림',
+      channelDescription: '작업 일지 작성 알림',
+      importance: Importance.high,
+      priority: Priority.high,
     ),
-    androidScheduleMode: await reminderScheduleMode(),
-    matchDateTimeComponents: DateTimeComponents.time,
   );
+  final mode = await reminderScheduleMode();
+  if (primary) {
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      id: _kDailyBaseId + index,
+      title: '작업 일지',
+      body: dailyReminderBody(plan.count, name: plan.name),
+      payload: kDailyReportPayload,
+      scheduledDate: tz.TZDateTime.from(plan.at, tz.local),
+      notificationDetails: details,
+      androidScheduleMode: mode,
+    );
+  }
+  final times = dailyExtraTimes(plan, now ?? DateTime.now());
+  for (var k = 0; k < times.length; k++) {
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      id: _dailyExtraId(index, k),
+      title: '작업 일지',
+      body: dailyReminderBody(
+        plan.names.isEmpty ? plan.count : plan.names.length,
+        name: plan.name,
+      ),
+      payload: kDailyReportPayload,
+      scheduledDate: tz.TZDateTime.from(times[k], tz.local),
+      notificationDetails: details,
+      androidScheduleMode: mode,
+    );
+  }
+}
+
+/// [plan]의 다음 알림 뒤에 이어 잡을 근무일 시각들(최대 [kWorkdaySeriesDays]개, 토·일·공휴일 뺌).
+/// 다음 알림이 오늘이면 내일부터, 아니면 그 다음 날부터.
+List<DateTime> dailyExtraTimes(DailyReminderPlan plan, DateTime now) {
+  final from = DateTime(
+    plan.at.year,
+    plan.at.month,
+    plan.at.day + 1,
+    plan.minutes ~/ 60,
+    plan.minutes % 60,
+  );
+  return [
+    for (final t in workdaySeries(from, kWorkdaySeriesDays))
+      if (t.isAfter(now)) t,
+  ];
+}
+
+/// 오늘 출근을 찍었는지(쉬는 날 특근이면 작업 일지 알림을 받는다). 못 읽으면 false. 시험에서 바꿔 끼운다.
+@visibleForTesting
+Future<bool> Function(DateTime day) workedOnDay = _workedOnDay;
+
+Future<bool> _workedOnDay(DateTime day) async {
+  try {
+    final d = DateTime(day.year, day.month, day.day);
+    final m = await loadAttendanceRange(
+      d,
+      d,
+    ).timeout(const Duration(seconds: 4));
+    return m?.values.any((r) => (r.checkIn ?? '').isNotEmpty) ?? false;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// 앱을 켤 때·출근을 찍었을 때: 폰에 남은 프로젝트 목록으로 작업 일지 알림을 다시 맞춘다(10-10).
+/// 알림을 근무일마다 하루씩 잡으므로 "내 프로젝트"를 오래 안 열어도 이어지게. 폰에 사본이 없으면 그대로 둔다.
+Future<void> resyncReportReminderFromCache() async {
+  try {
+    final logs = await WorkProjectRepository().fetchCachedProjects();
+    if (logs.isEmpty) return;
+    await syncReportReminder(logs);
+  } catch (e) {
+    debugPrint('작업 일지 알림 다시 맞추기 실패: $e');
+  }
 }
 
 void _ensureTimezone() {
@@ -644,7 +765,9 @@ const String _kPrefSeenReminders = 'seen_reminders';
 bool isReminderNotificationId(int id) =>
     id == _kReminderId ||
     id == _kWeeklyId ||
-    (id >= _kDailyBaseId && id < _kDailyBaseId + 8);
+    (id >= _kDailyBaseId && id < _kDailyBaseId + 8) ||
+    (id >= _kDailyExtraBase &&
+        id < _kDailyExtraBase + _kMaxDailyGroups * kWorkdaySeriesDays);
 
 // 기록 한 줄은 "알림아이디|시간(ISO)". 같은 알림이 20시간 안에 또 보이면 새로 적지 않고,
 // 최근 10건만 남긴다.
@@ -711,6 +834,8 @@ List<ReminderSlot> unconfirmedToday(
   List<String> rawSeen,
   DateTime now,
 ) {
+  // 쉬는 날(토·일·공휴일)은 작업 일지 알림을 안 보내므로 "안 왔다"고 하지 않는다(10-10).
+  if (isRestDay(now)) return const [];
   bool seenSince(int id, DateTime since) {
     for (final e in rawSeen) {
       final p = e.split('|');

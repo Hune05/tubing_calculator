@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/utils/rest_day.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -39,40 +40,40 @@ void main() {
   group('오늘 알림 확인 여부', () {
     final logs = [proj('A'), proj('B', remind: 21 * 60)];
     List<ReminderSlot> slots(Set<int> pending) =>
-        dailyReminderSlots(logs, 18 * 60, DateTime(2026, 9, 19, 10), pending);
+        dailyReminderSlots(logs, 18 * 60, DateTime(2026, 9, 16, 10), pending);
     final both = slots({918300, 918301});
 
     test('예약 시간 + 1시간 10분이 지나기 전에는 아무것도 걸리지 않는다', () {
       expect(
-        unconfirmedToday(both, [], DateTime(2026, 9, 19, 18, 50)),
+        unconfirmedToday(both, [], DateTime(2026, 9, 16, 18, 50)),
         isEmpty,
       );
     });
 
     test('19:10이 지나도 기록이 없으면 18:00 알림만 걸린다', () {
-      final m = unconfirmedToday(both, [], DateTime(2026, 9, 19, 19, 20));
+      final m = unconfirmedToday(both, [], DateTime(2026, 9, 16, 19, 20));
       expect(m.map((s) => s.plan.minutes).toList(), [18 * 60]);
     });
 
     test('22:10이 지나면 둘 다 걸린다', () {
-      final m = unconfirmedToday(both, [], DateTime(2026, 9, 19, 23));
+      final m = unconfirmedToday(both, [], DateTime(2026, 9, 16, 23));
       expect(m.length, 2);
     });
 
     test('오늘 그 시간 뒤에 확인된 기록이 있으면 빠진다', () {
-      final seen = ['918300|${DateTime(2026, 9, 19, 18, 3).toIso8601String()}'];
-      final m = unconfirmedToday(both, seen, DateTime(2026, 9, 19, 23));
+      final seen = ['918300|${DateTime(2026, 9, 16, 18, 3).toIso8601String()}'];
+      final m = unconfirmedToday(both, seen, DateTime(2026, 9, 16, 23));
       expect(m.map((s) => s.id).toList(), [918301]);
     });
 
     test('어제 기록은 오늘 확인으로 치지 않는다', () {
-      final seen = ['918300|${DateTime(2026, 9, 18, 18, 3).toIso8601String()}'];
-      final m = unconfirmedToday(both, seen, DateTime(2026, 9, 19, 20));
+      final seen = ['918300|${DateTime(2026, 9, 15, 18, 3).toIso8601String()}'];
+      final m = unconfirmedToday(both, seen, DateTime(2026, 9, 16, 20));
       expect(m.length, 1);
     });
 
     test('폰에 예약되지 않은 것은 여기서 다루지 않는다(예약 안 됨으로 따로 표시)', () {
-      final m = unconfirmedToday(slots({}), [], DateTime(2026, 9, 19, 23));
+      final m = unconfirmedToday(slots({}), [], DateTime(2026, 9, 16, 23));
       expect(m, isEmpty);
     });
 
@@ -80,7 +81,7 @@ void main() {
       final m = unconfirmedToday(both, [
         '깨짐',
         'a|b|c',
-      ], DateTime(2026, 9, 19, 20));
+      ], DateTime(2026, 9, 16, 20));
       expect(m.length, 1);
     });
 
@@ -89,6 +90,8 @@ void main() {
       if (n.hour == 0 || (n.hour == 1 && n.minute < 15)) {
         return; // 자정 직후에는 70분 조건 때문에 검사할 수 없다
       }
+      // 쉬는 날(토·일·공휴일)은 작업 일지 알림을 안 보내므로 "확인 안 됨"도 띄우지 않는다(10-10).
+      if (isRestDay(n)) return;
       tester.view.physicalSize = const Size(900, 3000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.reset);

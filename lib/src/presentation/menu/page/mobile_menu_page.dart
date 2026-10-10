@@ -77,7 +77,7 @@ import 'package:tubing_calculator/src/presentation/profile/profile_tools.dart'
 // 🚀 4. 프로젝트 관리 페이지 임포트
 import 'package:tubing_calculator/src/presentation/my_work_logs/screens/work_log_main_screen.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/reminder_tools.dart'
-    show fetchMissingReportCount;
+    show fetchMissingReportCount, resyncReportReminderFromCache;
 import 'package:tubing_calculator/src/presentation/my_schedule/mobile_my_schedule_page.dart';
 import 'package:tubing_calculator/src/presentation/my_schedule/schedule_reminders.dart'
     show rescheduleDriftingMonthlyReminders;
@@ -357,6 +357,11 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         .then(rescheduleEquipmentReminders)
         .catchError((_) => 0);
     _fetchDetailedWeather();
+    // 작업 일지 알림은 근무일마다 하루씩 잡으므로 앱을 켤 때 이어 붙인다(10-10). 켜기를 늦추지 않게 조금 뒤에.
+    Future<void>.delayed(
+      const Duration(seconds: 4),
+      resyncReportReminderFromCache,
+    );
     // 다른 기기(폰↔태블릿)에서 고친 계산기 설정이 더 새로우면 받는다(기다리지 않음, 통신이 없으면 그대로).
     pullNewerCalculatorSettings();
     _weatherTimer = Timer.periodic(

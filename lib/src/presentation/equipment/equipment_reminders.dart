@@ -1,5 +1,6 @@
 // 공구 정기 점검 기한 알림: 기한 7일 전·당일 오전 9시에 폰이 알려 준다.
 // 무엇을 언제 알릴지는 순수 함수(planEquipmentReminders)가 정하고, 폰에 예약하는 일만 따로 한다.
+import '../../core/utils/rest_day.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
@@ -46,12 +47,18 @@ List<EquipReminder> planEquipmentReminders(List<Equipment> all, DateTime now) {
     if (due == null) continue;
     for (final off in kEquipReminderOffsets) {
       final day = due.subtract(Duration(days: off));
-      final when = DateTime(day.year, day.month, day.day, kEquipReminderHour);
+      // 토·일·공휴일이면 그 앞 근무일 오전에 알린다(10-10: 휴일에는 업무 알림을 안 보낸다).
+      final when = previousWorkday(
+        DateTime(day.year, day.month, day.day, kEquipReminderHour),
+      );
       if (!when.isAfter(now)) continue;
       final label = e.assetNo.isEmpty ? e.name : '${e.assetNo} ${e.name}';
-      final body = off == 0
+      final left = DateTime(due.year, due.month, due.day)
+          .difference(DateTime(when.year, when.month, when.day))
+          .inDays;
+      final body = left <= 0
           ? '$label 점검일이 오늘입니다'
-          : '$label 점검일이 $off일 남았습니다 (${dateLabel(due)})';
+          : '$label 점검일이 $left일 남았습니다 (${dateLabel(due)})';
       out.add(EquipReminder(equipNotifId(e.id, off), e.id, when, '공구 점검 기한', body));
     }
   }

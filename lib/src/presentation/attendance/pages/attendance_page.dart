@@ -6,6 +6,9 @@
 // 2026-09-26 점검(docs/근태관리_근거.md): 휴게 뺀 근로시간, 달 합계(연장·야간·휴일·가산 시간),
 // 주 52시간 경고, 연차 잔여(입사일 기준), 달력 보기, 현장 메모, PDF·CSV 내보내기를 넣었다.
 // 저장·지우기는 서버 응답을 기다리지 않는다(통신 없는 현장에서 창이 멈추던 문제).
+import 'dart:async' show unawaited;
+import '../../../core/utils/rest_day.dart' as notice_day;
+import '../../my_work_logs/models/reminder_tools.dart' show resyncReportReminderFromCache;
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
     show AppSnackKind, showAppSnack;
 import 'package:tubing_calculator/src/core/common_widgets/min_height_scroll.dart';
@@ -424,6 +427,8 @@ class _AttendancePageState extends State<AttendancePage>
     final rec = punchIn(day, old, now);
     HapticFeedback.mediumImpact();
     if (!await _saveRecord(rec) || !mounted) return;
+    // 쉬는 날 출근(특근)이면 오늘 작업 일지 알림을 다시 잡는다(10-10).
+    if (notice_day.isRestDay(day)) unawaited(resyncReportReminderFromCache());
     showAppSnack(
       context,
       "출근 ${rec.checkIn} 저장했습니다.",

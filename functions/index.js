@@ -15,6 +15,9 @@ const WINDOW_MINUTES = 15; // 알림 함수의 실행 주기(스케줄과 맞춰
 
 // 한국 시간(UTC+9) 기준 "YYYY-MM-DD" 문자열. 하루 한 번 발송 여부를
 // 이 문자열로 비교해서 판단한다.
+// 쉬는 날(토·일·공휴일)에는 업무 반복 알림을 보내지 않는다(10-10, rest_day.js).
+const { isRestDayKst, punchAllowedOnRestDay } = require("./rest_day");
+
 function kstDateString(date) {
     const kst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
     return kst.toISOString().slice(0, 10);
@@ -87,6 +90,9 @@ async function saveFlags(ref, field, updates) {
 exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => {
     const now = Date.now();
     const today = kstDateString(new Date(now));
+    // 쉬는 날: 반복 알림(자재 요청 확인·일정 초과·일정 임박)은 보내지 않고 다음 근무일에 이어서 보낸다.
+    // 정해 둔 시각 바로 전에 한 번 오는 "일정 알림"은 그 일정이 그 시각에 있으니 그대로 보낸다.
+    const restDay = isRestDayKst(new Date(now));
 
     let recipients;
     try {
@@ -130,6 +136,7 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
             // 이 분기 대신 아래 (A)/(B) 로직이 적용된다.
             if (schedule.type === "자재 요청" && !schedule.dateTime) {
                 if (schedule.lastOverdueReminderDate === today) continue;
+                if (restDay) continue;
 
                 try {
                     const requestedAt = schedule.requestedAt && schedule.requestedAt.toDate
@@ -165,7 +172,7 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
             try {
                 // (B) 이미 지남 - 완료 처리 전까지 하루 1회 반복 (리드타임
                 // 설정과 무관하게 항상 적용)
-                if (diffMs < 0 && schedule.lastOverdueReminderDate !== today) {
+                if (diffMs < 0 && schedule.lastOverdueReminderDate !== today && !restDay) {
                     const daysLate = Math.max(
                         1,
                         Math.floor(-diffMs / (24 * 60 * 60 * 1000)),
@@ -189,7 +196,8 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
                         const leadWindowMs = leadDays * 24 * 60 * 60 * 1000;
                         if (
                             diffMs <= leadWindowMs &&
-                            schedule.lastLeadReminderDate !== today
+                            schedule.lastLeadReminderDate !== today &&
+                            !restDay
                         ) {
                             const daysLeft = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
                             const sent = await sendMulticast(
@@ -263,6 +271,9 @@ function findLinkedSchedule(schedules, linkedScheduleId) {
 
 exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
     const now = Date.now();
+    // 쉬는 날에는 긴급 이슈와 기한이 임박·초과한 이슈만 알린다(10-10). 나머지는 표시를 안 남겨
+    // 다음 근무일 첫 검사 때 바로 보낸다.
+    const restDay = isRestDayKst(new Date(now));
 
     let recipients;
     try {
@@ -317,6 +328,7 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
                 const isDeadlineUrgent = deadline
                     ? (deadline.getTime() - now) < PUNCH_DEADLINE_URGENT_HOURS * 60 * 60 * 1000
                     : false;
+                if (restDay && !punchAllowedOnRestDay(punch.priority, isDeadlineUrgent)) continue;
                 const intervalHours = isDeadlineUrgent
                     ? PUNCH_DEADLINE_URGENT_INTERVAL_HOURS
                     : (PUNCH_REMINDER_INTERVAL_HOURS[punch.priority] || PUNCH_REMINDER_INTERVAL_HOURS["보통"]);
@@ -388,6 +400,11 @@ exports.checkPunchIssues = onSchedule("every 15 minutes", async (event) => {
 exports.checkDailyReportReminder = onSchedule(
     { schedule: "0 18 * * *", timeZone: "Asia/Seoul" },
     async (event) => {
+        // 쉬는 날(토·일·공휴일)에는 보내지 않는다(10-10). 그날 출근을 찍은 사람은 앱이 따로 알린다.
+        if (isRestDayKst(new Date())) {
+            console.log("쉬는 날이라 작업 일보 알림을 보내지 않습니다.");
+            return;
+        }
         const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000);
         const todayMmDd = `${(kstNow.getUTCMonth() + 1).toString().padStart(2, '0')}/${kstNow.getUTCDate().toString().padStart(2, '0')}`;
 

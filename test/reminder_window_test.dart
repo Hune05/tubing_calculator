@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -99,14 +100,14 @@ void main() {
           );
     });
 
-    final at1820 = DateTime(2026, 9, 19, 18, 20); // 토요일 18:20(도착 창 안)
-    final at2000 = DateTime(2026, 9, 19, 20, 0); // 창 밖
+    final at1820 = DateTime(2026, 9, 16, 18, 20); // 수요일 18:20(도착 창 안)
+    final at2000 = DateTime(2026, 9, 16, 20, 0); // 창 밖
 
     test('창 안·예약돼 있음·아직 작업 일지 안 씀 → 그대로 둔다(취소도 재예약도 없음)', () async {
       pending = [
         {'id': 918300, 'title': '작업 일지', 'body': 'x', 'payload': 'p'},
       ];
-      await syncReportReminder([proj('A')], nowForTest: at1820);
+      await withClock(Clock.fixed(at1820), () => syncReportReminder([proj('A')], nowForTest: at1820));
       expect(calls.contains('cancel:918300'), false);
       expect(calls.contains('schedule:918300'), false);
     });
@@ -115,9 +116,9 @@ void main() {
       pending = [
         {'id': 918300, 'title': '작업 일지', 'body': 'x', 'payload': 'p'},
       ];
-      await syncReportReminder([
-        proj('A', reportDates: ['09/19']),
-      ], nowForTest: at1820);
+      await withClock(Clock.fixed(at1820), () => syncReportReminder([
+        proj('A', reportDates: ['09/16']),
+      ], nowForTest: at1820));
       expect(calls.contains('cancel:918300'), true);
     });
 
@@ -125,26 +126,26 @@ void main() {
       pending = [
         {'id': 918300, 'title': '작업 일지', 'body': 'x', 'payload': 'p'},
       ];
-      await syncReportReminder([proj('A')], nowForTest: at2000);
+      await withClock(Clock.fixed(at2000), () => syncReportReminder([proj('A')], nowForTest: at2000));
       expect(calls.contains('cancel:918300'), true);
       expect(calls.contains('schedule:918300'), true);
     });
 
     test('창 안이라도 폰에 예약이 없으면 새로 예약한다', () async {
-      await syncReportReminder([proj('A')], nowForTest: at1820);
+      await withClock(Clock.fixed(at1820), () => syncReportReminder([proj('A')], nowForTest: at1820));
       expect(calls.contains('schedule:918300'), true);
     });
   });
   group('알림 예약 기록', () {
-    final t = DateTime(2026, 9, 19, 19, 20);
+    final t = DateTime(2026, 9, 16, 19, 20);
 
     test('줄 만들기·읽기', () {
       final l = addSyncLog([], t, 1, 0);
-      expect(syncLogLabel(l.single), '9/19 19:20 · 새로 예약 1건');
+      expect(syncLogLabel(l.single), '9/16 19:20 · 새로 예약 1건');
       final k = addSyncLog([], t, 0, 1);
       expect(
         syncLogLabel(k.single),
-        '9/19 19:20 · 새로 예약 0건 · 곧 울릴 예정이라 그대로 둔 알림 1건',
+        '9/16 19:20 · 새로 예약 0건 · 곧 울릴 예정이라 그대로 둔 알림 1건',
       );
       expect(syncLogLabel('깨짐'), isNull);
       expect(syncLogLabel('a|b|c'), isNull);
@@ -173,9 +174,9 @@ void main() {
               null,
             ),
       );
-      await syncReportReminder([proj('A')], nowForTest: t);
+      await withClock(Clock.fixed(t), () => syncReportReminder([proj('A')], nowForTest: t));
       final label = await loadLastSyncLabel();
-      expect(label, '9/19 19:20 · 새로 예약 1건');
+      expect(label, '9/16 19:20 · 새로 예약 1건');
     });
   });
 }

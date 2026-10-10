@@ -19,7 +19,7 @@ Map<String, dynamic> proj(
   List<Map<String, dynamic>> phases = const [],
   DateTime? completedAt,
 }) {
-  final t = DateTime(2026, 9, 19); // 아래 now와 같은 날(실제 오늘이 바뀌어도 흔들리지 않게)
+  final t = DateTime(2026, 9, 16); // 아래 now와 같은 날(실제 오늘이 바뀌어도 흔들리지 않게)
   return {
     'id': name,
     'name': name,
@@ -55,7 +55,7 @@ void main() {
 
   group('planDailyReminders', () {
     // 2026-09-19 10:00
-    final now = DateTime(2026, 9, 19, 10, 0);
+    final now = DateTime(2026, 9, 16, 10, 0);
 
     test('projects sharing a time become one notification', () {
       final plans = planDailyReminders(
@@ -66,7 +66,7 @@ void main() {
       expect(plans.length, 1);
       expect(plans.single.minutes, 18 * 60);
       expect(plans.single.count, 2);
-      expect(plans.single.at, DateTime(2026, 9, 19, 18, 0)); // 오늘
+      expect(plans.single.at, DateTime(2026, 9, 16, 18, 0)); // 오늘
       expect(plans.single.name, isNull); // 여러 곳이면 이름 없음
     });
 
@@ -82,10 +82,10 @@ void main() {
       );
       expect(plans.map((p) => p.minutes).toList(), [450, 1080, 1260]);
       expect(plans[0].name, '이른곳');
-      expect(plans[0].at, DateTime(2026, 9, 20, 7, 30)); // 이미 지나 내일
+      expect(plans[0].at, DateTime(2026, 9, 17, 7, 30)); // 이미 지나 내일
       expect(plans[0].count, 1); // 내일 알림은 진행중 프로젝트 수
-      expect(plans[1].at, DateTime(2026, 9, 19, 18, 0));
-      expect(plans[2].at, DateTime(2026, 9, 19, 21, 0));
+      expect(plans[1].at, DateTime(2026, 9, 16, 18, 0));
+      expect(plans[2].at, DateTime(2026, 9, 16, 21, 0));
     });
 
     test('a group whose projects all wrote today skips to tomorrow', () {
@@ -99,9 +99,9 @@ void main() {
       );
       expect(plans.length, 2);
       final wrote = plans.firstWhere((p) => p.minutes == 18 * 60);
-      expect(wrote.at, DateTime(2026, 9, 20, 18, 0));
+      expect(wrote.at, DateTime(2026, 9, 17, 18, 0));
       final not = plans.firstWhere((p) => p.minutes == 20 * 60);
-      expect(not.at, DateTime(2026, 9, 19, 20, 0));
+      expect(not.at, DateTime(2026, 9, 16, 20, 0));
       expect(not.count, 1);
     });
 
