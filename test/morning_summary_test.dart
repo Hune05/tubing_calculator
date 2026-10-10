@@ -176,13 +176,13 @@ void main() {
     testWidgets('켜져 있고 예약돼 있으면 예약됨', (tester) async {
       await saveMorningSummary(true, 7 * 60 + 30);
       await open(tester, {id});
-      expect(findText('아침 요약 알림: 예약됨 (매일 07:30)'), findsOneWidget);
+      expect(findText('아침 요약 알림: 예약됨 (근무일 07:30)'), findsOneWidget);
     });
 
     testWidgets('켜져 있는데 예약이 없으면 예약 안 됨', (tester) async {
       await saveMorningSummary(true, 8 * 60);
       await open(tester, {});
-      expect(findText('아침 요약 알림: 예약 안 됨 (매일 08:00)'), findsOneWidget);
+      expect(findText('아침 요약 알림: 예약 안 됨 (근무일 08:00)'), findsOneWidget);
     });
   });
 }

@@ -509,8 +509,8 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               child: Text(
                 keepWords(
                   ok
-                      ? "아침 요약 알림: 예약됨 (매일 ${_hm(m.minutes)})"
-                      : "아침 요약 알림: 예약 안 됨 (매일 ${_hm(m.minutes)})",
+                      ? "아침 요약 알림: 예약됨 (근무일 ${_hm(m.minutes)})"
+                      : "아침 요약 알림: 예약 안 됨 (근무일 ${_hm(m.minutes)})",
                 ),
                 style: TextStyle(
                   fontSize: 13,
@@ -774,7 +774,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
               "작업 일지 알림",
               _pref?.enabled ?? true,
               _sched?.daily,
-              "매일 ${_hm(_pref?.minutes ?? 1080)}",
+              "근무일 ${_hm(_pref?.minutes ?? 1080)}, 토·일·공휴일 빼고",
             ),
             ..._projectTimeRows(),
             _schedRow(

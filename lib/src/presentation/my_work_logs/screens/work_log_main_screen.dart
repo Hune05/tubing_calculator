@@ -390,7 +390,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   contentPadding: EdgeInsets.zero,
                   title: const Text("작업 일지 작성 알림"),
                   subtitle: Text(
-                    keepWords("진행중 프로젝트가 있고 오늘 작업 일지를 쓰지 않았으면 알려 줍니다."),
+                    keepWords("진행중 프로젝트가 있고 오늘 작업 일지를 쓰지 않았으면 알려 줍니다. 토·일·공휴일에는 알리지 않습니다(그날 출근을 찍으면 알립니다)."),
                   ),
                   value: enabled,
                   onChanged: (v) => setS(() => enabled = v),
@@ -441,7 +441,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   title: const Text("아침 요약 알림"),
                   subtitle: Text(
                     keepWords(
-                      "매일 ${hm(morningMinutes)}에 오늘 일정과 작성할 작업 일지를 확인하라고 알려 줍니다.",
+                      "근무일(토·일·공휴일 빼고) ${hm(morningMinutes)}에 오늘 일정과 작성할 작업 일지를 확인하라고 알려 줍니다.",
                     ),
                   ),
                   value: morningOn,
