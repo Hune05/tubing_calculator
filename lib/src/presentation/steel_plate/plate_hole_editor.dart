@@ -1140,13 +1140,23 @@ class _EditorPainter extends CustomPainter {
         );
       }
     }
-    // 모든 구멍 십자 치수(고른 구멍은 아래에서 진하게 따로)
+    // 모든 구멍 십자 치수(고른 구멍 하나는 십자만, 치수는 아래에서 진하게 따로)
     final all = plateHoleDimsOf(p.holes);
     plateDrawHoleDims(
       canvas,
       [
         for (var i = 0; i < all.length; i++)
-          if (!(selected.length == 1 && selected.contains(i))) all[i],
+          // 고른 구멍 하나는 십자만(치수는 아래에서 진하게)
+          if (selected.length == 1 && selected.contains(i))
+            PlateHoleDim(
+              all[i].c,
+              left: false,
+              bottom: false,
+              armX: all[i].armX,
+              armY: all[i].armY,
+            )
+          else
+            all[i],
       ],
       toScreen: toScreen,
       minX: p.minX,
