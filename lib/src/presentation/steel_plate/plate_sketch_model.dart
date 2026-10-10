@@ -22,16 +22,17 @@ class PlateSketch {
     Map<int, double>? dims,
     this.frame = const Rect.fromLTWH(0, 0, 400, 300),
     this.scaled = false,
+    this.closed = false,
     this.photoAligned = true,
     this.nextId = 0,
     this.thickness,
     List<String>? unclear,
-  }) : pts = pts ?? [],
-       corners = corners ?? [],
-       ids = ids ?? [],
-       holes = holes ?? [],
-       dims = dims ?? {},
-       unclear = unclear ?? [] {
+  }) : pts = List.of(pts ?? const []),
+       corners = List.of(corners ?? const []),
+       ids = List.of(ids ?? const []),
+       holes = List.of(holes ?? const []),
+       dims = Map.of(dims ?? const {}),
+       unclear = List.of(unclear ?? const []) {
     while (this.corners.length < this.pts.length) {
       this.corners.add(PlateCorner.square);
     }
@@ -57,6 +58,9 @@ class PlateSketch {
   /// 치수를 넣어 mm가 정해졌는지.
   bool scaled;
 
+  /// 1번 점을 다시 눌러(또는 AI가 읽어) 모양을 닫았는지. 닫기 전에는 빈 곳을 누르면 점이 더해진다.
+  bool closed;
+
   /// 사진이 그림과 같은 자리에 겹쳐 있는지(AI가 읽은 것은 겹치지 않는다).
   bool photoAligned;
   int nextId;
@@ -65,8 +69,14 @@ class PlateSketch {
 
   int get n => pts.length;
 
-  /// 변 개수(점 둘이면 한 변, 셋부터는 닫힌 외곽).
-  int get edgeCount => n < 2 ? 0 : (n == 2 ? 1 : n);
+  /// 변 개수. 닫기 전에는 찍은 차례대로 이은 변만(마지막 → 첫 변은 없음).
+  int get edgeCount => n < 2 ? 0 : (closed && n >= 3 ? n : n - 1);
+
+  Offset edgeVec(int i) => edgeEnd(i) - pts[i];
+
+  /// 넣은 치수가 있는 변(잠김: 다른 변을 고쳐도 이 길이는 그대로 둔다).
+  bool isLocked(int i) => i < n && dims.containsKey(ids[i]);
+  void unlock(int i) => dims.remove(ids[i]);
 
   Offset edgeEnd(int i) => pts[(i + 1) % n];
   double edgeLen(int i) => (edgeEnd(i) - pts[i]).distance;
@@ -86,6 +96,7 @@ class PlateSketch {
     dims: Map.of(dims),
     frame: frame,
     scaled: scaled,
+    closed: closed,
     photoAligned: photoAligned,
     nextId: nextId,
     thickness: thickness,
@@ -116,6 +127,14 @@ class PlateSketch {
     pts.removeAt(k);
     corners.removeAt(k);
     ids.removeAt(k);
+    if (n < 3) closed = false;
+  }
+
+  /// 모양 닫기(점이 셋 이상일 때).
+  bool close() {
+    if (n < 3) return false;
+    closed = true;
+    return true;
   }
 
   // ── 치수 ──
@@ -143,30 +162,86 @@ class PlateSketch {
     );
   }
 
-  /// 변 [i]의 길이를 [mm]로. 처음 넣는 치수면 전체 크기(축척)를 정하고,
-  /// 그다음부터는 그 변 뒤 꼭짓점들을 변 방향으로 옮긴다(닫는 변이 차이를 받는다).
-  /// 닫는 변이면 마지막 꼭짓점만 옮긴다. 변 길이가 0이라 방향을 모르면 false.
-  bool setEdge(int i, double mm) {
-    if (i >= edgeCount || mm <= 0) return false;
+  static const _axisTol = 0.0175; // 약 1°
+  static bool _isH(Offset v) =>
+      v.distance > 1e-9 && (v.dy / v.distance).abs() < _axisTol;
+  static bool _isV(Offset v) =>
+      v.distance > 1e-9 && (v.dx / v.distance).abs() < _axisTol;
+
+  /// 변 [i] 다음부터 돌며 [want]에 맞는 잠기지 않은 변 하나([i] 빼고).
+  int? _nextFree(int i, bool Function(Offset v) want) {
+    for (var s = 1; s < edgeCount; s++) {
+      final k = (i + s) % edgeCount;
+      if (!isLocked(k) && want(edgeVec(k))) return k;
+    }
+    return null;
+  }
+
+  /// 꼭짓점 i+1 … k(돌아서)를 [d]만큼 옮긴다: 변 i는 d만큼 늘고 변 k는 d만큼 준다(나머지 변은 그대로).
+  void _shiftBetween(int i, int k, Offset d) {
+    var j = (i + 1) % n;
+    while (true) {
+      pts[j] += d;
+      if (j == k) break;
+      j = (j + 1) % n;
+    }
+  }
+
+  /// 변 [i]의 길이를 [mm]로 넣고 잠근다. 처음 넣는 치수면 전체 크기(축척)를 정한다.
+  /// 그다음부터는 넣은(잠긴) 길이와 가로·세로를 지키며, 같은 방향의 잠기지 않은 변 하나가 차이를 받는다
+  /// (평면도 앱의 치수 잠금과 같은 방식). 받을 변이 없으면 바꾸지 않고 [note]로 차이를 알린다.
+  /// 닫기 전에는 그 변 뒤 꼭짓점들을 같이 옮긴다.
+  ({bool ok, String? note}) setEdge(int i, double mm) {
+    if (i >= edgeCount || mm <= 0) return (ok: false, note: null);
     final cur = edgeLen(i);
-    if (cur < 1e-9) return false;
+    if (cur < 1e-9) return (ok: false, note: null);
+    String? note;
     if (!scaled) {
       scaleAll(mm / cur);
       scaled = true;
     } else {
-      final j = (i + 1) % n;
-      final d = (pts[j] - pts[i]) / cur;
-      if (j == 0) {
-        pts[n - 1] = pts[0] - d * mm;
-      } else {
-        final delta = d * (mm - cur);
-        for (var k = j; k < n; k++) {
+      final v = edgeVec(i);
+      final delta = v / cur * (mm - cur);
+      if (!closed || n < 3) {
+        for (var k = i + 1; k < n; k++) {
           pts[k] += delta;
+        }
+      } else if (delta.distance > 1e-9) {
+        if (_isH(v) || _isV(v)) {
+          final h = _isH(v);
+          final k = _nextFree(i, h ? _isH : _isV);
+          if (k == null) {
+            final dir = h ? '가로' : '세로';
+            return (
+              ok: false,
+              note:
+                  '$dir 변이 모두 잠겨 있어 맞출 곳이 없습니다(${_f((mm - cur).abs())}mm 차이). 잠긴 $dir 치수 하나를 고치거나 잠금을 푸십시오.',
+            );
+          }
+          _shiftBetween(i, k, delta);
+        } else {
+          // 기운 변: 가로 몫은 가로 변이, 세로 몫은 세로 변이 받는다
+          final kx = delta.dx.abs() > 1e-9 ? _nextFree(i, _isH) : -1;
+          final ky = delta.dy.abs() > 1e-9 ? _nextFree(i, _isV) : -1;
+          if (kx != null && ky != null) {
+            if (kx >= 0) _shiftBetween(i, kx, Offset(delta.dx, 0));
+            if (ky >= 0) _shiftBetween(i, ky, Offset(0, delta.dy));
+          } else {
+            final k = _nextFree(i, (_) => true);
+            if (k == null) {
+              return (
+                ok: false,
+                note: '다른 변이 모두 잠겨 있어 이 길이로 맞출 수 없습니다. 잠긴 치수 하나를 푸십시오.',
+              );
+            }
+            _shiftBetween(i, k, delta);
+            note = '맞출 가로·세로 변이 없어 변 ${k + 1} 기울기가 바뀌었습니다.';
+          }
         }
       }
     }
     dims[ids[i]] = mm;
-    return true;
+    return (ok: true, note: note);
   }
 
   /// 손으로 찍어 조금 비뚤어진 변을 가로·세로로 바로 세운다([tolDeg]도 안). 길이는 그대로 두고
@@ -192,7 +267,7 @@ class PlateSketch {
       }
       fixed++;
     }
-    if (n >= 3) {
+    if (closed && n >= 3) {
       final a = pts[n - 1], b = pts[0];
       final v = b - a, len = v.distance;
       if (len > 1e-9) {
@@ -301,6 +376,7 @@ class PlateSketch {
     'dims': {for (final e in dims.entries) '${e.key}': e.value},
     'frame': [frame.left, frame.top, frame.right, frame.bottom],
     'scaled': scaled,
+    'closed': closed,
     'aligned': photoAligned,
     'next': nextId,
     't': thickness,
@@ -348,6 +424,7 @@ class PlateSketch {
           ? Rect.fromLTRB(d(fr[0])!, d(fr[1])!, d(fr[2])!, d(fr[3])!)
           : const Rect.fromLTWH(0, 0, 400, 300),
       scaled: o['scaled'] == true,
+      closed: o['closed'] == true && pts.length >= 3,
       photoAligned: o['aligned'] != false,
       nextId: math.max(next, ids.isEmpty ? 0 : ids.reduce(math.max) + 1),
       thickness: d(o['t']),
@@ -383,6 +460,7 @@ class PlateSketch {
           ),
       ],
       scaled: true,
+      closed: true,
       photoAligned: false,
       thickness: r.thickness,
       unclear: List.of(r.unclear),

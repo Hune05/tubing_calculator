@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/app_components.dart' show showAppSnack;
 import '../../core/common_widgets/recent_calc_history.dart';
-import '../../core/common_widgets/swipe_to_delete.dart' show showDeleteUndo;
+import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
 import '../electrical/busbar_bend_painter.dart' show BusbarShapePainter;
@@ -21,6 +21,7 @@ import '../electrical/elec_form_parts.dart';
 import '../steel_bracket/bracket_pdf.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'plate_calc.dart';
+import 'plate_corner_dialog.dart';
 import 'plate_dxf.dart';
 import 'plate_hole_editor.dart';
 import 'plate_painter.dart';
@@ -107,13 +108,19 @@ class _PlatePageState extends State<PlatePage>
   PlateMaterial _mat = PlateMaterial.steel;
   final List<PlateHoleSpec> _holes = [];
   int _rotQ = 0; // 판을 반시계로 90° 돌린 횟수(평판·리브·자유)
-  // 평판 네 귀(왼쪽 아래·오른쪽 아래·오른쪽 위·왼쪽 위 차례)와 지금 고른 귀
+  // 평판 네 귀(왼쪽 아래·오른쪽 아래·오른쪽 위·왼쪽 위 차례)
   List<PlateCorner> _corners = List.filled(4, PlateCorner.square);
-  Set<int> _cornerSel = {0, 1, 2, 3};
   final _ca = TextEditingController(text: '10');
   final _cb = TextEditingController(text: '10');
   Map<String, (double, double)> _bendTable = {};
   List<double> _dies = const [];
+
+  // 위 붙박이 그림(접을 수 있음)과, 그림에서 치수를 누르면 갈 칸
+  bool _previewOpen = true;
+  static const _previewKey = 'plate_preview_open_v1';
+  final _scroll = ScrollController();
+  final _lenFocus = FocusNode(), _widFocus = FocusNode();
+  final _raFocus = FocusNode(), _rbFocus = FocusNode();
 
   final _job = TextEditingController();
   final _t = TextEditingController(text: '3');
@@ -180,6 +187,12 @@ class _PlatePageState extends State<PlatePage>
     readPunchDies().then((d) {
       if (mounted && d.isNotEmpty) setState(() => _dies = d);
     });
+    SharedPreferences.getInstance()
+        .then((p) {
+          final v = p.getBool(_previewKey);
+          if (v != null && mounted) setState(() => _previewOpen = v);
+        })
+        .catchError((_) {});
   }
 
   @override
@@ -191,6 +204,10 @@ class _PlatePageState extends State<PlatePage>
     }
     _ca.dispose();
     _cb.dispose();
+    _scroll.dispose();
+    for (final n in [_lenFocus, _widFocus, _raFocus, _rbFocus]) {
+      n.dispose();
+    }
     super.dispose();
   }
 
@@ -202,7 +219,15 @@ class _PlatePageState extends State<PlatePage>
     'rot': _rotQ,
     'corners': [for (final c in _corners) c.toJson()],
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
+    // 첫 화면 "이어서" 줄에 쓰는 글(읽을 때는 안 쓴다)
+    'lbl': _label(),
   });
+
+  String _label() {
+    final p = _plan();
+    if (p == null) return '';
+    return '${plateShapeName(_shape)} ${fmt(_num(_t))}t · ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)}';
+  }
 
   @override
   Map<String, Object?>? historySnapshot() =>
@@ -237,7 +262,6 @@ class _PlatePageState extends State<PlatePage>
         cr > 0 ? PlateCorner(PlateCornerKind.round, cr) : PlateCorner.square,
       );
     }
-    _cornerSel = {0, 1, 2, 3};
     _syncCornerFields();
     final hs = m['holes'];
     if (hs is List) {
@@ -611,7 +635,7 @@ class _PlatePageState extends State<PlatePage>
   /// 구멍 요약: "구멍 6개 · φ13.5 4 · 장공 11×30 2".
   String _holeSummary() {
     if (_holes.isEmpty) {
-      return '구멍이 없습니다. "구멍 배치 편집"에서 판을 눌러 놓거나 아래에서 한꺼번에 넣습니다.';
+      return '구멍이 없습니다. 위 그림의 판이나 아래 단추를 눌러 넣습니다.';
     }
     final kinds = <String, int>{};
     for (final h in _holes) {
@@ -619,52 +643,6 @@ class _PlatePageState extends State<PlatePage>
       kinds[k] = (kinds[k] ?? 0) + 1;
     }
     return '구멍 ${_holes.length}개 · ${kinds.entries.map((e) => '${e.key} ${e.value}').join(' · ')}${_rotQ != 0 ? ' · 판 ${_rotQ * 90}° 돌림' : ''}';
-  }
-
-  /// 줄·네 귀·장공 틀로 여러 개를 한꺼번에 넣는다(하나하나로 풀어 넣음).
-  Future<void> _addGroup({PlateHoleGroup? preset}) async {
-    final g = await showModalBottomSheet<PlateHoleGroup>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: fc.surface,
-      builder: (_) => _HoleSheet(
-        initial: preset,
-        bent: plateShapeBends(_shape),
-        flat: _shape == PlateShape.flat,
-        faces: plateFaceNames(_shape),
-        dies: _dies.isEmpty ? kDefaultPunchDies : _dies,
-        text: fc.text,
-        sub: fc.textSub,
-        // 칩 모양은 화면의 다른 칩과 같게(선택하면 브랜드 색 바탕에 흰 글씨)
-        chip: (key, label, sel, onTap) => calcChip(key, label, sel, onTap),
-      ),
-    );
-    if (g == null || !mounted) return;
-    final base = platePlan(_input().withHoles(const [], rotQ: 0));
-    _set(
-      () => _holes.addAll(
-        g.expand(
-          minX: base.minX,
-          minY: base.minY,
-          maxX: base.maxX,
-          maxY: base.maxY,
-        ),
-      ),
-    );
-  }
-
-  void _clearHoles() {
-    final before = List.of(_holes);
-    _set(_holes.clear);
-    showDeleteUndo(
-      context,
-      '구멍 ${before.length}개',
-      onUndo: () => _set(
-        () => _holes
-          ..clear()
-          ..addAll(before),
-      ),
-    );
   }
 
   Future<void> _openEditor() async {
@@ -766,54 +744,22 @@ class _PlatePageState extends State<PlatePage>
       ),
       SizedBox(
         width: double.infinity,
-        child: FilledButton.icon(
+        child: OutlinedButton.icon(
           key: const Key('pl_hole_edit'),
-          style: FilledButton.styleFrom(
-            backgroundColor: fc.brand,
-            foregroundColor: fc.onBrand,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: fc.brand,
+            side: BorderSide(color: fc.brand),
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
           onPressed: _openEditor,
           icon: const Icon(Icons.open_with),
           label: const Text(
-            '구멍 배치 편집 (놓기·옮기기·돌리기)',
+            '구멍 넣기·고치기',
             style: TextStyle(fontWeight: FontWeight.w800),
           ),
         ),
       ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-          calcChip('pl_hole_add', '줄로 넣기', false, () => _addGroup()),
-          if (_shape == PlateShape.flat)
-            calcChip(
-              'pl_hole_corners',
-              '네 귀 구멍',
-              false,
-              () => _addGroup(
-                preset: const PlateHoleGroup(
-                  dia: 13.5,
-                  corners: true,
-                  x: 20,
-                  y: 20,
-                ),
-              ),
-            ),
-          calcChip(
-            'pl_hole_slot',
-            '장공 넣기',
-            false,
-            () => _addGroup(
-              preset: const PlateHoleGroup(dia: 13.5, slot: 30, x: 25, y: 25),
-            ),
-          ),
-          if (_holes.isNotEmpty)
-            calcChip('pl_hole_clear', '구멍 모두 지우기', false, _clearHoles),
-        ],
-      ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 16),
       if (bent)
         ...elecFold(
           'pl_fold_bendset',
@@ -884,33 +830,22 @@ class _PlatePageState extends State<PlatePage>
       );
     } else {
       final size = '${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)} mm';
-      summary = '철판 ${plateShapeName(_shape)} · ${fmt(_num(_t))}t · $size';
+      // 크기는 위 요약 줄에만(결과 칸과 두 번 쓰지 않는다), 결과 칸은 무게·꺾기 위주
+      summary =
+          '철판 ${plateShapeName(_shape)} · ${fmt(_num(_t))}t · ${_bend ? '전개 ' : ''}$size';
       children.addAll([
         calcResult(
           key: const Key('pl_result'),
-          big: size,
+          big: '장당 약 ${fmt(p.kgEach, 2)}kg',
           caption:
-              '${_bend ? '전개 크기' : '판 크기'} · ${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}t · 장당 약 ${fmt(p.kgEach, 2)}kg · $_qtyN장 약 ${fmt(p.kgTotal, 1)}kg',
+              '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}t · $_qtyN장 합계 약 ${fmt(p.kgTotal, 1)}kg${p.holes.isNotEmpty ? ' · 구멍 ${p.holes.length}개' : ''}',
           warn: warn,
           lines: [
             ...p.problems,
             ...p.notes,
             if (p.bends.isNotEmpty) _bendCond(p),
             for (var n = 0; n < p.bends.length; n++) _bendLine(p, n),
-            if (p.holes.isNotEmpty)
-              '구멍 ${p.holes.length}개(전개도 자리는 아래 "구멍 자리").',
           ],
-        ),
-        const SizedBox(height: 12),
-        calcLabel(
-          _bend ? '전개도' : '판 모양',
-          '실제 비율입니다. 주황 점선은 꺾기선(번호·방향·각도), 아래 숫자는 왼쪽 끝에서 꺾기선까지 거리입니다.',
-        ),
-        const SizedBox(height: 4),
-        _box(
-          const Key('pl_view'),
-          260,
-          PlatePainter(plan: p, text: fc.text, sub: fc.textSub, bg: fc.surface),
         ),
         if (p.bendPlan != null) ...[
           const SizedBox(height: 12),
@@ -953,7 +888,7 @@ class _PlatePageState extends State<PlatePage>
             caption: 'DXF와 같이 알려 줄 것',
             lines: [
               '재질·두께·수량: ${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}t · $_qtyN장.',
-              'DXF는 위 오른쪽 단추로 보냅니다. CUT 층만 자르고 BEND 층은 꺾기선(자르지 않음)이라고 알립니다.',
+              'DXF는 맨 아래 "업체에 보내기"에서 고릅니다. CUT 층만 자르고 BEND 층은 꺾기선(자르지 않음)이라고 알립니다.',
               if (p.bends.isNotEmpty)
                 '꺾기 ${p.bends.length}곳: 방향은 DXF를 위에서 본 쪽 기준(NOTE 층 UP/DOWN), 안쪽 반경 ${fmt(p.rUsed)}mm. 업체 공제값이 다르면 그 값을 받아 "꺾기 조건"에 넣고 다시 보냅니다.',
               '구멍 둘레·외곽 버(찌꺼기)는 받은 뒤 갈아 냅니다. 녹 방지 도장은 현장 기준을 따릅니다.',
@@ -967,64 +902,302 @@ class _PlatePageState extends State<PlatePage>
       elecBasis('pl_basis', kPlateBasis),
     ]);
 
-    return FieldViewTheme(
-      child: Builder(
-        builder: (context) => Scaffold(
-          backgroundColor: fc.background,
-          appBar: AppBar(
-            backgroundColor: fc.surface,
-            foregroundColor: fc.text,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            title: Text(
-              _bend ? '절단 + 절곡' : '레이저 절단',
-              style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
-            ),
-            actions: [
-              if (p != null)
-                IconButton(
-                  key: const Key('pl_share'),
-                  tooltip: '카톡으로 보내기',
-                  icon: Icon(Icons.share_outlined, color: fc.text),
-                  onPressed: () => widget.share(_shareText(p)),
-                ),
-              if (p != null)
-                IconButton(
-                  key: const Key('pl_dxf'),
-                  tooltip: 'DXF 보내기 (레이저 업체)',
-                  icon: Icon(Icons.architecture_outlined, color: fc.text),
-                  onPressed: () => _sendDxf(p),
-                ),
-              if (p != null)
-                IconButton(
-                  key: const Key('pl_pdf'),
-                  tooltip: '가공 지시서 PDF',
-                  icon: Icon(Icons.picture_as_pdf_outlined, color: fc.text),
-                  onPressed: () => openBracketPdf(
-                    context,
-                    () => _pdfInput(p),
-                    previewTitle: '철판 가공 지시서 미리보기',
-                    filePrefix: 'steel_plate',
-                  ),
-                ),
-              IconButton(
-                key: const Key('pl_saved'),
-                tooltip: '저장한 규격',
-                icon: Icon(Icons.bookmarks_outlined, color: fc.text),
-                onPressed: _openSaved,
+    // 뒤로 갈 때 바로 남긴다(첫 화면 "이어서" 줄이 방금 것을 읽게)
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _saveNow();
+      },
+      child: FieldViewTheme(
+        child: Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: fc.background,
+            appBar: AppBar(
+              backgroundColor: fc.surface,
+              foregroundColor: fc.text,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              title: Text(
+                _bend ? '절단 + 절곡' : '레이저 절단',
+                style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
               ),
-              calcHistoryButton(),
-            ],
-          ),
-          body: elecPage(
-            children,
-            sumKey: 'pl_sum',
-            summary: summary,
-            warn: warn,
+              actions: [
+                IconButton(
+                  key: const Key('pl_saved'),
+                  tooltip: '저장한 규격',
+                  icon: Icon(Icons.bookmarks_outlined, color: fc.text),
+                  onPressed: _openSaved,
+                ),
+                calcHistoryButton(),
+              ],
+            ),
+            body: elecPage(
+              children,
+              sumKey: 'pl_sum',
+              summary: summary,
+              warn: warn,
+              controller: _scroll,
+              header: _previewHeader(p),
+              footer: _sendBar(p),
+            ),
           ),
         ),
       ),
     );
+  }
+
+  // ── 위 붙박이 그림 ──
+
+  void _setPreviewOpen(bool v) {
+    setState(() => _previewOpen = v);
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(_previewKey, v))
+        .catchError((_) => false);
+  }
+
+  String _previewHint() => switch (_shape) {
+    PlateShape.flat => '귀를 누르면 귀 처리 · 치수를 누르면 그 칸 · 판을 누르면 구멍',
+    PlateShape.free => '꼭짓점을 누르면 귀 처리 · 판을 누르면 구멍',
+    PlateShape.rib => '치수를 누르면 그 칸 · 판을 누르면 구멍',
+    _ => '주황 점선은 꺾기선 · 판을 누르면 구멍',
+  };
+
+  /// 요약 줄 아래 붙박이 판 그림. 키보드가 떠 있으면 낮게.
+  Widget _previewHeader(PlatePlan? p) {
+    final kb = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final h = MediaQuery.sizeOf(context).height;
+    final boxH = kb
+        ? (h * 0.16).clamp(100.0, 160.0)
+        : (h * 0.24).clamp(150.0, 260.0);
+    final open = _previewOpen && p != null;
+    return Container(
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border(bottom: BorderSide(color: fc.line)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (open)
+            SizedBox(
+              height: boxH,
+              child: LayoutBuilder(
+                builder: (context, box) => GestureDetector(
+                  key: const Key('pl_view'),
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (d) => _tapPreview(p, box.biggest, d.localPosition),
+                  child: CustomPaint(
+                    painter: PlatePainter(
+                      plan: p,
+                      text: fc.text,
+                      sub: fc.textSub,
+                      bg: fc.surface,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+              ),
+            ),
+          InkWell(
+            key: const Key('pl_preview_toggle'),
+            onTap: p == null ? null : () => _setPreviewOpen(!_previewOpen),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 6, 10, 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      p == null
+                          ? '두께와 치수를 넣으면 그림이 나옵니다.'
+                          : (_previewOpen ? _previewHint() : '그림 보기'),
+                      style: TextStyle(fontSize: 13, color: fc.textSub),
+                    ),
+                  ),
+                  if (p != null)
+                    Icon(
+                      _previewOpen ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                      color: fc.textSub,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 그림을 눌렀을 때: 귀(평판)·꼭짓점(자유) → 귀 처리, 치수 숫자 → 그 칸, 판 안 → 구멍 넣기·고치기.
+  void _tapPreview(PlatePlan p, Size size, Offset at) {
+    final lay = PlatePainterLayout.of(p, size);
+    if (lay == null) return;
+    if (_shape == PlateShape.flat || _shape == PlateShape.free) {
+      final w = _num(_len), h = _num(_wid);
+      final base = _shape == PlateShape.flat
+          ? [Offset.zero, Offset(w, 0), Offset(w, h), Offset(0, h)]
+          : [for (final v in parsePlateVertices(_points.text)) v.$1];
+      int? best;
+      var bd = 30.0;
+      for (var k = 0; k < base.length; k++) {
+        final d = (lay.toScreen(p.toDisplay(base[k])) - at).distance;
+        if (d < bd) {
+          bd = d;
+          best = k;
+        }
+      }
+      if (best != null) {
+        _shape == PlateShape.flat ? _editCorner(best) : _editPointCorner(best);
+        return;
+      }
+    }
+    final tl = lay.topLeft, br = lay.bottomRight;
+    final inX = at.dx >= tl.dx - 10 && at.dx <= br.dx + 10;
+    final inY = at.dy >= tl.dy - 10 && at.dy <= br.dy + 10;
+    final swap = _rotQ.isOdd;
+    FocusNode? f;
+    if ((at.dy - lay.widthDimY).abs() < 18 && inX) {
+      f = switch (_shape) {
+        PlateShape.flat => swap ? _widFocus : _lenFocus,
+        PlateShape.rib => swap ? _rbFocus : _raFocus,
+        _ => null,
+      };
+    } else if ((at.dx - lay.heightDimX).abs() < 18 && inY) {
+      f = switch (_shape) {
+        PlateShape.flat => swap ? _lenFocus : _widFocus,
+        PlateShape.rib => swap ? _raFocus : _rbFocus,
+        _ => null,
+      };
+    }
+    if (f != null) {
+      _focusField(f);
+      return;
+    }
+    if (inX && inY) _openEditor();
+  }
+
+  /// 목록에서 내려가 있어 칸이 안 그려졌으면 맨 위로 올린 뒤 그 칸에 커서를 둔다.
+  void _focusField(FocusNode f) {
+    if (f.context != null) {
+      f.requestFocus();
+      return;
+    }
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) f.requestFocus();
+    });
+  }
+
+  // ── 업체에 보내기 ──
+
+  /// 맨 아래 붙박이 단추(키보드가 떠 있으면 숨김).
+  Widget? _sendBar(PlatePlan? p) {
+    if (p == null || MediaQuery.viewInsetsOf(context).bottom > 0) return null;
+    return Container(
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border(top: BorderSide(color: fc.line)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton.icon(
+            key: const Key('pl_send'),
+            style: FilledButton.styleFrom(
+              backgroundColor: fc.brand,
+              foregroundColor: fc.onBrand,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+            ),
+            onPressed: () => _openSend(p),
+            icon: const Icon(AppIcons.send, size: 18),
+            label: const Text(
+              '업체에 보내기',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openSend(PlatePlan p) async {
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: fc.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (c) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                child: Text(
+                  '업체에 보내기',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: fc.text,
+                  ),
+                ),
+              ),
+              for (final (id, icon, title, sub) in const [
+                (
+                  'dxf',
+                  Icons.architecture_outlined,
+                  'DXF 파일',
+                  '레이저 업체 절단 프로그램용 · CUT·BEND 층',
+                ),
+                (
+                  'pdf',
+                  Icons.picture_as_pdf_outlined,
+                  '가공 지시서 PDF',
+                  '그림·치수·구멍 표·서명 칸',
+                ),
+                (
+                  'kakao',
+                  Icons.chat_bubble_outline,
+                  '카톡 글',
+                  '치수·무게·꺾기를 글로 보냅니다',
+                ),
+              ])
+                ListTile(
+                  key: Key('pl_send_$id'),
+                  leading: Icon(icon, color: fc.brand),
+                  title: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: fc.text,
+                    ),
+                  ),
+                  subtitle: Text(sub, style: TextStyle(color: fc.textSub)),
+                  onTap: () => Navigator.pop(c, id),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (!mounted || pick == null) return;
+    switch (pick) {
+      case 'dxf':
+        await _sendDxf(p);
+      case 'pdf':
+        await openBracketPdf(
+          context,
+          () => _pdfInput(p),
+          previewTitle: '철판 가공 지시서 미리보기',
+          filePrefix: 'steel_plate',
+        );
+      case 'kakao':
+        await widget.share(_shareText(p));
+    }
   }
 
   String _shapeGuide() => switch (_shape) {
@@ -1038,31 +1211,25 @@ class _PlatePageState extends State<PlatePage>
   };
 
   // ── 평판 네 귀 ──
+  // 화면 칸은 네 귀에 같이 주는 한 줄만 둔다. 귀마다 다르게 할 때는 위 그림에서 그 귀를 누른다(10-10 손봄).
 
-  static const _cornerGroups = [
-    ('all', '네 귀', {0, 1, 2, 3}),
-    ('top', '위 둘', {2, 3}),
-    ('bottom', '아래 둘', {0, 1}),
-    ('left', '왼쪽 둘', {0, 3}),
-    ('right', '오른쪽 둘', {1, 2}),
-    ('d1', '대각 ↗', {0, 2}),
-    ('d2', '대각 ↖', {1, 3}),
-  ];
+  bool get _cornersSame => _corners.every(
+    (c) =>
+        c.kind == _corners[0].kind &&
+        c.a == _corners[0].a &&
+        (c.b <= 0 ? c.a : c.b) ==
+            (_corners[0].b <= 0 ? _corners[0].a : _corners[0].b),
+  );
 
-  /// 고른 귀 중 첫 귀의 값을 크기 칸에 옮긴다(직각이면 칸 값은 그대로).
+  /// 네 귀가 같으면 그 값을 크기 칸에 옮긴다(직각이면 칸 값은 그대로).
   void _syncCornerFields() {
-    final c = _corners[(_cornerSel.toList()..sort()).first];
-    if (c.kind == PlateCornerKind.none) return;
+    final c = _corners[0];
+    if (!_cornersSame || c.kind == PlateCornerKind.none) return;
     _ca.text = fmt(c.a);
     _cb.text = fmt(c.b <= 0 ? c.a : c.b);
   }
 
-  void _selectCorners(Set<int> s) => setState(() {
-    _cornerSel = Set.of(s);
-    _syncCornerFields();
-  });
-
-  void _setCornerKind(PlateCornerKind kind) => _set(() {
+  void _setAllCorners(PlateCornerKind kind) => _set(() {
     var a = _num(_ca), b = _num(_cb);
     if (a <= 0) {
       a = 10;
@@ -1072,138 +1239,106 @@ class _PlatePageState extends State<PlatePage>
       b = a;
       _cb.text = fmt(a);
     }
-    for (final k in _cornerSel) {
-      _corners[k] = kind == PlateCornerKind.none
+    _corners = List.filled(
+      4,
+      kind == PlateCornerKind.none
           ? PlateCorner.square
-          : PlateCorner(kind, a, kind == PlateCornerKind.notch ? b : 0);
-    }
+          : PlateCorner(kind, a, kind == PlateCornerKind.notch ? b : 0),
+    );
   });
 
   void _setCornerSize() => _set(() {
     final a = _num(_ca), b = _num(_cb);
-    for (final k in _cornerSel) {
-      final c = _corners[k];
-      if (c.kind == PlateCornerKind.none) continue;
-      _corners[k] = PlateCorner(
-        c.kind,
-        a,
-        c.kind == PlateCornerKind.notch ? b : 0,
-      );
-    }
+    final k = _corners[0].kind;
+    if (k == PlateCornerKind.none) return;
+    _corners = List.filled(
+      4,
+      PlateCorner(k, a, k == PlateCornerKind.notch ? b : 0),
+    );
   });
 
-  List<Widget> _cornerFields() {
-    final kinds = {for (final k in _cornerSel) _corners[k].kind};
-    final kind = kinds.length == 1 ? kinds.first : null;
-    bool same(Set<int> g) =>
-        g.length == _cornerSel.length && _cornerSel.containsAll(g);
-    Widget tile(int k) {
-      final on = _cornerSel.contains(k);
-      return Expanded(
-        child: Padding(
-          padding: const EdgeInsets.all(3),
-          child: Material(
-            color: on ? fc.brandSoft : fc.surface,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: BorderSide(
-                color: on ? fc.brand : fc.line,
-                width: on ? 2 : 1,
-              ),
-            ),
-            child: InkWell(
-              key: Key('pl_corner_$k'),
-              borderRadius: BorderRadius.circular(12),
-              onTap: () => _selectCorners({k}),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Column(
-                  children: [
-                    Text(
-                      kPlateCornerNames[k],
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: fc.textSub,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      _corners[k].label,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w900,
-                        color: fc.text,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
+  /// 그림에서 귀 하나를 눌렀을 때.
+  Future<void> _editCorner(int k) async {
+    final c = await showPlateCornerDialog(
+      context,
+      title: '${kPlateCornerNames[k]} 귀',
+      initial: _corners[k],
+      flat: true,
+    );
+    if (c == null || !mounted) return;
+    _set(() {
+      _corners = List.of(_corners)..[k] = c;
+      _syncCornerFields();
+    });
+  }
 
+  /// 자유 모양 그림에서 꼭짓점 하나를 눌렀을 때(꼭짓점 줄의 꼬리표를 고친다).
+  Future<void> _editPointCorner(int k) async {
+    final vs = parsePlateVertices(_points.text);
+    if (k >= vs.length) return;
+    final c = await showPlateCornerDialog(
+      context,
+      title: '꼭짓점 ${k + 1} 귀',
+      initial: vs[k].$2,
+    );
+    if (c == null || !mounted) return;
+    _set(
+      () => _points.text = platePointsText(
+        [for (final v in vs) v.$1],
+        [for (var i = 0; i < vs.length; i++) i == k ? c : vs[i].$2],
+      ),
+    );
+  }
+
+  List<Widget> _cornerFields() {
+    final same = _cornersSame;
+    final kind = same ? _corners[0].kind : null;
     Widget size(String key, String label, TextEditingController c, String g) =>
         elecField(key, label, c, g, onEdit: _setCornerSize);
     return [
-      calcLabel(
-        '네 귀 처리',
-        '귀를 누르면 그 귀 하나만, 아래 칩은 여러 귀를 한 번에 고릅니다. 고른 귀에 직각·R·C·따내기를 줍니다.',
-      ),
-      const SizedBox(height: 4),
-      Column(
-        key: const Key('pl_corners'),
-        children: [
-          Row(children: [tile(3), tile(2)]),
-          Row(children: [tile(0), tile(1)]),
-        ],
-      ),
-      if (_rotQ % 4 != 0)
-        Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            '판을 돌려 놓았습니다. 귀 이름은 돌리기 전(가로 ${fmt(_num(_len))} × 세로 ${fmt(_num(_wid))}) 기준입니다.',
-            style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
-          ),
-        ),
-      const SizedBox(height: 8),
-      Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (final (id, name, g) in _cornerGroups)
-            calcChip('pl_cg_$id', name, same(g), () => _selectCorners(g)),
-        ],
-      ),
-      const SizedBox(height: 10),
-      elecChipGroup('고른 귀 처리', '같은 처리가 아닌 귀를 같이 고르면 칩이 비어 보입니다.', [
+      elecChipGroup('네 귀', '네 귀에 같이 줍니다. 귀마다 다르게 하려면 위 그림에서 그 귀를 누르십시오.', [
         calcChip(
           'pl_ck_none',
           '직각',
           kind == PlateCornerKind.none,
-          () => _setCornerKind(PlateCornerKind.none),
+          () => _setAllCorners(PlateCornerKind.none),
         ),
         calcChip(
           'pl_ck_round',
           'R 둥글게',
           kind == PlateCornerKind.round,
-          () => _setCornerKind(PlateCornerKind.round),
+          () => _setAllCorners(PlateCornerKind.round),
         ),
         calcChip(
           'pl_ck_chamfer',
           'C 모따기',
           kind == PlateCornerKind.chamfer,
-          () => _setCornerKind(PlateCornerKind.chamfer),
+          () => _setAllCorners(PlateCornerKind.chamfer),
         ),
         calcChip(
           'pl_ck_notch',
           '따내기',
           kind == PlateCornerKind.notch,
-          () => _setCornerKind(PlateCornerKind.notch),
+          () => _setAllCorners(PlateCornerKind.notch),
         ),
       ]),
+      if (!same)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            '귀마다 다릅니다:${_cornersText().replaceFirst(' · ', ' ')}. 칩을 누르면 네 귀가 같아집니다.',
+            key: const Key('pl_corner_mixed'),
+            style: TextStyle(color: fc.textSub, height: 1.35),
+          ),
+        ),
+      if (_rotQ % 4 != 0 && !_corners.every((c) => c.isNone))
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            '판을 돌려 놓았습니다. 귀 이름은 돌리기 전(가로 ${fmt(_num(_len))} × 세로 ${fmt(_num(_wid))}) 기준입니다.',
+            style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+          ),
+        ),
       if (kind == PlateCornerKind.round)
         size('pl_ca', 'R (mm)', _ca, '귀를 둥글게 자르는 반경입니다.'),
       if (kind == PlateCornerKind.chamfer)
@@ -1216,17 +1351,22 @@ class _PlatePageState extends State<PlatePage>
   }
 
   List<Widget> _dimFields() {
-    Widget f(String key, String label, TextEditingController c, String guide) =>
-        elecField(key, label, c, guide, onEdit: _saveSoon);
+    Widget f(
+      String key,
+      String label,
+      TextEditingController c,
+      String guide, [
+      FocusNode? focus,
+    ]) => elecField(key, label, c, guide, onEdit: _saveSoon, focus: focus);
     return switch (_shape) {
       PlateShape.flat => [
-        f('pl_len', '가로 (mm)', _len, '판 가로 길이입니다.'),
-        f('pl_wid', '세로 (mm)', _wid, '판 세로 길이입니다.'),
+        f('pl_len', '가로 (mm)', _len, '판 가로 길이입니다.', _lenFocus),
+        f('pl_wid', '세로 (mm)', _wid, '판 세로 길이입니다.', _widFocus),
         ..._cornerFields(),
       ],
       PlateShape.rib => [
-        f('pl_ra', '가로 변 (mm)', _ribA, '직각을 낀 아래 변 길이입니다.'),
-        f('pl_rb', '세로 변 (mm)', _ribB, '직각을 낀 세운 변 길이입니다.'),
+        f('pl_ra', '가로 변 (mm)', _ribA, '직각을 낀 아래 변 길이입니다.', _raFocus),
+        f('pl_rb', '세로 변 (mm)', _ribB, '직각을 낀 세운 변 길이입니다.', _rbFocus),
         f(
           'pl_rc',
           '모서리 따내기 (mm, 0이면 없음)',
@@ -1298,223 +1438,4 @@ class _PlatePageState extends State<PlatePage>
       child: CustomPaint(painter: painter, child: const SizedBox.expand()),
     ),
   );
-}
-
-/// 구멍 묶음 넣기·고치기 창.
-class _HoleSheet extends StatefulWidget {
-  const _HoleSheet({
-    required this.initial,
-    required this.bent,
-    required this.flat,
-    required this.faces,
-    required this.dies,
-    required this.text,
-    required this.sub,
-    required this.chip,
-  });
-  final PlateHoleGroup? initial;
-  final bool bent, flat;
-  final List<String> faces;
-  final List<double> dies;
-  final Color text, sub;
-  final Widget Function(String key, String label, bool sel, VoidCallback onTap)
-  chip;
-
-  @override
-  State<_HoleSheet> createState() => _HoleSheetState();
-}
-
-class _HoleSheetState extends State<_HoleSheet> {
-  late final PlateHoleGroup? g = widget.initial;
-  late bool _slot = (g?.slot ?? 0) > 0;
-  late bool _slotX = g?.slotAlongX ?? true;
-  late bool _corners = (g?.corners ?? false) && widget.flat;
-  late bool _rowX = g?.rowAlongX ?? true;
-  late int _face = (g?.face ?? 0).clamp(0, widget.faces.length - 1);
-  late final _dia = TextEditingController(text: fmtSheet(g?.dia ?? 13.5));
-  late final _slotLen = TextEditingController(
-    text: fmtSheet((g?.slot ?? 0) > 0 ? g!.slot : 30),
-  );
-  late final _x = TextEditingController(text: fmtSheet(g?.x ?? 25));
-  late final _y = TextEditingController(text: fmtSheet(g?.y ?? 25));
-  late final _n = TextEditingController(text: '${g?.count ?? 1}');
-  late final _pitch = TextEditingController(text: fmtSheet(g?.pitch ?? 50));
-
-  static String fmtSheet(double v) {
-    var s = v.toStringAsFixed(2);
-    while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
-      s = s.substring(0, s.length - 1);
-    }
-    return s;
-  }
-
-  @override
-  void dispose() {
-    for (final c in [_dia, _slotLen, _x, _y, _n, _pitch]) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  double? _v(TextEditingController c) =>
-      double.tryParse(c.text.trim().replaceAll(',', '.'));
-
-  Widget _chip(String key, String label, bool sel, VoidCallback onTap) =>
-      widget.chip(key, label, sel, () => setState(onTap));
-
-  Widget _field(String key, String label, TextEditingController c) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: TextField(
-      key: Key(key),
-      controller: c,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      decoration: InputDecoration(labelText: label, isDense: true),
-    ),
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    final xLabel = _corners
-        ? '가장자리에서 가로 거리 (mm)'
-        : widget.bent
-        ? '면 시작에서 (mm)'
-        : '왼쪽 끝에서 첫 구멍 (mm)';
-    final yLabel = _corners
-        ? '가장자리에서 세로 거리 (mm)'
-        : widget.bent
-        ? '아래 가장자리에서 (mm)'
-        : '아래 끝에서 첫 구멍 (mm)';
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          14,
-          16,
-          16 + MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.initial == null ? '구멍 넣기' : '구멍 고치기',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w900,
-                  color: widget.text,
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                children: [
-                  _chip('hs_round', '둥근 구멍', !_slot, () => _slot = false),
-                  _chip('hs_slot', '장공', _slot, () => _slot = true),
-                ],
-              ),
-              const SizedBox(height: 8),
-              _field('hs_dia', _slot ? '장공 폭 (mm)' : '구멍 지름 (mm)', _dia),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  for (final d in widget.dies)
-                    _chip(
-                      'hs_die_${(d * 100).round()}',
-                      punchDieLabel(d),
-                      double.tryParse(_dia.text.trim()) == d,
-                      () => _dia.text = fmtSheet(d),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (_slot) ...[
-                _field('hs_slotlen', '장공 전체 길이 (mm)', _slotLen),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _chip('hs_slotx', '가로로 긴 장공', _slotX, () => _slotX = true),
-                    _chip(
-                      'hs_sloty',
-                      '세로로 긴 장공',
-                      !_slotX,
-                      () => _slotX = false,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (widget.bent) ...[
-                Text('구멍이 있는 면', style: TextStyle(color: widget.sub)),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (var k = 0; k < widget.faces.length; k++)
-                      _chip(
-                        'hs_face_$k',
-                        widget.faces[k],
-                        _face == k,
-                        () => _face = k,
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (widget.flat)
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _chip('hs_row', '줄로 놓기', !_corners, () => _corners = false),
-                    _chip('hs_corners', '네 귀', _corners, () => _corners = true),
-                  ],
-                ),
-              const SizedBox(height: 8),
-              _field('hs_x', xLabel, _x),
-              _field('hs_y', yLabel, _y),
-              if (!_corners) ...[
-                _field('hs_n', '개수', _n),
-                _field('hs_pitch', '피치 (다음 구멍까지, mm)', _pitch),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _chip('hs_rowx', '가로로 늘어놓기', _rowX, () => _rowX = true),
-                    _chip('hs_rowy', '세로로 늘어놓기', !_rowX, () => _rowX = false),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  key: const Key('hs_ok'),
-                  onPressed: () {
-                    final dia = _v(_dia);
-                    if (dia == null || dia <= 0) return;
-                    Navigator.pop(
-                      context,
-                      PlateHoleGroup(
-                        face: widget.bent ? _face : 0,
-                        dia: dia,
-                        slot: _slot ? (_v(_slotLen) ?? 0) : 0,
-                        slotAlongX: _slotX,
-                        corners: _corners,
-                        count: (_v(_n) ?? 1).round().clamp(1, 99),
-                        x: _v(_x) ?? 0,
-                        y: _v(_y) ?? 0,
-                        pitch: _v(_pitch) ?? 0,
-                        rowAlongX: _rowX,
-                      ),
-                    );
-                  },
-                  child: Text(widget.initial == null ? '넣기' : '고치기'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }

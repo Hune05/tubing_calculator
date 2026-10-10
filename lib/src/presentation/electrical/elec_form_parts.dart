@@ -216,11 +216,15 @@ mixin ElecTabParts<W extends StatefulWidget>
 
   /// 탭 몸통: 위에 결과 요약 줄(고정), 아래 입력·결과 목록.
   /// 요약 줄이 있으면(=계산이 됨) "최근 계산 기록"에도 쌓는다.
+  /// [header]는 요약 줄 바로 아래 붙박이(예: 철판 그림), [footer]는 맨 아래 붙박이(예: 보내기 단추).
   Widget elecPage(
     List<Widget> children, {
     required String sumKey,
     String? summary,
     bool warn = false,
+    Widget? header,
+    Widget? footer,
+    ScrollController? controller,
   }) {
     _registerRestorer(sumKey);
     if (summary != null) logElecHistory(sumKey, summary);
@@ -231,15 +235,18 @@ mixin ElecTabParts<W extends StatefulWidget>
       child: Column(
         children: [
           ElecSummaryBar(sumKey: sumKey, summary: summary, warn: warn),
+          ?header,
           Expanded(
             child: FocusTraversalGroup(
               policy: TextFieldsOnlyTraversalPolicy(),
               child: ListView(
+                controller: controller,
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
                 children: children,
               ),
             ),
           ),
+          ?footer,
         ],
       ),
     );
@@ -254,6 +261,7 @@ mixin ElecTabParts<W extends StatefulWidget>
     VoidCallback? onEdit,
     bool signed = false,
     bool ratioHint = true,
+    FocusNode? focus,
   }) => ratioHinted(
     label,
     c,
@@ -266,6 +274,7 @@ mixin ElecTabParts<W extends StatefulWidget>
           child: TextField(
             key: Key(key),
             controller: c,
+            focusNode: focus,
             textAlign: TextAlign.right,
             keyboardType: TextInputType.numberWithOptions(
               decimal: true,

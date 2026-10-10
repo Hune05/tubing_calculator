@@ -19,6 +19,7 @@ import '../common/calc_form_parts.dart';
 import '../calculator/widgets/app_dialog.dart';
 import '../electrical/busbar_punch_dies.dart' show punchDieLabel;
 import 'plate_calc.dart';
+import 'plate_hole_sheet.dart';
 import 'plate_painter.dart';
 
 class PlateHoleEditorPage extends StatefulWidget {
@@ -372,6 +373,46 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       for (final i in del) {
         _holes.removeAt(i);
       }
+      _sel.clear();
+    });
+    showDeleteUndo(context, '구멍 $n개', onUndo: _undoOnce);
+  }
+
+  /// 줄·네 귀·장공 틀로 한꺼번에 넣기(예전 철판 가공 화면에 있던 칩을 여기로 옮김).
+  Future<void> _addGroup({PlateHoleGroup? preset}) async {
+    final g = await showPlateHoleSheet(
+      context,
+      preset: preset,
+      shape: widget.input.shape,
+      dies: widget.dies,
+      background: fc.surface,
+      text: fc.text,
+      sub: fc.textSub,
+      chip: (key, label, sel, onTap) => calcChip(key, label, sel, onTap),
+    );
+    if (g == null || !mounted) return;
+    // 저장 자리는 돌리기 전 판 기준이다.
+    final base = platePlan(widget.input.withHoles(const [], rotQ: 0));
+    final adds = g.expand(
+      minX: base.minX,
+      minY: base.minY,
+      maxX: base.maxX,
+      maxY: base.maxY,
+    );
+    _change(() {
+      final start = _holes.length;
+      _holes.addAll(adds);
+      _sel
+        ..clear()
+        ..addAll([for (var k = 0; k < adds.length; k++) start + k]);
+    });
+  }
+
+  void _clearAll() {
+    final n = _holes.length;
+    if (n == 0) return;
+    _change(() {
+      _holes.clear();
       _sel.clear();
     });
     showDeleteUndo(context, '구멍 $n개', onUndo: _undoOnce);
@@ -854,11 +895,50 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
             ),
           ],
           const SizedBox(height: 10),
+          Text('한꺼번에 넣기', style: TextStyle(color: fc.textSub)),
+          const SizedBox(height: 4),
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: [
+              calcChip('ed_add_row', '줄로 넣기', false, () => _addGroup()),
+              if (widget.input.shape == PlateShape.flat)
+                calcChip(
+                  'ed_add_corners',
+                  '네 귀 구멍',
+                  false,
+                  () => _addGroup(
+                    preset: const PlateHoleGroup(
+                      dia: 13.5,
+                      corners: true,
+                      x: 20,
+                      y: 20,
+                    ),
+                  ),
+                ),
+              calcChip(
+                'ed_add_slot',
+                '장공 넣기',
+                false,
+                () => _addGroup(
+                  preset: const PlateHoleGroup(
+                    dia: 13.5,
+                    slot: 30,
+                    x: 25,
+                    y: 25,
+                  ),
+                ),
+              ),
               calcChip('ed_pcd', '원형 배치(PCD)', false, _pcd),
+              if (_holes.isNotEmpty)
+                calcChip('ed_clear', '모두 지우기', false, _clearAll),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
               if (!_bent)
                 calcChip(
                   'ed_rot',

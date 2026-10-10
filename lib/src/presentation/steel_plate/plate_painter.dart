@@ -23,6 +23,55 @@ String _f(double v) {
   return s;
 }
 
+/// 전개도 그림의 자리 잡기(그리기와 화면 누름 찾기가 같이 쓴다).
+class PlatePainterLayout {
+  final PlatePlan plan;
+  final double s, ox, oy, fontScale;
+  const PlatePainterLayout._(
+    this.plan,
+    this.s,
+    this.ox,
+    this.oy,
+    this.fontScale,
+  );
+
+  /// 그릴 수 없으면(크기 0 등) null.
+  static PlatePainterLayout? of(
+    PlatePlan p,
+    Size size, {
+    double fontScale = 1,
+  }) {
+    final bw = math.max(p.maxX - p.minX, 1.0);
+    final bh = math.max(p.maxY - p.minY, 1.0);
+    final ml = 58.0 * fontScale, mt = 44.0 * fontScale;
+    final mr = 16.0 * fontScale;
+    final mb = (p.bends.isEmpty ? 16.0 : 44.0) * fontScale;
+    final s = math.min(
+      (size.width - ml - mr) / bw,
+      (size.height - mt - mb) / bh,
+    );
+    if (s <= 0 || !s.isFinite) return null;
+    final ox = ml + (size.width - ml - mr - bw * s) / 2;
+    final oy = mt + (size.height - mt - mb - bh * s) / 2;
+    return PlatePainterLayout._(p, s, ox, oy, fontScale);
+  }
+
+  /// 전개도 (x, y위) → 화면 (x, y아래).
+  Offset toScreen(Offset q) =>
+      Offset(ox + (q.dx - plan.minX) * s, oy + (plan.maxY - q.dy) * s);
+
+  Offset toModel(Offset sc) =>
+      Offset(plan.minX + (sc.dx - ox) / s, plan.maxY - (sc.dy - oy) / s);
+
+  /// 판 왼쪽 위·오른쪽 아래(화면).
+  Offset get topLeft => toScreen(Offset(plan.minX, plan.maxY));
+  Offset get bottomRight => toScreen(Offset(plan.maxX, plan.minY));
+
+  /// 전체 길이 치수선(위)의 y, 전체 폭 치수선(왼쪽)의 x.
+  double get widthDimY => topLeft.dy - 24 * fontScale;
+  double get heightDimX => topLeft.dx - 26 * fontScale;
+}
+
 class PlatePainter extends CustomPainter {
   final PlatePlan plan;
   final Color text, sub, bg;
@@ -39,21 +88,11 @@ class PlatePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = plan;
-    final bw = math.max(p.maxX - p.minX, 1.0);
-    final bh = math.max(p.maxY - p.minY, 1.0);
-    final ml = 58.0 * fontScale, mt = 44.0 * fontScale;
-    final mr = 16.0 * fontScale;
-    final mb = (p.bends.isEmpty ? 16.0 : 44.0) * fontScale;
-    final s = math.min(
-      (size.width - ml - mr) / bw,
-      (size.height - mt - mb) / bh,
-    );
-    if (s <= 0 || !s.isFinite) return;
-    final ox = ml + (size.width - ml - mr - bw * s) / 2;
-    final oy = mt + (size.height - mt - mb - bh * s) / 2;
+    final lay = PlatePainterLayout.of(p, size, fontScale: fontScale);
+    if (lay == null) return;
+    final s = lay.s;
     // 전개도 (x, y위) → 화면 (x, y아래)
-    Offset m(Offset q) =>
-        Offset(ox + (q.dx - p.minX) * s, oy + (p.maxY - q.dy) * s);
+    Offset m(Offset q) => lay.toScreen(q);
 
     final pts = plateOutlinePoints(p.outline);
     if (pts.length >= 3) {
@@ -130,8 +169,8 @@ class PlatePainter extends CustomPainter {
       _text(canvas, t, (a + b) / 2, 0, color: text, bold: true);
     }
 
-    final left = m(Offset(p.minX, p.maxY)), right = m(Offset(p.maxX, p.minY));
-    final topY = left.dy - 24 * fontScale;
+    final left = lay.topLeft, right = lay.bottomRight;
+    final topY = lay.widthDimY;
     canvas.drawLine(left, Offset(left.dx, topY - 4), dimPaint);
     canvas.drawLine(
       Offset(right.dx, left.dy),
@@ -139,7 +178,7 @@ class PlatePainter extends CustomPainter {
       dimPaint,
     );
     hDim(left.dx, right.dx, topY, _f(p.flatLength));
-    final lx = left.dx - 26 * fontScale;
+    final lx = lay.heightDimX;
     canvas.drawLine(
       Offset(left.dx, left.dy),
       Offset(lx - 4, left.dy),

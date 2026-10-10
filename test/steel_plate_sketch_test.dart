@@ -1,6 +1,7 @@
-// 철판 가공 › 손그림 읽어 만들기(10-10): 따라 찍은 꼭짓점에 치수 넣기(처음은 축척, 그다음은 변 길이),
-// 직각 맞추기, 꼭짓점 끼우기·지우기와 넣은 치수 따라가기, AI 결과 옮기기, 레이저 절단으로 넘길 자료,
-// 저장·읽기, 화면(빈 칸에 찍고 치수 넣고 보내기, AI 읽기 성공·실패), 첫 화면 세 갈래.
+// 철판 가공 › 손그림 읽어 만들기(10-10): 따라 찍은 꼭짓점에 치수 넣기(처음은 축척, 그다음은 잠금 —
+// 같은 방향의 잠기지 않은 변이 차이를 받고, 없으면 바꾸지 않고 차이를 알림), 직각 맞추기, 닫기,
+// 꼭짓점 끼우기·지우기와 넣은 치수 따라가기, AI 결과 옮기기, 레이저 절단으로 넘길 자료, 저장·읽기,
+// 화면(모드 없이: 빈 칸에 찍고 1번 점으로 닫고 변을 눌러 치수, 구멍 놓기 5mm 칸, AI 읽기 성공·실패), 첫 화면.
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -9,13 +10,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/utils/ai_plate_sketch.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_calc.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_home_page.dart';
+import 'package:tubing_calculator/src/presentation/steel_plate/plate_page.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_sketch_model.dart';
 import 'package:tubing_calculator/src/presentation/steel_plate/plate_sketch_page.dart';
 
 void main() {
   group('그림 자료', () {
     PlateSketch traced() {
-      // 사진 점 크기로 비뚤게 찍은 사각(가로 약 400, 세로 약 200)
+      // 사진 점 크기로 비뚤게 찍은 사각(가로 약 400, 세로 약 200), 닫음
       final s = PlateSketch(frame: const Rect.fromLTWH(0, 0, 600, 400));
       for (final p in const [
         Offset(100, 100),
@@ -25,6 +27,7 @@ void main() {
       ]) {
         s.addPoint(p);
       }
+      s.close();
       return s;
     }
 
@@ -39,36 +42,125 @@ void main() {
       expect(s.pts[3].dx, closeTo(s.pts[0].dx, 1e-9)); // 닫는 변도 세로
     });
 
-    test('처음 넣는 치수는 축척, 그다음은 그 변 길이(닫는 변이 차이를 받음)', () {
+    test('닫기 전에는 찍은 차례대로 이은 변만, 1번 점으로 닫으면 닫는 변이 생긴다', () {
+      final s = PlateSketch();
+      for (final p in const [Offset(0, 0), Offset(10, 0), Offset(10, 10)]) {
+        s.addPoint(p);
+      }
+      expect(s.closed, isFalse);
+      expect(s.edgeCount, 2);
+      expect(s.squareUp(), 0); // 이미 바름
+      expect(s.close(), isTrue);
+      expect(s.edgeCount, 3);
+      s.removePoint(2);
+      expect(s.closed, isFalse); // 점이 셋 안 되면 다시 열림
+    });
+
+    test('처음 치수는 축척, 그다음은 잠금: 맞은편 변이 받고 직사각형 그대로', () {
       final s = traced()..squareUp();
       final h = s.edgeLen(1);
       s.holes.add(PlateHoleSpec(u: 150, v: 150, dia: 13.5));
       expect(s.scaled, isFalse);
       expect(s.toPlateMap(), isNull); // 치수 없으면 못 넘긴다
       final f = 200 / s.edgeLen(0);
-      expect(s.setEdge(0, 200), isTrue);
+      expect(s.setEdge(0, 200).ok, isTrue);
       expect(s.scaled, isTrue);
       expect(s.edgeLen(0), closeTo(200, 1e-9));
       expect(s.edgeLen(1), closeTo(h * f, 1e-9));
       expect(s.holes.first.u, closeTo(150 * f, 1e-9));
       expect(s.holes.first.dia, 13.5); // 지름은 mm 그대로
       expect(s.frame.width, closeTo(600 * f, 1e-9));
-      // 오른쪽 세로 변을 120으로 → 뒤 꼭짓점이 위로 옮겨지고 첫 변은 그대로
-      s.setEdge(1, 120);
+      // 오른쪽 세로 변 120 → 왼쪽 세로 변이 받는다(기울지 않음)
+      expect(s.setEdge(1, 120).ok, isTrue);
       expect(s.edgeLen(1), closeTo(120, 1e-9));
+      expect(s.edgeLen(3), closeTo(120, 1e-9));
       expect(s.edgeLen(0), closeTo(200, 1e-9));
       expect(s.edgeLen(2), closeTo(200, 1e-9));
+      expect(s.pts[3].dx, closeTo(s.pts[0].dx, 1e-9));
+      expect(
+        [s.isLocked(0), s.isLocked(1), s.isLocked(2)],
+        [true, true, false],
+      );
       expect(s.edgeMatches(0), isTrue);
-      expect(s.edgeMatches(1), isTrue);
       expect(s.edgeMatches(2), isNull);
-      // 닫는 변: 마지막 꼭짓점만 옮긴다
-      s.setEdge(3, 100);
-      expect(s.edgeLen(3), closeTo(100, 1e-9));
-      expect(s.edgeMatches(1), isTrue);
-      expect(s.edgeMatches(2), isNull);
-      // 길이 0인 변·잘못된 값은 못 넣는다
-      expect(s.setEdge(0, 0), isFalse);
-      expect(s.setEdge(9, 10), isFalse);
+      // 위 변도 넣어 잠근 뒤 아래를 다르게 넣으면: 맞출 가로 변이 없다 → 바꾸지 않고 차이를 알림
+      expect(s.setEdge(2, 200).ok, isTrue);
+      final r = s.setEdge(0, 220);
+      expect(r.ok, isFalse);
+      expect(r.note, contains('가로 변이 모두 잠겨 있어 맞출 곳이 없습니다(20mm 차이)'));
+      expect(s.edgeLen(0), closeTo(200, 1e-9));
+      // 위 변 잠금을 풀면 그 변이 받는다
+      s.unlock(2);
+      expect(s.setEdge(0, 220).ok, isTrue);
+      expect(s.edgeLen(2), closeTo(220, 1e-9));
+      expect(s.edgeLen(1), closeTo(120, 1e-9));
+      // 길이 0·없는 변은 못 넣는다
+      expect(s.setEdge(0, 0).ok, isFalse);
+      expect(s.setEdge(9, 10).ok, isFalse);
+    });
+
+    test('ㄱ자: 가로·세로 변을 차례로 넣으면 남은 변이 저절로 맞는다', () {
+      final s = PlateSketch(
+        pts: const [
+          Offset(0, 0),
+          Offset(500, 0),
+          Offset(500, 140),
+          Offset(200, 140),
+          Offset(200, 330),
+          Offset(0, 330),
+        ],
+        scaled: true,
+        closed: true,
+      );
+      for (final (i, mm) in const [
+        (0, 300.0),
+        (1, 80.0),
+        (2, 150.0),
+        (3, 100.0),
+      ]) {
+        expect(s.setEdge(i, mm).ok, isTrue);
+      }
+      expect(
+        s.toPlateMap()!['pts'],
+        '0,0\n300,0\n300,80\n150,80\n150,180\n0,180',
+      );
+    });
+
+    test('기운 변: 가로 몫·세로 몫을 가로·세로 변이 받고, 없으면 한 변이 기운다고 알림', () {
+      // 오른쪽 위 귀를 빗긴 오각형(빗변 3번)
+      final s = PlateSketch(
+        pts: const [
+          Offset(0, 0),
+          Offset(200, 0),
+          Offset(200, 60),
+          Offset(160, 100),
+          Offset(0, 100),
+        ],
+        scaled: true,
+        closed: true,
+      );
+      final r = s.setEdge(2, 50 * 1.4142135623730951); // 빗변 40√2 → 50√2
+      expect(r.ok, isTrue);
+      expect(r.note, isNull);
+      expect(s.edgeVec(0).dy, closeTo(0, 1e-9));
+      expect(s.edgeVec(4).dx, closeTo(0, 1e-9));
+      // 세로 변 둘(1·4)을 잠그면 세로 몫을 받을 변이 없어 다른 변이 기운다
+      final t = PlateSketch(
+        pts: const [
+          Offset(0, 0),
+          Offset(200, 0),
+          Offset(200, 60),
+          Offset(160, 100),
+          Offset(0, 100),
+        ],
+        scaled: true,
+        closed: true,
+      );
+      t.setEdge(1, 60);
+      t.setEdge(4, 100);
+      final r2 = t.setEdge(2, 50 * 1.4142135623730951);
+      expect(r2.ok, isTrue);
+      expect(r2.note, contains('기울기가 바뀌었습니다'));
     });
 
     test('꼭짓점을 끼우거나 지우면 바뀐 변의 넣은 치수만 빠진다', () {
@@ -86,10 +178,6 @@ void main() {
       expect(s.n, 4);
       expect(s.dimOf(0), 200);
       expect(s.dimOf(2), 200);
-      // 끝에 더하면 닫는 변이 나뉘므로 그 치수는 빠진다
-      s.setEdge(3, 100);
-      s.addPoint(const Offset(-10, 50));
-      expect(s.dimOf(3), isNull);
     });
 
     test('레이저 절단으로 넘길 자료: 왼쪽 아래를 0,0으로, 귀 처리·구멍·두께', () {
@@ -148,6 +236,7 @@ void main() {
       expect(back.unclear, ['위 변 길이는 짐작했습니다']);
       expect(back.scaled, isTrue);
       expect(back.photoAligned, isFalse);
+      expect(back.closed, isTrue);
       // 번호는 이어서 붙는다
       back.addPoint(const Offset(1, 1));
       expect(back.ids.toSet().length, 5);
@@ -226,9 +315,14 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('빈 칸에 꼭짓점 넷 → 직각 맞추기 → 치수 둘 → 레이저 절단으로', (tester) async {
-      await open(tester);
-      expect(status(tester), startsWith('사진을 찍거나 고르십시오'));
+    Future<void> enterLength(WidgetTester tester, String mm) async {
+      await tester.enterText(find.byKey(const Key('sk_len')), mm);
+      await tester.tap(find.byKey(const Key('sk_len_ok')));
+      await tester.pumpAndSettle();
+    }
+
+    /// 빈 칸에 사각 넷을 찍고 1번 점으로 닫는다. 화면 점 넷을 돌려준다.
+    Future<List<Offset>> drawRect(WidgetTester tester) async {
       final r = tester.getRect(find.byKey(const Key('sk_canvas')));
       final pts = [
         r.center + const Offset(-120, 60),
@@ -240,67 +334,118 @@ void main() {
         await tester.tapAt(p);
         await tester.pumpAndSettle();
       }
-      expect(status(tester), startsWith('꼭짓점 4개'));
+      expect(
+        status(tester),
+        startsWith('꼭짓점 4개. 다음 귀퉁이를 누르고, 다 찍었으면 1번 점을 눌러 닫습니다'),
+      );
+      await tester.tapAt(pts[0]);
+      await tester.pumpAndSettle();
+      return pts;
+    }
+
+    testWidgets('모드 없이: 찍고 → 1번 점으로 닫고 → 직각 → 변을 눌러 치수 → 보내기', (tester) async {
+      await open(tester);
+      expect(status(tester), startsWith('사진을 찍거나 고르십시오'));
+      final pts = await drawRect(tester);
+      expect(
+        find.text('모양을 닫았습니다. 변 이름(변 1…)을 눌러 길이(mm)를 넣으십시오.'),
+        findsOneWidget,
+      );
+      // 닫은 뒤에는 빈 곳을 눌러도 점이 안 생긴다
+      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
+      await tester.tapAt(r.topLeft + const Offset(30, 30));
+      await tester.pumpAndSettle();
+      expect(status(tester), startsWith('변 이름(변 1…)을 눌러 길이(mm)를 넣습니다'));
       await tap(tester, 'sk_square');
       expect(find.text('변 4개를 가로·세로로 바로 세웠습니다'), findsOneWidget);
       // 치수 없이 보내면 알림만
       await tap(tester, 'sk_send');
       expect(find.text('변 하나에 치수를 넣어야 크기가 정해집니다'), findsOneWidget);
       expect(sent, isNull);
-      await tap(tester, 'sk_mode_dim');
-      expect(status(tester), startsWith('변을 눌러 길이(mm)를 넣습니다'));
-      // 아래 변(꼭짓점 1→2) 가운데를 누른다
+      // 아래 변(1→2)을 누른다
       await tester.tapAt((pts[0] + pts[1]) / 2);
       await tester.pumpAndSettle();
       expect(find.text('변 1→2 길이'), findsOneWidget);
-      await tester.enterText(find.byKey(const Key('ed_num_0')), '300');
-      await tester.tap(find.byKey(const Key('ed_num_ok')));
-      await tester.pumpAndSettle();
-      expect(find.text('이 치수로 전체 크기를 맞췄습니다. 나머지 변도 눌러 넣으십시오.'), findsOneWidget);
-      // 화면은 그대로 보이므로 같은 자리의 오른쪽 변을 누른다
+      await enterLength(tester, '300');
+      expect(
+        find.text('이 치수로 전체 크기를 맞췄습니다. 나머지 변의 숫자도 눌러 넣으십시오.'),
+        findsOneWidget,
+      );
+      // 오른쪽 변 150 → 왼쪽 변이 받아 직사각형 그대로
       await tester.tapAt((pts[1] + pts[2]) / 2);
       await tester.pumpAndSettle();
       expect(find.text('변 2→3 길이'), findsOneWidget);
-      await tester.enterText(find.byKey(const Key('ed_num_0')), '150');
-      await tester.tap(find.byKey(const Key('ed_num_ok')));
-      await tester.pumpAndSettle();
+      await enterLength(tester, '150');
       expect(status(tester), contains('넣은 치수 2곳'));
       await tap(tester, 'sk_send');
-      expect(sent, isNotNull);
       expect(sent!['sh'], 'free');
       expect(sent!['pts'], '0,0\n300,0\n300,150\n0,150');
-      // 되돌리기: 마지막 치수 전으로
-      await tap(tester, 'sk_undo');
+      // 잠긴 변을 다시 누르면 잠금 풀기가 있다
+      await tester.tapAt((pts[1] + pts[2]) / 2);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('sk_len_unlock')));
+      await tester.pumpAndSettle();
       expect(status(tester), contains('넣은 치수 1곳'));
+      // 되돌리기
+      await tap(tester, 'sk_undo');
+      expect(status(tester), contains('넣은 치수 2곳'));
+    });
+
+    testWidgets('구멍 놓기: 5mm 칸에 붙고, 눌러 고르고 지운다', (tester) async {
+      await open(tester);
+      final pts = await drawRect(tester);
+      await tap(tester, 'sk_square');
+      await tester.tapAt((pts[0] + pts[1]) / 2);
+      await tester.pumpAndSettle();
+      await enterLength(tester, '300');
+      await tap(tester, 'sk_hole_add');
+      expect(status(tester), startsWith('빈 곳을 누르면 φ13.5 구멍을 놓습니다(5mm 칸에 붙음)'));
+      await tap(tester, 'sk_dia_110');
+      final at = pts[0] + const Offset(37, -29);
+      await tester.tapAt(at);
+      await tester.pumpAndSettle();
+      await tap(tester, 'sk_send');
+      final h = PlateHoleSpec.fromJson((sent!['holes'] as List).single)!;
+      expect(h.dia, 11);
+      expect(h.u % 5, closeTo(0, 1e-6));
+      expect(h.v % 5, closeTo(0, 1e-6));
+      // 구멍 놓기를 끄고 구멍을 누르면 고르기 → 지우기
+      await tap(tester, 'sk_hole_add');
+      await tester.tapAt(at);
+      await tester.pumpAndSettle();
+      expect(status(tester), startsWith('구멍 1: φ11'));
+      await tap(tester, 'sk_hole_del');
+      await tap(tester, 'sk_send');
+      expect(sent!['holes'], isEmpty);
     });
 
     testWidgets('꼭짓점 고르기 → 귀 처리 R10 → 지우기', (tester) async {
       await open(tester);
       final r = tester.getRect(find.byKey(const Key('sk_canvas')));
-      final a = r.center + const Offset(-100, 50);
+      final b = r.center + const Offset(100, 50);
       for (final p in [
-        a,
-        r.center + const Offset(100, 50),
+        r.center + const Offset(-100, 50),
+        b,
         r.center + const Offset(0, -60),
       ]) {
         await tester.tapAt(p);
         await tester.pumpAndSettle();
       }
-      await tester.tapAt(a);
+      await tester.tapAt(b);
       await tester.pumpAndSettle();
-      expect(status(tester), startsWith('꼭짓점 1: 직각'));
+      expect(status(tester), startsWith('꼭짓점 2: 직각'));
       await tap(tester, 'sk_corner');
-      await tester.tap(find.byKey(const Key('sk_ck_round')));
+      await tester.tap(find.byKey(const Key('cd_kind_round')));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const Key('sk_ca')), '10');
-      await tester.tap(find.byKey(const Key('sk_corner_ok')));
+      await tester.enterText(find.byKey(const Key('cd_a')), '10');
+      await tester.tap(find.byKey(const Key('cd_ok')));
       await tester.pumpAndSettle();
-      expect(status(tester), startsWith('꼭짓점 1: R10'));
+      expect(status(tester), startsWith('꼭짓점 2: R10'));
       await tap(tester, 'sk_del');
-      expect(status(tester), startsWith('꼭짓점 2개'));
+      expect(status(tester), startsWith('꼭짓점 2개. 다음 귀퉁이를 누릅니다'));
     });
 
-    testWidgets('AI로 읽기: 짐작한 곳을 보여 주고 바로 보낼 수 있다', (tester) async {
+    testWidgets('AI로 읽기: 짐작한 곳·사진 작게, 바로 보낼 수 있다', (tester) async {
       await open(
         tester,
         photo: Uint8List.fromList(List.filled(64, 1)),
@@ -323,17 +468,20 @@ void main() {
       await tap(tester, 'sk_ai');
       expect(find.textContaining('오늘 남은 횟수 19번'), findsOneWidget);
       expect(find.text('AI가 짐작한 곳: 위쪽 구멍 자리는 짐작했습니다'), findsOneWidget);
-      expect(status(tester), startsWith('변을 누르면 길이를'));
-      expect(find.byKey(const Key('sk_trace')), findsOneWidget);
+      expect(status(tester), startsWith('변의 숫자를 눌러 길이를 넣습니다'));
+      expect(find.byKey(const Key('sk_thumb')), findsOneWidget);
+      // 사진 단추는 다 그린 뒤에는 아래 칸에서 빠지고 위 메뉴로
+      expect(find.byKey(const Key('sk_gallery')), findsNothing);
       await tap(tester, 'sk_send');
       expect(sent!['pts'], '0,0\n250,0\n250,120,r20\n0,120');
       expect(sent!['t'], '4');
       expect((sent!['holes'] as List).length, 1);
-      // 직접 따라 찍기로 바꾸면 빈 그림(되돌리기로 살린다)
-      await tap(tester, 'sk_trace');
+      // 위 메뉴 → 사진 위에 직접 따라 찍기 → 빈 그림(되돌리기로 살린다)
+      await tap(tester, 'sk_menu');
+      await tap(tester, 'sk_m_trace');
       expect(status(tester), startsWith('"AI로 읽기"를 눌러 보십시오'));
       await tap(tester, 'sk_undo');
-      expect(status(tester), startsWith('꼭짓점 4개')); // AI가 읽은 넷이 돌아온다
+      expect(status(tester), startsWith('변의 숫자를 눌러 길이를 넣습니다'));
     });
 
     testWidgets('AI가 안 되면 이유와 따라 찍기 안내', (tester) async {
@@ -355,26 +503,30 @@ void main() {
       expect(status(tester), startsWith('꼭짓점 1개'));
     });
 
-    testWidgets('그린 것은 다시 열어도 남는다', (tester) async {
+    testWidgets('그린 것은 다시 열어도 남는다(닫은 것까지)', (tester) async {
       await open(tester);
-      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
-      await tester.tapAt(r.center);
-      await tester.tapAt(r.center + const Offset(80, 0));
-      await tester.pumpAndSettle();
+      await drawRect(tester);
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(seconds: 1));
       await open(tester);
-      expect(status(tester), startsWith('꼭짓점 2개'));
+      expect(status(tester), startsWith('변 이름(변 1…)을 눌러'));
     });
   });
 
-  testWidgets('철판 가공 첫 화면: 세 갈래', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+  testWidgets('철판 가공 첫 화면: 세 갈래, 마지막에 하던 것 "이어서"', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      PlatePage.draftKeyOf(true): '{"sh":"z","lbl":"Z자 3t · 138.5 × 100"}',
+      PlateSketchPage.draftKey:
+          '{"pts":[[0,0],[300,0],[300,150],[0,150]],"scaled":true,"closed":true}',
+    });
     await tester.pumpWidget(const MaterialApp(home: PlateHomePage()));
     await tester.pumpAndSettle();
     expect(find.text('레이저 절단'), findsOneWidget);
     expect(find.text('절단 + 절곡'), findsOneWidget);
     expect(find.text('손그림 읽어 만들기'), findsOneWidget);
+    expect(find.byKey(const Key('ph_cut_last')), findsNothing);
+    expect(find.text('이어서: Z자 3t · 138.5 × 100'), findsOneWidget);
+    expect(find.text('이어서: 300 × 150 · 꼭짓점 4개'), findsOneWidget);
     await tester.tap(find.byKey(const Key('ph_bend')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('pl_shape_hat')), findsOneWidget);
@@ -387,6 +539,8 @@ void main() {
     expect(find.byKey(const Key('pl_shape_hat')), findsNothing);
     await tester.pageBack();
     await tester.pumpAndSettle();
+    // 들어갔다 나오면 레이저 절단도 "이어서"가 생긴다
+    expect(find.text('이어서: 평판 3t · 200 × 100'), findsOneWidget);
     await tester.tap(find.byKey(const Key('ph_sketch')));
     await tester.pumpAndSettle();
     expect(find.text('손그림 읽어 만들기'), findsOneWidget);

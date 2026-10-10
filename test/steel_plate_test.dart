@@ -498,73 +498,155 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// 위 요약 줄 글(크기는 여기에만 나온다).
+    String sum(WidgetTester tester) => tester
+        .widget<Text>(
+          find.descendant(
+            of: find.byKey(const Key('pl_sum')),
+            matching: find.byType(Text),
+          ),
+        )
+        .data!;
+
+    /// 위 붙박이 그림에서 판 자리(mm) → 화면 점.
+    Offset onView(WidgetTester tester, PlatePlan p, Offset mm) {
+      final r = tester.getRect(find.byKey(const Key('pl_view')));
+      return r.topLeft + PlatePainterLayout.of(p, r.size)!.toScreen(mm);
+    }
+
+    /// 맨 아래 "업체에 보내기" → dxf·pdf·kakao.
+    Future<void> send(WidgetTester tester, String what) async {
+      await tester.tap(find.byKey(const Key('pl_send')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(Key('pl_send_$what')));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('절곡 화면은 ㄱ자부터, 레이저 절단 화면은 평판부터, 입력은 따로 남는다', (tester) async {
       await open(tester);
       expect(find.text('절단 + 절곡'), findsOneWidget);
-      expect(find.text('94.3 × 100 mm'), findsOneWidget);
+      expect(sum(tester), '철판 ㄱ자 · 3t · 전개 94.3 × 100 mm');
       expect(find.byKey(const Key('pl_view')), findsOneWidget);
       expect(find.byKey(const Key('pl_side')), findsOneWidget);
       expect(find.textContaining('꺾기 1: 왼쪽 끝에서 47.1mm'), findsOneWidget);
       expect(find.byKey(const Key('pl_shape_flat')), findsNothing);
+      // 결과 칸은 무게 위주(크기는 요약 줄에만)
+      expect(find.textContaining('장당 약'), findsOneWidget);
+      expect(find.text('94.3 × 100 mm'), findsNothing);
       await tap(tester, 'pl_shape_hat');
       // 발 50 · 높이 50 · 윗면 50 → 250 − 4 × 공제
       final hat = '${(250 - 4 * bd3).toStringAsFixed(1)} × 100 mm';
-      expect(find.text(hat), findsOneWidget);
+      expect(sum(tester), endsWith('전개 $hat'));
       await close(tester);
 
       await open(tester, bend: false);
       expect(find.text('레이저 절단'), findsOneWidget);
-      expect(find.text('200 × 100 mm'), findsOneWidget);
+      expect(sum(tester), '철판 평판 · 3t · 200 × 100 mm');
       expect(find.byKey(const Key('pl_side')), findsNothing);
       expect(find.byKey(const Key('pl_shape_hat')), findsNothing);
       await tap(tester, 'pl_shape_rib');
-      expect(find.text('100 × 100 mm'), findsOneWidget);
+      expect(sum(tester), endsWith(' 100 × 100 mm'));
       await close(tester);
 
       await open(tester);
-      expect(find.text(hat), findsOneWidget);
+      expect(sum(tester), endsWith('전개 $hat'));
       await close(tester);
       await open(tester, bend: false);
-      expect(find.text('100 × 100 mm'), findsOneWidget);
+      expect(sum(tester), endsWith(' 100 × 100 mm'));
     });
 
-    testWidgets('평판 네 귀: 위 둘 R20, 왼쪽 아래 따내기 30×15', (tester) async {
+    testWidgets('네 귀는 한 줄로 같이, 귀 하나는 그림에서 눌러 따로', (tester) async {
       String? sent;
       await open(tester, bend: false, share: (s) async => sent = s);
-      await tap(tester, 'pl_cg_top');
       await tap(tester, 'pl_ck_round');
       await tester.enterText(find.byKey(const Key('pl_ca')), '20');
       await tester.pumpAndSettle();
-      Finder tile(int k) => find.descendant(
-        of: find.byKey(Key('pl_corner_$k')),
-        matching: find.byType(Text),
+      // 그림에서 왼쪽 아래 귀를 눌러 따내기 30×15
+      final p = platePlan(
+        const PlateInput(
+          shape: PlateShape.flat,
+          t: 3,
+          length: 200,
+          width: 100,
+          corners: [
+            PlateCorner(PlateCornerKind.round, 20),
+            PlateCorner(PlateCornerKind.round, 20),
+            PlateCorner(PlateCornerKind.round, 20),
+            PlateCorner(PlateCornerKind.round, 20),
+          ],
+        ),
       );
-      String tileText(int k) =>
-          tester.widgetList<Text>(tile(k)).map((t) => t.data).join(' ');
-      expect(tileText(2), '오른쪽 위 R20');
-      expect(tileText(3), '왼쪽 위 R20');
-      expect(tileText(0), '왼쪽 아래 직각');
-      await tap(tester, 'pl_corner_0');
-      await tap(tester, 'pl_ck_notch');
-      await tester.enterText(find.byKey(const Key('pl_ca')), '30');
-      await tester.enterText(find.byKey(const Key('pl_cb')), '15');
+      await tester.tapAt(onView(tester, p, Offset.zero));
       await tester.pumpAndSettle();
-      expect(tileText(0), '왼쪽 아래 따내기 30×15');
-      await tap(tester, 'pl_share');
+      expect(find.text('왼쪽 아래 귀'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('cd_kind_notch')));
+      await tester.pumpAndSettle();
+      expect(find.text('따내기 가로 (mm)'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('cd_a')), '30');
+      await tester.enterText(find.byKey(const Key('cd_b')), '15');
+      await tester.tap(find.byKey(const Key('cd_ok')));
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '귀마다 다릅니다: 왼쪽 아래 따내기 30×15 · 오른쪽 아래 R20 · 오른쪽 위 R20 · 왼쪽 위 R20. 칩을 누르면 네 귀가 같아집니다.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.byKey(const Key('pl_ca')), findsNothing); // 섞여 있으면 크기 칸 없음
+      await send(tester, 'kakao');
       expect(
         sent,
-        contains('200 × 100 · 왼쪽 아래 따내기 30×15 · 오른쪽 위 R20 · 왼쪽 위 R20'),
+        contains(
+          '200 × 100 · 왼쪽 아래 따내기 30×15 · 오른쪽 아래 R20 · 오른쪽 위 R20 · 왼쪽 위 R20',
+        ),
       );
       // 다시 열어도 남는다
       await close(tester);
-      await open(tester, bend: false);
-      expect(tileText(0), '왼쪽 아래 따내기 30×15');
-      expect(tileText(3), '왼쪽 위 R20');
-      // 네 귀를 다 고르고 직각을 누르면 다 직각
-      await tap(tester, 'pl_cg_all');
+      await open(tester, bend: false, share: (s) async => sent = s);
+      expect(find.byKey(const Key('pl_corner_mixed')), findsOneWidget);
+      // 칩을 누르면 네 귀가 같아진다
       await tap(tester, 'pl_ck_none');
-      expect(tileText(0), '왼쪽 아래 직각');
-      expect(tileText(2), '오른쪽 위 직각');
+      expect(find.byKey(const Key('pl_corner_mixed')), findsNothing);
+      await send(tester, 'kakao');
+      expect(sent, contains('치수: 200 × 100 (mm)'));
+    });
+
+    testWidgets('그림에서 치수를 누르면 그 칸, 판을 누르면 구멍 넣기·고치기', (tester) async {
+      await open(tester, bend: false);
+      final p = platePlan(
+        const PlateInput(shape: PlateShape.flat, t: 3, length: 200, width: 100),
+      );
+      final r = tester.getRect(find.byKey(const Key('pl_view')));
+      final lay = PlatePainterLayout.of(p, r.size)!;
+      bool focused(String k) =>
+          tester.widget<TextField>(find.byKey(Key(k))).focusNode!.hasFocus;
+      await tester.tapAt(
+        r.topLeft +
+            Offset(lay.toScreen(const Offset(100, 0)).dx, lay.widthDimY),
+      );
+      await tester.pumpAndSettle();
+      expect(focused('pl_len'), isTrue);
+      await tester.tapAt(
+        r.topLeft +
+            Offset(lay.heightDimX, lay.toScreen(const Offset(0, 50)).dy),
+      );
+      await tester.pumpAndSettle();
+      expect(focused('pl_wid'), isTrue);
+      // 판 가운데 → 구멍 편집
+      await tester.tapAt(onView(tester, p, const Offset(100, 50)));
+      await tester.pumpAndSettle();
+      expect(find.text('구멍 배치 편집'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      // 그림 접기·펴기(기억)
+      await tap(tester, 'pl_preview_toggle');
+      expect(find.byKey(const Key('pl_view')), findsNothing);
+      expect(find.text('그림 보기'), findsOneWidget);
+      await close(tester);
+      await open(tester, bend: false);
+      expect(find.byKey(const Key('pl_view')), findsNothing);
+      await tap(tester, 'pl_preview_toggle');
+      expect(find.byKey(const Key('pl_view')), findsOneWidget);
     });
 
     testWidgets('예전 한 칸 저장: 같은 방식 화면만 이어 쓰고 "모서리 R"은 네 귀 R로', (tester) async {
@@ -591,21 +673,32 @@ void main() {
         ]),
       });
       await open(tester, bend: false);
-      expect(find.text('300 × 150 mm'), findsOneWidget);
+      expect(sum(tester), '철판 평판 · 4t · 300 × 150 mm');
       expect(
-        find.descendant(
-          of: find.byKey(const Key('pl_corner_1')),
-          matching: find.text('R10'),
-        ),
-        findsOneWidget,
+        tester
+            .widget<ChoiceChip>(find.byKey(const Key('pl_ck_round')))
+            .selected,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const Key('pl_ca')))
+            .controller!
+            .text,
+        '10',
       );
       final prefs = await SharedPreferences.getInstance();
       final cutSaved = prefs.getString(PlatePage.savedKeyOf(false))!;
       expect(cutSaved, contains('평판 하나'));
       expect(cutSaved, isNot(contains('꺾음 하나')));
       await close(tester);
+      // 닫을 때 남긴 입력에 첫 화면 "이어서" 글이 들어 있다
+      expect(
+        prefs.getString(PlatePage.draftKeyOf(false)),
+        contains('"lbl":"평판 4t · 300 × 150"'),
+      );
       await open(tester);
-      expect(find.text('94.3 × 100 mm'), findsOneWidget); // 절곡 화면은 새로
+      expect(sum(tester), endsWith('전개 94.3 × 100 mm')); // 절곡 화면은 새로
       expect(prefs.getString(PlatePage.savedKeyOf(true)), contains('꺾음 하나'));
       // 옛 칸은 지우지 않는다
       expect(prefs.getString(PlatePage.legacyDraftKey), isNotNull);
@@ -624,26 +717,33 @@ void main() {
         },
       );
       expect(find.textContaining('손그림에서 옮겨 왔습니다'), findsOneWidget);
-      expect(find.text('150 × 80 mm'), findsOneWidget);
+      expect(sum(tester), '철판 자유 모양 · 4t · 150 × 80 mm');
       expect(find.textContaining('구멍 1개 · φ11 1'), findsOneWidget);
       await tester.tap(find.text('되돌리기'));
       await tester.pumpAndSettle();
-      expect(find.text('200 × 100 mm'), findsOneWidget);
+      expect(sum(tester), endsWith(' 200 × 100 mm'));
     });
 
-    testWidgets('구멍 넣기 → 결과·DXF, 다시 열어도 구멍이 남는다', (tester) async {
+    testWidgets('구멍 넣기·고치기 → 편집 화면의 "줄로 넣기" → 결과·DXF, 다시 열어도 남는다', (
+      tester,
+    ) async {
       String? dxf;
       await open(tester, dxf: (s) async => dxf = s);
-      await tap(tester, 'pl_hole_add');
+      // 예전 칩(줄로 넣기·네 귀 구멍·장공 넣기)은 편집 화면 안으로 옮겼다
+      expect(find.byKey(const Key('pl_hole_add')), findsNothing);
+      await tap(tester, 'pl_hole_edit');
+      await tap(tester, 'ed_add_row');
       await tester.tap(find.byKey(const Key('hs_face_1')));
       await tester.pumpAndSettle();
       await tester.enterText(find.byKey(const Key('hs_x')), '30');
       await tester.enterText(find.byKey(const Key('hs_y')), '50');
       await tester.tap(find.byKey(const Key('hs_ok')));
       await tester.pumpAndSettle();
+      await tester.pageBack();
+      await tester.pumpAndSettle();
       expect(find.textContaining('구멍 1개 · φ13.5 1'), findsOneWidget);
       expect(find.textContaining('구멍 1 φ13.5: 2면 30·50 → 전개도'), findsOneWidget);
-      await tap(tester, 'pl_dxf');
+      await send(tester, 'dxf');
       expect(dxf, contains('CIRCLE'));
       expect(dxf, contains('BEND 1 UP 90 R3'));
       await close(tester);
@@ -656,7 +756,7 @@ void main() {
       await tap(tester, 'pl_t_4');
       await tester.enterText(find.byKey(const Key('pl_bd')), '7');
       await tester.pumpAndSettle();
-      expect(find.text('93 × 100 mm'), findsOneWidget);
+      expect(sum(tester), endsWith('전개 93 × 100 mm'));
       await tap(tester, 'pl_bd_save');
       await tap(tester, 'pl_t_3');
       String text(String k) =>
@@ -668,13 +768,17 @@ void main() {
       expect(prefs.getString(PlatePage.bendTableKey), contains('"4"'));
     });
 
-    testWidgets('카톡 글', (tester) async {
+    testWidgets('업체에 보내기 → 카톡 글, 키보드가 뜨면 단추를 숨긴다', (tester) async {
       String? sent;
       await open(tester, share: (s) async => sent = s);
-      await tap(tester, 'pl_share');
+      await send(tester, 'kakao');
       expect(sent, startsWith('[철판 가공] ㄱ자 · 철판 3t · 1장'));
       expect(sent, contains('전개 크기: 94.3 × 100mm'));
       expect(sent, contains('꺾기 1: 왼쪽 끝에서 47.1mm'));
+      tester.view.viewInsets = const FakeViewPadding(bottom: 600);
+      addTearDown(tester.view.resetViewInsets);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pl_send')), findsNothing);
     });
 
     testWidgets('전개도·꺾은 모양 PNG와 PDF', (tester) async {

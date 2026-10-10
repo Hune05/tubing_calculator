@@ -201,8 +201,8 @@ void main() {
     await tester.pumpAndSettle();
     await see(tester, find.byKey(const Key("pl_hole_summary")));
     expect(find.textContaining('판 90° 돌림'), findsOneWidget);
-    await see(tester, find.text('100 × 200 mm'));
-    expect(find.text('100 × 200 mm'), findsOneWidget);
+    await see(tester, find.textContaining(' 100 × 200 mm'));
+    expect(find.textContaining(' 100 × 200 mm'), findsOneWidget);
     // (40, 20) → (80, 40)
     await see(tester, find.byKey(const Key('pl_holes')));
     expect(find.textContaining('구멍 1 φ13.5: 전개도 80 · 40'), findsOneWidget);
