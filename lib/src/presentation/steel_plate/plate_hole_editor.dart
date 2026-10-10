@@ -32,7 +32,11 @@ class PlateHoleEditorPage extends StatefulWidget {
     required this.dies,
     required this.onChanged,
     this.embedded = false,
+    this.footer,
   });
+
+  /// 탭 안에 있을 때 아래 칸 맨 밑에 붙이는 것(예: "다음: 결과" 단추).
+  final Widget? footer;
 
   /// 철판 가공 화면의 "구멍" 탭 안에 넣을 때(제목 줄 없이, 되돌리기·다시·전체 보기는 그림 위 작은 줄).
   final bool embedded;
@@ -1003,6 +1007,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                 ),
             ],
           ),
+          ?widget.footer,
         ],
       ),
     ),

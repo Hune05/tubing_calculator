@@ -8,18 +8,21 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../../core/utils/ai_plate_sketch.dart';
 import '../calculator/widgets/app_dialog.dart';
+import '../calculator/widgets/swipe_delete.dart' show calcNavCompact;
+import '../common/app_icons.dart';
 import '../common/calc_form_parts.dart';
 import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
@@ -113,7 +116,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   Uint8List? _photo;
   ui.Image? _img;
   int? _selPt, _selHole;
-  bool _placingHole = false;
   double _tDia = 13.5;
   bool _showPhoto = true;
   bool _busy = false;
@@ -173,6 +175,8 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     if (!mounted) return;
     setState(() {
       _ready = true;
+      // 빈 그림이면 사진 탭부터, 그린 것이 있으면 그리기 탭에서 이어서
+      _tab = _s.n == 0 && _s.holes.isEmpty ? 0 : 1;
       _fit();
     });
   }
@@ -249,7 +253,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         _aiError = null;
         _selPt = null;
         _selHole = null;
-        _placingHole = false;
         _fit();
       }
     });
@@ -338,9 +341,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     setState(() {
       _busy = false;
       _s = PlateSketch.fromAi(r);
+      _tab = 2; // AI가 읽었으면 치수 확인부터
       _selPt = null;
       _selHole = null;
-      _placingHole = false;
       _fit();
     });
     _saveSoon();
@@ -356,7 +359,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     _s = PlateSketch(frame: _photoFrame);
     _selPt = null;
     _selHole = null;
-    _placingHole = false;
     _showPhoto = true;
     _fit();
   });
@@ -370,7 +372,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     );
     _selPt = null;
     _selHole = null;
-    _placingHole = false;
     _fit();
   });
 
@@ -467,54 +468,81 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     return best;
   }
 
+  // ── 탭(10-10 사용자: "손그림도 탭으로 나눠") ──
+  // 사진 → 그리기 → 치수 → 구멍 → 보내기. 위 그림은 같이 쓰고, 탭에 따라 그림을 눌렀을 때 하는 일과 아래 단추가 바뀐다.
+
+  static const _tabs = [
+    ('photo', '사진'),
+    ('draw', '그리기'),
+    ('dims', '치수'),
+    ('holes', '구멍'),
+    ('send', '보내기'),
+  ];
+  int _tab = 0;
+  String get _tabId => _tabs[_tab].$1;
+
+  void _goTab(String id) {
+    final i = _tabs.indexWhere((t) => t.$1 == id);
+    if (i < 0) return;
+    setState(() {
+      _tab = i;
+      _selPt = null;
+      _selHole = null;
+      _notice = null;
+    });
+  }
+
   // ── 손놀림 ──
-  // 누른 곳으로 판단한다: 꼭짓점 → 고르기(닫기 전 1번 점은 닫기), 구멍 → 고르기, 변의 숫자(닫은 뒤에는 변) → 길이,
-  // 빈 곳 → 고른 것 풀기, "구멍 놓기"를 켰으면 구멍, 닫기 전이면 꼭짓점 더하기.
+  // 그리기 탭: 꼭짓점 고르기·끌기(닫기 전 1번 점은 닫기), 빈 곳에 점 더하기·외곽 긋기, 변 길게 눌러 점 끼우기.
+  // 치수 탭: 변(숫자)을 누르면 길이. 구멍 탭: 판 안을 누르면 구멍, 동그라미를 그리면 구멍·장공, 구멍 끌기.
+  // 어느 탭이든 빈 곳(판 밖) 끌기·두 손가락은 화면 옮기기·확대.
 
   void _onTap(TapUpDetails d) {
     final at = d.localPosition;
     final m = _toModel(at);
-    final v = _s.hitPoint(m, _tol);
-    if (v != null) {
-      if (!_s.closed && v == 0 && _s.n >= 3) {
-        _closeShape();
-        return;
-      }
-      setState(() {
-        _selPt = _selPt == v ? null : v;
-        _selHole = null;
-      });
-      return;
+    switch (_tabId) {
+      case 'draw':
+        final v = _s.hitPoint(m, _tol);
+        if (v != null) {
+          if (!_s.closed && v == 0 && _s.n >= 3) {
+            _closeShape();
+            return;
+          }
+          setState(() => _selPt = _selPt == v ? null : v);
+          return;
+        }
+        if (_selPt != null) {
+          setState(() => _selPt = null);
+          return;
+        }
+        if (!_s.closed) _change(() => _s.addPoint(m));
+      case 'dims':
+        final e = _hitLabel(at) ?? (_s.closed ? _s.hitEdge(m, _tol) : null);
+        if (e != null) _editEdge(e);
+      case 'holes':
+        final h = _s.hitHole(m, _tol);
+        if (h != null) {
+          setState(() => _selHole = _selHole == h ? null : h);
+          return;
+        }
+        if (_selHole != null) {
+          setState(() => _selHole = null);
+          return;
+        }
+        if (!_s.closed) {
+          _say('먼저 그리기 탭에서 모양을 닫으십시오.', bad: true);
+          return;
+        }
+        if (!sketchContains(_s.pts, m)) return;
+        final p = _snapHole(m);
+        _change(
+          () => _s.holes.add(PlateHoleSpec(u: p.dx, v: p.dy, dia: _tDia)),
+        );
     }
-    final h = _s.hitHole(m, _tol);
-    if (h != null) {
-      setState(() {
-        _selHole = _selHole == h ? null : h;
-        _selPt = null;
-      });
-      return;
-    }
-    final e = _hitLabel(at) ?? (_s.closed ? _s.hitEdge(m, _tol) : null);
-    if (e != null) {
-      _editEdge(e);
-      return;
-    }
-    if (_selPt != null || _selHole != null) {
-      setState(() {
-        _selPt = null;
-        _selHole = null;
-      });
-      return;
-    }
-    if (_placingHole) {
-      final p = _snapHole(m);
-      _change(() => _s.holes.add(PlateHoleSpec(u: p.dx, v: p.dy, dia: _tDia)));
-      return;
-    }
-    if (!_s.closed) _change(() => _s.addPoint(m));
   }
 
   void _onLongPress(LongPressStartDetails d) {
+    if (_tabId != 'draw') return;
     final m = _toModel(d.localPosition);
     if (_s.hitPoint(m, _tol) != null) return;
     final e = _s.hitEdge(m, _tol);
@@ -522,7 +550,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     _change(() {
       _s.insertOnEdge(e, m);
       _selPt = e + 1;
-      _selHole = null;
     });
   }
 
@@ -538,33 +565,35 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     _dragHole = null;
     if (_pinching) return;
     final m = _toModel(_focal0);
-    final v = _s.hitPoint(m, _tol);
-    if (v != null) {
-      _push();
-      _dragPt = v;
-      _dragFrom = _s.pts[v];
-      setState(() {
-        _selPt = v;
-        _selHole = null;
-      });
-      return;
-    }
-    final h = _s.hitHole(m, _tol);
-    if (h != null) {
-      _push();
-      _dragHole = h;
-      final hh = _s.holes[h];
-      _dragFrom = Offset(hh.u, hh.v);
-      setState(() {
-        _selHole = h;
-        _selPt = null;
-      });
-      return;
-    }
-    // 빈 칸이면 외곽을, 닫힌 판 안이면 구멍을 손가락으로 긋는다(화면 옮기기는 판 밖이나 두 손가락)
-    if (_s.n == 0 || (_s.closed && sketchContains(_s.pts, m))) {
-      _ink = [m];
-      return;
+    if (_tabId == 'draw') {
+      final v = _s.hitPoint(m, _tol);
+      if (v != null) {
+        _push();
+        _dragPt = v;
+        _dragFrom = _s.pts[v];
+        setState(() => _selPt = v);
+        return;
+      }
+      // 빈 종이면 외곽을 손가락으로 긋는다
+      if (_s.n == 0) {
+        _ink = [m];
+        return;
+      }
+    } else if (_tabId == 'holes') {
+      final h = _s.hitHole(m, _tol);
+      if (h != null) {
+        _push();
+        _dragHole = h;
+        final hh = _s.holes[h];
+        _dragFrom = Offset(hh.u, hh.v);
+        setState(() => _selHole = h);
+        return;
+      }
+      // 닫힌 판 안이면 구멍(동그라미)을 긋는다
+      if (_s.closed && sketchContains(_s.pts, m)) {
+        _ink = [m];
+        return;
+      }
     }
     _panning = true;
   }
@@ -815,7 +844,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     ];
     _say(
       '${prefix.isEmpty ? '모양을 닫았습니다' : '$prefix꼭짓점 ${_s.n}개로 바꿨습니다'}${fixes.isEmpty ? '' : '(${fixes.join(' · ')})'}. '
-      '${_s.scaled ? '변의 숫자' : '변 이름'}을 눌러 길이를 넣으십시오.${sym ? ' 대칭이 아니면 되돌리기를 누르십시오.' : ''}',
+      '"다음: 치수"에서 변 길이를 넣으십시오.${sym ? ' 대칭이 아니면 되돌리기를 누르십시오.' : ''}',
     );
   }
 
@@ -883,38 +912,57 @@ class _PlateSketchPageState extends State<PlateSketchPage>
 
   String _status() {
     final s = _s;
-    if (s.n == 0 && !_placingHole) {
-      return _photo == null
-          ? '빈 칸에 판 모양을 손가락으로 그으십시오(귀퉁이를 차례로 눌러도 됩니다). 종이에 그린 것이 있으면 사진으로 찍어 AI로 읽습니다.'
-          : '"AI로 읽기"를 눌러 보십시오. 직접 하려면 사진 속 판 외곽을 손가락으로 따라 긋거나 귀퉁이를 차례로 누릅니다.';
+    switch (_tabId) {
+      case 'photo':
+        if (_photo == null) {
+          return '종이에 그린 그림이 있으면 사진을 찍거나 고르십시오. 없으면 "다음: 그리기"에서 바로 그립니다.';
+        }
+        if (s.n > 0 && !s.photoAligned) {
+          return 'AI가 읽은 그림입니다. "다음"으로 넘어가 모양·치수를 확인하십시오.';
+        }
+        return '"AI로 읽기"를 누르면 외곽·구멍·치수를 읽습니다. 직접 하려면 "다음: 그리기"에서 사진 위에 따라 그립니다.';
+      case 'draw':
+        final k = _selPt;
+        if (k != null && k < s.n) {
+          return '꼭짓점 ${k + 1}: ${s.corners[k].label}. 끌어 옮기거나 귀 처리·지우기를 누릅니다.';
+        }
+        if (s.n == 0) {
+          return '판 모양을 손가락으로 한 번에 그으십시오(귀퉁이를 차례로 눌러도 됩니다).';
+        }
+        if (!s.closed) {
+          return s.n < 3
+              ? '꼭짓점 ${s.n}개. 다음 귀퉁이를 누릅니다.'
+              : '꼭짓점 ${s.n}개. 다음 귀퉁이를 누르고, 다 찍었으면 1번 점을 눌러 닫습니다.';
+        }
+        return '모양을 닫았습니다(꼭짓점 ${s.n}개). 꼭짓점을 끌어 고치거나 변을 길게 눌러 꼭짓점을 더합니다.';
+      case 'dims':
+        if (!s.closed) return '먼저 그리기 탭에서 모양을 닫으십시오.';
+        if (!s.scaled) {
+          return '변 이름(변 1…)을 눌러 길이(mm)를 넣습니다. 처음 넣는 치수로 전체 크기가 정해집니다.';
+        }
+        final locked = [
+          for (var i = 0; i < s.edgeCount; i++)
+            if (s.isLocked(i)) i,
+        ].length;
+        return '변의 숫자를 눌러 길이를 넣습니다. 넣은 치수 $locked곳(✓ 잠김, ! 바뀜).';
+      case 'holes':
+        if (!s.closed) return '먼저 그리기 탭에서 모양을 닫으십시오.';
+        final hk = _selHole;
+        if (hk != null && hk < s.holes.length) {
+          final h = s.holes[hk];
+          return '구멍 ${hk + 1}: φ${_f(h.dia)}${h.slot > h.dia ? ' 장공 ${_f(h.slot)}' : ''}. 끌어 옮기거나 고치기·지우기를 누릅니다.';
+        }
+        return '판 안을 누르면 φ${_f(_tDia)} 구멍을 놓습니다${s.scaled ? '(5mm 칸에 붙음)' : ''}. 동그라미를 그리면 구멍, 길쭉하게 그리면 장공. 구멍 ${s.holes.length}개.';
+      default:
+        final m = s.toPlateMap();
+        if (m == null) {
+          return s.n < 3
+              ? '아직 모양이 없습니다. 그리기 탭에서 판 모양을 그리십시오.'
+              : '치수 탭에서 변 하나에 길이를 넣어야 크기가 정해집니다.';
+        }
+        final b = s.bounds!;
+        return '보낼 준비가 됐습니다: ${_f(b.width)} × ${_f(b.height)} mm · 꼭짓점 ${s.n}개 · 구멍 ${s.holes.length}개${s.thickness != null ? ' · ${_f(s.thickness!)}t' : ''}. 레이저 절단 화면(자유 모양)으로 넘깁니다.';
     }
-    final k = _selPt;
-    if (k != null && k < s.n) {
-      return '꼭짓점 ${k + 1}: ${s.corners[k].label}. 끌어 옮기거나 귀 처리·지우기를 누릅니다.';
-    }
-    final hk = _selHole;
-    if (hk != null && hk < s.holes.length) {
-      final h = s.holes[hk];
-      return '구멍 ${hk + 1}: φ${_f(h.dia)}${h.slot > h.dia ? ' 장공 ${_f(h.slot)}' : ''}. 끌어 옮기거나 고치기·지우기를 누릅니다.';
-    }
-    if (_placingHole) {
-      return s.scaled
-          ? '빈 곳을 누르면 φ${_f(_tDia)} 구멍을 놓습니다(5mm 칸에 붙음). 다 놓았으면 "구멍 놓기"를 끕니다.'
-          : '구멍 자리를 누릅니다. 크기는 치수를 넣은 뒤에 맞게 보입니다.';
-    }
-    if (!s.closed) {
-      return s.n < 3
-          ? '꼭짓점 ${s.n}개. 다음 귀퉁이를 누릅니다.'
-          : '꼭짓점 ${s.n}개. 다음 귀퉁이를 누르고, 다 찍었으면 1번 점을 눌러 닫습니다.';
-    }
-    if (!s.scaled) {
-      return '변 이름(변 1…)을 눌러 길이(mm)를 넣습니다. 처음 넣는 치수로 전체 크기가 정해집니다.';
-    }
-    final locked = [
-      for (var i = 0; i < s.edgeCount; i++)
-        if (s.isLocked(i)) i,
-    ].length;
-    return '변의 숫자를 눌러 길이를 넣습니다. 넣은 치수 $locked곳(✓ 잠김, ! 바뀜). 판 안에 동그라미를 그리면 구멍, 변을 길게 누르면 꼭짓점이 더해집니다.';
   }
 
   // ── 화면 ──
@@ -963,34 +1011,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                   onPressed: () => setState(_fit),
                   icon: const Icon(Icons.fit_screen_outlined),
                 ),
-                PopupMenuButton<String>(
-                  key: const Key('sk_menu'),
-                  tooltip: '사진·그림',
-                  color: fc.surface,
-                  onSelected: (v) => switch (v) {
-                    'camera' => _pick(ImageSource.camera),
-                    'gallery' => _pick(ImageSource.gallery),
-                    'ai' => _readAi(),
-                    'trace' => _startTrace(),
-                    'photo' => _viewPhoto(),
-                    'square' => _squareUp(),
-                    'mirror' => _mirror(),
-                    'clear' => _clearSketch(),
-                    _ => null,
-                  },
-                  itemBuilder: (_) => [
-                    _menu('camera', '사진 찍기'),
-                    _menu('gallery', '사진 고르기'),
-                    if (hasPhoto) _menu('ai', 'AI로 다시 읽기'),
-                    if (hasPhoto && !_s.photoAligned)
-                      _menu('trace', '사진 위에 직접 따라 찍기'),
-                    if (hasPhoto) _menu('photo', '사진 크게 보기'),
-                    if (_s.n >= 2) _menu('square', '직각 맞추기'),
-                    if (_s.closed) _menu('mirror', '좌우 대칭'),
-                    if (_s.n > 0 || _s.holes.isNotEmpty)
-                      _menu('clear', '그림 지우기'),
-                  ],
-                ),
               ],
             ),
             body: Column(
@@ -1024,6 +1044,11 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                                     selPt: _selPt,
                                     selHole: _selHole,
                                     ink: _ink,
+                                    hint: _tabId == 'draw'
+                                        ? '여기에 판 모양을 손가락으로 그으십시오'
+                                        : (_tabId == 'photo'
+                                              ? '사진을 찍거나 고르면 여기에 나옵니다'
+                                              : '그리기 탭에서 판 모양을 그리십시오'),
                                     colors: fc,
                                   ),
                                   child: const SizedBox.expand(),
@@ -1081,17 +1106,82 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                 _panel(problems),
               ],
             ),
+            bottomNavigationBar: _navBar(),
           ),
         ),
       ),
     );
   }
 
-  PopupMenuItem<String> _menu(String v, String label) => PopupMenuItem(
-    key: Key('sk_m_$v'),
-    value: v,
-    child: Text(label, style: TextStyle(color: fc.text)),
-  );
+  /// 아래 탭 줄(벤딩·철판 가공 화면과 같은 모양).
+  Widget _navBar() {
+    final compact = calcNavCompact(context);
+    BottomNavigationBarItem item(String id, String label, int i) {
+      final on = i == _tab;
+      final Widget icon = switch (id) {
+        'photo' => const Icon(AppIcons.camera, size: 22),
+        'draw' => AppIcon(AppGlyph.plateSketch, size: 24, filled: on),
+        'dims' => AppIcon(AppGlyph.navInput, size: 24, filled: on),
+        'holes' => const Icon(Icons.adjust, size: 24),
+        _ => const Icon(AppIcons.send, size: 22),
+      };
+      return BottomNavigationBarItem(
+        icon: Padding(
+          padding: EdgeInsets.only(bottom: compact ? 0 : 4),
+          child: KeyedSubtree(key: Key('sk_tab_$id'), child: icon),
+        ),
+        label: label,
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: fc.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(compact ? 16 : 24),
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: compact ? 0 : 8,
+          ),
+          child: BottomNavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            currentIndex: _tab,
+            selectedItemColor: fc.brand,
+            unselectedItemColor: fc.textSub,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 10,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+            ),
+            onTap: (i) {
+              HapticFeedback.selectionClick();
+              _goTab(_tabs[i].$1);
+            },
+            items: [
+              for (var i = 0; i < _tabs.length; i++)
+                item(_tabs[i].$1, _tabs[i].$2, i),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _btn(String key, IconData icon, String label, VoidCallback? onTap) =>
       OutlinedButton.icon(
@@ -1106,16 +1196,220 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         label: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
       );
 
-  // 아래 칸은 높이를 못박는다(바꿀 때마다 그림이 들썩이지 않게). 지금 할 수 있는 것만 보인다.
+  Widget _primary(
+    String key,
+    IconData icon,
+    String label,
+    VoidCallback? onTap,
+  ) => SizedBox(
+    width: double.infinity,
+    child: FilledButton.icon(
+      key: Key(key),
+      style: FilledButton.styleFrom(
+        backgroundColor: fc.brand,
+        foregroundColor: fc.onBrand,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+      ),
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+    ),
+  );
+
+  /// "다음: …" 단추(차례대로 넘어가기).
+  Widget _next() {
+    final i = _tab + 1;
+    if (i >= _tabs.length) return const SizedBox.shrink();
+    final (id, label) = _tabs[i];
+    return _primary(
+      'sk_next_$id',
+      AppIcons.forward,
+      '다음: $label',
+      () => _goTab(id),
+    );
+  }
+
+  /// 탭마다 할 수 있는 것만(아래 칸 높이는 못박아 그림이 들썩이지 않게).
   Widget _panel(List<String> problems) {
     final s = _s;
-    final sel = _selPt;
-    final selH = _selHole;
     final hasPhoto = _photo != null;
-    final empty = s.n == 0 && s.holes.isEmpty;
+    final List<Widget> actions;
+    Widget? bottom = _next();
+    switch (_tabId) {
+      case 'photo':
+        actions = [
+          _btn(
+            'sk_camera',
+            Icons.photo_camera_outlined,
+            '사진 찍기',
+            _busy ? null : () => _pick(ImageSource.camera),
+          ),
+          _btn(
+            'sk_gallery',
+            Icons.photo_library_outlined,
+            '사진 고르기',
+            _busy ? null : () => _pick(ImageSource.gallery),
+          ),
+          if (hasPhoto)
+            FilledButton.icon(
+              key: const Key('sk_ai'),
+              style: FilledButton.styleFrom(
+                backgroundColor: fc.brand,
+                foregroundColor: fc.onBrand,
+              ),
+              onPressed: _busy ? null : _readAi,
+              icon: _busy
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: fc.onBrand,
+                      ),
+                    )
+                  : const Icon(Icons.auto_awesome_outlined, size: 18),
+              label: Text(
+                _busy
+                    ? '읽는 중'
+                    : (s.n > 0 && !s.photoAligned ? 'AI로 다시 읽기' : 'AI로 읽기'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          if (hasPhoto)
+            _btn('sk_photo_view', Icons.image_outlined, '사진 크게 보기', _viewPhoto),
+          if (hasPhoto && !s.photoAligned && s.n > 0)
+            _btn('sk_trace', Icons.touch_app_outlined, '사진 위에 직접 따라 그리기', () {
+              _startTrace();
+              _goTab('draw');
+            }),
+        ];
+      case 'draw':
+        final sel = _selPt;
+        actions = sel != null && sel < s.n
+            ? [
+                _btn(
+                  'sk_corner',
+                  Icons.rounded_corner,
+                  '귀 처리',
+                  () => _editCorner(sel),
+                ),
+                _btn(
+                  'sk_del',
+                  Icons.delete_outline,
+                  '꼭짓점 지우기',
+                  () => _change(() {
+                    _s.removePoint(sel);
+                    _selPt = null;
+                  }),
+                ),
+              ]
+            : [
+                if (!s.closed && s.n >= 3)
+                  _btn(
+                    'sk_close',
+                    Icons.check_circle_outline,
+                    '모양 닫기',
+                    _closeShape,
+                  ),
+                if (s.n >= 2)
+                  _btn('sk_square', Icons.square_foot, '직각 맞추기', _squareUp),
+                if (s.closed) _btn('sk_mirror', Icons.flip, '좌우 대칭', _mirror),
+                if (s.n > 0 || s.holes.isNotEmpty)
+                  _btn(
+                    'sk_clear',
+                    Icons.layers_clear_outlined,
+                    '그림 지우기',
+                    _clearSketch,
+                  ),
+              ];
+      case 'dims':
+        actions = [
+          if (s.closed)
+            Column(
+              key: const Key('sk_edges'),
+              children: [
+                for (var i = 0; i < s.edgeCount; i++)
+                  InkWell(
+                    key: Key('sk_edge_$i'),
+                    onTap: () => _editEdge(i),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 8,
+                        horizontal: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '변 ${i + 1}→${(i + 1) % s.n + 1}',
+                              style: TextStyle(
+                                color: fc.textSub,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            s.scaled
+                                ? '${_f(s.edgeLen(i))} mm${s.edgeMatches(i) == null ? '' : (s.edgeMatches(i)! ? ' ✓' : ' !')}'
+                                : '길이 넣기',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              color: s.edgeMatches(i) == false
+                                  ? fc.danger
+                                  : (s.edgeMatches(i) == true
+                                        ? fc.ok
+                                        : fc.text),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(AppIcons.forward, size: 16, color: fc.textFaint),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+        ];
+      case 'holes':
+        final selH = _selHole;
+        actions = [
+          for (final d in const [9.0, 11.0, 13.5, 17.5, 22.0])
+            calcChip(
+              'sk_dia_${(d * 10).round()}',
+              'φ${_f(d)}',
+              _tDia == d,
+              () => setState(() => _tDia = d),
+            ),
+          if (selH != null && selH < s.holes.length) ...[
+            _btn(
+              'sk_hole_edit',
+              Icons.tune,
+              '자리·크기 고치기',
+              () => _editHole(selH),
+            ),
+            _btn(
+              'sk_hole_del',
+              Icons.delete_outline,
+              '구멍 지우기',
+              () => _change(() {
+                _s.holes.removeAt(selH);
+                _selHole = null;
+              }),
+            ),
+          ],
+        ];
+      default:
+        actions = const [];
+        bottom = _primary(
+          'sk_send',
+          Icons.arrow_forward,
+          '레이저 절단으로 보내기',
+          _send,
+        );
+    }
     return Container(
       width: double.infinity,
-      height: MediaQuery.of(context).size.height * 0.36,
+      height: MediaQuery.of(context).size.height * 0.32,
       decoration: BoxDecoration(
         color: fc.surface,
         border: Border(top: BorderSide(color: fc.line)),
@@ -1151,16 +1445,17 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                         ),
                       ),
                     ),
-                  if (_aiError != null)
+                  if (_aiError != null && _tabId == 'photo')
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
-                        '$_aiError. 사진 위에 직접 따라 찍을 수 있습니다.',
+                        '$_aiError. "다음: 그리기"에서 사진 위에 직접 따라 그릴 수 있습니다.',
                         key: const Key('sk_ai_error'),
                         style: TextStyle(color: fc.danger, height: 1.35),
                       ),
                     ),
-                  if (s.unclear.isNotEmpty)
+                  if (s.unclear.isNotEmpty &&
+                      (_tabId == 'photo' || _tabId == 'dims'))
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
                       child: Text(
@@ -1169,149 +1464,24 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                         style: TextStyle(color: fc.caution, height: 1.35),
                       ),
                     ),
-                  for (final p in problems.take(2))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        p,
-                        style: TextStyle(color: fc.danger, height: 1.35),
+                  if (_tabId == 'dims' || _tabId == 'send')
+                    for (final p in problems.take(2))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          p,
+                          style: TextStyle(color: fc.danger, height: 1.35),
+                        ),
                       ),
-                    ),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: [
-                      if (empty) ...[
-                        _btn(
-                          'sk_camera',
-                          Icons.photo_camera_outlined,
-                          '사진 찍기',
-                          _busy ? null : () => _pick(ImageSource.camera),
-                        ),
-                        _btn(
-                          'sk_gallery',
-                          Icons.photo_library_outlined,
-                          '사진 고르기',
-                          _busy ? null : () => _pick(ImageSource.gallery),
-                        ),
-                        if (hasPhoto)
-                          FilledButton.icon(
-                            key: const Key('sk_ai'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: fc.brand,
-                              foregroundColor: fc.onBrand,
-                            ),
-                            onPressed: _busy ? null : _readAi,
-                            icon: _busy
-                                ? SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: fc.onBrand,
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.auto_awesome_outlined,
-                                    size: 18,
-                                  ),
-                            label: Text(
-                              _busy ? '읽는 중' : 'AI로 읽기',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ),
-                      ] else if (sel != null && sel < s.n) ...[
-                        _btn(
-                          'sk_corner',
-                          Icons.rounded_corner,
-                          '귀 처리',
-                          () => _editCorner(sel),
-                        ),
-                        _btn(
-                          'sk_del',
-                          Icons.delete_outline,
-                          '꼭짓점 지우기',
-                          () => _change(() {
-                            _s.removePoint(sel);
-                            _selPt = null;
-                          }),
-                        ),
-                      ] else if (selH != null && selH < s.holes.length) ...[
-                        _btn(
-                          'sk_hole_edit',
-                          Icons.tune,
-                          '자리·크기 고치기',
-                          () => _editHole(selH),
-                        ),
-                        _btn(
-                          'sk_hole_del',
-                          Icons.delete_outline,
-                          '구멍 지우기',
-                          () => _change(() {
-                            _s.holes.removeAt(selH);
-                            _selHole = null;
-                          }),
-                        ),
-                      ] else ...[
-                        if (!s.closed && s.n >= 3)
-                          _btn(
-                            'sk_close',
-                            Icons.check_circle_outline,
-                            '모양 닫기',
-                            _closeShape,
-                          ),
-                        calcChip(
-                          'sk_hole_add',
-                          '구멍 놓기',
-                          _placingHole,
-                          () => setState(() => _placingHole = !_placingHole),
-                        ),
-                        if (_placingHole || s.closed)
-                          for (final d in const [9.0, 11.0, 13.5, 17.5, 22.0])
-                            calcChip(
-                              'sk_dia_${(d * 10).round()}',
-                              'φ${_f(d)}',
-                              _tDia == d,
-                              () => setState(() => _tDia = d),
-                            ),
-                        if (!_placingHole && s.n >= 2)
-                          _btn(
-                            'sk_square',
-                            Icons.square_foot,
-                            '직각 맞추기',
-                            _squareUp,
-                          ),
-                        if (!_placingHole && s.closed)
-                          _btn('sk_mirror', Icons.flip, '좌우 대칭', _mirror),
-                      ],
-                    ],
-                  ),
+                  Wrap(spacing: 6, runSpacing: 6, children: actions),
                 ],
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-            child: SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                key: const Key('sk_send'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: fc.brand,
-                  foregroundColor: fc.onBrand,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: _send,
-                icon: const Icon(Icons.arrow_forward),
-                label: const Text(
-                  '레이저 절단으로 보내기',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-              ),
-            ),
+            child: bottom,
           ),
         ],
       ),
@@ -1319,7 +1489,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   }
 }
 
-/// 변 길이 창의 결과: 길이를 넣었거나, 잠금을 풀었거나.
+// 변 길이 창의 결과: 길이를 넣었거나, 잠금을 풀었거나.
 class _LenResult {
   final double? mm;
   final bool unlock;
@@ -1402,9 +1572,13 @@ class _SketchPainter extends CustomPainter {
     required this.selHole,
     required this.colors,
     this.ink,
+    this.hint = '',
   });
 
   final List<Offset>? ink;
+
+  /// 빈 종이 가운데 안내 글(탭마다 다름).
+  final String hint;
   final PlateSketch sketch;
   final ui.Image? image;
   final Offset Function(Offset) toScreen;
@@ -1452,7 +1626,7 @@ class _SketchPainter extends CustomPainter {
     if (s.n == 0 && img == null && (ink == null || ink!.isEmpty)) {
       final tp = TextPainter(
         text: TextSpan(
-          text: '여기에 판 모양을 손가락으로 그으십시오',
+          text: hint,
           style: TextStyle(
             color: c.textFaint,
             fontSize: 15,
@@ -1590,7 +1764,7 @@ class _SketchPainter extends CustomPainter {
         minY: bb.top,
         maxX: bb.right,
         maxY: bb.bottom,
-        ext: 14,
+        ext: 44, // 변 이름표(변 가운데 바깥 16점) 너머로
       );
     }
     // 긋는 중인 선

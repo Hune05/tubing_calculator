@@ -573,14 +573,21 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// 아래 탭(photo·draw·dims·holes·send).
+    Future<void> tab(WidgetTester tester, String id) async {
+      await tester.tap(find.byKey(Key('sk_tab_$id')));
+      await tester.pumpAndSettle();
+    }
+
     Future<void> enterLength(WidgetTester tester, String mm) async {
       await tester.enterText(find.byKey(const Key('sk_len')), mm);
       await tester.tap(find.byKey(const Key('sk_len_ok')));
       await tester.pumpAndSettle();
     }
 
-    /// 빈 칸에 사각 넷을 찍고 1번 점으로 닫는다. 화면 점 넷을 돌려준다.
+    /// 그리기 탭에서 빈 칸에 사각 넷을 찍고 1번 점으로 닫는다. 화면 점 넷을 돌려준다.
     Future<List<Offset>> drawRect(WidgetTester tester) async {
+      await tab(tester, 'draw');
       final r = tester.getRect(find.byKey(const Key('sk_canvas')));
       final pts = [
         r.center + const Offset(-120, 60),
@@ -600,6 +607,213 @@ void main() {
       await tester.pumpAndSettle();
       return pts;
     }
+
+    testWidgets('탭 차례: 사진 → 그리기 → 치수 → 구멍 → 보내기, "다음" 단추로 넘어간다', (
+      tester,
+    ) async {
+      await open(tester);
+      for (final id in ['photo', 'draw', 'dims', 'holes', 'send']) {
+        expect(find.byKey(Key('sk_tab_$id')), findsOneWidget);
+      }
+      // 빈 그림이면 사진 탭부터
+      expect(status(tester), startsWith('종이에 그린 그림이 있으면 사진을 찍거나 고르십시오'));
+      await tap(tester, 'sk_next_draw');
+      expect(status(tester), startsWith('판 모양을 손가락으로 한 번에 그으십시오'));
+      await tap(tester, 'sk_next_dims');
+      expect(status(tester), '먼저 그리기 탭에서 모양을 닫으십시오.');
+      await tap(tester, 'sk_next_holes');
+      await tap(tester, 'sk_next_send');
+      expect(status(tester), startsWith('아직 모양이 없습니다'));
+      expect(find.byKey(const Key('sk_send')), findsOneWidget);
+    });
+
+    testWidgets('그리기에서 찍고 닫기(바로잡기·대칭) → 치수 탭에서 길이 → 보내기', (tester) async {
+      await open(tester);
+      final pts = await drawRect(tester);
+      expect(
+        find.text(
+          '모양을 닫았습니다(가로·세로 4곳 세움 · 좌우 대칭). "다음: 치수"에서 변 길이를 넣으십시오. 대칭이 아니면 되돌리기를 누르십시오.',
+        ),
+        findsOneWidget,
+      );
+      // 닫은 뒤에는 빈 곳을 눌러도 점이 안 생긴다
+      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
+      await tester.tapAt(r.topLeft + const Offset(30, 30));
+      await tester.pumpAndSettle();
+      expect(status(tester), startsWith('모양을 닫았습니다(꼭짓점 4개)'));
+      await tap(tester, 'sk_square');
+      expect(
+        find.text('바로 세울 변이 없습니다(가로·세로에서 35° 넘게 기운 변은 그대로 둡니다)'),
+        findsOneWidget,
+      );
+      await tap(tester, 'sk_mirror');
+      expect(find.textContaining('좌우 대칭으로 맞췄습니다'), findsOneWidget);
+      // 그리기 탭에서는 변을 눌러도 길이 창이 안 뜬다
+      await tester.tapAt((pts[0] + pts[1]) / 2);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sk_len')), findsNothing);
+      // 보내기 탭: 치수 없으면 못 보냄
+      await tab(tester, 'send');
+      await tap(tester, 'sk_send');
+      expect(find.text('변 하나에 치수를 넣어야 크기가 정해집니다'), findsOneWidget);
+      expect(sent, isNull);
+      // 치수 탭: 그림에서 아래 변(1→2)을 누르거나 아래 목록에서
+      await tab(tester, 'dims');
+      expect(status(tester), startsWith('변 이름(변 1…)을 눌러 길이(mm)를 넣습니다'));
+      await tester.tapAt((pts[0] + pts[1]) / 2);
+      await tester.pumpAndSettle();
+      expect(find.text('변 1→2 길이'), findsOneWidget);
+      await enterLength(tester, '300');
+      expect(
+        find.text('이 치수로 전체 크기를 맞췄습니다. 나머지 변의 숫자도 눌러 넣으십시오.'),
+        findsOneWidget,
+      );
+      await tap(tester, 'sk_edge_1'); // 목록에서 변 2→3
+      expect(find.text('변 2→3 길이'), findsOneWidget);
+      await enterLength(tester, '150');
+      expect(status(tester), contains('넣은 치수 2곳'));
+      await tab(tester, 'send');
+      expect(status(tester), startsWith('보낼 준비가 됐습니다: 300 × 150 mm'));
+      await tap(tester, 'sk_send');
+      expect(sent!['sh'], 'free');
+      expect(sent!['pts'], '0,0\n300,0\n300,150\n0,150');
+      // 잠긴 변을 다시 누르면 잠금 풀기
+      await tab(tester, 'dims');
+      await tap(tester, 'sk_edge_1');
+      await tester.tap(find.byKey(const Key('sk_len_unlock')));
+      await tester.pumpAndSettle();
+      expect(status(tester), contains('넣은 치수 1곳'));
+      await tap(tester, 'sk_undo');
+      expect(status(tester), contains('넣은 치수 2곳'));
+    });
+
+    testWidgets('구멍 탭: 판 안을 누르면 5mm 칸에 구멍, 눌러 고르고 지운다', (tester) async {
+      await open(tester);
+      final pts = await drawRect(tester);
+      await tab(tester, 'dims');
+      await tester.tapAt((pts[0] + pts[1]) / 2);
+      await tester.pumpAndSettle();
+      await enterLength(tester, '300');
+      await tab(tester, 'holes');
+      expect(status(tester), startsWith('판 안을 누르면 φ13.5 구멍을 놓습니다(5mm 칸에 붙음)'));
+      await tap(tester, 'sk_dia_110');
+      final at = pts[0] + const Offset(37, -29);
+      await tester.tapAt(at);
+      await tester.pumpAndSettle();
+      // 판 밖을 누르면 아무것도 안 생긴다
+      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
+      await tester.tapAt(r.topLeft + const Offset(20, 20));
+      await tester.pumpAndSettle();
+      await tab(tester, 'send');
+      await tap(tester, 'sk_send');
+      final h = PlateHoleSpec.fromJson((sent!['holes'] as List).single)!;
+      expect(h.dia, 11);
+      expect(h.u % 5, closeTo(0, 1e-6));
+      expect(h.v % 5, closeTo(0, 1e-6));
+      await tab(tester, 'holes');
+      await tester.tapAt(at);
+      await tester.pumpAndSettle();
+      expect(status(tester), startsWith('구멍 1: φ11'));
+      await tap(tester, 'sk_hole_del');
+      await tab(tester, 'send');
+      await tap(tester, 'sk_send');
+      expect(sent!['holes'], isEmpty);
+    });
+
+    testWidgets('그리기 탭: 꼭짓점 고르기 → 귀 처리 R10 → 지우기', (tester) async {
+      await open(tester);
+      await tab(tester, 'draw');
+      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
+      final b = r.center + const Offset(100, 50);
+      for (final p in [
+        r.center + const Offset(-100, 50),
+        b,
+        r.center + const Offset(0, -60),
+      ]) {
+        await tester.tapAt(p);
+        await tester.pumpAndSettle();
+      }
+      await tester.tapAt(b);
+      await tester.pumpAndSettle();
+      expect(status(tester), startsWith('꼭짓점 2: 직각'));
+      await tap(tester, 'sk_corner');
+      await tester.tap(find.byKey(const Key('cd_kind_round')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('cd_a')), '10');
+      await tester.tap(find.byKey(const Key('cd_ok')));
+      await tester.pumpAndSettle();
+      expect(status(tester), startsWith('꼭짓점 2: R10'));
+      await tap(tester, 'sk_del');
+      expect(status(tester), startsWith('꼭짓점 2개. 다음 귀퉁이를 누릅니다'));
+    });
+
+    testWidgets('사진 탭: AI로 읽기 → 치수 탭으로, 짐작한 곳·사진 작게, 보내기', (tester) async {
+      await open(
+        tester,
+        photo: Uint8List.fromList(List.filled(64, 1)),
+        parse: (_) async => const PlateSketchResult.ok(
+          outline: [
+            PlateSketchPoint(0, 0),
+            PlateSketchPoint(250, 0),
+            PlateSketchPoint(250, 120, corner: 'round', size: 20),
+            PlateSketchPoint(0, 120),
+          ],
+          holes: [PlateSketchHole(30, 30, 13.5)],
+          thickness: 4,
+          unclear: ['위쪽 구멍 자리는 짐작했습니다'],
+          remaining: 19,
+        ),
+      );
+      expect(find.byKey(const Key('sk_ai')), findsNothing); // 사진 전
+      await tap(tester, 'sk_gallery');
+      expect(status(tester), startsWith('"AI로 읽기"를 누르면'));
+      await tap(tester, 'sk_ai');
+      // 읽으면 치수 탭으로 넘어간다
+      expect(status(tester), startsWith('변의 숫자를 눌러 길이를 넣습니다'));
+      expect(find.textContaining('오늘 남은 횟수 19번'), findsOneWidget);
+      expect(find.text('AI가 짐작한 곳: 위쪽 구멍 자리는 짐작했습니다'), findsOneWidget);
+      expect(find.byKey(const Key('sk_thumb')), findsOneWidget);
+      expect(find.byKey(const Key('sk_edge_3')), findsOneWidget);
+      await tab(tester, 'send');
+      await tap(tester, 'sk_send');
+      expect(sent!['pts'], '0,0\n250,0\n250,120,r20\n0,120');
+      expect(sent!['t'], '4');
+      expect((sent!['holes'] as List).length, 1);
+      // 사진 탭 → 사진 위에 직접 따라 그리기 → 그리기 탭(빈 그림), 되돌리기로 살린다
+      await tab(tester, 'photo');
+      await tap(tester, 'sk_trace');
+      expect(status(tester), startsWith('판 모양을 손가락으로 한 번에 그으십시오'));
+      await tap(tester, 'sk_undo');
+      expect(status(tester), startsWith('모양을 닫았습니다(꼭짓점 4개)'));
+    });
+
+    testWidgets('AI가 안 되면 이유와 따라 그리기 안내', (tester) async {
+      await open(
+        tester,
+        photo: Uint8List.fromList(List.filled(64, 1)),
+        parse: (_) async => const PlateSketchResult.fail('통신이 되는지 확인해 주십시오'),
+      );
+      await tap(tester, 'sk_camera');
+      await tap(tester, 'sk_ai');
+      expect(
+        find.text('통신이 되는지 확인해 주십시오. "다음: 그리기"에서 사진 위에 직접 따라 그릴 수 있습니다.'),
+        findsOneWidget,
+      );
+      await tap(tester, 'sk_next_draw');
+      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
+      await tester.tapAt(r.center);
+      await tester.pumpAndSettle();
+      expect(status(tester), startsWith('꼭짓점 1개'));
+    });
+
+    testWidgets('그린 것은 다시 열어도 남고, 그리기 탭에서 이어서 연다', (tester) async {
+      await open(tester);
+      await drawRect(tester);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(seconds: 1));
+      await open(tester);
+      expect(status(tester), startsWith('모양을 닫았습니다(꼭짓점 4개)'));
+    });
 
     /// 화면 점들을 따라 한 손가락으로 긋는다.
     Future<void> stroke(WidgetTester tester, List<Offset> pts) async {
@@ -633,18 +847,18 @@ void main() {
       return out;
     }
 
-    testWidgets('손가락으로 그어 그리기: 외곽 → 치수 → 판 안 동그라미는 구멍', (tester) async {
+    testWidgets('그리기 탭에서 그어 외곽 → 치수 → 구멍 탭에서 동그라미는 구멍', (tester) async {
       await open(tester);
-      expect(status(tester), startsWith('빈 칸에 판 모양을 손가락으로 그으십시오'));
+      await tab(tester, 'draw');
       final r = tester.getRect(find.byKey(const Key('sk_canvas')));
       await stroke(tester, rectPath(r.center, 240, 140));
       expect(find.textContaining('그은 선을 꼭짓점 4개로 바꿨습니다'), findsOneWidget);
-      expect(status(tester), startsWith('변 이름(변 1…)을 눌러'));
-      // 아래 변 300
+      await tab(tester, 'dims');
       await tester.tapAt(r.center + const Offset(0, 70));
       await tester.pumpAndSettle();
       await enterLength(tester, '300');
-      // 판 안에 작은 동그라미 → 구멍(5mm 칸)
+      // 구멍 탭에서 판 안에 동그라미를 그으면 구멍
+      await tab(tester, 'holes');
       final c = r.center + const Offset(-60, 20);
       await stroke(tester, [
         for (var k = 0; k <= 24; k++)
@@ -656,197 +870,13 @@ void main() {
                   24,
       ]);
       expect(find.textContaining('구멍으로 바꿨습니다'), findsOneWidget);
+      await tab(tester, 'send');
       await tap(tester, 'sk_send');
       // 그은 시작 자리와 상관없이 왼쪽 아래 귀부터 반시계로
       expect(sent!['pts'], startsWith('0,0\n300,0\n'));
-      expect((sent!['pts'] as String).split('\n').length, 4);
       final h = PlateHoleSpec.fromJson((sent!['holes'] as List).single)!;
       expect(h.dia, 13.5); // 그린 크기가 아니라 고른 펀치 지름
       expect(h.u % 5, closeTo(0, 1e-6));
-      // 판 안에서 길게 그은 선(고리가 아님)은 구멍이 안 되고 안내만
-      await stroke(tester, [
-        for (var k = 0; k <= 20; k++) r.center + Offset(-80 + k * 8.0, -20),
-      ]);
-      expect(find.textContaining('판 안에 작은 동그라미를 그리면 구멍이 됩니다'), findsOneWidget);
-      await tap(tester, 'sk_send');
-      expect((sent!['holes'] as List).length, 1);
-    });
-
-    testWidgets('모드 없이: 찍고 → 1번 점으로 닫고 → 직각 → 변을 눌러 치수 → 보내기', (tester) async {
-      await open(tester);
-      expect(status(tester), startsWith('빈 칸에 판 모양을 손가락으로 그으십시오'));
-      final pts = await drawRect(tester);
-      expect(
-        find.text(
-          '모양을 닫았습니다(가로·세로 4곳 세움 · 좌우 대칭). 변 이름을 눌러 길이를 넣으십시오. 대칭이 아니면 되돌리기를 누르십시오.',
-        ),
-        findsOneWidget,
-      );
-      // 닫은 뒤에는 빈 곳을 눌러도 점이 안 생긴다
-      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
-      await tester.tapAt(r.topLeft + const Offset(30, 30));
-      await tester.pumpAndSettle();
-      expect(status(tester), startsWith('변 이름(변 1…)을 눌러 길이(mm)를 넣습니다'));
-      await tap(tester, 'sk_square');
-      // 닫을 때 이미 바로잡았으므로 직각 맞추기는 할 것이 없다
-      expect(
-        find.text('바로 세울 변이 없습니다(가로·세로에서 35° 넘게 기운 변은 그대로 둡니다)'),
-        findsOneWidget,
-      );
-      await tap(tester, 'sk_mirror');
-      expect(find.textContaining('좌우 대칭으로 맞췄습니다'), findsOneWidget);
-      // 치수 없이 보내면 알림만
-      await tap(tester, 'sk_send');
-      expect(find.text('변 하나에 치수를 넣어야 크기가 정해집니다'), findsOneWidget);
-      expect(sent, isNull);
-      // 아래 변(1→2)을 누른다
-      await tester.tapAt((pts[0] + pts[1]) / 2);
-      await tester.pumpAndSettle();
-      expect(find.text('변 1→2 길이'), findsOneWidget);
-      await enterLength(tester, '300');
-      expect(
-        find.text('이 치수로 전체 크기를 맞췄습니다. 나머지 변의 숫자도 눌러 넣으십시오.'),
-        findsOneWidget,
-      );
-      // 오른쪽 변 150 → 왼쪽 변이 받아 직사각형 그대로
-      await tester.tapAt((pts[1] + pts[2]) / 2);
-      await tester.pumpAndSettle();
-      expect(find.text('변 2→3 길이'), findsOneWidget);
-      await enterLength(tester, '150');
-      expect(status(tester), contains('넣은 치수 2곳'));
-      await tap(tester, 'sk_send');
-      expect(sent!['sh'], 'free');
-      expect(sent!['pts'], '0,0\n300,0\n300,150\n0,150');
-      // 잠긴 변을 다시 누르면 잠금 풀기가 있다
-      await tester.tapAt((pts[1] + pts[2]) / 2);
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('sk_len_unlock')));
-      await tester.pumpAndSettle();
-      expect(status(tester), contains('넣은 치수 1곳'));
-      // 되돌리기
-      await tap(tester, 'sk_undo');
-      expect(status(tester), contains('넣은 치수 2곳'));
-    });
-
-    testWidgets('구멍 놓기: 5mm 칸에 붙고, 눌러 고르고 지운다', (tester) async {
-      await open(tester);
-      final pts = await drawRect(tester);
-      await tap(tester, 'sk_square');
-      await tester.tapAt((pts[0] + pts[1]) / 2);
-      await tester.pumpAndSettle();
-      await enterLength(tester, '300');
-      await tap(tester, 'sk_hole_add');
-      expect(status(tester), startsWith('빈 곳을 누르면 φ13.5 구멍을 놓습니다(5mm 칸에 붙음)'));
-      await tap(tester, 'sk_dia_110');
-      final at = pts[0] + const Offset(37, -29);
-      await tester.tapAt(at);
-      await tester.pumpAndSettle();
-      await tap(tester, 'sk_send');
-      final h = PlateHoleSpec.fromJson((sent!['holes'] as List).single)!;
-      expect(h.dia, 11);
-      expect(h.u % 5, closeTo(0, 1e-6));
-      expect(h.v % 5, closeTo(0, 1e-6));
-      // 구멍 놓기를 끄고 구멍을 누르면 고르기 → 지우기
-      await tap(tester, 'sk_hole_add');
-      await tester.tapAt(at);
-      await tester.pumpAndSettle();
-      expect(status(tester), startsWith('구멍 1: φ11'));
-      await tap(tester, 'sk_hole_del');
-      await tap(tester, 'sk_send');
-      expect(sent!['holes'], isEmpty);
-    });
-
-    testWidgets('꼭짓점 고르기 → 귀 처리 R10 → 지우기', (tester) async {
-      await open(tester);
-      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
-      final b = r.center + const Offset(100, 50);
-      for (final p in [
-        r.center + const Offset(-100, 50),
-        b,
-        r.center + const Offset(0, -60),
-      ]) {
-        await tester.tapAt(p);
-        await tester.pumpAndSettle();
-      }
-      await tester.tapAt(b);
-      await tester.pumpAndSettle();
-      expect(status(tester), startsWith('꼭짓점 2: 직각'));
-      await tap(tester, 'sk_corner');
-      await tester.tap(find.byKey(const Key('cd_kind_round')));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byKey(const Key('cd_a')), '10');
-      await tester.tap(find.byKey(const Key('cd_ok')));
-      await tester.pumpAndSettle();
-      expect(status(tester), startsWith('꼭짓점 2: R10'));
-      await tap(tester, 'sk_del');
-      expect(status(tester), startsWith('꼭짓점 2개. 다음 귀퉁이를 누릅니다'));
-    });
-
-    testWidgets('AI로 읽기: 짐작한 곳·사진 작게, 바로 보낼 수 있다', (tester) async {
-      await open(
-        tester,
-        photo: Uint8List.fromList(List.filled(64, 1)),
-        parse: (_) async => const PlateSketchResult.ok(
-          outline: [
-            PlateSketchPoint(0, 0),
-            PlateSketchPoint(250, 0),
-            PlateSketchPoint(250, 120, corner: 'round', size: 20),
-            PlateSketchPoint(0, 120),
-          ],
-          holes: [PlateSketchHole(30, 30, 13.5)],
-          thickness: 4,
-          unclear: ['위쪽 구멍 자리는 짐작했습니다'],
-          remaining: 19,
-        ),
-      );
-      expect(find.byKey(const Key('sk_ai')), findsNothing); // 사진 전
-      await tap(tester, 'sk_gallery');
-      expect(status(tester), startsWith('"AI로 읽기"를 눌러 보십시오'));
-      await tap(tester, 'sk_ai');
-      expect(find.textContaining('오늘 남은 횟수 19번'), findsOneWidget);
-      expect(find.text('AI가 짐작한 곳: 위쪽 구멍 자리는 짐작했습니다'), findsOneWidget);
-      expect(status(tester), startsWith('변의 숫자를 눌러 길이를 넣습니다'));
-      expect(find.byKey(const Key('sk_thumb')), findsOneWidget);
-      // 사진 단추는 다 그린 뒤에는 아래 칸에서 빠지고 위 메뉴로
-      expect(find.byKey(const Key('sk_gallery')), findsNothing);
-      await tap(tester, 'sk_send');
-      expect(sent!['pts'], '0,0\n250,0\n250,120,r20\n0,120');
-      expect(sent!['t'], '4');
-      expect((sent!['holes'] as List).length, 1);
-      // 위 메뉴 → 사진 위에 직접 따라 찍기 → 빈 그림(되돌리기로 살린다)
-      await tap(tester, 'sk_menu');
-      await tap(tester, 'sk_m_trace');
-      expect(status(tester), startsWith('"AI로 읽기"를 눌러 보십시오'));
-      await tap(tester, 'sk_undo');
-      expect(status(tester), startsWith('변의 숫자를 눌러 길이를 넣습니다'));
-    });
-
-    testWidgets('AI가 안 되면 이유와 따라 찍기 안내', (tester) async {
-      await open(
-        tester,
-        photo: Uint8List.fromList(List.filled(64, 1)),
-        parse: (_) async => const PlateSketchResult.fail('통신이 되는지 확인해 주십시오'),
-      );
-      await tap(tester, 'sk_camera');
-      await tap(tester, 'sk_ai');
-      expect(
-        find.text('통신이 되는지 확인해 주십시오. 사진 위에 직접 따라 찍을 수 있습니다.'),
-        findsOneWidget,
-      );
-      // 그래도 사진 위에 찍을 수 있다
-      final r = tester.getRect(find.byKey(const Key('sk_canvas')));
-      await tester.tapAt(r.center);
-      await tester.pumpAndSettle();
-      expect(status(tester), startsWith('꼭짓점 1개'));
-    });
-
-    testWidgets('그린 것은 다시 열어도 남는다(닫은 것까지)', (tester) async {
-      await open(tester);
-      await drawRect(tester);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump(const Duration(seconds: 1));
-      await open(tester);
-      expect(status(tester), startsWith('변 이름(변 1…)을 눌러'));
     });
   });
 

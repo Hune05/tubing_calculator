@@ -857,6 +857,7 @@ class _PlatePageState extends State<PlatePage>
   // ③ 구멍: 구멍 배치 편집을 탭 안에 그대로
   Widget _holesTab() => PlateHoleEditorPage(
     embedded: true,
+    footer: _next('holes'),
     input: _input(),
     holes: List.of(_holes),
     rotQ: _rotQ,
