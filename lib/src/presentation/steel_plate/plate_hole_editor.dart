@@ -552,7 +552,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     required List<(String, double)> fields,
   }) => showDialog<List<double>>(
     context: context,
-    builder: (_) => _NumbersDialog(title: title, fields: fields),
+    builder: (_) => PlateNumbersDialog(title: title, fields: fields),
   );
 
   void _setGrid(double g) {
@@ -879,18 +879,23 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
 }
 
 /// 숫자 칸 여러 개를 받는 창. 입력칸은 창이 다 닫힌 뒤 치운다(닫히는 동안 쓰이므로).
-class _NumbersDialog extends StatefulWidget {
-  const _NumbersDialog({required this.title, required this.fields});
+class PlateNumbersDialog extends StatefulWidget {
+  const PlateNumbersDialog({
+    super.key,
+    required this.title,
+    required this.fields,
+  });
   final String title;
   final List<(String, double)> fields;
 
   @override
-  State<_NumbersDialog> createState() => _NumbersDialogState();
+  State<PlateNumbersDialog> createState() => PlateNumbersDialogState();
 }
 
-class _NumbersDialogState extends State<_NumbersDialog> {
+class PlateNumbersDialogState extends State<PlateNumbersDialog> {
   late final List<TextEditingController> _c = [
-    for (final (_, v) in widget.fields) TextEditingController(text: _f(v, 2)),
+    for (final (_, v) in widget.fields)
+      TextEditingController(text: v.isFinite ? _f(v, 2) : ''),
   ];
 
   @override

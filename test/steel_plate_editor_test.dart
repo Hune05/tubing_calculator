@@ -71,7 +71,7 @@ void main() {
 
   Future<void> openFlatEditor(WidgetTester tester) async {
     await openPage(tester);
-    await tap(tester, 'pl_cut'); // 평판 200 × 100
+    // 레이저 절단 화면은 평판 200 × 100부터
     await tap(tester, 'pl_hole_edit');
     expect(find.text('구멍 배치 편집'), findsOneWidget);
   }
@@ -210,7 +210,7 @@ void main() {
 
   testWidgets('예전 저장(구멍 묶음: 네 귀)은 하나하나로 풀어 옮긴다', (tester) async {
     SharedPreferences.setMockInitialValues({
-      PlatePage.draftKey: jsonEncode({
+      PlatePage.legacyDraftKey: jsonEncode({
         'bend': false,
         'sh': 'flat',
         'mat': 'steel',

@@ -521,6 +521,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const aiPolish = require("./ai_polish");
 const aiMaterial = require("./ai_material");
 const aiAsk = require("./ai_ask");
+const aiSketch = require("./ai_sketch");
 const ANTHROPIC_API_KEY = defineSecret("ANTHROPIC_API_KEY");
 const AI_OPTIONS = { secrets: [ANTHROPIC_API_KEY], region: "asia-northeast3", maxInstances: 5 };
 
@@ -650,4 +651,24 @@ exports.parseMaterialNote = onCall({ ...AI_OPTIONS, timeoutSeconds: 60, memory: 
         throw e;
     }
     return { items, remaining: usage.limit - usage.count };
+});
+
+// 철판 가공 › 손그림 읽어 만들기(10-10): 손으로 그린 철판 그림 → 외곽 꼭짓점(mm)·귀 처리·구멍·두께.
+// 사진 읽기가 까다로워 더 정확한 모델을 쓴다(하루 횟수는 따로).
+exports.parsePlateSketch = onCall({ ...AI_OPTIONS, timeoutSeconds: 90, memory: "512MiB" }, async (request) => {
+    const uid = await requireApproved(request);
+    const d = request.data || {};
+    const checked = aiSketch.validateImage(d.image);
+    if (checked.error) throw new HttpsError("invalid-argument", checked.error);
+    const usage = await takeDailyUse("ai_usage_sketch", uid, aiSketch.DAILY_LIMIT);
+
+    let plate;
+    try {
+        plate = aiSketch.extractPlate(await callAnthropic(aiSketch.buildRequest(checked.data, checked.mime)));
+        if (!plate) throw new HttpsError("internal", "AI가 그림을 옮기지 못했습니다");
+    } catch (e) {
+        await refundDailyUse("ai_usage_sketch", uid);
+        throw e;
+    }
+    return { plate, remaining: usage.limit - usage.count };
 });

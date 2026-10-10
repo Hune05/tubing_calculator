@@ -1,6 +1,7 @@
 // 철판 가공(10-10): 3t·4t 같은 철판을 레이저로 자르기만 하거나(평판·삼각 리브·자유 모양) 잘라서 꺾는(ㄱ·ㄷ·Z·모자)
 // 브라켓의 전개도·꺾기선·구멍·무게를 계산하고, 레이저 업체에 보낼 DXF와 가공 지시서 PDF·카톡 글을 만든다.
 // 계산은 plate_calc.dart, 꺾기는 부스바 절곡 계산을 그대로 쓴다. 화면 틀은 형강 브라켓·접지바와 같다.
+// 10-10 나중: 첫 화면(plate_home_page.dart)에서 "레이저 절단"과 "절단 + 절곡"을 따로 연다(입력·저장도 따로).
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
@@ -8,6 +9,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/app_components.dart' show showAppSnack;
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/common_widgets/swipe_to_delete.dart' show showDeleteUndo;
 import '../../core/theme/field_view.dart';
@@ -29,7 +31,8 @@ Future<void> _defaultShare(String text) async {
 }
 
 const List<String> kPlateBasis = [
-  '가공: "레이저 절단만"은 평판·삼각 리브·자유 모양을 자르기만 하고, "절단 + 절곡"은 ㄱ·ㄷ·Z·모자로 꺾습니다. 꺾는 것은 전개도(펴 놓은 모양)를 자른 뒤 꺾기선에서 꺾습니다.',
+  '가공: "레이저 절단"은 평판·삼각 리브·자유 모양을 자르기만 하고, "절단 + 절곡"은 ㄱ·ㄷ·Z·모자로 꺾습니다. 꺾는 것은 전개도(펴 놓은 모양)를 자른 뒤 꺾기선에서 꺾습니다. 둘은 철판 가공 첫 화면에서 따로 들어가고 입력도 따로 남습니다.',
+  '평판 귀: R은 둥글게, C는 귀에서 양쪽 변으로 같은 길이만큼 45°로 잘라 내고, 따내기는 귀에서 가로 × 세로 사각을 잘라 냅니다. 자유 모양은 꼭짓점 줄 끝에 ,r10 · ,c5 · ,n20x15처럼 붙입니다. 귀 처리가 옆 변보다 크면 알립니다.',
   '꺾음 치수는 모두 바깥 치수입니다. 전개 길이 = 바깥 치수 합 − 꺾는 곳마다 공제값. 공제값(90°) = 2 × (안쪽 반경 + 두께) − π/2 × (안쪽 반경 + k × 두께). k를 모르면 일반값 0.33을 쓰고, 업체가 알려 준 공제값을 넣으면 그 값이 나오게 k를 맞춥니다. 꺾기 계산은 부스바 가공과 같은 식입니다.',
   '안쪽 반경은 비우면 두께와 같게 봅니다. 레이저 업체·절곡기 금형마다 공제값이 다르니 처음 주문 때 업체 값으로 맞추고 "이 두께 값 저장"으로 남겨 두십시오.',
   '꺾기선은 꺾는 부분의 가운데 선입니다. "위로"는 DXF·전개도를 위에서 본 쪽으로 꺾는다는 뜻입니다. 모자는 발 → 다리 → 윗면 → 다리 → 발 차례로 위로·아래로·아래로·위로 꺾습니다.',
@@ -58,14 +61,32 @@ String plateShapeName(PlateShape s) =>
     [...kPlateCutShapes, ...kPlateBendShapes].firstWhere((e) => e.$1 == s).$2;
 
 class PlatePage extends StatefulWidget {
-  const PlatePage({super.key, this.share = _defaultShare, this.shareDxf});
+  const PlatePage({
+    super.key,
+    this.bend = false,
+    this.share = _defaultShare,
+    this.shareDxf,
+    this.initial,
+  });
+
+  /// 손그림 읽기에서 넘겨 받은 모양(자유 모양·구멍·두께). 남아 있던 입력 위에 덮고, 알림으로 되돌릴 수 있다.
+  final Map<String, Object?>? initial;
+
+  /// true: 절단 + 절곡(ㄱ·ㄷ·Z·모자), false: 레이저 절단(평판·삼각 리브·자유 모양).
+  final bool bend;
 
   final Future<void> Function(String text) share;
 
   /// DXF 보내기(시험에서 바꿔 끼운다). null이면 공유 창.
   final Future<void> Function(String dxf)? shareDxf;
 
-  static const draftKey = 'steel_plate_draft_v1';
+  /// 10-10 전에는 두 방식이 칸 하나를 같이 썼다. 새 칸이 비어 있을 때 같은 방식 것만 옮겨 읽는다(옛 칸은 그대로 둔다).
+  static const legacyDraftKey = 'steel_plate_draft_v1';
+  static const legacySavedKey = 'steel_plate_saved_v1';
+  static String draftKeyOf(bool bend) =>
+      bend ? 'steel_plate_bend_draft_v1' : 'steel_plate_cut_draft_v1';
+  static String savedKeyOf(bool bend) =>
+      bend ? 'steel_plate_bend_saved_v1' : 'steel_plate_cut_saved_v1';
   static const bendTableKey = 'plate_bend_table_v1';
 
   @override
@@ -78,13 +99,19 @@ class _PlatePageState extends State<PlatePage>
         RecentCalcHistoryMixin<PlatePage>,
         ElecTabParts<PlatePage> {
   @override
-  String? get calcHistoryStorageKey => 'calc_history_steel_plate';
+  String? get calcHistoryStorageKey =>
+      'calc_history_steel_plate_${widget.bend ? 'bend' : 'cut'}';
 
-  bool _bend = true;
-  PlateShape _shape = PlateShape.l;
+  bool get _bend => widget.bend;
+  late PlateShape _shape = _bend ? PlateShape.l : PlateShape.flat;
   PlateMaterial _mat = PlateMaterial.steel;
   final List<PlateHoleSpec> _holes = [];
   int _rotQ = 0; // 판을 반시계로 90° 돌린 횟수(평판·리브·자유)
+  // 평판 네 귀(왼쪽 아래·오른쪽 아래·오른쪽 위·왼쪽 위 차례)와 지금 고른 귀
+  List<PlateCorner> _corners = List.filled(4, PlateCorner.square);
+  Set<int> _cornerSel = {0, 1, 2, 3};
+  final _ca = TextEditingController(text: '10');
+  final _cb = TextEditingController(text: '10');
   Map<String, (double, double)> _bendTable = {};
   List<double> _dies = const [];
 
@@ -92,7 +119,7 @@ class _PlatePageState extends State<PlatePage>
   final _t = TextEditingController(text: '3');
   final _len = TextEditingController(text: '200');
   final _wid = TextEditingController(text: '100');
-  final _cornerR = TextEditingController(text: '0');
+
   final _l1 = TextEditingController(text: '50');
   final _l2 = TextEditingController(text: '50');
   final _l3 = TextEditingController(text: '50');
@@ -115,7 +142,6 @@ class _PlatePageState extends State<PlatePage>
     _t,
     _len,
     _wid,
-    _cornerR,
     _l1,
     _l2,
     _l3,
@@ -133,7 +159,6 @@ class _PlatePageState extends State<PlatePage>
     't',
     'len',
     'wid',
-    'cr',
     'l1',
     'l2',
     'l3',
@@ -164,6 +189,8 @@ class _PlatePageState extends State<PlatePage>
     for (final c in _fields) {
       c.dispose();
     }
+    _ca.dispose();
+    _cb.dispose();
     super.dispose();
   }
 
@@ -173,6 +200,7 @@ class _PlatePageState extends State<PlatePage>
     'mat': _mat.name,
     'holes': [for (final h in _holes) h.toJson()],
     'rot': _rotQ,
+    'corners': [for (final c in _corners) c.toJson()],
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
   });
 
@@ -184,7 +212,6 @@ class _PlatePageState extends State<PlatePage>
   void applyHistorySnapshot(Map<String, dynamic> m) => _applyMap(m);
 
   void _applyMap(Map<String, dynamic> m) {
-    if (m['bend'] is bool) _bend = m['bend'] as bool;
     final sh = PlateShape.values.where((s) => s.name == m['sh']);
     if (sh.isNotEmpty) _shape = sh.first;
     final mat = PlateMaterial.values.where((s) => s.name == m['mat']);
@@ -199,6 +226,19 @@ class _PlatePageState extends State<PlatePage>
       final v = m[_fieldKeys[i]];
       if (v is String) _fields[i].text = v;
     }
+    final cs = m['corners'];
+    if (cs is List && cs.length == 4) {
+      _corners = [for (final c in cs) PlateCorner.fromJson(c)];
+    } else if (m.containsKey('cr')) {
+      // 10-10 전 "모서리 R"(네 귀 같음)
+      final cr = double.tryParse('${m['cr'] ?? ''}'.trim()) ?? 0;
+      _corners = List.filled(
+        4,
+        cr > 0 ? PlateCorner(PlateCornerKind.round, cr) : PlateCorner.square,
+      );
+    }
+    _cornerSel = {0, 1, 2, 3};
+    _syncCornerFields();
     final hs = m['holes'];
     if (hs is List) {
       _holes.clear();
@@ -228,12 +268,50 @@ class _PlatePageState extends State<PlatePage>
   Future<void> _loadDraft() async {
     try {
       final p = await SharedPreferences.getInstance();
-      final raw = p.getString(PlatePage.draftKey);
+      var raw = p.getString(PlatePage.draftKeyOf(_bend));
+      if (raw == null) {
+        final old = p.getString(PlatePage.legacyDraftKey);
+        final m = old == null ? null : jsonDecode(old);
+        if (m is Map && (m['bend'] ?? true) == _bend) raw = old;
+      }
+      await _moveOldSaved(p);
       if (raw != null && mounted) {
-        setState(() => _applyMap(jsonDecode(raw) as Map<String, dynamic>));
+        final m = jsonDecode(raw) as Map<String, dynamic>;
+        setState(() => _applyMap(m));
       }
     } catch (_) {}
     _draftReady = true;
+    final init = widget.initial;
+    if (init != null && mounted) {
+      final before = _draft();
+      _set(() => _applyMap(Map<String, dynamic>.from(init)));
+      showAppSnack(
+        context,
+        '손그림에서 옮겨 왔습니다. 구멍은 "구멍 배치 편집"에서 더 고칠 수 있습니다.',
+        onUndo: () =>
+            _set(() => _applyMap(jsonDecode(before) as Map<String, dynamic>)),
+        duration: const Duration(seconds: 6),
+      );
+    }
+  }
+
+  /// 옛 "저장한 규격"(두 방식이 한 칸)에서 이 방식 것만 새 칸으로 옮긴다(한 번만, 옛 칸은 그대로).
+  Future<void> _moveOldSaved(SharedPreferences p) async {
+    final key = PlatePage.savedKeyOf(_bend);
+    if (p.containsKey(key)) return;
+    final old = p.getString(PlatePage.legacySavedKey);
+    final l = old == null ? null : jsonDecode(old);
+    if (l is! List) return;
+    await p.setString(
+      key,
+      jsonEncode([
+        for (final e in l)
+          if (e is Map &&
+              e['data'] is Map &&
+              ((e['data'] as Map)['bend'] ?? true) == _bend)
+            e,
+      ]),
+    );
   }
 
   Future<void> _loadBendTable() async {
@@ -276,7 +354,7 @@ class _PlatePageState extends State<PlatePage>
     if (!_draftReady) return;
     final d = _draft();
     SharedPreferences.getInstance()
-        .then((p) => p.setString(PlatePage.draftKey, d))
+        .then((p) => p.setString(PlatePage.draftKeyOf(_bend), d))
         .catchError((_) => false);
   }
 
@@ -300,25 +378,29 @@ class _PlatePageState extends State<PlatePage>
     _bd.text = saved == null ? '' : fmt(saved.$2);
   });
 
-  PlateInput _input() => PlateInput(
-    shape: _shape,
-    material: _mat,
-    t: _num(_t),
-    length: _num(_len),
-    width: _num(_wid),
-    cornerR: _num(_cornerR),
-    legs: [_num(_l1), _num(_l2), _num(_l3)],
-    angle: readNum(_angle) ?? 90,
-    r: readNum(_r),
-    bd90: readNum(_bd),
-    ribA: _num(_ribA),
-    ribB: _num(_ribB),
-    ribC: _num(_ribC),
-    points: parsePlatePoints(_points.text),
-    holes: List.of(_holes),
-    rotQ: _rotQ,
-    qty: _num(_qty).round().clamp(1, 9999),
-  );
+  PlateInput _input() {
+    final vs = parsePlateVertices(_points.text);
+    return PlateInput(
+      shape: _shape,
+      material: _mat,
+      t: _num(_t),
+      length: _num(_len),
+      width: _num(_wid),
+      corners: List.of(_corners),
+      legs: [_num(_l1), _num(_l2), _num(_l3)],
+      angle: readNum(_angle) ?? 90,
+      r: readNum(_r),
+      bd90: readNum(_bd),
+      ribA: _num(_ribA),
+      ribB: _num(_ribB),
+      ribC: _num(_ribC),
+      points: [for (final (p, _) in vs) p],
+      pointCorners: [for (final (_, c) in vs) c],
+      holes: List.of(_holes),
+      rotQ: _rotQ,
+      qty: _num(_qty).round().clamp(1, 9999),
+    );
+  }
 
   bool get _ready => _num(_t) > 0;
   PlatePlan? _plan() => _ready ? platePlan(_input()) : null;
@@ -328,10 +410,14 @@ class _PlatePageState extends State<PlatePage>
 
   String _dimsText() => switch (_shape) {
     PlateShape.flat =>
-      '${fmt(_num(_len))} × ${fmt(_num(_wid))}${_num(_cornerR) > 0 ? ' · 모서리 R${fmt(_num(_cornerR))}' : ''}',
+      '${fmt(_num(_len))} × ${fmt(_num(_wid))}${_cornersText()}',
     PlateShape.rib =>
       '${fmt(_num(_ribA))} × ${fmt(_num(_ribB))}${_num(_ribC) > 0 ? ' · 모서리 따내기 ${fmt(_num(_ribC))}' : ''}',
-    PlateShape.free => '꼭짓점 ${parsePlatePoints(_points.text).length}개',
+    PlateShape.free => () {
+      final vs = parsePlateVertices(_points.text);
+      final k = vs.where((v) => !v.$2.isNone).length;
+      return '꼭짓점 ${vs.length}개${k > 0 ? ' · 귀 처리 $k곳' : ''}';
+    }(),
     PlateShape.l =>
       '1면 ${fmt(_num(_l1))} · 2면 ${fmt(_num(_l2))} · 폭 ${fmt(_num(_wid))} · ${fmt(readNum(_angle) ?? 90)}°',
     PlateShape.u || PlateShape.z =>
@@ -339,6 +425,19 @@ class _PlatePageState extends State<PlatePage>
     PlateShape.hat =>
       '발 ${fmt(_num(_l1))} · 높이 ${fmt(_num(_l2))} · 윗면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}',
   };
+
+  /// 평판 귀 처리 글: " · 네 귀 R10" 또는 " · 왼쪽 아래 R10 · 오른쪽 위 C5". 다 직각이면 빈 글.
+  String _cornersText() {
+    final cs = _corners;
+    if (cs.every((c) => c.isNone)) return '';
+    if (cs.every((c) => c.label == cs.first.label)) {
+      return ' · 네 귀 ${cs.first.label}';
+    }
+    return [
+      for (var k = 0; k < 4; k++)
+        if (!cs[k].isNone) ' · ${kPlateCornerNames[k]} ${cs[k].label}',
+    ].join();
+  }
 
   String _bendLine(PlatePlan p, int n) {
     final b = p.bends[n];
@@ -492,7 +591,7 @@ class _PlatePageState extends State<PlatePage>
 
   Future<void> _openSaved() => openSavedSpecs(
     context,
-    storageKey: 'steel_plate_saved_v1',
+    storageKey: PlatePage.savedKeyOf(_bend),
     current: () => jsonDecode(_draft()) as Map<String, dynamic>,
     summaryOf: (m) {
       final sh = PlateShape.values.where((s) => s.name == m['sh']);
@@ -602,26 +701,8 @@ class _PlatePageState extends State<PlatePage>
         '지시서 PDF·DXF 파일 이름과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
         onEdit: _saveSoon,
       ),
-      elecSectionTitle('가공'),
-      elecChipGroup(
-        '가공 방식',
-        '레이저 절단만: 평판·삼각 리브·자유 모양을 자르기만 합니다. 절단 + 절곡: 잘라서 ㄱ·ㄷ·Z·모자로 꺾습니다.',
-        [
-          calcChip('pl_cut', '레이저 절단만', !_bend, () {
-            _set(() {
-              _bend = false;
-              if (plateShapeBends(_shape)) _shape = PlateShape.flat;
-            });
-          }),
-          calcChip('pl_bend', '절단 + 절곡', _bend, () {
-            _set(() {
-              _bend = true;
-              if (!plateShapeBends(_shape)) _shape = PlateShape.l;
-            });
-          }),
-        ],
-      ),
-      elecChipGroup('모양', _shapeGuide(), [
+      elecSectionTitle('모양'),
+      elecChipGroup(_bend ? '꺾을 모양' : '자를 모양', _shapeGuide(), [
         for (final (s, name) in shapes)
           calcChip(
             'pl_shape_${s.name}',
@@ -896,7 +977,7 @@ class _PlatePageState extends State<PlatePage>
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             title: Text(
-              '철판 가공',
+              _bend ? '절단 + 절곡' : '레이저 절단',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
             actions: [
@@ -947,7 +1028,7 @@ class _PlatePageState extends State<PlatePage>
   }
 
   String _shapeGuide() => switch (_shape) {
-    PlateShape.flat => '평판: 사각 판에 구멍·장공. 모서리를 둥글게 할 수 있습니다.',
+    PlateShape.flat => '평판: 사각 판에 구멍·장공. 네 귀를 따로 둥글게(R)·모따기(C)·따내기 할 수 있습니다.',
     PlateShape.rib => '삼각 리브: ㄱ자 안쪽에 용접하는 보강판. 직각 모서리를 따내 용접 자리를 비웁니다.',
     PlateShape.free => '자유 모양: 꼭짓점을 차례로 넣어 아무 모양이나 만듭니다.',
     PlateShape.l => 'ㄱ자: 한 번 꺾습니다(각도를 바꿀 수 있습니다).',
@@ -956,6 +1037,184 @@ class _PlatePageState extends State<PlatePage>
     PlateShape.hat => '모자: 발 → 다리 → 윗면 → 다리 → 발, 네 번 꺾습니다.',
   };
 
+  // ── 평판 네 귀 ──
+
+  static const _cornerGroups = [
+    ('all', '네 귀', {0, 1, 2, 3}),
+    ('top', '위 둘', {2, 3}),
+    ('bottom', '아래 둘', {0, 1}),
+    ('left', '왼쪽 둘', {0, 3}),
+    ('right', '오른쪽 둘', {1, 2}),
+    ('d1', '대각 ↗', {0, 2}),
+    ('d2', '대각 ↖', {1, 3}),
+  ];
+
+  /// 고른 귀 중 첫 귀의 값을 크기 칸에 옮긴다(직각이면 칸 값은 그대로).
+  void _syncCornerFields() {
+    final c = _corners[(_cornerSel.toList()..sort()).first];
+    if (c.kind == PlateCornerKind.none) return;
+    _ca.text = fmt(c.a);
+    _cb.text = fmt(c.b <= 0 ? c.a : c.b);
+  }
+
+  void _selectCorners(Set<int> s) => setState(() {
+    _cornerSel = Set.of(s);
+    _syncCornerFields();
+  });
+
+  void _setCornerKind(PlateCornerKind kind) => _set(() {
+    var a = _num(_ca), b = _num(_cb);
+    if (a <= 0) {
+      a = 10;
+      _ca.text = '10';
+    }
+    if (b <= 0) {
+      b = a;
+      _cb.text = fmt(a);
+    }
+    for (final k in _cornerSel) {
+      _corners[k] = kind == PlateCornerKind.none
+          ? PlateCorner.square
+          : PlateCorner(kind, a, kind == PlateCornerKind.notch ? b : 0);
+    }
+  });
+
+  void _setCornerSize() => _set(() {
+    final a = _num(_ca), b = _num(_cb);
+    for (final k in _cornerSel) {
+      final c = _corners[k];
+      if (c.kind == PlateCornerKind.none) continue;
+      _corners[k] = PlateCorner(
+        c.kind,
+        a,
+        c.kind == PlateCornerKind.notch ? b : 0,
+      );
+    }
+  });
+
+  List<Widget> _cornerFields() {
+    final kinds = {for (final k in _cornerSel) _corners[k].kind};
+    final kind = kinds.length == 1 ? kinds.first : null;
+    bool same(Set<int> g) =>
+        g.length == _cornerSel.length && _cornerSel.containsAll(g);
+    Widget tile(int k) {
+      final on = _cornerSel.contains(k);
+      return Expanded(
+        child: Padding(
+          padding: const EdgeInsets.all(3),
+          child: Material(
+            color: on ? fc.brandSoft : fc.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: on ? fc.brand : fc.line,
+                width: on ? 2 : 1,
+              ),
+            ),
+            child: InkWell(
+              key: Key('pl_corner_$k'),
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => _selectCorners({k}),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Column(
+                  children: [
+                    Text(
+                      kPlateCornerNames[k],
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: fc.textSub,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _corners[k].label,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: fc.text,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    Widget size(String key, String label, TextEditingController c, String g) =>
+        elecField(key, label, c, g, onEdit: _setCornerSize);
+    return [
+      calcLabel(
+        '네 귀 처리',
+        '귀를 누르면 그 귀 하나만, 아래 칩은 여러 귀를 한 번에 고릅니다. 고른 귀에 직각·R·C·따내기를 줍니다.',
+      ),
+      const SizedBox(height: 4),
+      Column(
+        key: const Key('pl_corners'),
+        children: [
+          Row(children: [tile(3), tile(2)]),
+          Row(children: [tile(0), tile(1)]),
+        ],
+      ),
+      if (_rotQ % 4 != 0)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            '판을 돌려 놓았습니다. 귀 이름은 돌리기 전(가로 ${fmt(_num(_len))} × 세로 ${fmt(_num(_wid))}) 기준입니다.',
+            style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+          ),
+        ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final (id, name, g) in _cornerGroups)
+            calcChip('pl_cg_$id', name, same(g), () => _selectCorners(g)),
+        ],
+      ),
+      const SizedBox(height: 10),
+      elecChipGroup('고른 귀 처리', '같은 처리가 아닌 귀를 같이 고르면 칩이 비어 보입니다.', [
+        calcChip(
+          'pl_ck_none',
+          '직각',
+          kind == PlateCornerKind.none,
+          () => _setCornerKind(PlateCornerKind.none),
+        ),
+        calcChip(
+          'pl_ck_round',
+          'R 둥글게',
+          kind == PlateCornerKind.round,
+          () => _setCornerKind(PlateCornerKind.round),
+        ),
+        calcChip(
+          'pl_ck_chamfer',
+          'C 모따기',
+          kind == PlateCornerKind.chamfer,
+          () => _setCornerKind(PlateCornerKind.chamfer),
+        ),
+        calcChip(
+          'pl_ck_notch',
+          '따내기',
+          kind == PlateCornerKind.notch,
+          () => _setCornerKind(PlateCornerKind.notch),
+        ),
+      ]),
+      if (kind == PlateCornerKind.round)
+        size('pl_ca', 'R (mm)', _ca, '귀를 둥글게 자르는 반경입니다.'),
+      if (kind == PlateCornerKind.chamfer)
+        size('pl_ca', 'C (mm)', _ca, '귀에서 양쪽 변으로 이 길이만큼 45°로 잘라 냅니다.'),
+      if (kind == PlateCornerKind.notch) ...[
+        size('pl_ca', '따내기 가로 (mm)', _ca, '귀에서 가로 변을 따라 잘라 내는 길이입니다.'),
+        size('pl_cb', '따내기 세로 (mm)', _cb, '귀에서 세로 변을 따라 잘라 내는 길이입니다.'),
+      ],
+    ];
+  }
+
   List<Widget> _dimFields() {
     Widget f(String key, String label, TextEditingController c, String guide) =>
         elecField(key, label, c, guide, onEdit: _saveSoon);
@@ -963,7 +1222,7 @@ class _PlatePageState extends State<PlatePage>
       PlateShape.flat => [
         f('pl_len', '가로 (mm)', _len, '판 가로 길이입니다.'),
         f('pl_wid', '세로 (mm)', _wid, '판 세로 길이입니다.'),
-        f('pl_cr', '모서리 R (mm, 0이면 직각)', _cornerR, '네 모서리를 둥글게 자르는 반경입니다.'),
+        ..._cornerFields(),
       ],
       PlateShape.rib => [
         f('pl_ra', '가로 변 (mm)', _ribA, '직각을 낀 아래 변 길이입니다.'),
@@ -978,7 +1237,7 @@ class _PlatePageState extends State<PlatePage>
       PlateShape.free => [
         calcLabel(
           '꼭짓점 (가로,세로 한 줄에 하나)',
-          '판 외곽 꼭짓점을 차례로 넣습니다. 예) 0,0 다음 줄 200,0. 마지막 점은 첫 점으로 저절로 이어집니다.',
+          '판 외곽 꼭짓점을 차례로 넣습니다. 예) 0,0 다음 줄 200,0. 마지막 점은 첫 점으로 저절로 이어집니다. 귀 처리는 줄 끝에 붙입니다: ,r10(R10) · ,c5(C5 모따기) · ,n20x15(따내기: 앞 변 쪽 20 × 다음 변 쪽 15).',
         ),
         const SizedBox(height: 4),
         calcBox(

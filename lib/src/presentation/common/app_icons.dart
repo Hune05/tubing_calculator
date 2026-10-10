@@ -35,6 +35,15 @@ enum AppGlyph {
   /// 철판 가공: 구멍 둘 뚫린 판과 가운데 꺾기선(점선).
   plate,
 
+  /// 철판 가공 › 레이저 절단: 귀 하나 둥글고 하나 따낸 평판에 구멍 둘.
+  plateCut,
+
+  /// 철판 가공 › 절단 + 절곡: 모자 모양으로 꺾은 판(옆에서 본 모양).
+  plateBend,
+
+  /// 철판 가공 › 손그림 읽기: 종이에 그린 판 모양과 연필.
+  plateSketch,
+
   /// 작업 배치도: 중판에 레일 두 줄과 부품.
   layout,
 
@@ -1214,6 +1223,45 @@ class _AppIconPainter extends CustomPainter {
         for (final y in [6.5, 10.5, 14.5]) {
           l(12, y, 12, y + 2.2);
         }
+
+      case AppGlyph.plateCut:
+        // 왼쪽 위 귀 둥글게, 오른쪽 아래 귀 따낸 판과 구멍 둘.
+        final pc = Path()
+          ..moveTo(3, 19)
+          ..lineTo(3, 9)
+          ..arcToPoint(const Offset(7, 5), radius: const Radius.circular(4))
+          ..lineTo(21, 5)
+          ..lineTo(21, 15)
+          ..lineTo(17, 15)
+          ..lineTo(17, 19)
+          ..close();
+        canvas.drawPath(pc, soft);
+        canvas.drawPath(pc, line);
+        canvas.drawCircle(const Offset(8, 14), 1.5, line);
+        canvas.drawCircle(const Offset(15.5, 9.5), 1.5, line);
+
+      case AppGlyph.plateBend:
+        // 발 → 다리 → 윗면 → 다리 → 발(모자), 두께 있는 띠.
+        final pb = poly([
+          2, 19, 7, 19, 7, 7, 17, 7, 17, 19, 22, 19, //
+          22, 16.5, 19.5, 16.5, 19.5, 4.5, 4.5, 4.5, 4.5, 16.5, 2, 16.5,
+        ]);
+        canvas.drawPath(pb, soft);
+        canvas.drawPath(pb, line);
+
+      case AppGlyph.plateSketch:
+        // 종이, 손으로 그린 판 외곽(곧지 않은 선), 비스듬한 연필.
+        rr(3, 3, 14.5, 18, 1.6, soft);
+        rr(3, 3, 14.5, 18, 1.6);
+        final sk = Path()
+          ..moveTo(6, 15.5)
+          ..quadraticBezierTo(5.6, 11, 6.3, 7)
+          ..quadraticBezierTo(10, 6.4, 13.6, 7.2)
+          ..quadraticBezierTo(14, 11.5, 13.2, 15.8)
+          ..quadraticBezierTo(9.5, 16.4, 6, 15.5);
+        canvas.drawPath(sk, line);
+        final pen = poly([16.2, 21.5, 15.8, 18.6, 21.2, 11.4, 23, 12.8, 17.6, 20]);
+        canvas.drawPath(pen, fill);
 
       case AppGlyph.bracket:
         // 벽 선, ㄱ자(기둥 + 가로대), 가새.

@@ -190,6 +190,180 @@ List<PlateHoleSpec> platePcd({
   ];
 }
 
+/// 모서리 처리(10-10): 직각, R(둥글게), C(빗기게 모따기), 따내기(앞 변으로 가로 [a] × 다음 변으로 [b] 사각을 따냄).
+enum PlateCornerKind { none, round, chamfer, notch }
+
+class PlateCorner {
+  final PlateCornerKind kind;
+  final double a, b;
+  const PlateCorner([this.kind = PlateCornerKind.none, this.a = 0, this.b = 0]);
+
+  static const square = PlateCorner();
+
+  bool get isNone => kind == PlateCornerKind.none || a <= 0;
+
+  /// 화면 글: "직각", "R10", "C5", "따내기 20×15".
+  String get label => switch (kind) {
+    _ when isNone => '직각',
+    PlateCornerKind.round => 'R${_f(a)}',
+    PlateCornerKind.chamfer => 'C${_f(a)}',
+    PlateCornerKind.notch => '따내기 ${_f(a)}×${_f(b <= 0 ? a : b)}',
+    PlateCornerKind.none => '직각',
+  };
+
+  /// 꼭짓점 줄 꼬리표(자유 모양 글): "r10", "c5", "n20x15". 직각은 빈 글.
+  String get token => switch (kind) {
+    _ when isNone => '',
+    PlateCornerKind.round => 'r${_f(a)}',
+    PlateCornerKind.chamfer => 'c${_f(a)}',
+    PlateCornerKind.notch => 'n${_f(a)}x${_f(b <= 0 ? a : b)}',
+    PlateCornerKind.none => '',
+  };
+
+  /// 꼬리표 읽기("R10", "c5", "n20x15", "노치20x15"는 안 받음). 못 읽으면 null.
+  static PlateCorner? parseToken(String s) {
+    final t = s.trim().toLowerCase();
+    final m = RegExp(
+      r'^([rcn])\s*([0-9.]+)(?:\s*[x×*]\s*([0-9.]+))?$',
+    ).firstMatch(t);
+    if (m == null) return null;
+    final a = double.tryParse(m.group(2)!);
+    if (a == null || a <= 0) return null;
+    final b = m.group(3) == null ? a : (double.tryParse(m.group(3)!) ?? a);
+    return switch (m.group(1)) {
+      'r' => PlateCorner(PlateCornerKind.round, a),
+      'c' => PlateCorner(PlateCornerKind.chamfer, a),
+      _ => PlateCorner(PlateCornerKind.notch, a, b),
+    };
+  }
+
+  Map<String, Object> toJson() => {'k': kind.index, 'a': a, 'b': b};
+
+  static PlateCorner fromJson(Object? o) {
+    if (o is! Map) return square;
+    final k = o['k'];
+    double n(String key) => o[key] is num ? (o[key] as num).toDouble() : 0;
+    if (k is! int || k < 0 || k >= PlateCornerKind.values.length) return square;
+    return PlateCorner(PlateCornerKind.values[k], n('a'), n('b'));
+  }
+}
+
+/// 꼭짓점 [pts](차례대로, 닫힘)와 꼭짓점마다 처리 [corners]로 외곽 토막들을 만든다.
+/// 처리가 이웃 변을 넘으면 [warn]으로 알린다. [names]는 알림에 쓰는 꼭짓점 이름(없으면 번호).
+List<PlateSeg> plateCornerOutline(
+  List<Offset> pts,
+  List<PlateCorner> corners,
+  void Function(String) warn, {
+  List<String>? names,
+}) {
+  final n = pts.length;
+  if (n < 3) return const [];
+  // 다각형 방향(반시계 +)
+  var area2 = 0.0;
+  for (var i = 0; i < n; i++) {
+    final a = pts[i], b = pts[(i + 1) % n];
+    area2 += a.dx * b.dy - b.dx * a.dy;
+  }
+  final ccw = area2 >= 0;
+  final entry = List<Offset>.filled(n, Offset.zero);
+  final exit = List<Offset>.filled(n, Offset.zero);
+  final segs = List<List<PlateSeg>>.generate(n, (_) => []);
+  String nameOf(int i) =>
+      names != null && i < names.length ? names[i] : '꼭짓점 ${i + 1}';
+  for (var i = 0; i < n; i++) {
+    final p = pts[i], a = pts[(i - 1 + n) % n], b = pts[(i + 1) % n];
+    final c = i < corners.length ? corners[i] : PlateCorner.square;
+    final la = (a - p).distance, lb = (b - p).distance;
+    entry[i] = p;
+    exit[i] = p;
+    if (c.isNone || la < 1e-9 || lb < 1e-9) continue;
+    final u1 = (a - p) / la, u2 = (b - p) / lb;
+    final dot = (u1.dx * u2.dx + u1.dy * u2.dy).clamp(-1.0, 1.0);
+    final phi = math.acos(dot); // 두 변 사이 각
+    if (phi < 1e-6 || (math.pi - phi) < 1e-6) continue; // 접히거나 곧은 꼭짓점
+    final turn = (p - a).dx * (b - p).dy - (p - a).dy * (b - p).dx;
+    final convex = ccw ? turn > 0 : turn < 0;
+    switch (c.kind) {
+      case PlateCornerKind.round:
+        final tl = c.a / math.tan(phi / 2);
+        final e = p + u1 * tl, x = p + u2 * tl;
+        final bis = u1 + u2;
+        final cen = p + bis / bis.distance * (c.a / math.sin(phi / 2));
+        final a1 = math.atan2(e.dy - cen.dy, e.dx - cen.dx) * 180 / math.pi;
+        final a2 = math.atan2(x.dy - cen.dy, x.dx - cen.dx) * 180 / math.pi;
+        var sw = a2 - a1;
+        while (sw > 180) {
+          sw -= 360;
+        }
+        while (sw <= -180) {
+          sw += 360;
+        }
+        entry[i] = e;
+        exit[i] = x;
+        segs[i].add(PlateArc(cen, c.a, a1, sw));
+      case PlateCornerKind.chamfer:
+        final e = p + u1 * c.a, x = p + u2 * c.a;
+        entry[i] = e;
+        exit[i] = x;
+        segs[i].add(PlateLine(e, x));
+      case PlateCornerKind.notch:
+        if (!convex) {
+          warn('${nameOf(i)}는 안으로 꺾인 모서리라 따낼 수 없습니다.');
+          continue;
+        }
+        final bb = c.b <= 0 ? c.a : c.b;
+        final e = p + u1 * c.a, x = p + u2 * bb;
+        final inner = p + u1 * c.a + u2 * bb;
+        entry[i] = e;
+        exit[i] = x;
+        segs[i]
+          ..add(PlateLine(e, inner))
+          ..add(PlateLine(inner, x));
+      case PlateCornerKind.none:
+        break;
+    }
+  }
+  // 변마다 양 끝 처리가 변 길이를 넘으면 알림
+  for (var i = 0; i < n; i++) {
+    final j = (i + 1) % n;
+    final len = (pts[j] - pts[i]).distance;
+    final used = (exit[i] - pts[i]).distance + (entry[j] - pts[j]).distance;
+    if (used > len + 1e-6) {
+      warn(
+        '${nameOf(i)}·${nameOf(j)} 사이 변(${_f(len)}mm)보다 모서리 처리가 큽니다. R·C·따내기 값을 줄이십시오.',
+      );
+    }
+  }
+  final out = <PlateSeg>[];
+  for (var i = 0; i < n; i++) {
+    out.addAll(segs[i]);
+    final j = (i + 1) % n;
+    if ((entry[j] - exit[i]).distance > 1e-9) {
+      out.add(PlateLine(exit[i], entry[j]));
+    }
+  }
+  return out;
+}
+
+/// 외곽 토막들의 넓이(원호는 정확히).
+double plateOutlineArea(List<PlateSeg> outline) {
+  var s = 0.0;
+  for (final g in outline) {
+    switch (g) {
+      case PlateLine(:final a, :final b):
+        s += a.dx * b.dy - b.dx * a.dy;
+      case PlateArc(:final c, :final r, :final start, :final sweep):
+        final p1 = g.at(start), p2 = g.at(start + sweep);
+        // 원호를 따라 x dy − y dx 적분 = c×(p2 − p1) + r²·쓸어 간 각
+        s +=
+            c.dx * (p2.dy - p1.dy) -
+            c.dy * (p2.dx - p1.dx) +
+            r * r * sweep * math.pi / 180;
+    }
+  }
+  return s.abs() / 2;
+}
+
 /// 외곽 한 토막: 직선 또는 원호(가운데·반지름·시작 각·쓸어 가는 각, °, 반시계가 +).
 sealed class PlateSeg {
   const PlateSeg();
@@ -293,8 +467,13 @@ class PlateInput {
   /// 삼각 리브: 가로 변·세로 변·직각 모서리 따내기.
   final double ribA, ribB, ribC;
 
-  /// 자유 모양 꼭짓점(차례대로).
+  /// 자유 모양 꼭짓점(차례대로)과 꼭짓점마다 모서리 처리(없으면 직각).
   final List<Offset> points;
+  final List<PlateCorner> pointCorners;
+
+  /// 평판 네 귀 처리(왼쪽 아래·오른쪽 아래·오른쪽 위·왼쪽 위 차례). 비어 있으면 [cornerR]을 네 귀에.
+  /// 따내기는 a = 가로(판 가로 변 따라), b = 세로.
+  final List<PlateCorner> corners;
 
   final List<PlateHoleSpec> holes;
   final int qty;
@@ -317,6 +496,8 @@ class PlateInput {
     this.ribB = 0,
     this.ribC = 0,
     this.points = const [],
+    this.pointCorners = const [],
+    this.corners = const [],
     this.holes = const [],
     this.qty = 1,
     this.rotQ = 0,
@@ -337,6 +518,8 @@ class PlateInput {
     ribB: ribB,
     ribC: ribC,
     points: points,
+    pointCorners: pointCorners,
+    corners: corners,
     holes: h,
     qty: qty,
     rotQ: rotQ ?? this.rotQ,
@@ -593,25 +776,35 @@ PlatePlan platePlan(PlateInput i) {
   switch (i.shape) {
     case PlateShape.flat:
       final w = i.length, h = i.width;
-      final r = i.cornerR.clamp(0.0, math.min(w, h) / 2);
       if (w <= 0 || h <= 0) warn('가로·세로를 넣으십시오.');
-      if (i.cornerR > math.min(w, h) / 2 + 1e-9) {
-        notes.add('모서리 R이 판 크기의 반보다 커서 ${_f(r)}mm로 계산했습니다.');
-      }
-      if (r <= 0) {
-        outline = rect(w, h);
-      } else {
-        outline = [
-          PlateLine(Offset(r, 0), Offset(w - r, 0)),
-          PlateArc(Offset(w - r, r), r, -90, 90),
-          PlateLine(Offset(w, r), Offset(w, h - r)),
-          PlateArc(Offset(w - r, h - r), r, 0, 90),
-          PlateLine(Offset(w - r, h), Offset(r, h)),
-          PlateArc(Offset(r, h - r), r, 90, 90),
-          PlateLine(Offset(0, h - r), Offset(0, r)),
-          PlateArc(Offset(r, r), r, 180, 90),
-        ];
-      }
+      // 네 귀 처리: 넣은 값, 없으면 예전 "모서리 R"(네 귀 같음)
+      final cs = i.corners.length == 4
+          ? i.corners
+          : List.filled(
+              4,
+              i.cornerR > 0
+                  ? PlateCorner(PlateCornerKind.round, i.cornerR)
+                  : PlateCorner.square,
+            );
+      // 평판 따내기는 가로 a × 세로 b로 받는다. 외곽은 앞 변 × 다음 변이라 왼쪽 아래·오른쪽 위는 바꿔 넣는다.
+      final cs2 = [
+        for (var k = 0; k < 4; k++)
+          k.isEven && cs[k].kind == PlateCornerKind.notch
+              ? PlateCorner(
+                  PlateCornerKind.notch,
+                  cs[k].b <= 0 ? cs[k].a : cs[k].b,
+                  cs[k].a,
+                )
+              : cs[k],
+      ];
+      outline = w > 0 && h > 0
+          ? plateCornerOutline(
+              [Offset.zero, Offset(w, 0), Offset(w, h), Offset(0, h)],
+              cs2,
+              warn,
+              names: kPlateCornerNames,
+            )
+          : rect(w, h);
       faceLengths = [w];
     case PlateShape.rib:
       final a = i.ribA, b = i.ribB, c = i.ribC;
@@ -630,10 +823,7 @@ PlatePlan platePlan(PlateInput i) {
       if (pts.length < 3) {
         warn('자유 모양은 꼭짓점이 3개 이상이어야 합니다.');
       } else {
-        outline = [
-          for (var k2 = 0; k2 < pts.length; k2++)
-            PlateLine(pts[k2], pts[(k2 + 1) % pts.length]),
-        ];
+        outline = plateCornerOutline(pts, i.pointCorners, warn);
         if (_polyArea(pts) < 1) warn('자유 모양의 넓이가 없습니다. 꼭짓점을 확인하십시오.');
       }
     case PlateShape.l:
@@ -845,13 +1035,7 @@ PlatePlan platePlan(PlateInput i) {
   ];
 
   // 넓이·무게
-  var area = 0.0;
-  if (i.shape == PlateShape.flat) {
-    final r = i.cornerR.clamp(0.0, math.min(i.length, i.width) / 2);
-    area = i.length * i.width - (4 - math.pi) * r * r;
-  } else if (poly.length >= 3) {
-    area = _polyArea(poly);
-  }
+  final area = outline.isEmpty ? 0.0 : plateOutlineArea(outline);
   final holeArea = holes.fold(0.0, (s, h) => s + h.area);
   final net = math.max(0.0, area - holeArea);
   final density = kPlateMaterials[i.material]!.$2; // g/cm³
@@ -895,9 +1079,17 @@ String plateHoleKind(PlateHole h) {
   return '장공 ${_f(h.dia)}×${_f(h.slot)}($dir)';
 }
 
+/// 평판 네 귀 이름(차례: 왼쪽 아래 → 오른쪽 아래 → 오른쪽 위 → 왼쪽 위).
+const List<String> kPlateCornerNames = ['왼쪽 아래', '오른쪽 아래', '오른쪽 위', '왼쪽 위'];
+
 /// "x,y" 줄들을 꼭짓점으로(쉼표·공백·/ 로 나눔). 못 읽는 줄은 뺀다.
-List<Offset> parsePlatePoints(String text) {
-  final out = <Offset>[];
+List<Offset> parsePlatePoints(String text) => [
+  for (final (p, _) in parsePlateVertices(text)) p,
+];
+
+/// "x,y[,r10|c5|n20x15]" 줄들을 꼭짓점과 모서리 처리로. 셋째 칸이 없거나 못 읽으면 직각.
+List<(Offset, PlateCorner)> parsePlateVertices(String text) {
+  final out = <(Offset, PlateCorner)>[];
   for (final line in text.split(RegExp(r'[\n;]'))) {
     final parts = line
         .trim()
@@ -907,7 +1099,20 @@ List<Offset> parsePlatePoints(String text) {
     if (parts.length < 2) continue;
     final x = double.tryParse(parts[0]), y = double.tryParse(parts[1]);
     if (x == null || y == null) continue;
-    out.add(Offset(x, y));
+    final c = parts.length >= 3
+        ? (PlateCorner.parseToken(parts.sublist(2).join()) ??
+              PlateCorner.square)
+        : PlateCorner.square;
+    out.add((Offset(x, y), c));
   }
   return out;
 }
+
+/// 꼭짓점과 처리를 "x,y[,r10]" 줄 글로(자유 모양 칸에 넣는 글).
+String platePointsText(List<Offset> pts, List<PlateCorner> corners) => [
+  for (var i = 0; i < pts.length; i++)
+    () {
+      final c = i < corners.length ? corners[i].token : '';
+      return '${_f(pts[i].dx)},${_f(pts[i].dy)}${c.isEmpty ? '' : ',$c'}';
+    }(),
+].join('\n');

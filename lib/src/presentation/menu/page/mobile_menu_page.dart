@@ -101,7 +101,7 @@ import '../../electrical/cable_tray_page.dart';
 import '../../electrical/busbar_bend_page.dart';
 import '../../electrical/busbar_ground_page.dart';
 import '../../steel_bracket/bracket_page.dart';
-import '../../steel_plate/plate_page.dart';
+import '../../steel_plate/plate_home_page.dart';
 import '../../electrical/circuit_reading_page.dart';
 import '../../electrical/panel_design_page.dart';
 import '../../electrical/troubleshoot_page.dart';
@@ -1882,7 +1882,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "철판 가공",
-                        subtitle: "레이저 절단·절곡 전개도 · DXF · 공제값",
+                        subtitle: "레이저 절단 · 절곡 전개도 · 손그림 읽기 · DXF",
                         icon: AppGlyph.plate,
                         iconColor: makitaTeal,
                         onTap: () {
@@ -1890,7 +1890,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => const PlatePage(),
+                              builder: (context) => const PlateHomePage(),
                             ),
                           );
                         },
