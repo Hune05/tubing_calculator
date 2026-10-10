@@ -140,7 +140,28 @@ void main() {
       final out = _l(
         post: const HoleRow(count: 2, dia: 13.5, first: 80, pitch: 250),
       );
-      expect(out.problems.join(), contains('기둥 구멍 2이 부재 밖으로'));
+      expect(out.problems.join(), contains('기둥 구멍 2번이 부재 밖으로'));
+    });
+
+    test('삼각: 기둥 구멍이 가새 끝 자리에 걸리면 알림', () {
+      BracketPlan b(double pitch) => bracketPlan(
+        BracketInput(
+          shape: BracketShape.brace,
+          spec: '앵글 50x50x5',
+          d: 50,
+          a: 300,
+          b: 300,
+          braceA: 210,
+          braceB: 210,
+          postHoles: HoleRow(count: 2, dia: 13.5, first: 80, pitch: pitch),
+        ),
+      );
+      // 가새 끝은 위에서 210 ± 25√2(≈174.6~245.4)
+      expect(
+        b(150).notes.join(),
+        contains('가새 끝 자리(위에서 174.6~245.4mm)에 기둥 구멍이 걸립니다(230mm)'),
+      );
+      expect(b(180).notes.join(), isNot(contains('가새 끝 자리')));
     });
 
     test('문형: 이음·베이스 판에 따라 기둥·가로대 길이, 판 구멍', () {
@@ -280,7 +301,7 @@ void main() {
       expect(find.byKey(const Key('br_view')), findsOneWidget);
       // 기둥 구멍 기본 2개(80, 230)
       expect(
-        find.textContaining('기둥 구멍 φ13.5 (위 끝에서): 80 · 230mm'),
+        find.textContaining('기둥 구멍 φ13.5 (위 끝에서): 80 · 260mm'),
         findsOneWidget,
       );
       await tap(tester, 'br_shape_1');

@@ -97,7 +97,7 @@ class _BracketPageState extends State<BracketPage>
   final _braceB = TextEditingController(text: '210');
   final _postDia = TextEditingController(text: '13.5');
   final _postFirst = TextEditingController(text: '80');
-  final _postPitch = TextEditingController(text: '150');
+  final _postPitch = TextEditingController(text: '180');
   final _armDia = TextEditingController(text: '13.5');
   final _armFirst = TextEditingController(text: '50');
   final _armPitch = TextEditingController(text: '100');

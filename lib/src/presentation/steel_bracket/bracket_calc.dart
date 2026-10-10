@@ -301,7 +301,7 @@ BracketPlan bracketPlan(BracketInput i) {
       out.add(PieceHole('$name ${k + 1}', at, r.dia));
       if (at - r.dia / 2 < -1e-9 || at + r.dia / 2 > len + 1e-9) {
         warn(
-          '$name 구멍 ${k + 1}이 부재 밖으로 나옵니다(토막 ${_f(len)}mm). 첫 구멍·피치를 줄이십시오.',
+          '$name 구멍 ${k + 1}번이 부재 밖으로 나옵니다(토막 ${_f(len)}mm). 첫 구멍·피치를 줄이십시오.',
         );
       }
     }
@@ -453,6 +453,20 @@ BracketPlan bracketPlan(BracketInput i) {
           );
           welds.add((topA + topB) / 2);
           welds.add((botA + botB) / 2);
+          // 가새 끝이 붙는 자리에 기둥 구멍이 있으면 볼트(너트)를 돌릴 자리가 없다.
+          final footTop = math.min(botA.dy, botB.dy);
+          final footBot = math.max(botA.dy, botB.dy);
+          final blocked = [
+            for (final h in postHoles)
+              if (h.fromEnd + h.dia / 2 > footTop &&
+                  h.fromEnd - h.dia / 2 < footBot)
+                h,
+          ];
+          if (blocked.isNotEmpty) {
+            notes.add(
+              '가새 끝 자리(위에서 ${_f(footTop)}~${_f(footBot)}mm)에 기둥 구멍이 걸립니다(${blocked.map((h) => '${_f(h.fromEnd)}mm').join(', ')}). 볼트를 조이기 어려울 수 있으니 구멍을 옮기십시오.',
+            );
+          }
           if (braceAngle < 30 || braceAngle > 60) {
             notes.add(
               '가새 기울기 ${_f(braceAngle)}°입니다. 보통 30~60°(45°가 흔함)로 둡니다. 가새 자리를 맞추십시오.',
