@@ -99,13 +99,16 @@ String plateDxf(PlatePlan p, {required double thickness}) {
     switch (s) {
       case PlateLine(:final a, :final b):
         d.line('CUT', a.dx, a.dy, b.dx, b.dy);
+      case PlateArc(:final c, :final r, :final sweep)
+          when sweep.abs() >= 359.999:
+        d.circle('CUT', c.dx, c.dy, r);
       case PlateArc(:final c, :final r, :final start, :final sweep):
         final a0 = sweep >= 0 ? start : start + sweep;
         final a1 = sweep >= 0 ? start + sweep : start;
         d.arc('CUT', c.dx, c.dy, r, _norm(a0), _norm(a1));
     }
   }
-  for (final h in p.holes) {
+  for (final h in [...p.holes, ...p.cutouts]) {
     if (h.slot <= 0) {
       d.circle('CUT', h.c.dx, h.c.dy, h.dia / 2);
       continue;

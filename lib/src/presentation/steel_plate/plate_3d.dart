@@ -157,7 +157,9 @@ _Path _foldPath(PlatePlan p, double rMid) {
 List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
   final h = math.max(t, 0.1) / 2;
   final faces = <Plate3dFace>[];
-  final holeLoops = [for (final hole in p.holes) plateHoleLoop(hole)];
+  // 사용자 홀 + 모양에 딸린 안쪽 따냄(링 내경)
+  final allHoles = [...p.holes, ...p.cutouts];
+  final holeLoops = [for (final hole in allHoles) plateHoleLoop(hole)];
 
   if (p.bends.isEmpty) {
     // 평판·리브·자유 모양: 외곽을 위아래 면으로, 둘레를 옆면으로, 구멍마다 벽
@@ -167,8 +169,8 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
     vm.Vector3 v(Offset q, double z) => vm.Vector3(q.dx, q.dy, z);
     // 판 밖에 놓인 구멍(빨간 테두리)은 뚫을 판이 없으니 뺀다(허공에 구멍 벽이 뜨고 크기가 커지던 것)
     final loops = [
-      for (var k = 0; k < p.holes.length; k++)
-        if (_inside(out, p.holes[k].c)) holeLoops[k],
+      for (var k = 0; k < allHoles.length; k++)
+        if (_inside(out, allHoles[k].c)) holeLoops[k],
     ];
     final holesTop = [
       for (final l in loops) [for (final q in l) v(q, h)],
@@ -232,11 +234,11 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
   for (final g in path.segs) {
     if (g.turn == 0) {
       final hs = [
-        for (var k = 0; k < p.holes.length; k++)
-          if (p.holes[k].c.dx > g.x0 &&
-              p.holes[k].c.dx < g.x1 &&
-              p.holes[k].c.dy > y0 &&
-              p.holes[k].c.dy < y1)
+        for (var k = 0; k < allHoles.length; k++)
+          if (allHoles[k].c.dx > g.x0 &&
+              allHoles[k].c.dx < g.x1 &&
+              allHoles[k].c.dy > y0 &&
+              allHoles[k].c.dy < y1)
             holeLoops[k],
       ];
       for (final s in [1.0, -1.0]) {
@@ -308,8 +310,8 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
     );
   }
   // 구멍 벽(곧은 면에 있는 구멍만)
-  for (var k = 0; k < p.holes.length; k++) {
-    final cx = p.holes[k].c.dx, cy = p.holes[k].c.dy;
+  for (var k = 0; k < allHoles.length; k++) {
+    final cx = allHoles[k].c.dx, cy = allHoles[k].c.dy;
     if (cy <= y0 || cy >= y1) continue; // 판 밖
     if (!path.segs.any((g) => g.turn == 0 && cx > g.x0 && cx < g.x1)) continue;
     final l0 = holeLoops[k];

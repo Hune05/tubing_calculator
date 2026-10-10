@@ -1182,6 +1182,17 @@ class _EditorPainter extends CustomPainter {
       ..color = kPlateEdge
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.2;
+    for (final h in p.cutouts) {
+      plateDrawHole(
+        canvas,
+        h,
+        toScreen(h.c),
+        scale,
+        fill: fc.background,
+        edgePaint: edge,
+        minR: 4,
+      );
+    }
     for (var i = 0; i < p.holes.length; i++) {
       final h = p.holes[i];
       final c = toScreen(h.c);

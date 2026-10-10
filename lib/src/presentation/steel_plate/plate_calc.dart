@@ -12,11 +12,12 @@
 library;
 
 import 'dart:math' as math;
-import 'dart:ui' show Offset;
+import 'dart:ui' show Offset, Rect;
 
 import '../electrical/busbar_bend.dart' show BusbarBendPlan, busbarBendPlan;
 
-enum PlateShape { flat, rib, free, l, u, z, hat }
+/// 모양. 원형([circle])·링([ring], 와셔처럼 가운데가 뚫린 원판)은 10-10 상용 앱 비교로 더함(끝에 붙여 저장 이름이 안 바뀌게).
+enum PlateShape { flat, rib, free, l, u, z, hat, circle, ring }
 
 /// 꺾는 모양인지(절단 + 절곡).
 bool plateShapeBends(PlateShape s) =>
@@ -481,6 +482,9 @@ class PlateInput {
   /// 판을 반시계로 90° 돌린 횟수(0~3, 평판·리브·자유만).
   final int rotQ;
 
+  /// 원형·링: 외경 [dia], 링 내경 [innerDia].
+  final double dia, innerDia;
+
   const PlateInput({
     required this.shape,
     this.material = PlateMaterial.steel,
@@ -501,6 +505,8 @@ class PlateInput {
     this.holes = const [],
     this.qty = 1,
     this.rotQ = 0,
+    this.dia = 0,
+    this.innerDia = 0,
   });
 
   PlateInput withHoles(List<PlateHoleSpec> h, {int? rotQ}) => PlateInput(
@@ -523,6 +529,8 @@ class PlateInput {
     holes: h,
     qty: qty,
     rotQ: rotQ ?? this.rotQ,
+    dia: dia,
+    innerDia: innerDia,
   );
 }
 
@@ -553,6 +561,13 @@ class PlatePlan {
   final List<String> notes, problems;
   bool get ok => problems.isEmpty;
 
+  /// 모양에 딸린 안쪽 따냄(링 내경). 사용자 홀([holes])과 따로 둔다(홀 번호·편집과 섞이지 않게).
+  final List<PlateHole> cutouts;
+
+  /// 레이저 절단 길이(외곽 + 홀·장공·내경 둘레, mm)와 피어싱 수(외곽 1 + 안쪽 따냄마다 1).
+  final double cutLength;
+  final int pierces;
+
   double get flatLength => maxX - minX;
   double get flatWidth => maxY - minY;
   bool get isBent => faceBase.isNotEmpty;
@@ -581,6 +596,9 @@ class PlatePlan {
     required this.kgTotal,
     required this.notes,
     required this.problems,
+    this.cutouts = const [],
+    this.cutLength = 0,
+    this.pierces = 0,
   });
 
   /// 저장 자리(돌리기 전) → 화면·DXF 자리.
@@ -759,6 +777,7 @@ PlatePlan platePlan(PlateInput i) {
   final isBent = plateShapeBends(i.shape);
 
   var outline = <PlateSeg>[];
+  final inner = <(Offset, double)>[]; // 링 내경(가운데, 지름) — 돌리기 전 자리
   final bends = <PlateBendLine>[];
   BusbarBendPlan? bp;
   final faceNames = plateFaceNames(i.shape);
@@ -826,6 +845,30 @@ PlatePlan platePlan(PlateInput i) {
         outline = plateCornerOutline(pts, i.pointCorners, warn);
         if (_polyArea(pts) < 1) warn('좌표로 넣은 모양의 넓이가 없습니다. 꼭짓점을 확인하십시오.');
       }
+    case PlateShape.circle:
+    case PlateShape.ring:
+      final d0 = i.dia;
+      if (d0 <= 0) warn('외경을 넣으십시오.');
+      if (d0 > 0) {
+        final r0 = d0 / 2;
+        outline = [PlateArc(Offset(r0, r0), r0, 0, 360)];
+        if (i.shape == PlateShape.ring) {
+          final di = i.innerDia;
+          if (di <= 0) {
+            warn('내경을 넣으십시오.');
+          } else if (di >= d0) {
+            warn('내경이 외경보다 크거나 같습니다.');
+          } else {
+            if ((d0 - di) / 2 < t) {
+              notes.add(
+                '링 폭(${_f((d0 - di) / 2)}mm)이 두께보다 좁습니다. 레이저 열로 휘거나 찢어질 수 있습니다.',
+              );
+            }
+            inner.add((Offset(r0, r0), di));
+          }
+        }
+      }
+      faceLengths = [d0];
     case PlateShape.l:
     case PlateShape.u:
     case PlateShape.z:
@@ -916,6 +959,20 @@ PlatePlan platePlan(PlateInput i) {
     ];
   }
 
+  final cutouts = [
+    for (final (c, d) in inner)
+      PlateHole(
+        label: '내경',
+        c: plateRotate(c, rotQ) + shift,
+        dia: d,
+        slot: 0,
+        angle: 0,
+        face: 0,
+        u: c.dx,
+        v: c.dy,
+      ),
+  ];
+
   final poly = plateOutlinePoints(outline);
   var minX = 0.0, minY = 0.0, maxX = 0.0, maxY = 0.0;
   if (poly.isNotEmpty) {
@@ -977,6 +1034,16 @@ PlatePlan platePlan(PlateInput i) {
       nearEdge.add(h.label);
       caution.add(n);
     }
+    for (final co in cutouts) {
+      final gap = plateSegSegDist(h.p1, h.p2, co.c, co.c) - co.r - h.r;
+      if (gap < -1e-9) {
+        outside.add(h.label);
+        bad.add(n);
+      } else if (gap < t - 1e-9) {
+        nearEdge.add(h.label);
+        caution.add(n);
+      }
+    }
     for (final b in bends) {
       final lo = h.c.dx - h.halfX, hi = h.c.dx + h.halfX;
       if (hi > b.start - 1e-9 && lo < b.end + 1e-9) {
@@ -1015,19 +1082,36 @@ PlatePlan platePlan(PlateInput i) {
       '판 끝에서 두께(${_f(t)}mm)보다 가까운 홀: ${names(nearEdge)}. 레이저 열로 찢어지거나 휠 수 있습니다.',
     );
   }
-  final clash = <String>[];
+  final clash = <String>[], bridge = <String>[];
   for (var a = 0; a < holes.length; a++) {
     for (var b = a + 1; b < holes.length; b++) {
       final p = holes[a], q = holes[b];
-      if (plateSegSegDist(p.p1, p.p2, q.p1, q.p2) < p.r + q.r - 1e-9) {
+      final gap = plateSegSegDist(p.p1, p.p2, q.p1, q.p2) - p.r - q.r;
+      if (gap < -1e-9) {
         clash.add('${p.label}·${q.label}');
         bad.addAll([a, b]);
+      } else if (gap < t - 1e-9) {
+        // 홀 사이 살(브릿지)이 두께보다 좁으면 열로 휘거나 찢어지기 쉽다(일반 레이저 기준, 업체마다 다름)
+        bridge.add('${p.label}·${q.label}');
+        caution.addAll([a, b]);
       }
     }
   }
   if (clash.isNotEmpty) warn('서로 겹치는 홀: ${names(clash)}.');
-  if (holes.any((h) => h.dia < t)) {
-    notes.add('두께보다 작은 홀은 레이저 업체에 따라 못 뚫거나 모양이 나쁠 수 있습니다.');
+  if (bridge.isNotEmpty) {
+    notes.add(
+      '홀 사이가 두께(${_f(t)}mm)보다 좁은 곳: ${names(bridge)}. 레이저 열로 휘거나 찢어질 수 있습니다.',
+    );
+  }
+  final small = [
+    for (var n = 0; n < holes.length; n++)
+      if (holes[n].dia < t) n,
+  ];
+  if (small.isNotEmpty) {
+    caution.addAll(small);
+    notes.add(
+      '두께보다 작은 홀: ${names([for (final n in small) holes[n].label])}. 레이저 업체에 따라 못 뚫거나 모양이 나쁠 수 있습니다.',
+    );
   }
   holes = [
     for (var n = 0; n < holes.length; n++)
@@ -1036,7 +1120,16 @@ PlatePlan platePlan(PlateInput i) {
 
   // 넓이·무게
   final area = outline.isEmpty ? 0.0 : plateOutlineArea(outline);
-  final holeArea = holes.fold(0.0, (s, h) => s + h.area);
+  final holeArea = [...holes, ...cutouts].fold(0.0, (s, h) => s + h.area);
+  double segLen(PlateSeg e) => switch (e) {
+    PlateLine(:final a, :final b) => (b - a).distance,
+    PlateArc(:final r, :final sweep) => r * _rad(sweep.abs()),
+  };
+  double holeLen(PlateHole h) =>
+      h.slot > h.dia ? 2 * (h.slot - h.dia) + math.pi * h.dia : math.pi * h.dia;
+  final cutLen =
+      outline.fold(0.0, (s, e) => s + segLen(e)) +
+      [...holes, ...cutouts].fold(0.0, (s, h) => s + holeLen(h));
   final net = math.max(0.0, area - holeArea);
   final density = kPlateMaterials[i.material]!.$2; // g/cm³
   final kg = net * t * density * 1e-6;
@@ -1066,7 +1159,80 @@ PlatePlan platePlan(PlateInput i) {
     kgTotal: kg * qty,
     notes: notes,
     problems: problems,
+    cutouts: cutouts,
+    cutLength: cutLen,
+    pierces: (outline.isEmpty ? 0 : 1) + holes.length + cutouts.length,
   );
+}
+
+/// 원판 한 장에 부품을 줄 맞춰 놓은 결과: 개수, 부품 자리(원판 왼쪽 아래 (0, 0) 기준), 사용률(부품 넓이 합 ÷ 원판 넓이).
+class PlateNest {
+  final int count;
+  final List<Rect> parts;
+  final double usage;
+  const PlateNest(this.count, this.parts, this.usage);
+}
+
+/// 원판 [sheetW]×[sheetH]에 부품(외곽 상자 [w]×[h])을 간격 [gap]·가장자리 여유 [margin]으로 줄 맞춰 놓는다.
+/// 바로·돌려 놓기, 한쪽을 놓고 남는 띠에 돌려 채우기까지 따져 가장 많이 나오는 것을 고른다(외곽 상자 기준이라
+/// ㄱ·삼각 같은 모양은 실제 네스팅보다 적게 나온다). [partArea]는 사용률 계산용 부품 실제 넓이.
+PlateNest plateNest({
+  required double sheetW,
+  required double sheetH,
+  required double w,
+  required double h,
+  double gap = 5,
+  double margin = 10,
+  double partArea = 0,
+}) {
+  final aw = sheetW - 2 * margin, ah = sheetH - 2 * margin;
+  if (w <= 0 || h <= 0 || aw <= 0 || ah <= 0) return const PlateNest(0, [], 0);
+  List<Rect> grid(
+    double x0,
+    double y0,
+    double gw,
+    double gh,
+    double pw,
+    double ph,
+  ) {
+    final cols = ((gw + gap) / (pw + gap) + 1e-9).floor();
+    final rows = ((gh + gap) / (ph + gap) + 1e-9).floor();
+    if (cols <= 0 || rows <= 0) return const [];
+    return [
+      for (var r = 0; r < rows; r++)
+        for (var c = 0; c < cols; c++)
+          Rect.fromLTWH(x0 + c * (pw + gap), y0 + r * (ph + gap), pw, ph),
+    ];
+  }
+
+  var best = <Rect>[];
+  void take(List<Rect> l) {
+    if (l.length > best.length) best = l;
+  }
+
+  for (final (pw, ph) in [(w, h), (h, w)]) {
+    take(grid(margin, margin, aw, ah, pw, ph));
+    // 앞쪽 n열은 이 방향, 남는 가로 띠는 돌려서
+    final cols = ((aw + gap) / (pw + gap) + 1e-9).floor();
+    for (var n = 1; n < cols; n++) {
+      final used = n * (pw + gap);
+      take([
+        ...grid(margin, margin, used - gap, ah, pw, ph),
+        ...grid(margin + used, margin, aw - used, ah, ph, pw),
+      ]);
+    }
+    // 아래 n줄은 이 방향, 남는 세로 띠는 돌려서
+    final rows = ((ah + gap) / (ph + gap) + 1e-9).floor();
+    for (var n = 1; n < rows; n++) {
+      final used = n * (ph + gap);
+      take([
+        ...grid(margin, margin, aw, used - gap, pw, ph),
+        ...grid(margin, margin + used, aw, ah - used, ph, pw),
+      ]);
+    }
+  }
+  final a = partArea > 0 ? partArea : w * h;
+  return PlateNest(best.length, best, best.length * a / (sheetW * sheetH));
 }
 
 /// 구멍 모양 글: "φ13.5", "장공 11×30(가로)", "장공 11×30(45°)".

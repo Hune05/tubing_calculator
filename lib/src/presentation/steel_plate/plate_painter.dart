@@ -84,7 +84,11 @@ class PlatePainter extends CustomPainter {
     required this.bg,
     this.fontScale = 1,
     this.showCenter = true,
+    this.showIssues = true,
   });
+
+  /// 만들 수 없는 홀은 빨강, 확인할 홀은 노랑 테두리(가공 도면 PDF에서는 끈다).
+  final bool showIssues;
 
   /// 판 가운데 십자 중심선(켜고 끄기).
   final bool showCenter;
@@ -120,6 +124,17 @@ class PlatePainter extends CustomPainter {
       ..color = kPlateEdge
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.1 * fontScale;
+    for (final h in p.cutouts) {
+      plateDrawHole(
+        canvas,
+        h,
+        m(h.c),
+        s,
+        fill: bg,
+        edgePaint: holeEdge,
+        minR: 2.5 * fontScale,
+      );
+    }
     for (final h in p.holes) {
       plateDrawHole(
         canvas,
@@ -127,7 +142,11 @@ class PlatePainter extends CustomPainter {
         m(h.c),
         s,
         fill: Colors.white,
-        edge: h.bad ? const Color(0xFFD64545) : null,
+        edge: !showIssues
+            ? null
+            : (h.bad
+                  ? const Color(0xFFD64545)
+                  : (h.caution ? const Color(0xFFE0A21E) : null)),
         edgePaint: holeEdge,
         minR: 2.5 * fontScale,
       );

@@ -4,7 +4,10 @@
 // 10-10 나중: 첫 화면(plate_home_page.dart)에서 "레이저 절단"과 "절단 + 절곡"을 따로 연다(입력·저장도 따로).
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math' as math;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,15 +23,28 @@ import '../electrical/busbar_bend_painter.dart' show BusbarShapePainter;
 import '../electrical/busbar_punch_dies.dart';
 import '../electrical/busbar_saved_specs.dart';
 import '../electrical/elec_form_parts.dart';
+import '../drawing_viewer/dxf_reader.dart' show dxfDecode;
 import '../steel_bracket/bracket_pdf.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'plate_3d_view.dart';
 import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
 import 'plate_dxf.dart';
+import 'plate_dxf_import.dart';
 import 'plate_hole_editor.dart';
 import 'plate_painter.dart';
+import 'plate_shape_card.dart';
 import 'plate_ui.dart';
+
+Future<String?> _pickDxfText() async {
+  final res = await FilePicker.pickFiles(type: FileType.any, withData: true);
+  if (res == null || res.files.isEmpty) return null;
+  final f = res.files.first;
+  final bytes =
+      f.bytes ?? (f.path == null ? null : await File(f.path!).readAsBytes());
+  if (bytes == null) return null;
+  return dxfDecode(Uint8List.fromList(bytes));
+}
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
@@ -52,6 +68,8 @@ const List<String> kPlateBasis = [
 /// 가공 방식별 모양 칩(모양, 이름).
 const List<(PlateShape, String)> kPlateCutShapes = [
   (PlateShape.flat, '평판'),
+  (PlateShape.circle, '원형'),
+  (PlateShape.ring, '링'),
   (PlateShape.rib, '삼각 리브'),
   (PlateShape.free, '좌표 입력'),
 ];
@@ -60,6 +78,19 @@ const List<(PlateShape, String)> kPlateBendShapes = [
   (PlateShape.u, 'ㄷ자'),
   (PlateShape.z, 'Z자'),
   (PlateShape.hat, '모자'),
+];
+
+/// 재질별 두께 단추(흔히 쓰는 두께, mm). 업체 재고·실제 두께는 확인해야 한다(10-10 상용 앱 비교).
+const Map<PlateMaterial, List<String>> kPlateThicknesses = {
+  PlateMaterial.steel: ['1.6', '2.3', '3.2', '4.5', '6', '9'],
+  PlateMaterial.stainless: ['1', '1.5', '2', '3', '4', '5'],
+  PlateMaterial.aluminum: ['1', '1.5', '2', '3', '4', '5'],
+};
+
+/// 원판(자재 판) 크기(이름, 가로, 세로 mm).
+const List<(String, String, double, double)> kPlateSheets = [
+  ('48', '4×8 (1219×2438)', 1219, 2438),
+  ('510', '5×10 (1524×3048)', 1524, 3048),
 ];
 
 String plateShapeName(PlateShape s) =>
@@ -72,7 +103,11 @@ class PlatePage extends StatefulWidget {
     this.share = _defaultShare,
     this.shareDxf,
     this.initial,
+    this.pickDxf,
   });
+
+  /// DXF 파일 고르기(글을 돌려준다, 취소면 null). 시험에서 바꿔 끼운다.
+  final Future<String?> Function()? pickDxf;
 
   /// 손그림 읽기에서 넘겨 받은 모양(자유 모양·구멍·두께). 남아 있던 입력 위에 덮고, 알림으로 되돌릴 수 있다.
   final Map<String, Object?>? initial;
@@ -151,6 +186,14 @@ class _PlatePageState extends State<PlatePage>
   final _r = TextEditingController();
   final _bd = TextEditingController();
   final _qty = TextEditingController(text: '1');
+  // 원형·링 외경·내경
+  final _cd = TextEditingController(text: '150');
+  final _ci = TextEditingController(text: '60');
+  // 원판 배치: 원판(48·510·custom), 직접 넣는 원판 가로·세로, 부품 간격
+  String _sheet = '48';
+  final _sw = TextEditingController(text: '1219');
+  final _sh = TextEditingController(text: '2438');
+  final _gap = TextEditingController(text: '5');
 
   Timer? _saveTimer;
   bool _draftReady = false;
@@ -171,6 +214,11 @@ class _PlatePageState extends State<PlatePage>
     _r,
     _bd,
     _qty,
+    _cd,
+    _ci,
+    _sw,
+    _sh,
+    _gap,
   ];
   static const _fieldKeys = [
     'jn',
@@ -188,6 +236,11 @@ class _PlatePageState extends State<PlatePage>
     'r',
     'bd',
     'n',
+    'cd',
+    'ci',
+    'sheetW',
+    'sheetH',
+    'gap',
   ];
 
   @override
@@ -241,6 +294,7 @@ class _PlatePageState extends State<PlatePage>
     'holes': [for (final h in _holes) h.toJson()],
     'rot': _rotQ,
     'corners': [for (final c in _corners) c.toJson()],
+    'sheet': _sheet,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
     // 첫 화면 "이어서" 줄에 쓰는 글(읽을 때는 안 쓴다)
     'lbl': _label(),
@@ -269,6 +323,8 @@ class _PlatePageState extends State<PlatePage>
     if (plateShapeBends(_shape) != _bend) {
       _shape = _bend ? PlateShape.l : PlateShape.flat;
     }
+    final sheet = m['sheet'];
+    if (sheet is String) _sheet = sheet;
     final rot = m['rot'];
     _rotQ = rot is int && rot >= 0 && rot <= 3 ? rot : 0;
     for (var i = 0; i < _fields.length; i++) {
@@ -499,6 +555,8 @@ class _PlatePageState extends State<PlatePage>
       holes: List.of(_holes),
       rotQ: _rotQ,
       qty: _num(_qty).round().clamp(1, 9999),
+      dia: _num(_cd),
+      innerDia: _num(_ci),
     );
   }
 
@@ -524,7 +582,41 @@ class _PlatePageState extends State<PlatePage>
       '1면 ${fmt(_num(_l1))} · ${_shape == PlateShape.z ? '높이' : '2면'} ${fmt(_num(_l2))} · 3면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}',
     PlateShape.hat =>
       '발 ${fmt(_num(_l1))} · 높이 ${fmt(_num(_l2))} · 윗면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}',
+    PlateShape.circle => '외경 Ø${fmt(_num(_cd))}',
+    PlateShape.ring => '외경 Ø${fmt(_num(_cd))} · 내경 Ø${fmt(_num(_ci))}',
   };
+
+  /// 가공비 기준 글: "절단 길이 약 0.85 m · 피어싱 3곳".
+  String _cutText(PlatePlan p) =>
+      '절단 길이 약 ${(p.cutLength / 1000).toStringAsFixed(2)} m · 피어싱 ${p.pierces}곳';
+
+  /// 원판 크기(가로, 세로). 직접이면 칸 값.
+  (double, double) get _sheetSize {
+    for (final (id, _, w, h) in kPlateSheets) {
+      if (id == _sheet) return (w, h);
+    }
+    return (_num(_sw), _num(_sh));
+  }
+
+  PlateNest _nest(PlatePlan p) {
+    final (w, h) = _sheetSize;
+    return plateNest(
+      sheetW: w,
+      sheetH: h,
+      w: p.flatLength,
+      h: p.flatWidth,
+      gap: _num(_gap),
+      partArea: p.areaMm2,
+    );
+  }
+
+  String _sheetName() {
+    for (final (id, name, _, _) in kPlateSheets) {
+      if (id == _sheet) return name;
+    }
+    final (w, h) = _sheetSize;
+    return '${fmt(w)}×${fmt(h)}';
+  }
 
   /// 평판 귀 처리 글: " · 네 귀 R10" 또는 " · 왼쪽 아래 R10 · 오른쪽 위 C5". 다 직각이면 빈 글.
   String _cornersText() {
@@ -565,6 +657,7 @@ class _PlatePageState extends State<PlatePage>
     b.write(
       '\n${_bend ? '전개' : '판'} 크기: ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)}mm · 개당 약 ${fmt(p.kgEach, 2)}kg',
     );
+    b.write('\n${_cutText(p)} (1개)');
     if (p.bends.isNotEmpty) {
       b.write('\n${_bendCond(p)}');
       for (var n = 0; n < p.bends.length; n++) {
@@ -592,6 +685,7 @@ class _PlatePageState extends State<PlatePage>
         bg: Colors.white,
         fontScale: 2.2,
         showCenter: _showCenter,
+        showIssues: false,
       ),
     );
     final more = <(String, Uint8List)>[];
@@ -632,6 +726,16 @@ class _PlatePageState extends State<PlatePage>
           '수량',
           '$_qtyN장 · 개당 약 ${fmt(p.kgEach, 2)}kg · 모두 약 ${fmt(p.kgTotal, 1)}kg',
         ),
+        ('가공비 기준', '${_cutText(p)} (1개)'),
+        () {
+          final n = _nest(p);
+          return (
+            '원판 배치',
+            n.count == 0
+                ? '${_sheetName()}보다 큼'
+                : '${_sheetName()} 한 장에 ${n.count}개 · 수량 $_qtyN장에 원판 ${(_qtyN / n.count).ceil()}장',
+          );
+        }(),
         if (p.bends.isNotEmpty) ('절곡 조건', _bendCond(p)),
       ],
       sections: [
@@ -891,17 +995,41 @@ class _PlatePageState extends State<PlatePage>
       controller: _scroll,
       footer: _footer('shape'),
       children: [
-        PlateSection(_bend ? '절곡 모양' : '자를 모양', [
-          PlateSegments([
-            for (final (s, name) in shapes)
-              PlateOption(
-                'pl_shape_${s.name}',
-                name,
-                _shape == s,
-                () => _set(() => _shape = s),
-              ),
-          ]),
-        ], first: true),
+        PlateSection(
+          _bend ? '절곡 모양' : '자를 모양',
+          [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (final (s, name) in shapes)
+                  PlateShapeCard(
+                    key: Key('pl_shape_${s.name}'),
+                    shape: s,
+                    label: name,
+                    selected: _shape == s,
+                    onTap: () => _set(() => _shape = s),
+                  ),
+              ],
+            ),
+          ],
+          first: true,
+          trailing: _bend
+              ? null
+              : TextButton.icon(
+                  key: const Key('pl_dxf_import'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: fc.brand,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: _importDxf,
+                  icon: const Icon(AppIcons.openFile, size: 18),
+                  label: const Text(
+                    'DXF 불러오기',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+        ),
         PlateSection('재질·두께', [
           PlateSegments([
             for (final m in PlateMaterial.values)
@@ -912,21 +1040,16 @@ class _PlatePageState extends State<PlatePage>
                 () => _set(() => _mat = m),
               ),
           ]),
-          plateRow(
-            [
-              PlateSegments([
-                for (final v in const ['2', '3', '4', '6'])
-                  PlateOption(
-                    'pl_t_$v',
-                    '${v}T',
-                    _t.text.trim() == v,
-                    () => _setThickness(v),
-                  ),
-              ]),
-              _f('pl_t', null, _t),
-            ],
-            flex: const [3, 2],
-          ),
+          PlateSegments(joined: false, [
+            for (final v in kPlateThicknesses[_mat]!)
+              PlateOption(
+                'pl_t_$v',
+                '${v}T',
+                _t.text.trim() == v,
+                () => _setThickness(v),
+              ),
+          ]),
+          plateRow([_f('pl_t', '두께 (직접)', _t), const SizedBox.shrink()]),
         ]),
         PlateSection(bent ? '치수 (바깥 치수)' : '치수', _dimRows()),
         if (_shape == PlateShape.flat) PlateSection('네 코너', _cornerRows()),
@@ -954,6 +1077,13 @@ class _PlatePageState extends State<PlatePage>
   List<String> _shapeHelp() => [
     _shapeGuide(),
     ...switch (_shape) {
+      PlateShape.circle => [
+        '외경: 원 지름입니다. 홀 위치는 원을 감싸는 사각의 왼쪽 아래에서 잰 (가로, 세로)입니다(가운데 = 외경의 반, 반).',
+      ],
+      PlateShape.ring => [
+        '외경·내경: 바깥 지름과 가운데 뚫린 지름입니다. 링 폭이 두께보다 좁으면 알립니다.',
+        '홀 위치는 원을 감싸는 사각의 왼쪽 아래에서 잰 (가로, 세로)입니다.',
+      ],
       PlateShape.flat => [
         '가로 · 세로: 판 크기입니다.',
         '네 코너: 단추를 누르면 네 코너에 같이 줍니다. 코너마다 다르게 하려면 위 그림에서 그 코너를 누르십시오. R은 둥글게, C는 코너에서 양쪽 변으로 같은 길이만큼 45°로 잘라 내고, 따내기는 코너에서 가로 × 세로 사각을 잘라 냅니다.',
@@ -985,7 +1115,9 @@ class _PlatePageState extends State<PlatePage>
     },
     if (_bend) '절곡 치수는 모두 바깥 치수입니다. 내R·공제값은 "절곡" 탭에서 정합니다.',
     '두께: 2T·3T·4T·6T를 누르거나 칸에 직접 넣습니다.${_bend ? ' 두께를 바꾸면 저장한 그 두께의 반경·공제값을 채웁니다.' : ''}',
-    '재질은 중량 계산에만 씁니다.',
+    '재질은 중량 계산에 씁니다. 두께 단추는 재질별로 흔히 쓰는 두께이며, 업체 재고와 실제 두께는 확인하십시오. 없는 두께는 칸에 직접 넣습니다.',
+    if (!_bend)
+      'DXF 불러오기: 레이저 업체용 DXF를 읽어 좌표 입력(원이면 원형·링)으로 바꿉니다. 둥근 코너는 코너 R, 원은 홀, 장공은 장공으로 읽고, 다른 안쪽 따냄은 읽지 못합니다. CUT 층이 있으면 그 층만 읽습니다.',
     '위 그림: 치수를 누르면 그 칸으로, 판을 누르면 홀 탭으로 갑니다. 오른쪽 위에서 ${_bend ? '측면도·' : ''}3D로 바꿔 볼 수 있습니다.',
     '품명은 가공 도면 PDF·DXF 파일 이름과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
   ];
@@ -993,6 +1125,12 @@ class _PlatePageState extends State<PlatePage>
   List<Widget> _dimRows() {
     const gap = SizedBox.shrink();
     return switch (_shape) {
+      PlateShape.circle => [
+        plateRow([_f('pl_cd', '외경', _cd), gap]),
+      ],
+      PlateShape.ring => [
+        plateRow([_f('pl_cd', '외경', _cd), _f('pl_ci', '내경', _ci)]),
+      ],
       PlateShape.flat => [
         plateRow([
           _f('pl_len', '가로', _len, focus: _lenFocus),
@@ -1191,6 +1329,8 @@ class _PlatePageState extends State<PlatePage>
   Widget _resultPanel(PlatePlan? p, bool warn) {
     final help = plateHelpButton(context, 'pl_help_result', '결과 탭', [
       kPlateBasis[9],
+      '절단 길이 = 외곽 둘레 + 홀·장공·내경 둘레. 피어싱 = 외곽 1 + 안쪽 따냄마다 1. 레이저 가공비는 보통 재질·두께와 절단 길이·피어싱 수로 매깁니다(업체마다 다름).',
+      '원판 배치: 부품을 감싸는 사각 기준으로 원판에 줄 맞춰 놓아 셉니다(가장자리 여유 10mm, 바로·돌려 놓기·남는 띠 돌려 채우기). ㄱ·삼각·좌표 모양은 업체 네스팅이 더 많이 나올 수 있습니다.',
       kPlateBasis[5],
       kPlateBasis[6],
       kPlateBasis[10],
@@ -1223,10 +1363,33 @@ class _PlatePageState extends State<PlatePage>
             ),
           ),
         ], first: true),
+        PlateSection('가공 정보 (가공비 기준)', [
+          KeyedSubtree(
+            key: const Key('pl_cut'),
+            child: PlateInfoRow(
+              '절단 길이',
+              '1개 약 ${(p.cutLength / 1000).toStringAsFixed(2)} m${_qtyN > 1 ? ' · $_qtyN개 약 ${(p.cutLength * _qtyN / 1000).toStringAsFixed(2)} m' : ''}',
+            ),
+          ),
+          PlateInfoRow(
+            '피어싱',
+            '1개 ${p.pierces}곳 (외곽 1 + 홀${p.cutouts.isEmpty ? '' : '·내경'})',
+          ),
+          PlateInfoRow(
+            '넓이',
+            '${(p.areaMm2 / 1e6).toStringAsFixed(4)} m² (홀 뺀 것)',
+          ),
+        ]),
         if (p.problems.isNotEmpty || p.notes.isNotEmpty)
           PlateSection('확인할 것', [
             if (p.problems.isNotEmpty) PlateLines(p.problems, color: fc.danger),
             if (p.notes.isNotEmpty) PlateLines(p.notes, color: fc.caution),
+            if (p.holes.any((h) => h.bad || h.caution))
+              Text(
+                '위 그림에서 빨간 테두리 홀은 만들 수 없고, 노란 테두리 홀은 확인이 필요합니다.',
+                key: const Key('pl_issue_legend'),
+                style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+              ),
           ]),
         PlateSection('모양', [
           PlateInfoRow(plateShapeName(_shape), _dimsText()),
@@ -1238,6 +1401,7 @@ class _PlatePageState extends State<PlatePage>
               for (var n = 0; n < p.bends.length; n++) _bendLine(p, n),
             ], bullet: false),
           ]),
+        _nestSection(p),
         PlateSection(bent ? '홀 위치 (면 기준 → 전개도)' : '홀 위치 (판 왼쪽 아래에서 가로 · 세로)', [
           Text(
             _holeSummary(),
@@ -1328,6 +1492,7 @@ class _PlatePageState extends State<PlatePage>
               key: const Key('pl_order'),
               child: PlateLines([
                 '재질·두께·수량: ${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T · $_qtyN장.',
+                '가공비 기준: ${_cutText(p)} (1개).',
                 'CUT 층만 자르고 BEND 층(절곡선)·DIM 층(센터선)은 자르지 않는다고 알립니다.',
                 if (p.bends.isNotEmpty)
                   '절곡 ${p.bends.length}곳: 방향은 DXF를 위에서 본 쪽 기준(NOTE 층 UP/DOWN), 내R ${fmt(p.rUsed)}mm. 업체 공제값이 다르면 그 값을 받아 "절곡" 탭에 넣고 다시 보냅니다.',
@@ -1345,6 +1510,100 @@ class _PlatePageState extends State<PlatePage>
           ),
         ),
       ],
+    );
+  }
+
+  /// 결과 탭 "원판 배치": 원판 고르기 · 간격 · 한 장에 몇 개 · 원판 몇 장 · 배치 그림.
+  Widget _nestSection(PlatePlan p) {
+    final n = _nest(p);
+    final need = n.count == 0 ? 0 : (_qtyN / n.count).ceil();
+    return PlateSection('원판 배치', [
+      PlateSegments([
+        for (final (id, name, _, _) in kPlateSheets)
+          PlateOption(
+            'pl_sheet_$id',
+            name,
+            _sheet == id,
+            () => _set(() => _sheet = id),
+          ),
+        PlateOption(
+          'pl_sheet_custom',
+          '직접',
+          _sheet == 'custom',
+          () => _set(() => _sheet = 'custom'),
+        ),
+      ]),
+      if (_sheet == 'custom')
+        plateRow([_f('pl_sw', '원판 가로', _sw), _f('pl_sh', '원판 세로', _sh)]),
+      plateRow([_f('pl_gap', '부품 간격', _gap), const SizedBox.shrink()]),
+      KeyedSubtree(
+        key: const Key('pl_nest'),
+        child: PlateInfoRow(
+          '한 장에',
+          n.count == 0
+              ? '부품이 원판보다 큽니다'
+              : '${n.count}개 · 사용률 ${(n.usage * 100).toStringAsFixed(0)}% · 수량 $_qtyN장에 원판 $need장',
+          color: n.count == 0 ? fc.danger : null,
+        ),
+      ),
+      if (n.count > 0)
+        SizedBox(
+          height: 150,
+          child: CustomPaint(
+            key: const Key('pl_nest_view'),
+            painter: _NestPainter(
+              sheet: _sheetSize,
+              parts: n.parts,
+              sheetColor: fc.fill,
+              partColor: kPlateFill,
+              edge: fc.textSub,
+            ),
+            child: const SizedBox.expand(),
+          ),
+        ),
+    ]);
+  }
+
+  /// DXF 불러오기(레이저 절단만): 파일을 골라 좌표 입력·원형·링으로. 알림에서 되돌릴 수 있다.
+  Future<void> _importDxf() async {
+    final text = await (widget.pickDxf ?? _pickDxfText)();
+    if (text == null || !mounted) return;
+    final PlateDxfImport r;
+    try {
+      r = importPlateDxf(text);
+    } on FormatException catch (e) {
+      if (mounted) showAppSnack(context, e.message);
+      return;
+    } catch (_) {
+      if (mounted) showAppSnack(context, 'DXF를 읽지 못했습니다.');
+      return;
+    }
+    final before = _draft();
+    _set(() {
+      _shape = r.shape;
+      _rotQ = 0;
+      if (r.shape == PlateShape.free) {
+        _points.text = platePointsText(r.points, r.corners);
+        _freeBase = null;
+        _syncFreeSize();
+      } else {
+        _cd.text = fmt(r.dia);
+        if (r.shape == PlateShape.ring) _ci.text = fmt(r.innerDia);
+      }
+      _holes
+        ..clear()
+        ..addAll(r.holes);
+    });
+    if (!mounted) return;
+    final what = r.shape == PlateShape.free
+        ? '꼭짓점 ${r.points.length}개'
+        : '${plateShapeName(r.shape)} Ø${fmt(r.dia)}';
+    showAppSnack(
+      context,
+      'DXF를 불러왔습니다: $what · 홀 ${r.holes.length}개${r.notes.isEmpty ? '' : '. ${r.notes.join(' ')}'}',
+      onUndo: () =>
+          _set(() => _applyMap(jsonDecode(before) as Map<String, dynamic>)),
+      duration: const Duration(seconds: 6),
     );
   }
 
@@ -1563,6 +1822,7 @@ class _PlatePageState extends State<PlatePage>
     PlateShape.flat => '코너·치수를 누르면 고치고, 판을 누르면 홀',
     PlateShape.free => '꼭짓점을 누르면 코너 처리, 판을 누르면 홀',
     PlateShape.rib => '치수를 누르면 그 칸, 판을 누르면 홀',
+    PlateShape.circle || PlateShape.ring => '판을 누르면 홀',
     _ => '주황 점선은 절곡선 · 판을 누르면 홀',
   };
 
@@ -1627,6 +1887,8 @@ class _PlatePageState extends State<PlatePage>
   }
 
   String _shapeGuide() => switch (_shape) {
+    PlateShape.circle => '원형: 둥근 판(외경). 받침판·덮개 등.',
+    PlateShape.ring => '링: 가운데가 뚫린 둥근 판(외경·내경). 와셔·플랜지 등.',
     PlateShape.flat => '평판: 사각 판에 홀·장공. 네 코너를 따로 R·모따기(C)·따내기 할 수 있습니다.',
     PlateShape.rib => '삼각 리브: ㄱ자 안쪽에 용접하는 보강판. 직각 모서리를 따내 용접 자리를 비웁니다.',
     PlateShape.free => '좌표 입력: 외곽 꼭짓점 좌표를 차례로 넣어 모양을 만듭니다.',
@@ -1774,4 +2036,65 @@ class _PlatePageState extends State<PlatePage>
         ),
     ];
   }
+}
+
+/// 원판 배치 그림: 원판(회색)과 부품 자리(외곽 사각).
+class _NestPainter extends CustomPainter {
+  _NestPainter({
+    required this.sheet,
+    required this.parts,
+    required this.sheetColor,
+    required this.partColor,
+    required this.edge,
+  });
+
+  final (double, double) sheet;
+  final List<Rect> parts;
+  final Color sheetColor, partColor, edge;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    var (w, h) = sheet;
+    if (w <= 0 || h <= 0) return;
+    // 길쭉한 쪽을 가로로 눕혀 그린다
+    final rotate = h > w;
+    if (rotate) (w, h) = (h, w);
+    final s = math.min((size.width - 2) / w, (size.height - 2) / h);
+    final ox = (size.width - w * s) / 2, oy = (size.height - h * s) / 2;
+    Rect tr(Rect r) {
+      final rr = rotate ? Rect.fromLTWH(r.top, r.left, r.height, r.width) : r;
+      return Rect.fromLTWH(
+        ox + rr.left * s,
+        oy + (h - rr.bottom) * s,
+        rr.width * s,
+        rr.height * s,
+      );
+    }
+
+    canvas.drawRect(
+      Rect.fromLTWH(ox, oy, w * s, h * s),
+      Paint()..color = sheetColor,
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(ox, oy, w * s, h * s),
+      Paint()
+        ..color = edge
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    final fill = Paint()..color = partColor;
+    final line = Paint()
+      ..color = edge
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8;
+    for (final r in parts) {
+      final q = tr(r);
+      canvas.drawRect(q, fill);
+      canvas.drawRect(q, line);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _NestPainter old) =>
+      old.sheet != sheet || old.parts != parts || old.sheetColor != sheetColor;
 }

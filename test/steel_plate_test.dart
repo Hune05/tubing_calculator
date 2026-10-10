@@ -1045,23 +1045,23 @@ void main() {
 
     testWidgets('업체 공제값을 두께별로 저장하고 두께를 고르면 채운다', (tester) async {
       await open(tester);
-      await tap(tester, 'pl_t_4');
+      await tap(tester, 'pl_t_4.5');
       await tab(tester, 'bend');
       await tester.enterText(find.byKey(const Key('pl_bd')), '7');
       await tester.pumpAndSettle();
       expect(sum(tester), endsWith('전개 93 × 100 mm'));
       await tap(tester, 'pl_bd_save');
       await tab(tester, 'shape');
-      await tap(tester, 'pl_t_3');
+      await tap(tester, 'pl_t_3.2');
       String text(String k) => tester
           .widget<TextField>(find.byKey(Key(k), skipOffstage: false))
           .controller!
           .text;
       expect(text('pl_bd'), '');
-      await tap(tester, 'pl_t_4');
+      await tap(tester, 'pl_t_4.5');
       expect(text('pl_bd'), '7');
       final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString(PlatePage.bendTableKey), contains('"4"'));
+      expect(prefs.getString(PlatePage.bendTableKey), contains('"4.5"'));
     });
 
     testWidgets('센터선 켜고 끄기(기억, 홀 탭도 따름), 요약은 제목 아래', (tester) async {
