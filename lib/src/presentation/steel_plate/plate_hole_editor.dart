@@ -1140,6 +1140,22 @@ class _EditorPainter extends CustomPainter {
         );
       }
     }
+    // 모든 구멍 십자 치수(고른 구멍은 아래에서 진하게 따로)
+    final all = plateHoleDimsOf(p.holes);
+    plateDrawHoleDims(
+      canvas,
+      [
+        for (var i = 0; i < all.length; i++)
+          if (!(selected.length == 1 && selected.contains(i))) all[i],
+      ],
+      toScreen: toScreen,
+      minX: p.minX,
+      minY: p.minY,
+      scale: scale,
+      line: fc.textSub,
+      text: fc.textSub,
+      bg: fc.surface,
+    );
     // 고른 구멍 하나: 왼쪽·아래 끝까지 치수
     if (selected.length == 1 && selected.first < p.holes.length) {
       final h = p.holes[selected.first];

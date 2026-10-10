@@ -25,6 +25,7 @@ import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
 import 'plate_hole_editor.dart' show PlateNumbersDialog;
 import 'plate_page.dart';
+import 'plate_painter.dart' show plateDrawHoleDims;
 import 'plate_sketch_model.dart';
 
 Future<Uint8List?> _pickPhoto(ImageSource source) async {
@@ -1576,6 +1577,34 @@ class _SketchPainter extends CustomPainter {
         cen - const Offset(0, 4),
         cen + const Offset(0, 4),
         cross,
+      );
+    }
+
+    // 구멍 십자 치수(mm가 정해진 뒤): 판 왼쪽·아래 끝에서 구멍 가운데까지
+    final bb = s.bounds;
+    if (s.scaled && bb != null && s.holes.isNotEmpty) {
+      plateDrawHoleDims(
+        canvas,
+        plateHoleDims([
+          for (final h in s.holes)
+            () {
+              final r = h.dia / 2;
+              final half = h.slot > h.dia ? (h.slot - h.dia) / 2 : 0.0;
+              final a = h.angle * math.pi / 180;
+              return (
+                Offset(h.u, h.v),
+                (math.cos(a) * half).abs() + r,
+                (math.sin(a) * half).abs() + r,
+              );
+            }(),
+        ]),
+        toScreen: toScreen,
+        minX: bb.left,
+        minY: bb.top,
+        scale: scale,
+        line: c.textSub,
+        text: c.text,
+        bg: c.surface,
       );
     }
 

@@ -129,6 +129,20 @@ class PlatePainter extends CustomPainter {
       );
     }
 
+    // 구멍 십자 치수(판 왼쪽·아래 끝에서 구멍 가운데까지)
+    plateDrawHoleDims(
+      canvas,
+      plateHoleDimsOf(p.holes),
+      toScreen: m,
+      minX: p.minX,
+      minY: p.minY,
+      scale: s,
+      line: sub,
+      text: text,
+      bg: bg,
+      fontScale: fontScale,
+    );
+
     // 꺾기선: 점선 + 위에 번호·방향
     final bendPaint = Paint()
       ..color = kPlateBend
@@ -326,3 +340,91 @@ Future<Uint8List> renderPainterPng(
   final bd = await img.toByteData(format: ui.ImageByteFormat.png);
   return bd!.buffer.asUint8List();
 }
+
+/// 구멍 십자 치수 그리기(10-10): 구멍마다 십자 중심선, 판 왼쪽 끝에서의 가로 치수선(위에 숫자),
+/// 아래 끝에서의 세로 치수선(옆에 세운 숫자). [minX]·[minY]는 판 왼쪽·아래 끝(mm), [scale]은 mm당 화면 점.
+/// 레이저 절단 위 그림·지시서 PDF·구멍 배치 편집·손그림이 같이 쓴다.
+void plateDrawHoleDims(
+  Canvas canvas,
+  List<PlateHoleDim> dims, {
+  required Offset Function(Offset mm) toScreen,
+  required double minX,
+  required double minY,
+  required double scale,
+  required Color line,
+  required Color text,
+  required Color bg,
+  double fontScale = 1,
+}) {
+  final center = Paint()
+    ..color = line.withValues(alpha: 0.8)
+    ..strokeWidth = 0.8 * fontScale;
+  final dimPaint = Paint()
+    ..color = line
+    ..strokeWidth = 0.9 * fontScale;
+  final k = 3.0 * fontScale;
+  void label(String s, Offset at, double angle) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: s,
+        style: TextStyle(
+          fontSize: 10.5 * fontScale,
+          fontWeight: FontWeight.w700,
+          color: text,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    canvas.save();
+    canvas.translate(at.dx, at.dy);
+    canvas.rotate(angle);
+    canvas.drawRect(
+      Rect.fromCenter(
+        center: Offset.zero,
+        width: tp.width + 4,
+        height: tp.height + 1,
+      ),
+      Paint()..color = bg.withValues(alpha: 0.85),
+    );
+    tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+    canvas.restore();
+  }
+
+  for (final d in dims) {
+    final c = toScreen(d.c);
+    // 십자 중심선: 구멍 밖으로 6점씩
+    final ax = d.armX * scale + 6 * fontScale,
+        ay = d.armY * scale + 6 * fontScale;
+    canvas.drawLine(c - Offset(ax, 0), c + Offset(ax, 0), center);
+    canvas.drawLine(c - Offset(0, ay), c + Offset(0, ay), center);
+    final dx = d.c.dx - minX, dy = d.c.dy - minY;
+    if (d.left && dx > 0.05) {
+      final a = toScreen(Offset(minX, d.c.dy));
+      canvas.drawLine(a, c, dimPaint);
+      for (final q in [a, c]) {
+        canvas.drawLine(q + Offset(-k, k), q + Offset(k, -k), dimPaint);
+      }
+      if ((c.dx - a.dx).abs() > 14 * fontScale) {
+        label(_f(dx), Offset((a.dx + c.dx) / 2, c.dy - 7 * fontScale), 0);
+      }
+    }
+    if (d.bottom && dy > 0.05) {
+      final a = toScreen(Offset(d.c.dx, minY));
+      canvas.drawLine(a, c, dimPaint);
+      for (final q in [a, c]) {
+        canvas.drawLine(q + Offset(-k, k), q + Offset(k, -k), dimPaint);
+      }
+      if ((a.dy - c.dy).abs() > 14 * fontScale) {
+        label(
+          _f(dy),
+          Offset(c.dx - 7 * fontScale, (a.dy + c.dy) / 2),
+          -math.pi / 2,
+        );
+      }
+    }
+  }
+}
+
+/// 계산된 구멍들의 십자 치수(같은 줄은 하나로).
+List<PlateHoleDim> plateHoleDimsOf(List<PlateHole> holes) =>
+    plateHoleDims([for (final h in holes) (h.c, h.halfX, h.halfY)]);

@@ -459,6 +459,82 @@ void main() {
     });
   });
 
+  group('구멍 십자 치수', () {
+    test('같은 가로줄은 아래 치수 하나, 같은 세로줄은 왼쪽 치수 하나', () {
+      final d = plateHoleDims(const [
+        (Offset(20, 20), 6.75, 6.75),
+        (Offset(180, 20), 6.75, 6.75),
+        (Offset(20, 80), 6.75, 6.75),
+        (Offset(100, 50), 6.75, 6.75),
+      ]);
+      expect(
+        [for (final x in d) (x.left, x.bottom)],
+        [
+          (true, true), // 왼쪽 아래 구멍: 둘 다
+          (true, false), // 같은 가로줄 → 아래 치수는 왼쪽 구멍이
+          (false, true), // 같은 세로줄 → 왼쪽 치수는 아래 구멍이
+          (true, true),
+        ],
+      );
+      expect(d.first.armX, 6.75);
+    });
+
+    test('DXF: DIM 층에 십자 중심선·치수선·글(세로 치수는 90° 돌림), 자르는 CUT 층은 그대로', () {
+      final p = platePlan(
+        const PlateInput(
+          shape: PlateShape.flat,
+          t: 3,
+          length: 200,
+          width: 100,
+          holes: [
+            PlateHoleSpec(u: 20, v: 20, dia: 13.5),
+            PlateHoleSpec(u: 180, v: 20, dia: 13.5),
+            PlateHoleSpec(u: 20, v: 80, dia: 13.5),
+          ],
+        ),
+      );
+      final dxf = plateDxf(p, thickness: 3);
+      final dimLines = RegExp(r'LINE\n8\nDIM\n').allMatches(dxf).length;
+      // 십자 3개 × 2 + 왼쪽 치수 2 + 아래 치수 2
+      expect(dimLines, 10);
+      final texts = RegExp(
+        r'TEXT\n8\nDIM\n[^]*?\n1\n([^\n]+)\n',
+      ).allMatches(dxf).map((m) => m.group(1)).toList();
+      expect(texts, ['20', '20', '180', '80']);
+      expect(dxf, contains('\n50\n90\n'));
+      expect(RegExp(r'CIRCLE\n8\nCUT\n').allMatches(dxf).length, 3);
+    });
+
+    testWidgets('그림·PDF용 PNG에 십자 치수를 그려도 그대로 그려진다', (tester) async {
+      final p = platePlan(
+        const PlateInput(
+          shape: PlateShape.flat,
+          t: 3,
+          length: 200,
+          width: 100,
+          holes: [
+            PlateHoleSpec(u: 20, v: 20, dia: 13.5),
+            PlateHoleSpec(u: 100, v: 50, dia: 11, slot: 30, angle: 45),
+          ],
+        ),
+      );
+      late Uint8List png;
+      await tester.runAsync(() async {
+        png = await renderPainterPng(
+          PlatePainter(
+            plan: p,
+            text: Colors.black,
+            sub: Colors.grey,
+            bg: Colors.white,
+          ),
+          width: 600,
+          height: 360,
+        );
+      });
+      expect(png.length, greaterThan(1000));
+    });
+  });
+
   group('화면', () {
     setUpAll(expandFormulaCards);
     setUp(() => SharedPreferences.setMockInitialValues({}));
