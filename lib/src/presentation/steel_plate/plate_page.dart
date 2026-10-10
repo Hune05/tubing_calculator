@@ -1407,7 +1407,7 @@ class _PlatePageState extends State<PlatePage>
   Widget _bendsTable(PlatePlan p) => PlateTable(
     headers: const ['번호', '절곡선', '절곡부', '방향'],
     flex: const [2, 3, 5, 4],
-    numeric: const [false, true, true, false],
+    numeric: const [false, true, true, true],
     rowKeys: [
       for (var n = 0; n < p.bends.length; n++) Key('pl_bend_row_${n + 1}'),
     ],

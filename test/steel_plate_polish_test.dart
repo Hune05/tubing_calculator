@@ -57,6 +57,23 @@ void main() {
       expect(_max(ly) - _min(ly), closeTo(70, 1e-9));
     });
 
+    test('치수 글 각도: 가로는 그대로, 세로는 아래→위로 읽게(화면 위·아래 어느 쪽으로 그어도)', () {
+      expect(plateReadableAngle(const Offset(1, 0)), closeTo(0, 1e-9));
+      expect(plateReadableAngle(const Offset(-1, 0)), closeTo(0, 1e-9));
+      expect(
+        plateReadableAngle(const Offset(0, -1)),
+        closeTo(-math.pi / 2, 1e-9),
+      );
+      expect(
+        plateReadableAngle(const Offset(0, 1)),
+        closeTo(-math.pi / 2, 1e-9),
+      );
+      expect(
+        plateReadableAngle(const Offset(-1, -1)),
+        closeTo(math.pi / 4, 1e-9),
+      );
+    });
+
     test('모자: 다섯 면, 치수는 발·높이·윗면만 그린다', () {
       final p = platePlan(
         const PlateInput(
@@ -241,6 +258,16 @@ void main() {
       expect(find.text('0.33'), findsOneWidget);
       // 직접 넣기면 칸(내R은 지금 값으로 채움)
       await tap(tester, 'pl_bm_manual');
+      // K값 보기 칸과 숫자 칸의 높이·자리가 같다(실기기에서 K값만 아래로 내려갔다)
+      final rBox = tester.getRect(find.byKey(const Key('pl_r')));
+      final kBox = tester.getRect(
+        find.descendant(
+          of: find.byKey(const Key('pl_k')),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(kBox.top, closeTo(rBox.top, 0.5));
+      expect(kBox.height, closeTo(rBox.height, 0.5));
       expect(
         tester
             .widget<TextField>(find.byKey(const Key('pl_r')))

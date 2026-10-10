@@ -17,6 +17,17 @@ String _f(double v) {
   return s;
 }
 
+/// 치수 글 각도(화면, y 아래): 글은 왼쪽→오른쪽, 세로 치수는 아래→위로 읽게(도면 관례, 10-11 실기기에서 거꾸로 나왔다).
+double plateReadableAngle(Offset along) {
+  var a = math.atan2(along.dy, along.dx);
+  if (a > math.pi / 2 - 1e-6) {
+    a -= math.pi;
+  } else if (a < -math.pi / 2 - 1e-6) {
+    a += math.pi;
+  }
+  return a;
+}
+
 /// 측면도 모양 계산(그리기·시험이 같이 쓴다). 좌표는 mm, y 위가 +.
 class PlateSideGeometry {
   /// 단면 외곽(두께를 가진 띠, 닫힌 다각형).
@@ -243,11 +254,14 @@ class PlateSidePainter extends CustomPainter {
       for (final q in [da, db]) {
         canvas.drawLine(q - tick, q + tick, dimPaint);
       }
-      var ang = math.atan2(along.dy, along.dx);
-      if (ang > math.pi / 2 + 1e-6 || ang <= -math.pi / 2 + 1e-6) {
-        ang += math.pi;
-      }
-      _label(canvas, _f(legs[i]), (da + db) / 2, ang, text, bold: true);
+      _label(
+        canvas,
+        _f(legs[i]),
+        (da + db) / 2,
+        plateReadableAngle(along),
+        text,
+        bold: true,
+      );
     }
 
     // 절곡 번호 동그라미(절곡 안쪽)

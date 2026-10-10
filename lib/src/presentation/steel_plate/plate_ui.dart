@@ -527,7 +527,7 @@ class PlateNumField extends StatelessWidget {
           style: TextStyle(
             fontSize: text ? 16 : 18,
             fontWeight: text ? FontWeight.w700 : FontWeight.w800,
-            color: readOnly ? fc.textSub : fc.text,
+            color: fc.text,
           ),
           decoration: InputDecoration(
             isDense: true,
@@ -683,8 +683,9 @@ class PlateTable extends StatelessWidget {
   }
 }
 
-/// 계산해서 보여 주는 값 칸(고칠 수 없음). [PlateNumField]와 같은 높이·모양에 옅은 바탕.
-class PlateValueField extends StatelessWidget {
+/// 계산해서 보여 주는 값 칸(고칠 수 없음). [PlateNumField]를 그대로 써서 옆 숫자 칸과 높이·모양이 같다
+/// (InputDecorator로 따로 그리면 입력 칸보다 1점 낮아 줄이 어긋났다, 10-11 실기기).
+class PlateValueField extends StatefulWidget {
   const PlateValueField({
     super.key,
     required this.label,
@@ -697,62 +698,35 @@ class PlateValueField extends StatelessWidget {
   final String? unit;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w700,
-          color: fc.textSub,
-        ),
-      ),
-      const SizedBox(height: 4),
-      Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        decoration: BoxDecoration(
-          color: fc.background,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: fc.line),
-        ),
-        alignment: Alignment.centerRight,
-        child: FittedBox(
-          fit: BoxFit.scaleDown,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: fc.text,
-                ),
-              ),
-              if (unit != null) ...[
-                const SizedBox(width: 4),
-                Text(
-                  unit!,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: fc.textSub,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    ],
-  );
+  State<PlateValueField> createState() => _PlateValueFieldState();
+}
+
+class _PlateValueFieldState extends State<PlateValueField> {
+  late final _c = TextEditingController(text: widget.value);
+
+  @override
+  void didUpdateWidget(PlateValueField old) {
+    super.didUpdateWidget(old);
+    if (_c.text != widget.value) _c.text = widget.value;
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final k = widget.key;
+    return PlateNumField(
+      fieldKey: '${k is ValueKey ? k.value : widget.label}_value',
+      label: widget.label,
+      controller: _c,
+      unit: widget.unit,
+      readOnly: true,
+    );
+  }
 }
 
 /// 위 막대 단추(아이콘 + 아래 작은 이름, 10-11 사용자 지적 "아이콘만 있어 뭔지 모름").
