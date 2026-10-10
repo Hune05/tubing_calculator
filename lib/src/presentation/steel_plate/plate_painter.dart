@@ -167,7 +167,7 @@ class PlatePainter extends CustomPainter {
       }
       _text(
         canvas,
-        '${n + 1} ${b.turn >= 0 ? "위로" : "아래로"} ${_f(b.turn.abs())}°',
+        '${n + 1} ${b.turn >= 0 ? "UP" : "DOWN"} ${_f(b.turn.abs())}°',
         Offset(top.dx, (top.dy + bot.dy) / 2),
         -math.pi / 2,
         color: kPlateBend,

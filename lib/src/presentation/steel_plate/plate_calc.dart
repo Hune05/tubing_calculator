@@ -29,7 +29,7 @@ enum PlateMaterial { steel, stainless, aluminum }
 
 const Map<PlateMaterial, (String, double)> kPlateMaterials = {
   PlateMaterial.steel: ('철판', 7.85),
-  PlateMaterial.stainless: ('스테인리스', 7.93),
+  PlateMaterial.stainless: ('SUS', 7.93),
   PlateMaterial.aluminum: ('알루미늄', 2.70),
 };
 
@@ -308,7 +308,7 @@ List<PlateSeg> plateCornerOutline(
         segs[i].add(PlateLine(e, x));
       case PlateCornerKind.notch:
         if (!convex) {
-          warn('${nameOf(i)}는 안으로 꺾인 모서리라 따낼 수 없습니다.');
+          warn('${nameOf(i)}는 안쪽 코너라 따낼 수 없습니다.');
           continue;
         }
         final bb = c.b <= 0 ? c.a : c.b;
@@ -750,7 +750,7 @@ PlatePlan platePlan(PlateInput i) {
     k = plateKFromDeduction(t, rr, i.bd90!);
     if (k < 0 || k > 1) {
       warn(
-        '공제값 ${_f(i.bd90!)}mm는 두께 ${_f(t)}·안쪽 반경 ${_f(rr)}로는 나올 수 없는 값입니다(k ${k.toStringAsFixed(2)}). 공제값이나 반경을 확인하십시오.',
+        '공제값 ${_f(i.bd90!)}mm는 두께 ${_f(t)}·내R ${_f(rr)}로는 나올 수 없는 값입니다(K값 ${k.toStringAsFixed(2)}). 공제값이나 반경을 확인하십시오.',
       );
       k = k.clamp(0.0, 1.0);
     }
@@ -821,10 +821,10 @@ PlatePlan platePlan(PlateInput i) {
     case PlateShape.free:
       final pts = i.points;
       if (pts.length < 3) {
-        warn('자유 모양은 꼭짓점이 3개 이상이어야 합니다.');
+        warn('좌표 입력은 꼭짓점이 3개 이상이어야 합니다.');
       } else {
         outline = plateCornerOutline(pts, i.pointCorners, warn);
-        if (_polyArea(pts) < 1) warn('자유 모양의 넓이가 없습니다. 꼭짓점을 확인하십시오.');
+        if (_polyArea(pts) < 1) warn('좌표로 넣은 모양의 넓이가 없습니다. 꼭짓점을 확인하십시오.');
       }
     case PlateShape.l:
     case PlateShape.u:
@@ -835,7 +835,7 @@ PlatePlan platePlan(PlateInput i) {
       final w = i.width;
       if (w <= 0) warn('폭을 넣으십시오.');
       if (i.shape == PlateShape.l && (i.angle <= 0 || i.angle >= 180)) {
-        warn('꺾는 각도는 0°와 180° 사이여야 합니다.');
+        warn('절곡 각도는 0°와 180° 사이여야 합니다.');
       }
       double adj(double deg) => -(1 - k) * t * math.tan(_rad(deg.abs()) / 2);
       final neutral = [
@@ -855,7 +855,7 @@ PlatePlan platePlan(PlateInput i) {
       for (var n = 0; n < plan.straights.length; n++) {
         if (plan.straights[n] <= 0) {
           warn(
-            '${faceNames[n]} 바깥 치수 ${_f(legs[n])}mm가 너무 짧아 꺾을 수 없습니다(꺾기 부분보다 짧음).',
+            '${faceNames[n]} 바깥 치수 ${_f(legs[n])}mm가 너무 짧아 절곡할 수 없습니다(절곡부보다 짧음).',
           );
         }
       }
@@ -948,12 +948,12 @@ PlatePlan platePlan(PlateInput i) {
       ),
     );
     if (s.slot > 0 && !s.isSlot) {
-      notes.add('구멍 ${n + 1}의 장공 길이가 지름 이하라 둥근 구멍으로 봅니다.');
+      notes.add('홀 ${n + 1}의 장공 길이가 지름 이하라 원형 홀로 봅니다.');
     }
   }
 
   // 구멍 검사: 판 밖, 가장자리, 꺾기 가까이, 서로 겹침
-  final edgeRule = 2 * t + rr; // 꺾기선(시작·끝)에서 구멍 가장자리까지 일반 판금 규칙
+  final edgeRule = 2 * t + rr; // 절곡선(시작·끝)에서 홀 가장자리까지 일반 판금 규칙
   final outside = <String>[],
       nearEdge = <String>[],
       nearBend = <String>[],
@@ -1000,19 +1000,19 @@ PlatePlan platePlan(PlateInput i) {
 
   // 구멍 이름이 숫자라 조사가 어색하지 않게 "…구멍: 이름" 꼴로 쓴다.
   if (outside.isNotEmpty) {
-    warn('판 밖으로 나오는 구멍: ${names(outside)}. 자리를 확인하십시오.');
+    warn('판 밖으로 나오는 홀: ${names(outside)}. 자리를 확인하십시오.');
   }
   if (inBend.isNotEmpty) {
-    warn('꺾이는 부분에 걸리는 구멍: ${names(inBend)}. 구멍을 꺾기선에서 떼십시오.');
+    warn('절곡부에 걸리는 홀: ${names(inBend)}. 홀을 절곡선에서 떼십시오.');
   }
   if (nearBend.isNotEmpty) {
     notes.add(
-      '꺾기선에서 ${_f(edgeRule)}mm(2 × 두께 + 안쪽 반경)보다 가까운 구멍: ${names(nearBend)}. 꺾을 때 구멍이 늘어날 수 있습니다(일반 판금 규칙).',
+      '절곡선에서 ${_f(edgeRule)}mm(2 × 두께 + 내R)보다 가까운 홀: ${names(nearBend)}. 절곡할 때 홀이 늘어날 수 있습니다(일반 판금 규칙).',
     );
   }
   if (nearEdge.isNotEmpty) {
     notes.add(
-      '판 끝에서 두께(${_f(t)}mm)보다 가까운 구멍: ${names(nearEdge)}. 레이저 열로 찢어지거나 휠 수 있습니다.',
+      '판 끝에서 두께(${_f(t)}mm)보다 가까운 홀: ${names(nearEdge)}. 레이저 열로 찢어지거나 휠 수 있습니다.',
     );
   }
   final clash = <String>[];
@@ -1025,9 +1025,9 @@ PlatePlan platePlan(PlateInput i) {
       }
     }
   }
-  if (clash.isNotEmpty) warn('서로 겹치는 구멍: ${names(clash)}.');
+  if (clash.isNotEmpty) warn('서로 겹치는 홀: ${names(clash)}.');
   if (holes.any((h) => h.dia < t)) {
-    notes.add('두께보다 작은 구멍은 레이저 업체에 따라 못 뚫거나 모양이 나쁠 수 있습니다.');
+    notes.add('두께보다 작은 홀은 레이저 업체에 따라 못 뚫거나 모양이 나쁠 수 있습니다.');
   }
   holes = [
     for (var n = 0; n < holes.length; n++)

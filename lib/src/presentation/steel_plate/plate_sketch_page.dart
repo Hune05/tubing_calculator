@@ -302,7 +302,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         context: context,
         builder: (c) => AppDialog(
           title: '새 사진으로 시작',
-          content: AppDialog.message('지금 찍어 둔 꼭짓점·구멍·치수는 지워지고 되돌릴 수 없습니다.'),
+          content: AppDialog.message('지금 찍어 둔 꼭짓점·홀·치수는 지워지고 되돌릴 수 없습니다.'),
           okText: '새로 시작',
           onCancel: () => Navigator.pop(c, false),
           onOk: () => Navigator.pop(c, true),
@@ -395,7 +395,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
           appBar: AppBar(
             backgroundColor: Colors.black,
             foregroundColor: Colors.white,
-            title: const Text('그림 사진'),
+            title: const Text('스케치 사진'),
           ),
           body: InteractiveViewer(
             maxScale: 8,
@@ -504,7 +504,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     ('photo', '사진'),
     ('draw', '그리기'),
     ('dims', '치수'),
-    ('holes', '구멍'),
+    ('holes', '홀'),
     ('send', '보내기'),
   ];
   int _tab = 0;
@@ -718,7 +718,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       setState(() => k = _s.orthogonalize().squared);
       _saveSoon();
       _say(
-        '그은 선을 꼭짓점 ${_s.n}개로 바꿨습니다${k > 0 ? '(가로·세로 $k곳 세움)' : ''}. 끝이 시작점과 떨어져 있어 아직 열려 있습니다. 다음 귀퉁이를 누르거나 1번 점을 눌러 닫습니다.',
+        '그은 선을 꼭짓점 ${_s.n}개로 바꿨습니다${k > 0 ? '(가로·세로 $k곳 세움)' : ''}. 끝이 시작점과 떨어져 있어 아직 열려 있습니다. 다음 꼭짓점을 누르거나 1번 점을 눌러 닫습니다.',
       );
       return;
     }
@@ -726,7 +726,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     final loop = sketchLoopShape(ink, closeTol: 44 / sc);
     if (loop == null || loop.major > 0.6 * math.min(b.width, b.height)) {
       setState(() {});
-      _say('판 안에 작은 동그라미를 그리면 구멍이 됩니다. 화면을 옮기려면 판 밖을 끌거나 두 손가락으로 움직이십시오.');
+      _say('판 안에 작은 동그라미를 그리면 홀이 됩니다. 화면을 옮기려면 판 밖을 끌거나 두 손가락으로 움직이십시오.');
       return;
     }
     final slot = _s.scaled && loop.minor / loop.major < 0.6;
@@ -746,8 +746,8 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     );
     _say(
       slot
-          ? '그린 고리를 장공 ${_f(dia)}×${_f(slotLen)}로 바꿨습니다. 구멍을 눌러 크기를 고칠 수 있습니다.'
-          : '그린 동그라미를 φ${_f(dia)} 구멍으로 바꿨습니다. 구멍을 눌러 크기를 고칠 수 있습니다.',
+          ? '그린 고리를 장공 ${_f(dia)}×${_f(slotLen)}로 바꿨습니다. 홀을 눌러 크기를 고칠 수 있습니다.'
+          : '그린 동그라미를 φ${_f(dia)} 홀로 바꿨습니다. 홀을 눌러 크기를 고칠 수 있습니다.',
     );
   }
 
@@ -817,12 +817,12 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     final r = await showDialog<List<double>>(
       context: context,
       builder: (_) => PlateNumbersDialog(
-        title: '구멍 ${k + 1}',
+        title: '홀 ${k + 1}',
         fields: [
           ('가로 자리 (판 왼쪽 끝에서, mm)', double.parse(_f(h.u - b.left))),
           ('세로 자리 (판 아래 끝에서, mm)', double.parse(_f(h.v - b.top))),
           ('지름 (mm)', h.dia),
-          ('장공 길이 (mm, 둥근 구멍은 0)', h.slot),
+          ('장공 길이 (mm, 원형 홀은 0)', h.slot),
           ('장공 각도 (°, 가로 0)', h.angle),
         ],
       ),
@@ -843,7 +843,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   Future<void> _editCorner(int k) async {
     final c = await showPlateCornerDialog(
       context,
-      title: '꼭짓점 ${k + 1} 귀 처리',
+      title: '꼭짓점 ${k + 1} 코너 처리',
       initial: _s.corners[k],
     );
     if (c == null || !mounted) return;
@@ -911,7 +911,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       context: context,
       builder: (c) => AppDialog(
         title: '그림 지우기',
-        content: AppDialog.message('그린 모양·치수·구멍을 모두 지웁니다(되돌리기로 살릴 수 있습니다).'),
+        content: AppDialog.message('그린 모양·치수·홀을 모두 지웁니다(되돌리기로 살릴 수 있습니다).'),
         okText: '지우기',
         okKey: const Key('sk_clear_ok'),
         destructive: true,
@@ -933,7 +933,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     _undo.add(before);
     _redo.clear();
     _saveSoon();
-    _say('좌우 대칭으로 맞췄습니다(가운데 세로선 기준, 짝끼리 폭·높이 평균). 되돌리기로 원래대로 돌릴 수 있습니다.');
+    _say('좌우 대칭으로 맞췄습니다(세로 센터선 기준, 짝끼리 폭·높이 평균). 되돌리기로 원래대로 돌릴 수 있습니다.');
   }
 
   void _send() {
@@ -971,7 +971,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     final s = _s;
     switch (_tabId) {
       case 'photo':
-        if (_photo == null) return '종이 그림이 있으면 사진을 찍거나 고르십시오.';
+        if (_photo == null) return '종이 스케치가 있으면 사진을 찍거나 고르십시오.';
         if (s.n > 0 && !s.photoAligned) return 'AI가 읽었습니다. 치수 탭에서 확인하십시오.';
         return '"AI로 읽기"를 누르거나, 그리기 탭에서 사진 위에 따라 그리십시오.';
       case 'draw':
@@ -980,7 +980,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         if (s.n == 0) return '판 모양을 손가락으로 그으십시오.';
         if (!s.closed) {
           return s.n < 3
-              ? '꼭짓점 ${s.n}개 · 다음 귀퉁이를 누르십시오.'
+              ? '꼭짓점 ${s.n}개 · 다음 꼭짓점을 누르십시오.'
               : '꼭짓점 ${s.n}개 · 1번 점을 누르면 닫힙니다.';
         }
         return '꼭짓점 ${s.n}개 · 점을 끌어 고치고, 변을 길게 눌러 점을 더합니다.';
@@ -997,9 +997,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         final hk = _selHole;
         if (hk != null && hk < s.holes.length) {
           final h = s.holes[hk];
-          return '구멍 ${hk + 1} · φ${_f(h.dia)}${h.slot > h.dia ? ' 장공 ${_f(h.slot)}' : ''}';
+          return '홀 ${hk + 1} · φ${_f(h.dia)}${h.slot > h.dia ? ' 장공 ${_f(h.slot)}' : ''}';
         }
-        return '판 안을 누르면 φ${_f(_tDia)} 구멍 · 동그라미는 구멍, 길쭉하면 장공 · 구멍 ${s.holes.length}개';
+        return '판 안을 누르면 φ${_f(_tDia)} 홀 · 동그라미는 홀, 길쭉하면 장공 · 홀 ${s.holes.length}개';
       default:
         final m = s.toPlateMap();
         if (m == null) {
@@ -1032,7 +1032,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
               surfaceTintColor: Colors.transparent,
               elevation: 0,
               title: Text(
-                '손그림 읽어 만들기',
+                '스케치로 만들기',
                 style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
               ),
               actions: [
@@ -1065,7 +1065,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                 if (_s.closed)
                   PlateCanvasButton(
                     key: const Key('sk_center'),
-                    label: '가운데선',
+                    label: '센터선',
                     selected: _showCenter,
                     onTap: () {
                       setState(() => _showCenter = !_showCenter);
@@ -1266,25 +1266,25 @@ class _PlateSketchPageState extends State<PlateSketchPage>
 
   List<String> _help() => switch (_tabId) {
     'photo' => [
-      '종이에 그린 그림을 찍거나 고른 뒤 "AI로 읽기"를 누르면 모양·치수·구멍을 읽어 옵니다(하루 20번).',
-      'AI가 못 읽으면 "사진 위에 직접 따라 그리기"로 사진 위에서 귀퉁이를 찍습니다.',
+      '종이 스케치를 찍거나 고른 뒤 "AI로 읽기"를 누르면 모양·치수·홀을 읽어 옵니다(하루 20번).',
+      'AI가 못 읽으면 "사진 위에 직접 따라 그리기"로 사진 위에서 꼭짓점을 찍습니다.',
     ],
     'draw' => [
       '빈 칸에서 손가락으로 판 모양을 한 번에 그으면 모양으로 바꿉니다. 삐뚤게 그려도 가로·세로로 바로잡고, 거의 대칭이면 좌우 대칭으로 맞춥니다.',
-      '귀퉁이를 차례로 눌러 찍어도 됩니다. 1번 점을 누르면 닫힙니다.',
-      '점은 끌어 고치고, 변을 길게 누르면 점을 더합니다. 점을 누르면 귀 처리(R·C·따내기)와 지우기가 나옵니다.',
+      '꼭짓점을 차례로 눌러 찍어도 됩니다. 1번 점을 누르면 닫힙니다.',
+      '점은 끌어 고치고, 변을 길게 누르면 점을 더합니다. 점을 누르면 코너 처리(R·C·따내기)와 지우기가 나옵니다.',
     ],
     'dims' => [
       '그림의 변 숫자나 아래 목록을 눌러 길이(mm)를 넣습니다. 처음 넣는 길이로 크기가 정해집니다.',
       '방금 넣은 값이 이기고, 맞춰야 하는 다른 변이 따라 바뀝니다. ✓는 넣은 값(잠김), !는 따라 바뀐 값입니다.',
     ],
     'holes' => [
-      '판 안을 누르면 고른 지름의 구멍을 놓습니다(5mm 칸에 붙음).',
-      '손가락으로 동그라미를 그어도 구멍이 되고, 길쭉하게 그으면 장공이 됩니다.',
-      '구멍을 누르면 고르고, 자리·크기를 고치거나 지울 수 있습니다.',
+      '판 안을 누르면 고른 지름의 홀을 놓습니다(5mm 칸에 붙음).',
+      '손가락으로 동그라미를 그어도 홀이 되고, 길쭉하게 그으면 장공이 됩니다.',
+      '홀을 누르면 고르고, 위치·크기를 고치거나 지울 수 있습니다.',
     ],
     _ => [
-      '"레이저 절단으로 보내기"를 누르면 레이저 절단 화면의 자유 모양으로 옮겨 갑니다.',
+      '"레이저 절단으로 보내기"를 누르면 레이저 절단 화면의 좌표 입력으로 옮겨 갑니다.',
       '그 화면에 있던 입력은 덮이고, 알림에서 되돌릴 수 있습니다.',
     ],
   };
@@ -1297,7 +1297,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     switch (_tabId) {
       case 'photo':
         sections = [
-          PlateSection('종이 그림 사진', [
+          PlateSection('종이 스케치 사진', [
             plateRow([
               _btn(
                 'sk_camera',
@@ -1378,7 +1378,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                 _btn(
                   'sk_corner',
                   Icons.rounded_corner,
-                  '귀 처리',
+                  '코너 처리',
                   () => _editCorner(sel),
                 ),
                 PlateActionButton(
@@ -1470,7 +1470,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       case 'holes':
         final selH = _selHole;
         sections = [
-          PlateSection('구멍 지름', [
+          PlateSection('홀 지름', [
             PlateSegments(joined: false, [
               for (final d in const [9.0, 11.0, 13.5, 17.5, 22.0])
                 PlateOption(
@@ -1482,18 +1482,18 @@ class _PlateSketchPageState extends State<PlateSketchPage>
             ]),
           ], first: true),
           if (selH != null && selH < s.holes.length)
-            PlateSection('구멍 ${selH + 1}', [
+            PlateSection('홀 ${selH + 1}', [
               plateActions([
                 _btn(
                   'sk_hole_edit',
                   Icons.tune,
-                  '자리·크기 고치기',
+                  '위치·크기 수정',
                   () => _editHole(selH),
                 ),
                 PlateActionButton(
                   key: const Key('sk_hole_del'),
                   icon: AppIcons.delete,
-                  label: '구멍 지우기',
+                  label: '홀 지우기',
                   danger: true,
                   onTap: () => _change(() {
                     _s.holes.removeAt(selH);
@@ -1510,9 +1510,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
             PlateSection('보낼 모양', [
               PlateInfoRow('크기', '${_f(b.width)} × ${_f(b.height)} mm'),
               PlateInfoRow('꼭짓점', '${s.n}개'),
-              PlateInfoRow('구멍', '${s.holes.length}개'),
+              PlateInfoRow('홀', '${s.holes.length}개'),
               if (s.thickness != null)
-                PlateInfoRow('두께', '${_f(s.thickness!)}t'),
+                PlateInfoRow('두께', '${_f(s.thickness!)}T'),
             ], first: true),
         ];
     }

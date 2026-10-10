@@ -205,7 +205,7 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
         final a = l[i], b = l[(i + 1) % l.length];
         final d = b - a;
         if (d.distance < 1e-9) continue;
-        final n = vm.Vector3(-d.dy, d.dx, 0)..normalize(); // 구멍 가운데 쪽
+        final n = vm.Vector3(-d.dy, d.dx, 0)..normalize(); // 홀 가운데 쪽
         faces.add(
           Plate3dFace([v(a, -h), v(a, h), v(b, h), v(b, -h)], n, kind: 2),
         );

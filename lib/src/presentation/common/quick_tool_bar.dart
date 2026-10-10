@@ -328,7 +328,7 @@ final List<QuickToolDef> kQuickTools = [
     '철판 가공',
     AppGlyph.plate,
     (_) => const PlateHomePage(),
-    subtitle: '레이저 절단 · 절곡 전개도 · 손그림 읽기 · DXF',
+    subtitle: '레이저 절단 · 절곡 전개도 · 스케치 · DXF',
     group: '가공·배치',
   ),
   QuickToolDef(

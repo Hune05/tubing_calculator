@@ -25,7 +25,7 @@ String? plateSketchLabel(PlateSketch? s) {
   if (s == null || (s.n == 0 && s.holes.isEmpty)) return null;
   final b = s.bounds;
   if (s.scaled && b != null && s.n >= 3) {
-    return '${_f(b.width)} × ${_f(b.height)} · 꼭짓점 ${s.n}개${s.holes.isEmpty ? '' : ' · 구멍 ${s.holes.length}개'}';
+    return '${_f(b.width)} × ${_f(b.height)} · 꼭짓점 ${s.n}개${s.holes.isEmpty ? '' : ' · 홀 ${s.holes.length}개'}';
   }
   return '꼭짓점 ${s.n}개 · 치수 넣기 전';
 }
@@ -177,7 +177,7 @@ class _PlateHomePageState extends State<PlateHomePage> {
               'ph_cut',
               AppGlyph.plateCut,
               '레이저 절단',
-              '평판·삼각 리브·자유 모양을 자르기만 합니다. 네 귀 R·C·따내기, 구멍·장공.',
+              '평판·삼각 리브·좌표 입력을 자르기만 합니다. 네 코너 R·C·따내기, 홀·장공.',
               _cut,
               (_) => const PlatePage(),
             ),
@@ -186,7 +186,7 @@ class _PlateHomePageState extends State<PlateHomePage> {
               'ph_bend',
               AppGlyph.plateBend,
               '절단 + 절곡',
-              'ㄱ·ㄷ·Z·모자로 꺾습니다. 전개도·꺾기선·공제값.',
+              'ㄱ·ㄷ·Z·모자로 절곡합니다. 전개도·절곡선·공제값.',
               _bend,
               (_) => const PlatePage(bend: true),
             ),
@@ -194,14 +194,14 @@ class _PlateHomePageState extends State<PlateHomePage> {
             _row(
               'ph_sketch',
               AppGlyph.plateSketch,
-              '손그림 읽어 만들기',
-              '종이에 그린 그림 사진을 AI가 읽습니다. 안 되면 사진 위에 직접 찍고 치수를 넣습니다.',
+              '스케치로 만들기',
+              '종이 스케치 사진을 AI가 읽거나, 화면에 손가락으로 직접 그립니다. 치수를 넣어 레이저 절단으로 보냅니다.',
               _sketch,
               (_) => const PlateSketchPage(),
             ),
             const SizedBox(height: 16),
             Text(
-              '셋 다 구멍 넣기·고치기, 레이저 업체에 보낼 DXF, 가공 지시서 PDF를 같이 씁니다. 입력은 화면마다 따로 남습니다.',
+              '셋 다 홀 넣기·고치기, 레이저 업체에 보낼 DXF, 가공 도면 PDF를 같이 씁니다. 입력은 화면마다 따로 남습니다.',
               style: TextStyle(fontSize: 14, color: fc.textSub, height: 1.4),
             ),
           ],

@@ -87,7 +87,7 @@ class _PlateCornerDialogState extends State<PlateCornerDialog> {
             children: [
               for (final (k, label) in const [
                 (PlateCornerKind.none, '직각'),
-                (PlateCornerKind.round, 'R 둥글게'),
+                (PlateCornerKind.round, '코너 R'),
                 (PlateCornerKind.chamfer, 'C 모따기'),
                 (PlateCornerKind.notch, '따내기'),
               ])

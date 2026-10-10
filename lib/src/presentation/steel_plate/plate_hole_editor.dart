@@ -73,11 +73,11 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     with CalcFormParts<PlateHoleEditorPage> {
   late final List<PlateHoleSpec> _holes = List.of(widget.holes);
   late int _rot = widget.rotQ;
-  final List<int> _sel = []; // 고른 구멍(고른 차례)
+  final List<int> _sel = []; // 선택한 홀(고른 차례)
   bool _multi = false;
   bool _place = false;
   double _grid = 5;
-  bool _more = false; // 자주 안 쓰는 것(모눈·한꺼번에 넣기·판 돌리기) 펼침
+  bool _more = false; // 자주 안 쓰는 것(그리드·한꺼번에 넣기·판 돌리기) 펼침
   late double _tDia = widget.dies.contains(13.5) ? 13.5 : widget.dies.first;
   double _tSlot = 0;
   double _tAngle = 0;
@@ -91,7 +91,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
 
   // 끌기·확대 중 상태
   int? _lead;
-  Map<int, Offset>? _dragFrom; // 구멍 번호 → 끌기 시작 때 화면 자리(mm)
+  Map<int, Offset>? _dragFrom; // 홀 번호 → 끌기 시작 때 화면 자리(mm)
   Offset _focal0 = Offset.zero;
   double _zoom0 = 1;
   Offset _pan0 = Offset.zero;
@@ -408,7 +408,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       }
       _sel.clear();
     });
-    showDeleteUndo(context, '구멍 $n개', onUndo: _undoOnce);
+    showDeleteUndo(context, '홀 $n개', onUndo: _undoOnce);
   }
 
   /// 줄·네 귀·장공 틀로 한꺼번에 넣기(예전 철판 가공 화면에 있던 칩을 여기로 옮김).
@@ -448,7 +448,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       _holes.clear();
       _sel.clear();
     });
-    showDeleteUndo(context, '구멍 $n개', onUndo: _undoOnce);
+    showDeleteUndo(context, '홀 $n개', onUndo: _undoOnce);
   }
 
   void _duplicate() {
@@ -566,12 +566,12 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     final i = _sel.first;
     final h = p.holes[i];
     final r = await _numbersDialog(
-      title: '구멍 ${i + 1} 자리·크기',
+      title: '홀 ${i + 1} 자리·크기',
       fields: [
         ('왼쪽 끝에서 (mm)', h.c.dx - p.minX),
         ('아래 끝에서 (mm)', h.c.dy - p.minY),
         ('지름 (mm)', h.dia),
-        ('장공 길이 (mm, 0이면 둥근 구멍)', h.slot),
+        ('장공 길이 (mm, 0이면 원형 홀)', h.slot),
         ('장공 각도 (°, 0 = 가로)', ((h.angle % 360) + 360) % 360),
       ],
     );
@@ -590,12 +590,12 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     final r = await _numbersDialog(
       title: '원형 배치 (PCD)',
       fields: [
-        ('가운데: 왼쪽 끝에서 (mm)', (p.maxX - p.minX) / 2),
-        ('가운데: 아래 끝에서 (mm)', (p.maxY - p.minY) / 2),
+        ('중심: 왼쪽 끝에서 (mm)', (p.maxX - p.minX) / 2),
+        ('중심: 아래 끝에서 (mm)', (p.maxY - p.minY) / 2),
         ('원 지름 PCD (mm)', math.min(p.maxX - p.minX, p.maxY - p.minY) * 0.6),
-        ('구멍 수', 4),
-        ('첫 구멍 각도 (°, 0 = 오른쪽)', 45),
-        ('구멍 지름 (mm)', _tDia),
+        ('홀 수', 4),
+        ('첫 홀 각도 (°, 0 = 오른쪽)', 45),
+        ('홀 지름 (mm)', _tDia),
       ],
     );
     if (r == null || r[2] <= 0 || r[5] <= 0) return;
@@ -649,13 +649,13 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       final gy = h.c.dy - (p.minY + p.maxY) / 2;
       String sg(double v) =>
           v.abs() < 0.05 ? '0' : '${v > 0 ? '+' : '−'}${_f(v.abs())}';
-      return '구멍 ${h.label} ${plateHoleKind(h)}: 왼쪽 ${_f(h.c.dx - p.minX)} · 아래 ${_f(h.c.dy - p.minY)} · 오른쪽 ${_f(p.maxX - h.c.dx)} · 위 ${_f(p.maxY - h.c.dy)} · 가운데에서 가로 ${sg(gx)} · 세로 ${sg(gy)}$face';
+      return '홀 ${h.label} ${plateHoleKind(h)}: 왼쪽 ${_f(h.c.dx - p.minX)} · 아래 ${_f(h.c.dy - p.minY)} · 오른쪽 ${_f(p.maxX - h.c.dx)} · 위 ${_f(p.maxY - h.c.dy)} · 센터에서 가로 ${sg(gx)} · 세로 ${sg(gy)}$face';
     }
-    if (_sel.length > 1) return '구멍 ${_sel.length}개 고름';
+    if (_sel.length > 1) return '홀 ${_sel.length}개 선택';
     if (_place) {
       return '판을 누르면 그 자리에 ${_tSlot > _tDia ? '장공 ${_f(_tDia)}×${_f(_tSlot)}' : 'φ${_f(_tDia)}'}를 놓습니다.';
     }
-    return '구멍을 눌러 고르고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다.';
+    return '홀을 눌러 선택하고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다.';
   }
 
   @override
@@ -735,7 +735,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
             surfaceTintColor: Colors.transparent,
             elevation: 0,
             title: Text(
-              '구멍 배치 편집',
+              '홀 배치',
               style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
             ),
           ),
@@ -761,26 +761,26 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       danger: danger,
     );
     return PlatePanel(
-      title: '구멍',
+      title: '홀',
       status: _status(p),
       statusKey: const Key('ed_status'),
       statusColor: fc.text,
       below: [
         if (bad > 0)
           Text(
-            '빨간 테두리 구멍 $bad개는 만들 수 없습니다(판 밖·꺾이는 부분·겹침). 노란 테두리는 꺾기선·판 끝에 가깝습니다.',
+            '빨간 테두리 홀 $bad개는 만들 수 없습니다(판 밖·절곡부·겹침). 노란 테두리는 절곡선·판 끝에 가깝습니다.',
             key: const Key('ed_bad'),
             style: TextStyle(fontSize: 13, color: fc.danger, height: 1.35),
           ),
       ],
       actions: [
-        plateHelpButton(context, 'ed_help', '구멍 탭', [
-          '판을 누르면: "고르기·옮기기"는 구멍을 눌러 고르고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다. "구멍 놓기"는 판을 누른 자리에 고른 크기의 구멍을 놓습니다.',
-          '구멍을 끌면 모눈·다른 구멍·판 가운데에 맞춰 안내선이 나옵니다.',
-          '고른 구멍: 자리·크기 고치기, 복제, 지우기, 대칭 복사. 여러 개 고르면 줄 맞추기·같은 간격·묶음 돌리기도 됩니다.',
-          '빨간 테두리 구멍은 만들 수 없고(판 밖·꺾이는 부분·겹침), 노란 테두리는 꺾기선·판 끝에 가깝습니다.',
+        plateHelpButton(context, 'ed_help', '홀 탭', [
+          '판을 누르면: "선택·이동"는 홀을 눌러 선택하고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다. "홀 추가"는 판을 누른 자리에 고른 크기의 홀을 놓습니다.',
+          '홀을 끌면 그리드·다른 홀·센터선에 맞춰 안내선이 나옵니다.',
+          '선택한 홀: 위치·크기 수정, 복사, 지우기, 대칭 복사. 여러 개 고르면 줄 맞추기·같은 간격·묶음 회전도 됩니다.',
+          '빨간 테두리 홀은 만들 수 없고(판 밖·절곡부·겹침), 노란 테두리는 절곡선·판 끝에 가깝습니다.',
           if (_bent)
-            '꺾는 판은 꺾이는 부분을 빗금으로 막아 두었습니다. 구멍 자리는 면 기준으로 남겨 면 치수를 바꿔도 따라갑니다.',
+            '절곡 판은 절곡부을 빗금으로 막아 두었습니다. 홀 위치는 면 기준으로 남겨 면 치수를 바꿔도 따라갑니다.',
         ]),
       ],
       footer: widget.footer,
@@ -789,13 +789,13 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
           PlateSegments([
             PlateOption(
               'ed_mode_sel',
-              '고르기·옮기기',
+              '선택·이동',
               !_place,
               () => setState(() => _place = false),
             ),
             PlateOption(
               'ed_mode_place',
-              '구멍 놓기',
+              '홀 추가',
               _place,
               () => setState(() => _place = true),
             ),
@@ -803,13 +803,13 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
           PlateSegments(joined: false, [
             PlateOption(
               'ed_multi',
-              '여러 개 고르기',
+              '다중 선택',
               _multi,
               () => setState(() => _multi = !_multi),
             ),
             PlateOption(
               'ed_all',
-              '모두 고르기',
+              '전체 선택',
               false,
               () => setState(() {
                 _multi = true;
@@ -821,7 +821,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
           ]),
         ], first: true),
         if (_place)
-          PlateSection('놓을 구멍', [
+          PlateSection('추가할 홀', [
             PlateSegments(joined: false, [
               for (final d in widget.dies)
                 PlateOption(
@@ -833,7 +833,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
             ]),
             PlateSegments([
               for (final (key, label, len) in const [
-                ('ed_tslot_0', '둥근 구멍', 0.0),
+                ('ed_tslot_0', '원형 홀', 0.0),
                 ('ed_tslot_30', '장공 30', 30.0),
                 ('ed_tslot_40', '장공 40', 40.0),
               ])
@@ -856,11 +856,11 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
               ]),
           ]),
         if (_sel.isNotEmpty)
-          PlateSection(_sel.length == 1 ? '고른 구멍' : '고른 구멍 ${_sel.length}개', [
+          PlateSection(_sel.length == 1 ? '선택한 홀' : '선택한 홀 ${_sel.length}개', [
             plateActions([
               if (_sel.length == 1)
-                act('ed_edit', Icons.tune, '자리·크기 고치기', _editOne),
-              act('ed_dup', AppIcons.copy, '복제', _duplicate),
+                act('ed_edit', Icons.tune, '위치·크기 수정', _editOne),
+              act('ed_dup', AppIcons.copy, '복사', _duplicate),
               act('ed_del', AppIcons.delete, '지우기', _delete, danger: true),
             ]),
             plateActions([
@@ -924,7 +924,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                 act(
                   'ed_grot_90',
                   Icons.rotate_left,
-                  '묶음 90° 돌리기',
+                  '묶음 90° 회전',
                   () => _rotateGroup(90),
                 ),
                 act(
@@ -936,14 +936,14 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
               ]),
           ]),
         PlateSection(
-          '모눈 · 한꺼번에 넣기 · 판 돌리기',
+          '그리드 · 한꺼번에 넣기 · 90° 회전',
           [
             if (_more) ...[
               PlateSegments([
                 for (final g in const [0.0, 1.0, 5.0, 10.0])
                   PlateOption(
                     'ed_grid_${g.round()}',
-                    g == 0 ? '모눈 끔' : '모눈 ${_f(g)}',
+                    g == 0 ? '그리드 끔' : '그리드 ${_f(g)}',
                     _grid == g,
                     () => _setGrid(g),
                   ),
@@ -959,7 +959,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                   act(
                     'ed_add_corners',
                     Icons.crop_free,
-                    '네 귀 구멍',
+                    '네 코너 홀',
                     () => _addGroup(
                       preset: const PlateHoleGroup(
                         dia: 13.5,
@@ -987,7 +987,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                   act(
                     'ed_rot',
                     Icons.rotate_90_degrees_ccw_outlined,
-                    '판 90° 돌리기',
+                    '90° 회전',
                     () => _change(() {
                       _rot = (_rot + 1) % 4;
                       _zoom = 1;

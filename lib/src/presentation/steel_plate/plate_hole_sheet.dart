@@ -116,12 +116,12 @@ class _PlateHoleSheetState extends State<PlateHoleSheet> {
         ? '가장자리에서 가로 거리 (mm)'
         : widget.bent
         ? '면 시작에서 (mm)'
-        : '왼쪽 끝에서 첫 구멍 (mm)';
+        : '왼쪽 끝에서 첫 홀 (mm)';
     final yLabel = _corners
         ? '가장자리에서 세로 거리 (mm)'
         : widget.bent
         ? '아래 가장자리에서 (mm)'
-        : '아래 끝에서 첫 구멍 (mm)';
+        : '아래 끝에서 첫 홀 (mm)';
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.fromLTRB(
@@ -136,7 +136,7 @@ class _PlateHoleSheetState extends State<PlateHoleSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                widget.initial == null ? '구멍 넣기' : '구멍 고치기',
+                widget.initial == null ? '홀 넣기' : '홀 고치기',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
@@ -147,12 +147,12 @@ class _PlateHoleSheetState extends State<PlateHoleSheet> {
               Wrap(
                 spacing: 8,
                 children: [
-                  _chip('hs_round', '둥근 구멍', !_slot, () => _slot = false),
+                  _chip('hs_round', '원형 홀', !_slot, () => _slot = false),
                   _chip('hs_slot', '장공', _slot, () => _slot = true),
                 ],
               ),
               const SizedBox(height: 8),
-              _field('hs_dia', _slot ? '장공 폭 (mm)' : '구멍 지름 (mm)', _dia),
+              _field('hs_dia', _slot ? '장공 폭 (mm)' : '홀 지름 (mm)', _dia),
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -184,7 +184,7 @@ class _PlateHoleSheetState extends State<PlateHoleSheet> {
                 const SizedBox(height: 8),
               ],
               if (widget.bent) ...[
-                Text('구멍이 있는 면', style: TextStyle(color: widget.sub)),
+                Text('홀이 있는 면', style: TextStyle(color: widget.sub)),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -205,7 +205,12 @@ class _PlateHoleSheetState extends State<PlateHoleSheet> {
                   spacing: 8,
                   children: [
                     _chip('hs_row', '줄로 놓기', !_corners, () => _corners = false),
-                    _chip('hs_corners', '네 귀', _corners, () => _corners = true),
+                    _chip(
+                      'hs_corners',
+                      '네 코너',
+                      _corners,
+                      () => _corners = true,
+                    ),
                   ],
                 ),
               const SizedBox(height: 8),
@@ -213,7 +218,7 @@ class _PlateHoleSheetState extends State<PlateHoleSheet> {
               _field('hs_y', yLabel, _y),
               if (!_corners) ...[
                 _field('hs_n', '개수', _n),
-                _field('hs_pitch', '피치 (다음 구멍까지, mm)', _pitch),
+                _field('hs_pitch', '피치 (다음 홀까지, mm)', _pitch),
                 Wrap(
                   spacing: 8,
                   children: [

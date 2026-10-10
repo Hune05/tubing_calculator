@@ -290,7 +290,7 @@ void main() {
       expect(s.dimOf(2), 200);
     });
 
-    test('레이저 절단으로 넘길 자료: 왼쪽 아래를 0,0으로, 귀 처리·구멍·두께', () {
+    test('레이저 절단으로 넘길 자료: 왼쪽 아래를 0,0으로, 코너 처리·홀·두께', () {
       final s = PlateSketch(
         pts: const [
           Offset(50, 20),
@@ -336,7 +336,7 @@ void main() {
       expect(s.photoAligned, isFalse);
       expect(s.corners[0].label, 'R15');
       expect(s.corners[2].label, 'C10');
-      expect(s.holes[1].slot, 0); // 장공 길이가 지름보다 짧으면 둥근 구멍
+      expect(s.holes[1].slot, 0); // 장공 길이가 지름보다 짧으면 원형 홀
       expect(s.frame.contains(const Offset(300, 150)), isTrue);
       final back = PlateSketch.fromJson(s.toJson())!;
       expect(back.pts, s.pts);
@@ -428,7 +428,7 @@ void main() {
     bool near(List<Offset> got, Offset want, double tol) =>
         got.any((p) => (p - want).distance <= tol);
 
-    test('그은 사각: 둥글게 돈 귀를 뾰족하게, 닫힘, 꼭짓점 넷', () {
+    test('그은 사각: 둥글게 돈 코너를 뾰족하게, 닫힘, 꼭짓점 넷', () {
       const rect = [
         Offset(0, 0),
         Offset(240, 0),
@@ -605,15 +605,13 @@ void main() {
       return pts;
     }
 
-    testWidgets('탭 차례: 사진 → 그리기 → 치수 → 구멍 → 보내기, "다음" 단추로 넘어간다', (
-      tester,
-    ) async {
+    testWidgets('탭 차례: 사진 → 그리기 → 치수 → 홀 → 보내기, "다음" 단추로 넘어간다', (tester) async {
       await open(tester);
       for (final id in ['photo', 'draw', 'dims', 'holes', 'send']) {
         expect(find.byKey(Key('sk_tab_$id')), findsOneWidget);
       }
       // 빈 그림이면 사진 탭부터
-      expect(status(tester), startsWith('종이 그림이 있으면 사진을 찍거나 고르십시오'));
+      expect(status(tester), startsWith('종이 스케치가 있으면 사진을 찍거나 고르십시오'));
       await tap(tester, 'sk_next_draw');
       expect(status(tester), startsWith('판 모양을 손가락으로 그으십시오'));
       await tap(tester, 'sk_next_dims');
@@ -690,7 +688,7 @@ void main() {
       expect(status(tester), contains('넣은 치수 2곳'));
     });
 
-    testWidgets('구멍 탭: 판 안을 누르면 5mm 칸에 구멍, 눌러 고르고 지운다', (tester) async {
+    testWidgets('홀 탭: 판 안을 누르면 5mm 칸에 홀, 눌러 고르고 지운다', (tester) async {
       await open(tester);
       final pts = await drawRect(tester);
       await tab(tester, 'dims');
@@ -698,7 +696,7 @@ void main() {
       await tester.pumpAndSettle();
       await enterLength(tester, '300');
       await tab(tester, 'holes');
-      expect(status(tester), startsWith('판 안을 누르면 φ13.5 구멍'));
+      expect(status(tester), startsWith('판 안을 누르면 φ13.5 홀'));
       await tap(tester, 'sk_dia_110');
       final at = pts[0] + const Offset(37, -29);
       await tester.tapAt(at);
@@ -716,14 +714,14 @@ void main() {
       await tab(tester, 'holes');
       await tester.tapAt(at);
       await tester.pumpAndSettle();
-      expect(status(tester), startsWith('구멍 1 · φ11'));
+      expect(status(tester), startsWith('홀 1 · φ11'));
       await tap(tester, 'sk_hole_del');
       await tab(tester, 'send');
       await tap(tester, 'sk_send');
       expect(sent!['holes'], isEmpty);
     });
 
-    testWidgets('그리기 탭: 꼭짓점 고르기 → 귀 처리 R10 → 지우기', (tester) async {
+    testWidgets('그리기 탭: 꼭짓점 고르기 → 코너 처리 R10 → 지우기', (tester) async {
       await open(tester);
       await tab(tester, 'draw');
       final r = tester.getRect(find.byKey(const Key('sk_canvas')));
@@ -747,7 +745,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(status(tester), startsWith('꼭짓점 2 · R10'));
       await tap(tester, 'sk_del');
-      expect(status(tester), startsWith('꼭짓점 2개 · 다음 귀퉁이를 누르십시오'));
+      expect(status(tester), startsWith('꼭짓점 2개 · 다음 꼭짓점을 누르십시오'));
     });
 
     testWidgets('사진 탭: AI로 읽기 → 치수 탭으로, 짐작한 곳·사진 작게, 보내기', (tester) async {
@@ -763,7 +761,7 @@ void main() {
           ],
           holes: [PlateSketchHole(30, 30, 13.5)],
           thickness: 4,
-          unclear: ['위쪽 구멍 자리는 짐작했습니다'],
+          unclear: ['위쪽 홀 위치는 짐작했습니다'],
           remaining: 19,
         ),
       );
@@ -774,7 +772,7 @@ void main() {
       // 읽으면 치수 탭으로 넘어간다
       expect(status(tester), startsWith('넣은 치수 0곳'));
       expect(find.textContaining('오늘 남은 횟수 19번'), findsOneWidget);
-      expect(find.text('AI가 짐작한 곳: 위쪽 구멍 자리는 짐작했습니다'), findsOneWidget);
+      expect(find.text('AI가 짐작한 곳: 위쪽 홀 위치는 짐작했습니다'), findsOneWidget);
       expect(find.byKey(const Key('sk_thumb')), findsOneWidget);
       expect(find.byKey(const Key('sk_edge_3')), findsOneWidget);
       await tab(tester, 'send');
@@ -850,7 +848,7 @@ void main() {
       return out;
     }
 
-    testWidgets('그리기 탭에서 그어 외곽 → 치수 → 구멍 탭에서 동그라미는 구멍', (tester) async {
+    testWidgets('그리기 탭에서 그어 외곽 → 치수 → 홀 탭에서 동그라미는 홀', (tester) async {
       await open(tester);
       await tab(tester, 'draw');
       final r = tester.getRect(find.byKey(const Key('sk_canvas')));
@@ -872,7 +870,7 @@ void main() {
                   ) *
                   24,
       ]);
-      expect(find.textContaining('구멍으로 바꿨습니다'), findsOneWidget);
+      expect(find.textContaining('홀로 바꿨습니다'), findsOneWidget);
       await tab(tester, 'send');
       await tap(tester, 'sk_send');
       // 그은 시작 자리와 상관없이 왼쪽 아래 귀부터 반시계로
@@ -885,7 +883,7 @@ void main() {
 
   testWidgets('철판 가공 첫 화면: 세 갈래, 마지막에 하던 것 "이어서"', (tester) async {
     SharedPreferences.setMockInitialValues({
-      PlatePage.draftKeyOf(true): '{"sh":"z","lbl":"Z자 3t · 138.5 × 100"}',
+      PlatePage.draftKeyOf(true): '{"sh":"z","lbl":"Z자 3T · 138.5 × 100"}',
       PlateSketchPage.draftKey:
           '{"pts":[[0,0],[300,0],[300,150],[0,150]],"scaled":true,"closed":true}',
     });
@@ -893,9 +891,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('레이저 절단'), findsOneWidget);
     expect(find.text('절단 + 절곡'), findsOneWidget);
-    expect(find.text('손그림 읽어 만들기'), findsOneWidget);
+    expect(find.text('스케치로 만들기'), findsOneWidget);
     expect(find.byKey(const Key('ph_cut_last')), findsNothing);
-    expect(find.text('이어서: Z자 3t · 138.5 × 100'), findsOneWidget);
+    expect(find.text('이어서: Z자 3T · 138.5 × 100'), findsOneWidget);
     expect(find.text('이어서: 300 × 150 · 꼭짓점 4개'), findsOneWidget);
     await tester.tap(find.byKey(const Key('ph_bend')));
     await tester.pumpAndSettle();
@@ -910,10 +908,10 @@ void main() {
     await tester.pageBack();
     await tester.pumpAndSettle();
     // 들어갔다 나오면 레이저 절단도 "이어서"가 생긴다
-    expect(find.text('이어서: 평판 3t · 200 × 100'), findsOneWidget);
+    expect(find.text('이어서: 평판 3T · 200 × 100'), findsOneWidget);
     await tester.tap(find.byKey(const Key('ph_sketch')));
     await tester.pumpAndSettle();
-    expect(find.text('손그림 읽어 만들기'), findsOneWidget);
+    expect(find.text('스케치로 만들기'), findsOneWidget);
     expect(find.byKey(const Key('sk_canvas')), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
