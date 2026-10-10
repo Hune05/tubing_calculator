@@ -8,6 +8,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,6 +26,7 @@ import '../drawing_viewer/dxf_reader.dart' show dxfDecode;
 import '../steel_bracket/bracket_pdf.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'plate_3d_view.dart';
+import 'plate_bend_input.dart';
 import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
 import 'plate_dxf.dart';
@@ -78,6 +80,7 @@ const List<(PlateShape, String)> kPlateBendShapes = [
   (PlateShape.u, 'ㄷ자'),
   (PlateShape.z, 'Z자'),
   (PlateShape.hat, '모자'),
+  (PlateShape.custom, '직접'),
 ];
 
 String plateShapeName(PlateShape s) =>
@@ -143,6 +146,16 @@ class _PlatePageState extends State<PlatePage>
   /// 절곡 공제값 기준(10-11): 'auto' 일반값(내R = 두께, K 0.33) · 'saved' 설정에 저장한 이 두께 업체 값 · 'manual' 직접 넣기.
   String _bm = 'auto';
 
+  /// 직접 절곡(10-11): 절곡선(바깥 치수 자리 차례대로)과 가로선인가. ㄱ·ㄷ·Z·모자: 절곡마다 방향 뒤집기.
+  List<PlateBendSpec> _bls = [];
+  bool _blH = false;
+  List<bool> _flips = [];
+  bool get _custom => _shape == PlateShape.custom;
+
+  /// 레이저 절단 좌표 입력의 처음 모양, 절곡 화면 "직접"의 처음 모양(사각).
+  static const _kCutPoints = '0,0\n200,0\n200,80\n120,150\n0,150';
+  static const _kRectPoints = '0,0\n200,0\n200,100\n0,100';
+
   /// 철판 가공 설정(자주 쓰는 홀 지름·두께 단추·원판·간격) — 설정 화면에서 바꾼다.
   PlateSettings _cfg = PlateSettings.defaults;
   double _grid = 5;
@@ -157,7 +170,7 @@ class _PlatePageState extends State<PlatePage>
   // 고치기 시작할 때의 꼭짓점·홀을 잡아 두고 거기서 늘이므로, 한 자씩 칠 때 생기는 중간 값이 쌓이지 않는다.
   final _fw = TextEditingController(), _fh = TextEditingController();
   final _fwFocus = FocusNode(), _fhFocus = FocusNode();
-  (String, List<PlateHoleSpec>)? _freeBase;
+  (String, List<PlateHoleSpec>, List<PlateBendSpec>)? _freeBase;
   final _lenFocus = FocusNode(), _widFocus = FocusNode();
   final _raFocus = FocusNode(), _rbFocus = FocusNode();
 
@@ -173,9 +186,7 @@ class _PlatePageState extends State<PlatePage>
   final _ribA = TextEditingController(text: '100');
   final _ribB = TextEditingController(text: '100');
   final _ribC = TextEditingController(text: '15');
-  final _points = TextEditingController(
-    text: '0,0\n200,0\n200,80\n120,150\n0,150',
-  );
+  final _points = TextEditingController(text: _kCutPoints);
   final _r = TextEditingController();
   final _bd = TextEditingController();
   final _qty = TextEditingController(text: '1');
@@ -228,6 +239,7 @@ class _PlatePageState extends State<PlatePage>
   @override
   void initState() {
     super.initState();
+    if (_bend) _points.text = _kRectPoints;
     _syncFreeSize();
     for (final n in [_fwFocus, _fhFocus]) {
       n.addListener(() {
@@ -268,6 +280,9 @@ class _PlatePageState extends State<PlatePage>
     'rot': _rotQ,
     'corners': [for (final c in _corners) c.toJson()],
     'bm': _bm,
+    'bl': [for (final b in _bls) b.toJson()],
+    'blh': _blH,
+    'fl': _flips,
     for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
     // 첫 화면 "이어서" 줄에 쓰는 글(읽을 때는 안 쓴다)
     'lbl': _label(),
@@ -309,6 +324,12 @@ class _PlatePageState extends State<PlatePage>
         : (_r.text.trim().isEmpty && _bd.text.trim().isEmpty
               ? 'auto'
               : 'manual');
+    final bl = m['bl'];
+    _bls = bl is List ? [for (final o in bl) ?PlateBendSpec.fromJson(o)] : [];
+    _bls.sort((a, b) => a.at.compareTo(b.at));
+    _blH = m['blh'] == true;
+    final fl = m['fl'];
+    _flips = fl is List ? [for (final v in fl) v == true] : [];
     final cs = m['corners'];
     if (cs is List && cs.length == 4) {
       _corners = [for (final c in cs) PlateCorner.fromJson(c)];
@@ -367,10 +388,17 @@ class _PlatePageState extends State<PlatePage>
     final init = widget.initial;
     if (init != null && mounted) {
       final before = _draft();
-      _set(() => _applyMap(Map<String, dynamic>.from(init)));
+      _set(() {
+        _applyMap(Map<String, dynamic>.from(init));
+        if (_custom) {
+          _tab = _tabs.indexWhere((t) => t.$1 == 'bend');
+        }
+      });
       showAppSnack(
         context,
-        '스케치에서 옮겨 왔습니다. 홀은 "홀 배치"에서 더 고칠 수 있습니다.',
+        _custom
+            ? '스케치에서 옮겨 왔습니다(바깥 치수로 펴 그린 판). 절곡선을 넣으십시오.'
+            : '스케치에서 옮겨 왔습니다. 홀은 "홀 배치"에서 더 고칠 수 있습니다.',
         onUndo: () =>
             _set(() => _applyMap(jsonDecode(before) as Map<String, dynamic>)),
         duration: const Duration(seconds: 6),
@@ -486,7 +514,7 @@ class _PlatePageState extends State<PlatePage>
 
   /// 가로·세로 칸 값으로 모양 전체(꼭짓점)와 홀 위치를 늘이거나 줄인다. 홀 지름·코너 처리 크기는 그대로.
   void _scaleFree() => _set(() {
-    final base = _freeBase ??= (_points.text, List.of(_holes));
+    final base = _freeBase ??= (_points.text, List.of(_holes), List.of(_bls));
     final vs = parsePlateVertices(base.$1);
     final b = _freeBounds(vs);
     if (b == null || b.width <= 0 || b.height <= 0) return;
@@ -502,6 +530,26 @@ class _PlatePageState extends State<PlatePage>
       [for (final v in vs) sc(v.$1)],
       [for (final v in vs) v.$2],
     );
+    if (_custom) {
+      // 펴 그린 판 자리(바깥 치수): 절곡선 방향 길이는 sA, 가로지르는 방향은 sB
+      final sA = _blH ? sy : sx, sB = _blH ? sx : sy;
+      final s0 = _faceStarts(base.$3);
+      final nb = [for (final b0 in base.$3) b0.copyWith(at: r1(b0.at * sA))]
+        ..sort((a, b) => a.at.compareTo(b.at));
+      final s1 = _faceStarts(nb);
+      _bls = nb;
+      _holes
+        ..clear()
+        ..addAll([
+          for (final h0 in base.$2)
+            () {
+              final x = r1(_outerX(s0, h0) * sA);
+              final f = _faceIn(s1, x);
+              return h0.copyWith(face: f, u: r1(x - s1[f]), v: r1(h0.v * sB));
+            }(),
+        ]);
+      return;
+    }
     _holes
       ..clear()
       ..addAll([
@@ -512,6 +560,191 @@ class _PlatePageState extends State<PlatePage>
           }(),
       ]);
   });
+
+  // ── 직접 절곡: 홀은 펴 그린 판(바깥 치수) 위 자리로 두고 면·u만 다시 잡는다 ──
+
+  /// 면 시작(바깥 치수): 0과 절곡선 자리들(작은 것부터).
+  List<double> _faceStarts(List<PlateBendSpec> b) => [
+    0,
+    ...([for (final x in b) x.at]..sort()),
+  ];
+  double _outerX(List<double> starts, PlateHoleSpec h) =>
+      starts[h.face.clamp(0, starts.length - 1)] + h.u;
+  int _faceIn(List<double> starts, double x) {
+    var f = 0;
+    for (var k = 0; k < starts.length; k++) {
+      if (starts[k] <= x + 1e-9) f = k;
+    }
+    return f;
+  }
+
+  List<PlateHoleSpec> _rebaseHoles(
+    List<PlateBendSpec> from,
+    List<PlateBendSpec> to, [
+    List<PlateHoleSpec>? holes,
+  ]) {
+    final a = _faceStarts(from), b = _faceStarts(to);
+    double r2(double v) => (v * 100).roundToDouble() / 100;
+    return [
+      for (final h in holes ?? _holes)
+        () {
+          final x = _outerX(a, h);
+          final f = _faceIn(b, x);
+          return h.copyWith(face: f, u: r2(x - b[f]));
+        }(),
+    ];
+  }
+
+  /// 절곡선 넣기([n] null)·고치기·지우기.
+  Future<void> _editBendLine(int? n) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final (outer, width) = plateCustomOuter(_input());
+    if (outer.length < 3 || width <= 0) {
+      showAppSnack(context, '판 모양(가로·세로 또는 꼭짓점)을 먼저 넣으십시오.');
+      return;
+    }
+    final r = await showPlateBendLineInput(
+      context,
+      title: n == null ? '절곡선 넣기' : '절곡선 ${n + 1} 고치기',
+      outline: outer,
+      width: width,
+      others: [
+        for (var k = 0; k < _bls.length; k++)
+          if (k != n) _bls[k].at,
+      ],
+      edit: n == null ? null : _bls[n],
+      axisH: _blH,
+      okText: n == null ? '넣기' : '적용',
+    );
+    if (r == null || !mounted) return;
+    final next = List.of(_bls);
+    if (r.delete) {
+      if (n != null) next.removeAt(n);
+    } else if (n == null) {
+      next.add(r.spec!);
+    } else {
+      next[n] = r.spec!;
+    }
+    next.sort((a, b) => a.at.compareTo(b.at));
+    _set(() {
+      final hs = _rebaseHoles(_bls, next);
+      _holes
+        ..clear()
+        ..addAll(hs);
+      _bls = next;
+    });
+  }
+
+  /// 절곡선 방향(세로선 ↔ 가로선): 판을 돌려 계산하므로 넣은 절곡선은 지우고, 홀은 판 위 같은 자리로 옮긴다.
+  void _setAxis(bool h) {
+    if (h == _blH) return;
+    final before = _draft();
+    final had = _bls.isNotEmpty;
+    final b = _freeBounds(parsePlateVertices(_points.text));
+    _set(() {
+      if (b != null) {
+        final starts = _faceStarts(_bls);
+        double r2(double v) => (v * 100).roundToDouble() / 100;
+        // 지금 자리(바깥 치수) → 그린 자리 → 새 방향 자리
+        Offset toSketch(double x, double y) => _blH
+            ? Offset(b.right - y, x + b.top)
+            : Offset(x + b.left, y + b.top);
+        Offset toInner(Offset q) => h
+            ? Offset(q.dy - b.top, b.right - q.dx)
+            : Offset(q.dx - b.left, q.dy - b.top);
+        final hs = [
+          for (final h0 in _holes)
+            () {
+              final q = toInner(toSketch(_outerX(starts, h0), h0.v));
+              return h0.copyWith(face: 0, u: r2(q.dx), v: r2(q.dy));
+            }(),
+        ];
+        _holes
+          ..clear()
+          ..addAll(hs);
+      }
+      _blH = h;
+      _bls = [];
+    });
+    if (had) {
+      showAppSnack(
+        context,
+        '절곡선 방향을 바꿔 넣어 둔 절곡선을 지웠습니다.',
+        onUndo: () =>
+            _set(() => _applyMap(jsonDecode(before) as Map<String, dynamic>)),
+      );
+    }
+  }
+
+  /// ㄱ·ㄷ·Z·모자 절곡 [n]의 방향.
+  void _setFlip(PlatePlan p, int n, bool up) {
+    if (n >= p.bends.length || (p.bends[n].turn >= 0) == up) return;
+    _set(() {
+      final f = List<bool>.of(_flips);
+      while (f.length <= n) {
+        f.add(false);
+      }
+      f[n] = !f[n];
+      _flips = f;
+    });
+  }
+
+  // ── 직접 절곡: 전개도에서 절곡선을 눌러 고치고 옆으로 끌어 옮긴다(절곡 탭) ──
+  int? _dragBl;
+  double _dragX0 = 0;
+  List<PlateBendSpec> _dragBls0 = const [];
+  List<PlateHoleSpec> _dragHoles0 = const [];
+
+  /// 화면 자리 가까이(24점)의 절곡선 차례(_bls). 판 밖 절곡선은 그림에 없으니 판 안 것만 센다.
+  int? _blAt(PlatePlan p, Size size, Offset at) {
+    final lay = PlatePainterLayout.of(p, size);
+    if (lay == null) return null;
+    final w = p.faceLengths.fold(0.0, (s, v) => s + v);
+    final valid = [
+      for (var k = 0; k < _bls.length; k++)
+        if (_bls[k].at > 1e-6 && _bls[k].at < w - 1e-6) k,
+    ];
+    int? best;
+    var bd = 24.0;
+    for (var i = 0; i < p.bends.length && i < valid.length; i++) {
+      final d = (lay.toScreen(Offset(p.bends[i].center, 0)).dx - at.dx).abs();
+      if (d < bd) {
+        bd = d;
+        best = valid[i];
+      }
+    }
+    return best;
+  }
+
+  void _dragStart(PlatePlan p, Size size, Offset at) {
+    _dragBl = _blAt(p, size, at);
+    _dragX0 = at.dx;
+    _dragBls0 = List.of(_bls);
+    _dragHoles0 = List.of(_holes);
+  }
+
+  void _dragUpdate(PlatePlan p, Size size, Offset at) {
+    final k = _dragBl;
+    if (k == null || k >= _dragBls0.length) return;
+    final lay = PlatePainterLayout.of(p, size);
+    if (lay == null) return;
+    final w = p.faceLengths.fold(0.0, (s, v) => s + v);
+    final x = ((_dragBls0[k].at + (at.dx - _dragX0) / lay.s) * 2).round() / 2;
+    final next = List.of(_dragBls0)
+      ..[k] = _dragBls0[k].copyWith(at: x.clamp(0.5, math.max(0.5, w - 0.5)));
+    setState(() {
+      _bls = next;
+      _holes
+        ..clear()
+        ..addAll(_rebaseHoles(_dragBls0, next, _dragHoles0));
+    });
+  }
+
+  void _dragEnd() {
+    if (_dragBl == null) return;
+    _dragBl = null;
+    _set(() => _bls = List.of(_bls)..sort((a, b) => a.at.compareTo(b.at)));
+  }
 
   double _num(TextEditingController c) {
     final v = readNum(c);
@@ -578,6 +811,9 @@ class _PlatePageState extends State<PlatePage>
       qty: _num(_qty).round().clamp(1, 9999),
       dia: _num(_cd),
       innerDia: _num(_ci),
+      bendLines: List.of(_bls),
+      bendAxisH: _blH,
+      flips: List.of(_flips),
     );
   }
 
@@ -596,6 +832,11 @@ class _PlatePageState extends State<PlatePage>
       final vs = parsePlateVertices(_points.text);
       final k = vs.where((v) => !v.$2.isNone).length;
       return '꼭짓점 ${vs.length}개${k > 0 ? ' · 코너 처리 $k곳' : ''}';
+    }(),
+    PlateShape.custom => () {
+      final b = _freeBounds(parsePlateVertices(_points.text));
+      final size = b == null ? '' : '바깥 ${fmt(b.width)} × ${fmt(b.height)} · ';
+      return '$size절곡선 ${_bls.length}개${_blH ? '(가로)' : ''}';
     }(),
     PlateShape.l =>
       '1면 ${fmt(_num(_l1))} · 2면 ${fmt(_num(_l2))} · 폭 ${fmt(_num(_wid))} · ${fmt(readNum(_angle) ?? 90)}°',
@@ -711,6 +952,7 @@ class _PlatePageState extends State<PlatePage>
             sub: const Color(0xFF55636D),
             bg: Colors.white,
             fontScale: 1.8,
+            hat: _shape == PlateShape.hat,
           ),
           width: 1200,
           height: 700,
@@ -882,7 +1124,10 @@ class _PlatePageState extends State<PlatePage>
   // ── 위 그림 칸 ──
 
   String _viewOf(PlatePlan p, String id) {
-    final v = !_viewPicked && id == 'bend' ? 'side' : _view;
+    // 직접 절곡은 절곡선을 눌러 고치므로 전개도로
+    final v = !_viewPicked && id == 'bend'
+        ? (_custom ? 'flat' : 'side')
+        : _view;
     return v == 'side' && p.bendPlan == null ? 'flat' : v;
   }
 
@@ -913,6 +1158,7 @@ class _PlatePageState extends State<PlatePage>
             bg: fc.background,
             tone: tone,
             topInset: 46,
+            hat: _shape == PlateShape.hat,
           ),
           child: const SizedBox.expand(),
         );
@@ -923,6 +1169,7 @@ class _PlatePageState extends State<PlatePage>
             builder: (context, box) {
               // 그림 칸이 낮으면(휴대폰 세로) 홀 치수를 빼서 판이 작아지지 않게(홀 자리는 아래 표에)
               final dims = _holeDimsOn(id) && box.maxHeight >= 260;
+              final drag = id == 'bend' && _custom;
               return GestureDetector(
                 key: const Key('pl_view'),
                 behavior: HitTestBehavior.opaque,
@@ -932,6 +1179,15 @@ class _PlatePageState extends State<PlatePage>
                   d.localPosition,
                   holeDims: dims,
                 ),
+                // 손가락을 댄 자리부터(움직인 뒤 자리로 잡으면 절곡선이 손가락보다 뒤처진다)
+                dragStartBehavior: DragStartBehavior.down,
+                onHorizontalDragStart: drag
+                    ? (d) => _dragStart(p, box.biggest, d.localPosition)
+                    : null,
+                onHorizontalDragUpdate: drag
+                    ? (d) => _dragUpdate(p, box.biggest, d.localPosition)
+                    : null,
+                onHorizontalDragEnd: drag ? (_) => _dragEnd() : null,
                 child: CustomPaint(
                   painter: PlatePainter(
                     plan: p,
@@ -983,7 +1239,10 @@ class _PlatePageState extends State<PlatePage>
   String? _canvasHint(PlatePlan? p, String id) {
     if (p == null) return null;
     return switch (_viewOf(p, id)) {
-      'flat' => _previewHint(),
+      'flat' =>
+        id == 'bend' && _custom
+            ? '주황 절곡선을 누르면 고치고, 옆으로 끌면 옮깁니다'
+            : _previewHint(),
       'side' => '바깥 치수 (mm) · 번호는 절곡 차례',
       _ => null,
     };
@@ -1009,7 +1268,15 @@ class _PlatePageState extends State<PlatePage>
               label: name,
               width: w,
               selected: _shape == s,
-              onTap: () => _set(() => _shape = s),
+              onTap: () => _set(() {
+                if (s != _shape) _flips = [];
+                _shape = s;
+                if (s == PlateShape.custom && _points.text == _kCutPoints) {
+                  _points.text = _kRectPoints;
+                  _freeBase = null;
+                  _syncFreeSize();
+                }
+              }),
             ),
         ],
       );
@@ -1144,6 +1411,11 @@ class _PlatePageState extends State<PlatePage>
         '꼭짓점: 판 외곽 꼭짓점을 차례로 한 줄에 하나씩(가로,세로) 넣습니다. 예) 0,0 다음 줄 200,0. 마지막 점은 첫 점으로 저절로 이어집니다.',
         '코너 처리는 줄 끝에 붙입니다: ,r10(R10) · ,c5(C5 모따기) · ,n20x15(따내기: 앞 변 쪽 20 × 다음 변 쪽 15). 위 그림에서 꼭짓점을 눌러도 됩니다.',
       ],
+      PlateShape.custom => [
+        '가로·세로 (전체): 바깥 치수로 펴 그린 판의 크기입니다. 바꾸면 모양·홀·절곡선 자리가 같이 늘거나 줄어듭니다.',
+        '꼭짓점: 좌표 입력과 같습니다(가로,세로 한 줄에 하나, 코너는 ,r10 ,c5 ,n20x15). 스케치로 만들기에서 "절단 + 절곡으로"를 누르면 그린 모양이 여기로 옵니다.',
+        '절곡선은 절곡 탭에서 넣습니다: 판 끝에서 그 절곡 바깥 꼭짓점까지 바깥 치수, UP/DOWN, 각도. 전개도는 절곡마다 공제값만큼 줄여 만듭니다.',
+      ],
       PlateShape.l => [
         '1면: 판 끝에서 2면 바깥면까지. 2면: 판 끝에서 1면 바깥면까지.',
         '폭: 절곡선 방향 길이. 각도: 90이면 직각입니다.',
@@ -1192,7 +1464,18 @@ class _PlatePageState extends State<PlatePage>
           _f('pl_rc', '모서리 따내기', _ribC, hint: '0 = 없음'),
         ]),
       ],
-      PlateShape.free => [
+      PlateShape.free || PlateShape.custom => [
+        if (_custom)
+          Text(
+            '바깥 치수로 펴 그린 판입니다. 절곡선은 절곡 탭에서 넣습니다.',
+            key: const Key('pl_custom_note'),
+            style: TextStyle(
+              fontSize: 13,
+              color: fc.brand,
+              fontWeight: FontWeight.w700,
+              height: 1.35,
+            ),
+          ),
         plateRow([
           PlateNumField(
             fieldKey: 'pl_fw',
@@ -1210,7 +1493,9 @@ class _PlatePageState extends State<PlatePage>
           ),
         ]),
         Text(
-          '가로·세로를 바꾸면 모양 전체와 홀 위치가 그 크기로 늘거나 줄어듭니다(홀 지름·코너 크기는 그대로).',
+          _custom
+              ? '가로·세로를 바꾸면 모양·홀·절곡선 자리가 그 크기로 늘거나 줄어듭니다(홀 지름·코너 크기는 그대로).'
+              : '가로·세로를 바꾸면 모양 전체와 홀 위치가 그 크기로 늘거나 줄어듭니다(홀 지름·코너 크기는 그대로).',
           style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
         ),
         Text(
@@ -1302,6 +1587,9 @@ class _PlatePageState extends State<PlatePage>
           '일반값: 내R은 두께와 같게, K값 0.33으로 공제값을 계산합니다.',
           '업체 값: 설정에 저장해 둔 이 두께의 업체 내R·공제값입니다. 두께를 고르면 저절로 바뀝니다.',
           '직접 넣기: 업체가 알려 준 내R·90° 공제값(바깥 치수 두 개 합 − 전개 길이)을 넣습니다. 공제값을 넣으면 그 값이 나오게 K값을 맞추고, 비우면 일반값입니다. "업체 값 저장"을 누르면 설정에 남깁니다.',
+          'UP·DOWN: 절곡마다 접는 쪽을 바꿉니다(전개도를 위에서 본 쪽이 UP).',
+          if (_custom)
+            '직접: 절곡선은 판 끝(세로선은 왼쪽, 가로선은 아래)에서 그 절곡 바깥 꼭짓점까지 바깥 치수로 넣습니다. 전개도는 절곡마다 공제값만큼 줄여 만들고, 홀은 펴 그린 판 위 자리를 지킵니다. 위 그림에서 절곡선을 누르면 고치고, 옆으로 끌면 옮깁니다.',
           kPlateBasis[4],
           kPlateBasis[7],
         ]),
@@ -1395,11 +1683,173 @@ class _PlatePageState extends State<PlatePage>
             ),
           ),
         ),
-        if (p != null && p.bends.isNotEmpty)
-          PlateSection('절곡선 (전개도 왼쪽 끝에서, mm)', [
-            KeyedSubtree(key: const Key('pl_bends'), child: _bendsTable(p)),
+        if (p != null && (p.bends.isNotEmpty || _custom))
+          PlateSection(_custom ? '절곡선 (판 끝에서 바깥 치수)' : '절곡선 · 방향', [
+            if (_custom)
+              PlateSegments([
+                PlateOption(
+                  'pl_bax_v',
+                  '세로선 (왼쪽 끝에서)',
+                  !_blH,
+                  () => _setAxis(false),
+                ),
+                PlateOption(
+                  'pl_bax_h',
+                  '가로선 (아래 끝에서)',
+                  _blH,
+                  () => _setAxis(true),
+                ),
+              ]),
+            KeyedSubtree(
+              key: const Key('pl_bends'),
+              child: Column(
+                children: _custom
+                    ? [
+                        for (var n = 0; n < _bls.length; n++)
+                          _customBendRow(p, n),
+                      ]
+                    : [
+                        for (var n = 0; n < p.bends.length; n++)
+                          _bendItem(
+                            n: n,
+                            title: '${fmt(p.bends[n].turn.abs())}° 절곡',
+                            sub:
+                                '전개도 절곡선 ${fmt(p.bends[n].center, 1)} · 절곡부 ${fmt(p.bends[n].start, 1)} ~ ${fmt(p.bends[n].end, 1)}',
+                            up: p.bends[n].turn >= 0,
+                            onDir: (up) => _setFlip(p, n, up),
+                          ),
+                      ],
+              ),
+            ),
+            if (_custom && _bls.isEmpty)
+              Text(
+                '절곡선이 없습니다. "절곡선 넣기"를 누르십시오. 넣은 뒤에는 위 그림에서 절곡선을 눌러 고치거나 옆으로 끌어 옮깁니다.',
+                key: const Key('pl_bl_empty'),
+                style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+              ),
+            if (_custom)
+              plateActions([
+                PlateActionButton(
+                  key: const Key('pl_bl_add'),
+                  icon: AppIcons.add,
+                  label: '절곡선 넣기',
+                  primary: true,
+                  onTap: () => _editBendLine(null),
+                ),
+              ])
+            else
+              Text(
+                'UP·DOWN은 전개도(DXF)를 위에서 본 쪽입니다. 바꾸면 측면도·3D·DXF가 따라 바뀝니다.',
+                style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+              ),
           ]),
       ],
+    );
+  }
+
+  /// 절곡선 한 줄: 번호 · 글 두 줄 · UP/DOWN 단추 · (직접 절곡) 고치기.
+  Widget _bendItem({
+    required int n,
+    required String title,
+    required String sub,
+    required bool up,
+    required ValueChanged<bool> onDir,
+    VoidCallback? onEdit,
+    bool bad = false,
+  }) => Container(
+    key: Key('pl_bend_item_${n + 1}'),
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    decoration: BoxDecoration(
+      border: Border(bottom: BorderSide(color: fc.line)),
+    ),
+    child: Row(
+      children: [
+        Container(
+          width: 26,
+          height: 26,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: bad ? fc.danger : kPlateBend,
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            '${n + 1}',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: bad ? fc.danger : fc.text,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                sub,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: fc.textSub,
+                  height: 1.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 124,
+          child: PlateSegments([
+            PlateOption('pl_bdir_${n + 1}_up', 'UP', up, () => onDir(true)),
+            PlateOption(
+              'pl_bdir_${n + 1}_down',
+              'DOWN',
+              !up,
+              () => onDir(false),
+            ),
+          ]),
+        ),
+        if (onEdit != null)
+          IconButton(
+            key: Key('pl_bl_edit_${n + 1}'),
+            tooltip: '고치기',
+            icon: Icon(Icons.edit_outlined, color: fc.textSub),
+            onPressed: onEdit,
+          ),
+      ],
+    ),
+  );
+
+  /// 직접 절곡 절곡선 한 줄(판 밖이면 빨강).
+  Widget _customBendRow(PlatePlan p, int n) {
+    final b = _bls[n];
+    final w = p.faceLengths.fold(0.0, (s, v) => s + v);
+    final ok = b.at > 1e-6 && b.at < w - 1e-6;
+    var i = -1;
+    for (var k = 0; k <= n; k++) {
+      if (_bls[k].at > 1e-6 && _bls[k].at < w - 1e-6) i++;
+    }
+    final line = ok && i >= 0 && i < p.bends.length ? p.bends[i] : null;
+    return _bendItem(
+      n: n,
+      title: '${fmt(b.at)}mm · ${fmt(b.angle)}°',
+      sub: line == null
+          ? '판 밖(판 끝에서 0 ~ ${fmt(w)}mm 사이로)'
+          : '전개도 절곡선 ${fmt(line.center, 1)} · 절곡부 ${fmt(line.start, 1)} ~ ${fmt(line.end, 1)}',
+      up: b.up,
+      bad: line == null,
+      onDir: (up) => _set(() => _bls = List.of(_bls)..[n] = b.copyWith(up: up)),
+      onEdit: () => _editBendLine(n),
     );
   }
 
@@ -2000,6 +2450,7 @@ class _PlatePageState extends State<PlatePage>
   String _previewHint() => switch (_shape) {
     PlateShape.flat => '코너·치수를 누르면 고치고, 판을 누르면 홀',
     PlateShape.free => '꼭짓점을 누르면 코너 처리, 판을 누르면 홀',
+    PlateShape.custom => '주황 점선은 절곡선 · 판을 누르면 홀',
     PlateShape.rib => '치수를 누르면 그 칸, 판을 누르면 홀',
     PlateShape.circle || PlateShape.ring => '판을 누르면 홀',
     _ => '주황 점선은 절곡선 · 판을 누르면 홀',
@@ -2009,6 +2460,11 @@ class _PlatePageState extends State<PlatePage>
   void _tapPreview(PlatePlan p, Size size, Offset at, {bool holeDims = false}) {
     final lay = PlatePainterLayout.of(p, size, holeDims: holeDims);
     if (lay == null) return;
+    if (_custom && _tabs[_tab.clamp(0, _tabs.length - 1)].$1 == 'bend') {
+      final k = _blAt(p, size, at);
+      if (k != null) _editBendLine(k);
+      return;
+    }
     if (_shape == PlateShape.flat || _shape == PlateShape.free) {
       final w = _num(_len), h = _num(_wid);
       final base = _shape == PlateShape.flat
@@ -2071,6 +2527,8 @@ class _PlatePageState extends State<PlatePage>
     PlateShape.flat => '평판: 사각 판에 홀·장공. 네 코너를 따로 R·모따기(C)·따내기 할 수 있습니다.',
     PlateShape.rib => '삼각 리브: ㄱ자 안쪽에 용접하는 보강판. 직각 모서리를 따내 용접 자리를 비웁니다.',
     PlateShape.free => '좌표 입력: 외곽 꼭짓점 좌표를 차례로 넣어 모양을 만듭니다.',
+    PlateShape.custom =>
+      '직접: 바깥 치수로 펴 그린 판(좌표·스케치)에 절곡선을 넣어, 원하는 자리·방향·각도로 절곡합니다.',
     PlateShape.l => 'ㄱ자: 1회 절곡(각도를 바꿀 수 있습니다).',
     PlateShape.u => 'ㄷ자: 같은 방향으로 2회 절곡.',
     PlateShape.z => 'Z자: 반대 방향으로 2회 절곡해 단을 만듭니다.',

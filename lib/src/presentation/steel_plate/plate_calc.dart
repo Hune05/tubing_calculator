@@ -9,6 +9,9 @@
 //    전개도 x = 앞 꺾기 끝선 + u − (r + t)·tan(θ/2). 그래서 면 치수를 바꿔도 구멍은 그 면에 붙어 따라간다.
 //  · 판 90° 돌리기(평판·리브·자유): 외곽·구멍을 반시계로 90°씩 돌린 뒤 왼쪽 아래가 (0, 0)이 되게 옮긴다.
 //    구멍의 (u, v)는 돌리기 전 자리로 저장하고, 화면·DXF 자리는 돌린 자리다.
+//  · 직접 절곡(10-11, 사용자: "스케치도 절곡으로 넘기고, 절곡 위치·방향 지정"): 바깥 치수로 펴 그린 모양(좌표·스케치) 위에
+//    나란한 절곡선(판 끝에서 그 절곡 바깥 꼭짓점까지 바깥 치수 · 각도 · UP/DOWN). 면 길이 = 절곡선 사이 바깥 치수라
+//    ㄱ·ㄷ·Z·모자와 같은 계산을 쓰고, 외곽은 곧은 곳은 그대로 옮기고 절곡부(바깥 물림 두 개)는 원호 길이로 줄여 전개도를 만든다.
 library;
 
 import 'dart:math' as math;
@@ -17,14 +20,81 @@ import 'dart:ui' show Offset, Rect;
 import '../electrical/busbar_bend.dart' show BusbarBendPlan, busbarBendPlan;
 
 /// 모양. 원형([circle])·링([ring], 와셔처럼 가운데가 뚫린 원판)은 10-10 상용 앱 비교로 더함(끝에 붙여 저장 이름이 안 바뀌게).
-enum PlateShape { flat, rib, free, l, u, z, hat, circle, ring }
+/// 직접 절곡([custom], 10-11)도 끝에 붙임.
+enum PlateShape { flat, rib, free, l, u, z, hat, circle, ring, custom }
 
 /// 꺾는 모양인지(절단 + 절곡).
 bool plateShapeBends(PlateShape s) =>
     s == PlateShape.l ||
     s == PlateShape.u ||
     s == PlateShape.z ||
-    s == PlateShape.hat;
+    s == PlateShape.hat ||
+    s == PlateShape.custom;
+
+/// 직접 절곡의 절곡선 하나(10-11): 판 끝(세로선은 왼쪽, 가로선은 아래)에서 그 절곡의 바깥 꼭짓점까지 바깥 치수 [at],
+/// 각도 [angle](°, 크기), 접는 쪽 [up](UP = 전개도를 위에서 본 쪽으로).
+class PlateBendSpec {
+  final double at, angle;
+  final bool up;
+  const PlateBendSpec({required this.at, this.angle = 90, this.up = true});
+
+  /// 계산에 쓰는 각(+ UP, − DOWN).
+  double get turn => up ? angle : -angle;
+
+  PlateBendSpec copyWith({double? at, double? angle, bool? up}) =>
+      PlateBendSpec(
+        at: at ?? this.at,
+        angle: angle ?? this.angle,
+        up: up ?? this.up,
+      );
+
+  Map<String, Object> toJson() => {'at': at, 'a': angle, 'up': up};
+
+  static PlateBendSpec? fromJson(Object? o) {
+    if (o is! Map) return null;
+    final at = o['at'], a = o['a'];
+    if (at is! num) return null;
+    return PlateBendSpec(
+      at: at.toDouble(),
+      angle: a is num ? a.toDouble() : 90,
+      up: o['up'] != false,
+    );
+  }
+}
+
+/// 직접 절곡의 펴 그린 판(바깥 치수, 절곡선이 세로가 되게 돌린 자리, 왼쪽 아래 (0, 0))과 판 끝~끝 길이.
+/// 계산([platePlan])과 같은 돌리기·옮기기다. 꼭짓점이 3개 미만이면 빈 판.
+(List<Offset>, double) plateCustomOuter(PlateInput i) {
+  if (i.points.length < 3) return (const <Offset>[], 0.0);
+  final raw = [
+    for (final p in plateOutlinePoints(
+      plateCornerOutline(i.points, i.pointCorners, (_) {}),
+    ))
+      i.bendAxisH ? Offset(p.dy, -p.dx) : p,
+  ];
+  if (raw.length < 3) return (const <Offset>[], 0.0);
+  final o = Offset(
+    raw.map((p) => p.dx).reduce(math.min),
+    raw.map((p) => p.dy).reduce(math.min),
+  );
+  return (
+    [for (final p in raw) p - o],
+    raw.map((p) => p.dx).reduce(math.max) - o.dx,
+  );
+}
+
+/// 세로선 x에서 다각형 판을 가로지르는 구간들(아래 → 위). 절곡선을 판이 있는 곳에만 긋는다(T자 같은 모양).
+List<(double, double)> plateBendSpans(List<Offset> poly, double x) {
+  final ys = <double>[];
+  for (var i = 0; i < poly.length; i++) {
+    final a = poly[i], b = poly[(i + 1) % poly.length];
+    if ((a.dx <= x && b.dx > x) || (b.dx <= x && a.dx > x)) {
+      ys.add(a.dy + (x - a.dx) / (b.dx - a.dx) * (b.dy - a.dy));
+    }
+  }
+  ys.sort();
+  return [for (var k = 0; k + 1 < ys.length; k += 2) (ys[k], ys[k + 1])];
+}
 
 enum PlateMaterial { steel, stainless, aluminum }
 
@@ -485,6 +555,13 @@ class PlateInput {
   /// 원형·링: 외경 [dia], 링 내경 [innerDia].
   final double dia, innerDia;
 
+  /// 직접 절곡: 절곡선들과, 절곡선이 가로인가(가로면 판을 시계로 90° 돌려 계산).
+  final List<PlateBendSpec> bendLines;
+  final bool bendAxisH;
+
+  /// ㄱ·ㄷ·Z·모자: 절곡마다 방향을 뒤집는가(UP ↔ DOWN, 10-11).
+  final List<bool> flips;
+
   const PlateInput({
     required this.shape,
     this.material = PlateMaterial.steel,
@@ -507,6 +584,9 @@ class PlateInput {
     this.rotQ = 0,
     this.dia = 0,
     this.innerDia = 0,
+    this.bendLines = const [],
+    this.bendAxisH = false,
+    this.flips = const [],
   });
 
   PlateInput withHoles(List<PlateHoleSpec> h, {int? rotQ}) => PlateInput(
@@ -531,6 +611,9 @@ class PlateInput {
     rotQ: rotQ ?? this.rotQ,
     dia: dia,
     innerDia: innerDia,
+    bendLines: bendLines,
+    bendAxisH: bendAxisH,
+    flips: flips,
   );
 }
 
@@ -671,7 +754,19 @@ List<String> plateFaceNames(PlateShape s) => switch (s) {
 };
 
 /// 꺾음 모양의 면 바깥 치수와 꺾는 각. 모자는 [발, 높이, 윗면]을 [발, 높이, 윗면, 높이, 발]로 편다.
+/// [PlateInput.flips]가 켜진 절곡은 방향을 뒤집는다. 직접 절곡은 모양에서 구하므로 여기서는 빈 값.
 (List<double>, List<double>) plateLegsTurns(PlateInput i) {
+  final (legs, turns) = _legsTurns(i);
+  return (
+    legs,
+    [
+      for (var n = 0; n < turns.length; n++)
+        n < i.flips.length && i.flips[n] ? -turns[n] : turns[n],
+    ],
+  );
+}
+
+(List<double>, List<double>) _legsTurns(PlateInput i) {
   final l = i.legs;
   double at(int k) => k < l.length ? l[k] : 0;
   return switch (i.shape) {
@@ -780,7 +875,7 @@ PlatePlan platePlan(PlateInput i) {
   final inner = <(Offset, double)>[]; // 링 내경(가운데, 지름) — 돌리기 전 자리
   final bends = <PlateBendLine>[];
   BusbarBendPlan? bp;
-  final faceNames = plateFaceNames(i.shape);
+  var faceNames = plateFaceNames(i.shape);
   var faceLengths = <double>[];
   final faceBase = <double>[];
   final faceSpans = <(double, double)>[];
@@ -791,6 +886,53 @@ PlatePlan platePlan(PlateInput i) {
     PlateLine(Offset(w, h), Offset(0, h)),
     PlateLine(Offset(0, h), const Offset(0, 0)),
   ];
+
+  /// 꺾음 공통(ㄱ·ㄷ·Z·모자·직접): 면 바깥 치수 [legs]·각 [turns] → 중립선 → 절곡선·면 자리, 외곽은 [w] 폭 사각.
+  void bentStrip(List<double> legs, List<double> turns, double w) {
+    faceLengths = legs;
+    double adj(double deg) => -(1 - k) * t * math.tan(_rad(deg.abs()) / 2);
+    final neutral = [
+      for (var n = 0; n < legs.length; n++)
+        legs[n] +
+            (n > 0 ? adj(turns[n - 1]) : 0) +
+            (n < turns.length ? adj(turns[n]) : 0),
+    ];
+    final plan = busbarBendPlan(d: t, r: rr, k: k, legs: neutral, turns: turns);
+    bp = plan;
+    for (var n = 0; n < plan.straights.length; n++) {
+      if (plan.straights[n] <= 0) {
+        warn(
+          '${faceNames[n]} 바깥 치수 ${_f(legs[n])}mm가 너무 짧아 절곡할 수 없습니다(절곡부보다 짧음).',
+        );
+      }
+    }
+    for (final b in plan.bends) {
+      bends.add(PlateBendLine(b.center, b.start, b.end, b.turn));
+    }
+    outline = rect(plan.cutLength, w);
+    // 면마다: u = 0인 자리(첫 면은 끝 0, 다른 면은 앞 꺾기 끝선 − 바깥 물림)와 곧은 부분
+    for (var n = 0; n < legs.length; n++) {
+      faceBase.add(
+        n == 0
+            ? 0
+            : plan.bends[n - 1].end - plateOutsideSetback(t, rr, turns[n - 1]),
+      );
+      final lo = n == 0 ? 0.0 : plan.bends[n - 1].end;
+      final hi = n < plan.bends.length ? plan.bends[n].start : plan.cutLength;
+      faceSpans.add((lo, hi));
+    }
+    // 짧은 면: 절곡기 V홈에 걸치지 못할 수 있다(보통 V홈 폭 = 두께 6~8배, 다리는 그 반 + 두께 이상).
+    final minLeg = 5 * t;
+    final short = [
+      for (var n = 0; n < legs.length; n++)
+        if (legs[n] < minLeg) faceNames[n],
+    ];
+    if (short.isNotEmpty && t > 0) {
+      notes.add(
+        '${short.join('·')} 바깥 치수가 두께의 5배(${_f(minLeg)}mm)보다 짧습니다. 절곡기 금형(V홈 폭은 보통 두께의 6~8배)에 걸치지 못할 수 있으니 업체에 확인하십시오.',
+      );
+    }
+  }
 
   switch (i.shape) {
     case PlateShape.flat:
@@ -880,55 +1022,135 @@ PlatePlan platePlan(PlateInput i) {
       if (i.shape == PlateShape.l && (i.angle <= 0 || i.angle >= 180)) {
         warn('절곡 각도는 0°와 180° 사이여야 합니다.');
       }
-      double adj(double deg) => -(1 - k) * t * math.tan(_rad(deg.abs()) / 2);
-      final neutral = [
-        for (var n = 0; n < legs.length; n++)
-          legs[n] +
-              (n > 0 ? adj(turns[n - 1]) : 0) +
-              (n < turns.length ? adj(turns[n]) : 0),
+      bentStrip(legs, turns, w);
+    case PlateShape.custom:
+      // 바깥 치수로 펴 그린 판(좌표·스케치). 가로선이면 시계로 90° 돌려 절곡선이 세로가 되게, 왼쪽 아래를 (0, 0)으로.
+      if (i.points.length < 3) {
+        warn('판 모양(꼭짓점 3개 이상)을 넣으십시오.');
+        break;
+      }
+      Offset rot(Offset p) => i.bendAxisH ? Offset(p.dy, -p.dx) : p;
+      var segs = [
+        for (final g in plateCornerOutline(i.points, i.pointCorners, warn))
+          switch (g) {
+            PlateLine(:final a, :final b) => PlateLine(rot(a), rot(b)),
+            PlateArc(:final c, :final r, :final start, :final sweep) =>
+              PlateArc(rot(c), r, i.bendAxisH ? start - 90 : start, sweep),
+          },
       ];
-      final plan = busbarBendPlan(
-        d: t,
-        r: rr,
-        k: k,
-        legs: neutral,
-        turns: turns,
+      final raw = plateOutlinePoints(segs);
+      if (raw.length < 3) break;
+      final o = Offset(
+        raw.map((p) => p.dx).reduce(math.min),
+        raw.map((p) => p.dy).reduce(math.min),
       );
-      bp = plan;
-      for (var n = 0; n < plan.straights.length; n++) {
-        if (plan.straights[n] <= 0) {
-          warn(
-            '${faceNames[n]} 바깥 치수 ${_f(legs[n])}mm가 너무 짧아 절곡할 수 없습니다(절곡부보다 짧음).',
-          );
+      segs = [
+        for (final g in segs)
+          switch (g) {
+            PlateLine(:final a, :final b) => PlateLine(a - o, b - o),
+            PlateArc(:final c, :final r, :final start, :final sweep) =>
+              PlateArc(c - o, r, start, sweep),
+          },
+      ];
+      final wOut = raw.map((p) => p.dx).reduce(math.max) - o.dx;
+      final specs = [
+        for (final b in i.bendLines)
+          if (b.at > 1e-6 && b.at < wOut - 1e-6) b,
+      ]..sort((a, b) => a.at.compareTo(b.at));
+      if (specs.length != i.bendLines.length) {
+        warn('판 밖에 있는 절곡선이 있습니다. 절곡선은 판 끝에서 0 ~ ${_f(wOut)}mm 사이에 넣으십시오.');
+      }
+      for (var n = 1; n < specs.length; n++) {
+        if (specs[n].at - specs[n - 1].at < 1e-6) {
+          warn('같은 자리(${_f(specs[n].at)}mm)에 절곡선이 둘 있습니다.');
         }
       }
-      for (final b in plan.bends) {
-        bends.add(PlateBendLine(b.center, b.start, b.end, b.turn));
+      for (final b in specs) {
+        if (b.angle <= 0 || b.angle >= 180) {
+          warn('절곡 각도는 0°와 180° 사이여야 합니다.');
+        }
       }
-      outline = rect(plan.cutLength, w);
-      // 면마다: u = 0인 자리(첫 면은 끝 0, 다른 면은 앞 꺾기 끝선 − 바깥 물림)와 곧은 부분
-      for (var n = 0; n < legs.length; n++) {
-        faceBase.add(
-          n == 0
-              ? 0
-              : plan.bends[n - 1].end -
-                    plateOutsideSetback(t, rr, turns[n - 1]),
-        );
-        final lo = n == 0 ? 0.0 : plan.bends[n - 1].end;
-        final hi = n < plan.bends.length ? plan.bends[n].start : plan.cutLength;
-        faceSpans.add((lo, hi));
+      if (specs.isEmpty) {
+        // 절곡선을 넣기 전: 펴 그린 모양 그대로 한 면
+        outline = segs;
+        faceNames = const ['1면'];
+        faceLengths = [wOut];
+        faceBase.add(0);
+        faceSpans.add((0, wOut));
+        break;
       }
-      // 짧은 면: 절곡기 V홈에 걸치지 못할 수 있다(보통 V홈 폭 = 두께 6~8배, 다리는 그 반 + 두께 이상).
-      final minLeg = 5 * t;
-      final short = [
-        for (var n = 0; n < legs.length; n++)
-          if (legs[n] < minLeg) faceNames[n],
+      final legs = [
+        specs.first.at,
+        for (var n = 1; n < specs.length; n++) specs[n].at - specs[n - 1].at,
+        wOut - specs.last.at,
       ];
-      if (short.isNotEmpty && t > 0) {
-        notes.add(
-          '${short.join('·')} 바깥 치수가 두께의 5배(${_f(minLeg)}mm)보다 짧습니다. 절곡기 금형(V홈 폭은 보통 두께의 6~8배)에 걸치지 못할 수 있으니 업체에 확인하십시오.',
-        );
+      faceNames = [for (var n = 0; n < legs.length; n++) '${n + 1}면'];
+      bentStrip(legs, [for (final b in specs) b.turn], 0);
+      // 바깥 치수 x → 전개도 x: 곧은 곳은 그대로 옮기고, 절곡부(꼭짓점 ± 바깥 물림)는 원호 길이(시작~끝선)로 줄인다
+      final zones = [
+        for (var n = 0; n < specs.length && n < bends.length; n++)
+          (
+            specs[n].at - plateOutsideSetback(t, rr, specs[n].turn),
+            specs[n].at + plateOutsideSetback(t, rr, specs[n].turn),
+            bends[n].start,
+            bends[n].end,
+          ),
+      ];
+      double fx(double x) {
+        var po = 0.0, pf = 0.0;
+        for (final (a, b, s0, e0) in zones) {
+          if (x <= a) return pf + (x - po);
+          if (x <= b) {
+            return b - a < 1e-9 ? s0 : s0 + (x - a) / (b - a) * (e0 - s0);
+          }
+          po = b;
+          pf = e0;
+        }
+        return pf + (x - po);
       }
+
+      final cuts = [
+        for (final (a, b, _, _) in zones) ...[a, b],
+      ];
+      bool inZone(double x) => zones.any((z) => x > z.$1 && x < z.$2);
+      List<PlateSeg> mapLine(Offset a, Offset b) {
+        final ts = <double>[0, 1];
+        for (final c in cuts) {
+          if ((a.dx - c) * (b.dx - c) < 0) ts.add((c - a.dx) / (b.dx - a.dx));
+        }
+        ts.sort();
+        Offset m(double u) {
+          final q = Offset.lerp(a, b, u)!;
+          return Offset(fx(q.dx), q.dy);
+        }
+
+        return [
+          for (var k = 0; k + 1 < ts.length; k++)
+            if (ts[k + 1] - ts[k] > 1e-9) PlateLine(m(ts[k]), m(ts[k + 1])),
+        ];
+      }
+
+      outline = [
+        for (final g in segs)
+          ...switch (g) {
+            PlateLine(:final a, :final b) => mapLine(a, b),
+            PlateArc(:final c, :final r, :final start, :final sweep) =>
+              // 곧은 곳 안의 원호는 그대로 옮기고, 절곡부에 걸리면 잘게 나눠 옮긴다
+              !inZone(c.dx) && !cuts.any((x) => x > c.dx - r && x < c.dx + r)
+                  ? [PlateArc(Offset(fx(c.dx), c.dy), r, start, sweep)]
+                  : [
+                      for (
+                        var k = 0, n = math.max(2, (sweep.abs() / 7.5).ceil());
+                        k < n;
+                        k++
+                      )
+                        ...mapLine(
+                          g.at(start + sweep * k / n),
+                          g.at(start + sweep * (k + 1) / n),
+                        ),
+                    ],
+          },
+      ];
   }
 
   // 판 돌리기(평판·리브·자유): 돌린 뒤 왼쪽 아래가 (0, 0)이 되게 옮긴다.

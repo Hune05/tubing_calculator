@@ -148,7 +148,7 @@ class PlateSidePainter extends CustomPainter {
     this.dimFaces,
   });
 
-  /// 계산 결과에서(모자는 같은 치수가 되풀이되는 오른쪽 다리·발 치수를 뺀다).
+  /// 계산 결과에서. [hat]이면 같은 치수가 되풀이되는 오른쪽 다리·발 치수를 뺀다.
   factory PlateSidePainter.of(
     PlatePlan p, {
     required double t,
@@ -158,6 +158,7 @@ class PlateSidePainter extends CustomPainter {
     PlateTone tone = PlateTone.light,
     double fontScale = 1,
     double topInset = 0,
+    bool hat = false,
   }) => PlateSidePainter(
     legs: p.faceLengths,
     turns: [for (final b in p.bends) b.turn],
@@ -169,7 +170,7 @@ class PlateSidePainter extends CustomPainter {
     tone: tone,
     fontScale: fontScale,
     topInset: topInset,
-    dimFaces: p.faceLengths.length == 5 ? const [0, 1, 2] : null,
+    dimFaces: hat ? const [0, 1, 2] : null,
   );
 
   final List<double> legs, turns;

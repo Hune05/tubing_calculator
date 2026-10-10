@@ -747,7 +747,10 @@ void main() {
       expect(find.byKey(const Key('pl_next_bend')), findsNothing);
       await tab(tester, 'bend');
       expect(find.byKey(const Key('pl_bends')), findsOneWidget);
-      expect(await row(tester, 'pl_bend_row_1'), startsWith('1 | 47.1 | '));
+      expect(
+        await row(tester, 'pl_bend_item_1'),
+        contains('전개도 절곡선 47.1'),
+      );
       // 절곡 탭은 처음에 측면도
       expect(find.byKey(const Key('pl_side')), findsOneWidget);
       await tab(tester, 'shape');

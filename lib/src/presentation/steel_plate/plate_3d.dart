@@ -230,6 +230,13 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
   }
 
   final y0 = p.minY, y1 = p.maxY;
+  // 직접 절곡의 L·T자처럼 사각이 아닌 판은 외곽을 토막마다 잘라 접는다(10-11)
+  final outPts = plateOutlinePoints(p.outline);
+  final boxArea = (p.maxX - p.minX) * (p.maxY - p.minY);
+  if (outPts.length >= 3 &&
+      (_area2(outPts).abs() / 2 - boxArea).abs() > 1e-6 * boxArea + 1e-6) {
+    return _foldPolygon(p, path, h, outPts, allHoles, holeLoops, at, nrm);
+  }
   // 큰 면: 곧은 토막은 구멍 뚫린 한 면, 원호 토막은 띠 여러 개
   for (final g in path.segs) {
     if (g.turn == 0) {
@@ -322,6 +329,146 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
       final e = b - a;
       if (e.distance < 1e-9) continue;
       // 구멍 가운데 쪽(전개도 평면) → 입체: 길이 방향은 그 자리 방향 d로
+      final inX = -e.dy, inY = e.dx;
+      final n = vm.Vector3(d.dx * inX, inY, d.dy * inX)..normalize();
+      faces.add(
+        Plate3dFace(
+          [
+            at(a.dx, a.dy, -h),
+            at(a.dx, a.dy, h),
+            at(b.dx, b.dy, h),
+            at(b.dx, b.dy, -h),
+          ],
+          n,
+          kind: 2,
+        ),
+      );
+    }
+  }
+  return faces;
+}
+
+/// 다각형 [poly]를 x 띠 [lo, hi]로 자른다(서덜랜드–호지먼). 3개 미만이면 빈 것.
+List<Offset> _clipX(List<Offset> poly, double lo, double hi) {
+  Offset cut(Offset a, Offset b, double x) =>
+      Offset(x, a.dy + (x - a.dx) / (b.dx - a.dx) * (b.dy - a.dy));
+  List<Offset> side(List<Offset> pts, bool Function(Offset) inside, double x) {
+    final out = <Offset>[];
+    for (var i = 0; i < pts.length; i++) {
+      final a = pts[i], b = pts[(i + 1) % pts.length];
+      final ia = inside(a), ib = inside(b);
+      if (ia) out.add(a);
+      if (ia != ib) out.add(cut(a, b, x));
+    }
+    return out;
+  }
+
+  var r = side(poly, (q) => q.dx >= lo - 1e-9, lo);
+  if (r.length < 3) return const [];
+  r = side(r, (q) => q.dx <= hi + 1e-9, hi);
+  return r.length < 3 ? const [] : r;
+}
+
+/// 사각이 아닌 꺾는 판: 큰 면은 옆모습 토막마다 외곽을 잘라 접고, 옆면은 외곽 변을 토막 자리에서 나눠 세운다.
+List<Plate3dFace> _foldPolygon(
+  PlatePlan p,
+  _Path path,
+  double h,
+  List<Offset> out0,
+  List<PlateHole> allHoles,
+  List<List<Offset>> holeLoops,
+  vm.Vector3 Function(double x, double y, double off) at,
+  vm.Vector3 Function(double x, double sign) nrm,
+) {
+  final faces = <Plate3dFace>[];
+  final out = _area2(out0) < 0 ? out0.reversed.toList() : out0;
+  bool onFlat(int k) =>
+      _inside(out, allHoles[k].c) &&
+      path.segs.any(
+        (g) =>
+            g.turn == 0 && allHoles[k].c.dx > g.x0 && allHoles[k].c.dx < g.x1,
+      );
+  void band(double xa, double xb, List<List<Offset>> hs) {
+    final piece = _clipX(out, xa, xb);
+    if (piece.isEmpty) return;
+    for (final s in [1.0, -1.0]) {
+      final loop = [for (final q in piece) at(q.dx, q.dy, s * h)];
+      faces.add(
+        Plate3dFace(
+          s > 0 ? loop : loop.reversed.toList(),
+          nrm((xa + xb) / 2, s),
+          holes: [
+            for (final l in hs) [for (final q in l) at(q.dx, q.dy, s * h)],
+          ],
+        ),
+      );
+    }
+  }
+
+  for (final g in path.segs) {
+    if (g.turn == 0) {
+      band(g.x0, g.x1, [
+        for (var k = 0; k < allHoles.length; k++)
+          if (allHoles[k].c.dx > g.x0 && allHoles[k].c.dx < g.x1 && onFlat(k))
+            holeLoops[k],
+      ]);
+    } else {
+      final n = math.max(2, (g.turn.abs() * 180 / math.pi / 15).ceil());
+      for (var k = 0; k < n; k++) {
+        band(
+          g.x0 + (g.x1 - g.x0) * k / n,
+          g.x0 + (g.x1 - g.x0) * (k + 1) / n,
+          const [],
+        );
+      }
+    }
+  }
+  // 옆면: 외곽 변마다, 접히는 자리(토막 경계)에서 나눠서
+  final xs = path.samples();
+  for (var i = 0; i < out.length; i++) {
+    final a = out[i], b = out[(i + 1) % out.length];
+    final d = b - a;
+    if (d.distance < 1e-9) continue;
+    final ts = <double>[0, 1];
+    for (final x in xs) {
+      if ((a.dx - x) * (b.dx - x) < 0) ts.add((x - a.dx) / (b.dx - a.dx));
+    }
+    ts.sort();
+    final o = Offset(d.dy, -d.dx) / d.distance; // 반시계 외곽의 바깥쪽(전개도)
+    for (var k = 0; k + 1 < ts.length; k++) {
+      final q0 = Offset.lerp(a, b, ts[k])!, q1 = Offset.lerp(a, b, ts[k + 1])!;
+      if ((q1 - q0).distance < 1e-9) continue;
+      final mid = (q0 + q1) / 2;
+      final n3 =
+          at(mid.dx + o.dx * 0.01, mid.dy + o.dy * 0.01, 0) -
+          at(mid.dx, mid.dy, 0);
+      if (n3.length < 1e-12) continue;
+      n3.normalize();
+      faces.add(
+        Plate3dFace(
+          [
+            at(q0.dx, q0.dy, -h),
+            at(q1.dx, q1.dy, -h),
+            at(q1.dx, q1.dy, h),
+            at(q0.dx, q0.dy, h),
+          ],
+          n3,
+          kind: 1,
+        ),
+      );
+    }
+  }
+  // 구멍 벽(곧은 면에 있는 구멍만)
+  for (var k = 0; k < allHoles.length; k++) {
+    if (!onFlat(k)) continue;
+    final cx = allHoles[k].c.dx;
+    final l0 = holeLoops[k];
+    final l = _area2(l0) < 0 ? l0.reversed.toList() : l0;
+    final (_, d) = path.at(cx);
+    for (var i = 0; i < l.length; i++) {
+      final a = l[i], b = l[(i + 1) % l.length];
+      final e = b - a;
+      if (e.distance < 1e-9) continue;
       final inX = -e.dy, inY = e.dx;
       final n = vm.Vector3(d.dx * inX, inY, d.dy * inX)..normalize();
       faces.add(

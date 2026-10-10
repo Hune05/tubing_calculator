@@ -189,6 +189,22 @@ class PlateShapeIconPainter extends CustomPainter {
           Offset(-4, 14),
           Offset(16, 14),
         ]);
+      case PlateShape.custom:
+        final r = RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-24, -15, 48, 30),
+          const Radius.circular(3),
+        );
+        canvas.drawRRect(r, body);
+        canvas.drawRRect(r, stroke);
+        final dash = Paint()
+          ..color = line
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round;
+        for (final x in const [-8.0, 9.0]) {
+          for (var y = -12.0; y < 12; y += 6) {
+            canvas.drawLine(Offset(x, y), Offset(x, y + 3), dash);
+          }
+        }
       case PlateShape.hat:
         profile(const [
           Offset(-25, 14),

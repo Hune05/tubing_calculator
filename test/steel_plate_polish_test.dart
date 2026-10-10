@@ -89,6 +89,7 @@ void main() {
         text: Colors.black,
         sub: Colors.grey,
         bg: Colors.white,
+        hat: true,
       );
       expect(sp.legs, [30, 50, 60, 50, 30]);
       expect(sp.dimFaces, [0, 1, 2]);

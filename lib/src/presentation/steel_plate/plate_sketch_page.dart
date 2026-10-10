@@ -95,6 +95,7 @@ class PlateSketchPage extends StatefulWidget {
     this.loadPhoto = _loadPhoto,
     this.savePhoto = _savePhoto,
     this.openCut,
+    this.openBend,
   });
 
   final PlateSketchCall parse;
@@ -105,6 +106,10 @@ class PlateSketchPage extends StatefulWidget {
   /// 레이저 절단 화면 열기(시험에서 바꿔 끼운다).
   final void Function(BuildContext context, Map<String, Object?> plate)?
   openCut;
+
+  /// 절단 + 절곡 화면 열기(10-11, 직접 절곡으로 넘김). 시험에서 바꿔 끼운다.
+  final void Function(BuildContext context, Map<String, Object?> plate)?
+  openBend;
 
   static const draftKey = 'steel_plate_sketch_v1';
 
@@ -970,8 +975,12 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     _say('좌우 대칭으로 맞췄습니다(세로 센터선 기준, 짝끼리 폭·높이 평균). 되돌리기로 원래대로 돌릴 수 있습니다.');
   }
 
-  void _send() {
-    final m = _s.toPlateMap();
+  void _send({bool bend = false}) {
+    final m0 = _s.toPlateMap();
+    // 절곡으로 보낼 때는 직접 절곡(바깥 치수로 펴 그린 판, 절곡선은 절곡 탭에서)
+    final m = m0 == null || !bend
+        ? m0
+        : {...m0, 'sh': 'custom', 'bl': const <Object>[], 'blh': false};
     if (m == null) {
       _say(
         _s.n < 3 ? '꼭짓점을 3개 이상 찍으십시오' : '변 하나에 치수를 넣어야 크기가 정해집니다',
@@ -979,14 +988,16 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       );
       return;
     }
-    final open = widget.openCut;
+    final open = bend ? widget.openBend : widget.openCut;
     if (open != null) {
       open(context, m);
       return;
     }
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => PlatePage(initial: m)),
+      MaterialPageRoute(
+        builder: (_) => PlatePage(bend: bend, initial: m),
+      ),
     );
   }
 
@@ -1266,29 +1277,60 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   Widget _btn(String key, IconData icon, String label, VoidCallback? onTap) =>
       PlateActionButton(key: Key(key), icon: icon, label: label, onTap: onTap);
 
-  /// 맨 아래 고정 줄: 보내기 탭의 "레이저 절단으로 보내기"만(이전·다음은 아래 탭 줄과 겹쳐 뺐다, 10-11).
+  /// 맨 아래 고정 줄: 보내기 탭의 "레이저 절단으로" · "절단 + 절곡으로"(이전·다음은 아래 탭 줄과 겹쳐 뺐다, 10-11).
   Widget? _footer() {
     if (_tabId != 'send') return null;
+    final shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(12),
+    );
     return PlateFooter(
-      main: _tabId == 'send'
-          ? FilledButton.icon(
+      main: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              key: const Key('sk_send_bend'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: fc.brand,
+                side: BorderSide(color: fc.brand, width: 1.4),
+                minimumSize: const Size(0, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                shape: shape,
+              ),
+              onPressed: () => _send(bend: true),
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '절단 + 절곡으로',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FilledButton.icon(
               key: const Key('sk_send'),
               style: FilledButton.styleFrom(
                 backgroundColor: fc.brand,
                 foregroundColor: fc.onBrand,
                 minimumSize: const Size(0, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                shape: shape,
               ),
               onPressed: _send,
               icon: const Icon(Icons.arrow_forward, size: 18),
-              label: const Text(
-                '레이저 절단으로 보내기',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+              label: const FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  '레이저 절단으로',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                ),
               ),
-            )
-          : null,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1312,7 +1354,8 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       '홀을 누르면 고르고, 위치·크기를 고치거나 지울 수 있습니다.',
     ],
     _ => [
-      '"레이저 절단으로 보내기"를 누르면 레이저 절단 화면의 좌표 입력으로 옮겨 갑니다.',
+      '"레이저 절단으로"를 누르면 레이저 절단 화면의 좌표 입력으로 옮겨 갑니다.',
+      '"절단 + 절곡으로"를 누르면 절단 + 절곡 화면의 "직접"으로 옮겨 갑니다. 그린 치수를 접은 뒤 바깥 치수로 보고, 절곡 탭에서 절곡선(판 끝에서 바깥 치수·UP/DOWN·각도)을 넣습니다.',
       '그 화면에 있던 입력은 덮이고, 알림에서 되돌릴 수 있습니다.',
     ],
   };

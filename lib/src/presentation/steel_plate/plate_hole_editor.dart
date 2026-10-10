@@ -1071,7 +1071,13 @@ class _EditorPainter extends CustomPainter {
           ..strokeWidth = 1.5,
       );
     }
-    // 꺾기: 꺾이는 부분(진한 빗금)과 구멍을 피할 거리(옅은 띠), 가운데 점선
+    // 꺾기: 꺾이는 부분(진한 빗금)과 구멍을 피할 거리(옅은 띠), 가운데 점선 — 판 안만(L·T자 판)
+    canvas.save();
+    if (pts.length >= 3) {
+      canvas.clipPath(
+        Path()..addPolygon([for (final q in pts) toScreen(q)], true),
+      );
+    }
     for (final b in p.bends) {
       final lo = toScreen(Offset(b.start - p.bendClear, p.maxY));
       final hi = toScreen(Offset(b.end + p.bendClear, p.minY));
@@ -1100,6 +1106,7 @@ class _EditorPainter extends CustomPainter {
       }
       canvas.restore();
     }
+    canvas.restore();
     // 구멍
     final edge = Paint()
       ..color = tone.edge

@@ -131,7 +131,10 @@ String plateDxf(PlatePlan p, {required double thickness}) {
   var n = 0;
   for (final b in p.bends) {
     n++;
-    d.line('BEND', b.center, p.minY, b.center, p.maxY);
+    final spans = plateBendSpans(plateOutlinePoints(p.outline), b.center);
+    for (final (y0, y1) in spans.isEmpty ? [(p.minY, p.maxY)] : spans) {
+      d.line('BEND', b.center, y0, b.center, y1);
+    }
     final dir = b.turn >= 0 ? 'UP' : 'DOWN';
     d.text(
       'NOTE',

@@ -209,20 +209,26 @@ class PlatePainter extends CustomPainter {
       ..strokeWidth = 1.6 * fontScale;
     for (var n = 0; n < p.bends.length; n++) {
       final b = p.bends[n];
-      final top = m(Offset(b.center, p.maxY)),
-          bot = m(Offset(b.center, p.minY));
+      var spans = plateBendSpans(pts, b.center);
+      if (spans.isEmpty) spans = [(p.minY, p.maxY)];
+      var label = spans.first;
       final dash = 6.0 * fontScale, gap = 4.0 * fontScale;
-      for (var y = top.dy; y < bot.dy; y += dash + gap) {
-        canvas.drawLine(
-          Offset(top.dx, y),
-          Offset(top.dx, math.min(y + dash, bot.dy)),
-          bendPaint,
-        );
+      for (final sp in spans) {
+        if (sp.$2 - sp.$1 > label.$2 - label.$1) label = sp;
+        final top = m(Offset(b.center, sp.$2)),
+            bot = m(Offset(b.center, sp.$1));
+        for (var y = top.dy; y < bot.dy; y += dash + gap) {
+          canvas.drawLine(
+            Offset(top.dx, y),
+            Offset(top.dx, math.min(y + dash, bot.dy)),
+            bendPaint,
+          );
+        }
       }
       _text(
         canvas,
         '${n + 1} ${b.turn >= 0 ? "UP" : "DOWN"} ${_f(b.turn.abs())}°',
-        Offset(top.dx, (top.dy + bot.dy) / 2),
+        m(Offset(b.center, (label.$1 + label.$2) / 2)),
         -math.pi / 2,
         color: kPlateBend,
         bold: true,
