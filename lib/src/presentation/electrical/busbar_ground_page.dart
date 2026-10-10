@@ -1701,11 +1701,14 @@ class _GroundBarPageState extends State<GroundBarPage>
         ...elecFold(
           'gb_fold_bends',
           '꺾기 (왼쪽 끝에서)',
-          [
-            for (var i = 0; i < p.bends.length; i++)
-              _bendTile(p.bends[i], i, p),
-            const SizedBox(height: 4),
-          ],
+          // 일자는 꺾기가 없어 칸을 안 보인다(빈 접는 칸이 남던 것).
+          p.bends.isEmpty
+              ? const []
+              : [
+                  for (var i = 0; i < p.bends.length; i++)
+                    _bendTile(p.bends[i], i, p),
+                  const SizedBox(height: 4),
+                ],
           open: true,
           subtitle: p.bends.isEmpty ? null : '${p.bends.length}곳',
         ),

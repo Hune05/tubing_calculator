@@ -360,6 +360,8 @@ void main() {
     expect(find.textContaining('그립) 9mm = 부스바 6 + 판넬 3'), findsOneWidget);
     await _tap(tester, 'gb_share');
     expect(sent, contains('취부 구멍 φ11 (왼쪽 끝에서 중심): 왼쪽 1 25 · 오른쪽 1 350'));
+    // 일자는 꺾기가 없어 "꺾기" 칸이 없다
+    expect(find.byKey(const Key('gb_fold_bends')), findsNothing);
     // 첫 접지 구멍까지 30 → 길이 335, 너무 가까우면 겹침
     await _type(tester, 'gb_mgap', '30');
     expect(find.text('335 mm'), findsOneWidget);
