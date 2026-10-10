@@ -17,6 +17,7 @@ import '../../unit_converter/unit_converter_page.dart';
 import '../../electrical/busbar_bend_page.dart';
 import '../../electrical/busbar_ground_page.dart';
 import '../../steel_bracket/bracket_page.dart';
+import '../../steel_plate/plate_page.dart';
 import '../../electrical/cable_tray_page.dart';
 import '../../electrical/cable_tray_route_page.dart';
 import '../../electrical/electric_calculator_page.dart';
@@ -92,6 +93,7 @@ List<_Tool> _tools() => [
   // 배관·전선관·형강(현장에서 가장 많이 여는 계산기)
   ('tube', '튜브 벤딩 마킹', '튜브 치수를 넣으면 벤더에 그을 마킹 위치(오프셋·롤링 오프셋·새들·90°)', ['튜브', '벤딩', '마킹', '오프셋', '롤링', '새들', '게인', '테이크업', 'swagelok'], () => const MobileCalculatorPage()),
   ('conduit', '전선관 벤딩 마킹', '전선관 오프셋·새들·킥·백투백·스터브업·분할 90° 마킹', ['전선관', '벤딩', '마킹', '오프셋', '새들', '킥', '백투백', '스터브업', '히키', 'emt'], () => const ConduitMainNavigation()),
+  ('plate', '철판 가공', '철판 레이저 절단·절곡 전개도, 꺾기선·공제값, 구멍·장공, DXF·지시서', ['철판', '레이저', '절곡', '전개도', '공제', '장공', 'dxf', '리브'], () => const PlatePage()),
   ('bracket', '형강 브라켓', 'ㄱ자·삼각(가새)·문형·T자 브라켓 제작도와 자를 길이·구멍·베이스 판', ['브라켓', '브래킷', '서포트', '가새', '앵글', '찬넬', '베이스', '제작도'], () => const BracketPage()),
   ('steel', '형강 컷팅', '앵글·채널·H빔·각관·평철·스트럿 규격을 고르고 길이를 넣어 재단 계획', ['형강', '앵글', '채널', 'h빔', '각관', '평철', '스트럿', '재단', '컷팅', '규격', '잔재'], () => const MobileSteelProjectListPage()),
   ('unit', '단위 환산', '길이·압력·온도·토크·인치 분수·배관 호칭 환산', ['단위', '환산', 'psi', 'bar', 'kpa', 'mpa', '인치', 'inch', 'mm', '피트', '토크', '온도'], () => const UnitConverterPage()),

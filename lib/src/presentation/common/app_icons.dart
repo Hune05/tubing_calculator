@@ -32,6 +32,9 @@ enum AppGlyph {
   /// 형강 브라켓: 벽(왼쪽 선)에 붙은 ㄱ자 브라켓과 비스듬한 가새.
   bracket,
 
+  /// 철판 가공: 구멍 둘 뚫린 판과 가운데 꺾기선(점선).
+  plate,
+
   /// 작업 배치도: 중판에 레일 두 줄과 부품.
   layout,
 
@@ -1200,6 +1203,17 @@ class _AppIconPainter extends CustomPainter {
             ..strokeCap = StrokeCap.butt,
         );
         l(2.5, 20.5, 21.5, 20.5);
+
+      case AppGlyph.plate:
+        // 판(모서리 둥근 사각), 구멍 둘, 가운데 세로 점선(꺾기선).
+        final pl = RRect.fromLTRBR(3, 5, 21, 19, const Radius.circular(1.5));
+        canvas.drawRRect(pl, soft);
+        canvas.drawRRect(pl, line);
+        canvas.drawCircle(const Offset(7, 12), 1.5, line);
+        canvas.drawCircle(const Offset(17, 12), 1.5, line);
+        for (final y in [6.5, 10.5, 14.5]) {
+          l(12, y, 12, y + 2.2);
+        }
 
       case AppGlyph.bracket:
         // 벽 선, ㄱ자(기둥 + 가로대), 가새.

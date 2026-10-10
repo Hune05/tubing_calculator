@@ -44,6 +44,7 @@ import '../electrical/cable_tray_page.dart';
 import '../electrical/busbar_bend_page.dart';
 import '../electrical/busbar_ground_page.dart';
 import '../steel_bracket/bracket_page.dart';
+import '../steel_plate/plate_page.dart';
 import '../electrical/circuit_reading_page.dart';
 import '../electrical/panel_design_page.dart';
 import '../electrical/troubleshoot_page.dart';
@@ -320,6 +321,14 @@ final List<QuickToolDef> kQuickTools = [
     AppGlyph.bracket,
     (_) => const BracketPage(),
     subtitle: 'ㄱ자·삼각·문형·T자 제작도 · 자를 길이 · 구멍',
+    group: '가공·배치',
+  ),
+  QuickToolDef(
+    'plate',
+    '철판 가공',
+    AppGlyph.plate,
+    (_) => const PlatePage(),
+    subtitle: '레이저 절단·절곡 전개도 · DXF · 공제값',
     group: '가공·배치',
   ),
   QuickToolDef(

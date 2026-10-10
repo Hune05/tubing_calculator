@@ -101,6 +101,7 @@ import '../../electrical/cable_tray_page.dart';
 import '../../electrical/busbar_bend_page.dart';
 import '../../electrical/busbar_ground_page.dart';
 import '../../steel_bracket/bracket_page.dart';
+import '../../steel_plate/plate_page.dart';
 import '../../electrical/circuit_reading_page.dart';
 import '../../electrical/panel_design_page.dart';
 import '../../electrical/troubleshoot_page.dart';
@@ -1874,6 +1875,22 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             context,
                             MaterialPageRoute(
                               builder: (context) => const BracketPage(),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuButton(
+                        context: context,
+                        title: "철판 가공",
+                        subtitle: "레이저 절단·절곡 전개도 · DXF · 공제값",
+                        icon: AppGlyph.plate,
+                        iconColor: makitaTeal,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PlatePage(),
                             ),
                           );
                         },

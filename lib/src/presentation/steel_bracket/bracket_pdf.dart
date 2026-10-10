@@ -42,12 +42,20 @@ class BracketPdfInput {
   final Uint8List drawingPng;
   final List<BracketPdfSection> sections;
   final List<String> notes;
+
+  /// 지시서 맨 위 제목, 첫 그림 제목, 그 뒤에 붙는 그림(제목, PNG). 철판 가공도 같이 쓴다(10-10).
+  final String docTitle;
+  final String drawingCaption;
+  final List<(String, Uint8List)> moreDrawings;
   const BracketPdfInput({
     required this.title,
     required this.summary,
     required this.drawingPng,
     required this.sections,
     required this.notes,
+    this.docTitle = '형강 브라켓 가공 지시서',
+    this.drawingCaption = '그림 (바깥 치수, mm)',
+    this.moreDrawings = const [],
   });
 }
 
@@ -104,7 +112,7 @@ Future<Uint8List> buildBracketPdf(
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
             pw.Text(
-              '형강 브라켓 가공 지시서',
+              input.docTitle,
               style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
             ),
             pw.Text(
@@ -141,18 +149,20 @@ Future<Uint8List> buildBracketPdf(
               ),
           ],
         ),
-        sectionTitle('그림 (바깥 치수, mm)'),
-        pw.Container(
-          height: 300,
-          alignment: pw.Alignment.center,
-          decoration: pw.BoxDecoration(
-            border: pw.Border.all(color: _line, width: 0.6),
+        for (final (caption, png) in [
+          (input.drawingCaption, input.drawingPng),
+          ...input.moreDrawings,
+        ]) ...[
+          sectionTitle(caption),
+          pw.Container(
+            height: 300,
+            alignment: pw.Alignment.center,
+            decoration: pw.BoxDecoration(
+              border: pw.Border.all(color: _line, width: 0.6),
+            ),
+            child: pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.contain),
           ),
-          child: pw.Image(
-            pw.MemoryImage(input.drawingPng),
-            fit: pw.BoxFit.contain,
-          ),
-        ),
+        ],
         for (final sec in input.sections) ...[
           sectionTitle(sec.title),
           for (final l in sec.lines)
@@ -225,11 +235,15 @@ Future<Uint8List> buildBracketPdf(
   return doc.save();
 }
 
-String bracketFileName(String title, DateTime date) {
+String bracketFileName(
+  String title,
+  DateTime date, {
+  String prefix = 'steel_bracket',
+}) {
   final t = title.trim().isEmpty
       ? 'noname'
       : title.trim().replaceAll(RegExp(r'[\\/:*?"<>|\s]+'), '_');
-  return 'steel_bracket_${t}_${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}.pdf';
+  return '${prefix}_${t}_${date.year}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}.pdf';
 }
 
 // 지시서를 만드는 중인가(두 번 눌러 두 번 만들지 않게).
@@ -238,17 +252,21 @@ bool _bracketPdfBusy = false;
 /// 지시서를 만들어 미리보기로 보여 준다. [input]은 그림 PNG를 뜬 뒤에 만든다.
 Future<void> openBracketPdf(
   BuildContext context,
-  Future<BracketPdfInput> Function() input,
-) async {
+  Future<BracketPdfInput> Function() input, {
+  String previewTitle = '브라켓 가공 지시서 미리보기',
+  String filePrefix = 'steel_bracket',
+}) async {
   if (_bracketPdfBusy) return;
   _bracketPdfBusy = true;
   final now = DateTime.now();
   final messenger = ScaffoldMessenger.maybeOf(context);
   Uint8List bytes;
   String title;
+  String docTitle;
   try {
     final i = await input();
     title = i.title;
+    docTitle = i.docTitle;
     bytes = await buildBracketPdf(i, date: now);
   } catch (e) {
     showSnackOnce(
@@ -259,14 +277,14 @@ Future<void> openBracketPdf(
   } finally {
     _bracketPdfBusy = false;
   }
-  final fileName = bracketFileName(title, now);
+  final fileName = bracketFileName(title, now, prefix: filePrefix);
   if (!context.mounted) return;
   await Navigator.of(context).push(
     MaterialPageRoute(
       builder: (_) => SteelPdfPreviewPage(
         bytes: bytes,
         fileName: fileName,
-        title: '브라켓 가공 지시서 미리보기',
+        title: previewTitle,
         onShare: () async {
           final dir = await getTemporaryDirectory();
           final file = File('${dir.path}/$fileName');
@@ -274,7 +292,7 @@ Future<void> openBracketPdf(
           // ignore: deprecated_member_use
           await Share.shareXFiles([
             XFile(file.path),
-          ], text: '형강 브라켓 가공 지시서 ${title.trim()}');
+          ], text: '$docTitle ${title.trim()}');
         },
       ),
     ),
