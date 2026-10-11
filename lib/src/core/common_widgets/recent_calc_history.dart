@@ -205,8 +205,12 @@ class RecentCalcLog {
         if (m['t'] is! String || m['s'] is! String) continue;
         loaded.add(
           _entry(
-            // 10-11 전 철판 가공 기록은 제목이 이름표 키(pl_sum) 그대로 저장됐다
-            m['t'] == 'pl_sum' ? '철판 가공' : m['t'] as String,
+            // 10-11 전 철판 가공·형강 브라켓 기록은 제목이 이름표 키(pl_sum·br_sum) 그대로 저장됐다
+            switch (m['t']) {
+              'pl_sum' => '철판 가공',
+              'br_sum' => '형강 브라켓',
+              _ => m['t'] as String,
+            },
             m['s'] as String,
             at,
             null,

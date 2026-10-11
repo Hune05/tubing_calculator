@@ -1,73 +1,92 @@
-// 형강 브라켓 제작도(10-10, 사용자: "간단하게 브라켓을 그릴 수 있는 기능을 따로 빼내서 만들어줘 고도화되면 좋고").
-// 모양(ㄱ자·삼각(가새)·문형·T자)과 형강 규격·바깥 치수·구멍을 넣으면 그림(치수·구멍·용접 자리), 자를 길이·끝 모양,
-// 구멍 위치, 베이스 판, 볼트·앵커, 원자재 본수, 지시서 PDF·카톡 글. 계산은 bracket_calc.dart.
-// 화면 틀은 접지바 가공(busbar_ground_page.dart)과 같다: 겉에는 꼭 넣을 칸, 원자재·부재 폭 등은 "자세히".
+// 형강 브라켓 제작도(10-10, 10-11 개편 — 사용자: "형강 브라켓 쪽도 싹 뜯어고치자, 상용 앱과 비교 분석하고" → "전부 진행해").
+// 화면 틀은 철판 가공과 같다(plate_ui.dart): 위 그림 칸(조립도·부재도·3D) + 아래 작업판 탭(모양·부재·구멍·판·결과·보내기).
+//  · 계산: bracket_calc.dart(모양·토막·용접·판), bracket_load.dart(하중 참고), 그림: bracket_painter.dart·bracket_piece_drawing.dart.
+//  · 입력은 지도 하나(bracket_form.dart)로 남기고 저장한 규격·최근 기록·묶음이 같이 쓴다.
+//  · 비교 문서: docs/형강브라켓_상용앱_비교_1011.md.
+library;
+
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/common_widgets/app_components.dart'
+    show AppSnackKind, showAppConfirm, showAppSnack;
 import '../../core/common_widgets/recent_calc_history.dart';
+import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
-import '../../data/models/steel_shape_db.dart';
+import '../calculator/widgets/swipe_delete.dart' show calcNavCompact;
+import '../common/app_icons.dart';
 import '../common/calc_form_parts.dart';
 import '../electrical/busbar_lug.dart' show lugBoltFor;
-import '../electrical/busbar_punch_dies.dart';
+import '../electrical/busbar_punch_dies.dart'
+    show kDefaultPunchDies, punchDieLabel, readPunchDies;
 import '../electrical/busbar_saved_specs.dart';
 import '../electrical/elec_form_parts.dart';
+import '../steel_cutting/screens/steel_cutting_detail_screen.dart';
+import '../steel_plate/plate_3d_view.dart';
+import '../steel_plate/plate_page.dart';
+import '../steel_plate/plate_ui.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
+import 'bracket_3d.dart';
+import 'bracket_bundle.dart';
 import 'bracket_calc.dart';
+import 'bracket_export.dart';
+import 'bracket_form.dart';
+import 'bracket_load.dart';
 import 'bracket_painter.dart';
 import 'bracket_pdf.dart';
+import 'bracket_piece_drawing.dart';
+import 'bracket_settings.dart';
+
+export 'bracket_form.dart' show kBracketShapes, kBracketSpecLists;
 
 Future<void> _defaultShare(String text) async {
   if (await kakaoSender(text)) return;
   await textSharer(text);
 }
 
+void _defaultOpenPlate(BuildContext context, Map<String, Object?> initial) {
+  Navigator.of(context).push(
+    MaterialPageRoute(builder: (_) => PlatePage(bend: false, initial: initial)),
+  );
+}
+
+/// 근거·약속(? 단추).
 const List<String> kBracketBasis = [
-  '치수는 모두 바깥 치수(mm)입니다. ㄱ자·삼각: 가로대 길이 = 기둥 바깥면(벽)에서 가로대 끝까지, 기둥 높이 = 가로대 윗면에서 기둥 끝까지. 문형·T자: 폭 = 양쪽 바깥면 사이, 높이 = 바닥(베이스 판 밑면)에서 가로대 윗면까지.',
-  '이음: 기둥 통과는 가로대가 기둥 옆에 붙어 가로대가 부재 폭만큼 짧아집니다. 가로대 통과는 기둥이 가로대 밑에 붙어 기둥이 짧아집니다. 45° 연귀는 두 토막 모두 바깥 치수 그대로이고 맞닿는 끝을 45°로 자릅니다. T자는 가로대가 기둥 위에 얹힙니다.',
-  '부재 폭은 그림 면에서 보이는 폭입니다(앵글은 변, 찬넬은 춤, 평철은 폭, 각파이프는 변). 규격을 고르면 자동으로 들어가고, 찬넬을 눕혀 쓰는 경우처럼 다르면 "자세히"에서 고칩니다.',
-  '가새: 중심선이 가로대 밑면의 "가로대 쪽 자리"(바깥 모서리에서)와 기둥 안쪽 면의 "기둥 쪽 자리"(위 바깥에서)를 잇습니다. 두 자리가 같으면 45°입니다. 끝은 가로대 면·기둥 면에 맞게 비스듬히 자르고, 긴 변 = 중심선 길이 + 부재 폭 ÷ 2 × (cotθ + tanθ), 짧은 변은 그만큼 짧습니다. 각도절단기 각도는 직각을 0°로 본 값입니다.',
-  '구멍은 자리(중심 거리)만 나타냅니다. 기둥 구멍은 벽에 붙는 면, 가로대 구멍은 위 면(U볼트·클램프용)에 뚫습니다. 거리는 자른 토막의 끝에서 잽니다. 구멍 지름 칩은 접지바 가공의 "내 펀치 금형"과 같습니다.',
-  '베이스 판(문형·T자): 기둥마다 한 장, 구멍은 판 가장자리에서 구멍 중심까지 거리로 놓습니다. 그림 오른쪽 아래는 위에서 본 판(구멍 자리)입니다. 기본 150 × 150 × 9, 가장자리 25는 임의 값입니다. 앵커 볼트 규격·묻힘 깊이는 설계도를 따르십시오.',
-  '무게는 형강 컷팅과 같은 이론 중량(규격 이름으로 계산), 베이스 판은 철 7.85 g/cm³(구멍 안 뺌)입니다. 원자재 본수는 단관 컷팅과 같은 재단 계산(톱날 여유 포함)입니다.',
-  '이 화면은 제작 치수만 계산합니다. 하중·용접 강도 계산은 하지 않으니 무거운 배관·기기를 받치는 브라켓은 설계 검토를 받으십시오.',
-];
-
-/// 모양 칩 순서와 저장 값(0 ㄱ자, 1 삼각, 2 문형, 3 T자).
-const List<(BracketShape, String)> kBracketShapes = [
-  (BracketShape.l, 'ㄱ자'),
-  (BracketShape.brace, '삼각(가새)'),
-  (BracketShape.frame, '문형'),
-  (BracketShape.tee, 'T자'),
-];
-
-/// 규격 종류 칩: 이름 → 목록.
-final List<(String, List<SteelShapeItem>)> kBracketSpecLists = [
-  ('앵글', SteelShapeDB.angles),
-  ('찬넬', SteelShapeDB.channels),
-  ('평철', SteelShapeDB.flatBars),
-  ('각파이프', SteelShapeDB.squarePipes),
-];
-
-/// 종류를 바꿀 때 고르는 흔한 규격(목록에 없으면 50x… 첫 규격).
-const List<String> kBracketSpecDefaults = [
-  '앵글 50x50x5',
-  '찬넬 100x50x5',
-  '평철 50x6',
-  '각파이프 50x50x2.3',
+  '치수는 모두 바깥 치수(mm)입니다. ㄱ자·삼각: 가로대 길이 = 벽(벽 붙임 판이 있으면 판 뒷면)에서 가로대 끝까지, 기둥 높이 = 가로대 윗면에서 기둥 끝까지. 문형·T자: 폭 = 양쪽 바깥면 사이, 높이 = 바닥(베이스 판 밑면)에서 가로대 윗면까지. 천장 매달기: 천장에서 가로대 윗면까지.',
+  '이음: 기둥 통과는 가로대가 기둥 옆에 붙어 가로대가 기둥 폭만큼 짧아집니다. 가로대 통과는 기둥이 가로대 밑에 붙어 기둥이 짧아집니다. 연귀는 두 토막 모두 바깥 치수 그대로이고 맞닿는 끝을 비스듬히 자릅니다(두 부재 폭이 같으면 45°).',
+  '방향: 형강을 어느 쪽으로 놓는지에 따라 그림에 보이는 폭이 다릅니다(찬넬 등이 벽에 → 날개 폭, 날개가 벽에 → 춤). 그림 오른쪽 "단면"이 놓은 모양이고, 주황 선이 벽에 붙는 쪽(가로대는 위)입니다.',
+  '구멍: 기둥 구멍은 벽에 붙는 면, 가로대 구멍은 위 면에 뚫습니다. 이 면들은 조립도에서 옆으로 보여 점선(숨은선)으로만 나오니, 구멍 자리는 부재도(아래 = 구멍 뚫는 면)를 보십시오. 거리는 토막 기준 끝(부재도 왼쪽)에서 잽니다. 게이지는 붙는 면의 등 쪽 가장자리(앵글은 등, 찬넬 날개는 웨브 쪽)에서 구멍 중심까지이고, 비우면 평평한 곳 가운데입니다.',
+  '구멍 끝 거리: 구멍 중심이 토막 끝에서 구멍 지름의 1.2배보다 가까우면 알립니다(EN 1993-1-8 표 3.3 최소값).',
+  '용접 기호: 화살표 → 기준선, 아래 삼각은 필릿(화살표 쪽), "z5"는 각장 5mm, 꺾이는 곳 원은 전둘레입니다. 각장을 비우면 이음마다 얇은 쪽 두께(6 넘으면 6)를 씁니다. 같은 이음이 여러 곳이면 한 곳만 그리고 "2곳"으로 적습니다.',
+  '판: 베이스 판(문형·T자)은 기둥마다 한 장, 벽 붙임 판(ㄱ자·삼각)은 기둥 뒤에 한 장입니다. 판 크기·두께·가장자리 거리 처음 값은 임의 값이니 설계도를 따르십시오. 앵커 규격·묻힘 깊이도 설계도를 따르십시오.',
+  '무게는 형강 컷팅과 같은 이론 중량(규격 이름으로 계산), 판은 철 7.85 g/cm³(구멍 안 뺌)입니다. 원자재 본수는 단관 컷팅과 같은 재단 계산(톱날 여유 포함, 설정에서 바꿈)입니다.',
+  '하중 확인은 참고값입니다(AISC 허용응력 꼴, 이음을 핀·캔틸레버로 단순하게 봄). 용접·앵커 자체 강도, 비틀림·옆 힘(지진·바람)은 보지 않으니 무거운 배관·기기를 받치는 브라켓은 설계 검토를 받으십시오.',
 ];
 
 class BracketPage extends StatefulWidget {
-  const BracketPage({super.key, this.share = _defaultShare});
+  const BracketPage({
+    super.key,
+    this.share = _defaultShare,
+    this.createProject,
+    this.openPlate = _defaultOpenPlate,
+  });
 
   /// 결과 글 보내기(시험에서 바꿔 끼운다).
   final Future<void> Function(String text) share;
 
+  /// 형강 컷팅 작업 만들기(시험에서 바꿔 끼운다, null이면 서버).
+  final BracketProjectCreator? createProject;
+
+  /// 판을 철판 가공 화면으로 넘기기(시험에서 바꿔 끼운다).
+  final void Function(BuildContext context, Map<String, Object?> initial)
+  openPlate;
+
   static const draftKey = 'steel_bracket_draft_v1';
+  static const savedKey = 'steel_bracket_saved_v1';
 
   @override
   State<BracketPage> createState() => _BracketPageState();
@@ -81,153 +100,102 @@ class _BracketPageState extends State<BracketPage>
   @override
   String? get calcHistoryStorageKey => 'calc_history_steel_bracket';
 
-  int _shape = 0;
-  int _cat = 0;
-  String _spec = '앵글 50x50x5';
-  int _joint = 0; // 0 기둥 통과, 1 가로대 통과, 2 45° 연귀
-  int _postN = 2, _armN = 0;
-  bool _plate = true;
-  int _plateN = 4;
+  final Map<String, TextEditingController> _c = {
+    for (final e in kBracketTextDefaults.entries)
+      e.key: TextEditingController(text: e.value),
+  };
+  final Map<String, Object> _v = Map.of(kBracketValueDefaults);
+  BracketSettings _settings = BracketSettings.defaults;
   List<double> _dies = const [];
+  int _tab = 0;
 
-  final _job = TextEditingController();
-  final _a = TextEditingController(text: '300');
-  final _b = TextEditingController(text: '300');
-  final _braceA = TextEditingController(text: '210');
-  final _braceB = TextEditingController(text: '210');
-  final _postDia = TextEditingController(text: '13.5');
-  final _postFirst = TextEditingController(text: '80');
-  final _postPitch = TextEditingController(text: '180');
-  final _armDia = TextEditingController(text: '13.5');
-  final _armFirst = TextEditingController(text: '50');
-  final _armPitch = TextEditingController(text: '100');
-  final _plateSize = TextEditingController(text: '150');
-  final _plateT = TextEditingController(text: '9');
-  final _plateDia = TextEditingController(text: '13.5');
-  final _plateEdge = TextEditingController(text: '25');
-  final _sets = TextEditingController(text: '1');
-  final _width = TextEditingController(); // 비우면 규격에서
-  final _custom = TextEditingController(); // 규격 직접 적기
-  final _stock = TextEditingController(text: '6000');
-  final _kerf = TextEditingController(text: '2');
+  /// 그림 보기: asm 조립도, piece 부재도, 3d 입체.
+  String _view = 'asm';
+  int _pieceMark = 1;
+  int _bundleCount = 0;
 
   Timer? _saveTimer;
   bool _draftReady = false;
 
-  List<TextEditingController> get _fields => [
-    _job,
-    _a,
-    _b,
-    _braceA,
-    _braceB,
-    _postDia,
-    _postFirst,
-    _postPitch,
-    _armDia,
-    _armFirst,
-    _armPitch,
-    _plateSize,
-    _plateT,
-    _plateDia,
-    _plateEdge,
-    _sets,
-    _width,
-    _custom,
-    _stock,
-    _kerf,
-  ];
-  static const _fieldKeys = [
-    'jn',
-    'a',
-    'b',
-    'ba',
-    'bb',
-    'pd',
-    'pf',
-    'pp',
-    'ad',
-    'af',
-    'ap',
-    'ps',
-    'pt',
-    'pld',
-    'ple',
-    'n',
-    'w',
-    'cs',
-    'st',
-    'kf',
+  static const _tabs = [
+    ('shape', '모양'),
+    ('member', '부재'),
+    ('holes', '구멍·판'),
+    ('result', '결과'),
+    ('send', '보내기'),
   ];
 
   @override
   void initState() {
     super.initState();
-    _loadDraft();
-    readPunchDies().then((d) {
-      if (mounted && d.isNotEmpty) setState(() => _dies = d);
-    });
+    _loadAll();
   }
 
   @override
   void dispose() {
     _saveTimer?.cancel();
     _saveNow();
-    for (final c in _fields) {
+    for (final c in _c.values) {
       c.dispose();
     }
     super.dispose();
   }
 
-  String _draft() => jsonEncode({
-    'sh': _shape,
-    'ct': _cat,
-    'sp': _spec,
-    'jt': _joint,
-    'pn': _postN,
-    'an': _armN,
-    'pl': _plate,
-    'pln': _plateN,
-    for (var i = 0; i < _fields.length; i++) _fieldKeys[i]: _fields[i].text,
-  });
+  // ── 입력 남기기 ──
+
+  Map<String, dynamic> _draftMap() => {
+    ..._v,
+    for (final e in _c.entries) e.key: e.value.text,
+  };
 
   @override
-  Map<String, Object?>? historySnapshot() =>
-      jsonDecode(_draft()) as Map<String, dynamic>;
+  Map<String, Object?>? historySnapshot() => _draftMap();
 
   @override
   void applyHistorySnapshot(Map<String, dynamic> m) => _applyMap(m);
 
-  void _applyMap(Map<String, dynamic> m) {
-    int? pick(String k, int max) {
-      final v = m[k];
-      return v is int && v >= 0 && v <= max ? v : null;
+  void _applyMap(Map<String, dynamic> raw) {
+    final m = bracketUpgradeMap(raw);
+    for (final e in kBracketValueDefaults.entries) {
+      final v = m[e.key];
+      if (v != null && v.runtimeType == e.value.runtimeType) {
+        if (v is String && v.trim().isEmpty) continue;
+        _v[e.key] = v as Object;
+      }
     }
-
-    _shape = pick('sh', 3) ?? _shape;
-    _cat = pick('ct', kBracketSpecLists.length - 1) ?? _cat;
-    if (m['sp'] is String && (m['sp'] as String).trim().isNotEmpty) {
-      _spec = m['sp'] as String;
-    }
-    _joint = pick('jt', 2) ?? _joint;
-    _postN = pick('pn', 3) ?? _postN;
-    _armN = pick('an', 5) ?? _armN;
-    if (m['pl'] is bool) _plate = m['pl'] as bool;
-    final pln = m['pln'];
-    if (pln is int && (pln == 0 || pln == 2 || pln == 4)) _plateN = pln;
-    for (var i = 0; i < _fields.length; i++) {
-      final v = m[_fieldKeys[i]];
-      if (v is String) _fields[i].text = v;
+    _v['sh'] = (_v['sh'] as int).clamp(0, kBracketShapes.length - 1);
+    for (final e in _c.entries) {
+      final v = m[e.key];
+      if (v is String) e.value.text = v;
     }
   }
 
-  Future<void> _loadDraft() async {
+  Future<void> _loadAll() async {
+    final s = await BracketSettings.load();
+    List<double> dies = const [];
+    try {
+      dies = await readPunchDies();
+    } catch (_) {}
+    String? raw;
     try {
       final p = await SharedPreferences.getInstance();
-      final raw = p.getString(BracketPage.draftKey);
-      if (raw != null && mounted) {
-        setState(() => _applyMap(jsonDecode(raw) as Map<String, dynamic>));
-      }
+      raw = p.getString(BracketPage.draftKey);
     } catch (_) {}
+    final bundle = await readBracketBundle();
+    if (!mounted) return;
+    setState(() {
+      _settings = s;
+      _dies = dies;
+      _bundleCount = bundle.length;
+      if (raw != null) {
+        try {
+          _applyMap(jsonDecode(raw) as Map<String, dynamic>);
+        } catch (_) {}
+      } else {
+        _v['mat'] = s.material;
+        _v['fin'] = s.finish;
+      }
+    });
     _draftReady = true;
   }
 
@@ -239,7 +207,7 @@ class _BracketPageState extends State<BracketPage>
 
   void _saveNow() {
     if (!_draftReady) return;
-    final d = _draft();
+    final d = jsonEncode(_draftMap());
     SharedPreferences.getInstance()
         .then((p) => p.setString(BracketPage.draftKey, d))
         .catchError((_) => false);
@@ -250,322 +218,1641 @@ class _BracketPageState extends State<BracketPage>
     _saveSoon();
   }
 
-  double _num(TextEditingController c) {
-    final v = readNum(c);
+  void _setV(String k, Object v) => _set(() => _v[k] = v);
+
+  int _i(String k) => _v[k] as int;
+  bool _b(String k) => _v[k] as bool;
+  String _s(String k) => _v[k] as String;
+  double _n(String k) {
+    final v = readNum(_c[k]!);
     return v == null || v < 0 ? 0 : v;
   }
 
-  BracketShape get _shapeEnum => kBracketShapes[_shape].$1;
-  bool get _lLike => _shape <= 1;
+  BracketShape get _shape => kBracketShapes[_i('sh')].$1;
+  bool get _lLike => _shape == BracketShape.l || _shape == BracketShape.brace;
+  bool get _standing =>
+      _shape == BracketShape.frame || _shape == BracketShape.tee;
+  int get _sets => bracketSetsOf(_draftMap());
 
-  /// 실제로 쓰는 규격: 직접 적은 것이 있으면 그것.
-  String get _specUsed =>
-      _custom.text.trim().isNotEmpty ? _custom.text.trim() : _spec;
+  // ── 계산 ──
 
-  /// 부재 폭: 직접 넣은 값, 없으면 규격 첫 치수.
-  double get _d => readNum(_width) ?? bracketMemberWidth(_specUsed) ?? 0;
-
-  List<double> get _dieChips => _dies.isEmpty ? kDefaultPunchDies : _dies;
-
-  Future<void> _editDies() async {
-    final r = await openPunchDies(context, _dies);
-    if (r != null && mounted) setState(() => _dies = r);
+  BracketPlan? _plan() {
+    final m = _draftMap();
+    final i = bracketInputFromMap(
+      m,
+      stock: _settings.stock,
+      kerf: _settings.kerf,
+    );
+    if (i.b <= 0 || (i.a <= 0 && _shape != BracketShape.tee)) return null;
+    return bracketPlan(i);
   }
 
-  BracketInput _input() => BracketInput(
-    shape: _shapeEnum,
-    spec: _specUsed,
-    d: _d,
-    a: _num(_a),
-    b: _num(_b),
-    joint: BracketJoint.values[_joint],
-    braceA: _num(_braceA),
-    braceB: _num(_braceB),
-    postHoles: _lLike
-        ? HoleRow(
-            count: _postN,
-            dia: _num(_postDia),
-            first: _num(_postFirst),
-            pitch: _num(_postPitch),
-          )
-        : const HoleRow(),
-    armHoles: HoleRow(
-      count: _armN,
-      dia: _num(_armDia),
-      first: _num(_armFirst),
-      pitch: _num(_armPitch),
-    ),
-    plate: !_lLike && _plate,
-    plateSize: _num(_plateSize),
-    plateT: _num(_plateT),
-    plateHoles: _plateN,
-    plateHoleDia: _num(_plateDia),
-    plateEdge: _num(_plateEdge),
-    sets: _num(_sets).round().clamp(1, 999),
-    stockLength: _num(_stock),
-    kerf: _num(_kerf),
-  );
+  BracketLoadResult? _loadOf(BracketPlan p) {
+    final kg = readNum(_c['lk']!);
+    if (kg == null || kg <= 0) return null;
+    return bracketLoad(
+      p,
+      kg: kg,
+      mode: BracketLoadMode.values[_i('lm').clamp(0, 2)],
+      material: _s('mat'),
+    );
+  }
 
-  bool get _ready => _d > 0 && _num(_a) >= 0 && _num(_b) > 0;
+  String _fmt(double v, [int d = 1]) => fmt(v, d);
 
-  BracketPlan? _plan() => _ready ? bracketPlan(_input()) : null;
-
-  int get _setCount => _num(_sets).round().clamp(1, 999);
-
-  // ── 글 ──
+  String get _shapeName => kBracketShapes[_i('sh')].$2;
 
   String _jointName() {
-    if (_shape == 3) return '가로대가 기둥 위에 얹힘';
-    return switch (_joint) {
-      0 => _shape == 2 ? '기둥 통과(가로대가 기둥 사이)' : '기둥 통과(가로대가 기둥 옆에 붙음)',
-      1 => _shape == 2 ? '가로대 통과(가로대가 기둥 위에 얹힘)' : '가로대 통과(기둥이 가로대 밑에 붙음)',
-      _ => '45° 연귀',
+    if (_shape == BracketShape.tee) return '가로대가 기둥 위에 얹힘';
+    if (_shape == BracketShape.hanger) return '전산볼트로 매닮';
+    return switch (_i('jt')) {
+      0 =>
+        _shape == BracketShape.frame
+            ? '기둥 통과(가로대가 기둥 사이)'
+            : '기둥 통과(가로대가 기둥 옆에 붙음)',
+      1 =>
+        _shape == BracketShape.frame
+            ? '가로대 통과(가로대가 기둥 위에 얹힘)'
+            : '가로대 통과(기둥이 가로대 밑에 붙음)',
+      _ => '연귀',
     };
   }
 
-  String _pieceLine(BracketPiece p) =>
-      '${p.name} ${fmt(p.length, 1)}mm${p.short != null ? '(짧은 변 ${fmt(p.short!, 1)})' : ''} × ${p.qty * _setCount}개 · ${p.ends}';
+  String _holeText(BracketPiece pc) {
+    final xs = <double>{for (final h in pc.holes) h.fromEnd}.toList()..sort();
+    final zs = <double>{for (final h in pc.holes) h.z}.toList()..sort();
+    if (pc.kind == BracketPieceKind.plate) {
+      return '${bracketHoleSizeText(pc.holes)} · 판 왼쪽 위에서 가로 ${xs.map(_fmt).join('·')} / 세로 ${zs.map(_fmt).join('·')}';
+    }
+    final g = pc.member?.view.holesFront == true ? '폭 방향' : '게이지';
+    return '${bracketHoleSizeText(pc.holes)} · ${pc.holeFace} · ${pc.holeFrom}에서 ${xs.map(_fmt).join(' · ')} · $g ${zs.map(_fmt).join('/')}';
+  }
 
-  String _holeLine(BracketPiece p) =>
-      '${p.name} 구멍 φ${fmt(p.holes.first.dia)} (${p.holeFrom}에서): ${p.holes.map((h) => fmt(h.fromEnd, 1)).join(' · ')}mm';
+  String _pieceSize(BracketPiece pc) => switch (pc.kind) {
+    BracketPieceKind.plate =>
+      '${_fmt(pc.length)} × ${_fmt(pc.width)} × ${_fmt(pc.thick)}t',
+    BracketPieceKind.rib =>
+      '삼각 ${_fmt(pc.length)} × ${_fmt(pc.width)} × ${_fmt(pc.thick)}t',
+    _ =>
+      '${_fmt(pc.length)}mm${pc.short != null ? '(짧은 쪽 ${_fmt(pc.short!)})' : ''}',
+  };
 
-  List<String> _boltLines(BracketPlan p) => [
-    for (final e in p.boltHoles.entries)
-      '볼트 구멍 φ${fmt(e.key)} ${e.value}개 → 볼트 ${lugBoltFor(e.key) ?? "구멍에 맞는 규격"} ${e.value}세트(볼트·너트·평와셔 2·스프링 와셔)',
-    for (final e in p.anchorHoles.entries)
-      '베이스 판 앵커 구멍 φ${fmt(e.key)} ${e.value}개 → 앵커 볼트 ${lugBoltFor(e.key) ?? "구멍에 맞는 규격"} ${e.value}개(규격·묻힘 깊이는 설계도)',
-  ];
+  List<String> _weldLines(BracketPlan p) {
+    final by = <String, (double, bool, int)>{};
+    for (final w in p.welds) {
+      final c = by[w.what];
+      by[w.what] = (w.size, w.allAround, (c?.$3 ?? 0) + 1);
+    }
+    return [
+      for (final e in by.entries)
+        '${e.key}: 필릿 각장 ${_fmt(e.value.$1)}${e.value.$2 ? ' 전둘레' : ' 양면'} × ${e.value.$3 * _sets}곳',
+    ];
+  }
+
+  List<String> _boltLines(BracketPlan p) {
+    String bolt(double d) => lugBoltFor(d) ?? '구멍에 맞는 규격';
+    final rods = p.pieces.where((x) => x.kind == BracketPieceKind.rod);
+    return [
+      for (final e in p.wallHoles.entries)
+        '벽 고정 구멍 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
+      for (final e in p.armHoles.entries)
+        '가로대 구멍 φ${_fmt(e.key)} ${e.value}개 → U볼트·클램프 ${bolt(e.key)}용',
+      for (final e in p.anchorHoles.entries)
+        '베이스 판 앵커 구멍 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
+      for (final r in rods)
+        '${r.ks} × ${_fmt(r.length)} ${r.qty * _sets}개 · 너트 ${2 * r.qty * _sets}·평와셔 ${2 * r.qty * _sets}(가로대 위아래) · 천장 앵커(인서트) ${r.qty * _sets}개',
+    ];
+  }
 
   List<String> _stockLines(BracketPlan p) => [
     for (final e in p.stock.entries)
       if (e.value.barCount > 0)
-        '${e.key}: ${fmt(e.value.stockLength)}mm 원자재 ${e.value.barCount}본(남는 길이 합 ${fmt(e.value.bars.fold(0.0, (s, b) => s + b.remainderWithKerf(e.value.kerf)), 0)}mm, 톱날 ${fmt(e.value.kerf)}mm)',
+        '${e.key}: ${_fmt(e.value.stockLength)}mm 원자재 ${e.value.barCount}본(남는 길이 합 ${_fmt(e.value.bars.fold(0.0, (s, b) => s + b.remainderWithKerf(e.value.kerf)), 0)}mm, 톱날 ${_fmt(e.value.kerf)}mm)',
   ];
 
-  String? _plateLine(BracketPlan p) {
-    final pl = p.plate;
-    if (pl == null) return null;
-    final holes = pl.holes.isEmpty
-        ? '구멍 없음'
-        : '구멍 φ${fmt(pl.holeDia)} ${pl.holes.length}개, 구멍 중심 사이 ${fmt(pl.size - 2 * _num(_plateEdge), 1)}mm(가장자리에서 ${fmt(_num(_plateEdge))})';
-    return '베이스 판 ${fmt(pl.size)} × ${fmt(pl.size)} × ${fmt(pl.t)}t × ${pl.qty * _setCount}장 · $holes';
+  String _specLine(BracketPlan p) {
+    final specs = <String>{
+      for (final pc in p.pieces)
+        if (pc.kind == BracketPieceKind.member) pc.ks,
+    };
+    return specs.join(' / ');
   }
 
   String _shareText(BracketPlan p) {
-    final b = StringBuffer(
-      '[형강 브라켓] ${kBracketShapes[_shape].$2} · $_specUsed · $_setCount개',
+    final m = _draftMap();
+    final b = StringBuffer('[형강 브라켓] $_shapeName · ${_specLine(p)} · $_sets개');
+    final job = _c['jn']!.text.trim();
+    if (job.isNotEmpty) b.write(' · $job');
+    b.write('\n치수: ${bracketDimText(m)} (바깥 치수, mm) · ${_jointName()}');
+    b.write(
+      '\n재질 ${_s('mat')} · ${kBracketFinishes[_i('fin')]} · 공차 ${_settings.tolerance}',
     );
-    if (_job.text.trim().isNotEmpty) b.write(' · ${_job.text.trim()}');
-    b.write('\n치수: ${_dimText()} (바깥 치수, mm) · ${_jointName()}');
     b.write('\n자를 것:');
     for (final pc in p.pieces) {
-      b.write('\n ${_pieceLine(pc)}');
+      b.write(
+        '\n ${pc.title} ${pc.ks} ${_pieceSize(pc)} × ${pc.qty * _sets}${pc.kind == BracketPieceKind.plate || pc.kind == BracketPieceKind.rib ? '장' : '개'}${pc.ends.isEmpty ? '' : ' · ${pc.ends}'}',
+      );
     }
     for (final pc in p.pieces.where((x) => x.holes.isNotEmpty)) {
-      b.write('\n${_holeLine(pc)}');
+      b.write('\n${pc.markText} 구멍: ${_holeText(pc)}');
     }
-    final pl = _plateLine(p);
-    if (pl != null) b.write('\n$pl');
+    for (final l in _weldLines(p)) {
+      b.write('\n용접 $l');
+    }
     for (final l in _boltLines(p)) {
       b.write('\n$l');
     }
     for (final l in _stockLines(p)) {
       b.write('\n$l');
     }
-    b.write('\n무게 약 ${fmt(p.kgTotal, 1)}kg${p.weightKnown ? '' : ' 이상'}');
+    b.write('\n무게 약 ${_fmt(p.kgTotal)}kg${p.weightKnown ? '' : ' 이상'}');
     for (final s in p.problems) {
       b.write('\n※ $s');
     }
     return b.toString();
   }
 
-  String _dimText() => switch (_shape) {
-    0 => '가로대 ${fmt(_num(_a))} · 기둥 ${fmt(_num(_b))}',
-    1 =>
-      '가로대 ${fmt(_num(_a))} · 기둥 ${fmt(_num(_b))} · 가새 자리 ${fmt(_num(_braceA))} / ${fmt(_num(_braceB))}',
-    2 => '폭 ${fmt(_num(_a))} · 높이 ${fmt(_num(_b))}',
-    _ =>
-      _num(_a) > 0
-          ? '가로대 ${fmt(_num(_a))} · 높이 ${fmt(_num(_b))}'
-          : '기둥만 · 높이 ${fmt(_num(_b))}',
-  };
+  List<String> _generalNotes(BracketPlan p) {
+    final auto = p.welds.isEmpty ? null : p.welds.first.size;
+    final fin = _i('fin');
+    final pipe = p.members.any(
+      (x) => x.profile.kind == BracketProfileKind.pipe,
+    );
+    return [
+      '단위 mm, 치수는 바깥 치수. 따로 적지 않은 치수 공차: ${_settings.tolerance}.',
+      if (auto != null)
+        '따로 적지 않은 용접: 필릿 각장 ${_fmt(auto)} 전둘레(z = 각장, 다리 길이). 용접 뒤 슬래그·스패터 제거.',
+      '구멍은 용접 전에 뚫습니다. 구멍 자리는 부재도(구멍 뚫는 면) 기준.',
+      if (fin == 1) '방청 도장: 용접부 슬래그를 떼고 바탕 처리 뒤 도장(횟수·색은 현장 기준).',
+      if (fin == 2) '용융아연도금: 도금 뒤 용접·가공 금지(했으면 아연 보수 도장).',
+      if (fin == 2 && pipe)
+        '각파이프는 도금할 때 공기·아연이 빠질 구멍이 필요합니다(자리·크기는 도금 업체와 정함).',
+    ];
+  }
 
   Future<BracketPdfInput> _pdfInput(BracketPlan p) async {
-    final png = await renderBracketPng(p.drawing);
+    final asm = await renderBracketPng(p.drawing, height: 1000);
+    final pieces = <(String, Uint8List)>[];
+    for (final pc in p.pieces) {
+      final png = await renderBracketPng(
+        bracketPieceDrawing(pc, plate: p.plate),
+        height: pc.kind == BracketPieceKind.member ? 760 : 700,
+      );
+      pieces.add((
+        '부재도 ${pc.title} ${pc.ks} · ${_pieceSize(pc)} · 1개당 ${pc.qty} / 전체 ${pc.qty * _sets}',
+        png,
+      ));
+    }
+    final load = _loadOf(p);
+    final m = _draftMap();
     return BracketPdfInput(
-      title: _job.text,
-      summary: [
-        ('모양', '${kBracketShapes[_shape].$2} · ${_jointName()}'),
-        ('재료', '$_specUsed (그림 면 폭 ${fmt(_d)}mm)'),
-        ('치수', '${_dimText()} (바깥 치수, mm)'),
-        (
-          '수량',
-          '$_setCount개 · 약 ${fmt(p.kgTotal, 1)}kg${p.weightKnown ? '' : ' 이상'}',
-        ),
-        if (p.braceAngle != null) ('가새', '기울기 ${fmt(p.braceAngle!, 1)}°'),
+      title: _c['jn']!.text,
+      titleBlock: [
+        ('도면 번호', _c['dn']!.text.trim().isEmpty ? '-' : _c['dn']!.text.trim()),
+        ('개정', _c['rv']!.text.trim().isEmpty ? '-' : _c['rv']!.text.trim()),
+        ('재질', _s('mat')),
+        ('표면 처리', kBracketFinishes[_i('fin')]),
+        ('공차', _settings.tolerance),
+        ('수량', '$_sets개 · 약 ${_fmt(p.kgTotal)}kg${p.weightKnown ? '' : ' 이상'}'),
       ],
-      drawingPng: png,
+      summary: [
+        ('모양', '$_shapeName · ${_jointName()}'),
+        ('부재', _specLine(p)),
+        ('치수', '${bracketDimText(m)} (바깥 치수, mm)'),
+        if (p.braceAngle != null) ('가새', '기울기 ${_fmt(p.braceAngle!)}°'),
+      ],
+      drawingCaption: '조립도 (바깥 치수, mm · 동그라미 번호는 품번 · z는 용접 각장)',
+      drawingPng: asm,
+      drawingHeight: 330,
+      moreDrawings: pieces,
+      moreHeight: 210,
+      moreAfterSections: true,
+      author: _settings.author,
       sections: [
         BracketPdfSection(
-          '자를 것',
+          '자를 것 · 판',
           const [],
-          headers: const ['토막', '규격', '길이(mm)', '끝 모양', '개수'],
+          headers: const [
+            '품번',
+            '이름',
+            '규격',
+            '길이·크기(mm)',
+            '끝 모양',
+            '수량(1개·전체)',
+            '무게(kg)',
+          ],
           rows: [
             for (final pc in p.pieces)
               [
+                pc.markText,
                 pc.name,
-                pc.spec,
-                pc.short == null
-                    ? fmt(pc.length, 1)
-                    : '${fmt(pc.length, 1)}\n(짧은 변 ${fmt(pc.short!, 1)})',
-                pc.ends,
-                '${pc.qty * _setCount}',
+                // 형강은 단위 중량도(제작도 관례: 규격과 kg/m)
+                switch (pc.member?.profile.kgPerM) {
+                  final double kg when pc.kind == BracketPieceKind.member =>
+                    '${pc.ks}\n${_fmt(kg, 2)}kg/m',
+                  _ => pc.ks,
+                },
+                _pieceSize(pc).replaceAll('mm', ''),
+                pc.ends.isEmpty ? '-' : pc.ends,
+                '${pc.qty} · ${pc.qty * _sets}',
+                pc.kgEach > 0 ? _fmt(pc.kgEach * pc.qty * _sets, 2) : '-',
               ],
           ],
         ),
-        if (p.pieces.any((x) => x.holes.isNotEmpty) || p.plate != null)
-          BracketPdfSection('구멍', [
-            for (final pc in p.pieces.where((x) => x.holes.isNotEmpty))
-              _holeLine(pc),
-            ?_plateLine(p),
-          ]),
+        if (p.pieces.any((x) => x.holes.isNotEmpty))
+          BracketPdfSection(
+            '구멍',
+            const [],
+            headers: const ['품번', '뚫는 면', '구멍', '기준', '자리(mm)', '게이지·세로'],
+            rows: [
+              for (final pc in p.pieces.where((x) => x.holes.isNotEmpty))
+                [
+                  pc.markText,
+                  pc.holeFace,
+                  bracketHoleSizeText(pc.holes),
+                  pc.holeFrom,
+                  (<double>{
+                    for (final h in pc.holes) h.fromEnd,
+                  }.toList()..sort()).map(_fmt).join(' · '),
+                  (<double>{
+                    for (final h in pc.holes) h.z,
+                  }.toList()..sort()).map(_fmt).join(' · '),
+                ],
+            ],
+          ),
+        if (p.welds.isNotEmpty) BracketPdfSection('용접', _weldLines(p)),
         if (_boltLines(p).isNotEmpty) BracketPdfSection('볼트·앵커', _boltLines(p)),
         if (_stockLines(p).isNotEmpty) BracketPdfSection('원자재', _stockLines(p)),
+        if (load != null)
+          BracketPdfSection('하중 확인 (참고값, 설계 검토 대신 못 함)', [
+            '가로대 한 단에 ${_c['lk']!.text}kg · ${_loadModeName(_i('lm'))} · 재질 ${_s('mat')}',
+            for (final c in load.checks)
+              '${c.name} ${bracketLoadPct(c.ratio)}${c.ok ? '' : ' (넘음)'} — ${c.detail}',
+            ...load.forces,
+            ...load.notes,
+          ]),
+        BracketPdfSection('일반 노트', _generalNotes(p)),
       ],
       notes: [...p.problems, ...p.notes],
     );
   }
 
+  String _loadModeName(int i) => switch (i) {
+    0 => switch (_shape) {
+      BracketShape.l || BracketShape.brace => '가로대 끝에 한 점',
+      BracketShape.tee => '양 끝에 반씩',
+      _ => '가운데 한 점',
+    },
+    1 => '고르게',
+    _ => '구멍 자리마다 나눠',
+  };
+
+  // ── 보내기 ──
+
   Future<void> _openSaved() => openSavedSpecs(
     context,
-    storageKey: 'steel_bracket_saved_v1',
-    current: () => jsonDecode(_draft()) as Map<String, dynamic>,
-    summaryOf: (m) {
-      final sh = m['sh'] is int && (m['sh'] as int) <= 3
-          ? kBracketShapes[m['sh'] as int].$2
-          : '';
-      final sp = (m['cs'] is String && (m['cs'] as String).trim().isNotEmpty)
-          ? m['cs'] as String
-          : (m['sp'] is String ? m['sp'] as String : '');
-      return '$sh · $sp · ${m['a'] ?? ''} × ${m['b'] ?? ''}';
-    },
-    defaultName: _job.text.trim().isNotEmpty
-        ? _job.text.trim()
-        : '${kBracketShapes[_shape].$2} ${_a.text}×${_b.text}',
+    storageKey: BracketPage.savedKey,
+    current: _draftMap,
+    summaryOf: (m) => bracketSummaryOf(bracketUpgradeMap(m)),
+    defaultName: _c['jn']!.text.trim().isNotEmpty
+        ? _c['jn']!.text.trim()
+        : '$_shapeName ${_c['a']!.text}×${_c['b']!.text}',
     onLoad: (m) => _set(() => _applyMap(m)),
     surface: fc.surface,
     text: fc.text,
     textSub: fc.textSub,
   );
 
+  Future<void> _openSettings() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const BracketSettingsPage()));
+    final s = await BracketSettings.load();
+    List<double> d = _dies;
+    try {
+      d = await readPunchDies();
+    } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _settings = s;
+        _dies = d;
+      });
+    }
+  }
+
+  Future<void> _openBundle() async {
+    final r = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(
+        builder: (_) => BracketBundlePage(createProject: widget.createProject),
+      ),
+    );
+    final l = await readBracketBundle();
+    if (!mounted) return;
+    setState(() => _bundleCount = l.length);
+    if (r == null) return;
+    final before = _draftMap();
+    _set(() => _applyMap(r));
+    showAppSnack(
+      context,
+      '묶음의 브라켓을 불러왔습니다.',
+      kind: AppSnackKind.undo,
+      onUndo: () {
+        if (mounted) _set(() => _applyMap(before));
+      },
+    );
+  }
+
+  Future<void> _addToBundle(BracketPlan p) async {
+    final l = await readBracketBundle();
+    final m = _draftMap();
+    final same = jsonEncode(m);
+    if (l.any((e) => jsonEncode(e.map) == same)) {
+      if (mounted) {
+        showAppSnack(context, '이미 묶음에 있습니다.', kind: AppSnackKind.error);
+      }
+      return;
+    }
+    final job = _c['jn']!.text.trim();
+    final name = job.isNotEmpty
+        ? job
+        : '$_shapeName ${_c['a']!.text}×${_c['b']!.text}';
+    l.add(
+      BracketBundleEntry(
+        id: '${DateTime.now().microsecondsSinceEpoch}',
+        name: name,
+        qty: _sets,
+        map: m,
+      ),
+    );
+    await writeBracketBundle(l);
+    if (!mounted) return;
+    setState(() => _bundleCount = l.length);
+    showAppSnack(
+      context,
+      '"$name" $_sets개를 묶음에 넣었습니다(${l.length}종).',
+      undoLabel: '묶음 보기',
+      onUndo: _openBundle,
+    );
+  }
+
+  Future<void> _toSteel(BracketPlan p) async {
+    final items = bracketCutItems([('', p, _sets)]);
+    if (items.isEmpty) return;
+    final job = _c['jn']!.text.trim();
+    final name = job.isNotEmpty ? '브라켓 $job' : '브라켓 $_shapeName';
+    final go = await showAppConfirm(
+      context,
+      title: '형강 컷팅에 새 작업 만들기',
+      message:
+          '"$name" 작업을 새로 만들고 자를 것 ${items.length}줄을 넣습니다. 있던 작업은 건드리지 않습니다.',
+      okText: '만들기',
+      okKey: const Key('br_steel_ok'),
+    );
+    if (!go || !mounted) return;
+    final make = widget.createProject ?? createBracketSteelProject;
+    final pr = await make(name, items, _settings.stock);
+    if (!mounted) return;
+    if (pr == null) {
+      showAppSnack(
+        context,
+        '작업을 만들지 못했습니다. 다시 해 보십시오.',
+        kind: AppSnackKind.error,
+      );
+      return;
+    }
+    showAppSnack(
+      context,
+      '형강 컷팅에 "$name" 작업을 만들었습니다.',
+      undoLabel: '열기',
+      onUndo: () {
+        if (!mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SteelCuttingDetailScreen(project: pr),
+          ),
+        );
+      },
+    );
+  }
+
+  void _toPlate(BracketPlan p) {
+    final pl = p.plate;
+    if (pl == null) return;
+    widget.openPlate(
+      context,
+      bracketPlateToPlateInitial(
+        pl,
+        job: _c['jn']!.text,
+        qty: pl.qty * _sets,
+        material: _s('mat'),
+      ),
+    );
+  }
+
+  Future<void> _send(String what, BracketPlan p) async {
+    if (!p.ok && what == 'pdf') {
+      final go = await showAppConfirm(
+        context,
+        title: '만들 수 없는 곳이 있습니다',
+        message:
+            '${p.problems.take(3).join('\n')}${p.problems.length > 3 ? '\n외 ${p.problems.length - 3}개' : ''}\n\n그래도 지시서를 만들겠습니까?',
+        okText: '그래도 만들기',
+        okKey: const Key('br_send_anyway'),
+      );
+      if (!go || !mounted) return;
+    }
+    switch (what) {
+      case 'pdf':
+        await openBracketPdf(context, () => _pdfInput(p));
+      case 'kakao':
+        await widget.share(_shareText(p));
+    }
+  }
+
   // ── 화면 부품 ──
 
-  Widget _dieChipRow(String keyPrefix, TextEditingController c) => Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: [
-      for (final v in _dieChips)
-        calcChip(
-          '$keyPrefix${(v * 100).round()}',
-          punchDieLabel(v),
-          readNum(c) == v,
-          () => _set(() => c.text = fmt(v, 3)),
-        ),
-      calcChip(
-        '${keyPrefix}edit',
-        _dies.isEmpty ? '내 금형 넣기' : '내 금형 고치기',
-        false,
-        _editDies,
-      ),
-    ],
+  Widget _num(
+    String key,
+    String label,
+    String field, {
+    String? unit = 'mm',
+    String? hint,
+    bool text = false,
+  }) => PlateNumField(
+    fieldKey: key,
+    label: label,
+    controller: _c[field]!,
+    unit: unit,
+    hint: hint,
+    text: text,
+    onChanged: (_) => _set(() {}),
   );
 
-  /// 줄 구멍 입력: 개수 칩·지름(금형 칩)·첫 구멍·피치.
-  List<Widget> _holeInputs({
-    required String key,
-    required String title,
-    required String guide,
-    required int count,
-    required ValueChanged<int> onCount,
-    required TextEditingController dia,
-    required TextEditingController first,
-    required TextEditingController pitch,
-    required String firstLabel,
-    int max = 3,
-  }) => [
-    elecChipGroup(title, guide, [
-      for (var n = 0; n <= max; n++)
-        calcChip(
-          '${key}_n$n',
-          n == 0 ? '없음' : '$n개',
-          count == n,
-          () => _set(() => onCount(n)),
-        ),
-    ]),
-    if (count > 0) ...[
-      elecField(
-        '${key}_dia',
-        '구멍 지름 (mm)',
-        dia,
-        '볼트가 지나는 구멍 지름입니다.',
-        onEdit: _saveSoon,
-      ),
-      _dieChipRow('${key}_d_', dia),
-      const SizedBox(height: 8),
-      elecField(
-        '${key}_first',
-        firstLabel,
-        first,
-        '첫 구멍 중심까지 거리입니다.',
-        onEdit: _saveSoon,
-      ),
-      if (count > 1)
-        elecField(
-          '${key}_pitch',
-          '구멍 피치 (mm)',
-          pitch,
-          '구멍 중심 사이 거리입니다.',
-          onEdit: _saveSoon,
-        ),
-    ],
-  ];
+  Widget _label(String s) => Text(
+    s,
+    style: TextStyle(
+      fontSize: 12.5,
+      fontWeight: FontWeight.w700,
+      color: fc.textSub,
+    ),
+  );
 
-  Widget _pieceTable(BracketPlan p) => KeyedSubtree(
-    key: const Key('br_pieces'),
-    child: calcBox(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (final pc in p.pieces)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
+  Widget _guide(String s, {Color? color}) => Text(
+    s,
+    style: TextStyle(fontSize: 13, color: color ?? fc.textSub, height: 1.4),
+  );
+
+  List<double> get _dieChips => _dies.isEmpty ? kDefaultPunchDies : _dies;
+
+  Widget _dieRow(String keyPrefix, String field) => PlateSegments([
+    for (final d in _dieChips)
+      PlateOption(
+        '$keyPrefix${(d * 100).round()}',
+        punchDieLabel(d),
+        readNum(_c[field]!) == d,
+        () => _set(() => _c[field]!.text = fmt(d, 3)),
+      ),
+  ]);
+
+  /// 규격 단추(누르면 고르는 창).
+  Widget _specButton(String key, String spec, ValueChanged<String> onPick) {
+    final p = BracketProfile.parse(spec);
+    final kg = p.kgPerM;
+    return Material(
+      color: fc.fill,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        key: Key(key),
+        borderRadius: BorderRadius.circular(10),
+        onTap: () async {
+          final r = await _pickSpec(spec);
+          if (r != null && r.trim().isNotEmpty) onPick(r.trim());
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+          child: Row(
+            children: [
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${pc.name}  ${fmt(pc.length, 1)} mm  × ${pc.qty * _setCount}',
+                      spec,
                       style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
                         color: fc.text,
                       ),
                     ),
                     Text(
-                      '${pc.spec} · ${pc.ends}${pc.short != null ? ' · 짧은 변 ${fmt(pc.short!, 1)}mm' : ''}${pc.kgEach > 0 ? ' · 개당 ${fmt(pc.kgEach, 2)}kg' : ''}',
+                      p.known
+                          ? '${p.ks}${kg == null ? '' : ' · ${fmt(kg, 2)}kg/m'}'
+                          : '단면을 모르는 규격(그림 폭을 넣으십시오)',
                       style: TextStyle(
-                        fontSize: 13.5,
-                        color: fc.textSub,
-                        height: 1.35,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: p.known ? fc.textSub : fc.caution,
                       ),
                     ),
                   ],
                 ),
               ),
+              Text(
+                '바꾸기',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: fc.brand,
+                ),
+              ),
+              Icon(AppIcons.forward, size: 18, color: fc.brand),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _pickSpec(String current) async {
+    final c0 = bracketSpecCategory(current);
+    var cat = c0 < 0 ? 0 : c0;
+    var pick = current;
+    final inList = kBracketSpecLists.any(
+      (l) => l.$2.any((s) => s.label == current),
+    );
+    final custom = TextEditingController(text: inList ? '' : current);
+    final r = await showPlateSheet<String>(
+      context,
+      (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          final list = kBracketSpecLists[cat].$2;
+          return PlateSheetFrame(
+            title: '규격 고르기',
+            okText: '이 규격 쓰기',
+            okKey: const Key('br_spec_ok'),
+            onOk: () => Navigator.pop(
+              ctx,
+              custom.text.trim().isNotEmpty ? custom.text.trim() : pick,
+            ),
+            children: [
+              PlateSegments([
+                for (var i = 0; i < kBracketSpecLists.length; i++)
+                  PlateOption(
+                    'br_spec_cat_$i',
+                    kBracketSpecLists[i].$1,
+                    cat == i,
+                    () => setS(() => cat = i),
+                  ),
+              ], joined: false),
+              const SizedBox(height: 10),
+              for (final s in list)
+                Builder(
+                  builder: (_) {
+                    final on = pick == s.label && custom.text.trim().isEmpty;
+                    final p = BracketProfile.parse(s.label);
+                    final kg = p.kgPerM;
+                    return Material(
+                      color: on ? fc.brandSoft : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      child: InkWell(
+                        key: Key('br_spec_item_${s.label}'),
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => setS(() {
+                          pick = s.label;
+                          custom.clear();
+                        }),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  s.label,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: fc.text,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${p.ks}${kg == null ? '' : ' · ${fmt(kg, 2)}kg/m'}',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: fc.textSub,
+                                ),
+                              ),
+                              if (on) ...[
+                                const SizedBox(width: 6),
+                                Icon(
+                                  Icons.check_rounded,
+                                  color: fc.brand,
+                                  size: 18,
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              const SizedBox(height: 12),
+              PlateNumField(
+                fieldKey: 'br_spec_custom',
+                label: '목록에 없으면 직접 적기',
+                controller: custom,
+                unit: null,
+                text: true,
+                hint: '예) 앵글 50x50x6',
+                onChanged: (_) => setS(() {}),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    custom.dispose();
+    return r;
+  }
+
+  /// 방향 단추 줄(방향이 둘 이상일 때만).
+  Widget? _orientRow(String key, String spec, BracketRole role, String field) {
+    final p = BracketProfile.parse(spec);
+    if (p.orientCount < 2) return null;
+    final cur = _i(field) < 0 || _i(field) >= p.orientCount
+        ? p.defaultOrient(role)
+        : _i(field);
+    return PlateSegments([
+      for (var o = 0; o < p.orientCount; o++)
+        PlateOption(
+          '${key}_$o',
+          p.orientName(o, role),
+          cur == o,
+          () => _setV(field, o),
+        ),
+    ], joined: false);
+  }
+
+  // ── 위 그림 ──
+
+  Widget _canvas(BracketPlan? p) {
+    if (p == null) {
+      return Center(
+        child: Text(
+          '규격과 치수를 넣으면 그림이 나옵니다.',
+          style: TextStyle(color: fc.textSub, fontWeight: FontWeight.w700),
+        ),
+      );
+    }
+    final tone = FieldColors.isNight ? BracketTone.night : BracketTone.light;
+    switch (_view) {
+      case '3d':
+        return Plate3dView.mesh(
+          key: const Key('br_3d'),
+          mesh: bracket3dMesh(p),
+          info: _specLine(p),
+        );
+      case 'piece':
+        final pc = p.pieceOf(_pieceMark) ?? p.pieces.first;
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                key: const Key('br_view_piece'),
+                painter: BracketPainter(
+                  drawing: bracketPieceDrawing(pc, plate: p.plate),
+                  text: fc.text,
+                  sub: fc.textSub,
+                  bg: fc.background,
+                  tone: tone,
+                  topInset: 40,
+                ),
+              ),
+            ),
+            // 품번 단추는 그림 왼쪽 위(아래는 구멍 크기 글 자리)
+            Positioned(
+              left: 10,
+              right: 180,
+              top: 10,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final x in p.pieces) ...[
+                      PlateCanvasButton(
+                        key: Key('br_pm_${x.mark}'),
+                        label: '${x.markText} ${x.name}',
+                        selected: x.mark == pc.mark,
+                        onTap: () => setState(() => _pieceMark = x.mark),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      default:
+        return CustomPaint(
+          key: const Key('br_view'),
+          painter: BracketPainter(
+            drawing: p.drawing,
+            text: fc.text,
+            sub: fc.textSub,
+            bg: fc.background,
+            tone: tone,
+            topInset: 30,
+            bottomInset: 18,
+          ),
+          child: const SizedBox.expand(),
+        );
+    }
+  }
+
+  List<Widget> _canvasTools(BracketPlan? p) {
+    if (p == null) return const [];
+    return [
+      PlateViewSwitch([
+        PlateOption(
+          'br_vm_asm',
+          '조립도',
+          _view == 'asm',
+          () => setState(() => _view = 'asm'),
+        ),
+        PlateOption(
+          'br_vm_piece',
+          '부재도',
+          _view == 'piece',
+          () => setState(() => _view = 'piece'),
+        ),
+        PlateOption(
+          'br_vm_3d',
+          '3D',
+          _view == '3d',
+          () => setState(() => _view = '3d'),
+        ),
+      ]),
+    ];
+  }
+
+  String? _canvasHint(BracketPlan? p) {
+    if (p == null) return null;
+    return switch (_view) {
+      'asm' => '동그라미 = 품번 · 주황 = 용접(z 각장) · 점선 = 안 보이는 면 구멍',
+      'piece' => null,
+      _ => null,
+    };
+  }
+
+  // ── 아래 작업판 ──
+
+  Widget _shapePanel(BracketPlan? p) {
+    final guide = switch (_shape) {
+      BracketShape.l => '벽(기둥)에 붙이고 가로대 위에 튜브·트레이를 얹습니다.',
+      BracketShape.brace => 'ㄱ자에 비스듬한 가새를 더해 무거운 것을 받칩니다.',
+      BracketShape.frame => '기둥 둘 위에 가로대. 바닥에 세웁니다(2단이면 아래 가로대 하나 더).',
+      BracketShape.tee => '기둥 하나 위에 가로대(가로대 0이면 기둥만).',
+      BracketShape.hanger => '천장에서 전산볼트 둘로 가로대를 매답니다.',
+    };
+    final (la, lb) = switch (_shape) {
+      BracketShape.l || BracketShape.brace => ('가로대 길이 (벽에서)', '기둥 높이'),
+      BracketShape.frame => ('폭 (바깥)', '높이 (바닥에서)'),
+      BracketShape.tee => ('가로대 길이 (0이면 기둥만)', '높이 (바닥에서)'),
+      BracketShape.hanger => ('가로대 길이', '천장에서 가로대 윗면까지'),
+    };
+    return PlatePanel(
+      title: '모양과 치수',
+      status: guide,
+      actions: [
+        plateHelpButton(context, 'br_help_shape', '형강 브라켓 약속', kBracketBasis),
+      ],
+      children: [
+        PlateSection('모양', [
+          PlateSegments([
+            for (var i = 0; i < kBracketShapes.length; i++)
+              PlateOption(
+                'br_shape_$i',
+                kBracketShapes[i].$2,
+                _i('sh') == i,
+                () => _setV('sh', i),
+              ),
+          ], joined: false),
+        ], first: true),
+        PlateSection('치수 (바깥, mm)', [
+          PlateFieldGrid([_num('br_a', la, 'a'), _num('br_b', lb, 'b')]),
+          if (_shape == BracketShape.brace) ...[
+            PlateFieldGrid([
+              _num('br_ba', '가새 가로대 쪽 자리 (벽에서)', 'ba'),
+              _num('br_bb', '가새 기둥 쪽 자리 (위에서)', 'bb'),
+            ]),
+            plateActions([
+              PlateActionButton(
+                key: const Key('br_brace45'),
+                icon: Icons.architecture_rounded,
+                label: '45°로 맞추기',
+                onTap: p == null
+                    ? null
+                    : () {
+                        final post = p.members.firstWhere(
+                          (m) => m.name == '기둥',
+                        );
+                        final arm = p.members.firstWhere(
+                          (m) => m.name == '가로대',
+                        );
+                        final face = (_b('wp') ? _n('wt') : 0) + post.depth;
+                        final bb = _n('ba') - face + arm.depth;
+                        _set(() => _c['bb']!.text = fmt(bb, 1));
+                      },
+              ),
+            ]),
+          ],
+          if (_shape == BracketShape.frame) ...[
+            _label('가로대 단수'),
+            PlateSegments([
+              PlateOption('br_lw_0', '1단', !_b('lw'), () => _setV('lw', false)),
+              PlateOption('br_lw_1', '2단', _b('lw'), () => _setV('lw', true)),
+            ]),
+            if (_b('lw'))
+              plateRow([
+                _num('br_la', '아래 가로대 높이 (바닥에서 윗면)', 'la'),
+                const SizedBox.shrink(),
+              ]),
+          ],
+          if (_shape == BracketShape.hanger) ...[
+            _label('전산볼트'),
+            PlateSegments([
+              for (final d in kBracketRods)
+                PlateOption(
+                  'br_rod_$d',
+                  'M$d',
+                  _i('rd') == d,
+                  () => _setV('rd', d),
+                ),
+            ]),
+            PlateFieldGrid([
+              _num('br_re', '가로대 끝에서 볼트', 're'),
+              _num('br_rtp', '천장 쪽 물림', 'rtp'),
+              _num('br_rbl', '가로대 아래로 나옴', 'rbl'),
+            ]),
+            _guide('물림·나옴 처음 값은 임의 값입니다(천장 앵커·너트에 맞추십시오).'),
+          ],
+        ]),
+        if (_shape != BracketShape.tee && _shape != BracketShape.hanger)
+          PlateSection('이음', [
+            PlateSegments([
+              for (final (i, label) in const [
+                (0, '기둥 통과'),
+                (1, '가로대 통과'),
+                (2, '연귀'),
+              ])
+                PlateOption(
+                  'br_joint_$i',
+                  label,
+                  _i('jt') == i,
+                  () => _setV('jt', i),
+                ),
+            ]),
+            _guide(switch (_i('jt')) {
+              0 => '가로대가 기둥 옆에 붙어 가로대가 기둥 폭만큼 짧아집니다.',
+              1 => '기둥이 가로대 밑에 붙어 기둥이 가로대 폭만큼 짧아집니다.',
+              _ => '두 토막 모두 바깥 치수 그대로, 맞닿는 끝을 비스듬히 자릅니다.',
+            }),
+          ]),
+        PlateSection('수량', [
+          plateRow([
+            _num('br_sets', '만들 개수', 'n', unit: '개'),
+            const SizedBox.shrink(),
+          ]),
+        ]),
+      ],
+    );
+  }
+
+  Widget _memberPanel(BracketPlan? p) {
+    final m = _draftMap();
+    final main = bracketMainSpec(m);
+    final mainP = BracketProfile.parse(main);
+    final hanger = _shape == BracketShape.hanger;
+    final postRole = _lLike ? BracketRole.wall : BracketRole.none;
+    final autoWeld = p == null || p.welds.isEmpty
+        ? null
+        : p.welds.map((w) => w.size).reduce((a, b) => a < b ? a : b);
+    final armSpec = bracketArmSpec(m);
+    final braceSpec = bracketBraceSpec(m);
+    return PlatePanel(
+      title: '부재',
+      status: p == null ? null : _specLine(p),
+      actions: [
+        plateHelpButton(
+          context,
+          'br_help_member',
+          '부재 약속',
+          kBracketBasis.sublist(2, 3) + kBracketBasis.sublist(5, 6),
+        ),
+      ],
+      children: [
+        PlateSection(hanger ? '가로대 규격' : '주 부재 (기둥·가로대)', [
+          _specButton('br_spec', main, (s) {
+            _set(() {
+              _v['sp'] = s;
+              _v['po'] = -1;
+              if (_b('as')) _v['ao'] = -1;
+            });
+          }),
+          if (!mainP.known)
+            plateRow([
+              _num('br_w', '그림 폭 (모르는 규격)', 'w'),
+              const SizedBox.shrink(),
+            ]),
+          if (!hanger) ...[
+            if (_orientRow('br_po', main, postRole, 'po') case final r?) ...[
+              _label('기둥 방향'),
+              r,
+            ],
+          ] else if (_orientRow('br_ao', main, BracketRole.top, 'ao')
+              case final r?) ...[
+            _label('가로대 방향'),
+            r,
+          ],
+        ], first: true),
+        if (!hanger)
+          PlateSection('가로대', [
+            PlateSegments([
+              PlateOption(
+                'br_as_1',
+                '기둥과 같음',
+                _b('as'),
+                () => _set(() {
+                  _v['as'] = true;
+                  _v['ao'] = -1;
+                }),
+              ),
+              PlateOption(
+                'br_as_0',
+                '따로',
+                !_b('as'),
+                () => _set(() {
+                  _v['as'] = false;
+                  if (_s('asp') == kBracketValueDefaults['asp'] &&
+                      main != _s('asp')) {
+                    _v['asp'] = main;
+                  }
+                }),
+              ),
+            ]),
+            if (!_b('as'))
+              _specButton('br_arm_spec', armSpec, (s) {
+                _set(() {
+                  _v['asp'] = s;
+                  _v['ao'] = -1;
+                });
+              }),
+            if (_orientRow('br_ao', armSpec, BracketRole.top, 'ao')
+                case final r?) ...[
+              _label('가로대 방향'),
+              r,
+            ],
+          ]),
+        if (_shape == BracketShape.brace)
+          PlateSection('가새', [
+            PlateSegments([
+              PlateOption(
+                'br_bs_1',
+                '기둥과 같음',
+                _b('bs'),
+                () => _set(() {
+                  _v['bs'] = true;
+                  _v['bo'] = -1;
+                }),
+              ),
+              PlateOption('br_bs_0', '따로', !_b('bs'), () => _setV('bs', false)),
+            ]),
+            if (!_b('bs'))
+              _specButton('br_brace_spec', braceSpec, (s) {
+                _set(() {
+                  _v['bsp'] = s;
+                  _v['bo'] = -1;
+                });
+              }),
+            if (_orientRow('br_bo', braceSpec, BracketRole.none, 'bo')
+                case final r?) ...[
+              _label('가새 방향'),
+              r,
+            ],
+          ]),
+        PlateSection('재질', [
+          PlateSegments([
+            for (final k in kBracketMaterials.keys)
+              PlateOption(
+                'br_mat_$k',
+                k,
+                _s('mat') == k,
+                () => _setV('mat', k),
+              ),
+          ]),
+          _guide('지시서 재질 칸과 하중 확인(항복 강도)에 씁니다. SS275는 예전 SS400입니다.'),
+        ]),
+        PlateSection('용접', [
+          plateRow([
+            _num(
+              'br_wz',
+              '필릿 각장',
+              'wz',
+              hint: autoWeld == null ? '자동' : '자동 ${fmt(autoWeld)}',
+            ),
+            const SizedBox.shrink(),
+          ]),
+          _guide('비우면 이음마다 얇은 쪽 두께(6 넘으면 6)입니다. 그림 기호 z = 각장(다리 길이).'),
+        ]),
+      ],
+    );
+  }
+
+  Widget _holeSection({
+    required String title,
+    required String p,
+    required int max,
+    required String firstLabel,
+    required String guide,
+    required BracketSectionView? view,
+  }) {
+    final n = _i('${p}n');
+    final dia = _n('${p}d');
+    return PlateSection(title, [
+      PlateSegments([
+        for (var k = 0; k <= max; k++)
+          PlateOption(
+            'br_${p}n_$k',
+            k == 0 ? '없음' : '$k개',
+            n == k,
+            () => _setV('${p}n', k),
+          ),
+      ]),
+      if (n > 0) ...[
+        PlateFieldGrid([
+          _num('br_${p}d', '지름', '${p}d'),
+          _num('br_${p}f', firstLabel, '${p}f'),
+          if (n > 1) _num('br_${p}p', '피치', '${p}p'),
+        ]),
+        _dieRow('br_${p}_die_', '${p}d'),
+        PlateFieldGrid([
+          _num('br_${p}s', '장공 길이', '${p}s2', hint: '비우면 둥근 구멍'),
+          _num(
+            'br_${p}g',
+            '게이지',
+            '${p}g',
+            hint: view == null ? null : '비우면 ${fmt(view.gauge)}',
+          ),
+        ]),
+        if (view != null &&
+            !view.holesFront &&
+            !view.twoLines &&
+            view.width >= 4 * dia)
+          PlateSegments([
+            PlateOption(
+              'br_${p}2_0',
+              '한 줄',
+              !_b('${p}2'),
+              () => _setV('${p}2', false),
+            ),
+            PlateOption(
+              'br_${p}2_1',
+              '두 줄(양쪽 게이지)',
+              _b('${p}2'),
+              () => _setV('${p}2', true),
+            ),
+          ]),
+        _guide(guide),
+      ],
+    ]);
+  }
+
+  Widget _holesPanel(BracketPlan? p) {
+    BracketSectionView? viewOf(String name) {
+      if (p == null) return null;
+      for (final m in p.members) {
+        if (m.name == name) return m.view;
+      }
+      return null;
+    }
+
+    final wall = _lLike && _b('wp');
+    return PlatePanel(
+      title: '구멍과 판',
+      status: p == null
+          ? null
+          : '${p.wallHoles.values.fold(0, (s, v) => s + v) + p.armHoles.values.fold(0, (s, v) => s + v) + p.anchorHoles.values.fold(0, (s, v) => s + v)}개 구멍(전체)',
+      actions: [
+        plateHelpButton(
+          context,
+          'br_help_holes',
+          '구멍·판 약속',
+          kBracketBasis.sublist(3, 5) + kBracketBasis.sublist(6, 7),
+        ),
+      ],
+      children: [
+        if (_lLike && !wall)
+          _holeSection(
+            title: '기둥 구멍 (벽 고정)',
+            p: 'p',
+            max: 4,
+            firstLabel: '위 끝에서 첫 구멍',
+            guide: '기둥이 벽에 붙는 면에 뚫습니다. 위 바깥 모서리에서 잽니다.',
+            view: viewOf('기둥'),
+          ),
+        _holeSection(
+          title: _shape == BracketShape.hanger
+              ? '가로대 구멍 (U볼트·클램프, 전산볼트 구멍 말고)'
+              : '가로대 구멍 (U볼트·클램프)',
+          p: 'a',
+          max: 5,
+          firstLabel: _lLike ? '가로대 끝에서 첫 구멍' : '왼쪽 바깥에서 첫 구멍',
+          guide: _lLike
+              ? '가로대 위 면에 뚫습니다. 가로대 끝(벽 반대쪽)에서 잽니다.'
+              : '가로대 위 면에 뚫습니다. 왼쪽 바깥(기둥 바깥면)에서 잽니다.',
+          view: viewOf('가로대'),
+        ),
+        if (_shape == BracketShape.frame && _b('lw'))
+          PlateSection('아래 가로대 구멍', [
+            PlateSegments([
+              PlateOption('br_lh_0', '없음', !_b('lh'), () => _setV('lh', false)),
+              PlateOption(
+                'br_lh_1',
+                '위 가로대와 같게',
+                _b('lh'),
+                () => _setV('lh', true),
+              ),
+            ]),
+          ]),
+        if (_shape == BracketShape.hanger)
+          PlateSection('전산볼트 구멍', [
+            _guide(
+              '가로대 위 면, 양 끝에서 ${_c['re']!.text} 자리에 φ${fmt(bracketRodHole(_i('rd').toDouble()))} 두 개(M${_i('rd')}). 부재도에 함께 나옵니다.',
+            ),
+          ]),
+        if (_lLike)
+          PlateSection('벽 붙임 판', [
+            PlateSegments([
+              PlateOption(
+                'br_wp_0',
+                '안 붙임',
+                !_b('wp'),
+                () => _setV('wp', false),
+              ),
+              PlateOption('br_wp_1', '붙임', _b('wp'), () => _setV('wp', true)),
+            ]),
+            if (_b('wp')) ...[
+              PlateFieldGrid([
+                _num('br_ww', '판 폭', 'ww'),
+                _num('br_wh', '판 높이', 'wh', hint: '기둥 높이'),
+                _num('br_wt', '두께', 'wt'),
+              ]),
+              _label('앵커 구멍'),
+              PlateSegments([
+                for (final k in const [0, 2, 4])
+                  PlateOption(
+                    'br_wn_$k',
+                    k == 0 ? '없음' : '$k개',
+                    _i('wn') == k,
+                    () => _setV('wn', k),
+                  ),
+              ]),
+              if (_i('wn') > 0) ...[
+                PlateFieldGrid([
+                  _num('br_wd', '지름', 'wd'),
+                  _num('br_we', '가장자리에서', 'we'),
+                ]),
+                _dieRow('br_wd_die_', 'wd'),
+              ],
+              _guide(
+                '기둥 뒤에 붙여 벽에 앵커로 고정합니다(기둥 구멍 대신). 4개는 네 귀, 2개는 양옆 가운데. 처음 값은 임의 값입니다.',
+              ),
+            ],
+          ]),
+        if (_standing)
+          PlateSection('베이스 판', [
+            PlateSegments([
+              PlateOption(
+                'br_plate_off',
+                '안 붙임',
+                !_b('pl'),
+                () => _setV('pl', false),
+              ),
+              PlateOption(
+                'br_plate_on',
+                '붙임',
+                _b('pl'),
+                () => _setV('pl', true),
+              ),
+            ]),
+            if (_b('pl')) ...[
+              PlateFieldGrid([
+                _num('br_pw', '가로 (그림 방향)', 'pw'),
+                _num('br_pll', '세로 (앞뒤)', 'pll'),
+                _num('br_pt', '두께', 'pt'),
+              ]),
+              _label('앵커 구멍'),
+              PlateSegments([
+                for (final k in const [0, 2, 4])
+                  PlateOption(
+                    'br_pn_$k',
+                    k == 0 ? '없음' : '$k개',
+                    _i('pln') == k,
+                    () => _setV('pln', k),
+                  ),
+              ]),
+              if (_i('pln') > 0) ...[
+                PlateFieldGrid([
+                  _num('br_pld', '지름', 'pld'),
+                  _num('br_ple', '가장자리에서', 'ple'),
+                ]),
+                _dieRow('br_pld_die_', 'pld'),
+              ],
+              _label('리브(보강판)'),
+              PlateSegments([
+                for (final k in const [0, 2, 4])
+                  PlateOption(
+                    'br_rb_$k',
+                    k == 0 ? '없음' : '$k장',
+                    _i('rb') == k,
+                    () => _setV('rb', k),
+                  ),
+              ]),
+              if (_i('rb') > 0)
+                PlateFieldGrid([
+                  _num('br_rh', '높이', 'rh'),
+                  _num('br_rl', '길이 (기둥 면에서)', 'rl'),
+                  _num('br_rt', '두께', 'rt'),
+                ]),
+              _guide('기둥마다 한 장. 2장 리브는 그림 면 양옆, 4장은 앞뒤까지. 처음 값은 임의 값입니다.'),
+            ],
+          ]),
+      ],
+    );
+  }
+
+  Color _ratioColor(double r) =>
+      r > 1 ? fc.danger : (r > 0.7 ? fc.caution : fc.ok);
+
+  Widget _pieceCard(BracketPiece pc) => Material(
+    color: fc.fill,
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      key: Key('br_piece_${pc.mark}'),
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => setState(() {
+        _view = 'piece';
+        _pieceMark = pc.mark;
+      }),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${pc.title}  ${pc.ks}',
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w900,
+                      color: fc.text,
+                    ),
+                  ),
+                ),
+                Text(
+                  '부재도',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: fc.brand,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${_pieceSize(pc)} × ${pc.qty * _sets}${pc.kind == BracketPieceKind.plate || pc.kind == BracketPieceKind.rib ? '장' : '개'}${pc.ends.isEmpty ? '' : ' · ${pc.ends}'}${pc.kgEach > 0 ? ' · 개당 ${fmt(pc.kgEach, 2)}kg' : ''}',
+              style: TextStyle(fontSize: 13.5, color: fc.text, height: 1.35),
+            ),
+            if (pc.holes.isNotEmpty)
+              Text(
+                '구멍 ${_holeText(pc)}',
+                style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+              ),
           ],
         ),
       ),
+    ),
+  );
+
+  Widget _resultPanel(BracketPlan? p, bool warn) {
+    if (p == null) {
+      return PlatePanel(
+        title: '결과',
+        status: '규격과 치수를 넣으면 계산합니다.',
+        children: const [],
+      );
+    }
+    final load = _loadOf(p);
+    final pieceN = p.pieces.fold(0, (s, x) => s + x.qty) * _sets;
+    return PlatePanel(
+      title: '결과',
+      status: warn ? '고칠 곳 ${p.problems.length}개' : '$_sets개 · 토막·판 $pieceN개',
+      statusKey: const Key('br_status'),
+      statusColor: warn ? fc.danger : null,
+      actions: [
+        plateHelpButton(
+          context,
+          'br_help_result',
+          '결과 약속',
+          kBracketBasis.sublist(7),
+        ),
+      ],
+      children: [
+        PlateSection('요약', [
+          KeyedSubtree(
+            key: const Key('br_result'),
+            child: PlateBigValue(
+              value: '약 ${fmt(p.kgTotal)}kg${p.weightKnown ? '' : ' 이상'}',
+              caption:
+                  '${_specLine(p)} · $_sets개${p.braceAngle != null ? ' · 가새 ${fmt(p.braceAngle!)}°' : ''}',
+              warn: warn,
+            ),
+          ),
+          if (p.problems.isNotEmpty) PlateLines(p.problems, color: fc.danger),
+          if (p.notes.isNotEmpty) PlateLines(p.notes, color: fc.caution),
+        ], first: true),
+        PlateSection('자를 것·판 (누르면 부재도)', [
+          KeyedSubtree(
+            key: const Key('br_pieces'),
+            child: Column(
+              children: [
+                for (final pc in p.pieces) ...[
+                  _pieceCard(pc),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          ),
+        ]),
+        if (p.welds.isNotEmpty) PlateSection('용접', [PlateLines(_weldLines(p))]),
+        if (_boltLines(p).isNotEmpty)
+          PlateSection('볼트·앵커', [
+            KeyedSubtree(
+              key: const Key('br_bolts'),
+              child: PlateLines(_boltLines(p)),
+            ),
+          ]),
+        if (_stockLines(p).isNotEmpty)
+          PlateSection('원자재', [
+            KeyedSubtree(
+              key: const Key('br_stock_result'),
+              child: PlateLines(_stockLines(p)),
+            ),
+          ]),
+        PlateSection('하중 확인 (참고)', [
+          plateRow([
+            _num('br_lk', '가로대 한 단에 얹는 무게', 'lk', unit: 'kg', hint: '예) 100'),
+            const SizedBox.shrink(),
+          ]),
+          PlateSegments([
+            for (var i = 0; i < 3; i++)
+              PlateOption(
+                'br_lm_$i',
+                _loadModeName(i),
+                _i('lm') == i,
+                () => _setV('lm', i),
+              ),
+          ]),
+          if (load == null)
+            _guide('무게를 넣으면 휨·처짐·가새·앵커 힘을 대략 보여 줍니다. 설계 검토를 대신하지 못합니다.')
+          else ...[
+            for (final c in load.checks)
+              Column(
+                key: Key('br_load_${c.name}'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  PlateInfoRow(
+                    c.name,
+                    '${bracketLoadPct(c.ratio)}${c.ok ? '' : ' 넘음'}',
+                    color: _ratioColor(c.ratio),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 84),
+                    child: Text(
+                      c.detail,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: fc.textSub,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            if (load.forces.isNotEmpty) PlateLines(load.forces),
+            if (load.notes.isNotEmpty)
+              PlateLines(load.notes, color: fc.caution),
+            _guide(
+              '참고값(AISC 허용응력 꼴, 재질 ${_s('mat')}). 용접·앵커 강도와 옆 힘은 보지 않습니다.',
+            ),
+          ],
+        ]),
+        PlateSection('작업 순서', [
+          PlateLines([
+            '자를 것 표대로 형강을 자릅니다. 비스듬한 끝은 표의 각도로(각도절단기 직각 = 0°) 자르고 절단면 버를 갈아 냅니다.',
+            '부재도(아래 = 구멍 뚫는 면)대로 기준 끝에서 재어 마킹하고 펀치 금형(없는 크기는 드릴)으로 뚫습니다. 용접 전에 뚫어야 기계에 넣기 쉽습니다.',
+            '조립도의 단면대로 방향을 맞춰 가접하고 직각·대각선 길이를 재어 틀어짐이 없으면 본용접합니다(주황 기호 자리, z = 각장).',
+            if (_shape == BracketShape.brace)
+              '가새는 가로대·기둥을 먼저 가접해 직각을 잡은 뒤 끼워 맞춥니다.',
+            if (_standing && _b('pl'))
+              '베이스 판은 기둥 밑에 직각으로 용접하고, 판 구멍이 그림 방향과 맞는지 봅니다.',
+            if (_lLike && _b('wp'))
+              '벽 붙임 판은 기둥 뒤 가운데에 맞춰 용접하고, 판 구멍이 기둥에 가리지 않는지 봅니다.',
+            '용접부 슬래그를 떼고 표면 처리(${kBracketFinishes[_i('fin')]})를 합니다.',
+          ]),
+        ]),
+      ],
+    );
+  }
+
+  Widget _sendPanel(BracketPlan? p) => PlatePanel(
+    title: '보내기',
+    status: p == null ? '규격과 치수를 넣으십시오.' : '지시서 PDF(조립도·부재도·표), 카톡 글, 다른 화면으로',
+    children: [
+      PlateSection('도면 정보', [
+        _num(
+          'br_job',
+          '작업 이름 (현장·위치)',
+          'jn',
+          unit: null,
+          text: true,
+          hint: '비워도 됩니다',
+        ),
+        PlateFieldGrid([
+          _num(
+            'br_dn',
+            '도면 번호',
+            'dn',
+            unit: null,
+            text: true,
+            hint: '예) BR-01',
+          ),
+          _num('br_rv', '개정', 'rv', unit: null, text: true),
+        ]),
+        _label('표면 처리'),
+        PlateSegments([
+          for (var i = 0; i < kBracketFinishes.length; i++)
+            PlateOption(
+              'br_fin_$i',
+              kBracketFinishes[i],
+              _i('fin') == i,
+              () => _setV('fin', i),
+            ),
+        ]),
+        _guide(
+          '재질 ${_s('mat')}(부재 탭) · 공차 ${_settings.tolerance} · 작성 ${_settings.author.isEmpty ? '(비움)' : _settings.author} — 공차·작성자는 설정에서 바꿉니다.',
+        ),
+      ], first: true),
+      if (p != null)
+        PlateSection('보내기', [
+          plateActions([
+            PlateActionButton(
+              key: const Key('br_pdf'),
+              icon: Icons.picture_as_pdf_outlined,
+              label: '가공 지시서 PDF',
+              primary: true,
+              onTap: () => _send('pdf', p),
+            ),
+            PlateActionButton(
+              key: const Key('br_share'),
+              icon: Icons.chat_bubble_outline_rounded,
+              label: '카톡 글',
+              onTap: () => _send('kakao', p),
+            ),
+            if (p.plate != null)
+              PlateActionButton(
+                key: const Key('br_to_plate'),
+                icon: Icons.crop_square_rounded,
+                label: '${p.plate!.name} → 철판 가공',
+                onTap: () => _toPlate(p),
+              ),
+            PlateActionButton(
+              key: const Key('br_to_steel'),
+              icon: Icons.content_cut_rounded,
+              label: '형강 컷팅에 새 작업으로',
+              onTap: () => _toSteel(p),
+            ),
+          ]),
+        ]),
+      PlateSection('묶음', [
+        _guide('한 현장 브라켓 여러 종류를 모아 자를 것·원자재·지시서를 한 번에. 지금 묶음 $_bundleCount종.'),
+        plateActions([
+          if (p != null)
+            PlateActionButton(
+              key: const Key('br_bundle_add'),
+              icon: Icons.playlist_add_rounded,
+              label: '묶음에 넣기',
+              onTap: () => _addToBundle(p),
+            ),
+          PlateActionButton(
+            key: const Key('br_bundle_open'),
+            icon: Icons.inventory_2_outlined,
+            label: '묶음 보기',
+            onTap: _openBundle,
+          ),
+        ]),
+      ]),
+    ],
+  );
+
+  /// 아래 탭 줄(철판 가공과 같은 모양). 키보드가 떠 있으면 숨긴다.
+  Widget? _navBar(int idx) {
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) return null;
+    final compact = calcNavCompact(context);
+    BottomNavigationBarItem item(String id, String label, int i) {
+      final on = i == idx;
+      final Widget icon = switch (id) {
+        'shape' => AppIcon(AppGlyph.navInput, size: 24, filled: on),
+        'member' => AppIcon(AppGlyph.bracket, size: 24, filled: on),
+        'holes' => const Icon(Icons.adjust, size: 24),
+        'result' => AppIcon(AppGlyph.navMarking, size: 24, filled: on),
+        _ => const Icon(AppIcons.send, size: 22),
+      };
+      return BottomNavigationBarItem(
+        icon: Padding(
+          padding: EdgeInsets.only(bottom: compact ? 0 : 4),
+          child: KeyedSubtree(key: Key('br_tab_$id'), child: icon),
+        ),
+        label: label,
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border(top: BorderSide(color: fc.line)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: compact ? 0 : 4,
+          ),
+          child: BottomNavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            currentIndex: idx,
+            selectedItemColor: fc.brand,
+            unselectedItemColor: fc.textSub,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 10,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+            ),
+            onTap: (i) {
+              HapticFeedback.selectionClick();
+              FocusManager.instance.primaryFocus?.unfocus();
+              setState(() => _tab = i);
+            },
+            items: [
+              for (var i = 0; i < _tabs.length; i++)
+                item(_tabs[i].$1, _tabs[i].$2, i),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<String> _menuItem(
+    String key,
+    String value,
+    IconData icon,
+    String label,
+  ) => PopupMenuItem<String>(
+    key: Key(key),
+    value: value,
+    child: Row(
+      children: [
+        Icon(icon, size: 20, color: fc.textSub),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: TextStyle(fontWeight: FontWeight.w700, color: fc.text),
+        ),
+      ],
     ),
   );
 
@@ -574,437 +1861,136 @@ class _BracketPageState extends State<BracketPage>
     final p = _plan();
     final warn = p != null && !p.ok;
     String? summary;
-    final specList = kBracketSpecLists[_cat].$2;
-    final shapeGuide = switch (_shape) {
-      0 => 'ㄱ자: 벽(기둥)에 붙이고 가로대 위에 튜브·트레이를 얹습니다.',
-      1 => '삼각: ㄱ자에 비스듬한 가새를 더해 무거운 것을 받칩니다.',
-      2 => '문형: 기둥 둘 위에 가로대. 바닥에 세우는 서포트입니다.',
-      _ => 'T자: 기둥 하나 위에 가로대(가로대 0이면 기둥만).',
-    };
-    final children = <Widget>[
-      elecField(
-        'br_job',
-        '작업 이름 (선택)',
-        _job,
-        '지시서 PDF 제목과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
-        onEdit: _saveSoon,
-      ),
-      elecSectionTitle('모양'),
-      elecChipGroup('모양', shapeGuide, [
-        for (var i = 0; i < kBracketShapes.length; i++)
-          calcChip(
-            'br_shape_$i',
-            kBracketShapes[i].$2,
-            _shape == i,
-            () => _set(() => _shape = i),
-          ),
-      ]),
-      elecSectionTitle('재료'),
-      elecChipGroup('형강 종류', '쓸 형강 종류를 고르고 아래에서 규격을 고릅니다.', [
-        for (var i = 0; i < kBracketSpecLists.length; i++)
-          calcChip(
-            'br_cat_$i',
-            kBracketSpecLists[i].$1,
-            _cat == i,
-            () => _set(() {
-              _cat = i;
-              final list = kBracketSpecLists[i].$2;
-              if (!list.any((s) => s.label == _spec)) {
-                // 종류를 바꾸면 그 종류의 흔한 규격으로
-                final want = kBracketSpecDefaults[i];
-                final pick = list.firstWhere(
-                  (s) => s.label == want,
-                  orElse: () => list.firstWhere(
-                    (s) => s.label.contains('50x'),
-                    orElse: () => list.first,
-                  ),
-                );
-                _spec = pick.label;
-              }
-            }),
-          ),
-      ]),
-      calcDropdown<String>(
-        'br_spec',
-        '규격',
-        specList.any((s) => s.label == _spec) ? _spec : specList.first.label,
-        [for (final s in specList) s.label],
-        (s) => s,
-        (s) => _set(() => _spec = s),
-        '목록에 없으면 "자세히"의 "규격 직접 적기"에 넣습니다.',
-      ),
-      if (_custom.text.trim().isNotEmpty)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            '직접 적은 규격 "${_custom.text.trim()}"을 씁니다(자세히).',
-            style: TextStyle(fontSize: 13, color: fc.textSub),
-          ),
-        ),
-      elecSectionTitle('치수 (바깥, mm)'),
-      if (_lLike) ...[
-        elecField(
-          'br_a',
-          '가로대 길이 (mm)',
-          _a,
-          '기둥 바깥면(벽)에서 가로대 끝까지입니다.',
-          onEdit: _saveSoon,
-        ),
-        elecField(
-          'br_b',
-          '기둥 높이 (mm)',
-          _b,
-          '가로대 윗면에서 기둥 끝까지입니다.',
-          onEdit: _saveSoon,
-        ),
-      ] else ...[
-        elecField(
-          'br_a',
-          _shape == 2 ? '폭 (mm)' : '가로대 길이 (mm, 0이면 기둥만)',
-          _a,
-          _shape == 2 ? '양쪽 기둥 바깥면 사이입니다.' : '가로대 끝에서 끝까지입니다. 기둥은 가운데에 섭니다.',
-          onEdit: _saveSoon,
-        ),
-        elecField(
-          'br_b',
-          '높이 (mm)',
-          _b,
-          '바닥(베이스 판 밑면)에서 가로대 윗면까지입니다.',
-          onEdit: _saveSoon,
-        ),
-      ],
-      if (_shape == 1) ...[
-        elecField(
-          'br_ba',
-          '가새 가로대 쪽 자리 (mm)',
-          _braceA,
-          '바깥 모서리에서 가새 중심선이 가로대 밑면에 닿는 곳까지입니다.',
-          onEdit: _saveSoon,
-        ),
-        elecField(
-          'br_bb',
-          '가새 기둥 쪽 자리 (mm)',
-          _braceB,
-          '위 바깥 모서리에서 가새 중심선이 기둥 안쪽 면에 닿는 곳까지입니다. 가로대 쪽과 같으면 45°입니다.',
-          onEdit: _saveSoon,
-        ),
-        Wrap(
-          spacing: 8,
-          children: [
-            calcChip('br_brace45', '45°로 맞추기', false, () {
-              _set(() => _braceB.text = _braceA.text);
-            }),
-          ],
-        ),
-        const SizedBox(height: 8),
-      ],
-      if (_shape != 3)
-        elecChipGroup(
-          '이음',
-          '기둥 통과: 가로대가 기둥 옆에 붙어 가로대가 짧아집니다. 가로대 통과: 기둥이 가로대 밑에 붙어 기둥이 짧아집니다. 45° 연귀: 맞닿는 끝을 45°로 자릅니다.',
-          [
-            for (final (i, label) in const [
-              (0, '기둥 통과'),
-              (1, '가로대 통과'),
-              (2, '45° 연귀'),
-            ])
-              calcChip(
-                'br_joint_$i',
-                label,
-                _joint == i,
-                () => _set(() => _joint = i),
-              ),
-          ],
-        ),
-      elecField(
-        'br_sets',
-        '만들 개수',
-        _sets,
-        '같은 브라켓을 몇 개 만드는지입니다. 자를 것·볼트·원자재에 곱합니다.',
-        onEdit: _saveSoon,
-      ),
-      elecSectionTitle('구멍'),
-      if (_lLike)
-        ..._holeInputs(
-          key: 'br_ph',
-          title: '기둥 구멍 (벽 붙임)',
-          guide: '기둥이 벽·기둥에 닿는 면에 뚫는 볼트 구멍입니다. 위 바깥 모서리에서 잽니다.',
-          count: _postN,
-          onCount: (n) => _postN = n,
-          dia: _postDia,
-          first: _postFirst,
-          pitch: _postPitch,
-          firstLabel: '위 끝에서 첫 구멍까지 (mm)',
-        ),
-      ..._holeInputs(
-        key: 'br_ah',
-        title: '가로대 구멍 (U볼트·클램프)',
-        guide: _lLike
-            ? '가로대 위 면에 뚫는 구멍입니다. 가로대 끝(벽 반대쪽)에서 잽니다.'
-            : '가로대 위 면에 뚫는 구멍입니다. 가로대 왼쪽 끝에서 잽니다.',
-        count: _armN,
-        onCount: (n) => _armN = n,
-        dia: _armDia,
-        first: _armFirst,
-        pitch: _armPitch,
-        firstLabel: _lLike ? '가로대 끝에서 첫 구멍까지 (mm)' : '왼쪽 끝에서 첫 구멍까지 (mm)',
-        max: 5,
-      ),
-      if (!_lLike) ...[
-        elecSectionTitle('베이스 판'),
-        elecChipGroup('베이스 판', '기둥 밑에 용접하는 판입니다. 바닥에 앵커로 고정합니다.', [
-          calcChip(
-            'br_plate_on',
-            '붙임',
-            _plate,
-            () => _set(() => _plate = true),
-          ),
-          calcChip(
-            'br_plate_off',
-            '안 붙임',
-            !_plate,
-            () => _set(() => _plate = false),
-          ),
-        ]),
-        if (_plate) ...[
-          elecField(
-            'br_ps',
-            '판 한 변 (mm)',
-            _plateSize,
-            '정사각 판의 한 변입니다. 기본 150은 임의 값입니다.',
-            onEdit: _saveSoon,
-          ),
-          elecField(
-            'br_pt',
-            '판 두께 (mm)',
-            _plateT,
-            '기둥 길이에서 이 두께만큼 뺍니다. 기본 9는 임의 값입니다.',
-            onEdit: _saveSoon,
-          ),
-          elecChipGroup('앵커 구멍', '4개는 네 귀, 2개는 그림 면 좌우 가운데입니다.', [
-            for (final n in const [0, 2, 4])
-              calcChip(
-                'br_pn_$n',
-                n == 0 ? '없음' : '$n개',
-                _plateN == n,
-                () => _set(() => _plateN = n),
-              ),
-          ]),
-          if (_plateN > 0) ...[
-            elecField(
-              'br_pld',
-              '앵커 구멍 지름 (mm)',
-              _plateDia,
-              '앵커 볼트가 지나는 구멍입니다.',
-              onEdit: _saveSoon,
-            ),
-            _dieChipRow('br_pld_d_', _plateDia),
-            const SizedBox(height: 8),
-            elecField(
-              'br_ple',
-              '가장자리에서 구멍까지 (mm)',
-              _plateEdge,
-              '판 가장자리에서 구멍 중심까지입니다. 기본 25는 임의 값입니다.',
-              onEdit: _saveSoon,
-            ),
-          ],
-        ],
-      ],
-      const SizedBox(height: 4),
-      ...elecFold('br_fold_more', '자세히', [
-        elecField(
-          'br_custom',
-          '규격 직접 적기 (비우면 위에서 고른 것)',
-          _custom,
-          '"앵글 50x50x6"처럼 종류와 치수를 적으면 무게도 계산합니다.',
-          onEdit: () => setState(_saveSoon),
-        ),
-        elecField(
-          'br_w',
-          '부재 폭 (mm, 비우면 규격에서 ${fmt(bracketMemberWidth(_specUsed) ?? 0)})',
-          _width,
-          '그림 면에서 보이는 부재 폭입니다. 찬넬을 눕혀 쓰는 경우처럼 규격 첫 치수와 다르면 넣습니다.',
-          onEdit: _saveSoon,
-        ),
-        elecField(
-          'br_stock',
-          '원자재 길이 (mm)',
-          _stock,
-          '원자재 한 본 길이입니다. 0이면 본수를 계산하지 않습니다.',
-          onEdit: _saveSoon,
-        ),
-        elecField(
-          'br_kerf',
-          '톱날 여유 (mm)',
-          _kerf,
-          '한 번 자를 때 없어지는 길이입니다. 기본 2는 임의 값입니다.',
-          onEdit: _saveSoon,
-        ),
-        elecChipGroup(
-          '내 펀치 금형',
-          '구멍 지름 칩에 나오는 값입니다. 접지바 가공과 같이 씁니다. 지금: ${_dieChips.map((d) => fmt(d)).join(' · ')}${_dies.isEmpty ? '(기본)' : ''}',
-          [
-            calcChip(
-              'br_dies',
-              _dies.isEmpty ? '내 금형 넣기' : '내 금형 고치기',
-              false,
-              _editDies,
-            ),
-          ],
-        ),
-      ], subtitle: '규격 직접 적기 · 부재 폭 · 원자재 길이 · 톱날 여유'),
-      const SizedBox(height: 8),
-    ];
-
-    if (p == null) {
-      children.add(
-        calcResult(
-          key: const Key('br_result'),
-          big: '— mm',
-          caption: '규격과 치수를 넣으면 계산합니다',
-          lines: const [],
-        ),
-      );
-    } else {
+    if (p != null) {
+      // 최근 기록 한 줄(같은 줄은 갈아 끼움)
       summary =
-          '브라켓 ${kBracketShapes[_shape].$2} · ${p.pieces.map((x) => '${x.name} ${fmt(x.length, 1)}').join(' · ')}';
-      children.addAll([
-        calcResult(
-          key: const Key('br_result'),
-          big: p.pieces.map((x) => '${x.name} ${fmt(x.length, 1)}').join(' · '),
-          caption:
-              '자를 길이(mm) · $_setCount개 · 약 ${fmt(p.kgTotal, 1)}kg${p.weightKnown ? '' : ' 이상'}',
-          warn: warn,
-          lines: [
-            ...p.problems,
-            ...p.notes,
-            '$_specUsed · 부재 폭 ${fmt(_d)}mm · ${_jointName()}.',
-            if (p.braceAngle != null)
-              '가새 기울기 ${fmt(p.braceAngle!, 1)}° · 긴 변 ${fmt(p.pieces.last.length, 1)} / 짧은 변 ${fmt(p.pieces.last.short ?? 0, 1)}mm.',
-            ?_plateLine(p),
-          ],
-        ),
-        const SizedBox(height: 12),
-        calcLabel('그림', '실제 비율입니다. 주황 삼각은 용접 자리, 흰 원은 구멍 자리(중심 거리)입니다.'),
-        const SizedBox(height: 4),
-        Container(
-          key: const Key('br_view'),
-          height: 300,
-          decoration: BoxDecoration(
-            color: fc.surface,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: fc.line),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: CustomPaint(
-              painter: BracketPainter(
-                drawing: p.drawing,
-                text: fc.text,
-                sub: fc.textSub,
-                bg: fc.surface,
+          '브라켓 $_shapeName · ${p.pieces.where((x) => x.kind == BracketPieceKind.member).map((x) => '${x.name} ${fmt(x.length)}').join(' · ')}';
+    }
+    final idx = _tab.clamp(0, _tabs.length - 1);
+    final head = p == null
+        ? null
+        : '$_shapeName · ${_specLine(p)} · 약 ${fmt(p.kgTotal)}kg';
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _saveNow();
+      },
+      child: FieldViewTheme(
+        child: Builder(
+          builder: (context) => Scaffold(
+            backgroundColor: fc.background,
+            appBar: AppBar(
+              backgroundColor: fc.surface,
+              foregroundColor: fc.text,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '형강 브라켓',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: fc.text,
+                    ),
+                  ),
+                  if (head != null)
+                    KeyedSubtree(
+                      key: const Key('br_sum'),
+                      child: Text(
+                        head,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: warn ? fc.danger : fc.brand,
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              child: const SizedBox.expand(),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        ...elecFold(
-          'br_fold_pieces',
-          '자를 것',
-          [_pieceTable(p)],
-          open: true,
-          subtitle: '${p.pieces.fold(0, (s, x) => s + x.qty) * _setCount}토막',
-        ),
-        ...elecFold('br_fold_holes', '구멍 위치 (토막 끝에서 중심까지)', [
-          if (p.pieces.any((x) => x.holes.isNotEmpty) || p.plate != null)
-            calcResult(
-              key: const Key('br_holes'),
-              big: '구멍',
-              caption: '자른 토막 끝에서 잰 거리',
-              lines: [
-                for (final pc in p.pieces.where((x) => x.holes.isNotEmpty))
-                  _holeLine(pc),
-                ?_plateLine(p),
-                ..._boltLines(p),
+              actions: [
+                PlateBarAction(
+                  key: const Key('br_saved'),
+                  icon: Icons.bookmarks_outlined,
+                  label: '저장',
+                  onTap: _openSaved,
+                ),
+                PopupMenuButton<String>(
+                  key: const Key('br_more'),
+                  tooltip: '더 보기',
+                  icon: Icon(Icons.more_vert, color: fc.text),
+                  color: fc.surface,
+                  onSelected: (v) {
+                    switch (v) {
+                      case 'history':
+                        showCalcHistorySheet(
+                          context,
+                          calcHistory,
+                          title: '최근 계산 기록',
+                        );
+                      case 'bundle':
+                        _openBundle();
+                      case 'settings':
+                        _openSettings();
+                    }
+                  },
+                  itemBuilder: (_) => [
+                    _menuItem(
+                      'br_history',
+                      'history',
+                      Icons.history_rounded,
+                      '최근 계산 기록',
+                    ),
+                    _menuItem(
+                      'br_bundle',
+                      'bundle',
+                      Icons.inventory_2_outlined,
+                      '브라켓 묶음',
+                    ),
+                    _menuItem(
+                      'br_settings',
+                      'settings',
+                      AppIcons.settings,
+                      '형강 브라켓 설정',
+                    ),
+                  ],
+                ),
               ],
             ),
-        ], open: true),
-        ...elecFold('br_fold_stock', '원자재', [
-          if (_stockLines(p).isNotEmpty)
-            calcResult(
-              key: const Key('br_stock_result'),
-              big: '${p.stock.values.fold(0, (s, r) => s + r.barCount)}본',
-              caption: '자를 것 전부를 원자재에 배치',
-              lines: _stockLines(p),
-            ),
-        ]),
-        const SizedBox(height: 8),
-        ...elecFold('br_fold_notes', '작업 순서', [
-          calcResult(
-            key: const Key('br_notes'),
-            big: '작업 순서',
-            caption: '현장에서 만들 때',
-            lines: [
-              '자를 것 표대로 형강을 자릅니다. ${_joint == 2 && _shape != 3 ? "연귀 끝은 45°로, " : ""}${_shape == 1 ? "가새 양 끝은 표의 각도로 비스듬히 자르고, " : ""}절단면 버를 갈아 냅니다.',
-              '구멍 자리를 토막 끝에서 재어 마킹하고 펀치 금형(없는 크기는 드릴)으로 뚫습니다. 용접 전에 뚫어야 기계에 넣기 쉽습니다.',
-              '바깥 치수에 맞춰 직각을 보고 가접한 뒤 대각선 길이를 재어 틀어짐이 없으면 본용접합니다(그림의 주황 삼각 자리).',
-              if (_shape == 1) '가새는 가로대·기둥을 먼저 가접해 직각을 잡은 뒤 끼워 맞춥니다.',
-              if (!_lLike && _plate)
-                '베이스 판은 기둥 밑에 직각으로 용접하고, 판 구멍이 그림 방향과 맞는지 봅니다.',
-              '용접부 슬래그를 떼고 녹 방지 도장(현장 기준)을 합니다.',
-            ],
-          ),
-        ]),
-      ]);
-    }
-    children.addAll([
-      const SizedBox(height: 12),
-      elecBasis('br_basis', kBracketBasis),
-    ]);
-
-    return FieldViewTheme(
-      child: Builder(
-        builder: (context) => Scaffold(
-          backgroundColor: fc.background,
-          appBar: AppBar(
-            backgroundColor: fc.surface,
-            foregroundColor: fc.text,
-            surfaceTintColor: Colors.transparent,
-            elevation: 0,
-            title: Text(
-              '형강 브라켓',
-              style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
-            ),
-            actions: [
-              if (p != null)
-                IconButton(
-                  key: const Key('br_share'),
-                  tooltip: '카톡으로 보내기',
-                  icon: Icon(Icons.share_outlined, color: fc.text),
-                  onPressed: () => widget.share(_shareText(p)),
+            body: elecPageFrame(
+              sumKey: 'br_sum',
+              summary: summary,
+              warn: warn,
+              showBar: false,
+              body: PlateWorkspace(
+                canvasShare: 0.4,
+                canvas: KeyedSubtree(
+                  key: const ValueKey('br_canvas'),
+                  child: _canvas(p),
                 ),
-              if (p != null)
-                IconButton(
-                  key: const Key('br_pdf'),
-                  tooltip: '가공 지시서 PDF',
-                  icon: Icon(Icons.picture_as_pdf_outlined, color: fc.text),
-                  onPressed: () => openBracketPdf(context, () => _pdfInput(p)),
+                tools: _canvasTools(p),
+                hint: _canvasHint(p),
+                panel: IndexedStack(
+                  index: idx,
+                  children: [
+                    for (final t in _tabs)
+                      KeyedSubtree(
+                        key: ValueKey('br_body_${t.$1}'),
+                        child: switch (t.$1) {
+                          'shape' => _shapePanel(p),
+                          'member' => _memberPanel(p),
+                          'holes' => _holesPanel(p),
+                          'result' => _resultPanel(p, warn),
+                          _ => _sendPanel(p),
+                        },
+                      ),
+                  ],
                 ),
-              IconButton(
-                key: const Key('br_saved'),
-                tooltip: '저장한 규격',
-                icon: Icon(Icons.bookmarks_outlined, color: fc.text),
-                onPressed: _openSaved,
               ),
-              calcHistoryButton(),
-            ],
-          ),
-          body: elecPage(
-            children,
-            sumKey: 'br_sum',
-            summary: summary,
-            warn: warn,
+            ),
+            bottomNavigationBar: _navBar(idx),
           ),
         ),
       ),

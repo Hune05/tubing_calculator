@@ -15,10 +15,22 @@ import 'plate_calc.dart';
 import 'plate_ui.dart';
 
 class Plate3dView extends StatefulWidget {
-  const Plate3dView({super.key, required this.plan, required this.t});
+  const Plate3dView({super.key, required this.plan, required this.t})
+    : mesh = null,
+      info = null;
 
-  final PlatePlan plan;
+  /// 다른 화면이 만든 면들을 그대로 돌려 본다(형강 브라켓, 10-11). [info]는 크기 줄 대신 쓰는 글.
+  const Plate3dView.mesh({
+    super.key,
+    required List<Plate3dFace> this.mesh,
+    this.info,
+  }) : plan = null,
+       t = 0;
+
+  final PlatePlan? plan;
   final double t;
+  final List<Plate3dFace>? mesh;
+  final String? info;
 
   @override
   State<Plate3dView> createState() => _Plate3dViewState();
@@ -43,10 +55,12 @@ class _Plate3dViewState extends State<Plate3dView> {
   List<Plate3dFace> _faces = const [];
 
   List<Plate3dFace> get _mesh {
+    final given = widget.mesh;
+    if (given != null) return given;
     if (!identical(_forPlan, widget.plan) || _forT != widget.t) {
       _forPlan = widget.plan;
       _forT = widget.t;
-      _faces = plate3dMesh(widget.plan, t: widget.t);
+      _faces = plate3dMesh(widget.plan!, t: widget.t);
     }
     return _faces;
   }
@@ -76,6 +90,7 @@ class _Plate3dViewState extends State<Plate3dView> {
         ? (vm.Vector3.zero(), vm.Vector3.zero())
         : plate3dBounds(faces);
     final size =
+        widget.info ??
         '${_f(hi.x - lo.x)} × ${_f(hi.y - lo.y)} × ${_f(hi.z - lo.z)} mm (두께 ${_f(widget.t)})';
     return Stack(
       children: [

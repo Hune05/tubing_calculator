@@ -1866,7 +1866,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "형강 브라켓",
-                        subtitle: "ㄱ자·삼각·문형·T자 제작도 · 자를 길이 · 구멍",
+                        subtitle: "ㄱ자·삼각·문형·T자·천장 매달기 제작도 · 부재도 · 지시서",
                         icon: AppGlyph.bracket,
                         iconColor: makitaTeal,
                         onTap: () {

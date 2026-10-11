@@ -320,7 +320,7 @@ final List<QuickToolDef> kQuickTools = [
     '형강 브라켓',
     AppGlyph.bracket,
     (_) => const BracketPage(),
-    subtitle: 'ㄱ자·삼각·문형·T자 제작도 · 자를 길이 · 구멍',
+    subtitle: 'ㄱ자·삼각·문형·T자·천장 매달기 제작도 · 부재도 · 지시서',
     group: '가공·배치',
   ),
   QuickToolDef(

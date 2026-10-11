@@ -46,6 +46,7 @@ const Map<String, String> kElecTabLabels = {
   'bb_sum': '부스바 절곡',
   'gb_sum': '접지바 가공',
   'pl_sum': '철판 가공',
+  'br_sum': '형강 브라켓',
 };
 
 /// true면 [ElecTabParts.elecFold]의 모든 구역을 처음부터 펼친다(위젯 테스트 전용: 접힌 칸은 화면에 안 그려져 찾을 수 없다).

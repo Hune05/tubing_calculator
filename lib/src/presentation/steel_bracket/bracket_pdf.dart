@@ -47,6 +47,18 @@ class BracketPdfInput {
   final String docTitle;
   final String drawingCaption;
   final List<(String, Uint8List)> moreDrawings;
+
+  /// 표제란(도면 번호·개정·재질·표면 처리·공차 등, 10-11 형강 브라켓). 비우면 없음.
+  final List<(String, String)> titleBlock;
+
+  /// 첫 그림·뒤 그림 칸 높이(pt).
+  final double drawingHeight, moreHeight;
+
+  /// 뒤 그림을 표 다음(맨 뒤)에 둔다(부재도 쪽).
+  final bool moreAfterSections;
+
+  /// 작성 칸에 미리 적을 이름.
+  final String author;
   const BracketPdfInput({
     required this.title,
     required this.summary,
@@ -56,6 +68,11 @@ class BracketPdfInput {
     this.docTitle = '형강 브라켓 가공 지시서',
     this.drawingCaption = '그림 (바깥 치수, mm)',
     this.moreDrawings = const [],
+    this.titleBlock = const [],
+    this.drawingHeight = 300,
+    this.moreHeight = 300,
+    this.moreAfterSections = false,
+    this.author = '',
   });
 }
 
@@ -95,6 +112,26 @@ Future<Uint8List> buildBracketPdf(
     ),
   );
 
+  // 제목과 그림을 한 덩어리로(제목만 앞 쪽 끝에 남고 그림이 다음 쪽으로 가지 않게).
+  // pw.Container는 안의 Column을 따라 쪽이 나뉘므로 Inseparable로 묶는다.
+  pw.Widget drawing(String caption, Uint8List png, double height) =>
+      pw.Inseparable(
+        child: pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            sectionTitle(caption),
+            pw.Container(
+              height: height,
+              alignment: pw.Alignment.center,
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: _line, width: 0.6),
+              ),
+              child: pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.contain),
+            ),
+          ],
+        ),
+      );
+
   doc.addPage(
     pw.MultiPage(
       pageFormat: PdfPageFormat.a4,
@@ -130,6 +167,44 @@ Future<Uint8List> buildBracketPdf(
             ),
           ),
         pw.SizedBox(height: 8),
+        if (input.titleBlock.isNotEmpty) ...[
+          // 표제란: 이름·값 네 쌍씩 한 줄
+          pw.Table(
+            border: pw.TableBorder.all(color: _line, width: 0.6),
+            columnWidths: const {
+              0: pw.FixedColumnWidth(56),
+              1: pw.FlexColumnWidth(),
+              2: pw.FixedColumnWidth(56),
+              3: pw.FlexColumnWidth(),
+            },
+            children: [
+              for (var r = 0; r < input.titleBlock.length; r += 2)
+                pw.TableRow(
+                  children: [
+                    for (var c = r; c < r + 2; c++) ...[
+                      pw.Container(
+                        color: _head,
+                        child: cell(
+                          c < input.titleBlock.length
+                              ? input.titleBlock[c].$1
+                              : '',
+                          bold: true,
+                          align: pw.TextAlign.left,
+                        ),
+                      ),
+                      cell(
+                        c < input.titleBlock.length
+                            ? input.titleBlock[c].$2
+                            : '',
+                        align: pw.TextAlign.left,
+                      ),
+                    ],
+                  ],
+                ),
+            ],
+          ),
+          pw.SizedBox(height: 6),
+        ],
         pw.Table(
           border: pw.TableBorder.all(color: _line, width: 0.6),
           columnWidths: const {
@@ -149,27 +224,14 @@ Future<Uint8List> buildBracketPdf(
               ),
           ],
         ),
-        for (final (caption, png) in [
+        for (final (k, (caption, png)) in [
           (input.drawingCaption, input.drawingPng),
-          ...input.moreDrawings,
-        ])
-          // 제목과 그림을 한 덩어리로(제목만 앞 쪽 끝에 남고 그림이 다음 쪽으로 가지 않게).
-          // pw.Container는 안의 Column을 따라 쪽이 나뉘므로 Inseparable로 묶는다.
-          pw.Inseparable(
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                sectionTitle(caption),
-                pw.Container(
-                  height: 300,
-                  alignment: pw.Alignment.center,
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: _line, width: 0.6),
-                  ),
-                  child: pw.Image(pw.MemoryImage(png), fit: pw.BoxFit.contain),
-                ),
-              ],
-            ),
+          if (!input.moreAfterSections) ...input.moreDrawings,
+        ].indexed)
+          drawing(
+            caption,
+            png,
+            k == 0 ? input.drawingHeight : input.moreHeight,
           ),
         for (final sec in input.sections) ...[
           sectionTitle(sec.title),
@@ -197,6 +259,9 @@ Future<Uint8List> buildBracketPdf(
             ),
           ],
         ],
+        if (input.moreAfterSections)
+          for (final (caption, png) in input.moreDrawings)
+            drawing(caption, png, input.moreHeight),
         if (input.notes.isNotEmpty) ...[
           sectionTitle('주의'),
           pw.Container(
@@ -229,9 +294,25 @@ Future<Uint8List> buildBracketPdf(
                   decoration: pw.BoxDecoration(
                     border: pw.Border.all(color: _line, width: 0.6),
                   ),
-                  child: pw.Text(
-                    who,
-                    style: const pw.TextStyle(fontSize: 8, color: _grey),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        who,
+                        style: const pw.TextStyle(fontSize: 8, color: _grey),
+                      ),
+                      if (who == '작성' && input.author.trim().isNotEmpty)
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.only(top: 6),
+                          child: pw.Text(
+                            input.author.trim(),
+                            style: const pw.TextStyle(
+                              fontSize: 10,
+                              color: _ink,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ),
