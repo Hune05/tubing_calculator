@@ -4,14 +4,25 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
+import '../common/number_text.dart';
 import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
 import 'plate_ui.dart';
 
+/// 소수 둘째 자리까지(넣은 15.25가 15.3으로 바뀌지 않게).
 String _f(double v) {
-  var s = v.toStringAsFixed(1);
-  if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
-  return s;
+  var s = v.toStringAsFixed(2);
+  while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
+    s = s.substring(0, s.length - 1);
+  }
+  return s == '-0' ? '0' : s;
+}
+
+/// 칸 글 → 꼭짓점 줄의 한 칸. 숫자로 읽히면 숫자로("1,200" → 1200 — 그대로 이으면 쉼표가 칸을 갈라
+/// 꼭짓점이 틀어졌다, 점검 36), 못 읽으면 쉼표·띄어쓰기를 뺀 글(그 줄은 못 읽는 줄로 빠진다).
+String _cell(String s) {
+  final v = parseNumberText(s);
+  return v != null ? _f(v) : s.replaceAll(RegExp(r'[,;/\s]'), '');
 }
 
 class _VRow {
@@ -22,14 +33,13 @@ class _VRow {
   PlateCorner corner;
 
   Offset? get point {
-    final a = double.tryParse(x.text.trim()),
-        b = double.tryParse(y.text.trim());
+    final a = parseNumberText(x.text), b = parseNumberText(y.text);
     return a == null || b == null ? null : Offset(a, b);
   }
 
   String get line {
     final t = corner.token;
-    return '${x.text.trim()},${y.text.trim()}${t.isEmpty ? '' : ',$t'}';
+    return '${_cell(x.text)},${_cell(y.text)}${t.isEmpty ? '' : ',$t'}';
   }
 
   void dispose() {

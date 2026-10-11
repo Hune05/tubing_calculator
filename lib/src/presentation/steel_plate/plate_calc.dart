@@ -884,6 +884,8 @@ PlatePlan platePlan(PlateInput i) {
   var faceLengths = <double>[];
   final faceBase = <double>[];
   final faceSpans = <(double, double)>[];
+  // 계산에 쓰는 홀(직접 절곡은 판 밖 절곡선을 뺀 면으로 다시 잡는다)
+  var holeSpecs = i.holes;
 
   List<PlateSeg> rect(double w, double h) => [
     PlateLine(const Offset(0, 0), Offset(w, 0)),
@@ -1045,9 +1047,12 @@ PlatePlan platePlan(PlateInput i) {
       ];
       final raw = plateOutlinePoints(segs);
       if (raw.length < 3) break;
+      // 기준점은 꼭짓점(코너 처리 전)의 왼쪽 아래: 꼭짓점 표·홀·절곡선이 다 이 자리에서 잰 바깥 치수다
+      // (외곽 최소점으로 잡으면 끝 꼭짓점에 R·C·따내기가 있을 때 홀이 어긋났다, 점검 39, 10-11).
+      final vr = [for (final p in i.points) rot(p)];
       final o = Offset(
-        raw.map((p) => p.dx).reduce(math.min),
-        raw.map((p) => p.dy).reduce(math.min),
+        vr.map((p) => p.dx).reduce(math.min),
+        vr.map((p) => p.dy).reduce(math.min),
       );
       segs = [
         for (final g in segs)
@@ -1057,7 +1062,7 @@ PlatePlan platePlan(PlateInput i) {
               PlateArc(c - o, r, start, sweep),
           },
       ];
-      final wOut = raw.map((p) => p.dx).reduce(math.max) - o.dx;
+      final wOut = vr.map((p) => p.dx).reduce(math.max) - o.dx;
       final specs = [
         for (final b in i.bendLines)
           if (b.at > 1e-6 && b.at < wOut - 1e-6) b,
@@ -1074,6 +1079,26 @@ PlatePlan platePlan(PlateInput i) {
         if (b.angle <= 0 || b.angle >= 180) {
           warn('절곡 각도는 0°와 180° 사이여야 합니다.');
         }
+      }
+      if (specs.length != i.bendLines.length) {
+        // 판 밖 절곡선은 빼고 계산하므로 홀 면도 남은 절곡선으로 다시 잡는다(바깥 자리 그대로).
+        // 그대로 두면 뒤 면 홀이 판 안 엉뚱한 자리에 그려지고 판 밖 경고도 없었다(점검 37, 10-11).
+        final all = [
+          0.0,
+          ...([for (final b in i.bendLines) b.at]..sort()),
+        ];
+        final ok = [0.0, for (final b in specs) b.at];
+        holeSpecs = [
+          for (final h in i.holes)
+            () {
+              final x = all[h.face.clamp(0, all.length - 1)] + h.u;
+              var f = 0;
+              for (var k = 0; k < ok.length; k++) {
+                if (ok[k] <= x + 1e-9) f = k;
+              }
+              return h.copyWith(face: f, u: x - ok[f]);
+            }(),
+        ];
       }
       if (specs.isEmpty) {
         // 절곡선을 넣기 전: 펴 그린 모양 그대로 한 면
@@ -1211,8 +1236,8 @@ PlatePlan platePlan(PlateInput i) {
 
   // 구멍: 저장 자리 → 화면·DXF 자리
   var holes = <PlateHole>[];
-  for (var n = 0; n < i.holes.length; n++) {
-    final s = i.holes[n];
+  for (var n = 0; n < holeSpecs.length; n++) {
+    final s = holeSpecs[n];
     final int face = isBent
         ? s.face.clamp(0, math.max(0, faceBase.length - 1)).toInt()
         : 0;
@@ -1241,7 +1266,8 @@ PlatePlan platePlan(PlateInput i) {
   final outside = <String>[],
       nearEdge = <String>[],
       nearBend = <String>[],
-      inBend = <String>[];
+      inBend = <String>[],
+      faceOut = <String>[];
   final bad = <int>{}, caution = <int>{}, out = <int>{};
   for (var n = 0; n < holes.length; n++) {
     final h = holes[n];
@@ -1273,17 +1299,30 @@ PlatePlan platePlan(PlateInput i) {
         caution.add(n);
       }
     }
+    var hitBend = false;
     for (final b in bends) {
       final lo = h.c.dx - h.halfX, hi = h.c.dx + h.halfX;
       if (hi > b.start - 1e-9 && lo < b.end + 1e-9) {
         inBend.add(h.label);
         bad.add(n);
+        hitBend = true;
       } else {
         final d = hi < b.start ? b.start - hi : lo - b.end;
         if (d < edgeRule - 1e-9) {
           nearBend.add(h.label);
           caution.add(n);
         }
+      }
+    }
+    // 자기 면 밖(점검 38, 10-11): 면 치수를 줄이거나 면이 없어지면 홀이 옆 면 자리로 넘어가는데도
+    // "1면 60"처럼 남고 경고가 없었다. 판 밖·절곡부에 걸린 홀은 위에서 알린다.
+    if (faceSpans.isNotEmpty && !hitBend && !out.contains(n)) {
+      final (lo, hi) = faceSpans[h.face.clamp(0, faceSpans.length - 1)];
+      if (holeSpecs[n].face != h.face ||
+          h.c.dx < lo - 1e-6 ||
+          h.c.dx > hi + 1e-6) {
+        faceOut.add(h.label);
+        bad.add(n);
       }
     }
   }
@@ -1300,6 +1339,11 @@ PlatePlan platePlan(PlateInput i) {
   }
   if (inBend.isNotEmpty) {
     warn('절곡부에 걸리는 홀: ${names(inBend)}. 홀을 절곡선에서 떼십시오.');
+  }
+  if (faceOut.isNotEmpty) {
+    warn(
+      '자기 면을 벗어난 홀: ${names(faceOut)}. 면 치수가 줄어 다른 면 자리에 있습니다. 홀 탭에서 다시 놓으십시오.',
+    );
   }
   if (nearBend.isNotEmpty) {
     notes.add(
@@ -1522,11 +1566,20 @@ List<(Offset, PlateCorner)> parsePlateVertices(String text) {
   return out;
 }
 
-/// 꼭짓점과 처리를 "x,y[,r10]" 줄 글로(자유 모양 칸에 넣는 글).
+/// 꼭짓점과 처리를 "x,y[,r10]" 줄 글로(자유 모양 칸에 넣는 글). 소수 둘째 자리까지(코너를 고치거나
+/// 표를 오갈 때 넣은 15.25가 15.3으로 바뀌지 않게, 10-11).
 String platePointsText(List<Offset> pts, List<PlateCorner> corners) => [
   for (var i = 0; i < pts.length; i++)
     () {
       final c = i < corners.length ? corners[i].token : '';
-      return '${_f(pts[i].dx)},${_f(pts[i].dy)}${c.isEmpty ? '' : ',$c'}';
+      return '${_f2(pts[i].dx)},${_f2(pts[i].dy)}${c.isEmpty ? '' : ',$c'}';
     }(),
 ].join('\n');
+
+String _f2(double v) {
+  var s = v.toStringAsFixed(2);
+  while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
+    s = s.substring(0, s.length - 1);
+  }
+  return s == '-0' ? '0' : s;
+}

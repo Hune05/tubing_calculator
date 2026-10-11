@@ -441,24 +441,35 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       return b == null ? _s.frame : _s.frame.expandToInclude(b);
     }
     if (b == null || _s.n < 2) return _s.frame;
-    final m = _paperMargin(b);
-    return _s.scaled ? b.inflate(m) : _s.frame.expandToInclude(b.inflate(m));
+    final (mx, my) = _paperMargin(b);
+    final r = Rect.fromLTRB(
+      b.left - mx,
+      b.top - my,
+      b.right + mx,
+      b.bottom + my,
+    );
+    return _s.scaled ? r : _s.frame.expandToInclude(r);
   }
 
-  /// 종이 여백(그림 단위): 화면에서 30점 이상(변 길이 글이 변 바깥 16점 + 글 반 높이 12점이라 종이 안에 들게,
-  /// 점검 30, 10-11: 크기의 8%로는 키 큰 판에서 맨 위 글이 종이 테두리·단추 줄에 걸렸다).
-  /// 종이를 칸에 맞추면 배율이 칸 ÷ (판 + 2 × 여백)이므로, 칸마다 여백 × 배율 ≥ 30이 되는 여백을 바로 푼다.
-  double _paperMargin(Rect b) {
-    const px = 30.0;
-    var m = math.max(b.width, b.height) * 0.08;
-    if (_size.isEmpty) return math.max(m * 1.5, 1e-6);
-    for (final (avail, e) in [
-      (_size.width - 2 * _side, b.width),
-      (_size.height - _top - _bottom, b.height),
-    ]) {
-      if (avail > 2 * px + 1) m = math.max(m, px * e / (avail - 2 * px));
-    }
-    return math.max(m, 1e-6);
+  /// 종이 여백(그림 단위, 가로·세로): 화면에서 위아래 32점, 옆 60점 이상. 변 길이 글은 변 바깥 16점에 놓이고
+  /// 글 반 높이가 12점, 반 너비가 40점쯤이라 이만큼 있어야 종이 안에 든다(점검 30·46, 10-11: 크기의 8%로는
+  /// 맨 위 글이 단추 줄에, 옆 글이 종이 테두리에 걸렸다).
+  /// 종이를 칸에 맞추면 배율 s = min(칸 폭 ÷ (판 폭 + 2·옆 여백), 칸 높이 ÷ (판 높이 + 2·위아래 여백))이라,
+  /// 여백을 화면 점 ÷ s로 두면 s = min((칸 폭 − 120) ÷ 판 폭, (칸 높이 − 64) ÷ 판 높이)로 바로 풀린다.
+  (double, double) _paperMargin(Rect b) {
+    const px = 60.0, py = 32.0;
+    final m0 = math.max(math.max(b.width, b.height) * 0.12, 1e-6);
+    if (_size.isEmpty) return (m0, m0);
+    final aw = _size.width - 2 * _side, ah = _size.height - _top - _bottom;
+    final sw = b.width > 1e-9 && aw > 2 * px + 1
+        ? (aw - 2 * px) / b.width
+        : double.infinity;
+    final sh = b.height > 1e-9 && ah > 2 * py + 1
+        ? (ah - 2 * py) / b.height
+        : double.infinity;
+    final sc = math.min(sw, sh);
+    if (!sc.isFinite || sc <= 0) return (m0, m0);
+    return (px / sc, py / sc);
   }
 
   void _fit() {

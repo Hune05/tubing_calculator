@@ -91,9 +91,39 @@ class RecentCalcLog {
     final key = dedupeKey ?? '$title|$subtitle';
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 700), () {
-      if (key == _lastKey) return;
+      if (key == _lastKey) {
+        // 요약 글은 같은데 입력 묶음만 바뀌면(철판 홀·절곡 방향만 바꿈 등) 맨 위 기록의 입력을 지금 것으로.
+        // 그대로 두면 그 기록을 눌렀을 때 바꾸기 전 입력으로 돌아갔다(10-11).
+        final first = entries.isEmpty ? null : entries.first;
+        if (first != null &&
+            restoreData != null &&
+            first.title == title &&
+            first.subtitle == subtitle &&
+            first.restoreData != restoreData) {
+          entries[0] = _entry(
+            title,
+            subtitle,
+            first.time,
+            onTap,
+            restoreKey,
+            restoreData,
+            growKey,
+          );
+          _onChange?.call();
+          _save();
+        }
+        return;
+      }
       _lastKey = key;
-      final entry = _entry(title, subtitle, now(), onTap, restoreKey, restoreData, growKey);
+      final entry = _entry(
+        title,
+        subtitle,
+        now(),
+        onTap,
+        restoreKey,
+        restoreData,
+        growKey,
+      );
       // 10-09: 입력하는 도중의 목록(줄을 하나씩 넣을 때마다)이 따로 쌓여 20개 한도를 금방 채웠다.
       // 방금 기록과 제목이 같고 그 목록에 줄을 이어 붙인 것이면(growKey가 앞부분으로 시작) 바꿔 끼운다.
       final first = entries.isEmpty ? null : entries.first;
@@ -197,10 +227,7 @@ class RecentCalcLog {
     if (key == null) return;
     try {
       final p = await SharedPreferences.getInstance();
-      await p.setString(
-        key,
-        jsonEncode([for (final e in entries) e.toJson()]),
-      );
+      await p.setString(key, jsonEncode([for (final e in entries) e.toJson()]));
     } catch (_) {}
   }
 
@@ -436,7 +463,8 @@ void showCalcHistorySheet(
 
 /// 기록 시각. 이틀 남는 기록이라 오늘이 아니면 날짜도 붙인다(10-09).
 String _fmtTime(DateTime t) {
-  final hm = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+  final hm =
+      '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
   final n = RecentCalcLog.now();
   if (t.year == n.year && t.month == n.month && t.day == n.day) return hm;
   final y = n.subtract(const Duration(days: 1));

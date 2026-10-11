@@ -136,10 +136,14 @@ String plateDxf(PlatePlan p, {required double thickness}) {
       d.line('BEND', b.center, y0, b.center, y1);
     }
     final dir = b.turn >= 0 ? 'UP' : 'DOWN';
+    // 글은 판이 있는 가장 긴 구간 가운데(L·T자 판에서 상자 가운데에 두면 판 밖에 찍혔다, 10-11)
+    final (y0, y1) = spans.isEmpty
+        ? (p.minY, p.maxY)
+        : spans.reduce((a, c) => c.$2 - c.$1 > a.$2 - a.$1 ? c : a);
     d.text(
       'NOTE',
       b.center + 2,
-      p.minY + (p.maxY - p.minY) / 2,
+      (y0 + y1) / 2,
       math.max(2.5, thickness),
       'BEND $n $dir ${_n(b.turn.abs())} R${_n(p.rUsed)}',
     );

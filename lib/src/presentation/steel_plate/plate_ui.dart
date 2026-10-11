@@ -456,7 +456,9 @@ class PlateSegButton extends StatelessWidget {
 }
 
 /// 이름이 위에 붙은 작은 숫자 칸(단위는 칸 안 오른쪽). [text]면 글 칸.
-class PlateNumField extends StatelessWidget {
+/// 숫자 칸은 누르면(칸에 들어가면) 들어 있던 값 전체를 골라 둔다: 새로 치면 바로 바뀐다
+/// (10-11 사용자: "수치 변경할 때 왜 기준 수치가 안 날아가고 이어 쓰기 되냐").
+class PlateNumField extends StatefulWidget {
   const PlateNumField({
     super.key,
     required this.fieldKey,
@@ -490,7 +492,56 @@ class PlateNumField extends StatelessWidget {
   final bool text;
 
   @override
+  State<PlateNumField> createState() => _PlateNumFieldState();
+}
+
+class _PlateNumFieldState extends State<PlateNumField> {
+  FocusNode? _own;
+  FocusNode? _heard;
+
+  FocusNode get _node => widget.focus ?? (_own ??= FocusNode());
+
+  void _listen() {
+    final n = _node;
+    if (identical(n, _heard)) return;
+    _heard?.removeListener(_onFocus);
+    _heard = n..addListener(_onFocus);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _listen();
+  }
+
+  @override
+  void didUpdateWidget(covariant PlateNumField old) {
+    super.didUpdateWidget(old);
+    _listen();
+  }
+
+  @override
+  void dispose() {
+    _heard?.removeListener(_onFocus);
+    _own?.dispose();
+    super.dispose();
+  }
+
+  void _onFocus() {
+    if (!_node.hasFocus || widget.readOnly || widget.text) return;
+    // 누른 자리에 커서를 놓는 일이 끝난 뒤에 전체를 고른다(바로 고르면 누름이 다시 커서로 바꾼다)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_node.hasFocus) return;
+      final c = widget.controller;
+      c.selection = TextSelection(baseOffset: 0, extentOffset: c.text.length);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final label = widget.label, hint = widget.hint, unit = widget.unit;
+    final text = widget.text, readOnly = widget.readOnly;
+    final highlight = widget.highlight;
     OutlineInputBorder b(Color c, double w) => OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
       borderSide: BorderSide(color: c, width: w),
@@ -501,7 +552,7 @@ class PlateNumField extends StatelessWidget {
       children: [
         if (label != null) ...[
           Text(
-            label!,
+            label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
@@ -513,10 +564,10 @@ class PlateNumField extends StatelessWidget {
           const SizedBox(height: 4),
         ],
         TextField(
-          key: Key(fieldKey),
-          controller: controller,
-          focusNode: focus,
-          autofocus: autofocus,
+          key: Key(widget.fieldKey),
+          controller: widget.controller,
+          focusNode: _node,
+          autofocus: widget.autofocus,
           readOnly: readOnly,
           canRequestFocus: !readOnly,
           keyboardType: text
@@ -555,7 +606,7 @@ class PlateNumField extends StatelessWidget {
                 : (readOnly ? b(fc.line, 1) : b(Colors.transparent, 0)),
             focusedBorder: readOnly ? b(fc.line, 1) : b(fc.brand, 1.6),
           ),
-          onChanged: onChanged,
+          onChanged: widget.onChanged,
         ),
       ],
     );
