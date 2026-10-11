@@ -2,6 +2,8 @@
 // 실제 두께·내R로 단면을 그리고, 면마다 입력한 바깥 치수(바깥면 ~ 바깥면)를 치수선으로, 절곡마다 안쪽에 번호 동그라미를 단다
 // (방향·각도는 아래 절곡선 표에. 글을 달면 세운 면을 가렸다).
 // 치수 기준은 계산과 같다: 면 n의 치수는 앞 절곡 바깥쪽 면에서 다음 절곡 바깥쪽 면까지(끝 면은 판 끝까지).
+// 10-11 사용자("측면도에서 홀이 있으면 홀 표현도 해줘 캐드처럼"): 면을 뚫은 홀은 도면처럼 두께를 가로지르는
+// 숨은선(파선) 두 줄(홀 양 끝)과 중심선(일점 쇄선)으로 그린다. 폭 방향으로 같은 자리의 홀은 겹쳐 한 번만.
 library;
 
 import 'dart:math' as math;
@@ -132,6 +134,9 @@ class PlateSideGeometry {
   }
 }
 
+/// 측면도에 그릴 홀 하나: 면 번호, 면 시작(바깥 치수 기준면)에서 홀 가운데까지, 면 방향 반 길이(장공은 길이 방향 몫).
+typedef PlateSideHole = (int face, double u, double half);
+
 /// 측면도 그림. [dimFaces]는 치수를 그릴 면(null이면 모두).
 class PlateSidePainter extends CustomPainter {
   PlateSidePainter({
@@ -146,6 +151,7 @@ class PlateSidePainter extends CustomPainter {
     this.fontScale = 1,
     this.topInset = 0,
     this.dimFaces,
+    this.holes = const [],
   });
 
   /// 계산 결과에서. [hat]이면 같은 치수가 되풀이되는 오른쪽 다리·발 치수를 뺀다.
@@ -171,6 +177,7 @@ class PlateSidePainter extends CustomPainter {
     fontScale: fontScale,
     topInset: topInset,
     dimFaces: hat ? const [0, 1, 2] : null,
+    holes: plateSideHoles(p),
   );
 
   final List<double> legs, turns;
@@ -182,6 +189,9 @@ class PlateSidePainter extends CustomPainter {
   /// 위쪽에 비워 둘 높이(그림 위 단추 줄).
   final double topInset;
   final List<int>? dimFaces;
+
+  /// 면을 뚫은 홀(숨은선·중심선으로 그린다).
+  final List<PlateSideHole> holes;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -234,6 +244,53 @@ class PlateSidePainter extends CustomPainter {
         ..strokeWidth = 1.2 * fs
         ..strokeJoin = StrokeJoin.round,
     );
+
+    // 홀(도면 관례): 숨은선(파선) = 홀 양 끝이 두께를 지나는 자리, 중심선(일점 쇄선) = 홀 가운데, 판 밖으로 조금
+    final hidden = Paint()
+      ..color = tone.edge
+      ..strokeWidth = 1.4 * fs;
+    final center = Paint()
+      ..color = kPlateCenter
+      ..strokeWidth = 0.9 * fs;
+    void dashed(Offset a, Offset b, Paint p, {bool dot = false}) {
+      final d = b - a, len = d.distance;
+      if (len < 0.5) return;
+      final u = d / len;
+      final dash = (dot ? 9.0 : 4.0) * fs, gap = 2.5 * fs;
+      var x = 0.0;
+      while (x < len) {
+        canvas.drawLine(a + u * x, a + u * math.min(x + dash, len), p);
+        x += dash + gap;
+        if (dot && x < len) {
+          canvas.drawLine(a + u * x, a + u * math.min(x + 1.5 * fs, len), p);
+          x += 1.5 * fs + gap;
+        }
+      }
+    }
+
+    final drawn = <String>{};
+    for (final (f, u, half) in holes) {
+      if (f < 0 || f >= g.dims.length) continue;
+      final key = '$f|${u.toStringAsFixed(2)}|${half.toStringAsFixed(2)}';
+      if (!drawn.add(key)) continue;
+      final (a, b, out) = g.dims[f];
+      final len = (b - a).distance;
+      if (len < 1e-6) continue;
+      final dir = (b - a) / len;
+      // 바깥 치수 기준면 위 자리 → 반대 면(두께만큼 안쪽)
+      Offset onRef(double x) => a + dir * x;
+      Offset across(double x) => onRef(x) - out * t;
+      for (final x in [u - half, u + half]) {
+        dashed(m(onRef(x)), m(across(x)), hidden);
+      }
+      final ext = 6.0 * fs / s; // 판 밖으로 6점
+      dashed(
+        m(onRef(u) + out * ext),
+        m(across(u) - out * ext),
+        center,
+        dot: true,
+      );
+    }
 
     // 치수선: 기준면에서 바깥쪽으로 띄워, 양 끝 보조선 + 사선 끝 + 값
     final dimPaint = Paint()
@@ -335,5 +392,20 @@ class PlateSidePainter extends CustomPainter {
       o.tone != tone ||
       o.topInset != topInset ||
       o.legs.join(',') != legs.join(',') ||
-      o.turns.join(',') != turns.join(',');
+      o.turns.join(',') != turns.join(',') ||
+      o.holes.join(';') != holes.join(';');
 }
+
+/// 계산 결과의 홀 중 측면도에 그릴 것: 자기 면 안의 곧은 부분에 있는 홀(절곡부·판 밖·없는 면은 뺀다).
+List<PlateSideHole> plateSideHoles(PlatePlan p) => [
+  for (final h in p.holes)
+    if (!h.out &&
+        h.face >= 0 &&
+        h.face < p.faceLengths.length &&
+        h.u - h.halfX >= -1e-6 &&
+        h.u + h.halfX <= p.faceLengths[h.face] + 1e-6 &&
+        !p.bends.any(
+          (b) => h.c.dx + h.halfX > b.start && h.c.dx - h.halfX < b.end,
+        ))
+      (h.face, h.u, h.halfX),
+];
