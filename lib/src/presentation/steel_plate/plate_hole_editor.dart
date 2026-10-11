@@ -145,13 +145,23 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
 
   // ── 좌표 ──
 
+  // 판을 맞춰 넣는 여백: 위는 오른쪽 위 단추 줄, 아래는 "홀 넣기"·고른 홀 단추 줄 자리(그 단추가 판 아래쪽
+  // 홀을 가리던 것, 점검 31, 10-11).
+  static const _side = 40.0, _top = 40.0, _bottom = 70.0;
+
+  /// 판 가운데가 오는 화면 자리(아래 단추 줄 자리를 뺀 칸의 가운데).
+  Offset get _mid =>
+      Offset(_size.width / 2, _top + (_size.height - _top - _bottom) / 2);
+
   double _baseScale(PlatePlan p) {
-    const m = 40.0;
     final bw = math.max(p.maxX - p.minX, 1.0);
     final bh = math.max(p.maxY - p.minY, 1.0);
     return math.max(
       0.01,
-      math.min((_size.width - 2 * m) / bw, (_size.height - 2 * m) / bh),
+      math.min(
+        (_size.width - 2 * _side) / bw,
+        (_size.height - _top - _bottom) / bh,
+      ),
     );
   }
 
@@ -162,14 +172,12 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
 
   Offset _toScreen(PlatePlan p, Offset mm) {
     final s = _s(p), c = _center(p);
-    return Offset(_size.width / 2, _size.height / 2) +
-        _pan +
-        Offset((mm.dx - c.dx) * s, -(mm.dy - c.dy) * s);
+    return _mid + _pan + Offset((mm.dx - c.dx) * s, -(mm.dy - c.dy) * s);
   }
 
   Offset _toMm(PlatePlan p, Offset sc) {
     final s = _s(p), c = _center(p);
-    final d = sc - Offset(_size.width / 2, _size.height / 2) - _pan;
+    final d = sc - _mid - _pan;
     return Offset(d.dx / s + c.dx, -d.dy / s + c.dy);
   }
 
@@ -336,7 +344,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
         _zoom = z;
         _pan =
             d.localFocalPoint -
-            Offset(_size.width / 2, _size.height / 2) -
+            _mid -
             Offset((mm.dx - c.dx) * s, -(mm.dy - c.dy) * s);
       });
       return;
@@ -387,7 +395,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
 
   Offset _toMmWith(PlatePlan p, Offset sc, double zoom, Offset pan) {
     final s = _baseScale(p) * zoom, c = _center(p);
-    final d = sc - Offset(_size.width / 2, _size.height / 2) - pan;
+    final d = sc - _mid - pan;
     return Offset(d.dx / s + c.dx, -d.dy / s + c.dy);
   }
 
@@ -691,30 +699,38 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       canvasShare: 0.56,
       tools: tools,
       overlay: [
-        Positioned(
-          right: 12,
-          bottom: 12,
-          child: FilledButton.icon(
-            key: const Key('ed_fab_add'),
-            style: FilledButton.styleFrom(
-              backgroundColor: fc.brand,
-              foregroundColor: fc.onBrand,
-              elevation: 3,
-              shadowColor: fc.text.withValues(alpha: 0.3),
-              minimumSize: const Size(0, 46),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+        if (_sel.isNotEmpty)
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: 12,
+            child: Center(child: _selBar(p)),
+          )
+        else
+          Positioned(
+            right: 12,
+            bottom: 12,
+            child: FilledButton.icon(
+              key: const Key('ed_fab_add'),
+              style: FilledButton.styleFrom(
+                backgroundColor: fc.brand,
+                foregroundColor: fc.onBrand,
+                elevation: 3,
+                shadowColor: fc.text.withValues(alpha: 0.3),
+                minimumSize: const Size(0, 46),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              onPressed: () => _addHoles(PlateHolePattern.single),
+              icon: const Icon(Icons.add, size: 20),
+              label: const Text(
+                '홀 넣기',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
               ),
             ),
-            onPressed: () => _addHoles(PlateHolePattern.single),
-            icon: const Icon(Icons.add, size: 20),
-            label: const Text(
-              '홀 넣기',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-            ),
           ),
-        ),
       ],
       canvas: LayoutBuilder(
         builder: (context, box) {
@@ -770,6 +786,75 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     );
   }
 
+  /// 홀을 고르면 그림 아래에 뜨는 단추 줄(점검 27, 10-11): 휴대폰에서는 작업판의 "선택한 홀" 단추가
+  /// 화면 아래로 밀려 안 보였다. 자주 쓰는 수정·복사·지우기와 고르기 풀기만 그림 위에 둔다.
+  Widget _selBar(PlatePlan p) {
+    Widget b(
+      String key,
+      IconData icon,
+      String label,
+      VoidCallback onTap, {
+      bool danger = false,
+    }) => TextButton.icon(
+      key: Key(key),
+      style: TextButton.styleFrom(
+        foregroundColor: danger ? fc.danger : fc.text,
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      onPressed: onTap,
+      icon: Icon(icon, size: 18),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+      ),
+    );
+    final one = _sel.length == 1 && _sel.first < p.holes.length;
+    return Material(
+      key: const Key('ed_selbar'),
+      color: fc.surface,
+      elevation: 3,
+      shadowColor: fc.text.withValues(alpha: 0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: fc.line),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 8, right: 2),
+                child: Text(
+                  one ? '홀 ${p.holes[_sel.first].label}' : '홀 ${_sel.length}개',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: fc.brand,
+                  ),
+                ),
+              ),
+              if (one) b('ed_fl_edit', Icons.tune, '수정', _editOne),
+              b('ed_fl_dup', AppIcons.copy, '복사', _duplicate),
+              b('ed_fl_del', AppIcons.delete, '지우기', _delete, danger: true),
+              IconButton(
+                key: const Key('ed_fl_clear'),
+                tooltip: '고르기 풀기',
+                color: fc.textSub,
+                onPressed: () => setState(_sel.clear),
+                icon: const Icon(AppIcons.close, size: 18),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // 아래 작업판: 판을 누르면(고르기·놓기) · 놓을 구멍 · 고른 구멍 · 모눈·한꺼번에 넣기·판 돌리기(접힘)
   Widget _panel(PlatePlan p, int bad, bool hasSlot) {
     Widget act(
@@ -803,7 +888,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
           '판을 누르면: "선택·이동"은 홀을 눌러 선택하고 끌어 옮깁니다. 빈 곳을 끌면 화면이 움직이고, 두 손가락으로 확대합니다. "홀 추가"는 판을 누른 자리에 고른 크기의 홀을 놓습니다.',
           '홀을 끌면 그리드·다른 홀·센터선에 맞춰 안내선이 나옵니다. 그리드 간격은 설정에서 바꿉니다.',
           '숫자로 넣기(그림 오른쪽 아래 "홀 넣기"도 같음): 하나·줄·격자·네 코너·원형 배치를 창에서 그림을 보며 넣습니다. 위치는 왼쪽 아래 기준이나 센터 기준으로 잽니다.',
-          '선택한 홀: 위치·크기 수정, 복사, 지우기, 대칭 복사. 여러 개 고르면 줄 맞추기·같은 간격·묶음 회전도 됩니다.',
+          '홀을 고르면 그림 아래에 수정·복사·지우기 단추 줄이 뜹니다(×는 고르기 풀기). 대칭 복사·줄 맞추기·같은 간격·묶음 회전은 아래 "선택한 홀"에 있습니다.',
           '빨간 테두리 홀은 만들 수 없고(판 밖·절곡부·겹침), 노란 테두리는 절곡선·판 끝에 가깝습니다.',
           if (_bent)
             '절곡 판은 절곡부를 빗금으로 막아 두었습니다. 홀 위치는 면 기준으로 남겨 면 치수를 바꿔도 따라갑니다.',

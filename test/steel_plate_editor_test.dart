@@ -75,10 +75,12 @@ void main() {
     double w = 200,
     double h = 100,
   }) {
+    // 여백: 옆 40, 위 40, 아래 70(홀 넣기·고른 홀 단추 줄 자리)
     final r = tester.getRect(find.byKey(const Key('ed_canvas')));
-    final s = math.min((r.width - 80) / w, (r.height - 80) / h);
+    final s = math.min((r.width - 80) / w, (r.height - 110) / h);
+    final cy = 40 + (r.height - 110) / 2;
     return r.topLeft +
-        Offset(r.width / 2 + (x - w / 2) * s, r.height / 2 - (y - h / 2) * s);
+        Offset(r.width / 2 + (x - w / 2) * s, cy - (y - h / 2) * s);
   }
 
   String status(WidgetTester tester) =>

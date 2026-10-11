@@ -1005,7 +1005,11 @@ void main() {
       await tester.enterText(find.byKey(const Key('pl_fw')), '420');
       await tester.pumpAndSettle();
       expect(sum(tester), endsWith(' 420 × 145 mm'));
-      expect(text('pl_points'), startsWith('0,0\n140,0\n140,40'));
+      // 꼭짓점 표(10-11)도 같이: 2번 (140, 0), 3번 (140, 40)
+      expect(
+        [text('pl_vx_2'), text('pl_vy_2'), text('pl_vx_3'), text('pl_vy_3')],
+        ['140', '0', '140', '40'],
+      );
       // 한 자씩 쳐도 잡아 둔 처음 모양에서 늘인다(중간 값이 쌓이지 않음)
       await tester.enterText(find.byKey(const Key('pl_fh')), '2');
       await tester.enterText(find.byKey(const Key('pl_fh')), '29');

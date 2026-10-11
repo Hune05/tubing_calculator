@@ -13,7 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/common_widgets/app_components.dart' show showAppSnack;
+import '../../core/common_widgets/app_components.dart'
+    show AppSnackKind, showAppSnack;
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
@@ -37,6 +38,7 @@ import 'plate_settings.dart';
 import 'plate_shape_card.dart';
 import 'plate_side_painter.dart';
 import 'plate_ui.dart';
+import 'plate_vertex_table.dart';
 
 Future<String?> _pickDxfText() async {
   final res = await FilePicker.pickFiles(type: FileType.any, withData: true);
@@ -1248,6 +1250,44 @@ class _PlatePageState extends State<PlatePage>
     };
   }
 
+  /// 모양을 바꿔 판 밖으로 나간 홀(점검 26, 10-11): 평판에서 링으로 바꾸면 홀이 판 밖에 남아 빨간 오류만 떴다.
+  /// 몇 개인지 알리고 알림 단추로 그 홀만 지운다(지운 뒤에도 되돌리기 알림).
+  void _warnHolesOut() {
+    final p = _plan();
+    if (p == null) return;
+    final out = [
+      for (var n = 0; n < p.holes.length && n < _holes.length; n++)
+        if (p.holes[n].out) n,
+    ];
+    if (out.isEmpty) return;
+    showAppSnack(
+      context,
+      '모양을 바꿔 홀 ${out.length}개가 판 밖에 있습니다.',
+      kind: AppSnackKind.error,
+      undoLabel: '지우기',
+      onUndo: () {
+        if (!mounted) return;
+        final before = List.of(_holes);
+        _set(() {
+          for (final n in out.reversed) {
+            if (n < _holes.length) _holes.removeAt(n);
+          }
+        });
+        showAppSnack(
+          context,
+          '판 밖 홀 ${out.length}개를 지웠습니다.',
+          kind: AppSnackKind.undo,
+          onUndo: () => _set(
+            () => _holes
+              ..clear()
+              ..addAll(before),
+          ),
+        );
+      },
+      duration: const Duration(seconds: 8),
+    );
+  }
+
   /// 모양 그림 카드: 폭에 맞춰 한 줄(휴대폰에서 한 장만 둘째 줄로 떨어지던 것, 10-11).
   Widget _shapeCards(List<(PlateShape, String)> shapes) => LayoutBuilder(
     builder: (context, box) {
@@ -1268,15 +1308,19 @@ class _PlatePageState extends State<PlatePage>
               label: name,
               width: w,
               selected: _shape == s,
-              onTap: () => _set(() {
-                if (s != _shape) _flips = [];
-                _shape = s;
-                if (s == PlateShape.custom && _points.text == _kCutPoints) {
-                  _points.text = _kRectPoints;
-                  _freeBase = null;
-                  _syncFreeSize();
-                }
-              }),
+              onTap: () {
+                final changed = s != _shape;
+                _set(() {
+                  if (changed) _flips = [];
+                  _shape = s;
+                  if (s == PlateShape.custom && _points.text == _kCutPoints) {
+                    _points.text = _kRectPoints;
+                    _freeBase = null;
+                    _syncFreeSize();
+                  }
+                });
+                if (changed) _warnHolesOut();
+              },
             ),
         ],
       );
@@ -1408,12 +1452,13 @@ class _PlatePageState extends State<PlatePage>
         '모서리 따내기: ㄱ자 안쪽 모서리 용접 비드를 피하려고 직각 모서리를 45°로 따내는 길이입니다. 0이면 없습니다.',
       ],
       PlateShape.free => [
-        '꼭짓점: 판 외곽 꼭짓점을 차례로 한 줄에 하나씩(가로,세로) 넣습니다. 예) 0,0 다음 줄 200,0. 마지막 점은 첫 점으로 저절로 이어집니다.',
-        '코너 처리는 줄 끝에 붙입니다: ,r10(R10) · ,c5(C5 모따기) · ,n20x15(따내기: 앞 변 쪽 20 × 다음 변 쪽 15). 위 그림에서 꼭짓점을 눌러도 됩니다.',
+        '꼭짓점 표: 판 외곽 꼭짓점을 차례로 한 줄에 하나씩 가로·세로(판 왼쪽 아래에서 mm)로 넣습니다. 마지막 점은 첫 점으로 저절로 이어집니다. "꼭짓점 추가"는 마지막 점과 첫 점 사이 가운데에 점을 더하고, 줄 끝 ×는 그 점을 지웁니다(3개까지).',
+        '코너 칸을 누르면 그 꼭짓점의 코너 R·C 모따기·따내기를 고릅니다. 위 그림에서 꼭짓점을 눌러도 됩니다.',
+        '"글로 넣기"를 누르면 한꺼번에 붙여 넣을 수 있습니다: 한 줄에 가로,세로 하나, 코너는 줄 끝에 ,r10(R10) · ,c5(C5) · ,n20x15(따내기: 앞 변 쪽 20 × 다음 변 쪽 15).',
       ],
       PlateShape.custom => [
         '가로·세로 (전체): 바깥 치수로 펴 그린 판의 크기입니다. 바꾸면 모양·홀·절곡선 자리가 같이 늘거나 줄어듭니다.',
-        '꼭짓점: 좌표 입력과 같습니다(가로,세로 한 줄에 하나, 코너는 ,r10 ,c5 ,n20x15). 스케치로 만들기에서 "절단 + 절곡으로"를 누르면 그린 모양이 여기로 옵니다.',
+        '꼭짓점: 좌표 입력과 같은 꼭짓점 표입니다(코너 칸, "글로 넣기"). 스케치로 만들기에서 "절단 + 절곡으로"를 누르면 그린 모양이 여기로 옵니다.',
         '절곡선은 절곡 탭에서 넣습니다: 판 끝에서 그 절곡 바깥 꼭짓점까지 바깥 치수, UP/DOWN, 각도. 전개도는 절곡마다 공제값만큼 줄여 만듭니다.',
       ],
       PlateShape.l => [
@@ -1498,40 +1543,9 @@ class _PlatePageState extends State<PlatePage>
               : '가로·세로를 바꾸면 모양 전체와 홀 위치가 그 크기로 늘거나 줄어듭니다(홀 지름·코너 크기는 그대로).',
           style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
         ),
-        Text(
-          '꼭짓점 (가로,세로 한 줄에 하나 · 코너는 줄 끝에 ,r10 ,c5 ,n20x15)',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: fc.textSub,
-          ),
-        ),
-        TextField(
-          key: const Key('pl_points'),
+        PlateVertexTable(
           controller: _points,
-          maxLines: 7,
-          minLines: 4,
-          keyboardType: TextInputType.multiline,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            color: fc.text,
-            height: 1.35,
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: fc.fill,
-            contentPadding: const EdgeInsets.all(12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: fc.brand, width: 1.6),
-            ),
-          ),
-          onChanged: (_) {
+          onChanged: () {
             _freeBase = null;
             _syncFreeSize();
             setState(_saveSoon);
@@ -1962,10 +1976,7 @@ class _PlatePageState extends State<PlatePage>
             '피어싱',
             '1개 ${p.pierces}곳 (외곽 1 + 홀${p.cutouts.isEmpty ? '' : '·내경'})',
           ),
-          PlateInfoRow(
-            '넓이',
-            '${(p.areaMm2 / 1e6).toStringAsFixed(4)} m² (홀 뺀 것)',
-          ),
+          PlateInfoRow('넓이', '${plateAreaText(p.areaMm2)} (홀 뺀 것)'),
         ]),
         if (p.problems.isNotEmpty || p.notes.isNotEmpty)
           PlateSection('확인할 것', [

@@ -441,8 +441,24 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       return b == null ? _s.frame : _s.frame.expandToInclude(b);
     }
     if (b == null || _s.n < 2) return _s.frame;
-    final m = math.max(math.max(b.width, b.height) * 0.08, 1e-6);
+    final m = _paperMargin(b);
     return _s.scaled ? b.inflate(m) : _s.frame.expandToInclude(b.inflate(m));
+  }
+
+  /// 종이 여백(그림 단위): 화면에서 30점 이상(변 길이 글이 변 바깥 16점 + 글 반 높이 12점이라 종이 안에 들게,
+  /// 점검 30, 10-11: 크기의 8%로는 키 큰 판에서 맨 위 글이 종이 테두리·단추 줄에 걸렸다).
+  /// 종이를 칸에 맞추면 배율이 칸 ÷ (판 + 2 × 여백)이므로, 칸마다 여백 × 배율 ≥ 30이 되는 여백을 바로 푼다.
+  double _paperMargin(Rect b) {
+    const px = 30.0;
+    var m = math.max(b.width, b.height) * 0.08;
+    if (_size.isEmpty) return math.max(m * 1.5, 1e-6);
+    for (final (avail, e) in [
+      (_size.width - 2 * _side, b.width),
+      (_size.height - _top - _bottom, b.height),
+    ]) {
+      if (avail > 2 * px + 1) m = math.max(m, px * e / (avail - 2 * px));
+    }
+    return math.max(m, 1e-6);
   }
 
   void _fit() {
@@ -462,12 +478,22 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     if (!vis.contains(b.topLeft) || !vis.contains(b.bottomRight)) _fit();
   }
 
+  // 종이를 맞춰 넣는 여백: 위는 오른쪽 위 단추 줄(센터선·전체 보기) 아래부터(맨 위 변 길이 글이 단추 줄에
+  // 붙어 잘려 보이던 것, 점검 30, 10-11).
+  static const _side = 36.0, _top = 56.0, _bottom = 36.0;
+
+  /// 종이 가운데가 오는 화면 자리.
+  Offset get _mid =>
+      Offset(_size.width / 2, _top + (_size.height - _top - _bottom) / 2);
+
   double get _base {
-    const m = 36.0;
     final w = math.max(_view.width, 1.0), h = math.max(_view.height, 1.0);
     return math.max(
       1e-4,
-      math.min((_size.width - 2 * m) / w, (_size.height - 2 * m) / h),
+      math.min(
+        (_size.width - 2 * _side) / w,
+        (_size.height - _top - _bottom) / h,
+      ),
     );
   }
 
@@ -475,14 +501,12 @@ class _PlateSketchPageState extends State<PlateSketchPage>
 
   Offset _toScreen(Offset m) {
     final s = _scale, c = _view.center;
-    return Offset(_size.width / 2, _size.height / 2) +
-        _pan +
-        Offset((m.dx - c.dx) * s, -(m.dy - c.dy) * s);
+    return _mid + _pan + Offset((m.dx - c.dx) * s, -(m.dy - c.dy) * s);
   }
 
   Offset _toModelWith(Offset sc, double zoom, Offset pan) {
     final s = _base * zoom, c = _view.center;
-    final d = sc - Offset(_size.width / 2, _size.height / 2) - pan;
+    final d = sc - _mid - pan;
     return Offset(d.dx / s + c.dx, -d.dy / s + c.dy);
   }
 
@@ -667,7 +691,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         _zoom = z;
         _pan =
             d.localFocalPoint -
-            Offset(_size.width / 2, _size.height / 2) -
+            _mid -
             Offset((m.dx - c.dx) * s, -(m.dy - c.dy) * s);
       });
       return;
@@ -877,6 +901,64 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         angle: d.slot > d.dia ? d.angle : 0,
       ),
     );
+  }
+
+  /// 숫자로 홀 넣기(점검 29, 10-11): 판을 눌러 놓기만 되던 것에 하나·줄·격자·원형 배치 창을 더한다
+  /// (레이저 절단 홀 탭과 같은 창, 위치는 판 왼쪽 아래나 센터 기준).
+  Future<void> _addHoles() async {
+    if (!_s.closed) {
+      _say('먼저 그리기 탭에서 모양을 닫으십시오.', bad: true);
+      return;
+    }
+    if (!_s.scaled) {
+      _say('먼저 변 하나에 치수를 넣으십시오(그래야 mm가 정해집니다)', bad: true);
+      return;
+    }
+    final b = _s.bounds ?? Rect.zero;
+    final r = await showPlateHoleInput(
+      context,
+      title: '홀 넣기',
+      canvas: PlateHoleCanvas(
+        outline: List.of(_s.pts),
+        existing: [
+          for (final h in _s.holes)
+            PlateHoleDraft(
+              Offset(h.u, h.v),
+              h.dia,
+              slot: h.slot,
+              angle: h.angle,
+            ),
+        ],
+        minX: b.left,
+        minY: b.top,
+        maxX: b.right,
+        maxY: b.bottom,
+      ),
+      dias: _cfg.dias,
+      defaultDia: _tDia,
+      patterns: const [
+        PlateHolePattern.single,
+        PlateHolePattern.row,
+        PlateHolePattern.grid,
+        PlateHolePattern.pcd,
+      ],
+    );
+    if (r == null || r.holes.isEmpty || !mounted) return;
+    final start = _s.holes.length;
+    _change(() {
+      _s.holes.addAll([
+        for (final d in r.holes)
+          PlateHoleSpec(
+            u: d.c.dx,
+            v: d.c.dy,
+            dia: d.dia,
+            slot: d.slot > d.dia ? d.slot : 0,
+            angle: d.slot > d.dia ? d.angle : 0,
+          ),
+      ]);
+      _selHole = r.holes.length == 1 ? start : null;
+    });
+    _say('홀 ${r.holes.length}개를 넣었습니다.');
   }
 
   Future<void> _editCorner(int k) async {
@@ -1349,6 +1431,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       '방금 넣은 값이 이기고, 맞춰야 하는 다른 변이 따라 바뀝니다. ✓는 넣은 값(잠김), !는 따라 바뀐 값입니다.',
     ],
     'holes' => [
+      '"홀 넣기"는 하나·줄·격자·원형 배치를 창에서 그림을 보며 숫자로 넣습니다. 위치는 판 왼쪽 아래나 센터에서 잽니다(레이저 절단 홀 탭과 같은 창).',
       '판 안을 누르면 고른 지름의 홀을 놓습니다(5mm 칸에 붙음).',
       '손가락으로 동그라미를 그어도 홀이 되고, 길쭉하게 그으면 장공이 됩니다.',
       '홀을 누르면 고르고, 위치·크기를 고치거나 지울 수 있습니다.',
@@ -1541,7 +1624,17 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       case 'holes':
         final selH = _selHole;
         sections = [
-          PlateSection('홀 지름', [
+          PlateSection('숫자로 넣기', [
+            plateActions([
+              _btn(
+                'sk_add_holes',
+                Icons.add_circle_outline,
+                '홀 넣기 (하나·줄·격자·원형)',
+                _addHoles,
+              ),
+            ]),
+          ], first: true),
+          PlateSection('판을 누르면 놓을 홀 지름', [
             PlateSegments(joined: false, [
               for (final d in _cfg.dias)
                 PlateOption(
@@ -1551,7 +1644,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                   () => setState(() => _tDia = d),
                 ),
             ]),
-          ], first: true),
+          ]),
           if (selH != null && selH < s.holes.length)
             PlateSection('홀 ${selH + 1}', [
               plateActions([

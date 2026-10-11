@@ -469,6 +469,9 @@ class PlateHole {
   /// 만들 수 없음(판 밖·꺾이는 부분·겹침), 주의(꺾기선·판 끝 가까움).
   final bool bad, caution;
 
+  /// 판 밖(외곽 밖이거나 외곽선·내경에 걸림). 모양을 바꿔 밖으로 나간 홀을 알릴 때 쓴다(10-11).
+  final bool out;
+
   const PlateHole({
     required this.label,
     required this.c,
@@ -480,9 +483,10 @@ class PlateHole {
     required this.v,
     this.bad = false,
     this.caution = false,
+    this.out = false,
   });
 
-  PlateHole flagged({bool? bad, bool? caution}) => PlateHole(
+  PlateHole flagged({bool? bad, bool? caution, bool? out}) => PlateHole(
     label: label,
     c: c,
     dia: dia,
@@ -493,6 +497,7 @@ class PlateHole {
     v: v,
     bad: bad ?? this.bad,
     caution: caution ?? this.caution,
+    out: out ?? this.out,
   );
 
   double get r => dia / 2;
@@ -1237,7 +1242,7 @@ PlatePlan platePlan(PlateInput i) {
       nearEdge = <String>[],
       nearBend = <String>[],
       inBend = <String>[];
-  final bad = <int>{}, caution = <int>{};
+  final bad = <int>{}, caution = <int>{}, out = <int>{};
   for (var n = 0; n < holes.length; n++) {
     final h = holes[n];
     final inside =
@@ -1252,6 +1257,7 @@ PlatePlan platePlan(PlateInput i) {
     if (!inside || edgeD < h.r - 1e-9) {
       outside.add(h.label);
       bad.add(n);
+      out.add(n);
     } else if (edgeD - h.r < t - 1e-9) {
       nearEdge.add(h.label);
       caution.add(n);
@@ -1261,6 +1267,7 @@ PlatePlan platePlan(PlateInput i) {
       if (gap < -1e-9) {
         outside.add(h.label);
         bad.add(n);
+        out.add(n);
       } else if (gap < t - 1e-9) {
         nearEdge.add(h.label);
         caution.add(n);
@@ -1337,7 +1344,11 @@ PlatePlan platePlan(PlateInput i) {
   }
   holes = [
     for (var n = 0; n < holes.length; n++)
-      holes[n].flagged(bad: bad.contains(n), caution: caution.contains(n)),
+      holes[n].flagged(
+        bad: bad.contains(n),
+        caution: caution.contains(n),
+        out: out.contains(n),
+      ),
   ];
 
   // 넓이·무게
@@ -1469,6 +1480,21 @@ String plateHoleKind(PlateHole h) {
 
 /// 평판 네 귀 이름(차례: 왼쪽 아래 → 오른쪽 아래 → 오른쪽 위 → 왼쪽 위).
 const List<String> kPlateCornerNames = ['왼쪽 아래', '오른쪽 아래', '오른쪽 위', '왼쪽 위'];
+
+/// 넓이 글(점검 32, 10-11): 1m² 아래는 cm²("123 cm²", 100 아래는 소수 한 자리), 그 위는 m² 소수 둘째.
+/// 예전에는 "0.0123 m²"로 읽기 어려웠다.
+String plateAreaText(double mm2) {
+  final cm2 = mm2 / 100;
+  if (cm2.round() >= 10000) return '${(mm2 / 1e6).toStringAsFixed(2)} m²';
+  if (cm2 < 100) return '${_f(cm2)} cm²';
+  final s = cm2.round().toString();
+  final b = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    if (i > 0 && (s.length - i) % 3 == 0) b.write(',');
+    b.write(s[i]);
+  }
+  return '$b cm²';
+}
 
 /// "x,y" 줄들을 꼭짓점으로(쉼표·공백·/ 로 나눔). 못 읽는 줄은 뺀다.
 List<Offset> parsePlatePoints(String text) => [
