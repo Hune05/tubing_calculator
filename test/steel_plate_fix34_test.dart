@@ -120,6 +120,25 @@ void main() {
       expect(y, inInclusiveRange(0, 50));
     });
 
+    test('42: 고치기 전 기록(제목 pl_sum)은 읽을 때 "철판 가공"으로', () async {
+      final at = DateTime(2026, 10, 11, 15);
+      SharedPreferences.setMockInitialValues({
+        'k': jsonEncode([
+          {
+            't': 'pl_sum',
+            's': '철판 링 · 3T',
+            'at': at.toIso8601String(),
+            'k': 'pl_sum',
+          },
+        ]),
+      });
+      RecentCalcLog.now = () => at;
+      addTearDown(() => RecentCalcLog.now = DateTime.now);
+      final log = RecentCalcLog();
+      await log.attachStorage('k');
+      expect(log.entries.single.title, '철판 가공');
+    });
+
     testWidgets('42: 같은 요약이면 맨 위 기록의 입력을 지금 것으로, 기록 제목은 "철판 가공"', (
       tester,
     ) async {
