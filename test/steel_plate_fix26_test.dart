@@ -315,46 +315,21 @@ void main() {
       });
     }
 
-    String status(WidgetTester tester) =>
-        tester.widget<Text>(find.byKey(const Key('sk_status'))).data!;
-
-    testWidgets('29: 홀 탭 "홀 넣기" 창으로 줄 배치 3개를 한 번에', (tester) async {
-      await openSketch(tester, tall);
-      await tester.tap(find.byKey(const Key('sk_tab_holes')));
-      await tester.pumpAndSettle();
-      expect(status(tester), endsWith('홀 1개'));
-      await tester.tap(find.byKey(const Key('sk_add_holes')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('hi_preview')), findsOneWidget);
-      await tester.tap(find.byKey(const Key('hp_row')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('hs_ok')));
-      await tester.pumpAndSettle();
-      expect(find.text('홀 3개를 넣었습니다.'), findsOneWidget);
-      expect(status(tester), endsWith('홀 4개'));
-    });
-
-    testWidgets('29: 모양을 닫기 전에는 넣지 않고 알린다', (tester) async {
-      final open = PlateSketch(
-        pts: const [Offset(0, 0), Offset(200, 0), Offset(200, 100)],
-        ids: const [0, 1, 2],
-        nextId: 3,
-        frame: const Rect.fromLTWH(-20, -20, 240, 140),
-      );
-      await openSketch(tester, open);
-      await tester.tap(find.byKey(const Key('sk_tab_holes')));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('sk_add_holes')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('hi_preview')), findsNothing);
-      expect(find.text('먼저 그리기 탭에서 모양을 닫으십시오.'), findsOneWidget);
-    });
-
-    testWidgets('30: 변 길이 글이 오른쪽 위 단추 줄 아래, 종이 안에 든다(휴대폰, 치수·홀 탭)', (
+    testWidgets('29 → 10-11: 스케치에는 홀 탭이 없고, 그림의 홀(AI가 읽은 홀)은 보내기에 그대로', (
       tester,
     ) async {
       await openSketch(tester, tall);
-      for (final t in ['dims', 'holes']) {
+      expect(find.byKey(const Key('sk_tab_holes')), findsNothing);
+      await tester.tap(find.byKey(const Key('sk_tab_send')));
+      await tester.pumpAndSettle();
+      expect(find.text('1개 · 같이 넘어갑니다'), findsOneWidget);
+    });
+
+    testWidgets('30: 변 길이 글이 오른쪽 위 단추 줄 아래, 종이 안에 든다(휴대폰, 치수·그리기 탭)', (
+      tester,
+    ) async {
+      await openSketch(tester, tall);
+      for (final t in ['dims', 'draw']) {
         await tester.tap(find.byKey(Key('sk_tab_$t')));
         await tester.pumpAndSettle();
         final canvas = tester.getRect(find.byKey(const Key('sk_canvas')));

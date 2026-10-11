@@ -4,6 +4,7 @@
 // 같은 방향의 잠기지 않은 변이 차이를 받는다(평면도 앱 방식). "레이저 절단으로 보내기"로 넘긴다.
 // 같은 날 손봄: 모드(꼭짓점·치수·구멍)를 없애고 누른 곳으로 판단, 구멍 5mm 칸, AI 결과 옆 사진 작게.
 // 그림 자료와 고치는 계산은 plate_sketch_model.dart.
+// 10-11: 홀 탭을 뺐다(사진 → 그리기 → 치수 → 보내기). AI가 읽은 홀은 그림에 보이고 보낼 때 같이 넘어간다.
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -26,10 +27,8 @@ import '../common/app_icons.dart';
 import '../common/calc_form_parts.dart';
 import 'plate_calc.dart';
 import 'plate_corner_dialog.dart';
-import 'plate_hole_input.dart';
 import 'plate_page.dart';
 import 'plate_painter.dart' show plateDrawCenterLines;
-import 'plate_settings.dart';
 import 'plate_sketch_model.dart';
 import 'plate_ui.dart';
 
@@ -122,11 +121,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   PlateSketch _s = PlateSketch();
   Uint8List? _photo;
   ui.Image? _img;
-  int? _selPt, _selHole;
-  double _tDia = 13.5;
+  int? _selPt;
 
   /// 철판 가공 설정(자주 쓰는 홀 지름·기본 지름).
-  PlateSettings _cfg = PlateSettings.defaults;
   bool _showPhoto = true;
   bool _busy = false;
   String? _aiError;
@@ -154,7 +151,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   double _zoom0 = 1;
   Offset _pan0 = Offset.zero;
   bool _panning = false, _pinching = false;
-  int? _dragPt, _dragHole;
+  int? _dragPt;
   Offset _dragFrom = Offset.zero;
 
   /// 손가락으로 긋는 중인 선(그림 단위). 빈 칸이면 외곽, 닫힌 판 안이면 구멍 그림.
@@ -164,14 +161,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   void initState() {
     super.initState();
     _load();
-    PlateSettings.load().then((c) {
-      if (mounted) {
-        setState(() {
-          _cfg = c;
-          _tDia = c.defaultDia;
-        });
-      }
-    });
   }
 
   @override
@@ -250,7 +239,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     setState(() {
       _s = s;
       _selPt = null;
-      _selHole = null;
       _notice = null;
       if (refit) {
         _fit();
@@ -278,7 +266,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         _s = PlateSketch();
         _aiError = null;
         _selPt = null;
-        _selHole = null;
         _fit();
       }
     });
@@ -369,7 +356,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       _s = PlateSketch.fromAi(r);
       _tab = 2; // AI가 읽었으면 치수 확인부터
       _selPt = null;
-      _selHole = null;
       _fit();
     });
     _saveSoon();
@@ -384,7 +370,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   void _startTrace() => _change(() {
     _s = PlateSketch(frame: _photoFrame);
     _selPt = null;
-    _selHole = null;
     _showPhoto = true;
     _fit();
   });
@@ -397,7 +382,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       scaled: keepScale,
     );
     _selPt = null;
-    _selHole = null;
     _fit();
   });
 
@@ -525,14 +509,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
 
   double get _tol => 22 / _scale;
 
-  /// 치수가 정해졌으면 판 왼쪽 아래에서 5mm 칸에 붙인다.
-  Offset _snapHole(Offset m) {
-    final b = _s.bounds;
-    if (!_s.scaled || b == null) return m;
-    double sn(double v, double o) => o + ((v - o) / 5).round() * 5;
-    return Offset(sn(m.dx, b.left), sn(m.dy, b.top));
-  }
-
   /// 화면 자리에서 가까운 변 길이 글(26점 안).
   int? _hitLabel(Offset at) {
     int? best;
@@ -556,7 +532,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     ('photo', '사진'),
     ('draw', '그리기'),
     ('dims', '치수'),
-    ('holes', '홀'),
     ('send', '보내기'),
   ];
   int _tab = 0;
@@ -572,14 +547,14 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     setState(() {
       _tab = i;
       _selPt = null;
-      _selHole = null;
       _notice = null;
     });
   }
 
   // ── 손놀림 ──
   // 그리기 탭: 꼭짓점 고르기·끌기(닫기 전 1번 점은 닫기), 빈 곳에 점 더하기·외곽 긋기, 변 길게 눌러 점 끼우기.
-  // 치수 탭: 변(숫자)을 누르면 길이. 구멍 탭: 판 안을 누르면 구멍, 동그라미를 그리면 구멍·장공, 구멍 끌기.
+  // 치수 탭: 변(숫자)을 누르면 길이. 홀 탭은 10-11에 뺐다(사용자: "스케치에서는 홀 넣기가 필요 없지 않나" —
+  // 홀은 보낸 화면의 홀 탭에서 넣고 고친다, AI가 읽은 홀만 그대로 넘긴다).
   // 어느 탭이든 빈 곳(판 밖) 끌기·두 손가락은 화면 옮기기·확대.
 
   void _onTap(TapUpDetails d) {
@@ -604,25 +579,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       case 'dims':
         final e = _hitLabel(at) ?? (_s.closed ? _s.hitEdge(m, _tol) : null);
         if (e != null) _editEdge(e);
-      case 'holes':
-        final h = _s.hitHole(m, _tol);
-        if (h != null) {
-          setState(() => _selHole = _selHole == h ? null : h);
-          return;
-        }
-        if (_selHole != null) {
-          setState(() => _selHole = null);
-          return;
-        }
-        if (!_s.closed) {
-          _say('먼저 그리기 탭에서 모양을 닫으십시오.', bad: true);
-          return;
-        }
-        if (!sketchContains(_s.pts, m)) return;
-        final p = _snapHole(m);
-        _change(
-          () => _s.holes.add(PlateHoleSpec(u: p.dx, v: p.dy, dia: _tDia)),
-        );
     }
   }
 
@@ -647,7 +603,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     _pinching = d.pointerCount >= 2;
     _panning = false;
     _dragPt = null;
-    _dragHole = null;
     if (_pinching) return;
     final m = _toModel(_focal0);
     if (_tabId == 'draw') {
@@ -661,21 +616,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       }
       // 빈 종이면 외곽을 손가락으로 긋는다
       if (_s.n == 0) {
-        _ink = [m];
-        return;
-      }
-    } else if (_tabId == 'holes') {
-      final h = _s.hitHole(m, _tol);
-      if (h != null) {
-        _push();
-        _dragHole = h;
-        final hh = _s.holes[h];
-        _dragFrom = Offset(hh.u, hh.v);
-        setState(() => _selHole = h);
-        return;
-      }
-      // 닫힌 판 안이면 구멍(동그라미)을 긋는다
-      if (_s.closed && sketchContains(_s.pts, m)) {
         _ink = [m];
         return;
       }
@@ -713,12 +653,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       setState(() => _s.pts[_dragPt!] = _dragFrom + dm);
       return;
     }
-    if (_dragHole != null) {
-      final k = _dragHole!;
-      final p = _snapHole(_dragFrom + dm);
-      setState(() => _s.holes[k] = _s.holes[k].copyWith(u: p.dx, v: p.dy));
-      return;
-    }
     if (_panning) setState(() => _pan = _pan0 + dv);
   }
 
@@ -732,15 +666,14 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       d.pointerCount == 0 ? _commitInk(ink) : setState(() {});
       return;
     }
-    final dragged = _dragPt != null || _dragHole != null;
+    final dragged = _dragPt != null;
     _dragPt = null;
-    _dragHole = null;
     _panning = false;
     _pinching = false;
     if (dragged) _saveSoon();
   }
 
-  /// 그은 선을 모양으로: 빈 칸이면 외곽 꼭짓점, 판 안의 작은 고리면 구멍·장공.
+  /// 그은 선을 외곽 꼭짓점으로(빈 종이에서만 긋는다).
   void _commitInk(List<Offset> ink) {
     final sc = _scale;
     var len = 0.0;
@@ -764,7 +697,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
           _s.addPoint(p);
         }
         _selPt = null;
-        _selHole = null;
       });
       if (r.closed) {
         // 닫혔으면 바로잡기(가로·세로, 대칭)까지 하고 알린다
@@ -778,33 +710,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       );
       return;
     }
-    final b = _s.bounds!;
-    final loop = sketchLoopShape(ink, closeTol: 44 / sc);
-    if (loop == null || loop.major > 0.6 * math.min(b.width, b.height)) {
-      setState(() {});
-      _say('판 안에 작은 동그라미를 그리면 홀이 됩니다. 화면을 옮기려면 판 밖을 끌거나 두 손가락으로 움직이십시오.');
-      return;
-    }
-    final slot = _s.scaled && loop.minor / loop.major < 0.6;
-    // 손가락 동그라미 크기는 대충이라 지름은 고른 펀치 지름으로(구멍을 눌러 고친다). 장공 길이만 그린 대로.
-    final dia = _tDia;
-    final slotLen = slot
-        ? math.max(dia * 1.5, (loop.major / 5).round() * 5.0)
-        : 0.0;
-    final ang = slot
-        ? ((loop.angleDeg / 15).round() * 15 % 180).toDouble()
-        : 0.0;
-    final c = _snapHole(loop.c);
-    _change(
-      () => _s.holes.add(
-        PlateHoleSpec(u: c.dx, v: c.dy, dia: dia, slot: slotLen, angle: ang),
-      ),
-    );
-    _say(
-      slot
-          ? '그린 고리를 장공 ${_f(dia)}×${_f(slotLen)}로 바꿨습니다. 홀을 눌러 크기를 고칠 수 있습니다.'
-          : '그린 동그라미를 φ${_f(dia)} 홀로 바꿨습니다. 홀을 눌러 크기를 고칠 수 있습니다.',
-    );
+    setState(() {});
   }
 
   // ── 치수·구멍·귀 처리 창 ──
@@ -863,115 +769,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
     }
   }
 
-  Future<void> _editHole(int k) async {
-    if (!_s.scaled) {
-      _say('먼저 변 하나에 치수를 넣으십시오(그래야 mm가 정해집니다)', bad: true);
-      return;
-    }
-    final b = _s.bounds ?? Rect.zero;
-    final h = _s.holes[k];
-    final r = await showPlateHoleInput(
-      context,
-      title: '홀 ${k + 1} 수정',
-      canvas: PlateHoleCanvas(
-        outline: List.of(_s.pts),
-        existing: [
-          for (var i = 0; i < _s.holes.length; i++)
-            if (i != k)
-              PlateHoleDraft(
-                Offset(_s.holes[i].u, _s.holes[i].v),
-                _s.holes[i].dia,
-                slot: _s.holes[i].slot,
-                angle: _s.holes[i].angle,
-              ),
-        ],
-        minX: b.left,
-        minY: b.top,
-        maxX: b.right,
-        maxY: b.bottom,
-      ),
-      dias: _cfg.dias,
-      defaultDia: h.dia,
-      patterns: const [PlateHolePattern.single],
-      edit: PlateHoleDraft(
-        Offset(h.u, h.v),
-        h.dia,
-        slot: h.slot,
-        angle: h.angle,
-      ),
-      okText: '적용',
-    );
-    if (r == null || r.holes.isEmpty || !mounted) return;
-    final d = r.holes.first;
-    _change(
-      () => _s.holes[k] = PlateHoleSpec(
-        u: d.c.dx,
-        v: d.c.dy,
-        dia: d.dia,
-        slot: d.slot > d.dia ? d.slot : 0,
-        angle: d.slot > d.dia ? d.angle : 0,
-      ),
-    );
-  }
-
-  /// 숫자로 홀 넣기(점검 29, 10-11): 판을 눌러 놓기만 되던 것에 하나·줄·격자·원형 배치 창을 더한다
-  /// (레이저 절단 홀 탭과 같은 창, 위치는 판 왼쪽 아래나 센터 기준).
-  Future<void> _addHoles() async {
-    if (!_s.closed) {
-      _say('먼저 그리기 탭에서 모양을 닫으십시오.', bad: true);
-      return;
-    }
-    if (!_s.scaled) {
-      _say('먼저 변 하나에 치수를 넣으십시오(그래야 mm가 정해집니다)', bad: true);
-      return;
-    }
-    final b = _s.bounds ?? Rect.zero;
-    final r = await showPlateHoleInput(
-      context,
-      title: '홀 넣기',
-      canvas: PlateHoleCanvas(
-        outline: List.of(_s.pts),
-        existing: [
-          for (final h in _s.holes)
-            PlateHoleDraft(
-              Offset(h.u, h.v),
-              h.dia,
-              slot: h.slot,
-              angle: h.angle,
-            ),
-        ],
-        minX: b.left,
-        minY: b.top,
-        maxX: b.right,
-        maxY: b.bottom,
-      ),
-      dias: _cfg.dias,
-      defaultDia: _tDia,
-      patterns: const [
-        PlateHolePattern.single,
-        PlateHolePattern.row,
-        PlateHolePattern.grid,
-        PlateHolePattern.pcd,
-      ],
-    );
-    if (r == null || r.holes.isEmpty || !mounted) return;
-    final start = _s.holes.length;
-    _change(() {
-      _s.holes.addAll([
-        for (final d in r.holes)
-          PlateHoleSpec(
-            u: d.c.dx,
-            v: d.c.dy,
-            dia: d.dia,
-            slot: d.slot > d.dia ? d.slot : 0,
-            angle: d.slot > d.dia ? d.angle : 0,
-          ),
-      ]);
-      _selHole = r.holes.length == 1 ? start : null;
-    });
-    _say('홀 ${r.holes.length}개를 넣었습니다.');
-  }
-
   Future<void> _editCorner(int k) async {
     final c = await showPlateCornerDialog(
       context,
@@ -996,7 +793,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       rm = o.removed;
       sym = _s.symmetrize(tolFrac: 0.1);
       _selPt = null;
-      _selHole = null;
     });
     _saveSoon();
     final fixes = [
@@ -1130,14 +926,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
             if (s.isLocked(i)) i,
         ].length;
         return '넣은 치수 $locked곳 · ✓ 잠김, ! 바뀜';
-      case 'holes':
-        if (!s.closed) return '그리기 탭에서 모양을 먼저 닫으십시오.';
-        final hk = _selHole;
-        if (hk != null && hk < s.holes.length) {
-          final h = s.holes[hk];
-          return '홀 ${hk + 1} · φ${_f(h.dia)}${h.slot > h.dia ? ' 장공 ${_f(h.slot)}' : ''}';
-        }
-        return '판 안을 누르면 φ${_f(_tDia)} 홀 · 동그라미는 홀, 길쭉하면 장공 · 홀 ${s.holes.length}개';
       default:
         final m = s.toPlateMap();
         if (m == null) {
@@ -1195,7 +983,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
             // 10-10 화면 정리: 철판 가공 화면과 같은 틀(위 그림 칸 + 아래 흰 작업판, 탭은 맨 아래 탭 줄)
             body: PlateWorkspace(
               canvasShare: switch (_tabId) {
-                'draw' || 'holes' => 0.6,
+                'draw' => 0.6,
                 'dims' => 0.5,
                 _ => 0.55,
               },
@@ -1280,7 +1068,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                           toScreen: _toScreen,
                           scale: _scale,
                           selPt: _selPt,
-                          selHole: _selHole,
                           ink: _ink,
                           showCenter: _showCenter,
                           paper: _paper,
@@ -1315,7 +1102,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
         'photo' => const Icon(AppIcons.camera, size: 22),
         'draw' => AppIcon(AppGlyph.plateSketch, size: 24, filled: on),
         'dims' => AppIcon(AppGlyph.navInput, size: 24, filled: on),
-        'holes' => const Icon(Icons.adjust, size: 24),
         _ => const Icon(AppIcons.send, size: 22),
       };
       return BottomNavigationBarItem(
@@ -1441,14 +1227,9 @@ class _PlateSketchPageState extends State<PlateSketchPage>
       '그림의 변 숫자나 아래 목록을 눌러 길이(mm)를 넣습니다. 처음 넣는 길이로 크기가 정해집니다.',
       '방금 넣은 값이 이기고, 맞춰야 하는 다른 변이 따라 바뀝니다. ✓는 넣은 값(잠김), !는 따라 바뀐 값입니다.',
     ],
-    'holes' => [
-      '"홀 넣기"는 하나·줄·격자·원형 배치를 창에서 그림을 보며 숫자로 넣습니다. 위치는 판 왼쪽 아래나 센터에서 잽니다(레이저 절단 홀 탭과 같은 창).',
-      '판 안을 누르면 고른 지름의 홀을 놓습니다(5mm 칸에 붙음).',
-      '손가락으로 동그라미를 그어도 홀이 되고, 길쭉하게 그으면 장공이 됩니다.',
-      '홀을 누르면 고르고, 위치·크기를 고치거나 지울 수 있습니다.',
-    ],
     _ => [
       '"레이저 절단으로"를 누르면 레이저 절단 화면의 좌표 입력으로 옮겨 갑니다.',
+      '홀은 옮겨 간 화면의 홀 탭에서 넣고 고칩니다. AI가 사진에서 읽은 홀은 그림에 보이고 같이 넘어갑니다.',
       '"절단 + 절곡으로"를 누르면 절단 + 절곡 화면의 "직접"으로 옮겨 갑니다. 그린 치수를 접은 뒤 바깥 치수로 보고, 절곡 탭에서 절곡선(판 끝에서 바깥 치수·UP/DOWN·각도)을 넣습니다.',
       '그 화면에 있던 입력은 덮이고, 알림에서 되돌릴 수 있습니다.',
     ],
@@ -1632,52 +1413,6 @@ class _PlateSketchPageState extends State<PlateSketchPage>
               ),
             ], first: true),
         ];
-      case 'holes':
-        final selH = _selHole;
-        sections = [
-          PlateSection('숫자로 넣기', [
-            plateActions([
-              _btn(
-                'sk_add_holes',
-                Icons.add_circle_outline,
-                '홀 넣기 (하나·줄·격자·원형)',
-                _addHoles,
-              ),
-            ]),
-          ], first: true),
-          PlateSection('판을 누르면 놓을 홀 지름', [
-            PlateSegments(joined: false, [
-              for (final d in _cfg.dias)
-                PlateOption(
-                  'sk_dia_${(d * 10).round()}',
-                  'φ${_f(d)}',
-                  _tDia == d,
-                  () => setState(() => _tDia = d),
-                ),
-            ]),
-          ]),
-          if (selH != null && selH < s.holes.length)
-            PlateSection('홀 ${selH + 1}', [
-              plateActions([
-                _btn(
-                  'sk_hole_edit',
-                  Icons.tune,
-                  '위치·크기 수정',
-                  () => _editHole(selH),
-                ),
-                PlateActionButton(
-                  key: const Key('sk_hole_del'),
-                  icon: AppIcons.delete,
-                  label: '홀 지우기',
-                  danger: true,
-                  onTap: () => _change(() {
-                    _s.holes.removeAt(selH);
-                    _selHole = null;
-                  }),
-                ),
-              ]),
-            ]),
-        ];
       default:
         final b = s.toPlateMap() == null ? null : s.bounds;
         sections = [
@@ -1685,7 +1420,13 @@ class _PlateSketchPageState extends State<PlateSketchPage>
             PlateSection('보낼 모양', [
               PlateInfoRow('크기', '${_f(b.width)} × ${_f(b.height)} mm'),
               PlateInfoRow('꼭짓점', '${s.n}개'),
-              PlateInfoRow('홀', '${s.holes.length}개'),
+              // 홀은 보낸 화면의 홀 탭에서 넣는다(10-11 홀 탭 뺌). AI가 읽은 홀만 같이 넘어간다.
+              PlateInfoRow(
+                '홀',
+                s.holes.isEmpty
+                    ? '없음 · 보낸 화면 홀 탭에서 넣습니다'
+                    : '${s.holes.length}개 · 같이 넘어갑니다',
+              ),
               if (s.thickness != null)
                 PlateInfoRow('두께', '${_f(s.thickness!)}T'),
             ], first: true),
@@ -1835,7 +1576,6 @@ class _SketchPainter extends CustomPainter {
     required this.toScreen,
     required this.scale,
     required this.selPt,
-    required this.selHole,
     required this.colors,
     this.ink,
     this.hint = '',
@@ -1856,7 +1596,7 @@ class _SketchPainter extends CustomPainter {
   final ui.Image? image;
   final Offset Function(Offset) toScreen;
   final double scale;
-  final int? selPt, selHole;
+  final int? selPt;
   final FieldPalette colors;
 
   @override
@@ -2004,8 +1744,8 @@ class _SketchPainter extends CustomPainter {
       final r = s.scaled ? math.max(h.dia / 2 * scale, 4.0) : 8.0;
       final p = Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = k == selHole ? 3 : 2
-        ..color = k == selHole ? c.caution : c.text;
+        ..strokeWidth = 2
+        ..color = c.text;
       if (s.scaled && h.slot > h.dia) {
         final half = (h.slot - h.dia) / 2 * scale;
         final a = -h.angle * math.pi / 180; // 화면은 y가 아래라 각도를 뒤집는다
