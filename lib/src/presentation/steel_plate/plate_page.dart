@@ -774,7 +774,7 @@ class _PlatePageState extends State<PlatePage>
     return v == null || v < 0 ? 0 : v;
   }
 
-  String get _tKey => fmt(_num(_t));
+  String get _tKey => plateThicknessKey(_num(_t));
 
   /// 두께 단추: 그 두께의 업체 값이 있으면 채우고(업체 값), 없으면 비운다(일반값).
   void _setThickness(String v) => _set(() {
@@ -884,10 +884,13 @@ class _PlatePageState extends State<PlatePage>
   // ── 글 ──
 
   String _dimsText() => switch (_shape) {
+    // 판을 90°·270° 돌렸으면 그림·DXF와 같은 방향(가로·세로를 바꿔) 쓴다(점검 48)
     PlateShape.flat =>
-      '${fmt(_num(_len))} × ${fmt(_num(_wid))}${_cornersText()}',
+      _turned
+          ? '${fmt(_num(_wid))} × ${fmt(_num(_len))}${_cornersText()}'
+          : '${fmt(_num(_len))} × ${fmt(_num(_wid))}${_cornersText()}',
     PlateShape.rib =>
-      '${fmt(_num(_ribA))} × ${fmt(_num(_ribB))}${_num(_ribC) > 0 ? ' · 모서리 따내기 ${fmt(_num(_ribC))}' : ''}',
+      '${fmt(_num(_turned ? _ribB : _ribA))} × ${fmt(_num(_turned ? _ribA : _ribB))}${_num(_ribC) > 0 ? ' · 모서리 따내기 ${fmt(_num(_ribC))}' : ''}',
     PlateShape.free => () {
       final vs = parsePlateVertices(_points.text);
       final k = vs.where((v) => !v.$2.isNone).length;
@@ -905,11 +908,11 @@ class _PlatePageState extends State<PlatePage>
       return '$size절곡선(${_blH ? '아래' : '왼쪽'} 끝에서) $lines';
     }(),
     PlateShape.l =>
-      '1면 ${fmt(_num(_l1))} · 2면 ${fmt(_num(_l2))} · 폭 ${fmt(_num(_wid))} · ${fmt(readNum(_angle) ?? 90)}°',
+      '1면 ${fmt(_num(_l1))} · 2면 ${fmt(_num(_l2))} · 폭 ${fmt(_num(_wid))} · ${fmt(readNum(_angle) ?? 90)}°${_cornersText(flatPattern: true)}',
     PlateShape.u || PlateShape.z =>
-      '1면 ${fmt(_num(_l1))} · ${_shape == PlateShape.z ? '높이' : '2면'} ${fmt(_num(_l2))} · 3면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}',
+      '1면 ${fmt(_num(_l1))} · ${_shape == PlateShape.z ? '높이' : '2면'} ${fmt(_num(_l2))} · 3면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}${_cornersText(flatPattern: true)}',
     PlateShape.hat =>
-      '발 ${fmt(_num(_l1))} · 높이 ${fmt(_num(_l2))} · 윗면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}',
+      '발 ${fmt(_num(_l1))} · 높이 ${fmt(_num(_l2))} · 윗면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}${_cornersText(flatPattern: true)}',
     PlateShape.circle => '외경 Ø${fmt(_num(_cd))}',
     PlateShape.ring => '외경 Ø${fmt(_num(_cd))} · 내경 Ø${fmt(_num(_ci))}',
   };
@@ -936,16 +939,37 @@ class _PlatePageState extends State<PlatePage>
   String _sheetName() => _cfg.sheetName;
 
   /// 평판 귀 처리 글: " · 네 귀 R10" 또는 " · 왼쪽 아래 R10 · 오른쪽 위 C5". 다 직각이면 빈 글.
-  String _cornersText() {
-    final cs = _corners;
+  /// [flatPattern]이면 절곡 판 전개도 귀(" · 전개도 네 코너 R10").
+  /// 돌린 평판은 보이는 방향의 이름·가로×세로로(점검 48: 돌리기 전 이름으로 나가 그림·DXF와 어긋났다).
+  String _cornersText({bool flatPattern = false}) {
+    final cs = [for (var d = 0; d < 4; d++) _shownCornerAt(d)];
     if (cs.every((c) => c.isNone)) return '';
+    final pre = flatPattern ? '전개도 ' : '';
     if (cs.every((c) => c.label == cs.first.label)) {
-      return ' · 네 코너 ${cs.first.label}';
+      return ' · $pre네 코너 ${cs.first.label}';
     }
     return [
-      for (var k = 0; k < 4; k++)
-        if (!cs[k].isNone) ' · ${kPlateCornerNames[k]} ${cs[k].label}',
+      for (var d = 0; d < 4; d++)
+        if (!cs[d].isNone) ' · $pre${kPlateCornerNames[d]} ${cs[d].label}',
     ].join();
+  }
+
+  /// 판을 90°·270° 돌렸는가(평판·리브·좌표 입력만 돌린다).
+  bool get _turned => !_bend && _rotQ.isOdd;
+
+  /// 저장 귀 [k](돌리기 전) → 화면에 보이는 귀 번호(반시계 90°마다 하나씩 밀린다).
+  int _shownIndex(int k) => (k + (_bend ? 0 : _rotQ)) % 4;
+
+  /// 따내기 가로·세로를 보이는 방향으로(90°·270°면 바꾼다). 넣을 때도 같은 함수로 되돌린다.
+  PlateCorner _turnNotch(PlateCorner c) =>
+      _turned && c.kind == PlateCornerKind.notch
+      ? PlateCorner(c.kind, c.b <= 0 ? c.a : c.b, c.a)
+      : c;
+
+  /// 화면 귀 [d]에 보이는 코너 처리.
+  PlateCorner _shownCornerAt(int d) {
+    final q = _bend ? 0 : _rotQ % 4;
+    return _turnNotch(_corners[(d - q + 4) % 4]);
   }
 
   String _bendLine(PlatePlan p, int n) {
@@ -1487,8 +1511,19 @@ class _PlatePageState extends State<PlatePage>
                   ),
                 ),
         ),
-        PlateSection(bent ? '치수 (바깥 치수)' : '치수', _dimRows()),
+        PlateSection(bent ? '치수 (바깥 치수)' : '치수', [
+          ..._dimRows(),
+          // 돌린 판: 칸은 돌리기 전 값이라 그림(돌린 모양)과 가로·세로가 바뀐다(점검 48)
+          if (_turned)
+            Text(
+              '판을 ${_rotQ * 90}° 돌려 놓았습니다. 칸의 가로·세로${_shape == PlateShape.free ? '·꼭짓점' : ''}은 돌리기 전 값이고, 그림·DXF·카톡 글은 돌린 모양입니다.',
+              key: const Key('pl_turned_note'),
+              style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+            ),
+        ]),
         if (_shape == PlateShape.flat) PlateSection('네 코너', _cornerRows()),
+        // 10-11 사용자: "절곡 절단에서는 모서리 따는 기능이 없나?" — 전개도 네 귀(1면 끝·마지막 면 끝)
+        if (bent && !_custom) PlateSection('네 코너 (전개도)', _cornerRows()),
         PlateSection('재질·두께', [
           PlateSegments([
             for (final m in PlateMaterial.values)
@@ -2561,7 +2596,10 @@ class _PlatePageState extends State<PlatePage>
           : '주황 점선은 절곡선 · 판을 누르면 홀',
     PlateShape.rib => '치수를 누르면 그 칸, 판을 누르면 홀',
     PlateShape.circle || PlateShape.ring => '판을 누르면 홀',
-    _ => '주황 점선은 절곡선 · 판을 누르면 홀',
+    _ =>
+      _tabs[_tab.clamp(0, _tabs.length - 1)].$1 == 'shape'
+          ? '귀를 누르면 코너 처리 · 판을 누르면 홀'
+          : '주황 점선은 절곡선 · 판을 누르면 홀',
   };
 
   /// 그림을 눌렀을 때: 귀(평판)·꼭짓점(자유) → 귀 처리, 치수 숫자 → 그 칸, 판 안 → 구멍 넣기·고치기.
@@ -2574,9 +2612,12 @@ class _PlatePageState extends State<PlatePage>
       return;
     }
     final shapeTab = _tabs[_tab.clamp(0, _tabs.length - 1)].$1 == 'shape';
+    // 절곡 판(ㄱ·ㄷ·Z·모자)은 모양 탭에서 전개도 네 귀를 누르면 코너 처리
+    final bentCorners = shapeTab && plateShapeBends(_shape) && !_custom;
     if (_shape == PlateShape.flat ||
         _shape == PlateShape.free ||
-        (_custom && shapeTab)) {
+        (_custom && shapeTab) ||
+        bentCorners) {
       final w = _num(_len), h = _num(_wid);
       final vs = parsePlateVertices(_points.text);
       // 직접 절곡 판은 꼭짓점 왼쪽 아래가 0(바깥 치수)
@@ -2585,6 +2626,13 @@ class _PlatePageState extends State<PlatePage>
           : Offset.zero;
       final base = _shape == PlateShape.flat
           ? [Offset.zero, Offset(w, 0), Offset(w, h), Offset(0, h)]
+          : bentCorners
+          ? [
+              Offset(p.minX, p.minY),
+              Offset(p.maxX, p.minY),
+              Offset(p.maxX, p.maxY),
+              Offset(p.minX, p.maxY),
+            ]
           : [for (final v in vs) v.$1 - o];
       int? best;
       var bd = 30.0;
@@ -2596,7 +2644,9 @@ class _PlatePageState extends State<PlatePage>
         }
       }
       if (best != null) {
-        _shape == PlateShape.flat ? _editCorner(best) : _editPointCorner(best);
+        _shape == PlateShape.flat || bentCorners
+            ? _editCorner(best)
+            : _editPointCorner(best);
         return;
       }
     }
@@ -2645,7 +2695,7 @@ class _PlatePageState extends State<PlatePage>
     PlateShape.free => '좌표 입력: 외곽 꼭짓점 좌표를 차례로 넣어 모양을 만듭니다.',
     PlateShape.custom =>
       '직접: 바깥 치수로 펴 그린 판(좌표·스케치)에 절곡선을 넣어, 원하는 자리·방향·각도로 절곡합니다.',
-    PlateShape.l => 'ㄱ자: 1회 절곡(각도를 바꿀 수 있습니다).',
+    PlateShape.l => 'ㄱ자: 1회 절곡(각도를 바꿀 수 있습니다). 전개도 네 귀를 R·C·따내기 할 수 있습니다.',
     PlateShape.u => 'ㄷ자: 같은 방향으로 2회 절곡.',
     PlateShape.z => 'Z자: 반대 방향으로 2회 절곡해 단을 만듭니다.',
     PlateShape.hat => '모자: 발 → 다리 → 윗면 → 다리 → 발, 4회 절곡.',
@@ -2664,7 +2714,7 @@ class _PlatePageState extends State<PlatePage>
 
   /// 네 귀가 같으면 그 값을 크기 칸에 옮긴다(직각이면 칸 값은 그대로).
   void _syncCornerFields() {
-    final c = _corners[0];
+    final c = _turnNotch(_corners[0]);
     if (!_cornersSame || c.kind == PlateCornerKind.none) return;
     _ca.text = fmt(c.a);
     _cb.text = fmt(c.b <= 0 ? c.a : c.b);
@@ -2684,7 +2734,9 @@ class _PlatePageState extends State<PlatePage>
       4,
       kind == PlateCornerKind.none
           ? PlateCorner.square
-          : PlateCorner(kind, a, kind == PlateCornerKind.notch ? b : 0),
+          : _turnNotch(
+              PlateCorner(kind, a, kind == PlateCornerKind.notch ? b : 0),
+            ),
     );
   });
 
@@ -2694,21 +2746,23 @@ class _PlatePageState extends State<PlatePage>
     if (k == PlateCornerKind.none) return;
     _corners = List.filled(
       4,
-      PlateCorner(k, a, k == PlateCornerKind.notch ? b : 0),
+      _turnNotch(PlateCorner(k, a, k == PlateCornerKind.notch ? b : 0)),
     );
   });
 
   /// 그림에서 귀 하나를 눌렀을 때.
   Future<void> _editCorner(int k) async {
+    // 창은 보이는 방향의 이름·가로×세로로 열고, 넣을 때 돌리기 전 값으로 되돌린다(점검 48)
     final c = await showPlateCornerDialog(
       context,
-      title: '${kPlateCornerNames[k]} 코너',
-      initial: _corners[k],
+      title:
+          '${plateShapeBends(_shape) ? '전개도 ' : ''}${kPlateCornerNames[_shownIndex(k)]} 코너',
+      initial: _turnNotch(_corners[k]),
       flat: true,
     );
     if (c == null || !mounted) return;
     _set(() {
-      _corners = List.of(_corners)..[k] = c;
+      _corners = List.of(_corners)..[k] = _turnNotch(c);
       _syncCornerFields();
     });
   }
@@ -2777,14 +2831,16 @@ class _PlatePageState extends State<PlatePage>
         plateRow([size('pl_ca', '따내기 가로', _ca), size('pl_cb', '따내기 세로', _cb)]),
       Text(
         same
-            ? '네 코너에 같이 줍니다. 코너마다 다르게 하려면 위 그림에서 그 코너를 누르십시오.'
+            ? (plateShapeBends(_shape)
+                  ? '전개도 네 귀(1면 끝 두 귀, 마지막 면 끝 두 귀)에 같이 줍니다. 귀마다 다르게 하려면 위 그림에서 그 귀를 누르십시오.'
+                  : '네 코너에 같이 줍니다. 코너마다 다르게 하려면 위 그림에서 그 코너를 누르십시오.')
             : '코너마다 다릅니다:${_cornersText().replaceFirst(' · ', ' ')}. 단추를 누르면 네 코너가 같아집니다.',
         key: same ? null : const Key('pl_corner_mixed'),
         style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
       ),
-      if (_rotQ % 4 != 0 && !_corners.every((c) => c.isNone))
+      if (_turned && !_corners.every((c) => c.isNone))
         Text(
-          '판을 돌려 놓았습니다. 코너 이름은 돌리기 전(가로 ${fmt(_num(_len))} × 세로 ${fmt(_num(_wid))}) 기준입니다.',
+          '판을 돌려 놓아 코너 이름과 따내기 가로·세로는 그림(돌린 모양) 기준입니다.',
           style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
         ),
     ];

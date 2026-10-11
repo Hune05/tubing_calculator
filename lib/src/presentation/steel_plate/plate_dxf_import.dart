@@ -1,7 +1,9 @@
 // 철판 DXF 불러오기(10-10, 상용 레이저 주문 앱처럼 "도면 파일 올려 시작"): 레이저 업체용 DXF에서
 // 바깥 외곽(가장 큰 닫힌 고리)은 좌표 입력 꼭짓점으로(접하는 원호는 코너 R, 직각 사이 짧은 45° 선은 코너 C),
 // 원은 홀, 반원 둘 + 직선 둘은 장공으로 읽는다. 바깥이 원이면 원형, 가운데 같은 중심 원이 있으면 링.
-// CUT 층이 있으면 그 층만 읽는다(이 앱이 만든 DXF의 센터선·절곡선·글은 다른 층). 단위는 mm로 본다.
+// CUT 층이 있으면 그 층만 읽는다(이 앱이 만든 DXF의 센터선·절곡선·글은 다른 층).
+// 10-11(점검 55~57): 도면 단위($INSUNITS 인치·cm·m)를 mm로 바꾸고, 거울로 저장된(돌출 방향 Z −1) 원·원호·폴리선을
+// 제자리로 읽고, 앞뒤 직선에 접하는 큰 원호(반원 러그 등)는 R 코너 여러 개로 바꿔 원호 그대로 남긴다.
 library;
 
 import 'dart:math' as math;
@@ -160,6 +162,27 @@ PlateDxfImport importPlateDxf(String text) {
   }
   if (ents.isEmpty) throw const FormatException('DXF에서 도형을 찾지 못했습니다.');
   final notes = <String>[];
+  // 도면 단위(HEADER $INSUNITS): 1 인치, 2 피트, 4 mm, 5 cm, 6 m. 없거나 0이면 mm로 본다.
+  var unit = 1.0;
+  for (var k = 0; k + 1 < pairs.length; k++) {
+    if (pairs[k].$1 == 9 && pairs[k].$2.trim() == r'$INSUNITS') {
+      final u = int.tryParse(pairs[k + 1].$2.trim());
+      final (sc, name) = switch (u) {
+        1 => (25.4, '인치'),
+        2 => (304.8, '피트'),
+        5 => (10.0, 'cm'),
+        6 => (1000.0, 'm'),
+        _ => (1.0, ''),
+      };
+      unit = sc;
+      if (name.isNotEmpty) {
+        notes.add('도면 단위가 $name라 mm로 바꿔 읽었습니다(× ${_trim(sc)}).');
+      }
+      break;
+    }
+  }
+  // 거울로 저장된 요소(돌출 방향 Z가 −1): 요소 좌표계의 x가 반대(−x)다. LINE은 원래 좌표라 그대로.
+  bool mirrored(_Ent e) => e.num(230, 1) < 0;
   if (ents.any((e) => e.type == 'INSERT')) {
     notes.add('블록(INSERT)은 읽지 않았습니다. 업체에 블록을 풀어(분해) 달라고 하십시오.');
   }
@@ -175,16 +198,20 @@ PlateDxfImport importPlateDxf(String text) {
     if (!use(e) && e.type != 'VERTEX' && e.type != 'SEQEND') continue;
     switch (e.type) {
       case 'LINE':
-        final a = Offset(e.num(10), e.num(20)),
-            b = Offset(e.num(11), e.num(21));
+        final a = Offset(e.num(10), e.num(20)) * unit,
+            b = Offset(e.num(11), e.num(21)) * unit;
         if ((b - a).distance > 1e-9) prims.add(_Prim.line(a, b));
       case 'CIRCLE':
-        final r = e.num(40);
-        if (r > 0) circles.add((Offset(e.num(10), e.num(20)), r));
+        final m = mirrored(e) ? -1.0 : 1.0;
+        final r = e.num(40) * unit;
+        if (r > 0) circles.add((Offset(m * e.num(10), e.num(20)) * unit, r));
       case 'ARC':
-        final c = Offset(e.num(10), e.num(20));
-        final r = e.num(40);
-        final a0 = e.num(50) * math.pi / 180, a1 = e.num(51) * math.pi / 180;
+        final m = mirrored(e);
+        final c = Offset((m ? -1 : 1) * e.num(10), e.num(20)) * unit;
+        final r = e.num(40) * unit;
+        var a0 = e.num(50) * math.pi / 180, a1 = e.num(51) * math.pi / 180;
+        // 거울이면 각 θ → π − θ, 반시계가 시계가 되므로 끝과 시작을 바꾼다
+        if (m) (a0, a1) = (math.pi - a1, math.pi - a0);
         if (r > 0) {
           prims.add(
             _Prim.arc(
@@ -199,17 +226,18 @@ PlateDxfImport importPlateDxf(String text) {
       case 'LWPOLYLINE':
         final pts = <Offset>[];
         final bul = <double>[];
+        final m = mirrored(e) ? -1.0 : 1.0;
         double? x;
         for (final (code, v) in e.pairs) {
           final d = double.tryParse(v.trim()) ?? 0;
           if (code == 10) {
             x = d;
           } else if (code == 20 && x != null) {
-            pts.add(Offset(x, d));
+            pts.add(Offset(m * x, d) * unit);
             bul.add(0);
             x = null;
           } else if (code == 42 && bul.isNotEmpty) {
-            bul[bul.length - 1] = d;
+            bul[bul.length - 1] = m * d; // 거울이면 볼록 방향도 반대
           }
         }
         final closed = ((int.tryParse(e.str(70) ?? '') ?? 0) & 1) == 1;
@@ -223,10 +251,11 @@ PlateDxfImport importPlateDxf(String text) {
         final closed = ((int.tryParse(e.str(70) ?? '') ?? 0) & 1) == 1;
         final pts = <Offset>[];
         final bul = <double>[];
+        final mx = mirrored(e) ? -1.0 : 1.0;
         var m = k + 1;
         while (m < ents.length && ents[m].type == 'VERTEX') {
-          pts.add(Offset(ents[m].num(10), ents[m].num(20)));
-          bul.add(ents[m].num(42));
+          pts.add(Offset(mx * ents[m].num(10), ents[m].num(20)) * unit);
+          bul.add(mx * ents[m].num(42));
           m++;
         }
         k = m < ents.length && ents[m].type == 'SEQEND' ? m : m - 1;
@@ -382,8 +411,15 @@ PlateDxfImport importPlateDxf(String text) {
   }
 
   if (outerLoop >= 0) {
-    (pts, corners) = _vertices(loops[outerLoop], tol);
+    final (vp, vc, fine) = _vertices(loops[outerLoop], tol);
+    pts = vp;
+    corners = vc;
     outerBox = boxOf(loopPts[outerLoop]);
+    if (fine > 0) {
+      notes.add(
+        '앞뒤 직선에 접하지 않는 원호 $fine곳은 꼭짓점으로 잘게 나눠 읽었습니다(오차 0.05mm 이하). 원호 그대로 자르려면 업체 DXF를 그대로 보내십시오.',
+      );
+    }
   } else {
     final (c, r) = circles[outerCircle];
     shape = PlateShape.circle;
@@ -481,8 +517,10 @@ Offset? _meet(Offset p, Offset d, Offset q, Offset e) {
 }
 
 /// 바깥 고리 → 꼭짓점·코너 처리. 앞뒤 직선에 접하는 원호는 코너 R(꼭짓점은 두 직선이 만나는 자리),
-/// 서로 직각인 두 직선 사이 짧은 45° 직선은 코너 C, 나머지 원호는 잘게 나눈 꼭짓점.
-(List<Offset>, List<PlateCorner>) _vertices(List<_Prim> l, double tol) {
+/// 반원처럼 180° 넘게 도는 접하는 원호는 90° 안쪽 토막마다 R 코너 하나(점검 56: 10°마다 꺾은선이 되어
+/// 다시 보낸 DXF가 18각으로 잘렸다), 서로 직각인 두 직선 사이 짧은 45° 직선은 코너 C,
+/// 나머지 원호는 오차 0.05mm 이하로 잘게 나눈 꼭짓점(셋째 값 = 그렇게 나눈 원호 수).
+(List<Offset>, List<PlateCorner>, int) _vertices(List<_Prim> l, double tol) {
   final n = l.length;
   _Prim at(int i) => l[(i % n + n) % n];
   bool tangent(Offset u, Offset v) =>
@@ -494,9 +532,8 @@ Offset? _meet(Offset p, Offset d, Offset q, Offset e) {
     if (p.isArc || r.isArc) continue;
     if (q.isArc) {
       if (tangent(p.dirAt(false), q.dirAt(true)) &&
-          tangent(q.dirAt(false), r.dirAt(true)) &&
-          q.sweep < math.pi - 1e-3) {
-        kind[i] = 'R';
+          tangent(q.dirAt(false), r.dirAt(true))) {
+        kind[i] = q.sweep < math.pi - 1e-3 ? 'R' : 'A';
       }
       continue;
     }
@@ -515,8 +552,30 @@ Offset? _meet(Offset p, Offset d, Offset q, Offset e) {
   // 모따기·필렛이 서로 붙어 있으면(앞뒤가 직선이 아님) 위에서 걸러졌다.
   final pts = <Offset>[];
   final cs = <PlateCorner>[];
+  var fine = 0;
   for (var i = 0; i < n; i++) {
     final q = at(i);
+    if (kind[i] == 'A') {
+      // 큰 원호: 90° 안쪽 k토막으로 나누고, 토막마다 양 끝 접선이 만나는 자리에 R 코너
+      final c = q.c!, s = q.sweep;
+      final k = (s / (math.pi / 2) - 1e-9).ceil();
+      final phi = s / k;
+      final a0 = math.atan2(q.a.dy - c.dy, q.a.dx - c.dx);
+      final sg = q.ccw ? 1.0 : -1.0;
+      for (var j = 0; j < k; j++) {
+        final m = a0 + sg * phi * (j + 0.5);
+        pts.add(
+          c + Offset(math.cos(m), math.sin(m)) * (q.r / math.cos(phi / 2)),
+        );
+        cs.add(
+          PlateCorner(
+            PlateCornerKind.round,
+            double.parse(q.r.toStringAsFixed(2)),
+          ),
+        );
+      }
+      continue;
+    }
     if (kind[i] == 'R' || kind[i] == 'C') {
       final p = at(i - 1), r = at(i + 1);
       final x = _meet(p.a, p.dirAt(true), r.a, r.dirAt(true));
@@ -548,7 +607,12 @@ Offset? _meet(Offset p, Offset d, Offset q, Offset e) {
       }
       continue;
     }
-    final ps = q.points(10 * math.pi / 180);
+    // 현 높이 0.05mm 이하가 되게(1° ~ 10°)
+    final step =
+        (2 * math.acos((1 - 0.05 / math.max(q.r, 0.05)).clamp(-1.0, 1.0)))
+            .clamp(math.pi / 180, 10 * math.pi / 180);
+    fine++;
+    final ps = q.points(step);
     for (var k = 0; k < ps.length; k++) {
       if (k == 0 && prevKind.isNotEmpty) continue;
       pts.add(ps[k]);
@@ -573,5 +637,13 @@ Offset? _meet(Offset p, Offset d, Offset q, Offset e) {
       }
     }
   }
-  return (pts, cs);
+  return (pts, cs, fine);
+}
+
+String _trim(double v) {
+  var s = v.toStringAsFixed(2);
+  while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
+    s = s.substring(0, s.length - 1);
+  }
+  return s;
 }

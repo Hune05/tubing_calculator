@@ -45,10 +45,11 @@ void main() {
       expect(p.holes.map((h) => h.label), ['1', '2']);
       expect(p.holes[1].bad, isTrue);
       expect(p.problems.join(), contains('판 밖으로 나오는 홀: 2.'));
-      final holeA = math.pi * 13.5 * 13.5 / 4 + math.pi * 25;
+      // 내경 안 홀(판 밖)은 뚫을 자리가 없어 넓이·절단 길이·피어싱에서 뺀다(10-11 점검 58)
+      final holeA = math.pi * 13.5 * 13.5 / 4;
       expect(p.areaMm2, closeTo(math.pi * (100 * 100 - 50 * 50) - holeA, 1e-6));
-      expect(p.cutLength, closeTo(math.pi * (200 + 100 + 13.5 + 10), 1e-6));
-      expect(p.pierces, 4);
+      expect(p.cutLength, closeTo(math.pi * (200 + 100 + 13.5), 1e-6));
+      expect(p.pierces, 3);
       // 링 폭이 두께보다 좁으면 알림
       final thin = platePlan(
         const PlateInput(shape: PlateShape.ring, t: 6, dia: 100, innerDia: 92),

@@ -8,7 +8,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/common_widgets/app_components.dart' show showAppSnack;
+import '../../core/common_widgets/app_components.dart'
+    show AppSnackKind, showAppSnack;
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../electrical/busbar_punch_dies.dart'
@@ -41,6 +42,10 @@ String _f(double v) {
   }
   return s;
 }
+
+/// 업체 공제값 표의 두께 키("4.5", "1.25"). 저장·찾기가 같은 것을 쓴다(점검 52: 화면은 소수 첫째 자리로 찾아
+/// 1.25T 업체 값이 안 붙었다).
+String plateThicknessKey(double t) => _f(t);
 
 /// 두께 글('1.6, 2.3 3.2')을 단추 목록으로(숫자만, 같은 값 하나, 작은 것부터).
 List<String> parsePlateThicknesses(String text) {
@@ -351,7 +356,18 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
   void _addBend() {
     final t = _v(_bt), r = _v(_br), bd = _v(_bdv);
     if (t == null || t <= 0 || r == null || r < 0 || bd == null || bd <= 0) {
-      showAppSnack(context, '두께·내R·공제값을 모두 넣으십시오.');
+      showAppSnack(context, '두께·내R·공제값을 모두 넣으십시오.', kind: AppSnackKind.error);
+      return;
+    }
+    // 나올 수 있는 공제값(K값 0~1)만(점검 53: 아무 값이나 저장되고 절곡 탭에서야 "나올 수 없는 값"이 떴다)
+    final hi = plateBendDeduction90(t, r, 0),
+        lo = plateBendDeduction90(t, r, 1);
+    if (bd < lo - 1e-9 || bd > hi + 1e-9) {
+      showAppSnack(
+        context,
+        '${_f(t)}T·내R ${_f(r)}이면 90° 공제값은 ${_f(lo)} ~ ${_f(hi)} 사이입니다. 업체 값을 다시 확인하십시오.',
+        kind: AppSnackKind.error,
+      );
       return;
     }
     setState(() {

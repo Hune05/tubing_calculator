@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/field_view.dart';
 import '../electrical/busbar_punch_dies.dart' show punchDieLabel;
+import 'plate_calc.dart' show plateSegSegDist;
 import 'plate_painter.dart' show PlateTone;
 import 'plate_ui.dart';
 
@@ -64,17 +65,35 @@ class PlateHoleCanvas {
   bool get bent => faceBase.isNotEmpty;
   Offset get center => Offset((minX + maxX) / 2, (minY + maxY) / 2);
 
-  /// 이 자리에 홀을 뚫을 수 없는가(판 밖·링 안·절곡부).
+  /// 이 자리에 홀을 뚫을 수 없는가(판 밖·외곽선에 걸림·링 안·절곡부·있던 홀과 겹침). 홀 지름·장공 길이·각도까지
+  /// 본다(점검 50: 중심만 봐서 창에서는 괜찮은데 넣으면 "판 밖"·"절곡부" 오류가 떴다). 계산(platePlan)과 같은 기준.
   bool badAt(PlateHoleDraft h) {
-    final r = h.dia / 2;
-    if (!_inside(h.c)) return true;
-    for (final (c, d) in cutouts) {
-      if ((h.c - c).distance < d / 2 + r) return true;
+    final (p1, p2, r) = _seg(h);
+    if (!_inside(p1) || !_inside(p2)) return true;
+    for (var i = 0; i < outline.length; i++) {
+      final q1 = outline[i], q2 = outline[(i + 1) % outline.length];
+      if (plateSegSegDist(p1, p2, q1, q2) < r - 1e-9) return true;
     }
+    for (final (c, d) in cutouts) {
+      if (plateSegSegDist(p1, p2, c, c) < d / 2 + r - 1e-9) return true;
+    }
+    final hx = (p2.dx - p1.dx).abs() / 2 + r;
     for (final (a, b) in bendSpans) {
-      if (h.c.dx + r > a && h.c.dx - r < b) return true;
+      if (h.c.dx + hx > a && h.c.dx - hx < b) return true;
+    }
+    for (final e in existing) {
+      final (q1, q2, er) = _seg(e);
+      if (plateSegSegDist(p1, p2, q1, q2) < r + er - 1e-9) return true;
     }
     return false;
+  }
+
+  /// 홀 가운데 선(장공은 두 반원 가운데를 잇는 선)과 반지름.
+  static (Offset, Offset, double) _seg(PlateHoleDraft h) {
+    final half = h.slot > h.dia ? (h.slot - h.dia) / 2 : 0.0;
+    final a = h.angle * math.pi / 180;
+    final d = Offset(math.cos(a), math.sin(a)) * half;
+    return (h.c - d, h.c + d, h.dia / 2);
   }
 
   bool _inside(Offset p) {

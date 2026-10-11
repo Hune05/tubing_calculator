@@ -158,7 +158,16 @@ List<Plate3dFace> plate3dMesh(PlatePlan p, {required double t}) {
   final h = math.max(t, 0.1) / 2;
   final faces = <Plate3dFace>[];
   // 사용자 홀 + 모양에 딸린 안쪽 따냄(링 내경)
-  final allHoles = [...p.holes, ...p.cutouts];
+  // 판 밖·절곡부에 걸친 홀은 뚫을 수 없어 빼고 그린다(조각이 이상하게 채워졌다, 점검 58)
+  final allHoles = [
+    for (final h in p.holes)
+      if (!h.out &&
+          !p.bends.any(
+            (b) => h.c.dx + h.halfX > b.start && h.c.dx - h.halfX < b.end,
+          ))
+        h,
+    ...p.cutouts,
+  ];
   final holeLoops = [for (final hole in allHoles) plateHoleLoop(hole)];
 
   if (p.bends.isEmpty) {

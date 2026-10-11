@@ -73,14 +73,41 @@ class PlateBendSpec {
       i.bendAxisH ? Offset(p.dy, -p.dx) : p,
   ];
   if (raw.length < 3) return (const <Offset>[], 0.0);
+  // 기준점·판 끝은 꼭짓점(코너 처리 전)으로: 계산과 같게(점검 49 — 외곽 최솟값을 써서 끝 꼭짓점에 R·C가
+  // 있으면 창의 판 폭이 짧고 미리보기 절곡선이 어긋났다)
+  final vr = [for (final p in i.points) i.bendAxisH ? Offset(p.dy, -p.dx) : p];
   final o = Offset(
-    raw.map((p) => p.dx).reduce(math.min),
-    raw.map((p) => p.dy).reduce(math.min),
+    vr.map((p) => p.dx).reduce(math.min),
+    vr.map((p) => p.dy).reduce(math.min),
   );
   return (
     [for (final p in raw) p - o],
-    raw.map((p) => p.dx).reduce(math.max) - o.dx,
+    vr.map((p) => p.dx).reduce(math.max) - o.dx,
   );
+}
+
+/// 꼭짓점 차례가 엇갈려 외곽선이 서로 꼬이는 두 변(1부터 센 변 번호). 안 꼬이면 null(점검 51).
+(int, int)? plateSelfCrossing(List<Offset> pts) {
+  final n = pts.length;
+  if (n < 4) return null;
+  double cross(Offset o, Offset a, Offset b) =>
+      (a.dx - o.dx) * (b.dy - o.dy) - (a.dy - o.dy) * (b.dx - o.dx);
+  bool hit(Offset a, Offset b, Offset c, Offset d) {
+    final d1 = cross(c, d, a), d2 = cross(c, d, b);
+    final d3 = cross(a, b, c), d4 = cross(a, b, d);
+    return ((d1 > 1e-9 && d2 < -1e-9) || (d1 < -1e-9 && d2 > 1e-9)) &&
+        ((d3 > 1e-9 && d4 < -1e-9) || (d3 < -1e-9 && d4 > 1e-9));
+  }
+
+  for (var i = 0; i < n; i++) {
+    for (var j = i + 2; j < n; j++) {
+      if (i == 0 && j == n - 1) continue; // 이웃한 변(마지막 ↔ 첫)
+      if (hit(pts[i], pts[(i + 1) % n], pts[j], pts[(j + 1) % n])) {
+        return (i + 1, j + 1);
+      }
+    }
+  }
+  return null;
 }
 
 /// 세로선 x에서 다각형 판을 가로지르는 구간들(아래 → 위). 절곡선을 판이 있는 곳에만 긋는다(T자 같은 모양).
@@ -399,7 +426,8 @@ List<PlateSeg> plateCornerOutline(
     final j = (i + 1) % n;
     final len = (pts[j] - pts[i]).distance;
     final used = (exit[i] - pts[i]).distance + (entry[j] - pts[j]).distance;
-    if (used > len + 1e-6) {
+    // 0.01mm까지는 봐준다(DXF 반원을 R 코너 둘로 읽으면 사이 변이 꼭 맞게 다 쓰인다, 10-11)
+    if (used > len + 0.01) {
       warn(
         '${nameOf(i)}·${nameOf(j)} 사이 변(${_f(len)}mm)보다 모서리 처리가 큽니다. R·C·따내기 값을 줄이십시오.',
       );
@@ -894,6 +922,27 @@ PlatePlan platePlan(PlateInput i) {
     PlateLine(Offset(0, h), const Offset(0, 0)),
   ];
 
+  /// 사각 판(가로 [w] × 세로 [h])의 네 귀 처리. 평판·절곡 전개도가 같이 쓴다.
+  /// 따내기는 가로 a × 세로 b로 받는다. 외곽은 앞 변 × 다음 변이라 왼쪽 아래·오른쪽 위는 바꿔 넣는다.
+  List<PlateSeg> cornerRect(double w, double h, List<PlateCorner> cs) {
+    final cs2 = [
+      for (var k = 0; k < 4; k++)
+        k.isEven && cs[k].kind == PlateCornerKind.notch
+            ? PlateCorner(
+                PlateCornerKind.notch,
+                cs[k].b <= 0 ? cs[k].a : cs[k].b,
+                cs[k].a,
+              )
+            : cs[k],
+    ];
+    return plateCornerOutline(
+      [Offset.zero, Offset(w, 0), Offset(w, h), Offset(0, h)],
+      cs2,
+      warn,
+      names: kPlateCornerNames,
+    );
+  }
+
   /// 꺾음 공통(ㄱ·ㄷ·Z·모자·직접): 면 바깥 치수 [legs]·각 [turns] → 중립선 → 절곡선·면 자리, 외곽은 [w] 폭 사각.
   void bentStrip(List<double> legs, List<double> turns, double w) {
     faceLengths = legs;
@@ -954,25 +1003,7 @@ PlatePlan platePlan(PlateInput i) {
                   ? PlateCorner(PlateCornerKind.round, i.cornerR)
                   : PlateCorner.square,
             );
-      // 평판 따내기는 가로 a × 세로 b로 받는다. 외곽은 앞 변 × 다음 변이라 왼쪽 아래·오른쪽 위는 바꿔 넣는다.
-      final cs2 = [
-        for (var k = 0; k < 4; k++)
-          k.isEven && cs[k].kind == PlateCornerKind.notch
-              ? PlateCorner(
-                  PlateCornerKind.notch,
-                  cs[k].b <= 0 ? cs[k].a : cs[k].b,
-                  cs[k].a,
-                )
-              : cs[k],
-      ];
-      outline = w > 0 && h > 0
-          ? plateCornerOutline(
-              [Offset.zero, Offset(w, 0), Offset(w, h), Offset(0, h)],
-              cs2,
-              warn,
-              names: kPlateCornerNames,
-            )
-          : rect(w, h);
+      outline = w > 0 && h > 0 ? cornerRect(w, h, cs) : rect(w, h);
       faceLengths = [w];
     case PlateShape.rib:
       final a = i.ribA, b = i.ribB, c = i.ribC;
@@ -993,6 +1024,12 @@ PlatePlan platePlan(PlateInput i) {
       } else {
         outline = plateCornerOutline(pts, i.pointCorners, warn);
         if (_polyArea(pts) < 1) warn('좌표로 넣은 모양의 넓이가 없습니다. 꼭짓점을 확인하십시오.');
+        final x = plateSelfCrossing(pts);
+        if (x != null) {
+          warn(
+            '꼭짓점 차례가 엇갈려 외곽선이 꼬입니다(변 ${x.$1}과 변 ${x.$2}). 꼭짓점을 둘레를 따라 차례대로 넣으십시오.',
+          );
+        }
       }
     case PlateShape.circle:
     case PlateShape.ring:
@@ -1030,11 +1067,46 @@ PlatePlan platePlan(PlateInput i) {
         warn('절곡 각도는 0°와 180° 사이여야 합니다.');
       }
       bentStrip(legs, turns, w);
+      // 전개도 네 귀 처리(10-11 사용자: "절곡 절단에서는 모서리 따는 기능이 없나?"): 평판과 같은 R·C·따내기.
+      // 왼쪽 귀는 1면 끝, 오른쪽 귀는 마지막 면 끝이다. 절곡부까지 닿으면 알린다.
+      final cs = i.corners.length == 4
+          ? i.corners
+          : List.filled(4, PlateCorner.square);
+      final len = outline.isEmpty
+          ? 0.0
+          : plateOutlinePoints(outline).map((p) => p.dx).reduce(math.max);
+      if (w > 0 && len > 0 && cs.any((c) => !c.isNone)) {
+        outline = cornerRect(len, w, cs);
+        // 코너가 길이 방향으로 차지하는 몫(따내기는 가로)
+        double ext(PlateCorner c) => c.isNone ? 0 : c.a;
+        if (bends.isNotEmpty) {
+          for (final k in const [0, 3]) {
+            if (ext(cs[k]) > bends.first.start + 1e-6) {
+              warn(
+                '${kPlateCornerNames[k]} 코너(${cs[k].label})가 1번 절곡부에 닿습니다. 판 끝에서 ${_f(bends.first.start)}mm 안으로 줄이십시오.',
+              );
+            }
+          }
+          for (final k in const [1, 2]) {
+            if (len - ext(cs[k]) < bends.last.end - 1e-6) {
+              warn(
+                '${kPlateCornerNames[k]} 코너(${cs[k].label})가 ${bends.length}번 절곡부에 닿습니다. 판 끝에서 ${_f(len - bends.last.end)}mm 안으로 줄이십시오.',
+              );
+            }
+          }
+        }
+      }
     case PlateShape.custom:
       // 바깥 치수로 펴 그린 판(좌표·스케치). 가로선이면 시계로 90° 돌려 절곡선이 세로가 되게, 왼쪽 아래를 (0, 0)으로.
       if (i.points.length < 3) {
         warn('판 모양(꼭짓점 3개 이상)을 넣으십시오.');
         break;
+      }
+      final x = plateSelfCrossing(i.points);
+      if (x != null) {
+        warn(
+          '꼭짓점 차례가 엇갈려 외곽선이 꼬입니다(변 ${x.$1}과 변 ${x.$2}). 꼭짓점을 둘레를 따라 차례대로 넣으십시오.',
+        );
       }
       Offset rot(Offset p) => i.bendAxisH ? Offset(p.dy, -p.dx) : p;
       var segs = [
@@ -1395,9 +1467,13 @@ PlatePlan platePlan(PlateInput i) {
       ),
   ];
 
-  // 넓이·무게
+  // 넓이·무게. 판 밖 홀은 뚫을 자리가 없으니 넓이·절단 길이·피어싱에서 뺀다(점검 58).
+  final cutHoles = [
+    for (final h in holes)
+      if (!h.out) h,
+  ];
   final area = outline.isEmpty ? 0.0 : plateOutlineArea(outline);
-  final holeArea = [...holes, ...cutouts].fold(0.0, (s, h) => s + h.area);
+  final holeArea = [...cutHoles, ...cutouts].fold(0.0, (s, h) => s + h.area);
   double segLen(PlateSeg e) => switch (e) {
     PlateLine(:final a, :final b) => (b - a).distance,
     PlateArc(:final r, :final sweep) => r * _rad(sweep.abs()),
@@ -1406,7 +1482,7 @@ PlatePlan platePlan(PlateInput i) {
       h.slot > h.dia ? 2 * (h.slot - h.dia) + math.pi * h.dia : math.pi * h.dia;
   final cutLen =
       outline.fold(0.0, (s, e) => s + segLen(e)) +
-      [...holes, ...cutouts].fold(0.0, (s, h) => s + holeLen(h));
+      [...cutHoles, ...cutouts].fold(0.0, (s, h) => s + holeLen(h));
   final net = math.max(0.0, area - holeArea);
   final density = kPlateMaterials[i.material]!.$2; // g/cm³
   final kg = net * t * density * 1e-6;
@@ -1438,7 +1514,7 @@ PlatePlan platePlan(PlateInput i) {
     problems: problems,
     cutouts: cutouts,
     cutLength: cutLen,
-    pierces: (outline.isEmpty ? 0 : 1) + holes.length + cutouts.length,
+    pierces: (outline.isEmpty ? 0 : 1) + cutHoles.length + cutouts.length,
   );
 }
 

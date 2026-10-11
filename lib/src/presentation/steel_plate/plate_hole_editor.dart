@@ -181,6 +181,11 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     return Offset(d.dx / s + c.dx, -d.dy / s + c.dy);
   }
 
+  /// 가로 그리드 원점: 절곡 판은 그 자리 면의 시작(u = 0)에서 재야 "2면 55"처럼 끊어진다
+  /// (점검 54: 전개도 왼쪽 끝에서 재서 "2면 55.7"처럼 끝수가 붙었다). 평판은 판 왼쪽 끝.
+  double _gridX(PlatePlan p, double x) =>
+      p.isBent ? _snapGrid(x, p.faceBase[p.faceAt(x)]) : _snapGrid(x, p.minX);
+
   double _snapGrid(double v, double origin) =>
       _grid <= 0 ? v : origin + ((v - origin) / _grid).round() * _grid;
 
@@ -272,7 +277,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     final hit = _hit(p, d.localPosition);
     if (_place && hit == null) {
       final mm = _toMm(p, d.localPosition);
-      final at = Offset(_snapGrid(mm.dx, p.minX), _snapGrid(mm.dy, p.minY));
+      final at = Offset(_gridX(p, mm.dx), _snapGrid(mm.dy, p.minY));
       final spec = _specAt(
         p,
         at,
@@ -358,7 +363,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
     final s = _s(p);
     final dv = d.localFocalPoint - _focal0;
     var target = from[lead]! + Offset(dv.dx / s, -dv.dy / s);
-    target = Offset(_snapGrid(target.dx, p.minX), _snapGrid(target.dy, p.minY));
+    target = Offset(_gridX(p, target.dx), _snapGrid(target.dy, p.minY));
     // 안내선: 다른 구멍·판 가운데와 가로·세로가 맞으면(화면 8점 안) 붙인다.
     final tol = 8 / s;
     double? gx, gy;

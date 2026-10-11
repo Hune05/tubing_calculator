@@ -539,9 +539,7 @@ class _PlateNumFieldState extends State<PlateNumField> {
 
   @override
   Widget build(BuildContext context) {
-    final label = widget.label, hint = widget.hint, unit = widget.unit;
-    final text = widget.text, readOnly = widget.readOnly;
-    final highlight = widget.highlight;
+    final label = widget.label;
     OutlineInputBorder b(Color c, double w) => OutlineInputBorder(
       borderRadius: BorderRadius.circular(10),
       borderSide: BorderSide(color: c, width: w),
@@ -563,52 +561,104 @@ class _PlateNumFieldState extends State<PlateNumField> {
           ),
           const SizedBox(height: 4),
         ],
-        TextField(
-          key: Key(widget.fieldKey),
-          controller: widget.controller,
-          focusNode: _node,
-          autofocus: widget.autofocus,
-          readOnly: readOnly,
-          canRequestFocus: !readOnly,
-          keyboardType: text
-              ? TextInputType.text
-              : const TextInputType.numberWithOptions(decimal: true),
-          textInputAction: TextInputAction.next,
-          textAlign: text ? TextAlign.start : TextAlign.right,
-          style: TextStyle(
-            fontSize: text ? 16 : 18,
-            fontWeight: text ? FontWeight.w700 : FontWeight.w800,
-            color: fc.text,
+        // 값이 칸보다 길면 글자를 줄여 다 보이게(점검 59: 큰 글씨에서 공제값 5.73이 "5.7"로 잘려 보였다).
+        // 줄 높이는 그대로(옆 칸과 높이가 어긋나지 않게).
+        LayoutBuilder(
+          builder: (context, box) => ValueListenableBuilder<TextEditingValue>(
+            valueListenable: widget.controller,
+            builder: (context, v, _) =>
+                _field(context, _fitSize(context, v.text, box.maxWidth), b),
           ),
-          decoration: InputDecoration(
-            isDense: true,
-            filled: true,
-            fillColor: readOnly ? fc.background : fc.fill,
-            hintText: hint,
-            hintStyle: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: fc.textFaint,
-            ),
-            suffixText: unit,
-            suffixStyle: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: fc.textSub,
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: label == null ? 12 : 13,
-            ),
-            border: b(Colors.transparent, 0),
-            enabledBorder: highlight
-                ? b(fc.brand, 1.6)
-                : (readOnly ? b(fc.line, 1) : b(Colors.transparent, 0)),
-            focusedBorder: readOnly ? b(fc.line, 1) : b(fc.brand, 1.6),
-          ),
-          onChanged: widget.onChanged,
         ),
       ],
+    );
+  }
+
+  /// 칸 너비에 맞는 글자 크기(기본 18, 글 칸 16, 가장 작게 11).
+  double _fitSize(BuildContext context, String value, double width) {
+    final base = widget.text ? 16.0 : 18.0;
+    if (value.isEmpty || !width.isFinite) return base;
+    final scaler = MediaQuery.textScalerOf(context);
+    final family = DefaultTextStyle.of(context).style.fontFamily;
+    double measure(String s, double size, FontWeight w) {
+      final tp = TextPainter(
+        text: TextSpan(
+          text: s,
+          style: TextStyle(fontSize: size, fontWeight: w, fontFamily: family),
+        ),
+        textDirection: TextDirection.ltr,
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      return tp.width;
+    }
+
+    final unit = widget.unit;
+    final suffix = unit == null ? 0.0 : measure(unit, 13, FontWeight.w700) + 4;
+    final avail = width - 24 - suffix - 4;
+    final need = measure(
+      value,
+      base,
+      widget.text ? FontWeight.w700 : FontWeight.w800,
+    );
+    if (avail <= 0 || need <= avail) return base;
+    return (base * avail / need).clamp(11.0, base);
+  }
+
+  Widget _field(
+    BuildContext context,
+    double size,
+    OutlineInputBorder Function(Color, double) b,
+  ) {
+    final label = widget.label, hint = widget.hint, unit = widget.unit;
+    final text = widget.text, readOnly = widget.readOnly;
+    final highlight = widget.highlight;
+    final base = text ? 16.0 : 18.0;
+    return TextField(
+      key: Key(widget.fieldKey),
+      controller: widget.controller,
+      focusNode: _node,
+      autofocus: widget.autofocus,
+      readOnly: readOnly,
+      canRequestFocus: !readOnly,
+      keyboardType: text
+          ? TextInputType.text
+          : const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.next,
+      textAlign: text ? TextAlign.start : TextAlign.right,
+      strutStyle: StrutStyle(fontSize: base, forceStrutHeight: true),
+      style: TextStyle(
+        fontSize: size,
+        fontWeight: text ? FontWeight.w700 : FontWeight.w800,
+        color: fc.text,
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        filled: true,
+        fillColor: readOnly ? fc.background : fc.fill,
+        hintText: hint,
+        hintStyle: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: fc.textFaint,
+        ),
+        suffixText: unit,
+        suffixStyle: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: fc.textSub,
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: label == null ? 12 : 13,
+        ),
+        border: b(Colors.transparent, 0),
+        enabledBorder: highlight
+            ? b(fc.brand, 1.6)
+            : (readOnly ? b(fc.line, 1) : b(Colors.transparent, 0)),
+        focusedBorder: readOnly ? b(fc.line, 1) : b(fc.brand, 1.6),
+      ),
+      onChanged: widget.onChanged,
     );
   }
 }

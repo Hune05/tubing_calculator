@@ -338,7 +338,11 @@ class _PlateVertexTableState extends State<PlateVertexTable> {
                 children: [
                   SizedBox(
                     width: numW,
-                    child: Text('번호', textAlign: TextAlign.center, style: head),
+                    // 큰 글씨에서 두 줄로 꺾이지 않게(점검 60)
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('번호', maxLines: 1, style: head),
+                    ),
                   ),
                   const SizedBox(width: gap),
                   Expanded(
