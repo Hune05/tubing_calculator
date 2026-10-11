@@ -318,6 +318,24 @@ class BracketMember {
     return lo.isFinite ? (lo, hi) : (0, 0);
   }
 
+  /// 따내기 구간의 단면 그림 폭 띠들(이어진 것끼리, 점검 39: 찬넬·H는 위아래 날개가 따로 남는다).
+  List<(double, double)> extStrips(List<BracketExt> es) {
+    final segs = <(double, double)>[
+      for (final r in view.rects)
+        if (es.any((e) => r.top < e.z1 - 1e-9 && r.bottom > e.z0 + 1e-9))
+          (r.left, r.right),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+    final out = <(double, double)>[];
+    for (final sg in segs) {
+      if (out.isNotEmpty && sg.$1 <= out.last.$2 + 1e-9) {
+        out[out.length - 1] = (out.last.$1, math.max(out.last.$2, sg.$2));
+      } else {
+        out.add(sg);
+      }
+    }
+    return out;
+  }
+
   /// 따내기 혀까지 넣은 옆 모양(부재도·자를 길이).
   List<Offset> get outline {
     final s = extStartMax, e = extEndMax;
@@ -431,6 +449,9 @@ class BracketWeld {
 
   /// 그림에 기호를 그리는가. 같은 이음이 여러 곳이면 한 곳만 그리고 "2곳"으로 적는다.
   final bool show;
+
+  /// V 홈 맞대기 용접(V컷 꺾은 곳, 점검 24: 필릿 "z5 양면"으로 적혔다). 아니면 필릿.
+  final bool groove;
   const BracketWeld(
     this.at,
     this.dir,
@@ -438,7 +459,55 @@ class BracketWeld {
     this.what, {
     this.allAround = true,
     this.show = true,
+    this.groove = false,
   });
+}
+
+/// 베이스 판 리브 하나(기둥 단면 좌표): 뿌리 [u]·[z](기둥 살이 있는 면 위), 뻗는 방향 [du]·[dz](±1, 둘 중 하나).
+/// 점검 26: 판 가운데에 못박아 앵글 열린 쪽에서는 기둥에 안 닿았다.
+class BracketRib {
+  final double u, z, du, dz;
+  const BracketRib(this.u, this.z, this.du, this.dz);
+}
+
+/// 단면에서 [u](또는 [z]) 줄에 살이 있는 구간 중 가장 긴 것의 가운데. 살이 없으면 null.
+double? bracketMaterialCenter(BracketSectionView v, {double? u, double? z}) {
+  const eps = 1e-6;
+  final segs = <(double, double)>[
+    for (final r in v.rects)
+      if (u != null && r.left <= u + eps && r.right >= u - eps)
+        (r.top, r.bottom)
+      else if (z != null && r.top <= z + eps && r.bottom >= z - eps)
+        (r.left, r.right),
+  ]..sort((a, b) => a.$1.compareTo(b.$1));
+  if (segs.isEmpty) return null;
+  final merged = <(double, double)>[];
+  for (final sg in segs) {
+    if (merged.isNotEmpty && sg.$1 <= merged.last.$2 + eps) {
+      merged[merged.length - 1] = (
+        merged.last.$1,
+        math.max(merged.last.$2, sg.$2),
+      );
+    } else {
+      merged.add(sg);
+    }
+  }
+  final best = merged.reduce((a, b) => (b.$2 - b.$1) > (a.$2 - a.$1) ? b : a);
+  return (best.$1 + best.$2) / 2;
+}
+
+/// 판 크기 자동: 앵커 구멍이 기둥에서 5mm 떨어지고 리브가 들어가게, 10 단위로 올리고 150 이상(점검 33).
+double bracketAutoPlate(
+  double post, {
+  double edge = 25,
+  double dia = 13.5,
+  int holes = 4,
+  double rib = 0,
+}) {
+  var need = post + 10;
+  if (holes > 0) need = math.max(need, post + 2 * (edge + dia / 2 + 5));
+  if (rib > 0) need = math.max(need, post + 2 * rib);
+  return math.max(150, (need / 10).ceil() * 10.0);
 }
 
 // ── 그림 ──
@@ -484,11 +553,15 @@ class BracketLabel {
   final String text;
   final Offset shift;
   final bool bold;
+
+  /// 그림 제목 같은 덧글(휴대폰 그림 칸처럼 좁으면 뺀다, 점검 43).
+  final bool minor;
   const BracketLabel(
     this.at,
     this.text, {
     this.shift = Offset.zero,
     this.bold = false,
+    this.minor = false,
   });
 }
 
@@ -590,6 +663,10 @@ class BracketPlate {
   final List<List<Offset>> ribs;
   final double kgEach;
   final bool wall;
+
+  /// 리브(기둥 단면 좌표)와 높이·길이·두께. 입체·조립도가 같은 자리를 쓴다.
+  final List<BracketRib> ribSpecs;
+  final double ribH, ribL, ribT;
   const BracketPlate({
     required this.name,
     required this.w,
@@ -602,6 +679,10 @@ class BracketPlate {
     this.ribs = const [],
     required this.kgEach,
     this.wall = false,
+    this.ribSpecs = const [],
+    this.ribH = 0,
+    this.ribL = 0,
+    this.ribT = 0,
   });
 }
 
@@ -1042,7 +1123,7 @@ BracketPlan bracketPlan(BracketInput i) {
       for (final h in post.holes) {
         if (h.fromEnd - h.along / 2 < -1e-9) {
           warn(
-            '기둥 구멍이 가로대 자리에 걸립니다. 첫 구멍을 ${_f(postTop + h.along / 2)}mm 이상으로 하십시오.',
+            '기둥 구멍이 가로대 자리에 걸립니다. 첫 구멍을 ${_f(post.origin.dy + h.along / 2)}mm 이상으로 하십시오.',
           );
           break;
         }
@@ -1067,6 +1148,16 @@ BracketPlan bracketPlan(BracketInput i) {
             : const [],
       );
       addMember('arm', arm);
+      // 가로대가 기둥 위를 지나는 이음(가로대 통과·연귀·V컷)에서 기둥 바로 위 구멍은 볼트가 기둥에 걸린다(점검 37)
+      if (j != BracketJoint.postThrough) {
+        for (final h in arm.holes) {
+          final x = arm.at(h.fromEnd, 0).dx;
+          if (x + h.along / 2 > px - 1e-9 && x - h.along / 2 < px + dp + 1e-9) {
+            warn('가로대 구멍이 기둥 바로 위라 볼트가 기둥에 걸립니다. 구멍을 기둥 밖으로 옮기십시오.');
+            break;
+          }
+        }
+      }
       final wJoint = weldOf([mainP, armP]);
       welds.add(
         BracketWeld(
@@ -1079,6 +1170,7 @@ BracketPlan bracketPlan(BracketInput i) {
           wJoint,
           vMerge ? '꺾은 곳 V 이음' : '가로대–기둥',
           allAround: !vMerge,
+          groove: vMerge,
         ),
       );
       // 전체 치수는 바깥 줄, 삼각의 가새 자리는 안쪽 줄(화면 점).
@@ -1191,11 +1283,20 @@ BracketPlan bracketPlan(BracketInput i) {
       // 벽 붙임 판: 기둥 뒤에 세운 판, 앵커 구멍은 판에
       if (wp) {
         final hp = i.wall.l > 0 ? i.wall.l : b;
-        final wpw = i.wall.w;
         final e = i.wall.edge;
-        if (hp + 1e-9 < b - postTop) {
+        // 판 폭 0이면 기둥 폭에 맞춰 자동(점검 33)
+        final wpw = i.wall.w > 0
+            ? i.wall.w
+            : bracketAutoPlate(
+                postV.width,
+                edge: e,
+                dia: i.wall.dia,
+                holes: i.wall.holes,
+              );
+        // 판은 위(0)에서 시작하니 기둥 아래 끝(b)까지 닿아야 한다(점검 36)
+        if (hp + 1e-9 < b) {
           note(
-            '벽 붙임 판 높이(${_f(hp)})가 기둥(${_f(b - postTop)})보다 짧습니다. 기둥 아래가 판 밖에 남습니다.',
+            '벽 붙임 판 높이(${_f(hp)})가 기둥 아래 끝(${_f(b)})보다 짧습니다. 기둥 아래가 판 밖에 남습니다.',
           );
         }
         polys.add(BracketPoly(_rect(0, 0, tpl, hp), BracketFill.plate));
@@ -1321,6 +1422,7 @@ BracketPlan bracketPlan(BracketInput i) {
           BracketLabel(
             Offset(ox + wpw / 2, oy + hp),
             '벽 붙임 판(벽 쪽에서 봄)',
+            minor: true,
             shift: const Offset(0, 58),
           ),
         );
@@ -1458,6 +1560,7 @@ BracketPlan bracketPlan(BracketInput i) {
               wPost,
               vMerge ? '꺾은 곳 V 이음' : '가로대–기둥',
               allAround: !vMerge,
+              groove: vMerge,
             ),
           );
           welds.add(
@@ -1467,6 +1570,7 @@ BracketPlan bracketPlan(BracketInput i) {
               wPost,
               vMerge ? '꺾은 곳 V 이음' : '가로대–기둥',
               allAround: !vMerge,
+              groove: vMerge,
               show: false,
             ),
           );
@@ -1507,6 +1611,17 @@ BracketPlan bracketPlan(BracketInput i) {
               : const [],
         );
         addMember('arm', armM);
+        if (!frame) {
+          for (final hh in armM.holes) {
+            final x = armM.at(hh.fromEnd, 0).dx;
+            final x0 = postXs.first;
+            if (x + hh.along / 2 > x0 - 1e-9 &&
+                x - hh.along / 2 < x0 + dp + 1e-9) {
+              warn('가로대 구멍이 기둥 바로 위라 볼트가 기둥에 걸립니다. 구멍을 기둥 밖으로 옮기십시오.');
+              break;
+            }
+          }
+        }
         for (final hh in aHoles) {
           final xb = hh.fromEnd + armStart;
           if (frame &&
@@ -1598,8 +1713,42 @@ BracketPlan bracketPlan(BracketInput i) {
       );
       // 베이스 판: 기둥마다 하나. 앞에서 본 모양 + 오른쪽에 위에서 본 판(구멍 자리).
       if (i.basePlate) {
-        final pw = i.base.w, pl = i.base.l, e = i.base.edge;
+        final e = i.base.edge;
         final bp = postV.width;
+        final ribsN = i.base.ribs;
+        final pw = i.base.w > 0
+            ? i.base.w
+            : bracketAutoPlate(
+                dp,
+                edge: e,
+                dia: i.base.dia,
+                holes: i.base.holes,
+                rib: ribsN > 0 ? i.base.ribL : 0,
+              );
+        final pl = i.base.l > 0
+            ? i.base.l
+            : bracketAutoPlate(
+                bp,
+                edge: e,
+                dia: i.base.dia,
+                holes: i.base.holes == 4 ? 4 : 0,
+                rib: ribsN == 4 ? i.base.ribL : 0,
+              );
+        // 리브: 기둥 살이 있는 면에(앵글 열린 쪽은 세운 변 끝, 점검 26)
+        final ribSpecs = <BracketRib>[
+          if (ribsN > 0) ...[
+            if (bracketMaterialCenter(postV, u: 0) case final z?)
+              BracketRib(0, z, -1, 0),
+            if (bracketMaterialCenter(postV, u: dp) case final z?)
+              BracketRib(dp, z, 1, 0),
+          ],
+          if (ribsN == 4) ...[
+            if (bracketMaterialCenter(postV, z: 0) case final u?)
+              BracketRib(u, 0, 0, -1),
+            if (bracketMaterialCenter(postV, z: bp) case final u?)
+              BracketRib(u, bp, 0, 1),
+          ],
+        ];
         if (pw <= dp || pl <= bp) warn('베이스 판이 기둥보다 작습니다.');
         final ribs = i.base.ribs;
         final rh = i.base.ribH, rl = i.base.ribL, rt = i.base.ribT;
@@ -1631,25 +1780,38 @@ BracketPlan bracketPlan(BracketInput i) {
               show: left,
             ),
           );
-          if (ribs > 0) {
-            for (final s in [-1.0, 1.0]) {
-              final fx = s < 0 ? x : x + dp;
+          // 리브(앞에서 본 모양): 그림 면 양옆은 삼각, 앞쪽(z = 0)은 얇은 띠, 뒤쪽은 기둥 뒤라 안 그림
+          final outer = left ? x : x + dp, sgn = left ? 1.0 : -1.0;
+          for (final rb in ribSpecs) {
+            final rx = outer + sgn * rb.u;
+            if (rb.du != 0) {
               polys.add(
                 BracketPoly([
-                  Offset(fx, h - tp),
-                  Offset(fx + s * rl, h - tp),
-                  Offset(fx, h - tp - rh),
+                  Offset(rx, h - tp),
+                  Offset(rx + sgn * rb.du * rl, h - tp),
+                  Offset(rx, h - tp - rh),
                 ], BracketFill.plate),
               );
-            }
-            if (ribs == 4) {
+            } else if (rb.dz < 0) {
               polys.add(
                 BracketPoly(
-                  _rect(cx - rt / 2, h - tp - rh, cx + rt / 2, h - tp),
+                  _rect(rx - rt / 2, h - tp - rh, rx + rt / 2, h - tp),
                   BracketFill.plate,
                 ),
               );
             }
+          }
+          for (final rb in ribSpecs) {
+            welds.add(
+              BracketWeld(
+                Offset(outer + sgn * rb.u, h - tp - rh * 0.5),
+                const Offset(0.4, -1),
+                weldOf([mainP], rt),
+                '리브(양면)',
+                allAround: false,
+                show: false,
+              ),
+            );
           }
         }
         final ph = <Offset>[
@@ -1670,14 +1832,21 @@ BracketPlan bracketPlan(BracketInput i) {
             _rect(fx0 + r.left, fz0 + r.top, fx0 + r.right, fz0 + r.bottom),
         ];
         final ribFoot = <List<Offset>>[
-          if (ribs > 0) ...[
-            _rect(fx0 - rl, pl / 2 - rt / 2, fx0, pl / 2 + rt / 2),
-            _rect(fx0 + dp, pl / 2 - rt / 2, fx0 + dp + rl, pl / 2 + rt / 2),
-          ],
-          if (ribs == 4) ...[
-            _rect(pw / 2 - rt / 2, fz0 - rl, pw / 2 + rt / 2, fz0),
-            _rect(pw / 2 - rt / 2, fz0 + bp, pw / 2 + rt / 2, fz0 + bp + rl),
-          ],
+          for (final rb in ribSpecs)
+            if (rb.du != 0)
+              _rect(
+                fx0 + rb.u + math.min(0, rb.du * rl),
+                fz0 + rb.z - rt / 2,
+                fx0 + rb.u + math.max(0, rb.du * rl),
+                fz0 + rb.z + rt / 2,
+              )
+            else
+              _rect(
+                fx0 + rb.u - rt / 2,
+                fz0 + rb.z + math.min(0, rb.dz * rl),
+                fx0 + rb.u + rt / 2,
+                fz0 + rb.z + math.max(0, rb.dz * rl),
+              ),
         ];
         final rr = i.base.dia / 2;
         if (ph.isNotEmpty) {
@@ -1715,6 +1884,10 @@ BracketPlan bracketPlan(BracketInput i) {
           footprint: foot,
           ribs: ribFoot,
           kgEach: pw * pl * tp * kSteelKgPerMm3,
+          ribSpecs: ribSpecs,
+          ribH: rh,
+          ribL: rl,
+          ribT: rt,
         );
         // 위에서 본 판: 그림 오른쪽 아래, 앞모습(기둥·판)과 90mm 띄워서
         var maxX = 0.0;
@@ -1785,6 +1958,7 @@ BracketPlan bracketPlan(BracketInput i) {
             Offset(ox + pw / 2, oy),
             '베이스 판(위에서 봄)',
             shift: const Offset(0, -40),
+            minor: true,
           ),
         );
         // 판 풍선은 왼쪽 판 아래로, 리브 풍선은 오른쪽(마지막) 기둥 안쪽 리브에서 위 왼쪽으로
@@ -1802,6 +1976,7 @@ BracketPlan bracketPlan(BracketInput i) {
             'rib',
             frame ? const Offset(-1, -0.5) : const Offset(1, -0.5),
           ));
+          // 리브 용접 기호는 그림 면 안쪽 리브 하나에만(곳 수는 리브 수만큼, 점검 35)
           welds.add(
             BracketWeld(
               Offset(postXs.first + dp + rl * 0.5, h - tp - rh * 0.5),
@@ -1811,6 +1986,7 @@ BracketPlan bracketPlan(BracketInput i) {
               allAround: false,
             ),
           );
+          welds.remove(welds.lastWhere((w) => w.what == '리브(양면)' && !w.show));
         }
       }
       final p0 = members.firstWhere((m) => keyOf[m] == 'post');
@@ -1853,8 +2029,13 @@ BracketPlan bracketPlan(BracketInput i) {
         for (final (k, x) in [(1, e), (2, w - e)])
           PieceHole('볼트 $k', x, hole, z: armV.gauge),
       ];
-      if (!armV.canHole) {
-        warn('가로대 위 면에 전산볼트 구멍을 낼 수 없는 방향입니다. 방향을 바꾸십시오.');
+      if (!armV.canHole || armV.holesFront) {
+        warn('가로대 위 면에 전산볼트 구멍을 낼 수 없는 방향입니다(평철은 눕히십시오). 방향을 바꾸십시오.');
+      }
+      // 볼트가 지나는 깊이: 닫힌 관(각파이프)은 위아래 두 면을 관통(점검 25)
+      final thru = armV.hollow ? da : armV.attachT;
+      if (armV.hollow) {
+        note('각파이프 가로대는 전산볼트 구멍을 위아래 두 면에 같이 뚫습니다(너트는 아래 면 밑).');
       }
       final armM = member(
         key: 'arm',
@@ -1879,7 +2060,7 @@ BracketPlan bracketPlan(BracketInput i) {
           break;
         }
       }
-      final rodLen = i.rodTop + h + armV.attachT + i.rodBelow;
+      final rodLen = i.rodTop + h + thru + i.rodBelow;
       final rodV = rodP.view(0, BracketRole.none);
       for (final x in [e, w - e]) {
         final rm = member(
@@ -1889,12 +2070,7 @@ BracketPlan bracketPlan(BracketInput i) {
           profile: rodP,
           orient: 0,
           view: rodV,
-          poly: _rect(
-            x - rd / 2,
-            -i.rodTop,
-            x + rd / 2,
-            h + armV.attachT + i.rodBelow,
-          ),
+          poly: _rect(x - rd / 2, -i.rodTop, x + rd / 2, h + thru + i.rodBelow),
           origin: Offset(x - rd / 2, -i.rodTop),
           ex: const Offset(0, 1),
           ey: const Offset(1, 0),
@@ -1915,7 +2091,7 @@ BracketPlan bracketPlan(BracketInput i) {
             BracketFill.nut,
           ),
         );
-        final yb = h + armV.attachT;
+        final yb = h + thru;
         polys.add(
           BracketPoly(
             _rect(x - nw * 0.6, yb, x + nw * 0.6, yb + 2),
@@ -1948,10 +2124,7 @@ BracketPlan bracketPlan(BracketInput i) {
       polys.add(
         BracketPoly(_rect(-30, -i.rodTop - 14, w + 30, 0), BracketFill.ceiling),
       );
-      final yLow = math.max(
-        h + da,
-        h + armV.attachT + i.rodBelow + 0.8 * rd + 2,
-      );
+      final yLow = math.max(h + da, h + thru + i.rodBelow + 0.8 * rd + 2);
       dims.add(BracketDim(Offset(0, yLow), Offset(w, yLow), 30, _f(w)));
       dims.add(
         BracketDim(
@@ -2246,7 +2419,8 @@ BracketPlan bracketPlan(BracketInput i) {
         name: m.name,
         kind: rod ? BracketPieceKind.rod : BracketPieceKind.member,
         spec: m.profile.label,
-        ks: m.profile.ks,
+        // 전산볼트는 이름이 이미 "전산볼트"라 규격만(점검 45)
+        ks: rod ? 'M${_f(m.profile.n[0])}' : m.profile.ks,
         length: long,
         short: (long - short).abs() > 0.05 ? short : null,
         qty: ms.length,
@@ -2295,7 +2469,7 @@ BracketPlan bracketPlan(BracketInput i) {
           mark: ribMark,
           name: '리브',
           kind: BracketPieceKind.rib,
-          ks: 'PL-${_f(rb.ribT)} 삼각',
+          ks: 'PL-${_f(rb.ribT)}×${_f(rb.ribL)}×${_f(rb.ribH)} 삼각',
           length: rb.ribL,
           width: rb.ribH,
           thick: rb.ribT,
@@ -2323,9 +2497,10 @@ BracketPlan bracketPlan(BracketInput i) {
       continue;
     }
     if (p.kind != BracketPieceKind.member) continue;
-    final into = p.member?.role == BracketRole.wall ? wallHoles : armHoles;
+    // 이름표로 나눈다(V컷 한 토막은 기둥·가로대 구멍이 섞여 있다, 점검 22)
     for (final h in p.holes) {
       if (shape == BracketShape.hanger && h.label.startsWith('볼트')) continue;
+      final into = h.label.startsWith('기둥') ? wallHoles : armHoles;
       into[h.dia] = (into[h.dia] ?? 0) + p.qty * sets;
     }
   }

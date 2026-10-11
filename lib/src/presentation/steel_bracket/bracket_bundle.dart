@@ -38,6 +38,11 @@ class BracketBundleEntry {
 
   BracketBundleEntry withQty(int q) =>
       BracketBundleEntry(id: id, name: name, qty: q, map: map);
+  BracketBundleEntry withName(String n) =>
+      BracketBundleEntry(id: id, name: n, qty: qty, map: map);
+
+  /// 화면으로 불러올 지도: 묶음에서 바꾼 개수까지(점검 40).
+  Map<String, dynamic> get loadMap => {...map, 'n': '$qty'};
 
   Map<String, Object> toJson() => {
     'id': id,
@@ -215,6 +220,16 @@ class _BracketBundlePageState extends State<BracketBundlePage> {
     );
   }
 
+  // 줄 이름 바꾸기(점검 46: 넣을 때 작업 이름 그대로라 같은 이름이 여럿 생겼다)
+  Future<void> _rename(BracketBundleEntry e) async {
+    final r = await showPlateSheet<String>(
+      context,
+      (_) => _RenameSheet(name: e.name),
+    );
+    if (r == null || r.isEmpty || r == e.name || !mounted) return;
+    _save([for (final x in _list) x.id == e.id ? x.withName(r) : x]);
+  }
+
   Future<void> _pdf() async {
     if (_list.isEmpty) return;
     final t = bracketBundleTotal(_list, _s);
@@ -223,7 +238,7 @@ class _BracketBundlePageState extends State<BracketBundlePage> {
       final pngs = <(String, dynamic)>[];
       for (final (e, p) in plans) {
         pngs.add((
-          '${e.name} × ${e.qty}개 (${bracketSummaryOf(e.map)})',
+          '${e.name} × ${e.qty}개 (${bracketSummaryOf(bracketUpgradeMap(e.map))})',
           await renderBracketPng(p.drawing),
         ));
       }
@@ -482,7 +497,7 @@ class _BracketBundlePageState extends State<BracketBundlePage> {
       child: InkWell(
         key: Key('bb_row_${e.id}'),
         borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.pop(context, e.map),
+        onTap: () => Navigator.pop(context, e.loadMap),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),
           child: Row(
@@ -500,7 +515,7 @@ class _BracketBundlePageState extends State<BracketBundlePage> {
                       ),
                     ),
                     Text(
-                      '${bracketSummaryOf(e.map)} · 약 ${_f(p.kgTotal)}kg${p.ok ? '' : ' · 고칠 곳 ${p.problems.length}'}',
+                      '${bracketSummaryOf(bracketUpgradeMap(e.map))} · 약 ${_f(p.kgTotal)}kg${p.ok ? '' : ' · 고칠 곳 ${p.problems.length}'}',
                       style: TextStyle(
                         fontSize: 13,
                         color: p.ok ? fc.textSub : fc.danger,
@@ -510,6 +525,7 @@ class _BracketBundlePageState extends State<BracketBundlePage> {
                   ],
                 ),
               ),
+              step(Icons.edit_outlined, 'bb_rename_${e.id}', () => _rename(e)),
               step(
                 Icons.remove_rounded,
                 'bb_minus_${e.id}',
@@ -538,4 +554,43 @@ class _BracketBundlePageState extends State<BracketBundlePage> {
       ),
     );
   }
+}
+
+// 이름 바꾸기 창: 글 칸 조절기는 창이 닫히는 그림이 끝난 뒤(창이 사라질 때) 버린다.
+class _RenameSheet extends StatefulWidget {
+  const _RenameSheet({required this.name});
+  final String name;
+
+  @override
+  State<_RenameSheet> createState() => _RenameSheetState();
+}
+
+class _RenameSheetState extends State<_RenameSheet> {
+  late final TextEditingController _c = TextEditingController(
+    text: widget.name,
+  );
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => PlateSheetFrame(
+    title: '이름 바꾸기',
+    okText: '바꾸기',
+    okKey: const Key('bb_rename_ok'),
+    onOk: () => Navigator.pop(context, _c.text.trim()),
+    children: [
+      PlateNumField(
+        fieldKey: 'bb_rename_field',
+        label: '이름',
+        controller: _c,
+        unit: null,
+        text: true,
+        autofocus: true,
+      ),
+    ],
+  );
 }

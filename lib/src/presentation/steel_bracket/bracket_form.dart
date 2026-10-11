@@ -82,15 +82,16 @@ const Map<String, String> kBracketTextDefaults = {
   'ap': '100',
   'as2': '',
   'ag': '',
-  'pw': '150',
-  'pll': '150',
+  // 비우면 기둥에 맞춘 자동 크기(점검 33)
+  'pw': '',
+  'pll': '',
   'pt': '9',
   'pld': '13.5',
   'ple': '25',
   'rh': '80',
   'rl': '40',
   'rt': '6',
-  'ww': '150',
+  'ww': '',
   'wh': '',
   'wt': '9',
   'wd': '13.5',
@@ -133,7 +134,7 @@ const Map<String, Object> kBracketValueDefaults = {
   'mat': 'SS275',
   'fin': 0,
   'lm': 1,
-  'v': 2,
+  'v': 3,
 };
 
 /// 저장된 지도를 지금 열쇠로 고친다(10-10 판: cs 직접 적은 규격 → sp, ps 정사각 판 → pw·pll, pl·pln 그대로).
@@ -155,13 +156,60 @@ Map<String, dynamic> bracketUpgradeMap(Map<String, dynamic> m) {
     out['as'] = true;
     out['asp'] = out['sp'];
   }
-  // 판 2 전(10-11 앞 빌드)의 가새는 기둥과 같은 앵글이 처음 값이었다 → 현장처럼 평철 맞춤으로
-  if (out['v'] != 2) {
+  // 10-10 판은 놓는 방향 없이 부재 폭 하나('w', 비우면 규격 첫 숫자)로 그렸다 → 그 폭이 되는 방향으로(점검 31)
+  final sp = out['sp'];
+  if (!out.containsKey('po') && sp is String && sp.trim().isNotEmpty) {
+    final p = BracketProfile.parse(sp);
+    final wv = out['w'];
+    final old =
+        (wv is String && wv.trim().isNotEmpty ? parseNumberText(wv) : null) ??
+        _firstNumber(sp);
+    if (p.known && old != null && old > 0 && p.orientCount > 1) {
+      final shape = bracketShapeOf(out);
+      final lLike = shape == BracketShape.l || shape == BracketShape.brace;
+      int near(BracketRole r) {
+        var best = p.defaultOrient(r);
+        var gap = (p.view(best, r).depth - old).abs();
+        for (var o = 0; o < p.orientCount; o++) {
+          final g = (p.view(o, r).depth - old).abs();
+          if (g < gap - 1e-9) {
+            best = o;
+            gap = g;
+          }
+        }
+        return best;
+      }
+
+      out['po'] = near(lLike ? BracketRole.wall : BracketRole.none);
+      out['ao'] = near(BracketRole.top);
+    }
+  }
+  // 판 2 전(10-11 앞 빌드)의 가새는 기둥과 같은 앵글이 처음 값이었다 → 현장처럼 평철 맞춤으로.
+  // 사용자가 직접 고른 가새 규격(bs = false + bsp)은 그대로 둔다(점검 30).
+  final ver = out['v'] is int ? out['v'] as int : 0;
+  if (ver < 2 && out['bs'] != false) {
     out['bs'] = false;
     out['bsp'] = '';
-    out['v'] = 2;
   }
+  // 판 3 전은 판 크기 처음 값이 150이었다 → 비움(자동). 자동은 150보다 작아지지 않아 작은 기둥은 그대로다(점검 33).
+  if (ver < 3) {
+    for (final k in const ['pw', 'pll', 'ww']) {
+      if (out[k] == '150') out[k] = '';
+    }
+  }
+  out['v'] = 3;
   return out;
+}
+
+/// 규격 이름의 첫 숫자('찬넬 100x50x5x7.5' → 100). 없으면 null.
+double? _firstNumber(String spec) {
+  final t = spec.trim();
+  final sp = t.indexOf(' ');
+  if (sp <= 0) return null;
+  final v = double.tryParse(
+    t.substring(sp + 1).split(RegExp(r'[xX×*]')).first.trim(),
+  );
+  return v == null || v <= 0 ? null : v;
 }
 
 /// 가새 평철 맞춤: 기둥 그림 폭과 같은 폭의 평철(두께 6 먼저), 없으면 그보다 좁은 것 중 가장 넓은 것.
@@ -240,8 +288,12 @@ BracketShape bracketShapeOf(Map<String, dynamic> m) =>
 
 /// 주 부재·가로대·가새 규격.
 String bracketMainSpec(Map<String, dynamic> m) => _str(m, 'sp');
+
+/// 천장 매달기는 가로대가 주 부재 하나뿐이라 숨은 "가로대 따로" 값을 쓰지 않는다(점검 21).
 String bracketArmSpec(Map<String, dynamic> m) =>
-    _bool(m, 'as') ? bracketMainSpec(m) : _str(m, 'asp');
+    _bool(m, 'as') || bracketShapeOf(m) == BracketShape.hanger
+    ? bracketMainSpec(m)
+    : _str(m, 'asp');
 String bracketBraceSpec(Map<String, dynamic> m) {
   if (_bool(m, 'bs')) return bracketMainSpec(m);
   final v = m['bsp'];

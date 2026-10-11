@@ -285,29 +285,42 @@ class BracketPainter extends CustomPainter {
           ..close(),
         Paint()..color = kBracketWeld,
       );
-      // 필릿 삼각(기준선 아래, 세운 변이 왼쪽)
       final tx = math.min(knee.dx, end.dx) + 18 * fs;
       final k = 7 * fs;
-      canvas.drawPath(
-        Path()
-          ..moveTo(tx, knee.dy)
-          ..lineTo(tx, knee.dy + k)
-          ..lineTo(tx + k, knee.dy)
-          ..close(),
-        wp,
-      );
+      if (w.groove) {
+        // V 홈 맞대기(기준선 아래 V, 점검 24)
+        canvas.drawPath(
+          Path()
+            ..moveTo(tx, knee.dy + k)
+            ..lineTo(tx + k / 2, knee.dy)
+            ..lineTo(tx + k, knee.dy + k),
+          wp,
+        );
+      } else {
+        // 필릿 삼각(기준선 아래, 세운 변이 왼쪽)
+        canvas.drawPath(
+          Path()
+            ..moveTo(tx, knee.dy)
+            ..lineTo(tx, knee.dy + k)
+            ..lineTo(tx + k, knee.dy)
+            ..close(),
+          wp,
+        );
+      }
       if (w.allAround) canvas.drawCircle(knee, 3.5 * fs, wp);
       final n = weldCount[w.what] ?? 1;
-      _text(
-        canvas,
-        'z${_fmt(w.size)}',
-        Offset(tx - 9 * fs, knee.dy + 7 * fs),
-        0,
-        bold: true,
-        color: kBracketWeld,
-        size: 10.5,
-        box: false,
-      );
+      if (!w.groove) {
+        _text(
+          canvas,
+          'z${_fmt(w.size)}',
+          Offset(tx - 9 * fs, knee.dy + 7 * fs),
+          0,
+          bold: true,
+          color: kBracketWeld,
+          size: 10.5,
+          box: false,
+        );
+      }
       // 같은 이음이 여러 곳이면 기준선 끝 위에 "2곳"
       if (n > 1) {
         _text(
@@ -323,13 +336,36 @@ class BracketPainter extends CustomPainter {
       }
     }
 
-    // 품번 풍선
+    // 품번 풍선: 앞 풍선과 겹치거나 그림 밖이면 방향을 돌리고 지시선을 늘려 비킨다(점검 42)
+    final placed = <Offset>[];
     for (final b in drawing.balloons) {
       final at = m(b.at);
       final dl = b.dir.distance;
-      final u = dl < 1e-9 ? const Offset(1, 0) : b.dir / dl;
+      final u0 = dl < 1e-9 ? const Offset(1, 0) : b.dir / dl;
       final r = (compact ? 9.0 : 11.0) * fs;
-      final c = at + u * ((compact ? 18 : 30) * fs + r);
+      final lead = (compact ? 18 : 30) * fs;
+      final a0 = math.atan2(u0.dy, u0.dx);
+      var u = u0;
+      var c = at + u0 * (lead + r);
+      bool clear(Offset q) =>
+          placed.every((p) => (p - q).distance > 2 * r + 4 * fs) &&
+          q.dx > r &&
+          q.dy > topInset + r &&
+          q.dx < size.width - secW - r &&
+          q.dy < size.height - bottomInset - r;
+      search:
+      for (final grow in const [1.0, 1.6, 2.2]) {
+        for (final da in const [0.0, 0.45, -0.45, 0.9, -0.9, 1.35, -1.35]) {
+          final uu = Offset(math.cos(a0 + da), math.sin(a0 + da));
+          final cc = at + uu * (lead * grow + r);
+          if (clear(cc)) {
+            u = uu;
+            c = cc;
+            break search;
+          }
+        }
+      }
+      placed.add(c);
       final lp = Paint()
         ..color = text
         ..strokeWidth = 1 * fs;
@@ -348,6 +384,7 @@ class BracketPainter extends CustomPainter {
     }
 
     for (final l in drawing.labels) {
+      if (compact && l.minor) continue;
       _text(
         canvas,
         l.text,

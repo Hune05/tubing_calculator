@@ -131,9 +131,26 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
   final m = pc.member!;
   final v = m.view;
   final d = m.depth;
-  // 따내기 혀까지 넣은 모양(V컷 토막은 V 따내기가 든 펼친 모양)
-  final shape = m.outline;
+  // 따내기 전 모양 + 혀(단면에서 남는 띠마다 따로, 점검 39: 찬넬·H는 위아래 날개가 따로 남는다)
+  // V컷 토막은 V 따내기가 든 펼친 모양
+  final shape = m.local;
   final polys = <BracketPoly>[BracketPoly(shape, BracketFill.member)];
+  for (final start in [true, false]) {
+    for (final e in start ? m.extStart : m.extEnd) {
+      if (e.ext <= 0) continue;
+      for (final (ua, ub) in m.extStrips([e])) {
+        final sp = bracketSpanAt(shape, (ua + ub) / 2);
+        if (sp == null) continue;
+        final x = start ? sp.$1 : sp.$2;
+        polys.add(
+          BracketPoly(
+            start ? _rect(x - e.ext, ua, x, ub) : _rect(x, ua, x + e.ext, ub),
+            BracketFill.member,
+          ),
+        );
+      }
+    }
+  }
   final lines = <BracketLine>[];
   final holes = <BracketHoleMark>[];
   final dims = <BracketDim>[];
@@ -241,11 +258,14 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
       ),
     );
   }
-  // 붙는 면에서 본 모양(구멍이 있거나 벽·위에 붙는 부재)
+  // 붙는 면에서 본 모양(구멍이 있거나 벽·위에 붙는 부재, 따내기가 있는 부재, 점검 38)
   final face =
       !v.holesFront &&
       !v.round &&
-      (pc.holes.isNotEmpty || m.role != BracketRole.none);
+      (pc.holes.isNotEmpty ||
+          m.role != BracketRole.none ||
+          m.extStart.isNotEmpty ||
+          m.extEnd.isNotEmpty);
   if (face) {
     final w = v.width;
     final gap = math.max(d * 0.6, 24.0);
@@ -276,7 +296,7 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
       labels.add(
         BracketLabel(
           Offset((ax0 + ax1) / 2, y0),
-          '따냄: $txt (세운 변·모서리를 잘라 내고 이 변만 남김)',
+          '따냄: $txt (그림에 그린 혀만 남기고 나머지는 잘라 냄)',
           shift: const Offset(0, -12),
         ),
       );

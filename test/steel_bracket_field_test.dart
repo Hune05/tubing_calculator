@@ -1,5 +1,7 @@
 // 형강 브라켓 현장 방식(10-11 사용자: "앵글 형태 때문에 구멍이 뻥뻥 뚫리는데 현업에서는 가공하거나 그라인더로 잘라내서
 // 작업", "가새는 웬만하면 평철"): 맞대기 따내기, V컷 꺾기(한 본), 가새 평철 맞춤, 저장 값 판 2.
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tubing_calculator/src/presentation/steel_bracket/bracket_3d.dart';
 import 'package:tubing_calculator/src/presentation/steel_bracket/bracket_calc.dart';
@@ -46,9 +48,13 @@ void main() {
       expect(m.extEndMax, 45);
       expect(m.farLength, 250); // 세운 변은 250
       // 부재도: 붙는 면 모양에 따낸 계단, 이어 잰 치수에 45
+      // 옆 모양 = 따내기 전 모양 + 남는 혀(앵글은 띠 하나), 그 아래 붙는 면
       final d = bracketPieceDrawing(arm);
-      expect(d.polys.length, 2);
-      expect(d.polys[1].pts.length, greaterThan(4));
+      expect(d.polys.length, 3);
+      final tongue = d.polys[1].pts;
+      final tx = tongue.map((q) => q.dx);
+      expect(tx.reduce(math.max) - tx.reduce(math.min), closeTo(45, 1e-6));
+      expect(d.polys[2].pts.length, greaterThan(4));
       expect(d.dims.any((x) => x.text == '45'), isTrue);
       // 조립도: 혀 숨은선 셋 + 가로대 위 면 구멍 숨은선 둘
       final hidden = p.drawing.lines.where(

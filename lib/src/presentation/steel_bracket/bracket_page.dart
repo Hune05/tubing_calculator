@@ -155,14 +155,22 @@ class _BracketPageState extends State<BracketPage>
   void applyHistorySnapshot(Map<String, dynamic> m) => _applyMap(m);
 
   void _applyMap(Map<String, dynamic> raw) {
-    final m = bracketUpgradeMap(raw);
+    // 저장본에 없는 칸은 처음 값으로(지금 화면 값이 섞이지 않게, 점검 29)
+    final m = <String, dynamic>{
+      ...kBracketTextDefaults,
+      ...kBracketValueDefaults,
+      'mat': _settings.material,
+      'fin': _settings.finish,
+      ...bracketUpgradeMap(raw),
+    };
     for (final e in kBracketValueDefaults.entries) {
       final v = m[e.key];
-      if (v != null && v.runtimeType == e.value.runtimeType) {
-        // 빈 글자는 처음 값으로 두되, 가새 규격 빈 글자는 "평철 맞춤"이라는 뜻
-        if (v is String && v.trim().isEmpty && e.key != 'bsp') continue;
-        _v[e.key] = v as Object;
-      }
+      // 빈 글자는 처음 값으로 두되, 가새 규격 빈 글자는 "평철 맞춤"이라는 뜻
+      final ok =
+          v != null &&
+          v.runtimeType == e.value.runtimeType &&
+          !(v is String && v.trim().isEmpty && e.key != 'bsp');
+      _v[e.key] = ok ? v as Object : e.value;
     }
     _v['sh'] = (_v['sh'] as int).clamp(0, kBracketShapes.length - 1);
     for (final e in _c.entries) {
@@ -275,6 +283,7 @@ class _BracketPageState extends State<BracketPage>
         _shape == BracketShape.frame
             ? '가로대 통과(가로대가 기둥 위에 얹힘)'
             : '가로대 통과(기둥이 가로대 밑에 붙음)',
+      3 => 'V컷 꺾기(한 본)',
       _ => '연귀',
     };
   }
@@ -293,20 +302,23 @@ class _BracketPageState extends State<BracketPage>
     BracketPieceKind.plate =>
       '${_fmt(pc.length)} × ${_fmt(pc.width)} × ${_fmt(pc.thick)}t',
     BracketPieceKind.rib =>
-      '삼각 ${_fmt(pc.length)} × ${_fmt(pc.width)} × ${_fmt(pc.thick)}t',
+      '${_fmt(pc.length)} × ${_fmt(pc.width)} × ${_fmt(pc.thick)}t',
     _ =>
       '${_fmt(pc.length)}mm${pc.short != null ? '(짧은 쪽 ${_fmt(pc.short!)})' : ''}',
   };
 
   List<String> _weldLines(BracketPlan p) {
-    final by = <String, (double, bool, int)>{};
+    final by = <String, (double, bool, int, bool)>{};
     for (final w in p.welds) {
       final c = by[w.what];
-      by[w.what] = (w.size, w.allAround, (c?.$3 ?? 0) + 1);
+      by[w.what] = (w.size, w.allAround, (c?.$3 ?? 0) + 1, w.groove);
     }
     return [
       for (final e in by.entries)
-        '${e.key}: 필릿 각장 ${_fmt(e.value.$1)}${e.value.$2 ? ' 전둘레' : ' 양면'} × ${e.value.$3 * _sets}곳',
+        // V컷 꺾은 곳은 V 홈 맞대기(점검 24)
+        e.value.$4
+            ? '${e.key}: 맞대기 용접(세운 변 V 홈) × ${e.value.$3 * _sets}곳'
+            : '${e.key}: 필릿 각장 ${_fmt(e.value.$1)}${e.value.$2 ? ' 전둘레' : ' 양면'} × ${e.value.$3 * _sets}곳',
     ];
   }
 
@@ -321,7 +333,7 @@ class _BracketPageState extends State<BracketPage>
       for (final e in p.anchorHoles.entries)
         '베이스 판 앵커 구멍 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
       for (final r in rods)
-        '${r.ks} × ${_fmt(r.length)} ${r.qty * _sets}개 · 너트 ${2 * r.qty * _sets}·평와셔 ${2 * r.qty * _sets}(가로대 위아래) · 천장 앵커(인서트) ${r.qty * _sets}개',
+        '전산볼트 ${r.ks} × ${_fmt(r.length)} ${r.qty * _sets}개 · 너트 ${2 * r.qty * _sets}·평와셔 ${2 * r.qty * _sets}(가로대 위아래) · 천장 앵커(인서트) ${r.qty * _sets}개',
     ];
   }
 
@@ -374,7 +386,7 @@ class _BracketPageState extends State<BracketPage>
   }
 
   List<String> _generalNotes(BracketPlan p) {
-    final auto = p.welds.isEmpty ? null : p.welds.first.size;
+    final auto = p.welds.where((w) => !w.groove).firstOrNull?.size;
     final fin = _i('fin');
     final pipe = p.members.any(
       (x) => x.profile.kind == BracketProfileKind.pipe,
@@ -1160,9 +1172,13 @@ class _BracketPageState extends State<BracketPage>
     final mainP = BracketProfile.parse(main);
     final hanger = _shape == BracketShape.hanger;
     final postRole = _lLike ? BracketRole.wall : BracketRole.none;
-    final autoWeld = p == null || p.welds.isEmpty
+    final fillets = [
+      for (final w in p?.welds ?? const <BracketWeld>[])
+        if (!w.groove) w.size,
+    ];
+    final autoWeld = fillets.isEmpty
         ? null
-        : p.welds.map((w) => w.size).reduce((a, b) => a < b ? a : b);
+        : fillets.reduce((a, b) => a < b ? a : b);
     final armSpec = bracketArmSpec(m);
     final braceSpec = bracketBraceSpec(m);
     return PlatePanel(
@@ -1185,7 +1201,11 @@ class _BracketPageState extends State<BracketPage>
               if (_b('as')) _v['ao'] = -1;
             });
           }),
-          if (!mainP.known)
+          // 가로대·가새 규격을 몰라도 그림 폭 칸이 있어야 고친다(점검 28)
+          if (!mainP.known ||
+              (!hanger && !BracketProfile.parse(armSpec).known) ||
+              (_shape == BracketShape.brace &&
+                  !BracketProfile.parse(braceSpec).known))
             plateRow([
               _num('br_w', '그림 폭 (모르는 규격)', 'w'),
               const SizedBox.shrink(),
@@ -1350,10 +1370,12 @@ class _BracketPageState extends State<BracketPage>
             hint: view == null ? null : '비우면 ${fmt(view.gauge)}',
           ),
         ]),
-        if (view != null &&
-            !view.holesFront &&
-            !view.twoLines &&
-            view.width >= 4 * dia)
+        // 두 줄을 켜 둔 채 규격·지름이 바뀌어도 끌 수 있게 단추를 남긴다(점검 27)
+        if (_b('${p}2') ||
+            (view != null &&
+                !view.holesFront &&
+                !view.twoLines &&
+                view.width >= 4 * dia))
           PlateSegments([
             PlateOption(
               'br_${p}2_0',
@@ -1383,6 +1405,10 @@ class _BracketPageState extends State<BracketPage>
     }
 
     final wall = _lLike && _b('wp');
+    // 비운 판 크기 칸의 "자동" 값(점검 33)
+    final pl = p?.plate;
+    final wallPl = pl != null && pl.wall ? pl : null;
+    final basePl = pl != null && !pl.wall ? pl : null;
     return PlatePanel(
       title: '구멍과 판',
       status: p == null
@@ -1402,7 +1428,7 @@ class _BracketPageState extends State<BracketPage>
             title: '기둥 구멍 (벽 고정)',
             p: 'p',
             max: 4,
-            firstLabel: '위 끝에서 첫 구멍',
+            firstLabel: '첫 구멍',
             guide: '기둥이 벽에 붙는 면에 뚫습니다. 위 바깥 모서리에서 잽니다.',
             view: viewOf('기둥'),
           ),
@@ -1412,7 +1438,7 @@ class _BracketPageState extends State<BracketPage>
               : '가로대 구멍 (U볼트·클램프)',
           p: 'a',
           max: 5,
-          firstLabel: _lLike ? '가로대 끝에서 첫 구멍' : '왼쪽 바깥에서 첫 구멍',
+          firstLabel: '첫 구멍',
           guide: _lLike
               ? '가로대 위 면에 뚫습니다. 가로대 끝(벽 반대쪽)에서 잽니다.'
               : '가로대 위 면에 뚫습니다. 왼쪽 바깥(기둥 바깥면)에서 잽니다.',
@@ -1449,7 +1475,12 @@ class _BracketPageState extends State<BracketPage>
             ]),
             if (_b('wp')) ...[
               PlateFieldGrid([
-                _num('br_ww', '판 폭', 'ww'),
+                _num(
+                  'br_ww',
+                  '판 폭',
+                  'ww',
+                  hint: wallPl == null ? '자동' : '자동 ${fmt(wallPl.w)}',
+                ),
                 _num('br_wh', '판 높이', 'wh', hint: '기둥 높이'),
                 _num('br_wt', '두께', 'wt'),
               ]),
@@ -1493,8 +1524,18 @@ class _BracketPageState extends State<BracketPage>
             ]),
             if (_b('pl')) ...[
               PlateFieldGrid([
-                _num('br_pw', '가로 (그림 방향)', 'pw'),
-                _num('br_pll', '세로 (앞뒤)', 'pll'),
+                _num(
+                  'br_pw',
+                  '가로 (그림 방향)',
+                  'pw',
+                  hint: basePl == null ? '자동' : '자동 ${fmt(basePl.w)}',
+                ),
+                _num(
+                  'br_pll',
+                  '세로 (앞뒤)',
+                  'pll',
+                  hint: basePl == null ? '자동' : '자동 ${fmt(basePl.l)}',
+                ),
                 _num('br_pt', '두께', 'pt'),
               ]),
               _label('앵커 구멍'),

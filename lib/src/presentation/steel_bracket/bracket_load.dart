@@ -56,7 +56,8 @@ String _f(double v, [int d = 1]) {
   return s == '-0' ? '0' : s;
 }
 
-String _pct(double r) => '${(r * 100).round()}%';
+// 셀 수 없는 값(받침 사이가 0 등)은 "-"(점검 20: NaN이 round()에서 화면을 깨뜨렸다)
+String _pct(double r) => r.isFinite ? '${(r * 100).round()}%' : '-';
 
 /// 보 하나: 길이 [len], 점 하중 [pts](자리, N), 고른 하중 [w](N/mm, 전체). [fixed]면 x = 0 고정 캔틸레버, 아니면
 /// [s1]·[s2] 두 핀.
@@ -158,7 +159,26 @@ class _Beam {
 }
 
 /// 하중 확인. [kg] 가로대 한 단에 얹는 무게, [mode] 얹는 방식, [material] 재질 이름.
+/// 셀 수 없는 값(NaN·무한대)이 나온 줄은 빼고 알림 한 줄로(점검 20, 10-11: 입력 중간 값에서 화면이 깨졌다).
 BracketLoadResult bracketLoad(
+  BracketPlan plan, {
+  required double kg,
+  BracketLoadMode mode = BracketLoadMode.uniform,
+  String material = 'SS275',
+}) {
+  final r = _bracketLoad(plan, kg: kg, mode: mode, material: material);
+  final ok = [
+    for (final c in r.checks)
+      if (c.ratio.isFinite && c.ratio >= 0) c,
+  ];
+  if (ok.length == r.checks.length) return r;
+  return BracketLoadResult(ok, r.forces, [
+    ...r.notes,
+    '치수가 맞지 않아 셀 수 없는 줄은 뺐습니다(받침 사이 거리를 보십시오).',
+  ]);
+}
+
+BracketLoadResult _bracketLoad(
   BracketPlan plan, {
   required double kg,
   BracketLoadMode mode = BracketLoadMode.uniform,
@@ -282,6 +302,8 @@ BracketLoadResult bracketLoad(
         bendCheck(arm, m, '가로대');
         if (!post.view.unknown) bendCheck(post, m, '기둥');
         deflCheck(beam.maxDeflection(ei), span, true, '가로대 끝');
+      } else if (i.braceA - face <= 1) {
+        notes.add('가새가 기둥 면에 붙어 가로대를 받치지 못합니다. 가새 가로대 쪽 자리를 늘리십시오.');
       } else {
         final sb = i.braceA - face;
         final beam = _Beam(span, pts, w, s1: 0, s2: sb);
@@ -318,9 +340,10 @@ BracketLoadResult bracketLoad(
         rows.addAll(ys);
         perRow = ys.isEmpty ? 1 : plan.plate!.holes.length ~/ ys.length;
       } else {
+        // 기둥 구멍은 기둥 위 끝(따내기 혀 끝)에서 잰 값 → 그림 자리(점검 32: 혀만큼 어긋났다)
         final hs = post.holes;
-        final top = i.joint == BracketJoint.armThrough ? arm.depth : 0.0;
-        final ys = hs.map((h) => h.fromEnd + top).toSet().toList()..sort();
+        final ys = hs.map((h) => post.origin.dy + h.fromEnd).toSet().toList()
+          ..sort();
         rows.addAll(ys);
         perRow = ys.isEmpty ? 1 : hs.length ~/ ys.length;
       }
@@ -347,6 +370,10 @@ BracketLoadResult bracketLoad(
         final len = arm.length;
         final x0 = arm.origin.dx; // 가로대 왼쪽 끝(그림)
         final s1 = dp / 2 - x0, s2 = i.a - dp / 2 - x0;
+        if (s2 - s1 <= 1) {
+          notes.add('기둥 사이가 없어 하중을 계산하지 않았습니다.');
+          return BracketLoadResult(checks, forces, notes);
+        }
         final (pts, w) = loads(len, (x) => x, pointAt: (s1 + s2) / 2);
         final beam = _Beam(len, pts, w, s1: s1, s2: s2);
         bendCheck(arm, beam.maxMoment, '가로대');
@@ -442,7 +469,10 @@ BracketLoadResult bracketLoad(
       final len = arm.length;
       final rods = plan.members.where((m) => m.name == '전산볼트').toList();
       final xs = [for (final r in rods) r.origin.dx + r.depth / 2]..sort();
-      if (xs.length < 2) return BracketLoadResult(checks, forces, notes);
+      if (xs.length < 2 || xs.last - xs.first <= 1) {
+        notes.add('전산볼트 사이가 없어 하중을 계산하지 않았습니다.');
+        return BracketLoadResult(checks, forces, notes);
+      }
       final (pts, w) = loads(len, (x) => x, pointAt: len / 2);
       final beam = _Beam(len, pts, w, s1: xs.first, s2: xs.last);
       bendCheck(arm, beam.maxMoment, '가로대');

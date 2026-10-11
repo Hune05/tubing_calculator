@@ -155,29 +155,27 @@ List<Plate3dFace> bracket3dMesh(BracketPlan plan) {
             1,
           ),
         );
-        final rb = i.base;
-        if (rb.ribs > 0) {
-          for (final s in [-1.0, 1.0]) {
-            final fx = s < 0 ? x0 : x1;
+        // 리브: 계산이 정한 자리(기둥 살이 있는 면)에서 뻗는다(점검 26)
+        final outer = m.origin.dx, sgn = m.ey.dx;
+        for (final rb in pl.ribSpecs) {
+          final rx = outer + sgn * rb.u;
+          final y0 = h - tp, y1 = h - tp - pl.ribH;
+          if (rb.du != 0) {
             List<vm.Vector3> tri(double z) => [
-              _v(Offset(fx, h - tp), z),
-              _v(Offset(fx + s * rb.ribL, h - tp), z),
-              _v(Offset(fx, h - tp - rb.ribH), z),
+              _v(Offset(rx, y0), z),
+              _v(Offset(rx + sgn * rb.du * pl.ribL, y0), z),
+              _v(Offset(rx, y1), z),
             ];
-            out.addAll(_prism(tri(zc - rb.ribT / 2), tri(zc + rb.ribT / 2), 1));
-          }
-          if (rb.ribs == 4) {
-            for (final s in [-1.0, 1.0]) {
-              final fz = s < 0 ? zc - bp / 2 : zc + bp / 2;
-              List<vm.Vector3> tri(double x) => [
-                vm.Vector3(x, fz, -(h - tp)),
-                vm.Vector3(x, fz + s * rb.ribL, -(h - tp)),
-                vm.Vector3(x, fz, -(h - tp - rb.ribH)),
-              ];
-              out.addAll(
-                _prism(tri(cx - rb.ribT / 2), tri(cx + rb.ribT / 2), 1),
-              );
-            }
+            out.addAll(
+              _prism(tri(rb.z - pl.ribT / 2), tri(rb.z + pl.ribT / 2), 1),
+            );
+          } else {
+            List<vm.Vector3> tri(double x) => [
+              vm.Vector3(x, rb.z, -y0),
+              vm.Vector3(x, rb.z + rb.dz * pl.ribL, -y0),
+              vm.Vector3(x, rb.z, -y1),
+            ];
+            out.addAll(_prism(tri(rx - pl.ribT / 2), tri(rx + pl.ribT / 2), 1));
           }
         }
       }

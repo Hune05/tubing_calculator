@@ -300,9 +300,61 @@ void main() {
     await tap(tester, 'bb_steel_ok');
     // ㄱ자 기둥 300 × 3 + 문형 기둥 300 × 2
     expect(got!.firstWhere((x) => x.length == 300).qty, 5);
+    // 이름 바꾸기(점검 46)
+    await tap(tester, 'bb_rename_b');
+    await tester.enterText(find.byKey(const Key('bb_rename_field')), '문형 B-2');
+    await tap(tester, 'bb_rename_ok');
+    expect(find.text('문형 B-2'), findsOneWidget);
+    final saved =
+        jsonDecode(
+              (await SharedPreferences.getInstance()).getString(
+                kBracketBundleKey,
+              )!,
+            )
+            as List;
+    expect((saved[1] as Map)['name'], '문형 B-2');
+    // 개수를 바꾸고 불러오면 바꾼 개수(점검 40)
+    await tap(tester, 'bb_plus_b');
     await tap(tester, 'bb_row_b');
     expect(back?['sh'], 2);
+    expect(back?['n'], '2');
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('묶음에서 불러오면 저장본에 없는 칸은 처음 값(지금 화면 값이 섞이지 않음)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      BracketPage.draftKey: jsonEncode({'sh': 2, 'pt': '20', 'rb': 4}),
+      kBracketBundleKey: jsonEncode([
+        {
+          'id': 'a',
+          'name': '문형 A',
+          'qty': 3,
+          'map': {'sh': 3},
+        },
+      ]),
+    });
+    await open(tester, keep: true);
+    String field(String k) =>
+        tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+    await tab(tester, 'holes');
+    expect(field('br_pt'), '20');
+    // 판 크기는 비우면 자동(점검 33)
+    expect(field('br_pw'), '');
+    expect(find.textContaining('자동 '), findsWidgets);
+    await tab(tester, 'send');
+    await tap(tester, 'br_bundle_open');
+    await tap(tester, 'bb_row_a');
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpAndSettle();
+    await tab(tester, 'holes');
+    expect(field('br_pt'), '9');
+    expect(
+      tester.widget<PlateSegButton>(find.byKey(const Key('br_rb_0'))).selected,
+      isTrue,
+    );
+    await tab(tester, 'shape');
+    expect(field('br_sets'), '3');
+    await done(tester);
   });
 }
