@@ -77,24 +77,40 @@ List<Plate3dFace> bracket3dMesh(BracketPlan plan) {
       out.addAll(_prism(ring0, ring1, 2));
       continue;
     }
+    // 따내기 구간 경계에서 조각을 나눠 그 구간만 끝을 더 길게(혀)
+    final cuts = <double>{
+      for (final e in [...m.extStart, ...m.extEnd]) ...[e.z0, e.z1],
+    };
     for (final Rect r in m.view.rects) {
-      final u0 = r.left, u1 = r.right, z0 = r.top, z1 = r.bottom;
-      final (s0, e0) = span(u0);
-      final (s1, e1) = span(u1);
-      // 길이 방향 양 끝 고리(끝면): 시작 쪽 [a], 끝 쪽 [b]
-      final a = [
-        _v(m.at(s0, u0), z0),
-        _v(m.at(s1, u1), z0),
-        _v(m.at(s1, u1), z1),
-        _v(m.at(s0, u0), z1),
-      ];
-      final b = [
-        _v(m.at(e0, u0), z0),
-        _v(m.at(e1, u1), z0),
-        _v(m.at(e1, u1), z1),
-        _v(m.at(e0, u0), z1),
-      ];
-      out.addAll(_prism(a, b, 0));
+      final u0 = r.left, u1 = r.right;
+      final zs = <double>{
+        r.top,
+        r.bottom,
+        for (final z in cuts)
+          if (z > r.top + 1e-9 && z < r.bottom - 1e-9) z,
+      }.toList()..sort();
+      for (var k = 0; k + 1 < zs.length; k++) {
+        final z0 = zs[k], z1 = zs[k + 1];
+        final zm = (z0 + z1) / 2;
+        final xs = bracketExtAt(m.extStart, zm);
+        final xe = bracketExtAt(m.extEnd, zm);
+        final (s0, e0) = span(u0);
+        final (s1, e1) = span(u1);
+        // 길이 방향 양 끝 고리(끝면): 시작 쪽 [a], 끝 쪽 [b]
+        final a = [
+          _v(m.at(s0 - xs, u0), z0),
+          _v(m.at(s1 - xs, u1), z0),
+          _v(m.at(s1 - xs, u1), z1),
+          _v(m.at(s0 - xs, u0), z1),
+        ];
+        final b = [
+          _v(m.at(e0 + xe, u0), z0),
+          _v(m.at(e1 + xe, u1), z0),
+          _v(m.at(e1 + xe, u1), z1),
+          _v(m.at(e0 + xe, u0), z1),
+        ];
+        out.addAll(_prism(a, b, 0));
+      }
     }
   }
   // 판·리브

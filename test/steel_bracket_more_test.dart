@@ -226,7 +226,7 @@ void main() {
           postHoles: HoleRow(count: 2, dia: 13.5, first: 80, pitch: 150),
         ),
       );
-      expect(_p(p, '가로대').length, 300 - 9 - 50);
+      expect(_p(p, '가로대').length, 300 - 9 - 50 + 45); // 따내기 혀 45
       expect(_p(p, '기둥').holes, isEmpty);
       final pl = _p(p, '벽 붙임 판');
       expect(pl.ks, 'PL-9×150×300');
@@ -294,8 +294,9 @@ void main() {
       );
       final low = _p(p, '아래 가로대');
       expect(low.mark, 3);
-      expect(low.length, 700);
-      expect(low.holes.map((h) => h.fromEnd), [150, 550]);
+      // 기둥 사이 700 + 양 끝 혀 45, 구멍은 혀 끝에서
+      expect(low.length, 790);
+      expect(low.holes.map((h) => h.fromEnd), [195, 595]);
       expect(
         bracketPlan(
           const BracketInput(
@@ -613,8 +614,8 @@ void main() {
       final t = bracketBundleTotal([e1, e2], BracketSettings.defaults);
       final cuts = t.cuts['앵글 50x50x5']!;
       expect(cuts[300], 14); // ㄱ자 기둥 10 + 문형 기둥 2 × 2
-      expect(cuts[250], 10); // ㄱ자 가로대
-      expect(cuts[200], 2); // 문형 가로대 300 − 2 × 50
+      expect(cuts[295], 10); // ㄱ자 가로대(따내기 혀 포함)
+      expect(cuts[290], 2); // 문형 가로대 300 − 2 × 50 + 혀 45 × 2
       expect(t.stock['앵글 50x50x5']!.barCount, greaterThanOrEqualTo(2));
       expect(t.kg, greaterThan(0));
     });

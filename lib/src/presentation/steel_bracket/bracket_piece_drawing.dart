@@ -131,7 +131,9 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
   final m = pc.member!;
   final v = m.view;
   final d = m.depth;
-  final polys = <BracketPoly>[BracketPoly(m.local, BracketFill.member)];
+  // 따내기 혀까지 넣은 모양(V컷 토막은 V 따내기가 든 펼친 모양)
+  final shape = m.outline;
+  final polys = <BracketPoly>[BracketPoly(shape, BracketFill.member)];
   final lines = <BracketLine>[];
   final holes = <BracketHoleMark>[];
   final dims = <BracketDim>[];
@@ -140,7 +142,7 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
   final (fx0, fx1) = m.farSpan;
   // 옆에서 본 모양: 길이 방향 선
   for (final u in v.lines) {
-    final s = bracketSpanAt(m.local, u);
+    final s = bracketSpanAt(shape, u);
     if (s == null) continue;
     lines.add(
       BracketLine(
@@ -149,6 +151,32 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
         v.hollow ? BracketLineStyle.hidden : BracketLineStyle.solid,
       ),
     );
+  }
+  // V컷 꺾기: V 꼭짓점 자리(위 둘째 줄)와 표시
+  if (pc.vNotches.isNotEmpty) {
+    final ap = [...pc.vNotches]..sort();
+    final (n0, n1) = m.nearSpan;
+    final pts = [n0, ...ap, n1];
+    for (var k = 0; k + 1 < pts.length; k++) {
+      dims.add(
+        BracketDim(
+          Offset(pts[k], 0),
+          Offset(pts[k + 1], 0),
+          -50,
+          _f(pts[k + 1] - pts[k]),
+        ),
+      );
+    }
+    for (final x in ap) {
+      labels.add(
+        BracketLabel(
+          Offset(x, d - (d - v.attachT) * 0.3),
+          'V 90°',
+          shift: Offset.zero,
+          bold: true,
+        ),
+      );
+    }
   }
   final xs = <double>{for (final h in pc.holes) h.fromEnd}.toList()..sort();
   if (v.holesFront) {
@@ -222,7 +250,37 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
     final w = v.width;
     final gap = math.max(d * 0.6, 24.0);
     final y0 = d + gap;
-    polys.add(BracketPoly(_rect(ax0, y0, ax1, y0 + w), BracketFill.member));
+    if (m.extStart.isEmpty && m.extEnd.isEmpty) {
+      polys.add(BracketPoly(_rect(ax0, y0, ax1, y0 + w), BracketFill.member));
+    } else {
+      // 깊이 구간마다 끝 자리가 다르다(따낸 곳은 짧게)
+      final (b0, b1) = m.baseNear;
+      final zs = <double>{
+        0,
+        w,
+        for (final e in [...m.extStart, ...m.extEnd]) ...[e.z0, e.z1],
+      }.where((z) => z >= 0 && z <= w).toList()..sort();
+      final right = <Offset>[], left = <Offset>[];
+      for (var k = 0; k + 1 < zs.length; k++) {
+        final zm = (zs[k] + zs[k + 1]) / 2;
+        final xr = b1 + bracketExtAt(m.extEnd, zm);
+        final xl = b0 - bracketExtAt(m.extStart, zm);
+        right.addAll([Offset(xr, y0 + zs[k]), Offset(xr, y0 + zs[k + 1])]);
+        left.addAll([Offset(xl, y0 + zs[k]), Offset(xl, y0 + zs[k + 1])]);
+      }
+      polys.add(BracketPoly([...right, ...left.reversed], BracketFill.member));
+      final txt = [
+        if (m.extStartMax > 0) '${m.endNames.$1} ${_f(m.extStartMax)}',
+        if (m.extEndMax > 0) '${m.endNames.$2} ${_f(m.extEndMax)}',
+      ].join(' · ');
+      labels.add(
+        BracketLabel(
+          Offset((ax0 + ax1) / 2, y0),
+          '따냄: $txt (세운 변·모서리를 잘라 내고 이 변만 남김)',
+          shift: const Offset(0, -12),
+        ),
+      );
+    }
     final zl = <double>{
       if (v.twoLines) ...[(w - v.web) / 2, (w + v.web) / 2],
       if (!v.twoLines) ...[v.zone.$1, v.zone.$2],
@@ -257,8 +315,19 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
         vertical: true,
       ),
     );
+    final (nb0, nb1) = m.baseNear;
+    final marks = <double>[
+      ax0,
+      if (m.extStartMax > 0) nb0,
+      ...xs,
+      if (m.extEndMax > 0) nb1,
+      ax1,
+    ]..sort();
+    if (pc.holes.isEmpty && (m.extStartMax > 0 || m.extEndMax > 0)) {
+      dims.addAll(_chain(marks, y0 + w, 24));
+    }
     if (pc.holes.isNotEmpty) {
-      dims.addAll(_chain([ax0, ...xs, ax1], y0 + w, 24));
+      dims.addAll(_chain(marks, y0 + w, 24));
       final zs = <double>{for (final h in pc.holes) h.z}.toList()..sort();
       dims.add(
         BracketDim(

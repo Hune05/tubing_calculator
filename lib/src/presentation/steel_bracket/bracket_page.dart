@@ -159,7 +159,8 @@ class _BracketPageState extends State<BracketPage>
     for (final e in kBracketValueDefaults.entries) {
       final v = m[e.key];
       if (v != null && v.runtimeType == e.value.runtimeType) {
-        if (v is String && v.trim().isEmpty) continue;
+        // 빈 글자는 처음 값으로 두되, 가새 규격 빈 글자는 "평철 맞춤"이라는 뜻
+        if (v is String && v.trim().isEmpty && e.key != 'bsp') continue;
         _v[e.key] = v as Object;
       }
     }
@@ -1110,6 +1111,7 @@ class _BracketPageState extends State<BracketPage>
                 (0, '기둥 통과'),
                 (1, '가로대 통과'),
                 (2, '연귀'),
+                (3, 'V컷 꺾기'),
               ])
                 PlateOption(
                   'br_joint_$i',
@@ -1119,10 +1121,28 @@ class _BracketPageState extends State<BracketPage>
                 ),
             ]),
             _guide(switch (_i('jt')) {
-              0 => '가로대가 기둥 옆에 붙어 가로대가 기둥 폭만큼 짧아집니다.',
-              1 => '기둥이 가로대 밑에 붙어 기둥이 가로대 폭만큼 짧아집니다.',
-              _ => '두 토막 모두 바깥 치수 그대로, 맞닿는 끝을 비스듬히 자릅니다.',
+              0 =>
+                '가로대가 기둥 옆에 맞대어 붙습니다. 앵글·찬넬은 가로대 끝 세운 변을 따내고 위 변만 기둥 벽 쪽 변까지 넣어 틈 없이(부재도).',
+              1 =>
+                '기둥이 가로대 밑에 맞대어 붙습니다. 앵글·찬넬은 기둥 끝을 따내고 벽 쪽 변만 가로대 위 변 밑까지 올려 틈 없이(부재도).',
+              2 => '두 토막 모두 두 변 다 45°로(그라인더) 잘라 맞댑니다. 바깥 치수 그대로.',
+              _ =>
+                '한 본의 세운 변을 90° V로 따내고 꺾어 기둥·가로대를 한 토막으로. 펼친 길이 = 바깥 치수 합 − 꺾는 곳마다 공제값.',
             }),
+            if (_i('jt') == 3)
+              plateRow([
+                _num(
+                  'br_vb',
+                  '꺾임 공제(꺾는 곳마다)',
+                  'vb',
+                  hint: p == null || p.members.isEmpty
+                      ? '자동'
+                      : '자동 ${fmt(2 * p.members.first.view.attachT)}',
+                ),
+                const SizedBox.shrink(),
+              ]),
+            if (_i('jt') == 3)
+              _guide('자동은 두께 × 2(날카롭게 꺾을 때 어림)입니다. 시험으로 한 번 꺾어 보고 맞추십시오.'),
           ]),
         PlateSection('수량', [
           plateRow([
@@ -1221,7 +1241,18 @@ class _BracketPageState extends State<BracketPage>
           ]),
         if (_shape == BracketShape.brace)
           PlateSection('가새', [
+            // 현장은 가새를 웬만하면 평철로(10-11 사용자) — 처음은 기둥 폭에 맞춘 평철
             PlateSegments([
+              PlateOption(
+                'br_bs_auto',
+                '평철 맞춤',
+                bracketBraceAuto(m),
+                () => _set(() {
+                  _v['bs'] = false;
+                  _v['bsp'] = '';
+                  _v['bo'] = -1;
+                }),
+              ),
               PlateOption(
                 'br_bs_1',
                 '기둥과 같음',
@@ -1231,9 +1262,18 @@ class _BracketPageState extends State<BracketPage>
                   _v['bo'] = -1;
                 }),
               ),
-              PlateOption('br_bs_0', '따로', !_b('bs'), () => _setV('bs', false)),
+              PlateOption(
+                'br_bs_0',
+                '직접 고르기',
+                !_b('bs') && !bracketBraceAuto(m),
+                () => _set(() {
+                  _v['bs'] = false;
+                  _v['bsp'] = braceSpec;
+                }),
+              ),
             ]),
-            if (!_b('bs'))
+            if (bracketBraceAuto(m)) _guide('$braceSpec (기둥 그림 폭에 맞춘 평철)'),
+            if (!_b('bs') && !bracketBraceAuto(m))
               _specButton('br_brace_spec', braceSpec, (s) {
                 _set(() {
                   _v['bsp'] = s;

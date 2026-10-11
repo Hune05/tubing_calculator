@@ -25,8 +25,71 @@ export 'bracket_profile.dart';
 
 enum BracketShape { l, brace, frame, tee, hanger }
 
-/// 이음: 기둥 통과, 가로대 통과, 연귀(맞닿는 끝을 비스듬히).
-enum BracketJoint { postThrough, armThrough, miter }
+/// 이음: 기둥 통과, 가로대 통과, 연귀(맞닿는 끝을 비스듬히), V컷 꺾기(한 본의 세운 변을 V로 따내고 꺾음, 10-11 사용자).
+/// 기둥·가로대 통과(맞대기)는 앵글·찬넬처럼 날개가 있으면 현장처럼 따내기를 넣어 틈 없이 맞춘다([BracketExt]).
+enum BracketJoint { postThrough, armThrough, miter, vbend }
+
+/// 맞대기 따내기 한 구간: 부재 깊이(z) [z0]~[z1]은 끝을 [ext]만큼 더 길게(상대 부재의 얕은 면까지 들어감).
+/// 나머지(상대 부재의 날개·세운 변과 겹치는 곳)는 잘라 낸다(따냄). 10-11 사용자: "앵글 형태 때문에 구멍이
+/// 뻥뻥 뚫리는데 현업에서는 가공하거나 그라인더로 잘라내서 작업".
+typedef BracketExt = ({double z0, double z1, double ext});
+
+/// 맞대기 이음에서 [butt] 부재 끝을 [through] 부재 안으로 얼마나 넣는가(깊이 구간별). through의 붙는 쪽에서 잰
+/// 단면 깊이 중 그 z에 있는 가장 깊은 면까지(= through.depth − 그 z의 가장 안쪽 면).
+List<BracketExt> bracketNotchExt(
+  BracketSectionView through,
+  BracketSectionView butt,
+) {
+  // 날개 없는 평철(조각 하나)은 따내기가 없다(1mm 남짓 삐져나온 조각이 늘어나지 않게)
+  if (through.round ||
+      butt.round ||
+      through.unknown ||
+      butt.unknown ||
+      through.rects.length < 2 ||
+      butt.rects.length < 2) {
+    return const [];
+  }
+  final w = butt.width;
+  final zs = <double>{0, w};
+  for (final r in [...through.rects, ...butt.rects]) {
+    for (final z in [r.top, r.bottom]) {
+      if (z > 1e-9 && z < w - 1e-9) zs.add(z);
+    }
+  }
+  final sorted = zs.toList()..sort();
+  final out = <BracketExt>[];
+  for (var k = 0; k + 1 < sorted.length; k++) {
+    final z0 = sorted[k], z1 = sorted[k + 1];
+    if (z1 - z0 < 1e-9) continue;
+    final zm = (z0 + z1) / 2;
+    if (!butt.rects.any((r) => r.top <= zm && r.bottom >= zm)) continue;
+    double? maxU;
+    for (final r in through.rects) {
+      if (r.top <= zm && r.bottom >= zm) {
+        maxU = math.max(maxU ?? -double.infinity, r.right);
+      }
+    }
+    if (maxU == null) continue;
+    final ext = through.depth - maxU;
+    if (ext <= 1e-6) continue;
+    if (out.isNotEmpty &&
+        (out.last.z1 - z0).abs() < 1e-9 &&
+        (out.last.ext - ext).abs() < 1e-9) {
+      out[out.length - 1] = (z0: out.last.z0, z1: z1, ext: ext);
+    } else {
+      out.add((z0: z0, z1: z1, ext: ext));
+    }
+  }
+  return out;
+}
+
+/// 깊이 [z]에서 따내기 길이(없으면 0).
+double bracketExtAt(List<BracketExt> es, double z) {
+  for (final e in es) {
+    if (z >= e.z0 - 1e-9 && z <= e.z1 + 1e-9) return e.ext;
+  }
+  return 0;
+}
 
 /// 한 줄로 늘어선 구멍들: 개수·지름·첫 구멍 거리·피치, 장공 길이, 게이지, 두 줄.
 class HoleRow {
@@ -125,6 +188,9 @@ class BracketInput {
   /// 용접 각장(mm, 0이면 이음마다 얇은 쪽 두께로).
   final double weld;
 
+  /// V컷 꺾기 공제값(mm, 0이면 붙는 변 두께 × 2 — 날카롭게 꺾을 때 어림): 펼친 길이 = 바깥 치수 합 − 꺾는 곳마다 이 값.
+  final double vBend;
+
   /// 만들 개수(세트), 원자재 길이, 톱날 여유.
   final int sets;
   final double stockLength, kerf;
@@ -156,6 +222,7 @@ class BracketInput {
     this.rodTop = 25,
     this.rodBelow = 30,
     this.weld = 0,
+    this.vBend = 0,
     this.sets = 1,
     this.stockLength = 6000,
     this.kerf = 2,
@@ -201,6 +268,10 @@ class BracketMember {
   /// 기준 끝·반대 끝 이름('위 끝', '아래 끝').
   final (String, String) endNames;
 
+  /// 맞대기 따내기(기준 끝·반대 끝). [local]은 따내기 전 모양이고, 기준 끝 따내기만큼 이미 뒤로 밀어 두어
+  /// 가장 긴 끝(혀)이 x = 0이다.
+  final List<BracketExt> extStart, extEnd;
+
   const BracketMember({
     required this.mark,
     required this.name,
@@ -214,25 +285,77 @@ class BracketMember {
     required this.local,
     this.holes = const [],
     required this.endNames,
+    this.extStart = const [],
+    this.extEnd = const [],
   });
 
   Offset at(double x, double y) => origin + ex * x + ey * y;
+
+  /// 조립도·입체에 쓰는 모양(따내기로 들어간 혀는 상대 부재 뒤라 숨은선으로 따로 그린다).
   List<Offset> get poly => [for (final q in local) at(q.dx, q.dy)];
   double get depth => view.depth;
 
-  /// 붙는 쪽(y = 0)과 반대쪽(y = 그림 폭) 길이 구간.
+  double get _y0 => local.map((q) => q.dy).reduce(math.min);
+  double get _y1 => local.map((q) => q.dy).reduce(math.max);
+
+  /// 따내기 전 모양의 붙는 쪽·반대쪽 구간(끝 각도·입체용).
   /// (부재 좌표는 만들 때 1e-9로 다듬어 두어 가장자리 y에서 바로 잘라도 된다.)
-  (double, double) get nearSpan =>
-      bracketSpanAt(local, local.map((q) => q.dy).reduce(math.min)) ?? (0, 0);
-  (double, double) get farSpan =>
-      bracketSpanAt(local, local.map((q) => q.dy).reduce(math.max)) ?? (0, 0);
+  (double, double) get baseNear => bracketSpanAt(local, _y0) ?? (0, 0);
+  (double, double) get baseFar => bracketSpanAt(local, _y1) ?? (0, 0);
+
+  double get extStartMax => extStart.fold(0.0, (m, e) => math.max(m, e.ext));
+  double get extEndMax => extEnd.fold(0.0, (m, e) => math.max(m, e.ext));
+
+  /// 따내기 구간에 있는 단면의 그림 폭 범위(u).
+  (double, double) extU(List<BracketExt> es) {
+    var lo = double.infinity, hi = -double.infinity;
+    for (final r in view.rects) {
+      if (es.any((e) => r.top < e.z1 - 1e-9 && r.bottom > e.z0 + 1e-9)) {
+        lo = math.min(lo, r.left);
+        hi = math.max(hi, r.right);
+      }
+    }
+    return lo.isFinite ? (lo, hi) : (0, 0);
+  }
+
+  /// 따내기 혀까지 넣은 옆 모양(부재도·자를 길이).
+  List<Offset> get outline {
+    final s = extStartMax, e = extEndMax;
+    if (s <= 0 && e <= 0) return local;
+    final (b0, b1) = baseNear;
+    final (f0, f1) = baseFar;
+    final y0 = _y0, y1 = _y1;
+    final (sa, sb) = extU(extStart);
+    final (ea, eb) = extU(extEnd);
+    final pts = <Offset>[
+      Offset(s > 0 && sa <= y0 + 1e-9 ? b0 - s : b0, y0),
+      Offset(e > 0 && ea <= y0 + 1e-9 ? b1 + e : b1, y0),
+      if (e > 0) ...[
+        if (ea > y0 + 1e-9) ...[Offset(b1, ea), Offset(b1 + e, ea)],
+        Offset(b1 + e, eb),
+        Offset(b1, eb),
+      ],
+      Offset(f1, y1),
+      Offset(f0, y1),
+      if (s > 0) ...[
+        Offset(b0, sb),
+        Offset(b0 - s, sb),
+        if (sa > y0 + 1e-9) ...[Offset(b0 - s, sa), Offset(b0, sa)],
+      ],
+    ];
+    return pts;
+  }
+
+  /// 붙는 쪽(y = 0)과 반대쪽(y = 그림 폭) 길이 구간(따내기 혀 포함).
+  (double, double) get nearSpan => bracketSpanAt(outline, _y0) ?? (0, 0);
+  (double, double) get farSpan => bracketSpanAt(outline, _y1) ?? (0, 0);
   double get nearLength => nearSpan.$2 - nearSpan.$1;
   double get farLength => farSpan.$2 - farSpan.$1;
   double get length => math.max(nearLength, farLength);
 
   /// 끝을 자른 각(직각에서 몇 °, 각도절단기 각). [start]면 기준 끝.
   double endAngle(bool start) {
-    final a = nearSpan, b = farSpan;
+    final a = baseNear, b = baseFar;
     final dx = start ? (b.$1 - a.$1) : (b.$2 - a.$2);
     return math.atan2(dx.abs(), depth) * 180 / math.pi;
   }
@@ -265,6 +388,9 @@ class BracketPiece {
   /// 부재도용: 형강·전산볼트는 그림 자리 부재(첫 번째).
   final BracketMember? member;
 
+  /// V컷 꺾기 토막: V 꼭짓점 자리(기준 끝에서, 펼친 토막).
+  final List<double> vNotches;
+
   const BracketPiece({
     required this.mark,
     required this.name,
@@ -282,6 +408,7 @@ class BracketPiece {
     this.holeFace = '',
     required this.kgEach,
     this.member,
+    this.vNotches = const [],
   });
 
   String get markText => bracketMarkText(mark);
@@ -653,8 +780,16 @@ BracketPlan bracketPlan(BracketInput i) {
   // 품번: 있는 부재만 차례로
   const order = ['post', 'arm', 'lower', 'brace', 'rod', 'plate', 'rib'];
   final present = <String>{};
-  int markOf(String key) =>
-      order.where(present.contains).toList().indexOf(key) + 1;
+  // V컷 꺾기가 되면 기둥·가로대가 한 토막(한 품번)
+  var vMerge = false;
+  int markOf(String key) {
+    final k = vMerge && key == 'arm' ? 'post' : key;
+    return order
+            .where((x) => present.contains(x) && !(vMerge && x == 'arm'))
+            .toList()
+            .indexOf(k) +
+        1;
+  }
 
   /// 그림 자리 다각형 [poly]를 부재 좌표로 옮겨 부재를 만든다.
   BracketMember member({
@@ -670,6 +805,8 @@ BracketPlan bracketPlan(BracketInput i) {
     required Offset ey,
     List<PieceHole> holes = const [],
     required (String, String) endNames,
+    List<BracketExt> extStart = const [],
+    List<BracketExt> extEnd = const [],
   }) {
     present.add(key);
     var local = [
@@ -692,6 +829,16 @@ BracketPlan bracketPlan(BracketInput i) {
           PieceHole(h.label, h.fromEnd - minX, h.dia, z: h.z, slot: h.slot),
       ];
     }
+    // 기준 끝 따내기 혀가 x = 0이 되게(구멍은 혀 끝, 곧 그 변의 실제 끝에서 잰다)
+    final sMax = extStart.fold(0.0, (m, e) => math.max(m, e.ext));
+    if (sMax > 0) {
+      local = [for (final q in local) q + Offset(sMax, 0)];
+      o = o - ex * sMax;
+      hs = [
+        for (final h in hs)
+          PieceHole(h.label, h.fromEnd + sMax, h.dia, z: h.z, slot: h.slot),
+      ];
+    }
     return BracketMember(
       mark: 0,
       name: name,
@@ -705,6 +852,8 @@ BracketPlan bracketPlan(BracketInput i) {
       local: local,
       holes: hs,
       endNames: endNames,
+      extStart: extStart,
+      extEnd: extEnd,
     );
   }
 
@@ -802,6 +951,26 @@ BracketPlan bracketPlan(BracketInput i) {
   }
 
   final jName = i.joint;
+
+  /// V컷 꺾기가 되는가: 기둥·가로대가 같은 규격·같은 방향의 앵글·찬넬. 안 되면 알리고 연귀 모양으로 둔다.
+  bool vbendOk() {
+    const bendable = {
+      BracketProfileKind.angle,
+      BracketProfileKind.unequalAngle,
+      BracketProfileKind.channel,
+      BracketProfileKind.lipChannel,
+    };
+    if (!bendable.contains(mainP.kind)) {
+      warn('V컷 꺾기는 앵글·찬넬만 됩니다. 이음을 바꾸십시오.');
+      return false;
+    }
+    if (armP.label != mainP.label || armO != postO) {
+      warn('V컷 꺾기는 기둥·가로대가 같은 규격·같은 방향이어야 합니다(부재 탭).');
+      return false;
+    }
+    return true;
+  }
+
   double weldOf(Iterable<BracketProfile> ps, [double? plateT]) {
     if (i.weld > 0) return i.weld;
     var t = double.infinity;
@@ -826,14 +995,17 @@ BracketPlan bracketPlan(BracketInput i) {
         );
       }
       final j = jName;
-      if (j == BracketJoint.miter && (dp - da).abs() > 0.05) {
+      if (j == BracketJoint.vbend) vMerge = vbendOk();
+      // V컷 꺾기는 꺾은 뒤 모양이 연귀와 같다(바깥 변은 이어지고 세운 변은 45° 맞댐)
+      final miterLike = j == BracketJoint.miter || j == BracketJoint.vbend;
+      if (miterLike && (dp - da).abs() > 0.05) {
         note(
           '기둥과 가로대 그림 폭이 달라(${_f(dp)} · ${_f(da)}) 연귀가 45°가 아닙니다. 끝 각도는 자를 것 표를 보십시오.',
         );
       }
       final postTop = j == BracketJoint.armThrough ? da : 0.0;
       final armX0 = j == BracketJoint.postThrough ? px + dp : px;
-      final postPoly = j == BracketJoint.miter
+      final postPoly = miterLike
           ? [
               Offset(px, 0),
               Offset(px + dp, da),
@@ -841,7 +1013,7 @@ BracketPlan bracketPlan(BracketInput i) {
               Offset(px, b),
             ]
           : _rect(px, postTop, px + dp, b);
-      final armPoly = j == BracketJoint.miter
+      final armPoly = miterLike
           ? [Offset(px, 0), Offset(a, 0), Offset(a, da), Offset(px + dp, da)]
           : _rect(armX0, 0, a, da);
       // 기둥: 붙는 면 = 벽(왼쪽), 기준 끝 = 위
@@ -856,14 +1028,18 @@ BracketPlan bracketPlan(BracketInput i) {
         orient: postO,
         view: postV,
         poly: postPoly,
-        origin: Offset(px, j == BracketJoint.miter ? 0 : postTop),
+        origin: Offset(px, miterLike ? 0 : postTop),
         ex: const Offset(0, 1),
         ey: const Offset(1, 0),
         holes: pHoles,
         endNames: ('위 끝', '아래 끝'),
+        // 가로대 통과: 기둥 벽 쪽 변이 가로대 위 변 밑까지 올라가고 나머지는 따냄
+        extStart: j == BracketJoint.armThrough
+            ? bracketNotchExt(armV, postV)
+            : const [],
       );
       addMember('post', post);
-      for (final h in pHoles) {
+      for (final h in post.holes) {
         if (h.fromEnd - h.along / 2 < -1e-9) {
           warn(
             '기둥 구멍이 가로대 자리에 걸립니다. 첫 구멍을 ${_f(postTop + h.along / 2)}mm 이상으로 하십시오.',
@@ -885,6 +1061,10 @@ BracketPlan bracketPlan(BracketInput i) {
         ey: const Offset(0, 1),
         holes: aHoles,
         endNames: ('가로대 끝', '기둥 쪽 끝'),
+        // 기둥 통과: 가로대 위 변(혀)이 기둥 벽 쪽 변까지 들어가고 세운 변·모서리는 따냄
+        extEnd: j == BracketJoint.postThrough
+            ? bracketNotchExt(postV, armV)
+            : const [],
       );
       addMember('arm', arm);
       final wJoint = weldOf([mainP, armP]);
@@ -893,11 +1073,12 @@ BracketPlan bracketPlan(BracketInput i) {
           switch (j) {
             BracketJoint.postThrough => Offset(px + dp, da / 2),
             BracketJoint.armThrough => Offset(px + dp / 2, da),
-            BracketJoint.miter => Offset(px + dp / 2, da / 2),
+            _ => Offset(px + dp / 2, da / 2),
           },
           const Offset(1, 1),
           wJoint,
-          '가로대–기둥',
+          vMerge ? '꺾은 곳 V 이음' : '가로대–기둥',
+          allAround: !vMerge,
         ),
       );
       // 전체 치수는 바깥 줄, 삼각의 가새 자리는 안쪽 줄(화면 점).
@@ -1187,7 +1368,10 @@ BracketPlan bracketPlan(BracketInput i) {
       if (!frame && hasArm && w <= dp) {
         warn('가로대 길이는 기둥 폭(${_f(dp)}mm)보다 커야 합니다.');
       }
-      if (frame && j == BracketJoint.miter && (dp - da).abs() > 0.05) {
+      if (frame && j == BracketJoint.vbend) vMerge = vbendOk();
+      final miterF =
+          frame && (j == BracketJoint.miter || j == BracketJoint.vbend);
+      if (miterF && (dp - da).abs() > 0.05) {
         note(
           '기둥과 가로대 그림 폭이 달라(${_f(dp)} · ${_f(da)}) 연귀가 45°가 아닙니다. 끝 각도는 자를 것 표를 보십시오.',
         );
@@ -1199,7 +1383,7 @@ BracketPlan bracketPlan(BracketInput i) {
       final wPost = weldOf([mainP, armP]);
       for (final x in postXs) {
         final left = x == 0 || !frame;
-        final miter = frame && j == BracketJoint.miter;
+        final miter = miterF;
         final poly = miter
             ? (left
                   ? [
@@ -1229,6 +1413,10 @@ BracketPlan bracketPlan(BracketInput i) {
           ex: const Offset(0, 1),
           ey: left ? const Offset(1, 0) : const Offset(-1, 0),
           endNames: ('위 끝', '아래 끝'),
+          // 가로대가 위에 얹히면 기둥 바깥 변이 가로대 위 변 밑까지 올라가고 나머지는 따냄
+          extStart: hasArm && j == BracketJoint.armThrough
+              ? bracketNotchExt(armV, postV)
+              : const [],
         );
         addMember('post', m);
       }
@@ -1256,7 +1444,7 @@ BracketPlan bracketPlan(BracketInput i) {
               show: false,
             ),
           );
-        } else if (frame && j == BracketJoint.miter) {
+        } else if (miterF) {
           poly = [
             const Offset(0, 0),
             Offset(w, 0),
@@ -1268,7 +1456,8 @@ BracketPlan bracketPlan(BracketInput i) {
               Offset(dp / 2, da / 2),
               const Offset(1, 1),
               wPost,
-              '가로대–기둥',
+              vMerge ? '꺾은 곳 V 이음' : '가로대–기둥',
+              allAround: !vMerge,
             ),
           );
           welds.add(
@@ -1276,7 +1465,8 @@ BracketPlan bracketPlan(BracketInput i) {
               Offset(w - dp / 2, da / 2),
               const Offset(-1, 1),
               wPost,
-              '가로대–기둥',
+              vMerge ? '꺾은 곳 V 이음' : '가로대–기둥',
+              allAround: !vMerge,
               show: false,
             ),
           );
@@ -1309,6 +1499,12 @@ BracketPlan bracketPlan(BracketInput i) {
           ey: const Offset(0, 1),
           holes: aHoles,
           endNames: ('왼쪽 끝', '오른쪽 끝'),
+          extStart: frame && j == BracketJoint.postThrough
+              ? bracketNotchExt(postV, armV)
+              : const [],
+          extEnd: frame && j == BracketJoint.postThrough
+              ? bracketNotchExt(postV, armV)
+              : const [],
         );
         addMember('arm', armM);
         for (final hh in aHoles) {
@@ -1348,6 +1544,8 @@ BracketPlan bracketPlan(BracketInput i) {
             ey: const Offset(0, 1),
             holes: lh,
             endNames: ('왼쪽 끝', '오른쪽 끝'),
+            extStart: bracketNotchExt(postV, armV),
+            extEnd: bracketNotchExt(postV, armV),
           );
           addMember('lower', lowM);
           if (lh.any(
@@ -1810,6 +2008,8 @@ BracketPlan bracketPlan(BracketInput i) {
         local: m.local,
         holes: m.holes,
         endNames: m.endNames,
+        extStart: m.extStart,
+        extEnd: m.extEnd,
       ),
   ];
   final plateMark = present.contains('plate') ? markOf('plate') : 0;
@@ -1830,6 +2030,27 @@ BracketPlan bracketPlan(BracketInput i) {
         ),
       );
       continue;
+    }
+    // 따내기 혀(상대 부재 세운 변 뒤라 숨은선)
+    for (final (es, start) in [(m.extStart, true), (m.extEnd, false)]) {
+      if (es.isEmpty) continue;
+      final ext = start ? m.extStartMax : m.extEndMax;
+      final (b0, b1) = m.baseNear;
+      final x0 = start ? b0 : b1, x1 = start ? b0 - ext : b1 + ext;
+      final (ua, ub) = m.extU(es);
+      for (final (p, q) in [
+        (Offset(x0, ua), Offset(x1, ua)),
+        (Offset(x1, ua), Offset(x1, ub)),
+        (Offset(x1, ub), Offset(x0, ub)),
+      ]) {
+        lines.add(
+          BracketLine(
+            m.at(p.dx, p.dy),
+            m.at(q.dx, q.dy),
+            BracketLineStyle.hidden,
+          ),
+        );
+      }
     }
     for (final u in m.view.lines) {
       final s = bracketSpanAt(m.local, u);
@@ -1889,6 +2110,96 @@ BracketPlan bracketPlan(BracketInput i) {
     secs.add(BracketSectionMark(mk, view, side, vertical: vertical));
   }
 
+  /// V컷 꺾기 한 토막: 펼친 길이 = 바깥 치수 합 − 꺾는 곳마다 공제값, 세운 변에 90° V 따내기.
+  BracketPiece vPiece(int mk, List<BracketMember> ms) {
+    final t = postV.attachT, dd = postV.depth;
+    final bd = i.vBend > 0 ? i.vBend : 2 * t;
+    final armMm = ms.firstWhere((m) => m.name == '가로대');
+    final posts = ms.where((m) => m.name == '기둥').toList();
+    final hs = <PieceHole>[];
+    double total;
+    List<double> apex;
+    (String, String) names;
+    if (lLike) {
+      final px = i.wallPlate ? i.wall.t : 0.0;
+      final la = i.a - px;
+      total = la + i.b - bd;
+      apex = [la - bd / 2];
+      names = ('가로대 끝', '기둥 아래 끝');
+      for (final h in armMm.holes) {
+        hs.add(PieceHole(h.label, h.fromEnd, h.dia, z: h.z, slot: h.slot));
+      }
+      for (final h in posts.first.holes) {
+        hs.add(
+          PieceHole(h.label, la + h.fromEnd - bd, h.dia, z: h.z, slot: h.slot),
+        );
+      }
+    } else {
+      final hp = i.b - (i.basePlate ? i.base.t : 0);
+      total = 2 * hp + i.a - 2 * bd;
+      apex = [hp - bd / 2, hp + i.a - 1.5 * bd];
+      names = ('왼쪽 기둥 아래 끝', '오른쪽 기둥 아래 끝');
+      for (final h in armMm.holes) {
+        hs.add(
+          PieceHole(h.label, hp + h.fromEnd - bd, h.dia, z: h.z, slot: h.slot),
+        );
+      }
+    }
+    final v = dd - t;
+    final outline = <Offset>[
+      Offset.zero,
+      Offset(total, 0),
+      Offset(total, dd),
+      for (final ap in apex.reversed) ...[
+        Offset(ap + v, dd),
+        Offset(ap, t),
+        Offset(ap - v, dd),
+      ],
+      Offset(0, dd),
+    ];
+    final dev = BracketMember(
+      mark: mk,
+      name: lLike ? '기둥·가로대' : '기둥·가로대·기둥',
+      role: lLike ? BracketRole.wall : BracketRole.none,
+      profile: mainP,
+      orient: postO,
+      view: postV,
+      origin: Offset.zero,
+      ex: const Offset(1, 0),
+      ey: const Offset(0, 1),
+      local: outline,
+      holes: hs,
+      endNames: names,
+    );
+    checkHoles(dev, dev.name);
+    for (final h in hs) {
+      if (apex.any((ap) => (h.fromEnd - ap).abs() < h.along / 2 + bd / 2 + t)) {
+        note(
+          '${dev.name} ${h.label}이 꺾는 곳에 가깝습니다(꺾을 때 구멍이 찌그러질 수 있음). 구멍을 옮기십시오.',
+        );
+        break;
+      }
+    }
+    final kgM = mainP.kgPerM;
+    return BracketPiece(
+      mark: mk,
+      name: dev.name,
+      kind: BracketPieceKind.member,
+      spec: mainP.label,
+      ks: mainP.ks,
+      length: total,
+      qty: 1,
+      ends:
+          '양 끝 직각 · V컷 ${apex.length}곳(세운 변 90° V, 깊이 ${_f(v)}) · 꺾는 곳마다 공제 ${_f(bd)}',
+      holes: hs,
+      holeFrom: names.$1,
+      holeFace: lLike ? '바깥 변(벽·위)' : '바깥 변',
+      kgEach: kgM == null ? 0 : kgM * total / 1000,
+      member: dev,
+      vNotches: apex,
+    );
+  }
+
   // 토막
   final pieces = <BracketPiece>[];
   final byMark = <int, List<BracketMember>>{};
@@ -1896,11 +2207,19 @@ BracketPlan bracketPlan(BracketInput i) {
     byMark.putIfAbsent(m.mark, () => []).add(m);
   }
   var unknownKg = false;
+  final vMark = vMerge ? markOf('post') : -1;
   for (final mk in byMark.keys.toList()..sort()) {
     final ms = byMark[mk]!;
+    if (mk == vMark) {
+      pieces.add(vPiece(mk, ms));
+      continue;
+    }
     final m = ms.first;
     final near = m.nearLength, far = m.farLength;
-    final long = math.max(near, far), short = math.min(near, far);
+    final long = math.max(near, far);
+    // 비스듬한 끝일 때만 짧은 쪽(따내기 혀 길이 차이는 끝 모양 글에)
+    final angled = m.endAngle(true) > 0.05 || m.endAngle(false) > 0.05;
+    final short = angled ? math.min(near, far) : long;
     final kgM = m.profile.kgPerM;
     if (kgM == null) unknownKg = true;
     final rod = m.profile.kind == BracketProfileKind.rod;
@@ -1916,6 +2235,11 @@ BracketPlan bracketPlan(BracketInput i) {
       endText =
           '${one(m.endNames.$1, a0)} · ${one(m.endNames.$2, a1)} (각도절단기 직각 = 0°)';
     }
+    final notch = [
+      if (m.extStartMax > 0) '${m.endNames.$1} ${_f(m.extStartMax)} 따냄',
+      if (m.extEndMax > 0) '${m.endNames.$2} ${_f(m.extEndMax)} 따냄',
+    ];
+    if (notch.isNotEmpty) endText += ' · ${notch.join(' · ')}(부재도)';
     pieces.add(
       BracketPiece(
         mark: mk,

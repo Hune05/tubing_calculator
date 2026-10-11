@@ -32,12 +32,17 @@ double _len(BracketPlan p, String name) =>
 
 void main() {
   group('계산', () {
-    test('ㄱ자: 이음에 따라 짧아지는 토막', () {
+    test('ㄱ자: 이음에 따라 짧아지는 토막(맞대기는 따내기 혀까지 자를 길이)', () {
       final post = _l();
       expect(_len(post, '기둥'), 300);
-      expect(_len(post, '가로대'), 250);
+      // 기둥 통과: 가로대 세운 변 250, 위 변은 기둥 벽 쪽 변(두께 5)까지 들어가 295로 자르고 세운 변 45 따냄(10-11 현장 방식)
+      expect(_len(post, '가로대'), 295);
+      expect(
+        post.pieces.firstWhere((x) => x.name == '가로대').ends,
+        contains('기둥 쪽 끝 45 따냄'),
+      );
       final arm = _l(joint: BracketJoint.armThrough);
-      expect(_len(arm, '기둥'), 250);
+      expect(_len(arm, '기둥'), 295);
       expect(_len(arm, '가로대'), 300);
       final miter = _l(joint: BracketJoint.miter);
       expect(_len(miter, '기둥'), 300);
@@ -46,8 +51,8 @@ void main() {
       expect(miter.pieces.first.short, closeTo(250, 1e-9));
       expect(miter.pieces.first.ends, contains('위 끝 45°'));
       expect(miter.pieces.first.ends, contains('아래 끝 직각'));
-      // 앵글 50x50x5 = 3.77kg/m → (0.3 + 0.25) × 3.77
-      expect(post.kgPerSet, closeTo(0.55 * 3.77, 1e-9));
+      // 앵글 50x50x5 = 3.77kg/m → (0.3 + 0.295) × 3.77(자를 길이로)
+      expect(post.kgPerSet, closeTo(0.595 * 3.77, 1e-9));
       expect(post.ok, isTrue);
     });
 
@@ -125,7 +130,7 @@ void main() {
       );
       expect(p.wallHoles, {13.5: 6});
       expect(p.armHoles, {11: 3});
-      // 가로대 통과면 기둥 토막이 가로대 밑에서 시작해 50씩 줄어든다
+      // 가로대 통과면 기둥 벽 쪽 변이 가로대 위 변 밑(위에서 5)까지 올라가 구멍은 그 끝에서 잰다(80 − 5)
       final arm = _l(
         joint: BracketJoint.armThrough,
         post: const HoleRow(count: 2, dia: 13.5, first: 80, pitch: 150),
@@ -135,7 +140,7 @@ void main() {
             .firstWhere((x) => x.name == '기둥')
             .holes
             .map((h) => h.fromEnd),
-        [30, 180],
+        [75, 225],
       );
       final out = _l(
         post: const HoleRow(count: 2, dia: 13.5, first: 80, pitch: 250),
@@ -175,14 +180,16 @@ void main() {
         ),
       );
       final top = f(BracketJoint.armThrough);
-      expect(_len(top, '기둥'), 800 - 9 - 50);
+      // 가로대 통과: 기둥 바깥 변이 가로대 위 변 밑까지(따내기 45)
+      expect(_len(top, '기둥'), 800 - 9 - 50 + 45);
       expect(top.pieces.firstWhere((x) => x.name == '기둥').qty, 2);
       expect(_len(top, '가로대'), 600);
       final between = f(BracketJoint.postThrough);
       expect(_len(between, '기둥'), 791);
-      expect(_len(between, '가로대'), 500);
+      // 기둥 사이 500 + 양 끝 혀 45씩
+      expect(_len(between, '가로대'), 590);
       final noPlate = f(BracketJoint.armThrough, plate: false);
-      expect(_len(noPlate, '기둥'), 750);
+      expect(_len(noPlate, '기둥'), 795);
       expect(noPlate.plate, isNull);
       final pl = top.plate!;
       expect(pl.qty, 2);

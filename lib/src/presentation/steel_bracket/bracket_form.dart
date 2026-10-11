@@ -99,6 +99,7 @@ const Map<String, String> kBracketTextDefaults = {
   'rtp': '25',
   'rbl': '30',
   'wz': '',
+  'vb': '',
   'n': '1',
   'w': '',
   'lk': '',
@@ -110,8 +111,9 @@ const Map<String, Object> kBracketValueDefaults = {
   'sp': '앵글 50x50x5',
   'as': true,
   'asp': '앵글 50x50x5',
-  'bs': true,
-  'bsp': '평철 50x6',
+  // 가새: 처음은 평철(기둥 폭에 맞춤, bsp 빈 글자) — 10-11 사용자 "기둥 빼고 가새는 웬만하면 평철"
+  'bs': false,
+  'bsp': '',
   'po': -1,
   'ao': -1,
   'bo': -1,
@@ -131,6 +133,7 @@ const Map<String, Object> kBracketValueDefaults = {
   'mat': 'SS275',
   'fin': 0,
   'lm': 1,
+  'v': 2,
 };
 
 /// 저장된 지도를 지금 열쇠로 고친다(10-10 판: cs 직접 적은 규격 → sp, ps 정사각 판 → pw·pll, pl·pln 그대로).
@@ -152,7 +155,48 @@ Map<String, dynamic> bracketUpgradeMap(Map<String, dynamic> m) {
     out['as'] = true;
     out['asp'] = out['sp'];
   }
+  // 판 2 전(10-11 앞 빌드)의 가새는 기둥과 같은 앵글이 처음 값이었다 → 현장처럼 평철 맞춤으로
+  if (out['v'] != 2) {
+    out['bs'] = false;
+    out['bsp'] = '';
+    out['v'] = 2;
+  }
   return out;
+}
+
+/// 가새 평철 맞춤: 기둥 그림 폭과 같은 폭의 평철(두께 6 먼저), 없으면 그보다 좁은 것 중 가장 넓은 것.
+String bracketAutoBraceSpec(String mainSpec, {int orient = -1}) {
+  final p = BracketProfile.parse(mainSpec);
+  final d = p.known
+      ? p
+            .view(
+              orient < 0 || orient >= p.orientCount
+                  ? p.defaultOrient(BracketRole.wall)
+                  : orient,
+              BracketRole.wall,
+            )
+            .depth
+      : 50.0;
+  (double, double)? dims(SteelShapeItem s) {
+    final n = s.label.split(' ').last.split('x');
+    final w = double.tryParse(n.first), t = double.tryParse(n.last);
+    return w == null || t == null ? null : (w, t);
+  }
+
+  String? best;
+  (double, double)? bestD;
+  for (final s in SteelShapeDB.flatBars) {
+    final wt = dims(s);
+    if (wt == null || wt.$1 > d + 1e-9) continue;
+    final b = bestD;
+    if (b == null ||
+        wt.$1 > b.$1 + 1e-9 ||
+        ((wt.$1 - b.$1).abs() < 1e-9 && (wt.$2 - 6).abs() < (b.$2 - 6).abs())) {
+      best = s.label;
+      bestD = wt;
+    }
+  }
+  return best ?? '평철 50x6';
 }
 
 double _num(Map<String, dynamic> m, String k, [double d = 0]) {
@@ -185,6 +229,12 @@ String _str(Map<String, dynamic> m, String k) {
       : kBracketValueDefaults[k] as String;
 }
 
+/// 가새 평철 맞춤을 쓰는가(직접 고르지 않음).
+bool bracketBraceAuto(Map<String, dynamic> m) {
+  final v = m['bsp'];
+  return !_bool(m, 'bs') && (v is! String || v.trim().isEmpty);
+}
+
 BracketShape bracketShapeOf(Map<String, dynamic> m) =>
     kBracketShapes[_int(m, 'sh').clamp(0, kBracketShapes.length - 1)].$1;
 
@@ -192,8 +242,12 @@ BracketShape bracketShapeOf(Map<String, dynamic> m) =>
 String bracketMainSpec(Map<String, dynamic> m) => _str(m, 'sp');
 String bracketArmSpec(Map<String, dynamic> m) =>
     _bool(m, 'as') ? bracketMainSpec(m) : _str(m, 'asp');
-String bracketBraceSpec(Map<String, dynamic> m) =>
-    _bool(m, 'bs') ? bracketMainSpec(m) : _str(m, 'bsp');
+String bracketBraceSpec(Map<String, dynamic> m) {
+  if (_bool(m, 'bs')) return bracketMainSpec(m);
+  final v = m['bsp'];
+  if (v is String && v.trim().isNotEmpty) return v.trim();
+  return bracketAutoBraceSpec(bracketMainSpec(m), orient: _int(m, 'po'));
+}
 
 /// 만들 개수(1~999).
 int bracketSetsOf(Map<String, dynamic> m) =>
@@ -232,7 +286,7 @@ BracketInput bracketInputFromMap(
     fallbackD: _num(m, 'w'),
     a: _num(m, 'a'),
     b: _num(m, 'b'),
-    joint: BracketJoint.values[_int(m, 'jt').clamp(0, 2)],
+    joint: BracketJoint.values[_int(m, 'jt').clamp(0, 3)],
     braceA: _num(m, 'ba'),
     braceB: _num(m, 'bb'),
     postHoles: lLike && !wall
@@ -268,6 +322,7 @@ BracketInput bracketInputFromMap(
     rodTop: _num(m, 'rtp'),
     rodBelow: _num(m, 'rbl'),
     weld: _opt(m, 'wz') ?? 0,
+    vBend: _opt(m, 'vb') ?? 0,
     sets: bracketSetsOf(m),
     stockLength: stock,
     kerf: kerf,

@@ -81,11 +81,13 @@ void main() {
       _text(tester, const Key('br_piece_1')),
       contains('구멍 2-φ13.5 · 벽 붙는 면 · 위 끝에서 80 · 260 · 게이지 27.5'),
     );
-    expect(_text(tester, const Key('br_piece_2')), contains('250mm × 1개'));
+    expect(_text(tester, const Key('br_piece_2')), contains('295mm × 1개'));
+    expect(_text(tester, const Key('br_piece_2')), contains('기둥 쪽 끝 45 따냄'));
     await tab(tester, 'shape');
     await tap(tester, 'br_shape_1');
     await tab(tester, 'result');
-    expect(_text(tester, const Key('br_piece_3')), contains('③ 가새'));
+    // 가새는 처음부터 평철(기둥 폭 50에 맞춤)
+    expect(_text(tester, const Key('br_piece_3')), contains('③ 가새  FB-50×6'));
     expect(
       _text(tester, const Key('br_piece_3')),
       contains('276.3mm(짧은 쪽 176.3)'),
@@ -121,7 +123,7 @@ void main() {
     );
     await tap(tester, 'br_po_0'); // 등이 벽에 → 그림 폭 50
     await tab(tester, 'result');
-    expect(_text(tester, const Key('br_piece_2')), contains('250mm'));
+    expect(_text(tester, const Key('br_piece_2')), contains('295mm'));
     await tab(tester, 'shape');
     await tester.enterText(find.byKey(const Key('br_a')), '400');
     await tester.pumpAndSettle();
@@ -130,7 +132,7 @@ void main() {
     await tab(tester, 'send');
     await tap(tester, 'br_share');
     expect(sent, startsWith('[형강 브라켓] ㄱ자 · ㄷ-100×50×5 · 4개'));
-    expect(sent, contains('② 가로대 ㄷ-100×50×5 350mm × 4개'));
+    expect(sent, contains('② 가로대 ㄷ-100×50×5 395mm × 4개'));
     expect(sent, contains('벽 고정 구멍 φ13.5 8개'));
     expect(sent, contains('재질 SS275 · 무도장'));
     await done(tester);
@@ -208,7 +210,7 @@ void main() {
     expect(made, isNull); // 확인 전
     await tap(tester, 'br_steel_ok');
     expect(made, '브라켓 문형');
-    expect(got!.map((x) => x.length).toSet(), {291, 200});
+    expect(got!.map((x) => x.length).toSet(), {291, 290});
     expect(got!.firstWhere((x) => x.length == 291).qty, 2);
     await tap(tester, 'br_to_plate');
     expect(plate!['sh'], 'flat');
