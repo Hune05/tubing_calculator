@@ -195,7 +195,7 @@ class _PlateHomePageState extends State<PlateHomePage> {
               'ph_sketch',
               AppGlyph.plateSketch,
               '스케치로 만들기',
-              '종이 스케치 사진을 AI가 읽거나, 화면에 손가락으로 직접 그립니다. 치수를 넣어 레이저 절단으로 보냅니다.',
+              '종이 스케치 사진을 AI가 읽거나, 화면에 손가락으로 직접 그립니다. 치수를 넣어 레이저 절단이나 절단 + 절곡으로 보냅니다.',
               _sketch,
               (_) => const PlateSketchPage(),
             ),
