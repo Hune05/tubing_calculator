@@ -295,7 +295,20 @@ class _BracketPageState extends State<BracketPage>
       return '${bracketHoleSizeText(pc.holes)} · 판 왼쪽 위에서 가로 ${xs.map(_fmt).join('·')} / 세로 ${zs.map(_fmt).join('·')}';
     }
     final g = pc.member?.view.holesFront == true ? '폭 방향' : '게이지';
-    return '${bracketHoleSizeText(pc.holes)} · ${pc.holeFace} · ${pc.holeFrom}에서 ${xs.map(_fmt).join(' · ')} · $g ${zs.map(_fmt).join('/')}';
+    final pipes = _pipeCenters(pc);
+    return '${bracketHoleSizeText(pc.holes)} · ${pc.holeFace} · ${pc.holeFrom}에서 ${xs.map(_fmt).join(' · ')} · $g ${zs.map(_fmt).join('/')}${pipes.isEmpty ? '' : ' · $pipes'}';
+  }
+
+  /// U볼트 구멍이면 "관 중심 25A 100 · 25A 171"(같은 기준 끝에서).
+  String _pipeCenters(BracketPiece pc) {
+    final seen = <double>{};
+    final out = <String>[];
+    for (final h in pc.holes) {
+      final at = h.pipeAt;
+      if (at == null || !seen.add((at * 10).roundToDouble())) continue;
+      out.add('${h.pipe} ${_fmt(at)}');
+    }
+    return out.isEmpty ? '' : '관 중심 ${out.join(' · ')}';
   }
 
   String _pieceSize(BracketPiece pc) => switch (pc.kind) {
@@ -322,6 +335,18 @@ class _BracketPageState extends State<BracketPage>
     ];
   }
 
+  /// U볼트 종류("25A U볼트 M10(다리 간격 46)") → 전체 개수.
+  Map<String, int> _uBolts(BracketPlan p) {
+    final arms = p.members
+        .where((m) => m.holes.any((h) => h.pipe != null))
+        .length;
+    final out = <String, int>{};
+    for (final x in p.input.pipes) {
+      out[x.uText] = (out[x.uText] ?? 0) + arms * _sets;
+    }
+    return arms == 0 ? const {} : out;
+  }
+
   List<String> _boltLines(BracketPlan p) {
     String bolt(double d) => lugBoltFor(d) ?? '구멍에 맞는 규격';
     final rods = p.pieces.where((x) => x.kind == BracketPieceKind.rod);
@@ -329,7 +354,12 @@ class _BracketPageState extends State<BracketPage>
       for (final e in p.wallHoles.entries)
         '벽 고정 구멍 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
       for (final e in p.armHoles.entries)
-        '가로대 구멍 φ${_fmt(e.key)} ${e.value}개 → U볼트·클램프 ${bolt(e.key)}용',
+        p.input.pipes.isEmpty
+            ? '가로대 구멍 φ${_fmt(e.key)} ${e.value}개 → U볼트·클램프 ${bolt(e.key)}용'
+            : '가로대 구멍 φ${_fmt(e.key)} ${e.value}개(U볼트 다리 자리)',
+      // 관마다 U볼트 한 개(2단 문형이면 가로대마다)
+      for (final e in _uBolts(p).entries)
+        '${e.key} ${e.value}개 · 너트·평와셔 ${2 * e.value}벌',
       for (final e in p.anchorHoles.entries)
         '베이스 판 앵커 구멍 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
       for (final r in rods)
@@ -486,8 +516,11 @@ class _BracketPageState extends State<BracketPage>
                   bracketHoleSizeText(pc.holes),
                   pc.holeFrom,
                   (<double>{
-                    for (final h in pc.holes) h.fromEnd,
-                  }.toList()..sort()).map(_fmt).join(' · '),
+                        for (final h in pc.holes) h.fromEnd,
+                      }.toList()..sort()).map(_fmt).join(' · ') +
+                      (_pipeCenters(pc).isEmpty
+                          ? ''
+                          : '\n(${_pipeCenters(pc)})'),
                   (<double>{
                     for (final h in pc.holes) h.z,
                   }.toList()..sort()).map(_fmt).join(' · '),
@@ -518,7 +551,7 @@ class _BracketPageState extends State<BracketPage>
       _ => '가운데 한 점',
     },
     1 => '고르게',
-    _ => '구멍 자리마다 나눠',
+    _ => _i('am') == 0 ? '관마다 나눠' : '구멍 자리마다 나눠',
   };
 
   // ── 보내기 ──
@@ -1232,6 +1265,139 @@ class _BracketPageState extends State<BracketPage>
     );
   }
 
+  Widget _armModeRow() => PlateSegments([
+    PlateOption('br_am_0', '관 자리 (U볼트)', _i('am') == 0, () => _setV('am', 0)),
+    PlateOption('br_am_1', '일자로 직접', _i('am') == 1, () => _setV('am', 1)),
+  ]);
+
+  /// 가로대 위 관: 관마다 U볼트 한 쌍(관 중심 ± 다리 간격/2).
+  Widget _pipeSection(BracketPlan? plan, BracketSectionView? view) {
+    final n = _i('upn');
+    final specs = bracketPipeSpecs(_draftMap());
+    final pipes = plan?.input.pipes ?? const <BracketPipe>[];
+    return PlateSection(
+      _shape == BracketShape.hanger
+          ? '가로대 위 관 (U볼트, 전산볼트 구멍 말고)'
+          : '가로대 위 관 (U볼트)',
+      [
+        _armModeRow(),
+        PlateSegments([
+          for (var k = 0; k <= kBracketPipeMax; k++)
+            PlateOption(
+              'br_upn_$k',
+              k == 0 ? '없음' : '$k개',
+              n == k,
+              () => _setV('upn', k),
+            ),
+        ]),
+        if (n > 0) ...[
+          for (var k = 0; k < specs.length; k++)
+            _pipeTile(k, specs[k], k < pipes.length ? pipes[k] : null),
+          if (n > 1)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                key: const Key('br_up_same'),
+                onPressed: () => _set(() {
+                  for (var k = 1; k < n; k++) {
+                    _v['up$k'] = _s('up0');
+                  }
+                }),
+                child: const Text('모두 1번 관과 같게'),
+              ),
+            ),
+          PlateFieldGrid([
+            _num('br_uf', '첫 관 중심', 'uf'),
+            if (n > 1)
+              _num(
+                'br_ug',
+                '관 사이 (중심)',
+                'ug',
+                hint: bracketPipeAutoPitchText(specs),
+              ),
+          ]),
+          PlateFieldGrid([
+            _num('br_as', '장공 길이', 'as2', hint: '비우면 둥근 구멍'),
+            _num(
+              'br_ag',
+              '게이지',
+              'ag',
+              hint: view == null ? null : '비우면 ${fmt(view.gauge)}',
+            ),
+          ]),
+          _guide(
+            '관마다 U볼트 다리 두 개 자리(관 중심 ± 다리 간격/2)에 뚫습니다. 다리 간격 = U볼트 내경 + 나사 지름(표 값). '
+            '첫 관은 ${_lLike ? '가로대 끝(벽 반대쪽)' : '왼쪽 바깥(기둥 바깥면)'}에서 잽니다. '
+            '관 사이를 비우면 두 관 반지름 + 25, 이웃 U볼트 너트·와셔가 닿으면 그만큼 더 벌립니다(보온·플랜지는 직접 더 넣으십시오).',
+          ),
+          if (pipes.any((x) => x.approx))
+            _guide(
+              '전선관·튜브·직접 외경의 U볼트 값은 어림입니다. 가진 U볼트의 다리 간격(다리 중심 사이)을 재서 넣으십시오.',
+              color: fc.caution,
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _pipeTile(int k, BracketPipeSpec sp, BracketPipe? p) {
+    final m = sp.threadUsed;
+    return Material(
+      color: fc.fill,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        key: Key('br_up_$k'),
+        borderRadius: BorderRadius.circular(10),
+        onTap: () async {
+          final r = await showPlateSheet<String>(
+            context,
+            (_) => _PipeSheet(index: k, spec: sp),
+          );
+          if (r != null) _setV('up$k', r);
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${k + 1}번 관 · ${sp.label}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: fc.text,
+                      ),
+                    ),
+                    Text(
+                      'U볼트 M$m · 다리 간격 ${fmt(sp.spacingUsed)} · 구멍 φ${fmt(bracketUHole(m))}${p == null ? '' : ' · 중심 ${fmt(p.at)}'}',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: fc.textSub,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                '바꾸기',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: fc.brand,
+                ),
+              ),
+              Icon(AppIcons.forward, size: 18, color: fc.brand),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _holeSection({
     required String title,
     required String p,
@@ -1239,10 +1405,12 @@ class _BracketPageState extends State<BracketPage>
     required String firstLabel,
     required String guide,
     required BracketSectionView? view,
+    List<Widget> lead = const [],
   }) {
     final n = _i('${p}n');
     final dia = _n('${p}d');
     return PlateSection(title, [
+      ...lead,
       PlateSegments([
         for (var k = 0; k <= max; k++)
           PlateOption(
@@ -1330,18 +1498,23 @@ class _BracketPageState extends State<BracketPage>
             guide: '기둥이 벽에 붙는 면에 뚫습니다. 위 바깥 모서리에서 잽니다.',
             view: viewOf('기둥'),
           ),
-        _holeSection(
-          title: _shape == BracketShape.hanger
-              ? '가로대 구멍 (U볼트·클램프, 전산볼트 구멍 말고)'
-              : '가로대 구멍 (U볼트·클램프)',
-          p: 'a',
-          max: 5,
-          firstLabel: '첫 구멍',
-          guide: _lLike
-              ? '가로대 위 면에 뚫습니다. 가로대 끝(벽 반대쪽)에서 잽니다.'
-              : '가로대 위 면에 뚫습니다. 왼쪽 바깥(기둥 바깥면)에서 잽니다.',
-          view: viewOf('가로대'),
-        ),
+        // 가로대 구멍: 관 자리(U볼트 한 쌍씩, 10-12) 또는 일자로 직접(클램프 등)
+        if (_i('am') == 1)
+          _holeSection(
+            title: _shape == BracketShape.hanger
+                ? '가로대 구멍 (전산볼트 구멍 말고)'
+                : '가로대 구멍',
+            p: 'a',
+            max: 5,
+            firstLabel: '첫 구멍',
+            guide: _lLike
+                ? '가로대 위 면에 같은 피치로 일자로 뚫습니다(클램프 등). 가로대 끝(벽 반대쪽)에서 잽니다.'
+                : '가로대 위 면에 같은 피치로 일자로 뚫습니다(클램프 등). 왼쪽 바깥(기둥 바깥면)에서 잽니다.',
+            view: viewOf('가로대'),
+            lead: [_armModeRow()],
+          )
+        else
+          _pipeSection(p, viewOf('가로대')),
         if (_shape == BracketShape.frame && _b('lw'))
           PlateSection('아래 가로대 구멍', [
             PlateSegments([
@@ -2090,6 +2263,163 @@ class _SpecSheetState extends State<_SpecSheet> {
           hint: '예) 앵글 50x50x6',
           onChanged: (_) => setState(() {}),
         ),
+      ],
+    );
+  }
+}
+
+/// 관 하나 고르기 창: 종류(강관·전선관·튜브·직접 외경) · 호칭 · 나사 · 다리 간격.
+class _PipeSheet extends StatefulWidget {
+  const _PipeSheet({required this.index, required this.spec});
+  final int index;
+  final BracketPipeSpec spec;
+
+  @override
+  State<_PipeSheet> createState() => _PipeSheetState();
+}
+
+class _PipeSheetState extends State<_PipeSheet> {
+  static const _groups = [...kBracketPipeGroups, '직접'];
+  late String _group;
+  late String _size;
+  late int _thread;
+  late final TextEditingController _od;
+  late final TextEditingController _c;
+
+  @override
+  void initState() {
+    super.initState();
+    final sp = widget.spec;
+    final row = sp.row;
+    _group = sp.size.startsWith('D') ? '직접' : (row?.group ?? '강관');
+    _size = sp.size.startsWith('D') ? '25A' : sp.size;
+    _thread = sp.thread;
+    _od = TextEditingController(
+      text: sp.size.startsWith('D') ? sp.size.substring(1) : '',
+    );
+    _c = TextEditingController(text: sp.spacing > 0 ? fmt(sp.spacing) : '');
+  }
+
+  @override
+  void dispose() {
+    _od.dispose();
+    _c.dispose();
+    super.dispose();
+  }
+
+  BracketPipeSpec get _spec {
+    final od = readNum(_od);
+    final size = _group == '직접'
+        ? (od == null || od <= 0 ? '' : 'D${fmt(od)}')
+        : _size;
+    final c = readNum(_c);
+    return BracketPipeSpec(
+      size,
+      thread: _thread,
+      spacing: c == null || c < 0 ? 0 : c,
+    );
+  }
+
+  TextStyle get _sub => TextStyle(fontSize: 13, color: fc.textSub, height: 1.4);
+
+  @override
+  Widget build(BuildContext context) {
+    final sp = _spec;
+    final row = sp.size.isEmpty ? null : sp.row;
+    final autoM = row?.thread ?? 10;
+    final autoC = row == null ? 0.0 : row.uId + sp.threadUsed;
+    return PlateSheetFrame(
+      title: '${widget.index + 1}번 관',
+      okText: '이 관 쓰기',
+      okKey: const Key('br_up_ok'),
+      error: row == null ? '관 외경을 넣으십시오.' : null,
+      onOk: () {
+        if (row == null) return;
+        Navigator.pop(context, sp.text);
+      },
+      children: [
+        PlateSegments([
+          for (final g in _groups)
+            PlateOption(
+              'br_upg_$g',
+              g,
+              _group == g,
+              () => setState(() {
+                _group = g;
+                if (g != '직접' &&
+                    !kBracketPipeSizes.any(
+                      (r) => r.group == g && r.name == _size,
+                    )) {
+                  _size = kBracketPipeSizes
+                      .firstWhere((r) => r.group == g)
+                      .name;
+                }
+                _c.clear();
+              }),
+            ),
+        ]),
+        const SizedBox(height: 10),
+        if (_group != '직접')
+          PlateSegments([
+            for (final r in kBracketPipeSizes.where((r) => r.group == _group))
+              PlateOption(
+                'br_ups_${r.name}',
+                r.name,
+                _size == r.name,
+                () => setState(() {
+                  _size = r.name;
+                  _c.clear();
+                }),
+              ),
+          ], joined: false)
+        else
+          PlateNumField(
+            fieldKey: 'br_up_od',
+            label: '관 외경',
+            controller: _od,
+            hint: '예) 48.6',
+            onChanged: (_) => setState(() {}),
+          ),
+        const SizedBox(height: 12),
+        Text(
+          '나사',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: fc.textSub,
+          ),
+        ),
+        const SizedBox(height: 6),
+        PlateSegments([
+          PlateOption(
+            'br_upm_0',
+            '자동 M$autoM',
+            _thread == 0,
+            () => setState(() => _thread = 0),
+          ),
+          for (final m in kBracketUThreads)
+            PlateOption(
+              'br_upm_$m',
+              'M$m',
+              _thread == m,
+              () => setState(() => _thread = m),
+            ),
+        ], joined: false),
+        const SizedBox(height: 12),
+        PlateNumField(
+          fieldKey: 'br_up_c',
+          label: '다리 간격 (다리 중심 사이)',
+          controller: _c,
+          hint: row == null ? '자동' : '자동 ${fmt(autoC)}',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        if (row != null)
+          Text(
+            '${row.name}: 외경 ${fmt(row.od)} · U볼트 내경 ${fmt(row.uId)} + 나사 M${sp.threadUsed} = 다리 간격 ${fmt(autoC)} · 구멍 φ${fmt(bracketUHole(sp.threadUsed))}'
+            '${row.approx ? ' (U볼트 값은 어림, 가진 U볼트를 재서 고치십시오)' : ''}',
+            style: _sub,
+          ),
       ],
     );
   }

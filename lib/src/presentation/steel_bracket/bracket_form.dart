@@ -101,6 +101,9 @@ const Map<String, String> kBracketTextDefaults = {
   'rbl': '30',
   'wz': '',
   'vb': '',
+  // 가로대 위 관 자리: 첫 관 중심, 관 사이(비우면 자동)
+  'uf': '100',
+  'ug': '',
   'n': '1',
   'w': '',
   'lk': '',
@@ -125,6 +128,15 @@ const Map<String, Object> kBracketValueDefaults = {
   'p2': false,
   'an': 0,
   'a2': false,
+  // 가로대 구멍 방식: 0 관 자리(U볼트 한 쌍씩), 1 일자로 직접. 관 개수와 관마다 "호칭|나사|다리 간격"
+  'am': 0,
+  'upn': 0,
+  'up0': '',
+  'up1': '',
+  'up2': '',
+  'up3': '',
+  'up4': '',
+  'up5': '',
   'pl': true,
   'pln': 4,
   'rb': 0,
@@ -134,8 +146,11 @@ const Map<String, Object> kBracketValueDefaults = {
   'mat': 'SS275',
   'fin': 0,
   'lm': 1,
-  'v': 3,
+  'v': 4,
 };
+
+/// 관 자리 최대 개수.
+const int kBracketPipeMax = 6;
 
 /// 저장된 지도를 지금 열쇠로 고친다(10-10 판: cs 직접 적은 규격 → sp, ps 정사각 판 → pw·pll, pl·pln 그대로).
 Map<String, dynamic> bracketUpgradeMap(Map<String, dynamic> m) {
@@ -197,7 +212,12 @@ Map<String, dynamic> bracketUpgradeMap(Map<String, dynamic> m) {
       if (out[k] == '150') out[k] = '';
     }
   }
-  out['v'] = 3;
+  // 판 4 전은 가로대 구멍이 일자 줄뿐이었다 → 넣어 둔 구멍이 있으면 "일자로 직접"으로 그대로
+  if (ver < 4) {
+    final an = out['an'];
+    out['am'] = an is int && an > 0 ? 1 : 0;
+  }
+  out['v'] = 4;
   return out;
 }
 
@@ -286,6 +306,16 @@ bool bracketBraceAuto(Map<String, dynamic> m) {
 BracketShape bracketShapeOf(Map<String, dynamic> m) =>
     kBracketShapes[_int(m, 'sh').clamp(0, kBracketShapes.length - 1)].$1;
 
+/// 가로대 위 관(관 자리 방식일 때, 개수만큼).
+List<BracketPipeSpec> bracketPipeSpecs(Map<String, dynamic> m) {
+  if (_int(m, 'am') != 0) return const [];
+  final n = _int(m, 'upn').clamp(0, kBracketPipeMax);
+  return [
+    for (var k = 0; k < n; k++)
+      BracketPipeSpec.parse(m['up$k'] is String ? m['up$k'] as String : ''),
+  ];
+}
+
 /// 주 부재·가로대·가새 규격.
 String bracketMainSpec(Map<String, dynamic> m) => _str(m, 'sp');
 
@@ -344,7 +374,15 @@ BracketInput bracketInputFromMap(
     postHoles: lLike && !wall
         ? row('p', _int(m, 'pn'), _bool(m, 'p2'))
         : const HoleRow(),
-    armHoles: row('a', _int(m, 'an'), _bool(m, 'a2')),
+    // 관 자리면 구멍은 관에서(장공·게이지만 여기서), 아니면 일자 줄
+    armHoles: _int(m, 'am') == 0
+        ? row('a', 0, false)
+        : row('a', _int(m, 'an'), _bool(m, 'a2')),
+    pipes: bracketPipeLayout(
+      bracketPipeSpecs(m),
+      first: _num(m, 'uf'),
+      pitch: _opt(m, 'ug') ?? 0,
+    ),
     lowerAt: shape == BracketShape.frame && _bool(m, 'lw') ? _num(m, 'la') : 0,
     lowerHoles: _bool(m, 'lh'),
     basePlate: standing && _bool(m, 'pl'),

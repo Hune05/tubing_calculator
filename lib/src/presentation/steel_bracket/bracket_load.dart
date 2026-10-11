@@ -272,9 +272,10 @@ BracketLoadResult _bracketLoad(
       case BracketLoadMode.uniform:
         return (const [], p / len);
       case BracketLoadMode.holes:
+        // U볼트 구멍은 관 중심 하나로(관마다 무게)
         final xs = <double>{
           for (final h in arm.holes)
-            if (!h.label.startsWith('볼트')) toBeam(h.fromEnd),
+            if (!h.label.startsWith('볼트')) toBeam(h.pipeAt ?? h.fromEnd),
         }.where((x) => x >= -1e-6 && x <= len + 1e-6).toList();
         if (xs.isEmpty) {
           notes.add('가로대 구멍이 없어 무게를 고르게 얹은 것으로 계산했습니다.');
@@ -411,7 +412,9 @@ BracketLoadResult _bracketLoad(
           case BracketLoadMode.uniform:
             wl = wr = p / w0;
           case BracketLoadMode.holes:
-            final xs = <double>{for (final h in arm.holes) h.fromEnd}.toList();
+            final xs = <double>{
+              for (final h in arm.holes) h.pipeAt ?? h.fromEnd,
+            }.toList();
             if (xs.isEmpty) {
               notes.add('가로대 구멍이 없어 무게를 고르게 얹은 것으로 계산했습니다.');
               wl = wr = p / w0;

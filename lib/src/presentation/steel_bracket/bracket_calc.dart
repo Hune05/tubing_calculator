@@ -19,8 +19,10 @@ import 'dart:math' as math;
 import 'dart:ui' show Offset;
 
 import '../tube_cutting/cutting_optimizer.dart';
+import 'bracket_pipes.dart';
 import 'bracket_profile.dart';
 
+export 'bracket_pipes.dart';
 export 'bracket_profile.dart';
 
 enum BracketShape { l, brace, frame, tee, hanger }
@@ -171,6 +173,9 @@ class BracketInput {
   /// ㄱ자·삼각: 기둥 구멍(위 바깥에서), 가로대 구멍(가로대 끝에서). 문형·T자·매달기: 가로대 구멍(왼쪽 바깥에서).
   final HoleRow postHoles, armHoles;
 
+  /// 가로대 위 관(U볼트 한 쌍씩). 있으면 가로대 구멍은 이것으로 만들고 [armHoles]는 장공·게이지만 쓴다.
+  final List<BracketPipe> pipes;
+
   /// 문형 2단: 바닥에서 아래 가로대 윗면까지(0이면 없음). [lowerHoles]면 위 가로대와 같은 자리에 구멍.
   final double lowerAt;
   final bool lowerHoles;
@@ -211,6 +216,7 @@ class BracketInput {
     this.braceB = 0,
     this.postHoles = const HoleRow(),
     this.armHoles = const HoleRow(),
+    this.pipes = const [],
     this.lowerAt = 0,
     this.lowerHoles = false,
     this.basePlate = false,
@@ -236,15 +242,32 @@ class PieceHole {
   final double fromEnd, dia;
   final double z;
   final double slot;
+
+  /// U볼트 구멍이면 관 이름('25A')과 관 중심(같은 기준 끝에서).
+  final String? pipe;
+  final double? pipeAt;
   const PieceHole(
     this.label,
     this.fromEnd,
     this.dia, {
     this.z = 0,
     this.slot = 0,
+    this.pipe,
+    this.pipeAt,
   });
   bool get slotted => slot > dia + 1e-9;
   double get along => slotted ? slot : dia;
+
+  /// 기준 끝을 옮긴 같은 구멍(관 중심도 같이).
+  PieceHole moved(double dx) => PieceHole(
+    label,
+    fromEnd + dx,
+    dia,
+    z: z,
+    slot: slot,
+    pipe: pipe,
+    pipeAt: pipeAt == null ? null : pipeAt! + dx,
+  );
 }
 
 enum BracketPieceKind { member, plate, rib, rod }
@@ -565,7 +588,7 @@ class BracketLabel {
   });
 }
 
-enum BracketFill { member, plate, rod, nut, ceiling }
+enum BracketFill { member, plate, rod, nut, ceiling, pipe }
 
 class BracketPoly {
   final List<Offset> pts;
@@ -905,20 +928,14 @@ BracketPlan bracketPlan(BracketInput i) {
     if (minX.abs() > 1e-9) {
       local = [for (final q in local) q - Offset(minX, 0)];
       o = origin + ex * minX;
-      hs = [
-        for (final h in holes)
-          PieceHole(h.label, h.fromEnd - minX, h.dia, z: h.z, slot: h.slot),
-      ];
+      hs = [for (final h in holes) h.moved(-minX)];
     }
     // 기준 끝 따내기 혀가 x = 0이 되게(구멍은 혀 끝, 곧 그 변의 실제 끝에서 잰다)
     final sMax = extStart.fold(0.0, (m, e) => math.max(m, e.ext));
     if (sMax > 0) {
       local = [for (final q in local) q + Offset(sMax, 0)];
       o = o - ex * sMax;
-      hs = [
-        for (final h in hs)
-          PieceHole(h.label, h.fromEnd + sMax, h.dia, z: h.z, slot: h.slot),
-      ];
+      hs = [for (final h in hs) h.moved(sMax)];
     }
     return BracketMember(
       mark: 0,
@@ -1005,6 +1022,69 @@ BracketPlan bracketPlan(BracketInput i) {
             slot: r.slotted ? r.slot : 0,
           ),
     ];
+  }
+
+  /// 가로대 구멍: 관 자리면 관마다 U볼트 한 쌍(관 중심 ± 다리 간격/2), 아니면 일자 줄.
+  List<PieceHole> armRow(
+    String name,
+    BracketSectionView v, {
+    double shift = 0,
+  }) {
+    if (i.pipes.isEmpty) return rowHoles(name, i.armHoles, v, shift: shift);
+    final out = <PieceHole>[];
+    for (var k = 0; k < i.pipes.length; k++) {
+      final p = i.pipes[k];
+      if (p.spacing < p.od - 1e-9) {
+        warn(
+          '${k + 1}번 관(${p.name}) U볼트 다리 간격 ${_f(p.spacing)}이 관 외경 ${_f(p.od)}보다 작아 관이 들어가지 않습니다. 다리 간격을 고치십시오.',
+        );
+      }
+      final pair = rowHoles(
+        name,
+        HoleRow(
+          count: 2,
+          dia: p.hole,
+          first: p.at - p.spacing / 2,
+          pitch: p.spacing,
+          slot: i.armHoles.slot,
+          gauge: i.armHoles.gauge,
+        ),
+        v,
+        shift: shift,
+      );
+      for (final h in pair) {
+        out.add(
+          PieceHole(
+            '$name ${out.length + 1}',
+            h.fromEnd,
+            h.dia,
+            z: h.z,
+            slot: h.slot,
+            pipe: p.name,
+            pipeAt: p.at - shift,
+          ),
+        );
+      }
+    }
+    // 이웃 관: 몸끼리 닿음, 다리 사이에 너트·와셔가 들어가는가(와셔 지름 어림 + 5)
+    for (var k = 1; k < i.pipes.length; k++) {
+      final a = i.pipes[k - 1], b = i.pipes[k];
+      final d = b.at - a.at;
+      if (d < (a.od + b.od) / 2 - 1e-9) {
+        warn(
+          '$k번·${k + 1}번 관이 서로 겹칩니다(중심 거리 ${_f(d)}, 닿지 않으려면 ${_f((a.od + b.od) / 2)} 이상). 관 사이를 늘리십시오.',
+        );
+        continue;
+      }
+      final legs = d - a.spacing / 2 - b.spacing / 2;
+      final need = (bracketUWasher(a.thread) + bracketUWasher(b.thread)) / 2;
+      if (legs < need - 1e-9) {
+        warn(
+          '$k번·${k + 1}번 관 U볼트 다리 사이가 ${_f(legs)}mm라 너트·와셔가 닿습니다(${_f(need)}mm 이상). 관 사이를 늘리십시오.',
+        );
+      }
+    }
+    return out;
   }
 
   /// 부재 구멍 검사: 붙는 쪽 길이 밖, 끝에서 너무 가까움.
@@ -1128,7 +1208,7 @@ BracketPlan bracketPlan(BracketInput i) {
           break;
         }
       }
-      final aHoles = rowHoles('가로대', i.armHoles, armV);
+      final aHoles = armRow('가로대', armV);
       final arm = member(
         key: 'arm',
         name: '가로대',
@@ -1589,7 +1669,7 @@ BracketPlan bracketPlan(BracketInput i) {
             );
           }
         }
-        final aHoles = rowHoles('가로대', i.armHoles, armV, shift: armStart);
+        final aHoles = armRow('가로대', armV, shift: armStart);
         armM = member(
           key: 'arm',
           name: '가로대',
@@ -1643,7 +1723,7 @@ BracketPlan bracketPlan(BracketInput i) {
           );
         } else {
           final lh = i.lowerHoles
-              ? rowHoles('아래 가로대', i.armHoles, armV, shift: dp)
+              ? armRow('아래 가로대', armV, shift: dp)
               : const <PieceHole>[];
           final lp = _rect(dp, y2, w - dp, y2 + da);
           lowM = member(
@@ -2024,7 +2104,7 @@ BracketPlan bracketPlan(BracketInput i) {
       }
       if (h <= 0) warn('천장에서 가로대까지 높이를 넣으십시오.');
       final hole = bracketRodHole(rd);
-      final aHoles = rowHoles('가로대', i.armHoles, armV);
+      final aHoles = armRow('가로대', armV);
       final rodHoles = <PieceHole>[
         for (final (k, x) in [(1, e), (2, w - e)])
           PieceHole('볼트 $k', x, hole, z: armV.gauge),
@@ -2266,6 +2346,103 @@ BracketPlan bracketPlan(BracketInput i) {
       );
     }
   }
+  // 가로대 위 관(관 자리일 때): 관 단면 원, U볼트 가운데 선(관을 감싸고 가로대를 지나 아래 너트까지), 관 이름
+  if (i.pipes.isNotEmpty) {
+    final armM = marked.where((m) => m.name == '가로대').firstOrNull;
+    if (armM != null && !armM.view.holesFront) {
+      final t = armM.view.attachT;
+      final up = -armM.ey;
+      final ats = <double>[];
+      for (final h in armM.holes) {
+        final at = h.pipeAt;
+        if (at != null && !ats.any((x) => (x - at).abs() < 1e-6)) ats.add(at);
+      }
+      var top = double.infinity;
+      for (var k = 0; k < ats.length && k < i.pipes.length; k++) {
+        final p = i.pipes[k];
+        final r = p.od / 2, rr = p.spacing / 2;
+        final c = armM.at(ats[k], 0) + up * r;
+        polys.add(
+          BracketPoly([
+            for (var j = 0; j < 36; j++)
+              c +
+                  armM.ex * (r * math.cos(j * math.pi / 18)) +
+                  up * (r * math.sin(j * math.pi / 18)),
+          ], BracketFill.pipe),
+        );
+        // U볼트: 위 반원(다리 중심 간격) + 다리 둘
+        final arc = [
+          for (var j = 0; j <= 18; j++)
+            c +
+                armM.ex * (rr * math.cos(j * math.pi / 18)) +
+                up * (rr * math.sin(j * math.pi / 18)),
+        ];
+        for (var j = 0; j + 1 < arc.length; j++) {
+          lines.add(BracketLine(arc[j], arc[j + 1], BracketLineStyle.solid));
+        }
+        final nh = p.thread * 0.8, nw = p.thread * 1.7;
+        for (final sx in [-rr, rr]) {
+          final x = ats[k] + sx;
+          lines.add(
+            BracketLine(
+              c + armM.ex * sx,
+              armM.at(x, t + nh + p.thread * 0.6),
+              BracketLineStyle.solid,
+            ),
+          );
+          polys.add(
+            BracketPoly([
+              armM.at(x - nw / 2, t),
+              armM.at(x + nw / 2, t),
+              armM.at(x + nw / 2, t + nh),
+              armM.at(x - nw / 2, t + nh),
+            ], BracketFill.nut),
+          );
+        }
+        final tp = c + up * rr;
+        top = math.min(top, tp.dy);
+        labels.add(
+          BracketLabel(tp, p.name, shift: const Offset(0, -9), minor: true),
+        );
+      }
+      // 가로대 품번 풍선이 관·U볼트 자리에 걸리면 가로대 위 가장 넓은 빈 자리로
+      final busy = <(double, double)>[
+        for (var k = 0; k < ats.length && k < i.pipes.length; k++)
+          (
+            ats[k] - i.pipes[k].spacing / 2 - i.pipes[k].thread,
+            ats[k] + i.pipes[k].spacing / 2 + i.pipes[k].thread,
+          ),
+        // 매달기 전산볼트 자리
+        for (final h in armM.holes)
+          if (h.label.startsWith('볼트')) (h.fromEnd - 20, h.fromEnd + 20),
+      ]..sort((a, b) => a.$1.compareTo(b.$1));
+      for (var k = 0; k < balloons.length; k++) {
+        final (at, key, dir) = balloons[k];
+        if (key != 'arm') continue;
+        final x = _dot(at - armM.origin, armM.ex);
+        if (!busy.any((b) => x > b.$1 - 1e-9 && x < b.$2 + 1e-9)) continue;
+        final (s0, s1) = armM.nearSpan;
+        var best = (s0, s0);
+        var cur = s0;
+        for (final b in [...busy, (s1, s1)]) {
+          if (b.$1 - cur > best.$2 - best.$1) best = (cur, b.$1);
+          cur = math.max(cur, b.$2);
+        }
+        if (best.$2 - best.$1 > 1) {
+          balloons[k] = (armM.at((best.$1 + best.$2) / 2, 0), key, dir);
+        }
+      }
+      // 위 치수가 관을 지나가지 않게 관 꼭대기 위로
+      if (top.isFinite) {
+        for (var k = 0; k < dims.length; k++) {
+          final d = dims[k];
+          if (d.vertical || d.offset >= 0 || d.base != null) continue;
+          if (math.max(d.a.dy, d.b.dy) <= top) continue;
+          dims[k] = BracketDim(d.a, d.b, d.offset, d.text, base: top);
+        }
+      }
+    }
+  }
   // 풍선·단면 품번 채우기
   final fixedBalloons = <BracketBalloon>[];
   final usedMarks = <int>{};
@@ -2299,13 +2476,9 @@ BracketPlan bracketPlan(BracketInput i) {
       total = la + i.b - bd;
       apex = [la - bd / 2];
       names = ('가로대 끝', '기둥 아래 끝');
-      for (final h in armMm.holes) {
-        hs.add(PieceHole(h.label, h.fromEnd, h.dia, z: h.z, slot: h.slot));
-      }
+      hs.addAll(armMm.holes);
       for (final h in posts.first.holes) {
-        hs.add(
-          PieceHole(h.label, la + h.fromEnd - bd, h.dia, z: h.z, slot: h.slot),
-        );
+        hs.add(h.moved(la - bd));
       }
     } else {
       final hp = i.b - (i.basePlate ? i.base.t : 0);
@@ -2313,9 +2486,7 @@ BracketPlan bracketPlan(BracketInput i) {
       apex = [hp - bd / 2, hp + i.a - 1.5 * bd];
       names = ('왼쪽 기둥 아래 끝', '오른쪽 기둥 아래 끝');
       for (final h in armMm.holes) {
-        hs.add(
-          PieceHole(h.label, hp + h.fromEnd - bd, h.dia, z: h.z, slot: h.slot),
-        );
+        hs.add(h.moved(hp - bd));
       }
     }
     final v = dd - t;

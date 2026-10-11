@@ -249,7 +249,7 @@ void main() {
         'bsp': '평철 65x6',
       });
       expect(bracketBraceSpec(m), '평철 65x6');
-      expect(m['v'], 3);
+      expect(m['v'], 4);
     });
 
     test('31: 10-10 저장 값은 그때 부재 폭이 되는 방향으로', () {

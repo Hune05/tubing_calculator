@@ -348,6 +348,28 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
     }
     if (pc.holes.isNotEmpty) {
       dims.addAll(_chain(marks, y0 + w, 24));
+      // U볼트 구멍: 관 중심에 가운데 선과 관 이름(구멍 한 쌍이 그 관 자리)
+      final pipeSeen = <double>{};
+      for (final h in pc.holes) {
+        final at = h.pipeAt;
+        if (at == null || !pipeSeen.add((at * 10).roundToDouble())) continue;
+        lines.add(
+          BracketLine(
+            Offset(at, y0 - 6),
+            Offset(at, y0 + w + 6),
+            BracketLineStyle.center,
+          ),
+        );
+        labels.add(
+          // 관 이름은 붙는 면 아래쪽 안(위쪽은 따냄 글 자리)
+          BracketLabel(
+            Offset(at, y0 + w),
+            h.pipe ?? '',
+            shift: const Offset(0, -11),
+            minor: true,
+          ),
+        );
+      }
       final zs = <double>{for (final h in pc.holes) h.z}.toList()..sort();
       dims.add(
         BracketDim(

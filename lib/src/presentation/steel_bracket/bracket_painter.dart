@@ -113,6 +113,8 @@ class BracketPainter extends CustomPainter {
       BracketFill.member,
       BracketFill.rod,
       BracketFill.nut,
+      // 가로대 위 관(U볼트로 잡는 관): 흰 원, 위에 U볼트 선
+      BracketFill.pipe,
     ]) {
       for (final p in drawing.polys.where((p) => p.fill == fill)) {
         final path = poly(p.pts);
@@ -122,6 +124,7 @@ class BracketPainter extends CustomPainter {
             ..color = switch (fill) {
               BracketFill.plate => tone.plate,
               BracketFill.rod || BracketFill.nut => tone.rod,
+              BracketFill.pipe => bg,
               _ => tone.steel,
             },
         );
@@ -338,6 +341,11 @@ class BracketPainter extends CustomPainter {
 
     // 품번 풍선: 앞 풍선과 겹치거나 그림 밖이면 방향을 돌리고 지시선을 늘려 비킨다(점검 42)
     final placed = <Offset>[];
+    // 가로대 위 관(원)도 피한다
+    final pipeRects = [
+      for (final p in drawing.polys.where((p) => p.fill == BracketFill.pipe))
+        poly(p.pts).getBounds(),
+    ];
     for (final b in drawing.balloons) {
       final at = m(b.at);
       final dl = b.dir.distance;
@@ -349,6 +357,7 @@ class BracketPainter extends CustomPainter {
       var c = at + u0 * (lead + r);
       bool clear(Offset q) =>
           placed.every((p) => (p - q).distance > 2 * r + 4 * fs) &&
+          pipeRects.every((rc) => !rc.inflate(r + 2 * fs).contains(q)) &&
           q.dx > r &&
           q.dy > topInset + r &&
           q.dx < size.width - secW - r &&
