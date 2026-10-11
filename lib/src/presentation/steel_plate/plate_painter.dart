@@ -284,7 +284,9 @@ class PlatePainter extends CustomPainter {
       Offset(right.dx, topY - 4),
       dimPaint,
     );
-    hDim(left.dx, right.dx, topY, _f(p.flatLength));
+    // 좌표로 넣은 판은 넣은 값 그대로(꼭짓점 표와 같은 소수 둘째 자리, 10-11)
+    String full(double v) => p.vertices.isEmpty || p.isBent ? _f(v) : _f2(v);
+    hDim(left.dx, right.dx, topY, full(p.flatLength));
     final lx = lay.heightDimX;
     canvas.drawLine(
       Offset(left.dx, left.dy),
@@ -303,7 +305,7 @@ class PlatePainter extends CustomPainter {
     }
     _text(
       canvas,
-      _f(p.flatWidth),
+      full(p.flatWidth),
       Offset(lx, (left.dy + right.dy) / 2),
       -math.pi / 2,
       color: text,
@@ -581,17 +583,26 @@ class PlatePainter extends CustomPainter {
       Offset? from, elbow, end;
       for (final h in order) {
         final r = rOf(h);
-        for (final (d, lead) in [
+        final q1 = lay.toScreen(h.p1), q2 = lay.toScreen(h.p2);
+        // 자리 후보: 사선 넷(장공은 그쪽 끝 반원에서), 그다음 가운데에서 곧게 위·아래(긴 장공이 판을
+        // 가로질러 사선 자리가 없을 때, 10-11 실기기) — 가로 꺾임은 오른쪽·왼쪽
+        final cands = <(Offset, Offset, double)>[
+          for (final d in dirs)
+            (
+              (q1.dx - q2.dx) * d.dx >= 0 ? q1 : q2,
+              d / math.sqrt2,
+              d.dx > 0 ? 1.0 : -1.0,
+            ),
+          for (final up in const [-1.0, 1.0])
+            for (final sx in const [1.0, -1.0])
+              ((q1 + q2) / 2, Offset(0, up), sx),
+        ];
+        for (final ((c, u, sx), lead) in [
           for (final l in const [14.0, 30.0, 48.0])
-            for (final d in dirs) (d, l),
+            for (final cd in cands) (cd, l),
         ]) {
-          final u = d / math.sqrt2;
-          // 장공은 그쪽 끝 반원에서 뽑는다
-          final q1 = lay.toScreen(h.p1), q2 = lay.toScreen(h.p2);
-          final c = (q1.dx - q2.dx) * d.dx >= 0 ? q1 : q2;
           final a = c + u * r;
           final e = c + u * (r + lead * fsz);
-          final sx = d.dx > 0 ? 1.0 : -1.0;
           final t = e + Offset(sx * 6 * fsz, 0);
           final rect = Rect.fromLTWH(
             sx > 0 ? t.dx + 2 * fsz : t.dx - 2 * fsz - tp.width - 6 * fsz,

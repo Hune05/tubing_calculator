@@ -306,10 +306,16 @@ class _PlatePageState extends State<PlatePage>
             ? '외경을 감싸는 사각의 왼쪽 아래'
             : '판 왼쪽 아래');
 
+  /// 판·전개 크기 글: 레이저 절단 좌표 판은 꼭짓점과 같은 소수 둘째 자리, 나머지(계산한 전개 길이 등)는 첫째 자리.
+  String _sizeTxt(PlatePlan p) {
+    final d = p.vertices.isEmpty || p.isBent ? 1 : 2;
+    return '${fmt(p.flatLength, d)} × ${fmt(p.flatWidth, d)}';
+  }
+
   String _label() {
     final p = _plan();
     if (p == null) return '';
-    return '${plateShapeName(_shape)} ${_mm(_num(_t))}T · ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)}';
+    return '${plateShapeName(_shape)} ${_mm(_num(_t))}T · ${_sizeTxt(p)}';
   }
 
   @override
@@ -1047,7 +1053,7 @@ class _PlatePageState extends State<PlatePage>
       );
     }
     b.write(
-      '\n${_bend ? '전개' : '판'} 크기: ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)}mm · 개당 약 ${_kg(p.kgEach)}kg',
+      '\n${_bend ? '전개' : '판'} 크기: ${_sizeTxt(p)}mm · 개당 약 ${_kg(p.kgEach)}kg',
     );
     b.write('\n${_cutText(p)} (1개)');
     if (p.bends.isNotEmpty) {
@@ -1154,10 +1160,7 @@ class _PlatePageState extends State<PlatePage>
         ('가공', _bend ? '레이저 절단 + 절곡' : '레이저 절단만'),
         ('모양', '${plateShapeName(_shape)} · ${_dimsText()}'),
         ('재질', '${kPlateMaterials[_mat]!.$1} ${_mm(_num(_t))}T'),
-        (
-          _bend ? '전개 크기' : '판 크기',
-          '${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)} mm',
-        ),
+        (_bend ? '전개 크기' : '판 크기', '${_sizeTxt(p)} mm'),
         ('수량', '$_qtyN장 · 개당 약 ${_kg(p.kgEach)}kg · 모두 약 ${_kg(p.kgTotal)}kg'),
         ('가공비 기준', '${_cutText(p)} (1개)'),
         () {
@@ -2536,7 +2539,7 @@ class _PlatePageState extends State<PlatePage>
     final warn = p != null && !p.ok;
     String? summary;
     if (p != null) {
-      final size = '${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)} mm';
+      final size = '${_sizeTxt(p)} mm';
       // 크기는 위 요약 줄에(결과 탭 큰 글은 무게)
       summary =
           // 재질 이름(철판·SUS·알루미늄) — 알루미늄을 골라도 "철판"으로 나오던 것(10-11 실기기)
