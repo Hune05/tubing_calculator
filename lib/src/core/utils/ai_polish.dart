@@ -16,9 +16,11 @@ typedef AiPolishCall = Future<AiPolishResult> Function(String text);
 /// 실제 서버 호출.
 Future<AiPolishResult> callAiPolish(String text) async {
   try {
-    final callable = FirebaseFunctions.instanceFor(
-      region: 'asia-northeast3',
-    ).httpsCallable('polishDailyNote', options: HttpsCallableOptions(timeout: const Duration(seconds: 30)));
+    final callable = FirebaseFunctions.instanceFor(region: 'asia-northeast3')
+        .httpsCallable(
+          'polishDailyNote',
+          options: HttpsCallableOptions(timeout: const Duration(seconds: 30)),
+        );
     final res = await callable.call<Map<Object?, Object?>>({'text': text});
     final out = res.data['text'];
     if (out is! String || out.trim().isEmpty) {
@@ -45,9 +47,12 @@ String aiPolishErrorMessage(String code, String? serverMessage) {
       return serverMessage ?? '오늘 횟수를 다 썼습니다';
     case 'invalid-argument':
       return serverMessage ?? '글을 확인해 주십시오';
+    // 안드로이드는 통신이 끊겨도 'unavailable'로 온다(10-11 점검 70: 발전소처럼 통신이 없는 곳에서
+    // "잠시 뒤에 다시"만 나왔다).
     case 'unavailable':
+      return '통신이 안 되거나 AI가 응답하지 않습니다. 통신을 확인하고 다시 눌러 주십시오';
     case 'deadline-exceeded':
-      return 'AI가 지금 응답하지 않습니다. 잠시 뒤에 다시 눌러 주십시오';
+      return 'AI 응답이 늦습니다. 통신을 확인하고 다시 눌러 주십시오';
     default:
       return 'AI가 처리하지 못했습니다. 잠시 뒤에 다시 눌러 주십시오';
   }

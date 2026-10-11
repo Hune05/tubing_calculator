@@ -425,10 +425,12 @@ void main() {
       await tab(tester, 'send');
       expect(find.text('치수·중량·절곡을 글로 보냅니다'), findsOneWidget);
       await tap(tester, 'pl_send_kakao');
-      expect(sent, contains('절곡선(왼쪽 끝에서) 40 UP 90° · 140 DOWN 90°'));
+      expect(sent, contains('절곡선 자리(바깥 치수, 왼쪽 끝에서) 40 UP 90° · 140 DOWN 90°'));
       expect(
         sent,
-        contains('꼭짓점(가로,세로, 바깥 치수): 0,0 / 200,0 / 200,100 / 0,100'),
+        contains(
+          '꼭짓점(그린 판 바깥 치수, 왼쪽 아래에서 가로,세로): 0,0 / 200,0 / 200,100 / 0,100',
+        ),
       );
     });
 

@@ -83,14 +83,63 @@ double _norm(double deg) {
 }
 
 /// 전개도 DXF 글.
-String plateDxf(PlatePlan p, {required double thickness}) {
+/// [centerLines]가 false면 판 가운데 십자 중심선(DIM 층 CL)을 넣지 않는다(그림 "센터선"과 같게, 10-11).
+String plateDxf(
+  PlatePlan p, {
+  required double thickness,
+  bool centerLines = true,
+}) {
   final d = _Dxf();
   d.pair(0, 'SECTION');
   d.pair(2, 'HEADER');
   d.pair(9, r'$ACADVER');
   d.pair(1, 'AC1009');
+  // 단위 mm. R12에는 없던 항목이지만 AutoCAD·대부분의 CAM은 모르는 항목을 건너뛰고, 읽는 프로그램은
+  // 단위를 바로 안다(10-11 점검 67에서 그대로 두기로 함).
   d.pair(9, r'$INSUNITS');
   d.pair(70, 4); // mm
+  d.pair(0, 'ENDSEC');
+  // 층 정의(점검 67): 색·선 종류가 없어 CUT·BEND·DIM이 다 같은 흰 실선이었다. 색·선으로 자를 선을 고르는
+  // CAM에서 절곡선·센터선까지 잘릴 수 있어, 자르는 CUT만 흰 실선, BEND 빨간 파선, DIM 초록 일점 쇄선, NOTE 노랑.
+  d.pair(0, 'SECTION');
+  d.pair(2, 'TABLES');
+  d.pair(0, 'TABLE');
+  d.pair(2, 'LTYPE');
+  d.pair(70, 3);
+  for (final (name, desc, dashes) in const [
+    ('CONTINUOUS', 'Solid line', <double>[]),
+    ('DASHED', '__ __ __', <double>[6, -3]),
+    ('CENTER', '____ _ ____', <double>[12, -3, 2, -3]),
+  ]) {
+    d.pair(0, 'LTYPE');
+    d.pair(2, name);
+    d.pair(70, 0);
+    d.pair(3, desc);
+    d.pair(72, 65);
+    d.pair(73, dashes.length);
+    d.pair(40, _n(dashes.fold(0.0, (s, v) => s + v.abs())));
+    for (final v in dashes) {
+      d.pair(49, _n(v));
+    }
+  }
+  d.pair(0, 'ENDTAB');
+  d.pair(0, 'TABLE');
+  d.pair(2, 'LAYER');
+  d.pair(70, 5);
+  for (final (name, color, lt) in const [
+    ('0', 7, 'CONTINUOUS'),
+    ('CUT', 7, 'CONTINUOUS'),
+    ('BEND', 1, 'DASHED'),
+    ('NOTE', 2, 'CONTINUOUS'),
+    ('DIM', 3, 'CENTER'),
+  ]) {
+    d.pair(0, 'LAYER');
+    d.pair(2, name);
+    d.pair(70, 0);
+    d.pair(62, color);
+    d.pair(6, lt);
+  }
+  d.pair(0, 'ENDTAB');
   d.pair(0, 'ENDSEC');
   d.pair(0, 'SECTION');
   d.pair(2, 'ENTITIES');
@@ -108,7 +157,8 @@ String plateDxf(PlatePlan p, {required double thickness}) {
         d.arc('CUT', c.dx, c.dy, r, _norm(a0), _norm(a1));
     }
   }
-  for (final h in [...p.holes, ...p.cutouts]) {
+  // 판 밖 홀은 뺀다(점검 62: 판 밖에 원이 남거나 외곽을 가로질러 잘렸다)
+  for (final h in [...p.holes.where((h) => !h.out), ...p.cutouts]) {
     if (h.slot <= 0) {
       d.circle('CUT', h.c.dx, h.c.dy, h.dia / 2);
       continue;
@@ -125,9 +175,11 @@ String plateDxf(PlatePlan p, {required double thickness}) {
   }
   // 판 가운데 십자 중심선(DIM 층): 판 밖으로 5mm씩
   final cx = (p.minX + p.maxX) / 2, cy = (p.minY + p.maxY) / 2;
-  d.line('DIM', p.minX - 5, cy, p.maxX + 5, cy);
-  d.line('DIM', cx, p.minY - 5, cx, p.maxY + 5);
-  d.text('DIM', p.maxX + 6, cy - 1.75, 3.5, 'CL');
+  if (centerLines) {
+    d.line('DIM', p.minX - 5, cy, p.maxX + 5, cy);
+    d.line('DIM', cx, p.minY - 5, cx, p.maxY + 5);
+    d.text('DIM', p.maxX + 6, cy - 1.75, 3.5, 'CL');
+  }
   var n = 0;
   for (final b in p.bends) {
     n++;
@@ -166,10 +218,13 @@ Future<void> sharePlateDxf(
   required double thickness,
   required String title,
   required String message,
+  bool centerLines = true,
 }) async {
   final dir = await getTemporaryDirectory();
   final file = File('${dir.path}/${plateFileStem(title, DateTime.now())}.dxf');
-  await file.writeAsString(plateDxf(p, thickness: thickness));
+  await file.writeAsString(
+    plateDxf(p, thickness: thickness, centerLines: centerLines),
+  );
   // ignore: deprecated_member_use
   await Share.shareXFiles([XFile(file.path)], text: message);
 }

@@ -300,12 +300,12 @@ class PlateCorner {
 
   bool get isNone => kind == PlateCornerKind.none || a <= 0;
 
-  /// 화면 글: "직각", "R10", "C5", "따내기 20×15".
+  /// 화면 글: "직각", "R10", "C5", "따내기 20×15"(소수 둘째 자리까지).
   String get label => switch (kind) {
     _ when isNone => '직각',
-    PlateCornerKind.round => 'R${_f(a)}',
-    PlateCornerKind.chamfer => 'C${_f(a)}',
-    PlateCornerKind.notch => '따내기 ${_f(a)}×${_f(b <= 0 ? a : b)}',
+    PlateCornerKind.round => 'R${_f2(a)}',
+    PlateCornerKind.chamfer => 'C${_f2(a)}',
+    PlateCornerKind.notch => '따내기 ${_f2(a)}×${_f2(b <= 0 ? a : b)}',
     PlateCornerKind.none => '직각',
   };
 
@@ -1590,12 +1590,12 @@ PlateNest plateNest({
 
 /// 구멍 모양 글: "φ13.5", "장공 11×30(가로)", "장공 11×30(45°)".
 String plateHoleKind(PlateHole h) {
-  if (h.slot <= 0) return 'φ${_f(h.dia)}';
+  if (h.slot <= 0) return 'φ${_f2(h.dia)}';
   final a = ((h.angle % 180) + 180) % 180;
   final dir = a.abs() < 1e-6
       ? '가로'
       : ((a - 90).abs() < 1e-6 ? '세로' : '${_f(a)}°');
-  return '장공 ${_f(h.dia)}×${_f(h.slot)}($dir)';
+  return '장공 ${_f2(h.dia)}×${_f2(h.slot)}($dir)';
 }
 
 /// 평판 네 귀 이름(차례: 왼쪽 아래 → 오른쪽 아래 → 오른쪽 위 → 왼쪽 위).

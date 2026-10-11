@@ -495,7 +495,12 @@ class PlateSketch {
           ).toJson(),
       ],
       'rot': 0,
-      if (thickness != null) 't': _f(thickness!),
+      // 두께는 소수 둘째 자리까지(점검 63: 1.25T가 1.3T로 계산됐다)
+      if (thickness != null)
+        't': thickness!
+            .toStringAsFixed(2)
+            .replaceFirst(RegExp(r'0+$'), '')
+            .replaceFirst(RegExp(r'\.$'), ''),
     };
   }
 

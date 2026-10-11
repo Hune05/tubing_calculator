@@ -43,6 +43,15 @@ String _f(double v) {
   return s;
 }
 
+/// 홀 크기 글(소수 둘째 자리까지, φ6.35).
+String _f2(double v) {
+  var s = v.toStringAsFixed(2);
+  while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
+    s = s.substring(0, s.length - 1);
+  }
+  return s;
+}
+
 /// 전개도 그림의 자리 잡기(그리기와 화면 누름 찾기가 같이 쓴다).
 class PlatePainterLayout {
   final PlatePlan plan;
@@ -664,7 +673,7 @@ List<(String, List<PlateHole>)> plateHoleSizeGroups(PlatePlan p) {
   for (final h in p.holes) {
     groups
         .putIfAbsent(
-          '${_f(h.dia)}|${h.slot > h.dia ? _f(h.slot) : ''}',
+          '${_f2(h.dia)}|${h.slot > h.dia ? _f2(h.slot) : ''}',
           () => [],
         )
         .add(h);
@@ -674,8 +683,8 @@ List<(String, List<PlateHole>)> plateHoleSizeGroups(PlatePlan p) {
       () {
         final h = g.first;
         final name = h.slot > h.dia
-            ? '장공 ${_f(h.dia)}×${_f(h.slot)}'
-            : 'φ${_f(h.dia)}';
+            ? '장공 ${_f2(h.dia)}×${_f2(h.slot)}'
+            : 'φ${_f2(h.dia)}';
         return (g.length > 1 ? '${g.length}-$name' : name, g);
       }(),
   ];

@@ -14,7 +14,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/app_components.dart'
-    show AppSnackKind, showAppSnack;
+    show AppSnackKind, showAppConfirm, showAppSnack;
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
@@ -296,10 +296,20 @@ class _PlatePageState extends State<PlatePage>
     'lbl': _label(),
   });
 
+  /// 내보내는 글의 넣은 값(두께·치수·내R): 소수 둘째 자리까지(점검 61 — 1.25T가 "1.3T"로 나갔다).
+  String _mm(double v) => fmt(v, 2);
+
+  /// 홀·꼭짓점 자리를 재는 기준점 말(점검 71).
+  String get _posRef => _bend
+      ? '전개도 왼쪽 아래'
+      : (_shape == PlateShape.circle || _shape == PlateShape.ring
+            ? '외경을 감싸는 사각의 왼쪽 아래'
+            : '판 왼쪽 아래');
+
   String _label() {
     final p = _plan();
     if (p == null) return '';
-    return '${plateShapeName(_shape)} ${fmt(_num(_t))}T · ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)}';
+    return '${plateShapeName(_shape)} ${_mm(_num(_t))}T · ${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)}';
   }
 
   @override
@@ -408,6 +418,9 @@ class _PlatePageState extends State<PlatePage>
     if (init != null && mounted) {
       final before = _draft();
       _set(() {
+        // 앞 작업의 품명·수량이 새 판에 붙어 나가지 않게(점검 66)
+        if (!init.containsKey('jn')) _job.text = '';
+        if (!init.containsKey('n')) _qty.text = '1';
         _applyMap(Map<String, dynamic>.from(init));
         if (_custom) {
           _tab = _tabs.indexWhere((t) => t.$1 == 'bend');
@@ -416,13 +429,21 @@ class _PlatePageState extends State<PlatePage>
       showAppSnack(
         context,
         _custom
-            ? '스케치에서 옮겨 왔습니다(바깥 치수로 펴 그린 판). 절곡선을 넣으십시오.'
-            : '스케치에서 옮겨 왔습니다. 홀은 홀 탭에서 더 고칠 수 있습니다.',
+            ? '스케치에서 옮겨 왔습니다(바깥 치수로 펴 그린 판). 절곡선을 넣으십시오. ${_keptNote(init)}'
+            : '스케치에서 옮겨 왔습니다. ${_keptNote(init)}',
         onUndo: () =>
             _set(() => _applyMap(jsonDecode(before) as Map<String, dynamic>)),
         duration: const Duration(seconds: 6),
       );
     }
+  }
+
+  /// 스케치에서 오지 않아 앞 값 그대로인 재질·두께(점검 66).
+  String _keptNote(Map<String, Object?> init) {
+    final mat = kPlateMaterials[_mat]!.$1;
+    return init.containsKey('t')
+        ? '재질은 앞 값($mat)입니다. 맞는지 확인하십시오.'
+        : '재질·두께는 앞 값($mat ${_mm(_num(_t))}T)입니다. 맞는지 확인하십시오.';
   }
 
   /// 옛 "저장한 규격"(두 방식이 한 칸)에서 이 방식 것만 새 칸으로 옮긴다(한 번만, 옛 칸은 그대로).
@@ -892,10 +913,10 @@ class _PlatePageState extends State<PlatePage>
     // 판을 90°·270° 돌렸으면 그림·DXF와 같은 방향(가로·세로를 바꿔) 쓴다(점검 48)
     PlateShape.flat =>
       _turned
-          ? '${fmt(_num(_wid))} × ${fmt(_num(_len))}${_cornersText()}'
-          : '${fmt(_num(_len))} × ${fmt(_num(_wid))}${_cornersText()}',
+          ? '${_mm(_num(_wid))} × ${_mm(_num(_len))}${_cornersText()}'
+          : '${_mm(_num(_len))} × ${_mm(_num(_wid))}${_cornersText()}',
     PlateShape.rib =>
-      '${fmt(_num(_turned ? _ribB : _ribA))} × ${fmt(_num(_turned ? _ribA : _ribB))}${_num(_ribC) > 0 ? ' · 모서리 따내기 ${fmt(_num(_ribC))}' : ''}',
+      '${_mm(_num(_turned ? _ribB : _ribA))} × ${_mm(_num(_turned ? _ribA : _ribB))}${_num(_ribC) > 0 ? ' · 모서리 따내기 ${_mm(_num(_ribC))}' : ''}',
     PlateShape.free => () {
       final vs = parsePlateVertices(_points.text);
       final k = vs.where((v) => !v.$2.isNone).length;
@@ -903,23 +924,24 @@ class _PlatePageState extends State<PlatePage>
     }(),
     PlateShape.custom => () {
       final b = _freeBounds(parsePlateVertices(_points.text));
-      final size = b == null ? '' : '바깥 ${fmt(b.width)} × ${fmt(b.height)} · ';
+      final size = b == null ? '' : '바깥 ${_mm(b.width)} × ${_mm(b.height)} · ';
       if (_bls.isEmpty) return '$size절곡선 없음';
       // 넣은 절곡선 자리(판 끝에서 바깥 치수)·방향·각도(점검 44: 개수만 나가 업체가 자리를 몰랐다)
       final lines = [
         for (final x in _bls)
-          '${fmt(x.at)} ${x.up ? 'UP' : 'DOWN'} ${fmt(x.angle)}°',
+          '${_mm(x.at)} ${x.up ? 'UP' : 'DOWN'} ${_mm(x.angle)}°',
       ].join(' · ');
-      return '$size절곡선(${_blH ? '아래' : '왼쪽'} 끝에서) $lines';
+      // 바깥 치수 자리(전개도 자리 "절곡 1: 전개도 왼쪽 끝에서 …"와 헷갈리지 않게, 점검 65)
+      return '$size절곡선 자리(바깥 치수, ${_blH ? '아래' : '왼쪽'} 끝에서) $lines';
     }(),
     PlateShape.l =>
-      '1면 ${fmt(_num(_l1))} · 2면 ${fmt(_num(_l2))} · 폭 ${fmt(_num(_wid))} · ${fmt(readNum(_angle) ?? 90)}°${_cornersText(flatPattern: true)}',
+      '1면 ${_mm(_num(_l1))} · 2면 ${_mm(_num(_l2))} · 폭 ${_mm(_num(_wid))} · 절곡 각도 ${_mm(readNum(_angle) ?? 90)}°${_cornersText(flatPattern: true)}',
     PlateShape.u || PlateShape.z =>
-      '1면 ${fmt(_num(_l1))} · ${_shape == PlateShape.z ? '높이' : '2면'} ${fmt(_num(_l2))} · 3면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}${_cornersText(flatPattern: true)}',
+      '1면 ${_mm(_num(_l1))} · ${_shape == PlateShape.z ? '높이' : '2면'} ${_mm(_num(_l2))} · 3면 ${_mm(_num(_l3))} · 폭 ${_mm(_num(_wid))}${_cornersText(flatPattern: true)}',
     PlateShape.hat =>
-      '발 ${fmt(_num(_l1))} · 높이 ${fmt(_num(_l2))} · 윗면 ${fmt(_num(_l3))} · 폭 ${fmt(_num(_wid))}${_cornersText(flatPattern: true)}',
-    PlateShape.circle => '외경 Ø${fmt(_num(_cd))}',
-    PlateShape.ring => '외경 Ø${fmt(_num(_cd))} · 내경 Ø${fmt(_num(_ci))}',
+      '발 ${_mm(_num(_l1))} · 높이 ${_mm(_num(_l2))} · 윗면 ${_mm(_num(_l3))} · 폭 ${_mm(_num(_wid))}${_cornersText(flatPattern: true)}',
+    PlateShape.circle => '외경 Ø${_mm(_num(_cd))}',
+    PlateShape.ring => '외경 Ø${_mm(_num(_cd))} · 내경 Ø${_mm(_num(_ci))}',
   };
 
   /// 가공비 기준 글: "절단 길이 약 0.85 m · 피어싱 3곳".
@@ -979,14 +1001,14 @@ class _PlatePageState extends State<PlatePage>
 
   String _bendLine(PlatePlan p, int n) {
     final b = p.bends[n];
-    return '절곡 ${n + 1}: 왼쪽 끝에서 ${fmt(b.center, 1)}mm(절곡부 ${fmt(b.start, 1)}~${fmt(b.end, 1)}) · ${b.turn >= 0 ? 'UP' : 'DOWN'} ${fmt(b.turn.abs())}°';
+    return '절곡 ${n + 1}: 전개도 왼쪽 끝에서 ${fmt(b.center, 1)}mm(절곡부 ${fmt(b.start, 1)}~${fmt(b.end, 1)}) · ${b.turn >= 0 ? 'UP' : 'DOWN'} ${fmt(b.turn.abs())}°';
   }
 
   String _holeLine(PlatePlan p, PlateHole h) {
     final face = p.isBent
-        ? '${p.faceNames[h.face.clamp(0, p.faceNames.length - 1)]} ${fmt(h.u, 1)}·${fmt(h.v, 1)} → '
+        ? '${p.faceNames[h.face.clamp(0, p.faceNames.length - 1)]} ${_mm(h.u)}·${_mm(h.v)} → 전개도 '
         : '';
-    return '홀 ${h.label} ${plateHoleKind(h)}: $face전개도 ${fmt(h.c.dx - p.minX, 1)} · ${fmt(h.c.dy - p.minY, 1)}';
+    return '홀 ${h.label} ${plateHoleKind(h)}: $face${fmt(h.c.dx - p.minX, 1)} · ${fmt(h.c.dy - p.minY, 1)}';
   }
 
   String _bendCond(PlatePlan p) {
@@ -996,23 +1018,32 @@ class _PlatePageState extends State<PlatePage>
       'manual' when readNum(_r) != null => '(넣은 내R · K값 일반값)',
       _ => '(일반값)',
     };
-    return '내R ${fmt(p.rUsed)} · 공제값(90°) ${fmt(p.bd90Used, 2)}mm · K값 ${p.kUsed.toStringAsFixed(2)}$src';
+    return '내R ${_mm(p.rUsed)} · 공제값(90°) ${fmt(p.bd90Used, 2)}mm · K값 ${p.kUsed.toStringAsFixed(2)}$src';
   }
 
   String _shareText(PlatePlan p) {
     final b = StringBuffer(
-      '[철판 가공] ${plateShapeName(_shape)} · ${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T · $_qtyN장',
+      '[철판 가공] ${plateShapeName(_shape)} · ${kPlateMaterials[_mat]!.$1} ${_mm(_num(_t))}T · $_qtyN장',
     );
     if (_job.text.trim().isNotEmpty) b.write(' · ${_job.text.trim()}');
     b.write(
       '\n치수: ${_dimsText()} (mm${plateShapeBends(_shape) ? ', 바깥 치수' : ''})',
     );
-    if (_shape == PlateShape.free || _custom) {
-      // 판 외곽(점검 44): 좌표로 넣은 판은 꼭짓점이 없으면 글만 보고 모양을 알 수 없다
-      final vs = parsePlateVertices(_points.text);
-      final o = _custom ? _freeBounds(vs)?.topLeft : null;
+    final turnedQ = _bend ? 0 : _rotQ % 4;
+    if (turnedQ != 0) {
+      // 돌린 판(점검 64): 아래 꼭짓점·홀은 그림·DXF와 같은 돌린 모양 기준
+      b.write('\n판을 ${turnedQ * 90}° 돌린 모양으로 보냅니다(그림·DXF와 같은 방향, 아래 꼭짓점·홀도).');
+    }
+    final vtx = _vertexRows(p);
+    if (vtx.isNotEmpty) {
+      // 판 외곽(점검 44·64): 좌표로 넣은 판은 꼭짓점이 없으면 글만 보고 모양을 알 수 없다
       b.write(
-        '\n꼭짓점(가로,세로${_custom ? ', 바깥 치수' : ''}): ${[for (final (q, c) in vs) '${fmt(q.dx - (o?.dx ?? 0))},${fmt(q.dy - (o?.dy ?? 0))}${c.isNone ? '' : ' ${c.label}'}'].join(' / ')}',
+        '\n꼭짓점(${_custom ? '그린 판 바깥 치수, 왼쪽 아래에서' : '$_posRef에서'} 가로,세로): ${[for (final (x, y, c) in vtx) '$x,$y${c.isEmpty ? '' : ' $c'}'].join(' / ')}',
+      );
+    }
+    if (_custom && _blH && p.bends.isNotEmpty) {
+      b.write(
+        '\n전개도·DXF: 그린 판을 시계 방향 90° 돌린 모양(절곡선이 세로). 아래 전개도 자리는 이 방향 기준입니다.',
       );
     }
     b.write(
@@ -1024,9 +1055,10 @@ class _PlatePageState extends State<PlatePage>
       for (var n = 0; n < p.bends.length; n++) {
         b.write('\n ${_bendLine(p, n)}');
       }
+      b.write('\n (UP·DOWN은 전개도·DXF를 위에서 본 쪽으로 접는 방향)');
     }
     if (p.holes.isNotEmpty) {
-      b.write('\n홀 ${p.holes.length}개(전개도 왼쪽 아래에서 가로 · 세로):');
+      b.write('\n홀 ${p.holes.length}개($_posRef에서 가로 · 세로):');
       for (final h in p.holes) {
         b.write('\n ${_holeLine(p, h)}');
       }
@@ -1035,6 +1067,47 @@ class _PlatePageState extends State<PlatePage>
       b.write('\n※ $s');
     }
     return b.toString();
+  }
+
+  /// 꼭짓점 줄(카톡 글·PDF 표): 좌표 입력·삼각 리브는 그림(돌린 모양)과 같은 자리(판 왼쪽 아래에서),
+  /// 직접 절곡은 그린 판 바깥 치수(꼭짓점 왼쪽 아래에서). 코너는 글로(따내기는 어느 변인지까지).
+  List<(String, String, String)> _vertexRows(PlatePlan p) {
+    String corner(PlateCorner c, {required bool flat}) => c.isNone
+        ? ''
+        : (c.kind == PlateCornerKind.notch && !flat
+              ? '따내기 앞 변 ${_mm(c.a)} × 다음 변 ${_mm(c.b <= 0 ? c.a : c.b)}'
+              : c.label);
+    if (_shape == PlateShape.free) {
+      return [
+        for (final (q, c) in parsePlateVertices(_points.text))
+          () {
+            final d = p.toDisplay(q) - Offset(p.minX, p.minY);
+            return (_mm(d.dx), _mm(d.dy), corner(c, flat: false));
+          }(),
+      ];
+    }
+    if (_shape == PlateShape.rib) {
+      final a = _num(_ribA), bb = _num(_ribB), c = _num(_ribC);
+      final pts = c > 0
+          ? [Offset(c, 0), Offset(a, 0), Offset(0, bb), Offset(0, c)]
+          : [Offset.zero, Offset(a, 0), Offset(0, bb)];
+      return [
+        for (final q in pts)
+          () {
+            final d = p.toDisplay(q) - Offset(p.minX, p.minY);
+            return (_mm(d.dx), _mm(d.dy), '');
+          }(),
+      ];
+    }
+    if (_custom) {
+      final vs = parsePlateVertices(_points.text);
+      final o = _freeBounds(vs)?.topLeft ?? Offset.zero;
+      return [
+        for (final (q, c) in vs)
+          (_mm(q.dx - o.dx), _mm(q.dy - o.dy), corner(c, flat: false)),
+      ];
+    }
+    return const [];
   }
 
   Future<BracketPdfInput> _pdfInput(PlatePlan p) async {
@@ -1079,7 +1152,7 @@ class _PlatePageState extends State<PlatePage>
       summary: [
         ('가공', _bend ? '레이저 절단 + 절곡' : '레이저 절단만'),
         ('모양', '${plateShapeName(_shape)} · ${_dimsText()}'),
-        ('재질', '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T'),
+        ('재질', '${kPlateMaterials[_mat]!.$1} ${_mm(_num(_t))}T'),
         (
           _bend ? '전개 크기' : '판 크기',
           '${fmt(p.flatLength, 1)} × ${fmt(p.flatWidth, 1)} mm',
@@ -1096,13 +1169,28 @@ class _PlatePageState extends State<PlatePage>
           );
         }(),
         if (p.bends.isNotEmpty) ('절곡 조건', _bendCond(p)),
+        if (_custom && _blH && p.bends.isNotEmpty)
+          ('전개도 방향', '그린 판을 시계 방향 90° 돌린 모양(절곡선이 세로)'),
+        if (!_bend && _rotQ % 4 != 0)
+          ('판 방향', '${(_rotQ % 4) * 90}° 돌린 모양(그림·DXF·표 같은 방향)'),
       ],
       sections: [
+        // 꼭짓점 표(점검 68: 좌표 입력·직접 절곡 판은 PDF만 보고 외곽을 만들 수 없었다)
+        if (_vertexRows(p).isNotEmpty)
+          BracketPdfSection(
+            _custom ? '꼭짓점 (그린 판 바깥 치수, 왼쪽 아래에서, mm)' : '꼭짓점 ($_posRef에서, mm)',
+            const [],
+            headers: const ['번호', '가로', '세로', '코너'],
+            rows: [
+              for (final (i, (x, y, c)) in _vertexRows(p).indexed)
+                ['${i + 1}', x, y, c.isEmpty ? '-' : c],
+            ],
+          ),
         if (p.bends.isNotEmpty)
           BracketPdfSection(
             '절곡 (전개도 왼쪽 끝에서, mm)',
             const [],
-            headers: const ['번호', '절곡선', '절곡부', '방향', '각도'],
+            headers: const ['번호', '절곡선', '절곡부', '방향(위에서 본 쪽)', '각도'],
             rows: [
               for (var n = 0; n < p.bends.length; n++)
                 [
@@ -1116,7 +1204,7 @@ class _PlatePageState extends State<PlatePage>
           ),
         if (p.holes.isNotEmpty)
           BracketPdfSection(
-            '홀 (전개도 왼쪽 아래에서, mm)',
+            '홀 ($_posRef에서, mm)',
             const [],
             headers: const ['번호', '모양', '가로', '세로', '면 기준'],
             rows: [
@@ -1128,29 +1216,36 @@ class _PlatePageState extends State<PlatePage>
                   fmt(h.c.dx - p.minX, 1),
                   fmt(h.c.dy - p.minY, 1),
                   plateShapeBends(_shape)
-                      ? '${p.faceNames[h.face.clamp(0, p.faceNames.length - 1)]} ${fmt(h.u, 1)} · ${fmt(h.v, 1)}'
+                      ? '${p.faceNames[h.face.clamp(0, p.faceNames.length - 1)]} ${_mm(h.u)} · ${_mm(h.v)}'
                       : '-',
                 ],
             ],
           ),
       ],
-      notes: [...p.problems, ...p.notes],
+      notes: [
+        ...p.problems,
+        ...p.notes,
+        if (p.bends.isNotEmpty) 'UP·DOWN은 전개도·DXF를 위에서 본 쪽으로 접는 방향입니다.',
+      ],
     );
   }
 
   Future<void> _sendDxf(PlatePlan p) async {
     if (widget.shareDxf != null) {
-      await widget.shareDxf!(plateDxf(p, thickness: _num(_t)));
+      await widget.shareDxf!(
+        plateDxf(p, thickness: _num(_t), centerLines: _showCenter),
+      );
       return;
     }
     await sharePlateDxf(
       p,
       thickness: _num(_t),
+      centerLines: _showCenter,
       title: _job.text.trim().isEmpty
-          ? '${plateShapeName(_shape)}_${fmt(_num(_t))}T'
+          ? '${plateShapeName(_shape)}_${_mm(_num(_t))}T'
           : _job.text.trim(),
       message:
-          '철판 가공 DXF · ${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T · $_qtyN장${p.bends.isNotEmpty ? ' · 절곡 ${p.bends.length}곳(BEND 층, 방향은 NOTE 층)' : ''}',
+          '철판 가공 DXF · ${kPlateMaterials[_mat]!.$1} ${_mm(_num(_t))}T · $_qtyN장${p.bends.isNotEmpty ? ' · 절곡 ${p.bends.length}곳(BEND 층, 방향은 NOTE 층)' : ''}',
     );
   }
 
@@ -1774,7 +1869,7 @@ class _PlatePageState extends State<PlatePage>
             plateRow(
               manual
                   ? [
-                      _f('pl_r', '내R', _r, hint: fmt(_num(_t))),
+                      _f('pl_r', '내R', _r, hint: _mm(_num(_t))),
                       _f(
                         'pl_bd',
                         '90° 공제값',
@@ -2086,7 +2181,6 @@ class _PlatePageState extends State<PlatePage>
         children: const [],
       );
     }
-    final bent = plateShapeBends(_shape);
     return PlatePanel(
       title: '결과',
       actions: [help],
@@ -2097,7 +2191,7 @@ class _PlatePageState extends State<PlatePage>
             child: PlateBigValue(
               value: '개당 약 ${_kg(p.kgEach)}kg',
               caption:
-                  '${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T · $_qtyN장 합계 약 ${_kg(p.kgTotal)}kg',
+                  '${kPlateMaterials[_mat]!.$1} ${_mm(_num(_t))}T · $_qtyN장 합계 약 ${_kg(p.kgTotal)}kg',
               warn: warn,
             ),
           ),
@@ -2135,7 +2229,7 @@ class _PlatePageState extends State<PlatePage>
               style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
             ),
           ]),
-        PlateSection(bent ? '홀 위치 (전개도 왼쪽 아래에서, mm)' : '홀 위치 (판 왼쪽 아래에서, mm)', [
+        PlateSection('홀 위치 ($_posRef에서, mm)', [
           Text(
             _holeSummary(),
             key: const Key('pl_hole_summary'),
@@ -2219,7 +2313,7 @@ class _PlatePageState extends State<PlatePage>
             KeyedSubtree(
               key: const Key('pl_order'),
               child: PlateLines([
-                '재질·두께·수량: ${kPlateMaterials[_mat]!.$1} ${fmt(_num(_t))}T · $_qtyN장.',
+                '재질·두께·수량: ${kPlateMaterials[_mat]!.$1} ${_mm(_num(_t))}T · $_qtyN장.',
                 '가공비 기준: ${_cutText(p)} (1개).',
                 p.bends.isNotEmpty
                     ? 'CUT 층만 자르고 BEND 층(절곡선)·DIM 층(센터선)은 자르지 않는다고 알립니다.'
@@ -2339,6 +2433,18 @@ class _PlatePageState extends State<PlatePage>
   }
 
   Future<void> _send(String id, PlatePlan p) async {
+    // 만들 수 없는 문제가 있으면 한 번 묻는다(점검 62: 그대로 보내져 업체가 그 파일로 잘랐다)
+    if (!p.ok) {
+      final go = await showAppConfirm(
+        context,
+        title: '만들 수 없는 곳이 있습니다',
+        message:
+            '${p.problems.take(3).join('\n')}${p.problems.length > 3 ? '\n외 ${p.problems.length - 3}개' : ''}\n\n그래도 보내겠습니까? 판 밖 홀은 DXF에서 뺍니다.',
+        okText: '그래도 보내기',
+        okKey: const Key('pl_send_anyway'),
+      );
+      if (!go || !mounted) return;
+    }
     switch (id) {
       case 'dxf':
         await _sendDxf(p);
@@ -2428,7 +2534,7 @@ class _PlatePageState extends State<PlatePage>
       // 크기는 위 요약 줄에(결과 탭 큰 글은 무게)
       summary =
           // 재질 이름(철판·SUS·알루미늄) — 알루미늄을 골라도 "철판"으로 나오던 것(10-11 실기기)
-          '${kPlateMaterials[_mat]!.$1} ${plateShapeName(_shape)} · ${fmt(_num(_t))}T · ${_bend ? '전개 ' : ''}$size';
+          '${kPlateMaterials[_mat]!.$1} ${plateShapeName(_shape)} · ${_mm(_num(_t))}T · ${_bend ? '전개 ' : ''}$size';
     }
     final tabs = _tabs;
     final idx = _tab.clamp(0, tabs.length - 1);

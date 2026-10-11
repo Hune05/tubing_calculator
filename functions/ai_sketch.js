@@ -106,7 +106,8 @@ function cleanPlate(raw) {
         ? raw.unclear.map((s) => cleanText(s, 120)).filter((s) => s).slice(0, 12)
         : [];
     const t = num(raw.thickness);
-    const thickness = t !== null && t > 0 && t <= 50 ? r1(t) : null;
+    // 두께는 소수 둘째 자리까지(1.25T, 10-11)
+    const thickness = t !== null && t > 0 && t <= 50 ? Math.round(t * 100) / 100 : null;
     const pts = [];
     for (const p of Array.isArray(raw.outline) ? raw.outline : []) {
         if (!p || typeof p !== "object") continue;

@@ -13,9 +13,12 @@ import 'package:flutter/material.dart';
 import 'plate_calc.dart';
 import 'plate_painter.dart';
 
-String _f(double v) {
-  var s = v.toStringAsFixed(1);
-  if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
+/// 넣은 치수 글(소수 둘째 자리까지, 10-11 점검 61: 50.25가 "50.3"으로 나왔다).
+String _f2(double v) {
+  var s = v.toStringAsFixed(2);
+  while (s.contains('.') && (s.endsWith('0') || s.endsWith('.'))) {
+    s = s.substring(0, s.length - 1);
+  }
   return s;
 }
 
@@ -314,7 +317,7 @@ class PlateSidePainter extends CustomPainter {
       }
       _label(
         canvas,
-        _f(legs[i]),
+        _f2(legs[i]),
         (da + db) / 2,
         plateReadableAngle(along),
         text,

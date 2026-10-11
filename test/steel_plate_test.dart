@@ -1154,7 +1154,7 @@ void main() {
       await send(tester, 'kakao');
       expect(sent, startsWith('[철판 가공] ㄱ자 · 철판 3T · 1장'));
       expect(sent, contains('전개 크기: 94.3 × 100mm'));
-      expect(sent, contains('절곡 1: 왼쪽 끝에서 47.1mm'));
+      expect(sent, contains('절곡 1: 전개도 왼쪽 끝에서 47.1mm'));
       tester.view.viewInsets = const FakeViewPadding(bottom: 600);
       addTearDown(tester.view.resetViewInsets);
       await tester.pumpAndSettle();
