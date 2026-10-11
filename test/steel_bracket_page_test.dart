@@ -116,6 +116,14 @@ void main() {
     await tap(tester, 'br_spec_item_찬넬 100x50x5');
     await tap(tester, 'br_spec_ok');
     expect(_text(tester, const Key('br_sum')), contains('ㄷ-100×50×5'));
+    // 직접 적기 칸에 쓰고 닫아도 오류 없음(창이 닫히는 그림 중에 글 칸 조절기를 버리던 것, 10-11)
+    await tap(tester, 'br_spec');
+    await tester.enterText(
+      find.byKey(const Key('br_spec_custom')),
+      '찬넬 100x50x5',
+    );
+    await tap(tester, 'br_spec_ok');
+    expect(tester.takeException(), isNull);
     // 찬넬은 방향이 둘: 처음은 날개가 벽에(그림 폭 100)
     expect(
       tester.widget<PlateSegButton>(find.byKey(const Key('br_po_1'))).selected,

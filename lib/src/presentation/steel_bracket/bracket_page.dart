@@ -787,111 +787,9 @@ class _BracketPageState extends State<BracketPage>
     );
   }
 
-  Future<String?> _pickSpec(String current) async {
-    final c0 = bracketSpecCategory(current);
-    var cat = c0 < 0 ? 0 : c0;
-    var pick = current;
-    final inList = kBracketSpecLists.any(
-      (l) => l.$2.any((s) => s.label == current),
-    );
-    final custom = TextEditingController(text: inList ? '' : current);
-    final r = await showPlateSheet<String>(
-      context,
-      (ctx) => StatefulBuilder(
-        builder: (ctx, setS) {
-          final list = kBracketSpecLists[cat].$2;
-          return PlateSheetFrame(
-            title: '규격 고르기',
-            okText: '이 규격 쓰기',
-            okKey: const Key('br_spec_ok'),
-            onOk: () => Navigator.pop(
-              ctx,
-              custom.text.trim().isNotEmpty ? custom.text.trim() : pick,
-            ),
-            children: [
-              PlateSegments([
-                for (var i = 0; i < kBracketSpecLists.length; i++)
-                  PlateOption(
-                    'br_spec_cat_$i',
-                    kBracketSpecLists[i].$1,
-                    cat == i,
-                    () => setS(() => cat = i),
-                  ),
-              ], joined: false),
-              const SizedBox(height: 10),
-              for (final s in list)
-                Builder(
-                  builder: (_) {
-                    final on = pick == s.label && custom.text.trim().isEmpty;
-                    final p = BracketProfile.parse(s.label);
-                    final kg = p.kgPerM;
-                    return Material(
-                      color: on ? fc.brandSoft : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      child: InkWell(
-                        key: Key('br_spec_item_${s.label}'),
-                        borderRadius: BorderRadius.circular(10),
-                        onTap: () => setS(() {
-                          pick = s.label;
-                          custom.clear();
-                        }),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  s.label,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                    color: fc.text,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${p.ks}${kg == null ? '' : ' · ${fmt(kg, 2)}kg/m'}',
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: fc.textSub,
-                                ),
-                              ),
-                              if (on) ...[
-                                const SizedBox(width: 6),
-                                Icon(
-                                  Icons.check_rounded,
-                                  color: fc.brand,
-                                  size: 18,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              const SizedBox(height: 12),
-              PlateNumField(
-                fieldKey: 'br_spec_custom',
-                label: '목록에 없으면 직접 적기',
-                controller: custom,
-                unit: null,
-                text: true,
-                hint: '예) 앵글 50x50x6',
-                onChanged: (_) => setS(() {}),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-    custom.dispose();
-    return r;
-  }
+  // 창 안 글 칸 조절기는 창 위젯이 가진다(창이 닫히는 그림 중에 버리면 오류, 10-11)
+  Future<String?> _pickSpec(String current) =>
+      showPlateSheet<String>(context, (_) => _SpecSheet(current: current));
 
   /// 방향 단추 줄(방향이 둘 이상일 때만).
   Widget? _orientRow(String key, String spec, BracketRole role, String field) {
@@ -2076,6 +1974,123 @@ class _BracketPageState extends State<BracketPage>
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 규격 고르기 창: 종류 단추 · 목록 · 직접 적기.
+class _SpecSheet extends StatefulWidget {
+  const _SpecSheet({required this.current});
+  final String current;
+
+  @override
+  State<_SpecSheet> createState() => _SpecSheetState();
+}
+
+class _SpecSheetState extends State<_SpecSheet> {
+  late int _cat;
+  late String _pick;
+  late final TextEditingController _custom;
+
+  @override
+  void initState() {
+    super.initState();
+    final c0 = bracketSpecCategory(widget.current);
+    _cat = c0 < 0 ? 0 : c0;
+    _pick = widget.current;
+    final inList = kBracketSpecLists.any(
+      (l) => l.$2.any((s) => s.label == widget.current),
+    );
+    _custom = TextEditingController(text: inList ? '' : widget.current);
+  }
+
+  @override
+  void dispose() {
+    _custom.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final list = kBracketSpecLists[_cat].$2;
+    return PlateSheetFrame(
+      title: '규격 고르기',
+      okText: '이 규격 쓰기',
+      okKey: const Key('br_spec_ok'),
+      onOk: () => Navigator.pop(
+        context,
+        _custom.text.trim().isNotEmpty ? _custom.text.trim() : _pick,
+      ),
+      children: [
+        PlateSegments([
+          for (var i = 0; i < kBracketSpecLists.length; i++)
+            PlateOption(
+              'br_spec_cat_$i',
+              kBracketSpecLists[i].$1,
+              _cat == i,
+              () => setState(() => _cat = i),
+            ),
+        ], joined: false),
+        const SizedBox(height: 10),
+        for (final s in list)
+          Builder(
+            builder: (_) {
+              final on = _pick == s.label && _custom.text.trim().isEmpty;
+              final p = BracketProfile.parse(s.label);
+              final kg = p.kgPerM;
+              return Material(
+                color: on ? fc.brandSoft : Colors.transparent,
+                borderRadius: BorderRadius.circular(10),
+                child: InkWell(
+                  key: Key('br_spec_item_${s.label}'),
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: () => setState(() {
+                    _pick = s.label;
+                    _custom.clear();
+                  }),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            s.label,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: fc.text,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${p.ks}${kg == null ? '' : ' · ${fmt(kg, 2)}kg/m'}',
+                          style: TextStyle(fontSize: 12.5, color: fc.textSub),
+                        ),
+                        if (on) ...[
+                          const SizedBox(width: 6),
+                          Icon(Icons.check_rounded, color: fc.brand, size: 18),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        const SizedBox(height: 12),
+        PlateNumField(
+          fieldKey: 'br_spec_custom',
+          label: '목록에 없으면 직접 적기',
+          controller: _custom,
+          unit: null,
+          text: true,
+          hint: '예) 앵글 50x50x6',
+          onChanged: (_) => setState(() {}),
+        ),
+      ],
     );
   }
 }
