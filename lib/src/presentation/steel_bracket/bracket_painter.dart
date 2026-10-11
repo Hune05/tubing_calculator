@@ -418,9 +418,10 @@ class BracketPainter extends CustomPainter {
         ..strokeWidth = 2.4 * fontScale,
     );
     final mid = (a + b) / 2;
+    // 가로 부재(위가 붙는 쪽)는 선 왼쪽 끝 옆에(위에 두면 "단면" 제목과 겹쳤다, 10-11 실기기)
     final off = sm.vertical
         ? Offset(-12 * fontScale, 0)
-        : Offset(0, -10 * fontScale);
+        : a - mid + Offset(-10 * fontScale, 0);
     _text(
       canvas,
       sm.side,

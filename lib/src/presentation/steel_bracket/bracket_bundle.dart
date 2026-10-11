@@ -377,20 +377,38 @@ class _BracketBundlePageState extends State<BracketBundlePage> {
                           caption:
                               '${_list.fold(0, (s, e) => s + e.qty)}개 · ${_list.length}종',
                         ),
+                        // 규격 이름이 길어 이름|값 줄에서 접혔다(10-11 실기기) → 규격 한 줄, 길이 × 개수 한 줄
                         for (final c in t.cuts.entries)
-                          PlateInfoRow(
-                            c.key,
-                            [
-                                  for (final l
-                                      in (c.value.entries.toList()..sort(
-                                        (a, b) => b.key.compareTo(a.key),
-                                      )))
-                                    '${_f(l.key)} × ${l.value}',
-                                ].join(' · ') +
-                                (t.stock[c.key] != null &&
-                                        t.stock[c.key]!.barCount > 0
-                                    ? ' → ${_f(_s.stock)} 원자재 ${t.stock[c.key]!.barCount}본'
-                                    : ''),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                c.key,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: fc.text,
+                                ),
+                              ),
+                              Text(
+                                [
+                                      for (final l
+                                          in (c.value.entries.toList()..sort(
+                                            (a, b) => b.key.compareTo(a.key),
+                                          )))
+                                        '${_f(l.key)} × ${l.value}',
+                                    ].join(' · ') +
+                                    (t.stock[c.key] != null &&
+                                            t.stock[c.key]!.barCount > 0
+                                        ? ' → ${_f(_s.stock)} 원자재 ${t.stock[c.key]!.barCount}본'
+                                        : ''),
+                                style: TextStyle(
+                                  fontSize: 13.5,
+                                  color: fc.textSub,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
                           ),
                         if (t.plates.isNotEmpty) PlateLines(t.plates),
                       ]),

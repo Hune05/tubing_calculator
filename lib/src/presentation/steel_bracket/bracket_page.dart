@@ -396,7 +396,8 @@ class _BracketPageState extends State<BracketPage>
     for (final pc in p.pieces) {
       final png = await renderBracketPng(
         bracketPieceDrawing(pc, plate: p.plate),
-        height: pc.kind == BracketPieceKind.member ? 760 : 700,
+        // 지시서 칸(폭 약 520pt × 높이 200pt)에 맞춘 가로로 긴 그림이라 글씨가 덜 줄어든다
+        height: pc.kind == BracketPieceKind.member ? 560 : 640,
       );
       pieces.add((
         '부재도 ${pc.title} ${pc.ks} · ${_pieceSize(pc)} · 1개당 ${pc.qty} / 전체 ${pc.qty * _sets}',
@@ -425,7 +426,7 @@ class _BracketPageState extends State<BracketPage>
       drawingPng: asm,
       drawingHeight: 330,
       moreDrawings: pieces,
-      moreHeight: 210,
+      moreHeight: 200,
       moreAfterSections: true,
       author: _settings.author,
       sections: [
@@ -967,7 +968,7 @@ class _BracketPageState extends State<BracketPage>
             bg: fc.background,
             tone: tone,
             topInset: 30,
-            bottomInset: 18,
+            bottomInset: 34,
           ),
           child: const SizedBox.expand(),
         );

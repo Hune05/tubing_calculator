@@ -112,6 +112,33 @@ Future<Uint8List> buildBracketPdf(
     ),
   );
 
+  List<pw.Widget> section(BracketPdfSection sec) => [
+    sectionTitle(sec.title),
+    for (final l in sec.lines)
+      pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 2.5),
+        child: pw.Text(
+          l,
+          style: const pw.TextStyle(fontSize: 9.5, color: _ink),
+        ),
+      ),
+    if (sec.rows.isNotEmpty) ...[
+      pw.SizedBox(height: 3),
+      pw.Table(
+        border: pw.TableBorder.all(color: _line, width: 0.6),
+        children: [
+          pw.TableRow(
+            decoration: const pw.BoxDecoration(color: _head),
+            repeat: true,
+            children: [for (final h in sec.headers) cell(h, bold: true)],
+          ),
+          for (final r in sec.rows)
+            pw.TableRow(children: [for (final c in r) cell(c)]),
+        ],
+      ),
+    ],
+  ];
+
   // 제목과 그림을 한 덩어리로(제목만 앞 쪽 끝에 남고 그림이 다음 쪽으로 가지 않게).
   // pw.Container는 안의 Column을 따라 쪽이 나뉘므로 Inseparable로 묶는다.
   pw.Widget drawing(String caption, Uint8List png, double height) =>
@@ -233,32 +260,17 @@ Future<Uint8List> buildBracketPdf(
             png,
             k == 0 ? input.drawingHeight : input.moreHeight,
           ),
-        for (final sec in input.sections) ...[
-          sectionTitle(sec.title),
-          for (final l in sec.lines)
-            pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 2.5),
-              child: pw.Text(
-                l,
-                style: const pw.TextStyle(fontSize: 9.5, color: _ink),
+        for (final sec in input.sections)
+          // 짧은 구역은 제목·표를 한 덩어리로(쪽 끝에 제목·표 머리만 남지 않게, 10-11 실기기)
+          if (sec.rows.length + sec.lines.length <= 12)
+            pw.Inseparable(
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: section(sec),
               ),
-            ),
-          if (sec.rows.isNotEmpty) ...[
-            pw.SizedBox(height: 3),
-            pw.Table(
-              border: pw.TableBorder.all(color: _line, width: 0.6),
-              children: [
-                pw.TableRow(
-                  decoration: const pw.BoxDecoration(color: _head),
-                  repeat: true,
-                  children: [for (final h in sec.headers) cell(h, bold: true)],
-                ),
-                for (final r in sec.rows)
-                  pw.TableRow(children: [for (final c in r) cell(c)]),
-              ],
-            ),
-          ],
-        ],
+            )
+          else
+            ...section(sec),
         if (input.moreAfterSections)
           for (final (caption, png) in input.moreDrawings)
             drawing(caption, png, input.moreHeight),
