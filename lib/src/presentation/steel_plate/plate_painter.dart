@@ -109,7 +109,12 @@ class PlatePainter extends CustomPainter {
     this.showIssues = true,
     this.holeDims = false,
     this.tone = PlateTone.light,
+    this.holeSizes = false,
   });
+
+  /// 홀 크기 글(10-11 사용자: "홀 크기 도면에 넣고 장공은 길이까지, 적용·미적용 버튼으로"): 같은 크기끼리 묶어
+  /// 도면처럼 한 번만("4-φ13.5", "2-장공 13.5×40" = 폭 × 전체 길이), 홀에서 지시선을 뽑아 단다.
+  final bool holeSizes;
 
   /// 홀 위치 치수(10-11): 판 왼쪽 끝·아래 끝에서 잰 홀 가운데 자리를 아래·오른쪽 줄에 단다(좌표 치수).
   final bool holeDims;
@@ -313,6 +318,98 @@ class PlatePainter extends CustomPainter {
         right.dx + 20 * fontScale,
       );
     }
+    if (holeSizes && p.holes.isNotEmpty) {
+      _holeSizes(canvas, lay, size, pts, right.dx + 20 * fontScale);
+    }
+  }
+
+  /// 홀 크기 글: 크기마다 묶어 한 홀에서 지시선(사선 + 짧은 가로선) 끝에 "n-φd" 글. 다른 글·홀·그림 밖과
+  /// 겹치지 않는 홀·방향(오른쪽 위 → 왼쪽 위 → 오른쪽 아래 → 왼쪽 아래)을 차례로 찾는다.
+  void _holeSizes(
+    Canvas canvas,
+    PlatePainterLayout lay,
+    Size size,
+    List<Offset> pts,
+    double holeDimX,
+  ) {
+    final p = plan;
+    final fsz = fontScale;
+    final groups = plateHoleSizeGroups(p);
+    double rOf(PlateHole h) => math.max(h.r * lay.s, 2.5 * fsz);
+    final taken = <Rect>[
+      for (final h in p.holes)
+        Rect.fromPoints(lay.toScreen(h.p1), lay.toScreen(h.p2)).inflate(rOf(h)),
+    ];
+    // 글 자리: 전체 치수선(위·왼쪽) 안쪽, 판 아래 끝 위, 홀 위치 치수 줄(오른쪽) 왼쪽 — 치수 글과 안 겹치게
+    final bounds = Rect.fromLTRB(
+      lay.heightDimX + 9 * fsz,
+      lay.widthDimY + 9 * fsz,
+      holeDims ? holeDimX - 6 * fsz : size.width,
+      lay.bottomRight.dy,
+    );
+    // 절곡 번호 글은 피한다(절곡선 점선은 지시선·글이 지나가도 된다)
+    for (final b in p.bends) {
+      var spans = plateBendSpans(pts, b.center);
+      if (spans.isEmpty) spans = [(p.minY, p.maxY)];
+      final sp = spans.reduce((a, c) => c.$2 - c.$1 > a.$2 - a.$1 ? c : a);
+      taken.add(
+        Rect.fromCenter(
+          center: lay.toScreen(Offset(b.center, (sp.$1 + sp.$2) / 2)),
+          width: 18 * fsz,
+          height: 80 * fsz,
+        ),
+      );
+    }
+    final pen = Paint()
+      ..color = text
+      ..strokeWidth = 1 * fsz;
+    const dirs = [Offset(1, -1), Offset(-1, -1), Offset(1, 1), Offset(-1, 1)];
+    for (final (label, g) in groups) {
+      final tp = _tp(label, text, bold: true);
+      // 위쪽 홀부터(글이 판 위쪽 빈 곳으로 나가기 쉽게)
+      final order = [...g]..sort((a, b) => b.c.dy.compareTo(a.c.dy));
+      Rect? box;
+      Offset? from, elbow, end;
+      for (final h in order) {
+        final r = rOf(h);
+        for (final (d, lead) in [
+          for (final l in const [14.0, 30.0, 48.0])
+            for (final d in dirs) (d, l),
+        ]) {
+          final u = d / math.sqrt2;
+          // 장공은 그쪽 끝 반원에서 뽑는다
+          final q1 = lay.toScreen(h.p1), q2 = lay.toScreen(h.p2);
+          final c = (q1.dx - q2.dx) * d.dx >= 0 ? q1 : q2;
+          final a = c + u * r;
+          final e = c + u * (r + lead * fsz);
+          final sx = d.dx > 0 ? 1.0 : -1.0;
+          final t = e + Offset(sx * 6 * fsz, 0);
+          final rect = Rect.fromLTWH(
+            sx > 0 ? t.dx + 2 * fsz : t.dx - 2 * fsz - tp.width - 6 * fsz,
+            t.dy - tp.height / 2 - 1 * fsz,
+            tp.width + 6 * fsz,
+            tp.height + 2 * fsz,
+          );
+          if (!bounds.contains(rect.topLeft) ||
+              !bounds.contains(rect.bottomRight)) {
+            continue;
+          }
+          if (taken.any((q) => q.overlaps(rect))) continue;
+          (box, from, elbow, end) = (rect, a, e, t);
+          break;
+        }
+        if (box != null) break;
+      }
+      if (box == null) continue; // 둘 곳이 없으면 뺀다(크기는 홀 표에)
+      taken.add(box);
+      canvas.drawLine(from!, elbow!, pen);
+      canvas.drawLine(elbow, end!, pen);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(box, Radius.circular(3 * fsz)),
+        Paint()..color = bg.withValues(alpha: 0.9),
+      );
+      tp.paint(canvas, box.topLeft + Offset(3 * fsz, 1 * fsz));
+    }
   }
 
   /// 홀 좌표 치수: 아래 줄(판 왼쪽 끝에서 가로), 오른쪽 줄(판 아래 끝에서 세로). 같은 자리는 한 번만,
@@ -433,6 +530,7 @@ class PlatePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(PlatePainter old) =>
+      old.holeSizes != holeSizes ||
       old.plan != plan ||
       old.text != text ||
       old.sub != sub ||
@@ -557,4 +655,28 @@ void plateDrawCenterLines(
     textDirection: TextDirection.ltr,
   )..layout();
   tp.paint(canvas, r + Offset(2, -tp.height / 2));
+}
+
+/// 홀 크기 글 묶음(그림·시험이 같이 쓴다): 같은 지름·장공 길이끼리 "4-φ13.5", "2-장공 13.5×40"(폭 × 전체 길이),
+/// 하나면 "φ9". 처음 나온 차례대로.
+List<(String, List<PlateHole>)> plateHoleSizeGroups(PlatePlan p) {
+  final groups = <String, List<PlateHole>>{};
+  for (final h in p.holes) {
+    groups
+        .putIfAbsent(
+          '${_f(h.dia)}|${h.slot > h.dia ? _f(h.slot) : ''}',
+          () => [],
+        )
+        .add(h);
+  }
+  return [
+    for (final g in groups.values)
+      () {
+        final h = g.first;
+        final name = h.slot > h.dia
+            ? '장공 ${_f(h.dia)}×${_f(h.slot)}'
+            : 'φ${_f(h.dia)}';
+        return (g.length > 1 ? '${g.length}-$name' : name, g);
+      }(),
+  ];
 }

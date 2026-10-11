@@ -166,6 +166,9 @@ class _PlatePageState extends State<PlatePage>
   // 판 가운데 십자선 켜고 끄기(기억, 구멍 탭·지시서 그림도 따른다)
   bool _showCenter = true;
   static const _centerKey = kPlateCenterKey;
+
+  /// 그림·가공 도면 홀 크기 글(10-11 사용자: "홀 크기 도면에 넣고 장공은 길이까지, 적용 미적용 버튼으로").
+  bool _showHoleSizes = true;
   final _scroll = ScrollController();
 
   // 좌표 입력의 가로·세로(10-10 사용자: "판 크기 선택 못 하냐"): 넣으면 모양 전체와 홀 위치를 그 크기로 늘이거나 줄인다.
@@ -447,11 +450,12 @@ class _PlatePageState extends State<PlatePage>
     final cfg = await PlateSettings.load();
     final bd = await readPlateBendTable();
     double? grid;
-    bool? center;
+    bool? center, holeSizes;
     try {
       final p = await SharedPreferences.getInstance();
       grid = p.getDouble(kPlateGridKey);
       center = p.getBool(_centerKey);
+      holeSizes = p.getBool(kPlateHoleSizeKey);
     } catch (_) {}
     if (!mounted) return;
     setState(() {
@@ -459,6 +463,7 @@ class _PlatePageState extends State<PlatePage>
       _bendTable = bd;
       if (grid != null) _grid = grid;
       if (center != null) _showCenter = center;
+      if (holeSizes != null) _showHoleSizes = holeSizes;
       final s = _bendTable[_tKey];
       if (_bm == 'saved' || (fromSettings && _bm == 'auto')) {
         _applyBendSource();
@@ -1043,6 +1048,7 @@ class _PlatePageState extends State<PlatePage>
         showCenter: _showCenter,
         showIssues: false,
         holeDims: true,
+        holeSizes: _showHoleSizes,
       ),
     );
     final more = <(String, Uint8List)>[];
@@ -1306,6 +1312,7 @@ class _PlatePageState extends State<PlatePage>
                     showCenter: _showCenter,
                     holeDims: dims,
                     tone: tone,
+                    holeSizes: _showHoleSizes,
                   ),
                   child: const SizedBox.expand(),
                 ),
@@ -1335,6 +1342,13 @@ class _PlatePageState extends State<PlatePage>
           PlateOption('pl_vm_side', '측면도', mode == 'side', () => pick('side')),
         PlateOption('pl_vm_3d', '3D', mode == '3d', () => pick('3d')),
       ]),
+      if (mode == 'flat' && p.holes.isNotEmpty)
+        PlateCanvasButton(
+          key: const Key('pl_hole_sizes'),
+          label: '홀 크기',
+          selected: _showHoleSizes,
+          onTap: _toggleHoleSizes,
+        ),
       if (mode == 'flat')
         PlateCanvasButton(
           key: const Key('pl_center'),
@@ -2578,6 +2592,14 @@ class _PlatePageState extends State<PlatePage>
   );
 
   // ── 위 그림 ──
+
+  void _toggleHoleSizes() {
+    setState(() => _showHoleSizes = !_showHoleSizes);
+    final v = _showHoleSizes;
+    SharedPreferences.getInstance()
+        .then((p) => p.setBool(kPlateHoleSizeKey, v))
+        .catchError((_) => false);
+  }
 
   void _toggleCenter() {
     setState(() => _showCenter = !_showCenter);

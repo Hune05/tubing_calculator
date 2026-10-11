@@ -20,6 +20,9 @@ import 'plate_ui.dart';
 const String kPlateSettingsKey = 'plate_settings_v1';
 const String kPlateGridKey = 'plate_editor_grid_v1';
 const String kPlateCenterKey = 'plate_center_lines_v1';
+
+/// 그림·가공 도면에 홀 크기 글("4-φ13.5", "장공 13.5×40")을 다는가(10-11, 처음은 적용).
+const String kPlateHoleSizeKey = 'plate_hole_sizes_v1';
 const String kPlateBendTableKey = 'plate_bend_table_v1';
 
 /// 원판(자재 판) 크기(이름, 가로, 세로 mm).
@@ -240,6 +243,7 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
   PlateSettings _s = PlateSettings.defaults;
   double _grid = 5;
   bool _center = true;
+  bool _holeSize = true;
   Map<String, (double, double)> _bd = {};
   bool _ready = false;
 
@@ -267,11 +271,12 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
   Future<void> _load() async {
     final s = await PlateSettings.load();
     final bd = await readPlateBendTable();
-    var grid = 5.0, center = true;
+    var grid = 5.0, center = true, holeSize = true;
     try {
       final p = await SharedPreferences.getInstance();
       grid = p.getDouble(kPlateGridKey) ?? 5;
       center = p.getBool(kPlateCenterKey) ?? true;
+      holeSize = p.getBool(kPlateHoleSizeKey) ?? true;
     } catch (_) {}
     if (!mounted) return;
     setState(() {
@@ -279,6 +284,7 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
       _bd = bd;
       _grid = grid;
       _center = center;
+      _holeSize = holeSize;
       _dias.text = s.dias.map(_f).join(', ');
       _dia.text = _f(s.defaultDia);
       for (final m in PlateMaterial.values) {
@@ -342,6 +348,14 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
     try {
       final p = await SharedPreferences.getInstance();
       await p.setDouble(kPlateGridKey, g);
+    } catch (_) {}
+  }
+
+  Future<void> _setHoleSize(bool v) async {
+    setState(() => _holeSize = v);
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setBool(kPlateHoleSizeKey, v);
     } catch (_) {}
   }
 
@@ -563,6 +577,28 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
                           '숨김',
                           !_center,
                           () => _setCenter(false),
+                        ),
+                      ]),
+                      Text(
+                        '홀 크기 글 (그림·가공 도면, 장공은 폭 × 길이)',
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: fc.textSub,
+                        ),
+                      ),
+                      PlateSegments([
+                        PlateOption(
+                          'ps_hsize_on',
+                          '적용',
+                          _holeSize,
+                          () => _setHoleSize(true),
+                        ),
+                        PlateOption(
+                          'ps_hsize_off',
+                          '미적용',
+                          !_holeSize,
+                          () => _setHoleSize(false),
                         ),
                       ]),
                     ]),
