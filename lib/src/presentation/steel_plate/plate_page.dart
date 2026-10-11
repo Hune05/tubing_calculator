@@ -1121,6 +1121,7 @@ class _PlatePageState extends State<PlatePage>
         showCenter: _showCenter,
         showIssues: false,
         holeDims: true,
+        edgeDims: true,
         holeSizes: _showHoleSizes,
       ),
     );
@@ -1379,6 +1380,9 @@ class _PlatePageState extends State<PlatePage>
             builder: (context, box) {
               // 그림 칸이 낮으면(휴대폰 세로) 홀 치수를 빼서 판이 작아지지 않게(홀 자리는 아래 표에)
               final dims = _holeDimsOn(id) && box.maxHeight >= 260;
+              // 좌표로 넣은 판은 변 길이 치수(모양·결과·보내기 탭, 칸이 넉넉할 때, 10-11)
+              final edges =
+                  (id == 'shape' || _holeDimsOn(id)) && box.maxHeight >= 260;
               final drag = id == 'bend' && _custom;
               return GestureDetector(
                 key: const Key('pl_view'),
@@ -1388,6 +1392,7 @@ class _PlatePageState extends State<PlatePage>
                   box.biggest,
                   d.localPosition,
                   holeDims: dims,
+                  edgeDims: edges,
                 ),
                 // 손가락을 댄 자리부터(움직인 뒤 자리로 잡으면 절곡선이 손가락보다 뒤처진다)
                 dragStartBehavior: DragStartBehavior.down,
@@ -1406,6 +1411,7 @@ class _PlatePageState extends State<PlatePage>
                     bg: fc.background,
                     showCenter: _showCenter,
                     holeDims: dims,
+                    edgeDims: edges,
                     tone: tone,
                     holeSizes: _showHoleSizes,
                   ),
@@ -2731,8 +2737,19 @@ class _PlatePageState extends State<PlatePage>
   };
 
   /// 그림을 눌렀을 때: 귀(평판)·꼭짓점(자유) → 귀 처리, 치수 숫자 → 그 칸, 판 안 → 구멍 넣기·고치기.
-  void _tapPreview(PlatePlan p, Size size, Offset at, {bool holeDims = false}) {
-    final lay = PlatePainterLayout.of(p, size, holeDims: holeDims);
+  void _tapPreview(
+    PlatePlan p,
+    Size size,
+    Offset at, {
+    bool holeDims = false,
+    bool edgeDims = false,
+  }) {
+    final lay = PlatePainterLayout.of(
+      p,
+      size,
+      holeDims: holeDims,
+      edgeDims: edgeDims,
+    );
     if (lay == null) return;
     if (_custom && _tabs[_tab.clamp(0, _tabs.length - 1)].$1 == 'bend') {
       final k = _blAt(p, size, at);

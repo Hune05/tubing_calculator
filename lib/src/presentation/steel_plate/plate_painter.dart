@@ -56,13 +56,17 @@ String _f2(double v) {
 class PlatePainterLayout {
   final PlatePlan plan;
   final double s, ox, oy, fontScale;
+
+  /// 변 길이 치수 줄이 차지하는 몫(화면 점). 전체 치수선·홀 위치 치수 줄을 이만큼 바깥으로 민다.
+  final double edge;
   const PlatePainterLayout._(
     this.plan,
     this.s,
     this.ox,
     this.oy,
-    this.fontScale,
-  );
+    this.fontScale, [
+    this.edge = 0,
+  ]);
 
   /// 그릴 수 없으면(크기 0 등) null.
   static PlatePainterLayout? of(
@@ -70,13 +74,16 @@ class PlatePainterLayout {
     Size size, {
     double fontScale = 1,
     bool holeDims = false,
+    bool edgeDims = false,
   }) {
     final bw = math.max(p.maxX - p.minX, 1.0);
     final bh = math.max(p.maxY - p.minY, 1.0);
     final hd = holeDims && p.holes.isNotEmpty;
-    final ml = 58.0 * fontScale, mt = 44.0 * fontScale;
-    final mr = (hd ? 54.0 : 16.0) * fontScale;
-    final mb = ((p.bends.isEmpty ? 16.0 : 44.0) + (hd ? 30.0 : 0)) * fontScale;
+    final e = edgeDims && p.vertices.length >= 3 ? 22.0 * fontScale : 0.0;
+    final ml = 58.0 * fontScale + e, mt = 44.0 * fontScale + e;
+    final mr = (hd ? 54.0 : 16.0) * fontScale + e;
+    final mb =
+        ((p.bends.isEmpty ? 16.0 : 44.0) + (hd ? 30.0 : 0)) * fontScale + e;
     final s = math.min(
       (size.width - ml - mr) / bw,
       (size.height - mt - mb) / bh,
@@ -84,7 +91,7 @@ class PlatePainterLayout {
     if (s <= 0 || !s.isFinite) return null;
     final ox = ml + (size.width - ml - mr - bw * s) / 2;
     final oy = mt + (size.height - mt - mb - bh * s) / 2;
-    return PlatePainterLayout._(p, s, ox, oy, fontScale);
+    return PlatePainterLayout._(p, s, ox, oy, fontScale, e);
   }
 
   /// 전개도 (x, y위) → 화면 (x, y아래).
@@ -99,8 +106,8 @@ class PlatePainterLayout {
   Offset get bottomRight => toScreen(Offset(plan.maxX, plan.minY));
 
   /// 전체 길이 치수선(위)의 y, 전체 폭 치수선(왼쪽)의 x.
-  double get widthDimY => topLeft.dy - 24 * fontScale;
-  double get heightDimX => topLeft.dx - 26 * fontScale;
+  double get widthDimY => topLeft.dy - 24 * fontScale - edge;
+  double get heightDimX => topLeft.dx - 26 * fontScale - edge;
 }
 
 class PlatePainter extends CustomPainter {
@@ -119,7 +126,12 @@ class PlatePainter extends CustomPainter {
     this.holeDims = false,
     this.tone = PlateTone.light,
     this.holeSizes = false,
+    this.edgeDims = false,
   });
+
+  /// 변 길이 치수(10-11 사용자: "스케치에서 넘긴 모양 도면 치수가 더 필요한데 치수가 빠진 게 보여"): 좌표로 넣은
+  /// 판(좌표 입력·직접 절곡)의 변마다 꼭짓점~꼭짓점 길이를 판 바깥쪽에 단다. 전체 치수는 그 바깥 줄로 민다.
+  final bool edgeDims;
 
   /// 홀 크기 글(10-11 사용자: "홀 크기 도면에 넣고 장공은 길이까지, 적용·미적용 버튼으로"): 같은 크기끼리 묶어
   /// 도면처럼 한 번만("4-φ13.5", "2-장공 13.5×40" = 폭 × 전체 길이), 홀에서 지시선을 뽑아 단다.
@@ -145,6 +157,7 @@ class PlatePainter extends CustomPainter {
       size,
       fontScale: fontScale,
       holeDims: holeDims,
+      edgeDims: edgeDims,
     );
     if (lay == null) return;
     final s = lay.s;
@@ -297,7 +310,7 @@ class PlatePainter extends CustomPainter {
       bold: true,
     );
     if (p.bends.isNotEmpty) {
-      final by = right.dy + 24 * fontScale;
+      final by = right.dy + 24 * fontScale + lay.edge;
       var prev = left.dx;
       var prevMm = p.minX;
       for (final b in p.bends) {
@@ -323,13 +336,198 @@ class PlatePainter extends CustomPainter {
       _holeDims(
         canvas,
         lay,
-        right.dy + (p.bends.isEmpty ? 24 : 52) * fontScale,
-        right.dx + 20 * fontScale,
+        right.dy + (p.bends.isEmpty ? 24 : 52) * fontScale + lay.edge,
+        right.dx + 20 * fontScale + lay.edge,
       );
     }
+    final edgeLabels = [
+      if (lay.edge > 0) ..._edgeDims(canvas, lay),
+      // 코너 크기 글(넘겨 받는 사람이 그림만 보고 R·C·따내기 크기를 알게, 10-11)
+      if (edgeDims && p.cornerMarks.isNotEmpty)
+        ..._cornerLabels(canvas, lay, pts, size),
+    ];
     if (holeSizes && p.holes.isNotEmpty) {
-      _holeSizes(canvas, lay, size, pts, right.dx + 20 * fontScale);
+      _holeSizes(
+        canvas,
+        lay,
+        size,
+        pts,
+        right.dx + 20 * fontScale + lay.edge,
+        edgeLabels,
+      );
     }
+  }
+
+  /// 코너 크기 글: 귀마다 판 안쪽(안 되면 바깥) 빈 곳에 "R10"·"C5"·"따냄 가로 20 × 세로 15", 귀에서 짧은 지시선.
+  List<Rect> _cornerLabels(
+    Canvas canvas,
+    PlatePainterLayout lay,
+    List<Offset> pts,
+    Size size,
+  ) {
+    final p = plan;
+    final fsz = fontScale;
+    final placed = <Rect>[];
+    final holes = [
+      for (final h in p.holes)
+        Rect.fromPoints(
+          lay.toScreen(h.p1),
+          lay.toScreen(h.p2),
+        ).inflate(math.max(h.r * lay.s, 2.5 * fsz)),
+    ];
+    final poly = [for (final q in pts) lay.toScreen(q)];
+    bool inside(Offset q) {
+      var c = false;
+      for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        final a = poly[i], b = poly[j];
+        if ((a.dy > q.dy) != (b.dy > q.dy) &&
+            q.dx < (b.dx - a.dx) * (q.dy - a.dy) / (b.dy - a.dy) + a.dx) {
+          c = !c;
+        }
+      }
+      return c;
+    }
+
+    final pen = Paint()
+      ..color = sub
+      ..strokeWidth = 1 * fsz;
+    final bounds = Offset.zero & size;
+    const dirs = [Offset(1, -1), Offset(-1, -1), Offset(1, 1), Offset(-1, 1)];
+    // 같은 처리끼리 묶어 한 번만("4-R10", 도면 관례)
+    final groups = <String, List<PlateCornerMark>>{};
+    for (final m in p.cornerMarks) {
+      groups.putIfAbsent(m.label, () => []).add(m);
+    }
+    for (final g in groups.values) {
+      final label = g.length > 1
+          ? '${g.length}-${g.first.label}'
+          : g.first.label;
+      final tp = _tp(label, text, bold: true);
+      Rect? best;
+      Offset? from;
+      for (final m in g) {
+        final c = lay.toScreen(m.at);
+        final w = tp.width + 6 * fsz, h = tp.height + 2 * fsz;
+        final reach = math.max(m.corner.a, m.corner.b) * lay.s;
+        // 판 안쪽 빈 곳 먼저, 없으면 바깥
+        for (final wantInside in const [true, false]) {
+          for (final d in dirs) {
+            final u = d / math.sqrt2;
+            final at = c + u * (reach + 14 * fsz);
+            final box = Rect.fromCenter(
+              center: at + Offset(d.dx * w / 2, d.dy * h / 2),
+              width: w,
+              height: h,
+            );
+            if (!bounds.contains(box.topLeft) ||
+                !bounds.contains(box.bottomRight)) {
+              continue;
+            }
+            if (inside(box.center) != wantInside) continue;
+            if (placed.any((r) => r.overlaps(box)) ||
+                holes.any((r) => r.overlaps(box))) {
+              continue;
+            }
+            best = box;
+            from = c + u * (reach * 0.6);
+            break;
+          }
+          if (best != null) break;
+        }
+        if (best != null) break;
+      }
+      if (best == null) continue;
+      final to = Offset(
+        best.center.dx < from!.dx ? best.right : best.left,
+        best.center.dy,
+      );
+      canvas.drawLine(from, to, pen);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(best, Radius.circular(3 * fsz)),
+        Paint()..color = bg.withValues(alpha: 0.9),
+      );
+      tp.paint(canvas, best.topLeft + Offset(3 * fsz, 1 * fsz));
+      placed.add(best);
+    }
+    return placed;
+  }
+
+  /// 변 길이 치수: 꼭짓점~꼭짓점(코너 처리 전) 길이를 변 바깥쪽 12점 자리에, 글이 겹치면 한 줄 더 바깥에.
+  /// 판 둘레 상자 변을 통째로 차지하는 변(전체 치수와 같은 값)과 절곡부를 지나는 변은 뺀다. 그린 글 자리를 돌려준다.
+  List<Rect> _edgeDims(Canvas canvas, PlatePainterLayout lay) {
+    final p = plan;
+    final v = p.vertices;
+    final n = v.length;
+    final fsz = fontScale;
+    var area2 = 0.0;
+    for (var i = 0; i < n; i++) {
+      final a = v[i], b = v[(i + 1) % n];
+      area2 += a.dx * b.dy - b.dx * a.dy;
+    }
+    final ccw = area2 >= 0;
+    final pen = Paint()
+      ..color = sub
+      ..strokeWidth = 1 * fsz;
+    final placed = <Rect>[];
+    bool full(Offset a, Offset b) {
+      const tol = 0.05;
+      final horiz = (a.dy - b.dy).abs() < tol, vert = (a.dx - b.dx).abs() < tol;
+      if (horiz &&
+          ((a.dy - p.minY).abs() < tol || (a.dy - p.maxY).abs() < tol)) {
+        return ((a.dx - b.dx).abs() - (p.maxX - p.minX)).abs() < tol;
+      }
+      if (vert &&
+          ((a.dx - p.minX).abs() < tol || (a.dx - p.maxX).abs() < tol)) {
+        return ((a.dy - b.dy).abs() - (p.maxY - p.minY)).abs() < tol;
+      }
+      return false;
+    }
+
+    for (var i = 0; i < n; i++) {
+      final a = v[i], b = v[(i + 1) % n];
+      final len = (b - a).distance;
+      if (len < 1 || full(a, b)) continue;
+      final lo = math.min(a.dx, b.dx), hi = math.max(a.dx, b.dx);
+      if (p.bends.any((z) => hi > z.start + 1e-6 && lo < z.end - 1e-6)) {
+        continue; // 절곡부를 지나는 변(전개도에서 꺾인 줄이 된다)
+      }
+      final d = (b - a) / len;
+      final nm = ccw ? Offset(d.dy, -d.dx) : Offset(-d.dy, d.dx);
+      final ns = Offset(nm.dx, -nm.dy); // 화면은 y가 아래
+      final sa = lay.toScreen(a), sb = lay.toScreen(b);
+      final along = (sb - sa) / (sb - sa).distance;
+      var ang = math.atan2(along.dy, along.dx);
+      if (ang > math.pi / 2 + 1e-6) ang -= math.pi;
+      if (ang < -math.pi / 2 - 1e-6) ang += math.pi;
+      final label = _f2(len);
+      final tp = _tp(label, text, bold: true);
+      Rect boxAt(Offset c) {
+        final w = tp.width + 6 * fsz, h = tp.height + 2 * fsz;
+        final cw = (w * math.cos(ang)).abs() + (h * math.sin(ang)).abs();
+        final ch = (w * math.sin(ang)).abs() + (h * math.cos(ang)).abs();
+        return Rect.fromCenter(center: c, width: cw, height: ch);
+      }
+
+      // 12점 자리에 두고, 글이 다른 글과 겹치면 16점 더 바깥
+      var off = 12 * fsz;
+      var mid = (sa + sb) / 2 + ns * off;
+      if (placed.any((r) => r.overlaps(boxAt(mid)))) {
+        off += 16 * fsz;
+        mid = (sa + sb) / 2 + ns * off;
+      }
+      final da = sa + ns * off, db = sb + ns * off;
+      canvas.drawLine(sa + ns * (3 * fsz), da + ns * (4 * fsz), pen);
+      canvas.drawLine(sb + ns * (3 * fsz), db + ns * (4 * fsz), pen);
+      canvas.drawLine(da, db, pen);
+      final k = 4.0 * fsz;
+      final tick = (along + ns) * (k / math.sqrt2);
+      for (final q in [da, db]) {
+        canvas.drawLine(q - tick, q + tick, pen);
+      }
+      _text(canvas, label, mid, ang, color: text, bold: true);
+      placed.add(boxAt(mid));
+    }
+    return placed;
   }
 
   /// 홀 크기 글: 크기마다 묶어 한 홀에서 지시선(사선 + 짧은 가로선) 끝에 "n-φd" 글. 다른 글·홀·그림 밖과
@@ -340,12 +538,14 @@ class PlatePainter extends CustomPainter {
     Size size,
     List<Offset> pts,
     double holeDimX,
+    List<Rect> avoid,
   ) {
     final p = plan;
     final fsz = fontScale;
     final groups = plateHoleSizeGroups(p);
     double rOf(PlateHole h) => math.max(h.r * lay.s, 2.5 * fsz);
     final taken = <Rect>[
+      ...avoid,
       for (final h in p.holes)
         Rect.fromPoints(lay.toScreen(h.p1), lay.toScreen(h.p2)).inflate(rOf(h)),
     ];
@@ -540,6 +740,7 @@ class PlatePainter extends CustomPainter {
   @override
   bool shouldRepaint(PlatePainter old) =>
       old.holeSizes != holeSizes ||
+      old.edgeDims != edgeDims ||
       old.plan != plan ||
       old.text != text ||
       old.sub != sub ||

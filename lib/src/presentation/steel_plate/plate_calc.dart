@@ -288,6 +288,21 @@ List<PlateHoleSpec> platePcd({
   ];
 }
 
+/// 도면 코너 글 하나: 귀 자리(그림), 처리, 사각 판 귀인가(따내기를 가로 × 세로로 읽는가).
+class PlateCornerMark {
+  final Offset at;
+  final PlateCorner corner;
+  final bool rect;
+  const PlateCornerMark(this.at, this.corner, {this.rect = true});
+
+  /// 도면 글: "R10", "C5", 사각 판 따내기 "따냄 가로 20 × 세로 15", 좌표 판 따내기 "따냄 앞 변 20 × 다음 변 15".
+  String get label => corner.kind == PlateCornerKind.notch
+      ? (rect
+            ? '따냄 가로 ${_f2(corner.a)} × 세로 ${_f2(corner.b <= 0 ? corner.a : corner.b)}'
+            : '따냄 앞 변 ${_f2(corner.a)} × 다음 변 ${_f2(corner.b <= 0 ? corner.a : corner.b)}')
+      : corner.label;
+}
+
 /// 모서리 처리(10-10): 직각, R(둥글게), C(빗기게 모따기), 따내기(앞 변으로 가로 [a] × 다음 변으로 [b] 사각을 따냄).
 enum PlateCornerKind { none, round, chamfer, notch }
 
@@ -684,6 +699,14 @@ class PlatePlan {
   final double cutLength;
   final int pierces;
 
+  /// 좌표로 넣은 판(좌표 입력·직접 절곡)의 꼭짓점(코너 처리 전, 그림·DXF 자리). 도면 변 길이 치수에 쓴다(10-11).
+  /// 다른 모양은 빈 목록.
+  final List<Offset> vertices;
+
+  /// 코너 처리한 귀(그림 자리)와 처리. [PlateCornerMark.rect]면 따내기 a × b가 그림 가로 × 세로,
+  /// 아니면(좌표로 넣은 판) 앞 변 × 다음 변. 도면 코너 글에 쓴다(10-11).
+  final List<PlateCornerMark> cornerMarks;
+
   double get flatLength => maxX - minX;
   double get flatWidth => maxY - minY;
   bool get isBent => faceBase.isNotEmpty;
@@ -715,6 +738,8 @@ class PlatePlan {
     this.cutouts = const [],
     this.cutLength = 0,
     this.pierces = 0,
+    this.vertices = const [],
+    this.cornerMarks = const [],
   });
 
   /// 저장 자리(돌리기 전) → 화면·DXF 자리.
@@ -914,6 +939,18 @@ PlatePlan platePlan(PlateInput i) {
   final faceSpans = <(double, double)>[];
   // 계산에 쓰는 홀(직접 절곡은 판 밖 절곡선을 뺀 면으로 다시 잡는다)
   var holeSpecs = i.holes;
+  // 좌표로 넣은 판의 꼭짓점(그림 자리, 도면 변 길이 치수용)과 코너 처리한 귀(도면 코너 글)
+  var verts = <Offset>[];
+  var marks = <PlateCornerMark>[];
+  List<PlateCornerMark> rectMarks(double w, double h, List<PlateCorner> cs) => [
+    for (final (k, q) in [
+      Offset.zero,
+      Offset(w, 0),
+      Offset(w, h),
+      Offset(0, h),
+    ].indexed)
+      if (k < cs.length && !cs[k].isNone) PlateCornerMark(q, cs[k]),
+  ];
 
   List<PlateSeg> rect(double w, double h) => [
     PlateLine(const Offset(0, 0), Offset(w, 0)),
@@ -1004,6 +1041,7 @@ PlatePlan platePlan(PlateInput i) {
                   : PlateCorner.square,
             );
       outline = w > 0 && h > 0 ? cornerRect(w, h, cs) : rect(w, h);
+      marks = rectMarks(w, h, cs);
       faceLengths = [w];
     case PlateShape.rib:
       final a = i.ribA, b = i.ribB, c = i.ribC;
@@ -1016,6 +1054,8 @@ PlatePlan platePlan(PlateInput i) {
         for (var k2 = 0; k2 < pts.length; k2++)
           PlateLine(pts[k2], pts[(k2 + 1) % pts.length]),
       ];
+      // 따낸 모서리·빗변 길이도 도면 변 치수로(10-11)
+      if (a > 0 && b > 0) verts = List.of(pts);
       faceLengths = [a];
     case PlateShape.free:
       final pts = i.points;
@@ -1023,6 +1063,12 @@ PlatePlan platePlan(PlateInput i) {
         warn('좌표 입력은 꼭짓점이 3개 이상이어야 합니다.');
       } else {
         outline = plateCornerOutline(pts, i.pointCorners, warn);
+        verts = List.of(pts);
+        marks = [
+          for (var k = 0; k < pts.length && k < i.pointCorners.length; k++)
+            if (!i.pointCorners[k].isNone)
+              PlateCornerMark(pts[k], i.pointCorners[k], rect: false),
+        ];
         if (_polyArea(pts) < 1) warn('좌표로 넣은 모양의 넓이가 없습니다. 꼭짓점을 확인하십시오.');
         final x = plateSelfCrossing(pts);
         if (x != null) {
@@ -1077,6 +1123,7 @@ PlatePlan platePlan(PlateInput i) {
           : plateOutlinePoints(outline).map((p) => p.dx).reduce(math.max);
       if (w > 0 && len > 0 && cs.any((c) => !c.isNone)) {
         outline = cornerRect(len, w, cs);
+        marks = rectMarks(len, w, cs);
         // 코너가 길이 방향으로 차지하는 몫(따내기는 가로)
         double ext(PlateCorner c) => c.isNone ? 0 : c.a;
         if (bends.isNotEmpty) {
@@ -1135,6 +1182,12 @@ PlatePlan platePlan(PlateInput i) {
           },
       ];
       final wOut = vr.map((p) => p.dx).reduce(math.max) - o.dx;
+      verts = [for (final p in vr) p - o];
+      marks = [
+        for (var k = 0; k < verts.length && k < i.pointCorners.length; k++)
+          if (!i.pointCorners[k].isNone)
+            PlateCornerMark(verts[k], i.pointCorners[k], rect: false),
+      ];
       final specs = [
         for (final b in i.bendLines)
           if (b.at > 1e-6 && b.at < wOut - 1e-6) b,
@@ -1211,6 +1264,11 @@ PlatePlan platePlan(PlateInput i) {
         return pf + (x - po);
       }
 
+      verts = [for (final q in verts) Offset(fx(q.dx), q.dy)];
+      marks = [
+        for (final m in marks)
+          PlateCornerMark(Offset(fx(m.at.dx), m.at.dy), m.corner, rect: false),
+      ];
       final cuts = [
         for (final (a, b, _, _) in zones) ...[a, b],
       ];
@@ -1269,6 +1327,22 @@ PlatePlan platePlan(PlateInput i) {
       );
     }
     Offset tr(Offset p) => plateRotate(p, rotQ) + shift;
+    verts = [for (final v in verts) tr(v)];
+    // 돌린 사각 판 따내기는 그림 가로·세로가 바뀐다
+    marks = [
+      for (final m in marks)
+        PlateCornerMark(
+          tr(m.at),
+          m.rect && rotQ.isOdd && m.corner.kind == PlateCornerKind.notch
+              ? PlateCorner(
+                  m.corner.kind,
+                  m.corner.b <= 0 ? m.corner.a : m.corner.b,
+                  m.corner.a,
+                )
+              : m.corner,
+          rect: m.rect,
+        ),
+    ];
     outline = [
       for (final s in outline)
         switch (s) {
@@ -1514,6 +1588,8 @@ PlatePlan platePlan(PlateInput i) {
     problems: problems,
     cutouts: cutouts,
     cutLength: cutLen,
+    vertices: verts,
+    cornerMarks: marks,
     pierces: (outline.isEmpty ? 0 : 1) + cutHoles.length + cutouts.length,
   );
 }
