@@ -120,6 +120,16 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   ];
   final List<double> _ft = [90, -90, 90, -90, 90, -90];
 
+  /// 자유 꺾기 꺾기마다 각도 칸(10-12, 단추 대신). 방향(부호)은 [_ft], 크기는 칸 글이 맞을 때(0 < 각 < 180) [_ft]에 넣는다.
+  final List<TextEditingController> _fa = [
+    for (var i = 0; i < kBusbarFreeMax; i++) TextEditingController(text: '90'),
+  ];
+  static bool _okFreeAngle(double? v) => v != null && v > 0 && v < 180;
+  void _readFreeAngle(int i) {
+    final v = readNum(_fa[i]);
+    if (_okFreeAngle(v)) _ft[i] = _ft[i] < 0 ? -v! : v!;
+  }
+
   Timer? _saveTimer;
   bool _draftReady = false;
 
@@ -150,6 +160,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     }
     _angleC.dispose();
     for (final c in _fs) {
+      c.dispose();
+    }
+    for (final c in _fa) {
       c.dispose();
     }
     super.dispose();
@@ -228,10 +241,13 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           if (ftv is List) {
             for (var i = 0; i < _ft.length && i < ftv.length; i++) {
               final v = ftv[i];
-              if (v is num && kBusbarBendAngles.contains(v.abs().toDouble())) {
+              if (v is num && _okFreeAngle(v.abs().toDouble())) {
                 _ft[i] = v.toDouble();
               }
             }
+          }
+          for (var i = 0; i < _fa.length; i++) {
+            _fa[i].text = fmt(_ft[i].abs(), 3);
           }
         }
       }
@@ -260,6 +276,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     String keyPrefix,
     String Function(double) label, {
     String Function(double)? keyOf,
+    VoidCallback? then,
   }) async {
     final v = await showPresetMenu(
       btn,
@@ -274,7 +291,10 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       ],
     );
     if (v == null || !mounted) return;
-    _set(() => c.text = v);
+    _set(() {
+      c.text = v;
+      then?.call();
+    });
     _saveSoon();
   }
 
@@ -595,15 +615,38 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       onEdit: _saveSoon,
     ),
     for (var i = 0; i < _nBends; i++) ...[
-      elecChipGroup('꺾기 ${i + 1} 각도', '꺾은 뒤 진행 방향이 바뀐 각도입니다.', [
-        for (final a in kBusbarBendAngles)
-          calcChip(
-            'bb_fa_${i}_${a.toInt()}',
-            '${fmt(a)}°',
-            _ft[i].abs() == a,
-            () => _set(() => _ft[i] = _ft[i] < 0 ? -a : a),
+      elecField(
+        'bb_fa_$i',
+        '꺾기 ${i + 1} 각도 (°)',
+        _fa[i],
+        '꺾은 뒤 진행 방향이 바뀐 각도입니다(0°보다 크고 180°보다 작게). 숫자를 바로 넣거나 ▼에서 고릅니다.',
+        onEdit: () {
+          _readFreeAngle(i);
+          _saveSoon();
+        },
+        trailing: PresetMenuButton(
+          buttonKey: Key('bb_fa_${i}_menu'),
+          tooltip: '자주 쓰는 각도',
+          onOpen: (btn) => _pickPreset(
+            btn,
+            _fa[i],
+            kBusbarBendAngles,
+            'bb_fa_${i}_',
+            (a) => '${fmt(a)}°',
+            keyOf: (a) => '${a.toInt()}',
+            then: () => _readFreeAngle(i),
           ),
-      ]),
+        ),
+      ),
+      if (!_okFreeAngle(readNum(_fa[i])))
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            '0°보다 크고 180°보다 작은 각도를 넣으십시오. 지금 계산은 ${fmt(_ft[i].abs())}°입니다.',
+            key: Key('bb_fa_${i}_bad'),
+            style: TextStyle(fontSize: 13, color: fc.danger, height: 1.35),
+          ),
+        ),
       elecChipGroup(
         '꺾기 ${i + 1} 방향',
         '위로(청록)와 아래로(주황)는 그림의 옆모습에서 꺾이는 쪽입니다. 같은 쪽으로 이어 꺾으면 ㄷ자·계단, 번갈아 꺾으면 ㄹ자·오프셋입니다.',

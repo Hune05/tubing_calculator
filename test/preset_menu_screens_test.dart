@@ -80,6 +80,21 @@ void main() {
     await _done(tester);
   });
 
+  testWidgets('부스바 자유 꺾기: 꺾기마다 각도 칸(목록 밖 75°), 맞지 않으면 칸 아래 알림', (tester) async {
+    String? sent;
+    await _open(tester, BusbarBendPage(share: (t) async => sent = t));
+    await _tap(tester, 'bb_k_free');
+    await _type(tester, 'bb_fa_0', '75');
+    expect(find.byKey(const Key('bb_fa_0_bad')), findsNothing);
+    await _type(tester, 'bb_fa_1', '200');
+    expect(find.byKey(const Key('bb_fa_1_bad')), findsOneWidget);
+    await _type(tester, 'bb_fa_1', '30');
+    await _tap(tester, 'bb_share');
+    expect(sent, contains('위 75°'));
+    expect(sent, contains('아래 30°'));
+    await _done(tester);
+  });
+
   testWidgets('접지바 가공: 두께·폭 ▼', (tester) async {
     await _open(tester, const GroundBarPage());
     await _tap(tester, 'gb_tv_menu');
