@@ -1365,7 +1365,9 @@ class _PlatePageState extends State<PlatePage>
     if (p == null) {
       return Center(
         child: Text(
-          '두께와 치수를 넣으면 그림이 나옵니다.',
+          _num(_t) <= 0
+              ? '두께를 넣으면 그림이 나옵니다(모양 탭 두께 칸).'
+              : '두께와 치수를 넣으면 그림이 나옵니다.',
           style: TextStyle(color: fc.textSub, fontWeight: FontWeight.w700),
         ),
       );
@@ -1574,61 +1576,84 @@ class _PlatePageState extends State<PlatePage>
     },
   );
 
-  /// 두께: 큰 칸이 주인공, 칸 안 ▼에 재질별 자주 쓰는 두께(설정) — 10-12 사용자 "두께 입력 창이 메인이 되고
-  /// 퀵 버튼을 드롭다운으로". 절단 + 절곡은 업체 공제값을 저장해 둔 두께에 "업체 값".
-  Widget _thicknessRow() {
+  /// 두께 칸의 ▼ 목록: 재질별 자주 쓰는 두께(설정), 지금 두께가 목록에 없으면 맨 위에 "목록에 넣기",
+  /// 절단 + 절곡은 업체 공제값을 저장해 둔 두께에 "업체 값", 맨 아래 "목록 고치기 (설정)".
+  /// 열기 전에 칸을 위쪽으로 올려 목록이 칸 아래에 펼쳐지게 한다(폰에서 칸을 덮던 것, 10-12).
+  Future<void> _openThicknessMenu(BuildContext btn) async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    await Scrollable.ensureVisible(
+      btn,
+      alignment: 0.1,
+      duration: const Duration(milliseconds: 180),
+    );
+    if (!btn.mounted || !mounted) return;
+    final box = btn.findRenderObject() as RenderBox?;
+    final overlay = Overlay.of(btn).context.findRenderObject() as RenderBox?;
+    if (box == null || overlay == null) return;
+    final tl = box.localToGlobal(Offset.zero, ancestor: overlay);
+    final top = tl.dy + box.size.height + 4;
+    // 칸 아래 남은 높이에 맞춰(넘치면 목록 안에서 스크롤) — 위로 밀려 칸을 덮지 않게. 너무 좁으면 그냥 띄운다.
+    final below =
+        overlay.size.height - top - MediaQuery.paddingOf(btn).bottom - 8;
     final opts = _cfg.thick[_mat] ?? const <String>[];
-    final cur = _t.text.trim();
-    final menu = PopupMenuButton<String>(
-      key: const Key('pl_t_menu'),
-      tooltip: '자주 쓰는 두께',
-      position: PopupMenuPosition.under,
-      // 맨손으로 누르기 좋게 칸 높이만 한 색 단추(10-12 사용자 "좀 더 크게")
-      child: Container(
-        width: 48,
-        height: 40,
-        margin: const EdgeInsets.only(right: 4),
-        decoration: BoxDecoration(
-          color: fc.brandSoft,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Icon(
-          Icons.keyboard_arrow_down_rounded,
-          size: 34,
-          color: fc.brand,
-        ),
+    final cur = _num(_t) > 0 ? plateThicknessKey(_num(_t)) : '';
+    final v = await showMenu<String>(
+      context: btn,
+      position: RelativeRect.fromLTRB(
+        tl.dx + box.size.width - 220,
+        top,
+        overlay.size.width - tl.dx - box.size.width,
+        overlay.size.height - top,
       ),
-      onSelected: (v) {
-        if (v.isEmpty) {
-          _openSettings();
-          return;
-        }
-        _setThickness(v);
-      },
-      itemBuilder: (_) => [
-        for (final v in opts)
+      constraints: BoxConstraints(
+        minWidth: 220,
+        maxHeight: below >= 150 ? below : double.infinity,
+      ),
+      items: [
+        if (cur.isNotEmpty && !opts.contains(cur)) ...[
           PopupMenuItem<String>(
-            key: Key('pl_t_$v'),
-            value: v,
+            key: const Key('pl_t_add'),
+            value: '+',
+            child: Row(
+              children: [
+                Icon(Icons.add_rounded, size: 20, color: fc.brand),
+                const SizedBox(width: 6),
+                Text(
+                  '${cur}T 목록에 넣기',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: fc.brand,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const PopupMenuDivider(),
+        ],
+        for (final o in opts)
+          PopupMenuItem<String>(
+            key: Key('pl_t_$o'),
+            value: o,
             child: Row(
               children: [
                 SizedBox(
                   width: 26,
-                  child: cur == v
+                  child: cur == o
                       ? Icon(Icons.check_rounded, size: 18, color: fc.brand)
                       : null,
                 ),
                 Text(
-                  '${v}T',
+                  '${o}T',
                   style: TextStyle(
                     fontSize: 16,
-                    fontWeight: cur == v ? FontWeight.w800 : FontWeight.w600,
+                    fontWeight: cur == o ? FontWeight.w800 : FontWeight.w600,
                     color: fc.text,
                   ),
                 ),
                 if (_bend &&
                     _bendTable.containsKey(
-                      plateThicknessKey(double.tryParse(v) ?? 0),
+                      plateThicknessKey(double.tryParse(o) ?? 0),
                     )) ...[
                   const SizedBox(width: 8),
                   Text(
@@ -1654,6 +1679,73 @@ class _PlatePageState extends State<PlatePage>
         ),
       ],
     );
+    if (v == null || !mounted) return;
+    if (v.isEmpty) {
+      await _openSettings();
+      return;
+    }
+    if (v == '+') {
+      // 지금 두께를 그 재질 목록에 넣고 설정에 저장(설정 화면에 가지 않고, 10-12)
+      final next = _cfg.copyWith(
+        thick: {
+          ..._cfg.thick,
+          _mat: parsePlateThicknesses([...opts, cur].join(',')),
+        },
+      );
+      await next.save();
+      if (!mounted) return;
+      setState(() => _cfg = next);
+      showAppSnack(
+        context,
+        '${cur}T를 ${kPlateMaterials[_mat]!.$1} 두께 목록에 넣었습니다.',
+      );
+      return;
+    }
+    _setThickness(v);
+  }
+
+  /// 절단 + 절곡: 두께 칸 아래 한 줄 — 이 두께의 절곡 공제값 기준(업체 값·일반값·직접).
+  Widget? _thicknessBendLine() {
+    if (!_bend || _num(_t) <= 0) return null;
+    final saved = _bendTable[_tKey];
+    final txt = switch (_bm) {
+      'manual' => '절곡 공제값: 절곡 탭에 직접 넣은 값',
+      _ when saved != null =>
+        '절곡 공제값: ${_tKey}T 업체 값(내R ${fmt(saved.$1)} · 90° 공제 ${fmt(saved.$2)})',
+      _ => '절곡 공제값: ${_tKey}T 업체 값 없음, 일반값(내R = 두께, K값 0.33)',
+    };
+    return Text(
+      txt,
+      key: const Key('pl_t_bend'),
+      style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
+    );
+  }
+
+  /// 두께: 큰 칸이 주인공, 칸 안 ▼에 재질별 자주 쓰는 두께(설정) — 10-12 사용자 "두께 입력 창이 메인이 되고
+  /// 퀵 버튼을 드롭다운으로". 옆 칸은 수량(빈 반쪽을 쓰게). 비면 칸 테두리를 진하게(그림이 안 나오는 까닭).
+  Widget _thicknessRow() {
+    // 맨손으로 누르기 좋게 칸 높이만 한 색 단추(10-12 사용자 "좀 더 크게")
+    final menu = Builder(
+      builder: (btn) => InkWell(
+        key: const Key('pl_t_menu'),
+        borderRadius: BorderRadius.circular(8),
+        onTap: () => _openThicknessMenu(btn),
+        child: Container(
+          width: 48,
+          height: 40,
+          margin: const EdgeInsets.only(right: 4),
+          decoration: BoxDecoration(
+            color: fc.brandSoft,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 34,
+            color: fc.brand,
+          ),
+        ),
+      ),
+    );
     return plateRow([
       PlateNumField(
         fieldKey: 'pl_t',
@@ -1661,16 +1753,17 @@ class _PlatePageState extends State<PlatePage>
         controller: _t,
         unit: 'T',
         hint: '숫자 또는 ▼',
+        highlight: _num(_t) <= 0,
         trailing: menu,
         onChanged: (_) => _set(() {
           if (_bend) _applyBendSource(keepManual: true);
         }),
       ),
-      const SizedBox.shrink(),
+      _f('pl_qty', '수량', _qty, unit: '장'),
     ]);
   }
 
-  // ① 모양: 모양 · 재질·두께 · 치수 · 네 귀 · 수량·이름
+  // ① 모양: 모양 · 치수 · 네 귀 · 재질·두께·수량 · 이름
   Widget _shapePanel(PlatePlan? p) {
     final shapes = _bend ? kPlateBendShapes : kPlateCutShapes;
     final bent = plateShapeBends(_shape);
@@ -1678,7 +1771,9 @@ class _PlatePageState extends State<PlatePage>
     return PlatePanel(
       title: '모양',
       // 고른 값은 아래 칸에 다 보이므로 상태 줄은 안 되는 이유만
-      status: p == null ? '두께와 치수를 넣으십시오.' : (bad ? p.problems.first : null),
+      status: p == null
+          ? (_num(_t) <= 0 ? '두께를 넣으십시오.' : '두께와 치수를 넣으십시오.')
+          : (bad ? p.problems.first : null),
       statusKey: const Key('pl_shape_status'),
       statusColor: bad ? fc.danger : null,
       actions: [
@@ -1719,7 +1814,7 @@ class _PlatePageState extends State<PlatePage>
         if (_shape == PlateShape.flat) PlateSection('네 코너', _cornerRows()),
         // 10-11 사용자: "절곡 절단에서는 모서리 따는 기능이 없나?" — 전개도 네 귀(1면 끝·마지막 면 끝)
         if (bent && !_custom) PlateSection('네 코너 (전개도)', _cornerRows()),
-        PlateSection('재질·두께', [
+        PlateSection('재질·두께·수량', [
           PlateSegments([
             for (final m in PlateMaterial.values)
               PlateOption(
@@ -1730,22 +1825,17 @@ class _PlatePageState extends State<PlatePage>
               ),
           ]),
           _thicknessRow(),
+          ?_thicknessBendLine(),
         ]),
-        PlateSection('수량·이름', [
-          plateRow(
-            [
-              _f('pl_qty', '수량', _qty, unit: '장'),
-              PlateNumField(
-                fieldKey: 'pl_job',
-                label: '품명 (선택)',
-                controller: _job,
-                unit: null,
-                text: true,
-                hint: '도면·파일 이름',
-                onChanged: (_) => _saveSoon(),
-              ),
-            ],
-            flex: const [2, 5],
+        PlateSection('이름', [
+          PlateNumField(
+            fieldKey: 'pl_job',
+            label: '품명 (선택)',
+            controller: _job,
+            unit: null,
+            text: true,
+            hint: '도면·파일 이름',
+            onChanged: (_) => _saveSoon(),
           ),
         ]),
       ],
