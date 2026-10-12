@@ -125,7 +125,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
   /// 숫자 칸(철판 가공과 같은 모양). [onEdit]은 칸 글이 바뀔 때 먼저 한다(측판·폭·각도·R 읽기).
   Widget _f(
     String key,
-    String label,
+    String? label,
     TextEditingController c, {
     String? unit = 'mm',
     String? hint,
@@ -1086,7 +1086,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
               _row([
                 _f(
                   'tr_ang',
-                  '꺾는 각도',
+                  null, // 묶음 제목이 "꺾는 각도"
                   _angleC,
                   unit: '°',
                   onEdit: _readDims,
