@@ -326,7 +326,7 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '같은 규격 잔재를 ㄱ자 90°로 절곡한 뒤 측정해 넣으십시오. 바깥 치수는 절곡된 바깥 모서리까지의 길이입니다.',
+              '같은 규격 잔재를 90°로 한 번 절곡한 뒤 측정해 넣으십시오. 바깥 치수는 절곡된 바깥 모서리까지의 길이입니다.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 10),

@@ -1,4 +1,4 @@
-// 부스바 가공 화면(10-03, 10-12 철판 가공처럼 위 그림 + 아래 탭): 기본값 ㄱ자, ㄷ자·Z자 바꾸기, 반경 경고,
+// 부스바 가공 화면(10-03, 10-12 철판 가공처럼 위 그림 + 아래 탭): 기본값 1회 절곡, 2회 절곡·오프셋 바꾸기, 반경 경고,
 // 카톡 글, 입력값 남기기, 연속 절곡. 칸은 모양·부스바 탭, 결과는 결과 탭, 카톡·PDF는 보내기 탭.
 // 10-12 용어 정리(docs/가공_용어_정리_1012.md): 절곡·내R·K값·UP/DOWN·측면도·전개도·전개 길이.
 import 'package:flutter/material.dart';
@@ -61,7 +61,7 @@ void main() {
     },
   );
 
-  testWidgets('ㄷ자는 마킹 2곳, Z자는 높이가 낮으면 알림', (tester) async {
+  testWidgets('2회 절곡은 마킹 2곳, 오프셋은 높이가 낮으면 알림', (tester) async {
     await _open(tester);
     await _tap(tester, 'bb_k_u');
     await _tab(tester, 'result');
@@ -87,7 +87,7 @@ void main() {
     expect(find.textContaining('경사부 길이'), findsOneWidget);
   });
 
-  testWidgets('ㄱ자 다리가 반경보다 짧으면 절곡할 수 없다고 알린다(10-07)', (tester) async {
+  testWidgets('1회 절곡 다리가 반경보다 짧으면 절곡할 수 없다고 알린다(10-07)', (tester) async {
     await _open(tester);
     await _tab(tester, 'bar');
     await _type(tester, 'bb_t', '10');
@@ -121,7 +121,7 @@ void main() {
     await _type(tester, 'bb_t', '10');
     await _tab(tester, 'send');
     await _tap(tester, 'bb_share');
-    expect(sent, startsWith('[부스바 절곡] ㄱ자 10T×50mm 평절곡'));
+    expect(sent, startsWith('[부스바 절곡] 1회 절곡 10T×50mm 평절곡'));
     expect(sent, contains('전개 길이:'));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
@@ -221,7 +221,7 @@ void main() {
     expect(find.byKey(const Key('bb_shape_view')), findsOneWidget);
   });
 
-  testWidgets('수직절곡 ㄷ자: 바닥이 반경보다 짧으면 그림 아래·제목 줄에도 알린다(10-12)', (tester) async {
+  testWidgets('수직절곡 2회 절곡: 바닥이 반경보다 짧으면 그림 아래·제목 줄에도 알린다(10-12)', (tester) async {
     await _open(tester);
     await _tab(tester, 'bar');
     await _type(tester, 'bb_t', '6');

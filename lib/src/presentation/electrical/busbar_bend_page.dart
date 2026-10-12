@@ -1,4 +1,4 @@
-// 부스바 가공(10-03): 구리 부스바를 현장에서 ㄱ자·ㄷ자·Z자로 절곡할 때 전개 길이와 절곡 시작선.
+// 부스바 가공(10-03): 구리 부스바를 현장에서 1회·2회·오프셋·연속으로 절곡할 때 전개 길이와 절곡 시작선.
 // 계산은 busbar_bend.dart. 10-12 화면 틀을 철판 가공처럼: 위 그림(측면도·전개도) + 아래 탭(모양·부스바·결과·보내기).
 // 10-12 용어는 docs/가공_용어_정리_1012.md(철판 가공과 같은 말).
 import 'dart:async';
@@ -32,9 +32,10 @@ Future<void> _defaultShare(String text) async {
 enum BusbarBendKind { l, u, z, free }
 
 String busbarBendKindLabel(BusbarBendKind k) => switch (k) {
-  BusbarBendKind.l => 'ㄱ자',
-  BusbarBendKind.u => 'ㄷ자',
-  BusbarBendKind.z => 'Z자 (오프셋)',
+  // 10-13: 모양 이름(ㄱ자·ㄷ자)은 90°일 때만 맞아 45°로 두면 이상했다 → 절곡 횟수로
+  BusbarBendKind.l => '1회 절곡',
+  BusbarBendKind.u => '2회 절곡',
+  BusbarBendKind.z => '오프셋',
   BusbarBendKind.free => '연속 절곡',
 };
 
@@ -70,7 +71,7 @@ double busbarMinRadius(double thickness) => thickness <= 10
     : (thickness <= 25 ? 1.5 * thickness : 2 * thickness);
 
 const List<String> kBusbarBendBasis = [
-  '식: 중립선 반경 ρ = r + k·d(r = 내R, k = K값, d = 절곡 방향 판 두께), 셋백 s = ρ·tan(θ/2), 호 길이 = ρ·θ. 전개 길이 = 꼭짓점 사이 길이의 합 − Σ(2s − 호 길이). 90° ㄱ자 한 번은 일반 공제값 식 BD = 2(r + t) − (π/2)(r + k·t)와 같습니다.',
+  '식: 중립선 반경 ρ = r + k·d(r = 내R, k = K값, d = 절곡 방향 판 두께), 셋백 s = ρ·tan(θ/2), 호 길이 = ρ·θ. 전개 길이 = 꼭짓점 사이 길이의 합 − Σ(2s − 호 길이). 90° 1회 절곡은 일반 공제값 식 BD = 2(r + t) − (π/2)(r + k·t)와 같습니다.',
   'K값: 구리 부스바는 0.33~0.5(Rittal·payapress 두 자료가 같은 범위)입니다. 기본 0.4는 그 가운데 값이라, 잔재로 시험 절곡해 실측으로 맞추십시오.',
   '최소 내R: CDA(Copper Development Association) Pub.22 표 6 한 곳 자료입니다. 두께 10mm 이하 1배, 11~25mm 1.5배, 26~50mm 2배. 재질(연질·경질)과 상관없이 같습니다.',
   '수직절곡(edgewise)은 값을 확인한 자료를 못 찾아 반경 경고를 하지 않습니다. 폭이 넓을수록 큰 반경이 필요하니 잔재로 시험 절곡해 확인하십시오.',
@@ -105,7 +106,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   double _k = 0.4;
   double _spring = 1.0; // 스프링백 비율(기계 세팅 ÷ 목표), 1이면 보정 없음
   String? _profileName; // 적용 중인 벤더 프로필 이름
-  /// 절곡 각도 칸(ㄱ자·Z자). 0 < 각 < 180만 계산.
+  /// 절곡 각도 칸(1회 절곡·오프셋). 0 < 각 < 180만 계산.
   final _angleC = TextEditingController(text: '90');
   double get _angle => readNum(_angleC) ?? 0;
   bool get _angleOk => _angle > 0 && _angle < 180;
@@ -449,10 +450,10 @@ class _BusbarBendPageState extends State<BusbarBendPage>
 
   String _savedSummary(Map<String, dynamic> d) {
     final kd = switch (d['kind']) {
-      'u' => 'ㄷ자',
-      'z' => 'Z자',
+      'u' => '2회 절곡',
+      'z' => '오프셋',
       'free' => '연속 절곡 ${d['nb'] ?? ''}곳',
-      _ => 'ㄱ자',
+      _ => '1회 절곡',
     };
     final pl = d['plane'] == 'edge' ? '수직절곡' : '평절곡';
     return '${d['t'] ?? ''}T×${d['w'] ?? ''} · $kd · $pl';
@@ -786,7 +787,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       statusColor: bad ? fc.danger : null,
       actions: [
         plateHelpButton(context, 'bb_help_shape', '모양 탭', [
-          'ㄱ자: 한 번 절곡합니다. ㄷ자: 같은 방향으로 두 번 절곡합니다. Z자: 반대 방향으로 두 번 절곡합니다(오프셋, 높이를 맞춰 비켜감). 연속 절곡: 최대 6곳까지 곳마다 각도·방향을 골라 이어서 절곡합니다(계단·ㄹ자 등).',
+          '1회 절곡: 한 번 절곡합니다(90°면 ㄱ자). 2회 절곡: 같은 방향으로 두 번 절곡합니다(90°면 ㄷ자). 오프셋: 반대 방향으로 두 번 절곡해 높이를 맞춰 비켜갑니다(Z자). 연속 절곡: 최대 6곳까지 곳마다 각도·방향을 골라 이어서 절곡합니다(계단·ㄹ자 등).',
           '평절곡: 넓은 면이 절곡됩니다(두께 방향). 수직절곡(edgewise): 폭 방향으로 절곡해 두께 면을 세웁니다. 수직절곡은 판 두께 자리에 폭을 씁니다.',
           '치수 기준은 둘입니다. 바깥 치수는 절곡된 바깥 모서리까지, 안쪽 치수는 안쪽 모서리까지 잽니다.',
           '절곡 각도: 절곡한 뒤 진행 방향이 바뀐 각도입니다. 90°는 직각. 숫자를 바로 넣거나 ▼에서 고릅니다.',

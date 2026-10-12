@@ -159,7 +159,7 @@ void main() {
     await tester.tap(find.byKey(const Key('ss_save_ok')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ss_saved_8×60 시험')), findsOneWidget);
-    expect(find.textContaining('8T×60 · Z자 · 평절곡'), findsOneWidget);
+    expect(find.textContaining('8T×60 · 오프셋 · 평절곡'), findsOneWidget);
     Navigator.of(
       tester.element(find.byKey(const Key('ss_saved_8×60 시험'))),
     ).pop();

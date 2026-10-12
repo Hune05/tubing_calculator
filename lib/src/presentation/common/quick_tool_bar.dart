@@ -256,7 +256,7 @@ final List<QuickToolDef> kQuickTools = [
     '부스바 가공',
     AppGlyph.busbarBend,
     (_) => const BusbarBendPage(),
-    subtitle: 'ㄱ·ㄷ·Z·연속 절곡 전개 길이와 절곡 시작선',
+    subtitle: '1회·2회·오프셋·연속 절곡 전개 길이와 절곡 시작선',
     group: '전기',
   ),
   QuickToolDef(
@@ -402,7 +402,8 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
 
   NavigatorState get _nav =>
       widget.navigatorKey?.currentState ?? Navigator.of(context);
-  BuildContext get _navContext => widget.navigatorKey?.currentContext ?? context;
+  BuildContext get _navContext =>
+      widget.navigatorKey?.currentContext ?? context;
 
   @override
   void didUpdateWidget(QuickToolBarHost old) {

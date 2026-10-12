@@ -1703,7 +1703,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                       _buildMenuButton(
                         context: context,
                         title: "부스바 가공",
-                        subtitle: "ㄱ·ㄷ·Z·연속 절곡 전개 길이와 절곡 시작선",
+                        subtitle: "1회·2회·오프셋·연속 절곡 전개 길이와 절곡 시작선",
                         icon: AppGlyph.busbarBend,
                         onTap: () {
                           HapticFeedback.lightImpact();
