@@ -64,7 +64,7 @@ void main() {
   });
 
   group('설계 요청서', () {
-    test('요청 표·요청 사항을 앞에, 업체 몫(원자재·일반 노트·가공비)은 뺌, 서명 칸은 요청·접수·확인', () {
+    test('요청 표·요청 사항을 앞에, 업체 몫(원자재·일반 노트·가공비)·서명 칸은 뺌', () {
       final d = designPdfFrom(
         _vendor(),
         docTitle: '형강 브라켓 설계 요청서',
@@ -95,7 +95,7 @@ void main() {
       expect(d.leadSections.single.lines, ['배관 2줄', '보온 50 포함']);
       expect(d.sections.map((x) => x.title), ['자를 것·판', '구멍']);
       expect(d.drawingCaption, startsWith('현장에서 정한 모양(참고)'));
-      expect(d.signs, ['요청', '접수', '확인']);
+      expect(d.signs, isEmpty); // 사내라 서명 칸 없음
       expect(d.author, '홍길동');
       expect(d.notes, ['가로대 구멍이 기둥 바로 위']);
       expect(d.photos.length, 1);

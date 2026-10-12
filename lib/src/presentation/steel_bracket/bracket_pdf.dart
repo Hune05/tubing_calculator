@@ -63,7 +63,7 @@ class BracketPdfInput {
   /// 현장 사진(제목, JPG·PNG). 표 다음에 두 장씩(설계 요청서, 10-12).
   final List<(String, Uint8List)> photos;
 
-  /// 맨 아래 서명 칸 이름. 첫 칸에 [author].
+  /// 맨 아래 서명 칸 이름. 첫 칸에 [author]. 비우면 서명 칸 없음.
   final List<String> signs;
 
   /// 요약 표 바로 다음(그림 앞)에 두는 구역(설계 요청서의 요청 사항).
@@ -358,43 +358,45 @@ Future<Uint8List> buildBracketPdf(
             ),
           ),
         ],
-        pw.SizedBox(height: 16),
-        pw.Row(
-          children: [
-            for (final who in input.signs)
-              pw.Expanded(
-                child: pw.Container(
-                  height: 44,
-                  margin: const pw.EdgeInsets.only(right: 6),
-                  padding: const pw.EdgeInsets.all(4),
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: _line, width: 0.6),
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        who,
-                        style: const pw.TextStyle(fontSize: 8, color: _grey),
-                      ),
-                      if (who == input.signs.first &&
-                          input.author.trim().isNotEmpty)
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.only(top: 6),
-                          child: pw.Text(
-                            input.author.trim(),
-                            style: const pw.TextStyle(
-                              fontSize: 10,
-                              color: _ink,
+        // 서명 칸(비우면 없음 — 사내 설계 요청서는 안 넣는다, 10-12 사용자)
+        if (input.signs.isNotEmpty) pw.SizedBox(height: 16),
+        if (input.signs.isNotEmpty)
+          pw.Row(
+            children: [
+              for (final who in input.signs)
+                pw.Expanded(
+                  child: pw.Container(
+                    height: 44,
+                    margin: const pw.EdgeInsets.only(right: 6),
+                    padding: const pw.EdgeInsets.all(4),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: _line, width: 0.6),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          who,
+                          style: const pw.TextStyle(fontSize: 8, color: _grey),
+                        ),
+                        if (who == input.signs.first &&
+                            input.author.trim().isNotEmpty)
+                          pw.Padding(
+                            padding: const pw.EdgeInsets.only(top: 6),
+                            child: pw.Text(
+                              input.author.trim(),
+                              style: const pw.TextStyle(
+                                fontSize: 10,
+                                color: _ink,
+                              ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-          ],
-        ),
+            ],
+          ),
       ],
     ),
   );

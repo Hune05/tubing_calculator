@@ -571,7 +571,7 @@ Future<List<(String, Uint8List)>> designPhotoBytes(List<String> paths) async {
   return out;
 }
 
-/// 업체용 지시서 입력을 설계 요청서로: 맨 위 요청 표·요청 사항, 그림·표는 참고, 업체 몫(원자재·작업 노트·가공비) 뺌.
+/// 업체용 지시서 입력을 설계 요청서로: 맨 위 요청 표·요청 사항, 그림·표는 참고, 업체 몫(원자재·작업 노트·가공비)·서명 칸 뺌.
 BracketPdfInput designPdfFrom(
   BracketPdfInput v, {
   required String docTitle,
@@ -623,7 +623,8 @@ BracketPdfInput designPdfFrom(
     photos: photos,
     notes: v.notes,
     author: requester,
-    signs: const ['요청', '접수', '확인'],
+    // 사내로 던지는 것이라 서명 칸(요청·접수·확인)은 안 넣는다(10-12 사용자 "사내에 보낼 때는 아래 요청 이런 거 필요 없어")
+    signs: const [],
   );
 }
 
