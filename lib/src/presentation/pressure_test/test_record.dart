@@ -231,11 +231,13 @@ class PtVerdict {
   final double? testKpa;
   final double? startKpa;
 
-  /// 규정 최소·최대(공압) 시험압력과 종료 압력(10-13). 최소가 있으면 시작·종료 압력이 최소 이상인지,
-  /// 최대가 있으면 시작 압력이 최대 이하인지 본다. 최소를 저장하지 않은 옛 기록은 보지 않는다.
+  /// 규정 최소·최대(공압) 시험압력과 종료 압력·측정 중 가장 높은 압력(10-13). 최소가 있으면 시작·종료
+  /// 압력이 최소 이상인지, 최대가 있으면 측정한 압력이 모두 최대 이하인지 본다(A11 실기: 공압 최대
+  /// 13.3 bar 시험이 종료 30 bar로 합격이었다). 최소를 저장하지 않은 옛 기록은 보지 않는다.
   final double? minKpa;
   final double? maxKpa;
   final double? endKpa;
+  final double? peakKpa;
 
   const PtVerdict({
     required this.medium,
@@ -254,6 +256,7 @@ class PtVerdict {
     this.minKpa,
     this.maxKpa,
     this.endKpa,
+    this.peakKpa,
   });
 
   /// 시작 압력이 시험압력 이상인지. 둘 중 하나라도 없으면 null.
@@ -272,9 +275,9 @@ class PtVerdict {
     return p >= m * (1 - 1e-3);
   }
 
-  /// 시작 압력이 규정 최대 시험압력(공압) 이하인지.
-  bool? get startMaxOk {
-    final m = maxKpa, p = startKpa;
+  /// 측정한 압력(시작·중간·종료)이 모두 규정 최대 시험압력(공압) 이하인지.
+  bool? get peakMaxOk {
+    final m = maxKpa, p = peakKpa;
     if (m == null || p == null || m <= 0) return null;
     return p <= m * (1 + 1e-3);
   }
@@ -308,7 +311,7 @@ class PtVerdict {
         dropOk == false ||
         startOk == false ||
         startMinOk == false ||
-        startMaxOk == false ||
+        peakMaxOk == false ||
         endMinOk == false) {
       return false;
     }
@@ -327,8 +330,8 @@ class PtVerdict {
         '시작 압력 ${ptPressure(startKpa!, u)}: 최소 시험압력 ${ptPressureUp(minKpa!, u)} 미만'
       else if (startOk == false)
         '시작 압력 ${ptPressure(startKpa!, u)}: 시험압력 ${ptPressure(testKpa!, u)} 미만',
-      if (startMaxOk == false)
-        '시작 압력 ${ptPressure(startKpa!, u)}: 최대 시험압력 ${ptPressureDown(maxKpa!, u)} 초과',
+      if (peakMaxOk == false)
+        '최고 압력 ${ptPressure(peakKpa!, u)}: 최대 시험압력 ${ptPressureDown(maxKpa!, u)} 초과',
       if (endMinOk == false)
         '종료 압력 ${ptPressure(endKpa!, u)}: 최소 시험압력 ${ptPressureUp(minKpa!, u)} 미만(시험압력에서 유지하지 못함)',
       if (dropOk == false)
@@ -400,6 +403,7 @@ PtVerdict judgePressureTest({
       startKpa: start?.kpa,
       minKpa: minKpa,
       maxKpa: maxKpa,
+      peakKpa: _peak(readings),
     );
   }
   final p1 = start.kpa, p2 = end.kpa;
@@ -445,8 +449,14 @@ PtVerdict judgePressureTest({
     minKpa: minKpa,
     maxKpa: maxKpa,
     endKpa: p2,
+    peakKpa: _peak(readings),
   );
 }
+
+/// 측정한 압력 중 가장 높은 것(없으면 null).
+double? _peak(List<PtReading> readings) => readings.isEmpty
+    ? null
+    : readings.map((r) => r.kpa).reduce((a, b) => a > b ? a : b);
 
 /// 판정 글: 합격 / 불합격 / 판정 없음.
 String ptVerdictText(bool? pass) =>

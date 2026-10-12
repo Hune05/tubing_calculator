@@ -637,8 +637,9 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       if (now.isEmpty || !same(now.first.photos, rec.photos)) return;
       final updated = PtRecord.fromJson({...now.first.toJson(), 'photos': up});
       await PtRecordStore.put(updated);
-      if (mounted && _rEditing?.id == rec.id)
+      if (mounted && _rEditing?.id == rec.id) {
         setState(() => _rEditing = updated);
+      }
     } catch (e) {
       debugPrint('압력시험 사진 올리기 실패: $e');
     }

@@ -98,13 +98,33 @@ void main() {
         min: 1100,
         max: 1330,
       );
-      expect(v.startMaxOk, isFalse);
+      expect(v.peakMaxOk, isFalse);
       expect(v.pass, isFalse);
       expect(
         v.reasons(PUnit.bar),
-        contains('시작 압력 14 bar: 최대 시험압력 13.3 bar 초과'),
+        contains('최고 압력 14 bar: 최대 시험압력 13.3 bar 초과'),
       );
     });
+
+    test(
+      '공압: 시작은 범위 안이어도 측정 압력이 최대를 넘으면 불합격(A11 TEST-P1: 13 → 30 bar가 합격이었다)',
+      () {
+        final v = judge(
+          medium: TestMedium.pneumatic,
+          p1: 1300,
+          p2: 3000,
+          test: 1300,
+          min: 1100,
+          max: 1330,
+        );
+        expect(v.peakMaxOk, isFalse);
+        expect(v.pass, isFalse);
+        expect(
+          v.reasons(PUnit.bar),
+          contains('최고 압력 30 bar: 최대 시험압력 13.3 bar 초과'),
+        );
+      },
+    );
 
     test('최소를 저장하지 않은 옛 기록은 판정이 그대로', () {
       final old = PtRecord.fromJson({
