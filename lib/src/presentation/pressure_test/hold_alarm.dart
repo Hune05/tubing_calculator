@@ -1,5 +1,7 @@
 // 압력 시험 유지시간 완료 알림(폰 예약 알림). 앱을 나가거나 화면을 꺼도 끝나는 시각에 울린다.
-// 번호 918400 하나만 쓰므로 다시 예약하면 앞의 것을 바꾼다. 종료·새로 시작·불러오기 때 취소한다.
+// 번호 918600 하나만 쓰므로 다시 예약하면 앞의 것을 바꾼다. 종료·새로 시작·불러오기 때 취소한다.
+// 10-13: 알람 소리로 알림을 누르거나 지울 때까지 되풀이한다(압력시험 타이머 앱과 같은 방식). 압력 시험
+// 화면을 열면 멈춘다(pressure_record_tab.dart _stopRinging).
 // 알림 플러그인이 준비되지 않았거나(위젯 시험·웹) 실패해도 화면은 그대로 동작한다.
 //
 // 플러그인은 앱이 main.dart에서 초기화한 것과 같은 하나(FlutterLocalNotificationsPlugin()은 싱글턴)를 쓴다.
@@ -16,10 +18,18 @@ import 'package:timezone/timezone.dart' as tz;
 
 import 'pressure_units.dart';
 
-const int kPtHoldNotifId = 918400;
-const String kPtHoldChannelId = 'pressure_test_hold';
-const String kPtHoldChannelName = '압력시험 알림';
+// 10-13: 예전 918400은 작업 일지 근무일 알림(reminder_tools.dart 918400~918479)과 겹쳐, 앱을 켤 때마다
+// 일지 알림을 다시 맞추면서 이 알림을 지우고 덮었다(유지시간이 끝나도 안 울림). 비어 있는 918600으로 옮김.
+const int kPtHoldNotifId = 918600;
+const String kPtHoldChannelId = 'pressure_test_ring';
+const String kPtHoldChannelName = '압력시험 알림 (끌 때까지 울림)';
 const String kPtHoldChannelDesc = '압력시험 유지시간 완료 알림';
+
+/// 알람 벨소리(무음·진동 모드에서도 알람 음량으로 울린다).
+const String _kAlarmSound = 'content://settings/system/alarm_alert';
+
+/// 예전 채널(한 번만 "띵"). 새 채널을 만들 때 지운다.
+const String _kOldChannelId = 'pressure_test_hold';
 const String kPtHoldTitle = '압력시험 유지시간 완료';
 
 /// 알림 글(payload). 알림을 누르면 main.dart routeForNotification이 이 글을 보고
@@ -91,13 +101,19 @@ class PluginHoldAlarm extends HoldAlarm {
 
   static Future<void> _ensureChannel() async {
     if (_channelReady) return;
-    const channel = AndroidNotificationChannel(
+    final channel = AndroidNotificationChannel(
       kPtHoldChannelId,
       kPtHoldChannelName,
       description: kPtHoldChannelDesc,
-      importance: Importance.high,
+      importance: Importance.max,
+      sound: const UriAndroidNotificationSound(_kAlarmSound),
+      audioAttributesUsage: AudioAttributesUsage.alarm,
+      vibrationPattern: Int64List.fromList([0, 800, 400, 800, 400, 800]),
     );
     await _android?.createNotificationChannel(channel);
+    try {
+      await _android?.deleteNotificationChannel(channelId: _kOldChannelId);
+    } catch (_) {}
     _channelReady = true;
   }
 
@@ -142,13 +158,19 @@ class PluginHoldAlarm extends HoldAlarm {
         title: title,
         body: body,
         scheduledDate: tz.TZDateTime.from(at, tz.local),
-        notificationDetails: const NotificationDetails(
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             kPtHoldChannelId,
             kPtHoldChannelName,
             channelDescription: kPtHoldChannelDesc,
-            importance: Importance.high,
-            priority: Priority.high,
+            sound: const UriAndroidNotificationSound(_kAlarmSound),
+            importance: Importance.max,
+            priority: Priority.max,
+            category: AndroidNotificationCategory.alarm,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+            vibrationPattern: Int64List.fromList([0, 800, 400, 800, 400, 800]),
+            // FLAG_INSISTENT(4): 알림을 누르거나 지울 때까지 소리를 되풀이한다.
+            additionalFlags: Int32List.fromList([4]),
           ),
         ),
         androidScheduleMode: await _mode(),

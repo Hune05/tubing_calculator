@@ -9,7 +9,13 @@ class _ReadingInput {
   final double kpa;
   final double? tempC;
   final bool delete;
-  const _ReadingInput(this.kpa, this.tempC, {this.delete = false});
+  final String reason; // 수정 사유(시험을 끝낸 뒤 고칠 때만)
+  const _ReadingInput(
+    this.kpa,
+    this.tempC, {
+    this.delete = false,
+    this.reason = '',
+  });
 }
 
 mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
@@ -27,6 +33,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   DateTime? _rStart;
   DateTime? _rEnd;
   List<PtReading> _rReads = const [];
+  List<PtEdit> _rEdits = const []; // 종료한 뒤 고친 측정값과 사유(10-13)
   PtRecord? _rEditing; // 불러오거나 저장한 기록(고쳐 저장할 때 같은 id)
   double? _rLastTemp; // 마지막에 넣은 온도(다음 입력 창에 미리 채움)
 
@@ -80,7 +87,18 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   }
 
   /// 폰 설정에서 돌아왔을 때(페이지가 부른다).
-  void _recordResumed() => _checkExact();
+  void _recordResumed() {
+    _stopRinging();
+    _checkExact();
+  }
+
+  /// 완료 시각이 지나 울리고 있는 알림을 멈춘다(이 화면을 열거나 돌아왔을 때). 알림은 끌 때까지 울린다.
+  Future<void> _stopRinging() async {
+    final due = _rRunning ? _rDue : null;
+    if (due == null || due.isAfter(_now())) return;
+    _rScheduledKey = null;
+    await _alarm.cancel();
+  }
 
   Future<void> _openExactSettings() async =>
       _applyExact(await _alarm.requestExact());
@@ -102,6 +120,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     'start': _rStart?.toIso8601String(),
     'end': _rEnd?.toIso8601String(),
     'reads': [for (final r in _rReads) r.toJson()],
+    'edits': [for (final e in _rEdits) e.toJson()],
     'editing': _rEditing?.id,
     'lastT': _rLastTemp,
   };
@@ -121,6 +140,11 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     _rReads = [
       if (reads is List)
         for (final r in reads) ?PtReading.fromJson(r),
+    ];
+    final edits = m['edits'];
+    _rEdits = [
+      if (edits is List)
+        for (final e in edits) ?PtEdit.fromJson(e),
     ];
     final t = m['lastT'];
     _rLastTemp = t is num ? t.toDouble() : null;
@@ -171,6 +195,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     allowKpa: _pg._kpa(_rAllow),
     leakOk: _rLeakOk,
     testKpa: _recordTestKpa(),
+    minKpa: _pg._currentPlan?.minKpa,
+    maxKpa: _pg._currentPlan?.maxKpa,
     odMm: _rOdMm,
     wallMm: _rWallMm,
     material: _rMaterial,
@@ -246,6 +272,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     double? tempC,
     String? note,
     bool canDelete = false,
+    bool needReason = false,
   }) => showDialog<_ReadingInput>(
     context: context,
     builder: (_) => _PtReadingDialog(
@@ -256,6 +283,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       tempC: tempC,
       note: note,
       canDelete: canDelete,
+      needReason: needReason,
     ),
   );
 
@@ -343,15 +371,35 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
 
   Future<void> _editReading(int i) async {
     final r = _rReads[i];
+    // 종료한 뒤에는 수정 사유를 받아 수정 기록에 남긴다(10-13, 사용자: "수정하면 수정 코멘트 필수").
+    final ended = _rEnd != null;
     final res = await _askReading(
       title: '${ptReadKindLabel(r.kind)} 값 고치기',
       okLabel: '고치기',
       kpa: r.kpa,
       tempC: r.tempC,
-      note: '측정 시간(${ptHms(r.at)})은 그대로 둡니다.',
+      note: ended
+          ? '종료한 시험입니다. 고친 값은 수정 사유와 같이 기록서에 남습니다. '
+                '측정 시간(${ptHms(r.at)})은 그대로 둡니다.'
+          : '측정 시간(${ptHms(r.at)})은 그대로 둡니다.',
       canDelete: r.kind == PtReadKind.mid,
+      needReason: ended,
     );
     if (res == null || !mounted || i >= _rReads.length) return;
+    final changed = res.delete || res.kpa != r.kpa || res.tempC != r.tempC;
+    if (!changed) return;
+    final edit = ended
+        ? PtEdit(
+            at: _now(),
+            readAt: r.at,
+            kind: r.kind,
+            fromKpa: r.kpa,
+            fromTempC: r.tempC,
+            toKpa: res.delete ? null : res.kpa,
+            toTempC: res.delete ? null : res.tempC,
+            reason: res.reason,
+          )
+        : null;
     setState(() {
       final list = [..._rReads];
       if (res.delete) {
@@ -360,6 +408,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
         list[i] = r.withValues(res.kpa, res.tempC);
       }
       _rReads = list;
+      if (edit != null) _rEdits = [..._rEdits, edit];
     });
     // 중간 측정을 잘못 지웠을 때 "되돌리기"로 같은 자리에 다시 넣는다(10-02).
     if (res.delete) {
@@ -377,6 +426,13 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
             if (at < 0) at = list.length;
             list.insert(at, r);
             _rReads = list;
+            // 지운 것을 되돌렸으니 그 수정 기록도 뺀다.
+            if (edit != null) {
+              _rEdits = [
+                for (final e in _rEdits)
+                  if (!identical(e, edit)) e,
+              ];
+            }
           });
         },
       );
@@ -426,6 +482,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       _rStart = null;
       _rEnd = null;
       _rReads = const [];
+      _rEdits = const [];
       _rLeakOk = false;
       _rEditing = null;
       _rLine.clear();
@@ -478,6 +535,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final design = _pg._kpa(_pg._design);
     final allow = _pg._kpa(_rAllow);
     final recId = keep ? ed.id : _now().microsecondsSinceEpoch.toString();
+    final plan = _pg._currentPlan;
     // 기록은 사진을 폰 경로 그대로 먼저 저장하고, 사진 올리기는 뒤에서 한다(_uploadPtPhotos).
     // 예전에는 사진을 다 올린 뒤에야 저장해, 통신이 없으면 한참 반응이 없고 그사이 나가면 기록이 사라졌다(10-07).
     final photos = res.photos;
@@ -505,11 +563,14 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       fluid: res.fluid,
       designKpa: design != null && design > 0 ? design : null,
       testKpa: _recordTestKpa(),
+      minKpa: plan?.minKpa,
+      maxKpa: plan?.maxKpa,
       unit: _pg._unit,
       holdMin: _requiredHold,
       startAt: start,
       endAt: _rEnd,
       readings: _rReads,
+      edits: _rEdits,
       allowKpa: allow != null && allow >= 0 ? allow : null,
       leakOk: _rLeakOk,
       gauges: res.gauges,
@@ -576,7 +637,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       if (now.isEmpty || !same(now.first.photos, rec.photos)) return;
       final updated = PtRecord.fromJson({...now.first.toJson(), 'photos': up});
       await PtRecordStore.put(updated);
-      if (mounted && _rEditing?.id == rec.id) setState(() => _rEditing = updated);
+      if (mounted && _rEditing?.id == rec.id)
+        setState(() => _rEditing = updated);
     } catch (e) {
       debugPrint('압력시험 사진 올리기 실패: $e');
     }
@@ -620,6 +682,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       _rStart = r.startAt ?? r.startReading?.at;
       _rEnd = r.endAt ?? r.endReading?.at;
       _rReads = [...r.readings];
+      _rEdits = [...r.edits];
       _rEditing = r;
     });
     _pg._saveNow();
@@ -935,6 +998,20 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
               : '설계압력: ${_pg._p(design)}',
         ),
         _line(test),
+        if (plan != null && actualGiven && plan.actualInRange(actual) == false)
+          _line(
+            plan.maxKpa != null && actual > plan.maxKpa! + 1e-9
+                ? '실제 시험압력이 최대 시험압력 ${_pg._pDown(plan.maxKpa!)}를 넘습니다. 시험압력 탭에서 확인하십시오.'
+                : '실제 시험압력이 최소 시험압력 ${_pg._pUp(plan.minKpa)}보다 낮습니다. 시험압력 탭에서 확인하십시오.',
+            key: const Key('pt_r_actual_warn'),
+            bold: true,
+            color: fc.danger,
+          ),
+        if (plan != null && actualGiven)
+          _line(
+            '최소 시험압력: ${_pg._pUp(plan.minKpa)}'
+            '${plan.maxKpa == null ? '' : ' · 최대 ${_pg._pDown(plan.maxKpa!)}'}',
+          ),
         _line('규정 유지시간: ${ptFmt(_codeHoldMin, 0)}분 이상'),
       ],
     );
@@ -983,7 +1060,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
             builder: (_, on, _) => on == false
                 ? _line(kPtNotifOffText, color: fc.danger)
                 : _line(
-                    '완료 시간에 폰 알림이 울립니다. 화면이나 앱을 나가도 시간은 계속 계산됩니다.',
+                    '완료 시간에 알람이 울립니다. 알림을 누르거나 이 화면을 열 때까지 울립니다. '
+                    '화면이나 앱을 나가도 시간은 계속 계산됩니다.',
                     color: fc.textSub,
                   ),
           ),
@@ -1024,7 +1102,12 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       key: const Key('pt_r_log'),
       children: [
         _cardTitle('측정 기록'),
-        _line('줄을 누르면 값을 고칠 수 있습니다.', color: fc.textSub),
+        _line(
+          _rEnd == null
+              ? '줄을 누르면 값을 고칠 수 있습니다.'
+              : '줄을 누르면 값을 고칠 수 있습니다. 종료한 뒤에는 수정 사유가 필요합니다.',
+          color: fc.textSub,
+        ),
         const SizedBox(height: 4),
         for (var i = 0; i < _rReads.length; i++)
           InkWell(
@@ -1038,7 +1121,10 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
                   Expanded(
                     flex: 2,
                     child: Text(
-                      ptReadKindLabel(_rReads[i].kind),
+                      ptReadKindLabel(_rReads[i].kind) +
+                          (ptReadingEdited(_rEdits, _rReads[i])
+                              ? '\n(수정)'
+                              : ''),
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         color: _rReads[i].kind == PtReadKind.mid
@@ -1072,6 +1158,15 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
               ),
             ),
           ),
+        if (_rEdits.isNotEmpty) ...[
+          const SizedBox(height: 6),
+          Text(
+            '수정 기록',
+            style: TextStyle(fontWeight: FontWeight.w800, color: fc.danger),
+          ),
+          for (final e in _rEdits)
+            _line(ptEditLine(e, _pg._unit), key: const Key('pt_r_edit')),
+        ],
       ],
     );
   }
@@ -1196,6 +1291,7 @@ class _PtReadingDialog extends StatefulWidget {
   final double? tempC;
   final String? note;
   final bool canDelete;
+  final bool needReason; // 종료한 뒤 고칠 때: 수정 사유 칸(비우면 고치거나 지울 수 없다)
   const _PtReadingDialog({
     required this.title,
     required this.okLabel,
@@ -1204,6 +1300,7 @@ class _PtReadingDialog extends StatefulWidget {
     this.tempC,
     this.note,
     this.canDelete = false,
+    this.needReason = false,
   });
 
   @override
@@ -1219,14 +1316,32 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
   late final _tc = TextEditingController(
     text: widget.tempC == null ? '' : ptFmt(widget.tempC!, 1),
   );
+  final _rc = TextEditingController();
   String? _pErr;
   String? _tErr;
+  String? _rErr;
 
   @override
   void dispose() {
     _pc.dispose();
     _tc.dispose();
+    _rc.dispose();
     super.dispose();
+  }
+
+  /// 수정 사유가 필요한데 비었으면 알리고 false.
+  bool _reasonOk() {
+    final bad = widget.needReason && _rc.text.trim().isEmpty;
+    setState(() => _rErr = bad ? '수정 사유를 넣으십시오' : null);
+    return !bad;
+  }
+
+  void _delete() {
+    if (!_reasonOk()) return;
+    Navigator.pop(
+      context,
+      _ReadingInput(0, null, delete: true, reason: _rc.text.trim()),
+    );
   }
 
   void _ok() {
@@ -1246,7 +1361,9 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
     final kpa = pt == _pText && widget.kpa != null
         ? widget.kpa!
         : pv! * widget.unit.kpa;
-    Navigator.pop(context, _ReadingInput(kpa, tv));
+    final same = kpa == widget.kpa && tv == widget.tempC;
+    if (!same && !_reasonOk()) return;
+    Navigator.pop(context, _ReadingInput(kpa, tv, reason: _rc.text.trim()));
   }
 
   @override
@@ -1288,8 +1405,22 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
               labelText: '온도 (°C, 선택)',
               errorText: _tErr,
             ),
-            onSubmitted: (_) => _ok(),
+            onSubmitted: widget.needReason ? null : (_) => _ok(),
           ),
+          if (widget.needReason) ...[
+            const SizedBox(height: 8),
+            TextField(
+              key: const Key('pt_rd_reason'),
+              controller: _rc,
+              maxLines: 2,
+              minLines: 1,
+              decoration: InputDecoration(
+                labelText: '수정 사유 (필수)',
+                hintText: '예: 게이지 다시 읽음, 오타',
+                errorText: _rErr,
+              ),
+            ),
+          ],
         ],
       ),
     ),
@@ -1297,10 +1428,7 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
       if (widget.canDelete)
         TextButton(
           key: const Key('pt_rd_delete'),
-          onPressed: () => Navigator.pop(
-            context,
-            const _ReadingInput(0, null, delete: true),
-          ),
+          onPressed: _delete,
           child: Text('지우기', style: TextStyle(color: fc.danger)),
         ),
       TextButton(

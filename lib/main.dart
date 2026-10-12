@@ -88,7 +88,7 @@ Route<void>? routeForNotification(String? payload, Map<String, dynamic> data) {
   if (payload == kClockOutPayload) {
     return MaterialPageRoute<void>(builder: (_) => const AttendancePage());
   }
-  // 압력 시험 유지시간 완료(폰 예약 알림 918400, hold_alarm.dart).
+  // 압력 시험 유지시간 완료(폰 예약 알림 918600, hold_alarm.dart).
   if (payload == kPtHoldPayload) {
     return MaterialPageRoute<void>(
       builder: (_) => const PressureTestPage(initialTab: kPtRecordTabIndex),

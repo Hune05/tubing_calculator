@@ -102,6 +102,89 @@ class PtReading {
   }
 }
 
+/// 시험을 끝낸 뒤 고치거나 지운 측정값 한 건(10-13, 사용자: "시험 끝나고 왜 수정이 바로 가능한지,
+/// 수정하면 수정 코멘트 필수"). 언제·어느 줄을·무엇에서 무엇으로·왜. 기록서·CSV에 그대로 남는다.
+class PtEdit {
+  final DateTime at; // 고친 시각
+  final DateTime readAt; // 고친 측정 줄의 시각
+  final PtReadKind kind;
+  final double fromKpa;
+  final double? fromTempC;
+  final double? toKpa; // null이면 지운 것
+  final double? toTempC;
+  final String reason;
+  const PtEdit({
+    required this.at,
+    required this.readAt,
+    required this.kind,
+    required this.fromKpa,
+    this.fromTempC,
+    this.toKpa,
+    this.toTempC,
+    required this.reason,
+  });
+
+  bool get deleted => toKpa == null;
+
+  /// "종료 09:10:00 압력 12 → 11.8 bar, 온도 20 → 21°C" / "측정 09:05:00 지움(11.9 bar, 21°C)"
+  String describe(PUnit u) {
+    String t(double? c) => c == null ? '없음' : '${ptFmt(c, 1)}°C';
+    final head = '${ptReadKindLabel(kind)} ${ptHms(readAt)}';
+    if (deleted) {
+      return '$head 지움(${ptPressure(fromKpa, u)}'
+          '${fromTempC == null ? '' : ', ${t(fromTempC)}'})';
+    }
+    final parts = [
+      if ((toKpa! - fromKpa).abs() > 1e-9)
+        '압력 ${ptFmt(fromKpa / u.kpa, 4)} → ${ptPressure(toKpa!, u)}',
+      if (fromTempC != toTempC) '온도 ${t(fromTempC)} → ${t(toTempC)}',
+    ];
+    return '$head ${parts.join(', ')}';
+  }
+
+  Map<String, dynamic> toJson() => {
+    'at': at.toIso8601String(),
+    'readAt': readAt.toIso8601String(),
+    'k': kind.name,
+    'from': fromKpa,
+    'fromT': fromTempC,
+    'to': toKpa,
+    'toT': toTempC,
+    'why': reason,
+  };
+
+  /// 망가진 값이면 null.
+  static PtEdit? fromJson(Object? j) {
+    if (j is! Map) return null;
+    final at = DateTime.tryParse(j['at']?.toString() ?? '');
+    final readAt = DateTime.tryParse(j['readAt']?.toString() ?? '');
+    final from = j['from'];
+    if (at == null || readAt == null || from is! num) return null;
+    double? d(Object? v) => v is num ? v.toDouble() : null;
+    return PtEdit(
+      at: at,
+      readAt: readAt,
+      kind: PtReadKind.values.firstWhere(
+        (k) => k.name == j['k'],
+        orElse: () => PtReadKind.mid,
+      ),
+      fromKpa: from.toDouble(),
+      fromTempC: d(j['fromT']),
+      toKpa: d(j['to']),
+      toTempC: d(j['toT']),
+      reason: j['why']?.toString() ?? '',
+    );
+  }
+}
+
+/// 시험을 끝낸 뒤 값을 고친 줄인지(지운 줄은 남아 있지 않다).
+bool ptReadingEdited(List<PtEdit> edits, PtReading r) =>
+    edits.any((e) => !e.deleted && e.kind == r.kind && e.readAt == r.at);
+
+/// 수정 기록 한 줄: "10-13 14:25 · 종료 09:10:00 압력 12 → 11.8 bar · 사유: 게이지 다시 읽음"
+String ptEditLine(PtEdit e, PUnit u) =>
+    '${_two(e.at.month)}-${_two(e.at.day)} ${ptHm(e.at)} · ${e.describe(u)} · 사유: ${e.reason}';
+
 /// 압력계: 번호·눈금 범위·검교정 유효일(글 그대로).
 class PtGauge {
   final String no;
@@ -148,6 +231,12 @@ class PtVerdict {
   final double? testKpa;
   final double? startKpa;
 
+  /// 규정 최소·최대(공압) 시험압력과 종료 압력(10-13). 최소가 있으면 시작·종료 압력이 최소 이상인지,
+  /// 최대가 있으면 시작 압력이 최대 이하인지 본다. 최소를 저장하지 않은 옛 기록은 보지 않는다.
+  final double? minKpa;
+  final double? maxKpa;
+  final double? endKpa;
+
   const PtVerdict({
     required this.medium,
     required this.started,
@@ -162,6 +251,9 @@ class PtVerdict {
     required this.leakOk,
     this.testKpa,
     this.startKpa,
+    this.minKpa,
+    this.maxKpa,
+    this.endKpa,
   });
 
   /// 시작 압력이 시험압력 이상인지. 둘 중 하나라도 없으면 null.
@@ -171,6 +263,28 @@ class PtVerdict {
     final t = testKpa, p = startKpa;
     if (t == null || p == null || t <= 0) return null;
     return p >= t * (1 - 1e-3);
+  }
+
+  /// 시작 압력이 규정 최소 시험압력 이상인지(10-13: 실제 시험압력을 최소보다 낮게 적어도 합격이 나왔다).
+  bool? get startMinOk {
+    final m = minKpa, p = startKpa;
+    if (m == null || p == null || m <= 0) return null;
+    return p >= m * (1 - 1e-3);
+  }
+
+  /// 시작 압력이 규정 최대 시험압력(공압) 이하인지.
+  bool? get startMaxOk {
+    final m = maxKpa, p = startKpa;
+    if (m == null || p == null || m <= 0) return null;
+    return p <= m * (1 + 1e-3);
+  }
+
+  /// 종료 압력이 규정 최소 시험압력 이상인지: 규격은 "시험압력에서 유지"다(10-13: 허용 압력강하를
+  /// 비우면 종료 압력이 시험압력 아래로 떨어져도 합격이 나왔다).
+  bool? get endMinOk {
+    final m = minKpa, p = endKpa;
+    if (!ended || m == null || p == null || m <= 0) return null;
+    return p >= m * (1 - 1e-3);
   }
 
   bool get tempCorrected => correctedDropKpa != null;
@@ -190,7 +304,14 @@ class PtVerdict {
   /// 누설·물맺힘 없음을 확인하지 않았으면 합격으로 하지 않는다(판정 없음).
   bool? get pass {
     if (!started || !ended) return null;
-    if (!holdMet || dropOk == false || startOk == false) return false;
+    if (!holdMet ||
+        dropOk == false ||
+        startOk == false ||
+        startMinOk == false ||
+        startMaxOk == false ||
+        endMinOk == false) {
+      return false;
+    }
     if (!leakOk) return null;
     return true;
   }
@@ -202,8 +323,14 @@ class PtVerdict {
     return [
       if (!holdMet)
         '경과 시간 ${ptFmt((elapsedMin! * 10).floorToDouble() / 10, 1)}분: 유지시간 ${ptFmt(requiredMin, 1)}분 미만',
-      if (startOk == false)
+      if (startMinOk == false)
+        '시작 압력 ${ptPressure(startKpa!, u)}: 최소 시험압력 ${ptPressureUp(minKpa!, u)} 미만'
+      else if (startOk == false)
         '시작 압력 ${ptPressure(startKpa!, u)}: 시험압력 ${ptPressure(testKpa!, u)} 미만',
+      if (startMaxOk == false)
+        '시작 압력 ${ptPressure(startKpa!, u)}: 최대 시험압력 ${ptPressureDown(maxKpa!, u)} 초과',
+      if (endMinOk == false)
+        '종료 압력 ${ptPressure(endKpa!, u)}: 최소 시험압력 ${ptPressureUp(minKpa!, u)} 미만(시험압력에서 유지하지 못함)',
       if (dropOk == false)
         '압력강하 ${ptDrop(judgedDropKpa!, u)}: 허용 압력강하 ${ptPressureDown(allowKpa!, u)} 초과',
       if (!leakOk) '누설·물맺힘 없음(육안 확인)을 확인하지 않았습니다.',
@@ -246,6 +373,8 @@ PtVerdict judgePressureTest({
   double? allowKpa,
   bool leakOk = false,
   double? testKpa,
+  double? minKpa,
+  double? maxKpa,
   double? odMm,
   double? wallMm,
   PipeMaterial material = PipeMaterial.carbon,
@@ -269,6 +398,8 @@ PtVerdict judgePressureTest({
       leakOk: leakOk,
       testKpa: testKpa,
       startKpa: start?.kpa,
+      minKpa: minKpa,
+      maxKpa: maxKpa,
     );
   }
   final p1 = start.kpa, p2 = end.kpa;
@@ -311,6 +442,9 @@ PtVerdict judgePressureTest({
     leakOk: leakOk,
     testKpa: testKpa,
     startKpa: p1,
+    minKpa: minKpa,
+    maxKpa: maxKpa,
+    endKpa: p2,
   );
 }
 
@@ -335,11 +469,14 @@ class PtRecord {
   final PtFluid fluid;
   final double? designKpa;
   final double? testKpa; // 시험압력(실제 시험압력을 넣었으면 그 값, 아니면 최소 시험압력)
+  final double? minKpa; // 규정 최소 시험압력(10-13부터 저장, 판정에 씀)
+  final double? maxKpa; // 규정 최대 시험압력(공압)
   final PUnit unit; // 기록서·목록에 보이는 단위
   final double holdMin; // 규정 유지시간(분)
   final DateTime? startAt;
   final DateTime? endAt;
   final List<PtReading> readings;
+  final List<PtEdit> edits; // 시험을 끝낸 뒤 고친 측정값과 사유
   final double? allowKpa;
   final bool leakOk; // 누설·물맺힘 없음(육안 확인)
   final List<PtGauge> gauges; // 0~2개
@@ -377,11 +514,14 @@ class PtRecord {
     this.fluid = PtFluid.water,
     this.designKpa,
     this.testKpa,
+    this.minKpa,
+    this.maxKpa,
     this.unit = PUnit.bar,
     this.holdMin = 10,
     this.startAt,
     this.endAt,
     this.readings = const [],
+    this.edits = const [],
     this.allowKpa,
     this.leakOk = false,
     this.gauges = const [],
@@ -414,6 +554,8 @@ class PtRecord {
     allowKpa: allowKpa,
     leakOk: leakOk,
     testKpa: testKpa,
+    minKpa: minKpa,
+    maxKpa: maxKpa,
     odMm: odMm,
     wallMm: wallMm,
     material: material,
@@ -460,11 +602,14 @@ class PtRecord {
     'fluid': fluid.name,
     'design': designKpa,
     'test': testKpa,
+    if (minKpa != null) 'min': minKpa,
+    if (maxKpa != null) 'max': maxKpa,
     'unit': unit.name,
     'hold': holdMin,
     'start': startAt?.toIso8601String(),
     'end': endAt?.toIso8601String(),
     'readings': [for (final r in readings) r.toJson()],
+    if (edits.isNotEmpty) 'edits': [for (final e in edits) e.toJson()],
     'allow': allowKpa,
     'leakOk': leakOk,
     'gauges': [for (final g in gauges) g.toJson()],
@@ -510,6 +655,8 @@ class PtRecord {
       fluid: pick(PtFluid.values, j['fluid'], PtFluid.water),
       designKpa: _d(j['design']),
       testKpa: _d(j['test']),
+      minKpa: _d(j['min']),
+      maxKpa: _d(j['max']),
       unit: punitByName(j['unit']),
       holdMin: hold != null && hold > 0 ? hold : 10,
       startAt: DateTime.tryParse(_s(j['start'])),
@@ -517,6 +664,10 @@ class PtRecord {
       readings: [
         if (j['readings'] is List)
           for (final r in j['readings'] as List) ?PtReading.fromJson(r),
+      ],
+      edits: [
+        if (j['edits'] is List)
+          for (final e in j['edits'] as List) ?PtEdit.fromJson(e),
       ],
       allowKpa: _d(j['allow']),
       leakOk: j['leakOk'] == true,
@@ -599,6 +750,9 @@ String ptRecordsCsv(List<PtRecord> records) {
     '첨부 사진 수',
     '메모',
     '측정 기록',
+    '최소 시험압력',
+    '최대 시험압력',
+    '수정 기록',
   ];
   final rows = <List<String>>[head];
   for (final r in records) {
@@ -653,8 +807,12 @@ String ptRecordsCsv(List<PtRecord> records) {
       [
         for (final x in r.readings)
           '${ptHms(x.at)} ${ptReadKindLabel(x.kind)} ${ptFmt(x.kpa / u.kpa, 4)}${u.label}'
-              '${x.tempC == null ? '' : ' ${ptFmt(x.tempC!, 1)}°C'}',
+              '${x.tempC == null ? '' : ' ${ptFmt(x.tempC!, 1)}°C'}'
+              '${ptReadingEdited(r.edits, x) ? '(수정)' : ''}',
       ].join('; '),
+      p(r.minKpa),
+      p(r.maxKpa),
+      [for (final e in r.edits) ptEditLine(e, u)].join('; '),
     ]);
   }
   return '﻿${rows.map((c) => c.map(_csvCell).join(',')).join('\r\n')}\r\n';

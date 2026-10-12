@@ -425,7 +425,9 @@ void main() {
     await type(tester, 'pt_r_wall', '3.9');
     await tapKey(tester, 'pt_r_leak');
     final r = textIn(tester, const Key('pt_r_result'));
-    expect(r, startsWith('판정\n합격'));
+    // 10-13: 허용 압력강하를 비워도 종료 압력이 최소 시험압력(15bar) 아래면 불합격(예전에는 합격).
+    expect(r, startsWith('판정\n불합격'));
+    expect(r, contains('종료 압력 14 bar: 최소 시험압력 15 bar 미만(시험압력에서 유지하지 못함)'));
     expect(r, contains('측정 압력강하: 1 bar'));
     expect(r, contains('수압은 온도 보정 없이 측정 압력강하로 판정합니다.'));
     expect(r, contains('물 온도 변화 -1°C: 온도만으로 압력이 약'));
@@ -519,7 +521,13 @@ void main() {
     expect(find.text('P-1001'), findsOneWidget);
     expect(find.text('P-2002'), findsOneWidget);
     // 판정 칩(합격·불합격)과 겹치지 않게 기록 줄 안에서 본다.
-    expect(find.descendant(of: find.byKey(Key('pr_item_${saved.id}')), matching: find.text('합격')), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(Key('pr_item_${saved.id}')),
+        matching: find.text('합격'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('판정 없음'), findsOneWidget);
     await tester.tap(find.byKey(Key('pr_item_${saved.id}')));
     await tester.pumpAndSettle();
@@ -857,7 +865,9 @@ void main() {
     expect(find.text('되돌리기'), findsOneWidget);
   });
 
-  testWidgets('기록서를 만드는 동안 두 번 불러도 미리보기는 하나만 열리고, 만드는 중 표시는 닫힌다', (tester) async {
+  testWidgets('기록서를 만드는 동안 두 번 불러도 미리보기는 하나만 열리고, 만드는 중 표시는 닫힌다', (
+    tester,
+  ) async {
     pdfPreviewBuilder = (bytes, name) => Text('미리보기 $name');
     late BuildContext ctx;
     await tester.pumpWidget(
@@ -874,7 +884,11 @@ void main() {
     await tester.runAsync(() async {
       final a = openPtRecordPdf(ctx, r);
       final b = openPtRecordPdf(ctx, r); // 만드는 중이라 무시된다
-      for (var i = 0; i < 40 && find.textContaining('미리보기 pt_').evaluate().isEmpty; i++) {
+      for (
+        var i = 0;
+        i < 40 && find.textContaining('미리보기 pt_').evaluate().isEmpty;
+        i++
+      ) {
         await Future<void>.delayed(const Duration(milliseconds: 100));
         await tester.pump();
       }
@@ -990,5 +1004,123 @@ void main() {
     await tester.tap(find.byKey(const Key('pr_item_n')));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  // 10-13 사용자: "시험 끝나고 왜 수정이 바로 가능한지, 수정하면 수정 코멘트 필수"
+  group('종료한 뒤 고치기: 수정 사유 필수', () {
+    Future<void> runAndEnd(WidgetTester tester) async {
+      await setupPneumatic(tester);
+      await tapKey(tester, 'pt_r_start');
+      await reading(tester, '12', '20');
+      now = DateTime(2026, 9, 26, 9, 5, 0);
+      await tapKey(tester, 'pt_r_add');
+      await reading(tester, '11.9', '20');
+      now = DateTime(2026, 9, 26, 9, 11, 0);
+      await tapKey(tester, 'pt_r_end');
+      await reading(tester, '11.95', '20');
+      now = DateTime(2026, 9, 26, 9, 20, 0);
+    }
+
+    testWidgets('진행 중에는 사유 칸이 없다', (tester) async {
+      await setupPneumatic(tester);
+      await tapKey(tester, 'pt_r_start');
+      await reading(tester, '12', '20');
+      await tapKey(tester, 'pt_r_read_0');
+      expect(find.byKey(const Key('pt_rd_reason')), findsNothing);
+      await reading(tester, '12.1', '20');
+      expect(find.byKey(const Key('pt_r_edit')), findsNothing);
+    });
+
+    testWidgets('사유를 비우면 고치지 못하고, 넣으면 (수정)·수정 기록이 남는다', (tester) async {
+      await runAndEnd(tester);
+      await tapKey(tester, 'pt_r_read_2');
+      expect(find.byKey(const Key('pt_rd_reason')), findsOneWidget);
+      expect(textOf(tester, 'pt_rd_note'), startsWith('종료한 시험입니다.'));
+      await tester.enterText(find.byKey(const Key('pt_rd_p')), '11.8');
+      await tester.tap(find.byKey(const Key('pt_rd_ok')));
+      await tester.pumpAndSettle();
+      // 창이 그대로이고 알림이 뜬다
+      expect(find.text('수정 사유를 넣으십시오'), findsOneWidget);
+      expect(find.byKey(const Key('pt_rd_p')), findsOneWidget);
+      await tester.enterText(
+        find.byKey(const Key('pt_rd_reason')),
+        '게이지 다시 읽음',
+      );
+      await tester.tap(find.byKey(const Key('pt_rd_ok')));
+      await tester.pumpAndSettle();
+      final log = textIn(tester, const Key('pt_r_log'));
+      expect(log, contains('종료\n(수정)'));
+      expect(log, contains('11.8 bar'));
+      expect(
+        textOf(tester, 'pt_r_edit'),
+        '09-26 09:20 · 종료 09:11:00 압력 11.95 → 11.8 bar · 사유: 게이지 다시 읽음',
+      );
+      // 임시 저장에도 남는다
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      final prefs = await SharedPreferences.getInstance();
+      final m = jsonDecode(prefs.getString(_draftKey)!) as Map;
+      expect((m['record']['edits'] as List).single['why'], '게이지 다시 읽음');
+    });
+
+    testWidgets('값을 그대로 두면 사유 없이 닫히고 기록도 안 남는다', (tester) async {
+      await runAndEnd(tester);
+      await tapKey(tester, 'pt_r_read_0');
+      await tester.tap(find.byKey(const Key('pt_rd_ok')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pt_rd_p')), findsNothing);
+      expect(find.byKey(const Key('pt_r_edit')), findsNothing);
+    });
+
+    testWidgets('지우기도 사유가 필요하고, 되돌리면 수정 기록도 빠진다', (tester) async {
+      await runAndEnd(tester);
+      await tapKey(tester, 'pt_r_read_1');
+      await tester.tap(find.byKey(const Key('pt_rd_delete')));
+      await tester.pumpAndSettle();
+      expect(find.text('수정 사유를 넣으십시오'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('pt_rd_reason')), '다른 라인 값');
+      await tester.tap(find.byKey(const Key('pt_rd_delete')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pt_r_read_2')), findsNothing);
+      expect(
+        textOf(tester, 'pt_r_edit'),
+        contains('측정 09:05:00 지움(11.9 bar, 20°C) · 사유: 다른 라인 값'),
+      );
+      await tester.tap(find.text('되돌리기'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('pt_r_read_2')), findsOneWidget);
+      expect(find.byKey(const Key('pt_r_edit')), findsNothing);
+    });
+  });
+
+  testWidgets('완료 시각이 지난 시험을 다시 열면 울리는 알림을 멈춘다(끌 때까지 울림)', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      _draftKey: jsonEncode({
+        'unit': 'bar',
+        'medium': 'hydro',
+        'record': {
+          'start': '2026-09-26T09:00:00.000',
+          'reads': [
+            {'at': '2026-09-26T09:00:00.000', 'kpa': 1500, 'k': 'start'},
+          ],
+        },
+      }),
+    });
+    now = DateTime(2026, 9, 26, 9, 15, 0);
+    await pumpPage(tester);
+    expect(alarm.cancels, 1);
+    expect(alarm.scheduled, isEmpty);
+  });
+
+  testWidgets('시험 정보: 실제 시험압력이 최소보다 낮으면 빨간 알림', (tester) async {
+    await pumpPage(tester);
+    await tester.enterText(find.byKey(const Key('pt_design')), '10');
+    await tester.enterText(find.byKey(const Key('pt_actual')), '12');
+    await tester.pump();
+    await openTab(tester, 'pt_tab_record');
+    expect(
+      textOf(tester, 'pt_r_actual_warn'),
+      '실제 시험압력이 최소 시험압력 15 bar보다 낮습니다. 시험압력 탭에서 확인하십시오.',
+    );
   });
 }

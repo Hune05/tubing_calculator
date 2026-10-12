@@ -254,7 +254,11 @@ class _PressureTestPageState extends State<PressureTestPage>
       _loaded = true;
     }
     // 진행 중인 시험이면 완료 알림을 다시 예약한다(같은 번호라 한 번만 울린다).
-    if (restored && mounted && _rRunning) await _syncAlarm();
+    // 완료 시각이 지나 울리고 있으면 멈춘다(10-13: 끌 때까지 울림).
+    if (restored && mounted && _rRunning) {
+      await _syncAlarm();
+      await _stopRinging();
+    }
   }
 
   void _applyDraft(String raw) {
@@ -373,8 +377,7 @@ class _PressureTestPageState extends State<PressureTestPage>
     super.dispose();
   }
 
-  double? _num(TextEditingController c) =>
-      parseNumberText(c.text);
+  double? _num(TextEditingController c) => parseNumberText(c.text);
 
   double? _kpaIn(TextEditingController c, PUnit unit) {
     final e = _exact[c];
@@ -413,6 +416,7 @@ class _PressureTestPageState extends State<PressureTestPage>
     final v = kpa / _unit.kpa;
     return ptFmtUp(v, ptDecimalsFor(v, _unit));
   }
+
   String _pAllUp(double kpa) => [
     for (final u in PUnit.values)
       if (u != _unit) ptPressureUp(kpa, u),

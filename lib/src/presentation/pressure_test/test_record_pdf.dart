@@ -1,5 +1,5 @@
-// 배관 압력시험 기록서(PDF, A4). 시험 번호·시험일, 시험 정보(튜브면 튜브 규격), 압력계·안전밸브, 측정 기록 표, 판정 상자,
-// 메모, 서명 칸(시험자·시공사·감리·발주처 입회). 압력은 기록의 단위로 적는다.
+// 배관 압력시험 기록서(PDF, A4). 시험 번호·시험일, 시험 정보(튜브면 튜브 규격), 압력계·안전밸브, 측정 기록 표,
+// 수정 기록(종료한 뒤 고친 값과 사유), 판정 상자, 메모, 서명 칸(시험자·시공사·감리·발주처 입회). 압력은 기록의 단위로 적는다.
 // 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다(SteelPdfPreviewPage).
 library;
 
@@ -127,7 +127,11 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
     for (final x in r.readings)
       pw.TableRow(
         children: [
-          cell(ptReadKindLabel(x.kind), bold: x.kind != PtReadKind.mid),
+          cell(
+            ptReadKindLabel(x.kind) +
+                (ptReadingEdited(r.edits, x) ? ' (수정)' : ''),
+            bold: x.kind != PtReadKind.mid,
+          ),
           cell(ptHms(x.at)),
           cell(
             start == null ? '' : ptFmt(ptMinutes(x.at.difference(start)), 1),
@@ -148,6 +152,13 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
   }
 
   final resultRows = <(String, String, bool)>[
+    if (r.minKpa != null && v.ended)
+      (
+        '최소 시험압력 유지',
+        '${v.startMinOk == false || v.endMinOk == false ? '아니오' : '예'} '
+            '(시작 ${p(v.startKpa)} · 종료 ${p(v.endKpa)}, 최소 ${ptPressureUp(r.minKpa!, u)} 이상)',
+        v.startMinOk == false || v.endMinOk == false,
+      ),
     ('측정 압력강하', v.rawDropKpa == null ? '' : ptDrop(v.rawDropKpa!, u), false),
     ('온도 보정 후', corrected(), false),
     (
@@ -232,6 +243,12 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
                   info('시험유체', ptFluidLabel(r.fluid)),
                   info('설계압력', p(r.designKpa)),
                   info('시험압력', p(r.testKpa)),
+                  if (r.minKpa != null)
+                    info(
+                      '최소 시험압력',
+                      '${ptPressureUp(r.minKpa!, u)}'
+                          '${r.maxKpa == null ? '' : ' (최대 ${ptPressureDown(r.maxKpa!, u)})'}',
+                    ),
                   info('규정 유지시간', '${ptFmt(r.holdMin, 1)}분 이상'),
                 ],
               ),
@@ -272,6 +289,34 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
               style: const pw.TextStyle(fontSize: 9, color: _ink),
             ),
           ),
+        if (r.edits.isNotEmpty) ...[
+          pw.SizedBox(height: 14),
+          title('수정 기록 (종료한 뒤 고친 값)'),
+          pw.Table(
+            border: pw.TableBorder.all(color: _line, width: 0.6),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(1.1),
+              1: pw.FlexColumnWidth(3),
+              2: pw.FlexColumnWidth(2),
+            },
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: _head),
+                children: [
+                  for (final h in ['고친 시각', '내용', '수정 사유']) cell(h, bold: true),
+                ],
+              ),
+              for (final e in r.edits)
+                pw.TableRow(
+                  children: [
+                    cell('${ptDay(e.at)} ${ptHm(e.at)}'),
+                    cell(e.describe(u)),
+                    cell(e.reason),
+                  ],
+                ),
+            ],
+          ),
+        ],
         pw.SizedBox(height: 14),
         title('판정'),
         pw.Container(
@@ -449,7 +494,11 @@ Future<void> openPtRecordPdf(BuildContext context, PtRecord r) async {
         key: Key('pt_pdf_busy'),
         content: Row(
           children: [
-            SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+            SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
             SizedBox(width: 16),
             Expanded(child: Text('기록서를 만드는 중입니다')),
           ],
