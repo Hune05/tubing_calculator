@@ -219,21 +219,35 @@ void main() {
       expect(find.textContaining('1개 2곳 (외곽 1 + 홀·내경)'), findsOneWidget);
     });
 
-    testWidgets('재질별 두께 단추: SUS는 1.5T, 철판은 3.2T', (tester) async {
+    testWidgets('재질별 두께 목록(칸 안 ▼): SUS는 1.5T, 철판은 3.2T', (tester) async {
       await open(tester);
+      await tap(tester, 'pl_t_menu');
       expect(find.byKey(const Key('pl_t_3.2')), findsOneWidget);
       expect(find.byKey(const Key('pl_t_1.5')), findsNothing);
+      await tap(tester, 'pl_t_3.2');
       await tap(tester, 'pl_mat_stainless');
+      await tap(tester, 'pl_t_menu');
       expect(find.byKey(const Key('pl_t_1.5')), findsOneWidget);
       expect(find.byKey(const Key('pl_t_3.2')), findsNothing);
       await tap(tester, 'pl_t_1.5');
       expect(sum(tester), 'SUS 평판 · 1.5T · 200 × 100 mm');
       expect(
         tester
-            .widget<PlateSegButton>(find.byKey(const Key('pl_t_1.5')))
-            .selected,
-        isTrue,
+            .widget<TextField>(find.byKey(const Key('pl_t')))
+            .controller!
+            .text,
+        '1.5',
       );
+      // 다시 열면 고른 두께에 체크
+      await tap(tester, 'pl_t_menu');
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('pl_t_1.5')),
+          matching: find.byIcon(Icons.check_rounded),
+        ),
+        findsOneWidget,
+      );
+      await tap(tester, 'pl_t_1.5');
     });
 
     testWidgets('원판 배치: 4×8 기본, 5×10·직접은 설정 화면에서, 수량에 원판 몇 장', (tester) async {
@@ -404,14 +418,19 @@ void main() {
       expect(find.byKey(const Key('ps_bd_3')), findsNothing);
       await tester.pageBack();
       await tester.pumpAndSettle();
-      // 두께 단추: 3T·4.5T만(같은 값 하나)
+      // 두께 목록(▼): 3T·4.5T만(같은 값 하나), 지금 3T에 체크
+      await tap(tester, 'pl_t_menu');
       expect(find.byKey(const Key('pl_t_3')), findsOneWidget);
       expect(find.byKey(const Key('pl_t_4.5')), findsOneWidget);
       expect(find.byKey(const Key('pl_t_1.6')), findsNothing);
       expect(
-        tester.widget<PlateSegButton>(find.byKey(const Key('pl_t_3'))).selected,
-        isTrue,
+        find.descendant(
+          of: find.byKey(const Key('pl_t_3')),
+          matching: find.byIcon(Icons.check_rounded),
+        ),
+        findsOneWidget,
       );
+      await tap(tester, 'pl_t_3');
       // 홀 창 지름 단추도 설정 값
       await tester.tap(find.byKey(const Key('pl_tab_holes')));
       await tester.pumpAndSettle();

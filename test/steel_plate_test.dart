@@ -747,10 +747,7 @@ void main() {
       expect(find.byKey(const Key('pl_next_bend')), findsNothing);
       await tab(tester, 'bend');
       expect(find.byKey(const Key('pl_bends')), findsOneWidget);
-      expect(
-        await row(tester, 'pl_bend_item_1'),
-        contains('전개도 절곡선 47.1'),
-      );
+      expect(await row(tester, 'pl_bend_item_1'), contains('전개도 절곡선 47.1'));
       // 절곡 탭은 처음에 측면도
       expect(find.byKey(const Key('pl_side')), findsOneWidget);
       await tab(tester, 'shape');
@@ -1079,6 +1076,7 @@ void main() {
 
     testWidgets('업체 공제값: 직접 넣기 → 업체 값 저장(설정) → 두께를 고르면 업체 값', (tester) async {
       await open(tester);
+      await tap(tester, 'pl_t_menu');
       await tap(tester, 'pl_t_4.5');
       await tab(tester, 'bend');
       bool on(String k) =>
@@ -1105,11 +1103,13 @@ void main() {
       // 같은 값이 저장됐으니 업체 값으로
       expect(on('pl_bm_saved'), isTrue);
       await tab(tester, 'shape');
+      await tap(tester, 'pl_t_menu');
       await tap(tester, 'pl_t_3.2');
       await tab(tester, 'bend');
       expect(on('pl_bm_auto'), isTrue);
       expect(find.byKey(const Key('pl_bm_saved')), findsNothing);
       await tab(tester, 'shape');
+      await tap(tester, 'pl_t_menu');
       await tap(tester, 'pl_t_4.5');
       await tab(tester, 'bend');
       expect(on('pl_bm_saved'), isTrue);

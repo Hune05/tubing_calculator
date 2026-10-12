@@ -824,7 +824,7 @@ class _PlatePageState extends State<PlatePage>
 
   String get _tKey => plateThicknessKey(_num(_t));
 
-  /// 두께 단추: 그 두께의 업체 값이 있으면 채우고(업체 값), 없으면 비운다(일반값).
+  /// 두께 고르기(▼ 목록): 그 두께의 업체 값이 있으면 채우고(업체 값), 없으면 비운다(일반값).
   void _setThickness(String v) => _set(() {
     _t.text = v;
     _applyBendSource();
@@ -1574,39 +1574,86 @@ class _PlatePageState extends State<PlatePage>
     },
   );
 
-  /// 두께: 단추(설정의 재질별 두께) 줄 끝에 작은 칸. 단추에 없는 두께를 넣으면 칸 테두리가 진해진다(10-11).
+  /// 두께: 큰 칸이 주인공, 칸 안 ▼에 재질별 자주 쓰는 두께(설정) — 10-12 사용자 "두께 입력 창이 메인이 되고
+  /// 퀵 버튼을 드롭다운으로". 절단 + 절곡은 업체 공제값을 저장해 둔 두께에 "업체 값".
   Widget _thicknessRow() {
     final opts = _cfg.thick[_mat] ?? const <String>[];
     final cur = _t.text.trim();
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
+    final menu = PopupMenuButton<String>(
+      key: const Key('pl_t_menu'),
+      tooltip: '자주 쓰는 두께',
+      position: PopupMenuPosition.under,
+      icon: Icon(Icons.arrow_drop_down_rounded, size: 30, color: fc.brand),
+      onSelected: (v) {
+        if (v.isEmpty) {
+          _openSettings();
+          return;
+        }
+        _setThickness(v);
+      },
+      itemBuilder: (_) => [
         for (final v in opts)
-          PlateSegButton(
+          PopupMenuItem<String>(
             key: Key('pl_t_$v'),
-            label: '${v}T',
-            selected: cur == v,
-            onTap: () => _setThickness(v),
-            pill: true,
+            value: v,
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 26,
+                  child: cur == v
+                      ? Icon(Icons.check_rounded, size: 18, color: fc.brand)
+                      : null,
+                ),
+                Text(
+                  '${v}T',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: cur == v ? FontWeight.w800 : FontWeight.w600,
+                    color: fc.text,
+                  ),
+                ),
+                if (_bend &&
+                    _bendTable.containsKey(
+                      plateThicknessKey(double.tryParse(v) ?? 0),
+                    )) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    '업체 값',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: fc.brand,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
-        SizedBox(
-          width: 104,
-          child: PlateNumField(
-            fieldKey: 'pl_t',
-            label: null,
-            controller: _t,
-            unit: 'T',
-            hint: '직접',
-            highlight: cur.isNotEmpty && !opts.contains(cur),
-            onChanged: (_) => _set(() {
-              if (_bend) _applyBendSource(keepManual: true);
-            }),
+        const PopupMenuDivider(),
+        PopupMenuItem<String>(
+          key: const Key('pl_t_edit'),
+          value: '',
+          child: Text(
+            '목록 고치기 (설정)',
+            style: TextStyle(fontSize: 14, color: fc.textSub),
           ),
         ),
       ],
     );
+    return plateRow([
+      PlateNumField(
+        fieldKey: 'pl_t',
+        label: '두께',
+        controller: _t,
+        unit: 'T',
+        hint: '숫자 또는 ▼',
+        trailing: menu,
+        onChanged: (_) => _set(() {
+          if (_bend) _applyBendSource(keepManual: true);
+        }),
+      ),
+      const SizedBox.shrink(),
+    ]);
   }
 
   // ① 모양: 모양 · 재질·두께 · 치수 · 네 귀 · 수량·이름
@@ -1737,8 +1784,8 @@ class _PlatePageState extends State<PlatePage>
       ],
     },
     if (_bend) '절곡 치수는 모두 바깥 치수입니다. 내R·공제값은 "절곡" 탭에서 정합니다.',
-    '두께: 단추를 누르거나 단추 줄 끝 칸에 직접 넣습니다. 단추에 없는 두께를 넣으면 칸 테두리가 진해집니다.${_bend ? ' 그 두께의 업체 값을 설정에 저장해 두었으면 절곡 탭이 업체 값으로 바뀝니다.' : ''}',
-    '재질은 중량 계산에 씁니다. 두께 단추는 설정에서 재질별로 바꿉니다(처음 값은 흔히 쓰는 두께, 업체 재고 확인). 없는 두께는 칸에 직접 넣습니다.',
+    '두께: 칸에 숫자를 바로 넣거나 칸 안 ▼에서 자주 쓰는 두께를 고릅니다(목록은 설정에서 재질별로).${_bend ? ' 그 두께의 업체 값을 설정에 저장해 두었으면 절곡 탭이 업체 값으로 바뀝니다.' : ''}',
+    '재질은 중량 계산에 씁니다. ▼ 두께 목록은 설정에서 재질별로 바꿉니다(처음 값은 흔히 쓰는 두께, 업체 재고 확인). 목록에 없는 두께도 칸에 바로 넣으면 됩니다.',
     if (!_bend)
       'DXF 불러오기: 레이저 업체용 DXF를 읽어 좌표 입력(원이면 원형·링)으로 바꿉니다. 둥근 코너는 코너 R, 원은 홀, 장공은 장공으로 읽고, 다른 안쪽 따냄은 읽지 못합니다. CUT 층이 있으면 그 층만 읽습니다.',
     '위 그림: 치수를 누르면 그 칸으로, 판을 누르면 홀 탭으로 갑니다. 오른쪽 위에서 ${_bend ? '측면도·' : ''}3D로 바꿔 볼 수 있습니다.',

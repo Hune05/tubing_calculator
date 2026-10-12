@@ -469,7 +469,7 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
                         const SizedBox.shrink(),
                       ]),
                     ], first: true),
-                    PlateSection('두께 단추 (재질별)', [
+                    PlateSection('두께 목록 (재질별, 두께 칸 ▼)', [
                       for (final m in PlateMaterial.values)
                         _num(
                           'ps_thick_${m.name}',

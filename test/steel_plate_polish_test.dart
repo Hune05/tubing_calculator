@@ -219,21 +219,27 @@ void main() {
       );
     });
 
-    testWidgets('두께: 단추에 없는 3T는 칸 테두리로, 단추를 누르면 그 단추', (tester) async {
+    testWidgets('두께: 큰 칸이 주인공(목록에 없는 3T도 그대로), 칸 안 ▼에서 고르면 칸에', (tester) async {
       await open(tester);
-      PlateNumField field() => tester.widget<PlateNumField>(
-        find.ancestor(
-          of: find.byKey(const Key('pl_t')),
-          matching: find.byType(PlateNumField),
-        ),
-      );
-      bool on(String k) =>
-          tester.widget<PlateSegButton>(find.byKey(Key(k))).selected;
-      expect(on('pl_t_3.2'), isFalse);
-      expect(field().highlight, isTrue);
+      String t() => tester
+          .widget<TextField>(find.byKey(const Key('pl_t')))
+          .controller!
+          .text;
+      expect(t(), '3');
+      await tap(tester, 'pl_t_menu');
+      bool checked(String k) => find
+          .descendant(
+            of: find.byKey(Key(k)),
+            matching: find.byIcon(Icons.check_rounded),
+          )
+          .evaluate()
+          .isNotEmpty;
+      expect(checked('pl_t_3.2'), isFalse);
       await tap(tester, 'pl_t_4.5');
-      expect(on('pl_t_4.5'), isTrue);
-      expect(field().highlight, isFalse);
+      expect(t(), '4.5');
+      await tap(tester, 'pl_t_menu');
+      expect(checked('pl_t_4.5'), isTrue);
+      await tap(tester, 'pl_t_4.5');
     });
 
     testWidgets('위 요약 줄은 고른 재질 이름(알루미늄을 골라도 철판으로 나오던 것)', (tester) async {

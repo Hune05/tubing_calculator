@@ -472,10 +472,14 @@ class PlateNumField extends StatefulWidget {
     this.autofocus = false,
     this.highlight = false,
     this.readOnly = false,
+    this.trailing,
   });
 
-  /// 지금 쓰는 값이라 테두리를 진하게(두께 단추에 없는 값을 넣었을 때 등).
+  /// 지금 쓰는 값이라 테두리를 진하게.
   final bool highlight;
+
+  /// 칸 안 오른쪽 끝 단추(두께 목록 ▼ 등, 10-12).
+  final Widget? trailing;
 
   /// 고칠 수 없는 칸(계산해서 보여 주는 값).
   final bool readOnly;
@@ -594,7 +598,9 @@ class _PlateNumFieldState extends State<PlateNumField> {
     }
 
     final unit = widget.unit;
-    final suffix = unit == null ? 0.0 : measure(unit, 13, FontWeight.w700) + 4;
+    final suffix =
+        (unit == null ? 0.0 : measure(unit, 13, FontWeight.w700) + 4) +
+        (widget.trailing == null ? 0 : 40);
     final avail = width - 24 - suffix - 4;
     final need = measure(
       value,
@@ -643,6 +649,10 @@ class _PlateNumFieldState extends State<PlateNumField> {
           color: fc.textFaint,
         ),
         suffixText: unit,
+        suffixIcon: widget.trailing,
+        suffixIconConstraints: widget.trailing == null
+            ? null
+            : const BoxConstraints(minWidth: 40, minHeight: 40),
         suffixStyle: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
