@@ -1,15 +1,20 @@
 // 부스바 가공(10-03): 구리 부스바를 현장에서 L·U·Z로 꺾을 때 절단 길이와 꺾기 시작선.
-// 계산은 busbar_bend.dart.
+// 계산은 busbar_bend.dart. 10-12 화면 틀을 철판 가공처럼: 위 그림(꺾은 모양·마킹) + 아래 탭(모양·부스바·결과·보내기).
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
+import '../../core/theme/app_icon_set.dart';
+import '../calculator/widgets/swipe_delete.dart' show calcNavCompact;
+import '../common/app_icons.dart';
 import '../common/calc_form_parts.dart';
 import '../common/preset_menu.dart';
+import '../steel_plate/plate_ui.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'busbar_bend.dart';
 import 'busbar_bend_painter.dart';
@@ -528,430 +533,594 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     return b.toString();
   }
 
-  // ── 화면 ──
+  // ── 화면(10-12: 철판 가공처럼 위 그림 + 아래 탭 — 사용자 "화면을 철판 가공처럼 분할") ──
 
-  Widget _drawing(Key key, double height, CustomPainter painter) => Container(
-    key: key,
-    height: height,
-    decoration: BoxDecoration(
-      color: fc.surface,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: fc.line),
-    ),
-    child: ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: CustomPaint(painter: painter, child: const SizedBox.expand()),
+  static const _tabs = [
+    ('shape', '모양'),
+    ('bar', '부스바'),
+    ('result', '결과'),
+    ('send', '보내기'),
+  ];
+  int _tab = 0;
+
+  /// 위 그림: shape 꺾은 뒤 모양, mark 자르기 전 마킹.
+  String _view = 'shape';
+
+  Widget _canvas(BusbarBendPlan? p) {
+    if (p == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            _t <= 0 || _w <= 0
+                ? '두께와 폭을 넣으면 그림이 나옵니다(부스바 탭).'
+                : '치수를 넣으면 그림이 나옵니다.',
+            key: const Key('bb_canvas_empty'),
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, color: fc.textSub),
+          ),
+        ),
+      );
+    }
+    final mark = _view == 'mark';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 52, 10, 30),
+      child: CustomPaint(
+        key: Key(mark ? 'bb_mark_view' : 'bb_shape_view'),
+        painter: mark
+            ? BusbarMarkPainter(
+                plan: p,
+                text: fc.text,
+                sub: fc.textSub,
+                line: fc.line,
+              )
+            : BusbarShapePainter(
+                plan: p,
+                rho: busbarNeutralRadius(_d, _r, _k),
+                thickness: _plane == BusbarBendPlane.flat ? _t : _w,
+                text: fc.text,
+                sub: fc.textSub,
+                line: fc.line,
+              ),
+        child: const SizedBox.expand(),
+      ),
+    );
+  }
+
+  List<Widget> _canvasTools(BusbarBendPlan? p) => p == null
+      ? const []
+      : [
+          PlateViewSwitch([
+            PlateOption(
+              'bb_vm_shape',
+              '꺾은 모양',
+              _view == 'shape',
+              () => setState(() => _view = 'shape'),
+            ),
+            PlateOption(
+              'bb_vm_mark',
+              '마킹',
+              _view == 'mark',
+              () => setState(() => _view = 'mark'),
+            ),
+          ]),
+        ];
+
+  String? _canvasHint(BusbarBendPlan? p) => p == null
+      ? null
+      : _view == 'mark'
+      ? '곧은 부스바 한쪽 끝 기준 꺾기 시작선·끝선'
+      : '옆에서 본 실제 비율 · 청록 = 위로, 주황 = 아래로 꺾기';
+
+  Widget _markTile(BusbarBend b, int i) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CircleAvatar(
+          radius: 13,
+          backgroundColor: busbarBendColor(b.turn),
+          child: Text(
+            '${i + 1}',
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${fmt(b.start, 1)} mm · ${b.turn >= 0 ? '위로' : '아래로'} ${fmt(b.turn.abs())}°',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: fc.text,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '꺾기 시작선 ${fmt(b.start, 1)} → 끝선 ${fmt(b.end, 1)} (호 ${fmt(b.end - b.start, 1)}mm). 시작선에 벤더 꺾는 날을 맞춥니다.',
+                style: TextStyle(
+                  fontSize: 13.5,
+                  color: fc.textSub,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     ),
   );
 
-  Widget _markTile(BusbarBend b, int i) => calcBox(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 13,
-            backgroundColor: busbarBendColor(b.turn),
-            child: Text(
-              '${i + 1}',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${fmt(b.start, 1)} mm · ${b.turn >= 0 ? '위로' : '아래로'} ${fmt(b.turn.abs())}°',
-                  style: TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w900,
-                    color: fc.text,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '꺾기 시작선 ${fmt(b.start, 1)} → 끝선 ${fmt(b.end, 1)} (호 ${fmt(b.end - b.start, 1)}mm). 시작선에 벤더 꺾는 날을 맞춥니다.',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    color: fc.textSub,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+  Widget _f(
+    String key,
+    String label,
+    TextEditingController c, {
+    String? unit = 'mm',
+    String? hint,
+    Widget? trailing,
+    VoidCallback? onEdit,
+  }) => PlateNumField(
+    fieldKey: key,
+    label: label,
+    controller: c,
+    unit: unit,
+    hint: hint,
+    trailing: trailing,
+    onChanged: (_) {
+      onEdit?.call();
+      _set(() {});
+    },
+  );
+
+  Widget _bad(String key, String msg) => Padding(
+    padding: const EdgeInsets.only(top: 4),
+    child: Text(
+      msg,
+      key: Key(key),
+      style: TextStyle(fontSize: 13, color: fc.danger, height: 1.35),
     ),
   );
 
   /// 자유 꺾기 입력: 곳 수 → 시작 직선 → (곳마다 각도·방향·다음 직선).
   List<Widget> _freeFields() => [
-    elecChipGroup(
-      '꺾는 곳 수',
-      '곳 수를 고르면 그 수만큼 칸이 나옵니다(최대 $kBusbarFreeMax곳). 곧은 길이는 꺾기선 사이입니다: 꺾기 끝선에서 다음 꺾기 시작선까지(줄긋기 마킹과 같은 기준).',
-      [
-        for (var n = 1; n <= kBusbarFreeMax; n++)
-          calcChip(
-            'bb_n_$n',
-            '$n곳',
-            _nBends == n,
-            () => _set(() => _nBends = n),
-          ),
-      ],
-    ),
-    elecField(
-      'bb_fs_0',
-      '시작 직선 (mm)',
-      _fs[0],
-      '부스바 끝에서 첫 꺾기 시작선까지 곧은 길이입니다.',
-      onEdit: _saveSoon,
-    ),
+    PlateSegments([
+      for (var n = 1; n <= kBusbarFreeMax; n++)
+        PlateOption(
+          'bb_n_$n',
+          '$n곳',
+          _nBends == n,
+          () => _set(() => _nBends = n),
+        ),
+    ]),
+    const SizedBox(height: 10),
+    plateRow([_f('bb_fs_0', '시작 직선', _fs[0]), const SizedBox.shrink()]),
     for (var i = 0; i < _nBends; i++) ...[
-      elecField(
-        'bb_fa_$i',
-        '꺾기 ${i + 1} 각도 (°)',
-        _fa[i],
-        '꺾은 뒤 진행 방향이 바뀐 각도입니다(0°보다 크고 180°보다 작게). 숫자를 바로 넣거나 ▼에서 고릅니다.',
-        onEdit: () {
-          _readFreeAngle(i);
-          _saveSoon();
-        },
-        trailing: PresetMenuButton(
-          buttonKey: Key('bb_fa_${i}_menu'),
-          tooltip: '자주 쓰는 각도',
-          onOpen: (btn) => _pickPreset(
-            btn,
-            _fa[i],
-            kBusbarBendAngles,
-            'bb_fa_${i}_',
-            (a) => '${fmt(a)}°',
-            keyOf: (a) => '${a.toInt()}',
-            then: () => _readFreeAngle(i),
-          ),
+      const SizedBox(height: 12),
+      Text(
+        '꺾기 ${i + 1}',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w900,
+          color: busbarBendColor(_ft[i]),
         ),
       ),
+      const SizedBox(height: 6),
+      plateRow([
+        _f(
+          'bb_fa_$i',
+          '각도',
+          _fa[i],
+          unit: '°',
+          onEdit: () => _readFreeAngle(i),
+          trailing: PresetMenuButton(
+            buttonKey: Key('bb_fa_${i}_menu'),
+            tooltip: '자주 쓰는 각도',
+            onOpen: (btn) => _pickPreset(
+              btn,
+              _fa[i],
+              kBusbarBendAngles,
+              'bb_fa_${i}_',
+              (a) => '${fmt(a)}°',
+              keyOf: (a) => '${a.toInt()}',
+              then: () => _readFreeAngle(i),
+            ),
+          ),
+        ),
+        _f(
+          'bb_fs_${i + 1}',
+          i == _nBends - 1 ? '끝 직선' : '직선 ${i + 1}',
+          _fs[i + 1],
+        ),
+      ]),
       if (!_okFreeAngle(readNum(_fa[i])))
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Text(
-            '0°보다 크고 180°보다 작은 각도를 넣으십시오. 지금 계산은 ${fmt(_ft[i].abs())}°입니다.',
-            key: Key('bb_fa_${i}_bad'),
-            style: TextStyle(fontSize: 13, color: fc.danger, height: 1.35),
-          ),
+        _bad(
+          'bb_fa_${i}_bad',
+          '0°보다 크고 180°보다 작은 각도를 넣으십시오. 지금 계산은 ${fmt(_ft[i].abs())}°입니다.',
         ),
-      elecChipGroup(
-        '꺾기 ${i + 1} 방향',
-        '위로(청록)와 아래로(주황)는 그림의 옆모습에서 꺾이는 쪽입니다. 같은 쪽으로 이어 꺾으면 ㄷ자·계단, 번갈아 꺾으면 ㄹ자·오프셋입니다.',
-        [
-          calcChip(
-            'bb_fd_${i}_up',
-            '위로',
-            _ft[i] >= 0,
-            () => _set(() => _ft[i] = _ft[i].abs()),
-          ),
-          calcChip(
-            'bb_fd_${i}_down',
-            '아래로',
-            _ft[i] < 0,
-            () => _set(() => _ft[i] = -_ft[i].abs()),
-          ),
-        ],
-      ),
-      elecField(
-        'bb_fs_${i + 1}',
-        i == _nBends - 1 ? '끝 직선 (mm)' : '직선 ${i + 1} (mm)',
-        _fs[i + 1],
-        i == _nBends - 1
-            ? '꺾기 ${i + 1} 끝선에서 부스바 끝까지 곧은 길이입니다.'
-            : '꺾기 ${i + 1} 끝선에서 꺾기 ${i + 2} 시작선까지 곧은 길이입니다.',
-        onEdit: _saveSoon,
-      ),
+      const SizedBox(height: 8),
+      PlateSegments([
+        PlateOption(
+          'bb_fd_${i}_up',
+          '위로',
+          _ft[i] >= 0,
+          () => _set(() => _ft[i] = _ft[i].abs()),
+        ),
+        PlateOption(
+          'bb_fd_${i}_down',
+          '아래로',
+          _ft[i] < 0,
+          () => _set(() => _ft[i] = -_ft[i].abs()),
+        ),
+      ]),
     ],
   ];
 
-  @override
-  Widget build(BuildContext context) {
-    final p = _plan();
-    final z = _z;
-    final warn = _radiusWarn;
-    final bad = z != null && !z.feasible;
+  // ① 모양: 꺾기 종류 · 꺾는 방향 · 치수(기준·각도·길이)
+  Widget _shapePanel(BusbarBendPlan? p) {
     final isU = _kind == BusbarBendKind.u;
     final isZ = _kind == BusbarBendKind.z;
     final isFree = _kind == BusbarBendKind.free;
-    String? summary;
+    final z = _z;
+    final bad = z != null && !z.feasible;
+    return PlatePanel(
+      title: '모양',
+      status: p == null
+          ? (_t <= 0 || _w <= 0 ? '부스바 탭에서 두께와 폭을 넣으십시오.' : '치수를 넣으십시오.')
+          : (bad
+                ? '이 높이는 반경 때문에 꺾을 수 없습니다(최소 ${fmt(z.minHeight, 1)}mm).'
+                : null),
+      statusColor: bad ? fc.danger : null,
+      actions: [
+        plateHelpButton(context, 'bb_help_shape', '모양 탭', [
+          'L: 한 번 꺾기. U: 같은 방향으로 두 번(ㄷ자). Z: 반대 방향으로 두 번(오프셋, 높이를 맞춰 비켜감). 자유: 꺾는 곳을 최대 6곳까지 곳마다 각도·방향을 골라 이어 꺾기(계단·ㄹ자 등).',
+          '눕혀 꺾기: 넓은 면이 꺾입니다(두께 방향). 세워 꺾기(edgewise): 폭 방향으로 꺾어 두께 면을 세웁니다. 세워 꺾기는 판 두께 자리에 폭을 씁니다.',
+          '치수 기준은 둘입니다. 바깥 치수는 꺾은 바깥 모서리까지, 안쪽 치수는 안쪽 모서리까지 잽니다.',
+          '꺾는 각도: 꺾은 뒤 진행 방향이 바뀐 각도입니다. 90°는 직각. 숫자를 바로 넣거나 ▼에서 고릅니다.',
+          '자유 꺾기 곧은 길이는 꺾기선 사이입니다: 꺾기 끝선에서 다음 꺾기 시작선까지(줄긋기 마킹과 같은 기준). 위로(청록)·아래로(주황)는 그림 옆모습에서 꺾이는 쪽입니다.',
+        ]),
+      ],
+      children: [
+        PlateSection('꺾기 종류', [
+          PlateSegments([
+            for (final k in BusbarBendKind.values)
+              PlateOption(
+                'bb_k_${k.name}',
+                busbarBendKindLabel(k),
+                _kind == k,
+                () => _set(() => _kind = k),
+              ),
+          ]),
+          const SizedBox(height: 8),
+          PlateSegments([
+            for (final pl in BusbarBendPlane.values)
+              PlateOption(
+                'bb_p_${pl.name}',
+                busbarBendPlaneLabel(pl),
+                _plane == pl,
+                () => _set(() => _plane = pl),
+              ),
+          ]),
+        ], first: true),
+        PlateSection(isFree ? '꺾기 (곳 수 · 곳마다)' : '치수', [
+          if (!isZ && !isFree) ...[
+            PlateSegments([
+              for (final r in BusbarDimRef.values)
+                PlateOption(
+                  'bb_ref_${r.name}',
+                  busbarDimRefLabel(r),
+                  _ref == r,
+                  () => _set(() => _ref = r),
+                ),
+            ]),
+            const SizedBox(height: 10),
+          ],
+          if (isFree)
+            ..._freeFields()
+          else ...[
+            if (!isU) ...[
+              plateRow([
+                _f(
+                  'bb_ang',
+                  '꺾는 각도',
+                  _angleC,
+                  unit: '°',
+                  trailing: PresetMenuButton(
+                    buttonKey: const Key('bb_a_menu'),
+                    tooltip: '자주 쓰는 각도',
+                    onOpen: (btn) => _pickPreset(
+                      btn,
+                      _angleC,
+                      kBusbarBendAngles,
+                      'bb_a_',
+                      (a) => '${fmt(a)}°',
+                      keyOf: (a) => '${a.toInt()}',
+                    ),
+                  ),
+                ),
+                const SizedBox.shrink(),
+              ]),
+              if (!_angleOk) _bad('bb_ang_bad', '0°보다 크고 180°보다 작은 각도를 넣으십시오.'),
+              const SizedBox(height: 10),
+            ],
+            PlateFieldGrid([
+              _f('bb_ia', isZ ? '시작 직선' : '다리 1', _a),
+              if (!isZ) _f('bb_ib', isU ? '바닥' : '다리 2', _b),
+              if (isU || isZ) _f('bb_ic', isZ ? '끝 직선' : '다리 2', _c),
+              if (isZ) _f('bb_ih', '오프셋 높이', _h),
+            ]),
+          ],
+        ]),
+      ],
+    );
+  }
 
-    final children = <Widget>[
-      elecField(
-        'bb_job',
-        '작업 이름 (선택)',
-        _jobName,
-        '지시서 PDF 제목과 규격 저장 이름에 쓰입니다. 비워도 됩니다.',
-        onEdit: _saveSoon,
-      ),
-      elecChipGroup(
-        '꺾기 종류',
-        'L: 한 번 꺾기. U: 같은 방향으로 두 번(ㄷ자). Z: 반대 방향으로 두 번(오프셋, 높이를 맞춰 비켜감). 자유: 꺾는 곳을 최대 6곳까지 곳마다 각도·방향을 골라 이어 꺾기(계단·ㄹ자 등).',
-        [
-          for (final k in BusbarBendKind.values)
-            calcChip(
-              'bb_k_${k.name}',
-              busbarBendKindLabel(k),
-              _kind == k,
-              () => _set(() => _kind = k),
+  // ② 부스바: 두께·폭 · 안쪽 반경 · k · 벤더 프로필
+  Widget _barPanel(BusbarBendPlan? p) => PlatePanel(
+    title: '부스바',
+    status:
+        '구리 평강 ${fmt(_t)} × ${fmt(_w)} · 안쪽 반경 ${fmt(_r)} · k ${fmt(_k, 2)}${_profileName == null ? '' : ' · $_profileName'}',
+    actions: [
+      plateHelpButton(context, 'bb_help_bar', '부스바 탭', [
+        '두께·폭: 숫자를 바로 넣거나 ▼에서 고릅니다(목록에 없는 값도 됩니다).',
+        '안쪽 반경: 꺾는 곳 안쪽 반경입니다. 벤더 어댑터(예 8·15mm) 값을 넣습니다. 비우면 판 두께 1배로 계산합니다.',
+        '중립선 계수 k: 꺾을 때 길이가 변하지 않는 선이 안쪽 면에서 k × 두께만큼 떨어져 있다고 봅니다. 구리 부스바 범위 0.33~0.5. 시험 조각으로 맞춥니다.',
+        '벤더 프로필: 시험 조각을 꺾어 측정한 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 들어갑니다.',
+      ]),
+    ],
+    children: [
+      PlateSection('부스바 (구리 평강)', [
+        PlateFieldGrid([
+          _f(
+            'bb_t',
+            '두께',
+            _thick,
+            trailing: PresetMenuButton(
+              buttonKey: const Key('bb_t_menu'),
+              tooltip: '자주 쓰는 두께',
+              onOpen: (btn) =>
+                  _pickPreset(btn, _thick, kBusbarThicks, 'bb_tv_', fmt),
             ),
-        ],
-      ),
-      elecChipGroup(
-        '꺾는 방향',
-        '눕혀 꺾기: 넓은 면이 꺾입니다(두께 방향). 세워 꺾기(edgewise): 폭 방향으로 꺾어 두께 면을 세웁니다. 세워 꺾기는 판 두께 자리에 폭을 씁니다.',
-        [
-          for (final pl in BusbarBendPlane.values)
-            calcChip(
-              'bb_p_${pl.name}',
-              busbarBendPlaneLabel(pl),
-              _plane == pl,
-              () => _set(() => _plane = pl),
+          ),
+          _f(
+            'bb_w',
+            '폭',
+            _width,
+            trailing: PresetMenuButton(
+              buttonKey: const Key('bb_w_menu'),
+              tooltip: '자주 쓰는 폭',
+              onOpen: (btn) =>
+                  _pickPreset(btn, _width, kBusbarWidths, 'bb_wv_', fmt),
             ),
-        ],
-      ),
-      elecSectionTitle('부스바'),
-      elecField(
-        'bb_t',
-        '두께 (mm)',
-        _thick,
-        '구리 부스바 두께입니다. 숫자를 바로 넣거나 ▼에서 고릅니다.',
-        onEdit: _saveSoon,
-        trailing: PresetMenuButton(
-          buttonKey: const Key('bb_t_menu'),
-          tooltip: '자주 쓰는 두께',
-          onOpen: (btn) =>
-              _pickPreset(btn, _thick, kBusbarThicks, 'bb_tv_', fmt),
+          ),
+        ]),
+      ], first: true),
+      PlateSection('꺾기 조건', [
+        plateRow([
+          _f('bb_r', '안쪽 반경', _radius, hint: '비우면 ${fmt(_d)}'),
+          const SizedBox.shrink(),
+        ]),
+        const SizedBox(height: 10),
+        Text(
+          '중립선 계수 k',
+          style: TextStyle(
+            fontSize: 12.5,
+            fontWeight: FontWeight.w700,
+            color: fc.textSub,
+          ),
         ),
-      ),
-      elecField(
-        'bb_w',
-        '폭 (mm)',
-        _width,
-        '구리 부스바 폭입니다. 숫자를 바로 넣거나 ▼에서 고릅니다.',
-        onEdit: _saveSoon,
-        trailing: PresetMenuButton(
-          buttonKey: const Key('bb_w_menu'),
-          tooltip: '자주 쓰는 폭',
-          onOpen: (btn) =>
-              _pickPreset(btn, _width, kBusbarWidths, 'bb_wv_', fmt),
-        ),
-      ),
-      elecField(
-        'bb_r',
-        '안쪽 반경 (mm, 비우면 ${fmt(_d)})',
-        _radius,
-        '꺾는 곳 안쪽 반경입니다. 벤더 어댑터(예 8·15mm) 값을 넣습니다. 비우면 판 두께(${fmt(_d)}mm) 1배로 계산합니다.',
-        onEdit: _saveSoon,
-      ),
-      elecChipGroup(
-        '중립선 계수 k',
-        '꺾을 때 길이가 변하지 않는 선이 안쪽 면에서 k × 두께만큼 떨어져 있다고 봅니다. 구리 부스바 범위 0.33~0.5. 시험 조각으로 맞춥니다.',
-        [
+        const SizedBox(height: 6),
+        PlateSegments([
           for (final k in kBusbarK)
-            calcChip(
+            PlateOption(
               'bb_kf_${(k * 100).round()}',
               fmt(k, 2),
               _k == k,
               () => _set(() => _k = k),
             ),
           if (!kBusbarK.contains(_k))
-            calcChip('bb_kf_custom', fmt(_k, 3), true, () {}),
-        ],
-      ),
-      elecChipGroup(
-        '벤더 프로필',
-        '시험 조각을 꺾어 측정한 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 들어갑니다.',
-        [
-          calcChip(
-            'bb_profile',
-            _profileName == null ? '프로필 고르기·만들기' : '적용: $_profileName',
-            _profileName != null,
-            _openProfiles,
+            PlateOption('bb_kf_custom', fmt(_k, 3), true, () {}),
+        ]),
+        const SizedBox(height: 10),
+        plateActions([
+          PlateActionButton(
+            key: const Key('bb_profile'),
+            icon: Icons.tune_rounded,
+            label: _profileName == null
+                ? '벤더 프로필 고르기·만들기'
+                : '적용: $_profileName',
+            primary: _profileName != null,
+            onTap: _openProfiles,
           ),
           if (_profileName != null)
-            calcChip(
-              'bb_profile_off',
-              '해제',
-              false,
-              () => _set(() {
+            PlateActionButton(
+              key: const Key('bb_profile_off'),
+              icon: Icons.close_rounded,
+              label: '해제',
+              onTap: () => _set(() {
                 _profileName = null;
                 _spring = 1.0;
               }),
             ),
-        ],
-      ),
-      elecSectionTitle('치수'),
-      if (!isZ && !isFree)
-        elecChipGroup('치수 기준', '바깥 치수: 꺾은 바깥 모서리까지. 안쪽 치수: 안쪽 모서리까지.', [
-          for (final r in BusbarDimRef.values)
-            calcChip(
-              'bb_ref_${r.name}',
-              busbarDimRefLabel(r),
-              _ref == r,
-              () => _set(() => _ref = r),
-            ),
         ]),
-      if (!isU && !isFree)
-        elecField(
-          'bb_ang',
-          '꺾는 각도 (°)',
-          _angleC,
-          '꺾은 뒤 진행 방향이 바뀐 각도입니다. 90°는 직각으로 꺾습니다. 0°보다 크고 180°보다 작게.',
-          onEdit: _saveSoon,
-          trailing: PresetMenuButton(
-            buttonKey: const Key('bb_a_menu'),
-            tooltip: '자주 쓰는 각도',
-            onOpen: (btn) => _pickPreset(
-              btn,
-              _angleC,
-              kBusbarBendAngles,
-              'bb_a_',
-              (a) => '${fmt(a)}°',
-              keyOf: (a) => '${a.toInt()}',
+      ]),
+    ],
+  );
+
+  // ③ 결과: 절단 길이 · 알림 · 마킹 · 작업 순서 · 근거
+  Widget _resultPanel(BusbarBendPlan? p) {
+    final z = _z;
+    final warn = _radiusWarn;
+    final bad = z != null && !z.feasible;
+    final short = p != null && !bad && _busbarTooShort(p);
+    return PlatePanel(
+      title: '결과',
+      status: p == null
+          ? '두께와 치수를 넣으면 계산합니다.'
+          : '꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
+      children: [
+        PlateSection('절단 길이', [
+          KeyedSubtree(
+            key: const Key('bb_result'),
+            child: PlateBigValue(
+              value: p == null ? '— mm' : '${fmt(p.cutLength, 1)} mm',
+              caption: p == null
+                  ? '두께와 치수를 넣으면 계산합니다'
+                  : '절단 길이 · 꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
+              warn: warn != null || bad || short,
             ),
           ),
-        ),
-      if (isFree) ..._freeFields(),
-      if (!isFree)
-        elecField(
-          'bb_ia',
-          isZ ? '시작 직선 (mm)' : '다리 1 (mm)',
-          _a,
-          isZ ? '부스바 끝에서 첫 꺾기 시작선까지 곧은 길이입니다.' : '부스바 한쪽 끝에서 꺾인 모서리까지 길이입니다.',
-          onEdit: _saveSoon,
-        ),
-      if (!isZ && !isFree)
-        elecField(
-          'bb_ib',
-          isU ? '바닥 (mm)' : '다리 2 (mm)',
-          _b,
-          isU ? 'U의 바닥 길이(두 모서리 사이)입니다.' : '다른 쪽 끝에서 꺾인 모서리까지 길이입니다.',
-          onEdit: _saveSoon,
-        ),
-      if ((isU || isZ) && !isFree)
-        elecField(
-          'bb_ic',
-          isZ ? '끝 직선 (mm)' : '다리 2 (mm)',
-          _c,
-          isZ ? '두 번째 꺾기 끝선에서 부스바 끝까지 곧은 길이입니다.' : '다른 쪽 다리 길이입니다.',
-          onEdit: _saveSoon,
-        ),
-      if (isZ && !isFree)
-        elecField(
-          'bb_ih',
-          '오프셋 높이 (mm)',
-          _h,
-          '두 곧은 구간의 같은 쪽 면 사이 높이입니다.',
-          onEdit: _saveSoon,
-        ),
-      const SizedBox(height: 8),
-    ];
-
-    if (p == null) {
-      children.add(
-        calcResult(
-          solve: true,
-          key: const Key('bb_result'),
-          big: '— mm',
-          caption: '두께와 치수를 넣으면 계산합니다',
-          lines: const [],
-        ),
-      );
-    } else {
-      summary =
-          '${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)} · 절단 길이 ${fmt(p.cutLength, 1)}mm';
-      // 다리가 짧으면 직선 구간이 음수가 돼 시작선이 부스바 밖에 찍힌다(10-07: 경고 없이 보였다).
-      final short = !bad && _busbarTooShort(p);
-      children.addAll([
-        calcResult(
-          solve: true,
-          key: const Key('bb_result'),
-          big: '${fmt(p.cutLength, 1)} mm',
-          caption: '절단 길이 · 꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
-          warn: warn != null || bad || short,
-          lines: [
-            if (short) kBusbarShortLegMsg,
-            if (bad)
-              '이 높이는 반경 때문에 꺾을 수 없습니다. 이 각도·반경에서 최소 높이 ${fmt(z.minHeight, 1)}mm. 각도를 줄이거나 높이를 키우십시오.',
-            ?warn,
-            if (z != null && z.feasible)
-              '비스듬한 곧은 길이 ${fmt(z.slope, 1)}mm · 꺾기 사이 진행 거리 ${fmt(z.run, 1)}mm',
-            '직선 구간: ${p.straights.map((s) => fmt(s, 1)).join(' · ')}mm',
-            ..._springLines(p.bends.map((b) => b.turn)),
-            if (_plane == BusbarBendPlane.edge)
-              '세워 꺾기는 최소 반경 자료를 못 찾아 확인하지 않았습니다. 시험 조각으로 먼저 꺾어 보십시오.',
-          ],
-        ),
-        const SizedBox(height: 12),
-        calcLabel(
-          '꺾은 뒤 모양',
-          '옆에서 본 실제 비율 그림입니다. 번호는 아래 마킹 번호와 같고, 청록은 위로 꺾기, 주황은 아래로 꺾기입니다.',
-        ),
-        const SizedBox(height: 4),
-        _drawing(
-          const Key('bb_shape_view'),
-          200,
-          BusbarShapePainter(
-            plan: p,
-            rho: busbarNeutralRadius(_d, _r, _k),
-            thickness: _plane == BusbarBendPlane.flat ? _t : _w,
-            text: fc.text,
-            sub: fc.textSub,
-            line: fc.line,
-          ),
-        ),
-        const SizedBox(height: 12),
-        calcLabel('자르기 전 마킹', '곧은 부스바 한쪽 끝 기준 꺾기 시작선·끝선 위치입니다.'),
-        const SizedBox(height: 4),
-        _drawing(
-          const Key('bb_mark_view'),
-          130,
-          BusbarMarkPainter(
-            plan: p,
-            text: fc.text,
-            sub: fc.textSub,
-            line: fc.line,
-          ),
-        ),
-        const SizedBox(height: 12),
-        elecSectionTitle('마킹 (한쪽 끝에서)'),
-        for (var i = 0; i < p.bends.length; i++) _markTile(p.bends[i], i),
-        const SizedBox(height: 8),
-        ...elecFold('bb_fold_notes', '작업 순서', [
-          calcResult(
-            solve: true,
-            key: const Key('bb_notes'),
-            big: '작업 순서',
-            caption: '현장에서 꺾을 때',
-            lines: const [
+          if (p != null)
+            PlateLines([
+              if (short) kBusbarShortLegMsg,
+              if (bad)
+                '이 높이는 반경 때문에 꺾을 수 없습니다. 이 각도·반경에서 최소 높이 ${fmt(z.minHeight, 1)}mm. 각도를 줄이거나 높이를 키우십시오.',
+              ?warn,
+              if (z != null && z.feasible)
+                '비스듬한 곧은 길이 ${fmt(z.slope, 1)}mm · 꺾기 사이 진행 거리 ${fmt(z.run, 1)}mm',
+              '직선 구간: ${p.straights.map((s) => fmt(s, 1)).join(' · ')}mm',
+              ..._springLines(p.bends.map((b) => b.turn)),
+              if (_plane == BusbarBendPlane.edge)
+                '세워 꺾기는 최소 반경 자료를 못 찾아 확인하지 않았습니다. 시험 조각으로 먼저 꺾어 보십시오.',
+            ]),
+        ], first: true),
+        if (p != null)
+          PlateSection('마킹 (한쪽 끝에서)', [
+            for (var i = 0; i < p.bends.length; i++) _markTile(p.bends[i], i),
+          ]),
+        PlateSection('작업 순서', [
+          const KeyedSubtree(
+            key: Key('bb_notes'),
+            child: PlateLines([
               '절단 길이로 부스바를 자릅니다. 절단면 버(burr)를 갈아 냅니다.',
               '한쪽 끝에서 꺾기 시작선을 줄긋기로 표시합니다. 양면에 같이 긋습니다.',
               '벤더 꺾는 날(어댑터)의 시작 위치를 시작선에 맞춥니다.',
               '먼저 같은 규격 시험 조각을 꺾어 길이·각도를 확인하고 k와 반경을 맞춥니다.',
               '꺾은 뒤 스프링백이 있으니 목표 각도보다 조금 더 꺾고 되돌리며 맞춥니다.',
+            ]),
+          ),
+        ]),
+        Padding(
+          padding: const EdgeInsets.only(top: 14),
+          child: elecBasis('bb_basis', kBusbarBendBasis),
+        ),
+      ],
+    );
+  }
+
+  // ④ 보내기: 작업 이름 · 카톡 글 · 절곡 지시서 PDF
+  Widget _sendPanel(BusbarBendPlan? p) => PlatePanel(
+    title: '보내기',
+    status: p == null ? '두께와 치수를 넣으면 보낼 수 있습니다.' : '카톡 글 · 절곡 지시서 PDF',
+    children: [
+      PlateSection('작업 이름', [
+        PlateNumField(
+          fieldKey: 'bb_job',
+          label: '작업 이름 (선택)',
+          controller: _jobName,
+          unit: null,
+          text: true,
+          hint: '지시서 PDF 제목·저장 이름',
+          onChanged: (_) => _saveSoon(),
+        ),
+      ], first: true),
+      if (p != null)
+        PlateSection('보내기', [
+          plateActions([
+            PlateActionButton(
+              key: const Key('bb_share'),
+              icon: Icons.chat_bubble_outline_rounded,
+              label: '카톡 글',
+              primary: true,
+              onTap: () => widget.share(_shareText(p)),
+            ),
+            PlateActionButton(
+              key: const Key('bb_pdf'),
+              icon: Icons.picture_as_pdf_outlined,
+              label: '절곡 지시서 PDF',
+              onTap: () => openBendPdf(context, _pdfInput(p)),
+            ),
+          ]),
+        ]),
+    ],
+  );
+
+  Widget? _navBar(int idx) {
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) return null;
+    final compact = calcNavCompact(context);
+    BottomNavigationBarItem item(String id, String label, int i) {
+      final on = i == idx;
+      final Widget icon = switch (id) {
+        'shape' => AppIcon(AppGlyph.navInput, size: 24, filled: on),
+        'bar' => AppIcon(AppGlyph.busbarBend, size: 24, filled: on),
+        'result' => AppIcon(AppGlyph.navMarking, size: 24, filled: on),
+        _ => const Icon(AppIcons.send, size: 22),
+      };
+      return BottomNavigationBarItem(
+        icon: Padding(
+          padding: EdgeInsets.only(bottom: compact ? 0 : 4),
+          child: KeyedSubtree(key: Key('bb_tab_$id'), child: icon),
+        ),
+        label: label,
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border(top: BorderSide(color: fc.line)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: 4,
+            vertical: compact ? 0 : 4,
+          ),
+          child: BottomNavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            currentIndex: idx,
+            selectedItemColor: fc.brand,
+            unselectedItemColor: fc.textSub,
+            selectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 10,
+            ),
+            unselectedLabelStyle: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 10,
+            ),
+            onTap: (i) {
+              HapticFeedback.selectionClick();
+              FocusManager.instance.primaryFocus?.unfocus();
+              setState(() => _tab = i);
+            },
+            items: [
+              for (var i = 0; i < _tabs.length; i++)
+                item(_tabs[i].$1, _tabs[i].$2, i),
             ],
           ),
-        ], subtitle: '자르기 → 시작선 → 시험 조각 → 꺾기'),
-      ]);
-    }
-    children.addAll([
-      const SizedBox(height: 12),
-      elecBasis('bb_basis', kBusbarBendBasis),
-    ]);
+        ),
+      ),
+    );
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final p = _plan();
+    final z = _z;
+    final warn = _radiusWarn != null || (z != null && !z.feasible);
+    final summary = p == null
+        ? null
+        : '${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)} · 절단 길이 ${fmt(p.cutLength, 1)}mm';
+    final idx = _tab.clamp(0, _tabs.length - 1);
     return FieldViewTheme(
       child: Builder(
         builder: (context) => Scaffold(
@@ -961,40 +1130,69 @@ class _BusbarBendPageState extends State<BusbarBendPage>
             foregroundColor: fc.text,
             surfaceTintColor: Colors.transparent,
             elevation: 0,
-            title: Text(
-              '부스바 가공',
-              style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '부스바 가공',
+                  style: TextStyle(fontWeight: FontWeight.w800, color: fc.text),
+                ),
+                if (summary != null)
+                  Text(
+                    summary,
+                    key: const Key('bb_head'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: warn ? fc.danger : fc.brand,
+                    ),
+                  ),
+              ],
             ),
             actions: [
-              if (p != null)
-                IconButton(
-                  key: const Key('bb_share'),
-                  tooltip: '카톡으로 보내기',
-                  icon: Icon(Icons.share_outlined, color: fc.text),
-                  onPressed: () => widget.share(_shareText(p)),
-                ),
-              if (p != null)
-                IconButton(
-                  key: const Key('bb_pdf'),
-                  tooltip: '절곡 지시서 PDF',
-                  icon: Icon(Icons.picture_as_pdf_outlined, color: fc.text),
-                  onPressed: () => openBendPdf(context, _pdfInput(p)),
-                ),
-              IconButton(
+              PlateBarAction(
                 key: const Key('bb_saved'),
-                tooltip: '저장한 규격',
-                icon: Icon(Icons.bookmarks_outlined, color: fc.text),
-                onPressed: _openSaved,
+                icon: Icons.bookmarks_outlined,
+                label: '저장',
+                onTap: _openSaved,
               ),
               calcHistoryButton(),
             ],
           ),
-          body: elecPage(
-            children,
+          body: elecPageFrame(
             sumKey: 'bb_sum',
             summary: summary,
-            warn: warn != null || bad,
+            warn: warn,
+            showBar: false,
+            body: PlateWorkspace(
+              canvasShare: 0.38,
+              canvas: KeyedSubtree(
+                key: const ValueKey('bb_canvas'),
+                child: _canvas(p),
+              ),
+              tools: _canvasTools(p),
+              hint: _canvasHint(p),
+              panel: IndexedStack(
+                index: idx,
+                children: [
+                  for (final t in _tabs)
+                    KeyedSubtree(
+                      key: ValueKey('bb_body_${t.$1}'),
+                      child: switch (t.$1) {
+                        'shape' => _shapePanel(p),
+                        'bar' => _barPanel(p),
+                        'result' => _resultPanel(p),
+                        _ => _sendPanel(p),
+                      },
+                    ),
+                ],
+              ),
+            ),
           ),
+          bottomNavigationBar: _navBar(idx),
         ),
       ),
     );

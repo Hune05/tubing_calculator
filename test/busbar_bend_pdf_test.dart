@@ -9,15 +9,22 @@ import 'package:tubing_calculator/src/presentation/electrical/busbar_bend_pdf.da
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
 
 Future<void> _open(WidgetTester tester) async {
-  tester.view.physicalSize = const Size(800, 9000);
-  tester.view.devicePixelRatio = 2;
+  tester.view.physicalSize = const Size(800, 2400);
+  tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(const MaterialApp(home: BusbarBendPage()));
   await tester.pumpAndSettle();
 }
 
 Future<void> _type(WidgetTester tester, String key, String text) async {
+  await tester.ensureVisible(find.byKey(Key(key)));
   await tester.enterText(find.byKey(Key(key)), text);
+  await tester.pumpAndSettle();
+}
+
+/// 10-12 철판 가공처럼 탭: 모양·부스바·결과·보내기.
+Future<void> _tab(WidgetTester tester, String id) async {
+  await tester.tap(find.byKey(Key('bb_tab_$id')));
   await tester.pumpAndSettle();
 }
 
@@ -65,12 +72,27 @@ void main() {
 
   testWidgets('지시서 만들기가 실패하면 알리고, 다시 누를 수 있다(10-08)', (tester) async {
     late BuildContext ctx;
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (c) {
-      ctx = c;
-      return const SizedBox();
-    }))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox();
+            },
+          ),
+        ),
+      ),
+    );
     final z = busbarZ(d: 5, r: 5, k: 0.4, a: 50, c: 50, h: 40, deg: 45);
-    final input = BendPdfInput(title: '시험', plan: z.plan, thickness: 5, rho: 7, summary: const [], notes: const []);
+    final input = BendPdfInput(
+      title: '시험',
+      plan: z.plan,
+      thickness: 5,
+      rho: 7,
+      summary: const [],
+      notes: const [],
+    );
     var calls = 0;
     Future<Uint8List> fail(BendPdfInput i, DateTime d) async {
       calls++;
@@ -101,6 +123,7 @@ void main() {
     pdfPreviewBuilder = (Uint8List bytes, String name) =>
         Text('미리보기 $name ${bytes.length > 1000}');
     await _open(tester);
+    await _tab(tester, 'send');
     await _type(tester, 'bb_job', '시험');
     await tester.runAsync(() async {
       await tester.tap(find.byKey(const Key('bb_pdf')));
@@ -121,8 +144,10 @@ void main() {
 
   testWidgets('저장한 규격: 저장 → 값을 고침 → 불러오기 → 지우기', (tester) async {
     await _open(tester);
+    await _tab(tester, 'bar');
     await _type(tester, 'bb_t', '8');
     await _type(tester, 'bb_w', '60');
+    await _tab(tester, 'shape');
     await tester.tap(find.byKey(const Key('bb_k_z')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('bb_saved')));
@@ -139,8 +164,10 @@ void main() {
       tester.element(find.byKey(const Key('ss_saved_8×60 시험'))),
     ).pop();
     await tester.pumpAndSettle();
+    await _tab(tester, 'bar');
     await _type(tester, 'bb_t', '5');
     await _type(tester, 'bb_w', '40');
+    await _tab(tester, 'shape');
     await tester.tap(find.byKey(const Key('bb_k_l')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('bb_saved')));
@@ -149,9 +176,10 @@ void main() {
     await tester.pumpAndSettle();
     String text(String k) =>
         tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+    expect(find.byKey(const Key('bb_ih')), findsOneWidget); // Z 칸이 다시 나타남
+    await _tab(tester, 'bar');
     expect(text('bb_t'), '8');
     expect(text('bb_w'), '60');
-    expect(find.byKey(const Key('bb_ih')), findsOneWidget); // Z 칸이 다시 나타남
     expect(find.textContaining('불러왔습니다'), findsOneWidget);
     await tester.tap(find.byKey(const Key('bb_saved')));
     await tester.pumpAndSettle();
@@ -164,6 +192,7 @@ void main() {
 
   testWidgets('벤더 프로필: 시험 조각으로 k를 구해 만들고 적용하면 반경·k·스프링백이 들어간다', (tester) async {
     await _open(tester);
+    await _tab(tester, 'bar');
     await tester.tap(find.byKey(const Key('bb_profile')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('bp_empty')), findsOneWidget);
@@ -200,6 +229,7 @@ void main() {
         tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
     expect(text('bb_r'), '8');
     expect(find.text('적용: A벤더 어댑터8'), findsOneWidget);
+    await _tab(tester, 'result'); // 스프링백 보정 줄은 결과 탭
     expect(
       find.textContaining('스프링백 보정(×1.056): 목표 90° → 기계에서 95'),
       findsOneWidget,
@@ -208,6 +238,7 @@ void main() {
 
   testWidgets('k가 범위를 벗어나면 알리고 만들 수 없다', (tester) async {
     await _open(tester);
+    await _tab(tester, 'bar');
     await tester.tap(find.byKey(const Key('bb_profile')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('bp_new')));

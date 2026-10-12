@@ -71,10 +71,14 @@ void main() {
   testWidgets('부스바 가공: 두께 ▼, 목록 밖 각도 22.5°도 칸에 바로', (tester) async {
     String? sent;
     await _open(tester, BusbarBendPage(share: (t) async => sent = t));
+    // 10-12 철판 가공처럼 탭: 두께는 부스바 탭, 각도는 모양 탭, 카톡은 보내기 탭
+    await _tap(tester, 'bb_tab_bar');
     await _tap(tester, 'bb_t_menu');
     await _tap(tester, 'bb_tv_10');
     expect(_text(tester, 'bb_t'), '10');
+    await _tap(tester, 'bb_tab_shape');
     await _type(tester, 'bb_ang', '22.5');
+    await _tap(tester, 'bb_tab_send');
     await _tap(tester, 'bb_share');
     expect(sent, contains('22.5°'));
     await _done(tester);
@@ -89,6 +93,7 @@ void main() {
     await _type(tester, 'bb_fa_1', '200');
     expect(find.byKey(const Key('bb_fa_1_bad')), findsOneWidget);
     await _type(tester, 'bb_fa_1', '30');
+    await _tap(tester, 'bb_tab_send');
     await _tap(tester, 'bb_share');
     expect(sent, contains('위 75°'));
     expect(sent, contains('아래 30°'));
