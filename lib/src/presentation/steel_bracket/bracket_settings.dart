@@ -13,6 +13,7 @@ import '../electrical/busbar_punch_dies.dart'
 import '../steel_plate/plate_ui.dart';
 import 'bracket_form.dart';
 import 'bracket_load.dart' show kBracketMaterials;
+import 'design_request.dart';
 
 const String kBracketSettingsKey = 'steel_bracket_settings_v1';
 
@@ -214,6 +215,8 @@ class _BracketSettingsPageState extends State<BracketSettingsPage> {
                         ),
                       ),
                     ], first: true),
+                    // 설계팀에 보내기(10-12, 철판 가공과 같이 씀)
+                    DesignSendSettingsSection(authorHint: _author.text),
                     PlateSection('새 브라켓 처음 값', [
                       Text(
                         '재질',

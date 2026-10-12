@@ -14,6 +14,7 @@ import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../electrical/busbar_punch_dies.dart'
     show kDefaultPunchDies, parsePunchDies, punchDieLabel, readPunchDies;
+import '../steel_bracket/design_request.dart';
 import 'plate_calc.dart';
 import 'plate_ui.dart';
 
@@ -602,6 +603,8 @@ class _PlateSettingsPageState extends State<PlateSettingsPage> {
                         ),
                       ]),
                     ]),
+                    // 설계팀에 보내기(10-12, 형강 브라켓과 같이 씀)
+                    const DesignSendSettingsSection(),
                     PlateSection(key: _bendKey, '업체 공제값 (두께별)', [
                       if (_bd.isEmpty)
                         Text(

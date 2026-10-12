@@ -59,6 +59,12 @@ class BracketPdfInput {
 
   /// 작성 칸에 미리 적을 이름.
   final String author;
+
+  /// 현장 사진(제목, JPG·PNG). 표 다음에 두 장씩(설계 요청서, 10-12).
+  final List<(String, Uint8List)> photos;
+
+  /// 맨 아래 서명 칸 이름. 첫 칸에 [author].
+  final List<String> signs;
   const BracketPdfInput({
     required this.title,
     required this.summary,
@@ -73,6 +79,8 @@ class BracketPdfInput {
     this.moreHeight = 300,
     this.moreAfterSections = false,
     this.author = '',
+    this.photos = const [],
+    this.signs = const ['작성', '검토', '승인'],
   });
 }
 
@@ -274,6 +282,57 @@ Future<Uint8List> buildBracketPdf(
         if (input.moreAfterSections)
           for (final (caption, png) in input.moreDrawings)
             drawing(caption, png, input.moreHeight),
+        if (input.photos.isNotEmpty) ...[
+          sectionTitle('현장 사진'),
+          for (var k = 0; k < input.photos.length; k += 2)
+            pw.Inseparable(
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 6),
+                child: pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    for (var j = k; j < k + 2; j++)
+                      pw.Expanded(
+                        child: j >= input.photos.length
+                            ? pw.SizedBox()
+                            : pw.Padding(
+                                padding: pw.EdgeInsets.only(
+                                  right: j == k ? 6 : 0,
+                                ),
+                                child: pw.Column(
+                                  crossAxisAlignment:
+                                      pw.CrossAxisAlignment.start,
+                                  children: [
+                                    pw.Container(
+                                      height: 190,
+                                      alignment: pw.Alignment.center,
+                                      decoration: pw.BoxDecoration(
+                                        border: pw.Border.all(
+                                          color: _line,
+                                          width: 0.6,
+                                        ),
+                                      ),
+                                      child: pw.Image(
+                                        pw.MemoryImage(input.photos[j].$2),
+                                        fit: pw.BoxFit.contain,
+                                      ),
+                                    ),
+                                    pw.Text(
+                                      input.photos[j].$1,
+                                      style: const pw.TextStyle(
+                                        fontSize: 8,
+                                        color: _grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
         if (input.notes.isNotEmpty) ...[
           sectionTitle('주의'),
           pw.Container(
@@ -297,7 +356,7 @@ Future<Uint8List> buildBracketPdf(
         pw.SizedBox(height: 16),
         pw.Row(
           children: [
-            for (final who in ['작성', '검토', '승인'])
+            for (final who in input.signs)
               pw.Expanded(
                 child: pw.Container(
                   height: 44,
@@ -313,7 +372,8 @@ Future<Uint8List> buildBracketPdf(
                         who,
                         style: const pw.TextStyle(fontSize: 8, color: _grey),
                       ),
-                      if (who == '작성' && input.author.trim().isNotEmpty)
+                      if (who == input.signs.first &&
+                          input.author.trim().isNotEmpty)
                         pw.Padding(
                           padding: const pw.EdgeInsets.only(top: 6),
                           child: pw.Text(

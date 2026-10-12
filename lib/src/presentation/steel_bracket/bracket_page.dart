@@ -40,6 +40,7 @@ import 'bracket_painter.dart';
 import 'bracket_pdf.dart';
 import 'bracket_piece_drawing.dart';
 import 'bracket_settings.dart';
+import 'design_request.dart';
 
 export 'bracket_form.dart' show kBracketShapes, kBracketSpecLists;
 
@@ -107,6 +108,12 @@ class _BracketPageState extends State<BracketPage>
   final Map<String, Object> _v = Map.of(kBracketValueDefaults);
   BracketSettings _settings = BracketSettings.defaults;
   List<double> _dies = const [];
+
+  /// 설계팀에 보내기(10-12): 같이 쓰는 설정, 이 화면 요청 내용, 보내기 탭에서 고른 쪽.
+  static const String _rqKey = 'steel_bracket_design_request_v1';
+  DesignSendSettings _ds = DesignSendSettings.defaults;
+  DesignRequest _rq = DesignRequest.empty;
+  bool _toDesign = false;
   int _tab = 0;
 
   /// 그림 보기: asm 조립도, piece 부재도, 3d 입체.
@@ -181,6 +188,8 @@ class _BracketPageState extends State<BracketPage>
 
   Future<void> _loadAll() async {
     final s = await BracketSettings.load();
+    final ds = await DesignSendSettings.load();
+    final rq = await DesignRequest.load(_rqKey);
     List<double> dies = const [];
     try {
       dies = await readPunchDies();
@@ -194,6 +203,9 @@ class _BracketPageState extends State<BracketPage>
     if (!mounted) return;
     setState(() {
       _settings = s;
+      _ds = ds;
+      _rq = rq;
+      _toDesign = ds.designFirst;
       _dies = dies;
       _bundleCount = bundle.length;
       if (raw != null) {
@@ -575,6 +587,7 @@ class _BracketPageState extends State<BracketPage>
       context,
     ).push(MaterialPageRoute(builder: (_) => const BracketSettingsPage()));
     final s = await BracketSettings.load();
+    final ds = await DesignSendSettings.load();
     List<double> d = _dies;
     try {
       d = await readPunchDies();
@@ -582,9 +595,58 @@ class _BracketPageState extends State<BracketPage>
     if (mounted) {
       setState(() {
         _settings = s;
+        _ds = ds;
         _dies = d;
       });
     }
+  }
+
+  void _setRq(DesignRequest r) {
+    setState(() => _rq = r);
+    r.save(_rqKey);
+  }
+
+  /// 요청자: 설계팀 설정의 요청자, 비우면 지시서 작성자.
+  String get _requester =>
+      _ds.requester.trim().isNotEmpty ? _ds.requester.trim() : _settings.author;
+
+  /// 설계팀에: 설계 요청서 PDF(문제가 있어도 그대로 — 설계팀이 고칠 몫이라 주의 칸에) · 카톡 요약 글.
+  Future<void> _sendDesign(String what, BracketPlan p) async {
+    if (what == 'pdf') {
+      await openBracketPdf(
+        context,
+        () async => designPdfFrom(
+          await _pdfInput(p),
+          docTitle: '형강 브라켓 설계 요청서',
+          settings: _ds,
+          request: _rq,
+          requester: _requester,
+          qty: '$_sets개',
+          photos: await designPhotoBytes(_rq.photos),
+        ),
+        previewTitle: '설계 요청서 미리보기',
+        filePrefix: 'bracket_request',
+      );
+      return;
+    }
+    final m = _draftMap();
+    await widget.share(
+      designShareText(
+        what: '형강 브라켓',
+        job: _c['jn']!.text,
+        settings: _ds,
+        request: _rq,
+        requester: _requester,
+        body: [
+          '$_shapeName · ${_specLine(p)} · $_sets개',
+          '치수: ${bracketDimText(m)} (바깥 치수, mm) · ${_jointName()}',
+          '재질 ${_s('mat')} · ${kBracketFinishes[_i('fin')]}',
+          if (p.input.pipes.isNotEmpty)
+            '가로대 위 관: ${p.input.pipes.map((x) => x.name).join(' · ')}',
+          if (!p.ok) '확인할 것 ${p.problems.length}건(요청서 주의 칸)',
+        ],
+      ),
+    );
   }
 
   Future<void> _openBundle() async {
@@ -1838,91 +1900,140 @@ class _BracketPageState extends State<BracketPage>
 
   Widget _sendPanel(BracketPlan? p) => PlatePanel(
     title: '보내기',
-    status: p == null ? '규격과 치수를 넣으십시오.' : '지시서 PDF(조립도·부재도·표), 카톡 글, 다른 화면으로',
+    status: p == null
+        ? '규격과 치수를 넣으십시오.'
+        : _toDesign
+        ? '${_ds.teamName}에 설계 요청서 PDF(요청·현장 사진·참고 그림)와 카톡 글'
+        : '지시서 PDF(조립도·부재도·표), 카톡 글, 다른 화면으로',
     children: [
-      PlateSection('도면 정보', [
-        _num(
-          'br_job',
-          '작업 이름 (현장·위치)',
-          'jn',
-          unit: null,
-          text: true,
-          hint: '비워도 됩니다',
-        ),
-        PlateFieldGrid([
+      designTargetRow(
+        'br',
+        design: _toDesign,
+        team: _ds.teamName,
+        onChanged: (v) => setState(() => _toDesign = v),
+      ),
+      const SizedBox(height: 8),
+      if (_toDesign) ...[
+        PlateSection('설계 요청', [
           _num(
-            'br_dn',
-            '도면 번호',
-            'dn',
+            'br_job',
+            '작업 이름',
+            'jn',
             unit: null,
             text: true,
-            hint: '예) BR-01',
+            hint: '비워도 됩니다',
           ),
-          _num('br_rv', '개정', 'rv', unit: null, text: true),
-        ]),
-        _label('표면 처리'),
-        PlateSegments([
-          for (var i = 0; i < kBracketFinishes.length; i++)
-            PlateOption(
-              'br_fin_$i',
-              kBracketFinishes[i],
-              _i('fin') == i,
-              () => _setV('fin', i),
-            ),
-        ]),
-        _guide(
-          '재질 ${_s('mat')}(부재 탭) · 공차 ${_settings.tolerance} · 작성 ${_settings.author.isEmpty ? '(비움)' : _settings.author} — 공차·작성자는 설정에서 바꿉니다.',
-        ),
-      ], first: true),
-      if (p != null)
-        PlateSection('보내기', [
-          plateActions([
-            PlateActionButton(
-              key: const Key('br_pdf'),
-              icon: Icons.picture_as_pdf_outlined,
-              label: '가공 지시서 PDF',
-              primary: true,
-              onTap: () => _send('pdf', p),
-            ),
-            PlateActionButton(
-              key: const Key('br_share'),
-              icon: Icons.chat_bubble_outline_rounded,
-              label: '카톡 글',
-              onTap: () => _send('kakao', p),
-            ),
-            if (p.plate != null)
+          const SizedBox(height: 12),
+          DesignRequestFields(keyPrefix: 'br', value: _rq, onChanged: _setRq),
+          _guide(
+            '요청자 ${_requester.isEmpty ? '(비움)' : _requester} · 받는 곳 ${_ds.teamName}. 요청자·받는 곳은 설정에서 바꿉니다. 지금 그림·표는 "참고"로 들어갑니다.',
+          ),
+        ], first: true),
+        if (p != null)
+          PlateSection('보내기', [
+            plateActions([
               PlateActionButton(
-                key: const Key('br_to_plate'),
-                icon: Icons.crop_square_rounded,
-                label: '${p.plate!.name} → 철판 가공',
-                onTap: () => _toPlate(p),
+                key: const Key('br_rq_pdf'),
+                icon: Icons.picture_as_pdf_outlined,
+                label: '설계 요청서 PDF',
+                primary: true,
+                onTap: () => _sendDesign('pdf', p),
+              ),
+              PlateActionButton(
+                key: const Key('br_rq_share'),
+                icon: Icons.chat_bubble_outline_rounded,
+                label: '카톡 글',
+                onTap: () => _sendDesign('kakao', p),
+              ),
+            ]),
+          ]),
+      ] else ...[
+        PlateSection('도면 정보', [
+          _num(
+            'br_job',
+            '작업 이름 (현장·위치)',
+            'jn',
+            unit: null,
+            text: true,
+            hint: '비워도 됩니다',
+          ),
+          PlateFieldGrid([
+            _num(
+              'br_dn',
+              '도면 번호',
+              'dn',
+              unit: null,
+              text: true,
+              hint: '예) BR-01',
+            ),
+            _num('br_rv', '개정', 'rv', unit: null, text: true),
+          ]),
+          _label('표면 처리'),
+          PlateSegments([
+            for (var i = 0; i < kBracketFinishes.length; i++)
+              PlateOption(
+                'br_fin_$i',
+                kBracketFinishes[i],
+                _i('fin') == i,
+                () => _setV('fin', i),
+              ),
+          ]),
+          _guide(
+            '재질 ${_s('mat')}(부재 탭) · 공차 ${_settings.tolerance} · 작성 ${_settings.author.isEmpty ? '(비움)' : _settings.author} — 공차·작성자는 설정에서 바꿉니다.',
+          ),
+        ], first: true),
+        if (p != null)
+          PlateSection('보내기', [
+            plateActions([
+              PlateActionButton(
+                key: const Key('br_pdf'),
+                icon: Icons.picture_as_pdf_outlined,
+                label: '가공 지시서 PDF',
+                primary: true,
+                onTap: () => _send('pdf', p),
+              ),
+              PlateActionButton(
+                key: const Key('br_share'),
+                icon: Icons.chat_bubble_outline_rounded,
+                label: '카톡 글',
+                onTap: () => _send('kakao', p),
+              ),
+              if (p.plate != null)
+                PlateActionButton(
+                  key: const Key('br_to_plate'),
+                  icon: Icons.crop_square_rounded,
+                  label: '${p.plate!.name} → 철판 가공',
+                  onTap: () => _toPlate(p),
+                ),
+              PlateActionButton(
+                key: const Key('br_to_steel'),
+                icon: Icons.content_cut_rounded,
+                label: '형강 컷팅에 새 작업으로',
+                onTap: () => _toSteel(p),
+              ),
+            ]),
+          ]),
+        PlateSection('묶음', [
+          _guide(
+            '한 현장 브라켓 여러 종류를 모아 자를 것·원자재·지시서를 한 번에. 지금 묶음 $_bundleCount종.',
+          ),
+          plateActions([
+            if (p != null)
+              PlateActionButton(
+                key: const Key('br_bundle_add'),
+                icon: Icons.playlist_add_rounded,
+                label: '묶음에 넣기',
+                onTap: () => _addToBundle(p),
               ),
             PlateActionButton(
-              key: const Key('br_to_steel'),
-              icon: Icons.content_cut_rounded,
-              label: '형강 컷팅에 새 작업으로',
-              onTap: () => _toSteel(p),
+              key: const Key('br_bundle_open'),
+              icon: Icons.inventory_2_outlined,
+              label: '묶음 보기',
+              onTap: _openBundle,
             ),
           ]),
         ]),
-      PlateSection('묶음', [
-        _guide('한 현장 브라켓 여러 종류를 모아 자를 것·원자재·지시서를 한 번에. 지금 묶음 $_bundleCount종.'),
-        plateActions([
-          if (p != null)
-            PlateActionButton(
-              key: const Key('br_bundle_add'),
-              icon: Icons.playlist_add_rounded,
-              label: '묶음에 넣기',
-              onTap: () => _addToBundle(p),
-            ),
-          PlateActionButton(
-            key: const Key('br_bundle_open'),
-            icon: Icons.inventory_2_outlined,
-            label: '묶음 보기',
-            onTap: _openBundle,
-          ),
-        ]),
-      ]),
+      ],
     ],
   );
 

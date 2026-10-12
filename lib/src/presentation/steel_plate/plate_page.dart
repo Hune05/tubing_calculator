@@ -25,6 +25,7 @@ import '../electrical/busbar_saved_specs.dart';
 import '../electrical/elec_form_parts.dart';
 import '../drawing_viewer/dxf_reader.dart' show dxfDecode;
 import '../steel_bracket/bracket_pdf.dart';
+import '../steel_bracket/design_request.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'plate_3d_view.dart';
 import 'plate_bend_input.dart';
@@ -160,6 +161,14 @@ class _PlatePageState extends State<PlatePage>
 
   /// 철판 가공 설정(자주 쓰는 홀 지름·두께 단추·원판·간격) — 설정 화면에서 바꾼다.
   PlateSettings _cfg = PlateSettings.defaults;
+
+  /// 설계팀에 보내기(10-12): 같이 쓰는 설정, 이 화면(절단·절곡 따로) 요청 내용, 보내기 탭에서 고른 쪽.
+  String get _rqKey =>
+      'steel_plate_design_request_${_bend ? 'bend' : 'cut'}_v1';
+  DesignSendSettings _ds = DesignSendSettings.defaults;
+  DesignRequest _rq = DesignRequest.empty;
+  bool _toDesign = false;
+  bool _dsReady = false;
   double _grid = 5;
 
   // 그림에서 치수를 누르면 갈 칸
@@ -476,6 +485,8 @@ class _PlatePageState extends State<PlatePage>
   Future<void> _loadSettings({bool fromSettings = false}) async {
     final cfg = await PlateSettings.load();
     final bd = await readPlateBendTable();
+    final ds = await DesignSendSettings.load();
+    final rq = fromSettings ? _rq : await DesignRequest.load(_rqKey);
     double? grid;
     bool? center, holeSizes;
     try {
@@ -488,6 +499,11 @@ class _PlatePageState extends State<PlatePage>
     setState(() {
       _cfg = cfg;
       _bendTable = bd;
+      _ds = ds;
+      _rq = rq;
+      // 보내기 탭 처음 쪽은 화면을 열 때 한 번만(설정에서 돌아와도 고른 쪽 그대로)
+      if (!_dsReady) _toDesign = ds.designFirst;
+      _dsReady = true;
       if (grid != null) _grid = grid;
       if (center != null) _showCenter = center;
       if (holeSizes != null) _showHoleSizes = holeSizes;
@@ -2270,8 +2286,63 @@ class _PlatePageState extends State<PlatePage>
       ),
       subtitle: Text(sub, style: TextStyle(color: fc.textSub)),
       trailing: Icon(AppIcons.forward, color: fc.textFaint),
-      onTap: p == null ? null : () => _send(id, p),
+      onTap: p == null
+          ? null
+          : () => id.startsWith('rq_') ? _sendDesign(id, p) : _send(id, p),
     );
+    final target = designTargetRow(
+      'pl',
+      design: _toDesign,
+      team: _ds.teamName,
+      onChanged: (v) => setState(() => _toDesign = v),
+    );
+    if (_toDesign) {
+      return PlatePanel(
+        title: '보내기',
+        status: p == null
+            ? '두께와 치수를 넣으면 보낼 수 있습니다.'
+            : '${_ds.teamName}에 설계 요청서 PDF(요청·현장 사진·참고 그림)와 카톡 글',
+        children: [
+          target,
+          const SizedBox(height: 8),
+          PlateSection('설계 요청', [
+            DesignRequestFields(keyPrefix: 'pl', value: _rq, onChanged: _setRq),
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                '작업 이름 ${_job.text.trim().isEmpty ? '(비움)' : _job.text.trim()} · 요청자 ${_ds.requester.trim().isEmpty ? '(비움)' : _ds.requester.trim()} · 받는 곳 ${_ds.teamName}. 요청자·받는 곳은 설정에서 바꿉니다. 지금 그림·표는 "참고"로 들어갑니다.',
+                style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.4),
+              ),
+            ),
+          ], first: true),
+          PlateSection('파일·글', [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: fc.line),
+              ),
+              child: Column(
+                children: [
+                  item(
+                    'rq_pdf',
+                    Icons.picture_as_pdf_outlined,
+                    '설계 요청서 PDF',
+                    '요청 표·요청 사항·현장 사진 + 그림·치수(참고)',
+                  ),
+                  Divider(height: 1, color: fc.line),
+                  item(
+                    'rq_kakao',
+                    Icons.chat_bubble_outline,
+                    '카톡 글',
+                    '어디·무엇·몇 장·언제까지·요청 사항',
+                  ),
+                ],
+              ),
+            ),
+          ]),
+        ],
+      );
+    }
     return PlatePanel(
       title: '보내기',
       status: p == null ? '두께와 치수를 넣으면 보낼 수 있습니다.' : '레이저 업체에 보낼 파일과 글',
@@ -2283,6 +2354,8 @@ class _PlatePageState extends State<PlatePage>
         ]),
       ],
       children: [
+        target,
+        const SizedBox(height: 8),
         PlateSection('파일·글', [
           DecoratedBox(
             decoration: BoxDecoration(
@@ -2438,6 +2511,50 @@ class _PlatePageState extends State<PlatePage>
       onUndo: () =>
           _set(() => _applyMap(jsonDecode(before) as Map<String, dynamic>)),
       duration: const Duration(seconds: 6),
+    );
+  }
+
+  void _setRq(DesignRequest r) {
+    setState(() => _rq = r);
+    r.save(_rqKey);
+  }
+
+  /// 설계팀에: 설계 요청서 PDF(가공비·원판 배치는 업체 몫이라 뺌) · 카톡 요약 글.
+  Future<void> _sendDesign(String id, PlatePlan p) async {
+    if (id == 'rq_pdf') {
+      await openBracketPdf(
+        context,
+        () async => designPdfFrom(
+          await _pdfInput(p),
+          docTitle: '철판 가공 설계 요청서',
+          settings: _ds,
+          request: _rq,
+          requester: _ds.requester,
+          qty: '$_qtyN장',
+          photos: await designPhotoBytes(_rq.photos),
+          dropSummary: const {'가공비 기준', '원판 배치'},
+        ),
+        previewTitle: '설계 요청서 미리보기',
+        filePrefix: 'plate_request',
+      );
+      return;
+    }
+    await widget.share(
+      designShareText(
+        what: '철판 가공',
+        job: _job.text,
+        settings: _ds,
+        request: _rq,
+        requester: _ds.requester,
+        body: [
+          '${plateShapeName(_shape)} · ${kPlateMaterials[_mat]!.$1} ${_mm(_num(_t))}T · $_qtyN장',
+          '치수: ${_dimsText()} (mm${plateShapeBends(_shape) ? ', 바깥 치수' : ''})',
+          '${_bend ? '전개 크기' : '판 크기'} ${_sizeTxt(p)} mm · 개당 약 ${_kg(p.kgEach)}kg',
+          if (p.holes.isNotEmpty) '홀 ${p.holes.length}개',
+          if (p.bends.isNotEmpty) '절곡 ${p.bends.length}곳',
+          if (!p.ok) '확인할 것 ${p.problems.length}건(요청서 주의 칸)',
+        ],
+      ),
     );
   }
 
