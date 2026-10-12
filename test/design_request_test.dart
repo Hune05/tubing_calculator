@@ -90,8 +90,10 @@ void main() {
         ('수량', '4개'),
       ]);
       expect(d.summary.map((x) => x.$1), ['모양']);
-      expect(d.sections.map((x) => x.title), ['요청 사항', '자를 것·판', '구멍']);
-      expect(d.sections.first.lines, ['배관 2줄', '보온 50 포함']);
+      // 요청 사항은 요청 표 바로 아래(그림 앞), 업체 몫 구역은 뺌
+      expect(d.leadSections.single.title, '요청 사항');
+      expect(d.leadSections.single.lines, ['배관 2줄', '보온 50 포함']);
+      expect(d.sections.map((x) => x.title), ['자를 것·판', '구멍']);
       expect(d.drawingCaption, startsWith('현장에서 정한 모양(참고)'));
       expect(d.signs, ['요청', '접수', '확인']);
       expect(d.author, '홍길동');
@@ -110,7 +112,7 @@ void main() {
         photos: [('사진 1', _png), ('사진 2', _png), ('사진 3', _png)],
       );
       expect(d.titleBlock.firstWhere((x) => x.$1 == '요청자').$2, '-');
-      expect(d.sections.first.lines, ['-']);
+      expect(d.leadSections.single.lines, ['-']);
       final bytes = await buildBracketPdf(d, date: DateTime(2026, 10, 12));
       expect(bytes.length, greaterThan(1000));
     });

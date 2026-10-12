@@ -65,6 +65,9 @@ class BracketPdfInput {
 
   /// 맨 아래 서명 칸 이름. 첫 칸에 [author].
   final List<String> signs;
+
+  /// 요약 표 바로 다음(그림 앞)에 두는 구역(설계 요청서의 요청 사항).
+  final List<BracketPdfSection> leadSections;
   const BracketPdfInput({
     required this.title,
     required this.summary,
@@ -81,6 +84,7 @@ class BracketPdfInput {
     this.author = '',
     this.photos = const [],
     this.signs = const ['작성', '검토', '승인'],
+    this.leadSections = const [],
   });
 }
 
@@ -259,6 +263,7 @@ Future<Uint8List> buildBracketPdf(
               ),
           ],
         ),
+        for (final sec in input.leadSections) ...section(sec),
         for (final (k, (caption, png)) in [
           (input.drawingCaption, input.drawingPng),
           if (!input.moreAfterSections) ...input.moreDrawings,

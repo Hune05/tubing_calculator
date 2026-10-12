@@ -607,13 +607,16 @@ BracketPdfInput designPdfFrom(
     moreDrawings: v.moreDrawings,
     moreHeight: v.moreHeight,
     moreAfterSections: v.moreAfterSections,
-    sections: [
+    // 요청 사항은 요청 표 바로 아래(그림 앞)
+    leadSections: [
       BracketPdfSection('요청 사항', [
         if (note.isEmpty)
           '-'
         else
           ...note.split('\n').where((l) => l.trim().isNotEmpty),
       ]),
+    ],
+    sections: [
       for (final s in v.sections)
         if (!dropSections.contains(s.title)) s,
     ],
