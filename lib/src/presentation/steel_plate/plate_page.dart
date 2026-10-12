@@ -1583,7 +1583,21 @@ class _PlatePageState extends State<PlatePage>
       key: const Key('pl_t_menu'),
       tooltip: '자주 쓰는 두께',
       position: PopupMenuPosition.under,
-      icon: Icon(Icons.arrow_drop_down_rounded, size: 30, color: fc.brand),
+      // 맨손으로 누르기 좋게 칸 높이만 한 색 단추(10-12 사용자 "좀 더 크게")
+      child: Container(
+        width: 48,
+        height: 40,
+        margin: const EdgeInsets.only(right: 4),
+        decoration: BoxDecoration(
+          color: fc.brandSoft,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(
+          Icons.keyboard_arrow_down_rounded,
+          size: 34,
+          color: fc.brand,
+        ),
+      ),
       onSelected: (v) {
         if (v.isEmpty) {
           _openSettings();

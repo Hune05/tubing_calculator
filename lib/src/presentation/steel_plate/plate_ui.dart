@@ -600,7 +600,7 @@ class _PlateNumFieldState extends State<PlateNumField> {
     final unit = widget.unit;
     final suffix =
         (unit == null ? 0.0 : measure(unit, 13, FontWeight.w700) + 4) +
-        (widget.trailing == null ? 0 : 40);
+        (widget.trailing == null ? 0 : 54);
     final avail = width - 24 - suffix - 4;
     final need = measure(
       value,
@@ -652,7 +652,7 @@ class _PlateNumFieldState extends State<PlateNumField> {
         suffixIcon: widget.trailing,
         suffixIconConstraints: widget.trailing == null
             ? null
-            : const BoxConstraints(minWidth: 40, minHeight: 40),
+            : const BoxConstraints(minWidth: 52, minHeight: 40),
         suffixStyle: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w700,
