@@ -617,10 +617,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       : (_z == null || _z!.feasible) && _busbarTooShort(p)
       ? '다리·바닥이 짧아 이 반경으로는 절곡할 수 없습니다(그림이 겹침). 치수를 늘리거나 내R을 줄이십시오.'
       : _view == 'mark'
-      ? '전개도 · 한쪽 끝 기준 절곡 시작선·끝선'
-      : _plane == BusbarBendPlane.edge
-      ? '평면도(넓은 면, 실제 비율) · 청록 = UP, 주황 = DOWN'
-      : '측면도(실제 비율) · 청록 = UP, 주황 = DOWN';
+      ? '한쪽 끝 기준 절곡 시작선·끝선'
+      // 측면도·평면도 이름은 그림 위 글과 단추에 있어 여기는 비율·색만
+      : '실제 비율 · 청록 = UP, 주황 = DOWN';
 
   Widget _markTile(BusbarBend b, int i) => Padding(
     padding: const EdgeInsets.only(bottom: 10),

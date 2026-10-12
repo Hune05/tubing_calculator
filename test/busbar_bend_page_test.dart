@@ -213,9 +213,11 @@ void main() {
 
   testWidgets('수직절곡은 평면도(넓은 면)라고 알린다(10-12)', (tester) async {
     await _open(tester);
-    expect(find.textContaining('측면도(실제 비율)'), findsOneWidget);
+    // 위 그림 단추 이름: 평절곡은 측면도, 수직절곡은 평면도
+    expect(find.text('측면도'), findsOneWidget);
     await _tap(tester, 'bb_p_edge');
-    expect(find.textContaining('평면도(넓은 면, 실제 비율)'), findsOneWidget);
+    expect(find.text('평면도'), findsOneWidget);
+    expect(find.text('측면도'), findsNothing);
     expect(find.byKey(const Key('bb_shape_view')), findsOneWidget);
   });
 
