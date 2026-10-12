@@ -970,9 +970,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
             key: const Key('bb_result'),
             child: PlateBigValue(
               value: p == null ? '— mm' : '${fmt(p.cutLength, 1)} mm',
-              caption: p == null
-                  ? '두께와 치수를 넣으면 계산합니다'
-                  : '절단 길이 · 꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
+              caption: p == null ? '두께와 치수를 넣으면 계산합니다' : '자르기 전 곧은 부스바 길이',
               warn: warn != null || bad || short,
             ),
           ),
@@ -1019,7 +1017,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     title: '보내기',
     status: p == null ? '두께와 치수를 넣으면 보낼 수 있습니다.' : '카톡 글 · 절곡 지시서 PDF',
     children: [
-      PlateSection('작업 이름', [
+      PlateSection('지시서', [
         PlateNumField(
           fieldKey: 'bb_job',
           label: '작업 이름 (선택)',
