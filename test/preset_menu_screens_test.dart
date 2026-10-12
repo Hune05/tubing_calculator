@@ -131,12 +131,15 @@ void main() {
   ) async {
     String? sent;
     await _open(tester, CableTrayRoutePage(share: (t) async => sent = t));
+    // 10-12 탭: 각도는 꺾기 탭, 카톡 글은 결과 탭
+    await _tap(tester, 'tr_tab_bend');
     await _type(tester, 'tr_ang', '22.5');
     expect(find.byKey(const Key('tr_a_bad')), findsNothing);
     await _type(tester, 'tr_ang', '120');
     expect(find.byKey(const Key('tr_a_bad')), findsOneWidget);
     expect(find.textContaining('지금 계산은 22.5°'), findsOneWidget);
     await _type(tester, 'tr_ang', '22.5');
+    await _tap(tester, 'tr_tab_result');
     await _tap(tester, 'tr_share');
     expect(sent, startsWith('[트레이 가공] 넘어가기 22.5°'));
     await _done(tester);

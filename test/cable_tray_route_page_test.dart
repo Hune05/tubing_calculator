@@ -1,4 +1,5 @@
-// 케이블 트레이 가공 화면(10-03): 기본값으로 바로 마킹, 각도·나눠 꺾기·종류 바꾸기, 카톡 글, 입력값 남기기.
+// 케이블 트레이 가공 화면(10-03, 10-12 위 그림 + 아래 탭): 기본값으로 바로 마킹, 각도·나눠 꺾기·종류 바꾸기,
+// 카톡 글, 입력값 남기기.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,35 +22,45 @@ Future<void> _open(
   await tester.pumpAndSettle();
 }
 
-/// 눌러서 고르기(▼ 목록이 칸을 위로 올려 화면 위 단추가 밖으로 나갈 수 있어 먼저 보이게).
-Future<void> _tapK(WidgetTester tester, String key) async {
-  if (find.byKey(Key(key)).evaluate().isEmpty) {
-    // 목록이 아래로 내려가 위쪽 단추가 아직 안 만들어졌으면 위로 올린다
-    await tester.scrollUntilVisible(
-      find.byKey(Key(key)),
-      -300,
-      scrollable: find
-          .byWidgetPredicate(
-            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
-          )
-          .first,
-    );
+/// 10-12 탭(종류·치수·꺾기·결과)으로 나눠, 지금 탭에 없는 칸은 탭을 차례로 바꿔 찾는다.
+Future<Finder> _show(WidgetTester tester, String key) async {
+  final f = find.byKey(Key(key));
+  if (f.evaluate().isNotEmpty) return f;
+  for (final n in const ['kind', 'size', 'bend', 'result']) {
+    await tester.tap(find.byKey(Key('tr_tab_$n')));
+    await tester.pumpAndSettle();
+    if (f.evaluate().isNotEmpty) return f;
   }
-  await tester.ensureVisible(find.byKey(Key(key)));
+  return f;
+}
+
+/// 눌러서 고르기.
+Future<void> _tapK(WidgetTester tester, String key) async {
+  final f = await _show(tester, key);
+  await tester.ensureVisible(f);
   await tester.pumpAndSettle();
-  await tester.tap(find.byKey(Key(key)));
+  await tester.tap(f);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _type(WidgetTester tester, String key, String text) async {
+  final f = await _show(tester, key);
+  await tester.ensureVisible(f);
+  await tester.enterText(f, text);
   await tester.pumpAndSettle();
 }
 
 /// 칸 안 ▼ 목록에서 고르기(10-12: 단추 줄 대신 칸 + ▼).
 Future<void> _pick(WidgetTester tester, String menu, String item) async {
-  await tester.ensureVisible(find.byKey(Key(menu)));
-  await tester.pumpAndSettle();
-  await tester.tap(find.byKey(Key(menu)));
-  await tester.pumpAndSettle();
+  await _tapK(tester, menu);
   await tester.tap(find.byKey(Key(item)));
   await tester.pumpAndSettle();
 }
+
+// 결과 글은 다른 탭에 있어도 찾는다(탭은 IndexedStack이라 모두 만들어져 있다).
+Finder _ft(String s) => find.text(s, skipOffstage: false);
+Finder _fc(Pattern p) => find.textContaining(p, skipOffstage: false);
+Finder _fk(String k) => find.byKey(Key(k), skipOffstage: false);
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -58,12 +69,14 @@ void main() {
     await _open(tester);
     // 경사 350, 첫 꺾는 곳 1000 − 50 = 950, 윗면 500, 아랫변 V컷 200 × 2
     // 950 + 350 + 500 + 350 + 500 + 400 = 3,050
-    expect(find.textContaining('넘어가기 90° · 마킹 4곳 · 3,050mm'), findsOneWidget);
-    expect(find.text('950 mm · 위로 90° (IN)'), findsOneWidget);
-    expect(find.text('1,400 mm · 아래로 90° (OUT)'), findsOneWidget);
-    expect(find.textContaining('3m 트레이 2개'), findsOneWidget);
-    expect(find.byKey(const Key('tr_side_view')), findsOneWidget);
-    expect(find.byKey(const Key('tr_mark_view')), findsOneWidget);
+    expect(_fc('넘어가기 90° · 마킹 4곳 · 3,050mm'), findsOneWidget);
+    expect(_ft('950 mm · 위로 90° (IN)'), findsOneWidget);
+    expect(_ft('1,400 mm · 아래로 90° (OUT)'), findsOneWidget);
+    expect(_fc('3m 트레이 2개'), findsOneWidget);
+    // 위 그림: 처음은 꺾은 모양, "마킹"을 누르면 자르기 전 마킹
+    expect(_fk('tr_side_view'), findsOneWidget);
+    await _tapK(tester, 'tr_vm_mark');
+    expect(_fk('tr_mark_view'), findsOneWidget);
   });
 
   testWidgets('카톡 글과 입력값 남기기', (tester) async {
@@ -78,23 +91,22 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
     await _open(tester);
-    expect(find.textContaining('3,250mm'), findsOneWidget);
+    expect(_fc('3,250mm'), findsOneWidget);
   });
 
   testWidgets('45° 나눠 꺾기·올라가기, 너무 가까우면 알림', (tester) async {
     await _open(tester);
     await _pick(tester, 'tr_a_menu', 'tr_a_45');
-    expect(find.textContaining('한쪽 수평 길이 350mm'), findsOneWidget);
+    expect(_fc('한쪽 수평 길이 350mm'), findsOneWidget);
     await _tapK(tester, 'tr_k_up');
     await tester.pumpAndSettle();
-    expect(find.textContaining('올라가기 45° · 마킹 2곳'), findsOneWidget);
+    expect(_fc('올라가기 45° · 마킹 2곳'), findsOneWidget);
     await _tapK(tester, 'tr_n_3');
     await tester.pumpAndSettle();
-    expect(find.textContaining('올라가기 45° · 마킹 6곳'), findsOneWidget);
-    expect(find.textContaining('나눠 꺾은 반경 약 R'), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('tr_face')), '100');
-    await tester.pumpAndSettle();
-    expect(find.textContaining('너무 가깝습니다'), findsOneWidget);
+    expect(_fc('올라가기 45° · 마킹 6곳'), findsOneWidget);
+    expect(_fc('나눠 꺾은 반경 약 R'), findsOneWidget);
+    await _type(tester, 'tr_face', '100');
+    expect(_fc('너무 가깝습니다'), findsOneWidget);
   });
 
   testWidgets('옆으로 비켜가기: 트레이 폭·장애물 쪽, 측판 이름으로 마킹', (tester) async {
@@ -102,23 +114,17 @@ void main() {
     await _tapK(tester, 'tr_k_aside');
     await tester.pumpAndSettle();
     // 들어온 폭 300 + 옆 여유 50, 트레이 폭 300(V컷 600): 950 + 350 + 600 + 500 + 600 + 350 + 500
-    expect(
-      find.textContaining('옆으로 비켜가기 90° · 마킹 4곳 · 3,850mm'),
-      findsOneWidget,
-    );
-    expect(find.text('950 mm · 왼쪽으로 90°'), findsOneWidget);
-    expect(
-      find.text('왼쪽 측판 V컷 폭 600 (650~1,250)\n오른쪽 측판은 남기고 접습니다'),
-      findsOneWidget,
-    );
-    expect(find.text('위에서 본 모양'), findsOneWidget);
-    expect(find.byKey(const Key('tr_rail')), findsNothing);
+    expect(_fc('옆으로 비켜가기 90° · 마킹 4곳 · 3,850mm'), findsOneWidget);
+    expect(_ft('950 mm · 왼쪽으로 90°'), findsOneWidget);
+    expect(_ft('왼쪽 측판 V컷 폭 600 (650~1,250)\n오른쪽 측판은 남기고 접습니다'), findsOneWidget);
+    expect(_fc('위에서 본 실제 비율'), findsOneWidget);
+    expect(_fk('tr_rail'), findsNothing);
     await _tapK(tester, 'tr_ol_l');
     await tester.pumpAndSettle();
-    expect(find.text('950 mm · 오른쪽으로 90°'), findsOneWidget);
-    expect(find.textContaining('오른쪽 측판 V컷 폭 600'), findsWidgets);
+    expect(_ft('950 mm · 오른쪽으로 90°'), findsOneWidget);
+    expect(_fc('오른쪽 측판 V컷 폭 600'), findsWidgets);
     await _pick(tester, 'tr_w_menu', 'tr_w_150');
-    expect(find.textContaining('3,250mm'), findsOneWidget);
+    expect(_fc('3,250mm'), findsOneWidget);
   });
 
   testWidgets('기성 엘보: 높이가 낮으면 알림, 45° 엘보 4개와 부품 목록, 옆으로는 수평 엘보', (
@@ -129,20 +135,20 @@ void main() {
     await _tapK(tester, 'tr_mk_elbow');
     await tester.pumpAndSettle();
     // 90° R300: 350mm로는 못 올라감(엘보 두 개만 700 + 끝 직선 200)
-    expect(find.textContaining('높이가 낮아 이 엘보 두 개로는'), findsOneWidget);
-    expect(find.byKey(const Key('tr_n_2')), findsNothing);
+    expect(_fc('높이가 낮아 이 엘보 두 개로는'), findsOneWidget);
+    expect(_fk('tr_n_2'), findsNothing);
     await _pick(tester, 'tr_a_menu', 'tr_a_45');
-    expect(find.textContaining('넘어가기 45° 기성 엘보 · 엘보 4개'), findsOneWidget);
-    expect(find.text('수직 엘보 IN 45° · R300'), findsWidgets);
-    expect(find.text('수직 엘보 OUT 45° · R300'), findsWidgets);
-    expect(find.text('직선 500 mm'), findsWidgets);
+    expect(_fc('넘어가기 45° 기성 엘보 · 엘보 4개'), findsOneWidget);
+    expect(_ft('수직 엘보 IN 45° · R300'), findsWidgets);
+    expect(_ft('수직 엘보 OUT 45° · R300'), findsWidgets);
+    expect(_ft('직선 500 mm'), findsWidgets);
     await _tapK(tester, 'tr_share');
     await tester.pumpAndSettle();
     expect(sent, startsWith('[트레이 가공] 넘어가기 45° 기성 엘보 R300'));
     await _tapK(tester, 'tr_k_aside');
     await tester.pumpAndSettle();
-    expect(find.text('수평 엘보 45° · R300'), findsWidgets);
-    expect(find.text('위에서 본 모양'), findsOneWidget);
+    expect(_ft('수평 엘보 45° · R300'), findsWidgets);
+    expect(_fc('위에서 본 실제 비율'), findsOneWidget);
   });
 
   testWidgets('처음 판 기본 끝 직선 100으로 저장된 값은 125로, 직접 넣은 값은 그대로', (tester) async {
@@ -150,25 +156,13 @@ void main() {
       CableTrayRoutePage.draftKey: '{"k":"over","mk":true,"et":"100"}',
     });
     await _open(tester);
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const Key('tr_tan')))
-          .controller!
-          .text,
-      '125',
-    );
+    expect(tester.widget<TextField>(_fk('tr_tan')).controller!.text, '125');
     await tester.pumpWidget(const SizedBox());
     SharedPreferences.setMockInitialValues({
       CableTrayRoutePage.draftKey: '{"k":"over","mk":true,"et":"100","etv":2}',
     });
     await _open(tester);
-    expect(
-      tester
-          .widget<TextField>(find.byKey(const Key('tr_tan')))
-          .controller!
-          .text,
-      '100',
-    );
+    expect(tester.widget<TextField>(_fk('tr_tan')).controller!.text, '100');
   });
 
   testWidgets('가지 내기(티): 티 앞 본선·가지 직선, 부품 목록, 카톡 글', (tester) async {
@@ -177,21 +171,17 @@ void main() {
     await _tapK(tester, 'tr_k_tee');
     await tester.pumpAndSettle();
     // W300 R300 끝 직선 125: A 1150, B 725, 티 앞 1000 − 575 = 425, 가지 1000 − 425 = 575
-    expect(
-      find.textContaining('가지 내기 티 W300 R300 · 가지 직선 575mm'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('A 1,150 · B 725'), findsOneWidget);
-    expect(find.text('직선 425 mm'), findsOneWidget);
-    expect(find.text('수평 티 W300 · R300'), findsOneWidget);
-    expect(find.byKey(const Key('tr_mk_elbow')), findsNothing);
-    expect(find.byKey(const Key('tr_rail')), findsNothing);
+    expect(_fc('가지 내기 티 W300 R300 · 가지 직선 575mm'), findsOneWidget);
+    expect(_fc('A 1,150 · B 725'), findsOneWidget);
+    expect(_ft('직선 425 mm'), findsOneWidget);
+    expect(_ft('수평 티 W300 · R300'), findsOneWidget);
+    expect(_fk('tr_mk_elbow'), findsNothing);
+    expect(_fk('tr_rail'), findsNothing);
     await _tapK(tester, 'tr_share');
     await tester.pumpAndSettle();
     expect(sent, startsWith('[트레이 가공] 가지 내기 수평 티 W300 R300 · 가지 오른쪽'));
     expect(sent, contains('가지 직선 575mm'));
-    await tester.enterText(find.byKey(const Key('tr_face')), '400');
-    await tester.pumpAndSettle();
-    expect(find.textContaining('가지 중심에 너무 가깝습니다'), findsOneWidget);
+    await _type(tester, 'tr_face', '400');
+    expect(_fc('가지 중심에 너무 가깝습니다'), findsOneWidget);
   });
 }
