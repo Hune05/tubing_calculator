@@ -49,8 +49,15 @@ void main() {
     expect(find.text('90 mm · 위로 90°'), findsOneWidget);
     await tester.tap(find.byKey(const Key('bb_k_z')));
     await tester.pumpAndSettle();
+    // 각도는 칸 + ▼ 목록(10-12)
+    await tester.tap(find.byKey(const Key('bb_a_menu')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('bb_a_45')));
     await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(find.byKey(const Key('bb_ang'))).controller!.text,
+      '45',
+    );
     await _type(tester, 'bb_ih', '3');
     expect(find.textContaining('꺾을 수 없습니다'), findsOneWidget);
     await _type(tester, 'bb_ih', '40');

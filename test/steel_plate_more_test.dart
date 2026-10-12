@@ -363,6 +363,7 @@ void main() {
         tester.widget<FilledButton>(find.byKey(const Key('hs_ok'))).onPressed,
         isNull,
       );
+      await tap(tester, 'hs_dia_menu');
       await tap(tester, 'hs_die_1100');
       await tester.tap(find.byKey(const Key('hs_ok')));
       await tester.pumpAndSettle();
@@ -435,9 +436,11 @@ void main() {
       await tester.tap(find.byKey(const Key('pl_tab_holes')));
       await tester.pumpAndSettle();
       await tap(tester, 'ed_add_row');
+      await tap(tester, 'hs_dia_menu');
       expect(find.byKey(const Key('hs_die_1000')), findsOneWidget);
       expect(find.byKey(const Key('hs_die_2200')), findsOneWidget);
       expect(find.byKey(const Key('hs_die_1350')), findsNothing);
+      await tap(tester, 'hs_die_1000');
       // 작업 화면 홀 탭에 그리드 단추는 없다(설정에서)
       await tap(tester, 'ps_cancel');
       expect(find.byKey(const Key('ed_grid_5')), findsNothing);

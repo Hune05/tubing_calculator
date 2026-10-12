@@ -21,6 +21,36 @@ Future<void> _open(
   await tester.pumpAndSettle();
 }
 
+/// 눌러서 고르기(▼ 목록이 칸을 위로 올려 화면 위 단추가 밖으로 나갈 수 있어 먼저 보이게).
+Future<void> _tapK(WidgetTester tester, String key) async {
+  if (find.byKey(Key(key)).evaluate().isEmpty) {
+    // 목록이 아래로 내려가 위쪽 단추가 아직 안 만들어졌으면 위로 올린다
+    await tester.scrollUntilVisible(
+      find.byKey(Key(key)),
+      -300,
+      scrollable: find
+          .byWidgetPredicate(
+            (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+          )
+          .first,
+    );
+  }
+  await tester.ensureVisible(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key(key)));
+  await tester.pumpAndSettle();
+}
+
+/// 칸 안 ▼ 목록에서 고르기(10-12: 단추 줄 대신 칸 + ▼).
+Future<void> _pick(WidgetTester tester, String menu, String item) async {
+  await tester.ensureVisible(find.byKey(Key(menu)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key(menu)));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(Key(item)));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
@@ -39,9 +69,8 @@ void main() {
   testWidgets('카톡 글과 입력값 남기기', (tester) async {
     String? sent;
     await _open(tester, share: (t) async => sent = t);
-    await tester.tap(find.byKey(const Key('tr_rail_150')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('tr_share')));
+    await _pick(tester, 'tr_rail_menu', 'tr_rail_150');
+    await _tapK(tester, 'tr_share');
     await tester.pumpAndSettle();
     expect(sent, startsWith('[트레이 가공] 넘어가기 90° · 측판 높이 150mm'));
     expect(sent, contains('윗변 V컷 폭 300'));
@@ -54,13 +83,12 @@ void main() {
 
   testWidgets('45° 나눠 꺾기·올라가기, 너무 가까우면 알림', (tester) async {
     await _open(tester);
-    await tester.tap(find.byKey(const Key('tr_a_45')));
-    await tester.pumpAndSettle();
+    await _pick(tester, 'tr_a_menu', 'tr_a_45');
     expect(find.textContaining('한쪽 수평 길이 350mm'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('tr_k_up')));
+    await _tapK(tester, 'tr_k_up');
     await tester.pumpAndSettle();
     expect(find.textContaining('올라가기 45° · 마킹 2곳'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('tr_n_3')));
+    await _tapK(tester, 'tr_n_3');
     await tester.pumpAndSettle();
     expect(find.textContaining('올라가기 45° · 마킹 6곳'), findsOneWidget);
     expect(find.textContaining('나눠 꺾은 반경 약 R'), findsOneWidget);
@@ -71,7 +99,7 @@ void main() {
 
   testWidgets('옆으로 비켜가기: 트레이 폭·장애물 쪽, 측판 이름으로 마킹', (tester) async {
     await _open(tester);
-    await tester.tap(find.byKey(const Key('tr_k_aside')));
+    await _tapK(tester, 'tr_k_aside');
     await tester.pumpAndSettle();
     // 들어온 폭 300 + 옆 여유 50, 트레이 폭 300(V컷 600): 950 + 350 + 600 + 500 + 600 + 350 + 500
     expect(
@@ -84,13 +112,12 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('위에서 본 모양'), findsOneWidget);
-    expect(find.byKey(const Key('tr_rail_100')), findsNothing);
-    await tester.tap(find.byKey(const Key('tr_ol_l')));
+    expect(find.byKey(const Key('tr_rail')), findsNothing);
+    await _tapK(tester, 'tr_ol_l');
     await tester.pumpAndSettle();
     expect(find.text('950 mm · 오른쪽으로 90°'), findsOneWidget);
     expect(find.textContaining('오른쪽 측판 V컷 폭 600'), findsWidgets);
-    await tester.tap(find.byKey(const Key('tr_w_150')));
-    await tester.pumpAndSettle();
+    await _pick(tester, 'tr_w_menu', 'tr_w_150');
     expect(find.textContaining('3,250mm'), findsOneWidget);
   });
 
@@ -99,21 +126,20 @@ void main() {
   ) async {
     String? sent;
     await _open(tester, share: (t) async => sent = t);
-    await tester.tap(find.byKey(const Key('tr_mk_elbow')));
+    await _tapK(tester, 'tr_mk_elbow');
     await tester.pumpAndSettle();
     // 90° R300: 350mm로는 못 올라감(엘보 두 개만 700 + 끝 직선 200)
     expect(find.textContaining('높이가 낮아 이 엘보 두 개로는'), findsOneWidget);
     expect(find.byKey(const Key('tr_n_2')), findsNothing);
-    await tester.tap(find.byKey(const Key('tr_a_45')));
-    await tester.pumpAndSettle();
+    await _pick(tester, 'tr_a_menu', 'tr_a_45');
     expect(find.textContaining('넘어가기 45° 기성 엘보 · 엘보 4개'), findsOneWidget);
     expect(find.text('수직 엘보 IN 45° · R300'), findsWidgets);
     expect(find.text('수직 엘보 OUT 45° · R300'), findsWidgets);
     expect(find.text('직선 500 mm'), findsWidgets);
-    await tester.tap(find.byKey(const Key('tr_share')));
+    await _tapK(tester, 'tr_share');
     await tester.pumpAndSettle();
     expect(sent, startsWith('[트레이 가공] 넘어가기 45° 기성 엘보 R300'));
-    await tester.tap(find.byKey(const Key('tr_k_aside')));
+    await _tapK(tester, 'tr_k_aside');
     await tester.pumpAndSettle();
     expect(find.text('수평 엘보 45° · R300'), findsWidgets);
     expect(find.text('위에서 본 모양'), findsOneWidget);
@@ -148,7 +174,7 @@ void main() {
   testWidgets('가지 내기(티): 티 앞 본선·가지 직선, 부품 목록, 카톡 글', (tester) async {
     String? sent;
     await _open(tester, share: (t) async => sent = t);
-    await tester.tap(find.byKey(const Key('tr_k_tee')));
+    await _tapK(tester, 'tr_k_tee');
     await tester.pumpAndSettle();
     // W300 R300 끝 직선 125: A 1150, B 725, 티 앞 1000 − 575 = 425, 가지 1000 − 425 = 575
     expect(
@@ -159,8 +185,8 @@ void main() {
     expect(find.text('직선 425 mm'), findsOneWidget);
     expect(find.text('수평 티 W300 · R300'), findsOneWidget);
     expect(find.byKey(const Key('tr_mk_elbow')), findsNothing);
-    expect(find.byKey(const Key('tr_rail_100')), findsNothing);
-    await tester.tap(find.byKey(const Key('tr_share')));
+    expect(find.byKey(const Key('tr_rail')), findsNothing);
+    await _tapK(tester, 'tr_share');
     await tester.pumpAndSettle();
     expect(sent, startsWith('[트레이 가공] 가지 내기 수평 티 W300 R300 · 가지 오른쪽'));
     expect(sent, contains('가지 직선 575mm'));

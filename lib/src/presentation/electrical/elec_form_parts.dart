@@ -280,7 +280,7 @@ mixin ElecTabParts<W extends StatefulWidget>
     );
   }
 
-  /// 숫자 칸(calcField와 같은 모양, 키보드 "다음"으로 다음 칸).
+  /// 숫자 칸(calcField와 같은 모양, 키보드 "다음"으로 다음 칸). [trailing]은 칸 오른쪽 ▼ 단추(자주 쓰는 값, 10-12).
   Widget elecField(
     String key,
     String label,
@@ -290,6 +290,7 @@ mixin ElecTabParts<W extends StatefulWidget>
     bool signed = false,
     bool ratioHint = true,
     FocusNode? focus,
+    Widget? trailing,
   }) => ratioHinted(
     label,
     c,
@@ -322,6 +323,7 @@ mixin ElecTabParts<W extends StatefulWidget>
               },
             ),
           ),
+          if (trailing != null) ...[const SizedBox(width: 6), trailing],
           const SizedBox(width: 8),
         ],
       ),

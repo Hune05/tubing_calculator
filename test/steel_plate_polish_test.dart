@@ -357,7 +357,7 @@ void main() {
       expect(shapePainter.holeDims, isFalse);
     });
 
-    testWidgets('홀 탭: 그림 위 "홀 넣기"로 창, 놓는 방법이 맨 위, 지름 단추 둘째 줄은 볼트', (
+    testWidgets('홀 탭: 그림 위 "홀 넣기"로 창, 놓는 방법이 맨 위, 지름 칸 ▼ 목록 옆 표시는 볼트', (
       tester,
     ) async {
       await open(tester, bend: false);
@@ -369,8 +369,19 @@ void main() {
         tester.getTopLeft(find.byKey(const Key('hp_single'))).dy,
         lessThan(tester.getTopLeft(find.byKey(const Key('hs_round'))).dy),
       );
-      expect(find.text('M12'), findsOneWidget);
+      // 지름은 칸 안 ▼ 목록(10-12): φ13.5 옆에 M12
+      await tester.tap(find.byKey(const Key('hs_dia_menu')));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('hs_die_1350')),
+          matching: find.text('M12'),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('φ13.5'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('hs_die_1350')));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('위 막대: "저장"은 이름 단추, 더 보기에 최근 계산 기록·설정', (tester) async {

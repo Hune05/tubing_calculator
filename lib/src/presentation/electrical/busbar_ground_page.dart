@@ -11,9 +11,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../common/preset_menu.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'busbar_bend.dart' show BusbarBend;
-import 'busbar_bend_page.dart' show busbarMinRadius, kBusbarK;
+import 'busbar_bend_page.dart'
+    show busbarMinRadius, kBusbarK, kBusbarThicks, kBusbarWidths;
 import 'busbar_bend_painter.dart' show BusbarShapePainter, busbarBendColor;
 import 'busbar_bender_profile.dart';
 import 'busbar_ground.dart';
@@ -913,9 +915,8 @@ class _GroundBarPageState extends State<GroundBarPage>
           _lugDia,
           '러그 볼트가 지나는 구멍 지름입니다. ${_lug == 2 ? "2구멍 러그의 구멍 둘 모두" : "1구멍 러그의 구멍"}에 적용됩니다. 접지 구멍과 다르게 줄 수 있고, 구멍마다 따로 바꾸려면 아래 "구멍 크기 바꾸기"를 씁니다.',
           onEdit: _saveSoon,
+          trailing: _dieMenu('gb_lugd_', _lugDia),
         ),
-        _dieChipRow('gb_lugd_', _lugDia),
-        const SizedBox(height: 8),
       ],
     ];
   }
@@ -931,18 +932,18 @@ class _GroundBarPageState extends State<GroundBarPage>
           _lugSpacing,
           '2구멍 러그의 두 구멍 중심 사이 거리입니다(NEMA 3/4"=19.05, 1"=25.4, 1-3/4"=44.45). 구멍 중심 사이 최소 12mm입니다.',
           onEdit: _saveSoon,
+          trailing: _presetMenu(
+            'gb_lsp_',
+            _lugSpacing,
+            kLugSpacings,
+            (v) => switch (v) {
+              19.05 => '3/4" (19.05)',
+              25.4 => '1" (25.4)',
+              _ => '1-3/4" (44.45)',
+            },
+            tooltip: '러그 구멍 간격',
+          ),
         ),
-        _presetChips(
-          'gb_lsp_',
-          _lugSpacing,
-          kLugSpacings,
-          (v) => switch (v) {
-            19.05 => '3/4" (19)',
-            25.4 => '1" (25.4)',
-            _ => '1-3/4" (44.5)',
-          },
-        ),
-        const SizedBox(height: 8),
       ],
       elecChipGroup(
         '접지 구멍 놓는 방법',
@@ -1163,45 +1164,68 @@ class _GroundBarPageState extends State<GroundBarPage>
     ];
   }
 
-  Widget _presetChips(
+  /// 칸 안 ▼ 자주 쓰는 값(10-12, 칸 아래 단추 줄 대신). 항목 키는 예전 단추 키 그대로.
+  Widget _presetMenu(
     String keyPrefix,
     TextEditingController c,
     List<double> values,
-    String Function(double) label,
-  ) => Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: [
-      for (final v in values)
-        calcChip(
-          '$keyPrefix${(v * 100).round()}',
-          label(v),
-          readNum(c) == v,
-          () => _set(() => c.text = fmt(v, 3)),
-        ),
-    ],
+    String Function(double) label, {
+    String tooltip = '자주 쓰는 값',
+  }) => PresetMenuButton(
+    buttonKey: Key('${keyPrefix}menu'),
+    tooltip: tooltip,
+    onOpen: (btn) async {
+      final v = await showPresetMenu(
+        btn,
+        current: presetKey(readNum(c) ?? -1),
+        items: [
+          for (final x in values)
+            PresetItem(
+              presetKey(x),
+              label(x),
+              key: Key('$keyPrefix${(x * 100).round()}'),
+            ),
+        ],
+      );
+      if (v == null || !mounted) return;
+      _set(() => c.text = v);
+      _saveSoon();
+    },
   );
 
-  /// 구멍 지름 칩 줄: 내 펀치 금형(없으면 볼트 틈새 구멍) + 금형 고치기.
-  Widget _dieChipRow(String keyPrefix, TextEditingController c) => Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: [
-      for (final v in _dieChips)
-        calcChip(
-          '$keyPrefix${(v * 100).round()}',
-          punchDieLabel(v),
-          readNum(c) == v,
-          () => _set(() => c.text = fmt(v, 3)),
-        ),
-      calcChip(
-        '${keyPrefix}edit',
-        _dies.isEmpty ? '내 금형 넣기' : '내 금형 고치기',
-        false,
-        _editDies,
-      ),
-    ],
-  );
+  /// 구멍 지름 ▼: 내 펀치 금형(없으면 볼트 틈새 구멍) + 맨 아래 금형 넣기·고치기.
+  Widget _dieMenu(String keyPrefix, TextEditingController c) =>
+      PresetMenuButton(
+        buttonKey: Key('${keyPrefix}menu'),
+        tooltip: '펀치 금형·볼트 구멍',
+        onOpen: (btn) async {
+          final v = await showPresetMenu(
+            btn,
+            minWidth: 220,
+            current: presetKey(readNum(c) ?? -1),
+            items: [
+              for (final x in _dieChips)
+                PresetItem(
+                  presetKey(x),
+                  punchDieLabel(x),
+                  key: Key('$keyPrefix${(x * 100).round()}'),
+                ),
+            ],
+            bottom: PresetItem(
+              '',
+              _dies.isEmpty ? '내 금형 넣기' : '내 금형 고치기',
+              key: Key('${keyPrefix}edit'),
+            ),
+          );
+          if (v == null || !mounted) return;
+          if (v.isEmpty) {
+            await _editDies();
+            return;
+          }
+          _set(() => c.text = v);
+          _saveSoon();
+        },
+      );
 
   /// "자세히" 제목 아래 요약: 켜 둔 것이 있으면 무엇인지 보여 준다(접어 둬도 계산에 들어가므로).
   String _moreSummary(GroundBarPlan? p) {
@@ -1412,8 +1436,34 @@ class _GroundBarPageState extends State<GroundBarPage>
         onEdit: _saveSoon,
       ),
       elecSectionTitle('부스바'),
-      elecField('gb_t', '두께 (mm)', _thick, '구리 부스바 두께입니다.', onEdit: _saveSoon),
-      elecField('gb_w', '폭 (mm)', _width, '구리 부스바 폭입니다.', onEdit: _saveSoon),
+      elecField(
+        'gb_t',
+        '두께 (mm)',
+        _thick,
+        '구리 부스바 두께입니다. 숫자를 바로 넣거나 ▼에서 고릅니다.',
+        onEdit: _saveSoon,
+        trailing: _presetMenu(
+          'gb_tv_',
+          _thick,
+          kBusbarThicks,
+          fmt,
+          tooltip: '자주 쓰는 두께',
+        ),
+      ),
+      elecField(
+        'gb_w',
+        '폭 (mm)',
+        _width,
+        '구리 부스바 폭입니다. 숫자를 바로 넣거나 ▼에서 고릅니다.',
+        onEdit: _saveSoon,
+        trailing: _presetMenu(
+          'gb_wv_',
+          _width,
+          kBusbarWidths,
+          fmt,
+          tooltip: '자주 쓰는 폭',
+        ),
+      ),
       elecSectionTitle('모양'),
       elecChipGroup(
         '모양',
@@ -1493,20 +1543,24 @@ class _GroundBarPageState extends State<GroundBarPage>
         'gb_hole',
         '구멍 지름 (mm)',
         _hole,
-        '볼트가 지나는 구멍 지름입니다. 칩은 볼트 틈새 구멍(M8 9 · M10 11 · M12 13.5 · M16 17.5)이고, "내 금형"에 기계 펀치 금형 지름을 저장하면 그 값으로 바뀝니다.',
+        '볼트가 지나는 구멍 지름입니다. ▼ 목록은 볼트 틈새 구멍(M8 9 · M10 11 · M12 13.5 · M16 17.5)이고, "내 금형"에 기계 펀치 금형 지름을 저장하면 그 값으로 바뀝니다.',
         onEdit: _saveSoon,
+        trailing: _dieMenu('gb_hd_', _hole),
       ),
-      _dieChipRow('gb_hd_', _hole),
-      const SizedBox(height: 8),
       elecField(
         'gb_pitch',
         '구멍 피치 (mm)',
         _pitch,
         '구멍 중심 사이 거리입니다. 쓸 러그의 구멍 간격에 맞춥니다.',
         onEdit: _saveSoon,
+        trailing: _presetMenu(
+          'gb_pp_',
+          _pitch,
+          kGroundPitches,
+          fmt,
+          tooltip: '자주 쓰는 피치',
+        ),
       ),
-      _presetChips('gb_pp_', _pitch, kGroundPitches, (v) => fmt(v)),
-      const SizedBox(height: 8),
       elecField(
         'gb_end',
         '끝 여유 (mm)',
@@ -1575,9 +1629,8 @@ class _GroundBarPageState extends State<GroundBarPage>
           _mDia,
           '판넬에 취부할 볼트가 지나는 구멍 지름입니다.',
           onEdit: _saveSoon,
+          trailing: _dieMenu('gb_md_', _mDia),
         ),
-        _dieChipRow('gb_md_', _mDia),
-        const SizedBox(height: 8),
       ],
       if (_mCount > 1)
         elecField(

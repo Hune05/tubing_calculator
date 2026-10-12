@@ -10,6 +10,7 @@ import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../common/preset_menu.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'cable_tray.dart';
 import 'cable_tray_painter.dart';
@@ -129,8 +130,15 @@ class _CableTrayPageState extends State<CableTrayPage>
 
   TrayStandard _std = TrayStandard.kec;
   TrayType _type = TrayType.ladder;
-  double _width = 300;
-  double _depth = 100;
+  // 트레이 폭·내측 깊이: 칸이 주인공, 칸 안 ▼에 표준 값(10-12). 표 밖 폭은 비례 계산(아래 안내).
+  final _widthC = TextEditingController(text: '300');
+  final _depthC = TextEditingController(text: '100');
+  double get _width => _posNum(_widthC);
+  double get _depth => _posNum(_depthC);
+  static double _posNum(TextEditingController c) {
+    final v = readNum(c);
+    return v != null && v > 0 ? v : 0;
+  }
   int _marginPct = 20;
   final List<_TrayRow> _rows = [_TrayRow()];
   double _span = 2;
@@ -158,6 +166,8 @@ class _CableTrayPageState extends State<CableTrayPage>
     }
     _trayKg.dispose();
     _allow.dispose();
+    _widthC.dispose();
+    _depthC.dispose();
     super.dispose();
   }
 
@@ -203,8 +213,8 @@ class _CableTrayPageState extends State<CableTrayPage>
     final rows = [for (final r in (m['rows'] as List? ?? const [])) ?_TrayRow.fromJson(r)];
     if (t.isNotEmpty) _type = t.first;
     if (st.isNotEmpty) _std = st.first;
-    if (m['w'] is num && kTrayWidths.contains((m['w'] as num).toDouble())) _width = (m['w'] as num).toDouble();
-    if (m['d'] is num && kTrayDepths.contains((m['d'] as num).toDouble())) _depth = (m['d'] as num).toDouble();
+    if (m['w'] is num && (m['w'] as num) > 0) _widthC.text = fmt((m['w'] as num).toDouble());
+    if (m['d'] is num && (m['d'] as num) > 0) _depthC.text = fmt((m['d'] as num).toDouble());
     if (m['m'] is int) _marginPct = m['m'] as int;
     if (m['sp'] is num && kTraySpans.contains((m['sp'] as num).toDouble())) _span = (m['sp'] as num).toDouble();
     if (m['tk'] is String) _trayKg.text = m['tk'] as String;
@@ -244,6 +254,22 @@ class _CableTrayPageState extends State<CableTrayPage>
     setState(f);
     _saveSoon();
   }
+
+  /// 칸 안 ▼ 자주 쓰는 값(10-12, 단추 줄 대신). 항목 키는 예전 단추 키 그대로.
+  Widget _presetMenu(String keyPrefix, TextEditingController c, List<double> values, {String tooltip = '자주 쓰는 값'}) =>
+      PresetMenuButton(
+        buttonKey: Key('${keyPrefix}menu'),
+        tooltip: tooltip,
+        onOpen: (btn) async {
+          final v = await showPresetMenu(
+            btn,
+            current: presetKey(readNum(c) ?? -1),
+            items: [for (final x in values) PresetItem(presetKey(x), fmt(x), key: Key('$keyPrefix${x.toInt()}'))],
+          );
+          if (v == null || !mounted) return;
+          _set(() => c.text = v);
+        },
+      );
 
   // ── 케이블 목록 ──
 
@@ -669,10 +695,11 @@ class _CableTrayPageState extends State<CableTrayPage>
   Widget build(BuildContext context) {
     final (cables, bad) = _cables();
     final margin = _marginPct / 100;
-    final check = cables.isEmpty
+    final dimsOk = _width > 0 && _depth > 0;
+    final check = cables.isEmpty || !dimsOk
         ? null
         : checkTray(type: _type, width: _width, depth: _depth, cables: cables, margin: margin, standard: _std);
-    final sizing = cables.isEmpty
+    final sizing = cables.isEmpty || _depth <= 0
         ? null
         : sizeTray(type: _type, depth: _depth, cables: cables, margin: margin, standard: _std);
     String? summary;
@@ -681,7 +708,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       result = calcResult(solve: true, 
         key: const Key('ct_result'),
         big: '— %',
-        caption: '케이블 가닥 수를 넣으면 판정합니다',
+        caption: cables.isNotEmpty && !dimsOk ? '트레이 폭과 내측 깊이를 넣으십시오' : '케이블 가닥 수를 넣으면 판정합니다',
         lines: [if (bad.isNotEmpty) '${bad.join(', ')}번 줄의 숫자를 확인하십시오.'],
       );
     } else {
@@ -725,15 +752,21 @@ class _CableTrayPageState extends State<CableTrayPage>
             : '구 기준: 사다리형·펀칭형·그물망형은 통풍이 되는 표(넓은 한도), 바닥밀폐형은 더 작은 표를 씁니다.',
         [for (final t in TrayType.values) calcChip('ct_type_${t.name}', trayTypeLabel(t), _type == t, () => _set(() => _type = t))],
       ),
-      elecChipGroup(
+      elecField(
+        'ct_w',
         '트레이 폭 (mm)',
-        '지금 트레이(또는 검토할 폭)의 내측 폭입니다. 표에 있는 폭은 150·300·450·600·750·900이고, 그 밖의 폭은 비례로 계산합니다.',
-        [for (final w in kTrayWidths) calcChip('ct_w_${w.toInt()}', fmt(w), _width == w, () => _set(() => _width = w))],
+        _widthC,
+        '지금 트레이(또는 검토할 폭)의 내측 폭입니다. 숫자를 바로 넣거나 ▼에서 고릅니다. 표에 있는 폭은 150·300·450·600·750·900이고, 그 밖의 폭은 비례로 계산합니다.',
+        onEdit: _saveSoon,
+        trailing: _presetMenu('ct_w_', _widthC, kTrayWidths, tooltip: '표준 트레이 폭'),
       ),
-      elecChipGroup(
+      elecField(
+        'ct_d',
         '내측 깊이 (mm)',
-        '측판 높이(케이블이 들어가는 깊이)입니다. 제어·신호 케이블만 넣을 때 쓰입니다(150mm 이하).',
-        [for (final d in kTrayDepths) calcChip('ct_d_${d.toInt()}', fmt(d), _depth == d, () => _set(() => _depth = d))],
+        _depthC,
+        '측판 높이(케이블이 들어가는 깊이)입니다. 제어·신호 케이블만 넣을 때 쓰입니다(150mm 이하). 숫자를 바로 넣거나 ▼에서 고릅니다.',
+        onEdit: _saveSoon,
+        trailing: _presetMenu('ct_d_', _depthC, kTrayDepths, tooltip: '자주 쓰는 깊이'),
       ),
       elecChipGroup(
         '예비 여유',
@@ -774,7 +807,7 @@ class _CableTrayPageState extends State<CableTrayPage>
           runSpacing: 6,
           children: [
             for (final (w, c) in sizing.rows)
-              calcChip('ct_wr_${w.toInt()}', '${fmt(w)} · ${fmt(c.pct, 0)}%${c.ok ? '' : ' ✕'}', _width == w, () => _set(() => _width = w)),
+              calcChip('ct_wr_${w.toInt()}', '${fmt(w)} · ${fmt(c.pct, 0)}%${c.ok ? '' : ' ✕'}', _width == w, () => _set(() => _widthC.text = fmt(w))),
           ],
         ),
       ],

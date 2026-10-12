@@ -10,6 +10,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/field_view.dart';
+import '../common/preset_menu.dart';
 import '../electrical/busbar_punch_dies.dart' show punchDieLabel;
 import 'plate_calc.dart' show plateSegSegDist;
 import 'plate_painter.dart' show PlateTone;
@@ -399,14 +400,42 @@ class _PlateHoleInputSheetState extends State<PlateHoleInputSheet> {
     TextEditingController c, {
     String? unit = 'mm',
     String? hint,
+    Widget? trailing,
   }) => PlateNumField(
     fieldKey: key,
     label: label,
     controller: c,
     unit: unit,
     hint: hint,
+    trailing: trailing,
     onChanged: (_) => setState(() {}),
   );
+
+  /// 지름 칸 안 ▼: 자주 쓰는 홀 지름(설정, 10-12 — 칸 아래 단추 줄 대신). 항목 키는 예전 단추 키 그대로.
+  Widget? _diaMenu() => widget.dias.isEmpty
+      ? null
+      : PresetMenuButton(
+          buttonKey: const Key('hs_dia_menu'),
+          tooltip: '자주 쓰는 홀 지름',
+          onOpen: (btn) async {
+            final v = await showPresetMenu(
+              btn,
+              minWidth: 220,
+              current: presetKey(_v(_dia) ?? -1),
+              items: [
+                for (final d in widget.dias)
+                  PresetItem(
+                    presetKey(d),
+                    plateDieLabel2(d).$1,
+                    badge: plateDieLabel2(d).$2,
+                    key: Key('hs_die_${(d * 100).round()}'),
+                  ),
+              ],
+            );
+            if (v == null || !mounted) return;
+            setState(() => _dia.text = v);
+          },
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -491,23 +520,12 @@ class _PlateHoleInputSheetState extends State<PlateHoleInputSheet> {
             ),
           ]),
           plateRow([
-            _num('hs_dia', _slot ? '장공 폭' : '지름', _dia),
+            _num('hs_dia', _slot ? '장공 폭' : '지름', _dia, trailing: _diaMenu()),
             if (_slot)
               _num('hs_slotlen', '장공 길이 (전체)', _len)
             else
               const SizedBox.shrink(),
           ]),
-          if (widget.dias.isNotEmpty)
-            PlateSegments(joined: widget.dias.length <= 5, [
-              for (final d in widget.dias)
-                PlateOption(
-                  'hs_die_${(d * 100).round()}',
-                  plateDieLabel2(d).$1,
-                  _v(_dia) == d,
-                  () => setState(() => _dia.text = _f(d)),
-                  sub: plateDieLabel2(d).$2,
-                ),
-            ]),
           if (_slot) ...[
             PlateSegments([
               PlateOption(

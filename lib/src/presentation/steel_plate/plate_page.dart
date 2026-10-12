@@ -25,6 +25,7 @@ import '../electrical/busbar_saved_specs.dart';
 import '../electrical/elec_form_parts.dart';
 import '../drawing_viewer/dxf_reader.dart' show dxfDecode;
 import '../steel_bracket/bracket_pdf.dart';
+import '../common/preset_menu.dart';
 import '../steel_bracket/design_request.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'plate_3d_view.dart';
@@ -1580,104 +1581,31 @@ class _PlatePageState extends State<PlatePage>
   /// 절단 + 절곡은 업체 공제값을 저장해 둔 두께에 "업체 값", 맨 아래 "목록 고치기 (설정)".
   /// 열기 전에 칸을 위쪽으로 올려 목록이 칸 아래에 펼쳐지게 한다(폰에서 칸을 덮던 것, 10-12).
   Future<void> _openThicknessMenu(BuildContext btn) async {
-    FocusManager.instance.primaryFocus?.unfocus();
-    await Scrollable.ensureVisible(
-      btn,
-      alignment: 0.1,
-      duration: const Duration(milliseconds: 180),
-    );
-    if (!btn.mounted || !mounted) return;
-    final box = btn.findRenderObject() as RenderBox?;
-    final overlay = Overlay.of(btn).context.findRenderObject() as RenderBox?;
-    if (box == null || overlay == null) return;
-    final tl = box.localToGlobal(Offset.zero, ancestor: overlay);
-    final top = tl.dy + box.size.height + 4;
-    // 칸 아래 남은 높이에 맞춰(넘치면 목록 안에서 스크롤) — 위로 밀려 칸을 덮지 않게. 너무 좁으면 그냥 띄운다.
-    final below =
-        overlay.size.height - top - MediaQuery.paddingOf(btn).bottom - 8;
     final opts = _cfg.thick[_mat] ?? const <String>[];
     final cur = _num(_t) > 0 ? plateThicknessKey(_num(_t)) : '';
-    final v = await showMenu<String>(
-      context: btn,
-      position: RelativeRect.fromLTRB(
-        tl.dx + box.size.width - 220,
-        top,
-        overlay.size.width - tl.dx - box.size.width,
-        overlay.size.height - top,
-      ),
-      constraints: BoxConstraints(
-        minWidth: 220,
-        maxHeight: below >= 150 ? below : double.infinity,
-      ),
+    final v = await showPresetMenu(
+      btn,
+      minWidth: 220,
+      current: cur,
+      top: cur.isNotEmpty && !opts.contains(cur)
+          ? PresetItem('+', '${cur}T 목록에 넣기', key: const Key('pl_t_add'))
+          : null,
       items: [
-        if (cur.isNotEmpty && !opts.contains(cur)) ...[
-          PopupMenuItem<String>(
-            key: const Key('pl_t_add'),
-            value: '+',
-            child: Row(
-              children: [
-                Icon(Icons.add_rounded, size: 20, color: fc.brand),
-                const SizedBox(width: 6),
-                Text(
-                  '${cur}T 목록에 넣기',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: fc.brand,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const PopupMenuDivider(),
-        ],
         for (final o in opts)
-          PopupMenuItem<String>(
+          PresetItem(
+            o,
+            '${o}T',
             key: Key('pl_t_$o'),
-            value: o,
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 26,
-                  child: cur == o
-                      ? Icon(Icons.check_rounded, size: 18, color: fc.brand)
-                      : null,
-                ),
-                Text(
-                  '${o}T',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: cur == o ? FontWeight.w800 : FontWeight.w600,
-                    color: fc.text,
-                  ),
-                ),
-                if (_bend &&
+            badge:
+                _bend &&
                     _bendTable.containsKey(
                       plateThicknessKey(double.tryParse(o) ?? 0),
-                    )) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    '업체 값',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: fc.brand,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+                    )
+                ? '업체 값'
+                : null,
           ),
-        const PopupMenuDivider(),
-        PopupMenuItem<String>(
-          key: const Key('pl_t_edit'),
-          value: '',
-          child: Text(
-            '목록 고치기 (설정)',
-            style: TextStyle(fontSize: 14, color: fc.textSub),
-          ),
-        ),
       ],
+      bottom: const PresetItem('', '목록 고치기 (설정)', key: Key('pl_t_edit')),
     );
     if (v == null || !mounted) return;
     if (v.isEmpty) {
@@ -1725,26 +1653,10 @@ class _PlatePageState extends State<PlatePage>
   /// 퀵 버튼을 드롭다운으로". 옆 칸은 수량(빈 반쪽을 쓰게). 비면 칸 테두리를 진하게(그림이 안 나오는 까닭).
   Widget _thicknessRow() {
     // 맨손으로 누르기 좋게 칸 높이만 한 색 단추(10-12 사용자 "좀 더 크게")
-    final menu = Builder(
-      builder: (btn) => InkWell(
-        key: const Key('pl_t_menu'),
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => _openThicknessMenu(btn),
-        child: Container(
-          width: 48,
-          height: 40,
-          margin: const EdgeInsets.only(right: 4),
-          decoration: BoxDecoration(
-            color: fc.brandSoft,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            size: 34,
-            color: fc.brand,
-          ),
-        ),
-      ),
+    final menu = PresetMenuButton(
+      buttonKey: const Key('pl_t_menu'),
+      tooltip: '자주 쓰는 두께',
+      onOpen: _openThicknessMenu,
     );
     return plateRow([
       PlateNumField(

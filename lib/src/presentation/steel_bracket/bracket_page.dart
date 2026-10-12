@@ -19,10 +19,11 @@ import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
 import '../calculator/widgets/swipe_delete.dart' show calcNavCompact;
 import '../common/app_icons.dart';
+import '../common/preset_menu.dart';
 import '../common/calc_form_parts.dart';
 import '../electrical/busbar_lug.dart' show lugBoltFor;
 import '../electrical/busbar_punch_dies.dart'
-    show kDefaultPunchDies, punchDieLabel, readPunchDies;
+    show kDefaultPunchDies, openPunchDies, punchDieLabel, readPunchDies;
 import '../electrical/busbar_saved_specs.dart';
 import '../electrical/elec_form_parts.dart';
 import '../steel_cutting/screens/steel_cutting_detail_screen.dart';
@@ -787,6 +788,7 @@ class _BracketPageState extends State<BracketPage>
     String? unit = 'mm',
     String? hint,
     bool text = false,
+    Widget? trailing,
   }) => PlateNumField(
     fieldKey: key,
     label: label,
@@ -794,6 +796,7 @@ class _BracketPageState extends State<BracketPage>
     unit: unit,
     hint: hint,
     text: text,
+    trailing: trailing,
     onChanged: (_) => _set(() {}),
   );
 
@@ -813,15 +816,40 @@ class _BracketPageState extends State<BracketPage>
 
   List<double> get _dieChips => _dies.isEmpty ? kDefaultPunchDies : _dies;
 
-  Widget _dieRow(String keyPrefix, String field) => PlateSegments([
-    for (final d in _dieChips)
-      PlateOption(
-        '$keyPrefix${(d * 100).round()}',
-        punchDieLabel(d),
-        readNum(_c[field]!) == d,
-        () => _set(() => _c[field]!.text = fmt(d, 3)),
-      ),
-  ]);
+  /// 구멍 지름 칸 안 ▼(10-12, 칸 아래 금형 단추 줄 대신): 내 펀치 금형(없으면 볼트 틈새 구멍) + 금형 넣기·고치기.
+  /// 항목 키는 예전 단추 키 그대로.
+  Widget _dieMenu(String keyPrefix, String field) => PresetMenuButton(
+    buttonKey: Key('${keyPrefix}menu'),
+    tooltip: '펀치 금형·볼트 구멍',
+    onOpen: (btn) async {
+      final c = _c[field]!;
+      final v = await showPresetMenu(
+        btn,
+        minWidth: 220,
+        current: presetKey(readNum(c) ?? -1),
+        items: [
+          for (final d in _dieChips)
+            PresetItem(
+              presetKey(d),
+              punchDieLabel(d),
+              key: Key('$keyPrefix${(d * 100).round()}'),
+            ),
+        ],
+        bottom: PresetItem(
+          '',
+          _dies.isEmpty ? '내 금형 넣기' : '내 금형 고치기',
+          key: Key('${keyPrefix}edit'),
+        ),
+      );
+      if (v == null || !mounted) return;
+      if (v.isEmpty) {
+        final r = await openPunchDies(context, _dies);
+        if (r != null && mounted) setState(() => _dies = r);
+        return;
+      }
+      _set(() => c.text = v);
+    },
+  );
 
   /// 규격 단추(누르면 고르는 창).
   Widget _specButton(String key, String spec, ValueChanged<String> onPick) {
@@ -1484,13 +1512,22 @@ class _BracketPageState extends State<BracketPage>
       ]),
       if (n > 0) ...[
         PlateFieldGrid([
-          _num('br_${p}d', '지름', '${p}d'),
+          _num(
+            'br_${p}d',
+            '지름',
+            '${p}d',
+            trailing: _dieMenu('br_${p}_die_', '${p}d'),
+          ),
           _num('br_${p}f', firstLabel, '${p}f'),
-          if (n > 1) _num('br_${p}p', '피치', '${p}p'),
         ]),
-        _dieRow('br_${p}_die_', '${p}d'),
         PlateFieldGrid([
-          _num('br_${p}s', '장공 길이', '${p}s2', hint: '비우면 둥근 구멍'),
+          if (n > 1) _num('br_${p}p', '피치', '${p}p'),
+          _num(
+            'br_${p}s',
+            '장공 길이',
+            '${p}s2',
+            hint: n > 1 ? '둥근 구멍' : '비우면 둥근 구멍',
+          ),
           _num(
             'br_${p}g',
             '게이지',
@@ -1629,10 +1666,14 @@ class _BracketPageState extends State<BracketPage>
               ]),
               if (_i('wn') > 0) ...[
                 PlateFieldGrid([
-                  _num('br_wd', '지름', 'wd'),
+                  _num(
+                    'br_wd',
+                    '지름',
+                    'wd',
+                    trailing: _dieMenu('br_wd_die_', 'wd'),
+                  ),
                   _num('br_we', '가장자리에서', 'we'),
                 ]),
-                _dieRow('br_wd_die_', 'wd'),
               ],
               _guide(
                 '기둥 뒤에 붙여 벽에 앵커로 고정합니다(기둥 구멍 대신). 4개는 네 귀, 2개는 양옆 가운데. 처음 값은 임의 값입니다.',
@@ -1683,10 +1724,14 @@ class _BracketPageState extends State<BracketPage>
               ]),
               if (_i('pln') > 0) ...[
                 PlateFieldGrid([
-                  _num('br_pld', '지름', 'pld'),
+                  _num(
+                    'br_pld',
+                    '지름',
+                    'pld',
+                    trailing: _dieMenu('br_pld_die_', 'pld'),
+                  ),
                   _num('br_ple', '가장자리에서', 'ple'),
                 ]),
-                _dieRow('br_pld_die_', 'pld'),
               ],
               _label('리브(보강판)'),
               PlateSegments([

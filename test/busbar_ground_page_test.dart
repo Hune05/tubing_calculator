@@ -61,13 +61,14 @@ void main() {
     expect(find.textContaining('구멍 15개'), findsWidgets);
   });
 
-  testWidgets('피치가 구멍 지름 이하이면 겹침 알림, 피치 칩은 칸을 채운다', (tester) async {
+  testWidgets('피치가 구멍 지름 이하이면 겹침 알림, 피치 ▼ 목록은 칸을 채운다', (tester) async {
     await _open(tester);
     await _type(tester, 'gb_hole', '14');
     await _type(tester, 'gb_pitch', '8');
     // 피치 8은 최소 12로 올려 계산하므로 구멍 14와 겹친다
     expect(find.textContaining('서로 겹칩니다'), findsOneWidget);
     expect(find.textContaining('최소 간격 12mm보다 작아 12mm로 계산'), findsOneWidget);
+    await _tap(tester, 'gb_pp_menu');
     await _tap(tester, 'gb_pp_5000');
     expect(find.textContaining('서로 겹칩니다'), findsNothing);
     String text(String k) =>
@@ -303,40 +304,48 @@ void main() {
     expect(text('gb_panelt'), '4');
   });
 
-  testWidgets('구멍 지름 칩: 기본은 볼트 틈새 구멍, 내 금형을 저장하면 그 값이 칩이 된다', (tester) async {
+  testWidgets('구멍 지름 ▼: 기본은 볼트 틈새 구멍, 내 금형을 저장하면 그 값이 목록이 된다', (tester) async {
     await _open(tester);
+    String text(String k) =>
+        tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
+    await _tap(tester, 'gb_hd_menu');
     expect(find.text('φ9 (M8)'), findsWidgets);
     expect(find.text('φ11 (M10)'), findsWidgets);
     expect(find.text('φ17.5 (M16)'), findsWidgets);
     await _tap(tester, 'gb_hd_1350');
-    String text(String k) =>
-        tester.widget<TextField>(find.byKey(Key(k))).controller!.text;
     expect(text('gb_hole'), '13.5');
     // 내 금형 넣기: 10, 12.5, 20
+    await _tap(tester, 'gb_hd_menu');
     await _tap(tester, 'gb_hd_edit');
     await tester.enterText(
       find.byKey(const Key('gb_dies_field')),
       '20, 10 12.5',
     );
     await _tap(tester, 'gb_dies_ok');
+    await _tap(tester, 'gb_hd_menu');
     expect(find.byKey(const Key('gb_hd_900')), findsNothing);
     expect(find.byKey(const Key('gb_hd_1000')), findsOneWidget);
     expect(find.byKey(const Key('gb_hd_1250')), findsOneWidget);
     expect(find.byKey(const Key('gb_hd_2000')), findsOneWidget);
     expect(find.text('내 금형 고치기'), findsWidgets);
+    await _tap(tester, 'gb_hd_1250');
+    expect(text('gb_hole'), '12.5');
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getStringList(kPunchDiesKey), ['10', '12.5', '20']);
-    // 다시 열어도 내 금형 칩
+    // 다시 열어도 내 금형 목록
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
     await _open(tester);
+    await _tap(tester, 'gb_hd_menu');
     expect(find.byKey(const Key('gb_hd_1250')), findsOneWidget);
-    // 비우고 저장하면 기본 칩으로
+    // 비우고 저장하면 기본 목록으로
     await _tap(tester, 'gb_hd_edit');
     await tester.enterText(find.byKey(const Key('gb_dies_field')), '');
     await _tap(tester, 'gb_dies_ok');
+    await _tap(tester, 'gb_hd_menu');
     expect(find.byKey(const Key('gb_hd_900')), findsOneWidget);
     expect(find.byKey(const Key('gb_hd_1250')), findsNothing);
+    await _tap(tester, 'gb_hd_900');
   });
 
   testWidgets('일자 취부 구멍(10-10): 양 끝에 따로, 판넬 간격, 거리 바꾸기·겹침·한쪽만·없음', (

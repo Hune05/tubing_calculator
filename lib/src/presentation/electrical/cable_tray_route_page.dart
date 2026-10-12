@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../common/preset_menu.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'cable_tray.dart' show trayNum, kTrayWidths, kTrayElbowRadii;
 import 'cable_tray_route.dart';
@@ -50,6 +51,111 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
   bool _elbowMode = false; // 기성 엘보로
   double _elbowR = 300;
   double _stock = 3000;
+  // 측판 높이·트레이 폭·꺾는 각도·R은 칸 + ▼(10-12). 칸 글이 맞지 않으면 마지막 맞는 값으로 계산하고 칸 아래에 알린다.
+  final _railC = TextEditingController(text: '100');
+  final _widthC = TextEditingController(text: '300');
+  final _angleC = TextEditingController(text: '90');
+  final _elbowRC = TextEditingController(text: '300');
+  static bool _okLen(double? v) => v != null && v > 0 && v < 10000;
+  static bool _okAngle(double? v) => v != null && v > 0 && v <= 90;
+  void _readDims() {
+    final r = readNum(_railC), w = readNum(_widthC);
+    final a = readNum(_angleC), er = readNum(_elbowRC);
+    if (_okLen(r)) _rail = r!;
+    if (_okLen(w)) _width = w!;
+    if (_okAngle(a)) _angle = a!;
+    if (_okLen(er)) _elbowR = er!;
+  }
+
+  void _syncDimTexts() {
+    _railC.text = fmt(_rail);
+    _widthC.text = fmt(_width);
+    _angleC.text = fmt(_angle);
+    _elbowRC.text = fmt(_elbowR);
+  }
+
+  /// 칸 아래 알림(맞지 않는 값이면 지금 계산에 쓰는 값).
+  Widget? _badLine(String key, bool ok, String msg) => ok
+      ? null
+      : Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Text(
+            msg,
+            key: Key(key),
+            style: TextStyle(fontSize: 13, color: fc.danger, height: 1.35),
+          ),
+        );
+
+  /// 칸 안 ▼ 자주 쓰는 값(항목 키는 예전 단추 키 그대로).
+  Widget _presetMenu(
+    String keyPrefix,
+    TextEditingController c,
+    List<double> values,
+    String Function(double) label, {
+    String tooltip = '자주 쓰는 값',
+  }) => PresetMenuButton(
+    buttonKey: Key('${keyPrefix}menu'),
+    tooltip: tooltip,
+    onOpen: (btn) async {
+      final v = await showPresetMenu(
+        btn,
+        current: presetKey(readNum(c) ?? -1),
+        items: [
+          for (final x in values)
+            PresetItem(
+              presetKey(x),
+              label(x),
+              key: Key('$keyPrefix${x.toInt()}'),
+            ),
+        ],
+      );
+      if (v == null || !mounted) return;
+      _set(() {
+        c.text = v;
+        _readDims();
+      });
+    },
+  );
+
+  Widget _widthField() => elecField(
+    'tr_w',
+    '트레이 폭 (mm)',
+    _widthC,
+    _isTee
+        ? '본선·가지 폭(측판 사이)입니다. 대양 수평 티는 본선과 가지 폭이 같습니다. 숫자를 바로 넣거나 ▼에서 고릅니다.'
+        : _elbowMode
+        ? '측판 사이 거리(내측 폭)입니다. 장애물 반대쪽으로 꺾는 엘보는 장애물 쪽 측판 반경이 R + 트레이 폭입니다.'
+        : '측판 사이 거리(내측 폭)입니다. 옆으로 꺾을 때는 V컷 폭 = 2 × 트레이 폭 × tan(꺾는 각 ÷ 2).',
+    onEdit: () {
+      _readDims();
+      _saveSoon();
+    },
+    trailing: _presetMenu(
+      'tr_w_',
+      _widthC,
+      kTrayWidths,
+      fmt,
+      tooltip: '표준 트레이 폭',
+    ),
+  );
+
+  Widget _radiusField(String label, String guide) => elecField(
+    'tr_er',
+    label,
+    _elbowRC,
+    guide,
+    onEdit: () {
+      _readDims();
+      _saveSoon();
+    },
+    trailing: _presetMenu(
+      'tr_er_',
+      _elbowRC,
+      kTrayElbowRadii,
+      fmt,
+      tooltip: '흔한 반경',
+    ),
+  );
   final _height = TextEditingController(text: '300');
   final _clear = TextEditingController(text: '50');
   final _length = TextEditingController(text: '400');
@@ -102,6 +208,9 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     for (final c in _fields) {
       c.dispose();
     }
+    for (final c in [_railC, _widthC, _angleC, _elbowRC]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
@@ -144,27 +253,24 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
   void _applyMap(Map<String, dynamic> m) {
     final k = TrayRouteKind.values.where((x) => x.name == m['k']);
     if (k.isNotEmpty) _kind = k.first;
-    final rail = m['rail'],
-        w = m['w'],
-        a = m['a'],
-        n = m['n'],
-        st = m['st'];
-    if (rail is num && kTrayRailHeights.contains(rail.toDouble())) {
+    final rail = m['rail'], w = m['w'], a = m['a'], n = m['n'], st = m['st'];
+    if (rail is num && _okLen(rail.toDouble())) {
       _rail = rail.toDouble();
     }
-    if (w is num && kTrayWidths.contains(w.toDouble())) {
+    if (w is num && _okLen(w.toDouble())) {
       _width = w.toDouble();
     }
     if (m['ol'] is bool) _obsLeft = m['ol'] as bool;
-    if (a is num && kTrayRouteAngles.contains(a.toDouble())) {
+    if (a is num && _okAngle(a.toDouble())) {
       _angle = a.toDouble();
     }
     if (n is int && n >= 1 && n <= 3) _pieces = n;
     if (m['mk'] is bool) _elbowMode = m['mk'] as bool;
     final er = m['er'];
-    if (er is num && kTrayElbowRadii.contains(er.toDouble())) {
+    if (er is num && _okLen(er.toDouble())) {
       _elbowR = er.toDouble();
     }
+    _syncDimTexts();
     if (st is num && kTrayStockLengths.contains(st.toDouble())) {
       _stock = st.toDouble();
     }
@@ -199,7 +305,9 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
 
   double _num(TextEditingController c) {
     final v = readNum(c);
-    return v == null || v < 0 || !v.isFinite ? 0 : v; // Infinity를 붙여 넣으면 숫자 글에서 꺼졌다(10-07)
+    return v == null || v < 0 || !v.isFinite
+        ? 0
+        : v; // Infinity를 붙여 넣으면 숫자 글에서 꺼졌다(10-07)
   }
 
   // ── 계산 ──
@@ -452,18 +560,11 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     final minR = readNum(_minR);
     final radOk = minR == null || minR <= 0 ? null : _elbowR >= minR - 1e-9;
     final widgets = <Widget>[
-      elecChipGroup(
-        '트레이 폭 (mm)',
-        '본선·가지 폭(측판 사이)입니다. 대양 수평 티는 본선과 가지 폭이 같습니다.',
-        [
-          for (final w in kTrayWidths)
-            calcChip(
-              'tr_w_${w.toInt()}',
-              fmt(w),
-              _width == w,
-              () => _set(() => _width = w),
-            ),
-        ],
+      _widthField(),
+      ?_badLine(
+        'tr_w_bad',
+        _okLen(readNum(_widthC)),
+        '0보다 큰 폭을 넣으십시오. 지금 계산은 ${fmt(_width)}mm입니다.',
       ),
       elecChipGroup('가지 쪽', '시작점에서 진행 방향을 보고 가지를 내는 쪽입니다.', [
         calcChip('tr_ol_l', '왼쪽', _obsLeft, () => _set(() => _obsLeft = true)),
@@ -497,15 +598,15 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
         onEdit: _saveSoon,
       ),
       elecSectionTitle('티'),
-      elecChipGroup('티 반경 R (mm)', '본선과 가지를 잇는 곡선 반경입니다. 대양 300·600·900.', [
-        for (final er in kTrayElbowRadii)
-          calcChip(
-            'tr_er_${er.toInt()}',
-            fmt(er),
-            _elbowR == er,
-            () => _set(() => _elbowR = er),
-          ),
-      ]),
+      _radiusField(
+        '티 반경 R (mm)',
+        '본선과 가지를 잇는 곡선 반경입니다. 대양 300·600·900. 숫자를 바로 넣거나 ▼에서 고릅니다.',
+      ),
+      ?_badLine(
+        'tr_er_bad',
+        _okLen(readNum(_elbowRC)),
+        '0보다 큰 R을 넣으십시오. 지금 계산은 R${fmt(_elbowR)}입니다.',
+      ),
       elecField(
         'tr_tan',
         '티 끝 직선 (mm)',
@@ -530,7 +631,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
           ),
       ]),
       const SizedBox(height: 8),
-      calcResult(solve: true, 
+      calcResult(
+        solve: true,
         key: const Key('tr_result'),
         big: '가지 직선 ${trayNum(t.branch)} mm',
         caption:
@@ -611,7 +713,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     }
     widgets.addAll([
       const SizedBox(height: 8),
-      calcResult(solve: true, 
+      calcResult(
+        solve: true,
         key: const Key('tr_notes'),
         big: '작업 순서',
         caption: '기성 티로 할 때',
@@ -627,7 +730,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     final minR = readNum(_minR);
     final radOk = minR == null || minR <= 0 ? null : _elbowR >= minR - 1e-9;
     final widgets = <Widget>[
-      calcResult(solve: true, 
+      calcResult(
+        solve: true,
         key: const Key('tr_result'),
         big: '엘보 ${e.elbows}개 · 직선 ${e.straights.length}개',
         caption: '기성 엘보 R${fmt(_elbowR)} · 직선 합 ${trayNum(e.straightTotal)}mm',
@@ -684,7 +788,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     }
     widgets.addAll([
       const SizedBox(height: 8),
-      calcResult(solve: true, 
+      calcResult(
+        solve: true,
         key: const Key('tr_notes'),
         big: '작업 순서',
         caption: '기성 엘보로 할 때',
@@ -846,21 +951,12 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 ),
               ],
             ),
+            if (plan) _widthField(),
             if (plan)
-              elecChipGroup(
-                '트레이 폭 (mm)',
-                _elbowMode
-                    ? '측판 사이 거리(내측 폭)입니다. 장애물 반대쪽으로 꺾는 엘보는 장애물 쪽 측판 반경이 R + 트레이 폭입니다.'
-                    : '측판 사이 거리(내측 폭)입니다. 옆으로 꺾을 때는 V컷 폭 = 2 × 트레이 폭 × tan(꺾는 각 ÷ 2).',
-                [
-                  for (final w in kTrayWidths)
-                    calcChip(
-                      'tr_w_${w.toInt()}',
-                      fmt(w),
-                      _width == w,
-                      () => _set(() => _width = w),
-                    ),
-                ],
+              ?_badLine(
+                'tr_w_bad',
+                _okLen(readNum(_widthC)),
+                '0보다 큰 폭을 넣으십시오. 지금 계산은 ${fmt(_width)}mm입니다.',
               ),
             if (plan)
               elecChipGroup(
@@ -882,20 +978,30 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 ],
               ),
             if (!plan)
-              elecChipGroup(
+              elecField(
+                'tr_rail',
                 '측판 높이 (mm)',
+                _railC,
                 _elbowMode
-                    ? '측판 전체 높이입니다. 수직 엘보 IN은 바닥면 반경이 R + 측판 높이입니다.'
-                    : 'V컷 깊이가 되는 측판 전체 높이입니다. V컷 폭 = 2 × 측판 높이 × tan(꺾는 각 ÷ 2).',
-                [
-                  for (final h in kTrayRailHeights)
-                    calcChip(
-                      'tr_rail_${h.toInt()}',
-                      fmt(h),
-                      _rail == h,
-                      () => _set(() => _rail = h),
-                    ),
-                ],
+                    ? '측판 전체 높이입니다. 수직 엘보 IN은 바닥면 반경이 R + 측판 높이입니다. 숫자를 바로 넣거나 ▼에서 고릅니다.'
+                    : 'V컷 깊이가 되는 측판 전체 높이입니다. V컷 폭 = 2 × 측판 높이 × tan(꺾는 각 ÷ 2). 숫자를 바로 넣거나 ▼에서 고릅니다.',
+                onEdit: () {
+                  _readDims();
+                  _saveSoon();
+                },
+                trailing: _presetMenu(
+                  'tr_rail_',
+                  _railC,
+                  kTrayRailHeights,
+                  fmt,
+                  tooltip: '흔한 측판 높이',
+                ),
+              ),
+            if (!plan)
+              ?_badLine(
+                'tr_rail_bad',
+                _okLen(readNum(_railC)),
+                '0보다 큰 높이를 넣으십시오. 지금 계산은 ${fmt(_rail)}mm입니다.',
               ),
             elecSectionTitle(over || plan ? '장애물' : '단'),
             elecField(
@@ -963,34 +1069,40 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
               onEdit: _saveSoon,
             ),
             elecSectionTitle('꺾기'),
-            elecChipGroup(
-              '꺾는 각도',
+            elecField(
+              'tr_ang',
+              '꺾는 각도 (°)',
+              _angleC,
               plan
-                  ? '가던 방향에서 옆으로 트는 각도입니다.'
-                  : '바닥에서 일어서는 각도입니다. 90°는 수직으로 세웁니다.',
-              [
-                for (final a in kTrayRouteAngles)
-                  calcChip(
-                    'tr_a_${a.toInt()}',
-                    '${fmt(a)}°',
-                    _angle == a,
-                    () => _set(() => _angle = a),
-                  ),
-              ],
+                  ? '가던 방향에서 옆으로 트는 각도입니다(0°보다 크고 90° 이하). 숫자를 바로 넣거나 ▼에서 고릅니다.'
+                  : '바닥에서 일어서는 각도입니다. 90°는 수직으로 세웁니다(0°보다 크고 90° 이하). 숫자를 바로 넣거나 ▼에서 고릅니다.',
+              onEdit: () {
+                _readDims();
+                _saveSoon();
+              },
+              trailing: _presetMenu(
+                'tr_a_',
+                _angleC,
+                kTrayRouteAngles,
+                (a) => '${fmt(a)}°',
+                tooltip: '자주 쓰는 각도',
+              ),
+            ),
+            ?_badLine(
+              'tr_a_bad',
+              _okAngle(readNum(_angleC)),
+              '0°보다 크고 90° 이하인 각도를 넣으십시오. 지금 계산은 ${fmt(_angle)}°입니다.',
             ),
             if (_elbowMode)
-              elecChipGroup(
+              _radiusField(
                 '엘보 반경 R (mm)',
-                '꺾임 안쪽 테두리 반경으로 계산합니다(대양 수평 엘보 R1 = 안쪽 레일, B-Line 수직 엘보 치수와 같은 기준). 흔히 300·600·900.',
-                [
-                  for (final er in kTrayElbowRadii)
-                    calcChip(
-                      'tr_er_${er.toInt()}',
-                      fmt(er),
-                      _elbowR == er,
-                      () => _set(() => _elbowR = er),
-                    ),
-                ],
+                '꺾임 안쪽 테두리 반경으로 계산합니다(대양 수평 엘보 R1 = 안쪽 레일, B-Line 수직 엘보 치수와 같은 기준). 흔히 300·600·900. 숫자를 바로 넣거나 ▼에서 고릅니다.',
+              ),
+            if (_elbowMode)
+              ?_badLine(
+                'tr_er_bad',
+                _okLen(readNum(_elbowRC)),
+                '0보다 큰 R을 넣으십시오. 지금 계산은 R${fmt(_elbowR)}입니다.',
               ),
             if (_elbowMode)
               elecField(
@@ -1061,7 +1173,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       children.addAll(_elbowResult(e));
     } else if (r == null) {
       children.add(
-        calcResult(solve: true, 
+        calcResult(
+          solve: true,
           key: const Key('tr_result'),
           big: '— mm',
           caption: '높이를 넣으면 계산합니다',
@@ -1077,7 +1190,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       summary =
           '${trayRouteKindLabel(_kind)} ${fmt(_angle)}° · 마킹 ${r.corners.length}곳 · ${trayNum(r.material)}mm';
       children.addAll([
-        calcResult(solve: true, 
+        calcResult(
+          solve: true,
           key: const Key('tr_result'),
           big: '${trayNum(r.material)} mm',
           caption: '자르기 전 트레이 길이 ($_refEdge) · 마킹 ${r.corners.length}곳',
@@ -1145,7 +1259,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
         for (var i = 0; i < r.corners.length; i++) _markTile(r.corners[i], i),
         const SizedBox(height: 8),
         ...elecFold('tr_fold_notes', '작업 순서', [
-          calcResult(solve: true, 
+          calcResult(
+            solve: true,
             key: const Key('tr_notes'),
             big: '작업 순서',
             caption: '현장에서 잘라 꺾을 때',

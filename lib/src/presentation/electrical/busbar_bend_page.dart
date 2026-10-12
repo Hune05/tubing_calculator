@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/common_widgets/recent_calc_history.dart';
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../common/preset_menu.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'busbar_bend.dart';
 import 'busbar_bend_painter.dart';
@@ -34,8 +35,25 @@ String busbarBendKindLabel(BusbarBendKind k) => switch (k) {
 /// 자유 꺾기에서 꺾을 수 있는 최대 곳 수.
 const int kBusbarFreeMax = 6;
 
-/// 꺾는 각도(°) 칩.
+/// 꺾는 각도(°) — 각도 칸 ▼ 목록(자유 꺾기는 단추). 목록 밖 각도도 칸에 넣을 수 있다(10-12).
 const List<double> kBusbarBendAngles = [15, 30, 45, 60, 90];
+
+/// 부스바 두께·폭 칸 ▼ 목록(mm, 시중 동부스바에서 흔한 값). 목록 밖 값도 칸에 그대로 넣는다.
+const List<double> kBusbarThicks = [3, 4, 5, 6, 8, 10, 12];
+const List<double> kBusbarWidths = [
+  15,
+  20,
+  25,
+  30,
+  40,
+  50,
+  60,
+  75,
+  80,
+  100,
+  120,
+  150,
+];
 
 /// 중립선 위치 계수 칩. 구리 부스바 범위 0.33~0.5(두 자료가 같음).
 const List<double> kBusbarK = [0.33, 0.4, 0.45, 0.5];
@@ -81,7 +99,10 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   double _k = 0.4;
   double _spring = 1.0; // 스프링백 비율(기계 세팅 ÷ 목표), 1이면 보정 없음
   String? _profileName; // 적용 중인 벤더 프로필 이름
-  double _angle = 90;
+  /// 꺾는 각도 칸(L·Z). 0 < 각 < 180만 계산.
+  final _angleC = TextEditingController(text: '90');
+  double get _angle => readNum(_angleC) ?? 0;
+  bool get _angleOk => _angle > 0 && _angle < 180;
   final _thick = TextEditingController(text: '5');
   final _width = TextEditingController(text: '50');
   final _radius = TextEditingController(); // 비우면 판 두께 1배
@@ -94,7 +115,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   // 자유 꺾기: 꺾는 곳 수, 곧은 길이(곳 수 + 1개), 곳마다 부호 있는 각(+ 위로, − 아래로).
   int _nBends = 3;
   final List<TextEditingController> _fs = [
-    for (var i = 0; i <= kBusbarFreeMax; i++) TextEditingController(text: '100'),
+    for (var i = 0; i <= kBusbarFreeMax; i++)
+      TextEditingController(text: '100'),
   ];
   final List<double> _ft = [90, -90, 90, -90, 90, -90];
 
@@ -126,6 +148,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     for (final c in _fields) {
       c.dispose();
     }
+    _angleC.dispose();
     for (final c in _fs) {
       c.dispose();
     }
@@ -184,15 +207,17 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           final sp = m['sp'], pn = m['pn'];
           _spring = sp is num && sp >= 0.8 && sp <= 1.5 ? sp.toDouble() : 1.0;
           _profileName = pn is String ? pn : null;
-          if (a is num && kBusbarBendAngles.contains(a.toDouble())) {
-            _angle = a.toDouble();
+          if (a is num && a > 0 && a < 180) {
+            _angleC.text = fmt(a.toDouble(), 3);
           }
           for (var i = 0; i < _fields.length; i++) {
             final v = m[_fieldKeys[i]];
             if (v is String) _fields[i].text = v;
           }
           final nb = m['nb'];
-          if (nb is num && nb >= 1 && nb <= kBusbarFreeMax) _nBends = nb.toInt();
+          if (nb is num && nb >= 1 && nb <= kBusbarFreeMax) {
+            _nBends = nb.toInt();
+          }
           final fsv = m['fs'];
           if (fsv is List) {
             for (var i = 0; i < _fs.length && i < fsv.length; i++) {
@@ -225,6 +250,32 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     SharedPreferences.getInstance()
         .then((p) => p.setString(BusbarBendPage.draftKey, d))
         .catchError((_) => false);
+  }
+
+  /// 칸 안 ▼ 목록에서 고르면 칸에 넣는다(10-12).
+  Future<void> _pickPreset(
+    BuildContext btn,
+    TextEditingController c,
+    List<double> values,
+    String keyPrefix,
+    String Function(double) label, {
+    String Function(double)? keyOf,
+  }) async {
+    final v = await showPresetMenu(
+      btn,
+      current: presetKey(readNum(c) ?? -1),
+      items: [
+        for (final x in values)
+          PresetItem(
+            presetKey(x),
+            label(x),
+            key: Key('$keyPrefix${keyOf == null ? presetKey(x) : keyOf(x)}'),
+          ),
+      ],
+    );
+    if (v == null || !mounted) return;
+    _set(() => c.text = v);
+    _saveSoon();
   }
 
   void _set(VoidCallback f) {
@@ -265,6 +316,10 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   BusbarBendPlan? _plan() {
     if (!_ready) return null;
     _z = null;
+    // 각도 칸이 비었거나 0·180 이상이면 계산하지 않는다(L·Z만 각도를 쓴다)
+    if ((_kind == BusbarBendKind.l || _kind == BusbarBendKind.z) && !_angleOk) {
+      return null;
+    }
     switch (_kind) {
       case BusbarBendKind.l:
         return busbarL(
@@ -414,7 +469,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     notes: [
       ?_radiusWarn,
       ..._springLines(p.bends.map((b) => b.turn)),
-      if ((_z == null || _z!.feasible) && _busbarTooShort(p)) kBusbarShortLegMsg,
+      if ((_z == null || _z!.feasible) && _busbarTooShort(p))
+        kBusbarShortLegMsg,
       if (_z != null && !_z!.feasible)
         '이 높이는 반경 때문에 꺾을 수 없습니다. 최소 높이 ${fmt(_z!.minHeight, 1)}mm.',
       if (_plane == BusbarBendPlane.edge)
@@ -443,7 +499,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     }
     final warn = _radiusWarn;
     if (warn != null) b.write('\n※ $warn');
-    if ((_z == null || _z!.feasible) && _busbarTooShort(p)) b.write('\n※ $kBusbarShortLegMsg');
+    if ((_z == null || _z!.feasible) && _busbarTooShort(p)) {
+      b.write('\n※ $kBusbarShortLegMsg');
+    }
     if (_z != null && !_z!.feasible) {
       b.write('\n※ 이 높이는 반경 때문에 꺾을 수 없습니다. 최소 ${fmt(_z!.minHeight, 1)}mm');
     }
@@ -521,7 +579,12 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       '곳 수를 고르면 그 수만큼 칸이 나옵니다(최대 $kBusbarFreeMax곳). 곧은 길이는 꺾기선 사이입니다: 꺾기 끝선에서 다음 꺾기 시작선까지(줄긋기 마킹과 같은 기준).',
       [
         for (var n = 1; n <= kBusbarFreeMax; n++)
-          calcChip('bb_n_$n', '$n곳', _nBends == n, () => _set(() => _nBends = n)),
+          calcChip(
+            'bb_n_$n',
+            '$n곳',
+            _nBends == n,
+            () => _set(() => _nBends = n),
+          ),
       ],
     ),
     elecField(
@@ -532,25 +595,31 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       onEdit: _saveSoon,
     ),
     for (var i = 0; i < _nBends; i++) ...[
-      elecChipGroup(
-        '꺾기 ${i + 1} 각도',
-        '꺾은 뒤 진행 방향이 바뀐 각도입니다.',
-        [
-          for (final a in kBusbarBendAngles)
-            calcChip(
-              'bb_fa_${i}_${a.toInt()}',
-              '${fmt(a)}°',
-              _ft[i].abs() == a,
-              () => _set(() => _ft[i] = _ft[i] < 0 ? -a : a),
-            ),
-        ],
-      ),
+      elecChipGroup('꺾기 ${i + 1} 각도', '꺾은 뒤 진행 방향이 바뀐 각도입니다.', [
+        for (final a in kBusbarBendAngles)
+          calcChip(
+            'bb_fa_${i}_${a.toInt()}',
+            '${fmt(a)}°',
+            _ft[i].abs() == a,
+            () => _set(() => _ft[i] = _ft[i] < 0 ? -a : a),
+          ),
+      ]),
       elecChipGroup(
         '꺾기 ${i + 1} 방향',
         '위로(청록)와 아래로(주황)는 그림의 옆모습에서 꺾이는 쪽입니다. 같은 쪽으로 이어 꺾으면 ㄷ자·계단, 번갈아 꺾으면 ㄹ자·오프셋입니다.',
         [
-          calcChip('bb_fd_${i}_up', '위로', _ft[i] >= 0, () => _set(() => _ft[i] = _ft[i].abs())),
-          calcChip('bb_fd_${i}_down', '아래로', _ft[i] < 0, () => _set(() => _ft[i] = -_ft[i].abs())),
+          calcChip(
+            'bb_fd_${i}_up',
+            '위로',
+            _ft[i] >= 0,
+            () => _set(() => _ft[i] = _ft[i].abs()),
+          ),
+          calcChip(
+            'bb_fd_${i}_down',
+            '아래로',
+            _ft[i] < 0,
+            () => _set(() => _ft[i] = -_ft[i].abs()),
+          ),
         ],
       ),
       elecField(
@@ -615,15 +684,27 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         'bb_t',
         '두께 (mm)',
         _thick,
-        '구리 부스바 두께입니다(예 3·5·6·10).',
+        '구리 부스바 두께입니다. 숫자를 바로 넣거나 ▼에서 고릅니다.',
         onEdit: _saveSoon,
+        trailing: PresetMenuButton(
+          buttonKey: const Key('bb_t_menu'),
+          tooltip: '자주 쓰는 두께',
+          onOpen: (btn) =>
+              _pickPreset(btn, _thick, kBusbarThicks, 'bb_tv_', fmt),
+        ),
       ),
       elecField(
         'bb_w',
         '폭 (mm)',
         _width,
-        '구리 부스바 폭입니다(예 30·50·100).',
+        '구리 부스바 폭입니다. 숫자를 바로 넣거나 ▼에서 고릅니다.',
         onEdit: _saveSoon,
+        trailing: PresetMenuButton(
+          buttonKey: const Key('bb_w_menu'),
+          tooltip: '자주 쓰는 폭',
+          onOpen: (btn) =>
+              _pickPreset(btn, _width, kBusbarWidths, 'bb_wv_', fmt),
+        ),
       ),
       elecField(
         'bb_r',
@@ -681,24 +762,34 @@ class _BusbarBendPageState extends State<BusbarBendPage>
             ),
         ]),
       if (!isU && !isFree)
-        elecChipGroup('꺾는 각도', '꺾은 뒤 진행 방향이 바뀐 각도입니다. 90°는 직각으로 꺾습니다.', [
-          for (final a in kBusbarBendAngles)
-            calcChip(
-              'bb_a_${a.toInt()}',
-              '${fmt(a)}°',
-              _angle == a,
-              () => _set(() => _angle = a),
+        elecField(
+          'bb_ang',
+          '꺾는 각도 (°)',
+          _angleC,
+          '꺾은 뒤 진행 방향이 바뀐 각도입니다. 90°는 직각으로 꺾습니다. 0°보다 크고 180°보다 작게.',
+          onEdit: _saveSoon,
+          trailing: PresetMenuButton(
+            buttonKey: const Key('bb_a_menu'),
+            tooltip: '자주 쓰는 각도',
+            onOpen: (btn) => _pickPreset(
+              btn,
+              _angleC,
+              kBusbarBendAngles,
+              'bb_a_',
+              (a) => '${fmt(a)}°',
+              keyOf: (a) => '${a.toInt()}',
             ),
-        ]),
+          ),
+        ),
       if (isFree) ..._freeFields(),
       if (!isFree)
-      elecField(
-        'bb_ia',
-        isZ ? '시작 직선 (mm)' : '다리 1 (mm)',
-        _a,
-        isZ ? '부스바 끝에서 첫 꺾기 시작선까지 곧은 길이입니다.' : '부스바 한쪽 끝에서 꺾인 모서리까지 길이입니다.',
-        onEdit: _saveSoon,
-      ),
+        elecField(
+          'bb_ia',
+          isZ ? '시작 직선 (mm)' : '다리 1 (mm)',
+          _a,
+          isZ ? '부스바 끝에서 첫 꺾기 시작선까지 곧은 길이입니다.' : '부스바 한쪽 끝에서 꺾인 모서리까지 길이입니다.',
+          onEdit: _saveSoon,
+        ),
       if (!isZ && !isFree)
         elecField(
           'bb_ib',
@@ -728,7 +819,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
 
     if (p == null) {
       children.add(
-        calcResult(solve: true, 
+        calcResult(
+          solve: true,
           key: const Key('bb_result'),
           big: '— mm',
           caption: '두께와 치수를 넣으면 계산합니다',
@@ -741,7 +833,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       // 다리가 짧으면 직선 구간이 음수가 돼 시작선이 부스바 밖에 찍힌다(10-07: 경고 없이 보였다).
       final short = !bad && _busbarTooShort(p);
       children.addAll([
-        calcResult(solve: true, 
+        calcResult(
+          solve: true,
           key: const Key('bb_result'),
           big: '${fmt(p.cutLength, 1)} mm',
           caption: '절단 길이 · 꺾는 곳 ${p.bends.length}곳 · 안쪽 반경 ${fmt(_r)}mm',
@@ -795,18 +888,19 @@ class _BusbarBendPageState extends State<BusbarBendPage>
         for (var i = 0; i < p.bends.length; i++) _markTile(p.bends[i], i),
         const SizedBox(height: 8),
         ...elecFold('bb_fold_notes', '작업 순서', [
-        calcResult(solve: true, 
-          key: const Key('bb_notes'),
-          big: '작업 순서',
-          caption: '현장에서 꺾을 때',
-          lines: const [
-            '절단 길이로 부스바를 자릅니다. 절단면 버(burr)를 갈아 냅니다.',
-            '한쪽 끝에서 꺾기 시작선을 줄긋기로 표시합니다. 양면에 같이 긋습니다.',
-            '벤더 꺾는 날(어댑터)의 시작 위치를 시작선에 맞춥니다.',
-            '먼저 같은 규격 시험 조각을 꺾어 길이·각도를 확인하고 k와 반경을 맞춥니다.',
-            '꺾은 뒤 스프링백이 있으니 목표 각도보다 조금 더 꺾고 되돌리며 맞춥니다.',
-          ],
-        ),
+          calcResult(
+            solve: true,
+            key: const Key('bb_notes'),
+            big: '작업 순서',
+            caption: '현장에서 꺾을 때',
+            lines: const [
+              '절단 길이로 부스바를 자릅니다. 절단면 버(burr)를 갈아 냅니다.',
+              '한쪽 끝에서 꺾기 시작선을 줄긋기로 표시합니다. 양면에 같이 긋습니다.',
+              '벤더 꺾는 날(어댑터)의 시작 위치를 시작선에 맞춥니다.',
+              '먼저 같은 규격 시험 조각을 꺾어 길이·각도를 확인하고 k와 반경을 맞춥니다.',
+              '꺾은 뒤 스프링백이 있으니 목표 각도보다 조금 더 꺾고 되돌리며 맞춥니다.',
+            ],
+          ),
         ], subtitle: '자르기 → 시작선 → 시험 조각 → 꺾기'),
       ]);
     }
@@ -864,6 +958,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   }
 }
 
-const kBusbarShortLegMsg = '다리가 짧아 이 반경으로는 꺾을 수 없습니다(직선 구간이 0보다 짧음). 다리를 늘리거나 반경을 줄이십시오.';
+const kBusbarShortLegMsg =
+    '다리가 짧아 이 반경으로는 꺾을 수 없습니다(직선 구간이 0보다 짧음). 다리를 늘리거나 반경을 줄이십시오.';
 
 bool _busbarTooShort(BusbarBendPlan p) => p.straights.any((s) => s < -0.05);
