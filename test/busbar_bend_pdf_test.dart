@@ -32,7 +32,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  test('부스바 절곡 지시서 PDF가 만들어진다(Z 옵셋)', () async {
+  test('부스바 가공 도면 PDF가 만들어진다(Z 옵셋)', () async {
     final z = busbarZ(d: 5, r: 5, k: 0.4, a: 50, c: 50, h: 40, deg: 45);
     final bytes = await buildBendPdf(
       BendPdfInput(
@@ -40,7 +40,7 @@ void main() {
         plan: z.plan,
         thickness: 5,
         rho: 7,
-        summary: const [('재료', '구리 평강 5 × 50 mm')],
+        summary: const [('재료', '구리 평강 5T × 50mm')],
         notes: const ['시험 주의'],
       ),
     );
@@ -48,7 +48,7 @@ void main() {
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });
 
-  test('자유 꺾기 6곳(위·아래 섞임)도 지시서 PDF가 만들어진다', () async {
+  test('연속 절곡 6곳(UP·DOWN 섞임)도 가공 도면 PDF가 만들어진다', () async {
     final plan = busbarFree(
       d: 5,
       r: 5,
@@ -58,11 +58,11 @@ void main() {
     );
     final bytes = await buildBendPdf(
       BendPdfInput(
-        title: '자유 6곳',
+        title: '연속 6곳',
         plan: plan,
         thickness: 5,
         rho: 7,
-        summary: const [('재료', '구리 평강 5 × 50 mm')],
+        summary: const [('재료', '구리 평강 5T × 50mm')],
         notes: const ['시험 주의'],
       ),
     );
@@ -70,7 +70,7 @@ void main() {
     expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
   });
 
-  testWidgets('지시서 만들기가 실패하면 알리고, 다시 누를 수 있다(10-08)', (tester) async {
+  testWidgets('가공 도면 만들기가 실패하면 알리고, 다시 누를 수 있다(10-08)', (tester) async {
     late BuildContext ctx;
     await tester.pumpWidget(
       MaterialApp(
@@ -101,7 +101,7 @@ void main() {
 
     await openBendPdf(ctx, input, build: fail);
     await tester.pump();
-    expect(find.text('지시서를 만들지 못했습니다. 다시 해 보십시오.'), findsOneWidget);
+    expect(find.text('가공 도면을 만들지 못했습니다. 다시 해 보십시오.'), findsOneWidget);
     await openBendPdf(ctx, input, build: fail);
     expect(calls, 2);
   });
@@ -138,7 +138,7 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(find.textContaining('미리보기 busbar_bend_시험_'), findsOneWidget);
-    expect(find.text('부스바 절곡 지시서 미리보기'), findsOneWidget);
+    expect(find.text('부스바 가공 도면 미리보기'), findsOneWidget);
     expect(find.byKey(const Key('pdf_preview_share')), findsOneWidget);
   });
 
@@ -159,7 +159,7 @@ void main() {
     await tester.tap(find.byKey(const Key('ss_save_ok')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ss_saved_8×60 시험')), findsOneWidget);
-    expect(find.textContaining('8×60 · Z 꺾기 · 눕혀'), findsOneWidget);
+    expect(find.textContaining('8T×60 · Z자 · 평절곡'), findsOneWidget);
     Navigator.of(
       tester.element(find.byKey(const Key('ss_saved_8×60 시험'))),
     ).pop();
@@ -190,7 +190,9 @@ void main() {
     expect(find.byKey(const Key('ss_saved_empty')), findsOneWidget);
   });
 
-  testWidgets('벤더 프로필: 시험 조각으로 k를 구해 만들고 적용하면 반경·k·스프링백이 들어간다', (tester) async {
+  testWidgets('벤더 프로필: 시험 절곡으로 K값을 구해 만들고 적용하면 내R·K값·스프링백이 들어간다', (
+    tester,
+  ) async {
     await _open(tester);
     await _tab(tester, 'bar');
     await tester.tap(find.byKey(const Key('bb_profile')));
@@ -212,7 +214,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('bp_set')), '95');
     await tester.enterText(find.byKey(const Key('bp_meas')), '90');
     await tester.pumpAndSettle();
-    expect(find.textContaining('구한 k = 0.4'), findsOneWidget);
+    expect(find.textContaining('구한 K값 = 0.4'), findsOneWidget);
     expect(
       find.textContaining('스프링백 비율 ×1.056 (목표 90° → 기계 95°)'),
       findsOneWidget,
@@ -220,7 +222,7 @@ void main() {
     await tester.tap(find.byKey(const Key('bp_make')));
     await tester.pumpAndSettle();
     expect(
-      find.textContaining('안쪽 반경 8mm · k 0.4 · 스프링백 ×1.056'),
+      find.textContaining('내R 8mm · K값 0.4 · 스프링백 ×1.056'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const Key('bp_item_A벤더 어댑터8')));
@@ -236,7 +238,7 @@ void main() {
     );
   });
 
-  testWidgets('k가 범위를 벗어나면 알리고 만들 수 없다', (tester) async {
+  testWidgets('K값이 범위를 벗어나면 알리고 만들 수 없다', (tester) async {
     await _open(tester);
     await _tab(tester, 'bar');
     await tester.tap(find.byKey(const Key('bb_profile')));

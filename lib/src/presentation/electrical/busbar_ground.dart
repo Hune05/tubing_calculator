@@ -240,13 +240,13 @@ GroundBarPlan groundBar({
     return kGroundMinSpacing;
   }
 
-  pitch = minUp(pitch, '구멍 피치');
+  pitch = minUp(pitch, '홀 피치');
   if (rows == 2) rowGap = minUp(rowGap, '줄 간격');
-  if (tabHoleCount > 1) tabHolePitch = minUp(tabHolePitch, '$tabName 구멍 피치');
+  if (tabHoleCount > 1) tabHolePitch = minUp(tabHolePitch, '$tabName 홀 피치');
   if (tabRows == 2 && tabHoleCount > 0) {
-    tabRowGap = minUp(tabRowGap, '$tabName 구멍 줄 간격');
+    tabRowGap = minUp(tabRowGap, '$tabName 홀 줄 간격');
   }
-  if (lugHoles == 2 && lugCount > 0) lugSpacing = minUp(lugSpacing, '러그 구멍 간격');
+  if (lugHoles == 2 && lugCount > 0) lugSpacing = minUp(lugSpacing, '러그 홀 간격');
   if (lugCount > 1) lugPitch = minUp(lugPitch, '러그 사이 간격');
   final problems = <String>[];
   void warn(String s) {
@@ -267,16 +267,14 @@ GroundBarPlan groundBar({
   if (hat) {
     final fl = hatFlange, fr = hatFlangeRight ?? hatFlange;
     if (fl < os) {
-      warn('왼쪽 발 ${_f(fl)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 짧습니다. 최소 ${_f(os)}mm.');
+      warn('왼쪽 발 ${_f(fl)}mm는 내R ${_f(rr)}mm로 절곡하기에 너무 짧습니다. 최소 ${_f(os)}mm.');
     }
     if (fr < os) {
-      warn(
-        '오른쪽 발 ${_f(fr)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 짧습니다. 최소 ${_f(os)}mm.',
-      );
+      warn('오른쪽 발 ${_f(fr)}mm는 내R ${_f(rr)}mm로 절곡하기에 너무 짧습니다. 최소 ${_f(os)}mm.');
     }
     if (hatHeight < 2 * os) {
       warn(
-        '모자 높이 ${_f(hatHeight)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 낮습니다. 최소 ${_f(2 * os)}mm.',
+        '모자 높이 ${_f(hatHeight)}mm는 내R ${_f(rr)}mm로 절곡하기에 너무 낮습니다. 최소 ${_f(2 * os)}mm.',
       );
     }
     flatL = fl - os;
@@ -288,7 +286,7 @@ GroundBarPlan groundBar({
     if (tabLeft > 0) {
       if (tabLeft < os) {
         warn(
-          '왼쪽 탭 ${_f(tabLeft)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 짧습니다. 최소 ${_f(os)}mm.',
+          '왼쪽 탭 ${_f(tabLeft)}mm는 내R ${_f(rr)}mm로 절곡하기에 너무 짧습니다. 최소 ${_f(os)}mm.',
         );
       }
       flatL = tabLeft - os;
@@ -297,7 +295,7 @@ GroundBarPlan groundBar({
     if (tabRight > 0) {
       if (tabRight < os) {
         warn(
-          '오른쪽 탭 ${_f(tabRight)}mm는 안쪽 반경 ${_f(rr)}mm로 꺾기에 너무 짧습니다. 최소 ${_f(os)}mm.',
+          '오른쪽 탭 ${_f(tabRight)}mm는 내R ${_f(rr)}mm로 절곡하기에 너무 짧습니다. 최소 ${_f(os)}mm.',
         );
       }
       flatR = tabRight - os;
@@ -350,13 +348,13 @@ GroundBarPlan groundBar({
         : ((run - leadL - leadR - fixed) / pitch + 1e-9).floor() + 1;
   }
   if (n > kGroundMaxHoles) {
-    warn('구멍이 한 줄에 $kGroundMaxHoles개를 초과해 계산하지 않습니다.');
+    warn('홀이 한 줄에 $kGroundMaxHoles개를 초과해 계산하지 않습니다.');
     n = 0;
   }
-  if (n < 1) warn('구멍이 들어갈 자리가 없습니다. 길이나 구멍 수를 늘리십시오.');
-  if (holeDia >= w) warn('구멍 지름이 부스바 폭보다 크거나 같습니다.');
+  if (n < 1) warn('홀이 들어갈 자리가 없습니다. 길이나 홀 수를 늘리십시오.');
+  if (holeDia >= w) warn('홀 지름이 부스바 폭보다 크거나 같습니다.');
   if ((!mountL || !mountR) && endDist < holeDia / 2) {
-    warn('끝 여유가 구멍 반지름보다 작아 구멍이 끝 면을 뚫습니다.');
+    warn('끝 여유가 홀 반지름보다 작아 홀이 끝 면을 뚫습니다.');
   }
   if (nRows == 2 && rowGap <= 0) warn('두 줄은 줄 간격이 있어야 합니다.');
   final holeRun = n < 1 ? 0.0 : leadL + (n - 1) * pitch + st + leadR;
@@ -389,7 +387,7 @@ GroundBarPlan groundBar({
   // 일자 취부 구멍: 양 끝에서 mountEnd부터 피치 간격으로.
   final tabs = <GroundHole>[];
   if ((bentEnds || straightMount) && tabHoleCount > 0 && tabHoleDia > 0) {
-    if (nRowsT == 2 && tabRowGap <= 0) warn('취부 구멍 두 줄은 줄 간격이 있어야 합니다.');
+    if (nRowsT == 2 && tabRowGap <= 0) warn('취부 홀 두 줄은 줄 간격이 있어야 합니다.');
     void endSide(String letter, String name, bool on, bool left) {
       if (!on) return;
       for (var row = 0; row < nRowsT; row++) {
@@ -418,7 +416,7 @@ GroundBarPlan groundBar({
       if (flat <= 0) {
         if (flat > -1e-9) {
           warn(
-            '$name $tabName에 평평한 길이가 없어 $tabName 구멍을 뚫지 않았습니다. $tabName을 늘리십시오.',
+            '$name $tabName에 직선부가 없어 $tabName 홀을 뚫지 않았습니다. $tabName을 늘리십시오.',
           );
         }
         return;
@@ -446,7 +444,7 @@ GroundBarPlan groundBar({
         final off = left ? h.x : len - h.x;
         if (off - h.dia / 2 < -1e-9 || off + h.dia / 2 > flat + 1e-9) {
           warn(
-            '$tabName 구멍이 평평한 길이 ${_f(flat)}mm에 들어가지 않습니다. $tabName을 늘리거나 구멍 수·피치를 줄이십시오.',
+            '$tabName 홀이 직선부 ${_f(flat)}mm에 들어가지 않습니다. $tabName을 늘리거나 홀 수·피치를 줄이십시오.',
           );
         }
       }
@@ -456,7 +454,7 @@ GroundBarPlan groundBar({
       endSide('L', '왼쪽', mountL, true);
       endSide('R', '오른쪽', mountR, false);
       if (tabs.any((h) => h.dia / 2 > mountEnd + 1e-9)) {
-        warn('끝에서 취부 구멍까지 ${_f(mountEnd)}mm가 구멍 반지름보다 작아 구멍이 끝 면을 뚫습니다.');
+        warn('끝에서 취부 홀까지 ${_f(mountEnd)}mm가 홀 반지름보다 작아 홀이 끝 면을 뚫습니다.');
       }
     } else {
       side('L', '왼쪽', (hat || tabLeft > 0) && tabSides & 1 != 0, flatL, true);
@@ -469,7 +467,7 @@ GroundBarPlan groundBar({
       );
     }
     if (tabHoleCount > 1 && tabHolePitch <= tabHoleDia) {
-      warn('$tabName 구멍 피치가 구멍 지름 이하라 구멍이 서로 겹칩니다.');
+      warn('$tabName 홀 피치가 홀 지름 이하라 홀이 서로 겹칩니다.');
     }
   }
 
@@ -524,13 +522,13 @@ GroundBarPlan groundBar({
     }
   }
   if (tooBig.isNotEmpty) {
-    warn('구멍 ${names(tooBig)} 지름이 부스바 폭보다 크거나 같습니다.');
+    warn('홀 ${names(tooBig)} 지름이 부스바 폭보다 크거나 같습니다.');
   }
   if (outWidth.isNotEmpty) {
-    warn('구멍 ${names(outWidth)}이 부스바 폭 밖으로 나옵니다. 줄 간격이나 지름을 줄이십시오.');
+    warn('홀 ${names(outWidth)}이 부스바 폭 밖으로 나옵니다. 줄 간격이나 지름을 줄이십시오.');
   }
   if (outFlat.isNotEmpty) {
-    warn('구멍 ${names(outFlat)}이 곧은 구간(꺾기 선) 밖으로 나옵니다. 끝 여유를 늘리거나 지름을 줄이십시오.');
+    warn('홀 ${names(outFlat)}이 직선부(절곡선) 밖으로 나옵니다. 끝 여유를 늘리거나 지름을 줄이십시오.');
   }
   void overlap(List<GroundHole> a) {
     var sameRow = false;
@@ -547,9 +545,9 @@ GroundBarPlan groundBar({
         }
       }
     }
-    if (sameRow) warn('구멍 피치가 구멍 지름 이하라 구멍이 서로 겹칩니다.');
+    if (sameRow) warn('홀 피치가 홀 지름 이하라 홀이 서로 겹칩니다.');
     if (cross.isNotEmpty) {
-      warn('두 줄 구멍(${names(cross)})이 서로 겹칩니다. 줄 간격이나 엇갈림을 늘리십시오.');
+      warn('두 줄 홀(${names(cross)})이 서로 겹칩니다. 줄 간격이나 엇갈림을 늘리십시오.');
     }
   }
 
@@ -567,7 +565,7 @@ GroundBarPlan groundBar({
       }
     }
     if (clash.isNotEmpty) {
-      warn('취부 구멍이 접지 구멍과 겹칩니다(${names(clash)}). 취부 구멍에서 첫 접지 구멍까지 거리를 늘리십시오.');
+      warn('취부 홀이 접지 홀과 겹칩니다(${names(clash)}). 취부 홀에서 첫 접지 홀까지 거리를 늘리십시오.');
     }
   }
   // 러그 구멍끼리, 러그 구멍과 접지 구멍
@@ -582,7 +580,7 @@ GroundBarPlan groundBar({
     }
   }
   if (lugClash.isNotEmpty) {
-    warn('러그 구멍(${names(lugClash)})이 서로 겹칩니다. 러그 사이 간격이나 러그 구멍 간격을 늘리십시오.');
+    warn('러그 홀(${names(lugClash)})이 서로 겹칩니다. 러그 사이 간격이나 러그 홀 간격을 늘리십시오.');
   }
   final lugOnGround = <String>[];
   for (final l in lugs) {
@@ -595,7 +593,7 @@ GroundBarPlan groundBar({
   }
   if (lugOnGround.isNotEmpty) {
     warn(
-      '러그 구멍이 접지 구멍과 겹칩니다(${names(lugOnGround)}). 접지 구멍을 두 줄로 하거나 줄 간격·피치를 늘리거나 러그 위치를 바꾸십시오.',
+      '러그 홀이 접지 홀과 겹칩니다(${names(lugOnGround)}). 접지 홀을 두 줄로 하거나 줄 간격·피치를 늘리거나 러그 위치를 바꾸십시오.',
     );
   }
 
@@ -668,12 +666,12 @@ GroundBarPlan groundBar({
   final reqTab = reqFor(tabs);
   if (edgeTab != null && edgeTab < reqTab - 1e-9) {
     notes.add(
-      '$tabName 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeTab)}mm로 필요 거리 ${_f(reqTab)}mm(2T + R)보다 가깝습니다. 꺾을 때 구멍이 늘어날 수 있으니 $tabName 길이를 ${_f(reqTab - edgeTab)}mm 이상 늘리거나 구멍 지름을 줄이거나 자투리로 한 번 꺾어 확인하십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
+      '$tabName 홀 가장자리가 절곡 시작선에서 ${_f(edgeTab)}mm로 필요 거리 ${_f(reqTab)}mm(2T + R)보다 가깝습니다. 절곡할 때 홀이 늘어날 수 있으니 $tabName 길이를 ${_f(reqTab - edgeTab)}mm 이상 늘리거나 홀 지름을 줄이거나 잔재로 한 번 시험 절곡해 확인하십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
     );
   }
   if (edgeBody != null && edgeBody < reqBody - 1e-9) {
     notes.add(
-      '접지·러그 구멍 가장자리가 꺾기 시작선에서 ${_f(edgeBody)}mm로 필요 거리 ${_f(reqBody)}mm(2T + R)보다 가깝습니다. 끝 여유를 ${_f(reqBody - edgeBody)}mm 이상 늘리십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
+      '접지·러그 홀 가장자리가 절곡 시작선에서 ${_f(edgeBody)}mm로 필요 거리 ${_f(reqBody)}mm(2T + R)보다 가깝습니다. 끝 여유를 ${_f(reqBody - edgeBody)}mm 이상 늘리십시오(일반 판금 규칙이며 구리 부스바 전용 표준은 아닙니다).',
     );
   }
   // 막대 가장자리(폭 방향·꺾지 않은 끝)와 구멍 가장자리: 권장 2T, 최소 1T(일반 판금 자료).
@@ -684,7 +682,7 @@ GroundBarPlan groundBar({
   }
   if (edgeW != null && edgeW < 2 * t - 1e-9) {
     notes.add(
-      '구멍 가장자리가 막대 가장자리(폭 방향)에서 ${_f(edgeW)}mm로 가깝습니다. 일반 판금 자료는 권장 2T(${_f(2 * t)}mm), 최소 1T(${_f(t)}mm)입니다${edgeW < t - 1e-9 ? '. 최소에도 못 미칩니다' : ''}.',
+      '홀 가장자리가 부스바 가장자리(폭 방향)에서 ${_f(edgeW)}mm로 가깝습니다. 일반 판금 자료는 권장 2T(${_f(2 * t)}mm), 최소 1T(${_f(t)}mm)입니다${edgeW < t - 1e-9 ? '. 최소에도 못 미칩니다' : ''}.',
     );
   }
   if (n > 0) {
@@ -697,7 +695,7 @@ GroundBarPlan groundBar({
     final endMin = endGap.isEmpty ? null : endGap.reduce(math.min);
     if (endMin != null && endMin < 2 * t - 1e-9) {
       notes.add(
-        '꺾지 않은 막대 끝에서 구멍 가장자리까지 ${_f(endMin)}mm입니다. 일반 판금 자료는 권장 2T(${_f(2 * t)}mm), 최소 1T(${_f(t)}mm)입니다.',
+        '절곡하지 않은 부스바 끝에서 홀 가장자리까지 ${_f(endMin)}mm입니다. 일반 판금 자료는 권장 2T(${_f(2 * t)}mm), 최소 1T(${_f(t)}mm)입니다.',
       );
     }
   }
@@ -706,7 +704,7 @@ GroundBarPlan groundBar({
     final gap = pitch - holeDia;
     if (gap < t - 1e-9) {
       notes.add(
-        '이웃한 접지 구멍 가장자리 사이가 ${_f(gap)}mm로 좁습니다(최소 1T = ${_f(t)}mm, 한 곳 자료). 구멍 사이가 찢어질 수 있습니다.',
+        '이웃한 접지 홀 가장자리 사이가 ${_f(gap)}mm로 좁습니다(최소 1T = ${_f(t)}mm, 한 곳 자료). 홀 사이가 찢어질 수 있습니다.',
       );
     }
   }

@@ -71,7 +71,7 @@ void main() {
         endDist: 20,
         count: 3,
       ).problems,
-      contains('구멍 피치가 구멍 지름 이하라 구멍이 서로 겹칩니다.'),
+      contains('홀 피치가 홀 지름 이하라 홀이 서로 겹칩니다.'),
     );
     expect(
       groundBar(
@@ -227,10 +227,7 @@ void main() {
       tabHolePitch: 25.4,
     );
     expect(p.tabHoleList, isEmpty);
-    expect(
-      p.problems.any((w) => w.contains("평평한 길이가 없어 탭 구멍을 뚫지 않았습니다")),
-      isTrue,
-    );
+    expect(p.problems.any((w) => w.contains("직선부가 없어 탭 홀을 뚫지 않았습니다")), isTrue);
   });
 
   test('챙 길이를 왼쪽·오른쪽 따로: 길이와 꺾기 선이 각각 맞다', () {
@@ -495,14 +492,14 @@ void main() {
     expect(near.minEdgeBody, closeTo(25 - 5.55, 1e-9));
     expect(
       near.notes.any(
-        (s) => s.contains('꺾기 시작선에서 8.5mm') || s.contains('꺾기 시작선에서 8.4mm'),
+        (s) => s.contains('절곡 시작선에서 8.5mm') || s.contains('절곡 시작선에서 8.4mm'),
       ),
       isTrue,
     );
     expect(near.ok, isTrue); // 알림일 뿐 문제가 아니다
     final far = make(60); // 평평한 48 → 24 − 5.55 = 18.45
     expect(far.minEdgeTab, closeTo(18.45, 1e-9));
-    expect(far.notes.where((s) => s.contains('꺾기 시작선에서')), isEmpty);
+    expect(far.notes.where((s) => s.contains('절곡 시작선에서')), isEmpty);
     // 꺾지 않으면 거리 없음
     final flat = groundBar(
       t: 6,
@@ -566,12 +563,12 @@ void main() {
     // 폭 20, 구멍 11.1: 가장자리까지 4.45mm
     expect(
       p.notes.any(
-        (s) => s.contains('막대 가장자리(폭 방향)') && s.contains('최소에도 못 미칩니다'),
+        (s) => s.contains('부스바 가장자리(폭 방향)') && s.contains('최소에도 못 미칩니다'),
       ),
       isTrue,
     );
-    expect(p.notes.any((s) => s.contains('꺾지 않은 막대 끝')), isTrue);
-    expect(p.notes.any((s) => s.contains('이웃한 접지 구멍 가장자리 사이')), isTrue);
+    expect(p.notes.any((s) => s.contains('절곡하지 않은 부스바 끝')), isTrue);
+    expect(p.notes.any((s) => s.contains('이웃한 접지 홀 가장자리 사이')), isTrue);
     expect(p.ok, isTrue); // 알림일 뿐 문제가 아니다
     final fine = groundBar(
       t: 6,
@@ -663,7 +660,7 @@ void main() {
       tabHoleDia: 11,
       mountGap: 8,
     );
-    expect(clash.problems.join(), contains("취부 구멍이 접지 구멍과 겹칩니다"));
+    expect(clash.problems.join(), contains("취부 홀이 접지 홀과 겹칩니다"));
     final edge = groundBar(
       t: 6,
       w: 50,
@@ -675,6 +672,6 @@ void main() {
       tabHoleDia: 11,
       mountEnd: 4,
     );
-    expect(edge.problems.join(), contains("끝에서 취부 구멍까지 4mm가 구멍 반지름보다 작아"));
+    expect(edge.problems.join(), contains("끝에서 취부 홀까지 4mm가 홀 반지름보다 작아"));
   });
 }

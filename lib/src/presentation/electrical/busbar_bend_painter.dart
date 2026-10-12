@@ -1,4 +1,4 @@
-// 부스바 절곡 그림: 꺾은 뒤 옆모습, 자르기 전 곧은 부스바의 마킹. 계산은 busbar_bend.dart.
+// 부스바 절곡 그림: 측면도(수직절곡은 평면도), 전개도(마킹). 계산은 busbar_bend.dart.
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -43,7 +43,7 @@ Paint _copperPaint(Rect r) => Paint()
     colors: [_copperLight, _copperDark],
   ).createShader(r);
 
-/// 꺾은 뒤 모양. 실제 비율이고, 띠 폭은 [thickness](눕혀 꺾기는 판 두께, 세워 꺾기는 폭)로 그린다.
+/// 측면도(절곡한 뒤 모양). 실제 비율이고, 띠 폭은 [thickness](평절곡은 판 두께, 수직절곡은 폭)로 그린다.
 /// 10-12: 두 면(가장자리)을 따로 그려 넓은 띠도 화면 안에 다 들어오고 테두리·꺾는 구간이 보인다.
 /// [innerRadius]를 주면 안쪽 면이 그 반경이 되게 그리고, 없으면 예전처럼 가운데선을 [rho]로 걷는다.
 class BusbarShapePainter extends CustomPainter {
@@ -64,7 +64,7 @@ class BusbarShapePainter extends CustomPainter {
   final double rho, thickness, startHeadingDeg;
   final double? innerRadius;
 
-  /// 세워 꺾기: 넓은 면을 위에서 본 그림(글만 다르다).
+  /// 수직절곡: 평면도(넓은 면, 글만 다르다).
   final bool edge;
   final Color text, sub, line;
 
@@ -134,10 +134,7 @@ class BusbarShapePainter extends CustomPainter {
     for (var i = 0; i < plan.bends.length; i++) {
       final (s0, _, s1) = strip.bends[i];
       final col = busbarBendColor(plan.bends[i].turn);
-      canvas.drawPath(
-        band(s0, s1),
-        Paint()..color = const Color(0x40FFFFFF),
-      );
+      canvas.drawPath(band(s0, s1), Paint()..color = const Color(0x40FFFFFF));
       for (final j in [s0, s1]) {
         canvas.drawLine(
           map(left[j]),
@@ -184,10 +181,10 @@ class BusbarShapePainter extends CustomPainter {
     _label(
       canvas,
       innerRadius == null
-          ? '옆에서 본 모양 · 중립선 길이 ${fmt(plan.cutLength)}mm'
+          ? '측면도 · 중립선 길이 ${fmt(plan.cutLength)}mm'
           : edge
-          ? '넓은 면을 위에서 본 모양(세워 꺾기) · 안쪽 반경 ${fmt(innerRadius!)}mm'
-          : '옆에서 본 모양(눕혀 꺾기) · 안쪽 반경 ${fmt(innerRadius!)}mm',
+          ? '평면도(넓은 면, 수직절곡) · 내R ${fmt(innerRadius!)}mm'
+          : '측면도(평절곡) · 내R ${fmt(innerRadius!)}mm',
       const Offset(10, 6),
       sub,
       center: false,
@@ -207,7 +204,7 @@ class BusbarShapePainter extends CustomPainter {
 
 /// 꺾은선 위에서 시작점으로부터 길이 [len]인 점.
 
-/// 자르기 전 곧은 부스바와 꺾기 시작·끝선 마킹.
+/// 전개도: 절곡 전 부스바와 절곡 시작선·끝선 마킹.
 class BusbarMarkPainter extends CustomPainter {
   BusbarMarkPainter({
     required this.plan,
@@ -283,7 +280,7 @@ class BusbarMarkPainter extends CustomPainter {
     );
     _label(
       canvas,
-      '자르기 전 곧은 부스바 · 숫자는 한쪽 끝 기준 꺾기 시작선 위치(mm)',
+      '전개도 · 숫자는 한쪽 끝 기준 절곡 시작선 위치(mm)',
       const Offset(10, 6),
       sub,
       center: false,

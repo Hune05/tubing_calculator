@@ -57,7 +57,7 @@ void main() {
       count: 9,
     ); // 홀수 개면 가운데가 구멍 자리
     expect(p.ok, isFalse);
-    expect(p.problems.any((s) => s.contains('접지 구멍과 겹칩니다')), isTrue);
+    expect(p.problems.any((s) => s.contains('접지 홀과 겹칩니다')), isTrue);
   });
 
   test('러그 구멍 간격·러그 사이 간격도 12mm 밑으로 안 줄어든다', () {
@@ -90,7 +90,7 @@ void main() {
       count: 3,
       lugPitch: 60,
     );
-    expect(far.problems.any((s) => s.contains('곧은 구간')), isTrue);
+    expect(far.problems.any((s) => s.contains('직선부')), isTrue);
   });
 
   test('러그 구멍 크기만 바꾸기와 무게', () {

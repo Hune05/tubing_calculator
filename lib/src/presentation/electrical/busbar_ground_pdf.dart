@@ -229,7 +229,7 @@ Future<Uint8List> buildGroundBarPdf(
             left: 0,
             top: 0,
             child: pw.Text(
-              '${_n(p.length)} × ${_n(input.width)} mm · 구멍 ${holes.length}개 (파란 테두리 = 러그 구멍, 주황 = 크기 바꾼 구멍, 녹색/주황 띠 = 꺾기)',
+              '${_n(p.length)} × ${_n(input.width)} mm · 홀 ${holes.length}개 (파란 테두리 = 러그 홀, 주황 = 크기 바꾼 홀, 녹색/주황 띠 = 절곡)',
               style: const pw.TextStyle(fontSize: 8, color: _grey),
             ),
           ),
@@ -307,7 +307,7 @@ Future<Uint8List> buildGroundBarPdf(
             left: 0,
             top: 0,
             child: pw.Text(
-              '옆에서 본 모양(중립선 길이 ${_n(p.length)}mm) · 번호는 아래 꺾기 표 번호',
+              '측면도(중립선 길이 ${_n(p.length)}mm) · 번호는 아래 절곡 표 번호',
               style: const pw.TextStyle(fontSize: 8, color: _grey),
             ),
           ),
@@ -333,7 +333,7 @@ Future<Uint8List> buildGroundBarPdf(
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
             pw.Text(
-              '접지바 가공 지시서',
+              '접지바 가공 도면',
               style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
             ),
             pw.Text(
@@ -359,11 +359,11 @@ Future<Uint8List> buildGroundBarPdf(
           },
           children: summaryRows,
         ),
-        sectionTitle('위에서 본 모양'),
+        sectionTitle('평면도'),
         topView(),
-        if (p.bendPlan != null) ...[sectionTitle('꺾은 뒤 모양'), sideView()],
+        if (p.bendPlan != null) ...[sectionTitle('측면도'), sideView()],
         if (input.bendRows.isNotEmpty) ...[
-          sectionTitle('꺾기 (왼쪽 끝 기준 거리, mm)'),
+          sectionTitle('절곡 (왼쪽 끝 기준 거리, mm)'),
           pw.Table(
             border: pw.TableBorder.all(color: _line, width: 0.6),
             columnWidths: const {
@@ -376,7 +376,7 @@ Future<Uint8List> buildGroundBarPdf(
               pw.TableRow(
                 decoration: const pw.BoxDecoration(color: _head),
                 children: [
-                  for (final h in ['번호', '위치', '꺾기 시작선', '꺾기 끝선'])
+                  for (final h in ['번호', '위치', '절곡 시작선', '절곡 끝선'])
                     cell(h, bold: true),
                 ],
               ),
@@ -486,10 +486,16 @@ Future<void> openGroundBarPdf(
   final messenger = ScaffoldMessenger.maybeOf(context);
   Uint8List bytes;
   try {
-    bytes = await (build ?? (i, d) => buildGroundBarPdf(i, date: d))(input, now);
+    bytes = await (build ?? (i, d) => buildGroundBarPdf(i, date: d))(
+      input,
+      now,
+    );
   } catch (e) {
     // 예전에는 실패해도 아무 말이 없었다.
-    showSnackOnce(messenger, const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')));
+    showSnackOnce(
+      messenger,
+      const SnackBar(content: Text('도면을 만들지 못했습니다. 다시 해 보십시오.')),
+    );
     return;
   } finally {
     _groundPdfBusy = false;
@@ -501,7 +507,7 @@ Future<void> openGroundBarPdf(
       builder: (_) => SteelPdfPreviewPage(
         bytes: bytes,
         fileName: fileName,
-        title: '접지바 가공 지시서 미리보기',
+        title: '접지바 가공 도면 미리보기',
         onShare: () async {
           final dir = await getTemporaryDirectory();
           final file = File('${dir.path}/$fileName');
@@ -509,7 +515,7 @@ Future<void> openGroundBarPdf(
           // ignore: deprecated_member_use
           await Share.shareXFiles([
             XFile(file.path),
-          ], text: '접지바 가공 지시서 ${input.title.trim()}');
+          ], text: '접지바 가공 도면 ${input.title.trim()}');
         },
       ),
     ),

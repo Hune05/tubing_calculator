@@ -38,22 +38,22 @@ Future<void> _defaultShare(String text) async {
 }
 
 const List<String> kGroundBarBasis = [
-  '모양: 일자는 꺾지 않고 그대로 판넬에 댑니다. 모자는 윗면(접지 구멍 줄) 양쪽을 다리로 90° 내리고 다리 끝을 바깥으로 다시 꺾어 발을 만듭니다(꺾기 4곳). 발 구멍으로 판넬에 바로 취부합니다. 끝만 L자로 꺾는 모양은 "자세히"에 있습니다.',
-  '모자 치수는 모두 바깥 치수입니다. 발 길이는 다리 바깥면에서 발 끝까지, 높이는 발 바닥면에서 윗면까지입니다. 절단 길이 = 왼쪽 발 + 오른쪽 발 + 2 × 높이 + 윗면 바깥 폭 − 4 × 굽힘 공제입니다.',
-  '구멍 줄: 한 줄은 폭 가운데입니다. 구멍 수로 정하면 길이 = 2 × 끝 여유 + (구멍 수 − 1) × 피치. 막대 길이로 정하면 들어가는 만큼 뚫고 남는 길이는 양 끝에 똑같이 나눕니다.',
-  '구멍 지름 칩은 볼트 틈새 구멍(KS B ISO 273 보통급) M8 9 · M10 11 · M12 13.5 · M16 17.5mm입니다. "내 금형"에 기계 펀치 금형 지름을 저장하면 그 값이 칩으로 나옵니다.',
-  '구멍 피치 칩(20~50mm)과 끝 여유 기본 25mm는 고르기 쉽게 둔 값이고 규격 값이 아닙니다. 쓸 러그 구멍 간격과 설계도에 맞추십시오. 구멍이 끝 면을 뚫거나 서로 겹치는 경우만 알립니다.',
-  '꺾기: 두께 방향(눕혀 꺾기) 90°, 부스바 가공과 같은 식(중립선 반경 r + k·t)입니다. 안쪽 반경은 기계 금형 반경을 넣고, 비우면 두께 1배로 계산합니다. 최소 안쪽 반경은 CDA 한 곳 자료(두께 10mm 이하 1배)입니다. k 기본 0.4는 범위(0.33~0.5)의 가운데 값이라 처음 만드는 치수는 자투리로 한 번 꺾어 보고 맞추십시오.',
-  '구멍 가장자리 ~ 꺾기 시작선 거리는 2 × 두께 + 안쪽 반경 이상이어야 꺾을 때 구멍이 덜 늘어납니다(일반 판금 규칙). 기본 발 길이 60mm는 두께 6mm·구멍 11mm 하나일 때 이 거리를 넘깁니다.',
-  '발·탭 구멍(취부)은 평평한 길이(끝에서 꺾기 시작선까지) 가운데에 모아 뚫습니다. 일자는 양 끝에 취부 구멍을 따로 뚫습니다: 끝에서 첫 취부 구멍까지(기본 25mm), 마지막 취부 구멍에서 첫 접지 구멍까지(기본 50mm). 그 쪽은 끝 여유 대신 이 거리를 쓰고, 그만큼 절단 길이가 늘어납니다. 두 기본값은 임의 값입니다.',
-  '중량은 구리 밀도 8.9 g/cm³로 구멍을 뺀 부피에 곱한 근사값입니다.',
-  '자세히: 두 줄 구멍, 끝 L자 꺾기, 오른쪽 발 길이 따로, 취부 구멍 줄·뚫을 쪽, 러그 구멍 간격·놓는 방법·패드 두께, 구멍 크기 바꾸기, 중립선 계수 k·벤더 보정이 있습니다. 접어 둬도 켜 둔 값은 계산에 들어가고 "자세히" 제목 아래에 보입니다.',
-  '두 줄: 대칭은 두 줄 구멍이 같은 자리에 마주 보고, 비대칭(엇갈림)은 B줄을 길이 방향으로 옮깁니다(비우면 반 피치). 엇갈린 만큼 구멍 줄이 길어집니다. 두 줄 줄 간격 기본 20mm는 임의 값입니다.',
-  '접지 러그 구멍: 접지 구멍을 쓰지 않고 부스바 가운데에 따로 뚫습니다. 러그 1구멍은 구멍 하나, 2구멍은 러그 구멍 간격만큼 떨어진 구멍 둘입니다(NEMA 2구멍 러그 간격 3/4"·1"·1-3/4"). 볼트 세트 = 볼트 + 너트 + 평와셔 2 + 스프링 와셔 1(구멍 하나). 조임 토크와 산화방지제는 러그·볼트 제조사 값을 따르며 이 앱은 값을 정하지 않습니다.',
-  '구멍 사이 최소 간격: 구멍 피치·줄 간격은 12mm보다 작게 넣어도 12mm로 올려 계산하고 알립니다(구멍 중심 사이 기준).',
-  '판넬 취부: 모자 접지바를 발 구멍으로 판넬에 설치할 때 판넬 구멍 가로 간격(왼쪽 구멍 0 기준)과 볼트 세트를 계산합니다. 판넬 두께 기본 3mm는 임의 값입니다.',
-  '스프링백: 벤더 프로필을 고르면 스프링백 비율로 기계에서 꺾을 각도를 알려 줍니다. 프로필이 없으면 보정하지 않습니다.',
-  '넣지 않은 것: 3줄 이상, 모서리 둥글림, 구멍 면취.',
+  '모양: 일자는 절곡하지 않고 그대로 판넬에 댑니다. 모자는 윗면(접지 홀 줄) 양쪽을 다리로 90° 내리고 다리 끝을 바깥으로 다시 절곡해 발을 만듭니다(절곡 4곳). 발 홀로 판넬에 바로 취부합니다. 끝만 ㄱ자로 절곡하는 모양은 "자세히"에 있습니다.',
+  '모자 치수는 모두 바깥 치수입니다. 발 길이는 다리 바깥면에서 발 끝까지, 높이는 발 바닥면에서 윗면까지입니다. 전개 길이 = 왼쪽 발 + 오른쪽 발 + 2 × 높이 + 윗면 바깥 폭 − 4 × 공제값입니다.',
+  '홀 줄: 한 줄은 폭 가운데입니다. 홀 수로 정하면 길이 = 2 × 끝 여유 + (홀 수 − 1) × 피치. 부스바 길이로 정하면 들어가는 만큼 뚫고 남는 길이는 양 끝에 똑같이 나눕니다.',
+  '홀 지름 칩은 볼트 틈새 홀(KS B ISO 273 보통급) M8 9 · M10 11 · M12 13.5 · M16 17.5mm입니다. "내 금형"에 기계 펀치 금형 지름을 저장하면 그 값이 칩으로 나옵니다.',
+  '홀 피치 칩(20~50mm)과 끝 여유 기본 25mm는 고르기 쉽게 둔 값이고 규격 값이 아닙니다. 쓸 러그 홀 간격과 설계도에 맞추십시오. 홀이 끝 면을 뚫거나 서로 겹치는 경우만 알립니다.',
+  '절곡: 두께 방향(평절곡) 90°, 부스바 가공과 같은 식(중립선 반경 = 내R + K값 × 두께)입니다. 내R은 기계 금형 반경을 넣고, 비우면 두께 1배로 계산합니다. 최소 내R은 CDA 한 곳 자료(두께 10mm 이하 1배)입니다. K값 기본 0.4는 범위(0.33~0.5)의 가운데 값이라 처음 만드는 치수는 잔재로 한 번 시험 절곡해 보고 맞추십시오.',
+  '홀 가장자리 ~ 절곡 시작선 거리는 2 × 두께 + 내R 이상이어야 절곡할 때 홀이 덜 늘어납니다(일반 판금 규칙). 기본 발 길이 60mm는 두께 6mm·홀 11mm 하나일 때 이 거리를 넘깁니다.',
+  '발·탭 홀(취부)은 직선부(끝에서 절곡 시작선까지) 가운데에 모아 뚫습니다. 일자는 양 끝에 취부 홀을 따로 뚫습니다: 끝에서 첫 취부 홀까지(기본 25mm), 마지막 취부 홀에서 첫 접지 홀까지(기본 50mm). 그 쪽은 끝 여유 대신 이 거리를 쓰고, 그만큼 전개 길이가 늘어납니다. 두 기본값은 임의 값입니다.',
+  '중량은 구리 밀도 8.9 g/cm³로 홀을 뺀 부피에 곱한 근사값입니다.',
+  '자세히: 두 줄 홀, 끝 ㄱ자 절곡, 오른쪽 발 길이 따로, 취부 홀 줄·뚫을 쪽, 러그 홀 간격·놓는 방법·패드 두께, 홀 크기 개별 수정, K값·벤더 보정이 있습니다. 접어 둬도 켜 둔 값은 계산에 들어가고 "자세히" 제목 아래에 보입니다.',
+  '두 줄: 대칭은 두 줄 홀이 같은 자리에 마주 보고, 비대칭(엇갈림)은 B줄을 길이 방향으로 옮깁니다(비우면 반 피치). 엇갈린 만큼 홀 줄이 길어집니다. 두 줄 줄 간격 기본 20mm는 임의 값입니다.',
+  '접지 러그 홀: 접지 홀을 쓰지 않고 부스바 가운데에 따로 뚫습니다. 1홀 러그는 홀 하나, 2홀 러그는 러그 홀 간격만큼 떨어진 홀 둘입니다(NEMA 2홀 러그 간격 3/4"·1"·1-3/4"). 볼트 세트 = 볼트 + 너트 + 평와셔 2 + 스프링 와셔 1(홀 하나). 조임 토크와 산화방지제는 러그·볼트 제조사 값을 따르며 이 앱은 값을 정하지 않습니다.',
+  '홀 사이 최소 간격: 홀 피치·줄 간격은 12mm보다 작게 넣어도 12mm로 올려 계산하고 알립니다(홀 중심 사이 기준).',
+  '판넬 취부: 모자 접지바를 발 홀로 판넬에 설치할 때 판넬 홀 가로 간격(왼쪽 홀 0 기준)과 볼트 세트를 계산합니다. 판넬 두께 기본 3mm는 임의 값입니다.',
+  '스프링백: 벤더 프로필을 고르면 스프링백 비율로 기계에서 절곡할 각도를 알려 줍니다. 프로필이 없으면 보정하지 않습니다.',
+  '넣지 않은 것: 3줄 이상, 모서리 둥글림, 홀 면취.',
 ];
 
 class GroundBarPage extends StatefulWidget {
@@ -310,7 +310,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     return [
       for (final tdeg in turns)
         if (seen.add(tdeg.abs()))
-          '스프링백 보정(×${fmt(_spring, 3)}): 목표 ${fmt(tdeg.abs())}° → 기계에서 ${fmt(benderMachineAngle(tdeg.abs(), _spring), 1)}°로 꺾기',
+          '스프링백 보정(×${fmt(_spring, 3)}): 목표 ${fmt(tdeg.abs())}° → 기계에서 ${fmt(benderMachineAngle(tdeg.abs(), _spring), 1)}°로 절곡',
     ];
   }
 
@@ -318,18 +318,18 @@ class _GroundBarPageState extends State<GroundBarPage>
     final t = data['t'] is String ? data['t'] as String : '';
     final w = data['w'] is String ? data['w'] as String : '';
     final shape = switch (data['tb']) {
-      1 => '왼쪽 L',
-      2 => '오른쪽 L',
-      3 => '양쪽 L',
+      1 => '왼쪽 ㄱ자',
+      2 => '오른쪽 ㄱ자',
+      3 => '양쪽 ㄱ자',
       4 => '모자',
       _ => '일자',
     };
     final lug = switch (data['lg']) {
-      1 => ' · 러그 1구멍',
-      2 => ' · 러그 2구멍',
+      1 => ' · 러그 1홀',
+      2 => ' · 러그 2홀',
       _ => '',
     };
-    return '$t×$w · $shape$lug';
+    return '${t}T×$w · $shape$lug';
   }
 
   Future<void> _openSavedSheet() => openSavedSpecs(
@@ -339,7 +339,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     summaryOf: _savedSummary,
     defaultName: _jobName.text.trim().isNotEmpty
         ? _jobName.text.trim()
-        : '${_thick.text}×${_width.text} 접지바',
+        : '${_thick.text}T×${_width.text} 접지바',
     onLoad: (m) => _set(() {
       _applyMap(m);
       _selHole = null;
@@ -433,7 +433,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     if (_tabs == 0) return null;
     final min = busbarMinRadius(_num(_thick));
     if (_r + 1e-9 >= min) return null;
-    return '꺾기 안쪽 반경 ${fmt(_r)}mm가 최소 반경 ${fmt(min)}mm(CDA, 두께 ${fmt(_num(_thick))}mm 기준)보다 작습니다. 모서리가 갈라질 수 있습니다.';
+    return '내R ${fmt(_r)}mm가 최소 내R ${fmt(min)}mm(CDA, 두께 ${fmt(_num(_thick))}mm 기준)보다 작습니다. 모서리가 갈라질 수 있습니다.';
   }
 
   String get _tabName => _tabs == 4 ? '발' : (_tabs == 0 ? '취부' : '탭');
@@ -443,12 +443,12 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   /// 구멍 위치 한 줄 규칙: 첫 구멍·피치·마지막 구멍(A줄).
   String _ruleText(GroundBarPlan p) =>
-      '첫 구멍 ${fmt(p.positions.first, 1)} → 피치 ${fmt(p.pitchUsed)} × ${p.holes - 1}칸 → 마지막 구멍 ${fmt(p.positions.last, 1)}';
+      '첫 홀 ${fmt(p.positions.first, 1)} → 피치 ${fmt(p.pitchUsed)} × ${p.holes - 1}칸 → 마지막 홀 ${fmt(p.positions.last, 1)}';
 
   /// 두 줄 설명: 막대 한쪽 가장자리에서 줄 위치와 B줄 엇갈림.
   String _rowText(GroundBarPlan p) {
-    if (p.rows == 1) return '구멍 줄은 폭 가운데 ${fmt(p.rowY.first, 1)}mm입니다.';
-    return '${_rowMode == 1 ? "두 줄 대칭" : "두 줄 비대칭(엇갈림)"}: 막대 한쪽 가장자리에서 A줄 ${fmt(p.rowY[0], 1)} · B줄 ${fmt(p.rowY[1], 1)}mm'
+    if (p.rows == 1) return '홀 줄은 폭 가운데 ${fmt(p.rowY.first, 1)}mm입니다.';
+    return '${_rowMode == 1 ? "두 줄 대칭" : "두 줄 비대칭(엇갈림)"}: 부스바 한쪽 가장자리에서 A줄 ${fmt(p.rowY[0], 1)} · B줄 ${fmt(p.rowY[1], 1)}mm'
         '${p.stagger > 0 ? ", B줄은 길이 방향으로 ${fmt(p.stagger, 1)}mm 옮김" : ""}.';
   }
 
@@ -463,7 +463,7 @@ class _GroundBarPageState extends State<GroundBarPage>
   }
 
   String _bendText(BusbarBend b, int i, GroundBarPlan p) =>
-      '${i + 1}. ${_bendName(i, p)} 꺾기 시작선 ${fmt(b.start, 1)} · 끝선 ${fmt(b.end, 1)}mm';
+      '${i + 1}. ${_bendName(i, p)} 절곡 시작선 ${fmt(b.start, 1)} · 끝선 ${fmt(b.end, 1)}mm';
 
   /// 구멍 가장자리 ~ 꺾기 시작선 거리(구멍 종류별). 꺾을 때 구멍이 늘어나는지 가늠하는 값.
   // 10-09: 모자랄 때 "✗"는 PDF 글꼴에 없어 네모로 나와 "부족"으로 쓴다.
@@ -471,11 +471,10 @@ class _GroundBarPageState extends State<GroundBarPage>
     String one(String name, double d, double req) =>
         '$name ${fmt(d, 1)}mm (필요 ${fmt(req, 1)}mm 이상 ${d >= req - 1e-9 ? "✓" : "부족"})';
     final parts = [
-      if (p.minEdgeBody != null) one('접지·러그 구멍', p.minEdgeBody!, p.reqEdgeBody),
-      if (p.minEdgeTab != null)
-        one('$_tabName 구멍', p.minEdgeTab!, p.reqEdgeTab),
+      if (p.minEdgeBody != null) one('접지·러그 홀', p.minEdgeBody!, p.reqEdgeBody),
+      if (p.minEdgeTab != null) one('$_tabName 홀', p.minEdgeTab!, p.reqEdgeTab),
     ];
-    return '구멍 가장자리 ~ 꺾기 시작선 거리: ${parts.join(' · ')}. 필요 거리 = 2 × T + R(구멍 지름 25.4 이상은 2.5 × T + R, 일반 판금 규칙).';
+    return '홀 가장자리 ~ 절곡 시작선 거리: ${parts.join(' · ')}. 필요 거리 = 2 × T + R(홀 지름 25.4 이상은 2.5 × T + R, 일반 판금 규칙).';
   }
 
   /// 발·탭 구멍 수 설명: 어느 쪽에 몇 개인지 풀어 쓴다(쪽은 구멍 번호 tL-·tR-로 가린다).
@@ -488,9 +487,9 @@ class _GroundBarPageState extends State<GroundBarPage>
       if (r > 0) '오른쪽 $_sideUnit $r개',
     ];
     final where = _tabs == 0
-        ? '끝에서 ${fmt(_num(_mountEnd))}mm에 있고, 첫 접지 구멍까지 ${fmt(_num(_mountGap))}mm 띄웠습니다.'
-        : '평평한 길이 ${fmt(flat, 1)}mm 가운데에 있습니다.';
-    return '$_tabName 구멍 φ${fmt(_num(_mDia))}: ${parts.join(' + ')}(합계 ${p.tabHoleList.length}개). $where';
+        ? '끝에서 ${fmt(_num(_mountEnd))}mm에 있고, 첫 접지 홀까지 ${fmt(_num(_mountGap))}mm 띄웠습니다.'
+        : '직선부 ${fmt(flat, 1)}mm 가운데에 있습니다.';
+    return '$_tabName 홀 φ${fmt(_num(_mDia))}: ${parts.join(' + ')}(합계 ${p.tabHoleList.length}개). $where';
   }
 
   String _holeLine(GroundHole h) =>
@@ -508,12 +507,12 @@ class _GroundBarPageState extends State<GroundBarPage>
   GroundPdfInput _pdfInput(GroundBarPlan p) {
     final t = _num(_thick), w = _num(_width);
     final shape = switch (_tabs) {
-      1 => '왼쪽 끝 L 꺾기 (탭 ${fmt(_num(_tabL))}mm)',
-      2 => '오른쪽 끝 L 꺾기 (탭 ${fmt(_num(_tabR))}mm)',
-      3 => '양쪽 끝 L 꺾기 (탭 ${fmt(_num(_tabL))} / ${fmt(_num(_tabR))}mm)',
+      1 => '왼쪽 끝 ㄱ자 절곡 (탭 ${fmt(_num(_tabL))}mm)',
+      2 => '오른쪽 끝 ㄱ자 절곡 (탭 ${fmt(_num(_tabR))}mm)',
+      3 => '양쪽 끝 ㄱ자 절곡 (탭 ${fmt(_num(_tabL))} / ${fmt(_num(_tabR))}mm)',
       4 =>
         '모자: 높이 ${fmt(_num(_hatH))}, 발 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))}mm',
-      _ => '일자 (꺾지 않음)',
+      _ => '일자 (절곡하지 않음)',
     };
     final custom = [
       ...p.groundHoles,
@@ -521,65 +520,62 @@ class _GroundBarPageState extends State<GroundBarPage>
       ...p.lugHoleList,
     ].where((h) => h.custom).toList();
     final summary = <(String, String)>[
-      ('재료', '구리 평강 ${fmt(t)} × ${fmt(w)} mm'),
+      ('재료', '구리 평강 ${fmt(t)}T × ${fmt(w)} mm'),
       ('모양', shape),
-      ('절단 길이', '${fmt(p.length, 1)} mm (약 ${fmt(p.weightKg, 2)} kg)'),
+      ('전개 길이', '${fmt(p.length, 1)} mm (약 ${fmt(p.weightKg, 2)} kg)'),
       (
-        '접지 구멍',
+        '접지 홀',
         'φ${fmt(_num(_hole))} · ${p.rows == 2 ? "${p.holes}개 × 2줄" : "${p.holes}개"} · 피치 ${fmt(p.pitchUsed)}mm',
       ),
-      if (p.holes > 0) ('구멍 줄', _rowText(p)),
+      if (p.holes > 0) ('홀 줄', _rowText(p)),
       if (p.tabHoleList.isNotEmpty)
-        ('$_tabName 구멍', _tabHoleSummary(p).replaceFirst('$_tabName 구멍 ', '')),
+        ('$_tabName 홀', _tabHoleSummary(p).replaceFirst('$_tabName 홀 ', '')),
       if (p.lugHoleList.isNotEmpty)
         (
-          '러그 구멍',
-          '${_lug == 2 ? "2구멍" : "1구멍"} 러그 · ${p.lugHoleList.length}개 · φ${fmt(_num(_lugDia))}${_lug == 2 ? " · 구멍 간격 ${fmt(_num(_lugSpacing))}mm" : ""} (접지 구멍과 따로)',
+          '러그 홀',
+          '${_lug == 2 ? "2홀" : "1홀"} 러그 · ${p.lugHoleList.length}개 · φ${fmt(_num(_lugDia))}${_lug == 2 ? " · 홀 간격 ${fmt(_num(_lugSpacing))}mm" : ""} (접지 홀과 따로)',
         ),
       if (p.bends.isNotEmpty)
-        ('꺾기 조건', '안쪽 반경 ${fmt(_r)}mm · k ${fmt(_k, 2)} · 눕혀 꺾기 90°'),
+        ('절곡 조건', '내R ${fmt(_r)}mm · K값 ${fmt(_k, 2)} · 평절곡 90°'),
       if (custom.isNotEmpty)
-        (
-          '크기 바꾼 구멍',
-          custom.map((h) => '${h.label} φ${fmt(h.dia)}').join(' · '),
-        ),
+        ('크기 바꾼 홀', custom.map((h) => '${h.label} φ${fmt(h.dia)}').join(' · ')),
     ];
     final sections = <GroundPdfSection>[
       if (p.holes > 0)
         GroundPdfSection(
-          '접지 구멍 위치 (왼쪽 끝에서 중심까지, mm)',
+          '접지 홀 위치 (왼쪽 끝에서 중심까지, mm)',
           [
             _ruleText(p),
-            '검산: 마지막 접지 구멍에서 ${_tabs == 4 || _tabs & 2 != 0 ? "꺾기 시작선" : "끝"}까지 ${fmt(p.endRight, 1)}mm.',
+            '검산: 마지막 접지 홀에서 ${_tabs == 4 || _tabs & 2 != 0 ? "절곡 시작선" : "끝"}까지 ${fmt(p.endRight, 1)}mm.',
           ],
           headers: const ['번호', '왼쪽 끝에서(mm)', '폭 방향(mm)', '지름(mm)'],
           rows: [for (final h in p.groundHoles) _holeRow(h)],
         ),
       if (p.tabHoleList.isNotEmpty)
         GroundPdfSection(
-          '$_tabName 구멍 위치 (왼쪽 끝에서 중심까지, mm)',
+          '$_tabName 홀 위치 (왼쪽 끝에서 중심까지, mm)',
           const [],
           headers: const ['번호', '왼쪽 끝에서(mm)', '폭 방향(mm)', '지름(mm)'],
           rows: [for (final h in p.tabHoleList) _holeRow(h)],
         ),
       if (p.lugHoleList.isNotEmpty)
         GroundPdfSection(
-          '접지 러그 구멍 위치 (접지 구멍과 따로, 왼쪽 끝에서 중심까지, mm)',
+          '접지 러그 홀 위치 (접지 홀과 따로, 왼쪽 끝에서 중심까지, mm)',
           [
             '볼트 세트 ${p.lugHoleList.length}개 = ${_lugParts(p.lugHoleList.length).join(" · ")}',
-            '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + t, 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(t, 1)}.',
+            '체결 두께(그립) ${fmt(_num(_lugPad) + t, 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(t, 1)}.',
           ],
           headers: const ['번호', '왼쪽 끝에서(mm)', '폭 방향(mm)', '지름(mm)'],
           rows: [for (final h in p.lugHoleList) _holeRow(h)],
         ),
       if (_panel(p).isNotEmpty)
-        GroundPdfSection('판넬 취부 자리 (가장 왼쪽 구멍 = 0, mm)', [
+        GroundPdfSection('판넬 취부 자리 (가장 왼쪽 홀 = 0, mm)', [
           for (final h in _panel(p))
-            '${h.hole.label}   가로 ${fmt(h.x, 1)} · 세로 ${fmt(h.y, 1)} (막대 A쪽 가장자리 기준)',
+            '${h.hole.label}   가로 ${fmt(h.x, 1)} · 세로 ${fmt(h.y, 1)} (부스바 A쪽 가장자리 기준)',
           if (_panel(p).length > 1)
-            '왼쪽 구멍과 오른쪽 구멍 가로 간격 ${fmt(_panel(p).last.x - _panel(p).first.x, 1)}mm (구멍 중심 사이).',
-          '볼트 세트 ${p.tabHoleList.length}개 = 볼트 ${lugBoltFor(_num(_mDia)) ?? "구멍에 맞는 규격"} ${p.tabHoleList.length}개 · 너트 · 평와셔 2개 · 스프링 와셔 1개(개당).',
-          '볼트가 지나는 두께(그립) ${fmt(t + _num(_panelT), 1)}mm = 부스바 ${fmt(t, 1)} + 판넬 ${fmt(_num(_panelT), 1)}.',
+            '왼쪽 홀과 오른쪽 홀 가로 간격 ${fmt(_panel(p).last.x - _panel(p).first.x, 1)}mm (홀 중심 사이).',
+          '볼트 세트 ${p.tabHoleList.length}개 = 볼트 ${lugBoltFor(_num(_mDia)) ?? "홀에 맞는 규격"} ${p.tabHoleList.length}개 · 너트 · 평와셔 2개 · 스프링 와셔 1개(개당).',
+          '체결 두께(그립) ${fmt(t + _num(_panelT), 1)}mm = 부스바 ${fmt(t, 1)} + 판넬 ${fmt(_num(_panelT), 1)}.',
         ]),
     ];
     return GroundPdfInput(
@@ -611,9 +607,9 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   String _shareText(GroundBarPlan p) {
     final b = StringBuffer(
-      '[접지바] 구리 ${fmt(_num(_thick))}×${fmt(_num(_width))}mm · 구멍 φ${fmt(_num(_hole))} ${p.rows == 2 ? "${p.holes}개 × 2줄" : "${p.holes}개"} 피치 ${fmt(p.pitchUsed)}',
+      '[접지바] 구리 ${fmt(_num(_thick))}T×${fmt(_num(_width))}mm · 홀 φ${fmt(_num(_hole))} ${p.rows == 2 ? "${p.holes}개 × 2줄" : "${p.holes}개"} 피치 ${fmt(p.pitchUsed)}',
     );
-    b.write('\n절단 길이: ${fmt(p.length, 1)}mm (약 ${fmt(p.weightKg, 2)}kg)');
+    b.write('\n전개 길이: ${fmt(p.length, 1)}mm (약 ${fmt(p.weightKg, 2)}kg)');
     b.write('\n${_rowText(p)}');
     if (p.bends.isNotEmpty) {
       final tab = _tabs == 4
@@ -622,7 +618,7 @@ class _GroundBarPageState extends State<GroundBarPage>
           ? '탭 양쪽 ${fmt(_num(_tabL))} / ${fmt(_num(_tabR))}'
           : '탭 ${fmt(_num(_tabs == 1 ? _tabL : _tabR))}';
       b.write(
-        '\n꺾기 (왼쪽 끝에서, ${tab}mm 바깥 치수, 안쪽 반경 ${fmt(_r)}, k ${fmt(_k, 2)}):',
+        '\n절곡 (왼쪽 끝에서, ${tab}mm 바깥 치수, 내R ${fmt(_r)}, K값 ${fmt(_k, 2)}):',
       );
       for (var i = 0; i < p.bends.length; i++) {
         b.write('\n ${_bendText(p.bends[i], i, p)}');
@@ -630,11 +626,11 @@ class _GroundBarPageState extends State<GroundBarPage>
     }
     if (p.tabHoleList.isNotEmpty) {
       b.write(
-        '\n$_tabName 구멍 φ${fmt(_num(_mDia))} (왼쪽 끝에서 중심): ${p.tabHoleList.map(_holeLine).join(" · ")}',
+        '\n$_tabName 홀 φ${fmt(_num(_mDia))} (왼쪽 끝에서 중심): ${p.tabHoleList.map(_holeLine).join(" · ")}',
       );
     }
     if (p.holes > 0) {
-      b.write('\n접지 구멍 위치 (왼쪽 끝에서 중심까지): ${_ruleText(p)}');
+      b.write('\n접지 홀 위치 (왼쪽 끝에서 중심까지): ${_ruleText(p)}');
       for (final (label, vals) in groundHoleRows(
         p.positions,
         prefix: p.rows == 2 ? 'A' : '',
@@ -650,13 +646,13 @@ class _GroundBarPageState extends State<GroundBarPage>
     final pts = _panel(p);
     if (pts.isNotEmpty) {
       b.write(
-        '\n판넬 취부 구멍(왼쪽 구멍 0 기준): ${pts.map((h) => "${h.hole.label} 가로 ${fmt(h.x, 1)}/세로 ${fmt(h.y, 1)}").join(" · ")}',
+        '\n판넬 취부 홀(왼쪽 홀 0 기준): ${pts.map((h) => "${h.hole.label} 가로 ${fmt(h.x, 1)}/세로 ${fmt(h.y, 1)}").join(" · ")}',
       );
     }
     final groups = _lugGroups(p);
     if (groups.isNotEmpty) {
       b.write(
-        '\n접지 러그 ${_lug == 2 ? "2구멍" : "1구멍"} ${groups.length}개(접지 구멍과 따로, 폭 가운데 ${fmt(p.lugHoleList.first.y, 1)}mm 추가 구멍 φ${fmt(_num(_lugDia))}):',
+        '\n접지 러그 ${_lug == 2 ? "2홀" : "1홀"} ${groups.length}개(접지 홀과 따로, 폭 가운데 ${fmt(p.lugHoleList.first.y, 1)}mm 추가 홀 φ${fmt(_num(_lugDia))}):',
       );
       for (final e in groups.entries) {
         b.write('\n ${_lugLine(e.key, e.value)}');
@@ -672,7 +668,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     ].where((h) => h.custom).toList();
     if (custom.isNotEmpty) {
       b.write(
-        '\n크기 바꾼 구멍: ${custom.map((h) => "${h.label} φ${fmt(h.dia)}").join(" · ")}',
+        '\n크기 바꾼 홀: ${custom.map((h) => "${h.label} φ${fmt(h.dia)}").join(" · ")}',
       );
     }
     for (final l in _springLines(p.bends.map((b) => b.turn))) {
@@ -787,7 +783,7 @@ class _GroundBarPageState extends State<GroundBarPage>
               ),
               const SizedBox(height: 2),
               Text(
-                '꺾기 시작선 ${fmt(b.start, 1)} → 끝선 ${fmt(b.end, 1)} (호 ${fmt(b.end - b.start, 1)}mm). 90°로 꺾습니다.',
+                '절곡 시작선 ${fmt(b.start, 1)} → 절곡 끝선 ${fmt(b.end, 1)} (절곡부 ${fmt(b.end - b.start, 1)}mm). 90°로 절곡합니다.',
                 style: TextStyle(
                   fontSize: 13.5,
                   color: fc.textSub,
@@ -864,7 +860,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         children: [
           ...rows,
           _note(
-            '${_tabs == 0 ? "막대" : "펼친 막대"} 왼쪽 끝 기준 구멍 중심 위치입니다. 폭 방향은 ${p.tabRows == 1 ? "가운데" : "A줄 ${fmt(p.tabRowY[0], 1)} · B줄 ${fmt(p.tabRowY[1], 1)}mm"}입니다.',
+            '${_tabs == 0 ? "부스바" : "전개도"} 왼쪽 끝 기준 홀 중심 위치입니다. 폭 방향은 ${p.tabRows == 1 ? "가운데" : "A줄 ${fmt(p.tabRowY[0], 1)} · B줄 ${fmt(p.tabRowY[1], 1)}mm"}입니다.',
           ),
         ],
       ),
@@ -891,8 +887,8 @@ class _GroundBarPageState extends State<GroundBarPage>
         ),
         _note(
           two
-              ? '${_rowText(p)} 피치가 같아 첫 구멍만 측정하고 피치 간격으로 이어 찍으면 됩니다. 아래는 구멍별 위치(5개씩 묶음)입니다.'
-              : '피치가 같아 첫 구멍만 측정하고 피치 간격으로 이어 찍으면 됩니다. 아래는 구멍별 위치(5개씩 묶음)입니다.',
+              ? '${_rowText(p)} 피치가 같아 첫 홀만 측정하고 피치 간격으로 이어 찍으면 됩니다. 아래는 홀별 위치(5개씩 묶음)입니다.'
+              : '피치가 같아 첫 홀만 측정하고 피치 간격으로 이어 찍으면 됩니다. 아래는 홀별 위치(5개씩 묶음)입니다.',
         ),
         const SizedBox(height: 6),
         for (final (label, vals) in rowsA)
@@ -903,7 +899,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         for (final (label, vals) in rowsB)
           _valueRow(label, [for (final v in vals) fmt(v, 1)], labelWidth: 76),
         _note(
-          '검산: 마지막 구멍에서 ${_tabs == 4 || _tabs & 2 != 0 ? '꺾기 시작선' : '끝'}까지 ${fmt(p.endRight, 1)}mm가 남아야 합니다.',
+          '검산: 마지막 홀에서 ${_tabs == 4 || _tabs & 2 != 0 ? '절곡 시작선' : '끝'}까지 ${fmt(p.endRight, 1)}mm가 남아야 합니다.',
         ),
       ],
     );
@@ -927,7 +923,7 @@ class _GroundBarPageState extends State<GroundBarPage>
   List<String> _lugParts(int bolts) {
     final bolt = lugBoltFor(_num(_lugDia));
     return [
-      '볼트 ${bolt ?? "구멍에 맞는 규격"} $bolts개',
+      '볼트 ${bolt ?? "홀에 맞는 규격"} $bolts개',
       '너트 $bolts개',
       '평와셔 ${bolts * 2}개',
       '스프링 와셔 $bolts개',
@@ -937,11 +933,7 @@ class _GroundBarPageState extends State<GroundBarPage>
   /// 러그 겉 입력(10-10 겉으로 꺼냄, 일자·모자 모두 큰 외부 러그를 단다): 러그 종류·구멍 지름.
   List<Widget> _lugMain() => [
     PlateSegments([
-      for (final (i, label) in const [
-        (0, '안 붙임'),
-        (1, '1구멍 러그'),
-        (2, '2구멍 러그'),
-      ])
+      for (final (i, label) in const [(0, '안 붙임'), (1, '1홀 러그'), (2, '2홀 러그')])
         PlateOption('gb_lug_$i', label, _lug == i, () {
           _set(() {
             if (_lug == 0 && i != 0) {
@@ -961,7 +953,7 @@ class _GroundBarPageState extends State<GroundBarPage>
       _row([
         _f(
           'gb_lugdia',
-          '러그 구멍 지름',
+          '러그 홀 지름',
           _lugDia,
           trailing: _dieMenu('gb_lugd_', _lugDia),
         ),
@@ -977,7 +969,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         if (_lug == 2)
           _f(
             'gb_lugsp',
-            '러그 구멍 간격',
+            '러그 홀 간격',
             _lugSpacing,
             trailing: _presetMenu(
               'gb_lsp_',
@@ -988,7 +980,7 @@ class _GroundBarPageState extends State<GroundBarPage>
                 25.4 => '1" (25.4)',
                 _ => '1-3/4" (44.45)',
               },
-              tooltip: '러그 구멍 간격',
+              tooltip: '러그 홀 간격',
             ),
           ),
         _f('gb_lugpad', '러그 패드 두께', _lugPad),
@@ -1008,7 +1000,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         ),
       ]),
       _note(
-        '왼쪽으로 몰기: 접지 구멍을 왼쪽 끝부터 놓고 러그 구멍은 남는 자리 가운데에 둡니다. 가운데 균등: 접지 구멍을 가운데에 고르게 놓고 러그 구멍을 그 가운데에 겹쳐 둡니다(겹치면 알림).',
+        '왼쪽으로 몰기: 접지 홀을 왼쪽 끝부터 놓고 러그 홀은 남는 자리 가운데에 둡니다. 가운데 균등: 접지 홀을 가운데에 고르게 놓고 러그 홀을 그 가운데에 겹쳐 둡니다(겹치면 알림).',
       ),
     ];
   }
@@ -1021,22 +1013,22 @@ class _GroundBarPageState extends State<GroundBarPage>
     return [
       _subResult(
         const Key('gb_lug_result'),
-        '러그 구멍 $bolts개 · 볼트 세트 $bolts',
-        '접지 러그 ${groups.length}개 · 폭 가운데 ${fmt(p.lugHoleList.first.y, 1)}mm · 접지 구멍과 따로',
+        '러그 홀 $bolts개 · 볼트 세트 $bolts',
+        '접지 러그 ${groups.length}개 · 폭 가운데 ${fmt(p.lugHoleList.first.y, 1)}mm · 접지 홀과 따로',
         [
           for (final e in groups.entries) _lugLine(e.key, e.value),
           _packGround
-              ? '접지 구멍은 왼쪽 끝으로 몰았고, 러그 구멍은 접지 구멍과 따로 남는 자리 가운데에 같은 줄로 추가했습니다(펼친 막대 왼쪽 끝 기준 거리).'
-              : '러그 구멍은 접지 구멍을 쓰지 않고 부스바 가운데에 추가한 구멍입니다(펼친 막대 왼쪽 끝 기준 거리).',
+              ? '접지 홀은 왼쪽 끝으로 몰았고, 러그 홀은 접지 홀과 따로 남는 자리 가운데에 같은 줄로 추가했습니다(전개도 왼쪽 끝 기준 거리).'
+              : '러그 홀은 접지 홀을 쓰지 않고 부스바 가운데에 추가한 홀입니다(전개도 왼쪽 끝 기준 거리).',
           '볼트 세트 $bolts개 = ${_lugParts(bolts).join(' · ')}',
-          '볼트가 지나는 두께(그립) ${fmt(_num(_lugPad) + _num(_thick), 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(_num(_thick), 1)}. 볼트 길이는 여기에 평와셔 2장·스프링 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다(와셔·너트 두께는 제품마다 다릅니다).',
+          '체결 두께(그립) ${fmt(_num(_lugPad) + _num(_thick), 1)}mm = 러그 패드 ${fmt(_num(_lugPad), 1)} + 부스바 ${fmt(_num(_thick), 1)}. 볼트 길이는 여기에 평와셔 2장·스프링 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다(와셔·너트 두께는 제품마다 다릅니다).',
         ],
         warn: !p.ok,
       ),
       _subResult(const Key('gb_lug_notes'), '러그 취부 방법', '접지 러그를 접지바에 붙일 때', const [
         '러그 패드와 부스바 접촉면의 도장·산화막을 닦아 냅니다(구리는 광이 날 때까지, 도장 부스바는 접촉 자리만 벗깁니다).',
         '접촉면에 산화방지제(컴파운드)를 얇게 바르고 러그 패드를 부스바에 평평하게 댑니다.',
-        '볼트는 평와셔를 끼워 러그 쪽에서 넣고, 반대쪽에서 평와셔 → 스프링 와셔 → 너트 순으로 체결합니다. 너트를 한쪽에 몰면 러그가 틀어지니 2구멍 러그는 두 볼트를 번갈아 조입니다.',
+        '볼트는 평와셔를 끼워 러그 쪽에서 넣고, 반대쪽에서 평와셔 → 스프링 와셔 → 너트 순으로 체결합니다. 너트를 한쪽에 몰면 러그가 틀어지니 2홀 러그는 두 볼트를 번갈아 조입니다.',
         '조임 토크는 러그·볼트 제조사 값이나 사내 기준을 따릅니다(이 앱은 값을 정하지 않습니다). 규정 토크로 조인 뒤 표시선(페인트 마킹)을 긋습니다.',
         '체결 후 러그가 헐겁지 않은지, 케이블 중량이 볼트에 걸리지 않는지 확인합니다.',
       ]),
@@ -1059,7 +1051,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         !pts.any((h) => h.hole.id.startsWith('tR-'))) {
       return null;
     }
-    return '판넬 구멍 가로 간격 ${fmt(pts.last.x - pts.first.x, 1)}mm(${_tabs == 0 ? "양 끝 취부 구멍" : "양쪽 발 끝 구멍"} 중심 사이). 볼트 세트·판넬 두께는 아래 "판넬 취부"에 있습니다.';
+    return '판넬 홀 가로 간격 ${fmt(pts.last.x - pts.first.x, 1)}mm(${_tabs == 0 ? "양 끝 취부 홀" : "양쪽 발 끝 홀"} 중심 사이). 볼트 세트·판넬 두께는 아래 "판넬 취부"에 있습니다.';
   }
 
   List<Widget> _mountSection(GroundBarPlan p) {
@@ -1079,21 +1071,21 @@ class _GroundBarPageState extends State<GroundBarPage>
       const SizedBox(height: 10),
       _subResult(
         const Key('gb_mount_result'),
-        '취부 구멍 $only개 · 볼트 세트 $only',
-        '접지바를 $_tabName 구멍으로 판넬에 취부',
+        '취부 홀 $only개 · 볼트 세트 $only',
+        '접지바를 $_tabName 홀로 판넬에 취부',
         [
           if (pts.isNotEmpty) ...[
-            '판넬에 뚫을 구멍 자리(가장 왼쪽 구멍 = 0, 막대 A쪽 가장자리 기준 세로):',
+            '판넬에 뚫을 홀 자리(가장 왼쪽 홀 = 0, 부스바 A쪽 가장자리 기준 세로):',
             for (final h in pts)
               '   ${h.hole.label}  가로 ${fmt(h.x, 1)} · 세로 ${fmt(h.y, 1)}mm',
             if (pts.length > 1 && pts.first.x != pts.last.x)
-              '왼쪽 구멍과 오른쪽 구멍 가로 간격 ${fmt(pts.last.x - pts.first.x, 1)}mm(구멍 중심 사이). 이 간격으로 판넬에 마킹합니다.',
+              '왼쪽 홀과 오른쪽 홀 가로 간격 ${fmt(pts.last.x - pts.first.x, 1)}mm(홀 중심 사이). 이 간격으로 판넬에 마킹합니다.',
           ] else
-            '탭 구멍은 접지바를 꺾기 전 위치입니다. 꺾은 뒤 탭이 닿는 면의 구멍 자리는 현장에서 탭을 대고 마킹합니다.',
-          '볼트 세트 $only개 = 볼트 ${bolt ?? "구멍에 맞는 규격"} $only개 · 너트 $only개 · 평와셔 ${only * 2}개 · 스프링 와셔 $only개 (판넬에 탭이 있으면 너트는 뺍니다)',
-          '볼트가 지나는 두께(그립) ${fmt(grip, 1)}mm = ${part == '부스바' ? '부스바' : '$part(부스바)'} ${fmt(_num(_thick), 1)} + 판넬 ${fmt(_num(_panelT), 1)}. 볼트 길이는 여기에 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다.',
+            '탭 홀은 접지바를 절곡하기 전 위치입니다. 절곡한 뒤 탭이 닿는 면의 홀 자리는 현장에서 탭을 대고 마킹합니다.',
+          '볼트 세트 $only개 = 볼트 ${bolt ?? "홀에 맞는 규격"} $only개 · 너트 $only개 · 평와셔 ${only * 2}개 · 스프링 와셔 $only개 (판넬에 탭이 있으면 너트는 뺍니다)',
+          '체결 두께(그립) ${fmt(grip, 1)}mm = ${part == '부스바' ? '부스바' : '$part(부스바)'} ${fmt(_num(_thick), 1)} + 판넬 ${fmt(_num(_panelT), 1)}. 볼트 길이는 여기에 와셔·너트 두께와 나사 2~3산을 더한 것 이상으로 고릅니다.',
           if (_mDia.text.trim().isNotEmpty)
-            '판넬 구멍은 $_tabName 구멍과 같은 φ${fmt(_num(_mDia))}로 뚫거나, 판넬에 탭을 낼 때는 볼트 호칭에 맞는 드릴을 씁니다.',
+            '판넬 홀은 $_tabName 홀과 같은 φ${fmt(_num(_mDia))}로 뚫거나, 판넬에 탭을 낼 때는 볼트 호칭에 맞는 드릴을 씁니다.',
         ],
       ),
       _subResult(
@@ -1101,7 +1093,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         '접지바 취부 방법',
         '${p.hat ? "모자 접지바" : (part == '부스바' ? "일자 접지바" : "탭 접지바")}를 판넬에 설치할 때',
         [
-          '판넬 마킹: 위 가로 간격으로 판넬에 구멍 자리를 긋고, 접지바를 대어 구멍이 맞는지 확인한 뒤 뚫습니다.',
+          '판넬 마킹: 위 가로 간격으로 판넬에 홀 자리를 긋고, 접지바를 대어 홀이 맞는지 확인한 뒤 뚫습니다.',
           '접촉면 처리: 접지바 바닥과 판넬 접촉 자리의 도장·산화막을 벗겨 금속면을 드러내고 산화방지제를 얇게 바릅니다(구리와 도금 강판이 닿는 곳은 접촉 부식에 주의).',
           '체결: 볼트에 평와셔를 끼워 ${part == '부스바' ? '부스바와' : '$part과'} 판넬을 지나게 한 뒤 반대쪽에서 평와셔 → 스프링 와셔 → 너트 순으로 조입니다. 양쪽 ${part == '부스바' ? '끝' : part} 볼트를 번갈아 조여 접지바가 비틀리지 않게 합니다.',
           '조임 토크는 볼트·접지바 제조사 값이나 사내 기준을 따릅니다(이 앱은 값을 정하지 않습니다). 조인 뒤 표시선을 긋습니다.',
@@ -1125,17 +1117,17 @@ class _GroundBarPageState extends State<GroundBarPage>
     return [
       calcDropdown<String>(
         'gb_ov_sel',
-        '구멍 고르기',
+        '홀 고르기',
         sel.id,
         [for (final h in all) h.id],
         (id) => name(all.firstWhere((h) => h.id == id)),
         (id) => _set(() => _selHole = id),
-        '크기를 따로 줄 구멍을 고릅니다. 접지 구멍은 번호(두 줄이면 A·B줄), $_tabName 구멍은 왼쪽·오른쪽 번호입니다.',
+        '크기를 따로 줄 홀을 고릅니다. 접지 홀은 번호(두 줄이면 A·B줄), $_tabName 홀은 왼쪽·오른쪽 번호입니다.',
       ),
       _row([
         PlateNumField(
           fieldKey: 'gb_ovdia',
-          label: '이 구멍 지름',
+          label: '이 홀 지름',
           controller: _ovDia,
           unit: 'mm',
           hint: '기본과 같으면 기본으로',
@@ -1145,7 +1137,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         PlateActionButton(
           key: const Key('gb_ov_apply'),
           icon: Icons.check_rounded,
-          label: '이 구멍에 적용',
+          label: '이 홀에 적용',
           primary: true,
           onTap: () {
             final v = readNum(_ovDia);
@@ -1166,7 +1158,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         PlateActionButton(
           key: const Key('gb_ov_reset'),
           icon: Icons.undo_rounded,
-          label: '이 구멍 기본으로',
+          label: '이 홀 기본으로',
           onTap: () => _set(() => _overrides.remove(sel.id)),
         ),
         PlateActionButton(
@@ -1180,7 +1172,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         Padding(
           padding: const EdgeInsets.only(top: 10),
           child: Text(
-            '바꾼 구멍 ${p.customCount}개: ${[...p.groundHoles, ...p.tabHoleList, ...p.lugHoleList].where((h) => h.custom).map((h) => "${h.label} φ${fmt(h.dia)}").join(" · ")}',
+            '바꾼 홀 ${p.customCount}개: ${[...p.groundHoles, ...p.tabHoleList, ...p.lugHoleList].where((h) => h.custom).map((h) => "${h.label} φ${fmt(h.dia)}").join(" · ")}',
             key: const Key('gb_ov_list'),
             style: TextStyle(
               fontSize: 14.5,
@@ -1226,7 +1218,7 @@ class _GroundBarPageState extends State<GroundBarPage>
   Widget _dieMenu(String keyPrefix, TextEditingController c) =>
       PresetMenuButton(
         buttonKey: Key('${keyPrefix}menu'),
-        tooltip: '펀치 금형·볼트 구멍',
+        tooltip: '펀치 금형·볼트 홀',
         onOpen: (btn) async {
           final v = await showPresetMenu(
             btn,
@@ -1260,7 +1252,7 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   static const _panes = [
     ('shape', '모양'),
-    ('holes', '구멍'),
+    ('holes', '홀'),
     ('result', '결과'),
     ('send', '보내기'),
   ];
@@ -1280,37 +1272,38 @@ class _GroundBarPageState extends State<GroundBarPage>
   /// "자세히" 제목 아래 요약: 켜 둔 것이 있으면 무엇인지 보여 준다(접어 둬도 계산에 들어가므로).
   String _shapeMoreSummary() {
     final on = <String>[
-      if (_tabs >= 1 && _tabs <= 3) const ['', '왼쪽 L', '오른쪽 L', '양쪽 L'][_tabs],
+      if (_tabs >= 1 && _tabs <= 3)
+        const ['', '왼쪽 ㄱ자', '오른쪽 ㄱ자', '양쪽 ㄱ자'][_tabs],
       if (_tabs == 4 && (readNum(_hatFR) ?? 0) > 0) '오른쪽 발 따로',
       if (_tabs != 0 && _profileName != null)
         '벤더 $_profileName'
       else if (_tabs != 0 && _k != 0.4)
-        'k ${fmt(_k, 2)}',
+        'K값 ${fmt(_k, 2)}',
     ];
-    return on.isEmpty ? '끝 L자 · 오른쪽 발 따로 · 꺾기 보정' : '켜 둔 것: ${on.join(' · ')}';
+    return on.isEmpty ? '끝 ㄱ자 · 오른쪽 발 따로 · 절곡 보정' : '켜 둔 것: ${on.join(' · ')}';
   }
 
   String _holesMoreSummary(GroundBarPlan? p) {
     final custom = p?.customCount ?? 0;
     final on = <String>[
       if (_rowMode == 1) '두 줄 대칭' else if (_rowMode == 2) '두 줄 엇갈림',
-      if (_mCount > 0 && _tabRowMode != 0) '$_tabName 구멍 두 줄',
+      if (_mCount > 0 && _tabRowMode != 0) '$_tabName 홀 두 줄',
       if ((_tabs == 0 || _tabs == 3 || _tabs == 4) &&
           _mCount > 0 &&
           _tabSides != 3)
-        '$_tabName 구멍 ${_tabSides == 1 ? "왼쪽만" : "오른쪽만"}',
+        '$_tabName 홀 ${_tabSides == 1 ? "왼쪽만" : "오른쪽만"}',
       if (_lug != 0 && !_packGround) '러그 가운데 균등',
-      if (custom > 0) '크기 바꾼 구멍 $custom개',
+      if (custom > 0) '크기 바꾼 홀 $custom개',
     ];
     return on.isEmpty
-        ? '두 줄 구멍 · 러그 간격 · 구멍 크기 · 내 금형'
+        ? '두 줄 홀 · 러그 간격 · 홀 크기 · 내 금형'
         : '켜 둔 것: ${on.join(' · ')}';
   }
 
   String get _shapeName => switch (_tabs) {
-    1 => '왼쪽 L',
-    2 => '오른쪽 L',
-    3 => '양쪽 L',
+    1 => '왼쪽 ㄱ자',
+    2 => '오른쪽 ㄱ자',
+    3 => '양쪽 ㄱ자',
     4 => '모자',
     _ => '일자',
   };
@@ -1321,7 +1314,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            '두께·폭과 구멍 칸을 넣으면 그림이 나옵니다.',
+            '두께·폭과 홀 칸을 넣으면 그림이 나옵니다.',
             key: const Key('gb_canvas_empty'),
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 14, color: fc.textSub),
@@ -1368,13 +1361,13 @@ class _GroundBarPageState extends State<GroundBarPage>
           PlateViewSwitch([
             PlateOption(
               'gb_vm_top',
-              '구멍',
+              '평면도',
               _view != 'shape',
               () => setState(() => _view = 'top'),
             ),
             PlateOption(
               'gb_vm_shape',
-              '꺾은 모양',
+              '측면도',
               _view == 'shape',
               () => setState(() => _view = 'shape'),
             ),
@@ -1384,21 +1377,22 @@ class _GroundBarPageState extends State<GroundBarPage>
   String? _canvasHint(GroundBarPlan? p) => p == null
       ? null
       : _view == 'shape' && p.bendPlan != null
-      ? '옆에서 본 실제 비율 · 번호는 결과 탭 꺾기 번호'
-      : '위에서 본 실제 비율 · 아래 숫자는 끝 여유와 구멍 피치(mm), 주황 테두리는 크기를 바꾼 구멍';
+      ? '측면도 실제 비율 · 번호는 결과 탭 절곡 번호'
+      : '평면도 실제 비율 · 아래 숫자는 끝 여유와 홀 피치(mm), 주황 테두리는 크기를 바꾼 홀';
 
   // ① 모양: 부스바 두께·폭, 일자·모자(끝 L자는 자세히), 모자·탭 치수, 안쪽 반경
   Widget _shapePanel(GroundBarPlan? p) {
     final lShape = _tabs >= 1 && _tabs <= 3;
     return PlatePanel(
       title: '모양',
-      status: '구리 평강 ${fmt(_num(_thick))} × ${fmt(_num(_width))} · $_shapeName',
+      status:
+          '구리 평강 ${fmt(_num(_thick))}T × ${fmt(_num(_width))} · $_shapeName',
       actions: [
         plateHelpButton(context, 'gb_help_shape', '모양 탭', [
-          '일자: 꺾지 않고 판넬에 바로 댑니다. 모자: 윗면(접지 구멍 줄) 양쪽을 다리로 내리고 다리 끝을 바깥으로 꺾어 발을 만듭니다(꺾기 4곳). 발 구멍으로 판넬에 취부합니다.',
+          '일자: 절곡하지 않고 판넬에 바로 댑니다. 모자: 윗면(접지 홀 줄) 양쪽을 다리로 내리고 다리 끝을 바깥으로 절곡해 발을 만듭니다(절곡 4곳). 발 홀로 판넬에 취부합니다.',
           '모자 높이는 발 바닥면(판넬에 닿는 면)에서 윗면까지, 발 길이는 다리 바깥면에서 발 끝까지입니다(바깥 치수).',
-          '끝만 L자로 꺾는 모양, 오른쪽 발 길이 따로, 중립선 계수 k·벤더 프로필은 아래 "자세히"에 있습니다. 접어 둬도 켜 둔 값은 계산에 들어갑니다.',
-          '안쪽 반경은 기계 금형 반경을 넣고, 비우면 두께 1배로 계산합니다.',
+          '끝만 ㄱ자로 절곡하는 모양, 오른쪽 발 길이 따로, K값·벤더 프로필은 아래 "자세히"에 있습니다. 접어 둬도 켜 둔 값은 계산에 들어갑니다.',
+          '내R은 기계 금형 반경을 넣고, 비우면 두께 1배로 계산합니다.',
         ]),
       ],
       children: [
@@ -1450,10 +1444,8 @@ class _GroundBarPageState extends State<GroundBarPage>
           ],
         ]),
         if (_tabs != 0)
-          PlateSection('꺾기', [
-            _row([
-              _f('gb_r', '안쪽 반경', _radius, hint: '비우면 ${fmt(_num(_thick))}'),
-            ]),
+          PlateSection('절곡', [
+            _row([_f('gb_r', '내R', _radius, hint: '비우면 ${fmt(_num(_thick))}')]),
           ]),
         const SizedBox(height: 12),
         ...elecFold(
@@ -1468,13 +1460,17 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   /// 모양 탭 "자세히": 끝 L자·오른쪽 발 따로·꺾기 보정(k·벤더 프로필).
   List<Widget> _shapeMore() => [
-    PlateSection('끝만 L자로 꺾기', [
+    PlateSection('끝만 ㄱ자로 절곡', [
       PlateSegments([
-        for (final (i, label) in const [(1, '왼쪽 L'), (2, '오른쪽 L'), (3, '양쪽 L')])
+        for (final (i, label) in const [
+          (1, '왼쪽 ㄱ자'),
+          (2, '오른쪽 ㄱ자'),
+          (3, '양쪽 ㄱ자'),
+        ])
           PlateOption('gb_tab_$i', label, _tabs == i, () => _pickShape(i)),
       ]),
       _note(
-        '막대 끝을 L자로 90° 세웁니다(눕혀 꺾기). 탭 길이는 바깥 치수입니다. 일자·모자로 돌아가려면 위 "모양"에서 고릅니다.',
+        '부스바 끝을 ㄱ자로 90° 세웁니다(평절곡). 탭 길이는 바깥 치수입니다. 일자·모자로 돌아가려면 위 "모양"에서 고릅니다.',
       ),
     ], first: true),
     if (_tabs == 4)
@@ -1482,7 +1478,7 @@ class _GroundBarPageState extends State<GroundBarPage>
         _row([_f('gb_hatfr', '오른쪽 발 길이', _hatFR, hint: '비우면 왼쪽과 같음')]),
       ]),
     if (_tabs != 0)
-      PlateSection('꺾기 보정', [
+      PlateSection('절곡 보정', [
         PlateSegments([
           for (final k in kBusbarK)
             PlateOption(
@@ -1495,7 +1491,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             PlateOption('gb_kf_custom', fmt(_k, 3), true, () {}),
         ]),
         _note(
-          '중립선 계수 k: 꺾을 때 길이가 변하지 않는 선 위치입니다. 구리 부스바 범위 0.33~0.5. 자투리를 꺾어 맞춥니다.',
+          'K값: 절곡할 때 길이가 변하지 않는 선(중립선) 위치입니다. 구리 부스바 범위 0.33~0.5. 잔재로 시험 절곡해 맞춥니다.',
         ),
         plateActions([
           PlateActionButton(
@@ -1524,33 +1520,33 @@ class _GroundBarPageState extends State<GroundBarPage>
   // ② 구멍: 접지 구멍(지름·피치·수/막대 길이·끝 여유), 취부(발·탭) 구멍, 접지 러그
   Widget _holesPanel(GroundBarPlan? p) {
     final tabTitle = _tabs == 4
-        ? '발 구멍 (취부)'
-        : (_tabs == 0 ? '취부 구멍 (양 끝)' : '탭 구멍');
+        ? '발 홀 (취부)'
+        : (_tabs == 0 ? '취부 홀 (양 끝)' : '탭 홀');
     return PlatePanel(
-      title: '구멍',
+      title: '홀',
       status: p == null
-          ? '구멍 지름·피치와 구멍 수를 넣으십시오.'
+          ? '홀 지름·피치와 홀 수를 넣으십시오.'
           : [
-              '접지 구멍 ${p.groundHoles.length}개',
+              '접지 홀 ${p.groundHoles.length}개',
               if (p.tabHoleList.isNotEmpty)
-                '$_tabName 구멍 ${p.tabHoleList.length}개',
-              if (p.lugHoleList.isNotEmpty) '러그 구멍 ${p.lugHoleList.length}개',
+                '$_tabName 홀 ${p.tabHoleList.length}개',
+              if (p.lugHoleList.isNotEmpty) '러그 홀 ${p.lugHoleList.length}개',
             ].join(' · '),
       actions: [
-        plateHelpButton(context, 'gb_help_holes', '구멍 탭', [
-          '구멍 지름 ▼ 목록은 볼트 틈새 구멍(M8 9 · M10 11 · M12 13.5 · M16 17.5)이고, "내 금형"에 기계 펀치 금형 지름을 저장하면 그 값으로 바뀝니다.',
-          '피치는 구멍 중심 사이 거리입니다. 쓸 러그의 구멍 간격에 맞춥니다.',
-          '끝 여유: 곧은 구간 끝(꺾었으면 꺾기 끝선)에서 첫 구멍 중심까지입니다. 기본 25는 임의 값입니다.',
-          '구멍 수로: 구멍 수와 피치로 절단 길이를 계산합니다. 막대 길이로: 가지고 있는 막대에 구멍이 몇 개 들어가는지 계산합니다.',
-          '취부 구멍: 일자는 막대 양 끝에, 모자는 발에, L자는 탭에 판넬 취부용 구멍을 따로 뚫습니다(한 곳에 넣은 개수만큼). 일자는 끝에서 첫 취부 구멍까지, 마지막 취부 구멍에서 첫 접지 구멍까지 거리를 넣습니다.',
-          '접지 러그: 접지 구멍과 따로 부스바 가운데에 러그 구멍을 추가로 뚫습니다. 2구멍 러그는 러그 구멍 간격만큼 떨어진 구멍 둘입니다(NEMA 2구멍 러그).',
-          '두 줄 구멍, 취부 구멍 줄·뚫을 쪽, 러그 간격·놓는 방법·패드, 구멍 하나만 크기 바꾸기, 내 펀치 금형은 아래 "자세히"에 있습니다.',
+        plateHelpButton(context, 'gb_help_holes', '홀 탭', [
+          '홀 지름 ▼ 목록은 볼트 틈새 홀(M8 9 · M10 11 · M12 13.5 · M16 17.5)이고, "내 금형"에 기계 펀치 금형 지름을 저장하면 그 값으로 바뀝니다.',
+          '피치는 홀 중심 사이 거리입니다. 쓸 러그의 홀 간격에 맞춥니다.',
+          '끝 여유: 직선부 끝(절곡했으면 절곡 끝선)에서 첫 홀 중심까지입니다. 기본 25는 임의 값입니다.',
+          '홀 수로: 홀 수와 피치로 전개 길이를 계산합니다. 부스바 길이로: 가지고 있는 부스바에 홀이 몇 개 들어가는지 계산합니다.',
+          '취부 홀: 일자는 부스바 양 끝에, 모자는 발에, ㄱ자는 탭에 판넬 취부용 홀을 따로 뚫습니다(한 곳에 넣은 개수만큼). 일자는 끝에서 첫 취부 홀까지, 마지막 취부 홀에서 첫 접지 홀까지 거리를 넣습니다.',
+          '접지 러그: 접지 홀과 따로 부스바 가운데에 러그 홀을 추가로 뚫습니다. 2홀 러그는 러그 홀 간격만큼 떨어진 홀 둘입니다(NEMA 2홀 러그).',
+          '두 줄 홀, 취부 홀 줄·뚫을 쪽, 러그 간격·놓는 방법·패드, 홀 크기 개별 수정, 내 펀치 금형은 아래 "자세히"에 있습니다.',
         ]),
       ],
       children: [
-        PlateSection(_tabs == 4 ? '접지 구멍 (윗면)' : '접지 구멍', [
+        PlateSection(_tabs == 4 ? '접지 홀 (윗면)' : '접지 홀', [
           plateRow([
-            _f('gb_hole', '구멍 지름', _hole, trailing: _dieMenu('gb_hd_', _hole)),
+            _f('gb_hole', '홀 지름', _hole, trailing: _dieMenu('gb_hd_', _hole)),
             _f(
               'gb_pitch',
               '피치',
@@ -1567,21 +1563,21 @@ class _GroundBarPageState extends State<GroundBarPage>
           PlateSegments([
             PlateOption(
               'gb_by_count',
-              '구멍 수로',
+              '홀 수로',
               !_byLength,
               () => _set(() => _byLength = false),
             ),
             PlateOption(
               'gb_by_len',
-              '막대 길이로',
+              '부스바 길이로',
               _byLength,
               () => _set(() => _byLength = true),
             ),
           ]),
           plateRow([
             _byLength
-                ? _f('gb_len', '막대 길이', _length)
-                : _f('gb_n', '구멍 수 (한 줄)', _count, unit: '개'),
+                ? _f('gb_len', '부스바 길이', _length)
+                : _f('gb_n', '홀 수 (한 줄)', _count, unit: '개'),
             _f('gb_end', '끝 여유', _end),
           ]),
         ], first: true),
@@ -1599,21 +1595,21 @@ class _GroundBarPageState extends State<GroundBarPage>
             _row([
               _f(
                 'gb_mdia',
-                '$_tabName 구멍 지름',
+                '$_tabName 홀 지름',
                 _mDia,
                 trailing: _dieMenu('gb_md_', _mDia),
               ),
-              if (_mCount > 1) _f('gb_mpitch', '$_tabName 구멍 피치', _mPitch),
+              if (_mCount > 1) _f('gb_mpitch', '$_tabName 홀 피치', _mPitch),
             ]),
             if (_tabs == 0) ...[
               plateRow([
-                _f('gb_mend', '끝 → 취부 구멍', _mountEnd),
-                _f('gb_mgap', '취부 → 첫 접지 구멍', _mountGap),
+                _f('gb_mend', '끝 → 취부 홀', _mountEnd),
+                _f('gb_mgap', '취부 → 첫 접지 홀', _mountGap),
               ]),
             ],
           ],
         ]),
-        PlateSection('접지 러그 구멍 (외부 러그)', _lugMain()),
+        PlateSection('접지 러그 홀 (외부 러그)', _lugMain()),
         const SizedBox(height: 12),
         ...elecFold(
           'gb_fold_more',
@@ -1627,7 +1623,7 @@ class _GroundBarPageState extends State<GroundBarPage>
 
   /// 구멍 탭 "자세히": 두 줄 구멍·취부 구멍 줄·뚫을 쪽·러그 더·구멍 하나 크기·내 펀치 금형.
   List<Widget> _holesMore(GroundBarPlan? p) => [
-    PlateSection('접지 구멍 줄', [
+    PlateSection('접지 홀 줄', [
       PlateSegments([
         for (final (i, label) in const [
           (0, '한 줄'),
@@ -1649,7 +1645,7 @@ class _GroundBarPageState extends State<GroundBarPage>
       ],
     ], first: true),
     if (_mCount > 0)
-      PlateSection('$_tabName 구멍 줄 (접지 구멍과 따로)', [
+      PlateSection('$_tabName 홀 줄 (접지 홀과 따로)', [
         PlateSegments([
           for (final (i, label) in const [
             (0, '한 줄'),
@@ -1664,11 +1660,11 @@ class _GroundBarPageState extends State<GroundBarPage>
             ),
         ]),
         if (_tabRowMode != 0) ...[
-          _row([_f('gb_tabgap', '$_tabName 구멍 줄 간격', _tabGap)]),
+          _row([_f('gb_tabgap', '$_tabName 홀 줄 간격', _tabGap)]),
         ],
       ]),
     if ((_tabs == 0 || _tabs == 3 || _tabs == 4) && _mCount > 0)
-      PlateSection('$_tabName 구멍을 뚫을 쪽', [
+      PlateSection('$_tabName 홀을 뚫을 쪽', [
         PlateSegments([
           for (final (i, label) in const [(3, '양쪽'), (1, '왼쪽만'), (2, '오른쪽만')])
             PlateOption(
@@ -1682,10 +1678,10 @@ class _GroundBarPageState extends State<GroundBarPage>
     if (_lug != 0) PlateSection('접지 러그 (간격·놓는 방법·패드)', _lugMore()),
     if (p != null &&
         p.groundHoles.length + p.tabHoleList.length + p.lugHoleList.length > 0)
-      PlateSection('구멍 하나만 크기 바꾸기', _sizeEditor(p)),
+      PlateSection('홀 크기 개별 수정', _sizeEditor(p)),
     PlateSection('내 펀치 금형', [
       Text(
-        '구멍 지름 ▼ 목록: ${_dieChips.map((d) => fmt(d)).join(' · ')}${_dies.isEmpty ? ' (기본)' : ''}',
+        '홀 지름 ▼ 목록:${_dieChips.map((d) => fmt(d)).join(' · ')}${_dies.isEmpty ? ' (기본)' : ''}',
         style: TextStyle(fontSize: 14, color: fc.text, height: 1.4),
       ),
       plateActions([
@@ -1706,15 +1702,15 @@ class _GroundBarPageState extends State<GroundBarPage>
       title: '결과',
       status: p == null
           ? '치수를 넣으면 계산합니다.'
-          : '$_shapeName · 구멍 ${p.groundHoles.length}개 · 약 ${fmt(p.weightKg, 2)}kg',
+          : '$_shapeName · 홀 ${p.groundHoles.length}개 · 약 ${fmt(p.weightKg, 2)}kg',
       statusColor: warn ? fc.danger : null,
       children: [
-        PlateSection('절단 길이', [
+        PlateSection('전개 길이', [
           KeyedSubtree(
             key: const Key('gb_result'),
             child: PlateBigValue(
               value: p == null ? '— mm' : '${fmt(p.length, 1)} mm',
-              caption: p == null ? '치수를 넣으면 계산합니다' : '자르기 전 곧은 구리 막대 길이',
+              caption: p == null ? '치수를 넣으면 계산합니다' : '이 길이로 절단합니다',
               warn: warn || _radiusWarn != null,
             ),
           ),
@@ -1730,22 +1726,22 @@ class _GroundBarPageState extends State<GroundBarPage>
                   !(_packGround && p.lugHoleList.isNotEmpty))
                 '남는 길이는 양 끝 여유에 똑같이 나눴습니다(양 끝 ${fmt(p.endLeft, 1)} / ${fmt(p.endRight, 1)}mm).'
               else if (p.holes > 0 && _packGround && p.lugHoleList.isNotEmpty)
-                '접지 구멍 ${p.holes}개를 왼쪽 끝에서부터 놓고, 오른쪽 남는 자리에 러그 구멍을 가운데로 두었습니다.',
+                '접지 홀 ${p.holes}개를 왼쪽 끝에서부터 놓고, 오른쪽 남는 자리에 러그 홀을 가운데로 두었습니다.',
               if (p.hat)
-                '모자: 높이 ${fmt(_num(_hatH))} · 발 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))} · 윗면 바깥 폭 ${fmt(p.hatWidth, 1)}mm. 꺾기 4곳, 접지 구멍 줄은 윗면 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.'
+                '모자: 높이 ${fmt(_num(_hatH))} · 발 ${fmt(_num(_hatF))} / ${fmt(readNum(_hatFR) ?? _num(_hatF))} · 윗면 바깥 폭 ${fmt(p.hatWidth, 1)}mm. 절곡 4곳, 접지 홀 줄은 윗면 직선부 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.'
               else if (p.bends.isNotEmpty)
-                'L 꺾기 ${p.bends.length}곳. 구멍 줄은 곧은 구간 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.',
+                'ㄱ자 절곡 ${p.bends.length}곳. 홀 줄은 직선부 ${fmt(p.flatStart, 1)}~${fmt(p.flatEnd, 1)}mm에 있습니다.',
               if (p.tabHoleList.isNotEmpty) _tabHoleSummary(p),
               ?_panelSpanLine(p),
               if (p.minEdgeBody != null || p.minEdgeTab != null) _edgeLine(p),
               if (p.lugHoleList.isNotEmpty)
-                '접지 러그 구멍 ${p.lugHoleList.length}개를 접지 구멍과 따로 부스바 가운데(폭 ${fmt(p.lugHoleList.first.y, 1)}mm)에 추가했습니다.',
+                '접지 러그 홀 ${p.lugHoleList.length}개를 접지 홀과 따로 부스바 가운데(폭 ${fmt(p.lugHoleList.first.y, 1)}mm)에 추가했습니다.',
             ], color: warn ? fc.danger : null),
           ],
         ], first: true),
         if (p != null) ...[
           if (p.bends.isNotEmpty)
-            PlateSection('꺾기 (왼쪽 끝에서)', [
+            PlateSection('절곡 (왼쪽 끝에서)', [
               KeyedSubtree(
                 key: const Key('gb_bends'),
                 child: Column(
@@ -1756,19 +1752,18 @@ class _GroundBarPageState extends State<GroundBarPage>
                 ),
               ),
             ]),
-          if (p.holes > 0)
-            PlateSection('접지 구멍 위치 (왼쪽 끝에서 중심까지)', [_holeBox(p)]),
+          if (p.holes > 0) PlateSection('접지 홀 위치 (왼쪽 끝에서 중심까지)', [_holeBox(p)]),
           if (p.tabHoleList.isNotEmpty)
-            PlateSection('$_tabName 구멍 위치 (왼쪽 끝에서 중심까지)', [_tabHoleBox(p)]),
+            PlateSection('$_tabName 홀 위치 (왼쪽 끝에서 중심까지)', [_tabHoleBox(p)]),
           const SizedBox(height: 12),
           ...elecFold(
             'gb_fold_mount',
-            '판넬 취부 ($_tabName 구멍으로 설치)',
+            '판넬 취부 ($_tabName 홀로 설치)',
             _mountSection(p),
           ),
           ...elecFold(
             'gb_fold_lug',
-            '접지 러그 구멍 (가운데에 추가)',
+            '접지 러그 홀 (가운데에 추가)',
             _lugResults(p),
             subtitle: '${p.lugHoleList.length}개',
           ),
@@ -1776,16 +1771,16 @@ class _GroundBarPageState extends State<GroundBarPage>
             KeyedSubtree(
               key: const Key('gb_notes'),
               child: PlateLines([
-                '구리 막대를 절단 길이로 자릅니다. 절단면 버를 갈아 냅니다.',
-                '왼쪽 끝을 기준으로 구멍 중심${_tabs != 0 ? "과 꺾기 시작선" : ""}을 마킹합니다. 줄자는 왼쪽 끝에 한 번 대고 표의 누적 치수로 찍습니다.',
-                '기계에 구멍 지름과 같은 펀치 금형을 끼우고 마킹 중심에 맞춰 뚫습니다. 맞는 금형이 없는 크기는 드릴로 뚫습니다.',
-                '구멍 둘레 버를 정리합니다.',
-                if (_mCount > 0) '$_tabName 구멍도 같은 방법으로 뚫습니다.',
+                '구리 부스바를 전개 길이로 절단합니다. 절단면 버를 갈아 냅니다.',
+                '왼쪽 끝을 기준으로 홀 중심${_tabs != 0 ? "과 절곡 시작선" : ""}을 마킹합니다. 줄자는 왼쪽 끝에 한 번 대고 표의 누적 치수로 찍습니다.',
+                '기계에 홀 지름과 같은 펀치 금형을 끼우고 마킹 중심에 맞춰 뚫습니다. 맞는 금형이 없는 크기는 드릴로 뚫습니다.',
+                '홀 둘레 버를 정리합니다.',
+                if (_mCount > 0) '$_tabName 홀도 같은 방법으로 뚫습니다.',
                 if (_tabs == 4)
-                  '구멍을 다 뚫은 뒤 꺾기 시작선 4곳을 차례로 꺾습니다. 가운데에서 바깥으로: 다리 두 곳을 먼저 내리고 발을 바깥으로 꺾으면 벤더에 걸리지 않습니다.'
+                  '홀을 다 뚫은 뒤 절곡 시작선 4곳을 차례로 절곡합니다. 가운데에서 바깥으로: 다리 두 곳을 먼저 내리고 발을 바깥으로 절곡하면 벤더에 걸리지 않습니다.'
                 else if (_tabs != 0)
-                  '구멍을 다 뚫은 뒤 꺾기 시작선에 맞춰 탭을 90°로 꺾습니다(구멍을 먼저 뚫어야 평평한 채로 작업합니다).',
-                if (_tabs != 0) '처음 만드는 치수는 자투리로 한 번 꺾어 보고 길이를 맞춥니다.',
+                  '홀을 다 뚫은 뒤 절곡 시작선에 맞춰 탭을 90°로 절곡합니다(홀을 먼저 뚫어야 평평한 채로 작업합니다).',
+                if (_tabs != 0) '처음 만드는 치수는 잔재로 한 번 시험 절곡해 보고 길이를 맞춥니다.',
                 '접촉면을 닦아 접지 러그를 붙입니다.',
               ]),
             ),
@@ -1800,16 +1795,16 @@ class _GroundBarPageState extends State<GroundBarPage>
   // ④ 보내기: 작업 이름 · 카톡 글 · 가공 지시서 PDF
   Widget _sendPanel(GroundBarPlan? p) => PlatePanel(
     title: '보내기',
-    status: p == null ? '치수를 넣으면 보낼 수 있습니다.' : '카톡 글 · 가공 지시서 PDF',
+    status: p == null ? '치수를 넣으면 보낼 수 있습니다.' : '카톡 글 · 가공 도면 PDF',
     children: [
-      PlateSection('지시서', [
+      PlateSection('가공 도면', [
         PlateNumField(
           fieldKey: 'gb_job',
           label: '작업 이름 (선택)',
           controller: _jobName,
           unit: null,
           text: true,
-          hint: '지시서 PDF 제목·저장 이름',
+          hint: '도면 PDF 제목·저장 이름',
           onChanged: (_) => _saveSoon(),
         ),
       ], first: true),
@@ -1826,7 +1821,7 @@ class _GroundBarPageState extends State<GroundBarPage>
             PlateActionButton(
               key: const Key('gb_pdf'),
               icon: Icons.picture_as_pdf_outlined,
-              label: '가공 지시서 PDF',
+              label: '가공 도면 PDF',
               onTap: () => openGroundBarPdf(context, _pdfInput(p)),
             ),
           ]),
@@ -1902,7 +1897,7 @@ class _GroundBarPageState extends State<GroundBarPage>
     final warn = p != null && !p.ok;
     final summary = p == null
         ? null
-        : '접지바 ${fmt(_num(_thick))}×${fmt(_num(_width))} · ${fmt(p.length, 1)}mm · 구멍 ${p.groundHoles.length}개';
+        : '접지바 ${fmt(_num(_thick))}T×${fmt(_num(_width))} · ${fmt(p.length, 1)}mm · 홀 ${p.groundHoles.length}개';
     final idx = _pane.clamp(0, _panes.length - 1);
     return FieldViewTheme(
       child: Builder(

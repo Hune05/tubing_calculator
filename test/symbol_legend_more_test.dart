@@ -17,7 +17,7 @@ void main() {
       '구멍 가장자리 ~ 꺾기 시작선 거리: 탭 20 mm. 필요 거리 = 2 × T + R(구멍 지름 25.4 이상은 2.5 × T + R, 일반 판금 규칙).',
     ]).join(' ');
     expect(l, contains('T 부스바 두께(mm)'));
-    expect(l, contains('R 꺾기 안쪽 반경(mm)'));
+    expect(l, contains('R 내R(mm)'));
   });
 
   test('전압강하: 식에 나온 기호만 남는다(X·sinφ가 없으면 빠짐)', () {

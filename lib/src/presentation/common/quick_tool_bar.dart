@@ -256,7 +256,7 @@ final List<QuickToolDef> kQuickTools = [
     '부스바 가공',
     AppGlyph.busbarBend,
     (_) => const BusbarBendPage(),
-    subtitle: 'L·U·Z 절곡 절단 길이와 절곡 시작선',
+    subtitle: 'ㄱ·ㄷ·Z·연속 절곡 전개 길이와 절곡 시작선',
     group: '전기',
   ),
   QuickToolDef(
@@ -264,7 +264,7 @@ final List<QuickToolDef> kQuickTools = [
     '접지바 가공',
     AppGlyph.groundBar,
     (_) => const GroundBarPage(),
-    subtitle: '구멍 위치·절단 길이·중량',
+    subtitle: '홀 위치·전개 길이·중량',
     group: '전기',
   ),
   QuickToolDef(

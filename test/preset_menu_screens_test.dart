@@ -95,8 +95,8 @@ void main() {
     await _type(tester, 'bb_fa_1', '30');
     await _tap(tester, 'bb_tab_send');
     await _tap(tester, 'bb_share');
-    expect(sent, contains('위 75°'));
-    expect(sent, contains('아래 30°'));
+    expect(sent, contains('UP 75°'));
+    expect(sent, contains('DOWN 30°'));
     await _done(tester);
   });
 

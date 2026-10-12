@@ -1,4 +1,4 @@
-// 벤더 프로필·시험 조각 보정(10-03): 시험 조각을 실제로 꺾어 잰 값으로 k(중립선 계수)와 스프링백 비율을 구하고,
+// 벤더 프로필·시험 절곡 보정(10-03): 잔재로 실제 시험 절곡해 잰 값으로 k(K값, 중립선 계수)와 스프링백 비율을 구하고,
 // 벤더 이름으로 보관해 부스바 절곡·접지바 계산기에 한 번에 적용한다.
 //  · k: 바깥 치수 A·B로 꺾은 시험 조각의 실제 자른 길이 L에서 거꾸로 푼다.
 //    L = A + B − BD, BD = 2(r + t)·tan(θ/2) − θ·(r + k·t) → k = ((2(r+t)·tan(θ/2) − (A + B − L)) / θ − r) / t.
@@ -19,10 +19,10 @@ const double kBenderKMin = 0.2, kBenderKMax = 0.7;
 class BenderProfile {
   final String name;
 
-  /// 벤더 어댑터(꺾는 날) 안쪽 반경(mm).
+  /// 절곡 금형 내R(mm).
   final double radius;
 
-  /// 중립선 계수 k.
+  /// K값(중립선 계수 k).
   final double k;
 
   /// 스프링백 비율(기계 세팅 ÷ 목표). 1이면 보정 없음.
@@ -104,8 +104,8 @@ Future<void> saveBenderProfiles(List<BenderProfile> l) async {
   } catch (_) {}
 }
 
-/// 프로필 창. 고르면 [onApply]로 돌려주고, "시험 조각으로 만들기"로 새 프로필을 만든다.
-/// [thickness]·[radius]는 시험 조각 입력의 기본값이다.
+/// 프로필 창. 고르면 [onApply]로 돌려주고, "시험 절곡으로 새 프로필 만들기"로 새 프로필을 만든다.
+/// [thickness]·[radius]는 시험 절곡 입력의 기본값이다.
 Future<void> openBenderProfiles(
   BuildContext context, {
   required double thickness,
@@ -145,7 +145,7 @@ Future<void> openBenderProfiles(
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '시험 조각을 꺾어 측정한 값으로 k와 스프링백을 구해 벤더별로 보관합니다. 고르면 안쪽 반경·k·스프링백이 계산기에 들어갑니다.',
+                  '잔재로 시험 절곡해 측정한 값으로 K값과 스프링백을 구해 벤더별로 보관합니다. 고르면 내R·K값·스프링백이 계산기에 들어갑니다.',
                   style: TextStyle(fontSize: 13, color: textSub),
                 ),
                 const SizedBox(height: 10),
@@ -170,7 +170,7 @@ Future<void> openBenderProfiles(
                       setSheet(() {});
                     },
                     icon: const Icon(Icons.straighten),
-                    label: const Text('시험 조각으로 새 프로필 만들기'),
+                    label: const Text('시험 절곡으로 새 프로필 만들기'),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -196,7 +196,7 @@ Future<void> openBenderProfiles(
                         ),
                       ),
                       subtitle: Text(
-                        '안쪽 반경 ${_n(e.radius)}mm · k ${_n(e.k, 3)} · 스프링백 ×${_n(e.spring, 3)}',
+                        '내R ${_n(e.radius)}mm · K값 ${_n(e.k, 3)} · 스프링백 ×${_n(e.spring, 3)}',
                         style: TextStyle(color: textSub),
                       ),
                       onTap: () {
@@ -249,7 +249,7 @@ String _n(double v, [int d = 1]) {
   return s;
 }
 
-/// 시험 조각 입력 창: 값을 넣는 대로 k와 스프링백 비율을 바로 보여 주고, 이름을 붙여 만든다.
+/// 시험 절곡 입력 창: 값을 넣는 대로 K값과 스프링백 비율을 바로 보여 주고, 이름을 붙여 만든다.
 class _CalibrateDialog extends StatefulWidget {
   const _CalibrateDialog({required this.thickness, required this.radius});
   final double thickness, radius;
@@ -276,8 +276,7 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
     super.dispose();
   }
 
-  double? _v(TextEditingController c) =>
-      parseNumberText(c.text);
+  double? _v(TextEditingController c) => parseNumberText(c.text);
 
   double? get _k {
     final t = _v(_t), r = _v(_r), a = _v(_a), b = _v(_b), f = _v(_flat);
@@ -320,14 +319,14 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
     final kOk = k != null && k >= kBenderKMin && k <= kBenderKMax;
     final canSave = _name.text.trim().isNotEmpty && kOk && _v(_r) != null;
     return AlertDialog(
-      title: const Text('시험 조각 보정'),
+      title: const Text('시험 절곡 보정'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '같은 규격 부스바를 L 90°로 꺾은 뒤 측정해 넣으십시오. 바깥 치수는 꺾인 바깥 모서리까지의 길이입니다.',
+              '같은 규격 잔재를 ㄱ자 90°로 절곡한 뒤 측정해 넣으십시오. 바깥 치수는 절곡된 바깥 모서리까지의 길이입니다.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 10),
@@ -336,17 +335,17 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
               controller: _name,
               onChanged: (_) => setState(() {}),
               decoration: const InputDecoration(
-                labelText: '프로필 이름 (벤더·어댑터)',
+                labelText: '프로필 이름 (벤더·절곡 금형)',
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 8),
             _field('bp_t', '두께 (mm)', _t),
-            _field('bp_r', '안쪽 반경 (mm, 어댑터)', _r),
+            _field('bp_r', '내R (mm, 절곡 금형)', _r),
             _field('bp_a', '다리 1 바깥 치수 (mm)', _a),
             _field('bp_b', '다리 2 바깥 치수 (mm)', _b),
-            _field('bp_flat', '실제 자른 길이 (mm)', _flat, '꺾기 전 곧은 막대의 실측 길이'),
+            _field('bp_flat', '실제 절단 길이 (mm)', _flat, '절곡 전 부스바의 실측 길이'),
             Container(
               key: const Key('bp_k_result'),
               padding: const EdgeInsets.all(8),
@@ -359,19 +358,19 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
               ),
               child: Text(
                 k == null
-                    ? 'k: 값을 넣으면 바로 계산합니다'
+                    ? 'K값: 값을 넣으면 바로 계산합니다'
                     : kOk
-                    ? '구한 k = ${_n(k, 3)}'
-                    : '구한 k = ${_n(k, 3)}: 구리 범위(${_n(kBenderKMin)}~${_n(kBenderKMax)})를 벗어났습니다. 치수를 다시 측정하십시오.',
+                    ? '구한 K값 = ${_n(k, 3)}'
+                    : '구한 K값 = ${_n(k, 3)}: 구리 범위(${_n(kBenderKMin)}~${_n(kBenderKMax)})를 벗어났습니다. 치수를 다시 측정하십시오.',
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
             const Text(
-              '스프링백(선택): 기계에서 꺾은 각도와 놓은 뒤 측정한 각도를 넣으면 보정 비율을 구합니다.',
+              '스프링백(선택): 기계에서 절곡한 각도와 놓은 뒤 측정한 각도를 넣으면 보정 비율을 구합니다.',
               style: TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 6),
-            _field('bp_set', '기계에서 꺾은 각도 (°)', _setDeg),
+            _field('bp_set', '기계에서 절곡한 각도 (°)', _setDeg),
             _field('bp_meas', '놓은 뒤 측정한 각도 (°)', _measDeg),
             Container(
               key: const Key('bp_sp_result'),

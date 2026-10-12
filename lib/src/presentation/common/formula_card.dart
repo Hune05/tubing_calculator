@@ -98,7 +98,7 @@ const Map<String, List<String>> kSymbolLegend = {
     'ΔU 전압강하(V)  ·  I 전류(A)  ·  L 편도 길이(전압강하 식은 km, 최대 길이 식은 m)  ·  R 도체 저항(Ω/km)',
     'X 리액턴스(Ω/km)  ·  cosφ 역률  ·  sinφ √(1 − 역률²)  ·  V 회로 전압(V, 삼상은 선간)',
   ],
-  'gb_result': ['T 부스바 두께(mm)  ·  R 꺾기 안쪽 반경(mm)'],
+  'gb_result': ['T 부스바 두께(mm)  ·  R 내R(mm)'],
   'mc_r_result': ['Y·Δ 스타·델타 결선'],
   'ms_result': [
     'Q 유량(m³/h)  ·  H 전양정(m)  ·  ρ 밀도(kg/m³)  ·  g 중력 가속도(9.807 m/s²)  ·  Δp 팬 압력(Pa)',

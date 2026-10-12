@@ -160,7 +160,7 @@ class GroundBarPainter extends CustomPainter {
     }
     _label(
       canvas,
-      '${fmt(plan.length, 1)} mm × ${fmt(width)} mm · 구멍 ${plan.groundHoles.length}개',
+      '${fmt(plan.length, 1)} mm × ${fmt(width)} mm · 홀 ${plan.groundHoles.length}개',
       Offset(size.width / 2, 14),
       sub,
     );

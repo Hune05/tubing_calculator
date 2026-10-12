@@ -1,4 +1,4 @@
-// 부스바 절곡 지시서(PDF, A4): 규격·치수 요약, 꺾은 뒤 옆모습 그림, 자르기 전 마킹 그림, 꺾기 표, 주의,
+// 부스바 가공 도면(PDF, A4): 규격·치수 요약, 측면도(수직절곡은 평면도), 전개도(마킹), 절곡 표, 주의,
 // 작성·검토·승인 칸. 미리보기로 먼저 보이고, 공유는 미리보기의 버튼을 눌러야만 된다.
 library;
 
@@ -33,10 +33,10 @@ class BendPdfInput {
   final BusbarBendPlan plan;
   final double thickness, rho;
 
-  /// 안쪽 반경(10-12). 주면 두 면을 실제 반경으로 그린다(화면 그림과 같게).
+  /// 내R(10-12). 주면 두 면을 실제 반경으로 그린다(화면 그림과 같게).
   final double? innerRadius;
 
-  /// 세워 꺾기: 넓은 면을 위에서 본 그림(글만 다르다).
+  /// 수직절곡: 평면도(넓은 면, 글만 다르다).
   final bool edge;
   final List<(String, String)> summary;
   final List<String> notes;
@@ -196,8 +196,8 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
           top: 0,
           child: pw.Text(
             input.innerRadius == null
-                ? '옆에서 본 모양(중립선 길이 ${_n(p.cutLength)}mm) · 번호는 꺾기 표 번호'
-                : '${input.edge ? '넓은 면을 위에서 본 모양(세워 꺾기)' : '옆에서 본 모양(눕혀 꺾기)'} · 안쪽 반경 ${_n(input.innerRadius!)}mm · 번호는 꺾기 표 번호',
+                ? '측면도(중립선 길이 ${_n(p.cutLength)}mm) · 번호는 절곡 표 번호'
+                : '${input.edge ? '평면도(넓은 면, 수직절곡)' : '측면도(평절곡)'} · 내R ${_n(input.innerRadius!)}mm · 번호는 절곡 표 번호',
             style: const pw.TextStyle(fontSize: 8, color: _grey),
           ),
         ),
@@ -205,7 +205,7 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
     ),
   );
 
-  // 자르기 전 마킹
+  // 전개도(마킹)
   const markH = 70.0;
   final len = math.max(p.cutLength, 1.0);
   final sc = (w - 32) / len;
@@ -246,7 +246,7 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
           left: 0,
           top: 0,
           child: pw.Text(
-            '자르기 전 곧은 부스바 · 숫자는 한쪽 끝 기준 꺾기 시작선 위치(mm)',
+            '전개도 · 숫자는 한쪽 끝 기준 절곡 시작선 위치(mm)',
             style: const pw.TextStyle(fontSize: 8, color: _grey),
           ),
         ),
@@ -300,7 +300,7 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
           crossAxisAlignment: pw.CrossAxisAlignment.end,
           children: [
             pw.Text(
-              '부스바 절곡 지시서',
+              '부스바 가공 도면',
               style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
             ),
             pw.Text(
@@ -337,11 +337,11 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
               ),
           ],
         ),
-        title('꺾은 뒤 모양'),
+        title(input.edge ? '평면도 (넓은 면)' : '측면도'),
         side(),
-        title('자르기 전 마킹'),
+        title('전개도 (마킹)'),
         mark(),
-        title('꺾기 (한쪽 끝 기준 거리, mm)'),
+        title('절곡 (한쪽 끝 기준 거리, mm)'),
         pw.Table(
           border: pw.TableBorder.all(color: _line, width: 0.6),
           columnWidths: const {
@@ -355,7 +355,7 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
             pw.TableRow(
               decoration: const pw.BoxDecoration(color: _head),
               children: [
-                for (final h in ['번호', '방향', '꺾기 시작선', '꺾기 끝선', '호 길이'])
+                for (final h in ['번호', '방향', '절곡 시작선', '절곡 끝선', '절곡부'])
                   cell(h, bold: true),
               ],
             ),
@@ -364,7 +364,7 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
                 children: [
                   cell('${i + 1}'),
                   cell(
-                    '${p.bends[i].turn >= 0 ? "위로" : "아래로"} ${_n(p.bends[i].turn.abs())}°',
+                    '${p.bends[i].turn >= 0 ? "UP" : "DOWN"} ${_n(p.bends[i].turn.abs())}°',
                   ),
                   cell(_n(p.bends[i].start)),
                   cell(_n(p.bends[i].end)),
@@ -375,7 +375,7 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
         ),
         pw.SizedBox(height: 4),
         pw.Text(
-          '직선 구간(mm): ${p.straights.map((s) => _n(s)).join(" · ")}',
+          '직선부(mm): ${p.straights.map((s) => _n(s)).join(" · ")}',
           style: const pw.TextStyle(fontSize: 9.5, color: _ink),
         ),
         if (input.notes.isNotEmpty) ...[
@@ -449,7 +449,7 @@ Future<void> openBendPdf(
   } catch (e) {
     showSnackOnce(
       messenger,
-      const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')),
+      const SnackBar(content: Text('가공 도면을 만들지 못했습니다. 다시 해 보십시오.')),
     );
     return;
   } finally {
@@ -462,7 +462,7 @@ Future<void> openBendPdf(
       builder: (_) => SteelPdfPreviewPage(
         bytes: bytes,
         fileName: fileName,
-        title: '부스바 절곡 지시서 미리보기',
+        title: '부스바 가공 도면 미리보기',
         onShare: () async {
           final dir = await getTemporaryDirectory();
           final file = File('${dir.path}/$fileName');
@@ -470,7 +470,7 @@ Future<void> openBendPdf(
           // ignore: deprecated_member_use
           await Share.shareXFiles([
             XFile(file.path),
-          ], text: '부스바 절곡 지시서 ${input.title.trim()}');
+          ], text: '부스바 가공 도면 ${input.title.trim()}');
         },
       ),
     ),

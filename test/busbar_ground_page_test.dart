@@ -65,7 +65,7 @@ void main() {
     await _open(tester);
     // 양 끝 (취부 25 + 50) × 2 + 9 × 25 = 375
     expect(_ft('375 mm'), findsOneWidget);
-    expect(_ft('첫 구멍 75 → 피치 25 × 9칸 → 마지막 구멍 300'), findsOneWidget);
+    expect(_ft('첫 홀 75 → 피치 25 × 9칸 → 마지막 홀 300'), findsOneWidget);
     expect(_ft('1~5번'), findsOneWidget);
     expect(_ft('6~10번'), findsOneWidget);
     expect(_ft('75   100   125   150   175'), findsOneWidget);
@@ -79,7 +79,7 @@ void main() {
     await _open(tester);
     await _tap(tester, 'gb_by_len');
     // (500 − 75 × 2) ÷ 25 = 14칸 → 15개
-    expect(_fc('구멍 15개'), findsWidgets);
+    expect(_fc('홀 15개'), findsWidgets);
   });
 
   testWidgets('피치가 구멍 지름 이하이면 겹침 알림, 피치 ▼ 목록은 칸을 채운다', (tester) async {
@@ -101,8 +101,8 @@ void main() {
     await _open(tester, share: (t) async => sent = t);
     await _type(tester, 'gb_n', '4');
     await _tap(tester, 'gb_share');
-    expect(sent, startsWith('[접지바] 구리 6×50mm · 구멍 φ11 4개 피치 25'));
-    expect(sent, contains('절단 길이: 225mm'));
+    expect(sent, startsWith('[접지바] 구리 6T×50mm · 홀 φ11 4개 피치 25'));
+    expect(sent, contains('전개 길이: 225mm'));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 1));
     await _open(tester);
@@ -120,11 +120,11 @@ void main() {
     expect(_ft('166.2 mm'), findsOneWidget);
     expect(_fk('gb_shape_view'), findsOneWidget);
     expect(_fc('왼쪽 탭 · 시작선 28 mm'), findsOneWidget);
-    expect(_fc('첫 구멍 66.2'), findsOneWidget);
+    expect(_fc('첫 홀 66.2'), findsOneWidget);
     // 겉 모양 칩에도 지금 고른 L자가 켜져 보인다
     expect(_fk('gb_tab_lnow'), findsOneWidget);
     await _tap(tester, 'gb_share');
-    expect(sent, contains('왼쪽 탭 꺾기 시작선 28 · 끝선 41.2mm'));
+    expect(sent, contains('왼쪽 탭 절곡 시작선 28 · 끝선 41.2mm'));
     expect(sent, contains('1~4번 66.2 · 91.2 · 116.2 · 141.2'));
   });
 
@@ -132,7 +132,7 @@ void main() {
     await _open(tester);
     await _tap(tester, 'gb_tab_2');
     await _type(tester, 'gb_tabr', '5');
-    expect(_fc('꺾기에 너무 짧습니다'), findsOneWidget);
+    expect(_fc('절곡하기에 너무 짧습니다'), findsOneWidget);
   });
 
   testWidgets('모자: 발·높이 입력, 꺾기 4곳(윗면·다리·발), 발 구멍 위치, 옆모습', (tester) async {
@@ -153,17 +153,17 @@ void main() {
     expect(_ft('19'), findsOneWidget); // 왼쪽 발 구멍: 평평한 38 가운데
     await _tap(tester, 'gb_share');
     expect(sent, contains('모자 높이 40 · 발 50'));
-    expect(sent, contains('발 구멍 φ11 (왼쪽 끝에서 중심): 왼쪽 1 19 · 오른쪽 1'));
+    expect(sent, contains('발 홀 φ11 (왼쪽 끝에서 중심): 왼쪽 1 19 · 오른쪽 1'));
   });
 
   testWidgets('모자 기본값(발 60)이면 발 구멍이 꺾기 시작선 거리(2T + R)를 넘는다', (tester) async {
     await _open(tester);
     await _tap(tester, 'gb_tab_4');
     // 6t, 반경 6: 필요 18. 발 평평한 48 가운데 φ11 → 24 − 5.5 = 18.5
-    expect(_fc('발 구멍 18.5mm (필요 18mm 이상 ✓)'), findsOneWidget);
+    expect(_fc('발 홀 18.5mm (필요 18mm 이상 ✓)'), findsOneWidget);
     expect(_fc('보다 가깝습니다'), findsNothing);
-    // 양쪽 발 구멍이면 판넬 구멍 가로 간격이 결과에 바로 나온다
-    expect(_fc('판넬 구멍 가로 간격'), findsOneWidget);
+    // 양쪽 발 홀이면 판넬 홀 가로 간격이 결과에 바로 나온다
+    expect(_fc('판넬 홀 가로 간격'), findsOneWidget);
   });
 
   testWidgets('두 줄 대칭·비대칭(자세히): 줄 간격, A·B줄 위치, 엇갈림 칸, 자세히 요약', (tester) async {
@@ -184,7 +184,7 @@ void main() {
     expect(_fk('gb_shift'), findsOneWidget);
     expect(_ft('387.5 mm'), findsOneWidget); // 375 + 12.5
     await _tap(tester, 'gb_share');
-    expect(sent, contains('구멍 φ11 10개 × 2줄'));
+    expect(sent, contains('홀 φ11 10개 × 2줄'));
     expect(sent, contains('B줄은 길이 방향으로 12.5mm 옮김'));
   });
 
@@ -195,10 +195,10 @@ void main() {
     await _type(tester, 'gb_ovdia', '18');
     await _tap(tester, 'gb_ov_apply'); // 처음 구멍(1번)이 선택돼 있다
     expect(_fk('gb_ov_list'), findsOneWidget);
-    expect(_fc('바꾼 구멍 1개: 1번 φ18'), findsOneWidget);
-    expect(_ft('켜 둔 것: 크기 바꾼 구멍 1개'), findsOneWidget);
+    expect(_fc('바꾼 홀 1개: 1번 φ18'), findsOneWidget);
+    expect(_ft('켜 둔 것: 크기 바꾼 홀 1개'), findsOneWidget);
     await _tap(tester, 'gb_share');
-    expect(sent, contains('크기 바꾼 구멍: 1번 φ18'));
+    expect(sent, contains('크기 바꾼 홀: 1번 φ18'));
     await _tap(tester, 'gb_ov_reset');
     expect(_fk('gb_ov_list'), findsNothing);
     // 너무 큰 지름은 겹침 알림
@@ -212,7 +212,7 @@ void main() {
   testWidgets('모자 오른쪽 발을 따로(자세히): 비우면 같고 넣으면 그 값', (tester) async {
     await _open(tester);
     await _tap(tester, 'gb_tab_4');
-    expect(_fc('mm · 구멍'), findsWidgets);
+    expect(_fc('mm · 홀'), findsWidgets);
     expect(_fk('gb_hatfr'), findsOneWidget);
     expect(_fc('발 60 / 60'), findsWidgets);
     await _type(tester, 'gb_hatfr', '80');
@@ -256,19 +256,19 @@ void main() {
     expect(text('gb_lugdia'), '13.5');
     expect(text('gb_lugsp'), '44.45');
     // 기본은 "왼쪽으로 몰기": 겹치지 않고 길이 = 마지막 접지 구멍 + 피치 + 러그 묶음 + 끝 여유
-    expect(_fc('접지 구멍과 겹칩니다'), findsNothing);
-    expect(_ft('러그 구멍 2개 · 볼트 세트 2'), findsOneWidget);
-    expect(_fc('접지 구멍은 왼쪽 끝으로 몰았고'), findsOneWidget);
+    expect(_fc('접지 홀과 겹칩니다'), findsNothing);
+    expect(_ft('러그 홀 2개 · 볼트 세트 2'), findsOneWidget);
+    expect(_fc('접지 홀은 왼쪽 끝으로 몰았고'), findsOneWidget);
     expect(_fc('볼트 M12 2개'), findsWidgets);
     // 75 + 9 × 25 + 25 + 44.45 + 75 = 444.45
     expect(_fc(RegExp(r'^444.[45] mm$')), findsOneWidget);
     expect(_fk('gb_lug_notes'), findsOneWidget);
     // 가운데 균등으로 바꾸면 한 줄 접지 구멍과 겹칠 수 있다
     await _tap(tester, 'gb_pack_off');
-    expect(_fc('접지 구멍과 겹칩니다'), findsOneWidget);
+    expect(_fc('접지 홀과 겹칩니다'), findsOneWidget);
     await _tap(tester, 'gb_pack_on');
     await _tap(tester, 'gb_share');
-    expect(sent, contains('접지 러그 2구멍 1개(접지 구멍과 따로'));
+    expect(sent, contains('접지 러그 2홀 1개(접지 홀과 따로'));
     expect(sent, contains('볼트 세트 2개'));
   });
 
@@ -276,7 +276,7 @@ void main() {
     await _open(tester);
     await _tap(tester, 'gb_lug_1');
     // 1구멍 러그는 구멍 1개만(2개·4개가 아니다)
-    expect(_ft('러그 구멍 1개 · 볼트 세트 1'), findsOneWidget);
+    expect(_ft('러그 홀 1개 · 볼트 세트 1'), findsOneWidget);
     expect(_fk('gb_lugn'), findsNothing);
     await _tap(tester, 'gb_ov_sel');
     expect(_fc('러그 1 · φ13.5'), findsWidgets);
@@ -291,16 +291,16 @@ void main() {
     await _tap(tester, 'gb_tab_4');
     await _type(tester, 'gb_hatf', '50');
     expect(_fk('gb_mount_result'), findsOneWidget);
-    expect(_ft('취부 구멍 2개 · 볼트 세트 2'), findsOneWidget);
-    // 윗면 바깥 폭 124(구멍 줄 100 + 2 × 12) + 양쪽 발 구멍까지 31씩
-    expect(_fc('오른쪽 구멍 가로 간격 186mm'), findsOneWidget);
-    expect(_fc('판넬 구멍 가로 간격 186mm'), findsOneWidget);
+    expect(_ft('취부 홀 2개 · 볼트 세트 2'), findsOneWidget);
+    // 윗면 바깥 폭 124(홀 줄 100 + 2 × 12) + 양쪽 발 홀까지 31씩
+    expect(_fc('오른쪽 홀 가로 간격 186mm'), findsOneWidget);
+    expect(_fc('판넬 홀 가로 간격 186mm'), findsOneWidget);
     expect(_fc('그립) 9mm'), findsOneWidget); // 부스바 6 + 판넬 3
     expect(_fc('볼트 M10 2개'), findsOneWidget);
     expect(_fk('gb_mount_notes'), findsOneWidget);
-    expect(_fc('구멍 가장자리 ~ 꺾기 시작선 거리'), findsOneWidget);
+    expect(_fc('홀 가장자리 ~ 절곡 시작선 거리'), findsOneWidget);
     await _tap(tester, 'gb_share');
-    expect(sent, contains('판넬 취부 구멍(왼쪽 구멍 0 기준): 왼쪽 1 가로 0'));
+    expect(sent, contains('판넬 취부 홀(왼쪽 홀 0 기준): 왼쪽 1 가로 0'));
   });
 
   testWidgets('러그·판넬 칸 값이 저장 순서가 어긋나지 않고 다시 열면 그대로', (tester) async {
@@ -365,27 +365,27 @@ void main() {
     String? sent;
     await _open(tester, share: (t) async => sent = t);
     // 기본: 끝 하나에 1개, 끝에서 25, 첫 접지 구멍까지 50
-    expect(_fc('취부 구멍 φ11: 왼쪽 끝 1개 + 오른쪽 끝 1개(합계 2개)'), findsOneWidget);
-    expect(_ft('25'), findsWidgets); // 취부 구멍 위치 표: 왼쪽 25
+    expect(_fc('취부 홀 φ11: 왼쪽 끝 1개 + 오른쪽 끝 1개(합계 2개)'), findsOneWidget);
+    expect(_ft('25'), findsWidgets); // 취부 홀 위치 표: 왼쪽 25
     expect(_ft('350'), findsOneWidget); // 오른쪽 375 − 25
-    // 판넬 구멍 가로 간격 = 350 − 25
-    expect(_fc('판넬 구멍 가로 간격 325mm(양 끝 취부 구멍 중심 사이)'), findsOneWidget);
-    expect(_ft('취부 구멍 2개 · 볼트 세트 2'), findsOneWidget);
+    // 판넬 홀 가로 간격 = 350 − 25
+    expect(_fc('판넬 홀 가로 간격 325mm(양 끝 취부 홀 중심 사이)'), findsOneWidget);
+    expect(_ft('취부 홀 2개 · 볼트 세트 2'), findsOneWidget);
     expect(_fc('그립) 9mm = 부스바 6 + 판넬 3'), findsOneWidget);
     await _tap(tester, 'gb_share');
-    expect(sent, contains('취부 구멍 φ11 (왼쪽 끝에서 중심): 왼쪽 1 25 · 오른쪽 1 350'));
+    expect(sent, contains('취부 홀 φ11 (왼쪽 끝에서 중심): 왼쪽 1 25 · 오른쪽 1 350'));
     // 일자는 꺾기가 없어 "꺾기" 칸이 없다
     expect(_fk('gb_bends'), findsNothing);
     // 첫 접지 구멍까지 30 → 길이 335, 너무 가까우면 겹침
     await _type(tester, 'gb_mgap', '30');
     expect(_ft('335 mm'), findsOneWidget);
     await _type(tester, 'gb_mgap', '8');
-    expect(_fc('취부 구멍이 접지 구멍과 겹칩니다'), findsOneWidget);
+    expect(_fc('취부 홀이 접지 홀과 겹칩니다'), findsOneWidget);
     await _type(tester, 'gb_mgap', '50');
     // 왼쪽만: 오른쪽은 끝 여유 25 → 75 + 225 + 25 = 325
     await _tap(tester, 'gb_tsd_1');
     expect(_ft('325 mm'), findsOneWidget);
-    expect(_ft('켜 둔 것: 취부 구멍 왼쪽만'), findsOneWidget);
+    expect(_ft('켜 둔 것: 취부 홀 왼쪽만'), findsOneWidget);
     await _tap(tester, 'gb_tsd_3');
     // 없음: 예전처럼 끝 여유만 → 275
     await _tap(tester, 'gb_mc_0');

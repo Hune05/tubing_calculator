@@ -61,12 +61,12 @@ void main() {
         thickness: 6,
         width: 50,
         rho: 8.4,
-        summary: const [('재료', '구리 평강 6 × 50 mm')],
+        summary: const [('재료', '구리 평강 6T × 50 mm')],
         bendRows: const [
           ['1', '왼쪽 발 → 다리', '28', '41.2'],
         ],
         sections: const [
-          GroundPdfSection('접지 구멍', ['첫 구멍 25']),
+          GroundPdfSection('접지 홀', ['첫 홀 25']),
         ],
         notes: const ['시험 주의'],
       ),
@@ -99,14 +99,14 @@ void main() {
     );
     final none = await buildGroundBarPdf(
       make(const [
-        GroundPdfSection('접지 구멍 위치', ['첫 구멍 25']),
+        GroundPdfSection('접지 홀 위치', ['첫 홀 25']),
       ]),
     );
     final table = await buildGroundBarPdf(
       make([
         GroundPdfSection(
-          '접지 구멍 위치',
-          const ['첫 구멍 25'],
+          '접지 홀 위치',
+          const ['첫 홀 25'],
           headers: const ['번호', '왼쪽 끝에서(mm)', '폭 방향(mm)', '지름(mm)'],
           rows: [
             for (final h in p.groundHoles)
@@ -150,7 +150,7 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(find.textContaining('미리보기 ground_bar_시험_'), findsOneWidget);
-    expect(find.text('접지바 가공 지시서 미리보기'), findsOneWidget);
+    expect(find.text('접지바 가공 도면 미리보기'), findsOneWidget);
     expect(find.byKey(const Key('pdf_preview_share')), findsOneWidget);
   });
 
@@ -167,7 +167,7 @@ void main() {
     await tester.tap(find.byKey(const Key('ss_save_ok')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ss_saved_8×60 시험')), findsOneWidget);
-    expect(find.textContaining('8×60 · 일자'), findsOneWidget);
+    expect(find.textContaining('8T×60 · 일자'), findsOneWidget);
     // 바깥을 눌러 시트를 닫고 값을 바꾼 뒤 불러온다
     Navigator.of(
       tester.element(find.byKey(const Key('ss_saved_8×60 시험'))),
@@ -235,7 +235,7 @@ void main() {
 
     await openGroundBarPdf(ctx, input, build: fail);
     await tester.pump();
-    expect(find.text('지시서를 만들지 못했습니다. 다시 해 보십시오.'), findsOneWidget);
+    expect(find.text('도면을 만들지 못했습니다. 다시 해 보십시오.'), findsOneWidget);
     await openGroundBarPdf(ctx, input, build: fail);
     expect(calls, 2);
   });

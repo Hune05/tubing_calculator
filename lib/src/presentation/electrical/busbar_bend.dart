@@ -12,11 +12,11 @@ library;
 
 import 'dart:math' as math;
 
-/// 꺾는 방향. flat = 눕혀 꺾기(두께 방향, 폭 w 전체가 꺾임), edge = 세워 꺾기(폭 방향).
+/// 절곡 방향. flat = 평절곡(두께 방향, 폭 w 전체가 꺾임), edge = 수직절곡(폭 방향).
 enum BusbarBendPlane { flat, edge }
 
 String busbarBendPlaneLabel(BusbarBendPlane p) =>
-    p == BusbarBendPlane.flat ? '눕혀 꺾기' : '세워 꺾기';
+    p == BusbarBendPlane.flat ? '평절곡' : '수직절곡';
 
 /// 꺾는 방향에 맞는 판 두께 d(mm). 눕혀 꺾기는 두께, 세워 꺾기는 폭.
 double busbarBendDepth(double t, double w, BusbarBendPlane p) =>
