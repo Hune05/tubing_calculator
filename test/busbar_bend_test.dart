@@ -140,4 +140,26 @@ void main() {
       expect(pts.last.y, closeTo(2 * (60 + 2 * busbarNeutralRadius(d, r, k)), 1.0));
     });
   });
+
+  test('그림 띠(10-12): 두 면이 안쪽 반경 r, 바깥 r + 폭으로 나온다(세워 꺾기 100폭 r 20)', () {
+    const d = 100.0, r = 20.0, k = 0.4;
+    final plan = busbarL(d: d, r: r, k: k, a: 300, b: 200, deg: 90);
+    final strip = busbarStrip(plan, r + d / 2);
+    final (s0, mid, s1) = strip.bends.single;
+    // 호 중심: 첫 직선 끝에서 왼쪽(+ 꺾는 쪽)으로 가운데선 반경만큼
+    final c0 = strip.center[s0];
+    final o = math.Point(c0.x, c0.y + r + d / 2);
+    final inner = strip.left(d / 2), outer = strip.right(d / 2);
+    for (final i in [s0, mid, s1]) {
+      expect(inner[i].distanceTo(o), closeTo(r, 1e-6));
+      expect(outer[i].distanceTo(o), closeTo(r + d, 1e-6));
+    }
+    // 직선 길이는 계획 그대로, 끝은 위쪽(90°)으로 간다
+    expect(strip.center[s0].x, closeTo(plan.straights.first, 1e-9));
+    expect(strip.center.last.x, closeTo(strip.center[s1].x, 1e-9));
+    expect(
+      strip.center.last.y - strip.center[s1].y,
+      closeTo(plan.straights.last, 1e-9),
+    );
+  });
 }

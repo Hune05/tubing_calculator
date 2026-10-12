@@ -476,6 +476,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
     plan: p,
     thickness: _d,
     rho: busbarNeutralRadius(_d, _r, _k),
+    innerRadius: _r,
+    edge: _plane == BusbarBendPlane.edge,
     summary: [
       ('재료', '구리 평강 ${fmt(_t)} × ${fmt(_w)} mm'),
       (
@@ -577,7 +579,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
             : BusbarShapePainter(
                 plan: p,
                 rho: busbarNeutralRadius(_d, _r, _k),
-                thickness: _plane == BusbarBendPlane.flat ? _t : _w,
+                thickness: _d,
+                innerRadius: _r,
+                edge: _plane == BusbarBendPlane.edge,
                 text: fc.text,
                 sub: fc.textSub,
                 line: fc.line,
@@ -610,6 +614,8 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       ? null
       : _view == 'mark'
       ? '곧은 부스바 한쪽 끝 기준 꺾기 시작선·끝선'
+      : _plane == BusbarBendPlane.edge
+      ? '넓은 면을 위에서 본 실제 비율 · 청록 = 위로, 주황 = 아래로 꺾기'
       : '옆에서 본 실제 비율 · 청록 = 위로, 주황 = 아래로 꺾기';
 
   Widget _markTile(BusbarBend b, int i) => Padding(

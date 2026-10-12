@@ -286,3 +286,70 @@ math.Point<double> busbarPointAt(List<math.Point<double>> pts, double len) {
   }
   return pts.last;
 }
+
+/// 그림용 꺾은 부스바 띠(10-12): 가운데선과 두 면(가장자리). 직선 길이는 [plan]의 직선 구간 그대로,
+/// 호는 가운데선 반경 [centerRadius]로 걷는다(안쪽 면 반경 = 가운데선 − 폭/2). 계산에는 쓰지 않는다.
+class BusbarStrip {
+  BusbarStrip._(this.center, this._heading, this.bends);
+
+  /// 가운데선 점(mm, y 위쪽 +).
+  final List<math.Point<double>> center;
+  final List<double> _heading;
+
+  /// 꺾는 곳마다 가운데선 점 번호(호 시작, 호 가운데, 호 끝).
+  final List<(int, int, int)> bends;
+
+  /// 가운데선에서 [half]만큼 왼쪽(+ 꺾는 쪽)으로 벌린 면.
+  List<math.Point<double>> left(double half) => [
+    for (var i = 0; i < center.length; i++)
+      math.Point(
+        center[i].x - math.sin(_heading[i]) * half,
+        center[i].y + math.cos(_heading[i]) * half,
+      ),
+  ];
+
+  /// 가운데선에서 [half]만큼 오른쪽으로 벌린 면.
+  List<math.Point<double>> right(double half) => left(-half);
+}
+
+BusbarStrip busbarStrip(
+  BusbarBendPlan plan,
+  double centerRadius, {
+  double startHeadingDeg = 0,
+}) {
+  final pts = <math.Point<double>>[];
+  final heads = <double>[];
+  final bends = <(int, int, int)>[];
+  var x = 0.0, y = 0.0, heading = _rad(startHeadingDeg);
+  void add() {
+    pts.add(math.Point(x, y));
+    heads.add(heading);
+  }
+
+  void go(double len) {
+    x += len * math.cos(heading);
+    y += len * math.sin(heading);
+  }
+
+  add();
+  for (var i = 0; i < plan.bends.length; i++) {
+    go(plan.straights[i]);
+    add();
+    final s0 = pts.length - 1;
+    final turn = _rad(plan.bends[i].turn);
+    var steps = math.max(2, (turn.abs() / _rad(5)).ceil());
+    if (steps.isOdd) steps++;
+    final dTurn = turn / steps;
+    final chord = 2 * centerRadius * math.sin(dTurn.abs() / 2);
+    for (var s = 0; s < steps; s++) {
+      heading += dTurn / 2;
+      go(chord);
+      heading += dTurn / 2;
+      add();
+    }
+    bends.add((s0, s0 + steps ~/ 2, pts.length - 1));
+  }
+  go(plan.straights.last);
+  add();
+  return BusbarStrip._(pts, heads, bends);
+}

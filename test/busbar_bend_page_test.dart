@@ -209,4 +209,12 @@ void main() {
     await _tab(tester, 'result');
     expect(find.text('— mm'), findsOneWidget);
   });
+
+  testWidgets('세워 꺾기는 넓은 면을 위에서 본 그림이라고 알린다(10-12)', (tester) async {
+    await _open(tester);
+    expect(find.textContaining('옆에서 본 실제 비율'), findsOneWidget);
+    await _tap(tester, 'bb_p_edge');
+    expect(find.textContaining('넓은 면을 위에서 본 실제 비율'), findsOneWidget);
+    expect(find.byKey(const Key('bb_shape_view')), findsOneWidget);
+  });
 }

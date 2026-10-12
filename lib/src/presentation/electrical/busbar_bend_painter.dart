@@ -43,12 +43,16 @@ Paint _copperPaint(Rect r) => Paint()
     colors: [_copperLight, _copperDark],
   ).createShader(r);
 
-/// 꺾은 뒤 옆모습. 실제 비율이고, 두께는 판 두께 [thickness]로 그린다.
+/// 꺾은 뒤 모양. 실제 비율이고, 띠 폭은 [thickness](눕혀 꺾기는 판 두께, 세워 꺾기는 폭)로 그린다.
+/// 10-12: 두 면(가장자리)을 따로 그려 넓은 띠도 화면 안에 다 들어오고 테두리·꺾는 구간이 보인다.
+/// [innerRadius]를 주면 안쪽 면이 그 반경이 되게 그리고, 없으면 예전처럼 가운데선을 [rho]로 걷는다.
 class BusbarShapePainter extends CustomPainter {
   BusbarShapePainter({
     required this.plan,
     required this.rho,
     required this.thickness,
+    this.innerRadius,
+    this.edge = false,
     this.startHeadingDeg = 0,
     required this.text,
     required this.sub,
@@ -58,6 +62,10 @@ class BusbarShapePainter extends CustomPainter {
 
   final BusbarBendPlan plan;
   final double rho, thickness, startHeadingDeg;
+  final double? innerRadius;
+
+  /// 세워 꺾기: 넓은 면을 위에서 본 그림(글만 다르다).
+  final bool edge;
   final Color text, sub, line;
 
   /// 판 색(밝은 쪽, 어두운 쪽). 기본은 구리. 철판 가공은 철 색을 넘긴다(10-10).
@@ -65,62 +73,121 @@ class BusbarShapePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final pts = busbarShape(plan, rho, startHeadingDeg: startHeadingDeg);
-    var minX = 0.0, maxX = 0.0, minY = 0.0, maxY = 0.0;
-    for (final p in pts) {
+    final half0 = math.max(thickness, 0.0) / 2;
+    final strip = busbarStrip(
+      plan,
+      innerRadius != null ? innerRadius! + half0 : rho,
+      startHeadingDeg: startHeadingDeg,
+    );
+    final l0 = strip.left(half0), r0 = strip.right(half0);
+    var minX = double.infinity, maxX = -double.infinity;
+    var minY = double.infinity, maxY = -double.infinity;
+    for (final p in [...l0, ...r0]) {
       minX = math.min(minX, p.x);
       maxX = math.max(maxX, p.x);
       minY = math.min(minY, p.y);
       maxY = math.max(maxY, p.y);
     }
-    const pad = 22.0;
+    const pad = 22.0, padTop = 30.0;
     final w = math.max(maxX - minX, 1.0), h = math.max(maxY - minY, 1.0);
     final sc = math.min(
       (size.width - 2 * pad) / w,
-      (size.height - 2 * pad) / h,
+      (size.height - pad - padTop) / h,
     );
     final ox = (size.width - w * sc) / 2 - minX * sc;
-    final oy = (size.height + h * sc) / 2 + minY * sc;
+    final oy = padTop + (size.height - pad - padTop + h * sc) / 2 + minY * sc;
     Offset map(math.Point<double> p) => Offset(ox + p.x * sc, oy - p.y * sc);
 
-    final path = Path()..moveTo(map(pts.first).dx, map(pts.first).dy);
-    for (final p in pts.skip(1)) {
-      final o = map(p);
-      path.lineTo(o.dx, o.dy);
+    // 얇은 판은 5px보다 가늘면 안 보여 그림만 5px로 굵힌다.
+    final half = math.max(half0, 2.5 / sc);
+    final left = half == half0 ? l0 : strip.left(half);
+    final right = half == half0 ? r0 : strip.right(half);
+    Path band(int from, int to) {
+      final path = Path()..moveTo(map(left[from]).dx, map(left[from]).dy);
+      for (var i = from + 1; i <= to; i++) {
+        final o = map(left[i]);
+        path.lineTo(o.dx, o.dy);
+      }
+      for (var i = to; i >= from; i--) {
+        final o = map(right[i]);
+        path.lineTo(o.dx, o.dy);
+      }
+      return path..close();
     }
-    final bar = math.max(thickness * sc, 5.0);
+
+    final body = band(0, strip.center.length - 1);
+    final box = body.getBounds();
     canvas.drawPath(
-      path.shift(const Offset(0, 2.5)),
-      Paint()
-        ..color = const Color(0x33000000)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = bar
-        ..strokeJoin = StrokeJoin.round,
+      body.shift(const Offset(0, 2.5)),
+      Paint()..color = const Color(0x33000000),
     );
     canvas.drawPath(
-      path,
+      body,
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: metal,
-        ).createShader(Offset.zero & size)
+        ).createShader(box),
+    );
+    // 꺾는 구간(호): 밝게, 시작선·끝선은 마킹 그림과 같은 색으로
+    for (var i = 0; i < plan.bends.length; i++) {
+      final (s0, _, s1) = strip.bends[i];
+      final col = busbarBendColor(plan.bends[i].turn);
+      canvas.drawPath(
+        band(s0, s1),
+        Paint()..color = const Color(0x40FFFFFF),
+      );
+      for (final j in [s0, s1]) {
+        canvas.drawLine(
+          map(left[j]),
+          map(right[j]),
+          Paint()
+            ..color = col
+            ..strokeWidth = 2,
+        );
+      }
+    }
+    // 하이라이트(왼쪽 면 안쪽으로 살짝)와 테두리
+    final hl = Path();
+    for (var i = 0; i < left.length; i++) {
+      final a = map(left[i]), b = map(right[i]);
+      final o =
+          a + (b - a) * math.min(0.18, 1.6 / math.max((b - a).distance, 1));
+      i == 0 ? hl.moveTo(o.dx, o.dy) : hl.lineTo(o.dx, o.dy);
+    }
+    canvas.drawPath(
+      hl,
+      Paint()
+        ..color = const Color(0x66FFFFFF)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = bar
+        ..strokeWidth = 1.2,
+    );
+    canvas.drawPath(
+      body,
+      Paint()
+        ..color = metal.last
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
         ..strokeJoin = StrokeJoin.round,
     );
     // 꺾는 곳 번호(호 가운데)
     for (var i = 0; i < plan.bends.length; i++) {
-      final b = plan.bends[i];
-      // 호 가운데 좌표: pts에서 직선 + 호 절반 지점을 다시 구하지 않고 가까운 점을 찾는다.
-      final mid = busbarPointAt(pts, b.center);
-      final o = map(mid);
-      canvas.drawCircle(o, 9, Paint()..color = busbarBendColor(b.turn));
+      final o = map(strip.center[strip.bends[i].$2]);
+      canvas.drawCircle(
+        o,
+        9,
+        Paint()..color = busbarBendColor(plan.bends[i].turn),
+      );
       _label(canvas, '${i + 1}', o, Colors.white, bold: true);
     }
     _label(
       canvas,
-      '옆에서 본 모양 · 중립선 길이 ${fmt(plan.cutLength)}mm',
+      innerRadius == null
+          ? '옆에서 본 모양 · 중립선 길이 ${fmt(plan.cutLength)}mm'
+          : edge
+          ? '넓은 면을 위에서 본 모양(세워 꺾기) · 안쪽 반경 ${fmt(innerRadius!)}mm'
+          : '옆에서 본 모양(눕혀 꺾기) · 안쪽 반경 ${fmt(innerRadius!)}mm',
       const Offset(10, 6),
       sub,
       center: false,
@@ -132,7 +199,10 @@ class BusbarShapePainter extends CustomPainter {
       o.plan != plan ||
       o.rho != rho ||
       o.thickness != thickness ||
-      o.startHeadingDeg != startHeadingDeg;
+      o.innerRadius != innerRadius ||
+      o.edge != edge ||
+      o.startHeadingDeg != startHeadingDeg ||
+      o.metal != metal;
 }
 
 /// 꺾은선 위에서 시작점으로부터 길이 [len]인 점.

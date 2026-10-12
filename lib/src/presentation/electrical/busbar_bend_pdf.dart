@@ -25,12 +25,19 @@ const PdfColor _teal = PdfColor.fromInt(0xFF0F9D8F);
 const PdfColor _orange = PdfColor.fromInt(0xFFE08A1E);
 const PdfColor _copper = PdfColor.fromInt(0xFFD9976A);
 const PdfColor _copperDark = PdfColor.fromInt(0xFFB66A3C);
+const PdfColor _copperLight = PdfColor.fromInt(0xFFF0C7A6);
 const PdfColor _amberBg = PdfColor.fromInt(0xFFFFF4E0);
 
 class BendPdfInput {
   final String title;
   final BusbarBendPlan plan;
   final double thickness, rho;
+
+  /// 안쪽 반경(10-12). 주면 두 면을 실제 반경으로 그린다(화면 그림과 같게).
+  final double? innerRadius;
+
+  /// 세워 꺾기: 넓은 면을 위에서 본 그림(글만 다르다).
+  final bool edge;
   final List<(String, String)> summary;
   final List<String> notes;
   const BendPdfInput({
@@ -38,6 +45,8 @@ class BendPdfInput {
     required this.plan,
     required this.thickness,
     required this.rho,
+    this.innerRadius,
+    this.edge = false,
     required this.summary,
     required this.notes,
   });
@@ -81,10 +90,16 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
   );
 
   const w = 500.0;
-  // 꺾은 뒤 옆모습
-  final pts = busbarShape(p, input.rho);
-  var minX = 0.0, maxX = 0.0, minY = 0.0, maxY = 0.0;
-  for (final q in pts) {
+  // 꺾은 뒤 모양(10-12: 두 면을 따로 그려 넓은 띠도 칸 안에 다 들어온다)
+  final half0 = math.max(input.thickness, 0.0) / 2;
+  final strip = busbarStrip(
+    p,
+    input.innerRadius != null ? input.innerRadius! + half0 : input.rho,
+  );
+  final l0 = strip.left(half0), r0 = strip.right(half0);
+  var minX = double.infinity, maxX = -double.infinity;
+  var minY = double.infinity, maxY = -double.infinity;
+  for (final q in [...l0, ...r0]) {
     minX = math.min(minX, q.x);
     maxX = math.max(maxX, q.x);
     minY = math.min(minY, q.y);
@@ -96,6 +111,23 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
   final ox = (w - sw * s2) / 2 - minX * s2;
   final oy = (sideH - sh * s2) / 2 - minY * s2;
   Offset map(math.Point<double> q) => Offset(ox + q.x * s2, oy + q.y * s2);
+  // 얇은 판은 3pt보다 가늘면 안 보여 그림만 굵힌다.
+  final half = math.max(half0, 1.5 / s2);
+  final left = half == half0 ? l0 : strip.left(half);
+  final right = half == half0 ? r0 : strip.right(half);
+  void band(PdfGraphics c, int from, int to) {
+    var o = map(left[from]);
+    c.moveTo(o.dx, o.dy);
+    for (var i = from + 1; i <= to; i++) {
+      o = map(left[i]);
+      c.lineTo(o.dx, o.dy);
+    }
+    for (var i = to; i >= from; i--) {
+      o = map(right[i]);
+      c.lineTo(o.dx, o.dy);
+    }
+    c.closePath();
+  }
 
   pw.Widget side() => pw.SizedBox(
     width: w,
@@ -105,23 +137,38 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
         pw.CustomPaint(
           size: const PdfPoint(w, sideH),
           painter: (c, size) {
+            band(c, 0, strip.center.length - 1);
+            c
+              ..setFillColor(_copper)
+              ..fillPath();
+            // 꺾는 구간: 밝게, 시작선·끝선은 꺾는 방향 색
+            for (var i = 0; i < p.bends.length; i++) {
+              final (s0, _, s1) = strip.bends[i];
+              band(c, s0, s1);
+              c
+                ..setFillColor(_copperLight)
+                ..fillPath()
+                ..setStrokeColor(_col(p.bends[i].turn))
+                ..setLineWidth(1.2);
+              for (final j in [s0, s1]) {
+                final a = map(left[j]), b = map(right[j]);
+                c
+                  ..moveTo(a.dx, a.dy)
+                  ..lineTo(b.dx, b.dy)
+                  ..strokePath();
+              }
+            }
+            band(c, 0, strip.center.length - 1);
             c
               ..setStrokeColor(_copperDark)
-              ..setLineWidth(math.max(input.thickness * s2, 3.0))
+              ..setLineWidth(0.8)
               ..setLineJoin(PdfLineJoin.round)
-              ..setLineCap(PdfLineCap.butt);
-            final a = map(pts.first);
-            c.moveTo(a.dx, a.dy);
-            for (final q in pts.skip(1)) {
-              final o = map(q);
-              c.lineTo(o.dx, o.dy);
-            }
-            c.strokePath();
+              ..strokePath();
           },
         ),
         for (var i = 0; i < p.bends.length; i++)
           () {
-            final o = map(busbarPointAt(pts, p.bends[i].center));
+            final o = map(strip.center[strip.bends[i].$2]);
             return pw.Positioned(
               left: o.dx - 7,
               top: sideH - o.dy - 7,
@@ -148,7 +195,9 @@ Future<Uint8List> buildBendPdf(BendPdfInput input, {DateTime? date}) async {
           left: 0,
           top: 0,
           child: pw.Text(
-            '옆에서 본 모양(중립선 길이 ${_n(p.cutLength)}mm) · 번호는 꺾기 표 번호',
+            input.innerRadius == null
+                ? '옆에서 본 모양(중립선 길이 ${_n(p.cutLength)}mm) · 번호는 꺾기 표 번호'
+                : '${input.edge ? '넓은 면을 위에서 본 모양(세워 꺾기)' : '옆에서 본 모양(눕혀 꺾기)'} · 안쪽 반경 ${_n(input.innerRadius!)}mm · 번호는 꺾기 표 번호',
             style: const pw.TextStyle(fontSize: 8, color: _grey),
           ),
         ),
@@ -398,7 +447,10 @@ Future<void> openBendPdf(
   try {
     bytes = await (build ?? (i, d) => buildBendPdf(i, date: d))(input, now);
   } catch (e) {
-    showSnackOnce(messenger, const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')));
+    showSnackOnce(
+      messenger,
+      const SnackBar(content: Text('지시서를 만들지 못했습니다. 다시 해 보십시오.')),
+    );
     return;
   } finally {
     _bendPdfBusy = false;
