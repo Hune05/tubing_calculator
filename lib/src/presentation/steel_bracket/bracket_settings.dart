@@ -287,9 +287,9 @@ class _BracketSettingsPageState extends State<BracketSettingsPage> {
                         ),
                       ),
                     ]),
-                    PlateSection('구멍', [
+                    PlateSection('홀', [
                       Text(
-                        '내 펀치 금형(구멍 지름 단추): ${(_dies.isEmpty ? kDefaultPunchDies : _dies).map(punchDieLabel).join(' · ')}${_dies.isEmpty ? ' (기본)' : ''}. 접지바 가공과 같이 씁니다.',
+                        '내 펀치 금형(홀 지름 단추): ${(_dies.isEmpty ? kDefaultPunchDies : _dies).map(punchDieLabel).join(' · ')}${_dies.isEmpty ? ' (기본)' : ''}. 접지바 가공과 같이 씁니다.',
                         style: TextStyle(
                           fontSize: 13,
                           color: fc.textSub,

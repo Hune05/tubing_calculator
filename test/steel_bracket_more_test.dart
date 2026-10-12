@@ -33,7 +33,7 @@ void main() {
       expect(plateKs(9, 150, 200), 'PL-9×150×200');
     });
 
-    test('방향에 따라 그림 폭·붙는 면·구멍 면이 바뀐다', () {
+    test('방향에 따라 그림 폭·붙는 면·홀 면이 바뀐다', () {
       final ch = BracketProfile.parse('찬넬 100x50x5');
       expect(ch.orientCount, 2);
       expect(ch.view(0, BracketRole.wall).depth, 50); // 등이 벽에
@@ -72,7 +72,7 @@ void main() {
     });
   });
 
-  group('구멍', () {
+  group('홀', () {
     test('두 줄·H형강 두 줄·장공·끝 거리·게이지', () {
       final two = bracketPlan(
         const BracketInput(
@@ -128,7 +128,7 @@ void main() {
       expect(arm.holes.first.slot, 30);
       expect(bracketHoleSizeText(arm.holes), '2-장공 13.5×30');
       // 장공 길이 30이 끝에서 10에 있으면 부재 밖
-      expect(slot.problems.join(), contains('가로대 구멍 1번이 부재 밖으로'));
+      expect(slot.problems.join(), contains('가로대 홀 1번이 부재 밖으로'));
       final near = bracketPlan(
         const BracketInput(
           shape: BracketShape.l,
@@ -138,7 +138,7 @@ void main() {
           armHoles: HoleRow(count: 1, dia: 13.5, first: 12),
         ),
       );
-      expect(near.notes.join(), contains('구멍 1번이 끝에서 12mm입니다'));
+      expect(near.notes.join(), contains('홀 1번이 끝에서 12mm입니다'));
       final wide = bracketPlan(
         const BracketInput(
           shape: BracketShape.l,
@@ -162,7 +162,7 @@ void main() {
       expect(strut.problems.join(), contains('채널 너트'));
     });
 
-    test('평철을 세우면 구멍이 그림 면에 원으로 보이고, 붙는 면 구멍은 숨은선', () {
+    test('평철을 세우면 홀이 그림 면에 원으로 보이고, 붙는 면 홀은 숨은선', () {
       final p = bracketPlan(
         const BracketInput(
           shape: BracketShape.l,
@@ -207,7 +207,7 @@ void main() {
       expect(p.braceAngle, closeTo(45, 1e-9));
     });
 
-    test('벽 붙임 판: 기둥 구멍 대신 판 구멍, 가로대는 판 두께만큼 짧아짐', () {
+    test('벽 붙임 판: 기둥 홀 대신 판 홀, 가로대는 판 두께만큼 짧아짐', () {
       final p = bracketPlan(
         const BracketInput(
           shape: BracketShape.l,
@@ -280,7 +280,7 @@ void main() {
       expect(f(2, 90).problems.join(), contains('리브 길이가 판 밖으로'));
     });
 
-    test('문형 2단: 아래 가로대 품번 ③, 길이 = 폭 − 기둥 둘, 구멍 같이', () {
+    test('문형 2단: 아래 가로대 품번 ③, 길이 = 폭 − 기둥 둘, 홀 같이', () {
       final p = bracketPlan(
         const BracketInput(
           shape: BracketShape.frame,
@@ -311,7 +311,7 @@ void main() {
       );
     });
 
-    test('천장 매달기: 전산볼트 길이·개수, 가로대 볼트 구멍, 용접 없음', () {
+    test('천장 매달기: 전산볼트 길이·개수, 가로대 볼트 홀, 용접 없음', () {
       final p = bracketPlan(
         const BracketInput(
           shape: BracketShape.hanger,
@@ -431,7 +431,7 @@ void main() {
       final d = pN * math.pow(len, 3) / (3 * 200000 * v.inertia);
       final defl = r.checks.firstWhere((c) => c.name == '가로대 끝 처짐');
       expect(defl.ratio, closeTo(d / (len / 180), 0.01));
-      expect(r.forces.join(), contains('벽 고정 구멍이 없거나'));
+      expect(r.forces.join(), contains('벽 고정 홀이 없거나'));
       // 무게를 안 넣으면 비어 있다
       expect(bracketLoad(p, kg: 0).checks, isEmpty);
     });
@@ -515,7 +515,7 @@ void main() {
       expect(z0, closeTo(-900, 1e-6));
     });
 
-    test('부재도: 구멍 원 수 = 구멍 수, 이어 잰 치수 합 = 붙는 면 길이', () {
+    test('부재도: 홀 원 수 = 홀 수, 이어 잰 치수 합 = 붙는 면 길이', () {
       final p = bracketPlan(
         const BracketInput(
           shape: BracketShape.l,

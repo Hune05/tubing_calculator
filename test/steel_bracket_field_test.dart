@@ -65,7 +65,7 @@ void main() {
       expect(bracket3dMesh(p).length, 30);
     });
 
-    test('가로대 통과·문형·2단: 기둥·가로대에 혀, 혀 끝에서 구멍', () {
+    test('가로대 통과·문형·2단: 기둥·가로대에 혀, 혀 끝에서 홀', () {
       final a = bracketPlan(
         const BracketInput(
           shape: BracketShape.l,
@@ -96,7 +96,7 @@ void main() {
   });
 
   group('V컷 꺾기', () {
-    test('ㄱ자: 한 토막, 펼친 길이 = 바깥 합 − 두께 × 2, 구멍은 가로대 끝에서 펼친 자리', () {
+    test('ㄱ자: 한 토막, 펼친 길이 = 바깥 합 − 두께 × 2, 홀은 가로대 끝에서 펼친 자리', () {
       final p = bracketPlan(
         const BracketInput(
           shape: BracketShape.brace,

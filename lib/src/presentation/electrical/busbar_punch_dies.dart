@@ -126,7 +126,7 @@ class _DiesDialogState extends State<_DiesDialog> {
         ),
         const SizedBox(height: 12),
         AppDialog.message(
-          '기계에 있는 펀치 금형 지름을 넣으면 구멍 지름 칩이 이 값으로 바뀝니다. 비우고 저장하면 기본 칩(M8 9 · M10 11 · M12 13.5 · M16 17.5)으로 돌아갑니다.',
+          '기계에 있는 펀치 금형 지름을 넣으면 홀 지름 칩이 이 값으로 바뀝니다. 비우고 저장하면 기본 칩(M8 9 · M10 11 · M12 13.5 · M16 17.5)으로 돌아갑니다.',
         ),
       ],
     ),

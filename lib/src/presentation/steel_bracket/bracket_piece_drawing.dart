@@ -402,7 +402,7 @@ BracketDrawing _memberDrawing(BracketPiece pc) {
       labels.add(
         BracketLabel(
           Offset((ax0 + ax1) / 2, y0 + w),
-          '${pc.holeFace} (구멍 없음)',
+          '${pc.holeFace} (홀 없음)',
           shift: const Offset(0, 22),
         ),
       );

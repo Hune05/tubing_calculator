@@ -971,7 +971,7 @@ BracketPlan bracketPlan(BracketInput i) {
     if (!r.on) return const [];
     if (!v.canHole) {
       warn(
-        '$name 쪽은 ${v.slot ? '스트럿 슬롯이라 구멍 대신 채널 너트로 고정합니다' : '구멍을 낼 수 없는 면입니다'}. 방향을 바꾸거나 구멍을 빼십시오.',
+        '$name 쪽은 ${v.slot ? '스트럿 슬롯이라 홀 대신 채널 너트로 고정합니다' : '홀을 낼 수 없는 면입니다'}. 방향을 바꾸거나 홀을 빼십시오.',
       );
       return const [];
     }
@@ -983,7 +983,7 @@ BracketPlan bracketPlan(BracketInput i) {
       // 평철을 세운 면: 게이지는 그림 폭 방향
       zs.add(g);
       if (g - rad < -1e-9 || g + rad > v.depth + 1e-9) {
-        warn('$name 구멍이 평철 폭(${_f(v.depth)})에 다 들어가지 않습니다. 게이지·지름을 고치십시오.');
+        warn('$name 홀이 평철 폭(${_f(v.depth)})에 다 들어가지 않습니다. 게이지·지름을 고치십시오.');
       }
     } else {
       final (lo, hi) = v.zone;
@@ -1002,14 +1002,14 @@ BracketPlan bracketPlan(BracketInput i) {
 
       if (!zs.every(fits)) {
         warn(
-          '$name 구멍이 붙는 면에 다 들어가지 않습니다(게이지 ${_f(g)}, 지름 ${_f(r.dia)}, 구멍 중심이 올 수 있는 곳 ${_f(lo + rad)}~${_f(hi - rad)}). 게이지·지름을 고치십시오.',
+          '$name 홀이 붙는 면에 다 들어가지 않습니다(게이지 ${_f(g)}, 지름 ${_f(r.dia)}, 홀 중심이 올 수 있는 곳 ${_f(lo + rad)}~${_f(hi - rad)}). 게이지·지름을 고치십시오.',
         );
       } else if (two && (w - 2 * g).abs() < r.dia) {
-        warn('$name 구멍 두 줄이 서로 겹칩니다. 게이지를 줄이십시오.');
+        warn('$name 홀 두 줄이 서로 겹칩니다. 게이지를 줄이십시오.');
       }
     }
     if (r.count > 1 && r.pitch <= r.along + 1e-9) {
-      warn('$name 구멍 피치가 구멍 길이 이하라 구멍이 서로 겹칩니다.');
+      warn('$name 홀 피치가 홀 길이 이하라 홀이 서로 겹칩니다.');
     }
     return [
       for (var k = 0; k < r.count; k++)
@@ -1096,7 +1096,7 @@ BracketPlan bracketPlan(BracketInput i) {
       final half = h.along / 2;
       if (h.fromEnd - half < s0 - 1e-9 || h.fromEnd + half > s1 + 1e-9) {
         warn(
-          '$name 구멍 ${h.label.split(' ').last}번이 부재 밖으로 나옵니다(붙는 면 길이 ${_f(s1 - s0)}mm). 첫 구멍·피치를 줄이십시오.',
+          '$name 홀 ${h.label.split(' ').last}번이 부재 밖으로 나옵니다(붙는 면 길이 ${_f(s1 - s0)}mm). 첫 홀·피치를 줄이십시오.',
         );
         continue;
       }
@@ -1105,7 +1105,7 @@ BracketPlan bracketPlan(BracketInput i) {
       final e = math.min(h.fromEnd - reach - s0, s1 - h.fromEnd - reach);
       if (e < kBracketEdgeFactor * h.dia - 1e-9) {
         note(
-          '$name 구멍 ${h.label.split(' ').last}번이 끝에서 ${_f(e)}mm입니다. 구멍 지름의 1.2배(${_f(kBracketEdgeFactor * h.dia)}mm)보다 가까우면 끝이 찢어질 수 있습니다.',
+          '$name 홀 ${h.label.split(' ').last}번이 끝에서 ${_f(e)}mm입니다. 홀 지름의 1.2배(${_f(kBracketEdgeFactor * h.dia)}mm)보다 가까우면 끝이 찢어질 수 있습니다.',
         );
       }
     }
@@ -1203,7 +1203,7 @@ BracketPlan bracketPlan(BracketInput i) {
       for (final h in post.holes) {
         if (h.fromEnd - h.along / 2 < -1e-9) {
           warn(
-            '기둥 구멍이 가로대 자리에 걸립니다. 첫 구멍을 ${_f(post.origin.dy + h.along / 2)}mm 이상으로 하십시오.',
+            '기둥 홀이 가로대 자리에 걸립니다. 첫 홀을 ${_f(post.origin.dy + h.along / 2)}mm 이상으로 하십시오.',
           );
           break;
         }
@@ -1233,7 +1233,7 @@ BracketPlan bracketPlan(BracketInput i) {
         for (final h in arm.holes) {
           final x = arm.at(h.fromEnd, 0).dx;
           if (x + h.along / 2 > px - 1e-9 && x - h.along / 2 < px + dp + 1e-9) {
-            warn('가로대 구멍이 기둥 바로 위라 볼트가 기둥에 걸립니다. 구멍을 기둥 밖으로 옮기십시오.');
+            warn('가로대 홀이 기둥 바로 위라 볼트가 기둥에 걸립니다. 홀을 기둥 밖으로 옮기십시오.');
             break;
           }
         }
@@ -1330,7 +1330,7 @@ BracketPlan bracketPlan(BracketInput i) {
           };
           if (blocked.isNotEmpty) {
             note(
-              '가새 끝 자리(위에서 ${_f(footTop)}~${_f(footBot)}mm)에 기둥 구멍이 걸립니다(${blocked.map((v) => '${_f(v)}mm').join(', ')}). 볼트를 조이기 어려울 수 있으니 구멍을 옮기십시오.',
+              '가새 끝 자리(위에서 ${_f(footTop)}~${_f(footBot)}mm)에 기둥 홀이 걸립니다(${blocked.map((v) => '${_f(v)}mm').join(', ')}). 볼트를 조이기 어려울 수 있으니 홀을 옮기십시오.',
             );
           }
           if (braceAngle < 30 || braceAngle > 60) {
@@ -1397,7 +1397,7 @@ BracketPlan bracketPlan(BracketInput i) {
         final fy0 = j == BracketJoint.miter ? 0.0 : postTop;
         final rr = i.wall.dia / 2;
         if (ph.isNotEmpty) {
-          if (e < rr) warn('벽 붙임 판 구멍이 판 가장자리를 뚫습니다. 가장자리 거리를 늘리십시오.');
+          if (e < rr) warn('벽 붙임 판 홀이 판 가장자리를 뚫습니다. 가장자리 거리를 늘리십시오.');
           final hit = ph.any(
             (q) =>
                 q.dx + rr > fx0 &&
@@ -1406,7 +1406,7 @@ BracketPlan bracketPlan(BracketInput i) {
                 q.dy - rr < b,
           );
           if (hit) {
-            warn('벽 붙임 판 구멍이 기둥 자리와 겹칩니다. 판 폭을 키우거나 가장자리 거리를 줄이십시오.');
+            warn('벽 붙임 판 홀이 기둥 자리와 겹칩니다. 판 폭을 키우거나 가장자리 거리를 줄이십시오.');
           }
           for (final q in ph) {
             // 옆에서 보면 판에 숨은 구멍
@@ -1697,7 +1697,7 @@ BracketPlan bracketPlan(BracketInput i) {
             final x0 = postXs.first;
             if (x + hh.along / 2 > x0 - 1e-9 &&
                 x - hh.along / 2 < x0 + dp + 1e-9) {
-              warn('가로대 구멍이 기둥 바로 위라 볼트가 기둥에 걸립니다. 구멍을 기둥 밖으로 옮기십시오.');
+              warn('가로대 홀이 기둥 바로 위라 볼트가 기둥에 걸립니다. 홀을 기둥 밖으로 옮기십시오.');
               break;
             }
           }
@@ -1707,7 +1707,7 @@ BracketPlan bracketPlan(BracketInput i) {
           if (frame &&
               (xb - hh.along / 2 < dp - 1e-9 ||
                   xb + hh.along / 2 > w - dp + 1e-9)) {
-            warn('가로대 구멍이 기둥 자리에 걸립니다. 첫 구멍·피치를 고치십시오.');
+            warn('가로대 홀이 기둥 자리에 걸립니다. 첫 홀·피치를 고치십시오.');
             break;
           }
         }
@@ -1748,7 +1748,7 @@ BracketPlan bracketPlan(BracketInput i) {
                 q.fromEnd - q.along / 2 < -1e-9 ||
                 q.fromEnd + q.along / 2 > w - 2 * dp + 1e-9,
           )) {
-            warn('아래 가로대 구멍이 기둥 자리에 걸립니다. 첫 구멍·피치를 고치십시오.');
+            warn('아래 가로대 홀이 기둥 자리에 걸립니다. 첫 홀·피치를 고치십시오.');
           }
           welds.add(
             BracketWeld(
@@ -1930,7 +1930,7 @@ BracketPlan bracketPlan(BracketInput i) {
         ];
         final rr = i.base.dia / 2;
         if (ph.isNotEmpty) {
-          if (e < rr) warn('베이스 판 구멍이 판 가장자리를 뚫습니다. 가장자리 거리를 늘리십시오.');
+          if (e < rr) warn('베이스 판 홀이 판 가장자리를 뚫습니다. 가장자리 거리를 늘리십시오.');
           bool hits(List<Offset> r) {
             final x0 = r.map((q) => q.dx).reduce(math.min);
             final x1 = r.map((q) => q.dx).reduce(math.max);
@@ -1946,9 +1946,9 @@ BracketPlan bracketPlan(BracketInput i) {
           }
 
           if ([_rect(fx0, fz0, fx0 + dp, fz0 + bp)].any(hits)) {
-            warn('베이스 판 구멍이 기둥 자리와 겹칩니다. 판을 키우거나 가장자리 거리를 줄이십시오.');
+            warn('베이스 판 홀이 기둥 자리와 겹칩니다. 판을 키우거나 가장자리 거리를 줄이십시오.');
           } else if (ribFoot.any(hits)) {
-            warn('베이스 판 구멍이 리브 자리와 겹칩니다. 리브를 짧게 하거나 구멍 자리를 옮기십시오.');
+            warn('베이스 판 홀이 리브 자리와 겹칩니다. 리브를 짧게 하거나 홀 자리를 옮기십시오.');
           }
         }
         present.add('plate');
@@ -2110,12 +2110,12 @@ BracketPlan bracketPlan(BracketInput i) {
           PieceHole('볼트 $k', x, hole, z: armV.gauge),
       ];
       if (!armV.canHole || armV.holesFront) {
-        warn('가로대 위 면에 전산볼트 구멍을 낼 수 없는 방향입니다(평철은 눕히십시오). 방향을 바꾸십시오.');
+        warn('가로대 위 면에 전산볼트 홀을 낼 수 없는 방향입니다(평철은 눕히십시오). 방향을 바꾸십시오.');
       }
       // 볼트가 지나는 깊이: 닫힌 관(각파이프)은 위아래 두 면을 관통(점검 25)
       final thru = armV.hollow ? da : armV.attachT;
       if (armV.hollow) {
-        note('각파이프 가로대는 전산볼트 구멍을 위아래 두 면에 같이 뚫습니다(너트는 아래 면 밑).');
+        note('각파이프 가로대는 전산볼트 홀을 위아래 두 면에 같이 뚫습니다(너트는 아래 면 밑).');
       }
       final armM = member(
         key: 'arm',
@@ -2136,7 +2136,7 @@ BracketPlan bracketPlan(BracketInput i) {
         if (rodHoles.any(
           (r) => (r.fromEnd - hh.fromEnd).abs() < (r.dia + hh.along) / 2,
         )) {
-          warn('가로대 구멍이 전산볼트 구멍과 겹칩니다. 구멍 자리를 옮기십시오.');
+          warn('가로대 홀이 전산볼트 홀과 겹칩니다. 홀 자리를 옮기십시오.');
           break;
         }
       }
@@ -2519,7 +2519,7 @@ BracketPlan bracketPlan(BracketInput i) {
     for (final h in hs) {
       if (apex.any((ap) => (h.fromEnd - ap).abs() < h.along / 2 + bd / 2 + t)) {
         note(
-          '${dev.name} ${h.label}이 꺾는 곳에 가깝습니다(꺾을 때 구멍이 찌그러질 수 있음). 구멍을 옮기십시오.',
+          '${dev.name} ${h.label}이 꺾는 곳에 가깝습니다(꺾을 때 홀이 찌그러질 수 있음). 홀을 옮기십시오.',
         );
         break;
       }

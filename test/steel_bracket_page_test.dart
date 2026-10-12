@@ -79,7 +79,7 @@ void main() {
     );
     expect(
       _text(tester, const Key('br_piece_1')),
-      contains('구멍 2-φ13.5 · 벽 붙는 면 · 위 끝에서 80 · 260 · 게이지 27.5'),
+      contains('홀 2-φ13.5 · 벽 붙는 면 · 위 끝에서 80 · 260 · 게이지 27.5'),
     );
     expect(_text(tester, const Key('br_piece_2')), contains('295mm × 1개'));
     expect(_text(tester, const Key('br_piece_2')), contains('기둥 쪽 끝 45 따냄'));
@@ -141,7 +141,7 @@ void main() {
     await tap(tester, 'br_share');
     expect(sent, startsWith('[형강 브라켓] ㄱ자 · ㄷ-100×50×5 · 4개'));
     expect(sent, contains('② 가로대 ㄷ-100×50×5 395mm × 4개'));
-    expect(sent, contains('벽 고정 구멍 φ13.5 8개'));
+    expect(sent, contains('벽 고정 홀 φ13.5 8개'));
     expect(sent, contains('재질 SS275 · 무도장'));
     await done(tester);
     await open(tester, keep: true);

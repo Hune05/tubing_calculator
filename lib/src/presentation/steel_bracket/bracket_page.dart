@@ -61,11 +61,11 @@ const List<String> kBracketBasis = [
   '치수는 모두 바깥 치수(mm)입니다. ㄱ자·삼각: 가로대 길이 = 벽(벽 붙임 판이 있으면 판 뒷면)에서 가로대 끝까지, 기둥 높이 = 가로대 윗면에서 기둥 끝까지. 문형·T자: 폭 = 양쪽 바깥면 사이, 높이 = 바닥(베이스 판 밑면)에서 가로대 윗면까지. 천장 매달기: 천장에서 가로대 윗면까지.',
   '이음: 기둥 통과는 가로대가 기둥 옆에 붙어 가로대가 기둥 폭만큼 짧아집니다. 가로대 통과는 기둥이 가로대 밑에 붙어 기둥이 짧아집니다. 연귀는 두 토막 모두 바깥 치수 그대로이고 맞닿는 끝을 비스듬히 자릅니다(두 부재 폭이 같으면 45°).',
   '방향: 형강을 어느 쪽으로 놓는지에 따라 그림에 보이는 폭이 다릅니다(찬넬 등이 벽에 → 날개 폭, 날개가 벽에 → 춤). 그림 오른쪽 "단면"이 놓은 모양이고, 주황 선이 벽에 붙는 쪽(가로대는 위)입니다.',
-  '구멍: 기둥 구멍은 벽에 붙는 면, 가로대 구멍은 위 면에 뚫습니다. 이 면들은 조립도에서 옆으로 보여 점선(숨은선)으로만 나오니, 구멍 자리는 부재도(아래 = 구멍 뚫는 면)를 보십시오. 거리는 토막 기준 끝(부재도 왼쪽)에서 잽니다. 게이지는 붙는 면의 등 쪽 가장자리(앵글은 등, 찬넬 날개는 웨브 쪽)에서 구멍 중심까지이고, 비우면 평평한 곳 가운데입니다.',
-  '구멍 끝 거리: 구멍 중심이 토막 끝에서 구멍 지름의 1.2배보다 가까우면 알립니다(EN 1993-1-8 표 3.3 최소값).',
+  '홀: 기둥 홀은 벽에 붙는 면, 가로대 홀은 위 면에 뚫습니다. 이 면들은 조립도에서 옆으로 보여 점선(숨은선)으로만 나오니, 홀 자리는 부재도(아래 = 홀 뚫는 면)를 보십시오. 거리는 토막 기준 끝(부재도 왼쪽)에서 잽니다. 게이지는 붙는 면의 등 쪽 가장자리(앵글은 등, 찬넬 날개는 웨브 쪽)에서 홀 중심까지이고, 비우면 평평한 곳 가운데입니다.',
+  '홀 끝 거리: 홀 중심이 토막 끝에서 홀 지름의 1.2배보다 가까우면 알립니다(EN 1993-1-8 표 3.3 최소값).',
   '용접 기호: 화살표 → 기준선, 아래 삼각은 필릿(화살표 쪽), "z5"는 각장 5mm, 꺾이는 곳 원은 전둘레입니다. 각장을 비우면 이음마다 얇은 쪽 두께(6 넘으면 6)를 씁니다. 같은 이음이 여러 곳이면 한 곳만 그리고 "2곳"으로 적습니다.',
   '판: 베이스 판(문형·T자)은 기둥마다 한 장, 벽 붙임 판(ㄱ자·삼각)은 기둥 뒤에 한 장입니다. 판 크기·두께·가장자리 거리 처음 값은 임의 값이니 설계도를 따르십시오. 앵커 규격·묻힘 깊이도 설계도를 따르십시오.',
-  '무게는 형강 컷팅과 같은 이론 중량(규격 이름으로 계산), 판은 철 7.85 g/cm³(구멍 안 뺌)입니다. 원자재 본수는 단관 컷팅과 같은 재단 계산(톱날 여유 포함, 설정에서 바꿈)입니다.',
+  '무게는 형강 컷팅과 같은 이론 중량(규격 이름으로 계산), 판은 철 7.85 g/cm³(홀 안 뺌)입니다. 원자재 본수는 단관 컷팅과 같은 재단 계산(톱날 여유 포함, 설정에서 바꿈)입니다.',
   '하중 확인은 참고값입니다(AISC 허용응력 꼴, 이음을 핀·캔틸레버로 단순하게 봄). 용접·앵커 자체 강도, 비틀림·옆 힘(지진·바람)은 보지 않으니 무거운 배관·기기를 받치는 브라켓은 설계 검토를 받으십시오.',
 ];
 
@@ -128,7 +128,7 @@ class _BracketPageState extends State<BracketPage>
   static const _tabs = [
     ('shape', '모양'),
     ('member', '부재'),
-    ('holes', '구멍·판'),
+    ('holes', '홀·판'),
     ('result', '결과'),
     ('send', '보내기'),
   ];
@@ -361,20 +361,20 @@ class _BracketPageState extends State<BracketPage>
   }
 
   List<String> _boltLines(BracketPlan p) {
-    String bolt(double d) => lugBoltFor(d) ?? '구멍에 맞는 규격';
+    String bolt(double d) => lugBoltFor(d) ?? '홀에 맞는 규격';
     final rods = p.pieces.where((x) => x.kind == BracketPieceKind.rod);
     return [
       for (final e in p.wallHoles.entries)
-        '벽 고정 구멍 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
+        '벽 고정 홀 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
       for (final e in p.armHoles.entries)
         p.input.pipes.isEmpty
-            ? '가로대 구멍 φ${_fmt(e.key)} ${e.value}개 → U볼트·클램프 ${bolt(e.key)}용'
-            : '가로대 구멍 φ${_fmt(e.key)} ${e.value}개(U볼트 다리 자리)',
+            ? '가로대 홀 φ${_fmt(e.key)} ${e.value}개 → U볼트·클램프 ${bolt(e.key)}용'
+            : '가로대 홀 φ${_fmt(e.key)} ${e.value}개(U볼트 다리 자리)',
       // 관마다 U볼트 한 개(2단 문형이면 가로대마다)
       for (final e in _uBolts(p).entries)
         '${e.key} ${e.value}개 · 너트·평와셔 ${2 * e.value}벌',
       for (final e in p.anchorHoles.entries)
-        '베이스 판 앵커 구멍 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
+        '베이스 판 앵커 홀 φ${_fmt(e.key)} ${e.value}개 → 앵커 볼트 ${bolt(e.key)} ${e.value}개(규격·묻힘 깊이는 설계도)',
       for (final r in rods)
         '전산볼트 ${r.ks} × ${_fmt(r.length)} ${r.qty * _sets}개 · 너트 ${2 * r.qty * _sets}·평와셔 ${2 * r.qty * _sets}(가로대 위아래) · 천장 앵커(인서트) ${r.qty * _sets}개',
     ];
@@ -410,7 +410,7 @@ class _BracketPageState extends State<BracketPage>
       );
     }
     for (final pc in p.pieces.where((x) => x.holes.isNotEmpty)) {
-      b.write('\n${pc.markText} 구멍: ${_holeText(pc)}');
+      b.write('\n${pc.markText} 홀: ${_holeText(pc)}');
     }
     for (final l in _weldLines(p)) {
       b.write('\n용접 $l');
@@ -438,11 +438,10 @@ class _BracketPageState extends State<BracketPage>
       '단위 mm, 치수는 바깥 치수. 따로 적지 않은 치수 공차: ${_settings.tolerance}.',
       if (auto != null)
         '따로 적지 않은 용접: 필릿 각장 ${_fmt(auto)} 전둘레(z = 각장, 다리 길이). 용접 뒤 슬래그·스패터 제거.',
-      '구멍은 용접 전에 뚫습니다. 구멍 자리는 부재도(구멍 뚫는 면) 기준.',
+      '홀은 용접 전에 뚫습니다. 홀 자리는 부재도(홀 뚫는 면) 기준.',
       if (fin == 1) '방청 도장: 용접부 슬래그를 떼고 바탕 처리 뒤 도장(횟수·색은 현장 기준).',
       if (fin == 2) '용융아연도금: 도금 뒤 용접·가공 금지(했으면 아연 보수 도장).',
-      if (fin == 2 && pipe)
-        '각파이프는 도금할 때 공기·아연이 빠질 구멍이 필요합니다(자리·크기는 도금 업체와 정함).',
+      if (fin == 2 && pipe) '각파이프는 도금할 때 공기·아연이 빠질 홀이 필요합니다(자리·크기는 도금 업체와 정함).',
     ];
   }
 
@@ -518,9 +517,9 @@ class _BracketPageState extends State<BracketPage>
         ),
         if (p.pieces.any((x) => x.holes.isNotEmpty))
           BracketPdfSection(
-            '구멍',
+            '홀',
             const [],
-            headers: const ['품번', '뚫는 면', '구멍', '기준', '자리(mm)', '게이지·세로'],
+            headers: const ['품번', '뚫는 면', '홀', '기준', '자리(mm)', '게이지·세로'],
             rows: [
               for (final pc in p.pieces.where((x) => x.holes.isNotEmpty))
                 [
@@ -564,7 +563,7 @@ class _BracketPageState extends State<BracketPage>
       _ => '가운데 한 점',
     },
     1 => '고르게',
-    _ => _i('am') == 0 ? '관마다 나눠' : '구멍 자리마다 나눠',
+    _ => _i('am') == 0 ? '관마다 나눠' : '홀 자리마다 나눠',
   };
 
   // ── 보내기 ──
@@ -820,7 +819,7 @@ class _BracketPageState extends State<BracketPage>
   /// 항목 키는 예전 단추 키 그대로.
   Widget _dieMenu(String keyPrefix, String field) => PresetMenuButton(
     buttonKey: Key('${keyPrefix}menu'),
-    tooltip: '펀치 금형·볼트 구멍',
+    tooltip: '펀치 금형·볼트 홀',
     onOpen: (btn) async {
       final c = _c[field]!;
       final v = await showPresetMenu(
@@ -1038,7 +1037,7 @@ class _BracketPageState extends State<BracketPage>
   String? _canvasHint(BracketPlan? p) {
     if (p == null) return null;
     return switch (_view) {
-      'asm' => '동그라미 = 품번 · 주황 = 용접(z 각장) · 점선 = 안 보이는 면 구멍',
+      'asm' => '동그라미 = 품번 · 주황 = 용접(z 각장) · 점선 = 안 보이는 면 홀',
       'piece' => null,
       _ => null,
     };
@@ -1367,7 +1366,7 @@ class _BracketPageState extends State<BracketPage>
     final pipes = plan?.input.pipes ?? const <BracketPipe>[];
     return PlateSection(
       _shape == BracketShape.hanger
-          ? '가로대 위 관 (U볼트, 전산볼트 구멍 말고)'
+          ? '가로대 위 관 (U볼트, 전산볼트 홀 말고)'
           : '가로대 위 관 (U볼트)',
       [
         _armModeRow(),
@@ -1407,7 +1406,7 @@ class _BracketPageState extends State<BracketPage>
               ),
           ]),
           PlateFieldGrid([
-            _num('br_as', '장공 길이', 'as2', hint: '비우면 둥근 구멍'),
+            _num('br_as', '장공 길이', 'as2', hint: '비우면 둥근 홀'),
             _num(
               'br_ag',
               '게이지',
@@ -1462,7 +1461,7 @@ class _BracketPageState extends State<BracketPage>
                       ),
                     ),
                     Text(
-                      'U볼트 M$m · 다리 간격 ${fmt(sp.spacingUsed)} · 구멍 φ${fmt(bracketUHole(m))}${p == null ? '' : ' · 중심 ${fmt(p.at)}'}',
+                      'U볼트 M$m · 다리 간격 ${fmt(sp.spacingUsed)} · 홀 φ${fmt(bracketUHole(m))}${p == null ? '' : ' · 중심 ${fmt(p.at)}'}',
                       style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
@@ -1526,7 +1525,7 @@ class _BracketPageState extends State<BracketPage>
             'br_${p}s',
             '장공 길이',
             '${p}s2',
-            hint: n > 1 ? '둥근 구멍' : '비우면 둥근 구멍',
+            hint: n > 1 ? '둥근 홀' : '비우면 둥근 홀',
           ),
           _num(
             'br_${p}g',
@@ -1575,25 +1574,25 @@ class _BracketPageState extends State<BracketPage>
     final wallPl = pl != null && pl.wall ? pl : null;
     final basePl = pl != null && !pl.wall ? pl : null;
     return PlatePanel(
-      title: '구멍과 판',
+      title: '홀과 판',
       status: p == null
           ? null
-          : '${p.wallHoles.values.fold(0, (s, v) => s + v) + p.armHoles.values.fold(0, (s, v) => s + v) + p.anchorHoles.values.fold(0, (s, v) => s + v)}개 구멍(전체)',
+          : '${p.wallHoles.values.fold(0, (s, v) => s + v) + p.armHoles.values.fold(0, (s, v) => s + v) + p.anchorHoles.values.fold(0, (s, v) => s + v)}개 홀(전체)',
       actions: [
         plateHelpButton(
           context,
           'br_help_holes',
-          '구멍·판 약속',
+          '홀·판 약속',
           kBracketBasis.sublist(3, 5) + kBracketBasis.sublist(6, 7),
         ),
       ],
       children: [
         if (_lLike && !wall)
           _holeSection(
-            title: '기둥 구멍 (벽 고정)',
+            title: '기둥 홀 (벽 고정)',
             p: 'p',
             max: 4,
-            firstLabel: '첫 구멍',
+            firstLabel: '첫 홀',
             guide: '기둥이 벽에 붙는 면에 뚫습니다. 위 바깥 모서리에서 잽니다.',
             view: viewOf('기둥'),
           ),
@@ -1601,11 +1600,11 @@ class _BracketPageState extends State<BracketPage>
         if (_i('am') == 1)
           _holeSection(
             title: _shape == BracketShape.hanger
-                ? '가로대 구멍 (전산볼트 구멍 말고)'
-                : '가로대 구멍',
+                ? '가로대 홀 (전산볼트 홀 말고)'
+                : '가로대 홀',
             p: 'a',
             max: 5,
-            firstLabel: '첫 구멍',
+            firstLabel: '첫 홀',
             guide: _lLike
                 ? '가로대 위 면에 같은 피치로 일자로 뚫습니다(클램프 등). 가로대 끝(벽 반대쪽)에서 잽니다.'
                 : '가로대 위 면에 같은 피치로 일자로 뚫습니다(클램프 등). 왼쪽 바깥(기둥 바깥면)에서 잽니다.',
@@ -1615,7 +1614,7 @@ class _BracketPageState extends State<BracketPage>
         else
           _pipeSection(p, viewOf('가로대')),
         if (_shape == BracketShape.frame && _b('lw'))
-          PlateSection('아래 가로대 구멍', [
+          PlateSection('아래 가로대 홀', [
             PlateSegments([
               PlateOption('br_lh_0', '없음', !_b('lh'), () => _setV('lh', false)),
               PlateOption(
@@ -1627,7 +1626,7 @@ class _BracketPageState extends State<BracketPage>
             ]),
           ]),
         if (_shape == BracketShape.hanger)
-          PlateSection('전산볼트 구멍', [
+          PlateSection('전산볼트 홀', [
             _guide(
               '가로대 위 면, 양 끝에서 ${_c['re']!.text} 자리에 φ${fmt(bracketRodHole(_i('rd').toDouble()))} 두 개(M${_i('rd')}). 부재도에 함께 나옵니다.',
             ),
@@ -1654,7 +1653,7 @@ class _BracketPageState extends State<BracketPage>
                 _num('br_wh', '판 높이', 'wh', hint: '기둥 높이'),
                 _num('br_wt', '두께', 'wt'),
               ]),
-              _label('앵커 구멍'),
+              _label('앵커 홀'),
               PlateSegments([
                 for (final k in const [0, 2, 4])
                   PlateOption(
@@ -1676,7 +1675,7 @@ class _BracketPageState extends State<BracketPage>
                 ]),
               ],
               _guide(
-                '기둥 뒤에 붙여 벽에 앵커로 고정합니다(기둥 구멍 대신). 4개는 네 귀, 2개는 양옆 가운데. 처음 값은 임의 값입니다.',
+                '기둥 뒤에 붙여 벽에 앵커로 고정합니다(기둥 홀 대신). 4개는 네 귀, 2개는 양옆 가운데. 처음 값은 임의 값입니다.',
               ),
             ],
           ]),
@@ -1712,7 +1711,7 @@ class _BracketPageState extends State<BracketPage>
                 ),
                 _num('br_pt', '두께', 'pt'),
               ]),
-              _label('앵커 구멍'),
+              _label('앵커 홀'),
               PlateSegments([
                 for (final k in const [0, 2, 4])
                   PlateOption(
@@ -1803,7 +1802,7 @@ class _BracketPageState extends State<BracketPage>
             ),
             if (pc.holes.isNotEmpty)
               Text(
-                '구멍 ${_holeText(pc)}',
+                '홀 ${_holeText(pc)}',
                 style: TextStyle(fontSize: 13, color: fc.textSub, height: 1.35),
               ),
           ],
@@ -1928,14 +1927,14 @@ class _BracketPageState extends State<BracketPage>
         PlateSection('작업 순서', [
           PlateLines([
             '자를 것 표대로 형강을 자릅니다. 비스듬한 끝은 표의 각도로(각도절단기 직각 = 0°) 자르고 절단면 버를 갈아 냅니다.',
-            '부재도(아래 = 구멍 뚫는 면)대로 기준 끝에서 재어 마킹하고 펀치 금형(없는 크기는 드릴)으로 뚫습니다. 용접 전에 뚫어야 기계에 넣기 쉽습니다.',
+            '부재도(아래 = 홀 뚫는 면)대로 기준 끝에서 재어 마킹하고 펀치 금형(없는 크기는 드릴)으로 뚫습니다. 용접 전에 뚫어야 기계에 넣기 쉽습니다.',
             '조립도의 단면대로 방향을 맞춰 가접하고 직각·대각선 길이를 재어 틀어짐이 없으면 본용접합니다(주황 기호 자리, z = 각장).',
             if (_shape == BracketShape.brace)
               '가새는 가로대·기둥을 먼저 가접해 직각을 잡은 뒤 끼워 맞춥니다.',
             if (_standing && _b('pl'))
-              '베이스 판은 기둥 밑에 직각으로 용접하고, 판 구멍이 그림 방향과 맞는지 봅니다.',
+              '베이스 판은 기둥 밑에 직각으로 용접하고, 판 홀이 그림 방향과 맞는지 봅니다.',
             if (_lLike && _b('wp'))
-              '벽 붙임 판은 기둥 뒤 가운데에 맞춰 용접하고, 판 구멍이 기둥에 가리지 않는지 봅니다.',
+              '벽 붙임 판은 기둥 뒤 가운데에 맞춰 용접하고, 판 홀이 기둥에 가리지 않는지 봅니다.',
             '용접부 슬래그를 떼고 표면 처리(${kBracketFinishes[_i('fin')]})를 합니다.',
           ]),
         ]),
@@ -2572,7 +2571,7 @@ class _PipeSheetState extends State<_PipeSheet> {
         const SizedBox(height: 8),
         if (row != null)
           Text(
-            '${row.name}: 외경 ${fmt(row.od)} · U볼트 내경 ${fmt(row.uId)} + 나사 M${sp.threadUsed} = 다리 간격 ${fmt(autoC)} · 구멍 φ${fmt(bracketUHole(sp.threadUsed))}'
+            '${row.name}: 외경 ${fmt(row.od)} · U볼트 내경 ${fmt(row.uId)} + 나사 M${sp.threadUsed} = 다리 간격 ${fmt(autoC)} · 홀 φ${fmt(bracketUHole(sp.threadUsed))}'
             '${row.approx ? ' (U볼트 값은 어림, 가진 U볼트를 재서 고치십시오)' : ''}',
             style: _sub,
           ),

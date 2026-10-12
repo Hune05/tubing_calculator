@@ -278,7 +278,7 @@ BracketLoadResult _bracketLoad(
             if (!h.label.startsWith('볼트')) toBeam(h.pipeAt ?? h.fromEnd),
         }.where((x) => x >= -1e-6 && x <= len + 1e-6).toList();
         if (xs.isEmpty) {
-          notes.add('가로대 구멍이 없어 무게를 고르게 얹은 것으로 계산했습니다.');
+          notes.add('가로대 홀이 없어 무게를 고르게 얹은 것으로 계산했습니다.');
           return (const [], p / len);
         }
         return ([for (final x in xs) (x, p / xs.length)], 0);
@@ -354,7 +354,7 @@ BracketLoadResult _bracketLoad(
       ];
       final total = p;
       if (ds.isEmpty) {
-        forces.add('벽 고정 구멍이 없거나 받침점 아래에만 있어 앵커 힘은 계산하지 않았습니다.');
+        forces.add('벽 고정 홀이 없거나 받침점 아래에만 있어 앵커 힘은 계산하지 않았습니다.');
       } else {
         final sum = ds.fold(0.0, (s, d) => s + d * d);
         final tTop = mw * ds.reduce(math.max) / sum / perRow;
@@ -416,7 +416,7 @@ BracketLoadResult _bracketLoad(
               for (final h in arm.holes) h.pipeAt ?? h.fromEnd,
             }.toList();
             if (xs.isEmpty) {
-              notes.add('가로대 구멍이 없어 무게를 고르게 얹은 것으로 계산했습니다.');
+              notes.add('가로대 홀이 없어 무게를 고르게 얹은 것으로 계산했습니다.');
               wl = wr = p / w0;
             } else {
               for (final x in xs) {

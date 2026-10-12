@@ -113,7 +113,7 @@ void main() {
       expect(tight.problems.join(), contains('모서리에 너무 가깝습니다'));
     });
 
-    test('구멍: 토막 끝에서 잰 거리·게이지, 부재 밖이면 알림', () {
+    test('홀: 토막 끝에서 잰 거리·게이지, 부재 밖이면 알림', () {
       final p = _l(
         post: const HoleRow(count: 2, dia: 13.5, first: 80, pitch: 150),
         arm: const HoleRow(count: 1, dia: 11, first: 40),
@@ -145,10 +145,10 @@ void main() {
       final out = _l(
         post: const HoleRow(count: 2, dia: 13.5, first: 80, pitch: 250),
       );
-      expect(out.problems.join(), contains('기둥 구멍 2번이 부재 밖으로'));
+      expect(out.problems.join(), contains('기둥 홀 2번이 부재 밖으로'));
     });
 
-    test('삼각: 기둥 구멍이 가새 끝 자리에 걸리면 알림', () {
+    test('삼각: 기둥 홀이 가새 끝 자리에 걸리면 알림', () {
       BracketPlan b(double pitch) => bracketPlan(
         BracketInput(
           shape: BracketShape.brace,
@@ -163,12 +163,12 @@ void main() {
       // 가새 끝은 위에서 210 ± 25√2(≈174.6~245.4)
       expect(
         b(150).notes.join(),
-        contains('가새 끝 자리(위에서 174.6~245.4mm)에 기둥 구멍이 걸립니다(230mm)'),
+        contains('가새 끝 자리(위에서 174.6~245.4mm)에 기둥 홀이 걸립니다(230mm)'),
       );
       expect(b(180).notes.join(), isNot(contains('가새 끝 자리')));
     });
 
-    test('문형: 이음·베이스 판에 따라 기둥·가로대 길이, 판 구멍(판 왼쪽 위에서)', () {
+    test('문형: 이음·베이스 판에 따라 기둥·가로대 길이, 판 홀(판 왼쪽 위에서)', () {
       BracketPlan f(BracketJoint j, {bool plate = true}) => bracketPlan(
         BracketInput(
           shape: BracketShape.frame,

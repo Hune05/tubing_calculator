@@ -51,7 +51,7 @@ void main() {
       expect(_finite(bracketLoad(brace, kg: 100)), isTrue);
     });
 
-    test('32: 벽 앵커 볼트 줄은 기둥 구멍 실제 자리(가로대 통과 혀 포함)', () {
+    test('32: 벽 앵커 볼트 줄은 기둥 홀 실제 자리(가로대 통과 혀 포함)', () {
       BracketPlan plan(BracketJoint j) => bracketPlan(
         BracketInput(
           shape: BracketShape.l,
@@ -94,7 +94,7 @@ void main() {
       expect(_p(p, '가로대').spec, '찬넬 100x50x5');
     });
 
-    test('22·24: V컷 ㄱ자 가로대 구멍은 가로대 구멍, 꺾은 곳은 V 홈 맞대기', () {
+    test('22·24: V컷 ㄱ자 가로대 홀은 가로대 홀, 꺾은 곳은 V 홈 맞대기', () {
       final p = bracketPlan(
         const BracketInput(
           shape: BracketShape.l,
@@ -111,7 +111,7 @@ void main() {
       expect(p.welds.any((w) => w.groove), isTrue);
     });
 
-    test('37: ㄱ자 가로대 통과에서 가로대 구멍이 기둥 바로 위면 알림', () {
+    test('37: ㄱ자 가로대 통과에서 가로대 홀이 기둥 바로 위면 알림', () {
       final p = bracketPlan(
         const BracketInput(
           shape: BracketShape.l,
@@ -169,7 +169,7 @@ void main() {
           b: 500,
         ),
       );
-      expect(flat.problems.join(), contains('구멍을 낼 수 없는 방향'));
+      expect(flat.problems.join(), contains('홀을 낼 수 없는 방향'));
       // 전산볼트 표기는 M 지름만(카톡 "전산볼트 전산볼트 M12" 겹침, 점검 45)
       expect(_p(ch, '전산볼트').ks, 'M12');
     });
