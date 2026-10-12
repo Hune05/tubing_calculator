@@ -958,7 +958,6 @@ class _GroundBarPageState extends State<GroundBarPage>
         }),
     ]),
     if (_lug != 0) ...[
-      const SizedBox(height: 10),
       _row([
         _f(
           'gb_lugdia',
@@ -994,7 +993,6 @@ class _GroundBarPageState extends State<GroundBarPage>
           ),
         _f('gb_lugpad', '러그 패드 두께', _lugPad),
       ]),
-      const SizedBox(height: 10),
       PlateSegments([
         PlateOption(
           'gb_pack_on',
@@ -1143,7 +1141,6 @@ class _GroundBarPageState extends State<GroundBarPage>
           hint: '기본과 같으면 기본으로',
         ),
       ]),
-      const SizedBox(height: 10),
       plateActions([
         PlateActionButton(
           key: const Key('gb_ov_apply'),
@@ -1440,14 +1437,12 @@ class _GroundBarPageState extends State<GroundBarPage>
             if (lShape) PlateOption('gb_tab_lnow', _shapeName, true, () {}),
           ]),
           if (_tabs == 4) ...[
-            const SizedBox(height: 10),
             plateRow([
               _f('gb_hath', '모자 높이', _hatH),
               _f('gb_hatf', '발 길이', _hatF),
             ]),
           ],
           if (lShape) ...[
-            const SizedBox(height: 10),
             _row([
               if (_tabs & 1 != 0) _f('gb_tabl', '왼쪽 탭 길이', _tabL),
               if (_tabs & 2 != 0) _f('gb_tabr', '오른쪽 탭 길이', _tabR),
@@ -1502,7 +1497,6 @@ class _GroundBarPageState extends State<GroundBarPage>
         _note(
           '중립선 계수 k: 꺾을 때 길이가 변하지 않는 선 위치입니다. 구리 부스바 범위 0.33~0.5. 자투리를 꺾어 맞춥니다.',
         ),
-        const SizedBox(height: 10),
         plateActions([
           PlateActionButton(
             key: const Key('gb_profile'),
@@ -1570,7 +1564,6 @@ class _GroundBarPageState extends State<GroundBarPage>
               ),
             ),
           ]),
-          const SizedBox(height: 10),
           PlateSegments([
             PlateOption(
               'gb_by_count',
@@ -1585,7 +1578,6 @@ class _GroundBarPageState extends State<GroundBarPage>
               () => _set(() => _byLength = true),
             ),
           ]),
-          const SizedBox(height: 10),
           plateRow([
             _byLength
                 ? _f('gb_len', '막대 길이', _length)
@@ -1604,7 +1596,6 @@ class _GroundBarPageState extends State<GroundBarPage>
               ),
           ]),
           if (_mCount > 0) ...[
-            const SizedBox(height: 10),
             _row([
               _f(
                 'gb_mdia',
@@ -1615,7 +1606,6 @@ class _GroundBarPageState extends State<GroundBarPage>
               if (_mCount > 1) _f('gb_mpitch', '$_tabName 구멍 피치', _mPitch),
             ]),
             if (_tabs == 0) ...[
-              const SizedBox(height: 10),
               plateRow([
                 _f('gb_mend', '끝 → 취부 구멍', _mountEnd),
                 _f('gb_mgap', '취부 → 첫 접지 구멍', _mountGap),
@@ -1652,7 +1642,6 @@ class _GroundBarPageState extends State<GroundBarPage>
           ),
       ]),
       if (_twoRows) ...[
-        const SizedBox(height: 10),
         _row([
           _f('gb_gap', '줄 간격', _gap),
           if (_rowMode == 2) _f('gb_shift', 'B줄 엇갈림', _shift, hint: '비우면 반 피치'),
@@ -1675,7 +1664,6 @@ class _GroundBarPageState extends State<GroundBarPage>
             ),
         ]),
         if (_tabRowMode != 0) ...[
-          const SizedBox(height: 10),
           _row([_f('gb_tabgap', '$_tabName 구멍 줄 간격', _tabGap)]),
         ],
       ]),
@@ -1700,7 +1688,6 @@ class _GroundBarPageState extends State<GroundBarPage>
         '구멍 지름 ▼ 목록: ${_dieChips.map((d) => fmt(d)).join(' · ')}${_dies.isEmpty ? ' (기본)' : ''}',
         style: TextStyle(fontSize: 14, color: fc.text, height: 1.4),
       ),
-      const SizedBox(height: 8),
       plateActions([
         PlateActionButton(
           key: const Key('gb_dies_more'),
@@ -1732,7 +1719,6 @@ class _GroundBarPageState extends State<GroundBarPage>
             ),
           ),
           if (p != null) ...[
-            const SizedBox(height: 8),
             PlateLines([
               ...p.problems,
               ...p.notes,

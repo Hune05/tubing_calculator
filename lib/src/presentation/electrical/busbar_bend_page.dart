@@ -612,6 +612,9 @@ class _BusbarBendPageState extends State<BusbarBendPage>
 
   String? _canvasHint(BusbarBendPlan? p) => p == null
       ? null
+      // 직선 구간이 0보다 짧으면 그림이 겹쳐 보인다: 그림 아래에도 알린다(10-12, 세워 꺾기는 반경이 커서 자주 난다)
+      : (_z == null || _z!.feasible) && _busbarTooShort(p)
+      ? '다리·바닥이 짧아 이 반경으로는 못 꺾습니다(그림이 겹침). 치수를 늘리거나 반경을 줄이십시오.'
       : _view == 'mark'
       ? '곧은 부스바 한쪽 끝 기준 꺾기 시작선·끝선'
       : _plane == BusbarBendPlane.edge
@@ -705,7 +708,6 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           () => _set(() => _nBends = n),
         ),
     ]),
-    const SizedBox(height: 10),
     plateRow([_f('bb_fs_0', '시작 직선', _fs[0]), const SizedBox.shrink()]),
     for (var i = 0; i < _nBends; i++) ...[
       const SizedBox(height: 12),
@@ -750,7 +752,6 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           'bb_fa_${i}_bad',
           '0°보다 크고 180°보다 작은 각도를 넣으십시오. 지금 계산은 ${fmt(_ft[i].abs())}°입니다.',
         ),
-      const SizedBox(height: 8),
       PlateSegments([
         PlateOption(
           'bb_fd_${i}_up',
@@ -803,7 +804,6 @@ class _BusbarBendPageState extends State<BusbarBendPage>
                 () => _set(() => _kind = k),
               ),
           ]),
-          const SizedBox(height: 8),
           PlateSegments([
             for (final pl in BusbarBendPlane.values)
               PlateOption(
@@ -825,7 +825,6 @@ class _BusbarBendPageState extends State<BusbarBendPage>
                   () => _set(() => _ref = r),
                 ),
             ]),
-            const SizedBox(height: 10),
           ],
           if (isFree)
             ..._freeFields()
@@ -853,7 +852,6 @@ class _BusbarBendPageState extends State<BusbarBendPage>
                 const SizedBox.shrink(),
               ]),
               if (!_angleOk) _bad('bb_ang_bad', '0°보다 크고 180°보다 작은 각도를 넣으십시오.'),
-              const SizedBox(height: 10),
             ],
             PlateFieldGrid([
               _f('bb_ia', isZ ? '시작 직선' : '다리 1', _a),
@@ -912,7 +910,6 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           _f('bb_r', '안쪽 반경', _radius, hint: '비우면 ${fmt(_d)}'),
           const SizedBox.shrink(),
         ]),
-        const SizedBox(height: 10),
         Text(
           '중립선 계수 k',
           style: TextStyle(
@@ -933,7 +930,6 @@ class _BusbarBendPageState extends State<BusbarBendPage>
           if (!kBusbarK.contains(_k))
             PlateOption('bb_kf_custom', fmt(_k, 3), true, () {}),
         ]),
-        const SizedBox(height: 10),
         plateActions([
           PlateActionButton(
             key: const Key('bb_profile'),
@@ -1120,7 +1116,10 @@ class _BusbarBendPageState extends State<BusbarBendPage>
   Widget build(BuildContext context) {
     final p = _plan();
     final z = _z;
-    final warn = _radiusWarn != null || (z != null && !z.feasible);
+    final warn =
+        _radiusWarn != null ||
+        (z != null && !z.feasible) ||
+        (p != null && (z == null || z.feasible) && _busbarTooShort(p));
     final summary = p == null
         ? null
         : '${busbarBendKindLabel(_kind)} ${fmt(_t)}×${fmt(_w)} · 절단 길이 ${fmt(p.cutLength, 1)}mm';

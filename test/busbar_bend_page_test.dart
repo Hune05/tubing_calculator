@@ -217,4 +217,22 @@ void main() {
     expect(find.textContaining('넓은 면을 위에서 본 실제 비율'), findsOneWidget);
     expect(find.byKey(const Key('bb_shape_view')), findsOneWidget);
   });
+
+  testWidgets('세워 꺾기 U: 바닥이 반경보다 짧으면 그림 아래·제목 줄에도 알린다(10-12)', (tester) async {
+    await _open(tester);
+    await _tab(tester, 'bar');
+    await _type(tester, 'bb_t', '6');
+    await _type(tester, 'bb_w', '30');
+    await _tab(tester, 'shape');
+    await _tap(tester, 'bb_k_u');
+    await _tap(tester, 'bb_p_edge');
+    // 반경 30(폭 1배) + 폭 30 = 60씩: 바닥 바깥 100으로는 직선이 −20
+    expect(find.textContaining('그림이 겹침'), findsOneWidget);
+    Color? headColor() =>
+        tester.widget<Text>(find.byKey(const Key('bb_head'))).style!.color;
+    final bad = headColor(); // 제목 줄도 경고 색
+    await _type(tester, 'bb_ib', '200');
+    expect(find.textContaining('그림이 겹침'), findsNothing);
+    expect(headColor(), isNot(bad));
+  });
 }

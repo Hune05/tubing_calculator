@@ -536,7 +536,6 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
       child: PlateBigValue(value: big, caption: caption, warn: warn),
     ),
     if (lines.isNotEmpty) ...[
-      const SizedBox(height: 8),
       PlateLines(lines, color: warn ? fc.danger : null),
     ],
   ];
@@ -995,7 +994,6 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                   _f('tr_face', '시작점 → 가지 중심', _toFace),
                   _f('tr_reach', '가지 끝까지', _reach),
                 ]),
-                const SizedBox(height: 10),
                 _row([_f('tr_tail', '티 뒤 본선 직선', _tail)]),
               ], first: true),
             ]
@@ -1014,7 +1012,6 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                     _f('tr_side', '여유', _side),
                 ]),
                 if (over) ...[
-                  const SizedBox(height: 10),
                   plateRow([
                     _f('tr_len', '장애물 길이', _length),
                     _f('tr_side', '앞뒤 여유', _side),
@@ -1080,7 +1077,6 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                 _okLen(readNum(_elbowRC)),
                 '0보다 큰 R을 넣으십시오. 지금 계산은 R${fmt(_elbowR)}입니다.',
               ),
-              const SizedBox(height: 10),
               _row([_minRField('티 R')]),
             ], first: true),
             _stockSection(),
@@ -1120,7 +1116,6 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                   _okLen(readNum(_elbowRC)),
                   '0보다 큰 R을 넣으십시오. 지금 계산은 R${fmt(_elbowR)}입니다.',
                 ),
-                const SizedBox(height: 10),
                 _row([_minRField('엘보 R')]),
               ])
             else
@@ -1135,7 +1130,6 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
                     ),
                 ]),
                 if (_pieces > 1) ...[
-                  const SizedBox(height: 10),
                   plateRow([
                     _f('tr_pitch', '마디 간격', _pitch),
                     _minRField('나눠 꺾은 반경'),
