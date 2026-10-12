@@ -16,8 +16,15 @@ Future<void> _open(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+/// 10-12 탭으로 나눠 지금 탭에 없는 칸은 탭을 차례로 바꿔 찾는다.
 Future<void> _type(WidgetTester tester, String key, String text) async {
-  await tester.enterText(find.byKey(Key(key)), text);
+  final f = find.byKey(Key(key));
+  for (final n in const ['shape', 'holes', 'result', 'send']) {
+    if (f.evaluate().isNotEmpty) break;
+    await tester.tap(find.byKey(Key('gb_nav_$n')));
+    await tester.pumpAndSettle();
+  }
+  await tester.enterText(f, text);
   await tester.pumpAndSettle();
 }
 
@@ -189,11 +196,26 @@ void main() {
 
   testWidgets('지시서 만들기가 실패하면 알리고, 다시 누를 수 있다(8차)', (tester) async {
     late BuildContext ctx;
-    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (c) {
-      ctx = c;
-      return const SizedBox();
-    }))));
-    final p = groundBar(t: 6, w: 50, holeDia: 11.1, pitch: 25.4, endDist: 25, count: 3);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (c) {
+              ctx = c;
+              return const SizedBox();
+            },
+          ),
+        ),
+      ),
+    );
+    final p = groundBar(
+      t: 6,
+      w: 50,
+      holeDia: 11.1,
+      pitch: 25.4,
+      endDist: 25,
+      count: 3,
+    );
     final input = GroundPdfInput(
       title: '시험',
       plan: p,
