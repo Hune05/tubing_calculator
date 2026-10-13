@@ -303,13 +303,18 @@ void main() {
 
     test('위젯 값: 퇴근한 날 근무 시간은 앱처럼 기본 휴게를 뺀다(10-07)', () {
       final now = DateTime(2026, 10, 14, 18);
-      final w = jsonDecode(
-        encodeClockWidgetPayload(
-          clockStatus(now: now, today: _rec(day, inT: '08:00', outT: '17:00')),
-          now,
-          options: const AttendanceCalcOptions(),
-        ),
-      ) as Map<String, dynamic>;
+      final w =
+          jsonDecode(
+                encodeClockWidgetPayload(
+                  clockStatus(
+                    now: now,
+                    today: _rec(day, inT: '08:00', outT: '17:00'),
+                  ),
+                  now,
+                  options: const AttendanceCalcOptions(),
+                ),
+              )
+              as Map<String, dynamic>;
       expect(w['big'], '8:00');
     });
 
@@ -558,7 +563,7 @@ void widgetPayloadTests() {
         jsonDecode(encodeClockWidgetPayload(st, now, records: recs))
             as Map<String, dynamic>;
 
-    test('출근 전: 큰 글 00:00, 아랫줄은 지난 퇴근', () {
+    test('출근 전: 큰 글 "출근 전", 오른쪽(last)은 지난 퇴근(10-13 날씨 위젯 모양)', () {
       final recs = {
         '2026-10-13': AttendanceRecord(
           date: DateTime(2026, 10, 13),
@@ -568,12 +573,13 @@ void widgetPayloadTests() {
       };
       final j = enc(clockStatus(now: now), recs: recs);
       expect(j['phase'], 'ready');
-      expect(j['big'], '00:00');
-      expect(j['sub'], '어제 17:30 퇴근');
+      expect(j['big'], '출근 전');
+      expect(j['sub'], '오늘 출근 전');
+      expect(j['last'], '어제 17:30 퇴근');
     });
 
-    test('지난 퇴근이 없으면 "오늘 출근 전", 며칠 전이면 날짜로', () {
-      expect(enc(clockStatus(now: now))['sub'], '오늘 출근 전');
+    test('지난 퇴근이 없으면 last 없음, 며칠 전이면 날짜로', () {
+      expect(enc(clockStatus(now: now)).containsKey('last'), isFalse);
       final recs = {
         '2026-10-10': AttendanceRecord(
           date: DateTime(2026, 10, 10),
@@ -581,7 +587,49 @@ void widgetPayloadTests() {
           checkOut: '17:10',
         ),
       };
-      expect(enc(clockStatus(now: now), recs: recs)['sub'], '10월 10일 17:10 퇴근');
+      expect(
+        enc(clockStatus(now: now), recs: recs)['last'],
+        '10월 10일 17:10 퇴근',
+      );
+    });
+
+    test('설정(기본 휴게·소정 출근·퇴근)을 opts로 넘기고, 출근 전 아랫줄은 소정 출근', () {
+      final j =
+          jsonDecode(
+                encodeClockWidgetPayload(
+                  clockStatus(now: now),
+                  now,
+                  options: const AttendanceCalcOptions(
+                    workStart: '08:00',
+                    workEnd: '17:00',
+                  ),
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(j['sub'], '소정 08:00 출근');
+      expect(j['opts'], {'defBrk': -1, 'start': '08:00', 'end': '17:00'});
+    });
+
+    test('퇴근 뒤: 실제로 뺀 휴게(brkUsed) — 비워 둔 날은 기본(법정) 휴게', () {
+      final j =
+          jsonDecode(
+                encodeClockWidgetPayload(
+                  clockStatus(
+                    now: now,
+                    today: AttendanceRecord(
+                      date: day,
+                      checkIn: '08:06',
+                      checkOut: '17:49',
+                    ),
+                  ),
+                  now,
+                  options: const AttendanceCalcOptions(),
+                ),
+              )
+              as Map<String, dynamic>;
+      expect(j['big'], '8:43');
+      expect(j['brkUsed'], 60);
+      expect(j.containsKey('brk'), isFalse);
     });
 
     test('근무 중: 큰 글은 비우고(위젯이 흐르는 시간을 그림), 휴게·메모를 넘긴다', () {

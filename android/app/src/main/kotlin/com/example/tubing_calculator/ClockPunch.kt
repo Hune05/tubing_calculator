@@ -10,10 +10,7 @@ import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import com.google.firebase.firestore.Source
-import org.json.JSONObject
 import java.util.Calendar
-import java.util.Locale
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -56,54 +53,16 @@ class ClockPunchReceiver : BroadcastReceiver() {
 }
 
 object ClockPunch {
-    private const val COLLECTION = "attendance_records"
-    private val OFF_TYPES = setOf("연차", "월차", "결근")
+    // 기록 읽기·상태 규칙은 ClockState·ClockSync(ClockState.kt)와 같이 쓴다(10-13: 위젯 퇴근 근무 시간이
+    // 기본 휴게를 안 빼 앱과 달랐다 — 이제 찍은 뒤 상태를 앱과 같은 규칙으로 다시 만든다).
     private const val OVERNIGHT_START_MIN = 15 * 60
     private const val OVERNIGHT_MAX_MIN = 12 * 60 // 앱 attendance_clock.dart kMaxOvernightMinutes와 같게
 
-    private class Rec(val type: String, val checkIn: String?, val checkOut: String?, val breakMin: Int? = null, val memo: String? = null)
-
-    private fun dateKey(c: Calendar) = String.format(
-        Locale.US, "%04d-%02d-%02d", c.get(Calendar.YEAR), c.get(Calendar.MONTH) + 1, c.get(Calendar.DAY_OF_MONTH)
-    )
-
-    private fun hhmm(c: Calendar) = String.format(
-        Locale.US, "%02d:%02d", c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE)
-    )
-
-    /** "HH:mm" → 그 날 0시부터 분. 모양이 틀리면 null. */
-    private fun minutesOf(v: String?): Int? {
-        if (v == null) return null
-        val p = v.split(":")
-        if (p.size != 2) return null
-        val h = p[0].toIntOrNull() ?: return null
-        val m = p[1].toIntOrNull() ?: return null
-        if (h !in 0..23 || m !in 0..59) return null
-        return h * 60 + m
-    }
-
-    /** 출근~퇴근 사이 분(자정 넘김 처리). 같은 시각이면 null. */
-    private fun stayMinutes(inT: String?, outT: String?): Int? {
-        val a = minutesOf(inT) ?: return null
-        val b = minutesOf(outT) ?: return null
-        var d = b - a
-        if (d == 0) return null
-        if (d < 0) d += 24 * 60
-        return d
-    }
-
-    private fun minutesText(m: Int): String {
-        val h = m / 60
-        val r = m % 60
-        return if (r == 0) "${h}시간" else if (h == 0) "${r}분" else "${h}시간 ${r}분"
-    }
-
-    private fun isOpen(r: Rec?): Boolean =
-        r != null && r.type !in OFF_TYPES && minutesOf(r.checkIn) != null && r.checkOut == null
+    private fun minutesOf(v: String?) = ClockState.minutesOf(v)
 
     /** 밤샘 근무 중인가: 오늘 출근 전이고, 어제 15시 이후 출근해 퇴근을 안 찍었으며 12시간이 안 지났다. */
-    private fun isOvernight(y: Rec?, t: Rec?, yest: Calendar, now: Calendar): Boolean {
-        if (!isOpen(y) || minutesOf(t?.checkIn) != null) return false
+    private fun isOvernight(y: ClockState.Rec?, t: ClockState.Rec?, yest: Calendar, now: Calendar): Boolean {
+        if (!ClockState.isOpen(y) || minutesOf(t?.checkIn) != null) return false
         val m = minutesOf(y!!.checkIn)!!
         val start = (yest.clone() as Calendar).apply {
             set(Calendar.HOUR_OF_DAY, m / 60)
@@ -115,35 +74,9 @@ object ClockPunch {
         return m >= OVERNIGHT_START_MIN && elapsed in 0..OVERNIGHT_MAX_MIN.toLong()
     }
 
-    /** 어제 이후 두 날의 기록을 읽는다(서버 → 안 되면 폰 사본). 둘 다 안 되면 null. */
-    private fun load(uid: String, from: String, to: String): Map<String, Rec>? {
-        val q = FirebaseFirestore.getInstance().collection(COLLECTION)
-            .whereEqualTo("uid", uid)
-            .whereGreaterThanOrEqualTo("date", from)
-            .whereLessThanOrEqualTo("date", to)
-        val snap = try {
-            Tasks.await(q.get(Source.SERVER), 5, TimeUnit.SECONDS)
-        } catch (e: Exception) {
-            try {
-                Tasks.await(q.get(Source.CACHE), 3, TimeUnit.SECONDS)
-            } catch (e2: Exception) {
-                return null
-            }
-        }
-        val out = HashMap<String, Rec>()
-        for (d in snap.documents) {
-            val date = d.getString("date") ?: continue
-            out[date] = Rec(
-                d.getString("type") ?: "정상근무", d.getString("checkIn"), d.getString("checkOut"),
-                d.getLong("breakMin")?.toInt(), d.getString("memo")?.takeIf { it.isNotBlank() }
-            )
-        }
-        return out
-    }
-
     /** 칸을 합쳐 쓴다. 서버가 거절하면 예외, 통신이 없어 늦으면 폰에 먼저 적힌 것으로 본다. */
     private fun write(uid: String, key: String, data: Map<String, Any?>): String? {
-        val ref = FirebaseFirestore.getInstance().collection(COLLECTION).document("${uid}__$key")
+        val ref = FirebaseFirestore.getInstance().collection(ClockState.COLLECTION).document("${uid}__$key")
         val task = ref.set(data, SetOptions.merge())
         return try {
             Tasks.await(task, 3, TimeUnit.SECONDS)
@@ -155,24 +88,9 @@ object ClockPunch {
         }
     }
 
-    private fun hmm(min: Int) = String.format(Locale.US, "%d:%02d", min / 60, min % 60)
-
-    /** 위젯이 그릴 상태를 저장한다. big은 근무 중이 아닐 때 큰 글(00:00, 근무 시간), sub는 아랫줄. */
-    private fun saveClock(
-        c: Context, todayKey: String, phase: String, text: String, sinceMs: Long,
-        big: String, sub: String, brk: Int?, memo: String?
-    ) {
-        val o = JSONObject()
-            .put("date", todayKey)
-            .put("phase", phase)
-            .put("text", text)
-            .put("since", sinceMs)
-            .put("big", big)
-            .put("sub", sub)
-        if (brk != null) o.put("brk", brk)
-        if (!memo.isNullOrBlank()) o.put("memo", memo)
-        FieldWidgetStore.save(c, null, null, o.toString())
-        FieldWidgetStore.refreshAll(c)
+    /** 찍은 뒤의 기록으로 위젯 상태를 다시 만들어 그린다(앱과 같은 규칙). */
+    private fun redraw(c: Context, recs: Map<String, ClockState.Rec>, now: Calendar) {
+        ClockSync.save(c, ClockState.build(recs, now, ClockState.opts(c)))
     }
 
     fun run(c: Context, kind: String): String {
@@ -181,29 +99,24 @@ object ClockPunch {
         val uid = user.uid
         val now = Calendar.getInstance()
         val yest = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, -1) }
-        val todayKey = dateKey(now)
-        val yestKey = dateKey(yest)
-        val recs = load(uid, yestKey, todayKey)
+        val todayKey = ClockState.dateKey(now)
+        val yestKey = ClockState.dateKey(yest)
+        val recs = ClockSync.load(uid, now)
             ?: return "기록을 읽지 못해 찍지 않았습니다. 앱에서 확인하세요."
         val y = recs[yestKey]
         val t = recs[todayKey]
 
         val overnight = isOvernight(y, t, yest, now)
 
-        val nowText = hhmm(now)
+        val nowText = ClockState.hhmm(now)
         if (kind == "in") {
             if (overnight) return "이미 어제 ${y!!.checkIn}에 출근해 근무 중입니다."
-            if (t != null && t.type in OFF_TYPES) return "오늘은 ${t.type}이라 출근을 찍지 않았습니다."
+            if (t != null && t.type in ClockState.OFF_TYPES) return "오늘은 ${t.type}이라 출근을 찍지 않았습니다."
             if (t != null && minutesOf(t.checkIn) != null) return "이미 ${t.checkIn}에 출근을 찍었습니다."
-            val note = write(
-                uid, todayKey,
-                mapOf("date" to todayKey, "uid" to uid, "type" to (t?.type ?: "정상근무"), "checkIn" to nowText)
-            )
-            val since = (now.clone() as Calendar).apply {
-                set(Calendar.SECOND, 0)
-                set(Calendar.MILLISECOND, 0)
-            }.timeInMillis
-            saveClock(c, todayKey, "working", "$nowText 출근 · 근무 중", since, "", "$nowText 출근", t?.breakMin, t?.memo)
+            val type = t?.type ?: "정상근무"
+            val note = write(uid, todayKey, mapOf("date" to todayKey, "uid" to uid, "type" to type, "checkIn" to nowText))
+            recs[todayKey] = ClockState.Rec(type, nowText, t?.checkOut, t?.breakMin, t?.memo)
+            redraw(c, recs, now)
             // 앱이 꺼져 있어도 퇴근 깜빡 알림이 잡히게 한다(설정에서 켜 둔 경우만).
             ClockReminder.scheduleFromSettings(c)
             return note ?: "출근 $nowText 저장했습니다."
@@ -211,11 +124,11 @@ object ClockPunch {
 
         // 퇴근
         val targetKey: String
-        val target: Rec
+        val target: ClockState.Rec
         if (overnight) {
             targetKey = yestKey
             target = y!!
-        } else if (isOpen(t)) {
+        } else if (ClockState.isOpen(t)) {
             targetKey = todayKey
             target = t!!
         } else {
@@ -225,21 +138,16 @@ object ClockPunch {
                 "출근 기록이 없어 퇴근을 찍지 못했습니다. 앱에서 출근 시각을 먼저 적어 주세요."
             }
         }
-        val stay = stayMinutes(target.checkIn, nowText)
+        val stay = ClockState.stayMinutes(target.checkIn, nowText)
             ?: return "방금 출근하셨습니다. 1분 뒤에 퇴근을 눌러 주세요."
         val note = write(uid, targetKey, mapOf("date" to targetKey, "uid" to uid, "checkOut" to nowText))
         ClockReminder.cancel(c)
-        if (targetKey == yestKey) {
-            // 밤샘 퇴근: 오늘 기록은 아직 없으니 출근 전으로 돌아간다.
-            saveClock(c, todayKey, "ready", "오늘 출근 전", 0L, "00:00", "$nowText 퇴근", null, null)
-        } else {
-            saveClock(
-                c, todayKey, "done", "${target.checkIn} ~ $nowText", 0L,
-                hmm((stay - (target.breakMin ?: 0)).coerceAtLeast(0)), "${target.checkIn} ~ $nowText",
-                target.breakMin, target.memo
-            )
-        }
-        return note ?: "퇴근 $nowText 저장했습니다 · 출근~퇴근 ${minutesText(stay)}"
+        val done = ClockState.Rec(target.type, target.checkIn, nowText, target.breakMin, target.memo)
+        recs[targetKey] = done
+        redraw(c, recs, now)
+        // 근무 시간은 앱처럼 휴게(비워 두면 기본 휴게)를 뺀 것
+        val work = stay - ClockState.breakFor(done, stay, ClockState.opts(c))
+        return note ?: "퇴근 $nowText 저장했습니다 · 근무 ${ClockState.minutesText(work)}"
     }
 
     /**
@@ -252,9 +160,9 @@ object ClockPunch {
         val uid = user.uid
         val now = Calendar.getInstance()
         val yest = (now.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, -1) }
-        val todayKey = dateKey(now)
-        val yestKey = dateKey(yest)
-        val recs = load(uid, yestKey, todayKey)
+        val todayKey = ClockState.dateKey(now)
+        val yestKey = ClockState.dateKey(yest)
+        val recs = ClockSync.load(uid, now)
             ?: return "기록을 읽지 못해 저장하지 않았습니다. 앱에서 확인하세요."
         val y = recs[yestKey]
         val t = recs[todayKey]
@@ -272,17 +180,11 @@ object ClockPunch {
         val note = write(uid, targetKey, data)
 
         // 위젯 상태에도 바로 반영
-        val old = FieldWidgetStore.clock(c)
-        val phase = old?.optString("phase").orEmpty()
-        if (old != null && phase.isNotEmpty()) {
-            val newBrk = if (brk != null) brk else (if (old.has("brk")) old.optInt("brk") else null)
-            val newMemo = if (memo != null) memo else old.optString("memo")
-            val sub = old.optString("sub")
-            val big = old.optString("big")
-            saveClock(
-                c, todayKey, phase, old.optString("text"), old.optLong("since", 0L), big, sub, newBrk, newMemo
-            )
-        }
-        return note ?: if (memo != null) "메모를 저장했습니다." else "휴게시간을 ${if (brk == 0) "없음" else minutesText(brk ?: 0)}으로 저장했습니다."
+        recs[targetKey] = ClockState.Rec(
+            target.type, target.checkIn, target.checkOut, brk ?: target.breakMin,
+            if (memo != null) memo.takeIf { it.isNotBlank() } else target.memo
+        )
+        redraw(c, recs, now)
+        return note ?: if (memo != null) "메모를 저장했습니다." else "휴게시간을 ${if (brk == 0) "없음" else ClockState.minutesText(brk ?: 0)}으로 저장했습니다."
     }
 }

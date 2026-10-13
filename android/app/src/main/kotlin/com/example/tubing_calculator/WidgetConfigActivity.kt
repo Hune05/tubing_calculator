@@ -63,6 +63,14 @@ object WidgetCfg {
         alpha >= 60 -> R.drawable.widget_bg_60
         else -> R.drawable.widget_bg_40
     }
+
+    /** 흰 글자 위젯(출퇴근, 10-13 날씨 위젯 모양)의 어두운 반투명 카드. */
+    fun glassRes(alpha: Int): Int = when {
+        alpha >= 100 -> R.drawable.widget_glass_bg
+        alpha >= 80 -> R.drawable.widget_glass_bg_80
+        alpha >= 60 -> R.drawable.widget_glass_bg_60
+        else -> R.drawable.widget_glass_bg_40
+    }
 }
 
 class WidgetConfigActivity : Activity() {

@@ -1,149 +1,114 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 고르기 화면의 미리보기(근무 중 예시). 실제 모양은 widget_clock_compact.xml. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_clock_root"
+    android:background="@drawable/widget_glass_bg"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg"
-    android:gravity="top"
-    android:orientation="vertical"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
     android:paddingStart="14dp"
-    android:paddingTop="10dp"
-    android:paddingEnd="14dp"
-    android:paddingBottom="10dp">
+    android:paddingTop="6dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="6dp">
+
+    <FrameLayout
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:background="@drawable/widget_circle_green">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_play" />
+    </FrameLayout>
 
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_marginStart="12dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
 
         <FrameLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1">
+            android:layout_width="match_parent"
+            android:layout_height="40dp">
 
             <TextView
-                android:id="@+id/clock_big"
-        android:visibility="gone"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:autoSizeMaxTextSize="34sp"
+                android:autoSizeMinTextSize="14sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
+                android:gravity="center_vertical|start"
                 android:maxLines="1"
-                android:textColor="@color/widget_text"
-                android:textSize="32sp"
-                android:textStyle="bold" />
+                android:shadowColor="#99000000"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:textColor="#FFFFFFFF"
+                android:textStyle="bold"
+                android:text="2:15:08" />
 
-            <TextView
-                android:id="@+id/clock_timer"
-        android:text="05:34"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/widget_text"
-                android:textSize="32sp"
-                android:textStyle="bold" />
-        </FrameLayout>
-
-        <ImageView
-            android:id="@+id/clock_btn_in"
-        android:visibility="gone"
-            android:layout_width="46dp"
-            android:layout_height="46dp"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/widget_circle_green"
-            android:contentDescription="@string/widget_clock_in"
-            android:padding="11dp"
-            android:src="@drawable/ic_widget_play" />
-
-        <ImageView
-            android:id="@+id/clock_btn_out"
-            android:layout_width="46dp"
-            android:layout_height="46dp"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/widget_circle_red"
-            android:contentDescription="@string/widget_clock_out"
-            android:padding="11dp"
-            android:src="@drawable/ic_widget_stop" />
-
-        <ImageView
-            android:id="@+id/clock_btn_break"
-            android:layout_width="46dp"
-            android:layout_height="46dp"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/widget_circle_orange"
-            android:contentDescription="@string/widget_clock_break"
-            android:padding="11dp"
-            android:src="@drawable/ic_widget_cup" />
-
-        <ImageView
-            android:id="@+id/clock_btn_memo"
-            android:layout_width="46dp"
-            android:layout_height="46dp"
-            android:layout_marginStart="8dp"
-            android:background="@drawable/widget_circle_green"
-            android:contentDescription="@string/widget_clock_memo"
-            android:padding="11dp"
-            android:src="@drawable/ic_widget_note" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+                    </FrameLayout>
 
         <TextView
-            android:id="@+id/clock_sub"
-        android:text="09:36 출근"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/widget_sub"
-            android:textSize="12sp" />
-
-        <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:contentDescription="@null"
-            android:src="@mipmap/ic_launcher" />
+            android:shadowColor="#99000000"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            android:textColor="#E6FFFFFF"
+            android:textSize="13sp"
+            android:text="08:06 출근" />
     </LinearLayout>
 
     <LinearLayout
-        android:id="@+id/clock_chips"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:layout_marginStart="8dp"
+        android:gravity="end"
+        android:orientation="vertical">
 
         <TextView
-            android:id="@+id/clock_chip_break"
-        android:text="휴게 10:00 ~ 10:15"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/widget_chip_bg"
-            android:ellipsize="end"
             android:maxLines="1"
-            android:paddingStart="9dp"
-            android:paddingTop="3dp"
-            android:paddingEnd="9dp"
-            android:paddingBottom="3dp"
-            android:textColor="@color/widget_brand"
-            android:textSize="11sp"
-            android:textStyle="bold" />
-    </LinearLayout>
+            android:shadowColor="#99000000"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            android:textColor="#FFFFFFFF"
+            android:textSize="12sp"
+            android:text="퇴근까지 3:14:22" />
 
-    <TextView
-        android:id="@+id/clock_memo"
-        android:text="현장 작업 · 함안 2공장 외근"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:ellipsize="end"
-        android:lineSpacingExtra="1dp"
-        android:maxLines="2"
-        android:textColor="@color/widget_text"
-        android:textSize="13sp" />
+        
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/widget_pill_red"
+            android:gravity="center"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textColor="#FFFFFFFF"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:text="■ 퇴근" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:maxLines="1"
+            android:shadowColor="#99000000"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            android:textColor="#CCFFFFFF"
+            android:textSize="12sp"
+            android:visibility="gone" />
+    </LinearLayout>
 </LinearLayout>

@@ -6,7 +6,7 @@
     <string name="widget_summary_label">오늘 요약</string>
     <string name="widget_summary_desc">오늘 일정·일지·자재·근태를 한눈에 봅니다. 크기를 줄이면 숫자만 한 줄로 보입니다</string>
     <string name="widget_clock_label">출퇴근</string>
-    <string name="widget_clock_desc">출근·퇴근을 앱을 열지 않고 한 번 눌러 찍습니다. 크기를 줄이면 한 줄이 됩니다</string>
+    <string name="widget_clock_desc">출근·퇴근을 앱을 열지 않고 한 번 눌러 찍습니다. 근무 중에는 흐른 시간과 퇴근까지 남은 시간이 실시간으로 바뀝니다</string>
     <string name="widget_clock_in">출근</string>
     <string name="widget_clock_out">퇴근</string>
     <string name="widget_clock_done">오늘 근무를 마쳤습니다</string>

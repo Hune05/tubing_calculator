@@ -1,18 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 출퇴근 위젯 작은 모양(한 줄, 10-13 날씨 위젯처럼): 상태 아이콘 · 큰 숫자와 아랫줄 · 동그란 단추 하나(출근·퇴근). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_clock_s_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/widget_bg_small"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:padding="8dp">
+    android:paddingStart="10dp"
+    android:paddingTop="4dp"
+    android:paddingEnd="8dp"
+    android:paddingBottom="4dp">
 
-    <ImageView
-        android:layout_width="22dp"
-        android:layout_height="22dp"
-        android:contentDescription="@null"
-        android:src="@mipmap/ic_launcher" />
+    <FrameLayout
+        android:id="@+id/clock_icon_bg"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:background="@drawable/widget_circle_grey">
+
+        <ImageView
+            android:id="@+id/clock_icon"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_gravity="center"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_clock" />
+    </FrameLayout>
 
     <LinearLayout
         android:layout_width="0dp"
@@ -21,52 +33,64 @@
         android:layout_weight="1"
         android:orientation="vertical">
 
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="26dp">
+
+            <TextView
+                android:id="@+id/clock_big"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:autoSizeMaxTextSize="22sp"
+                android:autoSizeMinTextSize="12sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
+                android:gravity="center_vertical|start"
+                android:maxLines="1"
+                android:shadowColor="#99000000"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:textColor="#FFFFFFFF"
+                android:textStyle="bold" />
+
+            <Chronometer
+                android:id="@+id/clock_timer"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:autoSizeMaxTextSize="22sp"
+                android:autoSizeMinTextSize="12sp"
+                android:autoSizeStepGranularity="1sp"
+                android:autoSizeTextType="uniform"
+                android:gravity="center_vertical|start"
+                android:maxLines="1"
+                android:shadowColor="#99000000"
+                android:shadowDy="1"
+                android:shadowRadius="4"
+                android:textColor="#FFFFFFFF"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
+
         <TextView
-            android:id="@+id/clock_s_text"
+            android:id="@+id/clock_sub"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/widget_text"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <Chronometer
-            android:id="@+id/clock_s_timer"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="@color/widget_text"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/clock_s_sub"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textColor="@color/widget_sub"
+            android:shadowColor="#99000000"
+            android:shadowDy="1"
+            android:shadowRadius="3"
+            android:textColor="#E6FFFFFF"
             android:textSize="11sp" />
     </LinearLayout>
 
     <ImageView
-        android:id="@+id/clock_s_btn_in"
-        android:layout_width="38dp"
-        android:layout_height="38dp"
+        android:id="@+id/clock_btn_icon"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:layout_marginStart="6dp"
         android:background="@drawable/widget_circle_green"
         android:contentDescription="@string/widget_clock_in"
         android:padding="9dp"
         android:src="@drawable/ic_widget_play" />
-
-    <ImageView
-        android:id="@+id/clock_s_btn_out"
-        android:layout_width="38dp"
-        android:layout_height="38dp"
-        android:layout_marginStart="6dp"
-        android:background="@drawable/widget_circle_red"
-        android:contentDescription="@string/widget_clock_out"
-        android:padding="9dp"
-        android:src="@drawable/ic_widget_stop" />
 </LinearLayout>

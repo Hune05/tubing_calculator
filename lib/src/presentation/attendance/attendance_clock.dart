@@ -187,12 +187,16 @@ String _hMm(int minutes) {
   return '${m ~/ 60}:${(m % 60).toString().padLeft(2, '0')}';
 }
 
-/// 위젯에 넘길 값(JSON). 위젯은 [date]가 오늘이 아니면 낡은 값으로 보고 시작 단추만 보인다.
+/// 위젯에 넘길 값(JSON). 위젯(ClockState.kt)도 서버 기록으로 같은 값을 만든다 — 둘을 같이 고칠 것.
+/// 위젯은 [date]가 오늘이 아니면 낡은 값으로 본다(밤샘 근무 중은 예외).
 /// [phase]는 ready / working / done / off.
-/// - big: 근무 중이 아닐 때 큰 글(출근 전 "00:00", 퇴근 뒤 근무 시간 "8:31", 쉬는 날).
-/// - sub: 아랫줄(출근 전엔 지난 퇴근 "어제 17:30 퇴근", 근무 중엔 "08:05 출근").
-/// - brk·memo: 이 날 기록의 휴게(분)·메모(위젯 칩으로 보인다).
+/// - big: 근무 중이 아닐 때 큰 글(출근 전 "출근 전", 퇴근 뒤 근무 시간 "8:31", 쉬는 날).
+/// - sub: 큰 글 아랫줄(출근 전엔 "소정 08:00 출근"·"오늘 출근 전", 근무 중엔 "08:05 출근").
+/// - last: 출근 전 오른쪽 글(지난 퇴근 "어제 17:30 퇴근").
+/// - brk·memo: 이 날 기록의 휴게(분)·메모. brkUsed: 퇴근 뒤 실제로 뺀 휴게(기본 휴게 포함).
+/// - opts: 위젯이 스스로 계산할 때 쓰는 설정(기본 휴게 -1=법정, 소정 출근·퇴근).
 /// [records]는 최근 기록(지난 퇴근 줄을 만들 때 쓴다).
+/// 10-13: 날씨 위젯처럼 바꾸며 출근 전 큰 글을 "00:00"에서 "출근 전"으로, 지난 퇴근은 오른쪽(last)으로 옮김.
 String encodeClockWidgetPayload(
   ClockStatus st,
   DateTime now, {
@@ -216,12 +220,18 @@ String encodeClockWidgetPayload(
   }
   String big;
   String sub;
+  String? last;
+  int? brkUsed;
   switch (st.phase) {
     case ClockPhase.ready:
-      big = '00:00';
+      big = '출근 전';
+      final start = options?.workStart;
       sub = st.yesterdayOpen
           ? '어제 퇴근을 안 찍었습니다'
-          : lastCheckOutText(records, now) ?? '오늘 출근 전';
+          : minutesOfDay(start) != null
+          ? '소정 $start 출근'
+          : '오늘 출근 전';
+      last = lastCheckOutText(records, now);
     case ClockPhase.working:
       big = '';
       sub =
@@ -235,6 +245,7 @@ String encodeClockWidgetPayload(
           : stay == null
           ? '--:--'
           : _hMm(stay - (r?.breakMin ?? 0));
+      brkUsed = w?.breakMin ?? r?.breakMin;
       sub = '${r?.checkIn ?? '--:--'} ~ ${r?.checkOut ?? '--:--'}';
     case ClockPhase.off:
       big = '쉬는 날';
@@ -248,9 +259,17 @@ String encodeClockWidgetPayload(
     'big': big,
     'sub': sub,
     'since': ?since,
+    'last': ?last,
     if (st.phase == ClockPhase.working || st.phase == ClockPhase.done)
       'brk': ?r?.breakMin,
+    'brkUsed': ?brkUsed,
     if (memo != null && memo.isNotEmpty) 'memo': memo,
+    if (options != null)
+      'opts': {
+        'defBrk': options.defaultBreak,
+        'start': ?options.workStart,
+        'end': ?options.workEnd,
+      },
   });
 }
 

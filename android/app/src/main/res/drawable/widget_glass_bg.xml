@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 출퇴근 위젯(날씨 위젯 모양)의 "배경 켬": 어두운 반투명 카드. 글자는 늘 흰색이라 밝은 카드는 쓰지 않는다. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#E61B2328" />
+    <corners android:radius="24dp" />
+</shape>

@@ -3,6 +3,7 @@ package com.example.tubing_calculator
 import android.Manifest
 import android.app.Activity
 import android.app.NotificationManager
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.graphics.Color
@@ -26,7 +27,8 @@ import android.widget.TextView
 import android.widget.Toast
 
 /**
- * 출퇴근 위젯의 [휴게]·[메모] 단추가 여는 작은 창. 위에서 내려오고, 앱을 열지 않는다.
+ * 출퇴근 위젯을 누르면 여는 작은 창. 위에서 내려오고, 앱을 열지 않는다.
+ * - 고르기(10-13, 날씨 위젯 모양으로 바꾸며 위젯의 휴게·메모 단추를 뺌): 휴게 알람 · 메모 · 근태 화면 열기.
  * - 메모: 자주 쓰는 태그를 누르면 글에 붙고, 직접 적어도 된다(최대 40자). 앱 근태 기록의 "현장 메모"로 저장된다.
  * - 휴게: "10:00 ~ 10:15"처럼 쉬는 시간대를 정하면 시작할 때와 끝날 때 폰이 알려 준다(ClockBreak). 근태 기록은 바꾸지 않는다.
  * 저장은 ClockPunch가 서버에 칸만 합쳐 쓴다(출퇴근 시각 등 다른 칸은 그대로).
@@ -36,6 +38,7 @@ class ClockQuickActivity : Activity() {
         const val EXTRA_MODE = "mode"
         const val MODE_MEMO = "memo"
         const val MODE_BREAK = "break"
+        const val MODE_MENU = "menu"
         const val MEMO_MAX = 40
         val TAGS = listOf("현장 작업", "출장", "교육", "회의", "대기", "정비", "이동")
         val BREAK_LENGTHS = intArrayOf(10, 15, 20, 30, 60)
@@ -57,7 +60,7 @@ class ClockQuickActivity : Activity() {
         // 메모만 글자를 치니 자판을 띄운다. 휴게의 시간 휠(NumberPicker)은 안에 입력 칸이 있어서 자판이 떠 저장·지우기 단추를 덮었다.
         window.setSoftInputMode(
             WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING or
-                if (mode == MODE_BREAK) WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
+                if (mode != MODE_MEMO) WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
                 else WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE
         )
         window.setBackgroundDrawable(GradientDrawable().apply {
@@ -69,8 +72,11 @@ class ClockQuickActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(22), dp(24), dp(22), dp(18))
         }
-        if (mode == MODE_BREAK) buildBreak(root)
-        else buildMemo(root, state?.optString("memo").orEmpty())
+        when (mode) {
+            MODE_BREAK -> buildBreak(root)
+            MODE_MENU -> buildMenu(root)
+            else -> buildMemo(root, state?.optString("memo").orEmpty())
+        }
         setContentView(root)
     }
 
@@ -114,6 +120,67 @@ class ClockQuickActivity : Activity() {
             setOnClickListener { onSave() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
         return row
+    }
+
+    /** 고르기: 지금 상태 한 줄과 휴게 알람 · 메모 · 근태 화면 열기. */
+    private fun buildMenu(root: LinearLayout) {
+        val s = ClockView.current(this)
+        root.addView(title("출퇴근"))
+        root.addView(TextView(this).apply {
+            text = s?.optString("sub")?.ifEmpty { null } ?: "오늘 출근 전"
+            textSize = 14f
+            setTextColor(0xFF6B7280.toInt())
+            setPadding(0, dp(4), 0, dp(10))
+        })
+        fun item(label: String, detail: String, onTap: () -> Unit) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), dp(12), dp(16), dp(12))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    setColor(0xFFF1F5F6.toInt())
+                }
+                setOnClickListener { onTap() }
+            }
+            row.addView(TextView(this).apply {
+                text = label
+                textSize = 16f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(0xFF1F2933.toInt())
+            })
+            if (detail.isNotEmpty()) {
+                row.addView(TextView(this).apply {
+                    text = detail
+                    textSize = 13f
+                    setTextColor(0xFF6B7280.toInt())
+                })
+            }
+            root.addView(row, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                topMargin = dp(8)
+            })
+        }
+        fun open(mode: String) {
+            startActivity(Intent(this, ClockQuickActivity::class.java).putExtra(EXTRA_MODE, mode))
+            finish()
+            overridePendingTransition(0, 0)
+        }
+        item("휴게 알람", ClockBreak.chipText(this) ?: "쉬는 시간대를 정하면 시작·끝에 알려 줍니다") { open(MODE_BREAK) }
+        item("메모", s?.optString("memo")?.ifEmpty { null } ?: "오늘 기록에 현장 메모를 남깁니다") { open(MODE_MEMO) }
+        item("근태 화면 열기", "") {
+            try {
+                FieldWidgetStore.openAppIntent(this, "attendance:open", 300).send()
+            } catch (e: Exception) {
+            }
+            finish()
+        }
+        root.addView(TextView(this).apply {
+            text = "닫기"
+            textSize = 16f
+            gravity = Gravity.END
+            setTextColor(0xFF6B7280.toInt())
+            setPadding(dp(18), dp(16), dp(4), dp(4))
+            setOnClickListener { finish() }
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
     }
 
     private fun buildMemo(root: LinearLayout, current: String) {

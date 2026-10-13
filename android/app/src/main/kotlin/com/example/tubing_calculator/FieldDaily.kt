@@ -16,6 +16,7 @@ import java.util.Calendar
  */
 object FieldDaily {
     private const val REQ_DAY = 930001
+    private const val REQ_CLOCK_END = 930002
 
     /** 다음 자정 조금 뒤에 위젯을 다시 그리게 한다(같은 예약은 덮어쓴다). */
     fun scheduleNextDay(c: Context) {
@@ -35,6 +36,21 @@ object FieldDaily {
         )
         // 정확할 필요는 없다(화면을 켤 때 받아도 된다). 잠든 폰을 깨우지 않는다.
         am.set(AlarmManager.RTC, next, pi)
+    }
+
+    /**
+     * 출퇴근 위젯의 "퇴근까지" 글이 소정 퇴근 시각에 "연장"으로 바뀌게 그때 다시 그린다(10-13).
+     * 같은 예약은 덮어쓴다. 잠든 폰을 깨우지 않는다(화면을 켤 때 받아도 된다).
+     */
+    fun scheduleClockEnd(c: Context, whenMs: Long) {
+        val am = c.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        val pi = PendingIntent.getBroadcast(
+            c,
+            REQ_CLOCK_END,
+            Intent(c, FieldDayChangeReceiver::class.java).setAction("com.example.tubing_calculator.CLOCK_END"),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        am.set(AlarmManager.RTC, whenMs + 1000, pi)
     }
 
     /** 다시 켠 뒤 등: 남은 휴게 알람·퇴근 알림을 다시 걸고 위젯을 다시 그린다. */
@@ -57,11 +73,14 @@ object FieldDaily {
     }
 }
 
-/** 날짜가 바뀌면 위젯을 다시 그리고 다음 날을 다시 예약한다. */
+/** 날짜가 바뀌면(·소정 퇴근 시각이면) 위젯을 다시 그리고 다음 날을 다시 예약한다. */
 class FieldDayChangeReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         FieldWidgetStore.refreshAll(context)
         FieldDaily.scheduleNextDay(context)
+        // 출퇴근 위젯은 서버 기록으로 다시 맞춘다(10-13: 앱을 안 열면 날이 바뀌어도 어제 상태였다).
+        val pending = goAsync()
+        ClockSync.refresh(context) { pending.finish() }
     }
 }
 
