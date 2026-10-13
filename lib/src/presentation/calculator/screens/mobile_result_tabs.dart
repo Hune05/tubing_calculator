@@ -11,7 +11,8 @@ import 'package:tubing_calculator/src/data/models/mobile_bend_data_manager.dart'
 import 'package:tubing_calculator/src/core/common_widgets/smart_save_pad.dart';
 import 'package:tubing_calculator/src/core/engine/tube_bending_engine.dart';
 import 'package:tubing_calculator/src/core/utils/app_settings_controller.dart';
-import 'package:tubing_calculator/src/presentation/calculator/segment_length_check.dart' show minGripWarnings;
+import 'package:tubing_calculator/src/presentation/calculator/segment_length_check.dart'
+    show minGripWarnings;
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
 import 'package:tubing_calculator/src/presentation/calculator/tube_marking_rules.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
@@ -72,6 +73,19 @@ List<(String, String)> tubeMarkingSheetSpecs() {
       ),
     if (m.cutMargin > 0) ("톱날 손실", "${n(m.cutMargin)} mm"),
   ];
+}
+
+/// 벤딩 실측 기록에 같이 남길 장비 값(10-13): 반경·게인(기준선 오프셋이 있으면 그것도).
+/// 시험 벤딩으로 게인을 고치면 고친 뒤 기록만 따로 센다.
+String tubeMeasureSetup() {
+  final d = MobileBendDataManager();
+  String n(double v) =>
+      v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(1);
+  return [
+    '반경 ${n(d.radius)}',
+    '게인 ${n(d.gain90)}',
+    if (d.benderOffset != 0) '기준선 ${n(d.benderOffset)}',
+  ].join(' · ');
 }
 
 /// 현장 탭(가로 줄자 화면)에 넘길 마킹 자료.
@@ -139,13 +153,19 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
   final marks = <FieldMark>[];
   int number = 0;
   double prevBend = 0.0;
+  // 앞 꺾이는 점(처음은 관 끝)부터 더한 관 길이 — 벤드에 닿으면 그 벤드의 다리 길이다.
+  // 피팅 깊이를 더한 길이(관 자체 길이)로 센다: 벤딩 뒤 맨 관을 재서 견주므로.
+  double run = 0.0;
   for (int i = 0; i < bendList.length; i++) {
     final double len = (bendList[i]['length'] as num?)?.toDouble() ?? 0.0;
     final double angle = (bendList[i]['angle'] as num?)?.toDouble() ?? 0.0;
     if (angle == 0.0 && len <= 0.01) continue; // 길이 0짜리 더미 구간
     final pos = steps[i].markingPoint;
+    run += fitted.lengths[i];
     if (angle > 0) {
       number++;
+      final double leg = run;
+      run = 0.0;
       marks.add(
         FieldMark(
           number: number,
@@ -156,6 +176,7 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
           gap: markGap(pos, prevBend),
           // 앞 벤드와 다른 평면이면 형상 점검 값, 아니면 롤링 오프셋이 남긴 굴림 각도(10-09).
           roll: check.rollByIndex[i] ?? _rollHint(bendList[i]),
+          leg: leg,
         ),
       );
       prevBend = pos;
@@ -204,7 +225,10 @@ double? _rollHint(Map<String, dynamic> row) {
 }
 
 /// 최소 물림 경고(설정에서 "슈 간섭 경고"를 끄면 보지 않는다).
-List<String> _tubeMinGripWarnings(List<Map<String, dynamic>> bendList, double radius) {
+List<String> _tubeMinGripWarnings(
+  List<Map<String, dynamic>> bendList,
+  double radius,
+) {
   final s = AppSettingsController();
   if (!s.warnShoeInterference) return const [];
   return minGripWarnings(bendList, radius: radius, minStraight: s.minStraight);
@@ -573,7 +597,9 @@ class _MobileResultTabState extends State<MobileResultTab>
                       ),
                     ),
                   // 계산한 자를 길이를 라인 컷팅 작업에 바로 넣는다(10-09, 경고가 없을 때만).
-                  if (hasRealTubeRow(bendList) && warnings.isEmpty && totalCut > 0)
+                  if (hasRealTubeRow(bendList) &&
+                      warnings.isEmpty &&
+                      totalCut > 0)
                     IconButton(
                       key: const Key('tube_send_cutting'),
                       icon: Icon(Icons.content_cut_rounded, color: slate900),
@@ -702,7 +728,12 @@ class _MobileResultTabState extends State<MobileResultTab>
           children: [
             // 좁은 폰·글자 크게에서 넘치지 않게 양쪽을 줄일 수 있게 한다.
             // 마킹지와 같게 소수 한 자리까지(38.1 → 예전에는 38로 보였다, 10-09).
-            Flexible(child: CardLabelValue("반경(R)", "${radius == radius.roundToDouble() ? radius.round() : radius.toStringAsFixed(1)} mm")),
+            Flexible(
+              child: CardLabelValue(
+                "반경(R)",
+                "${radius == radius.roundToDouble() ? radius.round() : radius.toStringAsFixed(1)} mm",
+              ),
+            ),
             Container(width: 1, height: 24, color: slate200),
             Flexible(
               child: Column(
@@ -778,7 +809,8 @@ class _MobileResultTabState extends State<MobileResultTab>
   Widget _buildMarkingCard(Map<String, dynamic> item) {
     final bool isStraight = item['is_straight'] == true;
     final int incremental =
-        ((item['gap_display'] ?? item['incremental_mark']) as num?)?.round() ?? 0;
+        ((item['gap_display'] ?? item['incremental_mark']) as num?)?.round() ??
+        0;
     final int length = (item['length'] as num?)?.round() ?? 0;
     final double appliedFit = (item['applied_fit'] as num?)?.toDouble() ?? 0.0;
     final String fitText = appliedFit > 0 ? " (+피팅 ${appliedFit.round()})" : "";
@@ -1248,12 +1280,11 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                             title: _buildFolderTitle(
                               folderName,
                               folderItems.length,
-                              onMenu: () =>
-                                  _renameFolder(
-                                    folderName,
-                                    // 검색 중이어도 폴더의 도면 전부를 옮긴다(10-08: 걸린 것만 옮겨 작업이 둘로 갈라졌다).
-                                    _groupedHistory[folderName] ?? folderItems,
-                                  ),
+                              onMenu: () => _renameFolder(
+                                folderName,
+                                // 검색 중이어도 폴더의 도면 전부를 옮긴다(10-08: 걸린 것만 옮겨 작업이 둘로 갈라졌다).
+                                _groupedHistory[folderName] ?? folderItems,
+                              ),
                             ),
                             children: [
                               for (final item in folderItems)
@@ -1512,7 +1543,10 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
           children: [
             Container(
               padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(shape: BoxShape.circle, color: pureWhite),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: pureWhite,
+              ),
               child: Icon(Icons.folder_off_rounded, size: 48, color: slate200),
             ),
             const SizedBox(height: 24),
@@ -1553,7 +1587,8 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
     if (!mounted) return;
     if (result is Map && result['loaded'] == true) {
       widget.onLoaded?.call(result['startDir']?.toString() ?? 'RIGHT');
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           backgroundColor: makitaTeal,
           behavior: SnackBarBehavior.floating,

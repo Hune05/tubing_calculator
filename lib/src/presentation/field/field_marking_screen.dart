@@ -24,6 +24,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/presentation/bend_check/bend_check_model.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
+import 'package:tubing_calculator/src/presentation/unit_converter/unit_defs.dart'
+    show parseInches;
 
 // 🚀 [바꿈] 색을 줄였다. 바탕은 흰색 계열 하나, 누를 수 있는 것·켜진 것은
 // 앱의 청록, 벤드 마킹만 빨강. 테두리는 얇게, 그림자는 없앤다.
@@ -65,6 +67,12 @@ class FieldMarkingScreen extends StatefulWidget {
   /// 없으면 한 단계씩 화면의 "실측 기록" 단추를 안 보인다.
   final String Function()? measureGroup;
 
+  /// 실측 기록에 같이 남길 지금 장비 값(예: "게인 40"). 값을 고친 뒤 기록만 따로 센다(10-13).
+  final String Function()? measureSetup;
+
+  /// 길이를 어디까지 재는지(예: "관 중심(가상 중심선)"). 실측 창 안내에 쓴다. 없으면 말하지 않는다.
+  final String Function()? measureRef;
+
   /// 진행 기록을 남길 칸 이름. 튜브와 전선관이 같은 칸을 써서 오가면 진행이 처음으로 돌아갔다(10-08).
   final String progressKey;
 
@@ -75,6 +83,8 @@ class FieldMarkingScreen extends StatefulWidget {
     this.onCloseTab,
     this.isActive = true,
     this.measureGroup,
+    this.measureSetup,
+    this.measureRef,
     this.progressKey = 'field_progress_v1',
   });
 
@@ -179,6 +189,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
 
   /// 이 도면에서 실측을 적은 단계(번호 → 실측 − 계산 mm). 도면이 바뀌면 비운다.
   final Map<int, double> _measured = {};
+
+  /// 그 단계 실측 기록의 번호. 다시 기록하면 같은 번호로 바꿔 적는다(10-13: 예전엔 한 건 더 쌓였다).
+  final Map<int, String> _measuredIds = {};
 
   bool _stepMode = false;
   int _current = 0;
@@ -285,6 +298,14 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         if (i != null && v is num) _measured[i] = v.toDouble();
       });
     }
+    final ids = p['measuredIds'];
+    _measuredIds.clear();
+    if (ids is Map) {
+      ids.forEach((k, v) {
+        final i = int.tryParse('$k');
+        if (i != null && v is String) _measuredIds[i] = v;
+      });
+    }
     _selectedStep = _current;
   }
 
@@ -295,6 +316,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       'current': _current,
       'done': _done.toList()..sort(),
       'measured': {for (final e in _measured.entries) '${e.key}': e.value},
+      'measuredIds': {
+        for (final e in _measuredIds.entries) '${e.key}': e.value,
+      },
     };
     _savedProgress = p;
     try {
@@ -328,6 +352,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       _current = 0;
       _done.clear();
       _measured.clear();
+      _measuredIds.clear();
       _selectedStep = null;
     });
     await _persistProgress();
@@ -505,49 +530,101 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   // ---------------- 실측 기록 ----------------
 
   /// 이 단계를 실제로 해 보고 잰 값을 "벤딩 실측 기록"에 남긴다(참고용, 마킹 값은 안 바뀐다).
+  /// 10-13: 벤드는 다리 길이(입력 길이)와, 자르기는 자를 길이와 견준다. 예전에는 줄자 마킹 눈금과
+  /// 견줘, 벤딩한 뒤 잰 다리 길이를 넣으면 테이크업만큼 틀린 차이가 쌓였다.
   Future<void> _recordMeasure(FieldStep s, int index) async {
-    final group = widget.measureGroup?.call() ?? '';
-    final what = s.isCut
-        ? '자르기'
-        : '${_fmt(s.mark!.angle)}° ${s.mark!.number}번 마킹';
-    final actual = await showDialog<double>(
+    final m = s.mark;
+    final double? calcRaw = s.isCut ? s.at : m!.leg;
+    if (calcRaw == null || calcRaw <= 0) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(content: Text('이 단계는 다리 길이를 알 수 없어 기록하지 않습니다.')),
+        );
+      return;
+    }
+    final group0 = widget.measureGroup?.call() ?? '';
+    final group = group0.isEmpty ? '현장' : group0;
+    final setup = widget.measureSetup?.call() ?? '';
+    final ref = widget.measureRef?.call();
+    final kind = s.isCut ? kBendKindCut : kBendKindLeg;
+    final double? angle = s.isCut ? null : m!.angle;
+    final what = s.isCut ? '자른 길이' : '${_fmt(m!.angle)}° ${m.number}번 벤드 다리';
+    final String how = s.isCut
+        ? '자른 관 길이를 재서 넣으십시오.'
+        : '${m!.number == 1 ? '관 끝' : '${m.number - 1}번 꺾이는 점'}에서 '
+              '${m.number}번 꺾이는 점까지${ref == null ? '' : ' $ref 기준으로'} 재서 넣으십시오.';
+    final res = await showDialog<({double calc, double actual})>(
       context: context,
       builder: (ctx) => _MeasureDialog(
         what: what,
-        calc: s.at,
-        group: group.isEmpty ? '현장' : group,
+        how: how,
+        calc: calcRaw,
+        group: group,
+        kindKey: bendKindKey(kind, angle),
+        setup: setup,
+        inchMode: _data.inchMode,
+        inchDenominator: _data.inchDenominator,
       ),
     );
-    if (actual == null || !mounted) return;
+    if (res == null || !mounted) return;
+    // 같은 단계를 다시 기록하면 같은 번호로 바꿔 적는다(되돌리기는 앞 기록으로 돌아간다).
+    final oldId = _measuredIds[index];
+    final prev = oldId == null
+        ? null
+        : (await loadBendChecks()).where((e) => e.id == oldId).firstOrNull;
     final at = DateTime.now();
-    final checkId = at.millisecondsSinceEpoch.toString();
+    final checkId = prev?.id ?? at.millisecondsSinceEpoch.toString();
     await addBendCheck(
       BendCheck(
         id: checkId,
         at: at,
-        group: group.isEmpty ? '현장' : group,
+        group: group,
         what: what,
-        calc: s.at,
-        actual: actual,
+        calc: res.calc,
+        actual: res.actual,
+        kind: kind,
+        angle: angle,
+        setup: setup,
       ),
     );
     if (!mounted) return;
     HapticFeedback.lightImpact();
-    final diff = actual - s.at;
-    setState(() => _measured[index] = diff);
+    final diff = res.actual - res.calc;
+    setState(() {
+      _measured[index] = diff;
+      _measuredIds[index] = checkId;
+    });
     _persistProgress();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text('실측을 기록했습니다 (${signedMm(diff)})'),
+          content: Text(
+            prev == null
+                ? '실측을 기록했습니다 (${signedMm(diff)})'
+                : '실측을 다시 기록했습니다 (${signedMm(diff)})',
+          ),
           duration: const Duration(seconds: 6),
+          // 10-13: 단추 달린 알림은 Flutter가 기본으로 계속 띄워(persist) 실측·다음 단추를 가렸다.
+          persist: false,
           action: SnackBarAction(
             label: '되돌리기',
             onPressed: () async {
-              await deleteBendCheck(checkId);
+              if (prev != null) {
+                await addBendCheck(prev);
+              } else {
+                await deleteBendCheck(checkId);
+              }
               if (!mounted) return;
-              setState(() => _measured.remove(index));
+              setState(() {
+                if (prev != null) {
+                  _measured[index] = prev.diff;
+                } else {
+                  _measured.remove(index);
+                  _measuredIds.remove(index);
+                }
+              });
               _persistProgress();
             },
           ),
@@ -621,6 +698,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
           _done.clear();
           _selectedStep = null;
           _measured.clear();
+          _measuredIds.clear();
           _needsFollow = true;
           // 같은 도면을 다시 열었으면 하던 데까지 되살린다.
           if (!data.isEmpty) _applySavedProgress(data.signature);
@@ -736,7 +814,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     final bool compact = MediaQuery.sizeOf(context).width < 420;
     return Container(
       height: 56,
-      padding: EdgeInsets.symmetric(horizontal: compact ? 4 : (narrow ? 8 : 16)),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 4 : (narrow ? 8 : 16),
+      ),
       decoration: BoxDecoration(
         color: fc.surface,
         border: Border(bottom: BorderSide(color: _line)),
@@ -797,7 +877,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               child: Row(
                 children: [
                   Text(
-                    compact ? '${_current + 1}/${steps.length}' : '${_current + 1} / ${steps.length}',
+                    compact
+                        ? '${_current + 1}/${steps.length}'
+                        : '${_current + 1} / ${steps.length}',
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -806,25 +888,26 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                   ),
                   if (!compact) const SizedBox(width: 12),
                   if (!compact)
-                  Expanded(
-                    // 넓으면 남는 폭을 다 쓰고, 좁은 폭(밀어 보기)에서도 60쯤은 보이게.
-                    // 세로 화면(폭 좁음)에서는 막대를 짧게 해 "닫기"까지 한 줄에 들어오게 한다.
-                    child: SizedBox(
-                      width: MediaQuery.sizeOf(context).height >
-                              MediaQuery.sizeOf(context).width
-                          ? 8
-                          : 60,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(2),
-                        child: LinearProgressIndicator(
-                          value: steps.isEmpty ? 0 : doneCount / steps.length,
-                          minHeight: 4,
-                          backgroundColor: _line,
-                          color: _teal,
+                    Expanded(
+                      // 넓으면 남는 폭을 다 쓰고, 좁은 폭(밀어 보기)에서도 60쯤은 보이게.
+                      // 세로 화면(폭 좁음)에서는 막대를 짧게 해 "닫기"까지 한 줄에 들어오게 한다.
+                      child: SizedBox(
+                        width:
+                            MediaQuery.sizeOf(context).height >
+                                MediaQuery.sizeOf(context).width
+                            ? 8
+                            : 60,
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: steps.isEmpty ? 0 : doneCount / steps.length,
+                            minHeight: 4,
+                            backgroundColor: _line,
+                            color: _teal,
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             )
@@ -1054,7 +1137,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         height: 1.1,
-                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        fontWeight: selected
+                            ? FontWeight.w800
+                            : FontWeight.w600,
                         color: fg,
                       ),
                     ),
@@ -1556,152 +1641,146 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     } else {
       final m = s.mark!;
       final parts = <Widget>[
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // "1번 마킹"을 한 덩어리 이름표로(끝낸 단계는 청록).
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: done ? _teal : _red,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (done) ...[
-                      Icon(Icons.check_rounded, size: 16, color: fc.onBrand),
-                      const SizedBox(width: 4),
-                    ],
-                    Text(
-                      '${m.number}번 마킹',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: fc.onBrand,
-                      ),
-                    ),
-                  ],
-                ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // "1번 마킹"을 한 덩어리 이름표로(끝낸 단계는 청록).
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: done ? _teal : _red,
+                borderRadius: BorderRadius.circular(20),
               ),
-              const SizedBox(height: 4),
-              _bigNumber(
-                m.position,
-                gap: m.gap,
-                inch: data.inch(m.position),
-                inchGap: data.inchGap(m.position, data.previousOf(m)),
-                boost: boost,
-              ),
-              Text(
-                _showGap
-                    ? (m.number == 1
-                          ? '관 끝 0에서 · 줄자 눈금 ${m.position.round()} mm'
-                          : '앞 마킹에서 · 줄자 눈금 ${m.position.round()} mm')
-                    : (m.number == 1
-                          ? '관 끝 0에서'
-                          : '앞 마킹에서 ${m.gap >= 0 ? '+' : ''}${m.gap.round()} mm'),
-                style: TextStyle(
-                  fontSize: 15,
-                  color: _muted,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          portrait
-              ? Container(
-                  width: 180,
-                  height: 1,
-                  margin: const EdgeInsets.symmetric(vertical: 20),
-                  color: _line,
-                )
-              : Container(
-                  width: 1,
-                  height: 150,
-                  margin: const EdgeInsets.symmetric(horizontal: 36),
-                  color: _line,
-                ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '각도',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: _muted,
-                ),
-              ),
-              Text(
-                '${_fmt(m.angle)}°',
-                style: TextStyle(
-                  fontSize: 56 * boost,
-                  height: 1.05,
-                  fontWeight: FontWeight.w800,
-                  color: _red,
-                  letterSpacing: -1,
-                ),
-              ),
-              if (m.hasOverBend)
-                Text(
-                  '실제로 ${_fmt(m.targetAngle)}°까지 꺾기 · 스프링백',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _muted,
-                  ),
-                ),
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: _paper,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _line),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_dirIcon(m.rotation), size: 22, color: _ink),
-                    const SizedBox(width: 8),
-                    Text(
-                      fieldDirectionLabel(m.rotation),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: _ink,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (m.roll != null) ...[
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.threesixty_rounded, size: 16, color: _muted),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (done) ...[
+                    Icon(Icons.check_rounded, size: 16, color: fc.onBrand),
                     const SizedBox(width: 4),
-                    Text(
-                      '꺾기 전에 관을 ${m.roll!.round()}° 롤링합니다',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _muted,
-                      ),
-                    ),
                   ],
+                  Text(
+                    '${m.number}번 마킹',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: fc.onBrand,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            _bigNumber(
+              m.position,
+              gap: m.gap,
+              inch: data.inch(m.position),
+              inchGap: data.inchGap(m.position, data.previousOf(m)),
+              boost: boost,
+            ),
+            Text(
+              _showGap
+                  ? (m.number == 1
+                        ? '관 끝 0에서 · 줄자 눈금 ${m.position.round()} mm'
+                        : '앞 마킹에서 · 줄자 눈금 ${m.position.round()} mm')
+                  : (m.number == 1
+                        ? '관 끝 0에서'
+                        : '앞 마킹에서 ${m.gap >= 0 ? '+' : ''}${m.gap.round()} mm'),
+              style: TextStyle(
+                fontSize: 15,
+                color: _muted,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        portrait
+            ? Container(
+                width: 180,
+                height: 1,
+                margin: const EdgeInsets.symmetric(vertical: 20),
+                color: _line,
+              )
+            : Container(
+                width: 1,
+                height: 150,
+                margin: const EdgeInsets.symmetric(horizontal: 36),
+                color: _line,
+              ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '각도',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _muted,
+              ),
+            ),
+            Text(
+              '${_fmt(m.angle)}°',
+              style: TextStyle(
+                fontSize: 56 * boost,
+                height: 1.05,
+                fontWeight: FontWeight.w800,
+                color: _red,
+                letterSpacing: -1,
+              ),
+            ),
+            if (m.hasOverBend)
+              Text(
+                '실제로 ${_fmt(m.targetAngle)}°까지 꺾기 · 스프링백',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: _muted,
                 ),
-              ],
+              ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                color: _paper,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: _line),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(_dirIcon(m.rotation), size: 22, color: _ink),
+                  const SizedBox(width: 8),
+                  Text(
+                    fieldDirectionLabel(m.rotation),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: _ink,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (m.roll != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.threesixty_rounded, size: 16, color: _muted),
+                  const SizedBox(width: 4),
+                  Text(
+                    '꺾기 전에 관을 ${m.roll!.round()}° 롤링합니다',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _muted,
+                    ),
+                  ),
+                ],
+              ),
             ],
-          ),
+          ],
+        ),
       ];
       body = portrait
           ? Column(mainAxisSize: MainAxisSize.min, children: parts)
@@ -1715,9 +1794,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       onTap: _current > 0 ? () => _prev(steps.length) : null,
     );
     final center = Stack(
-            children: [
-              Positioned.fill(
-                child: LayoutBuilder(
+      children: [
+        Positioned.fill(
+          child: LayoutBuilder(
             // 🚀 [고침] 예전에는 숫자 칸 아무 데나 닿아도 넘어가(폰을 관에 대다 손바닥이
             // 닿으면 안 한 마킹이 ✓가 됐다). 이제 양옆 이전·다음 단추와 볼륨 단추로만 넘긴다.
             builder: (context, c) => SizedBox(
@@ -1733,55 +1812,58 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 ),
               ),
             ),
-                ),
-              ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 2,
-                // 좁은 폭(세로 344)에서도 안 넘치게 폭에 맞춰 줄인다.
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_current + 1 < steps.length)
-                      Text(
-                        '${steps[_current + 1].isCut ? '자르기까지' : '다음 마킹까지'} '
-                        '${markGap(steps[_current + 1].at, s.at).round()} mm',
-                        key: const Key('field_next_gap'),
-                        style: TextStyle(
-                          fontSize: _small(15),
-                          fontWeight: FontWeight.w800,
-                          color: _teal,
-                        ),
-                      ),
-                    if (_current + 1 < steps.length &&
-                        widget.measureGroup != null)
-                      const SizedBox(width: 24),
-                    if (widget.measureGroup != null) _measureButton(s),
-                    if (_done.isNotEmpty || _current > 0) ...[
-                      const SizedBox(width: 12),
-                      TextButton.icon(
-                        key: const Key('field_progress_reset'),
-                        onPressed: _resetProgress,
-                        icon: Icon(Icons.restart_alt_rounded, size: 18, color: _muted),
-                        label: Text(
-                          '처음부터',
-                          style: TextStyle(
-                            fontSize: _small(13),
-                            fontWeight: FontWeight.w700,
-                            color: _muted,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 2,
+          // 좁은 폭(세로 344)에서도 안 넘치게 폭에 맞춰 줄인다.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_current + 1 < steps.length)
+                  Text(
+                    '${steps[_current + 1].isCut ? '자르기까지' : '다음 마킹까지'} '
+                    '${markGap(steps[_current + 1].at, s.at).round()} mm',
+                    key: const Key('field_next_gap'),
+                    style: TextStyle(
+                      fontSize: _small(15),
+                      fontWeight: FontWeight.w800,
+                      color: _teal,
+                    ),
                   ),
-                ),
-              ),
-            ],
-          );
+                if (_current + 1 < steps.length && widget.measureGroup != null)
+                  const SizedBox(width: 24),
+                if (widget.measureGroup != null) _measureButton(s),
+                if (_done.isNotEmpty || _current > 0) ...[
+                  const SizedBox(width: 12),
+                  TextButton.icon(
+                    key: const Key('field_progress_reset'),
+                    onPressed: _resetProgress,
+                    icon: Icon(
+                      Icons.restart_alt_rounded,
+                      size: 18,
+                      color: _muted,
+                    ),
+                    label: Text(
+                      '처음부터',
+                      style: TextStyle(
+                        fontSize: _small(13),
+                        fontWeight: FontWeight.w700,
+                        color: _muted,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
     final nextButton = _navButton(
       wide: portrait,
       icon: isLast ? Icons.check_rounded : AppIcons.forward,
@@ -1806,7 +1888,11 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       );
     }
     return Row(
-      children: [prevButton, Expanded(child: center), nextButton],
+      children: [
+        prevButton,
+        Expanded(child: center),
+        nextButton,
+      ],
     );
   }
 
@@ -2010,16 +2096,37 @@ class _Line {
 }
 
 /// 실측 값 입력 창. 입력 컨트롤러를 이 창이 스스로 만들고 없앤다(닫히는 동안에도 안전하게).
+/// 돌려주는 값: 견줄 계산값(보인 대로 반올림한 값)과 실측값, 둘 다 mm.
 class _MeasureDialog extends StatefulWidget {
   final String what;
+
+  /// 어디서 어디까지 재는지 한 줄.
+  final String how;
+
+  /// 견줄 값(다리 길이·자를 길이, 반올림 전 mm).
   final double calc;
 
   /// 같은 규격·장비의 지난 실측 통계를 찾는 묶음 이름.
   final String group;
+
+  /// 같은 종류(같은 각도 다리·자른 길이)만 센다.
+  final String kindKey;
+
+  /// 지금 장비 값(비면 가리지 않는다).
+  final String setup;
+
+  /// 설정이 인치면 인치로도 받는다(10-13).
+  final FieldInchMode inchMode;
+  final int inchDenominator;
   const _MeasureDialog({
     required this.what,
+    required this.how,
     required this.calc,
     required this.group,
+    required this.kindKey,
+    this.setup = '',
+    this.inchMode = FieldInchMode.none,
+    this.inchDenominator = 16,
   });
 
   @override
@@ -2033,17 +2140,28 @@ class _MeasureDialogState extends State<_MeasureDialog> {
   /// 지난 실측 참고 글(없으면 null, 읽는 중이면 빈 글).
   String? _reference;
 
+  /// 인치로 넣는지(설정이 인치면 처음부터 인치).
+  late bool _inch = widget.inchMode != FieldInchMode.none;
+
   @override
   void initState() {
     super.initState();
     loadBendChecks().then((all) {
       if (!mounted) return;
-      final st = statsFor(all, widget.group);
+      final label = bendKindLabel(widget.kindKey);
+      final setup = widget.setup.isEmpty ? null : widget.setup;
+      final st = statsFor(
+        all,
+        widget.group,
+        kindKey: widget.kindKey,
+        setup: setup,
+      );
       setState(() {
         _reference = st == null
-            ? '이 규격·장비의 지난 실측 기록은 아직 없습니다'
-            : referenceText(st) +
-                  (st.n < kBendReliableCount ? ' · 건수가 적어 참고만' : '');
+            ? '이 규격·장비의 지난 $label 실측은 아직 없습니다'
+            : '$label · ${referenceText(st)}'
+                  '${setup == null ? '' : ' · 지금 장비 값($setup)으로 잰 것만'}'
+                  '${st.n < kBendReliableCount ? ' · 건수가 적어 참고만' : ''}';
       });
     });
   }
@@ -2054,39 +2172,99 @@ class _MeasureDialogState extends State<_MeasureDialog> {
     super.dispose();
   }
 
+  /// 견줄 계산값: 보이는 눈금 그대로(mm는 1mm, 인치는 분수·소수 눈금). 예전엔 248로 보이고
+  /// 247.6을 적어, 248을 넣어도 +0.4가 쌓였다.
+  double get _calcShown {
+    final c = widget.calc;
+    if (!_inch) return c.roundToDouble();
+    if (widget.inchMode == FieldInchMode.decimal) {
+      return (c / 25.4 * 100).round() / 100 * 25.4;
+    }
+    final d = widget.inchDenominator <= 0 ? 16 : widget.inchDenominator;
+    return (c / 25.4 * d).round() / d * 25.4;
+  }
+
+  String get _calcText {
+    final mm = '${widget.calc.round()} mm';
+    if (!_inch) return mm;
+    return '${formatInch(widget.calc, widget.inchMode, denominator: widget.inchDenominator)} ($mm)';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool canInch = widget.inchMode != FieldInchMode.none;
     return AlertDialog(
       title: const Text('실측 기록'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('${widget.what} · 계산 ${widget.calc.round()} mm'),
-          if (_reference != null) ...[
-            const SizedBox(height: 6),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
             Text(
-              _reference!,
-              key: const Key('field_measure_reference'),
-              style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              '${widget.what} · 계산 $_calcText',
+              key: const Key('field_measure_calc'),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.how,
+              key: const Key('field_measure_how'),
+              style: const TextStyle(fontSize: 13, height: 1.4),
+            ),
+            if (_reference != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                _reference!,
+                key: const Key('field_measure_reference'),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+              ),
+            ],
+            if (canInch) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ChoiceChip(
+                    key: const Key('field_measure_unit_mm'),
+                    label: const Text('mm'),
+                    selected: !_inch,
+                    onSelected: (_) => setState(() {
+                      _inch = false;
+                      _measureErr = null;
+                    }),
+                  ),
+                  ChoiceChip(
+                    key: const Key('field_measure_unit_inch'),
+                    label: const Text('인치'),
+                    selected: _inch,
+                    onSelected: (_) => setState(() {
+                      _inch = true;
+                      _measureErr = null;
+                    }),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              key: const Key('field_measure_input'),
+              controller: _ctrl,
+              autofocus: true,
+              // 인치는 "37 3/16"처럼 띄어쓰기·빗금이 들어가 글자 자판으로.
+              keyboardType: _inch
+                  ? TextInputType.text
+                  : const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(
+                labelText: _inch ? '실제로 잰 값 (인치)' : '실제로 잰 값 (mm)',
+                hintText: _inch ? '예: 37 3/16' : null,
+                suffixText: _inch ? '"' : 'mm',
+                errorText: _measureErr,
+              ),
+              onChanged: (_) {
+                if (_measureErr != null) setState(() => _measureErr = null);
+              },
             ),
           ],
-          const SizedBox(height: 12),
-          TextField(
-            key: const Key('field_measure_input'),
-            controller: _ctrl,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: '실제로 잰 값 (mm)',
-              suffixText: 'mm',
-              errorText: _measureErr,
-            ),
-            onChanged: (_) {
-              if (_measureErr != null) setState(() => _measureErr = null);
-            },
-          ),
-        ],
+        ),
       ),
       actions: [
         TextButton(
@@ -2097,12 +2275,20 @@ class _MeasureDialogState extends State<_MeasureDialog> {
           key: const Key('field_measure_save'),
           onPressed: () {
             // "1,234.5"도 읽고, 못 읽으면 까닭을 보인다(10-08: 아무 반응이 없었다).
-            final v = parseNumberText(_ctrl.text);
+            final double? v = _inch
+                ? (parseInches(_ctrl.text) == null
+                      ? null
+                      : parseInches(_ctrl.text)! * 25.4)
+                : parseNumberText(_ctrl.text);
             if (v == null || !v.isFinite || v <= 0) {
-              setState(() => _measureErr = '0보다 큰 숫자로 넣으십시오.');
+              setState(
+                () => _measureErr = _inch
+                    ? '0보다 큰 인치로 넣으십시오(예: 37 3/16).'
+                    : '0보다 큰 숫자로 넣으십시오.',
+              );
               return;
             }
-            Navigator.pop(context, v);
+            Navigator.pop(context, (calc: _calcShown, actual: v));
           },
           child: const Text('저장'),
         ),

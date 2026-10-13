@@ -18,6 +18,7 @@ FieldMarkingData longData() => const FieldMarkingData(
       targetAngle: 93,
       rotation: 0,
       gap: 1007,
+      leg: 1030, // 다리 길이(입력 길이) — 실측은 이것과 견준다(10-13)
     ),
     FieldMark(
       number: 2,
@@ -26,6 +27,7 @@ FieldMarkingData longData() => const FieldMarkingData(
       targetAngle: 48,
       rotation: 450,
       gap: 294,
+      leg: 320,
     ),
     FieldMark(
       number: 3,
@@ -34,6 +36,7 @@ FieldMarkingData longData() => const FieldMarkingData(
       targetAngle: 48,
       rotation: 360,
       gap: 138,
+      leg: 160,
     ),
   ],
 );
@@ -153,10 +156,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('field_measure')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('계산 1007 mm'), findsOneWidget);
+    // 10-13: 줄자 눈금(1007)이 아니라 다리 길이(1030)와 견준다.
+    expect(find.textContaining('계산 1030 mm'), findsOneWidget);
+    expect(find.textContaining('관 끝에서 1번 꺾이는 점까지'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('field_measure_input')),
-      '1010.5',
+      '1033.5',
     );
     await tester.tap(find.byKey(const Key('field_measure_save')));
     await tester.runAsync(
@@ -170,9 +175,12 @@ void main() {
     final all = (await tester.runAsync(loadBendChecks))!;
     expect(all, hasLength(1));
     expect(all.single.group, '시험 묶음');
-    expect(all.single.what, '90° 1번 마킹');
-    expect(all.single.calc, 1007);
-    expect(all.single.actual, 1010.5);
+    expect(all.single.what, '90° 1번 벤드 다리');
+    expect(all.single.calc, 1030);
+    expect(all.single.actual, 1033.5);
+    expect(all.single.kind, kBendKindLeg);
+    expect(all.single.angle, 90);
+    expect(all.single.counted, isTrue);
   });
 
   testWidgets('숫자가 아니면 저장 안 된다', (tester) async {
@@ -222,7 +230,8 @@ void extrasTests() {
   testWidgets('다음 마킹까지 거리가 보인다(마지막 마킹은 자르기까지, 자르기 단계는 없음)', (tester) async {
     await pumpField(tester);
     await toStepMode(tester);
-    String gap() => tester.widget<Text>(find.byKey(const Key('field_next_gap'))).data!;
+    String gap() =>
+        tester.widget<Text>(find.byKey(const Key('field_next_gap'))).data!;
     expect(gap(), '다음 마킹까지 294 mm'); // 1007 → 1301
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
@@ -247,9 +256,33 @@ void extrasTests() {
             group: '시험 묶음',
             calc: 100,
             actual: 100 + d,
+            kind: kBendKindLeg,
+            angle: 90,
           ),
         );
       }
+      // 섞이면 안 되는 것: 10-13 전 옛 기록, 다른 각도(45°) 다리.
+      await addBendCheck(
+        BendCheck(
+          id: 'old',
+          at: DateTime(2026, 9, 1),
+          group: '시험 묶음',
+          calc: 100,
+          actual: 150,
+          version: 1,
+        ),
+      );
+      await addBendCheck(
+        BendCheck(
+          id: 'a45',
+          at: DateTime(2026, 10, 1, 10),
+          group: '시험 묶음',
+          calc: 100,
+          actual: 130,
+          kind: kBendKindLeg,
+          angle: 45,
+        ),
+      );
     });
     tester.view.devicePixelRatio = 1.0;
     tester.view.physicalSize = const Size(1006, 600);
@@ -274,6 +307,7 @@ void extrasTests() {
     final ref = tester
         .widget<Text>(find.byKey(const Key('field_measure_reference')))
         .data!;
+    expect(ref, contains('90° 다리'));
     expect(ref, contains('지난 실측 2건'));
     expect(ref, contains('+3 mm')); // 평균
     expect(ref, contains('건수가 적어')); // 3건 미만
@@ -288,7 +322,9 @@ void extrasTests() {
     );
     await tester.pumpAndSettle();
     expect(
-      tester.widget<Text>(find.byKey(const Key('field_measure_reference'))).data,
+      tester
+          .widget<Text>(find.byKey(const Key('field_measure_reference')))
+          .data,
       contains('아직 없습니다'),
     );
   });
@@ -298,7 +334,10 @@ void extrasTests() {
     await toStepMode(tester);
     await tester.tap(find.byKey(const Key('field_measure')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('field_measure_input')), '1010');
+    await tester.enterText(
+      find.byKey(const Key('field_measure_input')),
+      '1033',
+    );
     await tester.tap(find.byKey(const Key('field_measure_save')));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 80)),

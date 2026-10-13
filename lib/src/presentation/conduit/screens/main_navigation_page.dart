@@ -185,15 +185,19 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     onCloseTab: _goToMarkingTab,
     isActive: _selectedIndex == 3,
     measureGroup: () {
-      // 실측 기록 묶음: 종류·규격·장비 한 줄(예: Rigid 22mm · 유압식).
+      // 실측 기록 묶음: 종류·규격·제조사·장비·치수 기준 한 줄(예: Rigid 22mm · Custom 유압식 · 관 중심).
+      // 10-13: 제조사·치수 기준을 넣었다(관 중심과 관 등으로 잰 값이 한 묶음에 섞였다).
       final s = globalBenderSettings.value;
       final type = switch (s['benderType']) {
         'ram' => '유압식',
         'chicago' => '시카고식',
         _ => '수동',
       };
-      return '${s['conduitType']} ${s['conduitSize']} · $type';
+      final ref = conduitCenterRef(s) ? '관 중심' : '관 등';
+      return '${s['conduitType']} ${s['conduitSize']} · ${s['manufacturer']} $type · $ref';
     },
+    measureSetup: () => conduitMeasureSetup(globalBenderSettings.value),
+    measureRef: () => conduitRefPhrase(globalBenderSettings.value),
   );
 
   Widget _buildNarrowBody() {

@@ -28,6 +28,10 @@ class FieldMark {
   /// 꺾기 전에 관을 굴릴 각도(평면이 바뀔 때). 없으면 null.
   final double? roll;
 
+  /// 이 벤드의 다리 길이(입력 길이): 앞 꺾이는 점(첫 벤드는 관 끝)에서 이 꺾이는 점까지.
+  /// 벤딩한 뒤 재서 견주는 값이다(10-13 벤딩 실측 기록 — 예전에는 줄자 눈금 [position]과 견줬다).
+  final double? leg;
+
   const FieldMark({
     required this.number,
     required this.position,
@@ -36,6 +40,7 @@ class FieldMark {
     double? targetAngle,
     this.gap = 0.0,
     this.roll,
+    this.leg,
   }) : targetAngle = targetAngle ?? angle;
 
   bool get isBend => angle > 0;

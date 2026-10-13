@@ -33,6 +33,10 @@ class _BendCheckPageState extends State<BendCheckPage> {
   final _calc = TextEditingController();
   final _actual = TextEditingController();
   final _note = TextEditingController();
+
+  /// 무엇을 쟀는지(10-13): 벤드 다리(각도별로 따로 센다)·자른 길이.
+  bool _isCut = false;
+  final _angle = TextEditingController(text: '90');
   List<BendCheck> _all = [];
   bool _loaded = false;
   RecordSyncStatus? _sync;
@@ -66,7 +70,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
 
   @override
   void dispose() {
-    for (final c in [_group, _what, _calc, _actual, _note]) {
+    for (final c in [_group, _what, _calc, _actual, _note, _angle]) {
       c.dispose();
     }
     super.dispose();
@@ -83,8 +87,18 @@ class _BendCheckPageState extends State<BendCheckPage> {
     });
   }
 
-  double? _num(TextEditingController c) =>
-      parseNumberText(c.text);
+  double? _num(TextEditingController c) => parseNumberText(c.text);
+
+  /// 다리 각도(0 초과 180 이하만).
+  double? get _angleValue {
+    final a = _num(_angle);
+    return (a != null && a > 0 && a <= 180) ? a : null;
+  }
+
+  /// 같이 셀 종류(자른 길이끼리, 같은 각도 다리끼리).
+  String get _kindKey => _isCut
+      ? bendKindKey(kBendKindCut, null)
+      : bendKindKey(kBendKindLeg, _angleValue);
 
   void _toast(String m) {
     if (!mounted) return;
@@ -105,6 +119,11 @@ class _BendCheckPageState extends State<BendCheckPage> {
       _toast('계산값과 실측값을 숫자로 적어 주십시오');
       return;
     }
+    final angle = _angleValue;
+    if (!_isCut && angle == null) {
+      _toast('벤드 각도를 숫자로 적어 주십시오');
+      return;
+    }
     final at = _now;
     await addBendCheck(
       BendCheck(
@@ -115,6 +134,8 @@ class _BendCheckPageState extends State<BendCheckPage> {
         calc: calc,
         actual: actual,
         note: _note.text.trim(),
+        kind: _isCut ? kBendKindCut : kBendKindLeg,
+        angle: _isCut ? null : angle,
       ),
     );
     HapticFeedback.lightImpact();
@@ -146,7 +167,12 @@ class _BendCheckPageState extends State<BendCheckPage> {
   @override
   Widget build(BuildContext context) {
     final group = _group.text.trim();
-    final stats = group.isEmpty ? null : statsFor(_all, group);
+    // 같은 묶음·같은 종류만, 장비 값이 바뀌었으면 마지막 값으로 잰 것만(10-13). 10-13 전 기록은 뺀다.
+    final kindKey = _kindKey;
+    final setup = group.isEmpty ? null : latestSetup(_all, group, kindKey);
+    final stats = group.isEmpty
+        ? null
+        : statsFor(_all, group, kindKey: kindKey, setup: setup);
     final calc = _num(_calc);
     final actual = _num(_actual);
     final live = (calc != null && actual != null) ? actual - calc : null;
@@ -172,8 +198,9 @@ class _BendCheckPageState extends State<BendCheckPage> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 const Text(
-                  '계산값과 실측값을 남기면 같은 규격·장비의 지난 차이를 참고로 보여 줍니다. '
-                  '마킹 계산 결과는 바뀌지 않습니다.',
+                  '벤딩한 뒤 잰 다리 길이(앞 꺾이는 점에서 이 꺾이는 점까지)나 자른 길이를 입력 길이와 견줘 남기면, '
+                  '같은 규격·장비·같은 각도의 지난 차이를 참고로 보여 줍니다. 마킹 계산 결과는 바뀌지 않습니다. '
+                  '10-13 전 기록은 견준 값이 달라 참고에서 뺍니다.',
                   style: TextStyle(
                     fontSize: 13,
                     height: 1.5,
@@ -207,6 +234,44 @@ class _BendCheckPageState extends State<BendCheckPage> {
                     ],
                   ),
                 ],
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    ChoiceChip(
+                      key: const Key('bendcheck_kind_leg'),
+                      label: const Text('벤드 다리'),
+                      selected: !_isCut,
+                      onSelected: (_) => setState(() => _isCut = false),
+                    ),
+                    ChoiceChip(
+                      key: const Key('bendcheck_kind_cut'),
+                      label: const Text('자른 길이'),
+                      selected: _isCut,
+                      onSelected: (_) => setState(() => _isCut = true),
+                    ),
+                    if (!_isCut)
+                      SizedBox(
+                        width: 110,
+                        child: TextField(
+                          key: const Key('bendcheck_angle'),
+                          controller: _angle,
+                          onChanged: (_) => setState(() {}),
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          decoration: const InputDecoration(
+                            labelText: '각도 (°)',
+                            isDense: true,
+                            filled: true,
+                            fillColor: AppColors.surface,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
                 if (stats != null) ...[
                   const SizedBox(height: 12),
                   Container(
@@ -220,7 +285,8 @@ class _BendCheckPageState extends State<BendCheckPage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          referenceText(stats),
+                          '${bendKindLabel(kindKey)} · ${referenceText(stats)}'
+                          '${setup == null ? '' : ' · 마지막 장비 값($setup)으로 잰 것만'}',
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -248,7 +314,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
                   controller: _what,
                   decoration: const InputDecoration(
                     labelText: '측정 위치 (선택)',
-                    hintText: '예: 90° 1번 마킹',
+                    hintText: '예: 1번 벤드 다리',
                     filled: true,
                     fillColor: AppColors.surface,
                   ),
@@ -257,7 +323,11 @@ class _BendCheckPageState extends State<BendCheckPage> {
                 Row(
                   children: [
                     Expanded(
-                      child: _numField('bendcheck_calc', _calc, '계산값 (mm)'),
+                      child: _numField(
+                        'bendcheck_calc',
+                        _calc,
+                        _isCut ? '자를 길이 (mm)' : '입력 길이 (mm)',
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -340,9 +410,12 @@ class _BendCheckPageState extends State<BendCheckPage> {
           ),
           subtitle: Text(
             [
+              if (c.counted && c.kind.isNotEmpty) bendKindLabel(c.kindKey),
               if (c.what.isNotEmpty) c.what,
               '계산 ${_fmt(c.calc)} → 실측 ${_fmt(c.actual)}',
               if (c.note.isNotEmpty) c.note,
+              // 10-13 전 기록: 견준 값이 달라(줄자 마킹 눈금) 참고 통계에서 뺀다.
+              if (!c.counted) '옛 기록 · 참고에서 뺌',
             ].join(' · '),
           ),
           trailing: Text(
