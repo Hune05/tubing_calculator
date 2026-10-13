@@ -102,9 +102,11 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getStringList('layout_recent_parts_v1'), ['UK 5N 단자대 10P']);
       // 다시 열면 최근 쓴 부품 묶음에 있다.
-      await tester.tap(find.byKey(const ValueKey('elec_button')));
+      await tester.tap(find.byKey(const ValueKey('parts_button')));
       await tester.pumpAndSettle();
-      expect(find.text('최근 쓴 부품'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('parts_cat_elec')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('parts_cat_recent')), findsOneWidget);
       nav.currentState!.pop();
       await tester.pumpAndSettle();
       await close(tester);
@@ -112,14 +114,16 @@ void main() {
 
     testWidgets('별을 누르면 즐겨찾기 묶음에 올라오고 폰에 남는다, 맞는 게 없으면 안내', (tester) async {
       final nav = await open(tester, [item('a', '차단기 A', 40, 40)]);
-      await tester.tap(find.byKey(const ValueKey('elec_button')));
+      await tester.tap(find.byKey(const ValueKey('parts_button')));
       await tester.pumpAndSettle();
-      expect(find.text('즐겨찾기'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('parts_cat_elec')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('parts_cat_fav')), findsNothing);
       await tester.tap(
         find.byKey(const ValueKey('preset_fav_UK 2.5N 단자대 10P')).first,
       );
       await tester.pumpAndSettle();
-      expect(find.text('즐겨찾기'), findsOneWidget);
+      expect(find.byKey(const ValueKey('parts_cat_fav')), findsOneWidget);
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getStringList('layout_fav_parts_v1'), ['UK 2.5N 단자대 10P']);
       await tester.enterText(
@@ -234,7 +238,9 @@ void main() {
       final nav = await open(tester, [
         item('big', '큰 부품', 150, 250, w: 300, h: 300),
       ]);
-      await tester.tap(find.byKey(const ValueKey('elec_button')));
+      await tester.tap(find.byKey(const ValueKey('parts_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('parts_cat_elec')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('preset_row_UK 5N 단자대 10P')));
       await tester.pumpAndSettle();
@@ -295,7 +301,7 @@ void main() {
         const Offset(60, 300),
       );
       // 더보기 → 안내선에 붙이기 끄기 → 폰에 남고 붙지 않는다.
-      await tester.tap(find.byTooltip('더보기'));
+      await tester.tap(find.byKey(const ValueKey('board_settings_button')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('snap_guides')));
       await tester.pumpAndSettle();

@@ -179,9 +179,9 @@ void main() {
       ),
       findsOneWidget,
     );
-    await tester.ensureVisible(find.byKey(const ValueKey('skid_route')));
+    await tester.ensureVisible(find.byKey(const ValueKey('route_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('skid_route')));
+    await tester.tap(find.byKey(const ValueKey('route_button')));
     await tester.pumpAndSettle();
     expect(find.textContaining('JB→PT'), findsOneWidget);
     await tester.tapAt(const Offset(10, 10));
@@ -224,9 +224,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('이어하기'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('skid_route')));
+    await tester.ensureVisible(find.byKey(const ValueKey('route_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('skid_route')));
+    await tester.tap(find.byKey(const ValueKey('route_button')));
     await tester.pumpAndSettle();
 
     // 줄마다 있던 휴지통 단추는 없다.
@@ -473,9 +473,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('이어하기'));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('skid_iso')));
+    await tester.ensureVisible(find.byKey(const ValueKey('iso_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('skid_iso')));
+    await tester.tap(find.byKey(const ValueKey('iso_button')));
     await tester.pumpAndSettle();
     expect(find.byType(SkidIsoPage), findsOneWidget);
     expect(find.textContaining('부품 1개'), findsOneWidget);

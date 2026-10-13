@@ -48,21 +48,23 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                keepWords("① 아래 팔레트에서 부품을 도면 위로 끌어다 놓습니다."),
+                keepWords("① 아래 '부품'을 눌러 고르면 도면 가운데에 놓입니다. 끌어서 옮기십시오."),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
-                keepWords("② '치수 측정' 모드에서 두 지점을 차례로 누르면 거리가 표시됩니다."),
+                keepWords("② '치수'에서 두 지점을 차례로 누르면 거리가 표시됩니다."),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
                 keepWords(
-                  "③ 부품을 길게 누르거나 '여러 개 선택'을 켜면 여러 부품을 한 번에 옮기거나 정렬할 수 있습니다.",
+                  "③ 부품을 길게 누르거나 '여러 개'를 켜면 여러 부품을 한 번에 옮기거나 정렬할 수 있습니다.",
                 ),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
-                keepWords("④ ⋮ 더보기 메뉴에서 색상 범례, 배경 사진, 자재 수량 등을 확인할 수 있습니다."),
+                keepWords(
+                  "④ '도면'에서 크기·모눈·배경 사진을 정하고, ⋮ 더보기에 자재 수량·템플릿·기록이 있습니다.",
+                ),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
             ],
@@ -663,17 +665,37 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
       ),
       // 제목은 배치도 이름 하나만 쓴다. 폰 폭은 단추 넷이 자리를 차지하므로
       // 두 줄까지 접어서 이름이 잘리지 않게 한다.
-      title: Text(
-        _projectName.isNotEmpty ? _projectName : "작업 배치도",
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: tossText,
-          fontSize: narrowBar ? 16 : 18,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.5,
-          height: 1.2,
-        ),
+      // 제목은 배치도 이름, 그 밑에 종류·크기 한 줄(10-13).
+      title: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _projectName.isNotEmpty
+                ? _projectName
+                : (_isSkid ? "새 스키드" : "새 캐비닛"),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: tossText,
+              fontSize: narrowBar ? 16 : 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
+              height: 1.2,
+            ),
+          ),
+          Text(
+            "${_isSkid ? "스키드" : "캐비닛"} · ${_panelWidth.toInt()}×${_panelHeight.toInt()}mm",
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: tossSubText,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+            ),
+          ),
+        ],
       ),
       actions: [
         // 길게 누르면 되돌리기 기록이 열린다. 같은 것을 "더보기"에서도 연다.
@@ -805,72 +827,11 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                 children: [
                   _moreSection("도면", [
                     layoutSheetRow(
-                      icon: Icons.aspect_ratio_rounded,
-                      label: _isSkid ? "스키드 크기 (길이 × 폭)" : "외함 크기 설정",
-                      caption:
-                          "${_showTabs ? "${_tabLabel(_plateId)} " : ""}지금 ${_panelWidth.toInt()} × ${_panelHeight.toInt()} mm",
-                      onTap: () => run(_showPanelSettingsSheet),
-                    ),
-                    layoutSheetRow(
-                      key: const ValueKey("grid_snap"),
-                      icon: Icons.grid_4x4_rounded,
-                      label: "모눈 맞춤: $_gridLabel",
-                      caption: _gridSize <= 0
-                          ? "끔 · 놓는 자리 그대로. 누르면 1mm"
-                          : "누를 때마다 끔 → 1 → 5 → 10mm",
-                      onTap: () => run(_cycleGrid),
-                    ),
-                    layoutSheetRow(
-                      key: const ValueKey("snap_guides"),
-                      icon: Icons.align_horizontal_left_rounded,
-                      label: "안내선에 붙이기",
-                      caption: _snapToGuides
-                          ? "켜짐 · 끌 때 옆 부품의 왼·가운데·오른 선에 가까우면 붙습니다"
-                          : "꺼짐 · 안내선만 보이고 자리는 손가락 그대로",
-                      onTap: () => run(() => _setSnapToGuides(!_snapToGuides)),
-                    ),
-                    if (_isSkid)
-                      layoutSheetRow(
-                        key: const ValueKey("toggle_hidden_parts"),
-                        icon: Icons.layers_outlined,
-                        label: "가려진 부품 보이기",
-                        caption: _showHiddenParts
-                            ? "켜짐 · 정면·측면에서 뒤에 가려진 부품을 점선으로 그립니다"
-                            : "꺼짐 · 가까운 부품만 보입니다",
-                        onTap: () => run(() {
-                          setState(() => _showHiddenParts = !_showHiddenParts);
-                          _saveDraftToPrefs();
-                        }),
-                      ),
-                    if (!_isSkid) ...[
-                      layoutSheetRow(
-                        icon: Icons.view_column_outlined,
-                        label: "좌·우 측판",
-                        caption: _sidePlatesOn
-                            ? "켜짐 · 위 탭으로 판을 바꿉니다"
-                            : "꺼짐 · 켜면 측판에 전기 부품을 따로 배치합니다",
-                        onTap: () => run(_toggleSidePlates),
-                      ),
-                      layoutSheetRow(
-                        icon: Icons.layers_outlined,
-                        label: "측판·깊이 설정",
-                        caption: _cabinetDepth == null
-                            ? "캐비닛 깊이·측판 높이 차"
-                            : "캐비닛 깊이 ${_cabinetDepth!.toInt()} mm",
-                        onTap: () => run(_showCabinetSettingsSheet),
-                      ),
-                      layoutSheetRow(
-                        icon: Icons.warning_amber_rounded,
-                        label: "간섭 확인",
-                        caption: "중판·측판 부품 간섭, 문보다 깊은 부품 확인",
-                        onTap: () => run(_showClashSheet),
-                      ),
-                    ],
-                    layoutSheetRow(
-                      icon: Icons.image_outlined,
-                      label: "배경 사진",
-                      caption: _backgroundImagePath != null ? "깔려 있습니다" : null,
-                      onTap: () => run(_showBackgroundSheet),
+                      key: const ValueKey("board_settings_row"),
+                      icon: Icons.tune_rounded,
+                      label: "도면 설정",
+                      caption: "크기 · 모눈 · 안내선 · 측판 · 배경 사진",
+                      onTap: () => run(_openBoardSettings),
                     ),
                     layoutSheetRow(
                       icon: Icons.inventory_2_outlined,
@@ -1000,6 +961,142 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// "도면" 단추로 여는 도면 설정 페이지(10-13 개편). 예전 ⋮ 더보기의 도면 줄들을 옮겼다.
+/// 값은 배치도 State([owner])에서 읽는다. 켜고 끄는 것은 여기서 바로 하고, 창을 여는 것은
+/// 이 페이지를 닫은 뒤 도면 위에서 연다(더보기와 같은 방식).
+class _LayoutSettingsPage extends StatefulWidget {
+  final _LayoutBoardPageState owner;
+  const _LayoutSettingsPage({required this.owner});
+
+  @override
+  State<_LayoutSettingsPage> createState() => _LayoutSettingsPageState();
+}
+
+class _LayoutSettingsPageState extends State<_LayoutSettingsPage> {
+  _LayoutBoardPageState get o => widget.owner;
+
+  /// 이 페이지를 닫고 도면 위에서 창을 연다.
+  void _run(VoidCallback action) {
+    Navigator.pop(context);
+    action();
+  }
+
+  /// 켜고 끄기: 바로 하고 이 페이지를 다시 그린다.
+  void _toggle(VoidCallback action) {
+    action();
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bool skid = o._isSkid;
+    return Scaffold(
+      backgroundColor: tossBg,
+      appBar: AppBar(
+        backgroundColor: tossBg,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        titleSpacing: 0,
+        shape: const Border(bottom: BorderSide(color: layoutLine)),
+        title: const Text(
+          "도면 설정",
+          style: TextStyle(
+            color: tossText,
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+        children: [
+          o._moreSection("크기·모눈", [
+            layoutSheetRow(
+              key: const ValueKey("settings_size"),
+              icon: Icons.aspect_ratio_rounded,
+              label: skid ? "스키드 크기 (길이 × 폭)" : "외함 크기",
+              caption:
+                  "${o._showTabs ? "${o._tabLabel(o._plateId)} " : ""}지금 ${o._panelWidth.toInt()} × ${o._panelHeight.toInt()} mm",
+              onTap: () => _run(o._showPanelSettingsSheet),
+            ),
+            layoutSheetRow(
+              key: const ValueKey("grid_snap"),
+              icon: Icons.grid_4x4_rounded,
+              label: "모눈 맞춤: ${o._gridLabel}",
+              caption: o._gridSize <= 0
+                  ? "끔 · 놓는 자리 그대로. 누르면 1mm"
+                  : "누를 때마다 끔 → 1 → 5 → 10mm",
+              onTap: () => _toggle(o._cycleGrid),
+            ),
+            layoutSheetRow(
+              key: const ValueKey("snap_guides"),
+              icon: Icons.align_horizontal_left_rounded,
+              label: "안내선에 붙이기",
+              caption: o._snapToGuides
+                  ? "켜짐 · 끌 때 옆 부품의 왼·가운데·오른 선에 가까우면 붙습니다"
+                  : "꺼짐 · 안내선만 보이고 자리는 손가락 그대로",
+              onTap: () => _toggle(() => o._setSnapToGuides(!o._snapToGuides)),
+            ),
+          ]),
+          if (skid)
+            o._moreSection("보기", [
+              layoutSheetRow(
+                key: const ValueKey("toggle_hidden_parts"),
+                icon: Icons.layers_outlined,
+                label: "가려진 부품 보이기",
+                caption: o._showHiddenParts
+                    ? "켜짐 · 정면·측면에서 뒤에 가려진 부품을 점선으로 그립니다"
+                    : "꺼짐 · 가까운 부품만 보입니다",
+                onTap: () => _toggle(() {
+                  o.setState(() => o._showHiddenParts = !o._showHiddenParts);
+                  o._saveDraftToPrefs();
+                }),
+              ),
+            ]),
+          if (!skid)
+            o._moreSection("측판", [
+              layoutSheetRow(
+                key: const ValueKey("toggle_side_plates"),
+                icon: Icons.view_column_outlined,
+                label: "좌·우 측판",
+                caption: o._sidePlatesOn
+                    ? "켜짐 · 위 탭으로 판을 바꿉니다"
+                    : "꺼짐 · 켜면 측판에 전기 부품을 따로 배치합니다",
+                onTap: () => _toggle(o._toggleSidePlates),
+              ),
+              layoutSheetRow(
+                icon: Icons.layers_outlined,
+                label: "측판·깊이 설정",
+                caption: o._cabinetDepth == null
+                    ? "캐비닛 깊이·측판 높이 차"
+                    : "캐비닛 깊이 ${o._cabinetDepth!.toInt()} mm",
+                onTap: () => _run(o._showCabinetSettingsSheet),
+              ),
+              layoutSheetRow(
+                icon: Icons.warning_amber_rounded,
+                label: "간섭 확인",
+                caption: "중판·측판 부품 간섭, 문보다 깊은 부품 확인",
+                onTap: () => _run(o._showClashSheet),
+              ),
+            ]),
+          o._moreSection("배경", [
+            layoutSheetRow(
+              key: const ValueKey("settings_background"),
+              icon: Icons.image_outlined,
+              label: "배경 사진",
+              caption: o._backgroundImagePath != null
+                  ? "깔려 있습니다"
+                  : "도면 사진을 깔고 축척을 맞춥니다",
+              onTap: () => _run(o._showBackgroundSheet),
+            ),
+          ]),
         ],
       ),
     );

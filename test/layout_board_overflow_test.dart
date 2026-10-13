@@ -101,7 +101,7 @@ void main() {
       nav.currentState!.pop();
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('치수 측정'));
+      await tester.tap(find.text('치수'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await disposeBoard(tester);

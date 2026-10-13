@@ -59,7 +59,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('skid_steel')), findsOneWidget);
+    expect(find.byKey(const ValueKey('route_button')), findsOneWidget);
     // 화면 맞춤 뒤 확대 기능이 읽는 배율이 실제(가로) 배율과 같아야 끝까지 확대된다.
     final ctrl = tester
         .widget<InteractiveViewer>(find.byType(InteractiveViewer))
@@ -85,11 +85,12 @@ void main() {
     }
     m = ctrl.value;
     expect(m[0], greaterThan(2));
-    expect(find.byKey(const ValueKey('duct_button')), findsNothing);
+    expect(find.byKey(const ValueKey('note_button')), findsNothing);
 
     expect(find.byKey(const ValueKey('skid_conduit')), findsNothing);
-    await tester.ensureVisible(find.byKey(const ValueKey('skid_jb')));
-    await tester.tap(find.byKey(const ValueKey('skid_jb')));
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('parts_cat_skid_jb')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('정션박스 300×300'));
     await tester.pumpAndSettle();
@@ -131,8 +132,9 @@ void main() {
     expect(find.text('정면'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.byKey(const ValueKey('skid_jb')));
-    await tester.tap(find.byKey(const ValueKey('skid_jb')));
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('parts_cat_skid_jb')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('정션박스 300×300'));
     await tester.pumpAndSettle();

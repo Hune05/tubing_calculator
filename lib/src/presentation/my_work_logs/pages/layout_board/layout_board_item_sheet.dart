@@ -635,26 +635,6 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
     return d == null || d <= 0 ? null : d;
   }
 
-  InputDecoration _inspectorFieldDecoration() => InputDecoration(
-    filled: true,
-    fillColor: tossBg,
-    isDense: false,
-    constraints: const BoxConstraints(minHeight: 52),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: layoutLine),
-    ),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: layoutLine),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: tossBlue, width: 2),
-    ),
-  );
-
   Widget _buildCoordinateInput(
     String label,
     String value,

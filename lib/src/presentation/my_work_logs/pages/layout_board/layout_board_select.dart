@@ -506,13 +506,11 @@ extension _LayoutBoardSelect on _LayoutBoardPageState {
   }
 
   // 여러 개 선택 켜기/끄기(예전엔 위 막대에 있었다).
-  Widget _buildMultiSelectToggle() {
-    return _toolToggle(
-      icon: Icons.library_add_check_rounded,
-      label: "여러 개 선택",
-      selected: _multiSelectMode,
-      color: tossBlue,
-      onTap: _toggleMultiSelectMode,
-    );
-  }
+  Widget _buildMultiSelectToggle() => layoutToolButton(
+    key: const ValueKey("multi_select_button"),
+    icon: Icons.library_add_check_rounded,
+    label: "여러 개",
+    selected: _multiSelectMode,
+    onTap: _toggleMultiSelectMode,
+  );
 }

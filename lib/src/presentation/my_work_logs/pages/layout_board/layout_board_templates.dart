@@ -729,97 +729,10 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
     );
   }
 
-  // 내 프리셋: 이름 검색(4개 이상일 때), 끌어다 놓을 목록, 지우기 단추가 있는 "관리".
-  Widget _buildPresetArea() {
-    final String q = _presetSearchQuery.toLowerCase();
-    final List<ModulePreset> filtered = q.isEmpty
-        ? _customPresets
-        : _customPresets
-              .where((p) => p.name.toLowerCase().contains(q))
-              .toList();
-    Widget tile(ModulePreset p) => GestureDetector(
-      onLongPress: () => _confirmDeleteCustomPreset(_customPresets.indexOf(p)),
-      child: _dragTile(p, (_) => _buildCustomPresetChip(p)),
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Expanded(child: _panelLabel("내 프리셋 ${_customPresets.length}개")),
-            TextButton.icon(
-              onPressed: _showPresetManageSheet,
-              style: TextButton.styleFrom(
-                minimumSize: const Size(40, 40),
-                foregroundColor: tossBlue,
-              ),
-              icon: const Icon(Icons.edit_outlined, size: 20),
-              label: const Text(
-                "관리",
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-              ),
-            ),
-          ],
-        ),
-        if (_customPresets.length > 3) ...[
-          TextField(
-            controller: _presetSearchCtrl,
-            onChanged: (v) => setState(() => _presetSearchQuery = v.trim()),
-            style: const TextStyle(fontSize: 15, color: tossText),
-            decoration: _inspectorFieldDecoration().copyWith(
-              hintText: "프리셋 이름 검색",
-              hintStyle: const TextStyle(fontSize: 15, color: tossSubText),
-              prefixIcon: const Icon(
-                Icons.search_rounded,
-                size: 22,
-                color: tossSubText,
-              ),
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
-              suffixIcon: _presetSearchQuery.isEmpty
-                  ? null
-                  : IconButton(
-                      tooltip: "검색 지우기",
-                      icon: const Icon(
-                        Icons.close_rounded,
-                        size: 22,
-                        color: tossSubText,
-                      ),
-                      onPressed: () {
-                        _presetSearchCtrl.clear();
-                        setState(() => _presetSearchQuery = '');
-                      },
-                    ),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
-        if (filtered.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              "찾는 프리셋이 없습니다",
-              style: TextStyle(fontSize: 14, color: tossSubText),
-            ),
-          )
-        else
-          SizedBox(
-            height: 56,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              itemCount: filtered.length,
-              separatorBuilder: (_, _) => const SizedBox(width: 8),
-              itemBuilder: (context, i) => tile(filtered[i]),
-            ),
-          ),
-      ],
-    );
-  }
-
   // 내 프리셋 관리: 줄을 왼쪽으로 밀어 지우고, 잘못 밀었으면 되돌린다.
   // (예전엔 줄마다 휴지통 단추가 있어 잘못 누르기 쉬웠다.)
-  void _showPresetManageSheet() {
-    showModalBottomSheet(
+  Future<void> _showPresetManageSheet() async {
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -954,66 +867,5 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
         ),
       ),
     );
-  }
-
-  Widget _buildCustomPresetChip(ModulePreset preset, {double? width}) {
-    return Container(
-      height: 56,
-      width: width,
-      constraints: const BoxConstraints(minWidth: 72),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.centerLeft,
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: tossBlue.withValues(alpha: 0.4), width: 1.5),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.star_rounded, size: 20, color: tossBlue),
-          const SizedBox(width: 6),
-          _flexIf(
-            width != null,
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  preset.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: tossText,
-                  ),
-                ),
-                Text(
-                  "${preset.width.toInt()}×${preset.height.toInt()}",
-                  style: const TextStyle(fontSize: 14, color: tossSubText),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // 폭이 정해졌을 때만 Flexible로 감싼다(가로로 굴리는 목록 안에서는 폭이 끝없어 Flexible을 못 쓴다).
-  Widget _flexIf(bool flex, Widget child) =>
-      flex ? Flexible(child: child) : child;
-
-  Future<void> _confirmDeleteCustomPreset(int index) async {
-    if (index < 0 || index >= _customPresets.length) return;
-    final preset = _customPresets[index];
-    final ok = await confirmLayoutDanger(
-      context,
-      title: "프리셋 삭제",
-      message: "'${preset.name}' 프리셋을 지웁니다.",
-      confirmLabel: "삭제",
-    );
-    if (ok && mounted) await _deleteCustomPreset(index);
   }
 }

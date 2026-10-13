@@ -202,9 +202,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const ValueKey('elec_button')));
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('elec_button')));
+    await tester.tap(find.byKey(const ValueKey('parts_cat_elec')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('UK 2.5N 단자대 10P'));
     await tester.pumpAndSettle();
@@ -230,9 +230,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const ValueKey('elec_button')));
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('elec_button')));
+    await tester.tap(find.byKey(const ValueKey('parts_cat_elec')));
     await tester.pumpAndSettle();
     const name = 'YS FT020-10 단자대 20A 10P';
     await tester.scrollUntilVisible(
@@ -304,9 +304,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.byKey(const ValueKey('elec_button')));
+      await tester.tap(find.byKey(const ValueKey('parts_button')));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('elec_button')));
+      await tester.tap(find.byKey(const ValueKey('parts_cat_elec')));
       await tester.pumpAndSettle();
       await tester.tap(find.text('UK 2.5N 단자대 10P'));
       await tester.pumpAndSettle();

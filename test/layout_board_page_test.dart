@@ -59,12 +59,12 @@ void main() {
     setSize(tester, kPhone);
     addTearDown(tester.view.reset);
     await pumpBoard(tester);
-    expect(find.text('신규 부품'), findsOneWidget);
+    expect(find.byKey(const ValueKey('parts_button')), findsOneWidget);
     expect(find.text('부품 목록'), findsNothing);
 
     setSize(tester, kTablet);
     await tester.pumpAndSettle();
-    expect(find.text('신규 부품'), findsOneWidget);
+    expect(find.byKey(const ValueKey('parts_button')), findsOneWidget);
     expect(find.text('부품 목록'), findsNothing);
     expect(find.text('부품 편집'), findsNothing);
     await disposeBoard(tester);

@@ -1,11 +1,13 @@
-// 작업 배치도 화면 — 아래 팔레트·부품 고르기 시트.
+// 작업 배치도 화면 — 아래 칸(모드·도구 단추)과 부품 담기 페이지 열기.
 // layout_board_page.dart의 _LayoutBoardPageState를 역할별로 나눈 part(10-13). 동작은 같다.
 // setState는 State 밖(확장)에서 부르면 보호 멤버 경고가 나지만, 이 확장은 그 State 자신이다.
 // ignore_for_file: invalid_use_of_protected_member
 part of '../layout_board_page.dart';
 
 extension _LayoutBoardPalette on _LayoutBoardPageState {
-  // 좁은 화면 아래 칸: 전선관 계산기 입력 칸처럼 흰 판 위에 모드 전환과 도구.
+  /// 아래 칸(10-13 개편): 모드 줄(배치 | 치수 + 가상선) 한 줄과 도구 단추 다섯 개 한 줄.
+  /// 예전엔 부품 묶음 단추 여덟 개가 옆으로 밀리고 글자가 잘렸다("신규 부"·"메모 글").
+  /// 부품은 "부품" 페이지(LayoutPartsPage)에서 고른다.
   Widget _buildBottomPanel() {
     // 폰을 가로로 눕히면 세로가 짧아 도면이 안 보일 수 있어, 아래 칸은 화면 높이의
     // 절반까지만 쓰고 넘치는 부분은 위아래로 굴린다.
@@ -26,19 +28,19 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildModeSegmentedControl(),
-                const SizedBox(height: 12),
+                _buildModeRow(),
+                const SizedBox(height: 10),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 200),
                   child: switch (_mode) {
                     BoardMode.measureDimension => _buildDimensionToolBar(),
-                    BoardMode.placeModule => _buildModulePalette(),
+                    BoardMode.placeModule => _buildToolRow(),
                   },
                 ),
               ],
@@ -49,14 +51,21 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
     );
   }
 
-  // 모드 전환(모듈 배치/이동 ↔ 고정 치수 측정): 전선관 계산기처럼 회색 판 안에서
-  // 고른 쪽만 틸로 채운다.
+  /// 모드(배치 | 치수)와 가상선 단추 한 줄.
+  Widget _buildModeRow() => Row(
+    children: [
+      Expanded(child: _buildModeSegmentedControl()),
+      const SizedBox(width: 8),
+      _buildGuideColorSwitch(),
+    ],
+  );
+
+  // 모드 전환(부품 배치/이동 ↔ 치수 측정): 회색 판 안에서 고른 쪽만 틸로 채운다.
   Widget _buildModeSegmentedControl() {
     final segments = <(BoardMode, String, IconData)>[
-      (BoardMode.placeModule, "부품 배치/이동", Icons.open_with_rounded),
-      (BoardMode.measureDimension, "치수 측정", Icons.straighten_rounded),
+      (BoardMode.placeModule, "배치", Icons.open_with_rounded),
+      (BoardMode.measureDimension, "치수", Icons.straighten_rounded),
     ];
-
     return Container(
       height: 50,
       padding: const EdgeInsets.all(4),
@@ -94,6 +103,7 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
                   ),
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 6),
+                  // 좁은 폰(320)·큰 글씨에서는 글자를 조금 줄여서라도 한 줄에 넣는다.
                   child: FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Row(
@@ -125,318 +135,132 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
     );
   }
 
-  // 좁은 화면 모듈 배치 도구: 끌어다 놓을 것 한 줄 + 가상선·여러 개 선택 단추 + 내 프리셋.
-  Widget _buildModulePalette() {
-    return Column(
+  // 가상선 단추: 누를 때마다 센터선(틸) ↔ 외곽선(주황)으로 바뀐다.
+  Widget _buildGuideColorSwitch() {
+    final bool isCenter = !_showEdgeGuide;
+    return _toolToggle(
+      icon: Icons.sync_alt_rounded,
+      label: isCenter ? "가상선 센터" : "가상선 측면",
+      selected: true,
+      color: isCenter ? guideCenterColor : edgeDimColor,
+      onTap: () => setState(() {
+        _showCenterGuide = !isCenter;
+        _showEdgeGuide = isCenter;
+      }),
+    );
+  }
+
+  /// 도구 단추 다섯 개(옆으로 안 밀리고 글자가 안 잘린다).
+  /// 캐비닛: 부품·찾기·메모·여러 개·도면 / 스키드: 부품·경로·입체·여러 개·도면.
+  Widget _buildToolRow() {
+    final List<Widget> buttons = [
+      layoutToolButton(
+        key: const ValueKey("parts_button"),
+        icon: Icons.add_box_rounded,
+        label: "부품",
+        primary: true,
+        onTap: () => _openPartsPage(),
+      ),
+      if (_isSkid) ...[
+        layoutToolButton(
+          key: const ValueKey("route_button"),
+          icon: Icons.timeline_rounded,
+          label: "경로",
+          onTap: _showRoutesSheet,
+        ),
+        layoutToolButton(
+          key: const ValueKey("iso_button"),
+          icon: Icons.view_in_ar_rounded,
+          label: "입체",
+          onTap: _openSkidIso,
+        ),
+      ] else ...[
+        layoutToolButton(
+          key: const ValueKey("search_button"),
+          icon: Icons.search_rounded,
+          label: "찾기",
+          onTap: () => _openPartsPage(search: true),
+        ),
+        layoutToolButton(
+          key: const ValueKey("note_button"),
+          icon: Icons.sticky_note_2_outlined,
+          label: "메모",
+          onTap: _placeNote,
+        ),
+      ],
+      _buildMultiSelectToggle(),
+      layoutToolButton(
+        key: const ValueKey("board_settings_button"),
+        icon: Icons.tune_rounded,
+        label: "도면",
+        onTap: _openBoardSettings,
+      ),
+    ];
+    return Row(
       key: const ValueKey("palette"),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
       children: [
-        _panelLabel("끌어다 도면에 놓습니다"),
-        const SizedBox(height: 8),
-        // 단추가 늘어 좁은 폰에서는 옆으로 민다(신규 모듈은 위로 끌어 놓는다).
-        SizedBox(
-          height: 64,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _dragTile(
-                  const ModulePreset("신규 부품", 80, 80),
-                  (_) => _buildPaletteItem("신규 부품"),
-                  affinity: Axis.vertical,
-                ),
-                const SizedBox(width: 8),
-                // 10-13: 200개 넘는 부품을 묶음마다 뒤지지 않게 이름으로 찾는다(즐겨찾기·최근도 여기).
-                _buildSearchButton(),
-                const SizedBox(width: 8),
-                // 스키드는 전선관 작업 부속만(계기·밸브·피팅·전기는 캐비닛에서 쓴다).
-                if (_isSkid) ...[
-                  _buildSkidButton(
-                    "skid_steel",
-                    Icons.view_stream_rounded,
-                    "형강",
-                    "형강 놓기",
-                    kSkidSteelPresets,
-                    iconWidget: _skidIcon(SkidShape.beam, SkidFace.end),
-                  ),
-                  const SizedBox(width: 8),
-                  // 전선관은 "경로"로 그린다(따로 놓는 막대는 경로와 이어지지 않아 헷갈렸다).
-                  _buildRouteButton(),
-                  const SizedBox(width: 8),
-                  _buildIsoButton(),
-                  const SizedBox(width: 8),
-                  _buildSkidButton(
-                    "skid_jb",
-                    Icons.inbox_outlined,
-                    "JB",
-                    "정션박스 놓기",
-                    kSkidJbPresets,
-                    iconWidget: _skidIcon(SkidShape.jb, SkidFace.side),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildSkidButton(
-                    "skid_fitting",
-                    Icons.plumbing_rounded,
-                    "부속",
-                    "전선관 부속 놓기",
-                    kSkidFittingPresets,
-                    iconWidget: _skidIcon(SkidShape.cdLB, SkidFace.side, h: 24),
-                  ),
-                ] else ...[
-                  _buildDuctButton(),
-                  const SizedBox(width: 8),
-                  _buildElecButton(),
-                  const SizedBox(width: 8),
-                  _buildInstrumentButton(),
-                  const SizedBox(width: 8),
-                  _buildValveButton(),
-                  const SizedBox(width: 8),
-                  _buildFittingButton(),
-                ],
-                const SizedBox(width: 8),
-                // 도면 위에 글만 적는 상자("여기 트레이" 같은 말). 자재 수량에는 안 센다.
-                _dragTile(
-                  const ModulePreset(
-                    "메모",
-                    160,
-                    40,
-                    shape: InstrumentShape.note,
-                  ),
-                  (_) => _buildPaletteItem("메모 글자"),
-                  affinity: Axis.vertical,
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(child: _buildGuideColorSwitch()),
-            const SizedBox(width: 8),
-            Expanded(child: _buildMultiSelectToggle()),
-          ],
-        ),
-        if (_customPresets.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _buildPresetArea(),
+        for (int i = 0; i < buttons.length; i++) ...[
+          if (i > 0) const SizedBox(width: 6),
+          Expanded(child: buttons[i]),
         ],
       ],
     );
   }
 
-  // 좁은 화면 "계기" 단추: 누르면 제조사별 목록이 뜨고, 고르면 지금 보이는 도면 가운데에 놓는다.
-  // (아래 칸 높이를 늘리면 도면이 좁아져서 끌어다 놓기 대신 목록으로 둔다.)
-  Widget _buildInstrumentButton() => _buildSheetButton(
-    key: const ValueKey("instrument_button"),
-    icon: Icons.speed_rounded,
-    label: "계기",
-    onTap: () => _showPresetSheet(
-      title: "계기 놓기",
-      help: "정면에서 본 몸통 크기입니다(2인치 브래킷 빼고). 누르면 지금 보이는 도면 가운데에 놓습니다.",
-      groups: kInstrumentPresets,
-    ),
-  );
+  static const String _fittingCategoryKey = 'fitting';
 
-  void _openFittingSheet() => _showPresetSheet(
-    title: "피팅 놓기",
-    help:
-        "하이록·스웨즈락 튜브 피팅을 옆에서 본 크기입니다(1/4\"·3/8\"·1/2\"는 두 회사 치수가 같습니다). 누르면 지금 보이는 도면 가운데에 놓습니다.",
-    groups: kFittingPresets,
-    sizeFilter: true,
-  );
+  /// 부품 담기 페이지에 보일 묶음(도면 종류에 따라). 스키드는 전선관 작업 부속만.
+  List<LayoutPartsCategory> get _partsCategories => _isSkid
+      ? [
+          LayoutPartsCategory('skid_steel', '형강', kSkidSteelPresets),
+          LayoutPartsCategory('skid_jb', 'JB', kSkidJbPresets),
+          LayoutPartsCategory('skid_fitting', '부속', kSkidFittingPresets),
+        ]
+      : [
+          const LayoutPartsCategory('duct', '덕트', kDuctPresetGroups),
+          LayoutPartsCategory('elec', '전기', kElecPresets),
+          const LayoutPartsCategory('instrument', '계기', kInstrumentPresets),
+          LayoutPartsCategory('valve', '밸브', kValvePresets),
+          LayoutPartsCategory(_fittingCategoryKey, '피팅', kFittingPresets),
+        ];
 
-  void _openValveSheet() => _showPresetSheet(
-    title: "밸브 놓기",
-    help: "매니폴드 밸브를 정면(손잡이 쪽)에서 본 크기입니다. 누르면 지금 보이는 도면 가운데에 놓습니다.",
-    groups: kValvePresets,
-  );
-
-  Widget _buildFittingButton() => _buildSheetButton(
-    key: const ValueKey("fitting_button"),
-    icon: Icons.plumbing_rounded,
-    label: "피팅",
-    onTap: _openFittingSheet,
-  );
-
-  Widget _buildValveButton() => _buildSheetButton(
-    key: const ValueKey("valve_button"),
-    icon: Icons.tune_rounded,
-    label: "밸브",
-    onTap: _openValveSheet,
-  );
-
-  Widget _buildRouteButton() => _buildSheetButton(
-    key: const ValueKey("skid_route"),
-    icon: Icons.route_rounded,
-    iconWidget: _routeIcon,
-    label: "경로",
-    onTap: _showRoutesSheet,
-  );
-
-  /// 좁은 화면 모듈 배치 도구의 "입체" 단추(스키드 입체 보기, 보기 전용).
-  Widget _buildIsoButton() => _buildSheetButton(
-    key: const ValueKey("skid_iso"),
-    icon: Icons.view_in_ar_rounded,
-    label: "입체",
-    onTap: _openSkidIso,
-  );
-
-  // 스키드 평면 모듈 단추(형강·전선관·정션박스). 길이는 1000으로 놓이고 놓은 뒤 고친다.
-  Widget _buildSkidButton(
-    String key,
-    IconData icon,
-    String label,
-    String title,
-    Map<String, List<ModulePreset>> groups, {
-    Widget? iconWidget,
-  }) => _buildSheetButton(
-    key: ValueKey(key),
-    icon: icon,
-    iconWidget: iconWidget,
-    label: label,
-    onTap: () => _openSkidSheet(title, groups),
-  );
-
-  /// 스키드 단추 그림: 부품 그림을 단추 크기로(형강 = 단면, JB = 옆모습, 부속 = 곤질레다 LB 옆모습).
-  Widget _skidIcon(
-    String shape,
-    SkidFace face, {
-    double w = 30,
-    double h = 22,
-  }) => SizedBox(
-    width: w,
-    height: h,
-    child: CustomPaint(
-      painter: SkidPartPainter(
-        shape: shape,
-        face: face,
-        stroke: tossBlue,
-        strokeWidth: 1.6,
-      ),
-    ),
-  );
-
-  Widget get _routeIcon => const SizedBox(
-    width: 28,
-    height: 22,
-    child: CustomPaint(painter: SkidRouteIconPainter(color: tossBlue)),
-  );
-
-  void _openSkidSheet(
-    String title,
-    Map<String, List<ModulePreset>> groups,
-  ) => _showPresetSheet(
-    title: title,
-    help: groups == kSkidFittingPresets
-        ? "삼화기전 F-7 곤질레다와 커플링·유니온 커플링입니다. 삼화는 치수를 공개하지 않아 곤질레다는 같은 모양인 국산(JK) 표, 커플링은 KS 표, 유니온은 국산(대승) 표 값입니다. 위에서 본 길이×폭(mm)으로 놓이고, 높이는 정면에서 끌어 맞추거나 편집 칸에 넣으십시오. 형강 위로 올려 놓으면 높이는 형강 윗면에 자동으로 맞춥니다."
-        : groups == kSkidJbPresets
-        ? "위에서 본 가로×세로(mm)입니다. 누르면 지금 보이는 도면 가운데에 놓습니다. 바닥에서 높이는 놓은 뒤 편집 칸에 넣으십시오. 형강 위로 올려 놓으면 형강 윗면에 자동으로 맞춥니다."
-        : "위에서 본 폭(mm)으로, 길이 1000으로 놓입니다. 놓은 뒤 편집 칸에서 실제 길이로 고치고, 세로로 쓰려면 돌리십시오.",
-    groups: groups,
-  );
-
-  void _openElecSheet() => _showPresetSheet(
-    title: "전기 부품 놓기",
-    help:
-        "DIN 레일에 다는 부품을 정면에서 본 크기입니다(깊이는 판 면에서, 레일 포함). 누르면 지금 보이는 도면 가운데에 놓습니다.",
-    groups: kElecPresets,
-  );
-
-  Widget _buildElecButton() => _buildSheetButton(
-    key: const ValueKey("elec_button"),
-    icon: Icons.electrical_services_rounded,
-    label: "전기",
-    onTap: _openElecSheet,
-  );
-
-  Widget _buildDuctButton() => _buildSheetButton(
-    key: const ValueKey("duct_button"),
-    icon: Icons.view_week_rounded,
-    label: "덕트",
-    onTap: () => _showPresetSheet(
-      title: "덕트 놓기",
-      help:
-          "폭×높이(mm)입니다. 도면에는 폭만큼 놓이고, 길이는 놓은 뒤 세로 칸에서 고칩니다. 누르면 지금 보이는 도면 가운데에 놓습니다.",
-      groups: kDuctPresetGroups,
-    ),
-  );
-
-  Widget _buildSheetButton({
-    required Key key,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    Widget? iconWidget,
-  }) {
-    return Material(
-      key: key,
-      color: pureWhite,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: tossSubText.withValues(alpha: 0.3), width: 1.5),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: SizedBox(
-          width: 64,
-          height: 56,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              iconWidget ?? Icon(icon, size: 22, color: tossBlue),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: tossText,
-                ),
-              ),
-            ],
-          ),
+  /// 부품 담기 페이지를 열고, 고른 부품을 지금 보이는 도면 가운데에 놓는다.
+  Future<void> _openPartsPage({bool search = false, String? category}) async {
+    final ModulePreset? picked = await Navigator.of(context).push<ModulePreset>(
+      MaterialPageRoute(
+        builder: (_) => LayoutPartsPage(
+          categories: _partsCategories,
+          customPresets: () => _customPresets,
+          favorites: () => _favParts,
+          recents: _recentParts,
+          onToggleFavorite: _toggleFavPart,
+          onManagePresets: _showPresetManageSheet,
+          fittingCategoryKey: _isSkid ? '' : _fittingCategoryKey,
+          fittingSize: _fittingSize,
+          onFittingSize: (s) => setState(() => _fittingSize = s),
+          autofocusSearch: search,
+          initialCategory: category,
         ),
       ),
     );
+    if (picked == null || !mounted) return;
+    // 빈 상자·메모는 "최근 쓴 부품"에 안 남긴다.
+    if (picked != kLayoutNewPartPreset && picked != kLayoutNotePreset) {
+      _rememberRecentPart(picked.name);
+    }
+    _onAcceptItem(picked, _visibleBoardCenter(picked));
   }
 
-  /// 지금 도면 종류에서 놓을 수 있는 모든 부품(찾기 시트용). 묶음 이름 앞에 종류를 붙인다.
-  Map<String, List<ModulePreset>> get _allPartGroups {
-    final out = <String, List<ModulePreset>>{};
-    void add(String kind, Map<String, List<ModulePreset>> g) {
-      for (final e in g.entries) {
-        out['$kind · ${e.key}'] = e.value;
-      }
-    }
+  /// 도면 위에 글만 적는 상자("여기 트레이" 같은 말). 자재 수량에는 안 센다.
+  void _placeNote() =>
+      _onAcceptItem(kLayoutNotePreset, _visibleBoardCenter(kLayoutNotePreset));
 
-    if (_customPresets.isNotEmpty) out['내 프리셋'] = _customPresets;
-    if (_isSkid) {
-      add('형강', kSkidSteelPresets);
-      add('정션박스', kSkidJbPresets);
-      add('전선관 부속', kSkidFittingPresets);
-    } else {
-      add('덕트', kDuctPresetGroups);
-      add('전기', kElecPresets);
-      add('계기', kInstrumentPresets);
-      add('밸브', kValvePresets);
-      add('피팅', kFittingPresets);
-    }
-    return out;
-  }
-
-  Widget _buildSearchButton() => _buildSheetButton(
-    key: const ValueKey("search_button"),
-    icon: Icons.search_rounded,
-    label: "찾기",
-    onTap: () => _showPresetSheet(
-      title: "부품 찾기",
-      help: "이름·모델·극수로 찾습니다. 별을 누르면 즐겨찾기에 들어가고, 놓은 부품은 최근에 남습니다.",
-      groups: _allPartGroups,
-      autofocusSearch: true,
-    ),
+  /// "도면" 단추: 크기·모눈·안내선·측판·배경 사진 설정 페이지.
+  void _openBoardSettings() => Navigator.of(context).push(
+    MaterialPageRoute<void>(builder: (_) => _LayoutSettingsPage(owner: this)),
   );
+
+  // ───── 부품 찾기 기억(최근 쓴 부품·즐겨찾기·안내선 붙이기) ─────
 
   static const String _recentPartsKey = 'layout_recent_parts_v1';
   static const String _favPartsKey = 'layout_fav_parts_v1';
@@ -484,279 +308,9 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
     } catch (_) {}
   }
 
-  /// 찾기 글과 견줄 때: 소문자, 빈칸 없이.
-  static String _searchKey(String v) =>
-      v.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+  // ───── 공용 작은 부품 ─────
 
-  Future<void> _showPresetSheet({
-    required String title,
-    required String help,
-    required Map<String, List<ModulePreset>> groups,
-    bool sizeFilter = false,
-    bool autofocusSearch = false,
-  }) async {
-    String query = '';
-    final ModulePreset? picked = await showModalBottomSheet<ModulePreset>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: pureWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) {
-          final String q = _searchKey(query);
-          bool match(ModulePreset p) =>
-              q.isEmpty || _searchKey(p.name).contains(q);
-          // 크기 거르기(피팅)는 찾는 글이 없을 때만.
-          bool sizeOk(ModulePreset p) =>
-              !sizeFilter ||
-              q.isNotEmpty ||
-              fittingTubeSize(p.name) == _fittingSize;
-          final all = [for (final g in groups.values) ...g];
-          final favs = [
-            for (final p in all)
-              if (_favParts.contains(p.name) && match(p)) p,
-          ];
-          final recents = [
-            for (final n in _recentParts)
-              for (final p in all)
-                if (p.name == n && match(p) && !favs.contains(p)) p,
-          ];
-          Widget row(ModulePreset p) => ListTile(
-            key: ValueKey("preset_row_${p.name}"),
-            contentPadding: EdgeInsets.zero,
-            leading: _instrumentThumb(p, box: 48),
-            title: Text(
-              p.name,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: tossText,
-              ),
-            ),
-            // 덕트는 이름에 폭×높이가 있고 도면 세로(길이)는 놓은 뒤 고치므로 크기를 따로 안 적는다.
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (p.shape != InstrumentShape.duct)
-                  Text(
-                    "${p.width.toInt()}×${p.height.toInt()}",
-                    style: const TextStyle(fontSize: 15, color: tossSubText),
-                  ),
-                IconButton(
-                  key: ValueKey("preset_fav_${p.name}"),
-                  tooltip: _favParts.contains(p.name) ? "즐겨찾기에서 빼기" : "즐겨찾기",
-                  onPressed: () {
-                    _toggleFavPart(p.name);
-                    setSheet(() {});
-                  },
-                  icon: Icon(
-                    _favParts.contains(p.name)
-                        ? Icons.star_rounded
-                        : Icons.star_border_rounded,
-                    color: _favParts.contains(p.name)
-                        ? const Color(0xFFF59E0B)
-                        : tossSubText,
-                  ),
-                ),
-              ],
-            ),
-            onTap: () => Navigator.pop(ctx, p),
-          );
-          int shown = 0;
-          final children = <Widget>[
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w900,
-                color: tossText,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              keepWords(help),
-              style: const TextStyle(
-                fontSize: 14,
-                color: tossSubText,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              key: const ValueKey("preset_search"),
-              autofocus: autofocusSearch,
-              onChanged: (v) => setSheet(() => query = v),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                hintText: "부품 이름으로 찾기 (예: UK 2.5, 10P, LB 22)",
-                prefixIcon: const Icon(Icons.search_rounded),
-                isDense: true,
-                filled: true,
-                fillColor: tossBg,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-            if (sizeFilter && q.isEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                children: [
-                  for (final size in kFittingSizes)
-                    ChoiceChip(
-                      key: ValueKey("fitting_size_$size"),
-                      label: Text(size),
-                      selected: size == _fittingSize,
-                      showCheckmark: false,
-                      labelStyle: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: size == _fittingSize ? pureWhite : tossText,
-                      ),
-                      selectedColor: tossBlue,
-                      backgroundColor: pureWhite,
-                      side: BorderSide(
-                        color: size == _fittingSize ? tossBlue : layoutLine,
-                      ),
-                      onSelected: (_) {
-                        setState(() => _fittingSize = size);
-                        setSheet(() {});
-                      },
-                    ),
-                ],
-              ),
-            ],
-            if (favs.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _panelLabel("즐겨찾기"),
-              for (final p in favs) row(p),
-            ],
-            if (recents.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _panelLabel("최근 쓴 부품"),
-              for (final p in recents) row(p),
-            ],
-          ];
-          for (final brand in groups.entries) {
-            final list = [
-              for (final p in brand.value)
-                if (match(p) && sizeOk(p)) p,
-            ];
-            if (list.isEmpty) continue;
-            shown += list.length;
-            children.add(const SizedBox(height: 16));
-            children.add(_panelLabel(brand.key));
-            children.addAll(list.map(row));
-          }
-          if (shown == 0) {
-            children.add(
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  q.isEmpty
-                      ? "부품이 없습니다"
-                      : "'$query'에 맞는 부품이 없습니다. 신규 부품으로 놓고 이름·크기를 넣으십시오.",
-                  key: const ValueKey("preset_search_empty"),
-                  style: const TextStyle(fontSize: 14, color: tossSubText),
-                ),
-              ),
-            );
-          }
-          return Padding(
-            // 자판이 올라오면 그만큼 줄여 목록이 가려지지 않게.
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            ),
-            child: DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: (sizeFilter || autofocusSearch) ? 0.85 : 0.6,
-              maxChildSize: 0.92,
-              builder: (ctx, scroll) => ListView(
-                key: const ValueKey("preset_list"),
-                controller: scroll,
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                children: children,
-              ),
-            ),
-          );
-        },
-      ),
-    );
-    if (picked == null || !mounted) return;
-    _rememberRecentPart(picked.name);
-    _onAcceptItem(picked, _visibleBoardCenter(picked));
-  }
-
-  // 좁은 화면 가상선 단추: 누를 때마다 센터선(틸) ↔ 외곽선(주황)으로 바뀐다.
-  Widget _buildGuideColorSwitch() {
-    final bool isCenter = !_showEdgeGuide;
-    return _toolToggle(
-      icon: Icons.sync_alt_rounded,
-      label: isCenter ? "가상선: 센터" : "가상선: 측면",
-      selected: true,
-      color: isCenter ? guideCenterColor : edgeDimColor,
-      onTap: () => setState(() {
-        _showCenterGuide = !isCenter;
-        _showEdgeGuide = isCenter;
-      }),
-    );
-  }
-
-  Widget _buildPaletteItem(String defaultName, {bool large = false}) {
-    // 넓은 화면의 왼쪽 칸에서는 크게 보인다. 끄는 동안 떠다니는 복사본으로도
-    // 쓰이므로 폭은 늘 고정값이어야 한다(무한 폭이면 오류가 난다).
-    return Container(
-      width: large ? 228 : 64,
-      height: large ? 56 : 56,
-      decoration: BoxDecoration(
-        color: tossBlue.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: tossBlue.withValues(alpha: 0.5), width: 1.5),
-      ),
-      child: Center(
-        child: large
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.add_box_rounded, color: tossBlue, size: 22),
-                  const SizedBox(width: 8),
-                  Text(
-                    defaultName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      color: tossBlue,
-                    ),
-                  ),
-                ],
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.add_box_rounded, color: tossBlue, size: 20),
-                  const SizedBox(height: 2),
-                  Text(
-                    defaultName,
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: tossBlue,
-                      height: 1.1,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-
-  // 켜고 끄는 도구 단추(높이 44, 글씨 14). 알약 모양 대신 모서리만 둥근 네모.
+  // 켜고 끄는 도구 단추(높이 44, 글씨 15). 알약 모양 대신 모서리만 둥근 네모.
   Widget _toolToggle({
     required IconData icon,
     required String label,
@@ -787,6 +341,7 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Row(
+                mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(icon, size: 22, color: selected ? color : tossSubText),
@@ -821,22 +376,4 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
       color: tossSubText,
     ),
   );
-
-  // 도면으로 끌어다 놓는 것 하나. affinity를 주면 그 방향으로 끌 때만 집힌다.
-  Widget _dragTile(
-    ModulePreset preset,
-    Widget Function(bool dragging) builder, {
-    Axis? affinity,
-  }) {
-    return Draggable<ModulePreset>(
-      data: preset,
-      affinity: affinity,
-      feedback: Material(
-        color: Colors.transparent,
-        child: Opacity(opacity: 0.8, child: builder(true)),
-      ),
-      childWhenDragging: Opacity(opacity: 0.3, child: builder(true)),
-      child: builder(false),
-    );
-  }
 }

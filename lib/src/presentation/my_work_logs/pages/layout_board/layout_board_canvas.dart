@@ -1023,27 +1023,6 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
       ),
     );
   }
-
-  // 목록·자재 칸에 쓰는 계기 작은 그림(가로·세로 비율 그대로).
-  Widget _instrumentThumb(ModulePreset p, {double box = 44}) {
-    final double k = box / math.max(p.width, p.height);
-    return SizedBox(
-      width: box,
-      height: box,
-      child: Center(
-        child: SizedBox(
-          width: p.width * k,
-          height: p.height * k,
-          child: CustomPaint(
-            painter: InstrumentShapePainter(
-              shape: p.shape ?? '',
-              strokeWidth: 1,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 /// 고른 부품의 접속점(튜브가 붙는 자리)을 작은 점으로.

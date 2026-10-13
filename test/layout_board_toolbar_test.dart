@@ -140,7 +140,7 @@ void main() {
       find.descendant(of: bar, matching: find.byTooltip('다중 선택')),
       findsNothing,
     );
-    expect(find.text('여러 개 선택'), findsOneWidget);
+    expect(find.text('여러 개'), findsOneWidget);
     // 폰 폭에서 제목(배치도 이름)이 잘리지 않는다. 저장은 아이콘 단추.
     final Finder name = find.descendant(
       of: bar,
@@ -248,8 +248,13 @@ void main() {
 
   testWidgets('내 프리셋은 관리 시트에서 줄을 왼쪽으로 밀어 지우고, 되돌리기로 살린다', (tester) async {
     await openWithDraft(tester, kPhone, presets: true);
+    // 내 프리셋은 부품 담기 페이지의 "내 부품"에 있다(10-13).
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('parts_cat_mine')));
+    await tester.pumpAndSettle();
     expect(find.text('차단기 3P'), findsOneWidget);
-    await tester.tap(find.text('관리'));
+    await tester.tap(find.byKey(const ValueKey('presets_manage_button')));
     await tester.pumpAndSettle();
     expect(find.text('내 프리셋 관리'), findsOneWidget);
     // 잘못 누르기 쉬운 휴지통 단추는 없다.
@@ -285,8 +290,8 @@ void main() {
   testWidgets('폰 폭: 도구 칸의 글씨는 14 이상, 단추는 40 이상', (tester) async {
     await openWithDraft(tester, kPhone, presets: true);
     expectNoSmallText(tester);
-    expectTouchable(tester, buttonOf('여러 개 선택'));
-    for (final t in ['부품 배치/이동', '치수 측정']) {
+    expectTouchable(tester, buttonOf('여러 개'));
+    for (final t in ['배치', '치수']) {
       final Size s = tester.getSize(
         find.ancestor(
           of: find.text(t),
@@ -297,7 +302,7 @@ void main() {
     }
 
     // 치수 모드 도구 칸도 같다.
-    await tester.tap(find.text('치수 측정'));
+    await tester.tap(find.text('치수'));
     await tester.pumpAndSettle();
     expectNoSmallText(tester);
     expectTouchable(tester, buttonOf('체인'));
@@ -309,25 +314,23 @@ void main() {
     await openWithDraft(tester, kTablet);
     expect(find.byType(FilterChip), findsNothing);
     expect(find.byType(ChoiceChip), findsNothing);
-    await tester.tap(find.text('치수 측정'));
+    await tester.tap(find.text('치수'));
     await tester.pumpAndSettle();
     expect(find.byType(FilterChip), findsNothing);
     expect(find.byType(ChoiceChip), findsNothing);
     await disposeBoard(tester);
   });
 
-  testWidgets('폰 폭: 아래 칸의 신규 부품을 위로 끌어 도면에 놓는다', (tester) async {
+  testWidgets('폰 폭: 부품 담기의 "내 부품"에서 신규 부품을 고르면 도면 가운데에 놓인다', (tester) async {
     await openWithDraft(tester, kPhone);
     expect(onBoard('신규 부품'), findsNothing);
-    final Offset from = tester.getCenter(find.text('신규 부품'));
-    final g = await tester.startGesture(from);
-    for (int i = 0; i < 12; i++) {
-      await g.moveBy(const Offset(0, -40));
-      await tester.pump(const Duration(milliseconds: 16));
-    }
-    await g.up();
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
     await tester.pumpAndSettle();
-    // 놓으면 좁은 화면에서는 편집 바텀시트가 열린다.
+    await tester.tap(find.byKey(const ValueKey('parts_cat_mine')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('preset_row_신규 부품')));
+    await tester.pumpAndSettle();
+    // 놓으면 편집 바텀시트가 열린다.
     expect(onBoard('신규 부품'), findsOneWidget);
     await disposeBoard(tester);
   });
@@ -345,7 +348,7 @@ void main() {
     ) async {
       await openWithDraft(tester, size, presets: true);
       expect(tester.takeException(), isNull);
-      await tester.tap(find.text('치수 측정'));
+      await tester.tap(find.text('치수'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       await disposeBoard(tester);

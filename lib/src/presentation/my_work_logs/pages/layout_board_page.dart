@@ -4,6 +4,7 @@ import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:async';
 import '../widgets/korean_text.dart';
+import 'layout_board/layout_parts_page.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -398,8 +399,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 🚀 [신규] 프리셋이 많아지면 원하는 걸 찾기 번거로워질 수 있어 이름
   // 검색으로 바로 필터링할 수 있게 했다.
   final TextEditingController _presetSearchCtrl = TextEditingController();
-
-  String _presetSearchQuery = '';
 
   @override
   void initState() {

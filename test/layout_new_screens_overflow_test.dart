@@ -123,11 +123,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.ensureVisible(find.byKey(const ValueKey('skid_fitting')));
-      await tester.tap(find.byKey(const ValueKey('skid_fitting')));
+      await tester.tap(find.byKey(const ValueKey('parts_button')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('parts_cat_skid_fitting')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      expect(find.text('전선관 부속 놓기'), findsOneWidget);
+      expect(find.text('부품 담기'), findsOneWidget);
       nav.currentState!.pop();
       await tester.pumpAndSettle();
 
@@ -136,8 +137,8 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.byKey(const ValueKey('hidden_back')), findsOneWidget);
 
-      // 관리 창(가려진 부품 보이기 줄이 있는 곳)
-      await tester.tap(find.byTooltip('더보기'));
+      // 도면 설정 페이지(가려진 부품 보이기 줄이 있는 곳)
+      await tester.tap(find.byKey(const ValueKey('board_settings_button')));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
       expect(find.byKey(const ValueKey('toggle_hidden_parts')), findsOneWidget);

@@ -167,18 +167,24 @@ void main() {
 
   testWidgets('스키드 단추: 형강·경로·JB·부속만, 계기·밸브·피팅은 없다', (tester) async {
     await openSkid(tester);
-    for (final k in ['skid_steel', 'skid_route', 'skid_jb', 'skid_fitting']) {
+    for (final k in ['parts_button', 'route_button', 'iso_button']) {
       expect(find.byKey(ValueKey(k)), findsOneWidget, reason: k);
     }
-    for (final k in ['instrument_button', 'valve_button', 'fitting_button']) {
+    for (final k in ['search_button', 'note_button']) {
       expect(find.byKey(ValueKey(k)), findsNothing, reason: k);
     }
-    // 도구 줄에 "입체" 단추가 늘어 부속 단추가 옆으로 밀릴 수 있다.
-    await tester.ensureVisible(find.byKey(const ValueKey('skid_fitting')));
+    // 부품 담기 페이지에는 형강·JB·부속 묶음만 있다.
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('skid_fitting')));
+    for (final k in ['skid_steel', 'skid_jb', 'skid_fitting']) {
+      expect(find.byKey(ValueKey('parts_cat_$k')), findsOneWidget, reason: k);
+    }
+    for (final k in ['instrument', 'valve', 'fitting']) {
+      expect(find.byKey(ValueKey('parts_cat_$k')), findsNothing, reason: k);
+    }
+    await tester.tap(find.byKey(const ValueKey('parts_cat_skid_fitting')));
     await tester.pumpAndSettle();
-    expect(find.text('전선관 부속 놓기'), findsOneWidget);
+    expect(find.text('부품 담기'), findsOneWidget);
     await tester.tap(find.text('곤질레다 LB 22'));
     await tester.pumpAndSettle();
     expect(
@@ -258,12 +264,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(findTextContaining('정면·측면 판은 높이만 바꿉니다'), findsOneWidget);
     expect(
-      find.ancestor(of: find.text('가로 (W) mm'), matching: find.byWidgetPredicate((w) => w is IgnorePointer && w.ignoring)),
+      find.ancestor(
+        of: find.text('가로 (W) mm'),
+        matching: find.byWidgetPredicate(
+          (w) => w is IgnorePointer && w.ignoring,
+        ),
+      ),
       findsOneWidget,
     );
   });
 
-  testWidgets('정면에서 끈 뒤 평면 탭에서 옮기고 돌아와 되돌려도 평면에서 한 것은 남는다(10-08)', (tester) async {
+  testWidgets('정면에서 끈 뒤 평면 탭에서 옮기고 돌아와 되돌려도 평면에서 한 것은 남는다(10-08)', (
+    tester,
+  ) async {
     await openSkid(
       tester,
       prefs: {
@@ -288,7 +301,9 @@ void main() {
     Map<String, dynamic> planItem() {
       final state = tester.state(find.byType(LayoutBoardPage)) as dynamic;
       final plates = state.debugPlates() as Map<String, Map<String, dynamic>>;
-      return Map<String, dynamic>.from((plates[kPlateMain]!['items'] as List).single as Map);
+      return Map<String, dynamic>.from(
+        (plates[kPlateMain]!['items'] as List).single as Map,
+      );
     }
 
     Future<void> drag(Finder f, Offset step) async {
@@ -397,10 +412,12 @@ void main() {
         .toList();
     expect(order, ['view_back', 'view_front']);
 
-    // 관리 → 가려진 부품 보이기 끄기
-    await tester.tap(find.byIcon(AppIcons.more).first);
+    // 도면 설정 → 가려진 부품 보이기 끄기 → 돌아오기
+    await tester.tap(find.byKey(const ValueKey('board_settings_button')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('toggle_hidden_parts')));
+    await tester.pumpAndSettle();
+    await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('hidden_back')), findsNothing);
 
@@ -556,7 +573,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('치수 측정'));
+    await tester.tap(find.text('치수'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('view_a')));
     await tester.pumpAndSettle();
@@ -584,7 +601,7 @@ void main() {
     // 평면에서 b를 오른쪽으로 옮기면(저장 칸을 직접 고침) 정면 치수가 따라온다.
     await tester.tap(find.byKey(const ValueKey('plate_tab_main')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('부품 배치/이동'));
+    await tester.tap(find.text('배치'));
     await tester.pumpAndSettle();
     final Offset c = tester.getCenter(find.byKey(const ValueKey('b')));
     final g = await tester.startGesture(c);
@@ -703,8 +720,24 @@ void main() {
     );
   });
   test('형강 위로 올린 부품이 앉을 높이: 형강 윗면 + 부품 높이의 반, 형강이 아니면 건드리지 않는다', () {
-    PlacedItem steel(String id, double x, double y, double w, double h, {double? elev, String name = 'H형강 150x150x7x10', String shape = SkidShape.beam}) =>
-        PlacedItem(id: id, name: name, position: Offset(x, y), width: w, height: h, shape: shape, elevation: elev);
+    PlacedItem steel(
+      String id,
+      double x,
+      double y,
+      double w,
+      double h, {
+      double? elev,
+      String name = 'H형강 150x150x7x10',
+      String shape = SkidShape.beam,
+    }) => PlacedItem(
+      id: id,
+      name: name,
+      position: Offset(x, y),
+      width: w,
+      height: h,
+      shape: shape,
+      elevation: elev,
+    );
     PlacedItem jb(double x, double y, {double? elev}) => PlacedItem(
       id: 'jb',
       name: '정션박스',
@@ -728,7 +761,13 @@ void main() {
     expect(skidRestElevation(steel('s2', 0, 0, 100, 100), [beam]), isNull);
     expect(
       skidRestElevation(
-        PlacedItem(id: 'n', name: '메모', position: const Offset(0, 0), width: 160, height: 40),
+        PlacedItem(
+          id: 'n',
+          name: '메모',
+          position: const Offset(0, 0),
+          width: 160,
+          height: 40,
+        ),
         [beam],
       ),
       isNull,
@@ -759,9 +798,9 @@ void main() {
         }),
       },
     );
-    await tester.ensureVisible(find.byKey(const ValueKey('skid_jb')));
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('skid_jb')));
+    await tester.tap(find.byKey(const ValueKey('parts_cat_skid_jb')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('정션박스 300×200').first);
     await tester.pumpAndSettle();

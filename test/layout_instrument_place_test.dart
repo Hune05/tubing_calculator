@@ -16,9 +16,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('instrument_button')));
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
     await tester.pumpAndSettle();
-    expect(find.text('계기 놓기'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('parts_cat_instrument')));
+    await tester.pumpAndSettle();
+    expect(find.text('부품 담기'), findsOneWidget);
     expect(find.text('요꼬가와'), findsOneWidget);
     // 요꼬가와 묶음 뒤(브래킷 포함 프리셋이 늘어 화면 밖)라 목록을 내려서 찾는다.
     await tester.scrollUntilVisible(
@@ -60,9 +62,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('duct_button')));
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
     await tester.pumpAndSettle();
-    expect(find.text('덕트 놓기'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('parts_cat_duct')));
+    await tester.pumpAndSettle();
+    expect(find.text('부품 담기'), findsOneWidget);
     await tester.ensureVisible(find.text('ABS덕트 60×80'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('ABS덕트 60×80'));
@@ -98,11 +102,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byKey(const ValueKey('fitting_button')));
+    await tester.tap(find.byKey(const ValueKey('parts_button')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('fitting_button')));
+    await tester.tap(find.byKey(const ValueKey('parts_cat_fitting')));
     await tester.pumpAndSettle();
-    expect(find.text('피팅 놓기'), findsOneWidget);
+    expect(find.text('부품 담기'), findsOneWidget);
     await tester.scrollUntilVisible(
       find.text('유니온 티 1/2"'),
       200,

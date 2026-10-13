@@ -1,5 +1,11 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../models/instrument_shape_painter.dart';
+import '../models/layout_board_models.dart';
 
 import 'korean_text.dart';
 
@@ -158,4 +164,85 @@ Future<bool> confirmLayoutDanger(
     ),
   );
   return ok == true;
+}
+
+/// 아래 도구 줄 단추(10-13 개편): 아이콘 위, 글씨(14) 아래, 높이 60. 글은 네 글자 안으로 해서
+/// 어느 폭에서도 잘리지 않게 한다. [primary]는 채운 청록(부품 담기), [selected]는 켜진 토글.
+Widget layoutToolButton({
+  Key? key,
+  required IconData icon,
+  required String label,
+  required VoidCallback? onTap,
+  bool selected = false,
+  bool primary = false,
+  Color? color,
+}) {
+  final Color accent = color ?? tossBlue;
+  final Color fg = primary ? pureWhite : (selected ? accent : tossText);
+  final Color bg = primary
+      ? tossBlue
+      : (selected ? accent.withValues(alpha: 0.10) : pureWhite);
+  return Semantics(
+    button: true,
+    selected: selected,
+    child: Material(
+      key: key,
+      color: bg,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: primary || selected ? accent : layoutLine,
+          width: selected && !primary ? 2 : 1.5,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onTap();
+              },
+        child: SizedBox(
+          height: 60,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 22, color: fg),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                maxLines: 1,
+                softWrap: false,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: fg,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+/// 부품 목록의 작은 그림(모양이 있으면 그 모양, 없으면 네모).
+Widget layoutPresetThumb(ModulePreset p, {double box = 44}) {
+  final double k = box / math.max(p.width, p.height);
+  return SizedBox(
+    width: box,
+    height: box,
+    child: Center(
+      child: SizedBox(
+        width: p.width * k,
+        height: p.height * k,
+        child: CustomPaint(
+          painter: InstrumentShapePainter(shape: p.shape ?? '', strokeWidth: 1),
+        ),
+      ),
+    ),
+  );
 }
