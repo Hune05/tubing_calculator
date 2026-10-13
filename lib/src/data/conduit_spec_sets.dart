@@ -26,7 +26,12 @@ const List<String> kConduitSpecFields = [
   'degPerNotch',
   'notchSpacing',
   'rollerSize',
+  // 10-13: 이 값을 잰 치수 기준(1 = 관 중심, 0 = 관 등). 없으면 10-13 전에 저장한 것이라 모른다.
+  kConduitSpecRefField,
 ];
+
+/// 규격별 제원에 남기는 치수 기준 칸(1 = 관 중심, 0 = 관 등).
+const String kConduitSpecRefField = 'refCenter';
 
 String conduitSpecKey({
   required String benderType,

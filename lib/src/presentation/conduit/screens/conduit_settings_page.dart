@@ -184,6 +184,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       _enteredValues = _currentSpecValues();
       _specSets[_comboKey] = {...?_specSets[_comboKey], ..._enteredValues};
       _fromSaved = true;
+      _specRefNote = null;
     });
   }
 
@@ -339,12 +340,20 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   /// 지금 조합의 값이 어디서 왔는지: true면 저장해 둔 값, false면 처음이라 기본값.
   bool _fromSaved = true;
 
+  /// 저장해 둔 규격 값의 치수 기준이 지금과 달라 바꿔 넣었거나, 기준 기록이 없을 때 알리는 글(10-13).
+  String? _specRefNote;
+
   /// 벤더 종류·제조사·재질·규격 고르기. 바꾸기 전에 지금 조합에서 고친 값을
   /// 기억해 둔다(저장 전에 규격을 바꿨다 돌아와도 고친 값이 남는다).
   void _changeCombo(VoidCallback change) {
     if (!_specSetsLoaded) return; // 잠깐(저장값 읽는 동안)은 바꾸지 못한다.
     final now = _currentSpecValues();
-    if (!mapEquals(now, _enteredValues)) {
+    // 치수 기준만 바꾼 것은 이 조합 값을 고친 것으로 치지 않는다(저장해 둔 기준 기록을 그대로 둔다).
+    bool same(Map<String, double> a, Map<String, double> b) => mapEquals(
+      {...a}..remove(kConduitSpecRefField),
+      {...b}..remove(kConduitSpecRefField),
+    );
+    if (!same(now, _enteredValues)) {
       _specSets[_comboKey] = now;
       _unsavedKeys.add(_comboKey);
     }
@@ -360,6 +369,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     _fixDropdownChoices();
     final saved = _specSets[_comboKey];
     _fromSaved = saved != null;
+    _specRefNote = null;
     if (saved != null) {
       _loadCorrectionDefaults();
       _applySpecSet(saved);
@@ -390,8 +400,36 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       _couplingAllowanceController.text = _numText(v['couplingAllowance']!);
     }
     if (v['clr'] != null) _clrController.text = _numText(v['clr']!);
-    if (v['takeUp'] != null) _takeUpController.text = _numText(v['takeUp']!);
-    if (v['gain'] != null) _gainController.text = _numText(v['gain']!);
+    // 10-13: 저장 때 치수 기준이 지금과 다르면 테이크업 ∓ D/2·게인 ∓ D로 바꿔 넣는다(CLR은 기준과 상관없음).
+    // 예전에는 관 등으로 저장한 값이 관 중심 설정에 그대로 들어와 스텁이 D/2, 벤드마다 절단이 D만큼 짧았다.
+    // 기준 기록이 없는 옛 값은 짐작해 바꾸지 않는다. 10-09 전에는 관 등뿐이라, 관 중심일 때만 알린다.
+    final nowCenter = _measureRef == kConduitRefCenter;
+    final savedRef = v[kConduitSpecRefField];
+    final od = conduitOuterDiameter(_conduitType, _conduitSize);
+    final hasLen = v['takeUp'] != null || v['gain'] != null;
+    var shift = 0.0;
+    if (savedRef == null) {
+      if (hasLen && nowCenter) {
+        _specRefNote =
+            "이 규격 값은 어느 치수 기준으로 저장했는지 기록이 없습니다(옛 값은 대개 관 등 기준). "
+            "관 등 기준 값이면 표에서 다시 채우거나 시험 벤딩으로 다시 잡으십시오.";
+      }
+    } else if (hasLen && (savedRef >= 0.5) != nowCenter && od != null) {
+      shift = nowCenter ? -1 : 1;
+      _specRefNote = nowCenter
+          ? "관 등 기준으로 저장한 값이라 관 중심 기준으로 바꿔 넣었습니다"
+                "(테이크업 − 바깥지름 ÷ 2, 게인 − 바깥지름)."
+          : "관 중심 기준으로 저장한 값이라 관 등 기준으로 바꿔 넣었습니다"
+                "(테이크업 + 바깥지름 ÷ 2, 게인 + 바깥지름).";
+    }
+    if (v['takeUp'] != null) {
+      _takeUpController.text = _numText(
+        _round2(v['takeUp']! + shift * (od ?? 0) / 2),
+      );
+    }
+    if (v['gain'] != null) {
+      _gainController.text = _numText(_round2(v['gain']! + shift * (od ?? 0)));
+    }
     if (v['ramTravel'] != null) {
       _ramTravelController.text = _numText(v['ramTravel']!);
     }
@@ -405,9 +443,13 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     }
   }
 
+  double _round2(double v) => (v * 100).round() / 100;
+
   Map<String, double> _currentSpecValues() {
     double? d(TextEditingController c) => double.tryParse(c.text);
     return {
+      // 이 값을 잰 치수 기준도 같이 남긴다(10-13).
+      kConduitSpecRefField: _measureRef == kConduitRefCenter ? 1.0 : 0.0,
       if (d(_springbackController) != null)
         'springback': d(_springbackController)!,
       if (d(_couplingAllowanceController) != null)
@@ -584,6 +626,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     };
     _unsavedKeys.clear();
     _fromSaved = true;
+    _specRefNote = null;
     final Map<String, dynamic> newSettings = {
       'benderType': _selectedTypeId,
       'manufacturer': _manufacturer,
@@ -1193,14 +1236,16 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           helpText:
               "도면·줄자로 길이를 어디까지 재는지입니다. 입력 길이와 시험 벤딩의 다리 길이를 모두 이 기준으로 잽니다. "
               "게인·테이크업도 같은 기준으로 잰 값이어야 합니다. 제조사 표 값은 관 등 기준이라, 관 중심을 고르면 표에서 채울 때 "
-              "바깥지름만큼 바꿔 넣습니다. 기준을 바꿔도 이미 넣어 둔 게인·테이크업은 그대로입니다(어느 기준으로 잰 값인지 확인하십시오).",
+              "바깥지름만큼 바꿔 넣습니다. 기준을 바꿔도 이미 넣어 둔 게인·테이크업은 그대로입니다(어느 기준으로 잰 값인지 확인하십시오). "
+              "규격마다 저장한 값은 저장할 때의 기준을 같이 기억해, 다른 규격을 고를 때 지금 기준에 맞게 바꿔 넣습니다.",
           (v) {
             if (v != null) {
-              setState(
-                () => _measureRef = v.startsWith("관 중심")
+              setState(() {
+                _measureRef = v.startsWith("관 중심")
                     ? kConduitRefCenter
-                    : kConduitRefBack,
-              );
+                    : kConduitRefBack;
+                _specRefNote = null;
+              });
             }
           },
         ),
@@ -1460,9 +1505,10 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
 
   /// 규격 고르기 밑 한 줄: 지금 칸 값이 저장해 둔 값인지, 처음이라 기본값인지.
   Widget _buildComboNote() {
-    final text = _fromSaved
+    final base = _fromSaved
         ? "$_conduitType $_conduitSize: 저장해 둔 값입니다. 규격을 바꾸면 그 규격 값으로 바뀝니다."
         : "$_conduitType $_conduitSize: 처음 고른 규격이라 기본값을 넣었습니다. 저장하면 이 규격 값으로 기억합니다.";
+    final text = _specRefNote == null ? base : "$base\n$_specRefNote";
     return Padding(
       key: const Key('conduit_combo_note'),
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -1471,7 +1517,9 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         style: TextStyle(
           fontSize: 12.5,
           height: 1.4,
-          color: _fromSaved ? slate600 : const Color(0xFFB45309),
+          color: _fromSaved && _specRefNote == null
+              ? slate600
+              : const Color(0xFFB45309),
         ),
       ),
     );

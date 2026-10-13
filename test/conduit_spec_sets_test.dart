@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/conduit_spec_sets.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
 
 Finder fieldWithText(String text) =>
@@ -168,5 +169,87 @@ void main() {
     // 표 기본값(EMT 22mm = 2°)이 아니라 쓰던 3°가 그대로다.
     expect(fieldWithText('3.0'), findsOneWidget);
     expect(fieldWithText('2.0'), findsNothing);
+  });
+
+  group('규격별 값의 치수 기준(10-13)', () {
+    final k28 = conduitSpecKey(
+      benderType: 'hand',
+      manufacturer: 'Greenlee',
+      conduitType: 'EMT',
+      conduitSize: '28mm',
+    );
+    void useRef(String ref) =>
+        globalBenderSettings.value = {...defaults, kConduitMeasureRefKey: ref};
+
+    testWidgets('관 등으로 저장한 값을 관 중심 설정에서 고르면 바깥지름만큼 바꿔 넣는다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kConduitSpecSetsPrefsKey:
+            '{"$k28":{"takeUp":279.4,"gain":142.8,"clr":120.0,"refCenter":0.0}}',
+      });
+      useRef(kConduitRefCenter);
+      await open(tester, const Key('a'));
+      await pickSize(tester, '22mm', '28mm');
+      // EMT 28 바깥지름 29.5: 테이크업 279.4 − 14.75, 게인 142.8 − 29.5. CLR은 그대로.
+      expect(fieldWithText('264.65'), findsOneWidget);
+      expect(fieldWithText('113.3'), findsOneWidget);
+      expect(fieldWithText('120.0'), findsOneWidget);
+      expect(find.textContaining('관 중심 기준으로 바꿔 넣었습니다'), findsOneWidget);
+    });
+
+    testWidgets('관 중심으로 저장한 값을 관 등 설정에서 고르면 거꾸로 더한다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kConduitSpecSetsPrefsKey:
+            '{"$k28":{"takeUp":264.65,"gain":113.3,"refCenter":1.0}}',
+      });
+      useRef(kConduitRefBack);
+      await open(tester, const Key('a'));
+      await pickSize(tester, '22mm', '28mm');
+      expect(fieldWithText('279.4'), findsOneWidget);
+      expect(fieldWithText('142.8'), findsOneWidget);
+      expect(find.textContaining('관 등 기준으로 바꿔 넣었습니다'), findsOneWidget);
+    });
+
+    testWidgets('같은 기준이면 그대로, 알림도 없다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kConduitSpecSetsPrefsKey:
+            '{"$k28":{"takeUp":279.4,"gain":142.8,"refCenter":0.0}}',
+      });
+      useRef(kConduitRefBack);
+      await open(tester, const Key('a'));
+      await pickSize(tester, '22mm', '28mm');
+      expect(fieldWithText('279.4'), findsOneWidget);
+      expect(find.textContaining('바꿔 넣었습니다'), findsNothing);
+    });
+
+    testWidgets('기준 기록이 없는 옛 값: 바꾸지 않고, 관 중심일 때만 알린다', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        kConduitSpecSetsPrefsKey: '{"$k28":{"takeUp":279.4,"gain":142.8}}',
+      });
+      useRef(kConduitRefCenter);
+      await open(tester, const Key('a'));
+      await pickSize(tester, '22mm', '28mm');
+      expect(fieldWithText('279.4'), findsOneWidget);
+      expect(find.textContaining('기록이 없습니다'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+
+      useRef(kConduitRefBack);
+      await open(tester, const Key('b'));
+      await pickSize(tester, '22mm', '28mm');
+      expect(fieldWithText('279.4'), findsOneWidget);
+      expect(find.textContaining('기록이 없습니다'), findsNothing);
+    });
+
+    testWidgets('저장하면 치수 기준도 같이 남는다', (tester) async {
+      useRef(kConduitRefCenter);
+      await open(tester, const Key('a'));
+      await save(tester);
+      final k22 = conduitSpecKey(
+        benderType: 'hand',
+        manufacturer: 'Greenlee',
+        conduitType: 'EMT',
+        conduitSize: '22mm',
+      );
+      expect((await loadConduitSpecSets())[k22]![kConduitSpecRefField], 1.0);
+    });
   });
 }
