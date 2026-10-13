@@ -5,7 +5,8 @@ import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart' show markCardSliver;
+import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart'
+    show markCardSliver;
 
 // 🚀 매니저 임포트: 전선관 전용 매니저
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
@@ -46,7 +47,9 @@ class ConduitResultTab extends StatefulWidget {
 }
 
 class _ConduitResultTabState extends State<ConduitResultTab>
-    with AutomaticKeepAliveClientMixin, RecentCalcHistoryMixin<ConduitResultTab> {
+    with
+        AutomaticKeepAliveClientMixin,
+        RecentCalcHistoryMixin<ConduitResultTab> {
   @override
   bool get wantKeepAlive => true;
 
@@ -57,6 +60,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   // 커플링 체결 여부와 시작 방향은 현장 탭과 같이 쓴다(conduit_field_data.dart).
   bool get _useCoupling => conduitUseCoupling.value;
   set _useCoupling(bool v) => conduitUseCoupling.value = v;
+
+  /// 줄 번호 → 꺾기 전에 굴릴 각도(현장 탭과 같은 셈: 3D 경로 값, 없으면 롤링 시트가 남긴 값).
+  /// 10-13: 전선관 마킹 카드에만 굴림 안내가 없어, 마킹 탭만 보고 롤링 오프셋을 굴리지 않고 꺾을 수 있었다.
+  Map<int, double> _rolls = const {};
 
   @override
   void initState() {
@@ -120,6 +127,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           currentSettings,
           startDir: conduitStartDir.value,
         );
+        _rolls = {
+          for (var i = 0; i < bendList.length; i++)
+            i: ?(check.rollByIndex[i] ?? conduitRollHint(bendList[i])),
+        };
 
         // 총 절단 길이 = 구간 길이 합 − 각도별 게인 합(+ 커플링 끝 여유). 톱날 두께는 더하지 않는다.
         // (+ 커플링 체결이면 끝 여유). 현장 탭과 같은 셈.
@@ -149,10 +160,11 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               })
               .join(', ');
           // 기록이 이틀 남으므로 어느 규격 계산인지 제목에 붙인다(규격이 바뀌면 따로 쌓인다).
-          final size = [
-            currentSettings['conduitType'],
-            currentSettings['conduitSize'],
-          ].map((v) => (v ?? '').toString().trim()).where((v) => v.isNotEmpty).join(' ');
+          final size =
+              [currentSettings['conduitType'], currentSettings['conduitSize']]
+                  .map((v) => (v ?? '').toString().trim())
+                  .where((v) => v.isNotEmpty)
+                  .join(' ');
           logCalc(
             size.isEmpty ? '마킹 계산' : '마킹 계산 · $size',
             '총 절단 ${totalCut.toStringAsFixed(0)}mm · $markText',
@@ -594,6 +606,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     final Color noteColor = isShort
         ? fc.caution
         : (isStraight ? slate600 : themeColor);
+    final double roll = isStraight ? 0 : (_rolls[index] ?? 0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -663,9 +676,12 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                         // 22.5°를 '22°'로 잘라 보이던 것도 고쳤다.
                         Flexible(
                           child: Text(
+                            // "실제 N°"는 스프링백을 얹어 각이 다를 때만(튜브 카드와 같게).
                             isStraight
                                 ? "직관 연장 마킹"
-                                : "${_fmtAngle(angle)}° 벤딩 (실제 ${targetAngle.toStringAsFixed(1)}°)",
+                                : (targetAngle - angle).abs() > 0.05
+                                ? "${_fmtAngle(angle)}° 벤딩 (실제 ${targetAngle.toStringAsFixed(1)}°)"
+                                : "${_fmtAngle(angle)}° 벤딩",
                             style: TextStyle(
                               color: slate600,
                               fontSize: 13,
@@ -764,6 +780,28 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                               note,
                               style: TextStyle(
                                 color: noteColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (roll > 0.5) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        key: Key('conduit_roll_$index'),
+                        children: [
+                          Icon(AppIcons.warning, size: 14, color: fc.caution),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              markNo <= 1
+                                  ? "꺾기 전에 관을 ${roll.round()}° 굴려 잡으십시오"
+                                  : "앞 벤드에서 ${roll.round()}° 굴려 물리십시오",
+                              style: TextStyle(
+                                color: fc.caution,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),

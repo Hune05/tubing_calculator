@@ -97,7 +97,11 @@ const String kGainHelp =
     "관이 90°로 꺾이며 줄어드는 길이입니다. 총 절단 길이에서 벤드마다 뺍니다. 제조사를 고르면 CLR로 계산한 값이 들어갑니다.";
 
 class ConduitSettingsPage extends StatefulWidget {
-  const ConduitSettingsPage({super.key});
+  const ConduitSettingsPage({super.key, this.isActive = false});
+
+  /// 설정 탭이 지금 보이는 탭인지. 보일 때만 뒤로 가기를 받아 저장하지 않은 값을 묻는다
+  /// (현장 탭도 뒤로 가기를 받으므로, 안 보일 때는 손대지 않는다).
+  final bool isActive;
 
   @override
   State<ConduitSettingsPage> createState() => _ConduitSettingsPageState();
@@ -522,6 +526,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       if (v == null) return c.text.trim().isEmpty;
       return (v - o).abs() < 1e-6;
     }
+
     return s['benderType'] != _selectedTypeId ||
         s['manufacturer'] != _manufacturer ||
         s['conduitType'] != _conduitType ||
@@ -529,6 +534,11 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         (s['applySpringback'] ?? true) != _applySpringback ||
         (s['applyShrink'] ?? true) != _applyShrink ||
         (s[kConduitMeasureRefKey] ?? kConduitRefBack) != _measureRef ||
+        // 10-13: 노치당 각도(시카고 칸 수 셈)·현장 탭 단위·줄자 정밀도도 빠져 있어, 바꾸고 안 저장해도 알림이 없었다.
+        ((s['degPerNotch'] as num?)?.toDouble() ?? _degPerNotch) !=
+            _degPerNotch ||
+        (s['unitSystem'] ?? _unitSystem) != _unitSystem ||
+        (s['fractionPrecision'] ?? _fractionPrecision) != _fractionPrecision ||
         !sameNum(_clrController, 'clr') ||
         !sameNum(_takeUpController, 'takeUp') ||
         !sameNum(_gainController, 'gain') ||
@@ -556,7 +566,8 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       }
     }
     if (refilled && mounted) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         const SnackBar(content: Text('빈 칸(CLR·테이크업·게인)은 쓰던 값을 다시 넣어 저장했습니다.')),
       );
     }
@@ -603,7 +614,8 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     _lastSeenSettings = newSettings; // 내가 쓴 값이니 다시 읽지 않는다
     globalBenderSettings.value = newSettings;
     if (mounted) setState(() {});
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           otherCount > 0
@@ -669,7 +681,15 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => PopScope(
+    canPop: !widget.isActive,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _onBack();
+    },
+    child: _buildPage(context),
+  );
+
+  Widget _buildPage(BuildContext context) {
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -767,28 +787,91 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
               ],
             ),
             child: ElevatedButton(
-            onPressed: _saveSettings,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: makitaTeal,
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+              onPressed: _saveSettings,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: makitaTeal,
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
               ),
-              elevation: 0,
-            ),
-            child: const Text(
-              "현재 장비 설정 저장",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: pureWhite,
+              child: const Text(
+                "현재 장비 설정 저장",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: pureWhite,
+                ),
               ),
             ),
-          ),
           ),
         ),
       ),
     );
+  }
+
+  /// 현장 탭 단위와(인치 분수면) 줄자 정밀도. 세 벤더 화면이 같이 쓴다
+  /// (10-13: 줄자 정밀도가 수동 화면에만 있어 유압·시카고는 1/16"로 고정이었다).
+  List<Widget> _buildUnitRows() => [
+    _buildDropdownRow(
+      "현장 탭 단위",
+      ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
+      _unitSystem,
+      helpText: kUnitHelp,
+      (v) {
+        if (v != null) {
+          setState(() => _unitSystem = v);
+        }
+      },
+    ),
+    if (_unitSystem == '인치 (분수)')
+      _buildDropdownRow(
+        "줄자 정밀도",
+        ['1/8"', '1/16"', '1/32"'],
+        _fractionPrecision,
+        (v) {
+          if (v != null) {
+            setState(() => _fractionPrecision = v);
+          }
+        },
+      ),
+  ];
+
+  /// 설정 탭에서 뒤로 가기: 저장하지 않은 값이 있으면 묻는다(10-13: 묻지 않고 사라졌다).
+  Future<void> _onBack() async {
+    if (!_hasUnsaved) {
+      Navigator.pop(context);
+      return;
+    }
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('저장하지 않은 설정'),
+        content: const Text(
+          '바꾼 장비 설정을 아직 저장하지 않았습니다. 저장하지 않고 나가면 마킹은 전에 저장한 설정으로 셈합니다.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('계속 고치기'),
+          ),
+          TextButton(
+            key: const Key('conduit_settings_leave_discard'),
+            onPressed: () => Navigator.pop(ctx, 'discard'),
+            child: const Text('저장 안 함'),
+          ),
+          TextButton(
+            key: const Key('conduit_settings_leave_save'),
+            onPressed: () => Navigator.pop(ctx, 'save'),
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'save') await _saveSettings();
+    if (mounted) Navigator.pop(context);
   }
 
   Widget _buildMainTypeSelector() {
@@ -946,8 +1029,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             "제조사",
             _availableManufacturers,
             _manufacturer,
-            helpText:
-                "앱에 등록된 제조사 목록입니다. 고르면 그 장비의 테이크업·반경 등이 자동으로 들어갑니다.",
+            helpText: "앱에 등록된 제조사 목록입니다. 고르면 그 장비의 테이크업·반경 등이 자동으로 들어갑니다.",
             (v) {
               if (v != null) {
                 _changeCombo(() => _manufacturer = v);
@@ -980,28 +1062,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         ]),
         _buildSectionTitle("제원 수치 (수동)"),
         _buildSettingsCard([
-          _buildDropdownRow(
-            "현장 탭 단위",
-            ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
-            _unitSystem,
-            helpText: kUnitHelp,
-            (v) {
-              if (v != null) {
-                setState(() => _unitSystem = v);
-              }
-            },
-          ),
-          if (_unitSystem == '인치 (분수)')
-            _buildDropdownRow(
-              "줄자 정밀도",
-              ['1/8"', '1/16"', '1/32"'],
-              _fractionPrecision,
-              (v) {
-                if (v != null) {
-                  setState(() => _fractionPrecision = v);
-                }
-              },
-            ),
+          ..._buildUnitRows(),
           _buildDropdownRow(
             "기본 마킹 기준",
             ['화살표 (일반)', '별 (Back-to-Back)', '노치 (새들 중앙)'],
@@ -1132,7 +1193,8 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           "톱날 두께",
           _bladeKerfController,
           suffix: unit,
-          helpText: "자를 때 톱날에 먹히는 두께입니다. 톱날은 버리는 쪽을 먹으므로 총 절단 길이·자르는 자리에는 더하지 않습니다(원자재 여러 개를 자를 때 참고).",
+          helpText:
+              "자를 때 톱날에 먹히는 두께입니다. 톱날은 버리는 쪽을 먹으므로 총 절단 길이·자르는 자리에는 더하지 않습니다(원자재 여러 개를 자를 때 참고).",
         ),
       ]),
     ];
@@ -1176,17 +1238,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         ]),
         _buildSectionTitle("유압 실린더 제원"),
         _buildSettingsCard([
-          _buildDropdownRow(
-            "현장 탭 단위",
-            ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
-            _unitSystem,
-            helpText: kUnitHelp,
-            (v) {
-              if (v != null) {
-                setState(() => _unitSystem = v);
-              }
-            },
-          ),
+          ..._buildUnitRows(),
           _buildInputRow(
             "램 이동 거리",
             _ramTravelController,
@@ -1246,17 +1298,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         ]),
         _buildSectionTitle("노치 및 제원 (시카고)"),
         _buildSettingsCard([
-          _buildDropdownRow(
-            "현장 탭 단위",
-            ['인치 (분수)', '인치 (소수점)', '미터법 (mm)'],
-            _unitSystem,
-            helpText: kUnitHelp,
-            (v) {
-              if (v != null) {
-                setState(() => _unitSystem = v);
-              }
-            },
-          ),
+          ..._buildUnitRows(),
           _buildSliderRow(
             "노치당 각도",
             _degPerNotch,

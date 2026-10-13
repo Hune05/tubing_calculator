@@ -565,7 +565,8 @@ class _ConduitInputTabState extends State<ConduitInputTab>
     });
     // 10-09: 예전 판에서 넣은 90° 넘는 줄은 수정 단추가 말없이 꺼져 있었다 → 까닭을 알린다.
     if (angle > kConduitMaxAngle) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
             "이 줄은 ${_fmtAngle(angle)}°라 이대로는 고칠 수 없습니다. 각도를 ${kConduitMaxAngle.toInt()}° 이하로 바꾸십시오.",
@@ -1120,7 +1121,12 @@ class _ConduitInputTabState extends State<ConduitInputTab>
       final Map<String, dynamic> old = _editingIndex! < manager.bendList.length
           ? manager.bendList[_editingIndex!]
           : const {};
-      manager.updateBend(_editingIndex!, {...old, ...bend});
+      final merged = {...old, ...bend};
+      // 10-13: 각도를 바꾸면 롤링 오프셋 굴림 각도도 맞지 않는다(튜브와 같게 지운다).
+      if ((old['angle'] as num?)?.toDouble() != angle) {
+        merged.remove('rollHint');
+      }
+      manager.updateBend(_editingIndex!, merged);
     } else {
       manager.addBend(bend);
     }

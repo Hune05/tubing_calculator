@@ -12,6 +12,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 const String kConduitDrawingsPrefsKey = 'conduit_saved_drawings_v1';
 
+/// 보관함에 남기는 줄 하나: 길이·각도·방향, 롤링 오프셋이 남긴 굴림 각도(rollHint).
+/// 10-13: 세 칸만 남겨 저장했다 불러오면 현장 탭·마킹지의 "N° 굴려 잡으십시오"가 사라졌다(튜브는 8차에 고침).
+Map<String, dynamic> conduitDrawingBendRow(Map b) => {
+  'length': (b['length'] as num?)?.toDouble() ?? 0.0,
+  'angle': (b['angle'] as num?)?.toDouble() ?? 0.0,
+  'rotation': (b['rotation'] as num?)?.toDouble() ?? 0.0,
+  if (b['rollHint'] is num) 'rollHint': (b['rollHint'] as num).toDouble(),
+};
+
 class ConduitDrawing {
   final String id;
   final String folderName;
@@ -41,15 +50,15 @@ class ConduitDrawing {
 
   ConduitDrawing copyWith({String? folderName, String? title, String? notes}) =>
       ConduitDrawing(
-    id: id,
-    folderName: folderName ?? this.folderName,
-    title: title ?? this.title,
-    date: date,
-    totalCut: totalCut,
-    bends: bends,
-    notes: notes ?? this.notes,
-    settings: settings,
-  );
+        id: id,
+        folderName: folderName ?? this.folderName,
+        title: title ?? this.title,
+        date: date,
+        totalCut: totalCut,
+        bends: bends,
+        notes: notes ?? this.notes,
+        settings: settings,
+      );
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -75,12 +84,7 @@ class ConduitDrawing {
       notes: j['notes']?.toString() ?? '',
       bends: [
         for (final b in rawBends)
-          if (b is Map)
-            {
-              'length': (b['length'] as num?)?.toDouble() ?? 0.0,
-              'angle': (b['angle'] as num?)?.toDouble() ?? 0.0,
-              'rotation': (b['rotation'] as num?)?.toDouble() ?? 0.0,
-            },
+          if (b is Map) conduitDrawingBendRow(b),
       ],
       settings: j['settings'] is Map
           ? Map<String, dynamic>.from(j['settings'] as Map)
@@ -151,14 +155,7 @@ Future<ConduitDrawing> saveConduitDrawing({
     date: _now(),
     totalCut: totalCut,
     notes: notes.trim(),
-    bends: [
-      for (final b in bends)
-        {
-          'length': (b['length'] as num?)?.toDouble() ?? 0.0,
-          'angle': (b['angle'] as num?)?.toDouble() ?? 0.0,
-          'rotation': (b['rotation'] as num?)?.toDouble() ?? 0.0,
-        },
-    ],
+    bends: [for (final b in bends) conduitDrawingBendRow(b)],
     settings: {
       for (final k in const [
         'benderType',
@@ -201,7 +198,9 @@ Future<void> setConduitFolders(Map<String, String> idToFolder) async {
     for (final d in all)
       if (idToFolder.containsKey(d.id))
         d.copyWith(
-          folderName: idToFolder[d.id]!.trim().isEmpty ? '미분류 도면' : idToFolder[d.id]!.trim(),
+          folderName: idToFolder[d.id]!.trim().isEmpty
+              ? '미분류 도면'
+              : idToFolder[d.id]!.trim(),
         )
       else
         d,
@@ -255,14 +254,7 @@ Future<ConduitDrawing?> overwriteConduitDrawing({
     date: _now(),
     totalCut: totalCut,
     notes: notes.trim(),
-    bends: [
-      for (final b in bends)
-        {
-          'length': (b['length'] as num?)?.toDouble() ?? 0.0,
-          'angle': (b['angle'] as num?)?.toDouble() ?? 0.0,
-          'rotation': (b['rotation'] as num?)?.toDouble() ?? 0.0,
-        },
-    ],
+    bends: [for (final b in bends) conduitDrawingBendRow(b)],
     settings: {
       for (final k in const [
         'benderType',

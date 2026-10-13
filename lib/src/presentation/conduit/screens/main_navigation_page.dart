@@ -1,7 +1,8 @@
 import 'package:tubing_calculator/src/presentation/common/quick_tool_bar.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart' show calcNavCompact;
+import 'package:tubing_calculator/src/presentation/calculator/widgets/swipe_delete.dart'
+    show calcNavCompact;
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart';
@@ -200,13 +201,21 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
       index: _selectedIndex,
       children: [
         ConduitInputTab(key: _inputKey), // 0. 입력
-        ConduitResultTab(key: _resultKey, onOpenArchive: _goToHistoryTab), // 1. 마킹
+        ConduitResultTab(
+          key: _resultKey,
+          onOpenArchive: _goToHistoryTab,
+        ), // 1. 마킹
         NormalViewTheme(
           child: ConduitHistoryTab(key: _historyKey, onLoaded: _goToInputTab),
         ), // 2
         _buildFieldTab(), // 3. 현장
         ConduitViewerTab(key: _viewerKey), // 4. 아이소
-        NormalViewTheme(child: ConduitSettingsPage(key: _settingsKey)), // 5. 설정
+        NormalViewTheme(
+          child: ConduitSettingsPage(
+            key: _settingsKey,
+            isActive: _selectedIndex == 5,
+          ),
+        ), // 5. 설정
       ],
     );
   }
@@ -283,6 +292,7 @@ class ConduitViewerTab extends StatelessWidget {
               bendRadius: clr,
               outerDiameter: od,
               fittingDepth: coupling,
+              initialStartDir: conduitStartDir.value,
               // 여기서 바꾼 시작 방향이 현장 탭에도 가게(전엔 앱을 다시 켜야 반영됐다).
               onStartDirChanged: (v) => conduitStartDir.value = v,
             ),
@@ -366,8 +376,21 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
   void initState() {
     super.initState();
     _startDir = widget.initialStartDir;
+    // 10-13: 보관함 불러오기·↶로 시작 방향이 바뀌어도 아이소만 처음 읽은 방향으로 그렸다(입력·현장 탭은 새 방향).
+    conduitStartDir.addListener(_followStartDir);
     _loadSavedDirection();
     loadConduitStartDir(); // 커플링 체결도 함께 되살린다(마킹 탭을 안 열어도 현장 탭이 맞게)
+  }
+
+  @override
+  void dispose() {
+    conduitStartDir.removeListener(_followStartDir);
+    super.dispose();
+  }
+
+  void _followStartDir() {
+    final v = conduitStartDir.value;
+    if (mounted && v != _startDir) setState(() => _startDir = v);
   }
 
   Future<void> _loadSavedDirection() async {

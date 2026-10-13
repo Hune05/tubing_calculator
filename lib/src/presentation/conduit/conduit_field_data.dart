@@ -52,7 +52,9 @@ Future<void> loadConduitStartDir() async {
       _couplingHooked = true;
       conduitUseCoupling.addListener(() {
         SharedPreferences.getInstance()
-            .then((p) => p.setBool(kConduitCouplingKey, conduitUseCoupling.value))
+            .then(
+              (p) => p.setBool(kConduitCouplingKey, conduitUseCoupling.value),
+            )
             .catchError((_) => false);
       });
     }
@@ -69,6 +71,12 @@ Listenable conduitFieldListenable() => Listenable.merge([
   conduitUseCoupling,
   conduitStartDir,
 ]);
+
+/// 롤링 오프셋 시트가 줄에 남긴 굴림 각도(0.5° 넘을 때만). 현장 탭·마킹 탭이 같이 쓴다.
+double? conduitRollHint(Map<String, dynamic> row) {
+  final v = (row['rollHint'] as num?)?.toDouble();
+  return v != null && v > 0.5 ? v : null;
+}
 
 FieldMarkingData computeConduitFieldData() {
   final bendList = ConduitDataManager().bendList;
@@ -104,10 +112,7 @@ FieldMarkingData computeConduitFieldData() {
           rotation: (m['rotation'] as num).toDouble(),
           gap: markGap(pos, prevBend),
           // 롤링 오프셋이 남긴 굴림 각도도(10-09).
-          roll: check.rollByIndex[i] ??
-              (((bendList[i]['rollHint'] as num?)?.toDouble() ?? 0) > 0.5
-                  ? (bendList[i]['rollHint'] as num).toDouble()
-                  : null),
+          roll: check.rollByIndex[i] ?? conduitRollHint(bendList[i]),
         ),
       );
       prevBend = pos;
