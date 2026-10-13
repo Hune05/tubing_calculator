@@ -18,7 +18,7 @@ FieldMarkingData longData() => const FieldMarkingData(
       targetAngle: 93,
       rotation: 0,
       gap: 1007,
-      leg: 1030, // 다리 길이(입력 길이) — 실측은 이것과 견준다(10-13)
+      leg: 1030, // 구간 길이(입력 길이) — 실측은 이것과 견준다(10-13)
     ),
     FieldMark(
       number: 2,
@@ -156,7 +156,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('field_measure')));
     await tester.pumpAndSettle();
-    // 10-13: 줄자 눈금(1007)이 아니라 다리 길이(1030)와 견준다.
+    // 10-13: 줄자 눈금(1007)이 아니라 구간 길이(1030)와 견준다.
     expect(find.textContaining('계산 1030 mm'), findsOneWidget);
     expect(find.textContaining('관 끝에서 1번 꺾이는 점까지'), findsOneWidget);
     await tester.enterText(
@@ -175,7 +175,7 @@ void main() {
     final all = (await tester.runAsync(loadBendChecks))!;
     expect(all, hasLength(1));
     expect(all.single.group, '시험 묶음');
-    expect(all.single.what, '90° 1번 벤드 다리');
+    expect(all.single.what, '90° 1번 구간 길이');
     expect(all.single.calc, 1030);
     expect(all.single.actual, 1033.5);
     expect(all.single.kind, kBendKindLeg);
@@ -261,7 +261,7 @@ void extrasTests() {
           ),
         );
       }
-      // 섞이면 안 되는 것: 10-13 전 옛 기록, 다른 각도(45°) 다리.
+      // 섞이면 안 되는 것: 10-13 전 옛 기록, 다른 각도(45°) 구간 길이.
       await addBendCheck(
         BendCheck(
           id: 'old',
@@ -307,7 +307,7 @@ void extrasTests() {
     final ref = tester
         .widget<Text>(find.byKey(const Key('field_measure_reference')))
         .data!;
-    expect(ref, contains('90° 다리'));
+    expect(ref, contains('90° 구간 길이'));
     expect(ref, contains('지난 실측 2건'));
     expect(ref, contains('+3 mm')); // 평균
     expect(ref, contains('건수가 적어')); // 3건 미만

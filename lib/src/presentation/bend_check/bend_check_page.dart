@@ -34,7 +34,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
   final _actual = TextEditingController();
   final _note = TextEditingController();
 
-  /// 무엇을 쟀는지(10-13): 벤드 다리(각도별로 따로 센다)·자른 길이.
+  /// 무엇을 쟀는지(10-13): 구간 길이(각도별로 따로 센다)·절단 길이.
   bool _isCut = false;
   final _angle = TextEditingController(text: '90');
   List<BendCheck> _all = [];
@@ -89,13 +89,13 @@ class _BendCheckPageState extends State<BendCheckPage> {
 
   double? _num(TextEditingController c) => parseNumberText(c.text);
 
-  /// 다리 각도(0 초과 180 이하만).
+  /// 벤드 각도(0 초과 180 이하만).
   double? get _angleValue {
     final a = _num(_angle);
     return (a != null && a > 0 && a <= 180) ? a : null;
   }
 
-  /// 같이 셀 종류(자른 길이끼리, 같은 각도 다리끼리).
+  /// 같이 셀 종류(절단 길이끼리, 같은 각도 구간 길이끼리).
   String get _kindKey => _isCut
       ? bendKindKey(kBendKindCut, null)
       : bendKindKey(kBendKindLeg, _angleValue);
@@ -198,7 +198,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               children: [
                 const Text(
-                  '벤딩한 뒤 잰 다리 길이(앞 꺾이는 점에서 이 꺾이는 점까지)나 자른 길이를 입력 길이와 견줘 남기면, '
+                  '벤딩한 뒤 잰 구간 길이(앞 꺾이는 점에서 이 꺾이는 점까지)나 절단 길이를 계산과 견줘 남기면, '
                   '같은 규격·장비·같은 각도의 지난 차이를 참고로 보여 줍니다. 마킹 계산 결과는 바뀌지 않습니다. '
                   '10-13 전 기록은 견준 값이 달라 참고에서 뺍니다.',
                   style: TextStyle(
@@ -240,8 +240,8 @@ class _BendCheckPageState extends State<BendCheckPage> {
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    _kindChip('bendcheck_kind_leg', '벤드 다리', !_isCut, false),
-                    _kindChip('bendcheck_kind_cut', '자른 길이', _isCut, true),
+                    _kindChip('bendcheck_kind_leg', '구간 길이', !_isCut, false),
+                    _kindChip('bendcheck_kind_cut', '절단 길이', _isCut, true),
                     if (!_isCut)
                       SizedBox(
                         width: 110,
@@ -304,7 +304,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
                   controller: _what,
                   decoration: const InputDecoration(
                     labelText: '측정 위치 (선택)',
-                    hintText: '예: 1번 벤드 다리',
+                    hintText: '예: 1번 구간 길이',
                     filled: true,
                     fillColor: AppColors.surface,
                   ),
@@ -316,7 +316,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
                       child: _numField(
                         'bendcheck_calc',
                         _calc,
-                        _isCut ? '자를 길이 (mm)' : '입력 길이 (mm)',
+                        _isCut ? '계산 절단 길이 (mm)' : '입력 길이 (mm)',
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -369,7 +369,7 @@ class _BendCheckPageState extends State<BendCheckPage> {
     );
   }
 
-  /// 벤드 다리·자른 길이 고르기 칩(골라지면 청록 바탕에 흰 글씨).
+  /// 구간 길이·절단 길이 고르기 칩(골라지면 청록 바탕에 흰 글씨).
   Widget _kindChip(String key, String label, bool selected, bool cut) =>
       ChoiceChip(
         key: Key(key),

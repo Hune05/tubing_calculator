@@ -10,14 +10,14 @@ import '../../data/record_sync.dart';
 const String kBendChecksKey = 'bend_checks_v1';
 const int kBendCheckCap = 300;
 
-/// 무엇을 쟀는지(10-13). 다리 = 벤드 뒤 앞 꺾이는 점(첫 벤드는 관 끝)에서 이 꺾이는 점까지,
-/// 자른 길이 = 자른 관 길이. 비면 정하지 않은 것(예전 기록).
+/// 무엇을 쟀는지(10-13). 구간 길이 = 벤드 뒤 앞 꺾이는 점(첫 벤드는 관 끝)에서 이 꺾이는 점까지,
+/// 절단 길이 = 자른 관 길이. 비면 정하지 않은 것(예전 기록).
 const String kBendKindLeg = 'leg';
 const String kBendKindCut = 'cut';
 
-/// 기록 판. 2부터 계산값이 다리 길이·자른 길이다.
-/// 10-13 전(1) 현장 탭은 줄자 마킹 눈금을 계산값으로 적어, 벤딩 뒤 잰 다리 길이와 견줄 수 없었다
-/// (A9+ 965 줄 → 마킹 945, 다리 966을 넣으면 +21). 그래서 옛 기록은 목록에만 두고 참고 통계에서 뺀다(사용자 결정).
+/// 기록 판. 2부터 계산값이 구간 길이·절단 길이다.
+/// 10-13 전(1) 현장 탭은 줄자 마킹 눈금을 계산값으로 적어, 벤딩 뒤 잰 구간 길이와 견줄 수 없었다
+/// (A9+ 965 줄 → 마킹 945, 구간 966을 넣으면 +21). 그래서 옛 기록은 목록에만 두고 참고 통계에서 뺀다(사용자 결정).
 const int kBendCheckVersion = 2;
 
 class BendCheck {
@@ -34,7 +34,7 @@ class BendCheck {
   /// [kBendKindLeg]·[kBendKindCut], 비면 정하지 않음.
   final String kind;
 
-  /// 다리면 그 벤드 각도(같은 각도끼리만 센다 — 게인 오차는 각도마다 크기가 다르다).
+  /// 구간 길이면 그 벤드 각도(같은 각도끼리만 센다 — 게인 오차는 각도마다 크기가 다르다).
   final double? angle;
 
   /// 그때 장비 값(예: "게인 40"). 시험 벤딩으로 값을 고친 뒤에는 고친 뒤 기록만 센다.
@@ -62,7 +62,7 @@ class BendCheck {
   /// 참고 통계에 넣는지(10-13 전 기록은 뺀다).
   bool get counted => version >= kBendCheckVersion;
 
-  /// 같이 셀 종류(자른 길이끼리, 같은 각도 다리끼리).
+  /// 같이 셀 종류(절단 길이끼리, 같은 각도 구간 길이끼리).
   String get kindKey => bendKindKey(kind, angle);
 
   Map<String, dynamic> toJson() => {
@@ -115,12 +115,12 @@ String bendKindKey(String kind, double? angle) => switch (kind) {
   _ => 'other',
 };
 
-/// 종류 이름(예: "90° 다리", "자른 길이").
+/// 종류 이름(예: "90° 구간 길이", "절단 길이").
 String bendKindLabel(String kindKey) {
-  if (kindKey == 'cut') return '자른 길이';
+  if (kindKey == 'cut') return '절단 길이';
   if (kindKey.startsWith('leg:')) {
     final a = kindKey.substring(4);
-    return a.isEmpty ? '벤드 다리' : '$a° 다리';
+    return a.isEmpty ? '구간 길이' : '$a° 구간 길이';
   }
   return '기타';
 }
@@ -136,7 +136,7 @@ class BendStats {
 }
 
 /// [group]에 맞는 기록의 차이 통계. 기록이 없으면 null.
-/// 10-13 전 기록은 뺀다. [kindKey]를 주면 같은 종류(같은 각도 다리·자른 길이)만,
+/// 10-13 전 기록은 뺀다. [kindKey]를 주면 같은 종류(같은 각도 구간 길이·절단 길이)만,
 /// [setup]을 주면 그 장비 값으로 잰 기록만(장비 값이 안 적힌 기록 — 손으로 넣은 것 — 은 센다).
 BendStats? statsFor(
   List<BendCheck> all,
@@ -264,7 +264,7 @@ String buildBendCheckText(List<BendCheck> all, {String? group}) {
         if (c.group == g) c,
     ]..sort((a, b) => a.at.compareTo(b.at));
     b.write('\n\n■ $g');
-    // 종류(같은 각도 다리·자른 길이)마다 참고 한 줄. 장비 값이 바뀌었으면 마지막 값으로 잰 것만.
+    // 종류(같은 각도 구간 길이·절단 길이)마다 참고 한 줄. 장비 값이 바뀌었으면 마지막 값으로 잰 것만.
     final kinds = <String>[];
     for (final c in list) {
       if (c.counted && !kinds.contains(c.kindKey)) kinds.add(c.kindKey);

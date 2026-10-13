@@ -1,4 +1,4 @@
-// 10-13 벤딩 실측 기록 고침: 견주는 값(다리 길이·자른 길이), 같은 각도끼리·장비 값이 같은 것끼리,
+// 10-13 벤딩 실측 기록 고침: 견주는 값(구간 길이·절단 길이), 같은 각도끼리·장비 값이 같은 것끼리,
 // 10-13 전 기록은 참고에서 뺌, 전선관 묶음 이름·장비 값.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -61,14 +61,14 @@ void main() {
       expect(back.setup, '게인 40');
       expect(back.version, kBendCheckVersion);
       expect(back.kindKey, 'leg:22.5');
-      expect(bendKindLabel(back.kindKey), '22.5° 다리');
+      expect(bendKindLabel(back.kindKey), '22.5° 구간 길이');
       expect(
         bendKindLabel(_c('2', 0, kind: kBendKindCut, angle: null).kindKey),
-        '자른 길이',
+        '절단 길이',
       );
     });
 
-    test('같은 각도 다리끼리, 자른 길이는 따로 센다', () {
+    test('같은 각도 구간 길이끼리, 절단 길이는 따로 센다', () {
       final all = [
         _c('1', 2),
         _c('2', 4),
@@ -99,12 +99,12 @@ void main() {
         _c('1', 2, setup: '게인 40'),
         _c('2', 50, version: 1, kind: '', angle: null, min: -60),
       ]);
-      expect(t, contains('90° 다리 (게인 40): 지난 실측 1건'));
+      expect(t, contains('90° 구간 길이 (게인 40): 지난 실측 1건'));
       expect(t, contains('옛 기록(참고에서 뺌)'));
     });
   });
 
-  group('다리 길이', () {
+  group('구간 길이', () {
     late Map<String, dynamic> defaults;
     setUp(() {
       SharedPreferences.setMockInitialValues({});
@@ -192,13 +192,13 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('자른 길이로 고르면 그 종류로 저장하고 참고도 그 종류만', (tester) async {
+    testWidgets('절단 길이로 고르면 그 종류로 저장하고 참고도 그 종류만', (tester) async {
       await addBendCheck(_c('leg', 9, g: 'A'));
       await open(tester);
       await tester.tap(find.byKey(const Key('bendcheck_kind_cut')));
       await tester.pump();
       expect(find.byKey(const Key('bendcheck_angle')), findsNothing);
-      // 다리 기록(+9)은 자른 길이 참고에 안 들어간다.
+      // 구간 길이 기록(+9)은 절단 길이 참고에 안 들어간다.
       expect(find.byKey(const Key('bendcheck_reference')), findsNothing);
       await tester.enterText(find.byKey(const Key('bendcheck_calc')), '1762');
       await tester.enterText(find.byKey(const Key('bendcheck_actual')), '1760');
@@ -207,7 +207,7 @@ void main() {
       final saved = (await loadBendChecks()).firstWhere((c) => c.id != 'leg');
       expect(saved.kind, kBendKindCut);
       expect(saved.angle, isNull);
-      expect(find.textContaining('자른 길이 · 지난 실측 1건'), findsOneWidget);
+      expect(find.textContaining('절단 길이 · 지난 실측 1건'), findsOneWidget);
     });
 
     testWidgets('옛 기록은 목록에 "옛 기록 · 참고에서 뺌"으로 남고 참고에는 안 든다', (tester) async {

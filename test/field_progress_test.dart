@@ -283,7 +283,7 @@ void main() {
       expect(find.textContaining('실측 +1 mm · 다시 기록'), findsOneWidget);
     });
 
-    testWidgets('자르기 단계는 자를 길이와 견준다', (tester) async {
+    testWidgets('자르기 단계는 절단 길이와 견준다', (tester) async {
       addTearDown(tester.view.reset);
       await open(tester, dataA);
       await tester.tap(find.byKey(const Key('field_mode_toggle')));
@@ -295,7 +295,7 @@ void main() {
       await record(tester, '1760');
       final c = (await tester.runAsync(loadBendChecks))!.single;
       expect(c.kind, kBendKindCut);
-      expect(c.what, '자른 길이');
+      expect(c.what, '절단 길이');
       expect(c.calc, 1762);
       expect(c.diff, -2);
     });

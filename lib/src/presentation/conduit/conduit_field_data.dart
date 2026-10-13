@@ -73,7 +73,7 @@ Listenable conduitFieldListenable() => Listenable.merge([
 ]);
 
 /// 벤딩 실측 기록에 같이 남길 장비 값(10-13). 시험 벤딩으로 값을 고치면 고친 뒤 기록만 따로 센다.
-/// 유압은 게인만, 수동·시카고는 테이크업·게인·CLR이 다리 길이를 정한다.
+/// 유압은 게인만, 수동·시카고는 테이크업·게인·CLR이 구간 길이를 정한다.
 String conduitMeasureSetup(Map<String, dynamic> s) {
   String n(Object? v) {
     final d = (v as num?)?.toDouble() ?? 0.0;
@@ -109,7 +109,7 @@ FieldMarkingData computeConduitFieldData() {
   final marks = <FieldMark>[];
   int number = 0;
   double prevBend = 0.0;
-  // 앞 꺾이는 점(처음은 관 끝)부터 더한 입력 길이 — 벤드에 닿으면 그 벤드의 다리 길이다.
+  // 앞 꺾이는 점(처음은 관 끝)부터 더한 입력 길이 — 벤드에 닿으면 그 벤드의 구간 길이다.
   double run = 0.0;
   for (int i = 0; i < markings.length; i++) {
     final m = markings[i];

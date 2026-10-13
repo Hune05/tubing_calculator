@@ -530,8 +530,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   // ---------------- 실측 기록 ----------------
 
   /// 이 단계를 실제로 해 보고 잰 값을 "벤딩 실측 기록"에 남긴다(참고용, 마킹 값은 안 바뀐다).
-  /// 10-13: 벤드는 다리 길이(입력 길이)와, 자르기는 자를 길이와 견준다. 예전에는 줄자 마킹 눈금과
-  /// 견줘, 벤딩한 뒤 잰 다리 길이를 넣으면 테이크업만큼 틀린 차이가 쌓였다.
+  /// 10-13: 벤드는 구간 길이(입력 길이)와, 자르기는 절단 길이와 견준다. 예전에는 줄자 마킹 눈금과
+  /// 견줘, 벤딩한 뒤 잰 구간 길이를 넣으면 테이크업만큼 틀린 차이가 쌓였다.
   Future<void> _recordMeasure(FieldStep s, int index) async {
     final m = s.mark;
     final double? calcRaw = s.isCut ? s.at : m!.leg;
@@ -539,7 +539,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(
-          const SnackBar(content: Text('이 단계는 다리 길이를 알 수 없어 기록하지 않습니다.')),
+          const SnackBar(content: Text('이 단계는 구간 길이를 알 수 없어 기록하지 않습니다.')),
         );
       return;
     }
@@ -549,9 +549,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     final ref = widget.measureRef?.call();
     final kind = s.isCut ? kBendKindCut : kBendKindLeg;
     final double? angle = s.isCut ? null : m!.angle;
-    final what = s.isCut ? '자른 길이' : '${_fmt(m!.angle)}° ${m.number}번 벤드 다리';
+    final what = s.isCut ? '절단 길이' : '${_fmt(m!.angle)}° ${m.number}번 구간 길이';
     final String how = s.isCut
-        ? '자른 관 길이를 재서 넣으십시오.'
+        ? '절단한 관 길이를 재서 넣으십시오.'
         : '${m!.number == 1 ? '관 끝' : '${m.number - 1}번 꺾이는 점'}에서 '
               '${m.number}번 꺾이는 점까지${ref == null ? '' : ' $ref 기준으로'} 재서 넣으십시오.';
     final res = await showDialog<({double calc, double actual})>(
@@ -2103,13 +2103,13 @@ class _MeasureDialog extends StatefulWidget {
   /// 어디서 어디까지 재는지 한 줄.
   final String how;
 
-  /// 견줄 값(다리 길이·자를 길이, 반올림 전 mm).
+  /// 견줄 값(구간 길이·절단 길이, 반올림 전 mm).
   final double calc;
 
   /// 같은 규격·장비의 지난 실측 통계를 찾는 묶음 이름.
   final String group;
 
-  /// 같은 종류(같은 각도 다리·자른 길이)만 센다.
+  /// 같은 종류(같은 각도 구간 길이·절단 길이)만 센다.
   final String kindKey;
 
   /// 지금 장비 값(비면 가리지 않는다).

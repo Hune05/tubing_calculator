@@ -153,7 +153,7 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
   final marks = <FieldMark>[];
   int number = 0;
   double prevBend = 0.0;
-  // 앞 꺾이는 점(처음은 관 끝)부터 더한 관 길이 — 벤드에 닿으면 그 벤드의 다리 길이다.
+  // 앞 꺾이는 점(처음은 관 끝)부터 더한 관 길이 — 벤드에 닿으면 그 벤드의 구간 길이다.
   // 피팅 깊이를 더한 길이(관 자체 길이)로 센다: 벤딩 뒤 맨 관을 재서 견주므로.
   double run = 0.0;
   for (int i = 0; i < bendList.length; i++) {
