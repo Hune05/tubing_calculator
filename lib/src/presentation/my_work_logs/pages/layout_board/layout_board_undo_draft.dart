@@ -374,7 +374,10 @@ extension _LayoutBoardUndoDraft on _LayoutBoardPageState {
               ],
             ),
           ) ??
-          false;
+          // 시스템 뒤로 가기로 창을 닫으면(null) 이어하기로 본다. 예전엔 "새로 시작"과 같아
+          // 임시 작업이 말없이 지워졌다(10-13: 기기 확인 중 뒤로 가기로 닫았다가 두 기기의
+          // 임시 작업을 잃음). 지우는 건 "새로 시작"을 눌렀을 때만.
+          true;
 
       if (!mounted) return false;
       if (resume) {
