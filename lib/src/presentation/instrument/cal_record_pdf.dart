@@ -29,8 +29,8 @@ const PdfColor _line = PdfColor.fromInt(0xFFD1D5DB);
 const PdfColor _head = PdfColor.fromInt(0xFFF1F5F9);
 const PdfColor _red = PdfColor.fromInt(0xFFD32F2F);
 const PdfColor _redBg = PdfColor.fromInt(0xFFFDECEC);
-const PdfColor _brand = PdfColor.fromInt(0xFF2563EB);
-const PdfColor _brandBg = PdfColor.fromInt(0xFFE0ECFF);
+const PdfColor _teal = PdfColor.fromInt(0xFF007580);
+const PdfColor _tealBg = PdfColor.fromInt(0xFFE6F2F3);
 
 String _fmt(double v, [int d = 3]) {
   var s = (v + (v >= 0 ? 1e-9 : -1e-9)).toStringAsFixed(d);
@@ -457,7 +457,7 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
         pw.Container(
           padding: const pw.EdgeInsets.all(10),
           decoration: pw.BoxDecoration(
-            color: fin == false ? _redBg : _brandBg,
+            color: fin == false ? _redBg : _tealBg,
             borderRadius: pw.BorderRadius.circular(6),
           ),
           child: pw.Row(
@@ -471,7 +471,7 @@ Future<Uint8List> buildCalRecordPdf(CalRecord r) async {
                 style: pw.TextStyle(
                   fontSize: 14,
                   fontWeight: pw.FontWeight.bold,
-                  color: fin == false ? _red : _brand,
+                  color: fin == false ? _red : _teal,
                 ),
               ),
               pw.Text(
@@ -555,10 +555,7 @@ Future<void> openCalRecordPdf(
   try {
     bytes = await (build ?? buildCalRecordPdf)(r);
   } catch (_) {
-    showSnackOnce(
-      messenger,
-      const SnackBar(content: Text('성적서를 만들지 못했습니다. 다시 해 보십시오.')),
-    );
+    showSnackOnce(messenger, const SnackBar(content: Text('성적서를 만들지 못했습니다. 다시 해 보십시오.')));
     return;
   } finally {
     _calPdfBusy = false;

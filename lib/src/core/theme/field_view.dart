@@ -89,12 +89,12 @@ class FieldPalette extends ThemeExtension<FieldPalette> {
     danger: AppColors.danger,
   );
 
-  /// 햇빛: 흰 바탕, 검은 글, 보조 글 #333, 선 진하게, 파랑·상태 색도 한 단계 진하게.
+  /// 햇빛: 흰 바탕, 검은 글, 보조 글 #333, 선 진하게, 청록·상태 색도 한 단계 진하게.
   static const FieldPalette sunlight = FieldPalette(
     brightness: Brightness.light,
-    brand: Color(0xFF1D4ED8),
+    brand: Color(0xFF005A62),
     onBrand: Color(0xFFFFFFFF),
-    brandSoft: Color(0xFFDBE6FF),
+    brandSoft: Color(0xFFD5EAEC),
     background: Color(0xFFFFFFFF),
     surface: Color(0xFFFFFFFF),
     fill: Color(0xFFEDEFF2),
@@ -108,12 +108,12 @@ class FieldPalette extends ThemeExtension<FieldPalette> {
     smallTextBoost: 3,
   );
 
-  /// 야간: 바탕 #121417, 글 #E6E8EB, 파랑을 밝게(#60A5FA). 파랑 위 글은 어둡게.
+  /// 야간: 바탕 #121417, 글 #E6E8EB, 청록을 밝게(#3FB8C4). 청록 위 글은 어둡게.
   static const FieldPalette night = FieldPalette(
     brightness: Brightness.dark,
-    brand: Color(0xFF60A5FA),
+    brand: Color(0xFF3FB8C4),
     onBrand: Color(0xFF0B1215),
-    brandSoft: Color(0xFF1B2A4A),
+    brandSoft: Color(0xFF17363A),
     background: Color(0xFF121417),
     surface: Color(0xFF1C1F24),
     fill: Color(0xFF262A30),

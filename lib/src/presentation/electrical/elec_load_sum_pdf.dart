@@ -24,8 +24,8 @@ const PdfColor _line = PdfColor.fromInt(0xFFD1D5DB);
 const PdfColor _head = PdfColor.fromInt(0xFFF1F5F9);
 const PdfColor _red = PdfColor.fromInt(0xFFD32F2F);
 const PdfColor _redBg = PdfColor.fromInt(0xFFFDECEC);
-const PdfColor _brand = PdfColor.fromInt(0xFF2563EB);
-const PdfColor _brandBg = PdfColor.fromInt(0xFFE0ECFF);
+const PdfColor _teal = PdfColor.fromInt(0xFF007580);
+const PdfColor _tealBg = PdfColor.fromInt(0xFFE6F2F3);
 const PdfColor _greyBg = PdfColor.fromInt(0xFFF3F4F6);
 
 String _day(DateTime d) =>
@@ -144,21 +144,13 @@ Future<Uint8List> buildLoadSumPdf(
     ('부등률', fmt(r.diversity, 2), false),
     ('장래 증설 여유', '${fmt(r.marginPct, 1)} %', false),
     ('필요 변압기 용량', '${fmt(r.requiredKva, 1)} kVA', false),
-    (
-      '2차 정격전류',
-      '${fmt(r.ratedAmps, 1)} A (${fmt(r.volts, 0)} V, ${r.three ? '3상' : '단상'})',
-      false,
-    ),
+    ('2차 정격전류', '${fmt(r.ratedAmps, 1)} A (${fmt(r.volts, 0)} V, ${r.three ? '3상' : '단상'})', false),
     (
       '선정 변압기 용량',
       r.selectedKva == null ? '입력하지 않음' : '${fmt(r.selectedKva!, 1)} kVA',
       false,
     ),
-    (
-      '변압기 이용률',
-      r.loadPct == null ? '' : '${fmt(r.loadPct!, 1)} %',
-      pass == false,
-    ),
+    ('변압기 이용률', r.loadPct == null ? '' : '${fmt(r.loadPct!, 1)} %', pass == false),
   ];
 
   final doc = pw.Document(theme: fonts.theme);
@@ -220,7 +212,7 @@ Future<Uint8List> buildLoadSumPdf(
         pw.Container(
           padding: const pw.EdgeInsets.all(10),
           decoration: pw.BoxDecoration(
-            color: pass == false ? _redBg : (pass == true ? _brandBg : _greyBg),
+            color: pass == false ? _redBg : (pass == true ? _tealBg : _greyBg),
             borderRadius: pw.BorderRadius.circular(6),
           ),
           child: pw.Column(
@@ -265,7 +257,7 @@ Future<Uint8List> buildLoadSumPdf(
                       style: pw.TextStyle(
                         fontSize: 14,
                         fontWeight: pw.FontWeight.bold,
-                        color: pass ? _brand : _red,
+                        color: pass ? _teal : _red,
                       ),
                     ),
                   ],

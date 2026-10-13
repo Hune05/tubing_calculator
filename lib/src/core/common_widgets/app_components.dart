@@ -415,7 +415,7 @@ void showAppSnack(
       action: hasUndo
           ? SnackBarAction(
               label: undoLabel,
-              textColor: const Color(0xFF93C5FD), // 어두운 바탕 위 옅은 파랑
+              textColor: const Color(0xFF7FD4DC), // 어두운 바탕 위 옅은 청록
               onPressed: onUndo,
             )
           : null,
@@ -444,10 +444,7 @@ void showSheetSnack(
   final old = _sheetToast;
   if (old != null && old.mounted) old.remove();
   final (Color bg, IconData icon) = switch (kind) {
-    AppSnackKind.success => (
-      kAppSnackSuccess,
-      Icons.check_circle_outline_rounded,
-    ),
+    AppSnackKind.success => (kAppSnackSuccess, Icons.check_circle_outline_rounded),
     AppSnackKind.error => (AppColors.danger, Icons.error_outline_rounded),
     AppSnackKind.undo => (AppColors.text, Icons.undo_rounded),
   };
