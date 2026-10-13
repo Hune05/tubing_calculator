@@ -135,7 +135,7 @@ void main() {
     testWidgets('위 막대: 도면 이름 밑에 종류·크기가 붙는다', (tester) async {
       await open(tester);
       expect(find.text('1호기 분전반'), findsOneWidget);
-      expect(find.text('캐비닛 · 600×800mm'), findsOneWidget);
+      expect(find.text('캐비닛 600×800'), findsOneWidget);
       await close(tester);
     });
 

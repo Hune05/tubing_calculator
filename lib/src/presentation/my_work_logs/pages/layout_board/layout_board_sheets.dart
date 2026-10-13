@@ -684,8 +684,11 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
               height: 1.2,
             ),
           ),
+          // 폰(좁은 막대)에서는 "캐비닛 · 600×800mm"가 "캐비닛 · 600…"으로 잘려 짧게 쓴다.
           Text(
-            "${_isSkid ? "스키드" : "캐비닛"} · ${_panelWidth.toInt()}×${_panelHeight.toInt()}mm",
+            narrowBar
+                ? "${_isSkid ? "스키드" : "캐비닛"} ${_panelWidth.toInt()}×${_panelHeight.toInt()}"
+                : "${_isSkid ? "스키드" : "캐비닛"} · ${_panelWidth.toInt()}×${_panelHeight.toInt()}mm",
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
