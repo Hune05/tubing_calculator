@@ -114,6 +114,60 @@ void main() {
       expect(manager.bendList.last['rotation'], 0.0);
     });
 
+    Future<void> addKick(WidgetTester tester, {bool travel = false}) async {
+      await openTool(tester, '킥', dirKey: 'cs_dir_0');
+      await tester.tap(find.byKey(const Key('cs_dir_0')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('cs_start')));
+      await tester.pumpAndSettle();
+      for (final d in ['5', '0', '0']) {
+        await tester.tap(find.widgetWithText(TextButton, d));
+      }
+      await tester.tap(find.text('적용'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('cs_height')));
+      await tester.pumpAndSettle();
+      for (final d in ['1', '0', '0']) {
+        await tester.tap(find.widgetWithText(TextButton, d));
+      }
+      await tester.tap(find.text('적용'));
+      await tester.pumpAndSettle();
+      if (travel) {
+        await tester.ensureVisible(find.byKey(const Key('cs_kick_add_travel')));
+        await tester.tap(find.byKey(const Key('cs_kick_add_travel')));
+        await tester.pumpAndSettle();
+      }
+      await tester.ensureVisible(find.byKey(const Key('cs_add')));
+      await tester.tap(find.byKey(const Key('cs_add')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('킥 시트: 기본은 꺾는 줄만 넣는다', (tester) async {
+      await addKick(tester);
+      expect(manager.bendList.length, 1);
+      expect(manager.bendList.single['angle'], 30.0);
+    });
+
+    testWidgets(
+      '킥 시트: "빗변도 같이 넣기"면 빗변(H ÷ sin30° = 200)을 직관 줄로 같이 넣고, 다음에도 기억한다',
+      (tester) async {
+        await addKick(tester, travel: true);
+        expect(manager.bendList.length, 2);
+        expect(manager.bendList[0]['angle'], 30.0);
+        expect(manager.bendList[1]['angle'], 0.0);
+        expect(manager.bendList[1]['length'], 200.0);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool('conduit_kick_add_travel_v1'), true);
+
+        // 다시 열면 고른 대로 켜져 있다.
+        await tester.pumpWidget(const SizedBox());
+        await openTool(tester, '킥', dirKey: 'cs_dir_0');
+        await tester.ensureVisible(find.byKey(const Key('cs_kick_add_travel')));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('빗변 길이를 직관 줄로 넣습니다'), findsOneWidget);
+      },
+    );
+
     testWidgets('백투백 시트: 후강(Rigid) 22mm이면 바깥지름 26.5를 미리 채운다', (tester) async {
       final saved = Map<String, dynamic>.from(globalBenderSettings.value);
       addTearDown(() => globalBenderSettings.value = saved);
@@ -124,12 +178,17 @@ void main() {
       };
       await openTool(tester, '백투백 90°', dirKey: 'cs_dir_0');
       expect(
-        tester.widget<TextField>(find.byKey(const Key('cs_od'))).controller!.text,
+        tester
+            .widget<TextField>(find.byKey(const Key('cs_od')))
+            .controller!
+            .text,
         '26.5',
       );
     });
 
-    testWidgets('백투백 시트: EMT도 바깥지름 표(ANSI C80.3)로 미리 채운다(10-13, 예전엔 빈칸)', (tester) async {
+    testWidgets('백투백 시트: EMT도 바깥지름 표(ANSI C80.3)로 미리 채운다(10-13, 예전엔 빈칸)', (
+      tester,
+    ) async {
       final saved = Map<String, dynamic>.from(globalBenderSettings.value);
       addTearDown(() => globalBenderSettings.value = saved);
       globalBenderSettings.value = {
@@ -139,14 +198,20 @@ void main() {
       };
       await openTool(tester, '백투백 90°', dirKey: 'cs_dir_0');
       expect(
-        tester.widget<TextField>(find.byKey(const Key('cs_od'))).controller!.text,
+        tester
+            .widget<TextField>(find.byKey(const Key('cs_od')))
+            .controller!
+            .text,
         '23.4',
       );
     });
 
-    testWidgets('킥 시트: 진행 방향(오른쪽)과 나란한 칸은 흐리게, 누르면 안내 창만 뜨고 선택은 안 된다', (tester) async {
+    testWidgets('킥 시트: 진행 방향(오른쪽)과 나란한 칸은 흐리게, 누르면 안내 창만 뜨고 선택은 안 된다', (
+      tester,
+    ) async {
       await openTool(tester, '킥', dirKey: 'cs_dir_0');
-      double op(String r) => tester.widget<Opacity>(find.byKey(Key('cs_dir_op_$r'))).opacity;
+      double op(String r) =>
+          tester.widget<Opacity>(find.byKey(Key('cs_dir_op_$r'))).opacity;
       expect(op('90'), 0.38);
       expect(op('270'), 0.38);
       expect(op('0'), 1.0);
@@ -154,6 +219,5 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('그 방향으로는 못 꺾습니다'), findsOneWidget);
     });
-
   });
 }

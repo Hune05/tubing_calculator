@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
@@ -164,10 +165,33 @@ class _KickSheet extends StatefulWidget {
   State<_KickSheet> createState() => _KickSheetState();
 }
 
+/// 킥 시트 "빗변도 같이 넣기"를 마지막에 고른 대로 기억하는 칸(10-13).
+const String kConduitKickAddTravelKey = 'conduit_kick_add_travel_v1';
+
 class _KickSheetState extends _SheetState<_KickSheet> {
   late final _h = ctrl();
   late final _a = ctrl('30');
   late final _start = ctrl('0');
+
+  /// 꺾는 줄 뒤에 빗변(높이 ÷ sinθ)을 직관 줄로 같이 넣을지(10-13 사용자 선택).
+  /// 넣지 않으면 높이는 목록에 안 남아 총 절단·그림에 빗변 구간이 빠진다.
+  bool _addTravel = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SharedPreferences.getInstance().then((p) {
+      final v = p.getBool(kConduitKickAddTravelKey);
+      if (v != null && mounted) setState(() => _addTravel = v);
+    });
+  }
+
+  void _setAddTravel(bool v) {
+    setState(() => _addTravel = v);
+    SharedPreferences.getInstance().then(
+      (p) => p.setBool(kConduitKickAddTravelKey, v),
+    );
+  }
 
   void _apply(double? h, double? a) {
     if (!checkDirection(widget.currentRotation, rule: widget.canBendTo)) return;
@@ -193,12 +217,17 @@ class _KickSheetState extends _SheetState<_KickSheet> {
       return;
     }
     final double len = _r1(widget.specs.firstLength(start, a!, 0));
+    // 빗변 줄: 꺾이는 점에서 높이 H에 닿는 자리까지(관 중심·관 등 어느 기준이든 H ÷ sinθ).
+    final double travel = _r1(kick.travel);
     widget.onAddBends([
       {'length': len, 'angle': _r1(a), 'rotation': dir},
+      if (_addTravel) {'length': travel, 'angle': 0.0, 'rotation': 0.0},
     ]);
     csSnackAdded(
       context,
-      '${widget.specs.firstMarkNotice(start)} 축소값 ${csFmt(kick.shrink)}mm만큼 직진 거리가 줄어듭니다.',
+      _addTravel
+          ? '${widget.specs.firstMarkNotice(start)} 빗변 ${csFmt(travel)}mm를 직관 줄로 같이 넣었습니다.'
+          : '${widget.specs.firstMarkNotice(start)} 축소값 ${csFmt(kick.shrink)}mm만큼 직진 거리가 줄어듭니다.',
     );
     Navigator.pop(context);
   }
@@ -277,6 +306,33 @@ class _KickSheetState extends _SheetState<_KickSheet> {
           value: dir,
           onPick: (v) => setState(() => dir = v),
           canBendTo: widget.canBendTo,
+        ),
+        const SizedBox(height: 16),
+        const CsLabel('목록에 넣을 줄'),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            CsChoice(
+              choiceKey: const Key('cs_kick_bend_only'),
+              label: '꺾는 줄만',
+              selected: !_addTravel,
+              onTap: () => _setAddTravel(false),
+            ),
+            CsChoice(
+              choiceKey: const Key('cs_kick_add_travel'),
+              label: '빗변도 같이 넣기',
+              selected: _addTravel,
+              onTap: () => _setAddTravel(true),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _addTravel
+              ? '꺾는 줄 뒤에 빗변 길이를 직관 줄로 넣습니다. 관을 더 끌고 가면 그 줄 길이를 고치십시오.'
+              : '꺾는 줄만 넣습니다. 높이는 목록에 남지 않아, 뒤 직관 줄을 직접 넣어야 총 절단에 들어갑니다.',
+          style: const TextStyle(fontSize: 12.5, height: 1.4, color: csSub),
         ),
         const SizedBox(height: 16),
         CsResultBox(
