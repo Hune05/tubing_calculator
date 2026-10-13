@@ -81,18 +81,8 @@ const Color alignGuideColor = Color(0xFFFF3D9A);
 const double _kTouchHitPad = 0.0;
 
 /// 이 폭(dp) 이상이면 왼쪽 자재 칸·가운데 도면·오른쪽 편집 칸을 나란히 보여 준다.
-/// 폴드를 편 화면(세로 약 670dp)이나 세로로 세운 태블릿은 양옆 칸을 빼면 도면이
-/// 너무 좁아져서, 가로로 넉넉한 화면에서만 나란히 놓는다.
-const double kLayoutBoardWideWidth = 900;
-const double _kWideSidebarWidth = 260;
-const double _kWideInspectorWidth = 320;
-
-/// 화면 폭으로 넓은 모양을 쓸지 정한다(테스트에서도 같은 기준을 쓴다).
-///
-/// 2026-09-30 사용자 결정: 태블릿·큰 화면도 폰과 같은 방식(아래 팔레트, 모듈을 누르면 아래 시트)으로
-/// 통일한다. 세로로 든 14.6인치에서 양옆 칸이 도면을 344dp로 눌러 가렸다. 그래서 늘 false.
-/// 양옆 칸 코드는 남겨 두었으니(다시 켤 때를 위해) 이 함수만 바꾸면 다시 나타난다.
-bool layoutBoardUsesWideLayout(Size size) => false;
+// 2026-09-30 사용자 결정: 태블릿·큰 화면도 폰과 같은 방식(아래 팔레트, 부품을 누르면 아래 시트).
+// 세로로 든 14.6인치에서 양옆 칸이 도면을 344dp로 눌러 가렸다. 10-13: 양옆 칸 코드는 지웠다.
 
 /// 이어서 할 임시 저장(저장 안 하고 나간 배치도)이 있는지. 카톡으로 받은 도면을 어디에 깔지 물을 때 쓴다.
 Future<bool> layoutBoardHasDraft() async {
@@ -109,8 +99,7 @@ Future<bool> layoutBoardHasDraft() async {
 // ---------------------------------------------------------
 // 2. 메인 페이지 화면
 // ---------------------------------------------------------
-/// 작업 배치도 화면 하나. 폰·태블릿·폴드 모두 이 화면을 쓰고, 화면 폭에 따라
-/// 모양만 달라진다(좁으면 아래 팔레트 + 바텀시트, 넓으면 왼쪽 자재 칸 + 오른쪽 편집 칸).
+/// 작업 배치도 화면 하나. 폰·태블릿·폴드 모두 같은 모양(아래 팔레트 + 아래 시트)이다.
 /// 작업 내용은 모두 이 State 하나에 있어서, 폴드를 펴고 접어도 저장 안 한
 /// 배치가 그대로 남는다.
 class LayoutBoardPage extends StatefulWidget {
@@ -179,8 +168,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // (좁은 화면의 동그란 단추는 둘 중 하나로 바꾸고, 넓은 화면은 둘 다 켤 수도 있다.)
   bool _showCenterGuide = true;
   bool _showEdgeGuide = false;
-  // 지난번 그릴 때 넓은 모양이었는지. 모양이 바뀌는 순간을 알아채는 데 쓴다.
-  bool? _lastWide;
   // 🚀 [신규] 체인 모드 - 켜두면 점을 찍을 때마다 그 점이 다음 구간의
   // 시작점으로 그대로 이어져서, 여러 지점을 순서대로 탭하는 것만으로
   // 연속된 치수선을 한 번에 그릴 수 있다(모듈을 일렬로 배치할 때 유용).
@@ -295,7 +282,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       _saveDraftToPrefs();
     } catch (e) {
       if (!mounted) return;
-      showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("사진 돌리기 실패", e)))));
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
+        SnackBar(content: Text(keepWords(failText("사진 돌리기 실패", e)))),
+      );
     }
   }
 
@@ -388,10 +378,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   final TextEditingController _presetSearchCtrl = TextEditingController();
   String _presetSearchQuery = '';
 
-  // 넓은 화면 오른쪽 칸의 모듈 이름 칸. 고른 모듈이 바뀔 때만 글을 바꿔 넣는다.
-  final TextEditingController _inspectorNameCtrl = TextEditingController();
-  String? _inspectorNameFor;
-
   @override
   void initState() {
     super.initState();
@@ -468,11 +454,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                keepWords(
-                  _isWide
-                      ? "① 왼쪽 팔레트에서 부품을 도면 위로 끌어다 놓습니다."
-                      : "① 아래 팔레트에서 부품을 도면 위로 끌어다 놓습니다.",
-                ),
+                keepWords("① 아래 팔레트에서 부품을 도면 위로 끌어다 놓습니다."),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
@@ -589,7 +571,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _draftTimer?.cancel();
     _saveDraftToPrefs();
     _presetSearchCtrl.dispose();
-    _inspectorNameCtrl.dispose();
     _viewerController.dispose();
     super.dispose();
   }
@@ -1023,7 +1004,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     // (10-08: 돌아와 ↶를 누르면 다른 탭에서 놓은 JB·고친 경로까지 지웠다). 이 판 부품만 되돌린다.
     List<Map<String, dynamic>> plateOnly(List<Map<String, dynamic>> l) => [
       for (final s in l)
-        if (s['whole'] == true) s else (Map<String, dynamic>.from(s)..remove('routes')..remove('planItems')),
+        if (s['whole'] == true)
+          s
+        else
+          (Map<String, dynamic>.from(s)
+            ..remove('routes')
+            ..remove('planItems')),
     ];
     _plateUndo[_plateId] = _isSkid
         ? [plateOnly(_undoStack), plateOnly(_redoStack)]
@@ -1052,7 +1038,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     _activeItem = null;
     _previewItem = null;
     _dimensionStartPoint = null;
-    _inspectorNameFor = null;
     _viewerController.value = Matrix4.identity();
     if (_isSkid) _fitPending = true;
   }
@@ -1456,7 +1441,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     'panelW': _panelWidth,
     'panelH': _panelHeight,
     // Rect는 JSON으로 못 바꿔 숫자 목록으로 담는다(10-08: 축척 맞춘 도면에서 ↶가 오류만 내고 듣지 않았다).
-    'bgRect': _backgroundRect == null ? null : drawingRectToJson(_backgroundRect!),
+    'bgRect': _backgroundRect == null
+        ? null
+        : drawingRectToJson(_backgroundRect!),
     'items': _placedItems.map((e) => e.toJson()).toList(),
     'dimensions': _dimensions.map((e) => e.toJson()).toList(),
     if (_isSkid) 'routes': _routes.map((r) => r.toJson()).toList(),
@@ -1505,11 +1492,14 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     // 도면 전체를 담은 기록이면 종류·측판 켜짐도 돌리고, 그때 없던 판은 뺀다.
     if (snap['whole'] == true) {
       if (snap['kind'] is String) _kind = snap['kind'] as String;
-      if (snap['sidePlatesOn'] is bool) _sidePlatesOn = snap['sidePlatesOn'] as bool;
+      if (snap['sidePlatesOn'] is bool) {
+        _sidePlatesOn = snap['sidePlatesOn'] as bool;
+      }
       if (snap['showHiddenParts'] is bool) {
         _showHiddenParts = snap['showHiddenParts'] as bool;
       }
-      final keep = (snap['plates'] as Map?)?.keys.map((k) => k.toString()).toSet() ?? {};
+      final keep =
+          (snap['plates'] as Map?)?.keys.map((k) => k.toString()).toSet() ?? {};
       _plateStore.removeWhere((id, _) => id != _plateId && !keep.contains(id));
     }
     // 도면 전체 지우기를 되돌릴 때: 다른 탭 것도 돌려놓는다.
@@ -1808,7 +1798,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             barrierDismissible: false,
             builder: (ctx) => AlertDialog(
               title: const Text('저장하지 않은 고침이 있습니다'),
-              content: Text(keepWords('이 도면을 고치다 저장하지 않고 나간 내용이 있습니다. 이어서 하시겠습니까?')),
+              content: Text(
+                keepWords('이 도면을 고치다 저장하지 않고 나간 내용이 있습니다. 이어서 하시겠습니까?'),
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
@@ -1843,7 +1835,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       final doc = await readDocQuick(ref, wait: const Duration(seconds: 8));
       if (!mounted) return;
       if (!doc.exists) {
-        showSnackOnce(ScaffoldMessenger.of(context),
+        showSnackOnce(
+          ScaffoldMessenger.of(context),
           SnackBar(
             content: Text(keepWords("배치도를 찾을 수 없습니다.")),
             backgroundColor: warningRed,
@@ -1861,7 +1854,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       await _offerProjectDraft(id);
     } catch (e) {
       if (!mounted) return;
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords(failText("불러오기 실패", e))),
           backgroundColor: warningRed,
@@ -2096,7 +2090,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       Navigator.pop(context, file.path);
     } catch (e) {
       if (!mounted) return;
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords(failText("사진 저장 실패", e))),
           backgroundColor: warningRed,
@@ -2286,13 +2281,15 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
       // 모든 판의 치수선을 견준다(10-08: 지금 판과 서버 중판만 견줘 측판에서 저장하면 틀리게 나왔다).
       int dimsOf(Map p) => (p['dimensions'] as List?)?.length ?? 0;
-      final int savedDimCount = dimsOf(data) +
+      final int savedDimCount =
+          dimsOf(data) +
           [
             for (final p in ((data['sidePlates'] as Map?) ?? const {}).values)
               if (p is Map) dimsOf(p),
           ].fold(0, (a, b) => a + b);
       final int dimDelta =
-          _allPlates().values.fold<int>(0, (a, p) => a + dimsOf(p)) - savedDimCount;
+          _allPlates().values.fold<int>(0, (a, p) => a + dimsOf(p)) -
+          savedDimCount;
 
       if (added.isEmpty && removed.isEmpty && moved.isEmpty && dimDelta == 0) {
         return true; // 변경 사항 없음
@@ -2856,54 +2853,54 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               pageFormat: pageFmt,
               build: (pw.Context context) {
                 return [
-                    pw.Text(
-                      "치수 목록표",
-                      style: pw.TextStyle(
-                        fontSize: 18,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
+                  pw.Text(
+                    "치수 목록표",
+                    style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
                     ),
-                    pw.SizedBox(height: 16),
-                    pw.Table(
-                      border: pw.TableBorder.all(
-                        color: PdfColors.grey400,
-                        width: 0.5,
-                      ),
-                      columnWidths: {
-                        0: const pw.FixedColumnWidth(40),
-                        1: const pw.FixedColumnWidth(70),
-                        2: const pw.FixedColumnWidth(80),
-                        3: const pw.FlexColumnWidth(),
-                      },
-                      children: [
-                        pw.TableRow(
-                          decoration: const pw.BoxDecoration(
-                            color: PdfColors.grey200,
-                          ),
-                          children: [
-                            _pdfCell("번호", bold: true),
-                            _pdfCell("기준", bold: true),
-                            _pdfCell("거리(mm)", bold: true),
-                            _pdfCell("메모", bold: true),
-                          ],
+                  ),
+                  pw.SizedBox(height: 16),
+                  pw.Table(
+                    border: pw.TableBorder.all(
+                      color: PdfColors.grey400,
+                      width: 0.5,
+                    ),
+                    columnWidths: {
+                      0: const pw.FixedColumnWidth(40),
+                      1: const pw.FixedColumnWidth(70),
+                      2: const pw.FixedColumnWidth(80),
+                      3: const pw.FlexColumnWidth(),
+                    },
+                    children: [
+                      pw.TableRow(
+                        decoration: const pw.BoxDecoration(
+                          color: PdfColors.grey200,
                         ),
-                        ...plateDims.asMap().entries.map((entry) {
-                          final int i = entry.key;
-                          final PlacedDimension dim = entry.value;
-                          final endpoints = computeDimensionEndpoints(dim);
-                          return pw.TableRow(
-                            children: [
-                              _pdfCell("${i + 1}"),
-                              _pdfCell(
-                                dim.type == DimensionType.center ? "센터" : "측면",
-                              ),
-                              _pdfCell(endpoints.distance.round().toString()),
-                              _pdfCell(dim.note ?? ""),
-                            ],
-                          );
-                        }),
-                      ],
-                    ),
+                        children: [
+                          _pdfCell("번호", bold: true),
+                          _pdfCell("기준", bold: true),
+                          _pdfCell("거리(mm)", bold: true),
+                          _pdfCell("메모", bold: true),
+                        ],
+                      ),
+                      ...plateDims.asMap().entries.map((entry) {
+                        final int i = entry.key;
+                        final PlacedDimension dim = entry.value;
+                        final endpoints = computeDimensionEndpoints(dim);
+                        return pw.TableRow(
+                          children: [
+                            _pdfCell("${i + 1}"),
+                            _pdfCell(
+                              dim.type == DimensionType.center ? "센터" : "측면",
+                            ),
+                            _pdfCell(endpoints.distance.round().toString()),
+                            _pdfCell(dim.note ?? ""),
+                          ],
+                        );
+                      }),
+                    ],
+                  ),
                 ];
               },
             ),
@@ -2922,7 +2919,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       await Share.shareXFiles([XFile(file.path)], text: '$projectName 배치도입니다.');
     } catch (e) {
       if (!mounted) return;
-      showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))));
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
+        SnackBar(content: Text(keepWords(failText("PDF를 만들지 못했습니다", e)))),
+      );
     } finally {
       _pdfCapture = false;
       if (mounted) setState(() => _isSaving = false);
@@ -2962,7 +2962,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
             uploadLayoutBackground(
               docRef.id,
               e.value['backgroundImagePath'] as String,
-            ).timeout(const Duration(seconds: 8), onTimeout: () => null).then((up) {
+            ).timeout(const Duration(seconds: 8), onTimeout: () => null).then((
+              up,
+            ) {
               if (up == null) return;
               e.value['backgroundImageUrl'] = up;
               if (e.key == _plateId) _backgroundImageUrl = up;
@@ -3019,13 +3021,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         // 떠, 이어 저장하면 같은 도면이 하나 더 생겼다). 고친 것은 이 도면 칸에 남긴다.
         if (isNew) {
           try {
-            await (await SharedPreferences.getInstance()).remove(_draftPrefsKey);
+            await (await SharedPreferences.getInstance()).remove(
+              _draftPrefsKey,
+            );
           } catch (_) {}
         }
         await _saveDraftToPrefs();
       }
       if (!mounted) return;
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("배치도를 저장했습니다.")),
           backgroundColor: tossBlue,
@@ -3033,7 +3038,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       );
     } catch (e) {
       if (!mounted) return;
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("저장하지 못했습니다. 통신을 확인하십시오.")),
           backgroundColor: warningRed,
@@ -3051,7 +3057,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   // 사진은 기기 로컬 경로라 다른 기기/프로젝트에서 못 여니 제외).
   void _saveAsTemplate() {
     if (!_hasAnyContent) {
-      showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords("템플릿으로 저장할 내용이 없습니다."))));
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
+        SnackBar(content: Text(keepWords("템플릿으로 저장할 내용이 없습니다."))),
+      );
       return;
     }
     final TextEditingController nameCtrl = TextEditingController(
@@ -3123,7 +3132,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         for (final e in plates.entries)
                           e.key: {
                             for (final kv in e.value.entries)
-                              if (!kv.key.startsWith('background')) kv.key: kv.value,
+                              if (!kv.key.startsWith('background'))
+                                kv.key: kv.value,
                           },
                       }),
                       'createdAt': FieldValue.serverTimestamp(),
@@ -3131,7 +3141,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                     .timeout(const Duration(seconds: 8), onTimeout: () {});
                 _templateDocId = null;
                 if (!mounted) return;
-                showSnackOnce(ScaffoldMessenger.of(context),
+                showSnackOnce(
+                  ScaffoldMessenger.of(context),
                   SnackBar(
                     content: Text(keepWords("템플릿으로 저장했습니다.")),
                     backgroundColor: tossBlue,
@@ -3139,7 +3150,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                 );
               } catch (e) {
                 if (!mounted) return;
-                showSnackOnce(ScaffoldMessenger.of(context),
+                showSnackOnce(
+                  ScaffoldMessenger.of(context),
                   SnackBar(
                     content: Text(keepWords(failText("템플릿 저장 실패", e))),
                     backgroundColor: warningRed,
@@ -3328,8 +3340,9 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   @visibleForTesting
   Future<void> debugOfferProjectDraft(String id) => _offerProjectDraft(id);
   @visibleForTesting
-  int debugPlateItemCount(String id) =>
-      id == _plateId ? _placedItems.length : ((_plateStore[id]?['items'] as List?)?.length ?? 0);
+  int debugPlateItemCount(String id) => id == _plateId
+      ? _placedItems.length
+      : ((_plateStore[id]?['items'] as List?)?.length ?? 0);
 
   void _applyTemplate(Map<String, dynamic> data) {
     void doApply() {
@@ -3693,7 +3706,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       }
     });
     HapticFeedback.mediumImpact();
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(keepWords("부품 ${items.length}개를 가져왔습니다.")),
         backgroundColor: tossBlue,
@@ -3746,7 +3760,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       _activeItem = newItem;
       _previewItem = null;
     });
-    if (!_isWide) _showInspectorBottomSheet(_placedItems.last);
+    _showInspectorBottomSheet(_placedItems.last);
   }
 
   // 🚀 [버그 수정] 벽까지 실제 거리와 무관하게 빈 도면 공간을 탭하면
@@ -3844,19 +3858,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
           _multiSelectedIds = {..._multiSelectedIds, item.id};
           item.isSelected = true;
         }
-      });
-      return;
-    }
-    if (_isWide) {
-      // 넓은 화면: 오른쪽 편집 칸이 이 모듈을 잡는 시점에 한 번만 되돌리기
-      // 기록을 남긴다(이름·크기를 몇 번 고쳐도 되돌리기 한 번으로 돌아가게).
-      if (_activeItem?.id != item.id) _pushUndo();
-      setState(() {
-        for (var i in _placedItems) {
-          i.isSelected = false;
-        }
-        item.isSelected = true;
-        _activeItem = item;
       });
       return;
     }
@@ -4010,7 +4011,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ..x = start.x
         ..y = start.y
         ..z = start.z;
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
             keepWords("경로가 시작 부품에서 떨어졌습니다. 경로를 눌러 시작 부품을 다시 고를 수 있습니다."),
@@ -5141,42 +5143,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () {
-                              // 📋 모듈 복사
-                              setState(() {
-                                final newItem = PlacedItem(
-                                  id: newLayoutId(),
-                                  name: item.name,
-                                  position: _snapToGrid(
-                                    Offset(
-                                      (item.position.dx + 20).clamp(
-                                        0.0,
-                                        math.max(0.0, _panelWidth - item.width),
-                                      ),
-                                      (item.position.dy + 20).clamp(
-                                        0.0,
-                                        math.max(
-                                          0.0,
-                                          _panelHeight - item.height,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  width: item.width,
-                                  height: item.height,
-                                  isSelected: false,
-                                  shape: item.shape,
-                                  depth: item.depth,
-                                  elevation: item.elevation,
-                                  flipped: item.flipped,
-                                  tag: item.tag,
-                                  rotation: item.rotation,
-                                );
-                                _placedItems.add(newItem);
-                              });
-                              HapticFeedback.mediumImpact();
+                              // 부품 복제(되돌리기 한 번으로 돌아간다)
+                              _duplicateItem(item);
                               Navigator.pop(context); // 복제 후 창 닫기
 
-                              showSnackOnce(ScaffoldMessenger.of(context),
+                              showSnackOnce(
+                                ScaffoldMessenger.of(context),
                                 SnackBar(
                                   content: Text(
                                     keepWords("'${item.name}' 부품을 복사했습니다."),
@@ -5312,7 +5284,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             depth: item.depth,
                           );
                           HapticFeedback.lightImpact();
-                          showSnackOnce(ScaffoldMessenger.of(context),
+                          showSnackOnce(
+                            ScaffoldMessenger.of(context),
                             SnackBar(
                               content: Text(keepWords("내 프리셋에 저장했습니다.")),
                               backgroundColor: tossText,
@@ -5430,8 +5403,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             widthCtrl.text,
                             (val) {
                               setState(() {
-                                item.width = (parseNumberText(val) ?? item.width)
-                                    .clamp(1.0, 100000.0);
+                                item.width =
+                                    (parseNumberText(val) ?? item.width).clamp(
+                                      1.0,
+                                      100000.0,
+                                    );
                                 item.position = Offset(
                                   item.position.dx.clamp(
                                     0.0,
@@ -5451,8 +5427,11 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             heightCtrl.text,
                             (val) {
                               setState(() {
-                                item.height = (parseNumberText(val) ?? item.height)
-                                    .clamp(1.0, 100000.0);
+                                item.height =
+                                    (parseNumberText(val) ?? item.height).clamp(
+                                      1.0,
+                                      100000.0,
+                                    );
                                 item.position = Offset(
                                   item.position.dx,
                                   item.position.dy.clamp(
@@ -5502,7 +5481,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             item.position.dx.toInt().toString(),
                             (val) {
                               setState(() {
-                                double newX = parseNumberText(val) ?? item.position.dx;
+                                double newX =
+                                    parseNumberText(val) ?? item.position.dx;
                                 item.position = Offset(
                                   newX.clamp(
                                     0.0,
@@ -5522,7 +5502,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                             item.position.dy.toInt().toString(),
                             (val) {
                               setState(() {
-                                double newY = parseNumberText(val) ?? item.position.dy;
+                                double newY =
+                                    parseNumberText(val) ?? item.position.dy;
                                 item.position = Offset(
                                   item.position.dx,
                                   newY.clamp(
@@ -5636,11 +5617,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
     if (r == null || !mounted) return;
     // 스키드 정면·측면은 폭이 평면 크기를 따른다. 폭을 바꿔 맞추면 탭을 오갈 때 어긋나므로 막는다(10-08).
-    if (_isSkid && _plateId != kPlateMain && (r.widthMm - _panelWidth).abs() > 1) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+    if (_isSkid &&
+        _plateId != kPlateMain &&
+        (r.widthMm - _panelWidth).abs() > 1) {
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(
-            keepWords("정면·측면 판 폭은 평면 크기(${_panelWidth.round()}mm)를 따릅니다. 가로는 그대로 두고 높이만 맞추십시오."),
+            keepWords(
+              "정면·측면 판 폭은 평면 크기(${_panelWidth.round()}mm)를 따릅니다. 가로는 그대로 두고 높이만 맞추십시오.",
+            ),
           ),
           backgroundColor: warningRed,
         ),
@@ -5668,7 +5654,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       );
     });
     _saveDraftToPrefs();
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           keepWords(
@@ -6298,7 +6285,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                   ClipboardData(text: buildSummaryText()),
                                 );
                                 if (!context.mounted) return;
-                                showSnackOnce(ScaffoldMessenger.of(context),
+                                showSnackOnce(
+                                  ScaffoldMessenger.of(context),
                                   SnackBar(
                                     content: Text(keepWords("자재 목록을 복사했습니다.")),
                                   ),
@@ -6538,28 +6526,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  bool get _isWide => layoutBoardUsesWideLayout(MediaQuery.sizeOf(context));
-
-  // 폭이 바뀌어 모양이 넘어가는 순간(폴드 펴기·접기, 화면 돌리기) 처리.
-  // 배치·치수·되돌리기 기록 같은 작업 내용은 이 State에 그대로 있으니
-  // 건드리지 않고, 화면에만 붙어 있던 것(선택 표시, 확대 위치)만 정리한다.
-  void _onLayoutShapeChanged(bool wide) {
-    _viewerController.value = Matrix4.identity();
-    _viewportSize = null;
-    if (!wide) {
-      // 좁은 화면에는 오른쪽 편집 칸이 없으니 선택만 풀어 둔다.
-      _activeItem = null;
-      for (final i in _placedItems) {
-        i.isSelected = false;
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final bool wide = _isWide;
-    if (_lastWide != null && _lastWide != wide) _onLayoutShapeChanged(wide);
-    _lastWide = wide;
     _problemIds = _sidePlatesOn || _cabinetDepth != null
         ? _clashReportCached().problemIds(_plateId)
         : (_isSkid && _routes.isNotEmpty
@@ -6568,76 +6536,60 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
     return QuickBarSuppress(
       child: Scaffold(
-      backgroundColor: tossBg,
-      appBar: _buildAppBar(),
-      body: Stack(
-        children: [
-          if (wide)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildLeftSidebar(),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildWideModeBar(),
-                      if (_showTabs) _buildPlateTabs(),
-                      Expanded(child: _buildBoardCanvas(wide)),
-                    ],
-                  ),
-                ),
-                _buildRightInspector(),
-              ],
-            )
-          else
+        backgroundColor: tossBg,
+        appBar: _buildAppBar(),
+        body: Stack(
+          children: [
             Column(
               children: [
                 if (_showTabs) _buildPlateTabs(),
-                Expanded(child: _buildBoardCanvas(wide)),
+                Expanded(child: _buildBoardCanvas()),
                 // 하단 컨트롤 패널
                 _buildBottomPanel(),
               ],
             ),
-          _buildMultiSelectBar(wide),
-          // 🚀 [신규] 미니맵 - 확대해서 작업 중일 때 전체 도면에서 지금
-          // 보고 있는 위치를 놓치지 않도록 구석에 작게 띄운다.
-          if (_placedItems.isNotEmpty && _viewportSize != null)
-            Positioned(
-              top: (wide ? 96 : 12) + (_showTabs ? 48 : 0),
-              right: wide ? _kWideInspectorWidth + 12 : 12,
-              // 확대·이동은 미니맵과 배율 글자만 다시 그린다(예전엔 화면 전체를 다시 그렸다).
-              child: ValueListenableBuilder<Matrix4>(
-                valueListenable: _viewerController,
-                builder: (_, _, _) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    (_minimapOpen ?? wide)
-                        ? Tooltip(
-                            message: "미니맵 접기",
-                            child: GestureDetector(
-                              onTap: () => setState(() => _minimapOpen = false),
-                              child: _buildMinimap(),
-                            ),
-                          )
-                        : _buildMinimapButton(),
-                    const SizedBox(height: 4),
-                    _buildZoomLabel(),
-                  ],
+            _buildMultiSelectBar(),
+            // 🚀 [신규] 미니맵 - 확대해서 작업 중일 때 전체 도면에서 지금
+            // 보고 있는 위치를 놓치지 않도록 구석에 작게 띄운다.
+            if (_placedItems.isNotEmpty && _viewportSize != null)
+              Positioned(
+                top: 12 + (_showTabs ? 48 : 0),
+                right: 12,
+                // 확대·이동은 미니맵과 배율 글자만 다시 그린다(예전엔 화면 전체를 다시 그렸다).
+                child: ValueListenableBuilder<Matrix4>(
+                  valueListenable: _viewerController,
+                  builder: (_, _, _) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      (_minimapOpen ?? false)
+                          ? Tooltip(
+                              message: "미니맵 접기",
+                              child: GestureDetector(
+                                onTap: () =>
+                                    setState(() => _minimapOpen = false),
+                                child: _buildMinimap(),
+                              ),
+                            )
+                          : _buildMinimapButton(),
+                      const SizedBox(height: 4),
+                      _buildZoomLabel(),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 화면을 덮어서 빈
-          // 도면이 잠깐 보였다가 내용이 채워지는 깜빡임을 막는다.
-          if (_isLoadingProject)
-            Container(
-              color: Colors.black.withValues(alpha: 0.15),
-              child: const Center(
-                child: CircularProgressIndicator(color: tossBlue),
+            // 🚀 [추가] 저장된 프로젝트를 불러오는 동안 화면을 덮어서 빈
+            // 도면이 잠깐 보였다가 내용이 채워지는 깜빡임을 막는다.
+            if (_isLoadingProject)
+              Container(
+                color: Colors.black.withValues(alpha: 0.15),
+                child: const Center(
+                  child: CircularProgressIndicator(color: tossBlue),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
-    ));
+    );
   }
 
   // 위 막대: 자주 쓰는 것(되돌리기·다시 실행·저장)만 둔다. 나머지는 "더보기"
@@ -7029,7 +6981,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   // 도면(확대·이동, 모듈 끌어 놓기, 치수 찍기). 좁은 화면·넓은 화면이 같이 쓴다.
-  Widget _buildBoardCanvas(bool wide) {
+  Widget _buildBoardCanvas() {
     return LayoutBuilder(
       builder: (context, constraints) {
         // 🚀 [신규] 미니맵에서 "지금 보고 있는 영역"을
@@ -7456,8 +7408,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                             if (_groupDragOrigins.isEmpty) {
                                               _snapToSteel(item);
                                             }
-                                            // 넓은 화면에서는 오른쪽 칸이 이 모듈을 계속 보여 주도록 선택을 남긴다.
-                                            if (!wide) _activeItem = null;
+                                            _activeItem = null;
                                             _alignGuideX = null;
                                             _alignGuideY = null;
                                             _groupDragAnchorOrigin = null;
@@ -7580,9 +7531,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
                                       const SizedBox(height: 12),
                                       Text(
                                         keepWords(
-                                          wide
-                                              ? "왼쪽에서 부품을 끌어다\n놓아 배치를 시작하십시오"
-                                              : "아래에서 부품을 끌어다\n놓아 배치를 시작하십시오",
+                                          "아래에서 부품을 끌어다\n놓아 배치를 시작하십시오",
                                         ),
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
@@ -7713,33 +7662,16 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  // 넓은 화면 도면 위쪽: 모드 전환만 둔다(안내선·여러 개 선택은 왼쪽 칸에 있다).
-  Widget _buildWideModeBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      decoration: const BoxDecoration(
-        color: tossBg,
-        border: Border(bottom: BorderSide(color: layoutLine)),
-      ),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: _buildModeSegmentedControl(),
-        ),
-      ),
-    );
-  }
-
   // 🚀 [신규] 다중 선택 도구모음 - 2개 이상 선택 시 그룹 이동/
   // 복제/잠금/정렬/삭제를 한 번에 할 수 있게 하단에 띄운다.
   // 🚀 [개선] 선택하는 순간 뚝 나타나던 걸 부드럽게 슬라이드 인/
   // 아웃 되도록 항상 트리에 두고 위치만 애니메이션한다.
-  Widget _buildMultiSelectBar(bool wide) {
+  Widget _buildMultiSelectBar() {
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
-      left: wide ? _kWideSidebarWidth : 0,
-      right: wide ? _kWideInspectorWidth : 0,
+      left: 0,
+      right: 0,
       bottom: _multiSelectedIds.isNotEmpty ? 0 : -200,
       child: IgnorePointer(
         ignoring: _multiSelectedIds.isEmpty,
@@ -7865,695 +7797,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
   }
 
-  Widget _buildLeftSidebar() {
-    return Container(
-      width: _kWideSidebarWidth,
-      decoration: const BoxDecoration(
-        color: pureWhite,
-        border: Border(right: BorderSide(color: layoutLine)),
-      ),
-      // 칸이 길어져도 넘치지 않게 세로로 굴린다. 모듈은 옆(도면 쪽)으로 끌 때만
-      // 집히게(affinity: 가로) 해서, 위아래로 밀면 칸이 굴러가고 옆으로 밀면 모듈이 끌린다.
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              "부품 목록",
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 17,
-                color: tossText,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              keepWords("오른쪽 도면으로 끌어다 놓습니다. 놓은 부품을 누르면 오른쪽 칸에서 이름과 크기를 고칩니다."),
-              style: const TextStyle(
-                color: tossSubText,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 12),
-            _dragTile(
-              const ModulePreset("신규 부품", 80, 80),
-              (_) => _buildPaletteItem("신규 박스 부품", large: true),
-              affinity: Axis.horizontal,
-            ),
-            const SizedBox(height: 8),
-            _dragTile(
-              const ModulePreset("메모", 160, 40, shape: InstrumentShape.note),
-              (_) => _buildPaletteItem("메모 글자", large: true),
-              affinity: Axis.horizontal,
-            ),
-            const SizedBox(height: 20),
-            if (!_isSkid) ...[
-              Row(
-                children: [
-                  Expanded(child: _panelLabel("ABS 덕트 (폭×높이)")),
-                  TextButton(
-                    onPressed: () => _showPresetSheet(
-                      title: "덕트 놓기",
-                      help:
-                          "폭×높이(mm)입니다. 도면에는 폭만큼 놓이고, 길이는 놓은 뒤 세로 칸에서 고칩니다. 누르면 지금 보이는 도면 가운데에 놓습니다.",
-                      groups: kDuctPresetGroups,
-                    ),
-                    child: const Text(
-                      "크기 전부",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // 🚀 ABS 배선덕트 - 폭이 정해진 자재라 배치 후 크기를 손으로 고칠
-              // 필요 없이 원하는 폭을 바로 끌어다 놓는다(참고용 명목 폭,
-              // kDuctPresets 주석 참고).
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final preset in kDuctPresets)
-                    _dragTile(
-                      preset,
-                      (_) => _buildDuctChip(preset, width: 104),
-                      affinity: Axis.horizontal,
-                    ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 20),
-            if (_isSkid) ...[
-              _panelLabel("스키드"),
-              const SizedBox(height: 8),
-              OutlinedButton.icon(
-                onPressed: _showRoutesSheet,
-                icon: _routeIcon,
-                label: const Text(
-                  "전선관 경로",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(height: 6),
-              OutlinedButton.icon(
-                key: const Key('skid_iso_open'),
-                onPressed: _openSkidIso,
-                icon: const Icon(Icons.view_in_ar_rounded, size: 20),
-                label: const Text(
-                  "입체로 보기",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(height: 6),
-              for (final e in [
-                (
-                  "형강",
-                  "형강 놓기",
-                  kSkidSteelPresets,
-                  _skidIcon(SkidShape.beam, SkidFace.end),
-                ),
-                (
-                  "정션박스",
-                  "정션박스 놓기",
-                  kSkidJbPresets,
-                  _skidIcon(SkidShape.jb, SkidFace.side),
-                ),
-                (
-                  "전선관 부속 (곤질레다·커플링·유니온)",
-                  "전선관 부속 놓기",
-                  kSkidFittingPresets,
-                  _skidIcon(SkidShape.cdLB, SkidFace.side, h: 24),
-                ),
-              ]) ...[
-                OutlinedButton.icon(
-                  onPressed: () => _openSkidSheet(e.$2, e.$3),
-                  icon: e.$4,
-                  label: Text(
-                    e.$1,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-              const SizedBox(height: 14),
-            ],
-            if (!_isSkid) ...[
-              OutlinedButton.icon(
-                onPressed: _openElecSheet,
-                icon: const Icon(Icons.electrical_services_rounded, size: 20),
-                label: const Text(
-                  "전기 부품 (단자대·차단기·전원)",
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                ),
-              ),
-              const SizedBox(height: 14),
-              _panelLabel("밸브·피팅"),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _openValveSheet,
-                      icon: const Icon(Icons.tune_rounded, size: 20),
-                      label: const Text(
-                        "밸브",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _openFittingSheet,
-                      icon: const Icon(Icons.plumbing_rounded, size: 20),
-                      label: const Text(
-                        "피팅",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _panelLabel("계기 (정면 크기, 브래킷 빼고)"),
-              for (final brand in kInstrumentPresets.entries) ...[
-                const SizedBox(height: 10),
-                Text(
-                  brand.key,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: tossText,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final preset in brand.value)
-                      _dragTile(
-                        preset,
-                        (_) => _buildInstrumentChip(preset, width: 228),
-                        affinity: Axis.horizontal,
-                      ),
-                  ],
-                ),
-              ],
-            ],
-            if (_customPresets.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              _buildPresetArea(wide: true),
-            ],
-            const SizedBox(height: 20),
-            const Divider(height: 1, color: layoutLine),
-            const SizedBox(height: 16),
-            _panelLabel("끌 때 보이는 가상선"),
-            const SizedBox(height: 8),
-            _toolToggle(
-              icon: Icons.center_focus_strong_rounded,
-              label: "센터선",
-              selected: _showCenterGuide,
-              color: guideCenterColor,
-              onTap: () => setState(() => _showCenterGuide = !_showCenterGuide),
-            ),
-            const SizedBox(height: 8),
-            _toolToggle(
-              icon: Icons.border_outer_rounded,
-              label: "외곽선",
-              selected: _showEdgeGuide,
-              color: edgeDimColor,
-              onTap: () => setState(() => _showEdgeGuide = !_showEdgeGuide),
-            ),
-            const SizedBox(height: 16),
-            _panelLabel("선택"),
-            const SizedBox(height: 8),
-            _buildMultiSelectToggle(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildRightInspector() {
-    final PlacedItem? item = _activeItem;
-    // 이름 칸은 모듈이 바뀔 때만 새로 만든다(그릴 때마다 만들면 고치던 글자 자리가 튄다).
-    if (item != null && _inspectorNameFor != item.id) {
-      _inspectorNameFor = item.id;
-      _inspectorNameCtrl.text = item.name;
-    }
-    final bool measuring = _mode == BoardMode.measureDimension;
-    return Container(
-      width: _kWideInspectorWidth,
-      decoration: const BoxDecoration(
-        color: pureWhite,
-        border: Border(left: BorderSide(color: layoutLine)),
-      ),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              measuring ? "치수 측정" : "부품 편집",
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 17,
-                color: tossText,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (measuring)
-              _buildDimensionInspector()
-            else if (item == null)
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: tossBg,
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  keepWords("도면에서 부품을 누르면 여기서 이름·크기·위치를 고칩니다."),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: tossSubText,
-                    fontSize: 15,
-                    height: 1.5,
-                  ),
-                ),
-              )
-            else ...[
-              _panelLabel("부품 이름"),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _inspectorNameCtrl,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w800,
-                  color: tossText,
-                ),
-                decoration: _inspectorFieldDecoration(),
-                onChanged: (val) =>
-                    setState(() => item.name = val.isEmpty ? "이름 없음" : val),
-              ),
-              const SizedBox(height: 12),
-              _buildInspectorInput(
-                "태그 번호 (PT-101 같은 것, 비워도 됨)",
-                fieldKey: ValueKey("${item.id}_태그"),
-                item.tag ?? "",
-                (val) => setState(
-                  () => item.tag = val.trim().isEmpty ? null : val.trim(),
-                ),
-              ),
-              if (_buildRailLengthHint(item, () {}) != null) ...[
-                const SizedBox(height: 12),
-                _buildRailLengthHint(item, () {})!,
-              ],
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _inspectorButton(
-                      icon: Icons.rotate_90_degrees_cw_rounded,
-                      label: "90° 회전",
-                      onTap: () => _rotateItem(item),
-                      accent: true,
-                    ),
-                  ),
-                  if (_canFlip(item)) ...[
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _inspectorButton(
-                        icon: Icons.flip_rounded,
-                        label: "좌우 뒤집기",
-                        onTap: () => _flipItem(item),
-                        accent: true,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _inspectorButton(
-                      icon: Icons.content_copy_rounded,
-                      label: "복제",
-                      onTap: () => _duplicateItem(item),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _panelLabel("크기 (mm)"),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildInspectorInput(
-                      "가로",
-                      fieldKey: ValueKey("${item.id}_가로"),
-                      item.width.toInt().toString(),
-                      (val) {
-                        _pushUndo();
-                        setState(() {
-                          item.width = (parseNumberText(val) ?? item.width).clamp(
-                            1.0,
-                            100000.0,
-                          );
-                          item.position = Offset(
-                            item.position.dx.clamp(
-                              0.0,
-                              math.max(0.0, _panelWidth - item.width),
-                            ),
-                            item.position.dy,
-                          );
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildInspectorInput(
-                      "세로",
-                      fieldKey: ValueKey("${item.id}_세로"),
-                      item.height.toInt().toString(),
-                      (val) {
-                        _pushUndo();
-                        setState(() {
-                          item.height = (parseNumberText(val) ?? item.height).clamp(
-                            1.0,
-                            100000.0,
-                          );
-                          item.position = Offset(
-                            item.position.dx,
-                            item.position.dy.clamp(
-                              0.0,
-                              math.max(0.0, _panelHeight - item.height),
-                            ),
-                          );
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _buildInspectorInput(
-                _isSkid ? "바닥에서 높이 (가운데까지)" : "깊이 (앞으로 튀어나온 길이)",
-                fieldKey: ValueKey("${item.id}_${_isSkid ? "높이" : "깊이"}"),
-                _depthText(_isSkid ? item.elevation : item.depth),
-                (val) {
-                  _pushUndo();
-                  setState(() {
-                    if (_isSkid) {
-                      item.elevation = _parseDepth(val);
-                    } else {
-                      item.depth = _parseDepth(val);
-                    }
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              _panelLabel("위치 (mm, 왼쪽 위 기준)"),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildInspectorInput(
-                      "X",
-                      fieldKey: ValueKey("${item.id}_X"),
-                      item.position.dx.toInt().toString(),
-                      (val) {
-                        _pushUndo();
-                        setState(() {
-                          final double newX = parseNumberText(val) ?? item.position.dx;
-                          item.position = Offset(
-                            newX.clamp(
-                              0.0,
-                              math.max(0.0, _panelWidth - item.width),
-                            ),
-                            item.position.dy,
-                          );
-                        });
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildInspectorInput(
-                      "Y",
-                      fieldKey: ValueKey("${item.id}_Y"),
-                      item.position.dy.toInt().toString(),
-                      (val) {
-                        _pushUndo();
-                        setState(() {
-                          final double newY = parseNumberText(val) ?? item.position.dy;
-                          item.position = Offset(
-                            item.position.dx,
-                            newY.clamp(
-                              0.0,
-                              math.max(0.0, _panelHeight - item.height),
-                            ),
-                          );
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _inspectorButton(
-                icon: Icons.star_border_rounded,
-                label: "이 크기를 내 프리셋으로 저장",
-                onTap: () {
-                  _saveAsCustomPreset(
-                    item.name,
-                    item.width,
-                    item.height,
-                    shape: item.shape,
-                    depth: item.depth,
-                  );
-                  HapticFeedback.lightImpact();
-                  showSnackOnce(ScaffoldMessenger.of(context),
-                    SnackBar(
-                      content: Text(keepWords("내 프리셋에 저장했습니다.")),
-                      backgroundColor: tossText,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 1),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-              // 위치가 정해진 모듈을 잠가서 잘못 끌려 옮겨지지 않게 한다.
-              _inspectorButton(
-                icon: item.isLocked
-                    ? Icons.lock_rounded
-                    : Icons.lock_open_rounded,
-                label: item.isLocked ? "잠금 풀기" : "이 부품 위치 잠그기",
-                onTap: () {
-                  setState(() => item.isLocked = !item.isLocked);
-                  HapticFeedback.lightImpact();
-                },
-              ),
-              const SizedBox(height: 8),
-              // 레이어 순서(앞/뒤): 목록 맨 뒤에 있을수록 맨 위에 그려진다.
-              Row(
-                children: [
-                  Expanded(
-                    child: _inspectorButton(
-                      icon: Icons.flip_to_front_rounded,
-                      label: "맨 앞으로",
-                      onTap: () {
-                        _pushUndo();
-                        setState(() {
-                          _placedItems.remove(item);
-                          _placedItems.add(item);
-                        });
-                        HapticFeedback.lightImpact();
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _inspectorButton(
-                      icon: Icons.flip_to_back_rounded,
-                      label: "맨 뒤로",
-                      onTap: () {
-                        _pushUndo();
-                        setState(() {
-                          _placedItems.remove(item);
-                          _placedItems.insert(0, item);
-                        });
-                        HapticFeedback.lightImpact();
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // 모듈 하나 지우기는 되돌리기로 돌아오므로 따로 묻지 않는다.
-              _inspectorButton(
-                icon: Icons.delete_outline_rounded,
-                label: "부품 삭제",
-                danger: true,
-                onTap: () {
-                  _pushUndo();
-                  setState(() {
-                    _dimensions.removeWhere(
-                      (dim) => dim.p1.id == item.id || dim.p2.id == item.id,
-                    );
-                    _placedItems.remove(item);
-                    if (_dimensionStartPoint?.id == item.id) {
-                      _dimensionStartPoint = null;
-                    }
-                    _activeItem = null;
-                  });
-                },
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDimensionInspector() {
-    final bool isCenter = _currentDimType == DimensionType.center;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _panelLabel("재는 기준"),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: _toolToggle(
-                icon: Icons.center_focus_strong_rounded,
-                label: "센터 기준",
-                selected: isCenter,
-                color: centerDimColor,
-                onTap: () =>
-                    setState(() => _currentDimType = DimensionType.center),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _toolToggle(
-                icon: Icons.border_outer_rounded,
-                label: "측면 기준",
-                selected: !isCenter,
-                color: edgeDimColor,
-                onTap: () =>
-                    setState(() => _currentDimType = DimensionType.edge),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            // 체인: 점을 계속 이어 누르면 치수선이 이어진다.
-            Expanded(
-              child: _toolToggle(
-                icon: Icons.link_rounded,
-                label: "체인",
-                selected: _dimensionChainMode,
-                color: tossBlue,
-                onTap: _toggleChainMode,
-              ),
-            ),
-            const SizedBox(width: 8),
-            // 기준점: 첫 점을 붙잡아 두고 다음 점마다 새 치수(누적 치수).
-            Expanded(
-              child: _toolToggle(
-                icon: Icons.push_pin_outlined,
-                label: "기준점",
-                selected: _dimensionBaselineMode,
-                color: tossBlue,
-                onTap: _toggleBaselineMode,
-              ),
-            ),
-            const SizedBox(width: 8),
-            // 대각선: 축에 맞추지 않고 두 점을 곧게 잇는다(거리+각도).
-            Expanded(
-              child: _toolToggle(
-                icon: Icons.turn_slight_right_rounded,
-                label: "대각선",
-                selected: _dimensionDiagonalMode,
-                color: diagonalDimColor,
-                onTap: () => setState(
-                  () => _dimensionDiagonalMode = !_dimensionDiagonalMode,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: tossBg,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Text(
-            keepWords(_dimensionHint()),
-            style: TextStyle(
-              color: _dimensionStartPoint == null
-                  ? tossSubText
-                  : (isCenter ? centerDimColor : edgeDimColor),
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              height: 1.45,
-            ),
-          ),
-        ),
-        // 첫 지점을 잘못 찍었을 때 두 번째 지점을 억지로 찍지 않고 취소한다.
-        if (_dimensionStartPoint != null) ...[
-          const SizedBox(height: 8),
-          _inspectorButton(
-            icon: Icons.undo_rounded,
-            label: "첫 지점 취소",
-            onTap: () => setState(() => _dimensionStartPoint = null),
-          ),
-        ],
-        if (_dimensions.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text(
-            "배치된 치수선 ${_dimensions.length}개",
-            style: const TextStyle(
-              color: tossText,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            keepWords("치수선을 누르면 지우기·기준 바꾸기·메모를 합니다. 전체 지우기는 위쪽 ⋮ 더보기에 있습니다."),
-            style: const TextStyle(
-              color: tossSubText,
-              fontSize: 14,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
   // 체인과 기준점은 같이 켤 수 없다(둘 다 "다음 점" 규칙이라 하나만).
   void _toggleChainMode() => setState(() {
     _dimensionChainMode = !_dimensionChainMode;
@@ -8634,35 +7877,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     return d == null || d <= 0 ? null : d;
   }
 
-  Widget _buildInspectorInput(
-    String label,
-    String value,
-    Function(String) onChanged, {
-    Key? fieldKey,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: tossSubText,
-          ),
-        ),
-        const SizedBox(height: 6),
-        // 모듈마다 칸을 새로 만든다(치던 값이 다른 모듈로 넘어가지 않게).
-        _InspectorNumberField(
-          key: fieldKey,
-          value: value,
-          onCommit: onChanged,
-          decoration: _inspectorFieldDecoration(),
-        ),
-      ],
-    );
-  }
-
   InputDecoration _inspectorFieldDecoration() => InputDecoration(
     filled: true,
     fillColor: tossBg,
@@ -8682,50 +7896,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       borderSide: const BorderSide(color: tossBlue, width: 2),
     ),
   );
-
-  // 오른쪽 칸 단추(높이 48 이상, 글씨 15).
-  Widget _inspectorButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onTap,
-    bool danger = false,
-    bool accent = false,
-  }) {
-    final Color fg = danger ? warningRed : (accent ? tossBlue : tossText);
-    return SizedBox(
-      height: 44,
-      child: OutlinedButton.icon(
-        onPressed: onTap,
-        icon: Icon(icon, size: 22, color: fg),
-        label: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: fg,
-            fontWeight: FontWeight.w800,
-            fontSize: 15,
-          ),
-        ),
-        style: OutlinedButton.styleFrom(
-          minimumSize: const Size(40, 40),
-          backgroundColor: accent
-              ? tossBlue.withValues(alpha: 0.08)
-              : pureWhite,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          side: BorderSide(
-            color: danger
-                ? warningRed
-                : (accent ? tossBlue.withValues(alpha: 0.4) : layoutLine),
-            width: 1.5,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildMultiBarIcon(
     IconData icon,
@@ -9091,7 +8261,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         ),
         if (_customPresets.isNotEmpty) ...[
           const SizedBox(height: 12),
-          _buildPresetArea(wide: false),
+          _buildPresetArea(),
         ],
       ],
     );
@@ -9109,7 +8279,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   }
 
   // 내 프리셋: 이름 검색(4개 이상일 때), 끌어다 놓을 목록, 지우기 단추가 있는 "관리".
-  Widget _buildPresetArea({required bool wide}) {
+  Widget _buildPresetArea() {
     final String q = _presetSearchQuery.toLowerCase();
     final List<ModulePreset> filtered = q.isEmpty
         ? _customPresets
@@ -9118,11 +8288,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               .toList();
     Widget tile(ModulePreset p) => GestureDetector(
       onLongPress: () => _confirmDeleteCustomPreset(_customPresets.indexOf(p)),
-      child: _dragTile(
-        p,
-        (_) => _buildCustomPresetChip(p, width: wide ? 228 : null),
-        affinity: wide ? Axis.horizontal : null,
-      ),
+      child: _dragTile(p, (_) => _buildCustomPresetChip(p)),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -9184,12 +8350,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
               "찾는 프리셋이 없습니다",
               style: TextStyle(fontSize: 14, color: tossSubText),
             ),
-          )
-        else if (wide)
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [for (final p in filtered) tile(p)],
           )
         else
           SizedBox(
@@ -9790,7 +8950,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       }
       _activeItem = hit;
     });
-    if (hit != null && !_isWide) _showInspectorBottomSheet(hit!);
+    if (hit != null) _showInspectorBottomSheet(hit!);
   }
 
   /// 정면·측면에서 놓은 부품은 평면에 놓는다(정면이면 평면 폭 가운데, 측면이면 길이 가운데).
@@ -9836,7 +8996,8 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
       _previewItem = null;
     });
     _saveDraftToPrefs();
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(
         content: Text(
           keepWords(
@@ -10289,99 +9450,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     }
   }
 
-  // 계기 한 칸: 모델 이름과 정면 가로×세로(mm).
-  Widget _buildInstrumentChip(ModulePreset preset, {double? width}) {
-    return Container(
-      height: 56,
-      width: width,
-      constraints: const BoxConstraints(minWidth: 72),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: tossSubText.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _instrumentThumb(preset, box: 40),
-          const SizedBox(width: 8),
-          _flexIf(
-            width != null,
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  preset.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: tossText,
-                    height: 1.2,
-                  ),
-                ),
-                Text(
-                  "${preset.width.toInt()}×${preset.height.toInt()}",
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: tossSubText,
-                    height: 1.2,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDuctChip(ModulePreset preset, {double width = 76}) {
-    return Container(
-      height: 64,
-      width: width,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: tossSubText.withValues(alpha: 0.3),
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            "ABS 덕트",
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: tossSubText,
-              height: 1.1,
-            ),
-          ),
-          Text(
-            preset.name.replaceFirst("ABS덕트 ", ""),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w900,
-              color: tossText,
-              height: 1.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // 좁은 화면 가상선 단추: 누를 때마다 센터선(틸) ↔ 외곽선(주황)으로 바뀐다.
   Widget _buildGuideColorSwitch() {
     final bool isCenter = !_showEdgeGuide;
@@ -10786,7 +9854,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     HapticFeedback.lightImpact();
   }
 
-  // 모듈 하나 복제: 오른쪽 아래로 20mm 비켜 놓고, 넓은 화면에서는 복제본을 고른다.
+  // 부품 하나 복제: 오른쪽 아래로 20mm 비켜 놓는다.
   void _duplicateItem(PlacedItem item) {
     _pushUndo();
     final newItem = PlacedItem(
@@ -10818,11 +9886,6 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
     );
     setState(() {
       _placedItems.add(newItem);
-      if (_isWide) {
-        item.isSelected = false;
-        newItem.isSelected = true;
-        _activeItem = newItem;
-      }
     });
     HapticFeedback.mediumImpact();
   }
@@ -11207,7 +10270,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
 // 🚀 SmartGuidePainter·GridPainter 는 models/layout_board_painters.dart 로 옮겼다(모바일·태블릿 공용).
 
-// 넓은 화면 오른쪽 칸의 숫자 입력 칸(크기·위치).
+// 부품 편집 창의 숫자 입력 칸(크기·위치).
 // 예전엔 그릴 때마다 입력 칸을 새로 만들어서, 값을 치다가 다른 칸을 누르면 친 값이 사라졌다.
 // 이제 칸 하나를 계속 쓰고, 완료를 누르거나 다른 곳을 누를 때(포커스가 빠질 때) 값을 넣는다.
 class _InspectorNumberField extends StatefulWidget {
@@ -11219,7 +10282,6 @@ class _InspectorNumberField extends StatefulWidget {
   final TextEditingController? controller;
 
   const _InspectorNumberField({
-    super.key,
     required this.value,
     required this.onCommit,
     required this.decoration,
@@ -11263,7 +10325,9 @@ class _InspectorNumberFieldState extends State<_InspectorNumberField> {
   void didUpdateWidget(covariant _InspectorNumberField oldWidget) {
     super.didUpdateWidget(oldWidget);
     // 치는 중이 아닐 때만 바깥 값(끌어서 옮긴 위치, 되돌리기 등)을 따라간다.
-    if (!_focus.hasFocus && widget.controller == null && _ctrl.text != widget.value) {
+    if (!_focus.hasFocus &&
+        widget.controller == null &&
+        _ctrl.text != widget.value) {
       _ctrl.text = widget.value;
     }
     if (!_focus.hasFocus) _committed = _ctrl.text;

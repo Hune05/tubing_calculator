@@ -93,15 +93,13 @@ void main() {
       final nav = await openBoard(tester, size);
       expect(tester.takeException(), isNull);
 
-      // 모듈을 누르면 좁은 화면은 바텀시트, 넓은 화면은 오른쪽 칸.
+      // 모듈을 누르면 어느 폭에서나 아래 편집 창.
       await tester.tap(onBoard('차단기 A'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      if (!layoutBoardUsesWideLayout(size)) {
-        expect(nav.currentState!.canPop(), isTrue, reason: '편집 바텀시트가 열려야 함');
-        nav.currentState!.pop();
-        await tester.pumpAndSettle();
-      }
+      expect(nav.currentState!.canPop(), isTrue, reason: '편집 바텀시트가 열려야 함');
+      nav.currentState!.pop();
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('치수 측정'));
       await tester.pumpAndSettle();

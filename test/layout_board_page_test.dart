@@ -55,15 +55,6 @@ void main() {
     });
   });
 
-  test('어느 폭에서도 폰과 같은 방식(아래 팔레트)을 쓴다', () {
-    expect(layoutBoardUsesWideLayout(kPhone), false);
-    expect(layoutBoardUsesWideLayout(const Size(673, 841)), false); // 폴드 편 화면
-    expect(layoutBoardUsesWideLayout(const Size(844, 390)), false); // 폰 가로
-    expect(layoutBoardUsesWideLayout(kTablet), false);
-    expect(layoutBoardUsesWideLayout(const Size(1280, 800)), false);
-    expect(layoutBoardUsesWideLayout(const Size(924, 1480)), false); // 14.6인치 세로
-  });
-
   testWidgets('폰 폭에서도 태블릿 폭에서도 아래 팔레트가 보이고 양옆 칸은 없다', (tester) async {
     setSize(tester, kPhone);
     addTearDown(tester.view.reset);
