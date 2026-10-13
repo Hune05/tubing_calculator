@@ -6,9 +6,9 @@ import 'layout_board_models.dart';
 
 // 🚀 배치도 안내선(SmartGuidePainter)과 모눈(GridPainter) 그리기. 모바일·태블릿 화면이 함께 쓴다.
 // 그린 그림은 test/layout_board_painters_test.dart 가 픽셀 단위로 지킨다.
-const Color _guideCenterColor = Color(0xFF007580); // 가상선(센터): 파란색(틸)
+const Color _guideCenterColor = Color(0xFF2563EB); // 가상선(센터): 파란색(= kBrand)
 const Color _edgeDimColor = Color(0xFFF68657); // 측면: 주황색
-const Color _centerDimColor = Color(0xFF007580); // 센터: 파란색(틸)
+const Color _centerDimColor = Color(0xFF2563EB); // 센터: 파란색(= kBrand)
 const Color _diagonalDimColor = Color(0xFF8B5CF6); // 대각선: 보라색
 // 도면 그림 색은 토큰으로 바꾸지 않는다(그림 비교 테스트가 윈도·리눅스 값을 따로 들고 있다).
 const Color _warningRed = Color(0xFFF04438);
@@ -244,7 +244,8 @@ class GridPainter extends CustomPainter {
 }
 
 /// 치수 숫자 글. 잘라 버리면 부동소수 오차로 300이 299로 보여 반올림한다(10-08).
-String cadDimensionLabel(String prefix, double distance) => "$prefix ${distance.round()} mm";
+String cadDimensionLabel(String prefix, double distance) =>
+    "$prefix ${distance.round()} mm";
 
 /// 치수 숫자 칸이 선 옆 가운데(제자리)에 들어가는지. [drawCadDimensionLine]과 같은 셈.
 bool cadLabelFitsOnLine(

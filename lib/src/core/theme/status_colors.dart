@@ -10,7 +10,7 @@ library;
 
 import 'package:flutter/painting.dart';
 
-const Color kBrand = Color(0xFF007580);
+const Color kBrand = Color(0xFF2563EB); // 파랑(10-13, 청록 #007580에서 바꿈)
 const Color kOk = Color(0xFF1B9E5A);
 const Color kCaution = Color(0xFFC77700);
 // 흰 바탕에서 글자로 써도 읽히게(약 4.9:1) 조금 진한 빨강.

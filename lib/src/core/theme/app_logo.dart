@@ -1,6 +1,7 @@
-// 앱 로고 마크(청록 바탕 + 흰 파이프 엘보). 런처 아이콘(android/app/.../ic_launcher.png)과
+// 앱 로고 마크(기본색 바탕 + 흰 파이프 엘보). 런처 아이콘(android/app/.../ic_launcher.png)과
 // 같은 그림을 화면 안에서도 쓸 수 있게 CustomPainter로 옮겨 둔 것 — 로딩 화면 등에서 쓴다.
-// 아이콘 파일을 다시 만들 때(예: 색을 바꿀 때)는 여기 도형도 같이 맞출 것.
+// 색이나 도형을 바꾸면 아이콘 파일은 `flutter test tool/gen_launcher_icons_test.dart`로 다시 만든다
+// (10-13 청록 → 파랑 #2563EB으로 바꿀 때 그렇게 했다).
 import 'package:flutter/material.dart';
 
 import 'app_tokens.dart';

@@ -860,7 +860,7 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
     final plan = _plan;
     if (tt != null) return '위에서 본 실제 비율 · 번호는 결과 탭 부품 번호, 진한 선은 이음 자리';
     if (e != null) {
-      return '${plan ? '위' : '옆'}에서 본 실제 비율 · 청록 = ${plan ? '장애물 반대쪽' : '위로'}, 주황 = ${plan ? '장애물 쪽' : '아래로'} 꺾는 엘보, 회색 = 직선';
+      return '${plan ? '위' : '옆'}에서 본 실제 비율 · 파랑 = ${plan ? '장애물 반대쪽' : '위로'}, 주황 = ${plan ? '장애물 쪽' : '아래로'} 꺾는 엘보, 회색 = 직선';
     }
     if (r == null) return null;
     if (_view == 'mark') {
@@ -869,8 +869,8 @@ class _CableTrayRoutePageState extends State<CableTrayRoutePage>
           : '곧은 측판을 옆에서 본 그림 · 시작점에서 아랫변을 따라 잽니다(양쪽 측판 같은 자리)';
     }
     return plan
-        ? '위에서 본 실제 비율 · 점선은 곧게 갔을 때 자리, 청록 = $_farRail V컷, 주황 = $_refRail V컷'
-        : '옆에서 본 실제 비율 · 청록 = 위로(윗변 V컷), 주황 = 아래로(아랫변 V컷)';
+        ? '위에서 본 실제 비율 · 점선은 곧게 갔을 때 자리, 파랑 = $_farRail V컷, 주황 = $_refRail V컷'
+        : '옆에서 본 실제 비율 · 파랑 = 위로(윗변 V컷), 주황 = 아래로(아랫변 V컷)';
   }
 
   // ① 종류: 작업 종류·만드는 방법·트레이(폭 또는 측판 높이)·장애물(가지) 쪽

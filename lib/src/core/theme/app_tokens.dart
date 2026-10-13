@@ -16,9 +16,9 @@ const String kAppFontFamily = 'NotoSansKR';
 /// 색 역할. 값은 이름으로 쓰고, 같은 역할에 다른 값을 새로 만들지 않는다.
 abstract final class AppColors {
   // 주 색(누르는 것·골라짐)
-  static const Color brand = kBrand; // #007580
+  static const Color brand = kBrand; // #2563EB
   static const Color onBrand = Color(0xFFFFFFFF);
-  static const Color brandSoft = Color(0xFFE6F2F3); // 옅은 청록 바탕(골라짐 배경 등)
+  static const Color brandSoft = Color(0xFFE0ECFF); // 옅은 파랑 바탕(골라짐 배경 등)
 
   // 바탕·표면
   static const Color background = Color(0xFFF2F4F6); // 화면 바탕(옅은 회색)

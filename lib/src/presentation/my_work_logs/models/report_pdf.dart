@@ -124,7 +124,7 @@ List<pw.Widget> _chartWidgets(ReportChart c) {
                     r.value,
                     (r.plan != null && r.plan! > 0 && r.value > r.plan!)
                         ? PdfColors.red
-                        : const PdfColor.fromInt(0xFF007580),
+                        : const PdfColor.fromInt(0xFF2563EB),
                   ),
                 ],
               ),
@@ -190,7 +190,9 @@ ReportDoc buildFinalReportDoc(Map<String, dynamic> log) {
   DateTime? first;
   int points = 0, wiring = 0;
   // 작업일수는 날짜 수, 공수는 내 근태를 날짜당 한 번만 뺀다(10-08).
-  final allReports = (log['daily_reports'] as List? ?? []).whereType<Map>().toList();
+  final allReports = (log['daily_reports'] as List? ?? [])
+      .whereType<Map>()
+      .toList();
   final days = workDaysOf(allReports);
   final manDays = totalManDays(allReports);
   for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {

@@ -620,7 +620,7 @@ class _BusbarBendPageState extends State<BusbarBendPage>
       : _view == 'mark'
       ? '한쪽 끝 기준 절곡 시작선·끝선'
       // 측면도·평면도 이름은 그림 위 글과 단추에 있어 여기는 비율·색만
-      : '실제 비율 · 청록 = UP, 주황 = DOWN';
+      : '실제 비율 · 파랑 = UP, 주황 = DOWN';
 
   Widget _markTile(BusbarBend b, int i) => Padding(
     padding: const EdgeInsets.only(bottom: 10),

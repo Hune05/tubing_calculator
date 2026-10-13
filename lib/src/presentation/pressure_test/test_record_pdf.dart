@@ -27,8 +27,8 @@ const PdfColor _line = PdfColor.fromInt(0xFFD1D5DB);
 const PdfColor _head = PdfColor.fromInt(0xFFF1F5F9);
 const PdfColor _red = PdfColor.fromInt(0xFFD32F2F);
 const PdfColor _redBg = PdfColor.fromInt(0xFFFDECEC);
-const PdfColor _teal = PdfColor.fromInt(0xFF007580);
-const PdfColor _tealBg = PdfColor.fromInt(0xFFE6F2F3);
+const PdfColor _brand = PdfColor.fromInt(0xFF2563EB);
+const PdfColor _brandBg = PdfColor.fromInt(0xFFE0ECFF);
 const PdfColor _greyBg = PdfColor.fromInt(0xFFF3F4F6);
 
 /// 기록서 PDF 바이트.
@@ -322,7 +322,7 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
         pw.Container(
           padding: const pw.EdgeInsets.all(10),
           decoration: pw.BoxDecoration(
-            color: pass == false ? _redBg : (pass == true ? _tealBg : _greyBg),
+            color: pass == false ? _redBg : (pass == true ? _brandBg : _greyBg),
             borderRadius: pw.BorderRadius.circular(6),
           ),
           child: pw.Column(
@@ -378,7 +378,7 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
                       fontWeight: pw.FontWeight.bold,
                       color: pass == false
                           ? _red
-                          : (pass == true ? _teal : _ink),
+                          : (pass == true ? _brand : _ink),
                     ),
                   ),
                 ],

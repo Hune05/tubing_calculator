@@ -83,7 +83,7 @@ class ClockQuickActivity : Activity() {
     /** 칩 바탕: 고르면 청록, 아니면 연한 청록. */
     private fun chipBg(on: Boolean) = GradientDrawable().apply {
         cornerRadius = dp(18).toFloat()
-        setColor(if (on) 0xFF007580.toInt() else 0xFFE0F1F2.toInt())
+        setColor(if (on) 0xFF2563EB.toInt() else 0xFFE0ECFF.toInt())
     }
 
     private fun title(t: String) = TextView(this).apply {
@@ -115,7 +115,7 @@ class ClockQuickActivity : Activity() {
             setPadding(dp(26), dp(10), dp(26), dp(10))
             background = GradientDrawable().apply {
                 cornerRadius = dp(22).toFloat()
-                setColor(0xFF007580.toInt())
+                setColor(0xFF2563EB.toInt())
             }
             setOnClickListener { onSave() }
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginStart = dp(6) })
@@ -203,7 +203,7 @@ class ClockQuickActivity : Activity() {
         fun paint(tag: String) {
             val on = edit.text.toString().contains(tag)
             chips[tag]?.apply {
-                setTextColor(if (on) Color.WHITE else 0xFF007580.toInt())
+                setTextColor(if (on) Color.WHITE else 0xFF2563EB.toInt())
                 background = chipBg(on)
             }
         }
@@ -282,7 +282,7 @@ class ClockQuickActivity : Activity() {
         val preview = TextView(this).apply {
             textSize = 16f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(0xFF007580.toInt())
+            setTextColor(0xFF2563EB.toInt())
             gravity = Gravity.CENTER
         }
         var lengthMin = 15
@@ -298,7 +298,7 @@ class ClockQuickActivity : Activity() {
             preview.text = "${ClockBreak.fmt(st)} ~ ${ClockBreak.fmt(st + lengthMin * 60000L)}"
             for ((m, chip) in chips) {
                 val on = m == lengthMin
-                chip.setTextColor(if (on) Color.WHITE else 0xFF007580.toInt())
+                chip.setTextColor(if (on) Color.WHITE else 0xFF2563EB.toInt())
                 chip.background = chipBg(on)
             }
         }

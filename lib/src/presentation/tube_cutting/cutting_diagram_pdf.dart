@@ -35,7 +35,7 @@ List<pw.Widget> keepTogether(
   ];
 }
 
-const PdfColor _teal = PdfColor.fromInt(0xFF007580);
+const PdfColor _brand = PdfColor.fromInt(0xFF2563EB);
 const PdfColor _danger = PdfColor.fromInt(0xFFE0432B);
 const PdfColor _grey = PdfColor.fromInt(0xFFB0B7BF);
 const PdfColor _textGrey = PdfColor.fromInt(0xFF6B7684);
@@ -46,7 +46,7 @@ const double _nodeSize = 16;
 PdfColor _segColor(SegmentState s) {
   switch (s) {
     case SegmentState.ok:
-      return _teal;
+      return _brand;
     case SegmentState.interference:
       return _danger;
     case SegmentState.empty:
@@ -146,9 +146,9 @@ List<pw.Widget> buildDiagramPdfWidgets({
                       height: _nodeSize,
                       decoration: pw.BoxDecoration(
                         shape: pw.BoxShape.circle,
-                        color: p.isNone ? PdfColors.white : _teal,
+                        color: p.isNone ? PdfColors.white : _brand,
                         border: pw.Border.all(
-                          color: p.isNone ? _grey : _teal,
+                          color: p.isNone ? _grey : _brand,
                           width: 1.4,
                         ),
                       ),
