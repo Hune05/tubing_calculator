@@ -198,6 +198,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
     },
     measureSetup: () => conduitMeasureSetup(globalBenderSettings.value),
     measureRef: () => conduitRefPhrase(globalBenderSettings.value),
+    measureSource: 'conduit',
   );
 
   Widget _buildNarrowBody() {

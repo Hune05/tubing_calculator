@@ -192,14 +192,18 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('절단 길이로 고르면 그 종류로 저장하고 참고도 그 종류만', (tester) async {
+    testWidgets('넣는 창에서 절단 길이를 고르면 그 종류로 저장하고, 요약도 그 종류만', (tester) async {
       await addBendCheck(_c('leg', 9, g: 'A'));
       await open(tester);
-      await tester.tap(find.byKey(const Key('bendcheck_kind_cut')));
+      // 처음에는 이 묶음의 최근 종류(90° 구간 길이) 요약.
+      expect(find.textContaining('90° 구간 길이 · 지난 실측 1건'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('bendcheck_add')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('bendcheck_add_cut')));
       await tester.pump();
       expect(find.byKey(const Key('bendcheck_angle')), findsNothing);
       // 구간 길이 기록(+9)은 절단 길이 참고에 안 들어간다.
-      expect(find.byKey(const Key('bendcheck_reference')), findsNothing);
+      expect(find.byKey(const Key('bendcheck_add_reference')), findsNothing);
       await tester.enterText(find.byKey(const Key('bendcheck_calc')), '1762');
       await tester.enterText(find.byKey(const Key('bendcheck_actual')), '1760');
       await tester.tap(find.byKey(const Key('bendcheck_save')));
@@ -208,13 +212,20 @@ void main() {
       expect(saved.kind, kBendKindCut);
       expect(saved.angle, isNull);
       expect(find.textContaining('절단 길이 · 지난 실측 1건'), findsOneWidget);
+      // 종류 칩으로 다시 90°를 고르면 그 요약.
+      await tester.tap(find.byKey(const Key('bendcheck_kind_leg:90')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('90° 구간 길이 · 지난 실측 1건'), findsOneWidget);
     });
 
-    testWidgets('옛 기록은 목록에 "옛 기록 · 참고에서 뺌"으로 남고 참고에는 안 든다', (tester) async {
+    testWidgets('옛 기록은 접힌 "옛 기록 N건 · 참고에서 뺌"에 남고 참고에는 안 든다', (tester) async {
       await addBendCheck(_c('old', 21, version: 1, kind: '', angle: null));
       await open(tester);
-      expect(find.textContaining('옛 기록 · 참고에서 뺌'), findsOneWidget);
+      expect(find.text('옛 기록 1건 · 참고에서 뺌'), findsOneWidget);
       expect(find.byKey(const Key('bendcheck_reference')), findsNothing);
+      await tester.tap(find.text('옛 기록 1건 · 참고에서 뺌'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('bendcheck_record_old')), findsOneWidget);
     });
   });
 }

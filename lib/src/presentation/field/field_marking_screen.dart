@@ -73,6 +73,9 @@ class FieldMarkingScreen extends StatefulWidget {
   /// 길이를 어디까지 재는지(예: "관 중심(가상 중심선)"). 실측 창 안내에 쓴다. 없으면 말하지 않는다.
   final String Function()? measureRef;
 
+  /// 실측 기록이 어디서 왔는지('tube'·'conduit'). 기록 화면에서 치우치면 어느 장비 설정을 열지 정한다.
+  final String measureSource;
+
   /// 진행 기록을 남길 칸 이름. 튜브와 전선관이 같은 칸을 써서 오가면 진행이 처음으로 돌아갔다(10-08).
   final String progressKey;
 
@@ -85,6 +88,7 @@ class FieldMarkingScreen extends StatefulWidget {
     this.measureGroup,
     this.measureSetup,
     this.measureRef,
+    this.measureSource = '',
     this.progressKey = 'field_progress_v1',
   });
 
@@ -586,6 +590,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         kind: kind,
         angle: angle,
         setup: setup,
+        source: widget.measureSource,
       ),
     );
     if (!mounted) return;
@@ -2143,9 +2148,15 @@ class _MeasureDialogState extends State<_MeasureDialog> {
   /// 인치로 넣는지(설정이 인치면 처음부터 인치).
   late bool _inch = widget.inchMode != FieldInchMode.none;
 
+  /// 허용 범위(± mm, 실측 기록 화면 설정).
+  double _tol = kBendTolDefault;
+
   @override
   void initState() {
     super.initState();
+    loadBendTolerance().then((v) {
+      if (mounted) setState(() => _tol = v);
+    });
     loadBendChecks().then((all) {
       if (!mounted) return;
       final label = bendKindLabel(widget.kindKey);
@@ -2184,6 +2195,26 @@ class _MeasureDialogState extends State<_MeasureDialog> {
     return (c / 25.4 * d).round() / d * 25.4;
   }
 
+  /// 차이와 합격/불합격(허용 범위 안이면 초록, 밖이면 빨강).
+  Widget _liveDiff(double diff) {
+    final ok = bendWithinTol(diff, _tol);
+    final c = ok ? fc.ok : fc.danger;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '차이 ${signedMm(diff)} · ${ok ? '합격' : '허용 ±$_tolText mm 밖(불합격)'}',
+        key: const Key('field_measure_live'),
+        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: c),
+      ),
+    );
+  }
+
   /// mm·인치 고르기 칩(골라지면 청록 바탕에 흰 글씨).
   Widget _unitChip(String key, String label, bool inch) {
     final selected = _inch == inch;
@@ -2210,6 +2241,19 @@ class _MeasureDialogState extends State<_MeasureDialog> {
     return '${formatInch(widget.calc, widget.inchMode, denominator: widget.inchDenominator)} ($mm)';
   }
 
+  /// 넣은 값(mm). 못 읽으면 null.
+  double? get _actualMm {
+    final v = _inch
+        ? (parseInches(_ctrl.text) == null
+              ? null
+              : parseInches(_ctrl.text)! * 25.4)
+        : parseNumberText(_ctrl.text);
+    return (v == null || !v.isFinite || v <= 0) ? null : v;
+  }
+
+  String get _tolText =>
+      _tol == _tol.roundToDouble() ? _tol.round().toString() : '$_tol';
+
   @override
   Widget build(BuildContext context) {
     final bool canInch = widget.inchMode != FieldInchMode.none;
@@ -2221,8 +2265,8 @@ class _MeasureDialogState extends State<_MeasureDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              '${widget.what} · 계산 $_calcText',
-              key: const Key('field_measure_calc'),
+              widget.what,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
             Text(
@@ -2249,24 +2293,70 @@ class _MeasureDialogState extends State<_MeasureDialog> {
               ),
             ],
             const SizedBox(height: 12),
-            TextField(
-              key: const Key('field_measure_input'),
-              controller: _ctrl,
-              autofocus: true,
-              // 인치는 "37 3/16"처럼 띄어쓰기·빗금이 들어가 글자 자판으로.
-              keyboardType: _inch
-                  ? TextInputType.text
-                  : const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: _inch ? '실제로 잰 값 (인치)' : '실제로 잰 값 (mm)',
-                hintText: _inch ? '예: 37 3/16' : null,
-                suffixText: _inch ? '"' : 'mm',
-                errorText: _measureErr,
-              ),
-              onChanged: (_) {
-                if (_measureErr != null) setState(() => _measureErr = null);
-              },
+            // 10-13: 실측 기록 화면처럼 계산과 잰 값을 큰 숫자로 나란히, 차이·합격을 바로.
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+                    decoration: BoxDecoration(
+                      color: fc.fill,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '계산',
+                          style: TextStyle(fontSize: 12, color: fc.textSub),
+                        ),
+                        const SizedBox(height: 2),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            _calcText,
+                            key: const Key('field_measure_calc'),
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    key: const Key('field_measure_input'),
+                    controller: _ctrl,
+                    autofocus: true,
+                    // 인치는 "37 3/16"처럼 띄어쓰기·빗금이 들어가 글자 자판으로.
+                    keyboardType: _inch
+                        ? TextInputType.text
+                        : const TextInputType.numberWithOptions(decimal: true),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                    decoration: InputDecoration(
+                      labelText: _inch ? '잰 값 (인치)' : '잰 값 (mm)',
+                      hintText: _inch ? '37 3/16' : null,
+                      suffixText: _inch ? '"' : 'mm',
+                      errorText: _measureErr,
+                      errorMaxLines: 3,
+                    ),
+                    onChanged: (_) => setState(() => _measureErr = null),
+                  ),
+                ),
+              ],
             ),
+            if (_actualMm != null) _liveDiff(_actualMm! - _calcShown),
           ],
         ),
       ),
@@ -2279,12 +2369,8 @@ class _MeasureDialogState extends State<_MeasureDialog> {
           key: const Key('field_measure_save'),
           onPressed: () {
             // "1,234.5"도 읽고, 못 읽으면 까닭을 보인다(10-08: 아무 반응이 없었다).
-            final double? v = _inch
-                ? (parseInches(_ctrl.text) == null
-                      ? null
-                      : parseInches(_ctrl.text)! * 25.4)
-                : parseNumberText(_ctrl.text);
-            if (v == null || !v.isFinite || v <= 0) {
+            final double? v = _actualMm;
+            if (v == null) {
               setState(
                 () => _measureErr = _inch
                     ? '0보다 큰 인치로 넣으십시오(예: 37 3/16).'

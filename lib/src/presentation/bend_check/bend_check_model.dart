@@ -42,6 +42,9 @@ class BendCheck {
 
   /// 기록 판([kBendCheckVersion]보다 낮으면 참고에서 뺀다).
   final int version;
+
+  /// 어디서 쟀는지('tube'·'conduit', 손으로 넣으면 빈 글). 치우칠 때 어느 장비 설정을 열지 정한다.
+  final String source;
   const BendCheck({
     required this.id,
     required this.at,
@@ -54,6 +57,7 @@ class BendCheck {
     this.angle,
     this.setup = '',
     this.version = kBendCheckVersion,
+    this.source = '',
   });
 
   /// 실측 − 계산. 플러스면 실제가 계산보다 길다.
@@ -77,6 +81,7 @@ class BendCheck {
     'angle': ?angle,
     'setup': setup,
     'v': version,
+    if (source.isNotEmpty) 'src': source,
   };
 
   static BendCheck? fromJson(Object? raw) {
@@ -98,6 +103,7 @@ class BendCheck {
       setup: (raw['setup'] ?? '').toString(),
       // 판이 없으면 10-13 전 기록이다.
       version: (raw['v'] as num?)?.toInt() ?? 1,
+      source: (raw['src'] ?? '').toString(),
     );
   }
 }
@@ -254,8 +260,71 @@ final RecordSync bendCheckSync = RecordSync(
   isValid: (j) => BendCheck.fromJson(j) != null,
 );
 
-/// 공유용 글(묶음별로 통계와 기록).
-String buildBendCheckText(List<BendCheck> all, {String? group}) {
+// ── 허용 범위·치우침(10-13, 상용 검사 앱처럼 합격/불합격과 흐름) ──
+
+/// 허용 범위(± mm) 기본값. 10-13 사용자: 2mm.
+const double kBendTolDefault = 2.0;
+
+/// 허용 범위를 적는 칸(설정 서버에도 올린다).
+const String kBendTolKey = 'bend_check_tolerance';
+
+/// 몇 번 연달아 같은 쪽으로 허용 밖이면 알릴지.
+const int kBendDriftRun = 3;
+
+Future<double> loadBendTolerance() async {
+  try {
+    final v = (await SharedPreferences.getInstance()).getDouble(kBendTolKey);
+    return (v != null && v > 0) ? v : kBendTolDefault;
+  } catch (_) {
+    return kBendTolDefault;
+  }
+}
+
+Future<void> saveBendTolerance(double v) async {
+  try {
+    await (await SharedPreferences.getInstance()).setDouble(kBendTolKey, v);
+  } catch (_) {}
+}
+
+/// 허용 범위 안인지(합격).
+bool bendWithinTol(double diff, double tol) => diff.abs() <= tol + 1e-9;
+
+/// 참고에 넣는 기록(같은 묶음·종류, [setup]이 있으면 그 장비 값이나 손 기록만), 오래된 것이 앞.
+List<BendCheck> statRecords(
+  List<BendCheck> all,
+  String group,
+  String kindKey, {
+  String? setup,
+}) => [
+  for (final c in all)
+    if (c.counted &&
+        c.group == group &&
+        c.kindKey == kindKey &&
+        (setup == null || c.setup.isEmpty || c.setup == setup))
+      c,
+]..sort((a, b) => a.at.compareTo(b.at));
+
+/// 최근 [kBendDriftRun]번이 모두 같은 쪽으로 허용 밖이면 1(길게)·-1(짧게), 아니면 0.
+int bendDrift(List<BendCheck> oldestFirst, double tol) {
+  if (oldestFirst.length < kBendDriftRun) return 0;
+  final last = oldestFirst.sublist(oldestFirst.length - kBendDriftRun);
+  if (last.every((c) => c.diff > tol + 1e-9)) return 1;
+  if (last.every((c) => c.diff < -tol - 1e-9)) return -1;
+  return 0;
+}
+
+/// 이 묶음 기록이 어디서 왔는지(가장 최근에 출처가 적힌 기록). 모르면 빈 글.
+String sourceOf(List<BendCheck> all, String group) {
+  BendCheck? best;
+  for (final c in all) {
+    if (c.group != group || c.source.isEmpty) continue;
+    if (best == null || c.at.isAfter(best.at)) best = c;
+  }
+  return best?.source ?? '';
+}
+
+/// 공유용 글(묶음별로 통계와 기록). [tol]을 주면 기록마다 합격/불합격을 붙인다.
+String buildBendCheckText(List<BendCheck> all, {String? group, double? tol}) {
   final names = group == null ? groupNames(all) : [group];
   final b = StringBuffer('[벤딩 실측 기록]');
   for (final g in names) {
@@ -278,7 +347,9 @@ String buildBendCheckText(List<BendCheck> all, {String? group}) {
     }
     for (final c in list) {
       final what = c.what.isEmpty ? '' : '${c.what} ';
-      final old = c.counted ? '' : ' · 옛 기록(참고에서 뺌)';
+      final old = c.counted
+          ? (tol == null ? '' : (bendWithinTol(c.diff, tol) ? ' 합격' : ' 불합격'))
+          : ' · 옛 기록(참고에서 뺌)';
       b.write(
         '\n${c.at.month}/${c.at.day} $what계산 ${_mm(c.calc)} → 실측 ${_mm(c.actual)} (${signedMm(c.diff)})$old',
       );

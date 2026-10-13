@@ -157,20 +157,27 @@ void main() {
     await tester.tap(find.byKey(const Key('field_measure')));
     await tester.pumpAndSettle();
     // 10-13: 줄자 눈금(1007)이 아니라 구간 길이(1030)와 견준다.
-    expect(find.textContaining('계산 1030 mm'), findsOneWidget);
+    expect(
+      tester.widget<Text>(find.byKey(const Key('field_measure_calc'))).data,
+      '1030 mm',
+    );
     expect(find.textContaining('관 끝에서 1번 꺾이는 점까지'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('field_measure_input')),
       '1033.5',
     );
+    await tester.pump();
+    // 넣는 동안 차이와 합격/불합격이 바로 보인다(허용 ±2 mm 기본).
+    expect(find.text('차이 +3.5 mm · 허용 ±2 mm 밖(불합격)'), findsOneWidget);
     await tester.tap(find.byKey(const Key('field_measure_save')));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 80)),
     );
     // 저장 직후 알림이 뜬다(차이 +3.5 mm).
     await tester.pump(const Duration(milliseconds: 100));
-    // 알림과 단추 글자("실측 +3.5 mm · 다시 기록") 두 곳에 나온다.
-    expect(find.textContaining('+3.5 mm'), findsNWidgets(2));
+    // 알림과 단추 글자("실측 +3.5 mm · 다시 기록")에 나온다(닫히는 창의 차이 줄은 빼고 본다).
+    expect(find.text('실측을 기록했습니다 (+3.5 mm)'), findsOneWidget);
+    expect(find.text('실측 +3.5 mm · 다시 기록'), findsOneWidget);
 
     final all = (await tester.runAsync(loadBendChecks))!;
     expect(all, hasLength(1));

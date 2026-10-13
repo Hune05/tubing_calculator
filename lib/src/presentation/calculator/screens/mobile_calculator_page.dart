@@ -232,6 +232,7 @@ class _MobileCalculatorPageState extends State<MobileCalculatorPage> {
       return '$od ${c.tubeMaterial} · ${c.benderBrand} ${c.benderType}';
     },
     measureSetup: tubeMeasureSetup,
+    measureSource: 'tube',
   );
 
   Widget _buildNarrowBody() {

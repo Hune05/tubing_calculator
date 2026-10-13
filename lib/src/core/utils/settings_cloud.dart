@@ -38,6 +38,8 @@ const List<String> kCloudSettingKeys = [
   'cutting_blade_kerf', 'cutting_stock_length',
   // 형강 컷팅(톱날 손실을 튜브와 따로)
   'cutting_blade_kerf_steel',
+  // 벤딩 실측 기록 허용 범위(± mm, 10-13)
+  'bend_check_tolerance',
   // 근태 설정(입사일·기본 휴게·토요일 휴일·연차 부여 일수·소정 시각·사규 메모). 보기 방식은 기기마다.
   'attendance_hire_date', 'attendance_default_break',
   'attendance_saturday_holiday', 'attendance_leave_override',
