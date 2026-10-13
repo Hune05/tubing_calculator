@@ -170,9 +170,14 @@ void main() {
     await setupPneumatic(tester);
     await type(tester, 'pt_r_line', 'P-1001');
     await tapKey(tester, 'pt_r_start');
-    // 시작 압력은 시험압력(실제 12bar)으로 미리 채운다
-    expect(fieldText(tester, 'pt_rd_p'), '12');
+    // 시작 압력 칸은 비워 두고, 시험압력(실제 12bar)은 칸 아래 참고로만(10-13)
+    expect(fieldText(tester, 'pt_rd_p'), '');
+    expect(find.text('시험압력: 12 bar (게이지를 읽어 넣으십시오)'), findsOneWidget);
     expect(find.text('"시작"을 누른 때부터 유지시간을 계산합니다.'), findsOneWidget);
+    // 비운 채 "시작"을 누르면 막는다
+    await tester.tap(find.byKey(const Key('pt_rd_ok')));
+    await tester.pumpAndSettle();
+    expect(find.text('압력을 넣으십시오'), findsOneWidget);
     await reading(tester, '12', '20');
     expect(alarm.scheduled.length, 1);
     final (at, title, body) = alarm.scheduled.single;
@@ -190,9 +195,10 @@ void main() {
     expect(textOf(tester, 'pt_r_elapsed'), '04:00');
     expect(textOf(tester, 'pt_r_remain'), '남은 시간 06:00');
 
-    // 측정 추가: 시각은 지금, 앞 값을 미리 채운다
+    // 측정 추가: 시각은 지금, 압력은 비워 두고 직전 값은 참고로(온도는 미리 채운다)
     await tapKey(tester, 'pt_r_add');
-    expect(fieldText(tester, 'pt_rd_p'), '12');
+    expect(fieldText(tester, 'pt_rd_p'), '');
+    expect(find.text('직전 측정: 12 bar (게이지를 읽어 넣으십시오)'), findsOneWidget);
     expect(fieldText(tester, 'pt_rd_t'), '20');
     await reading(tester, '11.99');
     final log = textIn(tester, const Key('pt_r_log'));
@@ -209,9 +215,15 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     expect(textOf(tester, 'pt_r_elapsed'), '12:00');
 
-    // 종료: 알림 취소, 판정
+    // 종료: 알림 취소, 판정. 종료 압력도 비워 둔다(10-13: "종료"만 누르면 강하 0인 기록이 됐다).
     await tapKey(tester, 'pt_r_end');
     expect(find.byKey(const Key('pt_rd_note')), findsNothing);
+    expect(fieldText(tester, 'pt_rd_p'), '');
+    expect(find.text('직전 측정: 11.99 bar (게이지를 읽어 넣으십시오)'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pt_rd_ok')));
+    await tester.pumpAndSettle();
+    expect(find.text('압력을 넣으십시오'), findsOneWidget);
+    expect(textOf(tester, 'pt_r_status'), isNot('종료'));
     await reading(tester, '11.95', '20');
     expect(alarm.cancels, greaterThanOrEqualTo(1));
     expect(textOf(tester, 'pt_r_status'), '종료');
@@ -415,8 +427,9 @@ void main() {
     await tester.pump();
     await openTab(tester, 'pt_tab_record');
     await tapKey(tester, 'pt_r_start');
-    // 수압 최소 시험압력 15bar를 미리 채운다
-    expect(fieldText(tester, 'pt_rd_p'), '15');
+    // 수압 최소 시험압력 15bar는 칸 아래 참고로만(칸은 비움)
+    expect(fieldText(tester, 'pt_rd_p'), '');
+    expect(find.text('시험압력: 15 bar (게이지를 읽어 넣으십시오)'), findsOneWidget);
     await reading(tester, '15', '20');
     now = DateTime(2026, 9, 26, 9, 11, 0);
     await tapKey(tester, 'pt_r_end');

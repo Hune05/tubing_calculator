@@ -271,6 +271,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     double? kpa,
     double? tempC,
     String? note,
+    String? ref,
     bool canDelete = false,
     bool needReason = false,
   }) => showDialog<_ReadingInput>(
@@ -282,19 +283,27 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       kpa: kpa,
       tempC: tempC,
       note: note,
+      ref: ref,
       canDelete: canDelete,
       needReason: needReason,
     ),
   );
 
+  /// 직전 측정 압력 글(입력 칸 아래 참고로만 보인다).
+  String? _lastRef() =>
+      _rReads.isEmpty ? null : '직전 측정: ${_p4(_rReads.last.kpa)}';
+
+  // 시작·측정 추가·종료 창의 압력 칸은 비워 둔다(10-13: 목표 시험압력이나 직전 값을 미리 채워,
+  // 게이지를 읽지 않고 "종료"만 눌러도 강하 0인 합격 기록이 만들어졌다). 참고 값은 칸 아래 글로만.
   Future<void> _startHold() async {
     final last = _rReads.isEmpty ? null : _rReads.last;
+    final target = _pg._currentPlan?.usedKpa;
     final res = await _askReading(
       title: '시작 압력·온도',
       okLabel: '시작',
-      kpa: last?.kpa ?? _pg._currentPlan?.usedKpa,
       tempC: last?.tempC ?? _rLastTemp,
       note: '"시작"을 누른 때부터 유지시간을 계산합니다.',
+      ref: target == null ? null : '시험압력: ${_p4(target)}',
     );
     if (res == null || !mounted) return;
     final now = _now();
@@ -320,8 +329,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final res = await _askReading(
       title: '측정 추가',
       okLabel: '추가',
-      kpa: last?.kpa,
       tempC: last?.tempC ?? _rLastTemp,
+      ref: _lastRef(),
     );
     if (res == null || !mounted) return;
     setState(() {
@@ -343,8 +352,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final res = await _askReading(
       title: '종료 압력·온도',
       okLabel: '종료',
-      kpa: last?.kpa,
       tempC: last?.tempC ?? _rLastTemp,
+      ref: _lastRef(),
       note: elapsed < hold
           ? '유지시간 ${ptFmt(hold, 1)}분이 아직 지나지 않았습니다(경과 ${ptFmt(elapsed, 1)}분). '
                 '지금 종료하면 불합격입니다.'
@@ -1291,6 +1300,7 @@ class _PtReadingDialog extends StatefulWidget {
   final double? kpa;
   final double? tempC;
   final String? note;
+  final String? ref; // 압력 칸 아래 참고 글(목표 시험압력·직전 측정). 칸에는 채우지 않는다.
   final bool canDelete;
   final bool needReason; // 종료한 뒤 고칠 때: 수정 사유 칸(비우면 고치거나 지울 수 없다)
   const _PtReadingDialog({
@@ -1300,6 +1310,7 @@ class _PtReadingDialog extends StatefulWidget {
     this.kpa,
     this.tempC,
     this.note,
+    this.ref,
     this.canDelete = false,
     this.needReason = false,
   });
@@ -1391,6 +1402,10 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
               labelText: '압력 (${widget.unit.label})',
+              helperText: widget.ref == null
+                  ? null
+                  : '${widget.ref} (게이지를 읽어 넣으십시오)',
+              helperMaxLines: 2,
               errorText: _pErr,
             ),
           ),
