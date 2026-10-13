@@ -43,15 +43,30 @@ class ConduitSegmented {
   final double spacing;
   final double lead;
   final double arcLength;
-  const ConduitSegmented(this.bends, this.angle, this.spacing, this.lead, this.arcLength);
+  const ConduitSegmented(
+    this.bends,
+    this.angle,
+    this.spacing,
+    this.lead,
+    this.arcLength,
+  );
 }
 
 /// 나눌 횟수는 2~12, 반경은 0 초과. 안 맞으면 null.
-ConduitSegmented? conduitSegmented({required double radius, required int bends}) {
+ConduitSegmented? conduitSegmented({
+  required double radius,
+  required int bends,
+}) {
   if (radius <= 0 || bends < 2 || bends > 12) return null;
   final double a = 90.0 / bends;
   final double t = math.tan(_rad(a / 2));
-  return ConduitSegmented(bends, a, 2 * radius * t, radius * (1 - t), math.pi * radius / 2);
+  return ConduitSegmented(
+    bends,
+    a,
+    2 * radius * t,
+    radius * (1 - t),
+    math.pi * radius / 2,
+  );
 }
 
 /// 분할 90° 목록 줄. [cornerDistance]는 관 끝(또는 앞 꺾이는 점)에서 **가상의 직각 모서리**까지 거리.
@@ -76,13 +91,19 @@ List<Map<String, dynamic>>? conduitSegmentedBends({
 
 // ───────────────────────── 백투백 90°(U자: 같은 평면에서 두 번 90°) ─────────────────────────
 
-/// 두 다리 사이 꺾이는 점 간격. [distance]를 바깥~바깥(등과 등 사이)으로 재면 − 관 바깥지름,
-/// 안쪽~안쪽으로 재면 + 관 바깥지름이다(관 한 굵기만큼 안쪽이 좁다).
+/// 두 다리 사이 꺾이는 점 간격(목록 길이). 꺾이는 점이 치수 기준([center])에 따라 다르다.
+/// - 관 중심: 중심선이 만나는 점 → 바깥~바깥(등과 등 사이)이면 − 관 바깥지름, 안쪽~안쪽이면 + 관 바깥지름.
+/// - 관 등: 관 바깥면(등)이 만나는 점 → 바깥~바깥이면 거리 그대로, 안쪽~안쪽이면 + 관 바깥지름 × 2.
+/// 10-13: 관 등 기준(새로 까는 사람의 기본값)에서도 "− 바깥지름"을 해 U자가 바깥지름만큼 좁았다
+/// (앱 실측표: [300,90°][800,90°]면 두 다리 바깥면 사이가 800).
 double conduitBackToBackSpacing({
   required double distance,
   required double od,
   required bool outside,
-}) => outside ? distance - od : distance + od;
+  required bool center,
+}) => center
+    ? (outside ? distance - od : distance + od)
+    : (outside ? distance : distance + 2 * od);
 
 /// 백투백 90° 목록 줄: 첫 90°는 [firstRotation] 쪽으로, 둘째 90°는 처음 진행 방향의 반대
 /// ([headingRotation]의 반대)로 꺾어 U자가 된다.
@@ -109,6 +130,10 @@ List<Map<String, dynamic>>? conduitStubBends({
 }) {
   if (stub <= 0) return null;
   return [
-    {'length': (stub * 10).roundToDouble() / 10, 'angle': 90.0, 'rotation': rotation},
+    {
+      'length': (stub * 10).roundToDouble() / 10,
+      'angle': 90.0,
+      'rotation': rotation,
+    },
   ];
 }

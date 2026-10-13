@@ -6,13 +6,15 @@ import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart'
-    show conduitCenterRef, conduitTotalCut, conduitBendCheck;
+    show
+        conduitCenterRef,
+        conduitTotalCut,
+        conduitBendCheck,
+        conduitOuterDiameter;
 import 'package:tubing_calculator/src/presentation/calculator/widgets/input_cut_summary.dart';
 import 'package:tubing_calculator/src/presentation/calculator/screens/mobile_input_tab.dart'
     show fmtSegLength;
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_sheets.dart';
-import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
-    show kThickConduitOd;
 import 'package:flutter/services.dart';
 
 // 새롭게 만든 전선관 전용 데이터 매니저 임포트 (경로를 맞게 수정해 주세요)
@@ -1274,24 +1276,19 @@ class _ConduitInputTabState extends State<ConduitInputTab>
 
                 _buildPopupToolBtn("백투백 90°", AppGlyph.uBend, () {
                   Navigator.pop(ctx);
-                  final String sizeText =
-                      globalBenderSettings.value['conduitSize']?.toString() ??
-                      '';
-                  final int? sz = int.tryParse(
-                    RegExp(r'\d+').firstMatch(sizeText)?.group(0) ?? '',
-                  );
-                  // 바깥지름 표는 후강 기준이라 후강(Rigid)일 때만 미리 채운다. 다른 종류는 직접 넣는다.
-                  final bool thick =
-                      globalBenderSettings.value['conduitType'] == 'Rigid';
+                  final s = globalBenderSettings.value;
+                  // 바깥지름: 후강은 KS 표, EMT는 ANSI 표로 미리 채운다(10-13: EMT는 빈칸이었다).
                   ConduitSpecialSheets.showBackToBack(
                     context,
                     currentRotation: currentRot,
                     canBendTo: rule,
                     onAddBends: manager.addMultipleBends,
                     specs: specs,
-                    conduitOd: (sz == null || !thick)
-                        ? null
-                        : kThickConduitOd[sz],
+                    conduitOd: conduitOuterDiameter(
+                      s['conduitType']?.toString(),
+                      s['conduitSize']?.toString(),
+                    ),
+                    centerRef: conduitCenterRef(s),
                   );
                 }),
                 const SizedBox(height: 12),

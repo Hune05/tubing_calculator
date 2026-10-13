@@ -129,7 +129,7 @@ void main() {
       );
     });
 
-    testWidgets('백투백 시트: 후강이 아닌 종류(EMT)이면 바깥지름을 비워 둔다', (tester) async {
+    testWidgets('백투백 시트: EMT도 바깥지름 표(ANSI C80.3)로 미리 채운다(10-13, 예전엔 빈칸)', (tester) async {
       final saved = Map<String, dynamic>.from(globalBenderSettings.value);
       addTearDown(() => globalBenderSettings.value = saved);
       globalBenderSettings.value = {
@@ -140,7 +140,7 @@ void main() {
       await openTool(tester, '백투백 90°', dirKey: 'cs_dir_0');
       expect(
         tester.widget<TextField>(find.byKey(const Key('cs_od'))).controller!.text,
-        '',
+        '23.4',
       );
     });
 

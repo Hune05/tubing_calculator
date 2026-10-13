@@ -60,14 +60,17 @@ void main() {
   });
 
   group('분할 90°', () {
-    test('R 300, 3번: 각 30°, 간격 2R·tan15° = 160.77, 모서리~첫 점 R(1 − tan15°) = 219.62', () {
-      final s = conduitSegmented(radius: 300, bends: 3)!;
-      expect(s.angle, 30);
-      expect(s.spacing, closeTo(2 * 300 * math.tan(math.pi / 12), 1e-9));
-      expect(s.spacing, closeTo(160.77, 0.01));
-      expect(s.lead, closeTo(219.62, 0.01));
-      expect(s.arcLength, closeTo(471.24, 0.01));
-    });
+    test(
+      'R 300, 3번: 각 30°, 간격 2R·tan15° = 160.77, 모서리~첫 점 R(1 − tan15°) = 219.62',
+      () {
+        final s = conduitSegmented(radius: 300, bends: 3)!;
+        expect(s.angle, 30);
+        expect(s.spacing, closeTo(2 * 300 * math.tan(math.pi / 12), 1e-9));
+        expect(s.spacing, closeTo(160.77, 0.01));
+        expect(s.lead, closeTo(219.62, 0.01));
+        expect(s.arcLength, closeTo(471.24, 0.01));
+      },
+    );
 
     test('횟수 1 이하·13 이상, 반경 0 이하는 null', () {
       expect(conduitSegmented(radius: 300, bends: 1), isNull);
@@ -85,12 +88,20 @@ void main() {
       expect(b.length, 3);
       expect(b[0]['length'], closeTo(1000 - 219.62, 0.06));
       expect(b[1]['length'], closeTo(160.8, 0.06));
-      expect(b.fold<double>(0, (a, e) => a + (e['angle'] as num).toDouble()), closeTo(90, 1e-9));
+      expect(
+        b.fold<double>(0, (a, e) => a + (e['angle'] as num).toDouble()),
+        closeTo(90, 1e-9),
+      );
     });
 
     test('반경이 모서리 거리에 비해 너무 크면 null', () {
       expect(
-        conduitSegmentedBends(cornerDistance: 100, radius: 300, bends: 3, rotation: 0),
+        conduitSegmentedBends(
+          cornerDistance: 100,
+          radius: 300,
+          bends: 3,
+          rotation: 0,
+        ),
         isNull,
       );
     });
@@ -128,14 +139,57 @@ void main() {
   });
 
   group('백투백 90°', () {
-    test('바깥~바깥 300, 관 26.5 → 꺾이는 점 간격 273.5, 안쪽~안쪽 300 → 326.5', () {
-      expect(conduitBackToBackSpacing(distance: 300, od: 26.5, outside: true), 273.5);
-      expect(conduitBackToBackSpacing(distance: 300, od: 26.5, outside: false), 326.5);
+    test('관 중심: 바깥~바깥 300, 관 26.5 → 꺾이는 점 간격 273.5, 안쪽~안쪽 300 → 326.5', () {
+      expect(
+        conduitBackToBackSpacing(
+          distance: 300,
+          od: 26.5,
+          outside: true,
+          center: true,
+        ),
+        273.5,
+      );
+      expect(
+        conduitBackToBackSpacing(
+          distance: 300,
+          od: 26.5,
+          outside: false,
+          center: true,
+        ),
+        326.5,
+      );
+    });
+
+    test('관 등(10-13): 바깥면이 만나는 점이라 바깥~바깥이면 거리 그대로, 안쪽~안쪽이면 + 바깥지름 × 2', () {
+      // 앱 실측표: [300,90°][800,90°]면 두 다리 바깥면 사이가 800.
+      expect(
+        conduitBackToBackSpacing(
+          distance: 800,
+          od: 23.4,
+          outside: true,
+          center: false,
+        ),
+        800,
+      );
+      expect(
+        conduitBackToBackSpacing(
+          distance: 300,
+          od: 26.5,
+          outside: false,
+          center: false,
+        ),
+        353,
+      );
     });
 
     test('엔진으로 확인: 두 다리가 평행하고 반대로 가며, 바깥~바깥 거리 = 간격 + 관 지름', () {
       const double od = 26.5;
-      final spacing = conduitBackToBackSpacing(distance: 300, od: od, outside: true);
+      final spacing = conduitBackToBackSpacing(
+        distance: 300,
+        od: od,
+        outside: true,
+        center: true,
+      );
       final b = conduitBackToBackBends(
         firstLength: 400,
         spacing: spacing,
@@ -149,18 +203,32 @@ void main() {
       final v1 = p.corners[0], v2 = p.corners[1], end = p.corners[2];
       expect(v1.x, closeTo(400, 1e-9));
       expect(v2.y, closeTo(spacing, 1e-9));
-      expect((end - v2).normalized().x, closeTo(-1, 1e-9), reason: '두 번째 다리는 왼쪽으로 돌아온다');
+      expect(
+        (end - v2).normalized().x,
+        closeTo(-1, 1e-9),
+        reason: '두 번째 다리는 왼쪽으로 돌아온다',
+      );
       // 처음 다리(y = 0 선)와 돌아오는 다리(y = 간격 선)는 평행, 바깥 거리 = 간격 + OD.
       expect(v2.y - 0 + od, closeTo(300, 1e-9));
     });
 
     test('길이·간격이 0 이하면 null', () {
       expect(
-        conduitBackToBackBends(firstLength: 0, spacing: 100, firstRotation: 0, secondRotation: 270),
+        conduitBackToBackBends(
+          firstLength: 0,
+          spacing: 100,
+          firstRotation: 0,
+          secondRotation: 270,
+        ),
         isNull,
       );
       expect(
-        conduitBackToBackBends(firstLength: 100, spacing: -1, firstRotation: 0, secondRotation: 270),
+        conduitBackToBackBends(
+          firstLength: 100,
+          spacing: -1,
+          firstRotation: 0,
+          secondRotation: 270,
+        ),
         isNull,
       );
     });
@@ -177,6 +245,9 @@ void main() {
       expect(p.corners[0].x, closeTo(300, 1e-9));
       expect(p.corners[1].y, closeTo(200, 1e-9));
     });
-    test('0 이하는 null', () => expect(conduitStubBends(stub: 0, rotation: 0), isNull));
+    test(
+      '0 이하는 null',
+      () => expect(conduitStubBends(stub: 0, rotation: 0), isNull),
+    );
   });
 }

@@ -5,7 +5,8 @@ import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_sheet_specs.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/opposite_rotation.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/quick_kick_guide.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/sheet_direction_gate.dart' show BendRule;
+import 'package:tubing_calculator/src/presentation/calculator/widgets/sheet_direction_gate.dart'
+    show BendRule;
 import 'package:tubing_calculator/src/presentation/conduit/conduit_special_calc.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_guides.dart';
 import 'package:tubing_calculator/src/presentation/conduit/widgets/conduit_special_ui.dart';
@@ -50,7 +51,12 @@ class ConduitSpecialSheets {
     BendRule? canBendTo,
   }) => _open(
     context,
-    _SegmentedSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs, canBendTo: canBendTo),
+    _SegmentedSheet(
+      currentRotation: currentRotation,
+      onAddBends: onAddBends,
+      specs: specs,
+      canBendTo: canBendTo,
+    ),
   );
 
   static void showBackToBack(
@@ -59,6 +65,7 @@ class ConduitSpecialSheets {
     required ConduitAddBends onAddBends,
     required BendSheetSpecs specs,
     double? conduitOd,
+    bool centerRef = true,
     BendRule? canBendTo,
   }) => _open(
     context,
@@ -67,6 +74,7 @@ class ConduitSpecialSheets {
       onAddBends: onAddBends,
       specs: specs,
       conduitOd: conduitOd,
+      centerRef: centerRef,
       canBendTo: canBendTo,
     ),
   );
@@ -79,7 +87,12 @@ class ConduitSpecialSheets {
     BendRule? canBendTo,
   }) => _open(
     context,
-    _StubUpSheet(currentRotation: currentRotation, onAddBends: onAddBends, specs: specs, canBendTo: canBendTo),
+    _StubUpSheet(
+      currentRotation: currentRotation,
+      onAddBends: onAddBends,
+      specs: specs,
+      canBendTo: canBendTo,
+    ),
   );
 }
 
@@ -97,7 +110,8 @@ abstract class _SheetState<T extends StatefulWidget> extends State<T> {
   final List<TextEditingController> _ctrls = [];
 
   TextEditingController ctrl([String text = '']) {
-    final c = TextEditingController(text: text)..addListener(() => setState(() {}));
+    final c = TextEditingController(text: text)
+      ..addListener(() => setState(() {}));
     _ctrls.add(c);
     return c;
   }
@@ -157,18 +171,25 @@ class _KickSheetState extends _SheetState<_KickSheet> {
 
   void _apply(double? h, double? a) {
     if (!checkDirection(widget.currentRotation, rule: widget.canBendTo)) return;
-    final kick = (h != null && a != null) ? conduitKick(height: h, angle: a) : null;
+    final kick = (h != null && a != null)
+        ? conduitKick(height: h, angle: a)
+        : null;
     if (kick == null) {
       csSnackMissing(
         context,
-        (a != null && a >= 90) ? '넣을 수 없습니다. 각도는 90°보다 작아야 합니다.' : '넣을 수 없습니다. 높이와 각도를 넣으십시오.',
+        (a != null && a >= 90)
+            ? '넣을 수 없습니다. 각도는 90°보다 작아야 합니다.'
+            : '넣을 수 없습니다. 높이와 각도를 넣으십시오.',
       );
       return;
     }
     final double start = csRead(_start) ?? 0;
     // 10-09: 목록이 비었는데 시작 거리가 0이면 1번 마킹이 관 끝에 찍혀 꺾을 수 없다(백투백·스터브업처럼 막는다).
     if (start <= 0 && widget.listEmpty) {
-      csSnackMissing(context, '넣을 수 없습니다. 시작 거리가 0이면 1번 마킹이 관 끝에 찍혀 꺾을 수 없습니다. 시작 거리를 넣으십시오.');
+      csSnackMissing(
+        context,
+        '넣을 수 없습니다. 시작 거리가 0이면 1번 마킹이 관 끝에 찍혀 꺾을 수 없습니다. 시작 거리를 넣으십시오.',
+      );
       return;
     }
     final double len = _r1(widget.specs.firstLength(start, a!, 0));
@@ -185,7 +206,9 @@ class _KickSheetState extends _SheetState<_KickSheet> {
   @override
   Widget build(BuildContext context) {
     final double? h = csRead(_h), a = csRead(_a);
-    final kick = (h != null && a != null) ? conduitKick(height: h, angle: a) : null;
+    final kick = (h != null && a != null)
+        ? conduitKick(height: h, angle: a)
+        : null;
     final double gain = kick == null
         ? 0
         : effectiveGain(
@@ -204,14 +227,26 @@ class _KickSheetState extends _SheetState<_KickSheet> {
       children: [
         CsInfoBox(
           title: '장애물 앞 시작 거리 (선택)',
-          note: widget.specs.listEmpty ? '1번 마킹이 이 거리에 찍힙니다.' : '앞 꺾이는 점에서 잰 거리입니다.',
-          field: CsField(fieldKey: const Key('cs_start'), ctrl: _start, hint: '거리 mm'),
+          note: widget.specs.listEmpty
+              ? '1번 마킹이 이 거리에 찍힙니다.'
+              : '앞 꺾이는 점에서 잰 거리입니다.',
+          field: CsField(
+            fieldKey: const Key('cs_start'),
+            ctrl: _start,
+            hint: '거리 mm',
+          ),
         ),
         const SizedBox(height: 16),
         const CsLabel('올릴 높이 (H)'),
         Row(
           children: [
-            Expanded(child: CsField(fieldKey: const Key('cs_height'), ctrl: _h, hint: '높이 mm')),
+            Expanded(
+              child: CsField(
+                fieldKey: const Key('cs_height'),
+                ctrl: _h,
+                hint: '높이 mm',
+              ),
+            ),
             const SizedBox(width: 12),
             CsQuickBtn(ctrl: _h, amount: -5, label: '-5'),
             const SizedBox(width: 4),
@@ -224,9 +259,17 @@ class _KickSheetState extends _SheetState<_KickSheet> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            SizedBox(width: 120, child: CsField(fieldKey: const Key('cs_angle'), ctrl: _a, hint: '각도 °')),
+            SizedBox(
+              width: 120,
+              child: CsField(
+                fieldKey: const Key('cs_angle'),
+                ctrl: _a,
+                hint: '각도 °',
+              ),
+            ),
             const SizedBox(width: 12),
-            for (final v in const [15.0, 22.5, 30.0, 45.0, 60.0]) CsQuickAngleBtn(ctrl: _a, value: v),
+            for (final v in const [15.0, 22.5, 30.0, 45.0, 60.0])
+              CsQuickAngleBtn(ctrl: _a, value: v),
           ],
         ),
         const SizedBox(height: 24),
@@ -270,7 +313,12 @@ class _SegmentedSheet extends StatefulWidget {
 
   /// 지금 진행 방향(실제 경로 기준)에서 그 방향으로 꺾을 수 있는지. 없으면 진행 방향값으로 따진다.
   final BendRule? canBendTo;
-  const _SegmentedSheet({required this.currentRotation, required this.onAddBends, required this.specs, this.canBendTo});
+  const _SegmentedSheet({
+    required this.currentRotation,
+    required this.onAddBends,
+    required this.specs,
+    this.canBendTo,
+  });
 
   @override
   State<_SegmentedSheet> createState() => _SegmentedSheetState();
@@ -292,9 +340,17 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
       csSnackMissing(context, '넣을 수 없습니다. 직각 모서리까지 거리를 넣으십시오.');
       return;
     }
-    final list = conduitSegmentedBends(cornerDistance: corner, radius: r!, bends: _n, rotation: dir!);
+    final list = conduitSegmentedBends(
+      cornerDistance: corner,
+      radius: r!,
+      bends: _n,
+      rotation: dir!,
+    );
     if (list == null) {
-      csSnackMissing(context, '넣을 수 없습니다. 반경이 모서리 거리에 비해 너무 큽니다. 반경을 줄이거나 거리를 늘리십시오.');
+      csSnackMissing(
+        context,
+        '넣을 수 없습니다. 반경이 모서리 거리에 비해 너무 큽니다. 반경을 줄이거나 거리를 늘리십시오.',
+      );
       return;
     }
     final double first = (list.first['length'] as num).toDouble();
@@ -320,12 +376,21 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
     final double? r = csRead(_r), corner = csRead(_corner);
     final seg = r == null ? null : conduitSegmented(radius: r, bends: _n);
     final list = (seg != null && corner != null && dir != null)
-        ? conduitSegmentedBends(cornerDistance: corner, radius: r!, bends: _n, rotation: dir!)
+        ? conduitSegmentedBends(
+            cornerDistance: corner,
+            radius: r!,
+            bends: _n,
+            rotation: dir!,
+          )
         : null;
     final bool tooBig = seg != null && corner != null && corner - seg.lead <= 0;
     final double gainPer = seg == null
         ? 0
-        : effectiveGain(radius: widget.specs.radius, angleDeg: seg.angle, measuredGain90: widget.specs.gain90);
+        : effectiveGain(
+            radius: widget.specs.radius,
+            angleDeg: seg.angle,
+            measuredGain90: widget.specs.gain90,
+          );
     return CsFrame(
       title: '분할 90°',
       guide: SegmentedGuide(
@@ -338,8 +403,13 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
         CsInfoBox(
           title: '직각 모서리까지 거리',
           // 10-09: 어디까지 재는지 적음(관 등까지 재면 바깥지름 절반만큼 어긋난다).
-          note: '${widget.specs.startRef}에서 가상의 직각 모서리까지입니다. 모서리는 두 관의 가운데 선이 만나는 자리로 잽니다(관 등까지 재면 관 굵기 절반만큼 어긋납니다). 첫 꺾이는 점은 모서리보다 조금 앞에 옵니다.',
-          field: CsField(fieldKey: const Key('cs_corner'), ctrl: _corner, hint: '거리 mm'),
+          note:
+              '${widget.specs.startRef}에서 가상의 직각 모서리까지입니다. 모서리는 두 관의 가운데 선이 만나는 자리로 잽니다(관 등까지 재면 관 굵기 절반만큼 어긋납니다). 첫 꺾이는 점은 모서리보다 조금 앞에 옵니다.',
+          field: CsField(
+            fieldKey: const Key('cs_corner'),
+            ctrl: _corner,
+            hint: '거리 mm',
+          ),
         ),
         const SizedBox(height: 16),
         const CsLabel('원하는 반경 (R)'),
@@ -382,20 +452,27 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
                   CsDetail(
                     label: '모서리에서 첫·끝 꺾이는 점까지',
                     value: '${csFmt(seg.lead)} mm',
-                    note: '(R × (1 − tan(각 ÷ 2)) · 호 길이 ${csFmt(seg.arcLength)} mm)',
+                    note:
+                        '(R × (1 − tan(각 ÷ 2)) · 호 길이 ${csFmt(seg.arcLength)} mm)',
                   ),
                   if (list != null)
                     CsDetail(
                       label: '1번 마킹',
-                      value: '${csFmt((list.first['length'] as num).toDouble() - widget.specs.markOffset(seg.angle))} mm',
-                      note: '(첫 꺾이는 점 ${csFmt((list.first['length'] as num).toDouble())} − 테이크업)',
+                      value:
+                          '${csFmt((list.first['length'] as num).toDouble() - widget.specs.markOffset(seg.angle))} mm',
+                      note:
+                          '(첫 꺾이는 점 ${csFmt((list.first['length'] as num).toDouble())} − 테이크업)',
                     ),
                   if (tooBig)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
                         '반경이 모서리 거리에 비해 너무 큽니다. 반경을 줄이거나 거리를 늘리십시오.',
-                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   CsShrinkGainRow(
@@ -419,11 +496,15 @@ class _BackToBackSheet extends StatefulWidget {
   /// 지금 진행 방향(실제 경로 기준)에서 그 방향으로 꺾을 수 있는지. 없으면 진행 방향값으로 따진다.
   final BendRule? canBendTo;
   final double? conduitOd;
+
+  /// 치수 기준이 관 중심인지(꺾이는 점 간격 셈이 다르다).
+  final bool centerRef;
   const _BackToBackSheet({
     required this.currentRotation,
     required this.onAddBends,
     required this.specs,
     this.conduitOd,
+    this.centerRef = true,
     this.canBendTo,
   });
 
@@ -434,12 +515,17 @@ class _BackToBackSheet extends StatefulWidget {
 class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
   late final _first = ctrl();
   late final _dist = ctrl();
-  late final _od = ctrl(widget.conduitOd == null ? '' : csFmt(widget.conduitOd!));
+  late final _od = ctrl(
+    widget.conduitOd == null ? '' : csFmt(widget.conduitOd!),
+  );
   bool _outside = true;
 
   bool get _perpendicular =>
       dir == null ||
-      directionForRotation(widget.currentRotation).dot(directionForRotation(dir!)).abs() < 1e-6;
+      directionForRotation(
+            widget.currentRotation,
+          ).dot(directionForRotation(dir!)).abs() <
+          1e-6;
 
   void _apply(double? first, double? spacing) {
     if (!checkDirection(widget.currentRotation, rule: widget.canBendTo)) return;
@@ -468,7 +554,10 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
     // 마킹이 관 끝 안쪽에 찍히면 꺾을 수 없으니 넣지 않는다(10-08).
     final off = widget.specs.markOffset(90);
     if (first - off <= 0) {
-      csSnackMissing(context, '넣을 수 없습니다. 첫 다리가 테이크업(${csFmt(off)}mm)보다 짧아 꺾을 수 없습니다. ${csFmt(off)}mm보다 길게 넣으십시오.');
+      csSnackMissing(
+        context,
+        '넣을 수 없습니다. 첫 다리가 테이크업(${csFmt(off)}mm)보다 짧아 꺾을 수 없습니다. ${csFmt(off)}mm보다 길게 넣으십시오.',
+      );
       return;
     }
     widget.onAddBends(list);
@@ -481,9 +570,16 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final double? first = csRead(_first), dist = csRead(_dist), od = csRead(_od);
+    final double? first = csRead(_first),
+        dist = csRead(_dist),
+        od = csRead(_od);
     final double? spacing = (dist != null && od != null && od > 0)
-        ? conduitBackToBackSpacing(distance: dist, od: od, outside: _outside)
+        ? conduitBackToBackSpacing(
+            distance: dist,
+            od: od,
+            outside: _outside,
+            center: widget.centerRef,
+          )
         : null;
     final double gainPer = effectiveGain(
       radius: widget.specs.radius,
@@ -501,8 +597,13 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
       children: [
         CsInfoBox(
           title: '첫 다리 길이',
-          note: '${widget.specs.startRef}에서 첫 꺾이는 점까지입니다. 1번 마킹은 여기서 벤더 차감값(테이크업, 유압은 게인의 절반)을 뺀 자리입니다.',
-          field: CsField(fieldKey: const Key('cs_first'), ctrl: _first, hint: '길이 mm'),
+          note:
+              '${widget.specs.startRef}에서 첫 꺾이는 점까지입니다. 1번 마킹은 여기서 벤더 차감값(테이크업, 유압은 게인의 절반)을 뺀 자리입니다.',
+          field: CsField(
+            fieldKey: const Key('cs_first'),
+            ctrl: _first,
+            hint: '길이 mm',
+          ),
         ),
         const SizedBox(height: 16),
         const CsLabel('두 다리 사이 거리'),
@@ -528,7 +629,11 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
         ),
         const SizedBox(height: 16),
         const CsLabel('관 바깥지름'),
-        CsField(fieldKey: const Key('cs_od'), ctrl: _od, hint: '바깥지름 mm (후강 22 = 26.5)'),
+        CsField(
+          fieldKey: const Key('cs_od'),
+          ctrl: _od,
+          hint: '바깥지름 mm (후강 22 = 26.5)',
+        ),
         const SizedBox(height: 24),
         CsDirectionSelector(
           value: dir,
@@ -539,10 +644,21 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
         const SizedBox(height: 16),
         CsResultBox(
           title: '꺾이는 점 사이 간격',
-          value: (spacing != null && spacing > 0) ? '${csFmt(spacing)} mm' : null,
+          value: (spacing != null && spacing > 0)
+              ? '${csFmt(spacing)} mm'
+              : null,
           onPressed: () => _apply(first, spacing),
           details: (spacing != null && spacing > 0)
               ? [
+                  CsDetail(
+                    label: '간격 셈',
+                    value: widget.centerRef
+                        ? (_outside ? '거리 − 바깥지름' : '거리 + 바깥지름')
+                        : (_outside ? '거리 그대로' : '거리 + 바깥지름 × 2'),
+                    note: widget.centerRef
+                        ? '(관 중심 기준: 중심선이 만나는 점)'
+                        : '(관 등 기준: 바깥면이 만나는 점)',
+                  ),
                   const CsDetail(
                     label: '두 번째 90° 방향',
                     value: '처음 진행 방향의 반대',
@@ -554,12 +670,18 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
                       value: '${csFmt(first - widget.specs.markOffset(90))} mm',
                       note: '(첫 다리 ${csFmt(first)} − 테이크업)',
                     ),
-                  if (first != null && first > 0 && first - widget.specs.markOffset(90) <= 0)
+                  if (first != null &&
+                      first > 0 &&
+                      first - widget.specs.markOffset(90) <= 0)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
                         '첫 다리가 테이크업보다 짧아 꺾을 수 없습니다.',
-                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   if (dir != null && !_perpendicular)
@@ -567,10 +689,17 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
                         'U자는 진행 방향에 수직인 방향으로 꺾어야 합니다.',
-                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                  CsShrinkGainRow(gainLabel: '게인 (벤드 2곳)', gain: '-${csFmt(gainPer * 2)} mm'),
+                  CsShrinkGainRow(
+                    gainLabel: '게인 (벤드 2곳)',
+                    gain: '-${csFmt(gainPer * 2)} mm',
+                  ),
                 ]
               : const [],
         ),
@@ -579,7 +708,11 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
             padding: EdgeInsets.only(top: 8),
             child: Text(
               '두 다리 사이 거리가 관 바깥지름보다 작아 만들 수 없습니다.',
-              style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+              ),
             ),
           ),
       ],
@@ -596,7 +729,12 @@ class _StubUpSheet extends StatefulWidget {
 
   /// 지금 진행 방향(실제 경로 기준)에서 그 방향으로 꺾을 수 있는지. 없으면 진행 방향값으로 따진다.
   final BendRule? canBendTo;
-  const _StubUpSheet({required this.currentRotation, required this.onAddBends, required this.specs, this.canBendTo});
+  const _StubUpSheet({
+    required this.currentRotation,
+    required this.onAddBends,
+    required this.specs,
+    this.canBendTo,
+  });
 
   @override
   State<_StubUpSheet> createState() => _StubUpSheetState();
@@ -615,14 +753,14 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
     // 마킹이 관 끝 안쪽에 찍히면 꺾을 수 없으니 넣지 않는다(10-08: 경고만 뜨고 목록에 들어갔다).
     final off = widget.specs.markOffset(90);
     if (s! - off <= 0) {
-      csSnackMissing(context, '넣을 수 없습니다. 스터브가 테이크업(${csFmt(off)}mm)보다 짧아 꺾을 수 없습니다. ${csFmt(off)}mm보다 길게 넣으십시오.');
+      csSnackMissing(
+        context,
+        '넣을 수 없습니다. 스터브가 테이크업(${csFmt(off)}mm)보다 짧아 꺾을 수 없습니다. ${csFmt(off)}mm보다 길게 넣으십시오.',
+      );
       return;
     }
     widget.onAddBends(list);
-    csSnackAdded(
-      context,
-      widget.specs.firstMarkNotice(s - off),
-    );
+    csSnackAdded(context, widget.specs.firstMarkNotice(s - off));
     Navigator.pop(context);
   }
 
@@ -642,8 +780,13 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
       children: [
         CsInfoBox(
           title: '스터브 길이',
-          note: '${widget.specs.startRef}에서 꺾이는 점까지입니다. 1번 마킹은 여기서 벤더 차감값(테이크업, 유압은 게인의 절반)을 뺀 자리입니다.',
-          field: CsField(fieldKey: const Key('cs_stub'), ctrl: _stub, hint: '길이 mm'),
+          note:
+              '${widget.specs.startRef}에서 꺾이는 점까지입니다. 1번 마킹은 여기서 벤더 차감값(테이크업, 유압은 게인의 절반)을 뺀 자리입니다.',
+          field: CsField(
+            fieldKey: const Key('cs_stub'),
+            ctrl: _stub,
+            hint: '길이 mm',
+          ),
         ),
         const SizedBox(height: 24),
         CsDirectionSelector(
@@ -668,10 +811,17 @@ class _StubUpSheetState extends _SheetState<_StubUpSheet> {
                       padding: EdgeInsets.only(bottom: 12),
                       child: Text(
                         '스터브가 테이크업보다 짧아 꺾을 수 없습니다.',
-                        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: TextStyle(
+                          color: Colors.redAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                  CsShrinkGainRow(gainLabel: '게인 (벤드 1곳)', gain: '-${csFmt(gain)} mm'),
+                  CsShrinkGainRow(
+                    gainLabel: '게인 (벤드 1곳)',
+                    gain: '-${csFmt(gain)} mm',
+                  ),
                 ]
               : const [],
         ),
