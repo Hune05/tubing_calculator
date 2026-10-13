@@ -768,7 +768,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                     child: Text(
                       keepWords(
-                        "이 폰에만 저장됩니다. 줄을 왼쪽으로 밀면 삭제되고, 끌어다 놓는 목록에서 빠집니다.",
+                        "이 폰에만 저장됩니다. 줄을 왼쪽으로 밀면 삭제되고, 부품 담기의 내 부품에서 빠집니다.",
                       ),
                       style: const TextStyle(color: tossSubText, fontSize: 14),
                     ),

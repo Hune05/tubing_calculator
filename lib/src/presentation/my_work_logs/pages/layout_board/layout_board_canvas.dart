@@ -586,9 +586,7 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                       ),
                                       const SizedBox(height: 12),
                                       Text(
-                                        keepWords(
-                                          "아래에서 부품을 끌어다\n놓아 배치를 시작하십시오",
-                                        ),
+                                        keepWords("아래 '부품'을 눌러 골라\n배치를 시작하십시오"),
                                         textAlign: TextAlign.center,
                                         style: TextStyle(
                                           color: tossSubText.withValues(

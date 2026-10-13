@@ -440,11 +440,13 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
         ? "빈 상자를 놓고 이름·크기를 넣습니다"
         : p == kLayoutNotePreset
         ? "도면에 글만 적습니다(자재 수량에 안 셉니다)"
+        // 덕트는 이름에 폭×높이가 있고(묶음 이름은 크기 구분이라 되풀이할 것 없음),
+        // 도면 세로(길이)는 놓은 뒤 고친다.
+        : p.shape == InstrumentShape.duct
+        ? "길이는 놓은 뒤 고칩니다"
         : [
             if (section.contains(' · ')) section.split(' · ').last else section,
-            // 덕트는 이름에 폭×높이가 있고 도면 세로(길이)는 놓은 뒤 고친다.
-            if (p.shape != InstrumentShape.duct)
-              "${p.width.toInt()}×${p.height.toInt()}",
+            "${p.width.toInt()}×${p.height.toInt()}",
           ].join(' · ');
     return ListTile(
       key: ValueKey("preset_row_${p.name}"),
