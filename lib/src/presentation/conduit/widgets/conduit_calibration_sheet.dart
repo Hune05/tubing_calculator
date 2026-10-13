@@ -20,9 +20,14 @@ class ConduitCalibrationSheet extends StatefulWidget {
   /// 지금 설정의 값(견줘 보여 준다).
   final double currentTakeUp;
   final double currentGain;
+  final double currentClr;
 
-  /// 값을 잡았을 때 부른다(90° 테이크업, 90° 게인). 유압이면 테이크업은 0.
-  final void Function(double takeUp, double gain) onApply;
+  /// 관 바깥지름(관 등 기준에서 게인으로 반경을 셀 때). 모르면 null.
+  final double? od;
+
+  /// 값을 잡았을 때 부른다(90° 테이크업, 90° 게인, 게인이 뜻하는 슈 반경 CLR).
+  /// 유압이면 테이크업은 0, CLR은 null(유압은 게인만 쓴다).
+  final void Function(double takeUp, double gain, double? clr) onApply;
 
   /// 유압(가운데 미는 방식, 마킹을 슈 가운데에 맞춤): 게인만 잡고 슈 가운데 셈이 맞는지 보여 준다.
   final bool ramCenter;
@@ -34,6 +39,8 @@ class ConduitCalibrationSheet extends StatefulWidget {
     super.key,
     required this.currentTakeUp,
     required this.currentGain,
+    this.currentClr = 0,
+    this.od,
     required this.onApply,
     this.ramCenter = false,
     this.centerRef = false,
@@ -43,7 +50,9 @@ class ConduitCalibrationSheet extends StatefulWidget {
     BuildContext context, {
     required double currentTakeUp,
     required double currentGain,
-    required void Function(double takeUp, double gain) onApply,
+    double currentClr = 0,
+    double? od,
+    required void Function(double takeUp, double gain, double? clr) onApply,
     bool ramCenter = false,
     bool centerRef = false,
   }) {
@@ -54,6 +63,8 @@ class ConduitCalibrationSheet extends StatefulWidget {
       builder: (_) => ConduitCalibrationSheet(
         currentTakeUp: currentTakeUp,
         currentGain: currentGain,
+        currentClr: currentClr,
+        od: od,
         onApply: onApply,
         ramCenter: ramCenter,
         centerRef: centerRef,
@@ -111,6 +122,14 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
     final r = ram
         ? (rr == null ? null : (takeUp: rr.centerOffset, gain: rr.gain))
         : _result;
+    // 10-13: 시카고·수동은 90°가 아닌 각의 테이크업을 CLR로 줄이므로, 게인이 뜻하는 반경을 CLR로 같이 넣는다.
+    final double? clr = ram || r == null
+        ? null
+        : conduitRadiusFromGain(
+            gain90: r.gain,
+            od: widget.od,
+            center: widget.centerRef,
+          );
     final bool suspicious =
         r != null &&
         ((!ram && _farFrom(r.takeUp, widget.currentTakeUp)) ||
@@ -203,6 +222,14 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                             const SizedBox(height: 8),
                           ],
                           _resultRow("게인 (90°)", r.gain, widget.currentGain),
+                          if (clr != null) ...[
+                            const SizedBox(height: 8),
+                            _resultRow(
+                              "슈 반경 CLR (게인에서)",
+                              clr,
+                              widget.currentClr,
+                            ),
+                          ],
                           if (rr != null) ...[
                             const SizedBox(height: 8),
                             Text(
@@ -262,6 +289,9 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                           widget.onApply(
                             ram ? 0 : double.parse(r.takeUp.toStringAsFixed(1)),
                             double.parse(r.gain.toStringAsFixed(1)),
+                            clr == null
+                                ? null
+                                : double.parse(clr.toStringAsFixed(1)),
                           );
                           Navigator.pop(context);
                         },

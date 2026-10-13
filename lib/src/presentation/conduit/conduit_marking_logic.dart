@@ -15,7 +15,8 @@ import 'dart:math' as math;
 
 import 'package:tubing_calculator/src/core/engine/bend_geometry.dart';
 import 'package:tubing_calculator/src/presentation/calculator/bend_check.dart';
-import 'package:tubing_calculator/src/presentation/field/field_marking.dart' show markGap;
+import 'package:tubing_calculator/src/presentation/field/field_marking.dart'
+    show markGap;
 import 'package:tubing_calculator/src/presentation/my_work_logs/models/skid_presets.dart'
     show kThickConduitOd;
 
@@ -271,7 +272,9 @@ List<String> conduitMarkWarnings(
       );
     }
     if (angle > 90.0 + 1e-9) {
-      out.add('$bendNo번 벤드가 ${angle.round()}°입니다. 90°를 넘는 벤드는 게인·마킹 값이 맞지 않습니다. 90° 이하로 나누십시오.');
+      out.add(
+        '$bendNo번 벤드가 ${angle.round()}°입니다. 90°를 넘는 벤드는 게인·마킹 값이 맞지 않습니다. 90° 이하로 나누십시오.',
+      );
     }
   }
   return out;
@@ -366,6 +369,22 @@ double conduitCouplingAllowance(Map<String, dynamic> settings) =>
   return (takeUp: takeUp, gain: gain);
 }
 
+/// 90° 게인이 뜻하는 슈 반경(관 중심선 반경, CLR). 관 중심 기준이면 게인 = 반경 × (2 − π/2),
+/// 관 등 기준이면 게인에 바깥지름이 한 번 더 들어간다(다리마다 D/2). 못 셈하면 null.
+///
+/// 10-13: 시카고·수동은 90°가 아닌 각의 테이크업을 CLR로 줄이는데(scaleTakeUp), CLR(표 114.3)과
+/// 게인(22 EMT 82.5 → 반경 137.7)이 서로 다른 반경을 뜻해 45°에서 약 14mm 어긋났다. 엔진은 그대로 두고
+/// 시험 벤딩·설정에서 CLR을 게인과 맞춘다(사용자 결정). 유압 실측(게인 40·CLR 93)은 40 ÷ 0.4292 = 93.2로 맞다.
+double? conduitRadiusFromGain({
+  required double gain90,
+  required double? od,
+  required bool center,
+}) {
+  final g = center ? gain90 : (od == null ? null : gain90 - od);
+  if (g == null || g <= 0) return null;
+  return g / (2 - math.pi / 2);
+}
+
 /// 유압(슈 가운데 맞춤) 시험 벤딩: 게인 = 두 다리 합 − 자른 길이,
 /// 꺾이는 점 → 슈 가운데 = 스텁 − 마킹 자리. 슈 가운데 셈([ramShoeCenterOffset])이
 /// 맞으면 두 번째 값이 게인의 절반과 같다([diff] = 잰 값 − 게인/2). 못 잡으면 null.
@@ -379,5 +398,9 @@ double conduitCouplingAllowance(Map<String, dynamic> settings) =>
   final gain = stub + otherLeg - cut;
   final centerOffset = stub - mark;
   if (gain < 0 || centerOffset < 0) return null;
-  return (gain: gain, centerOffset: centerOffset, diff: centerOffset - gain / 2);
+  return (
+    gain: gain,
+    centerOffset: centerOffset,
+    diff: centerOffset - gain / 2,
+  );
 }

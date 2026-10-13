@@ -1102,38 +1102,79 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
   /// 90°로 한 번 꺾어 잰 값으로 테이크업·게인을 잡는 단추(수동·시카고).
   /// [ram]: 유압(슈 가운데 맞춤)은 게인만 잡는다.
   Widget _buildCalibrateButton({bool ram = false}) {
+    final od = conduitOuterDiameter(_conduitType, _conduitSize);
+    final center = _measureRef == kConduitRefCenter;
+    final warn = ram ? null : _clrGainWarning(od, center);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          key: const Key('conduit_calibrate'),
-          style: TextButton.styleFrom(
-            foregroundColor: makitaTeal,
-            textStyle: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 15,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (warn != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                warn,
+                key: const Key('conduit_clr_gain_warn'),
+                style: TextStyle(
+                  color: AppColors.caution,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              key: const Key('conduit_calibrate'),
+              style: TextButton.styleFrom(
+                foregroundColor: makitaTeal,
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              onPressed: () => ConduitCalibrationSheet.show(
+                context,
+                currentTakeUp: double.tryParse(_takeUpController.text) ?? 0,
+                currentGain: double.tryParse(_gainController.text) ?? 0,
+                currentClr: double.tryParse(_clrController.text) ?? 0,
+                od: od,
+                ramCenter: ram,
+                centerRef: center,
+                onApply: (takeUp, gain, clr) {
+                  setState(() {
+                    if (!ram) _takeUpController.text = takeUp.toString();
+                    _gainController.text = gain.toString();
+                    // 10-13: 게인이 뜻하는 반경을 CLR로(시카고·수동 90° 아닌 각의 마킹이 맞게).
+                    if (!ram && clr != null) {
+                      _clrController.text = clr.toString();
+                    }
+                  });
+                  _saveSettings();
+                },
+              ),
+              icon: const Icon(Icons.straighten, size: 18),
+              label: Text(ram ? "시험 벤딩으로 게인 잡기" : "시험 벤딩으로 테이크업·게인·CLR 잡기"),
             ),
           ),
-          onPressed: () => ConduitCalibrationSheet.show(
-            context,
-            currentTakeUp: double.tryParse(_takeUpController.text) ?? 0,
-            currentGain: double.tryParse(_gainController.text) ?? 0,
-            ramCenter: ram,
-            centerRef: _measureRef == kConduitRefCenter,
-            onApply: (takeUp, gain) {
-              setState(() {
-                if (!ram) _takeUpController.text = takeUp.toString();
-                _gainController.text = gain.toString();
-              });
-              _saveSettings();
-            },
-          ),
-          icon: const Icon(Icons.straighten, size: 18),
-          label: Text(ram ? "시험 벤딩으로 게인 잡기" : "시험 벤딩으로 테이크업·게인 잡기"),
-        ),
+        ],
       ),
     );
+  }
+
+  /// CLR과 게인이 뜻하는 반경이 10% 넘게 다르면 알림 글(시카고·수동). 같거나 못 셈하면 null.
+  /// 10-13: 이 둘이 다르면 90°가 아닌 각(22.5°·30°·45°)의 마킹이 반경 차이만큼 밀린다(45°에서 약 0.59배).
+  String? _clrGainWarning(double? od, bool center) {
+    final clr = double.tryParse(_clrController.text.trim());
+    final gain = double.tryParse(_gainController.text.trim());
+    if (clr == null || gain == null || clr <= 0) return null;
+    final r = conduitRadiusFromGain(gain90: gain, od: od, center: center);
+    if (r == null || (r - clr).abs() <= clr * 0.1) return null;
+    String f(double v) => v.toStringAsFixed(1);
+    return "CLR ${f(clr)}과 게인이 뜻하는 반경 ${f(r)}이 다릅니다. 90°가 아닌 각(45° 등)의 마킹이 "
+        "약 ${f((r - clr).abs() * (1 - 0.4142))}mm(45°) 어긋날 수 있습니다. 시험 벤딩으로 한 번 잡으십시오.";
   }
 
   /// 세 벤더가 같이 쓰는 보정 칸.

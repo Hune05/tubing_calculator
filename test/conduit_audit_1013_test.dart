@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/data/conduit_drawings.dart';
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
 import 'package:tubing_calculator/src/presentation/conduit/conduit_field_data.dart';
+import 'package:tubing_calculator/src/presentation/conduit/conduit_marking_logic.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_result_tab.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_diff.dart';
 import 'package:tubing_calculator/src/presentation/conduit/screens/conduit_settings_page.dart';
@@ -139,6 +140,97 @@ void main() {
           {'takeUp': 152.4, 'measureRef': 'back'},
         ),
         isEmpty,
+      );
+    });
+  });
+
+  group('시카고·수동 CLR을 게인과 맞춤(사용자 결정)', () {
+    test(
+      '게인이 뜻하는 반경: 관 중심 = 게인 ÷ (2 − π/2), 관 등 = (게인 − 바깥지름) ÷ (2 − π/2)',
+      () {
+        // 유압 실측(게인 40·CLR 93, 관 중심)과 맞는다.
+        expect(
+          conduitRadiusFromGain(gain90: 40, od: null, center: true),
+          closeTo(93.2, 0.05),
+        );
+        // 22 EMT 표(관 등 82.5, 바깥지름 23.4) → 137.7
+        expect(
+          conduitRadiusFromGain(gain90: 82.5, od: 23.4, center: false),
+          closeTo(137.7, 0.05),
+        );
+        expect(
+          conduitRadiusFromGain(gain90: 82.5, od: null, center: false),
+          isNull,
+        );
+        expect(
+          conduitRadiusFromGain(gain90: 20, od: 23.4, center: false),
+          isNull,
+        );
+      },
+    );
+
+    testWidgets('CLR과 게인이 10% 넘게 다르면 알리고, 시험 벤딩으로 잡으면 CLR도 들어가 알림이 없어진다', (
+      tester,
+    ) async {
+      globalBenderSettings.value = {
+        ...defaults,
+        'benderType': 'chicago',
+        'conduitType': 'EMT',
+        'conduitSize': '22mm',
+        'measureRef': 'back',
+        'clr': 114.3,
+        'gain': 82.5,
+        'takeUp': 152.4,
+      };
+      await tester.binding.setSurfaceSize(const Size(420, 2600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(const MaterialApp(home: ConduitSettingsPage()));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('conduit_clr_gain_warn'), skipOffstage: false),
+        findsOneWidget,
+      );
+
+      final btn = find.byKey(const Key('conduit_calibrate'));
+      await tester.ensureVisible(btn);
+      await tester.pumpAndSettle();
+      await tester.tap(btn);
+      await tester.pumpAndSettle();
+      final fields = find.descendant(
+        of: find.byType(BottomSheet),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(fields.at(0), '1000');
+      await tester.enterText(fields.at(1), '300');
+      await tester.enterText(fields.at(2), '448');
+      await tester.enterText(fields.at(3), '630');
+      await tester.pumpAndSettle();
+      // 게인 78, 관 등 → 반경 (78 − 23.4) ÷ 0.4292 = 127.2
+      expect(find.text('127.2 mm'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('conduit_calib_apply')));
+      await tester.pumpAndSettle();
+      expect(globalBenderSettings.value['clr'], 127.2);
+      expect(globalBenderSettings.value['gain'], 78.0);
+      expect(
+        find.byKey(const Key('conduit_clr_gain_warn'), skipOffstage: false),
+        findsNothing,
+      );
+    });
+
+    testWidgets('유압은 게인만 잡고 CLR은 그대로', (tester) async {
+      globalBenderSettings.value = {
+        ...defaults,
+        'benderType': 'ram',
+        'clr': 93.0,
+        'gain': 40.0,
+      };
+      await tester.binding.setSurfaceSize(const Size(420, 2600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(const MaterialApp(home: ConduitSettingsPage()));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const Key('conduit_clr_gain_warn'), skipOffstage: false),
+        findsNothing,
       );
     });
   });
