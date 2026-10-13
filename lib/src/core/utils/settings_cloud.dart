@@ -55,6 +55,43 @@ const Set<String> kCloudBlankGuardKeys = {
   'attendance_rule_note',
 };
 
+/// 폰에는 JSON 글 하나로 두지만 서버에는 묶음(map)으로 올리는 칸. 안의 항목(설정 칸·규격)별로 합쳐진다.
+/// 10-13: 글 한 칸이라 통째로 오가, 폰에서 시험 벤딩으로 잡은 EMT 22 게인을 태블릿이 다른 규격을 저장하며
+/// 옛 값으로 덮었다. Firestore set(merge: true)는 묶음 안쪽도 칸별로 합치므로, 바뀐 항목만 올리면 다른 기기 값이 남는다.
+/// 지운 항목은 서버로 퍼뜨리지 않는다(드물고, 다른 기기 값을 지울 위험이 더 크다).
+const Set<String> kCloudJsonMapKeys = {
+  'conduit_bender_settings_v1',
+  'conduit_spec_sets_v1',
+  'machine_spec_sets_v1',
+};
+
+/// 글(JSON)이나 묶음을 묶음으로 읽는다. 못 읽으면 null.
+Map<String, Object?>? cloudJsonMap(Object? v) {
+  if (v is Map) return Map<String, Object?>.from(v);
+  if (v is String && v.isNotEmpty) {
+    try {
+      final m = jsonDecode(v);
+      if (m is Map) return Map<String, Object?>.from(m);
+    } catch (_) {}
+  }
+  return null;
+}
+
+/// 비교용 글: 묶음 안 순서와 30/30.0 차이를 없앤다.
+String _canon(Object? v) {
+  Object? norm(Object? x) {
+    if (x is Map) {
+      final keys = x.keys.map((e) => '$e').toList()..sort();
+      return {for (final k in keys) k: norm(x[k])};
+    }
+    if (x is List) return [for (final e in x) norm(e)];
+    if (x is num) return x.toDouble();
+    return x;
+  }
+
+  return jsonEncode(norm(v));
+}
+
 /// 정수로 읽는 칸(서버가 30을 30.0으로 돌려줘도 정수로 쓴다). 나머지 숫자 칸은 소수(double).
 const Set<String> kCloudIntKeys = {'attendance_default_break'};
 
@@ -72,6 +109,10 @@ Map<String, Object> collectLocalSettings(SharedPreferences prefs) {
 
 /// 같은 값인지 비교할 모양으로 맞춘다(서버는 30.0을 30으로 돌려줄 수 있다).
 Object? _normCloudValue(String k, Object? v) {
+  if (kCloudJsonMapKeys.contains(k)) {
+    final m = cloudJsonMap(v);
+    return m == null ? v : _canon(m);
+  }
   if (v is num) return kCloudIntKeys.contains(k) ? v.toInt() : v.toDouble();
   return v;
 }
@@ -87,7 +128,9 @@ Future<int> applyCloudSettings(
   int n = 0;
   for (final k in kCloudSettingKeys) {
     if (onlyMissing && prefs.containsKey(k)) continue;
-    final v = data[k];
+    var v = data[k];
+    // 서버에 묶음으로 올라간 칸은 폰에는 예전처럼 JSON 글로 둔다(10-13).
+    if (v is Map && kCloudJsonMapKeys.contains(k)) v = jsonEncode(v);
     // 서버의 빈 글자로 폰에 있는 값을 지우지 않는다(kCloudBlankGuardKeys).
     if (v is String && v.isEmpty && kCloudBlankGuardKeys.contains(k)) continue;
     if (v is bool) {
@@ -187,6 +230,30 @@ class SettingsCloudSync {
   Future<void> _writeBase(SharedPreferences prefs, Map<String, Object?> base) =>
       prefs.setString(_baseKey, jsonEncode(base));
 
+  /// 서버에 묶음(map)으로 올라가 있다고 아는 칸. 아니면(예전 글이거나 모르면) 처음 한 번은 전부 올린다
+  /// — 글로 된 칸에 일부만 묶음으로 쓰면 나머지 항목이 사라지므로.
+  static const String _mapFormKey = 'settings_cloud_map_form_v1';
+
+  Set<String> _mapForm(SharedPreferences prefs) =>
+      (prefs.getStringList(_mapFormKey) ?? const []).toSet();
+
+  Future<void> _setMapForm(SharedPreferences prefs, Set<String> keys) =>
+      prefs.setStringList(_mapFormKey, keys.toList()..sort());
+
+  /// 서버 문서에서 칸이 묶음인지 글인지 보고 기억한다.
+  Future<void> _noteServerForm(SharedPreferences prefs, Map settings) async {
+    final form = _mapForm(prefs);
+    for (final k in kCloudJsonMapKeys) {
+      if (!settings.containsKey(k)) continue;
+      if (settings[k] is Map) {
+        form.add(k);
+      } else {
+        form.remove(k);
+      }
+    }
+    await _setMapForm(prefs, form);
+  }
+
   /// 서버 문서의 설정 칸을 "서버에 있는 값"으로 기억한다(앞서 기억한 칸 위에 덮는다).
   Future<void> _rememberServer(SharedPreferences prefs, Map settings) async {
     final base = _readBase(prefs) ?? <String, Object?>{};
@@ -242,12 +309,39 @@ class SettingsCloudSync {
           ? local
           : {
               for (final e in local.entries)
-                if (base[e.key] != _normCloudValue(e.key, e.value)) e.key: e.value,
+                if (base[e.key] != _normCloudValue(e.key, e.value))
+                  e.key: e.value,
             };
       if (data.isEmpty) {
         // 서버와 같다: 올릴 것이 없다.
         await prefs.setBool(_dirtyKey, false);
         return true;
+      }
+      // 묶음 칸: 서버가 이미 묶음이면 이 기기가 바꾼 항목만, 아니면 전부를 묶음으로(10-13).
+      final form = _mapForm(prefs);
+      final upload = <String, Object>{};
+      for (final e in data.entries) {
+        if (!kCloudJsonMapKeys.contains(e.key)) {
+          upload[e.key] = e.value;
+          continue;
+        }
+        final local = cloudJsonMap(e.value);
+        if (local == null) {
+          upload[e.key] = e.value;
+          continue;
+        }
+        final known = base == null ? null : cloudJsonMap(base[e.key]);
+        if (known == null || !form.contains(e.key)) {
+          upload[e.key] = local;
+          continue;
+        }
+        final changed = <String, Object?>{
+          for (final s in local.entries)
+            if (!known.containsKey(s.key) ||
+                _canon(known[s.key]) != _canon(s.value))
+              s.key: s.value,
+        };
+        if (changed.isNotEmpty) upload[e.key] = changed;
       }
       // 누가 언제 올렸는지 같이 적는다(다른 기기가 새것인지 가리는 데 쓴다).
       final editedAt = clock();
@@ -255,7 +349,7 @@ class SettingsCloudSync {
       await prefs.setBool(_dirtyKey, true);
       await prefs.setInt(_seenKey, editedAt);
       final withMeta = <String, Object>{
-        ...data,
+        ...upload,
         kCloudWriterKey: device,
         kCloudEditedAtKey: editedAt,
       };
@@ -269,6 +363,12 @@ class SettingsCloudSync {
       if (done) {
         await prefs.setBool(_dirtyKey, false);
         await _rememberServer(prefs, data);
+        // 묶음으로 올린 칸은 이제 서버가 묶음이다(다음부터 바뀐 항목만).
+        await _setMapForm(prefs, {
+          ...form,
+          for (final k in upload.keys)
+            if (kCloudJsonMapKeys.contains(k) && upload[k] is Map) k,
+        });
         await _markSynced(prefs);
       }
       return done;
@@ -298,10 +398,13 @@ class SettingsCloudSync {
       var timedOut = false;
       final doc = await store
           .read(uid)
-          .timeout(const Duration(seconds: 5), onTimeout: () {
-            timedOut = true;
-            return null;
-          });
+          .timeout(
+            const Duration(seconds: 5),
+            onTimeout: () {
+              timedOut = true;
+              return null;
+            },
+          );
       final settings = doc?['settings'];
       if (settings is! Map) {
         lastRestoreServerMissing = !timedOut;
@@ -320,6 +423,7 @@ class SettingsCloudSync {
         onlyMissing: !overwrite,
       );
       await _rememberServer(prefs, settings);
+      await _noteServerForm(prefs, settings);
       // 그대로 둔 칸은 "서버에 있는 값"을 폰 값으로 적어, 다음 저장 때 이 기기의 옛 값이 서버를
       // 덮지 않게 한다(10-09: 서버 값을 적어 두어 다른 칸만 저장해도 옛 게인·반경이 올라갔다).
       // 서버 값과 다르면 다음 자동 받기(pullIfNewer)가 서버 값으로 맞춘다(10-08 뜻: 서버가 먼저).
@@ -372,10 +476,28 @@ class SettingsCloudSync {
                 _normCloudValue(k, settings[k]) != base[k])
               k: settings[k],
         };
+        // 묶음 칸(10-13): 서버 묶음에서 이 기기가 아는 값과 달라진 항목만 이 기기 값에 덮는다
+        // (이 기기에만 있는 항목·이 기기에서 고친 다른 항목은 그대로).
+        for (final k in kCloudJsonMapKeys) {
+          if (!changed.containsKey(k)) continue;
+          final server = cloudJsonMap(changed[k]);
+          final known = cloudJsonMap(base[k]);
+          final local = cloudJsonMap(prefs.get(k));
+          if (server == null || known == null || local == null) continue;
+          final merged = {...local};
+          for (final e in server.entries) {
+            if (!known.containsKey(e.key) ||
+                _canon(known[e.key]) != _canon(e.value)) {
+              merged[e.key] = e.value;
+            }
+          }
+          changed[k] = jsonEncode(merged);
+        }
         final n = changed.isEmpty
             ? 0
             : await applyCloudSettings(prefs, changed);
         await _rememberServer(prefs, settings);
+        await _noteServerForm(prefs, settings);
         final at = settings[kCloudEditedAtKey];
         if (at is num) await prefs.setInt(_seenKey, at.toInt());
         if (n > 0) await _markSynced(prefs);
@@ -383,6 +505,7 @@ class SettingsCloudSync {
       }
       // 서버 값을 처음 알게 되면 기억해 둔다(앱을 고친 뒤 처음 켤 때: 이후 고친 칸만 올라간다).
       await _rememberServer(prefs, settings);
+      await _noteServerForm(prefs, settings);
       final writer = settings[kCloudWriterKey];
       final at = settings[kCloudEditedAtKey];
       if (writer is! String || at is! num) return 0;

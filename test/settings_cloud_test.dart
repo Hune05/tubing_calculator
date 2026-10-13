@@ -1,6 +1,7 @@
 // 계산기 설정 서버 보관: 폰 설정을 모으고, 가짜 서버에 올렸다가 새로 깐 폰에
 // 되돌리는지 본다(진짜 서버는 쓰지 않는다).
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,13 +26,26 @@ class FakeStore implements SettingsCloudStore {
   Future<void> write(String uid, Map<String, Object> settings) {
     writes++;
     if (hang) return Completer<void>().future;
-    // Firestore set(merge: true)처럼 칸별로 합친다.
-    final old = Map<String, dynamic>.from(docs[uid]?['settings'] ?? {});
+    // Firestore set(merge: true)처럼 칸별로, 묶음(map) 안쪽도 칸별로 합친다.
     docs[uid] = {
-      'settings': {...old, ...settings},
+      'settings': _deepMerge(
+        Map<String, dynamic>.from(docs[uid]?['settings'] ?? {}),
+        settings,
+      ),
     };
     return Future.value();
   }
+}
+
+Map<String, dynamic> _deepMerge(Map<String, dynamic> a, Map b) {
+  final out = Map<String, dynamic>.from(a);
+  for (final e in b.entries) {
+    final old = out[e.key];
+    out['${e.key}'] = old is Map && e.value is Map
+        ? _deepMerge(Map<String, dynamic>.from(old), e.value as Map)
+        : e.value;
+  }
+  return out;
 }
 
 void main() {
@@ -105,17 +119,20 @@ void main() {
     expect(prefs.getDouble('bendRadius'), 30.0);
   });
 
-  test('서버에 설정 문서가 있으면 받을 칸이 0이어도 "없음"으로 보지 않는다(로그인 뒤 옛 값을 올리지 않게, 10-08)', () async {
-    store.docs['uid-A'] = {
-      'settings': {'bendRadius': 50.0},
-    };
-    SharedPreferences.setMockInitialValues({'bendRadius': 38.1});
-    expect(await sync.restore(), 0);
-    expect(sync.lastRestoreServerMissing, isFalse);
-    store.docs.remove('uid-A');
-    expect(await sync.restore(), 0);
-    expect(sync.lastRestoreServerMissing, isTrue);
-  });
+  test(
+    '서버에 설정 문서가 있으면 받을 칸이 0이어도 "없음"으로 보지 않는다(로그인 뒤 옛 값을 올리지 않게, 10-08)',
+    () async {
+      store.docs['uid-A'] = {
+        'settings': {'bendRadius': 50.0},
+      };
+      SharedPreferences.setMockInitialValues({'bendRadius': 38.1});
+      expect(await sync.restore(), 0);
+      expect(sync.lastRestoreServerMissing, isFalse);
+      store.docs.remove('uid-A');
+      expect(await sync.restore(), 0);
+      expect(sync.lastRestoreServerMissing, isTrue);
+    },
+  );
 
   test('폰에 있는 칸은 그대로 두고, 없는 칸만 서버 것으로 채운다', () async {
     store.docs['uid-A'] = {
@@ -348,7 +365,10 @@ void main() {
       final phone1 = await snap();
 
       // 태블릿은 아직 옛 게인(12)인 채로 톱날 손실만 고쳐 저장한다.
-      SharedPreferences.setMockInitialValues({...tablet0, 'cutting_blade_kerf': 3.0});
+      SharedPreferences.setMockInitialValues({
+        ...tablet0,
+        'cutting_blade_kerf': 3.0,
+      });
       await sync.backup();
       final saved = store.docs['uid-A']!['settings'] as Map;
       expect(saved['gain'], 15.0); // 폰이 고친 게인이 그대로
@@ -362,47 +382,56 @@ void main() {
       expect(p.getDouble('cutting_blade_kerf'), 3.0);
     });
 
-    test('다른 기기가 먼저 고친 게인을 받기 전에 이 기기가 다른 칸을 올려도, 다음에 그 게인을 받는다(10-09)', () async {
-      usePhone({'gain': 12.0, 'bendRadius': 38.1});
-      await sync.backup();
-      final phone0 = await snap();
-      usePhone({'gain': 12.0, 'bendRadius': 38.1});
-      await sync.pullIfNewer();
-      final tablet0 = await snap();
+    test(
+      '다른 기기가 먼저 고친 게인을 받기 전에 이 기기가 다른 칸을 올려도, 다음에 그 게인을 받는다(10-09)',
+      () async {
+        usePhone({'gain': 12.0, 'bendRadius': 38.1});
+        await sync.backup();
+        final phone0 = await snap();
+        usePhone({'gain': 12.0, 'bendRadius': 38.1});
+        await sync.pullIfNewer();
+        final tablet0 = await snap();
 
-      // 태블릿이 게인을 고쳐 올린다.
-      SharedPreferences.setMockInitialValues({...tablet0, 'gain': 15.0});
-      await sync.backup();
-      // 폰은 아직 안 받은 채로 반경을 고쳐 올린다(서버의 "마지막으로 올린 기기"가 폰이 된다).
-      SharedPreferences.setMockInitialValues({...phone0, 'bendRadius': 40.0});
-      await sync.backup();
-      expect(store.docs['uid-A']!['settings']['gain'], 15.0);
-      // 예전에는 "내가 마지막으로 올렸다"며 받지 않아 폰이 게인 12로 계속 마킹했다.
-      expect(await sync.pullIfNewer(), 1);
-      final p = await SharedPreferences.getInstance();
-      expect(p.getDouble('gain'), 15.0);
-      expect(p.getDouble('bendRadius'), 40.0);
-      expect(await sync.pullIfNewer(), 0);
-    });
+        // 태블릿이 게인을 고쳐 올린다.
+        SharedPreferences.setMockInitialValues({...tablet0, 'gain': 15.0});
+        await sync.backup();
+        // 폰은 아직 안 받은 채로 반경을 고쳐 올린다(서버의 "마지막으로 올린 기기"가 폰이 된다).
+        SharedPreferences.setMockInitialValues({...phone0, 'bendRadius': 40.0});
+        await sync.backup();
+        expect(store.docs['uid-A']!['settings']['gain'], 15.0);
+        // 예전에는 "내가 마지막으로 올렸다"며 받지 않아 폰이 게인 12로 계속 마킹했다.
+        expect(await sync.pullIfNewer(), 1);
+        final p = await SharedPreferences.getInstance();
+        expect(p.getDouble('gain'), 15.0);
+        expect(p.getDouble('bendRadius'), 40.0);
+        expect(await sync.pullIfNewer(), 0);
+      },
+    );
 
-    test('로그인 때 폰에 그대로 둔 옛 값은 다음 저장 때 서버를 덮지 않고, 다음 받기에서 서버 값으로 맞춰진다(10-09)', () async {
-      // 다른 기기가 올린 서버 설정(게인 15)
-      usePhone({'gain': 15.0});
-      await sync.backup();
-      // 손님으로 쓰던 태블릿: 옛 게인 12가 폰에 있다. 로그인하면 폰 값은 그대로 둔다.
-      usePhone({'gain': 12.0});
-      expect(await sync.restore(), 0);
-      expect((await SharedPreferences.getInstance()).getDouble('gain'), 12.0);
-      // 컷팅 톱날 손실만 고쳐 저장해도 옛 게인은 올라가지 않는다(예전에는 15를 12로 덮었다).
-      SharedPreferences.setMockInitialValues({...await snap(), 'cutting_blade_kerf': 3.0});
-      await sync.backup();
-      final saved = store.docs['uid-A']!['settings'] as Map;
-      expect(saved['gain'], 15.0);
-      expect(saved['cutting_blade_kerf'], 3.0);
-      // 다음 자동 받기에서 서버 게인으로 맞춰진다.
-      expect(await sync.pullIfNewer(), 1);
-      expect((await SharedPreferences.getInstance()).getDouble('gain'), 15.0);
-    });
+    test(
+      '로그인 때 폰에 그대로 둔 옛 값은 다음 저장 때 서버를 덮지 않고, 다음 받기에서 서버 값으로 맞춰진다(10-09)',
+      () async {
+        // 다른 기기가 올린 서버 설정(게인 15)
+        usePhone({'gain': 15.0});
+        await sync.backup();
+        // 손님으로 쓰던 태블릿: 옛 게인 12가 폰에 있다. 로그인하면 폰 값은 그대로 둔다.
+        usePhone({'gain': 12.0});
+        expect(await sync.restore(), 0);
+        expect((await SharedPreferences.getInstance()).getDouble('gain'), 12.0);
+        // 컷팅 톱날 손실만 고쳐 저장해도 옛 게인은 올라가지 않는다(예전에는 15를 12로 덮었다).
+        SharedPreferences.setMockInitialValues({
+          ...await snap(),
+          'cutting_blade_kerf': 3.0,
+        });
+        await sync.backup();
+        final saved = store.docs['uid-A']!['settings'] as Map;
+        expect(saved['gain'], 15.0);
+        expect(saved['cutting_blade_kerf'], 3.0);
+        // 다음 자동 받기에서 서버 게인으로 맞춰진다.
+        expect(await sync.pullIfNewer(), 1);
+        expect((await SharedPreferences.getInstance()).getDouble('gain'), 15.0);
+      },
+    );
 
     test('설정 화면의 올리기 단추(all)는 전부 올린다', () async {
       usePhone({'gain': 12.0, 'bendRadius': 38.1});
@@ -410,7 +439,10 @@ void main() {
       store.docs['uid-A']!['settings'].remove('bendRadius');
       SharedPreferences.setMockInitialValues({...await snap()});
       await sync.backup(); // 바뀐 칸이 없어 올리지 않는다
-      expect((store.docs['uid-A']!['settings'] as Map).containsKey('bendRadius'), isFalse);
+      expect(
+        (store.docs['uid-A']!['settings'] as Map).containsKey('bendRadius'),
+        isFalse,
+      );
       await sync.backup(all: true);
       expect(store.docs['uid-A']!['settings']['bendRadius'], 38.1);
     });
@@ -418,6 +450,111 @@ void main() {
     test('화면 구성(폰·태블릿)은 기기마다 다르게 둔다: 올리는 칸에 없다', () {
       expect(kCloudSettingKeys.any((k) => k.contains('screen')), isFalse);
       expect(kCloudSettingKeys.any((k) => k.contains('layout')), isFalse);
+    });
+
+    // 10-13: 규격별 제원·전선관 설정은 JSON 글 한 칸이라 통째로 오가, 다른 기기의 고친 값을 덮었다.
+    Map<String, dynamic> specs(Map<String, Object> prefs) =>
+        jsonDecode(prefs['conduit_spec_sets_v1']! as String)
+            as Map<String, dynamic>;
+
+    test('두 기기가 서로 다른 규격을 고쳐도 둘 다 남는다(묶음 안 항목별로 합침)', () async {
+      final start = {
+        'conduit_spec_sets_v1': jsonEncode({
+          'EMT|22': {'gain': 82.5},
+          'Rigid|28': {'takeUp': 279.4},
+        }),
+      };
+      usePhone(start);
+      expect(await sync.backup(), isTrue); // 처음엔 전부(묶음으로)
+      expect(
+        store.docs['uid-A']!['settings']['conduit_spec_sets_v1'],
+        isA<Map>(),
+      );
+      final phone0 = await snap();
+
+      usePhone(start);
+      await sync.pullIfNewer(); // 태블릿이 서버 값을 안다
+      final tablet0 = await snap();
+
+      // 폰: 시험 벤딩으로 EMT 22 게인을 잡아 올린다.
+      usePhone({
+        ...phone0,
+        'conduit_spec_sets_v1': jsonEncode({
+          'EMT|22': {'gain': 59.1},
+          'Rigid|28': {'takeUp': 279.4},
+        }),
+      });
+      expect(await sync.backup(), isTrue);
+      final phone1 = await snap();
+
+      // 태블릿(폰 것을 아직 안 받음): 후강 28 테이크업만 고쳐 올린다.
+      usePhone({
+        ...tablet0,
+        'conduit_spec_sets_v1': jsonEncode({
+          'EMT|22': {'gain': 82.5},
+          'Rigid|28': {'takeUp': 262.75},
+        }),
+      });
+      expect(await sync.backup(), isTrue);
+      final server =
+          store.docs['uid-A']!['settings']['conduit_spec_sets_v1'] as Map;
+      expect(server['EMT|22'], {'gain': 59.1}); // 폰이 잡은 값이 덮이지 않았다
+      expect(server['Rigid|28'], {'takeUp': 262.75});
+
+      // 폰이 받으면 EMT는 그대로, 후강만 새 값.
+      usePhone(phone1);
+      await sync.pullIfNewer();
+      final got = specs(await snap());
+      expect(got['EMT|22'], {'gain': 59.1});
+      expect(got['Rigid|28'], {'takeUp': 262.75});
+    });
+
+    test('서버에 예전 글 모양이 있으면 첫 번에는 전부 묶음으로 올린다(나머지 항목이 사라지지 않게)', () async {
+      store.docs['uid-A'] = {
+        'settings': {
+          'conduit_spec_sets_v1': jsonEncode({
+            'A': {'gain': 1.0},
+            'B': {'gain': 2.0},
+          }),
+          '_writer': 'old-device',
+          '_editedAt': 1,
+        },
+      };
+      usePhone({
+        'conduit_spec_sets_v1': jsonEncode({
+          'A': {'gain': 1.0},
+          'B': {'gain': 2.0},
+        }),
+      });
+      await sync.restore();
+      usePhone({
+        ...await snap(),
+        'conduit_spec_sets_v1': jsonEncode({
+          'A': {'gain': 5.0},
+          'B': {'gain': 2.0},
+        }),
+      });
+      expect(await sync.backup(), isTrue);
+      final server =
+          store.docs['uid-A']!['settings']['conduit_spec_sets_v1'] as Map;
+      expect(server['A'], {'gain': 5.0});
+      expect(server['B'], {'gain': 2.0});
+    });
+
+    test('서버 묶음을 받으면 폰에는 JSON 글로 둔다', () async {
+      store.docs['uid-A'] = {
+        'settings': {
+          'conduit_bender_settings_v1': {'benderType': 'chicago', 'gain': 60.0},
+          '_writer': 'other',
+          '_editedAt': 5,
+        },
+      };
+      usePhone({});
+      expect(await sync.restore(), greaterThan(0));
+      final v = (await SharedPreferences.getInstance()).getString(
+        'conduit_bender_settings_v1',
+      );
+      expect(jsonDecode(v!), {'benderType': 'chicago', 'gain': 60.0});
     });
   });
 
