@@ -240,18 +240,8 @@ class _BendCheckPageState extends State<BendCheckPage> {
                   runSpacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    ChoiceChip(
-                      key: const Key('bendcheck_kind_leg'),
-                      label: const Text('벤드 다리'),
-                      selected: !_isCut,
-                      onSelected: (_) => setState(() => _isCut = false),
-                    ),
-                    ChoiceChip(
-                      key: const Key('bendcheck_kind_cut'),
-                      label: const Text('자른 길이'),
-                      selected: _isCut,
-                      onSelected: (_) => setState(() => _isCut = true),
-                    ),
+                    _kindChip('bendcheck_kind_leg', '벤드 다리', !_isCut, false),
+                    _kindChip('bendcheck_kind_cut', '자른 길이', _isCut, true),
                     if (!_isCut)
                       SizedBox(
                         width: 110,
@@ -378,6 +368,23 @@ class _BendCheckPageState extends State<BendCheckPage> {
             ),
     );
   }
+
+  /// 벤드 다리·자른 길이 고르기 칩(골라지면 청록 바탕에 흰 글씨).
+  Widget _kindChip(String key, String label, bool selected, bool cut) =>
+      ChoiceChip(
+        key: Key(key),
+        label: Text(label),
+        selected: selected,
+        showCheckmark: false,
+        selectedColor: AppColors.brand,
+        backgroundColor: AppColors.surface,
+        side: BorderSide(color: selected ? AppColors.brand : AppColors.line),
+        labelStyle: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: selected ? Colors.white : AppColors.text,
+        ),
+        onSelected: (_) => setState(() => _isCut = cut),
+      );
 
   Widget _numField(String key, TextEditingController c, String label) =>
       TextField(

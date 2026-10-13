@@ -2184,6 +2184,26 @@ class _MeasureDialogState extends State<_MeasureDialog> {
     return (c / 25.4 * d).round() / d * 25.4;
   }
 
+  /// mm·인치 고르기 칩(골라지면 청록 바탕에 흰 글씨).
+  Widget _unitChip(String key, String label, bool inch) {
+    final selected = _inch == inch;
+    return ChoiceChip(
+      key: Key(key),
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      selectedColor: fc.brand,
+      labelStyle: TextStyle(
+        fontWeight: FontWeight.w700,
+        color: selected ? fc.onBrand : null,
+      ),
+      onSelected: (_) => setState(() {
+        _inch = inch;
+        _measureErr = null;
+      }),
+    );
+  }
+
   String get _calcText {
     final mm = '${widget.calc.round()} mm';
     if (!_inch) return mm;
@@ -2223,24 +2243,8 @@ class _MeasureDialogState extends State<_MeasureDialog> {
               Wrap(
                 spacing: 8,
                 children: [
-                  ChoiceChip(
-                    key: const Key('field_measure_unit_mm'),
-                    label: const Text('mm'),
-                    selected: !_inch,
-                    onSelected: (_) => setState(() {
-                      _inch = false;
-                      _measureErr = null;
-                    }),
-                  ),
-                  ChoiceChip(
-                    key: const Key('field_measure_unit_inch'),
-                    label: const Text('인치'),
-                    selected: _inch,
-                    onSelected: (_) => setState(() {
-                      _inch = true;
-                      _measureErr = null;
-                    }),
-                  ),
+                  _unitChip('field_measure_unit_mm', 'mm', false),
+                  _unitChip('field_measure_unit_inch', '인치', true),
                 ],
               ),
             ],
