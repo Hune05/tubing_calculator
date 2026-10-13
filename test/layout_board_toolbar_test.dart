@@ -236,6 +236,7 @@ void main() {
 
     await tester.tap(find.byTooltip('더보기'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('되돌리기 기록'));
     await tester.tap(find.text('되돌리기 기록'));
     await tester.pumpAndSettle();
     expect(find.text('1단계 전으로 되돌리기'), findsOneWidget);
@@ -245,9 +246,7 @@ void main() {
     await disposeBoard(tester);
   });
 
-  testWidgets('내 프리셋은 관리 시트에서 줄을 왼쪽으로 밀어 지우고, 되돌리기로 살린다', (
-    tester,
-  ) async {
+  testWidgets('내 프리셋은 관리 시트에서 줄을 왼쪽으로 밀어 지우고, 되돌리기로 살린다', (tester) async {
     await openWithDraft(tester, kPhone, presets: true);
     expect(find.text('차단기 3P'), findsOneWidget);
     await tester.tap(find.text('관리'));

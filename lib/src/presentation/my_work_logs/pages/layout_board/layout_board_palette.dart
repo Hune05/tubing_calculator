@@ -147,6 +147,9 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
                   affinity: Axis.vertical,
                 ),
                 const SizedBox(width: 8),
+                // 10-13: 200개 넘는 부품을 묶음마다 뒤지지 않게 이름으로 찾는다(즐겨찾기·최근도 여기).
+                _buildSearchButton(),
+                const SizedBox(width: 8),
                 // 스키드는 전선관 작업 부속만(계기·밸브·피팅·전기는 캐비닛에서 쓴다).
                 if (_isSkid) ...[
                   _buildSkidButton(
@@ -399,12 +402,100 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
     );
   }
 
+  /// 지금 도면 종류에서 놓을 수 있는 모든 부품(찾기 시트용). 묶음 이름 앞에 종류를 붙인다.
+  Map<String, List<ModulePreset>> get _allPartGroups {
+    final out = <String, List<ModulePreset>>{};
+    void add(String kind, Map<String, List<ModulePreset>> g) {
+      for (final e in g.entries) {
+        out['$kind · ${e.key}'] = e.value;
+      }
+    }
+
+    if (_customPresets.isNotEmpty) out['내 프리셋'] = _customPresets;
+    if (_isSkid) {
+      add('형강', kSkidSteelPresets);
+      add('정션박스', kSkidJbPresets);
+      add('전선관 부속', kSkidFittingPresets);
+    } else {
+      add('덕트', kDuctPresetGroups);
+      add('전기', kElecPresets);
+      add('계기', kInstrumentPresets);
+      add('밸브', kValvePresets);
+      add('피팅', kFittingPresets);
+    }
+    return out;
+  }
+
+  Widget _buildSearchButton() => _buildSheetButton(
+    key: const ValueKey("search_button"),
+    icon: Icons.search_rounded,
+    label: "찾기",
+    onTap: () => _showPresetSheet(
+      title: "부품 찾기",
+      help: "이름·모델·극수로 찾습니다. 별을 누르면 즐겨찾기에 들어가고, 놓은 부품은 최근에 남습니다.",
+      groups: _allPartGroups,
+      autofocusSearch: true,
+    ),
+  );
+
+  static const String _recentPartsKey = 'layout_recent_parts_v1';
+  static const String _favPartsKey = 'layout_fav_parts_v1';
+  static const String _snapGuidesKey = 'layout_snap_guides_v1';
+
+  Future<void> _loadPartPrefs() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _recentParts = p.getStringList(_recentPartsKey) ?? [];
+        _favParts = (p.getStringList(_favPartsKey) ?? []).toSet();
+        _snapToGuides = p.getBool(_snapGuidesKey) ?? true;
+      });
+    } catch (_) {}
+  }
+
+  /// 놓은 부품을 "최근 쓴 부품" 맨 앞에 둔다(8개까지).
+  void _rememberRecentPart(String name) {
+    final next = [
+      name,
+      ..._recentParts.where((n) => n != name),
+    ].take(8).toList();
+    _recentParts = next;
+    _savePrefList(_recentPartsKey, next);
+  }
+
+  void _toggleFavPart(String name) {
+    final next = {..._favParts};
+    if (!next.remove(name)) next.add(name);
+    setState(() => _favParts = next);
+    _savePrefList(_favPartsKey, next.toList());
+  }
+
+  Future<void> _savePrefList(String key, List<String> v) async {
+    try {
+      await (await SharedPreferences.getInstance()).setStringList(key, v);
+    } catch (_) {}
+  }
+
+  Future<void> _setSnapToGuides(bool v) async {
+    setState(() => _snapToGuides = v);
+    try {
+      await (await SharedPreferences.getInstance()).setBool(_snapGuidesKey, v);
+    } catch (_) {}
+  }
+
+  /// 찾기 글과 견줄 때: 소문자, 빈칸 없이.
+  static String _searchKey(String v) =>
+      v.toLowerCase().replaceAll(RegExp(r'\s+'), '');
+
   Future<void> _showPresetSheet({
     required String title,
     required String help,
     required Map<String, List<ModulePreset>> groups,
     bool sizeFilter = false,
+    bool autofocusSearch = false,
   }) async {
+    String query = '';
     final ModulePreset? picked = await showModalBottomSheet<ModulePreset>(
       context: context,
       isScrollControlled: true,
@@ -413,99 +504,190 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => DraggableScrollableSheet(
-          expand: false,
-          initialChildSize: sizeFilter ? 0.8 : 0.6,
-          maxChildSize: 0.9,
-          builder: (ctx, scroll) => ListView(
-            controller: scroll,
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.w900,
-                  color: tossText,
-                ),
+        builder: (ctx, setSheet) {
+          final String q = _searchKey(query);
+          bool match(ModulePreset p) =>
+              q.isEmpty || _searchKey(p.name).contains(q);
+          // 크기 거르기(피팅)는 찾는 글이 없을 때만.
+          bool sizeOk(ModulePreset p) =>
+              !sizeFilter ||
+              q.isNotEmpty ||
+              fittingTubeSize(p.name) == _fittingSize;
+          final all = [for (final g in groups.values) ...g];
+          final favs = [
+            for (final p in all)
+              if (_favParts.contains(p.name) && match(p)) p,
+          ];
+          final recents = [
+            for (final n in _recentParts)
+              for (final p in all)
+                if (p.name == n && match(p) && !favs.contains(p)) p,
+          ];
+          Widget row(ModulePreset p) => ListTile(
+            key: ValueKey("preset_row_${p.name}"),
+            contentPadding: EdgeInsets.zero,
+            leading: _instrumentThumb(p, box: 48),
+            title: Text(
+              p.name,
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: tossText,
               ),
-              const SizedBox(height: 4),
-              Text(
-                keepWords(help),
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: tossSubText,
-                  height: 1.4,
-                ),
-              ),
-              if (sizeFilter) ...[
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    for (final size in kFittingSizes)
-                      ChoiceChip(
-                        key: ValueKey("fitting_size_$size"),
-                        label: Text(size),
-                        selected: size == _fittingSize,
-                        showCheckmark: false,
-                        labelStyle: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w800,
-                          color: size == _fittingSize ? pureWhite : tossText,
-                        ),
-                        selectedColor: tossBlue,
-                        backgroundColor: pureWhite,
-                        side: BorderSide(
-                          color: size == _fittingSize ? tossBlue : layoutLine,
-                        ),
-                        onSelected: (_) {
-                          setState(() => _fittingSize = size);
-                          setSheet(() {});
-                        },
-                      ),
-                  ],
+            ),
+            // 덕트는 이름에 폭×높이가 있고 도면 세로(길이)는 놓은 뒤 고치므로 크기를 따로 안 적는다.
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (p.shape != InstrumentShape.duct)
+                  Text(
+                    "${p.width.toInt()}×${p.height.toInt()}",
+                    style: const TextStyle(fontSize: 15, color: tossSubText),
+                  ),
+                IconButton(
+                  key: ValueKey("preset_fav_${p.name}"),
+                  tooltip: _favParts.contains(p.name) ? "즐겨찾기에서 빼기" : "즐겨찾기",
+                  onPressed: () {
+                    _toggleFavPart(p.name);
+                    setSheet(() {});
+                  },
+                  icon: Icon(
+                    _favParts.contains(p.name)
+                        ? Icons.star_rounded
+                        : Icons.star_border_rounded,
+                    color: _favParts.contains(p.name)
+                        ? const Color(0xFFF59E0B)
+                        : tossSubText,
+                  ),
                 ),
               ],
-              for (final brand in groups.entries)
-                if (!sizeFilter ||
-                    brand.value.any(
-                      (p) => fittingTubeSize(p.name) == _fittingSize,
-                    )) ...[
-                  const SizedBox(height: 16),
-                  _panelLabel(brand.key),
-                  for (final p in brand.value)
-                    if (!sizeFilter || fittingTubeSize(p.name) == _fittingSize)
-                      ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: _instrumentThumb(p, box: 48),
-                        title: Text(
-                          p.name,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: tossText,
-                          ),
-                        ),
-                        // 덕트는 이름에 폭×높이가 있고 도면 세로(길이)는 놓은 뒤 고치므로 크기를 따로 안 적는다.
-                        trailing: p.shape == InstrumentShape.duct
-                            ? null
-                            : Text(
-                                "${p.width.toInt()}×${p.height.toInt()}",
-                                style: const TextStyle(
-                                  fontSize: 15,
-                                  color: tossSubText,
-                                ),
-                              ),
-                        onTap: () => Navigator.pop(ctx, p),
+            ),
+            onTap: () => Navigator.pop(ctx, p),
+          );
+          int shown = 0;
+          final children = <Widget>[
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w900,
+                color: tossText,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              keepWords(help),
+              style: const TextStyle(
+                fontSize: 14,
+                color: tossSubText,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey("preset_search"),
+              autofocus: autofocusSearch,
+              onChanged: (v) => setSheet(() => query = v),
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                hintText: "부품 이름으로 찾기 (예: UK 2.5, 10P, LB 22)",
+                prefixIcon: const Icon(Icons.search_rounded),
+                isDense: true,
+                filled: true,
+                fillColor: tossBg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            if (sizeFilter && q.isEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                children: [
+                  for (final size in kFittingSizes)
+                    ChoiceChip(
+                      key: ValueKey("fitting_size_$size"),
+                      label: Text(size),
+                      selected: size == _fittingSize,
+                      showCheckmark: false,
+                      labelStyle: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: size == _fittingSize ? pureWhite : tossText,
                       ),
+                      selectedColor: tossBlue,
+                      backgroundColor: pureWhite,
+                      side: BorderSide(
+                        color: size == _fittingSize ? tossBlue : layoutLine,
+                      ),
+                      onSelected: (_) {
+                        setState(() => _fittingSize = size);
+                        setSheet(() {});
+                      },
+                    ),
                 ],
+              ),
             ],
-          ),
-        ),
+            if (favs.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _panelLabel("즐겨찾기"),
+              for (final p in favs) row(p),
+            ],
+            if (recents.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _panelLabel("최근 쓴 부품"),
+              for (final p in recents) row(p),
+            ],
+          ];
+          for (final brand in groups.entries) {
+            final list = [
+              for (final p in brand.value)
+                if (match(p) && sizeOk(p)) p,
+            ];
+            if (list.isEmpty) continue;
+            shown += list.length;
+            children.add(const SizedBox(height: 16));
+            children.add(_panelLabel(brand.key));
+            children.addAll(list.map(row));
+          }
+          if (shown == 0) {
+            children.add(
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Text(
+                  q.isEmpty
+                      ? "부품이 없습니다"
+                      : "'$query'에 맞는 부품이 없습니다. 신규 부품으로 놓고 이름·크기를 넣으십시오.",
+                  key: const ValueKey("preset_search_empty"),
+                  style: const TextStyle(fontSize: 14, color: tossSubText),
+                ),
+              ),
+            );
+          }
+          return Padding(
+            // 자판이 올라오면 그만큼 줄여 목록이 가려지지 않게.
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: (sizeFilter || autofocusSearch) ? 0.85 : 0.6,
+              maxChildSize: 0.92,
+              builder: (ctx, scroll) => ListView(
+                key: const ValueKey("preset_list"),
+                controller: scroll,
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                children: children,
+              ),
+            ),
+          );
+        },
       ),
     );
     if (picked == null || !mounted) return;
+    _rememberRecentPart(picked.name);
     _onAcceptItem(picked, _visibleBoardCenter(picked));
   }
 

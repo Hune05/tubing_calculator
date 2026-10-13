@@ -17,6 +17,18 @@ extension _LayoutBoardSelect on _LayoutBoardPageState {
     });
   }
 
+  /// 부품을 길게 누르면 여러 개 선택이 켜지고 그 부품이 골라진다(10-13). 치수 재는 중에는 안 한다.
+  void _selectByLongPress(PlacedItem item) {
+    if (_mode == BoardMode.measureDimension) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _multiSelectMode = true;
+      _multiSelectedIds = {..._multiSelectedIds, item.id};
+      item.isSelected = true;
+      _activeItem = null;
+    });
+  }
+
   List<PlacedItem> get _selectedGroup =>
       _placedItems.where((i) => _multiSelectedIds.contains(i.id)).toList();
 

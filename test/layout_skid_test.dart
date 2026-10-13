@@ -88,6 +88,7 @@ void main() {
     expect(find.byKey(const ValueKey('duct_button')), findsNothing);
 
     expect(find.byKey(const ValueKey('skid_conduit')), findsNothing);
+    await tester.ensureVisible(find.byKey(const ValueKey('skid_jb')));
     await tester.tap(find.byKey(const ValueKey('skid_jb')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('정션박스 300×300'));
@@ -130,6 +131,7 @@ void main() {
     expect(find.text('정면'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('plate_tab_front')));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const ValueKey('skid_jb')));
     await tester.tap(find.byKey(const ValueKey('skid_jb')));
     await tester.pumpAndSettle();
     await tester.tap(find.text('정션박스 300×300'));

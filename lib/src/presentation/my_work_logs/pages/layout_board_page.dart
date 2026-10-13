@@ -388,6 +388,13 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   List<ModulePreset> _customPresets = [];
 
+  // 부품 목록 찾기(10-13): 최근 쓴 부품 이름(앞이 최근, 8개까지)과 즐겨찾기 이름. 폰에 기억한다.
+  List<String> _recentParts = [];
+  Set<String> _favParts = {};
+
+  // 끌 때 안내선(옆 부품의 왼·가운데·오른 선)에 가까우면 붙인다(10-13). 더보기에서 끌 수 있다.
+  bool _snapToGuides = true;
+
   // 🚀 [신규] 프리셋이 많아지면 원하는 걸 찾기 번거로워질 수 있어 이름
   // 검색으로 바로 필터링할 수 있게 했다.
   final TextEditingController _presetSearchCtrl = TextEditingController();
@@ -406,6 +413,7 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
         .catchError((_) {});
     WidgetsBinding.instance.addObserver(this);
     _loadCustomPresets();
+    _loadPartPrefs();
     // 🚀 확대/이동할 때마다 미니맵의 "현재 보는 영역" 표시가 따라
     // 움직이도록 다시 그려준다.
     // 미니맵·배율 글자는 스스로 다시 그린다(ValueListenableBuilder). 화면 전체는 글씨 배율이
@@ -510,6 +518,20 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
 
   /// 테스트에서 모든 탭(판)의 저장 모양을 본다.
   @visibleForTesting
+  /// 시험용: 끌 때 안내선에 붙는 자리(10-13).
+  Offset debugSnapAlignment(String id, Offset proposed) =>
+      _snapToAlignment(_placedItems.firstWhere((i) => i.id == id), proposed);
+
+  /// 시험용: 겹치지 않는 가까운 빈자리(10-13).
+  Offset debugFreeSpotNear(String id, Offset wanted) =>
+      _freeSpotNear(_placedItems.firstWhere((i) => i.id == id), wanted);
+
+  /// 시험용: 여러 개 선택에 든 부품 id.
+  Set<String> debugMultiSelected() => {..._multiSelectedIds};
+
+  /// 시험용: 안내선에 붙이기 켜고 끄기.
+  void debugSetSnapGuides(bool v) => _snapToGuides = v;
+
   Map<String, Map<String, dynamic>> debugPlates() => _allPlates();
 
   // 🚀 [신규] 실행 취소/다시 실행. 모듈 배치/이동/삭제/회전/치수 추가·

@@ -38,6 +38,9 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
 
     double? guideX;
     double? guideY;
+    // 붙일 자리(왼쪽 위 기준). 안내선과 짝이다.
+    double? snapX;
+    double? snapY;
 
     for (final other in _placedItems) {
       if (other.id == dragging.id) continue;
@@ -54,26 +57,74 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
       if (guideX == null && !yOverlaps) {
         if ((left - oLeft).abs() <= snapThreshold) {
           guideX = oLeft;
+          snapX = oLeft;
         } else if ((right - oRight).abs() <= snapThreshold) {
           guideX = oRight;
+          snapX = oRight - dragging.width;
         } else if ((centerX - oCenterX).abs() <= snapThreshold) {
           guideX = oCenterX;
+          snapX = oCenterX - ref.dx;
         }
       }
       if (guideY == null && !xOverlaps) {
         if ((top - oTop).abs() <= snapThreshold) {
           guideY = oTop;
+          snapY = oTop;
         } else if ((bottom - oBottom).abs() <= snapThreshold) {
           guideY = oBottom;
+          snapY = oBottom - dragging.height;
         } else if ((centerY - oCenterY).abs() <= snapThreshold) {
           guideY = oCenterY;
+          snapY = oCenterY - ref.dy;
         }
       }
     }
 
     _alignGuideX = guideX;
     _alignGuideY = guideY;
-    return proposed;
+    // 10-13: 안내선이 보이면 그 자리로 살짝 붙인다(더보기 "안내선에 붙이기"로 끌 수 있다).
+    // 예전에는 선만 긋고 자리는 손가락 그대로라 1~2mm씩 어긋났다.
+    if (!_snapToGuides) return proposed;
+    return Offset(snapX ?? proposed.dx, snapY ?? proposed.dy);
+  }
+
+  /// [wanted]에 놓으면 다른 부품과 겹칠 때, 모눈 칸 단위로 둘레를 넓혀 가며 가까운 빈자리를 찾는다.
+  /// 못 찾으면 [wanted] 그대로(판 안으로만 맞춤). 10-13: 겹침 막기가 끌 때만 되고
+  /// 놓기·복제는 포개졌다.
+  Offset _freeSpotNear(PlacedItem item, Offset wanted) {
+    Offset inside(Offset o) => Offset(
+      o.dx.clamp(0.0, math.max(0.0, _panelWidth - item.width)),
+      o.dy.clamp(0.0, math.max(0.0, _panelHeight - item.height)),
+    );
+    final Offset base = inside(wanted);
+    if (!_overlapsAny(item, base)) return base;
+    final double step = _gridSize > 0 ? _gridSize : 5.0;
+    for (int r = 1; r <= 60; r++) {
+      for (int dy = -r; dy <= r; dy++) {
+        for (int dx = -r; dx <= r; dx++) {
+          if (dx.abs() != r && dy.abs() != r) continue; // 둘레만 본다
+          final Offset c = inside(
+            Offset(base.dx + dx * step, base.dy + dy * step),
+          );
+          if (!_overlapsAny(item, c)) return c;
+        }
+      }
+    }
+    return base;
+  }
+
+  /// 겹쳐서 옆자리로 옮겨 놓았다고 알린다.
+  void _noticeMovedAside() {
+    if (!mounted) return;
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
+      SnackBar(
+        content: Text(keepWords("다른 부품과 겹쳐서 옆 빈자리에 놓았습니다.")),
+        backgroundColor: tossText,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
+    );
   }
 
   // 🚀 [버그 수정] 정렬 스냅뿐 아니라 그냥 드래그로도 모듈을 다른 모듈
@@ -135,6 +186,7 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
     }
     HapticFeedback.mediumImpact();
     _pushUndo();
+    bool movedAside = false;
     setState(() {
       for (var item in _placedItems) {
         item.isSelected = false;
@@ -167,11 +219,16 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
       );
       _snapToRail(newItem);
       _snapToSteel(newItem, plan: _placedItems);
+      // 10-13: 놓는 자리가 다른 부품과 겹치면 가까운 빈자리로.
+      final Offset free = _freeSpotNear(newItem, newItem.position);
+      movedAside = free != newItem.position;
+      newItem.position = free;
 
       _placedItems.add(newItem);
       _activeItem = newItem;
       _previewItem = null;
     });
+    if (movedAside) _noticeMovedAside();
     _showInspectorBottomSheet(_placedItems.last);
   }
 
@@ -498,13 +555,23 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
   void _rotateItem(PlacedItem item) {
     _pushUndo();
     setState(() {
+      // 상자 가운데를 그대로 두고 돌린다(10-13: 예전엔 왼쪽 위 기준이라 돌릴 때 부품이 튀었다).
+      final Offset c = item.position + Offset(item.width / 2, item.height / 2);
       item.rotation = ((_effectiveTurns(item) + 1) % 4) * 90;
       final double temp = item.width;
       item.width = item.height;
       item.height = temp;
-      item.position = Offset(
-        item.position.dx.clamp(0.0, math.max(0.0, _panelWidth - item.width)),
-        item.position.dy.clamp(0.0, math.max(0.0, _panelHeight - item.height)),
+      item.position = _snapToGrid(
+        Offset(
+          (c.dx - item.width / 2).clamp(
+            0.0,
+            math.max(0.0, _panelWidth - item.width),
+          ),
+          (c.dy - item.height / 2).clamp(
+            0.0,
+            math.max(0.0, _panelHeight - item.height),
+          ),
+        ),
       );
     });
     HapticFeedback.lightImpact();
@@ -528,7 +595,7 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
     HapticFeedback.lightImpact();
   }
 
-  // 부품 하나 복제: 오른쪽 아래로 20mm 비켜 놓는다.
+  // 부품 하나 복제: 오른쪽 옆 빈자리에 놓는다(10-13: 예전엔 20mm 비켜 포개 놓았다).
   void _duplicateItem(PlacedItem item) {
     _pushUndo();
     final newItem = PlacedItem(
@@ -536,11 +603,9 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
       name: item.name,
       position: _snapToGrid(
         Offset(
-          (item.position.dx + 20).clamp(
-            0.0,
-            math.max(0.0, _panelWidth - item.width),
-          ),
-          (item.position.dy + 20).clamp(
+          (item.position.dx + item.width + (_gridSize > 0 ? _gridSize : 5))
+              .clamp(0.0, math.max(0.0, _panelWidth - item.width)),
+          item.position.dy.clamp(
             0.0,
             math.max(0.0, _panelHeight - item.height),
           ),
@@ -558,6 +623,7 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
       // 각도 칸 없는 부품처럼 취급되어(추측 로직을 타서) 다음에 돌릴 때 찌그러질 수 있었다.
       rotation: item.rotation,
     );
+    newItem.position = _freeSpotNear(newItem, newItem.position);
     setState(() {
       _placedItems.add(newItem);
     });

@@ -56,7 +56,9 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
-                keepWords("③ '여러 개 선택'을 켜면 여러 부품을 한 번에 옮기거나 정렬할 수 있습니다."),
+                keepWords(
+                  "③ 부품을 길게 누르거나 '여러 개 선택'을 켜면 여러 부품을 한 번에 옮기거나 정렬할 수 있습니다.",
+                ),
                 style: TextStyle(color: tossText, fontSize: 14, height: 1.6),
               ),
               Text(
@@ -817,6 +819,15 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                           ? "끔 · 놓는 자리 그대로. 누르면 1mm"
                           : "누를 때마다 끔 → 1 → 5 → 10mm",
                       onTap: () => run(_cycleGrid),
+                    ),
+                    layoutSheetRow(
+                      key: const ValueKey("snap_guides"),
+                      icon: Icons.align_horizontal_left_rounded,
+                      label: "안내선에 붙이기",
+                      caption: _snapToGuides
+                          ? "켜짐 · 끌 때 옆 부품의 왼·가운데·오른 선에 가까우면 붙습니다"
+                          : "꺼짐 · 안내선만 보이고 자리는 손가락 그대로",
+                      onTap: () => run(() => _setSnapToGuides(!_snapToGuides)),
                     ),
                     if (_isSkid)
                       layoutSheetRow(

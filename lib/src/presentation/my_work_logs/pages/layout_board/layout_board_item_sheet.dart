@@ -19,6 +19,8 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
     );
   }
 
+  /// 부품 편집 창(아래 시트). 10-13 정리: 자주 쓰는 것(이름·태그·크기·깊이·회전·뒤집기·복제)만 바로,
+  /// 가끔 쓰는 것(위치 숫자·맨 앞/뒤·잠금·내 프리셋 저장)은 "더보기"에 접어 둔다. 단추 13개가 한 창에 다 있었다.
   void _showInspectorBottomSheet(PlacedItem item) {
     // 🚀 이 편집창 안에서 이름/회전/크기 등을 몇 번을 고치든, 열기
     // 직전 상태 하나만 기억해서 "편집 취소"가 한 번에 되게 한다
@@ -39,6 +41,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
     final TextEditingController depthCtrl = TextEditingController(
       text: _depthText(_isSkid ? item.elevation : item.depth),
     );
+    bool more = false;
 
     showModalBottomSheet(
       context: context,
@@ -48,6 +51,98 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
       builder: (context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
+            void syncSize() => setModalState(() {
+              widthCtrl.text = item.width.toInt().toString();
+              heightCtrl.text = item.height.toInt().toString();
+            });
+            // 자주 쓰는 단추(높이 44, 옅은 청록 바탕).
+            Widget quick({
+              required Key key,
+              required IconData icon,
+              required String label,
+              required VoidCallback onTap,
+            }) => ElevatedButton.icon(
+              key: key,
+              onPressed: onTap,
+              icon: Icon(icon, size: 18, color: tossBlue),
+              label: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: tossBlue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(40, 44),
+                backgroundColor: tossBlue.withValues(alpha: 0.1),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
+              ),
+            );
+            // 더보기 안 단추(테두리만).
+            Widget plain({
+              required Key key,
+              required IconData icon,
+              required String label,
+              required VoidCallback onTap,
+              Color color = tossText,
+            }) => OutlinedButton.icon(
+              key: key,
+              onPressed: onTap,
+              icon: Icon(icon, size: 18, color: color),
+              label: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(40, 44),
+                side: BorderSide(color: color.withValues(alpha: 0.25)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+            // 위치 숫자 입력: 다른 부품과 겹치면 옮기지 않는다(끌 때와 같은 규칙, 10-13).
+            void moveTo(Offset wanted) {
+              final Offset next = Offset(
+                wanted.dx.clamp(0.0, math.max(0.0, _panelWidth - item.width)),
+                wanted.dy.clamp(0.0, math.max(0.0, _panelHeight - item.height)),
+              );
+              if (_overlapsAny(item, next)) {
+                showSnackOnce(
+                  ScaffoldMessenger.of(context),
+                  SnackBar(
+                    content: Text(keepWords("그 자리는 다른 부품과 겹칩니다. 옮기지 않았습니다.")),
+                    backgroundColor: tossText,
+                    behavior: SnackBarBehavior.floating,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              } else {
+                setState(() => item.position = next);
+              }
+              setModalState(() {});
+            }
+
             return Container(
               padding: EdgeInsets.only(
                 bottom: MediaQuery.of(context).viewInsets.bottom + 24,
@@ -68,11 +163,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                   ),
                 ],
               ),
-              // 🚀 [버그 수정] 편집창에 버튼이 계속 늘어나면서(회전/복제/
-              // 프리셋 저장/잠금/레이어 순서까지) 키보드가 뜨면 남는
-              // 세로 공간이 부족해 화면 밖으로 넘치는 오버플로우가 났다 -
-              // 스크롤 가능하게 감싸서 내용이 많아도 넘치지 않고 스크롤
-              // 되게 한다.
+              // 자판이 뜨면 세로가 모자라므로 굴러가게 감싼다.
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -100,283 +191,9 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-
-                    if (_canFlip(item)) ...[
-                      // 그림이 있는 부품은 좌우를 뒤집을 수 있다(부속은 허브 방향, 엘보·밸브는 나사 방향).
-                      ElevatedButton.icon(
-                        key: const ValueKey("flip_button"),
-                        onPressed: () {
-                          _flipItem(item);
-                          setModalState(() {});
-                        },
-                        icon: const Icon(
-                          Icons.flip_rounded,
-                          size: 18,
-                          color: tossBlue,
-                        ),
-                        label: Text(
-                          SkidShape.isFitting(item.shape)
-                              ? "좌우 뒤집기 (허브 반대쪽)"
-                              : "좌우 뒤집기",
-                          style: const TextStyle(
-                            color: tossBlue,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          minimumSize: const Size(40, 44),
-                          backgroundColor: tossBlue.withValues(alpha: 0.1),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                    // 🚀 [여기가 핵심 추가본입니다] 회전 & 복사 버튼
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              // 90° 회전: 가로·세로를 바꾸고 각도 칸도 90 더한다(넓은 화면과 같은 함수).
-                              _rotateItem(item);
-                              // 바텀시트의 텍스트 필드 값도 함께 업데이트
-                              setModalState(() {
-                                widthCtrl.text = item.width.toInt().toString();
-                                heightCtrl.text = item.height
-                                    .toInt()
-                                    .toString();
-                              });
-                            },
-                            icon: const Icon(
-                              Icons.rotate_90_degrees_cw_rounded,
-                              size: 18,
-                              color: tossBlue,
-                            ),
-                            label: const Text(
-                              "90° 회전",
-                              style: TextStyle(
-                                color: tossBlue,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                              backgroundColor: tossBlue.withValues(alpha: 0.1),
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              // 부품 복제(되돌리기 한 번으로 돌아간다)
-                              _duplicateItem(item);
-                              Navigator.pop(context); // 복제 후 창 닫기
-
-                              showSnackOnce(
-                                ScaffoldMessenger.of(context),
-                                SnackBar(
-                                  content: Text(
-                                    keepWords("'${item.name}' 부품을 복사했습니다."),
-                                  ),
-                                  backgroundColor: tossText,
-                                  behavior: SnackBarBehavior.floating,
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                            icon: const Icon(
-                              Icons.content_copy_rounded,
-                              size: 18,
-                              color: tossText,
-                            ),
-                            label: const Text(
-                              "부품 복제",
-                              style: TextStyle(
-                                color: tossText,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                              backgroundColor: tossBg,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
                     const SizedBox(height: 12),
-
-                    // 🚀 [신규] 레이어 순서(앞/뒤) 조정 - 모듈이 서로 겹칠 때
-                    // 어느 것이 위로 보일지 정할 수 있게 한다. 리스트 맨
-                    // 뒤에 있을수록 화면 맨 위에 그려진다.
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _placedItems.remove(item);
-                                _placedItems.add(item);
-                              });
-                              setModalState(() {});
-                              HapticFeedback.lightImpact();
-                            },
-                            icon: const Icon(
-                              Icons.flip_to_front_rounded,
-                              size: 18,
-                              color: tossText,
-                            ),
-                            label: const Text(
-                              "맨 앞으로",
-                              style: TextStyle(
-                                color: tossText,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                              side: BorderSide(
-                                color: tossText.withValues(alpha: 0.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              setState(() {
-                                _placedItems.remove(item);
-                                _placedItems.insert(0, item);
-                              });
-                              setModalState(() {});
-                              HapticFeedback.lightImpact();
-                            },
-                            icon: const Icon(
-                              Icons.flip_to_back_rounded,
-                              size: 18,
-                              color: tossText,
-                            ),
-                            label: const Text(
-                              "맨 뒤로",
-                              style: TextStyle(
-                                color: tossText,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(40, 40),
-                              side: BorderSide(
-                                color: tossText.withValues(alpha: 0.2),
-                              ),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // 🚀 [신규] 지금 이 모듈의 이름/크기를 "내 프리셋"으로
-                    // 저장 - 다음 도면에서 팔레트에서 바로 드래그해 쓸 수
-                    // 있다(예: 자주 쓰는 차단기 규격).
-                    SizedBox(
-                      width: double.infinity,
-                      child: TextButton.icon(
-                        onPressed: () {
-                          _saveAsCustomPreset(
-                            nameCtrl.text.trim().isNotEmpty
-                                ? nameCtrl.text.trim()
-                                : item.name,
-                            item.width,
-                            item.height,
-                            shape: item.shape,
-                            depth: item.depth,
-                          );
-                          HapticFeedback.lightImpact();
-                          showSnackOnce(
-                            ScaffoldMessenger.of(context),
-                            SnackBar(
-                              content: Text(keepWords("내 프리셋에 저장했습니다.")),
-                              backgroundColor: tossText,
-                              behavior: SnackBarBehavior.floating,
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                        icon: const Icon(
-                          Icons.star_border_rounded,
-                          size: 18,
-                          color: tossBlue,
-                        ),
-                        label: const Text(
-                          "이 크기를 내 프리셋으로 저장",
-                          style: TextStyle(
-                            color: tossBlue,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                    // 🚀 [신규] 위치가 확정된 모듈을 잠가서 실수로 드래그해
-                    // 옮겨지지 않게 한다.
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () {
-                          setState(() => item.isLocked = !item.isLocked);
-                          setModalState(() {});
-                          HapticFeedback.lightImpact();
-                        },
-                        icon: Icon(
-                          item.isLocked
-                              ? Icons.lock_rounded
-                              : Icons.lock_open_rounded,
-                          size: 18,
-                          color: item.isLocked ? warningRed : tossSubText,
-                        ),
-                        label: Text(
-                          item.isLocked ? "잠금 해제" : "이 부품 위치 잠그기",
-                          style: TextStyle(
-                            color: item.isLocked ? warningRed : tossSubText,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
                     TextField(
+                      key: const ValueKey("item_name_field"),
                       controller: nameCtrl,
                       style: const TextStyle(
                         fontSize: 16,
@@ -416,14 +233,9 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                     _buildTagField(item, tagCtrl),
                     if (_buildRailLengthHint(item, () {}) != null) ...[
                       const SizedBox(height: 12),
-                      _buildRailLengthHint(item, () {
-                        setModalState(() {
-                          widthCtrl.text = item.width.toInt().toString();
-                          heightCtrl.text = item.height.toInt().toString();
-                        });
-                      })!,
+                      _buildRailLengthHint(item, syncSize)!,
                     ],
-                    const SizedBox(height: 28),
+                    const SizedBox(height: 20),
                     const Text(
                       "부품 크기 (가로 x 세로)",
                       style: TextStyle(
@@ -484,7 +296,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _buildCoordinateInput(
                       _isSkid
                           ? "바닥에서 높이 (mm, 부품 가운데까지)"
@@ -501,66 +313,221 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                       },
                       controller: depthCtrl,
                     ),
-                    const SizedBox(height: 28),
-                    const Text(
-                      "위치 (mm, 왼쪽 위 기준)",
-                      style: TextStyle(
-                        color: tossText,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 20),
+                    // 자주 쓰는 동작: 돌리기 · 뒤집기(그림 있는 부품) · 복제
                     Row(
                       children: [
                         Expanded(
-                          child: _buildCoordinateInput(
-                            "X 좌표 (mm)",
-                            item.position.dx.toInt().toString(),
-                            (val) {
-                              setState(() {
-                                double newX =
-                                    parseNumberText(val) ?? item.position.dx;
-                                item.position = Offset(
-                                  newX.clamp(
-                                    0.0,
-                                    math.max(0.0, _panelWidth - item.width),
-                                  ),
-                                  item.position.dy,
-                                );
-                              });
-                              setModalState(() {});
+                          child: quick(
+                            key: const ValueKey("rotate_button"),
+                            icon: Icons.rotate_90_degrees_cw_rounded,
+                            label: "90° 회전",
+                            onTap: () {
+                              // 가로·세로를 바꾸고 각도 칸도 90 더한다(가운데는 그 자리).
+                              _rotateItem(item);
+                              syncSize();
                             },
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        if (_canFlip(item)) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: quick(
+                              key: const ValueKey("flip_button"),
+                              icon: Icons.flip_rounded,
+                              label: SkidShape.isFitting(item.shape)
+                                  ? "뒤집기 (허브 반대)"
+                                  : "좌우 뒤집기",
+                              onTap: () {
+                                _flipItem(item);
+                                setModalState(() {});
+                              },
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 8),
                         Expanded(
-                          child: _buildCoordinateInput(
-                            "Y 좌표 (mm)",
-                            item.position.dy.toInt().toString(),
-                            (val) {
-                              setState(() {
-                                double newY =
-                                    parseNumberText(val) ?? item.position.dy;
-                                item.position = Offset(
-                                  item.position.dx,
-                                  newY.clamp(
-                                    0.0,
-                                    math.max(0.0, _panelHeight - item.height),
+                          child: quick(
+                            key: const ValueKey("duplicate_button"),
+                            icon: Icons.content_copy_rounded,
+                            label: "부품 복제",
+                            onTap: () {
+                              // 복제(되돌리기 한 번으로 돌아간다). 겹치지 않는 옆자리에 놓는다.
+                              _duplicateItem(item);
+                              Navigator.pop(context);
+                              showSnackOnce(
+                                ScaffoldMessenger.of(context),
+                                SnackBar(
+                                  content: Text(
+                                    keepWords("'${item.name}' 부품을 복사했습니다."),
                                   ),
-                                );
-                              });
-                              setModalState(() {});
+                                  backgroundColor: tossText,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
                             },
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 36),
+                    const SizedBox(height: 8),
+                    // 가끔 쓰는 것은 접어 둔다.
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        key: const ValueKey("item_more"),
+                        onPressed: () => setModalState(() => more = !more),
+                        icon: Icon(
+                          more
+                              ? Icons.expand_less_rounded
+                              : Icons.expand_more_rounded,
+                          size: 20,
+                          color: tossSubText,
+                        ),
+                        label: Text(
+                          more ? "접기" : "더보기 (위치 숫자 · 앞뒤 순서 · 잠금 · 내 프리셋)",
+                          style: const TextStyle(
+                            color: tossSubText,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (more) ...[
+                      const SizedBox(height: 8),
+                      const Text(
+                        "위치 (mm, 왼쪽 위 기준)",
+                        style: TextStyle(
+                          color: tossText,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildCoordinateInput(
+                              "X 좌표 (mm)",
+                              item.position.dx.toInt().toString(),
+                              (val) => moveTo(
+                                Offset(
+                                  parseNumberText(val) ?? item.position.dx,
+                                  item.position.dy,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _buildCoordinateInput(
+                              "Y 좌표 (mm)",
+                              item.position.dy.toInt().toString(),
+                              (val) => moveTo(
+                                Offset(
+                                  item.position.dx,
+                                  parseNumberText(val) ?? item.position.dy,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      // 겹칠 때 어느 것이 위로 보일지. 목록 맨 뒤가 화면 맨 위다.
+                      Row(
+                        children: [
+                          Expanded(
+                            child: plain(
+                              key: const ValueKey("front_button"),
+                              icon: Icons.flip_to_front_rounded,
+                              label: "맨 앞으로",
+                              onTap: () {
+                                setState(() {
+                                  _placedItems.remove(item);
+                                  _placedItems.add(item);
+                                });
+                                setModalState(() {});
+                                HapticFeedback.lightImpact();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: plain(
+                              key: const ValueKey("back_button"),
+                              icon: Icons.flip_to_back_rounded,
+                              label: "맨 뒤로",
+                              onTap: () {
+                                setState(() {
+                                  _placedItems.remove(item);
+                                  _placedItems.insert(0, item);
+                                });
+                                setModalState(() {});
+                                HapticFeedback.lightImpact();
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: plain(
+                              key: const ValueKey("lock_button"),
+                              icon: item.isLocked
+                                  ? Icons.lock_rounded
+                                  : Icons.lock_open_rounded,
+                              label: item.isLocked ? "잠금 해제" : "이 부품 위치 잠그기",
+                              color: item.isLocked ? warningRed : tossText,
+                              onTap: () {
+                                setState(() => item.isLocked = !item.isLocked);
+                                setModalState(() {});
+                                HapticFeedback.lightImpact();
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: plain(
+                              key: const ValueKey("preset_save_button"),
+                              icon: Icons.star_border_rounded,
+                              label: "내 프리셋으로 저장",
+                              onTap: () {
+                                _saveAsCustomPreset(
+                                  nameCtrl.text.trim().isNotEmpty
+                                      ? nameCtrl.text.trim()
+                                      : item.name,
+                                  item.width,
+                                  item.height,
+                                  shape: item.shape,
+                                  depth: item.depth,
+                                );
+                                HapticFeedback.lightImpact();
+                                showSnackOnce(
+                                  ScaffoldMessenger.of(context),
+                                  SnackBar(
+                                    content: Text(keepWords("내 프리셋에 저장했습니다.")),
+                                    backgroundColor: tossText,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: OutlinedButton.icon(
+                        key: const ValueKey("delete_button"),
                         onPressed: () {
                           setState(() {
                             _dimensions.removeWhere(

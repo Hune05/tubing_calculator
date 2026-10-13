@@ -238,7 +238,13 @@ void main() {
     await tester.scrollUntilVisible(
       find.text(name),
       200,
-      scrollable: find.byType(Scrollable).last,
+      // 찾기 칸(TextField)도 Scrollable을 갖게 돼, 목록 자신의 Scrollable(첫 번째)을 집는다.
+      scrollable: find
+          .descendant(
+            of: find.byKey(const ValueKey('preset_list')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     await tester.ensureVisible(find.text(name));
     await tester.pumpAndSettle();

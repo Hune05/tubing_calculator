@@ -472,6 +472,8 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                         }
                                       : null,
                                   onTap: () => _onTapItem(item),
+                                  // 10-13: 길게 누르면 "여러 개 선택" 단추를 먼저 안 켜도 바로 고른다.
+                                  onLongPress: () => _selectByLongPress(item),
                                   child: Container(
                                     width: item.width + _kTouchHitPad * 2,
                                     height: item.height + _kTouchHitPad * 2,
