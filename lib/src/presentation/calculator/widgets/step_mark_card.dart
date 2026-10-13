@@ -411,38 +411,12 @@ const TextStyle cardValueStyle = TextStyle(
   color: _slate900,
 );
 
-/// 마킹 카드를 이 넓이(논리 픽셀) 이상이면 두 줄로 나란히 놓는다(가로 화면·태블릿 가로).
-const double kMarkCardTwoColumnWidth = 700;
-
-/// 마킹 카드 목록(10-09 가로 화면): 넓으면 두 줄로 나란히, 좁으면 한 줄.
-/// 읽는 순서는 왼쪽→오른쪽, 위→아래(1 | 2, 3 | 4). [build]는 0부터 [count]-1까지 부른다.
+/// 마킹 카드 목록: 늘 한 줄(위→아래). [build]는 0부터 [count]-1까지 부른다.
+/// 10-13: 10-09에 폭 700 이상이면 두 줄로 나란히 놓게 했는데, 세로로 든 태블릿(폭 약 800)에서도 두 줄이 되어
+/// 카드가 반쪽 폭으로 짜부라졌다(사용자: "완전 답답하게 짜부"). 09-29에 두 칸 화면을 뺀 결정과 같게 한 줄로 되돌림.
 Widget markCardSliver({
   required int count,
   required Widget Function(int index) build,
-}) => SliverLayoutBuilder(
-  builder: (context, c) {
-    if (c.crossAxisExtent < kMarkCardTwoColumnWidth) {
-      return SliverList(
-        delegate: SliverChildBuilderDelegate(
-          (_, i) => build(i),
-          childCount: count,
-        ),
-      );
-    }
-    return SliverList(
-      delegate: SliverChildBuilderDelegate((_, r) {
-        final a = r * 2;
-        final b = a + 1;
-        return Row(
-          key: ValueKey('mark_row_$r'),
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: build(a)),
-            const SizedBox(width: 12),
-            Expanded(child: b < count ? build(b) : const SizedBox.shrink()),
-          ],
-        );
-      }, childCount: (count + 1) ~/ 2),
-    );
-  },
+}) => SliverList(
+  delegate: SliverChildBuilderDelegate((_, i) => build(i), childCount: count),
 );

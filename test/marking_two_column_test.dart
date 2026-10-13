@@ -1,4 +1,5 @@
-// 마킹 카드: 가로로 넓으면 두 줄로 나란히, 세로(좁으면)는 예전처럼 한 줄(10-09 가로 화면).
+// 마킹 카드: 넓은 화면(세로로 든 태블릿·가로 화면)에서도 늘 한 줄(10-13).
+// 10-09에 폭 700 이상이면 두 줄로 나란히 놓았는데, 세로 태블릿(폭 약 800)에서 카드가 반쪽 폭으로 짜부라졌다.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,48 +38,26 @@ void main() {
     '튜브': () => const MobileResultTab(startDir: 'RIGHT'),
     '전선관': () => const ConduitResultTab(),
   }.entries) {
-    testWidgets('${e.key}: 가로 1000에서 카드가 두 줄로 나란히, 넘침 없음', (tester) async {
-      MobileBendDataManager().bendList
-        ..clear()
-        ..addAll([for (final r in rows) Map<String, dynamic>.of(r)]);
-      ConduitDataManager().bendList
-        ..clear()
-        ..addAll([for (final r in rows) Map<String, dynamic>.of(r)]);
-      final errors = await _pump(tester, const Size(1000, 1400), e.value());
-      expect(errors, isEmpty);
-      expect(find.byKey(const ValueKey('mark_row_0')), findsOneWidget);
-      // 첫 줄 두 카드가 같은 높이 선에서 시작한다(왼쪽·오른쪽).
-      final row = find.byKey(const ValueKey('mark_row_0'));
-      final kids = tester.widget<Row>(row).children;
-      expect(kids.whereType<Expanded>(), hasLength(2));
-      final l = tester.getTopLeft(find.byWidget(kids.first));
-      final r = tester.getTopLeft(find.byWidget(kids.last));
-      expect(l.dy, r.dy);
-      expect(r.dx, greaterThan(l.dx + 300));
-    });
-
-    testWidgets('${e.key}: 가로 640(작은 폰 가로)도 넘침 없음', (tester) async {
-      MobileBendDataManager().bendList
-        ..clear()
-        ..addAll([for (final r in rows) Map<String, dynamic>.of(r)]);
-      ConduitDataManager().bendList
-        ..clear()
-        ..addAll([for (final r in rows) Map<String, dynamic>.of(r)]);
-      final errors = await _pump(tester, const Size(640, 1400), e.value());
-      expect(errors, isEmpty);
-      expect(find.byKey(const ValueKey('mark_row_0')), findsNothing);
-    });
-
-    testWidgets('${e.key}: 세로 폭 412에서는 예전처럼 한 줄', (tester) async {
-      MobileBendDataManager().bendList
-        ..clear()
-        ..addAll([for (final r in rows) Map<String, dynamic>.of(r)]);
-      ConduitDataManager().bendList
-        ..clear()
-        ..addAll([for (final r in rows) Map<String, dynamic>.of(r)]);
-      final errors = await _pump(tester, const Size(412, 2400), e.value());
-      expect(errors, isEmpty);
-      expect(find.byKey(const ValueKey('mark_row_0')), findsNothing);
-    });
+    for (final size in const [
+      Size(800, 1280), // 세로로 든 태블릿(A9+)
+      Size(1280, 800), // 가로 태블릿
+      Size(640, 1400),
+      Size(412, 2400),
+    ]) {
+      testWidgets(
+        '${e.key}: ${size.width.toInt()}×${size.height.toInt()}에서 카드는 한 줄, 넘침 없음',
+        (tester) async {
+          MobileBendDataManager().bendList
+            ..clear()
+            ..addAll([for (final r in rows) Map<String, dynamic>.of(r)]);
+          ConduitDataManager().bendList
+            ..clear()
+            ..addAll([for (final r in rows) Map<String, dynamic>.of(r)]);
+          final errors = await _pump(tester, size, e.value());
+          expect(errors, isEmpty);
+          expect(find.byKey(const ValueKey('mark_row_0')), findsNothing);
+        },
+      );
+    }
   }
 }
