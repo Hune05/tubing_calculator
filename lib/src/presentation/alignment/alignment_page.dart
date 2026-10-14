@@ -556,7 +556,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
   String? _canvasHint(({AlignResult? result, String? error}) solved) => switch (_tab) {
     0 => _focus != null && _distKeys.contains(_focus) ? null : '거리 칸을 누르면 그 치수만 크게 보입니다',
     1 => '펌프 쪽에 서서 모터를 볼 때 · 3시가 오른쪽',
-    2 => solved.result == null ? null : '심 두께·어긋남은 크게 부풀려 그렸습니다',
+    2 => solved.result == null ? null : (_plan?.pumpMoves ?? false ? '그림은 모터 발만 · 펌프 발 값은 아래 표' : '심 두께·어긋남은 크게 부풀려 그렸습니다'),
     _ => '위에서 본 네 발 · 지금 발 밑에 있는 심',
   };
 

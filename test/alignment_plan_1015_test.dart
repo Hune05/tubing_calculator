@@ -108,6 +108,9 @@ void main() {
       await tester.tap(find.byKey(const Key('align_fix_motorFront')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('align_plan_error')), findsOneWidget);
+      // 펌프 거리가 없을 때는 옛 값(펌프 고정)을 보이지 않고, 저장도 막는다
+      expect(find.byKey(const Key('align_shim_front')), findsNothing);
+      expect(tester.widget<FilledButton>(find.byKey(const Key('align_save'))).onPressed, isNull);
       await _type(tester, 'pumpIn', '200');
       await _type(tester, 'pumpOut', '700');
       await tester.pumpAndSettle();

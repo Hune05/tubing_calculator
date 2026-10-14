@@ -93,18 +93,24 @@ extension _AlignResultTab on _AlignmentPageState {
                 minimumSize: const Size(0, 48),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              onPressed: () => _addRound(r),
+              onPressed: _planError != null ? null : () => _addRound(r),
               icon: const Icon(Icons.playlist_add_check_rounded, size: 20),
               label: Text('${_rounds.length + 1}회차로 적기', style: const TextStyle(fontWeight: FontWeight.w800)),
             ),
           ),
           const SizedBox(width: 10),
-          Expanded(child: _saveButton(r)),
+          Expanded(child: _saveButton(_planError != null ? null : r)),
         ],
       ),
       children: [
         // 할 일(심·옆 이동)을 맨 위에(10-15: 세로 폰에서 판정 막대·알림에 밀려 안 보였다).
-        PlateSection(_plan?.pumpMoves ?? false ? '발 이동량 (모터·펌프)' : '발 이동량 (모터)', [_shimTable(r)], first: true),
+        // 고정 발을 바꿨는데 펌프 거리가 없으면 옛 값(펌프 고정)이 보이지 않게 알림만(10-15 태블릿 확인).
+        PlateSection(_plan?.pumpMoves ?? false ? '발 이동량 (모터·펌프)' : '발 이동량 (모터)', [
+          if (_planError != null)
+            _note('고정 발을 바꿨습니다. 아래 "고정 발"에 펌프 발까지 거리를 넣으면 네 발 값을 셉니다.')
+          else
+            _shimTable(r),
+        ], first: true),
         if (r.closure > 0.05)
           _notice(
             '지시값이 서로 안 맞습니다 (3시 + 9시 ≠ 6시, 차이 ${r.closure.toStringAsFixed(2)} mm). '
@@ -199,7 +205,7 @@ extension _AlignResultTab on _AlignmentPageState {
   Widget _shimTable(AlignResult r) {
     final p = _plan;
     final pump = p != null && p.pumpMoves;
-    final labelW = pump ? 84.0 : 50.0;
+    final labelW = pump ? 104.0 : 50.0; // "펌프 안쪽발"이 큰 글씨·태블릿에서 두 줄로 꺾였다
     Widget line(String id, String foot, double shim, double move, {bool plates = true}) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
