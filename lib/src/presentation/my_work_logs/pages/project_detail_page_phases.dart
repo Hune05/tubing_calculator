@@ -235,6 +235,8 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                     onChanged: (v) {
                       final list = phasesOf(log);
                       list[index]['isCompleted'] = v == true;
+                      list[index]['updatedAt'] = DateTime.now()
+                          .toIso8601String(); // 합칠 때 이 고침이 이기게(10-14)
                       touchItem(list[index]);
                       setPhases(log, list);
                       _changed();

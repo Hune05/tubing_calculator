@@ -124,8 +124,15 @@ exports.checkProjectSchedules = onSchedule("every 15 minutes", async (event) => 
         const tokens = tokensFor(recipients, data, null);
         if (tokens.length === 0) continue;
 
+        // 10-14: "내 일정"에서 누른 완료 표시는 scheduleDone.{일정 id}에 따로 적힌다(앱이 읽을 때 얹는다).
+        const doneMarks = (data.scheduleDone && typeof data.scheduleDone === 'object') ? data.scheduleDone : {};
+        const isDone = (s) => {
+            const m = doneMarks[s.id];
+            if (m && m.at && (!s.updatedAt || String(m.at) > String(s.updatedAt))) return m.done === true;
+            return s.isCompleted === true;
+        };
         for (const schedule of schedules) {
-            if (schedule.isCompleted) continue;
+            if (isDone(schedule)) continue;
 
             const label = schedule.title || schedule.type || '일정';
 

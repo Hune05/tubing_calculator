@@ -464,6 +464,8 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
           doneSchedules.contains(s['id']?.toString()) &&
           s['isCompleted'] != true) {
         s['isCompleted'] = true;
+        s['updatedAt'] = DateTime.now()
+            .toIso8601String(); // 합칠 때 이 고침이 이기게(10-14)
         touchItem(s);
         changed = true;
       }
@@ -492,6 +494,8 @@ bool applyReportEffects(Map<String, dynamic> log, Map report) {
           donePhases.contains(p['id']?.toString()) &&
           p['isCompleted'] != true) {
         p['isCompleted'] = true;
+        p['updatedAt'] = DateTime.now()
+            .toIso8601String(); // 합칠 때 이 고침이 이기게(10-14)
         touchItem(p);
         changed = true;
       }

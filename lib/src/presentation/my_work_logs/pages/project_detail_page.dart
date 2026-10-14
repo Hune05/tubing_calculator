@@ -31,7 +31,7 @@ import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import '../models/summary_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/phase_templates.dart';
-import '../models/project_merge.dart' show authorLabel, markItemDeleted;
+import '../models/project_merge.dart' show authorLabel, markItemDeleted, stampFields;
 import '../../../data/repositories/work_project_repository.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
 import 'project_stats_page.dart';
@@ -1364,6 +1364,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       if (t == null || !mounted) return;
       log['reportReminderMinutes'] = t.hour * 60 + t.minute;
     }
+    stampFields(log, const ['reportReminderMinutes']);
     widget.actions.save(); // 저장하면 알림도 다시 맞춘다
     setState(() {});
     if (mounted) {

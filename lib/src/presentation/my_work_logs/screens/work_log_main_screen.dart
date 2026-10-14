@@ -108,6 +108,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       } else {
         log['archived'] = true;
       }
+      stampFields(log, const ['archived']);
     });
     _saveProject(log);
   }
@@ -1050,6 +1051,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       } else {
         log.remove('completedAt');
       }
+      stampFields(log, const ['status', 'completedAt']);
     });
     _saveProject(log);
   }
@@ -1357,7 +1359,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (pick == 'issue') await _addPunchFor(log);
     if (pick == 'schedule') await _openSchedule(log, add: true);
     if (pick == 'pin') {
-      setState(() => log['pinned'] = !isProjectPinned(log));
+      setState(() {
+        log['pinned'] = !isProjectPinned(log);
+        stampFields(log, const ['pinned']);
+      });
       _saveProject(log);
     }
     if (pick == 'share') {
@@ -1376,6 +1381,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             ),
           );
         }
+        stampFields(log, const [kOwnerUid, kOwnerName]);
       });
       _saveProject(log);
       if (mounted) {

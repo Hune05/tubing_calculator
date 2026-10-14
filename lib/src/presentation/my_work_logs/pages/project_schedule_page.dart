@@ -229,6 +229,8 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
       if (result == null) return; // 취소 시 완료 처리 안 함
       setState(() {
         item['isCompleted'] = true;
+        item['updatedAt'] = DateTime.now()
+            .toIso8601String(); // 합칠 때 이 고침이 이기게(10-14)
         item['inspectionResult'] = result['result'];
         item['inspectionComment'] = result['comment'];
         item['inspectionResultAt'] = DateTime.now();
@@ -239,6 +241,8 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
 
     setState(() {
       item['isCompleted'] = willComplete;
+      item['updatedAt'] = DateTime.now()
+          .toIso8601String(); // 합칠 때 이 고침이 이기게(10-14)
       touchItem(item);
       if (!willComplete) {
         // 다시 미완료로 되돌리면 결과도 초기화한다 - 재검사를 의미하므로.

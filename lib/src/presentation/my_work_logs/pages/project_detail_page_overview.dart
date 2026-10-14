@@ -501,6 +501,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
     for (final e in list) {
       if (e is Map && e['id'] == s['id']) {
         e['isCompleted'] = !(e['isCompleted'] == true);
+        e['updatedAt'] = DateTime.now().toIso8601String(); // 합칠 때 이 고침이 이기게(10-14)
         break;
       }
     }

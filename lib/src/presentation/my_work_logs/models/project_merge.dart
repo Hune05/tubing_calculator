@@ -123,7 +123,105 @@ Map<String, dynamic> mergeProjectDocs({
     }
     if (localList.isNotEmpty || serverList.isNotEmpty) out[key] = merged;
   }
+  _mergeStampedFields(out, local, server);
+  if (local[kScheduleDoneKey] != null || server[kScheduleDoneKey] != null) {
+    out[kScheduleDoneKey] = _mergeScheduleDone(
+      local[kScheduleDoneKey],
+      server[kScheduleDoneKey],
+    );
+    applyScheduleDone(out);
+  }
   return out;
+}
+
+/// 일정 완료 표시만 따로 적는 칸(10-14). {일정 id: {'done': bool, 'at': ISO}}.
+/// "내 일정"에서 프로젝트 일정 완료를 누르면 일정 목록(배열)을 통째로 쓰던 것을 이 칸의 한 항목만
+/// 쓴다(Firestore가 칸별로 합쳐 주므로 통신 없이 누른 뒤 올라가도 다른 기기 일정이 안 지워진다).
+/// 읽을 때 [applyScheduleDone]으로 일정 목록에 얹는다.
+const String kScheduleDoneKey = 'scheduleDone';
+
+/// [kScheduleDoneKey]의 표시가 일정의 updatedAt보다 늦으면 일정에 얹는다. 바뀐 게 있으면 true.
+bool applyScheduleDone(Map<String, dynamic> project) {
+  final marks = project[kScheduleDoneKey];
+  final list = project['schedules'];
+  if (marks is! Map || list is! List) return false;
+  var changed = false;
+  for (final s in list) {
+    if (s is! Map) continue;
+    final m = marks[s['id']?.toString()];
+    if (m is! Map) continue;
+    final at = DateTime.tryParse((m['at'] ?? '').toString());
+    if (at == null) continue;
+    final mine = _updatedAt(s);
+    if (mine != null && !at.isAfter(mine)) continue;
+    s['isCompleted'] = m['done'] == true;
+    s['updatedAt'] = at.toIso8601String();
+    changed = true;
+  }
+  return changed;
+}
+
+Map<String, dynamic> _mergeScheduleDone(Object? local, Object? server) {
+  final out = <String, dynamic>{};
+  for (final src in [server, local]) {
+    if (src is! Map) continue;
+    for (final e in src.entries) {
+      final v = e.value;
+      if (v is! Map) continue;
+      final have = out[e.key.toString()];
+      final a = have is Map ? DateTime.tryParse('${have['at']}') : null;
+      final b = DateTime.tryParse('${v['at']}');
+      if (have == null || (b != null && (a == null || !b.isBefore(a)))) {
+        out[e.key.toString()] = Map<String, dynamic>.from(v);
+      }
+    }
+  }
+  return out;
+}
+
+/// 맨 위 칸을 언제 고쳤는지 적는 칸(10-14). {칸 이름: ISO 시각}.
+/// 예전에는 상태·보관·고정 같은 맨 위 칸이 늘 이 폰 값으로 저장돼, 다른 기기에서 "완료"로 바꾼 것을
+/// 이 폰이 다른 일로 저장하면 "진행 중"으로 되돌렸다.
+const String kFieldStampsKey = 'fieldStamps';
+
+/// 맨 위 칸 [keys]를 지금 고쳤다고 적는다(값을 바꾼 바로 뒤에 부른다. 칸을 지운 것도 고친 것).
+void stampFields(Map<String, dynamic> project, Iterable<String> keys) {
+  final now = DateTime.now().toIso8601String();
+  final stamps = Map<String, dynamic>.from(
+    (project[kFieldStampsKey] as Map?) ?? const {},
+  );
+  for (final k in keys) {
+    stamps[k] = now;
+  }
+  project[kFieldStampsKey] = stamps;
+}
+
+/// 시각이 적힌 맨 위 칸은 더 늦게 고친 쪽 값으로(서버 쪽이 늦으면 서버 값, 서버에 칸이 없으면 지움).
+/// 시각이 없는 칸은 예전처럼 이 폰 값.
+void _mergeStampedFields(
+  Map<String, dynamic> out,
+  Map<String, dynamic> local,
+  Map<String, dynamic> server,
+) {
+  final ls = (local[kFieldStampsKey] as Map?) ?? const {};
+  final ss = (server[kFieldStampsKey] as Map?) ?? const {};
+  if (ls.isEmpty && ss.isEmpty) return;
+  final stamps = <String, dynamic>{...ls.cast<String, dynamic>()};
+  for (final e in ss.entries) {
+    final k = e.key.toString();
+    final st = DateTime.tryParse(e.value.toString());
+    final lt = DateTime.tryParse((ls[k] ?? '').toString());
+    if (st == null) continue;
+    if (lt == null || st.isAfter(lt)) {
+      stamps[k] = e.value;
+      if (server.containsKey(k)) {
+        out[k] = server[k];
+      } else {
+        out.remove(k);
+      }
+    }
+  }
+  out[kFieldStampsKey] = stamps;
 }
 
 /// 항목을 지울 때 아이디를 적어 둔다(합칠 때 되살아나지 않게).

@@ -175,6 +175,8 @@ class WorkProjectRepository {
       data['id'] = d.id;
       // 아이디 없는 예전 일지에 아이디를 붙인다(다음 저장부터 아이디로 합쳐진다).
       ensureItemIds(data);
+      // "내 일정"에서 누른 일정 완료 표시를 일정 목록에 얹는다(10-14).
+      applyScheduleDone(data);
       return data;
     }).toList();
   }
@@ -286,8 +288,9 @@ class WorkProjectRepository {
     await Future.wait(commits);
   }
 
-  // 프로젝트 일정 하나의 완료 표시만 바꾼다. 저장하기 직전에 문서를 다시 읽어 schedules 칸만
-  // 고쳐 쓰므로, 화면을 연 뒤 다른 폰에서 넣은 일지·이슈·일정이 지워지지 않는다.
+  // 프로젝트 일정 하나의 완료 표시만 바꾼다. 10-14: 일정 목록(배열)을 통째로 쓰지 않고
+  // scheduleDone.{일정 id} 한 칸만 쓴다. 예전에는 통신이 없을 때 폰 사본의 옛 목록으로 배열을 덮어,
+  // 통신되면 다른 기기가 넣은 일정·완료 표시가 지워졌다. 읽을 때 applyScheduleDone이 얹는다.
   // 문서나 일정을 찾지 못하면 아무것도 쓰지 않는다.
   Future<void> setScheduleCompleted(
     String projectId,
@@ -297,12 +300,14 @@ class WorkProjectRepository {
     final ref = _col.doc(projectId);
     // 통신이 약하면 끝없이 기다렸다(10-08). 6초 뒤 폰 사본으로.
     final snap = await readDocQuick(ref, wait: const Duration(seconds: 6));
-    final updated = scheduleListWithCompleted(
-      snap.data()?['schedules'],
-      scheduleId,
-      done,
-    );
-    if (updated == null) return;
+    if (scheduleListWithCompleted(
+          snap.data()?['schedules'],
+          scheduleId,
+          done,
+        ) ==
+        null) {
+      return;
+    }
     pendingWrites.value++;
     final token = pendingLog.begin(
       projectId: projectId,
@@ -310,7 +315,12 @@ class WorkProjectRepository {
       kind: kPendingKindSchedule,
     );
     try {
-      await ref.update({'schedules': updated});
+      await ref.update({
+        FieldPath([kScheduleDoneKey, scheduleId]): {
+          'done': done,
+          'at': DateTime.now().toIso8601String(),
+        },
+      });
     } finally {
       pendingWrites.value--;
       pendingLog.end(token);
