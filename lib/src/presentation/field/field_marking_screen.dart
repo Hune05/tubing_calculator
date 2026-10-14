@@ -119,6 +119,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   // 맨 끝(자르기) 말풍선이 줄자 끝에서 반 폭만큼 더 나가므로 오른쪽 여백은 그만큼 둔다.
   static const double _padRight = 58;
 
+  /// 실제 오른쪽 여백(맨 끝 풍선 반폭만큼 넓어질 수 있다). 줄자 보기가 그릴 때 적고, 전체 보기 셈이 쓴다.
+  double _padRightNow = _padRight;
+
   /// 말풍선(10-14): 화면이 넉넉하면(세로 500 이상) 148×72에 세 줄, 폰 가로는 118×46에 두 줄.
   /// 밑에 꼭지 7. 폭은 글이 더 길면 글에 맞춰 늘린다([_labelWidth]).
   static const double _pointerH = 7;
@@ -127,7 +130,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   /// 줄자 칸 세로가 넉넉한지(330 이상): 줄자 보기의 LayoutBuilder가 재서 적는다(폰 가로는 220쯤).
   bool _big = false;
   bool get _bigLabels => _big;
-  double get _labelBoxH => _bigLabels ? 72 : 46;
+  double get _labelBoxH => _bigLabels ? 84 : 46;
   double get _labelH => _labelBoxH + _pointerH;
   double get _labelBaseW => _bigLabels ? 148 : 118;
 
@@ -520,7 +523,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   void _zoomFit(double maxMm) {
     if (maxMm <= 0 || _tapeViewW <= 0) return;
     HapticFeedback.selectionClick();
-    final next = ((_tapeViewW - _padLeft - _padRight) / maxMm).clamp(
+    final next = ((_tapeViewW - _padLeft - _padRightNow) / maxMm).clamp(
       _minScale,
       _maxScale,
     );
@@ -1264,7 +1267,6 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       data.totalCut,
       ...data.marks.map((m) => m.position),
     ].fold<double>(0, (a, b) => b > a ? b : a);
-    final double width = _padLeft + _padRight + maxMm * _scale;
 
     // 말풍선: 마킹(직관 끝 포함)과 자르는 자리.
     // 직관 끝 표시가 자르는 자리와 같은 곳이면(마지막 직관) 자르기 말풍선만 둔다(10-14).
@@ -1278,6 +1280,9 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       // 폭은 글 길이에 맞춰(잘림 없이). 줄 나누기는 가장 넓은 폭으로 보고, 넉넉한 화면은 3줄까지.
       final widths = [for (final l in labels) _labelWidth(l)];
       final double maxLabelW = widths.fold(_labelBaseW, math.max);
+      // 맨 끝 자르기 풍선이 화면 오른쪽에 걸리지 않게 오른쪽 여백은 풍선 반폭 이상.
+      _padRightNow = math.max(_padRight, maxLabelW / 2 + 8);
+      final double width = _padLeft + _padRightNow + maxMm * _scale;
       final int laneCount = _bigLabels ? 3 : 2;
       final lanes = assignLabelLanes(
         [for (final l in labels) _padLeft + l.position * _scale],
@@ -1665,7 +1670,8 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     );
     final bool done = stepIndex >= 0 && _done.contains(stepIndex);
     final TextStyle subStyle = TextStyle(
-      height: _highContrast ? 1.0 : null,
+      // 한글 글꼴은 줄 높이가 커서 1.2로 눌러 세 줄이 상자 안에 들어가게.
+      height: _highContrast ? 1.0 : 1.2,
       fontSize: _labelSubSize,
       color: _muted,
       fontWeight: FontWeight.w600,
