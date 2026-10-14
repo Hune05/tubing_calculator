@@ -76,7 +76,8 @@ void main() {
       expect(shimPlates(1.25, kAlignShimSizesDefault).plates, [1.0, 0.2, 0.05]);
       expect(shimPlateText(1.25, kAlignShimSizesDefault), '1.0 + 0.2 + 0.05');
       expect(shimPlateText(-0.3, kAlignShimSizesDefault), '0.2 + 0.1');
-      expect(shimPlateText(0.03, kAlignShimSizesDefault), '(0.03 모자람)');
+      expect(shimPlateText(0.03, kAlignShimSizesDefault), '가진 심보다 얇음(0.03)');
+      expect(shimPlateText(0.27, kAlignShimSizesDefault), '0.2 + 0.05 (0.02 모자람)');
       expect(shimPlateText(0, kAlignShimSizesDefault), '없음');
     });
 

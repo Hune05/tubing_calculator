@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/record_sync.dart';
 import 'alignment_math.dart';
+import 'alignment_plan.dart' show alignFixedLabel;
 import 'alignment_session.dart';
 import 'alignment_shim.dart';
 
@@ -174,6 +175,11 @@ String buildAlignText(AlignRecord r) {
   b.write('\n판정: ${verdictLabel(r.verdict)}');
   b.write('\n앞발 심 ${shimText(r.shimFront)} · 옆 ${moveText(r.moveFront)}');
   b.write('\n뒷발 심 ${shimText(r.shimRear)} · 옆 ${moveText(r.moveRear)}');
+  // 고정 발을 바꿨으면(10-15) 고정 발과 펌프 할 일.
+  final fixed = r.inputs['fixed'];
+  if (fixed != null && fixed.isNotEmpty) b.write('\n고정 발: ${alignFixedLabel(fixed)}');
+  final pump = r.inputs['pumpPlan'];
+  if (pump != null && pump.isNotEmpty) b.write('\n펌프도 움직임: $pump');
   if (r.note.isNotEmpty) b.write('\n메모: ${r.note}');
   if (r.rounds.isNotEmpty) b.write('\n${buildRoundsText(r.rounds)}');
   // 발 밑 심(10-15): 작업 끝에 발마다 들어가 있는 심.

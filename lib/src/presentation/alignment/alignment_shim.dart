@@ -37,13 +37,15 @@ String _fmt(double v) {
   return s.endsWith('0') ? v.toStringAsFixed(1) : s;
 }
 
-/// "1.0 + 0.2 + 0.05" (없으면 "없음"), 가진 판으로 딱 못 맞추면 "0.2 + 0.05 (0.02 모자람)".
+/// "1.0 + 0.2 + 0.05" (없으면 "없음"), 가진 판으로 딱 못 맞추면 "0.2 + 0.05 (0.02 모자람)",
+/// 가장 얇은 판보다 얇으면 "가진 심보다 얇음(0.02)".
 String shimPlateText(double mm, List<double> sizes) {
   if (mm.abs() < 0.005) return '없음';
   final p = shimPlates(mm, sizes);
-  final body = p.plates.isEmpty ? '' : p.plates.map(_fmt).join(' + ');
+  if (p.plates.isEmpty) return '가진 심보다 얇음(${p.rest.toStringAsFixed(2)})';
+  final body = p.plates.map(_fmt).join(' + ');
   if (p.rest.abs() < 0.005) return body;
-  return '${body.isEmpty ? '' : '$body '}(${p.rest.toStringAsFixed(2)} 모자람)';
+  return '$body (${p.rest.toStringAsFixed(2)} 모자람)';
 }
 
 String footMm(double v) => v.abs() < 0.005 ? '0' : v.toStringAsFixed(2);

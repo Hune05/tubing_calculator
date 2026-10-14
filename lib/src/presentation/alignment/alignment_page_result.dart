@@ -104,7 +104,7 @@ extension _AlignResultTab on _AlignmentPageState {
       ),
       children: [
         // 할 일(심·옆 이동)을 맨 위에(10-15: 세로 폰에서 판정 막대·알림에 밀려 안 보였다).
-        PlateSection('발 이동량 (모터)', [_shimTable(r)], first: true),
+        PlateSection(_plan?.pumpMoves ?? false ? '발 이동량 (모터·펌프)' : '발 이동량 (모터)', [_shimTable(r)], first: true),
         if (r.closure > 0.05)
           _notice(
             '지시값이 서로 안 맞습니다 (3시 + 9시 ≠ 6시, 차이 ${r.closure.toStringAsFixed(2)} mm). '
@@ -121,6 +121,7 @@ extension _AlignResultTab on _AlignmentPageState {
             key: 'align_softfoot_warn',
             guideId: 'softfoot',
           ),
+        _fixedSection(),
         PlateSection('판정', [
           _gauge('평행 어긋남', r.offset, tol.offset),
           _gauge('각도', r.angle100, tol.angle100),
@@ -196,49 +197,158 @@ extension _AlignResultTab on _AlignmentPageState {
   }
 
   Widget _shimTable(AlignResult r) {
-    Widget line(String foot, double shim, double move) {
-      final id = foot == '앞발' ? 'front' : 'rear';
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              SizedBox(width: 50, child: Text(foot, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: fc.textSub))),
-              Expanded(
-                child: Text(
-                  '심 ${shimText(shim)}',
-                  key: Key('align_shim_$id'),
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: shim.abs() < 0.005 ? fc.ok : fc.text),
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  '옆 ${moveText(move)}',
-                  key: Key('align_move_$id'),
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900, color: move.abs() < 0.005 ? fc.ok : fc.text),
-                ),
-              ),
-            ],
-          ),
-          // 가진 심으로 몇 장(10-15).
-          if (shim.abs() >= 0.005)
-            Padding(
-              padding: const EdgeInsets.only(left: 50, top: 2),
+    final p = _plan;
+    final pump = p != null && p.pumpMoves;
+    final labelW = pump ? 84.0 : 50.0;
+    Widget line(String id, String foot, double shim, double move, {bool plates = true}) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            SizedBox(width: labelW, child: Text(foot, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: fc.textSub))),
+            // 펌프 발까지 넷이면 글씨를 조금 줄이고 칸 사이를 띄운다(10-15: 두 칸 글씨가 붙었다).
+            Expanded(
+              flex: 11,
               child: Text(
-                '${shim > 0 ? '넣을' : '뺄'} 심 판: ${shimPlateText(shim, _sizes)}',
-                key: Key('align_plates_$id'),
-                style: TextStyle(fontSize: 12.5, color: fc.textSub),
+                '심 ${shimText(shim)}',
+                key: Key('align_shim_$id'),
+                style: TextStyle(fontSize: pump ? 15 : 17, fontWeight: FontWeight.w900, color: shim.abs() < 0.005 ? fc.ok : fc.text),
               ),
             ),
-        ],
-      );
-    }
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 9,
+              child: Text(
+                '옆 ${moveText(move)}',
+                key: Key('align_move_$id'),
+                style: TextStyle(fontSize: pump ? 15 : 17, fontWeight: FontWeight.w900, color: move.abs() < 0.005 ? fc.ok : fc.text),
+              ),
+            ),
+          ],
+        ),
+        // 가진 심으로 몇 장(10-15).
+        if (plates && shim.abs() >= 0.005)
+          Padding(
+            padding: EdgeInsets.only(left: labelW, top: 2),
+            child: Text(
+              '${shim > 0 ? '넣을' : '뺄'} 심 판: ${shimPlateText(shim, _sizes)}',
+              key: Key('align_plates_$id'),
+              style: TextStyle(fontSize: 12.5, color: fc.textSub),
+            ),
+          ),
+      ],
+    );
 
     return Column(
       children: [
-        line('앞발', r.shimFront, r.moveFront),
+        line('front', pump ? '모터 앞발' : '앞발', r.shimFront, r.moveFront),
         Divider(height: 18, color: fc.line),
-        line('뒷발', r.shimRear, r.moveRear),
+        line('rear', pump ? '모터 뒷발' : '뒷발', r.shimRear, r.moveRear),
+        // 고정 발을 바꿔 펌프도 움직일 때(10-15).
+        if (pump)
+          for (final f in [AlignFootPos.pumpInner, AlignFootPos.pumpOuter])
+            if (p.feet[f] case final v?) ...[
+              Divider(height: 18, color: fc.line),
+              line(f.name, f.label, v.shim, v.move),
+            ],
+      ],
+    );
+  }
+
+  /// 고정 발 고르기(10-15): 모터 심을 더 뺄 수 없거나(베이스 바운드) 볼트 구멍이 걸릴 때(볼트 바운드) 펌프도 움직인다.
+  Widget _fixedSection() {
+    final raw = _solve().result;
+    // 심 기록에 심을 적어 둔 경우에만 "뺄 심이 모자람"을 본다(안 적었으면 모두 0이라 늘 모자라게 나온다).
+    final now = footNow(_startMap, _rounds);
+    final knowsShim = now.values.any((v) => v.abs() >= 0.005);
+    Map<AlignFootPos, double> short = const {};
+    if (raw != null && knowsShim) {
+      final cur = _plan ??
+          alignPlan(r: raw, fixed: kAlignFixedDefault, xFront: _frontX, xRear: _rearX, targetY: _opt('targetY'), targetZ: _opt('targetZ'));
+      short = alignShortShim(cur, now);
+    }
+    final needPump = !_fixedDefault || short.isNotEmpty;
+
+    void pick(AlignFootPos f) {
+      if (_fixed.contains(f)) return;
+      setState(() => _fixed = [_fixed.last, f]);
+      _saveDraftSoon();
+    }
+
+    void auto() {
+      final pi = _n('pumpIn'), po = _n('pumpOut');
+      if (raw == null) return;
+      if (pi == null || po == null) {
+        _toast('펌프 안쪽발·바깥발까지 거리를 먼저 넣으십시오');
+        return;
+      }
+      final best = alignAutoFixed(
+        r: raw, now: now, xFront: _frontX, xRear: _rearX, pumpInner: pi, pumpOuter: po,
+        targetY: _opt('targetY'), targetZ: _opt('targetZ'),
+      );
+      if (best == null) {
+        _toast('어느 두 발을 고정해도 심이 모자랍니다. 심을 더 넣을 자리(받침 높이)를 먼저 보십시오');
+        return;
+      }
+      setState(() => _fixed = best.toList());
+      _saveDraftSoon();
+      _toast('고정 발: ${best.map((e) => e.label).join('·')}');
+    }
+
+    return PlateSection(
+      '고정 발 (심·볼트가 걸릴 때)',
+      [
+        _note('보통은 펌프 두 발을 고정하고 모터만 움직입니다. 모터 심을 더 뺄 수 없거나 볼트 구멍이 걸려 더 못 밀면, 움직이지 않을 두 발을 바꾸십시오(셋째를 누르면 먼저 고른 것이 빠집니다).'),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final f in AlignFootPos.values)
+              FilterChip(
+                key: Key('align_fix_${f.name}'),
+                label: Text(f.label),
+                selected: _fixed.contains(f),
+                showCheckmark: true,
+                selectedColor: fc.brandSoft,
+                onSelected: (_) => pick(f),
+              ),
+          ],
+        ),
+        if (needPump)
+          plateRow([
+            _field('pumpIn', '커플링 중심 → 펌프 안쪽발', signed: false),
+            _field('pumpOut', '→ 펌프 바깥발', signed: false),
+          ]),
+        if (_planError != null) _notice(_planError!, fc.danger, key: 'align_plan_error'),
+        if (short.isNotEmpty) ...[
+          _notice(
+            '${[for (final e in short.entries) '${e.key.label} ${e.value.toStringAsFixed(2)} mm'].join(', ')}만큼 뺄 심이 모자랍니다(심 기록의 지금 심보다 더 빼야 함). '
+            '펌프를 올리는 쪽으로 고정 발을 바꾸십시오.',
+            fc.caution,
+            key: 'align_short_shim',
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: PlateActionButton(
+              key: const Key('align_fix_auto'),
+              icon: Icons.auto_fix_high_rounded,
+              label: '모자라지 않게 고정 발 고르기',
+              onTap: auto,
+            ),
+          ),
+        ],
+        if (!_fixedDefault)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              key: const Key('align_fix_reset'),
+              onPressed: () {
+                setState(() => _fixed = List.of(kAlignFixedDefault));
+                _saveDraftSoon();
+              },
+              child: const Text('처음대로(펌프 고정, 모터만 움직임)'),
+            ),
+          ),
       ],
     );
   }

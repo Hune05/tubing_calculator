@@ -17,6 +17,7 @@ import '../../core/utils/pdf_fonts.dart';
 import '../common/number_text.dart';
 import '../steel_cutting/screens/steel_pdf_preview_page.dart';
 import 'alignment_math.dart';
+import 'alignment_plan.dart' show alignFixedLabel;
 import 'alignment_record.dart';
 import 'alignment_session.dart';
 import 'alignment_shim.dart';
@@ -196,6 +197,12 @@ Future<Uint8List> buildAlignPdf(AlignRecord r) async {
           ],
           widths: const {0: pw.FixedColumnWidth(60)},
         ),
+        // 고정 발을 바꿨으면(10-15) 고정 발과 펌프 할 일.
+        if ((inp['fixed'] ?? '').isNotEmpty || (inp['pumpPlan'] ?? '').isNotEmpty) ...[
+          pw.SizedBox(height: 6),
+          if ((inp['fixed'] ?? '').isNotEmpty) info('고정 발', alignFixedLabel(inp['fixed']!)),
+          if ((inp['pumpPlan'] ?? '').isNotEmpty) info('펌프', inp['pumpPlan']!),
+        ],
 
         heading('거리 (mm)'),
         table(
@@ -215,13 +222,18 @@ Future<Uint8List> buildAlignPdf(AlignRecord r) async {
               () {
                 final a = parseNumberText(inp['${p}90'] ?? ''), b = parseNumberText(inp['${p}180'] ?? ''), c = parseNumberText(inp['${p}270'] ?? '');
                 final diff = a == null || b == null || c == null ? null : (a + c - b).abs();
+                // 3점 측정(10-15): 빈 한 자리는 3시 + 9시 = 6시로 셈, "(셈)"을 붙인다.
+                final fill = fillReadings(a, b, c);
+                String v(int at, double? raw) => raw != null
+                    ? raw.toStringAsFixed(2)
+                    : (fill?.derived == at ? '${(at == 90 ? fill!.r90 : at == 180 ? fill!.r180 : fill!.r270).toStringAsFixed(2)}(셈)' : '—');
                 return [
                   cell(label, bold: true, align: pw.TextAlign.left),
                   cell('0'),
-                  cell(_num(inp['${p}90'])),
-                  cell(_num(inp['${p}180'])),
-                  cell(_num(inp['${p}270'])),
-                  cell(diff == null ? '—' : diff.toStringAsFixed(2), color: diff != null && diff > 0.05 ? _amber : _ink),
+                  cell(v(90, a)),
+                  cell(v(180, b)),
+                  cell(v(270, c)),
+                  cell(diff == null ? (fill?.derived != null ? '못 함' : '—') : diff.toStringAsFixed(2), color: diff != null && diff > 0.05 ? _amber : _ink),
                 ];
               }(),
           ],

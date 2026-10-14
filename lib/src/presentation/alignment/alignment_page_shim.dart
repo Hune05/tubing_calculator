@@ -28,6 +28,8 @@ extension _AlignShim on _AlignmentPageState {
       shimRear: r.shimRear,
       moveFront: r.moveFront,
       moveRear: r.moveRear,
+      // 고정 발을 바꿔 펌프도 움직이면 펌프 할 일을 메모로(심 기록은 모터 발만 센다).
+      note: _pumpNote().isEmpty ? '' : '펌프: ${_pumpNote()}',
     );
     await _setRounds([..._rounds, round]);
     _go(3);
@@ -67,7 +69,12 @@ extension _AlignShim on _AlignmentPageState {
         method: _method,
         rpm: _rpm,
         // 판정 기준도 같이 남긴다(보고서 PDF에 적으려고, 10-15).
-        inputs: {..._inputs(), 'tolO': _tol.offset.toString(), 'tolA': _tol.angle100.toString()},
+        inputs: {
+          ..._inputs(),
+          'tolO': _tol.offset.toString(),
+          'tolA': _tol.angle100.toString(),
+          if (_pumpNote().isNotEmpty) 'pumpPlan': _pumpNote(),
+        },
         verdict: judge(r, _tol),
         now: _now,
         machineDefault: machineDefault,

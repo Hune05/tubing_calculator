@@ -249,3 +249,17 @@ String moveText(double mm, {double eps = 0.005}) {
   if (mm.abs() < eps) return '그대로';
   return '${mm > 0 ? '오른쪽' : '왼쪽'} ${mm.abs().toStringAsFixed(2)} mm';
 }
+
+// ── 3점 측정(10-15) ──
+
+/// 3·6·9시 가운데 한 자리가 비면(받침판에 막혀 6시를 못 읽는 등) 3시 + 9시 = 6시로 채운다.
+/// 처짐 보정이 있어도 이 관계는 그대로다(3·9시에서 처짐 반씩, 6시에서 처짐 하나).
+/// 셋 다 있으면 그대로, 둘 이상 비면 null. [derived]는 채운 자리(90·180·270) 또는 null.
+({double r90, double r180, double r270, int? derived})? fillReadings(double? r90, double? r180, double? r270) {
+  final missing = [r90, r180, r270].where((v) => v == null).length;
+  if (missing == 0) return (r90: r90!, r180: r180!, r270: r270!, derived: null);
+  if (missing > 1) return null;
+  if (r180 == null) return (r90: r90!, r180: r90 + r270!, r270: r270, derived: 180);
+  if (r90 == null) return (r90: r180 - r270!, r180: r180, r270: r270, derived: 90);
+  return (r90: r90, r180: r180, r270: r180 - r90, derived: 270);
+}

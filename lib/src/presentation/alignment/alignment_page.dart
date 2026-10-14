@@ -29,6 +29,7 @@ import 'alignment_guide_page.dart';
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
 import 'alignment_pdf.dart';
+import 'alignment_plan.dart';
 import 'alignment_dial_painter.dart';
 import 'alignment_render.dart';
 import 'alignment_record.dart';
@@ -98,6 +99,11 @@ class _AlignmentPageState extends State<AlignmentPage> {
   List<double> _sizes = List.of(kAlignShimSizesDefault);
   final TextEditingController _sizeAdd = TextEditingController();
   List<AlignRecord> _records = [];
+
+  /// 움직이지 않을 두 발(고른 순서대로, 셋째를 고르면 먼저 고른 것이 빠진다).
+  List<AlignFootPos> _fixed = List.of(kAlignFixedDefault);
+  AlignPlan? _plan; // 고정 발을 바꿨을 때의 네 발 값(빌드 때 채움)
+  String? _planError;
   String? _startFrom; // 시작 심을 가져온 기계 이름
   Map<AlignFoot, double> _startLoaded = const {};
 
@@ -152,6 +158,13 @@ class _AlignmentPageState extends State<AlignmentPage> {
               for (final x in AlignMethod.values) {
                 if (x.name == v) _method = x;
               }
+            } else if (k == 'fixed') {
+              final f = [
+                for (final n in '$v'.split(','))
+                  for (final x in AlignFootPos.values)
+                    if (x.name == n) x,
+              ];
+              if (f.length == 2) _fixed = f;
             } else {
               _f('$k').text = '$v';
             }
@@ -284,13 +297,15 @@ class _AlignmentPageState extends State<AlignmentPage> {
   int get _distCount => _distKeys.where((k) => _n(k) != null).length;
   int get _readingCount => _readingKeys.where((k) => _n(k) != null).length;
   bool get _distancesDone => _distCount == _distKeys.length;
-  bool get _readingsDone => _readingCount == _readingKeys.length;
+  /// 다이얼마다 세 자리 중 둘 이상 넣었으면 다 된 것(3점 측정).
+  bool get _readingsDone => _dials.every((p) => fillReadings(_n('${p}90'), _n('${p}180'), _n('${p}270')) != null);
 
   /// 값이 다 들어오면 계산한다. 덜 들어왔으면 null, 잘못된 값이면 오류 글.
   ({AlignResult? result, String? error}) _solve() {
+    // 한 자리가 비면 3시 + 9시 = 6시로 채운다(3점 측정, 10-15).
     List<double>? three(String p) {
-      final v = [for (final s in ['90', '180', '270']) _n('$p$s')];
-      return v.any((e) => e == null) ? null : [for (final e in v) e!];
+      final v = fillReadings(_n('${p}90'), _n('${p}180'), _n('${p}270'));
+      return v == null ? null : [v.r90, v.r180, v.r270];
     }
 
     try {
@@ -336,7 +351,69 @@ class _AlignmentPageState extends State<AlignmentPage> {
     for (final e in _c.entries)
       if (e.value.text.trim().isNotEmpty) e.key: e.value.text.trim(),
     'method': _method.name,
+    if (!_fixedDefault) 'fixed': _fixed.map((e) => e.name).join(','),
   };
+
+  // ── 고정 발(10-15) ──
+  bool get _fixedDefault => _fixed.toSet().containsAll(kAlignFixedDefault);
+
+  double get _frontX {
+    if (_method == AlignMethod.reverse) {
+      return (_n('between') ?? 0) - (_n('coupB') ?? 0) + (_n('front') ?? 0);
+    }
+    return (_n('coupR') ?? 0) + (_n('front') ?? 0);
+  }
+
+  /// 계산 결과에 고른 고정 발을 적용한다. 펌프 두 발 고정(처음)이면 그대로.
+  /// 바꾼 경우 모터 발 값이 고정 발 계획 값으로 바뀌고, 펌프 발 값은 [_plan]에 있다.
+  ({AlignResult? result, String? error}) _solveApplied() {
+    final s = _solve();
+    _plan = null;
+    _planError = null;
+    final r = s.result;
+    if (r == null || _fixedDefault) return s;
+    try {
+      final p = alignPlan(
+        r: r,
+        fixed: _fixed.toSet(),
+        xFront: _frontX,
+        xRear: _rearX,
+        pumpInner: _n('pumpIn'),
+        pumpOuter: _n('pumpOut'),
+        targetY: _opt('targetY'),
+        targetZ: _opt('targetZ'),
+      );
+      _plan = p;
+      final mf = p.feet[AlignFootPos.motorFront]!, mr = p.feet[AlignFootPos.motorRear]!;
+      return (
+        result: AlignResult(
+          vertical: r.vertical,
+          horizontal: r.horizontal,
+          shimFront: mf.shim,
+          shimRear: mr.shim,
+          moveFront: mf.move,
+          moveRear: mr.move,
+          offset: r.offset,
+          angle100: r.angle100,
+          closure: r.closure,
+        ),
+        error: null,
+      );
+    } on AlignInputError catch (e) {
+      _planError = e.message;
+      return s;
+    }
+  }
+
+  /// 펌프도 움직일 때 펌프 발 할 일 한 줄(회차 메모·기록 글).
+  String _pumpNote() {
+    final p = _plan;
+    if (p == null || !p.pumpMoves) return '';
+    return [
+      for (final f in [AlignFootPos.pumpInner, AlignFootPos.pumpOuter])
+        if (p.feet[f] case final v?) '${f.label} 심 ${shimText(v.shim)} · 옆 ${moveText(v.move)}',
+    ].join(', ');
+  }
 
   double get _rearX {
     if (_method == AlignMethod.reverse) {
@@ -390,7 +467,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
 
   @override
   Widget build(BuildContext context) {
-    final solved = _solve();
+    final solved = _solveApplied();
     final (sum, sumColor) = _summary(solved);
     return FieldViewTheme(
       child: Builder(

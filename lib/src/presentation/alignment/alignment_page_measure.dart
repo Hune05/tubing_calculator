@@ -27,7 +27,11 @@ extension _AlignMeasure on _AlignmentPageState {
         key: const Key('align_clock'),
         size: Size.infinite,
         painter: AlignClockPainter(
-          values: [for (final a in ['90', '180', '270']) _n('$p$a')],
+          // 3점 측정이면 채운 값도 바늘로(10-15).
+          values: () {
+            final f = fillReadings(_n('${p}90'), _n('${p}180'), _n('${p}270'));
+            return f == null ? [for (final a in ['90', '180', '270']) _n('$p$a')] : [f.r90, f.r180, f.r270];
+          }(),
           highlight: hi,
           title: _dialName(p),
         ),
@@ -44,19 +48,21 @@ extension _AlignMeasure on _AlignmentPageState {
   Widget _measurePanel(({AlignResult? result, String? error}) solved) {
     final reverse = _method == AlignMethod.reverse;
     final left = _readingKeys.length - _readingCount;
+    final done = _readingsDone;
     return PlatePanel(
       title: '지시값',
-      status: left == 0
-          ? '지시값을 다 넣었습니다. 결과 탭에서 보십시오.'
+      status: done
+          ? (left == 0 ? '지시값을 다 넣었습니다. 결과 탭에서 보십시오.' : '빈 자리는 3시 + 9시 = 6시로 셉니다(3점 측정). 결과 탭에서 보십시오.')
           : '12시에서 0을 맞추고 3시 → 6시 → 9시 순서로 읽습니다(남은 칸 $left개).',
       statusKey: const Key('align_measure_status'),
-      statusColor: left == 0 ? fc.ok : null,
+      statusColor: done ? fc.ok : null,
       actions: [
         plateHelpButton(context, 'align_measure_help', '지시값 넣는 법', [
           '고정 쪽(펌프)에 서서 이동 쪽(모터)을 바라봅니다. 이 자리에서 3시가 오른쪽, 9시가 왼쪽입니다.',
           '12시에서 베젤을 돌려 0에 맞추고, 두 축을 같이 돌려 3시 → 6시 → 9시에서 읽습니다. 12시로 돌아오면 다시 0인지 봅니다.',
           '큰 바늘이 0에서 시계 방향으로 가면 +(스핀들이 눌림), 반대로 가면 −(스핀들이 나옴)입니다.',
           '3시 + 9시 = 6시가 되면 제대로 읽은 것입니다. 크게 다르면 브래킷이 흔들리거나 스핀들이 덜 눌린 것이니 다시 겁니다.',
+          '받침판·배관에 막혀 한 자리(보통 6시)를 못 읽으면 그 칸을 비워 두십시오. 3시 + 9시 = 6시로 채워 계산합니다(3점 측정). 이때는 검산을 못 하니 두 번 재서 값을 맞춰 보십시오.',
           '칸에 넣으면 위 시계의 바늘이 그 값을 가리킵니다.',
         ]),
       ],
@@ -95,7 +101,23 @@ extension _AlignMeasure on _AlignmentPageState {
   Widget _checkLine(String p) {
     final a = _n('${p}90'), b = _n('${p}180'), c = _n('${p}270');
     if (a == null || b == null || c == null) {
-      return Text('세 자리를 다 넣으면 3시 + 9시 = 6시인지 바로 봅니다.', style: TextStyle(fontSize: 12.5, color: fc.textSub));
+      // 3점 측정: 한 자리만 비면 채운 값을 보여 준다(검산은 못 함).
+      final f = fillReadings(a, b, c);
+      if (f != null && f.derived != null) {
+        final at = f.derived!;
+        final v = at == 90 ? f.r90 : (at == 180 ? f.r180 : f.r270);
+        final name = at == 90 ? '3시' : (at == 180 ? '6시' : '9시');
+        return Container(
+          key: Key('align_check_$p'),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(color: fc.brandSoft, borderRadius: BorderRadius.circular(10)),
+          child: Text(
+            '3점 측정: $name = ${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}(셈). 한 자리가 비어 검산은 못 합니다.',
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: fc.brand),
+          ),
+        );
+      }
+      return Text('세 자리를 넣으면 3시 + 9시 = 6시인지 바로 봅니다. 한 자리를 못 읽으면 비워 두십시오(3점 측정).', style: TextStyle(fontSize: 12.5, color: fc.textSub));
     }
     final diff = (a + c - b).abs();
     final ok = diff <= 0.05;
