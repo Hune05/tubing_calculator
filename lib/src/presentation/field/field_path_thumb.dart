@@ -125,14 +125,15 @@ class _ThumbPainter extends CustomPainter {
     );
     Offset at(vm.Vector3 v) => _project(v) * k + shift;
 
-    final pipePaint = Paint()
-      ..color = pipe
-      ..strokeWidth = 4
+    // 관은 어두운 선 위에 밝은 선을 겹쳐 둥근 관처럼(10-14 사용자 "그림에 힘을 조금 더").
+    Paint stroke(Color c, double w) => Paint()
+      ..color = c
+      ..strokeWidth = w
       ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
-    for (final l in path.straights) {
-      canvas.drawLine(at(l.a), at(l.b), pipePaint);
-    }
+    final Color dark = Color.lerp(pipe, Colors.black, 0.35)!;
+    final Color light = Color.lerp(pipe, Colors.white, 0.45)!;
     Path arc(PathBend b) {
       final p = Path()..moveTo(at(b.tangentIn).dx, at(b.tangentIn).dy);
       final c = at(b.corner), o = at(b.tangentOut);
@@ -140,23 +141,51 @@ class _ThumbPainter extends CustomPainter {
       return p;
     }
 
-    for (final b in path.bends) {
-      canvas.drawPath(arc(b), pipePaint);
+    final whole = Path();
+    for (final l in path.straights) {
+      whole
+        ..moveTo(at(l.a).dx, at(l.a).dy)
+        ..lineTo(at(l.b).dx, at(l.b).dy);
     }
+    for (final b in path.bends) {
+      whole.addPath(arc(b), Offset.zero);
+    }
+    canvas.drawPath(whole, stroke(dark, 8));
+    canvas.drawPath(whole, stroke(pipe, 5));
+    canvas.drawPath(whole, stroke(light, 1.6));
 
-    // 지금 할 벤드: 빨간 호 + 모서리 점.
+    // 지금 할 벤드: 빨간 호 + 모서리 점 + 꺾고 나서 가는 쪽 꺾쇠(관 위 화살).
     final hi = highlightBend;
     if (hi != null && hi >= 1 && hi <= path.bends.length) {
       final b = path.bends[hi - 1];
-      canvas.drawPath(
-        arc(b),
-        Paint()
-          ..color = highlight
-          ..strokeWidth = 6
-          ..strokeCap = StrokeCap.round
-          ..style = PaintingStyle.stroke,
-      );
+      canvas.drawPath(arc(b), stroke(highlight, 8));
       canvas.drawCircle(at(b.corner), 5, Paint()..color = highlight);
+      final Offset dir = _project(b.dirAfter);
+      final double len = dir.distance;
+      if (len > 1e-6) {
+        final Offset u = dir / len;
+        final Offset n = Offset(-u.dy, u.dx);
+        final Offset tip = at(b.tangentOut) + u * 26;
+        final chevron = Path()
+          ..moveTo(tip.dx - u.dx * 9 + n.dx * 7, tip.dy - u.dy * 9 + n.dy * 7)
+          ..lineTo(tip.dx, tip.dy)
+          ..lineTo(tip.dx - u.dx * 9 - n.dx * 7, tip.dy - u.dy * 9 - n.dy * 7);
+        canvas.drawPath(chevron, stroke(highlight, 3));
+      }
+    }
+    // 벤드 번호: 호 바깥쪽(모서리 쪽)에 동그라미. 지금 할 벤드는 빨간 바탕.
+    for (var i = 0; i < path.bends.length; i++) {
+      final b = path.bends[i];
+      final Offset c = at(b.corner);
+      final Offset mid = (at(b.tangentIn) + at(b.tangentOut)) / 2;
+      final Offset out = c - mid;
+      final Offset p = out.distance > 1e-6
+          ? c + out / out.distance * 13
+          : c + const Offset(0, -14);
+      final bool cur = hi == i + 1;
+      canvas.drawCircle(p, 9, Paint()..color = cur ? highlight : Colors.white);
+      canvas.drawCircle(p, 9, stroke(cur ? highlight : muted, 1.5));
+      _textCentered(canvas, '${i + 1}', p, 11, cur ? Colors.white : muted);
     }
     // 자르는 자리: 끝점에 빨간 점.
     if (highlightCut) {
@@ -192,6 +221,27 @@ class _ThumbPainter extends CustomPainter {
       canvas.drawLine(base, base + d, legend);
       _text(canvas, label, base + d + off, 11, muted);
     }
+  }
+
+  void _textCentered(
+    Canvas canvas,
+    String s,
+    Offset center,
+    double size,
+    Color color,
+  ) {
+    final tp = TextPainter(
+      text: TextSpan(
+        text: s,
+        style: TextStyle(
+          fontSize: size,
+          color: color,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, center - Offset(tp.width / 2, tp.height / 2));
   }
 
   void _text(Canvas canvas, String s, Offset o, double size, Color color) {

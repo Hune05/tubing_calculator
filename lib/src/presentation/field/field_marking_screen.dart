@@ -158,6 +158,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       setState(() {
         _showGap = prefs.getBool(_gapKey) ?? false;
         _sound = prefs.getBool(_soundKey) ?? false;
+        _stock = prefs.getDouble(_stockKey) ?? 0;
         final raw = prefs.getString(widget.progressKey);
         if (raw != null && raw.isNotEmpty) {
           try {
@@ -191,6 +192,25 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   // 단계 넘길 때 "딸깍" 소리(진동은 늘 난다). 폰에 기억한다.
   static const String _soundKey = 'field_step_sound';
   bool _sound = false;
+
+  /// 원자재 길이(10-14 사용자 "5번"): 0이면 안 씀. 위 막대에 잔재(원자재 − 절단)를 보여 준다.
+  /// 튜브(6m)·전선관(3m)이 달라 진행 칸 이름 뒤에 붙여 따로 기억한다.
+  double _stock = 0;
+  String get _stockKey => '${widget.progressKey}_stock';
+
+  Future<void> _setStock(double v) async {
+    setState(() => _stock = v < 0 ? 0 : v);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble(_stockKey, _stock);
+    } catch (_) {}
+  }
+
+  /// 위 막대의 잔재 글. 원자재보다 길면 그만큼 깁니다.
+  String _remnantText(double totalCut) {
+    final double r = _stock - totalCut;
+    return r >= 0 ? '잔재 ${r.round()}' : '원자재보다 ${(-r).round()} 깁니다';
+  }
 
   /// 이 도면에서 실측을 적은 단계(번호 → 실측 − 계산 mm). 도면이 바뀌면 비운다.
   final Map<int, double> _measured = {};
@@ -858,6 +878,19 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ],
             ),
           ),
+          // 10-14: 원자재 길이를 넣었으면 잔재. 원자재보다 길면 빨갛게.
+          if (_stock > 0 && !compact) ...[
+            const SizedBox(width: 10),
+            Text(
+              _remnantText(data.totalCut),
+              key: const Key('field_remnant'),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: _stock - data.totalCut < 0 ? _red : _muted,
+              ),
+            ),
+          ],
           // 10-14: 넓은 화면(700 이상)이면 규격·장비 한 줄. 좁으면 줄자 위 카드에 적는다.
           if (data.specLine != null && _wideBar) ...[
             const SizedBox(width: 12),
@@ -1093,6 +1126,17 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                       setDialog(() {});
                       _saveViewPref(_soundKey, v);
                       if (v) SystemSound.play(SystemSoundType.click);
+                    },
+                  ),
+                  // 원자재 길이(10-14): 넣으면 위 막대에 잔재(원자재 − 절단)를 보여 준다.
+                  // 글 칸은 창이 닫히는 동안에도 살아 있어야 해서 칸이 스스로 컨트롤러를 가진다.
+                  const SizedBox(height: 12),
+                  _StockPicker(
+                    value: _stock,
+                    muted: _muted,
+                    onChanged: (v) {
+                      _setStock(v);
+                      setDialog(() {});
                     },
                   ),
                 ],
@@ -2766,4 +2810,85 @@ class _TapePainter extends CustomPainter {
     }
     return true;
   }
+}
+
+/// 보기 창의 "원자재 길이" 칸(10-14): 안 씀·3 m·6 m 칩과 다른 길이 글 칸.
+class _StockPicker extends StatefulWidget {
+  final double value;
+  final Color muted;
+  final ValueChanged<double> onChanged;
+  const _StockPicker({
+    required this.value,
+    required this.muted,
+    required this.onChanged,
+  });
+
+  @override
+  State<_StockPicker> createState() => _StockPickerState();
+}
+
+class _StockPickerState extends State<_StockPicker> {
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value > 0 ? widget.value.round().toString() : '',
+  );
+  late double _value = widget.value;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _set(double v, {bool updateText = true}) {
+    setState(() => _value = v);
+    if (updateText) _ctrl.text = v > 0 ? v.round().toString() : '';
+    widget.onChanged(v);
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text('원자재 길이', style: TextStyle(fontWeight: FontWeight.w700)),
+      const SizedBox(height: 4),
+      Text(
+        '넣으면 위 막대에 잔재(원자재 − 절단)가 보이고, 절단이 더 길면 빨갛게 알립니다.',
+        style: TextStyle(fontSize: 13, color: widget.muted),
+      ),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final (label, v) in const [
+            ('안 씀', 0.0),
+            ('3 m', 3000.0),
+            ('6 m', 6000.0),
+          ])
+            ChoiceChip(
+              key: Key('field_stock_${v.round()}'),
+              label: Text(label),
+              selected: _value == v,
+              onSelected: (_) => _set(v),
+            ),
+        ],
+      ),
+      const SizedBox(height: 8),
+      TextField(
+        key: const Key('field_stock_input'),
+        controller: _ctrl,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: const InputDecoration(
+          labelText: '다른 길이',
+          suffixText: 'mm',
+          isDense: true,
+        ),
+        onChanged: (t) => _set(
+          double.tryParse(t.replaceAll(',', '')) ?? 0,
+          updateText: false,
+        ),
+      ),
+    ],
+  );
 }
