@@ -85,8 +85,12 @@ void main() {
     expect(_text(tester, 'align_shim_rear'), '심 빼기 0.21 mm');
     expect(_text(tester, 'align_move_front'), '옆 그대로');
     expect(_text(tester, 'align_offsets'), contains('0.075 mm'));
+    // 위 그림: 옆에서(처음) ↔ 위에서
     expect(find.byKey(const Key('align_diagram_v')), findsOneWidget);
+    await tester.tap(find.byKey(const Key('align_vm_top')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('align_plan')), findsOneWidget);
+    expect(find.byKey(const Key('align_head')), findsOneWidget);
   });
 
   testWidgets('시계 그림과 측정 그림이 나오고, 입력칸에 그림과 같은 번호가 붙는다', (tester) async {
@@ -195,10 +199,10 @@ void main() {
     await _type(tester, 'front', '150');
     await _type(tester, 'rear', '450');
     expect(await _result(tester, 'align_shim_front'), '심 그대로');
-    await _step(tester, 0);
-    await tester.tap(find.byKey(const Key('align_target_toggle')));
-    await tester.pumpAndSettle();
+    // 열팽창 칸은 늘 보인다(10-15: 접어 두지 않음)
     await _type(tester, 'targetY', '-0.20');
+    await _step(tester, 0);
+    expect(find.byKey(const Key('align_target_applied')), findsOneWidget);
     expect(await _result(tester, 'align_shim_front'), '심 빼기 0.20 mm');
   });
 
@@ -304,11 +308,19 @@ void main() {
 
   testWidgets('방식 설명이 나오고 방식을 바꾸면 설명도 바뀐다', (tester) async {
     await _open(tester);
-    expect(find.byKey(const Key('align_method_help')), findsOneWidget);
+    // 방식 설명은 제목 줄 ? 단추의 아래 창(10-15)
+    await tester.tap(find.byKey(const Key('align_method_help')));
+    await tester.pumpAndSettle();
     expect(find.text('리버스 다이얼 방식'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('림·페이스'));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('align_method_help')));
+    await tester.pumpAndSettle();
     expect(find.text('림·페이스 방식'), findsOneWidget);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
     await _step(tester, 1);
     await tester.tap(find.byKey(const Key('align_dial_guide_tile')));
     await tester.pumpAndSettle();

@@ -224,7 +224,7 @@ void main() {
     expect(clock.highlight, 2);
   });
 
-  testWidgets('처짐 값이 들어 있으면 접혀 있어도 "계산에 들어감"', (tester) async {
+  testWidgets('처짐 값이 들어 있으면 "계산에 들어감"', (tester) async {
     SharedPreferences.setMockInitialValues({
       'align_draft_v1': '{"sagA":"-0.05","method":"reverse"}',
     });
@@ -233,7 +233,42 @@ void main() {
     expect(
       find.byKey(const Key('align_sagA')),
       findsOneWidget,
-      reason: '값이 있으면 펼쳐 둔다',
+      reason: '처짐 칸은 늘 보인다',
     );
+  });
+
+  test('소프트 풋: 기준(0.05) 넘은 발과 기록 글', () {
+    final v = softFootOf({'sf_frontLeft': '0.08', 'sf_rearRight': '0,03', 'sf_rearLeft': ''});
+    expect(v.length, 2);
+    expect(softFootOver(v), [AlignFoot.frontLeft]);
+    expect(softFootList(v, softFootOver(v)), '앞발 왼쪽 0.08');
+    expect(softFootOver({AlignFoot.frontRight: 0.05}), isEmpty, reason: '0.05는 기준 안쪽');
+  });
+
+  testWidgets('소프트 풋: 심 기록 탭에 넣으면 판정, 넘으면 결과 탭에 알림', (tester) async {
+    await _open(tester);
+    await _fill(tester);
+    await _step(tester, 3);
+    await _type(tester, 'sf_frontLeft', '0.08');
+    await _type(tester, 'sf_rearLeft', '0.02');
+    expect(
+      tester.widget<Text>(find.descendant(of: find.byKey(const Key('align_softfoot_line')), matching: find.byType(Text))).data,
+      contains('앞발 왼쪽 0.08'),
+    );
+    await _step(tester, 2);
+    expect(find.byKey(const Key('align_softfoot_warn')), findsOneWidget);
+    await _step(tester, 3);
+    await _type(tester, 'sf_frontLeft', '0.04');
+    await _step(tester, 2);
+    expect(find.byKey(const Key('align_softfoot_warn')), findsNothing);
+  });
+
+  testWidgets('네 발 그림: 지금 심을 받는다', (tester) async {
+    await _open(tester);
+    await _step(tester, 3);
+    await _type(tester, 'start_frontLeft', '0.5');
+    final p = tester.widget<CustomPaint>(find.byKey(const Key('align_feet'))).painter as AlignFeetRenderPainter;
+    expect(p.now[AlignFoot.frontLeft], 0.5);
+    expect(tester.takeException(), isNull);
   });
 }

@@ -12,6 +12,8 @@ import 'alignment_dial_painter.dart';
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
 import 'alignment_scene_painter.dart';
+import 'alignment_session.dart';
+import 'alignment_shim.dart';
 
 const Color _silver = Color(0xFFBCC3CB);
 const Color _cast = Color(0xFFB0B7BF);
@@ -22,6 +24,7 @@ const Color _rubber = Color(0xFF30353B);
 const Color _edge = Color(0xFF2A3139);
 const Color _dialA = Color(0xFFE08A00);
 const Color _dialB = Color(0xFF2F6FE0);
+const Color _shimBrass = Color(0xFFB8893A); // 심 판(놋쇠·스테인리스 심을 구분 없이 한 색)
 
 Color _mix(Color c, double t) => t >= 0 ? Color.lerp(c, Colors.white, t)! : Color.lerp(c, Colors.black, -t)!;
 
@@ -260,7 +263,8 @@ void _shimSide(Canvas c, _Map m, double x, double? sh) {
 
 // ─────────────────────────── 위에서 본 펌프·모터 ───────────────────────────
 
-void _paintTop(Canvas c, _Map m, {required double shimFront, required double shimRear}) {
+/// [feet]를 주면 네 발 심 판을 발마다 그 값으로(심 기록 그림, 10-15). 없으면 앞·뒤 값을 좌우 같게.
+void _paintTop(Canvas c, _Map m, {required double shimFront, required double shimRear, Map<AlignFoot, double>? feet}) {
   const mr = AlignGeo.motorR;
   const xs = AlignGeo.xSuction, xd = AlignGeo.xDischarge, cr = AlignGeo.casingR;
   // 받침판(펌프 쪽, 가운데 좁은 곳, 모터 쪽)
@@ -338,8 +342,15 @@ void _paintTop(Canvas c, _Map m, {required double shimFront, required double shi
     for (final sgn in [-1.0, 1.0]) {
       final z0 = sgn > 0 ? AlignGeo.footZ0 - 0.2 : -AlignGeo.footZ1, z1 = sgn > 0 ? AlignGeo.footZ1 : -AlignGeo.footZ0 + 0.2;
       final sr = m.r(x - fl / 2 - 0.1, z0 - 0.1, x + fl / 2 + 0.1, z1 + 0.1);
-      final col = alignShimColor(sh);
-      c.drawRect(sr, Paint()..color = col.withValues(alpha: sh < -0.005 ? 0.28 : 0.55));
+      final foot = x == AlignGeo.front
+          ? (sgn < 0 ? AlignFoot.frontLeft : AlignFoot.frontRight)
+          : (sgn < 0 ? AlignFoot.rearLeft : AlignFoot.rearRight);
+      final v = feet == null ? sh : (feet[foot] ?? 0);
+      // 심 기록: 지금 심이 있으면 놋쇠 색 판, 없으면 옅은 테두리만, 모자라면(−) 빨강.
+      final col = feet == null
+          ? alignShimColor(v)
+          : (v < -0.005 ? alignRemove : (v.abs() < 0.005 ? _edge.withValues(alpha: 0.35) : _shimBrass));
+      c.drawRect(sr, Paint()..color = col.withValues(alpha: v < -0.005 ? 0.28 : (feet != null && v.abs() < 0.005 ? 0.06 : 0.55)));
       alignDashPath(c, Path()..addRect(sr), Paint()..color = col..style = PaintingStyle.stroke..strokeWidth = 2);
       final fr = m.r(x - fl / 2, z0, x + fl / 2, z1);
       alignDashPath(c, Path()..addRect(fr), Paint()..color = _edge.withValues(alpha: 0.8)..style = PaintingStyle.stroke..strokeWidth = 1.3);
@@ -548,7 +559,11 @@ class AlignSideRenderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     const ya = AlignGeo.ya;
-    final m = _Map.fit(Rect.fromLTWH(8, 22, size.width - 16, size.height - 22 - 70), top: false, v0: 0, v1: ya + 2.6);
+    // 낮은 칸(폰 가로, 10-15): 아래 표찰 줄을 빼고 발 밑에 한 줄 값만.
+    final short = size.height < 240;
+    final m = short
+        ? _Map.fit(Rect.fromLTWH(8, 20, size.width - 16, size.height - 20 - 22), top: false, v0: 0, v1: ya + 2.6)
+        : _Map.fit(Rect.fromLTWH(8, 22, size.width - 16, size.height - 22 - 70), top: false, v0: 0, v1: ya + 2.6);
     _paintSide(canvas, m, shimFront: shimFront, shimRear: shimRear);
 
     // 목표 중심선(펌프 축)
@@ -573,6 +588,10 @@ class AlignSideRenderPainter extends CustomPainter {
     void chip(double x, double mm, String tag, double dx) {
       final c = alignShimColor(mm);
       final a = m.p(x, (AlignGeo.padTop + AlignGeo.shimTop) / 2);
+      if (short) {
+        alignLabel(canvas, '$tag ${alignShimShort(mm)}', Offset(a.dx + dx * 0.6, size.height - 11), c, size: 9.5);
+        return;
+      }
       final at = Offset((a.dx + dx).clamp(52.0, size.width - 52), size.height - 30);
       canvas.drawLine(a, at - const Offset(0, 20), Paint()..color = c..strokeWidth = 1.4);
       canvas.drawCircle(a, 3, Paint()..color = c);
@@ -581,7 +600,8 @@ class AlignSideRenderPainter extends CustomPainter {
 
     chip(AlignGeo.front, shimFront, '앞발', narrow ? -28 : -10);
     chip(AlignGeo.rear, shimRear, '뒷발', narrow ? 28 : 10);
-    _txt(canvas, '펌프 (고정)', Offset(m.p(-4.5, 0).dx, size.height - 30), AppColors.textSub, size: 12);
+    // 펌프 이름은 왼쪽 끝에 붙인다(10-15: 가운데 두니 좁은 그림에서 앞발 표찰과 겹쳤다).
+    if (!short) _txt(canvas, '펌프 (고정)', Offset(m.p(AlignGeo.x0, 0).dx + 2, size.height - 38), AppColors.textSub, size: 12, center: false);
     _txt(canvas, '점선 = 지금 모터 위치(크게 부풀림)', Offset(size.width - 202, 4), alignCaution, center: false);
   }
 
@@ -611,7 +631,11 @@ class AlignTopRenderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final narrow = size.width < 600;
-    final m = _Map.fit(Rect.fromLTWH(8, 66, size.width - 16, size.height - 132), top: true, v0: -2.15, v1: 2.15);
+    // 낮은 칸(폰 가로, 10-15): 위아래 표찰 줄을 빼고(그림이 0으로 줄었다) 발 위에 값만.
+    final short = size.height < 260;
+    final m = short
+        ? _Map.fit(Rect.fromLTWH(8, 16, size.width - 16, size.height - 32), top: true, v0: -2.15, v1: 2.15)
+        : _Map.fit(Rect.fromLTWH(8, 66, size.width - 16, size.height - 132), top: true, v0: -2.15, v1: 2.15);
     _paintTop(canvas, m, shimFront: shimFront, shimRear: shimRear);
 
     _dashLine(canvas, m.p(AlignGeo.x0, 0), m.p(AlignGeo.x1, 0), Paint()..color = AppColors.text.withValues(alpha: 0.6)..strokeWidth = 1.5..style = PaintingStyle.stroke);
@@ -634,6 +658,10 @@ class AlignTopRenderPainter extends CustomPainter {
     void chip(double x, double side, double mm, String tag) {
       final c = alignShimColor(mm);
       final a = m.p(x, side * (AlignGeo.footZ1 + 0.1));
+      if (short) {
+        alignLabel(canvas, alignShimShort(mm), m.p(x, side * 1.27), c, size: 9);
+        return;
+      }
       final at = Offset((a.dx + (x == AlignGeo.front ? (narrow ? -22 : -8) : (narrow ? 22 : 8))).clamp(40.0, size.width - 40), side < 0 ? 30 : size.height - 30);
       canvas.drawLine(a, at + Offset(0, side < 0 ? 18 : -18), Paint()..color = c..strokeWidth = 1.4);
       canvas.drawCircle(a, 3, Paint()..color = c);
@@ -660,7 +688,7 @@ class AlignTopRenderPainter extends CustomPainter {
       canvas.drawLine(a, b, p);
       canvas.drawLine(b, b + Offset(-7, -dir * 10), p);
       canvas.drawLine(b, b + Offset(7, -dir * 10), p);
-      alignLabel(canvas, '옆으로 ${mm > 0 ? '오른쪽' : '왼쪽'}\n${mm.abs().toStringAsFixed(2)} mm', at, AppColors.brand, size: narrow ? 10 : 11, minWidth: narrow ? 56 : 74);
+      alignLabel(canvas, '옆으로 ${mm > 0 ? '오른쪽' : '왼쪽'}\n${mm.abs().toStringAsFixed(2)} mm', at, AppColors.brand, size: short ? 9 : (narrow ? 10 : 11), minWidth: short ? 0 : (narrow ? 56 : 74));
     }
 
     if (moveFront.abs() < 0.005 && moveRear.abs() < 0.005) {
@@ -672,7 +700,7 @@ class AlignTopRenderPainter extends CustomPainter {
 
     _txt(canvas, '왼쪽 ▲', const Offset(6, 4), AppColors.textSub, center: false);
     _txt(canvas, '오른쪽 ▼', Offset(6, size.height - 18), AppColors.textSub, center: false);
-    _txt(canvas, '펌프 (고정)', m.p(-4.0, 1.9) + const Offset(0, 14), AppColors.textSub, size: 12);
+    if (!short) _txt(canvas, '펌프 (고정)', m.p(-4.0, 1.9) + const Offset(0, 14), AppColors.textSub, size: 12);
   }
 
   @override
@@ -684,4 +712,48 @@ class AlignTopRenderPainter extends CustomPainter {
       old.shimRear != shimRear ||
       old.moveFront != moveFront ||
       old.moveRear != moveRear;
+}
+
+// ─────────────────────────── 심 기록: 위에서 본 네 발 ───────────────────────────
+
+/// 네 발 밑 지금 심(위쪽이 왼쪽 발, 아래쪽이 오른쪽 발 — 펌프 쪽에서 모터를 볼 때). [change]는 이번 작업에서 넣고 뺀 것.
+class AlignFeetRenderPainter extends CustomPainter {
+  final Map<AlignFoot, double> now;
+  final Map<AlignFoot, double> change;
+  AlignFeetRenderPainter({required this.now, this.change = const {}});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final narrow = size.width < 600;
+    final short = size.height < 240; // 낮은 칸: 발 위에 값만
+    final m = short
+        ? _Map.fit(Rect.fromLTWH(8, 16, size.width - 16, size.height - 32), top: true, v0: -2.15, v1: 2.15)
+        : _Map.fit(Rect.fromLTWH(8, 52, size.width - 16, size.height - 104), top: true, v0: -2.15, v1: 2.15);
+    _paintTop(canvas, m, shimFront: 0, shimRear: 0, feet: now);
+    for (final f in AlignFoot.values) {
+      final front = f == AlignFoot.frontLeft || f == AlignFoot.frontRight;
+      final side = f == AlignFoot.frontLeft || f == AlignFoot.rearLeft ? -1.0 : 1.0;
+      final x = front ? AlignGeo.front : AlignGeo.rear;
+      final v = now[f] ?? 0, d = change[f] ?? 0;
+      final col = v < -0.005 ? alignRemove : (v.abs() < 0.005 ? AppColors.textSub : _mix(_shimBrass, -0.25));
+      if (short) {
+        alignLabel(canvas, footMm(v), m.p(x, side * 1.27), col, size: 9.5);
+        continue;
+      }
+      final a = m.p(x, side * (AlignGeo.footZ1 + 0.1));
+      final at = Offset((a.dx + (front ? (narrow ? -26 : -10) : (narrow ? 26 : 10))).clamp(44.0, size.width - 44), side < 0 ? 24 : size.height - 24);
+      canvas.drawLine(a, at + Offset(0, side < 0 ? 18 : -18), Paint()..color = col..strokeWidth = 1.4);
+      canvas.drawCircle(a, 3, Paint()..color = col);
+      final tag = narrow ? '${front ? '앞' : '뒤'}·${side < 0 ? '왼' : '오른'}' : f.label;
+      final chg = d.abs() < 0.005 ? '' : ' (${signedMm(d)})';
+      alignLabel(canvas, '$tag\n${footMm(v)} mm$chg', at, col, size: narrow ? 10 : 11, minWidth: narrow ? 64 : 84);
+    }
+    _txt(canvas, '왼쪽 ▲', const Offset(6, 4), AppColors.textSub, center: false);
+    _txt(canvas, '오른쪽 ▼', Offset(6, size.height - 18), AppColors.textSub, center: false);
+    if (!short) _txt(canvas, '펌프 (고정)', m.p(-4.0, 0), AppColors.textSub, size: 12);
+  }
+
+  @override
+  bool shouldRepaint(covariant AlignFeetRenderPainter old) =>
+      AlignFoot.values.any((f) => old.now[f] != now[f] || old.change[f] != change[f]);
 }

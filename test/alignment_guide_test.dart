@@ -91,7 +91,7 @@ void main() {
 
   testWidgets('계산 화면에서 지침으로 들어간다', (tester) async {
     await _pump(tester, const AlignmentPage());
-    await tester.tap(find.byKey(const Key('align_guide_entry')));
+    await tester.tap(find.byKey(const Key('align_guide')));
     await tester.pumpAndSettle();
     expect(find.text('축 정렬 현장 지침'), findsOneWidget);
   });

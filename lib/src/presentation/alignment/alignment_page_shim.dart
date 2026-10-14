@@ -1,7 +1,7 @@
 // ignore_for_file: invalid_use_of_protected_member
 part of 'alignment_page.dart';
 
-// ④ 심 기록(10-15 새로): 기계마다 네 발 밑 심을 남긴다.
+// 심 기록 탭(10-15 새로): 기계마다 네 발 밑 심을 남긴다.
 // 시작 심(같은 기계 지난 기록의 끝 값으로 미리) + 이번 작업 회차 누계 = 지금 심. 가진 심 두께로 판 조합.
 // 회차 적기·고치기, 기록 남기기(시작·끝 심을 같이), 이 기계의 심 이력.
 extension _AlignShim on _AlignmentPageState {
@@ -111,178 +111,205 @@ extension _AlignShim on _AlignmentPageState {
 
   // ── 화면 ──
 
-  List<Widget> _shimTab(AlignResult? r) {
-    final start = _startMap;
+  /// 위 그림: 위에서 본 네 발과 지금 심.
+  Widget _shimCanvas() {
+    final now = footNow(_startMap, _rounds);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 6, 4, 22),
+      child: CustomPaint(
+        key: const Key('align_feet'),
+        size: Size.infinite,
+        painter: AlignFeetRenderPainter(now: now, change: shimTotals(_rounds)),
+      ),
+    );
+  }
+
+  Widget _shimPanel(AlignResult? r) {
     final totals = shimTotals(_rounds);
-    final now = footNow(start, _rounds);
+    final now = footNow(_startMap, _rounds);
     final machine = _machine.text.trim();
     final last = lastFeetFor(_records, machine);
     final history = shimHistory(_records, machine);
-    return [
-      _card('기계', [
-        TextField(
-          key: const Key('align_shim_machine'),
-          controller: _machine,
-          onChanged: (_) {
-            setState(() {});
-            _saveShimDraft();
-          },
-          decoration: const InputDecoration(
-            labelText: '기계 이름',
-            hintText: '예: 1호기 급수펌프 · 모터',
-            isDense: true,
-          ),
-        ),
-        if (last != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: TextButton.icon(
-              key: const Key('align_shim_load_last'),
-              onPressed: () {
-                setState(() {
-                  for (final f in AlignFoot.values) {
-                    final v = last[f] ?? 0;
-                    _start[f]!.text = v.abs() < 0.005 ? '' : footMm(v);
-                  }
-                });
-                _saveShimDraft();
-                _toast('지난 기록의 끝 심을 시작 심으로 넣었습니다');
-              },
-              icon: const Icon(Icons.history_rounded, size: 18),
-              label: Text('지난 기록(${history.first.at.month}/${history.first.at.day})의 끝 심을 시작으로'),
-            ),
-          ),
-      ]),
-      _card('네 발 밑 심 (mm)', [
-        const Text(
-          '시작 심은 작업 전에 발 밑에 있던 심입니다. 회차에 적은 "한 일"이 더해져 지금 심이 됩니다. '
+    return PlatePanel(
+      title: '심 기록',
+      status: machine.isEmpty
+          ? '기계 이름을 넣으면 그 기계의 지난 심을 이어 씁니다.'
+          : (_rounds.isEmpty ? '$machine · 이번 작업 회차 없음' : '$machine · ${_rounds.length}회차까지 적음'),
+      statusKey: const Key('align_shim_status'),
+      actions: [
+        plateHelpButton(context, 'align_shim_help', '심 기록', [
+          '기계마다 네 발 밑에 있는 심을 남깁니다. 다음에 같은 기계를 맞출 때 지난번 끝 심에서 시작합니다.',
+          '시작 심은 작업 전에 발 밑에 있던 심입니다. 회차에 적은 "한 일"이 더해져 지금 심이 됩니다.',
           '왼쪽·오른쪽은 펌프 쪽에서 모터를 볼 때입니다.',
-          style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            const SizedBox(width: 44),
-            for (final t in ['앞발 (커플링 쪽)', '뒷발'])
-              Expanded(
-                child: Text(
-                  t,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.textSub),
-                ),
+          '판 조합은 아래 "가진 심 두께"로 셉니다. 가진 두께만 남겨 두십시오.',
+          '기록 남기기를 누르면 결과·회차·시작/끝 심이 같이 저장되고, 지금 심이 다음 작업의 시작 심이 됩니다.',
+        ]),
+      ],
+      footer: _saveButton(r),
+      children: [
+        PlateSection('기계', [
+          PlateNumField(
+            fieldKey: 'align_shim_machine',
+            label: '기계 이름',
+            controller: _machine,
+            text: true,
+            unit: null,
+            hint: '예: 1호기 급수펌프 · 모터',
+            onChanged: (_) {
+              setState(() {});
+              _saveShimDraft();
+            },
+          ),
+          if (last != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                key: const Key('align_shim_load_last'),
+                onPressed: () {
+                  setState(() {
+                    for (final f in AlignFoot.values) {
+                      final v = last[f] ?? 0;
+                      _start[f]!.text = v.abs() < 0.005 ? '' : footMm(v);
+                    }
+                  });
+                  _saveShimDraft();
+                  _toast('지난 기록의 끝 심을 시작 심으로 넣었습니다');
+                },
+                icon: const Icon(Icons.history_rounded, size: 18),
+                label: Text('지난 기록(${history.first.at.month}/${history.first.at.day})의 끝 심을 시작으로'),
               ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        for (final side in [
-          ('왼쪽', AlignFoot.frontLeft, AlignFoot.rearLeft),
-          ('오른쪽', AlignFoot.frontRight, AlignFoot.rearRight),
-        ])
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Row(
+            ),
+        ], first: true),
+        _softFootSection(),
+        PlateSection('네 발 밑 심 (mm)', [
+          Row(
+            children: [
+              const SizedBox(width: 44),
+              for (final t in ['앞발 (커플링 쪽)', '뒷발'])
+                Expanded(
+                  child: Text(t, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: fc.textSub)),
+                ),
+            ],
+          ),
+          for (final side in [
+            ('왼쪽', AlignFoot.frontLeft, AlignFoot.rearLeft),
+            ('오른쪽', AlignFoot.frontRight, AlignFoot.rearRight),
+          ])
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SizedBox(
                   width: 44,
                   child: Padding(
-                    padding: const EdgeInsets.only(top: 14),
-                    child: Text(side.$1, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.textSub)),
+                    padding: const EdgeInsets.only(top: 18),
+                    child: Text(side.$1, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: fc.textSub)),
                   ),
                 ),
                 Expanded(child: _footCell(side.$2, totals[side.$2]!, now[side.$2]!)),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 Expanded(child: _footCell(side.$3, totals[side.$3]!, now[side.$3]!)),
               ],
             ),
-          ),
-      ]),
-      _sizesCard(),
-      _roundsCard(r),
-      if (history.isNotEmpty)
-        _card('이 기계의 심 이력', [
-          for (final h in history.take(10))
-            Padding(
-              key: Key('align_shim_hist_${h.id}'),
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Column(
+        ]),
+        _roundsSection(r),
+        _sizesSection(),
+        if (history.isNotEmpty)
+          PlateSection('이 기계의 심 이력', [
+            for (final h in history.take(10))
+              Column(
+                key: Key('align_shim_hist_${h.id}'),
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     '${h.at.year}.${h.at.month}.${h.at.day} · ${h.stage.label} · ${verdictLabel(h.verdict)}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.text),
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: fc.text),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     [for (final f in AlignFoot.values) '${f.label} ${footMm(h.footEnd[f] ?? 0)}'].join(' · '),
-                    style: const TextStyle(fontSize: 12.5, color: AppColors.textSub),
+                    style: TextStyle(fontSize: 12.5, color: fc.textSub),
                   ),
                 ],
               ),
+          ]),
+      ],
+    );
+  }
+
+  /// 넣은 소프트 풋 값.
+  Map<AlignFoot, double> get _softFoot => softFootOf(_inputs());
+
+  /// 소프트 풋 점검(10-15): 정렬 전에 한 발씩 풀어 올라오는 양. 기준을 넘으면 결과 탭에도 알린다.
+  Widget _softFootSection() {
+    final v = _softFoot;
+    final over = softFootOver(v);
+    final lim = kSoftFootLimit.toStringAsFixed(2);
+    Widget cell(AlignFoot f, String label) => _field(softFootKey(f), label, signed: false);
+    return PlateSection(
+      '소프트 풋 점검 (정렬 전에)',
+      [
+        _note('네 발 볼트를 다 조인 뒤 다이얼을 발 위에 대고, 한 발씩 풀어 올라오는 양을 넣습니다. 흔히 $lim mm 넘게 올라오면 고칩니다.'),
+        plateRow([cell(AlignFoot.frontLeft, '앞발 왼쪽'), cell(AlignFoot.rearLeft, '뒷발 왼쪽')]),
+        plateRow([cell(AlignFoot.frontRight, '앞발 오른쪽'), cell(AlignFoot.rearRight, '뒷발 오른쪽')]),
+        if (v.isNotEmpty)
+          Container(
+            key: const Key('align_softfoot_line'),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: (over.isEmpty ? fc.ok : fc.caution).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-        ]),
-      if (r == null)
-        const Padding(
-          padding: EdgeInsets.only(top: 12),
-          child: Text(
-            '기록 남기기는 ③ 결과가 나온 뒤에 할 수 있습니다. 시작 심과 기계 이름은 지금 적어 두면 폰에 남습니다.',
-            style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.textFaint),
+            child: Text(
+              over.isEmpty
+                  ? '넣은 발은 모두 $lim mm 이하입니다.${v.length < 4 ? ' (네 발을 다 보십시오)' : ''}'
+                  : '${softFootList(v, over)} mm: $lim 넘음. 평행 틈이면 그 발에 올라온 만큼 심을 더 넣고, 각진 틈이면 틈 게이지로 네 모서리를 봅니다.',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: over.isEmpty ? fc.ok : fc.caution, height: 1.4),
+            ),
           ),
-        ),
-    ];
+      ],
+      trailing: TextButton(
+        key: const Key('align_softfoot_guide'),
+        onPressed: () => _openGuide('softfoot'),
+        child: const Text('조치 보기'),
+      ),
+    );
   }
 
   Widget _footCell(AlignFoot f, double change, double now) => Container(
-    padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-    decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(10)),
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(color: fc.background, borderRadius: BorderRadius.circular(10)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          key: Key('align_start_${f.name}'),
-          controller: _start[f],
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
+        PlateNumField(
+          fieldKey: 'align_start_${f.name}',
+          label: '시작',
+          controller: _start[f]!,
           onChanged: (_) {
             setState(() {});
             _saveShimDraft();
           },
-          decoration: const InputDecoration(
-            labelText: '시작',
-            isDense: true,
-            filled: true,
-            fillColor: AppColors.surface,
-            border: OutlineInputBorder(borderSide: BorderSide.none),
-          ),
         ),
         const SizedBox(height: 6),
         Text(
           '이번 작업 ${signedMm(change)}',
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: change.abs() < 0.005 ? AppColors.textSub : AppColors.brand,
-          ),
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: change.abs() < 0.005 ? fc.textSub : fc.brand),
         ),
         Text(
           '지금 ${footMm(now)}',
           key: Key('align_now_${f.name}'),
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w900,
-            color: now < -0.005 ? AppColors.danger : AppColors.text,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900, color: now < -0.005 ? fc.danger : fc.text),
         ),
         Text(
           now < -0.005 ? '시작보다 더 뺐습니다(시작 심 확인)' : '판 ${shimPlateText(now, _sizes)}',
-          style: TextStyle(fontSize: 11.5, color: now < -0.005 ? AppColors.danger : AppColors.textSub),
+          style: TextStyle(fontSize: 11.5, color: now < -0.005 ? fc.danger : fc.textSub),
         ),
       ],
     ),
   );
 
   /// 가진 심 두께(판 조합에 씀). 누르면 빼고, 칸에 넣어 더한다.
-  Widget _sizesCard() {
+  Widget _sizesSection() {
     void addSize() {
       final v = parseNumberText(_sizeAdd.text);
       if (v == null || v <= 0 || _sizes.contains(v)) return;
@@ -293,12 +320,8 @@ extension _AlignShim on _AlignmentPageState {
       AlignShimStore.saveSizes(_sizes);
     }
 
-    return _card('가진 심 두께 (mm)', [
-      const Text(
-        '심 판 조합을 셀 때 씁니다. 가진 것만 남기십시오(누르면 뺍니다).',
-        style: TextStyle(fontSize: 12.5, color: AppColors.textSub),
-      ),
-      const SizedBox(height: 8),
+    return PlateSection('가진 심 두께 (mm)', [
+      _note('심 판 조합을 셀 때 씁니다. 가진 것만 남기십시오(× 누르면 뺍니다).'),
       Wrap(
         spacing: 6,
         runSpacing: 6,
@@ -316,75 +339,63 @@ extension _AlignShim on _AlignmentPageState {
             ),
         ],
       ),
-      const SizedBox(height: 8),
       Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
-            child: TextField(
-              key: const Key('align_size_add_field'),
+            child: PlateNumField(
+              fieldKey: 'align_size_add_field',
+              label: '두께 더하기',
+              hint: '0.3',
               controller: _sizeAdd,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: '두께 더하기 (예: 0.3)', isDense: true),
-              onSubmitted: (_) => addSize(),
             ),
           ),
-          IconButton(key: const Key('align_size_add'), icon: const Icon(AppIcons.add), onPressed: addSize),
+          const SizedBox(width: 8),
+          PlateActionButton(key: const Key('align_size_add'), icon: AppIcons.add, label: '더하기', onTap: addSize),
         ],
       ),
     ]);
   }
 
-  Widget _roundsCard(AlignResult? r) {
+  Widget _roundsSection(AlignResult? r) {
     final moves = moveTotals(_rounds);
-    return _card('정렬 작업 회차', [
+    return PlateSection('정렬 작업 회차', [
       if (_rounds.isEmpty)
-        const Padding(
-          padding: EdgeInsets.only(bottom: 8),
-          child: Text(
-            '③ 결과에서 "회차로 적기"를 누르면 여기에 쌓입니다. 측정 → 심 넣고 빼기·옆으로 밀기 → 재측정을 회차로 남기고, 발마다 넣고 뺀 심이 위 표에 더해집니다.',
-            style: TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
-          ),
-        ),
+        _note('결과 탭에서 "회차로 적기"를 누르면 여기에 쌓입니다. 측정 → 심 넣고 빼기·옆으로 밀기 → 재측정을 회차로 남기고, 발마다 넣고 뺀 심이 위 표에 더해집니다.'),
       for (var i = 0; i < _rounds.length; i++)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 46,
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(8)),
-                child: Text('${i + 1}회차', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.brand)),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 46,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: fc.brandSoft, borderRadius: BorderRadius.circular(8)),
+              child: Text('${i + 1}회차', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: fc.brand)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '평행 ${_rounds[i].offset.toStringAsFixed(3)} mm · 각도 ${_rounds[i].angle100.toStringAsFixed(3)} · ${verdictLabel(_rounds[i].verdict)}',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: fc.text),
+                  ),
+                  const SizedBox(height: 2),
+                  Text('한 일: ${doneLine(_rounds[i])}', key: Key('align_round_line_$i'), style: TextStyle(fontSize: 12.5, height: 1.45, color: fc.textSub)),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '평행 ${_rounds[i].offset.toStringAsFixed(3)} mm · 각도 ${_rounds[i].angle100.toStringAsFixed(3)} mm/100mm · ${verdictLabel(_rounds[i].verdict)}',
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.text),
-                    ),
-                    const SizedBox(height: 2),
-                    Text('한 일: ${doneLine(_rounds[i])}', key: Key('align_round_line_$i'), style: const TextStyle(fontSize: 12.5, height: 1.45, color: AppColors.textSub)),
-                  ],
-                ),
-              ),
-              TextButton(
-                key: Key('align_round_done_$i'),
-                onPressed: () => _editDone(i),
-                child: Text(_rounds[i].done == null ? '한 일 적기' : '고치기'),
-              ),
-            ],
-          ),
+            ),
+            TextButton(
+              key: Key('align_round_done_$i'),
+              onPressed: () => _editDone(i),
+              child: Text(_rounds[i].done == null ? '한 일 적기' : '고치기'),
+            ),
+          ],
         ),
       if (moves.$1.abs() >= 0.005 || moves.$2.abs() >= 0.005)
-        Padding(
-          padding: const EdgeInsets.only(bottom: 6),
-          child: Text('옆으로 민 누계: 앞 ${moveText(moves.$1)}, 뒤 ${moveText(moves.$2)}', style: const TextStyle(fontSize: 12.5, color: AppColors.textSub)),
-        ),
+        Text('옆으로 민 누계: 앞 ${moveText(moves.$1)}, 뒤 ${moveText(moves.$2)}', style: TextStyle(fontSize: 12.5, color: fc.textSub)),
       // 회차별 심 누계(예전 화면의 키를 이어 쓴다).
       if (_rounds.any((x) => x.done != null))
         Wrap(
@@ -394,30 +405,28 @@ extension _AlignShim on _AlignmentPageState {
               Text(
                 '${f.label} ${signedMm(shimTotals(_rounds)[f]!)} mm',
                 key: Key('align_total_${f.name}'),
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.text),
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: fc.text),
               ),
           ],
         ),
-      Row(
-        children: [
+      if (r != null || _rounds.isNotEmpty)
+        plateActions([
           if (r != null)
-            Expanded(
-              child: OutlinedButton(
-                key: const Key('align_round_add_here'),
-                onPressed: () => _addRound(r),
-                child: Text('지금 결과를 ${_rounds.length + 1}회차로 적기'),
-              ),
+            PlateActionButton(
+              key: const Key('align_round_add_here'),
+              icon: Icons.playlist_add_check_rounded,
+              label: '지금 결과를 ${_rounds.length + 1}회차로',
+              onTap: () => _addRound(r),
             ),
-          if (_rounds.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            TextButton(
+          if (_rounds.isNotEmpty)
+            PlateActionButton(
               key: const Key('align_round_undo'),
-              onPressed: () => _setRounds(_rounds.sublist(0, _rounds.length - 1)),
-              child: const Text('마지막 회차 지우기'),
+              icon: AppIcons.undo,
+              label: '마지막 회차 지우기',
+              danger: true,
+              onTap: () => _setRounds(_rounds.sublist(0, _rounds.length - 1)),
             ),
-          ],
-        ],
-      ),
+        ]),
     ]);
   }
 }

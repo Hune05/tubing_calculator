@@ -1,25 +1,29 @@
 // 축 정렬 계산기: 모터·펌프 커플링 센터링. 다이얼 게이지 읽음값으로 앞발·뒷발에 넣고 뺄 심 두께와 좌우 이동량을 구한다.
 //
-// 10-15 개편: 한 페이지에 다 있던 것을 단계 넷으로 나눴다(위 단계 표시 + 옆으로 넘김 + 아래 이전·다음).
-//   ① 준비(alignment_page_setup.dart): 방식·측정 그림·거리·회전수·판정 기준·처짐/열팽창
-//   ② 측정(alignment_page_measure.dart): 시계 그림(바늘이 넣은 값대로)·읽음값·검산·다이얼 보는 법
-//   ③ 결과(alignment_page_result.dart): 판정·발 이동량(+심 판 조합)·옆/위 그림
-//   ④ 심 기록(alignment_page_shim.dart): 기계별 네 발 밑 심(시작·이번 작업·지금)·회차·저장·이 기계 심 이력
-// 그림은 값에 연동된다: 지금 넣는 거리 칸은 측정 그림에서 진하게, 넣은 값이 치수선에 붙는다.
+// 10-15 화면: 부스바·철판 가공과 같은 틀(위 그림 + 아래 작업판 + 맨 아래 탭). 단계 표시·이전/다음은 없다
+// (사용자: "계산기를 가이드처럼 만드나" — 처음 판은 단계 넘김이라 안내 화면처럼 보였다).
+//   거리(alignment_page_setup.dart): 방식·거리·회전수·판정 기준·처짐/열팽창 — 위 그림은 측정 그림(넣는 거리 진하게)
+//   지시값(alignment_page_measure.dart): 다이얼별 3·6·9시와 바로 검산 — 위 그림은 시계(바늘이 넣은 값대로)
+//   결과(alignment_page_result.dart): 판정·발 이동량(+심 판 조합)·회차 — 위 그림은 옆/위에서 본 모양
+//   심 기록(alignment_page_shim.dart): 기계별 네 발 밑 심(시작·이번 작업·지금)·회차·이력 — 위 그림은 네 발
 import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:lucide_icons/lucide_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../../core/common_widgets/app_components.dart'
-    show showAppSnack;
+import '../../core/common_widgets/app_components.dart' show showAppSnack;
 import '../../core/common_widgets/swipe_to_delete.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
+import '../../core/theme/field_view.dart';
+import '../calculator/widgets/swipe_delete.dart' show calcNavCompact;
+import '../common/app_icons.dart';
 import '../equipment/equipment_model.dart';
 import '../equipment/equipment_store.dart';
+import '../steel_plate/plate_ui.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'alignment_guide_page.dart';
 import 'alignment_guide_painter.dart';
@@ -43,8 +47,8 @@ Future<void> _defaultShare(String text) async {
   await textSharer(text);
 }
 
-/// 단계 이름(위 단계 표시·아래 단추).
-const List<String> kAlignSteps = ['준비', '측정', '결과', '심 기록'];
+/// 아래 탭 이름.
+const List<String> kAlignSteps = ['거리', '지시값', '결과', '심 기록'];
 
 class AlignmentPage extends StatefulWidget {
   final Future<void> Function(String text) share;
@@ -61,27 +65,20 @@ class AlignmentPage extends StatefulWidget {
   State<AlignmentPage> createState() => _AlignmentPageState();
 }
 
-class _AlignmentPageState extends State<AlignmentPage>
-    with SingleTickerProviderStateMixin {
+class _AlignmentPageState extends State<AlignmentPage> {
   AlignMethod _method = AlignMethod.reverse;
   final Map<String, TextEditingController> _c = {};
-  bool _showSag = false;
-  bool _showTarget = false;
-  // 방식 설명은 접어 두고 한 줄만(10-15: 길어서 그림이 거리 칸과 멀어졌다).
-  bool _showMethodHelp = false;
-  late final TabController _tab = TabController(
-    length: kAlignSteps.length,
-    vsync: this,
-    initialIndex: widget.initialStep.clamp(0, kAlignSteps.length - 1),
-  )..addListener(() {
-      if (mounted) setState(() {});
-    });
+  late int _tab = widget.initialStep.clamp(0, kAlignSteps.length - 1);
 
   /// 지금 넣고 있는 칸(그림 연동용).
   String? _focus;
+  final Map<String, FocusNode> _nodes = {};
 
-  /// 측정 그림에 보이는 다이얼(a·b 또는 r·f). 칸을 누르면 그 다이얼로 바뀐다.
+  /// 시계 그림에 보이는 다이얼(a·b 또는 r·f). 칸을 누르면 그 다이얼로 바뀐다.
   String _clockDial = 'a';
+
+  /// 결과 그림: side 옆에서, top 위에서.
+  String _resultView = 'side';
 
   // 허용 기준(현장 기준). 처음에는 0.05 mm로 두고, 고치면 폰에 남아 다음에도 그 값으로 판정한다.
   static const String _tolKey = 'align_tolerance_v1';
@@ -105,6 +102,24 @@ class _AlignmentPageState extends State<AlignmentPage>
 
   TextEditingController _f(String key) =>
       _c.putIfAbsent(key, () => TextEditingController()..addListener(_saveDraftSoon));
+
+  /// 칸마다 포커스. 들어가면 [_focus]가 바뀌어 위 그림이 그 칸을 강조한다.
+  FocusNode _fn(String key) => _nodes.putIfAbsent(key, () {
+    final n = FocusNode();
+    n.addListener(() {
+      if (!mounted) return;
+      setState(() {
+        if (n.hasFocus) {
+          _focus = key;
+          final m = RegExp(r'^([abrf])(90|180|270)$').firstMatch(key);
+          if (m != null) _clockDial = m.group(1)!;
+        } else if (_focus == key) {
+          _focus = null;
+        }
+      });
+    });
+    return n;
+  });
 
   // ── 적던 다이얼 값 임시 저장(10-08: 뒤로 가기·앱 꺼짐에 읽은 값이 모두 사라졌다) ──
   static const String _draftKey = 'align_draft_v1';
@@ -139,9 +154,6 @@ class _AlignmentPageState extends State<AlignmentPage>
             }
           });
           _clockDial = _method == AlignMethod.reverse ? 'a' : 'r';
-          // 처짐·열팽창에 값이 들어 있으면 펼쳐 둔다(10-15: 접혀 있어 모르고 계산에 들어갔다).
-          _showSag = _hasAny(['sagA', 'sagB', 'sagR']);
-          _showTarget = _hasAny(['targetY', 'targetZ']);
         });
       }
     } catch (_) {}
@@ -189,6 +201,9 @@ class _AlignmentPageState extends State<AlignmentPage>
     for (final c in _c.values) {
       c.dispose();
     }
+    for (final n in _nodes.values) {
+      n.dispose();
+    }
     _tolO.dispose();
     _tolA.dispose();
     _machine.dispose();
@@ -196,7 +211,6 @@ class _AlignmentPageState extends State<AlignmentPage>
     for (final c in _start.values) {
       c.dispose();
     }
-    _tab.dispose();
     super.dispose();
   }
 
@@ -237,12 +251,15 @@ class _AlignmentPageState extends State<AlignmentPage>
   /// 방식별 다이얼 둘(칸 앞글자).
   List<String> get _dials => _method == AlignMethod.reverse ? const ['a', 'b'] : const ['r', 'f'];
 
-  bool get _distancesDone => _distKeys.every((k) => _n(k) != null);
-
-  bool get _readingsDone => [
+  List<String> get _readingKeys => [
     for (final p in _dials)
       for (final a in ['90', '180', '270']) '$p$a',
-  ].every((k) => _n(k) != null);
+  ];
+
+  int get _distCount => _distKeys.where((k) => _n(k) != null).length;
+  int get _readingCount => _readingKeys.where((k) => _n(k) != null).length;
+  bool get _distancesDone => _distCount == _distKeys.length;
+  bool get _readingsDone => _readingCount == _readingKeys.length;
 
   /// 값이 다 들어오면 계산한다. 덜 들어왔으면 null, 잘못된 값이면 오류 글.
   ({AlignResult? result, String? error}) _solve() {
@@ -308,7 +325,10 @@ class _AlignmentPageState extends State<AlignmentPage>
     showAppSnack(context, m);
   }
 
-  void _go(int step) => _tab.animateTo(step.clamp(0, kAlignSteps.length - 1));
+  void _go(int step) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() => _tab = step.clamp(0, kAlignSteps.length - 1));
+  }
 
   Future<void> _openGuide([String? id]) async {
     await Navigator.push(
@@ -328,181 +348,201 @@ class _AlignmentPageState extends State<AlignmentPage>
 
   // ── 화면 ──
 
+  /// 제목 아래 한 줄: 결과가 나오면 판정, 아니면 넣은 칸 수.
+  (String, Color) _summary(({AlignResult? result, String? error}) solved) {
+    final r = solved.result;
+    if (solved.error != null) return ('값을 확인하십시오', fc.danger);
+    if (r == null) {
+      final name = _method == AlignMethod.reverse ? '리버스 다이얼' : '림·페이스';
+      return ('$name · 거리 $_distCount/${_distKeys.length} · 지시값 $_readingCount/${_readingKeys.length}', fc.textSub);
+    }
+    final ok = judge(r, _tol) == AlignVerdict.ok;
+    return (
+      '${ok ? '합격' : '불합격'} · 평행 ${r.offset.toStringAsFixed(3)} · 각도 ${r.angle100.toStringAsFixed(3)}',
+      ok ? fc.ok : fc.danger,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final solved = _solve();
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('축 정렬 계산'),
-        actions: [
-          IconButton(
-            key: const Key('align_guide'),
-            tooltip: '현장 지침',
-            icon: const Icon(AppIcons.help),
-            onPressed: () => _openGuide(),
-          ),
-          IconButton(
-            key: const Key('align_history'),
-            tooltip: '지난 기록',
-            icon: const Icon(AppIcons.history),
-            onPressed: _openHistory,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _stepHeader(solved),
-          Expanded(
-            child: TabBarView(
-              controller: _tab,
+    final (sum, sumColor) = _summary(solved);
+    return FieldViewTheme(
+      child: Builder(
+        builder: (context) => Scaffold(
+          backgroundColor: fc.background,
+          appBar: AppBar(
+            backgroundColor: fc.surface,
+            foregroundColor: fc.text,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _page(_setupTab(), pinned: _setupPinned()),
-                _page(_measureTab(solved), pinned: _measurePinned()),
-                _page(_resultTab(solved)),
-                _page(_shimTab(solved.result)),
+                Text('축 정렬 계산', style: TextStyle(fontWeight: FontWeight.w800, color: fc.text)),
+                Text(
+                  sum,
+                  key: const Key('align_head'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: sumColor),
+                ),
+              ],
+            ),
+            actions: [
+              PlateBarAction(
+                key: const Key('align_guide'),
+                icon: AppIcons.help,
+                label: '현장 지침',
+                onTap: () => _openGuide(),
+              ),
+              PlateBarAction(
+                key: const Key('align_history'),
+                icon: AppIcons.history,
+                label: '지난 기록',
+                onTap: _openHistory,
+              ),
+              const SizedBox(width: 6),
+            ],
+          ),
+          body: GestureDetector(
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            behavior: HitTestBehavior.translucent,
+            child: PlateWorkspace(
+              canvasShare: _tab == 3 ? 0.36 : 0.42,
+              canvas: KeyedSubtree(key: ValueKey('align_canvas_$_tab'), child: _canvas(solved)),
+              tools: _canvasTools(solved),
+              hint: _canvasHint(solved),
+              panel: IndexedStack(
+                index: _tab,
+                children: [
+                  _setupPanel(),
+                  _measurePanel(solved),
+                  _resultPanel(solved),
+                  _shimPanel(solved.result),
+                ],
+              ),
+            ),
+          ),
+          bottomNavigationBar: _navBar(solved),
+        ),
+      ),
+    );
+  }
+
+  // ── 위 그림 ──
+
+  Widget _canvas(({AlignResult? result, String? error}) solved) => switch (_tab) {
+    0 => _setupCanvas(),
+    1 => _measureCanvas(),
+    2 => _resultCanvas(solved.result),
+    _ => _shimCanvas(),
+  };
+
+  List<Widget> _canvasTools(({AlignResult? result, String? error}) solved) => switch (_tab) {
+    1 => [_dialSwitch()],
+    2 when solved.result != null => [
+      PlateViewSwitch([
+        PlateOption('align_vm_side', '옆에서', _resultView == 'side', () => setState(() => _resultView = 'side')),
+        PlateOption('align_vm_top', '위에서', _resultView == 'top', () => setState(() => _resultView = 'top')),
+      ]),
+    ],
+    _ => const [],
+  };
+
+  String? _canvasHint(({AlignResult? result, String? error}) solved) => switch (_tab) {
+    0 => _focus != null && _distKeys.contains(_focus) ? null : '거리 칸을 누르면 그 치수만 크게 보입니다',
+    1 => '펌프 쪽에 서서 모터를 볼 때 · 3시가 오른쪽',
+    2 => solved.result == null ? null : '심 두께·어긋남은 크게 부풀려 그렸습니다',
+    _ => '위에서 본 네 발 · 지금 발 밑에 있는 심',
+  };
+
+  /// 그림이 없을 때 가운데 글.
+  Widget _canvasEmpty(String text) => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Text(
+        text,
+        key: const Key('align_canvas_empty'),
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 14, color: fc.textSub, height: 1.45),
+      ),
+    ),
+  );
+
+  // ── 아래 탭 ──
+
+  Widget? _navBar(({AlignResult? result, String? error}) solved) {
+    if (MediaQuery.viewInsetsOf(context).bottom > 0) return null;
+    final compact = calcNavCompact(context);
+    final r = solved.result;
+    final ok = r != null && judge(r, _tol) == AlignVerdict.ok;
+    BottomNavigationBarItem item(int i) {
+      final on = i == _tab;
+      final Widget icon = switch (i) {
+        0 => AppIcon(AppGlyph.navInput, size: 24, filled: on),
+        1 => const Icon(LucideIcons.gauge, size: 22),
+        2 => AppIcon(AppGlyph.navMarking, size: 24, filled: on),
+        _ => const Icon(LucideIcons.layers, size: 22),
+      };
+      // 다 넣은 탭은 작은 점(결과는 판정 색).
+      final Color? dot = switch (i) {
+        0 => _distancesDone ? fc.ok : null,
+        1 => _readingsDone ? fc.ok : null,
+        2 => r == null ? null : (ok ? fc.ok : fc.danger),
+        _ => _rounds.isNotEmpty ? fc.brand : null,
+      };
+      return BottomNavigationBarItem(
+        icon: Padding(
+          padding: EdgeInsets.only(bottom: compact ? 0 : 4),
+          child: KeyedSubtree(
+            key: Key('align_step_$i'),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                icon,
+                if (dot != null)
+                  Positioned(
+                    right: -4,
+                    top: -2,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
+                    ),
+                  ),
               ],
             ),
           ),
-          // 자판이 떠 있으면 이전·다음을 숨겨 칸과 그림 자리를 넓힌다(10-15 폰 확인).
-          if (MediaQuery.viewInsetsOf(context).bottom == 0) _bottomBar(solved),
-        ],
-      ),
-    );
-  }
-
-  /// 단계 한 쪽. [pinned]가 있으면 목록 위에 붙여 둔다(칸에 들어가 자판이 떠도 그림이 보이게).
-  Widget _page(List<Widget> children, {Widget? pinned}) => Column(
-    children: [
-      if (pinned != null)
-        Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            color: AppColors.surface,
-            border: Border(bottom: BorderSide(color: AppColors.line)),
-          ),
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
-          child: pinned,
         ),
-      Expanded(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-          children: children,
-        ),
-      ),
-    ],
-  );
+        label: kAlignSteps[i],
+      );
+    }
 
-  /// 위 단계 표시: 끝난 단계는 ✓, 결과는 판정 색, 지금 단계는 청록.
-  Widget _stepHeader(({AlignResult? result, String? error}) solved) {
-    final r = solved.result;
-    final verdict = r == null ? null : judge(r, _tol);
-    final done = [
-      _distancesDone,
-      _readingsDone,
-      r != null,
-      _rounds.isNotEmpty,
-    ];
     return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
-      child: Row(
-        children: [
-          for (var i = 0; i < kAlignSteps.length; i++)
-            Expanded(
-              child: InkWell(
-                key: Key('align_step_$i'),
-                borderRadius: BorderRadius.circular(10),
-                onTap: () => _go(i),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Column(
-                    children: [
-                      Builder(
-                        builder: (_) {
-                          final on = _tab.index == i;
-                          final Color c = i == 2 && verdict != null
-                              ? (verdict == AlignVerdict.ok ? AppColors.ok : AppColors.danger)
-                              : (on ? AppColors.brand : (done[i] ? AppColors.ok : AppColors.textFaint));
-                          return Container(
-                            width: 28,
-                            height: 28,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: on ? c : c.withValues(alpha: 0.12),
-                              border: Border.all(color: c, width: 1.5),
-                            ),
-                            child: done[i] && !on
-                                ? Icon(Icons.check_rounded, size: 16, color: c)
-                                : Text(
-                                    '${i + 1}',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w900,
-                                      color: on ? Colors.white : c,
-                                    ),
-                                  ),
-                          );
-                        },
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        kAlignSteps[i],
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          fontWeight: _tab.index == i ? FontWeight.w900 : FontWeight.w600,
-                          color: _tab.index == i ? AppColors.text : AppColors.textSub,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
+      decoration: BoxDecoration(
+        color: fc.surface,
+        border: Border(top: BorderSide(color: fc.line)),
       ),
-    );
-  }
-
-  /// 아래 이전·다음. 마지막 단계에서는 "기록 남기기".
-  Widget _bottomBar(({AlignResult? result, String? error}) solved) {
-    final i = _tab.index;
-    final last = i == kAlignSteps.length - 1;
-    final r = solved.result;
-    return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.line)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            OutlinedButton(
-              key: const Key('align_prev'),
-              onPressed: i == 0 ? null : () => _go(i - 1),
-              child: const Text('이전'),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: last
-                  ? FilledButton.icon(
-                      key: const Key('align_save'),
-                      onPressed: r == null ? null : () => _save(r),
-                      icon: const Icon(AppIcons.save, size: 18),
-                      label: Text(r == null ? '결과가 나와야 저장합니다' : '기록 남기기'),
-                    )
-                  : FilledButton(
-                      key: const Key('align_next'),
-                      onPressed: () => _go(i + 1),
-                      child: Text('다음: ${kAlignSteps[i + 1]}'),
-                    ),
-            ),
-          ],
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4, vertical: compact ? 0 : 4),
+          child: BottomNavigationBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            type: BottomNavigationBarType.fixed,
+            currentIndex: _tab,
+            selectedItemColor: fc.brand,
+            unselectedItemColor: fc.textSub,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w900, fontSize: 10),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10),
+            onTap: (i) {
+              HapticFeedback.selectionClick();
+              _go(i);
+            },
+            items: [for (var i = 0; i < kAlignSteps.length; i++) item(i)],
+          ),
         ),
       ),
     );
@@ -510,124 +550,19 @@ class _AlignmentPageState extends State<AlignmentPage>
 
   // ── 공용 칸 ──
 
-  Widget _card(String title, List<Widget> children, {Key? key}) => Card(
-    key: key,
-    margin: const EdgeInsets.only(top: 12),
-    elevation: 0,
-    color: AppColors.surface,
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: AppText.title),
-          const SizedBox(height: 10),
-          ...children,
-        ],
-      ),
-    ),
+  /// 숫자 칸(공용 PlateNumField: 누르면 값 전체 고르기). 들어가면 위 그림이 그 칸을 강조한다.
+  Widget _field(String key, String? label, {String? hint, String? unit = 'mm', bool signed = true}) => PlateNumField(
+    fieldKey: 'align_$key',
+    label: label,
+    controller: _f(key),
+    focus: _fn(key),
+    unit: unit,
+    hint: hint,
+    signed: signed,
+    onChanged: (_) => setState(() {}),
   );
 
-  Widget _toggleCard({
-    required String keyName,
-    required String label,
-    required bool open,
-    required VoidCallback onTap,
-    required Widget child,
-    required String help,
-    bool applied = false,
-  }) => Card(
-    margin: const EdgeInsets.only(top: 12),
-    elevation: 0,
-    color: AppColors.surface,
-    child: Column(
-      children: [
-        InkWell(
-          key: Key(keyName),
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Expanded(child: Text(label, style: AppText.title)),
-                // 값이 들어 있으면 접혀 있어도 계산에 들어간다는 표시(10-15).
-                if (applied)
-                  Container(
-                    margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.caution.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      '계산에 들어감',
-                      style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.caution),
-                    ),
-                  ),
-                Icon(open ? Icons.expand_less_rounded : Icons.expand_more_rounded, color: AppColors.textSub),
-              ],
-            ),
-          ),
-        ),
-        if (open)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(help, style: const TextStyle(fontSize: 12, height: 1.5, color: AppColors.textSub)),
-                const SizedBox(height: 8),
-                child,
-              ],
-            ),
-          ),
-      ],
-    ),
-  );
-
-  Widget _row(List<Widget> fields) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (var i = 0; i < fields.length; i++) ...[
-          if (i > 0) const SizedBox(width: 8),
-          Expanded(child: fields[i]),
-        ],
-      ],
-    ),
-  );
-
-  /// 숫자 칸. 들어가면 [_focus]가 바뀌어 그림이 그 칸을 강조한다.
-  Widget _field(String key, String label, {String? hint, String? suffix}) => Focus(
-    onFocusChange: (on) => setState(() {
-      if (on) {
-        _focus = key;
-        final m = RegExp(r'^([abrf])(90|180|270)$').firstMatch(key);
-        if (m != null) _clockDial = m.group(1)!;
-      } else if (_focus == key) {
-        _focus = null;
-      }
-    }),
-    child: TextField(
-      key: Key('align_$key'),
-      controller: _f(key),
-      onChanged: (_) => setState(() {}),
-      keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[-+0-9.,]'))],
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        suffixText: suffix,
-        isDense: true,
-        filled: true,
-        fillColor: _focus == key ? AppColors.brandSoft : AppColors.background,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-      ),
-    ),
-  );
-
+  /// 알림 상자(오류·주의). [guideId]면 현장 지침으로 가는 단추.
   Widget _notice(String text, Color color, {required String key, String? guideId}) => Container(
     key: Key(key),
     margin: const EdgeInsets.only(top: 12),
@@ -636,7 +571,7 @@ class _AlignmentPageState extends State<AlignmentPage>
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+        Text(text, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color, height: 1.4)),
         if (guideId != null)
           Align(
             alignment: Alignment.centerRight,
@@ -645,4 +580,7 @@ class _AlignmentPageState extends State<AlignmentPage>
       ],
     ),
   );
+
+  /// 작은 설명 글.
+  Widget _note(String text) => Text(text, style: TextStyle(fontSize: 12.5, height: 1.5, color: fc.textSub));
 }

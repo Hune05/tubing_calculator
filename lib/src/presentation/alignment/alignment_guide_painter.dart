@@ -43,7 +43,8 @@ class AlignClockPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
     final c = Offset(w / 2, h / 2);
-    final R = math.min(h * 0.17, w * 0.14); // 커플링 바깥 반지름
+    // 커플링 바깥 반지름. 위아래 표찰(다이얼 + 17 + 표찰 반 높이 약 14)까지 칸 안에 들게(10-15 폰 가로에서 6시 표찰이 넘쳤다).
+    final R = math.max(10.0, math.min(math.min(h * 0.17, (h / 2 - 34) / 2.26), w * 0.14));
     final rd = R * 0.40; // 다이얼 반지름
     final dist = R + rd * 2.15; // 다이얼 중심까지
 

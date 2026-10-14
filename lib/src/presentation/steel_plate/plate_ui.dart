@@ -173,60 +173,76 @@ class PlatePanel extends StatelessWidget {
   final ScrollController? controller;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 14, 10, 4),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      // 자판이 떠서 작업판이 아주 낮으면(폰 가로) 제목 줄을 접는다: 제목만 보이고 넣는 칸이 안 보였다(10-15).
+      final tight =
+          MediaQuery.viewInsetsOf(context).bottom > 0 && box.maxHeight < 260;
+      // 작업판이 낮으면(폰 가로) 제목 줄도 같이 밀려 올라가게: 고정해 두면 칸 자리가 손가락 한 마디만 남았다(10-15).
+      final scrollHead = !tight && box.maxHeight < 300;
+      return _body(tight, scrollHead);
+    },
+  );
+
+  /// 제목 줄. [inList]면 목록 안(목록이 이미 좌우 20을 띄움).
+  Widget _head({bool inList = false}) => Padding(
+    padding: inList
+        ? const EdgeInsets.fromLTRB(0, 10, 0, 4)
+        : const EdgeInsets.fromLTRB(20, 14, 10, 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                  color: fc.text,
+                ),
+              ),
+              if (status != null && status!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(
+                    status!,
+                    key: statusKey,
                     style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: fc.text,
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: statusColor ?? fc.textSub,
+                      height: 1.35,
                     ),
                   ),
-                  if (status != null && status!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 3),
-                      child: Text(
-                        status!,
-                        key: statusKey,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: statusColor ?? fc.textSub,
-                          height: 1.35,
-                        ),
-                      ),
-                    ),
-                  for (final b in below)
-                    Padding(padding: const EdgeInsets.only(top: 3), child: b),
-                ],
-              ),
-            ),
-            ...actions,
-          ],
+                ),
+              for (final b in below)
+                Padding(padding: const EdgeInsets.only(top: 3), child: b),
+            ],
+          ),
         ),
-      ),
+        ...actions,
+      ],
+    ),
+  );
+
+  Widget _body(bool tight, bool scrollHead) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      if (!tight && !scrollHead) _head(),
       Expanded(
         child: FocusTraversalGroup(
           policy: TextFieldsOnlyTraversalPolicy(),
           child: ListView(
             controller: controller,
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-            children: children,
+            children: [if (scrollHead) _head(inList: true), ...children],
           ),
         ),
       ),
-      if (footer != null)
+      if (footer != null && !tight)
         Container(
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: fc.line)),
@@ -473,7 +489,11 @@ class PlateNumField extends StatefulWidget {
     this.highlight = false,
     this.readOnly = false,
     this.trailing,
+    this.signed = false,
   });
+
+  /// 마이너스를 넣는 칸(다이얼 지시값 등, 10-15): 자판에 − 단추가 나오게.
+  final bool signed;
 
   /// 지금 쓰는 값이라 테두리를 진하게.
   final bool highlight;
@@ -629,7 +649,10 @@ class _PlateNumFieldState extends State<PlateNumField> {
       canRequestFocus: !readOnly,
       keyboardType: text
           ? TextInputType.text
-          : const TextInputType.numberWithOptions(decimal: true),
+          : TextInputType.numberWithOptions(
+              decimal: true,
+              signed: widget.signed,
+            ),
       textInputAction: TextInputAction.next,
       textAlign: text ? TextAlign.start : TextAlign.right,
       strutStyle: StrutStyle(fontSize: base, forceStrutHeight: true),

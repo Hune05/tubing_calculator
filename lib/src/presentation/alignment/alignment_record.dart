@@ -162,6 +162,13 @@ String buildAlignText(AlignRecord r) {
       '\n발 밑 심(mm): ${[for (final f in AlignFoot.values) '${f.label} ${footMm(r.footEnd[f] ?? 0)}'].join(', ')}',
     );
   }
+  // 소프트 풋(10-15): 넣었으면 값과 기준 넘은 발.
+  final sf = softFootOf(r.inputs);
+  if (sf.isNotEmpty) {
+    final over = softFootOver(sf);
+    b.write('\n소프트 풋(mm): ${softFootList(sf, AlignFoot.values.where(sf.containsKey))}');
+    b.write(over.isEmpty ? ' · 모두 ${kSoftFootLimit.toStringAsFixed(2)} 이하' : ' · ${kSoftFootLimit.toStringAsFixed(2)} 넘음: ${[for (final f in over) f.label].join(', ')}');
+  }
   return b.toString();
 }
 

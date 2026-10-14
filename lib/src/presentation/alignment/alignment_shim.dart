@@ -7,6 +7,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../common/number_text.dart';
 import 'alignment_record.dart';
 import 'alignment_session.dart';
 
@@ -136,3 +137,28 @@ class AlignShimStore {
     } catch (_) {}
   }
 }
+
+// ── 소프트 풋(10-15) ──
+// 네 발 볼트를 다 조인 뒤 다이얼을 발 위에 대고 한 발씩 풀어 올라오는 양. 현장 지침(softfoot)과 같은 기준.
+
+/// 흔히 이보다 많이 올라오면 고친다(mm). 규격 값이 아니라 현장에서 흔히 쓰는 값.
+const double kSoftFootLimit = 0.05;
+
+/// 화면 칸·저장 값 이름.
+String softFootKey(AlignFoot f) => 'sf_${f.name}';
+
+/// 넣은 값(숫자인 것만).
+Map<AlignFoot, double> softFootOf(Map<String, String> inputs) => {
+  for (final f in AlignFoot.values)
+    if (parseNumberText(inputs[softFootKey(f)] ?? '') case final v?) f: v.abs(),
+};
+
+/// 기준을 넘은 발.
+List<AlignFoot> softFootOver(Map<AlignFoot, double> v) => [
+  for (final f in AlignFoot.values)
+    if ((v[f] ?? 0) > kSoftFootLimit + 1e-9) f,
+];
+
+/// "앞발 왼쪽 0.08, 뒷발 오른쪽 0.06"
+String softFootList(Map<AlignFoot, double> v, Iterable<AlignFoot> feet) =>
+    [for (final f in feet) '${f.label} ${(v[f] ?? 0).toStringAsFixed(2)}'].join(', ');
