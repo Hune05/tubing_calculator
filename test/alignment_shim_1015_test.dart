@@ -76,7 +76,7 @@ void main() {
       expect(shimPlates(1.25, kAlignShimSizesDefault).plates, [1.0, 0.2, 0.05]);
       expect(shimPlateText(1.25, kAlignShimSizesDefault), '1.0 + 0.2 + 0.05');
       expect(shimPlateText(-0.3, kAlignShimSizesDefault), '0.2 + 0.1');
-      expect(shimPlateText(0.03, kAlignShimSizesDefault), '(0.03 맞는 판 없음)');
+      expect(shimPlateText(0.03, kAlignShimSizesDefault), '(0.03 모자람)');
       expect(shimPlateText(0, kAlignShimSizesDefault), '없음');
     });
 

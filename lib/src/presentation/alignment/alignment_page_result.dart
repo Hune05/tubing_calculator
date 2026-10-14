@@ -103,16 +103,8 @@ extension _AlignResultTab on _AlignmentPageState {
         ],
       ),
       children: [
-        PlateSection('판정', [
-          _gauge('평행 어긋남', r.offset, tol.offset),
-          _gauge('각도', r.angle100, tol.angle100),
-          Text(
-            '평행 어긋남 ${r.offset.toStringAsFixed(3)} mm (허용 ${tol.offset.toStringAsFixed(2)})  ·  '
-            '각도 ${r.angle100.toStringAsFixed(3)} mm/100mm (허용 ${tol.angle100.toStringAsFixed(2)})',
-            key: const Key('align_offsets'),
-            style: TextStyle(fontSize: 13, height: 1.5, color: fc.text),
-          ),
-        ], first: true),
+        // 할 일(심·옆 이동)을 맨 위에(10-15: 세로 폰에서 판정 막대·알림에 밀려 안 보였다).
+        PlateSection('발 이동량 (모터)', [_shimTable(r)], first: true),
         if (r.closure > 0.05)
           _notice(
             '지시값이 서로 안 맞습니다 (3시 + 9시 ≠ 6시, 차이 ${r.closure.toStringAsFixed(2)} mm). '
@@ -129,7 +121,16 @@ extension _AlignResultTab on _AlignmentPageState {
             key: 'align_softfoot_warn',
             guideId: 'softfoot',
           ),
-        PlateSection('발 이동량 (모터)', [_shimTable(r)]),
+        PlateSection('판정', [
+          _gauge('평행 어긋남', r.offset, tol.offset),
+          _gauge('각도', r.angle100, tol.angle100),
+          Text(
+            '평행 어긋남 ${r.offset.toStringAsFixed(3)} mm (허용 ${tol.offset.toStringAsFixed(2)})  ·  '
+            '각도 ${r.angle100.toStringAsFixed(3)} mm/100mm (허용 ${tol.angle100.toStringAsFixed(2)})',
+            key: const Key('align_offsets'),
+            style: TextStyle(fontSize: 13, height: 1.5, color: fc.text),
+          ),
+        ]),
         if (_rounds.isNotEmpty)
           PlateSection('이번 작업', [
             _note('${_rounds.length}회차까지 적었습니다. 마지막: 평행 ${_rounds.last.offset.toStringAsFixed(3)} mm · ${verdictLabel(_rounds.last.verdict)}. 회차와 네 발 심은 심 기록 탭에 있습니다.'),
