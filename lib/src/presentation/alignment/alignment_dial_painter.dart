@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_tokens.dart';
+import '../../core/theme/field_view.dart';
 
 const Color _edge = Color(0xFF232A31);
 
@@ -187,14 +188,14 @@ class AlignDialGuidePainter extends CustomPainter {
     final lx = c.dx + r * 1.55;
     void callout(Offset from, double y, String title, String sub) {
       final to = Offset(lx - 6, y);
-      final p = Paint()..color = AppColors.textSub..strokeWidth = 1.2;
+      final p = Paint()..color = fc.textSub..strokeWidth = 1.2;
       canvas.drawLine(from, Offset(from.dx + (to.dx - from.dx) * 0.4, y), p);
       canvas.drawLine(Offset(from.dx + (to.dx - from.dx) * 0.4, y), to, p);
-      canvas.drawCircle(from, 2.6, Paint()..color = AppColors.text);
+      canvas.drawCircle(from, 2.6, Paint()..color = fc.text);
       final tp = TextPainter(
         text: TextSpan(children: [
-          TextSpan(text: '$title\n', style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: AppColors.text, height: 1.3)),
-          TextSpan(text: sub, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSub, height: 1.3)),
+          TextSpan(text: '$title\n', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w900, color: fc.text, height: 1.3)),
+          TextSpan(text: sub, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fc.textSub, height: 1.3)),
         ]),
         textDirection: TextDirection.ltr,
       )..layout(maxWidth: math.max(80, w - lx - 4));
@@ -215,7 +216,7 @@ class AlignDialGuidePainter extends CustomPainter {
     final label = '${value >= 0 ? '+' : '−'}${value.abs().toStringAsFixed(2)} mm';
     final tp = TextPainter(
       text: TextSpan(children: [
-        const TextSpan(text: '이 바늘의 지시값  ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textSub)),
+        TextSpan(text: '이 바늘의 지시값  ', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fc.textSub)),
         TextSpan(text: label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: Color(0xFFC62828))),
       ]),
       textDirection: TextDirection.ltr,

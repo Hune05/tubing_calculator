@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_tokens.dart';
+import '../../core/theme/field_view.dart';
 import 'alignment_dial_painter.dart';
 
 const Color _dialA = Color(0xFFE08A00);
@@ -93,7 +94,7 @@ class AlignClockPainter extends CustomPainter {
     ];
     if (title != null) {
       final tp = TextPainter(
-        text: TextSpan(text: title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.text)),
+        text: TextSpan(text: title, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: fc.text)),
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, const Offset(6, 4));

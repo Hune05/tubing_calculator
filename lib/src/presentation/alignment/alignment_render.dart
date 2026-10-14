@@ -8,6 +8,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_tokens.dart';
+import '../../core/theme/field_view.dart';
 import 'alignment_dial_painter.dart';
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
@@ -465,38 +466,38 @@ class AlignSetupRenderPainter extends CustomPainter {
       _chip(canvas, '페이스', fC + Offset(-dialR * 1.7, dialR * 0.2), _dialA);
       // ④ 페이스가 닿는 반지름
       final r0 = m.p(0.25, ya), r1 = m.p(0.25, ya + 0.56);
-      final p = Paint()..color = AppColors.text..strokeWidth = 1.6;
+      final p = Paint()..color = fc.text..strokeWidth = 1.6;
       canvas.drawLine(r0, r1, p);
       canvas.drawLine(r0 - const Offset(4, 0), r0 + const Offset(4, 0), p);
       canvas.drawLine(r1 - const Offset(4, 0), r1 + const Offset(4, 0), p);
-      _badge(canvas, kAlignNumbers[3], r0 + Offset(16, (r1.dy - r0.dy) / 2), AppColors.text);
+      _badge(canvas, kAlignNumbers[3], r0 + Offset(16, (r1.dy - r0.dy) / 2), fc.text);
     }
 
     // 커플링 중심선
-    _dashLine(canvas, m.p(0, top + 0.1), m.p(0, 0), Paint()..color = AppColors.text.withValues(alpha: 0.55)..strokeWidth = 1.3..style = PaintingStyle.stroke);
+    _dashLine(canvas, m.p(0, top + 0.1), m.p(0, 0), Paint()..color = fc.text.withValues(alpha: 0.55)..strokeWidth = 1.3..style = PaintingStyle.stroke);
 
     // ── 재는 거리
     final dims = reverse
         ? [
             (AlignGeo.xB, AlignGeo.xA, 'A·B 두 접촉면 사이', _dialB),
-            (AlignGeo.xB, 0.0, 'B면 → 커플링 중심', AppColors.text),
+            (AlignGeo.xB, 0.0, 'B면 → 커플링 중심', fc.text),
             (AlignGeo.xA, AlignGeo.front, 'A면 → 앞발', _dialA),
             (AlignGeo.xA, AlignGeo.rear, 'A면 → 뒷발', _dialA),
           ]
         : [
-            (AlignGeo.xA, 0.0, '림면 → 커플링 중심', AppColors.text),
+            (AlignGeo.xA, 0.0, '림면 → 커플링 중심', fc.text),
             (AlignGeo.xA, AlignGeo.front, '림면 → 앞발', _dialA),
             (AlignGeo.xA, AlignGeo.rear, '림면 → 뒷발', _dialA),
           ];
-    final ext = Paint()..color = AppColors.textSub.withValues(alpha: 0.7)..strokeWidth = 1..style = PaintingStyle.stroke;
+    final ext = Paint()..color = fc.textSub.withValues(alpha: 0.7)..strokeWidth = 1..style = PaintingStyle.stroke;
     Offset featureAt(double x) {
       if (x == AlignGeo.front || x == AlignGeo.rear) return m.p(x, AlignGeo.shimTop);
       if (x == 0) return m.p(0, 0);
       return m.p(x, ya - AlignGeo.hubR);
     }
 
-    _txt(canvas, '앞발', m.p(AlignGeo.front, 0) + const Offset(0, 11), AppColors.textSub);
-    _txt(canvas, '뒷발', m.p(AlignGeo.rear, 0) + const Offset(0, 11), AppColors.textSub);
+    _txt(canvas, '앞발', m.p(AlignGeo.front, 0) + const Offset(0, 11), fc.textSub);
+    _txt(canvas, '뒷발', m.p(AlignGeo.rear, 0) + const Offset(0, 11), fc.textSub);
     for (var i = 0; i < dims.length; i++) {
       if (compact && highlight != i) continue;
       final (x0, x1, label0, col0) = dims[i];
@@ -534,8 +535,8 @@ class AlignSetupRenderPainter extends CustomPainter {
       tp.paint(canvas, Offset(tx.clamp(2.0, size.width - tp.width - 2), ly - tp.height / 2));
     }
 
-    _txt(canvas, '펌프 (고정)', m.p(-2.6, ya + 1.55), AppColors.textSub, size: 12);
-    _txt(canvas, '모터 (이동)', m.p(5.2, ya + AlignGeo.motorR) + const Offset(0, -12), AppColors.textSub, size: 12);
+    _txt(canvas, '펌프 (고정)', m.p(-2.6, ya + 1.55), fc.textSub, size: 12);
+    _txt(canvas, '모터 (이동)', m.p(5.2, ya + AlignGeo.motorR) + const Offset(0, -12), fc.textSub, size: 12);
   }
 
   @override
@@ -567,7 +568,7 @@ class AlignSideRenderPainter extends CustomPainter {
     _paintSide(canvas, m, shimFront: shimFront, shimRear: shimRear);
 
     // 목표 중심선(펌프 축)
-    _dashLine(canvas, m.p(AlignGeo.x0, ya), m.p(AlignGeo.x1, ya), Paint()..color = AppColors.text.withValues(alpha: 0.6)..strokeWidth = 1.5..style = PaintingStyle.stroke);
+    _dashLine(canvas, m.p(AlignGeo.x0, ya), m.p(AlignGeo.x1, ya), Paint()..color = fc.text.withValues(alpha: 0.6)..strokeWidth = 1.5..style = PaintingStyle.stroke);
 
     // 지금 모터 위치(점선): 위아래 어긋남을 크게 부풀린 것
     final vc = vertical.at(0), vEnd = vertical.at(xRear);
@@ -601,7 +602,7 @@ class AlignSideRenderPainter extends CustomPainter {
     chip(AlignGeo.front, shimFront, '앞발', narrow ? -28 : -10);
     chip(AlignGeo.rear, shimRear, '뒷발', narrow ? 28 : 10);
     // 펌프 이름은 왼쪽 끝에 붙인다(10-15: 가운데 두니 좁은 그림에서 앞발 표찰과 겹쳤다).
-    if (!short) _txt(canvas, '펌프 (고정)', Offset(m.p(AlignGeo.x0, 0).dx + 2, size.height - 38), AppColors.textSub, size: 12, center: false);
+    if (!short) _txt(canvas, '펌프 (고정)', Offset(m.p(AlignGeo.x0, 0).dx + 2, size.height - 38), fc.textSub, size: 12, center: false);
     _txt(canvas, '점선 = 지금 모터 위치(크게 부풀림)', Offset(size.width - 202, 4), alignCaution, center: false);
   }
 
@@ -638,7 +639,7 @@ class AlignTopRenderPainter extends CustomPainter {
         : _Map.fit(Rect.fromLTWH(8, 66, size.width - 16, size.height - 132), top: true, v0: -2.15, v1: 2.15);
     _paintTop(canvas, m, shimFront: shimFront, shimRear: shimRear);
 
-    _dashLine(canvas, m.p(AlignGeo.x0, 0), m.p(AlignGeo.x1, 0), Paint()..color = AppColors.text.withValues(alpha: 0.6)..strokeWidth = 1.5..style = PaintingStyle.stroke);
+    _dashLine(canvas, m.p(AlignGeo.x0, 0), m.p(AlignGeo.x1, 0), Paint()..color = fc.text.withValues(alpha: 0.6)..strokeWidth = 1.5..style = PaintingStyle.stroke);
 
     // 지금 모터 위치(점선): 옆 어긋남을 크게 부풀린 것(+ 오른쪽 = 화면 아래)
     final zc = horizontal.at(0), zEnd = horizontal.at(xRear);
@@ -698,9 +699,9 @@ class AlignTopRenderPainter extends CustomPainter {
       arrow(AlignGeo.rear, moveRear);
     }
 
-    _txt(canvas, '왼쪽 ▲', const Offset(6, 4), AppColors.textSub, center: false);
-    _txt(canvas, '오른쪽 ▼', Offset(6, size.height - 18), AppColors.textSub, center: false);
-    if (!short) _txt(canvas, '펌프 (고정)', m.p(-4.0, 1.9) + const Offset(0, 14), AppColors.textSub, size: 12);
+    _txt(canvas, '왼쪽 ▲', const Offset(6, 4), fc.textSub, center: false);
+    _txt(canvas, '오른쪽 ▼', Offset(6, size.height - 18), fc.textSub, center: false);
+    if (!short) _txt(canvas, '펌프 (고정)', m.p(-4.0, 1.9) + const Offset(0, 14), fc.textSub, size: 12);
   }
 
   @override
@@ -735,7 +736,7 @@ class AlignFeetRenderPainter extends CustomPainter {
       final side = f == AlignFoot.frontLeft || f == AlignFoot.rearLeft ? -1.0 : 1.0;
       final x = front ? AlignGeo.front : AlignGeo.rear;
       final v = now[f] ?? 0, d = change[f] ?? 0;
-      final col = v < -0.005 ? alignRemove : (v.abs() < 0.005 ? AppColors.textSub : _mix(_shimBrass, -0.25));
+      final col = v < -0.005 ? alignRemove : (v.abs() < 0.005 ? fc.textSub : _mix(_shimBrass, -0.25));
       if (short) {
         alignLabel(canvas, footMm(v), m.p(x, side * 1.27), col, size: 9.5);
         continue;
@@ -748,9 +749,9 @@ class AlignFeetRenderPainter extends CustomPainter {
       final chg = d.abs() < 0.005 ? '' : ' (${signedMm(d)})';
       alignLabel(canvas, '$tag\n${footMm(v)} mm$chg', at, col, size: narrow ? 10 : 11, minWidth: narrow ? 64 : 84);
     }
-    _txt(canvas, '왼쪽 ▲', const Offset(6, 4), AppColors.textSub, center: false);
-    _txt(canvas, '오른쪽 ▼', Offset(6, size.height - 18), AppColors.textSub, center: false);
-    if (!short) _txt(canvas, '펌프 (고정)', m.p(-4.0, 0), AppColors.textSub, size: 12);
+    _txt(canvas, '왼쪽 ▲', const Offset(6, 4), fc.textSub, center: false);
+    _txt(canvas, '오른쪽 ▼', Offset(6, size.height - 18), fc.textSub, center: false);
+    if (!short) _txt(canvas, '펌프 (고정)', m.p(-4.0, 0), fc.textSub, size: 12);
   }
 
   @override
