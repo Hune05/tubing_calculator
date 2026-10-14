@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -168,10 +170,17 @@ class _KickSheet extends StatefulWidget {
 /// 킥 시트 "빗변도 같이 넣기"를 마지막에 고른 대로 기억하는 칸(10-13).
 const String kConduitKickAddTravelKey = 'conduit_kick_add_travel_v1';
 
+/// 킥 각도를 정하는 방법(10-14 사용자 "킥에도 역산을 줄 수 있나? 둘 다"): 각도를 바로 넣거나,
+/// 높이+수평 거리(Run)에서 atan, 높이+빗변(Travel)에서 asin으로 거꾸로 셈한다.
+enum _KickInput { angle, run, travel }
+
 class _KickSheetState extends _SheetState<_KickSheet> {
   late final _h = ctrl();
   late final _a = ctrl('30');
+  late final _run = ctrl();
+  late final _travel = ctrl();
   late final _start = ctrl('0');
+  _KickInput _input = _KickInput.angle;
 
   /// 꺾는 줄 뒤에 빗변(높이 ÷ sinθ)을 직관 줄로 같이 넣을지(10-13 사용자 선택).
   /// 넣지 않으면 높이는 목록에 안 남아 총 절단·그림에 빗변 구간이 빠진다.
@@ -193,18 +202,46 @@ class _KickSheetState extends _SheetState<_KickSheet> {
     );
   }
 
+  /// 지금 입력 방식으로 정해지는 각도(도). 못 정하면 null.
+  double? _angleFor(double? h) {
+    switch (_input) {
+      case _KickInput.angle:
+        return csRead(_a);
+      case _KickInput.run:
+        final r = csRead(_run);
+        if (h == null || h <= 0 || r == null || r <= 0) return null;
+        return math.atan(h / r) * 180 / math.pi;
+      case _KickInput.travel:
+        final t = csRead(_travel);
+        if (h == null || h <= 0 || t == null || t <= h) return null;
+        return math.asin(h / t) * 180 / math.pi;
+    }
+  }
+
+  /// 넣을 수 없을 때 알림 글(입력 방식별).
+  String _missingMessage(double? h, double? a) {
+    switch (_input) {
+      case _KickInput.angle:
+        return (a != null && a >= 90)
+            ? '넣을 수 없습니다. 각도는 90°보다 작아야 합니다.'
+            : '넣을 수 없습니다. 높이와 각도를 넣으십시오.';
+      case _KickInput.run:
+        return '넣을 수 없습니다. 높이와 수평 거리를 넣으십시오.';
+      case _KickInput.travel:
+        final t = csRead(_travel);
+        return (h != null && t != null && t <= h)
+            ? '넣을 수 없습니다. 빗변은 높이보다 길어야 합니다.'
+            : '넣을 수 없습니다. 높이와 빗변을 넣으십시오.';
+    }
+  }
+
   void _apply(double? h, double? a) {
     if (!checkDirection(widget.currentRotation, rule: widget.canBendTo)) return;
     final kick = (h != null && a != null)
         ? conduitKick(height: h, angle: a)
         : null;
     if (kick == null) {
-      csSnackMissing(
-        context,
-        (a != null && a >= 90)
-            ? '넣을 수 없습니다. 각도는 90°보다 작아야 합니다.'
-            : '넣을 수 없습니다. 높이와 각도를 넣으십시오.',
-      );
+      csSnackMissing(context, _missingMessage(h, a));
       return;
     }
     final double start = csRead(_start) ?? 0;
@@ -232,9 +269,17 @@ class _KickSheetState extends _SheetState<_KickSheet> {
     Navigator.pop(context);
   }
 
+  Widget _inputChoice(_KickInput v, String key, String label) => CsChoice(
+    choiceKey: Key(key),
+    label: label,
+    selected: _input == v,
+    onTap: () => setState(() => _input = v),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final double? h = csRead(_h), a = csRead(_a);
+    final double? h = csRead(_h);
+    final double? a = _angleFor(h);
     final kick = (h != null && a != null)
         ? conduitKick(height: h, angle: a)
         : null;
@@ -245,6 +290,7 @@ class _KickSheetState extends _SheetState<_KickSheet> {
             angleDeg: a!,
             measuredGain90: widget.specs.gain90,
           );
+    final bool reverse = _input != _KickInput.angle;
     return CsFrame(
       title: '킥',
       guide: QuickKickGuide(
@@ -283,24 +329,90 @@ class _KickSheetState extends _SheetState<_KickSheet> {
           ],
         ),
         const SizedBox(height: 16),
-        const CsLabel('각도 (∠)'),
+        // 각도를 바로 넣거나, 현장에서 먼저 정해지는 거리(수평 거리·빗변)에서 각도를 거꾸로 셈한다.
+        const CsLabel('각도는 어떻게'),
         Wrap(
+          spacing: 8,
           runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            SizedBox(
-              width: 120,
-              child: CsField(
-                fieldKey: const Key('cs_angle'),
-                ctrl: _a,
-                hint: '각도 °',
-              ),
+            _inputChoice(_KickInput.angle, 'cs_kick_in_angle', '각도 넣기'),
+            _inputChoice(_KickInput.run, 'cs_kick_in_run', '높이 + 수평 거리로 역산'),
+            _inputChoice(
+              _KickInput.travel,
+              'cs_kick_in_travel',
+              '높이 + 빗변으로 역산',
             ),
-            const SizedBox(width: 12),
-            for (final v in const [15.0, 22.5, 30.0, 45.0, 60.0])
-              CsQuickAngleBtn(ctrl: _a, value: v),
           ],
         ),
+        const SizedBox(height: 16),
+        ...switch (_input) {
+          _KickInput.angle => [
+            const CsLabel('각도 (∠)'),
+            Wrap(
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: 120,
+                  child: CsField(
+                    fieldKey: const Key('cs_angle'),
+                    ctrl: _a,
+                    hint: '각도 °',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                for (final v in const [15.0, 22.5, 30.0, 45.0, 60.0])
+                  CsQuickAngleBtn(ctrl: _a, value: v),
+              ],
+            ),
+          ],
+          _KickInput.run => [
+            const CsLabel('수평 거리 (Run)'),
+            Row(
+              children: [
+                Expanded(
+                  child: CsField(
+                    fieldKey: const Key('cs_run'),
+                    ctrl: _run,
+                    hint: '거리 mm',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                CsQuickBtn(ctrl: _run, amount: -10, label: '-10'),
+                const SizedBox(width: 4),
+                CsQuickBtn(ctrl: _run, amount: 10, label: '+10'),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '꺾이는 점에서 높이에 닿는 자리까지의 수평 거리입니다. 각도 = atan(높이 ÷ 수평 거리).',
+              style: TextStyle(fontSize: 12.5, height: 1.4, color: csSub),
+            ),
+          ],
+          _KickInput.travel => [
+            const CsLabel('빗변 (Travel)'),
+            Row(
+              children: [
+                Expanded(
+                  child: CsField(
+                    fieldKey: const Key('cs_travel'),
+                    ctrl: _travel,
+                    hint: '빗변 mm',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                CsQuickBtn(ctrl: _travel, amount: -10, label: '-10'),
+                const SizedBox(width: 4),
+                CsQuickBtn(ctrl: _travel, amount: 10, label: '+10'),
+              ],
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              '꺾이는 점에서 높이에 닿는 자리까지의 관 길이입니다. 높이보다 길어야 하고, 각도 = asin(높이 ÷ 빗변).',
+              style: TextStyle(fontSize: 12.5, height: 1.4, color: csSub),
+            ),
+          ],
+        },
         const SizedBox(height: 24),
         CsDirectionSelector(
           value: dir,
@@ -336,17 +448,27 @@ class _KickSheetState extends _SheetState<_KickSheet> {
         ),
         const SizedBox(height: 16),
         CsResultBox(
-          title: '계산된 빗변 (Travel)',
-          value: kick == null ? null : '${csFmt(kick.travel)} mm',
+          title: reverse ? '계산된 각도 (∠)' : '계산된 빗변 (Travel)',
+          value: kick == null
+              ? null
+              : (reverse ? '${csFmt(a!)}°' : '${csFmt(kick.travel)} mm'),
           onPressed: () => _apply(h, a),
           details: kick == null
               ? const []
               : [
-                  CsDetail(
-                    label: '수평 거리 (Run)',
-                    value: '${csFmt(kick.run)} mm',
-                    note: '(킥 구간의 수평 거리 · 배수 ${csFmt(kick.multiplier, 3)})',
-                  ),
+                  if (_input != _KickInput.travel)
+                    CsDetail(
+                      label: '빗변 (Travel)',
+                      value: '${csFmt(kick.travel)} mm',
+                      note:
+                          '(꺾이는 점에서 높이에 닿는 자리까지 · 배수 ${csFmt(kick.multiplier, 3)})',
+                    ),
+                  if (_input != _KickInput.run)
+                    CsDetail(
+                      label: '수평 거리 (Run)',
+                      value: '${csFmt(kick.run)} mm',
+                      note: '(킥 구간의 수평 거리)',
+                    ),
                   CsShrinkGainRow(
                     shrink: '+${csFmt(kick.shrink)} mm',
                     shrinkNote: '(직진 거리가 이만큼 줄어듭니다)',

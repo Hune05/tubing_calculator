@@ -40,6 +40,10 @@ class _MobileQuickKickBottomSheetState
 
   final TextEditingController _heightCtrl = TextEditingController();
   final TextEditingController _angleCtrl = TextEditingController(text: "45");
+  // 10-14: 각도를 바로 넣거나, 높이+수평 거리 / 높이+빗변에서 각도를 거꾸로 셈한다(전선관 킥과 같음).
+  final TextEditingController _runCtrl = TextEditingController();
+  final TextEditingController _travelCtrl = TextEditingController();
+  String _input = 'angle'; // angle | run | travel
 
   @override
   void initState() {
@@ -47,6 +51,8 @@ class _MobileQuickKickBottomSheetState
     _loadAsyncSettings();
     _heightCtrl.addListener(() => setState(() {}));
     _angleCtrl.addListener(() => setState(() {}));
+    _runCtrl.addListener(() => setState(() {}));
+    _travelCtrl.addListener(() => setState(() {}));
   }
 
   Future<void> _loadAsyncSettings() async {
@@ -64,6 +70,8 @@ class _MobileQuickKickBottomSheetState
   void dispose() {
     _heightCtrl.dispose();
     _angleCtrl.dispose();
+    _runCtrl.dispose();
+    _travelCtrl.dispose();
     super.dispose();
   }
 
@@ -92,6 +100,60 @@ class _MobileQuickKickBottomSheetState
     );
   }
 
+  Widget _buildModeBtn(String mode, String label, Key key) {
+    final bool on = _input == mode;
+    return InkWell(
+      key: key,
+      onTap: () => setState(() => _input = mode),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: on ? makitaTeal : pureWhite,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: on ? makitaTeal : Colors.grey.shade300),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: on ? pureWhite : slate900,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 역산 칸(수평 거리·빗변): 높이 칸과 같은 모양.
+  Widget _buildDistField(TextEditingController ctrl, String title, Key key) =>
+      TextField(
+        key: key,
+        controller: ctrl,
+        readOnly: true,
+        onTap: () =>
+            MakitaNumpadGlass.show(context, controller: ctrl, title: title),
+        style: const TextStyle(
+          color: makitaTeal,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          fontFamily: 'monospace',
+        ),
+        decoration: InputDecoration(
+          hintText: "0",
+          filled: true,
+          fillColor: slate100,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(8),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      );
+
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
@@ -100,7 +162,17 @@ class _MobileQuickKickBottomSheetState
     final double bendRadius = MobileBendDataManager().radius;
 
     double h = double.tryParse(_heightCtrl.text) ?? 0;
-    double a = double.tryParse(_angleCtrl.text) ?? 0;
+    final double runIn = double.tryParse(_runCtrl.text) ?? 0;
+    final double travelIn = double.tryParse(_travelCtrl.text) ?? 0;
+    // 역산: 수평 거리면 atan(H ÷ Run), 빗변이면 asin(H ÷ Travel)(빗변은 높이보다 길어야 한다).
+    final double a = switch (_input) {
+      'run' => (h > 0 && runIn > 0) ? math.atan(h / runIn) * 180 / math.pi : 0,
+      'travel' =>
+        (h > 0 && travelIn > h) ? math.asin(h / travelIn) * 180 / math.pi : 0,
+      _ => double.tryParse(_angleCtrl.text) ?? 0,
+    };
+    final bool travelTooShort =
+        _input == 'travel' && h > 0 && travelIn > 0 && travelIn <= h;
 
     double travel = 0;
     double run = 0;
@@ -233,7 +305,7 @@ class _MobileQuickKickBottomSheetState
               const SizedBox(height: 20),
 
               const Text(
-                "벤딩 각도 (∠)",
+                "각도는 어떻게",
                 style: TextStyle(
                   color: slate600,
                   fontSize: 13,
@@ -241,52 +313,115 @@ class _MobileQuickKickBottomSheetState
                 ),
               ),
               const SizedBox(height: 8),
-              // 좁은 폭에서는 빠른 각도 단추가 다음 줄로 내려간다.
               Wrap(
-                spacing: 0,
+                spacing: 8,
                 runSpacing: 8,
-                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  SizedBox(
-                    width: 120,
-                    child: TextField(
-                      controller: _angleCtrl,
-                      readOnly: true,
-                      onTap: () => MakitaNumpadGlass.show(
-                        context,
+                  _buildModeBtn('angle', "각도 넣기", const Key('qk_in_angle')),
+                  _buildModeBtn(
+                    'run',
+                    "높이 + 수평 거리로 역산",
+                    const Key('qk_in_run'),
+                  ),
+                  _buildModeBtn(
+                    'travel',
+                    "높이 + 빗변으로 역산",
+                    const Key('qk_in_travel'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              if (_input == 'angle') ...[
+                const Text(
+                  "벤딩 각도 (∠)",
+                  style: TextStyle(
+                    color: slate600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // 좁은 폭에서는 빠른 각도 단추가 다음 줄로 내려간다.
+                Wrap(
+                  spacing: 0,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 120,
+                      child: TextField(
                         controller: _angleCtrl,
-                        title: "벤딩 각도 °",
-                      ),
-                      style: const TextStyle(
-                        color: makitaTeal,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        fontFamily: 'monospace',
-                      ),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: slate100,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                        readOnly: true,
+                        onTap: () => MakitaNumpadGlass.show(
+                          context,
+                          controller: _angleCtrl,
+                          title: "벤딩 각도 °",
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide.none,
+                        style: const TextStyle(
+                          color: makitaTeal,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          fontFamily: 'monospace',
+                        ),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: slate100,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
                     ),
+                    const SizedBox(width: 12),
+                    ...[
+                      15.0,
+                      22.5,
+                      30.0,
+                      45.0,
+                      60.0,
+                    ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
+                  ],
+                ),
+              ] else ...[
+                Text(
+                  _input == 'run' ? "수평 거리 (Run)" : "빗변 (Travel)",
+                  style: const TextStyle(
+                    color: slate600,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
                   ),
-                  const SizedBox(width: 12),
-                  ...[
-                    15.0,
-                    22.5,
-                    30.0,
-                    45.0,
-                    60.0,
-                  ].map((val) => _buildQuickAngleBtn(_angleCtrl, val)),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                _input == 'run'
+                    ? _buildDistField(
+                        _runCtrl,
+                        "수평 거리 (mm)",
+                        const Key('qk_run'),
+                      )
+                    : _buildDistField(
+                        _travelCtrl,
+                        "빗변 (mm)",
+                        const Key('qk_travel'),
+                      ),
+                const SizedBox(height: 6),
+                Text(
+                  travelTooShort
+                      ? "빗변은 높이보다 길어야 합니다."
+                      : (_input == 'run'
+                            ? "각도 = atan(높이 ÷ 수평 거리). 계산된 각도: ${a > 0 ? a.toStringAsFixed(1) : '-'}°"
+                            : "각도 = asin(높이 ÷ 빗변). 계산된 각도: ${a > 0 ? a.toStringAsFixed(1) : '-'}°"),
+                  style: TextStyle(
+                    color: travelTooShort ? Colors.red.shade700 : slate600,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               // 🚀 현장 실측 마킹 정보 (R값이 설정되어 있을 때만 노출)
@@ -422,8 +557,10 @@ class _MobileQuickKickBottomSheetState
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "도달 빗변 (C-C Travel)",
+                        Text(
+                          _input == 'angle'
+                              ? "도달 빗변 (C-C Travel)"
+                              : "계산된 각도 (∠)",
                           style: TextStyle(
                             color: slate600,
                             fontSize: 12,
@@ -432,9 +569,11 @@ class _MobileQuickKickBottomSheetState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          travel > 0
-                              ? "${travel.toStringAsFixed(1)} mm"
-                              : "0.0 mm",
+                          _input != 'angle'
+                              ? (a > 0 ? "${a.toStringAsFixed(1)}°" : "0.0°")
+                              : (travel > 0
+                                    ? "${travel.toStringAsFixed(1)} mm"
+                                    : "0.0 mm"),
                           style: const TextStyle(
                             color: makitaTeal,
                             fontSize: 24,
@@ -444,7 +583,9 @@ class _MobileQuickKickBottomSheetState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          "※ 수평 거리 (Run): ${run > 0 ? run.toStringAsFixed(1) : '0.0'} mm",
+                          _input == 'angle'
+                              ? "※ 수평 거리 (Run): ${run > 0 ? run.toStringAsFixed(1) : '0.0'} mm"
+                              : "※ 빗변 (Travel): ${travel > 0 ? travel.toStringAsFixed(1) : '0.0'} mm · 수평 거리 (Run): ${run > 0 ? run.toStringAsFixed(1) : '0.0'} mm",
                           style: const TextStyle(
                             color: Colors.black54,
                             fontSize: 11,
