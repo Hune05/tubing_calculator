@@ -118,12 +118,18 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   static const double _padLeft = 48;
   // 맨 끝(자르기) 말풍선이 줄자 끝에서 반 폭만큼 더 나가므로 오른쪽 여백은 그만큼 둔다.
   static const double _padRight = 58;
-  static const double _labelW = 118;
 
-  /// 말풍선 높이 = 상자 46 + 꼭지 7(10-14).
-  static const double _labelH = 53;
+  /// 말풍선(10-14): 화면이 넉넉하면(세로 500 이상) 148×72에 세 줄, 폰 가로는 118×46에 두 줄.
+  /// 밑에 꼭지 7. 폭은 글이 더 길면 글에 맞춰 늘린다([_labelWidth]).
   static const double _pointerH = 7;
   static const double _laneGap = 6;
+
+  /// 줄자 칸 세로가 넉넉한지(330 이상): 줄자 보기의 LayoutBuilder가 재서 적는다(폰 가로는 220쯤).
+  bool _big = false;
+  bool get _bigLabels => _big;
+  double get _labelBoxH => _bigLabels ? 72 : 46;
+  double get _labelH => _labelBoxH + _pointerH;
+  double get _labelBaseW => _bigLabels ? 148 : 118;
 
   final ScrollController _tapeScroll = ScrollController();
   final FocusNode _focus = FocusNode(debugLabel: 'field_steps');
@@ -1267,72 +1273,82 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         if (m.isBend || (m.position - data.totalCut).abs() > 1) _Label.mark(m),
       if (data.totalCut > 0) _Label.cut(data.totalCut),
     ];
-    final lanes = assignLabelLanes(
-      [for (final l in labels) _padLeft + l.position * _scale],
-      width: _labelW,
-      lanes: 2,
-    );
+    // 풍선 크기·줄 수는 줄자 칸의 실제 높이를 알아야 정해져서, 그린 뒤(LayoutBuilder 안)에 셈한다.
+    (Widget, double) layout() {
+      // 폭은 글 길이에 맞춰(잘림 없이). 줄 나누기는 가장 넓은 폭으로 보고, 넉넉한 화면은 3줄까지.
+      final widths = [for (final l in labels) _labelWidth(l)];
+      final double maxLabelW = widths.fold(_labelBaseW, math.max);
+      final int laneCount = _bigLabels ? 3 : 2;
+      final lanes = assignLabelLanes(
+        [for (final l in labels) _padLeft + l.position * _scale],
+        width: maxLabelW,
+        lanes: laneCount,
+      );
+      const double labelTop = 6;
+      final double laneStep = _labelH + _laneGap;
+      final double pipeTop = labelTop + laneStep * laneCount + 4;
+      const double pipeH = 26;
+      final double tapeTop = pipeTop + pipeH + 2;
+      const double tapeH = 40;
+      final double contentH = tapeTop + tapeH + 4;
 
-    const double labelTop = 6;
-    const double laneStep = _labelH + _laneGap;
-    const double pipeTop = labelTop + laneStep * 2 + 4;
-    const double pipeH = 26;
-    const double tapeTop = pipeTop + pipeH + 2;
-    const double tapeH = 40;
-    const double contentH = tapeTop + tapeH + 4;
+      FieldStep? selected;
+      if (_selectedStep != null && _selectedStep! < steps.length) {
+        selected = steps[_selectedStep!];
+      }
 
-    FieldStep? selected;
-    if (_selectedStep != null && _selectedStep! < steps.length) {
-      selected = steps[_selectedStep!];
-    }
-
-    final stack = SizedBox(
-      width: width,
-      height: contentH,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _TapePainter(
-                totalCut: data.totalCut,
-                maxMm: maxMm,
-                scale: _scale,
-                padLeft: _padLeft,
-                pipeTop: pipeTop,
-                pipeH: pipeH,
-                tapeTop: tapeTop,
-                tapeH: tapeH,
-                lines: [
-                  for (var i = 0; i < labels.length; i++)
-                    _Line(
-                      x: _padLeft + labels[i].position * _scale,
-                      top: labelTop + lanes[i] * laneStep + _labelH,
-                      kind: labels[i].kind,
-                      selected:
-                          identical(labels[i].mark, selected?.mark) &&
-                          (selected?.isCut ?? false) == labels[i].isCut,
-                    ),
-                ],
+      final stack = SizedBox(
+        width: width,
+        height: contentH,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _TapePainter(
+                  totalCut: data.totalCut,
+                  maxMm: maxMm,
+                  scale: _scale,
+                  padLeft: _padLeft,
+                  pipeTop: pipeTop,
+                  pipeH: pipeH,
+                  tapeTop: tapeTop,
+                  tapeH: tapeH,
+                  lines: [
+                    for (var i = 0; i < labels.length; i++)
+                      _Line(
+                        x: _padLeft + labels[i].position * _scale,
+                        top: labelTop + lanes[i] * laneStep + _labelH,
+                        kind: labels[i].kind,
+                        selected:
+                            identical(labels[i].mark, selected?.mark) &&
+                            (selected?.isCut ?? false) == labels[i].isCut,
+                      ),
+                  ],
+                ),
               ),
             ),
-          ),
-          for (var i = 0; i < labels.length; i++)
-            Positioned(
-              left: _padLeft + labels[i].position * _scale - _labelW / 2,
-              top: labelTop + lanes[i] * laneStep,
-              width: _labelW,
-              height: _labelH,
-              child: _buildLabel(labels[i], steps, selected),
-            ),
-        ],
-      ),
-    );
+            for (var i = 0; i < labels.length; i++)
+              Positioned(
+                left: _padLeft + labels[i].position * _scale - widths[i] / 2,
+                top: labelTop + lanes[i] * laneStep,
+                width: widths[i],
+                height: _labelH,
+                child: _buildLabel(labels[i], steps, selected),
+              ),
+          ],
+        ),
+      );
+      return (stack, contentH);
+    }
+
     final tape = LayoutBuilder(
       builder: (context, c) {
         // 화면이 가로로 돌아 폭이 바뀌면(처음엔 세로 폭으로 셈한 뒤 가로가 된다) 다시 가운데로 맞춘다.
         if ((_tapeViewW - c.maxWidth).abs() > 1) _needsFollow = true;
         _tapeViewW = c.maxWidth;
+        _big = c.maxHeight >= 330;
+        final (stack, contentH) = layout();
         if (_needsFollow) {
           _needsFollow = false;
           final follow = (_selectedStep ?? _current).clamp(
@@ -1575,6 +1591,70 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     );
   }
 
+  /// 말풍선 첫 줄 큰 숫자(누적은 눈금, 간격은 앞 마킹에서).
+  String _labelMain(_Label l) {
+    if (l.isCut) {
+      return _showGap
+          ? '+${fieldStepGap(_data, FieldStep.cut(l.position)).round()}'
+          : l.position.round().toString();
+    }
+    final m = l.mark!;
+    return _showGap ? '+${m.gap.round()}' : l.position.round().toString();
+  }
+
+  /// 둘째 줄: 벤드는 각도·방향(넉넉하면 "UP (위)"까지), 자르기는 "자르기".
+  String _labelSub(_Label l) {
+    if (l.isCut) return '자르기';
+    final m = l.mark!;
+    final angleText = m.hasOverBend
+        ? '${_fmt(m.angle)}°→${_fmt(m.targetAngle)}°'
+        : '${_fmt(m.angle)}°';
+    final dir = fieldDirectionLabel(m.rotation);
+    return '$angleText · ${_bigLabels ? dir : dir.split(' ').first}';
+  }
+
+  /// 셋째 줄(넉넉한 화면만): 다른 쪽 숫자 — 누적 보기면 앞 마킹에서, 간격 보기면 눈금.
+  String _labelThird(_Label l) {
+    if (_showGap) return '눈금 ${l.position.round()}';
+    if (l.isCut) {
+      return '마지막 마킹에서 +${fieldStepGap(_data, FieldStep.cut(l.position)).round()}';
+    }
+    final m = l.mark!;
+    return m.number == 1 ? '관 끝 0에서' : '앞에서 +${m.gap.round()}';
+  }
+
+  double get _labelMainSize => _bigLabels ? 20 : 17;
+  double get _labelSubSize => _small(_bigLabels ? 13 : 11);
+
+  /// 풍선 폭: 기본 폭과 글 폭(가장 긴 줄 + 여백) 중 큰 것. 직관 끝은 상자가 없어 기본 폭.
+  double _labelWidth(_Label l) {
+    if (!l.isCut && !l.mark!.isBend) return _labelBaseW;
+    double w = _labelBaseW;
+    final tp = TextPainter(textDirection: TextDirection.ltr);
+    double measure(String t, double size, FontWeight fw) {
+      tp.text = TextSpan(
+        text: t,
+        style: TextStyle(fontSize: size, fontWeight: fw),
+      );
+      tp.layout();
+      return tp.width;
+    }
+
+    // 첫 줄은 번호 배지(19)와 사이(5)까지.
+    w = math.max(
+      w,
+      measure(_labelMain(l), _labelMainSize, FontWeight.w800) + 24 + 18,
+    );
+    w = math.max(w, measure(_labelSub(l), _labelSubSize, FontWeight.w600) + 18);
+    if (_bigLabels) {
+      w = math.max(
+        w,
+        measure(_labelThird(l), _labelSubSize, FontWeight.w600) + 18,
+      );
+    }
+    return w;
+  }
+
   Widget _buildLabel(_Label l, List<FieldStep> steps, FieldStep? selected) {
     final bool isSel =
         selected != null &&
@@ -1584,53 +1664,18 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       (s) => l.isCut ? s.isCut : identical(s.mark, l.mark),
     );
     final bool done = stepIndex >= 0 && _done.contains(stepIndex);
+    final TextStyle subStyle = TextStyle(
+      height: _highContrast ? 1.0 : null,
+      fontSize: _labelSubSize,
+      color: _muted,
+      fontWeight: FontWeight.w600,
+    );
 
     Color border;
     Color bg;
     double borderWidth = 1;
     Widget child;
-    if (l.isCut) {
-      border = isSel ? _teal : _ink;
-      borderWidth = isSel ? 2 : 1.4;
-      bg = fc.surface;
-      child = Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AppIcon(AppGlyph.tubeCut, size: 17, color: _ink),
-              const SizedBox(width: 4),
-              // 자릿수가 많으면 말풍선 폭에 맞게 줄인다(예전에는 넘쳤다).
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    _showGap
-                        ? '+${fieldStepGap(_data, FieldStep.cut(l.position)).round()}'
-                        : l.position.round().toString(),
-                    style: TextStyle(
-                      color: _ink,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Text(
-            '자르기',
-            style: TextStyle(
-              color: _muted,
-              height: _highContrast ? 1.0 : null,
-              fontSize: _small(11),
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      );
-    } else if (!l.mark!.isBend) {
+    if (!l.isCut && !l.mark!.isBend) {
       // 직관 끝은 금 긋는 자리가 아니라 상자 없이 흐린 글만.
       border = Colors.transparent;
       bg = Colors.transparent;
@@ -1658,49 +1703,46 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         ],
       );
     } else {
-      final m = l.mark!;
-      border = isSel ? _teal : _line;
-      borderWidth = isSel ? 2 : 1;
+      if (l.isCut) {
+        border = isSel ? _teal : _ink;
+        borderWidth = isSel ? 2 : 1.4;
+      } else {
+        border = isSel ? _teal : _line;
+        borderWidth = isSel ? 2 : 1;
+      }
       bg = fc.surface;
-      final angleText = m.hasOverBend
-          ? '${_fmt(m.angle)}°→${_fmt(m.targetAngle)}°'
-          : '${_fmt(m.angle)}°';
       child = Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _numberBadge(m.number, done: done, small: true),
+              if (l.isCut)
+                AppIcon(
+                  AppGlyph.tubeCut,
+                  size: _bigLabels ? 19 : 17,
+                  color: _ink,
+                )
+              else
+                _numberBadge(l.mark!.number, done: done, small: true),
               const SizedBox(width: 5),
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
-                    _showGap
-                        ? '+${m.gap.round()}'
-                        : l.position.round().toString(),
+                    _labelMain(l),
                     style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w800,
                       color: _ink,
+                      fontSize: _labelMainSize,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
               ),
             ],
           ),
-          Text(
-            '$angleText · ${fieldDirectionLabel(m.rotation).split(' ').first}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              height: _highContrast ? 1.0 : null,
-              fontSize: _small(11),
-              color: _muted,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          Text(_labelSub(l), maxLines: 1, style: subStyle),
+          if (_bigLabels) Text(_labelThird(l), maxLines: 1, style: subStyle),
         ],
       );
     }
