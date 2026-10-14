@@ -1,11 +1,12 @@
 // 작업 일지를 엑셀에서 열 수 있는 CSV로 만든다. 투입 통계와 프로젝트 보고서 내보내기가 같이 쓴다.
 import 'attendance.dart';
+import 'report_crews.dart';
 import 'project_phase.dart';
 import 'report_tools.dart';
 
 /// 머리줄(엑셀에서 한글이 깨지지 않게 맨 앞에 BOM을 둔다).
 const String kReportCsvHeader =
-    '﻿프로젝트,날짜,날씨,근태,작업유형,인원,연장시간,벤딩pt,결선개소,작업단계,특이사항';
+    '﻿프로젝트,날짜,날씨,근태,작업유형,인원,업체별 인력,투입 장비,연장시간,벤딩pt,결선개소,작업단계,특이사항';
 
 String _q(String s) => '"${s.replaceAll('"', '""').replaceAll('\n', ' ')}"';
 
@@ -28,6 +29,8 @@ String buildReportsCsv(Iterable<(Map<String, dynamic>, Map)> reports) {
         _q(attendanceTypeOf(Map<String, dynamic>.from(r))),
         _q(types),
         r['worker_count'] ?? 1,
+        _q(crewsLine(r)),
+        _q(equipmentLine(r)),
         r['overtime_hours'] ?? 0,
         r['points'] ?? 0,
         r['wiring_points'] ?? 0,

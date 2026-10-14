@@ -85,7 +85,8 @@ extension _DailyReportSubmit on _DailyReportPageState {
         _selectedIssueIds.isEmpty &&
         _completedScheduleIds.isEmpty &&
         _usedMaterialIds.isEmpty) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("작업 내용, 사진, 또는 처리한 이슈/일정을 하나 이상 입력해야 합니다.")),
           backgroundColor: Colors.red,
@@ -236,7 +237,10 @@ extension _DailyReportSubmit on _DailyReportPageState {
           ? widget.existingData!['dateISO']
           : _reportDay.toIso8601String().substring(0, 10),
       "work_type": _selectedWorkTypes.toList(),
-      "worker_count": _workerCount,
+      "worker_count": _shownWorkers,
+      // 업체·공종별 인력과 투입 장비(10-14). 없으면 빈 목록.
+      "crews": _crews,
+      "equipment": _equipment,
       // 날씨(10-10, 비어 있으면 빈칸).
       "weather": _weather.trim(),
       "is_overtime": _isOvertime,

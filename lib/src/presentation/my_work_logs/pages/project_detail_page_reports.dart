@@ -133,7 +133,7 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "$types · ${r['worker_count'] ?? 1}명${r['is_overtime'] == true ? ' · 연장' : ''}${attendanceTag(Map<String, dynamic>.from(r)).isEmpty ? '' : ' · ${attendanceTag(Map<String, dynamic>.from(r))}'}",
+                      "$types · ${r['worker_count'] ?? 1}명${crewsOf(r).length > 1 ? '(${crewsOf(r).length}개 업체)' : ''}${equipmentOf(r).isEmpty ? '' : ' · 장비 ${equipmentOf(r).length}'}${r['is_overtime'] == true ? ' · 연장' : ''}${attendanceTag(Map<String, dynamic>.from(r)).isEmpty ? '' : ' · ${attendanceTag(Map<String, dynamic>.from(r))}'}",
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 12, color: tossSubText),
                     ),

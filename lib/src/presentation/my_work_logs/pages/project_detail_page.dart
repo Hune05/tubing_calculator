@@ -21,6 +21,7 @@ import 'line_board_page.dart';
 import '../models/line_progress.dart' show lineProgress;
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
 import '../models/report_tools.dart';
+import '../models/report_crews.dart';
 import '../models/photo_store.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/address_book.dart';

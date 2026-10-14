@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/utils/background_photos.dart';
-import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showAppSnack;
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
+    show showAppSnack;
 import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
@@ -25,6 +26,8 @@ import 'floor_plan_pin_page.dart';
 import '../models/plan_pin.dart' show kPinOnImageKey;
 import '../models/project_phase.dart';
 import '../models/report_tools.dart';
+import '../models/report_crews.dart';
+import '../widgets/crew_equipment_sheet.dart';
 import '../models/photo_store.dart';
 import '../widgets/voice_input_button.dart';
 import 'photo_annotate_page.dart';
@@ -107,7 +110,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
       if (!mounted) return;
       setState(() {
         _safetyToday = safetyCheckToday(all, DateTime.now());
-        _safetyShow = _safetyToday != null || safetyUsedRecently(all, DateTime.now());
+        _safetyShow =
+            _safetyToday != null || safetyUsedRecently(all, DateTime.now());
       });
     } catch (_) {}
   }
@@ -136,7 +140,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
           child: Row(
             children: [
               Icon(
-                done ? Icons.verified_user_outlined : Icons.health_and_safety_outlined,
+                done
+                    ? Icons.verified_user_outlined
+                    : Icons.health_and_safety_outlined,
                 size: 20,
                 color: done ? makitaTeal : const Color(0xFF9A5B00),
               ),
@@ -146,7 +152,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
                   done
                       ? '오늘 안전 점검 완료 (${safetyTimeLabel(r.at).split(' ').last})'
                       : '오늘 안전 점검을 아직 안 했습니다. 눌러서 점검하십시오.',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
               const Icon(AppIcons.forward, size: 18, color: tossSubText),
@@ -188,10 +197,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
               spacing: 8,
               children: [
                 for (final d in const ['맑음', '흐림', '비', '눈'])
-                  ActionChip(
-                    label: Text(d),
-                    onPressed: () => ctrl.text = d,
-                  ),
+                  ActionChip(label: Text(d), onPressed: () => ctrl.text = d),
               ],
             ),
             const SizedBox(height: 8),
@@ -271,6 +277,104 @@ class _DailyReportPageState extends State<DailyReportPage> {
     '검사/시험',
   ];
   int _workerCount = 1;
+
+  // 업체·공종별 인력과 투입 장비(10-14, 고르는 칸). 인력을 적으면 투입 인원은 그 합.
+  // 임시 저장은 주기 저장(_draftTimer)이 같이 적는다.
+  List<Map<String, dynamic>> _crews = [];
+  List<Map<String, dynamic>> _equipment = [];
+  int get _shownWorkers => _crews.isEmpty ? _workerCount : crewTotal(_crews);
+
+  /// 업체 이름 칩: 이 프로젝트 지난 일지에 적힌 업체(최근 것 먼저).
+  List<String> get _companySuggest {
+    final out = <String>[];
+    for (final r in widget.previousReports) {
+      for (final c in crewsOf(r)) {
+        final n = (c['company'] as String).trim();
+        if (n.isNotEmpty && !out.contains(n)) out.add(n);
+      }
+    }
+    return out;
+  }
+
+  List<String> get _equipmentSuggest {
+    final out = <String>[];
+    for (final r in widget.previousReports) {
+      for (final e in equipmentOf(r)) {
+        final n = (e['name'] as String).trim();
+        if (n.isNotEmpty && !out.contains(n)) out.add(n);
+      }
+    }
+    return out;
+  }
+
+  Future<void> _editCrews() async {
+    final out = await showCrewsSheet(
+      context,
+      initial: _crews,
+      suggest: _companySuggest,
+    );
+    if (out == null || !mounted) return;
+    setState(() {
+      _crews = crewsOf({'crews': out});
+      if (_crews.isNotEmpty) _workerCount = crewTotal(_crews);
+    });
+  }
+
+  Future<void> _editEquipment() async {
+    final out = await showEquipmentSheet(
+      context,
+      initial: _equipment,
+      suggest: _equipmentSuggest,
+    );
+    if (out == null || !mounted) return;
+    setState(() => _equipment = equipmentOf({'equipment': out}));
+  }
+
+  Widget _crewEquipRow({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+  }) => Material(
+    color: tossInputBg,
+    borderRadius: BorderRadius.circular(12),
+    child: InkWell(
+      key: key,
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(icon, size: 20, color: tossSubText),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: tossSubText,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    value,
+                    style: const TextStyle(fontSize: 14, color: tossText),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: tossSubText),
+          ],
+        ),
+      ),
+    ),
+  );
   bool _isOvertime = false;
   // 🚀 [추가] 연장/야간 작업을 했을 때, 몇 시부터 몇 시까지 했는지도
   // 입력할 수 있게 - 단순 여부(boolean)만으로는 나중에 얼마나 초과
@@ -406,6 +510,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
         ..addAll(workTypesOf(widget.existingData!['work_type']));
       if (_selectedWorkTypes.isEmpty) _selectedWorkTypes.add('신규 설치');
       _workerCount = widget.existingData!['worker_count'] ?? 1;
+      _crews = crewsOf(widget.existingData!);
+      _equipment = equipmentOf(widget.existingData!);
       _isOvertime = widget.existingData!['is_overtime'] ?? false;
       _overtimeStart = _parseTimeOfDay(widget.existingData!['overtime_start']);
       _overtimeEnd = _parseTimeOfDay(widget.existingData!['overtime_end']);
@@ -596,7 +702,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
         }
       });
     }
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(content: Text(keepWords("${_dateLabelOf(prev)} 작업 일지로 채웠습니다."))),
     );
   }
@@ -847,6 +954,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
         ..addAll(workTypesOf(prev['work_type']));
       if (_selectedWorkTypes.isEmpty) _selectedWorkTypes.add('신규 설치');
       _workerCount = prev['worker_count'] ?? _workerCount;
+      // 업체별 인력·장비도 어제 것 그대로(10-14).
+      _crews = crewsOf(prev);
+      _equipment = equipmentOf(prev);
       _isOvertime = prev['is_overtime'] ?? _isOvertime;
       final prevPhases = reportIds(prev, 'workedPhaseIds');
       if (prevPhases.isNotEmpty) {
@@ -1479,16 +1589,20 @@ class _DailyReportPageState extends State<DailyReportPage> {
                       const Spacer(),
                       IconButton(
                         visualDensity: VisualDensity.compact,
-                        onPressed: () => setState(() {
-                          if (_workerCount > 1) _workerCount--;
-                        }),
+                        // 업체별 인력을 적었으면 합계라 +·−는 쓰지 않는다.
+                        onPressed: _crews.isNotEmpty
+                            ? null
+                            : () => setState(() {
+                                if (_workerCount > 1) _workerCount--;
+                              }),
                         icon: const Icon(
                           Icons.remove_circle_outline,
                           color: tossSubText,
                         ),
                       ),
                       Text(
-                        "$_workerCount명",
+                        "$_shownWorkers명",
+                        key: const Key('report_worker_total'),
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
@@ -1497,13 +1611,35 @@ class _DailyReportPageState extends State<DailyReportPage> {
                       ),
                       IconButton(
                         visualDensity: VisualDensity.compact,
-                        onPressed: () => setState(() => _workerCount++),
+                        onPressed: _crews.isNotEmpty
+                            ? null
+                            : () => setState(() => _workerCount++),
                         icon: const Icon(
                           Icons.add_circle_outline,
                           color: makitaTeal,
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  _crewEquipRow(
+                    key: const Key('report_crews'),
+                    icon: Icons.groups_outlined,
+                    label: "업체·공종별 인력 (선택)",
+                    value: _crews.isEmpty
+                        ? "적지 않음 · 눌러서 업체별로 적기"
+                        : crewsLine({'crews': _crews}),
+                    onTap: _editCrews,
+                  ),
+                  const SizedBox(height: 8),
+                  _crewEquipRow(
+                    key: const Key('report_equipment'),
+                    icon: Icons.precision_manufacturing_outlined,
+                    label: "투입 장비 (선택)",
+                    value: _equipment.isEmpty
+                        ? "적지 않음 · 크레인·고소작업차 등"
+                        : equipmentLine({'equipment': _equipment}),
+                    onTap: _editEquipment,
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -1514,7 +1650,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
                           controller: _pointCtrl,
                           keyboardType: TextInputType.number,
                           // 개수라 숫자만 받는다(10-08: "12.5"·"1,200"이 말없이 0으로 저장됐다).
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                           decoration: _dec(label: "벤딩 완료 (pt)"),
                         ),
                       ),
@@ -1524,7 +1662,9 @@ class _DailyReportPageState extends State<DailyReportPage> {
                           key: const Key('report_wiring_points'),
                           controller: _wiringPointCtrl,
                           keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                           decoration: _dec(label: "결선 완료 (개소)"),
                         ),
                       ),

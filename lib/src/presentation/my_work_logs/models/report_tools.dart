@@ -5,6 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'attendance.dart';
+import 'report_crews.dart';
 import 'project_phase.dart';
 
 export 'search_tools.dart';
@@ -274,6 +275,11 @@ ReportDoc buildReportDoc(
     );
     final weather = (r['weather']?.toString() ?? '').trim();
     if (weather.isNotEmpty) dayLines.add('   날씨: $weather');
+    // 업체·공종별 인력과 투입 장비(10-14).
+    final crews = crewsLine(r);
+    if (crews.isNotEmpty) dayLines.add('   인력: $crews');
+    final equip = equipmentLine(r);
+    if (equip.isNotEmpty) dayLines.add('   장비: $equip');
     final note = (r['note']?.toString() ?? '').trim();
     if (note.isNotEmpty && note != '특이사항 없음') {
       for (final l in note.split('\n')) {

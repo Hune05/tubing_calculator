@@ -25,6 +25,8 @@ extension _DailyReportDraft on _DailyReportPageState {
       'isAsBuilt': _isAsBuilt,
       'workTypes': _selectedWorkTypes.toList(),
       'workers': _workerCount,
+      'crews': _crews,
+      'equipment': _equipment,
       'overtime': _isOvertime,
       'otStart': _overtimeStart == null
           ? null
@@ -137,6 +139,8 @@ extension _DailyReportDraft on _DailyReportPageState {
           ..addAll(wt);
       }
       _workerCount = (m['workers'] as num?)?.toInt() ?? _workerCount;
+      _crews = crewsOf(m);
+      _equipment = equipmentOf(m);
       _isOvertime = m['overtime'] == true;
       _overtimeStart = _parseTimeOfDay(m['otStart']);
       _overtimeEnd = _parseTimeOfDay(m['otEnd']);
