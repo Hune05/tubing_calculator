@@ -336,6 +336,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       holdMin: _requiredHold,
       line: _rLine.text,
       target: target == null ? null : _p4(target),
+      startP: first == null ? null : _p4(first.kpa),
+      startSub: first == null ? null : [ptHm(first.at), if (first.tempC != null) '${ptFmt(first.tempC!, 1)}°C'].join(' · '),
       last: last == null ? null : _p4(last.kpa),
       lastAt: last?.at,
       drop: first != null && last != null && reads.length > 1 ? _pg._drop(first.kpa - last.kpa) : null,

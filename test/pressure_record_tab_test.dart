@@ -1148,6 +1148,8 @@ void main() {
     await tester.pumpAndSettle();
     await reading(tester, '12', '20');
     expect(textOf(tester, 'pt_big_elapsed'), '00:00');
+    expect(textOf(tester, 'pt_big_start_p'), '12 bar');
+    expect(find.text('09:00 · 20°C'), findsOneWidget);
     expect(alarm.scheduled.length, 1);
 
     now = DateTime(2026, 9, 26, 9, 4, 0);

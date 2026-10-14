@@ -24,6 +24,8 @@ class PtBigTimerData {
   final double holdMin;
   final String line; // 라인 번호(없으면 빈 글)
   final String? target; // 시험압력 글
+  final String? startP; // 시작 압력 글(10-15 사용자: 직전 대신 시작 압력)
+  final String? startSub; // 시작 시각·온도
   final String? last; // 직전 측정 글(압력)
   final DateTime? lastAt;
   final String? drop; // 시작에서 직전 측정까지 강하 글
@@ -34,6 +36,8 @@ class PtBigTimerData {
     required this.holdMin,
     this.line = '',
     this.target,
+    this.startP,
+    this.startSub,
     this.last,
     this.lastAt,
     this.drop,
@@ -196,9 +200,9 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
       children: [
         info('시험압력', d.target),
         const SizedBox(width: 8),
-        info('직전 측정', d.last, sub: d.lastAt == null ? null : ptHm(d.lastAt!), key: const Key('pt_big_last')),
+        info('시작 압력', d.startP, sub: d.startSub, key: const Key('pt_big_start_p')),
         const SizedBox(width: 8),
-        info('강하', d.drop, sub: d.drop == null ? null : '시작에서 직전까지', key: const Key('pt_big_drop')),
+        info('강하', d.drop, sub: d.drop == null || d.lastAt == null ? null : '시작 → ${ptHm(d.lastAt!)} 측정', key: const Key('pt_big_drop')),
       ],
     );
 
