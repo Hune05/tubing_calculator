@@ -544,7 +544,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
 
   List<Widget> _canvasTools(({AlignResult? result, String? error}) solved) => switch (_tab) {
     1 => [_dialSwitch()],
-    2 when solved.result != null => [
+    2 when solved.result != null && _planError == null => [
       PlateViewSwitch([
         PlateOption('align_vm_side', '옆에서', _resultView == 'side', () => setState(() => _resultView = 'side')),
         PlateOption('align_vm_top', '위에서', _resultView == 'top', () => setState(() => _resultView = 'top')),

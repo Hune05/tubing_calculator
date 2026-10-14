@@ -4,6 +4,7 @@ part of 'alignment_page.dart';
 // 결과 탭: 판정, 검산 경고, 발 이동량(심 판 조합까지), 회차로 적기·기록 남기기. 위 그림은 옆/위에서 본 모양(계산값대로).
 extension _AlignResultTab on _AlignmentPageState {
   Widget _resultCanvas(AlignResult? r) {
+    if (_planError != null) return _canvasEmpty('고정 발을 바꿨습니다. 펌프 발까지 거리를 넣으면 셉니다.');
     if (r == null) {
       return _canvasEmpty(
         _distancesDone ? '지시값을 다 넣으면 계산한 모양이 나옵니다.' : '거리와 지시값을 다 넣으면 계산한 모양이 나옵니다.',
@@ -157,7 +158,7 @@ extension _AlignResultTab on _AlignmentPageState {
     ),
     onPressed: r == null ? null : () => _save(r),
     icon: const Icon(AppIcons.save, size: 18),
-    label: Text(r == null ? '결과가 나와야 저장' : '기록 남기기', style: const TextStyle(fontWeight: FontWeight.w800)),
+    label: Text(r == null ? (_planError != null ? '펌프 거리를 넣어야 저장' : '결과가 나와야 저장') : '기록 남기기', style: const TextStyle(fontWeight: FontWeight.w800)),
   );
 
   /// 허용 대비 막대(허용선까지 초록, 넘으면 빨강).
