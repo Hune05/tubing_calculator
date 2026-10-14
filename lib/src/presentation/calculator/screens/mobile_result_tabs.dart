@@ -166,6 +166,7 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
       number++;
       final double leg = run;
       run = 0.0;
+      final double sb = steps[i].setback;
       marks.add(
         FieldMark(
           number: number,
@@ -177,6 +178,9 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
           // 앞 벤드와 다른 평면이면 형상 점검 값, 아니면 롤링 오프셋이 남긴 굴림 각도(10-09).
           roll: check.rollByIndex[i] ?? _rollHint(bendList[i]),
           leg: leg,
+          // 벤더 앞에서 볼 값(10-14): 마킹은 꺾이는 점에서 셋백만큼 앞.
+          bender:
+              '셋백 -${sb == sb.roundToDouble() ? sb.round() : sb.toStringAsFixed(1)}',
         ),
       );
       prevBend = pos;
@@ -192,9 +196,26 @@ FieldMarkingData computeTubeFieldData({String startDir = "RIGHT"}) {
   // (엔진은 그 값을 시작 자리로 받아 자를 길이에도 더한다 — 엔진은 그대로 두고 여기서 뺀다).
   final double totalCut =
       (result['totalCutLength'] as double) - dataManager.benderOffset;
+  // 위 막대의 규격·장비 한 줄(10-14).
+  final c = AppSettingsController();
+  final String specLine =
+      '${c.isInch ? '${c.tubeOD}"' : '${c.tubeOD}mm'} ${c.tubeMaterial} · '
+      '${c.benderBrand} ${c.benderType} · ${tubeMeasureSetup()}';
   return FieldMarkingData(
     totalCut: totalCut,
     marks: marks,
+    specLine: specLine,
+    segments: [
+      for (final b in bendList)
+        FieldSegment(
+          length: (b['length'] as num?)?.toDouble() ?? 0.0,
+          angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+          rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+        ),
+    ],
+    startDir: startDir,
+    radius: dataManager.radius,
+    tail: dataManager.tail,
     warnings: [
       // 벤드로 끝나는 목록에 끝 피팅(10-09).
       ?endFitOnBendWarning(

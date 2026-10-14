@@ -24,6 +24,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tubing_calculator/src/presentation/bend_check/bend_check_model.dart';
 import 'package:tubing_calculator/src/presentation/field/field_marking.dart';
+import 'package:tubing_calculator/src/presentation/field/field_path_thumb.dart';
 import 'package:tubing_calculator/src/presentation/unit_converter/unit_defs.dart'
     show parseInches;
 
@@ -857,6 +858,24 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               ],
             ),
           ),
+          // 10-14: 넓은 화면(700 이상)이면 규격·장비 한 줄. 좁으면 줄자 위 카드에 적는다.
+          if (data.specLine != null && _wideBar) ...[
+            const SizedBox(width: 12),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Text(
+                data.specLine!,
+                key: const Key('field_spec_line'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: _muted,
+                ),
+              ),
+            ),
+          ],
           if (data.warnings.isNotEmpty) ...[
             const SizedBox(width: 10),
             ActionChip(
@@ -1283,9 +1302,24 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               : const BouncingScrollPhysics(),
           child: stack,
         );
-        final body = c.maxHeight >= contentH
-            ? Align(alignment: Alignment.center, child: scroll)
-            : SingleChildScrollView(child: scroll);
+        // 10-14: 위가 비면(태블릿·세로 폰) 지금 할 단계 카드(관 모양 그림·벤더 값)를 줄자 위에 둔다.
+        // 폰 가로(높이 344)는 전처럼 줄자만.
+        final bool showCard =
+            data.segments.isNotEmpty && c.maxHeight >= contentH + _cardH + 24;
+        // 세로가 길수록(태블릿) 카드와 그림을 키운다(200~320).
+        final double cardH = (c.maxHeight * 0.3).clamp(_cardH, 320.0);
+        final Widget body = showCard
+            ? Column(
+                children: [
+                  _buildStepCard(data, steps, c.maxWidth, cardH),
+                  Expanded(
+                    child: Align(alignment: Alignment.center, child: scroll),
+                  ),
+                ],
+              )
+            : (c.maxHeight >= contentH
+                  ? Align(alignment: Alignment.center, child: scroll)
+                  : SingleChildScrollView(child: scroll));
         return Listener(
           key: const Key('field_tape_pinch'),
           onPointerDown: _onPointerDown,
@@ -1326,6 +1360,167 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
             ],
           ),
         ),
+      ],
+    );
+  }
+
+  // ---------------- 지금 할 단계 카드·관 모양 그림(10-14) ----------------
+
+  static const double _cardH = 200;
+
+  /// 위 막대에 규격 줄을 넣을 만큼 넓은지(700 이상). 좁으면 카드에 적는다.
+  bool get _wideBar => MediaQuery.sizeOf(context).width >= 700;
+
+  /// 지금 따라가는 단계(고른 것이 있으면 그것).
+  FieldStep? _followStep(List<FieldStep> steps) {
+    if (steps.isEmpty) return null;
+    final i = (_selectedStep ?? _current).clamp(0, steps.length - 1);
+    return steps[i];
+  }
+
+  Widget _thumb(
+    FieldMarkingData data,
+    FieldStep? step, {
+    required double width,
+    required double height,
+  }) => SizedBox(
+    width: width,
+    height: height,
+    child: FieldPathThumb(
+      data: data,
+      highlightBend: step == null || step.isCut ? null : step.mark!.number,
+      highlightCut: step?.isCut ?? false,
+      pipe: _teal,
+      highlight: _red,
+      muted: _muted,
+      line: _line,
+    ),
+  );
+
+  /// 줄자 위 "지금 할 단계" 카드: 관 모양 그림 + 번호·눈금·각도·방향·벤더 값·굴림.
+  Widget _buildStepCard(
+    FieldMarkingData data,
+    List<FieldStep> steps,
+    double maxWidth,
+    double cardH,
+  ) {
+    final s = _followStep(steps);
+    if (s == null) return const SizedBox.shrink();
+    final bool narrowCard = maxWidth < 560;
+    final TextStyle sub = TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w600,
+      color: _muted,
+      height: 1.3,
+    );
+    final TextStyle big = TextStyle(
+      fontSize: 28,
+      fontWeight: FontWeight.w800,
+      color: _ink,
+      letterSpacing: -0.5,
+      height: 1.1,
+    );
+    final lines = <Widget>[
+      if (data.specLine != null && !_wideBar)
+        Text(data.specLine!, style: sub.copyWith(fontSize: 13)),
+    ];
+    if (s.isCut) {
+      lines.addAll([
+        Text(
+          '여기서 자릅니다',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: _muted,
+          ),
+        ),
+        Text('${s.at.round()} mm', style: big),
+        Text('마지막 마킹에서 +${fieldStepGap(data, s).round()} mm', style: sub),
+      ]);
+    } else {
+      final m = s.mark!;
+      lines.addAll([
+        Text(
+          '${m.number}번 마킹',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: _done.contains(steps.indexOf(s)) ? _teal : _red,
+          ),
+        ),
+        Text('${m.position.round()} mm', style: big),
+        Text(
+          m.number == 1 ? '관 끝 0에서' : '앞 마킹에서 +${m.gap.round()} mm',
+          style: sub,
+        ),
+        Text(
+          '${_fmt(m.angle)}°${m.hasOverBend ? ' (실제 ${_fmt(m.targetAngle)}°)' : ''}'
+          ' · ${fieldDirectionLabel(m.rotation)}',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w700,
+            color: _ink,
+          ),
+        ),
+        if (m.bender != null)
+          Text(
+            '벤더: ${m.bender}',
+            key: const Key('field_card_bender'),
+            style: sub,
+          ),
+        if (m.roll != null) Text('꺾기 전에 관을 ${m.roll!.round()}° 롤링', style: sub),
+      ]);
+    }
+    return Container(
+      key: const Key('field_step_card'),
+      height: cardH,
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _paper,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _line),
+      ),
+      child: Row(
+        children: [
+          _thumb(
+            data,
+            s,
+            width: narrowCard ? 150 : (cardH - 24) * 1.4,
+            height: cardH - 24,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final w in lines)
+                  DefaultTextStyle.merge(
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    child: w,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 한 단계씩 화면: 세로로 넉넉하면(600 이상) 숫자 위에 관 모양 그림을 둔다.
+  Widget _withThumb(Widget body, FieldMarkingData data, FieldStep s) {
+    if (data.segments.isEmpty || MediaQuery.sizeOf(context).height < 600) {
+      return body;
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _thumb(data, s, width: 320, height: 190),
+        const SizedBox(height: 10),
+        body,
       ],
     );
   }
@@ -1766,6 +1961,26 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                 ],
               ),
             ),
+            // 벤더 앞에서 볼 값(10-14): 마킹 탭까지 안 가도 된다.
+            if (m.bender != null) ...[
+              const SizedBox(height: 8),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.straighten_rounded, size: 16, color: _muted),
+                  const SizedBox(width: 4),
+                  Text(
+                    '벤더: ${m.bender}',
+                    key: const Key('field_step_bender'),
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: _muted,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             if (m.roll != null) ...[
               const SizedBox(height: 8),
               Row(
@@ -1813,7 +2028,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
                   padding: portrait
                       ? const EdgeInsets.fromLTRB(8, 8, 8, 40)
                       : const EdgeInsets.all(8),
-                  child: FittedBox(fit: BoxFit.scaleDown, child: body),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: _withThumb(body, data, s),
+                  ),
                 ),
               ),
             ),

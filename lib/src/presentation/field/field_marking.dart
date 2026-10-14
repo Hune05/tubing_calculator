@@ -32,6 +32,10 @@ class FieldMark {
   /// 벤딩한 뒤 재서 견주는 값이다(10-13 벤딩 실측 기록 — 예전에는 줄자 눈금 [position]과 견줬다).
   final double? leg;
 
+  /// 벤더 앞에서 볼 값 한 줄(10-14): 유압 "슈 가운데 -20 · 램 약 44 mm", 수동 "테이크업 -N",
+  /// 시카고 "테이크업 -N · N칸", 튜브 "셋백 -N". 없으면 안 보인다.
+  final String? bender;
+
   const FieldMark({
     required this.number,
     required this.position,
@@ -41,6 +45,7 @@ class FieldMark {
     this.gap = 0.0,
     this.roll,
     this.leg,
+    this.bender,
   }) : targetAngle = targetAngle ?? angle;
 
   bool get isBend => angle > 0;
@@ -74,6 +79,18 @@ String formatInch(double mm, FieldInchMode mode, {int denominator = 16}) {
   return '$sign$whole $num/$den"';
 }
 
+/// 관 모양 작은 그림을 그릴 구간 하나(입력 목록 한 줄).
+class FieldSegment {
+  final double length;
+  final double angle;
+  final double rotation;
+  const FieldSegment({
+    required this.length,
+    required this.angle,
+    required this.rotation,
+  });
+}
+
 class FieldMarkingData {
   /// 자르는 길이(줄자 눈금). 0이면 없다.
   final double totalCut;
@@ -89,6 +106,15 @@ class FieldMarkingData {
   final FieldInchMode inchMode;
   final int inchDenominator;
 
+  /// 위 막대에 적을 규격·장비 한 줄(10-14, 예: "Rigid 22mm · 유압 · 관 중심 · 게인 40").
+  final String? specLine;
+
+  /// 관 모양 작은 그림 재료(10-14): 입력 목록·시작 방향·반경·꼬리. 비어 있으면 그림을 안 그린다.
+  final List<FieldSegment> segments;
+  final String startDir;
+  final double radius;
+  final double tail;
+
   const FieldMarkingData({
     required this.totalCut,
     required this.marks,
@@ -96,6 +122,11 @@ class FieldMarkingData {
     this.error,
     this.inchMode = FieldInchMode.none,
     this.inchDenominator = 16,
+    this.specLine,
+    this.segments = const [],
+    this.startDir = 'RIGHT',
+    this.radius = 0.0,
+    this.tail = 0.0,
   });
 
   /// 인치 글(인치를 안 쓰면 빈 글).
@@ -112,7 +143,11 @@ class FieldMarkingData {
     }
     final d = inchDenominator <= 0 ? 16 : inchDenominator;
     double r(double mm) => (mm / 25.4 * d).round() / d;
-    return formatInch((r(position) - r(previous)) * 25.4, inchMode, denominator: d);
+    return formatInch(
+      (r(position) - r(previous)) * 25.4,
+      inchMode,
+      denominator: d,
+    );
   }
 
   /// [m] 앞 마킹 자리(첫 벤드는 관 끝 0).

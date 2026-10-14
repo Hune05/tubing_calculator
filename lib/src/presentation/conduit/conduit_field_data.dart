@@ -111,6 +111,9 @@ FieldMarkingData computeConduitFieldData() {
   double prevBend = 0.0;
   // 앞 꺾이는 점(처음은 관 끝)부터 더한 입력 길이 — 벤드에 닿으면 그 벤드의 구간 길이다.
   double run = 0.0;
+  final String benderType = settings['benderType']?.toString() ?? 'hand';
+  String n(double v) =>
+      v == v.roundToDouble() ? v.round().toString() : v.toStringAsFixed(1);
   for (int i = 0; i < markings.length; i++) {
     final m = markings[i];
     final double angle = (m['angle'] as num).toDouble();
@@ -120,6 +123,18 @@ FieldMarkingData computeConduitFieldData() {
       number++;
       final double leg = run;
       run = 0.0;
+      // 벤더 앞에서 볼 값 한 줄(10-14): 마킹 자리 차감값과 벤더별 조작값(램·칸).
+      final double off = conduitMarkOffset(angle, settings);
+      final String bender;
+      if (benderType == 'ram') {
+        final double rt = (m['ramTravel'] as num?)?.toDouble() ?? 0.0;
+        bender = '슈 가운데 -${n(off)}${rt > 0 ? ' · 램 약 ${n(rt)} mm' : ''}';
+      } else if (benderType == 'chicago') {
+        final int k = (m['notches'] as num?)?.toInt() ?? 0;
+        bender = '테이크업 -${n(off)}${k > 0 ? ' · $k칸' : ''}';
+      } else {
+        bender = '테이크업 -${n(off)}';
+      }
       marks.add(
         FieldMark(
           number: number,
@@ -131,6 +146,7 @@ FieldMarkingData computeConduitFieldData() {
           // 롤링 오프셋이 남긴 굴림 각도도(10-09).
           roll: check.rollByIndex[i] ?? conduitRollHint(bendList[i]),
           leg: leg,
+          bender: bender,
         ),
       );
       prevBend = pos;
@@ -153,6 +169,16 @@ FieldMarkingData computeConduitFieldData() {
       ) ??
       16;
 
+  // 위 막대의 규격·장비 한 줄(10-14): 다른 규격 설정으로 꺾는 실수를 막는다.
+  final String typeName = switch (benderType) {
+    'ram' => '유압',
+    'chicago' => '시카고',
+    _ => '수동',
+  };
+  final String specLine =
+      '${settings['conduitType'] ?? ''} ${settings['conduitSize'] ?? ''} · $typeName · '
+      '${conduitCenterRef(settings) ? '관 중심' : '관 등'} · ${conduitMeasureSetup(settings)}';
+
   return FieldMarkingData(
     totalCut: conduitTotalCut(
       bendList,
@@ -163,6 +189,17 @@ FieldMarkingData computeConduitFieldData() {
     warnings: check.warnings,
     inchMode: inchMode,
     inchDenominator: den,
+    specLine: specLine,
+    segments: [
+      for (final b in bendList)
+        FieldSegment(
+          length: (b['length'] as num?)?.toDouble() ?? 0.0,
+          angle: (b['angle'] as num?)?.toDouble() ?? 0.0,
+          rotation: (b['rotation'] as num?)?.toDouble() ?? 0.0,
+        ),
+    ],
+    startDir: conduitStartDir.value,
+    radius: (settings['clr'] as num?)?.toDouble() ?? 0.0,
   );
 }
 

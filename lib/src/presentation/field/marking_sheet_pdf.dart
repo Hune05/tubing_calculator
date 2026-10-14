@@ -332,7 +332,9 @@ pw.Widget _tapeStrip(FieldMarkingData data) {
                   // 직관 끝(회색), 벤드(빨강), 자르기(검정)
                   for (final m in data.marks) {
                     final int bi = m.isBend ? bends.indexOf(m) : -1;
-                    final double from = bi >= 0 ? 16 + rows[bi] * rowH : barTop - 2;
+                    final double from = bi >= 0
+                        ? 16 + rows[bi] * rowH
+                        : barTop - 2;
                     g
                       ..setStrokeColor(m.isBend ? _red : _line)
                       ..setLineWidth(m.isBend ? 1.4 : 0.8)
@@ -536,7 +538,8 @@ Future<void> openMarkingSheet(
 }) async {
   if (data.isEmpty) {
     // 10-09: 계산이 실패해도(자를 길이 이상 등) "입력한 배관이 없습니다"라고 했다. 까닭이 있으면 그것을.
-    showSnackOnce(ScaffoldMessenger.of(context),
+    showSnackOnce(
+      ScaffoldMessenger.of(context),
       SnackBar(content: Text(data.error ?? '입력한 배관이 없습니다.')),
     );
     return;
