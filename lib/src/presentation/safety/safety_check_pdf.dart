@@ -21,7 +21,8 @@ import 'safety_check_model.dart';
 const PdfColor _ink = PdfColor.fromInt(0xFF1F2933);
 const PdfColor _label = PdfColor.fromInt(0xFF374151);
 const PdfColor _grey = PdfColor.fromInt(0xFF6B7280);
-const PdfColor _line = PdfColor.fromInt(0xFFD1D5DB);
+// 표 선: 인쇄·미리보기에서 보이게 옅은 회색보다 한 단계 진하게.
+const PdfColor _line = PdfColor.fromInt(0xFF9CA3AF);
 const PdfColor _head = PdfColor.fromInt(0xFFF1F5F9);
 const PdfColor _red = PdfColor.fromInt(0xFFD32F2F);
 const PdfColor _teal = PdfColor.fromInt(0xFF007580);
@@ -226,7 +227,7 @@ Future<Uint8List> buildSafetyCheckPdf(SafetyRecord r) async {
         info('작업', r.work),
         heading('점검 항목', safetyResultLabel(r)),
         pw.Table(
-          border: pw.TableBorder.all(color: _line, width: 0.6),
+          border: pw.TableBorder.all(color: _line, width: 0.8),
           columnWidths: const {
             0: pw.FixedColumnWidth(32),
             1: pw.FlexColumnWidth(),
@@ -273,7 +274,7 @@ Future<Uint8List> buildSafetyCheckPdf(SafetyRecord r) async {
           people.isEmpty ? '' : '${people.length}명 · 서명 $signed명',
         ),
         pw.Table(
-          border: pw.TableBorder.all(color: _line, width: 0.6),
+          border: pw.TableBorder.all(color: _line, width: 0.8),
           columnWidths: const {
             0: pw.FixedColumnWidth(36),
             1: pw.FlexColumnWidth(2),
