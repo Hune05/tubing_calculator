@@ -201,7 +201,10 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                 style: TextStyle(fontSize: 15, color: AppColors.textSub),
               ),
             ),
+          // 열쇠를 붙여 둔다: 첫 획에서 안내 글이 빠지고 "다시 쓰기"가 생기면 열쇠 없는 칸끼리
+          // 자리가 바뀌어 서명 칸이 새로 만들어지고, 긋던 첫 획이 점 하나로 끊겼다(A9+ 확인).
           Positioned.fill(
+            key: const ValueKey('safety_sig_pad_area'),
             child: GestureDetector(
               key: const Key('safety_sig_pad'),
               behavior: HitTestBehavior.opaque,

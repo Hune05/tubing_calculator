@@ -132,7 +132,11 @@ void main() {
     await tester.enterText(find.byKey(const Key('safety_att_company')), '대성');
     final pad = find.byKey(const Key('safety_sig_pad'));
     final c = tester.getCenter(pad);
-    await tester.dragFrom(c - const Offset(80, 0), const Offset(160, 30));
+    await tester.timedDragFrom(
+      c - const Offset(80, 0),
+      const Offset(160, 30),
+      const Duration(milliseconds: 300),
+    );
     await tester.pump();
     await tester.tap(find.byKey(const Key('safety_att_next')));
     await tester.pumpAndSettle();
@@ -159,6 +163,11 @@ void main() {
     expect(r.attendees.map((a) => a.name), ['홍길동', '김철수']);
     expect(r.attendees.first.company, '대성');
     expect(r.attendees.first.signed, isTrue);
+    // 빈 칸에 처음 긋는 획도 점 하나가 아니라 선으로 남는다(안내 글이 사라질 때 끊기던 것).
+    expect(
+      decodeSignature(r.attendees.first.sig).first.length,
+      greaterThan(2),
+    );
     expect(r.attendees.last.signed, isFalse);
     expect(r.people, '대성 홍길동, 김철수');
     // 저장하면 참석자 목록은 비고, 다음 점검에서 이름 칩으로 나온다.
