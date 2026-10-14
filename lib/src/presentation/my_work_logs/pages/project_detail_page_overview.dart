@@ -20,18 +20,13 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
           if (b['dateTime'] == null) return 1;
           return asDate(a['dateTime']).compareTo(asDate(b['dateTime']));
         });
-    final punches =
-        (log['punch_lists'] as List? ?? [])
-            .whereType<Map>()
-            .where((p) => p['is_completed'] != true)
-            .map((p) => p as Map<String, dynamic>)
-            .toList()
-          ..sort((a, b) {
-            const order = {'긴급': 0, '보통': 1, '여유': 2};
-            return (order[a['priority']] ?? 1).compareTo(
-              order[b['priority']] ?? 1,
-            );
-          });
+    // 이슈 탭과 같은 순서(기한 초과 → 긴급 → 기한 빠른 것, 10-14).
+    final punches = sortIssues(
+      (log['punch_lists'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .where((p) => p['is_completed'] != true),
+      schedules: (log['schedules'] as List? ?? []),
+    );
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
@@ -87,37 +82,24 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
         const SizedBox(height: 8),
         if (punches.isEmpty)
           _emptyText("미해결 이슈가 없습니다.")
-        else
-          ...punches
-              .take(4)
-              .map(
-                (p) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                  title: Text(
-                    p['content']?.toString() ?? '',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: tossText,
-                    ),
-                  ),
-                  subtitle: Text(
-                    keepWords(
-                      "${p['location'] ?? ''}  ·  ${p['priority'] ?? '보통'}${issueOverdueDays(p) > 0 ? '  ·  기한 초과 ${issueOverdueDays(p)}일' : ''}",
-                    ),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: issueOverdueDays(p) > 0
-                          ? AppColors.danger
-                          : tossSubText,
-                    ),
-                  ),
-                  trailing: const Icon(AppIcons.forward),
-                  onTap: () => _run(() => widget.actions.openPunch(p)),
-                ),
+        else ...[
+          // 이슈 탭과 같은 카드(10-14).
+          for (final p in punches.take(4))
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: IssueCard(
+                punch: p,
+                schedules: (log['schedules'] as List? ?? []),
+                onTap: () => _run(() => widget.actions.openPunch(p)),
               ),
+            ),
+          if (punches.length > 4)
+            TextButton(
+              key: const Key('overview_issue_more'),
+              onPressed: () => _tab.animateTo(2),
+              child: Text("이슈 ${punches.length - 4}건 더 보기"),
+            ),
+        ],
         const SizedBox(height: 22),
         // 저장 창에서 이 프로젝트에 붙인 압력시험·교정 기록(10-09). 없으면 안 그린다.
         LinkedRecordsSection(
@@ -173,7 +155,8 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                 // 2) 마무리 보고서(PDF)
                 await _offerFinalReport();
                 if (!mounted) return;
-                showSnackOnce(ScaffoldMessenger.of(context),
+                showSnackOnce(
+                  ScaffoldMessenger.of(context),
                   SnackBar(
                     content: Text(keepWords("프로젝트를 완료 처리했습니다.")),
                     persist: false,
@@ -246,7 +229,11 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("프로젝트 삭제"),
-        content: Text(keepWords("일정·일지·이슈와 함께 휴지통으로 옮깁니다. 30일 안에는 휴지통에서 되살릴 수 있습니다. 계속하시겠습니까?")),
+        content: Text(
+          keepWords(
+            "일정·일지·이슈와 함께 휴지통으로 옮깁니다. 30일 안에는 휴지통에서 되살릴 수 있습니다. 계속하시겠습니까?",
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -501,7 +488,8 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
     for (final e in list) {
       if (e is Map && e['id'] == s['id']) {
         e['isCompleted'] = !(e['isCompleted'] == true);
-        e['updatedAt'] = DateTime.now().toIso8601String(); // 합칠 때 이 고침이 이기게(10-14)
+        e['updatedAt'] = DateTime.now()
+            .toIso8601String(); // 합칠 때 이 고침이 이기게(10-14)
         break;
       }
     }

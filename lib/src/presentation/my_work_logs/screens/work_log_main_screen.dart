@@ -1165,7 +1165,22 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         ),
       ),
     );
+    if (updated != null && updated[kIssueDeletedKey] == true) {
+      // 상세에서 "이슈 지우기"(10-14): 목록에서 빼고 지운 것으로 적는다(다음 저장 때 되살아나지 않게).
+      setState(() {
+        final list = (log['punch_lists'] ??= <dynamic>[]) as List;
+        final idx = indexOfItem(list, punch);
+        if (idx != -1) list.removeAt(idx);
+        markItemDeleted(log, (punch['id'] ?? updated['id'])?.toString());
+      });
+      _saveProject(log);
+      if (mounted) showAppSnack(context, "이슈를 지웠습니다.");
+      return;
+    }
     if (updated != null) {
+      // 고치기에서 새 도면을 골랐으면 프로젝트 도면으로(10-14, 등록 때와 같다).
+      final String? newPlan = updated.remove('__newFloorPlanPath');
+      if (newPlan != null) log['floor_plan_image_path'] = newPlan;
       // 대시보드 목록이 붙인 화면용 칸은 빼고 넣는다(10-08: '_projectRef'가 프로젝트 자신을 품어
       // 순환이 생기고, 그 프로젝트 저장·자동 백업이 계속 실패했다).
       stripIssueDisplayKeys(updated);

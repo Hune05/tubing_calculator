@@ -6,53 +6,63 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
   // ───────────────────────── 이슈 / 일지 탭 ─────────────────────────
   Widget _buildIssuesTab() {
     final punches = (log['punch_lists'] as List? ?? []);
+    // 10-14 개편: 집계·찾기·카드 줄·밀어서 지우기(issue_list_section.dart).
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
       children: [
-        if (punches.isNotEmpty)
-          Padding(
-            padding: EdgeInsets.zero,
-            child: OutlinedButton.icon(
-              onPressed: _showIssueExport,
-              icon: const Icon(Icons.ios_share_rounded, size: 18),
-              label: const Text("이슈 보고서 내보내기"),
-              style: OutlinedButton.styleFrom(foregroundColor: tossText),
-            ),
-          ),
-        // 이슈를 도면에서 보기(10-10): 도면이 있고 위치를 찍은 이슈가 있을 때.
-        if (IssuePlanPage.hasPins(log)) ...[
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            key: const Key('issue_plan_open_button'),
-            onPressed: () => _run(
-              () => Navigator.push<void>(
-                context,
-                WorkRoute(
-                  builder: (_) => IssuePlanPage(
-                    log: log,
-                    onOpenPunch: (p) => widget.actions.openPunch(p),
+        IssueListSection(
+          punches: punches,
+          schedules: (log['schedules'] as List? ?? []),
+          onOpen: (p) => _run(() => widget.actions.openPunch(p)),
+          onDelete: _deleteIssue,
+          onBulkChanged: () {
+            widget.actions.save();
+            setState(() {});
+          },
+          onExport: _showIssueExport,
+          // 이슈를 도면에서 보기(10-10): 도면이 있고 위치를 찍은 이슈가 있을 때.
+          onOpenPlan: IssuePlanPage.hasPins(log)
+              ? () => _run(
+                  () => Navigator.push<void>(
+                    context,
+                    WorkRoute(
+                      builder: (_) => IssuePlanPage(
+                        log: log,
+                        onOpenPunch: (p) => widget.actions.openPunch(p),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-            icon: const Icon(Icons.map_outlined, size: 18),
-            label: const Text("도면에서 보기"),
-            style: OutlinedButton.styleFrom(foregroundColor: tossText),
-          ),
-        ],
-        const SizedBox(height: 16),
-        if (punches.isEmpty)
-          _emptyText("등록된 이슈가 없습니다.")
-        else
-          PunchListSection(
-            punchLists: punches,
-            onOpenPunchDetail: (p) => _run(() => widget.actions.openPunch(p)),
-            onBulkChanged: () {
-              widget.actions.save();
-              setState(() {});
-            },
-          ),
+                )
+              : null,
+        ),
       ],
+    );
+  }
+
+  /// 밀어서 지운 이슈: 목록에서 빼고 지운 것으로 적어 저장한다(다음 저장 때 되살아나지 않게).
+  /// "되돌리기"는 새 아이디로 다시 넣는다 — 지운 아이디는 다른 기기와 합칠 때도 계속 빠지므로.
+  void _deleteIssue(Map<String, dynamic> p) {
+    final list = (log['punch_lists'] as List? ?? []);
+    final idx = indexOfItem(list, p);
+    if (idx < 0) return;
+    setState(() => list.removeAt(idx));
+    markItemDeleted(log, p['id']?.toString());
+    widget.actions.save();
+    final name = (p['content'] ?? '').toString().trim();
+    showDeleteUndo(
+      context,
+      name.length > 20 ? '${name.substring(0, 20)}…' : name,
+      onUndo: () {
+        if (!mounted) return;
+        final back = Map<String, dynamic>.from(p)
+          ..['id'] = DateTime.now().millisecondsSinceEpoch.toString();
+        touchItem(back);
+        setState(() {
+          final l = (log['punch_lists'] ??= <dynamic>[]) as List;
+          l.insert(idx.clamp(0, l.length), back);
+        });
+        widget.actions.save();
+      },
     );
   }
 
@@ -130,9 +140,12 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                             );
                           } catch (e) {
                             if (mounted) {
-                              showSnackOnce(ScaffoldMessenger.of(context),
+                              showSnackOnce(
+                                ScaffoldMessenger.of(context),
                                 SnackBar(
-                                  content: Text(keepWords(failText("PDF를 만들지 못했습니다", e))),
+                                  content: Text(
+                                    keepWords(failText("PDF를 만들지 못했습니다", e)),
+                                  ),
                                 ),
                               );
                             }
@@ -187,7 +200,8 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       ),
     );
     if (mounted) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("'$name' 템플릿을 저장했습니다. 단계 만들기에서 불러올 수 있습니다.")),
         ),
@@ -315,7 +329,10 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       ], text: "${log['name'] ?? '프로젝트'} 현황");
     } catch (e) {
       if (mounted) {
-        showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(keepWords(failText("이미지 만들기 실패", e)))));
+        showSnackOnce(
+          ScaffoldMessenger.of(context),
+          SnackBar(content: Text(keepWords(failText("이미지 만들기 실패", e)))),
+        );
       }
     }
   }
@@ -405,7 +422,10 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop();
       setState(() {});
-      showSnackOnce(ScaffoldMessenger.of(context), SnackBar(content: Text(message)));
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
+        SnackBar(content: Text(message)),
+      );
     }
   }
 
@@ -422,7 +442,8 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     if (n.isEmpty) return;
     final ok = await launchUrl(Uri(scheme: sms ? 'sms' : 'tel', path: n));
     if (!ok && mounted) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(content: Text(sms ? "문자 앱을 열 수 없습니다." : "전화 앱을 열 수 없습니다.")),
       );
     }
@@ -433,7 +454,8 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     if (e.isEmpty) return;
     final ok = await launchUrl(Uri(scheme: 'mailto', path: e));
     if (!ok && mounted) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         const SnackBar(content: Text("메일 앱을 열 수 없습니다.")),
       );
     }
@@ -517,7 +539,8 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                           });
                         } on PlatformException catch (e) {
                           if (!mounted) return;
-                          showSnackOnce(ScaffoldMessenger.of(context),
+                          showSnackOnce(
+                            ScaffoldMessenger.of(context),
                             SnackBar(
                               content: Text(
                                 e.code == 'denied'
@@ -528,10 +551,9 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                           );
                         } catch (_) {
                           if (!mounted) return;
-                          showSnackOnce(ScaffoldMessenger.of(context),
-                            const SnackBar(
-                              content: Text("폰 연락처를 열 수 없습니다."),
-                            ),
+                          showSnackOnce(
+                            ScaffoldMessenger.of(context),
+                            const SnackBar(content: Text("폰 연락처를 열 수 없습니다.")),
                           );
                         }
                       },

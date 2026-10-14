@@ -76,7 +76,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final add = find.text('처리 후 사진').first;
+    final add = find.byKey(const Key('punch_after_photo_add'));
     await tester.ensureVisible(add);
     await tester.tap(add);
     await tester.pump();

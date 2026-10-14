@@ -13,6 +13,8 @@ import 'package:flutter/services.dart';
 import '../models/attendance.dart';
 import '../models/project_phase.dart';
 import '../widgets/work_log_card.dart';
+import '../widgets/issue_list_section.dart';
+import '../models/issue_view.dart' show sortIssues;
 import '../widgets/linked_records_section.dart';
 import '../models/report_csv.dart';
 import '../models/photo_sheet_pdf.dart';
@@ -32,7 +34,8 @@ import '../../../core/utils/image_picker_helper.dart' show ImagePickerHelper;
 import '../models/summary_image.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/phase_templates.dart';
-import '../models/project_merge.dart' show authorLabel, markItemDeleted, stampFields;
+import '../models/project_merge.dart'
+    show authorLabel, indexOfItem, markItemDeleted, stampFields;
 import '../../../data/repositories/work_project_repository.dart';
 import 'report_search_page.dart' show ProjectPhotosPage;
 import 'project_stats_page.dart';

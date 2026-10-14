@@ -16,6 +16,7 @@ import '../widgets/photo_detail_modal.dart';
 import '../widgets/confirm_delete.dart';
 import 'floor_plan_pin_page.dart';
 import '../models/plan_pin.dart' show kPinOnImageKey;
+import '../models/issue_view.dart' show issueDate, issueBeforePhotos;
 import '../../my_schedule/schedule_logic.dart' show clampPickerInitial;
 
 const Color tossText = AppColors.text;
@@ -35,11 +36,15 @@ class PunchListPage extends StatefulWidget {
   // 필드 헬퍼 3번: 사진에 찍을 현장(프로젝트) 이름.
   final String? projectName;
 
+  /// 있으면 "이슈 고치기"(10-14): 칸을 이 이슈 값으로 채우고, 저장하면 고친 이슈 전체를 돌려준다.
+  final Map<String, dynamic>? initial;
+
   const PunchListPage({
     super.key,
     this.recentLocations = const [],
     this.floorPlanImagePath,
     this.projectName,
+    this.initial,
   });
 
   @override
@@ -107,10 +112,55 @@ class _PunchListPageState extends State<PunchListPage> {
   // 별도로 기억해둔다 (기존에 있던 도면을 그대로 쓴 경우는 null).
   String? _newFloorPlanPath;
 
+  bool get _editing => widget.initial != null;
+
+  /// 고치기를 열었을 때 값(나갈 때 바뀐 것이 있는지 견준다).
+  String _snapAtOpen = '';
+
+  String _snapshot() => [
+    _locationCtrl.text.trim(),
+    _punchCtrl.text.trim(),
+    _selectedDefect,
+    _selectedPriority,
+    _assignee,
+    _dueDateOption,
+    _customDueDate?.toIso8601String() ?? '',
+    _attachedImages.join('|'),
+    '$_pinDx,$_pinDy',
+  ].join('\u0001');
+
   @override
   void initState() {
     super.initState();
     _floorPlanImagePath = widget.floorPlanImagePath;
+    final m = widget.initial;
+    if (m != null) {
+      final loc = (m['location'] ?? '').toString();
+      _locationCtrl.text = loc == '위치 모름' ? '' : loc;
+      final c = (m['content'] ?? '').toString();
+      _punchCtrl.text = c == '내용 없음 (사진 참조)' ? '' : c;
+      final d = (m['defect_type'] ?? '').toString();
+      if (d.isNotEmpty) {
+        if (!_defectTypes.contains(d)) _defectTypes.insert(0, d);
+        _selectedDefect = d;
+      }
+      final pr = (m['priority'] ?? '').toString();
+      if (_priorities.contains(pr)) _selectedPriority = pr;
+      _priorityTouched = true;
+      _assignee = (m['assignee'] ?? '').toString();
+      final due = issueDate(m['dueDate']);
+      if (due != null) {
+        _dueDateOption = "직접 지정";
+        _customDueDate = due;
+      }
+      _attachedImages.addAll(issueBeforePhotos(m));
+      if (m['locationPinDx'] != null && m['locationPinDy'] != null) {
+        _pinDx = (m['locationPinDx'] as num).toDouble();
+        _pinDy = (m['locationPinDy'] as num).toDouble();
+        _pinOnImage = m[kPinOnImageKey] == true;
+      }
+      _snapAtOpen = _snapshot();
+    }
   }
 
   @override
@@ -235,12 +285,34 @@ class _PunchListPageState extends State<PunchListPage> {
     String textValue = _punchCtrl.text.trim();
 
     if (textValue.isEmpty && _attachedImages.isEmpty) {
-      showSnackOnce(ScaffoldMessenger.of(context),
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
         SnackBar(
           content: Text(keepWords("결함 내용을 적거나 사진을 1장 이상 첨부하십시오.")),
           backgroundColor: warningRed,
         ),
       );
+      return;
+    }
+
+    if (_editing) {
+      // 고치기: 원래 이슈(아이디·등록 시각·처리 기록·검사일정 연결 등)에 고친 칸만 덮는다.
+      Navigator.pop(context, <String, dynamic>{
+        ...widget.initial!,
+        "location": locValue.isEmpty ? "위치 모름" : locValue,
+        "defect_type": _selectedDefect,
+        "priority": _selectedPriority,
+        "assignee": _assignee.trim(),
+        "content": textValue.isEmpty ? "내용 없음 (사진 참조)" : textValue,
+        "has_image": _attachedImages.isNotEmpty,
+        "image_path": _attachedImages.isNotEmpty ? _attachedImages.first : null,
+        "image_paths": List.from(_attachedImages),
+        "dueDate": _resolvedDueDate,
+        "locationPinDx": _pinDx,
+        "locationPinDy": _pinDy,
+        kPinOnImageKey: _pinDx != null && _pinOnImage,
+        if (_newFloorPlanPath != null) "__newFloorPlanPath": _newFloorPlanPath,
+      });
       return;
     }
 
@@ -303,11 +375,12 @@ class _PunchListPageState extends State<PunchListPage> {
   }
 
   /// 쓰던 것이 있는지(위치·내용·사진·도면 핀).
-  bool get _hasInput =>
-      _locationCtrl.text.trim().isNotEmpty ||
-      _punchCtrl.text.trim().isNotEmpty ||
-      _attachedImages.isNotEmpty ||
-      _pinDx != null;
+  bool get _hasInput => _editing
+      ? _snapshot() != _snapAtOpen
+      : _locationCtrl.text.trim().isNotEmpty ||
+            _punchCtrl.text.trim().isNotEmpty ||
+            _attachedImages.isNotEmpty ||
+            _pinDx != null;
 
   /// 🚀 [고침] 새 이슈를 쓰다가 뒤로 가기를 한 번 누르면 묻지 않고 닫혀
   /// 결함 글과 사진(최대 10장)이 한 번에 사라졌다. 쓴 것이 있으면 묻는다.
@@ -321,8 +394,10 @@ class _PunchListPageState extends State<PunchListPage> {
             !_hasInput ||
             await confirmDelete(
               context,
-              title: "쓰던 이슈를 버리시겠습니까?",
-              message: "등록하지 않고 나가면 쓴 내용과 사진이 사라집니다.",
+              title: _editing ? "고친 내용을 버리시겠습니까?" : "쓰던 이슈를 버리시겠습니까?",
+              message: _editing
+                  ? "저장하지 않고 나가면 고친 내용이 사라집니다."
+                  : "등록하지 않고 나가면 쓴 내용과 사진이 사라집니다.",
               confirmLabel: "버리기",
             );
         if (leave && context.mounted) Navigator.pop(context);
@@ -341,8 +416,8 @@ class _PunchListPageState extends State<PunchListPage> {
           icon: const Icon(AppIcons.back, color: tossText, size: 20),
           onPressed: () => Navigator.maybePop(context),
         ),
-        title: const Text(
-          "이슈 등록",
+        title: Text(
+          _editing ? "이슈 고치기" : "이슈 등록",
           style: TextStyle(
             color: tossText,
             fontSize: 18,
@@ -807,8 +882,9 @@ class _PunchListPageState extends State<PunchListPage> {
                 ),
               ),
               onPressed: _submit,
-              child: const Text(
-                "이슈 등록하기",
+              key: const Key('punch_submit'),
+              child: Text(
+                _editing ? "고친 내용 저장" : "이슈 등록하기",
                 style: TextStyle(
                   color: pureWhite,
                   fontSize: 18,
