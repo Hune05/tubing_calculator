@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'attendance.dart';
 import 'report_crews.dart';
+import 'report_confirm.dart';
+export 'report_confirm.dart' show ReportConfirm;
 import 'project_phase.dart';
 
 export 'search_tools.dart';
@@ -135,6 +137,8 @@ class ReportDoc {
   final bool showAuthorLine; // PDF 제목 아래에 "작성일 · 작성자" 한 줄
   final String? textFooter; // 텍스트 공유 맨 끝에 붙이는 안내 한 줄
   final String? fileStamp; // PDF 파일 이름에 넣는 날짜(yyyyMMdd). 없으면 오늘
+  // 작업 일지 확인 서명(10-14). PDF 끝에 "작업 일지 확인 서명" 표로 들어간다.
+  final List<ReportConfirm> confirms;
   ReportDoc(
     this.title,
     this.period,
@@ -151,6 +155,7 @@ class ReportDoc {
     this.showAuthorLine = false,
     this.textFooter,
     this.fileStamp,
+    this.confirms = const [],
   });
 
   // 문서 종류 표시(heading)만 바꾼 복사본. 마무리 보고서가 일반 "작업 보고"와 구분되게 한다.
@@ -170,6 +175,7 @@ class ReportDoc {
     showAuthorLine: showAuthorLine,
     textFooter: textFooter,
     fileStamp: fileStamp,
+    confirms: confirms,
   );
 
   // "작성일 2026.9.19 · 작성 홍길동"(작성자는 양식 설정의 담당자, 없으면 생략).
@@ -275,6 +281,9 @@ ReportDoc buildReportDoc(
     );
     final weather = (r['weather']?.toString() ?? '').trim();
     if (weather.isNotEmpty) dayLines.add('   날씨: $weather');
+    // 작업 일지 확인 서명(10-14).
+    final confirmed = confirmLine(r);
+    if (confirmed.isNotEmpty) dayLines.add('   확인: $confirmed');
     // 업체·공종별 인력과 투입 장비(10-14).
     final crews = crewsLine(r);
     if (crews.isNotEmpty) dayLines.add('   인력: $crews');
@@ -401,6 +410,7 @@ ReportDoc buildReportDoc(
     company: headerOverride(log, 'company'),
     manager: headerOverride(log, 'manager'),
     photos: photos,
+    confirms: [for (final r in reports) ...confirmationsOf(r)],
     pins: [
       if ((log['floor_plan_image_path']?.toString() ?? '').isNotEmpty)
         for (final r in reports)
@@ -532,6 +542,17 @@ ReportDoc mergeReportDocs(List<ReportDoc> docs) => ReportDoc(
   pins: [
     for (final d in docs)
       for (final p in d.pins) p,
+  ],
+  confirms: [
+    for (final d in docs)
+      for (final c in d.confirms)
+        ReportConfirm(
+          reportDate: '[${d.title}] ${c.reportDate}',
+          name: c.name,
+          role: c.role,
+          sig: c.sig,
+          at: c.at,
+        ),
   ],
 );
 

@@ -96,6 +96,10 @@ Future<AttendeeResult?> showAttendeeSheet(
   SafetyAttendee? initial,
   List<SafetyAttendee> suggest = const [],
   Set<String> taken = const {},
+  // 작업 일지 확인 서명도 이 창을 쓴다(10-14): 제목·둘째 칸 이름을 바꾸고 "다음 사람"은 뺀다.
+  String? title,
+  String companyLabel = '업체 (선택)',
+  bool allowNext = true,
 }) => showModalBottomSheet<AttendeeResult>(
   context: context,
   isScrollControlled: true,
@@ -107,6 +111,9 @@ Future<AttendeeResult?> showAttendeeSheet(
   ),
   builder: (_) => _AttendeeSheet(
     initial: initial,
+    title: title,
+    companyLabel: companyLabel,
+    allowNext: allowNext,
     suggest: [
       for (final a in suggest)
         if (!taken.contains(a.name) && a.name != initial?.name) a,
@@ -117,7 +124,16 @@ Future<AttendeeResult?> showAttendeeSheet(
 class _AttendeeSheet extends StatefulWidget {
   final SafetyAttendee? initial;
   final List<SafetyAttendee> suggest;
-  const _AttendeeSheet({this.initial, required this.suggest});
+  final String? title;
+  final String companyLabel;
+  final bool allowNext;
+  const _AttendeeSheet({
+    this.initial,
+    required this.suggest,
+    this.title,
+    this.companyLabel = '업체 (선택)',
+    this.allowNext = true,
+  });
 
   @override
   State<_AttendeeSheet> createState() => _AttendeeSheetState();
@@ -256,7 +272,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  editing ? '참석자 고치기' : '참석자 서명',
+                  widget.title ?? (editing ? '참석자 고치기' : '참석자 서명'),
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
@@ -290,7 +306,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                       child: TextField(
                         key: const Key('safety_att_company'),
                         controller: _company,
-                        decoration: _deco('업체 (선택)'),
+                        decoration: _deco(widget.companyLabel),
                       ),
                     ),
                   ],
@@ -332,7 +348,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                       child: const Text('취소'),
                     ),
                     const SizedBox(width: 8),
-                    if (!editing) ...[
+                    if (!editing && widget.allowNext) ...[
                       Expanded(
                         child: OutlinedButton(
                           key: const Key('safety_att_next'),

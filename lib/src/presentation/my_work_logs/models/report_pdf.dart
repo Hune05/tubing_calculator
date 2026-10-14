@@ -19,6 +19,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'attendance.dart';
 import 'project_phase.dart';
 import 'report_tools.dart';
+import '../../../core/utils/pdf_signature.dart';
 
 // 🚀 보고서 PDF 만들기·공유·정리.
 Future<Uint8List?> loadPhotoBytes(String path) => _pdfPhotoBytes(path);
@@ -619,6 +620,68 @@ Future<Uint8List> buildReportPdfBytes(
                       ],
                     ),
                   ),
+                ),
+            ],
+          ),
+        ],
+        // 작업 일지 확인 서명(10-14): 일지마다 누가 언제 확인하고 서명했는지.
+        if (doc.confirms.isNotEmpty) ...[
+          pw.SizedBox(height: 24),
+          pw.Text(
+            '작업 일지 확인 서명',
+            style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold),
+          ),
+          pw.SizedBox(height: 6),
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.grey500, width: 0.6),
+            columnWidths: const {
+              0: pw.FlexColumnWidth(2),
+              1: pw.FlexColumnWidth(3),
+              2: pw.FlexColumnWidth(2),
+              3: pw.FixedColumnWidth(120),
+            },
+            children: [
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.grey200),
+                children: [
+                  for (final h in ['작업 일지', '확인자', '확인 일시', '서명'])
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(5),
+                      child: pw.Text(
+                        h,
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              for (final c in doc.confirms)
+                pw.TableRow(
+                  verticalAlignment: pw.TableCellVerticalAlignment.middle,
+                  children: [
+                    for (final t in [
+                      c.reportDate,
+                      c.who,
+                      c.at == null
+                          ? ''
+                          : '${c.at!.month}/${c.at!.day} ${c.at!.hour.toString().padLeft(2, '0')}:${c.at!.minute.toString().padLeft(2, '0')}',
+                    ])
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(5),
+                        child: pw.Text(
+                          t,
+                          textAlign: pw.TextAlign.center,
+                          style: const pw.TextStyle(fontSize: 9.5),
+                        ),
+                      ),
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(2),
+                      child: pw.Center(child: pdfSignatureBox(c.sig, 108, 36)),
+                    ),
+                  ],
                 ),
             ],
           ),

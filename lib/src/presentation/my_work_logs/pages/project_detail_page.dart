@@ -24,6 +24,11 @@ import '../models/line_progress.dart' show lineProgress;
 import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_pdf_preview_page.dart';
 import '../models/report_tools.dart';
 import '../models/report_crews.dart';
+import '../models/report_confirm.dart';
+import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
+    show showAppSnack, AppSnackKind;
+import '../../safety/safety_check_model.dart' show SafetyAttendee;
+import '../../safety/safety_signature.dart' show showAttendeeSheet;
 import '../models/photo_store.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/address_book.dart';
@@ -1291,6 +1296,41 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       _sel.clear();
     });
     _changed();
+  }
+
+  // 작업 일지 확인 서명(10-14, 보고서 양식에서 켜면 보인다): 고른 일지에 감독원·발주처 서명을
+  // 받는다. 서명하면 일지는 확정된다.
+  Future<void> _confirmReports(List<Map> reps) async {
+    if (reps.isEmpty) {
+      showAppSnack(context, "확인할 작업 일지를 고르십시오.", kind: AppSnackKind.error);
+      return;
+    }
+    // 이 프로젝트에서 전에 서명한 사람(이름 칩).
+    final seen = <String>{};
+    final suggest = <SafetyAttendee>[
+      for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>())
+        for (final c in confirmationsOf(r))
+          if (seen.add(c.name)) SafetyAttendee(c.name, company: c.role),
+    ];
+    final res = await showAttendeeSheet(
+      context,
+      title: "작업 일지 확인 서명 (${reps.length}건)",
+      companyLabel: "소속·직책 (선택)",
+      allowNext: false,
+      suggest: suggest,
+    );
+    if (res == null || !mounted) return;
+    final a = res.attendee;
+    final now = DateTime.now();
+    for (final r in reps) {
+      addReportConfirmation(r, name: a.name, role: a.company, sig: a.sig, at: now);
+    }
+    setState(() {
+      _selectMode = false;
+      _sel.clear();
+    });
+    _changed();
+    showAppSnack(context, "작업 일지 ${reps.length}건에 ${a.name} 확인 서명을 받았습니다.");
   }
 
   // 이 프로젝트만 다른 시간에 작업 일지 알림을 받고 싶을 때(기본 시간은 ⋮ 메뉴의 알림 설정).

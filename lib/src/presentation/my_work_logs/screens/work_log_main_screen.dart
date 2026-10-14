@@ -16,6 +16,7 @@ import '../widgets/create_log_sheet.dart';
 import '../widgets/project_summary_card.dart';
 import '../models/project_phase.dart';
 import '../models/project_merge.dart';
+import '../models/report_confirm.dart';
 import '../models/project_reports_split.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
@@ -672,6 +673,17 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(keepWords("수정하려면 확정을 풀어야 하고, 사유가 기록으로 남습니다.")),
+              // 확인 서명을 받은 일지(10-14): 고치면 확인받은 내용이 아니게 되므로 서명을 지운다.
+              if (isReportConfirmed(report))
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    keepWords(
+                      "고치면 확인 서명(${confirmLine(report)})도 지워집니다. 고친 뒤 다시 받으십시오.",
+                    ),
+                    style: const TextStyle(color: AppColors.danger),
+                  ),
+                ),
               const SizedBox(height: 10),
               TextField(
                 controller: reasonCtrl,
@@ -725,6 +737,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         if (unlockHist != null) {
           updated['locked'] = false;
           updated.remove('lockedAt');
+          // 지운 확인 서명은 풀기 기록에 남긴다(10-14).
+          final cleared = confirmationsOf(report).map((c) => c.who).toList();
+          if (cleared.isNotEmpty && unlockHist.isNotEmpty) {
+            (unlockHist.last as Map)['clearedConfirm'] = cleared;
+          }
+          updated.remove(kReportConfirmKey);
           updated['unlockHistory'] = unlockHist;
         } else if (report['unlockHistory'] != null) {
           updated['unlockHistory'] = report['unlockHistory'];

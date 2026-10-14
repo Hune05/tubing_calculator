@@ -268,6 +268,20 @@ class _ReportStylePageState extends State<ReportStylePage> {
               ),
             ],
           ]),
+          _card("작업 일지 확인 서명", [
+            SwitchListTile(
+              key: const Key('style_report_confirm'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text("확인 서명 받기"),
+              subtitle: Text(
+                keepWords(
+                  "켜면 일지 탭에 '확인 서명 받기'가 생깁니다. 감독원·발주처가 일지를 고르고 손가락으로 서명하면 일지가 확정되고, 보고서 PDF 끝에 확인 서명 표가 들어갑니다.",
+                ),
+              ),
+              value: _s.reportConfirm,
+              onChanged: (v) => setState(() => _s.reportConfirm = v),
+            ),
+          ]),
           _card("작업 보고서에 넣을 항목", [
             Text(
               keepWords("꺼 둔 항목은 작업 보고서(텍스트/PDF)에서 빠집니다."),

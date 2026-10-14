@@ -19,6 +19,8 @@ class ReportStyle {
   bool weeklyAuthorLine; // 주간 보고 PDF 제목 아래 "작성일 · 작성자" 줄
   // 필드 헬퍼 3번: 사진에 날짜·현장 이름·위치를 찍는다(카메라로 찍은 사진만).
   bool photoStamp;
+  // 작업 일지 확인 서명(10-14, 켜야 보인다): 감독원·발주처가 일지를 확인하고 손가락으로 서명.
+  bool reportConfirm;
   Set<String> hiddenSections;
 
   ReportStyle({
@@ -33,6 +35,7 @@ class ReportStyle {
     this.defaultPhotos = false,
     this.weeklyAuthorLine = true,
     this.photoStamp = true,
+    this.reportConfirm = false,
     Set<String>? hiddenSections,
   }) : hiddenSections = hiddenSections ?? {};
 
@@ -60,6 +63,7 @@ class ReportStyle {
     'defaultPhotos': defaultPhotos,
     'weeklyAuthorLine': weeklyAuthorLine,
     'photoStamp': photoStamp,
+    'reportConfirm': reportConfirm,
     'hidden': hiddenSections.toList(),
   };
 
@@ -80,6 +84,7 @@ class ReportStyle {
         : j['sig2B64'].toString(),
     defaultPhotos: j['defaultPhotos'] == true,
     weeklyAuthorLine: j['weeklyAuthorLine'] != false, // 없으면 켬(기본)
+    reportConfirm: j['reportConfirm'] == true,
     photoStamp: j['photoStamp'] != false, // 없으면 켬(기본)
     hiddenSections: ((j['hidden'] as List?) ?? [])
         .map((e) => e.toString())
@@ -124,6 +129,7 @@ Map<String, dynamic> _decode(String raw) {
     'defaultPhotos': m['defaultPhotos'] == 'true',
     'weeklyAuthorLine': m['weeklyAuthorLine'] != 'false',
     'photoStamp': m['photoStamp'] != 'false',
+    'reportConfirm': m['reportConfirm'] == 'true',
     'hidden': (m['hidden'] ?? '')
         .toString()
         .split('')
@@ -149,6 +155,7 @@ Future<void> _saveLocal(ReportStyle s) async {
     'defaultPhotos${s.defaultPhotos}',
     'weeklyAuthorLine${s.weeklyAuthorLine}',
     'photoStamp${s.photoStamp}',
+    'reportConfirm${s.reportConfirm}',
     'hidden${s.hiddenSections.join('')}',
   ].join('');
   final p = await SharedPreferences.getInstance();

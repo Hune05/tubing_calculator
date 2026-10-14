@@ -15,6 +15,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../core/common_widgets/snack_once.dart';
 import '../../core/utils/pdf_fonts.dart';
+import '../../core/utils/pdf_signature.dart';
 import '../steel_cutting/screens/steel_pdf_preview_page.dart';
 import 'safety_check_model.dart';
 
@@ -32,42 +33,6 @@ const int kSafetyBlankSignRows = 8;
 
 const _weekdays = ['월', '화', '수', '목', '금', '토', '일'];
 String _two(int n) => n.toString().padLeft(2, '0');
-
-/// 서명 획을 PDF 칸에 선으로 그린다(PDF는 아래가 0이라 세로를 뒤집는다).
-pw.Widget _sigBox(String sig, double w, double h) {
-  final strokes = decodeSignature(sig);
-  if (strokes.isEmpty) return pw.SizedBox(width: w, height: h);
-  return pw.SizedBox(
-    width: w,
-    height: h,
-    child: pw.CustomPaint(
-      size: PdfPoint(w, h),
-      painter: (PdfGraphics g, PdfPoint size) {
-        final k = (size.x / kSigW) < (size.y / kSigH)
-            ? size.x / kSigW
-            : size.y / kSigH;
-        final dx = (size.x - kSigW * k) / 2;
-        final dy = (size.y - kSigH * k) / 2;
-        g
-          ..setStrokeColor(PdfColors.black)
-          ..setLineWidth((9 * k).clamp(0.6, 2.0))
-          ..setLineCap(PdfLineCap.round)
-          ..setLineJoin(PdfLineJoin.round);
-        for (final s in strokes) {
-          final f = s.first;
-          g.moveTo(dx + f.$1 * k, size.y - (dy + f.$2 * k));
-          if (s.length == 1) {
-            g.lineTo(dx + f.$1 * k + 0.1, size.y - (dy + f.$2 * k));
-          }
-          for (final p in s.skip(1)) {
-            g.lineTo(dx + p.$1 * k, size.y - (dy + p.$2 * k));
-          }
-          g.strokePath();
-        }
-      },
-    ),
-  );
-}
 
 /// TBM 기록 PDF 바이트.
 Future<Uint8List> buildSafetyCheckPdf(SafetyRecord r) async {
@@ -164,7 +129,7 @@ Future<Uint8List> buildSafetyCheckPdf(SafetyRecord r) async {
           cell(people[i].name, bold: true),
           pw.Padding(
             padding: const pw.EdgeInsets.all(2),
-            child: pw.Center(child: _sigBox(people[i].sig, sigW, sigH)),
+            child: pw.Center(child: pdfSignatureBox(people[i].sig, sigW, sigH)),
           ),
         ],
       ),

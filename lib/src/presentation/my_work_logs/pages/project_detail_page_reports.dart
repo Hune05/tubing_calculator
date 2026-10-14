@@ -170,6 +170,7 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
               if (phaseChips.isNotEmpty ||
                   issueCnt > 0 ||
                   doneCnt > 0 ||
+                  isReportConfirmed(r) ||
                   r['is_as_built'] == true) ...[
                 const SizedBox(height: 8),
                 Wrap(
@@ -181,6 +182,8 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                     if (doneCnt > 0) chip("일정 완료 $doneCnt", AppColors.ok),
                     if (r['is_as_built'] == true)
                       chip("도면 수정 요청", AppColors.caution),
+                    for (final c in confirmationsOf(r))
+                      chip("확인 ${c.who}", AppColors.ok),
                   ],
                 ),
               ],
@@ -310,6 +313,14 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                             : () => _lockReports(_sel.toList()),
                         child: const Text("확정"),
                       ),
+                      if (ReportStyle.current.reportConfirm)
+                        TextButton(
+                          key: const Key('report_confirm_sign'),
+                          onPressed: _sel.isEmpty
+                              ? null
+                              : () => _confirmReports(_sel.toList()),
+                          child: const Text("확인 서명"),
+                        ),
                       ElevatedButton(
                         onPressed: _sel.isEmpty ? null : _exportSelected,
                         style: ElevatedButton.styleFrom(
@@ -341,6 +352,23 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                           foregroundColor: tossSubText,
                         ),
                       ),
+                      // 확인 서명(10-14, 보고서 양식에서 켰을 때): 고르기를 켜고 안내한다.
+                      if (ReportStyle.current.reportConfirm)
+                        TextButton.icon(
+                          key: const Key('report_confirm_start'),
+                          onPressed: () {
+                            setState(() => _selectMode = true);
+                            showAppSnack(
+                              context,
+                              "확인받을 일지를 고른 뒤 '확인 서명'을 누르십시오.",
+                            );
+                          },
+                          icon: const Icon(Icons.draw_outlined, size: 18),
+                          label: const Text("확인 서명 받기"),
+                          style: TextButton.styleFrom(
+                            foregroundColor: tossSubText,
+                          ),
+                        ),
                     ],
                   ),
           ),
