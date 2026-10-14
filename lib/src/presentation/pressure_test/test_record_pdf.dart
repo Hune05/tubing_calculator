@@ -250,6 +250,7 @@ Future<Uint8List> buildPtRecordPdf(PtRecord r) async {
                           '${r.maxKpa == null ? '' : ' (최대 ${ptPressureDown(r.maxKpa!, u)})'}',
                     ),
                   info('규정 유지시간', '${ptFmt(r.holdMin, 1)}분 이상'),
+                  if (r.stabAt != null) info('안정화', r.stabText ?? ''),
                 ],
               ),
             ),

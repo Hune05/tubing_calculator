@@ -1180,4 +1180,59 @@ void main() {
     await tester.pumpAndSettle();
     expect(textOf(tester, 'pt_r_status'), '종료');
   });
+
+  testWidgets('안정화(10-15): 안정화 시작 → 끝 알림 → 다시 읽고 시작, 기록에 안정화 줄(판정에는 안 넣음)', (tester) async {
+    await setupPneumatic(tester);
+    await type(tester, 'pt_r_line', 'P-7');
+    await tapKey(tester, 'pt_r_stab_10');
+    expect(find.text('안정화 없이 바로 시작'), findsOneWidget);
+    await tapKey(tester, 'pt_r_stab');
+    await reading(tester, '12.1', '20');
+    expect(textOf(tester, 'pt_r_status'), '안정화 중');
+    final (at, title, body) = alarm.scheduled.last;
+    expect(at, DateTime(2026, 9, 26, 9, 10));
+    expect(title, '압력시험 안정화 끝');
+    expect(body, 'P-7 안정화 10분이 지났습니다. 게이지를 읽고 [시작]을 누르십시오.');
+    // 덜 됐는데 시작하면 묻는다
+    now = DateTime(2026, 9, 26, 9, 4, 0);
+    await tester.pump(const Duration(seconds: 1));
+    expect(textOf(tester, 'pt_r_remain'), '안정화 남은 시간 06:00');
+    await tapKey(tester, 'pt_r_start');
+    expect(find.text('아직 안정화 중입니다'), findsOneWidget);
+    await tester.tap(find.text('취소'));
+    await tester.pumpAndSettle();
+    expect(textOf(tester, 'pt_r_status'), '안정화 중');
+    // 끝나면 다시 읽고 시작
+    now = DateTime(2026, 9, 26, 9, 10, 0);
+    await tester.pump(const Duration(seconds: 1));
+    expect(textOf(tester, 'pt_r_status'), '안정화 끝 · 게이지를 읽고 시작');
+    await tapKey(tester, 'pt_r_start');
+    expect(fieldText(tester, 'pt_rd_p'), ''); // 다시 읽게 비워 둔다
+    await reading(tester, '12', '20');
+    expect(textOf(tester, 'pt_r_status'), '유지 중');
+    expect(alarm.scheduled.last.$1, DateTime(2026, 9, 26, 9, 20));
+    expect(alarm.scheduled.last.$2, '압력시험 유지시간 완료');
+    expect(textOf(tester, 'pt_r_stab_line'), '안정화 10분: 09:00 12.1 bar 20°C → 시작 09:10 12 bar');
+  });
+
+  test('안정화 줄·기록 저장(10-15)', () {
+    final r = PtRecord(
+      id: '1',
+      date: DateTime(2026, 9, 26),
+      line: 'P-7',
+      stabMin: 10,
+      stabAt: DateTime(2026, 9, 26, 9),
+      stabKpa: 1210,
+      stabTempC: 20,
+      startAt: DateTime(2026, 9, 26, 9, 4),
+      readings: [PtReading(at: DateTime(2026, 9, 26, 9, 4), kpa: 1200, kind: PtReadKind.start)],
+    );
+    expect(r.stabText, '안정화 10분: 09:00 12.1 bar 20°C → 시작 09:04 12 bar (안정화 4분에 시작)');
+    final back = PtRecord.fromJson(r.toJson());
+    expect(back.stabAt, DateTime(2026, 9, 26, 9));
+    expect(back.stabKpa, 1210);
+    expect(back.stabMin, 10);
+    expect(PtRecord.fromJson(PtRecord(id: '2', date: DateTime(2026, 9, 26), line: '').toJson()).stabText, isNull);
+  });
 }
+

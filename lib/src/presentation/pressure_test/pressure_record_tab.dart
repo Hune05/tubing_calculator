@@ -37,6 +37,16 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   PtRecord? _rEditing; // 불러오거나 저장한 기록(고쳐 저장할 때 같은 id)
   double? _rLastTemp; // 마지막에 넣은 온도(다음 입력 창에 미리 채움)
 
+  // 안정화(10-15): 압력을 올리고 [안정화 시작] → 끝나면 알림 → 게이지를 다시 읽고 [시작].
+  double _rStabMin = 0; // 0이면 안 함
+  DateTime? _rStabAt;
+  PtReading? _rStabRead; // 안정화 시작 때 압력·온도(기록 참고용)
+
+  bool get _rStabilizing => _rStabAt != null && _rStart == null;
+  DateTime? get _rStabDue =>
+      _rStabAt?.add(Duration(milliseconds: (_rStabMin * 60000).round()));
+  bool _rStabDone(DateTime now) => _rStabDue != null && !now.isBefore(_rStabDue!);
+
   Timer? _rAlarmTimer; // 유지시간·라인 번호를 고칠 때 알림 다시 예약(잠시 뒤)
   String? _rScheduledKey; // 이 화면이 예약한 알림(시각|본문)
 
@@ -94,7 +104,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
 
   /// 완료 시각이 지나 울리고 있는 알림을 멈춘다(이 화면을 열거나 돌아왔을 때). 알림은 끌 때까지 울린다.
   Future<void> _stopRinging() async {
-    final due = _rRunning ? _rDue : null;
+    final due = _rRunning ? _rDue : (_rStabilizing ? _rStabDue : null);
     if (due == null || due.isAfter(_now())) return;
     _rScheduledKey = null;
     await _alarm.cancel();
@@ -123,6 +133,9 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     'edits': [for (final e in _rEdits) e.toJson()],
     'editing': _rEditing?.id,
     'lastT': _rLastTemp,
+    if (_rStabMin > 0) 'stabMin': _rStabMin,
+    if (_rStabAt != null) 'stabAt': _rStabAt!.toIso8601String(),
+    if (_rStabRead != null) 'stabR': _rStabRead!.toJson(),
   };
 
   void _applyRecordDraft(Object? m) {
@@ -148,6 +161,10 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     ];
     final t = m['lastT'];
     _rLastTemp = t is num ? t.toDouble() : null;
+    final sm = m['stabMin'];
+    _rStabMin = sm is num && sm > 0 ? sm.toDouble() : 0;
+    _rStabAt = DateTime.tryParse(m['stabAt']?.toString() ?? '');
+    _rStabRead = _rStabAt == null ? null : PtReading.fromJson(m['stabR']);
   }
 
   /// 임시 저장에 적힌 "불러온 기록"을 폰 기록에서 찾는다.
@@ -235,6 +252,18 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   }
 
   Future<void> _syncAlarmInner() async {
+    if (_rStabilizing) {
+      final sd = _rStabDue!;
+      // 지난 안정화 알림은 그대로(화면을 열거나 [시작]하면 멈춘다).
+      if (!sd.isAfter(_now())) return;
+      final body = ptStabBody(line: _rLine.text, stabMin: _rStabMin);
+      final key = 'b|${sd.toIso8601String()}|$body';
+      if (key == _rScheduledKey) return;
+      _rScheduledKey = key;
+      await _alarm.schedule(sd, title: kPtStabTitle, body: body);
+      await _checkNotif();
+      return;
+    }
     final due = _rRunning ? _rDue : null;
     if (due == null || !due.isAfter(_now())) {
       if (_rScheduledKey != null) {
@@ -296,6 +325,16 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   // 시작·측정 추가·종료 창의 압력 칸은 비워 둔다(10-13: 목표 시험압력이나 직전 값을 미리 채워,
   // 게이지를 읽지 않고 "종료"만 눌러도 강하 0인 합격 기록이 만들어졌다). 참고 값은 칸 아래 글로만.
   Future<void> _startHold() async {
+    if (_rStabilizing && !_rStabDone(_now())) {
+      final waited = ptMinutes(_now().difference(_rStabAt!));
+      if (!await _rConfirm(
+        '아직 안정화 중입니다',
+        '안정화 ${ptFmt(_rStabMin, 1)}분 중 ${ptFmt(waited, 1)}분이 지났습니다. 지금 시작하시겠습니까?',
+        '지금 시작',
+      )) {
+        return;
+      }
+    }
     final last = _rReads.isEmpty ? null : _rReads.last;
     final target = _pg._currentPlan?.usedKpa;
     final res = await _askReading(
@@ -332,6 +371,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final target = _recordTestKpa();
     final design = _pg._kpa(_pg._design);
     return PtBigTimerData(
+      stabAt: _rStabAt,
+      stabMin: _rStabMin,
       design: design == null || design <= 0 ? null : _p4(design),
       start: _rStart,
       end: _rEnd,
@@ -354,6 +395,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
         builder: (_) => PtBigTimerPage(
           data: _bigData,
           onStart: _startHold,
+          onStab: _startStab,
           onAdd: _addReading,
           onEnd: _endHold,
           onStopAlarm: _stopRinging,
@@ -364,6 +406,37 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       ),
     );
     if (mounted) setState(() {});
+  }
+
+  /// 안정화 시작(10-15): 압력을 올린 뒤 게이지를 읽어 넣는다. 끝나면 알림, 그 뒤 다시 읽고 [시작].
+  Future<void> _startStab() async {
+    final target = _pg._currentPlan?.usedKpa;
+    final res = await _askReading(
+      title: '안정화 시작 압력·온도',
+      okLabel: '안정화 시작',
+      tempC: _rLastTemp,
+      note: '압력을 올린 뒤 게이지를 읽어 넣으십시오. ${ptFmt(_rStabMin, 1)}분 뒤에 알리고, 그때 다시 읽어 [시작]을 누릅니다. 안정화 동안의 변화는 판정에 넣지 않습니다.',
+      ref: target == null ? null : '시험압력: ${_p4(target)}',
+    );
+    if (res == null || !mounted) return;
+    final now = _now();
+    setState(() {
+      _rStabAt = now;
+      _rStabRead = PtReading(at: now, kpa: res.kpa, tempC: res.tempC, kind: PtReadKind.start);
+      if (res.tempC != null) _rLastTemp = res.tempC;
+    });
+    _pg._saveNow();
+    await _syncAlarm();
+  }
+
+  Future<void> _cancelStab() async {
+    if (!_rStabilizing) return;
+    setState(() {
+      _rStabAt = null;
+      _rStabRead = null;
+    });
+    _pg._saveNow();
+    await _cancelAlarm();
   }
 
   Future<void> _addReading() async {
@@ -532,6 +605,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     setState(() {
       _rStart = null;
       _rEnd = null;
+      _rStabAt = null;
+      _rStabRead = null;
       _rReads = const [];
       _rEdits = const [];
       _rLeakOk = false;
@@ -620,6 +695,10 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       holdMin: _requiredHold,
       startAt: start,
       endAt: _rEnd,
+      stabMin: _rStabAt == null ? 0 : _rStabMin,
+      stabAt: _rStabAt,
+      stabKpa: _rStabRead?.kpa,
+      stabTempC: _rStabRead?.tempC,
       readings: _rReads,
       edits: _rEdits,
       allowKpa: allow != null && allow >= 0 ? allow : null,
@@ -733,6 +812,11 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
       _rLeakOk = r.leakOk;
       _rStart = r.startAt ?? r.startReading?.at;
       _rEnd = r.endAt ?? r.endReading?.at;
+      _rStabAt = r.stabAt;
+      if (r.stabAt != null) _rStabMin = r.stabMin;
+      _rStabRead = r.stabAt != null && r.stabKpa != null
+          ? PtReading(at: r.stabAt!, kpa: r.stabKpa!, tempC: r.stabTempC, kind: PtReadKind.start)
+          : null;
       _rReads = [...r.readings];
       _rEdits = [...r.edits];
       _rEditing = r;
@@ -913,6 +997,21 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
             ),
           ),
         ),
+      // 안정화(10-15): 시작 전에만 고른다.
+      if (_rStart == null && !_rStabilizing)
+        _pg._chips(
+          '안정화 (선택)',
+          '압력을 올린 직후에는 온도·공기 때문에 값이 자리를 잡느라 움직입니다. 안정화 시간을 고르면 [안정화 시작] → '
+              '끝나면 알림 → 게이지를 다시 읽고 [시작]을 누릅니다. 유지시간은 [시작]부터 재고, 안정화 동안의 변화는 '
+              '판정에 넣지 않고 기록에 참고로만 남깁니다. 시간은 절차서를 따르십시오.',
+          [
+            for (final m in const [0.0, 5.0, 10.0, 15.0, 30.0])
+              calcChip('pt_r_stab_${m.toInt()}', m == 0 ? '안 함' : '${m.toInt()}분', _rStabMin == m, () {
+                setState(() => _rStabMin = m);
+                _pg._saveNow();
+              }),
+          ],
+        ),
       _textBox(
         'pt_r_line',
         '라인 번호 (선택)',
@@ -1087,7 +1186,35 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
           ),
         ),
         const SizedBox(height: 6),
-        _HoldClock(start: s, end: e, holdMin: _requiredHold, now: _now),
+        _HoldClock(
+          start: s,
+          end: e,
+          holdMin: _requiredHold,
+          now: _now,
+          stabAt: _rStabAt,
+          stabMin: _rStabMin,
+        ),
+        if (_rStabilizing)
+          _line(
+            '안정화 시작 ${ptHms(_rStabAt!)} · 끝 예정 ${ptHm(_rStabDue!)}'
+            '${_rStabRead == null ? '' : ' · ${_p4(_rStabRead!.kpa)}'}',
+            key: const Key('pt_r_stab_times'),
+          ),
+        if (s != null && _rStabAt != null)
+          _line(
+            ptStabText(
+                  stabMin: _rStabMin,
+                  stabAt: _rStabAt,
+                  stabKpa: _rStabRead?.kpa,
+                  stabTempC: _rStabRead?.tempC,
+                  startAt: s,
+                  startKpa: _rReads.isEmpty ? null : _rReads.first.kpa,
+                  unit: _pg._unit,
+                ) ??
+                '',
+            key: const Key('pt_r_stab_line'),
+            color: fc.textSub,
+          ),
         if (s != null)
           _line(
             '시작 ${ptHms(s)}'
@@ -1096,7 +1223,37 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
             key: const Key('pt_r_times'),
           ),
         const SizedBox(height: 12),
-        if (s == null)
+        if (_rStabilizing) ...[
+          SizedBox(
+            width: double.infinity,
+            child: _bigButton(
+              'pt_r_start',
+              _rStabDone(_now()) ? '압력 확인하고 시작' : '지금 시작',
+              _startHold,
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              key: const Key('pt_r_stab_cancel'),
+              onPressed: _cancelStab,
+              child: const Text('안정화 취소'),
+            ),
+          ),
+        ] else if (s == null && _rStabMin > 0) ...[
+          SizedBox(
+            width: double.infinity,
+            child: _bigButton('pt_r_stab', '안정화 시작 (${ptFmt(_rStabMin, 1)}분)', _startStab),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              key: const Key('pt_r_start'),
+              onPressed: _startHold,
+              child: const Text('안정화 없이 바로 시작'),
+            ),
+          ),
+        ] else if (s == null)
           SizedBox(
             width: double.infinity,
             child: _bigButton('pt_r_start', '시작', _startHold),
@@ -1239,11 +1396,15 @@ class _HoldClock extends StatefulWidget {
   final DateTime? end;
   final double holdMin;
   final DateTime Function() now;
+  final DateTime? stabAt; // 안정화 시작(10-15, 시작 전이면 안정화 모양)
+  final double stabMin;
   const _HoldClock({
     required this.start,
     required this.end,
     required this.holdMin,
     required this.now,
+    this.stabAt,
+    this.stabMin = 0,
   });
 
   @override
@@ -1254,7 +1415,9 @@ class _HoldClockState extends State<_HoldClock> {
   Timer? _tick;
 
   void _sync() {
-    final running = widget.start != null && widget.end == null;
+    final running =
+        (widget.start != null && widget.end == null) ||
+        (widget.stabAt != null && widget.start == null);
     if (running && _tick == null) {
       _tick = Timer.periodic(const Duration(seconds: 1), (_) {
         if (mounted) setState(() {});
@@ -1287,6 +1450,38 @@ class _HoldClockState extends State<_HoldClock> {
   Widget build(BuildContext context) {
     final s = widget.start;
     final e = widget.end;
+    final sa = widget.stabAt;
+    if (sa != null && s == null) {
+      final now = widget.now();
+      final due = sa.add(Duration(milliseconds: (widget.stabMin * 60000).round()));
+      final sd = !now.isBefore(due);
+      final col = sd ? fc.brand : fc.caution;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            sd ? '안정화 끝 · 게이지를 읽고 시작' : '안정화 중',
+            key: const Key('pt_r_status'),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: col),
+          ),
+          Text(
+            ptClock(now.difference(sa)),
+            key: const Key('pt_r_elapsed'),
+            style: TextStyle(
+              fontSize: 40,
+              fontWeight: FontWeight.w900,
+              color: fc.text,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          Text(
+            sd ? '안정화 ${ptFmt(widget.stabMin, 1)}분 끝 · 유지시간은 [시작]부터' : '안정화 남은 시간 ${ptClock(due.difference(now))}',
+            key: const Key('pt_r_remain'),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: col),
+          ),
+        ],
+      );
+    }
     final elapsed = s == null
         ? Duration.zero
         : (e ?? widget.now()).difference(s);
@@ -1510,4 +1705,12 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
       ),
     ],
   );
+}
+
+/// 안정화 끝 알림(10-15).
+const String kPtStabTitle = '압력시험 안정화 끝';
+
+String ptStabBody({required String line, required double stabMin}) {
+  final who = line.trim().isEmpty ? '' : '${line.trim()} ';
+  return '$who안정화 ${ptFmt(stabMin, 1)}분이 지났습니다. 게이지를 읽고 [시작]을 누르십시오.';
 }

@@ -31,6 +31,8 @@ class PtBigTimerData {
   final DateTime? lastAt;
   final String? drop; // 시작에서 직전 측정까지 강하 글
   final int reads;
+  final DateTime? stabAt; // 안정화 시작(10-15). 시작 전이면 안정화 모양
+  final double stabMin;
   const PtBigTimerData({
     required this.start,
     required this.end,
@@ -44,12 +46,17 @@ class PtBigTimerData {
     this.lastAt,
     this.drop,
     this.reads = 0,
+    this.stabAt,
+    this.stabMin = 0,
   });
 }
 
 class PtBigTimerPage extends StatefulWidget {
   final PtBigTimerData Function() data;
   final Future<void> Function() onStart;
+
+  /// 안정화 시작(안정화 시간을 골랐을 때 시작 전 단추, 10-15).
+  final Future<void> Function()? onStab;
   final Future<void> Function() onAdd;
   final Future<void> Function() onEnd;
 
@@ -63,6 +70,7 @@ class PtBigTimerPage extends StatefulWidget {
     super.key,
     required this.data,
     required this.onStart,
+    this.onStab,
     required this.onAdd,
     required this.onEnd,
     required this.onStopAlarm,
@@ -118,15 +126,26 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
     final d = widget.data();
     final s = d.start, e = d.end;
     final now = widget.now();
-    final elapsed = s == null ? Duration.zero : (e ?? now).difference(s);
+    // 안정화 중(10-15): 시계는 안정화 경과, 막대·글은 안정화 기준.
+    final stab = d.stabAt != null && s == null;
+    final stabHold = Duration(milliseconds: (d.stabMin * 60000).round());
+    final stabDue = d.stabAt?.add(stabHold);
+    final stabDone = stab && !now.isBefore(stabDue!);
+    final elapsed = stab ? now.difference(d.stabAt!) : (s == null ? Duration.zero : (e ?? now).difference(s));
     final hold = Duration(milliseconds: (d.holdMin * 60000).round());
-    final done = s != null && elapsed >= hold;
+    final done = !stab && s != null && elapsed >= hold;
     final running = s != null && e == null;
-    final frac = s == null || hold.inMilliseconds <= 0 ? 0.0 : (elapsed.inMilliseconds / hold.inMilliseconds).clamp(0.0, 1.0);
+    final frac = stab
+        ? (stabHold.inMilliseconds <= 0 ? 1.0 : (elapsed.inMilliseconds / stabHold.inMilliseconds).clamp(0.0, 1.0))
+        : (s == null || hold.inMilliseconds <= 0 ? 0.0 : (elapsed.inMilliseconds / hold.inMilliseconds).clamp(0.0, 1.0));
     final due = s?.add(hold);
-    final Color main = e != null && !done ? fc.danger : (done ? fc.brand : fc.text);
-    final status = s == null ? '시작 전' : (e != null ? (done ? '종료 · 유지시간 채움' : '종료 · 유지시간 못 채움') : (done ? '유지시간 완료' : '유지 중'));
-    final remain = s == null
+    final Color main = stab ? fc.text : (e != null && !done ? fc.danger : (done ? fc.brand : fc.text));
+    final status = stab
+        ? (stabDone ? '안정화 끝' : '안정화 중')
+        : s == null ? '시작 전' : (e != null ? (done ? '종료 · 유지시간 채움' : '종료 · 유지시간 못 채움') : (done ? '유지시간 완료' : '유지 중'));
+    final remain = stab
+        ? (stabDone ? '게이지를 읽고 [시작]' : '안정화 남은 ${ptClock(stabDue!.difference(now))}')
+        : s == null
         ? '유지시간 ${ptFmt(d.holdMin, 1)}분'
         : (done ? '유지시간 ${ptFmt(d.holdMin, 1)}분 완료' : (e != null ? '유지시간 ${ptFmt(d.holdMin, 1)}분 미만' : '남은 ${ptClock(hold - elapsed)}'));
 
@@ -151,7 +170,7 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
         remain,
         key: const Key('pt_big_remain'),
         maxLines: 1,
-        style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: done ? fc.brand : fc.textSub),
+        style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: stab ? (stabDone ? fc.brand : fc.caution) : (done ? fc.brand : fc.textSub)),
       ),
     );
     final bar = Column(
@@ -163,16 +182,18 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
             value: frac,
             minHeight: 14,
             backgroundColor: fc.line,
-            valueColor: AlwaysStoppedAnimation(done ? fc.brand : fc.caution),
+            valueColor: AlwaysStoppedAnimation(stab ? (stabDone ? fc.brand : fc.caution) : (done ? fc.brand : fc.caution)),
           ),
         ),
         const SizedBox(height: 6),
         Text(
           [
+            if (stab) '안정화 ${ptFmt(d.stabMin, 1)}분 · 시작 ${ptHm(d.stabAt!)} · 끝 예정 ${ptHm(stabDue!)}' else ...[
             '유지 ${ptFmt(d.holdMin, 1)}분',
             if (s != null) '시작 ${ptHm(s)}',
             if (running && due != null) '완료 예정 ${ptHm(due)}',
             if (e != null) '종료 ${ptHm(e)}',
+            ],
           ].join(' · '),
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: fc.textSub),
         ),
@@ -228,7 +249,29 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
           textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
         );
     final ringing = running && done;
-    final buttons = s == null
+    final buttons = stab
+        ? [
+            Expanded(
+              child: FilledButton(
+                key: const Key('pt_big_start'),
+                style: big(true),
+                onPressed: () => _run(widget.onStart),
+                child: Text(stabDone ? '압력 확인하고 시작' : '지금 시작'),
+              ),
+            ),
+          ]
+        : s == null && d.stabMin > 0 && widget.onStab != null
+        ? [
+            Expanded(
+              child: FilledButton(
+                key: const Key('pt_big_stab'),
+                style: big(true),
+                onPressed: () => _run(widget.onStab!),
+                child: Text('안정화 시작 (${ptFmt(d.stabMin, 1)}분)'),
+              ),
+            ),
+          ]
+        : s == null
         ? [Expanded(child: FilledButton(key: const Key('pt_big_start'), style: big(true), onPressed: () => _run(widget.onStart), child: const Text('시작')))]
         : running
         ? [
@@ -258,8 +301,8 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
         Container(
           key: const Key('pt_big_status'),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(color: main.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
-          child: Text(status, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: main)),
+          decoration: BoxDecoration(color: (stab ? (stabDone ? fc.brand : fc.caution) : main).withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
+          child: Text(status, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: stab ? (stabDone ? fc.brand : fc.caution) : main)),
         ),
         if (ringing) ...[
           const SizedBox(width: 6),

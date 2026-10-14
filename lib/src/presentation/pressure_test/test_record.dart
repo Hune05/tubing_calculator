@@ -458,6 +458,30 @@ double? _peak(List<PtReading> readings) => readings.isEmpty
     ? null
     : readings.map((r) => r.kpa).reduce((a, b) => a > b ? a : b);
 
+/// 안정화 줄(10-15): "안정화 10분: 09:00 11.2 bar 20°C → 시작 09:10 11 bar". 안정화를 안 했으면 null.
+/// 시간을 다 안 채우고 시작했으면 "(안정화 4분에 시작)"을 붙인다.
+String? ptStabText({
+  required double stabMin,
+  DateTime? stabAt,
+  double? stabKpa,
+  double? stabTempC,
+  DateTime? startAt,
+  double? startKpa,
+  required PUnit unit,
+}) {
+  if (stabAt == null) return null;
+  final b = StringBuffer('안정화 ${ptFmt(stabMin, 1)}분: ${ptHm(stabAt)}');
+  if (stabKpa != null) b.write(' ${ptPressure(stabKpa, unit)}');
+  if (stabTempC != null) b.write(' ${ptFmt(stabTempC, 1)}°C');
+  if (startAt != null) {
+    b.write(' → 시작 ${ptHm(startAt)}');
+    if (startKpa != null) b.write(' ${ptPressure(startKpa, unit)}');
+    final waited = ptMinutes(startAt.difference(stabAt));
+    if (waited < stabMin - 1e-9) b.write(' (안정화 ${ptFmt(waited, 1)}분에 시작)');
+  }
+  return b.toString();
+}
+
 /// 판정 글: 합격 / 불합격 / 판정 없음.
 String ptVerdictText(bool? pass) =>
     pass == null ? '판정 없음' : (pass ? '합격' : '불합격');
@@ -509,6 +533,11 @@ class PtRecord {
   // 붙인 내 프로젝트(10-09). 비면 안 붙임. 프로젝트 개요에 이 기록이 같이 보인다.
   final String projectId;
   final String projectName;
+  // 안정화(10-15): 압력을 올리고 안정화 시간을 기다린 뒤 [시작]. 판정에는 안 넣고 기록에 참고로만.
+  final double stabMin;
+  final DateTime? stabAt;
+  final double? stabKpa;
+  final double? stabTempC;
 
   const PtRecord({
     required this.id,
@@ -553,7 +582,22 @@ class PtRecord {
     this.tubeMat = '',
     this.projectId = '',
     this.projectName = '',
+    this.stabMin = 0,
+    this.stabAt,
+    this.stabKpa,
+    this.stabTempC,
   });
+
+  /// "안정화 10분: 09:00 11.2 bar → 시작 09:10 11 bar"(안정화를 안 했으면 null).
+  String? get stabText => ptStabText(
+    stabMin: stabMin,
+    stabAt: stabAt,
+    stabKpa: stabKpa,
+    stabTempC: stabTempC,
+    startAt: startAt ?? startReading?.at,
+    startKpa: startReading?.kpa,
+    unit: unit,
+  );
 
   PtVerdict get verdict => judgePressureTest(
     medium: medium,
@@ -635,6 +679,12 @@ class PtRecord {
     'memo': memo,
     if (projectId.isNotEmpty) 'projectId': projectId,
     if (projectId.isNotEmpty) 'projectName': projectName,
+    if (stabAt != null) ...{
+      'stabMin': stabMin,
+      'stabAt': stabAt!.toIso8601String(),
+      'stabP': stabKpa,
+      'stabT': stabTempC,
+    },
     'od': odMm,
     'wall': wallMm,
     'mat': material.name,
@@ -701,6 +751,10 @@ class PtRecord {
       memo: _s(j['memo']),
       projectId: _s(j['projectId']),
       projectName: _s(j['projectName']),
+      stabMin: _d(j['stabMin']) ?? 0,
+      stabAt: DateTime.tryParse(_s(j['stabAt'])),
+      stabKpa: _d(j['stabP']),
+      stabTempC: _d(j['stabT']),
       odMm: _d(j['od']),
       wallMm: _d(j['wall']),
       material: pick(PipeMaterial.values, j['mat'], PipeMaterial.carbon),
