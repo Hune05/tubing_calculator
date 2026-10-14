@@ -249,7 +249,7 @@ Future<Uint8List> buildAlignPdf(AlignRecord r) async {
           ),
         ],
 
-        if (r.footEnd.isNotEmpty) ...[
+        if (hasFeet(r)) ...[
           heading('네 발 밑 심 (mm)', '왼쪽·오른쪽은 펌프 쪽에서 모터를 볼 때'),
           table(
             ['발', '작업 전', '작업 후', '바뀐 양'],

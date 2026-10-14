@@ -175,7 +175,8 @@ class _AlignmentPageState extends State<AlignmentPage> {
     setState(() {
       _sizes = sizes;
       _records = recs;
-      _machine.text = s.machine.isNotEmpty ? s.machine : last;
+      // 지난 기계 이름은 그 기계 기록이 남아 있을 때만(10-15: 지운 시험 기록 이름이 다시 채워졌다).
+      _machine.text = s.machine.isNotEmpty ? s.machine : (shimHistory(recs, last).isNotEmpty ? last : '');
       Map<AlignFoot, double> start = s.start;
       // 작업 중 심이 없으면 같은 기계의 지난 끝 심으로 시작한다.
       if (start.isEmpty) start = lastFeetFor(recs, _machine.text) ?? const {};

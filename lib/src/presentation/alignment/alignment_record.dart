@@ -177,7 +177,7 @@ String buildAlignText(AlignRecord r) {
   if (r.note.isNotEmpty) b.write('\n메모: ${r.note}');
   if (r.rounds.isNotEmpty) b.write('\n${buildRoundsText(r.rounds)}');
   // 발 밑 심(10-15): 작업 끝에 발마다 들어가 있는 심.
-  if (r.footEnd.isNotEmpty) {
+  if (hasFeet(r)) {
     b.write(
       '\n발 밑 심(mm): ${[for (final f in AlignFoot.values) '${f.label} ${footMm(r.footEnd[f] ?? 0)}'].join(', ')}',
     );

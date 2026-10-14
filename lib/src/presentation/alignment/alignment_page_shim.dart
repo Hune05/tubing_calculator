@@ -50,9 +50,11 @@ extension _AlignShim on _AlignmentPageState {
   Future<void> _save(AlignResult r) async {
     final equipment = await EquipmentStore.load();
     if (!mounted) return;
+    final lastName = await AlignStore.lastMachine();
+    // 지난 이름은 그 기계 기록이 남아 있을 때만(지운 기록 이름이 다시 나오지 않게).
     final machineDefault = _machine.text.trim().isNotEmpty
         ? _machine.text.trim()
-        : await AlignStore.lastMachine();
+        : (shimHistory(_records, lastName).isNotEmpty ? lastName : '');
     if (!mounted) return;
     final start = _startMap;
     final end = footNow(start, _rounds);

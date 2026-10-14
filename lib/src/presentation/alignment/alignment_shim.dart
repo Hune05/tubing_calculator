@@ -162,3 +162,8 @@ List<AlignFoot> softFootOver(Map<AlignFoot, double> v) => [
 /// "앞발 왼쪽 0.08, 뒷발 오른쪽 0.06"
 String softFootList(Map<AlignFoot, double> v, Iterable<AlignFoot> feet) =>
     [for (final f in feet) '${f.label} ${(v[f] ?? 0).toStringAsFixed(2)}'].join(', ');
+
+/// 기록에 발 밑 심이 하나라도 있는지(모두 0이면 기록 글·PDF에서 뺀다).
+bool hasFeet(AlignRecord r) => AlignFoot.values.any(
+  (f) => (r.footEnd[f] ?? 0).abs() >= 0.005 || (r.footStart[f] ?? 0).abs() >= 0.005,
+);
