@@ -10,6 +10,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:tubing_calculator/src/presentation/common/number_text.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
@@ -118,7 +119,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   // 맨 끝(자르기) 말풍선이 줄자 끝에서 반 폭만큼 더 나가므로 오른쪽 여백은 그만큼 둔다.
   static const double _padRight = 58;
   static const double _labelW = 108;
-  static const double _labelH = 46;
+
+  /// 말풍선 높이 = 상자 46 + 꼭지 7(10-14).
+  static const double _labelH = 53;
+  static const double _pointerH = 7;
   static const double _laneGap = 6;
 
   final ScrollController _tapeScroll = ScrollController();
@@ -1270,7 +1274,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     const double labelTop = 6;
     const double laneStep = _labelH + _laneGap;
     const double pipeTop = labelTop + laneStep * 2 + 4;
-    const double pipeH = 22;
+    const double pipeH = 26;
     const double tapeTop = pipeTop + pipeH + 2;
     const double tapeH = 40;
     const double contentH = tapeTop + tapeH + 4;
@@ -1699,16 +1703,48 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       );
     }
 
+    // 10-14: 말풍선 — 상자 밑에 마킹 선을 가리키는 꼭지, 고른 것은 그림자로 띄운다.
+    final bool boxed = bg != Colors.transparent;
     return GestureDetector(
       onTap: stepIndex >= 0 ? () => _selectStep(stepIndex, steps) : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        decoration: BoxDecoration(
-          color: bg,
-          border: Border.all(color: border, width: borderWidth),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: child,
+      child: Column(
+        children: [
+          Expanded(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              decoration: BoxDecoration(
+                color: bg,
+                border: Border.all(color: border, width: borderWidth),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: boxed
+                    ? [
+                        BoxShadow(
+                          color: Colors.black.withValues(
+                            alpha: isSel ? 0.18 : 0.08,
+                          ),
+                          blurRadius: isSel ? 8 : 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: child,
+            ),
+          ),
+          SizedBox(
+            height: _pointerH,
+            child: boxed
+                ? CustomPaint(
+                    size: const Size(14, _pointerH),
+                    painter: _PointerPainter(
+                      fill: bg,
+                      border: border,
+                      width: borderWidth,
+                    ),
+                  )
+                : null,
+          ),
+        ],
       ),
     );
   }
@@ -2362,6 +2398,46 @@ class _Line {
   });
 }
 
+/// 말풍선 밑 꼭지(아래를 가리키는 작은 삼각형). 상자와 같은 바탕·테두리 색.
+class _PointerPainter extends CustomPainter {
+  final Color fill;
+  final Color border;
+  final double width;
+  const _PointerPainter({
+    required this.fill,
+    required this.border,
+    required this.width,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..lineTo(size.width, 0);
+    canvas.drawPath(path, Paint()..color = fill);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width
+        ..color = border,
+    );
+    // 상자와 닿는 윗변은 바탕색으로 덮어 테두리가 이어져 보이게.
+    canvas.drawLine(
+      Offset(width, 0),
+      Offset(size.width - width, 0),
+      Paint()
+        ..color = fill
+        ..strokeWidth = width + 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PointerPainter old) =>
+      old.fill != fill || old.border != border || old.width != width;
+}
+
 /// 실측 값 입력 창. 입력 컨트롤러를 이 창이 스스로 만들고 없앤다(닫히는 동안에도 안전하게).
 /// 돌려주는 값: 견줄 계산값(보인 대로 반올림한 값)과 실측값, 둘 다 mm.
 class _MeasureDialog extends StatefulWidget {
@@ -2676,59 +2752,150 @@ class _TapePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final double pipeLen = (totalCut > 0 ? totalCut : maxMm) * scale;
+    final double pipeRight = padLeft + pipeLen;
 
-    // 관
+    // ── 관: 둥근 관처럼(위 밝고 아래 어두운 음영 + 하이라이트 + 그림자). 10-14 사용자 "현실성 있게".
     final pipeRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(padLeft, pipeTop, pipeLen, pipeH),
-      const Radius.circular(4),
+      Radius.circular(pipeH / 2),
     );
-    // 관은 반짝이는 은색 대신 차분한 회색 하나(가장자리만 살짝 진하게).
+    canvas.drawRRect(
+      pipeRect.shift(const Offset(0, 2)),
+      Paint()
+        ..color = const Color(0x22000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
     canvas.drawRRect(
       pipeRect,
       Paint()
-        ..shader = LinearGradient(
+        ..shader = const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFCBD5E1), fc.line, Color(0xFFCBD5E1)],
+          colors: [
+            Color(0xFFF8FAFC),
+            Color(0xFFCBD5E1),
+            Color(0xFF94A3B8),
+            Color(0xFF5B6B7D),
+          ],
+          stops: [0.0, 0.35, 0.75, 1.0],
         ).createShader(pipeRect.outerRect),
+    );
+    // 하이라이트 한 줄(관 위쪽 1/4).
+    canvas.drawLine(
+      Offset(padLeft + 8, pipeTop + pipeH * 0.26),
+      Offset(pipeRight - 8, pipeTop + pipeH * 0.26),
+      Paint()
+        ..color = const Color(0xAAFFFFFF)
+        ..strokeWidth = 1.5
+        ..strokeCap = StrokeCap.round,
     );
     canvas.drawRRect(
       pipeRect,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
-        ..color = const Color(0xFF94A3B8),
+        ..color = const Color(0xFF64748B),
     );
+    // 관 끝(0): 조금 어두운 끝면.
+    canvas.save();
+    canvas.clipRRect(pipeRect);
+    canvas.drawRect(
+      Rect.fromLTWH(padLeft, pipeTop, 6, pipeH),
+      Paint()..color = const Color(0x44334155),
+    );
+    canvas.restore();
+    // 자르는 자리: 관 끝에 톱질 선(빗금)과 잘라 낼 나머지(점선 윤곽) 조금.
+    if (totalCut > 0) {
+      final cutPaint = Paint()
+        ..color = const Color(0xFF334155)
+        ..strokeWidth = 1.2;
+      for (double y = pipeTop + 2; y < pipeTop + pipeH - 1; y += 4) {
+        canvas.drawLine(
+          Offset(pipeRight - 3, y),
+          Offset(pipeRight + 1, y + 2),
+          cutPaint,
+        );
+      }
+      final rest = RRect.fromRectAndRadius(
+        Rect.fromLTWH(pipeRight + 4, pipeTop, 44, pipeH),
+        Radius.circular(pipeH / 2),
+      );
+      final restPaint = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1
+        ..color = const Color(0x5564748B);
+      _dashedPath(canvas, Path()..addRRect(rest), restPaint);
+    }
 
-    // 줄자 바탕
+    // ── 줄자: 노란 본체에 두께감(위 어두운 선·아래 띠·그림자), 0에는 끝 고리.
     final tapeRect = Rect.fromLTWH(padLeft, tapeTop, maxMm * scale, tapeH);
-    canvas.drawRect(tapeRect, Paint()..color = const Color(0xFFFFE17A));
+    canvas.drawRect(
+      tapeRect.shift(const Offset(0, 2)),
+      Paint()
+        ..color = const Color(0x22000000)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    canvas.drawRect(
+      tapeRect,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFEB8F), Color(0xFFFFDE5C), Color(0xFFF2C94C)],
+          stops: [0.0, 0.7, 1.0],
+        ).createShader(tapeRect),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(tapeRect.left, tapeRect.bottom - 3, tapeRect.width, 3),
+      Paint()..color = const Color(0x22000000),
+    );
     canvas.drawRect(
       tapeRect,
       Paint()
         ..style = PaintingStyle.stroke
-        ..color = const Color(0x33000000),
+        ..color = const Color(0x55000000),
+    );
+    // 끝 고리(쇠): 0에 걸리는 금속 조각.
+    final hook = Rect.fromLTWH(padLeft - 7, tapeTop - 3, 8, tapeH + 6);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(hook, const Radius.circular(2)),
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFFE2E8F0), Color(0xFF94A3B8)],
+        ).createShader(hook),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(hook, const Radius.circular(2)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..color = const Color(0xFF475569),
     );
 
-    // 눈금: 10mm 짧게, 50mm 중간, 100mm 길게 + 숫자.
+    // 눈금: 1mm(확대했을 때만)·5mm·10mm·50mm(숫자)·100mm(굵은 숫자).
     // 10-09: 줄자 바탕은 늘 노란색이라 눈금·숫자도 늘 진한 색(예전에는 보기 색 글씨라 야간에 안 보였다).
     const Color tapeInk = Color(0xFF1E293B);
-    final tick = Paint()
-      ..color = tapeInk
-      ..strokeWidth = 1;
+    final tick = Paint()..color = tapeInk;
     final tp = TextPainter(textDirection: TextDirection.ltr);
-    for (int mm = 0; mm <= maxMm.floor(); mm += 10) {
+    final int step = scale >= 3.0 ? 1 : (scale >= 1.2 ? 5 : 10);
+    final bool fiftyNumbers = scale >= 0.9;
+    for (int mm = 0; mm <= maxMm.floor(); mm += step) {
       final x = padLeft + mm * scale;
       double h;
       if (mm % 100 == 0) {
-        h = 16;
-        tick.strokeWidth = 1.6;
+        h = 18;
+        tick.strokeWidth = 1.8;
       } else if (mm % 50 == 0) {
-        h = 11;
-        tick.strokeWidth = 1.2;
+        h = 14;
+        tick.strokeWidth = 1.3;
+      } else if (mm % 10 == 0) {
+        h = 10;
+        tick.strokeWidth = 1.0;
+      } else if (mm % 5 == 0) {
+        h = 7;
+        tick.strokeWidth = 0.9;
       } else {
-        h = 6;
-        tick.strokeWidth = 1;
+        h = 3.5;
+        tick.strokeWidth = 0.6;
       }
       canvas.drawLine(Offset(x, tapeTop), Offset(x, tapeTop + h), tick);
       if (mm % 100 == 0) {
@@ -2741,21 +2908,41 @@ class _TapePainter extends CustomPainter {
           ),
         );
         tp.layout();
-        tp.paint(canvas, Offset(x - tp.width / 2, tapeTop + 18));
+        tp.paint(canvas, Offset(x - tp.width / 2, tapeTop + 19));
+      } else if (fiftyNumbers && mm % 50 == 0) {
+        tp.text = TextSpan(
+          text: '$mm',
+          style: const TextStyle(
+            color: Color(0xFF475569),
+            fontSize: 9.5,
+            fontWeight: FontWeight.w600,
+          ),
+        );
+        tp.layout();
+        tp.paint(canvas, Offset(x - tp.width / 2, tapeTop + 21));
       }
     }
 
-    // 마킹 선
+    // ── 마킹 선: 관 위에는 굵은 금(마커로 그은 것처럼), 줄자까지 가는 선.
     for (final l in lines) {
       final bottom = tapeTop + tapeH;
       switch (l.kind) {
         case _LineKind.bend:
+          final Color c = l.selected ? _teal : _red;
           canvas.drawLine(
             Offset(l.x, l.top),
             Offset(l.x, bottom),
             Paint()
-              ..color = l.selected ? _teal : _red
+              ..color = c
               ..strokeWidth = l.selected ? 2.5 : 1.6,
+          );
+          canvas.drawLine(
+            Offset(l.x, pipeTop - 1),
+            Offset(l.x, pipeTop + pipeH + 1),
+            Paint()
+              ..color = c.withValues(alpha: 0.85)
+              ..strokeWidth = l.selected ? 5 : 4
+              ..strokeCap = StrokeCap.round,
           );
           break;
         case _LineKind.straight:
@@ -2769,14 +2956,27 @@ class _TapePainter extends CustomPainter {
           );
           break;
         case _LineKind.cut:
+          final Color c = l.selected ? _teal : _ink;
           canvas.drawLine(
             Offset(l.x, l.top),
             Offset(l.x, bottom),
             Paint()
-              ..color = l.selected ? _teal : _ink
+              ..color = c
               ..strokeWidth = l.selected ? 2.5 : 1.8,
           );
           break;
+      }
+    }
+  }
+
+  /// 점선 윤곽(잘라 낼 나머지 관).
+  void _dashedPath(Canvas c, Path path, Paint p) {
+    for (final metric in path.computeMetrics()) {
+      double d = 0;
+      while (d < metric.length) {
+        final double e = math.min(d + 4, metric.length);
+        c.drawPath(metric.extractPath(d, e), p);
+        d += 7;
       }
     }
   }
