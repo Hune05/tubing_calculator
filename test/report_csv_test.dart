@@ -30,7 +30,9 @@ void main() {
 
   test('한 줄 = 일지 하나, 따옴표와 줄바꿈이 안전하다', () {
     final log = _log();
-    final csv = buildReportsCsv(reportsInRange(log, DateTime(2026, 9, 1), DateTime(2026, 9, 30)));
+    final csv = buildReportsCsv(
+      reportsInRange(log, DateTime(2026, 9, 1), DateTime(2026, 9, 30)),
+    );
     final lines = csv.trim().split('\n');
     expect(lines.length, 3); // 머리 + 일지 2개
     // 날짜 오름차순: 9/1 → 9/29
@@ -40,16 +42,28 @@ void main() {
     expect(lines[2], contains('"센서 결선 튜브 연결, ""완료"""'));
     // 예전 이름('검사/테스트')으로 저장된 일지도 새 이름으로 나온다.
     expect(lines[2], contains('"결선/트레이싱/검사/시험"'));
-    expect(lines[2], contains(',3,1.5,12,4,'));
+    expect(lines[2], contains(',3,"","",1.5,12,4,')); // 인원 뒤 업체별 인력·투입 장비(빈 칸)
   });
 
   test('기간 경계 날짜는 포함하고 밖은 뺀다', () {
     final log = _log();
-    final rows = reportsInRange(log, DateTime(2026, 9, 1), DateTime(2026, 9, 29));
+    final rows = reportsInRange(
+      log,
+      DateTime(2026, 9, 1),
+      DateTime(2026, 9, 29),
+    );
     expect(rows.length, 2);
-    final none = reportsInRange(log, DateTime(2026, 10, 1), DateTime(2026, 10, 31));
+    final none = reportsInRange(
+      log,
+      DateTime(2026, 10, 1),
+      DateTime(2026, 10, 31),
+    );
     expect(none, isEmpty);
-    final aug = reportsInRange(log, DateTime(2026, 8, 1), DateTime(2026, 8, 31));
+    final aug = reportsInRange(
+      log,
+      DateTime(2026, 8, 1),
+      DateTime(2026, 8, 31),
+    );
     expect(aug.single.$2['note'], '지난달 것');
   });
 }

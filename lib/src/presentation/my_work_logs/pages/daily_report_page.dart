@@ -369,7 +369,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: tossSubText),
+            const Icon(AppIcons.forward, color: tossSubText),
           ],
         ),
       ),

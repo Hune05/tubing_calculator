@@ -24,9 +24,9 @@ Future<void> save(WidgetTester tester) async {
 }
 
 Future<void> pickSize(WidgetTester tester, String from, String to) async {
-  await tester.tap(find.text(from).first);
+  await tester.tap(find.text(conduitSizeLabel(from)).first);
   await tester.pumpAndSettle();
-  await tester.tap(find.text(to).last);
+  await tester.tap(find.text(conduitSizeLabel(to)).last);
   await tester.pumpAndSettle();
 }
 

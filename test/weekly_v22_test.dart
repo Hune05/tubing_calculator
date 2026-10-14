@@ -62,6 +62,12 @@ CheckboxListTile box(WidgetTester t, String title) =>
     t.widget<CheckboxListTile>(find.widgetWithText(CheckboxListTile, title));
 
 Future<void> openDialog(WidgetTester tester) async {
+  // 일지 화면이 길어져(10-14 인력·장비 줄) 메모를 적으면 배너가 화면 밖으로 밀린다.
+  await tester.scrollUntilVisible(
+    findText('이전 작업 일지에서 채우기'),
+    -300,
+    scrollable: find.byType(Scrollable).first,
+  );
   await tester.tap(findText('이전 작업 일지에서 채우기'));
   await tester.pumpAndSettle();
 }
