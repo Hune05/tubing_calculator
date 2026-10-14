@@ -1077,6 +1077,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
         replaceItemList(log, 'schedules', updated, openedIds: opened);
       });
       _saveProject(log);
+      // 자재 입고 검수 사진(10-15)을 올린다.
+      _uploadReportPhotosFor(log, const {});
     }
   }
 

@@ -7,6 +7,12 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
     String type = existing?['type'] ?? kScheduleTypes.first;
     final titleCtrl = TextEditingController(text: existing?['title'] ?? '');
     final noteCtrl = TextEditingController(text: existing?['note'] ?? '');
+    // 자재 주문 수량·단위(10-15).
+    final num? qty0 = existing == null ? null : materialQty(existing);
+    final qtyCtrl = TextEditingController(text: qty0 == null ? '' : fmtQty(qty0));
+    final unitCtrl = TextEditingController(
+      text: existing == null ? '' : materialUnit(existing),
+    );
     // 🚀 [추가] "자재 요청"은 등록 시점에 아직 입고일을 모를 수 있다 -
     // 발주만 넣어두고 나중에 거래처가 입고일을 알려주면 그때 채우는
     // 흐름이라, 새로 만들 때는 날짜를 비워둘 수 있게 한다(다른 종류는
@@ -175,6 +181,81 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                 ),
                               ),
                             ),
+                            // 자재 주문 수량·단위(10-15): 입고 때 들어온 수량과 견준다.
+                            if (type == "자재 요청" || type == "입고일") ...[
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      key: const Key('schedule_qty'),
+                                      controller: qtyCtrl,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.allow(
+                                          RegExp(r'[0-9.,]'),
+                                        ),
+                                      ],
+                                      decoration: InputDecoration(
+                                        labelText: "주문 수량 (선택)",
+                                        filled: true,
+                                        fillColor: tossBg,
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 96,
+                                    child: TextField(
+                                      key: const Key('schedule_unit'),
+                                      controller: unitCtrl,
+                                      decoration: InputDecoration(
+                                        labelText: "단위",
+                                        filled: true,
+                                        fillColor: tossBg,
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  for (final u in kMaterialUnits)
+                                    ChoiceChip(
+                                      label: Text(u),
+                                      selected: unitCtrl.text.trim() == u,
+                                      showCheckmark: false,
+                                      selectedColor: tossBlue.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      backgroundColor: tossBg,
+                                      side: BorderSide.none,
+                                      labelStyle: TextStyle(
+                                        color: unitCtrl.text.trim() == u
+                                            ? tossBlue
+                                            : tossSubText,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      onSelected: (_) => setModalState(
+                                        () => unitCtrl.text = u,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
                             const SizedBox(height: 12),
                             InkWell(
                               borderRadius: BorderRadius.circular(14),
@@ -516,6 +597,15 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                             'inspectionComment': existing?['inspectionComment'],
                             'inspectionResultAt':
                                 existing?['inspectionResultAt'],
+                            // 자재 입고·검수 기록(10-15)은 그대로 잇고, 주문 수량·단위는 칸 값으로.
+                            for (final k in kMaterialReceiptKeys)
+                              if (existing?[k] != null) k: existing![k],
+                            if (type == "자재 요청" || type == "입고일") ...{
+                              'qty': num.tryParse(
+                                qtyCtrl.text.replaceAll(',', '').trim(),
+                              ),
+                              'unit': unitCtrl.text.trim(),
+                            },
                             // 🚀 시간/종류가 바뀔 수 있으니 저장할 때마다
                             // 알림 발송 플래그를 초기화해서, 새 시간
                             // 기준으로 다시 알림이 잡히게 한다.

@@ -25,6 +25,7 @@ import 'package:tubing_calculator/src/presentation/steel_cutting/screens/steel_p
 import '../models/report_tools.dart';
 import '../models/report_crews.dart';
 import '../models/report_confirm.dart';
+import '../models/material_receipt.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
     show showAppSnack, AppSnackKind;
 import '../../safety/safety_check_model.dart' show SafetyAttendee;
@@ -1165,6 +1166,47 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 style: const TextStyle(color: tossText, fontSize: 13),
               ),
             ),
+          const SizedBox(height: 6),
+        ];
+      })(),
+      // 덜 들어온 자재(10-15): 입고 검수에서 주문보다 적게 받은 것.
+      ...(() {
+        final short = shortMaterials(log);
+        if (short.isEmpty) return <Widget>[];
+        return <Widget>[
+          const SizedBox(height: 10),
+          Container(
+            key: const Key('material_short_box'),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: warningRed.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "덜 들어온 자재",
+                  style: TextStyle(
+                    color: warningRed,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                for (final m in short.take(5))
+                  Text(
+                    "• ${m['title'] ?? m['type']} · ${materialQtyLabel(m)}",
+                    style: const TextStyle(color: tossText, fontSize: 13),
+                  ),
+                if (short.length > 5)
+                  Text(
+                    "외 ${short.length - 5}건",
+                    style: const TextStyle(color: tossSubText, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
           const SizedBox(height: 6),
         ];
       })(),

@@ -3,7 +3,10 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import '../widgets/korean_text.dart';
-import '../models/project_phase.dart' show touchItem;
+import '../models/project_phase.dart' show touchItem, isMaterialSchedule;
+import '../models/material_receipt.dart';
+import '../models/project_merge.dart' show currentWorkerName;
+import 'material_receive_page.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' show Timestamp;
 import 'package:tubing_calculator/src/core/common_widgets/makita_time_picker.dart';
@@ -221,8 +224,45 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
     );
   }
 
+  /// 자재 입고·검수 화면(10-15): 입고 완료로 바꿀 때, 또는 입고 완료한 것의 검수 내용을 고칠 때.
+  Future<void> _openReceive(Map<String, dynamic> item) async {
+    final res = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) =>
+            MaterialReceivePage(item: item, projectName: widget.projectName),
+      ),
+    );
+    if (res == null || !mounted) return;
+    setState(() {
+      applyMaterialReceipt(
+        item,
+        receivedQty: res['receivedQty'] as num?,
+        note: (res['note'] ?? '').toString(),
+        photos: [for (final e in (res['photos'] as List?) ?? const []) e.toString()],
+        who: currentWorkerName.value,
+        // 이미 받은 것을 고칠 때는 받은 시각을 그대로 둔다.
+        at: DateTime.tryParse((item['receivedAt'] ?? '').toString()),
+      );
+      _changed = true;
+    });
+  }
+
   Future<void> _toggleComplete(Map<String, dynamic> item) async {
     final bool willComplete = !(item['isCompleted'] == true);
+
+    // 자재는 입고 수량·검수를 적고 완료한다(10-15). 되돌리면 받은 수량만 지운다.
+    if (isMaterialSchedule(item)) {
+      if (willComplete) {
+        await _openReceive(item);
+      } else {
+        setState(() {
+          undoMaterialReceipt(item);
+          _changed = true;
+        });
+      }
+      return;
+    }
 
     if (willComplete && item['type'] == "검사일정") {
       final result = await _askInspectionResult(context);
@@ -682,6 +722,46 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                                     : FontWeight.normal,
                                               ),
                                             ),
+                                            // 자재 수량·입고 검수(10-15). 입고 완료면 눌러서 검수 내용을 본다·고친다.
+                                            if (isMaterialSchedule(item) &&
+                                                (materialQtyLabel(item)
+                                                        .isNotEmpty ||
+                                                    isCompleted)) ...[
+                                              const SizedBox(height: 4),
+                                              InkWell(
+                                                key: Key(
+                                                  'material_receive_${item['id']}',
+                                                ),
+                                                onTap: isCompleted
+                                                    ? () => _openReceive(item)
+                                                    : null,
+                                                child: Text(
+                                                  [
+                                                    if (materialQtyLabel(item)
+                                                        .isNotEmpty)
+                                                      materialQtyLabel(item),
+                                                    if (isCompleted &&
+                                                        materialReceivePhotos(
+                                                          item,
+                                                        ).isNotEmpty)
+                                                      '검수 사진 ${materialReceivePhotos(item).length}',
+                                                    if (isCompleted)
+                                                      '검수 보기',
+                                                  ].join(' · '),
+                                                  style: TextStyle(
+                                                    color:
+                                                        materialShortage(
+                                                              item,
+                                                            ) !=
+                                                            null
+                                                        ? warningRed
+                                                        : tossBlue,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                             if ((item['changeHistory'] as List?)
                                                     ?.isNotEmpty ==
                                                 true) ...[

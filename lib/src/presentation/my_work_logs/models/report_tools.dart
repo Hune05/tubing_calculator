@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'attendance.dart';
 import 'report_crews.dart';
 import 'report_confirm.dart';
+import 'material_receipt.dart';
 export 'report_confirm.dart' show ReportConfirm;
 import 'project_phase.dart';
 
@@ -348,7 +349,14 @@ ReportDoc buildReportDoc(
         _ => '입고 예정',
       };
       final dt = m['dateTime'] == null ? '' : ' ${_md(asDate(m['dateTime']))}';
-      lines.add('· ${m['title'] ?? m['type']} ($label$dt)');
+      final qty = materialQtyLabel(m);
+      lines.add(
+        '· ${m['title'] ?? m['type']} ($label$dt)${qty.isEmpty ? '' : ' · $qty'}',
+      );
+    }
+    // 덜 들어온 자재(10-15): 입고 완료로 바꿨지만 주문보다 적게 들어온 것.
+    for (final m in mats.where((m) => materialShortage(m) != null)) {
+      lines.add('· ${m['title'] ?? m['type']} (입고 완료 · ${materialQtyLabel(m)})');
     }
     sections.add(ReportSection('자재 현황', lines));
   }

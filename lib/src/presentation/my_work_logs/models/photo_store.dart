@@ -236,6 +236,9 @@ int countLocalPhotos(List<Map<String, dynamic>> logs) {
       n += (p['image_paths'] as List? ?? []).where(pending).length;
       n += (p['resolution_images'] as List? ?? []).where(pending).length;
     }
+    for (final s in (log['schedules'] as List? ?? []).whereType<Map>()) {
+      n += (s['receivePhotos'] as List? ?? []).where(pending).length;
+    }
     if (pending(log['floor_plan_image_path'])) n++;
   }
   return n;
@@ -266,6 +269,11 @@ optimizeProjectPhotos(
       collect(x);
     }
     for (final x in (p['resolution_images'] as List? ?? [])) {
+      collect(x);
+    }
+  }
+  for (final s in (log['schedules'] as List? ?? []).whereType<Map>()) {
+    for (final x in (s['receivePhotos'] as List? ?? [])) {
       collect(x);
     }
   }
@@ -360,6 +368,14 @@ void replacePhotoUrls(Map<String, dynamic> log, Map<String, String> repl) {
       }
       if (p['image_path'] != null) p['image_path'] = m(p['image_path']);
     }
+    for (final s in (log['schedules'] as List? ?? []).whereType<Map>()) {
+      final ps = s['receivePhotos'];
+      if (ps is! List || ps.isEmpty) continue;
+      if (ps.any((v) => repl.containsKey(v?.toString() ?? ''))) {
+        s['updatedAt'] = now;
+      }
+      s['receivePhotos'] = ps.map(m).toList();
+    }
     if (log['floor_plan_image_path'] != null) {
       log['floor_plan_image_path'] = m(log['floor_plan_image_path']);
     }
@@ -423,6 +439,29 @@ Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
     if (c) {
       p['resolution_images'] = out;
       p['updatedAt'] = DateTime.now().toIso8601String();
+      changed = true;
+    }
+  }
+  // 자재 입고 검수 사진(10-15).
+  for (final s in List.of(log['schedules'] as List? ?? []).whereType<Map>()) {
+    final paths = <String>[
+      for (final e in (s['receivePhotos'] as List? ?? [])) e.toString(),
+    ];
+    if (paths.isEmpty || paths.every(isRemotePhoto)) continue;
+    final out = <String>[];
+    bool c = false;
+    for (final path in paths) {
+      if (isRemotePhoto(path)) {
+        out.add(path);
+        continue;
+      }
+      final url = await uploadPhoto(pid, path);
+      out.add(url ?? path);
+      if (url != null) c = true;
+    }
+    if (c) {
+      s['receivePhotos'] = out;
+      s['updatedAt'] = DateTime.now().toIso8601String();
       changed = true;
     }
   }
