@@ -17,6 +17,7 @@ import '../widgets/project_summary_card.dart';
 import '../models/project_phase.dart';
 import '../models/project_merge.dart';
 import '../models/report_confirm.dart';
+import '../models/change_log.dart';
 import '../models/project_reports_split.dart';
 import '../models/report_tools.dart';
 import '../models/photo_store.dart';
@@ -144,6 +145,35 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // (통신이 없으면 6초)까지 빈 화면이었다. 폰에 없을 때만 목록 모양 자리가 보인다.
   bool _openedOnEntry = false;
 
+  // ── 변경 기록(10-15) ──
+  // 프로젝트마다 마지막으로 본 모습. 저장할 때 이것과 견줘 바뀐 것을 기록으로 남긴다.
+  final Map<String, Map<String, dynamic>> _snaps = {};
+
+  void _snapAll(Iterable<Map<String, dynamic>> logs) {
+    for (final l in logs) {
+      final id = l['id']?.toString();
+      if (id != null) _snaps[id] = projectSnapshot(l);
+    }
+  }
+
+  /// 저장 직전: 앞 모습과 견줘 기록을 더한다. 처음 보는 프로젝트는 모습만 잡는다.
+  void _recordChanges(Map<String, dynamic> log) {
+    final id = log['id']?.toString();
+    if (id == null) return;
+    final now = projectSnapshot(log);
+    final prev = _snaps[id];
+    if (prev != null) {
+      appendChanges(log, diffChanges(prev, now, who: currentWorkerName.value));
+    }
+    _snaps[id] = projectSnapshot(log);
+  }
+
+  /// 저장이 끝난 뒤: 서버에서 합쳐 들어온 다른 기기 것은 내 고침으로 치지 않게 모습을 다시 잡는다.
+  void _resnap(Map<String, dynamic> log) {
+    final id = log['id']?.toString();
+    if (id != null) _snaps[id] = projectSnapshot(log);
+  }
+
   Future<void> _loadData() async {
     await loadCacheFirst<List<Map<String, dynamic>>>(
       cached: _repo.fetchCachedProjects,
@@ -157,6 +187,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
             _isLoading = false;
             _refreshing = true;
           });
+          _snapAll(projects);
           return;
         }
         _onFreshProjects(projects);
@@ -211,6 +242,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       }
     }
     if (!mounted) return;
+    _snapAll(projects);
     setState(() {
       _workLogs = projects;
       _isLoading = false;
@@ -258,8 +290,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
   // 프로젝트가 Firestore 문서 하나하나로 나뉘어 있어서 "방금 바뀐
   // 프로젝트 하나만" 저장하면 된다.
   void _saveProject(Map<String, dynamic> log) {
+    _recordChanges(log);
     // 저장 실패가 아무 표시 없이 사라지던 것(화면은 저장된 것처럼 보였다).
-    _repo.upsertProject(log).catchError((e) {
+    _repo.upsertProject(log).then((_) => _resnap(log)).catchError((e) {
       debugPrint('프로젝트 저장 실패: $e');
       if (mounted) {
         showSnackOnce(
@@ -282,6 +315,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     // 폰 Firestore에 쓰기를 넘겼는지(10-14). 통신이 약하면 서버 것을 읽느라 넘기기까지 10초 넘게
     // 걸리는데, 4초 만에 "폰에 저장했습니다"가 떠서 그 말을 믿고 앱을 끄면 고친 것이 사라졌다.
     final written = Completer<void>();
+    _recordChanges(log);
     final done = _repo
         .upsertProject(
           log,
@@ -294,7 +328,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           },
         )
         .then<bool?>(
-          (_) => true,
+          (_) {
+            _resnap(log);
+            return true;
+          },
           onError: (Object e) {
             debugPrint('프로젝트 저장 실패: $e');
             return null;
@@ -578,6 +615,18 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           name: currentWorkerName.value,
         ),
       );
+      // 변경 기록 첫 줄(10-15).
+      final at = DateTime.now();
+      appendChanges(newLog, [
+        {
+          'id': 'chg_${at.microsecondsSinceEpoch}_new',
+          'at': at.toIso8601String(),
+          if (currentWorkerName.value.trim().isNotEmpty)
+            'who': currentWorkerName.value.trim(),
+          'kind': 'project',
+          'text': '프로젝트 만듦: ${newLog['name'] ?? ''}',
+        },
+      ]);
       setState(() {
         _workLogs.insert(0, newLog);
       });

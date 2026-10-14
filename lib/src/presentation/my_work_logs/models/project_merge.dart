@@ -17,6 +17,7 @@ const List<String> kMergedListKeys = [
   'schedules',
   'phases',
   kLineItemsKey, // 라인 진행(10-10): 같은 라인은 단계마다 나중 체크로 합친다
+  'changeLog', // 변경 기록(10-15): 기기마다 남긴 줄을 아이디로 모은다
 ];
 
 /// 지운 항목 아이디를 적어 두는 칸(합칠 때 서버에 남은 것이 되살아나지 않게). 최대 500개.

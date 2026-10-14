@@ -26,6 +26,7 @@ import '../models/report_tools.dart';
 import '../models/report_crews.dart';
 import '../models/report_confirm.dart';
 import '../models/material_receipt.dart';
+import 'change_log_page.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart'
     show showAppSnack, AppSnackKind;
 import '../../safety/safety_check_model.dart' show SafetyAttendee;
@@ -1629,6 +1630,12 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               if (v == 'summary') _shareSummaryImage();
               if (v == 'header') _editReportHeader();
               if (v == 'reminder') _editProjectReminder();
+              if (v == 'changes') {
+                Navigator.push(
+                  context,
+                  WorkRoute(builder: (_) => ChangeLogPage(log: log)),
+                );
+              }
             },
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'summary', child: Text("현황 요약 이미지 공유")),
@@ -1638,6 +1645,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                 child: Text("이 프로젝트 작업 일지 알림 시간"),
               ),
               PopupMenuItem(value: 'optimize', child: Text("사진 용량 정리")),
+              PopupMenuItem(value: 'changes', child: Text("변경 기록")),
             ],
           ),
           IconButton(
