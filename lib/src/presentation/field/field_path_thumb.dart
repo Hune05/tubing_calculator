@@ -176,7 +176,8 @@ class _ThumbPainter extends CustomPainter {
     _text(canvas, '0', start + const Offset(6, -16), 12, muted);
 
     // 방향 범례(왼쪽 아래): UP·RIGHT·FRONT 화살.
-    final base = Offset(pad + 4, size.height - pad - 2);
+    // FRONT 화살과 글자가 왼쪽 아래로 뻗으므로 상자 왼쪽에서 띄운다(2239에서 "FRONT"가 잘렸다).
+    final base = Offset(pad + 44, size.height - pad - 2);
     final legend = Paint()
       ..color = muted
       ..strokeWidth = 1.5
