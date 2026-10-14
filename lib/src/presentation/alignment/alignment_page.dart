@@ -97,6 +97,8 @@ class _AlignmentPageState extends State<AlignmentPage> {
   List<double> _sizes = List.of(kAlignShimSizesDefault);
   final TextEditingController _sizeAdd = TextEditingController();
   List<AlignRecord> _records = [];
+  String? _startFrom; // 시작 심을 가져온 기계 이름
+  Map<AlignFoot, double> _startLoaded = const {};
 
   DateTime get _now => (widget.now ?? DateTime.now)();
 
@@ -176,11 +178,32 @@ class _AlignmentPageState extends State<AlignmentPage> {
       Map<AlignFoot, double> start = s.start;
       // 작업 중 심이 없으면 같은 기계의 지난 끝 심으로 시작한다.
       if (start.isEmpty) start = lastFeetFor(recs, _machine.text) ?? const {};
-      for (final f in AlignFoot.values) {
-        final v = start[f];
-        _start[f]!.text = v == null || v.abs() < 0.005 ? '' : footMm(v);
-      }
+      _setStart(start, _machine.text);
     });
+  }
+
+  /// 시작 심 칸을 [m]으로 채우고, 어느 기계 값인지 기억한다(이름을 바꾸면 그 기계 값으로 갈아 끼우려고).
+  void _setStart(Map<AlignFoot, double> m, String machine) {
+    for (final f in AlignFoot.values) {
+      final v = m[f] ?? 0;
+      _start[f]!.text = v.abs() < 0.005 ? '' : footMm(v);
+    }
+    _startFrom = machine.trim();
+    _startLoaded = {for (final f in AlignFoot.values) f: m[f] ?? 0};
+  }
+
+  /// 시작 심을 넣은 뒤 손으로 고치지 않았는지.
+  bool get _startUntouched => AlignFoot.values.every(
+    (f) => ((parseNumberText(_start[f]!.text) ?? 0) - (_startLoaded[f] ?? 0)).abs() < 0.005,
+  );
+
+  /// 기계 이름이 바뀌면(10-15 폰 확인: A 기계 저장 뒤 B 이름을 넣어도 A의 심이 시작 심으로 남았다)
+  /// 시작 심을 손대지 않았고 작업 회차가 없을 때만 그 기계의 지난 끝 심으로(없으면 비움) 바꾼다.
+  void _machineChanged() {
+    final name = _machine.text.trim();
+    if (_rounds.isNotEmpty || !_startUntouched) return;
+    if (_startFrom != null && sameMachine(_startFrom!, name)) return;
+    _setStart(lastFeetFor(_records, name) ?? const {}, name);
   }
 
   @override

@@ -83,10 +83,7 @@ extension _AlignShim on _AlignmentPageState {
       setState(() {
         _records = recs;
         _machine.text = out.machine;
-        for (final f in AlignFoot.values) {
-          final v = end[f] ?? 0;
-          _start[f]!.text = v.abs() < 0.005 ? '' : footMm(v);
-        }
+        _setStart(end, out.machine);
       });
     }
     await AlignShimStore.save(out.machine, end);
@@ -156,7 +153,7 @@ extension _AlignShim on _AlignmentPageState {
             unit: null,
             hint: '예: 1호기 급수펌프 · 모터',
             onChanged: (_) {
-              setState(() {});
+              setState(_machineChanged);
               _saveShimDraft();
             },
           ),
@@ -166,12 +163,7 @@ extension _AlignShim on _AlignmentPageState {
               child: TextButton.icon(
                 key: const Key('align_shim_load_last'),
                 onPressed: () {
-                  setState(() {
-                    for (final f in AlignFoot.values) {
-                      final v = last[f] ?? 0;
-                      _start[f]!.text = v.abs() < 0.005 ? '' : footMm(v);
-                    }
-                  });
+                  setState(() => _setStart(last, machine));
                   _saveShimDraft();
                   _toast('지난 기록의 끝 심을 시작 심으로 넣었습니다');
                 },
@@ -277,7 +269,12 @@ extension _AlignShim on _AlignmentPageState {
 
   Widget _footCell(AlignFoot f, double change, double now) => Container(
     padding: const EdgeInsets.all(8),
-    decoration: BoxDecoration(color: fc.background, borderRadius: BorderRadius.circular(10)),
+    // 바탕을 흰 판 + 테두리로(10-15 폰: 회색 바탕에 회색 칸이라 시작 칸이 안 보였다).
+    decoration: BoxDecoration(
+      color: fc.surface,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: fc.line),
+    ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

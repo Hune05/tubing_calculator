@@ -108,8 +108,10 @@ class _SaveSheetState extends State<_SaveSheet> {
               style: const TextStyle(fontSize: 12.5, height: 1.5, color: AppColors.textSub),
             ),
             const SizedBox(height: 12),
+            // 한 일 적기 창처럼 꽉 찬 단추(10-15 폰: 혼자 작은 단추였다).
             FilledButton(
               key: const Key('align_save_ok'),
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               onPressed: () => Navigator.pop(
                 context,
                 AlignRecord(

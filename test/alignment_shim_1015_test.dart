@@ -195,6 +195,23 @@ void main() {
           .text,
       '0.79',
     );
+
+    // 다른 기계 이름을 넣으면 그 기계 값(없으면 빈칸)으로, 다시 돌아오면 지난 끝 심으로(10-15 폰에서 찾은 문제).
+    String start(String f) => tester
+        .widget<TextField>(find.byKey(Key('align_start_$f')))
+        .controller!
+        .text;
+    await tester.enterText(find.byKey(const Key('align_shim_machine')), '2호기');
+    await tester.pump();
+    expect(start('rearRight'), '');
+    await tester.enterText(find.byKey(const Key('align_shim_machine')), '1호기 펌프');
+    await tester.pump();
+    expect(start('rearRight'), '0.79');
+    // 손으로 고친 시작 심은 이름을 바꿔도 그대로 둔다.
+    await tester.enterText(find.byKey(const Key('align_start_rearRight')), '0.5');
+    await tester.enterText(find.byKey(const Key('align_shim_machine')), '3호기');
+    await tester.pump();
+    expect(start('rearRight'), '0.5');
   });
 
   testWidgets('그림 연동: 거리 칸을 누르면 그 치수 강조·값 표시, 지시값은 시계 바늘로', (tester) async {
