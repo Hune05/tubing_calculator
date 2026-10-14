@@ -12,7 +12,10 @@ import '../../data/record_sync.dart';
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/app_tokens.dart';
 import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
+import '../../core/common_widgets/app_components.dart' show showAppSnack, AppSnackKind;
 import 'safety_check_model.dart';
+import 'safety_check_pdf.dart';
+import 'safety_signature.dart';
 import 'safety_issue_link.dart';
 import '../trash/trash_kinds.dart';
 
@@ -34,9 +37,12 @@ class SafetyCheckPage extends StatefulWidget {
 class _SafetyCheckPageState extends State<SafetyCheckPage> {
   final _site = TextEditingController();
   final _work = TextEditingController();
-  final _people = TextEditingController();
   final _risks = TextEditingController();
   List<String> _items = [];
+
+  /// 참석자와 서명(10-14). 이름 칩은 지난 점검에 나온 사람들.
+  List<SafetyAttendee> _attendees = [];
+  List<SafetyAttendee> _recent = [];
   final Map<String, SafetyAnswer> _answers = {};
   bool _loaded = false;
   Timer? _draftTimer;
@@ -47,7 +53,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
   void initState() {
     super.initState();
     _load();
-    for (final c in [_work, _people, _risks]) {
+    for (final c in [_work, _risks]) {
       c.addListener(_saveDraftSoon);
     }
   }
@@ -62,7 +68,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
   String _draftText() => jsonEncode({
     'day': _today,
     'work': _work.text,
-    'people': _people.text,
+    'att': [for (final a in _attendees) a.toJson()],
     'risks': _risks.text,
     'answers': {for (final e in _answers.entries) e.key: e.value.name},
   });
@@ -90,7 +96,11 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
       final m = jsonDecode(raw) as Map;
       if (m['day'] != _today) return;
       _work.text = '${m['work'] ?? ''}';
-      _people.text = '${m['people'] ?? ''}';
+      final att = m['att'];
+      _attendees = att is List
+          ? [for (final a in att) ?SafetyAttendee.fromJson(a)]
+          // 예전 임시 저장은 참석자를 글 한 줄로 적었다.
+          : attendeesFromText('${m['people'] ?? ''}');
       _risks.text = '${m['risks'] ?? ''}';
       final a = m['answers'];
       if (a is Map) {
@@ -109,13 +119,13 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
     _draftTimer?.cancel();
     _site.dispose();
     _work.dispose();
-    _people.dispose();
     _risks.dispose();
     super.dispose();
   }
 
   Future<void> _load() async {
     final items = await loadSafetyItems();
+    final recent = recentAttendees(await loadSafetyRecords());
     String site = '';
     String? draft;
     try {
@@ -126,6 +136,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
     if (!mounted) return;
     setState(() {
       _items = items;
+      _recent = recent;
       _site.text = site;
       _applyDraft(draft);
       _answers.removeWhere((k, _) => !items.contains(k));
@@ -155,9 +166,10 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
       at: at,
       site: _site.text.trim(),
       work: _work.text.trim(),
-      people: _people.text.trim(),
+      people: _attendees.map((a) => a.label).join(', '),
       risks: _risks.text.trim(),
       lines: [for (final l in _items) SafetyLine(l, _answerOf(l))],
+      attendees: List.of(_attendees),
     );
   }
 
@@ -223,7 +235,12 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
     setState(() {
       _answers.clear();
       _work.clear();
-      _people.clear();
+      _attendees = [];
+      _recent = [
+        ...recentAttendees([r]),
+        for (final a in _recent)
+          if (!r.attendees.any((b) => b.name == a.name)) a,
+      ];
       _risks.clear();
     });
     _draftTimer?.cancel();
@@ -307,7 +324,8 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
                         const SizedBox(height: 12),
                         _field(_risks, '위험 요인·메모 (선택)', key: 'safety_risks', lines: 2),
                         const SizedBox(height: 8),
-                        _field(_people, '참석자 (선택)', key: 'safety_people', hint: '이름을 쉼표로 구분 (예: 홍길동, 김철수)'),
+                        const SizedBox(height: 16),
+                        _attendeeSection(),
                       ],
                     ),
                   ),
@@ -339,6 +357,157 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
                 ],
               ),
             ),
+    );
+  }
+
+  // ── 참석자 서명(10-14) ──
+
+  Future<void> _addAttendees() async {
+    // "저장하고 다음 사람"이면 창을 바로 다시 연다(폰을 돌려 가며 받는다).
+    while (mounted) {
+      final res = await showAttendeeSheet(
+        context,
+        suggest: _recent,
+        taken: {for (final a in _attendees) a.name},
+      );
+      if (res == null || !mounted) return;
+      setState(() {
+        _attendees = [
+          for (final a in _attendees)
+            if (a.name != res.attendee.name) a,
+          res.attendee,
+        ];
+      });
+      _saveDraftSoon();
+      if (!res.next) return;
+    }
+  }
+
+  Future<void> _editAttendee(SafetyAttendee old) async {
+    final res = await showAttendeeSheet(
+      context,
+      initial: old,
+      suggest: _recent,
+      taken: {for (final a in _attendees) a.name},
+    );
+    if (res == null || !mounted) return;
+    setState(() {
+      _attendees = [
+        for (final a in _attendees)
+          if (identical(a, old))
+            res.attendee
+          else if (a.name != res.attendee.name)
+            a,
+      ];
+    });
+    _saveDraftSoon();
+  }
+
+  void _removeAttendee(SafetyAttendee a) {
+    final i = _attendees.indexOf(a);
+    if (i < 0) return;
+    setState(() => _attendees = [..._attendees]..removeAt(i));
+    _saveDraftSoon();
+    showAppSnack(
+      context,
+      '참석자에서 뺐습니다: ${a.name}',
+      kind: AppSnackKind.undo,
+      onUndo: () {
+        if (!mounted || _attendees.any((b) => b.name == a.name)) return;
+        setState(
+          () => _attendees = [..._attendees]
+            ..insert(i.clamp(0, _attendees.length), a),
+        );
+        _saveDraftSoon();
+      },
+    );
+  }
+
+  Widget _attendeeRow(int i) {
+    final a = _attendees[i];
+    return SwipeToDelete(
+      itemKey: ValueKey('safety_att_swipe_${a.name}'),
+      onDelete: () => _removeAttendee(a),
+      child: Material(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          key: Key('safety_att_${a.name}'),
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => _editAttendee(a),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 26,
+                  child: Text(
+                    '${i + 1}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textSub,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        a.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.text,
+                        ),
+                      ),
+                      if (a.company.isNotEmpty)
+                        Text(a.company, style: AppText.caption),
+                    ],
+                  ),
+                ),
+                SignatureThumb(a.sig),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _attendeeSection() {
+    final signed = _attendees.where((a) => a.signed).length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Expanded(child: Text('참석자 서명', style: AppText.title)),
+            if (_attendees.isNotEmpty)
+              Text(
+                '${_attendees.length}명 · 서명 $signed명',
+                key: const Key('safety_att_count'),
+                style: AppText.caption,
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < _attendees.length; i++) _attendeeRow(i),
+        OutlinedButton.icon(
+          key: const Key('safety_att_add'),
+          onPressed: _addAttendees,
+          icon: const Icon(Icons.draw_outlined, size: 18),
+          label: Text(_attendees.isEmpty ? '참석자 서명 받기' : '참석자 더하기'),
+        ),
+        if (_attendees.isNotEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Text(
+              '고치려면 누르고, 빼려면 왼쪽으로 끝까지 미십시오.',
+              style: AppText.caption,
+            ),
+          ),
+      ],
     );
   }
 
@@ -663,7 +832,13 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
                     onPressed: () => Navigator.pop(ctx, 'delete'),
                     child: const Text('지우기'),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                  OutlinedButton(
+                    key: const Key('safety_history_pdf'),
+                    onPressed: () => Navigator.pop(ctx, 'pdf'),
+                    child: const Text('PDF'),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton(
                       key: const Key('safety_history_send'),
@@ -680,6 +855,8 @@ class _SafetyHistoryPageState extends State<SafetyHistoryPage> {
     );
     if (action == 'send') {
       await widget.share(buildSafetyCheckText(r));
+    } else if (action == 'pdf') {
+      if (mounted) await openSafetyCheckPdf(context, r);
     } else if (action == 'issue') {
       if (mounted) await offerSafetyIssues(context, r);
     } else if (action == 'delete') {

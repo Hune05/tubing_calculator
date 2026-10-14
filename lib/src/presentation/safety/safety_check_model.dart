@@ -23,6 +23,7 @@ const List<String> kDefaultSafetyItems = [
 const String kSafetyItemsKey = 'safety_items_v1';
 const String kSafetyRecordsKey = 'safety_checks_v1';
 const String kSafetySiteKey = 'safety_last_site_v1';
+
 /// 적던 점검(오늘 것만 되살림, 10-08).
 const String kSafetyDraftKey = 'safety_draft_v1';
 const int kSafetyRecordCap = 100;
@@ -46,6 +47,109 @@ class SafetyLine {
   );
 }
 
+/// 참석자 한 명(10-14 TBM 서명): 이름, 업체(선택), 손가락 서명(없으면 '').
+/// 서명은 그림 파일이 아니라 획 좌표 글([encodeSignature])로 적어 작다(한 명 1~3KB).
+class SafetyAttendee {
+  final String name;
+  final String company;
+  final String sig;
+  const SafetyAttendee(this.name, {this.company = '', this.sig = ''});
+
+  bool get signed => sig.isNotEmpty;
+
+  /// "대성 홍길동" (업체가 없으면 이름만).
+  String get label =>
+      [company.trim(), name.trim()].where((e) => e.isNotEmpty).join(' ');
+
+  Map<String, dynamic> toJson() => {
+    'n': name,
+    if (company.isNotEmpty) 'c': company,
+    if (sig.isNotEmpty) 's': sig,
+  };
+
+  static SafetyAttendee? fromJson(Object? raw) {
+    if (raw is! Map) return null;
+    final n = (raw['n'] ?? '').toString().trim();
+    if (n.isEmpty) return null;
+    return SafetyAttendee(
+      n,
+      company: (raw['c'] ?? '').toString().trim(),
+      sig: (raw['s'] ?? '').toString(),
+    );
+  }
+}
+
+/// 서명 칸 비율(가로:세로 = 1000:400). 좌표는 이 정수 칸에 맞춰 적는다.
+const double kSigW = 1000, kSigH = 400;
+
+/// 획 목록(칸 크기 [w]×[h] 안의 좌표)을 글로: "v1:x,y x,y;x,y …". 가까운 점(4칸 안)은 건너뛴다.
+String encodeSignature(
+  List<List<(double, double)>> strokes,
+  double w,
+  double h,
+) {
+  if (w <= 0 || h <= 0) return '';
+  final out = <String>[];
+  for (final st in strokes) {
+    final pts = <String>[];
+    int? lx, ly;
+    for (var i = 0; i < st.length; i++) {
+      final x = (st[i].$1 / w * kSigW).round().clamp(0, kSigW.toInt());
+      final y = (st[i].$2 / h * kSigH).round().clamp(0, kSigH.toInt());
+      if (lx == x && ly == y) continue;
+      final last = i == st.length - 1;
+      if (lx != null && !last && (x - lx).abs() + (y - ly!).abs() < 4) {
+        continue;
+      }
+      pts.add('$x,$y');
+      lx = x;
+      ly = y;
+    }
+    if (pts.isNotEmpty) out.add(pts.join(' '));
+  }
+  return out.isEmpty ? '' : 'v1:${out.join(';')}';
+}
+
+/// [encodeSignature] 글을 획 목록(가로 0~1000, 세로 0~400)으로. 깨진 글이면 빈 목록.
+List<List<(double, double)>> decodeSignature(String sig) {
+  if (!sig.startsWith('v1:')) return const [];
+  final out = <List<(double, double)>>[];
+  for (final st in sig.substring(3).split(';')) {
+    final pts = <(double, double)>[];
+    for (final p in st.split(' ')) {
+      final xy = p.split(',');
+      if (xy.length != 2) continue;
+      final x = double.tryParse(xy[0]), y = double.tryParse(xy[1]);
+      if (x != null && y != null) pts.add((x, y));
+    }
+    if (pts.isNotEmpty) out.add(pts);
+  }
+  return out;
+}
+
+/// 지난 점검에 나온 참석자(최근 것 먼저, 이름이 같으면 한 번). 이름 칩에 쓴다.
+List<SafetyAttendee> recentAttendees(List<SafetyRecord> all, {int max = 16}) {
+  final seen = <String>{};
+  final out = <SafetyAttendee>[];
+  final sorted = [...all]..sort((a, b) => b.at.compareTo(a.at));
+  for (final r in sorted) {
+    final list = r.attendees.isNotEmpty
+        ? r.attendees
+        : attendeesFromText(r.people);
+    for (final a in list) {
+      if (seen.add(a.name)) out.add(SafetyAttendee(a.name, company: a.company));
+      if (out.length >= max) return out;
+    }
+  }
+  return out;
+}
+
+/// 예전 "참석자" 글(쉼표로 구분)을 참석자 목록으로(서명 없음).
+List<SafetyAttendee> attendeesFromText(String people) => [
+  for (final n in people.split(RegExp(r'[,，、\n]')))
+    if (n.trim().isNotEmpty) SafetyAttendee(n.trim()),
+];
+
 class SafetyRecord {
   final String id; // 만든 시각(밀리초)
   final DateTime at;
@@ -54,6 +158,9 @@ class SafetyRecord {
   final String people;
   final String risks;
   final List<SafetyLine> lines;
+
+  /// 참석자와 서명(10-14). 예전 기록은 비어 있고 [people] 글만 있다.
+  final List<SafetyAttendee> attendees;
   const SafetyRecord({
     required this.id,
     required this.at,
@@ -62,9 +169,13 @@ class SafetyRecord {
     this.people = '',
     this.risks = '',
     required this.lines,
+    this.attendees = const [],
   });
 
-  int get unanswered => lines.where((l) => l.answer == SafetyAnswer.none).length;
+  int get signedCount => attendees.where((a) => a.signed).length;
+
+  int get unanswered =>
+      lines.where((l) => l.answer == SafetyAnswer.none).length;
   int get fixCount => lines.where((l) => l.answer == SafetyAnswer.fix).length;
 
   Map<String, dynamic> toJson() => {
@@ -75,6 +186,7 @@ class SafetyRecord {
     'people': people,
     'risks': risks,
     'lines': [for (final l in lines) l.toJson()],
+    if (attendees.isNotEmpty) 'att': [for (final a in attendees) a.toJson()],
   };
 
   static SafetyRecord? fromJson(Object? raw) {
@@ -82,6 +194,7 @@ class SafetyRecord {
     final at = DateTime.tryParse((raw['at'] ?? '').toString());
     if (at == null) return null;
     final lines = raw['lines'];
+    final att = raw['att'];
     return SafetyRecord(
       id: (raw['id'] ?? at.millisecondsSinceEpoch).toString(),
       at: at,
@@ -93,6 +206,10 @@ class SafetyRecord {
         if (lines is List)
           for (final l in lines)
             if (l is Map) SafetyLine.fromJson(Map<String, dynamic>.from(l)),
+      ],
+      attendees: [
+        if (att is List)
+          for (final a in att) ?SafetyAttendee.fromJson(a),
       ],
     );
   }
@@ -126,7 +243,15 @@ String buildSafetyCheckText(SafetyRecord r) {
     b.write('\n$mark ${l.label}$tail');
   }
   if (r.risks.trim().isNotEmpty) b.write('\n위험 요인·메모: ${r.risks.trim()}');
-  if (r.people.trim().isNotEmpty) b.write('\n참석: ${r.people.trim()}');
+  if (r.attendees.isNotEmpty) {
+    final signed = r.signedCount;
+    b.write(
+      '\n참석 ${r.attendees.length}명: ${r.attendees.map((a) => a.label).join(', ')}'
+      '${signed > 0 ? ' (서명 $signed명)' : ''}',
+    );
+  } else if (r.people.trim().isNotEmpty) {
+    b.write('\n참석: ${r.people.trim()}');
+  }
   return b.toString();
 }
 
@@ -134,7 +259,8 @@ String buildSafetyCheckText(SafetyRecord r) {
 SafetyRecord? safetyCheckToday(List<SafetyRecord> all, DateTime now) {
   SafetyRecord? best;
   for (final r in all) {
-    final same = r.at.year == now.year && r.at.month == now.month && r.at.day == now.day;
+    final same =
+        r.at.year == now.year && r.at.month == now.month && r.at.day == now.day;
     if (same && (best == null || r.at.isAfter(best.at))) best = r;
   }
   return best;
@@ -142,7 +268,11 @@ SafetyRecord? safetyCheckToday(List<SafetyRecord> all, DateTime now) {
 
 /// 최근 [days]일 안에 점검을 한 적이 있는지(습관이 있는 사람에게만 "오늘 안 했다"를 알리려고).
 bool safetyUsedRecently(List<SafetyRecord> all, DateTime now, {int days = 14}) {
-  final from = DateTime(now.year, now.month, now.day).subtract(Duration(days: days));
+  final from = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).subtract(Duration(days: days));
   return all.any((r) => !r.at.isBefore(from));
 }
 
@@ -182,9 +312,8 @@ Future<List<SafetyRecord>> loadSafetyRecords() async {
     if (s == null || s.isEmpty) return [];
     final list = jsonDecode(s);
     if (list is! List) return [];
-    return [
-      for (final e in list) ?SafetyRecord.fromJson(e),
-    ]..sort((a, b) => b.at.compareTo(a.at));
+    return [for (final e in list) ?SafetyRecord.fromJson(e)]
+      ..sort((a, b) => b.at.compareTo(a.at));
   } catch (_) {
     return [];
   }
@@ -209,7 +338,10 @@ Future<void> addSafetyRecord(SafetyRecord r) async {
 
 Future<void> deleteSafetyRecord(String id) async {
   final all = await loadSafetyRecords();
-  await writeSafetyRecords([for (final e in all) if (e.id != id) e]);
+  await writeSafetyRecords([
+    for (final e in all)
+      if (e.id != id) e,
+  ]);
   await safetyRecordSync.removed(id);
 }
 
