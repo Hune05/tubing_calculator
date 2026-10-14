@@ -57,6 +57,9 @@ class PtBigTimerPage extends StatefulWidget {
 
   /// 안정화 시작(안정화 시간을 골랐을 때 시작 전 단추, 10-15).
   final Future<void> Function()? onStab;
+
+  /// 시작 압력 칸을 누르면 시작 줄 고치기(10-15).
+  final Future<void> Function()? onEditStart;
   final Future<void> Function() onAdd;
   final Future<void> Function() onEnd;
 
@@ -71,6 +74,7 @@ class PtBigTimerPage extends StatefulWidget {
     required this.data,
     required this.onStart,
     this.onStab,
+    this.onEditStart,
     required this.onAdd,
     required this.onEnd,
     required this.onStopAlarm,
@@ -199,8 +203,13 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
         ),
       ],
     );
-    Widget info(String k, String? v, {String? sub, Key? key}) => Expanded(
-      child: Container(
+    // [onTap]이 있으면 눌러서 고치는 칸(10-15 시작 압력).
+    Widget info(String k, String? v, {String? sub, Key? key, Future<void> Function()? onTap}) => Expanded(
+      child: GestureDetector(
+        key: onTap == null ? null : Key('${key is ValueKey<String> ? key.value : 'pt_big_cell'}_tap'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap == null ? null : () => _run(onTap),
+        child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(color: fc.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: fc.line)),
         child: Column(
@@ -218,6 +227,7 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
           ],
         ),
       ),
+      ),
     );
     // 2 × 2: 위 줄 설계·시험압력(정해진 값), 아래 줄 시작 압력·강하(잰 값). 10-15 사용자: 설계·시험압력도 보이게.
     final infos = Column(
@@ -232,7 +242,14 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
         const SizedBox(height: 8),
         Row(
           children: [
-            info('시작 압력', d.startP, sub: d.startSub, key: const Key('pt_big_start_p')),
+            info(
+              '시작 압력',
+              d.startP,
+              // 시작 전에는 [시작]을 누르면 압력 창이 뜬다. 시작한 뒤에는 눌러서 고친다(10-15).
+              sub: d.startP == null ? (s == null ? '[시작] 때 넣습니다' : null) : '${d.startSub ?? ''}${widget.onEditStart == null ? '' : ' · 눌러서 고치기'}',
+              key: const Key('pt_big_start_p'),
+              onTap: d.startP == null ? null : widget.onEditStart,
+            ),
             const SizedBox(width: 8),
             info('강하', d.drop, sub: d.drop == null || d.lastAt == null ? null : '시작 → ${ptHm(d.lastAt!)} 측정', key: const Key('pt_big_drop')),
           ],

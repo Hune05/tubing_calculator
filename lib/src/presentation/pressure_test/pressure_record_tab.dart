@@ -396,6 +396,10 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
           data: _bigData,
           onStart: _startHold,
           onStab: _startStab,
+          onEditStart: () async {
+            final i = _rReads.indexWhere((r) => r.kind == PtReadKind.start);
+            if (i >= 0) await _editReading(i);
+          },
           onAdd: _addReading,
           onEnd: _endHold,
           onStopAlarm: _stopRinging,

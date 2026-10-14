@@ -1151,7 +1151,12 @@ void main() {
     expect(textOf(tester, 'pt_big_start_p'), '12 bar');
     expect(textOf(tester, 'pt_big_design'), '10 bar');
     expect(textOf(tester, 'pt_big_target'), '12 bar');
-    expect(find.text('09:00 · 20°C'), findsOneWidget);
+    expect(find.text('09:00 · 20°C · 눌러서 고치기'), findsOneWidget);
+    // 시작 압력 칸을 누르면 시작 줄을 고친다(10-15)
+    await tester.tap(find.byKey(const Key('pt_big_start_p_tap')));
+    await tester.pumpAndSettle();
+    expect(fieldText(tester, 'pt_rd_p'), '12');
+    await reading(tester, '12');
     expect(alarm.scheduled.length, 1);
 
     now = DateTime(2026, 9, 26, 9, 4, 0);
