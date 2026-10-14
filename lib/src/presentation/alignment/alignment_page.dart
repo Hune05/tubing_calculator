@@ -28,6 +28,7 @@ import '../tube_cutting/cutting_action_bar.dart' show kakaoSender, textSharer;
 import 'alignment_guide_page.dart';
 import 'alignment_guide_painter.dart';
 import 'alignment_math.dart';
+import 'alignment_pdf.dart';
 import 'alignment_dial_painter.dart';
 import 'alignment_render.dart';
 import 'alignment_record.dart';

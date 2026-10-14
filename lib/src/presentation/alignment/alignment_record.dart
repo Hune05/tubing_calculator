@@ -143,6 +143,26 @@ String _two(int n) => n.toString().padLeft(2, '0');
 
 String methodLabel(AlignMethod m) => m == AlignMethod.reverse ? '리버스 다이얼' : '림·페이스';
 
+/// 방식별 거리 칸(입력 키, 이름) — 화면 칸과 보고서 PDF가 같이 쓴다. 번호는 측정 그림 번호.
+List<(String, String)> alignDistanceFields(AlignMethod m) => m == AlignMethod.reverse
+    ? const [
+        ('between', '① A·B 두 접촉면 사이'),
+        ('coupB', '② B면에서 커플링 중심까지'),
+        ('front', '③ A면에서 모터 앞발까지'),
+        ('rear', '④ A면에서 모터 뒷발까지'),
+      ]
+    : const [
+        ('coupR', '① 림면에서 커플링 중심까지'),
+        ('front', '② 림면에서 모터 앞발까지'),
+        ('rear', '③ 림면에서 모터 뒷발까지'),
+        ('faceR', '④ 페이스가 닿는 반지름'),
+      ];
+
+/// 방식별 다이얼(입력 키 앞글자, 이름).
+List<(String, String)> alignDialFields(AlignMethod m) => m == AlignMethod.reverse
+    ? const [('a', '다이얼 A (모터 림)'), ('b', '다이얼 B (펌프 림)')]
+    : const [('r', '림 (바깥 둘레)'), ('f', '페이스 (옆면)')];
+
 /// 카톡으로 보내는 글.
 String buildAlignText(AlignRecord r) {
   final b = StringBuffer(

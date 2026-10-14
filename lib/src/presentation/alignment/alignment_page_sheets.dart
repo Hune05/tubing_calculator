@@ -302,7 +302,15 @@ class _AlignmentHistoryPageState extends State<AlignmentHistoryPage> {
                     onPressed: () => Navigator.pop(ctx, 'delete'),
                     child: const Text('지우기'),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                  // 보고·제출용 기록 PDF(10-15).
+                  OutlinedButton.icon(
+                    key: const Key('align_history_pdf'),
+                    onPressed: () => Navigator.pop(ctx, 'pdf'),
+                    icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+                    label: const Text('PDF'),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: FilledButton(
                       key: const Key('align_history_send'),
@@ -319,6 +327,8 @@ class _AlignmentHistoryPageState extends State<AlignmentHistoryPage> {
     );
     if (action == 'send') {
       await widget.share([buildAlignText(r), if (cmp != null) '비교: $cmp'].join('\n'));
+    } else if (action == 'pdf') {
+      if (mounted) await openAlignPdf(context, r);
     } else if (action == 'delete') {
       _delete(r);
     }

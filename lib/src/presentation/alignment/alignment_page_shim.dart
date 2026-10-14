@@ -64,7 +64,8 @@ extension _AlignShim on _AlignmentPageState {
         result: r,
         method: _method,
         rpm: _rpm,
-        inputs: _inputs(),
+        // 판정 기준도 같이 남긴다(보고서 PDF에 적으려고, 10-15).
+        inputs: {..._inputs(), 'tolO': _tol.offset.toString(), 'tolA': _tol.angle100.toString()},
         verdict: judge(r, _tol),
         now: _now,
         machineDefault: machineDefault,

@@ -68,17 +68,7 @@ extension _AlignSetup on _AlignmentPageState {
         ], first: true),
         // 한 칸에 한 줄(10-15: 두 칸씩 놓으니 좁은 폰에서 이름이 "① A·B 두 접…"으로 잘렸다).
         PlateSection('거리 (mm)', [
-          if (reverse) ...[
-            _field('between', '① A·B 두 접촉면 사이', signed: false),
-            _field('coupB', '② B면에서 커플링 중심까지', signed: false),
-            _field('front', '③ A면에서 모터 앞발까지', signed: false),
-            _field('rear', '④ A면에서 모터 뒷발까지', signed: false),
-          ] else ...[
-            _field('coupR', '① 림면에서 커플링 중심까지', signed: false),
-            _field('front', '② 림면에서 모터 앞발까지', signed: false),
-            _field('rear', '③ 림면에서 모터 뒷발까지', signed: false),
-            _field('faceR', '④ 페이스가 닿는 반지름', signed: false),
-          ],
+          for (final (k, label) in alignDistanceFields(_method)) _field(k, label, signed: false),
         ]),
         PlateSection('회전수와 판정 기준', [
           plateRow([_field('rpm', '회전수', hint: '1800', unit: 'rpm', signed: false), const SizedBox.shrink()]),
