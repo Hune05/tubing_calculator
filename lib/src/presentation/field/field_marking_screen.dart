@@ -118,7 +118,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
   static const double _padLeft = 48;
   // 맨 끝(자르기) 말풍선이 줄자 끝에서 반 폭만큼 더 나가므로 오른쪽 여백은 그만큼 둔다.
   static const double _padRight = 58;
-  static const double _labelW = 108;
+  static const double _labelW = 118;
 
   /// 말풍선 높이 = 상자 46 + 꼭지 7(10-14).
   static const double _labelH = 53;
@@ -1261,8 +1261,10 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
     final double width = _padLeft + _padRight + maxMm * _scale;
 
     // 말풍선: 마킹(직관 끝 포함)과 자르는 자리.
+    // 직관 끝 표시가 자르는 자리와 같은 곳이면(마지막 직관) 자르기 말풍선만 둔다(10-14).
     final labels = <_Label>[
-      for (final m in data.marks) _Label.mark(m),
+      for (final m in data.marks)
+        if (m.isBend || (m.position - data.totalCut).abs() > 1) _Label.mark(m),
       if (data.totalCut > 0) _Label.cut(data.totalCut),
     ];
     final lanes = assignLabelLanes(
@@ -2908,7 +2910,11 @@ class _TapePainter extends CustomPainter {
           ),
         );
         tp.layout();
-        tp.paint(canvas, Offset(x - tp.width / 2, tapeTop + 19));
+        // 0은 끝 고리에 가리지 않게 오른쪽으로 조금.
+        tp.paint(
+          canvas,
+          Offset(mm == 0 ? x + 3 : x - tp.width / 2, tapeTop + 19),
+        );
       } else if (fiftyNumbers && mm % 50 == 0) {
         tp.text = TextSpan(
           text: '$mm',
