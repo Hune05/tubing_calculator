@@ -429,8 +429,22 @@ exports.checkDailyReportReminder = onSchedule(
             const data = doc.data();
             if (data.status !== 'ONGOING') continue; // 진행중인 현장만 확인
 
+            // 10-14: 작업 일지는 하위 모음(my_projects/{id}/daily_reports)으로 옮겨 가는 중이다.
+            // 문서 안 옛 목록과 하위 모음 둘 다 본다(옛 빌드가 문서 안에 적을 수도 있다).
+            const todayIso = `${kstNow.getUTCFullYear()}-${(kstNow.getUTCMonth() + 1).toString().padStart(2, '0')}-${kstNow.getUTCDate().toString().padStart(2, '0')}`;
+            const isToday = (r) => r && (r.dateISO === todayIso || (!r.dateISO && r.date === todayMmDd));
             const reports = Array.isArray(data.daily_reports) ? data.daily_reports : [];
-            const hasTodayReport = reports.some((r) => r.date === todayMmDd);
+            let hasTodayReport = reports.some(isToday);
+            if (!hasTodayReport) {
+                try {
+                    const sub = await doc.ref.collection('daily_reports')
+                        .where('date', '==', todayMmDd).get();
+                    hasTodayReport = sub.docs.some((d) => isToday(d.data()));
+                } catch (e) {
+                    console.error(`❌ (일보) 일지 하위 모음 조회 에러 (프로젝트: ${doc.id}):`, e);
+                    continue; // 모르면 보내지 않는다(잘못된 알림보다 낫다).
+                }
+            }
             if (hasTodayReport) continue;
 
             const projectName = data.name || '프로젝트';

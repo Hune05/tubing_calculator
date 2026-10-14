@@ -9,6 +9,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../presentation/my_work_logs/models/project_merge.dart';
+import '../../presentation/my_work_logs/models/project_reports_split.dart';
 
 const String kWorkProjectsCollection = 'my_projects';
 
@@ -57,6 +58,7 @@ Future<void> openLegacyHiveIfNeeded() async {
   await Hive.initFlutter();
   await Hive.openBox('projectsBox');
 }
+
 class WorkProjectRepository {
   // 처음 쓸 때 가져온다(테스트에서 이 저장소를 흉내 낸 것을 만들 때 Firebase가 없어도 되게).
   late final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -79,7 +81,7 @@ class WorkProjectRepository {
         .orderBy('id', descending: true)
         .get(const GetOptions(source: Source.cache))
         .timeout(const Duration(seconds: 2));
-    return _visible(snapshot);
+    return _attachReports(_visible(snapshot), cacheOnly: true);
   }
 
   // 🚀 id가 전부 DateTime.now().millisecondsSinceEpoch.toString()라서
@@ -103,7 +105,65 @@ class WorkProjectRepository {
     }
     // 🚀 [고침] 로그인한 사람 모두의 프로젝트가 다 보였다(점검 25번). 공용(주인 없음)과
     // 내 것만 보인다. 예전 프로젝트는 주인이 없어 그대로 모두에게 보인다.
-    return _visible(snapshot);
+    return _attachReports(
+      _visible(snapshot),
+      cacheOnly: snapshot.metadata.isFromCache,
+    );
+  }
+
+  // ---------------- 작업 일지 하위 모음(10-14) ----------------
+
+  CollectionReference<Map<String, dynamic>> _reportsOf(String id) =>
+      _col.doc(id).collection(kReportsSubcollection);
+
+  /// 프로젝트 하나의 일지 하위 모음(문서 아이디 → 내용). 서버에서 6초 안에 못 읽으면 폰 사본,
+  /// 그것도 안 되면 null(무엇이 있는지 모름).
+  Future<Map<String, Map<String, dynamic>>?> _readReports(
+    String id, {
+    bool cacheOnly = false,
+  }) async {
+    Future<QuerySnapshot<Map<String, dynamic>>> cache() =>
+        _reportsOf(id).get(const GetOptions(source: Source.cache));
+    QuerySnapshot<Map<String, dynamic>> q;
+    try {
+      q = cacheOnly
+          ? await cache().timeout(const Duration(seconds: 2))
+          : await _reportsOf(id).get().timeout(const Duration(seconds: 6));
+    } catch (_) {
+      if (cacheOnly) return null;
+      try {
+        q = await cache().timeout(const Duration(seconds: 2));
+      } catch (_) {
+        return null;
+      }
+    }
+    return {for (final d in q.docs) d.id: Map<String, dynamic>.from(d.data())};
+  }
+
+  /// 읽은 프로젝트마다 일지 하위 모음을 붙인다(문서 안 옛 목록과 아이디로 합침). 화면은 예전처럼
+  /// project['daily_reports']만 본다. 하위 모음을 못 읽으면 문서 안 목록 그대로.
+  Future<List<Map<String, dynamic>>> _attachReports(
+    List<Map<String, dynamic>> projects, {
+    required bool cacheOnly,
+  }) async {
+    await Future.wait([
+      for (final p in projects)
+        () async {
+          final id = (p['id'] ?? '').toString();
+          if (id.isEmpty) return;
+          final sub = await _readReports(id, cacheOnly: cacheOnly);
+          if (sub == null || sub.isEmpty) return;
+          p[kReportsSubcollection] = joinReports(
+            embedded: p[kReportsSubcollection],
+            sub: sub.values,
+            deleted: [
+              for (final e in (p[kDeletedIdsKey] as List?) ?? const [])
+                e.toString(),
+            ],
+          );
+        }(),
+    ]);
+    return projects;
   }
 
   List<Map<String, dynamic>> _visible(
@@ -158,34 +218,72 @@ class WorkProjectRepository {
     required bool merge,
     void Function()? onWritten,
   }) async {
-    if (merge) {
-      // 저장 직전에 서버 것을 읽어 아이디로 합친다(다른 폰이 그 사이 넣은 일지·이슈가
-      // 안 지워지게). 통신이 없으면 5초 뒤 폰 캐시로, 그것도 없으면 예전처럼 그대로.
-      Map<String, dynamic>? server;
+    // 서버 본문과 일지 하위 모음을 읽는다. 통신이 없으면 5초 뒤 폰 캐시로, 그것도 없으면 모름.
+    Map<String, dynamic>? server;
+    try {
+      server = (await _col.doc(id).get().timeout(const Duration(seconds: 5)))
+          .data();
+    } catch (_) {
       try {
-        server = (await _col.doc(id).get().timeout(const Duration(seconds: 5)))
-            .data();
-      } catch (_) {
-        try {
-          server =
-              (await _col.doc(id).get(const GetOptions(source: Source.cache)))
-                  .data();
-        } catch (_) {}
+        server =
+            (await _col.doc(id).get(const GetOptions(source: Source.cache)))
+                .data();
+      } catch (_) {}
+    }
+    final serverSub = await _readReports(id);
+    if (server != null && serverSub != null && serverSub.isNotEmpty) {
+      server = Map<String, dynamic>.from(server)
+        ..[kReportsSubcollection] = joinReports(
+          embedded: server[kReportsSubcollection],
+          sub: serverSub.values,
+          deleted: [
+            for (final e in (server[kDeletedIdsKey] as List?) ?? const [])
+              e.toString(),
+          ],
+        );
+    }
+    if (merge && server != null) {
+      // 저장 직전에 서버 것을 읽어 아이디로 합친다(다른 폰이 그 사이 넣은 일지·이슈가
+      // 안 지워지게).
+      data = mergeProjectDocs(local: data, server: server);
+      // 화면이 들고 있는 것도 합친 대로(다른 폰이 넣은 것이 바로 보이게).
+      for (final key in kMergedListKeys) {
+        if (data.containsKey(key)) project[key] = data[key];
       }
-      if (server != null) {
-        data = mergeProjectDocs(local: data, server: server);
-        // 화면이 들고 있는 것도 합친 대로(다른 폰이 넣은 것이 바로 보이게).
-        for (final key in kMergedListKeys) {
-          if (data.containsKey(key)) project[key] = data[key];
-        }
-        if (data.containsKey(kDeletedIdsKey)) {
-          project[kDeletedIdsKey] = data[kDeletedIdsKey];
-        }
+      if (data.containsKey(kDeletedIdsKey)) {
+        project[kDeletedIdsKey] = data[kDeletedIdsKey];
       }
     }
-    final write = _col.doc(id).set(data);
+
+    // 일지는 본문에서 빼서 하위 모음에 한 건씩(10-14, 문서 1MiB 한도). 본문을 set으로 통째로 쓰므로
+    // 옛 문서 안 목록 칸은 이때 없어진다(옮기기).
+    final reports = [
+      for (final r in (data.remove(kReportsSubcollection) as List?) ?? const [])
+        if (r is Map) Map<String, dynamic>.from(r),
+    ];
+    final plan = planReportWrites(
+      merged: reports,
+      serverSub: serverSub ?? const {},
+      // 서버 하위 모음을 못 읽었으면 무엇이 빠졌는지 모르니 지우지 않는다.
+      deleteMissing: serverSub != null,
+    );
+    final ops = <void Function(WriteBatch)>[
+      (b) => b.set(_col.doc(id), data),
+      for (final e in plan.toSet.entries)
+        (b) => b.set(_reportsOf(id).doc(e.key), e.value),
+      for (final d in plan.toDelete) (b) => b.delete(_reportsOf(id).doc(d)),
+    ];
+    // 한 번에 500개까지라 나눠 쓴다(처음 옮길 때 일지가 많을 수 있다).
+    final commits = <Future<void>>[];
+    for (var i = 0; i < ops.length; i += 450) {
+      final batch = _db.batch();
+      for (final op in ops.skip(i).take(450)) {
+        op(batch);
+      }
+      commits.add(batch.commit());
+    }
     onWritten?.call();
-    await write;
+    await Future.wait(commits);
   }
 
   // 프로젝트 일정 하나의 완료 표시만 바꾼다. 저장하기 직전에 문서를 다시 읽어 schedules 칸만
@@ -232,7 +330,14 @@ class WorkProjectRepository {
   }
 
   Future<void> deleteProject(String id) async {
-    await _col.doc(id).delete();
+    // 일지 하위 모음도 같이(문서만 지우면 하위 모음은 남는다).
+    final sub = await _readReports(id);
+    final batch = _db.batch();
+    for (final d in sub?.keys ?? const <String>[]) {
+      batch.delete(_reportsOf(id).doc(d));
+    }
+    batch.delete(_col.doc(id));
+    await batch.commit();
   }
 
   // 🚀 [추가] 기존 Hive('projectsBox'/'projectList')에 남아있던 데이터를
