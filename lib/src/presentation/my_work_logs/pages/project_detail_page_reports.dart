@@ -178,7 +178,7 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                   children: [
                     for (final n in phaseChips) chip(n, tossBlue),
                     if (issueCnt > 0) chip("이슈 처리 $issueCnt", warningRed),
-                    if (doneCnt > 0) chip("일정 완료 $doneCnt", Colors.green),
+                    if (doneCnt > 0) chip("일정 완료 $doneCnt", AppColors.ok),
                     if (r['is_as_built'] == true)
                       chip("도면 수정 요청", AppColors.caution),
                   ],

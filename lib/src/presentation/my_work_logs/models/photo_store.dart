@@ -8,6 +8,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import '../../../core/utils/error_log.dart';
+import 'project_merge.dart' show stampFields;
 
 // 🚀 [작업 일지 사진 클라우드 보관] 예전엔 작업 일지 사진이 폰 안의 파일 경로로만 저장돼서,
 // 앱을 지우고 다시 깔거나 다른 기기에서 열면 사진이 사라졌다. 저장한 작업 일지의 사진을
@@ -430,6 +431,7 @@ Future<bool> uploadAllPhotos(Map<String, dynamic> log) async {
     final url = await uploadPhoto(pid, plan);
     if (url != null) {
       log['floor_plan_image_path'] = url;
+      stampFields(log, ['floor_plan_image_path']);
       changed = true;
     }
   }

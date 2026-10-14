@@ -521,7 +521,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                               value: p.clamp(0.0, 1.0),
                               minHeight: 8,
                               backgroundColor: _bg,
-                              color: p >= 1 ? Colors.green : _teal,
+                              color: p >= 1 ? AppColors.ok : _teal,
                             ),
                           ),
                         ),

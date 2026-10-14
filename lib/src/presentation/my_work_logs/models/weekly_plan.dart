@@ -273,6 +273,18 @@ ReportDoc buildWeeklyPlanDoc(
             (onlyIds == null || onlyIds.contains(l['id']?.toString())),
       )
       .toList();
+  // 실적(전주·금주)과 사진에는 전주 월요일 뒤에 완료 처리한 프로젝트도 넣는다(10-14: 수요일에
+  // 완료하면 금요일 보고에서 그 주 일지·인·일이 통째로 빠졌다). 고른 프로젝트면 완료돼도 넣는다.
+  // 차주 계획·이슈 현황은 진행중만.
+  final actualTargets = [
+    ...targets,
+    ...logs.where((l) {
+      if (l['status'] != 'DONE') return false;
+      if (onlyIds != null) return onlyIds.contains(l['id']?.toString());
+      final c = l['completedAt'];
+      return c != null && !dayOnly(asDate(c)).isBefore(weeks[0].start);
+    }),
+  ];
 
   // 다음 계획 메모: 가장 최근 작업 일지의 "내일 계획"(금주 것만)
   final memo = <String>[];
@@ -297,7 +309,7 @@ ReportDoc buildWeeklyPlanDoc(
       weeks[0],
       '실적',
       _sectionLines(
-        targets,
+        actualTargets,
         weeks[0],
         tests: tests,
         actual: true,
@@ -309,7 +321,7 @@ ReportDoc buildWeeklyPlanDoc(
       weeks[1],
       '진행 및 예정',
       _sectionLines(
-        targets,
+        actualTargets,
         weeks[1],
         tests: tests,
         actual: true,
@@ -450,8 +462,8 @@ ReportDoc buildWeeklyPlanDoc(
   // 사진: 전주·금주 작업 일지에 붙은 사진 중 최근 12장.
   final photos = <(int, DateTime, ReportPhoto)>[];
   if (includePhotos) {
-    for (var ti = 0; ti < targets.length; ti++) {
-      final log = targets[ti];
+    for (var ti = 0; ti < actualTargets.length; ti++) {
+      final log = actualTargets[ti];
       for (final r in (log['daily_reports'] as List? ?? []).whereType<Map>()) {
         final d = reportDateOf(r);
         if (!weeks[0].contains(d) && !weeks[1].contains(d)) continue;
@@ -466,7 +478,9 @@ ReportDoc buildWeeklyPlanDoc(
             d,
             ReportPhoto(
               k,
-              group: targets.length > 1 ? log['name']?.toString() : null,
+              group: actualTargets.length > 1
+                  ? log['name']?.toString()
+                  : null,
               [
                 _md(d),
                 if (tags[k] != null) tags[k],
@@ -481,7 +495,7 @@ ReportDoc buildWeeklyPlanDoc(
   // 작업 전/후 사진을 프로젝트별로 순서대로 짝지어 전후 비교로 만든다.
   final compares = <ReportCompare>[];
   if (includePhotos) {
-    for (final log in targets) {
+    for (final log in actualTargets) {
       final before = <String>[], after = <String>[];
       final reps =
           (log['daily_reports'] as List? ?? []).whereType<Map>().toList()
@@ -511,7 +525,7 @@ ReportDoc buildWeeklyPlanDoc(
 
   // 이슈 처리 전(등록 사진) / 후(처리 사진) 사진도 그 주에 처리된 것은 전후 비교에 넣는다.
   if (includePhotos) {
-    for (final log in targets) {
+    for (final log in actualTargets) {
       for (final p in (log['punch_lists'] as List? ?? []).whereType<Map>()) {
         if (compares.length >= 6) break;
         if (p['is_completed'] != true || p['resolved_at'] == null) continue;

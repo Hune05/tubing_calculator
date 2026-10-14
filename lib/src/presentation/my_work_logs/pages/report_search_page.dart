@@ -192,7 +192,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
                                       decoration: BoxDecoration(
                                         color:
                                             (h.kind == '이슈'
-                                                    ? Colors.red
+                                                    ? AppColors.danger
                                                     : tossBlue)
                                                 .withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(6),
@@ -203,7 +203,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
                                           fontSize: 11,
                                           fontWeight: FontWeight.w800,
                                           color: h.kind == '이슈'
-                                              ? Colors.red
+                                              ? AppColors.danger
                                               : tossBlue,
                                         ),
                                       ),

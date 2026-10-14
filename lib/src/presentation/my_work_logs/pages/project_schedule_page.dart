@@ -408,6 +408,8 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
       // 폰 뒤로 가기로 나가도 고친 일정을 돌려준다(예전엔 아래 단추로만).
       canPop: !_changed,
       onPopInvokedWithResult: (didPop, result) {
+        // 나가면 "되돌리기" 알림을 닫는다(10-14: 나간 뒤 누르면 아무 일도 없이 지운 것이 그대로였다).
+        ScaffoldMessenger.maybeOf(context)?.hideCurrentSnackBar();
         if (didPop) return;
         Navigator.pop(context, _schedules);
       },
@@ -609,7 +611,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             color: isCompleted
-                                                ? Colors.green.withValues(
+                                                ? AppColors.ok.withValues(
                                                     alpha: 0.12,
                                                   )
                                                 : tossBlue.withValues(
@@ -623,7 +625,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                                     item['type'] ?? '기타',
                                                   ),
                                             color: isCompleted
-                                                ? Colors.green
+                                                ? AppColors.ok
                                                 : tossBlue,
                                             size: 20,
                                           ),

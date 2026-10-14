@@ -141,6 +141,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
 
   // (D-F) 폰에 남은 목록을 먼저 그리고, 서버 목록이 오면 바꿔 끼운다. 예전에는 서버 응답
   // (통신이 없으면 6초)까지 빈 화면이었다. 폰에 없을 때만 목록 모양 자리가 보인다.
+  bool _openedOnEntry = false;
+
   Future<void> _loadData() async {
     await loadCacheFirst<List<Map<String, dynamic>>>(
       cached: _repo.fetchCachedProjects,
@@ -228,6 +230,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       if (_backupFailed) _runAutoBackup();
     });
     _migrateLocalPhotos();
+    // 처음 들어올 때 한 번만 연다(10-14: 삭제한 프로젝트를 되돌리면 목록을 다시 읽으며 처음
+    // 들어온 프로젝트·일지 작성 화면이 또 열렸다).
+    if (_openedOnEntry) return;
+    _openedOnEntry = true;
     if (widget.autoWriteReport) {
       final missing = _projectsMissingTodayReport;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -272,14 +278,19 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     Map<String, dynamic> log, {
     String? clearDraftKey,
   }) {
+    // 폰 Firestore에 쓰기를 넘겼는지(10-14). 통신이 약하면 서버 것을 읽느라 넘기기까지 10초 넘게
+    // 걸리는데, 4초 만에 "폰에 저장했습니다"가 떠서 그 말을 믿고 앱을 끄면 고친 것이 사라졌다.
+    final written = Completer<void>();
     final done = _repo
         .upsertProject(
           log,
-          onWritten: clearDraftKey == null
-              ? null
-              : () => SharedPreferences.getInstance()
-                    .then((p) => p.remove(clearDraftKey))
-                    .catchError((_) => false),
+          onWritten: () {
+            if (!written.isCompleted) written.complete();
+            if (clearDraftKey == null) return;
+            SharedPreferences.getInstance()
+                .then((p) => p.remove(clearDraftKey))
+                .catchError((_) => false);
+          },
         )
         .then<bool?>(
           (_) => true,
@@ -289,19 +300,37 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           },
         );
     syncReportReminder(_workLogs);
+    void notice(bool? ok) {
+      if (!mounted) return;
+      showSnackOnce(
+        ScaffoldMessenger.of(context),
+        SnackBar(
+          content: Text(reportSaveNotice(ok)),
+          duration: Duration(seconds: ok == true ? 2 : 5),
+        ),
+      );
+    }
+
     Future.any<bool?>([
       done,
       Future<bool?>.delayed(reportSaveNoticeWait, () => false),
-    ]).then((ok) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            content: Text(reportSaveNotice(ok)),
-            duration: Duration(seconds: ok == true ? 2 : 5),
+    ]).then((ok) async {
+      if (ok != false || written.isCompleted) return notice(ok);
+      // 아직 폰에도 안 넘어갔다: 기다려 달라고 하고, 넘어가거나 끝나면 다시 알린다.
+      if (mounted) {
+        showSnackOnce(
+          ScaffoldMessenger.of(context),
+          const SnackBar(
+            content: Text("저장하는 중입니다. 잠시 앱을 끄지 마십시오."),
+            duration: Duration(seconds: 20),
           ),
         );
+      }
+      final r = await Future.any<bool?>([
+        done,
+        written.future.then((_) => false),
+      ]).timeout(const Duration(seconds: 30), onTimeout: () => null);
+      notice(r);
     });
   }
 
@@ -778,6 +807,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       final String? newFloorPlanPath = newPunch.remove('__newFloorPlanPath');
       if (newFloorPlanPath != null) {
         log['floor_plan_image_path'] = newFloorPlanPath;
+        stampFields(log, ['floor_plan_image_path']);
       }
       newPunch['id'] = DateTime.now().millisecondsSinceEpoch.toString();
       newPunch['created_at'] = DateTime.now();
@@ -1180,7 +1210,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
     if (updated != null) {
       // 고치기에서 새 도면을 골랐으면 프로젝트 도면으로(10-14, 등록 때와 같다).
       final String? newPlan = updated.remove('__newFloorPlanPath');
-      if (newPlan != null) log['floor_plan_image_path'] = newPlan;
+      if (newPlan != null) {
+        log['floor_plan_image_path'] = newPlan;
+        stampFields(log, ['floor_plan_image_path']);
+      }
       // 대시보드 목록이 붙인 화면용 칸은 빼고 넣는다(10-08: '_projectRef'가 프로젝트 자신을 품어
       // 순환이 생기고, 그 프로젝트 저장·자동 백업이 계속 실패했다).
       stripIssueDisplayKeys(updated);
@@ -1890,6 +1923,12 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                       padding: const EdgeInsets.fromLTRB(16, 14, 8, 6),
                       child: Row(
                         children: [
+                          // 좁은 폰(360dp)에서 칩 셋과 정렬 글이 한 줄을 넘었다(10-14) → 칩은 옆으로 민다.
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
                           ChoiceChip(
                             label: Text("진행중 (${_activeLogs.length})"),
                             selected: !_showCompleted && !_showArchived,
@@ -1904,6 +1943,10 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                             onSelected: (_) => setState(() {
                               _showCompleted = false;
                               _showArchived = false;
+                              // 탭을 바꾸면 "선택해서 통합 보고서"를 끈다(10-14: 진행중에서도
+                              // 체크 상자가 남고 카드가 안 열렸다, 취소는 완료됨 탭에만 있었다).
+                              _selectProjects = false;
+                              _selProjects.clear();
                             }),
                           ),
                           if (_doneLogs.isNotEmpty) ...[
@@ -1922,6 +1965,8 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                               onSelected: (_) => setState(() {
                                 _showCompleted = true;
                                 _showArchived = false;
+                                _selectProjects = false;
+                                _selProjects.clear();
                               }),
                             ),
                           ],
@@ -1941,10 +1986,15 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                               onSelected: (_) => setState(() {
                                 _showCompleted = true;
                                 _showArchived = true;
+                                _selectProjects = false;
+                                _selProjects.clear();
                               }),
                             ),
                           ],
-                          const Spacer(),
+                                ],
+                              ),
+                            ),
+                          ),
                           PopupMenuButton<String>(
                             tooltip: "정렬",
                             initialValue: _sortMode,
@@ -1969,12 +2019,19 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                                     color: tossSubText,
                                   ),
                                   const SizedBox(width: 4),
-                                  Text(
-                                    sortLabels[_sortMode]!,
-                                    style: const TextStyle(
-                                      color: tossSubText,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 96,
+                                    ),
+                                    child: Text(
+                                      sortLabels[_sortMode]!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: tossSubText,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
                                 ],

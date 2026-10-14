@@ -170,6 +170,29 @@ void main() {
     expect(past.sections.first.lines.any((l) => l.contains('예전완료C')), true);
   });
 
+  test('이번 주에 완료한 프로젝트도 금주 실적에 그 주 일지가 남는다(10-14)', () {
+    final now = DateTime.now();
+    final d = buildWeeklyPlanDoc([
+      proj('진행중A'),
+      proj('완료B', status: 'DONE', completedAt: now),
+      proj(
+        '예전완료C',
+        status: 'DONE',
+        completedAt: now.subtract(const Duration(days: 30)),
+      ),
+    ]);
+    final thisWeek = d.sections.firstWhere(
+      (s) => s.heading.contains('진행 및 예정'),
+    );
+    final text = thisWeek.lines.join(' | ');
+    expect(text.contains('완료B'), isTrue);
+    expect(text.contains('진행중A'), isTrue);
+    expect(text.contains('예전완료C'), isFalse);
+    // 차주 계획에는 완료한 프로젝트를 넣지 않는다.
+    final next = d.sections.firstWhere((s) => s.heading.contains('계획'));
+    expect(next.lines.join(' | ').contains('완료B'), isFalse);
+  });
+
   test('all projects done: summary still announces this week completions', () {
     final now = DateTime.now();
     final d = buildWeeklyPlanDoc([

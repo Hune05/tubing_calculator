@@ -127,7 +127,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
     final isCurrent = cur != null && cur['id'] == p['id'];
     final s = phaseStart(p), e = phaseEnd(p);
     final expanded = _expandedPhases.contains(id);
-    final accent = done ? Colors.green : (isCurrent ? tossBlue : tossSubText);
+    final accent = done ? AppColors.ok : (isCurrent ? tossBlue : tossSubText);
 
     return Container(
       key: key,
@@ -231,8 +231,12 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                   ),
                   Checkbox(
                     value: p['isCompleted'] == true || done,
-                    activeColor: Colors.green,
-                    onChanged: (v) {
+                    activeColor: AppColors.ok,
+                    // 세부 일정이 모두 끝나 저절로 완료인 단계는 풀어도 체크가 남아 헷갈렸다(10-14)
+                    // → 잠근다. 다시 열려면 일정 하나를 미완료로 돌린다.
+                    onChanged: done && p['isCompleted'] != true
+                        ? null
+                        : (v) {
                       final list = phasesOf(log);
                       list[index]['isCompleted'] = v == true;
                       list[index]['updatedAt'] = DateTime.now()
@@ -319,7 +323,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
       dense: true,
       leading: Checkbox(
         value: done,
-        activeColor: Colors.green,
+        activeColor: AppColors.ok,
         onChanged: (_) => _toggleSchedule(s),
       ),
       title: Text(
@@ -365,7 +369,11 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
     setPhases(log, list);
     // 이 단계의 일정은 지우지 않고 "단계 없음"으로 돌린다.
     for (final e in (log['schedules'] as List? ?? [])) {
-      if (e is Map && e['phaseId']?.toString() == id) e['phaseId'] = null;
+      if (e is Map && e['phaseId']?.toString() == id) {
+        e['phaseId'] = null;
+        // 고친 시각: 다른 기기의 옛 사본이 지운 단계를 다시 가리키게 하지 않게(10-14).
+        touchItem(e);
+      }
     }
     _changed();
   }
@@ -495,6 +503,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                           list[i]['name'] = name;
                           list[i]['startDate'] = start;
                           list[i]['endDate'] = end;
+                          touchItem(list[i]);
                         }
                       }
                       setPhases(log, list);

@@ -263,7 +263,20 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
         ? null
         : _asDateTime(item['dateTime']);
     final bool isPending = dt == null;
-    final bool isOverdue = !isPending && dt.isBefore(DateTime.now());
+    // 날짜끼리 센다(10-14): 시각으로 빼서 오후에 본 내일 08:00 일정이 "오늘", 오늘 08:00 일정이
+    // 빨간 "기한 초과"로 보였다 — 프로젝트 개요의 D-day와 달랐다.
+    final int days = isPending
+        ? 0
+        : DateTime(dt.year, dt.month, dt.day)
+              .difference(
+                DateTime(
+                  DateTime.now().year,
+                  DateTime.now().month,
+                  DateTime.now().day,
+                ),
+              )
+              .inDays;
+    final bool isOverdue = !isPending && days < 0;
     final Color badgeColor = (isPending || isOverdue)
         ? AppColors.danger
         : tossBlue;
@@ -272,10 +285,8 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
     if (isPending) {
       badgeText = "미정";
     } else if (isOverdue) {
-      final days = DateTime.now().difference(dt).inDays;
-      badgeText = days > 0 ? "$days일 지남" : "기한 초과";
+      badgeText = "${-days}일 지남";
     } else {
-      final days = dt.difference(DateTime.now()).inDays;
       badgeText = days > 0 ? "D-$days" : "오늘";
     }
 

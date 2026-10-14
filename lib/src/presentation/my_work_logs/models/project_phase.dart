@@ -574,15 +574,19 @@ void shiftPhasesAfterDelay(
       if (s['endDate'] != null) {
         s['endDate'] = _shiftDateValue(s['endDate'], days);
       }
+      touchItem(s);
     }
   }
   final phases = phasesOf(log);
   final today = dayOnly(DateTime.now());
   phases[index]['endDate'] = today;
+  touchItem(phases[index]);
   for (int j = index + 1; j < phases.length; j++) {
     final s = phaseStart(phases[j]), e = phaseEnd(phases[j]);
     if (s != null) phases[j]['startDate'] = s.add(Duration(days: days));
     if (e != null) phases[j]['endDate'] = e.add(Duration(days: days));
+    // 고친 시각: 다른 기기의 옛 사본이 날짜를 되돌리지 않게(10-14).
+    touchItem(phases[j]);
   }
   setPhases(log, phases);
 }

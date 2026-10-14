@@ -242,7 +242,7 @@ void main() {
       expect(calls, isEmpty);
       expect(log['status'], 'ACTIVE');
       // 이슈 탭의 이슈 목록이 보인다.
-      expect(find.text('이슈 목록'), findsOneWidget);
+      expect(find.byKey(const Key('issue_stat_open')), findsOneWidget); // 이슈 탭(10-14 개편 뒤 머리)
     });
 
     testWidgets('no open issues: completes without asking', (tester) async {

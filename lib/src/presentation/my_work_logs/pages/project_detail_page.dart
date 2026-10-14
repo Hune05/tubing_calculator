@@ -209,7 +209,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
               value: progress,
               minHeight: 8,
               backgroundColor: tossBg,
-              color: progress >= 1 ? Colors.green : tossBlue,
+              color: progress >= 1 ? AppColors.ok : tossBlue,
             ),
           ),
           const SizedBox(height: 10),
@@ -337,7 +337,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                         tooltip: "전화",
                         icon: const Icon(
                           Icons.call_rounded,
-                          color: Colors.green,
+                          color: AppColors.ok,
                         ),
                         onPressed: () => _call(list[i]['phone'].toString()),
                       ),
@@ -461,6 +461,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     } else {
       log['workType'] = picked;
     }
+    // 다른 기기의 옛 사본이 저장해도 덮이지 않게 고친 시각을 남긴다(10-14).
+    stampFields(log, ['workType']);
     _changed();
   }
 
@@ -556,6 +558,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         'lesson': lesson.text.trim(),
         'updatedAt': DateTime.now(),
       };
+      stampFields(log, ['retro']);
       _changed();
     }
   }
@@ -668,7 +671,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                     : diff > 0
                     ? "$diff일 지연"
                     : "${-diff}일 단축",
-                color: diff > 0 ? warningRed : Colors.green.shade700,
+                color: diff > 0 ? warningRed : AppColors.ok,
               ),
             if (phaseLines.isNotEmpty) ...[
               const Divider(height: 20),
@@ -1126,7 +1129,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           const SizedBox(width: 8),
           stat("입고 지연", 'late', warningRed),
           const SizedBox(width: 8),
-          stat("입고 완료", 'done', Colors.green),
+          stat("입고 완료", 'done', AppColors.ok),
         ],
       ),
       const SizedBox(height: 6),
@@ -1280,6 +1283,8 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
     for (final r in targets) {
       r['locked'] = true;
       r['lockedAt'] = now;
+      // 고친 시각: 다른 기기의 옛 사본이 확정을 풀지 않게(10-14).
+      touchItem(r);
     }
     setState(() {
       _selectMode = false;

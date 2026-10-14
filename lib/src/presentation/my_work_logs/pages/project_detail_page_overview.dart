@@ -178,7 +178,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
             ),
             label: Text(_isActive ? "프로젝트 완료 처리" : "다시 진행중으로"),
             style: TextButton.styleFrom(
-              foregroundColor: _isActive ? Colors.green : tossBlue,
+              foregroundColor: _isActive ? AppColors.ok : tossBlue,
             ),
           ),
         ),
@@ -401,7 +401,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                 ),
                 decoration: BoxDecoration(
                   color: phaseIsDone(log, phases[i])
-                      ? Colors.green.withValues(alpha: 0.14)
+                      ? AppColors.ok.withValues(alpha: 0.14)
                       : (cur != null && cur['id'] == phases[i]['id']
                             ? tossBlue
                             : tossBg),
@@ -413,7 +413,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                     fontWeight: FontWeight.w800,
                     fontSize: 12,
                     color: phaseIsDone(log, phases[i])
-                        ? Colors.green.shade700
+                        ? AppColors.ok
                         : (cur != null && cur['id'] == phases[i]['id']
                               ? pureWhite
                               : tossSubText),

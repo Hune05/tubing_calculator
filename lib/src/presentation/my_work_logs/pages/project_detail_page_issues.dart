@@ -317,6 +317,8 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
     } else {
       log['reportHeader'] = {'company': c, 'manager': m, 'logoB64': ?logo};
     }
+    // 다른 기기의 옛 사본이 저장해도 덮이지 않게 고친 시각을 남긴다(10-14).
+    stampFields(log, ['reportHeader']);
     _changed();
   }
 
@@ -652,6 +654,8 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       }
     }
     log['contacts'] = list;
+    // 다른 기기의 옛 사본이 저장해도 덮이지 않게 고친 시각을 남긴다(10-14).
+    stampFields(log, ['contacts']);
     _changed();
   }
 

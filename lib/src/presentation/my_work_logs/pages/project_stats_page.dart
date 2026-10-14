@@ -204,7 +204,8 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
           _Row(
             log['name']?.toString() ?? '이름 없음',
             m,
-            "${rs.length}일 · ${formatManDays(m)}인·일",
+            // 같은 날 일지가 둘이어도 하루로(위 "작업일수"와 같은 셈, 10-14).
+            "${workDaysOf(rs)}일 · ${formatManDays(m)}인·일",
             "",
           ),
         );
