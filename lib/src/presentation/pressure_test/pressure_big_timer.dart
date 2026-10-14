@@ -23,6 +23,7 @@ class PtBigTimerData {
   final DateTime? end;
   final double holdMin;
   final String line; // 라인 번호(없으면 빈 글)
+  final String? design; // 설계압력 글
   final String? target; // 시험압력 글
   final String? startP; // 시작 압력 글(10-15 사용자: 직전 대신 시작 압력)
   final String? startSub; // 시작 시각·온도
@@ -35,6 +36,7 @@ class PtBigTimerData {
     required this.end,
     required this.holdMin,
     this.line = '',
+    this.design,
     this.target,
     this.startP,
     this.startSub,
@@ -196,13 +198,24 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
         ),
       ),
     );
-    final infos = Row(
+    // 2 × 2: 위 줄 설계·시험압력(정해진 값), 아래 줄 시작 압력·강하(잰 값). 10-15 사용자: 설계·시험압력도 보이게.
+    final infos = Column(
       children: [
-        info('시험압력', d.target),
-        const SizedBox(width: 8),
-        info('시작 압력', d.startP, sub: d.startSub, key: const Key('pt_big_start_p')),
-        const SizedBox(width: 8),
-        info('강하', d.drop, sub: d.drop == null || d.lastAt == null ? null : '시작 → ${ptHm(d.lastAt!)} 측정', key: const Key('pt_big_drop')),
+        Row(
+          children: [
+            info('설계압력', d.design, key: const Key('pt_big_design')),
+            const SizedBox(width: 8),
+            info('시험압력', d.target, key: const Key('pt_big_target')),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            info('시작 압력', d.startP, sub: d.startSub, key: const Key('pt_big_start_p')),
+            const SizedBox(width: 8),
+            info('강하', d.drop, sub: d.drop == null || d.lastAt == null ? null : '시작 → ${ptHm(d.lastAt!)} 측정', key: const Key('pt_big_drop')),
+          ],
+        ),
       ],
     );
 

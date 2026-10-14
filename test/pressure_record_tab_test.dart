@@ -1149,6 +1149,8 @@ void main() {
     await reading(tester, '12', '20');
     expect(textOf(tester, 'pt_big_elapsed'), '00:00');
     expect(textOf(tester, 'pt_big_start_p'), '12 bar');
+    expect(textOf(tester, 'pt_big_design'), '10 bar');
+    expect(textOf(tester, 'pt_big_target'), '12 bar');
     expect(find.text('09:00 · 20°C'), findsOneWidget);
     expect(alarm.scheduled.length, 1);
 

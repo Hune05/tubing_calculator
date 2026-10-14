@@ -330,7 +330,9 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final first = reads.isEmpty ? null : reads.first;
     final last = reads.isEmpty ? null : reads.last;
     final target = _recordTestKpa();
+    final design = _pg._kpa(_pg._design);
     return PtBigTimerData(
+      design: design == null || design <= 0 ? null : _p4(design),
       start: _rStart,
       end: _rEnd,
       holdMin: _requiredHold,
