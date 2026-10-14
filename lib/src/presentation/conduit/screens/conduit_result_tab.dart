@@ -161,7 +161,10 @@ class _ConduitResultTabState extends State<ConduitResultTab>
               .join(', ');
           // 기록이 이틀 남으므로 어느 규격 계산인지 제목에 붙인다(규격이 바뀌면 따로 쌓인다).
           final size =
-              [currentSettings['conduitType'], currentSettings['conduitSize']]
+              [
+                    currentSettings['conduitType'],
+                    conduitSizeLabel(currentSettings['conduitSize']),
+                  ]
                   .map((v) => (v ?? '').toString().trim())
                   .where((v) => v.isNotEmpty)
                   .join(' ');

@@ -1095,6 +1095,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             _availableConduitSizes,
             _conduitSize,
             helpText: "작업할 전선관의 호칭(KS, 16·22·28·36 …)을 선택하십시오. 호칭은 외경이 아닙니다.",
+            itemLabel: conduitSizeLabel,
             (v) {
               if (v != null) {
                 _changeCombo(() => _conduitSize = v);
@@ -1531,8 +1532,11 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     String value,
     ValueChanged<String?> onChanged, {
     String? helpText,
+    // 보여 줄 글(값은 그대로). 규격 '22mm'를 현장 말 '22C'로 적을 때 쓴다(10-14).
+    String Function(String)? itemLabel,
   }) {
     final safeValue = items.contains(value) ? value : items.first;
+    String show(String e) => itemLabel == null ? e : itemLabel(e);
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       title: _buildLabelWithHelp(label, helpText),
@@ -1559,14 +1563,22 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             for (final e in items)
               Align(
                 alignment: Alignment.centerRight,
-                child: Text(e, overflow: TextOverflow.ellipsis, maxLines: 1),
+                child: Text(
+                  show(e),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
           ],
           items: items
               .map(
                 (e) => DropdownMenuItem(
                   value: e,
-                  child: Text(e, overflow: TextOverflow.ellipsis, maxLines: 1),
+                  child: Text(
+                    show(e),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
                 ),
               )
               .toList(),

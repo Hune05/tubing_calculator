@@ -280,6 +280,17 @@ List<String> conduitMarkWarnings(
   return out;
 }
 
+/// 규격 글을 현장 말로: '22mm' → '22C'(한국 현장은 호칭 뒤에 C를 붙여 부른다. 10-14 사용자).
+/// 저장 값은 그대로 '22mm'(제원 표·보관함 키)이고 보여 줄 때만 바꾼다. 다른 모양은 그대로.
+String conduitSizeLabel(Object? size) {
+  final s = (size ?? '').toString().trim();
+  final m = RegExp(
+    r'^(\d+(?:\.\d+)?)\s*mm$',
+    caseSensitive: false,
+  ).firstMatch(s);
+  return m == null ? s : '${m.group(1)}C';
+}
+
 /// 3D 그림·관끼리 닿음 점검에 쓸 관 바깥지름(mm).
 /// 후강(Rigid)의 "22mm"는 지름이 아니라 호칭이라, 호칭 숫자를 그대로 지름으로 그리면 관이
 /// 가늘게 그려진다(22 대신 실제 26.5). 후강일 때는 KS C 8401 표([kThickConduitOd])로 실제

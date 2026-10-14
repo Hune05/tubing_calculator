@@ -176,7 +176,7 @@ FieldMarkingData computeConduitFieldData() {
     _ => '수동',
   };
   final String specLine =
-      '${settings['conduitType'] ?? ''} ${settings['conduitSize'] ?? ''} · $typeName · '
+      '${settings['conduitType'] ?? ''} ${conduitSizeLabel(settings['conduitSize'])} · $typeName · '
       '${conduitCenterRef(settings) ? '관 중심' : '관 등'} · ${conduitMeasureSetup(settings)}';
 
   return FieldMarkingData(
@@ -212,7 +212,7 @@ List<(String, String)> conduitMarkingSheetSpecs(Map<String, dynamic> s) {
   final type = s['benderType']?.toString() ?? 'hand';
   return [
     ('벤더', '${types[type] ?? type} · ${s['manufacturer'] ?? ''}'),
-    ('규격', '${s['conduitType'] ?? ''} ${s['conduitSize'] ?? ''}'),
+    ('규격', '${s['conduitType'] ?? ''} ${conduitSizeLabel(s['conduitSize'])}'),
     if (type == 'ram')
       ('슈 가운데(90°)', '${n(ramShoeCenterOffset(90, d('gain')))} mm')
     else
