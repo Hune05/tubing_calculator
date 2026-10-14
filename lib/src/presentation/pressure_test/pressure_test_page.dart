@@ -23,6 +23,7 @@ import 'package:tubing_calculator/src/core/utils/home_widget_sync.dart';
 
 import 'hold_alarm.dart';
 import 'pressure_widget.dart';
+import 'pressure_big_timer.dart';
 import 'pressure_calc.dart';
 import 'pressure_units.dart';
 import 'test_record.dart';

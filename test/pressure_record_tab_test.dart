@@ -1136,4 +1136,44 @@ void main() {
       '실제 시험압력이 최소 시험압력 15 bar보다 낮습니다. 시험압력 탭에서 확인하십시오.',
     );
   });
+
+  testWidgets('크게 보기(10-15): 큰 시계·남은 시간, 여기서 시작·측정 추가·종료, 완료되면 알람 끄기', (tester) async {
+    await setupPneumatic(tester);
+    await type(tester, 'pt_r_line', 'P-1001');
+    await tapKey(tester, 'pt_r_big');
+    expect(find.byKey(const Key('pt_big_elapsed')), findsOneWidget);
+    expect(find.text('P-1001'), findsOneWidget);
+    expect(textOf(tester, 'pt_big_remain'), '유지시간 10분');
+    await tester.tap(find.byKey(const Key('pt_big_start')));
+    await tester.pumpAndSettle();
+    await reading(tester, '12', '20');
+    expect(textOf(tester, 'pt_big_elapsed'), '00:00');
+    expect(alarm.scheduled.length, 1);
+
+    now = DateTime(2026, 9, 26, 9, 4, 0);
+    await tester.pump(const Duration(seconds: 1));
+    expect(textOf(tester, 'pt_big_elapsed'), '04:00');
+    expect(textOf(tester, 'pt_big_remain'), '남은 06:00');
+
+    await tester.tap(find.byKey(const Key('pt_big_add')));
+    await tester.pumpAndSettle();
+    await reading(tester, '11.98');
+    expect(textOf(tester, 'pt_big_drop'), contains('0.02'));
+
+    now = DateTime(2026, 9, 26, 9, 11, 0);
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('유지시간 완료'), findsOneWidget);
+    final cancels = alarm.cancels;
+    await tester.tap(find.byKey(const Key('pt_big_alarm_off')));
+    await tester.pumpAndSettle();
+    expect(alarm.cancels, cancels + 1);
+
+    await tester.tap(find.byKey(const Key('pt_big_end')));
+    await tester.pumpAndSettle();
+    await reading(tester, '11.97');
+    expect(find.text('종료 · 유지시간 채움'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('pt_big_close')));
+    await tester.pumpAndSettle();
+    expect(textOf(tester, 'pt_r_status'), '종료');
+  });
 }

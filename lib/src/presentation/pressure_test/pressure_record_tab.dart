@@ -324,6 +324,44 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     await _syncAlarm();
   }
 
+  /// 크게 보기에 그릴 값(1초마다 다시 읽는다).
+  PtBigTimerData _bigData() {
+    final reads = _rReads;
+    final first = reads.isEmpty ? null : reads.first;
+    final last = reads.isEmpty ? null : reads.last;
+    final target = _recordTestKpa();
+    return PtBigTimerData(
+      start: _rStart,
+      end: _rEnd,
+      holdMin: _requiredHold,
+      line: _rLine.text,
+      target: target == null ? null : _p4(target),
+      last: last == null ? null : _p4(last.kpa),
+      lastAt: last?.at,
+      drop: first != null && last != null && reads.length > 1 ? _pg._drop(first.kpa - last.kpa) : null,
+      reads: reads.length,
+    );
+  }
+
+  /// 타이머 크게 보기. 시작·측정 추가·종료 창과 알람은 이 탭의 것을 그대로 쓴다.
+  Future<void> _openBigTimer() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PtBigTimerPage(
+          data: _bigData,
+          onStart: _startHold,
+          onAdd: _addReading,
+          onEnd: _endHold,
+          onStopAlarm: _stopRinging,
+          now: _now,
+          // 시험(알람을 바꿔 넣은 경우)에서는 화면 꺼짐 방지·시스템 막대를 건드리지 않는다.
+          system: widget.holdAlarm == null,
+        ),
+      ),
+    );
+    if (mounted) setState(() {});
+  }
+
   Future<void> _addReading() async {
     final last = _rReads.isEmpty ? null : _rReads.last;
     final res = await _askReading(
@@ -1034,7 +1072,16 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     return _card(
       key: const Key('pt_r_timer'),
       children: [
-        _cardTitle('유지시간 타이머'),
+        _cardTitle(
+          '유지시간 타이머',
+          // 크게 보기(10-15): 벤딩 현장 탭 "한 단계씩"처럼 한 화면 가득.
+          trailing: TextButton.icon(
+            key: const Key('pt_r_big'),
+            onPressed: _openBigTimer,
+            icon: const Icon(Icons.open_in_full_rounded, size: 18),
+            label: const Text('크게 보기'),
+          ),
+        ),
         const SizedBox(height: 6),
         _HoldClock(start: s, end: e, holdMin: _requiredHold, now: _now),
         if (s != null)
