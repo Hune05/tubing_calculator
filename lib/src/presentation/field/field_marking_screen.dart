@@ -2807,7 +2807,7 @@ class _TapePainter extends CustomPainter {
     // ── 관: 둥근 관처럼(위 밝고 아래 어두운 음영 + 하이라이트 + 그림자). 10-14 사용자 "현실성 있게".
     final pipeRect = RRect.fromRectAndRadius(
       Rect.fromLTWH(padLeft, pipeTop, pipeLen, pipeH),
-      Radius.circular(pipeH / 2),
+      const Radius.circular(1),
     );
     canvas.drawRRect(
       pipeRect.shift(const Offset(0, 2)),
@@ -2868,7 +2868,7 @@ class _TapePainter extends CustomPainter {
       }
       final rest = RRect.fromRectAndRadius(
         Rect.fromLTWH(pipeRight + 4, pipeTop, 44, pipeH),
-        Radius.circular(pipeH / 2),
+        const Radius.circular(1),
       );
       final restPaint = Paint()
         ..style = PaintingStyle.stroke
