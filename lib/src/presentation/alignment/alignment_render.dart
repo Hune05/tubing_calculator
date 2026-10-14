@@ -392,16 +392,34 @@ void _rod(Canvas c, Offset a, Offset b, Color col, double w) {
 
 class AlignSetupRenderPainter extends CustomPainter {
   final AlignMethod method;
-  AlignSetupRenderPainter(this.method);
+
+  /// 지금 넣고 있는 거리 번호(0~3, 10-15 연동). 그 치수선만 진하게, 나머지는 옅게.
+  final int? highlight;
+
+  /// 넣은 거리 값(mm 글). 치수선 이름 뒤에 붙는다. 비었으면 이름만.
+  final List<String?> values;
+
+  /// 작게(위에 붙여 두는 그림, 10-15): 치수선은 강조한 것 하나만.
+  final bool compact;
+  AlignSetupRenderPainter(
+    this.method, {
+    this.highlight,
+    this.values = const [],
+    this.compact = false,
+  });
 
   static const double _dimsH = 122;
   static double heightFor(double w) => math.min(w * 0.40, 440.0) + _dimsH;
+
+  /// 작은 그림 높이(치수선 한 줄).
+  static double compactHeightFor(double w) => math.min(w * 0.30, 220.0) + 40;
 
   @override
   void paint(Canvas canvas, Size size) {
     final reverse = method == AlignMethod.reverse;
     const ya = AlignGeo.ya, top = ya + AlignGeo.hubR;
-    final m = _Map.fit(Rect.fromLTWH(8, 8, size.width - 16, size.height - 16 - _dimsH), top: false, v0: 0, v1: ya + 2.95);
+    final dimsH = compact ? 40.0 : _dimsH;
+    final m = _Map.fit(Rect.fromLTWH(8, 8, size.width - 16, size.height - 16 - dimsH), top: false, v0: 0, v1: ya + 2.95);
     _paintSide(canvas, m);
     final dialR = (m.s * 0.42).clamp(12.0, 44.0);
     final rodW = math.max(3.0, m.s * 0.1);
@@ -469,12 +487,26 @@ class AlignSetupRenderPainter extends CustomPainter {
     _txt(canvas, '앞발', m.p(AlignGeo.front, 0) + const Offset(0, 11), AppColors.textSub);
     _txt(canvas, '뒷발', m.p(AlignGeo.rear, 0) + const Offset(0, 11), AppColors.textSub);
     for (var i = 0; i < dims.length; i++) {
-      final (x0, x1, label, col) = dims[i];
-      final ly = size.height - _dimsH + 22 + i * 26.0;
+      if (compact && highlight != i) continue;
+      final (x0, x1, label0, col0) = dims[i];
+      // 연동(10-15): 넣은 값을 이름 뒤에, 넣고 있는 칸은 진하게·나머지는 옅게.
+      final v = i < values.length ? values[i] : null;
+      final label = v == null || v.isEmpty ? label0 : '$label0  $v mm';
+      final on = highlight == i;
+      final col = highlight == null || on ? col0 : col0.withValues(alpha: 0.35);
+      final ly = compact ? size.height - dimsH + 20 : size.height - dimsH + 22 + i * 26.0;
+      if (on) {
+        final f0 = featureAt(x0), f1 = featureAt(x1);
+        final l = math.min(f0.dx, f1.dx), r = math.max(f0.dx, f1.dx);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromLTRB(l - 6, ly - 11, r + 6, ly + 11), const Radius.circular(8)),
+          Paint()..color = AppColors.brand.withValues(alpha: 0.12),
+        );
+      }
       final f0 = featureAt(x0), f1 = featureAt(x1);
       _dashLine(canvas, f0, Offset(f0.dx, ly + 6), ext);
       _dashLine(canvas, f1, Offset(f1.dx, ly + 6), ext);
-      final p = Paint()..color = col..strokeWidth = 2..strokeCap = StrokeCap.round;
+      final p = Paint()..color = col..strokeWidth = on ? 3 : 2..strokeCap = StrokeCap.round;
       final l = math.min(f0.dx, f1.dx), r = math.max(f0.dx, f1.dx);
       canvas.drawLine(Offset(l, ly), Offset(r, ly), p);
       for (final (x, sgn) in [(l, 1.0), (r, -1.0)]) {
@@ -496,7 +528,11 @@ class AlignSetupRenderPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant AlignSetupRenderPainter old) => old.method != method;
+  bool shouldRepaint(covariant AlignSetupRenderPainter old) =>
+      old.method != method ||
+      old.highlight != highlight ||
+      old.compact != compact ||
+      old.values.join('|') != values.join('|');
 }
 
 // ─────────────────────────── 결과: 옆에서 본 그림 ───────────────────────────

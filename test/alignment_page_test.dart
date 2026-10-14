@@ -29,7 +29,17 @@ Future<void> _open(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+// 10-15 단계 넷(준비·측정·결과·심 기록)으로 나눔: 칸이 있는 단계로 먼저 간다.
+Future<void> _step(WidgetTester tester, int i) async {
+  await tester.tap(find.byKey(Key('align_step_$i')));
+  await tester.pumpAndSettle();
+}
+
+int _stepOf(String key) =>
+    RegExp(r'^[abrf](90|180|270)$').hasMatch(key) ? 1 : 0;
+
 Future<void> _type(WidgetTester tester, String key, String v) async {
+  await _step(tester, _stepOf(key));
   await tester.enterText(find.byKey(Key('align_$key')), v);
   await tester.pump();
 }
@@ -50,6 +60,12 @@ Future<void> _fillReverse(WidgetTester tester) async {
 
 String _text(WidgetTester tester, String key) => tester.widget<Text>(find.byKey(Key(key))).data!;
 
+/// 결과 단계의 글.
+Future<String> _result(WidgetTester tester, String key) async {
+  await _step(tester, 2);
+  return _text(tester, key);
+}
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -60,11 +76,12 @@ void main() {
 
   testWidgets('처음에는 안내만 나오고, 값을 다 넣으면 결과가 나온다', (tester) async {
     await _open(tester);
+    await _step(tester, 2);
     expect(find.byKey(const Key('align_hint')), findsOneWidget);
     await _type(tester, 'rpm', '1800');
     await _fillReverse(tester);
+    expect(await _result(tester, 'align_shim_front'), '심 빼기 0.14 mm');
     expect(find.byKey(const Key('align_hint')), findsNothing);
-    expect(_text(tester, 'align_shim_front'), '심 빼기 0.14 mm');
     expect(_text(tester, 'align_shim_rear'), '심 빼기 0.21 mm');
     expect(_text(tester, 'align_move_front'), '옆 그대로');
     expect(_text(tester, 'align_offsets'), contains('0.075 mm'));
@@ -74,7 +91,6 @@ void main() {
 
   testWidgets('시계 그림과 측정 그림이 나오고, 입력칸에 그림과 같은 번호가 붙는다', (tester) async {
     await _open(tester);
-    expect(find.byKey(const Key('align_clock')), findsOneWidget);
     expect(find.byKey(const Key('align_setup_diagram')), findsOneWidget);
     expect(find.text('① A·B 두 접촉면 사이'), findsOneWidget);
     expect(find.text('④ A면에서 모터 뒷발까지'), findsOneWidget);
@@ -83,6 +99,8 @@ void main() {
     expect(find.byKey(const Key('align_setup_diagram')), findsOneWidget);
     expect(find.text('① 림면에서 커플링 중심까지'), findsOneWidget);
     expect(find.text('④ 페이스가 닿는 반지름'), findsOneWidget);
+    await _step(tester, 1);
+    expect(find.byKey(const Key('align_clock')), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -90,12 +108,15 @@ void main() {
     await _open(tester);
     await _type(tester, 'rpm', '1800');
     await _fillReverse(tester);
+    await _step(tester, 2);
     expect(find.text('불합격: 평행 어긋남 초과'), findsOneWidget);
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(milliseconds: 100));
     await _open(tester);
+    await _step(tester, 1);
     expect(tester.widget<TextField>(find.byKey(const Key('align_a180'))).controller!.text, '-0.20');
+    await _step(tester, 2);
     expect(find.text('불합격: 평행 어긋남 초과'), findsOneWidget);
   });
 
@@ -104,16 +125,21 @@ void main() {
     await _type(tester, 'rpm', '1800');
     await _fillReverse(tester);
     // 평행 0.075 > 0.05 → 초과
+    await _step(tester, 2);
     expect(find.text('불합격: 평행 어긋남 초과'), findsOneWidget);
+    await _step(tester, 0);
     await tester.enterText(find.byKey(const Key('align_tol_offset')), '0.10');
     await tester.pump();
+    await _step(tester, 2);
     expect(find.text('합격: 허용오차 이내입니다'), findsOneWidget);
     // 화면을 다시 열면 고친 기준 0.10이 그대로
     await tester.pumpWidget(const SizedBox());
     await _open(tester);
     await _type(tester, 'rpm', '1800');
     await _fillReverse(tester);
+    await _step(tester, 0);
     expect(tester.widget<TextField>(find.byKey(const Key('align_tol_offset'))).controller!.text, '0.10');
+    await _step(tester, 2);
     expect(find.text('합격: 허용오차 이내입니다'), findsOneWidget);
   });
 
@@ -121,6 +147,10 @@ void main() {
     await _open(tester);
     await _fillReverse(tester);
     await _type(tester, 'a270', '0.30'); // 3시 −0.10 + 9시 0.30 ≠ 6시 −0.20
+    // 측정 단계에서 바로 알린다(10-15).
+    await _step(tester, 1);
+    expect(find.textContaining('검산 안 맞음'), findsOneWidget);
+    await _step(tester, 2);
     expect(find.byKey(const Key('align_closure')), findsOneWidget);
   });
 
@@ -128,6 +158,7 @@ void main() {
     await _open(tester);
     await _fillReverse(tester);
     await _type(tester, 'rear', '100');
+    await _step(tester, 2);
     expect(find.text('뒷발이 앞발보다 더 멀어야 합니다'), findsOneWidget);
     expect(find.byKey(const Key('align_shim_front')), findsNothing);
   });
@@ -136,6 +167,7 @@ void main() {
     await _open(tester);
     await tester.tap(find.text('림·페이스'));
     await tester.pumpAndSettle();
+    await _step(tester, 1);
     expect(find.byKey(const Key('align_r180')), findsOneWidget);
     expect(find.byKey(const Key('align_a180')), findsNothing);
     // 위아래로 0.30 평행 어긋남만(기울기 0): 림 6시 = −0.60, 3시·9시 = −0.30, 페이스는 전부 0
@@ -149,7 +181,7 @@ void main() {
     await _type(tester, 'coupR', '40');
     await _type(tester, 'front', '120');
     await _type(tester, 'rear', '420');
-    expect(_text(tester, 'align_shim_front'), '심 빼기 0.30 mm');
+    expect(await _result(tester, 'align_shim_front'), '심 빼기 0.30 mm');
     expect(_text(tester, 'align_shim_rear'), '심 빼기 0.30 mm');
   });
 
@@ -162,11 +194,12 @@ void main() {
     await _type(tester, 'coupB', '100');
     await _type(tester, 'front', '150');
     await _type(tester, 'rear', '450');
-    expect(_text(tester, 'align_shim_front'), '심 그대로');
+    expect(await _result(tester, 'align_shim_front'), '심 그대로');
+    await _step(tester, 0);
     await tester.tap(find.byKey(const Key('align_target_toggle')));
     await tester.pumpAndSettle();
     await _type(tester, 'targetY', '-0.20');
-    expect(_text(tester, 'align_shim_front'), '심 빼기 0.20 mm');
+    expect(await _result(tester, 'align_shim_front'), '심 빼기 0.20 mm');
   });
 
   testWidgets('기록 남기기: 저장되고 장비 대장 이력에 축 정렬이 붙는다(교정 기한은 그대로)', (tester) async {
@@ -182,6 +215,7 @@ void main() {
     await _open(tester);
     await _type(tester, 'rpm', '1800');
     await _fillReverse(tester);
+    await _step(tester, 3);
     await tester.tap(find.byKey(const Key('align_save')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('align_stage_after')));
@@ -275,6 +309,9 @@ void main() {
     await tester.tap(find.text('림·페이스'));
     await tester.pumpAndSettle();
     expect(find.text('림·페이스 방식'), findsOneWidget);
+    await _step(tester, 1);
+    await tester.tap(find.byKey(const Key('align_dial_guide_tile')));
+    await tester.pumpAndSettle();
     expect(find.byKey(const Key('align_dial_guide')), findsOneWidget);
   });
 
@@ -283,6 +320,7 @@ void main() {
     await _type(tester, 'rpm', '1800');
     await _fillReverse(tester); // 앞발 빼기 0.14, 뒷발 빼기 0.21
     // 1회차: 계산 값이 미리 들어 있다 → 뒷발 오른쪽만 실제 값으로 고친다
+    await _step(tester, 2);
     await tester.tap(find.byKey(const Key('align_round_add')));
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(find.byKey(const Key('align_done_frontLeft'))).controller!.text, '-0.14');
@@ -291,8 +329,8 @@ void main() {
     await tester.enterText(find.byKey(const Key('align_done_note')), '0.2 심 한 장 뺌');
     await tester.tap(find.byKey(const Key('align_done_ok')));
     await tester.pumpAndSettle();
-    expect(_text(tester, 'align_total_frontLeft'), '−0.14 mm');
-    expect(_text(tester, 'align_total_rearRight'), '−0.20 mm');
+    expect(_text(tester, 'align_total_frontLeft'), '앞발 왼쪽 −0.14 mm');
+    expect(_text(tester, 'align_total_rearRight'), '뒷발 오른쪽 −0.20 mm');
     expect(_text(tester, 'align_round_line_0'), contains('뒷발 심 왼 −0.21 / 오른 −0.20'));
 
     // 화면을 나갔다 와도 회차가 남아 있다
@@ -306,6 +344,7 @@ void main() {
     await _type(tester, 'b180', '0.02');
     await _type(tester, 'b90', '0.01');
     await _type(tester, 'b270', '0.01');
+    await _step(tester, 2);
     await tester.tap(find.byKey(const Key('align_round_add')));
     await tester.pumpAndSettle();
     for (final k in ['frontLeft', 'frontRight']) {
@@ -316,8 +355,8 @@ void main() {
     }
     await tester.tap(find.byKey(const Key('align_done_ok')));
     await tester.pumpAndSettle();
-    expect(_text(tester, 'align_total_frontLeft'), '−0.16 mm');
-    expect(_text(tester, 'align_total_rearLeft'), '−0.21 mm');
+    expect(_text(tester, 'align_total_frontLeft'), '앞발 왼쪽 −0.16 mm');
+    expect(_text(tester, 'align_total_rearLeft'), '뒷발 왼쪽 −0.21 mm');
 
     // 기록 남기기: 회차가 같이 저장되고(정렬 후로), 작업 중 회차는 비워진다
     await tester.tap(find.byKey(const Key('align_save')));

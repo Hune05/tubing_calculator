@@ -31,7 +31,14 @@ void _chip(Canvas canvas, String title, String sub, Offset at0, Color color, {in
 }
 
 /// 펌프 쪽에 서서 모터 쪽을 본 커플링 끝. 다이얼을 12시에서 0으로 맞추고 3시(오른쪽) → 6시(아래) → 9시(왼쪽)로 돌려 읽는다.
+/// 10-15 연동: [values]를 주면 바늘이 넣은 값(3·6·9시)을 가리키고, [highlight](0=12시 1=3시 2=6시 3=9시)
+/// 자리를 강조한다. 값이 없으면 읽은 예(0, −0.10, −0.20, −0.10)를 보인다.
 class AlignClockPainter extends CustomPainter {
+  final List<double?>? values; // [3시, 6시, 9시]
+  final int? highlight;
+  final String? title; // 예: "다이얼 A"
+  AlignClockPainter({this.values, this.highlight, this.title});
+
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
@@ -73,14 +80,32 @@ class AlignClockPainter extends CustomPainter {
     }
 
     // ── 네 자리의 다이얼(같은 다이얼이 도는 것): 읽은 예와 같은 값
+    final vs = values;
+    String sub(String place, double? v) => vs == null
+        ? place
+        : (v == null ? '$place · —' : '$place · ${v > 0 ? '+' : ''}${v.toStringAsFixed(2)}');
     final spots = [
-      (const Offset(0, -1), 0.0, '12시', '위 · 0 맞춤', _dialA),
-      (const Offset(1, 0), -0.10, '3시', '오른쪽', AppColors.brand),
-      (const Offset(0, 1), -0.20, '6시', '아래', AppColors.brand),
-      (const Offset(-1, 0), -0.10, '9시', '왼쪽', AppColors.brand),
+      (const Offset(0, -1), 0.0, '12시', vs == null ? '위 · 0 맞춤' : '0 맞춤', _dialA),
+      (const Offset(1, 0), vs == null ? -0.10 : (vs[0] ?? 0), '3시', sub('오른쪽', vs?[0]), AppColors.brand),
+      (const Offset(0, 1), vs == null ? -0.20 : (vs[1] ?? 0), '6시', sub('아래', vs?[1]), AppColors.brand),
+      (const Offset(-1, 0), vs == null ? -0.10 : (vs[2] ?? 0), '9시', sub('왼쪽', vs?[2]), AppColors.brand),
     ];
-    for (final (u, v, title, sub, col) in spots) {
+    if (title != null) {
+      final tp = TextPainter(
+        text: TextSpan(text: title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.text)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, const Offset(6, 4));
+    }
+    for (var i = 0; i < spots.length; i++) {
+      final (u, v, title, sub, col0) = spots[i];
+      final on = highlight == i;
+      final col = highlight == null || on ? col0 : col0.withValues(alpha: 0.45);
       final dc = c + u * dist;
+      if (on) {
+        canvas.drawCircle(dc, rd * 1.35, Paint()..color = AppColors.brand.withValues(alpha: 0.14));
+        canvas.drawCircle(dc, rd * 1.35, Paint()..style = PaintingStyle.stroke..strokeWidth = 2..color = AppColors.brand);
+      }
       paintDialGauge(canvas, dc, rd, value: v, stemTo: c + u * (R * 1.02), tag: col, numbers: false);
       if (u.dy != 0) {
         _chip(canvas, title, sub, dc + Offset(0, u.dy * (rd + 17)), col);
@@ -92,5 +117,8 @@ class AlignClockPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant AlignClockPainter old) => false;
+  bool shouldRepaint(covariant AlignClockPainter old) =>
+      old.highlight != highlight ||
+      old.title != title ||
+      (old.values ?? const []).join('|') != (values ?? const []).join('|');
 }
