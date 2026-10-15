@@ -77,6 +77,70 @@ bool tooFlatForRotation(double x, double y, double z, {double maxLean = 35}) {
   return screenUp > 90 - maxLean;
 }
 
+/// 화면이 세로에서 앞뒤로 기운 각(0~90°). 둥근 관에 옆면을 대면 폰이 굴러 기울기 쉽다.
+double screenLean(double x, double y, double z) =>
+    axisElevation(z, x, y, z).abs();
+
+/// 폰이 [screenLean]만큼 기울면 화면 안 돌림이 실제 θ 대신 atan(tanθ·cosφ)로 보인다.
+/// 45°에서 10° 기울면 0.4°, 15°면 1°, 30°면 4° 틀린다(10-15 점검).
+/// [kLeanWarn]을 넘으면 주의, [kLeanBlock]을 넘으면 기준을 못 잡게 한다.
+const double kLeanWarn = 10;
+const double kLeanBlock = 20;
+
+/// 최근 센서 값을 시각(ms)과 함께 잠깐 들고 있는다(각도기).
+/// 단추를 누르는 순간의 손 떨림 대신 누르기 직전 가만히 있던 값을 쓰고,
+/// 폰이 멈춰 있는지(자동 고정)를 본다.
+class TiltHistory {
+  final int keepMs;
+  final List<(int, double, double, double)> _items = [];
+  TiltHistory({this.keepMs = 2500});
+
+  void add(int ms, double x, double y, double z) {
+    _items.add((ms, x, y, z));
+    while (_items.isNotEmpty && _items.first.$1 < ms - keepMs) {
+      _items.removeAt(0);
+    }
+  }
+
+  void clear() => _items.clear();
+
+  /// [nowMs]보다 [skipMs] 앞에서 [spanMs] 동안 값의 평균. 그동안 값이 없으면 null.
+  ({double x, double y, double z})? averageBefore(
+    int nowMs, {
+    int skipMs = 300,
+    int spanMs = 500,
+  }) {
+    final to = nowMs - skipMs, from = to - spanMs;
+    double sx = 0, sy = 0, sz = 0;
+    int n = 0;
+    for (final (t, x, y, z) in _items) {
+      if (t < from || t > to) continue;
+      sx += x;
+      sy += y;
+      sz += z;
+      n++;
+    }
+    if (n == 0) return null;
+    return (x: sx / n, y: sy / n, z: sz / n);
+  }
+
+  /// 마지막 [spanMs] 동안 화면 돌림이 [band]° 안에 머물렀는지. 기록이 그만큼 쌓이지 않았으면 false.
+  bool stillFor(int nowMs, {int spanMs = 1000, double band = 0.4}) {
+    if (_items.isEmpty || _items.first.$1 > nowMs - spanMs) return false;
+    double? first, lo, hi;
+    for (final (t, x, y, _) in _items) {
+      if (t < nowMs - spanMs) continue;
+      final r = screenRotation(x, y);
+      first ??= r;
+      final d = angleDiff(r, first);
+      lo = lo == null ? d : math.min(lo, d);
+      hi = hi == null ? d : math.max(hi, d);
+    }
+    if (lo == null || hi == null) return false;
+    return hi - lo <= band;
+  }
+}
+
 /// 기울기 단위.
 enum SlopeUnit { degree, percent, mmPerM }
 
@@ -177,6 +241,23 @@ double armAngle(double cx, double cy, double px, double py) {
   // 가운데보다 아래를 누르면 가까운 끝(오른쪽 0°, 왼쪽 180°)으로 붙인다.
   if (a < 0) return a < -90 ? 180 : 0;
   return a;
+}
+
+/// 화면 각도기: 누른 자리가 어느 팔을 잡았는지(0 = 첫 팔, 1 = 둘째 팔, 아니면 null).
+/// 가운데에서 [dist]만큼 떨어진 [touchDeg] 쪽을 눌렀을 때, 팔과 [maxDeg]° 안이고
+/// 가운데 점에서 [minDist] 넘게 떨어져야 잡는다(아무 데나 눌러 팔이 튀지 않게, 10-15).
+int? armHit(
+  double touchDeg,
+  double dist,
+  double a,
+  double b, {
+  double minDist = 40,
+  double maxDeg = 12,
+}) {
+  if (dist < minDist) return null;
+  final da = (touchDeg - a).abs(), db = (touchDeg - b).abs();
+  if (math.min(da, db) > maxDeg) return null;
+  return da <= db ? 0 : 1;
 }
 
 /// 두 팔 사이 각(°, 0~180).
