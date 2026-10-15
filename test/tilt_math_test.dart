@@ -146,4 +146,20 @@ void main() {
     expect(formatSlope(90, SlopeUnit.degree), '90.0°');
     expect(formatSlope(45, SlopeUnit.percent), '100.00%');
   });
+
+  test('수평계 영점으로 각도기 돌림 바로잡기(10-15)', () {
+    double sinD(double d) => math.sin(d * math.pi / 180);
+    double cosD(double d) => math.cos(d * math.pi / 180);
+    const g = 9.81;
+    // 센서 x축이 +0.1 m/s², y축이 -0.08 m/s² 치우친 폰
+    const bx = 0.1, by = -0.08;
+    final ux = axisElevation(bx, bx, g, 0); // 세워서 잰 영점
+    final sy = axisElevation(by, g, by, 0); // 옆으로 세워 잰 영점
+    for (final r in [0.0, 30.0, 90.0, -60.0, 150.0]) {
+      final x = g * sinD(r) + bx, y = g * cosD(r) + by;
+      expect(correctedRotation(x, y, uprightX: ux, sidewaysY: sy), closeTo(r, 0.02), reason: '$r');
+    }
+    // 영점이 없으면 그대로
+    expect(correctedRotation(g * sinD(30), g * cosD(30)), closeTo(30, 1e-9));
+  });
 }

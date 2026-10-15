@@ -6,6 +6,7 @@
 // [기준 잡기]·[값 고정]을 누를 때 손 떨림이 들어가던 것(누르기 직전 평균), 자동 고정·목표 각도 진동,
 // 화면 각도기 팔이 서로 넘어가면 다른 팔이 끌려오던 것, 미세 조정 단추, 아무 데나 눌러 팔이 튀던 것.
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'level_page.dart' show kLevelCalibKey;
 import 'level_painters.dart';
 import 'tilt_math.dart';
 import 'tilt_sensor.dart';
@@ -23,6 +25,10 @@ Color get _grey => fc.textSub;
 Color get _bg => fc.background;
 Color get _orange =>
     fieldPick(const Color(0xFFEA580C), sunlight: fc.caution, night: fc.caution);
+// 10-15 사용자가 고른 세 색(A): 청록(앱 기본색) · 짙은 회색(글자·가운데 점) · 호박색(쐐기·둘째 팔).
+// 예전 쐐기 빨강(#FF1E1E)은 너무 쨍했다.
+const Color kProtAmber = Color(0xFFD99A1E);
+Color get _amber => kProtAmber;
 Color get _green =>
     fieldPick(const Color(0xFF16A34A), sunlight: fc.ok, night: fc.ok);
 
@@ -35,7 +41,10 @@ const String kProtractorAutoHoldKey = 'field_protractor_autohold_v1';
 /// 목표 각도(°, 없으면 끔). 가까워지면 짧게, 맞으면 길게 떨린다.
 const String kProtractorTargetKey = 'field_protractor_target_v1';
 
-/// 목표 각도와 이만큼 안이면 "맞음"(°).
+/// 진동과 같이 소리도 낸다(기본 끔).
+const String kProtractorSoundKey = 'field_protractor_sound_v1';
+
+/// 목표 각도와 이만큼 안이면 "맞음"(°). 소수점을 끄면 보이는 정수가 같으면 맞음.
 const double kTargetHit = 0.5;
 
 /// 목표 각도와 이만큼 안이면 "가까움"(°).
@@ -68,7 +77,8 @@ class _ProtractorPageState extends State<ProtractorPage>
     with SingleTickerProviderStateMixin {
   final _session = FieldToolSession();
   late final TabController _tab;
-  final _smooth = TiltSmoother(alpha: 0.2);
+  // 센서가 1초 약 50번이라(fastTiltStream) 누그러뜨리기를 0.07로: 예전 15번·0.2와 비슷한 빠르기.
+  final _smooth = TiltSmoother(alpha: 0.07);
   final _hist = TiltHistory();
   StreamSubscription<TiltSample>? _sub;
   Timer? _noSensorTimer;
@@ -84,8 +94,15 @@ class _ProtractorPageState extends State<ProtractorPage>
   bool _decimals = false;
   bool _autoHold = false;
   double? _target;
-  final _tiltBand = AngleDeadband();
-  final _bendBand = AngleDeadband();
+  final _tiltBand = AngleDeadband(settle: 25);
+  final _bendBand = AngleDeadband(settle: 25);
+  // 화면에 보이는 값(흔들림 띠 거친 값). 큰 숫자·목표 알림·진동이 모두 이 값을 쓴다(10-15: 따로 쓰면
+  // "목표 45° 맞음"인데 큰 숫자는 44°일 수 있었다). 센서 값이 올 때 한 번만 셈한다.
+  double? _bendShown;
+  double _tiltShown = 0;
+  bool _sound = false;
+  // 수평계 영점(°): 세워서 잰 x축, 옆으로 세워 잰 y축. 없으면 0.
+  double _calibX = 0, _calibY = 0;
 
   // 자동 고정: 고정을 푼 뒤에는 값이 2° 넘게 바뀌어야 다시 고정한다(풀자마자 또 고정되지 않게).
   bool _autoArmed = true;
@@ -117,7 +134,7 @@ class _ProtractorPageState extends State<ProtractorPage>
     _noSensorTimer = Timer(widget.noSensorAfter, () {
       if (mounted && _last == null) setState(() => _noSensor = true);
     });
-    _sub = (widget.source ?? deviceTiltStream)().listen(
+    _sub = (widget.source ?? fastTiltStream)().listen(
       (s) {
         if (!mounted) return;
         _noSensorTimer?.cancel();
@@ -127,6 +144,9 @@ class _ProtractorPageState extends State<ProtractorPage>
         setState(() {
           _noSensor = false;
           _last = v;
+          _tiltShown = _tiltBand.apply(_edgeTilt(_rotation));
+          final raw = _bendRaw;
+          _bendShown = raw == null ? null : _bendBand.apply(raw);
           _afterSample();
         });
       },
@@ -165,6 +185,13 @@ class _ProtractorPageState extends State<ProtractorPage>
         _decimals = p.getBool(kProtractorDecimalsKey) ?? _decimals;
         _autoHold = p.getBool(kProtractorAutoHoldKey) ?? _autoHold;
         _target = p.getDouble(kProtractorTargetKey);
+        _sound = p.getBool(kProtractorSoundKey) ?? _sound;
+        final raw = p.getString(kLevelCalibKey);
+        if (raw != null) {
+          final m = jsonDecode(raw) as Map;
+          _calibX = (m['upright_x'] as num?)?.toDouble() ?? 0;
+          _calibY = (m['sideways_y'] as num?)?.toDouble() ?? 0;
+        }
       });
     } catch (_) {}
   }
@@ -174,6 +201,7 @@ class _ProtractorPageState extends State<ProtractorPage>
         .then((p) async {
           await p.setBool(kProtractorDecimalsKey, _decimals);
           await p.setBool(kProtractorAutoHoldKey, _autoHold);
+          await p.setBool(kProtractorSoundKey, _sound);
           if (_target == null) {
             await p.remove(kProtractorTargetKey);
           } else {
@@ -195,8 +223,26 @@ class _ProtractorPageState extends State<ProtractorPage>
     super.dispose();
   }
 
-  double get _rotation =>
-      _last == null ? 0 : screenRotation(_last!.x, _last!.y);
+  /// 화면 돌림(수평계 영점으로 바로잡은 값, 10-15).
+  double _rot(TiltSample s) =>
+      correctedRotation(s.x, s.y, uprightX: _calibX, sidewaysY: _calibY);
+
+  double get _rotation => _last == null ? 0 : _rot(_last!);
+
+  /// 소수점을 끄면 정수로, 켜면 소수 한 자리로(보이는 값과 같게).
+  double _q(double v) => _decimals ? (v * 10).round() / 10 : v.roundToDouble();
+
+  /// 목표까지 남은 각(보이는 값 기준, 양수면 더 꺾어야 함).
+  double? get _targetLeft =>
+      _target == null || _bendShown == null ? null : _q(_target!) - _q(_bendShown!);
+
+  /// 맞음: 소수점 끔이면 보이는 정수가 같을 때, 켬이면 ±0.5° 안.
+  bool _targetHit(double left) => _decimals ? left.abs() <= kTargetHit : left == 0;
+
+  void _alert(int ms) {
+    FieldFeedback.vibrate(ms);
+    if (_sound) FieldFeedback.beep(ms < 100 ? 80 : 250);
+  }
 
   /// 화면이 세로에서 앞뒤로 기운 각.
   double get _lean => _last == null ? 0 : screenLean(_last!.x, _last!.y, _last!.z);
@@ -214,18 +260,11 @@ class _ProtractorPageState extends State<ProtractorPage>
   void _afterSample() {
     final bend = _bendRaw;
     if (bend == null || _hold) return;
-    // 목표 각도: 안쪽 구역으로 들어갈 때만 떤다.
-    if (_target != null) {
-      final d = (bend - _target!).abs();
-      final zone = d <= kTargetHit ? 2 : (d <= kTargetNear ? 1 : 0);
-      if (zone > _targetZone) {
-        if (zone == 2) {
-          HapticFeedback.heavyImpact();
-          HapticFeedback.vibrate();
-        } else {
-          HapticFeedback.selectionClick();
-        }
-      }
+    // 목표 각도: 안쪽 구역으로 들어갈 때만 떤다(보이는 값 기준).
+    final left = _targetLeft;
+    if (left != null) {
+      final zone = _targetHit(left) ? 2 : (left.abs() <= kTargetNear ? 1 : 0);
+      if (zone > _targetZone) _alert(zone == 2 ? 400 : 40);
       _targetZone = zone;
     }
     // 자동 고정
@@ -233,15 +272,26 @@ class _ProtractorPageState extends State<ProtractorPage>
         (_lastHeldBend == null || (bend - _lastHeldBend!).abs() > 2)) {
       _autoArmed = true;
     }
-    if (_autoHold && _autoArmed && bend > 3 && !_tooTilted && _hist.stillFor(_now())) {
+    // 폰이 똑바로 서 있을 때만(10-15: 옮기는 도중 기울인 채 멈춰도 걸렸다).
+    if (_autoHold && _autoArmed && bend > 3 && _lean <= kLeanWarn && _hist.stillFor(_now())) {
       final avg = _hist.averageBefore(_now(), skipMs: 0, spanMs: 1000);
       if (avg != null) _last = avg;
       _hold = true;
       _autoHeld = true;
       _autoArmed = false;
       _lastHeldBend = _bendRaw;
-      HapticFeedback.heavyImpact();
+      _showHeld();
+      _alert(150);
     }
+  }
+
+  /// 고정한 값을 흔들림 띠 없이 그대로 보인다.
+  void _showHeld() {
+    _bendBand.reset();
+    _tiltBand.reset();
+    final raw = _bendRaw;
+    _bendShown = raw == null ? null : _bendBand.apply(raw);
+    _tiltShown = _tiltBand.apply(_edgeTilt(_rotation));
   }
 
   void _setHold(bool on) {
@@ -251,6 +301,7 @@ class _ProtractorPageState extends State<ProtractorPage>
         if (s != null) _last = s;
         _lastHeldBend = _bendRaw;
         _autoArmed = false;
+        _showHeld();
       } else {
         _hist.clear();
         _smooth.reset();
@@ -313,6 +364,7 @@ class _ProtractorPageState extends State<ProtractorPage>
     final targetCtrl = TextEditingController(
       text: _target == null ? '' : _fmtPlain(_target!),
     );
+    String? targetErr;
     await showModalBottomSheet<void>(
       context: context,
       backgroundColor: fc.surface,
@@ -329,6 +381,7 @@ class _ProtractorPageState extends State<ProtractorPage>
           void setTarget(double? v) => update(() {
             _target = v;
             _targetZone = 0;
+            targetErr = null;
             targetCtrl.text = v == null ? '' : _fmtPlain(v);
           });
 
@@ -363,6 +416,17 @@ class _ProtractorPageState extends State<ProtractorPage>
                       _autoArmed = true;
                     }),
                   ),
+                  SwitchListTile(
+                    key: const Key('protractor_sound'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text("소리도 같이", style: TextStyle(color: _ink, fontWeight: FontWeight.w700)),
+                    subtitle: Text(
+                      "자동 고정·목표 각도 때 진동과 함께 삑 소리(알림 음량)",
+                      style: TextStyle(color: _grey),
+                    ),
+                    value: _sound,
+                    onChanged: (v) => update(() => _sound = v),
+                  ),
                   const SizedBox(height: 8),
                   Text("목표 각도", style: TextStyle(color: _ink, fontWeight: FontWeight.w700, fontSize: 16)),
                   Text(
@@ -389,21 +453,27 @@ class _ProtractorPageState extends State<ProtractorPage>
                           onSelected: (_) => setTarget(t),
                         ),
                       SizedBox(
-                        width: 110,
+                        width: 150,
                         child: TextField(
                           key: const Key('protractor_target_field'),
                           controller: targetCtrl,
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             isDense: true,
                             labelText: "직접",
                             suffixText: "°",
+                            errorText: targetErr,
+                            errorMaxLines: 2,
                           ),
+                          // 10-15: 0이나 200을 넣으면 말없이 꺼졌다 → 칸 아래에 알린다.
                           onChanged: (s) {
-                            final v = double.tryParse(s.replaceAll(',', '.'));
+                            final t = s.trim();
+                            final v = double.tryParse(t.replaceAll(',', '.'));
+                            final ok = v != null && v >= 1 && v <= 180;
                             update(() {
-                              _target = (v != null && v > 0 && v <= 180) ? v : null;
+                              _target = ok ? v : null;
                               _targetZone = 0;
+                              targetErr = t.isEmpty || ok ? null : "1~180° 사이로 넣으십시오";
                             });
                           },
                         ),
@@ -442,8 +512,10 @@ class _ProtractorPageState extends State<ProtractorPage>
       );
     }
     final hasRef = _reference != null;
-    final bend = hasRef && _last != null ? _bendBand.apply(_bendRaw!) : null;
-    final tilt = _tiltBand.apply(_edgeTilt(_rotation));
+    final bend = hasRef && _last != null ? _bendShown : null;
+    final tilt = _tiltShown;
+    // 작은 숫자가 무엇에서 벗어난 각인지: 긴 옆면이 세로에 가까우면 수직, 가로에 가까우면 수평
+    final nearVertical = ((_rotation / 90).round() % 2) == 0;
     final lean = _lean;
     final holdColor = fieldPick(Colors.orange, sunlight: fc.caution, night: fc.caution);
     return LayoutBuilder(
@@ -478,26 +550,49 @@ class _ProtractorPageState extends State<ProtractorPage>
                   rotationDeg: _rotation,
                   referenceDeg: _reference,
                   background: fc.surface,
+                  wedgeColor: _amber,
                 ),
               ),
             ),
             // 흰 쪽: 지금 폰 옆면 기울기(작게)
             at(
               c - right * (size.width * 0.22) - up * (size.height * 0.10),
-              Text(
-                _last == null ? "--" : _deg(tilt),
-                key: const Key('bend_tilt'),
-                style: big(fc.brand, hasRef ? 40 : 60),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _last == null ? "--" : _deg(tilt),
+                    key: const Key('bend_tilt'),
+                    style: big(_ink, hasRef ? 40 : 60),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    nearVertical ? "수직에서" : "수평에서",
+                    key: const Key('bend_tilt_caption'),
+                    style: TextStyle(color: _grey, fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                ],
               ),
             ),
             // 파랑 쪽: 굽힌 각(크게)
             if (hasRef)
               at(
                 c + right * (size.width * 0.20) + up * (size.height * 0.08),
-                Text(
-                  bend == null ? "--" : _deg(bend),
-                  key: const Key('bend_value'),
-                  style: big(Colors.white, 64),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      bend == null ? "--" : _deg(bend),
+                      key: const Key('bend_value'),
+                      style: big(Colors.white, 64),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      "굽힌 각",
+                      key: Key('bend_value_caption'),
+                      style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+                    ),
+                  ],
                 ),
               ),
             // 위쪽 안내·경고
@@ -522,7 +617,14 @@ class _ProtractorPageState extends State<ProtractorPage>
                       kLevelBlue,
                       key: const Key('bend_inner'),
                     ),
-                  if (hasRef && bend != null && _target != null) _targetPill(_bendRaw!),
+                  // 폰 방향(10-15): 반대로 대면 굽힌 각 대신 두 다리 사이 각이 나온다.
+                  _pill(
+                    "폰 윗머리는 두 번 다 관이 나아가는 쪽으로",
+                    _ink,
+                    key: const Key('bend_direction'),
+                  ),
+                  if (!hasRef) const _DirectionHint(key: Key('bend_direction_hint')),
+                  if (hasRef && bend != null && _target != null) _targetPill(),
                   if (_hold)
                     _pill(_autoHeld ? "자동 고정됨" : "고정됨", holdColor, key: const Key('bend_held')),
                   if (_last != null && !_hold && lean > 60)
@@ -566,12 +668,13 @@ class _ProtractorPageState extends State<ProtractorPage>
                               HapticFeedback.mediumImpact();
                               final s = _stableSample()!;
                               setState(() {
+                                _bendShown = 0;
                                 _hold = false;
                                 _autoHeld = false;
                                 _autoArmed = true;
                                 _lastHeldBend = null;
                                 _targetZone = 0;
-                                _reference = screenRotation(s.x, s.y);
+                                _reference = _rot(s);
                                 _bendBand.reset();
                               });
                             },
@@ -613,10 +716,10 @@ class _ProtractorPageState extends State<ProtractorPage>
   }
 
   /// 목표 각도까지 남은 각: "목표 90° · 3° 더" / "목표 90° 맞음" / "목표 90° · 2° 넘음".
-  Widget _targetPill(double bend) {
+  Widget _targetPill() {
     final t = _target!;
-    final d = t - bend;
-    final hit = d.abs() <= kTargetHit;
+    final d = _targetLeft ?? 0;
+    final hit = _targetHit(d);
     final text = hit
         ? "목표 ${_deg(t)} 맞음"
         : "목표 ${_deg(t)} · ${_deg(d.abs())} ${d > 0 ? '더' : '넘음'}";
@@ -797,13 +900,17 @@ class _ProtractorPageState extends State<ProtractorPage>
             ],
           );
         }
+        // 세로: 반원은 폭에 맞춰 커지고, 값·단추는 그 바로 위에(10-15: 태블릿에서 사이가 크게 비었다).
+        final arcH = math.min(box.maxWidth / 2 - 30 + 64, box.maxHeight - 160).clamp(120.0, double.infinity);
         return Column(
           children: [
-            Padding(padding: const EdgeInsets.only(top: 12), child: value),
+            const Spacer(),
+            value,
             Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: hint),
             const SizedBox(height: 8),
             FittedBox(child: nudge),
-            Expanded(child: protractor),
+            const SizedBox(height: 8),
+            SizedBox(height: arcH, child: protractor),
           ],
         );
       },
@@ -891,7 +998,7 @@ class _ProtractorPainter extends CustomPainter {
     }
 
     arm(armA, _teal, selected == 0);
-    arm(armB, _orange, selected == 1);
+    arm(armB, _amber, selected == 1);
     canvas.drawCircle(center, 6, Paint()..color = _ink);
   }
 
@@ -901,4 +1008,124 @@ class _ProtractorPainter extends CustomPainter {
       old.armB != armB ||
       old.center != center ||
       old.selected != selected;
+}
+
+/// 폰 대는 방향 그림(10-15): 두 다리 모두 폰 윗머리가 관이 나아가는 쪽을 본다.
+/// 반대로 대면 굽힌 각 대신 두 다리 사이 각(180° − 굽힌 각)이 나온다.
+class _DirectionHint extends StatelessWidget {
+  const _DirectionHint({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+    decoration: BoxDecoration(
+      color: fc.surface.withValues(alpha: 0.94),
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: SizedBox(
+      width: 200,
+      height: 92,
+      child: CustomPaint(
+        painter: _DirectionHintPainter(ink: _ink, sub: _grey, brand: _teal, accent: kProtAmber),
+      ),
+    ),
+  );
+}
+
+class _DirectionHintPainter extends CustomPainter {
+  final Color ink, sub, brand, accent;
+  _DirectionHintPainter({required this.ink, required this.sub, required this.brand, required this.accent});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    // 관: 왼쪽에서 오른쪽으로 가다가 위로 꺾임(40°)
+    final a = Offset(8, h - 20), b = Offset(w * 0.55, h - 20);
+    final dir2 = Offset(math.cos(-40 * math.pi / 180), math.sin(-40 * math.pi / 180));
+    final c = b + dir2 * (w * 0.42);
+    final tube = Path()
+      ..moveTo(a.dx, a.dy)
+      ..lineTo(b.dx - 10, b.dy)
+      ..quadraticBezierTo(b.dx, b.dy, b.dx + dir2.dx * 10, b.dy + dir2.dy * 10)
+      ..lineTo(c.dx, c.dy);
+    // 그림자 → 몸통(위아래 밝기 차) → 윗면 빛
+    canvas.drawPath(
+      tube.shift(const Offset(0, 2.5)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 11
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    canvas.drawPath(
+      tube,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [const Color(0xFFD5DBDF), const Color(0xFF8C979E)],
+        ).createShader(Offset.zero & size)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 10
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawPath(
+      tube.shift(const Offset(0, -2)),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // 폰: 관 위에 옆면을 대고, 윗머리(화살표)가 관이 나아가는 쪽
+    void phone(Offset at, double deg, String n) {
+      canvas.save();
+      canvas.translate(at.dx, at.dy);
+      canvas.rotate(deg * math.pi / 180);
+      // 폰: 둥근 네모 + 화면(옅은 칸)
+      final body = RRect.fromRectAndRadius(const Rect.fromLTWH(-17, -21, 34, 15), const Radius.circular(4));
+      canvas.drawRRect(body.shift(const Offset(0, 1.5)), Paint()..color = Colors.black.withValues(alpha: 0.15));
+      canvas.drawRRect(
+        body,
+        Paint()
+          ..shader = LinearGradient(
+            colors: [brand, Color.lerp(brand, Colors.black, 0.25)!],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ).createShader(body.outerRect),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(const Rect.fromLTWH(-13, -18.5, 26, 10), const Radius.circular(2)),
+        Paint()..color = Colors.white.withValues(alpha: 0.35),
+      );
+      // 윗머리가 보는 쪽 화살표(폰 앞에 떨어져서)
+      final arrow = Paint()
+        ..color = accent
+        ..strokeWidth = 2.4
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(const Offset(21, -13.5), const Offset(31, -13.5), arrow);
+      final head = Path()
+        ..moveTo(36, -13.5)
+        ..lineTo(29, -18)
+        ..lineTo(29, -9)
+        ..close();
+      canvas.drawPath(head, Paint()..color = accent);
+      canvas.restore();
+      final tp = TextPainter(
+        text: TextSpan(text: n, style: TextStyle(color: ink, fontSize: 12, fontWeight: FontWeight.w800)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final p = at + Offset(math.sin(deg * math.pi / 180) * 31, -math.cos(deg * math.pi / 180) * 31);
+      tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
+    }
+
+    phone(Offset(w * 0.25, h - 20), 0, "1");
+    phone(b + dir2 * (w * 0.2), -40, "2");
+  }
+
+  @override
+  bool shouldRepaint(_DirectionHintPainter old) =>
+      old.ink != ink || old.brand != brand || old.accent != accent;
 }

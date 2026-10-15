@@ -116,6 +116,24 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+        // 각도기 자동 고정·목표 각도 알림(10-15): HapticFeedback은 폰 "터치 진동"을 끄면 아무것도 안 해서
+        // 진동기를 직접 울리고, 소리는 터치음 설정과 상관없는 ToneGenerator로 낸다.
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "field/feedback"
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "vibrate" -> {
+                    vibrate((call.argument<Int>("ms") ?: 60).toLong())
+                    result.success(null)
+                }
+                "beep" -> {
+                    beep(call.argument<Int>("ms") ?: 120)
+                    result.success(null)
+                }
+                else -> result.notImplemented()
+            }
+        }
         readWidgetAction(intent)?.let { pendingWidgetAction = it }
         // 앱이 꺼져 있을 때 공유로 열린 경우.
         readSharedDrawing(intent)
@@ -327,4 +345,33 @@ class MainActivity : FlutterActivity() {
         }
         return super.dispatchKeyEvent(event)
     }
+
+    private fun vibrate(ms: Long) {
+        try {
+            val v: android.os.Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
+                (getSystemService(android.content.Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(android.content.Context.VIBRATOR_SERVICE) as? android.os.Vibrator
+            }
+            if (v == null || !v.hasVibrator()) return
+            if (Build.VERSION.SDK_INT >= 26) {
+                v.vibrate(android.os.VibrationEffect.createOneShot(ms, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                v.vibrate(ms)
+            }
+        } catch (e: Exception) {
+        }
+    }
+
+    private fun beep(ms: Int) {
+        try {
+            val tg = android.media.ToneGenerator(android.media.AudioManager.STREAM_NOTIFICATION, 90)
+            tg.startTone(android.media.ToneGenerator.TONE_PROP_BEEP, ms)
+            android.os.Handler(mainLooper).postDelayed({ tg.release() }, ms + 200L)
+        } catch (e: Exception) {
+        }
+    }
 }
+

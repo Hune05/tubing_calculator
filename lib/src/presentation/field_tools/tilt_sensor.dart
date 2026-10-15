@@ -15,6 +15,28 @@ Stream<TiltSample> deviceTiltStream() => accelerometerEventStream(
   samplingPeriod: SensorInterval.uiInterval,
 ).map((e) => (x: e.x, y: e.y, z: e.z));
 
+/// 각도기용 빠른 센서(1초 약 50번, 10-15). 1초 15번이면 [기준 잡기] 직전 평균에 값이 7개뿐이라
+/// 흔들림이 컸다. 대신 화면 쪽 누그러뜨리기를 그만큼 느리게 한다(protractor_page).
+Stream<TiltSample> fastTiltStream() => accelerometerEventStream(
+  samplingPeriod: SensorInterval.gameInterval,
+).map((e) => (x: e.x, y: e.y, z: e.z));
+
+/// 진동·소리 알림(10-15). HapticFeedback은 폰 "터치 진동"이 꺼져 있으면 아무것도 안 해서
+/// 진동기를 직접 울린다(MainActivity "field/feedback"). 소리는 터치음 설정과 상관없다.
+class FieldFeedback {
+  static const _ch = MethodChannel('field/feedback');
+
+  static void vibrate(int ms) {
+    _ch.invokeMethod('vibrate', {'ms': ms}).catchError((_) {
+      HapticFeedback.heavyImpact();
+    });
+  }
+
+  static void beep(int ms) {
+    _ch.invokeMethod('beep', {'ms': ms}).catchError((_) {});
+  }
+}
+
 /// 수평계·각도기 화면을 여는 동안: 화면 꺼짐 막기 + 세로 고정.
 /// 닫을 때는 설정의 "화면 꺼짐 방지" 값과 모든 방향으로 되돌린다.
 class FieldToolSession {

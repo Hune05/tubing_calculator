@@ -205,14 +205,14 @@ void main() {
       await send(tester, c, 0, g, 0); // 세워서 첫 다리
       await tester.tap(find.byKey(const Key('bend_reference')));
       await tester.pump();
-      for (int i = 0; i < 60; i++) {
+      for (int i = 0; i < 150; i++) {
         await send(tester, c, g * sinD(45), g * cosD(45), 0); // 둘째 다리
       }
       expect(textOf(tester, 'bend_value'), "45°");
       expect(find.text("두 다리 사이 각 135°"), findsOneWidget);
 
       // 30° 더 돌리면 굽힌 각 75°, 폰 옆면 기울기는 15°(값이 따로 논다).
-      for (int i = 0; i < 60; i++) {
+      for (int i = 0; i < 150; i++) {
         await send(tester, c, g * sinD(75), g * cosD(75), 0);
       }
       expect(textOf(tester, 'bend_value'), "75°");
@@ -230,7 +230,7 @@ void main() {
       SharedPreferences.setMockInitialValues({kProtractorDecimalsKey: true});
       final c = await pumpPage(tester, (s) => ProtractorPage(source: s));
       await tester.pump();
-      for (int i = 0; i < 30; i++) {
+      for (int i = 0; i < 120; i++) {
         await send(tester, c, g * sinD(10), g * cosD(10), 0);
       }
       expect(textOf(tester, 'bend_tilt'), "10.0°");
@@ -260,13 +260,13 @@ void main() {
       ButtonStyleButton btn() => tester.widget<ButtonStyleButton>(
         find.byKey(const Key('bend_reference')),
       );
-      for (int i = 0; i < 40; i++) {
+      for (int i = 0; i < 120; i++) {
         await send(tester, c, 0, g * cosD(15), g * sinD(15));
       }
       expect(find.byKey(const Key('bend_lean_warn')), findsOneWidget);
       expect(find.text("폰 기울기 15° · 똑바로 세우면 더 정확합니다"), findsOneWidget);
       expect(btn().onPressed, isNotNull);
-      for (int i = 0; i < 40; i++) {
+      for (int i = 0; i < 120; i++) {
         await send(tester, c, 0, g * cosD(25), g * sinD(25));
       }
       expect(find.byKey(const Key('bend_too_flat')), findsOneWidget);
@@ -281,17 +281,17 @@ void main() {
         tester,
         (s) => ProtractorPage(source: s, clockMs: () => t),
       );
-      for (; t <= 1000; t += 50) {
+      for (; t <= 1000; t += 20) {
         await send(tester, c, 0, g, 0); // 곧은 다리에 대고 가만히(돌림 0°)
       }
       for (int i = 0; i < 3; i++) {
-        t += 50;
+        t += 20;
         await send(tester, c, g * sinD(12), g * cosD(12), 0); // 누르며 흔들림
       }
       await tester.tap(find.byKey(const Key('bend_reference')));
       await tester.pump();
-      for (int i = 0; i < 60; i++) {
-        t += 50;
+      for (int i = 0; i < 150; i++) {
+        t += 20;
         await send(tester, c, g * sinD(45), g * cosD(45), 0);
       }
       expect(textOf(tester, 'bend_value'), "45°");
@@ -309,14 +309,14 @@ void main() {
       await send(tester, c, 0, g, 0);
       await tester.tap(find.byKey(const Key('bend_reference')));
       await tester.pump();
-      for (int i = 0; i < 50; i++) {
-        t += 50;
+      for (int i = 0; i < 150; i++) {
+        t += 20;
         await send(tester, c, g * sinD(45), g * cosD(45), 0);
       }
       expect(find.text("자동 고정됨"), findsOneWidget);
       expect(textOf(tester, 'bend_value'), "45°");
-      for (int i = 0; i < 30; i++) {
-        t += 50;
+      for (int i = 0; i < 120; i++) {
+        t += 20;
         await send(tester, c, g * sinD(80), g * cosD(80), 0);
       }
       expect(textOf(tester, 'bend_value'), "45°");
@@ -324,7 +324,7 @@ void main() {
       await tester.tap(find.byKey(const Key('bend_hold')));
       await tester.pump();
       for (int i = 0; i < 5; i++) {
-        t += 50;
+        t += 20;
         await send(tester, c, g * sinD(80), g * cosD(80), 0);
       }
       expect(find.text("자동 고정됨"), findsNothing);
@@ -342,18 +342,71 @@ void main() {
       }
       await tester.tap(find.byKey(const Key('bend_reference')));
       await tester.pump();
-      for (int i = 0; i < 60; i++) {
+      for (int i = 0; i < 150; i++) {
         await send(tester, c, g * sinD(40), g * cosD(40), 0);
       }
       expect(textOf(tester, 'bend_target'), "목표 45° · 5° 더");
-      for (int i = 0; i < 60; i++) {
+      for (int i = 0; i < 150; i++) {
         await send(tester, c, g * sinD(45.2), g * cosD(45.2), 0);
       }
       expect(textOf(tester, 'bend_target'), "목표 45° 맞음");
-      for (int i = 0; i < 60; i++) {
+      for (int i = 0; i < 150; i++) {
         await send(tester, c, g * sinD(48), g * cosD(48), 0);
       }
       expect(textOf(tester, 'bend_target'), "목표 45° · 3° 넘음");
+      await c.close();
+    });
+
+    testWidgets('숫자 이름·폰 방향 안내·방향 그림(10-15)', (tester) async {
+      final c = await pumpPage(tester, (s) => ProtractorPage(source: s));
+      await send(tester, c, 0, g, 0);
+      expect(textOf(tester, 'bend_tilt_caption'), "수직에서");
+      expect(textOf(tester, 'bend_direction'), contains("관이 나아가는 쪽"));
+      expect(find.byKey(const Key('bend_direction_hint')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('bend_reference')));
+      await tester.pump();
+      expect(textOf(tester, 'bend_value_caption'), "굽힌 각");
+      expect(find.byKey(const Key('bend_direction_hint')), findsNothing);
+      // 옆으로 눕혀 세우면(긴 옆면이 가로) 작은 숫자는 수평에서
+      for (int i = 0; i < 150; i++) {
+        await send(tester, c, g, 0, 0);
+      }
+      expect(textOf(tester, 'bend_tilt_caption'), "수평에서");
+      await c.close();
+    });
+
+    testWidgets('자동 고정은 폰이 기울어 있으면 걸리지 않는다', (tester) async {
+      SharedPreferences.setMockInitialValues({kProtractorAutoHoldKey: true});
+      int t = 0;
+      final c = await pumpPage(tester, (s) => ProtractorPage(source: s, clockMs: () => t));
+      await tester.pump();
+      await send(tester, c, 0, g, 0);
+      await tester.tap(find.byKey(const Key('bend_reference')));
+      await tester.pump();
+      // 45° 굽힌 다리에서 앞뒤로 15° 기운 채 가만히
+      for (int i = 0; i < 150; i++) {
+        t += 20;
+        await send(tester, c, g * cosD(15) * sinD(45), g * cosD(15) * cosD(45), g * sinD(15));
+      }
+      expect(find.text("자동 고정됨"), findsNothing);
+      await c.close();
+    });
+
+    testWidgets('목표 직접 칸: 범위 밖이면 칸 아래에 알린다', (tester) async {
+      final c = await pumpPage(tester, (s) => ProtractorPage(source: s));
+      await tester.tap(find.byKey(const Key('protractor_settings')));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byKey(const Key('protractor_target_field')), '200');
+      await tester.pump();
+      expect(find.text("1~180° 사이로 넣으십시오"), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('protractor_target_field')), '37.5');
+      await tester.pump();
+      expect(find.text("1~180° 사이로 넣으십시오"), findsNothing);
+      await tester.tap(find.byKey(const Key('protractor_sound')));
+      await tester.pump();
+      final p = await SharedPreferences.getInstance();
+      expect(p.getDouble(kProtractorTargetKey), 37.5);
+      expect(p.getBool(kProtractorSoundKey), isTrue);
       await c.close();
     });
 

@@ -62,6 +62,15 @@ TiltPose poseFor(
 /// 오른쪽으로 눕혀 세우면 -90, 왼쪽이면 +90 쪽. 각도기(벤딩 각도 재기)가 쓴다.
 double screenRotation(double x, double y) => _deg(math.atan2(x, y));
 
+/// 수평계 영점(세워서 잰 x축 치우침 [uprightX]°, 옆으로 세워 잰 y축 치우침 [sidewaysY]°)으로
+/// 화면 돌림을 바로잡는다(10-15, 각도기). 센서 축 치우침 b가 있으면 돌림 r에서
+/// 오차 ≈ bx·cos r − by·sin r 이므로 그만큼 뺀다. 영점을 안 잡았으면 0.
+double correctedRotation(double x, double y, {double uprightX = 0, double sidewaysY = 0}) {
+  final r = screenRotation(x, y);
+  final t = r * math.pi / 180;
+  return r - (uprightX * math.cos(t) - sidewaysY * math.sin(t));
+}
+
 /// 두 각의 차이를 -180~180으로.
 double angleDiff(double a, double b) {
   var d = (a - b) % 360;

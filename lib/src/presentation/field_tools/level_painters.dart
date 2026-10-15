@@ -33,10 +33,14 @@ class SplitLevelPainter extends CustomPainter {
   /// 흰 쪽 바탕. 야간 보기에서는 어두운 색(눈부심 줄임, D-D).
   final Color background;
 
+  /// 쐐기 색. 각도기는 눈이 덜 아픈 호박색(10-15), 수평계는 빨강 그대로.
+  final Color wedgeColor;
+
   SplitLevelPainter({
     required this.rotationDeg,
     this.referenceDeg,
     this.background = kLevelWhite,
+    this.wedgeColor = kLevelRed,
   });
 
   @override
@@ -67,7 +71,7 @@ class SplitLevelPainter extends CustomPainter {
         ..lineTo((c - ref * far).dx, (c - ref * far).dy)
         ..lineTo((c - up * far).dx, (c - up * far).dy)
         ..close();
-      canvas.drawPath(wedge, Paint()..color = kLevelRed);
+      canvas.drawPath(wedge, Paint()..color = wedgeColor);
     }
 
     // 가운데 십자와 가장자리 가운데 표시(폰 축)
@@ -96,7 +100,8 @@ class SplitLevelPainter extends CustomPainter {
   bool shouldRepaint(SplitLevelPainter old) =>
       old.rotationDeg != rotationDeg ||
       old.referenceDeg != referenceDeg ||
-      old.background != background;
+      old.background != background ||
+      old.wedgeColor != wedgeColor;
 }
 
 /// 눕혔을 때: 초록 바탕 + 큰 원 기포.
