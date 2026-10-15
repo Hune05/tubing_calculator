@@ -385,7 +385,7 @@ void main() {
 
       testWidgets('처음 두 팔 사이 60°, 팔을 끌면 바뀐다', (tester) async {
         final o = await open(tester);
-        expect(find.text("60°"), findsOneWidget);
+        expect(textOf(tester, 'screen_value'), "60°");
         await drag(tester, polar(o.center, 60, 140), [
           polar(o.center, 70, 140),
           polar(o.center, 90, 140),
@@ -408,12 +408,13 @@ void main() {
 
       testWidgets('끄는 팔이 다른 팔을 넘어가도 잡은 팔만 움직인다', (tester) async {
         final o = await open(tester);
-        // 0°(청록) 팔을 잡아 60°(주황) 팔을 넘어 100°까지
+        // 0° 팔을 잡아 60° 팔을 넘어 100°까지
         await drag(tester, polar(o.center, 2, 140), [
           for (double a = 10; a <= 100; a += 10) polar(o.center, a, 140),
         ]);
         expect(textOf(tester, 'screen_value'), "40°"); // 100 - 60
-        expect(textOf(tester, 'arm_sel_label'), "청록 팔 100°");
+        expect(textOf(tester, 'arm_chip_0'), "100°");
+        expect(textOf(tester, 'arm_chip_1'), "60°");
         await o.c.close();
       });
 
@@ -422,7 +423,7 @@ void main() {
         await tester.tap(find.byKey(const Key('arm_plus')));
         await tester.pump();
         expect(textOf(tester, 'screen_value'), "61°");
-        await tester.tap(find.byKey(const Key('arm_pick'))); // 청록 팔로
+        await tester.tap(find.byKey(const Key('arm_chip_0'))); // 0° 팔로
         await tester.pump();
         await tester.tap(find.byKey(const Key('arm_minus'))); // 0°에서는 더 못 줄인다
         await tester.pump();

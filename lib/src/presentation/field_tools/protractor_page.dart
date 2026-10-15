@@ -685,7 +685,6 @@ class _ProtractorPageState extends State<ProtractorPage>
       textAlign: TextAlign.center,
       style: TextStyle(color: _grey),
     );
-    final selColor = _selArm == 0 ? _teal : _orange;
     final nudge = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -696,23 +695,30 @@ class _ProtractorPageState extends State<ProtractorPage>
           icon: const Icon(Icons.remove),
         ),
         const SizedBox(width: 6),
-        InkWell(
-          key: const Key('arm_pick'),
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => setState(() => _selArm = 1 - _selArm),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: selColor, width: 2),
-            ),
-            child: Text(
-              "${_selArm == 0 ? '청록' : '주황'} 팔 ${_deg(_armOf(_selArm))}",
-              key: const Key('arm_sel_label'),
-              style: TextStyle(color: selColor, fontWeight: FontWeight.w800),
+        for (final i in const [0, 1]) ...[
+          if (i == 1) const SizedBox(width: 6),
+          InkWell(
+            key: Key('arm_chip_$i'),
+            borderRadius: BorderRadius.circular(10),
+            onTap: () => setState(() => _selArm = i),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                color: _selArm == i ? _teal : null,
+                border: Border.all(color: _selArm == i ? _teal : fc.line, width: 1.5),
+              ),
+              child: Text(
+                _deg(_armOf(i)),
+                style: TextStyle(
+                  color: _selArm == i ? fc.onBrand : _ink,
+                  fontWeight: FontWeight.w800,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             ),
           ),
-        ),
+        ],
         const SizedBox(width: 6),
         IconButton.filledTonal(
           key: const Key('arm_plus'),
