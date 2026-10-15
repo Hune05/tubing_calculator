@@ -305,20 +305,48 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     String? ref,
     bool canDelete = false,
     bool needReason = false,
-  }) => showDialog<_ReadingInput>(
+    String? ref2,
+  }) => showModalBottomSheet<_ReadingInput>(
+    // 10-15: 작은 알림창 대신 아래에서 올라오는 창(큰 압력 칸·참고 값 칸·큰 단추).
     context: context,
-    builder: (_) => _PtReadingDialog(
-      title: title,
-      okLabel: okLabel,
-      unit: _pg._unit,
-      kpa: kpa,
-      tempC: tempC,
-      note: note,
-      ref: ref,
-      canDelete: canDelete,
-      needReason: needReason,
+    isScrollControlled: true,
+    useSafeArea: true,
+    showDragHandle: true,
+    backgroundColor: fc.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (_) => FieldViewTheme(
+      child: _PtReadingDialog(
+        title: title,
+        okLabel: okLabel,
+        unit: _pg._unit,
+        kpa: kpa,
+        tempC: tempC,
+        note: note,
+        refs: [?_refPair(ref), ?_refPair(ref2)],
+        subtitle: _sheetSubtitle(),
+        canDelete: canDelete,
+        needReason: needReason,
+      ),
     ),
   );
+
+  /// "시험압력: 10 bar" → (시험압력, 10 bar).
+  (String, String)? _refPair(String? r) {
+    if (r == null) return null;
+    final i = r.indexOf(': ');
+    return i < 0 ? ('참고', r) : (r.substring(0, i), r.substring(i + 2));
+  }
+
+  /// 입력 창 제목 옆: 라인 이름 · 지금 상태.
+  String? _sheetSubtitle() {
+    final st = _rStabilizing
+        ? (_rStabDone(_now()) ? '안정화 끝' : '안정화 중')
+        : (_rRunning ? '유지 중' : null);
+    final parts = [if (_rLine.text.trim().isNotEmpty) _rLine.text.trim(), ?st];
+    return parts.isEmpty ? null : parts.join(' · ');
+  }
 
   /// 직전 측정 압력 글(입력 칸 아래 참고로만 보인다).
   String? _lastRef() =>
@@ -340,11 +368,12 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     final last = _rReads.isEmpty ? null : _rReads.last;
     final target = _pg._currentPlan?.usedKpa;
     final res = await _askReading(
-      title: '시작 압력·온도',
+      title: '시작 압력',
       okLabel: '시작',
       tempC: last?.tempC ?? _rLastTemp,
-      note: '"시작"을 누른 때부터 유지시간을 계산합니다.',
+      note: '[시작]을 누른 때부터 유지시간을 계산합니다.',
       ref: target == null ? null : '시험압력: ${_p4(target)}',
+      ref2: _rStabRead == null ? null : '안정화 시작 때: ${_p4(_rStabRead!.kpa)}',
     );
     if (res == null || !mounted) return;
     final now = _now();
@@ -418,7 +447,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
   Future<void> _startStab() async {
     final target = _pg._currentPlan?.usedKpa;
     final res = await _askReading(
-      title: '안정화 시작 압력·온도',
+      title: '안정화 시작 압력',
       okLabel: '안정화 시작',
       tempC: _rLastTemp,
       note: '압력을 올린 뒤 게이지를 읽어 넣으십시오. ${ptFmt(_rStabMin, 1)}분 뒤에 알리고, 그때 다시 읽어 [시작]을 누릅니다. 안정화 동안의 변화는 판정에 넣지 않습니다.',
@@ -1552,7 +1581,8 @@ class _PtReadingDialog extends StatefulWidget {
   final double? kpa;
   final double? tempC;
   final String? note;
-  final String? ref; // 압력 칸 아래 참고 글(목표 시험압력·직전 측정). 칸에는 채우지 않는다.
+  final List<(String, String)> refs; // 참고 값 칸(시험압력·직전 측정 등). 입력 칸에는 채우지 않는다.
+  final String? subtitle; // 제목 옆(라인 이름·상태)
   final bool canDelete;
   final bool needReason; // 종료한 뒤 고칠 때: 수정 사유 칸(비우면 고치거나 지울 수 없다)
   const _PtReadingDialog({
@@ -1562,7 +1592,8 @@ class _PtReadingDialog extends StatefulWidget {
     this.kpa,
     this.tempC,
     this.note,
-    this.ref,
+    this.refs = const [],
+    this.subtitle,
     this.canDelete = false,
     this.needReason = false,
   });
@@ -1631,86 +1662,187 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: Text(widget.title),
-    content: SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (widget.note != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Text(
+  Widget build(BuildContext context) {
+    OutlineInputBorder box(Color c, double w) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: c, width: w),
+    );
+    InputDecoration deco({String? suffix, String? error, bool big = false}) =>
+        InputDecoration(
+          suffixText: suffix,
+          suffixStyle: TextStyle(fontSize: big ? 18 : 16, color: fc.textSub, fontWeight: FontWeight.w600),
+          errorText: error,
+          errorMaxLines: 2,
+          isDense: true,
+          filled: false,
+          contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: big ? 14 : 12),
+          enabledBorder: box(fc.line, 1.2),
+          focusedBorder: box(fc.brand, 2),
+          errorBorder: box(fc.danger, 1.5),
+          focusedErrorBorder: box(fc.danger, 2),
+        );
+    Widget label(String t) => Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(t, style: TextStyle(fontSize: 13, color: fc.textSub, fontWeight: FontWeight.w700)),
+    );
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    key: const Key('pt_rd_title'),
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w900, color: fc.text),
+                  ),
+                ),
+                if (widget.subtitle != null)
+                  Flexible(
+                    child: Text(
+                      widget.subtitle!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
+                      style: TextStyle(fontSize: 14, color: fc.textSub, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+              ],
+            ),
+            if (widget.refs.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  for (var i = 0; i < widget.refs.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 8),
+                    Expanded(
+                      child: Container(
+                        key: Key('pt_rd_ref_$i'),
+                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
+                        decoration: BoxDecoration(
+                          color: fc.fill,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(widget.refs[i].$1, style: TextStyle(fontSize: 12, color: fc.textSub, fontWeight: FontWeight.w600)),
+                            const SizedBox(height: 2),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                widget.refs[i].$2,
+                                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: fc.text),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ],
+            const SizedBox(height: 16),
+            label('게이지 압력'),
+            TextField(
+              key: const Key('pt_rd_p'),
+              controller: _pc,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: fc.text, fontFeatures: const [FontFeature.tabularFigures()]),
+              decoration: deco(suffix: widget.unit.label, error: _pErr, big: true),
+            ),
+            const SizedBox(height: 12),
+            label('온도 (선택)'),
+            TextField(
+              key: const Key('pt_rd_t'),
+              controller: _tc,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: fc.text),
+              decoration: deco(suffix: '°C', error: _tErr),
+              onSubmitted: widget.needReason ? null : (_) => _ok(),
+            ),
+            if (widget.needReason) ...[
+              const SizedBox(height: 12),
+              label('수정 사유 (필수)'),
+              TextField(
+                key: const Key('pt_rd_reason'),
+                controller: _rc,
+                maxLines: 2,
+                minLines: 1,
+                decoration: deco(error: _rErr).copyWith(hintText: '예: 게이지 다시 읽음, 오타'),
+              ),
+            ],
+            if (widget.note != null) ...[
+              const SizedBox(height: 10),
+              Text(
                 widget.note!,
                 key: const Key('pt_rd_note'),
-                style: TextStyle(fontSize: 14, color: fc.text, height: 1.4),
+                style: TextStyle(fontSize: 13.5, color: fc.textSub, height: 1.4),
               ),
-            ),
-          TextField(
-            key: const Key('pt_rd_p'),
-            controller: _pc,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(
-              labelText: '압력 (${widget.unit.label})',
-              helperText: widget.ref == null
-                  ? null
-                  : '${widget.ref} (게이지를 읽어 넣으십시오)',
-              helperMaxLines: 2,
-              errorText: _pErr,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            key: const Key('pt_rd_t'),
-            controller: _tc,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-              signed: true,
-            ),
-            decoration: InputDecoration(
-              labelText: '온도 (°C, 선택)',
-              errorText: _tErr,
-            ),
-            onSubmitted: widget.needReason ? null : (_) => _ok(),
-          ),
-          if (widget.needReason) ...[
-            const SizedBox(height: 8),
-            TextField(
-              key: const Key('pt_rd_reason'),
-              controller: _rc,
-              maxLines: 2,
-              minLines: 1,
-              decoration: InputDecoration(
-                labelText: '수정 사유 (필수)',
-                hintText: '예: 게이지 다시 읽음, 오타',
-                errorText: _rErr,
-              ),
+            ],
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                if (widget.canDelete) ...[
+                  SizedBox(
+                    height: 52,
+                    child: TextButton(
+                      key: const Key('pt_rd_delete'),
+                      onPressed: _delete,
+                      child: Text('지우기', style: TextStyle(color: fc.danger, fontSize: 16, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Expanded(
+                  child: SizedBox(
+                    height: 52,
+                    child: OutlinedButton(
+                      key: const Key('pt_rd_cancel'),
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        side: BorderSide(color: fc.line, width: 1.2),
+                        foregroundColor: fc.text,
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('취소', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SizedBox(
+                    height: 52,
+                    child: FilledButton(
+                      key: const Key('pt_rd_ok'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: fc.brand,
+                        foregroundColor: fc.onBrand,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      onPressed: _ok,
+                      child: Text(widget.okLabel, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-        ],
-      ),
-    ),
-    actions: [
-      if (widget.canDelete)
-        TextButton(
-          key: const Key('pt_rd_delete'),
-          onPressed: _delete,
-          child: Text('지우기', style: TextStyle(color: fc.danger)),
         ),
-      TextButton(
-        key: const Key('pt_rd_cancel'),
-        onPressed: () => Navigator.pop(context),
-        child: const Text('취소'),
       ),
-      TextButton(
-        key: const Key('pt_rd_ok'),
-        onPressed: _ok,
-        child: Text(widget.okLabel),
-      ),
-    ],
-  );
+    );
+  }
 }
 
 /// 안정화 끝 알림(10-15).

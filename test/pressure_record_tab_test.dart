@@ -172,8 +172,10 @@ void main() {
     await tapKey(tester, 'pt_r_start');
     // 시작 압력 칸은 비워 두고, 시험압력(실제 12bar)은 칸 아래 참고로만(10-13)
     expect(fieldText(tester, 'pt_rd_p'), '');
-    expect(find.text('시험압력: 12 bar (게이지를 읽어 넣으십시오)'), findsOneWidget);
-    expect(find.text('"시작"을 누른 때부터 유지시간을 계산합니다.'), findsOneWidget);
+    // 참고 값은 입력 창 위 칸(이름·값)으로 보인다(10-15). 입력 칸에는 채우지 않는다.
+    expect(find.descendant(of: find.byKey(const Key('pt_rd_ref_0')), matching: find.text('시험압력')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('pt_rd_ref_0')), matching: find.text('12 bar')), findsOneWidget);
+    expect(find.text('[시작]을 누른 때부터 유지시간을 계산합니다.'), findsOneWidget);
     // 비운 채 "시작"을 누르면 막는다
     await tester.tap(find.byKey(const Key('pt_rd_ok')));
     await tester.pumpAndSettle();
@@ -198,7 +200,9 @@ void main() {
     // 측정 추가: 시각은 지금, 압력은 비워 두고 직전 값은 참고로(온도는 미리 채운다)
     await tapKey(tester, 'pt_r_add');
     expect(fieldText(tester, 'pt_rd_p'), '');
-    expect(find.text('직전 측정: 12 bar (게이지를 읽어 넣으십시오)'), findsOneWidget);
+    // 참고 값은 입력 창 위 칸(이름·값)으로 보인다(10-15). 입력 칸에는 채우지 않는다.
+    expect(find.descendant(of: find.byKey(const Key('pt_rd_ref_0')), matching: find.text('직전 측정')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('pt_rd_ref_0')), matching: find.text('12 bar')), findsOneWidget);
     expect(fieldText(tester, 'pt_rd_t'), '20');
     await reading(tester, '11.99');
     final log = textIn(tester, const Key('pt_r_log'));
@@ -219,7 +223,9 @@ void main() {
     await tapKey(tester, 'pt_r_end');
     expect(find.byKey(const Key('pt_rd_note')), findsNothing);
     expect(fieldText(tester, 'pt_rd_p'), '');
-    expect(find.text('직전 측정: 11.99 bar (게이지를 읽어 넣으십시오)'), findsOneWidget);
+    // 참고 값은 입력 창 위 칸(이름·값)으로 보인다(10-15). 입력 칸에는 채우지 않는다.
+    expect(find.descendant(of: find.byKey(const Key('pt_rd_ref_0')), matching: find.text('직전 측정')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('pt_rd_ref_0')), matching: find.text('11.99 bar')), findsOneWidget);
     await tester.tap(find.byKey(const Key('pt_rd_ok')));
     await tester.pumpAndSettle();
     expect(find.text('압력을 넣으십시오'), findsOneWidget);
@@ -429,7 +435,9 @@ void main() {
     await tapKey(tester, 'pt_r_start');
     // 수압 최소 시험압력 15bar는 칸 아래 참고로만(칸은 비움)
     expect(fieldText(tester, 'pt_rd_p'), '');
-    expect(find.text('시험압력: 15 bar (게이지를 읽어 넣으십시오)'), findsOneWidget);
+    // 참고 값은 입력 창 위 칸(이름·값)으로 보인다(10-15). 입력 칸에는 채우지 않는다.
+    expect(find.descendant(of: find.byKey(const Key('pt_rd_ref_0')), matching: find.text('시험압력')), findsOneWidget);
+    expect(find.descendant(of: find.byKey(const Key('pt_rd_ref_0')), matching: find.text('15 bar')), findsOneWidget);
     await reading(tester, '15', '20');
     now = DateTime(2026, 9, 26, 9, 11, 0);
     await tapKey(tester, 'pt_r_end');
