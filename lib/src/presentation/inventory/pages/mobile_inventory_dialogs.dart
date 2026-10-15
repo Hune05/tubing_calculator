@@ -759,9 +759,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                       return AlertDialog(
                                         backgroundColor: pureWhite,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
+                                          borderRadius: BorderRadius.circular(8),
                                         ),
                                         title: const Text(
                                           "새 보관 위치 등록",

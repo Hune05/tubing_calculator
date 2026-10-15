@@ -444,13 +444,13 @@ class PlateSegButton extends StatelessWidget {
     return Material(
       color: selected ? pickFill(fc) : (pill ? fc.fill : Colors.transparent),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(pill ? 10 : 8),
+        borderRadius: BorderRadius.circular(pill ? 6 : 4),
         side: selected
             ? BorderSide(color: pickLine(fc), width: 1.2)
             : BorderSide.none,
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(pill ? 10 : 8),
+        borderRadius: BorderRadius.circular(pill ? 6 : 4),
         onTap: onTap == null
             ? null
             : () {

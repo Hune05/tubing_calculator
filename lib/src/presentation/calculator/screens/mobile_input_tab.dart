@@ -851,9 +851,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                   (p) => p.caution,
                                                 )
                                               : pureWhite,
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
+                                          borderRadius: BorderRadius.circular(6),
                                           border: isEditingThis
                                               ? Border.all(
                                                   color: fieldPick(
@@ -1162,9 +1160,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                               vertical: 12,
                                             ),
                                         border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
+                                          borderRadius: BorderRadius.circular(4),
                                           borderSide: BorderSide(
                                             color: fieldPick(
                                               Colors.orange.shade200,
@@ -1427,9 +1423,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                             width: 1.5,
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
+                                            borderRadius: BorderRadius.circular(4),
                                           ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 16,
@@ -1457,9 +1451,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                             : makitaTeal,
                                         foregroundColor: pureWhite,
                                         shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
+                                          borderRadius: BorderRadius.circular(4),
                                         ),
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 20,

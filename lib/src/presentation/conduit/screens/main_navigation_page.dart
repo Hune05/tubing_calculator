@@ -126,7 +126,7 @@ class _ConduitMainNavigationState extends State<ConduitMainNavigation> {
                   ),
                 ],
                 borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(_compactNav ? 16 : 24),
+                  top: Radius.circular(_compactNav ? 6 : 8),
                 ),
               ),
               child: SafeArea(

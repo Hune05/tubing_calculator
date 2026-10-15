@@ -619,9 +619,7 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                           ),
                                           backgroundColor: pureWhite,
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
+                                            borderRadius: BorderRadius.circular(6),
                                           ),
                                         ),
                                       ),
