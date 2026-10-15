@@ -146,8 +146,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byKey(const Key('sg_tab_conv')));
+    await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('sg_tab_conv')));
     await tester.pumpAndSettle();
+    // 칸 이름이 칸 위로 가며(10-15) 칸이 아래로 밀려, 보이게 내린 뒤 넣는다.
+    await tester.dragUntilVisible(
+      find.byKey(const Key('sg_value')),
+      find.byType(ListView),
+      const Offset(0, -200),
+    );
     await tester.enterText(find.byKey(const Key('sg_value')), '12');
     await tester.pump();
     expect(tester.takeException(), isNull);

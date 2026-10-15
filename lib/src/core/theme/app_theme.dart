@@ -203,12 +203,16 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
       ),
       helperStyle: TextStyle(color: p.textSub, fontSize: 12),
       errorMaxLines: 3,
-      border: box(strong, 1.2),
-      enabledBorder: box(strong, 1.2),
-      focusedBorder: box(p.brand, 2),
-      errorBorder: box(p.danger, 1.5),
-      focusedErrorBorder: box(p.danger, 2),
-      disabledBorder: box(p.line, 1),
+      // 상태별 테두리를 border 하나로(WidgetStateInputBorder). enabledBorder 등을 따로 주면
+      // 칸이 'border: InputBorder.none'으로 테두리를 뺀 곳까지 덮어써 상자 안에 상자가 생겼다.
+      border: WidgetStateInputBorder.resolveWith((s) {
+        if (s.contains(WidgetState.disabled)) return box(p.line, 1);
+        if (s.contains(WidgetState.error)) {
+          return box(p.danger, s.contains(WidgetState.focused) ? 2 : 1.5);
+        }
+        if (s.contains(WidgetState.focused)) return box(p.brand, 2);
+        return box(strong, 1.2);
+      }),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
