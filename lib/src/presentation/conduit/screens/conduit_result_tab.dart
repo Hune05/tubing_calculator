@@ -422,7 +422,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     required double deductionValue,
     required double couplingAllowance,
   }) {
-    final m = RegExp(r'(([^()]+))$').firstMatch(title);
+    final m = RegExp(r'\(([^()]+)\)$').firstMatch(title);
     return CutLengthCard(
       totalCut: totalCut,
       tag: m?.group(1),

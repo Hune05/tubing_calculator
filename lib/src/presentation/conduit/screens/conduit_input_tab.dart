@@ -937,20 +937,6 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                         // 10-09: 길이는 설정의 치수 기준(관 중심 / 관 등)으로 잰다. 표 테이크업·게인이
                         // 관 등 기준이라 예전에는 90° 다리를 등까지 재야 했다(중심선까지 재면 22mm에서
                         // 벤드마다 약 12mm 어긋났다). 관 중심을 고르면 표 값을 그 기준으로 바꿔 쓴다.
-                        Text(
-                          conduitCenterRef(globalBenderSettings.value)
-                              ? "길이 (mm) · 관 중심 기준"
-                              : _selectedAngle == 90.0
-                              ? "길이 (mm) · 관 등(바깥면)까지"
-                              : "길이 (mm)",
-                          key: const Key('conduit_length_label'),
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: slate600,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
                         InkWell(
                           onTap: () async {
                             final added = await MakitaNumpad.show(
@@ -977,6 +963,15 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                                 fontFamily: 'monospace',
                               ),
                               decoration: InputDecoration(
+                                // 10-15 통일: 칸 이름은 테두리에 걸치게(튜브 입력과 같게)
+                                label: Text(
+                                  conduitCenterRef(globalBenderSettings.value)
+                                      ? "길이 (mm) · 관 중심 기준"
+                                      : _selectedAngle == 90.0
+                                      ? "길이 (mm) · 관 등(바깥면)까지"
+                                      : "길이 (mm)",
+                                  key: const Key('conduit_length_label'),
+                                ),
                                 hintText: "0",
                                 // 10-15 통일: 테두리·바탕은 테마 기본
                                 contentPadding: const EdgeInsets.symmetric(
