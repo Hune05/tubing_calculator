@@ -21,7 +21,7 @@ class BendWarningBanner extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: fieldSoftIn(p, const Color(0xFFFFF3DF), amber),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: amber.withValues(alpha: 0.4)),
       ),
       child: Column(

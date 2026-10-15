@@ -956,7 +956,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
           filled: true,
           fillColor: pureWhite,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             borderSide: BorderSide.none,
           ),
         ),
@@ -993,7 +993,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
               filled: true,
               fillColor: pureWhite,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -1180,7 +1180,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: ListView(
@@ -1349,7 +1349,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -1410,7 +1410,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -1704,7 +1704,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: tossBlue.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -1763,7 +1763,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: tossBlue.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -1816,7 +1816,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(

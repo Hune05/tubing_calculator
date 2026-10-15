@@ -327,7 +327,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
           right: 0,
           child: InkWell(
             onTap: _photoBusy ? null : _changePhoto,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
             child: Container(
               width: 36,
               height: 36,
@@ -382,7 +382,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
         Container(
           decoration: BoxDecoration(
             color: slate100,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
             border: errorText == null
                 ? null
                 : Border.all(color: red500, width: 1.5),
@@ -446,7 +446,7 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
             color: slate100.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             value,
@@ -470,13 +470,13 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
       ),
       child: InkWell(
         onTap: _isSaving ? null : _save,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         child: Container(
           width: double.infinity,
           height: 56,
           decoration: BoxDecoration(
             color: _isSaving ? slate300 : blue500,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           alignment: Alignment.center,
           child: _isSaving

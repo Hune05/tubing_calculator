@@ -71,7 +71,7 @@ class _MobileGainCalibrationSheetState
       child: Container(
         decoration: const BoxDecoration(
           color: _white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         // 작은 화면에서도 칸이 다 보이도록 스크롤되게 한다.
@@ -127,7 +127,7 @@ class _MobileGainCalibrationSheetState
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: _slate100,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -164,7 +164,7 @@ class _MobileGainCalibrationSheetState
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   onPressed: v > 0
@@ -203,7 +203,7 @@ class _MobileGainCalibrationSheetState
         filled: true,
         fillColor: _slate100,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide.none,
         ),
       ),

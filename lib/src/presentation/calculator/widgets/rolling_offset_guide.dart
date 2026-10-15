@@ -81,7 +81,7 @@ class _RollingOffsetGuideState extends State<RollingOffsetGuide>
           end: Alignment.bottomCenter,
           colors: [AppColors.background, AppColors.surface],
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(

@@ -73,7 +73,7 @@ class _ChangeLogPageState extends State<ChangeLogPage> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,

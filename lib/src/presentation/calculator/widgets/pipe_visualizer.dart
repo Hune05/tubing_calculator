@@ -154,7 +154,7 @@ class _PipeVisualizerState extends State<PipeVisualizer> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
               decoration: BoxDecoration(
                 color: const Color(0xFF2B3643),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: Colors.white24),
                 boxShadow: const [
                   BoxShadow(

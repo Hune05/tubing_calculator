@@ -28,7 +28,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
               backgroundColor: pureWhite,
               surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(8),
               ),
               titlePadding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
               contentPadding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
@@ -82,7 +82,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         style: TextButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           backgroundColor: slate100,
                           foregroundColor: slate600,
@@ -106,7 +106,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                         key: const Key('count_qty_ok'),
@@ -176,7 +176,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 backgroundColor: pureWhite,
                 surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 titlePadding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
                 contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
@@ -204,7 +204,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                 ),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
                               icon: const Icon(
@@ -241,7 +241,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                 ),
                                 elevation: 0,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
                               icon: const Icon(
@@ -304,7 +304,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             vertical: 16,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(6),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -338,7 +338,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             vertical: 16,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(6),
                             borderSide: BorderSide.none,
                           ),
                           suffixIcon: PopupMenuButton<String>(
@@ -397,7 +397,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             vertical: 16,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(6),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -414,7 +414,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             backgroundColor: slate100,
                             foregroundColor: slate600,
@@ -438,7 +438,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                           ),
                           onPressed: () {
@@ -596,7 +596,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                 backgroundColor: pureWhite,
                 surfaceTintColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 titlePadding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
                 contentPadding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
@@ -633,7 +633,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           vertical: 16,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -693,7 +693,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                   selectedColor: makitaTeal,
                                   backgroundColor: slate100,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   side: BorderSide.none,
                                   padding: const EdgeInsets.symmetric(
@@ -722,7 +722,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                 ),
                                 backgroundColor: pureWhite,
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 side: BorderSide(
                                   color: slate600.withValues(alpha: 0.3),
@@ -761,7 +761,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                             fillColor: slate100,
                                             border: OutlineInputBorder(
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(6),
                                               borderSide: BorderSide.none,
                                             ),
                                           ),
@@ -787,7 +787,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                               elevation: 0,
                                               shape: RoundedRectangleBorder(
                                                 borderRadius:
-                                                    BorderRadius.circular(12),
+                                                    BorderRadius.circular(6),
                                               ),
                                             ),
                                             onPressed: () {
@@ -843,7 +843,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           style: TextButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             backgroundColor: slate100,
                             foregroundColor: slate600,
@@ -867,7 +867,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                           ),
                           onPressed: () {

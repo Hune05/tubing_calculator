@@ -282,7 +282,7 @@ class _DrawingScalePageState extends State<DrawingScalePage> {
       fillColor: tossBg,
       isDense: true,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         borderSide: BorderSide.none,
       ),
     );
@@ -344,7 +344,7 @@ class _DrawingScalePageState extends State<DrawingScalePage> {
                     side: const BorderSide(color: tossBlue),
                     minimumSize: const Size(40, 48),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   child: const Text(
@@ -365,7 +365,7 @@ class _DrawingScalePageState extends State<DrawingScalePage> {
                     disabledForegroundColor: tossSubText,
                     minimumSize: const Size(40, 48),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   child: const Text(

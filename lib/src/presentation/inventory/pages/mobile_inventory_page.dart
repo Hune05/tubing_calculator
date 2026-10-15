@@ -300,7 +300,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
           fillColor: slate100,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
             borderSide: BorderSide.none,
           ),
         ),
@@ -335,7 +335,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
               showCheckmark: false,
               side: BorderSide.none,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(8),
               ),
               onSelected: (_) => setState(() => _filter = id),
             ),
@@ -585,7 +585,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
               child: Container(
                 decoration: BoxDecoration(
                   color: pureWhite,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: slate100, width: 2),
                 ),
                 child: Theme(
@@ -708,7 +708,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
               disabledForegroundColor: slate600,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             child: Text(

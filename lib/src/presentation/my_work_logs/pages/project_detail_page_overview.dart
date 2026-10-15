@@ -255,13 +255,13 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
   Widget _quickButton(IconData icon, String label, VoidCallback onTap) {
     return Material(
       color: pureWhite,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         onTap: () {
           HapticFeedback.selectionClick();
           onTap();
         },
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 14),
           child: Column(
@@ -290,7 +290,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
       padding: const EdgeInsets.only(bottom: 22),
       child: InkWell(
         key: const Key('project_line_board'),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         onTap: () => _run(
           () => Navigator.push<void>(
             context,
@@ -304,7 +304,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -364,7 +364,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     decoration: BoxDecoration(
       color: tossSubText.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Row(
       children: [
@@ -393,7 +393,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
           for (int i = 0; i < phases.length; i++) ...[
             InkWell(
               onTap: () => _tab.animateTo(1),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
@@ -405,7 +405,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
                       : (cur != null && cur['id'] == phases[i]['id']
                             ? tossBlue
                             : tossBg),
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   phases[i]['name'].toString(),
@@ -460,7 +460,7 @@ extension _ProjectDetailOverview on _ProjectDetailPageState {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
           badge,

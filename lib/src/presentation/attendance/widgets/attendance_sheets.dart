@@ -45,7 +45,7 @@ Widget attendanceChoice({
   selectedColor: _brand,
   backgroundColor: AppColors.fill,
   side: BorderSide.none,
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   labelStyle: TextStyle(
     color: selected ? Colors.white : _sub,
     fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
@@ -177,12 +177,12 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
     child: InkWell(
       key: Key(isStart ? 'att_check_in' : 'att_check_out'),
       onTap: () => _pickTime(isStart: isStart),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.fill,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -76,7 +76,7 @@ Future<List<Map<String, dynamic>>?> _show(
   isScrollControlled: true,
   backgroundColor: Colors.white,
   shape: const RoundedRectangleBorder(
-    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
   ),
   builder: (_) => _RowsSheet(
     title: title,
@@ -247,7 +247,7 @@ class _RowsSheetState extends State<_RowsSheet> {
                                     filled: true,
                                     fillColor: AppColors.background,
                                     border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(6),
                                       borderSide: BorderSide.none,
                                     ),
                                   ),

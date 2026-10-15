@@ -64,7 +64,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
                 decoration: const BoxDecoration(
                   color: pureWhite,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 // 내용은 스크롤되고, 추가/저장 버튼은 아래에 고정해 항상 보이게 한다.
                 child: Column(
@@ -176,7 +176,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                 filled: true,
                                 fillColor: tossBg,
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: BorderSide.none,
                                 ),
                               ),
@@ -202,7 +202,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                         fillColor: tossBg,
                                         border: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(6),
                                           borderSide: BorderSide.none,
                                         ),
                                       ),
@@ -220,7 +220,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                         fillColor: tossBg,
                                         border: OutlineInputBorder(
                                           borderRadius:
-                                              BorderRadius.circular(14),
+                                              BorderRadius.circular(6),
                                           borderSide: BorderSide.none,
                                         ),
                                       ),
@@ -258,7 +258,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                             ],
                             const SizedBox(height: 12),
                             InkWell(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(6),
                               onTap: () async {
                                 final DateTime base =
                                     dateTime ?? DateTime.now();
@@ -340,7 +340,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                 ),
                                 decoration: BoxDecoration(
                                   color: tossBg,
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
                                   mainAxisAlignment:
@@ -450,7 +450,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                               ),
                               const SizedBox(height: 8),
                               InkWell(
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(6),
                                 onTap: () async {
                                   final DateTime s = DateTime(
                                     dateTime!.year,
@@ -482,7 +482,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                   ),
                                   decoration: BoxDecoration(
                                     color: tossBg,
-                                    borderRadius: BorderRadius.circular(14),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     endDate == null
@@ -541,7 +541,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                 filled: true,
                                 fillColor: tossBg,
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: BorderSide.none,
                                 ),
                               ),
@@ -558,7 +558,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                           backgroundColor: tossBlue,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           elevation: 0,
                         ),
@@ -662,7 +662,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: const Text(
             "검사 결과 입력",
@@ -716,7 +716,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                   filled: true,
                   fillColor: tossBg,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -733,7 +733,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                 backgroundColor: result == 'FAIL' ? warningRed : Colors.green,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               onPressed: () => Navigator.pop(context, {

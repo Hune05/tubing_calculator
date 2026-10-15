@@ -186,7 +186,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
         filled: true,
         fillColor: CuttingColors.background,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide.none,
         ),
       );
@@ -217,7 +217,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: CuttingColors.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: CuttingColors.border),
         ),
         child: Column(
@@ -453,7 +453,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: CuttingColors.dangerSoft,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: CuttingColors.danger.withValues(alpha: 0.4)),
     ),
     child: Column(
@@ -533,7 +533,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: CuttingColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: CuttingColors.border),
       ),
       child: Column(
@@ -568,7 +568,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
           ),
           const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
             child: SizedBox(height: 30, child: Row(children: segs)),
           ),
           const SizedBox(height: 10),

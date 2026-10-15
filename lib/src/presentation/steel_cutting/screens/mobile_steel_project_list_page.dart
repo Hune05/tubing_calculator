@@ -45,7 +45,7 @@ class _MobileSteelProjectListPageState
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
             decoration: const BoxDecoration(
               color: CuttingColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -58,7 +58,7 @@ class _MobileSteelProjectListPageState
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                 ),
@@ -68,7 +68,7 @@ class _MobileSteelProjectListPageState
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: CuttingColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: const AppIcon(
                     AppGlyph.stChannel,
@@ -116,11 +116,11 @@ class _MobileSteelProjectListPageState
                       vertical: 16,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                       borderSide: BorderSide.none,
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                       borderSide: const BorderSide(
                         color: CuttingColors.primary,
                         width: 2,
@@ -136,7 +136,7 @@ class _MobileSteelProjectListPageState
                       backgroundColor: CuttingColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       elevation: 0,
                     ),
@@ -185,7 +185,7 @@ class _MobileSteelProjectListPageState
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: CuttingColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: Row(
           children: [
             cuttingDialogIcon(Icons.edit_outlined),
@@ -209,7 +209,7 @@ class _MobileSteelProjectListPageState
             filled: true,
             fillColor: Colors.grey.shade100,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
           ),
@@ -278,7 +278,7 @@ class _MobileSteelProjectListPageState
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: CuttingColors.surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -502,12 +502,12 @@ class _MobileSteelProjectListPageState
                       onTap: () => _openProject(context, project),
                       onLongPress: () =>
                           _showItemActions(context, doc.id, project.name, data),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           color: CuttingColors.background,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
@@ -517,7 +517,7 @@ class _MobileSteelProjectListPageState
                                 color: CuttingColors.primary.withValues(
                                   alpha: 0.1,
                                 ),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: const AppIcon(
                                 AppGlyph.stChannel,

@@ -34,7 +34,7 @@ Future<TimeOfDay?> showMakitaTimePicker({
         child: Container(
           decoration: const BoxDecoration(
             color: _pureWhite,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -45,7 +45,7 @@ Future<TimeOfDay?> showMakitaTimePicker({
                 height: 4,
                 decoration: BoxDecoration(
                   color: const Color(0xFFD1D6DB),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               Padding(
@@ -199,7 +199,7 @@ class _WheelTimePickerState extends State<_WheelTimePicker> {
           margin: const EdgeInsets.symmetric(horizontal: 20),
           decoration: BoxDecoration(
             color: _makitaTeal.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
           ),
         ),
         Row(

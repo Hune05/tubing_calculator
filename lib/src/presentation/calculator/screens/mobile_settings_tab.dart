@@ -615,7 +615,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               builder: (ctx) => AlertDialog(
                 backgroundColor: pureWhite,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 title: Row(
                   children: [
@@ -646,7 +646,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     style: ElevatedButton.styleFrom(
                       backgroundColor: makitaTeal,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                     ),
                     onPressed: () => Navigator.pop(ctx),
@@ -764,7 +764,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             // AUTO: 제원으로 셈한 값(잠김) / MAN: 손으로 넣은 값.
             InkWell(
               key: ValueKey('auto_$key'),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(4),
               onTap: () {
                 final bool isAuto = !auto;
                 setState(() => _autoStates[key!] = isAuto);
@@ -776,7 +776,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
                   color: auto ? makitaTeal : slate100,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: auto ? makitaTeal : _slate200),
                 ),
                 child: Text(
@@ -869,7 +869,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
     return Container(
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: _slate200),
       ),
       child: Column(
@@ -1002,7 +1002,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                           foregroundColor: pureWhite,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                         child: Text(
@@ -1306,7 +1306,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       Container(
         decoration: BoxDecoration(
           color: slate100,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: _slate200),
         ),
         child: Row(
@@ -1348,7 +1348,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected ? makitaTeal : Colors.transparent,
-          borderRadius: BorderRadius.circular(5),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
           text,
@@ -1646,7 +1646,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.orange.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.orange.shade300, width: 1.5),
       ),
       child: Column(
@@ -1681,7 +1681,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: Colors.grey.shade300),
               ),
               child: Column(
@@ -1720,7 +1720,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.red.shade50,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: Colors.red.shade200),
               ),
               child: Row(
@@ -1759,7 +1759,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: Colors.grey.shade300),
               ),
               child: Table(
@@ -1871,7 +1871,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 border: Border.all(color: Colors.grey.shade300),
               ),
               child: Column(
@@ -1947,7 +1947,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Column(
@@ -2004,7 +2004,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Table(
@@ -2092,7 +2092,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: makitaTeal.withValues(alpha: 0.03),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: makitaTeal.withValues(alpha: 0.3),
           width: 1.5,
@@ -2140,7 +2140,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Table(
@@ -2244,7 +2244,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Table(
@@ -2340,7 +2340,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Table(
@@ -2422,7 +2422,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.blueGrey.shade50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.blueGrey.shade200, width: 1.5),
       ),
       child: Column(
@@ -2470,7 +2470,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Table(
@@ -2590,7 +2590,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Table(
@@ -2661,7 +2661,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Table(
@@ -2723,7 +2723,7 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: Table(

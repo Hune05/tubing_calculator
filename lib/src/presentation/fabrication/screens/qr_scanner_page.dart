@@ -94,7 +94,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
                     ),
                     decoration: BoxDecoration(
                       color: slate900.withValues(alpha: 0.6), // 반투명 검정 배경
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
                       "도면의 QR 코드를 사각형 안에 맞춰 주십시오",

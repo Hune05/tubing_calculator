@@ -11,7 +11,7 @@ extension _WorkLogMainBanners on _WorkLogMainScreenState {
       padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
@@ -68,7 +68,7 @@ extension _WorkLogMainBanners on _WorkLogMainScreenState {
           padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             children: [

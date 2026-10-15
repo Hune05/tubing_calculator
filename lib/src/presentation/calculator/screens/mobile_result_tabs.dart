@@ -804,7 +804,7 @@ class _MobileResultTabState extends State<MobileResultTab>
         InkWell(
           key: const Key('tube_tail'),
           onTap: _showTailPad,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           child: Row(
             children: [
               Expanded(
@@ -908,7 +908,7 @@ class _MobileResultTabState extends State<MobileResultTab>
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? makitaTeal : slate100,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: isSelected ? makitaTeal : slate200),
         ),
         // 🚀 [고침] 절단 길이를 바꾸는 토글인데 11px라 햇빛 아래서 켜졌는지
@@ -1254,7 +1254,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                 fillColor: pureWhite,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -1349,7 +1349,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: slate200,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   "$count",
@@ -1402,7 +1402,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(8),
           boxShadow: [
             BoxShadow(
               color: slate900.withValues(alpha: 0.03),
@@ -1421,7 +1421,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: slate50,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Icon(
                     Icons.architecture_rounded,
@@ -1506,7 +1506,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
                   elevation: 0,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 child: const Text(
@@ -1526,7 +1526,7 @@ class _MobileHistoryTabState extends State<MobileHistoryTab>
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: slate50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

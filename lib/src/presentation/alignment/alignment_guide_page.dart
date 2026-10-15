@@ -161,7 +161,7 @@ class _AlignmentGuidePageState extends State<AlignmentGuidePage> {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-            decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
+            decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
             child: Text(head, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: c)),
           ),
           const SizedBox(height: 4),

@@ -176,7 +176,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         title: const Text(
           "일정 변경 사유",
           style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
@@ -192,7 +192,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
             filled: true,
             fillColor: tossBg,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
           ),
@@ -207,7 +207,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
               backgroundColor: tossBlue,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             onPressed: () => Navigator.pop(
@@ -379,7 +379,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -639,7 +639,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
                                     color: pureWhite,
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Row(
                                     children: [
@@ -855,7 +855,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                             decoration: BoxDecoration(
                                               color: pureWhite,
                                               borderRadius:
-                                                  BorderRadius.circular(8),
+                                                  BorderRadius.circular(4),
                                               border: Border.all(
                                                 color: Colors.black12,
                                               ),
@@ -937,7 +937,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                   side: const BorderSide(color: Colors.black12),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 child: const Text(

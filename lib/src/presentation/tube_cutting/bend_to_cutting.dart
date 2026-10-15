@@ -121,7 +121,7 @@ Future<void> showSendToCuttingSheet(
     isScrollControlled: true,
     backgroundColor: AppColors.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
     ),
     builder: (_) => _SendToCuttingSheet(
       cut: cut,

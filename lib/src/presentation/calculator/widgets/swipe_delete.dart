@@ -65,5 +65,5 @@ double bendInputPanelWidth(BoxConstraints box) =>
 
 /// 입력판 모서리: 세로는 위쪽, 가로는 왼쪽을 둥글게.
 BorderRadius bendInputPanelRadius(bool landscape) => landscape
-    ? const BorderRadius.horizontal(left: Radius.circular(24))
-    : const BorderRadius.vertical(top: Radius.circular(24));
+    ? const BorderRadius.horizontal(left: Radius.circular(8))
+    : const BorderRadius.vertical(top: Radius.circular(8));

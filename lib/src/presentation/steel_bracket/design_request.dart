@@ -287,11 +287,11 @@ class _DesignRequestFieldsState extends State<DesignRequestFields> {
     ),
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       borderSide: BorderSide.none,
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       borderSide: BorderSide(color: fc.brand, width: 1.6),
     ),
   );
@@ -378,7 +378,7 @@ class _DesignRequestFieldsState extends State<DesignRequestFields> {
                       initialIndex: i,
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       child: PhotoImage(path, width: 76, height: 76),
                     ),
                   ),
@@ -400,14 +400,14 @@ class _DesignRequestFieldsState extends State<DesignRequestFields> {
             if (v.photos.length < kDesignPhotoMax)
               InkWell(
                 key: Key('${_p}_rq_photo_add'),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 onTap: _addPhotos,
                 child: Container(
                   width: 76,
                   height: 76,
                   decoration: BoxDecoration(
                     color: fc.fill,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

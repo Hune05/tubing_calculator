@@ -433,7 +433,7 @@ class _MaterialRequestPageState extends State<MaterialRequestPage> {
                         ),
                         decoration: BoxDecoration(
                           color: AppColors.caution.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
                           '확인',

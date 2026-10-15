@@ -598,10 +598,10 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Material(
                 color: _mem[i] == null ? fc.background : fc.brandSoft,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
                 child: InkWell(
                   key: Key('calc_mem_${_memNames[i]}'),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   onTap: () => _tapMemory(i),
                   onLongPress: () => _memoryMenu(i),
                   child: Padding(
@@ -1338,7 +1338,7 @@ class _EngCalculatorPageState extends State<EngCalculatorPage> {
                     ),
                     decoration: BoxDecoration(
                       color: fc.brandSoft,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       'S⇔D',

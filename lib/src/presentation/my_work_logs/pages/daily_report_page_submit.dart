@@ -10,7 +10,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         title: const Text(
           "지난 일지 수정 사유",
           style: TextStyle(fontWeight: FontWeight.w800, color: tossText),
@@ -35,7 +35,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
                 filled: true,
                 fillColor: tossInputBg,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -52,7 +52,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
               backgroundColor: tossBlue,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             onPressed: () => Navigator.pop(

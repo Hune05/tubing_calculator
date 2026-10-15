@@ -193,7 +193,7 @@ extension _LayoutBoardUndoDraft on _LayoutBoardPageState {
             margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -343,7 +343,7 @@ extension _LayoutBoardUndoDraft on _LayoutBoardPageState {
             builder: (context) => AlertDialog(
               backgroundColor: pureWhite,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(8),
               ),
               title: const Text(
                 "이어서 작업하시겠습니까?",

@@ -496,7 +496,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: CuttingColors.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -586,7 +586,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: CuttingColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
@@ -603,7 +603,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
                   ),
                   decoration: BoxDecoration(
                     color: CuttingColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     r.maker,
@@ -664,7 +664,7 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             decoration: BoxDecoration(
               color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               children: [

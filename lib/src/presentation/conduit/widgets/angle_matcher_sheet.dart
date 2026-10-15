@@ -158,7 +158,7 @@ class _AngleMatcherSheetState extends State<AngleMatcherSheet> {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: (m.isStandard ? Colors.green : Colors.orange).withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,7 +206,7 @@ class _AngleMatcherSheetState extends State<AngleMatcherSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           decoration: BoxDecoration(
             color: identical(r, n) ? csTeal.withValues(alpha: 0.12) : null,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             children: [

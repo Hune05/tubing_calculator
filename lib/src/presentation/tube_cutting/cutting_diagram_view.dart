@@ -276,10 +276,10 @@ class CuttingDiagramView extends StatelessWidget {
       color: focused
           ? CuttingColors.primarySoft.withValues(alpha: 0.5)
           : Colors.transparent,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         key: Key('diagram_point_$i'),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: () => onTapPoint(i),
         onLongPress: onLongPressPoint == null
             ? null
@@ -537,7 +537,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: CuttingColors.primarySoft.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: CuttingColors.primary.withValues(alpha: 0.3)),
       ),
       child: Column(

@@ -426,7 +426,7 @@ class _BalanceTabState extends State<_BalanceTab>
     padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Column(
@@ -726,7 +726,7 @@ class _FeederTabState extends State<_FeederTab>
     padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Row(

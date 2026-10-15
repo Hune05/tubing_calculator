@@ -408,11 +408,11 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
       hintStyle: TextStyle(fontSize: 17, color: fc.textSub),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: BorderSide(color: fc.line),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: BorderSide(color: fc.brand, width: 1.5),
       ),
     ),

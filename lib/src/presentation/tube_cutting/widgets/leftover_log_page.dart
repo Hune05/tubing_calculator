@@ -88,10 +88,10 @@ class _LogListState extends State<_LogList> {
         padding: const EdgeInsets.only(right: 8),
         child: Material(
           color: selected ? CuttingColors.primary : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           child: InkWell(
             key: key,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -271,7 +271,7 @@ class _LogListState extends State<_LogList> {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: CuttingColors.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: CuttingColors.border),
           ),
           child: Column(

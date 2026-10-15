@@ -586,7 +586,7 @@ extension _LayoutBoardSkid on _LayoutBoardPageState {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             decoration: BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: _sheetUndoHost(
               (hostCtx) => Column(

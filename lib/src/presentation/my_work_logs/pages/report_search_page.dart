@@ -173,9 +173,9 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
                       final h = _hits[i];
                       return Material(
                         color: pureWhite,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(6),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(6),
                           onTap: () => widget.onOpen(h),
                           child: Padding(
                             padding: const EdgeInsets.all(14),
@@ -195,7 +195,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
                                                     ? AppColors.danger
                                                     : tossBlue)
                                                 .withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(4),
                                       ),
                                       child: Text(
                                         h.kind,
@@ -363,7 +363,7 @@ class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
                           initialIndex: i,
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                           child: Stack(
                             fit: StackFit.expand,
                             children: [

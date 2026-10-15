@@ -410,7 +410,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border(
           left: BorderSide(
             width: 4,
@@ -529,7 +529,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: tossInputBg,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: const Text(
                 "없음",
@@ -545,7 +545,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                 imagePaths: paths,
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
                 child: Stack(
                   children: [
                     PhotoImage(
@@ -565,7 +565,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                           ),
                           decoration: BoxDecoration(
                             color: Colors.black54,
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             "+${paths.length - 1}",
@@ -626,7 +626,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                 side: const BorderSide(color: AppColors.line),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               child: const Text(
@@ -653,7 +653,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
             filled: true,
             fillColor: tossInputBg,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
           ),
@@ -670,14 +670,14 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
               InkWell(
                 key: const Key('punch_after_photo_add'),
                 onTap: _addAfterPhotos,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
                 child: Container(
                   width: 84,
                   height: 84,
                   margin: const EdgeInsets.only(right: 10),
                   decoration: BoxDecoration(
                     color: tossInputBg,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -709,7 +709,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
                           initialIndex: i,
                         ),
                         child: ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                           child: PhotoImage(
                             _afterImages[i],
                             width: 84,
@@ -764,7 +764,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
               backgroundColor: makitaTeal,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(6),
               ),
               elevation: 0,
             ),
@@ -809,7 +809,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.10),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
@@ -836,7 +836,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

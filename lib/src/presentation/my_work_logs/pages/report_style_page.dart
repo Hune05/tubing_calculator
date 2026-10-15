@@ -100,7 +100,7 @@ class _ReportStylePageState extends State<ReportStylePage> {
           height: 48,
           decoration: BoxDecoration(
             border: Border.all(color: Colors.black12),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: b64 == null
               ? const Center(
@@ -156,7 +156,7 @@ class _ReportStylePageState extends State<ReportStylePage> {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,7 +211,7 @@ class _ReportStylePageState extends State<ReportStylePage> {
                     margin: const EdgeInsets.only(right: 12),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.black12),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Image.memory(
                       base64Decode(_s.logoB64!),
@@ -333,7 +333,7 @@ class _ReportStylePageState extends State<ReportStylePage> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _teal,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               child: const Text(
@@ -413,7 +413,7 @@ class _SignatureDialogState extends State<_SignatureDialog> {
         height: _h,
         decoration: BoxDecoration(
           border: Border.all(color: Colors.black26),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: GestureDetector(
           onPanStart: (d) => setState(() => _strokes.add([d.localPosition])),

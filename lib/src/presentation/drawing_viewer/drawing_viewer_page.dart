@@ -659,7 +659,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
                 top: 8,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(20)),
+                  decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(8)),
                   child: Row(
                     children: [
                       IconButton(key: const Key('dv_prev'), visualDensity: VisualDensity.compact, icon: const Icon(LucideIcons.chevronLeft, color: Colors.white, size: 20), onPressed: _page > 0 ? () => _goPage(_page - 1) : null),
@@ -696,7 +696,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
 
   Widget _legend() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(8)),
+    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.9), borderRadius: BorderRadius.circular(4)),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -737,13 +737,13 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
                         child: InkWell(
                           key: Key('dv_color_${c.name}'),
                           onTap: () => setState(() => _color = c),
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(6),
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: color == c ? Color(c.argb) : Colors.transparent,
                               border: Border.all(color: Color(c.argb), width: 1.5),
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(c.meaning, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: color == c ? Colors.white : Color(c.argb))),
                           ),
@@ -782,7 +782,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
       padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
       child: InkWell(
         key: Key('dv_tool_${t.name}'),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: () => setState(() {
           _tool = t;
           _color = null;
@@ -790,7 +790,7 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
         }),
         child: Container(
           width: 56,
-          decoration: BoxDecoration(color: on ? AppColors.brandSoft : Colors.transparent, borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(color: on ? AppColors.brandSoft : Colors.transparent, borderRadius: BorderRadius.circular(6)),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

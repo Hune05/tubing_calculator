@@ -447,7 +447,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -586,7 +586,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -713,7 +713,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                   margin: const EdgeInsets.only(bottom: 12),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: ListTile(
                     onTap: _pickDate,
@@ -784,7 +784,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: SwitchListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -812,7 +812,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: SwitchListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8),
@@ -838,7 +838,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -874,7 +874,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                                       left: i == 0 ? 0 : 6,
                                     ),
                                     child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(8),
+                                      borderRadius: BorderRadius.circular(4),
                                       child: AspectRatio(
                                         aspectRatio: 1.4,
                                         child: PhotoImage(path),
@@ -894,7 +894,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -928,7 +928,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                               for (final p in doc.photos)
                                 if (p.group == g)
                                   ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(4),
                                     child: PhotoImage(
                                       p.path,
                                       width: 64,
@@ -947,7 +947,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

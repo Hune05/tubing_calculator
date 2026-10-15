@@ -37,7 +37,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
           ),
           title: const Text(
             "작업 배치도 사용법",
@@ -137,7 +137,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Text(
           "색상 범례",
           style: TextStyle(color: tossText, fontWeight: FontWeight.w800),
@@ -255,7 +255,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
             ),
             decoration: const BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -421,7 +421,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                       ),
@@ -450,7 +450,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                           minimumSize: const Size(40, 40),
                           backgroundColor: tossBlue,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                       ),
@@ -489,7 +489,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
           ),
           decoration: const BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -619,7 +619,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                       backgroundColor: tossBlue,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     child: const Text(
@@ -752,7 +752,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                   backgroundColor: tossBlue,
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 child: const Icon(
@@ -773,7 +773,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                 minimumSize: const Size(72, 44),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               icon: const Icon(AppIcons.download, size: 20, color: pureWhite),
@@ -820,7 +820,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: tossBg,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
@@ -894,7 +894,7 @@ extension _LayoutBoardSheets on _LayoutBoardPageState {
                   Container(
                     decoration: BoxDecoration(
                       color: pureWhite,
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(6),
                       border: Border.all(
                         color: warningRed.withValues(alpha: 0.35),
                         width: 1.5,

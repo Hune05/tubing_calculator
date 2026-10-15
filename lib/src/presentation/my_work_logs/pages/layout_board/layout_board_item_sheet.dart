@@ -13,7 +13,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
         margin: const EdgeInsets.only(bottom: 24),
         decoration: BoxDecoration(
           color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
       ),
     );
@@ -80,7 +80,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                 backgroundColor: tossBlue.withValues(alpha: 0.1),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 8,
@@ -117,7 +117,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                   vertical: 12,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
             );
@@ -153,7 +153,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
               decoration: BoxDecoration(
                 color: pureWhite,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(24),
+                  top: Radius.circular(8),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -219,7 +219,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                           vertical: 16,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(6),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -558,7 +558,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                           minimumSize: const Size(40, 40),
                           side: const BorderSide(color: warningRed, width: 1.5),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                       ),
@@ -608,7 +608,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
           vertical: 14,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide.none,
         ),
       ),
@@ -667,7 +667,7 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
               vertical: 16,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
           ),

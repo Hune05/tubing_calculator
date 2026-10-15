@@ -207,10 +207,10 @@ class _CalRecordsPageState extends State<CalRecordsPage> {
       onDelete: () => _delete(r),
       child: Material(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         child: InkWell(
           key: Key('cr_item_${r.id}'),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
           onTap: () => _actions(r),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),

@@ -12,14 +12,14 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
       padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
       decoration: BoxDecoration(
         color: tossBlue.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
           Expanded(
             child: InkWell(
               onTap: _openWeeklyReport,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
               child: const Padding(
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Row(
@@ -74,7 +74,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -206,7 +206,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
 
     return InkWell(
       onTap: () => _openPunchDetail(item['_projectRef'], item),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
@@ -241,7 +241,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: badgeColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 priority,
@@ -292,7 +292,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
 
     return InkWell(
       onTap: () => _openSchedule(item['_projectRef']),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
@@ -326,7 +326,7 @@ extension _WorkLogMainDashboard on _WorkLogMainScreenState {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: badgeColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 badgeText,

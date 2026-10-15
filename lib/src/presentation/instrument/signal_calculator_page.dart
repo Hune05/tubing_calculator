@@ -675,7 +675,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -856,7 +856,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         decoration: BoxDecoration(
           color: fc.brandSoft,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
           '불러온 기록: ${ed.tag.isEmpty ? '(태그 없음)' : ed.tag} · ${calDay(ed.date)}',
@@ -928,7 +928,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               backgroundColor: fc.brand,
               foregroundColor: fc.onBrand,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             onPressed: _saveSheet,
@@ -949,7 +949,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
               foregroundColor: fc.brand,
               side: BorderSide(color: fc.brand),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             onPressed: _openRecords,
@@ -970,7 +970,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
     padding: const EdgeInsets.fromLTRB(14, 6, 4, 6),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Row(
@@ -1519,7 +1519,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 10),
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: bad ? fc.danger : fc.line),
       ),
       child: Column(
@@ -1918,7 +1918,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: fc.line),
       ),
       child: Column(
@@ -1978,7 +1978,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       padding: const EdgeInsets.fromLTRB(14, 8, 10, 10),
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: bad ? fc.danger : fc.line),
       ),
       child: Column(
@@ -2563,7 +2563,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

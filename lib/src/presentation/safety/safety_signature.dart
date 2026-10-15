@@ -107,7 +107,7 @@ Future<AttendeeResult?> showAttendeeSheet(
   enableDrag: false,
   backgroundColor: AppColors.surface,
   shape: const RoundedRectangleBorder(
-    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
   ),
   builder: (_) => _AttendeeSheet(
     initial: initial,
@@ -185,7 +185,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
     filled: true,
     fillColor: AppColors.background,
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       borderSide: BorderSide.none,
     ),
   );
@@ -198,7 +198,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
       height: h,
       decoration: BoxDecoration(
         color: AppColors.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppColors.line),
       ),
       child: Stack(

@@ -62,7 +62,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: tossBlue.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
           durationHintText(h),
@@ -118,7 +118,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -132,7 +132,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                   height: 5,
                   decoration: BoxDecoration(
                     color: const Color(0xFFD1D6DB),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
               ),
@@ -168,7 +168,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                     vertical: 18,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -193,7 +193,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                     vertical: 18,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -253,7 +253,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                     backgroundColor: tossBlue,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   onPressed: _submit,

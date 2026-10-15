@@ -239,7 +239,7 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
           child: Row(
             children: [
               ClipRRect(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(4),
                 child: Container(
                   width: 76,
                   height: 56,
@@ -266,7 +266,7 @@ class _DrawingLibraryPageState extends State<DrawingLibraryPage> {
                 Container(
                   margin: const EdgeInsets.only(right: 4),
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: AppColors.danger.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(color: AppColors.danger.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
                   child: Text('문제 ${d.openIssues}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.danger)),
                 ),
             ],

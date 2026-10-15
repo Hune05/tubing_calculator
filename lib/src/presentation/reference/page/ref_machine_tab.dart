@@ -87,7 +87,7 @@ Widget _manualButton({required Key key, required String label, required VoidCall
         foregroundColor: color,
         side: BorderSide(color: color),
         padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
     ),
   );
@@ -1294,7 +1294,7 @@ class _GuideTileState extends State<_GuideTile> {
     final g = widget.guide;
     final part = g.parts[_part.clamp(0, g.parts.length - 1)];
     return Container(
-      decoration: BoxDecoration(color: refWhite, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(color: refWhite, borderRadius: BorderRadius.circular(6)),
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

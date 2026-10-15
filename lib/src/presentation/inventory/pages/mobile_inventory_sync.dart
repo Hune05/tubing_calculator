@@ -86,7 +86,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
           backgroundColor: pureWhite,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(8),
           ),
           title: const Text(
             "이대로 서버에 올리시겠습니까?",
@@ -140,7 +140,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
                 foregroundColor: pureWhite,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               onPressed: () => Navigator.pop(ctx, true),

@@ -90,12 +90,12 @@ class _PlateHomePageState extends State<PlateHomePage> {
   ) => Material(
     color: fc.surface,
     shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
       side: BorderSide(color: fc.line),
     ),
     child: InkWell(
       key: Key(key),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
       onTap: () => _open(page),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),

@@ -735,7 +735,7 @@ class _ProtractorPageState extends State<ProtractorPage>
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
       color: fc.surface.withValues(alpha: 0.94),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
     ),
     child: Text(
       text,
@@ -802,12 +802,12 @@ class _ProtractorPageState extends State<ProtractorPage>
           if (i == 1) const SizedBox(width: 6),
           InkWell(
             key: Key('arm_chip_$i'),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             onTap: () => setState(() => _selArm = i),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 color: _selArm == i ? _teal : null,
                 border: Border.all(color: _selArm == i ? _teal : fc.line, width: 1.5),
               ),
@@ -1020,7 +1020,7 @@ class _DirectionHint extends StatelessWidget {
     padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
     decoration: BoxDecoration(
       color: fc.surface.withValues(alpha: 0.94),
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: SizedBox(
       width: 200,

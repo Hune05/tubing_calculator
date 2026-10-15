@@ -511,7 +511,7 @@ class _LevelPageState extends State<LevelPage> {
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
       color: fc.surface.withValues(alpha: 0.92),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
     ),
     child: Text(
       text,

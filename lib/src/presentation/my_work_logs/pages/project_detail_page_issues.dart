@@ -73,7 +73,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => SafeArea(
@@ -260,7 +260,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                         margin: const EdgeInsets.only(right: 10),
                         decoration: BoxDecoration(
                           border: Border.all(color: Colors.black12),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Image.memory(
                           base64Decode(logo!),
@@ -666,7 +666,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setB) => SafeArea(

@@ -169,7 +169,7 @@ class _BenderGuideTab extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: AppColors.brand.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,7 +208,7 @@ class _StepRow extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _pureWhite,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(

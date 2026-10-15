@@ -331,7 +331,7 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

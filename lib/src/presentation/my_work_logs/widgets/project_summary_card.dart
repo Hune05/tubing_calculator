@@ -65,7 +65,7 @@ class ProjectSummaryCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: overdue ? _warnRed.withValues(alpha: 0.5) : Colors.transparent,
           width: 1.5,
@@ -81,7 +81,7 @@ class ProjectSummaryCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -91,7 +91,7 @@ class ProjectSummaryCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(20),
+                    left: Radius.circular(8),
                   ),
                 ),
               ),
@@ -146,7 +146,7 @@ class ProjectSummaryCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: ddayColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 ddayText,

@@ -59,7 +59,7 @@ class PhotoDetailModal extends StatelessWidget {
 
     return Dialog(
       backgroundColor: pureWhite,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
         width: MediaQuery.of(context).size.width * 0.85,
@@ -104,7 +104,7 @@ class PhotoDetailModal extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.orange.shade50,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: Colors.orange.shade200),
                       ),
                       child: Text(
@@ -139,7 +139,7 @@ class PhotoDetailModal extends StatelessWidget {
                           itemCount: imagePaths!.length,
                           itemBuilder: (context, index) {
                             return ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(4),
                               // 줌인/아웃을 위한 InteractiveViewer
                               child: InteractiveViewer(
                                 minScale: 1.0,
@@ -165,7 +165,7 @@ class PhotoDetailModal extends StatelessWidget {
                             ),
                             decoration: BoxDecoration(
                               color: Colors.black87,
-                              borderRadius: BorderRadius.circular(20),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               keepWords(
@@ -185,7 +185,7 @@ class PhotoDetailModal extends StatelessWidget {
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: slate50,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: slate200),
                       ),
                       child: const Center(
@@ -210,7 +210,7 @@ class PhotoDetailModal extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: makitaTeal,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

@@ -20,7 +20,7 @@ class PendingWritesBanner extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: CuttingColors.warningSoft,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: CuttingColors.warning.withValues(alpha: 0.4)),
       ),
       child: Row(

@@ -241,15 +241,15 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
                   vertical: 14,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   borderSide: const BorderSide(color: layoutLine),
                 ),
                 enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   borderSide: const BorderSide(color: layoutLine),
                 ),
                 focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   borderSide: const BorderSide(color: tossBlue, width: 2),
                 ),
               ),
@@ -310,7 +310,7 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
               key: ValueKey("parts_cat_$key"),
               color: key == _category ? tossBlue : pureWhite,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 side: BorderSide(
                   color: key == _category ? tossBlue : layoutLine,
                   width: 1.5,
@@ -362,7 +362,7 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
             key: ValueKey("fitting_size_$size"),
             color: size == _fittingSize ? tossBlue : pureWhite,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
               side: BorderSide(
                 color: size == _fittingSize ? tossBlue : layoutLine,
                 width: 1.5,
@@ -458,7 +458,7 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: tossBlue.withValues(alpha: 0.06),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: tossBlue.withValues(alpha: 0.4)),
               ),
               child: Icon(

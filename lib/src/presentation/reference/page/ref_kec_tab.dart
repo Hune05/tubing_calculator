@@ -146,7 +146,7 @@ class _RefKecTabState extends State<RefKecTab> {
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       decoration: BoxDecoration(
         color: refWarnBg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: refWarnBorder, width: 1.5),
       ),
       child: Column(

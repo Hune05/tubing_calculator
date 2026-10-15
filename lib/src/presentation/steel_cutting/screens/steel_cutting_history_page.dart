@@ -243,10 +243,10 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
         padding: const EdgeInsets.only(right: 8),
         child: Material(
           color: selected ? CuttingColors.primary : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           child: InkWell(
             key: Key('steel_history_shape_${value ?? 'all'}'),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             onTap: () {
               setState(() {
                 _shapeFilter = value;
@@ -361,7 +361,7 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: CuttingColors.primary.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Wrap(
             spacing: 16,
@@ -405,7 +405,7 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: CuttingColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Row(
@@ -414,7 +414,7 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: meta.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,

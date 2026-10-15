@@ -1086,7 +1086,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           border: Border.all(color: _line),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1197,7 +1197,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
         child: Material(
           key: key,
           color: selected ? _teal.withValues(alpha: 0.10) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: onTap,
@@ -1549,7 +1549,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _paper,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: _line),
       ),
       child: Row(
@@ -1765,7 +1765,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               decoration: BoxDecoration(
                 color: bg,
                 border: Border.all(color: border, width: borderWidth),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 boxShadow: boxed
                     ? [
                         BoxShadow(
@@ -1852,7 +1852,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               decoration: BoxDecoration(
                 // 10-09: 흰 바탕 고정이라 야간 보기(밝은 글씨)에서 숫자가 안 보였다 → 보기 색 바탕.
                 color: isSel ? _teal.withValues(alpha: 0.06) : _stripBg,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 border: Border.all(
                   color: isSel ? _teal : (s.isCut ? _ink : _line),
                   width: isSel ? 2 : (s.isCut ? 1.4 : 1),
@@ -1979,7 +1979,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: done ? _teal : _red,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -2072,7 +2072,7 @@ class _FieldMarkingScreenState extends State<FieldMarkingScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: _paper,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: _line),
               ),
               child: Row(
@@ -2593,7 +2593,7 @@ class _MeasureDialogState extends State<_MeasureDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         '차이 ${signedMm(diff)} · ${ok ? '합격' : '허용 ±$_tolText mm 밖(불합격)'}',
@@ -2690,7 +2690,7 @@ class _MeasureDialogState extends State<_MeasureDialog> {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
                     decoration: BoxDecoration(
                       color: fc.fill,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

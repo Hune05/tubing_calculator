@@ -202,11 +202,11 @@ class _PlateVertexTableState extends State<PlateVertexTable> {
       fillColor: fc.fill,
       contentPadding: const EdgeInsets.all(12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         borderSide: BorderSide(color: fc.brand, width: 1.6),
       ),
     ),
@@ -272,10 +272,10 @@ class _PlateVertexTableState extends State<PlateVertexTable> {
               height: 46,
               child: Material(
                 color: r.corner.isNone ? fc.fill : fc.brandSoft,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 child: InkWell(
                   key: Key('pl_vc_${i + 1}'),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                   onTap: () => _corner(i),
                   child: Center(
                     child: FittedBox(
@@ -319,7 +319,7 @@ class _PlateVertexTableState extends State<PlateVertexTable> {
     return DecoratedBox(
       key: const Key('pl_vtable'),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: fc.line),
       ),
       child: Column(
@@ -329,7 +329,7 @@ class _PlateVertexTableState extends State<PlateVertexTable> {
             decoration: BoxDecoration(
               color: fc.fill,
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(10),
+                top: Radius.circular(6),
               ),
             ),
             child: Padding(

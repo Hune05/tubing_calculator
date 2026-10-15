@@ -856,10 +856,10 @@ class _BracketPageState extends State<BracketPage>
     final kg = p.kgPerM;
     return Material(
       color: fc.fill,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         key: Key(key),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: () async {
           final r = await _pickSpec(spec);
           if (r != null && r.trim().isNotEmpty) onPick(r.trim());
@@ -1433,10 +1433,10 @@ class _BracketPageState extends State<BracketPage>
     final m = sp.threadUsed;
     return Material(
       color: fc.fill,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         key: Key('br_up_$k'),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: () async {
           final r = await showPlateSheet<String>(
             context,
@@ -1760,10 +1760,10 @@ class _BracketPageState extends State<BracketPage>
 
   Widget _pieceCard(BracketPiece pc) => Material(
     color: fc.fill,
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(6),
     child: InkWell(
       key: Key('br_piece_${pc.mark}'),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
       onTap: () => setState(() {
         _view = 'piece';
         _pieceMark = pc.mark;
@@ -2368,10 +2368,10 @@ class _SpecSheetState extends State<_SpecSheet> {
               final kg = p.kgPerM;
               return Material(
                 color: on ? fc.brandSoft : Colors.transparent,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 child: InkWell(
                   key: Key('br_spec_item_${s.label}'),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                   onTap: () => setState(() {
                     _pick = s.label;
                     _custom.clear();

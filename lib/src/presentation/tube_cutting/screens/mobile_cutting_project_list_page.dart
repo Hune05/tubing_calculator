@@ -52,7 +52,7 @@ class _MobileCuttingProjectListPageState
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
             decoration: const BoxDecoration(
               color: CuttingColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -65,7 +65,7 @@ class _MobileCuttingProjectListPageState
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                 ),
@@ -75,7 +75,7 @@ class _MobileCuttingProjectListPageState
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: CuttingColors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: const AppIcon(
                     AppGlyph.tubeCut,
@@ -123,11 +123,11 @@ class _MobileCuttingProjectListPageState
                       vertical: 16,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                       borderSide: BorderSide.none,
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                       borderSide: const BorderSide(
                         color: CuttingColors.primary,
                         width: 2,
@@ -151,7 +151,7 @@ class _MobileCuttingProjectListPageState
                           disabledBackgroundColor: Colors.grey.shade300,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           elevation: 0,
                         ),
@@ -234,7 +234,7 @@ class _MobileCuttingProjectListPageState
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: CuttingColors.surface,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -620,12 +620,12 @@ class _MobileCuttingProjectListPageState
                       onTap: () => _openProject(context, doc.id, project),
                       onLongPress: () =>
                           _showItemActions(context, doc.id, project, data),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(8),
                       child: Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
                           color: CuttingColors.background,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(8),
                         ),
                         child: Row(
                           children: [
@@ -635,7 +635,7 @@ class _MobileCuttingProjectListPageState
                                 color: CuttingColors.primary.withValues(
                                   alpha: 0.1,
                                 ),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: const AppIcon(
                                 AppGlyph.tubeCut,

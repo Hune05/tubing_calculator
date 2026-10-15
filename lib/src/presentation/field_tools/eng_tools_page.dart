@@ -36,7 +36,7 @@ class EngToolsPage extends StatelessWidget {
           color: fc.surface,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(6),
             side: BorderSide(color: fc.line),
           ),
           child: ListTile(
@@ -420,7 +420,7 @@ class _BoltCirclePageState extends State<BoltCirclePage> with CalcFormParts<Bolt
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
       decoration: BoxDecoration(
         border: Border.all(color: fc.line),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         children: [

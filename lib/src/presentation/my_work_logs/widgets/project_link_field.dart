@@ -140,10 +140,10 @@ class ProjectLinkField extends StatelessWidget {
     padding: const EdgeInsets.only(bottom: 10),
     child: Material(
       color: fc.background,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         key: const Key('plink_field'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         onTap: () => _pick(context),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

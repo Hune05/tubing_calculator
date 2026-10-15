@@ -364,7 +364,7 @@ void showCalcHistorySheet(
     backgroundColor: fc.surface,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
     ),
     builder: (sheetContext) {
       return FractionallySizedBox(
@@ -378,7 +378,7 @@ void showCalcHistorySheet(
                 height: 5,
                 decoration: BoxDecoration(
                   color: fc.line,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               Text(

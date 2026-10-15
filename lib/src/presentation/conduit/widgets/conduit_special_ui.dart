@@ -60,7 +60,7 @@ class CsFrame extends StatelessWidget {
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: csWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -146,15 +146,15 @@ class CsField extends StatelessWidget {
       hintText: hint,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: BorderSide(color: Colors.grey.shade300),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: const BorderSide(color: csTeal, width: 2),
       ),
     ),
@@ -178,7 +178,7 @@ class CsQuickBtn extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: csWhite,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Text(label, style: const TextStyle(color: csInk, fontWeight: FontWeight.bold)),
@@ -201,7 +201,7 @@ class CsQuickAngleBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
           color: csWhite,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: Colors.grey.shade300),
         ),
         child: Text(
@@ -238,7 +238,7 @@ class CsChoice extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected ? csTeal : csBg,
         border: Border.all(color: selected ? csTeal : Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -331,7 +331,7 @@ class CsDirectionSelector extends StatelessWidget {
               decoration: BoxDecoration(
                 color: sel ? csTeal : csBg,
                 border: Border.all(color: sel ? csTeal : Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -369,7 +369,7 @@ class CsInfoBox extends StatelessWidget {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: Colors.blueGrey.shade50,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       border: Border.all(color: Colors.blueGrey.shade200),
     ),
     child: Row(
@@ -417,7 +417,7 @@ class CsResultBox extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: csTeal.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: csTeal.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -585,7 +585,7 @@ void csShowDirectionWarning(BuildContext context) => showDialog(
   context: context,
   builder: (ctx) => AlertDialog(
     backgroundColor: csWhite,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     title: const Row(
       children: [
         Icon(Icons.warning_amber_rounded, color: Colors.deepOrange),
@@ -601,7 +601,7 @@ void csShowDirectionWarning(BuildContext context) => showDialog(
       ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.deepOrange,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
         onPressed: () => Navigator.pop(ctx),
         child: const Text('확인', style: TextStyle(color: csWhite)),

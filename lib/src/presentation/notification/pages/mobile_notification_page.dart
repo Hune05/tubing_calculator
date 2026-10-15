@@ -135,7 +135,7 @@ class _MobileNotificationPageState extends State<MobileNotificationPage> {
         child: Container(
           decoration: const BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
           child: Column(

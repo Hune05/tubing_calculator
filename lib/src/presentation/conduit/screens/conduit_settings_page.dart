@@ -682,7 +682,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
         return AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: Row(
             children: [
@@ -835,7 +835,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
                 backgroundColor: makitaTeal,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 elevation: 0,
               ),
@@ -956,7 +956,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
             decoration: BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: makitaTeal, width: 1.5),
             ),
             child: DropdownButtonHideUnderline(
@@ -1451,7 +1451,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
       margin: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: slate200, width: 1),
       ),
       child: Column(
@@ -1492,7 +1492,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
             onTap: () {
               _showHelpDialog(label, helpText);
             },
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             child: Icon(
               Icons.help_outline,
               size: 16,

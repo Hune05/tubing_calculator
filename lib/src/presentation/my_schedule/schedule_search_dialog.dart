@@ -49,7 +49,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
     return Dialog(
       backgroundColor: Colors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
         child: Column(
@@ -76,7 +76,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                 filled: true,
                 fillColor: AppColors.background,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -119,7 +119,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                     );
                     return InkWell(
                       key: ValueKey('schedule_result_$i'),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                       onTap: () => Navigator.pop(context, e),
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 4),
@@ -128,7 +128,7 @@ class _ScheduleSearchDialogState extends State<ScheduleSearchDialog> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: AppColors.line),
                         ),
                         child: Column(

@@ -430,10 +430,10 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
       onDelete: () => _removeAttendee(a),
       child: Material(
         color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         child: InkWell(
           key: Key('safety_att_${a.name}'),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           onTap: () => _editAttendee(a),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 8, 10, 8),
@@ -636,7 +636,7 @@ class _ItemsSheetState extends State<_ItemsSheet> {
     padding: const EdgeInsets.fromLTRB(12, 2, 4, 2),
     decoration: BoxDecoration(
       color: AppColors.text,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
     ),
     child: Row(
       children: [

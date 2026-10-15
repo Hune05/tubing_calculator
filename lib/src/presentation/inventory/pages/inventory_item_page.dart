@@ -163,7 +163,7 @@ class _Body extends StatelessWidget {
             color: short
                 ? CuttingColors.warningSoft
                 : CuttingColors.primarySoft,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,7 +288,7 @@ class _Body extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
     decoration: BoxDecoration(
       color: CuttingColors.background,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
     ),
     child: Text(
       text,

@@ -355,7 +355,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     // 🚀 [고침] 누르자마자 다 지웠고, 고치던 줄 번호도 남아서
                     // 아래 '수정'이 조용히 아무 일도 안 했다. 먼저 묻고,
                     // 지우면 고치기도 그만둔다(↶로 되돌릴 수 있다).
@@ -432,7 +432,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
           color: isEditingThis
               ? fieldSoft(Colors.orange.shade50, (p) => p.caution)
               : pureWhite,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(6),
           border: isEditingThis
               ? Border.all(
                   color: fieldPick(
@@ -795,7 +795,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                           vertical: 12,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                           borderSide: BorderSide(
                             color: fieldPick(
                               Colors.orange.shade200,
@@ -917,7 +917,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                                         ),
                                   width: isSelected ? 2 : 1,
                                 ),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -1009,7 +1009,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                                   vertical: 12,
                                 ),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(4),
                                   borderSide: BorderSide(
                                     color: fieldPick(
                                       Colors.grey.shade300,
@@ -1039,7 +1039,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(color: slate600, width: 1.5),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
@@ -1068,7 +1068,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                           alpha: 0.4,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                       ),
@@ -1174,7 +1174,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -1353,7 +1353,7 @@ class _ConduitInputTabState extends State<ConduitInputTab>
         backgroundColor: slate100,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
       child: Row(
         children: [

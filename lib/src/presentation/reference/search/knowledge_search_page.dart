@@ -209,7 +209,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFFF0F7FF),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: const Color(0xFFBBD7F5)),
       ),
       child: Column(
@@ -256,10 +256,10 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
     final snippet = matchingLine(e, hit.terms) ?? e.lines.take(2).join('\n');
     return Material(
       color: refWhite,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         key: Key('ks_hit_${e.id}'),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         onTap: () {
           if (e.direct && e.open != null) {
             // 계산기 바로가기·내 기록은 내용 창 없이 곧바로 연다.
@@ -671,7 +671,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFF7E6),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
                   '검색어를 모두 담은 자료가 없어, 일부 낱말만 맞는 자료를 보여 드립니다. 낱말을 줄이거나 바꿔 찾아 보십시오.',
@@ -753,7 +753,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
                   filled: true,
                   fillColor: refWhite,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -832,7 +832,7 @@ class _AiAnswerSheetState extends State<_AiAnswerSheet> {
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           color: bg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,

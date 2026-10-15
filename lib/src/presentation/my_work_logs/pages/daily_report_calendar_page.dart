@@ -94,7 +94,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -176,7 +176,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +413,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: pureWhite,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Column(
                 children: [
@@ -497,7 +497,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                 final int count = dayReports?.length ?? 0;
 
                 return InkWell(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                   onTap: hasReport
                       ? () => _openDay(key, dayReports)
                       : () => showSnackOnce(ScaffoldMessenger.of(context),
@@ -510,7 +510,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                       color: hasReport
                           ? tossBlue.withValues(alpha: 0.1)
                           : pureWhite,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -568,7 +568,7 @@ class _DailyReportCalendarPageState extends State<DailyReportCalendarPage> {
                   side: const BorderSide(color: Colors.black12),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 child: const Text(

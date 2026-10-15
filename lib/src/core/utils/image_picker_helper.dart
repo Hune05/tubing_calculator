@@ -57,7 +57,7 @@ class ImagePickerHelper {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
       ),
       builder: (ctx) => SafeArea(
         child: Wrap(
@@ -143,7 +143,7 @@ class ImagePickerHelper {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
       ),
       builder: (ctx) => SafeArea(
         child: Wrap(

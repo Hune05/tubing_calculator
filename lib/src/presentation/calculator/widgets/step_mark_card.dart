@@ -77,7 +77,7 @@ class StepMarkCard extends StatelessWidget {
           color: selected
               ? fieldSoftIn(p, Colors.orange.shade50, p.caution)
               : p.surface,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: selected
                 ? selColor
@@ -101,7 +101,7 @@ class StepMarkCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: selected ? selColor : (isStraight ? p.line : p.brand),
                   borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(14),
+                    left: Radius.circular(6),
                   ),
                 ),
                 child: isStraight
@@ -167,7 +167,7 @@ class StepMarkCard extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: p.background,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         // 6자리 넘는 값은 320 폭에서 넘쳤다. 칸 폭에 맞게 줄인다.
                         child: FittedBox(
@@ -243,7 +243,7 @@ class _DirChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: p.brand.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: p.brand.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -289,7 +289,7 @@ class CutLengthCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: p.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: p.brand.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -308,7 +308,7 @@ class CutLengthCard extends StatelessWidget {
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: p.brand,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: AppIcon(
                   AppGlyph.tubeCut,

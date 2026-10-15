@@ -1410,7 +1410,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               icon: const Icon(Icons.add, color: CuttingColors.surface),
@@ -1502,7 +1502,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: CuttingColors.primarySoft.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: CuttingColors.primary.withValues(alpha: 0.3)),
       ),
       child: Wrap(
@@ -1555,7 +1555,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           Expanded(
             child: InkWell(
               key: Key('steel_group_toggle_$shape'),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               onTap: () => _toggleCollapse(shape),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
@@ -1648,7 +1648,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: CuttingColors.danger.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: CuttingColors.danger.withValues(alpha: 0.4)),
       ),
       child: Column(
@@ -1715,7 +1715,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: CuttingColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: Row(
           children: [
             cuttingDialogIcon(Icons.straighten_rounded),
@@ -1761,7 +1761,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 filled: true,
                 fillColor: Colors.grey.shade100,
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -1778,14 +1778,14 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: InkWell(
                         key: Key('steel_len_step_${d.toStringAsFixed(0)}'),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(4),
                         onTap: () => bump(d),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: CuttingColors.primarySoft,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             d > 0
@@ -1866,7 +1866,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       isScrollControlled: true,
       backgroundColor: CuttingColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => SafeArea(
@@ -2055,7 +2055,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       padding: const EdgeInsets.fromLTRB(12, 4, 4, 4),
       decoration: BoxDecoration(
         color: CuttingColors.primarySoft,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
@@ -2093,7 +2093,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       isScrollControlled: true,
       backgroundColor: CuttingColors.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => SafeArea(
@@ -2162,7 +2162,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                         ),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: CuttingColors.border),
                         ),
                         child: Row(
@@ -2204,7 +2204,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                       backgroundColor: CuttingColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     onPressed: () => Navigator.pop(ctx, true),
@@ -2250,7 +2250,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           return AlertDialog(
             backgroundColor: CuttingColors.surface,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
             ),
             title: Row(
               children: [
@@ -2294,7 +2294,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                     filled: true,
                     fillColor: Colors.grey.shade100,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(6),
                       borderSide: BorderSide.none,
                     ),
                     errorText: error,
@@ -2352,7 +2352,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       padding: const EdgeInsets.fromLTRB(12, 6, 6, 6),
       decoration: BoxDecoration(
         color: CuttingColors.primarySoft.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
@@ -2386,10 +2386,10 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   Widget _qtyButton(Key key, IconData icon, VoidCallback? onTap) {
     return Material(
       color: onTap == null ? Colors.grey.shade100 : CuttingColors.primarySoft,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       child: InkWell(
         key: key,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         onTap: onTap,
         child: SizedBox(
           width: 34,
@@ -2416,7 +2416,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: CuttingColors.danger,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: const Icon(Icons.delete_outline, color: Colors.white),
       ),
@@ -2425,11 +2425,11 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(
           color: CuttingColors.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: InkWell(
           key: Key('steel_item_${item.id}'),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
           onTap: () => _editItem(item),
           onLongPress: () => _editLength(item),
           child: Padding(
@@ -2516,7 +2516,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                 ),
                 const SizedBox(width: 8),
                 InkWell(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                   onTap: () => _duplicateItem(item),
                   child: const Padding(
                     padding: EdgeInsets.all(10),
@@ -2750,7 +2750,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               decoration: BoxDecoration(
                 color: CuttingColors.surface,
                 border: Border.all(color: CuttingColors.border),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: CuttingResultView(
                 lines: lines,
@@ -2846,7 +2846,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
       message: label,
       child: InkWell(
         key: key,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         onTap: onTap,
         child: Container(
           padding: showLabel
@@ -2854,7 +2854,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               : const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: on ? CuttingColors.primary : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -2886,7 +2886,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     return Container(
       decoration: BoxDecoration(
         color: CuttingColors.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: CuttingColors.primary),
       ),
       child: Row(
@@ -2928,9 +2928,9 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     final bool selected = _categoryFilter == label;
     return Material(
       color: selected ? CuttingColors.primary : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         onTap: () => setState(() => _categoryFilter = label),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),

@@ -111,7 +111,7 @@ extension _LayoutBoardSelect on _LayoutBoardPageState {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         title: const Text(
           "선택 부품 삭제",
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
@@ -256,7 +256,7 @@ extension _LayoutBoardSelect on _LayoutBoardPageState {
             margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -334,7 +334,7 @@ extension _LayoutBoardSelect on _LayoutBoardPageState {
               padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
               decoration: BoxDecoration(
                 color: tossText,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.2),
@@ -473,7 +473,7 @@ extension _LayoutBoardSelect on _LayoutBoardPageState {
     final bool enabled = onPressed != null;
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 52, minHeight: 52),
         child: Padding(

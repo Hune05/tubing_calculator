@@ -102,7 +102,7 @@ class _MaterialReceivePageState extends State<MaterialReceivePage> {
         filled: true,
         fillColor: AppColors.background,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide.none,
         ),
       );
@@ -138,7 +138,7 @@ class _MaterialReceivePageState extends State<MaterialReceivePage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -198,7 +198,7 @@ class _MaterialReceivePageState extends State<MaterialReceivePage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.surface,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -220,14 +220,14 @@ class _MaterialReceivePageState extends State<MaterialReceivePage> {
                         InkWell(
                           key: const Key('receive_photo_add'),
                           onTap: _addPhotos,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                           child: Container(
                             width: 84,
                             height: 84,
                             margin: const EdgeInsets.only(right: 10),
                             decoration: BoxDecoration(
                               color: AppColors.background,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
                               Icons.add_a_photo_rounded,
@@ -249,7 +249,7 @@ class _MaterialReceivePageState extends State<MaterialReceivePage> {
                                     initialIndex: i,
                                   ),
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(6),
                                     child: PhotoImage(
                                       _photos[i],
                                       width: 84,

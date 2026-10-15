@@ -67,7 +67,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: color ?? fc.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: fc.line),
         ),
         child: Column(

@@ -222,7 +222,7 @@ class _Header extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: CuttingColors.primarySoft.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: CuttingColors.primary.withValues(alpha: 0.3)),
       ),
       child: Column(
@@ -234,7 +234,7 @@ class _Header extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
                 key: const Key('result_spec_picker'),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 onTap: onPickSpec,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -243,7 +243,7 @@ class _Header extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: CuttingColors.primary.withValues(alpha: 0.5),
                     ),
@@ -291,7 +291,7 @@ class _Header extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
                   color: CuttingColors.warningSoft,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                   border: Border.all(
                     color: CuttingColors.warning.withValues(alpha: 0.5),
                   ),
@@ -324,7 +324,7 @@ class _Header extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
                 key: const Key('result_spec_warning'),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 onTap: onPickSpec,
                 child: Container(
                   width: double.infinity,
@@ -334,7 +334,7 @@ class _Header extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: CuttingColors.warningSoft,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: CuttingColors.warning.withValues(alpha: 0.5),
                     ),
@@ -469,7 +469,7 @@ class _Header extends StatelessWidget {
           ...[
             const SizedBox(height: 10),
             ClipRRect(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: s.progress,
                 minHeight: 8,
@@ -520,7 +520,7 @@ class _Header extends StatelessWidget {
             InkWell(
               key: const Key('result_warning_tap'),
               onTap: onWarningTap,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(4),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Text(
@@ -561,16 +561,16 @@ class _Row extends StatelessWidget {
     final grey = Colors.grey.shade500;
     return Material(
       color: isDone ? Colors.grey.shade100 : Colors.white,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         key: Key('result_row_${line.key}'),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Container(
           constraints: const BoxConstraints(minHeight: 64),
           padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: isDone
                   ? CuttingColors.success.withValues(alpha: 0.5)
@@ -629,7 +629,7 @@ class _Row extends StatelessWidget {
                                     : CuttingColors.primary.withValues(
                                         alpha: isDone ? 0.06 : 0.12,
                                       ),
-                                borderRadius: BorderRadius.circular(6),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 line.spec.isEmpty ? '규격 미지정' : line.spec,
@@ -809,7 +809,7 @@ class _SpecHeader extends StatelessWidget {
       padding: const EdgeInsets.only(top: 4, bottom: 2),
       child: InkWell(
         key: Key('spec_fold_$spec'),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
@@ -831,7 +831,7 @@ class _Orders extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(

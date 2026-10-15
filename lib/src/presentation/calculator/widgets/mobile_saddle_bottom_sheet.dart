@@ -301,7 +301,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: const Row(
             children: [
@@ -322,7 +322,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepOrange,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
               onPressed: () => Navigator.pop(ctx),
@@ -371,7 +371,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: Row(
             children: [
@@ -401,7 +401,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               style: ElevatedButton.styleFrom(
                 backgroundColor: kCaution, // 경고를 알고 진행(주의)
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
               onPressed: () {
@@ -463,7 +463,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: const Row(
             children: [
@@ -484,7 +484,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.deepOrange,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
               onPressed: () => Navigator.pop(ctx),
@@ -520,7 +520,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: Row(
             children: [
@@ -551,7 +551,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
               style: ElevatedButton.styleFrom(
                 backgroundColor: kCaution, // 경고를 알고 진행(주의)
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
               onPressed: () {
@@ -625,7 +625,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     border: Border.all(
                       color: isSelected ? makitaTeal : Colors.grey.shade300,
                     ),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -762,7 +762,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -1076,15 +1076,15 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                 vertical: 10,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 borderSide: BorderSide(color: Colors.grey.shade300),
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 borderSide: const BorderSide(color: makitaTeal, width: 2),
               ),
             ),
@@ -1133,15 +1133,15 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           vertical: 12,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: BorderSide(color: Colors.grey.shade300),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: const BorderSide(color: makitaTeal, width: 2),
         ),
       ),
@@ -1157,7 +1157,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: Text(
@@ -1189,7 +1189,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.blueGrey.shade50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.blueGrey.shade200),
       ),
       child: Column(
@@ -1277,7 +1277,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
             ),
             child: Text(
@@ -1297,7 +1297,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: makitaTeal.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: makitaTeal, width: 2),
             ),
             child: Row(
@@ -1346,7 +1346,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(color: Colors.amber.shade400, width: 1.5),
             ),
             child: Row(
@@ -1432,7 +1432,7 @@ class _MobileSaddleBottomSheetState extends State<MobileSaddleBottomSheet>
                     backgroundColor: makitaTeal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                   onPressed: onPressed,

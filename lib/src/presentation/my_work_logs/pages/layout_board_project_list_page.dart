@@ -99,7 +99,7 @@ class _LayoutBoardProjectListPageState
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -199,7 +199,7 @@ class _LayoutBoardProjectListPageState
           margin: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -386,7 +386,7 @@ class _LayoutBoardProjectListPageState
         backgroundColor: tossBlue,
         elevation: 0,
         highlightElevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         icon: const Icon(Icons.add_rounded, color: pureWhite, size: 26),
         label: const Text(
           "새 배치도",
@@ -519,7 +519,7 @@ class _LayoutBoardProjectListPageState
         child: InkWell(
           onTap: () => _openProject(doc.id),
           onLongPress: () => _showItemActions(doc.id, name),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(6),
           child: Ink(
             decoration: layoutCardDecoration(),
             child: Padding(
@@ -532,7 +532,7 @@ class _LayoutBoardProjectListPageState
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: tossBlue.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: const AppIcon(
                       AppGlyph.layout,

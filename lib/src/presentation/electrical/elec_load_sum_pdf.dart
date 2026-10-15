@@ -213,7 +213,7 @@ Future<Uint8List> buildLoadSumPdf(
           padding: const pw.EdgeInsets.all(10),
           decoration: pw.BoxDecoration(
             color: pass == false ? _redBg : (pass == true ? _tealBg : _greyBg),
-            borderRadius: pw.BorderRadius.circular(6),
+            borderRadius: pw.BorderRadius.circular(4),
           ),
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,

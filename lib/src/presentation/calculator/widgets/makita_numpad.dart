@@ -178,7 +178,7 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                   elevation: 0, // 그림자 완전 제거
                   shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24), // 세련된 알약 모양
+                    borderRadius: BorderRadius.circular(8), // 세련된 알약 모양
                   ),
                 ),
                 onPressed: () => widget.onApply?.call(),
@@ -195,7 +195,7 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                 style: TextButton.styleFrom(
                   foregroundColor: textColor ?? _p.text, // 기본 숫자 색상 (다크)
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   padding: EdgeInsets.zero,
                 ),
@@ -226,7 +226,7 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
             elevation: 0,
             shadowColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(8),
             ),
             padding: EdgeInsets.zero,
           ),
@@ -259,7 +259,7 @@ class _MakitaNumpadState extends State<MakitaNumpad> {
                 elevation: 0,
                 shadowColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 padding: EdgeInsets.zero,
               ),

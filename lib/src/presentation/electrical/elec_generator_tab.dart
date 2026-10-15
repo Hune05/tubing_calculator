@@ -361,7 +361,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
           decoration: BoxDecoration(
             color: fc.surface,
             border: Border.all(color: fc.line),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
           ),
           clipBehavior: Clip.antiAlias,
           child: Table(
@@ -525,11 +525,11 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: BorderSide(color: fc.line),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         borderSide: BorderSide(color: fc.brand, width: 1.5),
       ),
     ),

@@ -136,7 +136,7 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: _white,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,7 +175,7 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
                   backgroundColor: _teal,
                   minimumSize: const Size(0, 44),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 child: const Text(
@@ -210,7 +210,7 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
                       minimumSize: const Size(0, 44),
                       side: const BorderSide(color: _slate200, width: 1.5),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     child: const FittedBox(
@@ -235,7 +235,7 @@ class _SettingsCloudCardState extends State<SettingsCloudCard> {
                       backgroundColor: _teal,
                       minimumSize: const Size(0, 44),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     child: _busy

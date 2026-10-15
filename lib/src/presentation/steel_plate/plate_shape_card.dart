@@ -34,14 +34,14 @@ class PlateShapeCard extends StatelessWidget {
     child: Material(
       color: selected ? fc.brandSoft : fc.fill,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         side: BorderSide(
           color: selected ? fc.brand : Colors.transparent,
           width: 2,
         ),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         onTap: () {
           HapticFeedback.selectionClick();
           onTap();

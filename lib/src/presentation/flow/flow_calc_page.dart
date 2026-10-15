@@ -968,7 +968,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
       padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: fc.line),
       ),
       child: Column(
@@ -1022,7 +1022,7 @@ class _FlowCalcPageState extends State<FlowCalcPage>
 
   Widget _stepBtn(String key, IconData icon, VoidCallback onTap) => InkWell(
     key: Key(key),
-    borderRadius: BorderRadius.circular(18),
+    borderRadius: BorderRadius.circular(6),
     onTap: () {
       HapticFeedback.selectionClick();
       onTap();

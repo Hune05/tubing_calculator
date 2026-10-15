@@ -383,7 +383,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: makitaTeal.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: makitaTeal.withValues(alpha: 0.5)),
       ),
       child: Text(
@@ -409,16 +409,16 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
       padding: const EdgeInsets.only(right: 8),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           onTap: () => setState(() => selectedSize = size),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected ? makitaTeal : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(
                 color: isSelected ? makitaTeal : Colors.transparent,
               ),
@@ -443,16 +443,16 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
       padding: const EdgeInsets.only(right: 8),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
           onTap: () => setState(() => selectedCategory = label),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: isSelected ? makitaTeal : pureWhite,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: isSelected ? makitaTeal : Colors.grey.shade300,
               ),
@@ -477,14 +477,14 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: () => _recordRecentAndPop(item),
         child: Container(
           width: 128,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: accent.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: accent.withValues(alpha: 0.35)),
           ),
           child: Column(
@@ -621,7 +621,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
           return Container(
             decoration: const BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -678,7 +678,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                       fillColor: Colors.grey.shade100,
                       contentPadding: const EdgeInsets.symmetric(vertical: 4),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(6),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -917,7 +917,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: pureWhite,
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(6),
                                     border: Border.all(
                                       color: Colors.grey.shade200,
                                     ),

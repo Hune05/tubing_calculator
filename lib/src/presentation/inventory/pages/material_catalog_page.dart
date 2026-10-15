@@ -415,7 +415,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
                       prefixIcon: const Icon(Icons.search, size: 20),
                       hintText: "자재 이름·규격 찾기",
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(6),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -542,7 +542,7 @@ class _CatalogBodyState extends State<_CatalogBody> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   onPressed: _putIntoInventory,

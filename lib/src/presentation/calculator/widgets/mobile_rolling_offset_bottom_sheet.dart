@@ -306,7 +306,7 @@ class _MobileRollingOffsetBottomSheetState
                     border: Border.all(
                       color: isSelected ? makitaTeal : Colors.grey.shade300,
                     ),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -394,7 +394,7 @@ class _MobileRollingOffsetBottomSheetState
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -435,7 +435,7 @@ class _MobileRollingOffsetBottomSheetState
               Container(
                 decoration: BoxDecoration(
                   color: slate100,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 padding: const EdgeInsets.all(4),
                 child: Row(
@@ -449,7 +449,7 @@ class _MobileRollingOffsetBottomSheetState
                             color: !_isReverseMode
                                 ? makitaTeal
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -471,7 +471,7 @@ class _MobileRollingOffsetBottomSheetState
                             color: _isReverseMode
                                 ? makitaTeal
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -567,7 +567,7 @@ class _MobileRollingOffsetBottomSheetState
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: makitaTeal.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
                 ),
                 child: Column(
@@ -596,7 +596,7 @@ class _MobileRollingOffsetBottomSheetState
                       ),
                       decoration: BoxDecoration(
                         color: pureWhite,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(4),
                         border: Border.all(color: Colors.grey.shade200),
                       ),
                       child: Wrap(
@@ -648,7 +648,7 @@ class _MobileRollingOffsetBottomSheetState
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.deepOrange.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                           border: Border.all(
                             color: Colors.deepOrange.withValues(alpha: 0.3),
                           ),
@@ -759,7 +759,7 @@ class _MobileRollingOffsetBottomSheetState
                             style: ElevatedButton.styleFrom(
                               backgroundColor: makitaTeal,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                             ),
                             onPressed: () => _applyRolling(
@@ -856,17 +856,17 @@ class _MobileRollingOffsetBottomSheetState
               vertical: 12,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               borderSide: BorderSide(color: Colors.grey.shade300),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               borderSide: active
                   ? const BorderSide(color: makitaTeal, width: 2)
                   : BorderSide(color: Colors.grey.shade300),
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               borderSide: const BorderSide(color: makitaTeal, width: 2),
             ),
           ),
@@ -887,7 +887,7 @@ class _MobileRollingOffsetBottomSheetState
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: Text(

@@ -12,7 +12,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
       isScrollControlled: true,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
@@ -166,7 +166,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
               initialIndex: index,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               child: PhotoImage(path, width: 88, height: 88),
             ),
           ),
@@ -213,7 +213,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
                   color: Colors.black54,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: const Icon(
                   Icons.draw_rounded,
@@ -232,7 +232,7 @@ extension _DailyReportPhotos on _DailyReportPageState {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                   color: tag == null ? Colors.black54 : makitaTeal,
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   tag ?? '+ 분류',
@@ -255,13 +255,13 @@ extension _DailyReportPhotos on _DailyReportPageState {
         padding: const EdgeInsets.only(right: 10),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
             width: 88,
             height: 88,
             decoration: BoxDecoration(
               color: tossInputBg,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,

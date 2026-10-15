@@ -708,11 +708,11 @@ class _MobileFabricationDetailScreenState
             vertical: 16,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             borderSide: const BorderSide(color: makitaTeal, width: 2),
           ),
         ),
@@ -749,7 +749,7 @@ class _MobileFabricationDetailScreenState
               ),
               decoration: const BoxDecoration(
                 color: pureWhite,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -763,7 +763,7 @@ class _MobileFabricationDetailScreenState
                         margin: const EdgeInsets.only(bottom: 24),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                     ),
@@ -833,7 +833,7 @@ class _MobileFabricationDetailScreenState
                           foregroundColor: pureWhite,
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                         onPressed: isSaving
@@ -900,7 +900,7 @@ class _MobileFabricationDetailScreenState
                                       backgroundColor: makitaTeal,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
                                       duration: const Duration(seconds: 2),
                                     ),

@@ -770,7 +770,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
             proxyDecorator: (child, index, animation) => Material(
               elevation: 8,
               color: pureWhite,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(6),
               shadowColor: Colors.black38,
               child: child,
             ),
@@ -855,7 +855,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             ),
                             decoration: BoxDecoration(
                               color: entry.badgeColor ?? warningRed,
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               entry.badgeText!,
@@ -962,7 +962,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
         ),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
         child: Column(
@@ -2440,7 +2440,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 12),
       decoration: BoxDecoration(
         color: AppColors.caution.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
@@ -2928,7 +2928,7 @@ class _MobileMenuPageState extends State<MobileMenuPage>
                             ),
                             decoration: BoxDecoration(
                               color: badgeColor ?? warningRed,
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               badgeText,

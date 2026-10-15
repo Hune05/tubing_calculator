@@ -412,14 +412,14 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
                 children: [
                   InkWell(
                     key: Key('ps_photo_view_$i'),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     onTap: () => FullscreenPhotoViewer.show(
                       context: context,
                       photos: _photos,
                       initialIndex: i,
                     ),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       child: PhotoImage(_photos[i], width: 80, height: 80),
                     ),
                   ),
@@ -451,13 +451,13 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
             InkWell(
               key: const Key('ps_photo_add'),
               onTap: _addPhotos,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
               child: Container(
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
                   border: Border.all(color: fc.textSub.withValues(alpha: 0.4)),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,

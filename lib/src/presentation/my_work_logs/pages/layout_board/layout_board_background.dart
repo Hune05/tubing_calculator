@@ -183,7 +183,7 @@ extension _LayoutBoardBackground on _LayoutBoardPageState {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 decoration: const BoxDecoration(
                   color: pureWhite,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -196,7 +196,7 @@ extension _LayoutBoardBackground on _LayoutBoardPageState {
                         margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: const Color(0xFFD1D6DB),
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                     ),
@@ -222,7 +222,7 @@ extension _LayoutBoardBackground on _LayoutBoardPageState {
                     const SizedBox(height: 20),
                     if (_backgroundImagePath != null) ...[
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(6),
                         child: AspectRatio(
                           aspectRatio: 16 / 10,
                           child: Image.file(
@@ -354,7 +354,7 @@ extension _LayoutBoardBackground on _LayoutBoardPageState {
                           backgroundColor: tossBlue,
                           minimumSize: const Size(40, 48),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                       ),
@@ -405,7 +405,7 @@ extension _LayoutBoardBackground on _LayoutBoardPageState {
                               side: const BorderSide(color: tossBlue),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                           ),
@@ -455,7 +455,7 @@ extension _LayoutBoardBackground on _LayoutBoardPageState {
                                   vertical: 14,
                                 ),
                                 shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                               ),
                             ),

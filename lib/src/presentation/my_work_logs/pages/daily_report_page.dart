@@ -123,7 +123,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         key: const Key('report_safety_line'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         onTap: () async {
           await Navigator.push(
             context,
@@ -135,7 +135,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: done ? tossInputBg : const Color(0xFFFFF3DF),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             children: [
@@ -237,13 +237,13 @@ class _DailyReportPageState extends State<DailyReportPage> {
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         key: const Key('report_weather_line'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         onTap: _editWeather,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: tossInputBg,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             children: [
@@ -338,10 +338,10 @@ class _DailyReportPageState extends State<DailyReportPage> {
     required VoidCallback onTap,
   }) => Material(
     color: tossInputBg,
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(6),
     child: InkWell(
       key: key,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -726,7 +726,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
               vertical: 24,
             ),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 22, 20, 12),
@@ -764,7 +764,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                           final n = (r['note']?.toString() ?? '').trim();
                           return InkWell(
                             key: ValueKey('fill_pick_$i'),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(6),
                             onTap: () => setD(() => picked = i),
                             child: Container(
                               margin: const EdgeInsets.only(bottom: 4),
@@ -776,7 +776,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                                 color: on
                                     ? makitaTeal.withValues(alpha: 0.08)
                                     : null,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: on ? makitaTeal : AppColors.line,
                                 ),
@@ -859,7 +859,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: AppColors.background,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -972,7 +972,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -1138,7 +1138,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? makitaTeal : tossInputBg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
           // 위치가 있으면 함께 보여줘서 같은 내용의 이슈도 구분되게 한다.
@@ -1165,7 +1165,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(6),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -1212,7 +1212,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
     fillColor: tossInputBg,
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
       borderSide: BorderSide.none,
     ),
   );
@@ -1224,7 +1224,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
           decoration: BoxDecoration(
             color: sel ? makitaTeal : tossInputBg,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Text(
             label,
@@ -1249,7 +1249,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       clipBehavior: Clip.antiAlias,
       child: Theme(
@@ -1294,12 +1294,12 @@ class _DailyReportPageState extends State<DailyReportPage> {
   }) => Expanded(
     child: InkWell(
       onTap: onTap ?? () => _pickOvertimeTime(isStart: isStart),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: tossInputBg,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1412,7 +1412,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: Colors.orange.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Row(
                   children: [
@@ -1445,7 +1445,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
                   color: makitaTeal.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2105,7 +2105,7 @@ class _DailyReportPageState extends State<DailyReportPage> {
                 backgroundColor: makitaTeal,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               onPressed: _submit,

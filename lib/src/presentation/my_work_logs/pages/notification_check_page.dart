@@ -645,7 +645,7 @@ class _NotificationCheckPageState extends State<NotificationCheckPage>
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

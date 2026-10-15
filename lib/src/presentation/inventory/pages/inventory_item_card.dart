@@ -49,7 +49,7 @@ class _InventoryItemCardState extends State<InventoryItemCard> {
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: hasQty ? widget.themeColor : Colors.grey.shade300,
           width: hasQty ? 2 : 1,
@@ -71,7 +71,7 @@ class _InventoryItemCardState extends State<InventoryItemCard> {
                 _isExpanded = !_isExpanded;
               });
             },
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               child: Row(
@@ -247,13 +247,13 @@ class _InventoryItemCardState extends State<InventoryItemCard> {
     bool isEmpty = value.isEmpty;
     return InkWell(
       onTap: () => widget.onExtraInfoTap(infoType),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: slate100,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isEmpty
                 ? Colors.grey.shade300
@@ -287,12 +287,12 @@ class _InventoryItemCardState extends State<InventoryItemCard> {
   Widget _buildRoundButton(IconData icon, VoidCallback onPressed, bool isAdd) {
     return InkWell(
       onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: isAdd ? widget.themeColor : slate100,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isAdd ? widget.themeColor : Colors.grey.shade300,
           ),

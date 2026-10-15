@@ -59,7 +59,7 @@ class _LoopVoltageGuideState extends State<LoopVoltageGuide> with SingleTickerPr
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7F9FA), Color(0xFFE9EDF0)]),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: AppColors.line),
         ),
         child: Stack(

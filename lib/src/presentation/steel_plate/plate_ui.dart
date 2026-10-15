@@ -118,8 +118,8 @@ class _PlateSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final r = wide
-        ? const BorderRadius.horizontal(left: Radius.circular(20))
-        : const BorderRadius.vertical(top: Radius.circular(20));
+        ? const BorderRadius.horizontal(left: Radius.circular(8))
+        : const BorderRadius.vertical(top: Radius.circular(8));
     return DecoratedBox(
       decoration: BoxDecoration(
         color: fc.surface,
@@ -358,7 +358,7 @@ class PlateSegments extends StatelessWidget {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: fc.fill,
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
@@ -565,7 +565,7 @@ class _PlateNumFieldState extends State<PlateNumField> {
   Widget build(BuildContext context) {
     final label = widget.label;
     OutlineInputBorder b(Color c, double w) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       borderSide: BorderSide(color: c, width: w),
     );
     return Column(
@@ -789,7 +789,7 @@ class PlateTable extends StatelessWidget {
     );
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: fc.line),
       ),
       child: Column(
@@ -799,7 +799,7 @@ class PlateTable extends StatelessWidget {
             decoration: BoxDecoration(
               color: fc.fill,
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(10),
+                top: Radius.circular(6),
               ),
             ),
             child: line(headers, head: true),
@@ -933,7 +933,7 @@ class PlateFooter extends StatelessWidget {
                   foregroundColor: fc.onBrand,
                   minimumSize: const Size(0, 48),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 onPressed: onNext,
@@ -967,7 +967,7 @@ class PlateFooter extends StatelessWidget {
               minimumSize: const Size(0, 48),
               padding: const EdgeInsets.symmetric(horizontal: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             onPressed: onBack,
@@ -1016,11 +1016,11 @@ class PlateCanvasButton extends StatelessWidget {
     Widget w = Material(
       color: selected ? fc.brand : fc.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         side: BorderSide(color: selected ? fc.brand : fc.line),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Padding(
           padding: EdgeInsets.symmetric(
@@ -1061,7 +1061,7 @@ class PlateViewSwitch extends StatelessWidget {
     padding: const EdgeInsets.all(3),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(11),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Row(
@@ -1100,7 +1100,7 @@ class PlateActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
     );
     final child = Row(
       mainAxisSize: MainAxisSize.min,
@@ -1311,7 +1311,7 @@ Future<T?> showPlateSheet<T>(BuildContext context, WidgetBuilder builder) =>
       useSafeArea: true,
       backgroundColor: fc.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: builder,
     );
@@ -1400,7 +1400,7 @@ class PlateSheetFrame extends StatelessWidget {
                 height: previewHeight,
                 decoration: BoxDecoration(
                   color: fc.background,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: preview,
@@ -1449,7 +1449,7 @@ class PlateSheetFrame extends StatelessWidget {
                       minimumSize: const Size(0, 48),
                       padding: const EdgeInsets.symmetric(horizontal: 18),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     onPressed: () => Navigator.pop(context),
@@ -1468,7 +1468,7 @@ class PlateSheetFrame extends StatelessWidget {
                         disabledBackgroundColor: fc.fill,
                         minimumSize: const Size(0, 48),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                       onPressed: onOk,

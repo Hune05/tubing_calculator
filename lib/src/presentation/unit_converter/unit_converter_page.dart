@@ -405,7 +405,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
         fillColor: fc.surface,
         isDense: true,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide.none,
         ),
       ),
@@ -431,10 +431,10 @@ class _UnitConverterViewState extends State<UnitConverterView> {
         final u = h.unit;
         return Material(
           color: fc.surface,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           child: InkWell(
             key: Key('uc_hit_${h.category.id}_${u?.id ?? ''}'),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             onTap: () => _jump(h),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -689,7 +689,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
         padding: const EdgeInsets.fromLTRB(14, 4, 0, 4),
         decoration: BoxDecoration(
           color: fc.surface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: l?.unit == u.id ? fc.brand : fc.line),
         ),
         child: Column(
@@ -827,11 +827,11 @@ class _UnitConverterViewState extends State<UnitConverterView> {
                 padding: const EdgeInsets.only(left: 6),
                 child: Material(
                   color: fc.fill,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                   child: InkWell(
                     key: Key('uc_insert_$sym'),
                     canRequestFocus: false,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                     onTap: () {
                       HapticFeedback.selectionClick();
                       _insert(c, u, sym);
@@ -948,7 +948,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
       padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: l?.unit == which ? fc.brand : fc.line),
       ),
       child: Row(
@@ -1009,7 +1009,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: fc.brandSoft,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               result,
@@ -1085,7 +1085,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1103,7 +1103,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
             padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
             decoration: BoxDecoration(
               color: fc.background,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: t.isEmpty ? fc.line : fc.brand),
             ),
             child: Row(
@@ -1239,7 +1239,7 @@ class _UnitConverterViewState extends State<UnitConverterView> {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

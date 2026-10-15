@@ -669,7 +669,7 @@ class _AlignmentPageState extends State<AlignmentPage> {
     key: Key(key),
     margin: const EdgeInsets.only(top: 12),
     padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+    decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

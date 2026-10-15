@@ -137,9 +137,9 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
     final bool selected = _categoryFilter == label;
     return Material(
       color: selected ? CuttingColors.primary : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         onTap: () => setState(() => _categoryFilter = label),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -205,7 +205,7 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
           return Container(
             decoration: const BoxDecoration(
               color: CuttingColors.surface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,7 +262,7 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
                       fillColor: Colors.grey.shade100,
                       contentPadding: const EdgeInsets.symmetric(vertical: 4),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(6),
                         borderSide: BorderSide.none,
                       ),
                     ),

@@ -458,7 +458,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
       isScrollControlled: true,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(

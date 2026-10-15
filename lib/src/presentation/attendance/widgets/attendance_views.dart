@@ -18,13 +18,13 @@ const Color _brand = AppColors.brand;
 const Color _white = AppColors.surface;
 
 BoxDecoration _card() =>
-    BoxDecoration(color: _white, borderRadius: BorderRadius.circular(14));
+    BoxDecoration(color: _white, borderRadius: BorderRadius.circular(6));
 
 Widget _tag(String type, {double fontSize = 11}) => Container(
   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
   decoration: BoxDecoration(
     color: type == kAttendanceAbsent ? AppColors.danger : _brand,
-    borderRadius: BorderRadius.circular(8),
+    borderRadius: BorderRadius.circular(4),
   ),
   child: Text(
     type,
@@ -179,7 +179,7 @@ class AttendanceClockCard extends StatelessWidget {
     style: FilledButton.styleFrom(
       backgroundColor: color,
       minimumSize: const Size(112, 46),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     ),
   );
 }
@@ -210,7 +210,7 @@ class AttendanceSummaryCard extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.fill,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -337,7 +337,7 @@ class AttendanceSummaryCard extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppColors.brandSoft,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -402,7 +402,7 @@ class AttendanceSummaryCard extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: AppColors.danger.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -500,7 +500,7 @@ class AttendanceLeaveCard extends StatelessWidget {
     final negative = b.remaining < 0;
     return InkWell(
       onTap: onOpenSettings,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
         padding: const EdgeInsets.all(14),
@@ -625,7 +625,7 @@ class AttendanceDayRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: _white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           border: isToday ? Border.all(color: _brand, width: 1.4) : null,
         ),
         child: Row(
@@ -793,7 +793,7 @@ class AttendanceMonthCalendar extends StatelessWidget {
     return InkWell(
       key: Key('att_cal_$key'),
       onTap: () => onTapDay(d),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         height: 58,
         margin: const EdgeInsets.all(1.5),
@@ -802,7 +802,7 @@ class AttendanceMonthCalendar extends StatelessWidget {
           color: type != kAttendanceNormal
               ? AppColors.brandSoft
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           border: isToday ? Border.all(color: _brand, width: 1.4) : null,
         ),
         child: Column(

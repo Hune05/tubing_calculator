@@ -180,10 +180,10 @@ class CutActionBar extends StatelessWidget {
                   triggerMode: TooltipTriggerMode.longPress,
                   child: Material(
                     color: a.background ?? CuttingColors.primarySoft,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                     child: InkWell(
                       key: a.key,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                       onTap: a.onPressed,
                       child: SizedBox(
                         width: target,

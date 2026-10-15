@@ -2381,7 +2381,7 @@ class _PlatePageState extends State<PlatePage>
           PlateSection('파일·글', [
             DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: fc.line),
               ),
               child: Column(
@@ -2422,7 +2422,7 @@ class _PlatePageState extends State<PlatePage>
         PlateSection('파일·글', [
           DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: fc.line),
             ),
             child: Column(

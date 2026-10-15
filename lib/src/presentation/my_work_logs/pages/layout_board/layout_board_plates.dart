@@ -517,7 +517,7 @@ extension _LayoutBoardPlates on _LayoutBoardPageState {
         ),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -640,7 +640,7 @@ extension _LayoutBoardPlates on _LayoutBoardPageState {
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

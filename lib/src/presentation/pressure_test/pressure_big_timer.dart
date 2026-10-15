@@ -181,7 +181,7 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: frac,
             minHeight: 14,
@@ -211,7 +211,7 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
         onTap: onTap == null ? null : () => _run(onTap),
         child: Container(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-        decoration: BoxDecoration(color: fc.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: fc.line)),
+        decoration: BoxDecoration(color: fc.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: fc.line)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -262,7 +262,7 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
             : OutlinedButton.styleFrom(foregroundColor: fc.brand, side: BorderSide(color: fc.brand, width: 1.6)))
         .copyWith(
           minimumSize: const WidgetStatePropertyAll(Size(0, 64)),
-          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+          shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(6))),
           textStyle: const WidgetStatePropertyAll(TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
         );
     final ringing = running && done;
@@ -318,7 +318,7 @@ class _PtBigTimerPageState extends State<PtBigTimerPage> {
         Container(
           key: const Key('pt_big_status'),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(color: (stab ? (stabDone ? fc.brand : fc.caution) : main).withValues(alpha: 0.14), borderRadius: BorderRadius.circular(20)),
+          decoration: BoxDecoration(color: (stab ? (stabDone ? fc.brand : fc.caution) : main).withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
           child: Text(status, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: stab ? (stabDone ? fc.brand : fc.caution) : main)),
         ),
         if (ringing) ...[

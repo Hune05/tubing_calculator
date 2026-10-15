@@ -64,7 +64,7 @@ InputDecoration appFieldDecoration(String label, {String? hint}) =>
       filled: true,
       fillColor: _slate100,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         borderSide: BorderSide.none,
       ),
       labelStyle: const TextStyle(color: _slate600),

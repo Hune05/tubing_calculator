@@ -402,12 +402,12 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
       padding: const EdgeInsets.only(right: 8, top: 10, bottom: 10),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
             color: picked ? makitaTeal : slate100,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             label,

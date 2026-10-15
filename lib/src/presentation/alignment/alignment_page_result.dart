@@ -92,7 +92,7 @@ extension _AlignResultTab on _AlignmentPageState {
                 foregroundColor: fc.text,
                 side: BorderSide(color: fc.line),
                 minimumSize: const Size(0, 48),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               ),
               onPressed: _planError != null ? null : () => _addRound(r),
               icon: const Icon(Icons.playlist_add_check_rounded, size: 20),
@@ -154,7 +154,7 @@ extension _AlignResultTab on _AlignmentPageState {
       backgroundColor: fc.brand,
       foregroundColor: fc.onBrand,
       minimumSize: const Size(0, 48),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     ),
     onPressed: r == null ? null : () => _save(r),
     icon: const Icon(AppIcons.save, size: 18),
@@ -174,11 +174,11 @@ extension _AlignResultTab on _AlignmentPageState {
             builder: (context, cs) => Stack(
               clipBehavior: Clip.none,
               children: [
-                Container(height: 10, decoration: BoxDecoration(color: fc.line, borderRadius: BorderRadius.circular(5))),
+                Container(height: 10, decoration: BoxDecoration(color: fc.line, borderRadius: BorderRadius.circular(4))),
                 Container(
                   height: 10,
                   width: cs.maxWidth * frac,
-                  decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(5)),
+                  decoration: BoxDecoration(color: c, borderRadius: BorderRadius.circular(4)),
                 ),
                 // 허용선(막대 가운데)
                 Positioned(

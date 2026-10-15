@@ -58,7 +58,7 @@ class _NameDialogState extends State<_NameDialog> {
   Widget build(BuildContext context) => AlertDialog(
     backgroundColor: fc.surface,
     surfaceTintColor: Colors.transparent,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
     title: Text(
       '이름 붙여 저장',
       style: TextStyle(
@@ -85,11 +85,11 @@ class _NameDialogState extends State<_NameDialog> {
           vertical: 12,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide(color: fc.brand, width: 1.6),
         ),
       ),
@@ -107,7 +107,7 @@ class _NameDialogState extends State<_NameDialog> {
           backgroundColor: fc.brand,
           foregroundColor: fc.onBrand,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
           ),
         ),
         onPressed: () => Navigator.pop(context, _c.text.trim()),
@@ -123,7 +123,7 @@ Future<bool> _confirm(BuildContext context, String msg, String ok) async {
     builder: (ctx) => AlertDialog(
       backgroundColor: fc.surface,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       content: Text(
         msg,
         style: TextStyle(fontSize: 15, color: fc.text, height: 1.4),
@@ -177,7 +177,7 @@ Future<void> openSavedSpecs(
     useSafeArea: true,
     backgroundColor: surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
     ),
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setSheet) {
@@ -209,9 +209,9 @@ Future<void> openSavedSpecs(
           return Material(
             key: Key('ss_saved_${e['name']}'),
             color: fc.fill,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             child: InkWell(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               onTap: () {
                 onLoad(e['data'] as Map<String, dynamic>);
                 Navigator.pop(ctx);
@@ -375,7 +375,7 @@ Future<void> openSavedSpecs(
                     foregroundColor: fc.onBrand,
                     minimumSize: const Size(0, 48),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   onPressed: saveNow,

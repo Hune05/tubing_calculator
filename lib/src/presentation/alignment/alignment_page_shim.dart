@@ -259,7 +259,7 @@ extension _AlignShim on _AlignmentPageState {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: (over.isEmpty ? fc.ok : fc.caution).withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               over.isEmpty
@@ -282,7 +282,7 @@ extension _AlignShim on _AlignmentPageState {
     // 바탕을 흰 판 + 테두리로(10-15 폰: 회색 바탕에 회색 칸이라 시작 칸이 안 보였다).
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Column(
@@ -377,7 +377,7 @@ extension _AlignShim on _AlignmentPageState {
               width: 46,
               padding: const EdgeInsets.symmetric(vertical: 4),
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: fc.brandSoft, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(color: fc.brandSoft, borderRadius: BorderRadius.circular(4)),
               child: Text('${i + 1}회차', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: fc.brand)),
             ),
             const SizedBox(width: 10),

@@ -42,7 +42,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
               backgroundColor: tossBlue,
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
           ),
@@ -134,7 +134,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isCurrent ? tossBlue : Colors.transparent,
           width: 1.5,
@@ -143,7 +143,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
       child: Column(
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
             onTap: () => setState(() {
               expanded ? _expandedPhases.remove(id) : _expandedPhases.add(id);
             }),
@@ -191,7 +191,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                                 ),
                                 decoration: BoxDecoration(
                                   color: tossBlue,
-                                  borderRadius: BorderRadius.circular(6),
+                                  borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: const Text(
                                   "진행중",
@@ -406,7 +406,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
             decoration: const BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -445,7 +445,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                     filled: true,
                     fillColor: tossBg,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -514,7 +514,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                       backgroundColor: tossBlue,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     child: Text(
@@ -563,7 +563,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
             decoration: const BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -738,7 +738,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                         backgroundColor: tossBlue,
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                       child: const Text(

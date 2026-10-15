@@ -201,11 +201,11 @@ class _SmartSavePadState extends State<SmartSavePad> {
           vertical: 12,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: BorderSide.none,
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: const BorderSide(color: makitaTeal, width: 1.5),
         ),
       ),
@@ -264,7 +264,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
       ),
       decoration: const BoxDecoration(
         color: _pureWhite,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       child: SingleChildScrollView(
         child: Column(
@@ -420,7 +420,7 @@ class _SmartSavePadState extends State<SmartSavePad> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: makitaTeal,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 onPressed: _saving

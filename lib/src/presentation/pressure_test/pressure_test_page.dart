@@ -992,7 +992,7 @@ class _PressureTestPageState extends State<PressureTestPage>
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

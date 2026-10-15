@@ -66,7 +66,7 @@ class SteelPdfPreviewPage extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: CuttingColors.primary,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 onPressed: onShare,

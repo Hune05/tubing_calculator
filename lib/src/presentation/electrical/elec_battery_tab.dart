@@ -281,7 +281,7 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
             padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
             decoration: BoxDecoration(
               color: fc.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(
                 color: s.endStep == r.maxSection ? fc.brand : fc.line,
                 width: s.endStep == r.maxSection ? 2 : 1,

@@ -198,7 +198,7 @@ class _LadderTabState extends State<_LadderTab>
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Column(

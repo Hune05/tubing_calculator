@@ -354,7 +354,7 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
                 color: k == null
                     ? const Color(0xFFF1F5F9)
                     : (kOk ? const Color(0xFFE6F2F3) : const Color(0xFFFDECEC)),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 k == null
@@ -377,7 +377,7 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 sp == null

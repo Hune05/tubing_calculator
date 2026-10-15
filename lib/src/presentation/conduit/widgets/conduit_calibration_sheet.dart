@@ -141,7 +141,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
       child: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         child: SingleChildScrollView(
@@ -197,7 +197,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: _slate100,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: r == null
                     ? const Text(
@@ -280,7 +280,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   onPressed: r == null
@@ -365,7 +365,7 @@ class _ConduitCalibrationSheetState extends State<ConduitCalibrationSheet> {
         filled: true,
         fillColor: _slate100,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           borderSide: BorderSide.none,
         ),
       ),

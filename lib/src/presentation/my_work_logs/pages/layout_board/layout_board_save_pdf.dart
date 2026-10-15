@@ -77,7 +77,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         title: const Text(
           "이격거리 미달 경고",
           style: TextStyle(color: warningRed, fontWeight: FontWeight.bold),
@@ -228,7 +228,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
         builder: (ctx) => AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: const Text(
             "저장 전 변경 사항 확인",
@@ -885,7 +885,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
           ),
           decoration: const BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -929,7 +929,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                       vertical: 16,
                     ),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -962,7 +962,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                       backgroundColor: tossBlue,
                       elevation: 0,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                   ),
@@ -993,7 +993,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                       minimumSize: const Size(40, 40),
                       side: const BorderSide(color: layoutLine, width: 1.5),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                   ),
@@ -1024,7 +1024,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                         minimumSize: const Size(40, 40),
                         side: const BorderSide(color: tossBlue, width: 1.5),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                     ),
@@ -1063,7 +1063,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
         builder: (ctx, setDlg) => AlertDialog(
           backgroundColor: pureWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: const Text(
             "PDF 만들기",

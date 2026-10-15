@@ -81,7 +81,7 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         t,
@@ -93,10 +93,10 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         onTap: () {
           if (_selectMode) {
             setState(() {
@@ -196,7 +196,7 @@ extension _ProjectDetailReports on _ProjectDetailPageState {
                     itemCount: imgs.length,
                     separatorBuilder: (_, _) => const SizedBox(width: 6),
                     itemBuilder: (_, i) => ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       child: Stack(
                         children: [
                           PhotoImage(imgs[i], width: 56, height: 56),

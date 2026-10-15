@@ -16,7 +16,7 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
       constraints: BoxConstraints(maxHeight: maxH),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -71,7 +71,7 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: tossBg,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: layoutLine),
       ),
       child: Row(
@@ -99,7 +99,7 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
                   duration: const Duration(milliseconds: 200),
                   decoration: BoxDecoration(
                     color: isSelected ? tossBlue : Colors.transparent,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -324,7 +324,7 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
       child: Material(
         color: selected ? color.withValues(alpha: 0.10) : pureWhite,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           side: BorderSide(
             color: selected ? color : layoutLine,
             width: selected ? 2 : 1.5,

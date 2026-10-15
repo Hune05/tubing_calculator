@@ -325,13 +325,13 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
       return Expanded(
         child: InkWell(
           key: Key(key),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           onTap: () => setState(() => _view = sel && v != LedgerView.all ? LedgerView.all : v),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
               color: sel ? color.withValues(alpha: 0.14) : AppColors.surface,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: sel ? color : Colors.transparent, width: 1.5),
             ),
             child: Column(
@@ -412,7 +412,7 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
         color: AppColors.surface,
         child: InkWell(
           key: Key('equip_card_${e.id}'),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           onTap: () => _open(e),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -488,7 +488,7 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
 
   Widget _badge(String t, Color c) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+    decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(4)),
     child: Text(t, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: c)),
   );
 }
@@ -988,7 +988,7 @@ class _EquipmentDetailPageState extends State<EquipmentDetailPage> {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(6),
               border: Border.all(color: color.withValues(alpha: 0.5)),
             ),
             child: Row(

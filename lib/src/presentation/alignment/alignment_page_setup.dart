@@ -122,7 +122,7 @@ extension _AlignSetup on _AlignmentPageState {
       : Container(
           key: Key(key),
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-          decoration: BoxDecoration(color: fc.caution.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(6)),
+          decoration: BoxDecoration(color: fc.caution.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(4)),
           child: Text('계산에 들어감', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: fc.caution)),
         );
 }

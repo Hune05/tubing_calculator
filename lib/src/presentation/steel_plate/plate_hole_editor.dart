@@ -725,7 +725,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
                 minimumSize: const Size(0, 46),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               onPressed: () => _addHoles(PlateHolePattern.single),
@@ -806,7 +806,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
         foregroundColor: danger ? fc.danger : fc.text,
         minimumSize: const Size(0, 44),
         padding: const EdgeInsets.symmetric(horizontal: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
       onPressed: onTap,
       icon: Icon(icon, size: 18),
@@ -822,7 +822,7 @@ class _PlateHoleEditorPageState extends State<PlateHoleEditorPage>
       elevation: 3,
       shadowColor: fc.text.withValues(alpha: 0.3),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         side: BorderSide(color: fc.line),
       ),
       child: Padding(

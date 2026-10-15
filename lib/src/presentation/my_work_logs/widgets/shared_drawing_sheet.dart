@@ -20,7 +20,7 @@ Future<void> openSharedDrawing(BuildContext context, String imagePath, {String? 
     context: context,
     backgroundColor: pureWhite,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
     ),
     // 작은 폰(세로 568)에서는 창이 화면보다 길어 굴린다.
     isScrollControlled: true,

@@ -196,7 +196,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
                   ),
                   decoration: BoxDecoration(
                     color: _ddayColor(due).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     "납기 ${_dday(due)}",
@@ -211,7 +211,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
           ),
           const SizedBox(height: 8),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: progress,
               minHeight: 8,
@@ -267,7 +267,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -413,7 +413,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       isScrollControlled: true,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => Padding(
         padding: EdgeInsets.fromLTRB(
@@ -638,7 +638,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -722,7 +722,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: warningRed.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: warningRed.withValues(alpha: 0.3)),
         ),
         child: Column(
@@ -825,7 +825,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) {
@@ -1100,7 +1100,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: c.withValues(alpha: counts[key]! > 0 ? 0.12 : 0.05),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           children: [
@@ -1181,7 +1181,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: warningRed.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1220,7 +1220,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: AppColors.caution.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1527,7 +1527,7 @@ class _ProjectDetailPageState extends State<ProjectDetailPage>
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(

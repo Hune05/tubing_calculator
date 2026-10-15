@@ -699,7 +699,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       context: context,
       backgroundColor: scheduleWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Padding(
@@ -993,7 +993,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               builder: (ctx, scrollController) => Container(
                 decoration: const BoxDecoration(
                   color: scheduleWhite,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 child: Column(
                   children: [
@@ -1007,7 +1007,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: scheduleTeal.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                             child: const Icon(
                               Icons.event_note_rounded,
@@ -1065,19 +1065,19 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   fontWeight: FontWeight.w500,
                                 ),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: Color(0xFFD1D6DB),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: Color(0xFFD1D6DB),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: scheduleTeal,
                                     width: 1.6,
@@ -1162,19 +1162,19 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   fontWeight: FontWeight.w500,
                                 ),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: Color(0xFFD1D6DB),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: Color(0xFFD1D6DB),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: scheduleTeal,
                                     width: 1.6,
@@ -1245,19 +1245,19 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   fontWeight: FontWeight.w500,
                                 ),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: Color(0xFFD1D6DB),
                                   ),
                                 ),
                                 enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: Color(0xFFD1D6DB),
                                   ),
                                 ),
                                 focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: BorderRadius.circular(6),
                                   borderSide: const BorderSide(
                                     color: scheduleTeal,
                                     width: 1.6,
@@ -1284,7 +1284,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 return InkWell(
                                   onTap: () =>
                                       setSheetState(() => category = cat),
-                                  borderRadius: BorderRadius.circular(20),
+                                  borderRadius: BorderRadius.circular(8),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 14,
@@ -1294,7 +1294,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       color: selected
                                           ? c
                                           : c.withValues(alpha: 0.08),
-                                      borderRadius: BorderRadius.circular(20),
+                                      borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
                                         color: c.withValues(
                                           alpha: selected ? 1 : 0.35,
@@ -2073,7 +2073,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   elevation: 0,
                                   minimumSize: const Size(double.infinity, 52),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(6),
                                   ),
                                 ),
                                 child: const Text(
@@ -2123,7 +2123,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         builder: (ctx, scrollController) => Container(
           decoration: const BoxDecoration(
             color: scheduleWhite,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: StatefulBuilder(
             builder: (ctx, setSheet) => _sheetUndoHost(
@@ -2249,7 +2249,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
                                   color: scheduleBg,
-                                  borderRadius: BorderRadius.circular(12),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2398,7 +2398,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               builder: (ctx, scrollController) => Container(
                 decoration: const BoxDecoration(
                   color: scheduleWhite,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 child: _sheetUndoHost(
                   (hostCtx) => Column(
@@ -2445,19 +2445,19 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     fontWeight: FontWeight.w500,
                                   ),
                                   border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(6),
                                     borderSide: const BorderSide(
                                       color: Color(0xFFD1D6DB),
                                     ),
                                   ),
                                   enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(6),
                                     borderSide: const BorderSide(
                                       color: Color(0xFFD1D6DB),
                                     ),
                                   ),
                                   focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius: BorderRadius.circular(6),
                                     borderSide: const BorderSide(
                                       color: scheduleTeal,
                                       width: 1.6,
@@ -2585,7 +2585,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       52,
                                     ),
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10),
+                                      borderRadius: BorderRadius.circular(6),
                                     ),
                                   ),
                                   child: const Text(
@@ -2623,7 +2623,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppColors.line),
       ),
       child: Column(
@@ -2641,7 +2641,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -2658,7 +2658,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               final Color c = colorForCategory(cat);
               return InkWell(
                 onTap: () => setSheetState(() => item['category'] = cat),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(6),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -2666,7 +2666,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   ),
                   decoration: BoxDecoration(
                     color: selected ? c : c.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     cat,
@@ -2960,7 +2960,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             decoration: const BoxDecoration(
                               color: scheduleWhite,
                               borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(24),
+                                top: Radius.circular(8),
                               ),
                             ),
                             child: Column(
@@ -2979,7 +2979,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 ? 0.45
                                 : 1,
                           ),
-                          borderRadius: BorderRadius.circular(5),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           e.item.baseTitle,
@@ -3274,7 +3274,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         builder: (ctx) => AlertDialog(
           backgroundColor: scheduleWhite,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
           ),
           title: const Text(
             "내 일정 가져오기",
@@ -3389,7 +3389,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
               color: selected ? scheduleTeal : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
             ),
             alignment: Alignment.center,
             child: Text(
@@ -3410,7 +3410,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
@@ -3569,7 +3569,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           color: candidates.isNotEmpty
               ? scheduleTeal.withValues(alpha: 0.12)
               : null,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: child,
       ),
@@ -3601,7 +3601,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) {
         List<KakaoPlace> results = const [];
@@ -3678,7 +3678,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               filled: true,
                               fillColor: const Color(0xFFF7F8F9),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(6),
                                 borderSide: const BorderSide(
                                   color: Color(0xFFD1D6DB),
                                 ),
@@ -4071,7 +4071,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: scheduleWhite,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppColors.line),
       ),
       child: Column(
@@ -4111,7 +4111,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           ),
           const SizedBox(height: 6),
           ClipRRect(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: ratio,
               minHeight: 8,
@@ -4144,7 +4144,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(right: 10),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(8),
                     onTap: () {
                       HapticFeedback.selectionClick();
                       setState(() {
@@ -4164,7 +4164,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         color: selected
                             ? e.value.withValues(alpha: 0.12)
                             : Colors.transparent,
-                        borderRadius: BorderRadius.circular(20),
+                        borderRadius: BorderRadius.circular(8),
                         border: selected
                             ? Border.all(color: e.value.withValues(alpha: 0.4))
                             : null,
@@ -4207,7 +4207,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       padding: const EdgeInsets.only(right: 10),
       child: InkWell(
         key: const Key('schedule_hide_completed'),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(8),
         onTap: () {
           HapticFeedback.selectionClick();
           setState(() => _hideCompleted = !_hideCompleted);
@@ -4218,7 +4218,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             color: _hideCompleted
                 ? scheduleTeal.withValues(alpha: 0.12)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: _hideCompleted
                   ? scheduleTeal.withValues(alpha: 0.4)
@@ -4323,7 +4323,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       context: ctx,
       builder: (d) => AlertDialog(
         backgroundColor: scheduleWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Text(
           "같은 시간대에 다른 일정이 있습니다",
           style: TextStyle(color: scheduleText, fontWeight: FontWeight.bold),
@@ -4356,7 +4356,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: overdue ? scheduleDanger.withValues(alpha: 0.04) : scheduleWhite,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: overdue
               ? scheduleDanger.withValues(alpha: 0.4)
@@ -4368,7 +4368,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
         children: [
           InkWell(
             onTap: () => _toggleCompletion(item),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.all(4),
               child: Icon(
@@ -4387,7 +4387,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: c.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Icon(iconForCategory(item.category), color: c, size: 18),
           ),
@@ -4420,7 +4420,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                           lat: item.placeLat,
                           lng: item.placeLng,
                         ),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(4),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -4428,7 +4428,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: scheduleTeal.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
@@ -4458,7 +4458,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                       ),
                       decoration: BoxDecoration(
                         color: c.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         item.category,
@@ -4491,7 +4491,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: scheduleDanger,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
                           "지연",
@@ -4510,7 +4510,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFFF1E0),
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
                           "시간 겹침",
@@ -4916,7 +4916,7 @@ Future<bool> confirmScheduleDelete(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: scheduleWhite,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: Text(
         title,
         style: const TextStyle(

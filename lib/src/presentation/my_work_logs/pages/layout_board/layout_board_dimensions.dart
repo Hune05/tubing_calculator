@@ -119,7 +119,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                 ),
                 decoration: const BoxDecoration(
                   color: pureWhite,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -187,7 +187,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                           vertical: 12,
                         ),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -227,7 +227,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                                 vertical: 12,
                               ),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                                 borderSide: BorderSide.none,
                               ),
                             ),
@@ -291,7 +291,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                               color: selected
                                   ? tossBlue.withValues(alpha: 0.12)
                                   : tossBg,
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(6),
                               border: Border.all(
                                 color: selected ? tossBlue : Colors.transparent,
                                 width: 1.2,
@@ -389,7 +389,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                           minimumSize: const Size(40, 40),
                           side: const BorderSide(color: warningRed),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                       ),
@@ -429,7 +429,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? color.withValues(alpha: 0.12) : tossBg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: selected ? color : Colors.transparent,
             width: 1.4,

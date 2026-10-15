@@ -314,7 +314,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     showDragHandle: true,
     backgroundColor: fc.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(6)),
     ),
     builder: (_) => FieldViewTheme(
       child: _PtReadingDialog(
@@ -870,7 +870,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Column(
@@ -958,7 +958,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
               foregroundColor: fc.brand,
               side: BorderSide(color: fc.brand),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             onPressed: onTap,
@@ -973,7 +973,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
               backgroundColor: fc.brand,
               foregroundColor: fc.onBrand,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             onPressed: onTap,
@@ -1002,7 +1002,7 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
           decoration: BoxDecoration(
             color: fc.brandSoft,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             '불러온 기록: ${ed.line.isEmpty ? '(라인 번호 없음)' : ed.line} · ${ptDay(ed.date)}',
@@ -1664,7 +1664,7 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
   @override
   Widget build(BuildContext context) {
     OutlineInputBorder box(Color c, double w) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       borderSide: BorderSide(color: c, width: w),
     );
     InputDecoration deco({String? suffix, String? error, bool big = false}) =>
@@ -1728,7 +1728,7 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 9),
                         decoration: BoxDecoration(
                           color: fc.fill,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1810,7 +1810,7 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
                     child: OutlinedButton(
                       key: const Key('pt_rd_cancel'),
                       style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         side: BorderSide(color: fc.line, width: 1.2),
                         foregroundColor: fc.text,
                       ),
@@ -1829,7 +1829,7 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
                       style: FilledButton.styleFrom(
                         backgroundColor: fc.brand,
                         foregroundColor: fc.onBrand,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
                       onPressed: _ok,
                       child: Text(widget.okLabel, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900)),

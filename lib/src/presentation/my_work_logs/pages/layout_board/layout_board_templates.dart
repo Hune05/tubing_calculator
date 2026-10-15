@@ -104,7 +104,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         title: const Text(
           "템플릿으로 저장",
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
@@ -128,7 +128,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
             filled: true,
             fillColor: tossBg,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
           ),
@@ -225,7 +225,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
               margin: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: pureWhite,
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(8),
               ),
               child: _sheetUndoHost(
                 (hostCtx) => Column(
@@ -398,7 +398,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: pureWhite,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         title: const Text(
           "템플릿 적용",
           style: TextStyle(color: tossText, fontWeight: FontWeight.bold),
@@ -462,7 +462,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
             margin: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -578,7 +578,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
                 margin: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: pureWhite,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -654,7 +654,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
                             minimumSize: const Size(40, 40),
                             backgroundColor: tossBlue,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                           ),
                           child: Text(
@@ -746,7 +746,7 @@ extension _LayoutBoardTemplates on _LayoutBoardPageState {
             margin: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: pureWhite,
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: _sheetUndoHost(
               (hostCtx) => Column(

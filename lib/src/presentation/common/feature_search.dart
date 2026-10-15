@@ -135,7 +135,7 @@ Future<void> showFeatureSearchSheet(
     useSafeArea: true,
     backgroundColor: fc.surface,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
     ),
     builder: (ctx) => FractionallySizedBox(
       heightFactor: 0.92,
@@ -249,7 +249,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
               key: const Key('feature_folder_dialog'),
               color: fc.surface,
               elevation: 8,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
               child: SizedBox(
                 width: w,
                 height: h,
@@ -322,7 +322,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
           (isFolder ? 'feature_folder_${it.title}' : 'feature_${it.title}') +
               (dup > 0 ? '#$dup' : ''),
         ),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         onTap: onPick ?? (isFolder ? () => _openFolder(it) : () => _pick(it)),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
@@ -339,7 +339,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
                       color: isFolder
                           ? fc.textSub.withValues(alpha: 0.12)
                           : color.withValues(alpha: 0.07),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                       border: isFolder
                           ? Border.all(
                               color: fc.textSub.withValues(alpha: 0.35),
@@ -361,7 +361,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
                         ),
                         decoration: BoxDecoration(
                           color: fc.textSub,
-                          borderRadius: BorderRadius.circular(9),
+                          borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           '${kids.length}',
@@ -577,7 +577,7 @@ class _FeatureSearchSheetState extends State<FeatureSearchSheet> {
               filled: true,
               fillColor: fc.background,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,
               ),
               isDense: true,

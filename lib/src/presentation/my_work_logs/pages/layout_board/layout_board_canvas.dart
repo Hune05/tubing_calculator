@@ -681,12 +681,12 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
       child: Material(
         color: pureWhite.withValues(alpha: 0.95),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           side: BorderSide(color: tossSubText.withValues(alpha: 0.4)),
         ),
         elevation: 2,
         child: InkWell(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           onTap: () => setState(() => _minimapOpen = true),
           child: const SizedBox(
             width: 48,
@@ -713,7 +713,7 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: pureWhite.withValues(alpha: 0.92),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(color: tossSubText.withValues(alpha: 0.4)),
           ),
           child: Text(
@@ -753,7 +753,7 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
       decoration: BoxDecoration(
         color: pureWhite.withValues(alpha: 0.92),
         border: Border.all(color: tossSubText.withValues(alpha: 0.4)),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6),
         ],
@@ -832,7 +832,7 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
         color: isMeasuringStart
             ? activeColor.withValues(alpha: 0.1)
             : pureWhite,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isMeasuringStart
               ? activeColor

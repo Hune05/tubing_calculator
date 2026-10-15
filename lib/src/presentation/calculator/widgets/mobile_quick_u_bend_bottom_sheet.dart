@@ -133,7 +133,7 @@ class _MobileQuickUBendBottomSheetState
           vertical: 12,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           borderSide: BorderSide.none,
         ),
       ),
@@ -218,7 +218,7 @@ class _MobileQuickUBendBottomSheetState
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -268,7 +268,7 @@ class _MobileQuickUBendBottomSheetState
                 ),
                 decoration: BoxDecoration(
                   color: Colors.amber.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: Colors.amber.shade300),
                 ),
                 child: Row(
@@ -406,7 +406,7 @@ class _MobileQuickUBendBottomSheetState
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: Colors.red.shade200),
                   ),
                   child: Row(
@@ -461,7 +461,7 @@ class _MobileQuickUBendBottomSheetState
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: makitaTeal.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
                 ),
                 child: Row(
@@ -519,7 +519,7 @@ class _MobileQuickUBendBottomSheetState
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: makitaTeal, width: 2),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                         ),
                         onPressed: () => Navigator.pop(context),
@@ -544,7 +544,7 @@ class _MobileQuickUBendBottomSheetState
                           style: FilledButton.styleFrom(
                             backgroundColor: makitaTeal,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                           ),
                           onPressed: () =>

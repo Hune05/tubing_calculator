@@ -34,7 +34,7 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
   );
 
   Widget calcHelp(String title, String text) => InkWell(
-    borderRadius: BorderRadius.circular(20),
+    borderRadius: BorderRadius.circular(8),
     onTap: () => showModalBottomSheet<void>(
       context: context,
       backgroundColor: fc.surface,
@@ -75,7 +75,7 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
     padding: const EdgeInsets.fromLTRB(14, 4, 6, 4),
     decoration: BoxDecoration(
       color: fc.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: child,
@@ -264,7 +264,7 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
       color: warn
           ? fieldSoft(Colors.red.shade50, (p) => p.danger)
           : fc.brandSoft,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,

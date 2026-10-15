@@ -110,7 +110,7 @@ extension _AlignMeasure on _AlignmentPageState {
         return Container(
           key: Key('align_check_$p'),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(color: fc.brandSoft, borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(color: fc.brandSoft, borderRadius: BorderRadius.circular(6)),
           child: Text(
             '3점 측정: $name = ${v >= 0 ? '+' : ''}${v.toStringAsFixed(2)}(셈). 한 자리가 비어 검산은 못 합니다.',
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: fc.brand),
@@ -125,7 +125,7 @@ extension _AlignMeasure on _AlignmentPageState {
     return Container(
       key: Key('align_check_$p'),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(color: col.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: col.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
       child: Text(
         ok
             ? '검산 맞음: 3시 + 9시 = ${(a + c).toStringAsFixed(2)}, 6시 = ${b.toStringAsFixed(2)}'

@@ -115,7 +115,7 @@ class _ViewerOnlyScreenState extends State<ViewerOnlyScreen> {
                         ),
                         decoration: BoxDecoration(
                           color: Colors.black54,
-                          borderRadius: BorderRadius.circular(6),
+                          borderRadius: BorderRadius.circular(4),
                           border: Border.all(
                             // 🚀 플러터 최신 문법 반영
                             color: Colors.redAccent.withValues(alpha: 0.5),
@@ -225,7 +225,7 @@ class _ViewerOnlyScreenState extends State<ViewerOnlyScreen> {
                                             : Colors.transparent),
                                   width: 2,
                                 ),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Stack(
                                 alignment: Alignment.centerLeft,

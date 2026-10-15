@@ -273,11 +273,11 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
             fillColor: fc.surface,
             isDense: true,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide(color: fc.line),
             ),
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide(color: fc.line),
             ),
           ),
@@ -310,10 +310,10 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
       onDelete: () => _delete(r),
       child: Material(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         child: InkWell(
           key: Key('pr_item_${r.id}'),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
           onTap: () => _actions(r),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),

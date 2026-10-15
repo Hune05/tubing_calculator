@@ -242,7 +242,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
       builder: (ctx) => AlertDialog(
         backgroundColor: pureWhite,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: const Text(
           "도면 불러오기",
           style: TextStyle(
@@ -266,7 +266,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                     backgroundColor: slate100,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   child: const Text(
@@ -351,7 +351,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                         behavior: SnackBarBehavior.floating,
                         backgroundColor: makitaTeal,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                       ),
                     );
@@ -361,7 +361,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                   child: const Text(
@@ -471,7 +471,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                         ),
                         decoration: BoxDecoration(
                           color: slate200,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           "${items.length}",
@@ -571,7 +571,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
             fillColor: pureWhite,
             contentPadding: const EdgeInsets.symmetric(vertical: 14),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
           ),
@@ -632,7 +632,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
             color: slate900.withValues(alpha: 0.03),
@@ -651,7 +651,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: slate50,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Icon(
                   Icons.architecture_rounded,
@@ -749,7 +749,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
                 elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               child: const Text(
@@ -768,7 +768,7 @@ class _ConduitHistoryTabState extends State<ConduitHistoryTab> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: slate50,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

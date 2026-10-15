@@ -84,7 +84,7 @@ class _MobileQuickKickBottomSheetState
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: Text(
@@ -105,12 +105,12 @@ class _MobileQuickKickBottomSheetState
     return InkWell(
       key: key,
       onTap: () => setState(() => _input = mode),
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: on ? makitaTeal : pureWhite,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: on ? makitaTeal : Colors.grey.shade300),
         ),
         child: Text(
@@ -148,7 +148,7 @@ class _MobileQuickKickBottomSheetState
             vertical: 12,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             borderSide: BorderSide.none,
           ),
         ),
@@ -210,7 +210,7 @@ class _MobileQuickKickBottomSheetState
         padding: const EdgeInsets.all(24),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: SingleChildScrollView(
           child: Column(
@@ -292,7 +292,7 @@ class _MobileQuickKickBottomSheetState
                               vertical: 12,
                             ),
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(4),
                               borderSide: BorderSide.none,
                             ),
                           ),
@@ -372,7 +372,7 @@ class _MobileQuickKickBottomSheetState
                             vertical: 12,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             borderSide: BorderSide.none,
                           ),
                         ),
@@ -449,7 +449,7 @@ class _MobileQuickKickBottomSheetState
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.deepOrange.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(
                       color: Colors.deepOrange.withValues(alpha: 0.3),
                     ),
@@ -515,7 +515,7 @@ class _MobileQuickKickBottomSheetState
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     border: Border.all(color: Colors.red.shade200),
                   ),
                   child: Row(
@@ -547,7 +547,7 @@ class _MobileQuickKickBottomSheetState
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: makitaTeal.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
                 ),
                 // 결과 아래에 닫기 단추를 둔다(좁은 폭에서 옆에 두면 넘쳤다).
@@ -602,7 +602,7 @@ class _MobileQuickKickBottomSheetState
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: makitaTeal, width: 2),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                         ),
                         onPressed: () => Navigator.pop(context),

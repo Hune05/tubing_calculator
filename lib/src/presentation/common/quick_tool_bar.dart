@@ -647,8 +647,8 @@ class _QuickToolBarHostState extends State<QuickToolBarHost> {
 
   Widget _bar(List<QuickToolDef> tools, double maxHeight) {
     final radius = _right
-        ? const BorderRadius.horizontal(left: Radius.circular(18))
-        : const BorderRadius.horizontal(right: Radius.circular(18));
+        ? const BorderRadius.horizontal(left: Radius.circular(6))
+        : const BorderRadius.horizontal(right: Radius.circular(6));
     return Align(
       alignment: _right ? Alignment.centerRight : Alignment.centerLeft,
       child: AnimatedSlide(

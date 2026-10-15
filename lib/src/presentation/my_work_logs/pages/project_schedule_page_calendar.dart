@@ -121,7 +121,7 @@ extension _ProjectScheduleCalendar on _ProjectSchedulePageState {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -196,14 +196,14 @@ extension _ProjectScheduleCalendar on _ProjectSchedulePageState {
             final items = byDay[day] ?? const [];
 
             return InkWell(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
               onTap: items.isEmpty ? null : () => _showDaySchedules(day, items),
               child: Container(
                 decoration: BoxDecoration(
                   color: items.isNotEmpty
                       ? tossBlue.withValues(alpha: 0.08)
                       : pureWhite,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -261,7 +261,7 @@ extension _ProjectScheduleCalendar on _ProjectSchedulePageState {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: pureWhite,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: InkWell(
                 onTap: () => _showEditor(existing: s),
@@ -288,7 +288,7 @@ extension _ProjectScheduleCalendar on _ProjectSchedulePageState {
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
         decoration: const BoxDecoration(
           color: pureWhite,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

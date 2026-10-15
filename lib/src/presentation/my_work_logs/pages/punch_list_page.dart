@@ -360,7 +360,7 @@ class _PunchListPageState extends State<PunchListPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected ? activeColor : tossInputBg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
           label,
@@ -463,7 +463,7 @@ class _PunchListPageState extends State<PunchListPage> {
                     vertical: 16,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -476,7 +476,7 @@ class _PunchListPageState extends State<PunchListPage> {
                   runSpacing: 8,
                   children: widget.recentLocations.map((loc) {
                     return InkWell(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(6),
                       onTap: () => setState(() => _locationCtrl.text = loc),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -485,7 +485,7 @@ class _PunchListPageState extends State<PunchListPage> {
                         ),
                         decoration: BoxDecoration(
                           color: tossInputBg,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           loc,
@@ -506,13 +506,13 @@ class _PunchListPageState extends State<PunchListPage> {
               if (_floorPlanImagePath == null)
                 InkWell(
                   onTap: _pickFloorPlanImage,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
                       color: tossInputBg,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: const Row(
                       children: [
@@ -682,7 +682,7 @@ class _PunchListPageState extends State<PunchListPage> {
                         color: _dueDateOption == "직접 지정"
                             ? tossText
                             : tossInputBg,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         _dueDateOption == "직접 지정" && _customDueDate != null
@@ -744,7 +744,7 @@ class _PunchListPageState extends State<PunchListPage> {
                     vertical: 16,
                   ),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide.none,
                   ),
                 ),
@@ -767,13 +767,13 @@ class _PunchListPageState extends State<PunchListPage> {
                   children: [
                     InkWell(
                       onTap: _handleAddImage,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                       child: Container(
                         width: 80,
                         height: 80,
                         decoration: BoxDecoration(
                           color: tossInputBg,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -804,7 +804,7 @@ class _PunchListPageState extends State<PunchListPage> {
                           alignment: Alignment.topRight,
                           children: [
                             InkWell(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(6),
                               // 🚀 [추가] 삭제만 되던 걸 고쳐서, 눌렀을 때
                               // 크게(줌 가능) 볼 수 있게 했다.
                               onTap: () => PhotoDetailModal.show(
@@ -815,7 +815,7 @@ class _PunchListPageState extends State<PunchListPage> {
                                 initialIndex: entry.key,
                               ),
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                                 // 작은 칸 크기로만 펼친다(PhotoImage, 10-09).
                                 child: PhotoImage(
                                   entry.value,
@@ -878,7 +878,7 @@ class _PunchListPageState extends State<PunchListPage> {
                 backgroundColor: kBrand,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               onPressed: _submit,

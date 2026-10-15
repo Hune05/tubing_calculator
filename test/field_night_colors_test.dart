@@ -34,7 +34,7 @@ void main() {
         .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
         .map((c) => c.decoration)
         .whereType<BoxDecoration>()
-        .where((d) => d.borderRadius == BorderRadius.circular(10))
+        .where((d) => d.borderRadius == BorderRadius.circular(6))
         .toList();
     expect(boxes, isNotEmpty);
     for (final d in boxes) {

@@ -34,7 +34,7 @@ class TroubleshootPage extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 10),
               decoration: BoxDecoration(
                 color: fc.surface,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: fc.line),
               ),
               child: ListTile(
@@ -112,7 +112,7 @@ class _TroubleshootFlowPageState extends State<TroubleshootFlowPage>
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: color ?? fc.surface,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Column(
@@ -287,7 +287,7 @@ class _TroubleshootFlowPageState extends State<TroubleshootFlowPage>
                       color: j.warn
                           ? fieldSoft(Colors.red.shade50, (p) => p.danger)
                           : fc.fill,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

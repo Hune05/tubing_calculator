@@ -39,7 +39,7 @@ Widget cuttingDialogIcon(Object icon, {Color? color}) {
     alignment: Alignment.center,
     decoration: BoxDecoration(
       color: c.withValues(alpha: 0.1),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: anyIcon(icon, color: c, size: 26),
   );
@@ -142,7 +142,7 @@ Future<double?> showBladeKerfDialog(
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: CuttingColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: Row(
         children: [
           cuttingDialogIcon(AppGlyph.tubeCut),
@@ -183,7 +183,7 @@ Future<double?> showBladeKerfDialog(
               filled: true,
               fillColor: Colors.grey.shade100,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -199,7 +199,7 @@ Future<double?> showBladeKerfDialog(
           style: ElevatedButton.styleFrom(
             backgroundColor: CuttingColors.primary,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(4),
             ),
           ),
           onPressed: () {
@@ -238,7 +238,7 @@ class PendingDeductionBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: CuttingColors.warningSoft,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: CuttingColors.warning.withValues(alpha: 0.4)),
       ),
       child: Row(

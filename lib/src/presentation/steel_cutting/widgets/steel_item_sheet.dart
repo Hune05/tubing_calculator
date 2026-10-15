@@ -301,10 +301,10 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
   }) {
     return Material(
       color: CuttingColors.primarySoft,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         key: key,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Container(
           height: 40,
@@ -354,9 +354,9 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
   Widget _buildQuickPickChip(SteelQuickPick pick, IconData icon) {
     return Material(
       color: CuttingColors.primarySoft,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         onTap: () {
           setState(() {
             _shape = SteelShapeItem(
@@ -438,7 +438,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
       child: Container(
         decoration: const BoxDecoration(
           color: CuttingColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
         ),
         child: SingleChildScrollView(
           child: Padding(
@@ -499,9 +499,9 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                 const SizedBox(height: 4),
                 Material(
                   color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                     onTap: _pickShape,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
@@ -637,7 +637,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                         for (final v in _topLengths)
                           InkWell(
                             key: Key('freq_len_${fmtMm(v)}'),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             onLongPress: () => _forgetLength(v),
                             onTap: () {
                               HapticFeedback.selectionClick();
@@ -653,7 +653,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                               ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(4),
                                 border: Border.all(
                                   color: CuttingColors.primary,
                                 ),
@@ -730,7 +730,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                               width: 2,
                             ),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(6),
                             ),
                           ),
                           child: const Text(
@@ -752,7 +752,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           elevation: 0,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                         child: Text(
@@ -783,7 +783,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: CuttingColors.primarySoft.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -818,7 +818,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
                 vertical: 12,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -928,7 +928,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
               vertical: 14,
             ),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
           ),
@@ -959,7 +959,7 @@ Future<String?> promptCustomSteelShapeLabel(BuildContext context) {
     context: context,
     builder: (ctx) => AlertDialog(
       backgroundColor: CuttingColors.surface,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       title: Row(
         children: [
           cuttingDialogIcon(Icons.edit_note_rounded),
@@ -984,7 +984,7 @@ Future<String?> promptCustomSteelShapeLabel(BuildContext context) {
           filled: true,
           fillColor: Colors.grey.shade100,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             borderSide: BorderSide.none,
           ),
         ),

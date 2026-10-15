@@ -63,7 +63,7 @@ class _ReminderProblemCardState extends State<ReminderProblemCard> {
       padding: const EdgeInsets.fromLTRB(16, 12, 8, 4),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: _red.withValues(alpha: 0.4)),
       ),
       child: Column(

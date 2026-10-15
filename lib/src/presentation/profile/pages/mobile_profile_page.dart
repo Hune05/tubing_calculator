@@ -105,7 +105,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
           backgroundColor: pureWhite,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: const Text(
             "작업자 이름 넣기",
@@ -179,7 +179,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
           backgroundColor: pureWhite,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(6),
           ),
           title: const Text(
             "이름 바꾸기",
@@ -270,11 +270,11 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
           counterText: "",
           errorText: err,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             borderSide: const BorderSide(color: tossBlue, width: 2),
           ),
           hintText: hint,
@@ -286,7 +286,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
 
   ButtonStyle get _blueButton => ElevatedButton.styleFrom(
     backgroundColor: tossBlue,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
   );
 
   void _showSnackBar(String msg, {bool isError = false}) {
@@ -307,7 +307,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
       context: context,
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -402,7 +402,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: pureWhite,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
                   children: [
@@ -440,7 +440,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                               backgroundColor: tossBlue,
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                           ),
@@ -470,7 +470,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: Colors.black12),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                           ),
@@ -648,7 +648,7 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
                     HapticFeedback.lightImpact();
                     _showRenameDialog();
                   },
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   child: Padding(
                     padding: const EdgeInsets.all(4.0),
                     child: Icon(
@@ -727,12 +727,12 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
   }) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: slate100,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

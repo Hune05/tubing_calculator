@@ -131,7 +131,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
               backgroundColor: anonymous ? Colors.transparent : profileRed500,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             child: busy
@@ -158,7 +158,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
               backgroundColor: profileSlate100,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             child: const Text(
@@ -174,7 +174,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
             backgroundColor: profileWhite,
             surfaceTintColor: Colors.transparent,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(8),
             ),
             title: const Text(
               "로그아웃하시겠습니까?",
@@ -219,7 +219,7 @@ class _MobileSettingsPageState extends State<MobileSettingsPage> {
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                     child: const Text(

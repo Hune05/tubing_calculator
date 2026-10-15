@@ -573,7 +573,7 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
         color: widget.isLightMode
             ? Colors.white.withValues(alpha: 0.9)
             : const Color(0xFF2B3643).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         boxShadow: const [
           BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
         ],
@@ -636,7 +636,7 @@ class _ConduitIsoVisualizerState extends State<ConduitIsoVisualizer> {
         color: widget.isLightMode
             ? Colors.white.withValues(alpha: 0.9)
             : const Color(0xFF2B3643).withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         boxShadow: const [
           BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
         ],

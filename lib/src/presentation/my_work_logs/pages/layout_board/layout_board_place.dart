@@ -438,7 +438,7 @@ extension _LayoutBoardPlace on _LayoutBoardPageState {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: tossBg,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [

@@ -18,7 +18,7 @@ Widget buildProfileMenuCard(List<Widget> items) {
     margin: const EdgeInsets.symmetric(horizontal: 16),
     decoration: BoxDecoration(
       color: profileWhite,
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(8),
     ),
     child: Column(
       children: [
@@ -50,7 +50,7 @@ Widget profileMenuItem({
       HapticFeedback.lightImpact();
       onTap();
     },
-    borderRadius: BorderRadius.circular(24),
+    borderRadius: BorderRadius.circular(8),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
       child: Row(

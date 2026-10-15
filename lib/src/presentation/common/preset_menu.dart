@@ -39,7 +39,7 @@ class PresetMenuButton extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         key: buttonKey,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         onTap: () => onOpen(btn),
         child: Container(
           width: 48,
@@ -47,7 +47,7 @@ class PresetMenuButton extends StatelessWidget {
           margin: const EdgeInsets.only(right: 4),
           decoration: BoxDecoration(
             color: fc.brandSoft,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Icon(
             Icons.keyboard_arrow_down_rounded,

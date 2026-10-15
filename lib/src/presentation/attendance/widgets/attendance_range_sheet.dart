@@ -126,12 +126,12 @@ class _AttendanceRangeSheetState extends State<AttendanceRangeSheet> {
     child: InkWell(
       key: Key(isFrom ? 'att_range_from' : 'att_range_to'),
       onTap: () => _pickDate(isFrom: isFrom),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color: AppColors.fill,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -160,12 +160,12 @@ class _AttendanceRangeSheetState extends State<AttendanceRangeSheet> {
     child: InkWell(
       key: Key(isStart ? 'att_range_in' : 'att_range_out'),
       onTap: () => _pickTime(isStart: isStart),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.fill,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,

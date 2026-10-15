@@ -250,7 +250,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
     margin: const EdgeInsets.only(bottom: 4),
     decoration: BoxDecoration(
       color: fc.fill,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: fc.line),
     ),
     child: Column(

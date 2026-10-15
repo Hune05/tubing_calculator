@@ -1237,7 +1237,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: whiteCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         title: Row(
           children: [
             cuttingDialogIcon(Icons.bookmark_add_outlined),
@@ -1262,7 +1262,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             filled: true,
             fillColor: Colors.grey.shade100,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
           ),
@@ -1445,7 +1445,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             builder: (ctx, scrollController) => Container(
               decoration: const BoxDecoration(
                 color: whiteCard,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
               ),
               child: Column(
                 children: [
@@ -1469,7 +1469,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                         filled: true,
                         fillColor: Colors.grey.shade100,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                           borderSide: BorderSide.none,
                         ),
                       ),
@@ -1544,7 +1544,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           elevation: 0,
                           minimumSize: const Size(double.infinity, 48),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                         ),
                         child: const Text(
@@ -1586,7 +1586,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         builder: (ctx, scrollController) => Container(
           decoration: const BoxDecoration(
             color: whiteCard,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: Column(
             children: [
@@ -1709,7 +1709,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                                       padding: const EdgeInsets.all(14),
                                       decoration: BoxDecoration(
                                         color: lightBg,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Column(
                                         crossAxisAlignment:
@@ -1790,7 +1790,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         builder: (ctx, scrollController) => Container(
           decoration: const BoxDecoration(
             color: whiteCard,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
           ),
           child: Column(
             children: [
@@ -1939,7 +1939,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                                       ),
                                       decoration: BoxDecoration(
                                         color: lightBg,
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Row(
                                         children: [
@@ -2098,11 +2098,11 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 vertical: 14,
               ),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,
               ),
               focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
                 borderSide: const BorderSide(color: makitaTeal, width: 1.5),
               ),
             ),
@@ -2114,9 +2114,9 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     Widget buildChip(String label, VoidCallback onTap) {
       return Material(
         color: CuttingColors.primarySoft,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         child: InkWell(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -2145,7 +2145,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           child: Container(
             decoration: const BoxDecoration(
               color: whiteCard,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
             ),
             child: SingleChildScrollView(
               child: Padding(
@@ -2255,7 +2255,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                                 width: 2,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                             child: const Text(
@@ -2277,7 +2277,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               elevation: 0,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                             ),
                             onPressed: () async {
@@ -2810,7 +2810,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             : (isCustom
                   ? Colors.orange.shade50
                   : makitaTeal.withValues(alpha: 0.1)),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(
           color: isNone
               ? Colors.grey.shade300
@@ -2898,7 +2898,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     return Container(
       decoration: BoxDecoration(
         color: whiteCard,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: makitaTeal),
       ),
       child: Row(
@@ -3076,7 +3076,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     elevation: 0,
                     padding: const EdgeInsets.symmetric(vertical: 13),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                   ),
                 ),
@@ -3196,13 +3196,13 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               HapticFeedback.selectionClick();
               _addSegmentAfter(afterPoint);
             },
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
               decoration: BoxDecoration(
                 color: makitaTeal.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: makitaTeal.withValues(alpha: 0.3)),
               ),
               child: Row(
@@ -3506,7 +3506,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               decoration: BoxDecoration(
                 color: whiteCard,
                 border: Border.all(color: CuttingColors.border),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: _buildCuttingListRenderer(),
             ),
@@ -3525,7 +3525,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               elevation: 0,
               minimumSize: const Size(double.infinity, 52),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(6),
               ),
             ),
             child: Column(
@@ -3571,7 +3571,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           message: tip,
           child: InkWell(
             key: key,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(8),
             onTap: onTap,
             child: Container(
               width: 32,
@@ -3595,7 +3595,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
     return Container(
       decoration: BoxDecoration(
         color: whiteCard,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isNone ? Colors.grey.shade300 : makitaTeal,
           width: isNone ? 1 : 1.5,
@@ -3617,7 +3617,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   ),
                   decoration: BoxDecoration(
                     color: isNone ? Colors.grey.shade200 : makitaDark,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     "PT${index + 1}",
@@ -3651,7 +3651,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               _openFittingSelector(index);
             },
             borderRadius: const BorderRadius.vertical(
-              bottom: Radius.circular(11),
+              bottom: Radius.circular(6),
             ),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 10, 10),
@@ -3794,7 +3794,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
           decoration: BoxDecoration(
             color: isSelected ? makitaTeal : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             label,
@@ -3812,7 +3812,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       padding: const EdgeInsets.all(2),
       decoration: BoxDecoration(
         color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
@@ -3875,7 +3875,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Container(
         decoration: BoxDecoration(
           color: Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: Colors.grey.shade300),
         ),
         clipBehavior: Clip.antiAlias,
@@ -3931,7 +3931,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3966,7 +3966,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       child: Container(
         decoration: BoxDecoration(
           color: bad ? CuttingColors.dangerSoft : Colors.grey.shade50,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(
             color: bad
                 ? CuttingColors.danger.withValues(alpha: 0.4)
@@ -3998,7 +3998,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                     ),
                     decoration: BoxDecoration(
                       color: stateColor.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       stateText,
@@ -4058,18 +4058,18 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                             vertical: 8,
                           ),
                           border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             borderSide: BorderSide(color: Colors.grey.shade300),
                           ),
                           enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             borderSide: BorderSide(
                               color: bad ? Colors.red : Colors.grey.shade300,
                               width: bad ? 2 : 1,
                             ),
                           ),
                           focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             borderSide: BorderSide(
                               color: bad ? Colors.red : makitaTeal,
                               width: 2,
@@ -4083,13 +4083,13 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       message: "카메라로 치수 인식",
                       child: InkWell(
                         onTap: () => _scanLengthWithCamera(index),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(4),
                         child: Container(
                           width: 44,
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             color: makitaTeal.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Icon(
                             Icons.camera_alt_outlined,
@@ -4123,7 +4123,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                           _calculate();
                         });
                       },
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(4),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -4163,7 +4163,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                   ),
                   decoration: BoxDecoration(
                     color: CuttingColors.primarySoft,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     cutBreakdownText(

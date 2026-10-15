@@ -61,7 +61,7 @@ Widget refIntroBadge(String text, {IconData icon = LucideIcons.info}) {
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
       color: refHighlight,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: refTeal.withValues(alpha: 0.3)),
     ),
     child: Row(
@@ -90,7 +90,7 @@ Widget refWarnBox(String text) {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: refWarnBg,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       border: Border.all(color: refWarnBorder),
     ),
     child: Row(
@@ -120,7 +120,7 @@ Widget refTipBox(String text) {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: refTeal.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       border: Border.all(color: refTeal.withValues(alpha: 0.3)),
     ),
     child: Row(
@@ -164,7 +164,7 @@ Widget refCard({
     padding: const EdgeInsets.all(20),
     decoration: BoxDecoration(
       color: refWhite,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
       boxShadow: [
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.02),
@@ -231,7 +231,7 @@ Widget refExpandCard({
     key: refCardKey(title),
     decoration: BoxDecoration(
       color: refWhite,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(8),
     ),
     child: Theme(
       data: ThemeData(dividerColor: Colors.transparent),
@@ -282,7 +282,7 @@ Widget refButtonGuide({
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: refTextMain,
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Text(
             btnName,
@@ -449,7 +449,7 @@ Widget refTable({
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
         decoration: BoxDecoration(
           color: refBg,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
         ),
         child: Row(
           children: [

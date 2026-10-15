@@ -491,12 +491,12 @@ class _BracketBundlePageState extends State<BracketBundlePage> {
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
         color: fc.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: fc.line),
       ),
       child: InkWell(
         key: Key('bb_row_${e.id}'),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         onTap: () => Navigator.pop(context, e.loadMap),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 8, 4, 8),

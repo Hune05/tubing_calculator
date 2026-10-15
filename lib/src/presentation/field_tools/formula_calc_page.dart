@@ -75,7 +75,7 @@ class FormulaCalcPage extends StatelessWidget {
                     color: fc.surface,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(6),
                       side: BorderSide(color: fc.line),
                     ),
                     child: ListTile(

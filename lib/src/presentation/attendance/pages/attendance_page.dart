@@ -340,7 +340,7 @@ class _AttendancePageState extends State<AttendancePage>
       isScrollControlled: true,
       backgroundColor: _white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (_) => AttendanceEditSheet(
         day: day,
@@ -470,7 +470,7 @@ class _AttendancePageState extends State<AttendancePage>
       isScrollControlled: true,
       backgroundColor: _white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (_) =>
           AttendanceRangeSheet(today: _today, options: _settings.calcOptions),
@@ -555,7 +555,7 @@ class _AttendancePageState extends State<AttendancePage>
       isScrollControlled: true,
       backgroundColor: _white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => AttendanceRulesSheet(
         settings: _settings,
@@ -574,7 +574,7 @@ class _AttendancePageState extends State<AttendancePage>
       isScrollControlled: true,
       backgroundColor: _white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (_) => AttendanceSettingsSheet(
         settings: _settings,
@@ -624,7 +624,7 @@ class _AttendancePageState extends State<AttendancePage>
       isScrollControlled: true,
       backgroundColor: _white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (_) => AttendanceLeaveSheet(
         balance: b,
@@ -645,7 +645,7 @@ class _AttendancePageState extends State<AttendancePage>
       context: context,
       backgroundColor: _white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -856,7 +856,7 @@ class _AttendancePageState extends State<AttendancePage>
                               padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
                               decoration: BoxDecoration(
                                 color: AppColors.danger.withValues(alpha: 0.08),
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(6),
                               ),
                               child: Row(
                                 children: [

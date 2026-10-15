@@ -458,7 +458,7 @@ Widget _frame(Widget child, double aspect) => Center(
     child: Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF7F9FA), Color(0xFFE9EDF0)]),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: AppColors.line),
       ),
       padding: const EdgeInsets.all(8),
@@ -498,7 +498,7 @@ class _Gd402WalkthroughState extends State<Gd402Walkthrough> {
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.line)),
+          decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.line)),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -506,7 +506,7 @@ class _Gd402WalkthroughState extends State<Gd402Walkthrough> {
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(20)),
+                    decoration: BoxDecoration(color: AppColors.brandSoft, borderRadius: BorderRadius.circular(8)),
                     child: Text('${_i + 1} / ${widget.steps.length}', key: Key('gdw_count_${widget.id}'), style: const TextStyle(fontWeight: FontWeight.w900, color: AppColors.brand)),
                   ),
                   const SizedBox(width: 10),

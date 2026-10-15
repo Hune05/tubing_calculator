@@ -471,7 +471,7 @@ class _MobileInputTabState extends State<MobileInputTab>
       isScrollControlled: true, // 🚀 높이가 오버플로우되지 않도록 허용
       backgroundColor: pureWhite,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
       ),
       builder: (context) => SafeArea(
         child: SingleChildScrollView(
@@ -662,7 +662,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                   color: Colors.transparent,
                   child: InkWell(
                     key: const Key('tube_clear_all'),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     onTap: _clearAll,
                     child: Padding(
                       padding: const EdgeInsets.all(6.0),
@@ -686,12 +686,12 @@ class _MobileInputTabState extends State<MobileInputTab>
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: fieldPick(
                 Colors.grey.shade300,
@@ -1327,7 +1327,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                   width: isSelected ? 2 : 1,
                                                 ),
                                                 borderRadius:
-                                                    BorderRadius.circular(8),
+                                                    BorderRadius.circular(4),
                                               ),
                                               child: Row(
                                                 mainAxisAlignment:
@@ -1421,7 +1421,7 @@ class _MobileInputTabState extends State<MobileInputTab>
                                                     ),
                                                 border: OutlineInputBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(8),
+                                                      BorderRadius.circular(4),
                                                   borderSide: BorderSide(
                                                     color: fieldPick(
                                                       Colors.grey.shade300,

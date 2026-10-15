@@ -51,10 +51,10 @@ class CuttingMakerChips extends StatelessWidget {
                   color: m == selected
                       ? CuttingColors.primary
                       : CuttingColors.background,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                   child: InkWell(
                     key: Key('maker_$m'),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                     onTap: () => onSelected(m),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 9),
@@ -106,15 +106,15 @@ class CuttingSettingPill extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: emphasized ? CuttingColors.primarySoft : CuttingColors.surface,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
       child: InkWell(
         key: pillKey,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: emphasized
                   ? CuttingColors.primary.withValues(alpha: 0.5)
@@ -165,7 +165,7 @@ class CuttingFirstHint extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: CuttingColors.primarySoft,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: const Text(
         '① 지점마다 부속 고르기  ② 지점 사이 중심 간 거리 넣기  ③ 아래 합계 확인',
@@ -265,7 +265,7 @@ class CuttingSummaryBar extends StatelessWidget {
                   vertical: 10,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(6),
                 ),
               ),
               child: const Text(
@@ -307,7 +307,7 @@ class CuttingResultChip extends StatelessWidget {
       message: label,
       child: InkWell(
         key: chipKey,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         onTap: onTap,
         child: Container(
           padding: showLabel
@@ -315,7 +315,7 @@ class CuttingResultChip extends StatelessWidget {
               : const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: on ? CuttingColors.primary : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

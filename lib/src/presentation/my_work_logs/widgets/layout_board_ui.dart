@@ -112,7 +112,7 @@ Future<bool> confirmLayoutDanger(
     builder: (ctx) => AlertDialog(
       backgroundColor: pureWhite,
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       title: Text(
         title,
         style: const TextStyle(
@@ -147,7 +147,7 @@ Future<bool> confirmLayoutDanger(
             backgroundColor: warningRed,
             minimumSize: const Size(88, 48),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
           ),
           onPressed: () => Navigator.pop(ctx, true),
@@ -189,7 +189,7 @@ Widget layoutToolButton({
       key: key,
       color: bg,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
         side: BorderSide(
           color: primary || selected ? accent : layoutLine,
           width: selected && !primary ? 2 : 1.5,

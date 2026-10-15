@@ -114,7 +114,7 @@ class _AssigneePickerState extends State<AssigneePicker> {
             filled: true,
             fillColor: tossInputBg,
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
               borderSide: BorderSide.none,
             ),
             isDense: true,
@@ -131,7 +131,7 @@ class _AssigneePickerState extends State<AssigneePicker> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           color: selected ? AppColors.brand : tossInputBg,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Text(
           label,
@@ -158,7 +158,7 @@ Future<String?> pickAssignee(
     isScrollControlled: true,
     backgroundColor: pureWhite,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
     ),
     builder: (ctx) => Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),

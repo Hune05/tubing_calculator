@@ -232,7 +232,7 @@ class _AttendanceYearPageState extends State<AttendanceYearPage> {
       padding: const EdgeInsets.all(16),
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
             color: AppColors.surface,
             child: Column(children: rows),

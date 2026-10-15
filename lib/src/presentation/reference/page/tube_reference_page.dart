@@ -158,7 +158,7 @@ class _TubeReferencePageState extends State<TubeReferencePage>
                 fillColor: refWhite,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(6),
                   borderSide: BorderSide.none,
                 ),
               ),
@@ -209,12 +209,12 @@ class _TubeReferencePageState extends State<TubeReferencePage>
         final e = matches[i];
         return InkWell(
           onTap: () => _jumpTo(e.tab),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             decoration: BoxDecoration(
               color: refWhite,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Row(
               children: [

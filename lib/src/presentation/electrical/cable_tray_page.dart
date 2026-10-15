@@ -527,7 +527,7 @@ class _CableTrayPageState extends State<CableTrayPage>
       height: 190,
       decoration: BoxDecoration(
         color: fc.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: fc.line),
       ),
       child: CustomPaint(

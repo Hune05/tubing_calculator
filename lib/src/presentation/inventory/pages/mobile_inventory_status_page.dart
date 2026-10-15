@@ -244,7 +244,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
               fillColor: slate100,
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(6),
                 borderSide: BorderSide.none,
               ),
             ),
@@ -315,7 +315,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                   showCheckmark: false,
                   side: BorderSide.none,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -530,7 +530,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                       ),
                       decoration: BoxDecoration(
                         color: slate100,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: const Text(
                         "자재 목록에 없음",
@@ -685,7 +685,7 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                               color: canCheckout
                                   ? makitaTeal.withValues(alpha: 0.1)
                                   : Colors.red.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               "재고 $qty$unit",

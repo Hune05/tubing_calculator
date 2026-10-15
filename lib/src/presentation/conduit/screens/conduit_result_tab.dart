@@ -434,7 +434,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(color: themeColor.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
@@ -453,7 +453,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: themeColor,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(4),
                 ),
                 child: anyIcon(icon, color: pureWhite, size: 12),
               ),
@@ -615,7 +615,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: pureWhite,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isStraight ? slate200 : themeColor.withValues(alpha: 0.2),
         ),
@@ -701,7 +701,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                             ),
                             decoration: BoxDecoration(
                               color: themeColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                 color: themeColor.withValues(alpha: 0.3),
                               ),
@@ -736,7 +736,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                       ),
                       decoration: BoxDecoration(
                         color: slate100,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
@@ -835,7 +835,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: themeColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(4),
         border: Border.all(color: themeColor.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -884,7 +884,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
           color: isSelected ? themeColor : slate100,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           border: Border.all(color: isSelected ? themeColor : slate200),
         ),
         child: Text(
@@ -909,7 +909,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
           padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
           decoration: BoxDecoration(
             color: pureWhite,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(8),
             border: Border.all(color: slate200, width: 1.5),
             boxShadow: [
               BoxShadow(

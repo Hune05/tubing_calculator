@@ -252,12 +252,12 @@ Future<void> showCuttingOptimizationSheet(
               });
               saveMix();
             },
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(4),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: picked ? CuttingColors.primary : Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
                 label,
@@ -332,7 +332,7 @@ Future<void> showCuttingOptimizationSheet(
                       filled: true,
                       fillColor: Colors.grey.shade100,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(4),
                         borderSide: BorderSide.none,
                       ),
                     ),
@@ -348,7 +348,7 @@ Future<void> showCuttingOptimizationSheet(
                       vertical: 16,
                     ),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
                   onPressed: () => recalc(),
@@ -474,7 +474,7 @@ Future<void> showCuttingOptimizationSheet(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: CuttingColors.border),
           ),
           child: Column(
@@ -817,7 +817,7 @@ Future<void> showCuttingOptimizationSheet(
             return Container(
               decoration: const BoxDecoration(
                 color: CuttingColors.surface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
               ),
               child: Column(
                 children: [
@@ -908,7 +908,7 @@ Widget _buildOptStat(Object icon, String label, String value, {Color? accent}) {
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
         children: [
@@ -953,7 +953,7 @@ Widget _buildGroupSummaryHeader(String label, CuttingOptimizationResult r) {
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
       color: CuttingColors.primarySoft,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1023,7 +1023,7 @@ Widget _buildOptBarCard(
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
       color: CuttingColors.surface,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
       border: Border.all(color: CuttingColors.border),
     ),
     child: Column(
@@ -1069,7 +1069,7 @@ Widget _buildOptBarCard(
         ),
         const SizedBox(height: 10),
         ClipRRect(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: ratio,
             minHeight: 10,
@@ -1157,7 +1157,7 @@ Widget _buildLeftoverCard({
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: CuttingColors.primarySoft,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1556,7 +1556,7 @@ Widget _smallNumField({
     filled: true,
     fillColor: Colors.grey.shade100,
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(4),
       borderSide: BorderSide.none,
     ),
   ),

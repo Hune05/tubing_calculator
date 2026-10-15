@@ -575,7 +575,7 @@ class _ElecFormulaCardState extends State<ElecFormulaCard> {
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: BoxDecoration(
             color: fc.surface,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(6),
             border: Border.all(color: fc.line),
           ),
           child: Column(

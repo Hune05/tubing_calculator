@@ -145,14 +145,14 @@ class _FullscreenPhotoViewerState extends State<FullscreenPhotoViewer> {
                           height: _thumbSize,
                           padding: const EdgeInsets.all(2),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(4),
                             border: Border.all(
                               color: selected ? fc.brand : Colors.transparent,
                               width: 2,
                             ),
                           ),
                           child: ClipRRect(
-                            borderRadius: BorderRadius.circular(5),
+                            borderRadius: BorderRadius.circular(4),
                             child: PhotoImage(
                               photos[i],
                               width: _thumbSize,

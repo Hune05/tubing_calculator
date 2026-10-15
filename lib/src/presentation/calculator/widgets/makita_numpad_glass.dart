@@ -137,7 +137,7 @@ class _MakitaNumpadGlassState extends State<MakitaNumpadGlass> {
                   elevation: 0,
                   shadowColor: Colors.transparent,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 onPressed: () {
@@ -157,7 +157,7 @@ class _MakitaNumpadGlassState extends State<MakitaNumpadGlass> {
                 style: TextButton.styleFrom(
                   foregroundColor: textColor ?? Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   padding: EdgeInsets.zero,
                 ),

@@ -1022,7 +1022,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                         height: 84,
                         decoration: BoxDecoration(
                           color: fc.surface,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(6),
                           border: Border.all(color: fc.line, width: 2),
                         ),
                         clipBehavior: Clip.antiAlias,
@@ -1160,7 +1160,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
   Widget? _footer() {
     if (_tabId != 'send') return null;
     final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(6),
     );
     return PlateFooter(
       main: Row(
@@ -1266,7 +1266,7 @@ class _PlateSketchPageState extends State<PlateSketchPage>
                   foregroundColor: fc.onBrand,
                   minimumSize: const Size(0, 46),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(6),
                   ),
                 ),
                 onPressed: _busy ? null : _readAi,
