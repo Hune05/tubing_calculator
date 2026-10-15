@@ -1047,7 +1047,8 @@ class _MobileInputTabState extends State<MobileInputTab>
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: SegmentedButton<String>(
-                                      showSelectedIcon: false,
+                                      // 10-15 새 모양: 색은 앱 테마(옅은 청록 + ✓ + 짙은 청록 글자).
+                                      showSelectedIcon: true,
                                       segments: const [
                                         ButtonSegment(
                                           value: "90",
@@ -1104,34 +1105,6 @@ class _MobileInputTabState extends State<MobileInputTab>
                                               }
                                             });
                                           },
-                                      style: ButtonStyle(
-                                        backgroundColor:
-                                            WidgetStateProperty.resolveWith<
-                                              Color
-                                            >(
-                                              (states) =>
-                                                  states.contains(
-                                                    WidgetState.selected,
-                                                  )
-                                                  ? makitaTeal
-                                                  : fieldPick(
-                                                      Colors.grey.shade100,
-                                                      sunlight: fc.fill,
-                                                      night: fc.fill,
-                                                    ),
-                                            ),
-                                        foregroundColor:
-                                            WidgetStateProperty.resolveWith<
-                                              Color
-                                            >(
-                                              (states) =>
-                                                  states.contains(
-                                                    WidgetState.selected,
-                                                  )
-                                                  ? pureWhite
-                                                  : slate600,
-                                            ),
-                                      ),
                                     ),
                                   ),
                                 ],
