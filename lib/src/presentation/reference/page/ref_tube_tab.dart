@@ -1,5 +1,6 @@
 // 튜브 탭: 규격·벤더 제원·피팅 깊이·각도별 계산. 숫자는 계산기가 쓰는 자료
 // (FittingData·SmartFittingDB·bend_geometry)에서 바로 읽어 설정과 늘 같다.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -147,7 +148,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
           subtitle:
               "라인 컷팅이 빼는 삽입 깊이(Swagelok·Hy-Lok·Parker 같은 값)와 계산기가 경고하는 최소 직선·최소 물림 길이입니다.",
           icon: Icons.compress,
-          iconColor: Colors.blueAccent,
+          iconColor: AppColors.brand,
           children: [
             refDataRow("삽입 깊이", "튜브 끝이 피팅 안으로 들어가는 길이입니다. 라인 컷팅이 구간 길이에서 뺍니다."),
             refDataRow(
@@ -270,7 +271,7 @@ class _RefTubeTabState extends State<RefTubeTab> {
           subtitle:
               "고른 규격(${_size.label}, R ${refNum(r)})으로 계산합니다. 벽·장애물 간섭은 센터가 아니라 바깥 폭으로 봅니다.",
           icon: LucideIcons.cornerUpLeft,
-          iconColor: Colors.deepPurple,
+          iconColor: AppColors.brand,
           children: [
             refTable(
               headers: [

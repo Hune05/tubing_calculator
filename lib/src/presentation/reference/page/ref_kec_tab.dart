@@ -6,6 +6,7 @@
 // 글은 코드가 아니라 kec_content.json에 있다 — 서버(reference_content/kec)에 더 높은 판이
 // 있으면 그것을 보여 앱을 다시 깔지 않아도 요약이 바뀐다. 서버 함수가 법제처에서 요약 기준
 // 공고보다 새 공고를 찾으면 맨 위에 알린다(kec_content.dart).
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -33,7 +34,7 @@ const Map<String, Color> _colors = {
   'orange': Colors.orange,
   'green': Colors.green,
   'teal': Colors.teal,
-  'indigo': Colors.indigo,
+  'indigo': AppColors.brand,
 };
 
 String _ymdHm(DateTime t) {

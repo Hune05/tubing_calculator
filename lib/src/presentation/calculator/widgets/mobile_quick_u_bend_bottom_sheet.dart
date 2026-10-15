@@ -354,7 +354,7 @@ class _MobileQuickUBendBottomSheetState
                   child: Text(
                     "↳ 조립 후 벽에서 튀어나오는 최고점(Apex): ${apex.toStringAsFixed(1)} mm",
                     style: TextStyle(
-                      color: Colors.blue.shade700,
+                      color: AppColors.brand,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),

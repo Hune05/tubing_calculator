@@ -225,7 +225,7 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
                         final justAdded =
                             ((data['qty'] as num?)?.toInt() ?? 0) == 0;
                         displayAction = justAdded ? "자재 등록" : "신규 등록";
-                        actionColor = Colors.blue.shade600;
+                        actionColor = AppColors.brand; // 10-15: 쨍한 파랑 → 청록
                         actionIcon = AppGlyph.stockNew;
                         displayQtyPrefix = justAdded ? "" : "+";
                       } else if (rawAction.contains('실사') ||

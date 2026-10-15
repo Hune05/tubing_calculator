@@ -1,4 +1,5 @@
 // 앱 사용법 탭: 화면마다 순서와 설정 넣는 법.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -136,7 +137,7 @@ class RefAppTab extends StatelessWidget {
           title: "작업 배치도",
           subtitle: "캐비닛 중판·측판, 스키드 평면·정면·측면",
           icon: LucideIcons.layers,
-          iconColor: Colors.deepPurple,
+          iconColor: AppColors.brand,
           children: [
             refStep(1, "새 배치도에서 캐비닛 또는 스키드를 고릅니다. 캐비닛은 ⋮ → '좌·우 측판'을 켜면 탭이 생깁니다."),
             refStep(2, "아래 단추에서 부품을 끌어 놓습니다. 스키드는 형강·경로·JB·부속(곤질레다·커플링)을 놓습니다."),
@@ -162,7 +163,7 @@ class RefAppTab extends StatelessWidget {
           title: "내 프로젝트 · 작업 일지 · 주간 보고",
           subtitle: "일지 → 달력 → 주간 보고 PDF",
           icon: LucideIcons.clipboardList,
-          iconColor: Colors.indigo,
+          iconColor: AppColors.brand,
           children: [
             refStep(
               1,

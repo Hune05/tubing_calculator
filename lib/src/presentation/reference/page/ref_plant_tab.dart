@@ -6,6 +6,7 @@
 // 숫자는 공개 자료에서 출처를 확인한 것만 넣고 카드마다 출처를 적는다. 제작사·호기마다 값이
 // 다르므로 "예시"로만 쓰고, 근거를 못 찾은 값(CO₂ 치환 종료 농도, 과속 트립, 저진공 트립 등)은
 // 숫자 대신 "해당 호기 값"으로 둔다. 조사 기록: docs/발전설비_자료_출처_1009.md
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -463,7 +464,7 @@ class RefPlantTab extends StatelessWidget {
           title: "냉각수 계통(워터 쿨링): 열을 밖으로 빼내는 3단",
           subtitle: "Stator Cooling → Closed Cooling(CCW) → Service Water",
           icon: LucideIcons.waves,
-          iconColor: Colors.blue,
+          iconColor: AppColors.brand,
           children: [
             refTable(
               headers: const ['단계', '역할'],
@@ -570,7 +571,7 @@ class RefPlantTab extends StatelessWidget {
           title: "복수기 진공: 배압·공기 유입",
           subtitle: "Condenser Back Pressure · SJAE · LRVP · Air In-leakage",
           icon: LucideIcons.thermometerSnowflake,
-          iconColor: Colors.indigo,
+          iconColor: AppColors.brand,
           children: [
             refDataRow(
               "배압과 출력",
@@ -604,7 +605,7 @@ class RefPlantTab extends StatelessWidget {
           title: "여자 계통·AVR·조속기(EHC)",
           subtitle: "Brushless/Static Excitation · OEL/UEL · 64F · Droop",
           icon: LucideIcons.zap,
-          iconColor: Colors.deepPurple,
+          iconColor: AppColors.brand,
           children: [
             refTable(
               headers: const ['방식', '내용'],

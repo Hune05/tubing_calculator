@@ -7,6 +7,7 @@
 // 없어 뺐다 — 1.3 치수도(순수 도면)와 4~7장의 CODE별 설정값 전체 표(레벨마다
 // 수백 항목, 3개 계기 종류×4단계가 반복되는 부록 성격이라 필요할 때 원문
 // PDF에서 CODE 번호로 찾는 게 낫다).
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -330,7 +331,7 @@ class Gd402ManualPage extends StatelessWidget {
             title: "8. 밀도계 교정 절차",
             subtitle: "GD402를 '밀도계'로 쓸 때 (반자동·수동·자동 세 가지)",
             icon: Icons.speed,
-            iconColor: Colors.indigo,
+            iconColor: AppColors.brand,
             children: [
               refDataRow(
                 "이 장을 보는 경우",
@@ -442,7 +443,7 @@ class Gd402ManualPage extends StatelessWidget {
             title: "10. 수소순도계 교정 절차",
             subtitle: "GD402를 '수소순도계·치환계'로 쓸 때 (현장에서 실제로 쓰는 장)",
             icon: LucideIcons.wind,
-            iconColor: Colors.blue,
+            iconColor: AppColors.brand,
             initiallyExpanded: true,
             children: [
               refWarnBox(

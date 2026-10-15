@@ -680,7 +680,7 @@ class SkidIsoPainter extends CustomPainter {
 
       axis(vm.Vector3(1, 0, 0), const Color(0xFFEF4444), '길이');
       axis(vm.Vector3(0, 1, 0), const Color(0xFF22C55E), '폭');
-      axis(vm.Vector3(0, 0, 1), const Color(0xFF3B82F6), '높이');
+      axis(vm.Vector3(0, 0, 1), const Color(0xFF3E6A8C), '높이');
     }
   }
 

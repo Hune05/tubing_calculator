@@ -1,5 +1,6 @@
 // 자료 검색(10-03): 장비 고장 조치·계기 알람 코드·루프 이상값·축 정렬 지침·현장 자료를 한 곳에서 찾는다.
 // 증상·코드·장비 이름 어느 것으로 찾아도 되고, 고르면 내용을 바로 보여 준다.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -217,7 +218,7 @@ class _KnowledgeSearchPageState extends State<KnowledgeSearchPage> {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, size: 18, color: Color(0xFF2563EB)),
+              const Icon(Icons.auto_awesome, size: 18, color: AppColors.textSub),
               const SizedBox(width: 6),
               Text(
                 noHits ? '앱 자료에 없습니다' : '찾는 답이 없으면',
@@ -870,8 +871,8 @@ class _AiAnswerSheetState extends State<_AiAnswerSheet> {
             children: [
               _banner(
                 'AI 답변입니다. 앱 자료가 아니라 AI가 아는 지식이므로 틀릴 수 있습니다.',
-                const Color(0xFFEAF2FF),
-                const Color(0xFF1D4ED8),
+                AppColors.fill,
+                AppColors.textSub,
                 Icons.auto_awesome,
                 const Key('ks_ai_banner'),
               ),

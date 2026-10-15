@@ -141,7 +141,7 @@ class _RollingOffsetGuideState extends State<RollingOffsetGuide>
 }
 
 const Color _kRunColor = Color(0xFF7C3AED);
-const Color _kRiseColor = Color(0xFF2563EB);
+const Color _kRiseColor = Color(0xFF3E6A8C); // 10-15: 쨍한 파랑 → 채도 낮춘 강철 파랑(구분은 남김)
 const Color _kRollColor = Color(0xFFDC2626);
 const Color _kTravelColor = Color(0xFF16A34A);
 

@@ -2,6 +2,7 @@
 // 글은 안전 교육·장비 교육 자료처럼 개조식으로 쓴다(~확인, ~금지, ~사용). 안전 수칙 머리말은 재해 유형(끼임·베임·맞음·감전·화재),
 // 고장 조치는 현상·원인·조치 세 줄. 장비별 세부(정비 주기·부품·경보 코드)는 제조사 설명서가 먼저다.
 // 전동 공구에 다 해당하는 것(전원·릴선·카본 브러시·A/S)은 "전동 공구 공통 수칙"에 한 번만 적는다.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -195,7 +196,7 @@ final List<_Guide> _guides = [
     title: 'TRACTO-TECHNIK TB20D (반자동 벤더)',
     sub: '각도만 기계가 꺾고 이송·회전은 손, 각도 8개까지 저장',
     icon: LucideIcons.monitorSmartphone,
-    color: Colors.indigo,
+    color: AppColors.brand,
     parts: [
       _Part(_order, steps: [
         '전원 ON 후 원점 복귀 먼저. 생략하면 엉뚱한 각도로 벤딩되어 충돌 (버튼 이름은 설명서 확인)',
@@ -304,7 +305,7 @@ final List<_Guide> _guides = [
     title: '유압식 벤더',
     sub: 'Greenlee·Current Tools 유압 벤더. 슈 교체식',
     icon: Icons.precision_manufacturing,
-    color: Colors.indigo,
+    color: AppColors.brand,
     parts: [
       _Part(_order, steps: [
         '관 호칭에 맞는 슈를 램에, 받침 롤러는 같은 호칭 구멍에 핀으로 체결. 핀이 끝까지 안 들어가면 작업 금지',
@@ -1103,7 +1104,7 @@ final List<_Guide> _guides = [
     title: 'GD402 가스 밀도계 (요꼬가와)',
     sub: '수소 순도 감시. 코드 화면에서 YES·NO로 선택',
     icon: Icons.speed,
-    color: Colors.indigo,
+    color: AppColors.brand,
     parts: [
       _Part('교정 가스', rows: [
         ('제로 가스', '수소(H2) 100%'),
@@ -1134,14 +1135,14 @@ final List<_Guide> _guides = [
         _manualButton(
           key: const Key('gd402_guide'),
           label: 'GD402 가이드 (수소 순도·밀도·열량 설정·교정 따라하기)',
-          color: Colors.indigo,
+          color: AppColors.brand,
           onTap: () => Navigator.push(c, MaterialPageRoute(builder: (_) => const Gd402GuidePage())),
         ),
         const SizedBox(height: 8),
         _manualButton(
           key: const Key('gd402_manual'),
           label: '전체 매뉴얼 보기(설치·배선·교정 세 가지·경보표 전부)',
-          color: Colors.indigo,
+          color: AppColors.brand,
           onTap: () => Navigator.push(c, MaterialPageRoute(builder: (_) => const Gd402ManualPage())),
         ),
       ],
@@ -1155,7 +1156,7 @@ final List<_Guide> _guides = [
     title: '벤더 실측 캘리브레이션',
     sub: '같은 모델도 장비마다 값이 다름. 한 번 실측해서 설정에 입력',
     icon: Icons.straighten_rounded,
-    color: Colors.deepPurple,
+    color: AppColors.brand,
     parts: [
       _Part('측정 방법', rows: [
         ('테이크업·셋백', '관 끝에서 300~500 mm에 선 긋고 그 선을 0점에 맞춰 90° 벤딩\n관 끝에서 바깥면(등)까지 측정\n테이크업 = 측정 길이 - 선까지 길이'),

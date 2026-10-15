@@ -344,7 +344,7 @@ void paintDimLine(
 
 /// 치수선 색(롤링 오프셋·각도 역산과 같다): Run 보라, Rise 파랑, Travel 초록.
 const Color kGuideRunColor = Color(0xFF7C3AED);
-const Color kGuideRiseColor = Color(0xFF2563EB);
+const Color kGuideRiseColor = Color(0xFF3E6A8C); // 10-15: 쨍한 파랑 → 채도 낮춘 강철 파랑(구분은 남김)
 const Color kGuideTravelColor = Color(0xFF16A34A);
 
 /// 한 번 꺾는 구간(아래 관 끝 [low] → 위 관 시작 [high])의 직각삼각형 치수선 세 개와 같은 색 값표:

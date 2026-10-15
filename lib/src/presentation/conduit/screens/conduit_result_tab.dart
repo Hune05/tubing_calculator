@@ -24,8 +24,6 @@ final ValueNotifier<Map<String, dynamic>> globalMarkingState = ValueNotifier({
 
 // 🎨 색상 테마 정의
 Color get makitaTeal => fc.brand; // 수동
-const Color ramBlue = Colors.blueAccent; // 유압식
-const Color chicagoPurple = Colors.deepPurple; // 시카고식
 
 Color get slate900 => fc.text;
 Color get slate800 =>

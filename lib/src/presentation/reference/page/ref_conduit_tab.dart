@@ -1,4 +1,5 @@
 // 전선관 탭: KS 규격·벤더 제원(앱 자료 그대로)·스프링백·커플링 여유·곤질레다.
+import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
@@ -123,7 +124,7 @@ class RefConduitTab extends StatelessWidget {
           title: "3. 유압식 벤더 제원 (앱 값)",
           subtitle: "90° 램 이동 거리 · CLR · 슈 가운데 마킹",
           icon: Icons.precision_manufacturing,
-          iconColor: Colors.indigo,
+          iconColor: AppColors.brand,
           children: [
             refDataRow("램 이동", "90°로 꺾을 때 램이 나가는 거리입니다. 다른 각도는 이 값으로 계산해 보여 줍니다."),
             refDataRow(
@@ -304,7 +305,7 @@ class RefConduitTab extends StatelessWidget {
           title: "9. 전선관·후렉시블 관통 구멍(홀쏘) 최소 지름",
           subtitle: "위 1번 외경 + 통과 여유. 실제 홀쏘 규격은 제조사 카탈로그에서 이 값 이상으로 고릅니다.",
           icon: LucideIcons.circleDot,
-          iconColor: Colors.indigo,
+          iconColor: AppColors.brand,
           children: [
             refTable(
               headers: ["호칭", "외경\n(mm)", "최소 홀쏘\n지름(mm)"],

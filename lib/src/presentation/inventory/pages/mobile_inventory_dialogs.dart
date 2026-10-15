@@ -202,7 +202,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           Expanded(
                             child: ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blueAccent.shade700,
+                                backgroundColor: AppColors.brand, // 10-15: 쨍한 파랑 → 앱 주 단추색
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
                                 ),

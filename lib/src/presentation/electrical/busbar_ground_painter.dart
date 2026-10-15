@@ -116,7 +116,7 @@ class GroundBarPainter extends CustomPainter {
           c,
           rad + 3,
           Paint()
-            ..color = const Color(0xFF2563EB)
+            ..color = const Color(0xFF3E6A8C)
             ..style = PaintingStyle.stroke
             ..strokeWidth = 2,
         );
@@ -124,7 +124,7 @@ class GroundBarPainter extends CustomPainter {
           canvas,
           'L$lug',
           c - Offset(0, rad + 10),
-          const Color(0xFF2563EB),
+          const Color(0xFF3E6A8C),
           bold: true,
         );
       }
