@@ -121,6 +121,9 @@ void main() {
       300,
       scrollable: list,
     );
+    // 머리 줄이 화면 끝에 반쯤 걸리면 누름이 빗나간다(10-15 모서리·간격 바뀜) → 다 보이게 한 뒤 누른다.
+    await tester.ensureVisible(find.text('케이블 단락 열적 강도 (I²t)'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('케이블 단락 열적 강도 (I²t)'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('ec_sc_t')), findsOneWidget);

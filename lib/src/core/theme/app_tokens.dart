@@ -112,11 +112,11 @@ abstract final class AppText {
   );
 }
 
-/// 모서리 3단.
+/// 모서리 3단. 10-15 사용자 결정(산업용, 압력 타이머처럼 덜 둥글게): 칸·고르기 4, 단추·카드 6, 창 8.
 abstract final class AppRadius {
-  static const double small = 8; // 칩·입력칸·작은 단추
-  static const double medium = 12; // 단추·카드 안 칸
-  static const double large = 20; // 카드·창·아래 시트
+  static const double small = 4; // 입력칸·고르기 칸·칩
+  static const double medium = 6; // 단추·카드·카드 안 칸
+  static const double large = 8; // 창·아래 시트
 }
 
 /// 간격(4의 배수).

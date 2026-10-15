@@ -44,6 +44,23 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
   RoundedRectangleBorder rounded(double r) =>
       RoundedRectangleBorder(borderRadius: BorderRadius.circular(r));
 
+  // 10-15 새 칸·단추 모양(사용자 결정): 테두리는 옅은 나눔선보다 한 단계 진하게, 고른 것은
+  // 옅은 청록 바탕 + ✓ + 짙은 청록 글자(꽉 찬 청록에 흰 글자는 주 단추에만).
+  final strong = Color.lerp(p.line, p.textFaint, 0.45)!;
+  final picked = p.brightness == Brightness.dark
+      ? p.brand
+      : Color.lerp(p.brand, Colors.black, 0.25)!;
+  OutlineInputBorder box(Color c, double w) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(AppRadius.small),
+    borderSide: BorderSide(color: c, width: w),
+  );
+  const btnText = TextStyle(
+    fontFamily: kAppFontFamily,
+    fontSize: 15,
+    fontWeight: AppText.bold,
+  );
+  const btnMin = Size(64, 48);
+
   return base.copyWith(
     extensions: [p],
     // 화면 이동: 새 화면이 아래에서 살짝 떠오르며 서서히 나타나고, 이전 화면은
@@ -103,7 +120,11 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
       color: p.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shape: rounded(AppRadius.large),
+      // 그림자 없이 얇은 테두리
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.medium),
+        side: BorderSide(color: p.line),
+      ),
     ),
     popupMenuTheme: PopupMenuThemeData(
       color: p.surface,
@@ -115,26 +136,50 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
         backgroundColor: p.brand,
         foregroundColor: p.onBrand,
         elevation: 0,
+        minimumSize: btnMin,
         shape: rounded(AppRadius.medium),
-        textStyle: const TextStyle(
-          fontFamily: kAppFontFamily,
-          fontWeight: AppText.bold,
-        ),
+        textStyle: btnText,
       ),
     ),
+    // 주 단추: 청록으로 꽉 차고 흰 글자
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         backgroundColor: p.brand,
         foregroundColor: p.onBrand,
+        minimumSize: btnMin,
         shape: rounded(AppRadius.medium),
+        textStyle: btnText,
       ),
     ),
+    // 보조 단추: 흰 바탕·회색 테두리·짙은 글자
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: p.brand,
-        side: BorderSide(color: p.brand),
+        foregroundColor: p.text,
+        backgroundColor: p.surface,
+        side: BorderSide(color: strong, width: 1.2),
+        minimumSize: btnMin,
         shape: rounded(AppRadius.medium),
+        textStyle: btnText,
       ),
+    ),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        shape: WidgetStatePropertyAll(rounded(AppRadius.small)),
+        side: WidgetStatePropertyAll(BorderSide(color: strong, width: 1.2)),
+        minimumSize: const WidgetStatePropertyAll(Size(48, 40)),
+        backgroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? p.brandSoft : p.surface,
+        ),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? picked : p.text,
+        ),
+        textStyle: const WidgetStatePropertyAll(
+          TextStyle(fontFamily: kAppFontFamily, fontSize: 14, fontWeight: AppText.medium),
+        ),
+      ),
+    ),
+    checkboxTheme: CheckboxThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(3)),
     ),
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(foregroundColor: p.brand),
@@ -144,12 +189,26 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
       foregroundColor: p.onBrand,
       elevation: 2,
     ),
-    // 바탕 채우기·테두리는 칸마다 정해 둔 것을 따른다(테마로 바꾸면 모든 칸 모양이 바뀐다).
-    // 글 색만 맞춘다.
+    // 10-15: 칸 모양을 앱 전체 한 가지로 — 네모(모서리 4) 테두리, 누르는 중 청록 2, 잘못 빨강,
+    // 잠김 회색 바탕. 칸마다 따로 정한 것(바탕 채우기 등)은 그대로 그것을 따른다.
     inputDecorationTheme: InputDecorationTheme(
       hintStyle: TextStyle(color: p.textFaint),
       labelStyle: TextStyle(color: p.textSub),
-      floatingLabelStyle: TextStyle(color: p.brand),
+      floatingLabelStyle: WidgetStateTextStyle.resolveWith(
+        (s) => TextStyle(
+          color: s.contains(WidgetState.error)
+              ? p.danger
+              : (s.contains(WidgetState.focused) ? p.brand : p.textSub),
+        ),
+      ),
+      helperStyle: TextStyle(color: p.textSub, fontSize: 12),
+      errorMaxLines: 3,
+      border: box(strong, 1.2),
+      enabledBorder: box(strong, 1.2),
+      focusedBorder: box(p.brand, 2),
+      errorBorder: box(p.danger, 1.5),
+      focusedErrorBorder: box(p.danger, 2),
+      disabledBorder: box(p.line, 1),
     ),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
@@ -169,10 +228,27 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
       ),
       trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
     ),
+    // 고르기 칩: 네모(4), 고르면 옅은 청록 + ✓ + 짙은 청록 글자(10-15, 압력 타이머 방식).
     chipTheme: ChipThemeData(
-      backgroundColor: p.fill,
-      selectedColor: p.brand,
-      side: BorderSide.none,
+      backgroundColor: p.surface,
+      selectedColor: p.brandSoft,
+      checkmarkColor: picked,
+      showCheckmark: true,
+      side: WidgetStateBorderSide.resolveWith(
+        (s) => BorderSide(
+          color: s.contains(WidgetState.selected)
+              ? Color.lerp(p.brandSoft, p.brand, 0.45)!
+              : strong,
+          width: 1.2,
+        ),
+      ),
+      labelStyle: TextStyle(
+        fontFamily: kAppFontFamily,
+        fontWeight: AppText.medium,
+        color: WidgetStateColor.resolveWith(
+          (s) => s.contains(WidgetState.selected) ? picked : p.text,
+        ),
+      ),
       shape: rounded(AppRadius.small),
     ),
   );
