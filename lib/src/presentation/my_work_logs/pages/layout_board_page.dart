@@ -312,6 +312,12 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   MeasurePoint? _dimensionStartPoint;
 
   PlacedItem? _activeItem;
+  // 10-16: 길게 누른 채 끌기(예전엔 0.5초 넘게 누르고 끌면 "여러 개 고르기"가 먼저 잡혀 끌기가 취소됐다).
+  Offset _lpDragLast = Offset.zero;
+  bool _lpDragMoved = false;
+  // 10-16: 이미 다른 부품과 겹친 채로 끌기 시작하면 빠져나올 때까지 겹침 막기를 풀어 둔다
+  // (예전엔 어느 쪽으로 움직여도 겹쳐서 꼼짝하지 않았다 — 돌리기·크기 바꾸기·옛 저장본에서 생긴다).
+  bool _dragFromOverlap = false;
 
   PlacedItem? _previewItem;
 
@@ -533,6 +539,10 @@ class _LayoutBoardPageState extends State<LayoutBoardPage>
   void debugSetSnapGuides(bool v) => _snapToGuides = v;
 
   Map<String, Map<String, dynamic>> debugPlates() => _allPlates();
+
+  /// 시험용: 여러 개 고르기로 고른 부품 id.
+  @visibleForTesting
+  Set<String> get debugMultiSelectedIds => _multiSelectedIds;
 
   // 🚀 [신규] 실행 취소/다시 실행. 모듈 배치/이동/삭제/회전/치수 추가·
   // 삭제 등 "한 번의 사용자 조작" 직전마다 현재 상태를 스냅샷으로

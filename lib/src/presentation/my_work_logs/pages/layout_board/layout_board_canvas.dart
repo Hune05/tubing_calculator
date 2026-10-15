@@ -206,34 +206,10 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                               ..._buildHiddenOutlines(),
                             ],
                             ..._placedItems.map((item) {
-                              final bool canDrag =
-                                  _mode == BoardMode.placeModule &&
-                                  !item.isLocked;
-                              return Positioned(
-                                // 🚀 [버그 수정] 이 Positioned에
-                                // key가 없으면, 정렬 가이드선이
-                                // 조건부로 Stack children 목록에
-                                // 끼어들거나 빠질 때(예: 드래그
-                                // 도중 안내선이 나타남/사라짐)
-                                // 목록의 순서(인덱스)가 밀리면서
-                                // 플러터가 "같은 자리에 있던"
-                                // 엘리먼트를 다른 모듈 것으로
-                                // 착각해 재사용할 수 있었다.
-                                // 그러면 지금 드래그 중이던
-                                // 제스처가 엉뚱한 모듈의
-                                // onPanUpdate로 연결되어, 실제로
-                                // 다른(엉뚱한) 모듈의 위치가
-                                // 바뀌는 것처럼 보였다. id 기반
-                                // key를 달아 항상 같은 모듈에
-                                // 같은 엘리먼트가 매칭되게
-                                // 고정한다.
-                                key: ValueKey(item.id),
-                                left: item.position.dx - _kTouchHitPad,
-                                top: item.position.dy - _kTouchHitPad,
-                                child: GestureDetector(
-                                  behavior: HitTestBehavior.opaque,
-                                  onPanStart: canDrag
-                                      ? (details) {
+                              // 10-16: "치수" 상태에서도 부품을 끌어 옮긴다(치수선은 부품을 따라온다).
+                              final bool canDrag = !item.isLocked;
+                              // 끌기 세 단계(손가락 끌기·길게 누른 채 끌기가 같이 쓴다).
+                              void dragStart() {
                                           // 드래그 한 번 = undo 한 단계
                                           // (onPanUpdate마다 쌓으면 되돌리기가
                                           // 프레임 단위로 쪼개져 버린다).
@@ -244,6 +220,13 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                               ) &&
                                               _multiSelectedIds.length > 1;
                                           _pushUndo();
+                                          _dragFromOverlap = isGroupDrag
+                                              ? _placedItems.any(
+                                                  (i) =>
+                                                      _multiSelectedIds.contains(i.id) &&
+                                                      _overlapsAny(i, i.position, excludeIds: _multiSelectedIds),
+                                                )
+                                              : _overlapsAny(item, item.position);
                                           setState(() {
                                             _dragRawPosition = item.position;
                                             _activeItem = item;
@@ -305,11 +288,10 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                             }
                                           });
                                         }
-                                      : null,
-                                  onPanUpdate: canDrag
-                                      ? (details) {
+
+                              void dragUpdate(Offset delta) {
                                           setState(() {
-                                            _dragRawPosition += details.delta;
+                                            _dragRawPosition += delta;
                                             final bool isGroupDrag =
                                                 _groupDragOrigins.isNotEmpty &&
                                                 _groupDragOrigins.containsKey(
@@ -376,7 +358,7 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                                   break;
                                                 }
                                               }
-                                              if (wouldCollide) {
+                                              if (wouldCollide && !_dragFromOverlap) {
                                                 return;
                                               }
                                               for (final i in _placedItems) {
@@ -433,6 +415,12 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                                 item,
                                                 gridSnapped,
                                               );
+                                              if (_dragFromOverlap) {
+                                                item.position = aligned;
+                                                if (!_overlapsAny(item, aligned)) {
+                                                  _dragFromOverlap = false;
+                                                }
+                                              } else {
                                               final Offset xOnly = Offset(
                                                 aligned.dx,
                                                 item.position.dy,
@@ -447,12 +435,12 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                               if (!_overlapsAny(item, yOnly)) {
                                                 item.position = yOnly;
                                               }
+                                              }
                                             }
                                           });
                                         }
-                                      : null,
-                                  onPanEnd: canDrag
-                                      ? (details) {
+
+                              void dragEnd() {
                                           setState(() {
                                             // DIN 레일 부품을 레일 위에 놓으면 세로 자리를 레일에 맞춘다.
                                             if (_groupDragOrigins.isEmpty) {
@@ -463,6 +451,7 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                               _snapToSteel(item);
                                             }
                                             _activeItem = null;
+                                            _dragFromOverlap = false;
                                             _alignGuideX = null;
                                             _alignGuideY = null;
                                             _groupDragAnchorOrigin = null;
@@ -470,10 +459,60 @@ extension _LayoutBoardCanvas on _LayoutBoardPageState {
                                             _groupOriginBounds = null;
                                           });
                                         }
-                                      : null,
+
+                              return Positioned(
+                                // 🚀 [버그 수정] 이 Positioned에
+                                // key가 없으면, 정렬 가이드선이
+                                // 조건부로 Stack children 목록에
+                                // 끼어들거나 빠질 때(예: 드래그
+                                // 도중 안내선이 나타남/사라짐)
+                                // 목록의 순서(인덱스)가 밀리면서
+                                // 플러터가 "같은 자리에 있던"
+                                // 엘리먼트를 다른 모듈 것으로
+                                // 착각해 재사용할 수 있었다.
+                                // 그러면 지금 드래그 중이던
+                                // 제스처가 엉뚱한 모듈의
+                                // onPanUpdate로 연결되어, 실제로
+                                // 다른(엉뚱한) 모듈의 위치가
+                                // 바뀌는 것처럼 보였다. id 기반
+                                // key를 달아 항상 같은 모듈에
+                                // 같은 엘리먼트가 매칭되게
+                                // 고정한다.
+                                key: ValueKey(item.id),
+                                left: item.position.dx - _kTouchHitPad,
+                                top: item.position.dy - _kTouchHitPad,
+                                child: GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onPanStart: canDrag ? (_) => dragStart() : null,
+                                  onPanUpdate: canDrag ? (d) => dragUpdate(d.delta) : null,
+                                  onPanEnd: canDrag ? (_) => dragEnd() : null,
                                   onTap: () => _onTapItem(item),
                                   // 10-13: 길게 누르면 "여러 개 선택" 단추를 먼저 안 켜도 바로 고른다.
-                                  onLongPress: () => _selectByLongPress(item),
+                                  // 길게 누른 채 움직이면 끌기, 움직이지 않고 떼면 "여러 개 고르기"(10-16).
+                                  onLongPressStart: (_) {
+                                    _lpDragMoved = false;
+                                    _lpDragLast = Offset.zero;
+                                  },
+                                  onLongPressMoveUpdate: canDrag
+                                      ? (d) {
+                                          final Offset delta =
+                                              d.localOffsetFromOrigin - _lpDragLast;
+                                          _lpDragLast = d.localOffsetFromOrigin;
+                                          if (!_lpDragMoved) {
+                                            _lpDragMoved = true;
+                                            dragStart();
+                                          }
+                                          dragUpdate(delta);
+                                        }
+                                      : null,
+                                  onLongPressEnd: (_) {
+                                    if (_lpDragMoved) {
+                                      _lpDragMoved = false;
+                                      dragEnd();
+                                    } else {
+                                      _selectByLongPress(item);
+                                    }
+                                  },
                                   child: Container(
                                     width: item.width + _kTouchHitPad * 2,
                                     height: item.height + _kTouchHitPad * 2,
