@@ -12,10 +12,13 @@ String encodePressureWidgetPayload({
   DateTime? due,
   required String line,
   required double holdMin,
+  DateTime? stabAt,
+  double stabMin = 0,
 }) {
+  // 안정화 중(10-15): 시작 전인데 안정화를 시작했으면 "stab"(위젯이 안정화 남은 시간을 센다).
   final String phase = running
       ? 'running'
-      : (start != null && end != null ? 'ended' : 'idle');
+      : (start != null && end != null ? 'ended' : (start == null && stabAt != null ? 'stab' : 'idle'));
   return jsonEncode({
     'phase': phase,
     'line': line.trim(),
@@ -24,5 +27,9 @@ String encodePressureWidgetPayload({
       'startMs': start.millisecondsSinceEpoch,
     if (phase == 'running' && due != null) 'dueMs': due.millisecondsSinceEpoch,
     if (phase == 'ended' && end != null) 'endMs': end.millisecondsSinceEpoch,
+    if (phase == 'stab') ...{
+      'stabMs': stabAt!.millisecondsSinceEpoch,
+      'stabDueMs': stabAt.add(Duration(milliseconds: (stabMin * 60000).round())).millisecondsSinceEpoch,
+    },
   });
 }

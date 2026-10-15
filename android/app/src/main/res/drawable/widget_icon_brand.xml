@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 위젯 머리 줄 작은 아이콘 바탕(10-15): 앱 청록 동그라미 + 흰 아이콘. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/widget_brand" />
+</shape>

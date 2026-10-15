@@ -15,7 +15,14 @@
     <color name="widget_bg_80">#CC1E2428</color>
     <color name="widget_bg_60">#991E2428</color>
     <color name="widget_bg_40">#661E2428</color>
-    <color name="widget_pt">#3B82F6</color>
-    <color name="widget_pt_soft">#1E3358</color>
-    <color name="widget_pt_text">#8DB8FF</color>
+    <color name="widget_pt">#4DC3CC</color>
+    <color name="widget_pt_soft">#23454A</color>
+    <color name="widget_pt_text">#7FD6DD</color>
+    <color name="widget_ok">#4CC38A</color>
+    <color name="widget_ok_soft">#1F3B2E</color>
+    <color name="widget_warn">#F0A44B</color>
+    <color name="widget_warn_soft">#3E2F1A</color>
+    <color name="widget_danger">#F07070</color>
+    <color name="widget_track">#323C44</color>
+    <color name="widget_faint">#6F7A84</color>
 </resources>

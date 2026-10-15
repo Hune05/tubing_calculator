@@ -5,7 +5,10 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingStart="14dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="10dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,11 +16,18 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:contentDescription="@null"
-            android:src="@mipmap/ic_launcher" />
+        <FrameLayout
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:background="@drawable/widget_icon_brand">
+
+            <ImageView
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_check" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/summary_title"
@@ -28,7 +38,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/widget_text"
-            android:textSize="13sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -54,8 +64,8 @@
 
             <ImageView
                 android:id="@+id/summary_dot_schedule"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
                 android:contentDescription="@null"
                 android:src="@drawable/widget_dot_warn" />
 
@@ -67,7 +77,7 @@
                 android:layout_weight="1"
                 android:text="@string/widget_row_schedule"
                 android:textColor="@color/widget_sub"
-                android:textSize="12sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/summary_value_schedule"
@@ -75,7 +85,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@color/widget_text"
-                android:textSize="13sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -88,8 +98,8 @@
 
             <ImageView
                 android:id="@+id/summary_dot_reports"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
                 android:contentDescription="@null"
                 android:src="@drawable/widget_dot_warn" />
 
@@ -101,7 +111,7 @@
                 android:layout_weight="1"
                 android:text="@string/widget_row_reports"
                 android:textColor="@color/widget_sub"
-                android:textSize="12sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/summary_value_reports"
@@ -109,7 +119,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@color/widget_text"
-                android:textSize="13sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -122,8 +132,8 @@
 
             <ImageView
                 android:id="@+id/summary_dot_stock"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
                 android:contentDescription="@null"
                 android:src="@drawable/widget_dot_warn" />
 
@@ -135,7 +145,7 @@
                 android:layout_weight="1"
                 android:text="@string/widget_row_stock"
                 android:textColor="@color/widget_sub"
-                android:textSize="12sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/summary_value_stock"
@@ -143,7 +153,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@color/widget_text"
-                android:textSize="13sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -156,8 +166,8 @@
 
             <ImageView
                 android:id="@+id/summary_dot_attendance"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
+                android:layout_width="10dp"
+                android:layout_height="10dp"
                 android:contentDescription="@null"
                 android:src="@drawable/widget_dot_ok" />
 
@@ -169,7 +179,7 @@
                 android:layout_weight="1"
                 android:text="@string/widget_row_attendance"
                 android:textColor="@color/widget_sub"
-                android:textSize="12sp" />
+                android:textSize="14sp" />
 
             <TextView
                 android:id="@+id/summary_value_attendance"
@@ -177,7 +187,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textColor="@color/widget_text"
-                android:textSize="13sp"
+                android:textSize="16sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
@@ -190,5 +200,5 @@
         android:layout_marginTop="4dp"
         android:gravity="end"
         android:textColor="@color/widget_sub"
-        android:textSize="10sp" />
+        android:textSize="11sp" />
 </LinearLayout>

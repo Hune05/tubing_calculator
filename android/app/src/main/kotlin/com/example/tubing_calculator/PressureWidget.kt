@@ -45,9 +45,10 @@ object PressureTimer {
         val am = c.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         am.cancel(pi(c))
         val s = FieldWidgetStore.pt(c) ?: return
-        if (s.optString("phase") != "running") return
+        val ph = s.optString("phase")
+        if (ph != "running" && ph != "stab") return
         val now = System.currentTimeMillis()
-        val due = s.optLong("dueMs", 0L)
+        val due = s.optLong(if (ph == "stab") "stabDueMs" else "dueMs", 0L)
         if (due <= now) return
         val next = if (hasWidgets(c)) minOf(due, now + TICK_MS) else due
         val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
@@ -108,10 +109,10 @@ internal class PtFace(
                     if (due > now) {
                         val total = (due - start).coerceAtLeast(1L)
                         PtFace("running", line, "유지 중", due - now, ((due - now).toFloat() / total).coerceIn(0f, 1f),
-                            "남은 시간", "", "시작 ${PressureTimer.hms(start)} · 완료 예정 ${PressureTimer.hm(due)}", start, due, 0L, PressureTimer.minText(hold),
+                            "남은 시간", "", "시작 ${PressureTimer.hm(start)} · 완료 ${PressureTimer.hm(due)}", start, due, 0L, PressureTimer.minText(hold),
                             "시작 ${PressureTimer.hms(start)}\n완료 예정 ${PressureTimer.hm(due)}")
                     } else {
-                        PtFace("done", line, "완료", 0L, 1f, "유지시간", "완료", "시작 ${PressureTimer.hms(start)} · 완료 예정 ${PressureTimer.hm(due)}", start, due, 0L, PressureTimer.minText(hold),
+                        PtFace("done", line, "완료", 0L, 1f, "유지시간", "완료", "시작 ${PressureTimer.hm(start)} · 완료 ${PressureTimer.hm(due)}", start, due, 0L, PressureTimer.minText(hold),
                             "시작 ${PressureTimer.hms(start)}\n완료 예정 ${PressureTimer.hm(due)}")
                     }
                 }
@@ -119,8 +120,20 @@ internal class PtFace(
                     val start = s.optLong("startMs", 0L)
                     val end = s.optLong("endMs", 0L)
                     PtFace("ended", line, "종료", 0L, 0f, "시험", "종료",
-                        "시작 ${PressureTimer.hms(start)} · 종료 ${PressureTimer.hms(end)}", start, 0L, end, PressureTimer.minText(hold),
+                        "시작 ${PressureTimer.hm(start)} · 종료 ${PressureTimer.hm(end)}", start, 0L, end, PressureTimer.minText(hold),
                         "시작 ${PressureTimer.hms(start)}\n종료 ${PressureTimer.hms(end)}")
+                }
+                "stab" -> {
+                    // 안정화 중(10-15): 안정화 시작부터 센다. 끝나면 "게이지를 읽고 시작".
+                    val at = s.optLong("stabMs", 0L)
+                    val due = s.optLong("stabDueMs", 0L)
+                    if (due > now) {
+                        val total = (due - at).coerceAtLeast(1L)
+                        PtFace("stab", line, "안정화 중", due - now, ((due - now).toFloat() / total).coerceIn(0f, 1f),
+                            "안정화 남은", "", "안정화 ${PressureTimer.hm(at)} · 끝 ${PressureTimer.hm(due)}", at, due, 0L, PressureTimer.minText(hold))
+                    } else {
+                        PtFace("stabdone", line, "안정화 끝", 0L, 1f, "안정화", "끝", "게이지를 읽고 [시작]", at, due, 0L, PressureTimer.minText(hold))
+                    }
                 }
                 else -> PtFace("idle", line, "시험 전", 0L, 0f, "압력시험", "시험 전", "앱 시험 기록 탭에서 시작", 0L, 0L, 0L, PressureTimer.minText(hold))
             }
@@ -149,9 +162,8 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
     }
 
     companion object {
-        private const val BLUE = 0xFF2563EB.toInt()
-        private const val GREEN = 0xFF16A34A.toInt()
-        private const val GRAY = 0xFF6B7280.toInt()
+        // 10-15: 색은 테마 자료(widget_colors, 밝은/어두운)에서. 예전엔 쨍한 파랑을 코드에 박아 두었다.
+        private fun col(c: Context, id: Int) = c.getColor(id)
 
         fun build(c: Context): RemoteViews {
             val large = buildLarge(c)
@@ -163,12 +175,14 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
             val v = RemoteViews(c.packageName, R.layout.widget_pt_app_small)
             val f = PtFace.of(c)
             v.setTextViewText(R.id.pta_s_status, when (f.state) {
-                "running" -> "유지 중 · 시작 ${PressureTimer.hms(f.startMs)}"
+                "running" -> "유지 중 · 시작 ${PressureTimer.hm(f.startMs)}"
+                "stab" -> "안정화 중 · ${PressureTimer.hm(f.startMs)}부터"
+                "stabdone" -> "안정화 끝 · 게이지를 읽고 시작"
                 "done" -> "유지시간 완료 (${f.holdText})"
                 "ended" -> "종료"
                 else -> "시작 전"
             })
-            v.setTextViewText(R.id.pta_s_label, if (f.remainMs > 0L) "남은 시간" else f.label)
+            v.setTextViewText(R.id.pta_s_label, if (f.remainMs > 0L) (if (f.state == "stab") "안정화 남은" else "남은 시간") else f.label)
             if (f.remainMs > 0L) {
                 v.setViewVisibility(R.id.pta_s_remain, View.VISIBLE)
                 v.setViewVisibility(R.id.pta_s_text, View.GONE)
@@ -179,7 +193,7 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
                 v.setViewVisibility(R.id.pta_s_text, View.VISIBLE)
                 v.setTextViewText(R.id.pta_s_text, f.big)
                 v.setChronometer(R.id.pta_s_remain, SystemClock.elapsedRealtime(), null, false)
-                v.setTextColor(R.id.pta_s_text, if (f.state == "done") GREEN else GRAY)
+                v.setTextColor(R.id.pta_s_text, col(c, if (f.state == "done") R.color.widget_ok else R.color.widget_sub))
             }
             v.setOnClickPendingIntent(R.id.widget_pta_s_root, FieldWidgetStore.openAppIntent(c, "pressure:open", 374))
             return v
@@ -189,13 +203,21 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
             val v = RemoteViews(c.packageName, R.layout.widget_pt_app)
             val f = PtFace.of(c)
             val now = System.currentTimeMillis()
-            val color = when (f.state) { "running" -> BLUE; "done" -> GREEN; else -> GRAY }
+            val stab = f.state == "stab" || f.state == "stabdone"
+            val color = col(c, when (f.state) { "running" -> R.color.widget_pt_text; "done", "stabdone" -> R.color.widget_ok; "stab" -> R.color.widget_warn; else -> R.color.widget_sub })
             v.setTextViewText(R.id.pta_line, f.line)
-            v.setTextViewText(R.id.pta_status, when (f.state) { "running" -> "유지 중"; "done" -> "유지시간 완료"; "ended" -> "종료"; else -> "시작 전" })
+            v.setTextViewText(R.id.pta_status, when (f.state) { "running" -> "유지 중"; "done" -> "유지시간 완료"; "ended" -> "종료"; "stab" -> "안정화 중"; "stabdone" -> "안정화 끝"; else -> "시작 전" })
             v.setTextColor(R.id.pta_status, color)
+            // 상태 알약 바탕: 유지 중 청록 · 완료 초록 · 안정화 주황 · 그 밖 회색
+            v.setInt(R.id.pta_status, "setBackgroundResource", when (f.state) {
+                "done", "stabdone" -> R.drawable.widget_pill_ok_soft
+                "stab" -> R.drawable.widget_pill_warn_soft
+                "running" -> R.drawable.widget_pill_soft
+                else -> R.drawable.widget_tile_bg
+            })
 
             // 큰 경과 시간: 진행 중(완료 뒤에도 종료 전까지)은 계속 센다
-            val counting = f.state == "running" || f.state == "done"
+            val counting = f.state == "running" || f.state == "done" || stab
             if (counting) {
                 v.setViewVisibility(R.id.pta_elapsed, View.VISIBLE)
                 v.setViewVisibility(R.id.pta_elapsed_text, View.GONE)
@@ -209,14 +231,15 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
             }
 
             // 진행 막대: 유지 중 파랑(경과 비율), 완료 초록(가득)
-            v.setViewVisibility(R.id.pta_bar, if (f.state == "running") View.VISIBLE else View.GONE)
-            v.setViewVisibility(R.id.pta_bar_done, if (f.state == "done") View.VISIBLE else View.GONE)
-            if (f.state == "running") v.setProgressBar(R.id.pta_bar, 1000, ((1f - f.fraction) * 1000).toInt(), false)
+            v.setViewVisibility(R.id.pta_bar, if (f.state == "running" || f.state == "stab") View.VISIBLE else View.GONE)
+            v.setViewVisibility(R.id.pta_bar_done, if (f.state == "done" || f.state == "stabdone") View.VISIBLE else View.GONE)
+            if (f.state == "running" || f.state == "stab") v.setProgressBar(R.id.pta_bar, 1000, ((1f - f.fraction) * 1000).toInt(), false)
 
             // 남은 시간: 유지 중이면 줄어드는 시계, 아니면 글
             if (f.remainMs > 0L) {
-                v.setTextViewText(R.id.pta_remain_label, "남은 시간")
-                v.setTextColor(R.id.pta_remain_label, BLUE)
+                v.setTextViewText(R.id.pta_remain_label, if (f.state == "stab") "안정화 남은" else "남은")
+                v.setTextColor(R.id.pta_remain_label, color)
+                v.setTextColor(R.id.pta_remain, color)
                 v.setViewVisibility(R.id.pta_remain, View.VISIBLE)
                 v.setChronometerCountDown(R.id.pta_remain, true)
                 v.setChronometer(R.id.pta_remain, SystemClock.elapsedRealtime() + f.remainMs, null, true)
@@ -229,6 +252,7 @@ class PressureAppWidgetProvider : AppWidgetProvider() {
                     when (f.state) {
                         "done" -> "유지시간 완료 (${f.holdText})"
                         "ended" -> "유지시간 ${f.holdText} · 종료"
+                        "stabdone" -> "게이지를 읽고 시작"
                         else -> "유지시간 ${f.holdText}"
                     }
                 )

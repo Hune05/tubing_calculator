@@ -13,11 +13,18 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <ImageView
-            android:layout_width="18dp"
-            android:layout_height="18dp"
-            android:contentDescription="@null"
-            android:src="@mipmap/ic_launcher" />
+        <FrameLayout
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:background="@drawable/widget_icon_brand">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_open" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/quick_m_title"
@@ -28,7 +35,7 @@
             android:maxLines="1"
             android:text="@string/widget_quick_label"
             android:textColor="@color/widget_text"
-            android:textSize="12sp"
+            android:textSize="14sp"
             android:textStyle="bold" />
     </LinearLayout>
 

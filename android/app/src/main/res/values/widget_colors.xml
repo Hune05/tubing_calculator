@@ -15,7 +15,15 @@
     <color name="widget_bg_80">#CCFFFFFF</color>
     <color name="widget_bg_60">#99FFFFFF</color>
     <color name="widget_bg_40">#66FFFFFF</color>
-    <color name="widget_pt">#2563EB</color>
-    <color name="widget_pt_soft">#DCE8FF</color>
-    <color name="widget_pt_text">#1D4ED8</color>
+    <color name="widget_pt">#007580</color>
+    <color name="widget_pt_soft">#E0F1F2</color>
+    <color name="widget_pt_text">#005A63</color>
+    <!-- 10-15 위젯 통일: 상태색과 막대 바탕, 아주 옅은 글자 -->
+    <color name="widget_ok">#1E8E5A</color>
+    <color name="widget_ok_soft">#DDF3E8</color>
+    <color name="widget_warn">#B45309</color>
+    <color name="widget_warn_soft">#FDECD3</color>
+    <color name="widget_danger">#D63A3A</color>
+    <color name="widget_track">#E5E9EC</color>
+    <color name="widget_faint">#9AA3AC</color>
 </resources>

@@ -54,7 +54,17 @@ class ClockQuickActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val mode = intent?.getStringExtra(EXTRA_MODE) ?: MODE_MEMO
+        show(intent?.getStringExtra(EXTRA_MODE) ?: MODE_MEMO)
+    }
+
+    /** 위젯에서 다시 누르면(이 창은 하나만 뜨는 singleTask) 새 화면으로 바꿔 그린다. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        show(intent.getStringExtra(EXTRA_MODE) ?: MODE_MEMO)
+    }
+
+    private fun show(mode: String) {
         window.setGravity(Gravity.TOP)
         window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
         // 메모만 글자를 치니 자판을 띄운다. 휴게의 시간 휠(NumberPicker)은 안에 입력 칸이 있어서 자판이 떠 저장·지우기 단추를 덮었다.
@@ -159,11 +169,9 @@ class ClockQuickActivity : Activity() {
                 topMargin = dp(8)
             })
         }
-        fun open(mode: String) {
-            startActivity(Intent(this, ClockQuickActivity::class.java).putExtra(EXTRA_MODE, mode))
-            finish()
-            overridePendingTransition(0, 0)
-        }
+        // 10-15: 예전엔 같은 창을 새로 띄우고 이 창을 닫았는데, 창이 하나만 뜨는 방식(singleTask)이라
+        // 새로 띄우기가 이 창으로 돌아와 곧바로 닫혀 "휴게 알람"·"메모"를 눌러도 아무 반응이 없었다. 이 창 안에서 바꿔 그린다.
+        fun open(mode: String) = show(mode)
         item("휴게 알람", ClockBreak.chipText(this) ?: "쉬는 시간대를 정하면 시작·끝에 알려 줍니다") { open(MODE_BREAK) }
         item("메모", s?.optString("memo")?.ifEmpty { null } ?: "오늘 기록에 현장 메모를 남깁니다") { open(MODE_MEMO) }
         item("근태 화면 열기", "") {

@@ -166,21 +166,21 @@ class ScheduleWidgetProvider : AppWidgetProvider() {
                     if (l.header) {
                         v.setViewVisibility(t, View.GONE)
                         v.setTextViewText(x, l.text)
-                        v.setTextColor(x, 0xFF6B7280.toInt())
-                        v.setTextViewTextSize(x, android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+                        v.setTextColor(x, c.getColor(R.color.widget_sub))
+                        v.setTextViewTextSize(x, android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
                     } else {
                         v.setViewVisibility(t, View.VISIBLE)
                         v.setTextViewText(t, l.time.ifEmpty { "종일" })
                         v.setTextViewText(x, l.text)
-                        v.setTextColor(x, 0xFF1F2933.toInt())
-                        v.setTextViewTextSize(x, android.util.TypedValue.COMPLEX_UNIT_SP, 18f)
+                        v.setTextColor(x, c.getColor(R.color.widget_text))
+                        v.setTextViewTextSize(x, android.util.TypedValue.COMPLEX_UNIT_SP, 16f)
                     }
                 } else if (last) {
                     v.setViewVisibility(row, View.VISIBLE)
                     v.setViewVisibility(t, View.GONE)
                     v.setTextViewText(x, "외 ${more}건")
-                    v.setTextColor(x, 0xFF6B7280.toInt())
-                    v.setTextViewTextSize(x, android.util.TypedValue.COMPLEX_UNIT_SP, 14f)
+                    v.setTextColor(x, c.getColor(R.color.widget_sub))
+                    v.setTextViewTextSize(x, android.util.TypedValue.COMPLEX_UNIT_SP, 13f)
                 } else {
                     v.setViewVisibility(row, View.GONE)
                 }

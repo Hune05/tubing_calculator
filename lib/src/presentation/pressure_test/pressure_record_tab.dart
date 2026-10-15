@@ -247,6 +247,8 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
         due: _rDue,
         line: _rLine.text,
         holdMin: _requiredHold,
+        stabAt: _rStabAt,
+        stabMin: _rStabMin,
       ),
     );
   }

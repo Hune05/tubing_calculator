@@ -16,6 +16,21 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
+        <FrameLayout
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/widget_icon_brand">
+
+            <ImageView
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_note" />
+        </FrameLayout>
+
+
         <TextView
             android:id="@+id/sch_title"
             android:layout_width="0dp"
@@ -25,7 +40,7 @@
             android:maxLines="1"
             android:text="@string/widget_sch_label"
             android:textColor="@color/widget_text"
-            android:textSize="24sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
@@ -35,7 +50,7 @@
             android:maxLines="1"
             android:text="오늘 3건"
             android:textColor="@color/widget_pt_text"
-            android:textSize="16sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -49,12 +64,12 @@
 
         <TextView
             android:id="@+id/sch_t1"
-            android:layout_width="64dp"
+            android:layout_width="56dp"
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text=""
             android:textColor="@color/widget_pt_text"
-            android:textSize="17sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -67,25 +82,25 @@
             android:maxLines="1"
             android:text="오늘 · 10월 5일 (월)"
             android:textColor="@color/widget_sub"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
     <LinearLayout
         android:id="@+id/sch_r2"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="5dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/sch_t2"
-            android:layout_width="64dp"
+            android:layout_width="56dp"
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text="09:00"
             android:textColor="@color/widget_pt_text"
-            android:textSize="17sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
@@ -97,25 +112,25 @@
             android:maxLines="1"
             android:text="압력시험 라인 점검"
             android:textColor="@color/widget_text"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="normal" />
     </LinearLayout>
     <LinearLayout
         android:id="@+id/sch_r3"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="5dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/sch_t3"
-            android:layout_width="64dp"
+            android:layout_width="56dp"
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text="13:30"
             android:textColor="@color/widget_pt_text"
-            android:textSize="17sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
@@ -127,25 +142,25 @@
             android:maxLines="1"
             android:text="자재 입고 확인"
             android:textColor="@color/widget_text"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="normal" />
     </LinearLayout>
     <LinearLayout
         android:id="@+id/sch_r4"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="5dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/sch_t4"
-            android:layout_width="64dp"
+            android:layout_width="56dp"
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text=""
             android:textColor="@color/widget_pt_text"
-            android:textSize="17sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
@@ -157,7 +172,7 @@
             android:maxLines="1"
             android:text="안전 교육 (종일)"
             android:textColor="@color/widget_text"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="normal" />
     </LinearLayout>
     <LinearLayout
@@ -170,12 +185,12 @@
 
         <TextView
             android:id="@+id/sch_t5"
-            android:layout_width="64dp"
+            android:layout_width="56dp"
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text=""
             android:textColor="@color/widget_pt_text"
-            android:textSize="17sp"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:visibility="gone" />
 
@@ -188,25 +203,25 @@
             android:maxLines="1"
             android:text="내일 · 10월 6일 (화)"
             android:textColor="@color/widget_sub"
-            android:textSize="14sp"
+            android:textSize="13sp"
             android:textStyle="bold" />
     </LinearLayout>
     <LinearLayout
         android:id="@+id/sch_r6"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="5dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/sch_t6"
-            android:layout_width="64dp"
+            android:layout_width="56dp"
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text="08:30"
             android:textColor="@color/widget_pt_text"
-            android:textSize="17sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
@@ -218,25 +233,25 @@
             android:maxLines="1"
             android:text="배관 서포트 설치"
             android:textColor="@color/widget_text"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="normal" />
     </LinearLayout>
     <LinearLayout
         android:id="@+id/sch_r7"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="3dp"
+        android:layout_marginTop="5dp"
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/sch_t7"
-            android:layout_width="64dp"
+            android:layout_width="56dp"
             android:layout_height="wrap_content"
             android:maxLines="1"
             android:text="14:00"
             android:textColor="@color/widget_pt_text"
-            android:textSize="17sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <TextView
@@ -248,7 +263,7 @@
             android:maxLines="1"
             android:text="시운전 협의"
             android:textColor="@color/widget_text"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="normal" />
     </LinearLayout>
 

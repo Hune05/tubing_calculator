@@ -272,7 +272,9 @@ class SummaryWidgetProvider : AppWidgetProvider() {
             if (o == null || !o.has(key) || o.isNull(key)) null else o.optInt(key, -1).takeIf { it >= 0 }
 
         /** 한 줄: 점(색)과 값. [n]이 null이면 아직 못 읽음(회색 점, "—"), 0이면 이상 없음(초록), 그 밖에는 주의(노랑). */
-        private fun row(v: RemoteViews, dot: Int, value: Int, n: Int?, none: String, some: (Int) -> String) {
+        private fun row(c: Context, v: RemoteViews, dot: Int, value: Int, n: Int?, none: String, some: (Int) -> String) {
+            // 10-15: 할 일이 남은 줄은 값도 주황으로(점만으로는 눈에 덜 띈다)
+            v.setTextColor(value, c.getColor(if (n != null && n > 0) R.color.widget_warn else R.color.widget_text))
             v.setImageViewResource(
                 dot,
                 when {
@@ -304,9 +306,9 @@ class SummaryWidgetProvider : AppWidgetProvider() {
             val s = FieldWidgetStore.summary(c)
             val date = s?.optString("date").orEmpty()
             v.setTextViewText(R.id.summary_title, if (date.isEmpty()) "오늘 요약" else "오늘 · $date")
-            row(v, R.id.summary_dot_schedule, R.id.summary_value_schedule, count(s, "schedule"), "없음") { "${it}건 남음" }
-            row(v, R.id.summary_dot_reports, R.id.summary_value_reports, count(s, "reports"), "다 씀") { "${it}곳 안 씀" }
-            row(v, R.id.summary_dot_stock, R.id.summary_value_stock, count(s, "stock"), "이상 없음") { "부족 ${it}건" }
+            row(c, v, R.id.summary_dot_schedule, R.id.summary_value_schedule, count(s, "schedule"), "없음") { "${it}건 남음" }
+            row(c, v, R.id.summary_dot_reports, R.id.summary_value_reports, count(s, "reports"), "다 씀") { "${it}곳 안 씀" }
+            row(c, v, R.id.summary_dot_stock, R.id.summary_value_stock, count(s, "stock"), "이상 없음") { "부족 ${it}건" }
             val att = s?.optString("attendance").orEmpty()
             v.setImageViewResource(
                 R.id.summary_dot_attendance,
@@ -344,11 +346,19 @@ class ClockWidgetProvider : AppWidgetProvider() {
             val small = RemoteViews(c.packageName, R.layout.widget_clock_small).also { ClockView.fill(c, it, ClockView.SMALL) }
             val mid = RemoteViews(c.packageName, R.layout.widget_clock_compact).also { ClockView.fill(c, it, ClockView.MID) }
             val large = RemoteViews(c.packageName, R.layout.widget_clock).also { ClockView.fill(c, it, ClockView.LARGE) }
-            // 글자는 늘 흰색이라 "배경 켬"이어도 흰 카드가 아니라 어두운 반투명 카드(glass)를 쓴다.
+            // 10-15: "배경 켬"이면 다른 위젯처럼 테마 카드(밝은 폰 흰 카드 · 어두운 폰 어두운 카드)에 테마 글자색.
+            // "배경 끔"이면 바탕화면 위라 글자를 흰색으로(날씨 위젯처럼).
+            if (!WidgetCfg.bgOn(c, id)) {
+                val main = intArrayOf(R.id.clock_big, R.id.clock_timer)
+                val sub = intArrayOf(R.id.clock_sub, R.id.clock_info, R.id.clock_info_timer, R.id.clock_note)
+                WidgetCfg.applyPlain(small, main, intArrayOf(R.id.clock_sub), intArrayOf(), intArrayOf())
+                WidgetCfg.applyPlain(mid, main, sub, intArrayOf(), intArrayOf())
+                WidgetCfg.applyPlain(large, main + R.id.clock_memo, sub, intArrayOf(), intArrayOf())
+                large.setTextColor(R.id.clock_brk_line, 0xFFFFD27A.toInt())
+            }
             return Adaptive.views(
                 c, id, small, large, SizeF(60f, 40f), SizeF(200f, 120f),
                 R.id.widget_clock_s_root, R.id.widget_clock_root, mid, SizeF(200f, 66f), R.id.widget_clock_c_root,
-                glass = true,
             )
         }
     }
@@ -361,7 +371,8 @@ class SummarySmallWidgetProvider {
         private fun count(o: JSONObject?, key: String): Int? =
             if (o == null || !o.has(key) || o.isNull(key)) null else o.optInt(key, -1).takeIf { it >= 0 }
 
-        private fun tile(v: RemoteViews, dot: Int, value: Int, n: Int?) {
+        private fun tile(c: Context, v: RemoteViews, dot: Int, value: Int, n: Int?) {
+            v.setTextColor(value, c.getColor(if (n != null && n > 0) R.color.widget_warn else R.color.widget_text))
             v.setImageViewResource(
                 dot,
                 when {
@@ -376,9 +387,9 @@ class SummarySmallWidgetProvider {
         fun build(c: Context, mid: Boolean = false): RemoteViews {
             val v = RemoteViews(c.packageName, if (mid) R.layout.widget_summary_mid else R.layout.widget_summary_small)
             val s = FieldWidgetStore.summary(c)
-            tile(v, R.id.summary_s_dot_schedule, R.id.summary_s_value_schedule, count(s, "schedule"))
-            tile(v, R.id.summary_s_dot_reports, R.id.summary_s_value_reports, count(s, "reports"))
-            tile(v, R.id.summary_s_dot_stock, R.id.summary_s_value_stock, count(s, "stock"))
+            tile(c, v, R.id.summary_s_dot_schedule, R.id.summary_s_value_schedule, count(s, "schedule"))
+            tile(c, v, R.id.summary_s_dot_reports, R.id.summary_s_value_reports, count(s, "reports"))
+            tile(c, v, R.id.summary_s_dot_stock, R.id.summary_s_value_stock, count(s, "stock"))
             val att = s?.optString("attendance").orEmpty()
             v.setImageViewResource(
                 R.id.summary_s_dot_attendance,

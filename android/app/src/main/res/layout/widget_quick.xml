@@ -5,7 +5,10 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_bg"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:paddingStart="14dp"
+    android:paddingTop="12dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="12dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,11 +16,18 @@
         android:gravity="center_vertical"
         android:orientation="horizontal">
 
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:contentDescription="@null"
-            android:src="@mipmap/ic_launcher" />
+        <FrameLayout
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:background="@drawable/widget_icon_brand">
+
+            <ImageView
+                android:layout_width="15dp"
+                android:layout_height="15dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_open" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/widget_quick_title"
@@ -26,7 +36,7 @@
             android:layout_marginStart="8dp"
             android:text="@string/widget_quick_label"
             android:textColor="@color/widget_text"
-            android:textSize="13sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -61,14 +71,15 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/widget_text"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <ImageView
             android:layout_width="18dp"
             android:layout_height="18dp"
             android:contentDescription="@null"
-            android:src="@drawable/ic_widget_chevron" />
+            android:src="@drawable/ic_widget_chevron"
+            android:tint="@color/widget_brand" />
     </LinearLayout>
 
     <LinearLayout
@@ -92,14 +103,15 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/widget_text"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <ImageView
             android:layout_width="18dp"
             android:layout_height="18dp"
             android:contentDescription="@null"
-            android:src="@drawable/ic_widget_chevron" />
+            android:src="@drawable/ic_widget_chevron"
+            android:tint="@color/widget_brand" />
     </LinearLayout>
 
     <LinearLayout
@@ -123,14 +135,15 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/widget_text"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <ImageView
             android:layout_width="18dp"
             android:layout_height="18dp"
             android:contentDescription="@null"
-            android:src="@drawable/ic_widget_chevron" />
+            android:src="@drawable/ic_widget_chevron"
+            android:tint="@color/widget_brand" />
     </LinearLayout>
 
     <LinearLayout
@@ -154,13 +167,14 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:textColor="@color/widget_text"
-            android:textSize="14sp"
+            android:textSize="15sp"
             android:textStyle="bold" />
 
         <ImageView
             android:layout_width="18dp"
             android:layout_height="18dp"
             android:contentDescription="@null"
-            android:src="@drawable/ic_widget_chevron" />
+            android:src="@drawable/ic_widget_chevron"
+            android:tint="@color/widget_brand" />
     </LinearLayout>
 </LinearLayout>

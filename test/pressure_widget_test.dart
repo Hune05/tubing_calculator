@@ -54,4 +54,13 @@ void main() {
     expect(j.containsKey('startMs'), isFalse);
     expect(j.containsKey('dueMs'), isFalse);
   });
+  test('안정화 중: 안정화 시작과 끝 시각을 넘긴다', () {
+    final j = _dec(
+      encodePressureWidgetPayload(running: false, line: 'L-1', holdMin: 10, stabAt: start, stabMin: 5),
+    );
+    expect(j['phase'], 'stab');
+    expect(j['stabMs'], start.millisecondsSinceEpoch);
+    expect(j['stabDueMs'], start.add(const Duration(minutes: 5)).millisecondsSinceEpoch);
+    expect(j.containsKey('startMs'), isFalse);
+  });
 }
