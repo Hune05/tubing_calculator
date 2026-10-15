@@ -253,7 +253,8 @@ void main() {
     expect(fieldText(tester, 'ec_ambient'), '30');
     await pickDropdown(tester, 'ec_method', '지중 관로 (D1)');
     expect(fieldText(tester, 'ec_ambient'), '20');
-    expect(find.text('지중 온도 (°C)'), findsOneWidget);
+    // 10-15 새 모양: 이름은 칸 위(단위 °C는 칸 안 오른쪽).
+    expect(find.text('지중 온도'), findsOneWidget);
     await pickDropdown(tester, 'ec_method', '펀칭형·사다리형 트레이 (E)');
     expect(fieldText(tester, 'ec_ambient'), '30');
     await type(tester, 'ec_ambient', '45');

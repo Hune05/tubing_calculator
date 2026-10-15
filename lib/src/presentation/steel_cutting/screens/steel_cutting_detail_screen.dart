@@ -9,6 +9,7 @@ import 'dart:typed_data';
 import '../../../core/utils/pdf_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:flutter/services.dart'
     show Clipboard, ClipboardData, HapticFeedback;
 import 'package:path_provider/path_provider.dart';
@@ -2839,7 +2840,8 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
     required bool on,
     required VoidCallback onTap,
   }) {
-    final fg = on ? Colors.white : Colors.grey.shade700;
+    // 10-15 새 모양: 켜진 단추는 옅은 청록 + 짙은 청록 글자·아이콘(앱 칩과 같게).
+    final fg = on ? pickInk() : Colors.grey.shade700;
     // 아이콘 줄과 같은 규칙: 처음 쓰는 동안은 이름을 붙여 주고, 써 본 뒤에는 아이콘만 둔다("?"로 다시 본다).
     final showLabel = !_iconsUsed || _labelsPinned;
     return Tooltip(
@@ -2853,8 +2855,12 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               ? const EdgeInsets.symmetric(horizontal: 10, vertical: 6)
               : const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: on ? CuttingColors.primary : Colors.grey.shade100,
+            color: on ? pickFill() : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: on ? pickLine() : Colors.transparent,
+              width: 1.2,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -2927,8 +2933,15 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
   Widget _buildCategoryFilterChip(String label) {
     final bool selected = _categoryFilter == label;
     return Material(
-      color: selected ? CuttingColors.primary : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(4),
+      // 10-15 새 모양: 고른 칩은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+      color: selected ? pickFill() : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: BorderSide(
+          color: selected ? pickLine() : pickIdleLine(),
+          width: 1.2,
+        ),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(4),
         onTap: () => setState(() => _categoryFilter = label),
@@ -2937,7 +2950,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? Colors.white : Colors.grey.shade700,
+              color: selected ? pickInk() : CuttingColors.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),

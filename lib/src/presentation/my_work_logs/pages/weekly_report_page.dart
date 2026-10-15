@@ -690,12 +690,7 @@ class _WeeklyReportPageState extends State<WeeklyReportPage> {
                       child: ChoiceChip(
                         label: Text(e.value),
                         selected: _projectId == e.key,
-                        showCheckmark: false,
-                        selectedColor: _teal,
-                        backgroundColor: Colors.white,
-                        side: BorderSide.none,
                         labelStyle: TextStyle(
-                          color: _projectId == e.key ? Colors.white : _sub,
                           fontWeight: FontWeight.w700,
                         ),
                         onSelected: (_) => setState(() => _projectId = e.key),

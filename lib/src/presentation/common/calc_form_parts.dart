@@ -156,7 +156,8 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
   /// 숫자 칸 꾸밈. 효율·역률 같은 % 칸에 1 이하를 넣으면 숫자 뒤에 실제로 계산에 쓰는 %("= 70%")를 붙인다.
   InputDecoration ratioDecoration(String label, TextEditingController c, {String? unit}) {
     final ratio = ratioSuffixText(label, c.text);
-    final sfx = ratio == null ? unit : '$ratio  ${unit ?? ''}'.trim();
+    // 비율 글("= 90%")이 있으면 단위 %를 또 붙이지 않는다.
+    final sfx = ratio ?? unit;
     return InputDecoration(
       isDense: true,
       filled: true,

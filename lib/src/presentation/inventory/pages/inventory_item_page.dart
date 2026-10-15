@@ -485,8 +485,18 @@ class _Body extends StatelessWidget {
               fontWeight: FontWeight.w800,
               color: CuttingColors.primaryDark,
             ),
+            // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리), 단위는 칸 안 오른쪽.
             decoration: InputDecoration(
-              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              suffixText: _unit,
+              suffixStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: CuttingColors.textSecondary,
+              ),
               errorText: error,
             ),
           ),
@@ -589,8 +599,18 @@ class _Body extends StatelessWidget {
                   color: CuttingColors.primaryDark,
                 ),
                 key: const Key('set_qty_input'),
+                // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리), 단위는 칸 안 오른쪽.
                 decoration: InputDecoration(
-                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  suffixText: _unit,
+                  suffixStyle: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: CuttingColors.textSecondary,
+                  ),
                   errorText: error,
                 ),
               ),

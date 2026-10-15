@@ -44,13 +44,8 @@ class _Choice extends StatelessWidget {
     key: chipKey,
     label: label,
     selected: selected,
-    showCheckmark: false,
-    selectedColor: AppColors.brand,
-    backgroundColor: AppColors.surface,
-    side: BorderSide(color: selected ? AppColors.brand : AppColors.line),
     labelStyle: TextStyle(
       fontWeight: FontWeight.w700,
-      color: selected ? Colors.white : AppColors.text,
     ),
     onSelected: onSelected,
   );

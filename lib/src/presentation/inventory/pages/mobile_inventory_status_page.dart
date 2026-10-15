@@ -265,15 +265,10 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                     key: Key('scope_${s.name}'),
                     label: Text(stockScopeLabel(s)),
                     labelStyle: TextStyle(
-                      color: _scope == s ? pureWhite : slate600,
                       fontWeight: FontWeight.w700,
                       fontSize: 14,
                     ),
                     selected: _scope == s,
-                    selectedColor: makitaTeal,
-                    backgroundColor: slate100,
-                    showCheckmark: false,
-                    side: BorderSide.none,
                     onSelected: (_) => setState(() => _scope = s),
                   ),
                 ),
@@ -305,18 +300,12 @@ class _MobileInventoryStatusPageState extends State<MobileInventoryStatusPage> {
                               : materialCategoryLabel(cat)),
                   ),
                   labelStyle: TextStyle(
-                    color: isSelected ? pureWhite : slate600,
                     fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
                     fontSize: 14,
                   ),
                   selected: isSelected,
-                  selectedColor: slate900, // 선택 시 진한 검정
-                  backgroundColor: slate100, // 미선택 시 연한 회색
-                  showCheckmark: false,
-                  side: BorderSide.none,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+                  // 선택 시 진한 검정
+                  // 미선택 시 연한 회색
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 8,

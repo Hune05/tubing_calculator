@@ -946,38 +946,12 @@ class _ElecShortCircuitTabState extends State<ElecShortCircuitTab>
               if (v != null) _set(() => r.size = v);
             },
           ),
-          Row(
-            children: [
-              Expanded(
-                flex: 5,
-                child: calcLabel(
-                  '편도 길이 (m)',
-                  '이 구간 케이블의 편도 길이입니다. 3상이라 왕복으로 곱하지 않습니다.',
-                ),
-              ),
-              Expanded(
-                flex: 4,
-                child: TextField(
-                  key: Key('ec_sc_seg_${i}_len'),
-                  controller: r.len,
-                  textAlign: TextAlign.right,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: fc.text,
-                  ),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 8),
-            ],
+          // 10-15 새 모양: 이름은 칸 위, 값은 네모 칸, 단위(m)는 칸 안 오른쪽(공용 calcField).
+          calcField(
+            'ec_sc_seg_${i}_len',
+            '편도 길이 (m)',
+            r.len,
+            '이 구간 케이블의 편도 길이입니다. 3상이라 왕복으로 곱하지 않습니다.',
           ),
           elecChipGroup(
             '병렬 가닥 수',

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 
 import 'package:tubing_calculator/src/core/common_widgets/recent_calc_history.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
@@ -907,9 +908,13 @@ class _MobileResultTabState extends State<MobileResultTab>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: isSelected ? makitaTeal : slate100,
+          // 10-15 새 모양: 켜지면 옅은 청록 + ✓ + 짙은 청록 글자(앱 칩과 같게).
+          color: isSelected ? pickFill() : pureWhite,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: isSelected ? makitaTeal : slate200),
+          border: Border.all(
+            color: isSelected ? pickLine() : pickIdleLine(),
+            width: 1.2,
+          ),
         ),
         // 🚀 [고침] 절단 길이를 바꾸는 토글인데 11px라 햇빛 아래서 켜졌는지
         // 알기 어려웠다. 14px로 키우고, 켜지면 ✓도 붙인다.
@@ -917,7 +922,7 @@ class _MobileResultTabState extends State<MobileResultTab>
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isSelected) ...[
-              Icon(Icons.check_rounded, size: 15, color: pureWhite),
+              pickCheck(),
               const SizedBox(width: 2),
             ],
             Text(
@@ -925,7 +930,7 @@ class _MobileResultTabState extends State<MobileResultTab>
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? pureWhite : slate600,
+                color: isSelected ? pickInk() : slate900,
               ),
             ),
           ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -256,16 +257,27 @@ Future<void> showCuttingOptimizationSheet(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: picked ? CuttingColors.primary : Colors.grey.shade100,
+                // 10-15 새 모양: 고른 것은 옅은 청록 + ✓ + 짙은 청록 글자(앱 칩과 같게).
+                color: picked ? pickFill() : Colors.white,
                 borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: picked ? CuttingColors.surface : Colors.grey.shade700,
+                border: Border.all(
+                  color: picked ? pickLine() : pickIdleLine(),
+                  width: 1.2,
                 ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (picked) ...[pickCheck(), const SizedBox(width: 3)],
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: picked ? pickInk() : CuttingColors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
           );

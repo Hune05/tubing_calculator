@@ -9,6 +9,7 @@ import '../widgets/korean_text.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
@@ -1136,18 +1137,31 @@ class _DailyReportPageState extends State<DailyReportPage> {
       }),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        // 10-15 새 모양: 고른 이슈는 옅은 청록 + ✓ + 짙은 청록 글자(앱 칩과 같게).
         decoration: BoxDecoration(
-          color: selected ? makitaTeal : tossInputBg,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          // 위치가 있으면 함께 보여줘서 같은 내용의 이슈도 구분되게 한다.
-          "${(issue['location']?.toString() ?? '').isEmpty || issue['location'] == '위치 모름' ? '' : '${issue['location']} · '}${issue['content'] ?? '이슈'}",
-          style: TextStyle(
-            color: selected ? pureWhite : tossSubText,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-            fontSize: 13,
+          color: selected ? pickFill() : pureWhite,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: selected ? pickLine() : pickIdleLine(),
+            width: 1.2,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[pickCheck(), const SizedBox(width: 4)],
+            Flexible(
+              child: Text(
+                // 위치가 있으면 함께 보여줘서 같은 내용의 이슈도 구분되게 한다.
+                "${(issue['location']?.toString() ?? '').isEmpty || issue['location'] == '위치 모름' ? '' : '${issue['location']} · '}${issue['content'] ?? '이슈'}",
+                style: TextStyle(
+                  color: selected ? pickInk() : AppColors.text,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1222,17 +1236,28 @@ class _DailyReportPageState extends State<DailyReportPage> {
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          // 10-15 새 모양: 고른 것은 옅은 청록 + ✓ + 짙은 청록 글자(앱 칩과 같게).
           decoration: BoxDecoration(
-            color: sel ? makitaTeal : tossInputBg,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: sel ? pureWhite : tossSubText,
-              fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
-              fontSize: 13,
+            color: sel ? pickFill() : pureWhite,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: sel ? pickLine() : pickIdleLine(),
+              width: 1.2,
             ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (sel) ...[pickCheck(), const SizedBox(width: 3)],
+              Text(
+                label,
+                style: TextStyle(
+                  color: sel ? pickInk() : AppColors.text,
+                  fontWeight: sel ? FontWeight.w800 : FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -1857,10 +1882,6 @@ class _DailyReportPageState extends State<DailyReportPage> {
                           selected: _usedMaterialIds.contains(
                             m['id']?.toString(),
                           ),
-                          showCheckmark: false,
-                          selectedColor: makitaTeal.withValues(alpha: 0.2),
-                          backgroundColor: tossInputBg,
-                          side: BorderSide.none,
                           visualDensity: VisualDensity.compact,
                           onSelected: (v) => setState(() {
                             final id = m['id']?.toString() ?? '';

@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 
@@ -9,6 +10,7 @@ const Color _kTeal = AppColors.brand;
 
 ThemeData workThemeData() {
   final base = ThemeData.light(useMaterial3: true);
+  final app = buildAppTheme();
   final scheme = ColorScheme.fromSeed(
     seedColor: _kTeal,
     brightness: Brightness.light,
@@ -45,19 +47,10 @@ ThemeData workThemeData() {
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
     ),
-    chipTheme: base.chipTheme.copyWith(
-      backgroundColor: AppColors.background,
-      selectedColor: const Color(0xFFD5E9EB),
-      side: BorderSide.none,
-      labelStyle: const TextStyle(
-        color: Color(0xFF4E5968),
-        fontWeight: FontWeight.w600,
-      ),
-      secondaryLabelStyle: const TextStyle(
-        color: _kTeal,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
+    // 10-15 새 모양: 칩·입력 칸은 앱 테마와 같게(고르면 옅은 청록 + ✓ + 짙은 청록 글자,
+    // 칸은 네모 테두리). 예전엔 이 화면들만 테두리 없는 칩·밑줄 칸이었다.
+    chipTheme: app.chipTheme,
+    inputDecorationTheme: app.inputDecorationTheme,
     popupMenuTheme: const PopupMenuThemeData(
       color: Colors.white,
       surfaceTintColor: Colors.transparent,

@@ -229,12 +229,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                           child: ChoiceChip(
                             label: Text(t ?? '모든 유형'),
                             selected: _type == t,
-                            showCheckmark: false,
-                            selectedColor: _teal,
-                            backgroundColor: Colors.white,
-                            side: BorderSide.none,
                             labelStyle: TextStyle(
-                              color: _type == t ? Colors.white : _sub,
                               fontWeight: FontWeight.w700,
                             ),
                             onSelected: (_) => setState(() => _type = t),
@@ -272,12 +267,7 @@ class _RetroOverviewPageState extends State<RetroOverviewPage> {
                       ChoiceChip(
                         label: Text(e.value),
                         selected: _period == e.key,
-                        showCheckmark: false,
-                        selectedColor: _teal,
-                        backgroundColor: Colors.white,
-                        side: BorderSide.none,
                         labelStyle: TextStyle(
-                          color: _period == e.key ? Colors.white : _sub,
                           fontWeight: FontWeight.w700,
                         ),
                         onSelected: (_) => setState(() => _period = e.key),

@@ -622,14 +622,7 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                                 ),
                                 selected:
                                     identical(tpl, t) || tpl.name == t.name,
-                                showCheckmark: false,
-                                selectedColor: tossBlue,
-                                backgroundColor: tossBg,
-                                side: BorderSide.none,
                                 labelStyle: TextStyle(
-                                  color: tpl.name == t.name
-                                      ? pureWhite
-                                      : tossSubText,
                                   fontWeight: FontWeight.w700,
                                 ),
                                 onSelected: (_) => setSheet(() => tpl = t),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 import '../cutting_action_bar.dart' show kakaoSender, textSharer;
@@ -87,8 +88,15 @@ class _LogListState extends State<_LogList> {
       Padding(
         padding: const EdgeInsets.only(right: 8),
         child: Material(
-          color: selected ? CuttingColors.primary : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(4),
+          // 10-15 새 모양: 고른 칩은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+          color: selected ? pickFill() : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+            side: BorderSide(
+              color: selected ? pickLine() : pickIdleLine(),
+              width: 1.2,
+            ),
+          ),
           child: InkWell(
             key: key,
             borderRadius: BorderRadius.circular(4),
@@ -100,7 +108,7 @@ class _LogListState extends State<_LogList> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: selected ? Colors.white : Colors.grey.shade700,
+                  color: selected ? pickInk() : CuttingColors.textPrimary,
                 ),
               ),
             ),

@@ -111,12 +111,7 @@ class SaveNameChips extends StatelessWidget {
                 ChoiceChip(
                   label: Text(n, overflow: TextOverflow.ellipsis),
                   selected: current == n,
-                  selectedColor: AppColors.brand,
-                  backgroundColor: AppColors.background,
-                  showCheckmark: false,
-                  side: BorderSide.none,
                   labelStyle: TextStyle(
-                    color: current == n ? Colors.white : AppColors.textSub,
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                   ),

@@ -474,11 +474,7 @@ extension _LayoutBoardPlates on _LayoutBoardPageState {
                 labelStyle: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,
-                  color: id == _plateId ? pureWhite : tossText,
                 ),
-                selectedColor: tossBlue,
-                backgroundColor: pureWhite,
-                side: BorderSide(color: id == _plateId ? tossBlue : layoutLine),
                 onSelected: (_) {
                   HapticFeedback.selectionClick();
                   setState(() => _switchPlate(id));

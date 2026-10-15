@@ -3,6 +3,7 @@ import 'package:tubing_calculator/src/core/common_widgets/min_height_scroll.dart
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/data/ownership.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/core/utils/settings_cloud.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import '../../../core/utils/pdf_fonts.dart';
@@ -3793,15 +3794,20 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
           decoration: BoxDecoration(
-            color: isSelected ? makitaTeal : Colors.transparent,
+            // 10-15 새 모양: 고른 단위는 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+            color: isSelected ? pickFill() : Colors.transparent,
             borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: isSelected ? pickLine() : Colors.transparent,
+              width: 1.2,
+            ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.bold,
-              color: isSelected ? whiteCard : Colors.grey.shade600,
+              color: isSelected ? pickInk() : Colors.grey.shade600,
             ),
           ),
         ),

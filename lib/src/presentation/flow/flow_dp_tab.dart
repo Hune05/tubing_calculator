@@ -147,34 +147,12 @@ mixin _FlowDpTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
         _mQmax,
         '최대 차압일 때의 유량입니다. 유량계 데이터시트·오리피스 사이징 시트·DCS 태그 범위에 있습니다.',
       ),
-      calcBox(
-        child: Row(
-          children: [
-            Expanded(
-              flex: 5,
-              child: calcLabel('유량 단위', '결과와 표에 붙는 단위입니다. 계산에는 영향이 없습니다.'),
-            ),
-            Expanded(
-              flex: 4,
-              child: TextField(
-                key: const Key('fm_qunit'),
-                controller: _mQunit,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: fc.text,
-                ),
-                decoration: const InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ),
+      calcTextField(
+        key: const Key('fm_qunit'),
+        label: '유량 단위',
+        controller: _mQunit,
+        help: calcHelp('유량 단위', '결과와 표에 붙는 단위입니다. 계산에는 영향이 없습니다.'),
+        onChanged: (_) => setState(() {}),
       ),
       _dpUnitChips('fm_du', _mDpUnit, (u) => setState(() => _mDpUnit = u)),
       calcField(

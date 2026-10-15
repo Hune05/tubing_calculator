@@ -1101,19 +1101,33 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     String guide, {
     VoidCallback? onEdit,
     bool signed = false,
-  }) => ratioHinted(
-    label,
-    c,
-    calcBox(
-    child: Row(
-      children: [
-        Expanded(flex: 5, child: calcLabel(label, guide)),
-        Expanded(
-          flex: 4,
-          child: TextField(
+  }) {
+    // 10-15 새 모양(calcField와 같게): 이름은 칸 위에 작게, 값은 네모 칸에 크게, 단위는 칸 안 오른쪽.
+    final (name, unit) = splitFieldUnit(label);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: fc.textSub,
+                  ),
+                ),
+              ),
+              if (guide.isNotEmpty) calcHelp(label, guide),
+            ],
+          ),
+          if (guide.isEmpty) const SizedBox(height: 4),
+          TextField(
             key: Key(key),
             controller: c,
-            textAlign: TextAlign.right,
             keyboardType: TextInputType.numberWithOptions(
               decimal: true,
               signed: signed,
@@ -1123,19 +1137,25 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
               fontSize: 20,
               fontWeight: FontWeight.w700,
               color: fc.text,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
-            decoration: ratioDecoration(label, c),
+            // "= 90%"가 붙을 때는 단위 %를 또 붙이지 않는다("= 90%  %").
+            decoration: ratioDecoration(
+              label,
+              c,
+              unit: unit == '%' && ratioSuffixText(label, c.text) != null
+                  ? null
+                  : unit,
+            ),
             onChanged: (_) {
               onEdit?.call();
               setState(() {});
             },
           ),
-        ),
-        const SizedBox(width: 8),
-      ],
-    ),
-  ),
-  );
+        ],
+      ),
+    );
+  }
 
   /// 이름표 + 칩 한 줄.
   Widget _chipGroup(String label, String guide, List<Widget> chips) => Padding(

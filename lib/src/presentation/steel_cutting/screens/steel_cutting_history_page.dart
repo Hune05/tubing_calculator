@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
@@ -242,8 +243,15 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
       return Padding(
         padding: const EdgeInsets.only(right: 8),
         child: Material(
-          color: selected ? CuttingColors.primary : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(4),
+          // 10-15 새 모양: 고른 칩은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+          color: selected ? pickFill() : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(4),
+            side: BorderSide(
+              color: selected ? pickLine() : pickIdleLine(),
+              width: 1.2,
+            ),
+          ),
           child: InkWell(
             key: Key('steel_history_shape_${value ?? 'all'}'),
             borderRadius: BorderRadius.circular(4),
@@ -259,7 +267,7 @@ class _SteelHistoryViewState extends State<SteelHistoryView> {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: selected ? Colors.white : Colors.grey.shade700,
+                  color: selected ? pickInk() : CuttingColors.textPrimary,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),

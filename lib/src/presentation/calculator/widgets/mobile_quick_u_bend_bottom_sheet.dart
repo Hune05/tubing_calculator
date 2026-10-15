@@ -602,15 +602,8 @@ class _MobileQuickUBendBottomSheetState
                 key: Key('u_turn_$label'),
                 label: Text(label),
                 selected: _turn == val,
-                showCheckmark: false,
-                selectedColor: makitaTeal,
-                // 폰 다크 모드에서도 밝게(테마 색을 따라가면 검게 나온다).
-                backgroundColor: slate100,
-                side: BorderSide(
-                  color: _turn == val ? makitaTeal : Colors.grey.shade300,
-                ),
+                // 10-15 새 모양: 색은 앱 칩 테마(고르면 옅은 청록 + ✓ + 짙은 청록 글자).
                 labelStyle: TextStyle(
-                  color: _turn == val ? pureWhite : slate900,
                   fontWeight: FontWeight.bold,
                 ),
                 onSelected: (_) => setState(() => _turn = val),

@@ -512,14 +512,9 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                   child: ChoiceChip(
                                     label: Text(f == "자재" ? "자재 요청/입고일" : f),
                                     selected: selected,
-                                    showCheckmark: false,
-                                    selectedColor: const Color(0xFFD5E9EB),
                                     labelStyle: TextStyle(
-                                      color: selected ? tossBlue : tossSubText,
                                       fontWeight: FontWeight.bold,
                                     ),
-                                    backgroundColor: pureWhite,
-                                    side: BorderSide.none,
                                     onSelected: (_) =>
                                         setState(() => _filter = f),
                                   ),
@@ -537,13 +532,9 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                   size: 16,
                                   color: tossBlue,
                                 ),
-                                selectedColor: const Color(0xFFD5E9EB),
                                 labelStyle: const TextStyle(
-                                  color: tossBlue,
                                   fontWeight: FontWeight.bold,
                                 ),
-                                backgroundColor: pureWhite,
-                                side: BorderSide.none,
                                 onSelected: (v) =>
                                     setState(() => _hideCompleted = !v),
                               ),
@@ -568,16 +559,9 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
                                       child: ChoiceChip(
                                         label: Text(p['name'].toString()),
                                         selected: selected,
-                                        showCheckmark: false,
-                                        selectedColor: const Color(0xFFD5E9EB),
                                         labelStyle: TextStyle(
-                                          color: selected
-                                              ? tossBlue
-                                              : tossSubText,
                                           fontWeight: FontWeight.bold,
                                         ),
-                                        backgroundColor: pureWhite,
-                                        side: BorderSide.none,
                                         visualDensity: VisualDensity.compact,
                                         onSelected: (_) => setState(
                                           () => _phaseFilter = p['id']

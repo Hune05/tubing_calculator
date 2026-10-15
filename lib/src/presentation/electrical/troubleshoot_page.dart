@@ -1,6 +1,7 @@
 // 고장 진단 흐름 화면(10-03): 증상을 고르고, 질문에 답하고, 측정값을 넣으면 판정과 원인·조치가 이어서 나온다.
 // 흐름 내용은 troubleshoot_flows.dart. 이 화면은 입력에 따라 단계를 처음부터 다시 따라가며 그린다(저장하지 않는다).
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 
 import '../../core/theme/app_icon_set.dart';
 import '../../core/theme/field_view.dart';
@@ -192,8 +193,12 @@ class _TroubleshootFlowPageState extends State<TroubleshootFlowPage>
                             horizontal: 14,
                             vertical: 14,
                           ),
-                          backgroundColor: p == i ? fc.brand : null,
-                          side: BorderSide(color: p == i ? fc.brand : fc.line),
+                          // 10-15 새 모양: 고른 답은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+                          backgroundColor: p == i ? pickFill(fc) : null,
+                          side: BorderSide(
+                            color: p == i ? pickLine(fc) : pickIdleLine(fc),
+                            width: p == i ? 1.6 : 1.2,
+                          ),
                         ),
                         onPressed: () => setState(() => _picked[id] = i),
                         child: Text(
@@ -201,7 +206,7 @@ class _TroubleshootFlowPageState extends State<TroubleshootFlowPage>
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: p == i ? fc.onBrand : fc.text,
+                            color: p == i ? pickInk(fc) : fc.text,
                           ),
                         ),
                       ),

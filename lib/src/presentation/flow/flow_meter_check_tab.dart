@@ -117,37 +117,15 @@ mixin _FlowMeterCheckTab on State<FlowCalcPage>, CalcFormParts<FlowCalcPage> {
             ? '20mA(최대 차압)일 때의 유량입니다. 오리피스 사이징 시트·계기 데이터시트·DCS 태그 범위에 있습니다.'
             : '20mA일 때의 유량입니다. 명판의 Range·Span, 변환기 설정, DCS 태그 범위가 모두 같아야 합니다.',
       ),
-      calcBox(
-        child: Row(
-          children: [
-            Expanded(
-              flex: 5,
-              child: calcLabel(
-                '유량 단위',
-                '결과와 표에 붙는 단위입니다. 계산에는 영향이 없습니다. 측정 범위와 지시값을 같은 단위로 넣으십시오.',
-              ),
-            ),
-            Expanded(
-              flex: 4,
-              child: TextField(
-                key: const Key('mc_unit'),
-                controller: _mcUnit,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  color: fc.text,
-                ),
-                decoration: const InputDecoration(
-                  isDense: true,
-                  border: InputBorder.none,
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
+      calcTextField(
+        key: const Key('mc_unit'),
+        label: '유량 단위',
+        controller: _mcUnit,
+        help: calcHelp(
+          '유량 단위',
+          '결과와 표에 붙는 단위입니다. 계산에는 영향이 없습니다. 측정 범위와 지시값을 같은 단위로 넣으십시오.',
         ),
+        onChanged: (_) => setState(() {}),
       ),
       if (isDp) ...[
         _pgc._dpUnitChips(

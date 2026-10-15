@@ -345,9 +345,7 @@ class _WiringTabState extends State<_WiringTab> {
     key: Key(key),
     label: Text(label),
     selected: sel,
-    selectedColor: fc.brand,
-    checkmarkColor: fc.onBrand,
-    labelStyle: TextStyle(color: sel ? fc.onBrand : fc.text, fontWeight: FontWeight.w800),
+    labelStyle: TextStyle(fontWeight: FontWeight.w800),
     onSelected: (_) => onTap(),
   );
 

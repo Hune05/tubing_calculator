@@ -98,8 +98,13 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   decoration: BoxDecoration(
-                    color: isSelected ? tossBlue : Colors.transparent,
+                    // 10-15 새 모양: 고른 모드는 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+                    color: isSelected ? pickFill() : Colors.transparent,
                     borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isSelected ? pickLine() : Colors.transparent,
+                      width: 1.2,
+                    ),
                   ),
                   alignment: Alignment.center,
                   padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -112,7 +117,7 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
                         Icon(
                           seg.$3,
                           size: 20,
-                          color: isSelected ? pureWhite : tossSubText,
+                          color: isSelected ? pickInk() : tossSubText,
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -120,7 +125,7 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: isSelected ? pureWhite : tossSubText,
+                            color: isSelected ? pickInk() : tossSubText,
                           ),
                         ),
                       ],

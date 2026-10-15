@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/common_widgets/recent_calc_history.dart';
@@ -320,7 +321,8 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
       final child = Container(
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-        color: sel ? fc.brand : null,
+        // 10-15 새 모양: 고른 칸은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+        color: sel ? pickFill(fc) : null,
         // 좁은 폰·큰 글씨에서 칸 글자가 두 줄로 쪼개지지 않게 넘치면 줄여 넣는다.
         child: FittedBox(
           fit: BoxFit.scaleDown,
@@ -330,7 +332,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
             style: TextStyle(
               fontSize: 13,
               fontWeight: head || sel ? FontWeight.w800 : FontWeight.w500,
-              color: sel ? fc.onBrand : (head ? fc.textSub : fc.text),
+              color: sel ? pickInk(fc) : (head ? fc.textSub : fc.text),
             ),
           ),
         ),

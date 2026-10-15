@@ -164,10 +164,17 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                   color: fc.text,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
+                // 10-15 새 모양: 넣는 값은 네모 칸(앱 칸 테두리) — 아래 결과 칸과 구분된다.
+                decoration: InputDecoration(
                   isDense: true,
+                  filled: true,
+                  fillColor: fc.surface,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
                 onChanged: (_) => setState(() {}),
               ),

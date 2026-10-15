@@ -7,6 +7,7 @@ library;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/common_widgets/text_fields_traversal.dart';
@@ -401,7 +402,8 @@ class PlateSegButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? fc.onBrand : (onTap == null ? fc.textFaint : fc.text);
+    // 10-15 새 모양: 고른 칸은 옅은 청록 + 짙은 청록 글자(꽉 찬 청록·흰 글자는 주 단추에만).
+    final fg = selected ? pickInk(fc) : (onTap == null ? fc.textFaint : fc.text);
     final Widget text = sub == null
         ? Text(
             label,
@@ -432,7 +434,7 @@ class PlateSegButton extends StatelessWidget {
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
                   color: selected
-                      ? fc.onBrand.withValues(alpha: 0.85)
+                      ? pickInk(fc).withValues(alpha: 0.85)
                       : fc.textSub,
                   height: 1.15,
                 ),
@@ -440,8 +442,13 @@ class PlateSegButton extends StatelessWidget {
             ],
           );
     return Material(
-      color: selected ? fc.brand : (pill ? fc.fill : Colors.transparent),
-      borderRadius: BorderRadius.circular(pill ? 10 : 8),
+      color: selected ? pickFill(fc) : (pill ? fc.fill : Colors.transparent),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(pill ? 10 : 8),
+        side: selected
+            ? BorderSide(color: pickLine(fc), width: 1.2)
+            : BorderSide.none,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(pill ? 10 : 8),
         onTap: onTap == null
@@ -664,7 +671,8 @@ class _PlateNumFieldState extends State<PlateNumField> {
       decoration: InputDecoration(
         isDense: true,
         filled: true,
-        fillColor: readOnly ? fc.background : fc.fill,
+        // 10-15 새 모양: 흰 칸 + 회색 네모 테두리(누르는 중 청록 2), 앱 칸과 같게.
+        fillColor: readOnly ? fc.background : fc.surface,
         hintText: hint,
         hintStyle: TextStyle(
           fontSize: 14,
@@ -685,11 +693,11 @@ class _PlateNumFieldState extends State<PlateNumField> {
           horizontal: 12,
           vertical: label == null ? 12 : 13,
         ),
-        border: b(Colors.transparent, 0),
+        border: b(pickIdleLine(fc), 1.2),
         enabledBorder: highlight
             ? b(fc.brand, 1.6)
-            : (readOnly ? b(fc.line, 1) : b(Colors.transparent, 0)),
-        focusedBorder: readOnly ? b(fc.line, 1) : b(fc.brand, 1.6),
+            : (readOnly ? b(fc.line, 1) : b(pickIdleLine(fc), 1.2)),
+        focusedBorder: readOnly ? b(fc.line, 1) : b(fc.brand, 2),
       ),
       onChanged: widget.onChanged,
     );
@@ -1012,12 +1020,16 @@ class PlateCanvasButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? fc.onBrand : (onTap == null ? fc.textFaint : fc.text);
+    // 10-15 새 모양: 켜진 단추는 옅은 청록 + 짙은 청록 글자·아이콘.
+    final fg = selected ? pickInk(fc) : (onTap == null ? fc.textFaint : fc.text);
     Widget w = Material(
-      color: selected ? fc.brand : fc.surface,
+      color: selected ? pickFill(fc) : fc.surface,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(6),
-        side: BorderSide(color: selected ? fc.brand : fc.line),
+        side: BorderSide(
+          color: selected ? pickLine(fc) : pickIdleLine(fc),
+          width: 1.2,
+        ),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),

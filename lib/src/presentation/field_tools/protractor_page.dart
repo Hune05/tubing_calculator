@@ -10,6 +10,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -808,13 +809,14 @@ class _ProtractorPageState extends State<ProtractorPage>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6),
-                color: _selArm == i ? _teal : null,
-                border: Border.all(color: _selArm == i ? _teal : fc.line, width: 1.5),
+                // 10-15 새 모양: 고른 다리는 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+                color: _selArm == i ? pickFill(fc) : null,
+                border: Border.all(color: _selArm == i ? pickLine(fc) : pickIdleLine(fc), width: 1.5),
               ),
               child: Text(
                 _deg(_armOf(i)),
                 style: TextStyle(
-                  color: _selArm == i ? fc.onBrand : _ink,
+                  color: _selArm == i ? pickInk(fc) : _ink,
                   fontWeight: FontWeight.w800,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),

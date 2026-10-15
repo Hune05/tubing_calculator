@@ -1009,12 +1009,7 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                   ),
                 ),
                 selected: _issueFilterOn,
-                showCheckmark: false,
-                selectedColor: tossBlue.withValues(alpha: 0.15),
-                backgroundColor: pureWhite,
-                side: BorderSide.none,
                 labelStyle: TextStyle(
-                  color: _issueFilterOn ? tossBlue : tossSubText,
                   fontWeight: FontWeight.bold,
                   fontSize: 12,
                 ),
@@ -2001,14 +1996,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                           ChoiceChip(
                             label: Text("진행중 (${_activeLogs.length})"),
                             selected: !_showCompleted && !_showArchived,
-                            showCheckmark: false,
-                            selectedColor: tossBlue.withValues(alpha: 0.15),
                             labelStyle: TextStyle(
-                              color: !_showCompleted ? tossBlue : tossSubText,
                               fontWeight: FontWeight.bold,
                             ),
-                            backgroundColor: pureWhite,
-                            side: BorderSide.none,
                             onSelected: (_) => setState(() {
                               _showCompleted = false;
                               _showArchived = false;
@@ -2023,14 +2013,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                             ChoiceChip(
                               label: Text("완료됨 (${_doneLogs.length})"),
                               selected: _showCompleted && !_showArchived,
-                              showCheckmark: false,
-                              selectedColor: tossBlue.withValues(alpha: 0.15),
                               labelStyle: TextStyle(
-                                color: _showCompleted ? tossBlue : tossSubText,
                                 fontWeight: FontWeight.bold,
                               ),
-                              backgroundColor: pureWhite,
-                              side: BorderSide.none,
                               onSelected: (_) => setState(() {
                                 _showCompleted = true;
                                 _showArchived = false;
@@ -2044,14 +2029,9 @@ class _WorkLogMainScreenState extends State<WorkLogMainScreen> {
                             ChoiceChip(
                               label: Text("보관함 (${_archivedLogs.length})"),
                               selected: _showArchived,
-                              showCheckmark: false,
-                              selectedColor: tossBlue.withValues(alpha: 0.15),
                               labelStyle: TextStyle(
-                                color: _showArchived ? tossBlue : tossSubText,
                                 fontWeight: FontWeight.bold,
                               ),
-                              backgroundColor: pureWhite,
-                              side: BorderSide.none,
                               onSelected: (_) => setState(() {
                                 _showCompleted = true;
                                 _showArchived = true;

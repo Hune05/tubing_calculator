@@ -523,14 +523,10 @@ Widget refChips({
           label: Text(it),
           selected: it == selected,
           onSelected: (_) => onSelected(it),
-          selectedColor: refTeal,
           labelStyle: TextStyle(
-            color: it == selected ? refOnTeal : refTextMain,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
-          backgroundColor: refBg,
-          side: BorderSide.none,
         ),
     ],
   );

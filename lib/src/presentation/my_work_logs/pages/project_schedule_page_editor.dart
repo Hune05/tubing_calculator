@@ -102,15 +102,9 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                 return ChoiceChip(
                                   label: Text(t),
                                   selected: selected,
-                                  selectedColor: tossBlue.withValues(
-                                    alpha: 0.15,
-                                  ),
                                   labelStyle: TextStyle(
-                                    color: selected ? tossBlue : tossSubText,
                                     fontWeight: FontWeight.bold,
                                   ),
-                                  backgroundColor: tossBg,
-                                  side: BorderSide.none,
                                   onSelected: (_) => setModalState(() {
                                     type = t;
                                     // 🚀 "자재 요청"이 아닌 종류는 날짜가 필수라
@@ -146,17 +140,9 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                     ChoiceChip(
                                       label: Text(p['name'].toString()),
                                       selected: phaseId == p['id']?.toString(),
-                                      selectedColor: tossBlue.withValues(
-                                        alpha: 0.15,
-                                      ),
                                       labelStyle: TextStyle(
-                                        color: phaseId == p['id']?.toString()
-                                            ? tossBlue
-                                            : tossSubText,
                                         fontWeight: FontWeight.bold,
                                       ),
-                                      backgroundColor: tossBg,
-                                      side: BorderSide.none,
                                       onSelected: (_) => setModalState(
                                         () => phaseId = p['id']?.toString(),
                                       ),
@@ -237,16 +223,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                     ChoiceChip(
                                       label: Text(u),
                                       selected: unitCtrl.text.trim() == u,
-                                      showCheckmark: false,
-                                      selectedColor: tossBlue.withValues(
-                                        alpha: 0.15,
-                                      ),
-                                      backgroundColor: tossBg,
-                                      side: BorderSide.none,
                                       labelStyle: TextStyle(
-                                        color: unitCtrl.text.trim() == u
-                                            ? tossBlue
-                                            : tossSubText,
                                         fontWeight: FontWeight.bold,
                                       ),
                                       onSelected: (_) => setModalState(
@@ -427,17 +404,9 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                                       : "$d일"),
                                           ),
                                           selected: selected,
-                                          selectedColor: tossBlue.withValues(
-                                            alpha: 0.15,
-                                          ),
                                           labelStyle: TextStyle(
-                                            color: selected
-                                                ? tossBlue
-                                                : tossSubText,
                                             fontWeight: FontWeight.bold,
                                           ),
-                                          backgroundColor: tossBg,
-                                          side: BorderSide.none,
                                           onSelected: (_) => setModalState(
                                             () => endDate = d == 1
                                                 ? null
@@ -515,15 +484,9 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                   return ChoiceChip(
                                     label: Text(d == 0 ? "당일만" : "$d일 전부터"),
                                     selected: selected,
-                                    selectedColor: tossBlue.withValues(
-                                      alpha: 0.15,
-                                    ),
                                     labelStyle: TextStyle(
-                                      color: selected ? tossBlue : tossSubText,
                                       fontWeight: FontWeight.bold,
                                     ),
-                                    backgroundColor: tossBg,
-                                    side: BorderSide.none,
                                     onSelected: (_) => setModalState(
                                       () => reminderLeadDays = d,
                                     ),

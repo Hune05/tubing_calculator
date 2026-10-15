@@ -211,24 +211,33 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
 
   Widget _stepRow(int n) {
     final s = _steps[n];
-    Widget cell(String key, TextEditingController c, String hint) => Expanded(
+    // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리), 단위는 칸 안 오른쪽("전류 A" → 흐린 "전류" + A).
+    Widget cell(String key, TextEditingController c, String hint, String unit) => Expanded(
       flex: 3,
       child: TextField(
         key: Key(key),
         controller: c,
-        textAlign: TextAlign.right,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         textInputAction: TextInputAction.next,
         style: TextStyle(
-          fontSize: 20,
+          fontSize: 19,
           fontWeight: FontWeight.w700,
           color: fc.text,
+          fontFeatures: const [FontFeature.tabularFigures()],
         ),
         decoration: InputDecoration(
           isDense: true,
-          border: InputBorder.none,
+          filled: true,
+          fillColor: fc.surface,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           hintText: hint,
           hintStyle: TextStyle(fontSize: 13, color: fc.textSub),
+          suffixText: unit,
+          suffixStyle: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: fc.textSub,
+          ),
         ),
         onChanged: (_) => setState(() {}),
       ),
@@ -247,9 +256,9 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
               ),
             ),
           ),
-          cell('eb_a_$n', s.amps, '전류 A'),
+          cell('eb_a_$n', s.amps, '전류', 'A'),
           const SizedBox(width: 8),
-          cell('eb_m_$n', s.minutes, '시간 분'),
+          cell('eb_m_$n', s.minutes, '시간', '분'),
           const SizedBox(width: 8),
         ],
       ),

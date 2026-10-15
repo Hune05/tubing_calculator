@@ -3,6 +3,7 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 
 const Color tossInputBg = AppColors.background;
 const Color pureWhite = Color(0xFFFFFFFF);
@@ -129,17 +130,28 @@ class _AssigneePickerState extends State<AssigneePicker> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        // 10-15 새 모양: 고른 사람은 옅은 청록 + ✓ + 짙은 청록 글자(앱 칩과 같게).
         decoration: BoxDecoration(
-          color: selected ? AppColors.brand : tossInputBg,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? pureWhite : tossSubText,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
+          color: selected ? pickFill() : pureWhite,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: selected ? pickLine() : pickIdleLine(),
+            width: 1.2,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[pickCheck(), const SizedBox(width: 3)],
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? pickInk() : AppColors.text,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ],
         ),
       ),
     );

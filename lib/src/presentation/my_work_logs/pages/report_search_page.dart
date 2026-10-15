@@ -6,7 +6,7 @@ import '../models/report_tools.dart';
 import '../models/photo_store.dart';
 import '../widgets/photo_detail_modal.dart' show PhotoDetailModal;
 import 'daily_report_page.dart'
-    show tossBlue, tossText, tossSubText, tossInputBg, pureWhite;
+    show tossBlue, tossText, tossSubText, pureWhite;
 
 // 🚀 [작업 일지/이슈 통합 검색] 모든 프로젝트의 작업 내역·자재·계획·도면반영 사유·이슈
 // 내용에서 단어를 찾는다. 결과를 누르면 그 프로젝트의 일지(또는 이슈) 탭이 열린다.
@@ -54,12 +54,7 @@ class _ReportSearchPageState extends State<ReportSearchPage> {
       child: ChoiceChip(
         label: Text(label),
         selected: sel,
-        showCheckmark: false,
-        selectedColor: tossBlue,
-        backgroundColor: pureWhite,
-        side: BorderSide.none,
         labelStyle: TextStyle(
-          color: sel ? pureWhite : tossSubText,
           fontWeight: FontWeight.w700,
           fontSize: 12,
         ),
@@ -328,12 +323,7 @@ class _ProjectPhotosPageState extends State<ProjectPhotosPage> {
                             child: ChoiceChip(
                               label: Text(t ?? '전체'),
                               selected: _filter == t,
-                              showCheckmark: false,
-                              selectedColor: tossBlue,
-                              backgroundColor: tossInputBg,
-                              side: BorderSide.none,
                               labelStyle: TextStyle(
-                                color: _filter == t ? pureWhite : tossSubText,
                                 fontWeight: FontWeight.w700,
                               ),
                               onSelected: (_) => setState(() => _filter = t),

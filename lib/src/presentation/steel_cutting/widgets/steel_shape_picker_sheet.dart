@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
@@ -136,8 +137,15 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
   Widget _buildCategoryChip(String label) {
     final bool selected = _categoryFilter == label;
     return Material(
-      color: selected ? CuttingColors.primary : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(4),
+      // 10-15 새 모양: 고른 칩은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+      color: selected ? pickFill() : Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4),
+        side: BorderSide(
+          color: selected ? pickLine() : pickIdleLine(),
+          width: 1.2,
+        ),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(4),
         onTap: () => setState(() => _categoryFilter = label),
@@ -146,7 +154,7 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
           child: Text(
             label,
             style: TextStyle(
-              color: selected ? Colors.white : Colors.grey.shade700,
+              color: selected ? pickInk() : CuttingColors.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),

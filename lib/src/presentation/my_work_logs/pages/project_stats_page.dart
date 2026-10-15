@@ -379,12 +379,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                     child: ChoiceChip(
                       label: Text(_periodLabels[i]),
                       selected: _period == i,
-                      showCheckmark: false,
-                      selectedColor: _teal,
-                      backgroundColor: Colors.white,
-                      side: BorderSide.none,
                       labelStyle: TextStyle(
-                        color: _period == i ? Colors.white : _sub,
                         fontWeight: FontWeight.w700,
                       ),
                       onSelected: (_) => setState(() => _period = i),
@@ -408,12 +403,7 @@ class _ProjectStatsPageState extends State<ProjectStatsPage> {
                       child: ChoiceChip(
                         label: Text(t ?? '모든 유형'),
                         selected: _type == t,
-                        showCheckmark: false,
-                        selectedColor: _teal,
-                        backgroundColor: Colors.white,
-                        side: BorderSide.none,
                         labelStyle: TextStyle(
-                          color: _type == t ? Colors.white : _sub,
                           fontWeight: FontWeight.w700,
                         ),
                         onSelected: (_) => setState(() => _type = t),

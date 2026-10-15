@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../common/pick_style.dart';
 import '../../models/instrument_shape_painter.dart';
 import '../../models/layout_board_models.dart';
 import '../../widgets/korean_text.dart';
@@ -308,11 +309,12 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
           for (final (key, label) in entries)
             Material(
               key: ValueKey("parts_cat_$key"),
-              color: key == _category ? tossBlue : pureWhite,
+              // 10-15 새 모양: 고른 묶음은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+              color: key == _category ? pickFill() : pureWhite,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(4),
                 side: BorderSide(
-                  color: key == _category ? tossBlue : layoutLine,
+                  color: key == _category ? pickLine() : layoutLine,
                   width: 1.5,
                 ),
               ),
@@ -330,7 +332,7 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: key == _category ? pureWhite : tossText,
+                          color: key == _category ? pickInk() : tossText,
                         ),
                       ),
                     ),
@@ -360,11 +362,12 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
         for (final size in kFittingSizes) ...[
           Material(
             key: ValueKey("fitting_size_$size"),
-            color: size == _fittingSize ? tossBlue : pureWhite,
+            // 10-15 새 모양: 고른 크기는 옅은 청록 + 짙은 청록 글자.
+            color: size == _fittingSize ? pickFill() : pureWhite,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(4),
               side: BorderSide(
-                color: size == _fittingSize ? tossBlue : layoutLine,
+                color: size == _fittingSize ? pickLine() : layoutLine,
                 width: 1.5,
               ),
             ),
@@ -384,7 +387,7 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
-                    color: size == _fittingSize ? pureWhite : tossText,
+                    color: size == _fittingSize ? pickInk() : tossText,
                   ),
                 ),
               ),

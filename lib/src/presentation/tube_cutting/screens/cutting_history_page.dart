@@ -393,16 +393,9 @@ class _CuttingHistoryPageState extends State<CuttingHistoryPage> {
             // 머리글은 1쪽인데 쪽은 그대로여서 날짜와 목록이 어긋났다.
             if (_pageController.hasClients) _pageController.jumpToPage(0);
           },
-          selectedColor: CuttingColors.primary,
-          backgroundColor: CuttingColors.surface,
-          side: BorderSide(
-            color: selected ? CuttingColors.primary : CuttingColors.border,
-          ),
           labelStyle: TextStyle(
             fontWeight: FontWeight.w800,
-            color: selected ? Colors.white : CuttingColors.textPrimary,
           ),
-          showCheckmark: false,
         ),
       );
     }

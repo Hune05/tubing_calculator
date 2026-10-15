@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/core/common_widgets/field_view_picker.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/mobile_gain_calibration_sheet.dart';
 import 'package:tubing_calculator/src/data/machine_spec_sets.dart';
@@ -775,16 +776,20 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                 decoration: BoxDecoration(
-                  color: auto ? makitaTeal : slate100,
+                  // 10-15 새 모양: AUTO는 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+                  color: auto ? pickFill() : pureWhite,
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: auto ? makitaTeal : _slate200),
+                  border: Border.all(
+                    color: auto ? pickLine() : pickIdleLine(),
+                    width: 1.2,
+                  ),
                 ),
                 child: Text(
                   auto ? "AUTO" : "MAN",
                   style: TextStyle(
                     fontSize: 13, // 🚀 [고침] 10px라 켜졌는지 잘 안 보였다
                     fontWeight: FontWeight.w900,
-                    color: auto ? pureWhite : slate600,
+                    color: auto ? pickInk() : slate600,
                   ),
                 ),
               ),
@@ -802,37 +807,36 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   ),
             child: AbsorbPointer(
               child: SizedBox(
-                width: 76,
+                width: 116,
+                // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리)에, 단위는 칸 안 오른쪽.
+                // 설정 목록이라 이름은 왼쪽 그대로 둔다(스위치 줄과 높이를 맞춤).
                 child: TextField(
                   controller: controller,
-                  textAlign: TextAlign.end,
                   // 값이 비어 있으면 흐린 0(비어 있으면 셈에서 0으로 쓴다).
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
+                  decoration: InputDecoration(
                     isDense: true,
-                    contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    filled: true,
+                    fillColor: locked ? slate100 : pureWhite,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
                     hintText: "0",
-                    hintStyle: TextStyle(color: Color(0xFF94A3B8)),
+                    hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                    suffixText: unit.isEmpty ? null : unit,
+                    suffixStyle: const TextStyle(
+                      color: slate600,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: locked ? slate600 : makitaTeal,
+                    color: locked ? slate600 : slate900,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
-              ),
-            ),
-          ),
-          SizedBox(
-            width: 40,
-            child: Text(
-              unit.isEmpty ? "" : " $unit",
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              style: const TextStyle(
-                color: slate600,
-                fontWeight: FontWeight.w500,
-                fontSize: 13,
               ),
             ),
           ),
@@ -1346,16 +1350,27 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        // 10-15 새 모양: 고른 쪽은 옅은 청록 + ✓ + 짙은 청록 글자(앱 칩과 같게).
         decoration: BoxDecoration(
-          color: isSelected ? makitaTeal : Colors.transparent,
+          color: isSelected ? pickFill() : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
-        ),
-        child: Text(
-          text,
-          style: TextStyle(
-            color: isSelected ? Colors.white : Colors.black54,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          border: Border.all(
+            color: isSelected ? pickLine() : Colors.transparent,
+            width: 1.2,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[pickCheck(), const SizedBox(width: 3)],
+            Text(
+              text,
+              style: TextStyle(
+                color: isSelected ? pickInk() : slate600,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

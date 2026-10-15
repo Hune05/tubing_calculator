@@ -288,11 +288,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
               labelStyle: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
-                color: id == _view ? pureWhite : tossText,
               ),
-              selectedColor: tossBlue,
-              backgroundColor: pureWhite,
-              side: BorderSide(color: id == _view ? tossBlue : layoutLine),
               onSelected: (_) => setState(() => _view = id),
             ),
           ),
@@ -373,12 +369,6 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
                             labelStyle: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
-                              color: id == view ? pureWhite : tossText,
-                            ),
-                            selectedColor: tossBlue,
-                            backgroundColor: pureWhite,
-                            side: BorderSide(
-                              color: id == view ? tossBlue : layoutLine,
                             ),
                             onSelected: (_) => setBig(() => view = id),
                           ),
@@ -630,15 +620,10 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
         ChoiceChip(
           label: Text(label(v)),
           selected: v == selected,
-          showCheckmark: false,
           labelStyle: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w800,
-            color: v == selected ? pureWhite : tossText,
           ),
-          selectedColor: tossBlue,
-          backgroundColor: pureWhite,
-          side: BorderSide(color: v == selected ? tossBlue : layoutLine),
           onSelected: (_) => onPick(v),
         ),
     ],

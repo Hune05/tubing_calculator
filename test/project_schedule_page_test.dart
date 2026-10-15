@@ -55,6 +55,9 @@ void main() {
     expect(findTextContaining('도면 검토'), findsOneWidget);
     expect(findTextContaining('덕트 입고'), findsOneWidget);
     expect(findTextContaining('끝난 일정'), findsNothing);
+    // 10-15 새 모양: 고른 칩에 ✓가 붙어 칩 줄이 길어졌다 → 옆으로 밀어 보이게 한 뒤 누른다.
+    await tester.ensureVisible(find.text('완료 숨김'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('완료 숨김'));
     await tester.pumpAndSettle();
     expect(find.text('완료 표시'), findsOneWidget);

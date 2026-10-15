@@ -56,8 +56,18 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       letterSpacing: -2,
                     ),
                     key: const Key('count_qty_input'),
+                    // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리). 이 창은 ThemeData.light로 감싸
+                    // 앱 테마 칸 모양이 안 닿아 테두리를 직접 준다.
                     decoration: InputDecoration(
-                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      border: _qtyBox(pickIdleLine(), 1.2),
+                      enabledBorder: _qtyBox(pickIdleLine(), 1.2),
+                      focusedBorder: _qtyBox(makitaTeal, 2),
+                      errorBorder: _qtyBox(AppColors.danger, 1.5),
+                      focusedErrorBorder: _qtyBox(AppColors.danger, 2),
                       hintText: "0",
                       hintStyle: const TextStyle(color: slate100),
                       errorText: error,
@@ -678,8 +688,8 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                     opt,
                                     style: TextStyle(
                                       color: isSelected
-                                          ? Colors.white
-                                          : slate600,
+                                          ? pickInk()
+                                          : slate900,
                                       fontSize: 14,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -690,12 +700,20 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                       ctrl.text = selected ? opt : "";
                                     });
                                   },
-                                  selectedColor: makitaTeal,
-                                  backgroundColor: slate100,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
+                                  // 10-15 새 모양: 이 창은 ThemeData.light로 감싸 앱 칩 모양이 안 닿아
+                                  // 직접 준다(고르면 옅은 청록 + ✓ + 짙은 청록 글자).
+                                  selectedColor: pickFill(),
+                                  backgroundColor: pureWhite,
+                                  checkmarkColor: pickInk(),
+                                  side: BorderSide(
+                                    color: isSelected
+                                        ? pickLine()
+                                        : pickIdleLine(),
+                                    width: 1.2,
                                   ),
-                                  side: BorderSide.none,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 8,
@@ -935,3 +953,9 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     ); // 💡 showDialog 닫기
   } // 💡 _showExtraInfoDialog 닫기
 }
+
+/// 수량 창 칸 테두리(10-15 새 모양).
+OutlineInputBorder _qtyBox(Color c, double w) => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(4),
+  borderSide: BorderSide(color: c, width: w),
+);

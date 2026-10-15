@@ -441,7 +441,7 @@ class _BalanceTabState extends State<_BalanceTab>
                 key: Key('pd_bal_name_$i'),
                 controller: r.name,
                 style: TextStyle(fontWeight: FontWeight.w700, color: fc.text),
-                decoration: const InputDecoration(isDense: true, hintText: '회로 이름(선택)', border: InputBorder.none),
+                decoration: _boxDeco(hint: '회로 이름(선택)'),
                 onChanged: (_) => setState(() {}),
               ),
             ),
@@ -459,10 +459,9 @@ class _BalanceTabState extends State<_BalanceTab>
               child: TextField(
                 key: Key('pd_bal_va_$i'),
                 controller: r.va,
-                textAlign: TextAlign.right,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: fc.text),
-                decoration: const InputDecoration(isDense: true, suffixText: 'VA', border: InputBorder.none, hintText: '부하'),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: fc.text, fontFeatures: const [FontFeature.tabularFigures()]),
+                decoration: _boxDeco(hint: '부하', unit: 'VA'),
                 onChanged: (_) => setState(() {}),
               ),
             ),
@@ -737,10 +736,9 @@ class _FeederTabState extends State<_FeederTab>
           child: TextField(
             key: Key('pd_feed_len_$i'),
             controller: r.len,
-            textAlign: TextAlign.right,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: fc.text),
-            decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '길이', suffixText: 'm'),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: fc.text, fontFeatures: const [FontFeature.tabularFigures()]),
+            decoration: _boxDeco(hint: '길이', unit: 'm'),
             onChanged: (_) => setState(() {}),
           ),
         ),
@@ -749,10 +747,9 @@ class _FeederTabState extends State<_FeederTab>
           child: TextField(
             key: Key('pd_feed_amps_$i'),
             controller: r.amps,
-            textAlign: TextAlign.right,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: fc.text),
-            decoration: const InputDecoration(isDense: true, border: InputBorder.none, hintText: '부하', suffixText: 'A'),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: fc.text, fontFeatures: const [FontFeature.tabularFigures()]),
+            decoration: _boxDeco(hint: '부하', unit: 'A'),
             onChanged: (_) => setState(() {}),
           ),
         ),
@@ -907,3 +904,16 @@ class _BranchTabState extends State<_BranchTab>
     );
   }
 }
+
+/// 10-15 새 모양: 줄마다 넣는 칸도 네모 칸(앱 칸 테두리), 단위는 칸 안 오른쪽.
+/// (예전: 테두리 없는 칸이라 값을 넣는 곳인지 잘 안 보였다)
+InputDecoration _boxDeco({String? hint, String? unit}) => InputDecoration(
+  isDense: true,
+  filled: true,
+  fillColor: fc.surface,
+  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+  hintText: hint,
+  hintStyle: TextStyle(fontSize: 13, color: fc.textFaint),
+  suffixText: unit,
+  suffixStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fc.textSub),
+);

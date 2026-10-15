@@ -379,37 +379,36 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          decoration: BoxDecoration(
-            color: slate100,
-            borderRadius: BorderRadius.circular(6),
-            border: errorText == null
-                ? null
-                : Border.all(color: red500, width: 1.5),
+        // 10-15 새 모양: 회색 상자 안 테두리 없는 칸 → 흰 네모 칸(앱 칸 테두리, 잘못이면 빨강).
+        TextFormField(
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLength: maxLength,
+          onChanged: onChanged,
+          style: const TextStyle(
+            color: slate900,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
           ),
-          child: TextFormField(
-            controller: controller,
-            keyboardType: keyboardType,
-            maxLength: maxLength,
-            onChanged: onChanged,
-            style: const TextStyle(
-              color: slate900,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+          decoration: InputDecoration(
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 14,
             ),
-            decoration: InputDecoration(
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 16,
-              ),
-              border: InputBorder.none,
-              isDense: true,
-              counterText: "",
-              hintText: hint,
-              hintStyle: const TextStyle(
-                color: slate300,
-                fontWeight: FontWeight.w500,
-              ),
+            isDense: true,
+            filled: true,
+            fillColor: Colors.white,
+            enabledBorder: errorText == null
+                ? null
+                : OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: const BorderSide(color: red500, width: 1.5),
+                  ),
+            counterText: "",
+            hintText: hint,
+            hintStyle: const TextStyle(
+              color: slate300,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),

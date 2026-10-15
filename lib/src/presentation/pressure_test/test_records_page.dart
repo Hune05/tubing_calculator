@@ -235,13 +235,8 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
           key: Key('pr_pass_${v == null ? 'all' : (v ? 'ok' : 'ng')}'),
           label: Text(label),
           selected: on,
-          showCheckmark: false,
-          selectedColor: fc.brand,
-          backgroundColor: fc.surface,
-          side: BorderSide(color: on ? fc.brand : fc.line),
           labelStyle: TextStyle(
             fontWeight: FontWeight.w700,
-            color: on ? Colors.white : fc.text,
           ),
           onSelected: (_) => setState(() => _pass = v),
         ),

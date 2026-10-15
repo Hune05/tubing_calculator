@@ -430,15 +430,8 @@ class _BendCheckPageState extends State<BendCheckPage> {
           key: Key('bendcheck_kind_$k'),
           label: Text(bendKindLabel(k)),
           selected: k == selected,
-          showCheckmark: false,
-          selectedColor: AppColors.brand,
-          backgroundColor: AppColors.surface,
-          side: BorderSide(
-            color: k == selected ? AppColors.brand : AppColors.line,
-          ),
           labelStyle: TextStyle(
             fontWeight: FontWeight.w700,
-            color: k == selected ? Colors.white : AppColors.text,
           ),
           onSelected: (_) => setState(() => _kind = k),
         ),
@@ -880,13 +873,8 @@ class _AddSheetState extends State<_AddSheet> {
       key: Key(key),
       label: Text(label),
       selected: selected,
-      showCheckmark: false,
-      selectedColor: AppColors.brand,
-      backgroundColor: AppColors.surface,
-      side: BorderSide(color: selected ? AppColors.brand : AppColors.line),
       labelStyle: TextStyle(
         fontWeight: FontWeight.w700,
-        color: selected ? Colors.white : AppColors.text,
       ),
       onSelected: (_) => setState(() => _isCut = cut),
     );

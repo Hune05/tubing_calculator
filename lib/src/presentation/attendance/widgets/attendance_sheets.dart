@@ -37,17 +37,11 @@ Widget attendanceChoice({
   key: key,
   label: Text(label),
   selected: selected,
-  showCheckmark: false,
   onSelected: (_) {
     HapticFeedback.selectionClick();
     onTap();
   },
-  selectedColor: _brand,
-  backgroundColor: AppColors.fill,
-  side: BorderSide.none,
-  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
   labelStyle: TextStyle(
-    color: selected ? Colors.white : _sub,
     fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
     fontSize: 13,
   ),

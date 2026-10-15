@@ -255,13 +255,8 @@ class _SaveDialogState extends State<_SaveDialog> {
         child: Text(label, textAlign: TextAlign.center),
       ),
       selected: selected,
-      selectedColor: AppColors.brand,
-      backgroundColor: AppColors.background,
-      showCheckmark: false,
-      side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       labelStyle: TextStyle(
-        color: selected ? Colors.white : AppColors.textSub,
         fontWeight: FontWeight.bold,
         fontSize: 14,
       ),

@@ -1617,24 +1617,31 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       title: _buildLabelWithHelp(label, helpText),
+      // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리)에, 단위는 칸 안 오른쪽.
+      // 설정 목록이라 이름은 왼쪽 그대로 둔다(스위치 줄과 높이를 맞춤).
       trailing: SizedBox(
-        width: 100,
+        width: 110,
         child: TextField(
           controller: controller,
-          textAlign: TextAlign.end,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [
             FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
           ],
           style: const TextStyle(
-            fontSize: 16,
+            fontSize: 17,
             fontWeight: FontWeight.bold,
-            color: makitaTeal,
+            color: slate900,
+            fontFeatures: [FontFeature.tabularFigures()],
           ),
           decoration: InputDecoration(
-            border: InputBorder.none,
             isDense: true,
-            suffixText: " $suffix",
+            filled: true,
+            fillColor: pureWhite,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 10,
+            ),
+            suffixText: suffix,
             suffixStyle: const TextStyle(
               color: slate600,
               fontWeight: FontWeight.w500,

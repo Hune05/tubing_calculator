@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -109,17 +110,27 @@ class _MobileQuickKickBottomSheetState
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: on ? makitaTeal : pureWhite,
+          // 10-15 새 모양: 고른 것은 옅은 청록 + ✓ + 짙은 청록 글자(앱 칩과 같게).
+          color: on ? pickFill() : pureWhite,
           borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: on ? makitaTeal : Colors.grey.shade300),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: on ? pureWhite : slate900,
-            fontWeight: FontWeight.bold,
-            fontSize: 13,
+          border: Border.all(
+            color: on ? pickLine() : pickIdleLine(),
+            width: 1.2,
           ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (on) ...[pickCheck(), const SizedBox(width: 3)],
+            Text(
+              label,
+              style: TextStyle(
+                color: on ? pickInk() : slate900,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ],
         ),
       ),
     );

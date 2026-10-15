@@ -175,16 +175,9 @@ class _CatalogBodyState extends State<_CatalogBody> {
                         ChoiceChip(
                           label: Text(m),
                           labelStyle: TextStyle(
-                            color: maker == m
-                                ? Colors.white
-                                : CuttingColors.textPrimary,
                             fontWeight: FontWeight.w700,
                           ),
                           selected: maker == m,
-                          selectedColor: CuttingColors.primary,
-                          backgroundColor: CuttingColors.background,
-                          showCheckmark: false,
-                          side: BorderSide.none,
                           onSelected: (v) => setInner(() {
                             maker = v ? m : '';
                             if (v) typed.clear();
@@ -435,16 +428,9 @@ class _CatalogBodyState extends State<_CatalogBody> {
                               c == 'ALL' ? '전체' : materialCategoryLabel(c),
                             ),
                             labelStyle: TextStyle(
-                              color: _category == c
-                                  ? Colors.white
-                                  : CuttingColors.textSecondary,
                               fontWeight: FontWeight.w700,
                             ),
                             selected: _category == c,
-                            selectedColor: CuttingColors.primary,
-                            backgroundColor: CuttingColors.background,
-                            showCheckmark: false,
-                            side: BorderSide.none,
                             onSelected: (_) => setState(() => _category = c),
                           ),
                         ),

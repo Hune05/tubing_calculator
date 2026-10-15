@@ -1086,10 +1086,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                         key: ValueKey("pdf_paper_$p"),
                         label: Text(p),
                         selected: paper == p,
-                        selectedColor: tossBlue,
-                        showCheckmark: false,
                         labelStyle: TextStyle(
-                          color: paper == p ? pureWhite : tossText,
                           fontWeight: FontWeight.w800,
                         ),
                         onSelected: (_) => setDlg(() => paper = p),
@@ -1099,10 +1096,7 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                         key: ValueKey("pdf_land_$v"),
                         label: Text(t),
                         selected: landscape == v,
-                        selectedColor: tossBlue,
-                        showCheckmark: false,
                         labelStyle: TextStyle(
-                          color: landscape == v ? pureWhite : tossText,
                           fontWeight: FontWeight.w800,
                         ),
                         onSelected: (_) => setDlg(() => landscape = v),

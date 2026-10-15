@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart' show showSheetSnack;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'dart:math' as math;
@@ -302,9 +303,11 @@ class _MobileRollingOffsetBottomSheetState
                 onTap: onTap,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: isSelected ? makitaTeal : slate100,
+                    // 10-15 새 모양: 고른 방향은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+                    color: isSelected ? pickFill() : pureWhite,
                     border: Border.all(
-                      color: isSelected ? makitaTeal : Colors.grey.shade300,
+                      color: isSelected ? pickLine() : pickIdleLine(),
+                      width: isSelected ? 1.6 : 1.2,
                     ),
                     borderRadius: BorderRadius.circular(4),
                   ),
@@ -314,13 +317,13 @@ class _MobileRollingOffsetBottomSheetState
                       Icon(
                         dir['icon'],
                         size: 16,
-                        color: isSelected ? pureWhite : slate600,
+                        color: isSelected ? pickInk() : slate600,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         dir['label'].split(' ')[0],
                         style: TextStyle(
-                          color: isSelected ? pureWhite : slate900,
+                          color: isSelected ? pickInk() : slate900,
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                         ),

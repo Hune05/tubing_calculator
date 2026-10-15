@@ -179,18 +179,29 @@ extension _ConduitTab on _ElectricCalculatorPageState {
                     child: TextField(
                       key: Key('ec_cd_n_$i'),
                       controller: r.count,
-                      textAlign: TextAlign.right,
                       keyboardType: const TextInputType.numberWithOptions(),
                       textInputAction: TextInputAction.next,
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: fc.text,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
-                      decoration: const InputDecoration(
+                      // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리), 단위는 칸 안 오른쪽.
+                      decoration: InputDecoration(
                         isDense: true,
-                        border: InputBorder.none,
+                        filled: true,
+                        fillColor: fc.surface,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
                         suffixText: '가닥',
+                        suffixStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: fc.textSub,
+                        ),
                       ),
                       onChanged: (_) => _set(() {}),
                     ),

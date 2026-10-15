@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/field_view.dart';
 import '../common/calc_form_parts.dart';
+import '../common/calc_text_field.dart';
 import '../electrical/elec_tables.dart' show cuResistance;
 import 'cal_gas_tab.dart';
 import 'cal_record.dart';
@@ -510,34 +511,12 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
   ];
 
   /// 단위 칸(환산·교정 점검·스위치가 같은 값).
-  Widget _unitField(String tab) => calcBox(
-    child: Row(
-      children: [
-        Expanded(
-          flex: 5,
-          child: calcLabel('단위', '결과에 표시할 단위입니다. 계산에는 영향이 없습니다.'),
-        ),
-        Expanded(
-          flex: 4,
-          child: TextField(
-            key: Key('${tab}_unit'),
-            controller: _unit,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: fc.text,
-            ),
-            decoration: const InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
-        const SizedBox(width: 8),
-      ],
-    ),
+  Widget _unitField(String tab) => calcTextField(
+    key: Key('${tab}_unit'),
+    label: '단위',
+    controller: _unit,
+    help: calcHelp('단위', '결과에 표시할 단위입니다. 계산에는 영향이 없습니다.'),
+    onChanged: (_) => setState(() {}),
   );
 
   // ─────────────── ① 환산 ───────────────

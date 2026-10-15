@@ -916,32 +916,14 @@ mixin _PtRecordTab on State<PressureTestPage>, CalcFormParts<PressureTestPage> {
     TextEditingController c,
     String guide, {
     String? hint,
-  }) => calcBox(
-    child: Row(
-      children: [
-        Expanded(flex: 5, child: calcLabel(label, guide)),
-        Expanded(
-          flex: 5,
-          child: TextField(
-            key: Key(key),
-            controller: c,
-            textAlign: TextAlign.right,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: fc.text,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-              hintText: hint,
-            ),
-            onChanged: (_) => setState(() {}),
-          ),
-        ),
-        const SizedBox(width: 8),
-      ],
-    ),
+  }) => calcTextField(
+    // 10-15 새 모양: 이름은 칸 위, 값은 네모 칸(유지시간 칸과 같은 모양).
+    key: Key(key),
+    label: label,
+    controller: c,
+    help: guide.isEmpty ? null : calcHelp(label, guide),
+    hint: hint,
+    onChanged: (_) => setState(() {}),
   );
 
   Widget _bigButton(

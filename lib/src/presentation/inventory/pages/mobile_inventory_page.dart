@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
 import 'package:flutter/services.dart';
@@ -325,18 +326,10 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
             child: ChoiceChip(
               label: Text(id == 'ALL' ? '전체' : materialCategoryLabel(id)),
               labelStyle: TextStyle(
-                color: on ? pureWhite : slate600,
                 fontWeight: on ? FontWeight.w700 : FontWeight.w600,
                 fontSize: 14,
               ),
               selected: on,
-              selectedColor: makitaTeal,
-              backgroundColor: slate100,
-              showCheckmark: false,
-              side: BorderSide.none,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
               onSelected: (_) => setState(() => _filter = id),
             ),
           );

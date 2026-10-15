@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'dart:math' as math;
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/makita_numpad_glass.dart';
@@ -399,8 +400,13 @@ class _MobileParallelShrinkBottomSheetState
                   horizontal: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: isLeftActive ? makitaTeal : Colors.transparent,
+                  // 10-15 새 모양: 고른 쪽은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+                  color: isLeftActive ? pickFill() : Colors.transparent,
                   borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: isLeftActive ? pickLine() : Colors.transparent,
+                    width: 1.2,
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: FittedBox(
@@ -408,7 +414,7 @@ class _MobileParallelShrinkBottomSheetState
                   child: Text(
                     leftLabel,
                     style: TextStyle(
-                      color: isLeftActive ? pureWhite : slate600,
+                      color: isLeftActive ? pickInk() : slate600,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -426,8 +432,12 @@ class _MobileParallelShrinkBottomSheetState
                   horizontal: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: !isLeftActive ? makitaTeal : Colors.transparent,
+                  color: !isLeftActive ? pickFill() : Colors.transparent,
                   borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: !isLeftActive ? pickLine() : Colors.transparent,
+                    width: 1.2,
+                  ),
                 ),
                 alignment: Alignment.center,
                 child: FittedBox(
@@ -435,7 +445,7 @@ class _MobileParallelShrinkBottomSheetState
                   child: Text(
                     rightLabel,
                     style: TextStyle(
-                      color: !isLeftActive ? pureWhite : slate600,
+                      color: !isLeftActive ? pickInk() : slate600,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -534,9 +544,10 @@ class _MobileParallelShrinkBottomSheetState
           height: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isActive ? makitaTeal : pureWhite,
+            // 10-15 새 모양: 고른 번호는 옅은 청록 + 짙은 청록 글자.
+            color: isActive ? pickFill() : pureWhite,
             border: Border.all(
-              color: isActive ? makitaTeal : Colors.grey.shade300,
+              color: isActive ? pickLine() : pickIdleLine(),
               width: 1.5,
             ),
             borderRadius: BorderRadius.circular(4),
@@ -544,7 +555,7 @@ class _MobileParallelShrinkBottomSheetState
           child: Text(
             "$idx",
             style: TextStyle(
-              color: isActive ? pureWhite : slate900,
+              color: isActive ? pickInk() : slate900,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),

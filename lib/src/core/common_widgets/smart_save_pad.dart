@@ -220,13 +220,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
         child: Text(label, textAlign: TextAlign.center),
       ),
       selected: selected,
-      selectedColor: makitaTeal,
-      backgroundColor: _slate100,
-      showCheckmark: false,
-      side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       labelStyle: TextStyle(
-        color: selected ? _pureWhite : _slate600,
         fontWeight: FontWeight.bold,
         fontSize: 14,
       ),
@@ -239,13 +234,8 @@ class _SmartSavePadState extends State<SmartSavePad> {
     return ChoiceChip(
       label: Text(size),
       selected: isSel,
-      selectedColor: makitaTeal,
-      backgroundColor: _slate100,
-      showCheckmark: false,
-      side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
       labelStyle: TextStyle(
-        color: isSel ? _pureWhite : _slate600,
         fontWeight: FontWeight.bold,
         fontSize: 14,
       ),

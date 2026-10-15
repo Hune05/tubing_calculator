@@ -3,6 +3,7 @@
 // 화면(cutting_main_screen.dart)이 4,000줄이 넘어서 새로 만드는 모양은 여기에 두고, 값과 동작은 모두
 // 화면이 넘겨 준다(이 파일은 그리기만 한다). 계산은 cutting_diagram_view.dart의 요약을 그대로 쓴다.
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 
 import 'cutting_diagram_view.dart' show DiagramSummary;
 import 'cutting_math.dart' show fmtMm;
@@ -302,7 +303,8 @@ class CuttingResultChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = on ? Colors.white : Colors.grey.shade700;
+    // 10-15 새 모양: 켜진 단추는 옅은 청록 + 짙은 청록 글자·아이콘(앱 칩과 같게).
+    final fg = on ? pickInk() : Colors.grey.shade700;
     return Tooltip(
       message: label,
       child: InkWell(
@@ -314,8 +316,12 @@ class CuttingResultChip extends StatelessWidget {
               ? const EdgeInsets.symmetric(horizontal: 10, vertical: 6)
               : const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: on ? CuttingColors.primary : Colors.grey.shade100,
+            color: on ? pickFill() : Colors.grey.shade100,
             borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: on ? pickLine() : Colors.transparent,
+              width: 1.2,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,

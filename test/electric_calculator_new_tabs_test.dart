@@ -775,7 +775,8 @@ void main() {
           .decoration!;
       expect(dec().suffixText, '= 85%');
       await type(tester, 'ec_pf', '85');
-      expect(dec().suffixText, isNull);
+      // 10-15 새 모양: "= 85%"는 사라지고 칸의 단위 %만 남는다.
+      expect(dec().suffixText, '%');
     });
 
     testWidgets('역률에 1 이하를 넣으면 비율로 읽었다고 알려 준다', (tester) async {

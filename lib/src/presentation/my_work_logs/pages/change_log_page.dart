@@ -133,12 +133,6 @@ class _ChangeLogPageState extends State<ChangeLogPage> {
                           k == null ? '전체 ${all.length}' : kChangeKinds[k]!,
                         ),
                         selected: _kind == k,
-                        showCheckmark: false,
-                        selectedColor: AppColors.brandSoft,
-                        backgroundColor: AppColors.surface,
-                        side: BorderSide(
-                          color: _kind == k ? AppColors.brand : AppColors.line,
-                        ),
                         onSelected: (_) => setState(() => _kind = k),
                       ),
                     ),

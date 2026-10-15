@@ -2610,11 +2610,8 @@ class _MeasureDialogState extends State<_MeasureDialog> {
       key: Key(key),
       label: Text(label),
       selected: selected,
-      showCheckmark: false,
-      selectedColor: fc.brand,
       labelStyle: TextStyle(
         fontWeight: FontWeight.w700,
-        color: selected ? fc.onBrand : null,
       ),
       onSelected: (_) => setState(() {
         _inch = inch;

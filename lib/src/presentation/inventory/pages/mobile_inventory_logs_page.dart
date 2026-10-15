@@ -1,5 +1,6 @@
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -406,16 +407,27 @@ class _MobileInventoryLogsPageState extends State<MobileInventoryLogsPage> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
           decoration: BoxDecoration(
-            color: picked ? makitaTeal : slate100,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: picked ? pureWhite : slate600,
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+            // 10-15 새 모양: 고른 작업은 옅은 청록 + ✓ + 짙은 청록 글자(앱 칩과 같게).
+            color: picked ? pickFill() : pureWhite,
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(
+              color: picked ? pickLine() : pickIdleLine(),
+              width: 1.2,
             ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (picked) ...[pickCheck(), const SizedBox(width: 3)],
+              Text(
+                label,
+                style: TextStyle(
+                  color: picked ? pickInk() : slate900,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
       ),

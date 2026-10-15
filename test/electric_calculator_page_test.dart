@@ -149,10 +149,14 @@ void main() {
     final t = textIn(tester, const Key('ec_load_result'));
     expect(t, contains('17.6 A'));
     expect(t, contains('NEC 430.250 표 (460V) 21 A'));
-    expect(find.text('출력 (HP)'), findsOneWidget);
+    // 10-15 새 모양: 이름은 칸 위("출력"), 단위는 칸 안 오른쪽.
+    InputDecoration kwDec() =>
+        tester.widget<TextField>(find.byKey(const Key('ec_kw'))).decoration!;
+    expect(find.text('출력'), findsOneWidget);
+    expect(kwDec().suffixText, 'HP');
     await tester.tap(find.byKey(const Key('ec_unit_kw')));
     await tester.pump();
-    expect(find.text('출력 (kW)'), findsOneWidget);
+    expect(kwDec().suffixText, 'kW');
   });
 
   testWidgets('380V 11kW면 HD현대일렉트릭 IE3 전동기 22.2A를 참고로 보인다', (tester) async {
@@ -170,7 +174,8 @@ void main() {
     final row = find
         .ancestor(
           of: find.byKey(const Key('ec_kw')),
-          matching: find.byType(Row),
+          // 10-15 새 모양: "?"는 칸 위 이름 줄에 있다(칸과 같은 Column 안).
+          matching: find.byType(Column),
         )
         .first;
     await tester.tap(
@@ -213,7 +218,8 @@ void main() {
     expect(r, contains('부하 전류 개선 전 189.9 A → 개선 후 159.9 A'));
     expect(r, contains('콘덴서 전류 약 64 A'));
     expect(textIn(tester, const Key('ec_sum_pf')), '42.1 kvar · 774 μF');
-    expect(find.text('개선 전 역률 (%)'), findsOneWidget);
+    // 10-15 새 모양: 이름은 칸 위, 단위(%)는 칸 안 오른쪽.
+    expect(find.text('개선 전 역률'), findsOneWidget);
   });
 
   testWidgets('좁은 폰(344)·큰 글씨에서 네 탭 모두 넘치지 않는다', (tester) async {

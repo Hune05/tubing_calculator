@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/models/fitting_item.dart';
@@ -417,10 +418,12 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? makitaTeal : Colors.grey.shade100,
+              // 10-15 새 모양: 고른 크기는 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+              color: isSelected ? pickFill() : pureWhite,
               borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: isSelected ? makitaTeal : Colors.transparent,
+                color: isSelected ? pickLine() : pickIdleLine(),
+                width: 1.2,
               ),
             ),
             child: Text(
@@ -428,7 +431,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? pureWhite : textDark,
+                color: isSelected ? pickInk() : textDark,
               ),
             ),
           ),
@@ -451,10 +454,12 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: isSelected ? makitaTeal : pureWhite,
-              borderRadius: BorderRadius.circular(8),
+              // 10-15 새 모양: 고른 종류는 옅은 청록 + 짙은 청록 글자.
+              color: isSelected ? pickFill() : pureWhite,
+              borderRadius: BorderRadius.circular(4),
               border: Border.all(
-                color: isSelected ? makitaTeal : Colors.grey.shade300,
+                color: isSelected ? pickLine() : pickIdleLine(),
+                width: 1.2,
               ),
             ),
             child: Text(
@@ -462,7 +467,7 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? pureWhite : Colors.grey.shade700,
+                color: isSelected ? pickInk() : textDark,
               ),
             ),
           ),

@@ -315,8 +315,6 @@ extension _AlignResultTab on _AlignmentPageState {
                 key: Key('align_fix_${f.name}'),
                 label: Text(f.label),
                 selected: _fixed.contains(f),
-                showCheckmark: true,
-                selectedColor: fc.brandSoft,
                 onSelected: (_) => pick(f),
               ),
           ],

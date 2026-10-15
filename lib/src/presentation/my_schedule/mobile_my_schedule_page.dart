@@ -6,6 +6,7 @@ import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'dart:async';
 import '../my_work_logs/widgets/work_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/core/utils/cache_first.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/common_widgets/swipe_to_delete.dart';
@@ -1556,14 +1557,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                               Duration(days: n - 1),
                                             ),
                                           ),
-                                          selectedColor: scheduleTeal,
                                           labelStyle: TextStyle(
-                                            color: selected
-                                                ? Colors.white
-                                                : scheduleText,
                                             fontWeight: FontWeight.bold,
                                           ),
-                                          backgroundColor: Colors.grey.shade100,
                                         );
                                       },
                                     ),
@@ -1621,14 +1617,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   selected: selected,
                                   onSelected: (_) =>
                                       setSheetState(() => recurrence = e.key),
-                                  selectedColor: scheduleTeal,
                                   labelStyle: TextStyle(
-                                    color: selected
-                                        ? Colors.white
-                                        : scheduleText,
                                     fontWeight: FontWeight.bold,
                                   ),
-                                  backgroundColor: Colors.grey.shade100,
                                 );
                               }).toList(),
                             ),
@@ -1721,14 +1712,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                       onSelected: (_) => setSheetState(
                                         () => reminders.clear(),
                                       ),
-                                      selectedColor: scheduleTeal,
                                       labelStyle: TextStyle(
-                                        color: none
-                                            ? Colors.white
-                                            : scheduleText,
                                         fontWeight: FontWeight.bold,
                                       ),
-                                      backgroundColor: Colors.grey.shade100,
                                     );
                                   },
                                 ),
@@ -1751,15 +1737,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                         reminders.remove(e.key);
                                       }
                                     }),
-                                    selectedColor: scheduleTeal,
-                                    checkmarkColor: Colors.white,
                                     labelStyle: TextStyle(
-                                      color: reminders.contains(e.key)
-                                          ? Colors.white
-                                          : scheduleText,
                                       fontWeight: FontWeight.bold,
                                     ),
-                                    backgroundColor: Colors.grey.shade100,
                                   ),
                               ],
                             ),
@@ -3388,8 +3368,13 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 10),
             decoration: BoxDecoration(
-              color: selected ? scheduleTeal : Colors.transparent,
+              // 10-15 새 모양: 고른 보기는 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
+              color: selected ? pickFill() : Colors.transparent,
               borderRadius: BorderRadius.circular(4),
+              border: Border.all(
+                color: selected ? pickLine() : Colors.transparent,
+                width: 1.2,
+              ),
             ),
             alignment: Alignment.center,
             child: Text(
@@ -3397,7 +3382,7 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
-                color: selected ? Colors.white : Colors.grey.shade600,
+                color: selected ? pickInk() : Colors.grey.shade600,
               ),
             ),
           ),
@@ -4275,12 +4260,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
             HapticFeedback.selectionClick();
             setState(() => _activeProjectFilter = selected ? null : id);
           },
-          selectedColor: scheduleTeal,
           labelStyle: TextStyle(
-            color: selected ? Colors.white : scheduleText,
             fontWeight: FontWeight.bold,
           ),
-          backgroundColor: Colors.grey.shade100,
           visualDensity: VisualDensity.compact,
         ),
       );

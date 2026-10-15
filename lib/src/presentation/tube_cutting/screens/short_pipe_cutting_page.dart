@@ -286,15 +286,8 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
         label: Text(label),
         selected: selected,
         onSelected: (_) => onTap(),
-        selectedColor: CuttingColors.primarySoft,
-        backgroundColor: CuttingColors.surface,
-        surfaceTintColor: Colors.transparent,
-        side: BorderSide(
-          color: selected ? CuttingColors.primary : CuttingColors.border,
-        ),
         labelStyle: TextStyle(
           fontWeight: FontWeight.w800,
-          color: selected ? CuttingColors.primary : CuttingColors.textSecondary,
         ),
       );
 
