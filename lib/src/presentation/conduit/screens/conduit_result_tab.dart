@@ -5,8 +5,8 @@ import 'package:tubing_calculator/src/core/theme/field_view.dart';
 import 'package:flutter/services.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 import 'package:tubing_calculator/src/presentation/calculator/widgets/bend_warning_banner.dart';
-import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart'
-    show markCardSliver;
+import 'package:tubing_calculator/src/presentation/calculator/widgets/step_mark_card.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 
 // 🚀 매니저 임포트: 전선관 전용 매니저
 import 'package:tubing_calculator/src/data/models/conduit_data_manager.dart';
@@ -326,11 +326,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   }
 
   Widget _buildHandMarkingCard(int index, Map<String, dynamic> item) {
-    return _buildBaseMarkingCard(
-      index: index,
-      item: item,
-      themeColor: makitaTeal,
-    );
+    return _buildBaseMarkingCard(index: index, item: item);
   }
 
   // ==========================================
@@ -341,7 +337,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       totalCut: totalCut,
       title: "총 절단 길이 (유압식)",
       icon: AppGlyph.benderRam,
-      themeColor: ramBlue,
+      themeColor: makitaTeal,
       // 10-09: 유압은 마킹을 슈 가운데에 맞춘다 — 꺾이는 점에서 게인의 절반 앞.
       deductionLabel: "슈 가운데까지 (90°, 게인 ÷ 2)",
       deductionValue: ramShoeCenterOffset(
@@ -359,20 +355,18 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     return _buildBaseMarkingCard(
       index: index,
       item: item,
-      themeColor: ramBlue,
-      extraWidget: (!isStraight)
-          ? _buildExtraInfoBox(
-              icon: AppGlyph.benderRam,
-              // 🚀 [고침] 유압 램은 관 굵기·받침 간격에 따라 실제로 밀어야 하는
-              // 양이 달라진다. 이 값은 sin(각/2) 비율로 잡은 어림값이므로,
-              // 값 옆에 어림값이라고 적어 한 번 재 보고 쓰게 한다.
-              label: "램 이동 거리(대략):",
-              valueText: ramTravel > 0
-                  ? "${ramTravel.toStringAsFixed(1)} mm · 첫 벤드는 측정해 확인하십시오"
-                  : "설정에서 값을 넣으십시오",
-              themeColor: ramBlue,
-            )
-          : null,
+      // 🚀 [고침] 유압 램은 관 굵기·받침 간격에 따라 실제로 밀어야 하는
+      // 양이 달라진다. 이 값은 sin(각/2) 비율로 잡은 어림값이므로,
+      // 값 옆에 어림값이라고 적어 한 번 재 보고 쓰게 한다.
+      extra: isStraight
+          ? null
+          : (
+              AppIcons.info,
+              ramTravel > 0
+                  ? "램 이동 (대략) ${ramTravel.toStringAsFixed(1)} mm · 첫 벤드는 실측"
+                  : "램 이동: 설정에서 값을 넣으십시오",
+              stepNoteTeal,
+            ),
     );
   }
 
@@ -387,7 +381,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
       totalCut: totalCut,
       title: "총 절단 길이 (시카고식)",
       icon: AppGlyph.benderChicago,
-      themeColor: chicagoPurple,
+      themeColor: makitaTeal,
       deductionLabel: "설정된 테이크업",
       deductionValue: settings['takeUp'] ?? 0.0,
       couplingAllowance: conduitCouplingAllowance(settings),
@@ -401,25 +395,24 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     return _buildBaseMarkingCard(
       index: index,
       item: item,
-      themeColor: chicagoPurple,
-      extraWidget: (!isStraight)
-          ? _buildExtraInfoBox(
-              icon: AppGlyph.benderChicago,
-              label: "기어/노치 진행:",
+      extra: isStraight
+          ? null
+          : (
+              AppIcons.info,
               // 10-09: 칸 수는 스프링백을 얹은 각도로 셈한다(사용법의 "한두 칸 더"와 겹치지 않게 적는다).
               // 0칸은 각이 한 칸보다 작을 때도 나온다(예전 안내 "설정에서 값을 넣으십시오"는 틀렸다).
-              valueText: notches > 0
+              "기어/노치 진행 ${notches > 0
                   ? "$notches 칸 이동${(globalBenderSettings.value['applySpringback'] ?? true) == true ? ' (스프링백 포함)' : ''}"
-                  : "한 칸보다 작은 각입니다(설정의 칸당 각도 확인)",
-              themeColor: chicagoPurple,
-            )
-          : null,
+                  : "한 칸보다 작은 각입니다(설정의 칸당 각도 확인)"}",
+              stepNoteTeal,
+            ),
     );
   }
 
   // ==========================================
   // 🧱 공통 UI 빌더
   // ==========================================
+  // 10-15 새 모양: 튜브와 같은 총 절단 길이 카드. 벤더 종류는 색(파랑·보라) 대신 제목 옆 글로.
   Widget _buildBaseDashboard({
     required double totalCut,
     required String title,
@@ -429,138 +422,40 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     required double deductionValue,
     required double couplingAllowance,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: themeColor.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: slate900.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: themeColor,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: anyIcon(icon, color: pureWhite, size: 12),
+    final m = RegExp(r'(([^()]+))$').firstMatch(title);
+    return CutLengthCard(
+      totalCut: totalCut,
+      tag: m?.group(1),
+      under: _useCoupling
+          ? Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                "끝 여유 ${couplingAllowance.round()}mm 포함 · 벤딩한 뒤 반대쪽 끝을 맞춰 자르십시오",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: slate600),
               ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: TextStyle(
-                  color: themeColor,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // 아주 큰 값이면 줄여서 카드 안에 보인다(넘치지 않게).
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
+            )
+          : null,
+      bottom: [
+        Row(
+          children: [
+            Expanded(
+              child: CardLabelValue(deductionLabel, "${deductionValue.round()} mm"),
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  "${totalCut.round()}",
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    color: slate900,
-                    letterSpacing: -1,
-                    height: 1.0,
-                    fontFamily: 'monospace',
+                Text("커플링", style: cardLabelStyle.copyWith(color: slate600)),
+                const SizedBox(height: 4),
+                // 하나만 고르는 붙은 네모 줄(앱 공통 고르기 모양, ✓)
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: pickIdleLine(fc), width: 1.2),
                   ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  "mm",
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: slate600,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_useCoupling) ...[
-            const SizedBox(height: 6),
-            Text(
-              "끝 여유 ${couplingAllowance.round()}mm 포함 · 벤딩한 뒤 반대쪽 끝을 맞춰 자르십시오",
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: slate600,
-              ),
-            ),
-          ],
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Divider(height: 1, color: slate200),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      deductionLabel,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: slate600,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      "${deductionValue.round()} mm",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w900,
-                        color: slate900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 1,
-                height: 24,
-                color: slate200,
-                margin: const EdgeInsets.symmetric(horizontal: 6),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    "커플링",
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: slate600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
+                  clipBehavior: Clip.antiAlias,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       _buildToggleBtn(
                         title: "미체결",
@@ -568,7 +463,7 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                         themeColor: themeColor,
                         onTap: () => setState(() => _useCoupling = false),
                       ),
-                      const SizedBox(width: 4),
+                      Container(width: 1, height: 30, color: pickIdleLine(fc)),
                       _buildToggleBtn(
                         title: "체결",
                         isSelected: _useCoupling,
@@ -577,12 +472,12 @@ class _ConduitResultTabState extends State<ConduitResultTab>
                       ),
                     ],
                   ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -590,11 +485,12 @@ class _ConduitResultTabState extends State<ConduitResultTab>
   String _fmtAngle(double a) =>
       a == a.roundToDouble() ? a.toStringAsFixed(0) : a.toStringAsFixed(1);
 
+  /// 마킹 카드(10-15 새 모양): 튜브와 같은 [StepMarkCard]. 벤더 종류별 덧붙임(램 이동·노치)은
+  /// [extra]로 받아 카드 아래 줄에 둔다. 색은 청록 하나(예전: 유압 파랑·시카고 보라).
   Widget _buildBaseMarkingCard({
     required int index,
     required Map<String, dynamic> item,
-    required Color themeColor,
-    Widget? extraWidget,
+    StepNote? extra,
   }) {
     double angle = (item['angle'] as num).toDouble();
     double targetAngle = (item['targetAngle'] as num?)?.toDouble() ?? angle;
@@ -606,265 +502,37 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     final int markNo = (item['markNo'] as num?)?.toInt() ?? (index + 1);
     // 앞 마킹보다 뒤로 간 벤드. 그 사이 곧은 부분이 벤더에 물릴 만큼 없다.
     final bool isShort = item['short'] == true;
-    final Color noteColor = isShort
-        ? fc.caution
-        : (isStraight ? slate600 : themeColor);
     final double roll = isStraight ? 0 : (_rolls[index] ?? 0);
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: pureWhite,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: isStraight ? slate200 : themeColor.withValues(alpha: 0.2),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: slate900.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+    return StepMarkCard(
+      key: Key('conduit_mark_$index'),
+      isStraight: isStraight,
+      markNum: markNo,
+      mark: mark.round(),
+      // "실제 N°"는 스프링백을 얹어 각이 다를 때만(튜브 카드와 같게). 22.5°는 그대로.
+      title: isStraight
+          ? "직관 연장 마킹"
+          : (targetAngle - angle).abs() > 0.05
+          ? "${_fmtAngle(angle)}° 벤딩 (실제 ${targetAngle.toStringAsFixed(1)}°)"
+          : "${_fmtAngle(angle)}° 벤딩",
+      dirIcon: isStraight ? null : Icons.turn_right_rounded,
+      dirText: isStraight ? null : _getDirectionText(rotation),
+      notes: [
+        if (note.isNotEmpty)
+          (
+            isShort ? AppIcons.warning : AppIcons.info,
+            note,
+            isShort ? stepNoteAmber : (isStraight ? stepNoteGrey : stepNoteTeal),
           ),
-        ],
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 60,
-              decoration: BoxDecoration(
-                color: isStraight ? slate200 : themeColor,
-                borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(15),
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    isStraight ? "직관" : "STEP",
-                    style: TextStyle(
-                      fontSize: isStraight ? 13 : 10,
-                      fontWeight: FontWeight.w900,
-                      color: isStraight
-                          ? slate600
-                          : pureWhite.withValues(alpha: 0.7),
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  if (!isStraight)
-                    Text(
-                      "$markNo",
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: pureWhite,
-                        height: 1.1,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // 🚀 [고침] 좁은 폭에서 방향 상자와 함께 넘쳤다.
-                        // 22.5°를 '22°'로 잘라 보이던 것도 고쳤다.
-                        Flexible(
-                          child: Text(
-                            // "실제 N°"는 스프링백을 얹어 각이 다를 때만(튜브 카드와 같게).
-                            isStraight
-                                ? "직관 연장 마킹"
-                                : (targetAngle - angle).abs() > 0.05
-                                ? "${_fmtAngle(angle)}° 벤딩 (실제 ${targetAngle.toStringAsFixed(1)}°)"
-                                : "${_fmtAngle(angle)}° 벤딩",
-                            style: TextStyle(
-                              color: slate600,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        if (!isStraight)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: themeColor.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: themeColor.withValues(alpha: 0.3),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.turn_right_rounded,
-                                  color: themeColor,
-                                  size: 12,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  _getDirectionText(rotation),
-                                  style: TextStyle(
-                                    color: themeColor,
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: slate100,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.baseline,
-                          textBaseline: TextBaseline.alphabetic,
-                          children: [
-                            Text(
-                              "${mark.round()}",
-                              style: TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.w900,
-                                color: slate900,
-                                fontFamily: 'monospace',
-                                letterSpacing: -1,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              "mm",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: slate600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (note.isNotEmpty) ...[
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Icon(
-                            isShort ? AppIcons.warning : AppIcons.info,
-                            size: 14,
-                            color: noteColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              note,
-                              style: TextStyle(
-                                color: noteColor,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    if (roll > 0.5) ...[
-                      const SizedBox(height: 8),
-                      Row(
-                        key: Key('conduit_roll_$index'),
-                        children: [
-                          Icon(AppIcons.warning, size: 14, color: fc.caution),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              markNo <= 1
-                                  ? "꺾기 전에 관을 ${roll.round()}° 굴려 잡으십시오"
-                                  : "앞 벤드에서 ${roll.round()}° 굴려 물리십시오",
-                              style: TextStyle(
-                                color: fc.caution,
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    ?extraWidget,
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildExtraInfoBox({
-    required Object icon,
-    required String label,
-    required String valueText,
-    required Color themeColor,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: themeColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: themeColor.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        children: [
-          anyIcon(icon, size: 16, color: themeColor),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: themeColor,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+        if (roll > 0.5)
+          (
+            AppIcons.warning,
+            markNo <= 1
+                ? "꺾기 전에 관을 ${roll.round()}° 굴려 잡으십시오"
+                : "앞 벤드에서 ${roll.round()}° 굴려 물리십시오",
+            stepNoteAmber,
           ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              valueText,
-              style: TextStyle(
-                color: themeColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
+        ?extra,
+      ],
     );
   }
 
@@ -874,30 +542,33 @@ class _ConduitResultTabState extends State<ConduitResultTab>
     required Color themeColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
       },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: isSelected ? themeColor : slate100,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: isSelected ? themeColor : slate200),
-        ),
-        child: Text(
-          title,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: isSelected ? pureWhite : slate600,
-          ),
+      child: Container(
+        height: 30,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        color: isSelected ? pickFill(fc) : fc.surface,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[pickCheck(fc, 14), const SizedBox(width: 3)],
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.bold,
+                color: isSelected ? pickInk(fc) : fc.text,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
 
   Widget _buildEmptyState() {
     return Center(

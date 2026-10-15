@@ -68,13 +68,15 @@ void main() {
     expect(find.text('총 절단 길이'), findsOneWidget);
     expect(find.text('${data.totalCut.round()}'), findsWidgets);
     // 벤딩에만 STEP 번호(1, 2), 직관은 번호 없이.
-    expect(find.text('STEP'), findsNWidgets(2));
-    expect(find.text('직관 연장 마킹'), findsNWidgets(2));
+    // 10-15 새 모양: STEP 글 대신 세로 순서 줄의 번호 네모(벤드만).
+    expect(find.byKey(const Key('step_badge_1')), findsOneWidget);
+    expect(find.byKey(const Key('step_badge_2')), findsOneWidget);
+    expect(find.byKey(const Key('step_straight_row')), findsNWidgets(2));
     for (final b in data.bends) {
       expect(find.text('${b.position.round()}'), findsWidgets);
     }
     // 스프링백은 "실제" 각도로, 두 번째 벤드는 굴림 안내.
-    expect(find.text('90° 벤딩 (실제 92.0°)'), findsNWidgets(2));
+    expect(find.text('90° 벤딩 · 실제 92.0°', findRichText: true), findsNWidgets(2));
     expect(find.textContaining('굴려 물리십시오'), findsOneWidget);
     expect(find.textContaining('앞 마킹과의 거리'), findsOneWidget);
     // 저장·마킹지는 오른쪽 위 아이콘.

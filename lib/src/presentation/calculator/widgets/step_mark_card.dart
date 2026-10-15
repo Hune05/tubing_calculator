@@ -5,7 +5,6 @@ library;
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
-import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
 
 const Color _teal = AppColors.brand;
 const Color _slate900 = AppColors.text;
@@ -69,10 +68,148 @@ class StepMarkCard extends StatelessWidget {
     final Color selColor = p == FieldPalette.normal
         ? Colors.orange.shade400
         : p.caution;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
+    // 10-15 새 모양(사용자 고름): 왼쪽 가는 세로 순서 줄 + 벤드 번호 네모, 직관은 얇은 한 줄,
+    // 벤드 카드는 마킹 숫자를 가장 크게. 색은 청록 하나(주의만 주황).
+    final bool warn = notes.any((n) => n.$3 == stepNoteAmber);
+    final rail = SizedBox(
+      width: 30,
+      child: Stack(
+        alignment: Alignment.topCenter,
+        children: [
+          Positioned.fill(
+            child: Center(child: Container(width: 2, color: p.line)),
+          ),
+          Padding(
+            padding: EdgeInsets.only(top: isStraight ? 16 : 14),
+            child: isStraight
+                ? Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: selected ? selColor : p.surface,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selected ? selColor : p.textFaint,
+                        width: 2,
+                      ),
+                    ),
+                  )
+                : Container(
+                    key: Key('step_badge_$markNum'),
+                    width: 26,
+                    height: 26,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: selected ? selColor : p.brand,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      "$markNum",
+                      style: TextStyle(
+                        color: p.onBrand,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+    Widget noteRow(StepNote n) {
+      final (icon, text, color) = n;
+      final c = color == stepNoteAmber
+          ? p.caution
+          : (color == stepNoteTeal ? p.text : _noteColor(p, color));
+      return Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(icon, size: 13, color: color == stepNoteAmber ? p.caution : p.textSub),
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                text,
+                style: TextStyle(
+                  color: c,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final Widget body;
+    if (isStraight) {
+      // 직관: 얇은 한 줄(무엇 · 값). 주의 글이 있으면 그 아래에.
+      final first = notes.isEmpty ? null : notes.first;
+      final lead = first == null || first.$3 == stepNoteAmber
+          ? '직관'
+          : (first.$2.startsWith('직관') ? first.$2 : '직관 · ${first.$2}');
+      final rest = first == null || first.$3 == stepNoteAmber ? notes : notes.skip(1);
+      body = Container(
+        key: const Key('step_straight_row'),
+        padding: const EdgeInsets.fromLTRB(4, 9, 6, 10),
+        decoration: BoxDecoration(
+          color: selected ? fieldSoftIn(p, Colors.orange.shade50, p.caution) : null,
+          border: Border(bottom: BorderSide(color: p.line)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Expanded(
+                  child: Text(
+                    lead,
+                    style: TextStyle(
+                      color: p.textSub,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  "$mark",
+                  style: TextStyle(
+                    color: p.text,
+                    fontSize: 19,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  "mm",
+                  style: TextStyle(color: p.textSub, fontSize: 12, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            for (final n in rest) noteRow(n),
+          ],
+        ),
+      );
+    } else {
+      // "90° 벤딩 (실제 93.0°)" → 굵은 "90° 벤딩" + 옅은 "· 실제 93.0°"
+      final open = title.indexOf(' (');
+      final head = open < 0 ? title : title.substring(0, open);
+      final tail = open < 0
+          ? null
+          : title.substring(open + 2).replaceAll(')', '');
+      body = Container(
+        margin: const EdgeInsets.only(top: 6, bottom: 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
           color: selected
               ? fieldSoftIn(p, Colors.orange.shade50, p.caution)
@@ -81,150 +218,89 @@ class StepMarkCard extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? selColor
-                : (isStraight ? p.line : p.brand.withValues(alpha: 0.2)),
+                : (warn ? Color.lerp(p.line, p.caution, 0.55)! : p.line),
             width: selected ? 2 : 1,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: p.text.withValues(alpha: 0.02),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: head,
+                          style: TextStyle(color: p.text, fontWeight: FontWeight.w800),
+                        ),
+                        if (tail != null)
+                          TextSpan(
+                            text: ' · $tail',
+                            style: TextStyle(color: p.textSub, fontWeight: FontWeight.w500),
+                          ),
+                      ],
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                ),
+                if (dirText != null) _DirChip(icon: dirIcon, text: dirText!),
+              ],
             ),
+            const SizedBox(height: 6),
+            Text(
+              "마킹 위치",
+              style: TextStyle(color: p.textSub, fontSize: 11.5, fontWeight: FontWeight.w600),
+            ),
+            // 6자리 넘는 값은 320 폭에서 넘쳤다. 칸 폭에 맞게 줄인다.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    "$mark",
+                    style: TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w900,
+                      color: p.text,
+                      height: 1.1,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    "mm",
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: p.textSub),
+                  ),
+                ],
+              ),
+            ),
+            if (notes.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Divider(height: 1, color: p.line),
+              const SizedBox(height: 2),
+              for (final n in notes) noteRow(n),
+            ],
           ],
         ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 60,
-                decoration: BoxDecoration(
-                  color: selected ? selColor : (isStraight ? p.line : p.brand),
-                  borderRadius: const BorderRadius.horizontal(
-                    left: Radius.circular(6),
-                  ),
-                ),
-                child: isStraight
-                    ? Center(
-                        child: AppIcon(
-                          AppGlyph.straightPipe,
-                          color: selected ? p.onBrand : p.textSub,
-                          size: 26,
-                        ),
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "STEP",
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              color: p.onBrand.withValues(alpha: 0.7),
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          Text(
-                            "$markNum",
-                            style: TextStyle(
-                              fontSize: 32,
-                              fontWeight: FontWeight.w900,
-                              color: p.onBrand,
-                              height: 1.1,
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: TextStyle(
-                                color: p.textSub,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          if (!isStraight && dirText != null)
-                            _DirChip(icon: dirIcon, text: dirText!),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: p.background,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        // 6자리 넘는 값은 320 폭에서 넘쳤다. 칸 폭에 맞게 줄인다.
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.baseline,
-                            textBaseline: TextBaseline.alphabetic,
-                            children: [
-                              Text(
-                                "$mark",
-                                style: TextStyle(
-                                  fontSize: 30,
-                                  fontWeight: FontWeight.w900,
-                                  color: p.text,
-                                  fontFamily: 'monospace',
-                                  letterSpacing: -1,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                "mm",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                  color: p.textSub,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      for (final (icon, text, color) in notes) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Icon(icon, size: 14, color: _noteColor(p, color)),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                text,
-                                style: TextStyle(
-                                  color: _noteColor(p, color),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            rail,
+            const SizedBox(width: 6),
+            Expanded(child: body),
+          ],
         ),
       ),
     );
@@ -239,26 +315,27 @@ class _DirChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = FieldPalette.ofContext(context);
+    // 10-15: 옅은 청록 알약 대신 회색 테두리 네모 + 청록 화살표 + 짙은 글자.
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: p.brand.withValues(alpha: 0.1),
+        color: p.surface,
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: p.brand.withValues(alpha: 0.3)),
+        border: Border.all(color: Color.lerp(p.line, p.textFaint, 0.45)!, width: 1.2),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, color: p.brand, size: 12),
+            Icon(icon, color: p.brand, size: 14),
             const SizedBox(width: 4),
           ],
           Text(
             text,
             style: TextStyle(
-              color: p.brand,
+              color: p.text,
               fontWeight: FontWeight.w900,
-              fontSize: 11,
+              fontSize: 12,
             ),
           ),
         ],
@@ -267,18 +344,22 @@ class _DirChip extends StatelessWidget {
   }
 }
 
-/// 총 절단 길이 카드의 겉(흰 카드, 옅은 청록 테두리, 가위 아이콘·제목·큰 숫자).
+/// 총 절단 길이 카드(10-15 새 모양: 얇은 회색 테두리, 그림자 없음, 제목 옆 [tag]로 벤더 종류).
 /// 아래 칸([bottom])은 쓰는 곳마다 다르다.
 class CutLengthCard extends StatelessWidget {
   final double totalCut;
   final Widget? under;
   final List<Widget> bottom;
 
+  /// 제목 오른쪽 작은 표시(예: "유압식"). 색 대신 글로 구분한다.
+  final String? tag;
+
   const CutLengthCard({
     super.key,
     required this.totalCut,
     this.under,
     this.bottom = const [],
+    this.tag,
   });
 
   @override
@@ -286,49 +367,42 @@ class CutLengthCard extends StatelessWidget {
     final p = FieldPalette.ofContext(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: p.surface,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: p.brand.withValues(alpha: 0.3)),
-        boxShadow: [
-          BoxShadow(
-            color: p.text.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: p.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: p.brand,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: AppIcon(
-                  AppGlyph.tubeCut,
-                  color: p.onBrand,
-                  size: 18,
-                  filled: false,
+              Expanded(
+                child: Text(
+                  "총 절단 길이",
+                  style: TextStyle(
+                    color: p.textSub,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                "총 절단 길이",
-                style: TextStyle(
-                  color: p.brand,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
+              if (tag != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Color.lerp(p.line, p.textFaint, 0.45)!),
+                  ),
+                  child: Text(
+                    tag!,
+                    style: TextStyle(color: p.text, fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           // 다섯 자리 길이·글자 크게에서 카드 밖으로 넘치지 않게(전선관 쪽과 같이 줄여 맞춘다).
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -343,9 +417,8 @@ class CutLengthCard extends StatelessWidget {
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
                     color: p.text,
-                    letterSpacing: -1,
-                    height: 1.0,
-                    fontFamily: 'monospace',
+                    height: 1.05,
+                    fontFeatures: const [FontFeature.tabularFigures()],
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -363,7 +436,7 @@ class CutLengthCard extends StatelessWidget {
           ?under,
           for (final b in bottom) ...[
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: Divider(height: 1, color: p.line),
             ),
             b,

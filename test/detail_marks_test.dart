@@ -86,8 +86,10 @@ void main() {
       expect(find.text('${b.position.round()}'), findsWidgets);
     }
     expect(find.text('0'), findsNothing);
-    expect(find.text('STEP'), findsNWidgets(2));
-    expect(find.text('90° 벤딩 (실제 92.0°)'), findsNWidgets(2));
+    // 10-15 새 모양: STEP 글 대신 세로 순서 줄의 번호 네모(벤드만).
+    expect(find.byKey(const Key('step_badge_1')), findsOneWidget);
+    expect(find.byKey(const Key('step_badge_2')), findsOneWidget);
+    expect(find.text('90° 벤딩 · 실제 92.0°', findRichText: true), findsNWidgets(2));
     expect(find.textContaining('지금 장비 설정(반경 38mm)'), findsOneWidget);
   });
 
