@@ -227,8 +227,6 @@ class _ElecBatteryTabState extends State<ElecBatteryTab>
         ),
         decoration: InputDecoration(
           isDense: true,
-          filled: true,
-          fillColor: fc.surface,
           contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
           hintText: hint,
           hintStyle: TextStyle(fontSize: 13, color: fc.textSub),

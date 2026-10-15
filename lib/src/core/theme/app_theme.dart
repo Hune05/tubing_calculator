@@ -202,6 +202,13 @@ ThemeData buildAppTheme([FieldPalette p = FieldPalette.normal]) {
         ),
       ),
       helperStyle: TextStyle(color: p.textSub, fontSize: 12),
+      // 10-15 사용자: 칸 이름은 늘 테두리에 걸치게(압력 타이머처럼) — 비어 있어도 위로 올려 둔다.
+      floatingLabelBehavior: FloatingLabelBehavior.always,
+      // 칸 바탕은 흰색, 잠긴 칸은 회색(바탕이 회색인 화면에서도 칸이 보이게).
+      filled: true,
+      fillColor: WidgetStateColor.resolveWith(
+        (s) => s.contains(WidgetState.disabled) ? p.fill : p.surface,
+      ),
       errorMaxLines: 3,
       // 상태별 테두리를 border 하나로(WidgetStateInputBorder). enabledBorder 등을 따로 주면
       // 칸이 'border: InputBorder.none'으로 테두리를 뺀 곳까지 덮어써 상자 안에 상자가 생겼다.

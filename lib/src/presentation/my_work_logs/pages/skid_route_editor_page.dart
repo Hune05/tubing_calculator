@@ -284,7 +284,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
               visualDensity: VisualDensity.compact,
               selected: id == _view,
-              showCheckmark: false,
+              // 10-15 통일: 고른 면도 ✓(테마 칩 모양)
               labelStyle: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w800,
@@ -365,7 +365,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
                               vertical: 4,
                             ),
                             selected: id == view,
-                            showCheckmark: false,
+                            // 10-15 통일: 고른 면도 ✓(테마 칩 모양)
                             labelStyle: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
@@ -603,7 +603,7 @@ class _SkidRouteEditorPageState extends State<SkidRouteEditorPage> {
         decoration: InputDecoration(
           labelText: label,
           isDense: true,
-          border: const OutlineInputBorder(),
+          // 10-15 통일: 테두리는 테마 기본
         ),
       );
 

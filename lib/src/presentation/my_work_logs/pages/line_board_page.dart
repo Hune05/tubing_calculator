@@ -102,7 +102,7 @@ class _LineBoardPageState extends State<LineBoardPage> {
               maxLines: 10,
               decoration: const InputDecoration(
                 hintText: '1F-PT-101\n1F-PT-102',
-                border: OutlineInputBorder(),
+                // 10-15 통일: 테두리는 테마 기본
               ),
             ),
           ],
@@ -243,7 +243,8 @@ class _LineBoardPageState extends State<LineBoardPage> {
               controller: ctrl,
               minLines: 4,
               maxLines: 8,
-              decoration: const InputDecoration(border: OutlineInputBorder()),
+              // 10-15 통일: 테두리는 테마 기본
+              decoration: const InputDecoration(),
             ),
           ],
         ),

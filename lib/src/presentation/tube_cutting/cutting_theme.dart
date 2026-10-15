@@ -1,3 +1,4 @@
+import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
@@ -180,12 +181,7 @@ Future<double?> showBladeKerfDialog(
             ),
             decoration: InputDecoration(
               suffixText: "mm / 회",
-              filled: true,
-              fillColor: Colors.grey.shade100,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: BorderSide.none,
-              ),
+              // 10-15 통일: 테두리·바탕은 테마 기본
             ),
           ),
         ],
@@ -273,7 +269,13 @@ class CuttingTheme extends StatelessWidget {
 
   static ThemeData of(BuildContext context) {
     final base = ThemeData.light(useMaterial3: true);
+    // 10-15 통일: 입력 칸·칩·나눔 단추·체크는 앱 테마 그대로(ThemeData.light가 지워서 따로 보였다)
+    final app = buildAppTheme();
     return base.copyWith(
+      inputDecorationTheme: app.inputDecorationTheme,
+      chipTheme: app.chipTheme,
+      segmentedButtonTheme: app.segmentedButtonTheme,
+      checkboxTheme: app.checkboxTheme,
       scaffoldBackgroundColor: CuttingColors.background,
       colorScheme: base.colorScheme.copyWith(
         primary: CuttingColors.primary,

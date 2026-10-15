@@ -701,19 +701,10 @@ class _MobileFabricationDetailScreenState
         decoration: InputDecoration(
           labelText: label,
           labelStyle: const TextStyle(color: slate600, fontSize: 14),
-          filled: true,
-          fillColor: slate100,
+          // 10-15 통일: 테두리·바탕은 테마 기본
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 16,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: makitaTeal, width: 2),
           ),
         ),
       );

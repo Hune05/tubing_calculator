@@ -308,7 +308,6 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
         labelText: label,
         helperText: h,
         isDense: true,
-        border: const OutlineInputBorder(),
       ),
     ),
   );
@@ -337,7 +336,6 @@ class _CalibrateDialogState extends State<_CalibrateDialog> {
               decoration: const InputDecoration(
                 labelText: '프로필 이름 (벤더·절곡 금형)',
                 isDense: true,
-                border: OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 8),

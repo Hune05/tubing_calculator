@@ -745,7 +745,14 @@ class _DrawingViewerPageState extends State<DrawingViewerPage> {
                               border: Border.all(color: Color(c.argb), width: 1.5),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: Text(c.meaning, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: color == c ? Colors.white : Color(c.argb))),
+                            // 10-15 통일: 고른 색에 ✓(바탕이 뜻 색이라 흰색)
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (color == c) ...[const Icon(Icons.check_rounded, size: 12, color: Colors.white), const SizedBox(width: 2)],
+                                Text(c.meaning, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w800, color: color == c ? Colors.white : Color(c.argb))),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1086,6 +1093,7 @@ class _InfoSheetState extends State<_InfoSheet> {
             const Text('원본 파일은 바꾸지 않고, 표시는 따로 저장합니다.', style: TextStyle(fontSize: 12, color: AppColors.textSub)),
             const SizedBox(height: 8),
             TextField(key: const Key('dv_info_title'), controller: _title, decoration: const InputDecoration(labelText: '도면명 (비우면 파일 이름)')),
+            const SizedBox(height: 10), // 10-15 통일: 테두리 위 칸 이름 자리
             Row(
               children: [
                 Expanded(child: TextField(key: const Key('dv_info_no'), controller: _no, decoration: const InputDecoration(labelText: '도번'))),

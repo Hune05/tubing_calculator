@@ -1635,8 +1635,7 @@ class _ConduitSettingsPageState extends State<ConduitSettingsPage> {
           ),
           decoration: InputDecoration(
             isDense: true,
-            filled: true,
-            fillColor: pureWhite,
+            // 10-15 통일: 테두리·바탕은 테마 기본
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,
               vertical: 10,

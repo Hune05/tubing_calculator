@@ -1646,7 +1646,7 @@ class _SignalCalculatorPageState extends State<SignalCalculatorPage>
       isDense: true,
       labelText: label,
       hintText: hint,
-      floatingLabelBehavior: FloatingLabelBehavior.always,
+      // 10-15 통일: 테두리·바탕은 테마 기본
     ),
     onChanged: (_) => setState(() {}),
   );
@@ -2776,7 +2776,7 @@ class _CalSaveSheetState extends State<_CalSaveSheet> {
         labelText: label,
         hintText: hint,
         errorText: error ? '태그 번호를 넣으십시오' : null,
-        border: const OutlineInputBorder(),
+        // 10-15 통일: 테두리·바탕은 테마 기본
         isDense: true,
       ),
     ),

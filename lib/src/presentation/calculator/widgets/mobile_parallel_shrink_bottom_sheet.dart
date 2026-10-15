@@ -411,13 +411,23 @@ class _MobileParallelShrinkBottomSheetState
                 alignment: Alignment.center,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
-                    leftLabel,
-                    style: TextStyle(
-                      color: isLeftActive ? pickInk() : slate600,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                  // 10-15 통일: 고른 쪽 앞에 ✓
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isLeftActive) ...[
+                        pickCheck(),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        leftLabel,
+                        style: TextStyle(
+                          color: isLeftActive ? pickInk() : slate600,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -442,13 +452,22 @@ class _MobileParallelShrinkBottomSheetState
                 alignment: Alignment.center,
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
-                    rightLabel,
-                    style: TextStyle(
-                      color: !isLeftActive ? pickInk() : slate600,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!isLeftActive) ...[
+                        pickCheck(),
+                        const SizedBox(width: 4),
+                      ],
+                      Text(
+                        rightLabel,
+                        style: TextStyle(
+                          color: !isLeftActive ? pickInk() : slate600,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -463,14 +482,7 @@ class _MobileParallelShrinkBottomSheetState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          hint,
-          style: const TextStyle(
-            color: slate600,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        // 10-15 통일: 이름은 칸 테두리 위(labelText)
         const SizedBox(height: 6),
         TextField(
           controller: ctrl,
@@ -484,23 +496,11 @@ class _MobileParallelShrinkBottomSheetState
             fontFamily: 'monospace',
           ),
           decoration: InputDecoration(
-            filled: true,
-            fillColor: slate100,
+            labelText: hint,
+            // 10-15 통일: 테두리·바탕은 테마 기본
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: makitaTeal, width: 2),
             ),
           ),
         ),
@@ -552,12 +552,23 @@ class _MobileParallelShrinkBottomSheetState
             ),
             borderRadius: BorderRadius.circular(4),
           ),
-          child: Text(
-            "$idx",
-            style: TextStyle(
-              color: isActive ? pickInk() : slate900,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+          // 10-15 통일: 고른 번호 앞에 작은 ✓(40칸이라 줄여 넣는다)
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isActive)
+                  Icon(Icons.check_rounded, size: 12, color: pickInk()),
+                Text(
+                  "$idx",
+                  style: TextStyle(
+                    color: isActive ? pickInk() : slate900,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

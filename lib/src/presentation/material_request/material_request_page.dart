@@ -364,8 +364,6 @@ class _MaterialRequestPageState extends State<MaterialRequestPage> {
     decoration: const InputDecoration(
       labelText: '현장 이름 (선택)',
       hintText: '예: 루마',
-      filled: true,
-      fillColor: AppColors.surface,
     ),
   );
 

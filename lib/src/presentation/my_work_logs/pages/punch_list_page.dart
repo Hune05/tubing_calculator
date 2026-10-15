@@ -6,6 +6,7 @@ import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import '../widgets/work_theme.dart';
+import '../../common/pick_style.dart';
 import '../widgets/korean_text.dart';
 import 'package:flutter/material.dart';
 import '../widgets/voice_input_button.dart';
@@ -354,21 +355,43 @@ class _PunchListPageState extends State<PunchListPage> {
       activeColor = label == '긴급' ? kDanger : (label == '여유' ? kIdle : kBrand);
     }
 
+    // 10-15 통일: 고른 것은 ✓. 보통 고르기는 앱 칩과 같은 옅은 청록 + 짙은 청록 글자,
+    // 우선순위의 긴급(빨강)·여유(회색)는 색에 뜻이 있어 꽉 찬 색 + 흰 ✓를 그대로 둔다.
+    final bool meaningColor = activeColor != kBrand;
+    final Color fill = !isSelected
+        ? pureWhite
+        : (meaningColor ? activeColor : pickFill());
+    final Color line = !isSelected
+        ? pickIdleLine()
+        : (meaningColor ? activeColor : pickLine());
+    final Color ink = !isSelected
+        ? tossSubText
+        : (meaningColor ? pureWhite : pickInk());
     return GestureDetector(
       onTap: () => onSelect(label),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? activeColor : tossInputBg,
+          color: fill,
           borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: line, width: 1.2),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? pureWhite : tossSubText,
-            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
-            fontSize: 14,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected) ...[
+              Icon(Icons.check_rounded, size: 15, color: ink),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: ink,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -456,15 +479,10 @@ class _PunchListPageState extends State<PunchListPage> {
                     color: Color(0xFFB0B8C1),
                     fontWeight: FontWeight.normal,
                   ),
-                  filled: true,
-                  fillColor: tossInputBg,
+                  // 10-15 통일: 테두리·바탕은 테마 기본
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
@@ -737,15 +755,10 @@ class _PunchListPageState extends State<PunchListPage> {
                   hintText:
                       "어떤 부분을 어떻게 수정해야 하는지 상세히 적어 주십시오.\n(예: 센서 극성 오결선, 트레이싱 단선 등)",
                   hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                  filled: true,
-                  fillColor: tossInputBg,
+                  // 10-15 통일: 테두리·바탕은 테마 기본
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide.none,
                   ),
                 ),
               ),

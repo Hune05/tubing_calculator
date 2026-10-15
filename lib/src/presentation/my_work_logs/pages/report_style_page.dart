@@ -193,10 +193,13 @@ class _ReportStylePageState extends State<ReportStylePage> {
         padding: const EdgeInsets.all(16),
         children: [
           _card("머리말", [
+            // 10-15 통일: 칸 이름이 테두리 위에 뜨므로 칸 사이를 띄운다
+            const SizedBox(height: 6),
             TextField(
               controller: _company,
               decoration: const InputDecoration(labelText: "회사명 / 현장명"),
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: _manager,
               decoration: const InputDecoration(labelText: "담당자"),

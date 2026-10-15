@@ -1222,13 +1222,8 @@ class _DailyReportPageState extends State<DailyReportPage> {
     labelText: label,
     labelStyle: const TextStyle(color: tossSubText, fontSize: 13),
     hintStyle: const TextStyle(color: Color(0xFFB0B8C1), fontSize: 14),
-    filled: true,
-    fillColor: tossInputBg,
+    // 10-15 통일: 테두리·바탕은 테마 기본
     contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide.none,
-    ),
   );
 
   Widget _selChip(String label, bool sel, VoidCallback onTap) =>

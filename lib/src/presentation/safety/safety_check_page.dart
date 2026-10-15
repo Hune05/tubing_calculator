@@ -524,8 +524,6 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
     decoration: InputDecoration(
       labelText: label,
       hintText: hint,
-      filled: true,
-      fillColor: AppColors.surface,
     ),
   );
 
@@ -535,6 +533,7 @@ class _SafetyCheckPageState extends State<SafetyCheckPage> {
       key: Key('safety_${v.name}_$label'),
       label: Text(text),
       selected: a == v,
+      // 10-15 통일 예외: 양호·불량 뜻 색 칩이라 ✓(=좋음으로 읽힘)는 안 붙인다
       showCheckmark: false,
       selectedColor: color.withValues(alpha: 0.18),
       labelStyle: TextStyle(

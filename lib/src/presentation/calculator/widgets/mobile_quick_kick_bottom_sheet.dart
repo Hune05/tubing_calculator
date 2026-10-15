@@ -152,15 +152,10 @@ class _MobileQuickKickBottomSheetState
         ),
         decoration: InputDecoration(
           hintText: "0",
-          filled: true,
-          fillColor: slate100,
+          // 10-15 통일: 테두리·바탕은 테마 기본
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 12,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(4),
-            borderSide: BorderSide.none,
           ),
         ),
       );
@@ -271,15 +266,8 @@ class _MobileQuickKickBottomSheetState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          "단차 높이 (Rise)",
-                          style: TextStyle(
-                            color: slate600,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        // 10-15 통일: 이름은 칸 테두리 위(labelText)
+                        const SizedBox(height: 6),
                         TextField(
                           controller: _heightCtrl,
                           readOnly: true,
@@ -295,16 +283,12 @@ class _MobileQuickKickBottomSheetState
                             fontFamily: 'monospace',
                           ),
                           decoration: InputDecoration(
+                            labelText: "단차 높이 (Rise)",
                             hintText: "0",
-                            filled: true,
-                            fillColor: slate100,
+                            // 10-15 통일: 테두리·바탕은 테마 기본
                             contentPadding: const EdgeInsets.symmetric(
                               horizontal: 16,
                               vertical: 12,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(4),
-                              borderSide: BorderSide.none,
                             ),
                           ),
                         ),
@@ -376,15 +360,10 @@ class _MobileQuickKickBottomSheetState
                           fontFamily: 'monospace',
                         ),
                         decoration: InputDecoration(
-                          filled: true,
-                          fillColor: slate100,
+                          // 10-15 통일: 테두리·바탕은 테마 기본
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 12,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: BorderSide.none,
                           ),
                         ),
                       ),

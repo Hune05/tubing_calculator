@@ -126,7 +126,9 @@ class CsField extends StatelessWidget {
   final Key? fieldKey;
   final TextEditingController ctrl;
   final String hint;
-  const CsField({super.key, this.fieldKey, required this.ctrl, required this.hint});
+  /// 칸 이름(테두리 위). 없으면 위 CsLabel로 묶음 제목을 단다.
+  final String? label;
+  const CsField({super.key, this.fieldKey, required this.ctrl, required this.hint, this.label});
 
   @override
   Widget build(BuildContext context) => TextField(
@@ -141,22 +143,10 @@ class CsField extends StatelessWidget {
       fontFamily: 'monospace',
     ),
     decoration: InputDecoration(
-      filled: true,
-      fillColor: csWhite,
+      // 10-15 통일: 테두리·바탕은 테마 기본, 이름은 테두리 위
+      labelText: label,
       hintText: hint,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: const BorderSide(color: csTeal, width: 2),
-      ),
     ),
   );
 }

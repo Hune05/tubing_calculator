@@ -590,8 +590,8 @@ class _SegmentedSheetState extends _SheetState<_SegmentedSheet> {
           ),
         ),
         const SizedBox(height: 16),
-        const CsLabel('원하는 반경 (R)'),
-        CsField(fieldKey: const Key('cs_radius'), ctrl: _r, hint: '반경 mm'),
+        // 10-15 통일: 칸 하나뿐인 이름은 칸 테두리 위로
+        CsField(fieldKey: const Key('cs_radius'), ctrl: _r, hint: '반경 mm', label: '원하는 반경 (R)'),
         const SizedBox(height: 16),
         const CsLabel('나눌 횟수'),
         Wrap(
@@ -784,8 +784,7 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
           ),
         ),
         const SizedBox(height: 16),
-        const CsLabel('두 다리 사이 거리'),
-        CsField(fieldKey: const Key('cs_dist'), ctrl: _dist, hint: '거리 mm'),
+        CsField(fieldKey: const Key('cs_dist'), ctrl: _dist, hint: '거리 mm', label: '두 다리 사이 거리'),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -806,8 +805,8 @@ class _BackToBackSheetState extends _SheetState<_BackToBackSheet> {
           ],
         ),
         const SizedBox(height: 16),
-        const CsLabel('관 바깥지름'),
         CsField(
+          label: '관 바깥지름',
           fieldKey: const Key('cs_od'),
           ctrl: _od,
           hint: '바깥지름 mm (후강 22 = 26.5)',

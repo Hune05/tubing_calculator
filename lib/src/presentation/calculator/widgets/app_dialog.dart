@@ -10,7 +10,6 @@ import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 const Color _teal = AppColors.brand;
 const Color _slate900 = AppColors.text;
 const Color _slate600 = AppColors.textSub;
-const Color _slate100 = AppColors.background;
 
 /// (D-C) 모양은 공용 창(AppConfirmDialog)이 그린다. 부르는 곳을 고치지 않도록 이름과
 /// 인자는 그대로 둔다.
@@ -56,17 +55,12 @@ class AppDialog extends StatelessWidget {
   }
 }
 
-/// 입력칸 모양(회색 바탕, 둥근 모서리).
+/// 입력칸 모양(테두리·바탕은 앱 테마).
 InputDecoration appFieldDecoration(String label, {String? hint}) =>
     InputDecoration(
       labelText: label,
       hintText: hint,
-      filled: true,
-      fillColor: _slate100,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide.none,
-      ),
+      // 10-15 통일: 테두리·바탕은 테마 기본
       labelStyle: const TextStyle(color: _slate600),
       hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
       floatingLabelStyle: const TextStyle(

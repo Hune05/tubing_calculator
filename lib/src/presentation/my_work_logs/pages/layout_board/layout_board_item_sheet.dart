@@ -212,15 +212,10 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
                           fontSize: 16,
                           fontWeight: FontWeight.w800,
                         ),
-                        filled: true,
-                        fillColor: tossBg,
+                        // 10-15 통일: 테두리·바탕은 테마 기본
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 16,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide.none,
                         ),
                       ),
                       onChanged: (val) {
@@ -601,15 +596,10 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
           fontSize: 15,
           fontWeight: FontWeight.w800,
         ),
-        filled: true,
-        fillColor: tossBg,
+        // 10-15 통일: 테두리·바탕은 테마 기본
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide.none,
         ),
       ),
       onChanged: (val) =>
@@ -641,38 +631,24 @@ extension _LayoutBoardItemSheet on _LayoutBoardPageState {
     Function(String) onChanged, {
     TextEditingController? controller,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            color: tossSubText,
+    // 10-15 통일: 칸 이름은 테두리 위(labelText), 테두리·바탕은 테마 기본.
+    // 떠 있는 이름이 위 칸에 닿지 않게 위쪽 여백을 조금 둔다.
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      // 칸을 떠나면(다른 칸을 누르면) 바로 넣는다. 예전에는 키보드 "완료"를 눌러야만 들어가서,
+      // 다른 칸을 누르면 친 값이 버려지고 X·Y 칸은 다시 그릴 때 친 글자가 사라졌다(10-07).
+      child: _InspectorNumberField(
+        value: controller?.text ?? value,
+        controller: controller,
+        onCommit: onChanged,
+        decoration: InputDecoration(
+          labelText: label,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
           ),
         ),
-        const SizedBox(height: 8),
-        // 칸을 떠나면(다른 칸을 누르면) 바로 넣는다. 예전에는 키보드 "완료"를 눌러야만 들어가서,
-        // 다른 칸을 누르면 친 값이 버려지고 X·Y 칸은 다시 그릴 때 친 글자가 사라졌다(10-07).
-        _InspectorNumberField(
-          value: controller?.text ?? value,
-          controller: controller,
-          onCommit: onChanged,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: tossBg,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide.none,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

@@ -922,15 +922,10 @@ extension _LayoutBoardSavePdf on _LayoutBoardPageState {
                       fontSize: 16,
                       fontWeight: FontWeight.w800,
                     ),
-                    filled: true,
-                    fillColor: tossBg,
+                    // 10-15 통일: 테두리·바탕은 테마 기본
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide.none,
                     ),
                   ),
                 ),

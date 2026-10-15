@@ -1,6 +1,7 @@
 import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:tubing_calculator/src/core/theme/app_tokens.dart';
+import 'package:tubing_calculator/src/core/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
@@ -297,6 +298,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                     setState(() => _searchQuery = "");
                   },
                 ),
+          // 10-15: 검색 칸은 회색 알약 모양 그대로(테두리 통일에서 뺌).
           filled: true,
           fillColor: slate100,
           contentPadding: const EdgeInsets.symmetric(vertical: 14),
@@ -582,7 +584,7 @@ class _MobileInventoryPageState extends State<MobileInventoryPage> {
                   border: Border.all(color: slate100, width: 2),
                 ),
                 child: Theme(
-                  data: ThemeData.light().copyWith(
+                  data: buildAppTheme().copyWith(
                     cardColor: pureWhite,
                     scaffoldBackgroundColor: pureWhite,
                     colorScheme: const ColorScheme.light(surface: pureWhite),

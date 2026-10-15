@@ -169,8 +169,7 @@ class _MiniUnitConverterPageState extends State<MiniUnitConverterPage>
                 // 10-15 새 모양: 넣는 값은 네모 칸(앱 칸 테두리) — 아래 결과 칸과 구분된다.
                 decoration: InputDecoration(
                   isDense: true,
-                  filled: true,
-                  fillColor: fc.surface,
+                  // 10-15 통일: 테두리·바탕은 테마 기본
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 10,

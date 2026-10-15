@@ -277,8 +277,7 @@ class _DesignRequestFieldsState extends State<DesignRequestFields> {
 
   InputDecoration _deco(String hint) => InputDecoration(
     isDense: true,
-    filled: true,
-    fillColor: fc.fill,
+    // 10-15 통일: 테두리·바탕은 테마 기본
     hintText: hint,
     hintStyle: TextStyle(
       fontSize: 14,
@@ -286,14 +285,6 @@ class _DesignRequestFieldsState extends State<DesignRequestFields> {
       color: fc.textFaint,
     ),
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide.none,
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide(color: fc.brand, width: 1.6),
-    ),
   );
 
   Widget _label(String s) => Padding(
@@ -350,14 +341,17 @@ class _DesignRequestFieldsState extends State<DesignRequestFields> {
           ],
         ),
         const SizedBox(height: 12),
-        _label('요청 사항'),
+        // 10-15 통일: 이름은 칸 테두리 위(labelText)
+        const SizedBox(height: 6),
         TextField(
           key: Key('${_p}_rq_note'),
           controller: _note,
           minLines: 3,
           maxLines: 6,
           style: style,
-          decoration: _deco('예) 배관 2줄 받칠 브라켓, 기존 H빔에 용접, 보온 50 포함'),
+          decoration: _deco(
+            '예) 배관 2줄 받칠 브라켓, 기존 H빔에 용접, 보온 50 포함',
+          ).copyWith(labelText: '요청 사항', alignLabelWithHint: true),
           onChanged: (t) => widget.onChanged(v.copyWith(note: t)),
         ),
         const SizedBox(height: 12),

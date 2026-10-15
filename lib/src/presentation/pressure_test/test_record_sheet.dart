@@ -310,7 +310,6 @@ class _PtSaveSheetState extends State<PtSaveSheet> {
         labelText: label,
         hintText: hint,
         errorText: error,
-        border: const OutlineInputBorder(),
         isDense: true,
       ),
     ),

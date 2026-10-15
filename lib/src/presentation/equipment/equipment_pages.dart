@@ -36,7 +36,6 @@ class _Choice extends StatelessWidget {
     required this.label,
     required this.selected,
     this.onSelected,
-    bool showCheckmark = false,
   }) : chipKey = key;
 
   @override
@@ -272,8 +271,6 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
                     decoration: const InputDecoration(
                       prefixIcon: Icon(AppIcons.search),
                       hintText: '이름·관리번호·시리얼',
-                      filled: true,
-                      fillColor: AppColors.surface,
                       isDense: true,
                     ),
                   ),
@@ -309,7 +306,6 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
     child: _Choice(
       label: Text(label),
       selected: sel,
-      showCheckmark: false,
       onSelected: (_) => onTap(),
     ),
   );
@@ -333,7 +329,14 @@ class _EquipmentLedgerPageState extends State<EquipmentLedgerPage> {
               children: [
                 Text('$n', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: color)),
                 const SizedBox(height: 2),
-                Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSub)),
+                // 10-15 통일: 고른 칸에 ✓(색은 칸 뜻 색 그대로)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (sel) ...[Icon(Icons.check_rounded, size: 13, color: color), const SizedBox(width: 3)],
+                    Flexible(child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSub))),
+                  ],
+                ),
               ],
             ),
           ),
@@ -649,7 +652,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
         key: Key(key),
         controller: c,
         maxLines: lines,
-        decoration: InputDecoration(labelText: label, hintText: hint, filled: true, fillColor: AppColors.surface),
+        decoration: InputDecoration(labelText: label, hintText: hint),
       ),
     );
     final due = _interval > 0 && _lastDone != null ? addMonths(dayOnly(_lastDone!), _interval) : null;
@@ -699,7 +702,6 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                   key: Key('equip_cat_${c.id}'),
                   label: Text(c.label),
                   selected: _category == c,
-                  showCheckmark: false,
                   onSelected: (_) => setState(() => _category = c),
                 ),
             ],
@@ -720,7 +722,6 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                   key: Key('equip_interval_$m'),
                   label: Text(intervalLabel(m)),
                   selected: _interval == m,
-                  showCheckmark: false,
                   onSelected: (_) => setState(() => _interval = m),
                 ),
             ],
@@ -792,7 +793,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                       child: TextField(
                         key: Key('equip_spec_name_$i'),
                         controller: _specs[i].$1,
-                        decoration: const InputDecoration(labelText: '항목', hintText: '예: 전동기', isDense: true, filled: true, fillColor: AppColors.surface),
+                        decoration: const InputDecoration(labelText: '항목', hintText: '예: 전동기', isDense: true),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -800,7 +801,7 @@ class _EquipmentEditPageState extends State<EquipmentEditPage> {
                       child: TextField(
                         key: Key('equip_spec_value_$i'),
                         controller: _specs[i].$2,
-                        decoration: const InputDecoration(labelText: '값', hintText: '예: 1700 W', isDense: true, filled: true, fillColor: AppColors.surface),
+                        decoration: const InputDecoration(labelText: '값', hintText: '예: 1700 W', isDense: true),
                       ),
                     ),
                   ],
@@ -1175,7 +1176,6 @@ class _InspectSheetState extends State<_InspectSheet> {
                     key: Key('inspect_result_$r'),
                     label: Text(r),
                     selected: _result == r,
-                    showCheckmark: false,
                     onSelected: (_) => setState(() => _result = r),
                   ),
               ],
@@ -1189,6 +1189,7 @@ class _InspectSheetState extends State<_InspectSheet> {
             ),
             const SizedBox(height: 8),
             TextField(key: const Key('inspect_by'), controller: _by, decoration: const InputDecoration(labelText: '점검자 (선택)')),
+            const SizedBox(height: 10), // 10-15 통일: 테두리 위 칸 이름 자리
             TextField(key: const Key('inspect_note'), controller: _note, decoration: const InputDecoration(labelText: '메모 (선택)')),
             const SizedBox(height: 8),
             if (_result != kResultFail)

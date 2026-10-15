@@ -189,12 +189,7 @@ class _ProjectSchedulePageState extends State<ProjectSchedulePage> {
           decoration: InputDecoration(
             hintText: "예: 검사업체 사정으로 일정 연기",
             hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-            filled: true,
-            fillColor: tossBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide.none,
-            ),
+            // 10-15 통일: 테두리·바탕은 테마 기본
           ),
         ),
         actions: [

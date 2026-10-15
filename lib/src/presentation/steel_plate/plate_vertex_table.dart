@@ -198,17 +198,8 @@ class _PlateVertexTableState extends State<PlateVertexTable> {
       height: 1.35,
     ),
     decoration: InputDecoration(
-      filled: true,
-      fillColor: fc.fill,
+      // 10-15 통일: 테두리·바탕은 테마 기본
       contentPadding: const EdgeInsets.all(12),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide.none,
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide(color: fc.brand, width: 1.6),
-      ),
     ),
     onChanged: (_) => widget.onChanged(),
   );

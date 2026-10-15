@@ -16,7 +16,6 @@ const String kTubeLastProjectKey = 'tube_last_project';
 const Color makitaTeal = AppColors.brand;
 const Color _slate900 = AppColors.text;
 const Color _slate600 = AppColors.textSub;
-const Color _slate100 = AppColors.background;
 const Color _pureWhite = Color(0xFFFFFFFF);
 
 class SmartSavePad extends StatefulWidget {
@@ -194,19 +193,10 @@ class _SmartSavePadState extends State<SmartSavePad> {
         prefixIcon: icon != null
             ? Icon(icon, color: _slate600.withValues(alpha: 0.6), size: 18)
             : null,
-        filled: true,
-        fillColor: _slate100,
+        // 10-15 통일: 테두리·바탕은 테마 기본
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: makitaTeal, width: 1.5),
         ),
       ),
     );

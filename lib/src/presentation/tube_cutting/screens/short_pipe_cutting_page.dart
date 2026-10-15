@@ -183,12 +183,7 @@ class _ShortPipeCuttingPageState extends State<ShortPipeCuttingPage> {
         suffixText: suffix,
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-        filled: true,
-        fillColor: CuttingColors.background,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide.none,
-        ),
+        // 10-15 통일: 테두리·바탕은 테마 기본
       );
 
   Widget _numField(

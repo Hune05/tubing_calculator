@@ -103,13 +103,20 @@ class _LogListState extends State<_LogList> {
             onTap: onTap,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-              child: Text(
-                text,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: selected ? pickInk() : CuttingColors.textPrimary,
-                ),
+              // 10-15 통일: 고른 칩 앞에 ✓
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (selected) ...[pickCheck(), const SizedBox(width: 4)],
+                  Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: selected ? pickInk() : CuttingColors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

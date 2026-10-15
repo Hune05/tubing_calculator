@@ -420,7 +420,6 @@ class _AttendanceEditSheetState extends State<AttendanceEditSheet> {
               decoration: const InputDecoration(
                 labelText: "현장 메모",
                 hintText: "예: 태안 3호기, 출장",
-                border: OutlineInputBorder(),
                 isDense: true,
                 counterText: '',
               ),
@@ -646,7 +645,7 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
             ),
             if (b != null && _periodKey != null) ...[
               const SizedBox(height: 16),
-              _sectionLabel("이번 기간 부여 일수"),
+              // 10-15 통일: 칸 이름은 테두리 위
               TextField(
                 key: const Key('att_grant'),
                 controller: _grant,
@@ -654,9 +653,9 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
                   decimal: true,
                 ),
                 decoration: InputDecoration(
+                  labelText: "이번 기간 부여 일수",
                   hintText: "비우면 법 기준 ${formatLeaveDays(b.lawGranted)}일",
                   suffixText: "일",
-                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
               ),
@@ -770,7 +769,6 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
               decoration: const InputDecoration(
                 labelText: "사규 메모",
                 hintText: "예: 퐁당일은 연차 소진 / 지각 기준 / 조퇴 처리 …",
-                border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
             ),
@@ -778,15 +776,15 @@ class _AttendanceSettingsSheetState extends State<AttendanceSettingsSheet> {
               "조항이나 내용을 적어 두면 근태 화면의 사규 보기(책 아이콘)에서 다시 볼 수 있습니다. 계산에는 쓰지 않습니다.",
             ),
             const SizedBox(height: 18),
-            _sectionLabel("통상시급(선택)"),
+            // 10-15 통일: 칸 이름은 테두리 위
             TextField(
               key: const Key('att_wage'),
               controller: _wage,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
+                labelText: "통상시급(선택)",
                 hintText: "비우면 예상 수당을 안 보입니다",
                 suffixText: "원",
-                border: OutlineInputBorder(),
                 isDense: true,
               ),
             ),

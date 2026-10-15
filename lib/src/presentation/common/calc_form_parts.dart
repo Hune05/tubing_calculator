@@ -92,8 +92,9 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
     ],
   );
 
-  // 10-15 새 모양: 이름은 칸 위에 작게, 값은 네모 칸에 크게, 단위는 칸 안 오른쪽.
-  // (예전: 한 상자 안에 이름 왼쪽·값 오른쪽 — 값이 누르는 칸인지 잘 안 보였다)
+  // 10-15 통일: 칸 이름은 테두리에 걸치기(labelText), 값은 네모 칸에 크게, 단위는 칸 안 오른쪽,
+  // "?" 도움말은 단위 뒤(칸 안 맨 오른쪽). 테두리·바탕은 앱 테마 기본.
+  // (예전: 이름을 칸 위에 따로 적었다 — 앱의 다른 칸과 모양이 달랐다)
   Widget calcField(
     String key,
     String label,
@@ -104,47 +105,37 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
   }) {
     final (name, unit) = splitFieldUnit(label);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      // 위 8: 테두리에 걸친 이름이 위 칸과 겹치지 않게.
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: Row(
         children: [
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  name,
-                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: fc.textSub),
-                ),
+          Expanded(
+            child: TextField(
+              key: Key(key),
+              controller: c,
+              keyboardType: TextInputType.numberWithOptions(
+                decimal: true,
+                signed: signed,
               ),
-              if (guide.isNotEmpty) calcHelp(label, guide),
-            ],
-          ),
-          if (guide.isEmpty) const SizedBox(height: 4),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  key: Key(key),
-                  controller: c,
-                  keyboardType: TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: signed,
-                  ),
-                  // 키보드 "다음"으로 다음 칸(앱 전체 순서 규칙이 "?" 도움말은 건너뛴다).
-                  textInputAction: TextInputAction.next,
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: fc.text,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                  decoration: ratioDecoration(label, c, unit: unit),
-                  onChanged: (_) => setState(() {}),
-                ),
+              // 키보드 "다음"으로 다음 칸(앱 전체 순서 규칙이 "?" 도움말은 건너뛴다).
+              textInputAction: TextInputAction.next,
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: fc.text,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
-              if (trailing != null) ...[const SizedBox(width: 6), trailing],
-            ],
+              decoration: ratioDecoration(
+                label,
+                c,
+                unit: unit,
+                labelText: name,
+                help: guide.isEmpty ? null : calcHelp(label, guide),
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
           ),
+          if (trailing != null) ...[const SizedBox(width: 6), trailing],
         ],
       ),
     );
@@ -154,14 +145,21 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
   Widget ratioHinted(String label, TextEditingController c, Widget box) => box;
 
   /// 숫자 칸 꾸밈. 효율·역률 같은 % 칸에 1 이하를 넣으면 숫자 뒤에 실제로 계산에 쓰는 %("= 70%")를 붙인다.
-  InputDecoration ratioDecoration(String label, TextEditingController c, {String? unit}) {
+  /// [labelText]는 테두리에 걸치는 칸 이름, [help]는 칸 안 맨 오른쪽 "?"(10-15 통일).
+  InputDecoration ratioDecoration(
+    String label,
+    TextEditingController c, {
+    String? unit,
+    String? labelText,
+    Widget? help,
+  }) {
     final ratio = ratioSuffixText(label, c.text);
     // 비율 글("= 90%")이 있으면 단위 %를 또 붙이지 않는다.
     final sfx = ratio ?? unit;
+    // 10-15 통일: 테두리·바탕은 앱 테마 기본(filled·fillColor를 따로 주지 않는다).
     return InputDecoration(
       isDense: true,
-      filled: true,
-      fillColor: fc.surface,
+      labelText: labelText,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       suffixText: sfx,
       suffixStyle: TextStyle(
@@ -169,6 +167,10 @@ mixin CalcFormParts<W extends StatefulWidget> on State<W> {
         fontWeight: FontWeight.w700,
         color: fc.textSub,
       ),
+      suffixIcon: help,
+      suffixIconConstraints: help == null
+          ? null
+          : const BoxConstraints(minWidth: 36, minHeight: 36),
     );
   }
 

@@ -426,13 +426,20 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                 width: 1.2,
               ),
             ),
-            child: Text(
-              size,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? pickInk() : textDark,
-              ),
+            // 10-15 통일: 고른 크기 앞에 ✓
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected) ...[pickCheck(), const SizedBox(width: 4)],
+                Text(
+                  size,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? pickInk() : textDark,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -462,13 +469,20 @@ class _SmartFittingSelectorSheetState extends State<SmartFittingSelectorSheet> {
                 width: 1.2,
               ),
             ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: isSelected ? pickInk() : textDark,
-              ),
+            // 10-15 통일: 고른 종류 앞에 ✓
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isSelected) ...[pickCheck(), const SizedBox(width: 4)],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? pickInk() : textDark,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

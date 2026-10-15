@@ -182,12 +182,6 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
     labelText: label,
     errorText: error,
     isDense: true,
-    filled: true,
-    fillColor: AppColors.background,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide.none,
-    ),
   );
 
   Widget _pad(double w) {

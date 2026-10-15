@@ -236,6 +236,8 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                   ),
                   style: TextStyle(fontSize: 12, color: tossSubText),
                 ),
+                // 10-15 통일: 칸 이름이 테두리 위에 뜨므로 칸 사이를 띄운다
+                const SizedBox(height: 12),
                 TextField(
                   controller: company,
                   decoration: InputDecoration(
@@ -243,6 +245,7 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                     hintText: ReportStyle.current.company,
                   ),
                 ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: manager,
                   decoration: InputDecoration(
@@ -564,15 +567,19 @@ extension _ProjectDetailIssues on _ProjectDetailPageState {
                     ),
                   ],
                 ),
+                // 10-15 통일: 칸 이름이 테두리 위에 뜨므로 칸 사이를 띄운다
+                const SizedBox(height: 8),
                 TextField(
                   controller: name,
                   decoration: const InputDecoration(labelText: "이름 / 업체명"),
                 ),
+                const SizedBox(height: 12),
                 TextField(
                   controller: phone,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(labelText: "전화번호"),
                 ),
+                const SizedBox(height: 12),
                 TextField(
                   key: const Key('contact_email'),
                   controller: email,

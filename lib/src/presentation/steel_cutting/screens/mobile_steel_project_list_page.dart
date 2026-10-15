@@ -109,22 +109,10 @@ class _MobileSteelProjectListPageState
                   decoration: InputDecoration(
                     hintText: "예: A구역 프레임 제작",
                     hintStyle: TextStyle(color: Colors.grey.shade400),
-                    filled: true,
-                    fillColor: CuttingColors.background,
+                    // 10-15 통일: 테두리·바탕은 테마 기본
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(
-                        color: CuttingColors.primary,
-                        width: 2,
-                      ),
                     ),
                   ),
                 ),
@@ -206,12 +194,7 @@ class _MobileSteelProjectListPageState
           controller: ctrl,
           autofocus: true,
           decoration: InputDecoration(
-            filled: true,
-            fillColor: Colors.grey.shade100,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide.none,
-            ),
+            // 10-15 통일: 테두리·바탕은 테마 기본
           ),
           onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
         ),

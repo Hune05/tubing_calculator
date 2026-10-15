@@ -174,7 +174,7 @@ class _WorkSummaryPageState extends State<WorkSummaryPage> {
               ),
             ],
             selected: {_range.isDay},
-            showSelectedIcon: false,
+            // 10-15 통일: 고른 쪽도 ✓
             onSelectionChanged: (s) => _set(
               s.first
                   ? SummaryRange.day(_range.isDay ? _range.from : _today)

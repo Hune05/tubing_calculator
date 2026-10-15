@@ -890,12 +890,7 @@ class _AddSheetState extends State<_AddSheet> {
         decoration: InputDecoration(
           labelText: label,
           suffixText: 'mm',
-          filled: true,
-          fillColor: AppColors.fill,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(AppRadius.small),
-            borderSide: BorderSide.none,
-          ),
+          // 10-15 통일: 테두리·바탕은 테마 기본
         ),
       );
 

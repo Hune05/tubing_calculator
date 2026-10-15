@@ -81,7 +81,7 @@ extension MobileInventorySyncExt on _MobileInventoryPageState {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => Theme(
-        data: ThemeData.light(),
+        data: buildAppTheme(),
         child: AlertDialog(
           backgroundColor: pureWhite,
           surfaceTintColor: Colors.transparent,

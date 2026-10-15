@@ -151,13 +151,20 @@ class _SteelShapePickerSheetState extends State<SteelShapePickerSheet> {
         onTap: () => setState(() => _categoryFilter = label),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? pickInk() : CuttingColors.textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
+          // 10-15 통일: 고른 칩 앞에 ✓
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[pickCheck(), const SizedBox(width: 4)],
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? pickInk() : CuttingColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       ),

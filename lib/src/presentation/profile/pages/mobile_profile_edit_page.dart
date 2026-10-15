@@ -367,63 +367,35 @@ class _MobileProfileEditPageState extends State<MobileProfileEditPage> {
     int? maxLength,
     ValueChanged<String>? onChanged,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: slate600,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+    // 10-15 통일: 칸 이름은 테두리 위(labelText), 테두리·빨간 잘못 표시는 테마 기본(errorText).
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: TextFormField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLength: maxLength,
+        onChanged: onChanged,
+        style: const TextStyle(
+          color: slate900,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
         ),
-        const SizedBox(height: 8),
-        // 10-15 새 모양: 회색 상자 안 테두리 없는 칸 → 흰 네모 칸(앱 칸 테두리, 잘못이면 빨강).
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          maxLength: maxLength,
-          onChanged: onChanged,
-          style: const TextStyle(
-            color: slate900,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
+        decoration: InputDecoration(
+          labelText: label,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 14,
           ),
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
-            ),
-            isDense: true,
-            filled: true,
-            fillColor: Colors.white,
-            enabledBorder: errorText == null
-                ? null
-                : OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: red500, width: 1.5),
-                  ),
-            counterText: "",
-            hintText: hint,
-            hintStyle: const TextStyle(
-              color: slate300,
-              fontWeight: FontWeight.w500,
-            ),
+          isDense: true,
+          counterText: "",
+          hintText: hint,
+          hintStyle: const TextStyle(
+            color: slate300,
+            fontWeight: FontWeight.w500,
           ),
+          errorText: errorText,
         ),
-        if (errorText != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            errorText,
-            style: const TextStyle(
-              color: red500,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ],
+      ),
     );
   }
 

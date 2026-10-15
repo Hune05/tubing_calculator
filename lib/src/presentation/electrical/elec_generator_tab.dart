@@ -324,16 +324,23 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         // 10-15 새 모양: 고른 칸은 옅은 청록 + 짙은 청록 글자(앱 칩과 같게).
         color: sel ? pickFill(fc) : null,
         // 좁은 폰·큰 글씨에서 칸 글자가 두 줄로 쪼개지지 않게 넘치면 줄여 넣는다.
+        // 10-15 통일: 고른 칸은 값 앞에 작은 ✓(넘치면 FittedBox가 줄인다).
         child: FittedBox(
           fit: BoxFit.scaleDown,
-          child: Text(
-            t,
-            maxLines: 1,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: head || sel ? FontWeight.w800 : FontWeight.w500,
-              color: sel ? pickInk(fc) : (head ? fc.textSub : fc.text),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (sel) ...[pickCheck(fc, 12), const SizedBox(width: 2)],
+              Text(
+                t,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: head || sel ? FontWeight.w800 : FontWeight.w500,
+                  color: sel ? pickInk(fc) : (head ? fc.textSub : fc.text),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -515,8 +522,7 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
     decoration: InputDecoration(
       isDense: true,
       labelText: label,
-      // 칸이 좁아 비었을 때 이름이 잘리지 않게 이름표를 늘 위에 둔다.
-      floatingLabelBehavior: FloatingLabelBehavior.always,
+      // 10-15 통일: 이름은 늘 테두리에 걸치기·테두리는 앱 테마 기본.
       labelStyle: TextStyle(fontSize: 13, color: fc.textSub),
       // 효율·역률 칸에 1 이하를 넣으면 계산에 쓰는 %를 숫자 뒤에 붙인다(다른 % 칸과 같게, 1 → "= 100%").
       suffixText: ratioSuffixText(label, c.text),
@@ -526,14 +532,6 @@ class _ElecGeneratorTabState extends State<ElecGeneratorTab>
         color: fc.textSub,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: BorderSide(color: fc.line),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: BorderSide(color: fc.brand, width: 1.5),
-      ),
     ),
     onChanged: (_) => setState(() {}),
   );

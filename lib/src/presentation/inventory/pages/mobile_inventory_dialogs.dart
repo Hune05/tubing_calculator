@@ -23,7 +23,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
         String? error;
         return StatefulBuilder(
           builder: (context, setD) => Theme(
-            data: ThemeData.light(),
+            data: buildAppTheme(),
             child: AlertDialog(
               backgroundColor: pureWhite,
               surfaceTintColor: Colors.transparent,
@@ -56,18 +56,12 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                       letterSpacing: -2,
                     ),
                     key: const Key('count_qty_input'),
-                    // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리). 이 창은 ThemeData.light로 감싸
-                    // 앱 테마 칸 모양이 안 닿아 테두리를 직접 준다.
+                    // 10-15 통일: 이 창도 앱 테마(buildAppTheme)로 감싸 칸 테두리는 테마 기본
                     decoration: InputDecoration(
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 8,
                       ),
-                      border: _qtyBox(pickIdleLine(), 1.2),
-                      enabledBorder: _qtyBox(pickIdleLine(), 1.2),
-                      focusedBorder: _qtyBox(makitaTeal, 2),
-                      errorBorder: _qtyBox(AppColors.danger, 1.5),
-                      focusedErrorBorder: _qtyBox(AppColors.danger, 2),
                       hintText: "0",
                       hintStyle: const TextStyle(color: slate100),
                       errorText: error,
@@ -179,7 +173,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
       context: context,
       builder: (context) {
         return Theme(
-          data: ThemeData.light(),
+          data: buildAppTheme(),
           child: StatefulBuilder(
             builder: (context, setDialogState) {
               return AlertDialog(
@@ -286,15 +280,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      const Text(
-                        "자재명 (필수)",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      // 10-15 통일: 칸 이름은 테두리 위
                       TextField(
                         controller: nameController,
                         style: const TextStyle(
@@ -303,32 +289,19 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
+                          labelText: "자재명 (필수)",
                           hintText: "예: Union",
                           hintStyle: TextStyle(
                             color: slate600.withValues(alpha: 0.6),
                           ),
-                          filled: true,
-                          fillColor: slate100,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 16,
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide.none,
-                          ),
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        "제조사",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      // 10-15 통일: 칸 이름은 테두리 위
                       TextField(
                         controller: makerController,
                         style: const TextStyle(
@@ -337,19 +310,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
+                          labelText: "제조사",
                           hintText: "선택 또는 입력",
                           hintStyle: TextStyle(
                             color: slate600.withValues(alpha: 0.6),
                           ),
-                          filled: true,
-                          fillColor: slate100,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 16,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide.none,
                           ),
                           suffixIcon: PopupMenuButton<String>(
                             icon: const Icon(
@@ -378,15 +346,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      const Text(
-                        "최소 수량",
-                        style: TextStyle(
-                          color: slate900,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
+                      // 10-15 통일: 칸 이름은 테두리 위
                       TextField(
                         controller: minQtyController,
                         keyboardType: TextInputType.number,
@@ -396,19 +356,14 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                           fontWeight: FontWeight.w600,
                         ),
                         decoration: InputDecoration(
+                          labelText: "최소 수량",
                           hintText: "예: 10 (이보다 적으면 자재 부족으로 표시)",
                           hintStyle: TextStyle(
                             color: slate600.withValues(alpha: 0.6),
                           ),
-                          filled: true,
-                          fillColor: slate100,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 16,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: BorderSide.none,
                           ),
                         ),
                       ),
@@ -601,7 +556,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
             }
 
             return Theme(
-              data: ThemeData.light(),
+              data: buildAppTheme(),
               child: AlertDialog(
                 backgroundColor: pureWhite,
                 surfaceTintColor: Colors.transparent,
@@ -630,8 +585,6 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         fontWeight: FontWeight.w600,
                       ),
                       decoration: InputDecoration(
-                        filled: true,
-                        fillColor: slate100,
                         hintText: "직접 입력하십시오",
                         errorText: minQtyError,
                         hintStyle: TextStyle(
@@ -641,10 +594,6 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 16,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide.none,
                         ),
                       ),
                       onChanged: (val) {
@@ -700,20 +649,7 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                       ctrl.text = selected ? opt : "";
                                     });
                                   },
-                                  // 10-15 새 모양: 이 창은 ThemeData.light로 감싸 앱 칩 모양이 안 닿아
-                                  // 직접 준다(고르면 옅은 청록 + ✓ + 짙은 청록 글자).
-                                  selectedColor: pickFill(),
-                                  backgroundColor: pureWhite,
-                                  checkmarkColor: pickInk(),
-                                  side: BorderSide(
-                                    color: isSelected
-                                        ? pickLine()
-                                        : pickIdleLine(),
-                                    width: 1.2,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
+                                  // 10-15 통일: 창을 앱 테마로 감싸 칩 모양(옅은 청록 + ✓)은 테마 기본
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 8,
@@ -773,13 +709,6 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
                                           autofocus: true,
                                           decoration: InputDecoration(
                                             hintText: "예: C구역 3열",
-                                            filled: true,
-                                            fillColor: slate100,
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                              borderSide: BorderSide.none,
-                                            ),
                                           ),
                                         ),
                                         actionsPadding: const EdgeInsets.all(
@@ -951,9 +880,3 @@ extension MobileInventoryDialogsExt on _MobileInventoryPageState {
     ); // 💡 showDialog 닫기
   } // 💡 _showExtraInfoDialog 닫기
 }
-
-/// 수량 창 칸 테두리(10-15 새 모양).
-OutlineInputBorder _qtyBox(Color c, double w) => OutlineInputBorder(
-  borderRadius: BorderRadius.circular(4),
-  borderSide: BorderSide(color: c, width: w),
-);

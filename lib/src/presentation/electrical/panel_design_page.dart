@@ -909,8 +909,6 @@ class _BranchTabState extends State<_BranchTab>
 /// (예전: 테두리 없는 칸이라 값을 넣는 곳인지 잘 안 보였다)
 InputDecoration _boxDeco({String? hint, String? unit}) => InputDecoration(
   isDense: true,
-  filled: true,
-  fillColor: fc.surface,
   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
   hintText: hint,
   hintStyle: TextStyle(fontSize: 13, color: fc.textFaint),

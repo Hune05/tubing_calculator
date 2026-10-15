@@ -116,22 +116,10 @@ class _MobileCuttingProjectListPageState
                   decoration: InputDecoration(
                     hintText: "예: A구역 1층 라인",
                     hintStyle: TextStyle(color: Colors.grey.shade400),
-                    filled: true,
-                    fillColor: CuttingColors.background,
+                    // 10-15 통일: 테두리·바탕은 테마 기본
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: const BorderSide(
-                        color: CuttingColors.primary,
-                        width: 2,
-                      ),
                     ),
                   ),
                 ),

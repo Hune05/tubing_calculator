@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tubing_calculator/src/core/theme/status_colors.dart';
 import 'package:tubing_calculator/src/presentation/field_tools/level_painters.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/presentation/my_work_logs/pages/punch_list_page.dart';
 
 Color? _bg(WidgetTester tester, Finder text) {
@@ -36,8 +37,8 @@ void main() {
     // 예전: 빨강(새로 만드는 평소 행동인데 경보 색).
     expect(submit.style?.backgroundColor?.resolve({}), kBrand);
 
-    // 기본 "보통"이 골라져 있다: 청록(예전: 주황).
-    expect(_bg(tester, find.text('보통')), kBrand);
+    // 기본 "보통"이 골라져 있다: 옅은 청록 + ✓(10-15 통일, 예전: 꽉 찬 청록·그 전엔 주황).
+    expect(_bg(tester, find.text('보통')), pickFill());
     await tester.tap(find.text('긴급'));
     await tester.pump();
     expect(_bg(tester, find.text('긴급')), kDanger);

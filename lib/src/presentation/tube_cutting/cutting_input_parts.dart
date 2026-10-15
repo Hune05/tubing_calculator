@@ -48,11 +48,17 @@ class CuttingMakerChips extends StatelessWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
+                // 10-15 통일: 고른 제조사는 옅은 청록 + ✓ + 짙은 청록 글자(꽉 찬 청록은 주 단추에만)
                 child: Material(
                   color: m == selected
-                      ? CuttingColors.primary
+                      ? pickFill()
                       : CuttingColors.background,
-                  borderRadius: BorderRadius.circular(4),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    side: m == selected
+                        ? BorderSide(color: pickLine(), width: 1.2)
+                        : BorderSide.none,
+                  ),
                   child: InkWell(
                     key: Key('maker_$m'),
                     borderRadius: BorderRadius.circular(4),
@@ -60,17 +66,28 @@ class CuttingMakerChips extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 9),
                       child: Center(
-                        child: Text(
-                          m,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w900,
-                            color: m == selected
-                                ? Colors.white
-                                : CuttingColors.textPrimary,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (m == selected) ...[
+                              Icon(Icons.check_rounded, size: 13, color: pickInk()),
+                              const SizedBox(width: 2),
+                            ],
+                            Flexible(
+                              child: Text(
+                                m,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: m == selected
+                                      ? pickInk()
+                                      : CuttingColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -326,6 +343,11 @@ class CuttingResultChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 10-15 통일: 이름이 보일 때 켜진 단추 앞에 ✓(아이콘만일 때는 자리가 없어 색만)
+              if (on && showLabel) ...[
+                Icon(Icons.check_rounded, size: 13, color: pickInk()),
+                const SizedBox(width: 2),
+              ],
               Icon(icon, size: showLabel ? 16 : 20, color: fg),
               if (showLabel) ...[
                 const SizedBox(width: 4),

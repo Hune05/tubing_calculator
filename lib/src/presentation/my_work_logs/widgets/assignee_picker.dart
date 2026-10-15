@@ -112,12 +112,7 @@ class _AssigneePickerState extends State<AssigneePicker> {
           },
           decoration: InputDecoration(
             hintText: "목록에 없으면 이름을 적으십시오",
-            filled: true,
-            fillColor: tossInputBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide.none,
-            ),
+            // 10-15 통일: 테두리·바탕은 테마 기본
             isDense: true,
           ),
         ),

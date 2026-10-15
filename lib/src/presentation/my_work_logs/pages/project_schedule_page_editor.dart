@@ -157,14 +157,9 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                 color: tossText,
                                 fontWeight: FontWeight.w600,
                               ),
-                              decoration: InputDecoration(
+                              // 10-15 통일: 테두리·바탕은 테마 기본
+                              decoration: const InputDecoration(
                                 labelText: "제목 (비워두면 종류로 표시)",
-                                filled: true,
-                                fillColor: tossBg,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: BorderSide.none,
-                                ),
                               ),
                             ),
                             // 자재 주문 수량·단위(10-15): 입고 때 들어온 수량과 견준다.
@@ -182,15 +177,8 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                           RegExp(r'[0-9.,]'),
                                         ),
                                       ],
-                                      decoration: InputDecoration(
+                                      decoration: const InputDecoration(
                                         labelText: "주문 수량 (선택)",
-                                        filled: true,
-                                        fillColor: tossBg,
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                          borderSide: BorderSide.none,
-                                        ),
                                       ),
                                     ),
                                   ),
@@ -200,15 +188,8 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                                     child: TextField(
                                       key: const Key('schedule_unit'),
                                       controller: unitCtrl,
-                                      decoration: InputDecoration(
+                                      decoration: const InputDecoration(
                                         labelText: "단위",
-                                        filled: true,
-                                        fillColor: tossBg,
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(6),
-                                          borderSide: BorderSide.none,
-                                        ),
                                       ),
                                     ),
                                   ),
@@ -499,14 +480,9 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                               controller: noteCtrl,
                               maxLines: 2,
                               style: const TextStyle(color: tossText),
-                              decoration: InputDecoration(
+                              // 10-15 통일: 테두리·바탕은 테마 기본
+                              decoration: const InputDecoration(
                                 labelText: "메모 (선택)",
-                                filled: true,
-                                fillColor: tossBg,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: BorderSide.none,
-                                ),
                               ),
                             ),
                           ],
@@ -676,12 +652,7 @@ extension _ProjectScheduleEditor on _ProjectSchedulePageState {
                 decoration: InputDecoration(
                   hintText: "메모 (선택)",
                   hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                  filled: true,
-                  fillColor: tossBg,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide.none,
-                  ),
+                  // 10-15 통일: 테두리·바탕은 테마 기본
                 ),
               ),
             ],

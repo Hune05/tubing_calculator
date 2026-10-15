@@ -813,13 +813,23 @@ class _ProtractorPageState extends State<ProtractorPage>
                 color: _selArm == i ? pickFill(fc) : null,
                 border: Border.all(color: _selArm == i ? pickLine(fc) : pickIdleLine(fc), width: 1.5),
               ),
-              child: Text(
-                _deg(_armOf(i)),
-                style: TextStyle(
-                  color: _selArm == i ? pickInk(fc) : _ink,
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
+              // 10-15 통일: 고른 다리 앞에 ✓
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (_selArm == i) ...[
+                    pickCheck(fc),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    _deg(_armOf(i)),
+                    style: TextStyle(
+                      color: _selArm == i ? pickInk(fc) : _ink,
+                      fontWeight: FontWeight.w800,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

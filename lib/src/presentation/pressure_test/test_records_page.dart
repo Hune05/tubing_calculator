@@ -264,17 +264,7 @@ class _PtRecordsPageState extends State<PtRecordsPage> {
                   ),
             hintText: '라인·시험 번호·현장·시험자',
             hintStyle: TextStyle(color: fc.textSub),
-            filled: true,
-            fillColor: fc.surface,
             isDense: true,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: fc.line),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide(color: fc.line),
-            ),
           ),
         ),
         const SizedBox(height: 8),

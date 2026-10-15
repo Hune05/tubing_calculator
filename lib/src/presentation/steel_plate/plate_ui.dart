@@ -441,6 +441,17 @@ class PlateSegButton extends StatelessWidget {
               ),
             ],
           );
+    // 10-15 통일: 고른 칸 앞에 ✓
+    final Widget body = selected
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              pickCheck(fc, compact ? 13 : 15),
+              const SizedBox(width: 4),
+              text,
+            ],
+          )
+        : text;
     return Material(
       color: selected ? pickFill(fc) : (pill ? fc.fill : Colors.transparent),
       shape: RoundedRectangleBorder(
@@ -465,12 +476,12 @@ class PlateSegButton extends StatelessWidget {
                         horizontal: 14,
                         vertical: sub == null ? 10 : 6,
                       ),
-                child: text,
+                child: body,
               )
             : Center(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: FittedBox(fit: BoxFit.scaleDown, child: text),
+                  child: FittedBox(fit: BoxFit.scaleDown, child: body),
                 ),
               ),
       ),
@@ -570,28 +581,16 @@ class _PlateNumFieldState extends State<PlateNumField> {
 
   @override
   Widget build(BuildContext context) {
-    final label = widget.label;
+    // 10-15 통일: 이름은 칸 테두리 위(labelText), 테두리는 테마 기본 — 강조 칸만 청록
     OutlineInputBorder b(Color c, double w) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(4),
       borderSide: BorderSide(color: c, width: w),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (label != null) ...[
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w700,
-              color: fc.textSub,
-            ),
-          ),
-          const SizedBox(height: 4),
-        ],
+        if (widget.label != null) const SizedBox(height: 6),
         // 값이 칸보다 길면 글자를 줄여 다 보이게(점검 59: 큰 글씨에서 공제값 5.73이 "5.7"로 잘려 보였다).
         // 줄 높이는 그대로(옆 칸과 높이가 어긋나지 않게).
         LayoutBuilder(
@@ -670,9 +669,9 @@ class _PlateNumFieldState extends State<PlateNumField> {
       ),
       decoration: InputDecoration(
         isDense: true,
-        filled: true,
-        // 10-15 새 모양: 흰 칸 + 회색 네모 테두리(누르는 중 청록 2), 앱 칸과 같게.
-        fillColor: readOnly ? fc.background : fc.surface,
+        labelText: label,
+        // 읽기 전용(셈 결과) 칸만 옅은 회색 바탕 — 나머지는 테마 기본
+        fillColor: readOnly ? fc.background : null,
         hintText: hint,
         hintStyle: TextStyle(
           fontSize: 14,
@@ -689,15 +688,13 @@ class _PlateNumFieldState extends State<PlateNumField> {
           fontWeight: FontWeight.w700,
           color: fc.textSub,
         ),
-        contentPadding: EdgeInsets.symmetric(
+        contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
-          vertical: label == null ? 12 : 13,
+          vertical: 12,
         ),
-        border: b(pickIdleLine(fc), 1.2),
-        enabledBorder: highlight
-            ? b(fc.brand, 1.6)
-            : (readOnly ? b(fc.line, 1) : b(pickIdleLine(fc), 1.2)),
-        focusedBorder: readOnly ? b(fc.line, 1) : b(fc.brand, 2),
+        // 강조 칸(지금 볼 값)만 청록 테두리, 읽기 전용은 누를 때도 회색
+        enabledBorder: highlight ? b(fc.brand, 1.6) : null,
+        focusedBorder: readOnly ? b(pickIdleLine(fc), 1.2) : null,
       ),
       onChanged: widget.onChanged,
     );
@@ -1042,6 +1039,11 @@ class PlateCanvasButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 10-15 통일: 글이 있는 켜진 단추는 앞에 ✓(아이콘만인 단추는 자리가 없어 색만)
+              if (selected && label != null) ...[
+                pickCheck(fc, 13),
+                const SizedBox(width: 2),
+              ],
               if (icon != null) Icon(icon, size: 18, color: fg),
               if (icon != null && label != null) const SizedBox(width: 4),
               if (label != null)

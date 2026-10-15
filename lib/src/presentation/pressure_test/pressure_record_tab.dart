@@ -1645,28 +1645,17 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
 
   @override
   Widget build(BuildContext context) {
-    OutlineInputBorder box(Color c, double w) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(6),
-      borderSide: BorderSide(color: c, width: w),
-    );
-    InputDecoration deco({String? suffix, String? error, bool big = false}) =>
+    // 10-15 통일: 칸 이름은 테두리에 걸치기(labelText), 테두리·바탕은 앱 테마 기본(오류면 빨간 테두리도 테마가).
+    InputDecoration deco(String name, {String? suffix, String? error, bool big = false}) =>
         InputDecoration(
+          labelText: name,
           suffixText: suffix,
           suffixStyle: TextStyle(fontSize: big ? 18 : 16, color: fc.textSub, fontWeight: FontWeight.w600),
           errorText: error,
           errorMaxLines: 2,
           isDense: true,
-          filled: false,
           contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: big ? 14 : 12),
-          enabledBorder: box(fc.line, 1.2),
-          focusedBorder: box(fc.brand, 2),
-          errorBorder: box(fc.danger, 1.5),
-          focusedErrorBorder: box(fc.danger, 2),
         );
-    Widget label(String t) => Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(t, style: TextStyle(fontSize: 13, color: fc.textSub, fontWeight: FontWeight.w700)),
-    );
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
       child: SingleChildScrollView(
@@ -1734,34 +1723,31 @@ class _PtReadingDialogState extends State<_PtReadingDialog> {
               ),
             ],
             const SizedBox(height: 16),
-            label('게이지 압력'),
             TextField(
               key: const Key('pt_rd_p'),
               controller: _pc,
               autofocus: true,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: TextStyle(fontSize: 30, fontWeight: FontWeight.w800, color: fc.text, fontFeatures: const [FontFeature.tabularFigures()]),
-              decoration: deco(suffix: widget.unit.label, error: _pErr, big: true),
+              decoration: deco('게이지 압력', suffix: widget.unit.label, error: _pErr, big: true),
             ),
-            const SizedBox(height: 12),
-            label('온도 (선택)'),
+            const SizedBox(height: 14),
             TextField(
               key: const Key('pt_rd_t'),
               controller: _tc,
               keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: fc.text),
-              decoration: deco(suffix: '°C', error: _tErr),
+              decoration: deco('온도 (선택)', suffix: '°C', error: _tErr),
               onSubmitted: widget.needReason ? null : (_) => _ok(),
             ),
             if (widget.needReason) ...[
-              const SizedBox(height: 12),
-              label('수정 사유 (필수)'),
+              const SizedBox(height: 14),
               TextField(
                 key: const Key('pt_rd_reason'),
                 controller: _rc,
                 maxLines: 2,
                 minLines: 1,
-                decoration: deco(error: _rErr).copyWith(hintText: '예: 게이지 다시 읽음, 오타'),
+                decoration: deco('수정 사유 (필수)', error: _rErr).copyWith(hintText: '예: 게이지 다시 읽음, 오타'),
               ),
             ],
             if (widget.note != null) ...[

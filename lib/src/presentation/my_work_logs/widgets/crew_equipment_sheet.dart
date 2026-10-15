@@ -244,12 +244,7 @@ class _RowsSheetState extends State<_RowsSheet> {
                                   decoration: InputDecoration(
                                     labelText: c.label,
                                     isDense: true,
-                                    filled: true,
-                                    fillColor: AppColors.background,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(6),
-                                      borderSide: BorderSide.none,
-                                    ),
+                                    // 10-15 통일: 테두리·바탕은 테마 기본
                                   ),
                                 ),
                               ),

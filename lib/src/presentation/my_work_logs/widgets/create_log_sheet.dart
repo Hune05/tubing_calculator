@@ -149,7 +149,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
               ),
               const SizedBox(height: 32),
 
-              // 토스 스타일 입력창 (테두리 없이 둥근 회색 배경)
+              // 10-15 통일: 입력 칸 테두리·바탕은 테마 기본(이름은 테두리 위)
               TextField(
                 controller: _nameController,
                 autofocus: true,
@@ -161,15 +161,9 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                 decoration: InputDecoration(
                   labelText: "프로젝트 이름 (현장명)",
                   labelStyle: const TextStyle(color: tossSubText, fontSize: 15),
-                  filled: true,
-                  fillColor: tossInputBg,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 18,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
@@ -186,15 +180,9 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                   labelStyle: const TextStyle(color: tossSubText, fontSize: 15),
                   hintText: "예: Rev.0",
                   hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                  filled: true,
-                  fillColor: tossInputBg,
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 20,
                     vertical: 18,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide.none,
                   ),
                 ),
               ),
@@ -212,7 +200,7 @@ class _CreateLogSheetState extends State<CreateLogSheet> {
                     ChoiceChip(
                       label: Text(t),
                       selected: _workType == t,
-                      showCheckmark: false,
+                      // 10-15 통일: 고른 유형도 ✓(테마 칩 모양)
                       onSelected: (v) =>
                           setState(() => _workType = v ? t : null),
                     ),

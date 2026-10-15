@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/common_widgets/swipe_to_delete.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/theme/field_view.dart' show FieldPalette;
+import '../../common/pick_style.dart';
 import '../models/issue_view.dart';
 import '../models/photo_store.dart' show PhotoImage;
 import '../models/project_merge.dart' show currentWorkerName;
@@ -285,11 +287,22 @@ class _IssueListSectionState extends State<IssueListSection> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppText.caption,
+                // 10-15 통일: 고른 거르기 칸은 이름 앞에 ✓
+                Row(
+                  children: [
+                    if (on) ...[
+                      pickCheck(FieldPalette.normal, 13),
+                      const SizedBox(width: 3),
+                    ],
+                    Flexible(
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppText.caption,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(

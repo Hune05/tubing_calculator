@@ -320,7 +320,6 @@ class _AttendanceRangeSheetState extends State<AttendanceRangeSheet> {
               decoration: const InputDecoration(
                 labelText: "현장 메모(선택)",
                 hintText: "예: 태안 3호기, 휴가",
-                border: OutlineInputBorder(),
                 isDense: true,
                 counterText: '',
               ),

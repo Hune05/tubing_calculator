@@ -2,6 +2,7 @@ import 'package:tubing_calculator/src/core/common_widgets/snack_once.dart';
 import 'package:tubing_calculator/src/core/theme/app_icon_set.dart';
 import 'package:flutter/material.dart';
 import 'package:tubing_calculator/src/core/theme/field_view.dart';
+import 'package:tubing_calculator/src/presentation/common/pick_style.dart';
 import 'package:tubing_calculator/src/core/common_widgets/app_components.dart';
 import 'package:tubing_calculator/src/core/engine/bend_path.dart';
 import 'package:tubing_calculator/src/presentation/common/app_icons.dart';
@@ -770,24 +771,10 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                       ),
                       decoration: InputDecoration(
                         hintText: "원하는 각도를 입력하십시오 (예: 45)",
-                        filled: true,
-                        fillColor: fieldSoft(
-                          Colors.orange.shade50,
-                          (p) => p.caution,
-                        ),
+                        // 10-15 통일: 테두리·바탕은 테마 기본
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(4),
-                          borderSide: BorderSide(
-                            color: fieldPick(
-                              Colors.orange.shade200,
-                              sunlight: fc.caution,
-                              night: fc.caution.withValues(alpha: 0.5),
-                            ),
-                          ),
                         ),
                         suffixIcon: Icon(
                           AppIcons.edit,
@@ -885,8 +872,9 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                                   ),
                             child: Container(
                               decoration: BoxDecoration(
+                                // 10-15 통일: 고른 방향은 옅은 청록 + ✓ + 짙은 청록 글자
                                 color: isSelected
-                                    ? makitaTeal.withValues(alpha: 0.1)
+                                    ? pickFill(fc)
                                     : fieldPick(
                                         Colors.grey.shade50,
                                         sunlight: fc.fill,
@@ -894,34 +882,41 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                                       ),
                                 border: Border.all(
                                   color: isSelected
-                                      ? makitaTeal
+                                      ? pickLine(fc)
                                       : fieldPick(
                                           Colors.grey.shade300,
                                           sunlight: fc.line,
                                           night: fc.line,
                                         ),
-                                  width: isSelected ? 2 : 1,
+                                  width: isSelected ? 1.6 : 1,
                                 ),
                                 borderRadius: BorderRadius.circular(4),
                               ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    dir['icon'],
-                                    size: 16,
-                                    color: isSelected ? makitaTeal : slate600,
-                                  ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    dir['label'],
-                                    style: TextStyle(
-                                      color: isSelected ? makitaTeal : slate900,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 12,
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (isSelected) ...[
+                                      pickCheck(fc, 13),
+                                      const SizedBox(width: 2),
+                                    ],
+                                    Icon(
+                                      dir['icon'],
+                                      size: 16,
+                                      color: isSelected ? pickInk(fc) : slate600,
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      dir['label'],
+                                      style: TextStyle(
+                                        color: isSelected ? pickInk(fc) : slate900,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -983,25 +978,10 @@ class _ConduitInputTabState extends State<ConduitInputTab>
                               ),
                               decoration: InputDecoration(
                                 hintText: "0",
-                                filled: true,
-                                fillColor: fieldPick(
-                                  Colors.grey.shade100,
-                                  sunlight: fc.fill,
-                                  night: fc.fill,
-                                ),
+                                // 10-15 통일: 테두리·바탕은 테마 기본
                                 contentPadding: const EdgeInsets.symmetric(
                                   horizontal: 16,
                                   vertical: 12,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                  borderSide: BorderSide(
-                                    color: fieldPick(
-                                      Colors.grey.shade300,
-                                      sunlight: fc.line,
-                                      night: fc.line,
-                                    ),
-                                  ),
                                 ),
                                 suffixIcon: Icon(
                                   AppIcons.edit,

@@ -327,13 +327,23 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Center(
                       widthFactor: 1,
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: key == _category ? pickInk() : tossText,
-                        ),
+                      // 10-15 통일: 고른 묶음 앞에 ✓
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (key == _category) ...[
+                            pickCheck(),
+                            const SizedBox(width: 4),
+                          ],
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                              color: key == _category ? pickInk() : tossText,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -359,42 +369,64 @@ class _LayoutPartsPageState extends State<LayoutPartsPage> {
           ),
         ),
         const SizedBox(width: 10),
-        for (final size in kFittingSizes) ...[
-          Material(
-            key: ValueKey("fitting_size_$size"),
-            // 10-15 새 모양: 고른 크기는 옅은 청록 + 짙은 청록 글자.
-            color: size == _fittingSize ? pickFill() : pureWhite,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-              side: BorderSide(
-                color: size == _fittingSize ? pickLine() : layoutLine,
-                width: 1.5,
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () {
-                setState(() => _fittingSize = size);
-                widget.onFittingSize(size);
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Text(
-                  size,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: size == _fittingSize ? pickInk() : tossText,
+        // 10-15: ✓가 붙어 좁은 폰에서 넘치지 않게 크기 단추는 옆으로 밀리게.
+        Flexible(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final size in kFittingSizes) ...[
+                  Material(
+                    key: ValueKey("fitting_size_$size"),
+                    // 10-15 새 모양: 고른 크기는 옅은 청록 + 짙은 청록 글자.
+                    color: size == _fittingSize ? pickFill() : pureWhite,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                      side: BorderSide(
+                        color: size == _fittingSize ? pickLine() : layoutLine,
+                        width: 1.5,
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() => _fittingSize = size);
+                        widget.onFittingSize(size);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 10,
+                        ),
+                        // 10-15 통일: 고른 크기 앞에 ✓
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (size == _fittingSize) ...[
+                              pickCheck(),
+                              const SizedBox(width: 3),
+                            ],
+                            Text(
+                              size,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: size == _fittingSize
+                                    ? pickInk()
+                                    : tossText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                  const SizedBox(width: 8),
+                ],
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-        ],
+        ),
       ],
     ),
   );

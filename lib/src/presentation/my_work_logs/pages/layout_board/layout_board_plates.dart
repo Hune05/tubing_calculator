@@ -470,7 +470,7 @@ extension _LayoutBoardPlates on _LayoutBoardPageState {
                 labelPadding: EdgeInsets.zero,
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 6),
                 selected: id == _plateId,
-                showCheckmark: false,
+                // 10-15 통일: 고른 탭도 ✓(테마 칩 모양)
                 labelStyle: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w800,

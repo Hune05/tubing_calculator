@@ -341,12 +341,7 @@ Future<void> showCuttingOptimizationSheet(
                         color: CuttingColors.textSecondary,
                       ),
                       suffixText: "mm",
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(4),
-                        borderSide: BorderSide.none,
-                      ),
+                      // 10-15 통일: 테두리·바탕은 테마 기본
                     ),
                   ),
                 ),
@@ -1565,12 +1560,7 @@ Widget _smallNumField({
     isDense: true,
     labelText: label,
     suffixText: "mm",
-    filled: true,
-    fillColor: Colors.grey.shade100,
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(4),
-      borderSide: BorderSide.none,
-    ),
+    // 10-15 통일: 테두리·바탕은 테마 기본
   ),
 );
 

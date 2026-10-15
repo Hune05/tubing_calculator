@@ -190,8 +190,6 @@ extension _ConduitTab on _ElectricCalculatorPageState {
                       // 10-15 새 모양: 값은 네모 칸(앱 칸 테두리), 단위는 칸 안 오른쪽.
                       decoration: InputDecoration(
                         isDense: true,
-                        filled: true,
-                        fillColor: fc.surface,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 10,

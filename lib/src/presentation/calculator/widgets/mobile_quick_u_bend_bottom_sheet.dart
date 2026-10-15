@@ -126,15 +126,10 @@ class _MobileQuickUBendBottomSheetState
       ),
       decoration: InputDecoration(
         hintText: "0",
-        filled: true,
-        fillColor: slate100,
+        // 10-15 통일: 테두리·바탕은 테마 기본
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide.none,
         ),
       ),
     );

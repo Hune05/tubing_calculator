@@ -76,21 +76,12 @@ class _NameDialogState extends State<_NameDialog> {
         fontWeight: FontWeight.w700,
         color: fc.text,
       ),
+      // 10-15 통일: 테두리·바탕은 앱 테마 기본(예전: 회색 바탕·테두리 없음).
       decoration: InputDecoration(
-        filled: true,
-        fillColor: fc.fill,
         hintText: '예) 브라켓 A',
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide(color: fc.brand, width: 1.6),
         ),
       ),
       onSubmitted: (_) => Navigator.pop(context, _c.text.trim()),

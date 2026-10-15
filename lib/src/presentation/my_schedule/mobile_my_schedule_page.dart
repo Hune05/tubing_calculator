@@ -1059,30 +1059,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                               decoration: InputDecoration(
                                 hintText: "일정 제목 (예: 거래처 미팅)",
                                 errorText: titleError,
-                                filled: true,
-                                fillColor: const Color(0xFFF7F8F9),
                                 hintStyle: const TextStyle(
                                   color: Color(0xFF6B7684),
                                   fontWeight: FontWeight.w500,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D6DB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D6DB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: scheduleTeal,
-                                    width: 1.6,
-                                  ),
                                 ),
                               ),
                             ),
@@ -1156,30 +1135,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                     ),
                                   ],
                                 ),
-                                filled: true,
-                                fillColor: const Color(0xFFF7F8F9),
                                 hintStyle: const TextStyle(
                                   color: Color(0xFF6B7684),
                                   fontWeight: FontWeight.w500,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D6DB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D6DB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: scheduleTeal,
-                                    width: 1.6,
-                                  ),
                                 ),
                               ),
                             ),
@@ -1239,30 +1197,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                   size: 20,
                                   color: scheduleSubText,
                                 ),
-                                filled: true,
-                                fillColor: const Color(0xFFF7F8F9),
                                 hintStyle: const TextStyle(
                                   color: Color(0xFF6B7684),
                                   fontWeight: FontWeight.w500,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D6DB),
-                                  ),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: Color(0xFFD1D6DB),
-                                  ),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(6),
-                                  borderSide: const BorderSide(
-                                    color: scheduleTeal,
-                                    width: 1.6,
-                                  ),
                                 ),
                               ),
                             ),
@@ -1302,13 +1239,27 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                         ),
                                       ),
                                     ),
-                                    child: Text(
-                                      cat,
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.bold,
-                                        color: selected ? Colors.white : c,
-                                      ),
+                                    // 10-15 통일: 고른 종류에 ✓(바탕은 종류 색 그대로라 ✓는 흰색)
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (selected) ...[
+                                          const Icon(
+                                            Icons.check_rounded,
+                                            size: 15,
+                                            color: Colors.white,
+                                          ),
+                                          const SizedBox(width: 4),
+                                        ],
+                                        Text(
+                                          cat,
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            color: selected ? Colors.white : c,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 );
@@ -2418,30 +2369,9 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                                 controller: nameCtrl,
                                 decoration: InputDecoration(
                                   hintText: "템플릿 이름 (예: 매달 정기 점검)",
-                                  filled: true,
-                                  fillColor: const Color(0xFFF7F8F9),
                                   hintStyle: const TextStyle(
                                     color: Color(0xFF6B7684),
                                     fontWeight: FontWeight.w500,
-                                  ),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFD1D6DB),
-                                    ),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFD1D6DB),
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                    borderSide: const BorderSide(
-                                      color: scheduleTeal,
-                                      width: 1.6,
-                                    ),
                                   ),
                                 ),
                               ),
@@ -2618,12 +2548,6 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                   decoration: InputDecoration(
                     hintText: "항목 제목",
                     isDense: true,
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide.none,
-                    ),
                   ),
                 ),
               ),
@@ -2648,13 +2572,27 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                     color: selected ? c : c.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(
-                    cat,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: selected ? Colors.white : c,
-                    ),
+                  // 10-15 통일: 고른 종류에 ✓(종류 색 바탕이라 흰색)
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (selected) ...[
+                        const Icon(
+                          Icons.check_rounded,
+                          size: 13,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 3),
+                      ],
+                      Text(
+                        cat,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: selected ? Colors.white : c,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
@@ -3377,13 +3315,20 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
               ),
             ),
             alignment: Alignment.center,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.bold,
-                color: selected ? pickInk() : Colors.grey.shade600,
-              ),
+            // 10-15 통일: 고른 보기 앞에 ✓
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (selected) ...[pickCheck(), const SizedBox(width: 4)],
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: selected ? pickInk() : Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -3660,14 +3605,6 @@ class _MobileMyScheduleScreenState extends State<MobileMyScheduleScreen> {
                             ),
                             decoration: InputDecoration(
                               hintText: "장소 이름",
-                              filled: true,
-                              fillColor: const Color(0xFFF7F8F9),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                borderSide: const BorderSide(
-                                  color: Color(0xFFD1D6DB),
-                                ),
-                              ),
                             ),
                           ),
                         ),

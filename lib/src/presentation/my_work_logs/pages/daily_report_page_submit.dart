@@ -32,12 +32,7 @@ extension _DailyReportSubmit on _DailyReportPageState {
               decoration: InputDecoration(
                 hintText: "예: 포인트 집계 실수 정정",
                 hintStyle: const TextStyle(color: Color(0xFFB0B8C1)),
-                filled: true,
-                fillColor: tossInputBg,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide.none,
-                ),
+                // 10-15 통일: 테두리·바탕은 테마 기본
               ),
             ),
           ],

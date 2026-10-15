@@ -278,13 +278,8 @@ class _DrawingScalePageState extends State<DrawingScalePage> {
       labelStyle: const TextStyle(color: tossSubText),
       suffixText: "mm",
       suffixStyle: const TextStyle(color: tossSubText),
-      filled: true,
-      fillColor: tossBg,
+      // 10-15 통일: 테두리·바탕은 테마 기본
       isDense: true,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(6),
-        borderSide: BorderSide.none,
-      ),
     );
     return Container(
       color: pureWhite,

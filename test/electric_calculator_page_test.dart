@@ -171,13 +171,8 @@ void main() {
 
   testWidgets('? 를 누르면 무슨 값을 넣는지 안내 창이 뜬다', (tester) async {
     await pumpPage(tester);
-    final row = find
-        .ancestor(
-          of: find.byKey(const Key('ec_kw')),
-          // 10-15 새 모양: "?"는 칸 위 이름 줄에 있다(칸과 같은 Column 안).
-          matching: find.byType(Column),
-        )
-        .first;
+    // 10-15 통일: "?"는 칸 안 맨 오른쪽(suffixIcon)에 있다.
+    final row = find.byKey(const Key('ec_kw'));
     await tester.tap(
       find.descendant(
         of: row,

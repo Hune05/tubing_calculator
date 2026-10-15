@@ -165,30 +165,17 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      "메모",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: tossSubText,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    // 10-15 통일: 칸 이름은 테두리 위, 테두리·바탕은 테마 기본
+                    const SizedBox(height: 26),
                     TextField(
                       controller: noteCtrl,
                       style: const TextStyle(fontSize: 14, color: tossText),
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
+                        labelText: "메모",
                         hintText: "예: 케이블 트레이 통과 구간",
-                        filled: true,
-                        fillColor: tossBg,
-                        contentPadding: const EdgeInsets.symmetric(
+                        contentPadding: EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 12,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide.none,
                         ),
                       ),
                       onChanged: (v) {
@@ -198,16 +185,7 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                         });
                       },
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      keepWords("최소 유지 간격 (mm): 이보다 좁으면 경고 표시"),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: tossSubText,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 26),
                     Row(
                       children: [
                         Expanded(
@@ -218,17 +196,14 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                               fontSize: 14,
                               color: tossText,
                             ),
-                            decoration: InputDecoration(
+                            // 10-15 통일: 칸 이름은 테두리 위, 풀이는 칸 아래
+                            decoration: const InputDecoration(
+                              labelText: "최소 유지 간격 (mm)",
+                              helperText: "이보다 좁으면 경고 표시",
                               hintText: "예: 30",
-                              filled: true,
-                              fillColor: tossBg,
-                              contentPadding: const EdgeInsets.symmetric(
+                              contentPadding: EdgeInsets.symmetric(
                                 horizontal: 14,
                                 vertical: 12,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(6),
-                                borderSide: BorderSide.none,
                               ),
                             ),
                             onChanged: (v) {
@@ -287,23 +262,31 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
                               horizontal: 14,
                               vertical: 8,
                             ),
+                            // 10-15 통일: 고른 값은 옅은 청록 + ✓ + 짙은 청록 글자
                             decoration: BoxDecoration(
-                              color: selected
-                                  ? tossBlue.withValues(alpha: 0.12)
-                                  : tossBg,
+                              color: selected ? pickFill() : pureWhite,
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: selected ? tossBlue : Colors.transparent,
+                                color: selected ? pickLine() : pickIdleLine(),
                                 width: 1.2,
                               ),
                             ),
-                            child: Text(
-                              "${v}mm",
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: selected ? tossBlue : tossSubText,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (selected) ...[
+                                  pickCheck(),
+                                  const SizedBox(width: 4),
+                                ],
+                                Text(
+                                  "${v}mm",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: selected ? pickInk() : tossSubText,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         );
@@ -435,13 +418,23 @@ extension _LayoutBoardDimensions on _LayoutBoardPageState {
             width: 1.4,
           ),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? color : tossSubText,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
+        // 10-15 통일: 고른 쪽에 ✓. 색은 도면 치수선 색(센터·측면)과 같아야 해서 그대로 둔다.
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (selected) ...[
+              Icon(Icons.check_rounded, size: 15, color: color),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? color : tossSubText,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       ),
     );

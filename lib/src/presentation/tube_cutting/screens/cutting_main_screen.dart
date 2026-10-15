@@ -1260,12 +1260,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
           autofocus: true,
           decoration: InputDecoration(
             hintText: "템플릿 이름 (예: 3단 선반 다리)",
-            filled: true,
-            fillColor: Colors.grey.shade100,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide.none,
-            ),
+            // 10-15 통일: 테두리·바탕은 테마 기본
           ),
           onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
         ),
@@ -1467,12 +1462,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                       controller: nameCtrl,
                       decoration: InputDecoration(
                         hintText: "세트 이름 (예: 3way 밸브 조합)",
-                        filled: true,
-                        fillColor: Colors.grey.shade100,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide.none,
-                        ),
+                        // 10-15 통일: 테두리·바탕은 테마 기본
                       ),
                     ),
                   ),
@@ -2063,15 +2053,8 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.bold,
-              color: Colors.grey.shade700,
-            ),
-          ),
-          const SizedBox(height: 8),
+          // 10-15 통일: 이름은 칸 테두리 위(labelText)
+          const SizedBox(height: 6),
           TextField(
             controller: controller,
             keyboardType: isNumber
@@ -2084,6 +2067,7 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
             ),
             cursorColor: makitaTeal,
             decoration: InputDecoration(
+              labelText: label,
               hintText: hint,
               hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
               suffixText: suffix,
@@ -2092,19 +2076,10 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
-              filled: true,
-              fillColor: Colors.grey.shade100,
+              // 10-15 통일: 테두리·바탕은 테마 기본
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: makitaTeal, width: 1.5),
               ),
             ),
           ),
@@ -3802,13 +3777,23 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
               width: 1.2,
             ),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: isSelected ? pickInk() : Colors.grey.shade600,
-            ),
+          // 10-15 통일: 고른 단위 앞에 ✓
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isSelected) ...[
+                Icon(Icons.check_rounded, size: 13, color: pickInk()),
+                const SizedBox(width: 2),
+              ],
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? pickInk() : Colors.grey.shade600,
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -4056,31 +4041,14 @@ class _CuttingMainScreenState extends State<CuttingMainScreen>
                             color: Colors.grey.shade600,
                             fontSize: 13,
                           ),
-                          filled: true,
-                          fillColor: whiteCard,
+                          // 10-15 통일: 테두리·바탕은 테마 기본
                           suffixText: _lengthUnit,
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 16,
                             vertical: 8,
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: BorderSide(
-                              color: bad ? Colors.red : Colors.grey.shade300,
-                              width: bad ? 2 : 1,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(4),
-                            borderSide: BorderSide(
-                              color: bad ? Colors.red : makitaTeal,
-                              width: 2,
-                            ),
-                          ),
+                          // 간섭·못 읽음은 테마 오류 테두리(빨강)로 — 글은 위 상태 표시에
+                          error: bad ? const SizedBox.shrink() : null,
                         ),
                       ),
                     ),

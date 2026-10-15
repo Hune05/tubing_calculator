@@ -280,7 +280,7 @@ class _PhotoAnnotatePageState extends State<PhotoAnnotatePage> {
                                     key: Key('annotate_tool_${t.name}'),
                                     label: Text(_toolLabel(t)),
                                     selected: _tool == t,
-                                    showCheckmark: false,
+                                    // 10-15 통일: 고른 도구도 ✓(테마 칩 모양)
                                     onSelected: (_) =>
                                         setState(() => _tool = t),
                                   ),
@@ -291,20 +291,40 @@ class _PhotoAnnotatePageState extends State<PhotoAnnotatePage> {
                         const SizedBox(height: 8),
                         Row(
                           children: [
-                            for (var i = 0; i < kAnnotateThickness.length; i++)
-                              Padding(
-                                padding: const EdgeInsets.only(right: 8),
-                                child: ChoiceChip(
-                                  key: Key('annotate_thick_$i'),
-                                  label: Text(kAnnotateThicknessLabels[i]),
-                                  selected: _thickness == kAnnotateThickness[i],
-                                  showCheckmark: false,
-                                  onSelected: (_) => setState(
-                                    () => _thickness = kAnnotateThickness[i],
-                                  ),
+                            // 10-15 통일: 고른 굵기도 ✓. ✓만큼 넓어져 좁은 폰에서
+                            // 색 동그라미와 부딪히지 않게 굵기 칩은 옆으로 밀리게 둔다.
+                            Expanded(
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    for (
+                                      var i = 0;
+                                      i < kAnnotateThickness.length;
+                                      i++
+                                    )
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          right: 8,
+                                        ),
+                                        child: ChoiceChip(
+                                          key: Key('annotate_thick_$i'),
+                                          label: Text(
+                                            kAnnotateThicknessLabels[i],
+                                          ),
+                                          selected:
+                                              _thickness ==
+                                              kAnnotateThickness[i],
+                                          onSelected: (_) => setState(
+                                            () => _thickness =
+                                                kAnnotateThickness[i],
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
-                            const Spacer(),
+                            ),
                             for (final col in [
                               Colors.red,
                               Colors.yellow,

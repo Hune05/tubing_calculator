@@ -1102,57 +1102,40 @@ class _ElectricCalculatorPageState extends State<ElectricCalculatorPage>
     VoidCallback? onEdit,
     bool signed = false,
   }) {
-    // 10-15 새 모양(calcField와 같게): 이름은 칸 위에 작게, 값은 네모 칸에 크게, 단위는 칸 안 오른쪽.
+    // 10-15 통일(calcField와 같게): 칸 이름은 테두리에 걸치기, "?"는 칸 안 맨 오른쪽,
+    // 값은 네모 칸에 크게, 단위는 칸 안 오른쪽.
     final (name, unit) = splitFieldUnit(label);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: fc.textSub,
-                  ),
-                ),
-              ),
-              if (guide.isNotEmpty) calcHelp(label, guide),
-            ],
-          ),
-          if (guide.isEmpty) const SizedBox(height: 4),
-          TextField(
-            key: Key(key),
-            controller: c,
-            keyboardType: TextInputType.numberWithOptions(
-              decimal: true,
-              signed: signed,
-            ),
-            textInputAction: TextInputAction.next,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: fc.text,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
-            // "= 90%"가 붙을 때는 단위 %를 또 붙이지 않는다("= 90%  %").
-            decoration: ratioDecoration(
-              label,
-              c,
-              unit: unit == '%' && ratioSuffixText(label, c.text) != null
-                  ? null
-                  : unit,
-            ),
-            onChanged: (_) {
-              onEdit?.call();
-              setState(() {});
-            },
-          ),
-        ],
+      // 위 8: 테두리에 걸친 이름이 위 칸과 겹치지 않게.
+      padding: const EdgeInsets.only(top: 8, bottom: 10),
+      child: TextField(
+        key: Key(key),
+        controller: c,
+        keyboardType: TextInputType.numberWithOptions(
+          decimal: true,
+          signed: signed,
+        ),
+        textInputAction: TextInputAction.next,
+        style: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w700,
+          color: fc.text,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        ),
+        // "= 90%"가 붙을 때는 단위 %를 또 붙이지 않는다("= 90%  %").
+        decoration: ratioDecoration(
+          label,
+          c,
+          unit: unit == '%' && ratioSuffixText(label, c.text) != null
+              ? null
+              : unit,
+          labelText: name,
+          help: guide.isEmpty ? null : calcHelp(label, guide),
+        ),
+        onChanged: (_) {
+          onEdit?.call();
+          setState(() {});
+        },
       ),
     );
   }

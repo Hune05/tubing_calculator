@@ -784,13 +784,23 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                     width: 1.2,
                   ),
                 ),
-                child: Text(
-                  auto ? "AUTO" : "MAN",
-                  style: TextStyle(
-                    fontSize: 13, // 🚀 [고침] 10px라 켜졌는지 잘 안 보였다
-                    fontWeight: FontWeight.w900,
-                    color: auto ? pickInk() : slate600,
-                  ),
+                // 10-15 통일: AUTO(켜짐) 앞에 ✓
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (auto) ...[
+                      Icon(Icons.check_rounded, size: 13, color: pickInk()),
+                      const SizedBox(width: 2),
+                    ],
+                    Text(
+                      auto ? "AUTO" : "MAN",
+                      style: TextStyle(
+                        fontSize: 13, // 🚀 [고침] 10px라 켜졌는지 잘 안 보였다
+                        fontWeight: FontWeight.w900,
+                        color: auto ? pickInk() : slate600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -815,8 +825,8 @@ class _MobileSettingsTabState extends State<MobileSettingsTab>
                   // 값이 비어 있으면 흐린 0(비어 있으면 셈에서 0으로 쓴다).
                   decoration: InputDecoration(
                     isDense: true,
-                    filled: true,
-                    fillColor: locked ? slate100 : pureWhite,
+                    // 10-15 통일: 바탕은 테마 기본, 잠긴 칸은 테마의 꺼진 칸 모양
+                    enabled: !locked,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 10,
                       vertical: 10,

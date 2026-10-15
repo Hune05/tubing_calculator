@@ -442,9 +442,16 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                     ),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  // 10-15 통일: 고른 방향 앞에 ✓(좁은 칸이면 글자를 줄인다)
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      if (isSelected) ...[
+                        Icon(Icons.check_rounded, size: 13, color: pickInk()),
+                        const SizedBox(width: 2),
+                      ],
                       Icon(
                         dir['icon'],
                         size: 16,
@@ -460,6 +467,7 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ),
               ),
@@ -808,23 +816,10 @@ class _MobileOffsetBottomSheetState extends State<MobileOffsetBottomSheet>
         fontFamily: 'monospace',
       ),
       decoration: InputDecoration(
-        filled: true,
-        fillColor: pureWhite,
+        // 10-15 통일: 테두리·바탕은 테마 기본
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(4),
-          borderSide: const BorderSide(color: makitaTeal, width: 2),
         ),
       ),
     );

@@ -265,18 +265,8 @@ class _MobileProfilePageState extends State<MobileProfilePage> {
         maxLength: 20,
         onChanged: (_) => error.value = null,
         decoration: InputDecoration(
-          filled: true,
-          fillColor: slate100,
           counterText: "",
           errorText: err,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: const BorderSide(color: tossBlue, width: 2),
-          ),
           hintText: hint,
           prefixIcon: const Icon(LucideIcons.user, color: tossBlue),
         ),

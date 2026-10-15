@@ -650,12 +650,7 @@ class _PunchDetailPageState extends State<PunchDetailPage> {
           decoration: InputDecoration(
             hintText: "어떻게 처리했는지 적습니다. (예: 재시공하여 치수 재조정)",
             hintStyle: const TextStyle(color: AppColors.textFaint),
-            filled: true,
-            fillColor: tossInputBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide.none,
-            ),
+            // 10-15 통일: 테두리·바탕은 테마 기본
           ),
         ),
         Align(

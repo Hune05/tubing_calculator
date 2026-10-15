@@ -1759,12 +1759,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
               decoration: InputDecoration(
                 suffixText: 'mm',
                 errorText: e,
-                filled: true,
-                fillColor: Colors.grey.shade100,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(6),
-                  borderSide: BorderSide.none,
-                ),
+                // 10-15 통일: 테두리·바탕은 테마 기본
               ),
               onChanged: (_) => err.value = null,
               onSubmitted: (_) => submit(ctx),
@@ -2292,12 +2287,7 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
                   ),
                   decoration: InputDecoration(
                     suffixText: 'mm',
-                    filled: true,
-                    fillColor: Colors.grey.shade100,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide.none,
-                    ),
+                    // 10-15 통일: 테두리·바탕은 테마 기본
                     errorText: error,
                     errorMaxLines: 2,
                   ),
@@ -2865,6 +2855,11 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 10-15 통일: 이름이 보일 때 켜진 단추 앞에 ✓(아이콘만일 때는 자리가 없어 색만)
+              if (on && showLabel) ...[
+                Icon(Icons.check_rounded, size: 13, color: pickInk()),
+                const SizedBox(width: 2),
+              ],
               Icon(icon, size: showLabel ? 16 : 20, color: fg),
               if (showLabel) ...[
                 const SizedBox(width: 4),
@@ -2947,13 +2942,20 @@ class _SteelCuttingDetailScreenState extends State<SteelCuttingDetailScreen>
         onTap: () => setState(() => _categoryFilter = label),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected ? pickInk() : CuttingColors.textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
+          // 10-15 통일: 고른 칩 앞에 ✓
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[pickCheck(), const SizedBox(width: 4)],
+              Text(
+                label,
+                style: TextStyle(
+                  color: selected ? pickInk() : CuttingColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            ],
           ),
         ),
       ),

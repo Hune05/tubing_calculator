@@ -811,15 +811,10 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
             decoration: InputDecoration(
               hintText: "예: 500x3, 800x2, 1200",
               hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
-              filled: true,
-              fillColor: Colors.white,
+              // 10-15 통일: 테두리·바탕은 테마 기본
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 12,
                 vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(6),
-                borderSide: BorderSide.none,
               ),
             ),
           ),
@@ -889,15 +884,8 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 8),
+        // 10-15 통일: 이름은 칸 테두리 위(labelText)
+        const SizedBox(height: 6),
         TextField(
           key: fieldKey,
           controller: controller,
@@ -912,6 +900,7 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
           ),
           cursorColor: CuttingColors.primary,
           decoration: InputDecoration(
+            labelText: label,
             hintText: hint,
             errorText: errorText,
             hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 15),
@@ -921,15 +910,10 @@ class _SteelItemSheetBodyState extends State<_SteelItemSheetBody> {
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
-            filled: true,
-            fillColor: Colors.grey.shade100,
+            // 10-15 통일: 테두리·바탕은 테마 기본
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(6),
-              borderSide: BorderSide.none,
             ),
           ),
         ),
@@ -981,12 +965,7 @@ Future<String?> promptCustomSteelShapeLabel(BuildContext context) {
         autofocus: true,
         decoration: InputDecoration(
           hintText: "예: 앵글 50x50x6 (이 형식이면 중량도 계산)",
-          filled: true,
-          fillColor: Colors.grey.shade100,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(6),
-            borderSide: BorderSide.none,
-          ),
+          // 10-15 통일: 테두리·바탕은 테마 기본
         ),
         onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
       ),

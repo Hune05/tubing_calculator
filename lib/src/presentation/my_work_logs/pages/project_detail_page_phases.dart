@@ -440,15 +440,8 @@ extension _ProjectDetailPhases on _ProjectDetailPageState {
                 TextField(
                   controller: nameCtrl,
                   autofocus: existing == null,
-                  decoration: InputDecoration(
-                    labelText: "단계 이름",
-                    filled: true,
-                    fillColor: tossBg,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(6),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
+                  // 10-15 통일: 테두리·바탕은 테마 기본
+                  decoration: const InputDecoration(labelText: "단계 이름"),
                 ),
                 const SizedBox(height: 12),
                 Row(

@@ -114,6 +114,11 @@ extension _LayoutBoardPalette on _LayoutBoardPageState {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // 10-15 통일: 고른 모드 앞에 ✓(좁으면 FittedBox가 줄인다)
+                        if (isSelected) ...[
+                          pickCheck(),
+                          const SizedBox(width: 4),
+                        ],
                         Icon(
                           seg.$3,
                           size: 20,

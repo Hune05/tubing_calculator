@@ -401,20 +401,12 @@ class _ElecLoadSumTabState extends State<ElecLoadSumTab>
     decoration: InputDecoration(
       isDense: true,
       labelText: label,
-      // 칸이 좁아서 비었을 때 이름이 잘리지 않게 이름표를 늘 위에 둔다(폰에서 "설비용량 (k…"로 잘렸음).
-      floatingLabelBehavior: FloatingLabelBehavior.always,
+      // 10-15 통일: 이름은 늘 테두리에 걸치기(테마 기본 — 좁은 칸에서 "설비용량 (k…"로 잘리던 것도 막는다),
+      // 테두리도 앱 테마 기본.
       hintText: hint,
       labelStyle: TextStyle(fontSize: 13, color: fc.textSub),
       hintStyle: TextStyle(fontSize: 17, color: fc.textSub),
       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: BorderSide(color: fc.line),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(4),
-        borderSide: BorderSide(color: fc.brand, width: 1.5),
-      ),
     ),
     onChanged: (_) => setState(() {}),
   );

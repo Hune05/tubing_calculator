@@ -200,12 +200,7 @@ class _MobileGainCalibrationSheetState
       decoration: InputDecoration(
         labelText: label,
         helperText: hint.isEmpty ? null : hint,
-        filled: true,
-        fillColor: _slate100,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(6),
-          borderSide: BorderSide.none,
-        ),
+        // 10-15 통일: 테두리·바탕은 테마 기본
       ),
     );
   }

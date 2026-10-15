@@ -201,13 +201,24 @@ class _TroubleshootFlowPageState extends State<TroubleshootFlowPage>
                           ),
                         ),
                         onPressed: () => setState(() => _picked[id] = i),
-                        child: Text(
-                          step.options[i].$1,
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            color: p == i ? pickInk(fc) : fc.text,
-                          ),
+                        // 10-15 통일: 고른 답 앞에 ✓.
+                        child: Row(
+                          children: [
+                            if (p == i) ...[
+                              pickCheck(fc),
+                              const SizedBox(width: 6),
+                            ],
+                            Expanded(
+                              child: Text(
+                                step.options[i].$1,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w800,
+                                  color: p == i ? pickInk(fc) : fc.text,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
